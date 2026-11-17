@@ -24,3 +24,7 @@ export type {
   VersionSet,
 } from "./messages.ts";
 export { decodeMessage, encodeMessage } from "./codec.ts";
+export { createFrameDecoder, createFrameEncoder } from "./chunking.ts";
+export type { FrameDecoder, FrameEncoder } from "./chunking.ts";
+export { gateConnection, gateDocument } from "./gating.ts";
+export type { ConnectionGate } from "./gating.ts";

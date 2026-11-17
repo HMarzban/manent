@@ -374,16 +374,25 @@ class UnknownMember extends Error {}
  * The message in a known frame's body. `header.doc` is the document of a document frame.
  * Returns null when the body names a union member this build does not know.
  */
+/**
+ * ProtocolError 4400 unless `from` may send frames of this known type. SYNC is allowed to both
+ * here; `readBody` narrows it by step.
+ */
+export function assertSender(type: number, from: Sender): FrameName {
+  const name = NAME_OF.get(type);
+  if (name === undefined) throw bad(`unknown frame type ${type}`);
+  const sentBy = SENT_BY[name];
+  if (sentBy !== "both" && sentBy !== from)
+    throw bad(`a ${from} may not send ${name}`);
+  return name;
+}
+
 export function readBody(
   d: decoding.Decoder,
   header: { type: number; flags: number; doc: DocRef | null },
   from: Sender,
 ): Message | null {
-  const name = NAME_OF.get(header.type);
-  if (name === undefined) throw bad(`unknown frame type ${header.type}`);
-  const sentBy = SENT_BY[name];
-  if (sentBy !== "both" && sentBy !== from)
-    throw bad(`a ${from} may not send ${name}`);
+  const name = assertSender(header.type, from);
   try {
     const message = readFields(d, name, header);
     if (
