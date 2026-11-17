@@ -4,6 +4,13 @@
 //   connection frame (types 0–15):    rest = body
 //   document frame (types 16–127):    rest = docId (16 bytes) · generation (varuint) · body
 //
+// Type bytes 128–255 are unknown types today, skipped like the rest. Any future use of the top bit
+// must keep the common header: type, flags, and the message ID when CHUNK is set.
+//
+// A message too large for one frame travels as chunks. Every chunk repeats the header, sets CHUNK
+// and carries the same message ID; MORE is set on all but the last. Every chunk of one message
+// carries the same flags byte, MORE aside.
+//
 // A frame of a type, flag or union member this build does not know decodes to null and is skipped;
 // bytes after the last field this build knows are ignored. So additions never lock an older build out.
 import * as decoding from "lib0/decoding";
@@ -91,13 +98,14 @@ export function isDocumentType(type: number): boolean {
 }
 
 /**
- * True when this build knows the frame type and every flag on it (MORE and CHUNK fit any type;
- * PONG only type 5, HAS_DOC only type 4). Anything else is skipped.
+ * True when this build knows the frame type and every flag on it (CHUNK fits any type, MORE only
+ * with CHUNK, PONG only type 5, HAS_DOC only type 4). Anything else is skipped.
  */
 export function isKnownFrame(type: number, flags: number): boolean {
   if (!NAME_OF.has(type) || (flags & ~KNOWN_FLAGS) !== 0) return false;
   if (flags & FLAG.PONG && type !== FRAME.PING) return false;
   if (flags & FLAG.HAS_DOC && type !== FRAME.ERROR) return false;
+  if (flags & FLAG.MORE && !(flags & FLAG.CHUNK)) return false;
   return true;
 }
 
@@ -160,12 +168,12 @@ function writeBody(e: encoding.Encoder, m: Message): void {
   switch (m.type) {
     case "HELLO":
       writeVersions(e, m.versions);
-      encoding.writeVarString(e, m.build);
-      encoding.writeVarString(e, m.deviceId);
+      writeString(e, m.build);
+      writeString(e, m.deviceId);
       return;
     case "WELCOME":
-      encoding.writeVarString(e, m.session.userId);
-      encoding.writeVarString(e, m.session.name);
+      writeString(e, m.session.userId);
+      writeString(e, m.session.name);
       writeNumber(e, m.limits.frameBytes);
       writeNumber(e, m.limits.messageBytes);
       writeVersions(e, m.server.current);
@@ -175,12 +183,12 @@ function writeBody(e: encoding.Encoder, m: Message): void {
       writeNumber(e, m.secondsLeft);
       return;
     case "AUTH_REFRESH":
-      encoding.writeVarString(e, m.ticket);
+      writeString(e, m.ticket);
       return;
     case "ERROR":
       if (m.doc) writeDocRef(e, m.doc);
       writeNumber(e, m.code);
-      encoding.writeVarString(e, m.message);
+      writeString(e, m.message);
       writeNullable(e, m.retryAfterMs, writeNumber);
       writeBoolean(e, m.permanent);
       return;
@@ -211,8 +219,8 @@ function writeBody(e: encoding.Encoder, m: Message): void {
         encoding.writeVarUint8Array(e, m.lockAnchors.hash);
       }
       writeNullable(e, m.revision, (enc, r) => {
-        encoding.writeVarString(enc, r.setId);
-        encoding.writeVarString(enc, r.baselineVersionId);
+        writeString(enc, r.setId);
+        writeString(enc, r.baselineVersionId);
       });
       writeNullable(e, m.airWindow, (enc, w) => {
         writeNumber(enc, w.startsAt);
@@ -262,6 +270,16 @@ function writeNumber(e: encoding.Encoder, n: number): void {
   encoding.writeVarUint(e, n);
 }
 
+// A lone surrogate would silently become U+FFFD on the wire.
+const LONE_SURROGATE =
+  /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+function writeString(e: encoding.Encoder, s: string): void {
+  if (LONE_SURROGATE.test(s))
+    throw new TypeError("a string with a lone surrogate is not valid UTF-16");
+  encoding.writeVarString(e, s);
+}
+
 function writeBoolean(e: encoding.Encoder, b: boolean): void {
   encoding.writeUint8(e, b ? 1 : 0);
 }
@@ -309,11 +327,11 @@ function writeVersions(e: encoding.Encoder, v: VersionSet): void {
 function writeLockAnchor(e: encoding.Encoder, a: LockAnchor): void {
   writeNumber(e, a.level);
   writeNumber(e, a.order);
-  encoding.writeVarString(e, a.label);
-  encoding.writeVarString(e, a.blockId);
+  writeString(e, a.label);
+  writeString(e, a.blockId);
   writeNumber(e, a.offset);
-  encoding.writeVarString(e, a.quote);
-  writeArray(e, a.fallbackIds, encoding.writeVarString);
+  writeString(e, a.quote);
+  writeArray(e, a.fallbackIds, writeString);
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -335,8 +353,7 @@ export function decodeMessage(frame: Uint8Array, from: Sender): Message | null {
   const { type, flags } = readTypeAndFlags(d);
   if (!isKnownFrame(type, flags)) return null;
   return guard(() => {
-    if (flags & (FLAG.CHUNK | FLAG.MORE))
-      throw bad("a chunk is not a whole message");
+    if (flags & FLAG.CHUNK) throw bad("a chunk is not a whole message");
     const doc = isDocumentType(type) ? readDocRef(d) : null;
     return readBody(d, { type, flags, doc }, from);
   });
@@ -371,22 +388,33 @@ function bad(message: string): ProtocolError {
 class UnknownMember extends Error {}
 
 /**
- * The message in a known frame's body. `header.doc` is the document of a document frame.
- * Returns null when the body names a union member this build does not know.
+ * ProtocolError 4400 unless `from` may send frames of this known type. Given the start of the
+ * body, a SYNC is also narrowed by its step, the body's first varuint; without it, SYNC is
+ * allowed to both and `readBody` narrows it once the body is read.
  */
-/**
- * ProtocolError 4400 unless `from` may send frames of this known type. SYNC is allowed to both
- * here; `readBody` narrows it by step.
- */
-export function assertSender(type: number, from: Sender): FrameName {
+export function assertSender(
+  type: number,
+  from: Sender,
+  bodyStart?: Uint8Array,
+): FrameName {
   const name = NAME_OF.get(type);
   if (name === undefined) throw bad(`unknown frame type ${type}`);
   const sentBy = SENT_BY[name];
   if (sentBy !== "both" && sentBy !== from)
     throw bad(`a ${from} may not send ${name}`);
+  if (name === "SYNC" && from !== "server" && bodyStart !== undefined) {
+    // A step below 128 is one varuint byte; only step1 may come from a client.
+    const step = SYNC_STEPS[bodyStart[0] ?? -1];
+    if (step !== undefined && step !== "step1")
+      throw bad(`a ${from} may not send SYNC ${step}`);
+  }
   return name;
 }
 
+/**
+ * The message in a known frame's body. `header.doc` is the document of a document frame.
+ * Returns null when the body names a union member this build does not know.
+ */
 export function readBody(
   d: decoding.Decoder,
   header: { type: number; flags: number; doc: DocRef | null },
@@ -546,7 +574,7 @@ function readUint8(d: decoding.Decoder): number {
   return decoding.readUint8(d);
 }
 
-function readNumber(d: decoding.Decoder): number {
+export function readNumber(d: decoding.Decoder): number {
   const n = decoding.readVarUint(d);
   if (!Number.isSafeInteger(n)) throw bad("a number beyond the safe integers");
   return n;

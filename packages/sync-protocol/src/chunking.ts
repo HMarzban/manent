@@ -21,6 +21,7 @@ import {
   isKnownFrame,
   readBody,
   readDocRef,
+  readNumber,
   readTypeAndFlags,
   writeHeader,
 } from "./codec.ts";
@@ -77,7 +78,7 @@ export interface FrameDecoder {
   readonly skipped: number;
 }
 
-interface Partial {
+interface PendingMessage {
   type: number;
   flags: number;
   doc: DocRef | null;
@@ -85,7 +86,11 @@ interface Partial {
   size: number;
 }
 
-/** Defaults: FRAME_LIMIT_BYTES, MESSAGE_LIMIT_BYTES, 8 chunked messages in progress at once. */
+/**
+ * Defaults: FRAME_LIMIT_BYTES, MESSAGE_LIMIT_BYTES, 8 chunked messages in progress at once. A
+ * chunked message being skipped counts against that limit as well: its ID is kept so that its
+ * later chunks are dropped with it.
+ */
 export function createFrameDecoder(options: {
   from: Sender;
   frameLimit?: number;
@@ -96,11 +101,12 @@ export function createFrameDecoder(options: {
   const frameLimit = options.frameLimit ?? FRAME_LIMIT_BYTES;
   const messageLimit = options.messageLimit ?? MESSAGE_LIMIT_BYTES;
   const maxPartial = options.maxPartial ?? 8;
-  const partials = new Map<number, Partial>();
+  const pending = new Map<number, PendingMessage>();
+  const skipping = new Set<number>();
   let skipped = 0;
 
   const finish = (
-    header: Omit<Partial, "chunks" | "size">,
+    header: Omit<PendingMessage, "chunks" | "size">,
     body: Uint8Array,
   ) => {
     const message = guard(() =>
@@ -108,6 +114,10 @@ export function createFrameDecoder(options: {
     );
     if (message === null) skipped++;
     return message;
+  };
+  const makeRoom = () => {
+    if (pending.size + skipping.size >= maxPartial)
+      throw tooLarge(`more than ${maxPartial} chunked messages in progress`);
   };
 
   return {
@@ -123,63 +133,77 @@ export function createFrameDecoder(options: {
       const { type, flags } = readTypeAndFlags(d);
       const known = isKnownFrame(type, flags);
       if (!(flags & FLAG.CHUNK)) {
+        if (frame.byteLength > messageLimit)
+          throw tooLarge(overLimit(messageLimit));
         const message = known ? decodeMessage(frame, from) : null;
         if (message === null) skipped++;
         return message;
       }
-      const messageId = guard(() => decoding.readVarUint(d));
+      const messageId = guard(() => readNumber(d));
       const more = (flags & FLAG.MORE) !== 0;
-      if (!known) {
-        if (!more) skipped++;
+
+      // A chunk to skip drops the message under its ID, and the ID is skipped until its last chunk.
+      if (!known || skipping.has(messageId)) {
+        pending.delete(messageId);
+        if (more) {
+          if (!skipping.has(messageId)) makeRoom();
+          skipping.add(messageId);
+        } else {
+          skipping.delete(messageId);
+          skipped++;
+        }
         return null;
       }
+
       const header = {
         type,
         flags: flags & ~(FLAG.CHUNK | FLAG.MORE),
         doc: isDocumentType(type) ? guard(() => readDocRef(d)) : null,
       };
       const body = frame.subarray(d.pos);
-      const partial = partials.get(messageId);
+      const message = pending.get(messageId);
 
-      if (partial === undefined) {
-        guard(() => assertSender(type, from));
+      if (message === undefined) {
+        guard(() => assertSender(type, from, body));
         if (!more) return finish(header, body);
-        if (partials.size >= maxPartial)
-          throw tooLarge(
-            `more than ${maxPartial} chunked messages in progress`,
-          );
+        makeRoom();
         if (body.byteLength > messageLimit)
           throw tooLarge(overLimit(messageLimit));
-        partials.set(messageId, {
+        pending.set(messageId, {
           ...header,
-          chunks: [body.slice()],
+          chunks: [copy(body)],
           size: body.byteLength,
         });
         return null;
       }
 
-      if (!sameHeader(partial, header)) {
-        partials.delete(messageId);
+      if (!sameHeader(message, header)) {
+        pending.delete(messageId);
         throw new ProtocolError(
           CODE.BAD_FRAME,
           `chunks of message ${messageId} disagree about what it is`,
         );
       }
-      if (partial.size + body.byteLength > messageLimit) {
-        partials.delete(messageId);
+      if (message.size + body.byteLength > messageLimit) {
+        pending.delete(messageId);
         throw tooLarge(overLimit(messageLimit));
       }
-      partial.chunks.push(body.slice());
-      partial.size += body.byteLength;
+      message.chunks.push(copy(body));
+      message.size += body.byteLength;
       if (more) return null;
-      partials.delete(messageId);
-      return finish(partial, concat(partial.chunks, partial.size));
+      pending.delete(messageId);
+      return finish(message, concat(message.chunks, message.size));
     },
   };
 }
 
+/** A copy that never aliases the input: a Buffer's `slice()` is a view, not a copy. */
+function copy(bytes: Uint8Array): Uint8Array {
+  return new Uint8Array(bytes);
+}
+
 function sameHeader(
-  a: Partial,
+  a: PendingMessage,
   b: { type: number; flags: number; doc: DocRef | null },
 ): boolean {
   return (
