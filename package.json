@@ -60,12 +60,13 @@
     }
   },
   "scripts": {
-    "verify": "bun run format:check && bun run typecheck && bun run lint && bun run tracked && bun run test:unit",
+    "verify": "bun run format:check && bun run typecheck && bun run lint && bun run tracked && bun run boundaries && bun run test:unit",
     "format": "bun fmt",
     "format:check": "bun fmt --check",
     "typecheck": "bun check",
     "lint": "oxlint --deny-warnings packages apps bench e2e tools",
     "tracked": "bun tools/check-tracked.ts",
+    "boundaries": "bun tools/check-boundaries.ts",
     "test:unit": "bun test ./packages ./apps ./tools ./bench",
     "test:e2e": "bun run build:web && bun run --filter @manent/e2e test",
     "test:clone": "bun test ./e2e/clone",
