@@ -1,6 +1,7 @@
 {
   "name": "manent",
   "private": true,
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "packageManager": "bun@1.4.4",
   "workspaces": {
