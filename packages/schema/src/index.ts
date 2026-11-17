@@ -19,3 +19,17 @@ export type {
   SectionJSON,
   TextJSON,
 } from "./json.ts";
+export {
+  attrsAfterJoin,
+  attrsForNewBlock,
+  attrsForSplitTail,
+  findIdProblems,
+  formatFrom,
+  isBlockId,
+  parseFrom,
+  randomBlockId,
+} from "./identity.ts";
+export type { IdSource } from "./identity.ts";
+export { rejects, validateDoc } from "./validate.ts";
+export type { Issue, IssueCode, Severity } from "./validate.ts";
+export { normalizeDoc, sectionize } from "./normalize.ts";
