@@ -1,0 +1,10 @@
+{
+  "name": "@manent/tools",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@manent/server-core": "workspace:*",
+    "@manent/testkit": "workspace:*"
+  }
+}

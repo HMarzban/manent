@@ -1,0 +1,11 @@
+{
+  "name": "@manent/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@manent/server-core": "workspace:*",
+    "@manent/sync-protocol": "workspace:*",
+    "@manent/schema": "workspace:*"
+  }
+}

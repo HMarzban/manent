@@ -1,0 +1,20 @@
+{
+  "name": "@manent/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "zustand": "catalog:"
+  },
+  "devDependencies": {
+    "@manent/testkit": "workspace:*",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "bun-plugin-tailwind": "catalog:"
+  }
+}

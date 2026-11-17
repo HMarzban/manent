@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.manent-demo/
+bench/results/*
+!bench/results/.gitkeep
+e2e/test-results/
+e2e/playwright-report/
+.DS_Store

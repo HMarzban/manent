@@ -1,0 +1,15 @@
+{
+  "name": "@manent/sync-protocol",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "lib0": "catalog:"
+  },
+  "devDependencies": {
+    "fast-check": "catalog:"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@manent/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun --bun playwright test",
+    "install-browsers": "bun --bun playwright install --with-deps chromium firefox webkit"
+  },
+  "devDependencies": {
+    "@playwright/test": "catalog:",
+    "@manent/server-core": "workspace:*",
+    "@manent/testkit": "workspace:*"
+  }
+}
