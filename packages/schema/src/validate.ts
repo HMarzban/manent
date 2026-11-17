@@ -3,7 +3,12 @@ import { DEFAULT_BLOCK_ATTRS } from "./attrs.ts";
 import type { BlockAttrs } from "./attrs.ts";
 import { ACT_BREAK_KINDS, BLOCK_TYPES } from "./block-types.ts";
 import { isBlockId, parseFrom } from "./identity.ts";
-import { MARK_NAMES, OVERLAPPING_MARKS, isSafeHref } from "./marks.ts";
+import {
+  MARK_NAMES,
+  MARK_SPECS,
+  OVERLAPPING_MARKS,
+  isSafeHref,
+} from "./marks.ts";
 import type { MarkName } from "./marks.ts";
 
 export type IssueCode =
@@ -164,12 +169,20 @@ class Walk {
       );
   }
 
+  /** Marks on a node that is not text: only text carries marks. */
+  noMarks(node: Json, path: string): void {
+    if (node.marks === undefined) return;
+    if (Array.isArray(node.marks) && node.marks.length === 0) return;
+    this.report(`${path}marks`, "bad_mark", "only text carries marks");
+  }
+
   doc(json: unknown): void {
     if (!isObject(json) || json.type !== "doc") {
       this.report("", "not_a_doc", "the root is not a doc");
       return;
     }
     this.noAttrs(json, "");
+    this.noMarks(json, "");
     const sections = this.content(json, "");
     if (sections.length === 0)
       this.report("content", "empty_doc", "the doc has no sections");
@@ -182,6 +195,7 @@ class Walk {
 
   section(section: Json, path: string): void {
     this.noAttrs(section, path);
+    this.noMarks(section, path);
     const blocks = this.content(section, path);
     if (blocks.length === 0)
       this.report(
@@ -196,6 +210,7 @@ class Walk {
   }
 
   block(block: Json, path: string): void {
+    this.noMarks(block, path);
     const attrs = block.attrs ?? {};
     if (!isObject(attrs))
       this.report(`${path}attrs`, "bad_attr", "attrs is not an object");
@@ -316,8 +331,13 @@ function sameMark(
 ): boolean {
   if (a.name !== b.name) return false;
   if (!(OVERLAPPING_MARKS as readonly string[]).includes(a.name)) return true;
-  const keys = Object.keys(MARK_ATTR_CHECKS[a.name as MarkName]);
-  return keys.every((key) => a.attrs[key] === b.attrs[key]);
+  // ProseMirror compares marks with their defaults filled in, and so must this.
+  const specs = MARK_SPECS[a.name as MarkName].attrs ?? {};
+  const value = (attrs: Json, key: string): unknown =>
+    attrs[key] ?? specs[key]?.default;
+  return Object.keys(specs).every(
+    (key) => value(a.attrs, key) === value(b.attrs, key),
+  );
 }
 
 /**

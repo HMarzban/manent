@@ -201,6 +201,39 @@ test("each kind of damage is named, with its severity", () => {
       ]),
       "bad_mark",
     ],
+    [
+      "the same suggestion twice, once with a default left out",
+      docWith({ id: ID }, [
+        {
+          text: "x",
+          marks: [
+            { type: "suggest_insert", attrs: { id: "s1", author: "d", at: 0 } },
+            { type: "suggest_insert", attrs: { id: "s1", author: "d" } },
+          ],
+        },
+      ]),
+      "bad_mark",
+    ],
+    [
+      "a mark on a block",
+      {
+        type: "doc",
+        content: [
+          {
+            type: "section",
+            content: [
+              {
+                type: "block",
+                attrs: { id: ID },
+                marks: [{ type: "bold" }],
+                content: runs("x"),
+              },
+            ],
+          },
+        ],
+      },
+      "bad_mark",
+    ],
     ["no ID", docWith({ id: null }, "x"), "missing_id"],
     ["an absent ID", docWith({}, "x"), "missing_id"],
     [
@@ -367,6 +400,112 @@ test("validation never throws, whatever it is given", () => {
         ]),
       );
     }),
+  );
+});
+
+// Scripts that are nearly right: every field is usually a good value and
+// sometimes anything at all, and the good values come from small pools so
+// that repeated IDs and repeated marks are common.
+const anyValue = fc.oneof(
+  fc.constantFrom(undefined, null, true, false, 0, -1, 1.5, "", {}, []),
+  fc.anything(),
+);
+const maybe = <T>(good: fc.Arbitrary<T>): fc.Arbitrary<unknown> =>
+  fc.oneof({ arbitrary: good, weight: 30 }, { arbitrary: anyValue, weight: 1 });
+const word = fc.constantFrom("s1", "s2", "d", "");
+const nearMark = fc.record(
+  {
+    type: maybe(fc.constantFrom(...MARK_NAMES, "blink")),
+    attrs: maybe(
+      fc.record(
+        {
+          id: maybe(word),
+          author: maybe(word),
+          at: maybe(fc.constantFrom(0, 1)),
+          value: maybe(word),
+          href: maybe(fc.constantFrom("https://example.com", "tel:+15551234")),
+          rate: anyValue,
+        },
+        { requiredKeys: [] },
+      ),
+    ),
+  },
+  { requiredKeys: ["type"] },
+);
+// Suggestions drawn from values equal to their defaults, given or left out,
+// so that two marks equal only once defaults are filled in are common.
+const nearSuggestion = fc.record({
+  type: fc.constantFrom("suggest_insert", "suggest_delete"),
+  attrs: fc.record(
+    {
+      id: fc.constantFrom("", "s1"),
+      author: fc.constantFrom("", "d"),
+      at: fc.constantFrom(0, 1),
+    },
+    { requiredKeys: [] },
+  ),
+});
+/** Usually `usual`, now and then `odd`. */
+const mostly = <T, U>(usual: fc.Arbitrary<T>, odd: fc.Arbitrary<U>) =>
+  fc.oneof({ arbitrary: usual, weight: 20 }, { arbitrary: odd, weight: 1 });
+const nearNode = (
+  type: string,
+  attrs: fc.Arbitrary<unknown>,
+  child: fc.Arbitrary<unknown>,
+) =>
+  fc.record(
+    {
+      type: mostly(
+        fc.constant(type),
+        fc.constantFrom("doc", "section", "block", "text", "page"),
+      ),
+      attrs: maybe(attrs),
+      content: maybe(fc.array(child, { maxLength: 3 })),
+      text: maybe(fc.string({ minLength: 1, maxLength: 3 })),
+      // only text carries marks; elsewhere they are a rare mistake
+      marks:
+        type === "text"
+          ? maybe(
+              fc.oneof(
+                fc.array(nearMark, { maxLength: 3 }),
+                fc.array(nearSuggestion, { minLength: 2, maxLength: 3 }),
+              ),
+            )
+          : mostly(fc.constant([]), fc.array(nearMark, { maxLength: 1 })),
+    },
+    { requiredKeys: ["type"] },
+  );
+const nearBlockAttrs = fc.record(
+  {
+    id: maybe(fc.constantFrom("b000000000000007", "b000000000000008")),
+    type: maybe(fc.constantFrom(...BLOCK_TYPES, "future_thing")),
+    dual: maybe(fc.constantFrom(null, "left", "right")),
+    indent: maybe(fc.constantFrom(null, 0, 4)),
+    glow: anyValue,
+  },
+  { requiredKeys: ["id"] },
+);
+const nearDoc = nearNode(
+  "doc",
+  fc.constant({}),
+  nearNode(
+    "section",
+    fc.constant({}),
+    nearNode(
+      "block",
+      nearBlockAttrs,
+      nearNode("text", fc.constant({}), anyValue),
+    ),
+  ),
+);
+
+test("whatever validation does not reject, every client can read once normalised", () => {
+  fc.assert(
+    fc.property(fc.oneof(nearDoc, anyValue), (input) => {
+      if (rejects(validateDoc(input))) return;
+      parseDoc(normalizeDoc(input as DocJSON, ids));
+    }),
+    { numRuns: 5000 },
   );
 });
 
