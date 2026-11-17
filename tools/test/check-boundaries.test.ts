@@ -167,6 +167,14 @@ test("some imports are for types only", async () => {
         'export type { Y } from "@manent/crdt";',
         'import { type Z } from "@manent/crdt";',
       ),
+      "packages/sync-protocol/src/b.ts": lines(
+        "export enum E { A, B }",
+        'import type { X } from "@manent/crdt";',
+      ),
+      "packages/sync-protocol/src/c.ts": lines(
+        "export type { A }",
+        'import { b } from "@manent/crdt"',
+      ),
       "apps/web/src/a.ts": lines(
         'import { validateTour } from "@manent/testkit";',
         'import type { TourFile } from "@manent/testkit";',
@@ -176,6 +184,7 @@ test("some imports are for types only", async () => {
     "apps/web/src/a.ts:1 types-only",
     "packages/sync-protocol/src/a.ts:1 types-only",
     "packages/sync-protocol/src/a.ts:4 types-only",
+    "packages/sync-protocol/src/c.ts:2 types-only",
   ]);
 });
 
@@ -193,6 +202,7 @@ test("pure packages touch neither the DOM nor Bun", async () => {
         "// document.title",
         '"window.x";',
         "process.env;",
+        "window?.alert();",
       ),
       "packages/schema/test/a.test.ts": lines(
         "document.title;",
@@ -208,6 +218,7 @@ test("pure packages touch neither the DOM nor Bun", async () => {
     "packages/schema/src/a.ts:5 pure",
     "packages/schema/src/a.ts:6 pure",
     "packages/schema/src/a.ts:10 pure",
+    "packages/schema/src/a.ts:11 pure",
   ]);
 });
 

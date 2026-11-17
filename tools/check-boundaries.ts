@@ -124,7 +124,8 @@ const IMPORT_FORMS: readonly {
   // import … from "x", import type … from "x", export … from "x"
   {
     pattern: new RegExp(
-      String.raw`\b(?:import|export)\b([\w$\s{},*]*?)\bfrom\s*` + QUOTE,
+      String.raw`\b(?:import|export)\b((?:(?!\b(?:import|export)\b)[\w$\s{},*])*?)\bfrom\s*` +
+        QUOTE,
       "g",
     ),
     typeOnly: (m) => /^\s*type\s+\S/.test(m[1] ?? ""),
@@ -148,7 +149,7 @@ const IMPORT_FORMS: readonly {
 
 const names = FORBIDDEN_GLOBALS.join("|");
 const GLOBAL_USES = [
-  new RegExp(String.raw`(?<![\w$.])(?:${names})(?=[.[(])`, "g"),
+  new RegExp(String.raw`(?<![\w$.])(?:${names})(?=[.[(?])`, "g"),
   new RegExp(String.raw`\bglobalThis\s*\.\s*(?:${names})\b`, "g"),
 ];
 
