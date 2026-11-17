@@ -303,3 +303,123 @@ export default {
     runSuite({ root, outDir: join(root, "out"), now: fixedNow }),
   ).rejects.toThrow("the fixture broke");
 });
+
+function budgetFile(budgets: unknown, extra: Record<string, unknown> = {}) {
+  return JSON.stringify({ formatVersion: 1, tier: "host", budgets, ...extra });
+}
+
+const typingRow = {
+  scenario: "fixture.hundred",
+  metric: "typing",
+  stat: "p95",
+  budget: 200,
+  hardFail: 300,
+};
+
+test("a malformed budget file stops the run and names the file and the row", async () => {
+  const cases: [string, string][] = [
+    [budgetFile([], { formatVersion: 2 }), "formatVersion must be 1"],
+    [budgetFile({}), "budgets must be a list"],
+    [budgetFile([], { tier: 7 }), "tier must be a string"],
+    ["{ not json", "is not JSON"],
+    [budgetFile([{ ...typingRow, stat: "p90" }]), 'row 1 has stat "p90"'],
+    [budgetFile([{ ...typingRow, metric: 3 }]), "row 1 needs a scenario"],
+    [
+      budgetFile([typingRow, { ...typingRow, hardFail: undefined }]),
+      "row 2 needs a finite budget and hardFail",
+    ],
+    [
+      budgetFile([{ ...typingRow, budget: 400 }]),
+      "row 1 needs a finite budget and hardFail",
+    ],
+    // a row of another tier is still checked for shape
+    [
+      budgetFile([{ ...typingRow, stat: "mean" }], { tier: "D-modest" }),
+      'row 1 has stat "mean"',
+    ],
+  ];
+  for (const [text, message] of cases) {
+    const root = await fixtureRoot({
+      "client/hundred.bench.ts": hundredSamples,
+      "budgets.json": text,
+    });
+    const run = runSuite({ root, outDir: join(root, "out"), now: fixedNow });
+    await expect(run).rejects.toThrow(message);
+    await expect(run).rejects.toThrow(join(root, "budgets.json"));
+  }
+});
+
+test("a budget row of the run's tier that matches nothing measured stops the run, unless filtered", async () => {
+  const root = await fixtureRoot({
+    "client/hundred.bench.ts": hundredSamples,
+    "budgets.json": budgetFile([
+      typingRow,
+      { ...typingRow, metric: "typing.renamed" },
+    ]),
+  });
+  await expect(
+    runSuite({ root, outDir: join(root, "out"), now: fixedNow }),
+  ).rejects.toThrow(
+    "row 2 (fixture.hundred typing.renamed) matches no measured metric",
+  );
+  const filtered = await runSuite({
+    root,
+    outDir: join(root, "out"),
+    filter: "client/",
+    now: fixedNow,
+  });
+  expect(filtered).toMatchObject({ scenarios: 1, hardFails: 0 });
+
+  const otherTier = await fixtureRoot({
+    "client/hundred.bench.ts": hundredSamples,
+    "budgets.json": budgetFile([{ ...typingRow, metric: "typing.renamed" }], {
+      tier: "D-modest",
+    }),
+  });
+  expect(
+    await runSuite({
+      root: otherTier,
+      outDir: join(otherTier, "out"),
+      now: fixedNow,
+    }),
+  ).toMatchObject({ scenarios: 1, hardFails: 0 });
+});
+
+test("a scenario without a workload is recorded with workload null", async () => {
+  const root = await fixtureRoot({
+    "corpus/bare.bench.ts": `
+export default {
+  id: "fixture.bare",
+  processes: 1,
+  async run() {
+    return [{ metric: "size", unit: "bytes", samples: [10] }];
+  },
+};
+`,
+  });
+  const r = await runSuite({ root, outDir: join(root, "out"), now: fixedNow });
+  const result = await readResult(r.file);
+  expect(result.scenarios[0]).toHaveProperty("workload", null);
+});
+
+test("output a scenario leaves without a newline does not hide its result", async () => {
+  const root = await fixtureRoot({
+    "corpus/chatty.bench.ts": `
+export default {
+  id: "fixture.chatty",
+  workload: null,
+  processes: 1,
+  async run() {
+    await Bun.write(Bun.stdout, "progress without a newline");
+    return [{ metric: "size", unit: "bytes", samples: [10] }];
+  },
+};
+`,
+  });
+  const r = await runSuite({ root, outDir: join(root, "out"), now: fixedNow });
+  const result = await readResult(r.file);
+  expect(result.scenarios[0]!.metrics[0]).toMatchObject({
+    metric: "size",
+    n: 1,
+  });
+});

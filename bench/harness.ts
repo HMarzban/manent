@@ -106,17 +106,78 @@ export function judge(value: number, budget: Budget | undefined): Verdict {
   return "pass";
 }
 
-interface BudgetFile {
-  formatVersion: number;
-  tier: string;
+const BUDGET_STATS: readonly string[] = ["p50", "p95", "p99", "max"];
+
+interface BudgetTable {
+  file: string;
+  /** The rows that apply to this run: every row when the file's tier is the run's, otherwise none. */
   budgets: Budget[];
 }
 
-async function budgetsFor(root: string, tier: string): Promise<Budget[]> {
-  const file = Bun.file(join(root, "budgets.json"));
-  if (!(await file.exists())) return [];
-  const parsed = (await file.json()) as BudgetFile;
-  return parsed.tier === tier ? parsed.budgets : [];
+function checkBudgetRow(row: unknown, label: string): Budget {
+  const b = row as Partial<Budget> | null;
+  if (
+    typeof b !== "object" ||
+    b === null ||
+    typeof b.scenario !== "string" ||
+    typeof b.metric !== "string"
+  )
+    throw new Error(`${label} needs a scenario and a metric`);
+  if (typeof b.stat !== "string" || !BUDGET_STATS.includes(b.stat))
+    throw new Error(
+      `${label} has stat ${JSON.stringify(b.stat)}; use p50, p95, p99 or max`,
+    );
+  if (
+    typeof b.budget !== "number" ||
+    typeof b.hardFail !== "number" ||
+    !Number.isFinite(b.budget) ||
+    !Number.isFinite(b.hardFail) ||
+    b.budget > b.hardFail
+  )
+    throw new Error(
+      `${label} needs a finite budget and hardFail, with budget at or under hardFail`,
+    );
+  return b as Budget;
+}
+
+async function budgetsFor(root: string, tier: string): Promise<BudgetTable> {
+  const path = join(root, "budgets.json");
+  const file = Bun.file(path);
+  if (!(await file.exists())) return { file: path, budgets: [] };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await file.text());
+  } catch {
+    throw new Error(`${path} is not JSON`);
+  }
+  const table = parsed as {
+    formatVersion?: unknown;
+    tier?: unknown;
+    budgets?: unknown;
+  } | null;
+  if (typeof table !== "object" || table === null || table.formatVersion !== 1)
+    throw new Error(`${path}: formatVersion must be 1`);
+  if (typeof table.tier !== "string")
+    throw new Error(`${path}: tier must be a string`);
+  if (!Array.isArray(table.budgets))
+    throw new Error(`${path}: budgets must be a list`);
+  const budgets = table.budgets.map((row: unknown, i) =>
+    checkBudgetRow(row, `${path}: budget row ${i + 1}`),
+  );
+  return { file: path, budgets: table.tier === tier ? budgets : [] };
+}
+
+/** Every applying row must name a metric this run measured, so a renamed metric cannot drop its budget. */
+function checkBudgetsMatched(
+  table: BudgetTable,
+  measured: ReadonlySet<string>,
+): void {
+  table.budgets.forEach((b, i) => {
+    if (!measured.has(`${b.scenario}\n${b.metric}`))
+      throw new Error(
+        `${table.file}: budget row ${i + 1} (${b.scenario} ${b.metric}) matches no measured metric`,
+      );
+  });
 }
 
 async function findScenarios(
@@ -175,7 +236,8 @@ async function loadScenario(file: string): Promise<Scenario> {
 export async function runChild(file: string): Promise<void> {
   const scenario = await loadScenario(file);
   const measurements = checkMeasurements(await scenario.run(), file);
-  await Bun.write(Bun.stdout, `${JSON.stringify(measurements)}\n`);
+  // A leading newline keeps the JSON on its own line after output that lacks one.
+  await Bun.write(Bun.stdout, `\n${JSON.stringify(measurements)}\n`);
 }
 
 async function runProcess(file: string): Promise<Measurement[]> {
@@ -280,7 +342,8 @@ export async function runSuite(options: {
   now?: () => Date;
 }): Promise<{ file: string; scenarios: number; hardFails: number }> {
   const startedAt = (options.now ?? (() => new Date()))();
-  const budgets = await budgetsFor(options.root, RUN_TIER);
+  const table = await budgetsFor(options.root, RUN_TIER);
+  const measured = new Set<string>();
   const results = [];
   let hardFails = 0;
   for (const rel of await findScenarios(options.root, options.filter)) {
@@ -290,16 +353,18 @@ export async function runSuite(options: {
     for (let i = 0; i < scenario.processes; i++)
       runs.push(await runProcess(file));
     const metrics = [...pool(rel, runs).values()].map((m) =>
-      summarise(scenario, m, budgets),
+      summarise(scenario, m, table.budgets),
     );
+    for (const m of metrics) measured.add(`${scenario.id}\n${m.metric}`);
     hardFails += metrics.filter((m) => m.verdict === "hard_fail").length;
     results.push({
       id: scenario.id,
-      workload: scenario.workload,
+      workload: scenario.workload ?? null,
       processes: scenario.processes,
       metrics,
     });
   }
+  if (options.filter === undefined) checkBudgetsMatched(table, measured);
   await mkdir(options.outDir, { recursive: true });
   const file = join(options.outDir, `${fileStamp(startedAt)}.json`);
   const body = {
