@@ -35,7 +35,8 @@ export interface LayoutPatches {
 
 /**
  * The blocks with each patch applied: a frozen copy where a patch applies, the same object elsewhere.
- * It changes the engine's input, never how the engine lays it out.
+ * It changes the engine's input, never how the engine lays it out. A patch that sets the text drops the
+ * block's styles, which belong to the text it replaces.
  */
 export function applyLayoutPatches(
   blocks: readonly LayoutBlock[],
@@ -44,6 +45,8 @@ export function applyLayoutPatches(
   if (layout === null) return [...blocks];
   return blocks.map((block) => {
     const patch = layout.patches.get(block.id);
-    return patch === undefined ? block : Object.freeze({ ...block, ...patch });
+    if (patch === undefined) return block;
+    const styles = patch.text === undefined ? block.styles : null;
+    return Object.freeze({ ...block, ...patch, styles });
   });
 }

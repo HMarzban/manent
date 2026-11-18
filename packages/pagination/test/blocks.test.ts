@@ -15,6 +15,14 @@ const sp = profileFor("screenplay")!;
 const ms = profileFor("manuscript")!;
 const play = profileFor("stage_play")!;
 const lines = (b: LayoutBlock, p = sp) => measure(b, p).lines;
+const heading = (id: string, place: string) =>
+  toLayoutBlock(
+    viewOf(
+      { id: id.repeat(16), type: "scene_heading" },
+      ["INT. "],
+      [place, "underline"],
+    ),
+  );
 
 test("a layout block is the block's text, its style bytes and the attributes that change layout", () => {
   const b = toLayoutBlock(
@@ -79,6 +87,22 @@ test("a layout patch changes the engine's blocks and nothing else", () => {
     Object.isFrozen(out[0]),
     applyLayoutPatches(blocks, null).every((b, i) => b === blocks[i]),
   ]).toEqual([true, true, true]);
+});
+
+test("a patch that replaces a block's text drops the styles of the text it replaced", () => {
+  const out = applyLayoutPatches([heading("a", "HALL"), heading("b", "YARD")], {
+    key: "k1",
+    patches: new Map([
+      ["a".repeat(16), { text: "OMITTED" }],
+      ["b".repeat(16), { num: "2A" }],
+    ]),
+  });
+  expect(
+    out.map((b) => [b.text, b.styles === null ? null : [...b.styles]]),
+  ).toEqual([
+    ["OMITTED", null],
+    ["INT. YARD", [0, 0, 0, 0, 0, 4, 4, 4, 4]],
+  ]);
 });
 
 test("overrides are clamped", () => {
