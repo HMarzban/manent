@@ -30,6 +30,8 @@ test("the screens' words are the design's", () => {
     workspaceLine: [
       L.workspaceLine(14, "The Long Night"),
       L.workspaceLine(1, "Harbour Lights"),
+      L.workspaceLine(3, null),
+      L.workspaceLine(1, null),
     ],
     yourDesk: L.yourDesk,
     newScript: L.newScript,
@@ -59,6 +61,8 @@ test("the screens' words are the design's", () => {
     workspaceLine: [
       "14 projects · The Long Night",
       "1 project · Harbour Lights",
+      "3 projects",
+      "1 project",
     ],
     yourDesk: "Your desk",
     newScript: "New script",

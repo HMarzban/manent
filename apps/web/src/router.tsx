@@ -98,8 +98,8 @@ export function createAppRouter(deps: {
       throw redirect({ href: chooseUrl(location.href), replace: true });
     },
     component: function Library() {
-      const name = usePerson((s) => s.person?.name ?? null);
-      return <LibraryScreen personName={name} />;
+      const person = usePerson((s) => s.person);
+      return <LibraryScreen api={api} person={person} />;
     },
   });
 
