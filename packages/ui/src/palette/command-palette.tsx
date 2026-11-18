@@ -7,7 +7,7 @@ import { MENU_IDS } from "@manent/settings";
 import type { MenuId } from "@manent/settings";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useLayoutEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import { useCommands } from "../commands-react/commands-context.tsx";
 import { Kbd } from "../components/stock/kbd.tsx";
 import { MENU_WORDS, READOUT_WORDS } from "../words/document.ts";
@@ -18,6 +18,9 @@ const RECENT_LIMIT = 5;
 const VIRTUAL_ABOVE = 100;
 // the row token at Interface size 100 %, until a row is measured
 const ROW_PX = 28;
+
+const sizeOf = (element: Element): number =>
+  element.getBoundingClientRect().height || ROW_PX;
 
 type Entry =
   | { type: "menu"; menu: MenuId; label: string }
@@ -136,88 +139,128 @@ function VirtualEntries(props: {
   entries: readonly Entry[];
   query: string;
   activate(entry: Entry): void;
+  /** The list that scrolls; the window is drawn for its height and offset. */
+  scroller: RefObject<HTMLDivElement | null>;
 }): ReactNode {
-  const { entries, query, activate } = props;
-  const scroller = useRef<HTMLDivElement>(null);
+  const { entries, query, activate, scroller } = props;
   const virtual = useVirtualizer({
     count: entries.length,
     getScrollElement: () => scroller.current,
     estimateSize: () => ROW_PX,
+    measureElement: sizeOf,
   });
   return (
-    <div ref={scroller} className="overflow-auto">
-      <div className="relative" style={{ height: virtual.getTotalSize() }}>
-        {virtual.getVirtualItems().map((item) => {
-          const entry = entries[item.index];
-          return entry === undefined ? null : (
-            <div
-              key={keyOf(entry)}
-              className="absolute inset-x-0"
-              style={{ transform: `translateY(${item.start}px)` }}
-            >
-              <EntryItem
-                entry={entry}
-                query={query}
-                index={item.index}
-                activate={activate}
-              />
-            </div>
-          );
-        })}
-      </div>
+    <div className="relative" style={{ height: virtual.getTotalSize() }}>
+      {virtual.getVirtualItems().map((item) => {
+        const entry = entries[item.index];
+        return entry === undefined ? null : (
+          <div
+            key={keyOf(entry)}
+            ref={virtual.measureElement}
+            data-index={item.index}
+            className="absolute inset-x-0"
+            style={{ transform: `translateY(${item.start}px)` }}
+          >
+            <EntryItem
+              entry={entry}
+              query={query}
+              index={item.index}
+              activate={activate}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
-  const { filter, sources, onRun, onClose, recent } = props;
+/** The one scrolling list of entries: plain rows up to 100, a window of rows above. */
+function EntryList(props: {
+  entries: readonly Entry[];
+  query: string;
+  activate(entry: Entry): void;
+}): ReactNode {
+  const { entries, query, activate } = props;
+  const scroller = useRef<HTMLDivElement>(null);
+  return (
+    <Autocomplete.List ref={scroller} className="overflow-auto">
+      {entries.length > VIRTUAL_ABOVE ? (
+        <VirtualEntries
+          entries={entries}
+          query={query}
+          activate={activate}
+          scroller={scroller}
+        />
+      ) : (
+        entries.map((entry, index) => (
+          <EntryItem
+            key={keyOf(entry)}
+            entry={entry}
+            query={query}
+            index={index}
+            activate={activate}
+          />
+        ))
+      )}
+    </Autocomplete.List>
+  );
+}
+
+/** What the palette lists: a menu's commands, the menus and recent commands while empty, or the rows for a query. */
+function usePaletteEntries(options: {
+  filter: PaletteProps["filter"];
+  sources: readonly PaletteSource[];
+  recent: readonly string[];
+  query: string;
+  menu: MenuId | null;
+}): readonly Entry[] {
+  const { filter, sources, recent, query, menu } = options;
   const { service } = useCommands();
-  const [query, setQuery] = useState("");
-  const [menu, setMenu] = useState<MenuId | null>(null);
-  const [openedAt] = useState(markStart);
   const shown = useRef<{ query: string; ids: readonly string[] }>({
     query: "",
     ids: [],
   });
-  useLayoutEffect(() => markEnd("ui.open.palette", openedAt), [openedAt]);
-
   const active =
     filter === "places" ? sources.filter((s) => s.kind === "place") : sources;
-  const everything = (): PaletteRow[] => active.flatMap((s) => s.rows(""));
   const rowsIn = (ids: readonly string[]): Entry[] => {
-    const byId = new Map(everything().map((row) => [row.id, row]));
+    const byId = new Map(
+      active.flatMap((s) => s.rows("")).map((row) => [row.id, row]),
+    );
     return ids.flatMap((id): Entry[] => {
       const row = byId.get(id);
       return row === undefined ? [] : [{ type: "row", row }];
     });
   };
 
-  let entries: readonly Entry[];
   if (query === "" && filter === "all" && menu !== null)
-    entries = rowsIn(
+    return rowsIn(
       menuModel(menu, COMMANDS, service)
         .groups.flat()
         .map((item) => item.id),
     );
-  else if (query === "" && filter === "all")
-    entries = [
-      ...menuEntries(service),
-      ...rowsIn(recent.slice(0, RECENT_LIMIT)),
-    ];
-  else {
-    const rows = mark("ui.search.palette", () =>
-      keepShownOrder(
-        shown.current,
+  if (query === "" && filter === "all")
+    return [...menuEntries(service), ...rowsIn(recent.slice(0, RECENT_LIMIT))];
+  const rows = mark("ui.search.palette", () =>
+    keepShownOrder(
+      shown.current,
+      query,
+      rankRows(
         query,
-        rankRows(
-          query,
-          active.flatMap((s) => s.rows(query)),
-        ),
+        active.flatMap((s) => s.rows(query)),
       ),
-    );
-    shown.current = { query, ids: rows.map((row) => row.id) };
-    entries = rows.map((row): Entry => ({ type: "row", row }));
-  }
+    ),
+  );
+  shown.current = { query, ids: rows.map((row) => row.id) };
+  return rows.map((row): Entry => ({ type: "row", row }));
+}
+
+function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
+  const { filter, sources, onRun, onClose, recent } = props;
+  const [query, setQuery] = useState("");
+  const [menu, setMenu] = useState<MenuId | null>(null);
+  const [openedAt] = useState(markStart);
+  useLayoutEffect(() => markEnd("ui.open.palette", openedAt), [openedAt]);
+  const entries = usePaletteEntries({ filter, sources, recent, query, menu });
 
   const activate = (entry: Entry): void => {
     if (entry.type === "menu") {
@@ -260,25 +303,7 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
           aria-label={READOUT_WORDS.commandsHint}
           className="h-control px-3 text-ui"
         />
-        <Autocomplete.List className="overflow-auto">
-          {entries.length > VIRTUAL_ABOVE ? (
-            <VirtualEntries
-              entries={entries}
-              query={query}
-              activate={activate}
-            />
-          ) : (
-            entries.map((entry, index) => (
-              <EntryItem
-                key={keyOf(entry)}
-                entry={entry}
-                query={query}
-                index={index}
-                activate={activate}
-              />
-            ))
-          )}
-        </Autocomplete.List>
+        <EntryList entries={entries} query={query} activate={activate} />
       </div>
     </Autocomplete.Root>
   );

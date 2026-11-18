@@ -175,6 +175,22 @@ const options = (): string[] =>
     (el) => el.textContent ?? "",
   );
 
+const SCENES: PaletteSource = {
+  kind: "place",
+  rows: () =>
+    Array.from({ length: 3000 }, (_, i) => ({
+      id: `scene.${i + 1}`,
+      kind: "place",
+      label: `${i + 1}. INT. LIGHTHOUSE - NIGHT`,
+      value: null,
+      scopeWord: null,
+      home: null,
+      keys: null,
+      enabled: true,
+      whyNot: null,
+    })),
+};
+
 const pressEnter = async (): Promise<void> => {
   await act(async () => {
     field().dispatchEvent(
@@ -300,19 +316,7 @@ test("focus is in the field at once and every typed character arrives", async ()
 
 test("more than 100 results are drawn as a window of rows", async () => {
   const p = palette();
-  const scenes: PaletteRow[] = Array.from({ length: 3000 }, (_, i) => ({
-    id: `scene.${i + 1}`,
-    kind: "place",
-    label: `${i + 1}. INT. LIGHTHOUSE - NIGHT`,
-    value: null,
-    scopeWord: null,
-    home: null,
-    keys: null,
-    enabled: true,
-    whyNot: null,
-  }));
-  const places: PaletteSource = { kind: "place", rows: () => scenes };
-  await p.render({ sources: [...p.sources, places] });
+  await p.render({ sources: [...p.sources, SCENES] });
   await type("int");
   const spacer = document.querySelector('[role="listbox"] .relative');
   // happy-dom lays nothing out, so the window holds no row; the spacer is as tall as every row together:
@@ -321,4 +325,63 @@ test("more than 100 results are drawn as a window of rows", async () => {
     drawn: options().length,
     height: spacer instanceof HTMLElement ? spacer.style.height : null,
   }).toEqual({ drawn: 0, height: "84112px" });
+});
+
+test("the window follows the list's own scrolling, and taller rows never overlap", async () => {
+  const p = palette();
+  await p.render({ sources: [...p.sources, SCENES] });
+  // happy-dom lays nothing out: the list is given 420 px, and each row 56 px, as at Interface size 200 %
+  const client = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    "clientHeight",
+  );
+  const rect = Element.prototype.getBoundingClientRect;
+  Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+    configurable: true,
+    get(this: HTMLElement): number {
+      return this.getAttribute("role") === "listbox" ? 420 : 0;
+    },
+  });
+  Element.prototype.getBoundingClientRect = function (this: Element) {
+    return this.hasAttribute("data-index")
+      ? new DOMRect(0, 0, 640, 56)
+      : rect.call(this);
+  };
+  try {
+    await type("int");
+    const list = document.querySelector('[role="listbox"]');
+    if (!(list instanceof HTMLElement)) throw new TypeError("no list");
+    const starts = (): string[] =>
+      [...list.querySelectorAll("[data-index]")].map((row) =>
+        row instanceof HTMLElement ? row.style.transform : "",
+      );
+    const first = { starts: starts(), label: options()[0] };
+    await act(async () => {
+      list.scrollTop = 56_000;
+      list.dispatchEvent(new Event("scroll"));
+    });
+    // rows drawn while scrolling are measured by the browser's resize observer, which happy-dom never runs
+    expect({ first, scrolled: options()[0] }).toEqual({
+      first: {
+        starts: [
+          "translateY(0px)",
+          "translateY(56px)",
+          "translateY(112px)",
+          "translateY(168px)",
+          "translateY(224px)",
+          "translateY(280px)",
+          "translateY(336px)",
+          "translateY(392px)",
+          "translateY(448px)",
+        ],
+        label: "Interface size: 100 % · this browserPreferences → This browser",
+      },
+      scrolled: "1980. INT. LIGHTHOUSE - NIGHT",
+    });
+  } finally {
+    Element.prototype.getBoundingClientRect = rect;
+    if (client === undefined)
+      Reflect.deleteProperty(HTMLElement.prototype, "clientHeight");
+    else Object.defineProperty(HTMLElement.prototype, "clientHeight", client);
+  }
 });
