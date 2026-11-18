@@ -1,0 +1,373 @@
+import { withDom } from "@manent/testkit/dom";
+import { afterEach, expect, test } from "bun:test";
+import { TOUR } from "@manent/demo";
+import type { TourScenario } from "@manent/demo";
+import type { SignInChoice } from "@manent/sync-protocol";
+import {
+  QueryClient,
+  QueryClientProvider,
+  notifyManager,
+  useQuery,
+} from "@tanstack/react-query";
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from "@tanstack/react-router";
+import { act } from "react";
+import type { ReactNode } from "react";
+import { createRoot } from "react-dom/client";
+import type { Root } from "react-dom/client";
+import type { Api } from "../src/api.ts";
+import { DemoBar } from "../src/demo/demo-bar.tsx";
+import { TourPanel } from "../src/demo/tour-panel.tsx";
+import { TourScenarioRow } from "../src/demo/tour-scenario.tsx";
+import { SERVER_STATUS_QUERY } from "../src/demo/use-demo.ts";
+import { RootLayout } from "../src/root-layout.tsx";
+import { ChooseScreen } from "../src/screens/choose.tsx";
+import { EnvironmentProvider } from "../src/services/context.tsx";
+import { AnnouncerRegion } from "../src/shell/announcer-region.tsx";
+import { createShellDom } from "../src/shell/regions.tsx";
+import { bindGuard } from "../src/state/guard.ts";
+import { createPersonStore } from "../src/state/person.store.ts";
+import { createClock, fakeApi, testEnvironment } from "./services.fixtures.ts";
+
+withDom();
+// Query tells its observers at once, so a test sees an answer in the act that delivered it
+notifyManager.setScheduler((notify) => notify());
+
+let mounted: Root | null = null;
+afterEach(() => {
+  act(() => mounted?.unmount());
+  mounted = null;
+  document.body.replaceChildren();
+});
+
+/** Draws `node` as the app would: inside the environment, Query and a router at `/`. */
+async function render(
+  node: ReactNode,
+  options: {
+    clock?: ReturnType<typeof createClock>;
+    client?: QueryClient;
+  } = {},
+): Promise<HTMLElement> {
+  const clock = options.clock ?? createClock();
+  const environment = testEnvironment({
+    now: clock.now,
+    schedule: clock.schedule,
+    dom: createShellDom(document),
+  });
+  bindGuard(environment.guard);
+  const rootRoute = createRootRoute({ component: () => node });
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([
+      createRoute({ getParentRoute: () => rootRoute, path: "/" }),
+    ]),
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  });
+  await router.load();
+  const container = document.createElement("div");
+  document.body.append(container);
+  mounted = createRoot(container);
+  await act(async () =>
+    mounted?.render(
+      <QueryClientProvider client={options.client ?? new QueryClient()}>
+        <EnvironmentProvider environment={environment}>
+          <RouterProvider router={router} />
+        </EnvironmentProvider>
+      </QueryClientProvider>,
+    ),
+  );
+  return container;
+}
+
+const settle = (): Promise<void> =>
+  act(async () => {
+    await Promise.resolve();
+  });
+
+/** The demo bar's controls are loaded lazily: loaded here, they arrive inside this act. */
+const demoBarControls = (): Promise<void> =>
+  act(async () => {
+    await import("../src/demo/demo-bar-controls.tsx");
+  });
+
+const buttons = (root: ParentNode): HTMLButtonElement[] => [
+  ...root.querySelectorAll("button"),
+];
+
+const paragraphs = (root: ParentNode): (string | null)[] =>
+  [...root.querySelectorAll("p")].map((p) => p.textContent);
+
+const SCENARIO: TourScenario = {
+  id: "a-first-page",
+  group: "Write",
+  promise: "Write a first page and watch it reach the server.",
+  setup: { userId: "sam", open: "/", secondWindow: null },
+  steps: [
+    { text: "Open the commands.", highlight: "app.palette" },
+    { text: "Choose New script.", highlight: "library.newScript" },
+  ],
+  check: "Saved · Synced",
+};
+
+test("the Tour lists the eight groups", async () => {
+  const container = await render(<TourPanel />);
+  expect(container.querySelector("h2")?.textContent).toBe("Tour");
+  expect(
+    [...container.querySelectorAll("h3")].map((h) => h.textContent),
+  ).toEqual([
+    "Write",
+    "Work together",
+    "Go offline",
+    "History",
+    "Production",
+    "Long documents",
+    "Rundown and prompter",
+    "Desktop",
+  ]);
+  // the shipped Tour has no scenario yet: each group is its heading alone
+  expect(TOUR.scenarios).toEqual([]);
+  expect(container.textContent).toBe(
+    "TourWriteWork togetherGo offlineHistoryProductionLong documentsRundown and prompterDesktop",
+  );
+});
+
+/** A server status the demo bar has heard, as its query holds it. */
+function HeardServer(props: { state: string }): ReactNode {
+  useQuery({
+    queryKey: [SERVER_STATUS_QUERY, "control"],
+    queryFn: () => props.state,
+    initialData: props.state,
+  });
+  return null;
+}
+
+test("a set-up that did not work says why, with Set it up again", async () => {
+  const failing = await render(
+    <>
+      <TourScenarioRow
+        scenario={SCENARIO}
+        setUp={() => {
+          throw new Error("the window was refused");
+        }}
+      />
+      <AnnouncerRegion />
+    </>,
+  );
+  await act(async () => buttons(failing)[0]?.click());
+  expect(paragraphs(failing)).toEqual([
+    "Write a first page and watch it reach the server.",
+    "Couldn't set this up.",
+  ]);
+  expect(buttons(failing).map((b) => b.textContent)).toEqual([
+    "Set it up again",
+  ]);
+  expect(failing.querySelector("[aria-live='polite']")?.textContent).toBe(
+    "Couldn't set this up.",
+  );
+  act(() => mounted?.unmount());
+  document.body.replaceChildren();
+
+  const setUps: string[] = [];
+  const stopped = await render(
+    <>
+      <HeardServer state="stopped" />
+      <TourScenarioRow
+        scenario={SCENARIO}
+        setUp={(scenario) => setUps.push(scenario.id)}
+      />
+      <AnnouncerRegion />
+    </>,
+  );
+  await settle();
+  await act(async () => buttons(stopped)[0]?.click());
+  expect(paragraphs(stopped)).toEqual([
+    "Write a first page and watch it reach the server.",
+    "Couldn't reach Manent. Start the server, then set it up again.",
+  ]);
+  expect(buttons(stopped).map((b) => b.textContent)).toEqual([
+    "Set it up again",
+  ]);
+  expect(stopped.querySelector("[aria-live='polite']")?.textContent).toBe(
+    "Couldn't reach Manent. Start the server, then set it up again.",
+  );
+  expect(setUps).toEqual([]);
+});
+
+test("a scenario shows its promise, one primary Set it up, numbered steps and its check", async () => {
+  const setUps: string[] = [];
+  const container = await render(
+    <TourScenarioRow
+      scenario={SCENARIO}
+      setUp={(scenario) => setUps.push(scenario.id)}
+    />,
+  );
+  expect(paragraphs(container)).toEqual([
+    "Write a first page and watch it reach the server.",
+  ]);
+  const [setUp, ...others] = buttons(container);
+  expect(others).toEqual([]);
+  expect(setUp?.textContent).toBe("Set it up");
+  expect(setUp?.className.split(" ").includes("bg-primary")).toBe(true);
+  expect(
+    [...container.querySelectorAll("ol > li")].map((li) => li.textContent),
+  ).toEqual(["Open the commands.", "Choose New script."]);
+  expect(container.querySelector("dl")?.textContent).toBe(
+    "What to checkSaved · Synced",
+  );
+  await act(async () => setUp?.click());
+  expect(setUps).toEqual(["a-first-page"]);
+});
+
+test("a step marks its control with the Tour ring, which is not focus", async () => {
+  const control = document.createElement("button");
+  control.setAttribute("data-tour", "app.palette");
+  const field = document.createElement("input");
+  document.body.append(control, field);
+  field.focus();
+  await render(<TourScenarioRow scenario={SCENARIO} setUp={() => {}} />);
+  expect(control.getAttribute("data-tour-ring")).toBe("");
+  expect(document.activeElement).toBe(field);
+  act(() => mounted?.unmount());
+  mounted = null;
+  expect(control.hasAttribute("data-tour-ring")).toBe(false);
+});
+
+test("the demo bar is its own colour scope and says Demo", async () => {
+  const container = await render(
+    <DemoBar
+      personLabel="Person: Dana Reyes"
+      onPersonClick={() => {}}
+      control={null}
+    />,
+  );
+  const bar = container.querySelector("section");
+  expect(bar?.getAttribute("data-surface")).toBe("demo");
+  expect(bar?.getAttribute("aria-label")).toBe("Demo");
+  const word = bar?.firstElementChild;
+  expect(word?.textContent).toBe("Demo");
+  // set in capitals by the stylesheet, not in the words
+  expect(word?.className.split(" ").includes("uppercase")).toBe(true);
+  // 32 px whether or not its controls have arrived, so nothing moves when they do
+  expect(bar?.className.split(" ").includes("h-demobar")).toBe(true);
+  await demoBarControls();
+  expect(buttons(container).map((b) => b.textContent)).toEqual([
+    "Person: Dana Reyes",
+  ]);
+});
+
+test("the demo bar offers the Tour once the tab has a person", async () => {
+  const demo = { demo: true as const, seedId: "seed-1", control: null };
+  const api: Api = fakeApi({ demo: async () => demo });
+  const usePerson = createPersonStore(null);
+  const client = new QueryClient();
+  client.setQueryData(["demo"], demo);
+  const container = await render(
+    <RootLayout api={api} fetch={fetch} usePerson={usePerson} />,
+    { client },
+  );
+  const bar = (): Element | null =>
+    container.querySelector("[data-surface='demo']");
+  await demoBarControls();
+  expect(buttons(bar() ?? container).map((b) => b.textContent)).toEqual([
+    "Person",
+  ]);
+  // the shell loads its palette lazily: loaded here first, it arrives inside the act below
+  await import("../src/shell/shell-palette.tsx");
+  await act(async () =>
+    usePerson
+      .getState()
+      .setPerson({ token: null, userId: "dana", name: "Dana Reyes" }),
+  );
+  expect(buttons(bar() ?? container).map((b) => b.textContent)).toEqual([
+    "Person: Dana Reyes",
+    "Tour",
+  ]);
+});
+
+const CHOICES: readonly SignInChoice[] = [
+  {
+    userId: "dana",
+    name: "Dana Reyes",
+    title: "Head writer",
+    registered: true,
+  },
+  {
+    userId: "leo",
+    name: "Leo Marsh",
+    title: "Executive, reader and commenter",
+    registered: true,
+  },
+];
+
+function chooser(options: { api: Api; chosen: string | null }): ReactNode {
+  const person =
+    CHOICES.map((c) => ({ token: null, userId: c.userId, name: c.name })).find(
+      (p) => p.userId === options.chosen,
+    ) ?? null;
+  return (
+    <ChooseScreen
+      api={options.api}
+      person={person}
+      setPerson={() => {}}
+      next="/"
+    />
+  );
+}
+
+test("the chosen person carries the word Chosen as well as aria-current", async () => {
+  const container = await render(
+    chooser({ api: fakeApi({ choices: async () => CHOICES }), chosen: "leo" }),
+  );
+  await settle();
+  const [dana, leo] = buttons(container);
+  expect(dana?.textContent).toBe("Dana ReyesHead writer");
+  expect(dana?.hasAttribute("aria-current")).toBe(false);
+  expect(leo?.textContent).toBe(
+    "Leo MarshExecutive, reader and commenterChosen",
+  );
+  expect(leo?.getAttribute("aria-current")).toBe("true");
+});
+
+test("while the people load the chooser shows nothing, then six placeholder rows, and never words", async () => {
+  const { promise: pending, resolve: answer } =
+    Promise.withResolvers<readonly SignInChoice[]>();
+  const clock = createClock();
+  const container = await render(
+    chooser({ api: fakeApi({ choices: () => pending }), chosen: null }),
+    { clock },
+  );
+  const placeholders = (): Element[] => [
+    ...container.querySelectorAll("[data-placeholder]"),
+  ];
+  const heading =
+    "Choose who you arePick anyone. You can switch at any time, and each browser tab can be a different person.";
+  act(() => clock.advance(149));
+  expect(placeholders()).toEqual([]);
+  expect(container.textContent).toBe(heading);
+  act(() => clock.advance(1));
+  expect(placeholders().map((p) => p.getAttribute("aria-hidden"))).toEqual([
+    "true",
+    "true",
+    "true",
+    "true",
+    "true",
+    "true",
+  ]);
+  expect(container.textContent).toBe(heading);
+  await act(async () => {
+    answer(CHOICES);
+    await pending;
+  });
+  await settle();
+  // a placeholder, once shown, stays its least time
+  act(() => clock.advance(300));
+  expect(placeholders()).toEqual([]);
+  expect(buttons(container).map((b) => b.textContent)).toEqual([
+    "Dana ReyesHead writer",
+    "Leo MarshExecutive, reader and commenter",
+  ]);
+});

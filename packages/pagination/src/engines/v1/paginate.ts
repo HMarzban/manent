@@ -4,10 +4,11 @@ import { NO_LOCKS } from "../../lock-table.ts";
 import type { LockTable } from "../../lock-table.ts";
 import type { PageProfile } from "../../page-profile.ts";
 import type { Pagination } from "../../pages.ts";
-import { fillPage, firstStart, measureAt, pageLabels } from "./fill.ts";
+import { fillPage, firstStart, measureAt } from "./fill.ts";
 import type { FilledPage } from "./fill.ts";
 import { createFlow } from "./keep.ts";
 import { forcedOffsets, lockedLines, planLocks } from "./locks.ts";
+import { pageLabels } from "./page-labels.ts";
 
 /** The pages of `blocks`, each block measured once; the result keeps what it measured in `metrics`. */
 export function paginate(

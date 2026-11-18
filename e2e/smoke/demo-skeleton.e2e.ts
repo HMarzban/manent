@@ -1,9 +1,14 @@
 import { DEMO_PEOPLE, TOUR_GROUPS } from "@manent/demo";
 import type { DemoResponse } from "@manent/sync-protocol";
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { signedInAs } from "../support/tour.ts";
 
 const leo = () => /^Leo Marsh/;
+const tourTab = (page: Page) =>
+  page
+    .locator("[data-region='side_panel']")
+    .getByRole("tabpanel", { name: "Tour" });
 const storedPerson = (person: object) =>
   `sessionStorage.setItem("manent.demo.session", ${JSON.stringify(JSON.stringify(person))})`;
 
@@ -27,10 +32,8 @@ test("a tester chooses a person and reaches the Library", async ({
   await expect(page.getByRole("region", { name: "Demo" })).toContainText(
     "Demo",
   );
-  // no Tour until the tab has a person
-  await expect(page.getByRole("complementary", { name: "Tour" })).toHaveCount(
-    0,
-  );
+  // no Tour on the chooser
+  await expect(tourTab(page)).toHaveCount(0);
   // the whole accessible name, spaces included
   for (const p of DEMO_PEOPLE)
     await expect(
@@ -51,13 +54,15 @@ test("a tester chooses a person and reaches the Library", async ({
     "No scripts yet",
   );
   await expect(page.getByRole("status")).toHaveText("Server running");
-  const tour = page.getByRole("complementary", { name: "Tour" });
+  // open on the first visit to the Library
+  const tour = tourTab(page);
   // "History" among them
   for (const group of TOUR_GROUPS)
     await expect(
       tour.getByRole("heading", { name: group, exact: true }),
     ).toBeVisible();
-  await expect(tour.getByText("Not in this build yet")).toHaveCount(8);
+  // a group with no scenario is its heading alone
+  await expect(tour.getByText("Not in this build yet")).toHaveCount(0);
 });
 
 test("the chooser shows placeholder rows while the people load, and never a loading sentence", async ({
@@ -309,9 +314,7 @@ test("outside demo mode there is no demo bar and no Tour", async ({ page }) => {
   await signedInAs(page, "leo");
   await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Demo" })).toHaveCount(0);
-  await expect(page.getByRole("complementary", { name: "Tour" })).toHaveCount(
-    0,
-  );
+  await expect(tourTab(page)).toHaveCount(0);
 });
 
 test("a deep link loads its assets through absolute paths", async ({

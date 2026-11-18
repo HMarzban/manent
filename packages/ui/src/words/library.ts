@@ -50,10 +50,12 @@ export const LIBRARY_WORDS = {
     `${formatCount(n)} of ${formatCount(m)} projects are on this device`,
   seeding: (done: number, total: number): string =>
     `getting ready, ${formatCount(done)} of ${formatCount(total)} projects`,
-  workspaceLine: (count: number, lastTitle: string): string =>
-    count === 1
-      ? `1 project · ${lastTitle}`
-      : `${formatCount(count)} projects · ${lastTitle}`,
+  /** A workspace's second line in the switcher; `lastTitle` is null while its Continue is empty. */
+  workspaceLine: (count: number, lastTitle: string | null): string => {
+    const projects =
+      count === 1 ? "1 project" : `${formatCount(count)} projects`;
+    return lastTitle === null ? projects : `${projects} · ${lastTitle}`;
+  },
   /** The workspace of a person with no session. */
   yourDesk: "Your desk",
   newScript: "New script",
