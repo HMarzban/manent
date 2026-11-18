@@ -1,5 +1,14 @@
-// The one constructor of a Yjs document, with garbage collection always on.
+// The one constructor of a Yjs document, with garbage collection always on, and its updates.
 import * as Y from "yjs";
+import { withWholeUpdate } from "./updates.ts";
+import type { StateVector, Update } from "./updates.ts";
+
+export type Unsubscribe = () => void;
+
+/** The origin `applyUpdate` gives a transaction when the caller names none. */
+export const ORIGIN_REMOTE = "remote";
+/** The origin of the transaction that loads a document. */
+export const ORIGIN_LOAD = "load";
 
 export interface DocOptions {
   clientId?: number;
@@ -13,6 +22,17 @@ export interface DocOptions {
 export interface CrdtDoc {
   readonly clientId: number;
   destroy(): void;
+  /** All or nothing: bytes that are not a whole update throw CrdtUpdateError and change nothing. */
+  applyUpdate(update: Update, origin?: unknown): void;
+  /** The whole document as one update. */
+  encodeState(): Update;
+  encodeStateVector(): StateVector;
+  /** What a peer holding `since` is missing. */
+  diff(since: StateVector): Update;
+  /** Called once per transaction that changed the document. */
+  subscribe(listener: (update: Update, origin: unknown) => void): Unsubscribe;
+  /** True while an applied update waits for one it depends on. */
+  hasPendingStructs(): boolean;
 }
 
 class YjsDoc implements CrdtDoc {
@@ -29,6 +49,36 @@ class YjsDoc implements CrdtDoc {
   destroy(): void {
     this.ydoc.destroy();
   }
+
+  applyUpdate(update: Update, origin: unknown = ORIGIN_REMOTE): void {
+    withWholeUpdate(update, () => Y.applyUpdate(this.ydoc, update, origin));
+  }
+
+  encodeState(): Update {
+    return Y.encodeStateAsUpdate(this.ydoc);
+  }
+
+  encodeStateVector(): StateVector {
+    return Y.encodeStateVector(this.ydoc);
+  }
+
+  diff(since: StateVector): Update {
+    return Y.encodeStateAsUpdate(this.ydoc, since);
+  }
+
+  subscribe(listener: (update: Update, origin: unknown) => void): Unsubscribe {
+    // Yjs also passes its document and transaction: a listener never sees them
+    const onUpdate = (update: Update, origin: unknown) =>
+      listener(update, origin);
+    this.ydoc.on("update", onUpdate);
+    return () => this.ydoc.off("update", onUpdate);
+  }
+
+  hasPendingStructs(): boolean {
+    // an update that only deletes waits in pendingDs alone
+    const { store } = this.ydoc;
+    return store.pendingStructs !== null || store.pendingDs !== null;
+  }
 }
 
 /** An empty document. Garbage collection is on, and no option turns it off. */
@@ -36,6 +86,13 @@ export function createDoc(options?: DocOptions): CrdtDoc {
   const ydoc = new Y.Doc({ gc: true });
   if (options?.clientId !== undefined) ydoc.clientID = options.clientId;
   return new YjsDoc(ydoc);
+}
+
+/** A document holding `state`, loaded in one transaction whose origin is ORIGIN_LOAD. Throws CrdtUpdateError. */
+export function loadDoc(state: Update, options?: DocOptions): CrdtDoc {
+  const doc = createDoc(options);
+  doc.applyUpdate(state, ORIGIN_LOAD);
+  return doc;
 }
 
 /** The Yjs document behind `doc`. Throws a TypeError for a CrdtDoc this package did not create. */

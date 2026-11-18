@@ -8,8 +8,13 @@ import type {
   MarkJSON,
   TextJSON,
 } from "@manent/schema";
-import { scriptBody } from "../src/index.ts";
-import type { CrdtDoc } from "../src/index.ts";
+import {
+  createDoc,
+  loadDoc,
+  scriptBody,
+  scriptDocFromJSON,
+} from "../src/index.ts";
+import type { BlockWriter, CrdtDoc, Update } from "../src/index.ts";
 
 interface Run {
   text: string;
@@ -18,6 +23,8 @@ interface Run {
 
 /** The block of every one-block document below. */
 export const ID = "i".repeat(16);
+export const ID_A = "p".repeat(16);
+export const ID_B = "q".repeat(16);
 
 /** One section of one block; a string is one plain run. */
 export function docWith(
@@ -169,4 +176,38 @@ export function runs(doc: CrdtDoc, id: string): [string, string[]][] {
     run.text,
     (run.marks ?? []).map((mark) => mark.type),
   ]);
+}
+
+/** Runs one write and returns the update it produced. */
+export function capture(
+  doc: CrdtDoc,
+  fn: (writer: BlockWriter) => void,
+): Update {
+  const updates: Update[] = [];
+  const stop = doc.subscribe((update) => updates.push(update));
+  scriptBody(doc).write(fn);
+  stop();
+  const [update] = updates;
+  if (updates.length !== 1 || update === undefined)
+    throw new RangeError(`the write gave ${updates.length} updates, not 1`);
+  return update;
+}
+
+/** Clients 1 and 2, both loaded from one base written by client 9. */
+export function twoReplicasOf(json: DocJSON): [CrdtDoc, CrdtDoc] {
+  const base = scriptDocFromJSON(json, { clientId: 9 }).encodeState();
+  return [loadDoc(base, { clientId: 1 }), loadDoc(base, { clientId: 2 })];
+}
+
+/** Two writes on an empty source, the second building on the first. */
+export function twoDependentUpdates(): {
+  source: CrdtDoc;
+  updates: [Update, Update];
+} {
+  const source = createDoc({ clientId: 3 });
+  const first = capture(source, (w) =>
+    w.insertBlocks(null, [block(ID_A, "first")]),
+  );
+  const second = capture(source, (w) => w.insertText(ID_A, 5, " line"));
+  return { source, updates: [first, second] };
 }
