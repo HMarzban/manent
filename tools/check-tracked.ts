@@ -8,6 +8,10 @@ export const TRACKED_ROOTS = [
   "types/",
   "spikes/",
   ".github/",
+  "docs/architecture/",
+  "docs/benchmark/",
+  "docs/decisions/",
+  "docs/memory/",
 ] as const;
 
 export const TRACKED_FILES = [
@@ -23,6 +27,8 @@ export const TRACKED_FILES = [
   "Makefile",
   "README.md",
   "LICENSE",
+  "CHANGELOG.md",
+  "AGENTS.md",
 ] as const;
 
 const files: ReadonlySet<string> = new Set(TRACKED_FILES);

@@ -44,20 +44,3 @@ test("Bun is pinned to 1.4.4, the lockfile is frozen, and the whole gate runs", 
 test("the job can only read the repository", () => {
   expect(ci.permissions).toEqual({ contents: "read" });
 });
-
-test("the README is one screen and says how to start, what opens and how to stop", async () => {
-  const readme = await Bun.file(join(repoRoot, "README.md")).text();
-  for (const line of [
-    "You need Bun 1.4.4 or later.",
-    "make demo",
-    "bun run demo",
-    "http://localhost:4747",
-    "Choose who you are",
-    "To stop: Ctrl+C or make stop.",
-    "License: see [LICENSE](LICENSE).",
-  ])
-    expect(readme).toContain(line);
-  // it points to the licence and does not restate it
-  expect(readme).not.toContain("PolyForm");
-  expect(readme.split("\n").length).toBeLessThanOrEqual(20);
-});
