@@ -1,4 +1,5 @@
 // What the public documents must look like. Read by tools/check-records.ts.
+import { UCD_DIR, UCD_SHA256 } from "./unicode/generate-tables.ts";
 
 export const CHANGELOG = "CHANGELOG.md";
 export const AGENTS = "AGENTS.md";
@@ -124,8 +125,15 @@ export const CODE_SPAN = new RegExp("`([^`]+)`", "g");
 export const LOCAL_TERMS_FILE = "info/records-private-terms";
 /** How a violation names that list. */
 export const LOCAL_TERMS_NAME = ".git/info/records-private-terms";
-/** Tracked files whose words are not scanned: the licence names its holder, the lockfile is generated. */
-export const UNSCANNED: readonly string[] = [LICENSE_FILE, "bun.lock"];
+/**
+ * Tracked files whose words are not scanned: the licence names its holder, the lockfile is
+ * generated, and the Unicode data is vendored unmodified and pinned by its SHA-256.
+ */
+export const UNSCANNED: readonly string[] = [
+  LICENSE_FILE,
+  "bun.lock",
+  ...Object.keys(UCD_SHA256).map((name) => `${UCD_DIR}/${name}`),
+];
 /** A larger tracked file is not read as text. */
 export const SCAN_LIMIT_BYTES = 1024 * 1024;
 export const LOCAL_EXCLUDE_FILE = "info/exclude";
