@@ -1,9 +1,24 @@
 // Plain ProseMirror documents and states for the editor's tests.
-import { schema } from "@manent/schema";
+import { profileFor } from "@manent/pagination";
+import type { PageProfile } from "@manent/pagination";
+import { corpusDoc, generateBlocks } from "@manent/pagination/testing";
+import { parseDoc, schema } from "@manent/schema";
 import type { IdSource } from "@manent/schema";
+import fc from "fast-check";
+import { Fragment } from "prosemirror-model";
 import type { Node } from "prosemirror-model";
 import { EditorState, TextSelection } from "prosemirror-state";
-import type { Command } from "prosemirror-state";
+import type { Command, Transaction } from "prosemirror-state";
+import {
+  blockPos,
+  deleteRangeKeepingSections,
+  paginationKey,
+  paginationPlugin,
+  pasteSlice,
+  sectionBackspace,
+  sectionEnter,
+  setPagination,
+} from "../src/index.ts";
 
 const padded = (prefix: string, n: number): string =>
   prefix + String(n).padStart(15, "0");
@@ -82,9 +97,9 @@ export function texts(doc: Node): string[][] {
 }
 
 /** The state after the command; throws when the command does not apply. */
-export function run(state: EditorState, command: Command): EditorState {
-  let next = state;
-  const applied = command(state, (tr) => {
+export function run(start: EditorState, command: Command): EditorState {
+  let next = start;
+  const applied = command(start, (tr) => {
     next = next.apply(tr);
   });
   if (!applied) throw new Error("the command does not apply here");
@@ -96,3 +111,212 @@ export function counter(prefix: string): IdSource {
   let count = 0;
   return () => padded(prefix, ++count);
 }
+
+export const sp: PageProfile = profileFor("screenplay")!;
+
+/** A state of `doc` with the pagination plugin alone, whose deferred work runs at once. */
+export function state(doc: Node, profile: PageProfile = sp): EditorState {
+  return EditorState.create({
+    doc,
+    plugins: [
+      paginationPlugin({
+        profile,
+        defer: (work) => work(),
+        offFontNote: "note",
+      }),
+    ],
+  });
+}
+
+/** The first `count` blocks of the seeded screenplay, in sections of 100. */
+export function script(count = 1500): Node {
+  return parseDoc(corpusDoc(generateBlocks("screenplay", count, 1)));
+}
+
+/** The document with block `block` (in document order) replaced by `make` of it; every other node is the same object. */
+function withBlock(doc: Node, block: number, make: (node: Node) => Node): Node {
+  let seen = 0;
+  const sections: Node[] = [];
+  doc.forEach((section) => {
+    const at = block - seen;
+    seen += section.childCount;
+    sections.push(
+      at >= 0 && at < section.childCount
+        ? section.copy(
+            section.content.replaceChild(at, make(section.child(at))),
+          )
+        : section,
+    );
+  });
+  return doc.copy(Fragment.from(sections));
+}
+
+/** One step over the whole document that gives block `block` the text `text` and reuses every other node, as a remote change does. */
+export function replaceWholeDoc(
+  s: EditorState,
+  block: number,
+  text: string,
+): Transaction {
+  const next = withBlock(s.doc, block, (node) =>
+    node.type.create(node.attrs, schema.text(text), node.marks),
+  );
+  return s.tr.replaceWith(0, s.doc.content.size, next.content);
+}
+
+/** The document with one attribute of block `block` set to `value`, which may be one validation refuses. */
+export function docWithAttr(
+  doc: Node,
+  block: number,
+  attr: string,
+  value: unknown,
+): Node {
+  return withBlock(doc, block, (node) =>
+    node.type.create(
+      { ...node.attrs, [attr]: value },
+      node.content,
+      node.marks,
+    ),
+  );
+}
+
+/** Where a step acts: a block and an offset into its text, each taken modulo what the document holds. */
+interface At {
+  readonly block: number;
+  readonly offset: number;
+}
+
+type Step =
+  | { readonly kind: "type"; readonly at: At; readonly text: string }
+  | { readonly kind: "delete"; readonly at: At; readonly length: number }
+  | {
+      readonly kind: "attr";
+      readonly at: At;
+      readonly name: string;
+      readonly value: string | number | null;
+    }
+  | { readonly kind: "enter"; readonly at: At }
+  | { readonly kind: "backspace"; readonly at: At }
+  | { readonly kind: "paste"; readonly at: At; readonly blocks: number }
+  | { readonly kind: "replace"; readonly at: At; readonly text: string }
+  | { readonly kind: "compose"; readonly at: At; readonly text: string };
+
+const arbAt = fc.record({ block: fc.nat(), offset: fc.nat() });
+const arbWords = fc
+  .array(fc.constantFrom("rain", "a", "door", "MARA", "slowly", " ", "."), {
+    minLength: 1,
+    maxLength: 30,
+  })
+  .map((words) => words.join(" "));
+const arbAttr = fc.oneof(
+  fc.record({
+    name: fc.constantFrom("width", "indent", "spaceBefore"),
+    value: fc.oneof(fc.constant(null), fc.integer({ min: 0, max: 80 })),
+  }),
+  fc.record({
+    name: fc.constant("type"),
+    value: fc.constantFrom(
+      "action",
+      "character",
+      "dialogue",
+      "parenthetical",
+      "scene_heading",
+      "transition",
+      "page_break",
+      "general",
+    ),
+  }),
+  fc.record({
+    name: fc.constant("dual"),
+    value: fc.constantFrom(null, "left", "right"),
+  }),
+);
+const arbStep: fc.Arbitrary<Step> = fc.oneof(
+  fc.record({ kind: fc.constant("type"), at: arbAt, text: arbWords }),
+  fc.record({
+    kind: fc.constant("delete"),
+    at: arbAt,
+    length: fc.integer({ min: 1, max: 400 }),
+  }),
+  fc
+    .tuple(arbAt, arbAttr)
+    .map(([at, attr]) => ({ kind: "attr" as const, at, ...attr })),
+  fc.record({ kind: fc.constant("enter"), at: arbAt }),
+  fc.record({ kind: fc.constant("backspace"), at: arbAt }),
+  fc.record({
+    kind: fc.constant("paste"),
+    at: arbAt,
+    blocks: fc.integer({ min: 1, max: 120 }),
+  }),
+  fc.record({ kind: fc.constant("replace"), at: arbAt, text: arbWords }),
+  fc.record({ kind: fc.constant("compose"), at: arbAt, text: arbWords }),
+);
+
+/** The block a step names, and the position `at.offset` points to inside it. */
+function placeOf(s: EditorState, at: At): { block: number; pos: number } {
+  const index = paginationKey.getState(s)!.index;
+  const block = at.block % index.blocks.length;
+  const start = blockPos(index, block) + 1;
+  return {
+    block,
+    pos: start + (at.offset % (index.blocks[block]!.text.length + 1)),
+  };
+}
+
+function caretAt(s: EditorState, pos: number): EditorState {
+  return s.apply(s.tr.setSelection(TextSelection.create(s.doc, pos)));
+}
+
+const pastedBlocks = (count: number): Node =>
+  docOf([Array.from({ length: count }, (_, i) => `pasted line ${i}`)]);
+
+function applyStep(s: EditorState, step: Step): EditorState {
+  const { block, pos } = placeOf(s, step.at);
+  switch (step.kind) {
+    case "type":
+      return s.apply(s.tr.insertText(step.text, pos));
+    case "delete": {
+      const to = Math.min(pos + step.length, s.doc.content.size);
+      return s.apply(deleteRangeKeepingSections(s.tr, pos, to));
+    }
+    case "attr":
+      return s.apply(
+        s.tr.setNodeAttribute(
+          blockPos(paginationKey.getState(s)!.index, block),
+          step.name,
+          step.value,
+        ),
+      );
+    case "enter":
+      return run(caretAt(s, pos), sectionEnter({ ids: counter("e") }));
+    case "backspace": {
+      const start = blockPos(paginationKey.getState(s)!.index, block) + 1;
+      return run(caretAt(s, start), sectionBackspace());
+    }
+    case "paste": {
+      const pasted = pastedBlocks(step.blocks);
+      const at = caretAt(s, pos);
+      return at.apply(
+        pasteSlice(at, pasted.slice(0, pasted.content.size), counter("p")),
+      );
+    }
+    case "replace":
+      return s.apply(
+        replaceWholeDoc(s, block, step.text).setMeta("remote", true),
+      );
+    case "compose": {
+      const typing = s.apply(
+        s.tr.insertText(step.text, pos).setMeta("composition", 1),
+      );
+      return typing.apply(setPagination(typing.tr, { repaginate: true }));
+    }
+  }
+}
+
+/** Up to six edits of any kind, applied in order; shown as the steps they take. */
+export const arbTransactions: fc.Arbitrary<(s: EditorState) => EditorState> = fc
+  .array(arbStep, { minLength: 1, maxLength: 6 })
+  .map((steps) =>
+    Object.assign((s: EditorState) => steps.reduce(applyStep, s), {
+      toString: () => JSON.stringify(steps),
+    }),
+  );
