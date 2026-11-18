@@ -62,16 +62,29 @@ function useShownWorkspace(
   // a person with no session has no workspaces to ask the server about
   const me = useQuery({
     queryKey: ["me", person.userId],
-    queryFn: api.me,
+    queryFn: listWorkspaces(api),
     enabled: signedIn,
-  }).data;
-  const known = signedIn && me?.ok === true ? me.me.workspaces : null;
-  const answered = !signedIn || me !== undefined;
+  });
+  const known = signedIn ? (me.data ?? null) : null;
+  const answered = !signedIn || me.data !== undefined || me.isError;
   const fallback = answered ? (known?.[0]?.id ?? person.userId) : null;
   return {
     workspaceId: typeof w === "string" ? w : fallback,
     workspaces: known,
-    serverProblem: signedIn && me?.ok === false,
+    serverProblem: signedIn && me.isError,
+  };
+}
+
+/** The person's workspaces; a server that cannot list them throws, so the query keeps the last list it heard. */
+function listWorkspaces(api: Api): () => Promise<readonly WorkspaceRef[]> {
+  return async () => {
+    const answer = await api.me();
+    if (!answer.ok) {
+      throw new Error(
+        `the server did not list the workspaces: ${answer.reason}`,
+      );
+    }
+    return answer.me.workspaces;
   };
 }
 

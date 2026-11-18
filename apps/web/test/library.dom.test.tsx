@@ -19,7 +19,7 @@ import type { AnyRouter } from "@tanstack/react-router";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
-import type { Api } from "../src/api.ts";
+import type { Api, MeResult } from "../src/api.ts";
 import type { Navigation } from "../src/handlers/index.ts";
 import { LibraryScreen } from "../src/screens/library/library-screen.tsx";
 import {
@@ -146,6 +146,10 @@ function seededIndex(seed: {
   };
 }
 
+/** A query client set as the app's: a failed query is not retried. */
+const appClient = (): QueryClient =>
+  new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
 let mounted: Root | null = null;
 afterEach(() => {
   act(() => mounted?.unmount());
@@ -164,6 +168,7 @@ async function renderLibrary(options: {
   path?: string;
   demo?: boolean;
   storage?: MemoryStorage;
+  client?: QueryClient;
 }): Promise<{ router: AnyRouter }> {
   const { person } = options;
   const api = options.api ?? fakeApi();
@@ -233,7 +238,7 @@ async function renderLibrary(options: {
   const container = document.createElement("div");
   document.body.replaceChildren(container);
   mounted = createRoot(container);
-  const client = new QueryClient();
+  const client = options.client ?? appClient();
   await act(async () =>
     mounted?.render(
       <QueryClientProvider client={client}>
@@ -495,6 +500,38 @@ test("a list that cannot be loaded says so and shows what is on this device", as
     act(() => mounted?.unmount());
     mounted = null;
   }
+});
+
+test("when the server cannot be reached, the Library keeps the workspaces it last heard of and says so", async () => {
+  const answers: MeResult[] = [
+    {
+      ok: true,
+      me: { userId: "dana", name: "Dana Reyes", workspaces: [ROOM] },
+    },
+    { ok: false, reason: "unreachable" },
+  ];
+  const api = fakeApi({
+    me: async () => answers.shift() ?? { ok: false, reason: "unreachable" },
+  });
+  const client = appClient();
+  const library = seededIndex({ projects: { medium: [LONG_NIGHT] } });
+  await renderLibrary({ person: DANA, library, api, client });
+  act(() => mounted?.unmount());
+  await renderLibrary({ person: DANA, library, api, client });
+  const problem = [...document.querySelectorAll("p")].find(
+    (p) => p.textContent === LIBRARY_PROBLEM,
+  );
+  expect([
+    answers.length,
+    problem?.textContent,
+    switcherButton().textContent,
+    rowsOf(region("Projects")).map(rowWords),
+  ]).toEqual([
+    0,
+    LIBRARY_PROBLEM,
+    "Writers' room▾",
+    [["The Long Night", "Film", "Priya, 14 min ago", "Synced"]],
+  ]);
 });
 
 /** The side panel's tab, as the Library leaves it. */
