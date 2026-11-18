@@ -1,1 +1,320 @@
-export {};
+// The command palette: the way to every command, setting and place, and the menu when it is empty.
+import { Autocomplete } from "@base-ui/react/autocomplete";
+import { COMMANDS, menuModel } from "@manent/commands";
+import type { CommandService } from "@manent/commands";
+import { markEnd, markStart, mark } from "@manent/perf";
+import { MENU_IDS } from "@manent/settings";
+import type { MenuId } from "@manent/settings";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useLayoutEffect, useRef, useState } from "react";
+import type { ReactNode, RefObject } from "react";
+import { useCommands } from "../commands-react/commands-context.tsx";
+import { Kbd } from "../components/stock/kbd.tsx";
+import { MENU_WORDS, READOUT_WORDS } from "../words/document.ts";
+import { matchedRuns, rankRows } from "./palette-rank.ts";
+import type { PaletteRow, PaletteSource } from "./palette-sources.ts";
+
+const RECENT_LIMIT = 5;
+const VIRTUAL_ABOVE = 100;
+// the row token at Interface size 100 %, until a row is measured
+const ROW_PX = 28;
+
+const sizeOf = (element: Element): number =>
+  element.getBoundingClientRect().height || ROW_PX;
+
+type Entry =
+  | { type: "menu"; menu: MenuId; label: string }
+  | { type: "row"; row: PaletteRow };
+
+interface PaletteProps {
+  open: boolean;
+  filter: "all" | "places";
+  sources: readonly PaletteSource[];
+  onRun(row: PaletteRow): void;
+  onClose(): void;
+  /** Ids of the commands run last, most recent first. */
+  recent: readonly string[];
+}
+
+const keyOf = (entry: Entry): string =>
+  entry.type === "menu" ? `menu:${entry.menu}` : entry.row.id;
+
+const textOf = (entry: Entry): string =>
+  entry.type === "menu" ? entry.label : entry.row.label;
+
+// the title and person menus are named by the document's title and the person's initials, so the palette has no word for them
+const MENU_LABELS: Readonly<Record<MenuId, string | null>> = {
+  app: MENU_WORDS.app,
+  file: MENU_WORDS.file,
+  edit: MENU_WORDS.edit,
+  view: MENU_WORDS.view,
+  format: MENU_WORDS.format,
+  script: MENU_WORDS.script,
+  production: MENU_WORDS.production,
+  window: MENU_WORDS.window,
+  help: MENU_WORDS.help,
+  title: null,
+  person: null,
+};
+
+/** The menus that hold a command available now, each under its menu word. */
+function menuEntries(service: CommandService): Entry[] {
+  return MENU_IDS.flatMap((menu): Entry[] => {
+    const label = MENU_LABELS[menu];
+    const held = menuModel(menu, COMMANDS, service).groups.some((group) =>
+      group.some((item) => item.enabled),
+    );
+    return label !== null && held ? [{ type: "menu", menu, label }] : [];
+  });
+}
+
+/** `rows` in the order shown before for the same query, with rows that arrived since drawn below them. */
+function keepShownOrder(
+  shown: { query: string; ids: readonly string[] },
+  query: string,
+  rows: readonly PaletteRow[],
+): readonly PaletteRow[] {
+  if (shown.query !== query) return rows;
+  const place = new Map(shown.ids.map((id, index) => [id, index]));
+  const before = rows
+    .filter((row) => place.has(row.id))
+    .toSorted((a, b) => (place.get(a.id) ?? 0) - (place.get(b.id) ?? 0));
+  return [...before, ...rows.filter((row) => !place.has(row.id))];
+}
+
+function RowContent(props: { row: PaletteRow; query: string }): ReactNode {
+  const { row, query } = props;
+  const label =
+    row.enabled || row.whyNot === null
+      ? row.label
+      : READOUT_WORDS.unavailable(row.label, row.whyNot);
+  return (
+    <>
+      <span className="min-w-0 flex-1 truncate">
+        {matchedRuns(query, label).map((run, index) =>
+          run.matched ? (
+            <span key={index} className="font-semibold">
+              {run.text}
+            </span>
+          ) : (
+            run.text
+          ),
+        )}
+        {row.value === null ? null : `: ${row.value}`}
+        {row.scopeWord === null ? null : ` · ${row.scopeWord}`}
+      </span>
+      {row.home === null ? null : (
+        <span className="text-meta text-fg-muted">{row.home}</span>
+      )}
+      {row.keys === null ? null : <Kbd>{row.keys}</Kbd>}
+    </>
+  );
+}
+
+function EntryItem(props: {
+  entry: Entry;
+  query: string;
+  index: number;
+  activate(entry: Entry): void;
+}): ReactNode {
+  const { entry, query, index, activate } = props;
+  return (
+    <Autocomplete.Item
+      value={entry}
+      index={index}
+      disabled={entry.type === "row" && !entry.row.enabled}
+      onClick={() => activate(entry)}
+      className="mn-row flex min-h-row items-center gap-2 px-2 text-ui"
+    >
+      {entry.type === "menu" ? (
+        entry.label
+      ) : (
+        <RowContent row={entry.row} query={query} />
+      )}
+    </Autocomplete.Item>
+  );
+}
+
+function VirtualEntries(props: {
+  entries: readonly Entry[];
+  query: string;
+  activate(entry: Entry): void;
+  /** The list that scrolls; the window is drawn for its height and offset. */
+  scroller: RefObject<HTMLDivElement | null>;
+}): ReactNode {
+  const { entries, query, activate, scroller } = props;
+  const virtual = useVirtualizer({
+    count: entries.length,
+    getScrollElement: () => scroller.current,
+    estimateSize: () => ROW_PX,
+    measureElement: sizeOf,
+  });
+  return (
+    <div className="relative" style={{ height: virtual.getTotalSize() }}>
+      {virtual.getVirtualItems().map((item) => {
+        const entry = entries[item.index];
+        return entry === undefined ? null : (
+          <div
+            key={keyOf(entry)}
+            ref={virtual.measureElement}
+            data-index={item.index}
+            className="absolute inset-x-0"
+            style={{ transform: `translateY(${item.start}px)` }}
+          >
+            <EntryItem
+              entry={entry}
+              query={query}
+              index={item.index}
+              activate={activate}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** The one scrolling list of entries: plain rows up to 100, a window of rows above. */
+function EntryList(props: {
+  entries: readonly Entry[];
+  query: string;
+  activate(entry: Entry): void;
+}): ReactNode {
+  const { entries, query, activate } = props;
+  const scroller = useRef<HTMLDivElement>(null);
+  return (
+    <Autocomplete.List ref={scroller} className="overflow-auto">
+      {entries.length > VIRTUAL_ABOVE ? (
+        <VirtualEntries
+          entries={entries}
+          query={query}
+          activate={activate}
+          scroller={scroller}
+        />
+      ) : (
+        entries.map((entry, index) => (
+          <EntryItem
+            key={keyOf(entry)}
+            entry={entry}
+            query={query}
+            index={index}
+            activate={activate}
+          />
+        ))
+      )}
+    </Autocomplete.List>
+  );
+}
+
+/** What the palette lists: a menu's commands, the menus and recent commands while empty, or the rows for a query. */
+function usePaletteEntries(options: {
+  filter: PaletteProps["filter"];
+  sources: readonly PaletteSource[];
+  recent: readonly string[];
+  query: string;
+  menu: MenuId | null;
+}): readonly Entry[] {
+  const { filter, sources, recent, query, menu } = options;
+  const { service } = useCommands();
+  const shown = useRef<{ query: string; ids: readonly string[] }>({
+    query: "",
+    ids: [],
+  });
+  const active =
+    filter === "places" ? sources.filter((s) => s.kind === "place") : sources;
+  const rowsIn = (ids: readonly string[]): Entry[] => {
+    const byId = new Map(
+      active.flatMap((s) => s.rows("")).map((row) => [row.id, row]),
+    );
+    return ids.flatMap((id): Entry[] => {
+      const row = byId.get(id);
+      return row === undefined ? [] : [{ type: "row", row }];
+    });
+  };
+
+  if (query === "" && filter === "all" && menu !== null)
+    return rowsIn(
+      menuModel(menu, COMMANDS, service)
+        .groups.flat()
+        .map((item) => item.id),
+    );
+  if (query === "" && filter === "all")
+    return [...menuEntries(service), ...rowsIn(recent.slice(0, RECENT_LIMIT))];
+  const rows = mark("ui.search.palette", () =>
+    keepShownOrder(
+      shown.current,
+      query,
+      rankRows(
+        query,
+        active.flatMap((s) => s.rows(query)),
+      ),
+    ),
+  );
+  shown.current = { query, ids: rows.map((row) => row.id) };
+  return rows.map((row): Entry => ({ type: "row", row }));
+}
+
+function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
+  const { filter, sources, onRun, onClose, recent } = props;
+  const [query, setQuery] = useState("");
+  const [menu, setMenu] = useState<MenuId | null>(null);
+  const [openedAt] = useState(markStart);
+  useLayoutEffect(() => markEnd("ui.open.palette", openedAt), [openedAt]);
+  const entries = usePaletteEntries({ filter, sources, recent, query, menu });
+
+  const activate = (entry: Entry): void => {
+    if (entry.type === "menu") {
+      setMenu(entry.menu);
+      return;
+    }
+    if (!entry.row.enabled) return;
+    onRun(entry.row);
+    // a setting changes in place, so the person sees the result and can choose again
+    if (entry.row.kind !== "setting") onClose();
+  };
+
+  return (
+    <Autocomplete.Root
+      inline
+      open
+      mode="none"
+      items={entries}
+      value={query}
+      onValueChange={(value, details) => {
+        // pressing an item writes its text into the field; the query stays what was typed
+        if (details.reason === "item-press") return;
+        setQuery(value);
+        setMenu(null);
+      }}
+      itemToStringValue={textOf}
+      autoHighlight="always"
+      virtualized={entries.length > VIRTUAL_ABOVE}
+    >
+      <div
+        className="fixed inset-x-0 mx-auto flex flex-col overflow-hidden rounded-control bg-overlay shadow-overlay"
+        style={{
+          top: "12vh",
+          width: "var(--palette-w)",
+          maxHeight: "var(--palette-max-h)",
+        }}
+      >
+        <Autocomplete.Input
+          autoFocus
+          aria-label={READOUT_WORDS.commandsHint}
+          className="h-control px-3 text-ui"
+        />
+        <EntryList entries={entries} query={query} activate={activate} />
+      </div>
+    </Autocomplete.Root>
+  );
+}
+
+/**
+ * The palette, drawn while `open`, with focus in its field from the first frame. Sources are asked in the
+ * order given (commands, settings, places, scripts, people, help); `filter: "places"` asks only places.
+ * A row runs through `onRun`; the palette then closes, except after a setting row, which changes in place.
+ */
+export function CommandPalette(props: PaletteProps): ReactNode {
+  const { open, ...rest } = props;
+  return open ? <OpenPalette {...rest} /> : null;
+}

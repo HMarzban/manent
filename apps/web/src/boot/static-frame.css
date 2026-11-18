@@ -1,0 +1,18 @@
+/* The frame the page shows before the app's first render replaces it: an empty title bar and status bar. */
+.mn-static-frame {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  block-size: 100dvh;
+  background: var(--bg-desk);
+}
+
+.mn-static-titlebar {
+  block-size: var(--titlebar-h);
+  background: var(--bg-chrome);
+}
+
+.mn-static-statusbar {
+  block-size: var(--statusbar-h);
+  background: var(--bg-chrome);
+}
