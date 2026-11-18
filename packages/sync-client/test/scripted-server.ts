@@ -208,7 +208,8 @@ export interface ScriptedServer {
   silence(): void;
 }
 
-function subscribed(docId: string, head: number): DocumentMessage {
+/** SUBSCRIBED as the server sends it for an editor of the script. */
+export function subscribed(docId: string, head: number): DocumentMessage {
   return {
     type: "SUBSCRIBED",
     docId,

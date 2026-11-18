@@ -46,7 +46,11 @@ export interface LocalCopy {
   update(update: Uint8Array): void;
   /** The server's step 2: applied now unless remote updates are held, and stored only when it changes something. */
   merge(update: Uint8Array): void;
-  /** The Recovered text a rejected push leaves: what this document holds that `theirs` lacks, against `base`. */
+  /**
+   * The Recovered text a rejected push leaves: what this document holds that
+   * `theirs` lacks, against `base`. Server updates still buffered are applied
+   * first, so what they set aside is filed as merged, not lost with the document.
+   */
   rejected(base: DocJSON, theirs: DocJSON): RecoveredItem[];
   /** A recovery's document is bound in place of this one, and `items` join the Recovered text. */
   replace(next: CrdtDoc, items: RecoveredItem[]): void;
@@ -165,6 +169,7 @@ class BoundCopy implements LocalCopy {
   }
 
   rejected(base: DocJSON, theirs: DocJSON): RecoveredItem[] {
+    this.coalescer.flushNow();
     const mine = scriptBody(this.doc).materialize();
     return rejectedItems({
       docId: this.options.docId,

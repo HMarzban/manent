@@ -162,12 +162,16 @@ class DocSubscription implements Subscription {
     this.options.journal.patch({ generation: m.generation });
   }
 
-  /** The server's step 2. One that changes nothing is not stored, so it takes no local sequence. */
+  /**
+   * The server's step 2, which also says the document exists there. One that
+   * changes nothing is not stored, so it takes no local sequence.
+   */
   stepTwo(update: Uint8Array): void {
     if (this.recovery !== null) this.recover(this.recovery, update);
     else this.merge(update);
     const { journal, ports } = this.options;
     journal.patch({
+      neverSynced: false,
       lastServerSeq: Math.max(journal.meta.lastServerSeq, this.headSeq),
       ...(this.hasWaiting() ? {} : { lastSyncedAt: ports.clock.now() }),
     });
