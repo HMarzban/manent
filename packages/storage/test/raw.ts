@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AppendItem, Home } from "../src/index.ts";
-import { StorageError } from "../src/index.ts";
+import { sha256, StorageError } from "../src/index.ts";
 
 export const PROJECT = "0b9f3c1e-6d2a-4e8b-9f1a-2c3d4e5f6a7b";
 export const HOME: Home = { kind: "project", id: PROJECT };
@@ -34,6 +34,9 @@ export function createTempTrees(prefix: string): {
 
 export const docPath = (dir: string, home: Home): string =>
   join(dir, `${home.kind}-${home.id}.sqlite`);
+
+export const checkpointsPath = (dir: string, home: Home): string =>
+  join(dir, `${home.kind}-${home.id}.checkpoints.sqlite`);
 
 /** A connection of the test's own to a file that must already exist. */
 export const rawConnection = (path: string): Database =>
@@ -102,6 +105,78 @@ export function tableColumns(path: string): Record<string, string[]> {
     db.close();
   }
 }
+
+export const tableNames = (path: string): string[] =>
+  Object.keys(tableColumns(path));
+
+export function integrityCheck(path: string): string | null {
+  const db = rawConnection(path);
+  try {
+    const query = "PRAGMA integrity_check";
+    const row = db.query<{ integrity_check: string }, []>(query).get();
+    return row?.integrity_check ?? null;
+  } finally {
+    db.close();
+  }
+}
+
+/** Flips the first byte of the newest checkpoint of `docId` whose sha256 still matches its state. */
+export function corruptNewestCheckpoint(path: string, docId: string): void {
+  const db = rawConnection(path);
+  try {
+    const rows = db
+      .query<
+        { generation: number; seq: number; state: Uint8Array; sha: Uint8Array },
+        [string]
+      >(
+        "SELECT generation, seq, state, sha256 AS sha FROM doc_checkpoints WHERE doc_id = ?1 ORDER BY generation DESC, seq DESC",
+      )
+      .all(docId);
+    const newest = rows.find(
+      (row) => sha256(row.state).toHex() === row.sha.toHex(),
+    );
+    if (newest === undefined) return;
+    const state = newest.state.map((byte, i) => (i === 0 ? byte ^ 0xff : byte));
+    db.run(
+      "UPDATE doc_checkpoints SET state = ?1 WHERE doc_id = ?2 AND generation = ?3 AND seq = ?4",
+      [state, docId, newest.generation, newest.seq],
+    );
+  } finally {
+    db.close();
+  }
+}
+
+/** The sequences a crash child reports as committed within `ms` of its first report, or until it exits. */
+export async function readLinesFor(
+  child: { stdout: ReadableStream<Uint8Array> },
+  ms: number,
+): Promise<number[]> {
+  const reader = child.stdout.getReader();
+  const decoder = new TextDecoder();
+  const reported: number[] = [];
+  let text = "";
+  let deadline: Promise<"over"> | null = null;
+  for (;;) {
+    const next = reader.read();
+    const read = await (deadline === null
+      ? next
+      : Promise.race([next, deadline]));
+    if (read === "over" || read.done) break;
+    text += decoder.decode(read.value, { stream: true });
+    const lines = text.split("\n");
+    text = lines.pop() ?? "";
+    for (const line of lines)
+      reported.push(Number(line.slice("committed ".length)));
+    deadline ??= new Promise((resolve) =>
+      setTimeout(() => resolve("over"), ms),
+    );
+  }
+  reader.releaseLock();
+  return reported;
+}
+
+export const range = (from: number, to: number): number[] =>
+  Array.from({ length: to - from + 1 }, (_, i) => from + i);
 
 /** The code of the StorageError `fn` throws; null when it throws nothing. Any other error is thrown on. */
 export function codeOf(fn: () => unknown): StorageError["code"] | null {

@@ -1,9 +1,8 @@
-// One home's document file: its log and versions over one connection, and its checkpoints.
+// One home's document file: its log and versions over one connection, and the checkpoints file beside it.
 import type { Database } from "bun:sqlite";
-import { crc32, sha256 } from "../checksum.ts";
+import { crc32 } from "../checksum.ts";
 import type {
   AppendItem,
-  Checkpoints,
   DocFile,
   DocLog,
   DocumentRow,
@@ -15,7 +14,8 @@ import type {
   VersionRow,
   Versions,
 } from "../ports.ts";
-import { CHECKPOINTS_KEPT, COLOR_COUNT, StorageError } from "../ports.ts";
+import { COLOR_COUNT, StorageError } from "../ports.ts";
+import { createSqliteCheckpoints } from "./checkpoints.ts";
 import { docFilePath, migrate, openDatabase, transact } from "./files.ts";
 
 /** A document file the storage closes when it closes. */
@@ -315,57 +315,24 @@ function createVersions(db: Database): Versions {
   };
 }
 
-const key = (docId: string, generation: number) =>
-  JSON.stringify([docId, generation]);
-
-// Held in memory until checkpoints get a file of their own: a reopen loses them.
-function createCheckpoints(): Checkpoints {
-  const kept = new Map<
-    string,
-    { seq: number; state: Uint8Array; sha: string }[]
-  >();
-  return {
-    put(docId, generation, seq, state) {
-      const rest = (kept.get(key(docId, generation)) ?? []).filter(
-        (c) => c.seq !== seq,
-      );
-      const added = {
-        seq,
-        state: new Uint8Array(state),
-        sha: sha256(state).toHex(),
-      };
-      kept.set(
-        key(docId, generation),
-        [added, ...rest]
-          .toSorted((a, b) => b.seq - a.seq)
-          .slice(0, CHECKPOINTS_KEPT),
-      );
-    },
-    newest(docId, generation) {
-      const stored = kept.get(key(docId, generation)) ?? [];
-      const index = stored.findIndex((c) => sha256(c.state).toHex() === c.sha);
-      kept.set(key(docId, generation), index < 0 ? [] : stored.slice(index));
-      const found = stored[index];
-      return found === undefined
-        ? null
-        : { seq: found.seq, state: new Uint8Array(found.state) };
-    },
-  };
-}
-
 /** Opens and migrates the home's file. RangeError for a home that is not well formed; StorageError("corrupt") for a file it cannot use. */
 export function openDocFile(options: {
   dir: string;
   home: Home;
   now: () => number;
 }): SqliteDocFile {
-  const db = openDatabase(docFilePath(options.dir, options.home));
+  const path = docFilePath(options.dir, options.home);
+  const db = openDatabase(path);
   try {
     migrate(db, "documents");
   } catch (error) {
     db.close();
     throw error;
   }
+  const checkpoints = createSqliteCheckpoints({
+    path: path.replace(/\.sqlite$/, ".checkpoints.sqlite"),
+    now: options.now,
+  });
   return {
     home: { ...options.home },
     log: createLog(
@@ -374,8 +341,11 @@ export function openDocFile(options: {
       options.now,
     ),
     versions: createVersions(db),
-    checkpoints: createCheckpoints(),
+    checkpoints,
     transaction: (fn) => transact(db, fn),
-    close: () => db.close(),
+    close() {
+      checkpoints.close();
+      db.close();
+    },
   };
 }

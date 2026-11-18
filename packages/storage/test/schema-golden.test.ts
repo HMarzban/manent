@@ -12,8 +12,10 @@ import {
   docPath,
   item,
   rawRows,
+  checkpointsPath,
   rawSql,
   tableColumns,
+  tableNames,
   userVersion,
 } from "./raw.ts";
 
@@ -29,6 +31,8 @@ beforeEach(async () => {
   s = openSqliteStorage({ dir, now });
   f = s.open(HOME);
   f.log.create(doc(DOC));
+  // the checkpoints file is opened on first use
+  f.checkpoints.newest(DOC, 1);
 });
 afterEach(() => s.close());
 afterAll(() => trees.removeAll());
@@ -132,6 +136,20 @@ test("STORAGE_SCHEMA_VERSION 1 is exactly these tables", () => {
       "pre_heal_version_id TEXT",
     ],
   });
+});
+
+// the on-disk pins stay in one file
+test("every kind of file carries the one storage version", () => {
+  for (const file of [
+    "control.sqlite",
+    `project-${PROJECT}.sqlite`,
+    `project-${PROJECT}.checkpoints.sqlite`,
+  ])
+    expect({ file, version: userVersion(join(dir, file)) }).toEqual({
+      file,
+      version: STORAGE_SCHEMA_VERSION,
+    });
+  expect(tableNames(checkpointsPath(dir, HOME))).toEqual(["doc_checkpoints"]);
 });
 
 test("a stored person and setting request are exactly this", () => {

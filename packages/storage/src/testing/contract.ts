@@ -197,8 +197,9 @@ export function storageContract(
       f.log.registerClients(DOC, userId, [100 + n]);
       f.log.registerClients(DOC, userId, [200 + n]);
     });
-    expect([...f.log.colors(DOC)]).toEqual(
-      people.map((userId, n) => [userId, n % COLOR_COUNT]),
+    // compared as a map: the colour each person holds is the contract, not the order of the entries
+    expect(f.log.colors(DOC)).toEqual(
+      new Map(people.map((userId, n) => [userId, n % COLOR_COUNT])),
     );
     // registered through the ledger
     f.log.append({

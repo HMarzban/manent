@@ -4,11 +4,14 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { Home, Storage } from "../src/index.ts";
 import { openSqliteStorage } from "../src/index.ts";
+import { storageContract } from "../src/testing/index.ts";
 import {
   DOC,
   DOC2,
   HOME,
   PROJECT,
+  checkpointsPath,
+  corruptNewestCheckpoint,
   createTempTrees,
   dataVersion,
   doc,
@@ -16,6 +19,7 @@ import {
   item,
   rawConnection,
   rawRows,
+  rawSql,
 } from "./raw.ts";
 
 // every directory's path contains a space
@@ -23,6 +27,32 @@ const trees = createTempTrees("manent storage-");
 const now = () => 1_000;
 let dir: string;
 let s: Storage;
+
+storageContract(async (clock) => {
+  const home = await trees.tree();
+  let storage = openSqliteStorage({ dir: home, now: clock });
+  return {
+    storage,
+    reopen: async () => {
+      storage.close();
+      storage = openSqliteStorage({ dir: home, now: clock });
+      return storage;
+    },
+    dispose: async () => {
+      storage.close();
+    },
+    corruptRow: (docId, seq) =>
+      rawSql(
+        docPath(home, HOME),
+        "UPDATE doc_updates SET update_blob = CAST(x'ff' || substr(update_blob, 2) AS BLOB) WHERE doc_id = ?1 AND seq = ?2",
+        docId,
+        seq,
+      ),
+    // the newest row whose sha256 still matches its state
+    corruptCheckpoint: (docId) =>
+      corruptNewestCheckpoint(checkpointsPath(home, HOME), docId),
+  };
+});
 
 beforeEach(async () => {
   dir = await trees.tree();
