@@ -471,6 +471,27 @@ test("a shortcut is recorded as the letter its key types, on any layout", async 
   ]);
 });
 
+test("a shortcut held with Option is recorded as the letter on its key, on any layout", async () => {
+  const { container } = await renderPreferences({ pane: "keyboard" });
+  act(() =>
+    shortcutRow(container, "Next region")
+      .querySelector<HTMLElement>(".mn-row")
+      ?.click(),
+  );
+  const field = document.activeElement;
+  if (!(field instanceof HTMLInputElement))
+    throw new Error("the capture field took no focus");
+  // on AZERTY, Option on the key that types a, where QWERTY has Q, types æ
+  press(field, {
+    key: "æ",
+    code: "KeyQ",
+    keyCode: 65,
+    metaKey: true,
+    altKey: true,
+  });
+  expect(keysOf(shortcutRow(container, "Next region"))).toBe("⌘⌥A");
+});
+
 test("Find by pressing keys names the command its press runs, on any layout", async () => {
   // the page's matcher reads the platform from the browser
   Object.defineProperty(navigator, "platform", {

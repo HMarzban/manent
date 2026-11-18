@@ -69,8 +69,26 @@ function isReadByPlace(event: KeyboardEvent, platform: Platform): boolean {
   return (event.ctrlKey || event.metaKey) && !onLetter;
 }
 
+/**
+ * The letter on the keycap of a Mac Option press that typed something other than an ASCII letter; null otherwise. The
+ * keycap follows the layout, so AZERTY's Option on the key where QWERTY has Q names A.
+ */
+function optionLetterOf(
+  event: KeyboardEvent,
+  platform: Platform,
+): string | null {
+  if (platform !== "mac" || !event.altKey) return null;
+  const { key } = event;
+  const { keyCode } = event.nativeEvent;
+  if (key !== "Dead" && ([...key].length !== 1 || ASCII_LETTER.test(key)))
+    return null;
+  return keyCode > 64 && keyCode < 91 ? String.fromCharCode(keyCode) : null;
+}
+
 /** The key a chord names for a press, read as the page's matcher reads it, so the chord kept is the one the press runs. */
 function keyOf(event: KeyboardEvent, platform: Platform): string {
+  const optionLetter = optionLetterOf(event, platform);
+  if (optionLetter !== null) return optionLetter;
   if (!isReadByPlace(event, platform))
     return ASCII_LETTER.test(event.key) ? event.key.toUpperCase() : event.key;
   const place = LETTER_OR_DIGIT.exec(event.code);
