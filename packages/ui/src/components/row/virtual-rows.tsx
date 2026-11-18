@@ -1,6 +1,6 @@
 // A list of rows that reports its true size, and is virtual once it is long.
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useReducer, useRef } from "react";
 import type { KeyboardEvent, ReactNode, RefObject } from "react";
 
 const PLAIN_LIMIT = 100;
@@ -51,22 +51,34 @@ const keyTarget = (
   return Math.min(count - 1, Math.max(0, step(from, page, count - 1)));
 };
 
-// focuses the row at an index once that row is drawn
+const drawnRow = (
+  list: HTMLElement | null,
+  index: number,
+): HTMLElement | null => {
+  const row = list?.querySelector(
+    `[aria-posinset="${index + 1}"] .mn-row[tabindex]`,
+  );
+  return row instanceof HTMLElement ? row : null;
+};
+
+// focuses the row at an index now when it is drawn, else on the first render that draws it
 function useFocusLater(
   listRef: RefObject<HTMLElement | null>,
 ): (index: number) => void {
   const pending = useRef<number | null>(null);
+  const [, redraw] = useReducer((renders: number) => renders + 1, 0);
   useLayoutEffect(() => {
     if (pending.current === null) return;
-    const row = listRef.current?.querySelector(
-      `[aria-posinset="${pending.current + 1}"] .mn-row[tabindex]`,
-    );
-    if (!(row instanceof HTMLElement)) return;
+    const row = drawnRow(listRef.current, pending.current);
+    if (row === null) return;
     pending.current = null;
     row.focus({ preventScroll: true });
   });
   return (index) => {
-    pending.current = index;
+    const row = drawnRow(listRef.current, index);
+    pending.current = row === null ? index : null;
+    if (row === null) redraw();
+    else row.focus({ preventScroll: true });
   };
 }
 

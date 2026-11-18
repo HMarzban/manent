@@ -139,3 +139,43 @@ test("a current row can carry a visible word as well as its attribute", () => {
     el.lastElementChild?.textContent,
   ]).toEqual(["true", "SPAN", "Chosen"]);
 });
+
+const focusedPlace = (): string | null | undefined =>
+  document.activeElement
+    ?.closest('[role="listitem"]')
+    ?.getAttribute("aria-posinset");
+
+const focusRow = (el: HTMLElement, place: number): void => {
+  const row = el.querySelector(`[aria-posinset="${place}"] .mn-row`);
+  if (!(row instanceof HTMLElement)) throw new TypeError("no row to focus");
+  act(() => row.focus());
+};
+
+test("ArrowDown moves focus to the next row of a plain list", () => {
+  const { el } = render(
+    <VirtualRows
+      count={5}
+      rowHeight="one"
+      label="Scenes"
+      renderRow={(i) => <Row onActivate={() => {}}>{`Scene ${i + 1}`}</Row>}
+    />,
+  );
+  focusRow(el, 1);
+  press(document.activeElement ?? el, "ArrowDown");
+  expect(focusedPlace()).toBe("2");
+});
+
+test("Home after End moves focus back to the first row of a long list", () => {
+  const { el } = render(
+    <VirtualRows
+      count={3000}
+      rowHeight="one"
+      label="Scenes"
+      renderRow={(i) => <Row onActivate={() => {}}>{`Scene ${i + 1}`}</Row>}
+    />,
+  );
+  focusRow(el, 3);
+  press(document.activeElement ?? el, "End");
+  press(document.activeElement ?? el, "Home");
+  expect(focusedPlace()).toBe("1");
+});
