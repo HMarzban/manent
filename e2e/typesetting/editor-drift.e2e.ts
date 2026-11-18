@@ -37,12 +37,10 @@ for (const zoom of [50, 100, 300]) {
   });
 }
 
-test("a block the browser wraps differently is held to the model's lines", async ({
-  page,
-}) => {
-  await open(page, "script=corpus:750");
-  const pages = await page.evaluate(() => window["__mn"].pages());
-  // the first action that the wider letters wrap onto more lines than the engine gives it
+// The first action that wider letters wrap onto more lines than the engine gives it, its letters widened.
+async function widenFirstAction(
+  page: Page,
+): Promise<{ id: string; domLines: number; model: number[] }> {
   const target = await page.evaluate(() => {
     const style = document.createElement("style");
     document.head.append(style);
@@ -55,11 +53,24 @@ test("a block the browser wraps differently is held to the model's lines", async
     throw new RangeError("no action wraps otherwise with wider letters");
   });
   expect(target.domLines).toBeGreaterThan(target.model.length);
-  // a scroll is what wakes the monitor
+  return target;
+}
+
+// A scroll is what wakes the monitor.
+async function scrollAndIdle(page: Page): Promise<void> {
   await page.evaluate(() => {
     document.getElementById("place")!.scrollTop += 1;
   });
   await page.evaluate(() => window["__mn"].idle());
+}
+
+test("a block the browser wraps differently is held to the model's lines", async ({
+  page,
+}) => {
+  await open(page, "script=corpus:750");
+  const pages = await page.evaluate(() => window["__mn"].pages());
+  const target = await widenFirstAction(page);
+  await scrollAndIdle(page);
   const found = await page.evaluate((id) => {
     const block = document.querySelector<HTMLElement>(`[data-id="${id}"]`)!;
     return {
@@ -83,4 +94,30 @@ test("a block the browser wraps differently is held to the model's lines", async
     starts: { dom: target.model, model: target.model },
     pages,
   });
+});
+
+test("with the set full, a block the browser wraps differently is neither held nor reported", async ({
+  page,
+}) => {
+  await open(page, "script=corpus:750");
+  const target = await widenFirstAction(page);
+  // the last blocks fill the set, none of them in view
+  await page.evaluate((id) => {
+    const ids = [...document.querySelectorAll<HTMLElement>("p.el")]
+      .map((block) => block.dataset["id"]!)
+      .filter((other) => other !== id);
+    window["__mn"].hold(ids.slice(-500));
+  }, target.id);
+  await scrollAndIdle(page);
+  await scrollAndIdle(page);
+  const found = await page.evaluate(
+    (id) => ({
+      drift: window["__mn"].drift(),
+      forced: document
+        .querySelector(`[data-id="${id}"]`)!
+        .classList.contains("lb-forced"),
+    }),
+    target.id,
+  );
+  expect(found).toEqual({ drift: [], forced: false });
 });

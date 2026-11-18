@@ -8,6 +8,7 @@ import {
   contentHeightPx,
   detectEngine,
   faceDescriptors,
+  forceLines,
   loadScriptFonts,
   mountPageView,
   paginationKey,
@@ -67,6 +68,8 @@ export interface EditorProbe {
   idle(): Promise<void>;
   /** Every drift report since the page loaded. */
   drift(): DriftReport[];
+  /** Holds these blocks to the engine's line starts, as the drift monitor does. */
+  hold(blockIds: readonly string[]): void;
   /** Where the browser starts each line of the block element, and where the engine does. */
   lineStarts(block: HTMLElement): { dom: number[]; model: number[] };
 }
@@ -248,6 +251,7 @@ window["__mn"] = {
       await new Promise<void>((resolve) => settled.push(resolve));
   },
   drift: () => [...reports],
+  hold: (blockIds) => view.dispatch(forceLines(view.state.tr, blockIds)),
   lineStarts: (el) => {
     const { index, pagination, settings } = paginationKey.getState(view.state)!;
     const block = blockAt(index, view.posAtDOM(el, 0));

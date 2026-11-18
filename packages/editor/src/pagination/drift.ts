@@ -228,28 +228,26 @@ function measure(
   return found;
 }
 
-function pass(
-  view: EditorView,
-  onDrift: ((report: DriftReport) => void) | undefined,
-): void {
+// The blocks found to drift, as many as the set has room for; with no room nothing is measured.
+function findDrift(view: EditorView): DriftReport[] {
   const pages = paginationKey.getState(view.state);
   const drift = driftKey.getState(view.state);
-  if (pages === undefined || drift === undefined || pages.frozen) return;
-  const found = measure(view, pages, drift.forced);
-  if (found.length === 0) return;
-  const ids = found.map(([block]) => pages.index.blocks[block]!.id);
-  view.dispatch(forceLines(view.state.tr, ids).setMeta("addToHistory", false));
+  if (pages === undefined || drift === undefined || pages.frozen) return [];
+  const room = DRIFT.maxForcedBlocks - drift.forced.size;
+  if (room <= 0) return [];
   const fonts = fontsOf(view.dom);
-  for (const [block, domLines] of found) {
-    const layout = pages.index.blocks[block]!;
-    onDrift?.({
-      blockId: layout.id,
-      type: layout.type,
-      modelLines: pages.pagination.metrics[block]!.lines,
-      domLines,
-      fonts,
+  return measure(view, pages, drift.forced)
+    .slice(0, room)
+    .map(([block, domLines]) => {
+      const layout = pages.index.blocks[block]!;
+      return {
+        blockId: layout.id,
+        type: layout.type,
+        modelLines: pages.pagination.metrics[block]!.lines,
+        domLines,
+        fonts,
+      };
     });
-  }
 }
 
 function driftView(
@@ -258,14 +256,30 @@ function driftView(
 ): PluginView {
   if (!DRIFT.enabled) return {};
   // a port is called without a receiver: requestIdleCallback refuses any other
-  const { whenIdle } = options;
+  const { whenIdle, onDrift } = options;
   let pending = false;
+  // the update of the monitor's own forceLines: the blocks it holds are not measured again
+  let holding = false;
+  const pass = (): void => {
+    const reports = findDrift(view);
+    if (reports.length === 0) return;
+    const ids = reports.map((report) => report.blockId);
+    holding = true;
+    try {
+      view.dispatch(
+        forceLines(view.state.tr, ids).setMeta("addToHistory", false),
+      );
+    } finally {
+      holding = false;
+    }
+    for (const report of reports) onDrift?.(report);
+  };
   const schedule = (): void => {
-    if (pending) return;
+    if (pending || holding) return;
     pending = true;
     whenIdle(() => {
       pending = false;
-      if (!view.isDestroyed) pass(view, options.onDrift);
+      if (!view.isDestroyed) pass();
     });
   };
   const doc = view.dom.ownerDocument;
