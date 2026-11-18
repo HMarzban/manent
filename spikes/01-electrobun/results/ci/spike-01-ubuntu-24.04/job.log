@@ -1,0 +1,797 @@
+spike (ubuntu-24.04)	Set up job	﻿2026-11-18T14:38:01.3632914Z Current runner version: '2.338.2'
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3658291Z ##[group]Runner Image Provisioner
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3659255Z Hosted Compute Agent
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3659922Z Version: 20261103.629
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3660671Z Commit: 15dbd9ccb5dbf34fae002b6ed1a2670f52df37bc
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3661456Z Build Date: 2026-11-03T17:26:59Z
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3662164Z Worker ID: {781d43ed-7c6c-4975-b2e1-7797fd1cf50f}
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3662918Z Region: us-east-1
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3663481Z Cloud: AWS
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3664000Z ##[endgroup]
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3665514Z ##[group]Operating System
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3666381Z Ubuntu
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3666976Z 24.04.5
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3667467Z LTS
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3667947Z ##[endgroup]
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3668524Z ##[group]Runner Image
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3669119Z Image: ubuntu-24.04
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3669663Z Version: 20261111.127.1
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3670965Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261111.127/images/ubuntu/Ubuntu2404-Readme.md
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3672978Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261111.127
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3674013Z ##[endgroup]
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3675200Z ##[group]GITHUB_TOKEN Permissions
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3677644Z Contents: read
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3678250Z Metadata: read
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3678771Z ##[endgroup]
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3681329Z Secret source: Actions
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3682296Z Cache mode: write
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.3683191Z Prepare workflow directory
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.4251453Z Prepare all required actions
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.4309376Z Getting action download info
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:01.6318225Z Download action repository 'actions/checkout@v5' (SHA:fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09)
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:03.6935575Z Download action repository 'oven-sh/setup-bun@v2' (SHA:0c5077e51419868618aeaa5fe8019c62421857d6)
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:03.8303775Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+spike (ubuntu-24.04)	Set up job	2026-11-18T14:38:04.2004632Z Complete job name: spike (ubuntu-24.04)
+spike (ubuntu-24.04)	Run actions/checkout@v5	﻿2026-11-18T14:38:04.2652214Z ##[group]Run actions/checkout@v5
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2652799Z with:
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2653114Z   repository: HMarzban/manent
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2654951Z   token: ***
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2655267Z   ssh-strict: true
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2655531Z   ssh-user: git
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2655806Z   persist-credentials: true
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2656336Z   clean: true
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2656649Z   sparse-checkout-cone-mode: true
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2656990Z   fetch-depth: 1
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2657257Z   fetch-tags: false
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2657528Z   show-progress: true
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2657823Z   lfs: false
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2658076Z   submodules: false
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2658374Z   set-safe-directory: true
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2658669Z   allow-unsafe-pr-checkout: false
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2659093Z env:
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2659464Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2659917Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2660239Z   MSYS_NO_PATHCONV: 1
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:04.2660584Z ##[endgroup]
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.3547849Z Syncing repository: HMarzban/manent
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.3549337Z ##[group]Getting Git version info
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.3549808Z Working directory is '~/work/manent/manent'
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.3550458Z [command]/usr/bin/git version
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.6467165Z git version 2.56.1
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.6481057Z ##[endgroup]
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.6492083Z Temporarily overriding HOME='~/work/_temp/8c043bd8-ec8d-4911-b005-03bb93d54250' before making global git config changes
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.6492788Z Adding repository directory to the temporary git global config as a safe directory
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.6495857Z [command]/usr/bin/git config --global --add safe.directory ~/work/manent/manent
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7034671Z Deleting the contents of '~/work/manent/manent'
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7038078Z ##[group]Initializing the repository
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7041362Z [command]/usr/bin/git init ~/work/manent/manent
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7884717Z hint: Using 'master' as the name for the initial branch. This default branch name
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7885515Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7886210Z hint: to use in all of your new repositories, which will suppress this warning,
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7886729Z hint: call:
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7886991Z hint:
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7887348Z hint: 	git config --global init.defaultBranch <name>
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7887814Z hint:
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7888165Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7888671Z hint: 'development'. The just-created branch can be renamed via this command:
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7889047Z hint:
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7889293Z hint: 	git branch -m <name>
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7889597Z hint:
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7889986Z hint: Disable this message with "git config set advice.defaultBranchName false"
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7892707Z Initialized empty Git repository in ~/work/manent/manent/.git/
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7902789Z [command]/usr/bin/git remote add origin https://github.com/HMarzban/manent
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7952629Z ##[endgroup]
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7953490Z ##[group]Disabling automatic garbage collection
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7956291Z [command]/usr/bin/git config --local gc.auto 0
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7982368Z ##[endgroup]
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7982947Z ##[group]Setting up auth
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.7987308Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:07.8013462Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.1824249Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.1848915Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.2002411Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.2027093Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.2178619Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.2205672Z ##[endgroup]
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.2206537Z ##[group]Fetching the repository
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.2218588Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +a9916f80632a6d049e0314ade5f6b6709fabba92:refs/remotes/origin/spikes
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.5829999Z From https://github.com/HMarzban/manent
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.5830649Z  * [new ref]         a9916f80632a6d049e0314ade5f6b6709fabba92 -> origin/spikes
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.5834147Z ##[endgroup]
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.5834680Z ##[group]Determining the checkout info
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.5842082Z ##[endgroup]
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.5844026Z [command]/usr/bin/git sparse-checkout disable
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.5937124Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.5976975Z ##[group]Checking out the ref
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.5977557Z [command]/usr/bin/git checkout --progress --force -B spikes refs/remotes/origin/spikes
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.6109373Z Switched to a new branch 'spikes'
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.6118906Z branch 'spikes' set up to track 'origin/spikes'.
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.6122673Z ##[endgroup]
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.6161596Z [command]/usr/bin/git log -1 --format=%H
+spike (ubuntu-24.04)	Run actions/checkout@v5	2026-11-18T14:38:08.6179442Z a9916f80632a6d049e0314ade5f6b6709fabba92
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	﻿2026-11-18T14:38:08.6372432Z ##[group]Run oven-sh/setup-bun@v2
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:08.6372836Z with:
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:08.6373071Z   bun-version: 1.4.4
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:08.6373300Z   no-cache: false
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:08.6374936Z   token: ***
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:08.6375255Z env:
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:08.6375631Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:08.6376022Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:08.6376512Z   MSYS_NO_PATHCONV: 1
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:08.6376733Z ##[endgroup]
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:08.9040097Z Cache hit for: bun-vyrKTwhw5PEh6pGRz1Zgyle11uQ=
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:09.5463678Z Received 50544723 of 50544723 (100.0%), 89.3 MBs/sec
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:09.5464256Z Cache Size: ~48 MB (50544723 B)
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:09.5796822Z [command]/usr/bin/tar -xf ~/work/_temp/7f847546-d892-4c3a-96b4-73613331f6cb/cache.tzst -P -C ~/work/manent/manent --use-compress-program unzstd
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:09.7214745Z Cache restored successfully
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:09.7237214Z [command]~/.bun/bin/bun --revision
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:09.7273303Z 1.4.4+38afee6c8
+spike (ubuntu-24.04)	Run oven-sh/setup-bun@v2	2026-11-18T14:38:09.7277801Z Using a cached version of Bun: 1.4.4+38afee6c8
+spike (ubuntu-24.04)	Linux libraries and display	﻿2026-11-18T14:38:09.7381373Z ##[group]Run sudo apt-get update
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:09.7381783Z ^[[36;1msudo apt-get update^[[0m
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:09.7382329Z ^[[36;1msudo apt-get install -y libgtk-3-0 libayatana-appindicator3-1 librsvg2-2 libnss3 libgbm1 libasound2t64 xvfb^[[0m
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:09.7382943Z ^[[36;1m# Chromium's sandbox needs unprivileged user namespaces, which Ubuntu 24.04 restricts by default^[[0m
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:09.7383451Z ^[[36;1msudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0^[[0m
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:09.7383812Z ^[[36;1mecho "RUN=xvfb-run -a" >> "$GITHUB_ENV"^[[0m
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:09.9205174Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:09.9205585Z env:
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:09.9205956Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:09.9206598Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:09.9206899Z   MSYS_NO_PATHCONV: 1
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:09.9207168Z ##[endgroup]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.0741261Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [152 B]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.0962509Z Get:5 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.1933031Z Get:6 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [723 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.1970647Z Hit:2 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble InRelease
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.2150686Z Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [794 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.2216829Z Get:3 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.2773332Z Get:8 http://security.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.2887576Z Get:4 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.3679190Z Get:9 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1455 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.4471377Z Get:10 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [317 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.4684351Z Get:11 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1714 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.5466220Z Get:12 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [345 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.5643826Z Get:13 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1887 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.6232357Z Get:14 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [433 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.6649629Z Get:15 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble-updates/multiverse Translation-en [14.6 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:10.8068540Z Get:16 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages [1198 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:11.3725838Z Get:17 http://security.ubuntu.com/ubuntu noble-security/main Translation-en [239 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:11.4896013Z Get:18 http://security.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1229 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:11.6670895Z Get:19 http://security.ubuntu.com/ubuntu noble-security/universe Translation-en [248 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:11.7830156Z Get:20 http://security.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1792 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:11.9764277Z Get:21 http://security.ubuntu.com/ubuntu noble-security/restricted Translation-en [414 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:12.0956430Z Get:22 http://security.ubuntu.com/ubuntu noble-security/multiverse Translation-en [12.7 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:22.8589647Z Fetched 13.2 MB in 2s (6462 kB/s)
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:23.7944480Z Reading package lists...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:23.8250451Z Reading package lists...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.0162837Z Building dependency tree...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.0168485Z Reading state information...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.1604444Z libgtk-3-0t64 is already the newest version (3.24.41-4ubuntu1.3).
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.1605338Z libgtk-3-0t64 set to manually installed.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.1605793Z libnss3 is already the newest version (2:3.98-1ubuntu0.3).
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.1607271Z libnss3 set to manually installed.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.1607754Z libasound2t64 is already the newest version (1.2.11-1ubuntu0.3).
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.1608273Z libasound2t64 set to manually installed.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.1608706Z xvfb is already the newest version (2:21.1.12-1ubuntu1.9).
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.1609162Z The following additional packages will be installed:
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.1609850Z   libayatana-ido3-0.4-0 libayatana-indicator3-7 libgl1-mesa-dri libglx-mesa0
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.1612441Z   librsvg2-common mesa-libgallium
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.1618447Z Suggested packages:
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.1618822Z   librsvg2-bin
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.2913720Z The following NEW packages will be installed:
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.2915834Z   libayatana-appindicator3-1 libayatana-ido3-0.4-0 libayatana-indicator3-7
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.2922709Z   librsvg2-2 librsvg2-common
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.2928215Z The following packages will be upgraded:
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.2933752Z   libgbm1 libgl1-mesa-dri libglx-mesa0 mesa-libgallium
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.3081792Z 4 upgraded, 5 newly installed, 0 to remove and 26 not upgraded.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.3082393Z Need to get 13.2 MB of archives.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.3082855Z After this operation, 7374 kB of additional disk space will be used.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:24.3083407Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [152 B]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:25.5057624Z Get:2 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble/main amd64 libayatana-ido3-0.4-0 amd64 0.10.1-1build2 [56.6 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:26.5113331Z Get:3 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble/main amd64 libayatana-indicator3-7 amd64 0.9.4-1build1 [31.7 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:27.7067187Z Get:4 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble/main amd64 libayatana-appindicator3-1 amd64 0.5.93-1build3 [24.7 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:28.5187985Z Get:5 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble-updates/main amd64 libgl1-mesa-dri amd64 25.2.8-0ubuntu0.24.04.5 [38.0 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:30.5076041Z Get:6 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble-updates/main amd64 libglx-mesa0 amd64 25.2.8-0ubuntu0.24.04.5 [110 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:33.6593134Z Get:7 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble-updates/main amd64 libgbm1 amd64 25.2.8-0ubuntu0.24.04.5 [34.2 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:34.2530402Z Get:8 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble-updates/main amd64 mesa-libgallium amd64 25.2.8-0ubuntu0.24.04.5 [10.8 MB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:34.5585046Z Get:9 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble-updates/main amd64 librsvg2-2 amd64 2.58.0+dfsg-1ubuntu0.1 [2141 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:42.6148037Z Get:10 http://us-east-2.ec2.archive.ubuntu.com/ubuntu noble-updates/main amd64 librsvg2-common amd64 2.58.0+dfsg-1ubuntu0.1 [11.8 kB]
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:43.7482106Z Fetched 13.2 MB in 18s (718 kB/s)
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:43.8452448Z Selecting previously unselected package libayatana-ido3-0.4-0:amd64.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:44.2597504Z (Reading database ... 
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:44.2597961Z (Reading database ... 5%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:44.2598555Z (Reading database ... 10%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:44.2598816Z (Reading database ... 15%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:44.2599115Z (Reading database ... 20%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:44.2599364Z (Reading database ... 25%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:44.2599594Z (Reading database ... 30%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:44.2599903Z (Reading database ... 35%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:44.2600175Z (Reading database ... 40%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:44.2600432Z (Reading database ... 45%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:44.2600678Z (Reading database ... 50%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:44.3569859Z (Reading database ... 55%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:44.9283632Z (Reading database ... 60%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:45.1735315Z (Reading database ... 65%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:45.3331042Z (Reading database ... 70%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:45.4288687Z (Reading database ... 75%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:45.5597530Z (Reading database ... 80%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:47.4497871Z (Reading database ... 85%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:48.9665403Z (Reading database ... 90%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.3861740Z (Reading database ... 95%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.3862292Z (Reading database ... 100%
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.3862972Z (Reading database ... 216380 files and directories currently installed.)
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.3903006Z Preparing to unpack .../0-libayatana-ido3-0.4-0_0.10.1-1build2_amd64.deb ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.3935064Z Unpacking libayatana-ido3-0.4-0:amd64 (0.10.1-1build2) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.4108058Z Selecting previously unselected package libayatana-indicator3-7:amd64.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.4209666Z Preparing to unpack .../1-libayatana-indicator3-7_0.9.4-1build1_amd64.deb ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.4214964Z Unpacking libayatana-indicator3-7:amd64 (0.9.4-1build1) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.4752278Z Selecting previously unselected package libayatana-appindicator3-1.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.4855329Z Preparing to unpack .../2-libayatana-appindicator3-1_0.5.93-1build3_amd64.deb ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.4859443Z Unpacking libayatana-appindicator3-1 (0.5.93-1build3) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.5115639Z Preparing to unpack .../3-libgl1-mesa-dri_25.2.8-0ubuntu0.24.04.5_amd64.deb ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.5232481Z Unpacking libgl1-mesa-dri:amd64 (25.2.8-0ubuntu0.24.04.5) over (25.2.8-0ubuntu0.24.04.4) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.6535987Z Preparing to unpack .../4-libglx-mesa0_25.2.8-0ubuntu0.24.04.5_amd64.deb ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.6552226Z Unpacking libglx-mesa0:amd64 (25.2.8-0ubuntu0.24.04.5) over (25.2.8-0ubuntu0.24.04.4) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.6830636Z Preparing to unpack .../5-libgbm1_25.2.8-0ubuntu0.24.04.5_amd64.deb ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.6847166Z Unpacking libgbm1:amd64 (25.2.8-0ubuntu0.24.04.5) over (25.2.8-0ubuntu0.24.04.4) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.7135748Z Preparing to unpack .../6-mesa-libgallium_25.2.8-0ubuntu0.24.04.5_amd64.deb ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.7151763Z Unpacking mesa-libgallium:amd64 (25.2.8-0ubuntu0.24.04.5) over (25.2.8-0ubuntu0.24.04.4) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.8611026Z Selecting previously unselected package librsvg2-2:amd64.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.8720816Z Preparing to unpack .../7-librsvg2-2_2.58.0+dfsg-1ubuntu0.1_amd64.deb ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.8724162Z Unpacking librsvg2-2:amd64 (2.58.0+dfsg-1ubuntu0.1) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.9101979Z Selecting previously unselected package librsvg2-common:amd64.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.9204399Z Preparing to unpack .../8-librsvg2-common_2.58.0+dfsg-1ubuntu0.1_amd64.deb ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.9208640Z Unpacking librsvg2-common:amd64 (2.58.0+dfsg-1ubuntu0.1) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.9829567Z Setting up mesa-libgallium:amd64 (25.2.8-0ubuntu0.24.04.5) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.9842240Z Setting up libgbm1:amd64 (25.2.8-0ubuntu0.24.04.5) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.9852823Z Setting up libgl1-mesa-dri:amd64 (25.2.8-0ubuntu0.24.04.5) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.9905373Z Setting up libayatana-ido3-0.4-0:amd64 (0.10.1-1build2) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.9916601Z Setting up librsvg2-2:amd64 (2.58.0+dfsg-1ubuntu0.1) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.9927305Z Setting up librsvg2-common:amd64 (2.58.0+dfsg-1ubuntu0.1) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.9967221Z Setting up libayatana-indicator3-7:amd64 (0.9.4-1build1) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.9977759Z Setting up libglx-mesa0:amd64 (25.2.8-0ubuntu0.24.04.5) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:50.9989640Z Setting up libayatana-appindicator3-1 (0.5.93-1build3) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:51.0003712Z Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:56.6452219Z Processing triggers for libgdk-pixbuf-2.0-0:amd64 (2.42.10+dfsg-3ubuntu3.3) ...
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:57.5489621Z 
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:57.5490458Z Running kernel seems to be up-to-date.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:57.5490955Z 
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:57.5491093Z No services need to be restarted.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:57.5491289Z 
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:57.5491516Z No containers need to be restarted.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:57.5491765Z 
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:57.5491953Z No user sessions are running outdated binaries.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:57.5492198Z 
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:57.5492385Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+spike (ubuntu-24.04)	Linux libraries and display	2026-11-18T14:38:58.4153117Z kernel.apparmor_restrict_unprivileged_userns = 0
+spike (ubuntu-24.04)	Install, test and build the page	﻿2026-11-18T14:38:58.4197272Z ##[group]Run bun install --frozen-lockfile
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:38:58.4197629Z ^[[36;1mbun install --frozen-lockfile^[[0m
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:38:58.4197927Z ^[[36;1mbun test^[[0m
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:38:58.4198187Z ^[[36;1mbun scripts/build-page.ts^[[0m
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:38:58.4198549Z ^[[36;1mecho "PLATFORM=$(bun -e 'console.log(process.platform)')" >> "$GITHUB_ENV"^[[0m
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:38:58.4199017Z ^[[36;1mecho "INSTALLERS=$RUNNER_TEMP/installers" >> "$GITHUB_ENV"^[[0m
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:38:58.4224742Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:38:58.4225083Z env:
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:38:58.4225399Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:38:58.4225799Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:38:58.4226227Z   MSYS_NO_PATHCONV: 1
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:38:58.4226524Z   RUN: xvfb-run -a
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:38:58.4226761Z ##[endgroup]
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:38:58.4291097Z bun install v1.4.4 (38afee6c8)
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1223928Z 
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1224734Z + electron@45.3.2
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1225408Z + electron-builder@26.18.0
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1225722Z + playwright@1.65.1
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1226028Z + electrobun@2.0.6
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1226467Z + prosemirror-commands@1.7.2
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1226784Z + prosemirror-history@1.5.1
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1227081Z + prosemirror-keymap@1.2.3
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1227384Z + prosemirror-model@1.25.13
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1227685Z + prosemirror-state@1.4.4
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1227980Z + prosemirror-transform@1.12.5
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1228260Z + prosemirror-view@1.42.9
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1228459Z 
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1228591Z 278 packages installed [2.69s]
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1275909Z bun test v1.4.4 (38afee6c8)
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1283263Z 
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1285067Z ##[group]scripts/timing.test.ts:
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1320772Z (pass) decide needs the whole interval on one side [0.04ms]
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1700888Z (pass) bootstrap is seeded and brackets the statistic [37.94ms]
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1800828Z (pass) paired groups are resampled together [9.85ms]
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1900571Z (pass) timed.sh does not start a run on a busy machine [10.20ms]
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1901706Z 
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1902232Z ##[endgroup]
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1902401Z 
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.1902686Z ##[group]shared/node.test.ts:
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.2078301Z (pass) health, token and one round trip [12.48ms]
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.2080017Z 
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.2080478Z ##[endgroup]
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.2080685Z 
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.2080805Z  5 pass
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.2081107Z  0 fail
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.2081324Z  14 expect() calls
+spike (ubuntu-24.04)	Install, test and build the page	2026-11-18T14:39:01.2081588Z Ran 5 tests across 2 files. [82.00ms]
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	﻿2026-11-18T14:39:01.2351932Z ##[group]Run set -euo pipefail
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2352443Z ^[[36;1mset -euo pipefail^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2352725Z ^[[36;1mmkdir -p "$INSTALLERS" results^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2353109Z ^[[36;1msha256 () { (sha256sum "$1" 2>/dev/null || shasum -a 256 "$1") | cut -d' ' -f1; }^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2353600Z ^[[36;1mrefuse () {^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2354290Z ^[[36;1m  REASON="$1" bun -e 'await Bun.write("results/install-" + process.platform + ".json", JSON.stringify({ status: "not run", reason: process.env.REASON }, null, 2) + "\n")'^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2354905Z ^[[36;1m  echo "$1" >&2^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2355537Z ^[[36;1m  exit 1^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2355755Z ^[[36;1m}^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2356520Z ^[[36;1m# Electrobun's Windows and Linux installers write the app to its channel folder^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2357278Z ^[[36;1mif [ "$RUNNER_OS" = Windows ]; then CHANNEL="$LOCALAPPDATA/dev.manent.spike01/stable"; else CHANNEL="${XDG_DATA_HOME:-$HOME/.local/share}/dev.manent.spike01/stable"; fi^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2358058Z ^[[36;1m# install runs inside a command substitution, where bash clears -e, so each of its commands is checked^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2358532Z ^[[36;1mmust () { "$@" >&2 || refuse "$* exited with status $?"; }^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2358917Z ^[[36;1minstall () { # $1 = plain or debug; prints the installed executable^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2359309Z ^[[36;1m  case "$RUNNER_OS" in^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2359561Z ^[[36;1m    macOS)^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2359896Z ^[[36;1m      local dest=/Applications; [ "$1" = debug ] && dest=/Applications/electrobun-debug^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2360306Z ^[[36;1m      must mkdir -p "$RUNNER_TEMP/mnt" "$dest"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2360777Z ^[[36;1m      must hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/mnt" artifacts/macos-arm64-ManentSpike.dmg^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2361326Z ^[[36;1m      must ditto "$RUNNER_TEMP/mnt/ManentSpike.app" "$dest/ManentSpike.app"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2361702Z ^[[36;1m      must hdiutil detach "$RUNNER_TEMP/mnt"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2362197Z ^[[36;1m      must cp artifacts/macos-arm64-ManentSpike.dmg "$INSTALLERS/electrobun-$1-macos-arm64-ManentSpike.dmg"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2362677Z ^[[36;1m      echo "$dest/ManentSpike.app/Contents/MacOS/launcher" ;;^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2362978Z ^[[36;1m    Windows)^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2363500Z ^[[36;1m      local setup_dir="$RUNNER_TEMP/electrobun-setup-$1"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2363940Z ^[[36;1m      must unzip -o -q artifacts/win-x64-ManentSpike-Setup.zip -d "$setup_dir"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2364502Z ^[[36;1m      must cp artifacts/win-x64-ManentSpike-Setup.zip "$INSTALLERS/electrobun-$1-win-x64-ManentSpike-Setup.zip"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2365061Z ^[[36;1m      local setup; setup=$(find "$setup_dir" -iname '*.exe' | head -n 1)^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2365480Z ^[[36;1m      [ -n "$setup" ] || refuse "the Windows setup archive holds no executable"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2366259Z ^[[36;1m      timeout 150 "$setup" /S >&2 || timeout 150 "$setup" --silent >&2 || refuse "the Windows setup did not finish unattended within 5 minutes with /S or --silent"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2366936Z ^[[36;1m      [ -d "$CHANNEL" ] || refuse "the Windows setup wrote nothing to $CHANNEL"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2367395Z ^[[36;1m      find "$CHANNEL" -path '*/bin/*' -iname 'launcher*.exe' | head -n 1 ;;^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2367732Z ^[[36;1m    Linux)^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2368030Z ^[[36;1m      local setup_dir="$RUNNER_TEMP/electrobun-setup-$1"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2368391Z ^[[36;1m      must mkdir -p "$setup_dir"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2368759Z ^[[36;1m      must tar -xzf artifacts/linux-x64-ManentSpike-Setup.tar.gz -C "$setup_dir"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2369359Z ^[[36;1m      must cp artifacts/linux-x64-ManentSpike-Setup.tar.gz "$INSTALLERS/electrobun-$1-linux-x64-ManentSpike-Setup.tar.gz"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2369949Z ^[[36;1m      local setup; setup=$(find "$setup_dir" -type f -name 'installer*' | head -n 1)^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2370404Z ^[[36;1m      [ -n "$setup" ] || refuse "the Linux setup archive holds no installer"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2371020Z ^[[36;1m      timeout 300 "$setup" >&2 || refuse "the Linux installer did not finish unattended within 5 minutes"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2371537Z ^[[36;1m      [ -d "$CHANNEL" ] || refuse "the Linux installer wrote nothing to $CHANNEL"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2372040Z ^[[36;1m      find "$CHANNEL" -path '*/bin/*' -type f -name 'launcher' | head -n 1 ;;^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2372395Z ^[[36;1m  esac^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2372625Z ^[[36;1m}^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2372984Z ^[[36;1mroot_of () { case "$1" in *.app/*) echo "${1%%.app/*}.app" ;; *) dirname "$(dirname "$1")" ;; esac; }^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2373529Z ^[[36;1m# the first launch unpacks the app and is not a cold start; smoke.ts launches it, waits for its node and prints its^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2374131Z ^[[36;1m# result on one line, or says why on stderr and prints nothing, which records a null time and keeps the step going^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2374594Z ^[[36;1mfirst_launch () {^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2374969Z ^[[36;1m  local line; line=$(${RUN:-} bun scripts/smoke.ts electrobun --app "$1") || return 0^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2375419Z ^[[36;1m  printf '%s\n' "$line" | sed -n 's/.*"healthMs":\([0-9][0-9]*\).*/\1/p' | tail -n 1^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2375784Z ^[[36;1m}^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2376005Z ^[[36;1m^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2376401Z ^[[36;1mSPIKE_DEBUG_PORT=9334 bunx electrobun build --env=stable^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2376748Z ^[[36;1mDEBUG_APP=$(install debug)^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2377101Z ^[[36;1m[ -n "$DEBUG_APP" ] || refuse "the debug build installed no launcher"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2377460Z ^[[36;1mif [ "$RUNNER_OS" != macOS ]; then^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2377908Z ^[[36;1m  # the plain build installs to the same folder, so the debug copy moves out first^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2378278Z ^[[36;1m  mkdir -p "$RUNNER_TEMP/electrobun-debug"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2378624Z ^[[36;1m  DEBUG_ROOT=$(root_of "$DEBUG_APP")^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2378946Z ^[[36;1m  mv "$DEBUG_ROOT" "$RUNNER_TEMP/electrobun-debug/app"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2379348Z ^[[36;1m  DEBUG_APP="$RUNNER_TEMP/electrobun-debug/app/${DEBUG_APP#"$DEBUG_ROOT"/}"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2379722Z ^[[36;1mfi^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2379972Z ^[[36;1mecho "EB_DEBUG_APP=$DEBUG_APP" >> "$GITHUB_ENV"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2380301Z ^[[36;1mDEBUG_FIRST_MS=$(first_launch "$DEBUG_APP")^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2380574Z ^[[36;1m^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2380854Z ^[[36;1mbunx electrobun build --env=stable^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2381135Z ^[[36;1mAPP=$(install plain)^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2381447Z ^[[36;1m[ -n "$APP" ] || refuse "the plain build installed no launcher"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2381850Z ^[[36;1mEB_INSTALLER=$(find "$INSTALLERS" -name 'electrobun-plain-*' | head -n 1)^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2382288Z ^[[36;1m{ echo "EB_APP=$APP"; echo "EB_INSTALLER=$EB_INSTALLER"; } >> "$GITHUB_ENV"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2382671Z ^[[36;1mFIRST_MS=$(first_launch "$APP")^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2382919Z ^[[36;1m^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2383191Z ^[[36;1mKEY=$(ls "$HUTCH_HOME/npm/electrobun/2.0.6")^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2383504Z ^[[36;1mARCHIVE="electrobun-hutch-$KEY.tar.gz"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2383905Z ^[[36;1mURL="https://github.com/blackboardsh/electrobun/releases/download/v2.0.6/$ARCHIVE"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2384406Z ^[[36;1m# the bootstrap keeps no copy of the archive, so it is fetched once to be hashed^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2384837Z ^[[36;1mHUTCH_FILE="$HUTCH_HOME/npm/electrobun/2.0.6/$KEY/$ARCHIVE"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2385308Z ^[[36;1mif [ ! -f "$HUTCH_FILE" ]; then HUTCH_FILE="$RUNNER_TEMP/$ARCHIVE"; curl -fsSL -o "$HUTCH_FILE" "$URL"; fi^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2385798Z ^[[36;1m# after the first launches, which unpack the libraries the launcher loads^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2386338Z ^[[36;1mLDD=""^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2386599Z ^[[36;1mif [ "$RUNNER_OS" = Linux ]; then^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2386958Z ^[[36;1m  LDD=$(for root in "$(root_of "$APP")" "$RUNNER_TEMP/electrobun-debug/app"; do^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2387468Z ^[[36;1m    find "$root" -type f \( -perm -u+x -o -name '*.so*' \) -print0 | while IFS= read -r -d '' file; do^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2388064Z ^[[36;1m      # ldd exits non-zero for a file that is not a dynamic executable, such as a script^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2388556Z ^[[36;1m      { ldd "$file" 2>/dev/null || true; } | sed -n "/not found/s|^|$file: |p"^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2388948Z ^[[36;1m    done^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2389188Z ^[[36;1m  done | sort -u)^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2389445Z ^[[36;1mfi^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2389870Z ^[[36;1mINSTALL_ROOT=$(root_of "$APP") DEBUG_INSTALL_ROOT=$(root_of "$DEBUG_APP") FIRST_MS="$FIRST_MS" DEBUG_FIRST_MS="$DEBUG_FIRST_MS" \^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2390721Z ^[[36;1mHUTCH_RELEASE="$HUTCH_HOME/npm/electrobun/2.0.6/$KEY/hutch-release.json" ARCHIVE="$ARCHIVE" URL="$URL" HUTCH_SHA256=$(sha256 "$HUTCH_FILE") LDD="$LDD" bun -e '^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2391264Z ^[[36;1m  const e = process.env^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2391620Z ^[[36;1m  const deps = JSON.parse(await Bun.file(".hutch/dependencies.lock").text()).objects^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2392054Z ^[[36;1m  const record = {^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2392461Z ^[[36;1m    status: "installed", installRoot: e.INSTALL_ROOT, debugInstallRoot: e.DEBUG_INSTALL_ROOT,^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2393068Z ^[[36;1m    firstLaunchMs: e.FIRST_MS ? Number(e.FIRST_MS) : null, debugFirstLaunchMs: e.DEBUG_FIRST_MS ? Number(e.DEBUG_FIRST_MS) : null,^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2393774Z ^[[36;1m    hutch: { version: JSON.parse(await Bun.file(e.HUTCH_RELEASE).text()).version, archive: e.ARCHIVE, url: e.URL, sha256: e.HUTCH_SHA256 },^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2394340Z ^[[36;1m    coreSha256: deps.find(o => o.type === "electrobun")?.coreSha256 ?? null,^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2394779Z ^[[36;1m    cefSha256: deps.find(o => o.type === "electrobun-cef")?.cefSha256 ?? null,^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2395265Z ^[[36;1m    ...(process.platform === "linux" ? { ldd: e.LDD ? e.LDD.split("\n") : [] } : {})^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2395635Z ^[[36;1m  }^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2396022Z ^[[36;1m  await Bun.write("results/install-" + process.platform + ".json", JSON.stringify(record, null, 2) + "\n")'^[[0m
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2423821Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2424193Z env:
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2424527Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2424923Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2425237Z   MSYS_NO_PATHCONV: 1
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2425469Z   RUN: xvfb-run -a
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2425692Z   PLATFORM: linux
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2425946Z   INSTALLERS: ~/work/_temp/installers
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.2426412Z ##[endgroup]
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:01.4313886Z Downloading Hutch 0.29.0 for Electrobun 2.0.6 (linux-x64)...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:02.1381465Z hutch: downloading cottontail 0.7.3 for linux-x64
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:05.0482091Z hutch: downloading Electrobun 2.0.6 core for linux-x64
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:07.0279630Z hutch: downloading Electrobun 2.0.6 cef for linux-x64
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:14.1897726Z hutch: downloading bun 1.4.4 toolchain for linux-x64
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:22.6123012Z delta patch generation disabled
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:39:22.6124333Z compressing update bundle...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:22.2285153Z Compression time: 119607.31 ms
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:28.2616863Z electrobun build complete: ~/work/manent/manent/spikes/01-electrobun/build/stable-linux-x64
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:29.4123516Z Self-extractor v1.3 starting...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:29.5417700Z DEBUG: metadata_size=98
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:29.5418227Z DEBUG: Raw metadata bytes (size=98)
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:29.5419205Z DEBUG: Raw metadata as hex: 7b 22 69 64 65 6e 74 69 66 69 65 72 22 3a 22 64 65 76 2e 6d 61 6e 65 6e 74 2e 73 70 69 6b 65 30 31 22 2c 22 6e 61 6d 65 22 3a 22 4d 61 6e 65 6e 74 53 70 69 6b 65 22 2c 22 63 68 61 6e 6e 65 6c 22 3a 22 73 74 61 62 6c 65 22 2c 22 68 61 73 68 22 3a 22 33 6b 72 7a 75 6d 79 78 67 68 70 36 33 22 7d 
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:29.5420057Z DEBUG: Raw metadata as string: '{"identifier":"dev.manent.spike01","name":"ManentSpike","channel":"stable","hash":"3krzumyxghp63"}'
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:29.5523145Z 
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:29.5524197Z Installing ManentSpike...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:29.5524788Z Preparing installation...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:29.5525319Z Self-extracting archive found at offset 13081872
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:29.5526044Z Extracting to: ~/.local/share/dev.manent.spike01/stable/self-extraction
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:29.5527404Z Extracting application files...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0221259Z  Done!
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0221633Z 
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0221995Z DEBUG: Building extracted app path...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0222506Z DEBUG: metadata.name = 'ManentSpike'
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0222887Z DEBUG: metadata.channel = 'stable'
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0223262Z DEBUG: app_bundle_name = 'ManentSpike'
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0223912Z DEBUG: extracted_app_path = '~/.local/share/dev.manent.spike01/stable/self-extraction.partial/ManentSpike'
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0224387Z 
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0224551Z DEBUG: Preparing to move app...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0225179Z DEBUG: Source (extracted_app_path) = '~/.local/share/dev.manent.spike01/stable/self-extraction.partial/ManentSpike'
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0225932Z DEBUG: Destination (app_dir) = '~/.local/share/dev.manent.spike01/stable/app'
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0226678Z DEBUG: Source directory exists
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0227025Z Installing application files...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0227581Z DEBUG: fixExecutablePermissions called with dir: ~/.local/share/dev.manent.spike01/stable/app
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0228161Z DEBUG: Processing executables list...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0228571Z DEBUG: Done with executables list
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0228979Z DEBUG: fixExecutablePermissions completed successfully
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0229345Z Creating CEF symlinks...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0229705Z Created symlink: libcef.so -> cef/libcef.so
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0230115Z Created symlink: libEGL.so -> cef/libEGL.so
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0230600Z Created symlink: libGLESv2.so -> cef/libGLESv2.so
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0231112Z Created symlink: libvk_swiftshader.so -> cef/libvk_swiftshader.so
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0231643Z Created symlink: libvulkan.so.1 -> cef/libvulkan.so.1
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0232060Z Creating shortcuts and integration...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0247456Z Note: Could not update desktop database: error.FileNotFound
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0248285Z Copied desktop shortcut to applications dir: ~/.local/share/applications/ManentSpike.desktop
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0310244Z Installed Linux uninstaller under: ~/.local/share/dev.manent.spike01/stable
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0310882Z  Done!
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0311134Z Installation completed successfully!
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:41:50.0311410Z Installation completed successfully.
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:42:58.3306813Z delta patch generation disabled
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:42:58.3307509Z compressing update bundle...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:44:52.6090784Z Compression time: 114277.51 ms
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:44:58.6359742Z electrobun build complete: ~/work/manent/manent/spikes/01-electrobun/build/stable-linux-x64
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:44:59.7583476Z Self-extractor v1.3 starting...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:44:59.8852172Z DEBUG: metadata_size=98
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:44:59.8852608Z DEBUG: Raw metadata bytes (size=98)
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:44:59.8853302Z DEBUG: Raw metadata as hex: 7b 22 69 64 65 6e 74 69 66 69 65 72 22 3a 22 64 65 76 2e 6d 61 6e 65 6e 74 2e 73 70 69 6b 65 30 31 22 2c 22 6e 61 6d 65 22 3a 22 4d 61 6e 65 6e 74 53 70 69 6b 65 22 2c 22 63 68 61 6e 6e 65 6c 22 3a 22 73 74 61 62 6c 65 22 2c 22 68 61 73 68 22 3a 22 32 67 71 72 36 72 35 7a 33 74 62 6d 37 22 7d 
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:44:59.8854341Z DEBUG: Raw metadata as string: '{"identifier":"dev.manent.spike01","name":"ManentSpike","channel":"stable","hash":"2gqr6r5z3tbm7"}'
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:44:59.8966559Z 
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:44:59.8967530Z Installing ManentSpike...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:44:59.8968176Z Preparing installation...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:44:59.8968669Z Self-extracting archive found at offset 13081872
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:44:59.8969267Z Extracting to: ~/.local/share/dev.manent.spike01/stable/self-extraction
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:44:59.8971522Z Extracting application files...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6934188Z  Done!
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6935365Z 
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6935688Z DEBUG: Building extracted app path...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6936437Z DEBUG: metadata.name = 'ManentSpike'
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6936741Z DEBUG: metadata.channel = 'stable'
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6937285Z DEBUG: app_bundle_name = 'ManentSpike'
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6937803Z DEBUG: extracted_app_path = '~/.local/share/dev.manent.spike01/stable/self-extraction.partial/ManentSpike'
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6938136Z 
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6938254Z DEBUG: Preparing to move app...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6938720Z DEBUG: Source (extracted_app_path) = '~/.local/share/dev.manent.spike01/stable/self-extraction.partial/ManentSpike'
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6939307Z DEBUG: Destination (app_dir) = '~/.local/share/dev.manent.spike01/stable/app'
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6939713Z DEBUG: Source directory exists
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6939977Z Installing application files...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6940381Z DEBUG: fixExecutablePermissions called with dir: ~/.local/share/dev.manent.spike01/stable/app
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6940861Z DEBUG: Processing executables list...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6941140Z DEBUG: Done with executables list
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6941471Z DEBUG: fixExecutablePermissions completed successfully
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6941781Z Creating CEF symlinks...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6942083Z Created symlink: libcef.so -> cef/libcef.so
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6942383Z Created symlink: libEGL.so -> cef/libEGL.so
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6942706Z Created symlink: libGLESv2.so -> cef/libGLESv2.so
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6943096Z Created symlink: libvk_swiftshader.so -> cef/libvk_swiftshader.so
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6943495Z Created symlink: libvulkan.so.1 -> cef/libvulkan.so.1
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6946831Z Creating shortcuts and integration...
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6959019Z Note: Could not update desktop database: error.FileNotFound
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.6959874Z Copied desktop shortcut to applications dir: ~/.local/share/applications/ManentSpike.desktop
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.7061596Z Installed Linux uninstaller under: ~/.local/share/dev.manent.spike01/stable
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.7062250Z  Done!
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.7062655Z Installation completed successfully!
+spike (ubuntu-24.04)	Build and install Electrobun 0.0.1, plain and with a debugging port	2026-11-18T14:45:20.7063045Z Installation completed successfully.
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	﻿2026-11-18T14:46:21.2524249Z ##[group]Run ${RUN:-} bun scripts/smoke.ts electrobun --app "$EB_APP"
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:46:21.2524743Z ^[[36;1m${RUN:-} bun scripts/smoke.ts electrobun --app "$EB_APP"^[[0m
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:46:21.2551049Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:46:21.2551496Z env:
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:46:21.2551823Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:46:21.2552181Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:46:21.2552504Z   MSYS_NO_PATHCONV: 1
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:46:21.2552776Z   RUN: xvfb-run -a
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:46:21.2553018Z   PLATFORM: linux
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:46:21.2553272Z   INSTALLERS: ~/work/_temp/installers
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:46:21.2553627Z   EB_DEBUG_APP: ~/work/_temp/electrobun-debug/app/bin/launcher
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:46:21.2554114Z   EB_APP: ~/.local/share/dev.manent.spike01/stable/app/bin/launcher
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:46:21.2554621Z   EB_INSTALLER: ~/work/_temp/installers/electrobun-plain-linux-x64-ManentSpike-Setup.tar.gz
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:46:21.2555160Z ##[endgroup]
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:47:21.3465428Z smoke: node.json was not written within 60000 ms
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:47:21.3510001Z ##[error]Process completed with exit code 1.
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	﻿2026-11-18T14:47:21.3551365Z ##[group]Run SPIKE_VERSION=0.0.2 bunx electrobun build --env=stable
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3551872Z ^[[36;1mSPIKE_VERSION=0.0.2 bunx electrobun build --env=stable^[[0m
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3552239Z ^[[36;1mmkdir -p artifacts/updates^[[0m
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3552718Z ^[[36;1mcp artifacts/stable-*-update-v2.json artifacts/stable-*-update.json artifacts/stable-*.tar.zst artifacts/updates/^[[0m
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3553310Z ^[[36;1m${RUN:-} bun scripts/update-check.ts --app "$EB_APP" --updates artifacts/updates^[[0m
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3579385Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3579700Z env:
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3580113Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3580626Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3580930Z   MSYS_NO_PATHCONV: 1
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3581164Z   RUN: xvfb-run -a
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3581376Z   PLATFORM: linux
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3581665Z   INSTALLERS: ~/work/_temp/installers
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3582096Z   EB_DEBUG_APP: ~/work/_temp/electrobun-debug/app/bin/launcher
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3582556Z   EB_APP: ~/.local/share/dev.manent.spike01/stable/app/bin/launcher
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3583056Z   EB_INSTALLER: ~/work/_temp/installers/electrobun-plain-linux-x64-ManentSpike-Setup.tar.gz
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:21.3583493Z ##[endgroup]
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:29.0391898Z delta patch generation disabled
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:47:29.0392407Z compressing update bundle...
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:49:24.8197136Z Compression time: 115779.30 ms
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:49:30.8495634Z electrobun build complete: ~/work/manent/manent/spikes/01-electrobun/build/stable-linux-x64
+spike (ubuntu-24.04)	Build 0.0.2 and check the update path	2026-11-18T14:51:33.4869143Z {"platform":"linux","from":"0.0.1","to":"0.0.2","status":"failed","bytesDownloaded":0,"ms":120192,"statuses":[],"notes":"the relaunched app did not report 0.0.2 within 120 s"}
+spike (ubuntu-24.04)	Package, install and smoke Electron	﻿2026-11-18T14:51:33.4961868Z ##[group]Run set -euo pipefail
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4962249Z ^[[36;1mset -euo pipefail^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4962656Z ^[[36;1mbun build --compile shared/sidecar.ts --outfile electron/bin/sidecar^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4963057Z ^[[36;1mcase "$RUNNER_OS" in^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4963308Z ^[[36;1m  macOS)^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4963644Z ^[[36;1m    bunx electron-builder --mac dmg --config electron/electron-builder.yml^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4964120Z ^[[36;1m    EL_INSTALLER=$(find artifacts/electron -maxdepth 1 -name '*.dmg' | head -n 1)^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4964598Z ^[[36;1m    mkdir -p "$RUNNER_TEMP/mnt" /Applications/electron^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4965003Z ^[[36;1m    hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/mnt" "$EL_INSTALLER"^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4965480Z ^[[36;1m    ditto "$RUNNER_TEMP/mnt/ManentSpike.app" /Applications/electron/ManentSpike.app^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4965932Z ^[[36;1m    hdiutil detach "$RUNNER_TEMP/mnt"^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4966476Z ^[[36;1m    EL_ROOT=/Applications/electron/ManentSpike.app^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4966938Z ^[[36;1m    EL_APP="$EL_ROOT/Contents/MacOS/ManentSpike" ;;^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4967230Z ^[[36;1m  Windows)^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4967621Z ^[[36;1m    bunx electron-builder --win nsis --config electron/electron-builder.yml^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4968115Z ^[[36;1m    EL_INSTALLER=$(find artifacts/electron -maxdepth 1 -name '*.exe' | head -n 1)^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4968517Z ^[[36;1m    timeout 300 "$EL_INSTALLER" /S^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4968895Z ^[[36;1m    EL_APP=$(find "$LOCALAPPDATA/Programs" -name 'ManentSpike.exe' | head -n 1)^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4969312Z ^[[36;1m    EL_ROOT=$(dirname "$EL_APP") ;;^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4969594Z ^[[36;1m  Linux)^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4970002Z ^[[36;1m    bunx electron-builder --linux AppImage --config electron/electron-builder.yml^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4970813Z ^[[36;1m    EL_INSTALLER=$(find artifacts/electron -maxdepth 1 -name '*.AppImage' | head -n 1)^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4971335Z ^[[36;1m    # run in place from its own unpacked tree, so that every process's executable is inside one folder^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4971750Z ^[[36;1m    chmod +x "$EL_INSTALLER"^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4972203Z ^[[36;1m    (cd "$RUNNER_TEMP" && "$GITHUB_WORKSPACE/spikes/01-electrobun/$EL_INSTALLER" --appimage-extract > /dev/null)^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4972691Z ^[[36;1m    EL_ROOT="$RUNNER_TEMP/squashfs-root"^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4973044Z ^[[36;1m    EL_APP="$EL_ROOT/manent-spike-01-electrobun" ;;^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4973340Z ^[[36;1mesac^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4973615Z ^[[36;1mcp "$EL_INSTALLER" "$INSTALLERS/"^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4973963Z ^[[36;1mEL_INSTALLER="$INSTALLERS/$(basename "$EL_INSTALLER")"^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4974306Z ^[[36;1mEL_ROOT="$EL_ROOT" bun -e '^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4974786Z ^[[36;1m  const file = "results/install-" + process.platform + ".json"^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4975260Z ^[[36;1m  const record = await Bun.file(file).exists() ? JSON.parse(await Bun.file(file).text()) : {}^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4975833Z ^[[36;1m  await Bun.write(file, JSON.stringify({ ...record, electronInstallRoot: process.env.EL_ROOT }, null, 2) + "\n")'^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4976532Z ^[[36;1m{ echo "EL_APP=$EL_APP"; echo "EL_INSTALLER=$EL_INSTALLER"; } >> "$GITHUB_ENV"^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.4976975Z ^[[36;1m${RUN:-} bun scripts/smoke.ts electron --app "$EL_APP"^[[0m
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.5004687Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.5005066Z env:
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.5005407Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.5005800Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.5006220Z   MSYS_NO_PATHCONV: 1
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.5006476Z   RUN: xvfb-run -a
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.5006764Z   PLATFORM: linux
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.5007023Z   INSTALLERS: ~/work/_temp/installers
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.5007415Z   EB_DEBUG_APP: ~/work/_temp/electrobun-debug/app/bin/launcher
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.5007839Z   EB_APP: ~/.local/share/dev.manent.spike01/stable/app/bin/launcher
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.5008548Z   EB_INSTALLER: ~/work/_temp/installers/electrobun-plain-linux-x64-ManentSpike-Setup.tar.gz
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.5008970Z ##[endgroup]
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.5095354Z    [3ms]  bundle  3 modules
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.6357332Z  [126ms] compile  electron/bin/sidecar
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.9302588Z   • electron-builder  version=26.18.0 os=7.0.0-1014-aws
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.9304039Z   • Implicit publishing triggered by CI detection. This behavior will be disabled in electron-builder v27. Please use --publish explicitly.
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.9369967Z   • loaded configuration  file=~/work/manent/manent/spikes/01-electrobun/electron/electron-builder.yml
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.9393791Z   • description is missed in the package.json  appPackageFile=~/work/manent/manent/spikes/01-electrobun/package.json
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:33.9394810Z   • author is missed in the package.json  appPackageFile=~/work/manent/manent/spikes/01-electrobun/package.json
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:34.3579695Z   • skipped dependencies rebuild  reason=npmRebuild is set to false
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:34.3580769Z   • packaging       platform=linux arch=x64 electron=45.3.2 appOutDir=artifacts/electron/linux-unpacked
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:34.3858552Z   • downloaded      label=electron progress=100%
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:36.3372295Z   • downloaded electron zip extracted successfully  output=~/work/manent/manent/spikes/01-electrobun/artifacts/electron/linux-unpacked
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:36.3451395Z   • searching for node modules  pm=bun searchDir=~/work/manent/manent/spikes/01-electrobun
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:36.3452884Z   • note: bun does not support any CLI for dependency tree extraction, utilizing file traversal collector instead
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:36.3453775Z   • using manual traversal of node_modules to build dependency tree
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:36.6167814Z   • building        target=AppImage arch=x64 file=artifacts/electron/ManentSpike-0.0.1.AppImage
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:36.6171467Z   • electron uses desktopName as app_id / WM_CLASS for window association. Without it desktop environments may not link running windows to this .desktop entry. Set desktopName in package.json and linux.syncDesktopName: true to fix.  reason=desktopName is not set in package.json docs=https://www.electron.build/linux#window-association-desktopname--syncdesktopname
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:36.6173200Z   • application Linux category is set to default "Utility"  reason=linux.category is not set and cannot map from macOS docs=https://www.electron.build/linux
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:36.6188085Z   • default Electron icon is used  reason=application icon is not set
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:36.6282155Z   • downloaded      label=appimage-12.0.1.7z progress=100%
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:36.6505524Z   • downloaded      label=7zip-linux-x64.tar.gz progress=100%
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:51:46.3113825Z   • building embedded block map  file=artifacts/electron/ManentSpike-0.0.1.AppImage
+spike (ubuntu-24.04)	Package, install and smoke Electron	2026-11-18T14:52:03.4972192Z {"shell":"electron","platform":"linux","version":"0.0.1","healthMs":3211,"wsRoundTrip":true,"sqliteRows":3}
+spike (ubuntu-24.04)	Measure both shells	﻿2026-11-18T14:52:05.1280158Z ##[group]Run ${RUN:-} bun scripts/measure.ts --electrobun "$EB_APP" --electrobun-debug "$EB_DEBUG_APP" --electron "$EL_APP" --installers "$EB_INSTALLER,$EL_INSTALLER" --pairs 15 --out "results/measure-$PLATFORM.json"
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:52:05.1281265Z ^[[36;1m${RUN:-} bun scripts/measure.ts --electrobun "$EB_APP" --electrobun-debug "$EB_DEBUG_APP" --electron "$EL_APP" --installers "$EB_INSTALLER,$EL_INSTALLER" --pairs 15 --out "results/measure-$PLATFORM.json"^[[0m
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:52:05.1307772Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:52:05.1308206Z env:
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:52:05.1308529Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:52:05.1308923Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:52:05.1309213Z   MSYS_NO_PATHCONV: 1
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:52:05.1309479Z   RUN: xvfb-run -a
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:52:05.1309718Z   PLATFORM: linux
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:52:05.1309970Z   INSTALLERS: ~/work/_temp/installers
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:52:05.1310339Z   EB_DEBUG_APP: ~/work/_temp/electrobun-debug/app/bin/launcher
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:52:05.1310992Z   EB_APP: ~/.local/share/dev.manent.spike01/stable/app/bin/launcher
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:52:05.1311542Z   EB_INSTALLER: ~/work/_temp/installers/electrobun-plain-linux-x64-ManentSpike-Setup.tar.gz
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:52:05.1312056Z   EL_APP: ~/work/_temp/squashfs-root/manent-spike-01-electrobun
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:52:05.1312500Z   EL_INSTALLER: ~/work/_temp/installers/ManentSpike-0.0.1.AppImage
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:52:05.1312882Z ##[endgroup]
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:53:06.4199183Z measure: electrobun did not reach its first frame within 60000 ms
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:53:06.4256808Z ##[error]Process completed with exit code 1.
+spike (ubuntu-24.04)	Compare the shells	﻿2026-11-18T14:53:06.4285599Z ##[group]Run bun scripts/compare.ts "results/measure-$PLATFORM.json" --out "results/compare-$PLATFORM.json"
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4286458Z ^[[36;1mbun scripts/compare.ts "results/measure-$PLATFORM.json" --out "results/compare-$PLATFORM.json"^[[0m
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4314120Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4314533Z env:
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4314909Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4315307Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4315595Z   MSYS_NO_PATHCONV: 1
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4315843Z   RUN: xvfb-run -a
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4316250Z   PLATFORM: linux
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4316520Z   INSTALLERS: ~/work/_temp/installers
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4316918Z   EB_DEBUG_APP: ~/work/_temp/electrobun-debug/app/bin/launcher
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4317356Z   EB_APP: ~/.local/share/dev.manent.spike01/stable/app/bin/launcher
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4317895Z   EB_INSTALLER: ~/work/_temp/installers/electrobun-plain-linux-x64-ManentSpike-Setup.tar.gz
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4318563Z   EL_APP: ~/work/_temp/squashfs-root/manent-spike-01-electrobun
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4318990Z   EL_INSTALLER: ~/work/_temp/installers/ManentSpike-0.0.1.AppImage
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4319415Z ##[endgroup]
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4447729Z cold start ratio (Electrobun ÷ Electron)  not run
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4448242Z 95 % interval                             not run
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4448547Z cold start                                not run
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4448885Z editing                                   not run
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4449181Z checks that differ                        none
+spike (ubuntu-24.04)	Compare the shells	2026-11-18T14:53:06.4449593Z checks not compared                       C1, C2, C3, C4, C5, C6, C7
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	﻿2026-11-18T14:53:06.4534408Z ##[group]Run actions/upload-artifact@v4
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4534930Z with:
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4535259Z   name: spike-01-ubuntu-24.04
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4536042Z   path: spikes/01-electrobun/results/
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	~/work/_temp/installers/
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4536809Z   if-no-files-found: warn
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4537225Z   compression-level: 6
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4537568Z   overwrite: false
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4537914Z   include-hidden-files: false
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4538301Z env:
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4538740Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4539444Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4539822Z   MSYS_NO_PATHCONV: 1
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4540132Z   RUN: xvfb-run -a
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4540474Z   PLATFORM: linux
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4540819Z   INSTALLERS: ~/work/_temp/installers
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4541406Z   EB_DEBUG_APP: ~/work/_temp/electrobun-debug/app/bin/launcher
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4542051Z   EB_APP: ~/.local/share/dev.manent.spike01/stable/app/bin/launcher
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4542960Z   EB_INSTALLER: ~/work/_temp/installers/electrobun-plain-linux-x64-ManentSpike-Setup.tar.gz
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4543740Z   EL_APP: ~/work/_temp/squashfs-root/manent-spike-01-electrobun
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4544454Z   EL_INSTALLER: ~/work/_temp/installers/ManentSpike-0.0.1.AppImage
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.4545164Z ##[endgroup]
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.6069213Z (node:4151) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.6069785Z (Use `node --trace-deprecation ...` to show where the warning was created)
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.6168076Z Multiple search paths detected. Calculating the least common ancestor of all paths
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.6169548Z The least common ancestor is ~/work. This will be the root directory of the artifact
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.6170187Z With the provided path, there will be 13 files uploaded
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.6172999Z Artifact name is valid!
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.6173345Z Root directory input is valid!
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:06.8110352Z Beginning upload of artifact content to blob storage
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:07.1463016Z (node:4151) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:07.3805418Z Uploaded bytes 8388608
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:07.5806461Z Uploaded bytes 16777216
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:07.7899116Z Uploaded bytes 25165824
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:08.0848682Z Uploaded bytes 33554432
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:08.2246704Z Uploaded bytes 41943040
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:08.4917292Z Uploaded bytes 50331648
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:08.7397057Z Uploaded bytes 58720256
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:08.8412077Z Uploaded bytes 67108864
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:09.0852952Z Uploaded bytes 75497472
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:09.2501073Z Uploaded bytes 83886080
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:09.4604268Z Uploaded bytes 92274688
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:09.6734335Z Uploaded bytes 100663296
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:09.9640742Z Uploaded bytes 109051904
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:10.1659955Z Uploaded bytes 117440512
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:10.4212491Z Uploaded bytes 125829120
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:10.5364436Z Uploaded bytes 134217728
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:10.8230431Z Uploaded bytes 142606336
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:11.0785217Z Uploaded bytes 150994944
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:11.3404301Z Uploaded bytes 159383552
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:11.5250061Z Uploaded bytes 167772160
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:11.7211033Z Uploaded bytes 176160768
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:11.8380058Z Uploaded bytes 184549376
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:12.0639001Z Uploaded bytes 192937984
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:12.2888345Z Uploaded bytes 201326592
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:12.4716409Z Uploaded bytes 209715200
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:12.7540255Z Uploaded bytes 218103808
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:12.9104280Z Uploaded bytes 226492416
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:13.2251727Z Uploaded bytes 234881024
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:13.3275627Z Uploaded bytes 243269632
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:13.5235018Z Uploaded bytes 251658240
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:13.8438378Z Uploaded bytes 260046848
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:14.0878936Z Uploaded bytes 268435456
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:14.2235377Z Uploaded bytes 276824064
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:14.4315783Z Uploaded bytes 285212672
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:14.6789102Z Uploaded bytes 293601280
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:15.0057390Z Uploaded bytes 301989888
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:15.1100049Z Uploaded bytes 310378496
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:15.3423959Z Uploaded bytes 318767104
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:15.5795870Z Uploaded bytes 327155712
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:15.8255336Z Uploaded bytes 335544320
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:15.9872892Z Uploaded bytes 343932928
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:16.1715372Z Uploaded bytes 352321536
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:16.3911620Z Uploaded bytes 360710144
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:16.5825294Z Uploaded bytes 369098752
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:16.8024833Z Uploaded bytes 377487360
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:16.9882013Z Uploaded bytes 385875968
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:17.2793683Z Uploaded bytes 394264576
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:17.4513277Z Uploaded bytes 402653184
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:17.6796900Z Uploaded bytes 411041792
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:17.8699787Z Uploaded bytes 419430400
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:18.0523718Z Uploaded bytes 427819008
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:18.2814588Z Uploaded bytes 436207616
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:18.4647262Z Uploaded bytes 444596224
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:18.7923829Z Uploaded bytes 452984832
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:18.9817551Z Uploaded bytes 461373440
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:19.2410154Z Uploaded bytes 469762048
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:19.4721326Z Uploaded bytes 478150656
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:19.6200536Z Uploaded bytes 486539264
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:19.9041686Z Uploaded bytes 494927872
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:19.9958936Z Uploaded bytes 503316480
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:20.2463558Z Uploaded bytes 511705088
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:20.5206030Z Uploaded bytes 520093696
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:20.6573985Z Uploaded bytes 528482304
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:20.9404359Z Uploaded bytes 536870912
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:21.0817683Z Uploaded bytes 545259520
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:21.3184906Z Uploaded bytes 553648128
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:21.5801424Z Uploaded bytes 562036736
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:21.8773773Z Uploaded bytes 570425344
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:21.9777188Z Uploaded bytes 578813952
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:22.1917074Z Uploaded bytes 587202560
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:22.3972473Z Uploaded bytes 595591168
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:22.6870965Z Uploaded bytes 603979776
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:22.9361235Z Uploaded bytes 612368384
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:23.0524485Z Uploaded bytes 620756992
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:23.2365409Z Uploaded bytes 629145600
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:23.4465785Z Uploaded bytes 637534208
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:23.4642234Z Uploaded bytes 637647162
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:23.4879989Z Finished uploading artifact content to blob storage!
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:23.4880702Z SHA256 digest of uploaded artifact zip is bbbbdf5a7b384d8b61fe84ea27f24630533f640566535132209adc99e9d4fd11
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:23.4883321Z Finalizing artifact upload
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:23.9202386Z Artifact spike-01-ubuntu-24.04.zip successfully finalized. Artifact ID 14437024201
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:23.9203190Z Artifact spike-01-ubuntu-24.04 has been successfully uploaded! Final size is 637647162 bytes. Artifact ID is 14437024201
+spike (ubuntu-24.04)	Run actions/upload-artifact@v4	2026-11-18T14:53:23.9209703Z Artifact download URL: https://github.com/HMarzban/manent/actions/runs/44322125186/artifacts/14437024201
+spike (ubuntu-24.04)	Post Run actions/checkout@v5	﻿2026-11-18T14:53:23.9367709Z Post job cleanup.
+spike (ubuntu-24.04)	Post Run actions/checkout@v5	2026-11-18T14:53:24.0038396Z [command]/usr/bin/git version
+spike (ubuntu-24.04)	Post Run actions/checkout@v5	2026-11-18T14:53:24.0057423Z git version 2.56.1
+spike (ubuntu-24.04)	Post Run actions/checkout@v5	2026-11-18T14:53:24.0086271Z Temporarily overriding HOME='~/work/_temp/60d5867e-2afd-4aba-ae2d-7aeb7613bea4' before making global git config changes
+spike (ubuntu-24.04)	Post Run actions/checkout@v5	2026-11-18T14:53:24.0087025Z Adding repository directory to the temporary git global config as a safe directory
+spike (ubuntu-24.04)	Post Run actions/checkout@v5	2026-11-18T14:53:24.0091510Z [command]/usr/bin/git config --global --add safe.directory ~/work/manent/manent
+spike (ubuntu-24.04)	Post Run actions/checkout@v5	2026-11-18T14:53:24.0124371Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+spike (ubuntu-24.04)	Post Run actions/checkout@v5	2026-11-18T14:53:24.0149128Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+spike (ubuntu-24.04)	Post Run actions/checkout@v5	2026-11-18T14:53:24.0304820Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+spike (ubuntu-24.04)	Post Run actions/checkout@v5	2026-11-18T14:53:24.0324900Z http.https://github.com/.extraheader
+spike (ubuntu-24.04)	Post Run actions/checkout@v5	2026-11-18T14:53:24.0334542Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+spike (ubuntu-24.04)	Post Run actions/checkout@v5	2026-11-18T14:53:24.0356219Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+spike (ubuntu-24.04)	Post Run actions/checkout@v5	2026-11-18T14:53:24.0528976Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+spike (ubuntu-24.04)	Post Run actions/checkout@v5	2026-11-18T14:53:24.0553222Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+spike (ubuntu-24.04)	Complete job	﻿2026-11-18T14:53:24.0848625Z Cleaning up orphan processes
+spike (ubuntu-24.04)	Complete job	2026-11-18T14:53:24.1089758Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

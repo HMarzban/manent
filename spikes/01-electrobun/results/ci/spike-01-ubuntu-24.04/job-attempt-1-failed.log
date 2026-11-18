@@ -1,0 +1,34 @@
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	﻿2026-11-18T14:22:34.2555278Z ##[group]Run ${RUN:-} bun scripts/smoke.ts electrobun --app "$EB_APP"
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:22:34.2555805Z ^[[36;1m${RUN:-} bun scripts/smoke.ts electrobun --app "$EB_APP"^[[0m
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:22:34.2575350Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:22:34.2575644Z env:
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:22:34.2575918Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:22:34.2576352Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:22:34.2576575Z   MSYS_NO_PATHCONV: 1
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:22:34.2576762Z   RUN: xvfb-run -a
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:22:34.2577027Z   PLATFORM: linux
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:22:34.2577239Z   INSTALLERS: ~/work/_temp/installers
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:22:34.2577618Z   EB_DEBUG_APP: ~/work/_temp/electrobun-debug/app/bin/launcher
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:22:34.2578052Z   EB_APP: ~/.local/share/dev.manent.spike01/stable/app/bin/launcher
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:22:34.2578628Z   EB_INSTALLER: ~/work/_temp/installers/electrobun-plain-linux-x64-ManentSpike-Setup.tar.gz
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:22:34.2579079Z ##[endgroup]
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:23:34.3401658Z smoke: node.json was not written within 60000 ms
+spike (ubuntu-24.04)	Smoke the installed Electrobun app	2026-11-18T14:23:34.3459996Z ##[error]Process completed with exit code 1.
+spike (ubuntu-24.04)	Measure both shells	﻿2026-11-18T14:28:00.8628293Z ##[group]Run ${RUN:-} bun scripts/measure.ts --electrobun "$EB_APP" --electrobun-debug "$EB_DEBUG_APP" --electron "$EL_APP" --installers "$EB_INSTALLER,$EL_INSTALLER" --pairs 15 --out "results/measure-$PLATFORM.json"
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:28:00.8630162Z ^[[36;1m${RUN:-} bun scripts/measure.ts --electrobun "$EB_APP" --electrobun-debug "$EB_DEBUG_APP" --electron "$EL_APP" --installers "$EB_INSTALLER,$EL_INSTALLER" --pairs 15 --out "results/measure-$PLATFORM.json"^[[0m
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:28:00.8649044Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:28:00.8649461Z env:
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:28:00.8649869Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:28:00.8650413Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:28:00.8650954Z   MSYS_NO_PATHCONV: 1
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:28:00.8651241Z   RUN: xvfb-run -a
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:28:00.8651514Z   PLATFORM: linux
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:28:00.8651772Z   INSTALLERS: ~/work/_temp/installers
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:28:00.8652137Z   EB_DEBUG_APP: ~/work/_temp/electrobun-debug/app/bin/launcher
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:28:00.8652571Z   EB_APP: ~/.local/share/dev.manent.spike01/stable/app/bin/launcher
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:28:00.8653038Z   EB_INSTALLER: ~/work/_temp/installers/electrobun-plain-linux-x64-ManentSpike-Setup.tar.gz
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:28:00.8653501Z   EL_APP: ~/work/_temp/squashfs-root/manent-spike-01-electrobun
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:28:00.8653879Z   EL_INSTALLER: ~/work/_temp/installers/ManentSpike-0.0.1.AppImage
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:28:00.8654178Z ##[endgroup]
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:29:02.1997666Z measure: electrobun did not reach its first frame within 60000 ms
+spike (ubuntu-24.04)	Measure both shells	2026-11-18T14:29:02.2080880Z ##[error]Process completed with exit code 1.
