@@ -2,4 +2,17 @@
 export const PERF_MARKS: readonly string[] = [
   "pagination.decorations",
   "pagination.engine",
+  "boot.theme",
+  "app.frame",
+  "ui.facts.publish",
+  "ui.outline.publish",
+  "ui.open.palette",
+  "ui.open.panel",
+  "ui.open.dialog",
+  "ui.open.popover",
+  "ui.open.screen",
+  "ui.open.preferences",
+  "ui.setting.apply",
+  "ui.search.palette",
+  "ui.switch.person",
 ];

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { focusHeading } from "../focus.ts";
-import { TEXT, pageTitle } from "../text.ts";
+import { focusHeading } from "../../focus.ts";
+import { TEXT, pageTitle } from "../../text.ts";
 
 export function LibraryScreen(props: { personName: string | null }) {
   const { personName } = props;

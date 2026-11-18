@@ -3,7 +3,23 @@ import { join } from "node:path";
 import { PERF_MARKS } from "../src/index.ts";
 
 test("the mark names are a fixed list", () => {
-  expect(PERF_MARKS).toEqual(["pagination.decorations", "pagination.engine"]);
+  expect(PERF_MARKS).toEqual([
+    "pagination.decorations",
+    "pagination.engine",
+    "boot.theme",
+    "app.frame",
+    "ui.facts.publish",
+    "ui.outline.publish",
+    "ui.open.palette",
+    "ui.open.panel",
+    "ui.open.dialog",
+    "ui.open.popover",
+    "ui.open.screen",
+    "ui.open.preferences",
+    "ui.setting.apply",
+    "ui.search.palette",
+    "ui.switch.person",
+  ]);
 });
 
 // later marks may be appended after these
@@ -11,6 +27,25 @@ test("the typesetting marks are listed", () => {
   expect(PERF_MARKS).toEqual(
     expect.arrayContaining(["pagination.decorations", "pagination.engine"]),
   );
+});
+
+test("the interface marks are listed, in their order", () => {
+  const i = PERF_MARKS.indexOf("boot.theme");
+  expect(PERF_MARKS.slice(i, i + 13)).toEqual([
+    "boot.theme",
+    "app.frame",
+    "ui.facts.publish",
+    "ui.outline.publish",
+    "ui.open.palette",
+    "ui.open.panel",
+    "ui.open.dialog",
+    "ui.open.popover",
+    "ui.open.screen",
+    "ui.open.preferences",
+    "ui.setting.apply",
+    "ui.search.palette",
+    "ui.switch.person",
+  ]);
 });
 
 test("every mark recorded in product code is on the list, and is lower-case words joined by dots", async () => {

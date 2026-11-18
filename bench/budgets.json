@@ -127,6 +127,90 @@
       "stat": "max",
       "budget": 0,
       "hardFail": 0
+    },
+    {
+      "scenario": "interface",
+      "metric": "app.frame",
+      "stat": "p95",
+      "budget": 150,
+      "hardFail": 300
+    },
+    {
+      "scenario": "interface",
+      "metric": "ui.facts.publish",
+      "stat": "p95",
+      "budget": 0.5,
+      "hardFail": 1
+    },
+    {
+      "scenario": "interface",
+      "metric": "ui.outline.publish",
+      "stat": "p95",
+      "budget": 0.5,
+      "hardFail": 1
+    },
+    {
+      "scenario": "interface",
+      "metric": "ui.open.palette",
+      "stat": "p95",
+      "budget": 50,
+      "hardFail": 100
+    },
+    {
+      "scenario": "interface",
+      "metric": "ui.open.panel",
+      "stat": "p95",
+      "budget": 100,
+      "hardFail": 200
+    },
+    {
+      "scenario": "interface",
+      "metric": "ui.open.dialog",
+      "stat": "p95",
+      "budget": 100,
+      "hardFail": 200
+    },
+    {
+      "scenario": "interface",
+      "metric": "ui.open.popover",
+      "stat": "p95",
+      "budget": 50,
+      "hardFail": 100
+    },
+    {
+      "scenario": "interface",
+      "metric": "ui.open.screen",
+      "stat": "p95",
+      "budget": 150,
+      "hardFail": 300
+    },
+    {
+      "scenario": "interface",
+      "metric": "ui.open.preferences",
+      "stat": "p95",
+      "budget": 150,
+      "hardFail": 300
+    },
+    {
+      "scenario": "interface",
+      "metric": "ui.setting.apply",
+      "stat": "p95",
+      "budget": 50,
+      "hardFail": 100
+    },
+    {
+      "scenario": "interface",
+      "metric": "ui.search.palette",
+      "stat": "p95",
+      "budget": 50,
+      "hardFail": 150
+    },
+    {
+      "scenario": "interface",
+      "metric": "ui.switch.person",
+      "stat": "p95",
+      "budget": 500,
+      "hardFail": 1000
     }
   ]
 }

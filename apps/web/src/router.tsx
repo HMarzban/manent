@@ -1,9 +1,11 @@
 // The app's routes, defined in code.
 
+import { SECTION_IDS } from "@manent/settings";
 import {
   createRootRoute,
   createRoute,
   createRouter,
+  lazyRouteComponent,
   redirect,
 } from "@tanstack/react-router";
 import type { AnyRouter } from "@tanstack/react-router";
@@ -11,8 +13,40 @@ import type { Api } from "./api.ts";
 import type { PersonStore } from "./person-store.ts";
 import { RootLayout } from "./root-layout.tsx";
 import { ChooseScreen } from "./screens/choose.tsx";
-import { LibraryScreen } from "./screens/library.tsx";
+import { SEND_FORM_IDS } from "./screens/send/forms.ts";
 import { chooseUrl, choosePerson, confirmPerson, safeNext } from "./session.ts";
+
+// true only in the test build, which serves the development screens
+const TEST_FLAVOUR: boolean = false;
+
+/** Preferences at its first pane, keeping the search (Back's `from`). */
+const toFirstPane = (searchStr: string) =>
+  redirect({ href: `/preferences/writing${searchStr}`, replace: true });
+
+const LibraryScreen = lazyRouteComponent(
+  () => import("./screens/library/library-screen.tsx"),
+  "LibraryScreen",
+);
+const DocumentScreen = lazyRouteComponent(
+  () => import("./screens/document/document-screen.tsx"),
+  "DocumentScreen",
+);
+const SendScreen = lazyRouteComponent(
+  () => import("./screens/send/send-screen.tsx"),
+  "SendScreen",
+);
+const PreferencesScreen = lazyRouteComponent(
+  () => import("./screens/preferences/preferences-screen.tsx"),
+  "PreferencesScreen",
+);
+const StatesScreen = lazyRouteComponent(
+  () => import("./screens/states/states-screen.tsx"),
+  "StatesScreen",
+);
+const StandInScreen = lazyRouteComponent(
+  () => import("./screens/states/stand-in-screen.tsx"),
+  "StandInScreen",
+);
 
 export function createAppRouter(deps: {
   api: Api;
@@ -48,6 +82,12 @@ export function createAppRouter(deps: {
   const libraryRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/",
+    // the workspace shown; null is the person's first
+    validateSearch: (
+      search: Record<string, unknown>,
+    ): { w: string | null } => ({
+      w: typeof search.w === "string" ? search.w : null,
+    }),
     beforeLoad: async ({ location }) => {
       const { person, setPerson } = usePerson.getState();
       if ((await confirmPerson(person, api.me)) !== null) return;
@@ -81,7 +121,80 @@ export function createAppRouter(deps: {
     },
   });
 
+  const documentRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/s/$docId",
+    component: function Document() {
+      const { docId } = documentRoute.useParams();
+      return <DocumentScreen docId={docId} />;
+    },
+  });
+
+  const sendRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/s/$docId/send/$form",
+    beforeLoad: ({ params }) => {
+      if (SEND_FORM_IDS.some((id) => id === params.form)) return;
+      throw redirect({
+        to: "/s/$docId",
+        params: { docId: params.docId },
+        replace: true,
+      });
+    },
+    component: function Send() {
+      const { docId, form } = sendRoute.useParams();
+      return <SendScreen docId={docId} form={form} />;
+    },
+  });
+
+  const preferencesRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/preferences",
+    beforeLoad: ({ location }) => {
+      throw toFirstPane(location.searchStr);
+    },
+  });
+
+  const paneRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/preferences/$pane",
+    // where Back returns to: a path inside the app
+    validateSearch: (search: Record<string, unknown>): { from: string } => ({
+      from: safeNext(typeof search.from === "string" ? search.from : null),
+    }),
+    beforeLoad: ({ params, location }) => {
+      if (SECTION_IDS.some((id) => id === params.pane)) return;
+      throw toFirstPane(location.searchStr);
+    },
+    component: function Preferences() {
+      const { pane } = paneRoute.useParams();
+      return <PreferencesScreen pane={pane} />;
+    },
+  });
+
+  const statesRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/__states",
+    component: StatesScreen,
+  });
+
+  const standInRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/__stand-in",
+    component: StandInScreen,
+  });
+
   return createRouter({
-    routeTree: rootRoute.addChildren([libraryRoute, chooseRoute]),
+    routeTree: rootRoute.addChildren([
+      libraryRoute,
+      documentRoute,
+      sendRoute,
+      preferencesRoute,
+      paneRoute,
+      chooseRoute,
+      ...(TEST_FLAVOUR ? [statesRoute, standInRoute] : []),
+    ]),
+    defaultPendingMs: 150,
+    defaultPendingMinMs: 300,
   });
 }
