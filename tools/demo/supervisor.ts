@@ -134,6 +134,19 @@ class ServerProcess {
     this.state = "stopped";
   }
 
+  /** Stops the server, re-seeds and starts it. A re-seed that rejects leaves it `failed` and unstarted, since its data may be half written. */
+  async reset(): Promise<void> {
+    await this.stop();
+    try {
+      await this.options.onReset();
+    } catch {
+      // the state carries the outcome, which is what /reset answers
+      this.state = "failed";
+      return;
+    }
+    await this.start();
+  }
+
   /** Stops the server; nothing starts it again. False when it was already closed. */
   async close(): Promise<boolean> {
     const first = !this.closed;
@@ -204,6 +217,12 @@ class ServerProcess {
 
 type Actions = ReadonlyMap<string, () => Promise<void>>;
 
+function settle(action: Promise<void>): Promise<void> {
+  return action.catch(() => {
+    // the answer carries the outcome as the state, never the rejection
+  });
+}
+
 /** One control request: CORS for the app's origins, the launch token, then the action and the state it leaves. */
 async function answer(
   request: Request,
@@ -238,23 +257,11 @@ export async function startSupervisor(
   options: SupervisorOptions,
 ): Promise<Supervisor> {
   const server = new ServerProcess(options);
-  const startAndAnswer = async (): Promise<void> => {
-    await server.start().catch(() => {
-      // the answer carries the outcome as the state, never the rejection
-    });
-  };
   const actions: Actions = new Map([
     ["GET /status", async () => {}],
-    ["POST /start-server", startAndAnswer],
+    ["POST /start-server", () => settle(server.start())],
     ["POST /stop-server", () => server.stop()],
-    [
-      "POST /reset",
-      async () => {
-        await server.stop();
-        await options.onReset();
-        await startAndAnswer();
-      },
-    ],
+    ["POST /reset", () => settle(server.reset())],
     [
       "POST /shutdown",
       async () => {

@@ -371,6 +371,36 @@ test(
 );
 
 test(
+  "a re-seed that does not work is answered, and the server is left down",
+  async () => {
+    const stderr = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await (
+        await launch({
+          onReset: () => Promise.reject(new Error("the disk is full")),
+        })
+      ).startServer();
+      const response = await send("POST", "/reset");
+      expect({
+        status: response.status,
+        type: response.headers.get("Content-Type"),
+        body: await response.json(),
+      }).toEqual({
+        status: 200,
+        type: "application/json;charset=utf-8",
+        body: { server: "failed" },
+      });
+      expect(await reachable(healthUrl)).toBe(false);
+      expect(s.serverPid()).toBeNull();
+      expect(stderr.mock.calls).toEqual([]);
+    } finally {
+      stderr.mockRestore();
+    }
+  },
+  SLOW,
+);
+
+test(
   "shutdown() leaves no server process, closes the control listener and does not call onShutdown",
   async () => {
     await (await launch()).startServer();
