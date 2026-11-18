@@ -6,7 +6,7 @@ Does Electrobun 2.0.6 work as Manent's desktop shell on macOS, Windows and Linux
 
 Electrobun stays the shell unless it cannot work. One outcome alone switches to the fallback, Electron 45 with the Bun-compiled local node as a sidecar process: a hard failure on macOS, meaning the app does not build, does not start, or cannot load its page. Everything else here is a recorded measurement that decides nothing: cold start, idle memory and installer size against Electron's, typing latency and seven editing checks in both shells, the user agent, and the update path. A failure on Windows or Linux is recorded as "not supported in this release on that system, pending the owner".
 
-This file is provisional: the Windows and Linux rows come from the CI workflow (`.github/workflows/spike-01-electrobun.yml`), which has not run yet, and are `not run (CI)` below.
+The Windows and Linux rows come from the CI workflow (`.github/workflows/spike-01-electrobun.yml`), run on GitHub's hosted runners; everything else was measured on this Mac.
 
 ## What was run
 
@@ -43,12 +43,15 @@ The update check serves `artifacts/updates/` (0.0.2's `stable-macos-arm64-update
 
 The first update check failed, for a reason in this spike's own code: the main process vetoes the first quit so that the local node can close its database, and `Updater.applyUpdate()` asks the `before-quit` handlers for approval before it hands over; the veto cancelled the hand-off (the updater emits `idle`, "Update restart was cancelled by a before-quit handler") and the app then quit as 0.0.1. The main process now stops the node itself before `applyUpdate()`. Both versions were built again from that code, 0.0.1 installed again with its first launch, and the check run again: that run is `results/update-darwin.json`.
 
+**CI.** The workflow ran once on a push of commit `a9916f8` on 2026-11-18 (run `44322125186`, 14:14 to 14:34 UTC), on `macos-26`, `windows-2025` and `ubuntu-24.04`. The Windows and Linux jobs failed, and were run once more (`gh run rerun 44322125186 --failed`, finished 14:53 UTC); the second attempt failed at the same steps with the same messages, and its results are the ones kept. The macOS job passed and was not run again. The results were collected with `gh run download 44322125186 --dir results/ci`; each runner's folder `results/ci/spike-01-<runner>/` keeps only the files that runner wrote (the copies of this Mac's results that came with the checkout are left out), the home folder in its paths written `~`. The uploaded installers, 152 to 230 MB each, are not committed; their sizes are below.
+
 ## Machine and versions
 
 | Item | Value |
 |---|---|
 | Machine | Apple M5 Max, 18 cores, 48 GB, macOS 27.0.1 |
-| Bun | 1.4.4 |
+| CI runners | `macos-26` (image `macos-26-arm64` 20261102.0473.1), `windows-2025` (image `windows-2025-vs2026` 20261103.298.1, Windows 10.0.26100), `ubuntu-24.04` (image 20261111.127.1, x64) |
+| Bun | 1.4.4, here and on every runner |
 | Electrobun | 2.0.6 (Hutch 0.29.0, Cottontail 0.7.3, CEF with Chromium 156.0.8078.17) |
 | Electron | 45.3.2 (Chromium 156.0.8078.100) |
 | `electron-builder` | 26.18.0 |
@@ -102,22 +105,41 @@ Smoke tests: `results/smoke-electrobun-darwin.json` (`/health` 698 ms after spaw
 
 Install details, the Hutch archive and the checksums: `results/install-notes.md`.
 
+### CI runners
+
+No load baseline exists on a hosted runner; every figure below is indicative only.
+
+| Step | `macos-26` | `windows-2025` | `ubuntu-24.04` |
+|---|---|---|---|
+| The spike's unit tests (`bun test`) | pass | **fail**: `shared/node.test.ts` cannot delete its temporary folder (`EBUSY: resource busy or locked`), so the job's first step stops before `INSTALLERS` is set and the Electrobun 0.0.1 build and install are skipped | pass |
+| Electrobun build and install | built, installed from its DMG; first launch 18,948 ms, the debug copy's 22,909 ms (`install-darwin.json`) | not run; the 0.0.2 build of the update step completed (`electrobun build complete`) | built, both copies installed by the setup's `installer`; neither first launch wrote `node.json` (`firstLaunchMs: null`, `install-linux.json`) |
+| Electrobun smoke | pass, `/health` 644 ms, WebSocket round trip, 3 rows (`smoke-electrobun-darwin.json`) | not run (no installed app) | **fail**: `smoke: node.json was not written within 60000 ms` (job log; no result file) |
+| Update 0.0.1 → 0.0.2 | applied, 25,221 ms, 148,269,259 bytes (`update-darwin.json`) | not run (no installed app) | failed: no status, 0 bytes, "the relaunched app did not report 0.0.2 within 120 s" (`update-linux.json`) |
+| Electron package, install and smoke | pass, `/health` 850 ms (`smoke-electron-darwin.json`) | not run: the NSIS installer was built, then the step stopped at `INSTALLERS: unbound variable` | pass, `/health` 3,211 ms (`smoke-electron-linux.json`) |
+| Cold start, idle memory, typing, editing checks | not measured: `measure.ts` resumes from the rows already in its output file, and the checkout carried this Mac's complete `results/measure-darwin.json`, so it launched nothing and rewrote only the installer sizes; `compare.ts` then reproduced this Mac's figures | not run (`compare-.json`: the platform name was never set) | not run: `measure: electrobun did not reach its first frame within 60000 ms` (`compare-linux.json`) |
+| Installer sizes (bytes) | Electrobun 152,599,252, Electron 161,666,449 (`measure-darwin.json`) | not built | Electrobun `linux-x64-ManentSpike-Setup.tar.gz` 229,944,737, Electron `ManentSpike-0.0.1.AppImage` 178,065,212 (the run's uploaded installers) |
+| Hutch version and checksums | Hutch 0.29.0; Hutch, core and CEF `macos-arm64` equal the block | not recorded (the install step did not run) | Hutch 0.29.0; Hutch, core and CEF `linux-x64` equal the block |
+| Libraries `ldd` found missing | — | — | `libwebkit2gtk-4.1.so.0`, `libsoup-3.0.so.0` and `libjavascriptcoregtk-4.1.so.0`, needed by `bin/libNativeWrapper.so` in both installed copies (`install-linux.json`) |
+
+Every file named above is in `results/ci/spike-01-<runner>/`. Why the Linux app does not start is not shown by any output the job kept: it writes nothing to `node.json`, and the three libraries `ldd` found missing are one possible cause, not a proven one.
+
 ## Criteria
 
 | Criterion | Measured | Status |
 |---|---|---|
 | 1. The app builds, starts and loads its page on macOS | built, installed from its DMG, `smoke.ts` exit 0: `/health` answered, the page reached its first frame, the WebSocket round trip wrote a row (`results/smoke-electrobun-darwin.json`) | pass |
-| 2. The app builds, installs, starts and loads its page on Windows | not run (CI) | not run (CI) |
-| 3. The app builds, installs, starts and loads its page on Linux | not run (CI) | not run (CI) |
+| 2. The app builds, installs, starts and loads its page on Windows | the job stopped at the spike's own unit test (`EBUSY` deleting a temporary folder) before the build and install; no `install-win32.json` | not run (CI did not reach the install) |
+| 3. The app builds, installs, starts and loads its page on Linux | built and installed; `smoke.ts` failed: `node.json was not written within 60000 ms`, in both attempts | fail: not supported in this release on that system, pending the owner |
 
-Recorded, not criteria: cold start against Electron's (2.99, interval 1.18–3.04, `inconclusive` against 1.5), idle memory (about 578 MB against about 480 MB), installer sizes (152.6 MB and 161.7 MB, both inside the 250 MB budget), typing latency (above), the editing checks (`not run`: the windows differ), the user agent (Chromium 156 in both), the macOS update path (`applied`).
+Recorded, not criteria: cold start against Electron's (2.99, interval 1.18–3.04, `inconclusive` against 1.5; not measured on any runner), idle memory (about 578 MB against about 480 MB), installer sizes (152.6 MB and 161.7 MB on macOS, 229.9 MB and 178.1 MB on Linux, all inside the 250 MB budget), typing latency (above), the editing checks (`not run`: the windows differ; not run on any runner), the user agent (Chromium 156 in both), the update path (`applied` on this Mac and on `macos-26`, `failed` on Linux, `not run` on Windows).
 
 ## Not covered
 
 | Not covered | Stand-in | Limit of the stand-in |
 |---|---|---|
-| Windows | The `windows-2025` runner, in the CI workflow | "Works or does not"; hosted runners are too noisy for timing |
-| Linux on x64 | The `ubuntu-24.04` runner, in the CI workflow | The same |
+| Windows | The `windows-2025` runner, in the CI workflow; it did not reach the install, so nothing stood in | "Works or does not"; hosted runners are too noisy for timing |
+| Linux on x64 | The `ubuntu-24.04` runner, in the CI workflow | The same; under `xvfb-run`, without a desktop session |
+| Timing on a hosted runner | None: on `macos-26` the measurement resumed from this Mac's rows and launched nothing; on Windows and Linux it did not run | — |
 | Input methods | Chromium's composition simulation over CDP (`Input.imeSetComposition`), in both shells | Not a real input method |
 | Signed builds and their first-open flows | Unsigned builds, signed ad hoc by the toolchains | — |
 | Editing checks compared in equal windows | None: Electrobun's page is 32 points taller | The values agree, but the rule compares only equal windows |
@@ -125,34 +147,42 @@ Recorded, not criteria: cold start against Electron's (2.99, interval 1.18–3.0
 
 ## Decision
 
-**Provisional: Electrobun 2.0.6** (`SHELL = "electrobun"`). The macOS criterion passes; Windows and Linux are `not run (CI)` until the CI workflow has run. The by-hand check that closes each of them: install on that system, then run `smoke.ts` against the installed app. On Windows: from `spikes/01-electrobun`, `bun install --frozen-lockfile`, `bun scripts/build-page.ts`, `bunx electrobun build --env=stable`, unzip `artifacts/win-x64-ManentSpike-Setup.zip`, run its setup, then `bun scripts/smoke.ts electrobun --app <the installed launcher>`. On Linux: the same with `artifacts/linux-x64-ManentSpike-Setup.tar.gz` and its `installer`, under a display (`xvfb-run -a` on a machine without one).
+**Provisional: Electrobun 2.0.6** (`SHELL = "electrobun"`). The macOS criterion passes, on this Mac and on the `macos-26` runner. Linux fails: the app builds and installs, but does not start its local node (`smoke.ts`: `node.json was not written within 60000 ms`), so Linux is **not supported in this release on that system, pending the owner**. Windows is `not run`: the job stopped at the spike's own unit test, which cannot delete its temporary folder on Windows (`EBUSY`), before the app was built and installed. The by-hand check that closes Windows: install on that system, then run `smoke.ts` against the installed app. On Windows: from `spikes/01-electrobun`, `bun install --frozen-lockfile`, `bun scripts/build-page.ts`, `bunx electrobun build --env=stable`, unzip `artifacts/win-x64-ManentSpike-Setup.zip`, run its setup, then `bun scripts/smoke.ts electrobun --app <the installed launcher>`.
 
-Nothing recorded changes the shell. Two findings for the desktop build: Electrobun's `frame` sets the page's height, title bar included, so a window meant to show 1280 × 800 of page needs a frame that is 32 points taller on macOS; and `Updater.applyUpdate()` asks `before-quit` for approval, so a handler that delays the quit to close a database must finish that work before the update is applied, or the update is silently cancelled.
+Nothing recorded changes the shell. Four findings for the desktop build:
 
-The devkit checksums below are the v2.0.6 release indexes' values. On macOS arm64 this spike's own downloads confirmed all three (the Hutch archive hashed with `shasum -a 256`; the core and CEF archives as Hutch recorded them in `.hutch/dependencies.lock`). Windows x64 and Linux x64 are checked by the CI workflow; the other three keys are not checked by this spike.
+- Electrobun's `frame` sets the page's height, title bar included, so a window meant to show 1280 × 800 of page needs a frame that is 32 points taller on macOS.
+- `Updater.applyUpdate()` asks `before-quit` for approval, so a handler that delays the quit to close a database must finish that work before the update is applied, or the update is silently cancelled.
+- On Linux x64 the installed app's `bin/libNativeWrapper.so` links `libwebkit2gtk-4.1.so.0`, `libsoup-3.0.so.0` and `libjavascriptcoregtk-4.1.so.0`, which the runner did not have.
+- A measurement that resumes from its output file measures nothing when that file is already complete, as on the `macos-26` runner, whose checkout carried this Mac's results.
+
+The devkit checksums below are the v2.0.6 release indexes' values. On macOS arm64 this spike's own downloads confirmed all three (the Hutch archive hashed with `shasum -a 256`; the core and CEF archives as Hutch recorded them in `.hutch/dependencies.lock`). On Linux x64 the runner's downloads confirmed all three, and on the `macos-26` runner macOS arm64 again; Hutch reported version 0.29.0 on both. Windows x64 is not checked: the job did not reach the install step that records them. The other three keys are not checked by this spike.
 
 ## Decision table
 
 | Question | Measured | Threshold | Outcome | Consequence |
 |---|---|---|---|---|
-| The app builds, starts and loads its page on macOS | `smoke.ts` exit 0 (`results/smoke-electrobun-darwin.json`) | must pass; a fail is the one trigger for the fallback | pass | `SHELL = "electrobun"`: plan 07 builds the desktop shell on Electrobun 2.0.6 with the devkit constants below. Had it failed: `SHELL = "electron"`, plan 07 runs its tasks that do not depend on the shell and defers its shell-dependent lanes |
-| The app builds, installs, starts and loads its page on Windows | not run (CI) | pass | not run (CI) | none; by-hand check: install on that system, then run `smoke.ts` against the installed app. A fail would read "not supported in this release on that system, pending the owner" |
-| The app builds, installs, starts and loads its page on Linux | not run (CI) | pass | not run (CI) | none; by-hand check: install on that system, then run `smoke.ts` against the installed app. A fail would read "not supported in this release on that system, pending the owner" |
+| The app builds, starts and loads its page on macOS | `smoke.ts` exit 0 on this Mac (`results/smoke-electrobun-darwin.json`) and on `macos-26` (`results/ci/spike-01-macos-26/smoke-electrobun-darwin.json`) | must pass; a fail is the one trigger for the fallback | pass | `SHELL = "electrobun"`: plan 07 builds the desktop shell on Electrobun 2.0.6 with the devkit constants below. Had it failed: `SHELL = "electron"`, plan 07 runs its tasks that do not depend on the shell and defers its shell-dependent lanes |
+| The app builds, installs, starts and loads its page on Windows | not run: the job stopped at the spike's own unit test (`EBUSY` deleting a temporary folder), before the build and install | pass | not run (CI did not reach the install) | none; by-hand check: install on that system, then run `smoke.ts` against the installed app. A fail would read "not supported in this release on that system, pending the owner" |
+| The app builds, installs, starts and loads its page on Linux | built and installed; `smoke.ts` failed, `node.json was not written within 60000 ms`, in both attempts | pass | fail | none to the shell: not supported in this release on that system, pending the owner |
 | Cold start against Electron's (macOS) | ratio 2.99, interval 1.18–3.04; medians 756 ms and 253 ms | 1.5 (reference figure) | inconclusive | recorded; changes nothing |
+| Cold start against Electron's (CI) | not measured on `macos-26` (the measurement resumed from this Mac's complete rows); not run on Windows and Linux | 1.5 (reference figure) | not run | recorded; changes nothing |
 | Idle memory (macOS) | Electrobun 576.0–581.1 MB, Electron 478.9–482.0 MB | none | recorded | recorded; changes nothing |
-| Installer sizes (macOS) | Electrobun 152,601,920 bytes, Electron 161,669,039 bytes | ≤ 250 MB; hard fail > 400 MB | within budget | recorded; changes nothing |
+| Installer sizes (macOS) | Electrobun 152,601,920 bytes, Electron 161,669,039 bytes; on `macos-26` 152,599,252 and 161,666,449 | ≤ 250 MB; hard fail > 400 MB | within budget | recorded; changes nothing |
+| Installer sizes (Linux) | Electrobun 229,944,737 bytes, Electron (AppImage) 178,065,212 bytes | ≤ 250 MB; hard fail > 400 MB | within budget | recorded; changes nothing |
 | Typing latency (macOS) | Electrobun p50 2.5, p95 6.1, p99 15.6 ms; Electron p50 3.3, p95 9.7, p99 17.2 ms | none | recorded | recorded; changes nothing |
 | Editing checks C1–C7 (macOS) | `not run`: windows 1280 × 832 and 1280 × 800; the seven values agree | the same in both shells | not run | recorded; changes nothing |
+| Editing checks C1–C7 (CI) | not run on any runner | the same in both shells | not run | recorded; changes nothing |
 | User agent (macOS) | Electrobun `Chrome/156.0.0.0`, Electron `Chrome/156.0.8078.100 Electron/45.3.2` | — | recorded | recorded; changes nothing |
-| Update path, macOS | applied, 10,031 ms, 148,267,769 bytes | — | recorded | recorded; changes nothing |
-| Update path, Windows | not run (CI) | — | not run (CI) | recorded; changes nothing |
-| Update path, Linux | not run (CI) | — | not run (CI) | recorded; changes nothing |
-| Linux libraries `ldd` found missing | not run (CI) | — | not run (CI) | reported; plan 07 confirms its own list |
-| Devkit `macos-arm64` | Hutch, core and CEF checksums: confirmed | the release index's values | confirmed | the values in the block below |
+| Update path, macOS | applied, 10,031 ms, 148,267,769 bytes; on `macos-26` applied, 25,221 ms, 148,269,259 bytes | — | recorded | recorded; changes nothing |
+| Update path, Windows | not run: no installed app | — | not run (CI) | recorded; changes nothing |
+| Update path, Linux | failed: the installed 0.0.1 never started, 0 bytes, no status | — | failed | recorded; changes nothing |
+| Linux libraries `ldd` found missing | `libwebkit2gtk-4.1.so.0`, `libsoup-3.0.so.0`, `libjavascriptcoregtk-4.1.so.0`, needed by `bin/libNativeWrapper.so` | — | reported | reported; plan 07 confirms its own list |
+| Devkit `macos-arm64` | Hutch, core and CEF checksums: confirmed, on this Mac and on `macos-26` | the release index's values | confirmed | the values in the block below |
 | Devkit `macos-x64` | not checked by this spike | the release index's values | not checked | the values in the block below |
-| Devkit `linux-x64` | not run (CI) | the release index's values | not run (CI) | the values in the block below |
+| Devkit `linux-x64` | Hutch, core and CEF checksums: confirmed on `ubuntu-24.04` (`results/ci/spike-01-ubuntu-24.04/install-linux.json`) | the release index's values | confirmed | the values in the block below |
 | Devkit `linux-arm64` | not checked by this spike | the release index's values | not checked | the values in the block below |
-| Devkit `windows-x64` | not run (CI) | the release index's values | not run (CI) | the values in the block below |
+| Devkit `windows-x64` | not run: the job did not reach the install step that records them | the release index's values | not run (CI) | the values in the block below |
 | Devkit `windows-arm64` | not checked by this spike | the release index's values | not checked | the values in the block below |
 
 ```ts

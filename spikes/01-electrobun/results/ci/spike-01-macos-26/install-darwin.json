@@ -1,0 +1,16 @@
+{
+  "status": "installed",
+  "installRoot": "/Applications/ManentSpike.app",
+  "debugInstallRoot": "/Applications/electrobun-debug/ManentSpike.app",
+  "firstLaunchMs": 18948,
+  "debugFirstLaunchMs": 22909,
+  "hutch": {
+    "version": "0.29.0",
+    "archive": "electrobun-hutch-macos-arm64.tar.gz",
+    "url": "https://github.com/blackboardsh/electrobun/releases/download/v2.0.6/electrobun-hutch-macos-arm64.tar.gz",
+    "sha256": "f081abca6d08d9d862577e77365f3cb5437e65858ca45a27173505e4e2345994"
+  },
+  "coreSha256": "99813cdc64be5aa743b2d620dcf99e77f240dce53e01dc95aa3f9c7e00705d49",
+  "cefSha256": "aa04393159f57b598d44bc164da1662b530a91b382f60d5fd19691a2747b39ff",
+  "electronInstallRoot": "/Applications/electron/ManentSpike.app"
+}

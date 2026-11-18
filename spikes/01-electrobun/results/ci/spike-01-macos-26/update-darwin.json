@@ -1,0 +1,18 @@
+{
+  "platform": "darwin",
+  "from": "0.0.1",
+  "to": "0.0.2",
+  "status": "applied",
+  "bytesDownloaded": 148269259,
+  "ms": 25221,
+  "statuses": [
+    "checking",
+    "update-available",
+    "download-starting",
+    "downloading",
+    "download-complete",
+    "checking",
+    "complete"
+  ],
+  "notes": ""
+}

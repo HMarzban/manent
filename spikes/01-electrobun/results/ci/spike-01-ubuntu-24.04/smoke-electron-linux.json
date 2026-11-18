@@ -1,0 +1,8 @@
+{
+  "shell": "electron",
+  "platform": "linux",
+  "version": "0.0.1",
+  "healthMs": 3211,
+  "wsRoundTrip": true,
+  "sqliteRows": 3
+}
