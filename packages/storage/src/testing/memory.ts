@@ -1,6 +1,6 @@
 // The in-memory storage driver: plain maps, copied on write, with the faults a test can arm.
 import { crc32, sha256 } from "../checksum.ts";
-import { homeKey, parseHome } from "../home.ts";
+import { homeKey, parseHome, wellFormedKey } from "../home.ts";
 import type {
   AppendItem,
   DocFile,
@@ -80,12 +80,6 @@ const pairKey = (a: string, b: string) => JSON.stringify([a, b]);
 
 const flipFirstByte = (bytes: Uint8Array) =>
   bytes.map((byte, index) => (index === 0 ? byte ^ 0xff : byte));
-
-function checkedKey(home: Home): string {
-  const key = homeKey(home);
-  if (parseHome(key) !== null) return key;
-  throw new RangeError(`a home must be project:<uuid> or user:<id>: ${key}`);
-}
 
 const copyDoc = (doc: MemoryDoc | undefined): MemoryDoc => ({
   row: doc?.row ?? null,
@@ -286,7 +280,7 @@ function createDirectory(ctx: Context): Storage["directory"] {
   };
   return {
     place(docId, home, kind) {
-      checkedKey(home);
+      wellFormedKey(home);
       const existing = placed(docId);
       if (existing !== null) return { ...existing, created: false };
       commit(() => state().places.set(docId, { home: { ...home }, kind }));
@@ -298,6 +292,10 @@ function createDirectory(ctx: Context): Storage["directory"] {
         .filter(([, place]) => homeKey(place.home) === homeKey(home))
         .map(([docId]) => docId)
         .toSorted(),
+    homes: () =>
+      [...new Set([...state().places.values()].map((p) => homeKey(p.home)))]
+        .toSorted()
+        .flatMap((key) => parseHome(key) ?? []),
     setRole: (docId, userId, role, capabilities) =>
       commit(() => {
         const row = { role, capabilities: [...capabilities] };
@@ -370,7 +368,7 @@ export function createMemoryStorage(options: {
   return {
     directory: createDirectory(ctx),
     open(home) {
-      const key = checkedKey(home);
+      const key = wellFormedKey(home);
       const opened = files.get(key) ?? openFile(ctx, home, key);
       files.set(key, opened);
       return opened;

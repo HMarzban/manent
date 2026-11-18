@@ -1,0 +1,5 @@
+/* The Tour ring: the control a Tour step points at. It is not the focus ring, and it never moves. */
+[data-tour-ring] {
+  outline: 2px solid var(--tour-ring);
+  outline-offset: 2px;
+}

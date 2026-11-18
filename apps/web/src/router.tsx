@@ -7,11 +7,11 @@ import {
   createRouter,
   lazyRouteComponent,
   redirect,
+  stripSearchParams,
 } from "@tanstack/react-router";
 import type { AnyRouter } from "@tanstack/react-router";
 import type { Api } from "./api.ts";
 import { RootLayout } from "./root-layout.tsx";
-import { ChooseScreen } from "./screens/choose.tsx";
 import { SEND_FORM_IDS } from "./screens/send/forms.ts";
 import { chooseUrl, choosePerson, confirmPerson, safeNext } from "./session.ts";
 import type { PersonStore } from "./state/person.store.ts";
@@ -23,6 +23,10 @@ declare const MANENT_FLAVOUR: string | undefined;
 const toFirstPane = (searchStr: string) =>
   redirect({ href: `/preferences/writing${searchStr}`, replace: true });
 
+const ChooseScreen = lazyRouteComponent(
+  () => import("./screens/choose.tsx"),
+  "ChooseScreen",
+);
 const LibraryScreen = lazyRouteComponent(
   () => import("./screens/library/library-screen.tsx"),
   "LibraryScreen",
@@ -88,6 +92,8 @@ export function createAppRouter(deps: {
     ): { w: string | null } => ({
       w: typeof search.w === "string" ? search.w : null,
     }),
+    // so an address never says w=null
+    search: { middlewares: [stripSearchParams({ w: null })] },
     beforeLoad: async ({ location }) => {
       const { person, setPerson } = usePerson.getState();
       if ((await confirmPerson(person, api.me)) !== null) return;
@@ -95,8 +101,8 @@ export function createAppRouter(deps: {
       throw redirect({ href: chooseUrl(location.href), replace: true });
     },
     component: function Library() {
-      const name = usePerson((s) => s.person?.name ?? null);
-      return <LibraryScreen personName={name} />;
+      const person = usePerson((s) => s.person);
+      return <LibraryScreen api={api} person={person} />;
     },
   });
 

@@ -4,7 +4,7 @@ export const BREAK_STYLES = ["inline", "before_block"] as const;
 export type BreakStyle = (typeof BREAK_STYLES)[number];
 /** Whether sections are given `content-visibility: auto`, per browser engine; off keeps the section and drops the rule. */
 export const CONTAINMENT: Readonly<Record<BrowserEngine, boolean>> = {
-  chromium: true,
+  chromium: false,
   firefox: true,
   webkit: true,
 };

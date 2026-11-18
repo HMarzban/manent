@@ -13,13 +13,13 @@ import {
   hasSpeakerSuffix,
   isSceneBoundary,
   measureAt,
-  pageLabels,
 } from "./fill.ts";
 import type { FilledPage, PageStart } from "./fill.ts";
 import { createFlow, keyAt } from "./keep.ts";
 import type { Flow } from "./keep.ts";
 import { forcedOffsets, lockedLines, planLocks, takenOf } from "./locks.ts";
 import type { LockPlan, LockedStart } from "./locks.ts";
+import { pageLabels } from "./page-labels.ts";
 
 // Where the blocks differ from the last pass's, by identity from the front and from the back.
 function changeOf(
@@ -269,7 +269,9 @@ export function repaginate(
     metrics,
     lockedLines(plan.starts, metrics),
   );
-  const restart = prev.pages.findIndex((page) => page.readAhead >= first);
+  // a page that read the last block also found nothing after it, which a block added at the end changes
+  const reached = Math.min(first, prev.blocks.length - 1);
+  const restart = prev.pages.findIndex((page) => page.readAhead >= reached);
   const from = restart < 0 ? prev.pages.length - 1 : restart;
   const kept: Kept[] = [
     ...prev.pages.slice(0, from).map((old) => ({ page: old, old })),

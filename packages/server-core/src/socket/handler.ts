@@ -1,5 +1,5 @@
 // The connection rules: a ticket opens the socket, HELLO is answered by WELCOME, and every
-// document frame is refused, since no document is served yet.
+// document frame goes to the sync service, or is refused when the server serves no document.
 import {
   CODE,
   FRAME_LIMIT_BYTES,
@@ -17,11 +17,14 @@ import type {
   FrameEncoder,
   Identity,
   Message,
+  MessageIds,
   PushResult,
   ServerVersions,
-  VersionSet,
 } from "@manent/sync-protocol";
 import type { Directory } from "../auth/directory.ts";
+import { peerOf } from "../sync/peer.ts";
+import type { Clock, Peer, SyncLimits } from "../sync/ports.ts";
+import type { SyncService } from "../sync/service.ts";
 import { connectionBrand } from "./connection.ts";
 import type {
   Connection,
@@ -46,10 +49,15 @@ type Stage =
   | {
       kind: "open";
       user: Identity;
-      /** Everything this connection sends goes through it, under the connection's own message IDs. */
+      /** The connection's own message IDs, shared by everything that frames for it. */
+      ids: MessageIds;
       encoder: FrameEncoder;
       decoder: FrameDecoder;
       welcomed: boolean;
+      /** Once WELCOME is sent, when the server serves documents. */
+      peer: Peer | null;
+      /** Cancels the wait for HELLO; null when nothing waits. */
+      cancelHello: (() => void) | null;
     }
   | { kind: "closed" };
 
@@ -58,15 +66,24 @@ type OpenStage = Extract<Stage, { kind: "open" }>;
 class SocketState implements ConnectionData {
   readonly [connectionBrand] = true as const;
   stage: Stage;
+  /** The caller's address as the listener saw it. */
+  readonly address: string;
 
-  constructor(ticket: string | null) {
+  constructor(ticket: string | null, address: string) {
     this.stage = { kind: "upgraded", ticket };
+    this.address = address;
   }
 }
 
-/** The data of a socket about to open with `ticket`, which is null when the request named none. */
-export function createConnectionData(ticket: string | null): ConnectionData {
-  return new SocketState(ticket);
+/**
+ * The data of a socket about to open with `ticket`, which is null when the request named none,
+ * from `address`.
+ */
+export function createConnectionData(
+  ticket: string | null,
+  address: string,
+): ConnectionData {
+  return new SocketState(ticket, address);
 }
 
 function stateOf(connection: Connection): SocketState {
@@ -81,9 +98,37 @@ const REASONS: ReadonlyMap<number, string> = new Map(
   Object.entries(CODE).map(([name, code]) => [code, name.toLowerCase()]),
 );
 
-/** Closes the socket and drops its decoder, with any half-received message, at once. */
-function shut(connection: Connection, state: SocketState, code: Code): void {
+/** The sync service, the clock the wait for HELLO runs on, and the limits it keeps to. */
+export interface SocketSync {
+  service: SyncService;
+  clock: Clock;
+  limits: SyncLimits;
+}
+
+interface Rules {
+  directory: Directory;
+  versions: ServerVersions;
+  /** Null: no document is served. */
+  sync: SocketSync | null;
+}
+
+/** The connection's stage ends: nothing waits for its HELLO and its peer leaves the service. */
+function release(state: SocketState, rules: Rules): void {
+  const { stage } = state;
   state.stage = { kind: "closed" };
+  if (stage.kind !== "open") return;
+  stage.cancelHello?.();
+  if (stage.peer !== null) rules.sync?.service.detach(stage.peer);
+}
+
+/** Closes the socket and drops its decoder, with any half-received message, at once. */
+function shut(
+  connection: Connection,
+  state: SocketState,
+  code: Code,
+  rules: Rules,
+): void {
+  release(state, rules);
   // REASONS holds every Code
   connection.close(code, REASONS.get(code)!);
 }
@@ -121,29 +166,68 @@ function push(
   }
 }
 
+/** The peer the sync service knows this connection by; null when it is refused. */
+function attach(
+  connection: Connection,
+  state: SocketState,
+  stage: OpenStage,
+  hello: Extract<Message, { type: "HELLO" }>,
+  sync: SocketSync,
+): Peer | null {
+  const peer = peerOf(
+    connection,
+    {
+      identity: stage.user,
+      deviceId: hello.deviceId,
+      versions: hello.versions,
+      address: state.address,
+    },
+    stage.ids,
+    sync.limits,
+  );
+  const attached = sync.service.attach(peer);
+  if (attached.ok) return peer;
+  connection.close(attached.code, "rate_limited");
+  return null;
+}
+
 function welcome(
   connection: Connection,
   state: SocketState,
   stage: OpenStage,
-  client: VersionSet,
-  versions: ServerVersions,
+  hello: Extract<Message, { type: "HELLO" }>,
+  rules: Rules,
 ): void {
-  const gate = gateConnection(client, versions);
-  if (!gate.ok) return shut(connection, state, gate.code);
+  const { versions, sync } = rules;
+  const gate = gateConnection(hello.versions, versions);
+  if (!gate.ok) return shut(connection, state, gate.code, rules);
+  // the directory is asked again: the person may have gone since the ticket was redeemed
+  const user = rules.directory.user(stage.user.userId);
+  if (user === null)
+    return shut(connection, state, CODE.UNAUTHENTICATED, rules);
+  stage.cancelHello?.();
   send(connection, stage, {
     type: "WELCOME",
-    session: stage.user,
+    session: user,
     limits: {
       frameBytes: FRAME_LIMIT_BYTES,
       messageBytes: MESSAGE_LIMIT_BYTES,
     },
     server: versions,
   });
+  const welcomed = { ...stage, user, cancelHello: null };
+  const peer =
+    sync === null ? null : attach(connection, state, welcomed, hello, sync);
+  if (sync !== null && peer === null) {
+    state.stage = { kind: "closed" };
+    return;
+  }
   // a chunked message begun before the handshake is dropped with the small decoder
   state.stage = {
-    ...stage,
+    ...welcomed,
     decoder: createFrameDecoder({ from: "client" }),
     welcomed: true,
+    peer,
   };
 }
 
@@ -152,22 +236,24 @@ function handle(
   state: SocketState,
   stage: OpenStage,
   message: Message,
-  versions: ServerVersions,
+  rules: Rules,
 ): void {
   if (!stage.welcomed) {
     if (message.type === "HELLO")
-      return welcome(connection, state, stage, message.versions, versions);
-    return shut(connection, state, CODE.BAD_FRAME);
+      return welcome(connection, state, stage, message, rules);
+    return shut(connection, state, CODE.BAD_FRAME, rules);
   }
+  if (message.type === "HELLO")
+    return shut(connection, state, CODE.BAD_FRAME, rules);
+  if (message.type === "PING")
+    return send(connection, stage, { type: "PONG", nonce: message.nonce });
+  const { peer } = stage;
+  if (peer !== null) return rules.sync?.service.receive(peer, message);
   if ("docId" in message) {
     const doc = { docId: message.docId, generation: message.generation };
     return send(connection, stage, refusal(CODE.FORBIDDEN, "forbidden", doc));
   }
   switch (message.type) {
-    case "HELLO":
-      return shut(connection, state, CODE.BAD_FRAME);
-    case "PING":
-      return send(connection, stage, { type: "PONG", nonce: message.nonce });
     // the server sends no PING and no ticket expires on an open socket yet
     case "PONG":
     case "AUTH_REFRESH":
@@ -181,13 +267,43 @@ function handle(
   }
 }
 
-/** One socket's life: `open` redeems its ticket, `message` applies the rules, `close` forgets it. */
+/** The wait for HELLO; null when the server serves no document. */
+function awaitHello(
+  connection: Connection,
+  state: SocketState,
+  rules: Rules,
+): (() => void) | null {
+  const { sync } = rules;
+  if (sync === null) return null;
+  return sync.clock.schedule(() => {
+    if (state.stage.kind === "open" && !state.stage.welcomed)
+      shut(connection, state, CODE.BAD_FRAME, rules);
+  }, sync.limits.helloTimeoutMs);
+}
+
+/** A newer client is told at once that this build did not read its frame for `doc`. */
+function skipped(
+  connection: Connection,
+  stage: OpenStage,
+  doc: DocRef,
+  rules: Rules,
+): void {
+  if (stage.peer !== null) return rules.sync?.service.skipped(stage.peer, doc);
+  send(connection, stage, refusal(CODE.BAD_FRAME, "unknown_frame", doc));
+}
+
+/**
+ * One socket's life: `open` redeems its ticket, `message` applies the rules, `close` forgets it.
+ * With `sync`, a socket that sends no HELLO within `helloTimeoutMs` is closed with 4400.
+ */
 export function createConnectionHandler(options: {
   tickets: TicketStore;
   directory: Directory;
   versions: ServerVersions;
+  sync: SocketSync | null;
 }): ConnectionHandler {
-  const { tickets, directory, versions } = options;
+  const { tickets, directory } = options;
+  const rules: Rules = options;
 
   return {
     maxFrameBytes: FRAME_LIMIT_BYTES,
@@ -197,16 +313,21 @@ export function createConnectionHandler(options: {
       const { ticket } = state.stage;
       const redeemed = ticket === null ? null : tickets.redeem(ticket);
       const user = redeemed === null ? null : directory.user(redeemed.userId);
-      if (user === null) return shut(connection, state, CODE.UNAUTHENTICATED);
+      if (user === null)
+        return shut(connection, state, CODE.UNAUTHENTICATED, rules);
+      const ids = createMessageIds();
       state.stage = {
         kind: "open",
         user,
-        encoder: createFrameEncoder({ ids: createMessageIds() }),
+        ids,
+        encoder: createFrameEncoder({ ids }),
         decoder: createFrameDecoder({
           from: "client",
           ...HANDSHAKE_LIMITS,
         }),
         welcomed: false,
+        peer: null,
+        cancelHello: awaitHello(connection, state, rules),
       };
     },
     message(connection, frame) {
@@ -214,23 +335,18 @@ export function createConnectionHandler(options: {
       const { stage } = state;
       if (stage.kind !== "open") return;
       if (typeof frame === "string")
-        return shut(connection, state, CODE.BAD_FRAME);
+        return shut(connection, state, CODE.BAD_FRAME, rules);
       const result = push(stage.decoder, frame);
       if (result instanceof ProtocolError)
-        return shut(connection, state, result.code);
+        return shut(connection, state, result.code, rules);
       switch (result.kind) {
         case "message":
-          return handle(connection, state, stage, result.message, versions);
+          return handle(connection, state, stage, result.message, rules);
         case "pending":
           return;
         case "skipped":
-          // a newer client is told at once that this build did not read the frame
           if (stage.welcomed && result.doc !== null)
-            send(
-              connection,
-              stage,
-              refusal(CODE.BAD_FRAME, "unknown_frame", result.doc),
-            );
+            skipped(connection, stage, result.doc, rules);
           return;
         default:
           result satisfies never;
@@ -240,7 +356,7 @@ export function createConnectionHandler(options: {
       // nothing is queued yet, so there is nothing to resume
     },
     close(connection) {
-      stateOf(connection).stage = { kind: "closed" };
+      release(stateOf(connection), rules);
     },
   };
 }

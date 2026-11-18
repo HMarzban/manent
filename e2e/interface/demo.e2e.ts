@@ -1,0 +1,57 @@
+import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { signedInAs } from "../support/tour.ts";
+
+const tourTab = (page: Page) =>
+  page
+    .locator("[data-region='side_panel']")
+    .getByRole("tabpanel", { name: "Tour" });
+
+const theme = (page: Page) =>
+  page.evaluate(() => document.documentElement.getAttribute("data-theme"));
+
+test("the Tour opens the first time a person reaches the Library, and the Tour button shows and hides it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /^Sam Okafor/ }).click();
+  const library = page.getByRole("heading", { name: "Library" });
+  await expect(tourTab(page).getByRole("heading", { level: 2 })).toHaveText(
+    "Tour",
+  );
+  // the Tour never takes focus
+  await expect(library).toBeFocused();
+  const tourButton = page
+    .getByRole("region", { name: "Demo" })
+    .getByRole("button", { name: "Tour" });
+  await tourButton.click();
+  await expect(tourTab(page)).toHaveCount(0);
+  await tourButton.click();
+  await expect(tourTab(page)).toBeVisible();
+  // only the first time
+  await page.reload();
+  await expect(library).toBeFocused();
+  await expect(tourTab(page)).toHaveCount(0);
+});
+
+test("two tabs as Sam share the theme, and a tab as Dana keeps hers", async ({
+  context,
+}) => {
+  const sam = await context.newPage();
+  await signedInAs(sam, "sam");
+  await expect(sam.getByRole("heading", { name: "Library" })).toBeFocused();
+  await sam.keyboard.press("ControlOrMeta+K");
+  await sam.keyboard.type("Theme: Dark");
+  await sam.keyboard.press("Enter");
+  await expect.poll(() => theme(sam)).toBe("dark");
+  const samAgain = await context.newPage();
+  await signedInAs(samAgain, "sam");
+  await expect(
+    samAgain.getByRole("heading", { name: "Library" }),
+  ).toBeVisible();
+  expect(await theme(samAgain)).toBe("dark");
+  const dana = await context.newPage();
+  await signedInAs(dana, "dana");
+  await expect(dana.getByRole("heading", { name: "Library" })).toBeVisible();
+  expect(await theme(dana)).toBe(null);
+});

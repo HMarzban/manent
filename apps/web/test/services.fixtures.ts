@@ -1,0 +1,208 @@
+// Stand-ins for the world a person's services run in: storage, its events, a clock, the server, the router and the window.
+import { createValue } from "@manent/ui";
+import type { Api } from "../src/api.ts";
+import type { Navigation, RoutePlace } from "../src/handlers/index.ts";
+import { INITIAL_SHELL_STATE } from "../src/services/ports.ts";
+import type {
+  Environment,
+  PersonServices,
+  ShellState,
+} from "../src/services/ports.ts";
+import { createPersonServices } from "../src/services/services.ts";
+import type { StorageEvents } from "../src/services/local-map.ts";
+import type { ShellDom } from "../src/shell/regions.tsx";
+import { createGuard } from "../src/state/guard.ts";
+import { createPersonStore } from "../src/state/person.store.ts";
+
+/** A storage held in memory, as one origin's tabs share it. */
+export class MemoryStorage implements Storage {
+  [name: string]: unknown;
+  readonly #items = new Map<string, string>();
+  get length(): number {
+    return this.#items.size;
+  }
+  key(index: number): string | null {
+    return [...this.#items.keys()][index] ?? null;
+  }
+  getItem(key: string): string | null {
+    return this.#items.get(key) ?? null;
+  }
+  setItem(key: string, value: string): void {
+    this.#items.set(key, value);
+  }
+  removeItem(key: string): void {
+    this.#items.delete(key);
+  }
+  clear(): void {
+    this.#items.clear();
+  }
+}
+
+/** A storage that refuses every read and write, as a private window may. */
+export class RefusingStorage extends MemoryStorage {
+  override getItem(): string | null {
+    throw new Error("the storage refuses to be read");
+  }
+  override setItem(): void {
+    throw new Error("the storage refuses to be written");
+  }
+}
+
+/** A storage that reads but refuses every write, as a full one does. */
+export class FullStorage extends MemoryStorage {
+  override setItem(): void {
+    throw new Error("the storage is full");
+  }
+}
+
+/** The storage events another tab would cause; `fire` sends one to every listener. */
+export function createStorageEvents(): {
+  events: StorageEvents;
+  fire(key: string | null): void;
+} {
+  const listeners = new Set<(key: string | null) => void>();
+  return {
+    events(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    fire(key) {
+      for (const listener of listeners) listener(key);
+    },
+  };
+}
+
+/** A clock and timers that move only when the test advances them. */
+export function createClock(startAt = 0): {
+  now: () => number;
+  schedule: (fn: () => void, delayMs: number) => () => void;
+  advance(ms: number): void;
+} {
+  let at = startAt;
+  let tasks: { at: number; fn: () => void }[] = [];
+  return {
+    now: () => at,
+    schedule(fn, delayMs) {
+      const task = { at: at + delayMs, fn };
+      tasks.push(task);
+      return () => {
+        tasks = tasks.filter((t) => t !== task);
+      };
+    },
+    advance(ms) {
+      const until = at + ms;
+      for (;;) {
+        const [due] = tasks
+          .filter((t) => t.at <= until)
+          .toSorted((a, b) => a.at - b.at);
+        if (due === undefined) break;
+        tasks = tasks.filter((t) => t !== due);
+        at = due.at;
+        due.fn();
+      }
+      at = until;
+    },
+  };
+}
+
+export function fakeApi(overrides: Partial<Api> = {}): Api {
+  return {
+    choices: async () => [],
+    signIn: async () => ({ ok: false, reason: "unreachable" }),
+    me: async () => ({ ok: false, reason: "unauthenticated" }),
+    demo: async () => null,
+    ...overrides,
+  };
+}
+
+/** A router at `at`; `visited` lists every navigation, and `next()` settles with the next one. */
+export function createNavigation(at: RoutePlace): {
+  navigation: Navigation;
+  visited: string[];
+  next(): Promise<string>;
+} {
+  const visited: string[] = [];
+  let waiting: ((href: string) => void)[] = [];
+  return {
+    navigation: {
+      navigate(href) {
+        visited.push(href);
+        const settle = waiting;
+        waiting = [];
+        for (const resolve of settle) resolve(href);
+      },
+      here: () => at,
+    },
+    visited,
+    next: () =>
+      new Promise((resolve) => {
+        waiting.push(resolve);
+      }),
+  };
+}
+
+/** A window with nothing in it: focus is never anywhere and nothing is said. */
+export const QUIET_DOM: ShellDom = Object.freeze({
+  focusKind: () => "other" as const,
+  pageFocused: () => false,
+  focusPage: () => false,
+  focusNextRegion: () => {},
+  focusSidePanel: () => {},
+  rememberFocus: () => {},
+  restoreFocus: () => {},
+  announce: () => {},
+});
+
+export function testEnvironment(
+  overrides: Partial<Environment> = {},
+): Environment {
+  const clock = createClock();
+  let ids = 0;
+  return {
+    where: {
+      platform: "mac",
+      shell: "web",
+      browser: "Chrome",
+      system: "macOS",
+    },
+    language: "en-US",
+    now: clock.now,
+    schedule: clock.schedule,
+    frame: (fn) => clock.schedule(fn, 16),
+    storage: new MemoryStorage(),
+    storageEvents: createStorageEvents().events,
+    tabStorage: null,
+    randomId: () => `id-${++ids}`,
+    lastKeyAt: () => null,
+    guard: createGuard({ flavour: "test" }),
+    flavour: "test",
+    shellState: createValue<ShellState>(INITIAL_SHELL_STATE),
+    dom: QUIET_DOM,
+    online: () => true,
+    ran: () => {},
+    visitUndo: { current: null },
+    ...overrides,
+  };
+}
+
+/** The services of `userId` in `environment`, at `/` unless a router is given. */
+export function testServices(options: {
+  userId: string;
+  environment?: Environment;
+  router?: Navigation;
+  api?: Api;
+}): PersonServices {
+  const environment = options.environment ?? testEnvironment();
+  return createPersonServices({
+    ...environment,
+    person: { token: null, userId: options.userId, name: options.userId },
+    demo: false,
+    api: options.api ?? fakeApi(),
+    usePerson: createPersonStore(null),
+    router:
+      options.router ??
+      createNavigation({ routeId: "/", href: "/", search: {} }).navigation,
+  });
+}

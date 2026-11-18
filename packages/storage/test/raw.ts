@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AppendItem, Home } from "../src/index.ts";
-import { sha256, StorageError } from "../src/index.ts";
+import { openSqliteStorage, sha256, StorageError } from "../src/index.ts";
 
 export const PROJECT = "0b9f3c1e-6d2a-4e8b-9f1a-2c3d4e5f6a7b";
 export const HOME: Home = { kind: "project", id: PROJECT };
@@ -178,15 +178,22 @@ export async function readLinesFor(
 export const range = (from: number, to: number): number[] =>
   Array.from({ length: to - from + 1 }, (_, i) => from + i);
 
-/** The code of the StorageError `fn` throws; null when it throws nothing. Any other error is thrown on. */
-export function codeOf(fn: () => unknown): StorageError["code"] | null {
+/**
+ * The code of the StorageError that opening HOME in `dir` throws; null when it throws nothing.
+ * Any other error is thrown on. The storage is closed either way.
+ */
+export function codeOfOpening(dir: string): StorageError["code"] | null {
+  const storage = openSqliteStorage({ dir, now: () => 1_000 });
   try {
-    fn();
+    storage.open(HOME);
+    return null;
   } catch (error) {
     if (error instanceof StorageError) return error.code;
     throw error;
+  } finally {
+    // a connection left open keeps Windows from removing the directory
+    storage.close();
   }
-  return null;
 }
 
 export const item = (n: number): AppendItem => ({

@@ -22,6 +22,7 @@ const PROJECT = "0b9f3c1e-6d2a-4e8b-9f1a-2c3d4e5f6a7b";
 const HOME: Home = { kind: "project", id: PROJECT };
 const DOC = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
 const DOC2 = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7ce";
+const DOC3 = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cf";
 
 const item = (n: number): AppendItem => ({
   docId: DOC,
@@ -311,6 +312,16 @@ export function storageContract(
       deletedByUserId: "sam",
       deletedAt: 1_000,
     });
+  });
+
+  test("the directory names each home that holds a document once, in key order", () => {
+    const d = s.directory;
+    const sams: Home = { kind: "user", id: "sam" };
+    expect(d.homes()).toEqual([]);
+    d.place(DOC2, sams, "private", "sam");
+    d.place(DOC, HOME, "script", "sam");
+    d.place(DOC3, HOME, "script", "dana");
+    expect(d.homes()).toEqual([HOME, sams]);
   });
 
   test("versions are listed newest first; a pre-heal version is noted on the flag", () => {

@@ -1,20 +1,24 @@
 // The directory in control.sqlite: where each document lives, who holds which role, and what is deleted.
 import type { Database } from "bun:sqlite";
-import { homeKey, parseHome } from "../home.ts";
-import type { DocDirectory } from "../ports.ts";
+import { homeKey, parseHome, wellFormedKey } from "../home.ts";
+import type { DocDirectory, Home } from "../ports.ts";
 import { StorageError } from "../ports.ts";
-import { transact, wellFormedKey } from "./files.ts";
+import { transact } from "./files.ts";
 
 interface PlaceRow {
   home: string;
   kind: string;
 }
 
+function readHome(key: string): Home {
+  const home = parseHome(key);
+  if (home === null) throw new StorageError("corrupt");
+  return home;
+}
+
 function readPlace(row: PlaceRow | null) {
   if (row === null) return null;
-  const home = parseHome(row.home);
-  if (home === null) throw new StorageError("corrupt");
-  return { home, kind: row.kind };
+  return { home: readHome(row.home), kind: row.kind };
 }
 
 function readCapabilities(text: string): string[] {
@@ -47,6 +51,9 @@ export function createSqliteDirectory(options: {
     ),
     documentsIn: db.query<{ doc_id: string }, [string]>(
       "SELECT doc_id FROM doc_directory WHERE home = ?1 ORDER BY doc_id",
+    ),
+    homes: db.query<{ home: string }, []>(
+      "SELECT DISTINCT home FROM doc_directory ORDER BY home",
     ),
     setRole: db.query<never, [string, string, string, string]>(
       "INSERT INTO doc_roles (doc_id, user_id, role, capabilities) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (doc_id, user_id) DO UPDATE SET role = excluded.role, capabilities = excluded.capabilities",
@@ -83,6 +90,7 @@ export function createSqliteDirectory(options: {
     placeOf: (docId) => readPlace(sql.placeOf.get(docId)),
     documentsIn: (home) =>
       sql.documentsIn.all(homeKey(home)).map((row) => row.doc_id),
+    homes: () => sql.homes.all().map((row) => readHome(row.home)),
     setRole: (docId, userId, role, capabilities) =>
       write(() =>
         sql.setRole.run(docId, userId, role, JSON.stringify(capabilities)),
