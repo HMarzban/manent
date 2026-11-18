@@ -1,8 +1,18 @@
-// The HTTP server: the host check, the routes, then the web app's files.
-import type { ControlEndpoint, Identity } from "@manent/sync-protocol";
+// The server: the host check, the routes, then the web app's files; and the socket's connections.
+import type {
+  ControlEndpoint,
+  Identity,
+  ServerVersions,
+} from "@manent/sync-protocol";
 import type { Directory } from "../auth/directory.ts";
 import type { SessionStore } from "../auth/sessions.ts";
 import type { SignInProvider } from "../auth/sign-in.ts";
+import type {
+  ConnectionData,
+  ConnectionHandler,
+} from "../socket/connection.ts";
+import { createConnectionHandler } from "../socket/handler.ts";
+import type { TicketStore } from "../socket/tickets.ts";
 import { failure } from "./respond.ts";
 import { ROUTES } from "./routes/index.ts";
 import { serveStatic } from "./static.ts";
@@ -10,6 +20,8 @@ import { serveStatic } from "./static.ts";
 export interface RequestContext {
   /** The caller's address as the listener saw it; "" when it cannot tell. */
   remoteAddress: string;
+  /** Asks the transport to turn this request into a socket that carries `data`; false when it is not an upgrade. */
+  upgrade(data: ConnectionData): boolean;
 }
 
 export interface ServerConfig {
@@ -31,11 +43,19 @@ export interface ServerConfig {
     seedId(): string | null;
     control: ControlEndpoint | null;
   } | null;
+  socket: {
+    tickets: TicketStore;
+    versions: ServerVersions;
+    /** Origins of the app itself, e.g. `http://localhost:4747`. */
+    allowedOrigins: readonly string[];
+  };
 }
 
 /** What an app hands to its listener; this package never listens itself. */
 export interface ManentServer {
-  fetch(request: Request, context: RequestContext): Promise<Response>;
+  /** Null: the request was upgraded to a socket. */
+  fetch(request: Request, context: RequestContext): Promise<Response | null>;
+  connections: ConnectionHandler;
 }
 
 const BEARER = /^Bearer +(\S+)$/i;
@@ -51,6 +71,11 @@ export function createServer(config: ServerConfig): ManentServer {
   const { webDir } = config.http;
 
   return {
+    connections: createConnectionHandler({
+      tickets: config.socket.tickets,
+      directory: config.auth.directory,
+      versions: config.socket.versions,
+    }),
     async fetch(request, peer) {
       const url = new URL(request.url);
       const isApi = url.pathname === "/api" || url.pathname.startsWith("/api/");

@@ -16,6 +16,7 @@ test("the HTTP error codes and the server states are fixed lists", () => {
   expect(HTTP_ERROR_CODES).toEqual([
     "bad_request",
     "forbidden_host",
+    "forbidden_origin",
     "not_found",
     "unauthenticated",
     "unknown_user",

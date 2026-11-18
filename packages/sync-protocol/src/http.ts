@@ -3,6 +3,7 @@
 export const HTTP_ERROR_CODES = [
   "bad_request",
   "forbidden_host",
+  "forbidden_origin",
   "not_found",
   "unauthenticated",
   "unknown_user",
@@ -57,6 +58,13 @@ export interface WorkspaceRef {
 /** The answer to GET /api/me. */
 export interface MeResponse extends Identity {
   workspaces: readonly WorkspaceRef[];
+}
+
+/** The answer to POST /api/ws-ticket: a single-use ticket that opens the sync socket. */
+export interface WsTicketResponse {
+  ticket: string;
+  /** How long the ticket can be redeemed. */
+  expiresInMs: number;
 }
 
 export interface ControlEndpoint {
