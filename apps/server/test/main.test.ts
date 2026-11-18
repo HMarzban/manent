@@ -2,32 +2,26 @@ import { afterAll, afterEach, expect, test } from "bun:test";
 import {
   chmod,
   mkdir,
-  mkdtemp,
   readFile,
-  rm,
+  readdir,
   stat,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { MeResponse, SignInResponse } from "@manent/sync-protocol";
+import { createTempTrees } from "@manent/testkit";
 import { readServerEnv } from "../src/env.ts";
 import type { ServerEnv } from "../src/env.ts";
-import { buildServerConfig, startServer } from "../src/main.ts";
+import {
+  buildServerConfig,
+  loadSessionSecret,
+  startServer,
+} from "../src/main.ts";
 import type { RunningServer } from "../src/main.ts";
 
-const made: string[] = [];
-afterAll(async () => {
-  await Promise.all(
-    made.map((dir) => rm(dir, { recursive: true, force: true })),
-  );
-});
-
-async function tempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "manent-server-"));
-  made.push(dir);
-  return dir;
-}
+const trees = createTempTrees("manent-server-");
+afterAll(() => trees.removeAll());
+const tempDir = () => trees.tree({});
 
 const running: RunningServer[] = [];
 afterEach(async () => {
@@ -125,6 +119,11 @@ test("the configuration names the server's own hosts", () => {
     "192.168.1.20:4747",
   ]);
   expect(c.http.openUrl).toBe("http://192.168.1.20:4747");
+  expect(c.socket.allowedOrigins).toEqual([
+    "http://localhost:4747",
+    "http://127.0.0.1:4747",
+    "http://192.168.1.20:4747",
+  ]);
 
   const local = buildServerConfig(
     readServerEnv({ MANENT_DEMO: "1" }),
@@ -164,4 +163,23 @@ test("the seed's id is read from the data directory on each call", async () => {
     JSON.stringify({ seedId: 4 }),
   );
   expect(c.demo?.seedId()).toBeNull();
+});
+
+test("the session key is created, kept, and replaced whole", async () => {
+  const dir = await tempDir();
+  const first = await loadSessionSecret(dir);
+  expect(first.byteLength).toBe(32);
+  expect(await loadSessionSecret(dir)).toEqual(first);
+  await Bun.write(join(dir, "session.key"), "short");
+  // a replacement written in place would keep this mode
+  await chmod(join(dir, "session.key"), 0o644);
+  const second = await loadSessionSecret(dir);
+  expect(second.byteLength).toBe(32);
+  expect(second).not.toEqual(first);
+  expect(second).toEqual(
+    new Uint8Array(await readFile(join(dir, "session.key"))),
+  );
+  expect((await readdir(dir)).toSorted()).toEqual(["session.key"]);
+  if (process.platform !== "win32")
+    expect((await stat(join(dir, "session.key"))).mode & 0o777).toBe(0o600);
 });

@@ -3,8 +3,16 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DemoResponse, SignInResponse } from "@manent/sync-protocol";
-import { createServer, createSignedSessionStore } from "../src/index.ts";
-import type { RequestContext, ServerConfig } from "../src/index.ts";
+import {
+  createServer,
+  createSignedSessionStore,
+  createTicketStore,
+} from "../src/index.ts";
+import type {
+  ManentServer,
+  RequestContext,
+  ServerConfig,
+} from "../src/index.ts";
 import { createFakeDirectory, createFakeSignIn } from "../src/testing/index.ts";
 
 const CONTROL = { url: "http://127.0.0.1:4748", token: "t0ken" };
@@ -25,6 +33,7 @@ afterAll(async () => {
 });
 
 function makeConfig(overrides: Partial<ServerConfig> = {}): ServerConfig {
+  const v = { protocol: 1, schema: 1, engine: 0, table: 0 };
   return {
     http: HTTP,
     auth: {
@@ -39,23 +48,40 @@ function makeConfig(overrides: Partial<ServerConfig> = {}): ServerConfig {
       }),
     },
     demo: { seedId: () => "s1", control: CONTROL },
+    socket: {
+      tickets: createTicketStore({ now: () => 0 }),
+      versions: { current: v, min: v },
+      allowedOrigins: ["http://127.0.0.1:4747"],
+    },
     ...overrides,
   };
 }
 
 const peer = (remoteAddress = "127.0.0.1"): RequestContext => ({
   remoteAddress,
+  upgrade: () => false,
 });
+
+/** The server's answer; no request here is upgraded. */
+async function answer(
+  on: ManentServer,
+  request: Request,
+  from = "127.0.0.1",
+): Promise<Response> {
+  const response = await on.fetch(request, peer(from));
+  if (response === null) throw new TypeError(`${request.url} was upgraded`);
+  return response;
+}
 
 const server = createServer(makeConfig());
 const fetchAt = (url: string, init?: RequestInit, on = server) =>
-  on.fetch(new Request(url, init), peer());
+  answer(on, new Request(url, init));
 const get = (path: string, token?: string) =>
   fetchAt(`http://localhost:4747${path}`, {
     headers: token === undefined ? {} : { Authorization: `Bearer ${token}` },
   });
 const getFrom = (path: string, from: string) =>
-  server.fetch(new Request(`http://localhost:4747${path}`), peer(from));
+  answer(server, new Request(`http://localhost:4747${path}`), from);
 const postRaw = (path: string, body: string) =>
   fetchAt(`http://localhost:4747${path}`, { method: "POST", body });
 const post = (path: string, body: unknown) =>

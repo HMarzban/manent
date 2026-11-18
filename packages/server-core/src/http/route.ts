@@ -14,5 +14,6 @@ export interface RouteContext {
 export interface Route {
   method: "GET" | "POST";
   path: string;
-  handle(context: RouteContext): Response | Promise<Response>;
+  /** Null: the request was upgraded to a socket. */
+  handle(context: RouteContext): Response | null | Promise<Response | null>;
 }

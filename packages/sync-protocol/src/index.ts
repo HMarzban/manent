@@ -70,4 +70,5 @@ export type {
   SignInOptions,
   SignInResponse,
   WorkspaceRef,
+  WsTicketResponse,
 } from "./http.ts";

@@ -82,3 +82,21 @@ test("a bad port or half a control pair is refused in one sentence", () => {
     "MANENT_CONTROL_URL and MANENT_CONTROL_TOKEN must be set together.",
   );
 });
+
+test("a loopback LAN host is no LAN host", () => {
+  for (const h of ["127.0.0.1", "::1", "localhost"])
+    expect(
+      readServerEnv({ MANENT_DEMO: "1", MANENT_LAN_HOST: h }).lanHost,
+    ).toBeNull();
+});
+
+test("an IPv4-mapped LAN host is kept as IPv4", () => {
+  expect(
+    readServerEnv({ MANENT_DEMO: "1", MANENT_LAN_HOST: "::ffff:192.168.1.20" })
+      .lanHost,
+  ).toBe("192.168.1.20");
+  for (const h of ["[::ffff:192.168.1.20]", "::FFFF:c0a8:114"])
+    expect(
+      readServerEnv({ MANENT_DEMO: "1", MANENT_LAN_HOST: h }).lanHost,
+    ).toBe("192.168.1.20");
+});
