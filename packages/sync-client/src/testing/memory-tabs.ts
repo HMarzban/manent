@@ -24,82 +24,97 @@ interface Candidate {
   handlers: { onElected(): void; onDeposed(): void };
 }
 
-/** A tab never hears its own message; the listeners of one tab share the copy it receives. */
-export function memoryTabs(): MemoryTabs {
-  const listeners = new Map<string, Set<(message: unknown) => void>>();
-  const deaf = new Set<string>();
-  let waiting: Candidate[] = [];
-  const log: TabMessage[] = [];
-  let lead: Candidate | null = null;
+/** What every tab of one MemoryTabs shares. */
+interface Tabs {
+  listeners: Map<string, Set<(message: unknown) => void>>;
+  deaf: Set<string>;
+  waiting: Candidate[];
+  log: TabMessage[];
+  lead: Candidate | null;
+}
 
-  const electLater = (): void => {
-    void Promise.resolve().then(() => {
-      if (lead !== null) return;
-      const next = waiting.shift();
-      if (next === undefined) return;
-      lead = next;
-      next.handlers.onElected();
-    });
-  };
-  const deliver = (from: string, copy: unknown): void => {
-    void Promise.resolve().then(() => {
-      for (const [tabId, handlers] of listeners) {
-        if (tabId === from || deaf.has(tabId)) continue;
-        const received: unknown = structuredClone(copy);
-        for (const handler of handlers) handler(received);
-      }
-    });
-  };
+function electLater(tabs: Tabs): void {
+  void Promise.resolve().then(() => {
+    if (tabs.lead !== null) return;
+    const next = tabs.waiting.shift();
+    if (next === undefined) return;
+    tabs.lead = next;
+    next.handlers.onElected();
+  });
+}
 
-  const port = (tabId: string): LeaderPort => ({
+function deliver(tabs: Tabs, from: string, copy: unknown): void {
+  void Promise.resolve().then(() => {
+    for (const [tabId, handlers] of tabs.listeners) {
+      if (tabId === from || tabs.deaf.has(tabId)) continue;
+      const received: unknown = structuredClone(copy);
+      for (const handler of handlers) handler(received);
+    }
+  });
+}
+
+function tabPort(tabs: Tabs, tabId: string): LeaderPort {
+  return {
     tabId,
     campaign(handlers) {
       const candidate: Candidate = { tabId, handlers };
-      waiting.push(candidate);
-      electLater();
+      tabs.waiting.push(candidate);
+      electLater(tabs);
       return () => {
-        waiting = waiting.filter((other) => other !== candidate);
-        if (lead !== candidate) return;
-        lead = null;
-        electLater();
+        tabs.waiting = tabs.waiting.filter((other) => other !== candidate);
+        if (tabs.lead !== candidate) return;
+        tabs.lead = null;
+        electLater(tabs);
       };
     },
     post(message) {
       const copy: unknown = structuredClone(message);
       const read = readTabMessage(copy);
-      if (read !== null) log.push(read);
-      deliver(tabId, copy);
+      if (read !== null) tabs.log.push(read);
+      deliver(tabs, tabId, copy);
     },
     listen(handler) {
-      const handlers = listeners.get(tabId) ?? new Set();
-      listeners.set(tabId, handlers);
+      const handlers = tabs.listeners.get(tabId) ?? new Set();
+      tabs.listeners.set(tabId, handlers);
       handlers.add(handler);
       return () => {
         handlers.delete(handler);
       };
     },
-  });
+  };
+}
 
+/** A tab never hears its own message; the listeners of one tab share the copy it receives. */
+export function memoryTabs(): MemoryTabs {
+  const tabs: Tabs = {
+    listeners: new Map(),
+    deaf: new Set(),
+    waiting: [],
+    log: [],
+    lead: null,
+  };
   return {
-    port,
+    port: (tabId) => tabPort(tabs, tabId),
     closeTab(tabId) {
-      deaf.add(tabId);
-      waiting = waiting.filter((candidate) => candidate.tabId !== tabId);
-      if (lead?.tabId !== tabId) return;
-      lead = null;
-      electLater();
+      tabs.deaf.add(tabId);
+      tabs.waiting = tabs.waiting.filter(
+        (candidate) => candidate.tabId !== tabId,
+      );
+      if (tabs.lead?.tabId !== tabId) return;
+      tabs.lead = null;
+      electLater(tabs);
     },
     depose() {
-      const deposed = lead;
+      const deposed = tabs.lead;
       if (deposed === null) return;
-      lead = null;
+      tabs.lead = null;
       deposed.handlers.onDeposed();
-      electLater();
+      electLater(tabs);
     },
     dropMessagesTo(tabId) {
-      deaf.add(tabId);
+      tabs.deaf.add(tabId);
     },
-    leader: () => lead?.tabId ?? null,
-    posted: () => [...log],
+    leader: () => tabs.lead?.tabId ?? null,
+    posted: () => [...tabs.log],
   };
 }

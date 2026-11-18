@@ -98,7 +98,8 @@ function readBytes(value: unknown): Uint8Array {
 function listOf<T>(read: Read<T>): Read<T[]> {
   return (value) => {
     if (!Array.isArray(value)) throw new Malformed();
-    return value.map(read);
+    // Unlike map, this visits a hole as undefined, so a sparse list is refused.
+    return Array.from(value, (item) => read(item));
   };
 }
 

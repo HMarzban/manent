@@ -193,6 +193,29 @@ test("a link, sync state, side state, reason or cause this build does not know i
     expect(readTabMessage(unknown)).toBeNull();
 });
 
+/** The items, then one hole: a sparse list, which a copy keeps sparse. */
+function withHole<T>(items: readonly T[]): T[] {
+  const holed = [...items];
+  holed.length += 1;
+  return holed;
+}
+
+test("a list with a hole in it is of the wrong shape", () => {
+  for (const holed of [
+    { ...tabMessage("t1", SAMPLES.edit), elements: withHole(["b1"]) },
+    {
+      ...tabMessage("t1", SAMPLES.status),
+      status: { ...STATUS, side: withHole(STATUS.side) },
+    },
+    { ...tabMessage("t1", SAMPLES.recovered), items: withHole([ITEM]) },
+    {
+      ...tabMessage("t1", SAMPLES.state),
+      meta: { ...META, clientIds: withHole(META.clientIds) },
+    },
+  ])
+    expect(readTabMessage(structuredClone(holed))).toBeNull();
+});
+
 test("one tab leads at a time, and the next takes over when it goes", async () => {
   const tabs = memoryTabs();
   const elected: string[] = [];
@@ -445,6 +468,7 @@ const anyValue = fc.anything({
   withMap: true,
   withNullPrototype: true,
   withSet: true,
+  withSparseArray: true,
   withTypedArray: true,
 });
 
