@@ -1,0 +1,4681 @@
+{
+ "engine": "chromium",
+ "version": "159.0.8154.6",
+ "launched": true,
+ "reason": null,
+ "note": "Device scale factors 0.8 and 1.25 approximate browser zoom at 80 % and 125 %; they are not browser zoom.",
+ "rows": [
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 50,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 595,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "but they day find to. oil that about this was may down has. said water but him oil been other. time like up on water your the the this. their oil up could will. said who we will.",
+     "engine": [
+      0,
+      60,
+      117,
+      173
+     ],
+     "dom": [
+      0,
+      55,
+      111,
+      170
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 50,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 595,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "but they day find to. oil that about this was may down has. said water but him oil been other. time like up on water your the the this. their oil up could will. said who we will.",
+     "engine": [
+      0,
+      60,
+      117,
+      173
+     ],
+     "dom": [
+      0,
+      55,
+      111,
+      170
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 150,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 595,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "but they day find to. oil that about this was may down has. said water but him oil been other. time like up on water your the the this. their oil up could will. said who we will.",
+     "engine": [
+      0,
+      60,
+      117,
+      173
+     ],
+     "dom": [
+      0,
+      55,
+      111,
+      170
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 150,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 300,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 595,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "but they day find to. oil that about this was may down has. said water but him oil been other. time like up on water your the the this. their oil up could will. said who we will.",
+     "engine": [
+      0,
+      60,
+      117,
+      173
+     ],
+     "dom": [
+      0,
+      55,
+      111,
+      170
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 300,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 0.8,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 595,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "but they day find to. oil that about this was may down has. said water but him oil been other. time like up on water your the the this. their oil up could will. said who we will.",
+     "engine": [
+      0,
+      60,
+      117,
+      173
+     ],
+     "dom": [
+      0,
+      55,
+      111,
+      170
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 0.8,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 1.25,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 595,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "but they day find to. oil that about this was may down has. said water but him oil been other. time like up on water your the the this. their oil up could will. said who we will.",
+     "engine": [
+      0,
+      60,
+      117,
+      173
+     ],
+     "dom": [
+      0,
+      55,
+      111,
+      170
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 1.25,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 1.5,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 595,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "but they day find to. oil that about this was may down has. said water but him oil been other. time like up on water your the the this. their oil up could will. said who we will.",
+     "engine": [
+      0,
+      60,
+      117,
+      173
+     ],
+     "dom": [
+      0,
+      55,
+      111,
+      170
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 1.5,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 2,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 595,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "but they day find to. oil that about this was may down has. said water but him oil been other. time like up on water your the the this. their oil up could will. said who we will.",
+     "engine": [
+      0,
+      60,
+      117,
+      173
+     ],
+     "dom": [
+      0,
+      55,
+      111,
+      170
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 2,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      115
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 50,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 809,
+   "examples": [
+    {
+     "type": "action",
+     "text": "find made go may. write for made she but in word. their is come about. if of more this first were made. has about number long.",
+     "engine": [
+      0,
+      59,
+      114
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      62,
+      95
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "each was had we part were when his was. are when first other as can them come. way many their said.",
+     "engine": [
+      0,
+      35,
+      68
+     ],
+     "dom": [
+      0,
+      31,
+      64,
+      94
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 50,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 100,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "two  spaces  after  every  word  so  that  doubled  spaces  land  on  the  edge  of  the  column  again  and  again  until  the  block  ends",
+     "engine": [
+      0,
+      60,
+      117
+     ],
+     "dom": [
+      0,
+      52,
+      110
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a full stop.  Then two spaces.  Then another sentence that runs on past the edge.  And one more for luck.  The end.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      54,
+      111
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      108
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      109
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      58,
+      114
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 809,
+   "examples": [
+    {
+     "type": "action",
+     "text": "find made go may. write for made she but in word. their is come about. if of more this first were made. has about number long.",
+     "engine": [
+      0,
+      59,
+      114
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      62,
+      95
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "each was had we part were when his was. are when first other as can them come. way many their said.",
+     "engine": [
+      0,
+      35,
+      68
+     ],
+     "dom": [
+      0,
+      31,
+      64,
+      94
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 100,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "two  spaces  after  every  word  so  that  doubled  spaces  land  on  the  edge  of  the  column  again  and  again  until  the  block  ends",
+     "engine": [
+      0,
+      60,
+      117
+     ],
+     "dom": [
+      0,
+      52,
+      110
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a full stop.  Then two spaces.  Then another sentence that runs on past the edge.  And one more for luck.  The end.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      54,
+      111
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      108
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      109
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      58,
+      114
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 150,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 809,
+   "examples": [
+    {
+     "type": "action",
+     "text": "find made go may. write for made she but in word. their is come about. if of more this first were made. has about number long.",
+     "engine": [
+      0,
+      59,
+      114
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      62,
+      95
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "each was had we part were when his was. are when first other as can them come. way many their said.",
+     "engine": [
+      0,
+      35,
+      68
+     ],
+     "dom": [
+      0,
+      31,
+      64,
+      94
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 150,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 100,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "two  spaces  after  every  word  so  that  doubled  spaces  land  on  the  edge  of  the  column  again  and  again  until  the  block  ends",
+     "engine": [
+      0,
+      60,
+      117
+     ],
+     "dom": [
+      0,
+      52,
+      110
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a full stop.  Then two spaces.  Then another sentence that runs on past the edge.  And one more for luck.  The end.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      54,
+      111
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      108
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      109
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      58,
+      114
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 300,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 809,
+   "examples": [
+    {
+     "type": "action",
+     "text": "find made go may. write for made she but in word. their is come about. if of more this first were made. has about number long.",
+     "engine": [
+      0,
+      59,
+      114
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      62,
+      95
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "each was had we part were when his was. are when first other as can them come. way many their said.",
+     "engine": [
+      0,
+      35,
+      68
+     ],
+     "dom": [
+      0,
+      31,
+      64,
+      94
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 300,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 100,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "two  spaces  after  every  word  so  that  doubled  spaces  land  on  the  edge  of  the  column  again  and  again  until  the  block  ends",
+     "engine": [
+      0,
+      60,
+      117
+     ],
+     "dom": [
+      0,
+      52,
+      110
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a full stop.  Then two spaces.  Then another sentence that runs on past the edge.  And one more for luck.  The end.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      54,
+      111
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      108
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      109
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      58,
+      114
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 0.8,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 809,
+   "examples": [
+    {
+     "type": "action",
+     "text": "find made go may. write for made she but in word. their is come about. if of more this first were made. has about number long.",
+     "engine": [
+      0,
+      59,
+      114
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      62,
+      95
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "each was had we part were when his was. are when first other as can them come. way many their said.",
+     "engine": [
+      0,
+      35,
+      68
+     ],
+     "dom": [
+      0,
+      31,
+      64,
+      94
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 0.8,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 100,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "two  spaces  after  every  word  so  that  doubled  spaces  land  on  the  edge  of  the  column  again  and  again  until  the  block  ends",
+     "engine": [
+      0,
+      60,
+      117
+     ],
+     "dom": [
+      0,
+      52,
+      110
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a full stop.  Then two spaces.  Then another sentence that runs on past the edge.  And one more for luck.  The end.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      54,
+      111
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      108
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      109
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      58,
+      114
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 1.25,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 809,
+   "examples": [
+    {
+     "type": "action",
+     "text": "find made go may. write for made she but in word. their is come about. if of more this first were made. has about number long.",
+     "engine": [
+      0,
+      59,
+      114
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      62,
+      95
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "each was had we part were when his was. are when first other as can them come. way many their said.",
+     "engine": [
+      0,
+      35,
+      68
+     ],
+     "dom": [
+      0,
+      31,
+      64,
+      94
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 1.25,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 100,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "two  spaces  after  every  word  so  that  doubled  spaces  land  on  the  edge  of  the  column  again  and  again  until  the  block  ends",
+     "engine": [
+      0,
+      60,
+      117
+     ],
+     "dom": [
+      0,
+      52,
+      110
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a full stop.  Then two spaces.  Then another sentence that runs on past the edge.  And one more for luck.  The end.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      54,
+      111
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      108
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      109
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      58,
+      114
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 1.5,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 809,
+   "examples": [
+    {
+     "type": "action",
+     "text": "find made go may. write for made she but in word. their is come about. if of more this first were made. has about number long.",
+     "engine": [
+      0,
+      59,
+      114
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      62,
+      95
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "each was had we part were when his was. are when first other as can them come. way many their said.",
+     "engine": [
+      0,
+      35,
+      68
+     ],
+     "dom": [
+      0,
+      31,
+      64,
+      94
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 1.5,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 100,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "two  spaces  after  every  word  so  that  doubled  spaces  land  on  the  edge  of  the  column  again  and  again  until  the  block  ends",
+     "engine": [
+      0,
+      60,
+      117
+     ],
+     "dom": [
+      0,
+      52,
+      110
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a full stop.  Then two spaces.  Then another sentence that runs on past the edge.  And one more for luck.  The end.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      54,
+      111
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      108
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      109
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      58,
+      114
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 2,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 809,
+   "examples": [
+    {
+     "type": "action",
+     "text": "find made go may. write for made she but in word. their is come about. if of more this first were made. has about number long.",
+     "engine": [
+      0,
+      59,
+      114
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "action",
+     "text": "with first are part could up my up. his time your two. long her so is.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      62,
+      95
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "action",
+     "text": "oil one be water have them long see word. this is do when could we. or its were call which for we it look. some write these how. day was are its. with on did get your did. she.",
+     "engine": [
+      0,
+      58,
+      118
+     ],
+     "dom": [
+      0,
+      58,
+      112,
+      167
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "each was had we part were when his was. are when first other as can them come. way many their said.",
+     "engine": [
+      0,
+      35,
+      68
+     ],
+     "dom": [
+      0,
+      31,
+      64,
+      94
+     ]
+    },
+    {
+     "type": "action",
+     "text": "there your go did for not number number number. out so word these. now was she as they water oil. come on may so her do.",
+     "engine": [
+      0,
+      60
+     ],
+     "dom": [
+      0,
+      55,
+      113
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 2,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 100,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "two  spaces  after  every  word  so  that  doubled  spaces  land  on  the  edge  of  the  column  again  and  again  until  the  block  ends",
+     "engine": [
+      0,
+      60,
+      117
+     ],
+     "dom": [
+      0,
+      52,
+      110
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a full stop.  Then two spaces.  Then another sentence that runs on past the edge.  And one more for luck.  The end.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      54,
+      111
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      56,
+      108
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      52,
+      100
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      8,
+      66
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "she stops -- then goes on --- and on — and on – and on —and on— and on—without a space—until the line has to break somewhere",
+     "engine": [
+      0,
+      60,
+      115
+     ],
+     "dom": [
+      0,
+      56,
+      109
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "engine": [
+      0,
+      60,
+      120
+     ],
+     "dom": [
+      0,
+      58,
+      116
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "short words then an unbroken run: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz and more words",
+     "engine": [
+      0,
+      34,
+      94
+     ],
+     "dom": [
+      0,
+      34,
+      92
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      58,
+      114
+     ]
+    }
+   ]
+  }
+ ]
+}

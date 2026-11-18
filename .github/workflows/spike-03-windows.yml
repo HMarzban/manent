@@ -1,0 +1,54 @@
+# Spike 3 on Windows: the engine's tests, the smoke checks, wrapper conformance and the behaviour checks in the three
+# engines. No timing: a hosted runner is too noisy for it. Every result is uploaded, whichever step fails.
+name: spike-03-windows
+
+on:
+  push:
+    branches: [spikes]
+    paths:
+      - "spikes/03-pagination-containment/**"
+      - ".github/workflows/spike-03-windows.yml"
+      - "!spikes/03-pagination-containment/results/**"
+      - "!spikes/03-pagination-containment/RESULT.md"
+      - "!spikes/03-pagination-containment/BY-HAND.md"
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: spikes/03-pagination-containment
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install chromium firefox webkit
+
+      - if: always()
+        run: bun test src/engine.test.ts
+      - if: always()
+        run: bun harness/smoke.ts
+      - if: always()
+        run: bun harness/smoke-edit.ts
+      - if: always()
+        run: bun harness/conformance.ts all
+      - if: always()
+        run: bun harness/risk.ts chromium
+      - if: always()
+        run: bun harness/risk.ts firefox
+      - if: always()
+        run: bun harness/risk.ts webkit
+      - if: always()
+        run: bun harness/risk.ts --summarise
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spike-03-windows
+          path: spikes/03-pagination-containment/results/
