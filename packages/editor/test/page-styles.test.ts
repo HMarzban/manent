@@ -163,6 +163,18 @@ test("each element's box is its cells plus the slack, and space before is paddin
   );
 });
 
+test("an element the format has no row for is styled as General", () => {
+  expect(rule(profileCss(sp), ".el-ink_line")).toEqual([
+    "--el-indent: 0",
+    "--el-width: 60",
+    "--el-before: 1",
+    "--el-spacing: 1",
+    "--el-first: 0",
+    "--el-slack-left: 0",
+    "text-align: left",
+  ]);
+});
+
 test("font faces", () => {
   expect(toUnicodeRange([0x20, 0x7e, 0xa0, 0xff, 0x131, 0x131])).toBe(
     "U+20-7E, U+A0-FF, U+131",

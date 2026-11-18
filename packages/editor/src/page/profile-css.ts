@@ -1,7 +1,8 @@
 // The styles one page profile sets: the page's measurements and one rule per element.
 
+import { BLOCK_TYPES } from "@manent/schema";
 import type { Alignment } from "@manent/schema";
-import { BLOCK_SLACK_CELLS } from "@manent/pagination";
+import { BLOCK_SLACK_CELLS, specKey } from "@manent/pagination";
 import type { ElementSpec, PageProfile } from "@manent/pagination";
 import { PAGE_GAP_PX } from "./config.ts";
 
@@ -11,15 +12,6 @@ const SLACK_LEFT: Readonly<Record<Alignment, number>> = Object.freeze({
   center: BLOCK_SLACK_CELLS / 2,
   right: BLOCK_SLACK_CELLS,
 });
-
-/**
- * The class an element's rule selects. A block carries its type, not its kind, so an act break is styled as a
- * new act whatever its kind; the other kinds differ only in how they paginate.
- */
-function selectorOf(key: string): string | null {
-  if (key === "act_break.new_act") return ".el-act_break";
-  return key.startsWith("act_break.") ? null : `.el-${key}`;
-}
 
 function elementRule(selector: string, spec: ElementSpec): string {
   const declarations = [
@@ -52,9 +44,11 @@ export function profileCss(profile: PageProfile): string {
     `--geo-gap: ${PAGE_GAP_PX}px`,
   ];
   const rules = [`.mn-pages { ${page.join("; ")}; }`];
-  for (const [key, spec] of Object.entries(profile.elements)) {
-    const selector = selectorOf(key);
-    if (selector !== null) rules.push(elementRule(selector, spec));
+  // A block's class carries its type, not its kind, so an act break is styled as a new act whatever its kind.
+  for (const type of BLOCK_TYPES) {
+    rules.push(
+      elementRule(`.el-${type}`, profile.elements[specKey(type, null)]),
+    );
   }
   return rules.join("\n");
 }
