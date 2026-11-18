@@ -1,4 +1,5 @@
 // What the server's HTTP routes and the demo's server control answer, and what a client sends them.
+import { fromBase64, toBase64 } from "lib0/buffer";
 import type { DocKind } from "./doc-id.ts";
 
 export const HTTP_ERROR_CODES = [
@@ -12,6 +13,13 @@ export const HTTP_ERROR_CODES = [
   "exists_elsewhere",
   "forbidden",
   "unsupported_kind",
+  "busy",
+  "generation_current",
+  "incomplete",
+  "invalid",
+  "past_window",
+  "too_large",
+  "unknown_generation",
 ] as const;
 
 export type HttpErrorCode = (typeof HTTP_ERROR_CODES)[number];
@@ -133,4 +141,84 @@ export function isServerState(value: unknown): value is ServerState {
 /** Every answer of the demo's server control. */
 export interface ControlStatusResponse {
   server: ServerState;
+}
+
+/** The body of POST /api/docs/replay: edits made against a generation the document has since left. */
+export interface ReplayRequest {
+  docId: string;
+  /** The generation the edits were made against. */
+  generation: number;
+  /** The device's last acknowledged sequence in that generation. */
+  lastServerSeq: number;
+  /** The idempotency key: a retry under it changes nothing (`isReplayKey`). */
+  key: string;
+  /** The waiting updates, oldest first, as `encodeReplayUpdates` gives them. */
+  updates: string[];
+}
+
+/** This device's text of a block both sides changed so that the changes touch. */
+export interface ReplayOverlap {
+  blockId: string;
+  text: string;
+}
+
+/** Text that could not be placed: the block it came from and the block it sat near, each null when there is none. */
+export interface ReplaySetAside {
+  blockId: string | null;
+  nearBlockId: string | null;
+  text: string;
+}
+
+/** The answer to POST /api/docs/replay. */
+export interface ReplayResponse {
+  docId: string;
+  /** The generation the result is in. */
+  generation: number;
+  /** The document's head sequence after the write. */
+  serverSeq: number;
+  /** The number of blocks written. */
+  applied: number;
+  overlaps: ReplayOverlap[];
+  setAside: ReplaySetAside[];
+}
+
+/** The codes POST /api/docs/replay refuses with, each one of `HTTP_ERROR_CODES`. */
+export const REPLAY_REFUSALS = [
+  "bad_request",
+  "busy",
+  "deleted",
+  "forbidden",
+  "generation_current",
+  "incomplete",
+  "invalid",
+  "not_found",
+  "past_window",
+  "too_large",
+  "unknown_generation",
+] as const;
+
+export type ReplayRefusal = (typeof REPLAY_REFUSALS)[number];
+
+const REPLAY_KEY = /^[0-9a-f]{32}$/;
+const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
+
+/** An idempotency key: 16 random bytes as 32 lower-case hexadecimal characters. */
+export function isReplayKey(value: unknown): value is string {
+  return typeof value === "string" && REPLAY_KEY.test(value);
+}
+
+export function encodeReplayUpdates(updates: readonly Uint8Array[]): string[] {
+  return updates.map((update) => toBase64(update));
+}
+
+function isBase64(value: unknown): value is string {
+  return (
+    typeof value === "string" && value.length % 4 === 0 && BASE64.test(value)
+  );
+}
+
+/** Null for anything that is not an array of base64 strings. */
+export function decodeReplayUpdates(value: unknown): Uint8Array[] | null {
+  if (!Array.isArray(value) || !value.every(isBase64)) return null;
+  return value.map((update) => fromBase64(update));
 }

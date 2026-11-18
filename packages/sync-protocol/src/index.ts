@@ -54,8 +54,12 @@ export { DOC_KINDS, docIdV7, isDocId, isDocKind } from "./doc-id.ts";
 export type { DocKind } from "./doc-id.ts";
 export {
   HTTP_ERROR_CODES,
+  REPLAY_REFUSALS,
   SERVER_STATES,
+  decodeReplayUpdates,
+  encodeReplayUpdates,
   isHttpErrorCode,
+  isReplayKey,
   isServerState,
 } from "./http.ts";
 export type {
@@ -71,6 +75,11 @@ export type {
   MeResponse,
   RemoveDocumentRequest,
   RemoveDocumentResponse,
+  ReplayOverlap,
+  ReplayRefusal,
+  ReplayRequest,
+  ReplayResponse,
+  ReplaySetAside,
   ServerState,
   SignInChoice,
   SignInOptions,

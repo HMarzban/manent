@@ -1,8 +1,13 @@
 import { expect, test } from "bun:test";
+import fc from "fast-check";
 import {
   HTTP_ERROR_CODES,
+  REPLAY_REFUSALS,
   SERVER_STATES,
+  decodeReplayUpdates,
+  encodeReplayUpdates,
   isHttpErrorCode,
+  isReplayKey,
   isServerState,
 } from "../src/index.ts";
 import type {
@@ -12,19 +17,7 @@ import type {
   SignInResponse,
 } from "../src/index.ts";
 
-test("the HTTP error codes and the server states are fixed lists", () => {
-  expect(HTTP_ERROR_CODES).toEqual([
-    "bad_request",
-    "forbidden_host",
-    "forbidden_origin",
-    "not_found",
-    "unauthenticated",
-    "unknown_user",
-    "deleted",
-    "exists_elsewhere",
-    "forbidden",
-    "unsupported_kind",
-  ]);
+test("the server states are a fixed list, and each list's guard refuses what is not on it", () => {
   expect(SERVER_STATES).toEqual(["running", "stopped", "starting", "failed"]);
   expect(["not_found", "nope", 7, null].map(isHttpErrorCode)).toEqual([
     true,
@@ -75,4 +68,91 @@ test("each route body is the shape both sides compile against", () => {
     ["userId", "name", "title", "registered"],
     ["demo", "seedId", "control"],
   ]);
+});
+
+test("the error codes are pinned in their order", () => {
+  expect(HTTP_ERROR_CODES).toEqual([
+    "bad_request",
+    "forbidden_host",
+    "forbidden_origin",
+    "not_found",
+    "unauthenticated",
+    "unknown_user",
+    "deleted",
+    "exists_elsewhere",
+    "forbidden",
+    "unsupported_kind",
+    "busy",
+    "generation_current",
+    "incomplete",
+    "invalid",
+    "past_window",
+    "too_large",
+    "unknown_generation",
+  ]);
+  expect(REPLAY_REFUSALS).toEqual([
+    "bad_request",
+    "busy",
+    "deleted",
+    "forbidden",
+    "generation_current",
+    "incomplete",
+    "invalid",
+    "not_found",
+    "past_window",
+    "too_large",
+    "unknown_generation",
+  ]);
+  for (const code of REPLAY_REFUSALS) expect(isHttpErrorCode(code)).toBe(true);
+});
+test("a replay key is thirty-two lower-case hexadecimal characters", () => {
+  expect(isReplayKey("0123456789abcdef0123456789abcdef")).toBe(true);
+  for (const bad of [
+    "0123456789ABCDEF0123456789abcdef",
+    "0123456789abcdef0123456789abcde",
+    "0123456789abcdef0123456789abcdef0",
+    7,
+    null,
+  ])
+    expect(isReplayKey(bad)).toBe(false);
+});
+test("waiting updates travel as base64 and come back byte for byte", () => {
+  expect(
+    encodeReplayUpdates([new Uint8Array([0, 1, 254, 255]), new Uint8Array([])]),
+  ).toEqual(["AAH+/w==", ""]);
+  expect(decodeReplayUpdates(["AAH+/w==", ""])).toEqual([
+    new Uint8Array([0, 1, 254, 255]),
+    new Uint8Array([]),
+  ]);
+  for (const bad of ["AAH+/w==", [7], ["not base64!"], null])
+    expect(decodeReplayUpdates(bad)).toBeNull();
+  fc.assert(
+    fc.property(fc.array(fc.uint8Array()), (updates) => {
+      expect(decodeReplayUpdates(encodeReplayUpdates(updates))).toEqual(
+        updates,
+      );
+    }),
+    { numRuns: 300 },
+  );
+});
+test("base64 cut short is refused", () => {
+  for (const bad of [["AAH+/w="], ["AAH"], ["AAH+/w==", "AA"]])
+    expect(decodeReplayUpdates(bad)).toBeNull();
+});
+test("any value decodes to nothing or to one byte array per string", () => {
+  const value = fc.oneof(
+    fc.anything(),
+    fc.array(fc.oneof(fc.base64String(), fc.string())),
+  );
+  fc.assert(
+    fc.property(value, (input) => {
+      const decoded = decodeReplayUpdates(input);
+      if (decoded === null) return;
+      expect(Array.isArray(input)).toBe(true);
+      expect(decoded.map((update) => update instanceof Uint8Array)).toEqual(
+        (input as unknown[]).map(() => true),
+      );
+    }),
+    { numRuns: 300 },
+  );
 });

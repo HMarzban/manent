@@ -56,3 +56,4 @@ export { canonicalBlock, canonicalDoc } from "./canonical.ts";
 export type { RawDoc, RawElement, RawMark, RawText } from "./raw.ts";
 export { blockText, blockView, blocksOf } from "./block-view.ts";
 export type { BlockView, FlatBlock, TextRun } from "./block-view.ts";
+export type { BlockOp } from "./block-ops.ts";
