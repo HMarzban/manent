@@ -38,17 +38,27 @@ const isControl = (cls: number) =>
   cls === GCB.CR || cls === GCB.LF || cls === GCB.CONTROL;
 const isJoiningAfter = (cls: number) =>
   cls === GCB.EXTEND || cls === GCB.ZWJ || cls === GCB.SPACING_MARK;
-const isHangul = (cls: number) => cls >= GCB.L && cls <= GCB.LVT;
 
-// A cluster boundary whatever comes before the pair of code points around it. Hangul and Prepend
-// pairs are left undecided, so the walk back over them goes on: it stays correct, only longer.
+// GB6 to GB8: the Hangul pairs that never break.
+function isHangulJoin(prev: number, next: number): boolean {
+  if (prev === GCB.L)
+    return (
+      next === GCB.L || next === GCB.V || next === GCB.LV || next === GCB.LVT
+    );
+  if (prev === GCB.LV || prev === GCB.V)
+    return next === GCB.V || next === GCB.T;
+  return (prev === GCB.LVT || prev === GCB.T) && next === GCB.T;
+}
+
+// A cluster boundary whatever comes before the pair of code points around it. Only the pairs of
+// GB11 to GB13 depend on more than the pair; they are left undecided, and the walk back goes on.
 function isSureBoundary(text: string, at: number): boolean {
   const prev = graphemeClass(text.codePointAt(codePointStartBefore(text, at))!);
   const nextCodePoint = text.codePointAt(at)!;
   const next = graphemeClass(nextCodePoint);
   if (prev === GCB.CR) return next !== GCB.LF;
   if (isControl(prev) || isControl(next)) return true;
-  if (isJoiningAfter(next) || prev === GCB.PREPEND || isHangul(prev))
+  if (isHangulJoin(prev, next) || isJoiningAfter(next) || prev === GCB.PREPEND)
     return false;
   if (prev === GCB.ZWJ) return !isExtendedPictographic(nextCodePoint);
   return prev !== GCB.REGIONAL_INDICATOR || next !== GCB.REGIONAL_INDICATOR;

@@ -188,6 +188,30 @@ test("a line may end beside a wide cluster however the cluster is built", () => 
   ]);
 });
 
+test("a line may end after a wide Hangul syllable built from jamo, and not inside a narrow one", () => {
+  const cases: [string, number][] = [
+    ["\u1100\u1161a", 2],
+    ["\u1100\u1161\u11a8a", 3],
+    ["\ud558\u11a8a", 2],
+    ["\ud55c\u11a8a", 2],
+    ["\u1160\u11a8a", 2],
+  ];
+  expect(cases.map(([text, at]) => breakAllowed(text, at))).toEqual([
+    true,
+    true,
+    true,
+    true,
+    false,
+  ]);
+});
+
+test("a long run of conjoining Hangul jamo is cut at every full line, in time that grows with its length", () => {
+  // Each vowel and trailing jamo pair is one cluster of one cell, and no rule breaks between two.
+  expect(w("\u1160\u11a8".repeat(25_000), 60)).toEqual(
+    Array.from({ length: 417 }, (_, line) => line * 120),
+  );
+});
+
 test("wrap is total", () => {
   fc.assert(
     fc.property(arbUtf16, fc.integer({ min: -3, max: 70 }), (s, width) => {
