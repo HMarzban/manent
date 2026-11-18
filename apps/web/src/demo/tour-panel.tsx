@@ -1,33 +1,54 @@
-import type { TourFile } from "@manent/demo";
-import { TEXT } from "../text.ts";
+// The Tour tab: the Tour's groups in order, each with its scenarios.
+import { TOUR } from "@manent/demo";
+import type { TourScenario, TourWindow } from "@manent/demo";
+import { TOUR_WORDS } from "@manent/ui";
+import { useRouter } from "@tanstack/react-router";
+import type { ReactNode } from "react";
+import { TourScenarioRow } from "./tour-scenario.tsx";
 
-export function TourPanel(props: { tour: TourFile }) {
-  const { tour } = props;
+/** `open` with `?person=<userId>` added, which the app reads to make the tab that person. */
+function asPerson(place: TourWindow): string {
+  const url = new URL(place.open, "http://manent.invalid");
+  url.searchParams.set("person", place.userId);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+/** A group with no scenario is its heading alone. Never takes focus. */
+export function TourPanel(): ReactNode {
+  const router = useRouter();
+  // the second window is opened first, while the press still allows a new window
+  const setUp = ({ setup }: TourScenario): void => {
+    if (
+      setup.secondWindow !== null &&
+      window.open(asPerson(setup.secondWindow)) === null
+    )
+      throw new Error("the browser refused the scenario's second window");
+    void router.navigate({ href: asPerson(setup) });
+  };
   return (
-    <aside
-      aria-labelledby="tour-heading"
-      className="w-72 shrink-0 border-l border-neutral-200 p-4"
-    >
-      <h2 id="tour-heading" className="text-lg font-semibold">
-        {TEXT.tourTitle}
-      </h2>
-      {tour.groups.map((group) => {
-        const scenarios = tour.scenarios.filter((s) => s.group === group);
+    <div className="flex flex-col gap-4 p-3">
+      <h2 className="text-title">{TOUR_WORDS.title}</h2>
+      {TOUR.groups.map((group) => {
+        const scenarios = TOUR.scenarios.filter((s) => s.group === group);
         return (
-          <section key={group} className="mt-4">
-            <h3 className="font-medium">{group}</h3>
-            {scenarios.length === 0 ? (
-              <p className="text-ui text-fg-muted">{TEXT.tourEmptyGroup}</p>
-            ) : (
-              <ul className="text-ui">
+          <section key={group} className="flex flex-col gap-2">
+            <h3 className="text-micro font-semibold tracking-wide text-fg-muted uppercase">
+              {group}
+            </h3>
+            {scenarios.length === 0 ? null : (
+              <ul className="flex flex-col gap-4">
                 {scenarios.map((scenario) => (
-                  <li key={scenario.id}>{scenario.promise}</li>
+                  <TourScenarioRow
+                    key={scenario.id}
+                    scenario={scenario}
+                    setUp={setUp}
+                  />
                 ))}
               </ul>
             )}
           </section>
         );
       })}
-    </aside>
+    </div>
   );
 }
