@@ -17,51 +17,8 @@ import type {
   IssueCode,
   MarkJSON,
   Severity,
-  TextJSON,
 } from "../src/index.ts";
-
-type Run = { text: string; marks?: MarkJSON[] };
-
-function runs(content: string | readonly Run[]): TextJSON[] {
-  return typeof content === "string"
-    ? [{ type: "text", text: content }]
-    : content.map((run) => ({ type: "text", ...run }));
-}
-
-/** A doc of one section of one block. */
-function docWith(
-  attrs: BlockJSON["attrs"],
-  content: string | readonly Run[],
-): DocJSON {
-  return {
-    type: "doc",
-    content: [
-      {
-        type: "section",
-        content: [{ type: "block", attrs, content: runs(content) }],
-      },
-    ],
-  };
-}
-
-const MARK_ATTRS: Record<string, Record<string, unknown>> = {
-  color: { value: "red" },
-  highlight: { value: "red" },
-  link: { href: "https://example.com" },
-  suggest_insert: { id: "s1", author: "dana", at: 5 },
-  suggest_delete: { id: "s1", author: "dana", at: 5 },
-};
-
-/** One run per mark name, each with full attributes. */
-const ALL_MARKS: Run[] = MARK_NAMES.map((name) => {
-  const attrs = MARK_ATTRS[name];
-  return {
-    text: name,
-    marks: [attrs ? { type: name, attrs } : { type: name }],
-  };
-});
-
-const ID = "b000000000000004";
+import { ALL_MARKS, ID, docWith, ids, runs } from "./helpers.ts";
 
 /** The code and severity of every issue. */
 const found = (json: unknown) =>
@@ -469,6 +426,10 @@ const nearNode = (
               fc.oneof(
                 fc.array(nearMark, { maxLength: 3 }),
                 fc.array(nearSuggestion, { minLength: 2, maxLength: 3 }),
+                fc.array(fc.oneof(nearMark, nearSuggestion), {
+                  minLength: 2,
+                  maxLength: 3,
+                }),
               ),
             )
           : mostly(fc.constant([]), fc.array(nearMark, { maxLength: 1 })),
@@ -528,139 +489,4 @@ test("only structural damage rejects", () => {
   expect(rejects(validateDoc(docWith({ id: null, type: "action" }, "x")))).toBe(
     true,
   );
-});
-
-const HREFS = [
-  "https://example.com",
-  "mailto:a@example.com",
-  "tel:+15551234",
-  "javascript:alert(1)",
-];
-const markArb: fc.Arbitrary<MarkJSON> = fc.oneof(
-  fc
-    .constantFrom("bold", "italic", "underline", "strike", "caps")
-    .map((type) => ({ type })),
-  fc.string().map((value) => ({ type: "color", attrs: { value } })),
-  fc.constantFrom(...HREFS).map((href) => ({ type: "link", attrs: { href } })),
-);
-const textArb: fc.Arbitrary<TextJSON> = fc.record({
-  type: fc.constant("text" as const),
-  text: fc.string({ minLength: 1 }),
-  marks: fc.uniqueArray(markArb, {
-    selector: (mark) => mark.type,
-    maxLength: 3,
-  }),
-});
-const blockArb: fc.Arbitrary<BlockJSON> = fc.record({
-  type: fc.constant("block" as const),
-  attrs: fc.record({
-    id: fc.stringMatching(/^[A-Za-z0-9_-]{16}$/),
-    type: fc.constantFrom(...BLOCK_TYPES),
-  }),
-  content: fc.array(textArb, { maxLength: 3 }),
-});
-const docArb: fc.Arbitrary<DocJSON> = fc.record({
-  type: fc.constant("doc" as const),
-  content: fc.array(
-    fc.record({
-      type: fc.constant("section" as const),
-      content: fc.array(blockArb, { maxLength: 3 }),
-    }),
-    { maxLength: 4 },
-  ),
-});
-
-const ids = () => "f1f1f1f1f1f1f1f1";
-
-test("normalising drops empty sections, fills an empty document, removes unsafe links, and is idempotent", () => {
-  expect(normalizeDoc({ type: "doc", content: [] }, ids)).toEqual({
-    type: "doc",
-    content: [
-      {
-        type: "section",
-        content: [
-          {
-            type: "block",
-            attrs: { ...DEFAULT_BLOCK_ATTRS, id: "f1f1f1f1f1f1f1f1" },
-          },
-        ],
-      },
-    ],
-  });
-
-  const tel: MarkJSON = { type: "link", attrs: { href: "tel:+15551234" } };
-  const web: MarkJSON = {
-    type: "link",
-    attrs: { href: "https://example.com" },
-  };
-  const doc: DocJSON = {
-    type: "doc",
-    content: [
-      { type: "section", content: [] },
-      {
-        type: "section",
-        content: [
-          {
-            type: "block",
-            attrs: { id: ID },
-            content: runs([
-              { text: "call", marks: [{ type: "bold" }, tel] },
-              { text: "site", marks: [web] },
-            ]),
-          },
-        ],
-      },
-    ],
-  };
-  expect(normalizeDoc(doc, ids)).toEqual({
-    type: "doc",
-    content: [
-      {
-        type: "section",
-        content: [
-          {
-            type: "block",
-            attrs: { id: ID },
-            content: runs([
-              { text: "call", marks: [{ type: "bold" }] },
-              { text: "site", marks: [web] },
-            ]),
-          },
-        ],
-      },
-    ],
-  });
-
-  fc.assert(
-    fc.property(docArb, (d) => {
-      const n = normalizeDoc(d, ids);
-      parseDoc(n);
-      expect(normalizeDoc(n, ids)).toEqual(n);
-      const repairs = validateDoc(n).filter(
-        (issue) => issue.code !== "duplicate_id",
-      );
-      expect(repairs).toEqual([]);
-    }),
-  );
-});
-
-const blocks = (count: number): BlockJSON[] =>
-  Array.from({ length: count }, (_, i) => ({
-    type: "block",
-    attrs: { id: `b${String(i).padStart(15, "0")}` },
-  }));
-const sizes = (json: DocJSON) =>
-  (json.content ?? []).map((section) => section.content?.length);
-test("sectionize makes even sections and never drops a block", () => {
-  const all = blocks(250);
-  const doc = sectionize(all);
-  expect(sizes(doc)).toEqual([84, 83, 83]);
-  expect(
-    (doc.content ?? []).flatMap((section) => section.content ?? []),
-  ).toEqual(all);
-  expect(sectionize([])).toEqual({ type: "doc", content: [] });
-  expect(sizes(sectionize(blocks(100)))).toEqual([100]);
-  expect(sizes(sectionize(blocks(101)))).toEqual([51, 50]);
-  expect(sizes(sectionize(blocks(5), 2))).toEqual([2, 2, 1]);
-  expect(() => sectionize(all, 0)).toThrow(RangeError);
 });

@@ -1,4 +1,6 @@
-import type { MarkSpec } from "prosemirror-model";
+import type { AttributeSpec, MarkSpec } from "prosemirror-model";
+import { isCount, isString } from "./shape.ts";
+import type { Check } from "./shape.ts";
 
 export const MARK_NAMES = [
   "bold",
@@ -14,6 +16,10 @@ export const MARK_NAMES = [
 ] as const;
 export type MarkName = (typeof MARK_NAMES)[number];
 
+export function isMarkName(value: unknown): value is MarkName {
+  return MARK_NAMES.some((name) => name === value);
+}
+
 /** Marks of which several, with different attributes, can sit on the same text. */
 export const OVERLAPPING_MARKS = ["suggest_insert", "suggest_delete"] as const;
 
@@ -25,9 +31,29 @@ export function isSafeHref(href: string): boolean {
   return SAFE_PROTOCOLS.includes(new URL(href).protocol);
 }
 
+/** A suggestion's attributes, in stored order: each one's default and its valid values. */
+const SUGGESTION_ATTRS: Readonly<
+  Record<string, { default: unknown; check: Check }>
+> = {
+  id: { default: "", check: isString },
+  author: { default: "", check: isString },
+  at: { default: 0, check: isCount },
+};
+
+const SUGGESTION_SPEC_ATTRS: Record<string, AttributeSpec> = Object.fromEntries(
+  Object.entries(SUGGESTION_ATTRS).map(([key, attr]) => [
+    key,
+    { default: attr.default },
+  ]),
+);
+
+const SUGGESTION_CHECKS: Record<string, Check> = Object.fromEntries(
+  Object.entries(SUGGESTION_ATTRS).map(([key, attr]) => [key, attr.check]),
+);
+
 function suggestion(tag: "ins" | "del"): MarkSpec {
   return {
-    attrs: { id: { default: "" }, author: { default: "" }, at: { default: 0 } },
+    attrs: SUGGESTION_SPEC_ATTRS,
     excludes: "",
     inclusive: false,
     toDOM: (mark) => [
@@ -68,4 +94,20 @@ export const MARK_SPECS: Record<MarkName, MarkSpec> = {
   },
   suggest_insert: suggestion("ins"),
   suggest_delete: suggestion("del"),
+};
+
+/** The attributes of each mark, with their valid values. */
+export const MARK_ATTR_CHECKS: Readonly<
+  Record<MarkName, Readonly<Record<string, Check>>>
+> = {
+  bold: {},
+  italic: {},
+  underline: {},
+  strike: {},
+  caps: {},
+  color: { value: isString },
+  highlight: { value: isString },
+  link: { href: isString },
+  suggest_insert: SUGGESTION_CHECKS,
+  suggest_delete: SUGGESTION_CHECKS,
 };

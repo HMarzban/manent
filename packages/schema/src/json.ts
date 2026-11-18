@@ -1,24 +1,35 @@
 import type { Node } from "prosemirror-model";
 import { fillBlockAttrs } from "./attrs.ts";
 import type { BlockAttrs } from "./attrs.ts";
+import { isMarkName } from "./marks.ts";
 import { schema } from "./schema.ts";
+import { isObject } from "./shape.ts";
+import type { Json } from "./shape.ts";
 
 // JSON shapes are open: a newer build may have written attributes and marks
 // this one does not know.
-export type MarkJSON = { type: string; attrs?: Record<string, unknown> };
-export type TextJSON = { type: "text"; text: string; marks?: MarkJSON[] };
-export type BlockJSON = {
+export interface MarkJSON {
+  type: string;
+  attrs?: Record<string, unknown>;
+}
+export interface TextJSON {
+  type: "text";
+  text: string;
+  marks?: MarkJSON[];
+}
+export interface BlockJSON {
   type: "block";
   attrs?: Partial<BlockAttrs> & Record<string, unknown>;
   content?: TextJSON[];
-};
-export type SectionJSON = { type: "section"; content?: BlockJSON[] };
-export type DocJSON = { type: "doc"; content?: SectionJSON[] };
-
-type Json = Record<string, unknown>;
-
-const isObject = (value: unknown): value is Json =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+}
+export interface SectionJSON {
+  type: "section";
+  content?: BlockJSON[];
+}
+export interface DocJSON {
+  type: "doc";
+  content?: SectionJSON[];
+}
 
 /** The attributes this build knows, from those given. */
 function knownAttrs(
@@ -33,10 +44,8 @@ function knownAttrs(
 /** A mark as this build sees it, or null when this build does not know it. */
 function markView(mark: unknown): unknown {
   if (!isObject(mark) || typeof mark.type !== "string") return mark;
-  const type = Object.hasOwn(schema.marks, mark.type)
-    ? schema.marks[mark.type as keyof typeof schema.marks]
-    : undefined;
-  if (type === undefined) return null;
+  if (!isMarkName(mark.type)) return null;
+  const type = schema.marks[mark.type];
   if (!isObject(mark.attrs)) return mark;
   return { ...mark, attrs: knownAttrs(type.spec.attrs ?? {}, mark.attrs) };
 }

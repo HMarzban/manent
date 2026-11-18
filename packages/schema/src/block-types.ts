@@ -26,6 +26,10 @@ export const BLOCK_TYPES = [
 ] as const;
 export type BlockType = (typeof BLOCK_TYPES)[number];
 
+export function isBlockType(value: unknown): value is BlockType {
+  return BLOCK_TYPES.some((type) => type === value);
+}
+
 export const ACT_BREAK_KINDS = [
   "new_act",
   "end_of_act",
@@ -96,7 +100,5 @@ export const FORMAT_ELEMENTS: Readonly<Record<FormatId, readonly BlockType[]>> =
 
 /** The element a block renders as: a type this build does not know renders as General. */
 export function renderedType(type: string): BlockType {
-  return (BLOCK_TYPES as readonly string[]).includes(type)
-    ? (type as BlockType)
-    : "general";
+  return isBlockType(type) ? type : "general";
 }

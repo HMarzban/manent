@@ -1,5 +1,11 @@
 import type { ActBreakKind } from "./block-types.ts";
 
+export const DUALS = ["left", "right"] as const;
+export type Dual = (typeof DUALS)[number];
+
+export const ALIGNMENTS = ["left", "center", "right"] as const;
+export type Alignment = (typeof ALIGNMENTS)[number];
+
 /** A block's attributes. Every value is a scalar. */
 export interface BlockAttrs {
   /** Null only until the client assigns one. */
@@ -9,9 +15,9 @@ export interface BlockAttrs {
   /** A scene number such as "12", "12A" or "A13". */
   num: string | null;
   omitted: boolean;
-  dual: "left" | "right" | null;
+  dual: Dual | null;
   synopsis: string;
-  align: "left" | "center" | "right" | null;
+  align: Alignment | null;
   /** In cells. */
   indent: number | null;
   /** In cells. */
@@ -56,20 +62,19 @@ export const DEFAULT_BLOCK_ATTRS: BlockAttrs = Object.freeze({
   suggestAt: null,
 });
 
-const BLOCK_ATTR_KEYS = Object.keys(
-  DEFAULT_BLOCK_ATTRS,
-) as (keyof BlockAttrs)[];
+function isBlockAttrName(key: string): key is keyof BlockAttrs {
+  return Object.hasOwn(DEFAULT_BLOCK_ATTRS, key);
+}
 
 /**
- * Every block attribute: a known key keeps its value as given, a missing key
- * gets its default, and an unknown key is dropped. Values are not checked.
+ * A known key keeps its value as given, a missing key gets its default, an
+ * unknown key is dropped. Values are not checked.
  */
-export function fillBlockAttrs(attrs?: Record<string, unknown>): BlockAttrs {
-  const filled: Record<string, unknown> = {};
-  for (const key of BLOCK_ATTR_KEYS) {
-    const given =
-      attrs !== undefined && Object.hasOwn(attrs, key) ? attrs[key] : undefined;
-    filled[key] = given === undefined ? DEFAULT_BLOCK_ATTRS[key] : given;
-  }
-  return filled as unknown as BlockAttrs;
+export function fillBlockAttrs(
+  attrs?: Record<string, unknown>,
+): Record<keyof BlockAttrs, unknown> {
+  const filled: Record<keyof BlockAttrs, unknown> = { ...DEFAULT_BLOCK_ATTRS };
+  for (const [key, value] of Object.entries(attrs ?? {}))
+    if (value !== undefined && isBlockAttrName(key)) filled[key] = value;
+  return filled;
 }

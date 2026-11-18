@@ -86,7 +86,8 @@ export function attrsAfterJoin(
 
 /**
  * Blocks still waiting for an ID (null or absent), and every ID held by more
- * than one block, each named once in order of first appearance.
+ * than one block, each named once in order of first appearance. validateDoc
+ * reports the same facts as issues; nothing may call this on a keystroke.
  */
 export function findIdProblems(doc: DocJSON): {
   missing: number;
