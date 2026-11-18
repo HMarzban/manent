@@ -1,6 +1,6 @@
 // The editor page. Query, with its defaults:
 //   pages=120 corpus=script|tall wrap=100 (0 = flat) cv=auto|none pg=1|0 zoom=100 ws=pre-wrap|break-spaces spell=0|1
-//   over=1 (the section holding the document's middle position holds over × wrap blocks)
+//   over=1 (the section holding the document's middle position holds over × wrap blocks) y=0|1 (bound to a Y.Doc)
 import 'prosemirror-view/style/prosemirror.css'
 import './page.css'
 import { EditorState, TextSelection } from 'prosemirror-state'
@@ -14,6 +14,9 @@ import type { EngineBlock, PageStart } from './engine.ts'
 import { paginationPlugin, readPagination } from './plugin.ts'
 import type { PaginationStats } from './plugin.ts'
 import { createSchema, engineBlocksOf } from './schema.ts'
+import { afterFrame, createBinding } from './binding.ts'
+import type { Remote } from './binding.ts'
+import { createEditing } from './editing.ts'
 import { createSectionView, edgeKeymap, installSectionCss, keepPlugin } from './sections.ts'
 
 declare global {
@@ -30,7 +33,8 @@ declare global {
       posAtTextOffset(off: number): number
       textOffsetOf(pos: number): number
     }
-    __api: { scrollProbe(): Promise<number[]> }
+    __api: { scrollProbe(): Promise<number[]>; paste(pages: number): Promise<{ syncMs: number; toFrameMs: number }> }
+    __remote: Remote
     __pg: { pages(): PageStart[]; cold(): number; reset(): void; stats(): PaginationStats }
     __sec: { count(): number; sizes(): number[]; sectionOf(blockId: string): number; intrinsic(): number[]; domHeights(): number[]; viewUpdates(): number }
   }
@@ -44,6 +48,7 @@ const CONTAINED = (q.get('cv') ?? 'auto') === 'auto'
 const PAGINATED = q.get('pg') !== '0'
 const ZOOM = Number(q.get('zoom') ?? 100) / 100
 const OVER = Number(q.get('over') ?? 1)
+const SYNCED = q.get('y') === '1'
 const TALL_LINES = 70
 
 function tallBlock(): EngineBlock {
@@ -74,13 +79,24 @@ document.documentElement.style.setProperty('--ws', q.get('ws') ?? 'pre-wrap')
 if (WRAP > 0) installSectionCss(CONTAINED)
 
 let viewUpdates = 0
-const plugins = [...(WRAP > 0 ? [edgeKeymap] : []), keymap(baseKeymap), paginationPlugin({ enabled: PAGINATED }), ...(WRAP > 0 && CONTAINED ? [keepPlugin] : [])]
+let nextId = 0
+const editing = createEditing({ wrap: WRAP, newId: () => `n${nextId++}` })
+const binding = SYNCED ? createBinding({ doc, schema }) : null
+const plugins = [
+  ...(binding ? binding.plugins : []),
+  ...(WRAP > 0 ? [edgeKeymap, keymap({ Backspace: editing.sectionBackspace, Delete: editing.sectionDelete, Enter: editing.sectionEnter })] : []),
+  keymap(baseKeymap),
+  paginationPlugin({ enabled: PAGINATED }),
+  ...(WRAP > 0 && CONTAINED ? [keepPlugin] : []),
+]
 const sheet = document.querySelector<HTMLElement>('.page')!
 const view = new EditorView({ mount: sheet }, {
-  state: EditorState.create({ doc, plugins }),
+  state: EditorState.create({ doc: binding ? binding.doc : doc, plugins }),
   nodeViews: WRAP > 0 && CONTAINED ? { section: createSectionView(() => { viewUpdates++ }) } : {},
   attributes: { spellcheck: q.get('spell') === '1' ? 'true' : 'false' },
+  ...(WRAP > 0 ? { handlePaste: editing.handlePaste, handleDrop: editing.handleDrop } : {}),
 })
+if (binding) window.__remote = binding.createRemote(view)
 window.__view = view
 
 // App zoom scales the laid-out sheet; the desk is sized to the scaled sheet so the scroll range matches.
@@ -119,6 +135,9 @@ window.__risk = {
   textOffsetOf,
 }
 
+// The blocks of a corpus that fill `pages` pages: one more page's corpus without the block that began that page.
+const pastedCorpus = (pages: number): EngineBlock[] => makeCorpus(pages + 1).slice(0, -1)
+
 window.__api = {
   // Jump-scrolls through the document in 60 steps and returns the frame times.
   scrollProbe() {
@@ -126,6 +145,17 @@ window.__api = {
       const el = document.scrollingElement!; const max = el.scrollHeight - innerHeight; const frames: number[] = []; let i = 0; let last = performance.now()
       const step = (): void => { const now = performance.now(); frames.push(now - last); last = now; if (i++ >= 60) { resolve(frames.slice(1)); return } el.scrollTop = max * (i / 60); requestAnimationFrame(step) }
       requestAnimationFrame(step)
+    })
+  },
+  // Pastes `pages` pages of generated blocks at the caret through the paste rule; ms in the transaction and to the
+  // next frame.
+  paste(pages) {
+    return new Promise((resolve) => {
+      const blocks = pastedCorpus(pages).map((b) => schema.nodes.block!.create({ type: b.type }, b.text ? schema.text(b.text) : null))
+      const s = performance.now()
+      view.dispatch(editing.insertBlocks(view.state.tr, view.state.selection.head, blocks))
+      const syncMs = performance.now() - s
+      afterFrame(() => resolve({ syncMs, toFrameMs: performance.now() - s }))
     })
   },
 }
