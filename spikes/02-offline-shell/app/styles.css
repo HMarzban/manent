@@ -1,0 +1,16 @@
+@import "@fontsource/courier-prime/400.css";
+@import "@fontsource/courier-prime/400-italic.css";
+@import "@fontsource/courier-prime/700.css";
+@import "@fontsource/courier-prime/700-italic.css";
+
+body {
+  font-family: "Courier Prime", monospace;
+  font-size: 16px;
+  margin: 2rem;
+}
+
+#edit {
+  font: inherit;
+  width: 40ch;
+  height: 8rem;
+}
