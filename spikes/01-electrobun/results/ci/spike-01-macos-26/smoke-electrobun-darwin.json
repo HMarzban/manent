@@ -1,0 +1,8 @@
+{
+  "shell": "electrobun",
+  "platform": "darwin",
+  "version": "0.0.1",
+  "healthMs": 644,
+  "wsRoundTrip": true,
+  "sqliteRows": 3
+}

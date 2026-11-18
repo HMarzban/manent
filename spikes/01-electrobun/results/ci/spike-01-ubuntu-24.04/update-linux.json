@@ -1,0 +1,10 @@
+{
+  "platform": "linux",
+  "from": "0.0.1",
+  "to": "0.0.2",
+  "status": "failed",
+  "bytesDownloaded": 0,
+  "ms": 120192,
+  "statuses": [],
+  "notes": "the relaunched app did not report 0.0.2 within 120 s"
+}

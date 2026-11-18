@@ -1,0 +1,24 @@
+{
+  "status": "installed",
+  "installRoot": "~/.local/share/dev.manent.spike01/stable/app",
+  "debugInstallRoot": "~/work/_temp/electrobun-debug/app",
+  "firstLaunchMs": null,
+  "debugFirstLaunchMs": null,
+  "hutch": {
+    "version": "0.29.0",
+    "archive": "electrobun-hutch-linux-x64.tar.gz",
+    "url": "https://github.com/blackboardsh/electrobun/releases/download/v2.0.6/electrobun-hutch-linux-x64.tar.gz",
+    "sha256": "4aa3c5c7fa24898d8227b087dd393eb2a1463658f0d87e23a72cfe611af83b75"
+  },
+  "coreSha256": "06afade9cf1cf620a705b5fbbf7c09cd89719f04424453f7f302bcf52d1be1f0",
+  "cefSha256": "b573038f55f6014c5faabdb1aaa6cb2243b20d63fc464033585a417ae59039c1",
+  "ldd": [
+    "~/.local/share/dev.manent.spike01/stable/app/bin/libNativeWrapper.so: \tlibjavascriptcoregtk-4.1.so.0 => not found",
+    "~/.local/share/dev.manent.spike01/stable/app/bin/libNativeWrapper.so: \tlibsoup-3.0.so.0 => not found",
+    "~/.local/share/dev.manent.spike01/stable/app/bin/libNativeWrapper.so: \tlibwebkit2gtk-4.1.so.0 => not found",
+    "~/work/_temp/electrobun-debug/app/bin/libNativeWrapper.so: \tlibjavascriptcoregtk-4.1.so.0 => not found",
+    "~/work/_temp/electrobun-debug/app/bin/libNativeWrapper.so: \tlibsoup-3.0.so.0 => not found",
+    "~/work/_temp/electrobun-debug/app/bin/libNativeWrapper.so: \tlibwebkit2gtk-4.1.so.0 => not found"
+  ],
+  "electronInstallRoot": "~/work/_temp/squashfs-root"
+}

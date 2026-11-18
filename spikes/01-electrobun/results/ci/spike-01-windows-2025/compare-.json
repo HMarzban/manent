@@ -1,0 +1,16 @@
+{
+  "coldStartRatio": null,
+  "ratioCI": null,
+  "coldStart": "not run",
+  "editingDiffs": [],
+  "notRun": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7"
+  ],
+  "editing": "not run"
+}

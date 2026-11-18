@@ -1,0 +1,623 @@
+spike (macos-26)	UNKNOWN STEP	﻿2026-11-18T14:24:48.2750450Z Current runner version: '2.338.2'
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2795720Z ##[group]Runner Image Provisioner
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2796400Z Hosted Compute Agent
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2797050Z Version: 20261028.624
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2797580Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2798070Z Build Date: 2026-10-28T21:51:42Z
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2798730Z Worker ID: {f3c61b6e-e559-4311-bc74-337986f7ad9a}
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2799340Z Region: westus
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2799790Z Cloud: MacCloud
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2800210Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2801460Z ##[group]Operating System
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2801870Z macOS
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2802270Z 26.7.2
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2802700Z 25G332
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2803180Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2803600Z ##[group]Runner Image
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2804100Z Image: macos-26-arm64
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2804540Z Version: 20261102.0473.1
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2805680Z Included Software: https://github.com/actions/runner-images/blob/macos-26-arm64/20261102.0473/images/macos/macos-26-arm64-Readme.md
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2806940Z Image Release: https://github.com/actions/runner-images/releases/tag/macos-26-arm64%2F20261102.0473
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2807780Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2808730Z ##[group]GITHUB_TOKEN Permissions
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2810400Z Contents: read
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2810910Z Metadata: read
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2811440Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2813310Z Secret source: Actions
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2814400Z Cache mode: write
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.2815000Z Prepare workflow directory
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.3533270Z Prepare all required actions
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.3620680Z Getting action download info
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.6251630Z Download action repository 'actions/checkout@v5' (SHA:fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09)
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:48.9643990Z Download action repository 'oven-sh/setup-bun@v2' (SHA:0c5077e51419868618aeaa5fe8019c62421857d6)
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:49.7725910Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.7397200Z Complete job name: spike (macos-26)
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8333680Z ##[group]Run actions/checkout@v5
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8334710Z with:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8335310Z   repository: HMarzban/manent
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8340950Z   token: ***
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8341540Z   ssh-strict: true
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8342140Z   ssh-user: git
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8342790Z   persist-credentials: true
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8344810Z   clean: true
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8345640Z   sparse-checkout-cone-mode: true
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8346560Z   fetch-depth: 1
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8347260Z   fetch-tags: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8347980Z   show-progress: true
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8348730Z   lfs: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8349760Z   submodules: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8350460Z   set-safe-directory: true
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8351250Z   allow-unsafe-pr-checkout: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8352860Z env:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8354120Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8356040Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8356960Z   MSYS_NO_PATHCONV: 1
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:50.8357760Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.3061100Z Syncing repository: HMarzban/manent
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.3063280Z ##[group]Getting Git version info
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.3064200Z Working directory is '~/work/manent/manent'
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.3065820Z [command]/opt/homebrew/bin/git version
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.3786670Z git version 2.56.0
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.3823670Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.3838270Z Copying '~/.gitconfig' to '~/work/_temp/e180e320-2498-4327-88b6-179f59d04602/.gitconfig'
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.3844550Z Temporarily overriding HOME='~/work/_temp/e180e320-2498-4327-88b6-179f59d04602' before making global git config changes
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.3848760Z Adding repository directory to the temporary git global config as a safe directory
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.3850450Z [command]/opt/homebrew/bin/git config --global --add safe.directory ~/work/manent/manent
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.3989280Z Deleting the contents of '~/work/manent/manent'
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.3995140Z ##[group]Initializing the repository
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4000780Z [command]/opt/homebrew/bin/git init ~/work/manent/manent
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4261050Z hint: Using 'master' as the name for the initial branch. This default branch name
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4263630Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4267050Z hint: to use in all of your new repositories, which will suppress this warning,
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4270210Z hint: call:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4271740Z hint:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4273300Z hint: 	git config --global init.defaultBranch <name>
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4274410Z hint:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4277650Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4280740Z hint: 'development'. The just-created branch can be renamed via this command:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4283160Z hint:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4288680Z hint: 	git branch -m <name>
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4290960Z hint:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4293830Z hint: Disable this message with "git config set advice.defaultBranchName false"
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4295730Z Initialized empty Git repository in ~/work/manent/manent/.git/
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4299290Z [command]/opt/homebrew/bin/git remote add origin https://github.com/HMarzban/manent
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4399280Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4402750Z ##[group]Disabling automatic garbage collection
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4404870Z [command]/opt/homebrew/bin/git config --local gc.auto 0
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4484260Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4487230Z ##[group]Setting up auth
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4490990Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.4562620Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.6318370Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.6406470Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.7681390Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.7827070Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.8822060Z [command]/opt/homebrew/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.8903980Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.8912450Z ##[group]Fetching the repository
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:51.8937800Z [command]/opt/homebrew/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +a9916f80632a6d049e0314ade5f6b6709fabba92:refs/remotes/origin/spikes
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:52.9709650Z From https://github.com/HMarzban/manent
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:52.9783330Z  * [new ref]         a9916f80632a6d049e0314ade5f6b6709fabba92 -> origin/spikes
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:52.9889250Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:52.9935840Z ##[group]Determining the checkout info
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:52.9938290Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:52.9938890Z [command]/opt/homebrew/bin/git sparse-checkout disable
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.0399870Z [command]/opt/homebrew/bin/git config --local --unset-all extensions.worktreeConfig
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.0409450Z ##[group]Checking out the ref
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.0414530Z [command]/opt/homebrew/bin/git checkout --progress --force -B spikes refs/remotes/origin/spikes
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.0990330Z Switched to a new branch 'spikes'
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.1003580Z branch 'spikes' set up to track 'origin/spikes'.
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.1007650Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.1157300Z [command]/opt/homebrew/bin/git log -1 --format=%H
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.1338390Z a9916f80632a6d049e0314ade5f6b6709fabba92
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.1833240Z ##[group]Run oven-sh/setup-bun@v2
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.1833550Z with:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.1833830Z   bun-version: 1.4.4
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.1834050Z   no-cache: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.1835950Z   token: ***
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.1836160Z env:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.1836480Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.1836840Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.1837100Z   MSYS_NO_PATHCONV: 1
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.1837290Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:53.7886930Z Cache hit for: bun-5yCU7osVKnB2twDWQtWzEtdhAQU=
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:54.3645370Z Received 38374567 of 38374567 (100.0%), 74.1 MBs/sec
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:54.3849950Z Cache Size: ~37 MB (38374567 B)
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:54.4074930Z [command]/opt/homebrew/bin/gtar -xf ~/work/_temp/77841b72-7455-40d3-8ef6-70c1cd1b2382/cache.tzst -P -C ~/work/manent/manent --delay-directory-restore --use-compress-program unzstd
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:54.8932820Z Cache restored successfully
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:54.9009140Z [command]~/.bun/bin/bun --revision
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:54.9387800Z 1.4.4+38afee6c8
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:54.9412340Z Using a cached version of Bun: 1.4.4+38afee6c8
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:54.9938410Z ##[group]Run bun install --frozen-lockfile
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:54.9938960Z ^[[36;1mbun install --frozen-lockfile^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:54.9939280Z ^[[36;1mbun test^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:54.9939630Z ^[[36;1mbun scripts/build-page.ts^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:54.9940040Z ^[[36;1mecho "PLATFORM=$(bun -e 'console.log(process.platform)')" >> "$GITHUB_ENV"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:54.9940530Z ^[[36;1mecho "INSTALLERS=$RUNNER_TEMP/installers" >> "$GITHUB_ENV"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:55.0046160Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:55.0046540Z env:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:55.0046870Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:55.0047320Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:55.0048570Z   MSYS_NO_PATHCONV: 1
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:55.0049130Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:55.0873520Z bun install v1.4.4 (38afee6c8)
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6040870Z 
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6044630Z + electron@45.3.2
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6046570Z + electron-builder@26.18.0
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6047510Z + playwright@1.65.1
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6048360Z + electrobun@2.0.6
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6049490Z + prosemirror-commands@1.7.2
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6050580Z + prosemirror-history@1.5.1
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6051470Z + prosemirror-keymap@1.2.3
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6052280Z + prosemirror-model@1.25.13
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6053470Z + prosemirror-state@1.4.4
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6055300Z + prosemirror-transform@1.12.5
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6056570Z + prosemirror-view@1.42.9
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6057090Z 
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6057980Z 278 packages installed [2.52s]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6471270Z bun test v1.4.4 (38afee6c8)
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6920100Z 
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.6982260Z ##[group]scripts/timing.test.ts:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.7610120Z (pass) decide needs the whole interval on one side [1.07ms]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.8898960Z (pass) bootstrap is seeded and brackets the statistic [129.07ms]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:57.9115420Z (pass) paired groups are resampled together [21.64ms]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.0210070Z (pass) timed.sh does not start a run on a busy machine [109.42ms]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.0218770Z 
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.0220840Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.0440320Z 
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.0446790Z ##[group]shared/node.test.ts:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.1342100Z (pass) health, token and one round trip [64.87ms]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.1373890Z 
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.1375010Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.1375320Z 
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.1375520Z  5 pass
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.1375860Z  0 fail
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.1376260Z  14 expect() calls
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.1380310Z Ran 5 tests across 2 files. [492.00ms]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.2989340Z ##[group]Run set -euo pipefail
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.2990310Z ^[[36;1mset -euo pipefail^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.2990670Z ^[[36;1mmkdir -p "$INSTALLERS" results^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.2991310Z ^[[36;1msha256 () { (sha256sum "$1" 2>/dev/null || shasum -a 256 "$1") | cut -d' ' -f1; }^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.2992080Z ^[[36;1mrefuse () {^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.2992980Z ^[[36;1m  REASON="$1" bun -e 'await Bun.write("results/install-" + process.platform + ".json", JSON.stringify({ status: "not run", reason: process.env.REASON }, null, 2) + "\n")'^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.2993900Z ^[[36;1m  echo "$1" >&2^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.2994380Z ^[[36;1m  exit 1^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.2994710Z ^[[36;1m}^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.2995840Z ^[[36;1m# Electrobun's Windows and Linux installers write the app to its channel folder^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.2997440Z ^[[36;1mif [ "$RUNNER_OS" = Windows ]; then CHANNEL="$LOCALAPPDATA/dev.manent.spike01/stable"; else CHANNEL="${XDG_DATA_HOME:-$HOME/.local/share}/dev.manent.spike01/stable"; fi^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.2998490Z ^[[36;1m# install runs inside a command substitution, where bash clears -e, so each of its commands is checked^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.2999230Z ^[[36;1mmust () { "$@" >&2 || refuse "$* exited with status $?"; }^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.2999970Z ^[[36;1minstall () { # $1 = plain or debug; prints the installed executable^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3000440Z ^[[36;1m  case "$RUNNER_OS" in^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3001120Z ^[[36;1m    macOS)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3001600Z ^[[36;1m      local dest=/Applications; [ "$1" = debug ] && dest=/Applications/electrobun-debug^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3002370Z ^[[36;1m      must mkdir -p "$RUNNER_TEMP/mnt" "$dest"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3003410Z ^[[36;1m      must hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/mnt" artifacts/macos-arm64-ManentSpike.dmg^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3004530Z ^[[36;1m      must ditto "$RUNNER_TEMP/mnt/ManentSpike.app" "$dest/ManentSpike.app"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3005430Z ^[[36;1m      must hdiutil detach "$RUNNER_TEMP/mnt"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3006150Z ^[[36;1m      must cp artifacts/macos-arm64-ManentSpike.dmg "$INSTALLERS/electrobun-$1-macos-arm64-ManentSpike.dmg"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3006850Z ^[[36;1m      echo "$dest/ManentSpike.app/Contents/MacOS/launcher" ;;^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3007350Z ^[[36;1m    Windows)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3007870Z ^[[36;1m      local setup_dir="$RUNNER_TEMP/electrobun-setup-$1"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3008580Z ^[[36;1m      must unzip -o -q artifacts/win-x64-ManentSpike-Setup.zip -d "$setup_dir"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3009620Z ^[[36;1m      must cp artifacts/win-x64-ManentSpike-Setup.zip "$INSTALLERS/electrobun-$1-win-x64-ManentSpike-Setup.zip"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3010780Z ^[[36;1m      local setup; setup=$(find "$setup_dir" -iname '*.exe' | head -n 1)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3011390Z ^[[36;1m      [ -n "$setup" ] || refuse "the Windows setup archive holds no executable"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3012620Z ^[[36;1m      timeout 150 "$setup" /S >&2 || timeout 150 "$setup" --silent >&2 || refuse "the Windows setup did not finish unattended within 5 minutes with /S or --silent"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3013670Z ^[[36;1m      [ -d "$CHANNEL" ] || refuse "the Windows setup wrote nothing to $CHANNEL"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3014660Z ^[[36;1m      find "$CHANNEL" -path '*/bin/*' -iname 'launcher*.exe' | head -n 1 ;;^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3015460Z ^[[36;1m    Linux)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3015980Z ^[[36;1m      local setup_dir="$RUNNER_TEMP/electrobun-setup-$1"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3016600Z ^[[36;1m      must mkdir -p "$setup_dir"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3017270Z ^[[36;1m      must tar -xzf artifacts/linux-x64-ManentSpike-Setup.tar.gz -C "$setup_dir"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3018130Z ^[[36;1m      must cp artifacts/linux-x64-ManentSpike-Setup.tar.gz "$INSTALLERS/electrobun-$1-linux-x64-ManentSpike-Setup.tar.gz"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3019060Z ^[[36;1m      local setup; setup=$(find "$setup_dir" -type f -name 'installer*' | head -n 1)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3022940Z ^[[36;1m      [ -n "$setup" ] || refuse "the Linux setup archive holds no installer"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3023760Z ^[[36;1m      timeout 300 "$setup" >&2 || refuse "the Linux installer did not finish unattended within 5 minutes"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3025650Z ^[[36;1m      [ -d "$CHANNEL" ] || refuse "the Linux installer wrote nothing to $CHANNEL"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3026520Z ^[[36;1m      find "$CHANNEL" -path '*/bin/*' -type f -name 'launcher' | head -n 1 ;;^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3027190Z ^[[36;1m  esac^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3027640Z ^[[36;1m}^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3028150Z ^[[36;1mroot_of () { case "$1" in *.app/*) echo "${1%%.app/*}.app" ;; *) dirname "$(dirname "$1")" ;; esac; }^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3028890Z ^[[36;1m# the first launch unpacks the app and is not a cold start; smoke.ts launches it, waits for its node and prints its^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3030040Z ^[[36;1m# result on one line, or says why on stderr and prints nothing, which records a null time and keeps the step going^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3030780Z ^[[36;1mfirst_launch () {^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3031880Z ^[[36;1m  local line; line=$(${RUN:-} bun scripts/smoke.ts electrobun --app "$1") || return 0^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3033460Z ^[[36;1m  printf '%s\n' "$line" | sed -n 's/.*"healthMs":\([0-9][0-9]*\).*/\1/p' | tail -n 1^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3034180Z ^[[36;1m}^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3034520Z ^[[36;1m^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3035120Z ^[[36;1mSPIKE_DEBUG_PORT=9334 bunx electrobun build --env=stable^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3035630Z ^[[36;1mDEBUG_APP=$(install debug)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3036290Z ^[[36;1m[ -n "$DEBUG_APP" ] || refuse "the debug build installed no launcher"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3036880Z ^[[36;1mif [ "$RUNNER_OS" != macOS ]; then^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3037420Z ^[[36;1m  # the plain build installs to the same folder, so the debug copy moves out first^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3038170Z ^[[36;1m  mkdir -p "$RUNNER_TEMP/electrobun-debug"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3038590Z ^[[36;1m  DEBUG_ROOT=$(root_of "$DEBUG_APP")^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3040770Z ^[[36;1m  mv "$DEBUG_ROOT" "$RUNNER_TEMP/electrobun-debug/app"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3041640Z ^[[36;1m  DEBUG_APP="$RUNNER_TEMP/electrobun-debug/app/${DEBUG_APP#"$DEBUG_ROOT"/}"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3042200Z ^[[36;1mfi^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3042470Z ^[[36;1mecho "EB_DEBUG_APP=$DEBUG_APP" >> "$GITHUB_ENV"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3043510Z ^[[36;1mDEBUG_FIRST_MS=$(first_launch "$DEBUG_APP")^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3044880Z ^[[36;1m^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3045780Z ^[[36;1mbunx electrobun build --env=stable^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3050150Z ^[[36;1mAPP=$(install plain)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3050690Z ^[[36;1m[ -n "$APP" ] || refuse "the plain build installed no launcher"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3052130Z ^[[36;1mEB_INSTALLER=$(find "$INSTALLERS" -name 'electrobun-plain-*' | head -n 1)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3054980Z ^[[36;1m{ echo "EB_APP=$APP"; echo "EB_INSTALLER=$EB_INSTALLER"; } >> "$GITHUB_ENV"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3056660Z ^[[36;1mFIRST_MS=$(first_launch "$APP")^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3059720Z ^[[36;1m^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3061020Z ^[[36;1mKEY=$(ls "$HUTCH_HOME/npm/electrobun/2.0.6")^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3064810Z ^[[36;1mARCHIVE="electrobun-hutch-$KEY.tar.gz"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3144730Z ^[[36;1mURL="https://github.com/blackboardsh/electrobun/releases/download/v2.0.6/$ARCHIVE"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3147180Z ^[[36;1m# the bootstrap keeps no copy of the archive, so it is fetched once to be hashed^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3148860Z ^[[36;1mHUTCH_FILE="$HUTCH_HOME/npm/electrobun/2.0.6/$KEY/$ARCHIVE"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3151670Z ^[[36;1mif [ ! -f "$HUTCH_FILE" ]; then HUTCH_FILE="$RUNNER_TEMP/$ARCHIVE"; curl -fsSL -o "$HUTCH_FILE" "$URL"; fi^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3152390Z ^[[36;1m# after the first launches, which unpack the libraries the launcher loads^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3152960Z ^[[36;1mLDD=""^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3153230Z ^[[36;1mif [ "$RUNNER_OS" = Linux ]; then^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3157080Z ^[[36;1m  LDD=$(for root in "$(root_of "$APP")" "$RUNNER_TEMP/electrobun-debug/app"; do^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3162240Z ^[[36;1m    find "$root" -type f \( -perm -u+x -o -name '*.so*' \) -print0 | while IFS= read -r -d '' file; do^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3164140Z ^[[36;1m      # ldd exits non-zero for a file that is not a dynamic executable, such as a script^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3165590Z ^[[36;1m      { ldd "$file" 2>/dev/null || true; } | sed -n "/not found/s|^|$file: |p"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3166460Z ^[[36;1m    done^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3167030Z ^[[36;1m  done | sort -u)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3168070Z ^[[36;1mfi^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3169260Z ^[[36;1mINSTALL_ROOT=$(root_of "$APP") DEBUG_INSTALL_ROOT=$(root_of "$DEBUG_APP") FIRST_MS="$FIRST_MS" DEBUG_FIRST_MS="$DEBUG_FIRST_MS" \^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3171430Z ^[[36;1mHUTCH_RELEASE="$HUTCH_HOME/npm/electrobun/2.0.6/$KEY/hutch-release.json" ARCHIVE="$ARCHIVE" URL="$URL" HUTCH_SHA256=$(sha256 "$HUTCH_FILE") LDD="$LDD" bun -e '^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3173880Z ^[[36;1m  const e = process.env^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3175280Z ^[[36;1m  const deps = JSON.parse(await Bun.file(".hutch/dependencies.lock").text()).objects^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3176570Z ^[[36;1m  const record = {^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3178300Z ^[[36;1m    status: "installed", installRoot: e.INSTALL_ROOT, debugInstallRoot: e.DEBUG_INSTALL_ROOT,^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3180360Z ^[[36;1m    firstLaunchMs: e.FIRST_MS ? Number(e.FIRST_MS) : null, debugFirstLaunchMs: e.DEBUG_FIRST_MS ? Number(e.DEBUG_FIRST_MS) : null,^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3183550Z ^[[36;1m    hutch: { version: JSON.parse(await Bun.file(e.HUTCH_RELEASE).text()).version, archive: e.ARCHIVE, url: e.URL, sha256: e.HUTCH_SHA256 },^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3185520Z ^[[36;1m    coreSha256: deps.find(o => o.type === "electrobun")?.coreSha256 ?? null,^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3187110Z ^[[36;1m    cefSha256: deps.find(o => o.type === "electrobun-cef")?.cefSha256 ?? null,^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3188740Z ^[[36;1m    ...(process.platform === "linux" ? { ldd: e.LDD ? e.LDD.split("\n") : [] } : {})^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3190030Z ^[[36;1m  }^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3191810Z ^[[36;1m  await Bun.write("results/install-" + process.platform + ".json", JSON.stringify(record, null, 2) + "\n")'^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3400760Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3401520Z env:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3402250Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3403410Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3404210Z   MSYS_NO_PATHCONV: 1
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3404970Z   PLATFORM: darwin
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3405810Z   INSTALLERS: ~/work/_temp/installers
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:58.3409490Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:24:59.3046260Z Downloading Hutch 0.29.0 for Electrobun 2.0.6 (macos-arm64)...
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:25:01.2927920Z hutch: downloading cottontail 0.7.3 for macos-arm64
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:25:08.3730140Z hutch: downloading Electrobun 2.0.6 core for macos-arm64
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:25:11.3560860Z hutch: downloading Electrobun 2.0.6 cef for macos-arm64
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:25:20.9573460Z hutch: downloading bun 1.4.4 toolchain for macos-arm64
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:25:26.8877780Z hutch electrobun: macOS icon source not found: ~/work/manent/manent/spikes/01-electrobun/icon.iconset
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:25:30.7399130Z delta patch generation disabled
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:25:30.7405210Z compressing update bundle...
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:16.8556690Z Compression time: 106038.00 ms
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:17.2873470Z hutch electrobun: macOS icon source not found: ~/work/manent/manent/spikes/01-electrobun/icon.iconset
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:17.4638750Z creating macOS disk image...
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:35.1722050Z created: ~/work/manent/manent/spikes/01-electrobun/build/stable-macos-arm64/ManentSpike-stable.dmg
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:35.5343110Z electrobun build complete: ~/work/manent/manent/spikes/01-electrobun/build/stable-macos-arm64
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:35.6618670Z Checksumming Protective Master Boot Record (MBR : 0)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:36.0160100Z Protective Master Boot Record (MBR :: verified   CRC32 $41D455B2
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:36.0162430Z Checksumming GPT Header (Primary GPT Header : 1)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:37.0742110Z  GPT Header (Primary GPT Header : 1): verified   CRC32 $2EE697C6
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:37.0744180Z Checksumming GPT Partition Data (Primary GPT Table : 2)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:37.0756450Z GPT Partition Data (Primary GPT Tabl: verified   CRC32 $4DEC8ACE
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:37.0758130Z Checksumming  (Apple_Free : 3)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:38.0816740Z                     (Apple_Free : 3): verified   CRC32 $00000000
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:38.0818090Z Checksumming disk image (Apple_APFS : 4)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:38.3976420Z          disk image (Apple_APFS : 4): verified   CRC32 $A29DC0FE
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:38.3977870Z Checksumming  (Apple_Free : 5)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:39.0164720Z                     (Apple_Free : 5): verified   CRC32 $00000000
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:39.0170460Z Checksumming GPT Partition Data (Backup GPT Table : 6)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:39.0187570Z GPT Partition Data (Backup GPT Table: verified   CRC32 $4DEC8ACE
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:39.0189710Z Checksumming GPT Header (Backup GPT Header : 7)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:39.0207140Z   GPT Header (Backup GPT Header : 7): verified   CRC32 $1E4CE24F
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:39.0221450Z verified   CRC32 $C1F96667
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:39.2236470Z /dev/disk7          	GUID_partition_scheme          	
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:39.2339370Z /dev/disk7s1        	Apple_APFS                     	
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:39.2446940Z /dev/disk8          	EF57347C-0000-11AA-AA11-0030654	
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:39.2570090Z /dev/disk8s1        	41504653-0000-11AA-AA11-0030654	~/work/_temp/mnt
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:27:39.9736590Z "disk7" ejected.
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:28:07.3472630Z hutch electrobun: macOS icon source not found: ~/work/manent/manent/spikes/01-electrobun/icon.iconset
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:28:10.2723210Z delta patch generation disabled
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:28:10.2731310Z compressing update bundle...
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:02.2103210Z Compression time: 111868.10 ms
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:02.8945440Z hutch electrobun: macOS icon source not found: ~/work/manent/manent/spikes/01-electrobun/icon.iconset
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:03.1144320Z creating macOS disk image...
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:11.8562240Z created: ~/work/manent/manent/spikes/01-electrobun/build/stable-macos-arm64/ManentSpike-stable.dmg
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:12.5387450Z electrobun build complete: ~/work/manent/manent/spikes/01-electrobun/build/stable-macos-arm64
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:12.8192320Z Checksumming Protective Master Boot Record (MBR : 0)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:13.1599250Z Protective Master Boot Record (MBR :: verified   CRC32 $41D455B2
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:13.1702650Z Checksumming GPT Header (Primary GPT Header : 1)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:14.4813490Z  GPT Header (Primary GPT Header : 1): verified   CRC32 $3198D075
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:14.4934730Z Checksumming GPT Partition Data (Primary GPT Table : 2)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:14.5053200Z GPT Partition Data (Primary GPT Tabl: verified   CRC32 $8F5ED494
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:14.5157510Z Checksumming  (Apple_Free : 3)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:15.1510780Z                     (Apple_Free : 3): verified   CRC32 $00000000
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:15.1545000Z Checksumming disk image (Apple_APFS : 4)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:16.0437480Z          disk image (Apple_APFS : 4): verified   CRC32 $FF8CC259
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:16.0448610Z Checksumming  (Apple_Free : 5)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:17.1387890Z                     (Apple_Free : 5): verified   CRC32 $00000000
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:17.1388840Z Checksumming GPT Partition Data (Backup GPT Table : 6)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:17.1403150Z GPT Partition Data (Backup GPT Table: verified   CRC32 $8F5ED494
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:17.1405190Z Checksumming GPT Header (Backup GPT Header : 7)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:17.1420090Z   GPT Header (Backup GPT Header : 7): verified   CRC32 $0132A5FC
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:17.1444570Z verified   CRC32 $C37992A5
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:17.3861590Z /dev/disk7          	GUID_partition_scheme          	
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:17.3968830Z /dev/disk7s1        	Apple_APFS                     	
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:17.4119040Z /dev/disk8          	EF57347C-0000-11AA-AA11-0030654	
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:17.4234080Z /dev/disk8s1        	41504653-0000-11AA-AA11-0030654	~/work/_temp/mnt
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:18.2250740Z "disk7" ejected.
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:39.2859570Z ##[group]Run ${RUN:-} bun scripts/smoke.ts electrobun --app "$EB_APP"
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:39.2860550Z ^[[36;1m${RUN:-} bun scripts/smoke.ts electrobun --app "$EB_APP"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:39.3171940Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:39.3172790Z env:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:39.3173570Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:39.3174680Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:39.3175320Z   MSYS_NO_PATHCONV: 1
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:39.3175930Z   PLATFORM: darwin
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:39.3176600Z   INSTALLERS: ~/work/_temp/installers
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:39.3177790Z   EB_DEBUG_APP: /Applications/electrobun-debug/ManentSpike.app/Contents/MacOS/launcher
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:39.3183900Z   EB_APP: /Applications/ManentSpike.app/Contents/MacOS/launcher
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:39.3184710Z   EB_INSTALLER: ~/work/_temp/installers/electrobun-plain-macos-arm64-ManentSpike.dmg
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:39.3185370Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.6021610Z {"shell":"electrobun","platform":"darwin","version":"0.0.1","healthMs":644,"wsRoundTrip":true,"sqliteRows":3}
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9173380Z ##[group]Run SPIKE_VERSION=0.0.2 bunx electrobun build --env=stable
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9173880Z ^[[36;1mSPIKE_VERSION=0.0.2 bunx electrobun build --env=stable^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9174290Z ^[[36;1mmkdir -p artifacts/updates^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9174850Z ^[[36;1mcp artifacts/stable-*-update-v2.json artifacts/stable-*-update.json artifacts/stable-*.tar.zst artifacts/updates/^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9175500Z ^[[36;1m${RUN:-} bun scripts/update-check.ts --app "$EB_APP" --updates artifacts/updates^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9218390Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9218960Z env:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9219380Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9219930Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9220250Z   MSYS_NO_PATHCONV: 1
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9220570Z   PLATFORM: darwin
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9220920Z   INSTALLERS: ~/work/_temp/installers
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9225920Z   EB_DEBUG_APP: /Applications/electrobun-debug/ManentSpike.app/Contents/MacOS/launcher
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9226780Z   EB_APP: /Applications/ManentSpike.app/Contents/MacOS/launcher
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9227380Z   EB_INSTALLER: ~/work/_temp/installers/electrobun-plain-macos-arm64-ManentSpike.dmg
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:40.9227910Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:44.1219350Z hutch electrobun: macOS icon source not found: ~/work/manent/manent/spikes/01-electrobun/icon.iconset
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:46.1338860Z delta patch generation disabled
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:30:46.1442470Z compressing update bundle...
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:32:23.8251020Z Compression time: 97639.18 ms
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:32:24.2418060Z hutch electrobun: macOS icon source not found: ~/work/manent/manent/spikes/01-electrobun/icon.iconset
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:32:24.4006660Z creating macOS disk image...
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:32:32.9710150Z created: ~/work/manent/manent/spikes/01-electrobun/build/stable-macos-arm64/ManentSpike-stable.dmg
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:32:33.4683750Z electrobun build complete: ~/work/manent/manent/spikes/01-electrobun/build/stable-macos-arm64
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.6654220Z {"platform":"darwin","from":"0.0.1","to":"0.0.2","status":"applied","bytesDownloaded":148269259,"ms":25221,"statuses":["checking","update-available","download-starting","downloading","download-complete","checking","complete"],"notes":""}
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7082570Z ##[group]Run set -euo pipefail
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7089200Z ^[[36;1mset -euo pipefail^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7090160Z ^[[36;1mbun build --compile shared/sidecar.ts --outfile electron/bin/sidecar^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7105150Z ^[[36;1mcase "$RUNNER_OS" in^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7106070Z ^[[36;1m  macOS)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7109860Z ^[[36;1m    bunx electron-builder --mac dmg --config electron/electron-builder.yml^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7112700Z ^[[36;1m    EL_INSTALLER=$(find artifacts/electron -maxdepth 1 -name '*.dmg' | head -n 1)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7114190Z ^[[36;1m    mkdir -p "$RUNNER_TEMP/mnt" /Applications/electron^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7115340Z ^[[36;1m    hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/mnt" "$EL_INSTALLER"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7117000Z ^[[36;1m    ditto "$RUNNER_TEMP/mnt/ManentSpike.app" /Applications/electron/ManentSpike.app^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7118360Z ^[[36;1m    hdiutil detach "$RUNNER_TEMP/mnt"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7119590Z ^[[36;1m    EL_ROOT=/Applications/electron/ManentSpike.app^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7120820Z ^[[36;1m    EL_APP="$EL_ROOT/Contents/MacOS/ManentSpike" ;;^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7121630Z ^[[36;1m  Windows)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7122700Z ^[[36;1m    bunx electron-builder --win nsis --config electron/electron-builder.yml^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7124210Z ^[[36;1m    EL_INSTALLER=$(find artifacts/electron -maxdepth 1 -name '*.exe' | head -n 1)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7125360Z ^[[36;1m    timeout 300 "$EL_INSTALLER" /S^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7126770Z ^[[36;1m    EL_APP=$(find "$LOCALAPPDATA/Programs" -name 'ManentSpike.exe' | head -n 1)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7128220Z ^[[36;1m    EL_ROOT=$(dirname "$EL_APP") ;;^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7128960Z ^[[36;1m  Linux)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7129980Z ^[[36;1m    bunx electron-builder --linux AppImage --config electron/electron-builder.yml^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7131560Z ^[[36;1m    EL_INSTALLER=$(find artifacts/electron -maxdepth 1 -name '*.AppImage' | head -n 1)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7133400Z ^[[36;1m    # run in place from its own unpacked tree, so that every process's executable is inside one folder^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7134750Z ^[[36;1m    chmod +x "$EL_INSTALLER"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7136140Z ^[[36;1m    (cd "$RUNNER_TEMP" && "$GITHUB_WORKSPACE/spikes/01-electrobun/$EL_INSTALLER" --appimage-extract > /dev/null)^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7137750Z ^[[36;1m    EL_ROOT="$RUNNER_TEMP/squashfs-root"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7138820Z ^[[36;1m    EL_APP="$EL_ROOT/manent-spike-01-electrobun" ;;^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7139570Z ^[[36;1mesac^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7140240Z ^[[36;1mcp "$EL_INSTALLER" "$INSTALLERS/"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7141300Z ^[[36;1mEL_INSTALLER="$INSTALLERS/$(basename "$EL_INSTALLER")"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7142180Z ^[[36;1mEL_ROOT="$EL_ROOT" bun -e '^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7143170Z ^[[36;1m  const file = "results/install-" + process.platform + ".json"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7144510Z ^[[36;1m  const record = await Bun.file(file).exists() ? JSON.parse(await Bun.file(file).text()) : {}^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7146370Z ^[[36;1m  await Bun.write(file, JSON.stringify({ ...record, electronInstallRoot: process.env.EL_ROOT }, null, 2) + "\n")'^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7148820Z ^[[36;1m{ echo "EL_APP=$EL_APP"; echo "EL_INSTALLER=$EL_INSTALLER"; } >> "$GITHUB_ENV"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7150470Z ^[[36;1m${RUN:-} bun scripts/smoke.ts electron --app "$EL_APP"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7563620Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7564000Z env:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7564430Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7564940Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7565280Z   MSYS_NO_PATHCONV: 1
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7565910Z   PLATFORM: darwin
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7567230Z   INSTALLERS: ~/work/_temp/installers
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7568490Z   EB_DEBUG_APP: /Applications/electrobun-debug/ManentSpike.app/Contents/MacOS/launcher
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7571730Z   EB_APP: /Applications/ManentSpike.app/Contents/MacOS/launcher
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7573210Z   EB_INSTALLER: ~/work/_temp/installers/electrobun-plain-macos-arm64-ManentSpike.dmg
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.7576940Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:02.9363750Z   [40ms]  bundle  3 modules
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:03.4187030Z  [475ms] compile  electron/bin/sidecar
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:05.3626570Z   • electron-builder  version=26.18.0 os=25.6.0
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:05.3635100Z   • Implicit publishing triggered by CI detection. This behavior will be disabled in electron-builder v27. Please use --publish explicitly.
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:05.3841880Z   • loaded configuration  file=~/work/manent/manent/spikes/01-electrobun/electron/electron-builder.yml
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:05.3873420Z   • description is missed in the package.json  appPackageFile=~/work/manent/manent/spikes/01-electrobun/package.json
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:05.3876760Z   • author is missed in the package.json  appPackageFile=~/work/manent/manent/spikes/01-electrobun/package.json
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:06.0735750Z   • skipped dependencies rebuild  reason=npmRebuild is set to false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:06.0838110Z   • packaging       platform=darwin arch=arm64 electron=45.3.2 appOutDir=artifacts/electron/mac-arm64
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:06.4870080Z   • downloaded      label=electron progress=100%
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:11.4765190Z   • downloaded electron zip extracted successfully  output=~/work/manent/manent/spikes/01-electrobun/artifacts/electron/mac-arm64
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:11.4988020Z   • searching for node modules  pm=bun searchDir=~/work/manent/manent/spikes/01-electrobun
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:11.4992930Z   • note: bun does not support any CLI for dependency tree extraction, utilizing file traversal collector instead
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:11.4993940Z   • using manual traversal of node_modules to build dependency tree
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:11.6996320Z   • default Electron icon is used  reason=application icon is not set
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:11.8916920Z   • skipped macOS code signing  reason=identity explicitly is set to null
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:11.8925940Z   • building        target=DMG arch=arm64 file=artifacts/electron/ManentSpike-0.0.1-arm64.dmg
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:12.0295820Z   • downloaded      label=dmgbuild-bundle-arm64-75c8a6c.tar.gz progress=100%
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:27.2613290Z   • building block map  blockMapFile=artifacts/electron/ManentSpike-0.0.1-arm64.dmg.blockmap
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:34.1253520Z Checksumming Protective Master Boot Record (MBR : 0)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:35.1088230Z Protective Master Boot Record (MBR :: verified   CRC32 $18225AC0
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:35.1089090Z Checksumming GPT Header (Primary GPT Header : 1)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:36.0135170Z  GPT Header (Primary GPT Header : 1): verified   CRC32 $5A295EC7
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:36.0137840Z Checksumming GPT Partition Data (Primary GPT Table : 2)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:36.0140890Z GPT Partition Data (Primary GPT Tabl: verified   CRC32 $257B2ACA
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:36.0143690Z Checksumming  (Apple_Free : 3)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:37.0477820Z                     (Apple_Free : 3): verified   CRC32 $00000000
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:37.0480800Z Checksumming disk image (Apple_HFS : 4)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:37.9031950Z           disk image (Apple_HFS : 4): verified   CRC32 $00D21B9B
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:37.9210170Z Checksumming  (Apple_Free : 5)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:38.0642330Z                     (Apple_Free : 5): verified   CRC32 $00000000
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:38.0746050Z Checksumming GPT Partition Data (Backup GPT Table : 6)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:38.0837390Z GPT Partition Data (Backup GPT Table: verified   CRC32 $257B2ACA
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:38.0939040Z Checksumming GPT Header (Backup GPT Header : 7)…
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:38.1039620Z   GPT Header (Backup GPT Header : 7): verified   CRC32 $4AFECEFA
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:38.1141250Z verified   CRC32 $2F45F8FF
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:38.2041950Z /dev/disk7          	GUID_partition_scheme          	
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:38.2242470Z /dev/disk7s1        	Apple_HFS                      	~/work/_temp/mnt
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:39.7954210Z "disk7" ejected.
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.0537330Z {"shell":"electron","platform":"darwin","version":"0.0.1","healthMs":850,"wsRoundTrip":true,"sqliteRows":3}
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.9397570Z ##[group]Run ${RUN:-} bun scripts/measure.ts --electrobun "$EB_APP" --electrobun-debug "$EB_DEBUG_APP" --electron "$EL_APP" --installers "$EB_INSTALLER,$EL_INSTALLER" --pairs 15 --out "results/measure-$PLATFORM.json"
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.9412650Z ^[[36;1m${RUN:-} bun scripts/measure.ts --electrobun "$EB_APP" --electrobun-debug "$EB_DEBUG_APP" --electron "$EL_APP" --installers "$EB_INSTALLER,$EL_INSTALLER" --pairs 15 --out "results/measure-$PLATFORM.json"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.9555440Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.9555870Z env:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.9556320Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.9556840Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.9557180Z   MSYS_NO_PATHCONV: 1
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.9557550Z   PLATFORM: darwin
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.9558020Z   INSTALLERS: ~/work/_temp/installers
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.9558700Z   EB_DEBUG_APP: /Applications/electrobun-debug/ManentSpike.app/Contents/MacOS/launcher
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.9559260Z   EB_APP: /Applications/ManentSpike.app/Contents/MacOS/launcher
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.9559870Z   EB_INSTALLER: ~/work/_temp/installers/electrobun-plain-macos-arm64-ManentSpike.dmg
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.9560630Z   EL_APP: /Applications/electron/ManentSpike.app/Contents/MacOS/ManentSpike
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.9561250Z   EL_INSTALLER: ~/work/_temp/installers/ManentSpike-0.0.1-arm64.dmg
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:42.9561680Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.0378290Z ##[group]Run bun scripts/compare.ts "results/measure-$PLATFORM.json" --out "results/compare-$PLATFORM.json"
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.0379440Z ^[[36;1mbun scripts/compare.ts "results/measure-$PLATFORM.json" --out "results/compare-$PLATFORM.json"^[[0m
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.0427910Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.0428360Z env:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.0428720Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.0429250Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.0429670Z   MSYS_NO_PATHCONV: 1
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.0430190Z   PLATFORM: darwin
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.0430570Z   INSTALLERS: ~/work/_temp/installers
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.0431120Z   EB_DEBUG_APP: /Applications/electrobun-debug/ManentSpike.app/Contents/MacOS/launcher
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.0431630Z   EB_APP: /Applications/ManentSpike.app/Contents/MacOS/launcher
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.0432450Z   EB_INSTALLER: ~/work/_temp/installers/electrobun-plain-macos-arm64-ManentSpike.dmg
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.0433010Z   EL_APP: /Applications/electron/ManentSpike.app/Contents/MacOS/ManentSpike
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.0433610Z   EL_INSTALLER: ~/work/_temp/installers/ManentSpike-0.0.1-arm64.dmg
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.0434090Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1575280Z cold start ratio (Electrobun ÷ Electron)  2.99
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1575890Z 95 % interval                             1.18–3.04
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1576300Z cold start                                inconclusive
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1576620Z editing                                   not run
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1577080Z checks that differ                        none
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1577510Z checks not compared                       C1, C2, C3, C4, C5, C6, C7
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1766750Z ##[group]Run actions/upload-artifact@v4
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1767120Z with:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1767530Z   name: spike-01-macos-26
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1768010Z   path: spikes/01-electrobun/results/
+spike (macos-26)	UNKNOWN STEP	~/work/_temp/installers/
+spike (macos-26)	UNKNOWN STEP	
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1768460Z   if-no-files-found: warn
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1768830Z   compression-level: 6
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1769110Z   overwrite: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1769570Z   include-hidden-files: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1769880Z env:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1770210Z   HUTCH_HOME: ~/work/manent/manent/spikes/01-electrobun/.hutch-home
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1770770Z   CSC_IDENTITY_AUTO_DISCOVERY: false
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1771120Z   MSYS_NO_PATHCONV: 1
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1771400Z   PLATFORM: darwin
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1771810Z   INSTALLERS: ~/work/_temp/installers
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1782520Z   EB_DEBUG_APP: /Applications/electrobun-debug/ManentSpike.app/Contents/MacOS/launcher
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1783290Z   EB_APP: /Applications/ManentSpike.app/Contents/MacOS/launcher
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1783910Z   EB_INSTALLER: ~/work/_temp/installers/electrobun-plain-macos-arm64-ManentSpike.dmg
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1784450Z   EL_APP: /Applications/electron/ManentSpike.app/Contents/MacOS/ManentSpike
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1785000Z   EL_INSTALLER: ~/work/_temp/installers/ManentSpike-0.0.1-arm64.dmg
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.1785470Z ##[endgroup]
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.6017750Z (node:10915) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.6018560Z (Use `node --trace-deprecation ...` to show where the warning was created)
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.6097090Z Multiple search paths detected. Calculating the least common ancestor of all paths
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.6098400Z The least common ancestor is ~/work. This will be the root directory of the artifact
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.6099000Z With the provided path, there will be 10 files uploaded
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.6102330Z Artifact name is valid!
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.6102780Z Root directory input is valid!
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:55.8093480Z Beginning upload of artifact content to blob storage
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:56.0798250Z (node:10915) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:56.3654500Z Uploaded bytes 8388608
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:56.5799700Z Uploaded bytes 16777216
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:56.7163610Z Uploaded bytes 25165824
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:57.0395770Z Uploaded bytes 33554432
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:57.1630020Z Uploaded bytes 41943040
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:57.4235600Z Uploaded bytes 50331648
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:57.7687770Z Uploaded bytes 58720256
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:57.8674410Z Uploaded bytes 67108864
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:58.1252130Z Uploaded bytes 75497472
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:58.4358990Z Uploaded bytes 83886080
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:58.5856820Z Uploaded bytes 92274688
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:58.7271850Z Uploaded bytes 100663296
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:58.8958990Z Uploaded bytes 109051904
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:59.1765170Z Uploaded bytes 117440512
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:59.4302240Z Uploaded bytes 125829120
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:59.6397950Z Uploaded bytes 134217728
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:33:59.7413920Z Uploaded bytes 142606336
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:00.0032210Z Uploaded bytes 150994944
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:00.4151910Z Uploaded bytes 159383552
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:00.6091400Z Uploaded bytes 167772160
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:00.9354490Z Uploaded bytes 176160768
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:01.1949120Z Uploaded bytes 184549376
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:01.5620960Z Uploaded bytes 192937984
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:01.7745190Z Uploaded bytes 201326592
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:02.0017370Z Uploaded bytes 209715200
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:02.1994110Z Uploaded bytes 218103808
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:02.6769990Z Uploaded bytes 226492416
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:02.8003810Z Uploaded bytes 234881024
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:03.0835810Z Uploaded bytes 243269632
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:03.2181610Z Uploaded bytes 251658240
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:03.4810290Z Uploaded bytes 260046848
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:03.7847860Z Uploaded bytes 268435456
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:03.9303020Z Uploaded bytes 276824064
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:04.1892090Z Uploaded bytes 285212672
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:04.4186850Z Uploaded bytes 293601280
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:04.6262960Z Uploaded bytes 301989888
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:04.9384340Z Uploaded bytes 310378496
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:05.0621340Z Uploaded bytes 318767104
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:05.2744840Z Uploaded bytes 327155712
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:05.6117560Z Uploaded bytes 335544320
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:05.8231050Z Uploaded bytes 343932928
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:06.0244890Z Uploaded bytes 352321536
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:06.3100810Z Uploaded bytes 360710144
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:06.4715210Z Uploaded bytes 369098752
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:06.7151330Z Uploaded bytes 377487360
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:07.0263760Z Uploaded bytes 385875968
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:07.1873450Z Uploaded bytes 394264576
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:07.5332660Z Uploaded bytes 402653184
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:07.7669960Z Uploaded bytes 411041792
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:08.0887710Z Uploaded bytes 419430400
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:08.3270830Z Uploaded bytes 427819008
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:08.5515490Z Uploaded bytes 436207616
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:09.0350050Z Uploaded bytes 444596224
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:09.0923050Z Uploaded bytes 452984832
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:09.3510040Z Uploaded bytes 461373440
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:09.4705770Z Uploaded bytes 463039426
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:09.4910100Z Finished uploading artifact content to blob storage!
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:09.4922400Z SHA256 digest of uploaded artifact zip is 1c4777fd581961361d18422cbe9e05b1ad587546299a5dcdcc9028d80e37c09f
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:09.4927400Z Finalizing artifact upload
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:09.8716660Z Artifact spike-01-macos-26.zip successfully finalized. Artifact ID 14436003501
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:09.8717530Z Artifact spike-01-macos-26 has been successfully uploaded! Final size is 463039426 bytes. Artifact ID is 14436003501
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:09.8718920Z Artifact download URL: https://github.com/HMarzban/manent/actions/runs/44322125186/artifacts/14436003501
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:09.8981360Z Post job cleanup.
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.0927110Z Post job cleanup.
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.1838010Z [command]/opt/homebrew/bin/git version
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.2107310Z git version 2.56.0
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.2127040Z Copying '~/.gitconfig' to '~/work/_temp/463717cb-f0bf-4bdf-9670-3a12500f39a1/.gitconfig'
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.2134510Z Temporarily overriding HOME='~/work/_temp/463717cb-f0bf-4bdf-9670-3a12500f39a1' before making global git config changes
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.2135760Z Adding repository directory to the temporary git global config as a safe directory
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.2138110Z [command]/opt/homebrew/bin/git config --global --add safe.directory ~/work/manent/manent
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.2255990Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.2320420Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.3316450Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.3372540Z http.https://github.com/.extraheader
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.3379310Z [command]/opt/homebrew/bin/git config --local --unset-all http.https://github.com/.extraheader
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.3455790Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.4299360Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.4369660Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:10.5761880Z Cleaning up orphan processes
+spike (macos-26)	UNKNOWN STEP	2026-11-18T14:34:12.2132170Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
