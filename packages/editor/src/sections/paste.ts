@@ -11,7 +11,12 @@ export const DROP_ORIGINS = ["outside", "moved"] as const;
 export type DropOrigin = (typeof DROP_ORIGINS)[number];
 
 /** Two or more blocks go in as blocks; one block, or inline content, goes in as text at the caret. */
-function paste(tr: Transaction, slice: Slice, ids: IdSource): Transaction {
+function paste(
+  tr: Transaction,
+  slice: Slice,
+  ids: IdSource,
+  options?: { keepIds?: boolean },
+): Transaction {
   const blocks: Node[] = [];
   slice.content.descendants((node) => {
     if (node.type !== schema.nodes.block) return true;
@@ -23,6 +28,7 @@ function paste(tr: Transaction, slice: Slice, ids: IdSource): Transaction {
       tr,
       blocks.map((block) => block.toJSON()),
       ids,
+      options,
     );
   if (!tr.selection.empty)
     deleteRangeKeepingSections(tr, tr.selection.from, tr.selection.to);
@@ -33,13 +39,14 @@ function paste(tr: Transaction, slice: Slice, ids: IdSource): Transaction {
     .setSelection(TextSelection.create(tr.doc, at + inline.size));
 }
 
-/** The slice's blocks in order, at the selection. */
+/** The slice's blocks in order, at the selection; with `keepIds` each keeps a valid id of its own. */
 export function pasteSlice(
   state: EditorState,
   slice: Slice,
   ids: IdSource,
+  options?: { keepIds?: boolean },
 ): Transaction {
-  return paste(state.tr, slice, ids);
+  return paste(state.tr, slice, ids, options);
 }
 
 /** A paste at `pos`; a slice dragged from this script is first deleted from where it was, and `pos` mapped past that. */
