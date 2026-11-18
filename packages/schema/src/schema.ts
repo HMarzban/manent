@@ -1,5 +1,5 @@
 import { Schema } from "prosemirror-model";
-import type { AttributeSpec, Node } from "prosemirror-model";
+import type { AttributeSpec, Node, TagParseRule } from "prosemirror-model";
 import { DEFAULT_BLOCK_ATTRS } from "./attrs.ts";
 import { renderedType } from "./block-types.ts";
 import { MARK_SPECS } from "./marks.ts";
@@ -39,6 +39,7 @@ const FOREIGN_BLOCK_TAGS = [
   "dt",
   "dd",
 ] as const;
+const FOREIGN_BLOCK_SELECTOR = FOREIGN_BLOCK_TAGS.join(",");
 
 /** Headings and cues hold names, places and INT. or EXT., which a spelling check marks as wrong. */
 const UNSPELLED_TYPES: readonly string[] = [
@@ -73,9 +74,13 @@ export const schema: Schema<NodeName, MarkName> = new Schema({
             id: dom.getAttribute("data-id"),
           }),
         },
-        ...FOREIGN_BLOCK_TAGS.map((tag) => ({
+        // A list item, quotation or cell that holds paragraphs is read through to them.
+        ...FOREIGN_BLOCK_TAGS.map((tag): TagParseRule => ({
           tag,
-          attrs: { type: "action" },
+          getAttrs: (dom) =>
+            dom.querySelector(FOREIGN_BLOCK_SELECTOR) === null
+              ? { type: "action" }
+              : false,
         })),
       ],
       toDOM: (node) => {

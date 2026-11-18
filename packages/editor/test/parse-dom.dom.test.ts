@@ -61,6 +61,17 @@ test("a word processor's page becomes one block per paragraph, heading and list 
   ]);
 });
 
+test("a list item, a quotation or a table cell that holds paragraphs is read through to them", () => {
+  const html =
+    "<ul><li><p>a</p></li></ul><blockquote><p>x</p><p>y</p></blockquote><table><tr><td><p>c</p></td></tr></table>";
+  expect(read(html).map((b) => [b.attrs!.type, runs(b)])).toEqual([
+    ["action", [["a", []]]],
+    ["action", [["x", []]]],
+    ["action", [["y", []]]],
+    ["action", [["c", []]]],
+  ]);
+});
+
 test("a link that is not safe is text", () => {
   expect(
     read('<p><a href="javascript:alert(1)">go</a></p>')[0]!.content,
