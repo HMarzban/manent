@@ -10,33 +10,29 @@ interface Job {
 }
 
 /**
- * Builds the document from its newest valid checkpoint and the tail after it, read in one
- * transaction so that a commit landing meanwhile is wholly in it or wholly after it, and stores its
- * state at the last sequence read. Null when nothing is new, or when a row does not verify: the row
- * is left for the serving thread to quarantine on its next load.
+ * Builds the document from its newest valid checkpoint and the tail after it, and stores its state
+ * at the last sequence read. Null when nothing is new, or when a row does not verify: the row is
+ * left for the serving thread to quarantine on its next load.
  */
 export function runCheckpointJob(
   storage: Storage,
   job: { home: Home; docId: string },
 ): { seq: number } | null {
   const file = storage.open(job.home);
-  const read = file.transaction(() => {
-    const row = file.log.get(job.docId);
-    if (row === null) return null;
-    const checkpoint = file.checkpoints.newest(job.docId, row.generation);
-    const from = checkpoint?.seq ?? 0;
-    const tail = file.log.tail(job.docId, row.generation, from, {
-      quarantine: false,
-    });
-    return { generation: row.generation, checkpoint, tail };
+  const row = file.log.get(job.docId);
+  if (row === null) return null;
+  // no transaction, which would hold the serving thread's writer: the log only grows past a
+  // checkpoint's sequence, and the tail is one read, so a commit is wholly in it or wholly after it
+  const checkpoint = file.checkpoints.newest(job.docId, row.generation);
+  const from = checkpoint?.seq ?? 0;
+  const tail = file.log.tail(job.docId, row.generation, from, {
+    quarantine: false,
   });
-  if (read === null) return null;
-  const { generation, checkpoint, tail } = read;
   const last = tail.rows.at(-1);
   if (last === undefined || tail.corrupt.length > 0) return null;
   const doc = checkpoint === null ? createDoc() : loadDoc(checkpoint.state);
   for (const { update } of tail.rows) doc.applyUpdate(update, ORIGIN_LOAD);
-  file.checkpoints.put(job.docId, generation, last.seq, doc.encodeState());
+  file.checkpoints.put(job.docId, row.generation, last.seq, doc.encodeState());
   doc.destroy();
   return { seq: last.seq };
 }
@@ -110,9 +106,9 @@ function readFromWorker(message: unknown): FromWorker | null {
 }
 
 /**
- * The worker's side: answers each job with `done` once it has run, and `stop` with `stopped` after
- * the last job, closing the storage first. Reading `init` and opening the storage is the entry
- * file's, since only a composition root names a storage driver.
+ * The worker's side: answers each job with `done` once it has run or failed, and `stop` with
+ * `stopped` after the last job, closing the storage first. Reading `init` and opening the storage
+ * is the entry file's, since only a composition root names a storage driver.
  */
 export function serveCheckpointJobs(
   storage: Storage,
@@ -131,10 +127,11 @@ export function serveCheckpointJobs(
     }
     try {
       runCheckpointJob(storage, message.job);
-    } finally {
-      // a checkpoint is a disposable cache: one that failed must not leave idle() waiting
-      port.post({ t: "done", id: message.id } satisfies FromWorker);
+    } catch {
+      // a job that failed (a file busy or unreadable) is ignored: a checkpoint is a disposable
+      // cache, the log stays whole and the next load replays it, so the worker serves the next job
     }
+    port.post({ t: "done", id: message.id } satisfies FromWorker);
   });
 }
 

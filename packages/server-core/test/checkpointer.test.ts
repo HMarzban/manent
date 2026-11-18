@@ -98,6 +98,22 @@ test("a job leaves a damaged row for the serving thread", () => {
   expect(file.checkpoints.newest(DOC, 1)).toBeNull();
 });
 
+test("a checkpoint is built while the serving thread holds the log's writer", async () => {
+  const dir = await trees.tree({});
+  const serving = openSqliteStorage({ dir, now: () => 1_000 });
+  const typist = seedLog(serving, 30);
+  const worker = openSqliteStorage({ dir, now: () => 1_000 });
+  const job = { home: HOME, docId: DOC };
+  // the serving thread's commit is open, and holds the writer, while the job runs
+  const built = serving.open(HOME).transaction(() => {
+    appendOne(serving, typist, 31);
+    return runCheckpointJob(worker, job);
+  });
+  expect(built).toEqual({ seq: 30 });
+  worker.close();
+  serving.close();
+});
+
 test("an inline job runs when the turn ends, or at once when idle is awaited", async () => {
   seedLog(storage, 20);
   const clock = fakeClock();
@@ -174,6 +190,23 @@ test(
       "idle again",
       "closed",
     ]);
+  },
+  { timeout: 10_000 },
+);
+
+test(
+  "a job that fails in the worker does not stop the next one",
+  async () => {
+    const dir = await trees.tree({});
+    const sqlite = openSqliteStorage({ dir, now: () => 1_000 });
+    seedLog(sqlite, 20);
+    const cp = createWorkerCheckpointer({ entry: WORKER, data: { dir } });
+    cp.request({ home: { kind: "project", id: "not-a-uuid" }, docId: DOC });
+    cp.request({ home: HOME, docId: DOC });
+    await cp.idle();
+    expect(sqlite.open(HOME).checkpoints.newest(DOC, 1)?.seq).toBe(20);
+    await cp.close();
+    sqlite.close();
   },
   { timeout: 10_000 },
 );
