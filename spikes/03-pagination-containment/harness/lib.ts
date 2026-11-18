@@ -15,15 +15,15 @@ async function bundle(entry: string): Promise<Map<string, Blob>> {
   return new Map(built.outputs.map((o) => [o.path.replace(/^\./, ''), o]))
 }
 
-/** Bundles the pages and serves them on a port the system picks. */
+/** Bundles the editor page (at `/`) and the conformance page (at `/conformance`) and serves them on a port the system picks. */
 export async function startServer(): Promise<{ server: Server<undefined>; base: string }> {
-  const files = await bundle('conformance-page.ts')
+  const files = new Map([...await bundle('conformance-page.ts'), ...await bundle('index.html')])
   const server = Bun.serve({
     port: 0,
     fetch(req) {
       const path = new URL(req.url).pathname
       if (path === '/conformance') return new Response(CONFORMANCE_HTML, { headers: { 'content-type': 'text/html' } })
-      const file = files.get(path)
+      const file = files.get(path === '/' ? '/index.html' : path)
       return file ? new Response(file) : new Response('not found', { status: 404 })
     },
   })
