@@ -169,8 +169,10 @@ interface ScriptedEnd {
 }
 
 export interface ScriptedServer {
-  /** Every message the clients sent of this type, decoded, in the order they arrived. */
-  got<T extends Message["type"]>(type: T): Extract<Message, { type: T }>[];
+  /** Every message the clients sent of these types, decoded, in the order they arrived. */
+  got<T extends Message["type"]>(
+    ...types: T[]
+  ): Extract<Message, { type: T }>[];
   /**
    * Whether HELLO, an edit SUBSCRIBE and the client's step 1, a view SUBSCRIBE
    * (with SUBSCRIBED and the snapshot), and PING are answered by themselves.
@@ -235,8 +237,10 @@ function scriptedServer(network: MemoryNetwork): ScriptedServer {
   ) => last?.send({ type: "SYNC", docId, generation: 1, step, data });
 
   const server: ScriptedServer = {
-    got: <T extends Message["type"]>(t: T) =>
-      received.filter((m): m is Extract<Message, { type: T }> => m.type === t),
+    got: <T extends Message["type"]>(...types: T[]) =>
+      received.filter((m): m is Extract<Message, { type: T }> =>
+        types.some((t) => t === m.type),
+      ),
     answer: { hello: true, subscribe: true, view: true, ping: true },
     versions: serverVersions(v(1, 1, 0, 0)),
     head: 1,

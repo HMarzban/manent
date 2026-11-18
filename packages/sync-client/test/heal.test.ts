@@ -110,7 +110,7 @@ test("a client whose own ids include ones it took over later heals like any othe
   expect(textAfter([heal!.update])).toBe("a window's thirty characters..\n");
 });
 
-test("a waiting setting goes out before the heal push, and stays waiting until the server answers it", async () => {
+test("a waiting setting goes out after the heal push, in its place, and stays waiting until the server answers it", async () => {
   const w = await setup();
   const { server, store } = w;
   await store.patchMeta(DOC, { lastServerSeq: 10 });
@@ -124,10 +124,12 @@ test("a waiting setting goes out before the heal push, and stays waiting until t
   await w.settle();
   client.setOnline(true);
   await w.online();
-  expect(server.got("SET").map((s) => s.clientSeq)).toEqual([1]);
-  expect(server.got("PUSH").map((p) => [p.heal, p.clientSeq])).toEqual([
-    [true, 2],
+  expect(server.got("PUSH", "SET").map((m) => [m.type, m.clientSeq])).toEqual([
+    ["PUSH", 0],
+    ["SET", 1],
+    ["PUSH", 2],
   ]);
+  expect(server.got("PUSH").map((p) => p.heal)).toEqual([true, false]);
   expect(h.settings.get()).toEqual({ "script.paper": "a4" });
   server.error(DOC, {
     code: 4423,
@@ -144,6 +146,42 @@ test("a waiting setting goes out before the heal push, and stays waiting until t
   });
   expect(h.settings.get()).toEqual({});
   expect(h.status.get()).toMatchObject({ waiting: 0, synced: true });
+});
+
+test("a setting after the healed edits stays waiting when the heal push is acknowledged", async () => {
+  const w = await setup();
+  const { server, store } = w;
+  await store.patchMeta(DOC, { lastServerSeq: 10 });
+  server.head = 5;
+  const client = w.makeClient();
+  const h = await client.open(DOC);
+  client.setOnline(false);
+  typeIn(h, B1, "one");
+  h.setSetting("script.paper", "a4");
+  await w.settle();
+  client.setOnline(true);
+  await w.online();
+  expect(server.got("PUSH", "SET").map((m) => [m.type, m.clientSeq])).toEqual([
+    ["PUSH", 1],
+    ["SET", 2],
+  ]);
+  expect(server.got("PUSH").map((p) => p.heal)).toEqual([true]);
+  const stored = async () =>
+    (await store.load(DOC))!.entries.map((e) => [e.localSeq, e.kind, e.acked]);
+  expect(await stored()).toEqual([
+    [1, "update", false],
+    [2, "set", false],
+  ]);
+  server.ack(DOC, 1, 6);
+  await w.settle();
+  expect(h.status.get()).toMatchObject({ synced: false, waiting: 1 });
+  expect(await stored()).toEqual([
+    [1, "update", true],
+    [2, "set", false],
+  ]);
+  server.ack(DOC, 2, 7);
+  await w.settle();
+  expect(h.status.get()).toMatchObject({ synced: true, waiting: 0 });
 });
 
 test("a setting whose write has not settled is not covered by the heal push, and goes out once stored", async () => {

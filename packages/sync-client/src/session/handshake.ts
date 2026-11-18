@@ -45,8 +45,9 @@ export interface HandshakeHost {
   subscribed(message: Subscribed): void;
   /**
    * The heal push to send before the outbox, given the server's state vector;
-   * null when none is due. Its `clientSeq` is below every entry the outbox
-   * cannot send yet, so its acknowledgement covers only what was sent.
+   * null when none is due. Its `clientSeq` is below every waiting setting and
+   * every entry the outbox cannot send yet, so its acknowledgement covers only
+   * what it carries; it is 0 when a setting is the first waiting entry.
    */
   heal(
     serverVector: Uint8Array,
@@ -360,10 +361,8 @@ class Exchange implements Handshake {
     this.timeouts = 0;
     const heal =
       this.serverVector === null ? null : this.host.heal(this.serverVector);
-    // its acknowledgement covers every entry up to it: the settings it does not carry go first
-    if (heal !== null) {
-      for (const item of this.host.outbox(0))
-        if (item.kind === "set") this.sendItem(item);
+    // the outbox goes on after it in order; the pushes it resends are duplicates
+    if (heal !== null)
       this.sendEntry({
         type: "PUSH",
         docId: this.docId,
@@ -371,7 +370,6 @@ class Exchange implements Handshake {
         ...heal,
         heal: true,
       });
-    }
     this.host.stepTwo(m.data);
     this.pump();
   }

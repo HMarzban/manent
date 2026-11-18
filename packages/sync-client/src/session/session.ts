@@ -462,7 +462,11 @@ class DocSession implements Session, HandshakeHost {
       ackedClocks: meta.ackedClocks,
     });
     if (!due) return null;
-    this.healSeq = Math.min(this.nextLocalSeq, ...this.unsettled) - 1;
+    const waitingSettings = this.entries.flatMap((e) =>
+      e.kind === "set" && !e.acked ? [e.localSeq] : [],
+    );
+    this.healSeq =
+      Math.min(this.nextLocalSeq, ...this.unsettled, ...waitingSettings) - 1;
     return { clientSeq: this.healSeq, update: this.doc.diff(serverVector) };
   }
 
