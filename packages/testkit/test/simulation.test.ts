@@ -148,7 +148,7 @@ async function idle(w: World, rounds: number): Promise<void> {
 const DAY_MS = 86_400_000;
 
 test(
-  "random editing with duplicated and swapped frames converges and loses nothing",
+  "random editing with duplicated frames converges and loses nothing",
   () =>
     forSeeds(
       async (w) => {

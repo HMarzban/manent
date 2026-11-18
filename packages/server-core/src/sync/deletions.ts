@@ -31,7 +31,9 @@ function readAfter(
   // a read for one client quarantines nothing; loading the room does that
   const peek = { quarantine: false };
   const { rows } = file.log.tail(docId, row.generation, afterSeq, peek);
-  const updates = rows.map((r) => r.update);
+  // a heal row is a diff, whose delete set also holds what went with a deleted parent: leaving it
+  // out can only set aside text that was deleted on purpose, never lose text without a trace
+  const updates = rows.filter((r) => r.origin !== "heal").map((r) => r.update);
   return {
     afterSeq,
     throughSeq: rows.at(-1)?.seq ?? afterSeq,

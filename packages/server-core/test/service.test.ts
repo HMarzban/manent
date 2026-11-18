@@ -210,6 +210,34 @@ test("an editor that comes back is sent what the rows it missed deleted before i
   ]);
 });
 
+test("a heal row's deletions are not sent to a returning editor, so its own text a deleter never saw is still set aside", () => {
+  const { service, dana, storage, typist, comeBack, clock } = deletedUnseen();
+  const healer = createTypist(DANA_CLIENT);
+  const flagging = { lastServerSeq: 50 };
+  service.receive(dana, subscribe(DOC, "edit", [DANA_CLIENT], flagging));
+  const vector = dana.take().find((m) => m.type === "SYNC");
+  service.receive(dana, step1(DOC, EMPTY_VECTOR));
+  for (const m of dana.take())
+    if (m.type === "SYNC") healer.doc.applyUpdate(m.data);
+  healer.type(BLOCK2, " [dana]");
+  if (vector?.type !== "SYNC") throw new RangeError("no step 1 was sent");
+  const heal = { ...push(DOC, 1, healer.doc.diff(vector.data)), heal: true };
+  service.receive(dana, heal);
+  clock.runDeferred();
+  const own = new Set([SAM_CLIENT]);
+  const deletions = deletionsIn(comeBack(4));
+  expect([
+    storage
+      .open(HOME)
+      .log.tail(DOC, 1, 5)
+      .rows.map((r) => r.origin),
+    deletions === null ? [] : applyRemote(typist.doc, deletions, own),
+  ]).toEqual([
+    ["heal"],
+    [{ blockId: BLOCK, nearBlockId: BLOCK2, text: " [sam]" }],
+  ]);
+});
+
 test("a deletion still waiting to commit when a returning editor's step 1 arrives reaches it before its step 2, so its own text the deleter never saw is set aside", () => {
   const { service, sam, priya, clock } = createServiceWorld();
   const typist = createTypist(SAM_CLIENT);
