@@ -45,9 +45,9 @@ test("a new script as You shows eight controls and no state bar", async () => {
     "View",
     "Commands",
   ]);
-  expect(region(container, "state_bar").querySelector("[role='status']")).toBe(
-    null,
-  );
+  expect(
+    region(container, "state_bar").querySelector("[role='status']") !== null,
+  ).toBe(false);
 });
 
 test("a commenter's state bar says so", async () => {
@@ -92,7 +92,7 @@ test("Rename commits on Enter, cancels on Escape, and returns focus to the title
   press(opened, "Enter");
   const afterEnter = [
     services.library.documentTitle(DOC_ID).get(),
-    titleBar.querySelector("input"),
+    titleBar.querySelector("input") !== null,
     nameOf(document.activeElement ?? document.body),
   ];
   act(() => {
@@ -105,13 +105,13 @@ test("Rename commits on Enter, cancels on Escape, and returns focus to the title
     afterEnter,
     [
       services.library.documentTitle(DOC_ID).get(),
-      titleBar.querySelector("input"),
+      titleBar.querySelector("input") !== null,
       nameOf(document.activeElement ?? document.body),
     ],
   ]).toEqual([
     ["Low Tide", 0, 8],
-    ["Slack Water", null, "Slack Water"],
-    ["Slack Water", null, "Slack Water"],
+    ["Slack Water", false, "Slack Water"],
+    ["Slack Water", false, "Slack Water"],
   ]);
 });
 

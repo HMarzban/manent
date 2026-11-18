@@ -127,3 +127,28 @@ test("Sign in to sync gives You a session and the status follows the source", as
   await setStatus(page, { neverSynced: false });
   await expect(status).toHaveAccessibleName("Saved · Synced");
 });
+
+test("opening a panel never moves the page's lines up or down", async ({
+  page,
+}) => {
+  await signedInAs(page, "you", DOC);
+  // the page as the editor host draws it until the editor is mounted
+  const sheet = page.locator("[data-editor-host] [data-placeholder]");
+  const top = async (): Promise<number | undefined> =>
+    (await sheet.boundingBox())?.y;
+  const tops = [await top()];
+  for (const panel of ["Side panel", "Left panel"]) {
+    await page.getByRole("button", { name: "View" }).click();
+    // a panel's item is checked while the panel is open, and carries its key
+    await page
+      .getByRole("menuitemcheckbox", { name: new RegExp(`^${panel}`) })
+      .click();
+    await expect(
+      page.getByRole("button", { name: `Close ${panel.toLowerCase()}` }),
+    ).toBeVisible();
+    // a checked item leaves its menu open
+    await page.keyboard.press("Escape");
+    tops.push(await top());
+  }
+  expect([typeof tops[0], tops]).toEqual(["number", tops.map(() => tops[0])]);
+});

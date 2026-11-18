@@ -28,12 +28,18 @@ import {
 import type {
   DocumentServices,
   PersonServices,
+  ProjectKind,
 } from "../src/services/ports.ts";
 import { AppShell, ScreenArea } from "../src/shell/app-shell.tsx";
 import { createShellDom } from "../src/shell/regions.tsx";
+import { OutlineContext } from "../src/state/bridge-contexts.ts";
 import { dialogActions } from "../src/state/dialog.store.ts";
 import { bindGuard } from "../src/state/guard.ts";
 import { paletteActions } from "../src/state/palette.store.ts";
+import type {
+  OutlineRow,
+  OutlineSelectors,
+} from "../src/state/outline.store.ts";
 import { panelsActions } from "../src/state/panels.store.ts";
 import type { PersonPresent } from "../src/state/people.store.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
@@ -67,18 +73,23 @@ export const NEW_SCRIPT: StatusFacts = Object.freeze({
 type Value<T> = ReturnType<typeof createValue<T>>;
 type Environment = ReturnType<typeof testEnvironment>;
 
+type MemoryBag = ReturnType<typeof createMemoryBag>;
+
 /** The document the frame shows: each port a value the test sets. */
 interface TestDocument extends DocumentServices {
   status: Value<StatusFacts>;
   waitingByScene: Value<readonly { scene: string; count: number }[]>;
   stateFacts: Value<readonly StateFact[]>;
   people: Value<readonly PersonPresent[]>;
+  scriptBag: MemoryBag;
 }
 
-export interface Frame extends Omit<TestDocument, "scriptBag"> {
+export interface Frame extends TestDocument {
   container: HTMLElement;
   services: PersonServices;
   clock: ReturnType<typeof createClock>;
+  /** The outline the frame's panels read, as the editor's bridge would publish it. */
+  outline: Value<readonly OutlineRow[]>;
 }
 
 let mounted: Root | null = null;
@@ -137,11 +148,11 @@ const scriptStoreOver = (scriptBag: DocumentServices["scriptBag"]) =>
     locked: () => false,
   });
 
-/** You's services, showing `doc` and running every command, through the app's own handlers, as `role`. */
+/** You's services, showing `doc` of `kind` and running every command, through the app's own handlers, as `role`. */
 function servicesFor(
   environment: Environment,
   doc: TestDocument,
-  role: CommandContext["role"],
+  options: { role: CommandContext["role"]; kind: ProjectKind | null },
 ): PersonServices {
   const usePerson = createPersonStore(null);
   const router = createNavigation({
@@ -157,7 +168,7 @@ function servicesFor(
     handlers,
     context: contextFor(
       environment,
-      role,
+      options.role,
       () => (usePerson.getState().person?.token ?? null) !== null,
     ),
     settings: scriptStore,
@@ -167,6 +178,10 @@ function servicesFor(
   environment.shellState.subscribe(commands.notify);
   const services: PersonServices = {
     ...base,
+    library: {
+      ...base.library,
+      documentKind: () => createValue(options.kind),
+    },
     documents: { open: () => doc, close: () => {} },
     openScriptStore: () => scriptStore,
     commands,
@@ -185,10 +200,26 @@ function servicesFor(
   return services;
 }
 
-/** Draws the stand-in route, the frame of `DOC_ID` around the stand-in editor, in the shell. */
+/** The outline of `rows`; `broken` makes every row throw when it is read. */
+function outlineOf(
+  rows: Value<readonly OutlineRow[]>,
+  broken: boolean,
+): OutlineSelectors {
+  return {
+    count: () => rows.get().length,
+    row(index) {
+      if (broken) throw new Error("the outline's row cannot be read");
+      return rows.get()[index] ?? null;
+    },
+    subscribe: (listener) => rows.subscribe(listener),
+  };
+}
+
+/** Draws the stand-in route, the frame of `DOC_ID` around the stand-in editor, in the shell, over `outline`. */
 async function mountStandIn(
   environment: Environment,
   services: PersonServices,
+  outline: OutlineSelectors,
 ): Promise<HTMLElement> {
   const rootRoute = createRootRoute({
     component: () => (
@@ -206,7 +237,11 @@ async function mountStandIn(
       createRoute({
         getParentRoute: () => rootRoute,
         path: "/__stand-in",
-        component: () => <DocumentFrame docId={DOC_ID} />,
+        component: () => (
+          <OutlineContext value={outline}>
+            <DocumentFrame docId={DOC_ID} />
+          </OutlineContext>
+        ),
       }),
     ]),
     history: createMemoryHistory({ initialEntries: ["/__stand-in"] }),
@@ -225,15 +260,33 @@ async function mountStandIn(
   return container;
 }
 
-/** The frame of the stand-in document as `role` (an editor unless given), with the title `title` and the status `status`. */
+/**
+ * The frame of the stand-in document as `role` (an editor unless given), with `title`, `status`, the script's
+ * `scriptBag` and its project's `kind`, in a window `viewportWidthPx` wide (1600 unless given), from `startAt`.
+ */
 export async function renderFrame(
   options: {
     role?: CommandContext["role"];
     title?: string;
     status?: StatusFacts;
+    scriptBag?: MemoryBag;
+    kind?: ProjectKind;
+    viewportWidthPx?: number;
+    startAt?: number;
+    brokenOutline?: boolean;
   } = {},
 ): Promise<Frame> {
-  const clock = createClock();
+  const viewport: unknown = Reflect.get(window, "happyDOM");
+  const setViewport: unknown =
+    typeof viewport === "object" && viewport !== null
+      ? Reflect.get(viewport, "setViewport")
+      : null;
+  if (typeof setViewport !== "function")
+    throw new Error("happy-dom's window cannot be resized");
+  Reflect.apply(setViewport, viewport, [
+    { width: options.viewportWidthPx ?? 1600, height: 900 },
+  ]);
+  const clock = createClock(options.startAt);
   const environment = testEnvironment({
     dom: createShellDom(document),
     now: clock.now,
@@ -248,15 +301,25 @@ export async function renderFrame(
     ),
     stateFacts: createValue<readonly StateFact[]>([]),
     people: createValue<readonly PersonPresent[]>([]),
-    scriptBag: createMemoryBag({ initial: {}, writable: () => true }),
+    scriptBag:
+      options.scriptBag ??
+      createMemoryBag({ initial: {}, writable: () => true }),
   };
-  const services = servicesFor(environment, doc, options.role ?? "editor");
+  const services = servicesFor(environment, doc, {
+    role: options.role ?? "editor",
+    kind: options.kind ?? null,
+  });
   if (options.title !== undefined)
     services.library.renameDocument(DOC_ID, options.title);
-  const container = await mountStandIn(environment, services);
+  const outline = createValue<readonly OutlineRow[]>([]);
+  const container = await mountStandIn(
+    environment,
+    services,
+    outlineOf(outline, options.brokenOutline ?? false),
+  );
   // the stand-in publishes its facts at the next frame
   act(() => clock.advance(16));
-  return { ...doc, container, services, clock };
+  return { ...doc, container, services, clock, outline };
 }
 
 /** What a control is called: its label, else its text without what is hidden from assistive technology. */
