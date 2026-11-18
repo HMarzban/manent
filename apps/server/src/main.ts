@@ -76,6 +76,7 @@ export function buildServerConfig(
       versions: { current: versions, min: versions },
       allowedOrigins: hosts.map((h) => `http://${h}`),
     },
+    sync: null,
   };
 }
 

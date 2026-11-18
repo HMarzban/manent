@@ -1,4 +1,5 @@
 // The server: the host check, the routes, then the web app's files; and the socket's connections.
+import type { Storage } from "@manent/storage";
 import type {
   ControlEndpoint,
   Identity,
@@ -49,6 +50,8 @@ export interface ServerConfig {
     /** Origins of the app itself, e.g. `http://localhost:4747`. */
     allowedOrigins: readonly string[];
   };
+  /** Null: no document is served, and the document routes answer not_found. */
+  sync: { storage: Storage } | null;
 }
 
 /** What an app hands to its listener; this package never listens itself. */
