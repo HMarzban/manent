@@ -1,19 +1,12 @@
 // Where each file lives, how a connection to it is opened, and how it reaches the current schema.
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
-import { homeKey, parseHome } from "../home.ts";
+import { wellFormedKey } from "../home.ts";
 import type { Home } from "../ports.ts";
 import { STORAGE_SCHEMA_VERSION, StorageError } from "../ports.ts";
 import { MIGRATIONS } from "./migrations.ts";
 
 export const CONTROL_FILE = "control.sqlite";
-
-/** The home's key, checked before anything is built from it: RangeError for a home that is not well formed. */
-export function wellFormedKey(home: Home): string {
-  const key = homeKey(home);
-  if (parseHome(key) !== null) return key;
-  throw new RangeError(`a home must be project:<uuid> or user:<id>: ${key}`);
-}
 
 /** `project-<uuid>.sqlite` or `user-<userId>.sqlite`, in `dir`. */
 export const docFilePath = (dir: string, home: Home): string =>

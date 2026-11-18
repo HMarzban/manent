@@ -27,7 +27,7 @@ export const SOCKET_ROUTES: readonly Route[] = [
       if (origin === null || !config.socket.allowedOrigins.includes(origin))
         return failure("forbidden_origin", 403);
       const ticket = new URL(request.url).searchParams.get("ticket");
-      return peer.upgrade(createConnectionData(ticket))
+      return peer.upgrade(createConnectionData(ticket, peer.remoteAddress))
         ? null
         : failure("bad_request", 400);
     },

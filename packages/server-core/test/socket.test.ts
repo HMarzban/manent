@@ -14,22 +14,12 @@ import type {
   WsTicketResponse,
 } from "@manent/sync-protocol";
 import { createTempTrees } from "@manent/testkit";
-import {
-  createServer,
-  createSignedSessionStore,
-  createTicketStore,
-} from "../src/index.ts";
-import type {
-  Connection,
-  ConnectionData,
-  ManentServer,
-  ServerConfig,
-} from "../src/index.ts";
-import { createFakeDirectory, createFakeSignIn } from "../src/testing/index.ts";
+import { createServer } from "../src/index.ts";
+import type { Connection, ConnectionData, ManentServer } from "../src/index.ts";
+import { HTTP, makeConfig } from "./config.ts";
 
 const ORIGIN = "http://127.0.0.1:4747";
 const DOC = "0f3e9a52-7d41-4c8b-9e26-b5a1c0d7e384";
-const LEO = { userId: "leo", name: "Leo Marsh" };
 const UNKNOWN_FRAME_TYPE = 28;
 const SET_TO_DOC: Message = {
   type: "SET",
@@ -57,32 +47,7 @@ const hello = (v: VersionSet): Message => ({
   deviceId: "device-1",
 });
 
-function makeConfig(webDir: string | null = null): ServerConfig {
-  const v = versions(1, 1, 0, 0);
-  return {
-    http: {
-      allowedHosts: ["localhost:4747", "127.0.0.1:4747"],
-      openUrl: "http://localhost:4747",
-      webDir,
-    },
-    auth: {
-      signIn: createFakeSignIn([LEO]),
-      directory: createFakeDirectory([{ user: LEO, workspaces: [] }]),
-      sessions: createSignedSessionStore({
-        secret: new Uint8Array(32).fill(3),
-        now: () => 1_700_000_000_000,
-      }),
-    },
-    demo: null,
-    socket: {
-      tickets: createTicketStore({ now: () => 0 }),
-      versions: { current: v, min: v },
-      allowedOrigins: [ORIGIN],
-    },
-  };
-}
-
-const config = makeConfig();
+const config = makeConfig({ demo: null });
 const server = createServer(config);
 
 interface FakeConnection extends Connection {
@@ -284,7 +249,10 @@ test("/ws is never the web app", async () => {
   const { response } = await request(
     "http://127.0.0.1:4747/ws",
     { Origin: ORIGIN },
-    { upgraded: false, on: createServer(makeConfig(webDir)) },
+    {
+      upgraded: false,
+      on: createServer(makeConfig({ demo: null, http: { ...HTTP, webDir } })),
+    },
   );
   expect([response?.status, await response?.json()]).toEqual([
     400,

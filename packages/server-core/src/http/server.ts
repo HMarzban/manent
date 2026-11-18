@@ -13,7 +13,11 @@ import type {
 } from "../socket/connection.ts";
 import { createConnectionHandler } from "../socket/handler.ts";
 import type { TicketStore } from "../socket/tickets.ts";
+import { DEFAULT_LIMITS } from "../sync/ports.ts";
+import { createSyncService } from "../sync/service.ts";
+import type { SyncService, SyncSettings } from "../sync/service.ts";
 import { failure } from "./respond.ts";
+import { hearRemovals } from "./routes/docs.ts";
 import { ROUTES } from "./routes/index.ts";
 import { serveStatic } from "./static.ts";
 
@@ -49,6 +53,8 @@ export interface ServerConfig {
     /** Origins of the app itself, e.g. `http://localhost:4747`. */
     allowedOrigins: readonly string[];
   };
+  /** Null: every document frame is answered 4403, and the document routes answer not_found. */
+  sync: SyncSettings | null;
 }
 
 /** What an app hands to its listener; this package never listens itself. */
@@ -56,6 +62,8 @@ export interface ManentServer {
   /** Null: the request was upgraded to a socket. */
   fetch(request: Request, context: RequestContext): Promise<Response | null>;
   connections: ConnectionHandler;
+  /** Null when the configuration serves no document. */
+  readonly sync: SyncService | null;
 }
 
 const BEARER = /^Bearer +(\S+)$/i;
@@ -69,12 +77,25 @@ function userOf(request: Request, auth: ServerConfig["auth"]): Identity | null {
 export function createServer(config: ServerConfig): ManentServer {
   const allowedHosts = new Set(config.http.allowedHosts);
   const { webDir } = config.http;
+  const { versions } = config.socket;
+  const settings = config.sync;
+  const sync =
+    settings === null
+      ? null
+      : {
+          service: createSyncService({ ...settings, versions }),
+          clock: settings.clock,
+          limits: { ...DEFAULT_LIMITS, ...settings.limits },
+        };
+  if (sync !== null) hearRemovals(config, sync.service);
 
   return {
+    sync: sync?.service ?? null,
     connections: createConnectionHandler({
       tickets: config.socket.tickets,
       directory: config.auth.directory,
-      versions: config.socket.versions,
+      versions,
+      sync,
     }),
     async fetch(request, peer) {
       const url = new URL(request.url);
