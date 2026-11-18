@@ -131,6 +131,16 @@ test("hyphens, dashes, slashes and quotes", () => {
   ]); // a closing mark after a space stays with the word before it
 });
 
+test("a line never ends just after a slash", () => {
+  const text =
+    "He wants either/or, and/or both, yes/no answers and a 50/50 split of the catch.";
+  // the lines Chromium draws at 25 and 38 cells
+  expect([w(text, 25), w(text, 38)]).toEqual([
+    [0, 20, 40, 66],
+    [0, 33, 69],
+  ]);
+});
+
 test("a newline, a first-line indent and a forced offset each start or shorten a line", () => {
   expect([
     w("ab\ncd", 10),
