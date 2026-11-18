@@ -3,70 +3,116 @@
 
 export const MARK_BUFFER_SIZE = 10_000;
 
-/** Times in milliseconds, from `performance.now()`. */
 export interface MarkRecord {
   name: string;
-  start: number;
-  duration: number;
+  /** Milliseconds on the marks' clock. */
+  startMs: number;
+  durationMs: number;
 }
 
-let enabled = false;
-const buffer: MarkRecord[] = [];
-/** Where the next record goes once the buffer is full. */
-let next = 0;
-
-function record(name: string, start: number): void {
-  const entry = { name, start, duration: performance.now() - start };
-  if (buffer.length < MARK_BUFFER_SIZE) {
-    buffer.push(entry);
-    return;
-  }
-  buffer[next] = entry;
-  next = (next + 1) % MARK_BUFFER_SIZE;
+export interface Marks {
+  /** Off until switched on. */
+  setEnabled(value: boolean): void;
+  enabled(): boolean;
+  /** Always runs `fn`; records its duration only while enabled, even when it throws. */
+  mark<T>(name: string, fn: () => T): T;
+  /** A token for `end`: the start time, or -1 while disabled. */
+  start(): number;
+  /** Records the time since `start`; a no-op for -1 or while disabled. */
+  end(name: string, token: number): void;
+  /** The kept records, oldest first, optionally only those with `name`. */
+  read(name?: string): MarkRecord[];
+  clear(): void;
 }
 
-/** Off by default. */
+/** Marks that keep the newest `size` records, timed by `now` in milliseconds. */
+export function createMarks(options: {
+  size: number;
+  now: () => number;
+}): Marks {
+  const { size, now } = options;
+  let on = false;
+  const buffer: MarkRecord[] = [];
+  /** Where the next record goes once the buffer is full. */
+  let next = 0;
+
+  const record = (name: string, startMs: number): void => {
+    const entry = { name, startMs, durationMs: now() - startMs };
+    if (buffer.length < size) {
+      buffer.push(entry);
+      return;
+    }
+    buffer[next] = entry;
+    next = (next + 1) % size;
+  };
+
+  return {
+    setEnabled(value) {
+      on = value;
+    },
+    enabled() {
+      return on;
+    },
+    mark(name, fn) {
+      if (!on) return fn();
+      const startMs = now();
+      try {
+        return fn();
+      } finally {
+        record(name, startMs);
+      }
+    },
+    start() {
+      return on ? now() : -1;
+    },
+    end(name, token) {
+      if (token === -1 || !on) return;
+      record(name, token);
+    },
+    read(name) {
+      const ordered = [...buffer.slice(next), ...buffer.slice(0, next)].map(
+        (entry) => ({ ...entry }),
+      );
+      return name === undefined
+        ? ordered
+        : ordered.filter((entry) => entry.name === name);
+    },
+    clear() {
+      buffer.length = 0;
+      next = 0;
+    },
+  };
+}
+
+const product = createMarks({
+  size: MARK_BUFFER_SIZE,
+  now: () => performance.now(),
+});
+
 export function setMarksEnabled(value: boolean): void {
-  enabled = value;
+  product.setEnabled(value);
 }
 
 export function marksEnabled(): boolean {
-  return enabled;
+  return product.enabled();
 }
 
-/** Always runs `fn`; records its duration only when marks are enabled, even when it throws. */
 export function mark<T>(name: string, fn: () => T): T {
-  if (!enabled) return fn();
-  const start = performance.now();
-  try {
-    return fn();
-  } finally {
-    record(name, start);
-  }
+  return product.mark(name, fn);
 }
 
-/** A token for `markEnd`: the start time, or -1 when marks are disabled. */
-export function markStart(_name: string): number {
-  return enabled ? performance.now() : -1;
+export function markStart(): number {
+  return product.start();
 }
 
-/** Records the time since `markStart`; a no-op for -1 or while disabled. */
 export function markEnd(name: string, token: number): void {
-  if (token === -1 || !enabled) return;
-  record(name, token);
+  product.end(name, token);
 }
 
-/** The kept records, oldest first, optionally only those with `name`. */
 export function readMarks(name?: string): MarkRecord[] {
-  const ordered = [...buffer.slice(next), ...buffer.slice(0, next)].map(
-    (entry) => ({ ...entry }),
-  );
-  return name === undefined
-    ? ordered
-    : ordered.filter((entry) => entry.name === name);
+  return product.read(name);
 }
 
 export function clearMarks(): void {
-  buffer.length = 0;
-  next = 0;
+  product.clear();
 }
