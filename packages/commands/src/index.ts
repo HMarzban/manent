@@ -28,3 +28,9 @@ export type {
 } from "./service.ts";
 export { menuModel } from "./menu.ts";
 export type { MenuItemModel, MenuModel } from "./menu.ts";
+export { BROWSER_ZOOM_KEYS, resolveBindings } from "./bindings.ts";
+export type { CustomBinding, Findings, Resolved } from "./bindings.ts";
+export { checkCapture } from "./capture.ts";
+export type { CaptureVerdict } from "./capture.ts";
+export { RESERVED_KEYS } from "./reserved-keys.ts";
+export type { ReservedKey } from "./reserved-keys.ts";
