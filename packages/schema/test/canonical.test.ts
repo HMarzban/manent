@@ -22,6 +22,14 @@ const docOf = (runs: TextJSON[]): DocJSON => ({
   ],
 });
 
+/** One canonical block of one run carrying `marks`, two attributes given as undefined. */
+const blockOf = (marks: TextJSON["marks"]) =>
+  canonicalBlock({
+    type: "block",
+    attrs: { id: ID, synopsis: undefined, glow: undefined },
+    content: [{ type: "text", text: "x", marks }],
+  });
+
 test("every spelling of one document has one canonical form", () => {
   const runs: TextJSON[] = [
     { type: "text", text: "Ra" },
@@ -65,6 +73,32 @@ test("what a newer build wrote is kept, in a fixed place", () => {
     '{"type":"block","attrs":{"id":"b1b1b1b1b1b1b1b1","type":"action","omitted":false,"synopsis":"","noContd":false,"noTiming":false,"glow":3,"zeta":1},' +
       '"content":[{"type":"text","text":"x","marks":[{"type":"italic"},{"type":"blink"},{"type":"wobble","attrs":{"a":2,"b":1}}]}]}',
   );
+});
+
+test("two marks of one name keep one order, and an undefined attribute is absent", () => {
+  const second = {
+    type: "suggest_insert",
+    attrs: { id: "s2", authorUserId: "eli" },
+  };
+  const first = {
+    type: "suggest_insert",
+    attrs: { id: "s1", authorUserId: "dana", at: 5 },
+  };
+  const expected =
+    '{"type":"block","attrs":{"id":"b1b1b1b1b1b1b1b1","type":"action","omitted":false,"synopsis":"","noContd":false,"noTiming":false},' +
+    '"content":[{"type":"text","text":"x","marks":[{"type":"suggest_insert","attrs":{"id":"s1","authorUserId":"dana","at":5}},{"type":"suggest_insert","attrs":{"id":"s2","authorUserId":"eli","at":0}}]}]}';
+  const block = blockOf([second, first]);
+  expect(JSON.stringify(block)).toBe(expected);
+  expect(JSON.stringify(blockOf([first, second]))).toBe(expected);
+  // JSON.stringify drops an undefined value; the key itself must be gone too
+  expect(Object.keys(block.attrs ?? {})).toEqual([
+    "id",
+    "type",
+    "omitted",
+    "synopsis",
+    "noContd",
+    "noTiming",
+  ]);
 });
 
 test("an empty block, section and document have no content key", () => {
