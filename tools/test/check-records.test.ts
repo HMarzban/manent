@@ -278,6 +278,11 @@ test("each required document must exist, and a link to a missing one is said", a
     "AGENTS.md:6 link",
     "docs/decisions/README.md:1 missing-file",
   ]);
+  expect(await check({ [README]: null })).toEqual(["README.md:1 missing-file"]);
+  expect(await check({ [OVERVIEW]: null })).toEqual([
+    "README.md:5 link",
+    "docs/architecture/overview.md:1 missing-file",
+  ]);
 });
 
 test("the changelog parses and keeps an Unreleased section, newest first", async () => {

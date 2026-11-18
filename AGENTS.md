@@ -38,6 +38,7 @@ Keep these with every change:
 - [CHANGELOG.md](CHANGELOG.md): every merged change adds one entry under Unreleased, newest first, for a reader who did not see the work.
 - [Decision records](docs/decisions/README.md): a decision that constrains later work gets a record before the code that depends on it merges.
 - [Lessons](docs/memory/lessons.md): a review finding or incident that reveals a class of mistake adds a lesson with the rule that now prevents it. Read the lessons that touch your change first.
+- A change to what works updates the README's status table and [the architecture overview](docs/architecture/overview.md) in the same commit.
 
 For all of them:
 

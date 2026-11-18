@@ -1,13 +1,51 @@
 # Manent
 
-Manent is a collaborative script-writing app, in its first build.
-This build is a demo that runs on your own machine; the editor is not in it yet.
+A collaborative, offline-capable script-writing app being built for film, series, shows, news, podcasts and books. What it aims at: true script pages, version history, production revisions, and offline work that is never silently lost.
 
-You need Bun 1.4.4 or later.
+**Status, 2026-11-18: early.** The foundation is in the repository. The editor is not. This page says exactly what runs.
 
-Run `make demo` (`bun run demo` where `make` is not installed). It opens http://localhost:4747, on "Choose who you are".
+## Run it
 
-To stop: Ctrl+C or make stop.
+You need [Bun](https://bun.com) 1.4.4 or later.
+
+```sh
+make demo        # without make: bun run demo
+```
+
+It installs the dependencies, builds the web app, seeds the demo data, starts the server on your machine under a small supervisor and opens `http://localhost:4747`. `make demo LAN=1` lets a second machine on your private network join. To stop: Ctrl+C, or `make stop`. `make reset` seeds the demo data again.
+
+## What opens
+
+1. **Choose who you are.** Six demo people, each with a title; one click, no password. Each browser tab is its own person, so two tabs can be two people.
+2. **Library**, which is empty: "No scripts yet". The demo stops here.
+
+A bar labelled "Demo" lets you switch person and stop or start the server, and a Tour panel lists eight groups, each still marked "Not in this build yet". The server listens on your machine only, and with `LAN=1` on one private address as well; it refuses a public address, because the demo has no passwords.
+
+## What exists and what does not
+
+| Built                                                                                                              | Planned                                                           |
+| ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| Repository structure in six layers, with the imports between packages checked                                      | Page engine and paginated editor                                  |
+| Quality gate: `bun run verify` (format, types, lint, tracked files, boundaries, project records, Tour, unit tests) | Storage, the server's write path, the client outbox, offline work |
+| Document schema: sections, one block node, stable block IDs, validation, one canonical form                        | Version history and production revisions                          |
+| Binary sync protocol, and a server socket that answers its handshake                                               | Rooms: the socket refuses every document until they exist         |
+| CRDT package: documents, writes addressed to a block, all-or-nothing updates                                       | The editor's binding to it                                        |
+| Server: HTTP, demo sign-in, sessions, static web app                                                               | Desktop app                                                       |
+| `make demo`: launcher, supervisor, the demo people and empty workspaces                                            | Seeded scripts and Tour scenarios                                 |
+| Web app: person chooser, empty Library, demo bar                                                                   |                                                                   |
+| End-to-end tests in three browser engines, a fresh-clone test, a continuous-integration workflow for three systems |                                                                   |
+| Benchmark harness (no scenarios yet)                                                                               | Benchmark scenarios and the published report                      |
+| Project records: changelog, decision records, lessons                                                              |                                                                   |
+
+## Read next
+
+- [Architecture overview](docs/architecture/overview.md): how the system is put together and why, with the status of every part
+- [Layers and dependency rules](docs/architecture/layers.md): which package may import which, and how that is checked
+- [Repository outline](docs/architecture/repository.md): every folder, and the commands a contributor uses
+- [Decisions](docs/decisions/README.md): what was decided, what else was considered, and what each choice costs
+- [Lessons](docs/memory/lessons.md): mistakes and near-misses, and the rule each one produced
+- [Changelog](CHANGELOG.md): what changed, newest first
+- [AGENTS.md](AGENTS.md): the rules for anyone who changes this repository
 
 ## Acknowledgement
 

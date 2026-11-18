@@ -18,8 +18,10 @@ export const PUBLIC_FILES = [AGENTS, CHANGELOG, README] as const;
 export const REQUIRED_FILES = [
   AGENTS,
   CHANGELOG,
+  README,
   DECISIONS_INDEX,
   LESSONS,
+  OVERVIEW,
 ] as const;
 
 /** Every Markdown file in these folders is a public document; a folder that does not exist holds none. */
