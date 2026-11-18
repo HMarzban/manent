@@ -76,3 +76,26 @@ export const ELEMENT_ROWS: Readonly<Record<SpecKey, ElementSpec>> =
     break: ACTION,
     quote: ACTION,
   });
+
+/** The manuscript's own elements, on its 65-cell column and double-spaced. */
+export const MANUSCRIPT_ROWS: Readonly<
+  Record<"chapter" | "body" | "break" | "quote", ElementSpec>
+> = Object.freeze({
+  chapter: like({
+    width: 65,
+    align: "center",
+    lineSpacing: 2,
+    keptWithNext: true,
+    startingPage: true,
+    dropLines: 18,
+  }),
+  body: like({ width: 65, firstLineIndent: 5, spaceBefore: 0, lineSpacing: 2 }),
+  break: like({
+    width: 65,
+    align: "center",
+    spaceBefore: 0,
+    lineSpacing: 2,
+    keptWithNext: true,
+  }),
+  quote: like({ indent: 5, width: 55, spaceBefore: 0, lineSpacing: 2 }),
+});

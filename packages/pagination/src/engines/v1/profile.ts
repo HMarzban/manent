@@ -11,7 +11,7 @@ import type {
   SpecKey,
 } from "../../page-profile.ts";
 import { CELL_PT, LINE_PT } from "../../units.ts";
-import { ELEMENT_ROWS } from "./profile-elements.ts";
+import { ELEMENT_ROWS, MANUSCRIPT_ROWS } from "./profile-elements.ts";
 
 type ElementChanges = Readonly<Partial<Record<SpecKey, Partial<ElementSpec>>>>;
 
@@ -96,6 +96,14 @@ const SCREEN_PAGE: FormatPage = Object.freeze({
   linesPerPage: Object.freeze({ letter: 54, a4: 58 }),
 });
 
+const MANUSCRIPT_PAGE: FormatPage = Object.freeze({
+  columnCells: 65,
+  marginLeftPt: 72,
+  marginTopPt: 72,
+  pageNumberTopPt: 36,
+  linesPerPage: Object.freeze({ letter: 54, a4: 58 }),
+});
+
 function scriptFurniture(
   options: ProfileOptions,
   scenesNumbered: boolean,
@@ -128,6 +136,19 @@ const MULTICAM = Object.freeze<FormatLayout>({
     scriptFurniture(options, true, options.multicam?.scenesLettered ?? true),
 });
 
+const MANUSCRIPT = Object.freeze<FormatLayout>({
+  page: MANUSCRIPT_PAGE,
+  changes: () => MANUSCRIPT_ROWS,
+  // prose has no speeches or scenes to continue or number
+  furniture: () => ({
+    speechContinued: false,
+    speakerContinued: false,
+    sceneContinued: false,
+    scenesNumbered: false,
+    scenesLettered: false,
+  }),
+});
+
 const LAYOUTS: Readonly<Record<FormatId, FormatLayout | null>> = Object.freeze({
   screenplay: SCREENPLAY,
   multicam: MULTICAM,
@@ -136,7 +157,7 @@ const LAYOUTS: Readonly<Record<FormatId, FormatLayout | null>> = Object.freeze({
   game: SCREENPLAY,
   // a list of lines, not pages
   ink: null,
-  manuscript: SCREENPLAY,
+  manuscript: MANUSCRIPT,
   stage_play: SCREENPLAY,
 });
 
