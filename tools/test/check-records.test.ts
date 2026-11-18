@@ -850,6 +850,7 @@ test("this repository's public documents pass, and records are only ever added",
   const decisions = readdirSync(join(repoRoot, "docs/decisions")).filter(
     (name) => new RegExp("^\\d{4}-").test(name),
   );
-  expect(decisions.length).toBeGreaterThanOrEqual(1);
-  expect(linesStarting(CHANGELOG, "- ")).toBeGreaterThanOrEqual(1);
+  expect(decisions.length).toBeGreaterThanOrEqual(33);
+  expect(linesStarting(LESSONS, "## ")).toBeGreaterThanOrEqual(21);
+  expect(linesStarting(CHANGELOG, "- ")).toBeGreaterThanOrEqual(10);
 });
