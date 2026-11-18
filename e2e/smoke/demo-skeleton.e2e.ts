@@ -9,6 +9,9 @@ const tourTab = (page: Page) =>
   page
     .locator("[data-region='side_panel']")
     .getByRole("tabpanel", { name: "Tour" });
+// the demo bar's line about the server; the message slot is a status too
+const serverLine = (page: Page) =>
+  page.getByRole("region", { name: "Demo" }).getByRole("status");
 const storedPerson = (person: object) =>
   `sessionStorage.setItem("manent.demo.session", ${JSON.stringify(JSON.stringify(person))})`;
 
@@ -53,7 +56,7 @@ test("a tester chooses a person and reaches the Library", async ({
   await expect(page.getByRole("region", { name: "Projects" })).toContainText(
     "No scripts yet",
   );
-  await expect(page.getByRole("status")).toHaveText("Server running");
+  await expect(serverLine(page)).toHaveText("Server running");
   // open on the first visit to the Library
   const tour = tourTab(page);
   // "History" among them
@@ -239,8 +242,8 @@ test("the status line appears empty, then speaks", async ({ page }) => {
   });
   await signedInAs(page, "leo");
   // rendered as soon as a control exists
-  await expect(page.getByRole("status")).toHaveText("");
-  await expect(page.getByRole("status")).toHaveText("Server running");
+  await expect(serverLine(page)).toHaveText("");
+  await expect(serverLine(page)).toHaveText("Server running");
 });
 
 test("stopping and starting the server keeps the tab's person, and two tabs agree", async ({
@@ -254,14 +257,14 @@ test("stopping and starting the server keeps the tab's person, and two tabs agre
   await signedInAs(other, "dana");
   // a request from port 4757 to 4758: it passes CORS or this line cannot work
   await page.getByRole("button", { name: "Stop the server" }).click();
-  await expect(page.getByRole("status")).toHaveText(
+  await expect(serverLine(page)).toHaveText(
     "Server stopped. Start it before reloading this tab.",
   );
   await expect(
     page.getByRole("button", { name: "Stop the server" }),
   ).toHaveCount(0);
   // within its 2 s poll
-  await expect(other.getByRole("status")).toHaveText(
+  await expect(serverLine(other)).toHaveText(
     "Server stopped. Start it before reloading this tab.",
   );
   await expect(
@@ -278,7 +281,7 @@ test("stopping and starting the server keeps the tab's person, and two tabs agre
       page.getByRole("button", { name: new RegExp(`^${p.name}`) }),
     ).toBeVisible();
   await page.getByRole("button", { name: "Start the server" }).click();
-  await expect(page.getByRole("status")).toHaveText("Server running");
+  await expect(serverLine(page)).toHaveText("Server running");
   await expect(
     other.getByRole("button", { name: "Stop the server" }),
   ).toBeVisible();
@@ -304,7 +307,7 @@ test("a reset drops what the tab had cached from the old seed", async ({
   });
   await again;
   // the bar's own queries were not dropped
-  await expect(page.getByRole("status")).toHaveText("Server running");
+  await expect(serverLine(page)).toHaveText("Server running");
 });
 
 test("outside demo mode there is no demo bar and no Tour", async ({ page }) => {

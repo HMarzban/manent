@@ -180,6 +180,31 @@ test("one press runs one command, and its default is prevented unless it passed"
   ]).toEqual([false, "edit.undo", "passed"]);
 });
 
+test("F6 and Shift+F6 move between regions from a field and from the page, as from anywhere", async () => {
+  const { runs, tree } = setup({ platform: "windows", context: () => CTX });
+  const host = await render(tree(<GlobalKeys />));
+  const editable = document.createElement("div");
+  editable.contentEditable = "true";
+  const input = document.createElement("input");
+  host.append(editable, input);
+  const prevented = [input, editable].flatMap((target) => {
+    target.focus();
+    return [
+      press(target, { key: "F6", code: "F6" }).defaultPrevented,
+      press(target, { key: "F6", code: "F6", shiftKey: true }).defaultPrevented,
+    ];
+  });
+  expect([prevented, runs]).toEqual([
+    [true, true, true, true],
+    [
+      "app.nextRegion",
+      "app.previousRegion",
+      "app.nextRegion",
+      "app.previousRegion",
+    ],
+  ]);
+});
+
 test("nothing runs while an input method is composing", async () => {
   const { runs, tree } = setup({ platform: "windows", context: () => CTX });
   await render(tree(<GlobalKeys />));
@@ -261,6 +286,36 @@ test("a command button takes its words from the registry and stays focusable whe
     palette.focus();
   });
   expect(document.body.textContent).toContain("Commands⌘K");
+});
+
+test("a command button that a popup focuses as it opens shows no tooltip, and one focused from inside it does", async () => {
+  const { tree } = setup({
+    platform: "mac",
+    context: () => ({ ...CTX, platform: "mac" }),
+  });
+  const host = await render(
+    tree(
+      <>
+        <button type="button">Back</button>
+        <div role="dialog">
+          <button type="button">Inside</button>
+          <CommandButton id="app.palette" />
+        </div>
+      </>,
+    ),
+  );
+  const [outside, inside, command] = [...host.querySelectorAll("button")];
+  if (outside === undefined || inside === undefined || command === undefined)
+    throw new TypeError("the buttons were not drawn");
+  const shown = async (from: HTMLElement): Promise<string | null> => {
+    await act(async () => from.focus());
+    await act(async () => command.focus());
+    return document.body.textContent;
+  };
+  expect([await shown(outside), await shown(inside)]).toEqual([
+    "BackInsideCommands",
+    "BackInsideCommandsCommands⌘K",
+  ]);
 });
 
 test("a menu is generated from the registry, with marks and keys", async () => {

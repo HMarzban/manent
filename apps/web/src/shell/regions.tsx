@@ -136,8 +136,20 @@ export function createShellDom(doc: Document): ShellDom {
     },
     focusSidePanel() {
       const panel = regionElement("side_panel");
-      if (panel !== null)
-        focusInside(panel.querySelector("[role='tabpanel']") ?? panel);
+      if (panel === null) return;
+      const tab = panel.querySelector("[role='tabpanel']") ?? panel;
+      focusInside(tab);
+      if (tab.querySelector(FOCUSABLE_SELECTOR) !== null) return;
+      // a tab whose controls load apart is drawn empty first: its first control takes focus once drawn,
+      // unless focus has moved on by then
+      const drawn = new MutationObserver(() => {
+        if (doc.activeElement !== tab) drawn.disconnect();
+        else if (tab.querySelector(FOCUSABLE_SELECTOR) !== null) {
+          drawn.disconnect();
+          focusInside(tab);
+        }
+      });
+      drawn.observe(tab, { childList: true, subtree: true });
     },
     rememberFocus() {
       origin.push(doc.activeElement);

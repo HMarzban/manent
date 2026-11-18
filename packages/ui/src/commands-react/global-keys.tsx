@@ -10,6 +10,9 @@ const GLOBAL_IDS: ReadonlySet<string> = new Set(
   COMMANDS.filter((c) => c.scope === "global").map((c) => c.id),
 );
 
+// a function key types nothing, so it is ours in a field and in the page as well
+const FUNCTION_KEY = /^(.+\+)?F\d{1,2}$/;
+
 // the key is ours unless the command passed it on to the field, the page or the dialog; the library
 // matches nothing while an input method is composing, so a composing press never gets here
 function runFromKey(
@@ -32,6 +35,7 @@ export function GlobalKeys(): null {
           keys.map((chord) => ({
             hotkey: normalizeHotkey(chord, platform),
             callback: (event: KeyboardEvent) => runFromKey(service, id, event),
+            options: FUNCTION_KEY.test(chord) ? { ignoreInputs: false } : {},
           })),
         ),
     [effective, service, platform],

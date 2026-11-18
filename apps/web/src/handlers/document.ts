@@ -33,7 +33,10 @@ export function documentHandlers(
     "doc.scriptSettings": openSide("details"),
     "doc.rename"() {
       const { docId } = shellState();
-      if (docId !== null) renameActions.start(docId);
+      if (docId === null) return;
+      // the rename gives focus back to what had it when it began
+      dom.rememberFocus();
+      renameActions.start(docId);
     },
   };
 }

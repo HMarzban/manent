@@ -10,10 +10,13 @@ const OPENING = "Opening…";
 const SHEET_WIDTH_PX = 816;
 const SHEET_HEIGHT_PX = 1056;
 
-/** One empty sheet, then the word "Opening…" after `LOADING_QUIET_MS`; it publishes no fact. */
+/** One empty sheet among the pages, as the editor draws it, then the word "Opening…" after `LOADING_QUIET_MS`; it publishes no fact. */
 export const placeholderMount: EditorMount = {
   mount({ element }) {
     const { ownerDocument } = element;
+    // the pages carry the sheet's colour scheme, which White page in dark theme makes light
+    const pages = ownerDocument.createElement("div");
+    pages.className = "mn-pages";
     const sheet = ownerDocument.createElement("div");
     sheet.className = "mn-sheet";
     sheet.style.width = `${SHEET_WIDTH_PX}px`;
@@ -22,13 +25,14 @@ export const placeholderMount: EditorMount = {
     sheet.setAttribute("data-placeholder", "");
     const status = ownerDocument.createElement("p");
     status.setAttribute("role", "status");
-    element.append(sheet, status);
+    pages.append(sheet);
+    element.append(pages, status);
     const timer = setTimeout(() => {
       status.textContent = OPENING;
     }, LOADING_QUIET_MS);
     return () => {
       clearTimeout(timer);
-      sheet.remove();
+      pages.remove();
       status.remove();
     };
   },

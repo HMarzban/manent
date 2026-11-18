@@ -8,8 +8,8 @@ import {
 } from "@manent/ui";
 import { useRouter } from "@tanstack/react-router";
 import { useLayoutEffect, useMemo, useRef } from "react";
-import type { ReactNode, RefObject } from "react";
-import { useServices } from "../../services/context.tsx";
+import type { ReactNode } from "react";
+import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { useRenaming } from "../../state/rename.store.ts";
@@ -17,17 +17,14 @@ import { InlineRename } from "./inline-rename.tsx";
 import { People } from "./people.tsx";
 import { StatusButton } from "./status-button.tsx";
 
-/** When a rename ends, however it ends, focus returns to the title. */
-function useFocusAfterRename(
-  renaming: boolean,
-  heading: RefObject<HTMLHeadingElement | null>,
-): void {
+/** When a rename ends, however it ends, focus returns to what had it when the rename began. */
+function useFocusAfterRename(renaming: boolean): void {
+  const { dom } = useEnvironment();
   const was = useRef(renaming);
   useLayoutEffect(() => {
-    if (was.current && !renaming)
-      heading.current?.querySelector("button")?.focus({ preventScroll: true });
+    if (was.current && !renaming) dom.restoreFocus();
     was.current = renaming;
-  }, [renaming, heading]);
+  }, [renaming, dom]);
 }
 
 /** The title of `docId` as the Library holds it, or `Untitled script` before it has one. */
@@ -52,8 +49,7 @@ export function TitleBar(props: {
   const router = useRouter();
   const title = useDocumentTitle(docId);
   const renaming = useRenaming() === docId;
-  const heading = useRef<HTMLHeadingElement>(null);
-  useFocusAfterRename(renaming, heading);
+  useFocusAfterRename(renaming);
   return (
     <ShellRegion
       region="title_bar"
@@ -66,7 +62,6 @@ export function TitleBar(props: {
         {DOCUMENT_WORDS.back}
       </Button>
       <h1
-        ref={heading}
         tabIndex={-1}
         className="max-w-max min-w-24 flex-1 font-semibold outline-none *:max-w-full"
       >
