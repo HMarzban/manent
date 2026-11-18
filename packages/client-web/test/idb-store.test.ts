@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { StoredUpdate } from "@manent/sync-client";
+import type { StoredSetting, StoredUpdate } from "@manent/sync-client";
 import { blankMeta, localStoreContract } from "@manent/sync-client/testing";
 import { IDBFactory } from "fake-indexeddb";
 import { openIdbStore } from "../src/index.ts";
@@ -192,4 +192,29 @@ test("a store that cannot be opened is its own outcome", async () => {
   await expect(
     openIdbStore({ userId: "dana", indexedDb: failingFactory() }),
   ).rejects.toMatchObject({ name: "StoreError", code: "unavailable" });
+});
+
+test("a reset never issues again the sequence of a refused setting", async () => {
+  const store = await openIdbStore({
+    userId: "dana",
+    indexedDb: new IDBFactory(),
+  });
+  const paper: StoredSetting = {
+    kind: "set",
+    localSeq: 2,
+    key: "script.paper",
+    value: '"a4"',
+    acked: false,
+  };
+  await store.create(blankMeta(DOC));
+  await store.append(DOC, own(1));
+  await store.append(DOC, paper);
+  await store.refuse(DOC, 2);
+  await store.reset(DOC, new Uint8Array([5]), blankMeta(DOC));
+  expect(await store.load(DOC)).toEqual({
+    meta: blankMeta(DOC),
+    checkpoint: { state: new Uint8Array([5]), throughLocalSeq: 2 },
+    syncedBase: new Uint8Array([5]),
+    entries: [],
+  });
 });

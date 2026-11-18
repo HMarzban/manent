@@ -102,7 +102,7 @@ async function writeGoldenDatabase(indexedDb: IDBFactory): Promise<void> {
     ["meta", "entries", "checkpoints", "bases"],
     "readwrite",
   );
-  transaction.objectStore("meta").put(GOLDEN_META);
+  transaction.objectStore("meta").put({ ...GOLDEN_META, highestLocalSeq: 0 });
   transaction.objectStore("entries").put({
     docId: DOC,
     kind: "update",
@@ -190,6 +190,20 @@ test("a store written by this version, record by record, still opens", async () 
       },
     ],
   });
+});
+
+test("a refused setting leaves its sequence on the document's meta record", async () => {
+  const indexedDb = new IDBFactory();
+  const store = await openIdbStore({ userId: "dana", indexedDb });
+  await store.create(blankMeta(DOC));
+  await store.refuse(DOC, 4);
+  const db = await rawOpen(indexedDb, "manent:dana");
+  const meta = db.transaction(["meta"], "readonly").objectStore("meta");
+  expect(await settle(meta.get(DOC))).toEqual({
+    ...blankMeta(DOC),
+    highestLocalSeq: 4,
+  });
+  expect(await store.documents()).toEqual([blankMeta(DOC)]);
 });
 
 test("a tab that lost the lead cannot write", async () => {

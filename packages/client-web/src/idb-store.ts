@@ -25,10 +25,17 @@ type StoreName =
 
 type EntryRecord = StoredEntry & { docId: string };
 
-interface CheckpointRecord {
+/** `highestLocalSeq`: the highest `localSeq` the document has held that its checkpoint and entries may no longer show. */
+interface MetaRecord extends DocMeta {
+  highestLocalSeq: number;
+}
+
+function docMetaOf({ highestLocalSeq: _mark, ...meta }: MetaRecord): DocMeta {
+  return meta;
+}
+
+interface CheckpointRecord extends NonNullable<LoadedDocument["checkpoint"]> {
   docId: string;
-  state: Uint8Array;
-  throughLocalSeq: number;
 }
 
 const STRICT: IDBTransactionOptions = Object.freeze({ durability: "strict" });
@@ -81,10 +88,7 @@ function abortError(mode: IDBTransactionMode, error: DOMException | null) {
   return new StoreError(quota ? "quota" : "write_failed", { cause: error });
 }
 
-/**
- * Settles on the transaction's `complete`, with what `body`'s returned function reads
- * then, or on its `abort`; never when a request succeeds. `fail` aborts with that error.
- */
+/** Settles on the transaction's `complete`, with what `body`'s returned function reads then, or on its `abort`; never on a request's success. `fail` aborts with that error. */
 function transact<T>(
   db: IDBDatabase,
   stores: readonly StoreName[],
@@ -158,35 +162,32 @@ class IdbStore implements LocalStore {
 
   load(docId: string): Promise<LoadedDocument | null> {
     return transact(this.db, DOC_STORES, "readonly", (tx) => {
-      let meta: DocMeta | null = null;
+      let meta: MetaRecord | null = null;
       let checkpoint: CheckpointRecord | null = null;
       let base: { state: Uint8Array } | null = null;
-      read<DocMeta>(tx, "meta", docId, (record) => (meta = record));
+      read<MetaRecord>(tx, "meta", docId, (record) => (meta = record));
       read<CheckpointRecord>(tx, "checkpoints", docId, (r) => (checkpoint = r));
       read<{ state: Uint8Array }>(tx, "bases", docId, (r) => (base = r));
       const entries: StoredEntry[] = [];
       eachEntry(tx, docId, ({ docId: _id, ...entry }) => entries.push(entry));
       return () => {
         if (meta === null) return null;
-        const through = checkpoint?.throughLocalSeq ?? null;
+        const through = checkpoint?.throughLocalSeq ?? -Infinity;
         return {
-          meta,
+          meta: docMetaOf(meta),
           checkpoint: checkpoint && {
             state: checkpoint.state,
             throughLocalSeq: checkpoint.throughLocalSeq,
           },
           syncedBase: base?.state ?? null,
-          entries: entries.filter(
-            (entry) =>
-              through === null || entry.localSeq > through || !entry.acked,
-          ),
+          entries: entries.filter((e) => e.localSeq > through || !e.acked),
         };
       };
     });
   }
 
   create(meta: DocMeta): Promise<void> {
-    const stored = structuredClone(meta);
+    const stored: MetaRecord = { ...structuredClone(meta), highestLocalSeq: 0 };
     return this.write(["meta"], (tx) =>
       read(tx, "meta", stored.docId, (existing) => {
         // an existing document is kept as it is
@@ -209,7 +210,7 @@ class IdbStore implements LocalStore {
   ): Promise<void> {
     const stored = structuredClone(patch);
     return this.write(["meta", "entries"], (tx, fail) => {
-      this.patchMetaIn(tx, docId, stored, fail);
+      this.patchMetaIn(tx, docId, fail, () => stored);
       eachEntry(tx, docId, (record, cursor) => {
         if (!record.acked && record.localSeq <= throughLocalSeq)
           cursor.update({ ...record, acked: true });
@@ -218,7 +219,10 @@ class IdbStore implements LocalStore {
   }
 
   refuse(docId: string, localSeq: number): Promise<void> {
-    return this.write(["entries"], (tx) => {
+    return this.write(["meta", "entries"], (tx, fail) => {
+      this.patchMetaIn(tx, docId, fail, (found) => ({
+        highestLocalSeq: Math.max(found.highestLocalSeq, localSeq),
+      }));
       tx.objectStore("entries").delete([docId, localSeq]);
     });
   }
@@ -235,8 +239,7 @@ class IdbStore implements LocalStore {
         if (waiting && record.localSeq <= throughLocalSeq)
           cursor.update({ ...record, applied: true });
       });
-      const recovered = tx.objectStore("recovered");
-      for (const item of items) recovered.put(item);
+      for (const item of items) tx.objectStore("recovered").put(item);
     });
   }
 
@@ -250,11 +253,8 @@ class IdbStore implements LocalStore {
     const stores: StoreName[] = ["entries", "checkpoints"];
     if (synced) stores.push("bases");
     return this.write(stores, (tx) => {
-      tx.objectStore("checkpoints").put({
-        docId,
-        state: copy,
-        throughLocalSeq,
-      });
+      const point = { docId, state: copy, throughLocalSeq };
+      tx.objectStore("checkpoints").put(point);
       if (synced) tx.objectStore("bases").put({ docId, state: copy });
       eachEntry(tx, docId, (entry, cursor) => {
         const settled = entry.acked && (entry.kind === "set" || entry.applied);
@@ -266,36 +266,38 @@ class IdbStore implements LocalStore {
   patchMeta(docId: string, patch: Partial<DocMeta>): Promise<void> {
     const stored = structuredClone(patch);
     return this.write(["meta"], (tx, fail) =>
-      this.patchMetaIn(tx, docId, stored, fail),
+      this.patchMetaIn(tx, docId, fail, () => stored),
     );
   }
 
-  /** The highest `localSeq` ever held is read from the checkpoint and the entries, so a refused highest setting is not counted. */
+  /** The highest `localSeq` ever held is the most of the checkpoint's, the meta record's mark and the entries'. */
   reset(docId: string, state: Uint8Array, meta: DocMeta): Promise<void> {
     const storedState = new Uint8Array(state);
     const storedMeta = structuredClone(meta);
     return this.write(DOC_STORES, (tx) => {
-      read<CheckpointRecord>(tx, "checkpoints", docId, (previous) => {
-        let highest = previous?.throughLocalSeq ?? 0;
-        eachEntry(
-          tx,
-          docId,
-          (entry, cursor) => {
-            highest = Math.max(highest, entry.localSeq);
-            if (entry.kind !== "set" || entry.acked) cursor.delete();
-          },
-          () => {
-            const record = {
-              docId,
-              state: storedState,
-              throughLocalSeq: highest,
-            };
-            tx.objectStore("checkpoints").put(record);
-            tx.objectStore("bases").put({ docId, state: storedState });
-            tx.objectStore("meta").put(storedMeta);
-          },
-        );
-      });
+      let highest = 0;
+      const raise = (seq: number) => (highest = Math.max(highest, seq));
+      read<CheckpointRecord>(tx, "checkpoints", docId, (r) =>
+        raise(r?.throughLocalSeq ?? 0),
+      );
+      read<MetaRecord>(tx, "meta", docId, (r) =>
+        raise(r?.highestLocalSeq ?? 0),
+      );
+      eachEntry(
+        tx,
+        docId,
+        (entry, cursor) => {
+          raise(entry.localSeq);
+          if (entry.kind !== "set" || entry.acked) cursor.delete();
+        },
+        () => {
+          const point = { docId, state: storedState, throughLocalSeq: highest };
+          tx.objectStore("checkpoints").put(point);
+          tx.objectStore("bases").put({ docId, state: storedState });
+          const next: MetaRecord = { ...storedMeta, highestLocalSeq: highest };
+          tx.objectStore("meta").put(next);
+        },
+      );
     });
   }
 
@@ -329,25 +331,25 @@ class IdbStore implements LocalStore {
     });
   }
 
-  documents(): Promise<DocMeta[]> {
-    return this.readAll("meta", null);
+  async documents(): Promise<DocMeta[]> {
+    return (await this.readAll<MetaRecord>("meta", null)).map(docMetaOf);
   }
 
   async close(): Promise<void> {
     this.db.close();
   }
 
-  /** Merges `patch` into the stored meta; RangeError for a document this store does not hold. */
+  /** Merges `patch` of the stored meta into it; RangeError for a document this store does not hold. */
   private patchMetaIn(
     tx: IDBTransaction,
     docId: string,
-    patch: Partial<DocMeta>,
     fail: (error: Error) => void,
+    patch: (found: MetaRecord) => Partial<MetaRecord>,
   ): void {
-    read<DocMeta>(tx, "meta", docId, (found) => {
+    read<MetaRecord>(tx, "meta", docId, (found) => {
       if (found === null)
         fail(new RangeError(`the store holds no document ${docId}`));
-      else tx.objectStore("meta").put({ ...found, ...patch });
+      else tx.objectStore("meta").put({ ...found, ...patch(found) });
     });
   }
 
@@ -358,10 +360,8 @@ class IdbStore implements LocalStore {
   ): Promise<T[]> {
     return transact(this.db, [store], "readonly", (tx) => {
       const records = tx.objectStore(store);
-      const found: IDBRequest<T[]> =
-        docId === null
-          ? records.getAll()
-          : records.index("byDoc").getAll(docId);
+      const source = docId === null ? records : records.index("byDoc");
+      const found: IDBRequest<T[]> = source.getAll(docId);
       return () => found.result;
     });
   }
