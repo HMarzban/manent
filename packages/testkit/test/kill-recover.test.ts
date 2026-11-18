@@ -154,8 +154,26 @@ async function integrityOf(
   };
 }
 
+/** The rounds MANENT_KILLS asks for, 20 when it is unset; RangeError for anything but a positive integer. */
+function killsOf(value: string | undefined): number {
+  const kills = Number(value ?? 20);
+  if (!Number.isInteger(kills) || kills < 1)
+    throw new RangeError(
+      `MANENT_KILLS must be a positive integer, not ${JSON.stringify(value)}`,
+    );
+  return kills;
+}
+
+test("a kill count that is not a positive integer stops the run, naming the value", () => {
+  for (const value of ["ten", "0", "-3", "2.5", ""])
+    expect(() => killsOf(value)).toThrow(
+      `MANENT_KILLS must be a positive integer, not ${JSON.stringify(value)}`,
+    );
+  expect([killsOf(undefined), killsOf("200")]).toEqual([20, 200]);
+});
+
 test("the server is killed again and again under load, and no acknowledged update is ever lost", async () => {
-  const kills = Number(process.env.MANENT_KILLS ?? 20);
+  const kills = killsOf(process.env.MANENT_KILLS);
   const rng = createRng(4747);
   const server = await startTestServer({ dataDir: await trees.tree({}) });
   running = server;

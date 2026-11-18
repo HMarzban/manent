@@ -132,6 +132,52 @@ function typeImage(c: SimClient, text: string): void {
   body.insert(0, [section]);
 }
 
+const stepSome = (w: World, n: number): void => {
+  for (let i = 0; i < n; i++) w.network.step();
+};
+
+/** Frames, a turn and a second of time, `rounds` times: enough for clients to notice a refusal. */
+async function idle(w: World, rounds: number): Promise<void> {
+  for (let i = 0; i < rounds; i++) {
+    while (w.network.step());
+    await new Promise((resolve) => setImmediate(resolve));
+    w.clock.advance(1_000);
+  }
+}
+
+const DAY_MS = 86_400_000;
+
+test(
+  "random editing with duplicated and swapped frames converges and loses nothing",
+  () =>
+    forSeeds(
+      async (w) => {
+        for (let i = 0; i < 300; i++) {
+          w.act();
+          if (i % 7 === 0) await w.settle();
+        }
+      },
+      { faults: { duplicate: 0.05 } },
+    ),
+  LONG,
+);
+
+test(
+  "connections cut at any moment cost resends, never edits",
+  () =>
+    forSeeds(async (w) => {
+      for (let i = 0; i < 200; i++) {
+        w.act();
+        if (i % 11 === 0) {
+          w.network.partition(true);
+          stepSome(w, 3);
+          w.network.partition(false);
+        }
+      }
+    }),
+  LONG,
+);
+
 test(
   "long offline divergence: three devices write alone for a day, then meet",
   () =>
@@ -140,6 +186,67 @@ test(
       for (let i = 0; i < 400; i++) w.act();
       w.clock.advance(86_400_000);
       for (const c of w.clients) c.online(true);
+    }),
+  LONG,
+);
+
+test(
+  "the server crashes before a commit, after it, and at once; every acknowledged edit survives",
+  () =>
+    forSeeds(async (w) => {
+      for (const when of ["before_commit", "after_commit", "now"] as const) {
+        for (let i = 0; i < 40; i++) w.act();
+        w.crashServer(when);
+        stepSome(w, 50);
+        w.startServer();
+        await w.settle();
+        w.check();
+      }
+    }),
+  LONG,
+);
+
+test(
+  "a commit that fails poisons the room, and the clients' outboxes put everything back",
+  () =>
+    forSeeds(async (w) => {
+      for (let i = 0; i < 100; i++) {
+        w.act();
+        if (i === 50) w.storage.failNextCommit();
+        if (i % 10 === 0) await w.settle();
+      }
+      await allOnline(w);
+      expect(w.clients.map((c) => c.handle.status.get().synced)).toEqual(
+        w.clients.map(() => true),
+      );
+    }),
+  LONG,
+);
+
+test(
+  "a damaged checkpoint and a damaged row are survived, and the row heals from a client that saw it",
+  () =>
+    forSeeds(async (w) => {
+      for (let i = 0; i < 120; i++) {
+        w.act();
+        if (i % 20 === 0) await w.settle();
+      }
+      await allOnline(w);
+      const docId = docIdOf(w);
+      w.storage.corruptCheckpoint(docId);
+      const from = fileOf(w).checkpoints.newest(docId, 1)?.seq ?? 0;
+      const seq = lossyRowNear(w, from, Math.ceil((from + 1 + headOf(w)) / 2));
+      damageCheckpointsFrom(w, seq);
+      w.storage.corruptRow(docId, seq);
+      w.crashServer("now");
+      w.startServer();
+      await w.settle();
+      w.check();
+      expect(rowsOf(w).map((row) => row.origin)).toContain("heal");
+      const kinds = fileOf(w)
+        .versions.list(docId)
+        .map((v) => v.kind);
+      expect(kinds).toContain("pre_heal");
     }),
   LONG,
 );
@@ -167,6 +274,17 @@ function linesWithout(w: World, seq: number): string[] {
 
 const sameText = (a: readonly string[], b: readonly string[]): boolean =>
   a.join("\n") === b.join("\n");
+
+/** The row after `from` nearest `middle` whose loss changes the script: one a heal has work to do for. */
+function lossyRowNear(w: World, from: number, middle: number): number {
+  const text = w.serverText();
+  const [row] = rowsOf(w)
+    .filter((r) => r.seq > from && !sameText(linesWithout(w, r.seq), text))
+    .toSorted((a, b) => Math.abs(a.seq - middle) - Math.abs(b.seq - middle));
+  if (row === undefined)
+    throw new RangeError("no row's loss changes the script");
+  return row.seq;
+}
 
 test(
   "a damaged row that only deleted text heals too",
@@ -294,6 +412,54 @@ test(
 );
 
 test(
+  "a session that expires at any step keeps the edits waiting until sign-in",
+  () =>
+    forSeeds(async (w) => {
+      const at = (w.seed * 37) % 100;
+      for (const c of w.clients) c.online(true);
+      for (let i = 0; i < 100; i++) {
+        w.act();
+        stepSome(w, 5);
+        if (i === at) w.network.refuseSessions(true);
+      }
+      for (const c of w.clients) c.online(true);
+      await idle(w, 40);
+      const sides = w.clients.map((c) => c.handle.status.get().side);
+      expect(sides).toEqual(w.clients.map(() => ["sign_in"]));
+      w.network.refuseSessions(false);
+      for (const c of w.clients) c.client.retryNow();
+    }),
+  LONG,
+);
+
+test(
+  "devices whose clocks are days apart order nothing by them",
+  () =>
+    forSeeds(async (w) => {
+      for (let i = 0; i < 100; i++) {
+        w.act();
+        if (i % 25 === 0) await w.settle();
+      }
+      await allOnline(w);
+      const now = w.clock.clock.now();
+      for (const c of w.clients) await c.handle.saveVersion("manual");
+      const times = await Promise.all(
+        w.clients.map(async (c) =>
+          (await c.store.versions(docIdOf(w)))
+            .filter((version) => version.label === "manual")
+            .map((version) => version.createdAt),
+        ),
+      );
+      expect(times).toEqual([
+        [now + 3 * DAY_MS],
+        [now - 3 * DAY_MS],
+        [now + 3 * DAY_MS],
+      ]);
+    }),
+  LONG,
+);
+
+test(
   "the local store refuses writes on one device; it keeps typing, and the server still gets its edits",
   () =>
     forSeeds(async (w) => {
@@ -351,6 +517,45 @@ test(
       expect(others.map((c) => c.handle.status.get().side)).toEqual(
         others.map(() => []),
       );
+    }),
+  LONG,
+);
+
+test(
+  "a person removed, or a script deleted, while they hold unsent edits: the edits are kept and never sent",
+  () =>
+    forSeeds(async (w) => {
+      for (let i = 0; i < 40; i++) w.act();
+      await allOnline(w);
+      const docId = docIdOf(w);
+      const byUser = (userId: string) =>
+        rowsOf(w).filter((row) => row.userId === userId).length;
+      const sam = clientOf(w, "sam");
+      sam.online(false);
+      const removed = say(sam);
+      const samRows = byUser("sam");
+      w.storage.directory.removeRole(docId, "sam");
+      sam.online(true);
+      await w.settle();
+      expect(sam.handle.status.get().side).toEqual(["access_removed"]);
+      expect(linesOf(sam).join("\n")).toContain(removed);
+      const priya = clientOf(w, "priya");
+      priya.online(false);
+      const deleted = say(priya);
+      const priyaRows = byUser("priya");
+      w.storage.directory.tombstone(docId, "dana");
+      w.crashServer("now");
+      w.startServer();
+      priya.online(true);
+      await w.settle();
+      expect(priya.handle.status.get().side).toEqual(["deleted"]);
+      expect(linesOf(priya).join("\n")).toContain(deleted);
+      expect([byUser("sam"), byUser("priya")]).toEqual([samRows, priyaRows]);
+      const text = w.serverText().join("\n");
+      expect([text.includes(removed), text.includes(deleted)]).toEqual([
+        false,
+        false,
+      ]);
     }),
   LONG,
 );
