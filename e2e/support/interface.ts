@@ -1,17 +1,37 @@
 // Opening a surface the way a person would, saying what holds focus, and reading which commands ran, in the test build.
 import { COMMANDS } from "@manent/commands";
-import type { Chord, CommandId } from "@manent/commands";
+import type {
+  Chord,
+  CommandContext,
+  CommandDefinition,
+  CommandId,
+} from "@manent/commands";
 import type { Platform } from "@manent/settings";
 import type { SurfaceEntry } from "@manent/ui";
 import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
 /** The command `id`; throws RangeError when there is none. */
-const commandOf = (id: string) => {
+export function commandOf(id: string): CommandDefinition {
   const command = COMMANDS.find((c) => c.id === id);
   if (command === undefined) throw new RangeError(`no command ${id}`);
   return command;
-};
+}
+
+/**
+ * What the commands see for You on the test script, written out by hand: never synced, in the demo, with no History
+ * section and no production state.
+ */
+export const ON_A_SCRIPT = {
+  docOpen: true,
+  role: "editor",
+  online: true,
+  shell: "web",
+  demo: true,
+  signedIn: false,
+  historyPresent: false,
+  production: null,
+} as const satisfies Partial<CommandContext>;
 
 /** The label of `id`; throws RangeError when it depends on the context. */
 export function labelOf(id: CommandId): string {

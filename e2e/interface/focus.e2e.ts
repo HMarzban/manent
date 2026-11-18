@@ -1,13 +1,15 @@
 // Focus as the surface catalogue says: where each way of opening a surface puts it, where closing gives it back, Escape and F6.
-import { COMMANDS } from "@manent/commands";
-import type { CommandId, SurfaceId } from "@manent/commands";
+import type { CommandContext, CommandId, SurfaceId } from "@manent/commands";
+import type { Platform } from "@manent/settings";
 import { DOCUMENT_WORDS, REGIONS, SURFACES } from "@manent/ui";
 import type { SurfaceEntry } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import {
+  commandOf,
   focusedDescription,
   labelOf,
+  ON_A_SCRIPT,
   openSurface,
   platformOf,
   pressKeyOf,
@@ -66,6 +68,39 @@ const PLACES: Partial<Record<SurfaceId, Place>> = {
     name: null,
   },
 };
+
+// the openers drawn as a control on the page their surface is used from; every other opener has none there
+const CONTROLLED: readonly CommandId[] = [
+  "app.palette",
+  "demo.tour",
+  "library.newProject",
+];
+
+/** What the commands see on `at` with focus in the page, written out by hand. */
+function contextAt(at: string, platform: Platform): CommandContext {
+  const panelOpen = { left: false, side: false };
+  if (at === DOC)
+    return {
+      ...ON_A_SCRIPT,
+      platform,
+      screen: "document",
+      focus: "page",
+      panelOpen,
+    };
+  if (at === "/")
+    return {
+      ...ON_A_SCRIPT,
+      platform,
+      docOpen: false,
+      role: null,
+      screen: "library",
+      focus: "page",
+      panelOpen,
+    };
+  throw new RangeError(
+    `the focus tests do not know what the commands see on ${at}`,
+  );
+}
 
 const placeOf = (id: SurfaceId): Place => {
   const place = PLACES[id];
@@ -190,29 +225,33 @@ for (const entry of SURFACES)
           "the Tour command does not yet name the side panel aloud when it shows it with focus in the page",
         );
         const place = placeOf(entry.id);
-        const command = COMMANDS.find((c) => c.id === opener);
+        const command = commandOf(opener);
         const platform = await platformOf(page);
         test.skip(
-          by === "key" && command?.keys[platform].length === 0,
+          by === "key" && command.keys[platform].length === 0,
           `${opener} has no key on ${platform}`,
+        );
+        const controlled = CONTROLLED.includes(opener);
+        test.skip(
+          by === "control" && !controlled,
+          `${opener} has no control here`,
         );
         await arrive(page, place.at);
         const control = page.locator(`[data-tour="${opener}"]:visible`);
-        test.skip(
-          by === "control" && (await control.count()) === 0,
-          `${opener} has no control here`,
-        );
-        test.skip(
-          !(await isListed(page, opener)),
-          `${opener} is absent on this document`,
-        );
+        if (controlled) await expect(control.first()).toBeVisible();
+        else expect(await control.count()).toBe(0);
+        const shown =
+          command.visible === null ||
+          command.visible(contextAt(place.at, platform));
+        expect(await isListed(page, opener)).toBe(shown);
+        test.skip(!shown, `${opener} is absent on this document`);
         // the caret is where Escape sends focus from the frame; the Library covers the page, so it has none
         if (place.at === DOC) await page.keyboard.press("Escape");
         const caret = await focusedDescription(page);
         if (by === "control") await control.first().focus();
         const before = await focusedDescription(page);
         const scrollY = await page.evaluate(() => window.scrollY);
-        const intent = command?.opens?.focus ?? entry.focusOnOpen;
+        const intent = command.opens?.focus ?? entry.focusOnOpen;
 
         const ran = (await runs(page)).length;
         await openSurface(page, entry, opener, by);

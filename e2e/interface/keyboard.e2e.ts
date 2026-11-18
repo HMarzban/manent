@@ -7,6 +7,7 @@ import type { Locator, Page } from "@playwright/test";
 import {
   focusedDescription,
   keysFor,
+  ON_A_SCRIPT,
   platformOf,
   pressKeyOf,
   runs,
@@ -24,18 +25,6 @@ interface Spot {
   focus(page: Page): Promise<void>;
   context: Omit<CommandContext, "platform">;
 }
-
-// You on a script never synced, in the demo, with no History section and no production state
-const ON_A_SCRIPT = {
-  docOpen: true,
-  role: "editor",
-  online: true,
-  shell: "web",
-  demo: true,
-  signedIn: false,
-  historyPresent: false,
-  production: null,
-} as const;
 
 const editable = (page: Page): Locator =>
   page.locator("[data-region='page'] [contenteditable='true']");
