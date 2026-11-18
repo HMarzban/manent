@@ -257,38 +257,43 @@ test("stopping and starting the server keeps the tab's person, and two tabs agre
   await signedInAs(other, "dana");
   // a request from port 4757 to 4758: it passes CORS or this line cannot work
   await page.getByRole("button", { name: "Stop the server" }).click();
-  await expect(serverLine(page)).toHaveText(
-    "Server stopped. Start it before reloading this tab.",
-  );
-  await expect(
-    page.getByRole("button", { name: "Stop the server" }),
-  ).toHaveCount(0);
-  // within its 2 s poll
-  await expect(serverLine(other)).toHaveText(
-    "Server stopped. Start it before reloading this tab.",
-  );
-  await expect(
-    other.getByRole("button", { name: "Start the server" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Person: Leo Marsh" }).click();
-  await page.getByRole("button", { name: /^Ana Costa/ }).click();
-  await expect(page.getByRole("alert")).toHaveText(
-    "Can't reach Manent. Start the server, then choose again.",
-  );
-  // still listed
-  for (const p of DEMO_PEOPLE)
+  try {
+    await expect(serverLine(page)).toHaveText(
+      "Server stopped. Start it before reloading this tab.",
+    );
     await expect(
-      page.getByRole("button", { name: new RegExp(`^${p.name}`) }),
+      page.getByRole("button", { name: "Stop the server" }),
+    ).toHaveCount(0);
+    // within its 2 s poll
+    await expect(serverLine(other)).toHaveText(
+      "Server stopped. Start it before reloading this tab.",
+    );
+    await expect(
+      other.getByRole("button", { name: "Start the server" }),
     ).toBeVisible();
-  await page.getByRole("button", { name: "Start the server" }).click();
-  await expect(serverLine(page)).toHaveText("Server running");
-  await expect(
-    other.getByRole("button", { name: "Stop the server" }),
-  ).toBeVisible();
-  await page.reload();
-  await expect(
-    page.getByRole("button", { name: "Person: Leo Marsh" }),
-  ).toBeVisible();
+    await page.getByRole("button", { name: "Person: Leo Marsh" }).click();
+    await page.getByRole("button", { name: /^Ana Costa/ }).click();
+    await expect(page.getByRole("alert")).toHaveText(
+      "Can't reach Manent. Start the server, then choose again.",
+    );
+    // still listed
+    for (const p of DEMO_PEOPLE)
+      await expect(
+        page.getByRole("button", { name: new RegExp(`^${p.name}`) }),
+      ).toBeVisible();
+    await page.getByRole("button", { name: "Start the server" }).click();
+    await expect(serverLine(page)).toHaveText("Server running");
+    await expect(
+      other.getByRole("button", { name: "Stop the server" }),
+    ).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "Person: Leo Marsh" }),
+    ).toBeVisible();
+  } finally {
+    // the tests after this one need the server, whatever this one found
+    await page.request.post("http://127.0.0.1:4758/start-server");
+  }
 });
 
 test("a reset drops what the tab had cached from the old seed", async ({
