@@ -19,7 +19,12 @@ import type {
   StatusFacts,
   Subscribable,
 } from "@manent/ui";
+import type { Where } from "../platform.ts";
+import type { TabStorage } from "../session.ts";
+import type { ShellDom } from "../shell/regions.tsx";
+import type { Guard } from "../state/guard.ts";
 import type { PersonPresent } from "../state/people.store.ts";
+import type { StorageEvents } from "./local-map.ts";
 
 /** The kinds New project offers, in its order. */
 export type ProjectKind = (typeof NEW_PROJECT_CARDS)[number]["kind"];
@@ -132,4 +137,37 @@ export interface ShellState {
   /** Each panel's tab; null while it is closed. */
   panels: Readonly<Record<PanelId, string | null>>;
   historyPresent: boolean;
+}
+
+export const INITIAL_SHELL_STATE: ShellState = Object.freeze({
+  screen: "library",
+  docId: null,
+  panels: Object.freeze({ left: null, side: null }),
+  historyPresent: false,
+});
+
+/** The world this tab runs in, made once by the composition root and shared by every person's services. */
+export interface Environment {
+  where: Where;
+  /** The language the browser asks for ("en-GB"). */
+  language: string;
+  now: () => number;
+  schedule: (fn: () => void, delayMs: number) => () => void;
+  frame: (fn: () => void) => () => void;
+  /** This origin's storage; null when the browser refuses it. */
+  storage: Storage | null;
+  storageEvents: StorageEvents;
+  /** This tab's storage, for the boot cache; null when the browser refuses it. */
+  tabStorage: TabStorage | null;
+  randomId: () => string;
+  /** When a key was last pressed in this tab; null before the first. */
+  lastKeyAt: () => number | null;
+  guard: Guard;
+  flavour: "production" | "test";
+  shellState: Subscribable<ShellState> & { set(value: ShellState): void };
+  dom: ShellDom;
+  online: () => boolean;
+  /** Told the id of every command that ran. */
+  ran: (commandId: string) => void;
+  visitUndo: { current: { undo(): boolean } | null };
 }

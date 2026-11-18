@@ -2,13 +2,13 @@
 import { createValue } from "@manent/ui";
 import type { Api } from "../src/api.ts";
 import type { Navigation, RoutePlace } from "../src/handlers/index.ts";
-import type { ShellState } from "../src/services/ports.ts";
-import type { PersonServices } from "../src/services/ports.ts";
-import {
-  INITIAL_SHELL_STATE,
-  createPersonServices,
-} from "../src/services/services.ts";
-import type { Environment } from "../src/services/services.ts";
+import { INITIAL_SHELL_STATE } from "../src/services/ports.ts";
+import type {
+  Environment,
+  PersonServices,
+  ShellState,
+} from "../src/services/ports.ts";
+import { createPersonServices } from "../src/services/services.ts";
 import type { StorageEvents } from "../src/services/local-map.ts";
 import type { ShellDom } from "../src/shell/regions.tsx";
 import { createGuard } from "../src/state/guard.ts";

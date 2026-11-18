@@ -29,6 +29,16 @@ function parseJson(raw: string | null): unknown {
   }
 }
 
+/** The keys whose values differ between `before` and `after`, compared as JSON. */
+function changedKeys(
+  before: ReadonlyMap<string, unknown>,
+  after: ReadonlyMap<string, unknown>,
+): string[] {
+  return [...new Set([...before.keys(), ...after.keys()])].filter(
+    (k) => JSON.stringify(before.get(k)) !== JSON.stringify(after.get(k)),
+  );
+}
+
 /** One map over `storage[key]`; storage that is missing or refuses keeps the map for this session only. */
 export function createLocalMap(options: {
   storage: Storage | null;
@@ -67,9 +77,7 @@ export function createLocalMap(options: {
     if (changed !== null && changed !== key) return;
     const before = values;
     values = load();
-    const keys = [...new Set([...before.keys(), ...values.keys()])].filter(
-      (k) => JSON.stringify(before.get(k)) !== JSON.stringify(values.get(k)),
-    );
+    const keys = changedKeys(before, values);
     if (keys.length > 0) tell(keys, "remote");
   });
 

@@ -10,7 +10,7 @@ import type { TabPerson } from "../session.ts";
 import type { PersonStore } from "../state/person.store.ts";
 import type { PersonServices } from "./ports.ts";
 import { createPersonServices } from "./services.ts";
-import type { Environment } from "./services.ts";
+import type { Environment } from "./ports.ts";
 
 const EnvironmentContext = createContext<Environment | null>(null);
 const ServicesContext = createContext<PersonServices | null>(null);

@@ -40,6 +40,36 @@ test("the device bag and the device id use their fixed keys", () => {
   expect(storage.getItem("manent.device.id")).toBe("d1");
 });
 
+test("the shortcuts, the flags and the last Preferences pane use their fixed keys", () => {
+  const storage = new MemoryStorage();
+  const services = testServices({
+    userId: "leo",
+    environment: testEnvironment({ storage }),
+  });
+  services.keys.set("app.palette|d1", { v: ["Mod+K"] });
+  expect(storage.getItem("manent.keys.leo")).toBe(
+    '{"app.palette|d1":{"v":["Mod+K"]}}',
+  );
+  services.lastPane.set("keyboard");
+  expect(storage.getItem("manent.prefs.last-pane.leo")).toBe("keyboard");
+  services.flags.set("tour_seen");
+  expect(storage.getItem("manent.flags.leo")).toBe('{"tour_seen":true}');
+});
+
+test("a flag once set stays set for the person, and for no one else", () => {
+  const storage = new MemoryStorage();
+  const tab = (userId: string) =>
+    testServices({ userId, environment: testEnvironment({ storage }) });
+  const first = tab("leo");
+  expect(first.flags.has("tour_seen")).toBe(false);
+  first.flags.set("tour_seen");
+  first.flags.set("tour_seen");
+  expect(first.flags.has("tour_seen")).toBe(true);
+  expect(tab("leo").flags.has("tour_seen")).toBe(true);
+  expect(tab("dana").flags.has("tour_seen")).toBe(false);
+  expect(storage.getItem("manent.flags.leo")).toBe('{"tour_seen":true}');
+});
+
 test("a device bag over refusing storage keeps values for the session", () => {
   const kept = testServices({ userId: "leo" });
   expect(kept.persisted).toBe(true);
@@ -161,6 +191,21 @@ test("a script's layout waits for authority once its page numbers are locked", (
   });
   productionContextActions.set(docId, null);
   expect(productionContextActions.get(docId)).toBeNull();
+});
+
+test("a closed document's settings store no longer hears the person's preferences", () => {
+  const services = testServices({ userId: "leo" });
+  const docId = "0b9f6c2e-3c1a-4c55-9a43-5d8f1e2a7b10";
+  const heard: string[] = [];
+  for (const visit of ["first", "second", "third"]) {
+    services.documents.open(docId);
+    services
+      .openScriptStore(docId)
+      .subscribe("appearance.theme", () => heard.push(visit));
+    if (visit !== "third") services.documents.close(docId);
+  }
+  services.settings.set("appearance.theme", "dark");
+  expect(heard).toEqual(["third"]);
 });
 
 const fixtureTab = (id: string, present: boolean): PanelTab<SideTab> => ({

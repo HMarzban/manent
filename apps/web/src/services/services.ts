@@ -30,9 +30,7 @@ import { createHandlers } from "../handlers/index.ts";
 import type { Navigation } from "../handlers/index.ts";
 import { deviceName } from "../platform.ts";
 import type { Where } from "../platform.ts";
-import type { TabPerson, TabStorage } from "../session.ts";
-import type { ShellDom } from "../shell/regions.tsx";
-import type { Guard } from "../state/guard.ts";
+import type { TabPerson } from "../session.ts";
 import type { PersonStore } from "../state/person.store.ts";
 import { productionContextActions } from "../state/production-context.store.ts";
 import { createDeviceBag } from "./device-bag.ts";
@@ -40,48 +38,14 @@ import { readDeviceId } from "./device-id.ts";
 import { createFlags } from "./flags.ts";
 import { createLocalDocumentSource } from "./local-document-source.ts";
 import { createLocalMap, createLocalText } from "./local-map.ts";
-import type { StorageEvents } from "./local-map.ts";
 import { createMemoryLibrary } from "./memory-library.ts";
 import type {
   DocumentSource,
+  Environment,
   PersonServices,
   Reverses,
-  ShellState,
 } from "./ports.ts";
 import { createRemoteDeferral } from "./remote-deferral.ts";
-
-/** The world this tab runs in, made once by the composition root and shared by every person's services. */
-export interface Environment {
-  where: Where;
-  /** The language the browser asks for ("en-GB"). */
-  language: string;
-  now: () => number;
-  schedule: (fn: () => void, delayMs: number) => () => void;
-  frame: (fn: () => void) => () => void;
-  /** This origin's storage; null when the browser refuses it. */
-  storage: Storage | null;
-  storageEvents: StorageEvents;
-  /** This tab's storage, for the boot cache; null when the browser refuses it. */
-  tabStorage: TabStorage | null;
-  randomId: () => string;
-  /** When a key was last pressed in this tab; null before the first. */
-  lastKeyAt: () => number | null;
-  guard: Guard;
-  flavour: "production" | "test";
-  shellState: Subscribable<ShellState> & { set(value: ShellState): void };
-  dom: ShellDom;
-  online: () => boolean;
-  /** Told the id of every command that ran. */
-  ran: (commandId: string) => void;
-  visitUndo: { current: { undo(): boolean } | null };
-}
-
-export const INITIAL_SHELL_STATE: ShellState = Object.freeze({
-  screen: "library",
-  docId: null,
-  panels: Object.freeze({ left: null, side: null }),
-  historyPresent: false,
-});
 
 // until the editor supplies its own mount
 export const editorMount: EditorMount = placeholderMount;
@@ -148,20 +112,46 @@ function createReverses(messages: MessageQueue): Reverses {
   };
 }
 
+/** Views of bags that outlive their store; `release` ends every subscription made through them, so a dropped store stops hearing them. */
+function createBagViews(): { view(bag: Bag): Bag; release(): void } {
+  const unsubscribers: (() => void)[] = [];
+  return {
+    view: (bag) => ({
+      read: () => bag.read(),
+      provenance: (key) => bag.provenance(key),
+      write: (patch) => bag.write(patch),
+      subscribe(listener) {
+        const unsubscribe = bag.subscribe(listener);
+        unsubscribers.push(unsubscribe);
+        return unsubscribe;
+      },
+      canWrite: (key) => bag.canWrite(key),
+    }),
+    release() {
+      for (const unsubscribe of unsubscribers.splice(0)) unsubscribe();
+    },
+  };
+}
+
+interface ScriptStore {
+  store: SettingsStore;
+  release(): void;
+}
+
 interface ScriptStores {
   documents: DocumentSource;
   openScriptStore(docId: string): SettingsStore;
   clear(): void;
 }
 
-/** The open documents, counted, and one settings store per open document, dropped when its last opener closes it. */
+/** The open documents, counted, and one settings store per open document, released when its last opener closes it. */
 function createScriptStores(options: {
   source: DocumentSource;
-  store: (scriptBag: Bag, docId: string) => SettingsStore;
+  store: (scriptBag: Bag, docId: string) => ScriptStore;
 }): ScriptStores {
   const { source } = options;
   const opens = new Map<string, number>();
-  const stores = new Map<string, SettingsStore>();
+  const stores = new Map<string, ScriptStore>();
   return {
     documents: {
       open(docId) {
@@ -175,18 +165,22 @@ function createScriptStores(options: {
           return;
         }
         opens.delete(docId);
+        stores.get(docId)?.release();
         stores.delete(docId);
         source.close(docId);
       },
     },
     openScriptStore(docId) {
       const existing = stores.get(docId);
-      if (existing !== undefined) return existing;
+      if (existing !== undefined) return existing.store;
       const created = options.store(source.open(docId).scriptBag, docId);
       stores.set(docId, created);
-      return created;
+      return created.store;
     },
-    clear: () => stores.clear(),
+    clear() {
+      for (const { release } of stores.values()) release();
+      stores.clear();
+    },
   };
 }
 
@@ -210,20 +204,30 @@ function commandContext(options: Options): CommandContext {
   };
 }
 
-/** The person's maps and values kept in this origin's storage. */
+/** The person's maps and values kept in this origin's storage; `dispose` stops each map listening to other tabs. */
 function createKept(options: Options) {
   const { storage, storageEvents: events } = options;
   const { userId } = options.person;
-  return {
+  const maps = {
     // until sync keeps these two maps in the person's private index
     prefs: createLocalMap({ storage, key: `manent.prefs.${userId}`, events }),
     keys: createLocalMap({ storage, key: `manent.keys.${userId}`, events }),
     device: createDeviceBag({ storage, userId, events }),
     flags: createFlags({ storage, userId, events }),
-    lastPane: createLocalText({
-      storage,
-      key: `manent.prefs.last-pane.${userId}`,
-    }),
+  };
+  const lastPane = createLocalText({
+    storage,
+    key: `manent.prefs.last-pane.${userId}`,
+  });
+  return {
+    ...maps,
+    lastPane: {
+      get: () => SECTION_IDS.find((id) => id === lastPane.get()) ?? "writing",
+      set: lastPane.set,
+    },
+    dispose() {
+      for (const map of Object.values(maps)) map.dispose();
+    },
   };
 }
 
@@ -245,49 +249,64 @@ function createStores(
     schedule,
     lastKeyAt: options.lastKeyAt,
   });
-  const storeOver = (script: Bag | null, locked: () => boolean) =>
+  const storeOver = (
+    view: (bag: Bag) => Bag,
+    script: Bag | null,
+    locked: () => boolean,
+  ) =>
     createSettingsStore({
       registry: SETTINGS,
-      bags: { personal, device: kept.device, script },
+      bags: { personal: view(personal), device: view(kept.device), script },
       beforeWrite: () => options.guard.check("settings"),
       deferRemote,
       locked,
     });
   return {
-    settings: storeOver(null, () => false),
+    // the person's own store lives as long as the bags it reads
+    settings: storeOver(
+      (bag) => bag,
+      null,
+      () => false,
+    ),
     scripts: createScriptStores({
       source,
-      store: (scriptBag, docId) =>
-        storeOver(
-          scriptBag,
-          () => productionContextActions.get(docId)?.locked === true,
-        ),
+      store(scriptBag, docId) {
+        const { view, release } = createBagViews();
+        const locked = () =>
+          productionContextActions.get(docId)?.locked === true;
+        return { store: storeOver(view, view(scriptBag), locked), release };
+      },
     }),
   };
 }
 
 /**
- * The command service over `COMMANDS` and `handlers`, told of every change to the window's state, the person,
- * the bindings and the settings; a setting command writes the open document's store, so a script setting reaches its script.
+ * The command service over `COMMANDS` and the handlers `fillHandlers` makes, told of every change to the window's state, the
+ * person, the bindings and the settings; a setting command writes the open document's store, so a script setting reaches its script.
  */
 function createCommands(
   options: Options,
   parts: {
-    handlers: Readonly<Record<string, () => void>>;
     settings: SettingsStore;
     openScriptStore(docId: string): SettingsStore;
     messages: MessageQueue;
     resolved: Subscribable<Resolved>;
   },
-): { commands: CommandService; stop(): void } {
+): {
+  commands: CommandService;
+  fillHandlers(services: PersonServices): void;
+  stop(): void;
+} {
   const { settings, messages, resolved } = parts;
+  // filled once the services exist, before anything can run a command
+  const handlers: Record<string, () => void> = {};
   const settingsHere = (): SettingWriter => {
     const { docId } = options.shellState.get();
     return docId === null ? settings : parts.openScriptStore(docId);
   };
   const service = createCommandService({
     commands: COMMANDS,
-    handlers: parts.handlers,
+    handlers,
     context: () => commandContext(options),
     settings: {
       get: (key) => settingsHere().get(key),
@@ -312,6 +331,13 @@ function createCommands(
       },
       state: service.state,
       subscribe: service.subscribe,
+    },
+    fillHandlers(services) {
+      const shellState = options.shellState.get;
+      Object.assign(
+        handlers,
+        createHandlers({ ...options, services, shellState }),
+      );
     },
     stop() {
       for (const unsubscribe of unsubscribers) unsubscribe();
@@ -338,10 +364,7 @@ export function createPersonServices(options: Options): PersonServices {
     schedule: options.schedule,
   });
   const resolved = createResolved(kept.keys, options.where);
-  // filled once the services exist, before anything can run a command
-  const handlers: Record<string, () => void> = {};
-  const { commands, stop } = createCommands(options, {
-    handlers,
+  const { commands, fillHandlers, stop } = createCommands(options, {
     settings,
     openScriptStore: scripts.openScriptStore,
     messages,
@@ -358,11 +381,7 @@ export function createPersonServices(options: Options): PersonServices {
     messages,
     flags: kept.flags,
     keys: kept.keys,
-    lastPane: {
-      get: () =>
-        SECTION_IDS.find((id) => id === kept.lastPane.get()) ?? "writing",
-      set: kept.lastPane.set,
-    },
+    lastPane: kept.lastPane,
     get persisted() {
       return [kept.device, kept.prefs, kept.keys].every((k) => k.persisted);
     },
@@ -371,23 +390,10 @@ export function createPersonServices(options: Options): PersonServices {
     reverses: createReverses(messages),
     dispose() {
       stop();
-      for (const map of [kept.prefs, kept.keys, kept.device, kept.flags])
-        map.dispose();
+      kept.dispose();
       scripts.clear();
     },
   };
-  Object.assign(
-    handlers,
-    createHandlers({
-      services,
-      api: options.api,
-      usePerson: options.usePerson,
-      router: options.router,
-      dom: options.dom,
-      shellState: options.shellState.get,
-      frame: options.frame,
-      visitUndo: options.visitUndo,
-    }),
-  );
+  fillHandlers(services);
   return services;
 }
