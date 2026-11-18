@@ -1,9 +1,10 @@
 // The checks a SUBSCRIBE passes, in order (the first that fails is the answer), and what passing gives.
-import { CrdtUpdateError, deletionsOf, readStateVector } from "@manent/crdt";
+import { CrdtUpdateError, readStateVector } from "@manent/crdt";
 import { gateDocument } from "@manent/sync-protocol";
 import type { Message } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
 import type { Access, DocumentAccess } from "./access.ts";
+import type { Deletions } from "./deletions.ts";
 import { syncError } from "./errors.ts";
 import type { Peer, SyncLimits } from "./ports.ts";
 import type { Room, Rooms } from "./rooms.ts";
@@ -121,42 +122,36 @@ export function subscribedOf(
 }
 
 /**
- * The server's step 2 for an editor's step 1: the cached full state for an empty vector, otherwise
- * what the vector lacks. Bytes that are not a state vector are refused, and may be sent again.
+ * The answer to an editor's step 1: the server's step 2, the cached full state for an empty
+ * vector, otherwise what the vector lacks. Step 2's delete set also holds what Yjs deleted with a
+ * deleted parent, so it comes after the deletions the rows after `lastServerSeq` made, when there
+ * are any, which tell the client which of its own text that was. A device that holds nothing and
+ * never synced has no text to set aside. Bytes that are not a state vector are refused, and may
+ * be sent again.
  */
-export function stepTwo(rooms: Rooms, room: Room, vector: Uint8Array): Message {
+export function answerStepOne(
+  ports: { rooms: Rooms; deletions: Deletions },
+  room: Room,
+  step: { vector: Uint8Array; lastServerSeq: number },
+): Message[] {
   const doc = { docId: room.docId, generation: room.row.generation };
   if (room.doc === null)
     throw new RangeError(`the room of ${room.docId} is not loaded`);
   let clocks: Map<number, number>;
   try {
-    clocks = readStateVector(vector);
+    clocks = readStateVector(step.vector);
   } catch (error) {
     if (!(error instanceof CrdtUpdateError)) throw error;
-    return syncError("bad_update", doc, { permanent: false });
+    return [syncError("bad_update", doc, { permanent: false })];
   }
-  const data =
-    clocks.size === 0 ? rooms.fullState(room) : room.doc.diff(vector);
-  return { type: "SYNC", ...doc, step: "step2", data };
-}
-
-/**
- * What an editor is sent once subscribed: the server's step 1, then, when the rows after
- * `lastServerSeq` deleted anything, one update of those deletions alone. Step 2's delete set holds
- * what went with a deleted parent too; these rows tell the client which of its own text that was.
- */
-export function editorOpening(room: Room, lastServerSeq: number): Message[] {
-  const { docId, file, row } = room;
-  const doc = { docId, generation: row.generation };
-  if (room.doc === null)
-    throw new RangeError(`the room of ${docId} is not loaded`);
-  const data = room.doc.encodeStateVector();
-  const step1: Message = { type: "SYNC", ...doc, step: "step1", data };
-  // a read for one client quarantines nothing; loading the room does that
-  const peek = { quarantine: false };
-  const { rows } = file.log.tail(docId, row.generation, lastServerSeq, peek);
-  const deletions = deletionsOf(rows.map((r) => r.update));
+  const fresh = clocks.size === 0;
+  const data = fresh ? ports.rooms.fullState(room) : room.doc.diff(step.vector);
+  const stepTwo: Message = { type: "SYNC", ...doc, step: "step2", data };
+  const deletions =
+    fresh && step.lastServerSeq === 0
+      ? null
+      : ports.deletions.since(room, step.lastServerSeq);
   return deletions === null
-    ? [step1]
-    : [step1, { type: "SYNC", ...doc, step: "update", data: deletions }];
+    ? [stepTwo]
+    : [{ type: "SYNC", ...doc, step: "update", data: deletions }, stepTwo];
 }

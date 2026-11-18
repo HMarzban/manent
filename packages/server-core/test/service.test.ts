@@ -9,7 +9,15 @@ import type { Message } from "@manent/sync-protocol";
 import { DEFAULT_LIMITS, OWNER_CAPABILITIES, peerOf } from "../src/index.ts";
 import type { Connection, ConnectionData } from "../src/index.ts";
 import { fakePeer } from "../src/testing/index.ts";
-import { BLOCK, DOC, DOC2, PROJECT, createTypist, rawEdit } from "./seed.ts";
+import {
+  BLOCK,
+  DOC,
+  DOC2,
+  HOME,
+  PROJECT,
+  createTypist,
+  rawEdit,
+} from "./seed.ts";
 import {
   DANA_CLIENT,
   EMPTY_VECTOR,
@@ -124,40 +132,120 @@ test("an editor subscribes, exchanges state and is told of others' edits", () =>
   ]);
 });
 
-test("an editor that comes back is sent what the rows it missed deleted, so its own text a deleter never saw is set aside", () => {
-  const { service, sam, priya, clock } = createServiceWorld();
+const BLOCK2 = "b000000000000002";
+
+const stepsOf = (messages: Message[]): string[] =>
+  messages.map((m) => (m.type === "SYNC" ? m.step : m.type));
+
+/** The deletions sent among `messages`; null when none were. */
+const deletionsIn = (messages: Message[]): Uint8Array | null => {
+  const sent = messages.find((m) => m.type === "SYNC" && m.step === "update");
+  return sent?.type === "SYNC" ? sent.data : null;
+};
+
+/**
+ * Sam types into two blocks that Priya, who never saw that typing, then deletes: rows 1 to 4 are
+ * Sam's, row 5 deletes the first block, and `deleteSecond` commits row 6, deleting the second.
+ */
+function deletedUnseen() {
+  const world = createServiceWorld();
+  const { service, sam, priya, clock } = world;
   const typist = createTypist(SAM_CLIENT);
-  const rain = typist.insertBlock(BLOCK, null, "Rain");
+  const made = [
+    typist.insertBlock(BLOCK, null, "Rain"),
+    typist.insertBlock(BLOCK2, BLOCK, "Snow"),
+  ];
   const priyaDoc = loadDoc(typist.doc.encodeState(), {
     clientId: PRIYA_CLIENT,
   });
-  const typed = typist.type(BLOCK, " [sam]");
+  made.push(typist.type(BLOCK, " [sam]"), typist.type(BLOCK2, " [sam]"));
   const deleted: Uint8Array[] = [];
   const stop = priyaDoc.subscribe((update) => deleted.push(update));
   scriptBody(priyaDoc).write((w) => w.deleteBlock(BLOCK));
+  scriptBody(priyaDoc).write((w) => w.deleteBlock(BLOCK2));
   stop();
   service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT]));
   service.receive(priya, subscribe(DOC, "edit", [PRIYA_CLIENT]));
-  service.receive(sam, push(DOC, 1, rain));
-  service.receive(sam, push(DOC, 2, typed));
+  made.forEach((update, i) => service.receive(sam, push(DOC, i + 1, update)));
   service.receive(priya, push(DOC, 1, deleted[0]!));
   clock.runDeferred();
-  sam.take();
-  const back = { lastServerSeq: 2 };
-  service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT], back));
-  const answered = sam.take();
-  expect(answered.map((m) => (m.type === "SYNC" ? m.step : m.type))).toEqual([
-    "SUBSCRIBED",
-    "step1",
-    "update",
+  const deleteSecond = (): void => {
+    service.receive(priya, push(DOC, 2, deleted[1]!));
+    clock.runDeferred();
+  };
+  /** Sam subscribes again with `lastServerSeq` and his step 1, and is answered. */
+  const comeBack = (lastServerSeq: number): Message[] => {
+    sam.take();
+    service.receive(
+      sam,
+      subscribe(DOC, "edit", [SAM_CLIENT], { lastServerSeq }),
+    );
+    service.receive(sam, step1(DOC, typist.doc.encodeStateVector()));
+    return sam.take();
+  };
+  return { ...world, typist, deleteSecond, comeBack };
+}
+
+test("an editor that comes back is sent what the rows it missed deleted before its step 2, so its own text a deleter never saw is set aside", () => {
+  const { typist, deleteSecond, comeBack } = deletedUnseen();
+  const own = new Set([SAM_CLIENT]);
+  const setAside = (answered: Message[]) => {
+    const deletions = deletionsIn(answered);
+    const items =
+      deletions === null ? [] : applyRemote(typist.doc, deletions, own);
+    return [stepsOf(answered), items];
+  };
+  const first = setAside(comeBack(4));
+  deleteSecond();
+  expect([first, setAside(comeBack(5)), setAside(comeBack(6))]).toEqual([
+    [
+      ["SUBSCRIBED", "step1", "update", "step2"],
+      [{ blockId: BLOCK, nearBlockId: BLOCK2, text: " [sam]" }],
+    ],
+    [
+      ["SUBSCRIBED", "step1", "update", "step2"],
+      [{ blockId: BLOCK2, nearBlockId: null, text: " [sam]" }],
+    ],
+    [["SUBSCRIBED", "step1", "step2"], []],
   ]);
-  const deletions = answered[2]?.type === "SYNC" ? answered[2].data : null;
-  expect(applyRemote(typist.doc, deletions!, new Set([SAM_CLIENT]))).toEqual([
-    { blockId: BLOCK, nearBlockId: null, text: " [sam]" },
+});
+
+test("the deletions a returning editor is sent are read from each row at most twice while the script is loaded", () => {
+  const { storage, deleteSecond, comeBack } = deletedUnseen();
+  const { log } = storage.open(HOME);
+  const tail = log.tail.bind(log);
+  const read: [number, number][] = [];
+  log.tail = (docId, generation, afterSeq, options) => {
+    const found = tail(docId, generation, afterSeq, options);
+    if (options?.quarantine === false) read.push([afterSeq, found.rows.length]);
+    return found;
+  };
+  comeBack(4);
+  comeBack(4);
+  deleteSecond();
+  comeBack(5);
+  comeBack(2);
+  comeBack(1);
+  expect(read).toEqual([
+    [4, 1],
+    [5, 1],
+    [0, 6],
   ]);
-  const current = { lastServerSeq: 3 };
-  service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT], current));
-  expect(sam.take().map((m) => m.type)).toEqual(["SUBSCRIBED", "SYNC"]);
+});
+
+test("a device that holds nothing of the script is sent no deletions, and one recovering with an empty vector still is", () => {
+  const { service, dana } = deletedUnseen();
+  const join = (lastServerSeq: number): string[] => {
+    dana.take();
+    const extra = { lastServerSeq };
+    service.receive(dana, subscribe(DOC, "edit", [DANA_CLIENT], extra));
+    service.receive(dana, step1(DOC, EMPTY_VECTOR));
+    return stepsOf(dana.take());
+  };
+  expect([join(0), join(4)]).toEqual([
+    ["SUBSCRIBED", "step1", "step2"],
+    ["SUBSCRIBED", "step1", "update", "step2"],
+  ]);
 });
 
 const refusalOf = (

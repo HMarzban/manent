@@ -10,6 +10,7 @@ import { createAwarenessHub } from "./awareness.ts";
 import type { DocumentAccess } from "./access.ts";
 import { createInlineCheckpointer } from "./checkpointer.ts";
 import { countingCommits } from "./counted-storage.ts";
+import { createDeletions } from "./deletions.ts";
 import { refusalError, syncError } from "./errors.ts";
 import { createHealing } from "./heal.ts";
 import { DEFAULT_LIMITS, NO_SETTINGS } from "./ports.ts";
@@ -26,10 +27,9 @@ import { createRooms } from "./rooms.ts";
 import type { Room, Subscription } from "./rooms.ts";
 import { isStorageError } from "./storage-error.ts";
 import {
+  answerStepOne,
   checkSubscribe,
-  editorOpening,
   registerEditor,
-  stepTwo,
   subscribedOf,
 } from "./subscribe.ts";
 import type { SubscribeMessage } from "./subscribe.ts";
@@ -92,6 +92,8 @@ export interface SyncSettings {
 interface Held {
   room: Room;
   subscription: Subscription;
+  /** As the SUBSCRIBE gave it. */
+  lastServerSeq: number;
 }
 
 interface PeerState {
@@ -127,6 +129,7 @@ export function createSyncService(
     options.checkpointer ??
     createInlineCheckpointer({ storage: options.storage, defer });
   const rooms = createRooms({ storage, clock, limits, checkpointer });
+  const deletions = createDeletions();
   const access = createDocumentAccess({
     storage: options.storage,
     versions: options.versions,
@@ -283,11 +286,13 @@ export function createSyncService(
     };
     // a viewer's snapshot holds only what is committed, and comes before any patch
     if (mode === "view" && writePath.queued() > 0) writePath.flush();
-    state.held.set(docId, { room, subscription });
+    const { lastServerSeq } = message;
+    state.held.set(docId, { room, subscription, lastServerSeq });
     (mode === "edit" ? room.editors : room.viewers).set(peer, subscription);
     tell(peer, subscribedOf(room, granted, heal.headOf(room)));
-    if (mode === "edit") {
-      for (const m of editorOpening(room, message.lastServerSeq)) tell(peer, m);
+    const vector = room.doc?.encodeStateVector();
+    if (mode === "edit" && vector !== undefined) {
+      tell(peer, { type: "SYNC", ...docOf(room), step: "step1", data: vector });
       return presence.joined(room, peer);
     }
     tell(peer, snapshotOf(room));
@@ -310,14 +315,16 @@ export function createSyncService(
         syncError("not_subscribed", { docId, generation: message.generation }),
       );
     if (held === undefined) return notSubscribed();
-    const { room, subscription } = held;
+    const { room, subscription, lastServerSeq } = held;
     if (type === "PUSH") return writePath.push(room, subscription, message);
     if (type === "SET") return writePath.set(room, subscription, message);
     if (subscription.mode !== "edit") return notSubscribed();
     if (type === "AWARENESS")
       counted.awarenessDropped += presence.accept(room, peer, message.update);
-    if (type === "SYNC" && message.step === "step1")
-      tell(peer, stepTwo(rooms, room, message.data));
+    if (type !== "SYNC" || message.step !== "step1") return;
+    const step = { vector: message.data, lastServerSeq };
+    for (const m of answerStepOne({ rooms, deletions }, room, step))
+      tell(peer, m);
   }
 
   function detach(peer: Peer): void {

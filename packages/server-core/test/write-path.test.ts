@@ -8,6 +8,7 @@ import {
 import type { Home } from "@manent/storage";
 import { SimulatedCrash } from "@manent/storage/testing";
 import { MESSAGE_LIMIT_BYTES } from "@manent/sync-protocol";
+import type { WritePathPorts } from "../src/index.ts";
 import {
   BLOCK,
   DOC,
@@ -97,6 +98,20 @@ test("a push is committed, then acknowledged, then published — in that order",
   expect(events.map((e) => e.type)).toEqual(["commit", "ack", "publish"]);
   expect(events[1]).toMatchObject({ clientSeq: 1, serverSeq: 1 });
   expect(room.file.log.get(DOC)!.headSeq).toBe(1);
+});
+
+test("only a heal push is put to the heal rule, so an ordinary push reads no ledger", () => {
+  const asked: boolean[] = [];
+  const admitsForeign: WritePathPorts["admitsForeign"] = (_r, _u, heal) => {
+    asked.push(heal);
+    return false;
+  };
+  const { path, room, subA, clock } = createWorld({ ports: { admitsForeign } });
+  const typing = typistFor(ALICE_CLIENT, BLOCK);
+  path.push(room, subA, pushOf(1, typing("a")));
+  path.push(room, subA, { ...pushOf(2, typing("b")), heal: true });
+  clock.runDeferred();
+  expect(asked).toEqual([true]);
 });
 
 test("pushes of one turn share one transaction and keep their order", () => {

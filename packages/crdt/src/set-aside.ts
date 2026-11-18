@@ -238,7 +238,7 @@ export function applyRemote(
  */
 export function deletionsOf(updates: readonly Update[]): Update | null {
   const merged = Y.mergeUpdates([...updates]);
-  if (Y.decodeUpdate(merged).ds.clients.size === 0) return null;
   const { to } = Y.parseUpdateMeta(merged);
-  return Y.diffUpdate(merged, Y.encodeStateVector(to));
+  const deletions = Y.diffUpdate(merged, Y.encodeStateVector(to));
+  return Y.decodeUpdate(deletions).ds.clients.size === 0 ? null : deletions;
 }

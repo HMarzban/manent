@@ -209,7 +209,9 @@ export function createWritePath(ports: WritePathPorts): WritePath {
     const foreign = metas.filter(
       ({ clientId }) => room.owners.get(clientId) !== peer.userId,
     );
+    // only a heal can be admitted, and asking reads the document's whole ledger
     const admitted =
+      heal &&
       mode === "authority" &&
       ports.admitsForeign(room, peer.userId, heal, foreign);
     if (admitted) return "heal";
