@@ -51,8 +51,17 @@ export function dropSlice(
   ids: IdSource,
 ): Transaction {
   const tr = state.tr;
-  if (origin === "moved")
+  let at = pos;
+  if (origin === "moved") {
+    const $to = Selection.near(state.doc.resolve(state.selection.to), -1).$to;
     deleteRangeKeepingSections(tr, state.selection.from, state.selection.to);
-  tr.setSelection(Selection.near(tr.doc.resolve(tr.mapping.map(pos))));
+    // The range's last block is deleted whole and its tail re-inserted at the join, which the mapping cannot follow.
+    const inTail = pos >= $to.pos && $to.sameParent(state.doc.resolve(pos));
+    at =
+      tr.docChanged && inTail
+        ? tr.selection.from + (pos - $to.pos)
+        : tr.mapping.map(pos);
+  }
+  tr.setSelection(Selection.near(tr.doc.resolve(at)));
   return paste(tr, slice, ids);
 }

@@ -106,3 +106,24 @@ test("a dragged selection is removed from where it was", () => {
     ["three", "fourone"],
   ]);
 });
+
+/** "two" to "three" dragged to "three fo|ur", in block `toBlock`. */
+function dropInOwnTail(sections: string[][], toBlock: number): string[][] {
+  const s = stateAt(docOf(sections), 0, 4, toBlock, 5);
+  const pos = stateAt(s.doc, toBlock, 8).selection.from;
+  return texts(
+    s.apply(dropSlice(s, s.selection.content(), pos, "moved", counter("p")))
+      .doc,
+  );
+}
+
+test("a selection dragged into its own last block's tail lands where it was dropped", () => {
+  expect(dropInOwnTail([["one two", "three four"], ["next"]], 1)).toEqual([
+    ["one  fo", "two", "three", "ur"],
+    ["next"],
+  ]);
+  expect(dropInOwnTail([["one two"], ["three four", "next"]], 1)).toEqual([
+    ["one  fo", "two", "three", "ur"],
+    ["next"],
+  ]);
+});
