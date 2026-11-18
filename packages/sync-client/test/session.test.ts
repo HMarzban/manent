@@ -524,12 +524,6 @@ test("each ERROR for a document has its one answer", async () => {
       permanent: false,
       side: ["read_only"],
     },
-    {
-      code: CODE.VALIDATION_FAILED,
-      message: "invalid",
-      permanent: true,
-      side: ["rejected"],
-    },
   ];
   for (const stop of stops) {
     const { w, h } = await openTyped();

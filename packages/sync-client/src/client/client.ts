@@ -152,6 +152,7 @@ class Client implements SyncClient {
       create,
       link: this.sessionLink(),
       writeSchema: this.writeSchema(),
+      uploadVersion: this.options.uploadVersion ?? null,
       replaceConnection: (reason) => this.replace(reason),
       closed: () => this.sessions.delete(docId),
     }).then((session) => {

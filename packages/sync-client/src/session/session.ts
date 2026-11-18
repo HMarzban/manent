@@ -6,10 +6,12 @@ import {
   createDoc,
   loadDoc,
   observeScript,
+  readStateVector,
   scriptBody,
   updateMeta,
 } from "@manent/crdt";
 import type { CrdtDoc, TransactionReport } from "@manent/crdt";
+import { CODE } from "@manent/sync-protocol";
 import type { DocumentMessage, Message } from "@manent/sync-protocol";
 import { createCoalescer } from "../coalescer/coalescer.ts";
 import type { Coalescer } from "../coalescer/coalescer.ts";
@@ -37,7 +39,9 @@ import type {
   Subscribable,
   SyncClientPorts,
 } from "../ports/ports.ts";
-import { createHandshake } from "./handshake.ts";
+import { rejectedItems } from "../recovery/recover.ts";
+import { deviceVersion, offerVersions } from "../recovery/versions.ts";
+import { createHandshake, needsHeal } from "./handshake.ts";
 import type { Ending, Handshake, HandshakeHost } from "./handshake.ts";
 import { createSettingsOverlay } from "./settings.ts";
 
@@ -102,8 +106,21 @@ interface SessionOptions {
   create: DocMeta["create"];
   link: SessionLink;
   writeSchema: number;
+  uploadVersion: ((version: DeviceVersion) => Promise<boolean>) | null;
   replaceConnection(reason: string): void;
   closed(): void;
+}
+
+/**
+ * A permanently rejected push being recovered: the device version that keeps
+ * the document, whether the push was the heal push, the code it was refused
+ * with (null when a reopened session resumes one), and the new client ID.
+ */
+interface Recovery {
+  versionId: string;
+  heal: boolean;
+  code: number | null;
+  clientId: number;
 }
 
 const LINK_SIDE: Readonly<Record<LinkIssue, SideState | null>> = Object.freeze({
@@ -176,7 +193,7 @@ export async function openSession(options: SessionOptions): Promise<Session> {
 class DocSession implements Session, HandshakeHost {
   readonly handle: DocHandle;
   private meta: DocMeta;
-  private readonly doc: CrdtDoc;
+  private doc: CrdtDoc;
   private entries: StoredEntry[];
   private nextLocalSeq: number;
   private recovered: RecoveredItem[] = [];
@@ -202,23 +219,29 @@ class DocSession implements Session, HandshakeHost {
   private receipt: { sent: number; setAside: number } | null = null;
   private readonly options: SessionOptions;
   private readonly handshake: Handshake;
-  private readonly coalescer: Coalescer;
+  private coalescer: Coalescer;
   private readonly overlay = createSettingsOverlay(() => this.doc);
   private readonly status: ReturnType<typeof createSubscribable<DocStatus>>;
   private readonly recoveredView = createSubscribable<readonly RecoveredItem[]>(
     [],
   );
   private readonly schema: ReturnType<typeof createSubscribable<number>>;
-  private readonly unobserve: () => void;
+  private unobserve: () => void = () => {};
+  /** The last state everything was synced at, as the store gave it; null when there is none. */
+  private syncedBase: Uint8Array | null;
+  private recovery: Recovery | null = null;
+  /** The `clientSeq` of the heal push in flight on this subscription. */
+  private healSeq: number | null = null;
+  /** The connection the device versions were last offered on. */
+  private offeredOn = -1;
 
   constructor(options: SessionOptions, loaded: LoadedDocument | null) {
     const { docId, ports } = options;
     this.options = options;
     this.meta = loaded?.meta ?? freshMeta(docId, options.create);
     this.facts = options.link;
-    let clientId = ports.random.clientId();
-    while (this.meta.clientIds.includes(clientId))
-      clientId = ports.random.clientId();
+    this.syncedBase = loaded?.syncedBase ?? null;
+    const clientId = this.freshClientId();
     const checkpoint = loaded?.checkpoint ?? null;
     this.doc =
       checkpoint === null
@@ -231,15 +254,23 @@ class DocSession implements Session, HandshakeHost {
     const seqs = this.entries.map((e) => e.localSeq);
     this.nextLocalSeq = Math.max(checkpoint?.throughLocalSeq ?? 0, ...seqs) + 1;
     this.handshake = createHandshake({ docId, clock: ports.clock, host: this });
-    this.coalescer = createCoalescer({
-      apply: (merged, through) =>
-        this.appliedTo(through, this.applyServer(merged)),
-      frames: ports.frames,
-      clock: ports.clock,
-    });
+    this.coalescer = this.bind(this.doc);
     this.status = createSubscribable(this.computeStatus());
     this.schema = createSubscribable(options.writeSchema);
-    this.unobserve = observeScript(this.doc, (report) => {
+    const { recovering } = this.meta;
+    if (recovering !== null)
+      this.recovery = {
+        ...recovering,
+        code: null,
+        clientId: this.freshClientId(),
+      };
+    this.handle = this.handleOf();
+  }
+
+  /** Observes `doc` for local changes, and makes the coalescer that applies server updates to the bound document. */
+  private bind(doc: CrdtDoc): Coalescer {
+    this.unobserve();
+    this.unobserve = observeScript(doc, (report) => {
       // nothing may throw into Yjs: what does is thrown again once the change is done
       try {
         this.changed(report);
@@ -249,7 +280,24 @@ class DocSession implements Session, HandshakeHost {
         });
       }
     });
-    this.handle = this.handleOf();
+    const { frames, clock } = this.options.ports;
+    const coalescer = createCoalescer({
+      apply: (merged, through) =>
+        this.appliedTo(through, this.applyServer(merged)),
+      frames,
+      clock,
+    });
+    for (let i = 0; i < this.holding; i++) coalescer.hold();
+    return coalescer;
+  }
+
+  /** A Yjs client ID this device never used for the document. */
+  private freshClientId(): number {
+    const { random } = this.options.ports;
+    const used = new Set([...this.meta.clientIds, this.recovery?.clientId]);
+    let clientId = random.clientId();
+    while (used.has(clientId)) clientId = random.clientId();
+    return clientId;
   }
 
   /**
@@ -282,7 +330,10 @@ class DocSession implements Session, HandshakeHost {
     this.coalescer.flushNow();
     this.prune();
     this.overlay.show();
-    this.refresh();
+    if (this.recovery !== null) this.side.add("rejected");
+    const { parked } = this.meta;
+    if (parked === null) this.refresh();
+    else this.stop(parked.reason);
   }
 
   link(facts: SessionLink): void {
@@ -326,14 +377,36 @@ class DocSession implements Session, HandshakeHost {
     this.schema.set(version);
   }
 
+  /** A recovery subscribes under its new client ID, with an empty state vector, to be sent the whole state. */
   subscription(): ReturnType<HandshakeHost["subscription"]> {
-    const { meta } = this;
+    const { meta, recovery } = this;
+    const clientIds =
+      recovery === null
+        ? meta.clientIds
+        : [...meta.clientIds, recovery.clientId];
     return {
       generation: meta.generation,
-      clientIds: meta.clientIds.slice(-SUBSCRIBE_CLIENT_IDS),
+      clientIds: clientIds.slice(-SUBSCRIBE_CLIENT_IDS),
       lastServerSeq: meta.lastServerSeq,
-      vector: this.doc.encodeStateVector(),
+      vector: (recovery === null ? this.doc : createDoc()).encodeStateVector(),
     };
+  }
+
+  heal(serverVector: Uint8Array): ReturnType<HandshakeHost["heal"]> {
+    this.healSeq = null;
+    if (this.recovery !== null) return null;
+    const { meta } = this;
+    const due = needsHeal({
+      headSeq: this.headSeq,
+      lastServerSeq: meta.lastServerSeq,
+      own: readStateVector(this.doc.encodeStateVector()),
+      server: readStateVector(serverVector),
+      ownClientIds: new Set(meta.clientIds),
+      ackedClocks: meta.ackedClocks,
+    });
+    if (!due) return null;
+    this.healSeq = this.nextLocalSeq - 1;
+    return { clientSeq: this.healSeq, update: this.doc.diff(serverVector) };
   }
 
   outbox(afterSeq: number): ReturnType<HandshakeHost["outbox"]> {
@@ -350,9 +423,18 @@ class DocSession implements Session, HandshakeHost {
 
   /** The server's step 2. One that changes nothing is not stored, so it takes no local sequence. */
   stepTwo(update: Uint8Array): void {
+    if (this.recovery !== null) this.recover(this.recovery, update);
+    else this.merge(update);
+    this.patch({
+      lastServerSeq: Math.max(this.meta.lastServerSeq, this.headSeq),
+      ...(this.hasWaiting() ? {} : { lastSyncedAt: this.now() }),
+    });
+  }
+
+  private merge(update: Uint8Array): void {
     const waiting = waitingCount(this.entries);
     if (waiting > 0 && !this.meta.neverSynced)
-      void this.recordVersion("device", "before_reconnect");
+      this.recordVersion("device", "before_reconnect");
     if (waiting > 0)
       this.receipt = { sent: waiting, setAside: this.recovered.length };
     if (this.holding > 0) this.update(update);
@@ -367,10 +449,70 @@ class DocSession implements Session, HandshakeHost {
         this.appliedTo(localSeq, items);
       }
     }
-    this.patch({
-      lastServerSeq: Math.max(this.meta.lastServerSeq, this.headSeq),
-      ...(this.hasWaiting() ? {} : { lastSyncedAt: this.now() }),
+  }
+
+  /**
+   * Step 2 of a recovery holds the server's whole state: the document is
+   * replaced by it, and what the rejected push held that the server lacks is
+   * filed as Recovered text, never written into the new document.
+   */
+  private recover(recovery: Recovery, update: Uint8Array): void {
+    const { docId, ports } = this.options;
+    const next = loadDoc(update, { clientId: recovery.clientId });
+    const theirs = scriptBody(next).materialize();
+    const synced =
+      this.syncedBase === null ? createDoc() : loadDoc(this.syncedBase);
+    // after a refused heal push the server lost part of what was synced: theirs is the base
+    const base = recovery.heal ? theirs : scriptBody(synced).materialize();
+    const mine = scriptBody(this.doc).materialize();
+    const items = rejectedItems({
+      docId,
+      base,
+      mine,
+      theirs,
+      recoveredAt: this.now(),
+      newId: () => this.newId(),
     });
+    const state = next.encodeState();
+    const meta: DocMeta = {
+      ...this.meta,
+      clientIds: [...this.meta.clientIds, recovery.clientId],
+      recovering: null,
+    };
+    void this.persist(() => ports.store.markApplied(docId, 0, items));
+    void this.persist(() => ports.store.reset(docId, state, meta));
+    this.meta = meta;
+    this.syncedBase = state;
+    this.recovery = null;
+    this.healSeq = null;
+    this.entries = this.entries.filter((e) => e.kind === "set" && !e.acked);
+    const previous = this.coalescer;
+    this.doc = next;
+    this.coalescer = this.bind(next);
+    previous.dispose();
+    this.recovered = [...this.recovered, ...items];
+    this.recoveredView.set(this.recovered);
+    this.side.delete("rejected");
+    this.overlay.show();
+    this.emit({ type: "replaced", reason: "rejected" });
+    if (items.length > 0) this.emit({ type: "recovered", items });
+    if (recovery.code !== null)
+      this.emit({
+        type: "rejected",
+        code: recovery.code,
+        replayed: 0,
+        setAside: items.length,
+      });
+  }
+
+  /** A permanently rejected push: the document is kept as a version, and subscribed to afresh under a new client ID. */
+  private reject(code: number, clientSeq: number | null): void {
+    const heal = clientSeq !== null && clientSeq === this.healSeq;
+    const versionId = this.recordVersion("recovered", "rejected").id;
+    this.recovery = { versionId, heal, code, clientId: this.freshClientId() };
+    this.side.add("rejected");
+    this.patch({ recovering: { versionId, heal } });
+    this.handshake.resubscribe();
   }
 
   /** A server update is stored at once and shown at the next frame. */
@@ -424,11 +566,15 @@ class DocSession implements Session, HandshakeHost {
   ended(ending: Ending): void {
     switch (ending.type) {
       case "stopped":
-        this.stop(ending.side);
+        if (ending.side === "rejected")
+          this.reject(ending.code, ending.clientSeq);
+        else if (ending.side === "deleted") this.park("deleted");
+        else this.stop(ending.side);
         return;
       case "forbidden": {
         const { create, neverSynced } = this.meta;
-        if (!neverSynced || create === null || this.createdAgain)
+        if (!neverSynced) this.park("access_removed");
+        else if (create === null || this.createdAgain)
           this.stop("access_removed");
         else {
           this.createdAgain = true;
@@ -442,7 +588,7 @@ class DocSession implements Session, HandshakeHost {
             (id) => id !== this.doc.clientId,
           ),
         });
-        this.stop("rejected");
+        this.reject(CODE.BAD_FRAME, null);
         return;
       case "moved":
         this.stop(null);
@@ -479,7 +625,7 @@ class DocSession implements Session, HandshakeHost {
     const since = this.now() - this.meta.lastDeviceVersionAt;
     const due = since >= DEVICE_VERSION_INTERVAL_MS || since < 0;
     if (this.facts.state !== "online" && due)
-      void this.recordVersion("device", "hourly");
+      this.recordVersion("device", "hourly");
     this.refresh();
   }
 
@@ -544,22 +690,30 @@ class DocSession implements Session, HandshakeHost {
     this.refresh();
   }
 
+  /** Keeps the document as a device version; `stored` settles once it is written. */
   private recordVersion(
     kind: DeviceVersion["kind"],
     label: DeviceVersion["label"],
-  ): Promise<void> {
+  ): { id: string; stored: Promise<void> } {
     const createdAt = this.now();
-    const version: DeviceVersion = {
-      id: this.newId(),
-      docId: this.options.docId,
+    const { docId, ports } = this.options;
+    const id = this.newId();
+    const version = deviceVersion(this.doc, {
+      id,
+      docId,
       kind,
       label,
       createdAt,
-      content: scriptBody(this.doc).materialize(),
-      uploaded: false,
-    };
+    });
     this.patch({ lastDeviceVersionAt: createdAt });
-    return this.persist(() => this.options.ports.store.addVersion(version));
+    return { id, stored: this.persist(() => ports.store.addVersion(version)) };
+  }
+
+  /** Access removed, or the document deleted, with edits waiting: they are kept and never sent. */
+  private park(reason: "access_removed" | "deleted"): void {
+    if (this.hasWaiting())
+      this.patch({ parked: { reason, parkedAt: this.now() } });
+    this.stop(reason);
   }
 
   private createThenSubscribe(create: { kind: string; home: string }): void {
@@ -648,8 +802,16 @@ class DocSession implements Session, HandshakeHost {
     });
   }
 
+  /** Shows the status; once synced on a connection, offers the device versions for upload. */
   private refresh(): void {
-    this.status.set(this.computeStatus());
+    const status = this.computeStatus();
+    this.status.set(status);
+    const upload = this.options.uploadVersion;
+    if (upload === null || !status.synced || this.offeredOn === this.connection)
+      return;
+    this.offeredOn = this.connection;
+    const { store } = this.options.ports;
+    void this.persist(() => offerVersions(store, this.options.docId, upload));
   }
 
   private emit(event: DocEvent): void {
@@ -690,7 +852,7 @@ class DocSession implements Session, HandshakeHost {
         this.awarenessListeners.add(listener);
         return () => this.awarenessListeners.delete(listener);
       },
-      saveVersion: (label) => this.recordVersion("device", label),
+      saveVersion: (label) => this.recordVersion("device", label).stored,
       close: () => this.close(),
     };
   }

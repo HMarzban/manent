@@ -1,6 +1,6 @@
 // One document's exchange with the server on the current connection: the subscription and
 // the server's two steps, the outbox in flight, and what each ERROR ends.
-import { CrdtUpdateError, updateMeta } from "@manent/crdt";
+import { CrdtUpdateError, readStateVector, updateMeta } from "@manent/crdt";
 import { CODE } from "@manent/sync-protocol";
 import type { DocumentMessage, Message } from "@manent/sync-protocol";
 import type { ServerGate } from "../link/gate.ts";
@@ -43,6 +43,10 @@ export interface HandshakeHost {
   /** The waiting entries after `afterSeq` that may be sent now, as items. */
   outbox(afterSeq: number): OutboxItem[];
   subscribed(message: Subscribed): void;
+  /** The heal push to send before the outbox, given the server's state vector; null when none is due. */
+  heal(
+    serverVector: Uint8Array,
+  ): { clientSeq: number; update: Uint8Array } | null;
   stepTwo(update: Uint8Array): void;
   update(update: Uint8Array): void;
   acknowledged(clientSeq: number, serverSeq: number): void;
@@ -63,6 +67,8 @@ export interface Handshake {
   connect(send: (message: Message) => void, gate: ServerGate): void;
   disconnect(): void;
   subscribe(): void;
+  /** UNSUBSCRIBE, then SUBSCRIBE again from the start. */
+  resubscribe(): void;
   stop(): void;
   resume(): void;
   receive(message: DocumentMessage): void;
@@ -80,9 +86,37 @@ export interface Handshake {
 
 const UTF8 = new TextEncoder();
 
-function isWholeUpdate(bytes: Uint8Array): boolean {
+/**
+ * The client's rule of healing: the server is behind the head it once named, or
+ * lacks structs it acknowledged (for an own client ID, up to `ackedClocks`) or
+ * sent (for anyone else's, up to the client's own clock for that ID). Vectors
+ * map a client ID to its next clock.
+ */
+export function needsHeal(input: {
+  headSeq: number;
+  lastServerSeq: number;
+  own: ReadonlyMap<number, number>;
+  server: ReadonlyMap<number, number>;
+  ownClientIds: ReadonlySet<number>;
+  ackedClocks: Readonly<Record<string, number>>;
+}): boolean {
+  if (input.headSeq < input.lastServerSeq) return true;
+  for (const [clientId, clock] of input.own) {
+    const known = input.ownClientIds.has(clientId)
+      ? (input.ackedClocks[clientId] ?? 0)
+      : clock;
+    if ((input.server.get(clientId) ?? 0) < known) return true;
+  }
+  return false;
+}
+
+/** False for bytes `read` refuses as not a whole update or state vector. */
+function isWhole(
+  bytes: Uint8Array,
+  read: (bytes: Uint8Array) => unknown,
+): boolean {
   try {
-    updateMeta(bytes);
+    read(bytes);
     return true;
   } catch (error) {
     if (error instanceof CrdtUpdateError) return false;
@@ -136,6 +170,8 @@ class Exchange implements Handshake {
   /** The `clientSeq` of each push and setting sent and not yet answered, oldest first. */
   private inFlight: number[] = [];
   private sentThrough = 0;
+  /** The server's step 1 on this subscription. */
+  private serverVector: Uint8Array | null = null;
   private cancel: (() => void) | null = null;
   private readonly docId: string;
   private readonly clock: Clock;
@@ -164,6 +200,7 @@ class Exchange implements Handshake {
     const { docId } = this;
     this.generation = s.generation;
     this.gotSubscribed = false;
+    this.serverVector = null;
     this.inFlight = [];
     this.sentThrough = 0;
     this.phase = "handshake";
@@ -183,6 +220,15 @@ class Exchange implements Handshake {
       data: s.vector,
     });
     this.arm(HANDSHAKE_TIMEOUT_MS, () => this.timedOut());
+  }
+
+  resubscribe(): void {
+    this.send?.({
+      type: "UNSUBSCRIBE",
+      docId: this.docId,
+      generation: this.generation,
+    });
+    this.subscribe();
   }
 
   stop(): void {
@@ -257,9 +303,6 @@ class Exchange implements Handshake {
     for (const item of this.host.outbox(this.sentThrough)) {
       if (this.inFlight.length >= IN_FLIGHT) return;
       this.sendItem(item);
-      this.inFlight.push(item.clientSeq);
-      this.sentThrough = item.clientSeq;
-      if (this.inFlight.length === 1) this.armAck();
     }
   }
 
@@ -292,13 +335,15 @@ class Exchange implements Handshake {
   }
 
   private sync(m: Extract<DocumentMessage, { type: "SYNC" }>): void {
-    if (!this.gotSubscribed || m.step === "step1") {
-      if (this.phase === "handshake" && this.gotSubscribed)
-        this.arm(HANDSHAKE_TIMEOUT_MS, () => this.timedOut());
+    if (!this.gotSubscribed) return;
+    if (!isWhole(m.data, m.step === "step1" ? readStateVector : updateMeta)) {
+      this.host.replaceConnection("bad_update");
       return;
     }
-    if (!isWholeUpdate(m.data)) {
-      this.host.replaceConnection("bad_update");
+    if (m.step === "step1") {
+      if (this.phase !== "handshake") return;
+      this.serverVector = m.data;
+      this.arm(HANDSHAKE_TIMEOUT_MS, () => this.timedOut());
       return;
     }
     if (m.step === "update") {
@@ -309,27 +354,47 @@ class Exchange implements Handshake {
     this.disarm();
     this.phase = "live";
     this.timeouts = 0;
+    const heal =
+      this.serverVector === null ? null : this.host.heal(this.serverVector);
+    // its acknowledgement covers every entry up to it, so the outbox goes on after it
+    if (heal !== null)
+      this.sendEntry({
+        type: "PUSH",
+        docId: this.docId,
+        generation: this.generation,
+        ...heal,
+        heal: true,
+      });
     this.host.stepTwo(m.data);
     this.pump();
   }
 
+  /** Sends a push or a setting, and waits for its answer. */
+  private sendEntry(message: Extract<Message, { type: "PUSH" | "SET" }>): void {
+    this.send?.(message);
+    this.inFlight.push(message.clientSeq);
+    this.sentThrough = message.clientSeq;
+    if (this.inFlight.length === 1) this.armAck();
+  }
+
   private sendItem(item: OutboxItem): void {
     const { docId, generation } = this;
+    const { clientSeq } = item;
     if (item.kind === "push")
-      this.send?.({
+      this.sendEntry({
         type: "PUSH",
         docId,
         generation,
-        clientSeq: item.clientSeq,
+        clientSeq,
         update: item.update,
         heal: false,
       });
     else
-      this.send?.({
+      this.sendEntry({
         type: "SET",
         docId,
         generation,
-        clientSeq: item.clientSeq,
+        clientSeq,
         key: item.key,
         value: UTF8.encode(item.value),
       });
