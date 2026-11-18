@@ -11,7 +11,7 @@ export function DemoBar(props: {
   return (
     <section
       aria-label={TEXT.demo}
-      className="flex items-center gap-4 bg-neutral-900 px-4 py-2 text-sm text-white"
+      className="flex items-center gap-4 px-4 py-2 text-ui text-fg"
     >
       <span className="font-semibold">{TEXT.demo}</span>
       <button
@@ -62,7 +62,7 @@ function ServerStatus(props: DemoControl) {
           type="button"
           disabled={action.isPending}
           onClick={() => action.mutate(kind)}
-          className="rounded bg-white px-2 py-1 text-neutral-900 hover:bg-neutral-200"
+          className="rounded bg-chrome px-2 py-1 text-fg hover:bg-subtle"
         >
           {kind === "stop" ? TEXT.stopServer : TEXT.startServer}
         </button>

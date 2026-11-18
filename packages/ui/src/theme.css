@@ -1,1 +1,1374 @@
-/* The theme: every colour token, in light and dark. */
+/* ==========================================================================
+   Manent theme — packages/ui/src/theme.css
+   The only file in the repository that may contain a colour literal.
+   Order: imports · variants · scheme · 1 primitives · 2 semantic (chrome,
+   page, high contrast, demo scope, scales) · 3 component · geometry ·
+   shadcn aliases · Tailwind mapping · base · stock corrections · rows ·
+   the page · motion · forced colours · print.
+   ========================================================================== */
+
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./components/stock/shadcn.css";
+@import "@fontsource-variable/inter";
+
+/* A theme is a set of token values, never a second set of classes. The dark:
+   variant is therefore made inert: every component has one class list, and
+   the stock dark: utilities (written for shadcn's own dark tokens) do nothing. */
+@custom-variant dark (&:where([data-never]));
+
+/* --------------------------------------------------------------------------
+   SCHEME. One attribute: data-theme is "light",
+   "dark", or absent, meaning "follow the system". Every colour below is a
+   light-dark() pair, so the browser picks the value from color-scheme with
+   no script, and any subtree can carry a scheme of its own.
+   -------------------------------------------------------------------------- */
+:root {
+  color-scheme: light dark;
+}
+[data-theme="light"] {
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+html[data-white-page] .mn-pages {
+  color-scheme: light;
+} /* White page in dark theme */
+
+/* --------------------------------------------------------------------------
+   TIER 1 — PRIMITIVES. Raw values. Referenced only by tier 2, never by a
+   component, a utility class or the page stylesheet.
+   -------------------------------------------------------------------------- */
+:root {
+  /* warm neutrals */
+  --p-warm-0: #FFFFFF;
+  --p-warm-25: #FDFCFA;
+  --p-warm-50: #F6F4F0;
+  --p-warm-100: #EFECE6;
+  --p-warm-150: #E9E6E0;
+  --p-warm-200: #E1DDD5;
+  --p-warm-300: #D8D3CA;
+  --p-warm-350: #B8B2A7;
+  --p-warm-400: #A9A49B;
+  --p-warm-500: #878178;
+  --p-warm-550: #7D7870;
+  --p-warm-600: #6F6A62;
+  --p-warm-650: #5A564F;
+  --p-warm-700: #4A4640;
+  --p-warm-750: #423F3A;
+  --p-warm-800: #302E2B;
+  --p-warm-825: #2A2826;
+  --p-warm-850: #272523;
+  --p-warm-875: #232220;
+  --p-warm-900: #1F1D1A;
+  --p-warm-925: #1A1918;
+  --p-warm-950: #121211;
+  --p-warm-1000: #0A0A09;
+  --p-ink: #1A1A1A;
+  --p-black: #000000;
+
+  /* blue — the one accent; reserved for "you" and for focus */
+  --p-blue-50: #E2E9F8;
+  --p-blue-200: #B7CBFF;
+  --p-blue-300: #8DAEFF;
+  --p-blue-600: #2450BE;
+  --p-blue-700: #1A429F;
+  --p-blue-800: #0B2A70;
+  --p-blue-900: #25324F;
+  --p-blue-950: #1B2A52;
+
+  /* status */
+  --p-green-200: #A5E8C2;
+  --p-green-300: #6FCF9A;
+  --p-green-700: #17633D;
+  --p-green-800: #0C4026;
+  --p-amber-200: #F5D27A;
+  --p-amber-300: #E3B341;
+  --p-amber-700: #775000;
+  --p-amber-800: #523400;
+  --p-red-200: #FFCBC6;
+  --p-red-300: #FFA199;
+  --p-red-700: #A8221B;
+  --p-red-800: #6B0F0A;
+
+  /* revision papers: tint = the paper as it is, shade = the paper darkened
+     to sit under light ink, deep = an edge that reaches 3:1 on light grounds */
+  --p-rev-white-deep: #6B6B6B;
+  --p-rev-blue-tint: #D3E6FA;
+  --p-rev-blue-shade: #1C2F45;
+  --p-rev-blue-deep: #1F63B5;
+  --p-rev-pink-tint: #FAD7E3;
+  --p-rev-pink-shade: #44222F;
+  --p-rev-pink-deep: #B8326F;
+  --p-rev-yellow-tint: #FBF3B9;
+  --p-rev-yellow-shade: #3D3712;
+  --p-rev-yellow-deep: #7A6400;
+  --p-rev-green-tint: #D5EDD0;
+  --p-rev-green-shade: #1F3A22;
+  --p-rev-green-deep: #2C7A31;
+  --p-rev-goldenrod-tint: #F4D88F;
+  --p-rev-goldenrod-shade: #44340F;
+  --p-rev-goldenrod-deep: #8A5D00;
+  --p-rev-buff-tint: #EFDFBD;
+  --p-rev-buff-shade: #3A3220;
+  --p-rev-buff-deep: #7D6328;
+  --p-rev-salmon-tint: #F8C8B4;
+  --p-rev-salmon-shade: #47271B;
+  --p-rev-salmon-deep: #B4492A;
+  --p-rev-cherry-tint: #F3B1B8;
+  --p-rev-cherry-shade: #4A1C24;
+  --p-rev-cherry-deep: #A8243A;
+  --p-rev-tan-tint: #DCC7A6;
+  --p-rev-tan-shade: #372C1B;
+  --p-rev-tan-deep: #775A2B;
+
+  /* qualitative: people and charts. No blue: blue is yours. */
+  --p-qual-1-deep: #AD3409;
+  --p-qual-1-bright: #FF9B73; /* Ember */
+  --p-qual-2-deep: #0A6777;
+  --p-qual-2-bright: #5FD0E0; /* Teal */
+  --p-qual-3-deep: #6D38D9;
+  --p-qual-3-bright: #B79CFF; /* Violet */
+  --p-qual-4-deep: #805300;
+  --p-qual-4-bright: #E8B84A; /* Ochre */
+  --p-qual-5-deep: #A81E6B;
+  --p-qual-5-bright: #FF8CC6; /* Magenta */
+  --p-qual-6-deep: #156A33;
+  --p-qual-6-bright: #74D48F; /* Forest */
+  --p-qual-7-deep: #7A2D8F;
+  --p-qual-7-bright: #DB9CEB; /* Plum */
+  --p-qual-8-deep: #B0183D;
+  --p-qual-8-bright: #FF8A9B; /* Crimson */
+  --p-qual-9-deep: #5B6A0B;
+  --p-qual-9-bright: #C5D667; /* Olive */
+  --p-qual-10-deep: #4A5568;
+  --p-qual-10-bright: #A9B4C6; /* Slate */
+
+  /* the writer's own text colours: deep on light paper, bright on dark */
+  --p-write-red-deep: #8E1B14;
+  --p-write-red-bright: #FF9B93;
+  --p-write-orange-deep: #7A3E00;
+  --p-write-orange-bright: #F2B36B;
+  --p-write-green-deep: #0F5132;
+  --p-write-green-bright: #7FD9A5;
+  --p-write-blue-deep: #1A429F;
+  --p-write-blue-bright: #9DB8FF;
+  --p-write-violet-deep: #5B21A6;
+  --p-write-violet-bright: #C6A8FF;
+
+  /* demo instrumentation: a hue no surface of the product uses */
+  --p-demo-900: #352A56;
+  --p-demo-800: #44386B;
+  --p-demo-600: #8574B0;
+  --p-demo-300: #C9BEDD;
+  --p-demo-200: #D5C4FF;
+  --p-demo-50: #F3EEFB;
+}
+
+/* --------------------------------------------------------------------------
+   TIER 2 — SEMANTIC: CHROME. light-dark(light, dark).
+   -------------------------------------------------------------------------- */
+:root {
+  --bg-desk: light-dark(var(--p-warm-150), var(--p-warm-950));
+  --bg-chrome: light-dark(var(--p-warm-50), var(--p-warm-925));
+  --bg-raised: light-dark(var(--p-warm-25), var(--p-warm-900));
+  --bg-overlay: light-dark(var(--p-warm-25), var(--p-warm-800));
+  --bg-subtle: light-dark(rgb(31 29 26 / 0.06), rgb(239 236 230 / 0.06));
+  --bg-control: light-dark(rgb(31 29 26 / 0.10), rgb(239 236 230 / 0.09));
+  --bg-selected: light-dark(var(--p-blue-50), var(--p-blue-900));
+  --bg-accent: light-dark(var(--p-blue-600), var(--p-blue-300));
+  --bg-scrim: light-dark(rgb(31 29 26 / 0.32), rgb(0 0 0 / 0.5));
+  --fg: light-dark(var(--p-warm-900), var(--p-warm-100));
+  --fg-muted: light-dark(var(--p-warm-650), var(--p-warm-350));
+  --fg-disabled: light-dark(var(--p-warm-400), var(--p-warm-600));
+  --fg-on-accent: light-dark(var(--p-warm-0), var(--p-warm-950));
+  --fg-accent: light-dark(var(--p-blue-600), var(--p-blue-300));
+  --fg-ok: light-dark(var(--p-green-700), var(--p-green-300));
+  --fg-attention: light-dark(var(--p-amber-700), var(--p-amber-300));
+  --fg-danger: light-dark(var(--p-red-700), var(--p-red-300));
+  --fg-on-danger: light-dark(var(--p-warm-0), var(--p-warm-950));
+  --line: light-dark(var(--p-warm-300), var(--p-warm-750));
+  --line-strong: light-dark(var(--p-warm-500), var(--p-warm-550));
+  --focus: light-dark(var(--p-blue-600), var(--p-blue-300));
+  --chip-line: transparent;
+  --elev-overlay:
+    0 2px 6px light-dark(rgb(31 29 26 / 0.08), rgb(0 0 0 / 0.40)),
+    0 8px 24px light-dark(rgb(31 29 26 / 0.10), rgb(0 0 0 / 0.40));
+  --elev-dialog:
+    0 4px 12px light-dark(rgb(31 29 26 / 0.10), rgb(0 0 0 / 0.50)),
+    0 16px 48px light-dark(rgb(31 29 26 / 0.16), rgb(0 0 0 / 0.50));
+
+  /* a revision is a strip of its paper: the fill is the paper's own colour in
+     every theme; the edge gives it 3:1 where the fill alone does not */
+  --rev-white-fill: var(--p-warm-0);
+  --rev-white-edge: light-dark(var(--p-rev-white-deep), var(--p-warm-0));
+  --rev-blue-fill: var(--p-rev-blue-tint);
+  --rev-blue-edge: light-dark(var(--p-rev-blue-deep), var(--p-rev-blue-tint));
+  --rev-pink-fill: var(--p-rev-pink-tint);
+  --rev-pink-edge: light-dark(var(--p-rev-pink-deep), var(--p-rev-pink-tint));
+  --rev-yellow-fill: var(--p-rev-yellow-tint);
+  --rev-yellow-edge: light-dark(
+    var(--p-rev-yellow-deep),
+    var(--p-rev-yellow-tint)
+  );
+  --rev-green-fill: var(--p-rev-green-tint);
+  --rev-green-edge: light-dark(
+    var(--p-rev-green-deep),
+    var(--p-rev-green-tint)
+  );
+  --rev-goldenrod-fill: var(--p-rev-goldenrod-tint);
+  --rev-goldenrod-edge: light-dark(
+    var(--p-rev-goldenrod-deep),
+    var(--p-rev-goldenrod-tint)
+  );
+  --rev-buff-fill: var(--p-rev-buff-tint);
+  --rev-buff-edge: light-dark(var(--p-rev-buff-deep), var(--p-rev-buff-tint));
+  --rev-salmon-fill: var(--p-rev-salmon-tint);
+  --rev-salmon-edge: light-dark(
+    var(--p-rev-salmon-deep),
+    var(--p-rev-salmon-tint)
+  );
+  --rev-cherry-fill: var(--p-rev-cherry-tint);
+  --rev-cherry-edge: light-dark(
+    var(--p-rev-cherry-deep),
+    var(--p-rev-cherry-tint)
+  );
+  --rev-tan-fill: var(--p-rev-tan-tint);
+  --rev-tan-edge: light-dark(var(--p-rev-tan-deep), var(--p-rev-tan-tint));
+
+  /* people: the shared document stores the index, never the colour */
+  --collab-1: light-dark(var(--p-qual-1-deep), var(--p-qual-1-bright));
+  --collab-2: light-dark(var(--p-qual-2-deep), var(--p-qual-2-bright));
+  --collab-3: light-dark(var(--p-qual-3-deep), var(--p-qual-3-bright));
+  --collab-4: light-dark(var(--p-qual-4-deep), var(--p-qual-4-bright));
+  --collab-5: light-dark(var(--p-qual-5-deep), var(--p-qual-5-bright));
+  --collab-6: light-dark(var(--p-qual-6-deep), var(--p-qual-6-bright));
+  --collab-7: light-dark(var(--p-qual-7-deep), var(--p-qual-7-bright));
+  --collab-8: light-dark(var(--p-qual-8-deep), var(--p-qual-8-bright));
+  --collab-9: light-dark(var(--p-qual-9-deep), var(--p-qual-9-bright));
+  --collab-10: light-dark(var(--p-qual-10-deep), var(--p-qual-10-bright));
+  --collab-on: light-dark(var(--p-warm-0), var(--p-warm-950));
+}
+
+/* --------------------------------------------------------------------------
+   TIER 2 — SEMANTIC: PAGE. The same pairs, resolved by the sheet's own
+   color-scheme, so a white sheet can sit in dark chrome. Marks are
+   translucent: they keep their contrast on any revision paper without
+   knowing which paper is under them.
+   -------------------------------------------------------------------------- */
+:root {
+  --page-paper: light-dark(var(--p-warm-0), var(--p-warm-825));
+  --page-ink: light-dark(var(--p-ink), var(--p-warm-100));
+  --page-ink-muted: light-dark(var(--p-warm-700), var(--p-warm-350));
+  --page-edge: light-dark(var(--p-warm-300), var(--p-warm-750));
+  --page-edge-w: 1px;
+  --page-caret: var(--page-ink);
+  --page-selection: light-dark(rgb(36 80 190 / 0.32), rgb(70 120 230 / 0.48));
+  --page-selection-fg: var(--page-ink);
+  --page-find: light-dark(rgb(214 150 0 / 0.42), rgb(227 179 65 / 0.16));
+  --page-find-line: var(--page-ink);
+  --page-comment-line: light-dark(var(--p-amber-700), var(--p-amber-300));
+  --page-comment-bg: light-dark(rgb(214 150 0 / 0.28), rgb(227 179 65 / 0.14));
+  --page-added-line: light-dark(var(--p-green-700), var(--p-green-300));
+  --page-added-bg: light-dark(rgb(23 99 61 / 0.16), rgb(111 207 154 / 0.14));
+  --page-removed-line: light-dark(var(--p-red-700), var(--p-red-300));
+  --page-removed-bg: light-dark(rgb(168 34 27 / 0.13), rgb(255 161 153 / 0.14));
+  --page-review: light-dark(var(--p-amber-700), var(--p-amber-300));
+  --page-note-bg: light-dark(rgb(74 70 64 / 0.10), rgb(169 164 155 / 0.08));
+  --page-link: light-dark(var(--p-blue-700), var(--p-blue-300));
+  --page-who-alpha: 14%;
+  --page-band-w: 8px;
+
+  /* the writer's own colours: the document stores the name */
+  --page-text-red: light-dark(
+    var(--p-write-red-deep),
+    var(--p-write-red-bright)
+  );
+  --page-text-orange: light-dark(
+    var(--p-write-orange-deep),
+    var(--p-write-orange-bright)
+  );
+  --page-text-green: light-dark(
+    var(--p-write-green-deep),
+    var(--p-write-green-bright)
+  );
+  --page-text-blue: light-dark(
+    var(--p-write-blue-deep),
+    var(--p-write-blue-bright)
+  );
+  --page-text-violet: light-dark(
+    var(--p-write-violet-deep),
+    var(--p-write-violet-bright)
+  );
+  --page-hl-yellow: light-dark(rgb(240 190 0 / 0.38), rgb(227 179 65 / 0.18));
+  --page-hl-green: light-dark(rgb(40 170 90 / 0.28), rgb(90 200 130 / 0.18));
+  --page-hl-pink: light-dark(rgb(230 70 140 / 0.24), rgb(240 110 160 / 0.20));
+  --page-hl-orange: light-dark(rgb(240 130 20 / 0.30), rgb(240 150 70 / 0.20));
+  --page-hl-violet: light-dark(rgb(130 90 230 / 0.24), rgb(150 120 240 / 0.22));
+
+  /* the full-page tint, a view option */
+  --page-rev-white-paper: var(--page-paper);
+  --page-rev-blue-paper: light-dark(
+    var(--p-rev-blue-tint),
+    var(--p-rev-blue-shade)
+  );
+  --page-rev-pink-paper: light-dark(
+    var(--p-rev-pink-tint),
+    var(--p-rev-pink-shade)
+  );
+  --page-rev-yellow-paper: light-dark(
+    var(--p-rev-yellow-tint),
+    var(--p-rev-yellow-shade)
+  );
+  --page-rev-green-paper: light-dark(
+    var(--p-rev-green-tint),
+    var(--p-rev-green-shade)
+  );
+  --page-rev-goldenrod-paper: light-dark(
+    var(--p-rev-goldenrod-tint),
+    var(--p-rev-goldenrod-shade)
+  );
+  --page-rev-buff-paper: light-dark(
+    var(--p-rev-buff-tint),
+    var(--p-rev-buff-shade)
+  );
+  --page-rev-salmon-paper: light-dark(
+    var(--p-rev-salmon-tint),
+    var(--p-rev-salmon-shade)
+  );
+  --page-rev-cherry-paper: light-dark(
+    var(--p-rev-cherry-tint),
+    var(--p-rev-cherry-shade)
+  );
+  --page-rev-tan-paper: light-dark(
+    var(--p-rev-tan-tint),
+    var(--p-rev-tan-shade)
+  );
+
+  --elev-page:
+    0 1px 2px light-dark(rgb(31 29 26 / 0.06), transparent),
+    0 4px 16px light-dark(rgb(31 29 26 / 0.06), transparent);
+}
+
+/* --------------------------------------------------------------------------
+   HIGH CONTRAST. Follows the system (prefers-contrast: more). Text 7:1,
+   boundaries and marks 4.5:1. Fills of marks go and their lines stay; the
+   selection inverts; a revision is its band and its name, never a tint.
+   -------------------------------------------------------------------------- */
+@media (prefers-contrast: more) {
+  :root {
+    --bg-desk: light-dark(var(--p-warm-150), var(--p-warm-925));
+    --bg-chrome: light-dark(var(--p-warm-50), var(--p-warm-1000));
+    --bg-raised: light-dark(var(--p-warm-0), var(--p-warm-950));
+    --bg-overlay: light-dark(var(--p-warm-0), var(--p-warm-925));
+    --bg-subtle: light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.10));
+    --bg-control: light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.12));
+    --bg-selected: light-dark(var(--p-blue-50), var(--p-blue-950));
+    --bg-accent: light-dark(var(--p-blue-800), var(--p-blue-200));
+    --bg-scrim: light-dark(rgb(10 10 9 / 0.6), rgb(0 0 0 / 0.7));
+    --fg: light-dark(var(--p-black), var(--p-warm-0));
+    --fg-muted: light-dark(var(--p-warm-800), var(--p-warm-300));
+    --fg-disabled: light-dark(var(--p-warm-600), var(--p-warm-500));
+    --fg-on-accent: light-dark(var(--p-warm-0), var(--p-black));
+    --fg-accent: light-dark(var(--p-blue-800), var(--p-blue-200));
+    --fg-ok: light-dark(var(--p-green-800), var(--p-green-200));
+    --fg-attention: light-dark(var(--p-amber-800), var(--p-amber-200));
+    --fg-danger: light-dark(var(--p-red-800), var(--p-red-200));
+    --fg-on-danger: light-dark(var(--p-warm-0), var(--p-black));
+    --line: light-dark(var(--p-warm-650), var(--p-warm-500));
+    --line-strong: light-dark(var(--p-warm-700), var(--p-warm-400));
+    --focus: light-dark(var(--p-blue-800), var(--p-blue-200));
+    --chip-line: light-dark(var(--p-black), var(--p-warm-0));
+    --elev-overlay: 0 0 0 1px light-dark(var(--p-warm-900), var(--p-warm-100));
+    --elev-dialog: 0 0 0 2px light-dark(var(--p-warm-900), var(--p-warm-100));
+
+    --page-paper: light-dark(var(--p-warm-0), var(--p-black));
+    --page-ink: light-dark(var(--p-black), var(--p-warm-0));
+    --page-ink-muted: light-dark(var(--p-warm-800), var(--p-warm-300));
+    --page-edge: light-dark(var(--p-warm-900), var(--p-warm-100));
+    --page-edge-w: 2px;
+    --page-selection: light-dark(var(--p-blue-700), var(--p-blue-200));
+    --page-selection-fg: light-dark(var(--p-warm-0), var(--p-black));
+    --page-find: transparent;
+    --page-comment-line: light-dark(var(--p-amber-800), var(--p-amber-200));
+    --page-comment-bg: transparent;
+    --page-added-line: light-dark(var(--p-green-800), var(--p-green-200));
+    --page-added-bg: transparent;
+    --page-removed-line: light-dark(var(--p-red-800), var(--p-red-200));
+    --page-removed-bg: transparent;
+    --page-review: light-dark(var(--p-amber-800), var(--p-amber-200));
+    --page-note-bg: transparent;
+    --page-link: light-dark(var(--p-blue-800), var(--p-blue-200));
+    --page-who-alpha: 20%;
+    --page-band-w: 12px;
+    --page-rev-blue-paper: var(--page-paper);
+    --page-rev-pink-paper: var(--page-paper);
+    --page-rev-yellow-paper: var(--page-paper);
+    --page-rev-green-paper: var(--page-paper);
+    --page-rev-goldenrod-paper: var(--page-paper);
+    --page-rev-buff-paper: var(--page-paper);
+    --page-rev-salmon-paper: var(--page-paper);
+    --page-rev-cherry-paper: var(--page-paper);
+    --page-rev-tan-paper: var(--page-paper);
+    --elev-page: 0 0 #0000;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   THE DEMO BAR is a scope of its own, the same in every theme. Stock
+   components inside it restyle themselves because it redefines tier 2, not
+   because they are overridden. It declares every chrome key (tested).
+   -------------------------------------------------------------------------- */
+[data-surface="demo"] {
+  color-scheme: dark;
+  --bg-desk: var(--p-demo-900);
+  --bg-chrome: var(--p-demo-900);
+  --bg-raised: var(--p-demo-800);
+  --bg-overlay: var(--p-demo-800);
+  --bg-subtle: rgb(243 238 251 / 0.08);
+  --bg-control: rgb(243 238 251 / 0.12);
+  --bg-selected: var(--p-demo-800);
+  --bg-accent: var(--p-demo-200);
+  --bg-scrim: rgb(0 0 0 / 0.5);
+  --fg: var(--p-demo-50);
+  --fg-muted: var(--p-demo-300);
+  --fg-disabled: var(--p-demo-600);
+  --fg-on-accent: var(--p-demo-900);
+  --fg-accent: var(--p-demo-200);
+  --fg-ok: var(--p-green-300);
+  --fg-attention: var(--p-amber-300);
+  --fg-danger: var(--p-red-300);
+  --fg-on-danger: var(--p-warm-950);
+  --line: var(--p-demo-800);
+  --line-strong: var(--p-demo-600);
+  --focus: var(--p-demo-200);
+  --chip-line: transparent;
+  --elev-overlay: 0 2px 6px rgb(0 0 0 / 0.40), 0 8px 24px rgb(0 0 0 / 0.40);
+  --elev-dialog: 0 4px 12px rgb(0 0 0 / 0.50), 0 16px 48px rgb(0 0 0 / 0.50);
+}
+
+/* --------------------------------------------------------------------------
+   TIER 2 — NON-COLOUR SCALES. No theme changes them. Chrome is in rem, so
+   Interface size scales it; the page is in px, so nothing but the engine's
+   profile can move it.
+   -------------------------------------------------------------------------- */
+:root {
+  --face-ui:
+    "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --face-page: "Courier Prime", "Courier", monospace;
+
+  --type-micro: 0.6875rem; /* 11 */
+  --type-meta: 0.75rem; /* 12 */
+  --type-ui: 0.8125rem; /* 13 — the interface default */
+  --type-title: 0.9375rem; /* 15 */
+  --type-heading: 1.125rem; /* 18 */
+  --type-display: 1.5rem; /* 24 */
+  --lh-micro: 1rem; /* 16 */
+  --lh-meta: 1rem; /* 16 */
+  --lh-ui: 1.25rem; /* 20 */
+  --lh-title: 1.25rem; /* 20 */
+  --lh-heading: 1.5rem; /* 24 */
+  --lh-display: 2rem; /* 32 */
+
+  --shape-none: 0;
+  --shape-micro: 0.125rem; /* 2: keyboard hints, tags, checkboxes, chips */
+  --shape-control: 0.25rem; /* 4: buttons, fields, rows */
+  --shape-surface: 0.375rem; /* 6: menus, popovers, dialogs, toasts */
+
+  --focus-w: 2px;
+  --focus-gap: 2px;
+
+  --icon: 0.875rem; /* 14: in a 28 px control or row */
+  --icon-lg: 1rem; /* 16: title bar, status */
+  --icon-stroke: 1.5px;
+
+  --dur-fast: 100ms;
+  --dur-base: 150ms;
+  --dur-slow: 200ms;
+  --curve-enter: cubic-bezier(0.2, 0, 0, 1);
+  --curve-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  --z-bar: 10;
+  --z-panel: 20;
+  --z-overlay: 50;
+  --z-dialog: 60;
+}
+
+/* --------------------------------------------------------------------------
+   TIER 3 — COMPONENT TOKENS. Metrics only; one density.
+   -------------------------------------------------------------------------- */
+:root {
+  --control-h: 1.75rem; /* 28 */
+  --control-h-sm: 1.5rem; /* 24 */
+  --control-h-lg: 2rem; /* 32 */
+  --row-h: 1.75rem; /* 28: every one-line row */
+  --row-h-2: 2.75rem; /* 44: every two-line row */
+  --titlebar-h: 2.75rem; /* 44 */
+  --statebar-h: 2rem; /* 32 */
+  --findbar-h: 2.5rem; /* 40 */
+  --statusbar-h: 1.75rem; /* 28 */
+  --demobar-h: 2rem; /* 32 */
+  --tabs-h: 2.25rem; /* 36: a panel's tab row */
+  --panel-left-w: 16.25rem; /* 260; resizable 200–360 */
+  --panel-right-w: 20rem; /* 320; resizable 280–420 */
+  --dialog-w: 24rem; /* 384: the stock max-w-sm */
+  --dialog-w-wide: 35rem; /* 560 */
+  --palette-w: 40rem; /* 640 */
+  --palette-max-h: 26.25rem; /* 420 */
+  --status-device-w: 4.5rem; /* 72: slot one, "Saved" */
+  --status-server-w: 17.5rem; /* 280: slot two, the longest status sentence (tested) */
+  --avatar: 1.5rem; /* 24: title bar, threads */
+  --avatar-sm: 1.25rem; /* 20: in rows; the smallest that holds 11 px initials */
+  --marker: 1.5rem; /* 24: a gutter marker; never scaled by page zoom */
+
+  /* desk and page furniture: px. --desk-pad scales with page zoom;
+     --desk-gutter, which holds the markers beside the sheet, does not. */
+  --desk-pad: 32px;
+  --desk-gutter: 32px;
+  --page-zoom: 1;
+  --tour-ring: var(--p-demo-600);
+}
+
+/* --------------------------------------------------------------------------
+   SHADCN ALIASES. shadcn's variable names → Manent roles. Declared once: a
+   light-dark() pair is resolved where it is used, so a nested scheme needs
+   no second copy.
+   -------------------------------------------------------------------------- */
+:root {
+  --background: var(--bg-chrome);
+  --foreground: var(--fg);
+  --card: var(--bg-raised);
+  --card-foreground: var(--fg);
+  --popover: var(--bg-overlay);
+  --popover-foreground: var(--fg);
+  --primary: var(--bg-accent);
+  --primary-foreground: var(--fg-on-accent);
+  --secondary: var(--bg-control);
+  --secondary-foreground: var(--fg);
+  --muted: var(--bg-subtle);
+  --muted-foreground: var(--fg-muted);
+  --accent: var(--bg-subtle);
+  --accent-foreground: var(--fg);
+  --destructive: var(--fg-danger);
+  --destructive-foreground: var(--fg-on-danger);
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--focus);
+  --chart-1: var(--collab-1);
+  --chart-2: var(--collab-2);
+  --chart-3: var(--collab-3);
+  --chart-4: var(--collab-4);
+  --chart-5: var(--collab-5);
+  --sidebar: var(--bg-chrome);
+  --sidebar-foreground: var(--fg);
+  --sidebar-primary: var(--bg-accent);
+  --sidebar-primary-foreground: var(--fg-on-accent);
+  --sidebar-accent: var(--bg-subtle);
+  --sidebar-accent-foreground: var(--fg);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--focus);
+  --radius: var(--shape-surface);
+}
+/* The demo scope re-declares the aliases it changes, because it sets tier 2
+   to plain values on its own element. */
+[data-surface="demo"] {
+  --background: var(--bg-chrome);
+  --foreground: var(--fg);
+  --card: var(--bg-raised);
+  --card-foreground: var(--fg);
+  --popover: var(--bg-overlay);
+  --popover-foreground: var(--fg);
+  --primary: var(--bg-accent);
+  --primary-foreground: var(--fg-on-accent);
+  --secondary: var(--bg-control);
+  --secondary-foreground: var(--fg);
+  --muted: var(--bg-subtle);
+  --muted-foreground: var(--fg-muted);
+  --accent: var(--bg-subtle);
+  --accent-foreground: var(--fg);
+  --destructive: var(--fg-danger);
+  --destructive-foreground: var(--fg-on-danger);
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--focus);
+}
+
+/* --------------------------------------------------------------------------
+   TAILWIND MAPPING. First remove the default palette and scales, so a
+   palette colour, an off-scale type size or an unlisted font cannot be
+   written as a utility; then expose the tokens.
+   -------------------------------------------------------------------------- */
+@theme {
+  --color-*: initial;
+  --shadow-*: initial;
+  --radius-*: initial;
+  --text-*: initial;
+  --font-*: initial;
+  --ease-*: initial;
+  --spacing: 0.25rem;
+  --default-transition-duration: 100ms;
+  --default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --leading-tight: 1.2;
+  --leading-snug: 1.35;
+  --leading-normal: 1.4;
+  --leading-relaxed: calc(20 / 13);
+}
+
+@theme inline {
+  /* shadcn vocabulary — used by components under packages/ui/src/components */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-black: var(--p-black); /* stock only; lint bans it elsewhere */
+  --color-white: var(--p-warm-0); /* stock only; lint bans it elsewhere */
+
+  /* Manent vocabulary — used by application code */
+  --color-desk: var(--bg-desk);
+  --color-chrome: var(--bg-chrome);
+  --color-raised: var(--bg-raised);
+  --color-overlay: var(--bg-overlay);
+  --color-subtle: var(--bg-subtle);
+  --color-control: var(--bg-control);
+  --color-selected: var(--bg-selected);
+  --color-accent-solid: var(--bg-accent);
+  --color-scrim: var(--bg-scrim);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-disabled: var(--fg-disabled);
+  --color-fg-on-accent: var(--fg-on-accent);
+  --color-fg-accent: var(--fg-accent);
+  --color-ok: var(--fg-ok);
+  --color-attention: var(--fg-attention);
+  --color-danger: var(--fg-danger);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-focus: var(--focus);
+  --color-collab-1: var(--collab-1);
+  --color-collab-2: var(--collab-2);
+  --color-collab-3: var(--collab-3);
+  --color-collab-4: var(--collab-4);
+  --color-collab-5: var(--collab-5);
+  --color-collab-6: var(--collab-6);
+  --color-collab-7: var(--collab-7);
+  --color-collab-8: var(--collab-8);
+  --color-collab-9: var(--collab-9);
+  --color-collab-10: var(--collab-10);
+  --color-collab-on: var(--collab-on);
+
+  /* type: role names for application code */
+  --font-sans: var(--face-ui);
+  --font-mono:
+    ui-monospace, "SF Mono", Menlo, Consolas, monospace; /* demo timings only; never Courier */
+  --text-micro: var(--type-micro);
+  --text-micro--line-height: var(--lh-micro);
+  --text-micro--letter-spacing: 0.01em;
+  --text-meta: var(--type-meta);
+  --text-meta--line-height: var(--lh-meta);
+  --text-ui: var(--type-ui);
+  --text-ui--line-height: var(--lh-ui);
+  --text-title: var(--type-title);
+  --text-title--line-height: var(--lh-title);
+  --text-title--font-weight: 600;
+  --text-heading: var(--type-heading);
+  --text-heading--line-height: var(--lh-heading);
+  --text-heading--letter-spacing: -0.01em;
+  --text-heading--font-weight: 600;
+  --text-display: var(--type-display);
+  --text-display--line-height: var(--lh-display);
+  --text-display--letter-spacing: -0.015em;
+  --text-display--font-weight: 600;
+  /* type: t-shirt names, only so stock components land on the scale.
+     The installed style (base-mira) uses xs for body and sm for titles. */
+  --text-xs: var(--type-ui);
+  --text-xs--line-height: var(--lh-ui);
+  --text-sm: var(--type-title);
+  --text-sm--line-height: var(--lh-title);
+  --text-base: var(--type-title);
+  --text-base--line-height: var(--lh-title);
+  --text-lg: var(--type-heading);
+  --text-lg--line-height: var(--lh-heading);
+  --text-xl: var(--type-heading);
+  --text-xl--line-height: var(--lh-heading);
+  --text-2xl: var(--type-display);
+  --text-2xl--line-height: var(--lh-display);
+
+  /* shape: the stock ladder collapses onto three radii. Stock writes
+     calc(var(--radius-sm) - 2px) for keyboard hints and chips, so sm is 4. */
+  --radius-micro: var(--shape-micro);
+  --radius-control: var(--shape-control);
+  --radius-surface: var(--shape-surface);
+  --radius-xs: var(--shape-micro);
+  --radius-sm: var(--shape-control);
+  --radius-md: var(--shape-control);
+  --radius-lg: var(--shape-surface);
+  --radius-xl: var(--shape-surface);
+  --radius-2xl: var(--shape-surface);
+  --radius-3xl: var(--shape-surface);
+  --radius-4xl: var(--shape-surface);
+
+  /* elevation: controls are flat; one overlay level; one dialog level */
+  --shadow-overlay: var(--elev-overlay);
+  --shadow-dialog: var(--elev-dialog);
+  --shadow-2xs: 0 0 #0000;
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: 0 0 #0000;
+  --shadow-md: var(--elev-overlay);
+  --shadow-lg: var(--elev-overlay);
+  --shadow-xl: var(--elev-dialog);
+  --shadow-2xl: var(--elev-dialog);
+
+  /* motion */
+  --ease-out: var(--curve-enter);
+  --ease-in: var(--curve-exit);
+  --ease-in-out: var(--curve-enter);
+
+  /* metrics as utilities: h-control, min-h-row, w-panel-left … */
+  --spacing-control: var(--control-h);
+  --spacing-control-sm: var(--control-h-sm);
+  --spacing-control-lg: var(--control-h-lg);
+  --spacing-row: var(--row-h);
+  --spacing-row-2: var(--row-h-2);
+  --spacing-titlebar: var(--titlebar-h);
+  --spacing-statebar: var(--statebar-h);
+  --spacing-findbar: var(--findbar-h);
+  --spacing-statusbar: var(--statusbar-h);
+  --spacing-demobar: var(--demobar-h);
+  --spacing-tabs: var(--tabs-h);
+  --spacing-panel-left: var(--panel-left-w);
+  --spacing-panel-right: var(--panel-right-w);
+  --spacing-icon: var(--icon);
+  --spacing-icon-lg: var(--icon-lg);
+  --spacing-avatar: var(--avatar);
+  --spacing-avatar-sm: var(--avatar-sm);
+  --spacing-marker: var(--marker);
+}
+
+/* --------------------------------------------------------------------------
+   BASE
+   -------------------------------------------------------------------------- */
+@layer base {
+  html {
+    font-size: 100%;
+    font-family: var(--face-ui);
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  html[data-ui-size="125"] {
+    font-size: 125%;
+  }
+  html[data-ui-size="150"] {
+    font-size: 150%;
+  }
+  html[data-ui-size="200"] {
+    font-size: 200%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: var(--type-ui);
+    line-height: var(--lh-ui);
+  }
+  /* colour is inherited as a computed value, so a nested scheme must restate it */
+  :where([data-theme], [data-surface]) {
+    color: var(--fg);
+  }
+  svg.lucide {
+    width: var(--icon);
+    height: var(--icon);
+    stroke-width: var(--icon-stroke);
+  }
+  svg.lucide * {
+    vector-effect: non-scaling-stroke;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   STOCK CORRECTIONS. Unlayered, so they beat utility classes. These are the
+   only rules outside packages/ui/src/components that name a role or a slot
+   of a stock component. Adding one needs a design-system review.
+   -------------------------------------------------------------------------- */
+
+/* 1. One focus ring for every focusable thing, stock or ours. */
+:focus-visible:not(
+  [role="dialog"],
+  [role="alertdialog"],
+  [role="menu"],
+  [role="listbox"],
+  [role="tooltip"]
+) {
+  outline: var(--focus-w) solid var(--focus);
+  outline-offset: var(--focus-gap);
+  --tw-ring-color: transparent; /* retire the stock halo: one ring, not two */
+}
+[data-slot="input-group"]:focus-within {
+  --tw-ring-color: transparent;
+}
+[data-slot="slider-thumb"]:has(:focus-visible) {
+  outline: var(--focus-w) solid var(--focus);
+  outline-offset: var(--focus-gap);
+}
+/* after any key use the item under the pointer also matches :focus-visible */
+[role^="menuitem"]:hover,
+[role="option"]:hover {
+  outline: none;
+}
+
+/* 2. Inside lists and popups the ring is inset, so it is never clipped. */
+[role="menu"],
+[role="listbox"],
+[role="grid"],
+[role="tree"],
+[role="tablist"],
+[data-ring="inset"] {
+  --focus-gap: calc(var(--focus-w) * -1);
+}
+
+/* 3. Where focus stays in a field and the list is driven from it (the palette,
+      autocomplete, a combobox), the active option is where Enter will act:
+      it gets the ring, because its fill alone is 1.1:1. */
+[role="listbox"]:not(:focus-within) [role="option"][data-highlighted] {
+  outline: var(--focus-w) solid var(--focus);
+  outline-offset: calc(var(--focus-w) * -1);
+}
+
+/* 4. The scrim is a token, and nothing blurs. */
+[data-slot$="-overlay"] {
+  background-color: var(--bg-scrim);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* 5. A dialog has the dialog elevation; stock gives it only a hairline. */
+[data-slot$="dialog-content"] {
+  --tw-shadow: var(--elev-dialog);
+}
+
+/* 6. Nothing is smaller than the micro size; group labels are one style. */
+[data-slot="kbd"],
+[data-slot$="-shortcut"],
+[data-slot="badge"] {
+  font-size: var(--type-micro);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+[data-slot$="menu-label"],
+[data-slot="select-label"],
+[data-slot="menubar-label"] {
+  font-size: var(--type-micro);
+  line-height: var(--lh-micro);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* 7. Loading placeholders hold still. */
+[data-slot="skeleton"] {
+  animation: none;
+}
+
+/* 8. A toggle that is on takes the selected role and an edge, not the hover fill. */
+[data-slot^="toggle"][aria-pressed="true"] {
+  background-color: var(--bg-selected);
+  color: var(--fg);
+  outline: 1px solid var(--line-strong);
+  outline-offset: -1px;
+}
+[data-slot^="toggle"][aria-pressed="true"]:focus-visible {
+  outline: var(--focus-w) solid var(--focus);
+  outline-offset: var(--focus-gap);
+}
+
+/* 9. One hover strength: the outline button hovers like every other control. */
+[data-slot="button"][class~="hover:bg-input/50"]:hover {
+  background-color: var(--bg-subtle);
+}
+
+/* --------------------------------------------------------------------------
+   ROWS. Manent's own list row, used by Scenes, Pages, the Library tree,
+   versions, threads, the Tour and the rundown. Layout is utilities; the
+   states are here so that every list agrees.
+   -------------------------------------------------------------------------- */
+.mn-row {
+  position: relative;
+  border-radius: var(--shape-control);
+}
+.mn-row:hover {
+  background-color: var(--bg-subtle);
+}
+.mn-row[aria-current]:not([aria-current="false"]),
+.mn-row[aria-selected="true"] {
+  background-color: var(--bg-selected);
+}
+.mn-row[aria-current]:not([aria-current="false"]) {
+  font-weight: 500;
+}
+.mn-row[aria-current]:not([aria-current="false"])::before {
+  /* the bar: what is current */
+  content: "";
+  position: absolute;
+  inset-block: 4px;
+  inset-inline-start: 0;
+  border-inline-start: 2px solid var(--bg-accent);
+}
+.mn-row[aria-selected="true"] {
+  outline: 1px solid var(--focus);
+  outline-offset: -1px;
+} /* the edge: what is selected */
+.mn-row[aria-selected="true"]:focus-visible {
+  outline-width: var(--focus-w);
+  outline-offset: calc(var(--focus-w) * -1);
+}
+
+/* --------------------------------------------------------------------------
+   THE PAGE. Plain CSS, physical units, page tokens only. Tailwind never
+   styles anything inside .mn-pages.
+
+   .mn-desk          the scrolling area
+     .mn-pages       the zoomed container; carries data-tint
+       .mn-sheet     the underlay: one element per visible page, outside the
+                     editable document, positioned from the engine's page
+                     table. It draws paper, edge, band and tint. It holds no
+                     text, so nothing it does can move a line.
+       .mn-page-view the editable document (ProseMirror), transparent
+     .mn-marker      interface markers in the gutter, outside the zoom
+   -------------------------------------------------------------------------- */
+.mn-desk {
+  background: var(--bg-desk);
+  padding: calc(var(--desk-pad) * var(--page-zoom));
+  padding-inline-end: max(
+    var(--desk-gutter),
+    calc(var(--desk-pad) * var(--page-zoom))
+  );
+}
+.mn-pages {
+  isolation: isolate;
+  color: var(--page-ink);
+  /* a line that stays one device pixel when the page is zoomed out */
+  --page-line: calc(1px / min(var(--page-zoom), 1));
+}
+.mn-sheet {
+  z-index: -1;
+  background: var(--page-paper);
+  outline: var(--page-edge-w) solid var(--page-edge);
+  box-shadow: var(--elev-page);
+  border-radius: var(--shape-none);
+}
+.mn-sheet[data-rev]::before {
+  /* the band: a strip of the revision's own paper */
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  box-sizing: border-box;
+  width: var(--page-band-w);
+  background: var(--band-fill);
+  border-inline-end: var(--page-edge-w) solid var(--band-edge);
+}
+.mn-pages[data-tint="on"] .mn-sheet[data-rev] {
+  background: var(--band-tint);
+}
+[data-rev="blue"] {
+  --band-fill: var(--rev-blue-fill);
+  --band-edge: var(--rev-blue-edge);
+  --band-tint: var(--page-rev-blue-paper);
+}
+[data-rev="pink"] {
+  --band-fill: var(--rev-pink-fill);
+  --band-edge: var(--rev-pink-edge);
+  --band-tint: var(--page-rev-pink-paper);
+}
+[data-rev="yellow"] {
+  --band-fill: var(--rev-yellow-fill);
+  --band-edge: var(--rev-yellow-edge);
+  --band-tint: var(--page-rev-yellow-paper);
+}
+[data-rev="green"] {
+  --band-fill: var(--rev-green-fill);
+  --band-edge: var(--rev-green-edge);
+  --band-tint: var(--page-rev-green-paper);
+}
+[data-rev="goldenrod"] {
+  --band-fill: var(--rev-goldenrod-fill);
+  --band-edge: var(--rev-goldenrod-edge);
+  --band-tint: var(--page-rev-goldenrod-paper);
+}
+[data-rev="buff"] {
+  --band-fill: var(--rev-buff-fill);
+  --band-edge: var(--rev-buff-edge);
+  --band-tint: var(--page-rev-buff-paper);
+}
+[data-rev="salmon"] {
+  --band-fill: var(--rev-salmon-fill);
+  --band-edge: var(--rev-salmon-edge);
+  --band-tint: var(--page-rev-salmon-paper);
+}
+[data-rev="cherry"] {
+  --band-fill: var(--rev-cherry-fill);
+  --band-edge: var(--rev-cherry-edge);
+  --band-tint: var(--page-rev-cherry-paper);
+}
+[data-rev="tan"] {
+  --band-fill: var(--rev-tan-fill);
+  --band-edge: var(--rev-tan-edge);
+  --band-tint: var(--page-rev-tan-paper);
+}
+
+.mn-page-view {
+  background: transparent;
+  caret-color: var(--page-caret);
+}
+.mn-page-view:focus-visible {
+  outline: none;
+} /* while editing, the caret is the focus */
+.mn-page-view[contenteditable="false"]:focus-visible {
+  /* read-only has no caret, so it has the ring */
+  outline: var(--focus-w) solid var(--focus);
+  outline-offset: var(--focus-gap);
+}
+.mn-page-view ::selection {
+  background: var(--page-selection);
+  color: var(--page-selection-fg);
+}
+
+.mn-furniture {
+  color: var(--page-ink);
+} /* page number, header, (MORE), (CONT'D): they print */
+.mn-placeholder {
+  color: var(--page-ink-muted);
+  font-style: italic;
+}
+.mn-asterisk {
+  color: var(--page-ink);
+}
+
+/* Marks. Each kind of decoration is its own element (its own nodeName), so
+   lines and fills stack instead of replacing one another. One line style per
+   meaning: single is the writer's formatting and prints; double is a change;
+   dashed is a comment; dotted is a warning; wavy is spelling. */
+.mn-comment {
+  text-decoration: underline dashed var(--page-comment-line)
+    calc(2 * var(--page-line));
+  text-underline-offset: 3px;
+}
+.mn-comment[data-active] {
+  background-color: var(--page-comment-bg);
+}
+.mn-added {
+  text-decoration: underline double var(--page-added-line) var(--page-line);
+  text-underline-offset: 2px;
+  background-color: var(--page-added-bg);
+}
+.mn-removed {
+  text-decoration: line-through double var(--page-removed-line) var(--page-line);
+  background-color: var(--page-removed-bg);
+}
+.mn-outside-font {
+  text-decoration: underline dotted var(--page-review)
+    calc(2 * var(--page-line));
+  text-underline-offset: 3px;
+}
+/* where two lines would share the space under a word, one is drawn:
+   a change beats a comment, and a comment beats a warning */
+:is(.mn-added, .mn-removed) .mn-comment,
+.mn-comment:has(.mn-added, .mn-removed),
+.mn-comment .mn-outside-font,
+.mn-outside-font:has(.mn-comment) {
+  text-decoration-line: none;
+}
+.mn-find {
+  background-color: var(--page-find);
+  outline: var(--page-line) solid var(--page-find-line);
+}
+.mn-find[data-current] {
+  outline-width: calc(2 * var(--page-line));
+}
+.mn-note {
+  background-color: var(--page-note-bg);
+  color: var(--page-ink-muted);
+  font-style: italic;
+}
+.mn-link {
+  color: var(--page-link);
+  text-decoration: underline solid var(--page-line);
+}
+.mn-review-bar {
+  width: 3px;
+  background: var(--page-review);
+} /* To review: a bar in the left margin */
+
+/* the writer's colours: the document stores the name, never a value */
+[data-ink="red"] {
+  color: var(--page-text-red);
+}
+[data-ink="orange"] {
+  color: var(--page-text-orange);
+}
+[data-ink="green"] {
+  color: var(--page-text-green);
+}
+[data-ink="blue"] {
+  color: var(--page-text-blue);
+}
+[data-ink="violet"] {
+  color: var(--page-text-violet);
+}
+[data-hl="yellow"] {
+  background-color: var(--page-hl-yellow);
+}
+[data-hl="green"] {
+  background-color: var(--page-hl-green);
+}
+[data-hl="pink"] {
+  background-color: var(--page-hl-pink);
+}
+[data-hl="orange"] {
+  background-color: var(--page-hl-orange);
+}
+[data-hl="violet"] {
+  background-color: var(--page-hl-violet);
+}
+
+/* under any fill, text is ink: a fill and a text colour never have to pass together */
+:is(
+    .mn-find,
+    .mn-comment[data-active],
+    .mn-added,
+    .mn-removed,
+    .mn-who-sel,
+    [data-hl]
+  )
+  :is([data-ink], .mn-link, .mn-note),
+:is([data-ink], .mn-link, .mn-note)
+  :is(
+    .mn-find,
+    .mn-comment[data-active],
+    .mn-added,
+    .mn-removed,
+    .mn-who-sel,
+    [data-hl]
+  ),
+[data-hl][data-ink] {
+  color: var(--page-ink);
+}
+
+/* other people: a caret, a fill, and a tab that always carries their initials */
+.mn-who-caret,
+.mn-who-sel,
+.mn-who-tab {
+  --who: var(--page-ink-muted);
+} /* an unknown index is still visible */
+.mn-who-caret {
+  border-inline-start: calc(2 * var(--page-line)) solid var(--who);
+}
+.mn-who-sel {
+  background-color: color-mix(
+    in srgb,
+    var(--who) var(--page-who-alpha),
+    transparent
+  );
+}
+.mn-who-tab {
+  background: var(--who);
+  color: var(--collab-on);
+  font: 600 11px / 14px var(--face-ui);
+  padding: 0 3px;
+  border-radius: 2px 2px 2px 0;
+}
+[data-who="1"] {
+  --who: var(--collab-1);
+}
+[data-who="2"] {
+  --who: var(--collab-2);
+}
+[data-who="3"] {
+  --who: var(--collab-3);
+}
+[data-who="4"] {
+  --who: var(--collab-4);
+}
+[data-who="5"] {
+  --who: var(--collab-5);
+}
+[data-who="6"] {
+  --who: var(--collab-6);
+}
+[data-who="7"] {
+  --who: var(--collab-7);
+}
+[data-who="8"] {
+  --who: var(--collab-8);
+}
+[data-who="9"] {
+  --who: var(--collab-9);
+}
+[data-who="10"] {
+  --who: var(--collab-10);
+}
+html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
+  display: none;
+}
+
+/* gutter markers: positioned from the page, sized by the interface */
+.mn-marker {
+  width: var(--marker);
+  height: var(--marker);
+  color: var(--fg-muted);
+  border-radius: var(--shape-control);
+}
+.mn-marker:hover {
+  background-color: var(--bg-subtle);
+  color: var(--fg);
+}
+.mn-marker[aria-pressed="true"] {
+  background-color: var(--bg-selected);
+  color: var(--fg);
+  outline: 1px solid var(--line-strong);
+  outline-offset: -1px;
+}
+
+/* Room view: the projected script shows the driver's caret and nothing else */
+[data-surface="room"]
+  :is(.mn-who-sel, .mn-who-tab, .mn-who-caret:not([data-driver]), .mn-marker) {
+  display: none;
+}
+[data-surface="room"]
+  :is(.mn-comment, .mn-added, .mn-removed, .mn-find, .mn-outside-font) {
+  text-decoration-line: none;
+  background-color: transparent;
+  outline: none;
+}
+
+/* --------------------------------------------------------------------------
+   MOTION. The system's setting always applies:
+   nothing moves or scales, and fades of 100 ms remain.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-base: 100ms;
+    --dur-slow: 0ms;
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    --tw-enter-scale: 1 !important;
+    --tw-exit-scale: 1 !important;
+    --tw-enter-translate-x: 0 !important;
+    --tw-enter-translate-y: 0 !important;
+    --tw-exit-translate-x: 0 !important;
+    --tw-exit-translate-y: 0 !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-spin,
+  .animate-pulse,
+  .animate-bounce {
+    animation: none !important;
+  }
+  [data-slot="button"]:active {
+    translate: none !important;
+  }
+}
+
+/* A theme change is instant: the appearance module sets data-switching for
+   one frame so that no colour transition runs across the whole window. */
+html[data-switching] *,
+html[data-switching] *::before,
+html[data-switching] *::after {
+  transition: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   FORCED COLOURS (Windows contrast themes). The system's colours win. Box
+   shadows and background colours are not drawn in this mode, so every state
+   here is an outline, a border or a system highlight.
+   -------------------------------------------------------------------------- */
+@media (forced-colors: active) {
+  :root:root {
+    --focus: Highlight;
+    --line: CanvasText;
+    --line-strong: CanvasText;
+    --page-edge: CanvasText;
+    --page-edge-w: 2px;
+    --page-selection: Highlight;
+    --page-selection-fg: HighlightText;
+    --page-find-line: CanvasText;
+    --page-comment-line: CanvasText;
+    --page-added-line: CanvasText;
+    --page-removed-line: CanvasText;
+    --page-review: CanvasText;
+    --page-band-w: 12px;
+  }
+  .mn-sheet[data-rev]::before {
+    background: none;
+    border-inline-end: 4px double CanvasText;
+  }
+  [data-slot^="toggle"][aria-pressed="true"],
+  .mn-row[aria-current]:not([aria-current="false"]),
+  .mn-row[aria-selected="true"],
+  [role="option"][data-highlighted] {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    color: HighlightText;
+  }
+  .mn-who-caret {
+    border-color: CanvasText;
+  }
+  .mn-who-sel {
+    text-decoration: underline wavy CanvasText;
+  }
+  .mn-who-tab {
+    forced-color-adjust: none;
+    background: Canvas;
+    color: CanvasText;
+    outline: 1px solid CanvasText;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   PRINT. The print DOM is white paper whatever the theme, and
+   keeps its bands, tints and the writer's highlights.
+   -------------------------------------------------------------------------- */
+@media print {
+  .mn-print {
+    color-scheme: light;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

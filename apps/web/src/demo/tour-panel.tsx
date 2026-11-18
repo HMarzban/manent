@@ -17,9 +17,9 @@ export function TourPanel(props: { tour: TourFile }) {
           <section key={group} className="mt-4">
             <h3 className="font-medium">{group}</h3>
             {scenarios.length === 0 ? (
-              <p className="text-sm text-neutral-500">{TEXT.tourEmptyGroup}</p>
+              <p className="text-ui text-fg-muted">{TEXT.tourEmptyGroup}</p>
             ) : (
-              <ul className="text-sm">
+              <ul className="text-ui">
                 {scenarios.map((scenario) => (
                   <li key={scenario.id}>{scenario.promise}</li>
                 ))}

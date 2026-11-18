@@ -93,7 +93,7 @@ export function ChooseScreen(props: {
                 {chosen && (
                   <>
                     {" "}
-                    <span className="ml-auto text-sm font-medium">
+                    <span className="ml-auto text-ui font-medium">
                       {TEXT.chosen}
                     </span>
                   </>
