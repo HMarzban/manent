@@ -1,0 +1,15 @@
+{
+  "name": "manent-spike-01-electrobun",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "electrobun": "2.0.6",
+    "prosemirror-commands": "1.7.2",
+    "prosemirror-history": "1.5.1",
+    "prosemirror-keymap": "1.2.3",
+    "prosemirror-model": "1.25.13",
+    "prosemirror-state": "1.4.4",
+    "prosemirror-transform": "1.12.5",
+    "prosemirror-view": "1.42.9"
+  }
+}

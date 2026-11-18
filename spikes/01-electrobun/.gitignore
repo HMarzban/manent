@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build/
+artifacts/
+.profiles/
+.hutch/
+.hutch-home/
+electron/bin/
