@@ -9,6 +9,7 @@ import {
   parseDoc,
   rejects,
   sectionize,
+  validateBlocks,
   validateDoc,
 } from "../src/index.ts";
 import type {
@@ -17,51 +18,8 @@ import type {
   IssueCode,
   MarkJSON,
   Severity,
-  TextJSON,
 } from "../src/index.ts";
-
-type Run = { text: string; marks?: MarkJSON[] };
-
-function runs(content: string | readonly Run[]): TextJSON[] {
-  return typeof content === "string"
-    ? [{ type: "text", text: content }]
-    : content.map((run) => ({ type: "text", ...run }));
-}
-
-/** A doc of one section of one block. */
-function docWith(
-  attrs: BlockJSON["attrs"],
-  content: string | readonly Run[],
-): DocJSON {
-  return {
-    type: "doc",
-    content: [
-      {
-        type: "section",
-        content: [{ type: "block", attrs, content: runs(content) }],
-      },
-    ],
-  };
-}
-
-const MARK_ATTRS: Record<string, Record<string, unknown>> = {
-  color: { value: "red" },
-  highlight: { value: "red" },
-  link: { href: "https://example.com" },
-  suggest_insert: { id: "s1", author: "dana", at: 5 },
-  suggest_delete: { id: "s1", author: "dana", at: 5 },
-};
-
-/** One run per mark name, each with full attributes. */
-const ALL_MARKS: Run[] = MARK_NAMES.map((name) => {
-  const attrs = MARK_ATTRS[name];
-  return {
-    text: name,
-    marks: [attrs ? { type: name, attrs } : { type: name }],
-  };
-});
-
-const ID = "b000000000000004";
+import { ALL_MARKS, ID, docWith, ids, runs } from "./helpers.ts";
 
 /** The code and severity of every issue. */
 const found = (json: unknown) =>
@@ -182,7 +140,7 @@ test("each kind of damage is named, with its severity", () => {
           marks: [
             {
               type: "suggest_insert",
-              attrs: { id: "s1", author: "dana", at: "yesterday" },
+              attrs: { id: "s1", authorUserId: "dana", at: "yesterday" },
             },
           ],
         },
@@ -207,8 +165,11 @@ test("each kind of damage is named, with its severity", () => {
         {
           text: "x",
           marks: [
-            { type: "suggest_insert", attrs: { id: "s1", author: "d", at: 0 } },
-            { type: "suggest_insert", attrs: { id: "s1", author: "d" } },
+            {
+              type: "suggest_insert",
+              attrs: { id: "s1", authorUserId: "d", at: 0 },
+            },
+            { type: "suggest_insert", attrs: { id: "s1", authorUserId: "d" } },
           ],
         },
       ]),
@@ -344,9 +305,9 @@ test("an issue names where it is", () => {
   ]);
 });
 
-const sug = (id: string, author: string) => ({
+const sug = (id: string, authorUserId: string) => ({
   type: "suggest_insert",
-  attrs: { id, author, at: 5 },
+  attrs: { id, authorUserId, at: 5 },
 });
 const raw = (marks: unknown[]) => ({
   type: "doc",
@@ -420,7 +381,7 @@ const nearMark = fc.record(
       fc.record(
         {
           id: maybe(word),
-          author: maybe(word),
+          authorUserId: maybe(word),
           at: maybe(fc.constantFrom(0, 1)),
           value: maybe(word),
           href: maybe(fc.constantFrom("https://example.com", "tel:+15551234")),
@@ -439,7 +400,7 @@ const nearSuggestion = fc.record({
   attrs: fc.record(
     {
       id: fc.constantFrom("", "s1"),
-      author: fc.constantFrom("", "d"),
+      authorUserId: fc.constantFrom("", "d"),
       at: fc.constantFrom(0, 1),
     },
     { requiredKeys: [] },
@@ -469,6 +430,10 @@ const nearNode = (
               fc.oneof(
                 fc.array(nearMark, { maxLength: 3 }),
                 fc.array(nearSuggestion, { minLength: 2, maxLength: 3 }),
+                fc.array(fc.oneof(nearMark, nearSuggestion), {
+                  minLength: 2,
+                  maxLength: 3,
+                }),
               ),
             )
           : mostly(fc.constant([]), fc.array(nearMark, { maxLength: 1 })),
@@ -485,19 +450,27 @@ const nearBlockAttrs = fc.record(
   },
   { requiredKeys: ["id"] },
 );
+const nearBlock = nearNode(
+  "block",
+  nearBlockAttrs,
+  nearNode("text", fc.constant({}), anyValue),
+);
 const nearDoc = nearNode(
   "doc",
   fc.constant({}),
-  nearNode(
-    "section",
-    fc.constant({}),
-    nearNode(
-      "block",
-      nearBlockAttrs,
-      nearNode("text", fc.constant({}), anyValue),
-    ),
-  ),
+  nearNode("section", fc.constant({}), nearBlock),
 );
+/** Well-formed sections whose blocks carry the damage above. */
+const arbDocWithDamagedBlocks = fc.record({
+  type: fc.constant("doc"),
+  content: fc.array(
+    fc.record({
+      type: fc.constant("section"),
+      content: fc.array(nearBlock, { minLength: 1, maxLength: 3 }),
+    }),
+    { minLength: 1, maxLength: 3 },
+  ),
+});
 
 test("whatever validation does not reject, every client can read once normalised", () => {
   fc.assert(
@@ -530,137 +503,81 @@ test("only structural damage rejects", () => {
   );
 });
 
-const HREFS = [
-  "https://example.com",
-  "mailto:a@example.com",
-  "tel:+15551234",
-  "javascript:alert(1)",
-];
-const markArb: fc.Arbitrary<MarkJSON> = fc.oneof(
-  fc
-    .constantFrom("bold", "italic", "underline", "strike", "caps")
-    .map((type) => ({ type })),
-  fc.string().map((value) => ({ type: "color", attrs: { value } })),
-  fc.constantFrom(...HREFS).map((href) => ({ type: "link", attrs: { href } })),
-);
-const textArb: fc.Arbitrary<TextJSON> = fc.record({
-  type: fc.constant("text" as const),
-  text: fc.string({ minLength: 1 }),
-  marks: fc.uniqueArray(markArb, {
-    selector: (mark) => mark.type,
-    maxLength: 3,
-  }),
-});
-const blockArb: fc.Arbitrary<BlockJSON> = fc.record({
-  type: fc.constant("block" as const),
-  attrs: fc.record({
-    id: fc.stringMatching(/^[A-Za-z0-9_-]{16}$/),
-    type: fc.constantFrom(...BLOCK_TYPES),
-  }),
-  content: fc.array(textArb, { maxLength: 3 }),
-});
-const docArb: fc.Arbitrary<DocJSON> = fc.record({
-  type: fc.constant("doc" as const),
-  content: fc.array(
-    fc.record({
-      type: fc.constant("section" as const),
-      content: fc.array(blockArb, { maxLength: 3 }),
-    }),
-    { maxLength: 4 },
-  ),
+const block = (id: string, extra: object = {}) => ({
+  type: "block",
+  attrs: { id, type: "action", ...extra },
+  content: [{ type: "text", text: "x" }],
 });
 
-const ids = () => "f1f1f1f1f1f1f1f1";
+test("touched blocks are checked like the same blocks inside a document", () => {
+  const blocks = [
+    block("a".repeat(16), { dual: "middle" }),
+    { type: "image" },
+    block("b".repeat(16)),
+    block("b".repeat(16)),
+  ];
+  expect(
+    validateBlocks(blocks, { isIdTaken: () => false }).map((i) => [
+      i.path,
+      i.code,
+      i.severity,
+    ]),
+  ).toEqual([
+    ["blocks[0].attrs.dual", "bad_attr", "reject"],
+    ["blocks[1]", "unknown_node", "reject"],
+    ["blocks[3].attrs.id", "duplicate_id", "repair"],
+  ]);
+});
 
-test("normalising drops empty sections, fills an empty document, removes unsafe links, and is idempotent", () => {
-  expect(normalizeDoc({ type: "doc", content: [] }, ids)).toEqual({
-    type: "doc",
-    content: [
-      {
-        type: "section",
-        content: [
-          {
-            type: "block",
-            attrs: { ...DEFAULT_BLOCK_ATTRS, id: "f1f1f1f1f1f1f1f1" },
-          },
-        ],
-      },
-    ],
-  });
+test("an ID that another block of the document carries is a duplicate", () => {
+  const taken = new Set(["c".repeat(16)]);
+  expect(
+    validateBlocks([block("c".repeat(16)), block("d".repeat(16))], {
+      isIdTaken: (id) => taken.has(id),
+    }).map((i) => [i.path, i.code]),
+  ).toEqual([["blocks[0].attrs.id", "duplicate_id"]]);
+});
 
-  const tel: MarkJSON = { type: "link", attrs: { href: "tel:+15551234" } };
-  const web: MarkJSON = {
-    type: "link",
-    attrs: { href: "https://example.com" },
-  };
-  const doc: DocJSON = {
-    type: "doc",
-    content: [
-      { type: "section", content: [] },
-      {
-        type: "section",
-        content: [
-          {
-            type: "block",
-            attrs: { id: ID },
-            content: runs([
-              { text: "call", marks: [{ type: "bold" }, tel] },
-              { text: "site", marks: [web] },
-            ]),
-          },
-        ],
-      },
-    ],
-  };
-  expect(normalizeDoc(doc, ids)).toEqual({
-    type: "doc",
-    content: [
-      {
-        type: "section",
-        content: [
-          {
-            type: "block",
-            attrs: { id: ID },
-            content: runs([
-              { text: "call", marks: [{ type: "bold" }] },
-              { text: "site", marks: [web] },
-            ]),
-          },
-        ],
-      },
-    ],
-  });
-
+test("block by block or as a whole, a document is refused for the same blocks", () => {
   fc.assert(
-    fc.property(docArb, (d) => {
-      const n = normalizeDoc(d, ids);
-      parseDoc(n);
-      expect(normalizeDoc(n, ids)).toEqual(n);
-      const repairs = validateDoc(n).filter(
-        (issue) => issue.code !== "duplicate_id",
+    fc.property(arbDocWithDamagedBlocks, (doc) => {
+      const blocks = doc.content.flatMap((section) => section.content);
+      const whole = validateDoc(doc).filter(
+        (i) =>
+          i.code !== "duplicate_id" &&
+          new RegExp("^content\\[\\d+\\]\\.content\\[\\d+\\]").test(i.path),
       );
-      expect(repairs).toEqual([]);
+      const parts = validateBlocks(blocks, { isIdTaken: () => false }).filter(
+        (i) => i.code !== "duplicate_id",
+      );
+      expect(parts.map((i) => [i.code, i.severity, i.message])).toEqual(
+        whole.map((i) => [i.code, i.severity, i.message]),
+      );
     }),
+    { numRuns: 500 },
   );
 });
 
-const blocks = (count: number): BlockJSON[] =>
-  Array.from({ length: count }, (_, i) => ({
-    type: "block",
-    attrs: { id: `b${String(i).padStart(15, "0")}` },
-  }));
-const sizes = (json: DocJSON) =>
-  (json.content ?? []).map((section) => section.content?.length);
-test("sectionize makes even sections and never drops a block", () => {
-  const all = blocks(250);
-  const doc = sectionize(all);
-  expect(sizes(doc)).toEqual([84, 83, 83]);
-  expect(
-    (doc.content ?? []).flatMap((section) => section.content ?? []),
-  ).toEqual(all);
-  expect(sectionize([])).toEqual({ type: "doc", content: [] });
-  expect(sizes(sectionize(blocks(100)))).toEqual([100]);
-  expect(sizes(sectionize(blocks(101)))).toEqual([51, 50]);
-  expect(sizes(sectionize(blocks(5), 2))).toEqual([2, 2, 1]);
-  expect(() => sectionize(all, 0)).toThrow(RangeError);
+test("validating five touched blocks costs the same in a short and a long document", () => {
+  const touched = Array.from({ length: 5 }, (_, i) =>
+    block(`t${i}`.padEnd(16, "0")),
+  );
+  const asked = [100, 100_000].map((size) => {
+    const index = new Set(
+      Array.from({ length: size }, (_, i) => `d${i}`.padEnd(16, "0")),
+    );
+    let calls = 0;
+    const issues = validateBlocks(touched, {
+      isIdTaken: (id) => {
+        calls++;
+        return index.has(id);
+      },
+    });
+    return [calls, issues.length];
+  });
+  expect(asked).toEqual([
+    [5, 0],
+    [5, 0],
+  ]); // one question per touched block, whatever the document holds
+  expect(validateBlocks.length).toBe(2); // and no third argument through which a document could arrive
 });

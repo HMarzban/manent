@@ -56,10 +56,10 @@ test("a split tail copies overrides and timing exclusion, and nothing that ident
     spaceBefore: 2,
     noContd: true,
     noTiming: true,
-    owner: "sam",
+    writerUserId: "sam",
     suggest: "added",
     suggestId: "s1",
-    suggestBy: "sam",
+    suggestAuthorUserId: "sam",
     suggestAt: 1,
   };
   expect(attrsForSplitTail(origin, "action", "t1t1t1t1t1t1t1t1", "k9")).toEqual(

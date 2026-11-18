@@ -26,6 +26,10 @@ export const BLOCK_TYPES = [
 ] as const;
 export type BlockType = (typeof BLOCK_TYPES)[number];
 
+export function isBlockType(value: unknown): value is BlockType {
+  return BLOCK_TYPES.some((type) => type === value);
+}
+
 export const ACT_BREAK_KINDS = [
   "new_act",
   "end_of_act",
@@ -42,6 +46,7 @@ export const FORMATS = [
   "game",
   "ink",
   "manuscript",
+  "stage_play",
 ] as const;
 export type FormatId = (typeof FORMATS)[number];
 
@@ -92,11 +97,19 @@ export const FORMAT_ELEMENTS: Readonly<Record<FormatId, readonly BlockType[]>> =
     ],
     ink: ["ink_line", ...STRUCTURE],
     manuscript: ["chapter", "body", "break", "quote", ...STRUCTURE],
+    // the layout shows Action as a stage direction; Transition and Shot are not part of the format
+    stage_play: [
+      "scene_heading",
+      "action",
+      "character",
+      "parenthetical",
+      "dialogue",
+      "general",
+      ...STRUCTURE,
+    ],
   };
 
 /** The element a block renders as: a type this build does not know renders as General. */
 export function renderedType(type: string): BlockType {
-  return (BLOCK_TYPES as readonly string[]).includes(type)
-    ? (type as BlockType)
-    : "general";
+  return isBlockType(type) ? type : "general";
 }

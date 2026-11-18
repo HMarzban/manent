@@ -1,15 +1,20 @@
 // What is wrong with a stored document, and how much it matters.
-import { DEFAULT_BLOCK_ATTRS } from "./attrs.ts";
-import type { BlockAttrs } from "./attrs.ts";
-import { ACT_BREAK_KINDS, BLOCK_TYPES } from "./block-types.ts";
-import { isBlockId, parseFrom } from "./identity.ts";
+import { fillBlockAttrs } from "./attrs.ts";
+import { BLOCK_ATTR_CHECKS, isElementName } from "./block-attr-checks.ts";
+import { isBlockType } from "./block-types.ts";
+import { isBlockId } from "./identity.ts";
 import {
-  MARK_NAMES,
+  MARK_ATTR_CHECKS,
   MARK_SPECS,
   OVERLAPPING_MARKS,
+  isMarkName,
   isSafeHref,
 } from "./marks.ts";
 import type { MarkName } from "./marks.ts";
+import { NODE_NAMES } from "./schema.ts";
+import type { NodeName } from "./schema.ts";
+import { isObject, isString } from "./shape.ts";
+import type { Json } from "./shape.ts";
 
 export type IssueCode =
   | "not_a_doc"
@@ -58,91 +63,53 @@ const SEVERITY: Record<IssueCode, Severity> = {
   empty_doc: "repair",
 };
 
-type Json = Record<string, unknown>;
-type Check = (value: unknown) => boolean;
+/** A mark this build knows, well formed. */
+interface KnownMark {
+  name: MarkName;
+  attrs: Json;
+}
 
-const isObject = (value: unknown): value is Json =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-const isString: Check = (value) => typeof value === "string";
-const isBoolean: Check = (value) => typeof value === "boolean";
-const isCount: Check = (value) =>
-  typeof value === "number" && Number.isInteger(value) && value >= 0;
-const orNull =
-  (check: Check): Check =>
-  (value) =>
-    value === null || check(value);
-const oneOf =
-  (values: readonly unknown[]): Check =>
-  (value) =>
-    values.includes(value);
+/** The path of `key` inside the node at `path`; the root's path is "". */
+function at(path: string, key: string): string {
+  return path === "" ? key : `${path}.${key}`;
+}
 
-const ELEMENT_NAME = /^[a-z_]{1,32}$/;
+export interface BlockContext {
+  /** True when a block outside `blocks` already carries this ID. The caller answers from its own index. */
+  isIdTaken(id: string): boolean;
+}
 
-/** The valid values of each block attribute except `id` and `type`, which have their own codes. */
-const BLOCK_ATTR_CHECKS: Record<
-  Exclude<keyof BlockAttrs, "id" | "type">,
-  Check
-> = {
-  num: orNull(isString),
-  omitted: isBoolean,
-  dual: orNull(oneOf(["left", "right"])),
-  synopsis: isString,
-  align: orNull(oneOf(["left", "center", "right"])),
-  indent: orNull(isCount),
-  width: orNull(isCount),
-  spaceBefore: orNull(isCount),
-  noContd: isBoolean,
-  noTiming: isBoolean,
-  owner: orNull(isString),
-  suggest: orNull(isString),
-  from: (value) =>
-    value === null || (isString(value) && parseFrom(value as string) !== null),
-  kind: orNull(oneOf(ACT_BREAK_KINDS)),
-  suggestId: orNull(isString),
-  suggestBy: orNull(isString),
-  suggestAt: orNull(isCount),
-};
-
-const SUGGESTION_ATTRS = { id: isString, author: isString, at: isCount };
-
-/** The attributes of each mark, with their valid values. */
-const MARK_ATTR_CHECKS: Record<MarkName, Record<string, Check>> = {
-  bold: {},
-  italic: {},
-  underline: {},
-  strike: {},
-  caps: {},
-  color: { value: isString },
-  highlight: { value: isString },
-  link: { href: isString },
-  suggest_insert: SUGGESTION_ATTRS,
-  suggest_delete: SUGGESTION_ATTRS,
-};
-
-const NODE_NAMES = ["doc", "section", "block", "text"];
+/** A whole document: no block lies outside it. */
+const WHOLE_DOC: BlockContext = { isIdTaken: () => false };
 
 class Walk {
   readonly issues: Issue[] = [];
   private readonly ids = new Set<string>();
+  private readonly context: BlockContext;
+
+  constructor(context: BlockContext) {
+    this.context = context;
+  }
 
   report(path: string, code: IssueCode, message: string): void {
     this.issues.push({ path, code, severity: SEVERITY[code], message });
   }
 
   /** A child that should be a node of type `expected`; true when it is one. */
-  child(node: unknown, path: string, expected: string): node is Json {
+  child(node: unknown, path: string, expected: NodeName): node is Json {
     if (!isObject(node) || typeof node.type !== "string") {
       this.report(path, "unknown_node", "not a node");
       return false;
     }
-    if (node.type === expected) return true;
-    if (NODE_NAMES.includes(node.type))
+    const type = node.type;
+    if (type === expected) return true;
+    if (NODE_NAMES.some((name) => name === type))
       this.report(
         path,
         "non_text_content",
-        `a ${node.type} where a ${expected} belongs`,
+        `a ${type} where a ${expected} belongs`,
       );
-    else this.report(path, "unknown_node", `unknown node "${node.type}"`);
+    else this.report(path, "unknown_node", `unknown node "${type}"`);
     return false;
   }
 
@@ -150,7 +117,7 @@ class Walk {
   content(node: Json, path: string): unknown[] {
     if (node.content === undefined) return [];
     if (Array.isArray(node.content)) return node.content;
-    this.report(`${path}content`, "unknown_node", "content is not a list");
+    this.report(at(path, "content"), "unknown_node", "content is not a list");
     return [];
   }
 
@@ -158,12 +125,12 @@ class Walk {
   noAttrs(node: Json, path: string): void {
     if (node.attrs === undefined) return;
     if (!isObject(node.attrs)) {
-      this.report(`${path}attrs`, "bad_attr", "attrs is not an object");
+      this.report(at(path, "attrs"), "bad_attr", "attrs is not an object");
       return;
     }
     for (const key of Object.keys(node.attrs))
       this.report(
-        `${path}attrs.${key}`,
+        at(at(path, "attrs"), key),
         "unknown_attr",
         `unknown attribute "${key}"`,
       );
@@ -173,7 +140,7 @@ class Walk {
   noMarks(node: Json, path: string): void {
     if (node.marks === undefined) return;
     if (Array.isArray(node.marks) && node.marks.length === 0) return;
-    this.report(`${path}marks`, "bad_mark", "only text carries marks");
+    this.report(at(path, "marks"), "bad_mark", "only text carries marks");
   }
 
   doc(json: unknown): void {
@@ -185,11 +152,10 @@ class Walk {
     this.noMarks(json, "");
     const sections = this.content(json, "");
     if (sections.length === 0)
-      this.report("content", "empty_doc", "the doc has no sections");
+      this.report(at("", "content"), "empty_doc", "the doc has no sections");
     sections.forEach((section, i) => {
-      const path = `content[${i}]`;
-      if (this.child(section, path, "section"))
-        this.section(section, `${path}.`);
+      const path = at("", `content[${i}]`);
+      if (this.child(section, path, "section")) this.section(section, path);
     });
   }
 
@@ -199,13 +165,13 @@ class Walk {
     const blocks = this.content(section, path);
     if (blocks.length === 0)
       this.report(
-        `${path}content`,
+        at(path, "content"),
         "empty_section",
         "the section has no blocks",
       );
     blocks.forEach((block, i) => {
-      const at = `${path}content[${i}]`;
-      if (this.child(block, at, "block")) this.block(block, `${at}.`);
+      const blockPath = at(path, `content[${i}]`);
+      if (this.child(block, blockPath, "block")) this.block(block, blockPath);
     });
   }
 
@@ -213,126 +179,123 @@ class Walk {
     this.noMarks(block, path);
     const attrs = block.attrs ?? {};
     if (!isObject(attrs))
-      this.report(`${path}attrs`, "bad_attr", "attrs is not an object");
-    else this.blockAttrs(attrs, `${path}attrs.`);
+      this.report(at(path, "attrs"), "bad_attr", "attrs is not an object");
+    else this.blockAttrs(attrs, at(path, "attrs"));
     this.content(block, path).forEach((text, i) => {
-      const at = `${path}content[${i}]`;
-      if (this.child(text, at, "text")) this.text(text, `${at}.`);
+      const textPath = at(path, `content[${i}]`);
+      if (this.child(text, textPath, "text")) this.text(text, textPath);
     });
   }
 
   blockAttrs(attrs: Json, path: string): void {
-    const given = (key: string) =>
-      Object.hasOwn(attrs, key) && attrs[key] !== undefined
-        ? attrs[key]
-        : DEFAULT_BLOCK_ATTRS[key as keyof BlockAttrs];
+    const filled: Json = fillBlockAttrs(attrs);
 
-    const id = given("id");
+    const id = filled.id;
     if (id === null)
-      this.report(`${path}id`, "missing_id", "the block has no ID");
+      this.report(at(path, "id"), "missing_id", "the block has no ID");
     else if (!isBlockId(id))
-      this.report(`${path}id`, "bad_attr", "not a block ID");
-    else if (this.ids.has(id))
-      this.report(`${path}id`, "duplicate_id", `ID "${id}" is used twice`);
+      this.report(at(path, "id"), "bad_attr", "not a block ID");
+    else if (this.ids.has(id) || this.context.isIdTaken(id))
+      this.report(at(path, "id"), "duplicate_id", `ID "${id}" is used twice`);
     else this.ids.add(id);
 
-    const type = given("type");
-    if (typeof type !== "string" || !ELEMENT_NAME.test(type))
-      this.report(`${path}type`, "bad_attr", "not an element name");
-    else if (!(BLOCK_TYPES as readonly string[]).includes(type))
-      this.report(`${path}type`, "unknown_type", `unknown element "${type}"`);
+    const type = filled.type;
+    if (!isElementName(type))
+      this.report(at(path, "type"), "bad_attr", "not an element name");
+    else if (!isBlockType(type))
+      this.report(
+        at(path, "type"),
+        "unknown_type",
+        `unknown element "${type}"`,
+      );
 
-    for (const key of Object.keys(attrs)) {
-      if (key === "id" || key === "type") continue;
-      if (!Object.hasOwn(BLOCK_ATTR_CHECKS, key))
+    for (const [key, check] of Object.entries(BLOCK_ATTR_CHECKS))
+      if (!check(filled[key]))
+        this.report(at(path, key), "bad_attr", `bad value for "${key}"`);
+
+    for (const key of Object.keys(attrs))
+      if (!Object.hasOwn(filled, key))
         this.report(
-          `${path}${key}`,
+          at(path, key),
           "unknown_attr",
           `unknown attribute "${key}"`,
         );
-      else if (
-        !BLOCK_ATTR_CHECKS[key as keyof typeof BLOCK_ATTR_CHECKS](given(key))
-      )
-        this.report(`${path}${key}`, "bad_attr", `bad value for "${key}"`);
-    }
   }
 
   text(text: Json, path: string): void {
-    if (typeof text.text !== "string" || text.text === "")
-      this.report(`${path}text`, "bad_attr", "text is not a non-empty string");
+    if (!isString(text.text) || text.text === "")
+      this.report(
+        at(path, "text"),
+        "bad_attr",
+        "text is not a non-empty string",
+      );
     if (text.marks === undefined) return;
     if (!Array.isArray(text.marks)) {
-      this.report(`${path}marks`, "bad_mark", "marks is not a list");
+      this.report(at(path, "marks"), "bad_mark", "marks is not a list");
       return;
     }
-    const held: { name: string; attrs: Json }[] = [];
+    const held: KnownMark[] = [];
     text.marks.forEach((mark: unknown, i) => {
-      const at = `${path}marks[${i}]`;
-      const known = this.mark(mark, at);
+      const markPath = at(path, `marks[${i}]`);
+      const known = this.mark(mark, markPath);
       if (known === null) return;
-      if (held.some((other) => sameMark(other, known)))
-        this.report(at, "bad_mark", `mark "${known.name}" is given twice`);
+      if (held.some((other) => conflictsWith(other, known)))
+        this.report(
+          markPath,
+          "bad_mark",
+          `mark "${known.name}" is given twice`,
+        );
       held.push(known);
     });
   }
 
   /** Checks one mark; returns it when this build knows it and it is well formed. */
-  mark(mark: unknown, path: string): { name: string; attrs: Json } | null {
-    if (!isObject(mark) || typeof mark.type !== "string") {
+  mark(mark: unknown, path: string): KnownMark | null {
+    if (!isObject(mark) || !isString(mark.type)) {
       this.report(path, "bad_mark", "not a mark");
       return null;
     }
-    if (!(MARK_NAMES as readonly string[]).includes(mark.type)) {
-      this.report(path, "unknown_mark", `unknown mark "${mark.type}"`);
+    const name = mark.type;
+    if (!isMarkName(name)) {
+      this.report(path, "unknown_mark", `unknown mark "${name}"`);
       return null;
     }
-    const name = mark.type as MarkName;
     const attrs = mark.attrs ?? {};
     if (!isObject(attrs)) {
-      this.report(`${path}.attrs`, "bad_mark", "attrs is not an object");
+      this.report(at(path, "attrs"), "bad_mark", "attrs is not an object");
       return null;
     }
     const checks = MARK_ATTR_CHECKS[name];
     let wellFormed = true;
     for (const [key, value] of Object.entries(attrs)) {
+      const attrPath = at(at(path, "attrs"), key);
       if (!Object.hasOwn(checks, key))
-        this.report(
-          `${path}.attrs.${key}`,
-          "unknown_attr",
-          `unknown attribute "${key}"`,
-        );
+        this.report(attrPath, "unknown_attr", `unknown attribute "${key}"`);
       else if (value !== undefined && !checks[key]!(value)) {
-        this.report(
-          `${path}.attrs.${key}`,
-          "bad_mark",
-          `bad value for "${key}"`,
-        );
+        this.report(attrPath, "bad_mark", `bad value for "${key}"`);
         wellFormed = false;
       }
     }
-    if (
-      name === "link" &&
-      wellFormed &&
-      !isSafeHref((attrs.href as string | undefined) ?? "")
-    )
-      this.report(
-        `${path}.attrs.href`,
-        "unsafe_link",
-        "the link is not http, https or mailto",
-      );
-    return wellFormed ? { name, attrs } : null;
+    if (!wellFormed) return null;
+    if (name === "link") {
+      const href = attrs.href ?? "";
+      if (isString(href) && !isSafeHref(href))
+        this.report(
+          at(at(path, "attrs"), "href"),
+          "unsafe_link",
+          "the link is not http, https or mailto",
+        );
+    }
+    return { name, attrs };
   }
 }
 
 /** Two marks this build cannot hold together on one piece of text. */
-function sameMark(
-  a: { name: string; attrs: Json },
-  b: { name: string; attrs: Json },
-): boolean {
+function conflictsWith(a: KnownMark, b: KnownMark): boolean {
   if (a.name !== b.name) return false;
-  if (!(OVERLAPPING_MARKS as readonly string[]).includes(a.name)) return true;
+  if (!OVERLAPPING_MARKS.some((name) => name === a.name)) return true;
   // ProseMirror compares marks with their defaults filled in, and so must this.
-  const specs = MARK_SPECS[a.name as MarkName].attrs ?? {};
+  const specs = MARK_SPECS[a.name].attrs ?? {};
   const value = (attrs: Json, key: string): unknown =>
     attrs[key] ?? specs[key]?.default;
   return Object.keys(specs).every(
@@ -346,8 +309,24 @@ function sameMark(
  * missing one reads as empty). Never throws.
  */
 export function validateDoc(json: unknown): Issue[] {
-  const walk = new Walk();
+  const walk = new Walk(WHOLE_DOC);
   walk.doc(json);
+  return walk.issues;
+}
+
+/**
+ * Every issue in these blocks, in order: what validateDoc reports for a block, with paths starting `blocks[<i>]`.
+ * `duplicate_id` is reported for an ID met earlier in `blocks` or taken according to `context`. Never throws.
+ */
+export function validateBlocks(
+  blocks: readonly unknown[],
+  context: BlockContext,
+): Issue[] {
+  const walk = new Walk(context);
+  blocks.forEach((block, i) => {
+    const path = `blocks[${i}]`;
+    if (walk.child(block, path, "block")) walk.block(block, path);
+  });
   return walk.issues;
 }
 
