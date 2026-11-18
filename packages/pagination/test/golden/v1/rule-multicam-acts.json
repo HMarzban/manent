@@ -1,0 +1,120 @@
+{
+  "engineVersion": 1,
+  "format": "multicam",
+  "paper": "letter",
+  "blocks": 130,
+  "pages": [
+    {
+      "label": "1",
+      "block": "blk_000000000000",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "ACT ONE"
+    },
+    {
+      "label": "2",
+      "block": "blk_000000000001",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "A XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX. A"
+    },
+    {
+      "label": "3",
+      "block": "blk_00000000000i",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "OKSANA"
+    },
+    {
+      "label": "4",
+      "block": "blk_00000000000m",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "B XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX. B"
+    },
+    {
+      "label": "5",
+      "block": "blk_000000000013",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "ANSEL"
+    },
+    {
+      "label": "6",
+      "block": "blk_000000000017",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "C XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX. C"
+    },
+    {
+      "label": "7",
+      "block": "blk_00000000001o",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "RUTH"
+    },
+    {
+      "label": "8",
+      "block": "blk_00000000001t",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "ACT TWO"
+    },
+    {
+      "label": "9",
+      "block": "blk_00000000001u",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "D XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX. D"
+    },
+    {
+      "label": "10",
+      "block": "blk_00000000002b",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "INES"
+    },
+    {
+      "label": "11",
+      "block": "blk_00000000002f",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "E XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX. E"
+    },
+    {
+      "label": "12",
+      "block": "blk_00000000002w",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "MARA"
+    },
+    {
+      "label": "13",
+      "block": "blk_000000000030",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "F XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX. F"
+    },
+    {
+      "label": "14",
+      "block": "blk_00000000003h",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "WALT"
+    }
+  ]
+}

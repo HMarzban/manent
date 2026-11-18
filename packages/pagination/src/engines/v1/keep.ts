@@ -186,21 +186,36 @@ export function pieceOf(flow: Flow, i: number, line: number): SplitPiece {
   };
 }
 
-/** The units of the transition after block i when the two must share a page; 0 otherwise. */
+/**
+ * The units of the transitions after block i that must share its page: as a transition never starts
+ * a page, one after another goes too; 0 when none follows. A block kept with the next takes them into
+ * its chain instead, but the last block of a dual run is not kept.
+ */
 export function tailOf(flow: Flow, i: number): number {
-  if (flow.metrics[i]!.spec.keptWithNext) return 0;
-  const t = nextPrinted(flow, i);
-  return t >= 0 && keyOf(flow, t) === "transition" && !isForcedStart(flow, t)
-    ? spaceOf(flow, t) + heightOf(flow, t)
-    : 0;
+  if (
+    flow.metrics[i]!.spec.keptWithNext &&
+    !isInRun(flow.blocks, flow.profile, i)
+  )
+    return 0;
+  let units = 0;
+  for (
+    let t = nextPrinted(flow, i);
+    t >= 0 && keyOf(flow, t) === "transition" && !isForcedStart(flow, t);
+    t = nextPrinted(flow, t)
+  )
+    units += spaceOf(flow, t) + heightOf(flow, t);
+  return units;
 }
 
-// The least of block i that can be left at the foot of a page.
+// The least of block i that can be left at the foot of a page: up to its first split, or up to the
+// line a lock starts a page at.
 function minHead(flow: Flow, i: number): number {
-  const k = firstSplit(pieceOf(flow, i, 0), flow.profile.rules, 0);
-  return k < 0
-    ? heightOf(flow, i) + reserveOf(flow, i)
-    : k * stepOf(flow, i) + moreOf(flow, i);
+  const piece = pieceOf(flow, i, 0);
+  const k = firstSplit(piece, flow.profile.rules, 0);
+  if (k >= 0) return k * piece.step + piece.more;
+  return piece.end < flow.metrics[i]!.lines
+    ? piece.end * piece.step + piece.more
+    : heightOf(flow, i) + reserveOf(flow, i);
 }
 
 /** A dual run, or what is left of it on a new page: each column from where it resumes, null when it is done. */
@@ -284,18 +299,19 @@ export function dualMoreOf(flow: Flow): number {
   return flow.profile.furniture.speechContinued ? UNITS_PER_LINE : 0;
 }
 
-// The least of a run that can be left at the foot of a page: all of a short run, else down to the
-// first row it may be cut at.
+// The least of a run that can be left at the foot of a page: all of a short run and the transition
+// after it, else down to the first row it may be cut at.
 function runHead(flow: Flow, run: DualRun): number {
   look(flow, Math.min(run.end, flow.blocks.length - 1));
   const columns = columnsOf(flow, wholeRun(run));
   const height = Math.max(...columns.map(columnHeight));
   const { minLines, dualSplitAbove } = flow.profile.rules;
-  if (height <= flow.cap * dualSplitAbove) return height;
+  const whole = height + tailOf(flow, run.end - 1);
+  if (height <= flow.cap * dualSplitAbove) return whole;
   const edge = minLines * UNITS_PER_LINE;
   for (let row = edge; row <= height - edge; row++)
     if (isCutRow(columns, row)) return row + dualMoreOf(flow);
-  return height;
+  return whole;
 }
 
 // The units block i's part of a chain needs, and whether the chain goes on to the next block.
@@ -312,7 +328,7 @@ function link(flow: Flow, i: number): { units: number; next: number } {
     keyOf(flow, t) === "transition" &&
     firstSplit(pieceOf(flow, i, 0), flow.profile.rules, 0) < 0
   )
-    return { units: own + spaceOf(flow, t) + heightOf(flow, t), next: -1 };
+    return { units: own + tailOf(flow, i), next: -1 };
   return { units: spaceOf(flow, i) + minHead(flow, i), next: -1 };
 }
 

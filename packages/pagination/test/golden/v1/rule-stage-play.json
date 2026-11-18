@@ -1,0 +1,32 @@
+{
+  "engineVersion": 1,
+  "format": "stage_play",
+  "paper": "letter",
+  "blocks": 43,
+  "pages": [
+    {
+      "label": "1",
+      "block": "blk_000000000000",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "ACT ONE"
+    },
+    {
+      "label": "2",
+      "block": "blk_00000000000l",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "(xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "label": "3",
+      "block": "blk_000000000014",
+      "line": 0,
+      "more": false,
+      "contd": null,
+      "firstLine": "COLE"
+    }
+  ]
+}
