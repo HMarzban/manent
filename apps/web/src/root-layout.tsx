@@ -25,7 +25,7 @@ export function RootLayout(props: {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-white text-neutral-900">
+    <div className="flex min-h-screen flex-col bg-chrome text-fg">
       {demo && (
         <DemoBar
           personLabel={personLabel(person)}
