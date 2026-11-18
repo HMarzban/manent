@@ -19,15 +19,14 @@ jobs:
   windows:
     runs-on: windows-2025
     timeout-minutes: 120
-    # The committed macOS results stay in results/; a Windows harness that stops early must not leave one of them in
-    # the artifact as if Windows had written it.
-    env:
-      MANENT_RESULTS_DIR: results/windows
     defaults:
       run:
         working-directory: spikes/03-pagination-containment
     steps:
       - uses: actions/checkout@v5
+      # The checkout holds the committed macOS results; the artifact must hold only what Windows wrote, so a harness
+      # that stops early leaves its file absent rather than a macOS one in its place.
+      - run: Remove-Item -Recurse -Force results
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
