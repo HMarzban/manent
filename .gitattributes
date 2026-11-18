@@ -1,1 +1,4 @@
 * text=auto eol=lf
+CHANGELOG.md merge=union
+docs/decisions/README.md merge=union
+docs/memory/lessons.md merge=union

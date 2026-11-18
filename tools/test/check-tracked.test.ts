@@ -12,13 +12,34 @@ test("only the public tree may be tracked", () => {
     untrackableOf([
       "packages/a/src/x.ts",
       "README.md",
+      "CHANGELOG.md",
+      "AGENTS.md",
+      "LICENSE",
+      "docs/architecture/overview.md",
+      "docs/benchmark/report.md",
+      "docs/decisions/0001-a.md",
+      "docs/memory/lessons.md",
       "spikes/01/RESULT.md",
       ".github/workflows/ci.yml",
       "notes/plan.md",
       "docs/anything/a.md",
+      "docs/notes.md",
+      "docs/architecture.md",
+      "docs/decisions-old/a.md",
+      "docs/benchmarks/a.md",
+      "docs/memory",
       "secret.txt",
     ]),
-  ).toEqual(["notes/plan.md", "docs/anything/a.md", "secret.txt"]);
+  ).toEqual([
+    "notes/plan.md",
+    "docs/anything/a.md",
+    "docs/notes.md",
+    "docs/architecture.md",
+    "docs/decisions-old/a.md",
+    "docs/benchmarks/a.md",
+    "docs/memory",
+    "secret.txt",
+  ]);
 });
 
 test("the check lists what is tracked and what must not be", async () => {
