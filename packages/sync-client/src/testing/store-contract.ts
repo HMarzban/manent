@@ -123,6 +123,206 @@ async function seedSettled(s: LocalStore): Promise<void> {
   await s.markApplied(DOC, 2, []);
 }
 
+/** One case of the contract: the store under test is Dana's, freshly made. */
+interface ContractCase {
+  name: string;
+  run(
+    s: LocalStore,
+    open: (userId: string) => Promise<LocalStore>,
+    expect: TestApi["expect"],
+  ): Promise<void>;
+}
+
+const CONTRACT: readonly ContractCase[] = [
+  {
+    name: "a document that was never opened is not there",
+    async run(s, _open, expect) {
+      expect(await s.load(DOC)).toBeNull();
+      expect(await s.documents()).toEqual([]);
+    },
+  },
+  {
+    name: "what was appended comes back in order after a reload",
+    async run(s, open, expect) {
+      await seed(s);
+      const again = await (await open("dana")).load(DOC);
+      expect(again!.entries).toEqual([own(1), remote(2), own(3)]);
+      expect(again!.checkpoint).toBeNull();
+      expect(again!.syncedBase).toBeNull();
+      expect(again!.meta).toEqual(blankMeta(DOC));
+    },
+  },
+  {
+    name: "an acknowledgement and its bookkeeping are one write",
+    async run(s, _open, expect) {
+      await seed(s);
+      await s.acknowledge(DOC, 2, {
+        lastServerSeq: 40,
+        ackedClocks: { "7": 12 },
+        neverSynced: false,
+        lastSyncedAt: 5_000,
+      });
+      const loaded = (await s.load(DOC))!;
+      expect(loaded.entries.map((u) => [u.localSeq, u.acked])).toEqual([
+        [1, true],
+        [2, true],
+        [3, false],
+      ]);
+      expect(loaded.meta).toMatchObject({
+        lastServerSeq: 40,
+        ackedClocks: { "7": 12 },
+        neverSynced: false,
+        lastSyncedAt: 5_000,
+      });
+    },
+  },
+  {
+    name: "applying a server update and keeping what it set aside are one write",
+    async run(s, _open, expect) {
+      await seed(s);
+      const kept = item("r1");
+      await s.markApplied(DOC, 2, [kept]);
+      expect(
+        (await s.load(DOC))!.entries.find((u) => u.localSeq === 2),
+      ).toEqual({ ...remote(2), applied: true });
+      expect(await s.recovered(DOC)).toEqual([kept]);
+      await s.dismissRecovered("r1");
+      expect(await s.recovered(DOC)).toEqual([]);
+    },
+  },
+  {
+    name: "a checkpoint drops what it covers, and never an edit that is still waiting",
+    async run(s, _open, expect) {
+      await seedSettled(s);
+      await s.checkpoint(DOC, bytes(99), 3, true);
+      const loaded = (await s.load(DOC))!;
+      expect(loaded.checkpoint).toEqual({
+        state: bytes(99),
+        throughLocalSeq: 3,
+      });
+      expect(loaded.syncedBase).toEqual(bytes(99));
+      expect(loaded.entries).toEqual([own(3)]);
+      await s.checkpoint(DOC, bytes(98), 3, false);
+      // not synced: the base stays
+      expect((await s.load(DOC))!.syncedBase).toEqual(bytes(99));
+    },
+  },
+  {
+    name: "a waiting setting is an entry like any other, and a refused one is removed alone",
+    async run(s, _open, expect) {
+      await seedSettled(s);
+      await s.checkpoint(DOC, bytes(99), 3, true);
+      await s.append(DOC, setting(4));
+      await s.append(DOC, own(5));
+      await s.refuse(DOC, 4);
+      expect(
+        (await s.load(DOC))!.entries.map((e) => [e.kind, e.localSeq]),
+      ).toEqual([
+        ["update", 3],
+        ["update", 5],
+      ]);
+      await s.append(DOC, setting(6));
+      await s.acknowledge(DOC, 6, {});
+      expect(
+        (await s.load(DOC))!.entries.find((e) => e.localSeq === 6),
+      ).toEqual({ ...setting(6), acked: true });
+    },
+  },
+  {
+    name: "a reset replaces the document and keeps its waiting settings, versions and recovered text",
+    async run(s, _open, expect) {
+      await seed(s);
+      await s.append(DOC, setting(4));
+      await s.acknowledge(DOC, 4, {});
+      await s.addVersion(version("v1", DOC));
+      await s.markApplied(DOC, 0, [item("r2")]);
+      await s.append(DOC, setting(7));
+      await s.reset(DOC, bytes(7), {
+        ...blankMeta(DOC),
+        clientIds: [11],
+        neverSynced: false,
+      });
+      const loaded = (await s.load(DOC))!;
+      expect(loaded.entries).toEqual([setting(7)]);
+      expect(loaded.syncedBase).toEqual(bytes(7));
+      // the highest localSeq ever held: local sequences never repeat
+      expect(loaded.checkpoint).toEqual({
+        state: bytes(7),
+        throughLocalSeq: 7,
+      });
+      expect(loaded.meta.clientIds).toEqual([11]);
+      expect((await s.versions(DOC)).map((v) => v.id)).toEqual(["v1"]);
+      expect((await s.recovered(DOC)).map((r) => r.id)).toEqual(["r2"]);
+    },
+  },
+  {
+    name: "versions are kept whole and can be marked uploaded",
+    async run(s, _open, expect) {
+      await s.addVersion(version("v1", DOC));
+      await s.addVersion(version("v2", DOC2));
+      await s.addVersion(version("v3", DOC));
+      expect(await s.versions(DOC)).toEqual([
+        version("v1", DOC),
+        version("v3", DOC),
+      ]);
+      await s.markUploaded("v1");
+      expect(await s.versions(DOC)).toEqual([
+        { ...version("v1", DOC), uploaded: true },
+        version("v3", DOC),
+      ]);
+    },
+  },
+  {
+    name: "two users on one device never see each other's documents",
+    async run(s, open, expect) {
+      await s.create(blankMeta(DOC));
+      const sam = await open("sam");
+      expect(await sam.load(DOC)).toBeNull();
+      expect(await sam.documents()).toEqual([]);
+      await sam.create(blankMeta(DOC2));
+      expect((await s.documents()).map((m) => m.docId)).toEqual([DOC]);
+      expect(sam.userId).toBe("sam");
+      expect(s.userId).toBe("dana");
+    },
+  },
+  {
+    name: "meta can be patched without touching the log",
+    async run(s, _open, expect) {
+      await seed(s);
+      await s.patchMeta(DOC, { parked: { reason: "deleted", parkedAt: 9 } });
+      expect(await s.load(DOC)).toEqual({
+        meta: { ...blankMeta(DOC), parked: { reason: "deleted", parkedAt: 9 } },
+        checkpoint: null,
+        syncedBase: null,
+        entries: [own(1), remote(2), own(3)],
+      });
+    },
+  },
+  {
+    name: "stored bytes are copies",
+    async run(s, _open, expect) {
+      await s.create(blankMeta(DOC));
+      const entry = own(1);
+      const state = bytes(9);
+      await s.append(DOC, entry);
+      await s.checkpoint(DOC, state, 0, true);
+      entry.update.fill(200);
+      state.fill(200);
+      const first = (await s.load(DOC))!;
+      for (const e of first.entries)
+        if (e.kind === "update") e.update.fill(201);
+      first.checkpoint!.state.fill(201);
+      first.syncedBase!.fill(201);
+      expect(await s.load(DOC)).toEqual({
+        meta: blankMeta(DOC),
+        checkpoint: { state: bytes(9), throughLocalSeq: 0 },
+        syncedBase: bytes(9),
+        entries: [own(1)],
+      });
+    },
+  },
+];
+
 /**
  * Registers the tests every `LocalStore` passes. Each test calls `make` afresh,
  * opens Dana's store and disposes of what `make` gave when it ends; `open` called
@@ -135,181 +335,18 @@ export function localStoreContract(
     dispose(): Promise<void>;
   }>,
 ): void {
-  const { expect } = api;
-  const test = (
-    name: string,
-    body: (
-      s: LocalStore,
-      open: (userId: string) => Promise<LocalStore>,
-    ) => Promise<void>,
-  ): void => {
-    api.test(name, async () => {
+  for (const contractCase of CONTRACT) {
+    api.test(contractCase.name, async () => {
       const made = await make();
       try {
-        await body(await made.open("dana"), (userId) => made.open(userId));
+        await contractCase.run(
+          await made.open("dana"),
+          (userId) => made.open(userId),
+          api.expect,
+        );
       } finally {
         await made.dispose();
       }
     });
-  };
-
-  test("a document that was never opened is not there", async (s) => {
-    expect(await s.load(DOC)).toBeNull();
-    expect(await s.documents()).toEqual([]);
-  });
-
-  test("what was appended comes back in order after a reload", async (s, open) => {
-    await seed(s);
-    const again = await (await open("dana")).load(DOC);
-    expect(again!.entries).toEqual([own(1), remote(2), own(3)]);
-    expect(again!.checkpoint).toBeNull();
-    expect(again!.syncedBase).toBeNull();
-    expect(again!.meta).toEqual(blankMeta(DOC));
-  });
-
-  test("an acknowledgement and its bookkeeping are one write", async (s) => {
-    await seed(s);
-    await s.acknowledge(DOC, 2, {
-      lastServerSeq: 40,
-      ackedClocks: { "7": 12 },
-      neverSynced: false,
-      lastSyncedAt: 5_000,
-    });
-    const loaded = (await s.load(DOC))!;
-    expect(loaded.entries.map((u) => [u.localSeq, u.acked])).toEqual([
-      [1, true],
-      [2, true],
-      [3, false],
-    ]);
-    expect(loaded.meta).toMatchObject({
-      lastServerSeq: 40,
-      ackedClocks: { "7": 12 },
-      neverSynced: false,
-      lastSyncedAt: 5_000,
-    });
-  });
-
-  test("applying a server update and keeping what it set aside are one write", async (s) => {
-    await seed(s);
-    const kept = item("r1");
-    await s.markApplied(DOC, 2, [kept]);
-    expect((await s.load(DOC))!.entries.find((u) => u.localSeq === 2)).toEqual({
-      ...remote(2),
-      applied: true,
-    });
-    expect(await s.recovered(DOC)).toEqual([kept]);
-    await s.dismissRecovered("r1");
-    expect(await s.recovered(DOC)).toEqual([]);
-  });
-
-  test("a checkpoint drops what it covers, and never an edit that is still waiting", async (s) => {
-    await seedSettled(s);
-    await s.checkpoint(DOC, bytes(99), 3, true);
-    const loaded = (await s.load(DOC))!;
-    expect(loaded.checkpoint).toEqual({ state: bytes(99), throughLocalSeq: 3 });
-    expect(loaded.syncedBase).toEqual(bytes(99));
-    expect(loaded.entries).toEqual([own(3)]);
-    await s.checkpoint(DOC, bytes(98), 3, false);
-    // not synced: the base stays
-    expect((await s.load(DOC))!.syncedBase).toEqual(bytes(99));
-  });
-
-  test("a waiting setting is an entry like any other, and a refused one is removed alone", async (s) => {
-    await seedSettled(s);
-    await s.checkpoint(DOC, bytes(99), 3, true);
-    await s.append(DOC, setting(4));
-    await s.append(DOC, own(5));
-    await s.refuse(DOC, 4);
-    expect(
-      (await s.load(DOC))!.entries.map((e) => [e.kind, e.localSeq]),
-    ).toEqual([
-      ["update", 3],
-      ["update", 5],
-    ]);
-    await s.append(DOC, setting(6));
-    await s.acknowledge(DOC, 6, {});
-    expect((await s.load(DOC))!.entries.find((e) => e.localSeq === 6)).toEqual({
-      ...setting(6),
-      acked: true,
-    });
-  });
-
-  test("a reset replaces the document and keeps its waiting settings, versions and recovered text", async (s) => {
-    await seed(s);
-    await s.append(DOC, setting(4));
-    await s.acknowledge(DOC, 4, {});
-    await s.addVersion(version("v1", DOC));
-    await s.markApplied(DOC, 0, [item("r2")]);
-    await s.append(DOC, setting(7));
-    await s.reset(DOC, bytes(7), {
-      ...blankMeta(DOC),
-      clientIds: [11],
-      neverSynced: false,
-    });
-    const loaded = (await s.load(DOC))!;
-    expect(loaded.entries).toEqual([setting(7)]);
-    expect(loaded.syncedBase).toEqual(bytes(7));
-    // the highest localSeq ever held: local sequences never repeat
-    expect(loaded.checkpoint).toEqual({ state: bytes(7), throughLocalSeq: 7 });
-    expect(loaded.meta.clientIds).toEqual([11]);
-    expect((await s.versions(DOC)).map((v) => v.id)).toEqual(["v1"]);
-    expect((await s.recovered(DOC)).map((r) => r.id)).toEqual(["r2"]);
-  });
-
-  test("versions are kept whole and can be marked uploaded", async (s) => {
-    await s.addVersion(version("v1", DOC));
-    await s.addVersion(version("v2", DOC2));
-    await s.addVersion(version("v3", DOC));
-    expect(await s.versions(DOC)).toEqual([
-      version("v1", DOC),
-      version("v3", DOC),
-    ]);
-    await s.markUploaded("v1");
-    expect(await s.versions(DOC)).toEqual([
-      { ...version("v1", DOC), uploaded: true },
-      version("v3", DOC),
-    ]);
-  });
-
-  test("two users on one device never see each other's documents", async (s, open) => {
-    await s.create(blankMeta(DOC));
-    const sam = await open("sam");
-    expect(await sam.load(DOC)).toBeNull();
-    expect(await sam.documents()).toEqual([]);
-    await sam.create(blankMeta(DOC2));
-    expect((await s.documents()).map((m) => m.docId)).toEqual([DOC]);
-    expect(sam.userId).toBe("sam");
-    expect(s.userId).toBe("dana");
-  });
-
-  test("meta can be patched without touching the log", async (s) => {
-    await seed(s);
-    await s.patchMeta(DOC, { parked: { reason: "deleted", parkedAt: 9 } });
-    expect(await s.load(DOC)).toEqual({
-      meta: { ...blankMeta(DOC), parked: { reason: "deleted", parkedAt: 9 } },
-      checkpoint: null,
-      syncedBase: null,
-      entries: [own(1), remote(2), own(3)],
-    });
-  });
-
-  test("stored bytes are copies", async (s) => {
-    await s.create(blankMeta(DOC));
-    const entry = own(1);
-    const state = bytes(9);
-    await s.append(DOC, entry);
-    await s.checkpoint(DOC, state, 0, true);
-    entry.update.fill(200);
-    state.fill(200);
-    const first = (await s.load(DOC))!;
-    for (const e of first.entries) if (e.kind === "update") e.update.fill(201);
-    first.checkpoint!.state.fill(201);
-    first.syncedBase!.fill(201);
-    expect(await s.load(DOC)).toEqual({
-      meta: blankMeta(DOC),
-      checkpoint: { state: bytes(9), throughLocalSeq: 0 },
-      syncedBase: bytes(9),
-      entries: [own(1)],
-    });
-  });
+  }
 }
