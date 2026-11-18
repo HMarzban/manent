@@ -1,3 +1,30 @@
 // The command registry: definitions, context, key bindings and the service.
-export * from "./element-slots.ts";
-export * from "./ids.ts";
+export { ELEMENT_COMMAND_SLOTS } from "./element-slots.ts";
+export {
+  LEFT_TABS,
+  PANEL_IDS,
+  SCREEN_IDS,
+  SIDE_TABS,
+  SURFACE_IDS,
+} from "./ids.ts";
+export type { LeftTab, PanelId, ScreenId, SideTab, SurfaceId } from "./ids.ts";
+export { breaksLayoutRules, isChord } from "./chord.ts";
+export type { Chord, Keys, PlatformKeys } from "./chord.ts";
+export type { CommandContext } from "./context.ts";
+export { CommandsError, defineCommands } from "./define.ts";
+export type {
+  CommandDefinition,
+  CommandScope,
+  MenuPlacement,
+  SettingReader,
+  SettingWriter,
+} from "./define.ts";
+export { createCommandService } from "./service.ts";
+export type {
+  CommandService,
+  CommandState,
+  RunResult,
+  RunSource,
+} from "./service.ts";
+export { menuModel } from "./menu.ts";
+export type { MenuItemModel, MenuModel } from "./menu.ts";
