@@ -97,6 +97,7 @@ const listRows = (panel: HTMLElement): Element[] => [
 ];
 
 test("Script settings shows its scope line and its rows, named by their labels", async () => {
+  mock.module(DETAILS, () => ({ DETAILS_SECTIONS: [] }));
   const frame = await renderFrame({ title: "The Long Night" });
   await run(frame, "doc.scriptSettings");
   const panel = sidePanel(frame);

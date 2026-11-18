@@ -19,6 +19,9 @@ test("the mark names are a fixed list", () => {
     "ui.setting.apply",
     "ui.search.palette",
     "ui.switch.person",
+    "editor.dispatch",
+    "editor.complete",
+    "editor.keystroke",
   ]);
 });
 
@@ -45,6 +48,14 @@ test("the interface marks are listed, in their order", () => {
     "ui.setting.apply",
     "ui.search.palette",
     "ui.switch.person",
+  ]);
+});
+
+test("the editor marks are listed, in their order", () => {
+  expect(PERF_MARKS.slice(-3)).toEqual([
+    "editor.dispatch",
+    "editor.complete",
+    "editor.keystroke",
   ]);
 });
 

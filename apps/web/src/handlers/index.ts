@@ -7,6 +7,7 @@ import type { PersonStore } from "../state/person.store.ts";
 import { appHandlers } from "./app.ts";
 import { demoHandlers } from "./demo.ts";
 import { documentHandlers } from "./document.ts";
+import { createEditorHandlers } from "./editor.ts";
 import { libraryHandlers } from "./library.ts";
 import { preferencesHandlers } from "./preferences.ts";
 
@@ -40,6 +41,7 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     ...appHandlers(deps),
     ...preferencesHandlers(deps),
     ...documentHandlers(deps),
+    ...createEditorHandlers(),
     ...libraryHandlers(deps),
     ...demoHandlers(),
   };

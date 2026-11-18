@@ -1,6 +1,7 @@
 export * from "./demo.ts";
 export * from "./dialog.ts";
 export * from "./document.ts";
+export * from "./editor.ts";
 export * from "./format.ts";
 export * from "./library.ts";
 export * from "./messages.ts";

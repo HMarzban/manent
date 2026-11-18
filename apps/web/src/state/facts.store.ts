@@ -1,5 +1,6 @@
 // The editor's facts, one primitive each: written by the bridge, published once per frame, read one key at a time.
 
+import type { Alignment } from "@manent/schema";
 import { useContext, useMemo, useSyncExternalStore } from "react";
 import { FactsContext } from "./bridge-contexts.ts";
 import type { Guard } from "./guard.ts";
@@ -12,6 +13,15 @@ export interface EditorFacts {
   /** The caret's block, and the scene heading at or before it. */
   blockId: string | null;
   sceneId: string | null;
+  /** The caret block's layout as the engine resolves it: indent and width in cells, space before in lines. */
+  blockIndent: number | null;
+  blockWidth: number | null;
+  blockAlign: Alignment | null;
+  blockSpaceBefore: number | null;
+  /** The caret block's own spaceBefore attribute is not null (Space before shows checked). */
+  blockSpaceBeforeSet: boolean | null;
+  /** The page's text column, cells; null without pages (Ink). */
+  columnCells: number | null;
   /** The caret page's revision name and its place in the pages; null outside production. */
   pageRevision: string | null;
   pageOrdinal: number | null;
@@ -46,6 +56,12 @@ const INITIAL_FACTS: EditorFacts & Readonly<Record<FactKey, FactValue>> =
     scene: null,
     blockId: null,
     sceneId: null,
+    blockIndent: null,
+    blockWidth: null,
+    blockAlign: null,
+    blockSpaceBefore: null,
+    blockSpaceBeforeSet: null,
+    columnCells: null,
     pageRevision: null,
     pageOrdinal: null,
     canUndo: false,

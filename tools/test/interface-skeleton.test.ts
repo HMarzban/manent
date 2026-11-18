@@ -117,9 +117,13 @@ test("a screen that reads the route is that route's own lazily loaded component"
 });
 
 test("the Send screen's forms are a registration list that starts empty", () => {
-  expect([SEND_FORM_IDS, SEND_FORMS, sendPath("d1", "print")]).toEqual([
+  expect([
+    SEND_FORM_IDS,
+    SEND_FORMS.map((f: { id: string }) => f.id),
+    sendPath("d1", "print"),
+  ]).toEqual([
     ["export", "print", "send_draft", "issue", "recall"],
-    [],
+    ["export", "print"],
     "/s/d1/send/print",
   ]);
 });

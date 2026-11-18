@@ -15,4 +15,7 @@ export const PERF_MARKS: readonly string[] = [
   "ui.setting.apply",
   "ui.search.palette",
   "ui.switch.person",
+  "editor.dispatch",
+  "editor.complete",
+  "editor.keystroke",
 ];

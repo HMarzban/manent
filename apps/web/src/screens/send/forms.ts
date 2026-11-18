@@ -1,5 +1,7 @@
 // The Send screen's forms: one line per form, in the order of SEND_FORM_IDS.
 import type { ComponentType } from "react";
+import { exportForm } from "../../send/export-form.tsx";
+import { printForm } from "../../send/print-form.tsx";
 
 /** In the order the Send screen offers them. */
 export const SEND_FORM_IDS = [
@@ -24,7 +26,9 @@ export interface SendForm {
 }
 
 export const SEND_FORMS: readonly SendForm[] = [
-  // export and print arrive with the editor, issue and recall with production revisions, send_draft later
+  exportForm,
+  printForm,
+  // issue and recall arrive with production revisions, send_draft later
 ];
 
 export function sendPath(docId: string, form: SendFormId): string {

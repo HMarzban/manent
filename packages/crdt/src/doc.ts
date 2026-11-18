@@ -7,6 +7,8 @@ export type Unsubscribe = () => void;
 
 /** The origin `applyUpdate` gives a transaction when the caller names none. */
 export const ORIGIN_REMOTE = "remote";
+/** The origin of a review action's writes, tracked so that each is one undo step. */
+export const ORIGIN_REVIEW = "review";
 /** The origin of the transaction that loads a document. */
 export const ORIGIN_LOAD = "load";
 

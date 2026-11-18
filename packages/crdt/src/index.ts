@@ -1,4 +1,10 @@
-export { ORIGIN_LOAD, ORIGIN_REMOTE, createDoc, loadDoc } from "./doc.ts";
+export {
+  ORIGIN_LOAD,
+  ORIGIN_REMOTE,
+  ORIGIN_REVIEW,
+  createDoc,
+  loadDoc,
+} from "./doc.ts";
 export type { CrdtDoc, DocOptions, Unsubscribe } from "./doc.ts";
 export {
   FRAGMENT_NAME,
@@ -13,4 +19,5 @@ export * from "./awareness.ts";
 export * from "./inspect.ts";
 export * from "./set-aside.ts";
 export * from "./settings.ts";
+export * from "./undo-scope.ts";
 export * from "./vectors.ts";
