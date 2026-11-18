@@ -1,72 +1,35 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { TEXT, serverStatusText } from "../text.ts";
-import { POLL_MS, SERVER_STATUS_QUERY } from "./use-demo.ts";
+// The demo bar: a colour scope of its own above everything, with the person, the server and the Tour.
+import { DEMO_WORDS } from "@manent/ui";
+import { Suspense, lazy } from "react";
+import type { ReactNode } from "react";
 import type { DemoControl } from "./use-demo.ts";
+// the Tour's ring is drawn by a sheet in the entry: a sheet imported only by a chunk loaded later is never linked to the page
+import "./tour-ring.css";
 
+// the controls are loaded apart from the entry, which their stock components would push over its size budget;
+// the bar keeps its height while they arrive, so nothing moves
+const DemoBarControls = lazy(async () => ({
+  default: (await import("./demo-bar-controls.tsx")).DemoBarControls,
+}));
+
+/** Never takes focus; F6 reaches it. */
 export function DemoBar(props: {
   personLabel: string;
   onPersonClick: () => void;
   control: DemoControl | null;
-}) {
+}): ReactNode {
   return (
     <section
-      aria-label={TEXT.demo}
-      className="flex items-center gap-4 px-4 py-2 text-ui text-fg"
+      data-surface="demo"
+      aria-label={DEMO_WORDS.demo}
+      className="flex h-demobar items-center gap-2 bg-chrome px-3 text-meta text-fg"
     >
-      <span className="font-semibold">{TEXT.demo}</span>
-      <button
-        type="button"
-        onClick={props.onPersonClick}
-        className="rounded bg-neutral-700 px-2 py-1 hover:bg-neutral-600"
-      >
-        {props.personLabel}
-      </button>
-      {props.control && <ServerStatus {...props.control} />}
+      <span className="font-semibold tracking-wide uppercase">
+        {DEMO_WORDS.demo}
+      </span>
+      <Suspense fallback={null}>
+        <DemoBarControls {...props} />
+      </Suspense>
     </section>
-  );
-}
-
-function ServerStatus(props: DemoControl) {
-  const { client } = props;
-  const queryClient = useQueryClient();
-  const queryKey = [SERVER_STATUS_QUERY, props.id];
-
-  const status = useQuery({
-    queryKey,
-    queryFn: client.status,
-    refetchInterval: POLL_MS,
-    refetchOnWindowFocus: true,
-  });
-  const action = useMutation({
-    mutationFn: (kind: "stop" | "start") =>
-      kind === "stop" ? client.stop() : client.start(),
-    onSettled: () => queryClient.invalidateQueries({ queryKey }),
-  });
-
-  const state = status.data;
-  const kind =
-    state === "running"
-      ? "stop"
-      : state === "stopped" || state === "failed"
-        ? "start"
-        : null;
-
-  return (
-    <>
-      {/* rendered before the first answer: a live region that appears together with its text is not announced */}
-      <p role="status" className="ml-auto">
-        {state && serverStatusText(state)}
-      </p>
-      {kind && (
-        <button
-          type="button"
-          disabled={action.isPending}
-          onClick={() => action.mutate(kind)}
-          className="rounded bg-chrome px-2 py-1 text-fg hover:bg-subtle"
-        >
-          {kind === "stop" ? TEXT.stopServer : TEXT.startServer}
-        </button>
-      )}
-    </>
   );
 }

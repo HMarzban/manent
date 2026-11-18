@@ -1,30 +1,49 @@
+import { Row, SurfaceState, TimingProvider } from "@manent/ui";
+import type { SurfaceRenderers, SurfaceStateValue } from "@manent/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { SignInChoice } from "@manent/sync-protocol";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import type { Api } from "../api.ts";
 import { focusHeading } from "../focus.ts";
+import { useEnvironment } from "../services/context.tsx";
 import { choosePerson } from "../session.ts";
 import type { TabPerson } from "../session.ts";
 import { TEXT, pageTitle } from "../text.ts";
 
 const RETRY_CHOICES_MS = 2000;
-/** How long the chooser shows nothing before its placeholder rows. */
-const PLACEHOLDER_DELAY_MS = 150;
 const PLACEHOLDER_ROWS = 6;
 
-const ROW = "flex w-full items-baseline gap-3 rounded border p-3 text-left";
+/** Rows of the final height, with no words. */
+function placeholders(): ReactNode {
+  return (
+    <ul className="flex flex-col gap-1">
+      {Array.from({ length: PLACEHOLDER_ROWS }, (_, i) => (
+        <li key={i} aria-hidden="true" data-placeholder>
+          <Row meta="">{""}</Row>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// with no list to draw, the alert above it says why when there is a reason
+const nothing = (): ReactNode => null;
 
 export function ChooseScreen(props: {
   api: Api;
   person: TabPerson | null;
   setPerson: (person: TabPerson) => void;
   next: string;
-}) {
+}): ReactNode {
   const { api, person, setPerson, next } = props;
   const navigate = useNavigate();
+  const { now, schedule } = useEnvironment();
+  // before a person is chosen the chooser is drawn outside the shell, which times every other surface
+  const timing = useMemo(() => ({ now, schedule }), [now, schedule]);
+  const [loadingSince] = useState(now);
   const [unreachable, setUnreachable] = useState(false);
-  const [waited, setWaited] = useState(false);
 
   const choices = useQuery({
     queryKey: ["choices"],
@@ -49,60 +68,66 @@ export function ChooseScreen(props: {
   useEffect(() => {
     document.title = pageTitle(TEXT.chooseTitle, null);
     focusHeading(document);
-    const timer = setTimeout(() => setWaited(true), PLACEHOLDER_DELAY_MS);
-    return () => clearTimeout(timer);
   }, []);
 
-  return (
-    <div className="mx-auto max-w-xl p-6">
-      <h1 tabIndex={-1} className="text-2xl font-semibold outline-none">
-        {TEXT.chooseTitle}
-      </h1>
-      <p className="mt-2 text-neutral-600">{TEXT.chooseHint}</p>
-      {(choices.isError || unreachable) && (
-        <p
-          role="alert"
-          className="mt-4 rounded bg-amber-100 p-3 text-amber-900"
-        >
-          {TEXT.chooseUnreachable}
-        </p>
-      )}
-      <ul className="mt-4 grid gap-2">
-        {choices.isPending &&
-          waited &&
-          Array.from({ length: PLACEHOLDER_ROWS }, (_, i) => (
-            <li key={i} aria-hidden="true" data-placeholder>
-              <div className={`${ROW} border-neutral-200 bg-neutral-100`}>
-                <span className="block h-6" />
-              </div>
-            </li>
-          ))}
+  const state: SurfaceStateValue =
+    choices.data !== undefined
+      ? { kind: choices.data.length === 0 ? "empty" : "ready" }
+      : choices.isError
+        ? { kind: "problem", reason: "unreachable" }
+        : { kind: "loading", sinceMs: loadingSince };
+  const render: SurfaceRenderers = {
+    ready: () => (
+      <ul className="flex flex-col gap-1">
         {(choices.data ?? []).map((choice) => {
           const chosen = person?.userId === choice.userId;
           return (
             <li key={choice.userId}>
+              {/* a row is not a control: the button around it is, so its name and its aria-current are on one element */}
               <button
                 type="button"
                 disabled={choose.isPending}
                 onClick={() => choose.mutate(choice)}
                 aria-current={chosen ? "true" : undefined}
-                className={`${ROW} hover:bg-neutral-100 ${chosen ? "border-neutral-900 ring-1 ring-neutral-900" : "border-neutral-300"}`}
+                className="w-full rounded-control text-start aria-[current=true]:bg-selected"
               >
-                <span className="font-medium">{choice.name}</span>{" "}
-                <span className="text-neutral-600">{choice.title}</span>
-                {chosen && (
-                  <>
-                    {" "}
-                    <span className="ml-auto text-ui font-medium">
-                      {TEXT.chosen}
-                    </span>
-                  </>
-                )}
+                <Row
+                  meta={choice.title}
+                  currentLabel={chosen ? TEXT.chosen : undefined}
+                >
+                  {choice.name}
+                </Row>
               </button>
             </li>
           );
         })}
       </ul>
+    ),
+    loading: placeholders,
+    empty: nothing,
+    problem: nothing,
+    offline: nothing,
+    read_only: nothing,
+    no_access: nothing,
+  };
+
+  return (
+    <div className="mx-auto flex w-full max-w-xl flex-col gap-4 p-6">
+      <h1 tabIndex={-1} className="text-display outline-none">
+        {TEXT.chooseTitle}
+      </h1>
+      <p className="text-ui text-fg-muted">{TEXT.chooseHint}</p>
+      {(choices.isError || unreachable) && (
+        <p
+          role="alert"
+          className="rounded-control bg-subtle p-3 text-ui text-attention"
+        >
+          {TEXT.chooseUnreachable}
+        </p>
+      )}
+      <TimingProvider timing={timing}>
+        <SurfaceState surface="choose" state={state} render={render} />
+      </TimingProvider>
       {person && (
         <a
           href={next}
@@ -110,7 +135,7 @@ export function ChooseScreen(props: {
             event.preventDefault();
             void navigate({ href: next });
           }}
-          className="mt-6 inline-block underline"
+          className="self-start text-ui underline"
         >
           {TEXT.back}
         </a>
