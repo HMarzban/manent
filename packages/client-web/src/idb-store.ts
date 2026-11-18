@@ -48,7 +48,7 @@ function createLayout(db: IDBDatabase): void {
  * newer build wrote it (a VersionError, which leaves it untouched). The connection
  * closes itself when another asks to delete or upgrade the database.
  */
-function openLocalDatabase(
+export function openLocalDatabase(
   indexedDb: IDBFactory,
   userId: string,
 ): Promise<IDBDatabase> {
