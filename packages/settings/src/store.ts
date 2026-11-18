@@ -1,5 +1,6 @@
 // The settings store: resolves, writes, holds and resets values over one bag per scope, supplied by the app.
 import type { SettingsRegistry } from "./registry.ts";
+import type { SETTINGS } from "./settings.ts";
 import type { Scope, SettingDefinition } from "./types.ts";
 
 /** Written to a bag in place of a value to clear it, so that the setting reads its default again. */
@@ -65,7 +66,12 @@ type ValueOf<R extends AnyRegistry, K extends KeyOf<R>> = Extract<
   { readonly key: K }
 >["default"];
 
-export interface SettingsStore<R extends AnyRegistry> {
+export type SettingKey = KeyOf<typeof SETTINGS>;
+/** The value type of setting `K`. */
+export type SettingValue<K extends SettingKey> = ValueOf<typeof SETTINGS, K>;
+
+/** Typed by `SETTINGS` unless another registry is given (a test's fixture). */
+export interface SettingsStore<R extends AnyRegistry = typeof SETTINGS> {
   get<K extends KeyOf<R>>(key: K): ValueOf<R, K>;
   explain<K extends KeyOf<R>>(key: K): Explained<ValueOf<R, K>>;
   set<K extends KeyOf<R>>(key: K, value: ValueOf<R, K>): SetResult;
