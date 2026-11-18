@@ -2,21 +2,50 @@ import { expect, test } from "bun:test";
 import { Buffer } from "node:buffer";
 import fc from "fast-check";
 import {
+  CAPABILITIES,
   CODE,
+  CONTROL_KINDS,
+  DOC_ROLES,
   FRAME,
+  LOCK_SOURCES,
+  PROTOCOL_VERSION,
   ProtocolError,
+  SUBSCRIBE_MODES,
+  SYNC_STEPS,
+  VERSION_FIELDS,
   decodeMessage,
   encodeMessage,
   isPermanentPushError,
 } from "../src/index.ts";
 import type { Message, Sender } from "../src/index.ts";
 import {
+  ACK_SAMPLE,
+  ANCHOR_SAMPLE,
+  AUTH_EXPIRING_SAMPLE,
+  AUTH_REFRESH_SAMPLE,
+  AWARENESS_SAMPLE,
+  CONTROL_SAMPLE,
   DOC_ID,
+  ERROR_SAMPLE,
+  GENERATION_MOVED_SAMPLE,
   HELLO_SAMPLE,
   ONE_OF_EACH,
+  PING_SAMPLE,
+  PONG_SAMPLE,
   PUSH_SAMPLE,
   SERVER_ONLY_SAMPLES,
+  SET_SAMPLE,
+  SUBSCRIBED_SAMPLE,
+  SUBSCRIBE_SAMPLE,
+  SYNC_SAMPLE,
+  SYNC_STEP2_SAMPLE,
+  SYNC_UPDATE_SAMPLE,
+  UNSUBSCRIBE_SAMPLE,
+  VIEW_PATCH_SAMPLE,
+  VIEW_SNAPSHOT_SAMPLE,
+  WELCOME_SAMPLE,
   arbMessage,
+  badFrame,
   concat,
   senderOf,
 } from "./arbitraries.ts";
@@ -60,7 +89,7 @@ test("HELLO bytes are frozen", () => {
       build: "b",
       deviceId: "d",
     }),
-  ]).toEqual([0, 0, 1, 1, 0, 0, 1, 98, 1, 100]);
+  ]).toEqual([0, 0, 4, 1, 1, 0, 0, 1, 98, 1, 100]);
 });
 
 test("PING and PONG share frame 5", () => {
@@ -94,10 +123,11 @@ test("an ERROR about a document carries it after the HAS_DOC flag", () => {
     retryAfterMs: null,
     permanent: true,
     doc: { docId: "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd", generation: 3 },
+    clientSeq: null,
   });
   expect([...frame]).toEqual([
     4, 4, 0x01, 0xa1, 0xe8, 0x1d, 0xc6, 0xf2, 0x73, 0x01, 0xa0, 0xf6, 0x5c,
-    0x34, 0x5e, 0xb6, 0xc7, 0xcd, 3, 0xbd, 0x22, 0, 0, 1,
+    0x34, 0x5e, 0xb6, 0xc7, 0xcd, 3, 0xbd, 0x22, 0, 0, 1, 0,
   ]);
 });
 
@@ -116,7 +146,7 @@ test("an unknown frame type is skipped, not fatal", () => {
   for (const frame of [
     [6, 0],
     [15, 0],
-    [27, 0, 1, 2, 3],
+    [28, 0, 1, 2, 3],
     [127, 0], // unknown types, connection and document: nothing after the flags is read
     [5, 0x80, 7],
     [22, 2, 0],
@@ -150,17 +180,16 @@ test("an unknown union member makes the frame a skip", () => {
 });
 
 test("an unknown capability is dropped from the list", () => {
-  const sample = SERVER_ONLY_SAMPLES.find((m) => m.type === "SUBSCRIBED")!;
   const frame = encodeMessage({
-    ...sample,
+    ...SUBSCRIBED_SAMPLE,
     capabilities: ["delete"],
-  } as typeof sample);
+  });
   const at = 2 + 16 + 1 + 1; // header, docId, generation, role
   expect(frame[at]).toBe(1); // one capability
   expect(frame[at + 1]).toBe(4); // "delete"
   frame[at + 1] = 99; // a capability a newer build added
   expect(decodeMessage(frame, "server")).toEqual({
-    ...sample,
+    ...SUBSCRIBED_SAMPLE,
     capabilities: [],
   });
 });
@@ -204,6 +233,7 @@ test("an ERROR code from a newer build is kept as its number", () => {
     retryAfterMs: null,
     permanent: false,
     doc: null,
+    clientSeq: null,
   } as const;
   expect(decodeMessage(encodeMessage(m), "server")).toEqual(m);
 });
@@ -242,40 +272,52 @@ test("a string that is not well-formed UTF-16 is refused at encode", () => {
   expect(decodeMessage(encodeMessage(pair), "client")).toEqual(pair);
 });
 
-test("only 4400, 4413 and 4422 are permanent for a push", () => {
-  expect(Object.values(CODE).filter(isPermanentPushError)).toEqual([
-    4400, 4413, 4422,
+test("each union is one list, and the generators draw from it", () => {
+  expect(DOC_ROLES).toEqual(["owner", "edit", "comment", "view"]);
+  expect(CAPABILITIES).toEqual([
+    "send_to_prompter",
+    "edit_rundowns",
+    "issue_revisions",
+    "lock_page_numbers",
+    "delete",
+  ]);
+  expect(SUBSCRIBE_MODES).toEqual(["edit", "view", "prompter"]);
+  expect(SYNC_STEPS).toEqual(["step1", "step2", "update"]);
+  expect(VERSION_FIELDS).toEqual(["protocol", "schema", "engine", "table"]);
+  expect(CONTROL_KINDS).toEqual([
+    "version_created",
+    "draft_named",
+    "revision_issued",
+    "revision_recalled",
+    "lock_anchors_changed",
+    "layout_changed",
+    "membership_changed",
+    "restored",
+    "sent_to_prompter",
+    "upstream_status",
+    "upstream_refused",
   ]);
 });
 
 // Golden bytes: every frame type, each union tag and each nullable tag, fixed by hand from the
 // layout. A round trip cannot catch an encoder and a decoder reordered the same way; these can.
 // The document prefix is docId 01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd · generation 2.
-const DOC_PREFIX = "01a1e81dc6f27301a0f65c345eb6c7cd 02";
-const SUBSCRIBED_SAMPLE = SERVER_ONLY_SAMPLES.find(
-  (m) => m.type === "SUBSCRIBED",
-)!;
-const sample = (type: Message["type"], step?: string): Message =>
-  [...ONE_OF_EACH, ...SERVER_ONLY_SAMPLES].find(
-    (m) =>
-      m.type === type &&
-      (step === undefined || ("step" in m && m.step === step)),
-  )!;
+const DOC = "01a1e81dc6f27301a0f65c345eb6c7cd 02";
 const GOLDEN: [name: string, message: Message, from: Sender, hex: string][] = [
-  ["HELLO", HELLO_SAMPLE, "client", "00 00 | 01 01 00 00 | 01 62 | 01 64"],
+  ["HELLO", HELLO_SAMPLE, "client", "00 00 | 04 01 01 00 00 | 01 62 | 01 64"],
   [
     "WELCOME",
-    sample("WELCOME"),
+    WELCOME_SAMPLE,
     "server",
-    "01 00 | 02 7531 | 09 416461205175696c6c | 8020 808004 | 01 01 00 00 | 01 01 00 00",
+    "01 00 | 0d 02 7531 09 416461205175696c6c | 05 8020 808004 | 04 01 01 00 00 | 04 01 01 00 00",
   ],
-  ["AUTH_EXPIRING", sample("AUTH_EXPIRING"), "server", "02 00 | 1e"],
-  ["AUTH_REFRESH", sample("AUTH_REFRESH"), "client", "03 00 | 01 74"],
+  ["AUTH_EXPIRING", AUTH_EXPIRING_SAMPLE, "server", "02 00 | b0ea01"],
+  ["AUTH_REFRESH", AUTH_REFRESH_SAMPLE, "client", "03 00 | 01 74"],
   [
     "ERROR with a document",
-    sample("ERROR"),
+    ERROR_SAMPLE,
     "server",
-    `04 04 | ${DOC_PREFIX} | b322 | 02 6e6f | 01 f403 | 01`,
+    `04 04 | ${DOC} | b322 | 02 6e6f | 01 f403 | 01 | 00`,
   ],
   [
     "ERROR without a document",
@@ -286,33 +328,48 @@ const GOLDEN: [name: string, message: Message, from: Sender, hex: string][] = [
       retryAfterMs: null,
       permanent: false,
       doc: null,
+      clientSeq: null,
     },
     "server",
-    "04 00 | cd22 | 04 736c6f77 | 00 | 00",
+    "04 00 | cd22 | 04 736c6f77 | 00 | 00 | 00",
   ],
-  ["PING", sample("PING"), "client", "05 00 | 01"],
-  ["PONG", sample("PONG"), "server", "05 02 | 01"],
+  [
+    "ERROR refusing one entry",
+    {
+      type: "ERROR",
+      code: 4423,
+      message: "locked",
+      retryAfterMs: null,
+      permanent: false,
+      doc: { docId: DOC_ID, generation: 2 },
+      clientSeq: 5,
+    },
+    "server",
+    `04 04 | ${DOC} | c722 | 06 6c6f636b6564 | 00 | 00 | 01 05`,
+  ],
+  ["PING", PING_SAMPLE, "client", "05 00 | 01"],
+  ["PONG", PONG_SAMPLE, "server", "05 02 | 01"],
   [
     "SUBSCRIBE",
-    sample("SUBSCRIBE"),
+    SUBSCRIBE_SAMPLE,
     "client",
-    `10 00 | ${DOC_PREFIX} | 01 | 02 05 06 | 00`,
+    `10 00 | ${DOC} | 01 | 02 05 06 | 00`,
   ],
   [
     "SUBSCRIBED with a lock table, a revision and an air window",
     SUBSCRIBED_SAMPLE,
     "server",
-    `11 00 | ${DOC_PREFIX} | 01 | 02 04 00 | 0a 01 01 00 | 01 01 01 00 03313241 026231 03 ` +
-      "0948652077616974732e 01 026230 | 01 027331 027631 | 01 e807 d00f",
+    `11 00 | ${DOC} | 01 | 02 04 00 | 0a 01 01 00 | 01 01 19 01 00 03313241 026231 03 ` +
+      "0948652077616974732e 01 026230 01 | 01 06 027331 027631 | 01 04 e807 d00f",
   ],
   [
     "SUBSCRIBED with a lock hash",
     {
       ...SUBSCRIBED_SAMPLE,
       lockAnchors: { hash: new Uint8Array([0xab, 0xcd]) },
-    } as Message,
+    },
     "server",
-    `11 00 | ${DOC_PREFIX} | 01 | 02 04 00 | 0a 01 01 00 | 02 02abcd | 01 027331 027631 | 01 e807 d00f`,
+    `11 00 | ${DOC} | 01 | 02 04 00 | 0a 01 01 00 | 02 02abcd | 01 06 027331 027631 | 01 04 e807 d00f`,
   ],
   [
     "SUBSCRIBED with every nullable empty",
@@ -322,60 +379,47 @@ const GOLDEN: [name: string, message: Message, from: Sender, hex: string][] = [
       lockAnchors: null,
       revision: null,
       airWindow: null,
-    } as Message,
+    },
     "server",
-    `11 00 | ${DOC_PREFIX} | 01 | 00 | 0a 01 01 00 | 00 | 00 | 00`,
+    `11 00 | ${DOC} | 01 | 00 | 0a 01 01 00 | 00 | 00 | 00`,
   ],
   [
     "GENERATION_MOVED",
-    sample("GENERATION_MOVED"),
+    GENERATION_MOVED_SAMPLE,
     "server",
-    `12 00 | ${DOC_PREFIX} | 03`,
+    `12 00 | ${DOC} | 03`,
   ],
-  ["UNSUBSCRIBE", sample("UNSUBSCRIBE"), "client", `13 00 | ${DOC_PREFIX}`],
-  [
-    "SYNC step1",
-    sample("SYNC", "step1"),
-    "client",
-    `14 00 | ${DOC_PREFIX} | 00 | 01 00`,
-  ],
-  [
-    "SYNC step2",
-    sample("SYNC", "step2"),
-    "server",
-    `14 00 | ${DOC_PREFIX} | 01 | 02 0000`,
-  ],
+  ["UNSUBSCRIBE", UNSUBSCRIBE_SAMPLE, "client", `13 00 | ${DOC}`],
+  ["SYNC step1", SYNC_SAMPLE, "client", `14 00 | ${DOC} | 00 | 01 00`],
+  ["SYNC step2", SYNC_STEP2_SAMPLE, "server", `14 00 | ${DOC} | 01 | 02 0000`],
   [
     "SYNC update",
-    sample("SYNC", "update"),
+    SYNC_UPDATE_SAMPLE,
     "server",
-    `14 00 | ${DOC_PREFIX} | 02 | 02 0000`,
+    `14 00 | ${DOC} | 02 | 02 0000`,
   ],
+  ["PUSH", PUSH_SAMPLE, "client", `15 00 | ${DOC} | 04 | 04 01020304 | 01`],
+  ["ACK", ACK_SAMPLE, "server", `16 00 | ${DOC} | 04 | 5a`],
+  ["AWARENESS", AWARENESS_SAMPLE, "client", `17 00 | ${DOC} | 01 09`],
+  ["CONTROL", CONTROL_SAMPLE, "server", `18 00 | ${DOC} | 07 | 01 | 02 7b7d`],
   [
-    "PUSH",
-    PUSH_SAMPLE,
-    "client",
-    `15 00 | ${DOC_PREFIX} | 04 | 04 01020304 | 01`,
-  ],
-  ["ACK", sample("ACK"), "server", `16 00 | ${DOC_PREFIX} | 04 | 5a`],
-  ["AWARENESS", sample("AWARENESS"), "client", `17 00 | ${DOC_PREFIX} | 01 09`],
-  [
-    "CONTROL",
-    sample("CONTROL"),
+    "CONTROL upstream_refused",
+    { ...CONTROL_SAMPLE, seq: 8, kind: "upstream_refused" },
     "server",
-    `18 00 | ${DOC_PREFIX} | 07 | 01 | 02 7b7d`,
+    `18 00 | ${DOC} | 08 | 0a | 02 7b7d`,
   ],
   [
     "VIEW_SNAPSHOT",
-    sample("VIEW_SNAPSHOT"),
+    VIEW_SNAPSHOT_SAMPLE,
     "server",
-    `19 00 | ${DOC_PREFIX} | 01 | 02 7b7d`,
+    `19 00 | ${DOC} | 01 | 02 7b7d`,
   ],
+  ["VIEW_PATCH", VIEW_PATCH_SAMPLE, "server", `1a 00 | ${DOC} | 02 | 02 5b5d`],
   [
-    "VIEW_PATCH",
-    sample("VIEW_PATCH"),
-    "server",
-    `1a 00 | ${DOC_PREFIX} | 02 | 02 5b5d`,
+    "SET",
+    SET_SAMPLE,
+    "client",
+    `1b 00 | ${DOC} | 05 | 0c 7363726970742e7061706572 | 04 22613422`,
   ],
 ];
 const fromHex = (hex: string) =>
@@ -397,4 +441,145 @@ test("every frame type has fixed bytes", () => {
       message,
     });
   }
+});
+
+test("a newer build may add a field inside a struct", () => {
+  const anchor =
+    "1a 01 00 03313241 026231 03 0948652077616974732e 01 026230 01 7f"; // one more byte than this build reads
+  const frame = fromHex(
+    `11 00 | ${DOC} | 01 | 02 04 00 | 0a 01 01 00 | 01 01 ${anchor} | 01 06 027331 027631 | 01 04 e807 d00f`,
+  );
+  expect(decodeMessage(frame, "server")).toEqual(SUBSCRIBED_SAMPLE);
+  expect(
+    decodeMessage(
+      fromHex("00 00 | 05 01 01 00 00 09 | 01 62 | 01 64"),
+      "client",
+    ),
+  ).toEqual(HELLO_SAMPLE); // a fifth version number
+});
+
+test("a struct that ends before a field this build needs is refused", () => {
+  for (const hex of [
+    "00 00 | 03 01 01 00 | 01 62 | 01 64",
+    "00 00 | 09 01 01 00 00",
+  ])
+    // three numbers; a length past the frame's end
+    expect(() => decodeMessage(fromHex(hex), "client")).toThrow(badFrame);
+});
+
+test("an unknown lock source skips the frame", () => {
+  const frame = encodeMessage(SUBSCRIBED_SAMPLE);
+  const body = frame.subarray(19); // header, document, generation
+  body[10 + body[10]!] = 3; // body[10] is the anchor's length (the sample has two capabilities); its last byte is the source
+  expect(decodeMessage(frame, "server")).toBeNull();
+});
+
+/** A document frame's body: after the header, the document and a one-byte generation. */
+const bodyOf = (m: Message) => encodeMessage(m).subarray(19);
+
+test("each union member travels as its fixed index", () => {
+  const INDEX = {
+    role: { owner: 0, edit: 1, comment: 2, view: 3 },
+    capability: {
+      send_to_prompter: 0,
+      edit_rundowns: 1,
+      issue_revisions: 2,
+      lock_page_numbers: 3,
+      delete: 4,
+    },
+    mode: { edit: 0, view: 1, prompter: 2 },
+    step: { step1: 0, step2: 1, update: 2 },
+    source: { lock: 0, issue: 1, import: 2 },
+    kind: {
+      version_created: 0,
+      draft_named: 1,
+      revision_issued: 2,
+      revision_recalled: 3,
+      lock_anchors_changed: 4,
+      layout_changed: 5,
+      membership_changed: 6,
+      restored: 7,
+      sent_to_prompter: 8,
+      upstream_status: 9,
+      upstream_refused: 10,
+    },
+  } as const;
+  const subscribed = { ...SUBSCRIBED_SAMPLE, capabilities: [] };
+  for (const [role, i] of Object.entries(INDEX.role))
+    expect(bodyOf({ ...subscribed, role } as Message)[0]).toBe(i);
+  for (const [c, i] of Object.entries(INDEX.capability))
+    expect(bodyOf({ ...subscribed, capabilities: [c] } as Message)[2]).toBe(i);
+  for (const [mode, i] of Object.entries(INDEX.mode))
+    expect(bodyOf({ ...SUBSCRIBE_SAMPLE, mode } as Message)[0]).toBe(i);
+  for (const [step, i] of Object.entries(INDEX.step))
+    expect(bodyOf({ ...SYNC_SAMPLE, step } as Message)[0]).toBe(i);
+  for (const [kind, i] of Object.entries(INDEX.kind))
+    expect(bodyOf({ ...CONTROL_SAMPLE, seq: 1, kind } as Message)[1]).toBe(i);
+  for (const [source, i] of Object.entries(INDEX.source)) {
+    const b = bodyOf({
+      ...subscribed,
+      lockAnchors: { table: [{ ...ANCHOR_SAMPLE, source }] },
+    } as Message);
+    expect(b[8 + b[8]!]).toBe(i); // with no capability the anchor's length byte is body[8]
+  }
+  expect(
+    [
+      DOC_ROLES,
+      CAPABILITIES,
+      SUBSCRIBE_MODES,
+      SYNC_STEPS,
+      LOCK_SOURCES,
+      CONTROL_KINDS,
+    ].map((list) => list.length),
+  ).toEqual([4, 5, 3, 3, 3, 11]);
+});
+
+test("the codes, the frame numbers and the protocol version are fixed; a changed vector means a new version", () => {
+  expect(PROTOCOL_VERSION).toBe(1);
+  expect(CODE).toEqual({
+    BAD_FRAME: 4400,
+    UNAUTHENTICATED: 4401,
+    FORBIDDEN: 4403,
+    TOO_OLD: 4408,
+    GENERATION_MISMATCH: 4409,
+    DOCUMENT_DELETED: 4410,
+    TOO_LARGE: 4413,
+    VALIDATION_FAILED: 4422,
+    SETTING_REFUSED: 4423,
+    RATE_LIMITED: 4429,
+    STORAGE_FAILED: 1011,
+    RESTARTING: 1012,
+  });
+  expect(FRAME).toEqual({
+    HELLO: 0,
+    WELCOME: 1,
+    AUTH_EXPIRING: 2,
+    AUTH_REFRESH: 3,
+    ERROR: 4,
+    PING: 5,
+    SUBSCRIBE: 16,
+    SUBSCRIBED: 17,
+    GENERATION_MOVED: 18,
+    UNSUBSCRIBE: 19,
+    SYNC: 20,
+    PUSH: 21,
+    ACK: 22,
+    AWARENESS: 23,
+    CONTROL: 24,
+    VIEW_SNAPSHOT: 25,
+    VIEW_PATCH: 26,
+    SET: 27,
+  });
+  expect(Object.values(CODE).filter(isPermanentPushError)).toEqual([
+    4400, 4413, 4422,
+  ]); // 4423 refuses one entry and nothing else
+});
+
+test("only a client sends SET", () => {
+  expect(() => decodeMessage(encodeMessage(SET_SAMPLE), "server")).toThrow(
+    badFrame,
+  );
+  expect(decodeMessage(encodeMessage(SET_SAMPLE), "client")).toEqual(
+    SET_SAMPLE,
+  );
 });

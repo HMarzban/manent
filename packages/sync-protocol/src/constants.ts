@@ -27,6 +27,7 @@ export const FRAME = {
   CONTROL: 24,
   VIEW_SNAPSHOT: 25,
   VIEW_PATCH: 26,
+  SET: 27,
 } as const;
 
 /** Error and close codes. */
@@ -39,7 +40,9 @@ export const CODE = {
   DOCUMENT_DELETED: 4410,
   TOO_LARGE: 4413,
   VALIDATION_FAILED: 4422,
+  SETTING_REFUSED: 4423,
   RATE_LIMITED: 4429,
+  STORAGE_FAILED: 1011,
   RESTARTING: 1012,
 } as const;
 
@@ -52,19 +55,4 @@ export function isPermanentPushError(code: number): boolean {
     code === CODE.TOO_LARGE ||
     code === CODE.VALIDATION_FAILED
   );
-}
-
-/** A frame that cannot be accepted: malformed (4400) or too large (4413). */
-export class ProtocolError extends Error {
-  readonly code: 4400 | 4413;
-
-  constructor(
-    code: 4400 | 4413,
-    message: string,
-    options?: { cause?: unknown },
-  ) {
-    super(message, options);
-    this.name = "ProtocolError";
-    this.code = code;
-  }
 }

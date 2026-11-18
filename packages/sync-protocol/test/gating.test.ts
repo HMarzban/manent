@@ -59,16 +59,16 @@ test("a client below a minimum is closed with 4408, naming the first field that 
 });
 
 test("a client older than a document's schema or engine opens it read-only", () => {
-  expect(gateDocument(v(1, 2, 3, 4), { minSchema: 3, engineVersion: 3 })).toBe(
-    "read_only",
-  );
-  expect(gateDocument(v(1, 3, 2, 4), { minSchema: 3, engineVersion: 3 })).toBe(
-    "read_only",
-  );
-  expect(gateDocument(v(1, 3, 3, 4), { minSchema: 3, engineVersion: 3 })).toBe(
-    "edit",
-  );
-  expect(gateDocument(v(1, 9, 9, 4), { minSchema: 3, engineVersion: 3 })).toBe(
-    "edit",
-  ); // a newer client runs the document's pinned engine
+  expect(
+    gateDocument(v(1, 2, 3, 4), { minSchemaVersion: 3, engineVersion: 3 }),
+  ).toBe("read_only");
+  expect(
+    gateDocument(v(1, 3, 2, 4), { minSchemaVersion: 3, engineVersion: 3 }),
+  ).toBe("read_only");
+  expect(
+    gateDocument(v(1, 3, 3, 4), { minSchemaVersion: 3, engineVersion: 3 }),
+  ).toBe("edit");
+  expect(
+    gateDocument(v(1, 9, 9, 4), { minSchemaVersion: 3, engineVersion: 3 }),
+  ).toBe("edit"); // a newer client runs the document's pinned engine
 });
