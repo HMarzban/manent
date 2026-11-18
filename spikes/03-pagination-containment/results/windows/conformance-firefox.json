@@ -1,0 +1,3601 @@
+{
+ "engine": "firefox",
+ "version": "159.0",
+ "launched": true,
+ "reason": null,
+ "note": "Device scale factors 0.8 and 1.25 approximate browser zoom at 80 % and 125 %; they are not browser zoom.",
+ "rows": [
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 50,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 0,
+   "examples": []
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 50,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 62,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "باران هنوز می‌بارید و ایستگاه خالی بود. او بلیت را خرید و کنار پنجره نشست تا قطار بیاید.",
+     "engine": [
+      0,
+      58
+     ],
+     "dom": [
+      0
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "הגשם עדיין ירד והתחנה הייתה ריקה. היא קנתה כרטיס וישבה ליד החלון עד שהרכבת הגיעה.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      75
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "left to right text with مقداری متن فارسی in the middle and then more left to right text until the end of the line",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      64
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 0,
+   "examples": []
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 62,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "باران هنوز می‌بارید و ایستگاه خالی بود. او بلیت را خرید و کنار پنجره نشست تا قطار بیاید.",
+     "engine": [
+      0,
+      58
+     ],
+     "dom": [
+      0
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "הגשם עדיין ירד והתחנה הייתה ריקה. היא קנתה כרטיס וישבה ליד החלון עד שהרכבת הגיעה.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      75
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "left to right text with مقداری متن فارسی in the middle and then more left to right text until the end of the line",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      64
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 150,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 0,
+   "examples": []
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 150,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 62,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "باران هنوز می‌بارید و ایستگاه خالی بود. او بلیت را خرید و کنار پنجره نشست تا قطار بیاید.",
+     "engine": [
+      0,
+      58
+     ],
+     "dom": [
+      0
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "הגשם עדיין ירד והתחנה הייתה ריקה. היא קנתה כרטיס וישבה ליד החלון עד שהרכבת הגיעה.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      75
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "left to right text with مقداری متن فارسی in the middle and then more left to right text until the end of the line",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      64
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 300,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 0,
+   "examples": []
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 300,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 62,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "باران هنوز می‌بارید و ایستگاه خالی بود. او بلیت را خرید و کنار پنجره نشست تا قطار بیاید.",
+     "engine": [
+      0,
+      58
+     ],
+     "dom": [
+      0
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "הגשם עדיין ירד והתחנה הייתה ריקה. היא קנתה כרטיס וישבה ליד החלון עד שהרכבת הגיעה.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      75
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "left to right text with مقداری متن فارسی in the middle and then more left to right text until the end of the line",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      64
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 0.8,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 0,
+   "examples": []
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 0.8,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 62,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "باران هنوز می‌بارید و ایستگاه خالی بود. او بلیت را خرید و کنار پنجره نشست تا قطار بیاید.",
+     "engine": [
+      0,
+      58
+     ],
+     "dom": [
+      0
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "הגשם עדיין ירד והתחנה הייתה ריקה. היא קנתה כרטיס וישבה ליד החלון עד שהרכבת הגיעה.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      75
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "left to right text with مقداری متن فارسی in the middle and then more left to right text until the end of the line",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      64
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 1.25,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 0,
+   "examples": []
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 1.25,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 62,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "باران هنوز می‌بارید و ایستگاه خالی بود. او بلیت را خرید و کنار پنجره نشست تا قطار بیاید.",
+     "engine": [
+      0,
+      58
+     ],
+     "dom": [
+      0
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "הגשם עדיין ירד והתחנה הייתה ריקה. היא קנתה כרטיס וישבה ליד החלון עד שהרכבת הגיעה.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      75
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "left to right text with مقداری متن فارسی in the middle and then more left to right text until the end of the line",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      64
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 1.5,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 0,
+   "examples": []
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 1.5,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 62,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "باران هنوز می‌بارید و ایستگاه خالی بود. او بلیت را خرید و کنار پنجره نشست تا قطار بیاید.",
+     "engine": [
+      0,
+      58
+     ],
+     "dom": [
+      0
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "הגשם עדיין ירד והתחנה הייתה ריקה. היא קנתה כרטיס וישבה ליד החלון עד שהרכבת הגיעה.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      75
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "left to right text with مقداری متن فارسی in the middle and then more left to right text until the end of the line",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      64
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 2,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 0,
+   "examples": []
+  },
+  {
+   "whiteSpace": "pre-wrap",
+   "zoom": 100,
+   "dpr": 2,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 62,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "باران هنوز می‌بارید و ایستگاه خالی بود. او بلیت را خرید و کنار پنجره نشست تا قطار بیاید.",
+     "engine": [
+      0,
+      58
+     ],
+     "dom": [
+      0
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "הגשם עדיין ירד והתחנה הייתה ריקה. היא קנתה כרטיס וישבה ליד החלון עד שהרכבת הגיעה.",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      75
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "left to right text with مقداری متن فارسی in the middle and then more left to right text until the end of the line",
+     "engine": [
+      0,
+      59
+     ],
+     "dom": [
+      0,
+      64
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 50,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 419,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    },
+    {
+     "type": "action",
+     "text": "had did could part all. oil there the its like. have by some will all. my has like into about each the the.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      56
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "find word than out made. about time them some. made many for of get. by she but.",
+     "engine": [
+      0,
+      36,
+      72
+     ],
+     "dom": [
+      0,
+      31,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "how who said word see get more write. is more an see out do part. it use way your had use. him could see an has him. my some now can up what would. for no they word so write. its all many they was which if. get is she some look. they some up what how two will to. we one it oil first if the may. first some would up. which by each do in water from she. first what now use were. up she many said two. out how had they my their do. than can look than. first up first.",
+     "engine": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      239,
+      274,
+      307,
+      343,
+      378,
+      412,
+      444
+     ],
+     "dom": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      234,
+      267,
+      302,
+      337,
+      372,
+      404,
+      439
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "it one him into. that be come water so part. use see use no what is go. this like make at do. which with they so no.",
+     "engine": [
+      0,
+      36,
+      72,
+      105
+     ],
+     "dom": [
+      0,
+      30,
+      65,
+      100
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 50,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      60,
+      119
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": " a leading space, a  double space, a   triple space and a    quadruple space spread over the length of the block",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      60
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 419,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    },
+    {
+     "type": "action",
+     "text": "had did could part all. oil there the its like. have by some will all. my has like into about each the the.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      56
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "find word than out made. about time them some. made many for of get. by she but.",
+     "engine": [
+      0,
+      36,
+      72
+     ],
+     "dom": [
+      0,
+      31,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "how who said word see get more write. is more an see out do part. it use way your had use. him could see an has him. my some now can up what would. for no they word so write. its all many they was which if. get is she some look. they some up what how two will to. we one it oil first if the may. first some would up. which by each do in water from she. first what now use were. up she many said two. out how had they my their do. than can look than. first up first.",
+     "engine": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      239,
+      274,
+      307,
+      343,
+      378,
+      412,
+      444
+     ],
+     "dom": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      234,
+      267,
+      302,
+      337,
+      372,
+      404,
+      439
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "it one him into. that be come water so part. use see use no what is go. this like make at do. which with they so no.",
+     "engine": [
+      0,
+      36,
+      72,
+      105
+     ],
+     "dom": [
+      0,
+      30,
+      65,
+      100
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      60,
+      119
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": " a leading space, a  double space, a   triple space and a    quadruple space spread over the length of the block",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      60
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 150,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 419,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    },
+    {
+     "type": "action",
+     "text": "had did could part all. oil there the its like. have by some will all. my has like into about each the the.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      56
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "find word than out made. about time them some. made many for of get. by she but.",
+     "engine": [
+      0,
+      36,
+      72
+     ],
+     "dom": [
+      0,
+      31,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "how who said word see get more write. is more an see out do part. it use way your had use. him could see an has him. my some now can up what would. for no they word so write. its all many they was which if. get is she some look. they some up what how two will to. we one it oil first if the may. first some would up. which by each do in water from she. first what now use were. up she many said two. out how had they my their do. than can look than. first up first.",
+     "engine": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      239,
+      274,
+      307,
+      343,
+      378,
+      412,
+      444
+     ],
+     "dom": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      234,
+      267,
+      302,
+      337,
+      372,
+      404,
+      439
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "it one him into. that be come water so part. use see use no what is go. this like make at do. which with they so no.",
+     "engine": [
+      0,
+      36,
+      72,
+      105
+     ],
+     "dom": [
+      0,
+      30,
+      65,
+      100
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 150,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      60,
+      119
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": " a leading space, a  double space, a   triple space and a    quadruple space spread over the length of the block",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      60
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 300,
+   "dpr": 1,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 419,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    },
+    {
+     "type": "action",
+     "text": "had did could part all. oil there the its like. have by some will all. my has like into about each the the.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      56
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "find word than out made. about time them some. made many for of get. by she but.",
+     "engine": [
+      0,
+      36,
+      72
+     ],
+     "dom": [
+      0,
+      31,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "how who said word see get more write. is more an see out do part. it use way your had use. him could see an has him. my some now can up what would. for no they word so write. its all many they was which if. get is she some look. they some up what how two will to. we one it oil first if the may. first some would up. which by each do in water from she. first what now use were. up she many said two. out how had they my their do. than can look than. first up first.",
+     "engine": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      239,
+      274,
+      307,
+      343,
+      378,
+      412,
+      444
+     ],
+     "dom": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      234,
+      267,
+      302,
+      337,
+      372,
+      404,
+      439
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "it one him into. that be come water so part. use see use no what is go. this like make at do. which with they so no.",
+     "engine": [
+      0,
+      36,
+      72,
+      105
+     ],
+     "dom": [
+      0,
+      30,
+      65,
+      100
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 300,
+   "dpr": 1,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      60,
+      119
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": " a leading space, a  double space, a   triple space and a    quadruple space spread over the length of the block",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      60
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 0.8,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 419,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    },
+    {
+     "type": "action",
+     "text": "had did could part all. oil there the its like. have by some will all. my has like into about each the the.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      56
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "find word than out made. about time them some. made many for of get. by she but.",
+     "engine": [
+      0,
+      36,
+      72
+     ],
+     "dom": [
+      0,
+      31,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "how who said word see get more write. is more an see out do part. it use way your had use. him could see an has him. my some now can up what would. for no they word so write. its all many they was which if. get is she some look. they some up what how two will to. we one it oil first if the may. first some would up. which by each do in water from she. first what now use were. up she many said two. out how had they my their do. than can look than. first up first.",
+     "engine": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      239,
+      274,
+      307,
+      343,
+      378,
+      412,
+      444
+     ],
+     "dom": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      234,
+      267,
+      302,
+      337,
+      372,
+      404,
+      439
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "it one him into. that be come water so part. use see use no what is go. this like make at do. which with they so no.",
+     "engine": [
+      0,
+      36,
+      72,
+      105
+     ],
+     "dom": [
+      0,
+      30,
+      65,
+      100
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 0.8,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      60,
+      119
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": " a leading space, a  double space, a   triple space and a    quadruple space spread over the length of the block",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      60
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 1.25,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 419,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    },
+    {
+     "type": "action",
+     "text": "had did could part all. oil there the its like. have by some will all. my has like into about each the the.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      56
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "find word than out made. about time them some. made many for of get. by she but.",
+     "engine": [
+      0,
+      36,
+      72
+     ],
+     "dom": [
+      0,
+      31,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "how who said word see get more write. is more an see out do part. it use way your had use. him could see an has him. my some now can up what would. for no they word so write. its all many they was which if. get is she some look. they some up what how two will to. we one it oil first if the may. first some would up. which by each do in water from she. first what now use were. up she many said two. out how had they my their do. than can look than. first up first.",
+     "engine": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      239,
+      274,
+      307,
+      343,
+      378,
+      412,
+      444
+     ],
+     "dom": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      234,
+      267,
+      302,
+      337,
+      372,
+      404,
+      439
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "it one him into. that be come water so part. use see use no what is go. this like make at do. which with they so no.",
+     "engine": [
+      0,
+      36,
+      72,
+      105
+     ],
+     "dom": [
+      0,
+      30,
+      65,
+      100
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 1.25,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      60,
+      119
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": " a leading space, a  double space, a   triple space and a    quadruple space spread over the length of the block",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      60
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 1.5,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 419,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    },
+    {
+     "type": "action",
+     "text": "had did could part all. oil there the its like. have by some will all. my has like into about each the the.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      56
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "find word than out made. about time them some. made many for of get. by she but.",
+     "engine": [
+      0,
+      36,
+      72
+     ],
+     "dom": [
+      0,
+      31,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "how who said word see get more write. is more an see out do part. it use way your had use. him could see an has him. my some now can up what would. for no they word so write. its all many they was which if. get is she some look. they some up what how two will to. we one it oil first if the may. first some would up. which by each do in water from she. first what now use were. up she many said two. out how had they my their do. than can look than. first up first.",
+     "engine": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      239,
+      274,
+      307,
+      343,
+      378,
+      412,
+      444
+     ],
+     "dom": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      234,
+      267,
+      302,
+      337,
+      372,
+      404,
+      439
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "it one him into. that be come water so part. use see use no what is go. this like make at do. which with they so no.",
+     "engine": [
+      0,
+      36,
+      72,
+      105
+     ],
+     "dom": [
+      0,
+      30,
+      65,
+      100
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 1.5,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      60,
+      119
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": " a leading space, a  double space, a   triple space and a    quadruple space spread over the length of the block",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      60
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 2,
+   "set": "corpus",
+   "blocks": 2033,
+   "mismatched": 419,
+   "examples": [
+    {
+     "type": "action",
+     "text": "so on an are will could find down. up water make said it not no will did. it some each make.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "action",
+     "text": "all go more did out each day they. has up more many what how said. get had your have so her like had. how to the than.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      57,
+      113
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "been number one more. about will has when this this said long that. so by him out in with will look up. have were her out.",
+     "engine": [
+      0,
+      33,
+      68,
+      104
+     ],
+     "dom": [
+      0,
+      33,
+      68,
+      100
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "them we in is will that make. write out look could had oil. go not.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      30,
+      63
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "with my and my into number no. in by first were. may has get as into. be word now of by.",
+     "engine": [
+      0,
+      34,
+      70
+     ],
+     "dom": [
+      0,
+      34,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "an about down by. who see into more can so are one.",
+     "engine": [
+      0,
+      36
+     ],
+     "dom": [
+      0,
+      31
+     ]
+    },
+    {
+     "type": "action",
+     "text": "had did could part all. oil there the its like. have by some will all. my has like into about each the the.",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      56
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "find word than out made. about time them some. made many for of get. by she but.",
+     "engine": [
+      0,
+      36,
+      72
+     ],
+     "dom": [
+      0,
+      31,
+      64
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "how who said word see get more write. is more an see out do part. it use way your had use. him could see an has him. my some now can up what would. for no they word so write. its all many they was which if. get is she some look. they some up what how two will to. we one it oil first if the may. first some would up. which by each do in water from she. first what now use were. up she many said two. out how had they my their do. than can look than. first up first.",
+     "engine": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      239,
+      274,
+      307,
+      343,
+      378,
+      412,
+      444
+     ],
+     "dom": [
+      0,
+      31,
+      66,
+      101,
+      136,
+      168,
+      203,
+      234,
+      267,
+      302,
+      337,
+      372,
+      404,
+      439
+     ]
+    },
+    {
+     "type": "dialogue",
+     "text": "it one him into. that be come water so part. use see use no what is go. this like make at do. which with they so no.",
+     "engine": [
+      0,
+      36,
+      72,
+      105
+     ],
+     "dom": [
+      0,
+      30,
+      65,
+      100
+     ]
+    }
+   ]
+  },
+  {
+   "whiteSpace": "break-spaces",
+   "zoom": 100,
+   "dpr": 2,
+   "set": "edge",
+   "blocks": 108,
+   "mismatched": 79,
+   "examples": [
+    {
+     "type": "scene_heading",
+     "text": "a well-known half-built two-storey drive-in with a self-locking gate-house and a long-forgotten one-way back-door at the far end",
+     "engine": [
+      0,
+      56,
+      117
+     ],
+     "dom": [
+      0,
+      56,
+      114
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "hyphens before digits: 1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30 and after: a-1 b-2 c-3",
+     "engine": [
+      0,
+      59,
+      119
+     ],
+     "dom": [
+      0,
+      23,
+      83
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "either/or and/or input/output yes/no on/off up/down left/right in/out here/there now/then this/that before/after",
+     "engine": [
+      0,
+      52
+     ],
+     "dom": [
+      0,
+      57
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "a path: https://example.com/a/very/long/path/with/many/parts/that/keeps/going/and/going/until/the/line/breaks",
+     "engine": [
+      0,
+      8,
+      68
+     ],
+     "dom": [
+      0,
+      55
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "trailing spaces at the end of this line                                                                      then more text",
+     "engine": [
+      0,
+      109
+     ],
+     "dom": [
+      0,
+      60,
+      119
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": " a leading space, a  double space, a   triple space and a    quadruple space spread over the length of the block",
+     "engine": [
+      0,
+      61
+     ],
+     "dom": [
+      0,
+      60
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "夜の駅で彼女は静かに切符を買った。雨はまだ止まず、ホームには誰もいなかった。電車が来るまで、彼女は時計を見ていた。",
+     "engine": [
+      0,
+      30
+     ],
+     "dom": [
+      0,
+      36
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "한밤중의 역에서 그녀는 조용히 표를 샀다 비는 아직 그치지 않았고 승강장에는 아무도 없었다",
+     "engine": [
+      0,
+      33
+     ],
+     "dom": [
+      0,
+      40
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "mixed 東京 and 서울 words in one line, with ＦＵＬＬＷＩＤＴＨ letters and half-width ones side by side to see the cells",
+     "engine": [
+      0,
+      40,
+      91
+     ],
+     "dom": [
+      0,
+      50
+     ]
+    },
+    {
+     "type": "scene_heading",
+     "text": "emoji 🙂 between 🎬 words 🌧️ and a family 👩‍👩‍👧 and a flag 🇳🇿 and skin tones 👋🏽 until the line breaks somewhere 🙂🙂🙂",
+     "engine": [
+      0,
+      58,
+      120
+     ],
+     "dom": [
+      0,
+      68
+     ]
+    }
+   ]
+  }
+ ]
+}
