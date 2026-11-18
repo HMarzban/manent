@@ -1,5 +1,13 @@
-// Documents placed in storage, logs written by a typist, and the document a whole log replays to.
-import { ORIGIN_LOAD, createDoc, scriptBody, updateMeta } from "@manent/crdt";
+// Documents placed in storage, logs written by a typist, raw shapes the editor never writes, and
+// the document a whole log replays to.
+import {
+  ORIGIN_LOAD,
+  createDoc,
+  scriptBody,
+  scriptDocFromJSON,
+  updateMeta,
+  yXmlFragmentForBinding,
+} from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { DocJSON } from "@manent/schema";
 import type { Home, Storage } from "@manent/storage";
@@ -74,6 +82,70 @@ export function createTypist(clientId: number): Typist {
     deleteText: (id, offset, length) =>
       capture((w) => w.deleteText(id, offset, length)),
   };
+}
+
+/** The script body's fragment; its type names the crdt package's Yjs types without importing Yjs. */
+export type Fragment = ReturnType<typeof yXmlFragmentForBinding>;
+type Node = ReturnType<Fragment["get"]>;
+export type ElementNode = Extract<Node, { nodeName: string }>;
+type TextNode = Exclude<Node, ElementNode>;
+
+/** Detached nodes of any name, for shapes the editor never writes. */
+export interface Shapes {
+  element(
+    name: string,
+    attrs?: Record<string, string>,
+    children?: Node[],
+  ): ElementNode;
+  text(value: string): TextNode;
+}
+
+// Yjs belongs to the crdt package, so these are built with the constructors of nodes a script holds
+function createShapes(): Shapes {
+  const scratch = yXmlFragmentForBinding(
+    scriptDocFromJSON({
+      type: "doc",
+      content: [
+        {
+          type: "section",
+          content: [{ type: "block", content: [{ type: "text", text: "x" }] }],
+        },
+      ],
+    }),
+  );
+  const section = scratch.get(0) as ElementNode;
+  const block = section.get(0) as ElementNode;
+  const Element = section.constructor as new (name: string) => ElementNode;
+  const Text = block.get(0).constructor as new () => TextNode;
+  return {
+    element(name, attrs = {}, children = []) {
+      const made = new Element(name);
+      for (const [key, value] of Object.entries(attrs))
+        made.setAttribute(key, value);
+      made.insert(0, children);
+      return made;
+    },
+    text(value) {
+      const made = new Text();
+      made.insert(0, value);
+      return made;
+    },
+  };
+}
+
+/** The one update `edit` makes to the script body of `doc`, written node by node. */
+export function rawEdit(
+  doc: CrdtDoc,
+  edit: (body: Fragment, make: Shapes) => void,
+): Uint8Array {
+  const made: Uint8Array[] = [];
+  const stop = doc.subscribe((update) => made.push(update));
+  edit(yXmlFragmentForBinding(doc), createShapes());
+  stop();
+  const [update] = made;
+  if (made.length !== 1 || update === undefined)
+    throw new RangeError(`a raw edit must make one update, not ${made.length}`);
+  return update;
 }
 
 /** Per client id in the update, the clock after it, as the write path records it. */
