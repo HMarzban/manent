@@ -34,33 +34,36 @@ export function CommandButton(props: {
       ? null
       : READOUT_WORDS.unavailable(state.label, state.whyNot);
   const [chord] = state.keys;
+  // the reason sits beside the button, not in it, so that it describes the button without joining its name
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            variant={variant}
-            size={size}
-            data-tour={id}
-            aria-disabled={reason === null ? undefined : true}
-            aria-describedby={reason === null ? undefined : reasonId}
-            onClick={() => service.run(id, "control")}
-          />
-        }
-      >
-        {state.label}
-        {reason === null ? null : (
-          <span id={reasonId} className="sr-only">
-            {reason}
-          </span>
-        )}
-      </TooltipTrigger>
-      <TooltipContent>
-        {reason ?? state.label}
-        {reason === null && chord !== undefined ? (
-          <Kbd>{keyLabel(chord, platform)}</Kbd>
-        ) : null}
-      </TooltipContent>
-    </Tooltip>
+    <>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant={variant}
+              size={size}
+              data-tour={id}
+              aria-disabled={reason === null ? undefined : true}
+              aria-describedby={reason === null ? undefined : reasonId}
+              onClick={() => service.run(id, "control")}
+            />
+          }
+        >
+          {state.label}
+        </TooltipTrigger>
+        <TooltipContent>
+          {reason ?? state.label}
+          {reason === null && chord !== undefined ? (
+            <Kbd>{keyLabel(chord, platform)}</Kbd>
+          ) : null}
+        </TooltipContent>
+      </Tooltip>
+      {reason === null ? null : (
+        <span id={reasonId} className="sr-only">
+          {reason}
+        </span>
+      )}
+    </>
   );
 }

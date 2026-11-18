@@ -246,11 +246,13 @@ test("a command button takes its words from the registry and stays focusable whe
   await act(async () => left.click());
   expect([
     left.getAttribute("aria-disabled"),
+    left.textContent,
     document.activeElement === left,
     describedBy(left),
     runs,
   ]).toEqual([
     "true",
+    "Left panel",
     true,
     "Left panel — needs a document open",
     ["view.leftPanel"],
