@@ -30,19 +30,72 @@ function placeholders(): ReactNode {
 
 // with no list to draw, the alert above it says why when there is a reason
 const nothing = (): ReactNode => null;
+const WITHOUT_LIST = {
+  loading: placeholders,
+  empty: nothing,
+  problem: nothing,
+  offline: nothing,
+  read_only: nothing,
+  no_access: nothing,
+} satisfies Omit<SurfaceRenderers, "ready">;
 
-export function ChooseScreen(props: {
-  api: Api;
-  person: TabPerson | null;
-  setPerson: (person: TabPerson) => void;
-  next: string;
+function People(props: {
+  choices: readonly SignInChoice[];
+  chosenUserId: string | null;
+  disabled: boolean;
+  onChoose(choice: SignInChoice): void;
 }): ReactNode {
-  const { api, person, setPerson, next } = props;
+  return (
+    <ul className="flex flex-col gap-1">
+      {props.choices.map((choice) => {
+        const chosen = props.chosenUserId === choice.userId;
+        return (
+          <li key={choice.userId}>
+            {/* a row is not a control: the button around it is, so its name and its aria-current are on one element */}
+            <button
+              type="button"
+              disabled={props.disabled}
+              onClick={() => props.onChoose(choice)}
+              aria-current={chosen ? "true" : undefined}
+              className="w-full rounded-control text-start aria-[current=true]:bg-selected"
+            >
+              <Row
+                meta={choice.title}
+                currentLabel={chosen ? TEXT.chosen : undefined}
+              >
+                {choice.name}
+              </Row>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function Back(props: { next: string }): ReactNode {
   const navigate = useNavigate();
-  const { now, schedule } = useEnvironment();
-  // before a person is chosen the chooser is drawn outside the shell, which times every other surface
-  const timing = useMemo(() => ({ now, schedule }), [now, schedule]);
-  const [loadingSince] = useState(now);
+  return (
+    <a
+      href={props.next}
+      onClick={(event) => {
+        event.preventDefault();
+        void navigate({ href: props.next });
+      }}
+      className="self-start text-ui underline"
+    >
+      {TEXT.back}
+    </a>
+  );
+}
+
+/** The people to choose from, and choosing one: on success the tab has that person and goes on to `next`. */
+function useChooser(
+  api: Api,
+  setPerson: (person: TabPerson) => void,
+  next: string,
+) {
+  const navigate = useNavigate();
   const [unreachable, setUnreachable] = useState(false);
 
   const choices = useQuery({
@@ -65,6 +118,22 @@ export function ChooseScreen(props: {
     },
   });
 
+  return { choices, choose, unreachable };
+}
+
+export function ChooseScreen(props: {
+  api: Api;
+  person: TabPerson | null;
+  setPerson: (person: TabPerson) => void;
+  next: string;
+}): ReactNode {
+  const { api, person, setPerson, next } = props;
+  const { now, schedule } = useEnvironment();
+  // before a person is chosen the chooser is drawn outside the shell, which times every other surface
+  const timing = useMemo(() => ({ now, schedule }), [now, schedule]);
+  const [loadingSince] = useState(now);
+  const { choices, choose, unreachable } = useChooser(api, setPerson, next);
+
   useEffect(() => {
     document.title = pageTitle(TEXT.chooseTitle, null);
     focusHeading(document);
@@ -77,38 +146,15 @@ export function ChooseScreen(props: {
         ? { kind: "problem", reason: "unreachable" }
         : { kind: "loading", sinceMs: loadingSince };
   const render: SurfaceRenderers = {
+    ...WITHOUT_LIST,
     ready: () => (
-      <ul className="flex flex-col gap-1">
-        {(choices.data ?? []).map((choice) => {
-          const chosen = person?.userId === choice.userId;
-          return (
-            <li key={choice.userId}>
-              {/* a row is not a control: the button around it is, so its name and its aria-current are on one element */}
-              <button
-                type="button"
-                disabled={choose.isPending}
-                onClick={() => choose.mutate(choice)}
-                aria-current={chosen ? "true" : undefined}
-                className="w-full rounded-control text-start aria-[current=true]:bg-selected"
-              >
-                <Row
-                  meta={choice.title}
-                  currentLabel={chosen ? TEXT.chosen : undefined}
-                >
-                  {choice.name}
-                </Row>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      <People
+        choices={choices.data ?? []}
+        chosenUserId={person?.userId ?? null}
+        disabled={choose.isPending}
+        onChoose={(choice) => choose.mutate(choice)}
+      />
     ),
-    loading: placeholders,
-    empty: nothing,
-    problem: nothing,
-    offline: nothing,
-    read_only: nothing,
-    no_access: nothing,
   };
 
   return (
@@ -128,18 +174,7 @@ export function ChooseScreen(props: {
       <TimingProvider timing={timing}>
         <SurfaceState surface="choose" state={state} render={render} />
       </TimingProvider>
-      {person && (
-        <a
-          href={next}
-          onClick={(event) => {
-            event.preventDefault();
-            void navigate({ href: next });
-          }}
-          className="self-start text-ui underline"
-        >
-          {TEXT.back}
-        </a>
-      )}
+      {person && <Back next={next} />}
     </div>
   );
 }
