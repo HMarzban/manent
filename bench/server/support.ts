@@ -150,6 +150,18 @@ export function placeScript(
     home: `project:${home.id}`,
   });
   if (!made.ok) throw new Error(`placing ${docId} was refused: ${made.code}`);
+  appendState(storage, home, docId, state);
+  for (const userId of script.editors)
+    storage.directory.setRole(docId, userId, "edit", []);
+}
+
+/** Appends `state` to the log of a script that was just created in `home`, as OWNER's import. */
+function appendState(
+  storage: Storage,
+  home: Home,
+  docId: string,
+  state: Uint8Array,
+): void {
   storage.open(home).log.append({
     docId,
     generation: 1,
@@ -161,8 +173,6 @@ export function placeScript(
       clock: toClock,
     })),
   });
-  for (const userId of script.editors)
-    storage.directory.setRole(docId, userId, "edit", []);
 }
 
 /**
@@ -264,13 +274,14 @@ export function firstBlockOf(script: DocJSON): string {
 }
 
 /**
- * A script Dana creates in HOME on the running `server`, which each of `editors` may edit: their
- * roles are written to its storage while it is stopped.
+ * A script Dana creates in HOME on the running `server`, which each of `editors` may edit, and
+ * whose log holds `state` when one is given: both are written to its storage while it is stopped.
  */
 export async function shareScript(
   server: TestServer,
   docId: string,
   editors: readonly string[],
+  state?: Uint8Array,
 ): Promise<void> {
   await server.createDocument(OWNER, {
     docId,
@@ -282,6 +293,7 @@ export async function shareScript(
     dir: join(server.dataDir, "data"),
     now: Date.now,
   });
+  if (state !== undefined) appendState(storage, HOME, docId, state);
   for (const userId of editors)
     storage.directory.setRole(docId, userId, "edit", []);
   storage.close();
