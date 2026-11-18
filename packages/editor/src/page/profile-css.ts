@@ -2,7 +2,12 @@
 
 import { BLOCK_TYPES } from "@manent/schema";
 import type { Alignment } from "@manent/schema";
-import { BLOCK_SLACK_CELLS, specKey } from "@manent/pagination";
+import {
+  BLOCK_SLACK_CELLS,
+  LINE_PX,
+  pageSizePx,
+  specKey,
+} from "@manent/pagination";
 import type { ElementSpec, PageProfile } from "@manent/pagination";
 import { PAGE_GAP_PX } from "./config.ts";
 
@@ -12,6 +17,34 @@ const SLACK_LEFT: Readonly<Record<Alignment, number>> = Object.freeze({
   center: BLOCK_SLACK_CELLS / 2,
   right: BLOCK_SLACK_CELLS,
 });
+
+/** Steps of a CSS pixel that every engine lays out exactly. */
+const SCREEN_STEPS_PER_PX = 4;
+
+function toScreenGrid(px: number): number {
+  return Math.round(px * SCREEN_STEPS_PER_PX) / SCREEN_STEPS_PER_PX;
+}
+
+/**
+ * The page's lengths on screen at 100 %, in px; heights are rounded to the nearest 1/4 px, the finest length
+ * Chromium and WebKit (1/64 px) and Firefox (1/60 px) all lay out exactly, so page breaks add no rounding.
+ */
+export function screenPagePx(profile: PageProfile): {
+  width: number;
+  height: number;
+  top: number;
+  bottom: number;
+} {
+  const page = pageSizePx(profile);
+  const height = toScreenGrid(page.height);
+  const top = toScreenGrid((profile.geometry.marginTopPt * 4) / 3);
+  return {
+    width: page.width,
+    height,
+    top,
+    bottom: height - top - profile.linesPerPage * LINE_PX,
+  };
+}
 
 function elementRule(selector: string, spec: ElementSpec): string {
   const declarations = [
@@ -28,16 +61,17 @@ function elementRule(selector: string, spec: ElementSpec): string {
   return `${selector} { ${declarations.join("; ")}; }`;
 }
 
-/** The page's variables and one rule per element, for this profile; lengths in points. */
+/** The page's variables and one rule per element, for this profile; heights in px (screenPagePx), other lengths in points. */
 export function profileCss(profile: PageProfile): string {
   const g = profile.geometry;
+  const screen = screenPagePx(profile);
   const page = [
     `--geo-page-w: ${g.widthPt}pt`,
-    `--geo-page-h: ${g.heightPt}pt`,
+    `--geo-page-h: ${screen.height}px`,
     `--geo-left: ${g.marginLeftPt}pt`,
     `--geo-right: ${g.marginRightPt}pt`,
-    `--geo-top: ${g.marginTopPt}pt`,
-    `--geo-bottom: ${g.marginBottomPt}pt`,
+    `--geo-top: ${screen.top}px`,
+    `--geo-bottom: ${screen.bottom}px`,
     `--geo-lines: ${profile.linesPerPage}`,
     `--geo-column: ${profile.columnCells}`,
     `--geo-cue-indent: ${profile.elements.character.indent}`,

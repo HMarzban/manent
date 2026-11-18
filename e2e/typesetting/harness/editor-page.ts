@@ -2,10 +2,13 @@
 // and a probe the tests read it through.
 import {
   DRIFT,
+  detectEngine,
   faceDescriptors,
   loadScriptFonts,
   mountPageView,
   paginationKey,
+  sectionHeightPx,
+  sectionNodeView,
 } from "@manent/editor";
 import type { LoadableFace, PageScaffold } from "@manent/editor";
 import { fontRanges, profileFor } from "@manent/pagination";
@@ -18,6 +21,7 @@ import {
 } from "@manent/pagination/testing";
 import type { CorpusBlock, CorpusFormat } from "@manent/pagination/testing";
 import { blocksOf, parseDoc } from "@manent/schema";
+import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 
 /** Where a page starts. */
@@ -36,6 +40,12 @@ export interface EditorProbe {
   /** The pages of a fresh pagination of the current document. */
   cold(): PageStart[];
   engineRuns(): number;
+  /** Calls to the section node views' update since the page loaded. */
+  sectionUpdates(): number;
+  /** Each section's height in px as the engine gives it, which its intrinsic size is written from. */
+  sectionHeights(): number[];
+  /** Focuses the editor and selects from `anchor` to `head` (default: a caret), without scrolling. */
+  select(anchor: number, head?: number): void;
 }
 
 declare global {
@@ -119,6 +129,24 @@ const { view, scaffold } = mountPageView({
 });
 scaffold.applyZoom(Number(query.get("zoom") ?? "100"));
 
+// the editor's own section views, each update counted
+let sectionUpdates = 0;
+const sectionView = sectionNodeView(detectEngine(navigator.userAgent));
+view.setProps({
+  nodeViews: {
+    section: (...args) => {
+      const made = sectionView(...args);
+      return {
+        ...made,
+        update: (...next) => {
+          sectionUpdates++;
+          return made.update?.(...next) ?? false;
+        },
+      };
+    },
+  },
+});
+
 // brackets, as the lint refuses a member name that begins with an underscore
 window["__mn"] = {
   view,
@@ -141,4 +169,19 @@ window["__mn"] = {
     return startsOf(fresh.pages);
   },
   engineRuns: () => paginationKey.getState(view.state)!.engineRuns,
+  sectionUpdates: () => sectionUpdates,
+  sectionHeights: () => {
+    const state = paginationKey.getState(view.state)!;
+    return Array.from(state.index.sectionPos, (_, i) =>
+      sectionHeightPx(state, i),
+    );
+  },
+  select: (anchor, head) => {
+    view.focus();
+    view.dispatch(
+      view.state.tr.setSelection(
+        TextSelection.create(view.state.doc, anchor, head),
+      ),
+    );
+  },
 };

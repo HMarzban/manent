@@ -17,8 +17,9 @@ import type { SectionOptions } from "../sections/commands.ts";
 import { edgeKeysPlugin } from "../sections/edge-keys.ts";
 import { keepPlugin } from "../sections/keep.ts";
 import { sectionEditingPlugin } from "../sections/plugin.ts";
-import { paginationPlugin } from "./plugin.ts";
+import { paginationKey, paginationPlugin } from "./plugin.ts";
 import type { PaginationOptions } from "./plugin.ts";
+import { sectionNodeView, spellcheckFor } from "./section-view.ts";
 
 /** Whether a transaction came from another writer; whoever binds the shared document supplies it. */
 export type IsRemote = (tr: Transaction) => boolean;
@@ -111,7 +112,14 @@ export function mountPageView(
       doc: options.doc,
       plugins: [...plugins, ...(options.plugins ?? [])],
     }),
-    attributes: { class: PAGE_VIEW_CLASS },
+    // the view's states all hold the pagination plugin, which typesettingPlugins put first
+    attributes: (state) => ({
+      class: PAGE_VIEW_CLASS,
+      spellcheck: spellcheckFor(
+        paginationKey.getState(state)!.index.blocks.length,
+      ),
+    }),
+    nodeViews: { section: sectionNodeView(engine) },
     transformPasted: sanitizedSlice,
     transformPastedText: sanitizeText,
   });

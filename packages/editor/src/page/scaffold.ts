@@ -1,6 +1,6 @@
 // The page's frame: a zoomed container over one sheet per page in view, beneath the editable document.
 
-import { CELL_PX, UNIT_PX, pageSizePx } from "@manent/pagination";
+import { CELL_PX, UNIT_PX } from "@manent/pagination";
 import type { PageProfile } from "@manent/pagination";
 import {
   CONTAINMENT,
@@ -11,7 +11,7 @@ import {
 } from "./config.ts";
 import type { BrowserEngine } from "./config.ts";
 import { PAGE_CSS } from "./page-css.ts";
-import { profileCss } from "./profile-css.ts";
+import { profileCss, screenPagePx } from "./profile-css.ts";
 
 /** The class the EditorView's own element carries. */
 export const PAGE_VIEW_CLASS = "mn-page-view";
@@ -121,12 +121,13 @@ function drawSheet(
   const left =
     g.marginLeftPt * PX_PER_PT +
     (profile.columnCells + MARK_GAP_CELLS) * CELL_PX;
+  const { top } = screenPagePx(profile);
   sheet.replaceChildren(
     ...shown.marks.map((m) => {
       const mark = sheet.ownerDocument.createElement("span");
       mark.className = "mn-mark";
       mark.dataset["text"] = m.text;
-      mark.style.top = `${g.marginTopPt * PX_PER_PT + m.y * UNIT_PX}px`;
+      mark.style.top = `${top + m.y * UNIT_PX}px`;
       mark.style.left = `${left}px`;
       return mark;
     }),
@@ -223,11 +224,11 @@ export function createPageScaffold(options: {
   const sheets: HTMLElement[] = [];
 
   const redraw = (): void => {
-    const wanted = sheetsInView(place, pageSizePx(profile), count, scale);
+    const wanted = sheetsInView(place, screenPagePx(profile), count, scale);
     drawSheets(pages, sheets, wanted, decor, profile);
   };
   const layout = (): void => {
-    scale = sizeFrame(zoom, pages, pageSizePx(profile), count, percent);
+    scale = sizeFrame(zoom, pages, screenPagePx(profile), count, percent);
     redraw();
   };
   const setProfile = (next: PageProfile): void => {
