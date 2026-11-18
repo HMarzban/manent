@@ -23,32 +23,52 @@ declare const MANENT_FLAVOUR: string | undefined;
 const toFirstPane = (searchStr: string) =>
   redirect({ href: `/preferences/writing${searchStr}`, replace: true });
 
+/** `importer`, except that a load failing after the page has begun to leave never settles: a navigation cancels the pending load, and the router would take that failure for a newer build and reload the page, cancelling the navigation. */
+export function loadScreen<T>(importer: () => Promise<T>): () => Promise<T> {
+  return async () => {
+    let leaving = false;
+    const leave = () => {
+      leaving = true;
+    };
+    window.addEventListener("beforeunload", leave);
+    try {
+      return await importer();
+    } catch (cause) {
+      if (leaving) return new Promise<T>(() => {});
+      // unchanged, so the router still reloads the page for a newer build
+      throw cause;
+    } finally {
+      window.removeEventListener("beforeunload", leave);
+    }
+  };
+}
+
 const ChooseScreen = lazyRouteComponent(
-  () => import("./screens/choose.tsx"),
+  loadScreen(() => import("./screens/choose.tsx")),
   "ChooseScreen",
 );
 const LibraryScreen = lazyRouteComponent(
-  () => import("./screens/library/library-screen.tsx"),
+  loadScreen(() => import("./screens/library/library-screen.tsx")),
   "LibraryScreen",
 );
 const DocumentScreen = lazyRouteComponent(
-  () => import("./screens/document/document-screen.tsx"),
+  loadScreen(() => import("./screens/document/document-screen.tsx")),
   "DocumentScreen",
 );
 const SendScreen = lazyRouteComponent(
-  () => import("./screens/send/send-screen.tsx"),
+  loadScreen(() => import("./screens/send/send-screen.tsx")),
   "SendScreen",
 );
 const PreferencesScreen = lazyRouteComponent(
-  () => import("./screens/preferences/preferences-screen.tsx"),
+  loadScreen(() => import("./screens/preferences/preferences-screen.tsx")),
   "PreferencesScreen",
 );
 const StatesScreen = lazyRouteComponent(
-  () => import("./screens/states/states-screen.tsx"),
+  loadScreen(() => import("./screens/states/states-screen.tsx")),
   "StatesScreen",
 );
 const StandInScreen = lazyRouteComponent(
-  () => import("./screens/states/stand-in-screen.tsx"),
+  loadScreen(() => import("./screens/states/stand-in-screen.tsx")),
   "StandInScreen",
 );
 
