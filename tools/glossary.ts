@@ -326,6 +326,9 @@ export const NAMES: readonly string[] = Object.freeze([
   `),
   ...DEMO_PEOPLE.map((person) => person.name),
   "Manent",
+  "US Letter",
+  "A4",
+  "Courier Prime",
 ]);
 
 /** Words that name no part, state or action of Manent: verbs, adjectives, function words and ordinary nouns. A word joins only in a reviewed change that says why it is not a term. */
@@ -347,14 +350,21 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   standard, started, starting, still, stopped, stored, summaries, sun, switch,
   terminal, than, that, them, then, there, these, thu, train, try, tue,
   unaffected, untitled, usage, used, voiceover, was, web, wed, were, when,
-  while, with, work, works, would, write, yet, your
+  while, with, work, works, would, write, yet, your,
+  after, am, apostrophes, around, arriving, capitals, controls, english, height,
+  industry, itself, keystroke, language, leaving, letters, look, match, mentions,
+  misspellings, nearly, nothing, other, request, says, stay, style, their, turn,
+  underlines, whatever, where, which
 `);
 
 /** Words of the interface that name a part of Manent and are not yet listed terms; allowed until they are listed. */
 export const PENDING_TERMS: readonly string[] = listOf(`
   access, appearance, canary, collated, continueds, desk, desktop, driving,
   editors, elsewhere, help, keyboard, kind, manuscript, mores, picker, setup,
-  stable, syncing, undo
+  stable, syncing, undo,
+  animation, announce, avatars, channel, cont'd, continued, dark, interface,
+  light, margin, multi-camera, paper, redo, rename, same-speaker, screenplay,
+  size, spelling, tabs, variety
 `);
 
 export const ENGINEERING_WORDS: readonly string[] = Object.freeze([
@@ -376,6 +386,8 @@ export const BANNED_WORD_EXCEPTION: readonly string[] = Object.freeze([
   "This has already been done in this demo. Reset the demo to do it again.",
   "This one needs the desktop app. Run make desktop, then open the Tour there.",
   "The demo is not running. Run make demo again.",
+  "Nothing to set. Manent updates once every Manent tab has been closed.",
+  "Nothing to set. Manent is in English in this release; spelling follows your system's language.",
 ]);
 
 /** The four sentences allowed to say "not sent", for changes that will never reach the server; `{…}` is any value. */

@@ -34,3 +34,6 @@ export { checkCapture } from "./capture.ts";
 export type { CaptureVerdict } from "./capture.ts";
 export { RESERVED_KEYS } from "./reserved-keys.ts";
 export type { ReservedKey } from "./reserved-keys.ts";
+export { settingCommands } from "./settings-commands.ts";
+export { COMMANDS } from "./definitions/index.ts";
+export type { CommandHandlers, CommandId } from "./definitions/index.ts";
