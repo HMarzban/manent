@@ -214,7 +214,13 @@ type Step =
   | { readonly kind: "backspace"; readonly at: At }
   | { readonly kind: "paste"; readonly at: At; readonly blocks: number }
   | { readonly kind: "replace"; readonly at: At; readonly text: string }
-  | { readonly kind: "compose"; readonly at: At; readonly text: string };
+  | {
+      readonly kind: "compose";
+      readonly at: At;
+      readonly text: string;
+      /** What ends the composition: the deferred repagination, or a plain or remote edit before it runs. */
+      readonly end: "repaginate" | "type" | "replace";
+    };
 
 const arbAt = fc.record({ block: fc.nat(), offset: fc.nat() });
 const arbWords = fc
@@ -264,7 +270,12 @@ const arbStep: fc.Arbitrary<Step> = fc.oneof(
     blocks: fc.integer({ min: 1, max: 120 }),
   }),
   fc.record({ kind: fc.constant("replace"), at: arbAt, text: arbWords }),
-  fc.record({ kind: fc.constant("compose"), at: arbAt, text: arbWords }),
+  fc.record({
+    kind: fc.constant("compose"),
+    at: arbAt,
+    text: arbWords,
+    end: fc.constantFrom("repaginate", "type", "replace"),
+  }),
 );
 
 /** The block a step names, and the position `at.offset` points to inside it. */
@@ -323,7 +334,16 @@ function applyStep(s: EditorState, step: Step): EditorState {
       const typing = s.apply(
         s.tr.insertText(step.text, pos).setMeta("composition", 1),
       );
-      return typing.apply(setPagination(typing.tr, { repaginate: true }));
+      switch (step.end) {
+        case "repaginate":
+          return typing.apply(setPagination(typing.tr, { repaginate: true }));
+        case "type":
+          return typing.apply(typing.tr.insertText(step.text, pos));
+        case "replace":
+          return typing.apply(
+            replaceWholeDoc(typing, block, step.text).setMeta("remote", true),
+          );
+      }
     }
   }
 }

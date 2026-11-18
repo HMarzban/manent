@@ -8,7 +8,9 @@ import { DecorationSet } from "prosemirror-view";
 import {
   blockPos,
   decorationsFor,
+  deleteRangeKeepingSections,
   paginationKey,
+  setPagination,
   toBreakSpecs,
 } from "../src/index.ts";
 import {
@@ -17,6 +19,7 @@ import {
   docOfBlocks,
   keysOf,
   play,
+  replaceWholeDoc,
   ruleScript,
   script,
   state,
@@ -57,29 +60,47 @@ test("an edit that moves no break changes no widget", () => {
   expect(widgets(s.apply(s.tr.insertText("x", 350)))).toEqual(widgets(s));
 });
 
+// The plugin's decorations, and those a fresh build of its pages gives.
+function setAndFresh(s: EditorState): [string[], string[]] {
+  const st = paginationKey.getState(s)!;
+  const fresh = decorationsFor(
+    st.index,
+    st.pagination,
+    0,
+    st.index.blocks.length,
+    options,
+  );
+  return [keysOf(st.decorations), keysOf(DecorationSet.create(s.doc, fresh))];
+}
+
 test("the set is what a fresh build would be, after anything", () => {
   const start = state(script());
   fc.assert(
     fc.property(arbTransactions, (apply) => {
-      const s = apply(start);
-      const st = paginationKey.getState(s)!;
-      expect(keysOf(st.decorations)).toEqual(
-        keysOf(
-          DecorationSet.create(
-            s.doc,
-            decorationsFor(
-              st.index,
-              st.pagination,
-              0,
-              st.index.blocks.length,
-              options,
-            ),
-          ),
-        ),
-      );
+      const [set, fresh] = setAndFresh(apply(start));
+      expect(set).toEqual(fresh);
     }),
     { numRuns: 100 },
   );
+});
+
+test("an edit before a composition's pages catch up leaves the set a fresh build would be", () => {
+  const s = state(script(400));
+  const typing = s.apply(s.tr.insertText("kan", 300).setMeta("composition", 1));
+  const ended = [
+    typing.apply(typing.tr.insertText("a few more words", 200)),
+    typing.apply(
+      deleteRangeKeepingSections(typing.tr, 100, 20000).setMeta("remote", true),
+    ),
+    typing.apply(
+      replaceWholeDoc(typing, 7, "rewritten by someone else").setMeta(
+        "remote",
+        true,
+      ),
+    ),
+    typing.apply(setPagination(typing.tr, { repaginate: true })),
+  ].map(setAndFresh);
+  expect(ended.map(([set]) => set)).toEqual(ended.map(([, fresh]) => fresh));
 });
 
 test("text outside the script font is marked, in an element of its own", () => {

@@ -11,6 +11,7 @@ import type {
 import { mark } from "@manent/perf";
 import { selectAll } from "prosemirror-commands";
 import { keydownHandler } from "prosemirror-keymap";
+import type { Node } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorState, PluginView, Transaction } from "prosemirror-state";
 import type { DecorationSet, EditorView } from "prosemirror-view";
@@ -160,10 +161,10 @@ function fullRun(
 function incrementalRun(
   prev: PaginationState,
   settings: PaginationSettings,
-  state: EditorState,
+  doc: Node,
   options: DecorationOptions,
 ): PaginationState {
-  const { index, change } = updateIndex(prev.index, state.doc, settings.layout);
+  const { index, change } = updateIndex(prev.index, doc, settings.layout);
   if (change === null) return { ...prev, settings, index, frozen: false };
   const pagination = mark("pagination.engine", () =>
     settings.engine.repaginate(prev.pagination, index.blocks, change),
@@ -206,6 +207,21 @@ function initialState(
   };
 }
 
+/**
+ * A composition's decorations are in the document before `tr`, and its pages in the one before the composition:
+ * when `tr` changes the document, the pages first catch up with the document before it, as the deferred
+ * repagination would, so the decorations are moved past this change alone.
+ */
+function settled(
+  prev: PaginationState,
+  tr: Transaction,
+  options: DecorationOptions,
+): PaginationState {
+  return prev.frozen && tr.docChanged
+    ? incrementalRun(prev, prev.settings, tr.before, options)
+    : prev;
+}
+
 function applyTransaction(
   tr: Transaction,
   prev: PaginationState,
@@ -221,11 +237,16 @@ function applyTransaction(
       frozen: true,
     };
   if (patch === null)
-    return incrementalRun(prev, prev.settings, state, options);
+    return incrementalRun(
+      settled(prev, tr, options),
+      prev.settings,
+      state.doc,
+      options,
+    );
   const settings = withPatch(prev.settings, patch);
   return needsFullRun(prev, patch)
     ? fullRun(prev, settings, state, options)
-    : incrementalRun(prev, settings, state, options);
+    : incrementalRun(settled(prev, tr, options), settings, state.doc, options);
 }
 
 function stateOf(state: EditorState): PaginationState {
