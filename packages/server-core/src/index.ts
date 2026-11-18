@@ -1,28 +1,20 @@
-export {
-  DEMO_PEOPLE,
-  DEMO_WORKSPACES,
-  type DemoPerson,
-  type DemoPersonId,
-  type DemoWorkspace,
-  type DemoWorkspaceId,
+export { DEMO_PEOPLE, DEMO_WORKSPACES } from "./people.ts";
+export type {
+  DemoPerson,
+  DemoPersonId,
+  DemoWorkspace,
+  DemoWorkspaceId,
 } from "./people.ts";
-export {
-  createDemoSignIn,
-  type Identity,
-  type SignInDescription,
-  type SignInProvider,
-  type WorkspaceRef,
+export { createDemoSignIn } from "./sign-in.ts";
+export type {
+  Identity,
+  SignInDescription,
+  SignInProvider,
+  WorkspaceRef,
 } from "./sign-in.ts";
-export { createSignedSessionStore, type SessionStore } from "./sessions.ts";
-export {
-  bindRefusal,
-  checkDemoBind,
-  isLoopbackAddress,
-  type BindCheck,
-} from "./bind.ts";
-export {
-  createServer,
-  type ConnectionData,
-  type ManentServer,
-  type ServerConfig,
-} from "./server.ts";
+export { createSignedSessionStore } from "./sessions.ts";
+export type { SessionStore } from "./sessions.ts";
+export { bindRefusal, checkDemoBind, isLoopbackAddress } from "./bind.ts";
+export type { BindCheck } from "./bind.ts";
+export { createServer } from "./server.ts";
+export type { ConnectionData, ManentServer, ServerConfig } from "./server.ts";

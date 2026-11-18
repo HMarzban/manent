@@ -1,35 +1,83 @@
 import { afterAll, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { checkBoundaries, toRepoPath } from "../check-boundaries.ts";
+import { join } from "node:path";
+import { createTempTrees } from "@manent/testkit";
+import { RULES } from "../boundaries.config.ts";
+import type { BoundaryRules, WorkspaceRule } from "../boundaries.config.ts";
+import { checkBoundaries } from "../check-boundaries.ts";
 
 const repoRoot = join(import.meta.dir, "..", "..");
 
-const made: string[] = [];
-afterAll(async () => {
-  await Promise.all(
-    made.map((dir) => rm(dir, { recursive: true, force: true })),
-  );
-});
+const trees = createTempTrees("manent-boundaries-");
+afterAll(trees.removeAll);
 
-async function tree(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "manent-boundaries-"));
-  made.push(root);
-  for (const [path, text] of Object.entries(files)) {
-    await mkdir(dirname(join(root, path)), { recursive: true });
-    await writeFile(join(root, path), text);
-  }
-  return root;
-}
+const row = (r: Partial<WorkspaceRule>): WorkspaceRule => ({
+  layer: 0,
+  runtime: "bun",
+  importable: "product",
+  internal: [],
+  typesOnly: [],
+  external: "declared",
+  forbiddenGlobals: [],
+  ...r,
+});
+const FIXTURE: BoundaryRules = {
+  workspaces: {
+    schema: row({ runtime: "pure", external: ["prosemirror-model"] }),
+    crdt: row({
+      runtime: "pure",
+      internal: ["schema"],
+      external: ["yjs", "y-protocols", "lib0"],
+    }),
+    "sync-protocol": row({
+      runtime: "pure",
+      internal: ["crdt"],
+      typesOnly: ["crdt"],
+      external: ["lib0"],
+    }),
+    "server-core": row({ internal: ["sync-protocol", "crdt", "schema"] }),
+    editor: row({ runtime: "browser", internal: ["schema", "crdt"] }),
+    testkit: row({ layer: "tooling", internal: "*" }),
+    web: row({
+      runtime: "browser",
+      importable: "never",
+      internal: "*",
+      typesOnly: ["testkit"],
+    }),
+    server: row({ importable: "never", internal: "*" }),
+    tools: row({ layer: "tooling", importable: "never", internal: "*" }),
+  },
+  restrictedExternal: {
+    yjs: ["crdt"],
+    "y-protocols": ["crdt"],
+    "y-prosemirror": ["editor"],
+    electrobun: ["desktop"],
+  },
+  forbiddenGlobals: [
+    "Bun",
+    "process",
+    "window",
+    "document",
+    "navigator",
+    "localStorage",
+    "sessionStorage",
+    "indexedDB",
+    "requestAnimationFrame",
+    "HTMLElement",
+  ],
+  zones: [],
+};
+const rulesWith = (part: Partial<BoundaryRules>): BoundaryRules => ({
+  ...FIXTURE,
+  ...part,
+});
 
 const C = "catalog:";
 const W = "workspace:*";
 
-function manifest(
+/** The fixture manifest of `dir`, with `fields` overriding; its "exports" is on line 6. */
+function manifestWith(
   dir: string,
-  dependencies: Record<string, string> = {},
-  devDependencies: Record<string, string> = {},
+  fields: Record<string, unknown>,
 ): Record<string, string> {
   const exports = dir.startsWith("packages/")
     ? { exports: { ".": "./src/index.ts" } }
@@ -40,11 +88,19 @@ function manifest(
     private: true,
     type: "module",
     ...exports,
-    dependencies,
-    devDependencies,
+    dependencies: {},
+    devDependencies: {},
+    ...fields,
   };
   return { [`${dir}/package.json`]: JSON.stringify(m, null, 2) + "\n" };
 }
+
+const manifest = (
+  dir: string,
+  dependencies: Record<string, string> = {},
+  devDependencies: Record<string, string> = {},
+): Record<string, string> =>
+  manifestWith(dir, { dependencies, devDependencies });
 
 const BASE: Record<string, string> = {
   "package.json": JSON.stringify({
@@ -83,9 +139,12 @@ const BASE: Record<string, string> = {
 const lines = (...text: string[]) => text.join("\n") + "\n";
 
 /** Each violation as `<file>:<line> <rule>`. */
-async function check(files: Record<string, string>): Promise<string[]> {
-  const root = await tree({ ...BASE, ...files });
-  return (await checkBoundaries(root)).map(
+async function check(
+  files: Record<string, string>,
+  rules: BoundaryRules = FIXTURE,
+): Promise<string[]> {
+  const root = await trees.tree({ ...BASE, ...files });
+  return (await checkBoundaries(root, rules)).map(
     (v) => `${v.file}:${v.line} ${v.rule}`,
   );
 }
@@ -184,6 +243,7 @@ test("some imports are for types only", async () => {
     "apps/web/src/a.ts:1 types-only",
     "packages/sync-protocol/src/a.ts:1 types-only",
     "packages/sync-protocol/src/a.ts:4 types-only",
+    "packages/sync-protocol/src/a.ts:4 inline-type",
     "packages/sync-protocol/src/c.ts:2 types-only",
   ]);
 });
@@ -250,6 +310,7 @@ test("no deep imports across packages", async () => {
   ).toEqual([
     "packages/crdt/src/a.ts:1 deep-import",
     "packages/crdt/src/a.ts:2 deep-import",
+    "packages/crdt/src/a.ts:4 test-code",
   ]);
 });
 
@@ -409,21 +470,258 @@ test("test files may reach further, but never deep or into apps", async () => {
   ]);
 });
 
-test("toRepoPath gives the same path on every system", () => {
+test("a workspace with no rule is a violation", async () => {
   expect(
-    toRepoPath(
-      "C:\\work\\manent",
-      "C:\\work\\manent\\packages\\schema\\src\\a.ts",
+    await check({
+      ...manifest("packages/ghost"),
+      "packages/ghost/src/index.ts": lines('import "yjs";'),
+    }),
+  ).toEqual(["packages/ghost/package.json:1 no-rule"]);
+});
+
+test("a test file obeys the allow-list for production entries, and may take values across a types-only edge", async () => {
+  expect(
+    await check({
+      "packages/schema/test/a.test.ts": lines('import "@manent/crdt";'),
+      "packages/crdt/test/a.test.ts": lines(
+        'import { x } from "@manent/schema";',
+      ),
+      "packages/sync-protocol/test/a.test.ts": lines(
+        'import { x } from "@manent/crdt";',
+      ),
+    }),
+  ).toEqual(["packages/schema/test/a.test.ts:1 allow-list"]);
+});
+
+test("only test folders, test files and the testing entry are test code", async () => {
+  expect(
+    await check({
+      "packages/schema/src/test/helper.ts": lines(
+        'import "yjs";',
+        "document.title;",
+      ),
+      "packages/schema/src/testing/index.ts": lines(
+        'import fc from "fast-check";',
+        "document.title;",
+      ),
+      "packages/schema/src/a.test.ts": lines('import "yjs";'),
+    }),
+  ).toEqual([
+    "packages/schema/src/test/helper.ts:1 restricted-external",
+    "packages/schema/src/test/helper.ts:2 pure",
+  ]);
+});
+
+test("a package may have a second entry for test code and tooling only", async () => {
+  const both = { ".": "./src/index.ts", "./testing": "./src/testing/index.ts" };
+  expect(
+    await check({
+      ...manifestWith("packages/schema", { exports: both }),
+      "packages/schema/src/testing/index.ts": "export {};\n",
+      "packages/crdt/test/a.test.ts": lines(
+        'import "@manent/schema/testing";',
+        'import "@manent/schema/internal";',
+      ),
+      "packages/crdt/src/a.ts": lines('import "@manent/schema/testing";'),
+      "tools/a.ts": lines('import "@manent/schema/testing";'),
+      // crdt has no such entry
+      "packages/schema/test/b.test.ts": lines('import "@manent/crdt/testing";'),
+    }),
+  ).toEqual([
+    "packages/crdt/src/a.ts:1 testing-entry",
+    "packages/crdt/test/a.test.ts:2 deep-import",
+    "packages/schema/test/b.test.ts:1 deep-import",
+  ]);
+  // the file is missing
+  expect(
+    await check(manifestWith("packages/schema", { exports: both })),
+  ).toEqual(["packages/schema/package.json:6 single-entry"]);
+  expect(
+    await check(
+      manifestWith("packages/schema", {
+        exports: { ".": "./src/index.ts", "./testing": "./src/testing.ts" },
+      }),
     ),
-  ).toBe("packages/schema/src/a.ts");
+  ).toEqual(["packages/schema/package.json:6 single-entry"]);
+  const theme = { ".": "./src/index.ts", "./theme.css": "./src/theme.css" };
   expect(
-    toRepoPath("/work/manent", "/work/manent/packages/schema/src/a.ts"),
-  ).toBe("packages/schema/src/a.ts");
-  expect(toRepoPath("/work/manent/", "packages\\schema\\src\\a.ts")).toBe(
-    "packages/schema/src/a.ts",
-  );
+    await check({
+      ...manifestWith("packages/schema", { exports: theme }),
+      "packages/schema/src/theme.css": ":root {}\n",
+    }),
+  ).toEqual([]);
+  // the stylesheet is missing
+  expect(
+    await check(manifestWith("packages/schema", { exports: theme })),
+  ).toEqual(["packages/schema/package.json:6 single-entry"]);
+});
+
+test("a tooling package may have a DOM entry, which only test code and tooling import", async () => {
+  const dom = { ".": "./src/index.ts", "./dom": "./src/dom.ts" };
+  expect(
+    await check({
+      ...manifestWith("packages/testkit", { exports: dom }),
+      "packages/testkit/src/dom.ts": "export {};\n",
+      ...manifestWith("packages/schema", { exports: dom }),
+      "packages/schema/src/dom.ts": "export {};\n",
+      "packages/crdt/test/a.dom.test.ts": lines(
+        'import "@manent/testkit/dom";',
+      ),
+      "apps/web/src/a.ts": lines('import "@manent/testkit/dom";'),
+    }),
+  ).toEqual([
+    "apps/web/src/a.ts:1 testing-entry",
+    // schema is not tooling
+    "packages/schema/package.json:6 single-entry",
+  ]);
+});
+
+test("a tests-only package is imported by test code and tooling, never by product code or a testing entry", async () => {
+  const rules = rulesWith({
+    workspaces: {
+      ...FIXTURE.workspaces,
+      testkit: row({ layer: "tooling", importable: "tests", internal: "*" }),
+    },
+  });
+  expect(
+    await check(
+      {
+        "apps/web/src/a.ts": lines('import type { T } from "@manent/testkit";'),
+        "packages/schema/test/a.test.ts": lines('import "@manent/testkit";'),
+        "tools/a.ts": lines('import "@manent/testkit";'),
+        "packages/schema/src/testing/index.ts": lines(
+          'import "@manent/testkit";',
+        ),
+      },
+      rules,
+    ),
+  ).toEqual([
+    "apps/web/src/a.ts:1 testing-entry",
+    "packages/schema/src/testing/index.ts:1 testing-entry",
+  ]);
+});
+
+test("product code never imports its own test code", async () => {
+  expect(
+    await check({
+      "packages/schema/src/a.ts": lines(
+        'import "./testing/index.ts";',
+        'import "../test/helpers.ts";',
+      ),
+      "packages/schema/src/testing/index.ts": lines('import "../a.ts";'),
+    }),
+  ).toEqual([
+    "packages/schema/src/a.ts:1 test-code",
+    "packages/schema/src/a.ts:2 test-code",
+  ]);
+});
+
+test("a built-in module can have a single home", async () => {
+  const rules = rulesWith({
+    restrictedExternal: {
+      ...FIXTURE.restrictedExternal,
+      "bun:sqlite": ["server-core"],
+    },
+  });
+  expect(
+    await check(
+      {
+        "packages/server-core/src/a.ts": lines('import "bun:sqlite";'),
+        "apps/server/src/a.ts": lines('import "bun:sqlite";'),
+        "apps/server/test/a.test.ts": lines('import "bun:sqlite";'),
+      },
+      rules,
+    ),
+  ).toEqual(["apps/server/src/a.ts:1 restricted-external"]);
+});
+
+test("a pure row can forbid further globals", async () => {
+  const rules = rulesWith({
+    workspaces: {
+      ...FIXTURE.workspaces,
+      schema: row({
+        runtime: "pure",
+        external: ["prosemirror-model"],
+        forbiddenGlobals: ["fetch", "setTimeout"],
+      }),
+    },
+  });
+  const code = lines('fetch("x");', "setTimeout(() => {}, 1);");
+  expect(
+    await check(
+      { "packages/schema/src/a.ts": code, "packages/crdt/src/a.ts": code },
+      rules,
+    ),
+  ).toEqual([
+    "packages/schema/src/a.ts:1 pure",
+    "packages/schema/src/a.ts:2 pure",
+  ]);
+});
+
+test("a zone keeps a global and a package's values inside its folders", async () => {
+  const rules = rulesWith({
+    zones: [
+      {
+        workspace: "server-core",
+        only: ["src/http/"],
+        globals: ["Bun"],
+        values: [],
+      },
+      {
+        workspace: "web",
+        only: ["src/editor-host/"],
+        globals: [],
+        values: ["@manent/editor"],
+      },
+    ],
+  });
+  expect(
+    await check(
+      {
+        ...manifest("apps/web", { zustand: C, "@manent/editor": W }),
+        "packages/server-core/src/http/static.ts": lines('Bun.file("x");'),
+        "packages/server-core/src/auth/sessions.ts": lines(
+          'new Bun.CryptoHasher("sha256");',
+          "let s: Bun.Server<unknown>;",
+        ),
+        "packages/server-core/test/a.test.ts": lines('Bun.file("x");'),
+        "apps/web/src/editor-host/a.ts": lines(
+          'import { x } from "@manent/editor";',
+        ),
+        "apps/web/src/screens/a.tsx": lines(
+          'import { x } from "@manent/editor";',
+          'import type { X } from "@manent/editor";',
+        ),
+      },
+      rules,
+    ),
+  ).toEqual([
+    "apps/web/src/screens/a.tsx:1 zone",
+    "packages/server-core/src/auth/sessions.ts:1 zone",
+    "packages/server-core/src/auth/sessions.ts:2 zone",
+  ]);
+});
+
+test("a type is imported and exported in its own statement", async () => {
+  expect(
+    await check({
+      "packages/schema/src/a.ts": lines(
+        'import { a, type B } from "./x.ts";',
+        'export { type B } from "./x.ts";',
+        'import type { B } from "./x.ts";',
+        "const text = 'import { type X } from \"y\"';",
+      ),
+      "packages/schema/test/a.test.ts": lines(
+        'import { type B } from "../src/index.ts";',
+      ),
+    }),
+  ).toEqual([
+    "packages/schema/src/a.ts:1 inline-type",
+    "packages/schema/src/a.ts:2 inline-type",
+    "packages/schema/test/a.test.ts:1 inline-type",
+  ]);
 });
 
 test("this repository passes", async () => {
-  expect(await checkBoundaries(repoRoot)).toEqual([]);
+  expect(await checkBoundaries(repoRoot, RULES)).toEqual([]);
 });

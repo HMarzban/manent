@@ -2,13 +2,8 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import {
-  bootstrapInterval,
-  judge,
-  percentile,
-  runSuite,
-  type Budget,
-} from "../harness.ts";
+import { bootstrapInterval, judge, percentile, runSuite } from "../harness.ts";
+import type { Budget } from "../harness.ts";
 
 const made: string[] = [];
 

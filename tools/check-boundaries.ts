@@ -1,19 +1,16 @@
-// Checks the monorepo's import boundaries by reading the source as text, so
-// that `import type` stays visible. Limits of the masker: regular-expression
-// literals and JSX text are not understood, a template literal is one string up
-// to its closing backtick, and a specifier must be a string literal.
+// Checks the monorepo's import boundaries against a table of rules, one row per workspace.
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join, posix } from "node:path";
+import { join, posix, sep } from "node:path";
+import { RULES } from "./boundaries.config.ts";
+import type { BoundaryRules, WorkspaceRule } from "./boundaries.config.ts";
 import {
-  FORBIDDEN_GLOBALS,
-  INTERNAL,
-  NEVER_IMPORTED,
-  NO_BUN,
-  PURE,
-  PURE_EXTERNAL,
-  RESTRICTED_EXTERNAL,
-  TYPES_ONLY,
-} from "./boundaries.config.ts";
+  findGlobals,
+  findImports,
+  findInlineTypes,
+  mask,
+} from "./source-scan.ts";
+import type { Import } from "./source-scan.ts";
 
 export type Rule =
   | "allow-list"
@@ -25,7 +22,12 @@ export type Rule =
   | "restricted-external"
   | "undeclared"
   | "single-entry"
-  | "catalog";
+  | "catalog"
+  | "no-rule"
+  | "testing-entry"
+  | "test-code"
+  | "zone"
+  | "inline-type";
 
 export interface Violation {
   file: string;
@@ -34,10 +36,20 @@ export interface Violation {
   message: string;
 }
 
+type Located = Omit<Violation, "file">;
+type Finding = Omit<Located, "line">;
+
+interface Manifest {
+  name: string | null;
+  exports: unknown;
+  /** Every entry of every dependency field, as `[name, version]`. */
+  dependencies: readonly (readonly [string, unknown])[];
+}
+
 interface Workspace {
-  /** The name after `@manent/`, which is also the key in the config. */
+  /** The name after `@manent/`, which is also the key of its row. */
   key: string;
-  /** Repo-relative directory, without a trailing slash. */
+  /** Repository-relative directory, without a trailing slash. */
   dir: string;
   manifest: Manifest;
   manifestText: string;
@@ -45,19 +57,17 @@ interface Workspace {
   grouped: boolean;
 }
 
-interface Manifest {
-  name?: string;
-  exports?: unknown;
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
-  peerDependencies?: Record<string, string>;
-  optionalDependencies?: Record<string, string>;
-}
-
-interface Import {
-  specifier: string;
-  line: number;
-  typeOnly: boolean;
+/** A source file and everything that decides its rules. */
+interface Source {
+  /** Repository-relative path. */
+  file: string;
+  /** Path relative to the workspace's directory. */
+  local: string;
+  ws: Workspace;
+  row: WorkspaceRule;
+  code: "product" | "test";
+  rules: BoundaryRules;
+  workspaces: readonly Workspace[];
 }
 
 const DEPENDENCY_FIELDS = [
@@ -67,126 +77,32 @@ const DEPENDENCY_FIELDS = [
   "optionalDependencies",
 ] as const;
 const SCOPE = "@manent/";
-const ENTRY = { ".": "./src/index.ts" };
+const MAIN_ENTRY = "./src/index.ts";
+const TEST_ENTRIES = ["testing", "dom"];
+const TEST_FOLDERS = ["test/", "src/testing/"];
+const STYLESHEET_ENTRY = new RegExp("^\\./([^/]+)\\.css$");
+const TEST_FILE = new RegExp("\\.(test\\.tsx?|e2e\\.ts)$");
 
-/** `file` relative to `root`, with forward slashes, whatever the system. */
-export function toRepoPath(root: string, file: string): string {
-  const base = root.replaceAll("\\", "/").replace(/\/+$/, "");
-  let path = file.replaceAll("\\", "/");
-  if (path.startsWith(base + "/")) path = path.slice(base.length + 1);
-  return path.replace(/^(\.\/)+/, "");
-}
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
-/** Blanks comments and the contents of strings, keeping every offset and newline. */
-function mask(source: string): { text: string; strings: Map<number, string> } {
-  const out = source.split("");
-  const strings = new Map<number, string>();
-  const blank = (from: number, to: number) => {
-    for (let k = from; k < to; k++) if (out[k] !== "\n") out[k] = " ";
-  };
-  let i = 0;
-  while (i < source.length) {
-    const c = source[i];
-    const next = source[i + 1];
-    if (c === "/" && next === "/") {
-      const end = source.indexOf("\n", i);
-      const stop = end === -1 ? source.length : end;
-      blank(i, stop);
-      i = stop;
-    } else if (c === "/" && next === "*") {
-      const end = source.indexOf("*/", i + 2);
-      const stop = end === -1 ? source.length : end + 2;
-      blank(i, stop);
-      i = stop;
-    } else if (c === '"' || c === "'" || c === "`") {
-      let j = i + 1;
-      while (j < source.length && source[j] !== c) {
-        if (source[j] === "\\") j++;
-        else if (c !== "`" && source[j] === "\n") break;
-        j++;
-      }
-      const end = Math.min(j, source.length);
-      strings.set(i, source.slice(i + 1, end));
-      blank(i + 1, end);
-      i = end + 1;
-    } else {
-      i++;
-    }
-  }
-  return { text: out.join(""), strings };
-}
+const isStringList = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === "string");
 
-const QUOTE = "([\"'`])";
-const IMPORT_FORMS: readonly {
-  pattern: RegExp;
-  typeOnly: (m: RegExpExecArray) => boolean;
-}[] = [
-  // import … from "x", import type … from "x", export … from "x"
-  {
-    pattern: new RegExp(
-      String.raw`\b(?:import|export)\b((?:(?!\b(?:import|export)\b)[\w$\s{},*])*?)\bfrom\s*` +
-        QUOTE,
-      "g",
-    ),
-    typeOnly: (m) => /^\s*type\s+\S/.test(m[1] ?? ""),
-  },
-  // import "x"
-  {
-    pattern: new RegExp(String.raw`\bimport\s*` + QUOTE, "g"),
-    typeOnly: () => false,
-  },
-  // import("x")
-  {
-    pattern: new RegExp(String.raw`\bimport\s*\(\s*` + QUOTE, "g"),
-    typeOnly: () => false,
-  },
-  // require("x")
-  {
-    pattern: new RegExp(String.raw`\brequire\s*\(\s*` + QUOTE, "g"),
-    typeOnly: () => false,
-  },
-];
+/** Under `test/` or `src/testing/`, given a workspace-relative path. */
+const isTestFolder = (local: string) =>
+  TEST_FOLDERS.some((folder) => `${local}/`.startsWith(folder));
 
-const names = FORBIDDEN_GLOBALS.join("|");
-const GLOBAL_USES = [
-  new RegExp(String.raw`(?<![\w$.])(?:${names})(?=[.[(?])`, "g"),
-  new RegExp(String.raw`\bglobalThis\s*\.\s*(?:${names})\b`, "g"),
-];
+const isBuiltin = (specifier: string) =>
+  specifier === "bun" ||
+  specifier.startsWith("bun:") ||
+  specifier.startsWith("node:");
 
-function lineAt(text: string, offset: number): number {
-  let line = 1;
-  for (let k = 0; k < offset; k++) if (text.charCodeAt(k) === 10) line++;
-  return line;
-}
-
-function findImports(masked: {
-  text: string;
-  strings: Map<number, string>;
-}): Import[] {
-  const found = new Map<number, Import>();
-  for (const { pattern, typeOnly } of IMPORT_FORMS) {
-    for (const m of masked.text.matchAll(pattern)) {
-      const quote = m.index + m[0].length - 1;
-      const specifier = masked.strings.get(quote);
-      if (specifier === undefined || found.has(quote)) continue;
-      found.set(quote, {
-        specifier,
-        line: lineAt(masked.text, quote),
-        typeOnly: typeOnly(m),
-      });
-    }
-  }
-  return [...found.values()];
-}
-
-function findGlobals(text: string): { name: string; line: number }[] {
-  return GLOBAL_USES.flatMap((pattern) =>
-    [...text.matchAll(pattern)].map((m) => ({
-      name: m[0],
-      line: lineAt(text, m.index),
-    })),
-  );
-}
+const finding = (rule: Rule, message: string): Finding => ({ rule, message });
+const INLINE_TYPE = finding(
+  "inline-type",
+  "a type needs its own import type or export type statement",
+);
 
 /** The package an external specifier names: `lib0/encoding` is `lib0`. */
 function packageName(specifier: string): string {
@@ -196,229 +112,268 @@ function packageName(specifier: string): string {
     : (parts[0] ?? specifier);
 }
 
-const isBuiltin = (specifier: string) =>
-  specifier === "bun" ||
-  specifier.startsWith("bun:") ||
-  specifier.startsWith("node:");
+/** The line `needle` first appears on, or 1. */
+const lineOf = (text: string, needle: string) =>
+  text.slice(0, Math.max(0, text.indexOf(needle))).split("\n").length;
 
-const isTestFile = (path: string) =>
-  path.split("/").includes("test") || /\.(test\.tsx?|e2e\.ts)$/.test(path);
-
-const includes = (list: readonly string[], value: string) =>
-  list.includes(value);
-
-function declared(ws: Workspace, name: string): boolean {
-  return DEPENDENCY_FIELDS.some(
-    (field) => ws.manifest[field]?.[name] !== undefined,
-  );
+function readManifest(text: string, file: string): Manifest {
+  const raw: unknown = JSON.parse(text);
+  if (!isRecord(raw)) throw new TypeError(`${file} is not a JSON object`);
+  return {
+    name: typeof raw.name === "string" ? raw.name : null,
+    exports: raw.exports,
+    dependencies: DEPENDENCY_FIELDS.flatMap((field) => {
+      const entries = raw[field];
+      return isRecord(entries) ? Object.entries(entries) : [];
+    }),
+  };
 }
 
-function lineOf(text: string, needle: string): number {
-  const index = text.indexOf(needle);
-  return index === -1 ? 1 : lineAt(text, index);
-}
+const declared = (ws: Workspace, name: string) =>
+  ws.manifest.dependencies.some(([dependency]) => dependency === name);
 
 async function findWorkspaces(root: string): Promise<Workspace[]> {
-  const rootManifest = JSON.parse(
-    await readFile(join(root, "package.json"), "utf8"),
-  ) as {
-    workspaces?: { packages?: string[] } | string[];
-  };
-  const globs = Array.isArray(rootManifest.workspaces)
-    ? rootManifest.workspaces
-    : (rootManifest.workspaces?.packages ?? []);
+  const text = await readFile(join(root, "package.json"), "utf8");
+  const raw: unknown = JSON.parse(text);
+  const listed = isRecord(raw) ? raw.workspaces : null;
+  const globs = isRecord(listed) ? listed.packages : listed;
+  if (!isStringList(globs))
+    throw new TypeError("package.json must list its workspaces");
   const workspaces: Workspace[] = [];
   for (const glob of globs) {
-    for await (const path of new Bun.Glob(`${glob}/package.json`).scan({
-      cwd: root,
-    })) {
-      const dir = posix.dirname(toRepoPath(root, join(root, path)));
-      const manifestText = await readFile(
-        join(root, dir, "package.json"),
-        "utf8",
-      );
-      const manifest = JSON.parse(manifestText) as Manifest;
+    const found = new Bun.Glob(`${glob}/package.json`).scan({ cwd: root });
+    for await (const path of found) {
+      const file = path.split(sep).join("/");
+      const dir = posix.dirname(file);
+      const manifestText = await readFile(join(root, file), "utf8");
+      const manifest = readManifest(manifestText, file);
       const key = manifest.name?.startsWith(SCOPE)
         ? manifest.name.slice(SCOPE.length)
         : posix.basename(dir);
-      workspaces.push({
-        key,
-        dir,
-        manifest,
-        manifestText,
-        grouped: glob.includes("*"),
-      });
+      const grouped = glob.includes("*");
+      workspaces.push({ key, dir, manifest, manifestText, grouped });
     }
   }
   return workspaces.toSorted((a, b) => a.dir.localeCompare(b.dir));
 }
 
+/** Workspace-relative paths of the workspace's source files. */
 async function sourceFiles(root: string, ws: Workspace): Promise<string[]> {
   const pattern = ws.grouped ? "{src,test}/**/*.{ts,tsx}" : "**/*.{ts,tsx}";
   const files: string[] = [];
-  for await (const path of new Bun.Glob(pattern).scan({
-    cwd: join(root, ws.dir),
-  })) {
-    const repoPath = toRepoPath(root, join(root, ws.dir, path));
-    if (!repoPath.split("/").includes("node_modules")) files.push(repoPath);
+  const found = new Bun.Glob(pattern).scan({ cwd: join(root, ws.dir) });
+  for await (const path of found) {
+    const local = path.split(sep).join("/");
+    if (!local.split("/").includes("node_modules")) files.push(local);
   }
   return files.toSorted();
 }
 
-function checkManifest(ws: Workspace): Violation[] {
+/** What `key` of `exports` must point to for this row, or null when the row may not have it. */
+function entryTarget(key: string, row: WorkspaceRule): string | null {
+  if (key === "./testing") return "./src/testing/index.ts";
+  if (key === "./dom" && row.layer === "tooling") return "./src/dom.ts";
+  const stylesheet = STYLESHEET_ENTRY.exec(key);
+  return stylesheet ? `./src/${stylesheet[1]}.css` : null;
+}
+
+function entryProblem(
+  root: string,
+  ws: Workspace,
+  row: WorkspaceRule,
+): string | null {
+  const { exports } = ws.manifest;
+  if (!isRecord(exports) || exports["."] !== MAIN_ENTRY)
+    return `exports must map "." to "${MAIN_ENTRY}"`;
+  for (const [key, value] of Object.entries(exports)) {
+    if (key === ".") continue;
+    const target = entryTarget(key, row);
+    if (target === null || value !== target)
+      return `exports may not map ${key} to ${JSON.stringify(value)}`;
+    if (!existsSync(join(root, ws.dir, target)))
+      return `exports maps ${key} to ${target}, which does not exist`;
+  }
+  return null;
+}
+
+function checkManifest(
+  root: string,
+  ws: Workspace,
+  row: WorkspaceRule,
+): Violation[] {
   const file = `${ws.dir}/package.json`;
   const violations: Violation[] = [];
-  if (
-    !includes(NEVER_IMPORTED, ws.key) &&
-    !Bun.deepEquals(ws.manifest.exports, ENTRY)
-  ) {
+  const problem =
+    row.importable === "never" ? null : entryProblem(root, ws, row);
+  if (problem !== null) {
+    const line = lineOf(ws.manifestText, '"exports"');
+    violations.push({ file, line, rule: "single-entry", message: problem });
+  }
+  for (const [name, version] of ws.manifest.dependencies) {
+    const expected = name.startsWith(SCOPE) ? "workspace:*" : "catalog:";
+    if (version === expected) continue;
     violations.push({
       file,
-      line: lineOf(ws.manifestText, '"exports"'),
-      rule: "single-entry",
-      message: `exports must be exactly { ".": "./src/index.ts" }`,
+      line: lineOf(ws.manifestText, `"${name}":`),
+      rule: "catalog",
+      message: `${name} must be "${expected}", not ${JSON.stringify(version)}`,
     });
-  }
-  for (const field of DEPENDENCY_FIELDS) {
-    for (const [name, version] of Object.entries(ws.manifest[field] ?? {})) {
-      const expected = name.startsWith(SCOPE) ? "workspace:*" : "catalog:";
-      if (version === expected) continue;
-      violations.push({
-        file,
-        line: lineOf(ws.manifestText, `"${name}":`),
-        rule: "catalog",
-        message: `${name} must be "${expected}", not "${version}"`,
-      });
-    }
   }
   return violations;
 }
 
-function checkImport(
-  file: string,
-  ws: Workspace,
-  imp: Import,
-  workspaces: readonly Workspace[],
-): Omit<Violation, "file" | "line"> | undefined {
+function checkRelative(src: Source, { specifier }: Import): Finding | null {
+  const target = posix.normalize(
+    posix.join(posix.dirname(src.file), specifier),
+  );
+  const owner = src.workspaces.find(
+    (w) => target === w.dir || target.startsWith(`${w.dir}/`),
+  );
+  if (owner === undefined) return null;
+  if (owner !== src.ws) {
+    const never = src.rules.workspaces[owner.key]?.importable === "never";
+    const reach = `${specifier} reaches into ${SCOPE}${owner.key}`;
+    return never
+      ? finding("app-import", `${reach}, which is never imported`)
+      : finding("deep-import", `${reach}; import it by name`);
+  }
+  if (src.code === "test" || !isTestFolder(target.slice(owner.dir.length + 1)))
+    return null;
+  return finding("test-code", `${specifier} is test code`);
+}
+
+function checkInternal(src: Source, imp: Import): Finding | null {
   const { specifier } = imp;
+  const [key = "", ...rest] = specifier.slice(SCOPE.length).split("/");
+  const name = `${SCOPE}${key}`;
+  const self = `${SCOPE}${src.ws.key}`;
+  const target = src.rules.workspaces[key];
+  const tooling = src.row.layer === "tooling";
+  const test = src.code === "test";
+  const testingEntry = finding(
+    "testing-entry",
+    `${specifier} is for test code and tooling only`,
+  );
+  if (target?.importable === "never")
+    return finding("app-import", `${name} is never imported`);
+  const subpath = rest.join("/");
+  if (TEST_ENTRIES.includes(subpath)) {
+    if (!test && !tooling) return testingEntry;
+    const exports = src.workspaces.find((w) => w.key === key)?.manifest.exports;
+    if (isRecord(exports) && `./${subpath}` in exports) return null;
+    return finding("deep-import", `${name} has no ./${subpath} entry`);
+  }
+  if (subpath !== "")
+    return finding("deep-import", `import ${name}, not ${specifier}`);
+  if (target?.importable === "tests") {
+    const fromTesting = src.local.startsWith("src/testing/");
+    return tooling || (test && !fromTesting) ? null : testingEntry;
+  }
+  const { internal, typesOnly } = src.row;
+  if (internal === "*" ? target === undefined : !internal.includes(key))
+    return finding("allow-list", `${self} may not import ${name}`);
+  if (test) return null;
+  if (!imp.typeOnly && typesOnly.includes(key))
+    return finding("types-only", `${self} may import only types from ${name}`);
+  if (!declared(src.ws, name))
+    return finding("undeclared", `${name} is not declared by ${self}`);
+  return null;
+}
+
+function checkExternal(src: Source, { specifier }: Import): Finding | null {
+  if (src.code === "test") return null;
+  const { ws, row } = src;
   const self = `${SCOPE}${ws.key}`;
-  const test = isTestFile(file);
-
-  if (specifier.startsWith(".")) {
-    const target = posix.normalize(posix.join(posix.dirname(file), specifier));
-    const owner = workspaces.find(
-      (w) => target === w.dir || target.startsWith(w.dir + "/"),
-    );
-    if (!owner || owner === ws) return undefined;
-    if (includes(NEVER_IMPORTED, owner.key))
-      return {
-        rule: "app-import",
-        message: `${specifier} reaches into ${SCOPE}${owner.key}, which is never imported`,
-      };
-    return {
-      rule: "deep-import",
-      message: `${specifier} reaches into ${SCOPE}${owner.key}; import it by name`,
-    };
-  }
-
-  if (specifier.startsWith(SCOPE)) {
-    const [key = "", ...rest] = specifier.slice(SCOPE.length).split("/");
-    const target = `${SCOPE}${key}`;
-    if (includes(NEVER_IMPORTED, key))
-      return { rule: "app-import", message: `${target} is never imported` };
-    if (rest.length > 0)
-      return {
-        rule: "deep-import",
-        message: `import ${target}, not ${specifier}: a package has one entry`,
-      };
-    if (test) return undefined;
-    const allowed = INTERNAL[ws.key] ?? [];
-    const isPackage = workspaces.some((w) => w.key === key);
-    if (allowed === "*" ? !isPackage : !allowed.includes(key))
-      return {
-        rule: "allow-list",
-        message: `${self} may not import ${target}`,
-      };
-    if (
-      !imp.typeOnly &&
-      TYPES_ONLY.some(([from, to]) => from === ws.key && to === key)
-    )
-      return {
-        rule: "types-only",
-        message: `${self} may import only types from ${target}: write import type`,
-      };
-    if (!declared(ws, target))
-      return {
-        rule: "undeclared",
-        message: `${target} is not declared in ${ws.dir}/package.json`,
-      };
-    return undefined;
-  }
-
-  if (test) return undefined;
-
-  if (isBuiltin(specifier)) {
-    if (includes(PURE, ws.key))
-      return {
-        rule: "pure",
-        message: `${self} is pure and may not import ${specifier}`,
-      };
-    if (includes(NO_BUN, ws.key))
-      return {
-        rule: "no-bun",
-        message: `${self} runs in a browser and may not import ${specifier}`,
-      };
-    return undefined;
-  }
-
   const name = packageName(specifier);
-  const homes = RESTRICTED_EXTERNAL[name];
-  if (homes && !homes.includes(ws.key))
-    return {
-      rule: "restricted-external",
-      message: `only ${homes.map((h) => SCOPE + h).join(", ")} may import ${name}`,
-    };
-  if (
-    includes(PURE, ws.key) &&
-    !PURE_EXTERNAL[ws.key as (typeof PURE)[number]].includes(name)
-  )
-    return {
-      rule: "allow-list",
-      message: `${self} is pure and may not import ${name}`,
-    };
+  const homes = src.rules.restrictedExternal[name];
+  if (homes !== undefined && !homes.includes(ws.key))
+    return finding(
+      "restricted-external",
+      `only ${homes.map((h) => SCOPE + h).join(", ")} may import ${name}`,
+    );
+  if (isBuiltin(specifier)) {
+    if (row.runtime === "pure")
+      return finding("pure", `${self} is pure and may not import ${specifier}`);
+    if (row.runtime === "browser")
+      return finding("no-bun", `${specifier} is not for a browser`);
+    return null;
+  }
+  if (row.external !== "declared" && !row.external.includes(name))
+    return finding("allow-list", `${self} is pure and may not import ${name}`);
   if (!declared(ws, name))
-    return {
-      rule: "undeclared",
-      message: `${name} is not declared in ${ws.dir}/package.json`,
-    };
-  return undefined;
+    return finding("undeclared", `${name} is not declared by ${self}`);
+  return null;
+}
+
+function checkImport(src: Source, imp: Import): Finding | null {
+  if (imp.specifier.startsWith(".")) return checkRelative(src, imp);
+  if (imp.specifier.startsWith(SCOPE)) return checkInternal(src, imp);
+  return checkExternal(src, imp);
+}
+
+/** Globals a pure row may not name, and what each zone keeps inside its folders. */
+function checkGlobals(
+  src: Source,
+  text: string,
+  imports: readonly Import[],
+): Located[] {
+  const self = `${SCOPE}${src.ws.key}`;
+  const found: Located[] = [];
+  const names = [...src.rules.forbiddenGlobals, ...src.row.forbiddenGlobals];
+  if (src.row.runtime === "pure")
+    for (const { name, line } of findGlobals(text, names))
+      found.push({ line, ...finding("pure", `${self} may not use ${name}`) });
+  for (const zone of src.rules.zones) {
+    if (zone.workspace !== src.ws.key) continue;
+    if (zone.only.some((prefix) => src.local.startsWith(prefix))) continue;
+    const only = `only ${zone.only.join(", ")} in ${self} may`;
+    for (const { name, line } of findGlobals(text, zone.globals))
+      found.push({ line, ...finding("zone", `${only} use ${name}`) });
+    for (const { specifier, line, typeOnly } of imports)
+      if (!typeOnly && zone.values.includes(packageName(specifier)))
+        found.push({ line, ...finding("zone", `${only} import ${specifier}`) });
+  }
+  return found;
+}
+
+async function checkFile(root: string, src: Source): Promise<Violation[]> {
+  const masked = mask(await readFile(join(root, src.file), "utf8"));
+  const imports = findImports(masked);
+  const found: Located[] = [];
+  for (const imp of imports) {
+    const result = checkImport(src, imp);
+    if (result !== null) found.push({ line: imp.line, ...result });
+  }
+  if (src.code === "product")
+    found.push(...checkGlobals(src, masked.text, imports));
+  for (const line of findInlineTypes(masked.text))
+    found.push({ line, ...INLINE_TYPE });
+  return found.map((f) => ({ file: src.file, ...f }));
 }
 
 async function scan(
   root: string,
+  rules: BoundaryRules,
 ): Promise<{ files: number; violations: Violation[] }> {
   const workspaces = await findWorkspaces(root);
   const violations: Violation[] = [];
   let files = 0;
   for (const ws of workspaces) {
-    violations.push(...checkManifest(ws));
-    for (const file of await sourceFiles(root, ws)) {
+    const row = rules.workspaces[ws.key];
+    if (row === undefined) {
+      const file = `${ws.dir}/package.json`;
+      const message = `${SCOPE}${ws.key} has no row in the boundary rules`;
+      violations.push({ file, line: 1, rule: "no-rule", message });
+      continue;
+    }
+    violations.push(...checkManifest(root, ws, row));
+    for (const local of await sourceFiles(root, ws)) {
       files++;
-      const masked = mask(await readFile(join(root, file), "utf8"));
-      for (const imp of findImports(masked)) {
-        const found = checkImport(file, ws, imp, workspaces);
-        if (found) violations.push({ file, line: imp.line, ...found });
-      }
-      if (includes(PURE, ws.key) && !isTestFile(file)) {
-        for (const use of findGlobals(masked.text)) {
-          violations.push({
-            file,
-            line: use.line,
-            rule: "pure",
-            message: `${SCOPE}${ws.key} is pure and may not use ${use.name}`,
-          });
-        }
-      }
+      const file = `${ws.dir}/${local}`;
+      const test = isTestFolder(local) || TEST_FILE.test(local);
+      const code = test ? "test" : "product";
+      const src: Source = { file, local, ws, row, code, rules, workspaces };
+      violations.push(...(await checkFile(root, src)));
     }
   }
   const sorted = violations.toSorted((a, b) =>
@@ -427,13 +382,16 @@ async function scan(
   return { files, violations: sorted };
 }
 
-/** Every boundary violation in the repository at `root`. */
-export async function checkBoundaries(root: string): Promise<Violation[]> {
-  return (await scan(root)).violations;
+/** Every boundary violation in the repository at `root`, judged by `rules`. */
+export async function checkBoundaries(
+  root: string,
+  rules: BoundaryRules,
+): Promise<Violation[]> {
+  return (await scan(root, rules)).violations;
 }
 
 if (import.meta.main) {
-  const { files, violations } = await scan(process.cwd());
+  const { files, violations } = await scan(process.cwd(), RULES);
   for (const v of violations)
     console.log(`${v.file}:${v.line} ${v.rule} ${v.message}`);
   if (violations.length > 0) process.exit(1);

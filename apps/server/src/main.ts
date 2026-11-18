@@ -5,10 +5,10 @@ import {
   createDemoSignIn,
   createServer,
   createSignedSessionStore,
-  type ConnectionData,
-  type ServerConfig,
 } from "@manent/server-core";
-import { readServerEnv, type ServerEnv } from "./env.ts";
+import type { ConnectionData, ServerConfig } from "@manent/server-core";
+import { readServerEnv } from "./env.ts";
+import type { ServerEnv } from "./env.ts";
 
 const SESSION_KEY_BYTES = 32;
 

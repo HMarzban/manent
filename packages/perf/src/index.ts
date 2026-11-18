@@ -7,5 +7,5 @@ export {
   marksEnabled,
   readMarks,
   setMarksEnabled,
-  type MarkRecord,
 } from "./marks.ts";
+export type { MarkRecord } from "./marks.ts";

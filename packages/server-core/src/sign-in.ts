@@ -1,4 +1,5 @@
-import { DEMO_PEOPLE, DEMO_WORKSPACES, type DemoPerson } from "./people.ts";
+import { DEMO_PEOPLE, DEMO_WORKSPACES } from "./people.ts";
+import type { DemoPerson } from "./people.ts";
 
 export interface Identity {
   userId: string;

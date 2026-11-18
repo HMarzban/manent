@@ -7,10 +7,8 @@ import {
   createServer,
   createSignedSessionStore,
   DEMO_PEOPLE,
-  type ConnectionData,
-  type Identity,
-  type ServerConfig,
 } from "../src/index.ts";
+import type { ConnectionData, Identity, ServerConfig } from "../src/index.ts";
 
 const CONTROL = { url: "http://127.0.0.1:4748", token: "t0ken" };
 let seed: string | null = "s1";

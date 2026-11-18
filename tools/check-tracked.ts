@@ -42,19 +42,22 @@ async function trackedPaths(root: string): Promise<string[]> {
     stderr: "inherit",
   });
   const out = await new Response(proc.stdout).text();
-  if ((await proc.exited) !== 0)
-    throw new Error(`git ls-files exited in ${root}`);
+  const code = await proc.exited;
+  if (code !== 0)
+    throw new Error(`git ls-files exited with ${code} in ${root}`);
   return out.split("\0").filter((path) => path !== "");
 }
 
-/** The tracked paths under `root` that are in neither list. */
-export async function checkTracked(root: string): Promise<string[]> {
-  return untrackable(await trackedPaths(root));
+/** Every tracked path under `root`, and those of them that are in neither list. */
+export async function checkTracked(
+  root: string,
+): Promise<{ tracked: string[]; untrackable: string[] }> {
+  const tracked = await trackedPaths(root);
+  return { tracked, untrackable: untrackable(tracked) };
 }
 
 if (import.meta.main) {
-  const tracked = await trackedPaths(process.cwd());
-  const bad = untrackable(tracked);
+  const { tracked, untrackable: bad } = await checkTracked(process.cwd());
   for (const path of bad) console.log(`${path} must not be tracked`);
   if (bad.length > 0) process.exit(1);
   console.log(`tracked: ${tracked.length} files, all in the public tree`);
