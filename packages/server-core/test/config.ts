@@ -1,7 +1,11 @@
 // The configuration every test of this package serves, changed only where a test says.
 import { createSignedSessionStore, createTicketStore } from "../src/index.ts";
-import type { ServerConfig } from "../src/index.ts";
-import { createFakeDirectory, createFakeSignIn } from "../src/testing/index.ts";
+import type { ServerConfig, SyncSettings } from "../src/index.ts";
+import {
+  createFakeDirectory,
+  createFakeSignIn,
+  fakeClock,
+} from "../src/testing/index.ts";
 
 export const CONTROL = { url: "http://127.0.0.1:4748", token: "t0ken" };
 const LEO = { userId: "leo", name: "Leo Marsh" };
@@ -13,9 +17,18 @@ export const HTTP: ServerConfig["http"] = {
   webDir: null,
 };
 
+/**
+ * `sync` may give only the storage: the clock and the deferral are then a fake clock's (which a
+ * test that moves time passes itself), and version ids count up from 1.
+ */
 export function makeConfig(
-  overrides: Partial<ServerConfig> = {},
+  overrides: Partial<Omit<ServerConfig, "sync">> & {
+    sync?: (Partial<SyncSettings> & Pick<SyncSettings, "storage">) | null;
+  } = {},
 ): ServerConfig {
+  const { sync = null, ...rest } = overrides;
+  const time = fakeClock();
+  let versionIds = 0;
   const v = { protocol: 1, schema: 1, engine: 0, table: 0 };
   return {
     http: HTTP,
@@ -36,7 +49,15 @@ export function makeConfig(
       versions: { current: v, min: v },
       allowedOrigins: ["http://127.0.0.1:4747"],
     },
-    sync: null,
-    ...overrides,
+    ...rest,
+    sync:
+      sync === null
+        ? null
+        : {
+            clock: time.clock,
+            defer: time.defer,
+            ids: () => `version-${++versionIds}`,
+            ...sync,
+          },
   };
 }

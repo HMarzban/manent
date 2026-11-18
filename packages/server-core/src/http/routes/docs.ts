@@ -11,6 +11,21 @@ import type {
 } from "../../sync/access.ts";
 import { failure, json, readJsonBody } from "../respond.ts";
 import type { Route, RouteContext } from "../route.ts";
+import type { ServerConfig } from "../server.ts";
+
+/** Who hears of a removal made through a configuration: the sync service the server built from it. */
+const removals = new WeakMap<ServerConfig, { removed(docId: string): void }>();
+
+/** The server that serves `config` names the service told of each document deleted through it. */
+export function hearRemovals(
+  config: ServerConfig,
+  service: { removed(docId: string): void },
+): void {
+  removals.set(config, service);
+}
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
 
 type CreateRefusal = Extract<CreateResult, { ok: false }>["code"];
 type RemoveRefusal = Extract<RemoveResult, { ok: false }>["code"];
@@ -73,6 +88,9 @@ export const docsRoutes: Route[] = [
       const removed = read.access.remove(read.userId, read.body);
       if (!removed.ok)
         return failure(removed.code, REMOVE_STATUS[removed.code]);
+      // a removal succeeds only for a body whose docId is a document's id
+      if (isObject(read.body) && typeof read.body.docId === "string")
+        removals.get(context.config)?.removed(read.body.docId);
       return json<RemoveDocumentResponse>({ removed: true });
     },
   },

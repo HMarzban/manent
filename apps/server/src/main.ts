@@ -6,15 +6,20 @@ import { createDemoDirectory, createDemoSignIn } from "@manent/demo";
 import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import {
+  NO_SETTINGS,
   createServer,
   createSignedSessionStore,
   createTicketStore,
+  createWorkerCheckpointer,
 } from "@manent/server-core";
 import type {
+  Clock,
   ConnectionData,
   ManentServer,
   ServerConfig,
+  SyncSettings,
 } from "@manent/server-core";
+import { openSqliteStorage } from "@manent/storage";
 import { PROTOCOL_VERSION } from "@manent/sync-protocol";
 import { serveWithBun } from "./bun-adapter.ts";
 import { readServerEnv } from "./env.ts";
@@ -140,10 +145,39 @@ function listen(
   }
 }
 
+const clock: Clock = {
+  now: Date.now,
+  schedule(fn, delayMs) {
+    const timer = setTimeout(fn, delayMs);
+    return () => clearTimeout(timer);
+  },
+};
+
+/** The documents under `<dataDir>/data`, checkpointed by one worker thread with its own connection. */
+function openSync(dataDir: string): SyncSettings & { close(): void } {
+  const dir = join(dataDir, "data");
+  const storage = openSqliteStorage({ dir, now: Date.now });
+  const checkpointer = createWorkerCheckpointer({
+    entry: new URL("./checkpoint-worker.ts", import.meta.url),
+    data: { dir },
+  });
+  return {
+    storage,
+    checkpointer,
+    clock,
+    defer: setImmediate,
+    ids: () => crypto.randomUUID(),
+    registry: NO_SETTINGS,
+    close: () => storage.close(),
+  };
+}
+
 /**
  * Listens on loopback, then on the LAN host on the port loopback bound, and
  * only then builds the server, so that its hosts name that port. `env.port`
- * 0 asks the system for a free port.
+ * 0 asks the system for a free port. Stopping finishes every write, closes
+ * every connection, stops listening and closes the storage; a second stop
+ * waits for the first.
  */
 export async function startServer(env: ServerEnv): Promise<RunningServer> {
   const secret = await loadSessionSecret(env.dataDir);
@@ -158,18 +192,32 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
   // a listener on a host and a port always reports the port it bound
   const port = loopback.port!;
   const listening = [loopback];
-  const stop = async () => {
+  const stopListening = async () => {
     await Promise.all(listening.map((s) => s.stop(true)));
   };
   if (env.lanHost !== null) {
     try {
       listening.push(listen(env.lanHost, port, server));
     } catch (error) {
-      await stop();
+      await stopListening();
       throw error;
     }
   }
-  built = createServer(buildServerConfig(env, secret, port));
+  const sync = openSync(env.dataDir);
+  const serving = createServer({
+    ...buildServerConfig(env, secret, port),
+    sync,
+  });
+  built = serving;
+  let stopped: Promise<void> | null = null;
+  const stop = (): Promise<void> => {
+    stopped ??= (async () => {
+      await serving.sync?.shutdown();
+      await stopListening();
+      sync.close();
+    })();
+    return stopped;
+  };
   const hostnames = ["127.0.0.1", ...(env.lanHost ? [env.lanHost] : [])];
   return {
     port,
@@ -180,7 +228,10 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
 
 if (import.meta.main) {
   try {
-    await startServer(readServerEnv(process.env));
+    const running = await startServer(readServerEnv(process.env));
+    process.on("SIGTERM", () => {
+      void running.stop().then(() => process.exit(0));
+    });
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
