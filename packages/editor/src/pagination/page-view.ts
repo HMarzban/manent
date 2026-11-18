@@ -17,6 +17,8 @@ import type { SectionOptions } from "../sections/commands.ts";
 import { edgeKeysPlugin } from "../sections/edge-keys.ts";
 import { keepPlugin } from "../sections/keep.ts";
 import { sectionEditingPlugin } from "../sections/plugin.ts";
+import { driftPlugin } from "./drift.ts";
+import type { DriftReport } from "./drift.ts";
 import { paginationKey, paginationPlugin } from "./plugin.ts";
 import type { PaginationOptions } from "./plugin.ts";
 import { sectionNodeView, spellcheckFor } from "./section-view.ts";
@@ -41,15 +43,17 @@ export interface PageViewPorts {
 export interface TypesettingOptions
   extends Omit<PaginationOptions, "defer">, SectionOptions {
   readonly ports: PageViewPorts;
+  readonly onDrift?: (report: DriftReport) => void;
 }
 
-/** Section editing, the edge keys, pagination and the kept sections, in that order. */
+/** Section editing, the edge keys, pagination, the kept sections and the drift monitor, in that order. */
 export function typesettingPlugins(options: TypesettingOptions): Plugin[] {
   return [
     sectionEditingPlugin(options),
     edgeKeysPlugin(),
     paginationPlugin({ ...options, defer: options.ports.defer }),
     keepPlugin(),
+    driftPlugin({ ...options, whenIdle: options.ports.whenIdle }),
   ];
 }
 
@@ -98,7 +102,12 @@ export function mountPageView(
     makeFace: ports.makeFace,
     faces: faceDescriptors(fontRanges("latin"), fontRanges("latin-ext")),
     wait: ports.wait,
-  }).then((state) => scaffold.setFontState(state));
+  }).then((state) => {
+    scaffold.setFontState(state);
+    // the drift monitor reports the font state it measured under
+    scaffold.pages.dataset["fonts"] = state;
+  });
+  scaffold.pages.dataset["fonts"] = "loading";
   const plugins = typesettingPlugins({
     ...options,
     engine,
@@ -112,7 +121,7 @@ export function mountPageView(
       doc: options.doc,
       plugins: [...plugins, ...(options.plugins ?? [])],
     }),
-    // the view's states all hold the pagination plugin, which typesettingPlugins put first
+    // every state of this view holds the typesetting plugins, the pagination plugin among them
     attributes: (state) => ({
       class: PAGE_VIEW_CLASS,
       spellcheck: spellcheckFor(

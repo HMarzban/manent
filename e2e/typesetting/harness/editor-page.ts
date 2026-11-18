@@ -3,6 +3,7 @@
 import {
   DRIFT,
   MID_BLOCK_BREAKS,
+  blockAt,
   blockPos,
   contentHeightPx,
   detectEngine,
@@ -14,7 +15,12 @@ import {
   sectionNodeView,
   zoomBox,
 } from "@manent/editor";
-import type { BreakStyle, LoadableFace, PageScaffold } from "@manent/editor";
+import type {
+  BreakStyle,
+  DriftReport,
+  LoadableFace,
+  PageScaffold,
+} from "@manent/editor";
 import { fontRanges, pageSizePx, profileFor } from "@manent/pagination";
 import type { FontFaceKey, Page } from "@manent/pagination";
 import {
@@ -27,6 +33,7 @@ import type { CorpusBlock, CorpusFormat } from "@manent/pagination/testing";
 import { blocksOf, parseDoc } from "@manent/schema";
 import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
+import { domLineStarts } from "./dom-lines.ts";
 
 /** Where a page starts. */
 export interface PageStart {
@@ -56,6 +63,12 @@ export interface EditorProbe {
   midBreaks(): number[];
   /** The zoomed size of the scroll area at `percent`, as the page count gives it. */
   zoomBox(percent: number): { widthPx: number; heightPx: number };
+  /** Resolves once no idle work is waiting, after the next two frames. */
+  idle(): Promise<void>;
+  /** Every drift report since the page loaded. */
+  drift(): DriftReport[];
+  /** Where the browser starts each line of the block element, and where the engine does. */
+  lineStarts(block: HTMLElement): { dom: number[]; model: number[] };
 }
 
 declare global {
@@ -110,12 +123,23 @@ const descriptors = faceDescriptors(
   fontRanges("latin-ext"),
 );
 
+// idle work waiting to run, and who waits for there to be none
+let waiting = 0;
+let settled: (() => void)[] = [];
+const idleSoon: (run: () => void) => void =
+  "requestIdleCallback" in window
+    ? (run) => requestIdleCallback(() => run())
+    : (run) => setTimeout(run, DRIFT.idleMs);
+const reports: DriftReport[] = [];
+const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+
 const { view, scaffold } = mountPageView({
   place: document.getElementById("place")!,
   doc: parseDoc(corpusDoc(blocks)),
   profile,
   offFontNote: OFF_FONT_NOTE,
   isRemote: (tr) => tr.getMeta("remote") === true,
+  onDrift: (report) => reports.push(report),
   ports: {
     fonts: document.fonts,
     makeFace: (d) => {
@@ -131,10 +155,16 @@ const { view, scaffold } = mountPageView({
     wait,
     // called as a method of the options, so not passed bare: queueMicrotask refuses another receiver
     defer: (run) => queueMicrotask(run),
-    whenIdle:
-      "requestIdleCallback" in window
-        ? (run) => requestIdleCallback(() => run())
-        : (run) => setTimeout(run, DRIFT.idleMs),
+    whenIdle: (run) => {
+      waiting++;
+      idleSoon(() => {
+        run();
+        waiting--;
+        if (waiting > 0) return;
+        for (const resolve of settled) resolve();
+        settled = [];
+      });
+    },
     userAgent: navigator.userAgent,
   },
 });
@@ -211,5 +241,20 @@ window["__mn"] = {
       percent,
     );
     return { widthPx, heightPx };
+  },
+  idle: async () => {
+    await frame();
+    await frame();
+    if (waiting > 0)
+      await new Promise<void>((resolve) => settled.push(resolve));
+  },
+  drift: () => [...reports],
+  lineStarts: (el) => {
+    const { index, pagination, settings } = paginationKey.getState(view.state)!;
+    const block = blockAt(index, view.posAtDOM(el, 0));
+    return {
+      dom: domLineStarts(el),
+      model: [...settings.engine.lineStartsOf(pagination, block)],
+    };
   },
 };

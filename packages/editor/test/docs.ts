@@ -18,6 +18,7 @@ import type { Decoration, DecorationSet } from "prosemirror-view";
 import {
   blockPos,
   deleteRangeKeepingSections,
+  driftPlugin,
   paginationKey,
   paginationPlugin,
   pasteSlice,
@@ -131,6 +132,15 @@ export function state(doc: Node, profile: PageProfile = sp): EditorState {
         offFontNote: "note",
       }),
     ],
+  });
+}
+
+/** state(), with the drift monitor after the pagination plugin; its idle work never runs. */
+export function stateWithDrift(doc: Node): EditorState {
+  const s = state(doc);
+  return EditorState.create({
+    doc,
+    plugins: [...s.plugins, driftPlugin({ whenIdle: () => {} })],
   });
 }
 
