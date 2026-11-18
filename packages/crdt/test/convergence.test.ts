@@ -11,6 +11,7 @@ import type { BlockJSON, DocJSON, IdSource, MarkJSON } from "@manent/schema";
 import fc from "fast-check";
 import {
   ORIGIN_REMOTE,
+  applyRemote,
   loadDoc,
   scriptBody,
   scriptDocFromJSON,
@@ -413,15 +414,14 @@ test("formatting Yjs tidies after a remote change reaches every replica", () => 
   );
 });
 
-test("KNOWN LOSS: a block inserted into a section a peer emptied at the same moment is gone on every replica", () => {
+test("a block inserted into a section a peer emptied at the same moment is kept as set-aside text", () => {
   const [a, b] = twoReplicasOf(sectionize([block(ID_A, "only line")]));
-  const ua = capture(a, (w) => w.deleteBlock(ID_A)); // empties the section, so deletes it
+  const ua = capture(a, (w) => w.deleteBlock(ID_A));
   const ub = capture(b, (w) =>
     w.insertBlocks(ID_A, [block(ID_B, "typed at the same moment")]),
   );
   a.applyUpdate(ub);
-  b.applyUpdate(ua);
-  expect(scriptBody(a).materialize()).toEqual(scriptBody(b).materialize()); // they agree …
-  expect(bodyBlockIds(a)).not.toContain(ID_B); // … that the new line is gone
-}); // Convergence is not conservation. This is the case Recovered text exists for; set-aside
-// detection must turn this test's last line into "the text is in Recovered text".
+  const kept = applyRemote(b, ua, new Set([b.clientId]));
+  expect(scriptBody(a).materialize()).toEqual(scriptBody(b).materialize()); // they agree that the line is not in the script …
+  expect(kept.map((k) => k.text)).toEqual(["typed at the same moment"]); // … and its writer still holds every character
+});
