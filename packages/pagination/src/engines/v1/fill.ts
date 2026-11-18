@@ -1,10 +1,10 @@
 // The page filler: one page from where it opens to the break that ends it. Units are half-lines.
 import type { LayoutBlock } from "../../layout-block.ts";
 import type { PageProfile, SpecKey } from "../../page-profile.ts";
-import type { Page } from "../../pages.ts";
+import type { BlockMetrics, Page } from "../../pages.ts";
 import { UNITS_PER_LINE } from "../../units.ts";
 import { upperCase } from "./cells.ts";
-import { columnHeight, lastCutRow, resumeAt, runAt } from "./dual.ts";
+import { columnHeight, isInRun, lastCutRow, resumeAt } from "./dual.ts";
 import type { ColumnPiece, Point } from "./dual.ts";
 import {
   columnCueOf,
@@ -27,6 +27,7 @@ import {
 } from "./keep.ts";
 import type { DualUnit, Flow } from "./keep.ts";
 import { labelsBetween } from "./labels.ts";
+import { measure } from "./measure.ts";
 import { splitAt } from "./split.ts";
 
 /** Lines the CONTINUED: line and the blank line under it take at a page's top. */
@@ -74,7 +75,8 @@ export function isSceneHeading(key: SpecKey): boolean {
   return key === "scene_heading" || key === "slug";
 }
 
-function isSceneBoundary(key: SpecKey): boolean {
+/** The element ends the scene before it: a scene heading, slug, chapter or act break. */
+export function isSceneBoundary(key: SpecKey): boolean {
   return (
     isSceneHeading(key) || key === "chapter" || key.startsWith("act_break.")
   );
@@ -103,7 +105,7 @@ export function hasSpeakerSuffix(
     cue.noContd ||
     keyAt(blocks, i) !== "character" ||
     upperCase(cue.text).trimEnd().endsWith(furniture.contdText.trim()) ||
-    runAt(blocks, profile, i) !== null
+    isInRun(blocks, profile, i)
   )
     return false;
   const name = speakerName(cue.text);
@@ -111,7 +113,7 @@ export function hasSpeakerSuffix(
   for (let j = i - 1; j >= 0; j--) {
     const key = keyAt(blocks, j);
     if (isSceneBoundary(key)) return false;
-    if (key === "character" && runAt(blocks, profile, j) === null)
+    if (key === "character" && !isInRun(blocks, profile, j))
       return speakerName(blocks[j]!.text) === name;
   }
   return false;
@@ -348,15 +350,33 @@ export function fillPage(
 }
 
 /**
- * The pages numbered and labelled: with no lock anchors 1, 2, 3 …; otherwise a locked page takes its
- * lock's label, and each run of pages before, between and after locked pages the labels between
- * theirs, passing over every label in `taken` and every label given so far.
+ * Block i measured as the page shows it: with the same-speaker suffix when it takes one, and a line
+ * starting at each forced offset.
  */
-export function labelPages(
+export function measureAt(
+  blocks: readonly LayoutBlock[],
+  profile: PageProfile,
+  i: number,
+  forced: readonly number[],
+): BlockMetrics {
+  return measure(blocks[i]!, profile, {
+    suffix: hasSpeakerSuffix(blocks, profile, i)
+      ? profile.furniture.contdText
+      : "",
+    forced,
+  });
+}
+
+/**
+ * The pages' labels: with no lock anchors 1, 2, 3 …; otherwise a locked page takes its lock's label,
+ * and each run of pages before, between and after locked pages the labels between theirs, passing
+ * over every label in `taken` and every label given so far.
+ */
+export function pageLabels(
   flow: Flow,
   pages: readonly FilledPage[],
   taken: ReadonlySet<string>,
-): Page[] {
+): string[] {
   const labels: string[] = [];
   const given = new Set(taken);
   const give = (lower: string | null, upper: string | null, count: number) => {
@@ -376,7 +396,5 @@ export function labelPages(
     run = k + 1;
   });
   give(lower, null, pages.length - run);
-  return pages.map((page, index) =>
-    Object.freeze({ ...page, index, label: labels[index]! }),
-  );
+  return labels;
 }

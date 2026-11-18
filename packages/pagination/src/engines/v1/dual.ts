@@ -42,7 +42,21 @@ function sideOf(
     : null;
 }
 
-/** The run that holds block i; null for a block outside one, as a right column with no left column before it is. */
+/** Block i is in a run, judged from it and the blocks before it alone. */
+export function isInRun(
+  blocks: readonly LayoutBlock[],
+  profile: PageProfile,
+  i: number,
+): boolean {
+  let at = i;
+  while (sideOf(blocks, profile, at) === "right") at--;
+  return sideOf(blocks, profile, at) === "left";
+}
+
+/**
+ * The run that holds block i; null for a block outside one, as a right column with no left column
+ * before it is. Finding its end reads the block after it.
+ */
 export function runAt(
   blocks: readonly LayoutBlock[],
   profile: PageProfile,

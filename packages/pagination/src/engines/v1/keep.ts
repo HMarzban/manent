@@ -5,8 +5,9 @@ import type { PageProfile, SpecKey } from "../../page-profile.ts";
 import type { BlockMetrics } from "../../pages.ts";
 import { UNITS_PER_LINE } from "../../units.ts";
 import { upperCase } from "./cells.ts";
-import { columnHeight, isCutRow, runAt } from "./dual.ts";
+import { columnHeight, isCutRow, isInRun, runAt } from "./dual.ts";
 import type { ColumnPiece, DualRun, Point } from "./dual.ts";
+import type { LockedLine } from "./locks.ts";
 import { specKey } from "./profile.ts";
 import { firstSplit } from "./split.ts";
 import type { SplitPiece } from "./split.ts";
@@ -33,11 +34,6 @@ export interface Flow {
   readonly speakers: Map<number, number>;
   /** By block, the lines a lock starts a page at, in order, with each page's label. */
   readonly locked: ReadonlyMap<number, readonly LockedLine[]>;
-}
-
-export interface LockedLine {
-  readonly line: number;
-  readonly label: string;
 }
 
 export function createFlow(
@@ -136,7 +132,7 @@ function speakerOf(flow: Flow, i: number): number {
       break;
     }
     passed.push(at);
-    if (runAt(flow.blocks, flow.profile, at) !== null) break;
+    if (isInRun(flow.blocks, flow.profile, at)) break;
     const key = keyOf(flow, at);
     if (isPrinted(flow, at) && !isSpeechLine(key)) {
       if (key === "character" && flow.blocks[at]!.text.trim() !== "")
@@ -234,7 +230,7 @@ export function dualUnitAt(
 ): DualUnit | null {
   const run = runAt(flow.blocks, flow.profile, i);
   if (run === null) return null;
-  look(flow, run.end - 1);
+  look(flow, Math.min(run.end, flow.blocks.length - 1));
   if (i >= run.split) return { run, left: null, right: { block: i, line } };
   if (i === run.start && line === 0 && right === null) return wholeRun(run);
   return { run, left: { block: i, line }, right };
@@ -291,7 +287,7 @@ export function dualMoreOf(flow: Flow): number {
 // The least of a run that can be left at the foot of a page: all of a short run, else down to the
 // first row it may be cut at.
 function runHead(flow: Flow, run: DualRun): number {
-  look(flow, run.end - 1);
+  look(flow, Math.min(run.end, flow.blocks.length - 1));
   const columns = columnsOf(flow, wholeRun(run));
   const height = Math.max(...columns.map(columnHeight));
   const { minLines, dualSplitAbove } = flow.profile.rules;

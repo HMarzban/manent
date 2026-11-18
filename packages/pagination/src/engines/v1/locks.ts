@@ -2,6 +2,7 @@
 import type { LayoutBlock } from "../../layout-block.ts";
 import type { LockAnchor, LockTable } from "../../lock-table.ts";
 import type { PageProfile } from "../../page-profile.ts";
+import type { BlockMetrics } from "../../pages.ts";
 import { runAt } from "./dual.ts";
 import { graphemeEnd } from "./graphemes.ts";
 import { resolveSpec } from "./measure.ts";
@@ -20,6 +21,12 @@ export interface LockedStart {
 export interface LockPlan {
   readonly starts: readonly LockedStart[];
   readonly taken: ReadonlySet<string>;
+}
+
+/** A line of a block that a lock starts a page at, and that page's label. */
+export interface LockedLine {
+  readonly line: number;
+  readonly label: string;
 }
 
 interface Place {
@@ -122,6 +129,13 @@ const rangeOf = (labels: readonly string[]) =>
     ? labels[0]!
     : `${labels[0]!}${RANGE_DASH}${labels.at(-1)!}`;
 
+/** Every label any anchor of the table holds, each part of a range too. */
+export function takenOf(locks: LockTable): Set<string> {
+  return new Set(
+    locks.anchors.flatMap((anchor) => anchor.label.split(RANGE_DASH)),
+  );
+}
+
 /**
  * Where the table's anchors start pages. An anchor whose block is gone falls back to the start of the
  * first of its fallbacks that exists; one with nothing left adds its label to the next kept start, or
@@ -133,9 +147,7 @@ export function planLocks(
   profile: PageProfile,
   locks: LockTable,
 ): LockPlan {
-  const taken = new Set(
-    locks.anchors.flatMap((anchor) => anchor.label.split(RANGE_DASH)),
-  );
+  const taken = takenOf(locks);
   const ids = new Map<string, number>();
   if (locks.anchors.length > 0)
     blocks.forEach((block, i) => {
@@ -169,4 +181,30 @@ export function planLocks(
     ),
     taken,
   };
+}
+
+/** By block, the offsets inside it where a lock starts a page; each is measured as a forced line start. */
+export function forcedOffsets(
+  starts: readonly LockedStart[],
+): Map<number, number[]> {
+  const forced = new Map<number, number[]>();
+  for (const { block, offset } of starts)
+    if (offset > 0) forced.set(block, [...(forced.get(block) ?? []), offset]);
+  return forced;
+}
+
+/** By block, the line each lock start begins, the blocks measured with their forced offsets. */
+export function lockedLines(
+  starts: readonly LockedStart[],
+  metrics: readonly BlockMetrics[],
+): Map<number, LockedLine[]> {
+  const locked = new Map<number, LockedLine[]>();
+  for (const { block, offset, label } of starts) {
+    const lineStarts = metrics[block]!.starts;
+    let line = 0;
+    while (line + 1 < lineStarts.length && lineStarts[line + 1]! <= offset)
+      line++;
+    locked.set(block, [...(locked.get(block) ?? []), { line, label }]);
+  }
+  return locked;
 }
