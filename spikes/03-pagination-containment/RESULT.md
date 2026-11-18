@@ -218,7 +218,8 @@ Firefox and WebKit on the same Linux match exactly.
 
 | Not covered | Stand-in | Limit of the stand-in |
 | --- | --- | --- |
-| Windows | The `windows-2025` runner, for conformance and behaviour only (`.github/workflows/spike-03-windows.yml`) | "Works or does not"; hosted runners are too noisy for timing || Real Safari | Playwright's WebKit build on macOS | Not Safari |
+| Windows | The `windows-2025` runner, for conformance and behaviour only (`.github/workflows/spike-03-windows.yml`) | "Works or does not"; hosted runners are too noisy for timing |
+| Real Safari | Playwright's WebKit build on macOS | Not Safari |
 | Release Firefox | Playwright's Firefox build | Not the release build |
 | A real slow laptop | Chromium CPU throttle at 4x and 6x; a container capped at 2 cores and 4 GB | Throttle slows the main thread only; a capped core is a fast core in bursts; containers have no graphics card, so paint reads worse |
 | Linux on x64 with a GPU | Linux on ARM in the container | Intel emulation is not used |
