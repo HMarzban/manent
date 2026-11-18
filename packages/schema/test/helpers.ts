@@ -1,6 +1,12 @@
 // Documents and generators shared by the schema's tests.
 import fc from "fast-check";
-import { BLOCK_TYPES, MARK_NAMES } from "../src/index.ts";
+import {
+  ACT_BREAK_KINDS,
+  ALIGNMENTS,
+  BLOCK_TYPES,
+  DUALS,
+  MARK_NAMES,
+} from "../src/index.ts";
 import type { BlockJSON, DocJSON, MarkJSON, TextJSON } from "../src/index.ts";
 
 export interface Run {
@@ -92,5 +98,88 @@ export const docArb: fc.Arbitrary<DocJSON> = fc.record({
       content: fc.array(blockArb, { maxLength: 3 }),
     }),
     { maxLength: 4 },
+  ),
+});
+
+// Valid documents with known attributes and marks only: every attribute is
+// sometimes absent, nullable ones sometimes null, and adjacent runs often
+// carry the same marks in another order.
+const orNull = <T>(value: fc.Arbitrary<T>) =>
+  fc.oneof(value, fc.constant(null));
+const word = fc.constantFrom("s1", "s2", "");
+const count = fc.constantFrom(0, 1, 4);
+const knownMarkArb: fc.Arbitrary<MarkJSON> = fc.oneof(
+  fc
+    .constantFrom("bold", "italic", "underline", "strike", "caps")
+    .map((type) => ({ type })),
+  fc.record(
+    {
+      type: fc.constantFrom("color", "highlight"),
+      attrs: fc.record({ value: word }, { requiredKeys: [] }),
+    },
+    { requiredKeys: ["type"] },
+  ),
+  fc.record({
+    type: fc.constant("link"),
+    attrs: fc.record({ href: fc.constant("https://example.com") }),
+  }),
+  fc.record({
+    type: fc.constantFrom("suggest_insert", "suggest_delete"),
+    attrs: fc.record(
+      { id: word, authorUserId: word, at: count },
+      { requiredKeys: [] },
+    ),
+  }),
+);
+const knownTextArb: fc.Arbitrary<TextJSON> = fc.record(
+  {
+    type: fc.constant("text" as const),
+    text: fc.constantFrom("a", "b c"),
+    marks: fc.uniqueArray(knownMarkArb, {
+      selector: (mark) => mark.type,
+      maxLength: 3,
+    }),
+  },
+  { requiredKeys: ["type", "text"] },
+);
+const knownBlockArb: fc.Arbitrary<BlockJSON> = fc.record(
+  {
+    type: fc.constant("block" as const),
+    attrs: fc.record(
+      {
+        id: orNull(fc.constantFrom("b000000000000001", "b000000000000002")),
+        type: fc.constantFrom(...BLOCK_TYPES),
+        num: orNull(fc.constantFrom("12", "12A")),
+        omitted: fc.boolean(),
+        dual: orNull(fc.constantFrom(...DUALS)),
+        synopsis: word,
+        align: orNull(fc.constantFrom(...ALIGNMENTS)),
+        indent: orNull(count),
+        width: orNull(count),
+        spaceBefore: orNull(count),
+        noContd: fc.boolean(),
+        noTiming: fc.boolean(),
+        writerUserId: orNull(word),
+        suggest: orNull(fc.constantFrom("added", "removed", "action")),
+        from: orNull(fc.constant("b000000000000001:k9")),
+        kind: orNull(fc.constantFrom(...ACT_BREAK_KINDS)),
+        suggestId: orNull(word),
+        suggestAuthorUserId: orNull(word),
+        suggestAt: orNull(count),
+      },
+      { requiredKeys: [] },
+    ),
+    content: fc.array(knownTextArb, { maxLength: 4 }),
+  },
+  { requiredKeys: ["type"] },
+);
+export const arbKnownDoc: fc.Arbitrary<DocJSON> = fc.record({
+  type: fc.constant("doc" as const),
+  content: fc.array(
+    fc.record({
+      type: fc.constant("section" as const),
+      content: fc.array(knownBlockArb, { minLength: 1, maxLength: 3 }),
+    }),
+    { minLength: 1, maxLength: 3 },
   ),
 });
