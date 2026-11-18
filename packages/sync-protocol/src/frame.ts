@@ -147,6 +147,22 @@ export function readDoc(d: decoding.Decoder, type: number): DocRef | null {
 }
 
 /**
+ * The document of a frame being skipped: null for a connection frame, or for one too short to hold
+ * its document.
+ */
+export function readSkippedDoc(
+  d: decoding.Decoder,
+  type: number,
+): DocRef | null {
+  try {
+    return readDoc(d, type);
+  } catch {
+    // A skipped frame is never refused; a document it cannot hold is reported as none.
+    return null;
+  }
+}
+
+/**
  * ProtocolError 4400 unless `from` may send frames of this known type. `body` is the start of the
  * body: a client's SYNC is refused unless its step, the body's first varuint, is step1. A step this
  * build does not know passes, and the body reader skips the frame.

@@ -6,9 +6,12 @@ import {
   ProtocolError,
   createFrameDecoder,
   createFrameEncoder,
+  createMessageIds,
   decodeMessage,
+  encodeMessage,
+  prepareMessage,
 } from "../src/index.ts";
-import type { FrameDecoder, Message } from "../src/index.ts";
+import type { FrameDecoder, Message, PushResult } from "../src/index.ts";
 import {
   DOC_BYTES,
   DOC_ID,
@@ -19,10 +22,12 @@ import {
 } from "./arbitraries.ts";
 
 const DOC = DOC_ID;
+const OTHER_DOC = "0f3e9a52-7d41-4c8b-9e26-b5a1c0d7e384";
 const MORE = 0b0001;
 const CHUNK = 0b1000;
 const UNKNOWN_FLAG = 0b1_0000;
 const tooLarge = expect.objectContaining({ name: "ProtocolError", code: 4413 });
+const PENDING: PushResult = { kind: "pending" };
 
 function bytes(n: number): Uint8Array {
   const out = new Uint8Array(n);
@@ -44,10 +49,13 @@ const pushOf = (n: number, clientSeq = 1): Message => ({
   heal: false,
   update: bytes(n),
 });
-/** Pushes every frame; returns what the decoder produced, nulls left out. */
-function feed(d: FrameDecoder, frames: Uint8Array[]): Message[] {
-  return frames.map((f) => d.push(f)).filter((m): m is Message => m !== null);
-}
+/** Pushes every frame; returns the messages the decoder produced. */
+const messages = (d: FrameDecoder, frames: Uint8Array[]) =>
+  frames
+    .map((f) => d.push(f))
+    .flatMap((r) => (r.kind === "message" ? [r.message] : []));
+const encoderAt = (frameLimitBytes: number) =>
+  createFrameEncoder({ ids: createMessageIds(), frameLimitBytes });
 
 test("a payload over the frame limit travels as chunks with a more flag", () => {
   const push = {
@@ -58,14 +66,14 @@ test("a payload over the frame limit travels as chunks with a more flag", () => 
     heal: false,
     update: bytes(10 * 1024 * 1024),
   } as const;
-  const frames = createFrameEncoder().encode(push);
+  const frames = createFrameEncoder({ ids: createMessageIds() }).encode(push);
   expect(frames).toHaveLength(3);
   for (const f of frames)
     expect(f.byteLength).toBeLessThanOrEqual(FRAME_LIMIT_BYTES);
   const d = createFrameDecoder({ from: "client" });
-  expect(d.push(frames[0]!)).toBeNull();
-  expect(d.push(frames[1]!)).toBeNull();
-  expect(d.push(frames[2]!)).toEqual(push);
+  expect(d.push(frames[0]!)).toEqual(PENDING);
+  expect(d.push(frames[1]!)).toEqual(PENDING);
+  expect(d.push(frames[2]!)).toEqual({ kind: "message", message: push });
 });
 
 test("chunking round-trips at any limit", () => {
@@ -73,17 +81,16 @@ test("chunking round-trips at any limit", () => {
     fc.property(
       arbMessage,
       fc.integer({ min: 64, max: 4096 }),
-      (m, frameLimit) => {
-        const frames = createFrameEncoder({ frameLimit }).encode(m);
+      (m, frameLimitBytes) => {
+        const frames = encoderAt(frameLimitBytes).encode(m);
         for (const f of frames) {
-          expect(f.byteLength).toBeLessThanOrEqual(frameLimit);
+          expect(f.byteLength).toBeLessThanOrEqual(frameLimitBytes);
           expect(f[1]! & ~MORE).toBe(frames[0]![1]! & ~MORE); // one flags byte per message, MORE aside
         }
-        const d = createFrameDecoder({ from: senderOf(m), frameLimit });
+        const d = createFrameDecoder({ from: senderOf(m), frameLimitBytes });
         const out = frames.map((f) => d.push(f));
-        expect(out.slice(0, -1).every((x) => x === null)).toBe(true);
-        expect(out.at(-1)).toEqual(m);
-        expect(d.skipped).toBe(0);
+        expect(out.slice(0, -1).every((r) => r.kind === "pending")).toBe(true);
+        expect(out.at(-1)).toEqual({ kind: "message", message: m });
       },
     ),
     { numRuns: 500 },
@@ -91,20 +98,20 @@ test("chunking round-trips at any limit", () => {
 });
 
 test("a whole frame of the same type and document between two chunks decodes as its own message", () => {
-  const enc = createFrameEncoder({ frameLimit: 256 });
+  const enc = encoderAt(256);
   const d = createFrameDecoder({ from: "server" });
   const big = syncUpdate(DOC, bytes(600));
   const small = syncUpdate(DOC, bytes(10));
   const [c1, c2, c3] = enc.encode(big);
   const [whole] = enc.encode(small);
-  expect(d.push(c1!)).toBeNull();
-  expect(d.push(whole!)).toEqual(small);
-  expect(d.push(c2!)).toBeNull();
-  expect(d.push(c3!)).toEqual(big);
+  expect(d.push(c1!)).toEqual(PENDING);
+  expect(d.push(whole!)).toEqual({ kind: "message", message: small });
+  expect(d.push(c2!)).toEqual(PENDING);
+  expect(d.push(c3!)).toEqual({ kind: "message", message: big });
 });
 
 test("chunks of two messages may interleave", () => {
-  const enc = createFrameEncoder({ frameLimit: 256 });
+  const enc = encoderAt(256);
   const a = pushOf(600, 1);
   const b = pushOf(700, 2);
   const fa = enc.encode(a);
@@ -116,47 +123,102 @@ test("chunks of two messages may interleave", () => {
     if (fa[i]) alternated.push(fa[i]!);
     if (fb[i]) alternated.push(fb[i]!);
   }
-  expect(feed(createFrameDecoder({ from: "client" }), alternated)).toEqual([
+  expect(messages(createFrameDecoder({ from: "client" }), alternated)).toEqual([
     a,
     b,
   ]);
 });
 
-test("message IDs count from 1 per encoder and are spent only on chunked messages", () => {
-  const enc = createFrameEncoder({ frameLimit: 256 });
+test("two encoders on one connection never share a message ID", () => {
+  const ids = createMessageIds();
+  const [a, b] = [
+    createFrameEncoder({ ids, frameLimitBytes: 256 }),
+    createFrameEncoder({ ids, frameLimitBytes: 256 }),
+  ];
+  const [one, two] = [
+    syncUpdate(DOC, bytes(600)),
+    syncUpdate(OTHER_DOC, bytes(700)),
+  ];
+  const [fa, fb] = [a.encode(one), b.encode(two)];
+  expect([fa[0]![2], fb[0]![2]]).toEqual([1, 2]);
+  const interleaved = fb.flatMap((f, i) => (fa[i] ? [fa[i]!, f] : [f]));
+  expect(messages(createFrameDecoder({ from: "server" }), interleaved)).toEqual(
+    [one, two],
+  );
+});
+
+test("a body encoded once is framed for each connection under that connection's own ID", () => {
+  const prepared = prepareMessage(syncUpdate(DOC, bytes(600)));
+  const busy = createMessageIds();
+  busy.next();
+  const [first, second] = [
+    createFrameEncoder({ ids: busy, frameLimitBytes: 256 }).encode(prepared),
+    createFrameEncoder({
+      ids: createMessageIds(),
+      frameLimitBytes: 256,
+    }).encode(prepared),
+  ];
+  expect([first[0]![2], second[0]![2]]).toEqual([2, 1]);
+  for (const frames of [first, second])
+    expect(messages(createFrameDecoder({ from: "server" }), frames)).toEqual([
+      syncUpdate(DOC, bytes(600)),
+    ]);
+});
+
+test("message IDs count from 1 per connection and are spent only on chunked messages", () => {
+  const enc = encoderAt(256);
   expect(enc.encode(pushOf(1000))[0]![2]).toBe(1);
   expect(enc.encode(pushOf(10))).toHaveLength(1);
   expect(enc.encode(pushOf(1000))[0]![2]).toBe(2);
-  expect(
-    createFrameEncoder({ frameLimit: 256 }).encode(pushOf(1000))[0]![2],
-  ).toBe(1);
+  expect(encoderAt(256).encode(pushOf(1000))[0]![2]).toBe(1);
 });
 
-test("the decoder holds a bounded amount", () => {
-  const small = createFrameEncoder({ frameLimit: 256 });
+test("a chunk that is not the last is pending", () => {
+  const frames = createFrameEncoder({
+    ids: createMessageIds(),
+    frameLimitBytes: 256,
+  }).encode(pushOf(600));
+  const d = createFrameDecoder({ from: "client" });
+  expect(frames.map((f) => d.push(f).kind)).toEqual([
+    "pending",
+    "pending",
+    "message",
+  ]);
+});
+
+test("a frame over the frame limit is refused", () => {
   expect(() =>
-    feed(
-      createFrameDecoder({ from: "client", messageLimit: 1024 }),
-      small.encode(pushOf(4096)),
+    createFrameDecoder({ from: "client", frameLimitBytes: 256 }).push(
+      bytes(257),
     ),
   ).toThrow(tooLarge);
+});
+
+test("a message over the message limit is refused", () => {
   expect(() =>
-    createFrameDecoder({ from: "client", frameLimit: 256 }).push(bytes(257)),
+    messages(
+      createFrameDecoder({ from: "client", messageLimitBytes: 1024 }),
+      encoderAt(256).encode(pushOf(4096)),
+    ),
   ).toThrow(tooLarge);
+});
+
+test("more chunked messages in progress than allowed is refused", () => {
+  const small = encoderAt(256);
   const d = createFrameDecoder({ from: "client", maxPartial: 2 });
   const [a] = small.encode(pushOf(600));
   const [b] = small.encode(pushOf(600));
   const [c] = small.encode(pushOf(600));
-  expect(d.push(a!)).toBeNull();
-  expect(d.push(b!)).toBeNull();
+  expect(d.push(a!)).toEqual(PENDING);
+  expect(d.push(b!)).toEqual(PENDING);
   expect(() => d.push(c!)).toThrow(tooLarge);
 });
 
 test("a finished message ID may be used again", () => {
-  const frames = createFrameEncoder({ frameLimit: 256 }).encode(pushOf(600));
+  const frames = encoderAt(256).encode(pushOf(600));
   const d = createFrameDecoder({ from: "client" });
-  expect(feed(d, frames)).toEqual([pushOf(600)]);
-  expect(feed(d, frames)).toEqual([pushOf(600)]);
+  expect(messages(d, frames)).toEqual([pushOf(600)]);
+  expect(messages(d, frames)).toEqual([pushOf(600)]);
 });
 
 test("a last chunk for an ID never started is a one-chunk message", () => {
@@ -165,14 +227,11 @@ test("a last chunk for an ID never started is a one-chunk message", () => {
     createFrameDecoder({ from: "server" }).push(
       new Uint8Array([5, 0b1000, 9, 7]),
     ),
-  ).toEqual({
-    type: "PING",
-    nonce: 7,
-  });
+  ).toEqual({ kind: "message", message: { type: "PING", nonce: 7 } });
 });
 
 test("a chunk is the common header, the message ID, then its share of the body", () => {
-  const frames = createFrameEncoder({ frameLimit: 8 }).encode({
+  const frames = encoderAt(8).encode({
     type: "AUTH_REFRESH",
     ticket: "abcdefgh",
   });
@@ -181,7 +240,7 @@ test("a chunk is the common header, the message ID, then its share of the body",
     [3, 0b1000, 1, 101, 102, 103, 104], // type 3 · CHUNK · message 1 · "efgh"
   ]);
   expect(() =>
-    createFrameEncoder({ frameLimit: 3 }).encode({
+    encoderAt(3).encode({
       type: "AUTH_REFRESH",
       ticket: "abcdefgh",
     }),
@@ -189,9 +248,10 @@ test("a chunk is the common header, the message ID, then its share of the body",
 });
 
 test("chunks of one message must agree about what it is", () => {
-  const [c1, c2] = createFrameEncoder({ frameLimit: 256 }).encode(
-    pushOf(300),
-  ) as [Uint8Array, Uint8Array];
+  const [c1, c2] = encoderAt(256).encode(pushOf(300)) as [
+    Uint8Array,
+    Uint8Array,
+  ];
   const other = c2.slice();
   other[3] = other[3]! ^ 1; // the same message ID under another document ID
   const d = createFrameDecoder({ from: "client" });
@@ -200,44 +260,76 @@ test("chunks of one message must agree about what it is", () => {
 });
 
 test("a chunked message from a sender that may not send it is refused at its first chunk", () => {
-  const [c1] = createFrameEncoder({ frameLimit: 256 }).encode(pushOf(600));
+  const [c1] = encoderAt(256).encode(pushOf(600));
   expect(() => createFrameDecoder({ from: "server" }).push(c1!)).toThrow(
     badFrame,
   );
 });
 
-test("a chunked message of an unknown type is dropped chunk by chunk and counted once", () => {
+test("a skipped frame names its type and its document", () => {
   const d = createFrameDecoder({ from: "server" });
-  expect(d.push(new Uint8Array([28, 0b1001, 5, 1, 2, 3]))).toBeNull(); // type 28 · CHUNK|MORE · message 5: nothing kept
-  expect(d.skipped).toBe(0);
-  expect(d.push(new Uint8Array([28, 0b1000, 5, 4]))).toBeNull(); // its last chunk
-  expect(d.skipped).toBe(1);
+  expect(
+    d.push(concat(new Uint8Array([28, 0]), DOC_BYTES, new Uint8Array([2, 9]))),
+  ).toEqual({
+    kind: "skipped",
+    frameType: 28,
+    doc: { docId: DOC, generation: 2 },
+  });
+  expect(d.push(new Uint8Array([6, 0]))).toEqual({
+    kind: "skipped",
+    frameType: 6,
+    doc: null,
+  });
+  expect(d.push(new Uint8Array([28, 0, 1, 2]))).toEqual({
+    kind: "skipped",
+    frameType: 28,
+    doc: null,
+  }); // too short to hold a document
+  const subscribe = encodeMessage({
+    type: "SUBSCRIBE",
+    docId: DOC,
+    generation: 2,
+    mode: "edit",
+    clientIds: [],
+    lastServerSeq: 0,
+  });
+  subscribe[19] = 9; // a mode a newer client added
+  expect(createFrameDecoder({ from: "client" }).push(subscribe)).toEqual({
+    kind: "skipped",
+    frameType: 16,
+    doc: { docId: DOC, generation: 2 },
+  });
 });
 
-test("skipped frames are counted", () => {
+test("a chunked message this build does not know is skipped once, at its last chunk", () => {
   const d = createFrameDecoder({ from: "server" });
-  expect(d.push(new Uint8Array([28, 0, 9]))).toBeNull();
-  expect(d.push(new Uint8Array([6, 0]))).toBeNull();
-  expect(d.skipped).toBe(2);
+  expect(d.push(new Uint8Array([28, CHUNK | MORE, 5, 1, 2, 3]))).toEqual({
+    kind: "pending",
+  });
+  expect(d.push(new Uint8Array([28, CHUNK, 5, 4]))).toEqual({
+    kind: "skipped",
+    frameType: 28,
+    doc: null,
+  });
 });
 
 test("chunks handed over as Buffers are copied, not kept as views", () => {
   const push = pushOf(600);
-  const frames = createFrameEncoder({ frameLimit: 256 })
+  const frames = encoderAt(256)
     .encode(push)
     .map((f) => Buffer.from(f));
   const d = createFrameDecoder({ from: "client" });
-  let out: Message | null = null;
+  let out: PushResult = PENDING;
   for (const f of frames) {
     out = d.push(f);
     f.fill(0); // the socket reuses its buffer
   }
-  expect(out).toEqual(push);
+  expect(out).toEqual({ kind: "message", message: push });
 });
 
 test("a client SYNC step2 or update is refused at its first chunk", () => {
   for (const step of ["step2", "update"] as const) {
-    const [first] = createFrameEncoder({ frameLimit: 256 }).encode({
+    const [first] = encoderAt(256).encode({
       ...syncUpdate(DOC, bytes(2000)),
       step,
     } as Message);
@@ -246,8 +338,10 @@ test("a client SYNC step2 or update is refused at its first chunk", () => {
     );
   }
   const step1 = { ...syncUpdate(DOC, bytes(2000)), step: "step1" } as Message;
-  const frames = createFrameEncoder({ frameLimit: 256 }).encode(step1);
-  expect(feed(createFrameDecoder({ from: "client" }), frames)).toEqual([step1]);
+  const frames = encoderAt(256).encode(step1);
+  expect(messages(createFrameDecoder({ from: "client" }), frames)).toEqual([
+    step1,
+  ]);
 });
 
 test("a client's SYNC step written the long way is refused at its first chunk", () => {
@@ -289,7 +383,7 @@ const withFlag = (frame: Uint8Array, flag: number) => {
 };
 
 test("when the first chunk is skipped, the rest of its message is skipped with it", () => {
-  const enc = createFrameEncoder({ frameLimit: 256 });
+  const enc = encoderAt(256);
   const awareness: Message = {
     type: "AWARENESS",
     docId: DOC,
@@ -299,39 +393,42 @@ test("when the first chunk is skipped, the rest of its message is skipped with i
   const [first, ...rest] = enc.encode(awareness);
   expect(rest.length).toBeGreaterThan(1);
   const d = createFrameDecoder({ from: "server", maxPartial: 1 });
-  expect(d.push(withFlag(first!, UNKNOWN_FLAG))).toBeNull();
-  for (const f of rest) expect(d.push(f)).toBeNull(); // never the middle chunks read as a whole
-  expect(d.skipped).toBe(1);
+  expect(d.push(withFlag(first!, UNKNOWN_FLAG))).toEqual(PENDING);
+  expect(rest.map((f) => d.push(f))).toEqual([
+    ...rest.slice(1).map(() => PENDING),
+    { kind: "skipped", frameType: 23, doc: { docId: DOC, generation: 1 } },
+  ]); // never the middle chunks read as a whole
   const next = syncUpdate(DOC, bytes(600)); // nothing left pending: room for one more
-  expect(feed(d, enc.encode(next))).toEqual([next]);
+  expect(messages(d, enc.encode(next))).toEqual([next]);
 });
 
 test("a chunk that must be skipped drops the message it belongs to", () => {
-  const enc = createFrameEncoder({ frameLimit: 256 });
+  const enc = encoderAt(256);
   const [c1, c2, c3] = enc.encode(syncUpdate(DOC, bytes(600)));
   expect(c3).toBeDefined();
   const d = createFrameDecoder({ from: "server", maxPartial: 1 });
-  expect(d.push(c1!)).toBeNull();
-  expect(d.push(withFlag(c2!, UNKNOWN_FLAG))).toBeNull();
-  expect(d.push(c3!)).toBeNull(); // dropped with its message, not decoded as one on its own
-  expect(d.skipped).toBe(1);
+  expect(d.push(c1!)).toEqual(PENDING);
+  expect(d.push(withFlag(c2!, UNKNOWN_FLAG))).toEqual(PENDING);
+  expect(d.push(c3!)).toEqual({
+    kind: "skipped",
+    frameType: 20,
+    doc: { docId: DOC, generation: 1 },
+  }); // dropped with its message, not decoded as one on its own
   const next = syncUpdate(DOC, bytes(600));
-  expect(feed(d, enc.encode(next))).toEqual([next]);
+  expect(messages(d, enc.encode(next))).toEqual([next]);
 });
 
 test("messages being skipped count against maxPartial", () => {
   const d = createFrameDecoder({ from: "server", maxPartial: 1 });
-  expect(d.push(new Uint8Array([28, CHUNK | MORE, 5, 1]))).toBeNull();
-  const [first] = createFrameEncoder({ frameLimit: 256 }).encode(
-    syncUpdate(DOC, bytes(600)),
-  );
+  expect(d.push(new Uint8Array([28, CHUNK | MORE, 5, 1]))).toEqual(PENDING);
+  const [first] = encoderAt(256).encode(syncUpdate(DOC, bytes(600)));
   expect(() => d.push(first!)).toThrow(tooLarge);
 });
 
-test("MORE without CHUNK is skipped and counted", () => {
-  const d = createFrameDecoder({ from: "server" });
-  expect(d.push(new Uint8Array([5, MORE, 7]))).toBeNull();
-  expect(d.skipped).toBe(1);
+test("MORE without CHUNK is skipped", () => {
+  expect(
+    createFrameDecoder({ from: "server" }).push(new Uint8Array([5, MORE, 7])),
+  ).toEqual({ kind: "skipped", frameType: 5, doc: null });
 });
 
 test("an over-long message ID is refused", () => {
@@ -344,12 +441,14 @@ test("an over-long message ID is refused", () => {
 });
 
 test("the message limit holds for a whole frame too", () => {
-  const frame = createFrameEncoder().encode(pushOf(2000))[0]!;
+  const frame = createFrameEncoder({ ids: createMessageIds() }).encode(
+    pushOf(2000),
+  )[0]!;
   expect(() =>
     createFrameDecoder({
       from: "client",
-      frameLimit: 4096,
-      messageLimit: 1024,
+      frameLimitBytes: 4096,
+      messageLimitBytes: 1024,
     }).push(frame),
   ).toThrow(tooLarge);
 });
@@ -398,12 +497,12 @@ test("any interleaving of chunks delivers only messages that were sent", () => {
       fc.array(junkChunk, { maxLength: 12 }),
       fc.integer({ min: 64, max: 512 }),
       fc.infiniteStream(fc.nat()),
-      (messages, junk, frameLimit, picks) => {
-        const enc = createFrameEncoder({ frameLimit });
-        const queues = [...messages.map((m) => enc.encode(m)), [...junk]];
+      (sent, junk, frameLimitBytes, picks) => {
+        const enc = encoderAt(frameLimitBytes);
+        const queues = [...sent.map((m) => enc.encode(m)), [...junk]];
         const d = createFrameDecoder({
           from: "server",
-          frameLimit,
+          frameLimitBytes,
           maxPartial: 3,
         });
         const pick = picks[Symbol.iterator]();
@@ -411,7 +510,7 @@ test("any interleaving of chunks delivers only messages that were sent", () => {
           const open = queues.filter((q) => q.length > 0);
           if (open.length === 0) return;
           const queue = open[pick.next().value! % open.length]!;
-          let out: Message | null;
+          let out: PushResult;
           try {
             out = d.push(queue.shift()!);
           } catch (e) {
@@ -419,7 +518,7 @@ test("any interleaving of chunks delivers only messages that were sent", () => {
             expect([4400, 4413]).toContain((e as ProtocolError).code);
             return; // the connection closes
           }
-          if (out !== null) expect(messages).toContainEqual(out);
+          if (out.kind === "message") expect(sent).toContainEqual(out.message);
         }
       },
     ),

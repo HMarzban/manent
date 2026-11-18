@@ -13,15 +13,18 @@ import {
   readHeader,
 } from "./frame.ts";
 import type { FrameHeader } from "./frame.ts";
-import type { Message, Sender } from "./messages.ts";
+import type { DocRef, Message, Sender } from "./messages.ts";
 import { UnknownMember, bad, concat, guard } from "./wire.ts";
 
-/** A message split into what every frame of it repeats and the body that may be split. */
-interface FrameParts extends FrameHeader {
-  body: Uint8Array;
+/** A message whose body is already encoded; any number of connections may frame it. */
+export interface PreparedMessage {
+  readonly type: number;
+  readonly flags: number;
+  readonly doc: DocRef | null;
+  readonly body: Uint8Array;
 }
 
-export function frameParts(message: Message): FrameParts {
+export function prepareMessage(message: Message): PreparedMessage {
   const type = FRAME[message.type === "PONG" ? "PING" : message.type];
   let flags = 0;
   if (message.type === "PONG") flags |= FLAG.PONG;
@@ -35,10 +38,13 @@ export function frameParts(message: Message): FrameParts {
   return { type, flags, doc, body: encoding.toUint8Array(e) };
 }
 
-/** One frame. Throws RangeError when it would exceed FRAME_LIMIT_BYTES; TypeError on a bad field. */
+/**
+ * One frame, for tests and for frames that are always small: a connection sends only through its
+ * frame encoder. Throws RangeError when it would exceed FRAME_LIMIT_BYTES; TypeError on a bad field.
+ */
 export function encodeMessage(message: Message): Uint8Array {
-  const parts = frameParts(message);
-  const frame = concat([encodeHeader(parts, null), parts.body]);
+  const prepared = prepareMessage(message);
+  const frame = concat([encodeHeader(prepared, null), prepared.body]);
   if (frame.byteLength > FRAME_LIMIT_BYTES)
     throw new RangeError(
       `a ${message.type} frame of ${frame.byteLength} bytes exceeds the frame limit`,
