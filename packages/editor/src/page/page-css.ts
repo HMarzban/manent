@@ -158,7 +158,6 @@ p.el.pg-first {
   clear: left;
 }
 .el.dual-r {
-  float: left;
   clear: none;
 }
 p.el.el-group {
