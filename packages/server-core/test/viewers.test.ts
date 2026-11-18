@@ -11,6 +11,7 @@ import {
 import { fakeClock } from "../src/testing/index.ts";
 import { BLOCK, DOC, HOME, createTypist, replayAll, seedLog } from "./seed.ts";
 import {
+  LEO_CLIENT,
   SAM_CLIENT,
   createServiceWorld,
   push,
@@ -86,6 +87,33 @@ test("a viewer gets the script as blocks, then patches by block id, and never th
   });
   expect(leo.take()).toMatchObject([
     { type: "ERROR", code: 4403, message: "not_subscribed" },
+  ]);
+});
+
+test("a viewer's writes to a script nobody is editing are refused", () => {
+  const { service, leo } = createServiceWorld();
+  service.receive(leo, subscribe(DOC, "view", []));
+  leo.take();
+  service.receive(
+    leo,
+    push(DOC, 1, createTypist(LEO_CLIENT).insertBlock(BLOCK, null, "Rain")),
+  );
+  service.receive(leo, set(DOC, 2, "script.paper", "a4"));
+  expect(leo.take()).toMatchObject([
+    { type: "ERROR", code: 4403, message: "not_subscribed" },
+    { type: "ERROR", code: 4403, message: "not_subscribed" },
+  ]);
+  expect(service.stats()).toMatchObject({ rooms: 1, loadedRooms: 0 });
+});
+
+test("a viewer who subscribes in the turn of a push gets the snapshot before any patch", () => {
+  const { service, sam, leo, clock, typist } = seeded();
+  service.receive(sam, push(DOC, 2, typist.insertBlock(BLOCK2, BLOCK, "Dusk")));
+  service.receive(leo, subscribe(DOC, "view", []));
+  clock.runDeferred();
+  expect(leo.take()).toMatchObject([
+    { type: "SUBSCRIBED", role: "view" },
+    { type: "VIEW_SNAPSHOT", viewSeq: 2 },
   ]);
 });
 

@@ -317,9 +317,6 @@ export function createWritePath(ports: WritePathPorts): WritePath {
 
   return {
     push(room, subscription, message) {
-      const { doc } = room;
-      if (doc === null)
-        throw new RangeError(`the room of ${room.docId} is not loaded`);
       if (subscription.stalled) return;
       const { clientSeq, update } = message;
       const { peer } = subscription;
@@ -328,6 +325,10 @@ export function createWritePath(ports: WritePathPorts): WritePath {
         refusePush(room, subscription, refusal(code, text, clientSeq));
       const admitted = admit(room, subscription, message, update.byteLength);
       if (admitted !== null) return refusePush(room, subscription, admitted);
+      // an editor holds the room loaded; a viewer of an unloaded one was refused above
+      const { doc } = room;
+      if (doc === null)
+        throw new RangeError(`the room of ${room.docId} is not loaded`);
       const metas = readUpdate(() => updateMeta(update));
       if (metas === "bad") return no(CODE.BAD_FRAME, "bad_update");
       const origin = originOf(room, peer, message.heal, metas);

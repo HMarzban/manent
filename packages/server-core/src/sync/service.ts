@@ -285,6 +285,8 @@ export function createSyncService(
       access: granted,
       stalled: false,
     };
+    // a viewer's snapshot holds only what is committed, and comes before any patch
+    if (mode === "view" && writePath.queued() > 0) writePath.flush();
     state.held.set(docId, { room, subscription });
     if (mode === "edit") registerEditor(room, peer.userId, message.clientIds);
     (mode === "edit" ? room.editors : room.viewers).set(peer, subscription);
@@ -294,8 +296,6 @@ export function createSyncService(
       tell(peer, { type: "SYNC", ...docOf(room), step: "step1", data: vector });
       return presence.joined(room, peer);
     }
-    // a viewer's snapshot holds only what is committed
-    if (writePath.queued() > 0) writePath.flush();
     tell(peer, snapshotOf(room));
   }
 
