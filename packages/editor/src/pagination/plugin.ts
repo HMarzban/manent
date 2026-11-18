@@ -18,6 +18,8 @@ import { MID_BLOCK_BREAKS } from "../page/config.ts";
 import type { BrowserEngine } from "../page/config.ts";
 import { toIndex, updateIndex } from "./block-index.ts";
 import type { BlockIndex } from "./block-index.ts";
+import { caretPlace, scrollDelta } from "./caret.ts";
+import type { CaretPlace } from "./caret.ts";
 import { updateDecorations } from "./decorations.ts";
 import type { DecorationOptions } from "./decorations.ts";
 import type { IsRemote } from "./page-view.ts";
@@ -233,12 +235,58 @@ function stateOf(state: EditorState): PaginationState {
   return own;
 }
 
-/** After a composition, the pages are brought up to date once the view has stopped composing. */
+function nearestScroller(view: EditorView): Element {
+  for (let at = view.dom.parentElement; at !== null; at = at.parentElement) {
+    const { overflowY } = getComputedStyle(at);
+    if (overflowY === "auto" || overflowY === "scroll") return at;
+  }
+  const doc = view.dom.ownerDocument;
+  return doc.scrollingElement ?? doc.documentElement;
+}
+
+/**
+ * Keeps the caret's line where it was when a local edit carries the caret to another page. `before` is read once
+ * after each update; a scroll since then is taken off it.
+ */
+function caretKeeper(
+  view: EditorView,
+  options: PaginationOptions,
+  isRemoteState: (state: EditorState) => boolean,
+): (prev: EditorState) => void {
+  let scroller: Element | null = null;
+  let before: CaretPlace | null = null;
+  let scrolledTo = 0;
+  return (prev) => {
+    scroller ??= (options.scroller ?? nearestScroller)(view);
+    const after = caretPlace(view);
+    if (
+      after !== null &&
+      before !== null &&
+      prev.doc !== view.state.doc &&
+      !isRemoteState(view.state)
+    ) {
+      const moved = scroller.scrollTop - scrolledTo;
+      const delta = scrollDelta({ ...before, top: before.top - moved }, after);
+      scroller.scrollTop += delta;
+      before = { ...after, top: after.top - delta };
+    } else {
+      before = after;
+    }
+    scrolledTo = scroller.scrollTop;
+  };
+}
+
+/**
+ * After a composition, the pages are brought up to date once the view has stopped composing; a local edit that
+ * carries the caret to another page leaves its line where it was.
+ */
 function paginationView(
   view: EditorView,
   options: PaginationOptions,
+  isRemoteState: (state: EditorState) => boolean,
 ): PluginView {
   let pages = stateOf(view.state).pagination.pages.length;
+  const keepCaret = caretKeeper(view, options, isRemoteState);
   let scheduled = false;
   const isWaiting = () => !view.composing && stateOf(view.state).frozen;
   const resume = () => {
@@ -258,8 +306,9 @@ function paginationView(
   view.dom.addEventListener("compositionend", resume);
   options.onPages?.(pages);
   return {
-    update() {
+    update(_, prev) {
       resume();
+      keepCaret(prev);
       const count = stateOf(view.state).pagination.pages.length;
       if (count === pages) return;
       pages = count;
@@ -280,6 +329,9 @@ export function paginationPlugin(
     style: MID_BLOCK_BREAKS[options.engine ?? "chromium"],
     offFontNote: options.offFontNote,
   };
+  const isRemote = options.isRemote ?? (() => false);
+  // the states a remote change made, kept while they are in use
+  const remoteStates = new WeakSet<EditorState>();
   return new Plugin<PaginationState>({
     key: paginationKey,
     state: {
@@ -287,7 +339,12 @@ export function paginationPlugin(
       apply: (tr, prev, _old, state) =>
         applyTransaction(tr, prev, state, decorations),
     },
-    view: (view) => paginationView(view, options),
+    appendTransaction: (trs, _old, state) => {
+      if (trs.some(isRemote)) remoteStates.add(state);
+      return null;
+    },
+    view: (view) =>
+      paginationView(view, options, (state) => remoteStates.has(state)),
     props: {
       decorations: (state) => paginationKey.getState(state)?.decorations,
       // WebKit selects nothing when a document's first and last children are breaks that cannot be edited

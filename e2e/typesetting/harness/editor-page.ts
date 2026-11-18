@@ -2,6 +2,9 @@
 // and a probe the tests read it through.
 import {
   DRIFT,
+  MID_BLOCK_BREAKS,
+  blockPos,
+  contentHeightPx,
   detectEngine,
   faceDescriptors,
   loadScriptFonts,
@@ -9,9 +12,10 @@ import {
   paginationKey,
   sectionHeightPx,
   sectionNodeView,
+  zoomBox,
 } from "@manent/editor";
-import type { LoadableFace, PageScaffold } from "@manent/editor";
-import { fontRanges, profileFor } from "@manent/pagination";
+import type { BreakStyle, LoadableFace, PageScaffold } from "@manent/editor";
+import { fontRanges, pageSizePx, profileFor } from "@manent/pagination";
 import type { FontFaceKey, Page } from "@manent/pagination";
 import {
   CORPUS_FORMATS,
@@ -46,6 +50,12 @@ export interface EditorProbe {
   sectionHeights(): number[];
   /** Focuses the editor and selects from `anchor` to `head` (default: a caret), without scrolling. */
   select(anchor: number, head?: number): void;
+  /** How this engine draws a page break inside a block. */
+  readonly breakStyle: BreakStyle;
+  /** The document positions where a page continues a block split across the break. */
+  midBreaks(): number[];
+  /** The zoomed size of the scroll area at `percent`, as the page count gives it. */
+  zoomBox(percent: number): { widthPx: number; heightPx: number };
 }
 
 declare global {
@@ -119,7 +129,8 @@ const { view, scaffold } = mountPageView({
       return face;
     },
     wait,
-    defer: queueMicrotask,
+    // called as a method of the options, so not passed bare: queueMicrotask refuses another receiver
+    defer: (run) => queueMicrotask(run),
     whenIdle:
       "requestIdleCallback" in window
         ? (run) => requestIdleCallback(() => run())
@@ -129,9 +140,10 @@ const { view, scaffold } = mountPageView({
 });
 scaffold.applyZoom(Number(query.get("zoom") ?? "100"));
 
+const engine = detectEngine(navigator.userAgent);
 // the editor's own section views, each update counted
 let sectionUpdates = 0;
-const sectionView = sectionNodeView(detectEngine(navigator.userAgent));
+const sectionView = sectionNodeView(engine);
 view.setProps({
   nodeViews: {
     section: (...args) => {
@@ -183,5 +195,21 @@ window["__mn"] = {
         TextSelection.create(view.state.doc, anchor, head),
       ),
     );
+  },
+  breakStyle: MID_BLOCK_BREAKS[engine],
+  midBreaks: () => {
+    const { index, pagination } = paginationKey.getState(view.state)!;
+    return pagination.pages
+      .filter((p) => p.line > 0)
+      .map((p) => blockPos(index, p.block) + 1 + p.offset);
+  },
+  zoomBox: (percent) => {
+    const state = paginationKey.getState(view.state)!;
+    const { widthPx, heightPx } = zoomBox(
+      pageSizePx(profile).width,
+      contentHeightPx(state),
+      percent,
+    );
+    return { widthPx, heightPx };
   },
 };
