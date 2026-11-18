@@ -335,7 +335,7 @@ test("the screens' words are the design's", () => {
     fixedPicker: P.fixedPicker,
     fixedClipboard: P.fixedClipboard,
     voiceOverNote: P.voiceOverNote,
-    clash: P.clash("⌘D", "Dual dialogue"),
+    clash: P.clash("⌘D", "Dual dialogue", "Scene heading"),
     useItFor: P.useItFor("Typewriter scrolling"),
     keep: P.keep("Dual dialogue"),
     warn: P.warn("⌘T", "usually opens a new tab"),

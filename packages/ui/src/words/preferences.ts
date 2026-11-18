@@ -100,8 +100,9 @@ export const PREFERENCES_WORDS = {
   fixedClipboard: "Fixed. Copy, cut, paste and undo use your system's keys.",
   voiceOverNote:
     "VoiceOver uses Control-Option for its own commands, so this may not reach Manent while VoiceOver is on.",
-  /** A chord already held by another command; the buttons are useItFor and keep. */
-  clash: (keys: string, holder: string): string => `${keys} is ${holder}.`,
+  /** A chord already held by `holder` while the command `_wanting` asks for it; the sentence names the holder only, and the buttons useItFor and keep name each side. */
+  clash: (keys: string, holder: string, _wanting: string): string =>
+    `${keys} is ${holder}.`,
   useItFor: (label: string): string => `Use it for ${label}`,
   keep: (label: string): string => `Keep ${label}`,
   /** A chord the browser usually takes; `effect` comes from the reserved keys ("usually opens a new tab"). */
