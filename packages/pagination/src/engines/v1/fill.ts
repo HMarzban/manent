@@ -17,6 +17,7 @@ import {
   isPrinted,
   isSpeech,
   keyAt,
+  lockedAt,
   look,
   must,
   pieceOf,
@@ -25,6 +26,7 @@ import {
   tailOf,
 } from "./keep.ts";
 import type { DualUnit, Flow } from "./keep.ts";
+import { labelsBetween } from "./labels.ts";
 import { splitAt } from "./split.ts";
 
 /** Lines the CONTINUED: line and the blank line under it take at a page's top. */
@@ -131,6 +133,7 @@ const lineOffset = (flow: Flow, at: Point) =>
 
 function opening(flow: Flow, at: Break): PageStart {
   const sceneContinued = isSceneContinued(flow, at.block, at.line);
+  const locked = lockedAt(flow, at.block, at.line) !== null;
   const cued = at.contd !== null || at.contdRight !== null;
   return {
     block: at.block,
@@ -143,8 +146,8 @@ function opening(flow: Flow, at: Break): PageStart {
     contd: at.contd,
     contdRight: at.contdRight,
     sceneContinued,
-    locked: false,
-    forced: at.forced,
+    locked,
+    forced: at.forced || locked,
     topUnits:
       (sceneContinued ? CONTINUED_LINES * UNITS_PER_LINE : 0) +
       (cued ? UNITS_PER_LINE : 0),
@@ -204,16 +207,19 @@ function step(flow: Flow, sheet: Sheet, i: number, line: number): Break | null {
   )
     return plainBreak(flow, i, 0, false);
   const avail = flow.cap - sheet.used - before;
-  const piece = pieceOf(flow, i);
+  const piece = pieceOf(flow, i, line);
   const rest = (piece.end - line) * piece.step;
-  if (rest + tailOf(flow, i) + reserveOf(flow, i) <= avail) {
+  // a piece that stops where a lock starts a page needs only its (MORE) after it
+  const whole = piece.end === flow.metrics[i]!.lines;
+  const after = whole ? tailOf(flow, i) + reserveOf(flow, i) : piece.more;
+  if (rest + after <= avail) {
     place(flow, sheet, i, before + rest);
-    return null;
+    return whole ? null : plainBreak(flow, i, piece.end, true);
   }
   let k = splitAt(piece, flow.profile.rules, line, avail);
   if (k < 0 && (sheet.atTop || sheet.onlyKeeps)) {
     // only the transition does not fit, and the block has no tail to give it
-    if (rest + reserveOf(flow, i) <= avail) {
+    if (whole && rest + reserveOf(flow, i) <= avail) {
       place(flow, sheet, i, before + rest);
       return null;
     }
@@ -339,4 +345,38 @@ export function fillPage(
     if (unit !== null) i = unit.run.end - 1;
   }
   return { page: filled(flow, start, sheet.used, false), next: null };
+}
+
+/**
+ * The pages numbered and labelled: with no lock anchors 1, 2, 3 …; otherwise a locked page takes its
+ * lock's label, and each run of pages before, between and after locked pages the labels between
+ * theirs, passing over every label in `taken` and every label given so far.
+ */
+export function labelPages(
+  flow: Flow,
+  pages: readonly FilledPage[],
+  taken: ReadonlySet<string>,
+): Page[] {
+  const labels: string[] = [];
+  const given = new Set(taken);
+  const give = (lower: string | null, upper: string | null, count: number) => {
+    for (const label of labelsBetween(lower, upper, count, given)) {
+      labels.push(label);
+      given.add(label);
+    }
+  };
+  let lower: string | null = null;
+  let run = 0;
+  pages.forEach((page, k) => {
+    const lock = lockedAt(flow, page.block, page.line);
+    if (lock === null) return;
+    give(lower, lock, k - run);
+    labels.push(lock);
+    lower = lock;
+    run = k + 1;
+  });
+  give(lower, null, pages.length - run);
+  return pages.map((page, index) =>
+    Object.freeze({ ...page, index, label: labels[index]! }),
+  );
 }

@@ -31,17 +31,26 @@ export interface Flow {
   readonly musts: Map<number, Seen>;
   /** For each block examined, the cue block of the speech it carries on, or -1. */
   readonly speakers: Map<number, number>;
+  /** By block, the lines a lock starts a page at, in order, with each page's label. */
+  readonly locked: ReadonlyMap<number, readonly LockedLine[]>;
+}
+
+export interface LockedLine {
+  readonly line: number;
+  readonly label: string;
 }
 
 export function createFlow(
   blocks: readonly LayoutBlock[],
   profile: PageProfile,
   metrics: readonly BlockMetrics[],
+  locked: ReadonlyMap<number, readonly LockedLine[]>,
 ): Flow {
   return {
     blocks,
     profile,
     metrics,
+    locked,
     cap: profile.linesPerPage * UNITS_PER_LINE,
     ahead: 0,
     musts: new Map(),
@@ -95,9 +104,18 @@ function nextPrinted(flow: Flow, i: number): number {
   return -1;
 }
 
-/** Block i always starts a page: a page_break lies between it and the printed block before it, or it is startingPage. */
+/** The label of the page a lock starts at line `line` of block i; null when none does. */
+export function lockedAt(flow: Flow, i: number, line: number): string | null {
+  return flow.locked.get(i)?.find((at) => at.line === line)?.label ?? null;
+}
+
+/**
+ * Block i always starts a page: a lock starts one at it, a page_break lies between it and the printed
+ * block before it, or it is startingPage.
+ */
 export function isForcedStart(flow: Flow, i: number): boolean {
-  if (flow.metrics[i]!.spec.startingPage) return true;
+  if (flow.metrics[i]!.spec.startingPage || lockedAt(flow, i, 0) !== null)
+    return true;
   for (let j = i - 1; j >= 0 && !isPrinted(flow, j); j--)
     if (keyOf(flow, j) === "page_break") return true;
   return false;
@@ -159,13 +177,13 @@ export function reserveOf(flow: Flow, i: number): number {
   return t >= 0 && isSpeech(flow, t) ? UNITS_PER_LINE : 0;
 }
 
-/** Block i, for the split rules. */
-export function pieceOf(flow: Flow, i: number): SplitPiece {
+/** Block i from `line`, for the split rules: up to its end, or to the next line a lock starts a page at. */
+export function pieceOf(flow: Flow, i: number, line: number): SplitPiece {
   const { lines, starts, spec } = flow.metrics[i]!;
   return {
     text: flow.blocks[i]!.text,
     starts,
-    end: lines,
+    end: flow.locked.get(i)?.find((at) => at.line > line)?.line ?? lines,
     rule: spec.split,
     step: stepOf(flow, i),
     more: moreOf(flow, i),
@@ -183,7 +201,7 @@ export function tailOf(flow: Flow, i: number): number {
 
 // The least of block i that can be left at the foot of a page.
 function minHead(flow: Flow, i: number): number {
-  const k = firstSplit(pieceOf(flow, i), flow.profile.rules, 0);
+  const k = firstSplit(pieceOf(flow, i, 0), flow.profile.rules, 0);
   return k < 0
     ? heightOf(flow, i) + reserveOf(flow, i)
     : k * stepOf(flow, i) + moreOf(flow, i);
@@ -296,7 +314,7 @@ function link(flow: Flow, i: number): { units: number; next: number } {
   if (flow.metrics[i]!.spec.keptWithNext) return { units: own, next: t };
   if (
     keyOf(flow, t) === "transition" &&
-    firstSplit(pieceOf(flow, i), flow.profile.rules, 0) < 0
+    firstSplit(pieceOf(flow, i, 0), flow.profile.rules, 0) < 0
   )
     return { units: own + spaceOf(flow, t) + heightOf(flow, t), next: -1 };
   return { units: spaceOf(flow, i) + minHead(flow, i), next: -1 };
