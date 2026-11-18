@@ -88,7 +88,7 @@ test("Bun carries a real socket to the server and back", async () => {
       new Uint8Array(
         encodeMessage({
           type: "HELLO",
-          versions: { protocol: 1, schema: 1, engine: 0, table: 0 },
+          versions: { protocol: 1, schema: 1, engine: 1, table: 1 },
           build: "test",
           deviceId: "device-1",
         }),

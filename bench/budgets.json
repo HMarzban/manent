@@ -1,1 +1,48 @@
-{ "formatVersion": 1, "tier": "D-modest", "budgets": [] }
+{
+  "formatVersion": 1,
+  "tier": "D-modest",
+  "budgets": [
+    {
+      "scenario": "pagination-engine-120",
+      "metric": "cold_repagination",
+      "stat": "p95",
+      "budget": 10,
+      "hardFail": 30
+    },
+    {
+      "scenario": "pagination-engine-120",
+      "metric": "keystroke_engine",
+      "stat": "p95",
+      "budget": 0.5,
+      "hardFail": 2
+    },
+    {
+      "scenario": "pagination-engine-400",
+      "metric": "cold_repagination",
+      "stat": "p95",
+      "budget": 30,
+      "hardFail": 80
+    },
+    {
+      "scenario": "pagination-engine-400",
+      "metric": "keystroke_engine",
+      "stat": "p95",
+      "budget": 0.5,
+      "hardFail": 2
+    },
+    {
+      "scenario": "pagination-engine-2000",
+      "metric": "cold_repagination",
+      "stat": "p95",
+      "budget": 150,
+      "hardFail": 400
+    },
+    {
+      "scenario": "pagination-engine-2000",
+      "metric": "keystroke_engine",
+      "stat": "p95",
+      "budget": 0.5,
+      "hardFail": 2
+    }
+  ]
+}

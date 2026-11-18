@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createDemoDirectory, createDemoSignIn } from "@manent/demo";
+import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import {
   createServer,
@@ -55,8 +56,8 @@ export function buildServerConfig(
   const versions = {
     protocol: PROTOCOL_VERSION,
     schema: SCHEMA_VERSION,
-    engine: 0,
-    table: 0,
+    engine: ENGINE_VERSION,
+    table: TABLE_VERSION,
   };
   return {
     http: {
