@@ -1,6 +1,6 @@
 // The fields of each message's body. A union member travels as its index: one byte, except the
 // SYNC step, which is a varuint. An unknown capability is dropped from its list; an unknown role,
-// mode, step, kind or lock-anchor tag skips the frame.
+// mode, step, kind, lock source or lock-anchor tag skips the frame.
 import * as decoding from "lib0/decoding";
 import * as encoding from "lib0/encoding";
 import { FLAG } from "./frame.ts";
@@ -9,10 +9,16 @@ import {
   CAPABILITIES,
   CONTROL_KINDS,
   DOC_ROLES,
+  LOCK_SOURCES,
   SUBSCRIBE_MODES,
   SYNC_STEPS,
 } from "./messages.ts";
-import type { Capability, DocRef, LockAnchor, Message } from "./messages.ts";
+import type {
+  Capability,
+  DocRef,
+  LockAnchorRecord,
+  Message,
+} from "./messages.ts";
 import {
   UnknownMember,
   bad,
@@ -24,6 +30,7 @@ import {
   readIndex,
   readNullable,
   readNumber,
+  readStruct,
   readUint8,
   readVersions,
   writeArray,
@@ -33,6 +40,7 @@ import {
   writeNullable,
   writeNumber,
   writeString,
+  writeStruct,
   writeVersions,
 } from "./wire.ts";
 
@@ -44,15 +52,19 @@ export function writeBody(e: encoding.Encoder, m: Message): void {
       writeString(e, m.deviceId);
       return;
     case "WELCOME":
-      writeString(e, m.session.userId);
-      writeString(e, m.session.name);
-      writeNumber(e, m.limits.frameBytes);
-      writeNumber(e, m.limits.messageBytes);
+      writeStruct(e, (fields) => {
+        writeString(fields, m.session.userId);
+        writeString(fields, m.session.name);
+      });
+      writeStruct(e, (fields) => {
+        writeNumber(fields, m.limits.frameBytes);
+        writeNumber(fields, m.limits.messageBytes);
+      });
       writeVersions(e, m.server.current);
       writeVersions(e, m.server.min);
       return;
     case "AUTH_EXPIRING":
-      writeNumber(e, m.secondsLeft);
+      writeNumber(e, m.expiresInMs);
       return;
     case "AUTH_REFRESH":
       writeString(e, m.ticket);
@@ -63,6 +75,7 @@ export function writeBody(e: encoding.Encoder, m: Message): void {
       writeString(e, m.message);
       writeNullable(e, m.retryAfterMs, writeNumber);
       writeBoolean(e, m.permanent);
+      writeNullable(e, m.clientSeq, writeNumber);
       return;
     case "PING":
     case "PONG":
@@ -79,25 +92,29 @@ export function writeBody(e: encoding.Encoder, m: Message): void {
         writeIndex(enc, CAPABILITIES, c),
       );
       writeNumber(e, m.headSeq);
-      writeNumber(e, m.minSchema);
+      writeNumber(e, m.minSchemaVersion);
       writeNumber(e, m.engineVersion);
       writeNumber(e, m.lockLevel);
       if (m.lockAnchors === null) encoding.writeUint8(e, 0);
       else if ("table" in m.lockAnchors) {
         encoding.writeUint8(e, 1);
-        writeArray(e, m.lockAnchors.table, writeLockAnchor);
+        writeArray(e, m.lockAnchors.table, writeLockAnchorRecord);
       } else {
         encoding.writeUint8(e, 2);
         encoding.writeVarUint8Array(e, m.lockAnchors.hash);
       }
-      writeNullable(e, m.revision, (enc, r) => {
-        writeString(enc, r.setId);
-        writeString(enc, r.baselineVersionId);
-      });
-      writeNullable(e, m.airWindow, (enc, w) => {
-        writeNumber(enc, w.startsAt);
-        writeNumber(enc, w.endsAt);
-      });
+      writeNullable(e, m.revision, (enc, r) =>
+        writeStruct(enc, (fields) => {
+          writeString(fields, r.setId);
+          writeString(fields, r.baselineVersionId);
+        }),
+      );
+      writeNullable(e, m.airWindow, (enc, w) =>
+        writeStruct(enc, (fields) => {
+          writeNumber(fields, w.startsAt);
+          writeNumber(fields, w.endsAt);
+        }),
+      );
       return;
     case "GENERATION_MOVED":
       writeNumber(e, m.newGeneration);
@@ -112,6 +129,11 @@ export function writeBody(e: encoding.Encoder, m: Message): void {
       writeNumber(e, m.clientSeq);
       encoding.writeVarUint8Array(e, m.update);
       writeBoolean(e, m.heal);
+      return;
+    case "SET":
+      writeNumber(e, m.clientSeq);
+      writeString(e, m.key);
+      encoding.writeVarUint8Array(e, m.value);
       return;
     case "ACK":
       writeNumber(e, m.clientSeq);
@@ -138,14 +160,17 @@ export function writeBody(e: encoding.Encoder, m: Message): void {
   }
 }
 
-function writeLockAnchor(e: encoding.Encoder, a: LockAnchor): void {
-  writeNumber(e, a.level);
-  writeNumber(e, a.order);
-  writeString(e, a.label);
-  writeString(e, a.blockId);
-  writeNumber(e, a.offset);
-  writeString(e, a.quote);
-  writeArray(e, a.fallbackIds, writeString);
+function writeLockAnchorRecord(e: encoding.Encoder, a: LockAnchorRecord): void {
+  writeStruct(e, (fields) => {
+    writeNumber(fields, a.level);
+    writeNumber(fields, a.order);
+    writeString(fields, a.label);
+    writeString(fields, a.blockId);
+    writeNumber(fields, a.offset);
+    writeString(fields, a.quote);
+    writeArray(fields, a.fallbackIds, writeString);
+    writeIndex(fields, LOCK_SOURCES, a.source);
+  });
 }
 
 /**
@@ -172,15 +197,18 @@ export function readBody(
     case "WELCOME":
       return {
         type: "WELCOME",
-        session: {
-          userId: decoding.readVarString(d),
-          name: decoding.readVarString(d),
-        },
-        limits: { frameBytes: readNumber(d), messageBytes: readNumber(d) },
+        session: readStruct(d, (fields) => ({
+          userId: decoding.readVarString(fields),
+          name: decoding.readVarString(fields),
+        })),
+        limits: readStruct(d, (fields) => ({
+          frameBytes: readNumber(fields),
+          messageBytes: readNumber(fields),
+        })),
         server: { current: readVersions(d), min: readVersions(d) },
       };
     case "AUTH_EXPIRING":
-      return { type: "AUTH_EXPIRING", secondsLeft: readNumber(d) };
+      return { type: "AUTH_EXPIRING", expiresInMs: readNumber(d) };
     case "AUTH_REFRESH":
       return { type: "AUTH_REFRESH", ticket: decoding.readVarString(d) };
     case "ERROR": {
@@ -192,6 +220,7 @@ export function readBody(
         retryAfterMs: readNullable(d, readNumber),
         permanent: readBoolean(d),
         doc: errorDoc,
+        clientSeq: readNullable(d, readNumber),
       };
     }
     case "PING":
@@ -216,18 +245,22 @@ export function readBody(
           (c): c is Capability => c !== undefined,
         ),
         headSeq: readNumber(d),
-        minSchema: readNumber(d),
+        minSchemaVersion: readNumber(d),
         engineVersion: readNumber(d),
         lockLevel: readNumber(d),
         lockAnchors: readLockAnchors(d),
-        revision: readNullable(d, () => ({
-          setId: decoding.readVarString(d),
-          baselineVersionId: decoding.readVarString(d),
-        })),
-        airWindow: readNullable(d, () => ({
-          startsAt: readNumber(d),
-          endsAt: readNumber(d),
-        })),
+        revision: readNullable(d, () =>
+          readStruct(d, (fields) => ({
+            setId: decoding.readVarString(fields),
+            baselineVersionId: decoding.readVarString(fields),
+          })),
+        ),
+        airWindow: readNullable(d, () =>
+          readStruct(d, (fields) => ({
+            startsAt: readNumber(fields),
+            endsAt: readNumber(fields),
+          })),
+        ),
       };
     case "GENERATION_MOVED":
       return {
@@ -249,6 +282,14 @@ export function readBody(
         clientSeq: readNumber(d),
         update: readBytes(d),
         heal: readBoolean(d),
+      };
+    case "SET":
+      return {
+        type: "SET",
+        ...doc(),
+        clientSeq: readNumber(d),
+        key: decoding.readVarString(d),
+        value: readBytes(d),
       };
     case "ACK":
       return {
@@ -286,12 +327,12 @@ export function readBody(
 
 function readLockAnchors(
   d: decoding.Decoder,
-): { table: LockAnchor[] } | { hash: Uint8Array } | null {
+): { table: LockAnchorRecord[] } | { hash: Uint8Array } | null {
   switch (readUint8(d)) {
     case 0:
       return null;
     case 1:
-      return { table: readArray(d, readLockAnchor) };
+      return { table: readArray(d, readLockAnchorRecord) };
     case 2:
       return { hash: readBytes(d) };
     default:
@@ -299,14 +340,15 @@ function readLockAnchors(
   }
 }
 
-function readLockAnchor(d: decoding.Decoder): LockAnchor {
-  return {
-    level: readNumber(d),
-    order: readNumber(d),
-    label: decoding.readVarString(d),
-    blockId: decoding.readVarString(d),
-    offset: readNumber(d),
-    quote: decoding.readVarString(d),
-    fallbackIds: readArray(d, decoding.readVarString),
-  };
+function readLockAnchorRecord(d: decoding.Decoder): LockAnchorRecord {
+  return readStruct(d, (fields) => ({
+    level: readNumber(fields),
+    order: readNumber(fields),
+    label: decoding.readVarString(fields),
+    blockId: decoding.readVarString(fields),
+    offset: readNumber(fields),
+    quote: decoding.readVarString(fields),
+    fallbackIds: readArray(fields, decoding.readVarString),
+    source: readIndex(fields, LOCK_SOURCES),
+  }));
 }

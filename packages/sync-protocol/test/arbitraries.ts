@@ -1,16 +1,18 @@
-// Generators and samples shared by the sync-protocol tests.
+// Generators, samples and matchers shared by the sync-protocol tests.
+import { expect } from "bun:test";
 import fc from "fast-check";
 import {
   CAPABILITIES,
   CODE,
   CONTROL_KINDS,
   DOC_ROLES,
+  LOCK_SOURCES,
   SUBSCRIBE_MODES,
   SYNC_STEPS,
 } from "../src/index.ts";
 import type {
   DocRef,
-  LockAnchor,
+  LockAnchorRecord,
   Message,
   Sender,
   VersionSet,
@@ -36,7 +38,7 @@ const role = fc.constantFrom(...DOC_ROLES);
 const capability = fc.constantFrom(...CAPABILITIES);
 const mode = fc.constantFrom(...SUBSCRIBE_MODES);
 const controlKind = fc.constantFrom(...CONTROL_KINDS);
-const lockAnchor: fc.Arbitrary<LockAnchor> = fc.record({
+const lockAnchor: fc.Arbitrary<LockAnchorRecord> = fc.record({
   level: num,
   order: num,
   label: text,
@@ -44,6 +46,7 @@ const lockAnchor: fc.Arbitrary<LockAnchor> = fc.record({
   offset: num,
   quote: text,
   fallbackIds: fc.array(text, { maxLength: 4 }),
+  source: fc.constantFrom(...LOCK_SOURCES),
 });
 
 const withDoc = <T extends object>(
@@ -64,7 +67,7 @@ export const arbMessage: fc.Arbitrary<Message> = fc.oneof(
     limits: fc.record({ frameBytes: num, messageBytes: num }),
     server: fc.record({ current: versions, min: versions }),
   }),
-  fc.record({ type: fc.constant("AUTH_EXPIRING" as const), secondsLeft: num }),
+  fc.record({ type: fc.constant("AUTH_EXPIRING" as const), expiresInMs: num }),
   fc.record({ type: fc.constant("AUTH_REFRESH" as const), ticket: text }),
   fc.record({
     type: fc.constant("ERROR" as const),
@@ -73,6 +76,7 @@ export const arbMessage: fc.Arbitrary<Message> = fc.oneof(
     retryAfterMs: nullable(num),
     permanent: fc.boolean(),
     doc: nullable(docRef),
+    clientSeq: nullable(num),
   }),
   fc.record({ type: fc.constant("PING" as const), nonce: num }),
   fc.record({ type: fc.constant("PONG" as const), nonce: num }),
@@ -90,7 +94,7 @@ export const arbMessage: fc.Arbitrary<Message> = fc.oneof(
       role,
       capabilities: fc.array(capability, { maxLength: 5 }),
       headSeq: num,
-      minSchema: num,
+      minSchemaVersion: num,
       engineVersion: num,
       lockLevel: num,
       lockAnchors: fc.oneof(
@@ -122,6 +126,14 @@ export const arbMessage: fc.Arbitrary<Message> = fc.oneof(
       clientSeq: num,
       update: bytes,
       heal: fc.boolean(),
+    }),
+  ),
+  withDoc(
+    fc.record({
+      type: fc.constant("SET" as const),
+      clientSeq: num,
+      key: text,
+      value: bytes,
     }),
   ),
   withDoc(
@@ -164,6 +176,7 @@ const CLIENT_ONLY = new Set([
   "SUBSCRIBE",
   "UNSUBSCRIBE",
   "PUSH",
+  "SET",
 ]);
 const BOTH = new Set(["PING", "PONG", "AWARENESS"]);
 
@@ -175,6 +188,11 @@ export function senderOf(message: Message): Sender {
   if (BOTH.has(message.type)) return "client";
   return "server";
 }
+
+export const badFrame = expect.objectContaining({
+  name: "ProtocolError",
+  code: 4400,
+});
 
 export const DOC_ID = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
 /** The sixteen bytes DOC_ID travels as. */
@@ -201,7 +219,7 @@ export const WELCOME_SAMPLE: MessageOf<"WELCOME"> = {
 };
 export const AUTH_EXPIRING_SAMPLE: MessageOf<"AUTH_EXPIRING"> = {
   type: "AUTH_EXPIRING",
-  secondsLeft: 30,
+  expiresInMs: 30_000,
 };
 export const AUTH_REFRESH_SAMPLE: MessageOf<"AUTH_REFRESH"> = {
   type: "AUTH_REFRESH",
@@ -214,6 +232,7 @@ export const ERROR_SAMPLE: MessageOf<"ERROR"> = {
   retryAfterMs: 500,
   permanent: true,
   doc: ref,
+  clientSeq: null,
 };
 export const PING_SAMPLE: MessageOf<"PING"> = { type: "PING", nonce: 1 };
 export const PONG_SAMPLE: MessageOf<"PONG"> = { type: "PONG", nonce: 1 };
@@ -224,28 +243,26 @@ export const SUBSCRIBE_SAMPLE: MessageOf<"SUBSCRIBE"> = {
   clientIds: [5, 6],
   lastServerSeq: 0,
 };
+export const ANCHOR_SAMPLE: LockAnchorRecord = {
+  level: 1,
+  order: 0,
+  label: "12A",
+  blockId: "b1",
+  offset: 3,
+  quote: "He waits.",
+  fallbackIds: ["b0"],
+  source: "issue",
+};
 export const SUBSCRIBED_SAMPLE: MessageOf<"SUBSCRIBED"> = {
   type: "SUBSCRIBED",
   ...ref,
   role: "edit",
   capabilities: ["delete", "send_to_prompter"],
   headSeq: 10,
-  minSchema: 1,
+  minSchemaVersion: 1,
   engineVersion: 1,
   lockLevel: 0,
-  lockAnchors: {
-    table: [
-      {
-        level: 1,
-        order: 0,
-        label: "12A",
-        blockId: "b1",
-        offset: 3,
-        quote: "He waits.",
-        fallbackIds: ["b0"],
-      },
-    ],
-  },
+  lockAnchors: { table: [ANCHOR_SAMPLE] },
   revision: { setId: "s1", baselineVersionId: "v1" },
   airWindow: { startsAt: 1000, endsAt: 2000 },
 };
@@ -282,6 +299,13 @@ export const PUSH_SAMPLE: MessageOf<"PUSH"> = {
   clientSeq: 4,
   update: new Uint8Array([1, 2, 3, 4]),
   heal: true,
+};
+export const SET_SAMPLE: MessageOf<"SET"> = {
+  type: "SET",
+  ...ref,
+  clientSeq: 5,
+  key: "script.paper",
+  value: new TextEncoder().encode(JSON.stringify("a4")),
 };
 export const ACK_SAMPLE: MessageOf<"ACK"> = {
   type: "ACK",
@@ -339,6 +363,7 @@ export const ONE_OF_EACH: Message[] = [
   UNSUBSCRIBE_SAMPLE,
   SYNC_SAMPLE,
   PUSH_SAMPLE,
+  SET_SAMPLE,
   AWARENESS_SAMPLE,
   ...SERVER_ONLY_SAMPLES.filter((m) => m.type !== "SYNC"),
 ];

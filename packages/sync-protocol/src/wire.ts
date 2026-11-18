@@ -89,8 +89,23 @@ export function writeIndex<T>(
   encoding.writeUint8(e, indexOf(list, value));
 }
 
+/**
+ * A struct: byteLength (varuint) · fields. A newer build may append fields; an older reader steps
+ * over them.
+ */
+export function writeStruct(
+  e: encoding.Encoder,
+  write: (fields: encoding.Encoder) => void,
+): void {
+  const fields = encoding.createEncoder();
+  write(fields);
+  encoding.writeVarUint8Array(e, encoding.toUint8Array(fields));
+}
+
 export function writeVersions(e: encoding.Encoder, v: VersionSet): void {
-  for (const field of VERSION_FIELDS) writeNumber(e, v[field]);
+  writeStruct(e, (fields) => {
+    for (const field of VERSION_FIELDS) writeNumber(fields, v[field]);
+  });
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -149,10 +164,36 @@ export function readIndex<T>(d: decoding.Decoder, list: readonly T[]): T {
   return value;
 }
 
+/**
+ * Reads a struct: `read` gets a decoder over the struct's bytes only, and the fields after the ones
+ * it reads are stepped over. A struct longer than the rest of the frame, or one that ends before a
+ * field `read` needs, is ProtocolError 4400.
+ */
+export function readStruct<T>(
+  d: decoding.Decoder,
+  read: (fields: decoding.Decoder) => T,
+): T {
+  const byteLength = readNumber(d);
+  if (byteLength > d.arr.byteLength - d.pos)
+    throw bad(`a struct of ${byteLength} bytes runs past the end of the frame`);
+  const fields = decoding.createDecoder(
+    d.arr.subarray(d.pos, d.pos + byteLength),
+  );
+  d.pos += byteLength;
+  return read(fields);
+}
+
 export function readVersions(d: decoding.Decoder): VersionSet {
-  const versions: VersionSet = { protocol: 0, schema: 0, engine: 0, table: 0 };
-  for (const field of VERSION_FIELDS) versions[field] = readNumber(d);
-  return versions;
+  return readStruct(d, (fields) => {
+    const versions: VersionSet = {
+      protocol: 0,
+      schema: 0,
+      engine: 0,
+      table: 0,
+    };
+    for (const field of VERSION_FIELDS) versions[field] = readNumber(fields);
+    return versions;
+  });
 }
 
 const HEX = Array.from({ length: 256 }, (_, i) =>

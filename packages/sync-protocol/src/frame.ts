@@ -62,6 +62,7 @@ const SENT_BY: Record<FrameName, Sender | "both"> = {
   CONTROL: "server",
   VIEW_SNAPSHOT: "server",
   VIEW_PATCH: "server",
+  SET: "client",
 };
 
 /** What every frame of one message repeats. */
@@ -135,7 +136,10 @@ export function readHeader(d: decoding.Decoder): CommonHeader {
   };
 }
 
-/** The docId · generation after the header of a document frame; null for a connection frame. */
+/**
+ * The docId · generation after the header of a document frame; null for a connection frame. For
+ * types 16–127 they always follow the common header, whatever flags a newer build sets.
+ */
 export function readDoc(d: decoding.Decoder, type: number): DocRef | null {
   return type >= FIRST_DOCUMENT_TYPE && type < TYPE_LIMIT
     ? readDocRef(d)

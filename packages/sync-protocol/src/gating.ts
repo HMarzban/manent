@@ -29,9 +29,10 @@ export function gateConnection(
 /** At SUBSCRIBE: a client older than the document's schema or engine may only read it. */
 export function gateDocument(
   client: VersionSet,
-  doc: { minSchema: number; engineVersion: number },
+  doc: { minSchemaVersion: number; engineVersion: number },
 ): "edit" | "read_only" {
-  return client.schema < doc.minSchema || client.engine < doc.engineVersion
+  return client.schema < doc.minSchemaVersion ||
+    client.engine < doc.engineVersion
     ? "read_only"
     : "edit";
 }

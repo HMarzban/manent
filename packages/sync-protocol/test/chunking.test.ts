@@ -13,6 +13,7 @@ import {
   DOC_BYTES,
   DOC_ID,
   arbMessage,
+  badFrame,
   concat,
   senderOf,
 } from "./arbitraries.ts";
@@ -22,7 +23,6 @@ const MORE = 0b0001;
 const CHUNK = 0b1000;
 const UNKNOWN_FLAG = 0b1_0000;
 const tooLarge = expect.objectContaining({ name: "ProtocolError", code: 4413 });
-const badFrame = expect.objectContaining({ name: "ProtocolError", code: 4400 });
 
 function bytes(n: number): Uint8Array {
   const out = new Uint8Array(n);
@@ -208,15 +208,15 @@ test("a chunked message from a sender that may not send it is refused at its fir
 
 test("a chunked message of an unknown type is dropped chunk by chunk and counted once", () => {
   const d = createFrameDecoder({ from: "server" });
-  expect(d.push(new Uint8Array([27, 0b1001, 5, 1, 2, 3]))).toBeNull(); // type 27 · CHUNK|MORE · message 5: nothing kept
+  expect(d.push(new Uint8Array([28, 0b1001, 5, 1, 2, 3]))).toBeNull(); // type 28 · CHUNK|MORE · message 5: nothing kept
   expect(d.skipped).toBe(0);
-  expect(d.push(new Uint8Array([27, 0b1000, 5, 4]))).toBeNull(); // its last chunk
+  expect(d.push(new Uint8Array([28, 0b1000, 5, 4]))).toBeNull(); // its last chunk
   expect(d.skipped).toBe(1);
 });
 
 test("skipped frames are counted", () => {
   const d = createFrameDecoder({ from: "server" });
-  expect(d.push(new Uint8Array([27, 0, 9]))).toBeNull();
+  expect(d.push(new Uint8Array([28, 0, 9]))).toBeNull();
   expect(d.push(new Uint8Array([6, 0]))).toBeNull();
   expect(d.skipped).toBe(2);
 });
@@ -321,7 +321,7 @@ test("a chunk that must be skipped drops the message it belongs to", () => {
 
 test("messages being skipped count against maxPartial", () => {
   const d = createFrameDecoder({ from: "server", maxPartial: 1 });
-  expect(d.push(new Uint8Array([27, CHUNK | MORE, 5, 1]))).toBeNull();
+  expect(d.push(new Uint8Array([28, CHUNK | MORE, 5, 1]))).toBeNull();
   const [first] = createFrameEncoder({ frameLimit: 256 }).encode(
     syncUpdate(DOC, bytes(600)),
   );
@@ -363,7 +363,7 @@ const junkChunk = fc
         flags: fc.constant(0),
       }),
       fc.record({
-        type: fc.integer({ min: 27, max: 255 }),
+        type: fc.integer({ min: 28, max: 255 }),
         flags: fc.constant(0),
       }),
       fc.record({
