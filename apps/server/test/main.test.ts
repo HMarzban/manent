@@ -58,7 +58,9 @@ test("the server reports the port it bound, and keeps its session key across res
   ).json()) as SignInResponse;
   const key = await readFile(join(dataDir, "session.key"));
   expect(key.length).toBe(32);
-  expect((await stat(join(dataDir, "session.key"))).mode & 0o777).toBe(0o600);
+  // Windows keeps no POSIX permission bits, so the mode reads back as 0o666
+  if (process.platform !== "win32")
+    expect((await stat(join(dataDir, "session.key"))).mode & 0o777).toBe(0o600);
   await first.stop();
   const second = await start({ ...env, port: first.port });
   expect(
@@ -95,6 +97,8 @@ test("a session key that cannot be read stops the server instead of signing ever
   });
   expect((await stat(join(dataDir, "session.key"))).isDirectory()).toBe(true);
 
+  // Windows cannot make a file unreadable to its owner with a mode
+  if (process.platform === "win32") return;
   const writeOnly = await tempDir();
   const key = new Uint8Array(32).fill(5);
   await writeFile(join(writeOnly, "session.key"), key, { mode: 0o200 });

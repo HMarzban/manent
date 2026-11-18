@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 
 const repoRoot = join(import.meta.dir, "..", "..");
 
@@ -17,7 +17,7 @@ test("no source file is longer than 400 lines", async () => {
     for await (const file of new Bun.Glob(pattern).scan({ cwd: repoRoot })) {
       if (
         file
-          .split("/")
+          .split(sep)
           .some(
             (part) =>
               part === "test" || part === "node_modules" || part === "dist",
