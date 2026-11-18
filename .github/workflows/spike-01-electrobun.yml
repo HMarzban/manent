@@ -1,0 +1,225 @@
+# Spike 1 on macOS, Windows and Linux: build and install the Electrobun app, smoke it, check its update path,
+# package Electron beside it, and measure both. Every result and installer is uploaded, whichever step fails.
+name: spike-01-electrobun
+
+on:
+  push:
+    branches: [spikes]
+    paths:
+      - "spikes/01-electrobun/**"
+      - ".github/workflows/spike-01-electrobun.yml"
+      - "!spikes/01-electrobun/results/**"
+      - "!spikes/01-electrobun/RESULT.md"
+
+permissions:
+  contents: read
+
+jobs:
+  spike:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, windows-2025, ubuntu-24.04]
+    defaults:
+      run:
+        shell: bash
+        working-directory: spikes/01-electrobun
+    env:
+      HUTCH_HOME: ${{ github.workspace }}/spikes/01-electrobun/.hutch-home
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      # Git Bash would turn the installers' "/S" into a path
+      MSYS_NO_PATHCONV: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Linux libraries and display
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-0 libayatana-appindicator3-1 librsvg2-2 libnss3 libgbm1 libasound2t64 xvfb
+          # Chromium's sandbox needs unprivileged user namespaces, which Ubuntu 24.04 restricts by default
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          echo "RUN=xvfb-run -a" >> "$GITHUB_ENV"
+
+      - name: Install, test and build the page
+        run: |
+          bun install --frozen-lockfile
+          bun test
+          bun scripts/build-page.ts
+          echo "PLATFORM=$(bun -e 'console.log(process.platform)')" >> "$GITHUB_ENV"
+          echo "INSTALLERS=$RUNNER_TEMP/installers" >> "$GITHUB_ENV"
+
+      - name: Build and install Electrobun 0.0.1, plain and with a debugging port
+        run: |
+          set -euo pipefail
+          mkdir -p "$INSTALLERS" results
+          sha256 () { (sha256sum "$1" 2>/dev/null || shasum -a 256 "$1") | cut -d' ' -f1; }
+          refuse () {
+            REASON="$1" bun -e 'await Bun.write("results/install-" + process.platform + ".json", JSON.stringify({ status: "not run", reason: process.env.REASON }, null, 2) + "\n")'
+            echo "$1" >&2
+            exit 1
+          }
+          # Electrobun's Windows and Linux installers write the app to its channel folder
+          if [ "$RUNNER_OS" = Windows ]; then CHANNEL="$LOCALAPPDATA/dev.manent.spike01/stable"; else CHANNEL="${XDG_DATA_HOME:-$HOME/.local/share}/dev.manent.spike01/stable"; fi
+          # install runs inside a command substitution, where bash clears -e, so each of its commands is checked
+          must () { "$@" >&2 || refuse "$* exited with status $?"; }
+          install () { # $1 = plain or debug; prints the installed executable
+            case "$RUNNER_OS" in
+              macOS)
+                local dest=/Applications; [ "$1" = debug ] && dest=/Applications/electrobun-debug
+                must mkdir -p "$RUNNER_TEMP/mnt" "$dest"
+                must hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/mnt" artifacts/macos-arm64-ManentSpike.dmg
+                must ditto "$RUNNER_TEMP/mnt/ManentSpike.app" "$dest/ManentSpike.app"
+                must hdiutil detach "$RUNNER_TEMP/mnt"
+                must cp artifacts/macos-arm64-ManentSpike.dmg "$INSTALLERS/electrobun-$1-macos-arm64-ManentSpike.dmg"
+                echo "$dest/ManentSpike.app/Contents/MacOS/launcher" ;;
+              Windows)
+                local setup_dir="$RUNNER_TEMP/electrobun-setup-$1"
+                must unzip -o -q artifacts/win-x64-ManentSpike-Setup.zip -d "$setup_dir"
+                must cp artifacts/win-x64-ManentSpike-Setup.zip "$INSTALLERS/electrobun-$1-win-x64-ManentSpike-Setup.zip"
+                local setup; setup=$(find "$setup_dir" -iname '*.exe' | head -n 1)
+                [ -n "$setup" ] || refuse "the Windows setup archive holds no executable"
+                timeout 150 "$setup" /S >&2 || timeout 150 "$setup" --silent >&2 || refuse "the Windows setup did not finish unattended within 5 minutes with /S or --silent"
+                [ -d "$CHANNEL" ] || refuse "the Windows setup wrote nothing to $CHANNEL"
+                find "$CHANNEL" -path '*/bin/*' -iname 'launcher*.exe' | head -n 1 ;;
+              Linux)
+                local setup_dir="$RUNNER_TEMP/electrobun-setup-$1"
+                must mkdir -p "$setup_dir"
+                must tar -xzf artifacts/linux-x64-ManentSpike-Setup.tar.gz -C "$setup_dir"
+                must cp artifacts/linux-x64-ManentSpike-Setup.tar.gz "$INSTALLERS/electrobun-$1-linux-x64-ManentSpike-Setup.tar.gz"
+                local setup; setup=$(find "$setup_dir" -type f -name 'installer*' | head -n 1)
+                [ -n "$setup" ] || refuse "the Linux setup archive holds no installer"
+                timeout 300 "$setup" >&2 || refuse "the Linux installer did not finish unattended within 5 minutes"
+                [ -d "$CHANNEL" ] || refuse "the Linux installer wrote nothing to $CHANNEL"
+                find "$CHANNEL" -path '*/bin/*' -type f -name 'launcher' | head -n 1 ;;
+            esac
+          }
+          root_of () { case "$1" in *.app/*) echo "${1%%.app/*}.app" ;; *) dirname "$(dirname "$1")" ;; esac; }
+          # the first launch unpacks the app and is not a cold start; smoke.ts launches it, waits for its node and prints its
+          # result on one line, or says why on stderr and prints nothing, which records a null time and keeps the step going
+          first_launch () {
+            local line; line=$(${RUN:-} bun scripts/smoke.ts electrobun --app "$1") || return 0
+            printf '%s\n' "$line" | sed -n 's/.*"healthMs":\([0-9][0-9]*\).*/\1/p' | tail -n 1
+          }
+
+          SPIKE_DEBUG_PORT=9334 bunx electrobun build --env=stable
+          DEBUG_APP=$(install debug)
+          [ -n "$DEBUG_APP" ] || refuse "the debug build installed no launcher"
+          if [ "$RUNNER_OS" != macOS ]; then
+            # the plain build installs to the same folder, so the debug copy moves out first
+            mkdir -p "$RUNNER_TEMP/electrobun-debug"
+            DEBUG_ROOT=$(root_of "$DEBUG_APP")
+            mv "$DEBUG_ROOT" "$RUNNER_TEMP/electrobun-debug/app"
+            DEBUG_APP="$RUNNER_TEMP/electrobun-debug/app/${DEBUG_APP#"$DEBUG_ROOT"/}"
+          fi
+          echo "EB_DEBUG_APP=$DEBUG_APP" >> "$GITHUB_ENV"
+          DEBUG_FIRST_MS=$(first_launch "$DEBUG_APP")
+
+          bunx electrobun build --env=stable
+          APP=$(install plain)
+          [ -n "$APP" ] || refuse "the plain build installed no launcher"
+          EB_INSTALLER=$(find "$INSTALLERS" -name 'electrobun-plain-*' | head -n 1)
+          { echo "EB_APP=$APP"; echo "EB_INSTALLER=$EB_INSTALLER"; } >> "$GITHUB_ENV"
+          FIRST_MS=$(first_launch "$APP")
+
+          KEY=$(ls "$HUTCH_HOME/npm/electrobun/2.0.6")
+          ARCHIVE="electrobun-hutch-$KEY.tar.gz"
+          URL="https://github.com/blackboardsh/electrobun/releases/download/v2.0.6/$ARCHIVE"
+          # the bootstrap keeps no copy of the archive, so it is fetched once to be hashed
+          HUTCH_FILE="$HUTCH_HOME/npm/electrobun/2.0.6/$KEY/$ARCHIVE"
+          if [ ! -f "$HUTCH_FILE" ]; then HUTCH_FILE="$RUNNER_TEMP/$ARCHIVE"; curl -fsSL -o "$HUTCH_FILE" "$URL"; fi
+          # after the first launches, which unpack the libraries the launcher loads
+          LDD=""
+          if [ "$RUNNER_OS" = Linux ]; then
+            LDD=$(for root in "$(root_of "$APP")" "$RUNNER_TEMP/electrobun-debug/app"; do
+              find "$root" -type f \( -perm -u+x -o -name '*.so*' \) -print0 | while IFS= read -r -d '' file; do
+                # ldd exits non-zero for a file that is not a dynamic executable, such as a script
+                { ldd "$file" 2>/dev/null || true; } | sed -n "/not found/s|^|$file: |p"
+              done
+            done | sort -u)
+          fi
+          INSTALL_ROOT=$(root_of "$APP") DEBUG_INSTALL_ROOT=$(root_of "$DEBUG_APP") FIRST_MS="$FIRST_MS" DEBUG_FIRST_MS="$DEBUG_FIRST_MS" \
+          HUTCH_RELEASE="$HUTCH_HOME/npm/electrobun/2.0.6/$KEY/hutch-release.json" ARCHIVE="$ARCHIVE" URL="$URL" HUTCH_SHA256=$(sha256 "$HUTCH_FILE") LDD="$LDD" bun -e '
+            const e = process.env
+            const deps = JSON.parse(await Bun.file(".hutch/dependencies.lock").text()).objects
+            const record = {
+              status: "installed", installRoot: e.INSTALL_ROOT, debugInstallRoot: e.DEBUG_INSTALL_ROOT,
+              firstLaunchMs: e.FIRST_MS ? Number(e.FIRST_MS) : null, debugFirstLaunchMs: e.DEBUG_FIRST_MS ? Number(e.DEBUG_FIRST_MS) : null,
+              hutch: { version: JSON.parse(await Bun.file(e.HUTCH_RELEASE).text()).version, archive: e.ARCHIVE, url: e.URL, sha256: e.HUTCH_SHA256 },
+              coreSha256: deps.find(o => o.type === "electrobun")?.coreSha256 ?? null,
+              cefSha256: deps.find(o => o.type === "electrobun-cef")?.cefSha256 ?? null,
+              ...(process.platform === "linux" ? { ldd: e.LDD ? e.LDD.split("\n") : [] } : {})
+            }
+            await Bun.write("results/install-" + process.platform + ".json", JSON.stringify(record, null, 2) + "\n")'
+
+      - name: Smoke the installed Electrobun app
+        if: always()
+        run: ${RUN:-} bun scripts/smoke.ts electrobun --app "$EB_APP"
+
+      - name: Build 0.0.2 and check the update path
+        if: always()
+        run: |
+          SPIKE_VERSION=0.0.2 bunx electrobun build --env=stable
+          mkdir -p artifacts/updates
+          cp artifacts/stable-*-update-v2.json artifacts/stable-*-update.json artifacts/stable-*.tar.zst artifacts/updates/
+          ${RUN:-} bun scripts/update-check.ts --app "$EB_APP" --updates artifacts/updates
+
+      - name: Package, install and smoke Electron
+        if: always()
+        run: |
+          set -euo pipefail
+          bun build --compile shared/sidecar.ts --outfile electron/bin/sidecar
+          case "$RUNNER_OS" in
+            macOS)
+              bunx electron-builder --mac dmg --config electron/electron-builder.yml
+              EL_INSTALLER=$(find artifacts/electron -maxdepth 1 -name '*.dmg' | head -n 1)
+              mkdir -p "$RUNNER_TEMP/mnt" /Applications/electron
+              hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/mnt" "$EL_INSTALLER"
+              ditto "$RUNNER_TEMP/mnt/ManentSpike.app" /Applications/electron/ManentSpike.app
+              hdiutil detach "$RUNNER_TEMP/mnt"
+              EL_ROOT=/Applications/electron/ManentSpike.app
+              EL_APP="$EL_ROOT/Contents/MacOS/ManentSpike" ;;
+            Windows)
+              bunx electron-builder --win nsis --config electron/electron-builder.yml
+              EL_INSTALLER=$(find artifacts/electron -maxdepth 1 -name '*.exe' | head -n 1)
+              timeout 300 "$EL_INSTALLER" /S
+              EL_APP=$(find "$LOCALAPPDATA/Programs" -name 'ManentSpike.exe' | head -n 1)
+              EL_ROOT=$(dirname "$EL_APP") ;;
+            Linux)
+              bunx electron-builder --linux AppImage --config electron/electron-builder.yml
+              EL_INSTALLER=$(find artifacts/electron -maxdepth 1 -name '*.AppImage' | head -n 1)
+              # run in place from its own unpacked tree, so that every process's executable is inside one folder
+              chmod +x "$EL_INSTALLER"
+              (cd "$RUNNER_TEMP" && "$GITHUB_WORKSPACE/spikes/01-electrobun/$EL_INSTALLER" --appimage-extract > /dev/null)
+              EL_ROOT="$RUNNER_TEMP/squashfs-root"
+              EL_APP="$EL_ROOT/manent-spike-01-electrobun" ;;
+          esac
+          cp "$EL_INSTALLER" "$INSTALLERS/"
+          EL_INSTALLER="$INSTALLERS/$(basename "$EL_INSTALLER")"
+          EL_ROOT="$EL_ROOT" bun -e '
+            const file = "results/install-" + process.platform + ".json"
+            const record = await Bun.file(file).exists() ? JSON.parse(await Bun.file(file).text()) : {}
+            await Bun.write(file, JSON.stringify({ ...record, electronInstallRoot: process.env.EL_ROOT }, null, 2) + "\n")'
+          { echo "EL_APP=$EL_APP"; echo "EL_INSTALLER=$EL_INSTALLER"; } >> "$GITHUB_ENV"
+          ${RUN:-} bun scripts/smoke.ts electron --app "$EL_APP"
+
+      - name: Measure both shells
+        if: always()
+        run: ${RUN:-} bun scripts/measure.ts --electrobun "$EB_APP" --electrobun-debug "$EB_DEBUG_APP" --electron "$EL_APP" --installers "$EB_INSTALLER,$EL_INSTALLER" --pairs 15 --out "results/measure-$PLATFORM.json"
+
+      - name: Compare the shells
+        if: always()
+        run: bun scripts/compare.ts "results/measure-$PLATFORM.json" --out "results/compare-$PLATFORM.json"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spike-01-${{ matrix.os }}
+          path: |
+            spikes/01-electrobun/results/
+            ${{ runner.temp }}/installers/

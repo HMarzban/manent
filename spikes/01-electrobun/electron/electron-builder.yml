@@ -1,0 +1,26 @@
+# The Electron shell for the comparison: the main process, the compiled local node and the page, unsigned.
+appId: dev.manent.spike01.electron
+productName: ManentSpike
+directories:
+  output: artifacts/electron
+files:
+  - electron/main.cjs
+  - "!node_modules/**"
+extraMetadata:
+  main: electron/main.cjs
+  version: 0.0.1
+extraResources:
+  - from: electron/bin/
+    to: .
+  - from: shared/page/index.html
+    to: page/index.html
+  - from: shared/page/dist/
+    to: page/dist/
+npmRebuild: false
+mac:
+  target: dmg
+  identity: null
+win:
+  target: nsis
+linux:
+  target: AppImage

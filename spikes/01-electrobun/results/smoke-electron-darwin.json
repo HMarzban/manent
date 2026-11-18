@@ -1,0 +1,8 @@
+{
+  "shell": "electron",
+  "platform": "darwin",
+  "version": "0.0.1",
+  "healthMs": 1417,
+  "wsRoundTrip": true,
+  "sqliteRows": 3
+}
