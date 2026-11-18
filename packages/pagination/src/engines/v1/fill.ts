@@ -1,6 +1,9 @@
 // The page filler: one page from where it opens to the break that ends it. Units are half-lines.
+import type { LayoutBlock } from "../../layout-block.ts";
+import type { PageProfile, SpecKey } from "../../page-profile.ts";
 import type { Page } from "../../pages.ts";
 import { UNITS_PER_LINE } from "../../units.ts";
+import { upperCase } from "./cells.ts";
 import {
   cueOf,
   dropOf,
@@ -15,7 +18,11 @@ import {
   tailOf,
 } from "./keep.ts";
 import type { Flow } from "./keep.ts";
+import { specKey } from "./profile.ts";
 import { splitAt } from "./split.ts";
+
+/** Lines the CONTINUED: line and the blank line under it take at a page's top. */
+const CONTINUED_LINES = 2;
 
 /** Where a page opens, and the furniture at its top. */
 export type PageStart = Pick<
@@ -48,22 +55,92 @@ interface Break {
   readonly forced: boolean;
 }
 
+const keyAt = (blocks: readonly LayoutBlock[], i: number) =>
+  specKey(blocks[i]!.type, blocks[i]!.kind);
+
+/** The element starts a scene that its number counts and that a page can be continued in. */
+export function isSceneHeading(key: SpecKey): boolean {
+  return key === "scene_heading" || key === "slug";
+}
+
+function isSceneBoundary(key: SpecKey): boolean {
+  return (
+    isSceneHeading(key) || key === "chapter" || key.startsWith("act_break.")
+  );
+}
+
+// The name a cue speaks under: its text before the first "(", in capitals, trimmed.
+function speakerName(text: string): string {
+  const open = text.indexOf("(");
+  return upperCase(open < 0 ? text : text.slice(0, open)).trim();
+}
+
+/**
+ * Cue i is shown with the same-speaker suffix: the nearest earlier cue in its scene has its name, and
+ * neither the profile, the cue's `noContd` nor its own text already ending in the suffix says no.
+ */
+export function hasSpeakerSuffix(
+  blocks: readonly LayoutBlock[],
+  profile: PageProfile,
+  i: number,
+): boolean {
+  const { furniture } = profile;
+  const cue = blocks[i]!;
+  if (
+    !furniture.speakerContinued ||
+    cue.noContd ||
+    keyAt(blocks, i) !== "character" ||
+    upperCase(cue.text).trimEnd().endsWith(furniture.contdText.trim())
+  )
+    return false;
+  const name = speakerName(cue.text);
+  if (name === "") return false;
+  for (let j = i - 1; j >= 0; j--) {
+    const key = keyAt(blocks, j);
+    if (isSceneBoundary(key)) return false;
+    if (key === "character") return speakerName(blocks[j]!.text) === name;
+  }
+  return false;
+}
+
+// The page opening at line `line` of `block` is inside a scene that began on an earlier page.
+function isSceneContinued(flow: Flow, block: number, line: number): boolean {
+  if (!flow.profile.furniture.sceneContinued) return false;
+  for (let j = Math.min(block, flow.blocks.length - 1); j >= 0; j--) {
+    const key = keyAt(flow.blocks, j);
+    if (isSceneBoundary(key))
+      return isSceneHeading(key) && (j < block || line > 0);
+  }
+  return false;
+}
+
+function opening(flow: Flow, at: Break, contd: string | null): PageStart {
+  const sceneContinued = isSceneContinued(flow, at.block, at.line);
+  return {
+    block: at.block,
+    line: at.line,
+    offset: flow.metrics[at.block]?.starts[at.line] ?? 0,
+    right: null,
+    contd,
+    contdRight: null,
+    sceneContinued,
+    locked: false,
+    forced: at.forced,
+    topUnits:
+      (sceneContinued ? CONTINUED_LINES * UNITS_PER_LINE : 0) +
+      (contd === null ? 0 : UNITS_PER_LINE),
+  };
+}
+
 /** The first page of a script: at its first printed block, or block 0 when nothing is printed. */
 export function firstStart(flow: Flow): PageStart {
   let block = 0;
   while (block < flow.blocks.length && !isPrinted(flow, block)) block++;
-  return {
-    block: block < flow.blocks.length ? block : 0,
-    line: 0,
-    offset: 0,
-    right: null,
-    contd: null,
-    contdRight: null,
-    sceneContinued: false,
-    locked: false,
-    forced: false,
-    topUnits: 0,
-  };
+  return opening(
+    flow,
+    { block: block < flow.blocks.length ? block : 0, line: 0, forced: false },
+    null,
+  );
 }
 
 function place(flow: Flow, sheet: Sheet, i: number, units: number): void {
@@ -108,21 +185,6 @@ function step(flow: Flow, sheet: Sheet, i: number, line: number): Break | null {
   if (k <= line) return { block: i, line, forced: false };
   sheet.used += before + (k - line) * piece.step;
   return { block: i, line: k, forced: false };
-}
-
-function opening(flow: Flow, at: Break, contd: string | null): PageStart {
-  return {
-    block: at.block,
-    line: at.line,
-    offset: flow.metrics[at.block]!.starts[at.line] ?? 0,
-    right: null,
-    contd,
-    contdRight: null,
-    sceneContinued: false,
-    locked: false,
-    forced: at.forced,
-    topUnits: contd === null ? 0 : UNITS_PER_LINE,
-  };
 }
 
 function filled(

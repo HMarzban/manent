@@ -4,7 +4,7 @@ import { NO_LOCKS } from "../../lock-table.ts";
 import type { LockTable } from "../../lock-table.ts";
 import type { PageProfile } from "../../page-profile.ts";
 import type { Page, Pagination } from "../../pages.ts";
-import { fillPage, firstStart } from "./fill.ts";
+import { fillPage, firstStart, hasSpeakerSuffix } from "./fill.ts";
 import type { FilledPage, PageStart } from "./fill.ts";
 import { createFlow } from "./keep.ts";
 import type { Flow } from "./keep.ts";
@@ -33,7 +33,15 @@ export function paginate(
   locks: LockTable = NO_LOCKS,
 ): Pagination {
   const own = Object.freeze([...blocks]);
-  const metrics = Object.freeze(own.map((block) => measure(block, profile)));
+  const metrics = Object.freeze(
+    own.map((block, i) =>
+      measure(block, profile, {
+        suffix: hasSpeakerSuffix(own, profile, i)
+          ? profile.furniture.contdText
+          : "",
+      }),
+    ),
+  );
   const flow = createFlow(own, profile, metrics);
   return Object.freeze({
     engineVersion: profile.engineVersion,
