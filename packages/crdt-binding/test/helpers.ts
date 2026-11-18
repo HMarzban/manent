@@ -1,7 +1,7 @@
 // Documents, a fake network and fake timers for the binding's tests, and editors bound through bindDocument.
 import { ORIGIN_REMOTE, loadDoc, scriptDocFromJSON } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import type { Timers } from "@manent/editor";
+import type { EditorBinding, Timers } from "@manent/editor";
 import { SECTION_TARGET_BLOCKS } from "@manent/schema";
 import type { BlockJSON, DocJSON } from "@manent/schema";
 import { EditorState, TextSelection } from "prosemirror-state";
@@ -188,6 +188,8 @@ export function updatesSentBy(doc: CrdtDoc): number {
   return sent.get(doc) ?? 0;
 }
 
+const bindings = new WeakMap<EditorView, EditorBinding>();
+
 /** An editor over `doc`, bound through bindDocument, with fake timers and no one else's awareness. */
 export function bound(doc: CrdtDoc): EditorView {
   const result = bindDocument({
@@ -205,7 +207,16 @@ export function bound(doc: CrdtDoc): EditorView {
       plugins: [...result.binding.plugins],
     }),
   });
+  bindings.set(view, result.binding);
   return view;
+}
+
+/** The binding behind an editor made by bound(). */
+export function bindingOf(view: EditorView): EditorBinding {
+  const binding = bindings.get(view);
+  if (binding === undefined)
+    throw new RangeError("the view was not made by bound()");
+  return binding;
 }
 
 /** Every block in document order: its id and text. */

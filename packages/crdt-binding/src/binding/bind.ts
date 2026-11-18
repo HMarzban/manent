@@ -1,16 +1,18 @@
 // Binds a CRDT document to ProseMirror through y-prosemirror, and hands the editor only its own types.
-import { scriptBody, yXmlFragmentForBinding } from "@manent/crdt";
+import {
+  ORIGIN_REVIEW,
+  createUndoScope,
+  scriptBody,
+  yXmlFragmentForBinding,
+} from "@manent/crdt";
 import type { CrdtDoc, UndoRoot } from "@manent/crdt";
-import type {
-  EditorBinding,
-  HistoryPort,
-  PresencePort,
-  Timers,
-} from "@manent/editor";
+import type { EditorBinding, PresencePort, Timers } from "@manent/editor";
 import { parseDoc, schema } from "@manent/schema";
 import type { Node } from "prosemirror-model";
 import { Plugin } from "prosemirror-state";
-import { initProseMirrorDoc, ySyncPlugin } from "y-prosemirror";
+import { initProseMirrorDoc, ySyncPlugin, ySyncPluginKey } from "y-prosemirror";
+import { compositionPlugin } from "../history/composition.ts";
+import { createHistory } from "../history/undo.ts";
 import { hasNewerContent } from "./gate.ts";
 import { isRemoteTransaction, isUndoRedoTransaction } from "./remote.ts";
 
@@ -26,15 +28,6 @@ export interface BoundDocument {
 export type BindResult =
   | { ok: true; binding: EditorBinding; destroy(): void }
   | { ok: false; reason: "newer_content"; doc: Node };
-
-const NO_HISTORY: HistoryPort = Object.freeze({
-  undo: () => false,
-  redo: () => false,
-  canUndo: () => false,
-  canRedo: () => false,
-  closeStep: () => {},
-  onStep: () => () => {},
-});
 
 const NO_PRESENCE: PresencePort = Object.freeze({
   publish: () => {},
@@ -79,12 +72,23 @@ export function bindDocument(options: {
     };
   const fragment = yXmlFragmentForBinding(crdt);
   const { doc, mapping } = initProseMirrorDoc(fragment, schema);
+  // each binding has its own scope, which the undo plugin destroys with the view
+  const history = createHistory({
+    scope: createUndoScope(crdt, {
+      trackedOrigins: [ySyncPluginKey, ORIGIN_REVIEW],
+      roots: options.undoRoots,
+    }),
+  });
   const binding: EditorBinding = {
     doc,
-    plugins: [syncOnDocChange(ySyncPlugin(fragment, { mapping }))],
+    plugins: [
+      syncOnDocChange(ySyncPlugin(fragment, { mapping })),
+      history.plugin,
+      compositionPlugin(options.document, options.timers),
+    ],
     isRemote: isRemoteTransaction,
     isUndoRedo: isUndoRedoTransaction,
-    history: NO_HISTORY,
+    history: history.port,
     presence: NO_PRESENCE,
   };
   return { ok: true, binding, destroy: () => {} };
