@@ -30,6 +30,16 @@ function useFocusAfterRename(
   }, [renaming, heading]);
 }
 
+/** The title of `docId` as the Library holds it, or `Untitled script` before it has one. */
+export function useDocumentTitle(docId: string): string {
+  const { library } = useServices();
+  const titleSource = useMemo(
+    () => library.documentTitle(docId),
+    [library, docId],
+  );
+  return useSubscribable(titleSource) ?? LIBRARY_WORDS.untitledScript;
+}
+
 /**
  * On a narrow window it yields in this order: the avatars become a count, the title shortens with an ellipsis, and
  * only then does the status take a second row. The status never shortens.
@@ -39,13 +49,8 @@ export function TitleBar(props: {
   doc: DocumentServices;
 }): ReactNode {
   const { docId, doc } = props;
-  const { library } = useServices();
   const router = useRouter();
-  const titleSource = useMemo(
-    () => library.documentTitle(docId),
-    [library, docId],
-  );
-  const title = useSubscribable(titleSource) ?? LIBRARY_WORDS.untitledScript;
+  const title = useDocumentTitle(docId);
   const renaming = useRenaming() === docId;
   const heading = useRef<HTMLHeadingElement>(null);
   useFocusAfterRename(renaming, heading);

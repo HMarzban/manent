@@ -18,10 +18,6 @@ import { ShellRegion } from "../../shell/regions.tsx";
 import { useEditorFact } from "../../state/facts.store.ts";
 import { panelsActions } from "../../state/panels.store.ts";
 
-const REGISTERED: ReadonlySet<string> = new Set(
-  COMMANDS.map((command) => command.id),
-);
-
 /** Runs a command a bar's action names, and says whether it is registered: an action whose command is not is not drawn. */
 export function useCommandActions(): {
   run(commandId: string): void;
@@ -32,8 +28,23 @@ export function useCommandActions(): {
     run(commandId) {
       commands.run(commandId, "control");
     },
-    registered: (commandId) => REGISTERED.has(commandId),
+    registered: (commandId) =>
+      COMMANDS.some((command) => command.id === commandId),
   };
+}
+
+/** A button for `commandId`, drawn only once the command is registered. */
+export function CommandAction(props: {
+  commandId: string;
+  label: string;
+}): ReactNode {
+  const { run, registered } = useCommandActions();
+  if (!registered(props.commandId)) return null;
+  return (
+    <Button variant="outline" size="sm" onClick={() => run(props.commandId)}>
+      {props.label}
+    </Button>
+  );
 }
 
 /** `Page 12 of 52`, or `Page 12A · Blue (14 of 112)` on a page of a revision; null while the caret is on no page. */

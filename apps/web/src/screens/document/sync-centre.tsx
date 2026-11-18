@@ -1,6 +1,5 @@
 // The Sync centre: what is saved where, what waits by scene, what is to review and the receipts. It holds no state.
 import {
-  Button,
   CommandButton,
   PopoverTitle,
   SYNC_CENTRE_WORDS,
@@ -12,7 +11,7 @@ import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
-import { useCommandActions } from "./status-bar.tsx";
+import { CommandAction } from "./status-bar.tsx";
 
 /** The line under a status the person may not understand; null for every other status. */
 function explanation(facts: StatusFacts): string | null {
@@ -35,17 +34,6 @@ function explanation(facts: StatusFacts): string | null {
   }
 }
 
-/** A button for `commandId`, drawn only once the command is registered. */
-function Action(props: { commandId: string; label: string }): ReactNode {
-  const { run, registered } = useCommandActions();
-  if (!registered(props.commandId)) return null;
-  return (
-    <Button variant="outline" size="sm" onClick={() => run(props.commandId)}>
-      {props.label}
-    </Button>
-  );
-}
-
 export function SyncCentre(props: { doc: DocumentServices }): ReactNode {
   const { doc } = props;
   const { messages } = useServices();
@@ -64,7 +52,10 @@ export function SyncCentre(props: { doc: DocumentServices }): ReactNode {
       {words.tone === "alert" ? (
         <div className="flex flex-col items-start gap-1">
           <p>{words.device ?? words.server}</p>
-          <Action commandId="doc.export" label={SYNC_CENTRE_WORDS.exportCopy} />
+          <CommandAction
+            commandId="doc.export"
+            label={SYNC_CENTRE_WORDS.exportCopy}
+          />
         </div>
       ) : null}
       {facts.neverSynced ? (
@@ -77,7 +68,10 @@ export function SyncCentre(props: { doc: DocumentServices }): ReactNode {
       {facts.toReview === 0 ? null : (
         <div className="flex items-center gap-2">
           <p>{SYNC_CENTRE_WORDS.toReview(facts.toReview)}</p>
-          <Action commandId="history.review" label={SYNC_CENTRE_WORDS.review} />
+          <CommandAction
+            commandId="history.review"
+            label={SYNC_CENTRE_WORDS.review}
+          />
         </div>
       )}
       {settled ? (
@@ -96,7 +90,10 @@ export function SyncCentre(props: { doc: DocumentServices }): ReactNode {
           <li key={index}>{receipt.text}</li>
         ))}
       </ul>
-      <Action commandId="doc.export" label={SYNC_CENTRE_WORDS.exportCopy} />
+      <CommandAction
+        commandId="doc.export"
+        label={SYNC_CENTRE_WORDS.exportCopy}
+      />
     </>
   );
 }

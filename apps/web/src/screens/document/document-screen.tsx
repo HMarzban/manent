@@ -1,5 +1,10 @@
 // The document screen: its frame drawn in the shell's areas around the page, which the shell keeps mounted.
-import { DOCUMENT_WORDS, createValue, useSubscribable } from "@manent/ui";
+import {
+  DOCUMENT_WORDS,
+  createValue,
+  messageFor,
+  useSubscribable,
+} from "@manent/ui";
 import type { StatusFacts, Subscribable } from "@manent/ui";
 import { getRouteApi } from "@tanstack/react-router";
 import {
@@ -20,8 +25,8 @@ import { fitPanels } from "./narrow-window.ts";
 import { useOpenDocument } from "./open-document.ts";
 import { useRemoteSettingMessages } from "./setting-messages.ts";
 import { SidePanel } from "./side-panel.tsx";
-import { StatusBar } from "./status-bar.tsx";
-import { TitleBar } from "./title-bar.tsx";
+import { CommandAction, StatusBar } from "./status-bar.tsx";
+import { TitleBar, useDocumentTitle } from "./title-bar.tsx";
 
 const route = getRouteApi("/s/$docId");
 
@@ -106,15 +111,32 @@ function useTestStatus(
   return status ?? source;
 }
 
-/** A person whose access was removed sees why in the page's place. */
-function NoAccess(props: { status: Subscribable<StatusFacts> }): ReactNode {
-  if (useSubscribable(props.status).server !== "access_removed") return null;
+/** A person whose access was removed sees why in the page's place, with what can still be done with the changes not sent. */
+function NoAccess(props: {
+  docId: string;
+  status: Subscribable<StatusFacts>;
+}): ReactNode {
+  const facts = useSubscribable(props.status);
+  const title = useDocumentTitle(props.docId);
+  if (facts.server !== "access_removed") return null;
+  const { actions } = messageFor({
+    kind: "access_removed",
+    title,
+    notSent: facts.notSent,
+  });
   return (
     <div
-      className="z-10 flex items-center justify-center bg-desk text-heading"
+      className="z-10 flex flex-col items-center justify-center gap-2 bg-desk text-heading"
       style={PAGE_AREA}
     >
       <p>{DOCUMENT_WORDS.noAccess}</p>
+      {actions.map((action) => (
+        <CommandAction
+          key={action.commandId}
+          commandId={action.commandId}
+          label={action.label}
+        />
+      ))}
     </div>
   );
 }
@@ -133,7 +155,7 @@ function Frame(props: { docId: string; doc: DocumentServices }): ReactNode {
       <TitleBar docId={docId} doc={doc} />
       <DocumentStateBar docId={docId} facts={doc.stateFacts} />
       <LeftPanel docId={docId} overlay={overPage} />
-      <NoAccess status={status} />
+      <NoAccess docId={docId} status={status} />
       <SidePanel docId={docId} overlay={overPage} />
       <StatusBar />
     </>

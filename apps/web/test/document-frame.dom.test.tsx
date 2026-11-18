@@ -1,5 +1,7 @@
 import { withDom } from "@manent/testkit/dom";
-import { afterEach, expect, test } from "bun:test";
+import * as commandsModule from "@manent/commands";
+import type { CommandDefinition } from "@manent/commands";
+import { afterEach, expect, mock, test } from "bun:test";
 import { messageFor } from "@manent/ui";
 import { act } from "react";
 import {
@@ -17,7 +19,12 @@ import {
 
 withDom();
 
-afterEach(unmountFrame);
+const REAL_COMMANDS = { ...commandsModule };
+
+afterEach(() => {
+  unmountFrame();
+  mock.module("@manent/commands", () => REAL_COMMANDS);
+});
 
 const SYNCED = { ...NEW_SCRIPT, neverSynced: false };
 
@@ -215,5 +222,51 @@ test("a message about your own work stays and is repeated in the Sync centre", a
   expect([slot?.querySelector("p")?.textContent, syncCentreParts()]).toEqual([
     text,
     ["Sync centre", "Everything is on the server.", text],
+  ]);
+});
+
+// a later feature's command, registered to show that its action is then drawn
+const EXPORT_COMMAND: CommandDefinition = {
+  id: "doc.export",
+  label: "Export",
+  group: "title",
+  home: null,
+  scope: "global",
+  keys: { mac: [], windows: [], linux: [] },
+  keysFixed: false,
+  when: null,
+  whyNot: null,
+  visible: null,
+  checked: null,
+  passThrough: null,
+  menus: [],
+  palette: { keywords: [] },
+  opens: null,
+  reach: "self",
+  setting: null,
+};
+
+/** The sentence in the page's place when access is removed, and the actions drawn under it. */
+function noAccessParts(container: HTMLElement): string[] {
+  const sentence = [...container.querySelectorAll("p")].find(
+    (p) => p.textContent === "You no longer have access",
+  );
+  return [
+    ...(sentence?.parentElement?.querySelectorAll("p, button") ?? []),
+  ].map(nameOf);
+}
+
+test("with no access, the page's place offers Export once its command is registered", async () => {
+  const status = { ...SYNCED, server: "access_removed", notSent: 4 } as const;
+  const before = noAccessParts((await renderFrame({ status })).container);
+  unmountFrame();
+  mock.module("@manent/commands", () => ({
+    ...REAL_COMMANDS,
+    COMMANDS: [...REAL_COMMANDS.COMMANDS, EXPORT_COMMAND],
+  }));
+  const after = noAccessParts((await renderFrame({ status })).container);
+  expect([before, after]).toEqual([
+    ["You no longer have access"],
+    ["You no longer have access", "Export"],
   ]);
 });
