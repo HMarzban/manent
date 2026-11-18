@@ -1,5 +1,5 @@
 // The sync service: who is connected, what they hold open, and every document message they send.
-import type { DocFile, Home, Storage } from "@manent/storage";
+import type { Storage } from "@manent/storage";
 import { CODE, prepareMessage } from "@manent/sync-protocol";
 import type { DocRef, Message, ServerVersions } from "@manent/sync-protocol";
 import { createTokenBucket } from "../limits/bucket.ts";
@@ -9,6 +9,7 @@ import { createDocumentAccess } from "./access.ts";
 import { createAwarenessHub } from "./awareness.ts";
 import type { DocumentAccess } from "./access.ts";
 import { createInlineCheckpointer } from "./checkpointer.ts";
+import { countingCommits } from "./counted-storage.ts";
 import { refusalError, syncError } from "./errors.ts";
 import { createHealing } from "./heal.ts";
 import { DEFAULT_LIMITS, NO_SETTINGS } from "./ports.ts";
@@ -23,8 +24,10 @@ import type {
 } from "./ports.ts";
 import { createRooms } from "./rooms.ts";
 import type { Room, Subscription } from "./rooms.ts";
+import { isStorageError } from "./storage-error.ts";
 import {
   checkSubscribe,
+  editorOpening,
   registerEditor,
   stepTwo,
   subscribedOf,
@@ -95,26 +98,6 @@ interface PeerState {
   buckets: { frames: TokenBucket; bytes: TokenBucket };
   /** By document id. */
   held: Map<string, Held>;
-}
-
-/** The storage with every committed transaction counted; each file is wrapped once, so it keeps its identity. */
-function countingCommits(storage: Storage, onCommit: () => void): Storage {
-  const files = new Map<string, DocFile>();
-  const open = (home: Home): DocFile => {
-    const key = `${home.kind}:${home.id}`;
-    const inner = storage.open(home);
-    const file = files.get(key) ?? {
-      ...inner,
-      transaction<T>(fn: () => T): T {
-        const result = inner.transaction(fn);
-        onCommit();
-        return result;
-      },
-    };
-    files.set(key, file);
-    return file;
-  };
-  return { directory: storage.directory, open, close: () => storage.close() };
 }
 
 function docOf(room: Room): DocRef {
@@ -274,7 +257,20 @@ export function createSyncService(
       return tell(peer, check.answer);
     }
     const { room, mode } = check;
-    heal.subscribed(room, message.lastServerSeq);
+    try {
+      heal.subscribed(room, message.lastServerSeq);
+      if (mode === "edit") registerEditor(room, peer.userId, message.clientIds);
+    } catch (error) {
+      // the store refused what a SUBSCRIBE writes: told as a failed commit is, and nothing held
+      if (!isStorageError(error)) throw error;
+      end(peer, docId);
+      rooms.left(room);
+      const retryAfterMs = limits.poisonRetryMs;
+      return tell(
+        peer,
+        syncError("storage_failed", docOf(room), { retryAfterMs }),
+      );
+    }
     if (mode === "view") presence.left(room, peer);
     room.editors.delete(peer);
     room.viewers.delete(peer);
@@ -288,12 +284,10 @@ export function createSyncService(
     // a viewer's snapshot holds only what is committed, and comes before any patch
     if (mode === "view" && writePath.queued() > 0) writePath.flush();
     state.held.set(docId, { room, subscription });
-    if (mode === "edit") registerEditor(room, peer.userId, message.clientIds);
     (mode === "edit" ? room.editors : room.viewers).set(peer, subscription);
     tell(peer, subscribedOf(room, granted, heal.headOf(room)));
-    const vector = room.doc?.encodeStateVector();
-    if (mode === "edit" && vector !== undefined) {
-      tell(peer, { type: "SYNC", ...docOf(room), step: "step1", data: vector });
+    if (mode === "edit") {
+      for (const m of editorOpening(room, message.lastServerSeq)) tell(peer, m);
       return presence.joined(room, peer);
     }
     tell(peer, snapshotOf(room));

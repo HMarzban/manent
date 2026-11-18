@@ -1,5 +1,5 @@
 // The checks a SUBSCRIBE passes, in order (the first that fails is the answer), and what passing gives.
-import { CrdtUpdateError, readStateVector } from "@manent/crdt";
+import { CrdtUpdateError, deletionsOf, readStateVector } from "@manent/crdt";
 import { gateDocument } from "@manent/sync-protocol";
 import type { Message } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
@@ -138,4 +138,25 @@ export function stepTwo(rooms: Rooms, room: Room, vector: Uint8Array): Message {
   const data =
     clocks.size === 0 ? rooms.fullState(room) : room.doc.diff(vector);
   return { type: "SYNC", ...doc, step: "step2", data };
+}
+
+/**
+ * What an editor is sent once subscribed: the server's step 1, then, when the rows after
+ * `lastServerSeq` deleted anything, one update of those deletions alone. Step 2's delete set holds
+ * what went with a deleted parent too; these rows tell the client which of its own text that was.
+ */
+export function editorOpening(room: Room, lastServerSeq: number): Message[] {
+  const { docId, file, row } = room;
+  const doc = { docId, generation: row.generation };
+  if (room.doc === null)
+    throw new RangeError(`the room of ${docId} is not loaded`);
+  const data = room.doc.encodeStateVector();
+  const step1: Message = { type: "SYNC", ...doc, step: "step1", data };
+  // a read for one client quarantines nothing; loading the room does that
+  const peek = { quarantine: false };
+  const { rows } = file.log.tail(docId, row.generation, lastServerSeq, peek);
+  const deletions = deletionsOf(rows.map((r) => r.update));
+  return deletions === null
+    ? [step1]
+    : [step1, { type: "SYNC", ...doc, step: "update", data: deletions }];
 }
