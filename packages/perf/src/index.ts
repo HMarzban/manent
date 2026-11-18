@@ -1,6 +1,7 @@
 export {
   MARK_BUFFER_SIZE,
   clearMarks,
+  createMarks,
   mark,
   markEnd,
   markStart,
@@ -8,4 +9,5 @@ export {
   readMarks,
   setMarksEnabled,
 } from "./marks.ts";
-export type { MarkRecord } from "./marks.ts";
+export type { MarkRecord, Marks } from "./marks.ts";
+export { PERF_MARKS } from "./names.ts";
