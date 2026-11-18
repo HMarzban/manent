@@ -1,7 +1,12 @@
 // Plain ProseMirror documents and states for the editor's tests.
 import { profileFor } from "@manent/pagination";
 import type { PageProfile } from "@manent/pagination";
-import { corpusDoc, generateBlocks } from "@manent/pagination/testing";
+import {
+  RULE_SCRIPTS,
+  corpusDoc,
+  generateBlocks,
+} from "@manent/pagination/testing";
+import type { CorpusBlock } from "@manent/pagination/testing";
 import { parseDoc, schema } from "@manent/schema";
 import type { IdSource } from "@manent/schema";
 import fc from "fast-check";
@@ -9,6 +14,7 @@ import { Fragment } from "prosemirror-model";
 import type { Node } from "prosemirror-model";
 import { EditorState, TextSelection } from "prosemirror-state";
 import type { Command, Transaction } from "prosemirror-state";
+import type { Decoration, DecorationSet } from "prosemirror-view";
 import {
   blockPos,
   deleteRangeKeepingSections,
@@ -320,3 +326,81 @@ export const arbTransactions: fc.Arbitrary<(s: EditorState) => EditorState> = fc
       toString: () => JSON.stringify(steps),
     }),
   );
+
+export const play: PageProfile = profileFor("stage_play")!;
+
+/** The blocks of a rule script, by name. */
+export function ruleScript(name: string): readonly CorpusBlock[] {
+  const found = RULE_SCRIPTS.find((s) => s.name === name);
+  if (found === undefined) throw new RangeError(`no rule script ${name}`);
+  return found.blocks;
+}
+
+/** One section of blocks, each [element, text]; block k has the id bid(k). */
+export function docOfBlocks(
+  blocks: readonly (readonly [string, string])[],
+): Node {
+  return schema.node(
+    "doc",
+    null,
+    schema.node(
+      "section",
+      null,
+      blocks.map(([type, text], k) =>
+        schema.node(
+          "block",
+          { id: bid(k), type },
+          text === "" ? [] : schema.text(text),
+        ),
+      ),
+    ),
+  );
+}
+
+/** A node or inline decoration's attributes, which prosemirror-view keeps on a member its types leave out. */
+function attrsOf(decoration: Decoration): Record<string, string> {
+  const type: unknown = Reflect.get(decoration, "type");
+  const attrs: unknown =
+    typeof type === "object" && type !== null
+      ? Reflect.get(type, "attrs")
+      : null;
+  if (typeof attrs !== "object" || attrs === null)
+    throw new TypeError("a decoration with no attributes");
+  return Object.fromEntries(
+    Object.entries(attrs).map(([name, value]) => [name, String(value)]),
+  );
+}
+
+function labelOf(decoration: Decoration): string {
+  const key: unknown = decoration.spec.key;
+  if (typeof key === "string") return key;
+  const { nodeName, class: className, ...rest } = attrsOf(decoration);
+  if (nodeName !== undefined) return nodeName;
+  return [
+    ...(className === undefined ? [] : [className]),
+    ...Object.keys(rest),
+  ].join(" ");
+}
+
+/** Every decoration as "from:to:" and its key, its class and attribute names, or its node name; sorted. */
+export function keysOf(set: DecorationSet): string[] {
+  return set
+    .find()
+    .map((d) => `${d.from}:${d.to}:${labelOf(d)}`)
+    .toSorted();
+}
+
+/** Per block in document order, its node decoration's attributes from the pagination plugin, or null. */
+export function blockDecorations(
+  s: EditorState,
+): (Record<string, string> | null)[] {
+  const { index, decorations } = paginationKey.getState(s)!;
+  return index.blocks.map((_, i) => {
+    const from = blockPos(index, i);
+    const to = from + s.doc.nodeAt(from)!.nodeSize;
+    const node = decorations
+      .find(from, to)
+      .find((d) => d.from === from && d.to === to);
+    return node === undefined ? null : attrsOf(node);
+  });
+}

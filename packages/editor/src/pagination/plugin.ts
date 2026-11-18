@@ -9,13 +9,17 @@ import type {
   Pagination,
 } from "@manent/pagination";
 import { mark } from "@manent/perf";
+import { selectAll } from "prosemirror-commands";
+import { keydownHandler } from "prosemirror-keymap";
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorState, PluginView, Transaction } from "prosemirror-state";
-import { DecorationSet } from "prosemirror-view";
-import type { EditorView } from "prosemirror-view";
+import type { DecorationSet, EditorView } from "prosemirror-view";
+import { MID_BLOCK_BREAKS } from "../page/config.ts";
 import type { BrowserEngine } from "../page/config.ts";
 import { toIndex, updateIndex } from "./block-index.ts";
 import type { BlockIndex } from "./block-index.ts";
+import { updateDecorations } from "./decorations.ts";
+import type { DecorationOptions } from "./decorations.ts";
 import type { IsRemote } from "./page-view.ts";
 
 export interface PaginationSettings {
@@ -117,21 +121,35 @@ function needsFullRun(prev: PaginationState, patch: SettingsPatch): boolean {
   );
 }
 
+function decorated(
+  prev: PaginationState | null,
+  index: BlockIndex,
+  pagination: Pagination,
+  change: ChangeHint | null,
+  options: DecorationOptions,
+): DecorationSet {
+  return mark("pagination.decorations", () =>
+    updateDecorations(prev, index, pagination, change, options),
+  );
+}
+
 function fullRun(
   prev: PaginationState,
   settings: PaginationSettings,
   state: EditorState,
+  options: DecorationOptions,
 ): PaginationState {
   const { index } = updateIndex(prev.index, state.doc, settings.layout);
+  const pagination = settings.engine.paginate(
+    index.blocks,
+    settings.profile,
+    settings.locks,
+  );
   return {
     settings,
     index,
-    pagination: settings.engine.paginate(
-      index.blocks,
-      settings.profile,
-      settings.locks,
-    ),
-    decorations: DecorationSet.empty,
+    pagination,
+    decorations: decorated(null, index, pagination, null, options),
     frozen: false,
     engineRuns: prev.engineRuns + 1,
   };
@@ -141,33 +159,27 @@ function incrementalRun(
   prev: PaginationState,
   settings: PaginationSettings,
   state: EditorState,
+  options: DecorationOptions,
 ): PaginationState {
   const { index, change } = updateIndex(prev.index, state.doc, settings.layout);
   if (change === null) return { ...prev, settings, index, frozen: false };
+  const pagination = mark("pagination.engine", () =>
+    settings.engine.repaginate(prev.pagination, index.blocks, change),
+  );
   return {
     settings,
     index,
-    pagination: repaginated(settings.engine, prev.pagination, index, change),
-    decorations: DecorationSet.empty,
+    pagination,
+    decorations: decorated(prev, index, pagination, change, options),
     frozen: false,
     engineRuns: prev.engineRuns + 1,
   };
 }
 
-function repaginated(
-  engine: Engine,
-  prev: Pagination,
-  index: BlockIndex,
-  change: ChangeHint,
-): Pagination {
-  return mark("pagination.engine", () =>
-    engine.repaginate(prev, index.blocks, change),
-  );
-}
-
 function initialState(
   options: PaginationOptions,
   state: EditorState,
+  decorations: DecorationOptions,
 ): PaginationState {
   const settings: PaginationSettings = {
     engine: options.layoutEngine ?? currentEngine(),
@@ -177,15 +189,16 @@ function initialState(
   };
   assertSameEngine(settings);
   const index = toIndex(state.doc, settings.layout);
+  const pagination = settings.engine.paginate(
+    index.blocks,
+    settings.profile,
+    settings.locks,
+  );
   return {
     settings,
     index,
-    pagination: settings.engine.paginate(
-      index.blocks,
-      settings.profile,
-      settings.locks,
-    ),
-    decorations: DecorationSet.empty,
+    pagination,
+    decorations: decorated(null, index, pagination, null, decorations),
     frozen: false,
     engineRuns: 0,
   };
@@ -195,6 +208,7 @@ function applyTransaction(
   tr: Transaction,
   prev: PaginationState,
   state: EditorState,
+  options: DecorationOptions,
 ): PaginationState {
   const patch = patchOf(tr);
   if (patch === null && !tr.docChanged) return prev;
@@ -204,11 +218,12 @@ function applyTransaction(
       decorations: prev.decorations.map(tr.mapping, tr.doc),
       frozen: true,
     };
-  if (patch === null) return incrementalRun(prev, prev.settings, state);
+  if (patch === null)
+    return incrementalRun(prev, prev.settings, state, options);
   const settings = withPatch(prev.settings, patch);
   return needsFullRun(prev, patch)
-    ? fullRun(prev, settings, state)
-    : incrementalRun(prev, settings, state);
+    ? fullRun(prev, settings, state, options)
+    : incrementalRun(prev, settings, state, options);
 }
 
 function stateOf(state: EditorState): PaginationState {
@@ -260,12 +275,23 @@ function paginationView(
 export function paginationPlugin(
   options: PaginationOptions,
 ): Plugin<PaginationState> {
+  const decorations: DecorationOptions = {
+    // with no engine named, as for a user agent that names none
+    style: MID_BLOCK_BREAKS[options.engine ?? "chromium"],
+    offFontNote: options.offFontNote,
+  };
   return new Plugin<PaginationState>({
     key: paginationKey,
     state: {
-      init: (_, state) => initialState(options, state),
-      apply: (tr, prev, _old, state) => applyTransaction(tr, prev, state),
+      init: (_, state) => initialState(options, state, decorations),
+      apply: (tr, prev, _old, state) =>
+        applyTransaction(tr, prev, state, decorations),
     },
     view: (view) => paginationView(view, options),
+    props: {
+      decorations: (state) => paginationKey.getState(state)?.decorations,
+      // WebKit selects nothing when a document's first and last children are breaks that cannot be edited
+      handleKeyDown: keydownHandler({ "Mod-a": selectAll }),
+    },
   });
 }

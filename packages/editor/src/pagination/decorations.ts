@@ -1,1 +1,350 @@
-export {};
+// Page breaks, furniture and what each block shows of the pages as decorations, built again only where the pages changed.
+import { engineFor } from "@manent/pagination";
+import type {
+  ChangeHint,
+  ElementSpec,
+  Engine,
+  LayoutBlock,
+  Pagination,
+} from "@manent/pagination";
+import type { Dual } from "@manent/schema";
+import type { Node } from "prosemirror-model";
+import { Mapping, StepMap } from "prosemirror-transform";
+import { Decoration, DecorationSet } from "prosemirror-view";
+import type { BreakStyle } from "../page/config.ts";
+import { blockPos } from "./block-index.ts";
+import type { BlockIndex } from "./block-index.ts";
+import { toBreakSpecs } from "./break-specs.ts";
+import type { BreakSpec } from "./break-specs.ts";
+import type { PaginationState } from "./plugin.ts";
+import { renderBreak } from "./widgets.ts";
+
+export interface DecorationOptions {
+  readonly style: BreakStyle;
+  /** The title of text outside the script font. */
+  readonly offFontNote: string;
+}
+
+/** Throws RangeError when this build does not carry the engine that made the pagination. */
+function engineOf(p: Pagination): Engine {
+  const engine = engineFor(p.engineVersion);
+  if (engine === null)
+    throw new RangeError(`this build carries no engine ${p.engineVersion}`);
+  return engine;
+}
+
+function widgetOf(spec: BreakSpec): Decoration {
+  return Decoration.widget(spec.pos, () => renderBreak(spec), {
+    key: spec.key,
+    side: spec.side,
+    stopEvent: () => true,
+    ignoreSelection: true,
+  });
+}
+
+// A block's dual column, in a run only: a right column counts after a left one.
+function columnOf(blocks: readonly LayoutBlock[], i: number): Dual | null {
+  const side = blocks[i]!.dual;
+  if (side !== "right") return side;
+  let at = i;
+  while (blocks[at]?.dual === "right") at--;
+  return blocks[at]?.dual === "left" ? "right" : null;
+}
+
+// The first block of each column on each page, so its space above is the drop a page's first block takes.
+function firstsOnPages(p: Pagination): Set<number> {
+  const firsts = new Set<number>();
+  for (const page of p.pages) {
+    if (page.line === 0) firsts.add(page.block);
+    if (page.right !== null && page.right.line === 0)
+      firsts.add(page.right.block);
+    if (page.line > 0 || page.right !== null) continue;
+    let split = page.block;
+    while (p.blocks[split]?.dual === "left") split++;
+    if (split > page.block && p.blocks[split]?.dual === "right")
+      firsts.add(split);
+  }
+  return firsts;
+}
+
+function overrideStyle(spec: ElementSpec): string {
+  return `--el-indent: ${spec.indent}; --el-width: ${spec.width}; --el-before: ${spec.spaceBefore}; text-align: ${spec.align}`;
+}
+
+interface BlockContext {
+  readonly p: Pagination;
+  readonly engine: Engine;
+  readonly firsts: ReadonlySet<number>;
+  /** The profile's own element specs: a block laid out by another has overrides. */
+  readonly rows: ReadonlySet<ElementSpec>;
+}
+
+function blockAttrs(
+  context: BlockContext,
+  i: number,
+): Record<string, string> | null {
+  const { p, engine } = context;
+  const { furniture } = p.profile;
+  const block = p.blocks[i]!;
+  const { spec } = p.metrics[i]!;
+  const column = columnOf(p.blocks, i);
+  const classes = [
+    ...(context.firsts.has(i) ? ["pg-first"] : []),
+    ...(column === null ? [] : [column === "left" ? "dual-l" : "dual-r"]),
+  ];
+  const attrs: Record<string, string> = {};
+  if (classes.length > 0) attrs["class"] = classes.join(" ");
+  const scene = furniture.scenesNumbered ? engine.sceneNumber(p, i) : null;
+  if (scene !== null) attrs["data-scene"] = scene;
+  if (engine.contdSuffix(p, i)) attrs["data-contd"] = furniture.contdText;
+  if (spec.enclosure !== null) {
+    attrs["data-open"] = spec.enclosure[0];
+    attrs["data-close"] = spec.enclosure[1];
+  }
+  if (block.type === "break" && block.text === "")
+    attrs["data-mark"] = furniture.breakMark;
+  if (!context.rows.has(spec)) attrs["style"] = overrideStyle(spec);
+  return Object.keys(attrs).length > 0 ? attrs : null;
+}
+
+/** Calls `visit` with each block in [from, to), the position before it and its node. */
+function eachBlock(
+  index: BlockIndex,
+  from: number,
+  to: number,
+  visit: (i: number, pos: number, node: Node) => void,
+): void {
+  if (from >= to) return;
+  const $start = index.doc.resolve(blockPos(index, from));
+  let section = $start.index(0);
+  let child = $start.index(1);
+  let pos = $start.pos;
+  for (let i = from; i < to; i++) {
+    if (child === index.doc.child(section).childCount) {
+      // past the section's close and the next one's open
+      pos += 2;
+      section++;
+      child = 0;
+    }
+    const node = index.doc.child(section).child(child);
+    visit(i, pos, node);
+    pos += node.nodeSize;
+    child++;
+  }
+}
+
+/** Every decoration that belongs to blocks [from, to): the breaks before and inside them, their node decorations and their text outside the script font. */
+export function decorationsFor(
+  index: BlockIndex,
+  p: Pagination,
+  from: number,
+  to: number,
+  options: DecorationOptions,
+): Decoration[] {
+  if (from >= to) return [];
+  const engine = engineOf(p);
+  const fromPos = blockPos(index, from);
+  const toPos =
+    to < index.blocks.length ? blockPos(index, to) : Number.POSITIVE_INFINITY;
+  const decorations = toBreakSpecs(index, p, options.style)
+    .filter((spec) => spec.pos >= fromPos && spec.pos < toPos)
+    .map(widgetOf);
+  const context: BlockContext = {
+    p,
+    engine,
+    firsts: firstsOnPages(p),
+    rows: new Set(Object.values(p.profile.elements)),
+  };
+  eachBlock(index, from, to, (i, pos, node) => {
+    const attrs = blockAttrs(context, i);
+    if (attrs !== null)
+      decorations.push(Decoration.node(pos, pos + node.nodeSize, attrs));
+    const runs = engine.offFontRanges(node.textContent);
+    for (let r = 0; r + 1 < runs.length; r += 2)
+      decorations.push(
+        Decoration.inline(pos + 1 + runs[r]!, pos + 1 + runs[r + 1]!, {
+          nodeName: "mn-offfont",
+          title: options.offFontNote,
+        }),
+      );
+  });
+  return decorations;
+}
+
+/** The position just after block `block`. */
+function blockEnd(index: BlockIndex, block: number): number {
+  const pos = blockPos(index, block);
+  return pos + index.doc.nodeAt(pos)!.nodeSize;
+}
+
+// One step over the changed blocks' document range: from the end of the block before them, so a section
+// boundary that moved is inside it, to the start of the block after them.
+function changeMapping(
+  before: BlockIndex,
+  after: BlockIndex,
+  change: ChangeHint,
+): Mapping {
+  const start =
+    change.first === 0
+      ? blockPos(before, 0)
+      : blockEnd(before, change.first - 1);
+  const oldEnd = blockPos(before, change.oldEnd);
+  const newEnd = blockPos(after, change.newEnd);
+  return new Mapping([new StepMap([start, oldEnd - start, newEnd - start])]);
+}
+
+// Page `a` of `p` draws its break and its blocks as page `b` of `old` did, its blocks `shift` later.
+function isDrawnAsBefore(
+  p: Pagination,
+  a: number,
+  old: Pagination,
+  b: number,
+  shift: number,
+): boolean {
+  const x = p.pages[a]!;
+  const y = old.pages[b]!;
+  const above = p.pages[a - 1];
+  const wasAbove = old.pages[b - 1];
+  const sameRight =
+    x.right === null
+      ? y.right === null
+      : y.right !== null &&
+        x.right.block === y.right.block + shift &&
+        x.right.line === y.right.line &&
+        x.right.offset === y.right.offset;
+  return (
+    sameRight &&
+    x.block === y.block + shift &&
+    x.line === y.line &&
+    x.offset === y.offset &&
+    x.label === y.label &&
+    x.more === y.more &&
+    x.contd === y.contd &&
+    x.contdRight === y.contdRight &&
+    x.sceneContinued === y.sceneContinued &&
+    x.topUnits === y.topUnits &&
+    x.usedUnits === y.usedUnits &&
+    (above === undefined
+      ? wasAbove === undefined
+      : wasAbove !== undefined &&
+        above.usedUnits === wasAbove.usedUnits &&
+        above.more === wasAbove.more)
+  );
+}
+
+function sceneCount(
+  p: Pagination,
+  engine: Engine,
+  from: number,
+  to: number,
+): number {
+  let count = 0;
+  for (let i = from; i < to; i++)
+    if (engine.sceneNumber(p, i) !== null) count++;
+  return count;
+}
+
+/**
+ * The blocks whose decorations can differ: the changed blocks and the one after them; the blocks of every page that is not drawn as
+ * before, from the first page that is not the old object to the first page from which every page is drawn as
+ * before; the next cue's suffix and the dual run after the change; and, when a scene was added or removed
+ * with scenes numbered, every block after.
+ */
+function affectedBlocks(
+  old: Pagination,
+  p: Pagination,
+  change: ChangeHint,
+): { from: number; to: number } {
+  const engine = engineOf(p);
+  const n = p.blocks.length;
+  const shift = change.newEnd - change.oldEnd;
+  const pages = p.pages.length;
+  const oldPages = old.pages.length;
+  let first = 0;
+  while (
+    first < Math.min(pages, oldPages) &&
+    p.pages[first] === old.pages[first]
+  )
+    first++;
+  let tail = 0;
+  while (
+    tail < Math.min(pages, oldPages) &&
+    isDrawnAsBefore(p, pages - 1 - tail, old, oldPages - 1 - tail, shift)
+  )
+    tail++;
+  let from = change.first;
+  // the block after the change too: its break sits where the step ends, and the step drops a widget there
+  let to = Math.max(
+    change.newEnd + 1,
+    tail > 0 ? p.pages[pages - tail]!.block : n,
+  );
+  const cover = (block: number) => {
+    from = Math.min(from, block);
+    to = Math.max(to, block + 1);
+  };
+  // an old block's index in the new blocks; one that was replaced counts as the first changed block
+  const now = (block: number) =>
+    block < change.first
+      ? block
+      : block >= change.oldEnd
+        ? block + shift
+        : change.first;
+  for (let k = first; k < pages - tail; k++) {
+    cover(p.pages[k]!.block);
+    if (p.pages[k]!.right !== null) cover(p.pages[k]!.right!.block);
+  }
+  for (let k = first; k < oldPages - tail; k++) {
+    cover(now(old.pages[k]!.block));
+    if (old.pages[k]!.right !== null) cover(now(old.pages[k]!.right!.block));
+  }
+  for (let i = change.newEnd; i < n; i++) {
+    if (
+      engine.contdSuffix(p, i) !== engine.contdSuffix(old, i - shift) ||
+      columnOf(p.blocks, i) !== columnOf(old.blocks, i - shift)
+    )
+      to = Math.max(to, i + 1);
+    // the cues after the next one read nothing before it
+    if (p.blocks[i]!.type === "character" && p.blocks[i]!.dual === null) break;
+  }
+  if (
+    p.profile.furniture.scenesNumbered &&
+    sceneCount(p, engine, change.first, change.newEnd) !==
+      sceneCount(old, engine, change.first, change.oldEnd)
+  )
+    to = n;
+  return { from: Math.min(from, n), to: Math.min(to, n) };
+}
+
+/**
+ * The decorations after a change: built whole with no `prev`; otherwise `prev`'s, moved past the changed
+ * blocks by one step, with those of the affected blocks built again. With nothing changed, `prev`'s.
+ */
+export function updateDecorations(
+  prev: PaginationState | null,
+  index: BlockIndex,
+  p: Pagination,
+  change: ChangeHint | null,
+  options: DecorationOptions,
+): DecorationSet {
+  const n = index.blocks.length;
+  if (prev === null)
+    return DecorationSet.create(
+      index.doc,
+      decorationsFor(index, p, 0, n, options),
+    );
+  if (change === null) return prev.decorations;
+  // a composition's decorations were mapped through its own steps, so they are in this document already
+  const mapped = prev.frozen
+    ? prev.decorations
+    : prev.decorations.map(changeMapping(prev.index, index, change), index.doc);
+  const { from, to } = affectedBlocks(prev.pagination, p, change);
+  if (from >= to) return mapped;
+  const fromPos = blockPos(index, from);
+  const toPos = to < n ? blockPos(index, to) : index.doc.content.size;
+  const stale = mapped
+    .find(fromPos, toPos)
+    .filter((d) => d.from >= fromPos && (to === n || d.from < toPos));
+  return mapped
+    .remove(stale)
+    .add(index.doc, decorationsFor(index, p, from, to, options));
+}
