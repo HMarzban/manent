@@ -156,6 +156,22 @@ test("changing paper says so to you with Undo, and to others with your name", as
   ]);
 });
 
+test("resetting paper says so with Undo, which sets it back", async () => {
+  const scriptBag = createMemoryBag({
+    initial: { "script.paper": "a4" },
+    writable: () => true,
+  });
+  const frame = await renderFrame({ scriptBag, startAt: NOV_17 });
+  await run(frame, "doc.scriptSettings");
+  await click(buttonNamed(sidePanel(frame), "Reset"));
+  const afterReset = [scriptBag.read()["script.paper"], shownMessage(frame)];
+  await click(buttonNamed(region(frame.container, "status_bar"), "Undo"));
+  expect([afterReset, scriptBag.read()["script.paper"]]).toEqual([
+    [undefined, ["Paper size is now US Letter.", "Undo"]],
+    "a4",
+  ]);
+});
+
 test("a reader sees every control read-only and why", async () => {
   const frame = await renderFrame({
     role: "viewer",

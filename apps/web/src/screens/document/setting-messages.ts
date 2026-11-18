@@ -38,7 +38,7 @@ export const nameOf = (
 ): string | null =>
   people.find((person) => person.userId === userId)?.name ?? null;
 
-/** The script's store, saying each change made through it, with an Undo that sets the value it replaced back. */
+/** The script's store, saying each change or reset of one key made through it, with an Undo that sets the value it replaced back. */
 export function announcing(
   store: SettingsStore,
   services: Pick<PersonServices, "messages" | "reverses">,
@@ -71,7 +71,13 @@ export function announcing(
       return result;
     },
     hold: (key) => store.hold(key),
-    reset: (target) => store.reset(target),
+    reset(target) {
+      if (typeof target !== "string") return store.reset(target);
+      const before = store.get(target);
+      const receipt = store.reset(target);
+      announce(target, before);
+      return receipt;
+    },
     restore: (receipt) => store.restore(receipt),
     subscribe: (key, listener) => store.subscribe(key, listener),
     modified: (scope) => store.modified(scope),
