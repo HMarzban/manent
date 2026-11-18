@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createDoc } from "@manent/crdt";
+import { applyRemote, createDoc, loadDoc, scriptBody } from "@manent/crdt";
 import {
   createFrameDecoder,
   createMessageIds,
@@ -9,10 +9,19 @@ import type { Message } from "@manent/sync-protocol";
 import { DEFAULT_LIMITS, OWNER_CAPABILITIES, peerOf } from "../src/index.ts";
 import type { Connection, ConnectionData } from "../src/index.ts";
 import { fakePeer } from "../src/testing/index.ts";
-import { BLOCK, DOC, DOC2, PROJECT, createTypist, rawEdit } from "./seed.ts";
+import {
+  BLOCK,
+  DOC,
+  DOC2,
+  HOME,
+  PROJECT,
+  createTypist,
+  rawEdit,
+} from "./seed.ts";
 import {
   DANA_CLIENT,
   EMPTY_VECTOR,
+  PRIYA_CLIENT,
   SAM_CLIENT,
   createServiceWorld,
   push,
@@ -120,6 +129,208 @@ test("an editor subscribes, exchanges state and is told of others' edits", () =>
   ]);
   expect(dana.take()).toEqual([
     { type: "SYNC", docId: DOC, generation: 1, step: "update", data: typing },
+  ]);
+});
+
+const BLOCK2 = "b000000000000002";
+
+const stepsOf = (messages: Message[]): string[] =>
+  messages.map((m) => (m.type === "SYNC" ? m.step : m.type));
+
+/** The deletions sent among `messages`; null when none were. */
+const deletionsIn = (messages: Message[]): Uint8Array | null => {
+  const sent = messages.find((m) => m.type === "SYNC" && m.step === "update");
+  return sent?.type === "SYNC" ? sent.data : null;
+};
+
+/**
+ * Sam types into two blocks that Priya, who never saw that typing, then deletes: rows 1 to 4 are
+ * Sam's, row 5 deletes the first block, and `deleteSecond` commits row 6, deleting the second.
+ */
+function deletedUnseen() {
+  const world = createServiceWorld();
+  const { service, sam, priya, clock } = world;
+  const typist = createTypist(SAM_CLIENT);
+  const made = [
+    typist.insertBlock(BLOCK, null, "Rain"),
+    typist.insertBlock(BLOCK2, BLOCK, "Snow"),
+  ];
+  const priyaDoc = loadDoc(typist.doc.encodeState(), {
+    clientId: PRIYA_CLIENT,
+  });
+  made.push(typist.type(BLOCK, " [sam]"), typist.type(BLOCK2, " [sam]"));
+  const deleted: Uint8Array[] = [];
+  const stop = priyaDoc.subscribe((update) => deleted.push(update));
+  scriptBody(priyaDoc).write((w) => w.deleteBlock(BLOCK));
+  scriptBody(priyaDoc).write((w) => w.deleteBlock(BLOCK2));
+  stop();
+  service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT]));
+  service.receive(priya, subscribe(DOC, "edit", [PRIYA_CLIENT]));
+  made.forEach((update, i) => service.receive(sam, push(DOC, i + 1, update)));
+  service.receive(priya, push(DOC, 1, deleted[0]!));
+  clock.runDeferred();
+  const deleteSecond = (): void => {
+    service.receive(priya, push(DOC, 2, deleted[1]!));
+    clock.runDeferred();
+  };
+  /** Sam subscribes again with `lastServerSeq` and his step 1, and is answered. */
+  const comeBack = (lastServerSeq: number): Message[] => {
+    sam.take();
+    service.receive(
+      sam,
+      subscribe(DOC, "edit", [SAM_CLIENT], { lastServerSeq }),
+    );
+    service.receive(sam, step1(DOC, typist.doc.encodeStateVector()));
+    return sam.take();
+  };
+  return { ...world, typist, deleteSecond, comeBack };
+}
+
+test("an editor that comes back is sent what the rows it missed deleted before its step 2, so its own text a deleter never saw is set aside", () => {
+  const { typist, deleteSecond, comeBack } = deletedUnseen();
+  const own = new Set([SAM_CLIENT]);
+  const setAside = (answered: Message[]) => {
+    const deletions = deletionsIn(answered);
+    const items =
+      deletions === null ? [] : applyRemote(typist.doc, deletions, own);
+    return [stepsOf(answered), items];
+  };
+  const first = setAside(comeBack(4));
+  deleteSecond();
+  expect([first, setAside(comeBack(5)), setAside(comeBack(6))]).toEqual([
+    [
+      ["SUBSCRIBED", "step1", "update", "step2"],
+      [{ blockId: BLOCK, nearBlockId: BLOCK2, text: " [sam]" }],
+    ],
+    [
+      ["SUBSCRIBED", "step1", "update", "step2"],
+      [{ blockId: BLOCK2, nearBlockId: null, text: " [sam]" }],
+    ],
+    [["SUBSCRIBED", "step1", "step2"], []],
+  ]);
+});
+
+test("a heal row's deletions are not sent to a returning editor, so its own text a deleter never saw is still set aside", () => {
+  const { service, dana, storage, typist, comeBack, clock } = deletedUnseen();
+  const healer = createTypist(DANA_CLIENT);
+  const flagging = { lastServerSeq: 50 };
+  service.receive(dana, subscribe(DOC, "edit", [DANA_CLIENT], flagging));
+  const vector = dana.take().find((m) => m.type === "SYNC");
+  service.receive(dana, step1(DOC, EMPTY_VECTOR));
+  for (const m of dana.take())
+    if (m.type === "SYNC") healer.doc.applyUpdate(m.data);
+  healer.type(BLOCK2, " [dana]");
+  if (vector?.type !== "SYNC") throw new RangeError("no step 1 was sent");
+  const heal = { ...push(DOC, 1, healer.doc.diff(vector.data)), heal: true };
+  service.receive(dana, heal);
+  clock.runDeferred();
+  const own = new Set([SAM_CLIENT]);
+  const deletions = deletionsIn(comeBack(4));
+  expect([
+    storage
+      .open(HOME)
+      .log.tail(DOC, 1, 5)
+      .rows.map((r) => r.origin),
+    deletions === null ? [] : applyRemote(typist.doc, deletions, own),
+  ]).toEqual([
+    ["heal"],
+    [{ blockId: BLOCK, nearBlockId: BLOCK2, text: " [sam]" }],
+  ]);
+});
+
+test("a deletion still waiting to commit when a returning editor's step 1 arrives reaches it before its step 2, so its own text the deleter never saw is set aside", () => {
+  const { service, sam, priya, clock } = createServiceWorld();
+  const typist = createTypist(SAM_CLIENT);
+  const made = [
+    typist.insertBlock(BLOCK, null, "Rain"),
+    typist.insertBlock(BLOCK2, BLOCK, "Snow"),
+  ];
+  const priyaDoc = loadDoc(typist.doc.encodeState(), {
+    clientId: PRIYA_CLIENT,
+  });
+  made.push(typist.type(BLOCK, " [sam]"));
+  const deleted: Uint8Array[] = [];
+  const stop = priyaDoc.subscribe((update) => deleted.push(update));
+  scriptBody(priyaDoc).write((w) => w.deleteBlock(BLOCK));
+  stop();
+  service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT]));
+  service.receive(priya, subscribe(DOC, "edit", [PRIYA_CLIENT]));
+  made.forEach((update, i) => service.receive(sam, push(DOC, i + 1, update)));
+  clock.runDeferred();
+  sam.take();
+  service.receive(priya, push(DOC, 1, deleted[0]!));
+  const extra = { lastServerSeq: 3 };
+  service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT], extra));
+  service.receive(sam, step1(DOC, typist.doc.encodeStateVector()));
+  clock.runDeferred();
+  const own = new Set([SAM_CLIENT]);
+  const setAside = sam
+    .take()
+    .flatMap((m) =>
+      m.type === "SYNC" && m.step !== "step1"
+        ? applyRemote(typist.doc, m.data, own)
+        : [],
+    );
+  expect(setAside).toEqual([
+    { blockId: BLOCK, nearBlockId: BLOCK2, text: " [sam]" },
+  ]);
+});
+
+test("a step 1 whose waiting commit fails is answered only by the failed commit", () => {
+  const { service, sam, storage } = createServiceWorld();
+  service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT]));
+  service.receive(sam, push(DOC, 1, samTyping()));
+  sam.take();
+  storage.failNextCommit();
+  service.receive(sam, step1(DOC, EMPTY_VECTOR));
+  expect(sam.take()).toEqual([
+    {
+      type: "ERROR",
+      code: 1011,
+      message: "storage_failed",
+      permanent: false,
+      retryAfterMs: 1000,
+      clientSeq: null,
+      doc: { docId: DOC, generation: 1 },
+    },
+  ]);
+});
+
+test("the deletions a returning editor is sent are read from each row at most twice while the script is loaded", () => {
+  const { storage, deleteSecond, comeBack } = deletedUnseen();
+  const { log } = storage.open(HOME);
+  const tail = log.tail.bind(log);
+  const read: [number, number][] = [];
+  log.tail = (docId, generation, afterSeq, options) => {
+    const found = tail(docId, generation, afterSeq, options);
+    if (options?.quarantine === false) read.push([afterSeq, found.rows.length]);
+    return found;
+  };
+  comeBack(4);
+  comeBack(4);
+  deleteSecond();
+  comeBack(5);
+  comeBack(2);
+  comeBack(1);
+  expect(read).toEqual([
+    [4, 1],
+    [5, 1],
+    [0, 6],
+  ]);
+});
+
+test("a device that holds nothing of the script is sent no deletions, and one recovering with an empty vector still is", () => {
+  const { service, dana } = deletedUnseen();
+  const join = (lastServerSeq: number): string[] => {
+    dana.take();
+    const extra = { lastServerSeq };
+    service.receive(dana, subscribe(DOC, "edit", [DANA_CLIENT], extra));
+    service.receive(dana, step1(DOC, EMPTY_VECTOR));
+    return stepsOf(dana.take());
+  };
+  expect([join(0), join(4)]).toEqual([
+    ["SUBSCRIBED", "step1", "step2"],
+    ["SUBSCRIBED", "step1", "update", "step2"],
   ]);
 });
 
@@ -302,6 +513,30 @@ test("a fresh client gets the cached full state; another gets a diff", () => {
   service.receive(dana, step1(DOC, new Uint8Array([9])));
   expect(dana.take()).toMatchObject([
     { type: "ERROR", code: 4400, message: "bad_update", permanent: false },
+  ]);
+});
+
+test("a SUBSCRIBE whose write the store refuses is answered as a failed commit, and the next one subscribes", () => {
+  const { service, sam, storage } = createServiceWorld();
+  storage.failNextCommit();
+  service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT]));
+  expect(sam.take()).toEqual([
+    {
+      type: "ERROR",
+      code: 1011,
+      message: "storage_failed",
+      permanent: false,
+      retryAfterMs: 1000,
+      clientSeq: null,
+      doc: { docId: DOC, generation: 1 },
+    },
+  ]);
+  service.receive(sam, push(DOC, 1, samTyping()));
+  service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT]));
+  expect(sam.take().map((m) => m.type)).toEqual([
+    "ERROR",
+    "SUBSCRIBED",
+    "SYNC",
   ]);
 });
 

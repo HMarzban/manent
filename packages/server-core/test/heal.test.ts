@@ -191,6 +191,25 @@ test("a corrupt row heals from a client that had seen it, with a pre-heal versio
   expect(file(world).log.healing(DOC)?.preHealVersionId).toBe("version-1");
 });
 
+test("a heal push that carries only the pusher's own words is logged as a heal", () => {
+  const world = editedBy(threeEdits);
+  const danaDoc = replicaOf(world.updates);
+  world.storage.corruptRow(DOC, 2);
+  world.restart();
+  const { service, dana, clock } = world;
+  const seen = { lastServerSeq: 3 };
+  service.receive(dana, subscribe(DOC, "edit", [DANA_CLIENT], seen));
+  service.receive(dana, healPush(DOC, danaDoc.diff(serverVector(dana.take()))));
+  clock.runDeferred();
+  expect(dana.take().at(-1)).toMatchObject({ type: "ACK" });
+  const rows = file(world).log.tail(DOC, 1, 3).rows;
+  const versions = file(world).versions.list(DOC);
+  expect([rows.map((r) => r.origin), versions.map((v) => v.kind)]).toEqual([
+    ["heal"],
+    ["pre_heal"],
+  ]);
+});
+
 test("a heal push cannot carry what the server never acknowledged", () => {
   const world = editedBy(threeEdits);
   const { service, sam, clock } = world;

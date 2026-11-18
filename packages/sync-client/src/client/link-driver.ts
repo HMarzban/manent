@@ -219,7 +219,11 @@ class Driver implements LinkDriver {
             if (this.current === attempt) this.frame(attempt, frame);
           },
           onClose: (code) => {
-            if (this.current === attempt) this.closed(code);
+            if (this.current !== attempt) return;
+            // heard before connect() resolved: a connection that never opened
+            if (attempt.connection === null)
+              this.failed(attempt, new ConnectError("unreachable"));
+            else this.closed(code);
           },
         })
         .then(

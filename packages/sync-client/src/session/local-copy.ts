@@ -44,9 +44,17 @@ export interface LocalCopy {
   edit(edit: UnsavedEdit): Promise<void>;
   /** A server update is stored at once and shown at the next frame. */
   update(update: Uint8Array): void;
-  /** The server's step 2: applied now unless remote updates are held, and stored only when it changes something. */
+  /**
+   * The server's step 2: applied now, or once remote updates are no longer
+   * held, after the updates buffered; stored only when it changes something.
+   */
   merge(update: Uint8Array): void;
-  /** The Recovered text a rejected push leaves: what this document holds that `theirs` lacks, against `base`. */
+  /**
+   * The Recovered text a rejected push leaves: what this document holds that
+   * `theirs` lacks, against `base`. Server updates still buffered or held are
+   * applied first, so what they set aside is filed as merged, not lost with
+   * the document.
+   */
   rejected(base: DocJSON, theirs: DocJSON): RecoveredItem[];
   /** A recovery's document is bound in place of this one, and `items` join the Recovered text. */
   replace(next: CrdtDoc, items: RecoveredItem[]): void;
@@ -98,6 +106,8 @@ class BoundCopy implements LocalCopy {
   private coalescer: Coalescer;
   private unobserve: () => void = () => {};
   private holding = 0;
+  /** Step 2s that arrived while remote updates were held, in order. */
+  private heldSteps: Uint8Array[] = [];
   private remoteChanged = false;
   /** The local sequence of the newest server update stored. */
   private storedThrough = 0;
@@ -151,20 +161,16 @@ class BoundCopy implements LocalCopy {
   }
 
   merge(update: Uint8Array): void {
-    if (this.holding > 0) this.update(update);
-    else {
-      this.coalescer.flushNow();
-      this.remoteChanged = false;
-      const items = this.applyServer(update);
-      if (this.remoteChanged) {
-        const localSeq = this.options.journal.appendServer(update, true);
-        this.storedThrough = localSeq;
-        this.appliedTo(localSeq, items);
-      }
-    }
+    if (this.holding > 0) this.heldSteps.push(update);
+    else this.mergeNow(update);
   }
 
   rejected(base: DocJSON, theirs: DocJSON): RecoveredItem[] {
+    // this document is replaced next, so a hold protects nothing in it
+    for (let i = 0; i < this.holding; i++) this.coalescer.release();
+    this.coalescer.flushNow();
+    this.mergeHeld();
+    for (let i = 0; i < this.holding; i++) this.coalescer.hold();
     const mine = scriptBody(this.doc).materialize();
     return rejectedItems({
       docId: this.options.docId,
@@ -256,6 +262,7 @@ class BoundCopy implements LocalCopy {
       releaseRemote: () => {
         this.coalescer.release();
         this.holding -= 1;
+        if (this.holding === 0) this.mergeHeld();
       },
       sendAwareness: parts.sendAwareness,
       onAwareness: (listener) => {
@@ -289,6 +296,25 @@ class BoundCopy implements LocalCopy {
     });
     for (let i = 0; i < this.holding; i++) coalescer.hold();
     return coalescer;
+  }
+
+  /**
+   * Step 2 is applied on its own, after what is buffered: merged with them, its
+   * delete set, which holds what went with a deleted parent, would hide what
+   * they set aside.
+   */
+  private mergeNow(update: Uint8Array): void {
+    this.coalescer.flushNow();
+    this.remoteChanged = false;
+    const items = this.applyServer(update);
+    if (!this.remoteChanged) return;
+    const localSeq = this.options.journal.appendServer(update, true);
+    this.storedThrough = localSeq;
+    this.appliedTo(localSeq, items);
+  }
+
+  private mergeHeld(): void {
+    for (const update of this.heldSteps.splice(0)) this.mergeNow(update);
   }
 
   /** A change made here, or the formatting Yjs tidies after a remote one: an own entry. */

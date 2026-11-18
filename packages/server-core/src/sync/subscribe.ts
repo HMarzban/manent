@@ -4,6 +4,7 @@ import { gateDocument } from "@manent/sync-protocol";
 import type { Message } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
 import type { Access, DocumentAccess } from "./access.ts";
+import type { Deletions } from "./deletions.ts";
 import { syncError } from "./errors.ts";
 import type { Peer, SyncLimits } from "./ports.ts";
 import type { Room, Rooms } from "./rooms.ts";
@@ -121,21 +122,44 @@ export function subscribedOf(
 }
 
 /**
- * The server's step 2 for an editor's step 1: the cached full state for an empty vector, otherwise
- * what the vector lacks. Bytes that are not a state vector are refused, and may be sent again.
+ * The answer to an editor's step 1: the server's step 2, the cached full state for an empty
+ * vector, otherwise what the vector lacks. Step 2's delete set also holds what Yjs deleted with a
+ * deleted parent, so it comes after the deletions the rows after `lastServerSeq` made, when there
+ * are any, which tell the client which of its own text that was. A device that holds nothing and
+ * never synced has no text to set aside. The deletions are read only from committed rows, so what
+ * the write path holds is committed first; a failed commit answers every subscriber itself. Bytes
+ * that are not a state vector are refused, and may be sent again.
  */
-export function stepTwo(rooms: Rooms, room: Room, vector: Uint8Array): Message {
+export function answerStepOne(
+  ports: {
+    rooms: Rooms;
+    deletions: Deletions;
+    writePath: { queued(): number; flush(): void };
+  },
+  room: Room,
+  step: { vector: Uint8Array; lastServerSeq: number },
+): Message[] {
   const doc = { docId: room.docId, generation: room.row.generation };
   if (room.doc === null)
     throw new RangeError(`the room of ${room.docId} is not loaded`);
   let clocks: Map<number, number>;
   try {
-    clocks = readStateVector(vector);
+    clocks = readStateVector(step.vector);
   } catch (error) {
     if (!(error instanceof CrdtUpdateError)) throw error;
-    return syncError("bad_update", doc, { permanent: false });
+    return [syncError("bad_update", doc, { permanent: false })];
   }
-  const data =
-    clocks.size === 0 ? rooms.fullState(room) : room.doc.diff(vector);
-  return { type: "SYNC", ...doc, step: "step2", data };
+  if (ports.writePath.queued() > 0) ports.writePath.flush();
+  // the commit failed: the room was dropped, and its subscribers told
+  if (room.doc === null) return [];
+  const fresh = clocks.size === 0;
+  const data = fresh ? ports.rooms.fullState(room) : room.doc.diff(step.vector);
+  const stepTwo: Message = { type: "SYNC", ...doc, step: "step2", data };
+  const deletions =
+    fresh && step.lastServerSeq === 0
+      ? null
+      : ports.deletions.since(room, step.lastServerSeq);
+  return deletions === null
+    ? [stepTwo]
+    : [{ type: "SYNC", ...doc, step: "update", data: deletions }, stepTwo];
 }

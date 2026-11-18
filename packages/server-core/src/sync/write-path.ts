@@ -2,18 +2,14 @@
 // each turn's queue is committed per file before anything is acknowledged or published.
 import { CrdtUpdateError, applyInspecting, updateMeta } from "@manent/crdt";
 import type { TransactionReport } from "@manent/crdt";
-import type {
-  AppendItem,
-  DocFile,
-  StorageError,
-  UpdateOrigin,
-} from "@manent/storage";
+import type { AppendItem, DocFile, UpdateOrigin } from "@manent/storage";
 import {
   CODE,
   MESSAGE_LIMIT_BYTES,
   isPermanentPushError,
 } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
+import type { Refusal } from "./errors.ts";
 import type {
   Peer,
   SettingRules,
@@ -24,6 +20,7 @@ import type {
 } from "./ports.ts";
 import type { Room, Rooms, Subscription } from "./rooms.ts";
 import { applySetting } from "./settings.ts";
+import { isStorageError } from "./storage-error.ts";
 import { validatePush } from "./validate.ts";
 
 export interface Committed {
@@ -35,15 +32,6 @@ export interface Committed {
   report: TransactionReport | null;
   /** Also send the update to the sender: a setting. */
   echo: boolean;
-}
-
-export interface Refusal {
-  code: number;
-  message: string;
-  permanent: boolean;
-  retryAfterMs: number | null;
-  /** The entry refused for good; null when the refusal may be retried. */
-  clientSeq: number | null;
 }
 
 export interface WritePathPorts {
@@ -136,11 +124,6 @@ function refusal(
   return { code, message, permanent, retryAfterMs, clientSeq: named };
 }
 
-/** StorageError by name: this package may import only the storage package's types. */
-function isStorageError(error: unknown): error is StorageError {
-  return error instanceof Error && error.name === "StorageError";
-}
-
 /** What `fn` gives; "bad" when the bytes it read are not a whole update. */
 function readUpdate<T>(fn: () => T): T | "bad" {
   try {
@@ -213,7 +196,10 @@ export function createWritePath(ports: WritePathPorts): WritePath {
     ports.refuse(sub.peer, room, refused);
   }
 
-  /** Step 2: the push's origin, or null when it carries a client id the pusher may not write. */
+  /**
+   * Step 2: the push's origin, or null when it carries a client id the pusher may not write. A
+   * heal the rule admits is a heal, whether or not it carries anyone else's ids.
+   */
   function originOf(
     room: Room,
     peer: Peer,
@@ -223,11 +209,13 @@ export function createWritePath(ports: WritePathPorts): WritePath {
     const foreign = metas.filter(
       ({ clientId }) => room.owners.get(clientId) !== peer.userId,
     );
-    if (foreign.length === 0) return "edit";
+    // only a heal can be admitted, and asking reads the document's whole ledger
     const admitted =
+      heal &&
       mode === "authority" &&
       ports.admitsForeign(room, peer.userId, heal, foreign);
-    return admitted ? "heal" : null;
+    if (admitted) return "heal";
+    return foreign.length === 0 ? "edit" : null;
   }
 
   /** The highest clientSeq of this person and device already queued as a setting; 0 when none. */

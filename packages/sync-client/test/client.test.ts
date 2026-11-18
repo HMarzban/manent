@@ -71,6 +71,26 @@ test("a document made offline is created on the server at first sync, then synce
   });
 });
 
+test("a document created with nothing in it is created on the server once, and the next connection only subscribes", async () => {
+  const w = await setup();
+  const { server, store } = w;
+  const client = w.makeClient();
+  const h = await client.create({ kind: "script", home: "user" });
+  await w.online();
+  const { neverSynced } = h.status.get();
+  client.setOnline(false);
+  await w.settle();
+  client.setOnline(true);
+  await w.online();
+  const subscribes = server.got("SUBSCRIBE").filter((m) => m.docId === h.docId);
+  expect([neverSynced, server.created.length, subscribes.length]).toEqual([
+    false,
+    1,
+    2,
+  ]);
+  expect((await store.load(h.docId))!.meta.neverSynced).toBe(false);
+});
+
 test("one client ID per session, never reused, all of them listed at subscribe", async () => {
   const w = await setup();
   const client = w.makeClient();

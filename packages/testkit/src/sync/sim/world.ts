@@ -175,12 +175,16 @@ class SimWorld implements World {
   }
 }
 
-/** One document, every user an editor; it resolves once every device has synced it. */
+/**
+ * One document, every user an editor; it resolves once every device has synced it. `duplicate` is
+ * the chance a frame is delivered twice. Frames of one connection keep their order, as over TCP;
+ * those of different connections are delivered in an order the seed picks.
+ */
 export async function createWorld(options: {
   seed: number;
   users: readonly string[];
   devicesPerUser?: number;
-  faults?: { duplicate?: number; swap?: number };
+  faults?: { duplicate?: number };
   serverVersions?: ServerVersions;
   clientVersions?: (device: string) => VersionSet;
 }): Promise<World> {

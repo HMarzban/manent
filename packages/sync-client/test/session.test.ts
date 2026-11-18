@@ -610,6 +610,25 @@ test("each ERROR for a document has its one answer", async () => {
   expect(h.status.get().side).toEqual(["rejected"]);
 });
 
+test("a server that holds no subscription for the script is subscribed to again, and access is not taken as removed", async () => {
+  const { w, h } = await openTyped();
+  w.server.error(DOC, {
+    code: CODE.FORBIDDEN,
+    message: "not_subscribed",
+    permanent: false,
+    clientSeq: null,
+  });
+  await w.settle();
+  const side = h.status.get().side;
+  w.fake.advance(1_000);
+  await w.settle();
+  expect([side, subscribes(w), w.server.got("PUSH").length]).toEqual([
+    [],
+    2,
+    2,
+  ]);
+});
+
 test("a server older than this build needs is left alone; one with an older schema is written to with care", async () => {
   const w = await setup();
   const old = w.makeClient({ minServer: v(2, 1, 0, 0) });
@@ -717,6 +736,37 @@ test("a connection that stops answering is closed after the probe and replaced",
   fake.jump(fake.clock.now() + 8 * HOUR);
   fake.advance(30_000);
   expect(w.connects()).toBe(2);
+});
+
+test("a connection that closes before it has opened is tried again after a backoff", async () => {
+  const w = await setup();
+  const transport = w.network.transport("dana");
+  let cutting = true;
+  const client = w.makeClient({
+    transport: {
+      connect(handlers) {
+        const opening = transport.connect(handlers);
+        if (cutting) {
+          cutting = false;
+          w.network.partition(true);
+          w.network.step();
+          w.network.partition(false);
+        }
+        return opening;
+      },
+      createDocument: (request) => transport.createDocument(request),
+    },
+  });
+  await client.open(DOC);
+  await w.settle();
+  const first = client.link.get().state;
+  w.fake.advance(30_000);
+  await w.settle();
+  expect([first, client.link.get().state, w.connects()]).toEqual([
+    "offline",
+    "online",
+    2,
+  ]);
 });
 
 test("offline for more than an hour, a version is kept at most hourly; one is kept before a reconnect merge", async () => {

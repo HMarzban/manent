@@ -229,3 +229,16 @@ export function applyRemote(
   if (thrown.length > 0) throw thrown[0];
   return setAside;
 }
+
+/**
+ * One update holding every deletion the senders of `updates` made, and none of
+ * their content; null when they deleted nothing. A state diff's delete set also
+ * holds what Yjs deleted with a deleted parent, so it cannot tell applyRemote
+ * which own text the deleter never saw; these deletions, applied first, can.
+ */
+export function deletionsOf(updates: readonly Update[]): Update | null {
+  const merged = Y.mergeUpdates([...updates]);
+  const { to } = Y.parseUpdateMeta(merged);
+  const deletions = Y.diffUpdate(merged, Y.encodeStateVector(to));
+  return Y.decodeUpdate(deletions).ds.clients.size === 0 ? null : deletions;
+}

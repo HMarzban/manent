@@ -5,8 +5,10 @@ import {
   CrdtUpdateError,
   applyRemote,
   blockIds,
+  deletionsOf,
   loadDoc,
   scriptBody,
+  updateMeta,
   yXmlFragmentForBinding,
 } from "../src/index.ts";
 import type { CrdtDoc } from "../src/index.ts";
@@ -93,6 +95,40 @@ test("offline text meets a merge that removed its block", () => {
   expect(applyRemote(b, a.diff(b.encodeStateVector()), own)).toEqual([
     { blockId: ID_A, nearBlockId: ID_K, text: "OFFLINE " },
   ]);
+});
+
+test("own text the server holds goes with a block its deleter never saw it in: the deletions alone set it aside", () => {
+  const { a, b, own } = replicas();
+  const server = loadDoc(a.encodeState(), { clientId: 3 });
+  const typed = capture(b, (w) => w.insertText(ID_A, 9, " [b]"));
+  const deleted = capture(a, (w) => w.deleteBlock(ID_A));
+  server.applyUpdate(typed);
+  server.applyUpdate(deleted);
+  const deletions = deletionsOf([typed, deleted]);
+  if (deletions === null) throw new RangeError("the updates deleted nothing");
+  const setAside = [
+    applyRemote(b, deletions, own),
+    applyRemote(b, server.diff(b.encodeStateVector()), own),
+  ];
+  expect(setAside).toEqual([
+    [{ blockId: ID_A, nearBlockId: ID_K, text: " [b]" }],
+    [],
+  ]);
+  expect(b.encodeStateVector()).toEqual(server.encodeStateVector());
+  expect(blockIds(b)).toEqual([ID_K]);
+});
+
+test("the deletions of updates carry none of their text, and are nothing when nothing was deleted", () => {
+  const { a } = replicas();
+  const typed = capture(a, (w) => w.insertText(ID_A, 0, "new "));
+  const deleted = capture(a, (w) => w.deleteText(ID_A, 0, 4));
+  const deletions = deletionsOf([typed, deleted]);
+  if (deletions === null) throw new RangeError("the updates deleted nothing");
+  expect([deletionsOf([typed]), updateMeta(deletions)]).toEqual([null, []]);
+  const { b } = replicas();
+  b.applyUpdate(typed);
+  b.applyUpdate(deletions);
+  expect(textOf(b, ID_A)).toBe("only line");
 });
 
 test("typing beside a deleted range survives and is not reported", () => {

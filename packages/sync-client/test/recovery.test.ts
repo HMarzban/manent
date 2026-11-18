@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createDoc, loadDoc, scriptBody } from "@manent/crdt";
+import { createDoc, deletionsOf, loadDoc, scriptBody } from "@manent/crdt";
 import type { BlockWriter, CrdtDoc } from "@manent/crdt";
 import { CODE } from "@manent/sync-protocol";
 import type { DeviceVersion, DocHandle } from "../src/index.ts";
@@ -11,6 +11,7 @@ import {
   listen,
   seededMeta,
   setup,
+  subscribed,
   textOf,
   type,
   typeIn,
@@ -197,6 +198,97 @@ test("after a refused heal push, every block the server lost is filed, including
     [Y, "y"],
   ]);
   expect(textOf(h.doc())).toBe("");
+});
+
+/**
+ * DOC2 synced with this device's " [mine]" in block A, open, and answered by hand from here on:
+ * the server then takes in another writer's deletion of block A, made without seeing " [mine]".
+ * `answer` replies to a SUBSCRIBE as the server does: SUBSCRIBED, step 1, the deletions, step 2.
+ */
+async function deletedUnseen(w: World) {
+  const { server } = w;
+  const base = stateOf([
+    [A, "one"],
+    [B, "two"],
+  ]);
+  const own = loadDoc(base, { clientId: 77 });
+  scriptBody(own).write((writer) => writer.insertText(A, 3, " [mine]"));
+  const deleting = loadDoc(base, { clientId: 88 });
+  const deleted: Uint8Array[] = [];
+  const stop = deleting.subscribe((update) => deleted.push(update));
+  scriptBody(deleting).write((writer) => writer.deleteBlock(A));
+  stop();
+  await seed2(w, own.encodeState(), own.encodeState());
+  await w.store.patchMeta(DOC2, { clientIds: [77] });
+  const client = w.makeClient();
+  const h = await client.open(DOC2);
+  await w.online();
+  server.answer.subscribe = false;
+  server.doc(DOC2).applyUpdate(deleted[0]!);
+  const sync = (step: "step1" | "update" | "step2", data: Uint8Array) =>
+    server.send({ type: "SYNC", docId: DOC2, generation: 1, step, data });
+  const answer = async (): Promise<void> => {
+    server.send(subscribed(DOC2, server.head));
+    sync("step1", server.doc(DOC2).encodeStateVector());
+    sync("update", deletionsOf(deleted)!);
+    sync("step2", server.doc(DOC2).encodeState());
+    await w.settle();
+  };
+  return { client, h, answer };
+}
+
+const recoveredOf = (h: DocHandle) =>
+  h.recovered.get().map((r) => [r.blockId, r.text, r.cause]);
+
+test("own synced text the server deleted unseen while the push was being refused is kept as Recovered text", async () => {
+  const w = await setup();
+  const { h, answer } = await deletedUnseen(w);
+  typeIn(h, B, "x");
+  await w.settle();
+  refuse(w, DOC2, lastPush(w).clientSeq);
+  await w.settle();
+  await answer();
+  expect(recoveredOf(h)).toEqual([
+    [A, " [mine]", "merge"],
+    [B, "twox", "rejected"],
+  ]);
+  expect(await w.store.recovered(DOC2)).toEqual([...h.recovered.get()]);
+});
+
+test("own synced text the server deleted unseen is kept when the step 2 of a reconnect arrives during a composition", async () => {
+  const w = await setup();
+  const { client, h, answer } = await deletedUnseen(w);
+  client.setOnline(false);
+  await w.settle();
+  h.holdRemote();
+  client.setOnline(true);
+  await w.online();
+  await answer();
+  h.releaseRemote();
+  w.frames.fire();
+  await w.settle();
+  expect([recoveredOf(h), textOf(h.doc())]).toEqual([
+    [[A, " [mine]", "merge"]],
+    "two",
+  ]);
+  expect(await w.store.recovered(DOC2)).toEqual([...h.recovered.get()]);
+});
+
+test("own synced text the server deleted unseen while the push was being refused is kept during a composition", async () => {
+  const w = await setup();
+  const { h, answer } = await deletedUnseen(w);
+  typeIn(h, B, "x");
+  await w.settle();
+  h.holdRemote();
+  refuse(w, DOC2, lastPush(w).clientSeq);
+  await w.settle();
+  await answer();
+  h.releaseRemote();
+  expect(recoveredOf(h)).toEqual([
+    [A, " [mine]", "merge"],
+    [B, "twox", "rejected"],
+  ]);
+  expect(await w.store.recovered(DOC2)).toEqual([...h.recovered.get()]);
 });
 
 test("a rejected block's Recovered text is whole characters in reading order", async () => {

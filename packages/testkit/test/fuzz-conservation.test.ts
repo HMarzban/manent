@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
 import { scriptBody } from "@manent/crdt";
 import type { BlockJSON } from "@manent/schema";
+import fc from "fast-check";
 import { createWorld } from "../src/index.ts";
 import type { SimClient } from "../src/index.ts";
+import { applyOp, arbRun } from "./fuzz-ops.ts";
 
 function sectionsOf(c: SimClient): BlockJSON[][] {
   const sections = scriptBody(c.handle.doc()).materialize().content ?? [];
@@ -37,6 +39,23 @@ function insertBlockAfterFirst(c: SimClient, text: string): void {
   const first = idOf(sectionsOf(c)[0]?.[0]);
   c.write((w) => w.insertBlocks(first, [action("inserted00000001", text)]));
 }
+
+test("every character typed is in the script or in Recovered text, whatever the interleaving", async () => {
+  await fc.assert(
+    fc.asyncProperty(arbRun, async (run) => {
+      const world = await createWorld({
+        seed: run.seed,
+        users: run.users,
+        devicesPerUser: run.devices,
+        faults: run.faults,
+      });
+      for (const op of run.ops) applyOp(world, op);
+      await world.settle();
+      world.check();
+    }),
+    { numRuns: Number(process.env.MANENT_FUZZ_RUNS ?? 100) },
+  );
+}, 300_000);
 
 test("a block inserted into a section a peer emptied at the same moment is in its writer's Recovered text", async () => {
   const world = await createWorld({ seed: 1, users: ["dana", "sam"] });

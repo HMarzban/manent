@@ -48,6 +48,8 @@ export function endingOf(
   if (m.code === CODE.BAD_FRAME && m.message === "client_id_taken")
     return { type: "client_id_taken" };
   if (m.code === CODE.DOCUMENT_DELETED) return stopped("deleted");
+  // the server holds no subscription on this connection: subscribing again is the answer
+  if (m.code === CODE.FORBIDDEN && m.message === "not_subscribed") return null;
   if (m.code === CODE.FORBIDDEN) return { type: "forbidden" };
   if (m.code === CODE.TOO_OLD) return stopped("read_only");
   if (!m.permanent) return null;

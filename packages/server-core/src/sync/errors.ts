@@ -1,7 +1,6 @@
 // Every document ERROR this server sends: its message, and the code that goes with it.
 import { CODE, isPermanentPushError } from "@manent/sync-protocol";
 import type { DocRef, Message } from "@manent/sync-protocol";
-import type { Refusal } from "./write-path.ts";
 
 const TABLE = {
   rate_limited: CODE.RATE_LIMITED,
@@ -29,6 +28,16 @@ const TABLE = {
 } as const;
 
 export type SyncErrorMessage = keyof typeof TABLE;
+
+/** What the write path refuses an entry with, before it becomes an ERROR. */
+export interface Refusal {
+  code: number;
+  message: string;
+  permanent: boolean;
+  retryAfterMs: number | null;
+  /** The entry refused for good; null when the refusal may be retried. */
+  clientSeq: number | null;
+}
 
 /** Every ERROR.message this server sends, and its code. A code changes only with PROTOCOL_VERSION. */
 export const SYNC_ERRORS: Readonly<Record<string, number>> =
