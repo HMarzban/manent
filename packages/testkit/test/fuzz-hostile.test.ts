@@ -253,6 +253,8 @@ test("mutated frames never escape as a throw and always get the right answer", (
   const { service, peer, clock } = serve();
   fc.assert(
     fc.property(arbClientMessage, arbMutation, (message, mutate) => {
+      // the frame bucket refills between cases, so that every one is judged by its content
+      clock.advance(10);
       const frame = mutate(encodeMessage(message));
       const result = decodeSafely(frame);
       if (result.kind === "closed") expect([4400, 4413]).toContain(result.code);
@@ -261,9 +263,10 @@ test("mutated frames never escape as a throw and always get the right answer", (
           service.receive(peer, result.message);
           clock.runDeferred();
         }).not.toThrow();
-      for (const m of peer.take())
-        if (m.type === "ERROR")
-          expect(Object.values(SYNC_ERRORS)).toContain(m.code);
+      const errors = peer.take().filter((m) => m.type === "ERROR");
+      expect(errors.filter((m) => m.code === 4429)).toEqual([]);
+      for (const m of errors)
+        expect(Object.values(SYNC_ERRORS)).toContain(m.code);
     }),
     { numRuns: 5_000 },
   );
