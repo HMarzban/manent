@@ -1,15 +1,10 @@
 // The page the sync tests drive: one person's sync client on the demo's own origin, over the
 // browser's IndexedDB, Web Locks, BroadcastChannel and WebSocket, reached as `window.harness`.
 import {
-  browserClock,
-  browserFrames,
   browserPorts,
   browserRandom,
   forgetOnNewSeed,
-  leaseLeader,
   localDatabaseName,
-  openIdbStore,
-  webTransport,
 } from "@manent/client-web";
 import { scriptBody } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
@@ -21,12 +16,7 @@ import {
   randomBlockId,
 } from "@manent/schema";
 import { createSyncClient } from "@manent/sync-client";
-import type {
-  DocHandle,
-  DocStatus,
-  RecoveredItem,
-  SyncClientPorts,
-} from "@manent/sync-client";
+import type { DocHandle, DocStatus, RecoveredItem } from "@manent/sync-client";
 import { PROTOCOL_VERSION } from "@manent/sync-protocol";
 
 /** Every member answers plain JSON. Those that read or write a document use the one opened or created last. */
@@ -65,23 +55,6 @@ const SEED_KEY = "manent.demo.seed";
 const LONE_SURROGATE =
   /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
 
-/** The ports of a tab that leads by a lease in its own database, as where Web Locks are missing. */
-async function leasePorts(
-  userId: string,
-  session: () => string,
-): Promise<SyncClientPorts> {
-  const indexedDb = globalThis.indexedDB;
-  const tabId = browserRandom.bytes(16).toHex();
-  return {
-    transport: webTransport({ baseUrl: location.origin, session }),
-    store: await openIdbStore({ userId, indexedDb, leaseTabId: tabId }),
-    leader: leaseLeader({ userId, tabId, indexedDb, clock: browserClock }),
-    clock: browserClock,
-    random: browserRandom,
-    frames: browserFrames,
-  };
-}
-
 /** A lone surrogate reaches every peer as U+FFFD, so it is written as one. */
 function write(doc: CrdtDoc, text: string): void {
   const typed = text.replace(LONE_SURROGATE, "\uFFFD");
@@ -117,11 +90,14 @@ if (seedId !== null)
       write: (id) => localStorage.setItem(SEED_KEY, id),
     },
   });
-const session = (): string => token;
-const ports =
-  search.get("lease") === "1"
-    ? await leasePorts(userId, session)
-    : await browserPorts({ baseUrl: location.origin, session, userId });
+// a page without Web Locks leads by the lease, so taking them away is how the lease is chosen
+if (search.get("lease") === "1")
+  Reflect.deleteProperty(Navigator.prototype, "locks");
+const ports = await browserPorts({
+  baseUrl: location.origin,
+  session: () => token,
+  userId,
+});
 const client = createSyncClient({
   userId,
   deviceId: browserRandom.bytes(8).toHex(),
