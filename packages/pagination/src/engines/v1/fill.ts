@@ -26,7 +26,6 @@ import {
   tailOf,
 } from "./keep.ts";
 import type { DualUnit, Flow } from "./keep.ts";
-import { labelsBetween } from "./labels.ts";
 import { measure } from "./measure.ts";
 import { splitAt } from "./split.ts";
 
@@ -190,10 +189,10 @@ export function firstStart(flow: Flow): PageStart {
   });
 }
 
-function place(flow: Flow, sheet: Sheet, i: number, units: number): void {
+function place(sheet: Sheet, units: number, keptWithNext: boolean): void {
   sheet.used += units;
   sheet.atTop = false;
-  sheet.onlyKeeps &&= flow.metrics[i]!.spec.keptWithNext;
+  sheet.onlyKeeps &&= keptWithNext;
 }
 
 // Places what fits of block i from `line`; null when all of it was placed, else where the page breaks.
@@ -215,14 +214,14 @@ function step(flow: Flow, sheet: Sheet, i: number, line: number): Break | null {
   const whole = piece.end === flow.metrics[i]!.lines;
   const after = whole ? tailOf(flow, i) + reserveOf(flow, i) : piece.more;
   if (rest + after <= avail) {
-    place(flow, sheet, i, before + rest);
+    place(sheet, before + rest, flow.metrics[i]!.spec.keptWithNext);
     return whole ? null : plainBreak(flow, i, piece.end, true);
   }
   let k = splitAt(piece, flow.profile.rules, line, avail);
   if (k < 0 && (sheet.atTop || sheet.onlyKeeps)) {
     // only the transition does not fit, and the block has no tail to give it
     if (whole && rest + reserveOf(flow, i) <= avail) {
-      place(flow, sheet, i, before + rest);
+      place(sheet, before + rest, flow.metrics[i]!.spec.keptWithNext);
       return null;
     }
     // oversized: every page places a line
@@ -245,9 +244,10 @@ function resumeOf(column: readonly ColumnPiece[], row: number): Point | null {
   return at === "done" ? null : at;
 }
 
-// The rows a run that does not fit is cut at, one per column; null when it moves whole. A tall run is
-// cut at one row for both columns; with none, each column is cut at its last line boundary that fits,
-// if the run is first on its page, or a line fits and only kept blocks are above it.
+// The rows a run that does not fit, or fits but for the transition after it, is cut at, one per
+// column; null when it moves whole. A tall run is cut at one row for both columns; with none, a run
+// that does not fit has each column cut at its last line boundary that fits, if the run is first on
+// its page, or a line fits and only kept blocks are above it.
 function cutRows(
   flow: Flow,
   sheet: Sheet,
@@ -262,7 +262,8 @@ function cutRows(
     ? lastCutRow(columns, edge, Math.min(limit, height - edge))
     : -1;
   if (row > 0) return [row, row];
-  if (!sheet.atTop && !(tall && sheet.onlyKeeps)) return null;
+  if (height <= avail || (!sheet.atTop && !(tall && sheet.onlyKeeps)))
+    return null;
   const last = (column: readonly ColumnPiece[]) =>
     Math.max(0, lastCutRow([column], 1, limit));
   const rows = [last(columns[0]), last(columns[1])] as const;
@@ -285,12 +286,16 @@ function stepRun(flow: Flow, sheet: Sheet, unit: DualUnit): Break | null {
   const avail = flow.cap - sheet.used - before;
   const columns = columnsOf(flow, unit);
   const height = Math.max(...columns.map(columnHeight));
-  if (height <= avail) {
-    place(flow, sheet, run.end - 1, before + height);
+  const tail = tailOf(flow, run.end - 1);
+  const rows =
+    height + tail > avail ? cutRows(flow, sheet, columns, height, avail) : null;
+  if (rows === null) {
+    // a run that fits but for the transition after it stays when only kept blocks are above it
+    if (height + tail > avail && (height > avail || !sheet.onlyKeeps))
+      return plainBreak(flow, run.start, 0, false);
+    place(sheet, before + height, false); // a run is never kept with the next
     return null;
   }
-  const rows = cutRows(flow, sheet, columns, height, avail);
-  if (rows === null) return plainBreak(flow, run.start, 0, false);
   sheet.used += before + Math.max(...rows);
   const left = resumeOf(columns[0], rows[0]);
   const right = resumeOf(columns[1], rows[1]);
@@ -365,36 +370,4 @@ export function measureAt(
       : "",
     forced,
   });
-}
-
-/**
- * The pages' labels: with no lock anchors 1, 2, 3 …; otherwise a locked page takes its lock's label,
- * and each run of pages before, between and after locked pages the labels between theirs, passing
- * over every label in `taken` and every label given so far.
- */
-export function pageLabels(
-  flow: Flow,
-  pages: readonly FilledPage[],
-  taken: ReadonlySet<string>,
-): string[] {
-  const labels: string[] = [];
-  const given = new Set(taken);
-  const give = (lower: string | null, upper: string | null, count: number) => {
-    for (const label of labelsBetween(lower, upper, count, given)) {
-      labels.push(label);
-      given.add(label);
-    }
-  };
-  let lower: string | null = null;
-  let run = 0;
-  pages.forEach((page, k) => {
-    const lock = lockedAt(flow, page.block, page.line);
-    if (lock === null) return;
-    give(lower, lock, k - run);
-    labels.push(lock);
-    lower = lock;
-    run = k + 1;
-  });
-  give(lower, null, pages.length - run);
-  return labels;
 }
