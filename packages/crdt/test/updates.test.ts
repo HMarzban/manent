@@ -135,6 +135,25 @@ test("bytes that are not an update are refused and leave the document as it was"
   expect(a.encodeState()).toEqual(before);
 });
 
+test("a listener that throws while an update is applied is not reported as bad bytes", () => {
+  const { doc: a, state } = editedDoc();
+  const b = createDoc();
+  const listenerBug = new Error("listener bug");
+  b.subscribe(() => {
+    throw listenerBug;
+  });
+  const thrown = (() => {
+    try {
+      b.applyUpdate(state);
+    } catch (e) {
+      return e;
+    }
+    return null;
+  })();
+  expect(thrown).toBe(listenerBug);
+  expect(scriptBody(b).materialize()).toEqual(scriptBody(a).materialize());
+});
+
 test("any prefix of a real update applies or changes nothing", () => {
   fc.assert(
     fc.property(arbRealUpdate, fc.nat(), (update, cut) => {

@@ -22,7 +22,11 @@ export interface DocOptions {
 export interface CrdtDoc {
   readonly clientId: number;
   destroy(): void;
-  /** All or nothing: bytes that are not a whole update throw CrdtUpdateError and change nothing. */
+  /**
+   * All or nothing: bytes that are not a whole update throw CrdtUpdateError and
+   * change nothing. What a listener throws reaches the caller as it was thrown,
+   * after the update is applied.
+   */
   applyUpdate(update: Update, origin?: unknown): void;
   /** The whole document as one update. */
   encodeState(): Update;
@@ -37,6 +41,8 @@ export interface CrdtDoc {
 
 class YjsDoc implements CrdtDoc {
   readonly ydoc: Y.Doc;
+  // while applyUpdate runs, what its listeners threw, so that it is not taken for bad bytes
+  private listenerThrows: unknown[] | null = null;
 
   constructor(ydoc: Y.Doc) {
     this.ydoc = ydoc;
@@ -51,7 +57,16 @@ class YjsDoc implements CrdtDoc {
   }
 
   applyUpdate(update: Update, origin: unknown = ORIGIN_REMOTE): void {
-    withWholeUpdate(update, () => Y.applyUpdate(this.ydoc, update, origin));
+    const listenerThrows: unknown[] = [];
+    this.listenerThrows = listenerThrows;
+    try {
+      withWholeUpdate(update, () => Y.applyUpdate(this.ydoc, update, origin));
+    } catch (error) {
+      if (listenerThrows.length > 0) throw listenerThrows[0];
+      throw error;
+    } finally {
+      this.listenerThrows = null;
+    }
   }
 
   encodeState(): Update {
@@ -68,8 +83,14 @@ class YjsDoc implements CrdtDoc {
 
   subscribe(listener: (update: Update, origin: unknown) => void): Unsubscribe {
     // Yjs also passes its document and transaction: a listener never sees them
-    const onUpdate = (update: Update, origin: unknown) =>
-      listener(update, origin);
+    const onUpdate = (update: Update, origin: unknown) => {
+      try {
+        listener(update, origin);
+      } catch (thrown) {
+        this.listenerThrows?.push(thrown);
+        throw thrown;
+      }
+    };
     this.ydoc.on("update", onUpdate);
     return () => this.ydoc.off("update", onUpdate);
   }
