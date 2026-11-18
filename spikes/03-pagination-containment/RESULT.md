@@ -40,6 +40,7 @@ Every timed command ran through `scripts/timed.sh`. It starts a run only when th
   - Summaries: `bun harness/bench.ts --summarise gate --dir results/linux` and `bun harness/risk.ts --summarise --dir results/linux`.
   - The container is capped at **2 cores and 4 GB** by exactly these flags: `--cpuset-cpus=0-1 --memory=4g --memory-swap=4g`.
 - Timed, headed Google Chrome: `caffeinate -dimsu scripts/timed.sh bun harness/spell.ts`.
+- Windows, in CI, untimed: `.github/workflows/spike-03-windows.yml`, run 44322125183 at commit `a9916f8`. It ran `bun test src/engine.test.ts`, `bun harness/smoke.ts`, `bun harness/smoke-edit.ts`, `bun harness/conformance.ts all`, `bun harness/risk.ts chromium|firefox|webkit` and `bun harness/risk.ts --summarise`. Its results were fetched with `gh run download 44322125183 -n spike-03-windows --dir results/windows`.
 
 ## Machine and versions
 
@@ -48,6 +49,7 @@ Every timed command ran through `scripts/timed.sh`. It starts a run only when th
 - Google Chrome 157.0.8103.80 (spellcheck only).
 - Docker 29.10.0 through OrbStack, Linux on arm64, native (no emulation).
 - Container base `mcr.microsoft.com/playwright:v1.65.1-noble` (`sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579`), with Bun copied from `oven/bun:1.4.4` (`sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d`).
+- Windows: GitHub's `windows-2025` runner, image `windows-2025-vs2026` 20261103.298.1, Microsoft Windows Server 2025 (10.0.26100), x64; Bun 1.4.4; the same three Playwright builds, as each `results/windows/risk-*.json` records.
 - Packages, from `bun.lock`: `prosemirror-model` 1.25.13, `prosemirror-state` 1.4.4, `prosemirror-view` 1.42.9, `prosemirror-transform` 1.12.5, `prosemirror-keymap` 1.2.3, `prosemirror-commands` 1.7.2, `prosemirror-history` 1.5.1, `yjs` 13.6.33, `y-prosemirror` 1.3.7, `y-protocols` 1.0.7, `@fontsource/courier-prime` 5.3.0, `playwright` 1.65.1.
 - Substituted: no package. Docker was 29.10.0, not the 29.9.3 this run was prepared on.
 
@@ -167,13 +169,13 @@ The p50 is unchanged within 0.3. No threshold applies.
 - Behaviour at 50 %: as in a flat document.
 - Behaviour at 300 % in Chromium: vertical caret movement differs (B2, K2; see criterion 3).
 
-**Line wrapper conformance** (`conformance-*.json`, `linux/conformance-*.json`). The figure is the number of blocks whose line breaks differ from the engine's. The corpus has 2,033 blocks and the edge matrix 108, at 4 zooms and 4 device scale factors. Every view gave the same count.
+**Line wrapper conformance** (`conformance-*.json`, `linux/conformance-*.json`, `windows/conformance-*.json`). The figure is the number of blocks whose line breaks differ from the engine's. The corpus has 2,033 blocks and the edge matrix 108, at 4 zooms and 4 device scale factors. Every view gave the same count.
 
-| Engine | macOS `pre-wrap` corpus / edge | Linux `pre-wrap` corpus / edge | macOS `break-spaces` corpus | Linux `break-spaces` corpus |
-| --- | --- | --- | --- | --- |
-| Chromium | 0 / 27 | 595 / 79 | 419 | 809 |
-| Firefox | 0 / 62 | 0 / 60 | 419 | 419 |
-| WebKit | 0 / 27 | 0 / 42 | 419 | 419 |
+| Engine | macOS `pre-wrap` corpus / edge | Linux `pre-wrap` corpus / edge | Windows `pre-wrap` corpus / edge | macOS `break-spaces` corpus | Linux `break-spaces` corpus | Windows `break-spaces` corpus |
+| --- | --- | --- | --- | --- | --- | --- |
+| Chromium | 0 / 27 | 595 / 79 | 0 / 44 | 419 | 809 | 419 |
+| Firefox | 0 / 62 | 0 / 60 | 0 / 62 | 419 | 419 | 419 |
+| WebKit | 0 / 27 | 0 / 42 | 0 / 39 | 419 | 419 | 419 |
 
 On Linux, Chromium draws Courier Prime wider than 9.6 px per cell, so it wraps earlier than the engine. Examples, as the line starts of the engine against the browser:
 
@@ -184,7 +186,7 @@ On Linux, Chromium draws Courier Prime wider than 9.6 px per cell, so it wraps e
 
 Firefox and WebKit on the same Linux match exactly.
 
-**Behaviour across section boundaries** (`results/risk-summary.md`, `results/linux/risk-summary.md`, 1,000 pages). Three builds were checked: flat, sections with containment (`sec`), and sections with containment and pagination (`secpg`).
+**Behaviour across section boundaries** (`results/risk-summary.md`, `results/linux/risk-summary.md`, `results/windows/risk-summary.md`, 1,000 pages). Three builds were checked: flat, sections with containment (`sec`), and sections with containment and pagination (`secpg`).
 
 - This Mac, 100 %: every group behaves as flat in all three engines.
 - Linux, Chromium:
@@ -193,6 +195,9 @@ Firefox and WebKit on the same Linux match exactly.
   - E2, scrolling through the whole document, differs: the height changes during the scroll (it is reported, not part of criterion 3).
 - Linux, WebKit: G, a remote edit above the viewport, did not finish in either section build (scroll group, not part of criterion 3).
 - This Mac, Chromium at 300 %: B2 and K2 differ in `secpg` only, reproducibly.
+- Windows, 100 %: every group behaves as flat in all three engines. In WebKit, G did not finish in either section build, as on Linux (scroll group, not part of criterion 3).
+
+**Windows, the other checks** (the run's log). The engine's tests (3 pass), `smoke.ts` (7 checks) and `smoke-edit.ts` (31 checks) all passed.
 
 ## Criteria
 
@@ -204,10 +209,10 @@ Firefox and WebKit on the same Linux match exactly.
 | 3 | Chromium, Linux | Caret differs: K2 across an oversized section (B2 reproduced, B1 not) | fail |
 | 3 | Firefox, macOS / Linux | Same as flat / same as flat | pass / pass |
 | 3 | WebKit, macOS / Linux | Same as flat / same as flat | pass / pass |
-| 3 | Chromium, Firefox, WebKit on Windows | — | not run (CI) |
+| 3 | Chromium, Firefox, WebKit on Windows | Same as flat in all three, at 100 % | pass / pass / pass |
 | 4 | The line wrapper matches Chromium on the corpus: macOS | 0 of 2,033 blocks in all 8 views | pass |
 | 4 | Linux | 595 of 2,033 blocks in all 8 views | fail |
-| 4 | Windows | — | not run (CI) |
+| 4 | Windows | 0 of 2,033 blocks in all 8 views | pass |
 
 ## Not covered
 
@@ -224,16 +229,14 @@ Firefox and WebKit on the same Linux match exactly.
 
 ## Decision
 
-**Fallback on Chromium.** Keep the section wrapper and drop the containment CSS on Chromium, `CONTAINMENT.chromium = false`, because criterion 3 fails there. On Linux at 100 % zoom it fails in K2; on this Mac it fails only at 300 % zoom. In both reproduced differences, only the build with page breaks differs, while the sections with containment alone behave as flat. Dropping the containment CSS is the consequence the rules give for this result.
+**Fallback on Chromium.** Keep the section wrapper and drop the containment CSS on Chromium, `CONTAINMENT.chromium = false`, because criterion 3 fails there. On Linux at 100 % zoom it fails in K2; on this Mac it fails only at 300 % zoom. On Windows it behaves as flat, which changes nothing: a failure on any platform sets the fallback. In both reproduced differences, only the build with page breaks differs, while the sections with containment alone behave as flat. Dropping the containment CSS is the consequence the rules give for this result.
 
 **Provisional on Firefox and WebKit.** They keep 100-block sections and `content-visibility: auto`, the defaults (`CONTAINMENT.firefox = true`, `CONTAINMENT.webkit = true`). The criteria that are not `pass`, and what closes each:
 
 - **Criterion 2, inconclusive on this Mac and in the container.** No fallback exists for it. p50, p95 and p99 are each well within budget. The statistic that is not within is the variation of p50 across start, middle and end; the middle of the document is about 1 ms slower. Of the 5.8 ms keystroke to frame, the time inside `view.dispatch` is about 2 ms p95 (engine and decorations 1.3 ms p95). The rest is the browser's own style, layout and paint, the stage that cost the time. The product's typesetting benchmark and its benchmark suite measure it again.
 - **Criterion 3, fail on Chromium.** This is the fallback above.
-- **Criterion 4, fail on Linux.** Chromium on Linux draws the script font wider than its cell; the failing examples are listed under Numbers. The gate is the product's own conformance test for the typesetting code, which fails its build on a Chromium mismatch.
-- **Not run:**
-  - The Windows run in CI.
-  - The three checks of `BY-HAND.md`: the find bar in Chrome, Firefox and Safari; composition beside a mid-block break in Firefox and Safari; the spellcheck underline in Safari and Firefox.
+- **Criterion 4, fail on Linux.** Chromium on Linux draws the script font wider than its cell; the failing examples are listed under Numbers. macOS and Windows match. The gate is the product's own conformance test for the typesetting code, which fails its build on a Chromium mismatch.
+- **Not run:** the three checks of `BY-HAND.md`: the find bar in Chrome, Firefox and Safari; composition beside a mid-block break in Firefox and Safari; the spellcheck underline in Safari and Firefox.
 
 **Comfort limit: 120 pages.** With Chromium's containment off, the rows that decide are the sections without containment at 1,000 and 2,000 pages (both `fail`), and the containment row at 120 pages. That row is not within the budget: its variation across positions is inconclusive. So the value is 120. With containment, the 1,000- and 2,000-page rows would not change this, because their variation is inconclusive too. WebKit and Firefox at 2,000 pages are reported above and change nothing.
 
@@ -247,22 +250,22 @@ Firefox and WebKit on the same Linux match exactly.
 | Criterion 2, container (2 cores, 4 GB) | p50 / p95 / p99 8.2 / 12.8 / 17.4 ms, within; variation 18.8 % (9.4 – 28.2 %) | ≤ 16 / 33 / 50 ms; variation ≤ 20 % | inconclusive | as above |
 | Criterion 3, Chromium, macOS | same as flat at 100 % and 50 %; caret differs at 300 % | same as flat | fail | `CONTAINMENT.chromium = false` |
 | Criterion 3, Chromium, Linux | caret differs (K2 across an oversized section) | same as flat | fail | `CONTAINMENT.chromium = false` |
-| Criterion 3, Chromium, Windows | not run (CI) | same as flat | not run | filled by the Windows run |
+| Criterion 3, Chromium, Windows | same as flat | same as flat | pass | none; `CONTAINMENT.chromium` stays `false` from macOS and Linux |
 | Criterion 3, Firefox, macOS | same as flat | same as flat | pass | `CONTAINMENT.firefox = true` |
 | Criterion 3, Firefox, Linux | same as flat | same as flat | pass | `CONTAINMENT.firefox = true` |
-| Criterion 3, Firefox, Windows | not run (CI) | same as flat | not run | filled by the Windows run; `true` meanwhile |
+| Criterion 3, Firefox, Windows | same as flat | same as flat | pass | `CONTAINMENT.firefox = true` |
 | Criterion 3, WebKit, macOS | same as flat | same as flat | pass | `CONTAINMENT.webkit = true` |
 | Criterion 3, WebKit, Linux | same as flat | same as flat | pass | `CONTAINMENT.webkit = true` |
-| Criterion 3, WebKit, Windows | not run (CI) | same as flat | not run | filled by the Windows run; `true` meanwhile |
+| Criterion 3, WebKit, Windows | same as flat | same as flat | pass | `CONTAINMENT.webkit = true` |
 | Criterion 4, Chromium, macOS | 0 of 2,033 blocks | 0 mismatches | pass | none |
 | Criterion 4, Chromium, Linux | 595 of 2,033 blocks | 0 mismatches | fail | Provisional; the typesetting code's own conformance test, which fails its build on a Chromium mismatch, is the gate |
-| Criterion 4, Chromium, Windows | not run (CI) | 0 mismatches | not run | filled by the Windows run |
+| Criterion 4, Chromium, Windows | 0 of 2,033 blocks | 0 mismatches | pass | none |
 | Comfort limit | 120 pages: the 120-page row is not within (variation inconclusive); the 1,000- and 2,000-page rows without containment fail | the largest size within the typing budget at 6x | 120 (not even 120 is within) | `COMFORT_LIMIT_PAGES = 120` in `apps/web/src/editor-host/comfort.ts` |
 | S1 section target size | lowest 6x p95 at 100 blocks (2 loads) | no threshold | reported | `SECTION_TARGET_BLOCKS` stays 100 |
 | S2 containment per engine | criterion 3 | — | Chromium `false`, Firefox and WebKit `true` | `CONTAINMENT` in the block below; `packages/editor/src/page/config.ts` takes it |
 | S3 `white-space` | `break-spaces` mismatches 419 of 2,033 blocks (809 in Chromium on Linux) against `pre-wrap`'s 0 | no threshold | reported | `WRAP_MODE` stays `"pre-wrap"` |
-| S4 width slack | conformance at N + 0.5 cells: 0 corpus mismatches on macOS in every engine | no threshold | reported | `BLOCK_SLACK_CELLS` stays 0.5 |
-| S5 break opportunities | edge matrix of 108 blocks: Chromium 27 (Linux 79), Firefox 62 (60), WebKit 27 (42) mismatches | no threshold | reported | `breakAllowed` keeps its table |
+| S4 width slack | conformance at N + 0.5 cells: 0 corpus mismatches on macOS and Windows in every engine | no threshold | reported | `BLOCK_SLACK_CELLS` stays 0.5 |
+| S5 break opportunities | edge matrix of 108 blocks, macOS / Linux / Windows: Chromium 27 / 79 / 44, Firefox 62 / 60 / 62, WebKit 27 / 42 / 39 mismatches | no threshold | reported | `breakAllowed` keeps its table |
 | S6 `display: flow-root` | smoke S4: each section's intrinsic size equals its laid-out height, largest difference 0 px | no threshold | reported | stays |
 | S7 sections kept beside the selection | used at 1 | no threshold | reported | `KEEP_NEIGHBOURS` stays 1 |
 | S8 a break inside a block | I1–I4 pass at three carets (Chromium); K3 same as flat everywhere | no threshold | reported | `MID_BLOCK_BREAKS` stays `"inline"` |
