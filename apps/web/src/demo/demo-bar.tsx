@@ -1,13 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ServerControl } from "../api.ts";
 import { TEXT, serverStatusText } from "../text.ts";
-
-export const POLL_MS = 2000;
+import { POLL_MS } from "./use-demo.ts";
+import type { DemoControl } from "./use-demo.ts";
 
 export function DemoBar(props: {
   personLabel: string;
   onPersonClick: () => void;
-  control: { id: string; client: ServerControl } | null;
+  control: DemoControl | null;
 }) {
   return (
     <section
@@ -27,7 +26,7 @@ export function DemoBar(props: {
   );
 }
 
-function ServerStatus(props: { id: string; client: ServerControl }) {
+function ServerStatus(props: DemoControl) {
   const { client } = props;
   const queryClient = useQueryClient();
   const queryKey = ["server-status", props.id];

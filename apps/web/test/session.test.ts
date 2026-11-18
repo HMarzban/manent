@@ -1,11 +1,14 @@
 import { expect, test } from "bun:test";
+import type { Api, MeResult, SignInResult } from "../src/api.ts";
 import {
   SESSION_KEY,
   chooseUrl,
-  createTabSession,
+  choosePerson,
+  confirmPerson,
   personLabel,
+  readPerson,
   safeNext,
-  startScreen,
+  writePerson,
 } from "../src/session.ts";
 import type { TabStorage } from "../src/session.ts";
 
@@ -26,46 +29,107 @@ function refuse(): never {
   throw new Error("storage is disabled");
 }
 
-function throwingStorage(): TabStorage {
-  return { getItem: refuse, setItem: refuse, removeItem: refuse };
-}
-
 function storageHolding(value: string): TabStorage {
   const storage = fakeStorage();
   storage.setItem(SESSION_KEY, value);
   return storage;
 }
 
-const leo = { token: "tok", userId: "leo", name: "Leo Marsh" };
+const LEO = { token: "tok", userId: "leo", name: "Leo Marsh" };
+const answers = (result: MeResult) => () => Promise.resolve(result);
 
-test("the person belongs to the tab, name included", () => {
+test("the tab-storage key and what is stored under it are fixed", () => {
   const storage = fakeStorage();
-  createTabSession(storage).set(leo);
-  expect(createTabSession(storage).get()).toEqual(leo);
-  createTabSession(storage).set(null);
-  expect(storage.getItem(SESSION_KEY)).toBeNull();
+  writePerson(storage, { name: "Leo Marsh", userId: "leo", token: "t" });
+  expect(SESSION_KEY).toBe("manent.demo.session");
+  expect(storage.getItem("manent.demo.session")).toBe(
+    '{"token":"t","userId":"leo","name":"Leo Marsh"}',
+  );
+  writePerson(storage, { token: null, userId: "you", name: "You" });
+  expect(storage.getItem("manent.demo.session")).toBe(
+    '{"token":null,"userId":"you","name":"You"}',
+  );
+  expect(readPerson(storage)).toEqual({
+    token: null,
+    userId: "you",
+    name: "You",
+  });
+  writePerson(storage, null);
+  expect(storage.getItem("manent.demo.session")).toBeNull();
 });
 
-test("a browser that refuses tab storage still works for this page load", () => {
-  const s = createTabSession(throwingStorage());
-  s.set(leo);
-  expect(s.get()).toEqual(leo);
-  const none = createTabSession(null);
-  none.set(leo);
-  expect(none.get()).toEqual(leo);
-  expect(createTabSession(storageHolding("{not json")).get()).toBeNull();
-  expect(createTabSession(storageHolding('{"token":"tok"}')).get()).toBeNull();
+test("what a tab cannot read is no person", () => {
+  for (const storage of [
+    null,
+    { getItem: refuse, setItem: refuse, removeItem: refuse },
+    storageHolding("{not json"),
+    storageHolding('{"token":"tok"}'),
+    storageHolding('{"token":7,"userId":"leo","name":"Leo Marsh"}'),
+    storageHolding("null"),
+  ])
+    expect(readPerson(storage)).toBeNull();
 });
 
-test("where to start", () => {
-  expect(startScreen(null, "unknown")).toBe("choose");
-  for (const me of ["ok", "unknown", "unreachable"] as const)
-    expect(startScreen(leo, me)).toBe("library");
-  expect(startScreen(leo, "unauthenticated")).toBe("choose");
+test("only the server saying no signs a tab out", async () => {
+  const leo = { token: "t", userId: "leo", name: "Leo Marsh" };
+  const you = { token: null, userId: "you", name: "You" };
+  expect(
+    await confirmPerson(null, answers({ ok: false, reason: "unreachable" })),
+  ).toBeNull();
+  expect(
+    await confirmPerson(
+      leo,
+      answers({
+        ok: true,
+        me: { userId: "leo", name: "Leo Marsh", workspaces: [] },
+      }),
+    ),
+  ).toEqual(leo);
+  expect(
+    await confirmPerson(leo, answers({ ok: false, reason: "unreachable" })),
+  ).toEqual(leo);
+  expect(
+    await confirmPerson(leo, answers({ ok: false, reason: "unauthenticated" })),
+  ).toBeNull();
+  let asked = 0;
+  expect(
+    await confirmPerson(you, () => {
+      asked++;
+      return Promise.resolve({ ok: false, reason: "unauthenticated" });
+    }),
+  ).toEqual(you);
+  expect(asked).toBe(0); // a person who never signed in is not asked about
 });
 
-test("after a reload while /api/me is unreachable the bar still reads Person: Leo Marsh", () => {
-  expect(personLabel(leo)).toBe("Person: Leo Marsh");
+test("a person without an account is chosen without asking the server", async () => {
+  const asked: string[] = [];
+  const api: Api = {
+    choices: () => Promise.reject(new Error("not asked")),
+    me: () => Promise.reject(new Error("not asked")),
+    demo: () => Promise.reject(new Error("not asked")),
+    signIn(userId): Promise<SignInResult> {
+      asked.push(userId);
+      return Promise.resolve({ ok: true, person: LEO });
+    },
+  };
+  expect(
+    await choosePerson(
+      { userId: "you", name: "You", title: "A new person", registered: false },
+      api,
+    ),
+  ).toEqual({ ok: true, person: { token: null, userId: "you", name: "You" } });
+  expect(asked).toEqual([]);
+  expect(
+    await choosePerson(
+      { userId: "leo", name: "Leo Marsh", title: "", registered: true },
+      api,
+    ),
+  ).toEqual({ ok: true, person: LEO });
+  expect(asked).toEqual(["leo"]);
+});
+
+test("the person button names the tab's person", () => {
+  expect(personLabel(LEO)).toBe("Person: Leo Marsh");
   expect(personLabel(null)).toBe("Person");
 });
 

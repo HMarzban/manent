@@ -2,16 +2,20 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  createDemoSignIn,
-  createServer,
-  createSignedSessionStore,
-  DEMO_PEOPLE,
-} from "../src/index.ts";
-import type { ConnectionData, Identity, ServerConfig } from "../src/index.ts";
+import type { DemoResponse, SignInResponse } from "@manent/sync-protocol";
+import { createServer, createSignedSessionStore } from "../src/index.ts";
+import type { RequestContext, ServerConfig } from "../src/index.ts";
+import { createFakeDirectory, createFakeSignIn } from "../src/testing/index.ts";
 
 const CONTROL = { url: "http://127.0.0.1:4748", token: "t0ken" };
-let seed: string | null = "s1";
+const LEO = { userId: "leo", name: "Leo Marsh" };
+const ANA = { userId: "ana", name: "Ana Costa" };
+const ROOM = { id: "medium", name: "Writers' room", seeding: null };
+const HTTP: ServerConfig["http"] = {
+  allowedHosts: ["localhost:4747", "127.0.0.1:4747", "192.168.1.20:4747"],
+  openUrl: "http://192.168.1.20:4747",
+  webDir: null,
+};
 
 const made: string[] = [];
 afterAll(async () => {
@@ -22,59 +26,40 @@ afterAll(async () => {
 
 function makeConfig(overrides: Partial<ServerConfig> = {}): ServerConfig {
   return {
-    demo: { seedId: () => seed, control: CONTROL },
-    signIn: createDemoSignIn(),
-    sessions: createSignedSessionStore({ secret: new Uint8Array(32).fill(3) }),
-    allowedHosts: ["localhost:4747", "127.0.0.1:4747", "192.168.1.20:4747"],
-    allowedOrigins: [
-      "http://localhost:4747",
-      "http://127.0.0.1:4747",
-      "http://192.168.1.20:4747",
-    ],
-    openUrl: "http://192.168.1.20:4747",
-    webDir: null,
+    http: HTTP,
+    auth: {
+      signIn: createFakeSignIn([LEO, ANA]),
+      directory: createFakeDirectory([
+        { user: LEO, workspaces: [ROOM] },
+        { user: ANA, workspaces: [] },
+      ]),
+      sessions: createSignedSessionStore({
+        secret: new Uint8Array(32).fill(3),
+        now: () => 1_700_000_000_000,
+      }),
+    },
+    demo: { seedId: () => "s1", control: CONTROL },
     ...overrides,
   };
 }
 
-const config = makeConfig();
-const server = createServer(config);
+const peer = (remoteAddress = "127.0.0.1"): RequestContext => ({
+  remoteAddress,
+});
 
-function fakeServer(address: string): Bun.Server<ConnectionData> {
-  return {
-    requestIP: () => ({
-      address,
-      family: address.includes(":") ? "IPv6" : "IPv4",
-      port: 50_000,
-    }),
-    upgrade: () => false,
-  } as unknown as Bun.Server<ConnectionData>;
-}
-
-async function fetchAt(
-  url: string,
-  init?: RequestInit,
-  from = "127.0.0.1",
-  on = server,
-): Promise<Response> {
-  const response = await on.fetch(new Request(url, init), fakeServer(from));
-  if (!response) throw new Error("expected a response");
-  return response;
-}
-
-const get = (path: string, session?: string) =>
+const server = createServer(makeConfig());
+const fetchAt = (url: string, init?: RequestInit, on = server) =>
+  on.fetch(new Request(url, init), peer());
+const get = (path: string, token?: string) =>
   fetchAt(`http://localhost:4747${path}`, {
-    headers: session ? { Authorization: `Bearer ${session}` } : {},
+    headers: token === undefined ? {} : { Authorization: `Bearer ${token}` },
   });
+const getFrom = (path: string, from: string) =>
+  server.fetch(new Request(`http://localhost:4747${path}`), peer(from));
 const postRaw = (path: string, body: string) =>
   fetchAt(`http://localhost:4747${path}`, { method: "POST", body });
 const post = (path: string, body: unknown) =>
   postRaw(path, JSON.stringify(body));
-
-async function sessionFor(personId: string): Promise<string> {
-  const response = await post("/api/sign-in", { personId });
-  return ((await response.json()) as { session: string }).session;
-}
 
 test("health answers ok", async () => {
   const r = await get("/health");
@@ -82,111 +67,104 @@ test("health answers ok", async () => {
   expect(await r.json()).toEqual({ ok: true });
 });
 
-test("a person is chosen, and the session names them", async () => {
-  const signIn = await post("/api/sign-in", { personId: "leo" });
-  expect(signIn.status).toBe(200);
-  const { session, person } = (await signIn.json()) as {
-    session: string;
-    person: Identity;
-  };
-  expect(person).toEqual({ userId: "leo", name: "Leo Marsh" });
-  expect(await (await get("/api/me", session)).json()).toEqual({
+test("a person signs in and the token names them", async () => {
+  const signIn = await post("/api/sign-in", { userId: "leo" });
+  const body = (await signIn.json()) as SignInResponse;
+  expect([signIn.status, body.user]).toEqual([
+    200,
+    { userId: "leo", name: "Leo Marsh" },
+  ]);
+  expect(await (await get("/api/me", body.token)).json()).toEqual({
     userId: "leo",
     name: "Leo Marsh",
     workspaces: [{ id: "medium", name: "Writers' room", seeding: null }],
   });
-  const dana = (await (
-    await get("/api/me", await sessionFor("dana"))
-  ).json()) as {
-    workspaces: { id: string }[];
-  };
-  expect(dana.workspaces.map((w) => w.id)).toEqual(["medium", "heavy"]);
-  const anonymous = await get("/api/me");
-  expect(anonymous.status).toBe(401);
-  expect(await anonymous.json()).toEqual({ error: "unauthenticated" });
-  expect((await get("/api/me", "not-a-session")).status).toBe(401);
-  const unknown = await post("/api/sign-in", { personId: "mallory" });
-  expect(unknown.status).toBe(404);
-  expect(await unknown.json()).toEqual({ error: "unknown_person" });
-  for (const body of [
-    "{not json",
-    "{}",
-    '{"personId":7}',
-    "[]",
-    '"leo"',
-    "null",
-    "",
-  ]) {
+});
+
+test("a person nobody knows is 404 unknown_user", async () => {
+  const r = await post("/api/sign-in", { userId: "mallory" });
+  expect([r.status, await r.json()]).toEqual([404, { error: "unknown_user" }]);
+});
+
+test("a body the provider cannot read is 400 bad_request", async () => {
+  for (const body of ["not json", '{"userId":7}', "[]", "null", "{}", ""]) {
     const r = await postRaw("/api/sign-in", body);
-    expect(r.status).toBe(400);
-    expect(await r.json()).toEqual({ error: "bad_request" });
+    expect([body, r.status, await r.json()]).toEqual([
+      body,
+      400,
+      { error: "bad_request" },
+    ]);
   }
 });
 
-test("the sign-in screen gets the people and no wording", async () => {
+test("without a session, me is 401 unauthenticated", async () => {
+  for (const token of [undefined, "nonsense"]) {
+    const r = await get("/api/me", token);
+    expect([r.status, await r.json()]).toEqual([
+      401,
+      { error: "unauthenticated" },
+    ]);
+  }
+});
+
+test("the sign-in screen gets the choices and no wording", async () => {
   expect(await (await get("/api/sign-in")).json()).toEqual({
-    provider: "demo",
-    people: DEMO_PEOPLE,
+    choices: [
+      { userId: "leo", name: "Leo Marsh", title: "", registered: true },
+      { userId: "ana", name: "Ana Costa", title: "", registered: true },
+    ],
   });
 });
 
-test("a signed session for a person no longer listed is 401", async () => {
-  expect((await get("/api/me", config.sessions.issue("ghost"))).status).toBe(
+test("a signed session for a user the directory no longer lists is 401", async () => {
+  const token = makeConfig().auth.sessions.issue("gone");
+  const r = await get("/api/me", token);
+  expect([r.status, await r.json()]).toEqual([
     401,
-  );
+    { error: "unauthenticated" },
+  ]);
 });
 
 test("demo mode is announced only when it is on, with the seed's id", async () => {
-  expect(await (await get("/api/demo")).json()).toEqual({
-    demo: true,
-    seedId: "s1",
-    control: CONTROL,
-  });
+  let seed: string | null = "s1";
+  const demo = createServer(
+    makeConfig({ demo: { seedId: () => seed, control: CONTROL } }),
+  );
+  const seedId = async () =>
+    (
+      (await (
+        await fetchAt("http://localhost:4747/api/demo", {}, demo)
+      ).json()) as DemoResponse
+    ).seedId;
+  expect(
+    await (await fetchAt("http://localhost:4747/api/demo", {}, demo)).json(),
+  ).toEqual({ demo: true, seedId: "s1", control: CONTROL });
   seed = "s2";
-  expect(
-    ((await (await get("/api/demo")).json()) as { seedId: string }).seedId,
-  ).toBe("s2");
+  expect(await seedId()).toBe("s2");
   seed = null;
-  expect(
-    ((await (await get("/api/demo")).json()) as { seedId: null }).seedId,
-  ).toBeNull();
-  seed = "s1";
+  expect(await seedId()).toBeNull();
   const withoutSupervisor = createServer(
     makeConfig({ demo: { seedId: () => "s1", control: null } }),
   );
   expect(
     await (
-      await fetchAt(
-        "http://localhost:4747/api/demo",
-        {},
-        "127.0.0.1",
-        withoutSupervisor,
-      )
+      await fetchAt("http://localhost:4747/api/demo", {}, withoutSupervisor)
     ).json(),
   ).toEqual({ demo: true, seedId: "s1", control: null });
   const notDemo = createServer(makeConfig({ demo: null }));
-  const r = await fetchAt(
-    "http://localhost:4747/api/demo",
-    {},
-    "127.0.0.1",
-    notDemo,
-  );
+  const r = await fetchAt("http://localhost:4747/api/demo", {}, notDemo);
   expect(r.status).toBe(404);
   expect(await r.json()).toEqual({ error: "not_found" });
 });
 
-async function controlSeenFrom(from: string): Promise<unknown> {
-  const r = await fetchAt("http://localhost:4747/api/demo", {}, from);
-  return ((await r.json()) as { control: unknown }).control;
-}
+const control = async (from: string) =>
+  ((await (await getFrom("/api/demo", from)).json()) as DemoResponse).control;
 
 test("control is given only to a loopback requester", async () => {
-  for (const from of ["127.0.0.1", "::1", "::ffff:127.0.0.1"]) {
-    expect(await controlSeenFrom(from)).toEqual(CONTROL);
-  }
-  for (const from of ["192.168.1.30", "::ffff:192.168.1.30", "10.0.0.9"]) {
-    expect(await controlSeenFrom(from)).toBeNull();
-  }
+  for (const from of ["127.0.0.1", "127.8.9.10", "::1", "::ffff:127.0.0.1"])
+    expect(await control(from)).toEqual(CONTROL);
+  for (const from of ["192.168.1.20", "localhost", "fe80::1%eth0", ""])
+    expect(await control(from)).toBeNull();
 });
 
 test("a request for another host is refused before any handler runs", async () => {
@@ -201,7 +179,7 @@ test("a request for another host is refused before any handler runs", async () =
   }
   const signIn = await fetchAt("http://evil.example:4747/api/sign-in", {
     method: "POST",
-    body: JSON.stringify({ personId: "leo" }),
+    body: JSON.stringify({ userId: "leo" }),
   });
   expect(signIn.status).toBe(403);
   const page = await fetchAt("http://macbook.local:4747/");
@@ -236,9 +214,9 @@ test("the web app is served, with a fallback for app routes and none for the API
   await writeFile(join(webDir, "chunk-abc.js"), "export const a = 1;");
   await writeFile(join(webDir, "assets", "font.css"), "body{}");
   await symlink(join(root, "secret.txt"), join(webDir, "linked.txt"));
-  const web = createServer(makeConfig({ webDir }));
+  const web = createServer(makeConfig({ http: { ...HTTP, webDir } }));
   const at = (path: string, init?: RequestInit) =>
-    fetchAt(`http://localhost:4747${path}`, init, "127.0.0.1", web);
+    fetchAt(`http://localhost:4747${path}`, init, web);
 
   for (const path of ["/", "/s/01a1b2c3", "/choose?next=%2F", "/missing.js"]) {
     const r = await at(path);
@@ -274,8 +252,8 @@ test("the web app is served, with a fallback for app routes and none for the API
   expect(await posted.json()).toEqual({ error: "not_found" });
 
   for (const dir of [null, join(root, "absent")]) {
-    const none = createServer(makeConfig({ webDir: dir }));
-    const r = await fetchAt("http://localhost:4747/", {}, "127.0.0.1", none);
+    const none = createServer(makeConfig({ http: { ...HTTP, webDir: dir } }));
+    const r = await fetchAt("http://localhost:4747/", {}, none);
     expect(r.status).toBe(404);
     expect(await r.json()).toEqual({ error: "not_found" });
   }

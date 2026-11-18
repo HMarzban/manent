@@ -1,14 +1,15 @@
 // Every sentence the web app shows, in one place.
 
+import type { ControlState } from "./api.ts";
+
 export const TEXT = {
   appName: "Manent demo",
   chooseTitle: "Choose who you are",
   chooseHint:
     "Pick anyone. You can switch at any time, and each browser tab can be a different person.",
   chooseUnreachable: "Can't reach Manent. Start the server, then choose again.",
-  loading: "Loading…",
-  current: "Current",
-  back: "‹ Back",
+  chosen: "Chosen",
+  back: "‹ Library",
   person: "Person",
   libraryTitle: "Library",
   projects: "Projects",
@@ -21,14 +22,11 @@ export const TEXT = {
   serverRunning: "Server running",
   serverStopped: "Server stopped. Start it before reloading this tab.",
   serverStarting: "Starting the server…",
-  serverFailed: "The server could not start. See the terminal.",
+  serverFailed: "Couldn't start the server. See the terminal.",
   demoUnreachable: "The demo is not running. Run make demo again.",
 } as const satisfies Readonly<Record<string, string>>;
 
-export type ServerState =
-  "running" | "stopped" | "starting" | "failed" | "unreachable";
-
-const STATUS_TEXT: Record<ServerState, string> = {
+const STATUS_TEXT: Record<ControlState, string> = {
   running: TEXT.serverRunning,
   stopped: TEXT.serverStopped,
   starting: TEXT.serverStarting,
@@ -36,7 +34,7 @@ const STATUS_TEXT: Record<ServerState, string> = {
   unreachable: TEXT.demoUnreachable,
 };
 
-export function serverStatusText(state: ServerState): string {
+export function serverStatusText(state: ControlState): string {
   return STATUS_TEXT[state];
 }
 
