@@ -21,3 +21,10 @@ export function parseHome(key: string): Home | null {
   }
   return null;
 }
+
+/** The home's key, checked before anything is built from it: RangeError for a home that is not well formed. */
+export function wellFormedKey(home: Home): string {
+  const key = homeKey(home);
+  if (parseHome(key) !== null) return key;
+  throw new RangeError(`a home must be project:<uuid> or user:<id>: ${key}`);
+}

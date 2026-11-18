@@ -65,7 +65,7 @@ export interface SyncService {
   accessChanged(docId: string, userId: string): void;
   /** A document was deleted: tells and unsubscribes everyone. */
   removed(docId: string): void;
-  /** A backup was put back: every document in a home this service has served is flagged `restore` at its head. */
+  /** A backup was put back: every placed document is flagged `restore` at its head. */
   restored(): void;
   stats(): ServiceStats;
   shutdown(): Promise<void>;

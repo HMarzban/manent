@@ -1,6 +1,6 @@
 // Healing: when the log has lost what clients hold, a client that is ahead sends it back, and the
 // acknowledgement ledger bounds what it may carry of other people's work.
-import type { DocumentRow, HealingRow, Home, Storage } from "@manent/storage";
+import type { DocumentRow, HealingRow, Storage } from "@manent/storage";
 import type { WriteMode } from "./ports.ts";
 import type { Room } from "./rooms.ts";
 import type { WritePathPorts } from "./write-path.ts";
@@ -45,7 +45,7 @@ export interface Healing {
   /** A SUBSCRIBE that passed: one that reports a head beyond the server's flags the document `behind`. */
   subscribed(room: Room, lastServerSeq: number): void;
   ports: Pick<WritePathPorts, "admitsForeign" | "beforeAppend">;
-  /** Flags every document placed in a home a SUBSCRIBE reached with reason `restore`, at its head. */
+  /** Flags every placed document with reason `restore`, at its head. */
   restored(): void;
 }
 
@@ -56,7 +56,6 @@ export function createHealing(options: {
   ids(): string;
 }): Healing {
   const { storage, now, ids } = options;
-  const homes = new Map<string, Home>();
   if (options.mode === "relay")
     return {
       headOf: (room) => room.row.headSeq,
@@ -66,8 +65,7 @@ export function createHealing(options: {
     };
   return {
     headOf: (room) => verifiedHead(room.row, room.file.log.healing(room.docId)),
-    subscribed({ file, docId, row, home }, lastServerSeq) {
-      homes.set(`${home.kind}:${home.id}`, home);
+    subscribed({ file, docId, row }, lastServerSeq) {
       if (lastServerSeq > row.headSeq)
         file.log.flagHealing(docId, "behind", row.headSeq);
     },
@@ -107,7 +105,7 @@ export function createHealing(options: {
       },
     },
     restored() {
-      for (const home of homes.values()) {
+      for (const home of storage.directory.homes()) {
         const { log } = storage.open(home);
         for (const docId of storage.directory.documentsIn(home)) {
           const row = log.get(docId);

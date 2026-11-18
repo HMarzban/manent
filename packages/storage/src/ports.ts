@@ -178,6 +178,8 @@ export interface DocDirectory {
   ): { home: Home; kind: string; created: boolean };
   placeOf(docId: string): { home: Home; kind: string } | null;
   documentsIn(home: Home): string[];
+  /** Each home a placed document lives in, once, ordered by its `kind:id` key. */
+  homes(): readonly Home[];
   setRole(
     docId: string,
     userId: string,

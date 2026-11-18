@@ -309,13 +309,13 @@ test("after a restore every document is flagged at its head", () => {
     kind: "script",
     home: `project:${PROJECT}`,
   });
+  world.restart();
   world.service.restored();
-  expect([
-    file(world).log.healing(DOC),
-    file(world).log.healing(DOC2),
-  ]).toMatchObject([
-    { reason: "restore", verifiedSeq: 3 },
-    { reason: "restore", verifiedSeq: 0 },
+  const { log } = file(world);
+  const flag = { flaggedAt: 1_000, preHealVersionId: null };
+  expect([log.healing(DOC), log.healing(DOC2)]).toEqual([
+    { ...flag, reason: "restore", verifiedSeq: 3 },
+    { ...flag, reason: "restore", verifiedSeq: 0 },
   ]);
 });
 
