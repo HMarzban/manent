@@ -7,7 +7,6 @@ const SPACE = 0x20;
 const TAB = 0x09;
 const LINE_FEED = 0x0a;
 const HYPHEN = 0x2d;
-const SLASH = 0x2f;
 const EN_DASH = 0x2013;
 const EM_DASH = 0x2014;
 
@@ -102,6 +101,5 @@ export function breakAllowed(text: string, at: number): boolean {
   )
     return true;
   if (p === EN_DASH) return true;
-  if ((p === EM_DASH) !== (n === EM_DASH)) return true;
-  return p === SLASH && !isDigit(n);
+  return (p === EM_DASH) !== (n === EM_DASH);
 }
