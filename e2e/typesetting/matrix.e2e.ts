@@ -26,14 +26,18 @@ function selection(page: Page): Promise<[number, number]> {
   });
 }
 
-// Scrolls the window so that `pos` is in its middle.
-function center(page: Page, pos: number): Promise<void> {
-  return page.evaluate((at) => {
-    const scroller = document.getElementById("place")!;
-    scroller.scrollTop +=
-      window["__mn"].view.coordsAtPos(at).top -
-      scroller.getBoundingClientRect().height / 2;
-  }, pos);
+// Scrolls `#place` so that `pos` is `abovePx` above its middle.
+function center(page: Page, pos: number, abovePx = 0): Promise<void> {
+  return page.evaluate(
+    ([at, above]) => {
+      const scroller = document.getElementById("place")!;
+      scroller.scrollTop +=
+        window["__mn"].view.coordsAtPos(at).top -
+        scroller.getBoundingClientRect().height / 2 +
+        above;
+    },
+    [pos, abovePx] as const,
+  );
 }
 
 /** Puts the caret at `pos` (or selects from `anchor` to `pos`) in the middle of the window. */
@@ -45,20 +49,51 @@ async function place(page: Page, pos: number, anchor = pos): Promise<void> {
   await center(page, pos);
 }
 
+// ProseMirror takes three clicks within 10 px and 500 ms for a triple click, which selects the whole block: every
+// other click puts its line 40 px higher, so that no two in a row are at one point
+let clicks = 0;
+
+/** Clicks where `pointOf`, run in the page, puts `pos`, and waits for the editor to put the caret there. */
+async function clickOn(
+  page: Page,
+  pos: number,
+  pointOf: (at: number) => { x: number; y: number },
+): Promise<void> {
+  // the editor has finished with the last key and has the focus, so nothing scrolls back to the caret it left
+  await page.evaluate(() => {
+    window["__mn"].view.focus();
+    return window["__mn"].idle();
+  });
+  clicks += 1;
+  await center(page, pos, (clicks % 2) * 40);
+  const { x, y } = await page.evaluate(pointOf, pos);
+  await page.mouse.click(x, y);
+  await expect.poll(() => selection(page)).toEqual([pos, pos]);
+}
+
 /**
- * Clicks just inside the first character after `pos`, so that the browser puts the caret at the start of its line
- * even where a line wraps, and waits for the editor to read it.
+ * Clicks just inside the first character after `pos`, so that the caret is at the start of its line even where a
+ * line wraps.
  */
-async function clickAt(page: Page, pos: number): Promise<void> {
-  // the editor has finished with the last key, so nothing scrolls back to the caret it left
-  await page.evaluate(() => window["__mn"].idle());
-  await center(page, pos);
-  const point = await page.evaluate((at) => {
+function clickAt(page: Page, pos: number): Promise<void> {
+  return clickOn(page, pos, (at) => {
     const box = window["__mn"].view.coordsAtPos(at, 1);
     return { x: box.left + 1, y: (box.top + box.bottom) / 2 };
-  }, pos);
-  await page.mouse.click(point.x, point.y);
-  await expect.poll(() => selection(page)).toEqual([pos, pos]);
+  });
+}
+
+/** Clicks just inside the end of the character before `pos`, so that the caret is after it at the end of its line. */
+function clickBefore(page: Page, pos: number): Promise<void> {
+  return clickOn(page, pos, (at) => {
+    const { node, offset } = window["__mn"].view.domAtPos(at - 1);
+    if (!(node instanceof Text))
+      throw new RangeError(`no text drawn before ${at}`);
+    const range = document.createRange();
+    range.setStart(node, offset);
+    range.setEnd(node, offset + 1);
+    const box = range.getBoundingClientRect();
+    return { x: box.right - 1, y: (box.top + box.bottom) / 2 };
+  });
 }
 
 /**
@@ -88,6 +123,36 @@ function splitBreaks(
   });
 }
 
+/**
+ * Each page that starts with a whole block of the element the page above ends with, so that a caret at the start of
+ * a line keeps to the start of the next: the start of the page above's last line, and where the page starts.
+ */
+function blockBreaks(page: Page): Promise<{ above: number; at: number }[]> {
+  return page.evaluate(() => {
+    const probe = window["__mn"];
+    const { doc } = probe.view.state;
+    const blocks: number[] = [];
+    doc.forEach((section, offset) => {
+      section.forEach((_, inner) => blocks.push(offset + 1 + inner));
+    });
+    return probe.pages().flatMap(({ block, line }) => {
+      const [prev, pos] = [blocks[block - 1], blocks[block]!];
+      if (line > 0 || prev === undefined) return [];
+      const [last, first] = [doc.nodeAt(prev)!, doc.nodeAt(pos)!];
+      const el = probe.view.nodeDOM(prev);
+      if (
+        last.attrs["type"] !== first.attrs["type"] ||
+        last.content.size === 0 ||
+        first.content.size === 0 ||
+        !(el instanceof HTMLElement)
+      )
+        return [];
+      const lastLine = probe.lineStarts(el).model.at(-1)!;
+      return [{ above: prev + 1 + lastLine, at: pos + 1 }];
+    });
+  });
+}
+
 /** The text a selection shows, and the furniture among it: (MORE), (CONT'D) and page numbers. */
 function selectedText(page: Page): Promise<[string, string[]]> {
   return page.evaluate(() => {
@@ -107,47 +172,96 @@ const withoutSpaces = (s: string) => s.replace(new RegExp("\\s", "g"), "");
 test("ArrowDown from the last line of a page lands on the first line of the next", async ({
   page,
 }) => {
-  await open(page, "script=long-speech");
-  const breaks = await splitBreaks(page);
-  const landed: number[] = [];
-  for (const { above } of breaks) {
-    await clickAt(page, above);
-    await page.keyboard.press("ArrowDown");
-    await expect.poll(async () => (await selection(page))[1]).not.toBe(above);
-    landed.push((await selection(page))[1]);
+  const landed: number[][] = [];
+  const wanted: number[][] = [];
+  // a page break inside a speech, then one between two blocks
+  for (const [script, breaksOf] of [
+    ["long-speech", splitBreaks],
+    ["corpus:750", blockBreaks],
+  ] as const) {
+    await open(page, `script=${script}`);
+    const breaks = await breaksOf(page);
+    const heads: number[] = [];
+    for (const { above } of breaks) {
+      await clickAt(page, above);
+      await page.keyboard.press("ArrowDown");
+      await expect.poll(async () => (await selection(page))[1]).not.toBe(above);
+      heads.push((await selection(page))[1]);
+    }
+    landed.push(heads);
+    wanted.push(breaks.map((b) => b.at));
   }
-  expect([breaks.length > 0, landed]).toEqual([true, breaks.map((b) => b.at)]);
+  expect([wanted.map((w) => w.length > 0), landed]).toEqual([
+    [true, true],
+    wanted,
+  ]);
 });
+
+/**
+ * Selects from `from` to `to` with `presses` of Shift+ArrowDown: the text the selection shows and the furniture
+ * among it, beside the model's text between the two and no furniture.
+ */
+async function selectDown(
+  page: Page,
+  [from, to]: readonly [number, number],
+  presses: number,
+): Promise<[[string, string[]], [string, string[]]]> {
+  await clickAt(page, from);
+  for (let i = 0; i < presses; i++)
+    await page.keyboard.press("Shift+ArrowDown");
+  await expect.poll(() => selection(page)).toEqual([from, to]);
+  const [text, furniture] = await selectedText(page);
+  const model = await page.evaluate(
+    ([a, z]) => window["__mn"].view.state.doc.textBetween(a, z),
+    [from, to] as const,
+  );
+  return [
+    [withoutSpaces(text), furniture],
+    [withoutSpaces(model), []],
+  ];
+}
 
 test("Shift+ArrowDown across a page break selects text and no furniture", async ({
   page,
 }) => {
   await open(page, "script=long-speech");
-  // from the last line of a page to the second of the next, the break's widget inside the selection
+  // inside a speech, from the last line of a page to the second of the next, the break's widget inside the selection
   const { above, below } = (await splitBreaks(page))[0]!;
-  await clickAt(page, above);
-  await page.keyboard.press("Shift+ArrowDown");
-  await page.keyboard.press("Shift+ArrowDown");
-  await expect.poll(() => selection(page)).toEqual([above, below]);
-  const [text, furniture] = await selectedText(page);
-  const model = await page.evaluate(
-    ([from, to]) => window["__mn"].view.state.doc.textBetween(from, to),
-    [above, below] as const,
-  );
-  expect([withoutSpaces(text), furniture]).toEqual([withoutSpaces(model), []]);
+  const seen = [await selectDown(page, [above, below], 2)];
+  // between two blocks, from the last line of a page to the start of the next
+  await open(page, "script=corpus:750");
+  const breaks = await blockBreaks(page);
+  for (const { above: from, at } of breaks)
+    seen.push(await selectDown(page, [from, at], 1));
+  expect([breaks.length > 0, seen.map(([shown]) => shown)]).toEqual([
+    true,
+    seen.map(([, model]) => model),
+  ]);
 });
 
+/** Where the browser's caret is against the first `.pb-mid`: -1 before it, 0 inside it, 1 after it. */
+function sideOfMid(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const mid = window["__mn"].view.dom.querySelector(".pb-mid")!;
+    const { focusNode, focusOffset } = document.getSelection()!;
+    const range = document.createRange();
+    range.selectNodeContents(mid);
+    return range.comparePoint(focusNode!, focusOffset);
+  });
+}
+
 test("typing at both ends of a split speech", async ({ page }) => {
-  // the break's widget sits before its position, so a caret there is just after it
-  for (const side of ["before", "after"] as const) {
+  // a click at the end of the page's last line and one at the start of the next give one model position
+  for (const click of [clickBefore, clickAt]) {
     await open(page, "script=long-speech");
     const { at } = (await splitBreaks(page))[0]!;
-    const caret = side === "before" ? at - 1 : at;
     const [before, offset] = await page.evaluate((pos) => {
       const $caret = window["__mn"].view.state.doc.resolve(pos);
       return [$caret.parent.textContent, $caret.parentOffset] as const;
-    }, caret);
-    await place(page, caret);
+    }, at);
+    await click(page, at);
+    // the editor draws a caret at that position after the widget, wherever the click put it
+    expect(await sideOfMid(page)).toBe(1);
     await page.keyboard.type("q");
     const found = await page.evaluate((pos) => {
       const probe = window["__mn"];
@@ -160,10 +274,10 @@ test("typing at both ends of a split speech", async ({ page }) => {
         pages: probe.pages(),
         cold: probe.cold(),
       };
-    }, caret);
+    }, at);
     expect([found.text, found.head, found.mids, found.pages]).toEqual([
       before.slice(0, offset) + "q" + before.slice(offset),
-      caret + 1,
+      at + 1,
       found.breaks,
       found.cold,
     ]);
