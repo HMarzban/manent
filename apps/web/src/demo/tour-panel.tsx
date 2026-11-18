@@ -1,4 +1,4 @@
-import type { TourFile } from "@manent/testkit";
+import type { TourFile } from "@manent/demo";
 import { TEXT } from "../text.ts";
 
 export function TourPanel(props: { tour: TourFile }) {

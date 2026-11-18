@@ -1,6 +1,6 @@
 // The app's routes, defined in code.
 
-import type { TourFile } from "@manent/testkit";
+import { TOUR } from "@manent/demo";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Outlet,
@@ -17,13 +17,10 @@ import { createServerControl } from "./api.ts";
 import type { Api } from "./api.ts";
 import { DemoBar, POLL_MS } from "./demo/demo-bar.tsx";
 import { TourPanel } from "./demo/tour-panel.tsx";
-import tourData from "./demo/tour.json";
 import { ChooseScreen } from "./screens/choose.tsx";
 import { LibraryScreen } from "./screens/library.tsx";
 import { chooseUrl, personLabel, startScreen } from "./session.ts";
 import type { TabPerson, createTabSession } from "./session.ts";
-
-const tour = tourData as TourFile;
 
 interface PersonState {
   person: TabPerson | null;
@@ -109,7 +106,7 @@ export function createAppRouter(deps: {
           <main className="flex-1">
             <Outlet />
           </main>
-          {demo && person && <TourPanel tour={tour} />}
+          {demo && person && <TourPanel tour={TOUR} />}
         </div>
       </div>
     );
