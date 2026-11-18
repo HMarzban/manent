@@ -25,6 +25,23 @@ export interface Coalescer {
   dispose(): void;
 }
 
+// Runs `run` on the next frame or after `fallbackMs`, whichever comes first; the
+// returned function cancels both.
+function requestFrameOrTimer(
+  run: () => void,
+  ports: { frames: Frames; clock: Clock; fallbackMs?: number },
+): () => void {
+  const cancelFrame = ports.frames.request(run);
+  const cancelTimer = ports.clock.schedule(
+    run,
+    ports.fallbackMs ?? FLUSH_FALLBACK_MS,
+  );
+  return () => {
+    cancelFrame();
+    cancelTimer();
+  };
+}
+
 /** `apply` gets the buffer merged and the highest `throughLocalSeq` pushed into it. */
 export function createCoalescer(options: {
   apply(merged: Uint8Array, throughLocalSeq: number): void;
@@ -32,20 +49,16 @@ export function createCoalescer(options: {
   clock: Clock;
   fallbackMs?: number;
 }): Coalescer {
-  const { apply, frames, clock } = options;
-  const fallbackMs = options.fallbackMs ?? FLUSH_FALLBACK_MS;
+  const { apply } = options;
   let buffer: { update: Uint8Array; throughLocalSeq: number }[] = [];
   let holds = 0;
   let applying = false;
   let disposed = false;
-  let cancelFrame: (() => void) | null = null;
-  let cancelTimer: (() => void) | null = null;
+  let cancel: (() => void) | null = null;
 
   const unschedule = (): void => {
-    cancelFrame?.();
-    cancelTimer?.();
-    cancelFrame = null;
-    cancelTimer = null;
+    cancel?.();
+    cancel = null;
   };
 
   const flush = (): void => {
@@ -66,9 +79,8 @@ export function createCoalescer(options: {
   };
 
   const schedule = (): void => {
-    if (holds > 0 || cancelFrame !== null) return;
-    cancelFrame = frames.request(flush);
-    cancelTimer = clock.schedule(flush, fallbackMs);
+    if (holds > 0 || cancel !== null) return;
+    cancel = requestFrameOrTimer(flush, options);
   };
 
   return {
