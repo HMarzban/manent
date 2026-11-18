@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createPersonStore } from "../src/person-store.ts";
+import { createPersonStore } from "../src/state/person.store.ts";
 import type { TabStorage } from "../src/session.ts";
 
 function fakeStorage(): TabStorage {

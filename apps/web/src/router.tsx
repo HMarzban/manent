@@ -10,11 +10,11 @@ import {
 } from "@tanstack/react-router";
 import type { AnyRouter } from "@tanstack/react-router";
 import type { Api } from "./api.ts";
-import type { PersonStore } from "./person-store.ts";
 import { RootLayout } from "./root-layout.tsx";
 import { ChooseScreen } from "./screens/choose.tsx";
 import { SEND_FORM_IDS } from "./screens/send/forms.ts";
 import { chooseUrl, choosePerson, confirmPerson, safeNext } from "./session.ts";
+import type { PersonStore } from "./state/person.store.ts";
 
 // the build's define; absent outside a build
 declare const MANENT_FLAVOUR: string | undefined;

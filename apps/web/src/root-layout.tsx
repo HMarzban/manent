@@ -6,8 +6,8 @@ import type { Api } from "./api.ts";
 import { DemoBar } from "./demo/demo-bar.tsx";
 import { TourPanel } from "./demo/tour-panel.tsx";
 import { useDemo } from "./demo/use-demo.ts";
-import type { PersonStore } from "./person-store.ts";
 import { chooseUrl, personLabel } from "./session.ts";
+import type { PersonStore } from "./state/person.store.ts";
 
 export function RootLayout(props: {
   api: Api;
