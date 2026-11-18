@@ -50,6 +50,8 @@ export type {
 } from "./chunking.ts";
 export { gateConnection, gateDocument } from "./gating.ts";
 export type { ConnectionGate } from "./gating.ts";
+export { DOC_KINDS, docIdV7, isDocId, isDocKind } from "./doc-id.ts";
+export type { DocKind } from "./doc-id.ts";
 export {
   HTTP_ERROR_CODES,
   SERVER_STATES,
@@ -59,12 +61,16 @@ export {
 export type {
   ControlEndpoint,
   ControlStatusResponse,
+  CreateDocumentRequest,
+  CreateDocumentResponse,
   DemoResponse,
   ErrorResponse,
   HealthResponse,
   HttpErrorCode,
   Identity,
   MeResponse,
+  RemoveDocumentRequest,
+  RemoveDocumentResponse,
   ServerState,
   SignInChoice,
   SignInOptions,

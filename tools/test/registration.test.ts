@@ -8,6 +8,7 @@ const LISTS = [
   "packages/formats/src/index.ts",
   "packages/revisions/src/index.ts",
   "packages/server-core/src/index.ts",
+  "packages/sync-client/src/index.ts",
   "packages/ui/src/components/index.ts",
   "packages/ui/src/index.ts",
   "packages/ui/src/tokens/index.ts",

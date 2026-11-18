@@ -1,4 +1,5 @@
 // What the server's HTTP routes and the demo's server control answer, and what a client sends them.
+import type { DocKind } from "./doc-id.ts";
 
 export const HTTP_ERROR_CODES = [
   "bad_request",
@@ -7,6 +8,10 @@ export const HTTP_ERROR_CODES = [
   "not_found",
   "unauthenticated",
   "unknown_user",
+  "deleted",
+  "exists_elsewhere",
+  "forbidden",
+  "unsupported_kind",
 ] as const;
 
 export type HttpErrorCode = (typeof HTTP_ERROR_CODES)[number];
@@ -65,6 +70,39 @@ export interface WsTicketResponse {
   ticket: string;
   /** How long the ticket can be redeemed. */
   expiresInMs: number;
+}
+
+/**
+ * The body of POST /api/docs. Repeating it with the same `docId` changes nothing,
+ * so a document made offline can be created later.
+ */
+export interface CreateDocumentRequest {
+  docId: string;
+  kind: string;
+  /** "user" (the caller's own file) or "project:<uuid>". */
+  home: string;
+  /** The workspace whose index's roles a new script takes; a reader that does not know it ignores it. */
+  workspaceId?: string;
+}
+
+/** The answer to POST /api/docs. */
+export interface CreateDocumentResponse {
+  docId: string;
+  kind: DocKind;
+  home: string;
+  generation: number;
+  /** False when the document already existed. */
+  created: boolean;
+}
+
+/** The body of POST /api/docs/remove; repeating it changes nothing. */
+export interface RemoveDocumentRequest {
+  docId: string;
+}
+
+/** The answer to POST /api/docs/remove. */
+export interface RemoveDocumentResponse {
+  removed: true;
 }
 
 export interface ControlEndpoint {

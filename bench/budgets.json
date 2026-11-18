@@ -43,6 +43,90 @@
       "stat": "p95",
       "budget": 0.5,
       "hardFail": 2
+    },
+    {
+      "scenario": "server.fanout",
+      "metric": "fanout_ms",
+      "stat": "p99",
+      "budget": 50,
+      "hardFail": 200
+    },
+    {
+      "scenario": "server.fanout",
+      "metric": "event_loop_lag_ms",
+      "stat": "p99",
+      "budget": 20,
+      "hardFail": 100
+    },
+    {
+      "scenario": "server.join-storm",
+      "metric": "last_synced_ms",
+      "stat": "p99",
+      "budget": 3000,
+      "hardFail": 10000
+    },
+    {
+      "scenario": "server.room-memory",
+      "metric": "rooms_after_idle",
+      "stat": "p99",
+      "budget": 0,
+      "hardFail": 0
+    },
+    {
+      "scenario": "server.room-memory",
+      "metric": "loaded_room_bytes",
+      "stat": "p99",
+      "budget": 20000000,
+      "hardFail": 60000000
+    },
+    {
+      "scenario": "server.persistence",
+      "metric": "growth_bytes_per_typist_hour",
+      "stat": "p99",
+      "budget": 1000000,
+      "hardFail": 2000000
+    },
+    {
+      "scenario": "server.persistence",
+      "metric": "checkpoint_stall_ms",
+      "stat": "p99",
+      "budget": 0,
+      "hardFail": 20
+    },
+    {
+      "scenario": "server.push-cost",
+      "metric": "push_ms_120",
+      "stat": "p95",
+      "budget": 2,
+      "hardFail": 20
+    },
+    {
+      "scenario": "server.push-cost",
+      "metric": "push_ms_2000",
+      "stat": "p95",
+      "budget": 2,
+      "hardFail": 20
+    },
+    {
+      "scenario": "server.durability",
+      "metric": "acked_lost",
+      "stat": "p99",
+      "budget": 0,
+      "hardFail": 0
+    },
+    {
+      "scenario": "server.soak",
+      "metric": "memory_growth_percent",
+      "stat": "p99",
+      "budget": 10,
+      "hardFail": 30
+    },
+    {
+      "scenario": "server.soak",
+      "metric": "diverged",
+      "stat": "max",
+      "budget": 0,
+      "hardFail": 0
     }
   ]
 }

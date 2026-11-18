@@ -9,3 +9,8 @@ export { CrdtUpdateError, mergeUpdates, updateMeta } from "./updates.ts";
 export type { StateVector, Update } from "./updates.ts";
 export { scriptBody } from "./writer.ts";
 export type { BlockWriter, ScriptBody } from "./writer.ts";
+export * from "./awareness.ts";
+export * from "./inspect.ts";
+export * from "./set-aside.ts";
+export * from "./settings.ts";
+export * from "./vectors.ts";

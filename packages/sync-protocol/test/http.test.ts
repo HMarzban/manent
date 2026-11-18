@@ -20,6 +20,10 @@ test("the HTTP error codes and the server states are fixed lists", () => {
     "not_found",
     "unauthenticated",
     "unknown_user",
+    "deleted",
+    "exists_elsewhere",
+    "forbidden",
+    "unsupported_kind",
   ]);
   expect(SERVER_STATES).toEqual(["running", "stopped", "starting", "failed"]);
   expect(["not_found", "nope", 7, null].map(isHttpErrorCode)).toEqual([
