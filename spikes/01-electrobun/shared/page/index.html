@@ -1,0 +1,13 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ManentSpike</title>
+<style>
+body{margin:0;font:12pt/1 "Courier New",Courier,monospace;background:#ddd}
+#editor{width:8.5in;margin:0 auto;background:#fff;padding:1in 1in 1in 1.5in;box-sizing:border-box}
+.ProseMirror{outline:none;white-space:pre-wrap}
+.el{margin:0 0 12pt 0;line-height:12pt}
+.el-character{margin-left:2.2in;margin-bottom:0}.el-dialogue{margin-left:1in;margin-right:1.5in}.el-parenthetical{margin-left:1.6in;margin-bottom:0}.el-transition{text-align:right}
+</style>
+<div id="editor"></div>
+<!-- every request carries the launch token, the bundle's included -->
+<script type="module">import('./dist/app.js' + location.search)</script>
