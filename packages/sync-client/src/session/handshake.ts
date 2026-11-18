@@ -11,25 +11,11 @@ import {
   IN_FLIGHT,
 } from "../ports/defaults.ts";
 import type { Clock } from "../ports/ports.ts";
+import { endingOf, readRefusal } from "./refusals.ts";
+import type { Ending } from "./refusals.ts";
 
 type Subscribed = Extract<DocumentMessage, { type: "SUBSCRIBED" }>;
 type ErrorMessage = Extract<Message, { type: "ERROR" }>;
-
-/**
- * Why a subscription ended with no retry of its own. `stopped`: nothing more is
- * sent until the session says so; its side is `server_old` for a 4422 from a
- * server that does not know this build's newest schema.
- */
-export type Ending =
-  | {
-      type: "stopped";
-      side: "deleted" | "read_only" | "rejected" | "server_old";
-      code: number;
-      clientSeq: number | null;
-    }
-  | { type: "forbidden" }
-  | { type: "client_id_taken" }
-  | { type: "moved" };
 
 /** What the exchange asks of its session. */
 export interface HandshakeHost {
@@ -91,30 +77,6 @@ export interface Handshake {
 
 const UTF8 = new TextEncoder();
 
-/**
- * The client's rule of healing: the server is behind the head it once named, or
- * lacks structs it acknowledged (for an own client ID, up to `ackedClocks`) or
- * sent (for anyone else's, up to the client's own clock for that ID). Vectors
- * map a client ID to its next clock.
- */
-export function needsHeal(input: {
-  headSeq: number;
-  lastServerSeq: number;
-  own: ReadonlyMap<number, number>;
-  server: ReadonlyMap<number, number>;
-  ownClientIds: ReadonlySet<number>;
-  ackedClocks: Readonly<Record<string, number>>;
-}): boolean {
-  if (input.headSeq < input.lastServerSeq) return true;
-  for (const [clientId, clock] of input.own) {
-    const known = input.ownClientIds.has(clientId)
-      ? (input.ackedClocks[clientId] ?? 0)
-      : clock;
-    if ((input.server.get(clientId) ?? 0) < known) return true;
-  }
-  return false;
-}
-
 /** False for bytes `read` refuses as not a whole update or state vector. */
 function isWhole(
   bytes: Uint8Array,
@@ -127,39 +89,6 @@ function isWhole(
     if (error instanceof CrdtUpdateError) return false;
     throw error;
   }
-}
-
-/** The entry a node's `upstream_refused` names; null for data that names none. */
-function readRefusal(
-  data: Uint8Array,
-): { clientSeq: number; message: string } | null {
-  let value: unknown;
-  try {
-    value = JSON.parse(new TextDecoder().decode(data));
-  } catch {
-    // data that is not JSON names no entry, so it refuses nothing
-    return null;
-  }
-  if (typeof value !== "object" || value === null) return null;
-  if (!("clientSeq" in value) || typeof value.clientSeq !== "number")
-    return null;
-  if (!("message" in value) || typeof value.message !== "string") return null;
-  return { clientSeq: value.clientSeq, message: value.message };
-}
-
-/** What an ERROR that ends the subscription means; null: subscribe again after a wait. */
-function endingOf(m: ErrorMessage, gate: ServerGate): Ending | null {
-  const stopped = (side: Extract<Ending, { type: "stopped" }>["side"]) =>
-    ({ type: "stopped", side, code: m.code, clientSeq: m.clientSeq }) as const;
-  if (m.code === CODE.BAD_FRAME && m.message === "client_id_taken")
-    return { type: "client_id_taken" };
-  if (m.code === CODE.DOCUMENT_DELETED) return stopped("deleted");
-  if (m.code === CODE.FORBIDDEN) return { type: "forbidden" };
-  if (m.code === CODE.TOO_OLD) return stopped("read_only");
-  if (!m.permanent) return null;
-  return gate === "limited" && m.code === CODE.VALIDATION_FAILED
-    ? stopped("server_old")
-    : stopped("rejected");
 }
 
 type Phase = "off" | "idle" | "handshake" | "live";
