@@ -71,7 +71,7 @@ export function isPrinted(flow: Flow, i: number): boolean {
 }
 
 /** Units one line of block i takes. */
-function stepOf(flow: Flow, i: number): number {
+export function stepOf(flow: Flow, i: number): number {
   return flow.metrics[i]!.spec.lineSpacing * UNITS_PER_LINE;
 }
 
