@@ -118,6 +118,8 @@ type Item = {
       append: AppendItem;
       report: TransactionReport | null;
       schemaTo: number | null;
+      /** The push was marked `heal`, whatever client ids it carries. */
+      heal: boolean;
     }
   | { kind: "ack" }
   | { kind: "relay_set"; request: { key: string; value: Uint8Array } }
@@ -251,8 +253,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
             continue;
           }
           const { append } = item;
-          if (!item.setting)
-            ports.beforeAppend(room, append.userId, append.origin === "heal");
+          if (!item.setting) ports.beforeAppend(room, append.userId, item.heal);
           item.seq = file.log.append(append);
           if (item.schemaTo !== null)
             file.log.raiseSchema(room.docId, item.schemaTo);
@@ -318,7 +319,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
   return {
     push(room, subscription, message) {
       if (subscription.stalled) return;
-      const { clientSeq, update } = message;
+      const { clientSeq, update, heal } = message;
       const { peer } = subscription;
       const base = { setting: false, room, subscription, clientSeq, seq: 0 };
       const no = (code: number, text: string): void =>
@@ -331,7 +332,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
         throw new RangeError(`the room of ${room.docId} is not loaded`);
       const metas = readUpdate(() => updateMeta(update));
       if (metas === "bad") return no(CODE.BAD_FRAME, "bad_update");
-      const origin = originOf(room, peer, message.heal, metas);
+      const origin = originOf(room, peer, heal, metas);
       if (origin === null) return no(CODE.BAD_FRAME, "foreign_client_id");
       const report = readUpdate(() => applyInspecting(doc, update));
       if (report === "bad") return no(CODE.BAD_FRAME, "bad_update");
@@ -353,7 +354,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
           : 0;
       const append = appendOf(room, peer.userId, update, origin, metas);
       const schemaTo = floor > room.row.schemaVersion ? floor : null;
-      enqueue({ kind: "append", ...base, append, report, schemaTo });
+      enqueue({ kind: "append", ...base, append, report, schemaTo, heal });
     },
     set(room, subscription, message) {
       if (subscription.stalled) return;
@@ -390,6 +391,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
         append,
         report: null,
         schemaTo: null,
+        heal: false,
       });
     },
     flush,

@@ -270,6 +270,11 @@ test("a damaged row that only deleted text is healed too", () => {
   expect(sam.take().at(-1)).toMatchObject({ type: "ACK" });
   expect(textOf(replayAll(world.storage))).not.toContain(DELETED_WORD);
   expect(textOf(replayAll(world.storage))).toBe("Rain and  tonight");
+  expect(
+    file(world)
+      .versions.list(DOC)
+      .map((v) => [v.kind, v.seq, v.createdByUserId]),
+  ).toEqual([["pre_heal", 2, "sam"]]);
 });
 
 test("healing twice changes nothing and stores nothing", () => {
