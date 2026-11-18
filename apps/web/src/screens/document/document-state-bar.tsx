@@ -37,7 +37,11 @@ export function DocumentStateBar(props: {
   const bar = useRef<HTMLDivElement>(null);
   useKeepPageStill(bar);
   return (
-    <ShellRegion region="state_bar">
+    // with no line the region is not drawn, so F6 passes it by
+    <ShellRegion
+      region="state_bar"
+      className={left === null && right === null ? "hidden" : undefined}
+    >
       <div ref={bar}>
         <StateBar left={left} right={right} run={run} registered={registered} />
       </div>

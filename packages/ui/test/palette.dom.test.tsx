@@ -56,6 +56,8 @@ interface Palette {
   service: CommandService;
   sources: readonly PaletteSource[];
   closed: number[];
+  /** `close` and `run <id>`, in the order the palette asked for them. */
+  calls: string[];
   render: (props: {
     recent?: readonly string[];
     sources?: readonly PaletteSource[];
@@ -112,6 +114,7 @@ function palette(context: CommandContext = CTX): Palette {
     }),
   ];
   const closed: number[] = [];
+  const calls: string[] = [];
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -126,8 +129,14 @@ function palette(context: CommandContext = CTX): Palette {
         filter="all"
         sources={props.sources ?? sources}
         recent={props.recent ?? []}
-        onRun={(row: PaletteRow) => service.run(row.id, "palette")}
-        onClose={() => closed.push(1)}
+        onRun={(row: PaletteRow) => {
+          calls.push(`run ${row.id}`);
+          service.run(row.id, "palette");
+        }}
+        onClose={() => {
+          calls.push("close");
+          closed.push(1);
+        }}
       />
     </CommandsProvider>
   );
@@ -136,6 +145,7 @@ function palette(context: CommandContext = CTX): Palette {
     service,
     sources,
     closed,
+    calls,
     render: async (props) => {
       await act(async () => root.render(tree(props)));
     },
@@ -260,6 +270,43 @@ test("a command row runs and the palette closes", async () => {
   await type("side panel");
   await pressEnter();
   expect(p.closed).toEqual([1]);
+});
+
+test("a command row closes the palette before it runs, so the command runs from where focus was", async () => {
+  const p = palette();
+  await p.render({});
+  await type("side panel");
+  await pressEnter();
+  expect(p.calls).toEqual(["close", "run view.sidePanel"]);
+});
+
+test("a command that opens the palette again from it starts afresh, with focus in the field", async () => {
+  const p = palette();
+  await p.render({});
+  await type("commands");
+  await pressEnter();
+  expect([p.calls, field().value, document.activeElement === field()]).toEqual([
+    ["close", "run app.palette"],
+    "",
+    true,
+  ]);
+});
+
+test("while an input method composes, Enter in the palette runs nothing", async () => {
+  const p = palette();
+  await p.render({});
+  await type("side panel");
+  await act(async () => {
+    field().dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+        isComposing: true,
+      }),
+    );
+  });
+  expect(p.calls).toEqual([]);
 });
 
 test("an unavailable row stays and says why", async () => {

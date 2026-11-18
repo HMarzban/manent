@@ -5,6 +5,7 @@ import type { HandlerDeps } from "../src/handlers/index.ts";
 import type { RoutePlace } from "../src/handlers/index.ts";
 import { bindGuard, createGuard } from "../src/state/guard.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
+import { renameActions } from "../src/state/rename.store.ts";
 import {
   QUIET_DOM,
   createNavigation,
@@ -84,4 +85,16 @@ test("a message's own Undo puts back what it replaced once, and the message goes
   expect(undone).toEqual(["paper"]);
   expect(messages.current()).toBeNull();
   expect(reverses.run("setting_changed")).toBe(false);
+});
+
+test("Rename keeps what had focus as it begins, to give focus back when it ends", () => {
+  const { deps } = depsAt({ routeId: "/s/$docId", href: "/s/abc", search: {} });
+  const kept: string[] = [];
+  createHandlers({
+    ...deps,
+    dom: { ...QUIET_DOM, rememberFocus: () => kept.push("kept") },
+    shellState: () => ({ ...deps.shellState(), docId: "abc" }),
+  })["doc.rename"]();
+  renameActions.stop();
+  expect(kept).toEqual(["kept"]);
 });

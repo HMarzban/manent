@@ -60,12 +60,17 @@ const focusOnOpen =
 export function StatusButton(props: { doc: DocumentServices }): ReactNode {
   const { doc } = props;
   const { commands } = useServices();
+  const { dom } = useEnvironment();
   const open = useOpenDialog() === SYNC_CENTRE;
   const { root, deviceSlot, serverSlot } = useStatusSlots(doc.status);
   const popup = useRef<HTMLDivElement>(null);
   const onOpenChange = (next: boolean): void => {
-    if (next) commands.run("app.syncCentre", "control");
-    else dialogActions.close();
+    if (next) {
+      commands.run("app.syncCentre", "control");
+      return;
+    }
+    dialogActions.close();
+    dom.restoreFocus();
   };
   // a command run with focus inside the popover, whose role is dialog, is passed to it; an action
   // therefore sends focus back to the status first, which also closes the popover
@@ -100,8 +105,10 @@ export function StatusButton(props: { doc: DocumentServices }): ReactNode {
           />
         </PopoverTrigger>
       </span>
+      {/* focus goes back to whatever opened it, which may have been before the palette */}
       <PopoverContent
         ref={popup}
+        finalFocus={false}
         align="start"
         initialFocus={focusOnOpen(popup)}
         className="gap-2 text-ui"

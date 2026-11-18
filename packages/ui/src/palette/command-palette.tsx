@@ -268,9 +268,14 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
       return;
     }
     if (!entry.row.enabled) return;
-    onRun(entry.row);
     // a setting changes in place, so the person sees the result and can choose again
-    if (entry.row.kind !== "setting") onClose();
+    if (entry.row.kind === "setting") {
+      onRun(entry.row);
+      return;
+    }
+    // closing first gives focus back, so the command runs from where the person was
+    onClose();
+    onRun(entry.row);
   };
 
   return (
@@ -300,6 +305,11 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
       >
         <Autocomplete.Input
           autoFocus
+          onKeyDown={(event) => {
+            // while an input method composes, Enter, Escape and the arrows are its own
+            if (event.nativeEvent.isComposing || event.keyCode === 229)
+              event.preventBaseUIHandler();
+          }}
           aria-label={READOUT_WORDS.commandsHint}
           className="h-control px-3 text-ui"
         />
@@ -312,9 +322,15 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
 /**
  * The palette, drawn while `open`, with focus in its field from the first frame. Sources are asked in the
  * order given (commands, settings, places, scripts, people, help); `filter: "places"` asks only places.
- * A row runs through `onRun`; the palette then closes, except after a setting row, which changes in place.
+ * A row closes the palette through `onClose`, then runs through `onRun`; a setting row runs and changes in place.
  */
 export function CommandPalette(props: PaletteProps): ReactNode {
-  const { open, ...rest } = props;
-  return open ? <OpenPalette {...rest} /> : null;
+  const { open, onClose, ...rest } = props;
+  // each close starts the next opening afresh, even one made by the command run from the palette
+  const [closes, setCloses] = useState(0);
+  const close = (): void => {
+    setCloses((count) => count + 1);
+    onClose();
+  };
+  return open ? <OpenPalette key={closes} {...rest} onClose={close} /> : null;
 }

@@ -68,6 +68,14 @@ test("a commenter's state bar says so", async () => {
   ).toBe("View only — you can comment");
 });
 
+test("the state bar's region is hidden while it has no line, so F6 passes it by", async () => {
+  const frame = await renderFrame();
+  const hidden = () => region(frame.container, "state_bar").className;
+  const before = hidden();
+  act(() => frame.stateFacts.set([{ kind: "role_comment" }]));
+  expect([before, hidden()]).toEqual(["hidden", ""]);
+});
+
 test("Title ▾ holds Script settings and Rename for an editor, and not Rename for a reader", async () => {
   const title = "The Long Night";
   const editor = await renderFrame({ title });

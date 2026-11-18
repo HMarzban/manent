@@ -189,3 +189,29 @@ test("switching person rebuilds the services and applies the new person's theme 
   expect(seen.at(-1)).not.toBe(before);
   expect(before?.userId).toBe("leo");
 });
+
+test("a side panel tab drawn after its command gives focus to its first control once drawn, unless focus moved on", async () => {
+  const dom = createShellDom(document);
+  const panel = document.createElement("div");
+  panel.dataset.region = "side_panel";
+  const tab = document.createElement("div");
+  tab.setAttribute("role", "tabpanel");
+  const elsewhere = document.createElement("button");
+  panel.append(tab);
+  document.body.append(panel, elsewhere);
+  const first = document.createElement("button");
+  dom.focusSidePanel();
+  tab.append(first);
+  // the observer answers in a microtask
+  await Promise.resolve();
+  const focusedFirst = document.activeElement === first;
+  first.remove();
+  dom.focusSidePanel();
+  elsewhere.focus();
+  tab.append(document.createElement("button"));
+  await Promise.resolve();
+  const stayed = document.activeElement === elsewhere;
+  panel.remove();
+  elsewhere.remove();
+  expect([focusedFirst, stayed]).toEqual([true, true]);
+});
