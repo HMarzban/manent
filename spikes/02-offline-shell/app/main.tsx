@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import { Palette } from "./palette.tsx";
 
 // Replaced by build.ts with the build ID.
 declare const BUILD_ID: string;
@@ -17,6 +18,7 @@ function Shell() {
     <main>
       <p id="shell">Manent shell {BUILD_ID}</p>
       <textarea id="edit" />
+      <Palette />
     </main>
   );
 }
