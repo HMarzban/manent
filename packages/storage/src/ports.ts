@@ -120,6 +120,7 @@ export interface DocLog {
     userId: string,
     clientIds: readonly number[],
   ): number[];
+  /** Ordered by client id. */
   ledger(docId: string): Map<number, { userId: string; ackedClock: number }>;
   /** userId → colour index: the n-th person registered, from 0, gets n % COLOR_COUNT, and it never changes. */
   colors(docId: string): Map<string, number>;
@@ -150,6 +151,85 @@ export interface Checkpoints {
     docId: string,
     generation: number,
   ): { seq: number; state: Uint8Array } | null;
+  /** As `newest`, among those of the generation whose `seq` is at most `seq`. */
+  atOrBefore(
+    docId: string,
+    generation: number,
+    seq: number,
+  ): { seq: number; state: Uint8Array } | null;
+}
+
+/** A closed generation. `finalState` null: its final state has been purged. */
+export interface GenerationRow {
+  docId: string;
+  generation: number;
+  finalSeq: number;
+  finalState: Uint8Array | null;
+  frozenAt: number;
+  purgeAfter: number;
+  reason: string;
+  nextInitialBytes: number;
+  rebuiltByClientId: number;
+}
+
+export interface FreezeItem {
+  docId: string;
+  finalSeq: number;
+  finalState: Uint8Array;
+  frozenAt: number;
+  purgeAfter: number;
+  reason: string;
+  initialUpdate: Uint8Array;
+  rebuiltByClientId: number;
+  userId: string;
+}
+
+export interface Generations {
+  /**
+   * Closes the document's generation in one write and returns the new one: the frozen row (next_initial_bytes is
+   * initialUpdate's length); documents.generation + 1 and head_seq 1; row 1 of the new generation holding initialUpdate,
+   * origin "system", user userId; every acked_clock of the document's ledger set to 0; rebuiltByClientId registered to userId
+   * in doc_clients only (no doc_people row: the system is given no colour, so nobody's colour index moves).
+   * RangeError when finalSeq is not the head, or the document is unknown. Inside `transaction` it commits with the rest.
+   */
+  freeze(item: FreezeItem): number;
+  get(docId: string, generation: number): GenerationRow | null;
+  /** Oldest first. */
+  list(docId: string): GenerationRow[];
+}
+
+/** One idempotency key's answer: `result` is the replay's response as JSON text. */
+export interface ReplayRow {
+  docId: string;
+  key: string;
+  userId: string;
+  fromGeneration: number;
+  generation: number;
+  seq: number;
+  result: string;
+  createdAt: number;
+}
+
+export interface Replays {
+  get(docId: string, key: string): ReplayRow | null;
+  /** RangeError for a key already stored. */
+  put(row: ReplayRow): void;
+}
+
+/** What a checkpoint measured of the document at `seq`. */
+export interface MeasureRow {
+  seq: number;
+  liveBytes: number;
+  plainBytes: number;
+  clientIds: number;
+  largestSection: number;
+}
+
+/** Disposable, like the checkpoints beside them: one per document and generation, never part of a transaction. */
+export interface Measures {
+  /** Replaces the generation's measure. */
+  put(docId: string, generation: number, row: MeasureRow): void;
+  get(docId: string, generation: number): MeasureRow | null;
 }
 
 /** One project's or one user's documents. */
@@ -158,8 +238,11 @@ export interface DocFile {
   readonly log: DocLog;
   readonly versions: Versions;
   readonly checkpoints: Checkpoints;
+  readonly generations: Generations;
+  readonly replays: Replays;
+  readonly measures: Measures;
   /**
-   * The unit of work: every write to `log` and `versions` inside the synchronous
+   * The unit of work: every write to `log`, `versions`, `generations` and `replays` inside the synchronous
    * `fn` commits together or not at all. A failure throws
    * StorageError("commit_failed") having written nothing. A write outside one
    * commits by itself.
@@ -205,7 +288,7 @@ export interface Storage {
   close(): void;
 }
 
-export const STORAGE_SCHEMA_VERSION = 1;
+export const STORAGE_SCHEMA_VERSION = 2;
 export const CHECKPOINT_FORMAT_VERSION = 1;
 export const CHECKPOINTS_KEPT = 3;
 

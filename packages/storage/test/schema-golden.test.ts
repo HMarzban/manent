@@ -37,10 +37,10 @@ beforeEach(async () => {
 afterEach(() => s.close());
 afterAll(() => trees.removeAll());
 
-test("STORAGE_SCHEMA_VERSION 1 is exactly these tables", () => {
-  expect(STORAGE_SCHEMA_VERSION).toBe(1);
-  expect(userVersion(join(dir, "control.sqlite"))).toBe(1);
-  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(1);
+test("the storage schema is exactly these tables", () => {
+  expect(STORAGE_SCHEMA_VERSION).toBe(2);
+  expect(userVersion(join(dir, "control.sqlite"))).toBe(2);
+  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(2);
   expect(tableColumns(join(dir, "control.sqlite"))).toEqual({
     doc_directory: [
       "doc_id TEXT",
@@ -135,6 +135,27 @@ test("STORAGE_SCHEMA_VERSION 1 is exactly these tables", () => {
       "flagged_at INTEGER",
       "pre_heal_version_id TEXT",
     ],
+    doc_generations: [
+      "doc_id TEXT",
+      "generation INTEGER",
+      "final_state BLOB",
+      "final_seq INTEGER",
+      "frozen_at INTEGER",
+      "purge_after INTEGER",
+      "reason TEXT",
+      "next_initial_bytes INTEGER",
+      "rebuilt_by_client_id INTEGER",
+    ],
+    doc_replays: [
+      "doc_id TEXT",
+      "replay_key TEXT",
+      "user_id TEXT",
+      "from_generation INTEGER",
+      "generation INTEGER",
+      "seq INTEGER",
+      "result TEXT",
+      "created_at INTEGER",
+    ],
   });
 });
 
@@ -149,7 +170,19 @@ test("every kind of file carries the one storage version", () => {
       file,
       version: STORAGE_SCHEMA_VERSION,
     });
-  expect(tableNames(checkpointsPath(dir, HOME))).toEqual(["doc_checkpoints"]);
+  expect(tableNames(checkpointsPath(dir, HOME))).toEqual([
+    "doc_checkpoints",
+    "doc_measures",
+  ]);
+  expect(tableColumns(checkpointsPath(dir, HOME)).doc_measures).toEqual([
+    "doc_id TEXT",
+    "generation INTEGER",
+    "seq INTEGER",
+    "live_bytes INTEGER",
+    "plain_bytes INTEGER",
+    "client_ids INTEGER",
+    "largest_section INTEGER",
+  ]);
 });
 
 test("a stored person and setting request are exactly this", () => {
