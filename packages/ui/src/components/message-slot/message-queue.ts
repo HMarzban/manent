@@ -29,9 +29,16 @@ const withoutUndo = (message: Message): Message =>
       }
     : message;
 
+// a message's id names its kind and may repeat; `key` is unique within one queue, one per push
+interface Entry {
+  key: number;
+  message: Message;
+}
+
 /** `push` throws a RangeError for more than two actions, and for own work whose lifetime is not `until_dismissed`. */
 export function createMessageQueue(options: Timing): MessageQueue {
-  let waiting: readonly Message[] = [];
+  let waiting: readonly Entry[] = [];
+  let pushes = 0;
   let receipts: readonly Message[] = [];
   let cancelTimer: (() => void) | null = null;
   const listeners = new Set<() => void>();
@@ -44,12 +51,13 @@ export function createMessageQueue(options: Timing): MessageQueue {
     cancelTimer?.();
     cancelTimer = null;
     const head = waiting[0];
-    if (head === undefined || head.lifetime === "until_dismissed") return;
-    cancelTimer = options.schedule(() => remove(head.id), MESSAGE_REVERSE_MS);
+    if (head === undefined || head.message.lifetime === "until_dismissed")
+      return;
+    cancelTimer = options.schedule(() => remove(head.key), MESSAGE_REVERSE_MS);
   };
-  const remove = (id: string): void => {
-    const shown = waiting[0]?.id === id;
-    waiting = waiting.filter((message) => message.id !== id);
+  const remove = (key: number): void => {
+    const shown = waiting[0]?.key === key;
+    waiting = waiting.filter((entry) => entry.key !== key);
     if (shown) show();
     notify();
   };
@@ -57,15 +65,22 @@ export function createMessageQueue(options: Timing): MessageQueue {
   return {
     push(message) {
       assertMessage(message);
-      waiting = [...waiting, message];
+      waiting = [...waiting, { key: pushes++, message }];
       if (message.ownWork) receipts = [...receipts, message];
       if (waiting.length === 1) show();
       notify();
     },
-    current: () => waiting[0] ?? null,
-    dismiss: remove,
+    current: () => waiting[0]?.message ?? null,
+    // the shown message comes first, so it is the one dismissed when its id matches
+    dismiss(id) {
+      const entry = waiting.find(({ message }) => message.id === id);
+      if (entry !== undefined) remove(entry.key);
+    },
     withdrawUndo() {
-      waiting = waiting.map(withoutUndo);
+      waiting = waiting.map(({ key, message }) => ({
+        key,
+        message: withoutUndo(message),
+      }));
       notify();
     },
     receipts: () => receipts,

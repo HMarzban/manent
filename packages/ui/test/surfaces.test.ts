@@ -135,6 +135,25 @@ test("a brief message's 30 seconds start when it is shown, not when it arrives",
   expect(q.current()).toBeNull();
 });
 
+test("two messages that share an id are each shown for their own time", () => {
+  const clock = fakeClock();
+  const q = createMessageQueue(clock);
+  q.push({ ...msg("setting_changed", "reverse"), text: "first" });
+  q.push({ ...msg("setting_changed", "reverse"), text: "second" });
+  clock.advance(30_000);
+  expect(q.current()?.text).toBe("second");
+  clock.advance(30_000);
+  expect(q.current()).toBeNull();
+});
+
+test("dismissing a message leaves another with the same id waiting", () => {
+  const q = createMessageQueue(fakeClock());
+  q.push({ ...msg("reconnected", "until_dismissed"), text: "first" });
+  q.push({ ...msg("reconnected", "until_dismissed"), text: "second" });
+  q.dismiss("reconnected");
+  expect(q.current()?.text).toBe("second");
+});
+
 test("the loading rule and a busy action keep fixed times", () => {
   expect([
     LOADING_QUIET_MS,
