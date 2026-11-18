@@ -43,7 +43,11 @@ export interface HandshakeHost {
   /** The waiting entries after `afterSeq` that may be sent now, as items. */
   outbox(afterSeq: number): OutboxItem[];
   subscribed(message: Subscribed): void;
-  /** The heal push to send before the outbox, given the server's state vector; null when none is due. */
+  /**
+   * The heal push to send before the outbox, given the server's state vector;
+   * null when none is due. Its `clientSeq` is below every entry the outbox
+   * cannot send yet, so its acknowledgement covers only what was sent.
+   */
   heal(
     serverVector: Uint8Array,
   ): { clientSeq: number; update: Uint8Array } | null;
@@ -356,8 +360,10 @@ class Exchange implements Handshake {
     this.timeouts = 0;
     const heal =
       this.serverVector === null ? null : this.host.heal(this.serverVector);
-    // its acknowledgement covers every entry up to it, so the outbox goes on after it
-    if (heal !== null)
+    // its acknowledgement covers every entry up to it: the settings it does not carry go first
+    if (heal !== null) {
+      for (const item of this.host.outbox(0))
+        if (item.kind === "set") this.sendItem(item);
       this.sendEntry({
         type: "PUSH",
         docId: this.docId,
@@ -365,6 +371,7 @@ class Exchange implements Handshake {
         ...heal,
         heal: true,
       });
+    }
     this.host.stepTwo(m.data);
     this.pump();
   }

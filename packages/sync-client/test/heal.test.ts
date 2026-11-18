@@ -5,6 +5,7 @@ import {
   B1,
   B2,
   DOC,
+  listen,
   seedState,
   setup,
   textAfter,
@@ -107,4 +108,63 @@ test("a client whose own ids include ones it took over later heals like any othe
   const [heal] = server.got("PUSH");
   expect(heal!.heal).toBe(true);
   expect(textAfter([heal!.update])).toBe("a window's thirty characters..\n");
+});
+
+test("a waiting setting goes out before the heal push, and stays waiting until the server answers it", async () => {
+  const w = await setup();
+  const { server, store } = w;
+  await store.patchMeta(DOC, { lastServerSeq: 10 });
+  server.head = 5;
+  const client = w.makeClient();
+  const h = await client.open(DOC);
+  const events = listen(h);
+  client.setOnline(false);
+  h.setSetting("script.paper", "a4");
+  typeIn(h, B1, "one");
+  await w.settle();
+  client.setOnline(true);
+  await w.online();
+  expect(server.got("SET").map((s) => s.clientSeq)).toEqual([1]);
+  expect(server.got("PUSH").map((p) => [p.heal, p.clientSeq])).toEqual([
+    [true, 2],
+  ]);
+  expect(h.settings.get()).toEqual({ "script.paper": "a4" });
+  server.error(DOC, {
+    code: 4423,
+    message: "not_allowed",
+    permanent: false,
+    clientSeq: 1,
+  });
+  server.ack(DOC, 2, 6);
+  await w.settle();
+  expect(events).toContainEqual({
+    type: "setting_refused",
+    key: "script.paper",
+    message: "not_allowed",
+  });
+  expect(h.settings.get()).toEqual({});
+  expect(h.status.get()).toMatchObject({ waiting: 0, synced: true });
+});
+
+test("a setting whose write has not settled is not covered by the heal push, and goes out once stored", async () => {
+  const w = await setup();
+  const { server, store } = w;
+  await store.patchMeta(DOC, { lastServerSeq: 10 });
+  server.head = 5;
+  const client = w.makeClient();
+  const h = await client.open(DOC);
+  client.setOnline(false);
+  typeIn(h, B1, "one");
+  await w.settle();
+  store.holdWrites();
+  h.setSetting("script.paper", "a4");
+  client.setOnline(true);
+  await w.online();
+  expect(server.got("PUSH").map((p) => [p.heal, p.clientSeq])).toEqual([
+    [true, 1],
+  ]);
+  expect(server.got("SET")).toEqual([]);
+  store.releaseWrites();
+  await w.settle();
+  expect(server.got("SET").map((s) => s.clientSeq)).toEqual([2]);
 });
