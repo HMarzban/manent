@@ -1,0 +1,8 @@
+{
+  "name": "manent-spike-shadcn-probe",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "shadcn": "4.23.0"
+  }
+}

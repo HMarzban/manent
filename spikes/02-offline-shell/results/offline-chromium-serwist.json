@@ -1,0 +1,38 @@
+{
+  "engine": "chromium",
+  "version": "159.0.8154.6",
+  "sw": "serwist",
+  "port": 53028,
+  "launched": true,
+  "setOfflineBlocksWorker": true,
+  "checks": {
+    "O0": {
+      "status": "pass",
+      "detail": "the worker's probe answered { ok: false } and the page's fetch rejected"
+    },
+    "O1": {
+      "status": "pass",
+      "detail": "the page is controlled"
+    },
+    "O2": {
+      "status": "fail",
+      "detail": "0 font files in the manifest, fewer than 4; the built CSS holds 16 fonts inlined as data: URLs"
+    },
+    "O3": {
+      "status": "pass",
+      "detail": "#shell reads Manent shell v1 and all four Courier Prime faces loaded"
+    },
+    "O4": {
+      "status": "pass",
+      "detail": "after a cold start offline, #shell shows at / and at /s/abc"
+    },
+    "O5": {
+      "status": "pass",
+      "detail": "t 1794983199292 then 1794983199314, both reached the server, no /api/ response in Cache Storage; offline the fetch rejected"
+    },
+    "O6": {
+      "status": "pass",
+      "detail": "the edit survived, v1 kept control while v2 waited, the relaunch showed v2 and all 3 cached responses are v2's"
+    }
+  }
+}

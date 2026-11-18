@@ -1,0 +1,15 @@
+{
+  "engine": "chromium",
+  "version": "159.0.8154.6",
+  "port": 56288,
+  "checks": {
+    "online": {
+      "status": "pass",
+      "detail": "Mod+K opened a listbox, ver left Version history, Enter set data-ran"
+    },
+    "offline": {
+      "status": "pass",
+      "detail": "Mod+K opened a listbox, ver left Version history, Enter set data-ran"
+    }
+  }
+}
