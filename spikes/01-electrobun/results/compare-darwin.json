@@ -1,0 +1,19 @@
+{
+  "coldStartRatio": 2.9881422924901186,
+  "ratioCI": {
+    "lo": 1.1830508474576271,
+    "hi": 3.0396825396825395
+  },
+  "coldStart": "inconclusive",
+  "editingDiffs": [],
+  "notRun": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7"
+  ],
+  "editing": "not run"
+}
