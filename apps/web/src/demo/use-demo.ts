@@ -8,8 +8,12 @@ import type { Api, ServerControl } from "../api.ts";
 
 export const POLL_MS = 2000;
 
-/** The queries a reset keeps: the demo bar's own, whose loss would blank the bar and set off the reset again. */
-const KEPT_ON_RESET: readonly unknown[] = ["demo", "server-status"];
+const DEMO_QUERY = "demo";
+/** The first element of the server status query's key. */
+export const SERVER_STATUS_QUERY = "server-status";
+
+/** The first key elements of the queries a reset keeps: the demo bar's own, whose loss would blank the bar and set off the reset again. */
+const KEPT_ON_RESET = [DEMO_QUERY, SERVER_STATUS_QUERY] as const;
 
 /** The demo's server control; `id` changes when the control does. */
 export interface DemoControl {
@@ -24,7 +28,7 @@ export function useDemo(deps: { api: Api; fetch: typeof fetch }): {
 } {
   const queryClient = useQueryClient();
   const demo = useQuery({
-    queryKey: ["demo"],
+    queryKey: [DEMO_QUERY],
     queryFn: deps.api.demo,
     refetchInterval: POLL_MS,
     refetchOnWindowFocus: true,
@@ -37,7 +41,8 @@ export function useDemo(deps: { api: Api; fetch: typeof fetch }): {
     if (seedId === undefined) return;
     if (seenSeed.current !== undefined && seenSeed.current !== seedId)
       void queryClient.resetQueries({
-        predicate: (query) => !KEPT_ON_RESET.includes(query.queryKey[0]),
+        predicate: (query) =>
+          !KEPT_ON_RESET.some((kept) => kept === query.queryKey[0]),
       });
     seenSeed.current = seedId;
   }, [seedId, queryClient]);

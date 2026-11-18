@@ -1,14 +1,9 @@
 import { DEMO_PEOPLE, TOUR_GROUPS } from "@manent/demo";
 import type { DemoResponse } from "@manent/sync-protocol";
 import { expect, test } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import { signedInAs } from "../support/tour.ts";
 
 const leo = () => /^Leo Marsh/;
-/** Opens `/` as `id`; the app drops `?person=` once the tab is that person, so a next navigation cannot overtake the sign-in. */
-const signedInAs = async (page: Page, id: string) => {
-  await page.goto(`/?person=${id}`);
-  await page.waitForURL((url) => !url.searchParams.has("person"));
-};
 const storedPerson = (person: object) =>
   `sessionStorage.setItem("manent.demo.session", ${JSON.stringify(JSON.stringify(person))})`;
 

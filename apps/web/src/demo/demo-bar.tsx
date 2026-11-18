@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { TEXT, serverStatusText } from "../text.ts";
-import { POLL_MS } from "./use-demo.ts";
+import { POLL_MS, SERVER_STATUS_QUERY } from "./use-demo.ts";
 import type { DemoControl } from "./use-demo.ts";
 
 export function DemoBar(props: {
@@ -29,7 +29,7 @@ export function DemoBar(props: {
 function ServerStatus(props: DemoControl) {
   const { client } = props;
   const queryClient = useQueryClient();
-  const queryKey = ["server-status", props.id];
+  const queryKey = [SERVER_STATUS_QUERY, props.id];
 
   const status = useQuery({
     queryKey,
