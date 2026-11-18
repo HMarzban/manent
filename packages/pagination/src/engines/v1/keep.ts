@@ -5,6 +5,8 @@ import type { PageProfile, SpecKey } from "../../page-profile.ts";
 import type { BlockMetrics } from "../../pages.ts";
 import { UNITS_PER_LINE } from "../../units.ts";
 import { upperCase } from "./cells.ts";
+import { columnHeight, isCutRow, runAt } from "./dual.ts";
+import type { ColumnPiece, DualRun, Point } from "./dual.ts";
 import { specKey } from "./profile.ts";
 import { firstSplit } from "./split.ts";
 import type { SplitPiece } from "./split.ts";
@@ -51,9 +53,12 @@ export function look(flow: Flow, i: number): void {
   if (i > flow.ahead) flow.ahead = i;
 }
 
+export function keyAt(blocks: readonly LayoutBlock[], i: number): SpecKey {
+  return specKey(blocks[i]!.type, blocks[i]!.kind);
+}
+
 function keyOf(flow: Flow, i: number): SpecKey {
-  const block = flow.blocks[i]!;
-  return specKey(block.type, block.kind);
+  return keyAt(flow.blocks, i);
 }
 
 export function isPrinted(flow: Flow, i: number): boolean {
@@ -101,7 +106,8 @@ export function isForcedStart(flow: Flow, i: number): boolean {
 const isSpeechLine = (key: SpecKey) =>
   key === "parenthetical" || key === "dialogue";
 
-// The cue block whose speech goes on through block i, or -1; blocks that are not printed are passed over.
+// The cue block whose speech goes on through block i, or -1; blocks that are not printed are passed
+// over, and no block of a dual run is part of a speech.
 function speakerOf(flow: Flow, i: number): number {
   const passed: number[] = [];
   let speaker = -1;
@@ -112,6 +118,7 @@ function speakerOf(flow: Flow, i: number): number {
       break;
     }
     passed.push(at);
+    if (runAt(flow.blocks, flow.profile, at) !== null) break;
     const key = keyOf(flow, at);
     if (isPrinted(flow, at) && !isSpeechLine(key)) {
       if (key === "character" && flow.blocks[at]!.text.trim() !== "")
@@ -133,9 +140,12 @@ export function isSpeech(flow: Flow, i: number): boolean {
   );
 }
 
+const cueText = (flow: Flow, cue: number) =>
+  upperCase(flow.blocks[cue]!.text).trim();
+
 /** The cue of the speech block i belongs to, in capitals and trimmed. */
 export function cueOf(flow: Flow, i: number): string {
-  return upperCase(flow.blocks[speakerOf(flow, i)]!.text).trim();
+  return cueText(flow, speakerOf(flow, i));
 }
 
 /** Units of the (MORE) line a break inside block i needs. */
@@ -179,8 +189,106 @@ function minHead(flow: Flow, i: number): number {
     : k * stepOf(flow, i) + moreOf(flow, i);
 }
 
+/** A dual run, or what is left of it on a new page: each column from where it resumes, null when it is done. */
+export interface DualUnit {
+  readonly run: DualRun;
+  readonly left: Point | null;
+  readonly right: Point | null;
+}
+
+function wholeRun(run: DualRun): DualUnit {
+  return {
+    run,
+    left: { block: run.start, line: 0 },
+    right: run.split < run.end ? { block: run.split, line: 0 } : null,
+  };
+}
+
+/**
+ * The dual run block i is in, as a unit to place from line `line`; `right` is where its right column
+ * resumes when the page opened inside the run, null when it is done or the run starts here.
+ */
+export function dualUnitAt(
+  flow: Flow,
+  i: number,
+  line: number,
+  right: Point | null,
+): DualUnit | null {
+  const run = runAt(flow.blocks, flow.profile, i);
+  if (run === null) return null;
+  look(flow, run.end - 1);
+  if (i >= run.split) return { run, left: null, right: { block: i, line } };
+  if (i === run.start && line === 0 && right === null) return wholeRun(run);
+  return { run, left: { block: i, line }, right };
+}
+
+function columnFrom(
+  flow: Flow,
+  from: Point | null,
+  end: number,
+): ColumnPiece[] {
+  const column: ColumnPiece[] = [];
+  if (from === null) return column;
+  for (let j = from.block; j < end; j++)
+    if (isPrinted(flow, j))
+      column.push({
+        block: j,
+        line: j === from.block ? from.line : 0,
+        lines: flow.metrics[j]!.lines,
+        step: stepOf(flow, j),
+        space: column.length === 0 ? 0 : spaceOf(flow, j),
+      });
+  return column;
+}
+
+/** The unit's left and right columns. */
+export function columnsOf(
+  flow: Flow,
+  unit: DualUnit,
+): readonly [ColumnPiece[], ColumnPiece[]] {
+  return [
+    columnFrom(flow, unit.left, unit.run.split),
+    columnFrom(flow, unit.right, unit.run.end),
+  ];
+}
+
+/** The cue of the column `at` is in: its nearest cue at or before `at`, in capitals; null for none. */
+export function columnCueOf(
+  flow: Flow,
+  run: DualRun,
+  at: Point,
+): string | null {
+  const top = at.block < run.split ? run.start : run.split;
+  for (let j = at.block; j >= top; j--)
+    if (keyOf(flow, j) === "character" && flow.blocks[j]!.text.trim() !== "")
+      return cueText(flow, j);
+  return null;
+}
+
+/** Units of the (MORE) line under a cut dual run. */
+export function dualMoreOf(flow: Flow): number {
+  return flow.profile.furniture.speechContinued ? UNITS_PER_LINE : 0;
+}
+
+// The least of a run that can be left at the foot of a page: all of a short run, else down to the
+// first row it may be cut at.
+function runHead(flow: Flow, run: DualRun): number {
+  look(flow, run.end - 1);
+  const columns = columnsOf(flow, wholeRun(run));
+  const height = Math.max(...columns.map(columnHeight));
+  const { minLines, dualSplitAbove } = flow.profile.rules;
+  if (height <= flow.cap * dualSplitAbove) return height;
+  const edge = minLines * UNITS_PER_LINE;
+  for (let row = edge; row <= height - edge; row++)
+    if (isCutRow(columns, row)) return row + dualMoreOf(flow);
+  return height;
+}
+
 // The units block i's part of a chain needs, and whether the chain goes on to the next block.
 function link(flow: Flow, i: number): { units: number; next: number } {
+  const run = runAt(flow.blocks, flow.profile, i);
+  if (run !== null)
+    return { units: spaceOf(flow, run.start) + runHead(flow, run), next: -1 };
   const own = spaceOf(flow, i) + heightOf(flow, i);
   const t = nextPrinted(flow, i);
   if (t < 0 || isForcedStart(flow, t))
