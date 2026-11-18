@@ -396,7 +396,9 @@ test(
         stderr: "",
       });
       await server.exited;
-      expect(server.signalCode).toBe("SIGKILL");
+      // Windows ends a process without a signal, so none is reported
+      if (process.platform !== "win32")
+        expect(server.signalCode).toBe("SIGKILL");
       expect(await reachable(`http://127.0.0.1:${at.port}/health`)).toBe(false);
       expect(await Bun.file(runPath(at.dir)).exists()).toBe(false);
     } finally {
