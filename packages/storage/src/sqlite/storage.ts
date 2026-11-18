@@ -1,11 +1,12 @@
 // The SQLite driver: the directory in control.sqlite, and one file per home beside it, each opened on first use.
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { wellFormedKey } from "../home.ts";
 import type { Storage } from "../ports.ts";
 import { createSqliteDirectory } from "./directory.ts";
 import type { SqliteDocFile } from "./doc-file.ts";
 import { openDocFile } from "./doc-file.ts";
-import { CONTROL_FILE, migrate, openDatabase, wellFormedKey } from "./files.ts";
+import { CONTROL_FILE, migrate, openDatabase } from "./files.ts";
 
 /**
  * Storage in `dir`, which is created when missing. StorageError("corrupt") for
