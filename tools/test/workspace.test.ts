@@ -58,6 +58,27 @@ test("every catalog entry is an exact version, except the two that follow a majo
     });
 });
 
+const firstLine = (key: string) =>
+  read(`packages/${key}/src/index.ts`).split("\n")[0];
+
+test("each new package says what it is for in its first line", () => {
+  expect(firstLine("settings")).toBe(
+    "// The typed settings registry: definitions, validation, resolution and the store.",
+  );
+  expect(firstLine("commands")).toBe(
+    "// The command registry: definitions, context, key bindings and the service.",
+  );
+  expect(firstLine("client-web")).toBe(
+    "// Browser drivers for the sync client: WebSocket, IndexedDB, Web Locks and BroadcastChannel.",
+  );
+  expect(firstLine("crdt-binding")).toBe(
+    "// The binding between the CRDT and ProseMirror, so that no CRDT type reaches the editor.",
+  );
+  expect(firstLine("demo")).toBe(
+    "// Demo people and workspaces, the demo sign-in, the Tour and the seed.",
+  );
+});
+
 test("minimumReleaseAge is three days in integer seconds", () => {
   const bunfig = read("bunfig.toml");
   expect(

@@ -54,6 +54,14 @@
         "@playwright/test": "catalog:",
       },
     },
+    "packages/client-web": {
+      "name": "@manent/client-web",
+      "version": "0.0.0",
+    },
+    "packages/commands": {
+      "name": "@manent/commands",
+      "version": "0.0.0",
+    },
     "packages/crdt": {
       "name": "@manent/crdt",
       "version": "0.0.0",
@@ -65,6 +73,14 @@
       "devDependencies": {
         "fast-check": "catalog:",
       },
+    },
+    "packages/crdt-binding": {
+      "name": "@manent/crdt-binding",
+      "version": "0.0.0",
+    },
+    "packages/demo": {
+      "name": "@manent/demo",
+      "version": "0.0.0",
     },
     "packages/editor": {
       "name": "@manent/editor",
@@ -106,6 +122,10 @@
       "dependencies": {
         "@manent/sync-protocol": "workspace:*",
       },
+    },
+    "packages/settings": {
+      "name": "@manent/settings",
+      "version": "0.0.0",
     },
     "packages/storage": {
       "name": "@manent/storage",
@@ -195,7 +215,15 @@
   "packages": {
     "@manent/bench": ["@manent/bench@workspace:bench"],
 
+    "@manent/client-web": ["@manent/client-web@workspace:packages/client-web"],
+
+    "@manent/commands": ["@manent/commands@workspace:packages/commands"],
+
     "@manent/crdt": ["@manent/crdt@workspace:packages/crdt"],
+
+    "@manent/crdt-binding": ["@manent/crdt-binding@workspace:packages/crdt-binding"],
+
+    "@manent/demo": ["@manent/demo@workspace:packages/demo"],
 
     "@manent/desktop": ["@manent/desktop@workspace:apps/desktop"],
 
@@ -218,6 +246,8 @@
     "@manent/server": ["@manent/server@workspace:apps/server"],
 
     "@manent/server-core": ["@manent/server-core@workspace:packages/server-core"],
+
+    "@manent/settings": ["@manent/settings@workspace:packages/settings"],
 
     "@manent/storage": ["@manent/storage@workspace:packages/storage"],
 
