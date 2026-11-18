@@ -19,6 +19,10 @@ jobs:
   windows:
     runs-on: windows-2025
     timeout-minutes: 120
+    # The committed macOS results stay in results/; a Windows harness that stops early must not leave one of them in
+    # the artifact as if Windows had written it.
+    env:
+      MANENT_RESULTS_DIR: results/windows
     defaults:
       run:
         working-directory: spikes/03-pagination-containment
