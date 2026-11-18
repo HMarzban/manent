@@ -30,6 +30,19 @@ export function splitChord(chord: Chord): {
   };
 }
 
+const MODIFIERS = ["Mod", "Control", "Alt", "Shift"] as const;
+
+/**
+ * The one spelling of the press a chord of `isChord`'s grammar makes on `platform`: off macOS Mod is Control, so `Mod+X`,
+ * `Control+X` and `Mod+Control+X` are all `Control+X` there. Compare chords in this form; show them as written.
+ */
+export function canonicalChord(chord: Chord, platform: Platform): Chord {
+  const { modifiers, key } = splitChord(chord);
+  const held = new Set(modifiers);
+  if (platform !== "mac" && held.delete("Mod")) held.add("Control");
+  return [...MODIFIERS.filter((modifier) => held.has(modifier)), key].join("+");
+}
+
 /**
  * The layout rule a chord breaks, or null. On Windows and Linux AltGr arrives as Control and Alt, so Control with Alt and a
  * character key may type a character (`ctrl_alt_character`); Alt or Option without Mod or Control does on every platform (`alt_character`).

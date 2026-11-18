@@ -1,5 +1,6 @@
 // Every chord given to one command: custom assignments first, then defaults, with clashes settled the same way on every device.
 import type { Platform } from "@manent/settings";
+import { canonicalChord } from "./chord.ts";
 import type { Chord, Keys } from "./chord.ts";
 import type { CommandDefinition, CommandScope } from "./define.ts";
 
@@ -10,7 +11,7 @@ export interface CustomBinding {
   at: number;
 }
 
-/** Chords this device's checks refused. */
+/** Chords this device's checks refused, in any spelling of the press. */
 export interface Findings {
   failsHere: ReadonlySet<string>;
 }
@@ -52,20 +53,24 @@ export function resolveBindings(options: {
 }): Resolved {
   const { commands, custom, platform, shell, findings } = options;
   const byId = new Map(commands.map((def) => [def.id, def]));
-  const isBrowserZoom = (chord: Chord): boolean =>
-    shell === "web" && BROWSER_ZOOM_KEYS.includes(chord);
+  const press = (chord: Chord): Chord => canonicalChord(chord, platform);
+  const zoom = new Set(shell === "web" ? BROWSER_ZOOM_KEYS.map(press) : []);
+  const refused = new Set([...findings.failsHere].map(press));
+  const isBrowserZoom = (chord: Chord): boolean => zoom.has(press(chord));
+  // keyed by the press, so two spellings of one press have one holder
   const holders = new Map<Chord, CommandDefinition[]>();
   const held = new Map<string, Chord[]>(commands.map((def) => [def.id, []]));
   const lost = new Set<string>();
 
   const claim = (def: CommandDefinition, chord: Chord): void => {
-    const current = holders.get(chord) ?? [];
+    const at = press(chord);
+    const current = holders.get(at) ?? [];
     if (current.includes(def)) return;
     if (current.some((other) => scopesOverlap(other.scope, def.scope))) {
       lost.add(def.id);
       return;
     }
-    holders.set(chord, [...current, def]);
+    holders.set(at, [...current, def]);
     held.get(def.id)?.push(chord);
   };
 
@@ -74,7 +79,7 @@ export function resolveBindings(options: {
     const def = byId.get(entry.commandId);
     if (def === undefined || decided.has(def.id)) continue;
     const usable = entry.keys.filter(
-      (chord) => !findings.failsHere.has(chord) && !isBrowserZoom(chord),
+      (chord) => !refused.has(press(chord)) && !isBrowserZoom(chord),
     );
     // an entry with nothing usable here leaves the command to an older entry or its default
     if (entry.keys.length > 0 && usable.length === 0) continue;

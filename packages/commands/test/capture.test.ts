@@ -157,6 +157,26 @@ test("a chord held only in a scope that never meets this one is free", () => {
   ]);
 });
 
+test("off macOS a Control chord is checked as its Mod spelling, and on macOS it is not", () => {
+  expect([
+    verdict({ chord: "Mod+Y", platform: "windows" }),
+    verdict({ chord: "Control+X", platform: "linux" }),
+    verdict({ chord: "Control+D", platform: "windows" }),
+    verdict({ chord: "Control+T", platform: "linux" }),
+    verdict({ chord: "Control+W", platform: "windows" }),
+    verdict({ chord: "Control+X", platform: "mac" }),
+    verdict({ chord: "Control+D", platform: "mac" }),
+  ]).toEqual([
+    { ok: false, reason: "fixed" },
+    { ok: false, reason: "fixed" },
+    { ok: "ask", holderId: "test.dual" },
+    { ok: "warn", effect: "usually opens a new tab" },
+    { ok: false, reason: "leaves_script" },
+    { ok: true },
+    { ok: true },
+  ]);
+});
+
 test("a key the system keeps warns on every shell, and a browser's key only on the web", () => {
   expect([
     verdict({ chord: "Alt+Tab", platform: "windows" }),

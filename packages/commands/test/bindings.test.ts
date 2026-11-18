@@ -58,13 +58,30 @@ const NONE: Findings = { failsHere: new Set() };
 const CHORDS = [
   "Mod+Alt+1",
   "Mod+D",
+  "Control+D",
+  "Mod+Control+D",
   "Mod+E",
+  "Control+E",
   "Mod+J",
+  "Control+J",
   "Mod+=",
+  "Control+=",
   "Mod+0",
   "Mod+Y",
   "Mod+Enter",
 ];
+
+// off macOS, Mod is Control: the chords of each row are one press there
+const SAME_PRESS_OFF_MAC: readonly (readonly string[])[] = [
+  ["Mod+D", "Control+D", "Mod+Control+D"],
+  ["Mod+E", "Control+E"],
+  ["Mod+J", "Control+J"],
+  ["Mod+=", "Control+="],
+];
+const samePress = (a: string, b: string, platform: Platform): boolean =>
+  a === b ||
+  (platform !== "mac" &&
+    SAME_PRESS_OFF_MAC.some((row) => row.includes(a) && row.includes(b)));
 const arbCustom: fc.Arbitrary<CustomBinding[]> = fc.array(
   fc.record({
     commandId: fc.constantFrom(...FIXTURE.map((c) => c.id), "test.gone"),
@@ -124,7 +141,10 @@ test("no chord is held by two commands in overlapping scopes", () => {
         );
         for (const one of holders)
           for (const other of holders)
-            if (one.c !== other.c && one.chord === other.chord)
+            if (
+              one.c !== other.c &&
+              samePress(one.chord, other.chord, platform)
+            )
               expect([
                 one.c.id,
                 other.c.id,
@@ -277,4 +297,48 @@ test("the browser's zoom keys are bound on the desktop and never on the web", ()
     [[], [], []],
   ]);
   expect(BROWSER_ZOOM_KEYS).toEqual(["Mod+=", "Mod+-", "Mod+0"]);
+});
+
+test("off macOS a Control chord and its Mod spelling are one press, held by one command", () => {
+  const commands = [
+    command("test.dup", { keys: everywhere("Mod+D") }),
+    command("test.b"),
+  ];
+  const custom = [{ commandId: "test.b", keys: ["Control+D"], at: 1 }];
+  const on = (platform: Platform) => {
+    const r = resolveBindings({
+      commands,
+      custom,
+      platform,
+      shell: "web",
+      findings: NONE,
+    });
+    return [
+      r.effective.get("test.b"),
+      r.effective.get("test.dup"),
+      r.lostChord,
+    ];
+  };
+  expect([on("windows"), on("linux"), on("mac")]).toEqual([
+    [["Control+D"], [], ["test.dup"]],
+    [["Control+D"], [], ["test.dup"]],
+    [["Control+D"], ["Mod+D"], []],
+  ]);
+});
+
+test("off macOS a refused or zoom chord is refused however it is written", () => {
+  const r = resolveBindings({
+    commands: FIXTURE,
+    platform: "windows",
+    shell: "web",
+    findings: { failsHere: new Set(["Mod+Y"]) },
+    custom: [
+      { commandId: "test.a", keys: ["Control+Y"], at: 1 },
+      { commandId: "test.fit", keys: ["Control+0"], at: 1 },
+    ],
+  });
+  expect([r.effective.get("test.a"), r.effective.get("test.fit")]).toEqual([
+    ["Mod+Alt+1"],
+    [],
+  ]);
 });

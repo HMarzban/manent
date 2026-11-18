@@ -2,7 +2,7 @@
 import type { Platform } from "@manent/settings";
 import { scopesOverlap } from "./bindings.ts";
 import type { Resolved } from "./bindings.ts";
-import { breaksLayoutRules, splitChord } from "./chord.ts";
+import { breaksLayoutRules, canonicalChord, splitChord } from "./chord.ts";
 import type { Chord } from "./chord.ts";
 import type { CommandDefinition } from "./define.ts";
 import { RESERVED_KEYS } from "./reserved-keys.ts";
@@ -15,7 +15,7 @@ export type CaptureVerdict =
   | { ok: "warn"; effect: string };
 
 // the page's structural keys and the editing keys every system shares
-const FIXED_CHORDS: ReadonlySet<Chord> = new Set([
+const FIXED_CHORDS: readonly Chord[] = Object.freeze([
   "Enter",
   "Tab",
   "Shift+Tab",
@@ -76,13 +76,16 @@ export function checkCapture(options: {
   const target = commands.find((def) => def.id === commandId);
   if (target === undefined)
     throw new RangeError(`no command is registered as ${commandId}`);
+  const press = canonicalChord(chord, platform);
+  const isPress = (other: Chord): boolean =>
+    canonicalChord(other, platform) === press;
   const holder = commands.find(
     (def) =>
       def.id !== commandId &&
       scopesOverlap(def.scope, target.scope) &&
-      (resolved.effective.get(def.id) ?? []).includes(chord),
+      (resolved.effective.get(def.id) ?? []).some(isPress),
   );
-  if (FIXED_CHORDS.has(chord) || holder?.keysFixed === true)
+  if (FIXED_CHORDS.some(isPress) || holder?.keysFixed === true)
     return { ok: false, reason: "fixed" };
 
   const { modifiers } = splitChord(chord);
@@ -95,7 +98,7 @@ export function checkCapture(options: {
     return { ok: false, reason: "types_character" };
 
   const reserved = RESERVED_KEYS.filter(
-    (key) => key.chord === chord && isReservedHere(key, platform, shell),
+    (key) => isPress(key.chord) && isReservedHere(key, platform, shell),
   );
   if (shell === "web" && reserved.some((key) => key.leavesScript))
     return { ok: false, reason: "leaves_script" };
