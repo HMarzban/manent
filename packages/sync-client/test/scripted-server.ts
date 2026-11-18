@@ -118,7 +118,7 @@ export function textAfter(updates: readonly Uint8Array[]): string {
 }
 
 /** A seeded random (mulberry32), so a run is the same every time. */
-export function seededRandom(seed: number): Random {
+function seededRandom(seed: number): Random {
   let state = seed;
   const next = (): number => {
     state = (state + 0x6d2b79f5) | 0;
@@ -171,8 +171,16 @@ interface ScriptedEnd {
 export interface ScriptedServer {
   /** Every message the clients sent of this type, decoded, in the order they arrived. */
   got<T extends Message["type"]>(type: T): Extract<Message, { type: T }>[];
-  /** Whether HELLO, SUBSCRIBE and the client's step 1, and PING are answered by themselves. */
-  readonly answer: { hello: boolean; subscribe: boolean; ping: boolean };
+  /**
+   * Whether HELLO, an edit SUBSCRIBE and the client's step 1, a view SUBSCRIBE
+   * (with SUBSCRIBED and the snapshot), and PING are answered by themselves.
+   */
+  readonly answer: {
+    hello: boolean;
+    subscribe: boolean;
+    view: boolean;
+    ping: boolean;
+  };
   versions: ServerVersions;
   /** SUBSCRIBED.headSeq. */
   head: number;
@@ -191,6 +199,9 @@ export interface ScriptedServer {
   sendFrame(frame: Uint8Array): void;
   /** Answers the last SUBSCRIBE as a server holding `state` alone. */
   subscribedWithState(docId: string, state: Uint8Array): void;
+  /** SUBSCRIBED, then VIEW_SNAPSHOT of the server's copy, as a reader is answered. */
+  snapshot(docId: string): void;
+  viewPatch(docId: string, patch: unknown): void;
   /** From now on nothing is answered. */
   silence(): void;
 }
@@ -212,7 +223,7 @@ function subscribed(docId: string, head: number): DocumentMessage {
   };
 }
 
-export function scriptedServer(network: MemoryNetwork): ScriptedServer {
+function scriptedServer(network: MemoryNetwork): ScriptedServer {
   const received: Message[] = [];
   const docs = new Map<string, CrdtDoc>();
   const ends: ScriptedEnd[] = [];
@@ -226,7 +237,7 @@ export function scriptedServer(network: MemoryNetwork): ScriptedServer {
   const server: ScriptedServer = {
     got: <T extends Message["type"]>(t: T) =>
       received.filter((m): m is Extract<Message, { type: T }> => m.type === t),
-    answer: { hello: true, subscribe: true, ping: true },
+    answer: { hello: true, subscribe: true, view: true, ping: true },
     versions: serverVersions(v(1, 1, 0, 0)),
     head: 1,
     ends: () => ends.length,
@@ -273,6 +284,27 @@ export function scriptedServer(network: MemoryNetwork): ScriptedServer {
       sync(docId, "step1", server.doc(docId).encodeStateVector());
       sync(docId, "step2", state);
     },
+    snapshot(docId) {
+      server.send(subscribed(docId, server.head));
+      const sections =
+        scriptBody(server.doc(docId)).materialize().content ?? [];
+      const blocks = sections.flatMap((section) => section.content ?? []);
+      server.send({
+        type: "VIEW_SNAPSHOT",
+        docId,
+        generation: 1,
+        viewSeq: server.head,
+        content: utf8(JSON.stringify({ v: 1, blocks })),
+      });
+    },
+    viewPatch: (docId, patch) =>
+      server.send({
+        type: "VIEW_PATCH",
+        docId,
+        generation: 1,
+        viewSeq: server.head,
+        patch: utf8(JSON.stringify(patch)),
+      }),
     silence() {
       server.answer.hello = false;
       server.answer.subscribe = false;
@@ -293,6 +325,10 @@ export function scriptedServer(network: MemoryNetwork): ScriptedServer {
       });
     if (m.type === "PING" && server.answer.ping)
       at.send({ type: "PONG", nonce: m.nonce });
+    if (m.type === "SUBSCRIBE" && m.mode === "view") {
+      if (server.answer.view) server.snapshot(m.docId);
+      return;
+    }
     if (!server.answer.subscribe) return;
     if (m.type === "SUBSCRIBE") {
       at.send(subscribed(m.docId, server.head));
@@ -350,6 +386,7 @@ export interface World {
     store?: LocalStore;
     transport?: Transport;
     leader?: LeaderPort;
+    frames?: Frames;
     versions?: VersionSet;
     minServer?: VersionSet;
     uploadVersion?: SyncClientOptions["uploadVersion"];
@@ -443,7 +480,7 @@ export async function setup(): Promise<World> {
           leader: o.leader ?? soloLeader(o.userId ?? "dana"),
           clock: fake.clock,
           random,
-          frames,
+          frames: o.frames ?? frames,
         },
       }),
     turn,

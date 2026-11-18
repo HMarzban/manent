@@ -30,16 +30,30 @@ import {
   STABLE_AFTER_MS,
   WELCOME_TIMEOUT_MS,
 } from "../ports/defaults.ts";
+import { createDoc } from "@manent/crdt";
+import type { CrdtDoc } from "@manent/crdt";
 import { ConnectError } from "../ports/ports.ts";
 import type {
   Connection,
   DeviceVersion,
+  DocMeta,
   LinkState,
   Subscribable,
   SyncClientPorts,
 } from "../ports/ports.ts";
 import { openSession } from "../session/session.ts";
-import type { DocHandle, Session } from "../session/session.ts";
+import type {
+  DocEvent,
+  DocHandle,
+  Session,
+  UnsavedEdit,
+} from "../session/session.ts";
+import { readTabMessage, tabMessage } from "../tabs/messages.ts";
+import type { TabBody, TabMessage } from "../tabs/messages.ts";
+import { createViewer } from "../view/view.ts";
+import type { ViewHandle, Viewer } from "../view/view.ts";
+import { createFollower, createRelayHandle } from "./follower.ts";
+import type { Follower, RelayHandle } from "./follower.ts";
 
 /** `server`: the versions the last WELCOME named, kept while offline; null before any. */
 export interface LinkFacts {
@@ -71,7 +85,32 @@ export interface SyncClient {
   setOnline(wanted: boolean): void;
   /** The app calls it on online, visibility and focus events. */
   retryNow(): void;
+  /** SUBSCRIBE with mode `view`: no document, no outbox, nothing stored. */
+  view(docId: string): ViewHandle;
   close(): Promise<void>;
+}
+
+/**
+ * One open document of this tab: the handle the app holds, and what is behind
+ * it, a session while this tab leads and a follower while another does.
+ * `queue` runs a following tab's requests for it one after the other.
+ */
+interface Replica {
+  create: DocMeta["create"];
+  relay: RelayHandle | null;
+  follower: Follower | null;
+  ready: { promise: Promise<RelayHandle>; resolve(relay: RelayHandle): void };
+  unwire: () => void;
+  queue: Promise<void>;
+}
+
+/** What a leader posts for a session's event: a replacement carries the new state, Recovered text its items. */
+function eventBody(docId: string, event: DocEvent, h: DocHandle): TabBody {
+  if (event.type === "replaced")
+    return { t: "replace", docId, state: h.doc().encodeState() };
+  if (event.type === "recovered")
+    return { t: "recovered", docId, items: event.items };
+  return { t: "event", docId, event };
 }
 
 /** One connection attempt; `connection` is null until it opens. */
@@ -88,7 +127,7 @@ class Client implements SyncClient {
     issue: "none",
     server: null,
     wentOfflineAt: null,
-    leader: true,
+    leader: false,
   });
   private model: LinkModel = INITIAL_LINK;
   private gate: ServerGate = "ok";
@@ -96,6 +135,14 @@ class Client implements SyncClient {
   // message IDs need only be unique per connection; one allocator for every connection gives that
   private readonly encoder = createFrameEncoder({ ids: createMessageIds() });
   private readonly sessions = new Map<string, Session>();
+  private readonly replicas = new Map<string, Replica>();
+  private readonly viewers = new Map<string, Viewer>();
+  private leading = false;
+  private leaderKnown = false;
+  /** Per following tab and document, the highest `n` of an edit stored. */
+  private readonly storedEdits = new Map<string, number>();
+  private resign: () => void;
+  private readonly unlisten: () => void;
   private readonly opening = new Map<string, Promise<Session>>();
   private readonly timers = new Map<Timer, () => void>();
   private server: ServerVersions | null = null;
@@ -106,58 +153,194 @@ class Client implements SyncClient {
 
   constructor(options: SyncClientOptions) {
     this.options = options;
-    // a later turn, so that a document opened at once is loaded before the socket opens
-    void Promise.resolve().then(() => {
-      if (this.model.wanted) this.input({ type: "want", online: true });
-    });
+    const { leader } = options.ports;
+    this.resign = this.campaign();
+    this.unlisten = leader.listen((value) => this.heard(value));
   }
 
-  async open(docId: string): Promise<DocHandle> {
-    return (await this.session(docId, null)).handle;
+  open(docId: string): Promise<DocHandle> {
+    return this.replica(docId, null).ready.promise;
   }
 
-  async create(request: { kind: string; home: string }): Promise<DocHandle> {
+  create(request: { kind: string; home: string }): Promise<DocHandle> {
     const { clock, random } = this.options.ports;
     const docId = docIdV7(clock.now(), random.bytes(10));
-    return (await this.session(docId, request)).handle;
+    return this.replica(docId, request).ready.promise;
   }
 
+  /** A tab that does not lead only remembers what is wanted, for when it leads. */
   setOnline(wanted: boolean): void {
-    this.input({ type: "want", online: wanted });
+    if (this.leading) this.input({ type: "want", online: wanted });
+    else this.model = { ...this.model, wanted };
   }
 
   retryNow(): void {
-    this.input({ type: "retry_now", random: this.options.ports.random.next() });
+    if (this.leading)
+      this.input({
+        type: "retry_now",
+        random: this.options.ports.random.next(),
+      });
+  }
+
+  view(docId: string): ViewHandle {
+    const known = this.viewers.get(docId);
+    if (known !== undefined) return known.handle;
+    const viewer = createViewer({
+      docId,
+      clock: this.options.ports.clock,
+      closed: () => this.viewers.delete(docId),
+    });
+    this.viewers.set(docId, viewer);
+    viewer.link(this.model.state);
+    if (this.model.state === "online") viewer.connected((m) => this.send(m));
+    return viewer.handle;
   }
 
   async close(): Promise<void> {
-    await Promise.all([...this.sessions.values()].map((s) => s.handle.close()));
+    const relays = [...this.replicas.values()].map((r) => r.relay);
+    await Promise.all(relays.map((relay) => relay?.close()));
+    for (const viewer of this.viewers.values()) viewer.handle.close();
+    this.resign();
+    this.unlisten();
     this.input({ type: "want", online: false });
     for (const cancel of this.timers.values()) cancel();
     this.timers.clear();
   }
 
-  /** The session of an open document, or the one being opened; set at once, so that a connect waits for it. */
-  private session(
+  private campaign(): () => void {
+    return this.options.ports.leader.campaign({
+      onElected: () => this.elected(),
+      onDeposed: () => this.deposed(),
+    });
+  }
+
+  /** The documents this tab followed are opened from the store, and the link connects once they are loaded. */
+  private elected(): void {
+    this.leading = true;
+    this.post({ t: "leader" });
+    for (const [docId, replica] of this.replicas) {
+      const follower = replica.follower;
+      if (follower === null) continue;
+      replica.follower = null;
+      const { doc, unsaved } = follower.detach();
+      this.lead(docId, replica, doc, unsaved);
+    }
+    if (this.model.wanted) this.input({ type: "want", online: true });
+    this.publish();
+  }
+
+  /** A store write was refused because another tab leads: this one gives the lead up as if deposed. */
+  private stepDown(): void {
+    if (!this.leading) return;
+    this.resign();
+    this.deposed();
+  }
+
+  /** The lead was taken: the connection closes, the store is left, and each document is followed. */
+  private deposed(): void {
+    this.leading = false;
+    this.leaderKnown = false;
+    this.current?.connection?.close(1000, "deposed");
+    this.disarm("retry");
+    this.model = { ...this.model, state: "offline", attempt: 0 };
+    this.dropped(this.options.ports.clock.now());
+    for (const [docId, replica] of this.replicas) {
+      const session = this.sessions.get(docId);
+      if (session === undefined) continue;
+      replica.unwire();
+      this.sessions.delete(docId);
+      const { doc, unsaved } = session.detach();
+      this.follow(docId, replica, doc, unsaved);
+    }
+    this.resign = this.campaign();
+    this.publish();
+  }
+
+  /** The replica of a document, made at once, so that a connect waits for it to load. */
+  private replica(docId: string, create: DocMeta["create"]): Replica {
+    const known = this.replicas.get(docId);
+    if (known !== undefined) return known;
+    const replica: Replica = {
+      create,
+      relay: null,
+      follower: null,
+      ready: Promise.withResolvers<RelayHandle>(),
+      unwire: () => {},
+      queue: Promise.resolve(),
+    };
+    this.replicas.set(docId, replica);
+    const { random } = this.options.ports;
+    if (this.leading) this.lead(docId, replica, null, []);
+    else
+      this.follow(
+        docId,
+        replica,
+        createDoc({ clientId: random.clientId() }),
+        [],
+      );
+    return replica;
+  }
+
+  private show(replica: Replica, backend: DocHandle): void {
+    if (replica.relay === null) replica.relay = createRelayHandle(backend);
+    else replica.relay.attach(backend);
+    replica.ready.resolve(replica.relay);
+  }
+
+  private forget(docId: string): void {
+    this.replicas.delete(docId);
+    this.sessions.delete(docId);
+  }
+
+  private follow(
     docId: string,
-    create: { kind: string; home: string } | null,
-  ): Promise<Session> {
-    const open = this.sessions.get(docId);
-    if (open !== undefined) return Promise.resolve(open);
-    const already = this.opening.get(docId);
-    if (already !== undefined) return already;
+    replica: Replica,
+    doc: CrdtDoc,
+    unsaved: UnsavedEdit[],
+  ): void {
+    const follower = createFollower({
+      docId,
+      doc,
+      create: replica.create,
+      unsaved,
+      ports: this.options.ports,
+      writeSchema: this.writeSchema(),
+      post: (body) => this.post(body),
+      closed: () => this.forget(docId),
+    });
+    replica.follower = follower;
+    if (replica.relay !== null) replica.relay.attach(follower.handle);
+    else void follower.loaded.then(() => this.show(replica, follower.handle));
+    if (!this.leaderKnown) this.post({ t: "who" });
+    follower.announce();
+  }
+
+  /** A session over `doc`, the document a following tab had, or a new one; what it leads is posted to the other tabs. */
+  private lead(
+    docId: string,
+    replica: Replica,
+    doc: CrdtDoc | null,
+    unsaved: UnsavedEdit[],
+  ): void {
     const opening = openSession({
       docId,
       ports: this.options.ports,
-      create,
+      create: replica.create,
+      doc,
+      unsaved,
+      stored: (update) => this.post({ t: "remote", docId, update }),
+      view: () => this.view(docId),
+      lostLead: () => this.stepDown(),
       link: this.sessionLink(),
       writeSchema: this.writeSchema(),
       uploadVersion: this.options.uploadVersion ?? null,
       replaceConnection: (reason) => this.replace(reason),
-      closed: () => this.sessions.delete(docId),
+      closed: () => this.forget(docId),
     }).then((session) => {
       this.opening.delete(docId);
       this.sessions.set(docId, session);
+      replica.unwire = this.wire(docId, session.handle);
+      this.show(replica, session.handle);
       session.link(this.sessionLink());
       if (this.model.state === "online")
         session.connected((m) => this.send(m), this.gate);
@@ -165,7 +348,76 @@ class Client implements SyncClient {
     });
     this.opening.set(docId, opening);
     void opening.catch(() => this.opening.delete(docId));
-    return opening;
+  }
+
+  private wire(docId: string, h: DocHandle): () => void {
+    const offs = [
+      h.status.subscribe((status) => this.post({ t: "status", docId, status })),
+      h.on((event) => this.post(eventBody(docId, event, h))),
+      h.onAwareness((update) => this.post({ t: "aw", docId, update })),
+    ];
+    this.post({ t: "status", docId, status: h.status.get() });
+    return () => {
+      for (const off of offs) off();
+    };
+  }
+
+  private post(body: TabBody): void {
+    const { leader } = this.options.ports;
+    leader.post(tabMessage(leader.tabId, body));
+  }
+
+  private heard(value: unknown): void {
+    const m = readTabMessage(value);
+    const { tabId } = this.options.ports.leader;
+    if (m === null || m.from === tabId) return;
+    if (m.t === "who") {
+      if (this.leading) this.post({ t: "leader" });
+    } else if (m.t === "leader") {
+      if (this.leading) return;
+      this.leaderKnown = true;
+      for (const replica of this.replicas.values())
+        replica.follower?.announce();
+    } else if (this.leading) this.host(m);
+    else if ("docId" in m && (!("to" in m) || m.to === tabId))
+      this.replicas.get(m.docId)?.follower?.receive(m);
+  }
+
+  /** What a following tab asks of the leader, for one document at a time, in the order asked. */
+  private host(m: TabMessage): void {
+    if (m.t === "aw") {
+      this.sessions.get(m.docId)?.handle.sendAwareness(m.update);
+      return;
+    }
+    if (m.t !== "open" && m.t !== "edit") return;
+    const replica = this.replica(m.docId, m.t === "open" ? m.create : null);
+    replica.queue = replica.queue.then(async () => {
+      await replica.ready.promise;
+      const session =
+        this.sessions.get(m.docId) ?? (await this.opening.get(m.docId));
+      if (session === undefined) return;
+      if (m.t === "open") {
+        session.addClient(m.clientId);
+        this.post({
+          t: "state",
+          to: m.from,
+          docId: m.docId,
+          ...session.state(),
+        });
+        return;
+      }
+      const saved = (refused: boolean): void =>
+        this.post({ t: "saved", to: m.from, docId: m.docId, n: m.n, refused });
+      const key = `${m.from}:${m.docId}`;
+      // an edit sent again after a change of leader, already stored: it is saved
+      if (m.n <= (this.storedEdits.get(key) ?? 0)) {
+        saved(false);
+        return;
+      }
+      this.storedEdits.set(key, m.n);
+      // stored now, answered once the write settles, so that a slow write holds up no other request
+      void session.edit(m).then(saved);
+    });
   }
 
   private input(input: LinkInput): void {
@@ -287,6 +539,8 @@ class Client implements SyncClient {
     this.beat();
     for (const session of this.sessions.values())
       session.connected((m) => this.send(m), this.gate);
+    for (const viewer of this.viewers.values())
+      viewer.connected((m) => this.send(m));
   }
 
   private dropped(at: number): void {
@@ -295,6 +549,7 @@ class Client implements SyncClient {
     this.current = null;
     this.wentOfflineAt ??= at;
     for (const session of this.sessions.values()) session.disconnected();
+    for (const viewer of this.viewers.values()) viewer.disconnected();
   }
 
   private beat(): void {
@@ -336,7 +591,10 @@ class Client implements SyncClient {
 
   private route(message: Message): void {
     if ("docId" in message) {
-      this.sessions.get(message.docId)?.receive(message);
+      const viewer = this.viewers.get(message.docId);
+      if (viewer === undefined)
+        this.sessions.get(message.docId)?.receive(message);
+      else viewer.receive(message);
       return;
     }
     switch (message.type) {
@@ -355,10 +613,12 @@ class Client implements SyncClient {
       case "PONG":
         this.disarm("pong");
         return;
-      case "ERROR":
-        if (message.doc !== null)
-          this.sessions.get(message.doc.docId)?.error(message);
+      case "ERROR": {
+        if (message.doc === null) return;
+        const { docId } = message.doc;
+        (this.viewers.get(docId) ?? this.sessions.get(docId))?.error(message);
         return;
+      }
       case "HELLO":
       case "AUTH_EXPIRING":
       case "AUTH_REFRESH":
@@ -392,8 +652,9 @@ class Client implements SyncClient {
   private publish(): void {
     const facts = this.sessionLink();
     if (facts.state === "online") this.wentOfflineAt = null;
-    this.link.set({ ...facts, server: this.server, leader: true });
+    this.link.set({ ...facts, server: this.server, leader: this.leading });
     for (const session of this.sessions.values()) session.link(facts);
+    for (const viewer of this.viewers.values()) viewer.link(facts.state);
   }
 
   private arm(timer: Timer, delayMs: number, fn: () => void): void {

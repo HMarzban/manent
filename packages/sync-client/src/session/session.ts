@@ -44,6 +44,7 @@ import { deviceVersion, offerVersions } from "../recovery/versions.ts";
 import { createHandshake, needsHeal } from "./handshake.ts";
 import type { Ending, Handshake, HandshakeHost } from "./handshake.ts";
 import { createSettingsOverlay } from "./settings.ts";
+import type { ViewHandle } from "../view/view.ts";
 
 /**
  * `replaced`: `doc()` now returns another document; bind again, and undo
@@ -68,6 +69,8 @@ export interface DocHandle {
   readonly settings: Subscribable<Readonly<Record<string, unknown>>>;
   /** The newest schema version this document may be written in right now. */
   readonly writeSchema: Subscribable<number>;
+  /** Set when the server answered 4408: the app shows this reader instead of an editor. */
+  readonly readOnly: Subscribable<ViewHandle | null>;
   on(listener: (event: DocEvent) => void): () => void;
   /** A request: shown at once, sent as SET, dropped if refused. TypeError for a value JSON cannot hold. */
   setSetting(key: string, value: unknown): void;
@@ -87,9 +90,23 @@ export interface SessionLink {
   wentOfflineAt: number | null;
 }
 
+/** An edit a tab that does not lead made and the store does not hold yet, as its `edit` message carries it. */
+export interface UnsavedEdit {
+  update: Uint8Array;
+  elements: string[];
+}
+
 /** One open document as its client drives it. */
 export interface Session {
   readonly handle: DocHandle;
+  /** A following tab's client ID: listed from now on, subscribing again when it is new. */
+  addClient(clientId: number): void;
+  /** A following tab's edit, applied and stored as an own entry; resolves `refused` once its write settled. */
+  edit(edit: UnsavedEdit): Promise<boolean>;
+  /** The document as this tab holds it, for a tab that opens it. */
+  state(): { state: Uint8Array; meta: DocMeta };
+  /** This tab no longer leads: the session stops using the store and the connection. */
+  detach(): { doc: CrdtDoc; unsaved: UnsavedEdit[] };
   link(facts: SessionLink): void;
   connected(send: (message: Message) => void, gate: ServerGate): void;
   disconnected(): void;
@@ -102,6 +119,16 @@ export interface Session {
 interface SessionOptions {
   docId: string;
   ports: SyncClientPorts;
+  /** The tab's own document when it takes the lead, keeping its client ID; null for a new one. */
+  doc: CrdtDoc | null;
+  /** What the tab's leader never saved, stored first. */
+  unsaved: UnsavedEdit[];
+  /** Every update stored: the server's, this tab's, another tab's. */
+  stored(update: Uint8Array): void;
+  /** A reader of the document, for when it may not be edited. */
+  view(): ViewHandle;
+  /** The store refused a write because another tab now leads. */
+  lostLead(): void;
   /** A new document's request; null to open one that may exist. */
   create: DocMeta["create"];
   link: SessionLink;
@@ -147,7 +174,7 @@ function freshMeta(docId: string, create: DocMeta["create"]): DocMeta {
 }
 
 /** Ids of the blocks a change inserted, changed or removed. */
-function elementsOf(report: TransactionReport): string[] {
+export function elementsOf(report: TransactionReport): string[] {
   const ids = [...report.inserted.map((i) => i.block), ...report.changed].map(
     (b) => b.attrs?.id,
   );
@@ -222,6 +249,7 @@ class DocSession implements Session, HandshakeHost {
   private coalescer: Coalescer;
   private readonly overlay = createSettingsOverlay(() => this.doc);
   private readonly status: ReturnType<typeof createSubscribable<DocStatus>>;
+  private readonly readOnly = createSubscribable<ViewHandle | null>(null);
   private readonly recoveredView = createSubscribable<readonly RecoveredItem[]>(
     [],
   );
@@ -241,12 +269,10 @@ class DocSession implements Session, HandshakeHost {
     this.meta = loaded?.meta ?? freshMeta(docId, options.create);
     this.facts = options.link;
     this.syncedBase = loaded?.syncedBase ?? null;
-    const clientId = this.freshClientId();
     const checkpoint = loaded?.checkpoint ?? null;
-    this.doc =
-      checkpoint === null
-        ? createDoc({ clientId })
-        : loadDoc(checkpoint.state, { clientId });
+    this.doc = options.doc ?? createDoc({ clientId: this.freshClientId() });
+    if (checkpoint !== null)
+      this.doc.applyUpdate(checkpoint.state, ORIGIN_LOAD);
     this.entries = loaded?.entries ?? [];
     for (const e of this.entries)
       if (e.kind === "update" && e.applied)
@@ -313,7 +339,7 @@ class DocSession implements Session, HandshakeHost {
     if (loaded === null) await this.persist(() => store.create(this.meta));
     // a document the store could not create takes no writes: it lives in memory
     this.memoryOnly = this.storeRefusing;
-    this.patch({ clientIds: [...this.meta.clientIds, this.doc.clientId] });
+    this.addId(this.doc.clientId);
     await Promise.all(this.pending);
     if (!this.memoryOnly)
       this.recovered = await store.recovered(docId).catch((error: unknown) => {
@@ -329,11 +355,42 @@ class DocSession implements Session, HandshakeHost {
     }
     this.coalescer.flushNow();
     this.prune();
+    for (const edit of this.options.unsaved) this.ownEntry(edit);
     this.overlay.show();
     if (this.recovery !== null) this.side.add("rejected");
     const { parked } = this.meta;
     if (parked === null) this.refresh();
     else this.stop(parked.reason);
+  }
+
+  addClient(clientId: number): void {
+    if (this.meta.clientIds.includes(clientId)) return;
+    this.addId(clientId);
+    this.handshake.resubscribe();
+  }
+
+  /** Text it carries that a remote delete already removed is found, as for an edit of this tab. */
+  edit(edit: UnsavedEdit): Promise<boolean> {
+    this.file(this.applyServer(edit.update), 0);
+    return this.ownEntry(edit).then(() => this.storeRefusing);
+  }
+
+  state(): { state: Uint8Array; meta: DocMeta } {
+    return { state: this.doc.encodeState(), meta: this.meta };
+  }
+
+  detach(): { doc: CrdtDoc; unsaved: UnsavedEdit[] } {
+    this.memoryOnly = true;
+    this.unobserve();
+    this.coalescer.dispose();
+    this.handshake.disconnect();
+    this.handshake.stop();
+    const unsaved = this.entries.flatMap((e) =>
+      e.kind === "update" && e.own && this.unsettled.has(e.localSeq)
+        ? [{ update: e.update, elements: e.elements }]
+        : [],
+    );
+    return { doc: this.doc, unsaved };
   }
 
   link(facts: SessionLink): void {
@@ -570,6 +627,7 @@ class DocSession implements Session, HandshakeHost {
           this.reject(ending.code, ending.clientSeq);
         else if (ending.side === "deleted") this.park("deleted");
         else this.stop(ending.side);
+        if (ending.side === "read_only") this.readOnly.set(this.options.view());
         return;
       case "forbidden": {
         const { create, neverSynced } = this.meta;
@@ -613,15 +671,7 @@ class DocSession implements Session, HandshakeHost {
       this.remoteChanged = true;
       return;
     }
-    this.save({
-      kind: "update",
-      localSeq: this.nextLocalSeq++,
-      update: report.update,
-      own: true,
-      acked: false,
-      applied: true,
-      elements: elementsOf(report),
-    });
+    void this.ownEntry({ update: report.update, elements: elementsOf(report) });
     const since = this.now() - this.meta.lastDeviceVersionAt;
     const due = since >= DEVICE_VERSION_INTERVAL_MS || since < 0;
     if (this.facts.state !== "online" && due)
@@ -630,19 +680,21 @@ class DocSession implements Session, HandshakeHost {
   }
 
   /** Stored at once; an own entry or a setting is sent only once its write has settled, in order. */
-  private save(entry: StoredEntry): void {
+  /** Resolves once the write has settled. */
+  private save(entry: StoredEntry): Promise<void> {
     const { store } = this.options.ports;
     const { docId } = this.options;
     this.entries.push(entry);
+    if (entry.kind === "update") this.options.stored(entry.update);
     const waits = entry.kind === "set" || entry.own;
     if (waits) this.unsettled.add(entry.localSeq);
-    void this.persist(() => store.append(docId, entry)).then(() => {
+    const settled = this.persist(() => store.append(docId, entry)).then(() => {
       if (!waits) return;
       this.unsettled.delete(entry.localSeq);
       this.refresh();
       this.handshake.pump();
     });
-    if (++this.sinceCheckpoint < LOCAL_CHECKPOINT_EVERY) return;
+    if (++this.sinceCheckpoint < LOCAL_CHECKPOINT_EVERY) return settled;
     this.sinceCheckpoint = 0;
     // the state holds every entry up to the first server update not yet applied
     const unapplied = this.entries.flatMap((e) =>
@@ -652,6 +704,23 @@ class DocSession implements Session, HandshakeHost {
     const state = this.doc.encodeState();
     const synced = this.computeStatus().synced;
     void this.persist(() => store.checkpoint(docId, state, through, synced));
+    return settled;
+  }
+
+  private ownEntry(edit: UnsavedEdit): Promise<void> {
+    return this.save({
+      kind: "update",
+      localSeq: this.nextLocalSeq++,
+      update: edit.update,
+      own: true,
+      acked: false,
+      applied: true,
+      elements: edit.elements,
+    });
+  }
+
+  private addId(clientId: number): void {
+    this.patch({ clientIds: [...this.meta.clientIds, clientId] });
   }
 
   private applyServer(update: Uint8Array): RecoveredItem[] {
@@ -677,17 +746,21 @@ class DocSession implements Session, HandshakeHost {
         : e,
     );
     this.prune();
+    this.file(items, through);
+    this.overlay.applied(through);
+    this.refresh();
+  }
+
+  /** Stores `items` as Recovered text, with the server entries up to `through` marked applied. */
+  private file(items: RecoveredItem[], through: number): void {
     const { store } = this.options.ports;
     void this.persist(() =>
       store.markApplied(this.options.docId, through, items),
     );
-    if (items.length > 0) {
-      this.recovered = [...this.recovered, ...items];
-      this.recoveredView.set(this.recovered);
-      this.emit({ type: "recovered", items });
-    }
-    this.overlay.applied(through);
-    this.refresh();
+    if (items.length === 0) return;
+    this.recovered = [...this.recovered, ...items];
+    this.recoveredView.set(this.recovered);
+    this.emit({ type: "recovered", items });
   }
 
   /** Keeps the document as a device version; `stored` settles once it is written. */
@@ -768,9 +841,13 @@ class DocSession implements Session, HandshakeHost {
     return done;
   }
 
-  /** A refused write: work goes on in memory, and the status says it is not saved. */
+  /** A refused write: work goes on in memory, and the status says it is not saved. `lost_lead`: another tab leads. */
   private storeFailed(error: unknown): void {
     if (!(error instanceof StoreError)) throw error;
+    if (error.code === "lost_lead") {
+      this.options.lostLead();
+      return;
+    }
     this.storeRefusing = true;
     this.refresh();
   }
@@ -834,6 +911,7 @@ class DocSession implements Session, HandshakeHost {
       recovered: this.recoveredView,
       settings: this.overlay.view,
       writeSchema: this.schema,
+      readOnly: this.readOnly,
       on: (listener) => {
         this.listeners.add(listener);
         return () => this.listeners.delete(listener);
