@@ -23,3 +23,22 @@ export type {
   SearchPointer,
   SettingsRegistry,
 } from "./registry.ts";
+export { UNSET, createSettingsStore } from "./store.ts";
+export type {
+  Bag,
+  Explained,
+  Hold,
+  Provenance,
+  ResetReceipt,
+  SetResult,
+  SettingKey,
+  SettingValue,
+  SettingsStore,
+} from "./store.ts";
+export { entryKey, latestEntries } from "./personal-entries.ts";
+export type { PrefEntry } from "./personal-entries.ts";
+export { createMemoryBag, createPersonalBag } from "./bags.ts";
+export type { KeyValueMap } from "./bags.ts";
+export { PREFERENCE_LIST, RETIRED_KEYS, SETTINGS } from "./settings.ts";
+export { POINTERS } from "./definitions/pointers.ts";
+export { paperForRegion } from "./definitions/script.ts";
