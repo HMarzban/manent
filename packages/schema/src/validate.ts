@@ -74,9 +74,22 @@ function at(path: string, key: string): string {
   return path === "" ? key : `${path}.${key}`;
 }
 
+export interface BlockContext {
+  /** True when a block outside `blocks` already carries this ID. The caller answers from its own index. */
+  isIdTaken(id: string): boolean;
+}
+
+/** A whole document: no block lies outside it. */
+const WHOLE_DOC: BlockContext = { isIdTaken: () => false };
+
 class Walk {
   readonly issues: Issue[] = [];
   private readonly ids = new Set<string>();
+  private readonly context: BlockContext;
+
+  constructor(context: BlockContext) {
+    this.context = context;
+  }
 
   report(path: string, code: IssueCode, message: string): void {
     this.issues.push({ path, code, severity: SEVERITY[code], message });
@@ -182,7 +195,7 @@ class Walk {
       this.report(at(path, "id"), "missing_id", "the block has no ID");
     else if (!isBlockId(id))
       this.report(at(path, "id"), "bad_attr", "not a block ID");
-    else if (this.ids.has(id))
+    else if (this.ids.has(id) || this.context.isIdTaken(id))
       this.report(at(path, "id"), "duplicate_id", `ID "${id}" is used twice`);
     else this.ids.add(id);
 
@@ -296,8 +309,24 @@ function conflictsWith(a: KnownMark, b: KnownMark): boolean {
  * missing one reads as empty). Never throws.
  */
 export function validateDoc(json: unknown): Issue[] {
-  const walk = new Walk();
+  const walk = new Walk(WHOLE_DOC);
   walk.doc(json);
+  return walk.issues;
+}
+
+/**
+ * Every issue in these blocks, in order: what validateDoc reports for a block, with paths starting `blocks[<i>]`.
+ * `duplicate_id` is reported for an ID met earlier in `blocks` or taken according to `context`. Never throws.
+ */
+export function validateBlocks(
+  blocks: readonly unknown[],
+  context: BlockContext,
+): Issue[] {
+  const walk = new Walk(context);
+  blocks.forEach((block, i) => {
+    const path = `blocks[${i}]`;
+    if (walk.child(block, path, "block")) walk.block(block, path);
+  });
   return walk.issues;
 }
 

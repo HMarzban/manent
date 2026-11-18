@@ -47,8 +47,8 @@ export {
   randomBlockId,
 } from "./identity.ts";
 export type { IdSource } from "./identity.ts";
-export { rejects, validateDoc } from "./validate.ts";
-export type { Issue, IssueCode, Severity } from "./validate.ts";
+export { rejects, validateBlocks, validateDoc } from "./validate.ts";
+export type { BlockContext, Issue, IssueCode, Severity } from "./validate.ts";
 export { normalizeDoc, sectionize } from "./normalize.ts";
 export { canonicalBlock, canonicalDoc } from "./canonical.ts";
 export type { RawDoc, RawElement, RawMark, RawText } from "./raw.ts";

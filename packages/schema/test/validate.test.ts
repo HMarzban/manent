@@ -9,6 +9,7 @@ import {
   parseDoc,
   rejects,
   sectionize,
+  validateBlocks,
   validateDoc,
 } from "../src/index.ts";
 import type {
@@ -449,19 +450,27 @@ const nearBlockAttrs = fc.record(
   },
   { requiredKeys: ["id"] },
 );
+const nearBlock = nearNode(
+  "block",
+  nearBlockAttrs,
+  nearNode("text", fc.constant({}), anyValue),
+);
 const nearDoc = nearNode(
   "doc",
   fc.constant({}),
-  nearNode(
-    "section",
-    fc.constant({}),
-    nearNode(
-      "block",
-      nearBlockAttrs,
-      nearNode("text", fc.constant({}), anyValue),
-    ),
-  ),
+  nearNode("section", fc.constant({}), nearBlock),
 );
+/** Well-formed sections whose blocks carry the damage above. */
+const arbDocWithDamagedBlocks = fc.record({
+  type: fc.constant("doc"),
+  content: fc.array(
+    fc.record({
+      type: fc.constant("section"),
+      content: fc.array(nearBlock, { minLength: 1, maxLength: 3 }),
+    }),
+    { minLength: 1, maxLength: 3 },
+  ),
+});
 
 test("whatever validation does not reject, every client can read once normalised", () => {
   fc.assert(
@@ -492,4 +501,83 @@ test("only structural damage rejects", () => {
   expect(rejects(validateDoc(docWith({ id: null, type: "action" }, "x")))).toBe(
     true,
   );
+});
+
+const block = (id: string, extra: object = {}) => ({
+  type: "block",
+  attrs: { id, type: "action", ...extra },
+  content: [{ type: "text", text: "x" }],
+});
+
+test("touched blocks are checked like the same blocks inside a document", () => {
+  const blocks = [
+    block("a".repeat(16), { dual: "middle" }),
+    { type: "image" },
+    block("b".repeat(16)),
+    block("b".repeat(16)),
+  ];
+  expect(
+    validateBlocks(blocks, { isIdTaken: () => false }).map((i) => [
+      i.path,
+      i.code,
+      i.severity,
+    ]),
+  ).toEqual([
+    ["blocks[0].attrs.dual", "bad_attr", "reject"],
+    ["blocks[1]", "unknown_node", "reject"],
+    ["blocks[3].attrs.id", "duplicate_id", "repair"],
+  ]);
+});
+
+test("an ID that another block of the document carries is a duplicate", () => {
+  const taken = new Set(["c".repeat(16)]);
+  expect(
+    validateBlocks([block("c".repeat(16)), block("d".repeat(16))], {
+      isIdTaken: (id) => taken.has(id),
+    }).map((i) => [i.path, i.code]),
+  ).toEqual([["blocks[0].attrs.id", "duplicate_id"]]);
+});
+
+test("block by block or as a whole, a document is refused for the same blocks", () => {
+  fc.assert(
+    fc.property(arbDocWithDamagedBlocks, (doc) => {
+      const blocks = doc.content.flatMap((section) => section.content);
+      const whole = validateDoc(doc).filter(
+        (i) =>
+          i.code !== "duplicate_id" &&
+          new RegExp("^content\\[\\d+\\]\\.content\\[\\d+\\]").test(i.path),
+      );
+      const parts = validateBlocks(blocks, { isIdTaken: () => false }).filter(
+        (i) => i.code !== "duplicate_id",
+      );
+      expect(parts.map((i) => [i.code, i.severity, i.message])).toEqual(
+        whole.map((i) => [i.code, i.severity, i.message]),
+      );
+    }),
+    { numRuns: 500 },
+  );
+});
+
+test("validating five touched blocks costs the same in a short and a long document", () => {
+  const touched = Array.from({ length: 5 }, (_, i) =>
+    block(`t${i}`.padEnd(16, "0")),
+  );
+  const asked = [100, 100_000].map((size) => {
+    const index = new Set(
+      Array.from({ length: size }, (_, i) => `d${i}`.padEnd(16, "0")),
+    );
+    let calls = 0;
+    const issues = validateBlocks(touched, {
+      isIdTaken: (id) => {
+        calls++;
+        return index.has(id);
+      },
+    });
+    return [calls, issues.length];
+  });
+  expect(asked).toEqual([
+    [5, 0],
+    [5, 0],
+  ]); // one question per touched block, whatever the document holds
+  expect(validateBlocks.length).toBe(2); // and no third argument through which a document could arrive
 });
