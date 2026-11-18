@@ -3,18 +3,9 @@ import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createApi } from "./api.ts";
-import { createPersonStore } from "./person-store.ts";
 import { createAppRouter } from "./router.tsx";
-import type { TabStorage } from "./session.ts";
-
-function tabStorage(): TabStorage | null {
-  try {
-    return window.sessionStorage;
-  } catch {
-    // the browser refuses tab storage: the person is kept for this page load only
-    return null;
-  }
-}
+import { tabStorage } from "./session.ts";
+import { createPersonStore } from "./state/person.store.ts";
 
 const root = document.getElementById("root");
 if (root === null) throw new Error("the page has no #root element");

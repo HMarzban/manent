@@ -2,8 +2,8 @@
 
 import { create } from "zustand";
 import type { StoreApi, UseBoundStore } from "zustand";
-import { readPerson, writePerson } from "./session.ts";
-import type { TabPerson, TabStorage } from "./session.ts";
+import { readPerson, writePerson } from "../session.ts";
+import type { TabPerson, TabStorage } from "../session.ts";
 
 export interface PersonState {
   person: TabPerson | null;

@@ -19,6 +19,16 @@ export interface TabStorage {
   removeItem(key: string): void;
 }
 
+/** This tab's storage; null when the browser refuses it. */
+export function tabStorage(): TabStorage | null {
+  try {
+    return window.sessionStorage;
+  } catch {
+    // the browser refuses tab storage: the person is kept for this page load only
+    return null;
+  }
+}
+
 function readStored(storage: TabStorage | null): unknown {
   try {
     const raw = storage?.getItem(SESSION_KEY) ?? null;
