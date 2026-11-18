@@ -193,8 +193,10 @@ export function createWritePath(ports: WritePathPorts): WritePath {
     if (message.generation !== room.row.generation)
       return no(CODE.GENERATION_MISMATCH, "generation_moved");
     const { frames, bytes: volume } = ports.bucketOf(subscription.peer);
+    // a bucket refuses a cost above its burst for ever: a larger message waits for a full one
+    const cost = Math.min(bytes, limits.byteBurst);
     const frame = frames.take(1);
-    const taken = frame.ok ? volume.take(bytes) : frame;
+    const taken = frame.ok ? volume.take(cost) : frame;
     if (!taken.ok)
       return no(CODE.RATE_LIMITED, "rate_limited", taken.retryAfterMs);
     const tooLarge =
@@ -375,13 +377,8 @@ export function createWritePath(ports: WritePathPorts): WritePath {
         });
       if ("duplicate" in applied) return enqueue({ kind: "ack", ...base });
       const { update } = applied;
-      const made = appendOf(
-        room,
-        peer.userId,
-        update,
-        "system",
-        updateMeta(update),
-      );
+      const metas = updateMeta(update);
+      const made = appendOf(room, peer.userId, update, "system", metas);
       const append = {
         ...made,
         setRequest: { deviceId: peer.deviceId, clientSeq },

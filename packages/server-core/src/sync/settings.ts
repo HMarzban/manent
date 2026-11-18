@@ -5,11 +5,26 @@ import type { Peer, SettingRules } from "./ports.ts";
 import type { Room } from "./rooms.ts";
 
 const utf8 = new TextDecoder("utf-8", { fatal: true });
+const LONE_SURROGATE =
+  /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+function wellFormed(text: string): string {
+  return text.replace(LONE_SURROGATE, "\uFFFD");
+}
+
+/** A JSON reviver: a lone surrogate, in a string or a key, becomes U+FFFD, as every peer decodes it. */
+function reviveWellFormed(_key: string, value: unknown): unknown {
+  if (typeof value === "string") return wellFormed(value);
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return value;
+  const entries = Object.entries(value);
+  return Object.fromEntries(entries.map(([k, v]) => [wellFormed(k), v]));
+}
 
 /** The value as JSON; null for bytes that are not UTF-8 JSON. */
 function readValue(bytes: Uint8Array): { value: unknown } | null {
   try {
-    return { value: JSON.parse(utf8.decode(bytes)) };
+    return { value: JSON.parse(utf8.decode(bytes), reviveWellFormed) };
   } catch {
     // not UTF-8, or not JSON: the request is refused as bad_value
     return null;

@@ -187,3 +187,24 @@ test("a setting from a viewer, or for another generation, is refused without nam
   ]);
   expect(scriptSettings(room.doc!).entries()).toEqual({});
 });
+
+test("a lone surrogate in a setting's value is written as U+FFFD, as every peer reads it", () => {
+  const { path, room, subA, clock, storage } = createWorld({
+    registry: { check: () => ({ ok: true }), isGuarded: () => false },
+  });
+  path.set(
+    room,
+    subA,
+    setOf(1, "script.title", {
+      "\udc00": ["Rain\ud800", "\ud800\ud83c\udfac\udc00"],
+    }),
+  );
+  clock.runDeferred();
+  const written = {
+    "script.title": { "\ufffd": ["Rain\ufffd", "\ufffd\ud83c\udfac\ufffd"] },
+  };
+  expect(scriptSettings(room.doc!).entries()).toEqual(written);
+  expect(scriptSettings(restartOn(storage).room.doc!).entries()).toEqual(
+    written,
+  );
+});

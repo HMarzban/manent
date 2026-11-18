@@ -329,6 +329,26 @@ test("a refused push stalls the subscription until the next SUBSCRIBE", () => {
   expect(sam.take()).toMatchObject([{ type: "ACK", clientSeq: 2 }]);
 });
 
+test("a push larger than the byte burst passes on a full bucket, never refused for ever", () => {
+  const paste = createTypist(SAM_CLIENT).insertBlock(
+    BLOCK,
+    null,
+    "x".repeat(2_000),
+  );
+  const { service, sam, clock } = createServiceWorld({
+    limits: { byteBurst: paste.byteLength - 1 },
+  });
+  service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT]));
+  sam.take();
+  // the bucket is full again
+  clock.advance(1_000);
+  service.receive(sam, push(DOC, 1, paste));
+  clock.runDeferred();
+  expect(sam.take()).toMatchObject([
+    { type: "ACK", clientSeq: 1, serverSeq: 1 },
+  ]);
+});
+
 test("a setting request reaches the write path, and its update comes back to the sender too", () => {
   const { service, sam, dana, clock } = createServiceWorld({
     registry: {
