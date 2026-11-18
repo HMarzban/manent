@@ -258,24 +258,17 @@ function driftView(
   // a port is called without a receiver: requestIdleCallback refuses any other
   const { whenIdle, onDrift } = options;
   let pending = false;
-  // the update of the monitor's own forceLines: the blocks it holds are not measured again
-  let holding = false;
   const pass = (): void => {
     const reports = findDrift(view);
     if (reports.length === 0) return;
     const ids = reports.map((report) => report.blockId);
-    holding = true;
-    try {
-      view.dispatch(
-        forceLines(view.state.tr, ids).setMeta("addToHistory", false),
-      );
-    } finally {
-      holding = false;
-    }
+    view.dispatch(
+      forceLines(view.state.tr, ids).setMeta("addToHistory", false),
+    );
     for (const report of reports) onDrift?.(report);
   };
   const schedule = (): void => {
-    if (pending || holding) return;
+    if (pending) return;
     pending = true;
     whenIdle(() => {
       pending = false;
