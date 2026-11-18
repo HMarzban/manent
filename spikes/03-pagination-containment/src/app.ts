@@ -8,6 +8,7 @@ import { EditorView } from 'prosemirror-view'
 import { keymap } from 'prosemirror-keymap'
 import { baseKeymap } from 'prosemirror-commands'
 import type { Node } from 'prosemirror-model'
+import type { Command } from 'prosemirror-state'
 import { makeCorpus } from './corpus.ts'
 import { paginate, PROFILE, wrap } from './engine.ts'
 import type { EngineBlock, PageStart } from './engine.ts'
@@ -78,13 +79,23 @@ const doc = WRAP > 0
 document.documentElement.style.setProperty('--ws', q.get('ws') ?? 'pre-wrap')
 if (WRAP > 0) installSectionCss(CONTAINED)
 
+// Every key `baseKeymap` binds to `stock` (Shift, Mod and, on macOS, Alt and Ctrl variants of Backspace and Delete), so
+// none of them reaches the stock join at a section edge.
+const keysOf = (stock: Command, command: Command): Record<string, Command> =>
+  Object.fromEntries(Object.keys(baseKeymap).filter((key) => baseKeymap[key] === stock).map((key) => [key, command]))
+
 let viewUpdates = 0
 let nextId = 0
 const editing = createEditing({ wrap: WRAP, newId: () => `n${nextId++}` })
+const sectionKeymap = keymap({
+  ...keysOf(baseKeymap.Backspace!, editing.sectionBackspace),
+  ...keysOf(baseKeymap.Delete!, editing.sectionDelete),
+  Enter: editing.sectionEnter,
+})
 const binding = SYNCED ? createBinding({ doc, schema }) : null
 const plugins = [
   ...(binding ? binding.plugins : []),
-  ...(WRAP > 0 ? [edgeKeymap, keymap({ Backspace: editing.sectionBackspace, Delete: editing.sectionDelete, Enter: editing.sectionEnter })] : []),
+  ...(WRAP > 0 ? [edgeKeymap, sectionKeymap] : []),
   keymap(baseKeymap),
   paginationPlugin({ enabled: PAGINATED }),
   ...(WRAP > 0 && CONTAINED ? [keepPlugin] : []),
@@ -94,7 +105,7 @@ const view = new EditorView({ mount: sheet }, {
   state: EditorState.create({ doc: binding ? binding.doc : doc, plugins }),
   nodeViews: WRAP > 0 && CONTAINED ? { section: createSectionView(() => { viewUpdates++ }) } : {},
   attributes: { spellcheck: q.get('spell') === '1' ? 'true' : 'false' },
-  ...(WRAP > 0 ? { handlePaste: editing.handlePaste, handleDrop: editing.handleDrop } : {}),
+  ...(WRAP > 0 ? { handlePaste: editing.handlePaste, handleDrop: editing.handleDrop, handleTextInput: editing.handleTextInput, handleDOMEvents: { cut: editing.handleCut } } : {}),
 })
 if (binding) window.__remote = binding.createRemote(view)
 window.__view = view

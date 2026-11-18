@@ -1,6 +1,6 @@
 // bun harness/smoke-edit.ts
-// Editing at section boundaries in Chromium, without and with the Yjs binding: joins, Enter, paste, the peer's view
-// of the result, and what a remote keystroke re-renders. Exits 1 when a check fails.
+// Section-boundary editing in Chromium, without and with the Yjs binding: joins under each delete key, Enter, paste,
+// typing and cutting across sections, the peer's text, what a remote keystroke re-renders. Exits 1 when a check fails.
 import { chromium } from 'playwright'
 import type { Browser, Page } from 'playwright'
 import { makeCorpus } from '../src/corpus.ts'
@@ -69,14 +69,50 @@ const caretIn = (page: Page, k: number, where: 'first-start' | 'last-end' | 'mid
 
 const middleSection = (page: Page): Promise<number> => page.evaluate(() => Math.floor(window.__sec.count() / 2))
 
-async function joins(page: Page, key: 'Backspace' | 'Delete', label: string): Promise<void> {
+async function joins(page: Page, key: string, label: string): Promise<void> {
   const k = await middleSection(page)
-  await caretIn(page, key === 'Backspace' ? k : k - 1, key === 'Backspace' ? 'first-start' : 'last-end')
+  const backward = key.endsWith('Backspace')
+  await caretIn(page, backward ? k : k - 1, backward ? 'first-start' : 'last-end')
   const before = await shape(page)
   await page.keyboard.press(key)
   const after = await shape(page)
   const { kept, gone } = sectionsKept(before, after)
   record(label, kept && gone.length === 1 && after.text === before.text && after.caretOff === before.caretOff, { kept, gone, sections: [before.sizes.length, after.sizes.length], textKept: after.text === before.text })
+}
+
+// Selects from the middle of the last block of section k − 1 to the middle of the first block of section k, then types a
+// character or cuts. The selection is replaced, the first block of section k is joined onto the last of k − 1, and no
+// other block moves.
+async function acrossSections(page: Page, act: 'type' | 'cut', label: string): Promise<void> {
+  const k = await middleSection(page)
+  const selected = await page.evaluate((k) => {
+    const view = window.__view
+    const d = view.state.doc
+    let pos = 0
+    for (let i = 0; i < k; i++) pos += d.child(i).nodeSize
+    const last = d.child(k - 1).lastChild!
+    const first = d.child(k).firstChild!
+    const from = pos - 2 - last.content.size + Math.floor(last.content.size / 2)
+    const to = pos + 2 + Math.floor(first.content.size / 2)
+    const S = view.state.selection.constructor as unknown as { create(doc: typeof d, anchor: number, head: number): typeof view.state.selection }
+    view.dispatch(view.state.tr.setSelection(S.create(d, from, to)).scrollIntoView())
+    view.focus()
+    return { fromOff: window.__risk.textOffsetOf(from), toOff: window.__risk.textOffsetOf(to), text: d.textBetween(from, to, '\n\n') }
+  }, k)
+  const before = await shape(page)
+  const inserted = act === 'type' ? 'x' : ''
+  let clipboard: string | null = null
+  if (act === 'type') await page.keyboard.type(inserted)
+  else clipboard = await page.evaluate(() => {
+    const event = new ClipboardEvent('cut', { clipboardData: new DataTransfer(), bubbles: true, cancelable: true })
+    window.__view.dom.dispatchEvent(event)
+    return event.clipboardData!.getData('text/plain')
+  })
+  const after = await shape(page)
+  const { kept, gone } = sectionsKept(before, after)
+  const replaced = after.text === before.text.slice(0, selected.fromOff) + inserted + before.text.slice(selected.toOff)
+  const copied = act === 'type' || clipboard === selected.text
+  record(label, kept && gone.length === 1 && replaced && copied && after.sizes.length === before.sizes.length && after.caretOff === selected.fromOff + inserted.length, { kept, gone, replaced, copied, sections: [before.sizes.length, after.sizes.length], caretOff: [selected.fromOff + inserted.length, after.caretOff] })
 }
 
 async function enters(page: Page, wrap: number, label: string): Promise<void> {
@@ -118,11 +154,17 @@ async function editing(browser: Browser, base: string, y: '0' | '1'): Promise<vo
     await peerAgrees(page, label)
     await page.context().close()
   }
-  await run('S9', (page) => joins(page, 'Backspace', `S9 Backspace at the start of a section joins two paragraphs in one keypress${tag}`))
-  await run('S10', (page) => joins(page, 'Delete', `S10 Delete at the end of a section joins two paragraphs in one keypress${tag}`))
+  for (const key of ['Backspace', 'Shift+Backspace', 'ControlOrMeta+Backspace']) {
+    await run(`S9 ${key}`, (page) => joins(page, key, `S9 ${key} at the start of a section joins two paragraphs in one keypress${tag}`))
+  }
+  for (const key of ['Delete', 'ControlOrMeta+Delete']) {
+    await run(`S10 ${key}`, (page) => joins(page, key, `S10 ${key} at the end of a section joins two paragraphs in one keypress${tag}`))
+  }
   await run('S11', (page) => enters(page, wrap, `S11 Enter at the end of a full section opens a new section and no section outgrows its target${tag}`))
   await run('S12a', (page) => pastes(page, wrap, 50, 'last-end', `S12 (a) a paste at the end of a section goes into new sections${tag}`))
   await run('S12b', (page) => pastes(page, wrap, 1, 'middle-end', `S12 (b) a paste inside a section goes into that section${tag}`))
+  await run('S14', (page) => acrossSections(page, 'type', `S14 typing over a selection across two sections replaces it and moves no block${tag}`))
+  await run('S15', (page) => acrossSections(page, 'cut', `S15 a cut of a selection across two sections removes it and moves no block${tag}`))
 }
 
 async function remoteKeystroke(browser: Browser, base: string): Promise<void> {

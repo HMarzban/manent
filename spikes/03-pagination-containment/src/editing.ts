@@ -1,7 +1,8 @@
-// Section-aware editing: Backspace, Delete, Enter, paste and drop never move an existing block to another section,
-// so a section is never visible to the person writing. Inside one section the stock commands are used.
+// Section-aware editing: Backspace, Delete, Enter, typing over a selection, paste, cut and drop never move an existing
+// block to another section, so a section is never visible to the person writing. Inside one section the stock commands
+// are used.
 import { TextSelection } from 'prosemirror-state'
-import type { Command, EditorState, Transaction } from 'prosemirror-state'
+import type { Command, Transaction } from 'prosemirror-state'
 import { Fragment } from 'prosemirror-model'
 import type { Node, ResolvedPos, Slice } from 'prosemirror-model'
 import type { EditorView } from 'prosemirror-view'
@@ -12,6 +13,8 @@ export interface Editing {
   sectionEnter: Command
   handlePaste: (view: EditorView, event: ClipboardEvent, slice: Slice) => boolean
   handleDrop: (view: EditorView, event: DragEvent, slice: Slice, moved: boolean) => boolean
+  handleTextInput: (view: EditorView, from: number, to: number, text: string) => boolean
+  handleCut: (view: EditorView, event: ClipboardEvent) => boolean
   /** Inserts `blocks` at `pos` under the paste rule and leaves the caret after the last of them. */
   insertBlocks: (tr: Transaction, pos: number, blocks: readonly Node[]) => Transaction
 }
@@ -74,13 +77,20 @@ export function createEditing(options: { wrap: number; newId: () => string }): E
     joinAcross(tr, from, tr.doc.resolve(from).after(1) + 1)
   }
 
-  const crossesSections = (state: EditorState): boolean => {
-    const { $from, $to } = state.selection
+  const crossesSections = (doc: Node, from: number, to: number): boolean => {
+    const $from = doc.resolve(from)
+    const $to = doc.resolve(to)
     return $from.depth >= BLOCK_DEPTH && $to.depth >= BLOCK_DEPTH && $from.index(0) !== $to.index(0)
   }
 
+  function deleteSelection(tr: Transaction): void {
+    const { from, to } = tr.selection
+    if (crossesSections(tr.doc, from, to)) deleteAcross(tr, from, to)
+    else tr.deleteSelection()
+  }
+
   const deleteSelectionAcross: Command = (state, dispatch) => {
-    if (!crossesSections(state)) return false
+    if (!crossesSections(state.doc, state.selection.from, state.selection.to)) return false
     if (dispatch) {
       const tr = state.tr
       deleteAcross(tr, state.selection.from, state.selection.to)
@@ -118,8 +128,7 @@ export function createEditing(options: { wrap: number; newId: () => string }): E
     if (state.selection.$from.depth < BLOCK_DEPTH) return false
     if (!dispatch) return true
     const tr = state.tr
-    if (crossesSections(state)) deleteAcross(tr, state.selection.from, state.selection.to)
-    else if (!state.selection.empty) tr.deleteSelection()
+    deleteSelection(tr)
     const $c = tr.selection.$from
     const block = $c.parent
     if ($c.parentOffset === 0 && block.content.size > 0) {
@@ -171,8 +180,7 @@ export function createEditing(options: { wrap: number; newId: () => string }): E
     const blocks = blocksOf(slice)
     if (blocks.length < 2) return false
     const tr = view.state.tr
-    if (crossesSections(view.state)) deleteAcross(tr, view.state.selection.from, view.state.selection.to)
-    else tr.deleteSelection()
+    deleteSelection(tr)
     view.dispatch(insertBlocks(tr, tr.selection.from, blocks))
     return true
   }
@@ -182,13 +190,34 @@ export function createEditing(options: { wrap: number; newId: () => string }): E
     const target = view.posAtCoords({ left: event.clientX, top: event.clientY })
     if (blocks.length < 2 || !target) return false
     const tr = view.state.tr
-    if (moved) {
-      if (crossesSections(view.state)) deleteAcross(tr, view.state.selection.from, view.state.selection.to)
-      else tr.deleteSelection()
-    }
+    if (moved) deleteSelection(tr)
     view.dispatch(insertBlocks(tr, tr.mapping.map(target.pos), blocks))
     return true
   }
 
-  return { sectionBackspace, sectionDelete, sectionEnter, handlePaste, handleDrop, insertBlocks }
+  // Typing over a selection whose ends lie in different sections; inside one section the default insert is used.
+  function handleTextInput(view: EditorView, from: number, to: number, text: string): boolean {
+    if (!crossesSections(view.state.doc, from, to)) return false
+    const tr = view.state.tr
+    deleteAcross(tr, from, to)
+    view.dispatch(tr.insertText(text).scrollIntoView())
+    return true
+  }
+
+  // A cut across sections fills the clipboard as the view's own cut does, then deletes by `deleteAcross`.
+  function handleCut(view: EditorView, event: ClipboardEvent): boolean {
+    const { from, to } = view.state.selection
+    if (!event.clipboardData || !crossesSections(view.state.doc, from, to)) return false
+    const { dom, text } = view.serializeForClipboard(view.state.selection.content())
+    event.preventDefault()
+    event.clipboardData.clearData()
+    event.clipboardData.setData('text/html', dom.innerHTML)
+    event.clipboardData.setData('text/plain', text)
+    const tr = view.state.tr
+    deleteAcross(tr, from, to)
+    view.dispatch(tr.scrollIntoView().setMeta('uiEvent', 'cut'))
+    return true
+  }
+
+  return { sectionBackspace, sectionDelete, sectionEnter, handlePaste, handleDrop, handleTextInput, handleCut, insertBlocks }
 }
