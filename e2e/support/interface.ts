@@ -3,6 +3,7 @@ import { COMMANDS } from "@manent/commands";
 import type { Chord, CommandId } from "@manent/commands";
 import type { Platform } from "@manent/settings";
 import type { SurfaceEntry } from "@manent/ui";
+import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
 /** The command `id`; throws RangeError when there is none. */
@@ -11,6 +12,14 @@ const commandOf = (id: string) => {
   if (command === undefined) throw new RangeError(`no command ${id}`);
   return command;
 };
+
+/** The label of `id`; throws RangeError when it depends on the context. */
+export function labelOf(id: CommandId): string {
+  const { label } = commandOf(id);
+  if (typeof label !== "string")
+    throw new RangeError(`${id} has no plain label`);
+  return label;
+}
 
 /** The platform the page runs on, read from the browser as the app reads it. */
 export async function platformOf(page: Page): Promise<Platform> {
@@ -109,4 +118,41 @@ export async function runs(page: Page): Promise<string[]> {
       throw new Error("the test build's list of runs is missing");
     return list.map(String);
   });
+}
+
+/** The durations, in milliseconds and oldest first, of the marks named `name` the test build has kept. */
+export async function markDurations(
+  page: Page,
+  name: string,
+): Promise<number[]> {
+  return page.evaluate((wanted) => {
+    const hook: unknown = Reflect.get(window, "__manent");
+    const read: unknown =
+      typeof hook === "object" && hook !== null
+        ? Reflect.get(hook, "readMarks")
+        : null;
+    if (typeof read !== "function")
+      throw new Error("the test build's marks are missing");
+    const marks: unknown = Reflect.apply(read, hook, [wanted]);
+    if (!Array.isArray(marks)) throw new Error("the marks are not a list");
+    return marks.map((mark: unknown) =>
+      Number(
+        typeof mark === "object" && mark !== null
+          ? Reflect.get(mark, "durationMs")
+          : NaN,
+      ),
+    );
+  }, name);
+}
+
+/** Runs the palette's row labelled `label` once the palette has highlighted it, then closes the palette. */
+export async function runFromPalette(page: Page, label: string): Promise<void> {
+  await pressKeyOf(page, "app.palette");
+  await expect(page.getByRole("combobox")).toBeFocused();
+  await page.keyboard.type(label);
+  await expect(page.locator("[role='option'][data-highlighted]")).toContainText(
+    label,
+  );
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Escape");
 }

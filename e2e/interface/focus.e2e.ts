@@ -7,6 +7,7 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import {
   focusedDescription,
+  labelOf,
   openSurface,
   platformOf,
   pressKeyOf,
@@ -71,13 +72,6 @@ const placeOf = (id: SurfaceId): Place => {
   if (place === undefined)
     throw new RangeError(`the focus tests do not know where ${id} is shown`);
   return place;
-};
-
-const labelOf = (id: CommandId): string => {
-  const label = COMMANDS.find((c) => c.id === id)?.label;
-  if (typeof label !== "string")
-    throw new RangeError(`${id} has no plain label`);
-  return label;
 };
 
 /**

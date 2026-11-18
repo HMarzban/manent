@@ -57,6 +57,11 @@ test("a new script as You shows eight controls and no state bar", async () => {
   ).toBe(false);
 });
 
+test("the tab's title is the document's title and the person", async () => {
+  await renderFrame({ title: "The Long Night" });
+  expect(document.title).toBe("The Long Night — You — Manent demo");
+});
+
 test("a commenter's state bar says so", async () => {
   const frame = await renderFrame({
     status: { ...SYNCED, access: "comment" },

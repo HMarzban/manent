@@ -1,4 +1,5 @@
 // The document screen: its frame drawn in the shell's areas around the page, which the shell keeps mounted.
+import { DEMO_PEOPLE } from "@manent/demo";
 import {
   DOCUMENT_WORDS,
   createValue,
@@ -16,9 +17,10 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { focusHeading } from "../../focus.ts";
-import { useEnvironment } from "../../services/context.tsx";
+import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
 import { panelsActions, usePanel } from "../../state/panels.store.ts";
+import { pageTitle } from "../../text.ts";
 import { DocumentStateBar } from "./document-state-bar.tsx";
 import { LeftPanel } from "./left-panel.tsx";
 import { fitPanels } from "./narrow-window.ts";
@@ -141,12 +143,23 @@ function NoAccess(props: {
   );
 }
 
+/** The tab's title: the document's title, and the person. */
+function useTabTitle(docId: string): void {
+  const { userId } = useServices();
+  const title = useDocumentTitle(docId);
+  useEffect(() => {
+    const person = DEMO_PEOPLE.find((p) => p.userId === userId);
+    document.title = pageTitle(title, person?.name ?? null);
+  }, [userId, title]);
+}
+
 function Frame(props: { docId: string; doc: DocumentServices }): ReactNode {
   const { docId } = props;
   const status = useTestStatus(props.doc.status);
   const doc = { ...props.doc, status };
   const overPage = usePanelsOverPage();
   useRemoteSettingMessages(props.doc);
+  useTabTitle(docId);
   useEffect(() => {
     focusHeading(document);
   }, [docId]);

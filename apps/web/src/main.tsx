@@ -1,3 +1,4 @@
+import { markEnd, markStart, readMarks, setMarksEnabled } from "@manent/perf";
 import { createValue } from "@manent/ui";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
@@ -18,13 +19,25 @@ import { createPersonStore } from "./state/person.store.ts";
 // the build's define; absent outside a build
 declare const MANENT_FLAVOUR: string | undefined;
 
-const root = document.getElementById("root");
-if (root === null) throw new Error("the page has no #root element");
-
 const flavour =
   typeof MANENT_FLAVOUR !== "undefined" && MANENT_FLAVOUR === "test"
     ? "test"
     : "production";
+// the test build times the interface from its first statement; -1 everywhere else, which records nothing
+if (flavour === "test") setMarksEnabled(true);
+const startedAt = markStart();
+
+const root = document.getElementById("root");
+if (root === null) throw new Error("the page has no #root element");
+
+// the real frame has replaced the static one once the first render has taken it out of #root
+const staticFrame = new MutationObserver(() => {
+  if (root.querySelector(":scope > .mn-static-frame") !== null) return;
+  markEnd("app.frame", startedAt);
+  staticFrame.disconnect();
+});
+staticFrame.observe(root, { childList: true });
+
 const guard = createGuard({ flavour });
 bindGuard(guard);
 const now = (): number => Date.now();
@@ -37,9 +50,10 @@ window.addEventListener(
   },
   { capture: true },
 );
-// the end-to-end tests read the guard's count and every command that ran
+// the end-to-end tests read the guard's count, every command that ran and the marks
 const runs: string[] = [];
-if (flavour === "test") Reflect.set(window, "__manent", { guard, runs });
+if (flavour === "test")
+  Reflect.set(window, "__manent", { guard, runs, readMarks });
 
 const { where, language } = readNavigator();
 const origin = browserStorage(window);

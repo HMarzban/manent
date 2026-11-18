@@ -230,6 +230,14 @@ test("a new document is mounted after the last one is disposed", () => {
   app.unmount();
 });
 
+test("the placeholder's sheet is inside the pages, so White page in dark theme reaches it", () => {
+  const app = render(
+    <FrameUnderTest guard={testGuard()} mount={placeholderMount} />,
+  );
+  expect(app.find(".mn-sheet").parentElement?.className).toBe("mn-pages");
+  app.unmount();
+});
+
 test("the placeholder says Opening… only after 150 ms", () => {
   jest.useFakeTimers();
   const app = render(

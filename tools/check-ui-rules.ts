@@ -34,16 +34,7 @@ interface Source {
 }
 
 /** Files that broke a rule before it existed; each is skipped for that rule until its screen is rewritten. */
-const PRE_EXISTING: readonly { file: string; rule: UiRule }[] = [
-  {
-    file: "apps/web/src/screens/states/stand-in-screen.tsx",
-    rule: "literal-text",
-  },
-  {
-    file: "apps/web/src/screens/states/states-screen.tsx",
-    rule: "literal-text",
-  },
-];
+const PRE_EXISTING: readonly { file: string; rule: UiRule }[] = [];
 
 const SOURCES = new Bun.Glob("{packages,apps}/*/{src,test}/**/*.{ts,tsx,css}");
 const INTERFACE_DIRS = ["packages/ui/src/", "apps/web/src/"] as const;
