@@ -93,10 +93,13 @@ export interface SyncClient {
 /**
  * One open document of this tab: the handle the app holds, and what is behind
  * it, a session while this tab leads and a follower while another does.
- * `queue` runs a following tab's requests for it one after the other.
+ * `holders`: the tabs that hold it open, this tab's app under its own tab ID;
+ * it is closed once none does. `queue` runs a following tab's requests for it
+ * one after the other.
  */
 interface Replica {
   create: DocMeta["create"];
+  readonly holders: Set<string>;
   relay: RelayHandle | null;
   follower: Follower | null;
   ready: { promise: Promise<RelayHandle>; resolve(relay: RelayHandle): void };
@@ -139,8 +142,14 @@ class Client implements SyncClient {
   private readonly viewers = new Map<string, Viewer>();
   private leading = false;
   private leaderKnown = false;
-  /** Per following tab and document, the highest `n` of an edit stored. */
+  /** Per following tab and document, the highest `n` of an edit stored; dropped when that tab closes the document. */
   private readonly storedEdits = new Map<string, number>();
+  /**
+   * Per document, the last `n` this tab gave an edit. `n` is unique per tab and
+   * document for the client's whole life, so a document opened again, or
+   * followed again after a change of leader, never repeats one.
+   */
+  private readonly lastEdit = new Map<string, number>();
   private resign: () => void;
   private readonly unlisten: () => void;
   private readonly opening = new Map<string, Promise<Session>>();
@@ -159,13 +168,13 @@ class Client implements SyncClient {
   }
 
   open(docId: string): Promise<DocHandle> {
-    return this.replica(docId, null).ready.promise;
+    return this.hold(docId, null);
   }
 
   create(request: { kind: string; home: string }): Promise<DocHandle> {
     const { clock, random } = this.options.ports;
     const docId = docIdV7(clock.now(), random.bytes(10));
-    return this.replica(docId, request).ready.promise;
+    return this.hold(docId, request);
   }
 
   /** A tab that does not lead only remembers what is wanted, for when it leads. */
@@ -197,8 +206,9 @@ class Client implements SyncClient {
   }
 
   async close(): Promise<void> {
-    const relays = [...this.replicas.values()].map((r) => r.relay);
-    await Promise.all(relays.map((relay) => relay?.close()));
+    const replicas = [...this.replicas.values()];
+    for (const replica of replicas) replica.holders.clear();
+    await Promise.all(replicas.map((replica) => replica.relay?.close()));
     for (const viewer of this.viewers.values()) viewer.handle.close();
     this.resign();
     this.unlisten();
@@ -236,7 +246,7 @@ class Client implements SyncClient {
     this.deposed();
   }
 
-  /** The lead was taken: the connection closes, the store is left, and each document is followed. */
+  /** The lead was taken: the connection closes, the store is left, and each document this tab's app holds is followed. */
   private deposed(): void {
     this.leading = false;
     this.leaderKnown = false;
@@ -244,16 +254,48 @@ class Client implements SyncClient {
     this.disarm("retry");
     this.model = { ...this.model, state: "offline", attempt: 0 };
     this.dropped(this.options.ports.clock.now());
+    const { tabId } = this.options.ports.leader;
     for (const [docId, replica] of this.replicas) {
       const session = this.sessions.get(docId);
       if (session === undefined) continue;
       replica.unwire();
       this.sessions.delete(docId);
       const { doc, unsaved } = session.detach();
+      // the other tabs open what they hold again with the next leader
+      const held = replica.holders.has(tabId);
+      replica.holders.clear();
+      if (!held) {
+        this.forget(docId);
+        continue;
+      }
+      replica.holders.add(tabId);
       this.follow(docId, replica, doc, unsaved);
     }
     this.resign = this.campaign();
     this.publish();
+  }
+
+  /** This tab's app holds the document: its handle, linked again when the app had closed it. */
+  private hold(docId: string, create: DocMeta["create"]): Promise<DocHandle> {
+    const replica = this.replica(docId, create);
+    const { tabId } = this.options.ports.leader;
+    if (!replica.holders.has(tabId)) {
+      replica.holders.add(tabId);
+      const backend = this.backend(docId, replica);
+      if (backend !== null) replica.relay?.attach(backend);
+    }
+    return replica.ready.promise;
+  }
+
+  /** What is behind the replica's handle; null while its session is being opened. */
+  private backend(docId: string, replica: Replica): DocHandle | null {
+    return this.sessions.get(docId)?.handle ?? replica.follower?.handle ?? null;
+  }
+
+  /** Closes the document once no tab holds it. */
+  private release(docId: string, replica: Replica): Promise<void> {
+    if (replica.holders.size > 0) return Promise.resolve();
+    return this.backend(docId, replica)?.close() ?? Promise.resolve();
   }
 
   /** The replica of a document, made at once, so that a connect waits for it to load. */
@@ -262,6 +304,7 @@ class Client implements SyncClient {
     if (known !== undefined) return known;
     const replica: Replica = {
       create,
+      holders: new Set(),
       relay: null,
       follower: null,
       ready: Promise.withResolvers<RelayHandle>(),
@@ -281,8 +324,16 @@ class Client implements SyncClient {
     return replica;
   }
 
-  private show(replica: Replica, backend: DocHandle): void {
-    if (replica.relay === null) replica.relay = createRelayHandle(backend);
+  private show(docId: string, replica: Replica, backend: DocHandle): void {
+    const { tabId } = this.options.ports.leader;
+    if (replica.relay === null)
+      replica.relay = createRelayHandle({
+        backend,
+        release: () => {
+          replica.holders.delete(tabId);
+          return this.release(docId, replica);
+        },
+      });
     else replica.relay.attach(backend);
     replica.ready.resolve(replica.relay);
   }
@@ -305,12 +356,20 @@ class Client implements SyncClient {
       unsaved,
       ports: this.options.ports,
       writeSchema: this.writeSchema(),
+      nextEdit: () => {
+        const n = (this.lastEdit.get(docId) ?? 0) + 1;
+        this.lastEdit.set(docId, n);
+        return n;
+      },
       post: (body) => this.post(body),
       closed: () => this.forget(docId),
     });
     replica.follower = follower;
     if (replica.relay !== null) replica.relay.attach(follower.handle);
-    else void follower.loaded.then(() => this.show(replica, follower.handle));
+    else
+      void follower.loaded.then(() =>
+        this.show(docId, replica, follower.handle),
+      );
     if (!this.leaderKnown) this.post({ t: "who" });
     follower.announce();
   }
@@ -340,7 +399,7 @@ class Client implements SyncClient {
       this.opening.delete(docId);
       this.sessions.set(docId, session);
       replica.unwire = this.wire(docId, session.handle);
-      this.show(replica, session.handle);
+      this.show(docId, replica, session.handle);
       session.link(this.sessionLink());
       if (this.model.state === "online")
         session.connected((m) => this.send(m), this.gate);
@@ -389,8 +448,13 @@ class Client implements SyncClient {
       this.sessions.get(m.docId)?.handle.sendAwareness(m.update);
       return;
     }
+    if (m.t === "close") {
+      this.letGo(m.docId, m.from);
+      return;
+    }
     if (m.t !== "open" && m.t !== "edit") return;
     const replica = this.replica(m.docId, m.t === "open" ? m.create : null);
+    if (m.t === "open") replica.holders.add(m.from);
     replica.queue = replica.queue.then(async () => {
       await replica.ready.promise;
       const session =
@@ -417,6 +481,22 @@ class Client implements SyncClient {
       this.storedEdits.set(key, m.n);
       // stored now, answered once the write settles, so that a slow write holds up no other request
       void session.edit(m).then(saved);
+    });
+  }
+
+  /**
+   * A following tab closed the document. It stops holding it at once, so that
+   * an `open` it posts next keeps the document open; the rest waits for the
+   * requests before it.
+   */
+  private letGo(docId: string, tabId: string): void {
+    const replica = this.replicas.get(docId);
+    if (replica === undefined) return;
+    replica.holders.delete(tabId);
+    replica.queue = replica.queue.then(async () => {
+      await replica.ready.promise;
+      this.storedEdits.delete(`${tabId}:${docId}`);
+      await this.release(docId, replica);
     });
   }
 

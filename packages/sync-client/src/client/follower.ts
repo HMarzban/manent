@@ -6,6 +6,7 @@ import {
   ORIGIN_REMOTE,
   loadDoc,
   observeScript,
+  scriptBody,
   scriptSettings,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
@@ -20,6 +21,7 @@ import type {
   Subscribable,
   SyncClientPorts,
 } from "../ports/ports.ts";
+import { rejectedItems } from "../recovery/recover.ts";
 import { elementsOf } from "../session/session.ts";
 import type { DocEvent, DocHandle, UnsavedEdit } from "../session/session.ts";
 import type { TabBody } from "../tabs/messages.ts";
@@ -90,6 +92,8 @@ interface FollowerOptions {
   unsaved: UnsavedEdit[];
   ports: SyncClientPorts;
   writeSchema: number;
+  /** The next `n` of an edit of this document, from the client's one allocator for it. */
+  nextEdit(): number;
   post(body: TabBody): void;
   closed(): void;
 }
@@ -98,11 +102,12 @@ class TabFollower implements Follower {
   readonly handle: DocHandle;
   readonly loaded: Promise<void>;
   private doc: CrdtDoc;
-  private n = 0;
   private readonly unsaved = new Map<number, UnsavedEdit>();
   private refused = false;
   private leaderStatus: DocStatus = OFFLINE;
   private recovered: RecoveredItem[] = [];
+  /** The ids of the items this tab filed itself, which the leader may file again. */
+  private readonly filedHere = new Set<string>();
   private readonly status = createSubscribable<DocStatus>(OFFLINE);
   private readonly recoveredView = createSubscribable<readonly RecoveredItem[]>(
     [],
@@ -120,7 +125,8 @@ class TabFollower implements Follower {
   constructor(options: FollowerOptions) {
     this.options = options;
     this.doc = options.doc;
-    for (const edit of options.unsaved) this.unsaved.set(++this.n, edit);
+    for (const edit of options.unsaved)
+      this.unsaved.set(options.nextEdit(), edit);
     this.loaded = new Promise((resolve) => {
       this.markLoaded = resolve;
     });
@@ -167,8 +173,7 @@ class TabFollower implements Follower {
         return;
       }
       case "recovered":
-        this.recovered = [...this.recovered, ...body.items];
-        this.recoveredView.set(this.recovered);
+        this.fileLeaders(body.items);
         return;
       case "replace":
         this.replace(body.state);
@@ -220,9 +225,10 @@ class TabFollower implements Follower {
   }
 
   private edited(edit: UnsavedEdit): void {
-    this.unsaved.set(++this.n, edit);
+    const n = this.options.nextEdit();
+    this.unsaved.set(n, edit);
     const { docId } = this.options;
-    this.options.post({ t: "edit", docId, n: this.n, ...edit });
+    this.options.post({ t: "edit", docId, n, ...edit });
     this.show();
   }
 
@@ -232,12 +238,55 @@ class TabFollower implements Follower {
     while (clientId === this.doc.clientId)
       clientId = this.options.ports.random.clientId();
     this.coalescer.dispose();
+    const previous = this.doc;
     this.doc = loadDoc(state, { clientId });
     this.coalescer = this.bind(this.doc);
+    this.fileUnsaved(previous);
     this.unsaved.clear();
     this.announce();
     this.show();
     this.emit({ type: "replaced", reason: "rejected" });
+  }
+
+  /**
+   * The blocks this tab's unsaved edits touched, as `previous` held them and the
+   * new document does not: the leader may never have received those edits, so
+   * their text is filed here, as Recovered text of this tab.
+   */
+  private fileUnsaved(previous: CrdtDoc): void {
+    const touched = new Set(
+      [...this.unsaved.values()].flatMap((edit) => edit.elements),
+    );
+    if (touched.size === 0) return;
+    const { docId, ports } = this.options;
+    const theirs = scriptBody(this.doc).materialize();
+    const items = rejectedItems({
+      docId,
+      base: theirs,
+      mine: scriptBody(previous).materialize(),
+      theirs,
+      recoveredAt: ports.clock.now(),
+      newId: () => ports.random.bytes(16).toHex(),
+    }).filter((item) => item.blockId !== null && touched.has(item.blockId));
+    for (const item of items) this.filedHere.add(item.id);
+    this.setRecovered([...this.recovered, ...items]);
+  }
+
+  /** The leader's items; one this tab filed with the same block and text gives way to it. */
+  private fileLeaders(items: readonly RecoveredItem[]): void {
+    const filed = new Set(items.map(sameText));
+    const kept = this.recovered.filter((item) => {
+      if (!this.filedHere.has(item.id) || !filed.has(sameText(item)))
+        return true;
+      this.filedHere.delete(item.id);
+      return false;
+    });
+    this.setRecovered([...kept, ...items]);
+  }
+
+  private setRecovered(items: RecoveredItem[]): void {
+    this.recovered = items;
+    this.recoveredView.set(items);
   }
 
   /** The leader's facts, saved only once the leader saved every edit made here. */
@@ -300,6 +349,11 @@ class TabFollower implements Follower {
   }
 }
 
+/** Two items of the same block and text are the same Recovered text. */
+function sameText(item: RecoveredItem): string {
+  return JSON.stringify([item.blockId, item.text]);
+}
+
 export function createFollower(options: FollowerOptions): Follower {
   return new TabFollower(options);
 }
@@ -307,7 +361,8 @@ export function createFollower(options: FollowerOptions): Follower {
 /**
  * The handle an app holds: the same object, with the same subscribables and
  * listeners, while the document is led by a session here or followed from
- * another tab.
+ * another tab. `close` unlinks it and lets the client release the document,
+ * which stays open while another tab holds it; `attach` links it again.
  */
 export interface RelayHandle extends DocHandle {
   attach(backend: DocHandle): void;
@@ -337,13 +392,16 @@ class Relay implements RelayHandle {
   readonly writeSchema: ReturnType<typeof createSubscribable<number>>;
   readonly readOnly: ReturnType<typeof createSubscribable<ViewHandle | null>>;
   private backend: DocHandle;
+  private readonly release: () => Promise<void>;
   private readonly listeners = new Set<(event: DocEvent) => void>();
   private readonly awarenessListeners = new Set<(update: Uint8Array) => void>();
   private links: (() => void)[] = [];
 
-  constructor(backend: DocHandle) {
+  constructor(options: { backend: DocHandle; release(): Promise<void> }) {
+    const { backend } = options;
     this.docId = backend.docId;
     this.backend = backend;
+    this.release = options.release;
     this.status = createSubscribable(backend.status.get());
     this.recovered = createSubscribable(backend.recovered.get());
     this.settings = createSubscribable(backend.settings.get());
@@ -402,7 +460,7 @@ class Relay implements RelayHandle {
 
   close(): Promise<void> {
     for (const unlink of this.links) unlink();
-    return this.backend.close();
+    return this.release();
   }
 
   private relay<K extends keyof Views>(key: K, backend: DocHandle): () => void {
@@ -413,6 +471,9 @@ class Relay implements RelayHandle {
   }
 }
 
-export function createRelayHandle(backend: DocHandle): RelayHandle {
-  return new Relay(backend);
+export function createRelayHandle(options: {
+  backend: DocHandle;
+  release(): Promise<void>;
+}): RelayHandle {
+  return new Relay(options);
 }

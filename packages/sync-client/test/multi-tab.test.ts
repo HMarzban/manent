@@ -209,3 +209,159 @@ test("a third tab opening mid-edit gets the leader's state, waiting edits includ
   expect(hc.status.get()).toMatchObject({ saved: false, waiting: 1 });
   w.store.releaseWrites();
 });
+
+/** The text of every own entry stored, and of every push, each applied in order to the seed. */
+const ownText = async (w: World): Promise<string> =>
+  textAfter(
+    (await w.store.load(DOC))!.entries.flatMap((e) =>
+      e.kind === "update" && e.own ? [e.update] : [],
+    ),
+  );
+const allPushed = (w: World): string =>
+  textAfter(w.server.got("PUSH").map((p) => p.update));
+
+test("a following tab that closes a script and opens it again has every later edit stored", async () => {
+  const { w, tab } = await tabWorld();
+  const [a, b] = [tab("a"), tab("b")];
+  await a.open(DOC);
+  const first = await b.open(DOC);
+  await w.online();
+  type(first, "one");
+  await w.settle();
+  await first.close();
+  await w.settle();
+  const again = await b.open(DOC);
+  await w.settle();
+  type(again, " two");
+  await w.settle();
+  expect([await ownText(w), allPushed(w)]).toEqual(["one two\n", "one two\n"]);
+  expect(again.status.get().saved).toBe(true);
+});
+
+test("a following tab keeps every edit stored after the lead goes to it and comes back", async () => {
+  const { w, tabs, tab } = await tabWorld();
+  const [a, b] = [tab("a"), tab("b")];
+  await a.open(DOC);
+  const hb = await b.open(DOC);
+  await w.online();
+  type(hb, "one");
+  await w.settle();
+  tabs.depose();
+  await w.settle();
+  await w.online();
+  expect(b.link.get().leader).toBe(true);
+  tabs.depose();
+  await w.settle();
+  await w.online();
+  expect(a.link.get().leader).toBe(true);
+  type(hb, " two");
+  await w.settle();
+  expect(allPushed(w)).toBe("one two\n");
+  expect(hb.status.get().saved).toBe(true);
+});
+
+test("the leader lets a script go once no tab holds it open", async () => {
+  const { w, tab } = await tabWorld();
+  const a = tab("a");
+  await w.settle();
+  const [b, c] = [tab("b"), tab("c")];
+  const [hb, hc] = [await b.open(DOC), await c.open(DOC)];
+  await w.online();
+  expect(a.link.get().leader).toBe(true);
+  const sent = (): number => w.server.got("UNSUBSCRIBE").length;
+  const subscribed = sent();
+  await hb.close();
+  await w.settle();
+  expect(sent()).toBe(subscribed);
+  await hc.close();
+  await w.settle();
+  expect(sent()).toBe(subscribed + 1);
+  expect(w.server.got("SUBSCRIBE")).toHaveLength(subscribed + 1);
+});
+
+test("a leader whose app closes a script another tab holds, and opens it again, follows it as before", async () => {
+  const { w, tab } = await tabWorld();
+  const [a, b] = [tab("a"), tab("b")];
+  const ha = await a.open(DOC);
+  await b.open(DOC);
+  await w.online();
+  const subscribed = w.server.got("UNSUBSCRIBE").length;
+  await ha.close();
+  await w.settle();
+  expect(w.server.got("UNSUBSCRIBE")).toHaveLength(subscribed);
+  const again = await a.open(DOC);
+  type(again, "back");
+  await w.settle();
+  expect(again.status.get()).toMatchObject({ saved: true, waiting: 1 });
+});
+
+test("a deposed leader lets go of a script only another tab held", async () => {
+  const { w, tabs, tab } = await tabWorld();
+  const a = tab("a");
+  await w.settle();
+  const b = tab("b");
+  const hb = await b.open(DOC);
+  await w.online();
+  tabs.depose();
+  await w.settle();
+  await w.online();
+  expect(b.link.get().leader).toBe(true);
+  const subscribed = w.server.got("UNSUBSCRIBE").length;
+  await hb.close();
+  await w.settle();
+  expect(w.server.got("UNSUBSCRIBE")).toHaveLength(subscribed + 1);
+  expect(a.link.get().leader).toBe(false);
+});
+
+/** The leader's last push is refused for good, and the server answers its fresh subscription with what it holds. */
+async function rejectLastPush(w: World): Promise<void> {
+  w.server.answer.subscribe = false;
+  w.server.error(DOC, {
+    code: 4422,
+    message: "invalid",
+    permanent: true,
+    clientSeq: w.server.got("PUSH").at(-1)!.clientSeq,
+  });
+  await w.settle();
+  w.server.subscribedWithState(DOC, w.server.doc(DOC).encodeState());
+  await w.settle();
+}
+
+test("a following tab's edit the leader never stored is kept as Recovered text when the script is replaced", async () => {
+  const { w, tabs, tab } = await tabWorld();
+  const [a, b] = [tab("a"), tab("b")];
+  const ha = await a.open(DOC);
+  const hb = await b.open(DOC);
+  await w.online();
+  type(ha, "from a");
+  await w.settle();
+  tabs.dropMessagesTo("a");
+  typeIn(hb, B2, "only in b");
+  await w.settle();
+  await rejectLastPush(w);
+  expect(hb.recovered.get().map((r) => [r.blockId, r.text, r.cause])).toEqual([
+    [B2, "only in b", "rejected"],
+    [B1, "from a", "rejected"],
+  ]);
+  expect(textOf(hb.doc())).toBe("\n");
+});
+
+test("a following tab's edit the leader received is kept as Recovered text once when the script is replaced", async () => {
+  const { w, tab } = await tabWorld();
+  const [a, b] = [tab("a"), tab("b")];
+  const ha = await a.open(DOC);
+  const hb = await b.open(DOC);
+  await w.online();
+  type(ha, "from a");
+  await w.settle();
+  w.store.holdWrites();
+  typeIn(hb, B2, "seen by a");
+  await w.settle();
+  await rejectLastPush(w);
+  expect(hb.recovered.get().map((r) => r.text)).toEqual([
+    "from a",
+    "seen by a",
+  ]);
+  w.store.releaseWrites();
+  await w.settle();
+});
