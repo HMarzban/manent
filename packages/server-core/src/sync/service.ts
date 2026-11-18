@@ -10,6 +10,7 @@ import { createAwarenessHub } from "./awareness.ts";
 import type { DocumentAccess } from "./access.ts";
 import { createInlineCheckpointer } from "./checkpointer.ts";
 import { refusalError, syncError } from "./errors.ts";
+import { createHealing } from "./heal.ts";
 import { DEFAULT_LIMITS, NO_SETTINGS } from "./ports.ts";
 import type {
   Checkpointer,
@@ -64,6 +65,8 @@ export interface SyncService {
   accessChanged(docId: string, userId: string): void;
   /** A document was deleted: tells and unsubscribes everyone. */
   removed(docId: string): void;
+  /** A backup was put back: every document in a home this service has served is flagged `restore` at its head. */
+  restored(): void;
   stats(): ServiceStats;
   shutdown(): Promise<void>;
 }
@@ -114,15 +117,14 @@ function countingCommits(storage: Storage, onCommit: () => void): Storage {
   return { directory: storage.directory, open, close: () => storage.close() };
 }
 
-const docOf = (room: Room): DocRef => ({
-  docId: room.docId,
-  generation: room.row.generation,
-});
+function docOf(room: Room): DocRef {
+  return { docId: room.docId, generation: room.row.generation };
+}
 
 export function createSyncService(
   options: SyncSettings & { versions: ServerVersions },
 ): SyncService {
-  const { clock, defer } = options;
+  const { clock, defer, mode: writeMode = "authority" } = options;
   const limits: SyncLimits = { ...DEFAULT_LIMITS, ...options.limits };
   // duplicates are the acknowledgements that answered no new entry
   const counted = {
@@ -149,6 +151,7 @@ export function createSyncService(
   const caps = createConnectionCaps(limits);
   const presence = createAwarenessHub({ clock, limits });
   const snapshotOf = createSnapshotAnswers(options.storage);
+  const heal = createHealing({ ...options, mode: writeMode, now: clock.now });
   const peers = new Map<Peer, PeerState>();
   let closing = false;
 
@@ -181,7 +184,7 @@ export function createSyncService(
   };
 
   const writePath = createWritePath({
-    mode: options.mode ?? "authority",
+    mode: writeMode,
     limits,
     now: clock.now,
     defer,
@@ -232,8 +235,7 @@ export function createSyncService(
           end(peer, room.docId);
         }
     },
-    admitsForeign: () => false,
-    beforeAppend: () => {},
+    ...heal.ports,
     upstream:
       options.upstream === undefined
         ? null
@@ -272,6 +274,7 @@ export function createSyncService(
       return tell(peer, check.answer);
     }
     const { room, mode } = check;
+    heal.subscribed(room, message.lastServerSeq);
     if (mode === "view") presence.left(room, peer);
     room.editors.delete(peer);
     room.viewers.delete(peer);
@@ -285,7 +288,7 @@ export function createSyncService(
     state.held.set(docId, { room, subscription });
     if (mode === "edit") registerEditor(room, peer.userId, message.clientIds);
     (mode === "edit" ? room.editors : room.viewers).set(peer, subscription);
-    tell(peer, subscribedOf(room, granted, room.row.headSeq));
+    tell(peer, subscribedOf(room, granted, heal.headOf(room)));
     const vector = room.doc?.encodeStateVector();
     if (mode === "edit" && vector !== undefined) {
       tell(peer, { type: "SYNC", ...docOf(room), step: "step1", data: vector });
@@ -372,6 +375,7 @@ export function createSyncService(
       endAll(room, syncError("deleted", docOf(room)));
       rooms.drop([room]);
     },
+    restored: () => heal.restored(),
     stats() {
       const { acks, relayedSets, ...counts } = counted;
       const { rooms: open, loaded } = rooms.stats();
