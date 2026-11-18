@@ -153,8 +153,7 @@ const { view, scaffold } = mountPageView({
       return face;
     },
     wait,
-    // called as a method of the options, so not passed bare: queueMicrotask refuses another receiver
-    defer: (run) => queueMicrotask(run),
+    defer: queueMicrotask,
     whenIdle: (run) => {
       waiting++;
       idleSoon(() => {

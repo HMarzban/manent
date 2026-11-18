@@ -285,6 +285,8 @@ function paginationView(
   options: PaginationOptions,
   isRemoteState: (state: EditorState) => boolean,
 ): PluginView {
+  // a port is called without a receiver: queueMicrotask refuses any other
+  const { defer } = options;
   let pages = stateOf(view.state).pagination.pages.length;
   const keepCaret = caretKeeper(view, options, isRemoteState);
   let scheduled = false;
@@ -292,7 +294,7 @@ function paginationView(
   const resume = () => {
     if (scheduled || !isWaiting()) return;
     scheduled = true;
-    options.defer(() => {
+    defer(() => {
       scheduled = false;
       if (view.isDestroyed || !isWaiting()) return;
       view.dispatch(

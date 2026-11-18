@@ -1,3 +1,4 @@
+import { withDom } from "@manent/testkit/dom";
 import { expect, test } from "bun:test";
 import {
   ENGINE_VERSION,
@@ -11,12 +12,13 @@ import {
 import type { LayoutPatches, PageProfile } from "@manent/pagination";
 import { BLOCK_TYPES, FORMATS, blocksOf } from "@manent/schema";
 import fc from "fast-check";
-import { TextSelection } from "prosemirror-state";
-import type { EditorState } from "prosemirror-state";
+import { EditorState, TextSelection } from "prosemirror-state";
+import { EditorView } from "prosemirror-view";
 import {
   blockAt,
   blockPos,
   paginationKey,
+  paginationPlugin,
   setPagination,
   toIndex,
 } from "../src/index.ts";
@@ -28,6 +30,8 @@ import {
   sp,
   state,
 } from "./docs.ts";
+
+withDom();
 
 const pages = (s: EditorState) => paginationKey.getState(s)!.pagination.pages;
 const full = (s: EditorState, profile: PageProfile = sp) =>
@@ -96,6 +100,27 @@ test("a composition freezes pagination until it ends", () => {
     false,
     full(done),
   ]);
+});
+
+test("the pages catch up after a composition through a defer port that refuses a receiver, as queueMicrotask does", () => {
+  const deferred: (() => void)[] = [];
+  function defer(this: unknown, run: () => void): void {
+    if (this !== undefined) throw new TypeError("illegal invocation");
+    deferred.push(run);
+  }
+  const view = new EditorView(document.createElement("div"), {
+    state: EditorState.create({
+      doc: script(300),
+      plugins: [paginationPlugin({ profile: sp, defer, offFontNote: "note" })],
+    }),
+  });
+  view.dispatch(view.state.tr.insertText("k", 300).setMeta("composition", 1));
+  for (const run of deferred.splice(0)) run();
+  expect([
+    paginationKey.getState(view.state)!.frozen,
+    pages(view.state),
+  ]).toEqual([false, full(view.state)]);
+  view.destroy();
 });
 
 test("a new profile or lock table repaginates everything, and a profile from another engine is refused", () => {

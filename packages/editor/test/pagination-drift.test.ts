@@ -1,3 +1,4 @@
+import { withDom } from "@manent/testkit/dom";
 import { expect, test } from "bun:test";
 import {
   corpusDoc,
@@ -6,14 +7,19 @@ import {
   generateBlocks,
 } from "@manent/pagination/testing";
 import { parseDoc } from "@manent/schema";
+import { EditorState } from "prosemirror-state";
+import { EditorView } from "prosemirror-view";
 import {
   deleteRangeKeepingSections,
   domLineCount,
   driftKey,
+  driftPlugin,
   forceLines,
   paginationKey,
 } from "../src/index.ts";
-import { keysOf, stateWithDrift } from "./docs.ts";
+import { keysOf, script, state, stateWithDrift } from "./docs.ts";
+
+withDom();
 
 test("a block's rendered lines are counted from its height", () => {
   expect([
@@ -58,4 +64,23 @@ test("the set is bounded and forgets blocks that are gone", () => {
     deleteRangeKeepingSections(forced.tr, 0, forced.doc.content.size),
   );
   expect([...driftKey.getState(cut)!.forced]).toEqual([corpusId(0)]);
+});
+
+test("the monitor waits for idle time through a port that refuses a receiver, as requestIdleCallback does", () => {
+  const idle: (() => void)[] = [];
+  function whenIdle(this: unknown, run: () => void): void {
+    if (this !== undefined) throw new TypeError("illegal invocation");
+    idle.push(run);
+  }
+  const doc = script(300);
+  const view = new EditorView(document.createElement("div"), {
+    state: EditorState.create({
+      doc,
+      plugins: [...state(doc).plugins, driftPlugin({ whenIdle })],
+    }),
+  });
+  for (const run of idle.splice(0)) run();
+  view.dispatch(view.state.tr.insertText("k", 300));
+  expect(idle.length).toBe(1);
+  view.destroy();
 });

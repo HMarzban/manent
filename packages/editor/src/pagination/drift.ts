@@ -257,11 +257,13 @@ function driftView(
   options: Parameters<typeof driftPlugin>[0],
 ): PluginView {
   if (!DRIFT.enabled) return {};
+  // a port is called without a receiver: requestIdleCallback refuses any other
+  const { whenIdle } = options;
   let pending = false;
   const schedule = (): void => {
     if (pending) return;
     pending = true;
-    options.whenIdle(() => {
+    whenIdle(() => {
       pending = false;
       if (!view.isDestroyed) pass(view, options.onDrift);
     });
