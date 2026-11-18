@@ -149,6 +149,54 @@ const MANUSCRIPT = Object.freeze<FormatLayout>({
   }),
 });
 
+/** Laid out as a stage direction: indented, and set in parentheses that are furniture, never text. */
+const STAGE_DIRECTION: Partial<ElementSpec> = Object.freeze({
+  indent: 15,
+  width: 45,
+  align: "left",
+  spaceBefore: 1,
+  capitalized: false,
+  keptWithNext: false,
+  split: "action",
+  enclosure: Object.freeze(["(", ")"] as const),
+});
+
+const STAGE_PLAY = Object.freeze<FormatLayout>({
+  page: SCREEN_PAGE,
+  changes: () => ({
+    "act_break.new_act": {
+      align: "center",
+      capitalized: true,
+      keptWithNext: true,
+      startingPage: true,
+    },
+    scene_heading: {
+      indent: 0,
+      width: 60,
+      align: "center",
+      capitalized: false,
+      spaceBefore: 2,
+      keptWithNext: true,
+      startingPage: false,
+    },
+    character: {
+      indent: 0,
+      width: 60,
+      align: "center",
+      capitalized: true,
+      spaceBefore: 1,
+      keptWithNext: true,
+    },
+    dialogue: { indent: 0, width: 60, spaceBefore: 0, split: "dialogue" },
+    parenthetical: { indent: 10, width: 40, keptWithNext: true },
+    action: STAGE_DIRECTION,
+    // a shot or a transition only arrives by a format switch
+    shot: STAGE_DIRECTION,
+    transition: STAGE_DIRECTION,
+  }),
+  furniture: (options) => scriptFurniture(options, false, false),
+});
+
 const LAYOUTS: Readonly<Record<FormatId, FormatLayout | null>> = Object.freeze({
   screenplay: SCREENPLAY,
   multicam: MULTICAM,
@@ -158,7 +206,7 @@ const LAYOUTS: Readonly<Record<FormatId, FormatLayout | null>> = Object.freeze({
   // a list of lines, not pages
   ink: null,
   manuscript: MANUSCRIPT,
-  stage_play: SCREENPLAY,
+  stage_play: STAGE_PLAY,
 });
 
 function isFormatId(format: string): format is FormatId {
