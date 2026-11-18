@@ -44,6 +44,7 @@ afterEach(() => {
   mounted = null;
   document.body.replaceChildren();
   Reflect.deleteProperty(navigator, "storage");
+  Reflect.deleteProperty(navigator, "platform");
 });
 
 /** A system that prefers nothing: no dark scheme, no reduced motion, no more contrast, no forced colours. */
@@ -447,6 +448,46 @@ test("a clash asks before anything changes, and the loser shows No shortcut", as
     keysOf(shortcutRow(container, "Commands")),
     texts(container, "⌘K is Commands.").length,
   ]).toEqual(["⌘K", "No shortcut", 0]);
+});
+
+test("a shortcut is recorded as the letter its key types, on any layout", async () => {
+  const { container, services } = await renderPreferences({ pane: "keyboard" });
+  act(() =>
+    shortcutRow(container, "Next region")
+      .querySelector<HTMLElement>(".mn-row")
+      ?.click(),
+  );
+  const field = document.activeElement;
+  if (!(field instanceof HTMLInputElement))
+    throw new Error("the capture field took no focus");
+  // on AZERTY the key that types a sits where QWERTY has Q, and the key that types q where it has A
+  press(field, { key: "a", code: "KeyQ", metaKey: true });
+  const afterA = [field.value, services.keys.keys()];
+  press(field, { key: "q", code: "KeyA", metaKey: true });
+  expect([...afterA, keysOf(shortcutRow(container, "Next region"))]).toEqual([
+    "⌘A",
+    [],
+    "⌘Q",
+  ]);
+});
+
+test("Find by pressing keys names the command its press runs, on any layout", async () => {
+  // the page's matcher reads the platform from the browser
+  Object.defineProperty(navigator, "platform", {
+    configurable: true,
+    value: "MacIntel",
+  });
+  const { container } = await renderPreferences({ pane: "keyboard" });
+  const field = container.querySelector<HTMLInputElement>(
+    'input[aria-label="Find by pressing keys"]',
+  );
+  if (field === null) throw new Error("no Find by pressing keys field");
+  // the key that types g sits where QWERTY has K
+  press(field, { key: "g", code: "KeyK", metaKey: true });
+  expect([field.value, field.parentElement?.textContent]).toEqual([
+    "⌘G",
+    "Go to",
+  ]);
 });
 
 test("a key that would leave the script is refused on the web", async () => {

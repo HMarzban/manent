@@ -17,11 +17,12 @@ import {
   Button,
   Input,
   PREFERENCES_WORDS,
+  createKeyResolver,
   keyLabel,
   useCommands,
   useSubscribable,
 } from "@manent/ui";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { Where } from "../../platform.ts";
 import { useEnvironment } from "../../services/context.tsx";
@@ -36,6 +37,9 @@ const PUNCTUATION: Readonly<Record<string, string>> = Object.freeze({
   Minus: "-",
 });
 const LETTER_OR_DIGIT = /^(?:Key([A-Z])|Digit(\d))$/;
+const ASCII_LETTER = /^[A-Za-z]$/;
+const ASCII_SYMBOL = /^[!-~]$/;
+const LATIN_LETTER = /^\p{Script=Latin}$/u;
 const HOSTS: Readonly<
   Record<NonNullable<Where["browser"]>, ReservedKey["host"]>
 > = Object.freeze({
@@ -46,8 +50,29 @@ const HOSTS: Readonly<
 });
 const REMOVE_KEYS: ReadonlySet<string> = new Set(["Delete", "Backspace"]);
 
-/** A letter, digit or symbol by its place on the keyboard, so Option or a layout never changes it; any other key by its name. */
-function keyOf(event: KeyboardEvent): string {
+/**
+ * Whether the page's matcher reads a press by the key's place rather than by what it typed: the digit row, a dead key,
+ * a symbol typed with Shift or with Option on a letter, and a letter outside ASCII that is not Latin, is typed with Alt,
+ * or is typed with Control or Command off the letter keys.
+ */
+function isReadByPlace(event: KeyboardEvent, platform: Platform): boolean {
+  const { key, code } = event;
+  const onLetter = code.startsWith("Key");
+  if (code.startsWith("Digit") || key === "Dead") return true;
+  if (key === "Unidentified") return !onLetter && !code.startsWith("Numpad");
+  if ([...key].length !== 1 || ASCII_LETTER.test(key)) return false;
+  if (ASCII_SYMBOL.test(key))
+    return event.shiftKey || (event.altKey && platform === "mac" && onLetter);
+  if (!LATIN_LETTER.test(key)) return true;
+  if (event.altKey)
+    return !(onLetter && event.ctrlKey && platform === "windows");
+  return (event.ctrlKey || event.metaKey) && !onLetter;
+}
+
+/** The key a chord names for a press, read as the page's matcher reads it, so the chord kept is the one the press runs. */
+function keyOf(event: KeyboardEvent, platform: Platform): string {
+  if (!isReadByPlace(event, platform))
+    return ASCII_LETTER.test(event.key) ? event.key.toUpperCase() : event.key;
   const place = LETTER_OR_DIGIT.exec(event.code);
   return place?.[1] ?? place?.[2] ?? PUNCTUATION[event.code] ?? event.key;
 }
@@ -64,7 +89,7 @@ function chordOf(event: KeyboardEvent, platform: Platform): Chord | null {
     mac && event.ctrlKey && "Control",
     event.altKey && "Alt",
     event.shiftKey && "Shift",
-    keyOf(event),
+    keyOf(event, platform),
   ]
     .filter((part) => part !== false)
     .join("+");
@@ -251,34 +276,41 @@ export function ShortcutCapture(props: {
 export function FindByKeys(): ReactNode {
   const { service, resolved, platform } = useCommands();
   const bindings = useSubscribable(resolved);
-  const [chord, setChord] = useState<Chord | null>(null);
+  const resolve = useMemo(
+    () =>
+      createKeyResolver({
+        table: () =>
+          [...bindings.effective].flatMap(([id, keys]) =>
+            keys.map((chord) => ({ id, chord })),
+          ),
+      }),
+    [bindings],
+  );
+  const [found, setFound] = useState<{
+    chord: Chord;
+    runs: string | null;
+  } | null>(null);
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
-    if (event.key === "Tab" || (event.key === "Escape" && chord === null))
+    if (event.key === "Tab" || (event.key === "Escape" && found === null))
       return;
     event.preventDefault();
     event.stopPropagation();
-    if (event.key === "Escape") return setChord(null);
-    const pressed = chordOf(event, platform);
-    if (pressed !== null) setChord(pressed);
+    if (event.key === "Escape") return setFound(null);
+    const chord = chordOf(event, platform);
+    if (chord !== null) setFound({ chord, runs: resolve(event.nativeEvent) });
   };
-  const runs =
-    chord === null
-      ? undefined
-      : [...bindings.effective].find(([, keys]) =>
-          keys.some((k) => isSamePress(k, chord, platform)),
-        )?.[0];
   return (
     <div className="flex items-center gap-2 py-2">
       <Input
         readOnly
         aria-label={PREFERENCES_WORDS.findByKeys}
         placeholder={PREFERENCES_WORDS.findByKeys}
-        value={chord === null ? "" : keyLabel(chord, platform)}
+        value={found === null ? "" : keyLabel(found.chord, platform)}
         onKeyDown={onKeyDown}
         className="h-control max-w-64 text-ui"
       />
-      {runs === undefined ? null : (
-        <span className="text-ui">{labelOf(service, runs)}</span>
+      {found === null || found.runs === null ? null : (
+        <span className="text-ui">{labelOf(service, found.runs)}</span>
       )}
     </div>
   );
