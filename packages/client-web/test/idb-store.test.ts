@@ -1,0 +1,195 @@
+import { expect, test } from "bun:test";
+import type { StoredUpdate } from "@manent/sync-client";
+import { blankMeta, localStoreContract } from "@manent/sync-client/testing";
+import { IDBFactory } from "fake-indexeddb";
+import { openIdbStore } from "../src/index.ts";
+
+const DOC = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
+
+function own(n: number): StoredUpdate {
+  return {
+    kind: "update",
+    localSeq: n,
+    update: new Uint8Array([n, n + 1, n + 2]),
+    own: true,
+    acked: false,
+    applied: true,
+    elements: [`b${n}`],
+  };
+}
+
+/** Calls each method of `target` with `target` as `this`, and passes every other read through. */
+function forwarding<T extends object>(
+  target: T,
+  get: (key: string | symbol) => unknown,
+): T {
+  return new Proxy(target, {
+    get(real, key) {
+      const replaced = get(key);
+      if (replaced !== undefined) return replaced;
+      const value: unknown = Reflect.get(real, key, real);
+      return typeof value === "function" ? value.bind(real) : value;
+    },
+    set: (real, key, value) => Reflect.set(real, key, value, real),
+  });
+}
+
+type TransactionArgs = [
+  stores: string | string[],
+  mode: IDBTransactionMode | undefined,
+  options: IDBTransactionOptions | undefined,
+];
+
+/** A fake-indexeddb factory whose databases hand every new transaction to `wrap`. */
+function wrappedFactory(
+  wrap: (
+    transaction: IDBTransaction,
+    ...args: TransactionArgs
+  ) => IDBTransaction,
+): IDBFactory {
+  const real = new IDBFactory();
+  return forwarding(real, (key) => {
+    if (key !== "open") return undefined;
+    return (name: string, version?: number) => {
+      const request = real.open(name, version);
+      return forwarding(request, (requestKey) => {
+        if (requestKey !== "result") return undefined;
+        const db = request.result;
+        return forwarding(db, (dbKey) =>
+          dbKey === "transaction"
+            ? (...args: TransactionArgs) =>
+                wrap(db.transaction(...args), ...args)
+            : undefined,
+        );
+      });
+    };
+  });
+}
+
+/** Readwrite transactions abort with an error of that name as soon as their first request succeeds. */
+function abortingFactory(errorName: string): IDBFactory {
+  return wrappedFactory((transaction, _stores, mode) => {
+    if (mode !== "readwrite") return transaction;
+    let error: DOMException | null = null;
+    const abortAfter = (request: IDBRequest): IDBRequest => {
+      request.addEventListener("success", () => {
+        error = new DOMException("the disk said no", errorName);
+        transaction.abort();
+      });
+      return request;
+    };
+    return forwarding(transaction, (key) => {
+      if (key === "error") return error ?? undefined;
+      if (key !== "objectStore") return undefined;
+      return (name: string) => {
+        const store = transaction.objectStore(name);
+        return forwarding(store, (storeKey) =>
+          storeKey === "put" || storeKey === "get" || storeKey === "delete"
+            ? (...args: unknown[]) =>
+                abortAfter(Reflect.apply(store[storeKey], store, args))
+            : undefined,
+        );
+      };
+    });
+  });
+}
+
+/** Records the store names, mode and options of every transaction. */
+function recordingFactory(seen: unknown[]): IDBFactory {
+  return wrappedFactory((transaction, stores, mode, options) => {
+    seen.push({ stores, mode, options });
+    return transaction;
+  });
+}
+
+/** An open request that fails, as a private window's does. */
+function failingOpen() {
+  return {
+    error: new DOMException("no storage here", "InvalidStateError"),
+    addEventListener(type: string, listener: () => void) {
+      if (type === "error") queueMicrotask(listener);
+    },
+  };
+}
+
+function failingFactory(): IDBFactory {
+  return { open: failingOpen } as unknown as IDBFactory;
+}
+
+localStoreContract({ test, expect }, async () => {
+  const indexedDb = new IDBFactory();
+  return {
+    open: (userId) => openIdbStore({ userId, indexedDb }),
+    dispose: async () => {},
+  };
+});
+
+test("two people on one origin never see each other's documents", async () => {
+  const indexedDb = new IDBFactory();
+  const dana = await openIdbStore({ userId: "dana", indexedDb });
+  const sam = await openIdbStore({ userId: "sam", indexedDb });
+  await dana.create(blankMeta(DOC));
+  await dana.append(DOC, own(1));
+  expect(await sam.load(DOC)).toBeNull();
+  expect(await sam.documents()).toEqual([]);
+  expect((await indexedDb.databases()).map((d) => d.name).toSorted()).toEqual([
+    "manent:dana",
+    "manent:sam",
+  ]);
+});
+
+test("a quota abort is seen, not swallowed", async () => {
+  const store = await openIdbStore({
+    userId: "dana",
+    indexedDb: abortingFactory("QuotaExceededError"),
+  });
+  await expect(store.append(DOC, own(1))).rejects.toMatchObject({
+    name: "StoreError",
+    code: "quota",
+  });
+});
+
+test("any other abort is a refused write", async () => {
+  const store = await openIdbStore({
+    userId: "dana",
+    indexedDb: abortingFactory("UnknownError"),
+  });
+  await expect(store.append(DOC, own(1))).rejects.toMatchObject({
+    name: "StoreError",
+    code: "write_failed",
+  });
+});
+
+test("outbox writes ask for strict durability and resolve on completion", async () => {
+  const seen: unknown[] = [];
+  const store = await openIdbStore({
+    userId: "dana",
+    indexedDb: recordingFactory(seen),
+  });
+  await store.create(blankMeta(DOC));
+  await store.append(DOC, own(1));
+  expect(
+    seen
+      .filter((t) => (t as { mode: string }).mode === "readwrite")
+      .every(
+        (t) =>
+          (t as { options: { durability: string } }).options.durability ===
+          "strict",
+      ),
+  ).toBe(true);
+  expect(seen).toEqual([
+    { stores: ["meta"], mode: "readwrite", options: { durability: "strict" } },
+    {
+      stores: ["entries"],
+      mode: "readwrite",
+      options: { durability: "strict" },
+    },
+  ]);
+  expect((await store.load(DOC))!.entries).toEqual([own(1)]);
+});
+
+test("a store that cannot be opened is its own outcome", async () => {
+  await expect(
+    openIdbStore({ userId: "dana", indexedDb: failingFactory() }),
+  ).rejects.toMatchObject({ name: "StoreError", code: "unavailable" });
+});
