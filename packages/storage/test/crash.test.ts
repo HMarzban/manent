@@ -6,7 +6,7 @@ import {
   DOC,
   HOME,
   PROJECT,
-  codeOf,
+  codeOfOpening,
   createTempTrees,
   doc,
   docPath,
@@ -95,9 +95,7 @@ test(
     s.close();
     await Bun.write(join(dir, `project-${PROJECT}.sqlite`), "not a database");
     // a StorageError, never a raw SQLite error
-    expect(codeOf(() => openSqliteStorage({ dir, now }).open(HOME))).toBe(
-      "corrupt",
-    );
+    expect(codeOfOpening(dir)).toBe("corrupt");
   },
   { timeout: 120_000 },
 );

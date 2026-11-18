@@ -6,7 +6,7 @@ import {
   DOC,
   HOME,
   PROJECT,
-  codeOf,
+  codeOfOpening,
   createTempTrees,
   doc,
   docPath,
@@ -206,7 +206,5 @@ test("a file written by a later build is refused, not rewritten", () => {
     `PRAGMA user_version = ${STORAGE_SCHEMA_VERSION + 1}`,
   );
   // nothing is migrated downwards
-  expect(codeOf(() => openSqliteStorage({ dir, now }).open(HOME))).toBe(
-    "corrupt",
-  );
+  expect(codeOfOpening(dir)).toBe("corrupt");
 });
