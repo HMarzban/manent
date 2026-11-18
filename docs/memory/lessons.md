@@ -230,7 +230,7 @@ Nothing yet. The editor's browser tests will hold these cases.
 
 ### What happened
 
-Typing lag is easily blamed on the editor core. In this project's prototype, ProseMirror's own share of a keystroke was small: about 1.3 ms of 18 ms in a flat 1,000-page document, the rest being the browser's own editing, style and layout. Experience with other editors points the same way: lag comes from interface components rendering again on each transaction and from plugins that walk the whole document. A near-miss: nothing had yet been optimised in the wrong place.
+Typing lag is easily blamed on the editor core. In this project's prototype, ProseMirror's own share of a keystroke was small: about 1.3 ms of 18 ms in a flat 1,000-page document, the rest being the browser's own editing, style and layout. A near-miss: nothing had yet been optimised in the wrong place.
 
 ### How it was caught
 
@@ -334,7 +334,7 @@ The minimum release age written as `"3d"` was refused by an earlier release of t
 
 ### How it was caught
 
-Known from earlier use of the package manager, before this repository's settings were written.
+By writing the setting in integer seconds before the first install; `tools/test/workspace.test.ts` pins it.
 
 ### Rule
 
