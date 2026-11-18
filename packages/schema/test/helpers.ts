@@ -40,8 +40,8 @@ export const MARK_ATTRS: Record<string, Record<string, unknown>> = {
   color: { value: "red" },
   highlight: { value: "red" },
   link: { href: "https://example.com" },
-  suggest_insert: { id: "s1", author: "dana", at: 5 },
-  suggest_delete: { id: "s1", author: "dana", at: 5 },
+  suggest_insert: { id: "s1", authorUserId: "dana", at: 5 },
+  suggest_delete: { id: "s1", authorUserId: "dana", at: 5 },
 };
 
 /** One run per mark name, each with full attributes. */

@@ -19,12 +19,12 @@ export const BLOCK_ATTR_CHECKS: Readonly<
   spaceBefore: orNull(isCount),
   noContd: isBoolean,
   noTiming: isBoolean,
-  owner: orNull(isString),
+  writerUserId: orNull(isString),
   suggest: orNull(isString),
   from: (value) =>
     value === null || (isString(value) && parseFrom(value) !== null),
   kind: orNull(oneOf(ACT_BREAK_KINDS)),
   suggestId: orNull(isString),
-  suggestBy: orNull(isString),
+  suggestAuthorUserId: orNull(isString),
   suggestAt: orNull(isCount),
 };

@@ -26,16 +26,17 @@ export interface BlockAttrs {
   spaceBefore: number | null;
   noContd: boolean;
   noTiming: boolean;
-  owner: string | null;
+  writerUserId: string | null;
   /** "added", "removed", or the element the block had before a suggested change. */
   suggest: string | null;
   /** "<originId>:<nonce>": the block this one was split from. */
   from: string | null;
   /** On act_break only. */
   kind: ActBreakKind | null;
-  /** With `suggest`: the suggestion, its author and its time. */
+  /** With `suggest`: the suggestion, the user who made it, and its time. */
   suggestId: string | null;
-  suggestBy: string | null;
+  suggestAuthorUserId: string | null;
+  /** Milliseconds since the epoch. */
   suggestAt: number | null;
 }
 
@@ -53,12 +54,12 @@ export const DEFAULT_BLOCK_ATTRS: BlockAttrs = Object.freeze({
   spaceBefore: null,
   noContd: false,
   noTiming: false,
-  owner: null,
+  writerUserId: null,
   suggest: null,
   from: null,
   kind: null,
   suggestId: null,
-  suggestBy: null,
+  suggestAuthorUserId: null,
   suggestAt: null,
 });
 

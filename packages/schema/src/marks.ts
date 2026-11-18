@@ -36,7 +36,8 @@ const SUGGESTION_ATTRS: Readonly<
   Record<string, { default: unknown; check: Check }>
 > = {
   id: { default: "", check: isString },
-  author: { default: "", check: isString },
+  authorUserId: { default: "", check: isString },
+  /** Milliseconds since the epoch. */
   at: { default: 0, check: isCount },
 };
 
@@ -58,7 +59,7 @@ function suggestion(tag: "ins" | "del"): MarkSpec {
     inclusive: false,
     toDOM: (mark) => [
       tag,
-      { "data-suggest": mark.attrs.id, "data-author": mark.attrs.author },
+      { "data-suggest": mark.attrs.id, "data-author": mark.attrs.authorUserId },
       0,
     ],
   };

@@ -139,7 +139,7 @@ test("each kind of damage is named, with its severity", () => {
           marks: [
             {
               type: "suggest_insert",
-              attrs: { id: "s1", author: "dana", at: "yesterday" },
+              attrs: { id: "s1", authorUserId: "dana", at: "yesterday" },
             },
           ],
         },
@@ -164,8 +164,11 @@ test("each kind of damage is named, with its severity", () => {
         {
           text: "x",
           marks: [
-            { type: "suggest_insert", attrs: { id: "s1", author: "d", at: 0 } },
-            { type: "suggest_insert", attrs: { id: "s1", author: "d" } },
+            {
+              type: "suggest_insert",
+              attrs: { id: "s1", authorUserId: "d", at: 0 },
+            },
+            { type: "suggest_insert", attrs: { id: "s1", authorUserId: "d" } },
           ],
         },
       ]),
@@ -301,9 +304,9 @@ test("an issue names where it is", () => {
   ]);
 });
 
-const sug = (id: string, author: string) => ({
+const sug = (id: string, authorUserId: string) => ({
   type: "suggest_insert",
-  attrs: { id, author, at: 5 },
+  attrs: { id, authorUserId, at: 5 },
 });
 const raw = (marks: unknown[]) => ({
   type: "doc",
@@ -377,7 +380,7 @@ const nearMark = fc.record(
       fc.record(
         {
           id: maybe(word),
-          author: maybe(word),
+          authorUserId: maybe(word),
           at: maybe(fc.constantFrom(0, 1)),
           value: maybe(word),
           href: maybe(fc.constantFrom("https://example.com", "tel:+15551234")),
@@ -396,7 +399,7 @@ const nearSuggestion = fc.record({
   attrs: fc.record(
     {
       id: fc.constantFrom("", "s1"),
-      author: fc.constantFrom("", "d"),
+      authorUserId: fc.constantFrom("", "d"),
       at: fc.constantFrom(0, 1),
     },
     { requiredKeys: [] },

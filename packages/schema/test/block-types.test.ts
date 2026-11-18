@@ -57,3 +57,22 @@ test("format element sets", () => {
     new Set(BLOCK_TYPES),
   );
 });
+
+test("a stage play has the screenplay's elements but Transition and Shot", () => {
+  expect(FORMAT_ELEMENTS.stage_play).toEqual(
+    FORMAT_ELEMENTS.screenplay.filter(
+      (t) => t !== "transition" && t !== "shot",
+    ),
+  );
+  expect(FORMAT_ELEMENTS.stage_play).toEqual([
+    "scene_heading",
+    "action",
+    "character",
+    "parenthetical",
+    "dialogue",
+    "general",
+    "act_break",
+    "group",
+    "page_break",
+  ]);
+});

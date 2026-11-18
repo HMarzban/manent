@@ -25,3 +25,16 @@ test("a link never renders a script address", () => {
   ) as readonly unknown[];
   expect(dom[1]).not.toHaveProperty("href");
 });
+
+test("a suggestion renders its ID and the user who made it", () => {
+  const mark = schema.marks.suggest_insert.create({
+    id: "s1",
+    authorUserId: "dana",
+    at: 5,
+  });
+  expect(schema.marks.suggest_insert.spec.toDOM!(mark, true)).toEqual([
+    "ins",
+    { "data-suggest": "s1", "data-author": "dana" },
+    0,
+  ]);
+});

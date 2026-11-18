@@ -46,6 +46,7 @@ export const FORMATS = [
   "game",
   "ink",
   "manuscript",
+  "stage_play",
 ] as const;
 export type FormatId = (typeof FORMATS)[number];
 
@@ -96,6 +97,16 @@ export const FORMAT_ELEMENTS: Readonly<Record<FormatId, readonly BlockType[]>> =
     ],
     ink: ["ink_line", ...STRUCTURE],
     manuscript: ["chapter", "body", "break", "quote", ...STRUCTURE],
+    // the layout shows Action as a stage direction; Transition and Shot are not part of the format
+    stage_play: [
+      "scene_heading",
+      "action",
+      "character",
+      "parenthetical",
+      "dialogue",
+      "general",
+      ...STRUCTURE,
+    ],
   };
 
 /** The element a block renders as: a type this build does not know renders as General. */
