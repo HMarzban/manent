@@ -5,6 +5,7 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import {
   labelOf,
+  longestMark,
   markDurations,
   pressKeyOf,
   runFromPalette,
@@ -144,19 +145,15 @@ test("menus, popovers and the palette open within 100 ms, panels and dialogs wit
   }
   await pressKeyOf(page, "app.palette");
   await expect(page.getByRole("combobox")).toBeFocused();
-  popovers.palette = Math.max(
-    ...(await markDurations(page, "ui.open.palette")),
-  );
+  popovers.palette = await longestMark(page, "ui.open.palette");
   await page.keyboard.press("Escape");
   const screens: Record<string, number> = {};
   await signedInAs(page, "you", `/s/${DOC_ID}/send/send_draft`);
   await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
-  screens.send = Math.max(...(await markDurations(page, "ui.open.screen")));
+  screens.send = await longestMark(page, "ui.open.screen");
   await signedInAs(page, "you", "/preferences/writing");
   await expect(page.getByRole("searchbox")).toBeFocused();
-  screens.preferences = Math.max(
-    ...(await markDurations(page, "ui.open.preferences")),
-  );
+  screens.preferences = await longestMark(page, "ui.open.preferences");
   expect({
     popovers: over(popovers, POPOVER_MS),
     panels: over(panels, PANEL_MS),

@@ -165,6 +165,13 @@ export async function markDurations(
   }, name);
 }
 
+/** The longest of the marks named `name`, in milliseconds; throws when the test build has kept none. */
+export async function longestMark(page: Page, name: string): Promise<number> {
+  const durations = await markDurations(page, name);
+  if (durations.length === 0) throw new Error(`no ${name} mark was kept`);
+  return Math.max(...durations);
+}
+
 /** Runs the palette's row labelled `label` once the palette has highlighted it, then closes the palette. */
 export async function runFromPalette(page: Page, label: string): Promise<void> {
   await pressKeyOf(page, "app.palette");

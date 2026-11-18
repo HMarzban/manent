@@ -5,6 +5,7 @@ import { expect, test } from "@playwright/test";
 import type { Browser, BrowserContextOptions, Page } from "@playwright/test";
 import {
   labelOf,
+  longestMark,
   markDurations,
   pressKeyOf,
   runFromPalette,
@@ -16,10 +17,6 @@ const BOOT_KEY = "manent.boot";
 
 const DARK = labelOf("setting.appearance.theme.dark");
 const WHITE_PAGE = SETTINGS.get("appearance.whitePage").label;
-
-/** The longest `ui.setting.apply` mark, in milliseconds. */
-const longestApply = async (page: Page): Promise<number> =>
-  Math.max(...(await markDurations(page, "ui.setting.apply")));
 
 /** One sRGB channel, 0 to 255, as linear light. */
 function linear(channel: number): number {
@@ -151,7 +148,7 @@ test("a theme change is an attribute and nothing else, within its budget", async
     "data-theme",
   ]);
   await expect(page.locator("html")).not.toHaveAttribute("style");
-  expect(await longestApply(page)).toBeLessThan(100);
+  expect(await longestMark(page, "ui.setting.apply")).toBeLessThan(100);
 });
 
 /** The sheet's paper and its ink, as luminances. */
@@ -187,7 +184,7 @@ test("in the dark theme the sheet is dark by default, and white page makes it pa
   await expect(page.locator("html")).toHaveAttribute("data-white-page", "");
   const white = await sheetColours(page);
   expect(white.paper).toBeGreaterThan(luminance(white.ink));
-  expect(await longestApply(page)).toBeLessThan(100);
+  expect(await longestMark(page, "ui.setting.apply")).toBeLessThan(100);
   await expect(page.locator("html")).not.toHaveAttribute("style");
   await context.close();
 });
