@@ -16,8 +16,8 @@ import { ChooseScreen } from "./screens/choose.tsx";
 import { SEND_FORM_IDS } from "./screens/send/forms.ts";
 import { chooseUrl, choosePerson, confirmPerson, safeNext } from "./session.ts";
 
-// true only in the test build, which serves the development screens
-const TEST_FLAVOUR: boolean = false;
+// the build's define; absent outside a build
+declare const MANENT_FLAVOUR: string | undefined;
 
 /** Preferences at its first pane, keeping the search (Back's `from`). */
 const toFirstPane = (searchStr: string) =>
@@ -124,10 +124,7 @@ export function createAppRouter(deps: {
   const documentRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/s/$docId",
-    component: function Document() {
-      const { docId } = documentRoute.useParams();
-      return <DocumentScreen docId={docId} />;
-    },
+    component: DocumentScreen,
   });
 
   const sendRoute = createRoute({
@@ -141,10 +138,7 @@ export function createAppRouter(deps: {
         replace: true,
       });
     },
-    component: function Send() {
-      const { docId, form } = sendRoute.useParams();
-      return <SendScreen docId={docId} form={form} />;
-    },
+    component: SendScreen,
   });
 
   const preferencesRoute = createRoute({
@@ -166,10 +160,7 @@ export function createAppRouter(deps: {
       if (SECTION_IDS.some((id) => id === params.pane)) return;
       throw toFirstPane(location.searchStr);
     },
-    component: function Preferences() {
-      const { pane } = paneRoute.useParams();
-      return <PreferencesScreen pane={pane} />;
-    },
+    component: PreferencesScreen,
   });
 
   const statesRoute = createRoute({
@@ -192,7 +183,10 @@ export function createAppRouter(deps: {
       preferencesRoute,
       paneRoute,
       chooseRoute,
-      ...(TEST_FLAVOUR ? [statesRoute, standInRoute] : []),
+      // the test build serves the development screens
+      ...(typeof MANENT_FLAVOUR !== "undefined" && MANENT_FLAVOUR === "test"
+        ? [statesRoute, standInRoute]
+        : []),
     ]),
     defaultPendingMs: 150,
     defaultPendingMinMs: 300,

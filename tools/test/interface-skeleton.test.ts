@@ -83,6 +83,39 @@ test("the routes are the screens of this release", () => {
   ]);
 });
 
+test("the test build adds the development screens", () => {
+  Reflect.set(globalThis, "MANENT_FLAVOUR", "test");
+  try {
+    expect(routePaths()).toEqual([
+      "/",
+      "/__stand-in",
+      "/__states",
+      "/choose",
+      "/preferences",
+      "/preferences/$pane",
+      "/s/$docId",
+      "/s/$docId/send/$form",
+    ]);
+  } finally {
+    Reflect.deleteProperty(globalThis, "MANENT_FLAVOUR");
+  }
+});
+
+test("a screen that reads the route is that route's own lazily loaded component", () => {
+  const router: {
+    routesByPath: Record<string, { options: { component?: object } }>;
+  } = createAppRouter({ api: {}, fetch: refuse, usePerson: {} });
+  const lazy = Object.entries(router.routesByPath)
+    .filter(([, route]) => "preload" in (route.options.component ?? {}))
+    .map(([path]) => path)
+    .toSorted();
+  expect(lazy).toEqual([
+    "/preferences/$pane",
+    "/s/$docId",
+    "/s/$docId/send/$form",
+  ]);
+});
+
 test("the Send screen's forms are a registration list that starts empty", () => {
   expect([SEND_FORM_IDS, SEND_FORMS, sendPath("d1", "print")]).toEqual([
     ["export", "print", "send_draft", "issue", "recall"],
