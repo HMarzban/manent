@@ -8,13 +8,16 @@ import type { Api, ServerControl } from "../api.ts";
 
 export const POLL_MS = 2000;
 
+/** The queries a reset keeps: the demo bar's own, whose loss would blank the bar and set off the reset again. */
+const KEPT_ON_RESET: readonly unknown[] = ["demo", "server-status"];
+
 /** The demo's server control; `id` changes when the control does. */
 export interface DemoControl {
   id: string;
   client: ServerControl;
 }
 
-/** Null `demo` outside demo mode or until the server answers; resets every query when the seed changes. */
+/** Null `demo` outside demo mode or until the server answers; resets every query but the demo bar's own when the seed changes. */
 export function useDemo(deps: { api: Api; fetch: typeof fetch }): {
   demo: DemoResponse | null;
   control: DemoControl | null;
@@ -33,7 +36,9 @@ export function useDemo(deps: { api: Api; fetch: typeof fetch }): {
   useEffect(() => {
     if (seedId === undefined) return;
     if (seenSeed.current !== undefined && seenSeed.current !== seedId)
-      void queryClient.resetQueries();
+      void queryClient.resetQueries({
+        predicate: (query) => !KEPT_ON_RESET.includes(query.queryKey[0]),
+      });
     seenSeed.current = seedId;
   }, [seedId, queryClient]);
 

@@ -71,7 +71,7 @@ export function ChooseScreen(props: {
         {choices.isPending &&
           waited &&
           Array.from({ length: PLACEHOLDER_ROWS }, (_, i) => (
-            <li key={i} aria-hidden="true">
+            <li key={i} aria-hidden="true" data-placeholder>
               <div className={`${ROW} border-neutral-200 bg-neutral-100`}>
                 <span className="block h-6" />
               </div>

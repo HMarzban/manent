@@ -53,11 +53,10 @@ function ServerStatus(props: DemoControl) {
 
   return (
     <>
-      {state && (
-        <p role="status" className="ml-auto">
-          {serverStatusText(state)}
-        </p>
-      )}
+      {/* rendered before the first answer: a live region that appears together with its text is not announced */}
+      <p role="status" className="ml-auto">
+        {state && serverStatusText(state)}
+      </p>
       {kind && (
         <button
           type="button"

@@ -159,3 +159,52 @@ test("each Make target wraps bun run", () => {
   for (const t of ["demo", "desktop", "reset", "test", "bench", "stop"])
     expect(makefile).toMatch(new RegExp(`^${t}:.*\\n\\t.*bun run ${t}`, "m"));
 });
+
+// a script declared before the file it runs exists is reached by neither verify nor a Make target, so it is not checked
+test("every file a root script runs exists", () => {
+  const { scripts } = JSON.parse(read("package.json")) as {
+    scripts: Record<string, string>;
+  };
+  const reached = new Set<string>();
+  // verify and the Make targets
+  const waiting = [
+    "verify",
+    "demo",
+    "desktop",
+    "reset",
+    "test",
+    "bench",
+    "stop",
+  ];
+  for (let name = waiting.pop(); name !== undefined; name = waiting.pop()) {
+    if (reached.has(name)) continue;
+    reached.add(name);
+    for (const [, next] of scripts[name]!.matchAll(
+      new RegExp("\\bbun run ([a-z][\\w:-]*)", "g"),
+    ))
+      waiting.push(next!);
+  }
+  const files = new Set(
+    [...reached].flatMap((name) =>
+      [...scripts[name]!.matchAll(new RegExp("\\bbun (\\S+\\.ts)", "g"))].map(
+        (m) => m[1]!,
+      ),
+    ),
+  );
+  // a script added later joins without editing this test
+  expect([...files]).toEqual(
+    expect.arrayContaining([
+      "apps/web/build.ts",
+      "bench/run.ts",
+      "tools/check-boundaries.ts",
+      "tools/check-tour.ts",
+      "tools/check-tracked.ts",
+      "tools/demo/cli.ts",
+    ]),
+  );
+  for (const file of files)
+    expect({ file, exists: existsSync(join(repoRoot, file)) }).toEqual({
+      file,
+      exists: true,
+    });
+});
