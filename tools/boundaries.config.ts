@@ -251,9 +251,8 @@ export const RULES: BoundaryRules = {
         "formats",
         "perf",
         "demo",
-        "testkit", // until the Tour moves
       ],
-      typesOnly: ["testkit"], // until the Tour moves
+      typesOnly: [],
       external: "declared",
       forbiddenGlobals: [],
     },
@@ -298,7 +297,7 @@ export const RULES: BoundaryRules = {
     testkit: {
       layer: "tooling",
       runtime: "bun",
-      importable: "product", // until the Tour moves
+      importable: "tests",
       internal: "*",
       typesOnly: [],
       external: "declared",
@@ -367,5 +366,18 @@ export const RULES: BoundaryRules = {
     "requestAnimationFrame",
     "HTMLElement",
   ],
-  zones: [],
+  zones: [
+    {
+      workspace: "server-core",
+      only: ["src/http/"],
+      globals: ["Bun"],
+      values: [],
+    },
+    {
+      workspace: "web",
+      only: ["src/editor-host/"],
+      globals: [],
+      values: ["@manent/editor", "@manent/crdt-binding"],
+    },
+  ],
 };
