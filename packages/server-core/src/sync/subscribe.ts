@@ -126,11 +126,16 @@ export function subscribedOf(
  * vector, otherwise what the vector lacks. Step 2's delete set also holds what Yjs deleted with a
  * deleted parent, so it comes after the deletions the rows after `lastServerSeq` made, when there
  * are any, which tell the client which of its own text that was. A device that holds nothing and
- * never synced has no text to set aside. Bytes that are not a state vector are refused, and may
- * be sent again.
+ * never synced has no text to set aside. The deletions are read only from committed rows, so what
+ * the write path holds is committed first; a failed commit answers every subscriber itself. Bytes
+ * that are not a state vector are refused, and may be sent again.
  */
 export function answerStepOne(
-  ports: { rooms: Rooms; deletions: Deletions },
+  ports: {
+    rooms: Rooms;
+    deletions: Deletions;
+    writePath: { queued(): number; flush(): void };
+  },
   room: Room,
   step: { vector: Uint8Array; lastServerSeq: number },
 ): Message[] {
@@ -144,6 +149,9 @@ export function answerStepOne(
     if (!(error instanceof CrdtUpdateError)) throw error;
     return [syncError("bad_update", doc, { permanent: false })];
   }
+  if (ports.writePath.queued() > 0) ports.writePath.flush();
+  // the commit failed: the room was dropped, and its subscribers told
+  if (room.doc === null) return [];
   const fresh = clocks.size === 0;
   const data = fresh ? ports.rooms.fullState(room) : room.doc.diff(step.vector);
   const stepTwo: Message = { type: "SYNC", ...doc, step: "step2", data };

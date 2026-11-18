@@ -210,6 +210,64 @@ test("an editor that comes back is sent what the rows it missed deleted before i
   ]);
 });
 
+test("a deletion still waiting to commit when a returning editor's step 1 arrives reaches it before its step 2, so its own text the deleter never saw is set aside", () => {
+  const { service, sam, priya, clock } = createServiceWorld();
+  const typist = createTypist(SAM_CLIENT);
+  const made = [
+    typist.insertBlock(BLOCK, null, "Rain"),
+    typist.insertBlock(BLOCK2, BLOCK, "Snow"),
+  ];
+  const priyaDoc = loadDoc(typist.doc.encodeState(), {
+    clientId: PRIYA_CLIENT,
+  });
+  made.push(typist.type(BLOCK, " [sam]"));
+  const deleted: Uint8Array[] = [];
+  const stop = priyaDoc.subscribe((update) => deleted.push(update));
+  scriptBody(priyaDoc).write((w) => w.deleteBlock(BLOCK));
+  stop();
+  service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT]));
+  service.receive(priya, subscribe(DOC, "edit", [PRIYA_CLIENT]));
+  made.forEach((update, i) => service.receive(sam, push(DOC, i + 1, update)));
+  clock.runDeferred();
+  sam.take();
+  service.receive(priya, push(DOC, 1, deleted[0]!));
+  const extra = { lastServerSeq: 3 };
+  service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT], extra));
+  service.receive(sam, step1(DOC, typist.doc.encodeStateVector()));
+  clock.runDeferred();
+  const own = new Set([SAM_CLIENT]);
+  const setAside = sam
+    .take()
+    .flatMap((m) =>
+      m.type === "SYNC" && m.step !== "step1"
+        ? applyRemote(typist.doc, m.data, own)
+        : [],
+    );
+  expect(setAside).toEqual([
+    { blockId: BLOCK, nearBlockId: BLOCK2, text: " [sam]" },
+  ]);
+});
+
+test("a step 1 whose waiting commit fails is answered only by the failed commit", () => {
+  const { service, sam, storage } = createServiceWorld();
+  service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT]));
+  service.receive(sam, push(DOC, 1, samTyping()));
+  sam.take();
+  storage.failNextCommit();
+  service.receive(sam, step1(DOC, EMPTY_VECTOR));
+  expect(sam.take()).toEqual([
+    {
+      type: "ERROR",
+      code: 1011,
+      message: "storage_failed",
+      permanent: false,
+      retryAfterMs: 1000,
+      clientSeq: null,
+      doc: { docId: DOC, generation: 1 },
+    },
+  ]);
+});
+
 test("the deletions a returning editor is sent are read from each row at most twice while the script is loaded", () => {
   const { storage, deleteSecond, comeBack } = deletedUnseen();
   const { log } = storage.open(HOME);

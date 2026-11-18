@@ -323,7 +323,7 @@ export function createSyncService(
       counted.awarenessDropped += presence.accept(room, peer, message.update);
     if (type !== "SYNC" || message.step !== "step1") return;
     const step = { vector: message.data, lastServerSeq };
-    for (const m of answerStepOne({ rooms, deletions }, room, step))
+    for (const m of answerStepOne({ rooms, deletions, writePath }, room, step))
       tell(peer, m);
   }
 
