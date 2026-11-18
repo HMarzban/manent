@@ -1,5 +1,4 @@
 // The sync service: who is connected, what they hold open, and every document message they send.
-import { CrdtUpdateError, readStateVector } from "@manent/crdt";
 import type { DocFile, Home, Storage } from "@manent/storage";
 import { CODE, prepareMessage } from "@manent/sync-protocol";
 import type { DocRef, Message, ServerVersions } from "@manent/sync-protocol";
@@ -7,6 +6,7 @@ import { createTokenBucket } from "../limits/bucket.ts";
 import type { TokenBucket } from "../limits/bucket.ts";
 import { createConnectionCaps } from "../limits/caps.ts";
 import { createDocumentAccess } from "./access.ts";
+import { createAwarenessHub } from "./awareness.ts";
 import type { DocumentAccess } from "./access.ts";
 import { createInlineCheckpointer } from "./checkpointer.ts";
 import { refusalError, syncError } from "./errors.ts";
@@ -22,8 +22,14 @@ import type {
 } from "./ports.ts";
 import { createRooms } from "./rooms.ts";
 import type { Room, Subscription } from "./rooms.ts";
-import { checkSubscribe, registerEditor, subscribedOf } from "./subscribe.ts";
+import {
+  checkSubscribe,
+  registerEditor,
+  stepTwo,
+  subscribedOf,
+} from "./subscribe.ts";
 import type { SubscribeMessage } from "./subscribe.ts";
+import { createSnapshotAnswers, viewPatchOf } from "./viewers.ts";
 import { createWritePath } from "./write-path.ts";
 
 export interface ServiceStats {
@@ -88,19 +94,8 @@ interface PeerState {
   held: Map<string, Held>;
 }
 
-/** What stats() counts; duplicates are the acknowledgements that answered no new entry. */
-interface Counted {
-  commits: number;
-  appended: number;
-  poisoned: number;
-  awarenessDropped: number;
-  skipped: number;
-  acks: number;
-  relayedSets: number;
-}
-
 /** The storage with every committed transaction counted; each file is wrapped once, so it keeps its identity. */
-function countingCommits(storage: Storage, counted: Counted): Storage {
+function countingCommits(storage: Storage, onCommit: () => void): Storage {
   const files = new Map<string, DocFile>();
   const open = (home: Home): DocFile => {
     const key = `${home.kind}:${home.id}`;
@@ -109,7 +104,7 @@ function countingCommits(storage: Storage, counted: Counted): Storage {
       ...inner,
       transaction<T>(fn: () => T): T {
         const result = inner.transaction(fn);
-        counted.commits += 1;
+        onCommit();
         return result;
       },
     };
@@ -129,7 +124,8 @@ export function createSyncService(
 ): SyncService {
   const { clock, defer } = options;
   const limits: SyncLimits = { ...DEFAULT_LIMITS, ...options.limits };
-  const counted: Counted = {
+  // duplicates are the acknowledgements that answered no new entry
+  const counted = {
     commits: 0,
     appended: 0,
     poisoned: 0,
@@ -139,7 +135,9 @@ export function createSyncService(
     relayedSets: 0,
   };
   const refused: Record<string, number> = {};
-  const storage = countingCommits(options.storage, counted);
+  const storage = countingCommits(options.storage, () => {
+    counted.commits += 1;
+  });
   const checkpointer =
     options.checkpointer ??
     createInlineCheckpointer({ storage: options.storage, defer });
@@ -149,6 +147,8 @@ export function createSyncService(
     versions: options.versions,
   });
   const caps = createConnectionCaps(limits);
+  const presence = createAwarenessHub({ clock, limits });
+  const snapshotOf = createSnapshotAnswers(options.storage);
   const peers = new Map<Peer, PeerState>();
   let closing = false;
 
@@ -166,6 +166,7 @@ export function createSyncService(
     const held = peers.get(peer)?.held.get(docId);
     if (held === undefined) return;
     peers.get(peer)?.held.delete(docId);
+    if (held.subscription.mode === "edit") presence.left(held.room, peer);
     held.room.editors.delete(peer);
     held.room.viewers.delete(peer);
     rooms.left(held.room);
@@ -199,7 +200,8 @@ export function createSyncService(
     },
     refuse: (peer, room, refusal) =>
       tell(peer, refusalError(refusal, docOf(room))),
-    publish({ room, sender, update, echo }) {
+    publish(committed) {
+      const { room, sender, update, echo } = committed;
       const prepared = prepareMessage({
         type: "SYNC",
         ...docOf(room),
@@ -208,6 +210,10 @@ export function createSyncService(
       });
       for (const peer of room.editors.keys())
         if (peer !== sender || echo) peer.send(prepared);
+      const patch = viewPatchOf(committed);
+      if (patch === null) return;
+      const viewed = prepareMessage(patch);
+      for (const peer of room.viewers.keys()) peer.send(viewed);
     },
     poisoned(poisoned) {
       counted.poisoned += poisoned.length;
@@ -266,6 +272,7 @@ export function createSyncService(
       return tell(peer, check.answer);
     }
     const { room, mode } = check;
+    if (mode === "view") presence.left(room, peer);
     room.editors.delete(peer);
     room.viewers.delete(peer);
     const { access: granted } = check;
@@ -280,30 +287,16 @@ export function createSyncService(
     (mode === "edit" ? room.editors : room.viewers).set(peer, subscription);
     tell(peer, subscribedOf(room, granted, room.row.headSeq));
     const vector = room.doc?.encodeStateVector();
-    if (mode === "edit" && vector !== undefined)
+    if (mode === "edit" && vector !== undefined) {
       tell(peer, { type: "SYNC", ...docOf(room), step: "step1", data: vector });
-  }
-
-  /** The server's step 2: the cached full state for an empty vector, otherwise what the vector lacks. */
-  function stepTwo(peer: Peer, held: Held, vector: Uint8Array): void {
-    const { room } = held;
-    if (room.doc === null) return;
-    let clocks: Map<number, number>;
-    try {
-      clocks = readStateVector(vector);
-    } catch (error) {
-      if (!(error instanceof CrdtUpdateError)) throw error;
-      return tell(
-        peer,
-        syncError("bad_update", docOf(room), { permanent: false }),
-      );
+      return presence.joined(room, peer);
     }
-    const data =
-      clocks.size === 0 ? rooms.fullState(room) : room.doc.diff(vector);
-    tell(peer, { type: "SYNC", ...docOf(room), step: "step2", data });
+    // a viewer's snapshot holds only what is committed
+    if (writePath.queued() > 0) writePath.flush();
+    tell(peer, snapshotOf(room));
   }
 
-  /** Anything else a client sends for a document, presence included for now, is ignored. */
+  /** Anything else a client sends for a document is ignored. */
   function receiveDocument(
     peer: Peer,
     state: PeerState,
@@ -312,7 +305,7 @@ export function createSyncService(
     const { type, docId } = message;
     if (type === "SUBSCRIBE") return subscribe(peer, state, message);
     if (type === "UNSUBSCRIBE") return end(peer, docId);
-    if (type !== "PUSH" && type !== "SET" && type !== "SYNC") return;
+    if (!["PUSH", "SET", "SYNC", "AWARENESS"].includes(type)) return;
     const held = state.held.get(docId);
     const notSubscribed = () =>
       tell(
@@ -324,7 +317,10 @@ export function createSyncService(
     if (type === "PUSH") return writePath.push(room, subscription, message);
     if (type === "SET") return writePath.set(room, subscription, message);
     if (subscription.mode !== "edit") return notSubscribed();
-    if (message.step === "step1") stepTwo(peer, held, message.data);
+    if (type === "AWARENESS")
+      counted.awarenessDropped += presence.accept(room, peer, message.update);
+    if (type === "SYNC" && message.step === "step1")
+      tell(peer, stepTwo(rooms, room, message.data));
   }
 
   function detach(peer: Peer): void {

@@ -1,4 +1,5 @@
 // The checks a SUBSCRIBE passes, in order (the first that fails is the answer), and what passing gives.
+import { CrdtUpdateError, readStateVector } from "@manent/crdt";
 import { gateDocument } from "@manent/sync-protocol";
 import type { Message } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
@@ -117,4 +118,24 @@ export function subscribedOf(
     revision: null,
     airWindow: null,
   };
+}
+
+/**
+ * The server's step 2 for an editor's step 1: the cached full state for an empty vector, otherwise
+ * what the vector lacks. Bytes that are not a state vector are refused, and may be sent again.
+ */
+export function stepTwo(rooms: Rooms, room: Room, vector: Uint8Array): Message {
+  const doc = { docId: room.docId, generation: room.row.generation };
+  if (room.doc === null)
+    throw new RangeError(`the room of ${room.docId} is not loaded`);
+  let clocks: Map<number, number>;
+  try {
+    clocks = readStateVector(vector);
+  } catch (error) {
+    if (!(error instanceof CrdtUpdateError)) throw error;
+    return syncError("bad_update", doc, { permanent: false });
+  }
+  const data =
+    clocks.size === 0 ? rooms.fullState(room) : room.doc.diff(vector);
+  return { type: "SYNC", ...doc, step: "step2", data };
 }
