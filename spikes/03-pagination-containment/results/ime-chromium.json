@@ -1,0 +1,208 @@
+{
+ "engine": "chromium",
+ "version": "159.0.8154.6",
+ "platform": "darwin-arm64",
+ "launched": true,
+ "reason": null,
+ "break": {
+  "block": 147,
+  "line": 3,
+  "offsetInBlock": 177,
+  "nextLineEnd": 233,
+  "blockStartOff": 10106
+ },
+ "carets": [
+  {
+   "caret": "end of the line before the break",
+   "offsetInBlock": 177,
+   "docOffset": 10283,
+   "caretPos": 10581,
+   "headBefore": 10581,
+   "I1": {
+    "pass": true,
+    "insertedAt": 10283
+   },
+   "I2": {
+    "pass": true,
+    "widgets": 1,
+    "textInsideWidget": false,
+    "brBeside": false,
+    "childrenBefore": [
+     "#text",
+     "DIV",
+     "#text"
+    ],
+    "childrenAfter": [
+     "#text",
+     "DIV",
+     "#text"
+    ]
+   },
+   "I3": {
+    "pass": true,
+    "recomputesBefore": 0,
+    "during": [
+     {
+      "text": "k",
+      "composing": true,
+      "recomputes": 0
+     },
+     {
+      "text": "ka",
+      "composing": true,
+      "recomputes": 0
+     },
+     {
+      "text": "kan",
+      "composing": true,
+      "recomputes": 0
+     }
+    ],
+    "committed": {
+     "composing": false,
+     "recomputes": 0
+    },
+    "firstAfter": {
+     "composing": false,
+     "recomputes": 1
+    },
+    "neededAPlainTransaction": true
+   },
+   "I4": {
+    "pass": true,
+    "pages": 120,
+    "coldPages": 120
+   }
+  },
+  {
+   "caret": "start of the line after the break",
+   "offsetInBlock": 177,
+   "docOffset": 10283,
+   "caretPos": 10581,
+   "headBefore": 10581,
+   "I1": {
+    "pass": true,
+    "insertedAt": 10283
+   },
+   "I2": {
+    "pass": true,
+    "widgets": 1,
+    "textInsideWidget": false,
+    "brBeside": false,
+    "childrenBefore": [
+     "#text",
+     "DIV",
+     "#text"
+    ],
+    "childrenAfter": [
+     "#text",
+     "DIV",
+     "#text"
+    ]
+   },
+   "I3": {
+    "pass": true,
+    "recomputesBefore": 0,
+    "during": [
+     {
+      "text": "k",
+      "composing": true,
+      "recomputes": 0
+     },
+     {
+      "text": "ka",
+      "composing": true,
+      "recomputes": 0
+     },
+     {
+      "text": "kan",
+      "composing": true,
+      "recomputes": 0
+     }
+    ],
+    "committed": {
+     "composing": false,
+     "recomputes": 0
+    },
+    "firstAfter": {
+     "composing": false,
+     "recomputes": 1
+    },
+    "neededAPlainTransaction": true
+   },
+   "I4": {
+    "pass": true,
+    "pages": 120,
+    "coldPages": 120
+   }
+  },
+  {
+   "caret": "mid-line after the break",
+   "offsetInBlock": 205,
+   "docOffset": 10311,
+   "caretPos": 10609,
+   "headBefore": 10609,
+   "I1": {
+    "pass": true,
+    "insertedAt": 10311
+   },
+   "I2": {
+    "pass": true,
+    "widgets": 1,
+    "textInsideWidget": false,
+    "brBeside": false,
+    "childrenBefore": [
+     "#text",
+     "DIV",
+     "#text"
+    ],
+    "childrenAfter": [
+     "#text",
+     "DIV",
+     "#text"
+    ]
+   },
+   "I3": {
+    "pass": true,
+    "recomputesBefore": 0,
+    "during": [
+     {
+      "text": "k",
+      "composing": true,
+      "recomputes": 0
+     },
+     {
+      "text": "ka",
+      "composing": true,
+      "recomputes": 0
+     },
+     {
+      "text": "kan",
+      "composing": true,
+      "recomputes": 0
+     }
+    ],
+    "committed": {
+     "composing": false,
+     "recomputes": 0
+    },
+    "firstAfter": {
+     "composing": false,
+     "recomputes": 1
+    },
+    "neededAPlainTransaction": true
+   },
+   "I4": {
+    "pass": true,
+    "pages": 120,
+    "coldPages": 120
+   }
+  }
+ ],
+ "outcome": {
+  "I1": "pass",
+  "I2": "pass",
+  "I3": "pass",
+  "I4": "pass"
+ }
+}

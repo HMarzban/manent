@@ -1,0 +1,1057 @@
+{
+ "engine": "chromium",
+ "version": "159.0.8154.6",
+ "platform": "darwin-arm64",
+ "zoom": 300,
+ "launched": true,
+ "keys": {
+  "docEnd": "ControlOrMeta+ArrowDown",
+  "docStart": "ControlOrMeta+ArrowUp",
+  "selectAll": "ControlOrMeta+a"
+ },
+ "checks": {
+  "B1_arrow_right_left_across_boundary": {
+   "flat": {
+    "startOff": 558834,
+    "offsets": {
+     "right": [
+      -3,
+      -2,
+      -1,
+      0,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "left": [
+      4,
+      3,
+      2,
+      1,
+      0,
+      0,
+      -1,
+      -2,
+      -3,
+      -4
+     ]
+    }
+   },
+   "sec": {
+    "startOff": 558834,
+    "offsets": {
+     "right": [
+      -3,
+      -2,
+      -1,
+      0,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "left": [
+      4,
+      3,
+      2,
+      1,
+      0,
+      0,
+      -1,
+      -2,
+      -3,
+      -4
+     ]
+    }
+   },
+   "secpg": {
+    "startOff": 558834,
+    "offsets": {
+     "right": [
+      -3,
+      -2,
+      -1,
+      0,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "left": [
+      4,
+      3,
+      2,
+      1,
+      0,
+      0,
+      -1,
+      -2,
+      -3,
+      -4
+     ]
+    }
+   }
+  },
+  "B2_arrow_down_up_400": {
+   "flat": {
+    "startOff": 555251,
+    "offsets": {
+     "afterDown": 14293,
+     "afterUp": -10
+    },
+    "crossedBoundary": true,
+    "caretInViewportAfterDown": true,
+    "caretInViewportAfterUp": true
+   },
+   "sec": {
+    "startOff": 555251,
+    "offsets": {
+     "afterDown": 14293,
+     "afterUp": -10
+    },
+    "crossedBoundary": true,
+    "caretInViewportAfterDown": true,
+    "caretInViewportAfterUp": true
+   },
+   "secpg": {
+    "startOff": 555251,
+    "offsets": {
+     "afterDown": 14293,
+     "afterUp": -13
+    },
+    "crossedBoundary": true,
+    "caretInViewportAfterDown": true,
+    "caretInViewportAfterUp": true
+   }
+  },
+  "B3_arrowdown_x3_offscreen_caret_next_section_skipped": {
+   "flat": {
+    "before": {
+     "nextSkipped": null,
+     "prevSkipped": null,
+     "rendered": null
+    },
+    "keys": [
+     "ArrowDown",
+     "ArrowDown",
+     "ArrowDown"
+    ],
+    "offsets": [
+     22,
+     38,
+     74
+    ],
+    "endsAtDocFraction": 0.4066,
+    "caretAfter": {
+     "top": 469,
+     "bottom": 523,
+     "left": 1128.5,
+     "inViewport": true
+    }
+   },
+   "sec": {
+    "before": {
+     "nextSkipped": false,
+     "prevSkipped": false,
+     "rendered": "4/168"
+    },
+    "keys": [
+     "ArrowDown",
+     "ArrowDown",
+     "ArrowDown"
+    ],
+    "offsets": [
+     22,
+     38,
+     74
+    ],
+    "endsAtDocFraction": 0.4066,
+    "caretAfter": {
+     "top": 469,
+     "bottom": 523,
+     "left": 1128.5,
+     "inViewport": true
+    }
+   },
+   "secpg": {
+    "before": {
+     "nextSkipped": false,
+     "prevSkipped": false,
+     "rendered": "4/168"
+    },
+    "keys": [
+     "ArrowDown",
+     "ArrowDown",
+     "ArrowDown"
+    ],
+    "offsets": [
+     22,
+     38,
+     74
+    ],
+    "endsAtDocFraction": 0.4066,
+    "caretAfter": {
+     "top": 469,
+     "bottom": 523,
+     "left": 1128.5,
+     "inViewport": true
+    }
+   }
+  },
+  "B3_arrowup_x3_offscreen_caret_prev_section_skipped": {
+   "flat": {
+    "before": {
+     "nextSkipped": null,
+     "prevSkipped": null,
+     "rendered": null
+    },
+    "keys": [
+     "ArrowUp",
+     "ArrowUp",
+     "ArrowUp"
+    ],
+    "offsets": [
+     -20,
+     -54,
+     -89
+    ],
+    "endsAtDocFraction": 0.4064,
+    "caretAfter": {
+     "top": 277,
+     "bottom": 331,
+     "left": 668,
+     "inViewport": true
+    }
+   },
+   "sec": {
+    "before": {
+     "nextSkipped": false,
+     "prevSkipped": false,
+     "rendered": "4/168"
+    },
+    "keys": [
+     "ArrowUp",
+     "ArrowUp",
+     "ArrowUp"
+    ],
+    "offsets": [
+     -20,
+     -54,
+     -89
+    ],
+    "endsAtDocFraction": 0.4064,
+    "caretAfter": {
+     "top": 277,
+     "bottom": 331,
+     "left": 668,
+     "inViewport": true
+    }
+   },
+   "secpg": {
+    "before": {
+     "nextSkipped": false,
+     "prevSkipped": false,
+     "rendered": "4/168"
+    },
+    "keys": [
+     "ArrowUp",
+     "ArrowUp",
+     "ArrowUp"
+    ],
+    "offsets": [
+     -20,
+     -54,
+     -89
+    ],
+    "endsAtDocFraction": 0.4064,
+    "caretAfter": {
+     "top": 277,
+     "bottom": 331,
+     "left": 668,
+     "inViewport": true
+    }
+   }
+  },
+  "B3_shift_arrowdown_x3_offscreen_caret": {
+   "flat": {
+    "before": {
+     "nextSkipped": null,
+     "prevSkipped": null,
+     "rendered": null
+    },
+    "keys": [
+     "Shift+ArrowDown",
+     "Shift+ArrowDown",
+     "Shift+ArrowDown"
+    ],
+    "offsets": [
+     22,
+     38,
+     74
+    ],
+    "endsAtDocFraction": 0.4066,
+    "caretAfter": {
+     "top": 469,
+     "bottom": 523,
+     "left": 1128.5,
+     "inViewport": true
+    }
+   },
+   "sec": {
+    "before": {
+     "nextSkipped": false,
+     "prevSkipped": false,
+     "rendered": "4/168"
+    },
+    "keys": [
+     "Shift+ArrowDown",
+     "Shift+ArrowDown",
+     "Shift+ArrowDown"
+    ],
+    "offsets": [
+     22,
+     38,
+     74
+    ],
+    "endsAtDocFraction": 0.4066,
+    "caretAfter": {
+     "top": 469,
+     "bottom": 523,
+     "left": 1128.5,
+     "inViewport": true
+    }
+   },
+   "secpg": {
+    "before": {
+     "nextSkipped": false,
+     "prevSkipped": false,
+     "rendered": "4/168"
+    },
+    "keys": [
+     "Shift+ArrowDown",
+     "Shift+ArrowDown",
+     "Shift+ArrowDown"
+    ],
+    "offsets": [
+     22,
+     38,
+     74
+    ],
+    "endsAtDocFraction": 0.4066,
+    "caretAfter": {
+     "top": 469,
+     "bottom": 523,
+     "left": 1128.5,
+     "inViewport": true
+    }
+   }
+  },
+  "B3_arrowright_x8_offscreen_caret_next_section_skipped": {
+   "flat": {
+    "before": {
+     "nextSkipped": null,
+     "prevSkipped": null,
+     "rendered": null
+    },
+    "keys": [
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight"
+    ],
+    "offsets": [
+     -3,
+     -2,
+     -1,
+     0,
+     0,
+     1,
+     2,
+     3
+    ],
+    "endsAtDocFraction": 0.4065,
+    "caretAfter": {
+     "top": 469,
+     "bottom": 523,
+     "left": 466.34375,
+     "inViewport": true
+    }
+   },
+   "sec": {
+    "before": {
+     "nextSkipped": false,
+     "prevSkipped": false,
+     "rendered": "4/168"
+    },
+    "keys": [
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight"
+    ],
+    "offsets": [
+     -3,
+     -2,
+     -1,
+     0,
+     0,
+     1,
+     2,
+     3
+    ],
+    "endsAtDocFraction": 0.4065,
+    "caretAfter": {
+     "top": 469,
+     "bottom": 523,
+     "left": 466.34375,
+     "inViewport": true
+    }
+   },
+   "secpg": {
+    "before": {
+     "nextSkipped": false,
+     "prevSkipped": false,
+     "rendered": "4/168"
+    },
+    "keys": [
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight",
+     "ArrowRight"
+    ],
+    "offsets": [
+     -3,
+     -2,
+     -1,
+     0,
+     0,
+     1,
+     2,
+     3
+    ],
+    "endsAtDocFraction": 0.4065,
+    "caretAfter": {
+     "top": 469,
+     "bottom": 523,
+     "left": 466.34375,
+     "inViewport": true
+    }
+   }
+  },
+  "B4_doc_end_and_start_keys": {
+   "flat": {
+    "keys": {
+     "end": "ControlOrMeta+ArrowDown",
+     "start": "ControlOrMeta+ArrowUp",
+     "shift": "Shift"
+    },
+    "textLen": 1374715,
+    "offsets": [
+     [
+      1374715,
+      1374715
+     ],
+     [
+      1374715,
+      1374715
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      558834,
+      1374715
+     ],
+     [
+      558834,
+      0
+     ]
+    ],
+    "endCaretInViewport": true,
+    "endPxFromBottom": 0,
+    "startScrollTop": 0,
+    "startCaretInViewport": true
+   },
+   "sec": {
+    "keys": {
+     "end": "ControlOrMeta+ArrowDown",
+     "start": "ControlOrMeta+ArrowUp",
+     "shift": "Shift"
+    },
+    "textLen": 1374715,
+    "offsets": [
+     [
+      1374715,
+      1374715
+     ],
+     [
+      1374715,
+      1374715
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      558834,
+      1374715
+     ],
+     [
+      558834,
+      0
+     ]
+    ],
+    "endCaretInViewport": true,
+    "endPxFromBottom": 280,
+    "startScrollTop": 328,
+    "startCaretInViewport": true
+   },
+   "secpg": {
+    "keys": {
+     "end": "ControlOrMeta+ArrowDown",
+     "start": "ControlOrMeta+ArrowUp",
+     "shift": "Shift"
+    },
+    "textLen": 1374715,
+    "offsets": [
+     [
+      1374715,
+      1374715
+     ],
+     [
+      1374715,
+      1374715
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      558834,
+      1374715
+     ],
+     [
+      558834,
+      0
+     ]
+    ],
+    "endCaretInViewport": true,
+    "endPxFromBottom": 280,
+    "startScrollTop": 280,
+    "startCaretInViewport": true
+   }
+  },
+  "C1_shift_click_across_sections": {
+   "flat": {
+    "offsets": {
+     "anchorOff": 558888,
+     "headFromTarget": 0
+    },
+    "selectedChars": 417897,
+    "domSelectionChars": 427735,
+    "sectionsRendered": null
+   },
+   "sec": {
+    "offsets": {
+     "anchorOff": 558888,
+     "headFromTarget": 0
+    },
+    "selectedChars": 417897,
+    "domSelectionChars": 427735,
+    "sectionsRendered": "53/168"
+   },
+   "secpg": {
+    "offsets": {
+     "anchorOff": 558888,
+     "headFromTarget": 0
+    },
+    "selectedChars": 449579,
+    "domSelectionChars": 460282,
+    "sectionsRendered": "57/168"
+   }
+  },
+  "C2_selection_over_85pct_of_doc": {
+   "flat": {
+    "offsets": {
+     "anchorOff": 68735,
+     "headOff": 1237263
+    },
+    "before": {
+     "anchorOff": 68735,
+     "headOff": 1237243
+    },
+    "sectionsRendered": null,
+    "shiftArrowKeyToFrameMs": {
+     "p50": 34.7,
+     "max": 42.7,
+     "n": 40
+    }
+   },
+   "sec": {
+    "offsets": {
+     "anchorOff": 68735,
+     "headOff": 1237263
+    },
+    "before": {
+     "anchorOff": 68735,
+     "headOff": 1237243
+    },
+    "sectionsRendered": "144/168",
+    "shiftArrowKeyToFrameMs": {
+     "p50": 33.7,
+     "max": 37.6,
+     "n": 40
+    }
+   },
+   "secpg": {
+    "offsets": {
+     "anchorOff": 68735,
+     "headOff": 1237263
+    },
+    "before": {
+     "anchorOff": 68735,
+     "headOff": 1237243
+    },
+    "sectionsRendered": "144/168",
+    "shiftArrowKeyToFrameMs": {
+     "p50": 34.8,
+     "max": 42.7,
+     "n": 40
+    }
+   }
+  },
+  "C3_select_all": {
+   "flat": {
+    "key": "ControlOrMeta+a",
+    "pmSelection": "all",
+    "coversAll": true,
+    "domSelectionChars": 1408133,
+    "sectionsRenderedWhileSelected": null,
+    "selectAllKeyToFrameMs": 38.1,
+    "sectionsRenderedAfterCollapse": null
+   },
+   "sec": {
+    "key": "ControlOrMeta+a",
+    "pmSelection": "all",
+    "coversAll": true,
+    "domSelectionChars": 1408133,
+    "sectionsRenderedWhileSelected": "168/168",
+    "selectAllKeyToFrameMs": 57.6,
+    "sectionsRenderedAfterCollapse": "2/168"
+   },
+   "secpg": {
+    "key": "ControlOrMeta+a",
+    "pmSelection": "all",
+    "coversAll": true,
+    "domSelectionChars": 1408238,
+    "sectionsRenderedWhileSelected": "168/168",
+    "selectAllKeyToFrameMs": 67.2,
+    "sectionsRenderedAfterCollapse": "2/168"
+   }
+  },
+  "K1_arrows_across_a_page_break_on_a_section_boundary": {
+   "flat": {
+    "block": 7300,
+    "offsets": {
+     "start": 606747,
+     "down": 606761,
+     "up": 606747,
+     "shift": {
+      "anchorOff": 606747,
+      "headOff": 606761
+     }
+    },
+    "landedAfterBreak": true,
+    "returned": true,
+    "selectedOneLine": true
+   },
+   "sec": {
+    "block": 7300,
+    "offsets": {
+     "start": 606747,
+     "down": 606761,
+     "up": 606747,
+     "shift": {
+      "anchorOff": 606747,
+      "headOff": 606761
+     }
+    },
+    "landedAfterBreak": true,
+    "returned": true,
+    "selectedOneLine": true
+   },
+   "secpg": {
+    "block": 7300,
+    "offsets": {
+     "start": 606747,
+     "down": 606761,
+     "up": 606747,
+     "shift": {
+      "anchorOff": 606747,
+      "headOff": 606761
+     }
+    },
+    "landedAfterBreak": true,
+    "returned": true,
+    "selectedOneLine": true
+   }
+  },
+  "K3_type_at_both_ends_of_a_split_block": {
+   "flat": {
+    "block": 8431,
+    "start": {
+     "offsets": {
+      "caretBefore": 705041,
+      "typedAt": 705041,
+      "caretAfter": 705042
+     },
+     "landedAtCaret": true,
+     "midWidgetsInBlock": 0
+    },
+    "end": {
+     "offsets": {
+      "caretBefore": 705561,
+      "typedAt": 705561,
+      "caretAfter": 705562
+     },
+     "landedAtCaret": true,
+     "midWidgetsInBlock": 0
+    }
+   },
+   "sec": {
+    "block": 8431,
+    "start": {
+     "offsets": {
+      "caretBefore": 705041,
+      "typedAt": 705041,
+      "caretAfter": 705042
+     },
+     "landedAtCaret": true,
+     "midWidgetsInBlock": 0
+    },
+    "end": {
+     "offsets": {
+      "caretBefore": 705561,
+      "typedAt": 705561,
+      "caretAfter": 705562
+     },
+     "landedAtCaret": true,
+     "midWidgetsInBlock": 0
+    }
+   },
+   "secpg": {
+    "block": 8431,
+    "start": {
+     "offsets": {
+      "caretBefore": 705041,
+      "typedAt": 705041,
+      "caretAfter": 705042
+     },
+     "landedAtCaret": true,
+     "midWidgetsInBlock": 1
+    },
+    "end": {
+     "offsets": {
+      "caretBefore": 705561,
+      "typedAt": 705561,
+      "caretAfter": 705562
+     },
+     "landedAtCaret": true,
+     "midWidgetsInBlock": 1
+    }
+   }
+  },
+  "K2_across_oversized_section_B1": {
+   "flat": {
+    "startOff": 670617,
+    "offsets": {
+     "right": [
+      -3,
+      -2,
+      -1,
+      0,
+      0,
+      1,
+      2,
+      3,
+      4,
+      4
+     ],
+     "left": [
+      4,
+      3,
+      2,
+      1,
+      0,
+      0,
+      -1,
+      -2,
+      -3,
+      -4
+     ]
+    }
+   },
+   "sec": {
+    "startOff": 670617,
+    "offsets": {
+     "right": [
+      -3,
+      -2,
+      -1,
+      0,
+      0,
+      1,
+      2,
+      3,
+      4,
+      4
+     ],
+     "left": [
+      4,
+      3,
+      2,
+      1,
+      0,
+      0,
+      -1,
+      -2,
+      -3,
+      -4
+     ]
+    }
+   },
+   "secpg": {
+    "startOff": 670617,
+    "offsets": {
+     "right": [
+      -3,
+      -2,
+      -1,
+      0,
+      0,
+      1,
+      2,
+      3,
+      4,
+      4
+     ],
+     "left": [
+      4,
+      3,
+      2,
+      1,
+      0,
+      0,
+      -1,
+      -2,
+      -3,
+      -4
+     ]
+    }
+   }
+  },
+  "K2_inside_oversized_section_B1": {
+   "flat": {
+    "startOff": 687599,
+    "offsets": {
+     "right": [
+      -3,
+      -2,
+      -1,
+      0,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "left": [
+      4,
+      3,
+      2,
+      1,
+      0,
+      0,
+      -1,
+      -2,
+      -3,
+      -4
+     ]
+    }
+   },
+   "sec": {
+    "startOff": 687599,
+    "offsets": {
+     "right": [
+      -3,
+      -2,
+      -1,
+      0,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "left": [
+      4,
+      3,
+      2,
+      1,
+      0,
+      0,
+      -1,
+      -2,
+      -3,
+      -4
+     ]
+    }
+   },
+   "secpg": {
+    "startOff": 687599,
+    "offsets": {
+     "right": [
+      -3,
+      -2,
+      -1,
+      0,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "left": [
+      4,
+      3,
+      2,
+      1,
+      0,
+      0,
+      -1,
+      -2,
+      -3,
+      -4
+     ]
+    }
+   }
+  },
+  "K2_across_oversized_section_B2": {
+   "flat": {
+    "startOff": 666282,
+    "offsets": {
+     "afterDown": 12743,
+     "afterUp": -1
+    },
+    "crossedBoundary": true,
+    "caretInViewportAfterDown": true,
+    "caretInViewportAfterUp": true
+   },
+   "sec": {
+    "startOff": 666282,
+    "offsets": {
+     "afterDown": 12743,
+     "afterUp": -1
+    },
+    "crossedBoundary": true,
+    "caretInViewportAfterDown": true,
+    "caretInViewportAfterUp": true
+   },
+   "secpg": {
+    "startOff": 666282,
+    "offsets": {
+     "afterDown": 12743,
+     "afterUp": -8
+    },
+    "crossedBoundary": true,
+    "caretInViewportAfterDown": true,
+    "caretInViewportAfterUp": true
+   }
+  },
+  "K2_inside_oversized_section_B2": {
+   "flat": {
+    "startOff": 683914,
+    "offsets": {
+     "afterDown": 12783,
+     "afterUp": 12
+    },
+    "crossedBoundary": true,
+    "caretInViewportAfterDown": true,
+    "caretInViewportAfterUp": true
+   },
+   "sec": {
+    "startOff": 683914,
+    "offsets": {
+     "afterDown": 12783,
+     "afterUp": 12
+    },
+    "crossedBoundary": true,
+    "caretInViewportAfterDown": true,
+    "caretInViewportAfterUp": true
+   },
+   "secpg": {
+    "startOff": 683914,
+    "offsets": {
+     "afterDown": 12758,
+     "afterUp": -10
+    },
+    "crossedBoundary": true,
+    "caretInViewportAfterDown": true,
+    "caretInViewportAfterUp": true
+   }
+  }
+ },
+ "verdict": {
+  "B1_arrow_right_left_across_boundary": "same as flat",
+  "B2_arrow_down_up_400": "differs",
+  "B3_arrowdown_x3_offscreen_caret_next_section_skipped": "same as flat",
+  "B3_arrowup_x3_offscreen_caret_prev_section_skipped": "same as flat",
+  "B3_shift_arrowdown_x3_offscreen_caret": "same as flat",
+  "B3_arrowright_x8_offscreen_caret_next_section_skipped": "same as flat",
+  "B4_doc_end_and_start_keys": "same as flat",
+  "C1_shift_click_across_sections": "same as flat",
+  "C2_selection_over_85pct_of_doc": "same as flat",
+  "C3_select_all": "reported",
+  "K1_arrows_across_a_page_break_on_a_section_boundary": "same as flat",
+  "K3_type_at_both_ends_of_a_split_block": "same as flat",
+  "K2_across_oversized_section_B1": "same as flat",
+  "K2_inside_oversized_section_B1": "same as flat",
+  "K2_across_oversized_section_B2": "differs",
+  "K2_inside_oversized_section_B2": "differs"
+ }
+}

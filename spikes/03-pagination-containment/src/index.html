@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pagination and containment</title>
+<style>
+body { margin: 0; background: #ccc; }
+#desk { width: 816px; margin: 0 auto; }
+.page.ProseMirror { padding-top: 96px; padding-bottom: 96px; outline: none; }
+.el.page-top { margin-top: 0; }
+.pb { width: 816px; margin-left: -144px; }
+.el-dialogue > .pb { margin-left: calc(-144px - 10 * 9.6px); }
+.pb .more, .pb .cue { height: 16px; margin-left: calc(144px + 22 * 9.6px); }
+.pb .more::before, .pb .cue::before { content: attr(data-text); }
+</style>
+</head>
+<body>
+<div id="desk"><div class="page"></div></div>
+<script type="module" src="./app.ts"></script>
+</body>
+</html>
