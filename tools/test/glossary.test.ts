@@ -19,6 +19,24 @@ const repoRoot = join(import.meta.dir, "..", "..");
 const trees = createTempTrees("manent glossary ");
 afterAll(trees.removeAll);
 
+const SCOPED_DOCUMENT = [
+  "export const D = {",
+  "  scriptScopeLine: (t: string) => `Shared. Everyone on ${t} sees these.`,",
+  '  ownPreferences: "Your own preferences",',
+  "  setBy: (name: string) => `Set by ${name}`,",
+  '  readOnlySettings: "Read only",',
+  '  back: "‹ Library",',
+  "};",
+].join("\n");
+/** The word files that carry a scope, each holding every key its scope names. */
+const SCOPED_FILES = {
+  "packages/ui/src/words/preferences.ts":
+    'export const P = { a: "Reset all preferences" };',
+  "packages/ui/src/words/sync-centre.ts":
+    'export const S = { title: "Sync centre" };',
+  "packages/ui/src/words/document.ts": SCOPED_DOCUMENT,
+};
+
 const s = (text: string): StringSource => ({ file: "x", text, scope: "any" });
 const rules = (texts: readonly string[]) =>
   checkStrings(texts.map(s)).map((v) => [v.rule, v.word]);
@@ -175,15 +193,7 @@ test("the strings of a source are its literals' words, with imports, code values
       '  line: (n: number) => `${n} of ${count({ n })} waiting`, sep: " · ",',
       "  pair: (a: string, b: string) => `${a}${b} left` };",
     ].join("\n"),
-    "packages/ui/src/words/preferences.ts":
-      'export const P = { a: "Reset all preferences" };',
-    "packages/ui/src/words/document.ts": [
-      "export const D = {",
-      "  scriptScopeLine: (t: string) => `Shared. Everyone on ${t} sees these.`,",
-      '  ownPreferences: "Your own preferences",',
-      '  back: "‹ Library",',
-      "};",
-    ].join("\n"),
+    ...SCOPED_FILES,
     "apps/web/src/text.ts": 'export const TEXT = { a: "Choose who you are" };',
   });
   expect(await interfaceStrings(root)).toEqual([
@@ -207,6 +217,16 @@ test("the strings of a source are its literals' words, with imports, code values
     },
     {
       file: "packages/ui/src/words/document.ts",
+      text: "Set by {}",
+      scope: "shared",
+    },
+    {
+      file: "packages/ui/src/words/document.ts",
+      text: "Read only",
+      scope: "shared",
+    },
+    {
+      file: "packages/ui/src/words/document.ts",
       text: "‹ Library",
       scope: "any",
     },
@@ -215,8 +235,34 @@ test("the strings of a source are its literals' words, with imports, code values
       text: "Reset all preferences",
       scope: "personal",
     },
+    {
+      file: "packages/ui/src/words/sync-centre.ts",
+      text: "Sync centre",
+      scope: "personal",
+    },
     { file: "apps/web/src/text.ts", text: "Choose who you are", scope: "any" },
   ]);
+});
+
+test("a scope that names a key no table holds stops the check", async () => {
+  const root = await trees.tree({
+    ...SCOPED_FILES,
+    "packages/ui/src/words/document.ts": SCOPED_DOCUMENT.replace(
+      "  setBy:",
+      "  setsBy:",
+    ),
+  });
+  await expect(interfaceStrings(root)).rejects.toThrow(
+    "packages/ui/src/words/document.ts: the scope key setBy matches no table key",
+  );
+});
+
+test("a scoped file that is missing stops the check", async () => {
+  const { "packages/ui/src/words/sync-centre.ts": _, ...rest } = SCOPED_FILES;
+  const root = await trees.tree(rest);
+  await expect(interfaceStrings(root)).rejects.toThrow(
+    "packages/ui/src/words/sync-centre.ts has a scope but was not read",
+  );
 });
 
 test("the vocabulary file holds words only", async () => {

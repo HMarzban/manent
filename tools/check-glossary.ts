@@ -274,6 +274,10 @@ function stringsOf(file: string, source: string): StringSource[] {
     key: m[1] ?? "",
   }));
   const scopes = SCOPES[file] ?? "any";
+  if (typeof scopes !== "string")
+    for (const key of Object.keys(scopes))
+      if (!keys.some((k) => k.key === key))
+        throw new Error(`${file}: the scope key ${key} matches no table key`);
   const scopeAt = (offset: number): StringSource["scope"] => {
     if (typeof scopes === "string") return scopes;
     const key = keys.findLast((k) => k.at < offset)?.key ?? "";
@@ -303,7 +307,7 @@ async function listIfPresent(dir: string): Promise<string[]> {
   }
 }
 
-/** The string literals of the interface's word tables and the web app's sentences, in file order; a missing file is skipped. */
+/** The string literals of the interface's word tables and the web app's sentences, in file order; a missing file is skipped, unless it carries a scope. */
 export async function interfaceStrings(root: string): Promise<StringSource[]> {
   const listed = await listIfPresent(join(root, WORDS_DIR));
   const files = [
@@ -314,9 +318,15 @@ export async function interfaceStrings(root: string): Promise<StringSource[]> {
     ...FILES,
   ];
   const found: StringSource[] = [];
+  const read = new Set<string>();
   for (const file of files) {
     const source = await readIfPresent(join(root, file));
-    if (source !== null) found.push(...stringsOf(file, source));
+    if (source === null) continue;
+    read.add(file);
+    found.push(...stringsOf(file, source));
   }
+  for (const file of Object.keys(SCOPES))
+    if (!read.has(file))
+      throw new Error(`${file} has a scope but was not read`);
   return found;
 }
