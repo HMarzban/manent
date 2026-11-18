@@ -245,9 +245,9 @@ function resumeOf(column: readonly ColumnPiece[], row: number): Point | null {
   return at === "done" ? null : at;
 }
 
-// The rows a run that does not fit is cut at, one per column; null when it moves whole. A run taller
-// than the split threshold is cut at one row for both columns; first on its page, a run that has no
-// such row is cut in each column at the last line boundary that fits.
+// The rows a run that does not fit is cut at, one per column; null when it moves whole. A tall run is
+// cut at one row for both columns; with none, each column is cut at its last line boundary that fits,
+// if the run is first on its page, or a line fits and only kept blocks are above it.
 function cutRows(
   flow: Flow,
   sheet: Sheet,
@@ -256,17 +256,17 @@ function cutRows(
   avail: number,
 ): readonly [number, number] | null {
   const limit = avail - dualMoreOf(flow);
-  const { minLines, dualSplitAbove } = flow.profile.rules;
-  const edge = minLines * UNITS_PER_LINE;
-  const row =
-    height > flow.cap * dualSplitAbove
-      ? lastCutRow(columns, edge, Math.min(limit, height - edge))
-      : -1;
+  const edge = flow.profile.rules.minLines * UNITS_PER_LINE;
+  const tall = height > flow.cap * flow.profile.rules.dualSplitAbove;
+  const row = tall
+    ? lastCutRow(columns, edge, Math.min(limit, height - edge))
+    : -1;
   if (row > 0) return [row, row];
-  if (!sheet.atTop) return null;
+  if (!sheet.atTop && !(tall && sheet.onlyKeeps)) return null;
   const last = (column: readonly ColumnPiece[]) =>
     Math.max(0, lastCutRow([column], 1, limit));
-  return [last(columns[0]), last(columns[1])];
+  const rows = [last(columns[0]), last(columns[1])] as const;
+  return sheet.atTop || Math.max(...rows) > 0 ? rows : null;
 }
 
 // Places what fits of a dual run, both columns as one unit; null when all of it was placed.

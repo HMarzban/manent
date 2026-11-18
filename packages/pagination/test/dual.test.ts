@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { paginate, profileFor } from "../src/index.ts";
 import type { Pagination } from "../src/index.ts";
-import { cueBlock, filledBlock } from "../src/testing/index.ts";
+import { block, cueBlock, filledBlock } from "../src/testing/index.ts";
 
 const sp = profileFor("screenplay")!;
 const starts = (p: Pagination) => p.pages.map((x) => [x.block, x.line]);
@@ -54,4 +54,36 @@ test("a right column with no left column is ordinary dialogue", () => {
       sp,
     ).pages[0]!.usedUnits,
   ).toBe(6);
+});
+
+test("a scene heading is never left alone above a tall run whose columns share no cut row", () => {
+  const p = paginate(
+    [
+      block("scene_heading", "INT. HALL - NIGHT"),
+      cueBlock("MARA", { dual: "left" }),
+      block("parenthetical", "beat", { dual: "left" }),
+      filledBlock("dialogue", 30, { dual: "left" }),
+      cueBlock("COLE", { dual: "right" }),
+      filledBlock("dialogue", 30, { dual: "right" }),
+    ],
+    profileFor("multicam")!,
+  );
+  expect(
+    p.pages.map((x) => [x.block, x.line, x.right, x.more, x.usedUnits]),
+  ).toEqual([
+    [0, 0, null, true, 108],
+    [3, 24, { block: 5, line: 25, offset: 700 }, false, 26],
+  ]);
+});
+
+test("a tall run moves whole when not one line of it fits below kept blocks", () => {
+  const p = paginate(
+    [filledBlock("shot", 52), ...run(30, 30)],
+    profileFor("multicam")!,
+  );
+  expect(p.pages.map((x) => [x.block, x.line, x.more, x.usedUnits])).toEqual([
+    [0, 0, false, 104],
+    [1, 0, true, 108],
+    [2, 26, false, 18],
+  ]);
 });
