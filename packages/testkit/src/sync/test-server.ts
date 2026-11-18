@@ -81,6 +81,57 @@ async function readJson(response: Response, what: string): Promise<unknown> {
   return response.json();
 }
 
+/** A session token for `userId` from the server at `url`. */
+async function signIn(url: string, userId: string): Promise<string> {
+  const response = await fetch(`${url}/api/sign-in`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+  const body = await readJson(response, `the sign-in of ${userId}`);
+  const value =
+    typeof body === "object" && body !== null && "token" in body
+      ? body.token
+      : null;
+  if (typeof value !== "string")
+    throw new Error(`the sign-in of ${userId} gave no token`);
+  return value;
+}
+
+async function postDocument(
+  url: string,
+  userId: string,
+  request: { docId: string; kind: string; home: string },
+): Promise<void> {
+  const response = await fetch(`${url}/api/docs`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${await signIn(url, userId)}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+  await readJson(response, `creating ${request.docId}`);
+}
+
+function spawnServer(port: number, dataDir: string): Subprocess {
+  return Bun.spawn(
+    [process.execPath, "--no-orphans", "apps/server/src/main.ts"],
+    {
+      cwd: ROOT,
+      env: {
+        ...process.env,
+        MANENT_DEMO: "1",
+        MANENT_PORT: String(port),
+        MANENT_DATA_DIR: dataDir,
+      },
+      stdin: "ignore",
+      stdout: "inherit",
+      stderr: "inherit",
+    },
+  );
+}
+
 /** The real program on a free port of 127.0.0.1; a fresh data directory, which the caller removes, unless one is given. */
 export async function startTestServer(options?: {
   dataDir?: string;
@@ -97,57 +148,17 @@ export async function startTestServer(options?: {
     await child.exited;
   }
 
-  async function token(userId: string): Promise<string> {
-    const response = await fetch(`${url}/api/sign-in`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId }),
-    });
-    const body = await readJson(response, `the sign-in of ${userId}`);
-    const value =
-      typeof body === "object" && body !== null && "token" in body
-        ? body.token
-        : null;
-    if (typeof value !== "string")
-      throw new Error(`the sign-in of ${userId} gave no token`);
-    return value;
-  }
-
   const server: TestServer = {
     url,
     port,
     dataDir,
-    token,
-    async createDocument(userId, request) {
-      const response = await fetch(`${url}/api/docs`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${await token(userId)}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(request),
-      });
-      await readJson(response, `creating ${request.docId}`);
-    },
+    token: (userId) => signIn(url, userId),
+    createDocument: (userId, request) => postDocument(url, userId, request),
     kill: () => end("SIGKILL"),
     stop: () => end("SIGTERM"),
     async start() {
       if (child !== null && !hasExited(child)) return;
-      const spawned = Bun.spawn(
-        [process.execPath, "--no-orphans", "apps/server/src/main.ts"],
-        {
-          cwd: ROOT,
-          env: {
-            ...process.env,
-            MANENT_DEMO: "1",
-            MANENT_PORT: String(port),
-            MANENT_DATA_DIR: dataDir,
-          },
-          stdin: "ignore",
-          stdout: "inherit",
-          stderr: "inherit",
-        },
-      );
+      const spawned = spawnServer(port, dataDir);
       child = spawned;
       await awaitHealth(spawned, url);
     },

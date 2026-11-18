@@ -84,6 +84,58 @@ function lastBlockId(handle: DocHandle): string | null {
   );
 }
 
+/** A block of the element `action` holding `marker`, under a fresh id. */
+function actionLine(marker: string): BlockJSON {
+  return {
+    type: "block",
+    attrs: { id: randomBlockId(), type: "action" },
+    content: [{ type: "text", text: marker }],
+  };
+}
+
+/**
+ * Records each marker in the ledger as typed, and as acknowledged once the handle it was typed on
+ * next reports nothing waiting; the acknowledged prefix advances in typing order.
+ */
+function watchAcknowledgements(ledger: AckLedger): {
+  typed(handle: DocHandle, marker: string): void;
+  stop(): void;
+} {
+  /** By ledger position: whether that marker is acknowledged. */
+  const acknowledged: boolean[] = [];
+  /** Per handle typed on: the ledger positions not yet acknowledged, and the status listener. */
+  const watched = new Map<DocHandle, { waiting: number[]; stop: () => void }>();
+
+  const settle = (positions: number[]): void => {
+    for (const position of positions.splice(0)) acknowledged[position] = true;
+    const through = acknowledged.findIndex((done) => !done);
+    ledger.acknowledgedThrough(through === -1 ? acknowledged.length : through);
+  };
+
+  const waitingOn = (handle: DocHandle): number[] => {
+    const known = watched.get(handle);
+    if (known !== undefined) return known.waiting;
+    const waiting: number[] = [];
+    const stop = handle.status.subscribe((status) => {
+      if (status.waiting === 0) settle(waiting);
+    });
+    watched.set(handle, { waiting, stop });
+    return waiting;
+  };
+
+  return {
+    typed(handle, marker) {
+      waitingOn(handle).push(acknowledged.length);
+      acknowledged.push(false);
+      ledger.typed(marker);
+    },
+    stop() {
+      for (const { stop } of watched.values()) stop();
+      watched.clear();
+    },
+  };
+}
+
 /** A memory store unless one is given, and a fresh device unless one is named. */
 export function createBot(options: {
   server: { url: string };
@@ -114,27 +166,7 @@ export function createBot(options: {
     },
   });
   const ledger = createAckLedger();
-  /** By ledger position: whether that marker is acknowledged. */
-  const acknowledged: boolean[] = [];
-  /** Per handle typed on: the ledger positions not yet acknowledged, and the status listener. */
-  const watched = new Map<DocHandle, { waiting: number[]; stop: () => void }>();
-
-  const settle = (positions: number[]): void => {
-    for (const position of positions.splice(0)) acknowledged[position] = true;
-    const through = acknowledged.findIndex((done) => !done);
-    ledger.acknowledgedThrough(through === -1 ? acknowledged.length : through);
-  };
-
-  const watch = (handle: DocHandle): number[] => {
-    const known = watched.get(handle);
-    if (known !== undefined) return known.waiting;
-    const waiting: number[] = [];
-    const stop = handle.status.subscribe((status) => {
-      if (status.waiting === 0) settle(waiting);
-    });
-    watched.set(handle, { waiting, stop });
-    return waiting;
-  };
+  const acknowledgements = watchAcknowledgements(ledger);
 
   return {
     userId,
@@ -142,18 +174,10 @@ export function createBot(options: {
     ledger,
     open: (docId) => client.open(docId),
     typeLine(handle, marker) {
-      const waiting = watch(handle);
       const after = lastBlockId(handle);
-      const line: BlockJSON = {
-        type: "block",
-        attrs: { id: randomBlockId(), type: "action" },
-        content: [{ type: "text", text: marker }],
-      };
-      waiting.push(acknowledged.length);
-      acknowledged.push(false);
-      ledger.typed(marker);
+      acknowledgements.typed(handle, marker);
       scriptBody(handle.doc()).write((writer) =>
-        writer.insertBlocks(after, [line]),
+        writer.insertBlocks(after, [actionLine(marker)]),
       );
     },
     typeInto(handle, blockId, text) {
@@ -170,8 +194,7 @@ export function createBot(options: {
       );
     },
     async close() {
-      for (const { stop } of watched.values()) stop();
-      watched.clear();
+      acknowledgements.stop();
       await client.close();
     },
   };
