@@ -5,6 +5,13 @@ import { parseFrom } from "./identity.ts";
 import { isBoolean, isCount, isString, oneOf, orNull } from "./shape.ts";
 import type { Check } from "./shape.ts";
 
+const ELEMENT_NAME = /^[a-z_]{1,32}$/;
+
+/** The shape every element name has, known to this build or not. */
+export function isElementName(value: unknown): value is string {
+  return isString(value) && ELEMENT_NAME.test(value);
+}
+
 /** The valid values of each block attribute except `id` and `type`, which have their own codes. */
 export const BLOCK_ATTR_CHECKS: Readonly<
   Record<Exclude<keyof BlockAttrs, "id" | "type">, Check>

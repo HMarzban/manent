@@ -1,6 +1,6 @@
 // What is wrong with a stored document, and how much it matters.
 import { fillBlockAttrs } from "./attrs.ts";
-import { BLOCK_ATTR_CHECKS } from "./block-attr-checks.ts";
+import { BLOCK_ATTR_CHECKS, isElementName } from "./block-attr-checks.ts";
 import { isBlockType } from "./block-types.ts";
 import { isBlockId } from "./identity.ts";
 import {
@@ -62,8 +62,6 @@ const SEVERITY: Record<IssueCode, Severity> = {
   empty_section: "repair",
   empty_doc: "repair",
 };
-
-const ELEMENT_NAME = /^[a-z_]{1,32}$/;
 
 /** A mark this build knows, well formed. */
 interface KnownMark {
@@ -189,7 +187,7 @@ class Walk {
     else this.ids.add(id);
 
     const type = filled.type;
-    if (!isString(type) || !ELEMENT_NAME.test(type))
+    if (!isElementName(type))
       this.report(at(path, "type"), "bad_attr", "not an element name");
     else if (!isBlockType(type))
       this.report(

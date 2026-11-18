@@ -52,3 +52,5 @@ export type { Issue, IssueCode, Severity } from "./validate.ts";
 export { normalizeDoc, sectionize } from "./normalize.ts";
 export { canonicalBlock, canonicalDoc } from "./canonical.ts";
 export type { RawDoc, RawElement, RawMark, RawText } from "./raw.ts";
+export { blockText, blockView, blocksOf } from "./block-view.ts";
+export type { BlockView, FlatBlock, TextRun } from "./block-view.ts";
