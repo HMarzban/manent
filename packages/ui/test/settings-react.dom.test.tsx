@@ -51,10 +51,16 @@ const memoryBag = (): Bag =>
 
 const NOV_12 = new Date(2026, 10, 12, 10, 30).getTime();
 
-const createStore = (personal: Bag = memoryBag()): SettingsStore =>
+const createStore = (
+  bags: { personal?: Bag; script?: Bag } = {},
+): SettingsStore =>
   createSettingsStore({
     registry: SETTINGS,
-    bags: { personal, device: memoryBag(), script: memoryBag() },
+    bags: {
+      personal: bags.personal ?? memoryBag(),
+      device: memoryBag(),
+      script: bags.script ?? memoryBag(),
+    },
     beforeWrite: noop,
     deferRemote: (apply) => apply(),
     locked: () => false,
@@ -191,14 +197,14 @@ test("a theme change holds transitions off until the next frame, and stopping it
 
 test("a setting row is the one control for its preference, named by its label, with its default and who set it", () => {
   systemPrefers("dark");
-  const store = createStore(
-    createPersonalBag({
+  const store = createStore({
+    personal: createPersonalBag({
       map: memoryMap(),
       deviceId: "device-a",
       deviceName: "Chrome on macOS",
       now: () => NOV_12,
     }),
-  );
+  });
   const host = render(
     <SettingsProvider store={store}>
       <SettingRow
@@ -261,14 +267,14 @@ test("a preference set on another device names that device", () => {
     deviceName: "Firefox on Linux",
     now: () => NOV_12,
   }).write({ "appearance.theme": "dark" });
-  const store = createStore(
-    createPersonalBag({
+  const store = createStore({
+    personal: createPersonalBag({
       map,
       deviceId: "device-a",
       deviceName: "Chrome on macOS",
       now: () => NOV_12,
     }),
-  );
+  });
   const host = render(
     <SettingsProvider store={store}>
       <SettingRow
@@ -283,6 +289,35 @@ test("a preference set on another device names that device", () => {
   expect(describedBy(group)).toBe(
     "Set by you 12 Nov · Default: System, from Firefox on Linux",
   );
+});
+
+test("a script setting someone else set is never said to be set by you", () => {
+  const received = createMemoryBag({ initial: {}, writable: () => true });
+  received.receive({ "script.paper": "a4" }, "sam");
+  // a script's bag knows when a value arrived; the memory bag does not, so the date is added here
+  const script: Bag = {
+    ...received,
+    provenance(key) {
+      const provenance = received.provenance(key);
+      return provenance === null ? null : { ...provenance, at: NOV_12 };
+    },
+  };
+  const store = createStore({ script });
+  const host = render(
+    <SettingsProvider store={store}>
+      <SettingRow
+        settingKey="script.paper"
+        deviceName="Chrome on macOS"
+        persisted
+      />
+    </SettingsProvider>,
+  );
+  const group = host.querySelector('[role="radiogroup"]');
+  if (group === null) throw new TypeError("no radio group");
+  expect([store.explain("script.paper").modified, describedBy(group)]).toEqual([
+    true,
+    "Default: US Letter",
+  ]);
 });
 
 test("a row on a device that cannot save says so", () => {

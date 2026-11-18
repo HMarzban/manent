@@ -73,19 +73,29 @@ function setFrom(store: SettingsStore, key: SettingKey, input: unknown): void {
   if (parsed.ok) store.set(key, parsed.value);
 }
 
-/** The line under the control: who set it and when, with its default; or the default alone. */
+/** The line under the control: when you set it, with its default; or the default alone. */
 function defaultLine(
   key: SettingKey,
   explained: Explained<SettingValue<SettingKey>>,
   deviceName: string | null,
 ): string {
   const defaultLabel = valueLabel(key, SETTINGS.get(key).default);
-  const at = explained.provenance?.at ?? null;
-  if (!explained.modified || at === null)
+  const { modified, provenance } = explained;
+  // a value set by someone else is never said to be yours, and the row has no way to name them
+  if (
+    !modified ||
+    provenance === null ||
+    provenance.at === null ||
+    provenance.byUserId !== null
+  )
     return PREFERENCES_WORDS.defaultIs(defaultLabel);
-  const on = explained.provenance?.on ?? null;
+  const { on } = provenance;
   const from = on === null || on === deviceName ? null : on;
-  return PREFERENCES_WORDS.setByYou(formatDate(at), defaultLabel, from);
+  return PREFERENCES_WORDS.setByYou(
+    formatDate(provenance.at),
+    defaultLabel,
+    from,
+  );
 }
 
 function SwitchControl({
