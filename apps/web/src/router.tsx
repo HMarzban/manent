@@ -7,6 +7,7 @@ import {
   createRouter,
   lazyRouteComponent,
   redirect,
+  stripSearchParams,
 } from "@tanstack/react-router";
 import type { AnyRouter } from "@tanstack/react-router";
 import type { Api } from "./api.ts";
@@ -88,6 +89,8 @@ export function createAppRouter(deps: {
     ): { w: string | null } => ({
       w: typeof search.w === "string" ? search.w : null,
     }),
+    // so an address never says w=null
+    search: { middlewares: [stripSearchParams({ w: null })] },
     beforeLoad: async ({ location }) => {
       const { person, setPerson } = usePerson.getState();
       if ((await confirmPerson(person, api.me)) !== null) return;
