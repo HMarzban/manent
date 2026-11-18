@@ -446,6 +446,76 @@ test("reset says what it did", async () => {
   expect(await ensureSeed(dir)).toBe("present");
 });
 
+/** A control listener that answers `/status` as running and `path` with `reply`; run.json in `dir` points at it. */
+async function standIn(
+  dir: string,
+  path: string,
+  reply: () => Response,
+): Promise<Bun.Server<undefined>> {
+  const listener = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: (request) => {
+      const asked = new URL(request.url).pathname;
+      if (asked === "/status") return Response.json({ server: "running" });
+      return asked === path ? reply() : new Response(null, { status: 404 });
+    },
+  });
+  await Bun.write(
+    runPath(dir),
+    JSON.stringify({
+      pid: process.pid,
+      serverPid: process.pid,
+      // its /health is a 404, so a stale reading never kills serverPid
+      appUrl: `http://localhost:${listener.port}`,
+      controlUrl: `http://127.0.0.1:${listener.port}`,
+      token: "stand-in-token",
+    }),
+  );
+  return listener;
+}
+
+const notRunning: [string, () => Response][] = [
+  ["failed", () => Response.json({ server: "failed" })],
+  ["stopped", () => Response.json({ server: "stopped" })],
+  ["a 500", () => new Response("<h1>500</h1>", { status: 500 })],
+  ["no state", () => Response.json({ server: "broken" })],
+];
+
+test("reset says the server could not start when the demo does not come back", async () => {
+  for (const [answer, reply] of notRunning) {
+    const dir = await trees.tree({});
+    const listener = await standIn(dir, "/reset", reply);
+    try {
+      expect({ answer, ...(await cli(["reset", "--data-dir", dir])) }).toEqual({
+        answer,
+        exitCode: 1,
+        stdout: "",
+        stderr: "The server could not start.\n",
+      });
+    } finally {
+      await listener.stop(true);
+    }
+  }
+});
+
+test("a second demo whose server cannot start is not said to be running", async () => {
+  for (const [answer, reply] of notRunning) {
+    const at = await place();
+    const listener = await standIn(at.dir, "/start-server", reply);
+    try {
+      expect({ answer, ...(await cli(demoArgs(at))) }).toEqual({
+        answer,
+        exitCode: 1,
+        stdout: "",
+        stderr: "The server could not start.\n",
+      });
+    } finally {
+      await listener.stop(true);
+    }
+  }
+});
+
 test("desktop says it is not in this build", async () => {
   expect(await cli(["desktop"])).toEqual({
     exitCode: 1,

@@ -1,4 +1,5 @@
 // The demo command: checks the machine, installs, builds and seeds, then runs the server under a supervisor.
+import type { ServerState } from "@manent/sync-protocol";
 import { checkBunVersion, pickLanAddress } from "./preflight.ts";
 
 // node: modules are built in, so they load on a fresh clone; this file's packages load only after the install
@@ -108,11 +109,23 @@ function isPortFree(port: number): boolean {
   }
 }
 
-async function send(run: RunFile, method: string, path: string): Promise<void> {
-  await fetch(run.controlUrl + path, {
-    method,
-    headers: { Authorization: `Bearer ${run.token}` },
-  });
+/** The supervisor's state once it has done `path`; null when it did not answer with one. */
+async function post(run: RunFile, path: string): Promise<ServerState | null> {
+  const { isServerState } = await import("@manent/sync-protocol");
+  try {
+    const response = await fetch(run.controlUrl + path, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${run.token}` },
+    });
+    if (!response.ok) return null;
+    const body: unknown = await response.json();
+    if (typeof body !== "object" || body === null || !("server" in body))
+      return null;
+    return isServerState(body.server) ? body.server : null;
+  } catch {
+    // the supervisor went away, or its answer was not JSON: there is no state to report
+    return null;
+  }
 }
 
 function openBrowser(url: string): void {
@@ -181,7 +194,8 @@ async function joinRunning(options: DemoOptions): Promise<boolean> {
     await clearStale(options.dataDir, found.run);
     return false;
   }
-  await send(found.run, "POST", "/start-server");
+  if ((await post(found.run, "/start-server")) !== "running")
+    throw new Error(COULD_NOT_START);
   if (options.open) openBrowser(found.run.appUrl);
   console.log(`Manent is already running at ${found.run.appUrl}`);
   return true;
@@ -300,7 +314,7 @@ async function stop(dataDir: string): Promise<number> {
     return 0;
   }
   const ports = [portOf(found.run.appUrl), portOf(found.run.controlUrl)];
-  await send(found.run, "POST", "/shutdown");
+  await post(found.run, "/shutdown");
   const gone = async () =>
     !(await Bun.file(runPath(dataDir)).exists()) && ports.every(isPortFree);
   if (!(await waitFor(gone, STOP_WAIT_MS))) {
@@ -315,7 +329,8 @@ async function stop(dataDir: string): Promise<number> {
 async function reset(dataDir: string): Promise<number> {
   const found = await findDemo(dataDir);
   if (found?.live) {
-    await send(found.run, "POST", "/reset");
+    if ((await post(found.run, "/reset")) !== "running")
+      throw new Error(COULD_NOT_START);
   } else {
     const { resetSeed } = await import("./seed.ts");
     await resetSeed(dataDir);
