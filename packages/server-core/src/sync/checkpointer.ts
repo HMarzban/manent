@@ -140,7 +140,8 @@ export function serveCheckpointJobs(
 
 /**
  * One long-lived worker thread running `entry`, which is sent `{ t: "init", data }` first. close()
- * waits for the worker to finish its jobs and lets its thread end; it never terminates it.
+ * waits for the worker to finish its jobs and lets its thread end; it never terminates it. A worker
+ * that ends on an uncaught error lets every waiter go, and later jobs are dropped.
  */
 export function createWorkerCheckpointer(options: {
   entry: string | URL;
@@ -153,12 +154,22 @@ export function createWorkerCheckpointer(options: {
   let waiting: (() => void)[] = [];
   let stopped: (() => void) | null = null;
   let jobs = 0;
+  let ended = false;
   const settle = (): void => {
     if (unfinished.size > 0) return;
     const resolved = waiting;
     waiting = [];
     for (const resolve of resolved) resolve();
   };
+  // dropping what a dead worker held is safe: a checkpoint only shortens the next load
+  const end = (): void => {
+    ended = true;
+    unfinished.clear();
+    settle();
+    stopped?.();
+  };
+  worker.addEventListener("error", end);
+  worker.addEventListener("close", end);
   worker.addEventListener("message", (event: MessageEvent) => {
     const message = readFromWorker(event.data);
     if (message?.t === "done") {
@@ -175,6 +186,7 @@ export function createWorkerCheckpointer(options: {
     });
   return {
     request(job) {
+      if (ended) return;
       const id = ++jobs;
       unfinished.add(id);
       post({ t: "job", id, job: { home: { ...job.home }, docId: job.docId } });
@@ -182,6 +194,7 @@ export function createWorkerCheckpointer(options: {
     idle,
     async close() {
       await idle();
+      if (ended) return;
       await new Promise<void>((resolve) => {
         stopped = resolve;
         post({ t: "stop" });

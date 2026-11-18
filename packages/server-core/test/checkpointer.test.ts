@@ -2,7 +2,7 @@ import { afterAll, beforeEach, expect, test } from "bun:test";
 import { loadDoc, scriptBody } from "@manent/crdt";
 import { blockText, blocksOf } from "@manent/schema";
 import { openSqliteStorage } from "@manent/storage";
-import type { Storage } from "@manent/storage";
+import type { Home, Storage } from "@manent/storage";
 import { createMemoryStorage } from "@manent/storage/testing";
 import type { MemoryStorage } from "@manent/storage/testing";
 import { createTempTrees } from "@manent/testkit";
@@ -13,6 +13,7 @@ import {
   createWorkerCheckpointer,
   runCheckpointJob,
 } from "../src/index.ts";
+import type { Checkpointer } from "../src/index.ts";
 import { fakeClock } from "../src/testing/index.ts";
 import {
   BLOCK,
@@ -34,6 +35,23 @@ beforeEach(() => {
 });
 
 const WORKER = new URL("./fixtures/checkpoint-worker.ts", import.meta.url);
+
+/** What the checkpointer let go of, in order: a job, then another, then itself. A step it never lets go of times the test out. */
+async function stepsAfter(
+  cp: Checkpointer,
+  first: { home: Home; docId: string },
+): Promise<string[]> {
+  const steps: string[] = [];
+  cp.request(first);
+  await cp.idle();
+  steps.push("idle");
+  cp.request({ home: HOME, docId: DOC });
+  await cp.idle();
+  steps.push("idle again");
+  await cp.close();
+  steps.push("closed");
+  return steps;
+}
 
 function appendOne(on: Storage, typist: Typist, n: number): void {
   appendAll(on, [typist.type(BLOCK, String(n % 10))]);
@@ -144,4 +162,34 @@ test(
     sqlite.close();
   },
   { timeout: 30_000 },
+);
+
+test(
+  "a worker that cannot start leaves nothing waiting",
+  async () => {
+    // no directory: the entry throws on the first message
+    const cp = createWorkerCheckpointer({ entry: WORKER, data: {} });
+    expect(await stepsAfter(cp, { home: HOME, docId: DOC })).toEqual([
+      "idle",
+      "idle again",
+      "closed",
+    ]);
+  },
+  { timeout: 10_000 },
+);
+
+test(
+  "a job that throws in the worker leaves nothing waiting",
+  async () => {
+    const dir = await trees.tree({});
+    const cp = createWorkerCheckpointer({ entry: WORKER, data: { dir } });
+    // a home that is not well formed: opening its file throws in the worker
+    const malformed: Home = { kind: "project", id: "not-a-uuid" };
+    expect(await stepsAfter(cp, { home: malformed, docId: DOC })).toEqual([
+      "idle",
+      "idle again",
+      "closed",
+    ]);
+  },
+  { timeout: 10_000 },
 );
