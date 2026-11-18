@@ -2,5 +2,16 @@
   "name": "@manent/desktop",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "@manent/local-node": "workspace:*",
+    "@manent/server-core": "workspace:*",
+    "@manent/storage": "workspace:*",
+    "@manent/demo": "workspace:*",
+    "@manent/sync-protocol": "workspace:*",
+    "@manent/perf": "workspace:*"
+  },
+  "devDependencies": {
+    "electrobun": "catalog:"
+  }
 }

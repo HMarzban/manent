@@ -5,7 +5,20 @@
   "type": "module",
   "dependencies": {
     "@manent/server-core": "workspace:*",
+    "@manent/storage": "workspace:*",
+    "@manent/demo": "workspace:*",
+    "@manent/crdt": "workspace:*",
+    "@manent/sync-client": "workspace:*",
     "@manent/sync-protocol": "workspace:*",
-    "@manent/schema": "workspace:*"
+    "@manent/schema": "workspace:*",
+    "@manent/pagination": "workspace:*",
+    "@manent/revisions": "workspace:*",
+    "@manent/settings": "workspace:*",
+    "@manent/formats": "workspace:*",
+    "@manent/perf": "workspace:*",
+    "@fontsource/courier-prime": "catalog:"
+  },
+  "devDependencies": {
+    "@manent/testkit": "workspace:*"
   }
 }

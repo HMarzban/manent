@@ -5,5 +5,11 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@manent/settings": "workspace:*"
+  },
+  "devDependencies": {
+    "fast-check": "catalog:"
   }
 }

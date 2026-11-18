@@ -5,5 +5,20 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@manent/crdt": "workspace:*",
+    "@manent/editor": "workspace:*",
+    "@manent/schema": "workspace:*",
+    "y-prosemirror": "catalog:",
+    "prosemirror-model": "catalog:",
+    "prosemirror-state": "catalog:",
+    "prosemirror-view": "catalog:",
+    "yjs": "catalog:",
+    "y-protocols": "catalog:"
+  },
+  "devDependencies": {
+    "@manent/testkit": "workspace:*",
+    "fast-check": "catalog:"
   }
 }

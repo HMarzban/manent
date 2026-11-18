@@ -4,9 +4,25 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./dom": "./src/dom.ts"
   },
   "dependencies": {
-    "@manent/server-core": "workspace:*"
+    "@manent/storage": "workspace:*",
+    "@manent/crdt": "workspace:*",
+    "@manent/schema": "workspace:*",
+    "@manent/sync-protocol": "workspace:*",
+    "@manent/sync-client": "workspace:*",
+    "@manent/client-web": "workspace:*",
+    "@manent/server-core": "workspace:*",
+    "@manent/demo": "workspace:*",
+    "@manent/local-node": "workspace:*",
+    "@manent/revisions": "workspace:*",
+    "@manent/formats": "workspace:*",
+    "@manent/pagination": "workspace:*",
+    "@happy-dom/global-registrator": "catalog:"
+  },
+  "devDependencies": {
+    "fast-check": "catalog:"
   }
 }

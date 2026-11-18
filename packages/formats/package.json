@@ -5,5 +5,16 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@manent/schema": "workspace:*",
+    "@manent/pagination": "workspace:*",
+    "@manent/revisions": "workspace:*",
+    "pdfkit": "catalog:"
+  },
+  "devDependencies": {
+    "@types/pdfkit": "catalog:",
+    "pdfjs-dist": "catalog:",
+    "@fontsource/courier-prime": "catalog:"
   }
 }

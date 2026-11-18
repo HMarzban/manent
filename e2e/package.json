@@ -5,11 +5,35 @@
   "type": "module",
   "scripts": {
     "test": "bun --bun playwright test",
-    "install-browsers": "bun --bun playwright install --with-deps chromium firefox webkit"
+    "install-browsers": "bun --bun playwright install --with-deps chromium firefox webkit",
+    "test:tour": "playwright test --project tour --project tour-desktop"
   },
   "devDependencies": {
-    "@playwright/test": "catalog:",
+    "@manent/schema": "workspace:*",
+    "@manent/settings": "workspace:*",
+    "@manent/sync-protocol": "workspace:*",
+    "@manent/perf": "workspace:*",
+    "@manent/pagination": "workspace:*",
+    "@manent/revisions": "workspace:*",
+    "@manent/crdt": "workspace:*",
+    "@manent/formats": "workspace:*",
+    "@manent/sync-client": "workspace:*",
+    "@manent/client-web": "workspace:*",
+    "@manent/storage": "workspace:*",
     "@manent/server-core": "workspace:*",
-    "@manent/testkit": "workspace:*"
+    "@manent/local-node": "workspace:*",
+    "@manent/crdt-binding": "workspace:*",
+    "@manent/editor": "workspace:*",
+    "@manent/commands": "workspace:*",
+    "@manent/ui": "workspace:*",
+    "@manent/demo": "workspace:*",
+    "@manent/testkit": "workspace:*",
+    "@playwright/test": "catalog:",
+    "@axe-core/playwright": "catalog:",
+    "prosemirror-model": "catalog:",
+    "prosemirror-state": "catalog:",
+    "prosemirror-view": "catalog:",
+    "pdfjs-dist": "catalog:",
+    "@fontsource/courier-prime": "catalog:"
   }
 }

@@ -5,5 +5,23 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@manent/schema": "workspace:*",
+    "@manent/pagination": "workspace:*",
+    "@manent/revisions": "workspace:*",
+    "@manent/settings": "workspace:*",
+    "@manent/perf": "workspace:*",
+    "prosemirror-model": "catalog:",
+    "prosemirror-state": "catalog:",
+    "prosemirror-view": "catalog:",
+    "prosemirror-transform": "catalog:",
+    "prosemirror-keymap": "catalog:",
+    "prosemirror-commands": "catalog:",
+    "@fontsource/courier-prime": "catalog:"
+  },
+  "devDependencies": {
+    "@manent/testkit": "workspace:*",
+    "fast-check": "catalog:"
   }
 }

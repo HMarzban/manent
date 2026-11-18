@@ -4,7 +4,31 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@manent/schema": "workspace:*",
+    "@manent/settings": "workspace:*",
+    "@manent/sync-protocol": "workspace:*",
+    "@manent/perf": "workspace:*",
+    "@manent/pagination": "workspace:*",
+    "@manent/revisions": "workspace:*",
+    "@manent/crdt": "workspace:*",
+    "@manent/formats": "workspace:*",
+    "@manent/sync-client": "workspace:*",
+    "@manent/client-web": "workspace:*",
+    "@manent/storage": "workspace:*",
     "@manent/server-core": "workspace:*",
+    "@manent/local-node": "workspace:*",
+    "@manent/crdt-binding": "workspace:*",
+    "@manent/editor": "workspace:*",
+    "@manent/commands": "workspace:*",
+    "@manent/ui": "workspace:*",
+    "@manent/demo": "workspace:*",
     "@manent/testkit": "workspace:*"
+  },
+  "devDependencies": {
+    "fontkit": "catalog:",
+    "@types/fontkit": "catalog:",
+    "@fontsource/courier-prime": "catalog:",
+    "tailwindcss": "catalog:",
+    "bun-plugin-tailwind": "catalog:"
   }
 }

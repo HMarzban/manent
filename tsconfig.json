@@ -10,5 +10,6 @@
     "e2e",
     "tools",
     "types"
-  ]
+  ],
+  "exclude": ["apps/desktop/src/shell/**"]
 }

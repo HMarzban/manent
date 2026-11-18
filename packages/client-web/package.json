@@ -5,5 +5,13 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@manent/sync-client": "workspace:*",
+    "@manent/sync-protocol": "workspace:*",
+    "@manent/perf": "workspace:*"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "catalog:"
   }
 }

@@ -4,9 +4,23 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "dependencies": {
-    "@manent/sync-protocol": "workspace:*"
+    "@manent/storage": "workspace:*",
+    "@manent/sync-protocol": "workspace:*",
+    "@manent/crdt": "workspace:*",
+    "@manent/schema": "workspace:*",
+    "@manent/revisions": "workspace:*",
+    "@manent/pagination": "workspace:*",
+    "@manent/formats": "workspace:*",
+    "@manent/settings": "workspace:*",
+    "@manent/perf": "workspace:*"
+  },
+  "devDependencies": {
+    "@manent/testkit": "workspace:*",
+    "fast-check": "catalog:",
+    "pdfjs-dist": "catalog:"
   }
 }

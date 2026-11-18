@@ -12,6 +12,7 @@
     "lib0": "catalog:"
   },
   "devDependencies": {
-    "fast-check": "catalog:"
+    "fast-check": "catalog:",
+    "y-protocols": "catalog:"
   }
 }

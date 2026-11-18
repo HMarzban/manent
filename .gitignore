@@ -6,3 +6,8 @@ bench/results/*
 e2e/test-results/
 e2e/playwright-report/
 .DS_Store
+apps/desktop/.hutch/
+apps/desktop/build/
+apps/desktop/artifacts/
+bench/corpus/cache/
+bench/corpus/traces/

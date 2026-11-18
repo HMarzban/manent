@@ -4,6 +4,17 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "dependencies": {
+    "@manent/sync-protocol": "workspace:*",
+    "@manent/crdt": "workspace:*",
+    "@manent/revisions": "workspace:*",
+    "@manent/schema": "workspace:*",
+    "@manent/perf": "workspace:*"
+  },
+  "devDependencies": {
+    "fast-check": "catalog:"
   }
 }

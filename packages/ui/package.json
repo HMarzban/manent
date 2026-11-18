@@ -4,6 +4,28 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./theme.css": "./src/theme.css"
+  },
+  "dependencies": {
+    "@manent/commands": "workspace:*",
+    "@manent/settings": "workspace:*",
+    "@manent/perf": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "@base-ui/react": "catalog:",
+    "tailwindcss": "catalog:",
+    "tw-animate-css": "catalog:",
+    "class-variance-authority": "catalog:",
+    "cn": "catalog:",
+    "lucide-react": "catalog:",
+    "@tanstack/react-hotkeys": "catalog:",
+    "@tanstack/react-virtual": "catalog:",
+    "@fontsource-variable/inter": "catalog:"
+  },
+  "devDependencies": {
+    "@manent/testkit": "workspace:*",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:"
   }
 }

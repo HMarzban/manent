@@ -5,5 +5,15 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@manent/schema": "workspace:*",
+    "@manent/pagination": "workspace:*",
+    "prosemirror-changeset": "catalog:",
+    "prosemirror-model": "catalog:",
+    "prosemirror-transform": "catalog:"
+  },
+  "devDependencies": {
+    "fast-check": "catalog:"
   }
 }

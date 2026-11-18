@@ -4,17 +4,35 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@manent/ui": "workspace:*",
+    "@manent/commands": "workspace:*",
+    "@manent/settings": "workspace:*",
+    "@manent/editor": "workspace:*",
+    "@manent/crdt-binding": "workspace:*",
+    "@manent/crdt": "workspace:*",
+    "@manent/client-web": "workspace:*",
+    "@manent/sync-client": "workspace:*",
+    "@manent/sync-protocol": "workspace:*",
+    "@manent/schema": "workspace:*",
+    "@manent/pagination": "workspace:*",
+    "@manent/revisions": "workspace:*",
+    "@manent/formats": "workspace:*",
+    "@manent/perf": "workspace:*",
+    "@manent/demo": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-query": "catalog:",
-    "zustand": "catalog:"
+    "zustand": "catalog:",
+    "serwist": "catalog:",
+    "@fontsource/courier-prime": "catalog:"
   },
   "devDependencies": {
     "@manent/testkit": "workspace:*",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "tailwindcss": "catalog:",
-    "bun-plugin-tailwind": "catalog:"
+    "bun-plugin-tailwind": "catalog:",
+    "fake-indexeddb": "catalog:"
   }
 }

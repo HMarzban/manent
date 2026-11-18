@@ -42,20 +42,63 @@ test("the root pins Bun and lists the workspaces", () => {
   ]);
 });
 
-test("every catalog entry is an exact version, except the two that follow a major", () => {
-  const RANGES: Record<string, string> = {
-    typescript: "^7",
-    "lucide-react": "^1",
-  };
+test("every catalog entry is an exact version", () => {
   for (const [name, version] of Object.entries(
     manifestAt(".").workspaces!.catalog,
   ))
     expect({ name, version }).toEqual({
       name,
-      version:
-        RANGES[name] ??
-        expect.stringMatching(new RegExp("^\\d+\\.\\d+\\.\\d+$")),
+      version: expect.stringMatching(new RegExp("^\\d+\\.\\d+\\.\\d+$")),
     });
+});
+
+test("every catalog entry is declared by some workspace", () => {
+  const declared = new Set(
+    [".", ...Object.keys(RULES.workspaces).map(dirOf)].flatMap((dir) => {
+      const m = manifestAt(dir);
+      return Object.keys({ ...m.dependencies, ...m.devDependencies });
+    }),
+  );
+  expect(
+    Object.keys(manifestAt(".").workspaces!.catalog).filter(
+      (name) => !declared.has(name),
+    ),
+  ).toEqual([]);
+});
+
+test("a package or app declares exactly the internal packages its rule lists", () => {
+  for (const [key, rule] of Object.entries(RULES.workspaces)) {
+    if (rule.internal === "*") continue;
+    const m = manifestAt(dirOf(key));
+    const declared = Object.keys({ ...m.dependencies })
+      .filter((name) => name.startsWith("@manent/"))
+      .toSorted();
+    expect({ key, declared }).toEqual({
+      key,
+      declared: rule.internal
+        .filter((to) => to !== "testkit")
+        .map((to) => `@manent/${to}`)
+        .toSorted(),
+    });
+  }
+});
+
+test("tooling declares every package", () => {
+  const packages = Object.keys(RULES.workspaces)
+    .filter((key) => dirOf(key) === `packages/${key}`)
+    .map((key) => `@manent/${key}`)
+    .toSorted();
+  for (const [dir, field] of [
+    ["bench", "dependencies"],
+    ["tools", "dependencies"],
+    ["e2e", "devDependencies"],
+  ] as const)
+    expect({
+      dir,
+      declared: Object.keys({ ...manifestAt(dir)[field] })
+        .filter((n) => n.startsWith("@manent/"))
+        .toSorted(),
+    }).toEqual({ dir, declared: packages });
 });
 
 const firstLine = (key: string) =>
