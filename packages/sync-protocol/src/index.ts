@@ -28,3 +28,24 @@ export { createFrameDecoder, createFrameEncoder } from "./chunking.ts";
 export type { FrameDecoder, FrameEncoder } from "./chunking.ts";
 export { gateConnection, gateDocument } from "./gating.ts";
 export type { ConnectionGate } from "./gating.ts";
+export {
+  HTTP_ERROR_CODES,
+  SERVER_STATES,
+  isHttpErrorCode,
+  isServerState,
+} from "./http.ts";
+export type {
+  ControlEndpoint,
+  ControlStatusResponse,
+  DemoResponse,
+  ErrorResponse,
+  HealthResponse,
+  HttpErrorCode,
+  Identity,
+  MeResponse,
+  ServerState,
+  SignInChoice,
+  SignInOptions,
+  SignInResponse,
+  WorkspaceRef,
+} from "./http.ts";
