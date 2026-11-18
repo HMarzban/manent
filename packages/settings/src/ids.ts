@@ -1,0 +1,35 @@
+// The closed lists a setting is placed by: Preferences panes, menus and Script settings groups.
+
+/** The Preferences panes, in order. */
+export const SECTION_IDS = [
+  "writing",
+  "appearance",
+  "keyboard",
+  "account",
+  "device",
+] as const;
+export type SectionId = (typeof SECTION_IDS)[number];
+
+export const MENU_IDS = [
+  "app",
+  "file",
+  "edit",
+  "view",
+  "format",
+  "script",
+  "production",
+  "window",
+  "help",
+  "title",
+  "person",
+] as const;
+export type MenuId = (typeof MENU_IDS)[number];
+
+/** The Script settings groups, in order; a group with no row is not drawn. */
+export const SCRIPT_GROUPS = [
+  "page_setup",
+  "mores",
+  "scene_numbers",
+  "revisions",
+] as const;
+export type ScriptGroup = (typeof SCRIPT_GROUPS)[number];
