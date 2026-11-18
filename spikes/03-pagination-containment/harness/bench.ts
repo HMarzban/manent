@@ -518,100 +518,118 @@ function comfortLimit(rows: readonly (TypingRow | undefined)[], budgets: Readonl
   return missing ? `${largest(within)} (${missing})` : String(largest(within))
 }
 
-function summariseTiming(dir: string): string {
-  const matrix = typingRows(dir, 'matrix.jsonl')
-  const fallback = typingRows(dir, 'fallback.jsonl')
-  const sweep = typingRows(dir, 'sweep.jsonl')
-  const zoom = typingRows(dir, 'zoom.jsonl')
-  const breaks = readRows(dir, 'breaks.jsonl').filter(isBreaksRow)
-  const cold = readRows(dir, 'cold.jsonl').filter(isColdRow)
-  const xbrowser = ['webkit', 'firefox'].map((engine) => ({ engine, rows: typingRows(dir, `xbrowser-${engine}.jsonl`) }))
-  const paginated = matrix.filter((r) => r.name.endsWith('-pg1'))
-  const budgetRows = [...paginated, ...fallback.filter((r) => r.name.includes('-nocv-'))]
-  const budgets = new Map(budgetRows.map((r) => [r, typingBudget(r)]))
-  const at6 = (rows: readonly TypingRow[], name: string): TypingRow | undefined => rows.find((r) => r.name === name && r.throttle === 6)
-  const lowest = sweep.filter((r) => r.throttle === 6 && !r.name.includes('over')).toSorted((a, b) => (a.middle?.p95 ?? Infinity) - (b.middle?.p95 ?? Infinity))[0]
+const at6 = (rows: readonly TypingRow[], name: string): TypingRow | undefined => rows.find((r) => r.name === name && r.throttle === 6)
+
+function typingSection(rows: readonly TypingRow[]): string[] {
   return [
-    '# Timing figures beside the budgets',
-    '',
-    'Written by `bun harness/bench.ts --summarise timing`. Chromium on this machine under its CPU throttle unless a table says otherwise; 100-block sections with `content-visibility: auto` and pagination on unless the row says otherwise (`nocv`: the same sections without containment; `flat`: no sections, no pagination). Each figure stands beside the project\'s budget where one exists; none of them is a pass criterion. Times are in ms unless stated.',
-    '',
     '## Typing rows',
     '',
     'Keystroke to next frame at each position, 44 keystrokes per load and position after the warm-up. Sources: `matrix.jsonl`, `fallback.jsonl`, `sweep.jsonl`, `zoom.jsonl`.',
     '',
-    ...rowTable([...matrix, ...fallback, ...sweep, ...zoom]),
+    ...rowTable(rows),
     '',
+  ]
+}
+
+const cellOf = (j: Judged, f: (n: number) => string): string => `${f(j.value)} (${f(j.ci.lo)} – ${f(j.ci.hi)}) ${j.against}`
+
+function budgetSection(paginated: readonly TypingRow[], fallback: readonly TypingRow[]): string[] {
+  const budgetRows = [...paginated, ...fallback.filter((r) => r.name.includes('-nocv-'))]
+  const budgets = new Map(budgetRows.map((r) => [r, typingBudget(r)]))
+  return [
     '## Typing budget by size',
     '',
     `Each paginated row against the typing budget (p50 / p95 / p99 ≤ 16 / 33 / 50 ms at the worst position; variation across positions ≤ 20 %), computed as the gate computes it. ${INTERVAL_NOTE}`,
     '',
-    ...table(['Row', 'Throttle', 'Load baseline', 'p50 (interval)', 'p95 (interval)', 'p99 (interval)', 'Variation (interval)', 'Outcome'], [
-      ...budgetRows.map((r) => {
+    ...table(['Row', 'Throttle', 'Load baseline', 'p50 (interval)', 'p95 (interval)', 'p99 (interval)', 'Variation (interval)', 'Outcome'],
+      budgetRows.map((r) => {
         const b = budgets.get(r)!
-        const cellOf = (j: Judged, f: (n: number) => string): string => `${f(j.value)} (${f(j.ci.lo)} – ${f(j.ci.hi)}) ${j.against}`
         return `| ${r.name} | ${r.throttle}x | ${baselineOf(r)} | ${cellOf(b.p50, ms)} | ${cellOf(b.p95, ms)} | ${cellOf(b.p99, ms)} | ${cellOf(b.variation, pctText)} | ${b.outcome} |`
-      }),
-    ]),
+      })),
     '',
     `Comfort limit from the 6x rows with containment (\`matrix\`): **${comfortLimit(PAGE_SIZES.map((p) => at6(paginated, `${p}p-pg1`)), budgets)}** pages.`,
     `Comfort limit without containment (\`fallback\` \`nocv\` rows at 1,000 and 2,000 pages, \`matrix\` at 120): **${comfortLimit([at6(paginated, '120p-pg1'), at6(fallback, '1000p-nocv-pg1'), at6(fallback, '2000p-nocv-pg1')], budgets)}** pages.`,
     '',
+  ]
+}
+
+function engineSection(paginated: readonly TypingRow[]): string[] {
+  return [
     '## Engine work per keystroke',
     '',
     'From `matrix.jsonl`, the paginated rows; all positions and loads together. Budget for the engine: ≤ 0.5 ms (hard fail > 2 ms).',
     '',
-    ...table(['Row', 'Throttle', 'Load baseline', 'Engine p50', 'Engine p95', 'Decorations p50', 'Decorations p95', 'Engine plus decorations p95 (interval)'], [
-      ...paginated.map((r) => `| ${r.name} | ${r.throttle}x | ${baselineOf(r)} | ${ms(r.engine.p50)} | ${ms(r.engine.p95)} | ${ms(r.deco.p50)} | ${ms(r.deco.p95)} | ${ms(r.engineDeco.p95)} (${span(r.engineDeco.ci)}) |`),
-    ]),
+    ...table(['Row', 'Throttle', 'Load baseline', 'Engine p50', 'Engine p95', 'Decorations p50', 'Decorations p95', 'Engine plus decorations p95 (interval)'],
+      paginated.map((r) => `| ${r.name} | ${r.throttle}x | ${baselineOf(r)} | ${ms(r.engine.p50)} | ${ms(r.engine.p95)} | ${ms(r.deco.p50)} | ${ms(r.deco.p95)} | ${ms(r.engineDeco.p95)} (${span(r.engineDeco.ci)}) |`)),
     '',
+  ]
+}
+
+function coldSection(cold: readonly ColdRow[]): string[] {
+  return [
     '## Full cold repagination',
     '',
     'From `cold.jsonl`: `__pg.cold()` 20 times per load, a fresh copy of the blocks each time.',
     '',
-    ...table(['Row', 'Throttle', 'Load baseline', 'Loads', 'p50', 'p95', 'Budget'], [
-      ...cold.map((r) => `| ${r.name} | ${r.throttle}x | ${baselineOf(r)} | ${r.loads.length} | ${ms(r.p50)} | ${ms(r.p95)} | ${BUDGETS_BY_PAGES.cold[pagesOf(r.name)]} |`),
-    ]),
+    ...table(['Row', 'Throttle', 'Load baseline', 'Loads', 'p50', 'p95', 'Budget'],
+      cold.map((r) => `| ${r.name} | ${r.throttle}x | ${baselineOf(r)} | ${r.loads.length} | ${ms(r.p50)} | ${ms(r.p95)} | ${BUDGETS_BY_PAGES.cold[pagesOf(r.name)]} |`)),
     '',
+  ]
+}
+
+function breaksSection(breaks: readonly BreaksRow[]): string[] {
+  return [
     '## The frame in which many breaks move',
     '',
     'From `breaks.jsonl`: the caret in the first block at offset 10, Enter 20 times; the largest keystroke-to-frame value of all presses, and the page starts that moved in that press. Budget: ≤ 50 ms (hard fail > 100 ms).',
     '',
-    ...table(['Row', 'Throttle', 'Load baseline', 'Loads', 'Largest keystroke to frame', 'Page starts moved in that press', 'p50 of all presses'], [
-      ...breaks.map((r) => {
+    ...table(['Row', 'Throttle', 'Load baseline', 'Loads', 'Largest keystroke to frame', 'Page starts moved in that press', 'p50 of all presses'],
+      breaks.map((r) => {
         const frames = r.frame.flat()
         const worst = frames.indexOf(largest(frames))
         return `| ${r.name} | ${r.throttle}x | ${baselineOf(r)} | ${r.loads.length} | ${ms(frames[worst] ?? null)} | ${r.movedBreaks.flat()[worst] ?? '—'} | ${ms(median(frames))} |`
-      }),
-    ]),
+      })),
     '',
+  ]
+}
+
+function loadSection(paginated: readonly TypingRow[]): string[] {
+  return [
     '## First editable frame and heap',
     '',
     'From `matrix.jsonl`, the paginated rows: per load, smallest / median / largest.',
     '',
-    ...table(['Row', 'Throttle', 'Load baseline', 'First editable, s', 'Budget', 'Heap, MB', 'Budget'], [
-      ...paginated.map((r) => {
+    ...table(['Row', 'Throttle', 'Load baseline', 'First editable, s', 'Budget', 'Heap, MB', 'Budget'],
+      paginated.map((r) => {
         const pages = pagesOf(r.name)
         const heap = r.loads.map((l) => l.heapMB).filter((h): h is number => h !== null)
         return `| ${r.name} | ${r.throttle}x | ${baselineOf(r)} | ${spread(r.loads.map((l) => l.firstEditableMs), seconds)} | ${BUDGETS_BY_PAGES.firstEditable[pages]} | ${spread(heap)} | ${BUDGETS_BY_PAGES.heap[pages]} |`
-      }),
-    ]),
+      })),
     '',
+  ]
+}
+
+function scrollSection(paginated: readonly TypingRow[]): string[] {
+  return [
     '## Scrolling',
     '',
     'From `matrix.jsonl`, the paginated rows: a jump-scroll through the whole document in 60 steps per load. Budget: frame p95 ≤ 16.7 ms and frames over 50 ms ≤ 1 % (hard fail > 33 ms and > 5 %).',
     '',
-    ...table(['Row', 'Throttle', 'Load baseline', 'Frames', 'Frame p95', 'Frames over 50 ms'], [
-      ...paginated.filter((r) => r.scroll).map((r) => `| ${r.name} | ${r.throttle}x | ${baselineOf(r)} | ${r.scroll!.frames.flat().length} | ${ms(r.scroll!.p95)} | ${r.scroll!.over50Pct} % |`),
-    ]),
+    ...table(['Row', 'Throttle', 'Load baseline', 'Frames', 'Frame p95', 'Frames over 50 ms'],
+      paginated.filter((r) => r.scroll).map((r) => `| ${r.name} | ${r.throttle}x | ${baselineOf(r)} | ${r.scroll!.frames.flat().length} | ${ms(r.scroll!.p95)} | ${r.scroll!.over50Pct} % |`)),
     '',
+  ]
+}
+
+function sweepSection(sweep: readonly TypingRow[]): string[] {
+  const lowest = sweep.filter((r) => r.throttle === 6 && !r.name.includes('over')).toSorted((a, b) => (a.middle?.p95 ?? Infinity) - (b.middle?.p95 ?? Infinity))[0]
+  return [
     '## Section size',
     '',
     'From `sweep.jsonl`: 2,000 pages, the middle of the document, 2 loads (below the sample size that decides). No threshold.',
     '',
-    ...table(['Row', 'Throttle', 'Load baseline', 'p50', 'p95', 'Dispatch p95', 'Engine plus decorations p95'], [
-      ...sweep.map((r) => `| ${r.name} | ${r.throttle}x | ${baselineOf(r)} | ${ms(r.middle?.p50 ?? null)} | ${ms(r.middle?.p95 ?? null)} | ${ms(r.middle?.dispatchP95 ?? null)} | ${ms(r.engineDeco.p95)} |`),
-    ]),
+    ...table(['Row', 'Throttle', 'Load baseline', 'p50', 'p95', 'Dispatch p95', 'Engine plus decorations p95'],
+      sweep.map((r) => `| ${r.name} | ${r.throttle}x | ${baselineOf(r)} | ${ms(r.middle?.p50 ?? null)} | ${ms(r.middle?.p95 ?? null)} | ${ms(r.middle?.dispatchP95 ?? null)} | ${ms(r.engineDeco.p95)} |`)),
     '',
     ...(lowest ? [`Lowest 6x p95: \`${lowest.name}\`.`] : []),
     ...[1, 6].flatMap((t) => {
@@ -620,16 +638,43 @@ function summariseTiming(dir: string): string {
       return over != null && base != null ? [`A section four times its target, ${t}x: p95 ${ms(over)} against ${ms(base)} (${ms(over - base)} more).`] : []
     }),
     '',
+  ]
+}
+
+function xbrowserSection(xbrowser: readonly { engine: string; rows: readonly TypingRow[] }[]): string[] {
+  return [
     '## WebKit and Firefox',
     '',
     'From `xbrowser-webkit.jsonl` and `xbrowser-firefox.jsonl`: 2,000 pages, the middle of the document, no CPU throttle (these engines have none). Engines that tick animation frames on a fixed clock add the wait for the next tick to keystroke to frame, so the dispatch share is shown beside it.',
     '',
-    ...table(['Engine', 'Version', 'Row', 'Load baseline', 'Loads', 'p50', 'p95', 'p99', 'Dispatch p95', 'First editable, s'], [
-      ...xbrowser.flatMap(({ engine, rows }) => (rows.length ? rows : [null]).map((r) => (r
+    ...table(['Engine', 'Version', 'Row', 'Load baseline', 'Loads', 'p50', 'p95', 'p99', 'Dispatch p95', 'First editable, s'],
+      xbrowser.flatMap(({ engine, rows }) => (rows.length ? rows : [null]).map((r) => (r
         ? `| ${engine} | ${r.version} | ${r.name} | ${baselineOf(r)} | ${r.loads.length} | ${ms(r.middle?.p50 ?? null)} | ${ms(r.middle?.p95 ?? null)} | ${ms(r.middle?.p99 ?? null)} | ${ms(r.middle?.dispatchP95 ?? null)} | ${spread(r.loads.map((l) => l.firstEditableMs), seconds)} |`
-        : `| ${engine} | — | not run | — | — | — | — | — | — | — |`))),
-    ]),
+        : `| ${engine} | — | not run | — | — | — | — | — | — | — |`)))),
     '',
+  ]
+}
+
+function summariseTiming(dir: string): string {
+  const matrix = typingRows(dir, 'matrix.jsonl')
+  const fallback = typingRows(dir, 'fallback.jsonl')
+  const sweep = typingRows(dir, 'sweep.jsonl')
+  const zoom = typingRows(dir, 'zoom.jsonl')
+  const paginated = matrix.filter((r) => r.name.endsWith('-pg1'))
+  return [
+    '# Timing figures beside the budgets',
+    '',
+    'Written by `bun harness/bench.ts --summarise timing`. Chromium on this machine under its CPU throttle unless a table says otherwise; 100-block sections with `content-visibility: auto` and pagination on unless the row says otherwise (`nocv`: the same sections without containment; `flat`: no sections, no pagination). Each figure stands beside the project\'s budget where one exists; none of them is a pass criterion. Times are in ms unless stated.',
+    '',
+    ...typingSection([...matrix, ...fallback, ...sweep, ...zoom]),
+    ...budgetSection(paginated, fallback),
+    ...engineSection(paginated),
+    ...coldSection(readRows(dir, 'cold.jsonl').filter(isColdRow)),
+    ...breaksSection(readRows(dir, 'breaks.jsonl').filter(isBreaksRow)),
+    ...loadSection(paginated),
+    ...scrollSection(paginated),
+    ...sweepSection(sweep),
+    ...xbrowserSection(['webkit', 'firefox'].map((engine) => ({ engine, rows: typingRows(dir, `xbrowser-${engine}.jsonl`) }))),
   ].join('\n')
 }
 
