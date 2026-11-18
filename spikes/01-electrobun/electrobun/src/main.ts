@@ -26,3 +26,28 @@ Electrobun.events.on('before-quit', (event) => {
     Utils.quit()
   })
 })
+
+/**
+ * Checks the build's update address once and logs each status, and the updater's error text, as a mark. The node
+ * stops before the hand-off: the updater asks before-quit for approval, and the wait above would refuse it.
+ */
+async function updateAtLaunch (): Promise<void> {
+  const sent: Array<Promise<unknown>> = []
+  const mark = (name: string): void => {
+    // once the node has stopped the request fails, so the statuses of the hand-off itself are not recorded
+    sent.push(fetch(`http://127.0.0.1:${node.port}/mark?name=${encodeURIComponent(name)}&t=${node.token}`).catch(() => null))
+  }
+  Updater.onStatusChange((entry) => {
+    mark(`update-${entry.status}`)
+    if (entry.details?.errorMessage) mark(`updater-error-${entry.details.errorMessage}`)
+  })
+  const info = await Updater.checkForUpdate()
+  if (!info.updateAvailable) return
+  await Updater.downloadUpdate()
+  if (!Updater.updateInfo().updateReady) return
+  await Promise.all(sent)
+  await node.stop()
+  stopped = true
+  await Updater.applyUpdate()
+}
+if (process.env.SPIKE_CHECK_UPDATE === '1') void updateAtLaunch()
