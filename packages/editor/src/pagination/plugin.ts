@@ -45,6 +45,8 @@ export interface PaginationState {
   readonly frozen: boolean;
   /** Engine runs since the state was created. */
   readonly engineRuns: number;
+  /** The blocks the transaction that made this state replaced; null when none did, while frozen, and at first. */
+  readonly change: ChangeHint | null;
 }
 
 export const paginationKey: PluginKey<PaginationState> = new PluginKey(
@@ -138,6 +140,9 @@ function decorated(
   );
 }
 
+const paginateAll = (settings: PaginationSettings, index: BlockIndex) =>
+  settings.engine.paginate(index.blocks, settings.profile, settings.locks);
+
 function fullRun(
   prev: PaginationState,
   settings: PaginationSettings,
@@ -145,11 +150,8 @@ function fullRun(
   options: DecorationOptions,
 ): PaginationState {
   const { index } = updateIndex(prev.index, state.doc, settings.layout);
-  const pagination = settings.engine.paginate(
-    index.blocks,
-    settings.profile,
-    settings.locks,
-  );
+  const count = index.blocks.length;
+  const pagination = paginateAll(settings, index);
   return {
     settings,
     index,
@@ -157,6 +159,7 @@ function fullRun(
     decorations: decorated(null, index, pagination, null, options),
     frozen: false,
     engineRuns: prev.engineRuns + 1,
+    change: { first: 0, oldEnd: prev.index.blocks.length, newEnd: count },
   };
 }
 
@@ -167,7 +170,8 @@ function incrementalRun(
   options: DecorationOptions,
 ): PaginationState {
   const { index, change } = updateIndex(prev.index, doc, settings.layout);
-  if (change === null) return { ...prev, settings, index, frozen: false };
+  if (change === null)
+    return { ...prev, settings, index, frozen: false, change };
   const pagination = mark("pagination.engine", () =>
     settings.engine.repaginate(prev.pagination, index.blocks, change),
   );
@@ -178,6 +182,7 @@ function incrementalRun(
     decorations: decorated(prev, index, pagination, change, options),
     frozen: false,
     engineRuns: prev.engineRuns + 1,
+    change,
   };
 }
 
@@ -194,11 +199,7 @@ function initialState(
   };
   assertSameEngine(settings);
   const index = toIndex(state.doc, settings.layout);
-  const pagination = settings.engine.paginate(
-    index.blocks,
-    settings.profile,
-    settings.locks,
-  );
+  const pagination = paginateAll(settings, index);
   return {
     settings,
     index,
@@ -206,22 +207,35 @@ function initialState(
     decorations: decorated(null, index, pagination, null, decorations),
     frozen: false,
     engineRuns: 0,
+    change: null,
   };
+}
+
+/** One hint for two changes in a row: `a` from the old blocks to the middle ones, `b` from those to the new. */
+function followedBy(a: ChangeHint | null, b: ChangeHint | null) {
+  if (a === null || b === null) return a ?? b;
+  const end = Math.max(a.newEnd, b.oldEnd);
+  const oldEnd = end - a.newEnd + a.oldEnd;
+  const newEnd = end - b.oldEnd + b.newEnd;
+  return { first: Math.min(a.first, b.first), oldEnd, newEnd };
 }
 
 /**
  * A composition's decorations are in the document before `tr`, and its pages in the one before the composition:
  * when `tr` changes the document, the pages first catch up with the document before it, as the deferred
- * repagination would, so the decorations are moved past this change alone.
+ * repagination would, so the decorations are moved past this change alone. The change it names covers both runs.
  */
-function settled(
+function settledRun(
   prev: PaginationState,
+  settings: PaginationSettings,
   tr: Transaction,
   options: DecorationOptions,
 ): PaginationState {
-  return prev.frozen && tr.docChanged
-    ? incrementalRun(prev, prev.settings, tr.before, options)
-    : prev;
+  if (!prev.frozen || !tr.docChanged)
+    return incrementalRun(prev, settings, tr.doc, options);
+  const caught = incrementalRun(prev, prev.settings, tr.before, options);
+  const next = incrementalRun(caught, settings, tr.doc, options);
+  return { ...next, change: followedBy(caught.change, next.change) };
 }
 
 function applyTransaction(
@@ -231,24 +245,20 @@ function applyTransaction(
   options: DecorationOptions,
 ): PaginationState {
   const patch = patchOf(tr);
-  if (patch === null && !tr.docChanged) return prev;
+  if (patch === null && !tr.docChanged)
+    return prev.change === null ? prev : { ...prev, change: null };
   if (patch === null && tr.getMeta("composition") !== undefined)
     return {
       ...prev,
       decorations: prev.decorations.map(tr.mapping, tr.doc),
       frozen: true,
+      change: null,
     };
-  if (patch === null)
-    return incrementalRun(
-      settled(prev, tr, options),
-      prev.settings,
-      state.doc,
-      options,
-    );
+  if (patch === null) return settledRun(prev, prev.settings, tr, options);
   const settings = withPatch(prev.settings, patch);
   return needsFullRun(prev, patch)
     ? fullRun(prev, settings, state, options)
-    : incrementalRun(settled(prev, tr, options), settings, state.doc, options);
+    : settledRun(prev, settings, tr, options);
 }
 
 function stateOf(state: EditorState): PaginationState {
