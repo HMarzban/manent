@@ -22,6 +22,31 @@ const blockAttrs: Record<string, AttributeSpec> = Object.fromEntries(
   ]),
 );
 
+/** What word processors and web pages send as a paragraph: each is read as an `action` block. */
+const FOREIGN_BLOCK_TAGS = [
+  "p",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "li",
+  "blockquote",
+  "pre",
+  "td",
+  "th",
+  "dt",
+  "dd",
+] as const;
+
+/** Headings and cues hold names, places and INT. or EXT., which a spelling check marks as wrong. */
+const UNSPELLED_TYPES: readonly string[] = [
+  "scene_heading",
+  "character",
+  "slug",
+];
+
 /** A block attribute that should hold text, or null when the stored value does not. */
 function textAttr(node: Node, name: "id" | "type"): string | null {
   const value: unknown = node.attrs[name];
@@ -40,6 +65,19 @@ export const schema: Schema<NodeName, MarkName> = new Schema({
       content: "text*",
       marks: "_",
       attrs: blockAttrs,
+      parseDOM: [
+        {
+          tag: "p[data-type]",
+          getAttrs: (dom) => ({
+            type: dom.getAttribute("data-type"),
+            id: dom.getAttribute("data-id"),
+          }),
+        },
+        ...FOREIGN_BLOCK_TAGS.map((tag) => ({
+          tag,
+          attrs: { type: "action" },
+        })),
+      ],
       toDOM: (node) => {
         const id = textAttr(node, "id");
         const type = textAttr(node, "type") ?? "";
@@ -48,6 +86,7 @@ export const schema: Schema<NodeName, MarkName> = new Schema({
           "data-type": type,
         };
         if (id !== null) attrs["data-id"] = id;
+        if (UNSPELLED_TYPES.includes(type)) attrs.spellcheck = "false";
         return ["p", attrs, 0];
       },
     },

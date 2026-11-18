@@ -6,7 +6,7 @@ import { createDemoDirectory, createDemoSignIn } from "@manent/demo";
 import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import {
-  NO_SETTINGS,
+  PRODUCT_SETTING_RULES,
   createServer,
   createSignedSessionStore,
   createTicketStore,
@@ -167,7 +167,7 @@ function openSync(dataDir: string): SyncSettings & { close(): void } {
     clock,
     defer: setImmediate,
     ids: () => crypto.randomUUID(),
-    registry: NO_SETTINGS,
+    registry: PRODUCT_SETTING_RULES,
     close: () => storage.close(),
   };
 }

@@ -7,6 +7,7 @@ export * from "./peer.ts";
 export * from "./ports.ts";
 export * from "./rooms.ts";
 export * from "./service.ts";
+export * from "./setting-rules.ts";
 export * from "./settings.ts";
 export * from "./validate.ts";
 export * from "./viewers.ts";

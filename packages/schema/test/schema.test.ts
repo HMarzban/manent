@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  BLOCK_TYPES,
   DEFAULT_BLOCK_ATTRS,
   FORMATS,
   NODE_NAMES,
@@ -166,4 +167,16 @@ test("two people's suggestions overlap on the same text", () => {
   ).toHaveLength(1);
   // order is part of the stored key
   expect(Object.keys(a.attrs)).toEqual(["id", "authorUserId", "at"]);
+});
+
+const dom = (type: string) =>
+  schema.nodes.block.spec.toDOM!(
+    schema.nodes.block.create({ id: "b000000000000001", type }),
+  ) as [string, Record<string, string>];
+test("spelling is off on headings and cues and nowhere else", () => {
+  expect(BLOCK_TYPES.filter((t) => dom(t)[1].spellcheck === "false")).toEqual([
+    "scene_heading",
+    "character",
+    "slug",
+  ]);
 });

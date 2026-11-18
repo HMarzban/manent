@@ -1,4 +1,4 @@
-import type { AttributeSpec, MarkSpec } from "prosemirror-model";
+import type { AttributeSpec, MarkSpec, TagParseRule } from "prosemirror-model";
 import { isCount, isString } from "./shape.ts";
 import type { Check } from "./shape.ts";
 
@@ -22,6 +22,24 @@ export function isMarkName(value: unknown): value is MarkName {
 
 /** Marks of which several, with different attributes, can sit on the same text. */
 export const OVERLAPPING_MARKS = ["suggest_insert", "suggest_delete"] as const;
+
+/** The named text colours a `color` mark holds. */
+export const TEXT_COLOUR_NAMES = [
+  "red",
+  "orange",
+  "green",
+  "blue",
+  "violet",
+] as const;
+
+/** The named highlights a `highlight` mark holds. */
+export const HIGHLIGHT_NAMES = [
+  "yellow",
+  "green",
+  "pink",
+  "orange",
+  "violet",
+] as const;
 
 const SAFE_PROTOCOLS = ["http:", "https:", "mailto:"];
 
@@ -52,6 +70,21 @@ const SUGGESTION_CHECKS: Record<string, Check> = Object.fromEntries(
   Object.entries(SUGGESTION_ATTRS).map(([key, attr]) => [key, attr.check]),
 );
 
+/** Reads `tag`'s attribute `attr` as the mark's `value`; no mark when it is not one of `names`. */
+function namedValueRule(
+  tag: string,
+  attr: string,
+  names: readonly string[],
+): TagParseRule {
+  return {
+    tag,
+    getAttrs: (dom) => {
+      const value = dom.getAttribute(attr);
+      return value !== null && names.includes(value) ? { value } : false;
+    },
+  };
+}
+
 function suggestion(tag: "ins" | "del"): MarkSpec {
   return {
     attrs: SUGGESTION_SPEC_ATTRS,
@@ -66,23 +99,47 @@ function suggestion(tag: "ins" | "del"): MarkSpec {
 }
 
 export const MARK_SPECS: Record<MarkName, MarkSpec> = {
-  bold: { toDOM: () => ["strong", 0] },
-  italic: { toDOM: () => ["em", 0] },
-  underline: { toDOM: () => ["u", 0] },
-  strike: { toDOM: () => ["s", 0] },
+  bold: {
+    parseDOM: [{ tag: "strong" }, { tag: "b" }],
+    toDOM: () => ["strong", 0],
+  },
+  italic: { parseDOM: [{ tag: "em" }, { tag: "i" }], toDOM: () => ["em", 0] },
+  underline: { parseDOM: [{ tag: "u" }], toDOM: () => ["u", 0] },
+  strike: {
+    parseDOM: [{ tag: "s" }, { tag: "del:not([data-suggest])" }],
+    toDOM: () => ["s", 0],
+  },
   // display only: the stored text keeps its case
-  caps: { toDOM: () => ["span", { class: "caps" }, 0] },
+  caps: {
+    parseDOM: [{ tag: "span.caps" }],
+    toDOM: () => ["span", { class: "caps" }, 0],
+  },
   color: {
     attrs: { value: { default: "" } },
+    parseDOM: [
+      namedValueRule("span[data-color]", "data-color", TEXT_COLOUR_NAMES),
+    ],
     toDOM: (mark) => ["span", { "data-color": mark.attrs.value }, 0],
   },
   highlight: {
     attrs: { value: { default: "" } },
+    parseDOM: [
+      namedValueRule("mark[data-highlight]", "data-highlight", HIGHLIGHT_NAMES),
+    ],
     toDOM: (mark) => ["mark", { "data-highlight": mark.attrs.value }, 0],
   },
   link: {
     attrs: { href: { default: "" } },
     inclusive: false,
+    parseDOM: [
+      {
+        tag: "a[href]",
+        getAttrs: (dom) => {
+          const href = dom.getAttribute("href");
+          return href !== null && isSafeHref(href) ? { href } : false;
+        },
+      },
+    ],
     toDOM: (mark) => {
       const href: unknown = mark.attrs.href;
       const rel = "noopener noreferrer nofollow";

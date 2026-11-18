@@ -362,12 +362,12 @@ test(
     const [dana] = await twoEditors(DOC);
     const events = listen(dana.h);
     dana.bot.typeLine(dana.h, "before");
-    dana.h.setSetting("script.paper", "a4");
+    dana.h.setSetting("script.nope", 1);
     dana.bot.typeLine(dana.h, "after");
     await until(() => dana.h.status.get().synced);
     expect(events).toContainEqual({
       type: "setting_refused",
-      key: "script.paper",
+      key: "script.nope",
       message: "unknown_key",
     });
     expect(lines(dana.h)).toEqual(expect.arrayContaining(["before", "after"]));

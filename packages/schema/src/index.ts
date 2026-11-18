@@ -15,8 +15,10 @@ export {
 } from "./attrs.ts";
 export type { Alignment, BlockAttrs, Dual } from "./attrs.ts";
 export {
+  HIGHLIGHT_NAMES,
   MARK_NAMES,
   OVERLAPPING_MARKS,
+  TEXT_COLOUR_NAMES,
   isMarkName,
   isSafeHref,
 } from "./marks.ts";
