@@ -1,61 +1,26 @@
 import { afterAll, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { bootstrapInterval, judge, percentile, runSuite } from "../harness.ts";
-import type { Budget } from "../harness.ts";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { createTempTrees } from "@manent/testkit";
+import { runSuite } from "../harness.ts";
+import type { ResultFile } from "../harness.ts";
+import { bootstrapInterval } from "../stats.ts";
 
-const made: string[] = [];
+const trees = createTempTrees("manent-bench-");
+afterAll(() => trees.removeAll());
 
-afterAll(async () => {
-  for (const dir of made) await rm(dir, { recursive: true, force: true });
-});
-
-async function tempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "manent-bench-"));
-  made.push(dir);
-  return dir;
-}
-
-/** A root holding the given files, keyed by path relative to it. */
-async function fixtureRoot(files: Record<string, string>): Promise<string> {
-  const root = await tempDir();
-  for (const [path, text] of Object.entries(files)) {
-    await mkdir(dirname(join(root, path)), { recursive: true });
-    await writeFile(join(root, path), text);
-  }
-  return root;
-}
-
-const fixedNow = () => new Date("2026-11-17T10:00:00Z");
-
-interface ResultMetric {
-  metric: string;
-  unit: string;
-  n: number;
-  p50: number;
-  p95: number;
-  p99: number;
-  intervals: Record<"p50" | "p95" | "p99", [number, number]>;
-  verdict: string;
-}
-interface ResultFile {
-  formatVersion: number;
-  startedAt: string;
-  tier: string;
-  bun: string;
-  platform: string;
-  arch: string;
-  scenarios: {
-    id: string;
-    workload: string | null;
-    processes: number;
-    metrics: ResultMetric[];
-  }[];
-}
+const fixedNow = () => 1_794_909_600_000; // 2026-11-17T10:00:00Z
 
 async function readResult(file: string): Promise<ResultFile> {
-  return (await Bun.file(file).json()) as ResultFile;
+  const parsed: unknown = await Bun.file(file).json();
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    !("formatVersion" in parsed) ||
+    parsed.formatVersion !== 1
+  )
+    throw new Error(`${file} is not a result file of format 1`);
+  return parsed as ResultFile;
 }
 
 const hundredSamples = `
@@ -70,74 +35,19 @@ export default {
 };
 `;
 
-test("percentiles use nearest rank", () => {
-  const s = Array.from({ length: 100 }, (_, i) => i + 1);
-  expect([percentile(s, 50), percentile(s, 95), percentile(s, 99)]).toEqual([
-    50, 95, 99,
-  ]);
-  expect(percentile([7], 99)).toBe(7);
-  expect(percentile([3, 1, 2], 50)).toBe(2);
-  expect(percentile([1, 2, 3, 4], 100)).toBe(4);
-  expect(percentile([1, 2, 3, 4], 0)).toBe(1);
-  expect(() => percentile([], 50)).toThrow(RangeError);
-  expect(() => percentile([1], 101)).toThrow(RangeError);
-  expect(() => percentile([1], Number.NaN)).toThrow(RangeError);
-});
-
-test("the bootstrap interval is deterministic for a seed and brackets the percentile", () => {
-  const s = Array.from({ length: 200 }, (_, i) => ((i * 37) % 101) + i / 10);
-  for (const p of [50, 95, 99]) {
-    const a = bootstrapInterval(s, p, { rounds: 1000, seed: 4747 });
-    const b = bootstrapInterval(s, p, { rounds: 1000, seed: 4747 });
-    expect(a).toEqual(b);
-    const [lo, hi] = a;
-    expect(lo).toBeLessThanOrEqual(percentile(s, p));
-    expect(hi).toBeGreaterThanOrEqual(percentile(s, p));
-    expect(lo).toBeLessThan(hi);
-  }
-  expect(bootstrapInterval(s, 50, { rounds: 1000, seed: 1 })).not.toEqual(
-    bootstrapInterval(s, 50, { rounds: 1000, seed: 4747 }),
-  );
-  expect(bootstrapInterval([5, 5, 5], 95, { rounds: 100, seed: 4747 })).toEqual(
-    [5, 5],
-  );
-  expect(() => bootstrapInterval([], 50, { rounds: 10, seed: 1 })).toThrow(
-    RangeError,
-  );
-  expect(() => bootstrapInterval([1], 50, { rounds: 0, seed: 1 })).toThrow(
-    RangeError,
-  );
-});
-
-test("a value is judged against its budget", () => {
-  const b: Budget = {
-    scenario: "s",
-    metric: "m",
-    stat: "p95",
-    budget: 33,
-    hardFail: 50,
-  };
-  expect([
-    judge(20, b),
-    judge(40, b),
-    judge(60, b),
-    judge(60, undefined),
-  ]).toEqual(["pass", "over_budget", "hard_fail", "no_budget"]);
-  expect([judge(33, b), judge(50, b)]).toEqual(["pass", "over_budget"]);
-});
-
-test("a suite with no scenarios runs and writes a result file", async () => {
-  const emptyDir = await tempDir();
-  const outDir = join(await tempDir(), "results");
+test("an empty suite writes a result file named for its start", async () => {
+  const emptyDir = await trees.tree({});
+  const outDir = join(await trees.tree({}), "results");
   const r = await runSuite({ root: emptyDir, outDir, now: fixedNow });
   expect(r).toEqual({
     file: join(outDir, "2026-11-17T10-00-00Z.json"),
     scenarios: 0,
     hardFails: 0,
   });
-  expect(await Bun.file(r.file).json()).toMatchObject({
+  const result: ResultFile = await readResult(r.file);
+  expect(result).toEqual({
     formatVersion: 1,
-    startedAt: "2026-11-17T10:00:00.000Z",
+    startedAt: 1_794_909_600_000,
     tier: "host",
     bun: Bun.version,
     platform: process.platform,
@@ -147,7 +57,7 @@ test("a suite with no scenarios runs and writes a result file", async () => {
 });
 
 test("a scenario runs in as many fresh processes as it asks for", async () => {
-  const root = await fixtureRoot({
+  const root = await trees.tree({
     "client/pids.bench.ts": `
 import { appendFileSync } from "node:fs";
 import { join } from "node:path";
@@ -179,13 +89,13 @@ export default {
     processes: 3,
   });
   const metric = result.scenarios[0]!.metrics[0]!;
-  expect(metric.n).toBe(3);
+  expect(metric.samples).toBe(3);
   expect(pids).toContain(metric.p50);
   expect(metric.p99).toBe(Math.max(...pids));
 });
 
 test("samples are summarised as p50, p95 and p99 with an interval, never a mean", async () => {
-  const root = await fixtureRoot({
+  const root = await trees.tree({
     "crdt/nested/hundred.bench.ts": hundredSamples,
     "budgets.json": JSON.stringify({
       formatVersion: 1,
@@ -205,7 +115,7 @@ test("samples are summarised as p50, p95 and p99 with an interval, never a mean"
   expect(r).toMatchObject({ scenarios: 1, hardFails: 0 });
   const text = await Bun.file(r.file).text();
   expect(text).not.toContain("mean");
-  const result = (await Bun.file(r.file).json()) as ResultFile;
+  const result = await readResult(r.file);
   expect(result.scenarios).toEqual([
     {
       id: "fixture.hundred",
@@ -215,10 +125,11 @@ test("samples are summarised as p50, p95 and p99 with an interval, never a mean"
         {
           metric: "typing",
           unit: "ms",
-          n: 100,
+          samples: 100,
           p50: 50,
           p95: 95,
           p99: 99,
+          max: 100,
           intervals: {
             p50: expect.any(Array),
             p95: expect.any(Array),
@@ -241,8 +152,38 @@ test("samples are summarised as p50, p95 and p99 with an interval, never a mean"
   }
 });
 
+test("a metric's summary names its sample count and its largest sample", async () => {
+  const root = await trees.tree({
+    "corpus/ten.bench.ts": `
+export default {
+  id: "fixture.ten",
+  workload: null,
+  processes: 1,
+  async run() {
+    return [{ metric: "t", unit: "ms", samples: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] }];
+  },
+};
+`,
+  });
+  const r = await runSuite({ root, outDir: join(root, "out"), now: fixedNow });
+  const result = await readResult(r.file);
+  expect(result.scenarios[0]!.metrics).toEqual([
+    {
+      metric: "t",
+      unit: "ms",
+      samples: 10,
+      p50: 5,
+      p95: 10,
+      p99: 10,
+      max: 10,
+      intervals: { p50: [2, 8], p95: [7, 10], p99: [7, 10] },
+      verdict: "no_budget",
+    },
+  ]);
+});
+
 test("a budget applies only when its tier is the run's", async () => {
-  const root = await fixtureRoot({
+  const root = await trees.tree({
     "server/hundred.bench.ts": hundredSamples,
     "budgets.json": JSON.stringify({
       formatVersion: 1,
@@ -265,7 +206,7 @@ test("a budget applies only when its tier is the run's", async () => {
 });
 
 test("the filter keeps scenarios whose path contains it", async () => {
-  const root = await fixtureRoot({
+  const root = await trees.tree({
     "corpus/keep.bench.ts": hundredSamples,
     "server/drop.bench.ts": hundredSamples,
     "other/ignored.bench.ts": hundredSamples,
@@ -282,7 +223,7 @@ test("the filter keeps scenarios whose path contains it", async () => {
 });
 
 test("a scenario whose process fails stops the suite with its output", async () => {
-  const root = await fixtureRoot({
+  const root = await trees.tree({
     "client/broken.bench.ts": `
 export default {
   id: "fixture.broken",
@@ -334,7 +275,7 @@ test("a malformed budget file stops the run and names the file and the row", asy
     ],
   ];
   for (const [text, message] of cases) {
-    const root = await fixtureRoot({
+    const root = await trees.tree({
       "client/hundred.bench.ts": hundredSamples,
       "budgets.json": text,
     });
@@ -345,7 +286,7 @@ test("a malformed budget file stops the run and names the file and the row", asy
 });
 
 test("a budget row of the run's tier that matches nothing measured stops the run, unless filtered", async () => {
-  const root = await fixtureRoot({
+  const root = await trees.tree({
     "client/hundred.bench.ts": hundredSamples,
     "budgets.json": budgetFile([
       typingRow,
@@ -365,7 +306,7 @@ test("a budget row of the run's tier that matches nothing measured stops the run
   });
   expect(filtered).toMatchObject({ scenarios: 1, hardFails: 0 });
 
-  const otherTier = await fixtureRoot({
+  const otherTier = await trees.tree({
     "client/hundred.bench.ts": hundredSamples,
     "budgets.json": budgetFile([{ ...typingRow, metric: "typing.renamed" }], {
       tier: "D-modest",
@@ -380,8 +321,8 @@ test("a budget row of the run's tier that matches nothing measured stops the run
   ).toMatchObject({ scenarios: 1, hardFails: 0 });
 });
 
-test("a scenario without a workload is recorded with workload null", async () => {
-  const root = await fixtureRoot({
+test("a scenario must say its workload, null included", async () => {
+  const root = await trees.tree({
     "corpus/bare.bench.ts": `
 export default {
   id: "fixture.bare",
@@ -392,13 +333,13 @@ export default {
 };
 `,
   });
-  const r = await runSuite({ root, outDir: join(root, "out"), now: fixedNow });
-  const result = await readResult(r.file);
-  expect(result.scenarios[0]).toHaveProperty("workload", null);
+  await expect(
+    runSuite({ root, outDir: join(root, "out"), now: fixedNow }),
+  ).rejects.toThrow("workload");
 });
 
 test("output a scenario leaves without a newline does not hide its result", async () => {
-  const root = await fixtureRoot({
+  const root = await trees.tree({
     "corpus/chatty.bench.ts": `
 export default {
   id: "fixture.chatty",
@@ -415,6 +356,6 @@ export default {
   const result = await readResult(r.file);
   expect(result.scenarios[0]!.metrics[0]).toMatchObject({
     metric: "size",
-    n: 1,
+    samples: 1,
   });
 });
