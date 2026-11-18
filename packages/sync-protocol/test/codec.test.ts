@@ -2,20 +2,44 @@ import { expect, test } from "bun:test";
 import { Buffer } from "node:buffer";
 import fc from "fast-check";
 import {
+  CAPABILITIES,
   CODE,
+  CONTROL_KINDS,
+  DOC_ROLES,
   FRAME,
   ProtocolError,
+  SUBSCRIBE_MODES,
+  SYNC_STEPS,
+  VERSION_FIELDS,
   decodeMessage,
   encodeMessage,
   isPermanentPushError,
 } from "../src/index.ts";
 import type { Message, Sender } from "../src/index.ts";
 import {
+  ACK_SAMPLE,
+  AUTH_EXPIRING_SAMPLE,
+  AUTH_REFRESH_SAMPLE,
+  AWARENESS_SAMPLE,
+  CONTROL_SAMPLE,
   DOC_ID,
+  ERROR_SAMPLE,
+  GENERATION_MOVED_SAMPLE,
   HELLO_SAMPLE,
   ONE_OF_EACH,
+  PING_SAMPLE,
+  PONG_SAMPLE,
   PUSH_SAMPLE,
   SERVER_ONLY_SAMPLES,
+  SUBSCRIBED_SAMPLE,
+  SUBSCRIBE_SAMPLE,
+  SYNC_SAMPLE,
+  SYNC_STEP2_SAMPLE,
+  SYNC_UPDATE_SAMPLE,
+  UNSUBSCRIBE_SAMPLE,
+  VIEW_PATCH_SAMPLE,
+  VIEW_SNAPSHOT_SAMPLE,
+  WELCOME_SAMPLE,
   arbMessage,
   concat,
   senderOf,
@@ -150,17 +174,16 @@ test("an unknown union member makes the frame a skip", () => {
 });
 
 test("an unknown capability is dropped from the list", () => {
-  const sample = SERVER_ONLY_SAMPLES.find((m) => m.type === "SUBSCRIBED")!;
   const frame = encodeMessage({
-    ...sample,
+    ...SUBSCRIBED_SAMPLE,
     capabilities: ["delete"],
-  } as typeof sample);
+  });
   const at = 2 + 16 + 1 + 1; // header, docId, generation, role
   expect(frame[at]).toBe(1); // one capability
   expect(frame[at + 1]).toBe(4); // "delete"
   frame[at + 1] = 99; // a capability a newer build added
   expect(decodeMessage(frame, "server")).toEqual({
-    ...sample,
+    ...SUBSCRIBED_SAMPLE,
     capabilities: [],
   });
 });
@@ -242,6 +265,32 @@ test("a string that is not well-formed UTF-16 is refused at encode", () => {
   expect(decodeMessage(encodeMessage(pair), "client")).toEqual(pair);
 });
 
+test("each union is one list, and the generators draw from it", () => {
+  expect(DOC_ROLES).toEqual(["owner", "edit", "comment", "view"]);
+  expect(CAPABILITIES).toEqual([
+    "send_to_prompter",
+    "edit_rundowns",
+    "issue_revisions",
+    "lock_page_numbers",
+    "delete",
+  ]);
+  expect(SUBSCRIBE_MODES).toEqual(["edit", "view", "prompter"]);
+  expect(SYNC_STEPS).toEqual(["step1", "step2", "update"]);
+  expect(VERSION_FIELDS).toEqual(["protocol", "schema", "engine", "table"]);
+  expect(CONTROL_KINDS).toEqual([
+    "version_created",
+    "draft_named",
+    "revision_issued",
+    "revision_recalled",
+    "lock_anchors_changed",
+    "layout_changed",
+    "membership_changed",
+    "restored",
+    "sent_to_prompter",
+    "upstream_status",
+  ]);
+});
+
 test("only 4400, 4413 and 4422 are permanent for a push", () => {
   expect(Object.values(CODE).filter(isPermanentPushError)).toEqual([
     4400, 4413, 4422,
@@ -252,28 +301,19 @@ test("only 4400, 4413 and 4422 are permanent for a push", () => {
 // layout. A round trip cannot catch an encoder and a decoder reordered the same way; these can.
 // The document prefix is docId 01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd · generation 2.
 const DOC_PREFIX = "01a1e81dc6f27301a0f65c345eb6c7cd 02";
-const SUBSCRIBED_SAMPLE = SERVER_ONLY_SAMPLES.find(
-  (m) => m.type === "SUBSCRIBED",
-)!;
-const sample = (type: Message["type"], step?: string): Message =>
-  [...ONE_OF_EACH, ...SERVER_ONLY_SAMPLES].find(
-    (m) =>
-      m.type === type &&
-      (step === undefined || ("step" in m && m.step === step)),
-  )!;
 const GOLDEN: [name: string, message: Message, from: Sender, hex: string][] = [
   ["HELLO", HELLO_SAMPLE, "client", "00 00 | 01 01 00 00 | 01 62 | 01 64"],
   [
     "WELCOME",
-    sample("WELCOME"),
+    WELCOME_SAMPLE,
     "server",
     "01 00 | 02 7531 | 09 416461205175696c6c | 8020 808004 | 01 01 00 00 | 01 01 00 00",
   ],
-  ["AUTH_EXPIRING", sample("AUTH_EXPIRING"), "server", "02 00 | 1e"],
-  ["AUTH_REFRESH", sample("AUTH_REFRESH"), "client", "03 00 | 01 74"],
+  ["AUTH_EXPIRING", AUTH_EXPIRING_SAMPLE, "server", "02 00 | 1e"],
+  ["AUTH_REFRESH", AUTH_REFRESH_SAMPLE, "client", "03 00 | 01 74"],
   [
     "ERROR with a document",
-    sample("ERROR"),
+    ERROR_SAMPLE,
     "server",
     `04 04 | ${DOC_PREFIX} | b322 | 02 6e6f | 01 f403 | 01`,
   ],
@@ -290,11 +330,11 @@ const GOLDEN: [name: string, message: Message, from: Sender, hex: string][] = [
     "server",
     "04 00 | cd22 | 04 736c6f77 | 00 | 00",
   ],
-  ["PING", sample("PING"), "client", "05 00 | 01"],
-  ["PONG", sample("PONG"), "server", "05 02 | 01"],
+  ["PING", PING_SAMPLE, "client", "05 00 | 01"],
+  ["PONG", PONG_SAMPLE, "server", "05 02 | 01"],
   [
     "SUBSCRIBE",
-    sample("SUBSCRIBE"),
+    SUBSCRIBE_SAMPLE,
     "client",
     `10 00 | ${DOC_PREFIX} | 01 | 02 05 06 | 00`,
   ],
@@ -310,7 +350,7 @@ const GOLDEN: [name: string, message: Message, from: Sender, hex: string][] = [
     {
       ...SUBSCRIBED_SAMPLE,
       lockAnchors: { hash: new Uint8Array([0xab, 0xcd]) },
-    } as Message,
+    },
     "server",
     `11 00 | ${DOC_PREFIX} | 01 | 02 04 00 | 0a 01 01 00 | 02 02abcd | 01 027331 027631 | 01 e807 d00f`,
   ],
@@ -322,32 +362,27 @@ const GOLDEN: [name: string, message: Message, from: Sender, hex: string][] = [
       lockAnchors: null,
       revision: null,
       airWindow: null,
-    } as Message,
+    },
     "server",
     `11 00 | ${DOC_PREFIX} | 01 | 00 | 0a 01 01 00 | 00 | 00 | 00`,
   ],
   [
     "GENERATION_MOVED",
-    sample("GENERATION_MOVED"),
+    GENERATION_MOVED_SAMPLE,
     "server",
     `12 00 | ${DOC_PREFIX} | 03`,
   ],
-  ["UNSUBSCRIBE", sample("UNSUBSCRIBE"), "client", `13 00 | ${DOC_PREFIX}`],
-  [
-    "SYNC step1",
-    sample("SYNC", "step1"),
-    "client",
-    `14 00 | ${DOC_PREFIX} | 00 | 01 00`,
-  ],
+  ["UNSUBSCRIBE", UNSUBSCRIBE_SAMPLE, "client", `13 00 | ${DOC_PREFIX}`],
+  ["SYNC step1", SYNC_SAMPLE, "client", `14 00 | ${DOC_PREFIX} | 00 | 01 00`],
   [
     "SYNC step2",
-    sample("SYNC", "step2"),
+    SYNC_STEP2_SAMPLE,
     "server",
     `14 00 | ${DOC_PREFIX} | 01 | 02 0000`,
   ],
   [
     "SYNC update",
-    sample("SYNC", "update"),
+    SYNC_UPDATE_SAMPLE,
     "server",
     `14 00 | ${DOC_PREFIX} | 02 | 02 0000`,
   ],
@@ -357,23 +392,23 @@ const GOLDEN: [name: string, message: Message, from: Sender, hex: string][] = [
     "client",
     `15 00 | ${DOC_PREFIX} | 04 | 04 01020304 | 01`,
   ],
-  ["ACK", sample("ACK"), "server", `16 00 | ${DOC_PREFIX} | 04 | 5a`],
-  ["AWARENESS", sample("AWARENESS"), "client", `17 00 | ${DOC_PREFIX} | 01 09`],
+  ["ACK", ACK_SAMPLE, "server", `16 00 | ${DOC_PREFIX} | 04 | 5a`],
+  ["AWARENESS", AWARENESS_SAMPLE, "client", `17 00 | ${DOC_PREFIX} | 01 09`],
   [
     "CONTROL",
-    sample("CONTROL"),
+    CONTROL_SAMPLE,
     "server",
     `18 00 | ${DOC_PREFIX} | 07 | 01 | 02 7b7d`,
   ],
   [
     "VIEW_SNAPSHOT",
-    sample("VIEW_SNAPSHOT"),
+    VIEW_SNAPSHOT_SAMPLE,
     "server",
     `19 00 | ${DOC_PREFIX} | 01 | 02 7b7d`,
   ],
   [
     "VIEW_PATCH",
-    sample("VIEW_PATCH"),
+    VIEW_PATCH_SAMPLE,
     "server",
     `1a 00 | ${DOC_PREFIX} | 02 | 02 5b5d`,
   ],

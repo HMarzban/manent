@@ -4,10 +4,18 @@ export {
   FRAME_LIMIT_BYTES,
   MESSAGE_LIMIT_BYTES,
   PROTOCOL_VERSION,
-  ProtocolError,
   isPermanentPushError,
-} from "./codes.ts";
-export type { Code } from "./codes.ts";
+} from "./constants.ts";
+export type { Code } from "./constants.ts";
+export { ProtocolError } from "./protocol-error.ts";
+export {
+  CAPABILITIES,
+  CONTROL_KINDS,
+  DOC_ROLES,
+  SUBSCRIBE_MODES,
+  SYNC_STEPS,
+  VERSION_FIELDS,
+} from "./messages.ts";
 export type {
   Capability,
   ConnectionMessage,
@@ -21,6 +29,8 @@ export type {
   Sender,
   ServerVersions,
   SubscribeMode,
+  SyncStep,
+  VersionField,
   VersionSet,
 } from "./messages.ts";
 export { decodeMessage, encodeMessage } from "./codec.ts";

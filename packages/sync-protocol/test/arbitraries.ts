@@ -1,15 +1,18 @@
 // Generators and samples shared by the sync-protocol tests.
 import fc from "fast-check";
-import { CODE } from "../src/index.ts";
+import {
+  CAPABILITIES,
+  CODE,
+  CONTROL_KINDS,
+  DOC_ROLES,
+  SUBSCRIBE_MODES,
+  SYNC_STEPS,
+} from "../src/index.ts";
 import type {
-  Capability,
-  ControlKind,
   DocRef,
-  DocRole,
   LockAnchor,
   Message,
   Sender,
-  SubscribeMode,
   VersionSet,
 } from "../src/index.ts";
 
@@ -29,27 +32,10 @@ const versions: fc.Arbitrary<VersionSet> = fc.record({
   engine: num,
   table: num,
 });
-const role = fc.constantFrom<DocRole>("owner", "edit", "comment", "view");
-const capability = fc.constantFrom<Capability>(
-  "send_to_prompter",
-  "edit_rundowns",
-  "issue_revisions",
-  "lock_page_numbers",
-  "delete",
-);
-const mode = fc.constantFrom<SubscribeMode>("edit", "view", "prompter");
-const controlKind = fc.constantFrom<ControlKind>(
-  "version_created",
-  "draft_named",
-  "revision_issued",
-  "revision_recalled",
-  "lock_anchors_changed",
-  "layout_changed",
-  "membership_changed",
-  "restored",
-  "sent_to_prompter",
-  "upstream_status",
-);
+const role = fc.constantFrom(...DOC_ROLES);
+const capability = fc.constantFrom(...CAPABILITIES);
+const mode = fc.constantFrom(...SUBSCRIBE_MODES);
+const controlKind = fc.constantFrom(...CONTROL_KINDS);
 const lockAnchor: fc.Arbitrary<LockAnchor> = fc.record({
   level: num,
   order: num,
@@ -126,11 +112,7 @@ export const arbMessage: fc.Arbitrary<Message> = fc.oneof(
   withDoc(
     fc.record({
       type: fc.constant("SYNC" as const),
-      step: fc.constantFrom(
-        "step1" as const,
-        "step2" as const,
-        "update" as const,
-      ),
+      step: fc.constantFrom(...SYNC_STEPS),
       data: bytes,
     }),
   ),
@@ -195,102 +177,169 @@ export function senderOf(message: Message): Sender {
 }
 
 export const DOC_ID = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
+/** The sixteen bytes DOC_ID travels as. */
+export const DOC_BYTES = new Uint8Array([
+  0x01, 0xa1, 0xe8, 0x1d, 0xc6, 0xf2, 0x73, 0x01, 0xa0, 0xf6, 0x5c, 0x34, 0x5e,
+  0xb6, 0xc7, 0xcd,
+]);
 const ref = { docId: DOC_ID, generation: 2 };
 const v1: VersionSet = { protocol: 1, schema: 1, engine: 0, table: 0 };
 
-export const HELLO_SAMPLE: Message = {
+type MessageOf<T extends Message["type"]> = Extract<Message, { type: T }>;
+
+export const HELLO_SAMPLE: MessageOf<"HELLO"> = {
   type: "HELLO",
   versions: v1,
   build: "b",
   deviceId: "d",
 };
-export const PUSH_SAMPLE: Message = {
+export const WELCOME_SAMPLE: MessageOf<"WELCOME"> = {
+  type: "WELCOME",
+  session: { userId: "u1", name: "Ada Quill" },
+  limits: { frameBytes: 4096, messageBytes: 65536 },
+  server: { current: v1, min: v1 },
+};
+export const AUTH_EXPIRING_SAMPLE: MessageOf<"AUTH_EXPIRING"> = {
+  type: "AUTH_EXPIRING",
+  secondsLeft: 30,
+};
+export const AUTH_REFRESH_SAMPLE: MessageOf<"AUTH_REFRESH"> = {
+  type: "AUTH_REFRESH",
+  ticket: "t",
+};
+export const ERROR_SAMPLE: MessageOf<"ERROR"> = {
+  type: "ERROR",
+  code: CODE.FORBIDDEN,
+  message: "no",
+  retryAfterMs: 500,
+  permanent: true,
+  doc: ref,
+};
+export const PING_SAMPLE: MessageOf<"PING"> = { type: "PING", nonce: 1 };
+export const PONG_SAMPLE: MessageOf<"PONG"> = { type: "PONG", nonce: 1 };
+export const SUBSCRIBE_SAMPLE: MessageOf<"SUBSCRIBE"> = {
+  type: "SUBSCRIBE",
+  ...ref,
+  mode: "view",
+  clientIds: [5, 6],
+  lastServerSeq: 0,
+};
+export const SUBSCRIBED_SAMPLE: MessageOf<"SUBSCRIBED"> = {
+  type: "SUBSCRIBED",
+  ...ref,
+  role: "edit",
+  capabilities: ["delete", "send_to_prompter"],
+  headSeq: 10,
+  minSchema: 1,
+  engineVersion: 1,
+  lockLevel: 0,
+  lockAnchors: {
+    table: [
+      {
+        level: 1,
+        order: 0,
+        label: "12A",
+        blockId: "b1",
+        offset: 3,
+        quote: "He waits.",
+        fallbackIds: ["b0"],
+      },
+    ],
+  },
+  revision: { setId: "s1", baselineVersionId: "v1" },
+  airWindow: { startsAt: 1000, endsAt: 2000 },
+};
+export const GENERATION_MOVED_SAMPLE: MessageOf<"GENERATION_MOVED"> = {
+  type: "GENERATION_MOVED",
+  ...ref,
+  newGeneration: 3,
+};
+export const UNSUBSCRIBE_SAMPLE: MessageOf<"UNSUBSCRIBE"> = {
+  type: "UNSUBSCRIBE",
+  ...ref,
+};
+export const SYNC_SAMPLE: MessageOf<"SYNC"> = {
+  type: "SYNC",
+  ...ref,
+  step: "step1",
+  data: new Uint8Array([0]),
+};
+export const SYNC_STEP2_SAMPLE: MessageOf<"SYNC"> = {
+  type: "SYNC",
+  ...ref,
+  step: "step2",
+  data: new Uint8Array([0, 0]),
+};
+export const SYNC_UPDATE_SAMPLE: MessageOf<"SYNC"> = {
+  type: "SYNC",
+  ...ref,
+  step: "update",
+  data: new Uint8Array([0, 0]),
+};
+export const PUSH_SAMPLE: MessageOf<"PUSH"> = {
   type: "PUSH",
   ...ref,
   clientSeq: 4,
   update: new Uint8Array([1, 2, 3, 4]),
   heal: true,
 };
+export const ACK_SAMPLE: MessageOf<"ACK"> = {
+  type: "ACK",
+  ...ref,
+  clientSeq: 4,
+  serverSeq: 90,
+};
+export const AWARENESS_SAMPLE: MessageOf<"AWARENESS"> = {
+  type: "AWARENESS",
+  ...ref,
+  update: new Uint8Array([9]),
+};
+export const CONTROL_SAMPLE: MessageOf<"CONTROL"> = {
+  type: "CONTROL",
+  ...ref,
+  seq: 7,
+  kind: "draft_named",
+  data: new TextEncoder().encode("{}"),
+};
+export const VIEW_SNAPSHOT_SAMPLE: MessageOf<"VIEW_SNAPSHOT"> = {
+  type: "VIEW_SNAPSHOT",
+  ...ref,
+  viewSeq: 1,
+  content: new Uint8Array([123, 125]),
+};
+export const VIEW_PATCH_SAMPLE: MessageOf<"VIEW_PATCH"> = {
+  type: "VIEW_PATCH",
+  ...ref,
+  viewSeq: 2,
+  patch: new Uint8Array([91, 93]),
+};
 
 /** One sample of every server-only type, plus SYNC step2 and SYNC update. */
 export const SERVER_ONLY_SAMPLES: Message[] = [
-  {
-    type: "WELCOME",
-    session: { userId: "u1", name: "Ada Quill" },
-    limits: { frameBytes: 4096, messageBytes: 65536 },
-    server: { current: v1, min: v1 },
-  },
-  { type: "AUTH_EXPIRING", secondsLeft: 30 },
-  {
-    type: "ERROR",
-    code: CODE.FORBIDDEN,
-    message: "no",
-    retryAfterMs: 500,
-    permanent: true,
-    doc: ref,
-  },
-  {
-    type: "SUBSCRIBED",
-    ...ref,
-    role: "edit",
-    capabilities: ["delete", "send_to_prompter"],
-    headSeq: 10,
-    minSchema: 1,
-    engineVersion: 1,
-    lockLevel: 0,
-    lockAnchors: {
-      table: [
-        {
-          level: 1,
-          order: 0,
-          label: "12A",
-          blockId: "b1",
-          offset: 3,
-          quote: "He waits.",
-          fallbackIds: ["b0"],
-        },
-      ],
-    },
-    revision: { setId: "s1", baselineVersionId: "v1" },
-    airWindow: { startsAt: 1000, endsAt: 2000 },
-  },
-  { type: "GENERATION_MOVED", ...ref, newGeneration: 3 },
-  { type: "ACK", ...ref, clientSeq: 4, serverSeq: 90 },
-  {
-    type: "CONTROL",
-    ...ref,
-    seq: 7,
-    kind: "draft_named",
-    data: new TextEncoder().encode("{}"),
-  },
-  {
-    type: "VIEW_SNAPSHOT",
-    ...ref,
-    viewSeq: 1,
-    content: new Uint8Array([123, 125]),
-  },
-  { type: "VIEW_PATCH", ...ref, viewSeq: 2, patch: new Uint8Array([91, 93]) },
-  { type: "SYNC", ...ref, step: "step2", data: new Uint8Array([0, 0]) },
-  { type: "SYNC", ...ref, step: "update", data: new Uint8Array([0, 0]) },
+  WELCOME_SAMPLE,
+  AUTH_EXPIRING_SAMPLE,
+  ERROR_SAMPLE,
+  SUBSCRIBED_SAMPLE,
+  GENERATION_MOVED_SAMPLE,
+  ACK_SAMPLE,
+  CONTROL_SAMPLE,
+  VIEW_SNAPSHOT_SAMPLE,
+  VIEW_PATCH_SAMPLE,
+  SYNC_STEP2_SAMPLE,
+  SYNC_UPDATE_SAMPLE,
 ];
 
 /** One sample of every message type. */
 export const ONE_OF_EACH: Message[] = [
   HELLO_SAMPLE,
-  { type: "AUTH_REFRESH", ticket: "t" },
-  { type: "PING", nonce: 1 },
-  { type: "PONG", nonce: 1 },
-  {
-    type: "SUBSCRIBE",
-    ...ref,
-    mode: "view",
-    clientIds: [5, 6],
-    lastServerSeq: 0,
-  },
-  { type: "UNSUBSCRIBE", ...ref },
-  { type: "SYNC", ...ref, step: "step1", data: new Uint8Array([0]) },
+  AUTH_REFRESH_SAMPLE,
+  PING_SAMPLE,
+  PONG_SAMPLE,
+  SUBSCRIBE_SAMPLE,
+  UNSUBSCRIBE_SAMPLE,
+  SYNC_SAMPLE,
   PUSH_SAMPLE,
-  { type: "AWARENESS", ...ref, update: new Uint8Array([9]) },
+  AWARENESS_SAMPLE,
   ...SERVER_ONLY_SAMPLES.filter((m) => m.type !== "SYNC"),
 ];
 

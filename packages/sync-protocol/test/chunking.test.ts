@@ -6,9 +6,16 @@ import {
   ProtocolError,
   createFrameDecoder,
   createFrameEncoder,
+  decodeMessage,
 } from "../src/index.ts";
 import type { FrameDecoder, Message } from "../src/index.ts";
-import { DOC_ID, arbMessage, senderOf } from "./arbitraries.ts";
+import {
+  DOC_BYTES,
+  DOC_ID,
+  arbMessage,
+  concat,
+  senderOf,
+} from "./arbitraries.ts";
 
 const DOC = DOC_ID;
 const MORE = 0b0001;
@@ -189,10 +196,7 @@ test("chunks of one message must agree about what it is", () => {
   other[3] = other[3]! ^ 1; // the same message ID under another document ID
   const d = createFrameDecoder({ from: "client" });
   d.push(c1);
-  expect(() => d.push(other)).toThrow(ProtocolError); // 4400
-  const fresh = createFrameDecoder({ from: "client" });
-  fresh.push(c1);
-  expect(() => fresh.push(other)).toThrow(badFrame);
+  expect(() => d.push(other)).toThrow(badFrame);
 });
 
 test("a chunked message from a sender that may not send it is refused at its first chunk", () => {
@@ -244,6 +248,38 @@ test("a client SYNC step2 or update is refused at its first chunk", () => {
   const step1 = { ...syncUpdate(DOC, bytes(2000)), step: "step1" } as Message;
   const frames = createFrameEncoder({ frameLimit: 256 }).encode(step1);
   expect(feed(createFrameDecoder({ from: "client" }), frames)).toEqual([step1]);
+});
+
+test("a client's SYNC step written the long way is refused at its first chunk", () => {
+  const first = concat(
+    new Uint8Array([20, CHUNK | MORE, 1]),
+    DOC_BYTES,
+    new Uint8Array([1, 0x81, 0x00, 9, 9]),
+  ); // message 1 · document · generation 1 · step2 as two bytes
+  expect(() => createFrameDecoder({ from: "client" }).push(first)).toThrow(
+    badFrame,
+  );
+});
+
+test("both decoders refuse an unknown chunk whose message ID is malformed", () => {
+  const frame = new Uint8Array([
+    100,
+    CHUNK,
+    0xff,
+    0xff,
+    0xff,
+    0xff,
+    0xff,
+    0xff,
+    0xff,
+    0xff,
+    0x7f,
+    7,
+  ]);
+  expect(() => decodeMessage(frame, "server")).toThrow(badFrame);
+  expect(() => createFrameDecoder({ from: "server" }).push(frame)).toThrow(
+    badFrame,
+  );
 });
 
 const withFlag = (frame: Uint8Array, flag: number) => {

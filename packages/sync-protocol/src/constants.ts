@@ -53,18 +53,3 @@ export function isPermanentPushError(code: number): boolean {
     code === CODE.VALIDATION_FAILED
   );
 }
-
-/** A frame that cannot be accepted: malformed (4400) or too large (4413). */
-export class ProtocolError extends Error {
-  readonly code: 4400 | 4413;
-
-  constructor(
-    code: 4400 | 4413,
-    message: string,
-    options?: { cause?: unknown },
-  ) {
-    super(message, options);
-    this.name = "ProtocolError";
-    this.code = code;
-  }
-}

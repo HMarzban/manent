@@ -1,13 +1,45 @@
 // The messages that travel between a client and the server.
 
+// Each union is one list. A member travels as its index in the list: append, never reorder.
+export const DOC_ROLES = ["owner", "edit", "comment", "view"] as const;
+export const CAPABILITIES = [
+  "send_to_prompter",
+  "edit_rundowns",
+  "issue_revisions",
+  "lock_page_numbers",
+  "delete",
+] as const;
+export const SUBSCRIBE_MODES = ["edit", "view", "prompter"] as const;
+export const CONTROL_KINDS = [
+  "version_created",
+  "draft_named",
+  "revision_issued",
+  "revision_recalled",
+  "lock_anchors_changed",
+  "layout_changed",
+  "membership_changed",
+  "restored",
+  "sent_to_prompter",
+  "upstream_status",
+] as const;
+export const SYNC_STEPS = ["step1", "step2", "update"] as const;
+export const VERSION_FIELDS = [
+  "protocol",
+  "schema",
+  "engine",
+  "table",
+] as const;
+
+export type DocRole = (typeof DOC_ROLES)[number];
+export type Capability = (typeof CAPABILITIES)[number];
+export type SubscribeMode = (typeof SUBSCRIBE_MODES)[number];
+export type ControlKind = (typeof CONTROL_KINDS)[number];
+export type SyncStep = (typeof SYNC_STEPS)[number];
+export type VersionField = (typeof VERSION_FIELDS)[number];
+
 export type Sender = "client" | "server";
 
-export interface VersionSet {
-  protocol: number;
-  schema: number;
-  engine: number;
-  table: number;
-}
+export type VersionSet = Record<VersionField, number>;
 
 export interface ServerVersions {
   current: VersionSet;
@@ -25,17 +57,6 @@ export interface DocRef {
   generation: number;
 }
 
-export type DocRole = "owner" | "edit" | "comment" | "view";
-
-export type Capability =
-  | "send_to_prompter"
-  | "edit_rundowns"
-  | "issue_revisions"
-  | "lock_page_numbers"
-  | "delete";
-
-export type SubscribeMode = "edit" | "view" | "prompter";
-
 export interface LockAnchor {
   level: number;
   order: number;
@@ -45,18 +66,6 @@ export interface LockAnchor {
   quote: string;
   fallbackIds: string[];
 }
-
-export type ControlKind =
-  | "version_created"
-  | "draft_named"
-  | "revision_issued"
-  | "revision_recalled"
-  | "lock_anchors_changed"
-  | "layout_changed"
-  | "membership_changed"
-  | "restored"
-  | "sent_to_prompter"
-  | "upstream_status";
 
 export type ConnectionMessage =
   | { type: "HELLO"; versions: VersionSet; build: string; deviceId: string }
@@ -107,7 +116,7 @@ export type DocumentMessage = DocRef &
         newGeneration: number;
       }
     | { type: "UNSUBSCRIBE" }
-    | { type: "SYNC"; step: "step1" | "step2" | "update"; data: Uint8Array }
+    | { type: "SYNC"; step: SyncStep; data: Uint8Array }
     | { type: "PUSH"; clientSeq: number; update: Uint8Array; heal: boolean }
     | { type: "ACK"; clientSeq: number; serverSeq: number }
     | { type: "AWARENESS"; update: Uint8Array }
