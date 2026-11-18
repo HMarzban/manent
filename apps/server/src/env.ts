@@ -1,4 +1,5 @@
-import { bindRefusal, checkDemoBind } from "@manent/server-core";
+import { bindRefusal } from "@manent/demo";
+import { checkDemoBind } from "@manent/server-core";
 
 export interface ServerEnv {
   port: number;
@@ -34,8 +35,7 @@ export function readServerEnv(
     const host = env.MANENT_LAN_HOST;
     const check = checkDemoBind(host, { lan: true });
     if (!check.ok) throw new Error(bindRefusal(host, check.reason));
-    lanHost =
-      host.startsWith("[") && host.endsWith("]") ? host.slice(1, -1) : host;
+    lanHost = check.address;
   }
 
   const url = env.MANENT_CONTROL_URL || null;

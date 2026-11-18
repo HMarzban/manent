@@ -1,3 +1,4 @@
+// The built web app's files, never anything outside its directory.
 import { realpath, stat } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 

@@ -9,6 +9,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { SignInResponse } from "@manent/sync-protocol";
 import { readServerEnv } from "../src/env.ts";
 import { buildServerConfig, startServer } from "../src/main.ts";
 
@@ -107,36 +108,31 @@ test("a bad port or half a control pair is refused in one sentence", () => {
   );
 });
 
-test("the configuration names the server's own hosts and origins", () => {
+test("the configuration names the server's own hosts", () => {
   const c = buildServerConfig(
     { ...readServerEnv({ MANENT_DEMO: "1" }), lanHost: "192.168.1.20" },
     new Uint8Array(32),
   );
-  expect(c.allowedHosts).toEqual([
+  expect(c.http.allowedHosts).toEqual([
     "localhost:4747",
     "127.0.0.1:4747",
     "192.168.1.20:4747",
   ]);
-  expect(c.allowedOrigins).toEqual([
-    "http://localhost:4747",
-    "http://127.0.0.1:4747",
-    "http://192.168.1.20:4747",
-  ]);
-  expect(c.openUrl).toBe("http://192.168.1.20:4747");
+  expect(c.http.openUrl).toBe("http://192.168.1.20:4747");
 
   const local = buildServerConfig(
     readServerEnv({ MANENT_DEMO: "1" }),
     new Uint8Array(32),
   );
-  expect(local.allowedHosts).toEqual(["localhost:4747", "127.0.0.1:4747"]);
-  expect(local.openUrl).toBe("http://localhost:4747");
+  expect(local.http.allowedHosts).toEqual(["localhost:4747", "127.0.0.1:4747"]);
+  expect(local.http.openUrl).toBe("http://localhost:4747");
 
   const v6 = buildServerConfig(
     { ...readServerEnv({ MANENT_DEMO: "1" }), lanHost: "FD12:0::1" },
     new Uint8Array(32),
   );
-  expect(v6.allowedHosts.at(-1)).toBe("[fd12::1]:4747");
-  expect(v6.openUrl).toBe("http://[fd12::1]:4747");
+  expect(v6.http.allowedHosts.at(-1)).toBe("[fd12::1]:4747");
+  expect(v6.http.openUrl).toBe("http://[fd12::1]:4747");
 });
 
 test("the seed's id is read from the data directory on each call", async () => {
@@ -183,9 +179,9 @@ test("the server listens on loopback and keeps its session key across restarts",
   expect(await health.json()).toEqual({ ok: true });
   const signIn = await fetch(`http://127.0.0.1:${port}/api/sign-in`, {
     method: "POST",
-    body: JSON.stringify({ personId: "sam" }),
+    body: JSON.stringify({ userId: "sam" }),
   });
-  const { session } = (await signIn.json()) as { session: string };
+  const { token } = (await signIn.json()) as SignInResponse;
   const key = await readFile(join(dataDir, "session.key"));
   expect(key.length).toBe(32);
   expect((await stat(join(dataDir, "session.key"))).mode & 0o777).toBe(0o600);
@@ -193,7 +189,7 @@ test("the server listens on loopback and keeps its session key across restarts",
 
   const second = await startServer(env);
   const me = await fetch(`http://127.0.0.1:${port}/api/me`, {
-    headers: { Authorization: `Bearer ${session}` },
+    headers: { Authorization: `Bearer ${token}` },
   });
   expect(((await me.json()) as { userId: string }).userId).toBe("sam");
   expect(await readFile(join(dataDir, "session.key"))).toEqual(key);

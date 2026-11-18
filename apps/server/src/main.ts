@@ -1,12 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  createDemoSignIn,
-  createServer,
-  createSignedSessionStore,
-} from "@manent/server-core";
-import type { ConnectionData, ServerConfig } from "@manent/server-core";
+import { createDemoDirectory, createDemoSignIn } from "@manent/demo";
+import { createServer, createSignedSessionStore } from "@manent/server-core";
+import type { ServerConfig } from "@manent/server-core";
 import { readServerEnv } from "./env.ts";
 import type { ServerEnv } from "./env.ts";
 
@@ -41,13 +38,17 @@ export function buildServerConfig(
     ...(env.lanHost ? [env.lanHost] : []),
   ].map((h) => urlHost(h, env.port));
   return {
+    http: {
+      allowedHosts: hosts,
+      openUrl: `http://${urlHost(env.lanHost ?? "localhost", env.port)}`,
+      webDir: env.webDir,
+    },
+    auth: {
+      signIn: createDemoSignIn(),
+      directory: createDemoDirectory(),
+      sessions: createSignedSessionStore({ secret, now: Date.now }),
+    },
     demo: { seedId: () => readSeedId(env.dataDir), control: env.control },
-    signIn: createDemoSignIn(),
-    sessions: createSignedSessionStore({ secret }),
-    allowedHosts: hosts,
-    allowedOrigins: hosts.map((h) => `http://${h}`),
-    openUrl: `http://${urlHost(env.lanHost ?? "localhost", env.port)}`,
-    webDir: env.webDir,
   };
 }
 
@@ -69,23 +70,24 @@ function readOrCreateSessionKey(dataDir: string): Uint8Array {
 export async function startServer(
   env: ServerEnv,
 ): Promise<{ urls: string[]; stop(): Promise<void> }> {
-  const handlers = createServer(
+  const server = createServer(
     buildServerConfig(env, readOrCreateSessionKey(env.dataDir)),
   );
   const hostnames = ["127.0.0.1", ...(env.lanHost ? [env.lanHost] : [])];
-  const listening: Bun.Server<ConnectionData>[] = [];
+  const listening: Bun.Server<undefined>[] = [];
   const stop = async () => {
     await Promise.all(listening.map((s) => s.stop(true)));
-    handlers.dispose();
   };
   try {
     for (const hostname of hostnames) {
       listening.push(
-        Bun.serve<ConnectionData>({
+        Bun.serve({
           hostname,
           port: env.port,
-          fetch: handlers.fetch,
-          websocket: handlers.websocket,
+          fetch: (request, bun) =>
+            server.fetch(request, {
+              remoteAddress: bun.requestIP(request)?.address ?? "",
+            }),
         }),
       );
     }
