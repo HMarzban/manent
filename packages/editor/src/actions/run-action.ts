@@ -58,7 +58,7 @@ export function runAction(
     case "space_before":
       return toggleSpaceBefore(state, dispatch);
     case "layout":
-      return setLayout(state, action, context.columnCells(), dispatch);
+      return setLayout(state, action, dispatch);
     case "undo":
       return context.history.undo(state, dispatch)
         ? { ok: true }

@@ -7,12 +7,14 @@ import {
   TEXT_COLOUR_NAMES,
 } from "@manent/schema";
 import type { FormatId } from "@manent/schema";
+import { TextSelection } from "prosemirror-state";
 import type { EditorState, Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import {
   HIGHLIGHT_COLOURS,
   TEXT_COLOURS,
   insertPageBreak,
+  paginationPlugin,
   runAction,
 } from "../src/index.ts";
 import type {
@@ -22,7 +24,15 @@ import type {
   ElementSlot,
   HistoryPort,
 } from "../src/index.ts";
-import { counter, docOf, docOfBlocks, stateAt, texts } from "./docs.ts";
+import {
+  counter,
+  docOf,
+  docOfBlocks,
+  docWithAttr,
+  sp,
+  stateAt,
+  texts,
+} from "./docs.ts";
 
 withDom();
 
@@ -147,6 +157,18 @@ function runOn(
   return result;
 }
 
+/** `start` on a screenplay page: with the pagination plugin, whose deferred work runs at once. */
+const paged = (start: EditorState): EditorState =>
+  start.reconfigure({
+    plugins: [
+      paginationPlugin({
+        profile: sp,
+        defer: (work) => work(),
+        offFontNote: "note",
+      }),
+    ],
+  });
+
 /** The state after runOn in `format` on `start`. */
 const actOn = (
   start: EditorState,
@@ -253,7 +275,7 @@ test("formatting is marks, and layout is attributes", () => {
 });
 
 test("a layout from the Ruler is clamped to what the page draws", () => {
-  const s = act(stateAt(docOf([["one"]]), 0, 1), (st, d) =>
+  const s = act(paged(stateAt(docOf([["one"]]), 0, 1)), (st, d) =>
     runOn("screenplay", { kind: "layout", indent: 70, width: 5000 }, st, d),
   );
   expect([attrOf(s, 0, "indent"), attrOf(s, 0, "width")]).toEqual([59, 1]);
@@ -264,7 +286,7 @@ test("a layout from the Ruler is clamped to what the page draws", () => {
 });
 
 test("a layout sets only the fields it gives, floored, and null returns one to the element's", () => {
-  const start = stateAt(docOf([["one", "two"]]), 0, 1, 1, 1);
+  const start = paged(stateAt(docOf([["one", "two"]]), 0, 1, 1, 1));
   const set = actOn(start, { kind: "layout", indent: 10.7, spaceBefore: 40 });
   const cleared = actOn(set, { kind: "layout", indent: null, align: "right" });
   expect([layoutOf(set), layoutOf(cleared)]).toEqual([
@@ -277,6 +299,46 @@ test("a layout sets only the fields it gives, floored, and null returns one to t
       [null, null, "right", 10],
     ],
   ]);
+});
+
+test("a Ruler width is clamped against the indent its line is drawn at", () => {
+  const doc = docWithAttr(
+    docOfBlocks([
+      ["action", "x"],
+      ["dialogue", "Go."],
+      ["dialogue", "No."],
+    ]),
+    2,
+    "dual",
+    "right",
+  );
+  const s = actOn(paged(stateAt(doc, 0, 0, 2, 1)), {
+    kind: "layout",
+    width: 5000,
+  });
+  expect([0, 1, 2].map((k) => attrOf(s, k, "width"))).toEqual([60, 50, 28]);
+});
+
+test("a Ruler width set while a composition holds the pages back is clamped for its own line", () => {
+  const start = paged(
+    stateAt(
+      docOfBlocks([
+        ["action", "x"],
+        ["dialogue", "Go."],
+        ["action", "y"],
+      ]),
+      0,
+      1,
+    ),
+  );
+  const composing = start.apply(
+    start.tr.insertText("kkkkkkkk", 2).setMeta("composition", 1),
+  );
+  const onDialogue = composing.apply(
+    composing.tr.setSelection(TextSelection.create(composing.doc, 14)),
+  );
+  const s = actOn(onDialogue, { kind: "layout", width: 5000 });
+  expect([0, 1, 2].map((k) => attrOf(s, k, "width"))).toEqual([null, 50, null]);
 });
 
 test("a layout without pages clamps nothing but space before", () => {
