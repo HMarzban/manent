@@ -376,5 +376,10 @@ export function storageContract(
     expect(() => s.open({ kind: "user", id: "../x" })).toThrow(RangeError);
   });
 
-  generationsContract({ file: () => f, now: clock.now, corruptCheckpoint });
+  generationsContract({
+    file: () => f,
+    now: clock.now,
+    corruptRow,
+    corruptCheckpoint,
+  });
 }

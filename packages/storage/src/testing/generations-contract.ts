@@ -4,10 +4,11 @@ import type { DocFile, FreezeItem } from "../ports.ts";
 import { StorageError } from "../ports.ts";
 import { DOC, DOC2, bytes, item } from "./contract-fixtures.ts";
 
-/** The running contract's current file and clock, and its driver's way of damaging a checkpoint. */
+/** The running contract's current file and clock, and its driver's ways of damaging a row and a checkpoint. */
 interface ContractRun {
   file(): DocFile;
   now(): number;
+  corruptRow(docId: string, seq: number): void;
   corruptCheckpoint(docId: string): void;
 }
 
@@ -98,6 +99,15 @@ export function generationsContract(run: ContractRun): void {
     expect([...f.log.ledger(DOC)]).toEqual([
       [7, { userId: "sam", ackedClock: 3 }],
     ]);
+  });
+
+  test("a damaged row is found in every generation that holds its sequence", () => {
+    const f = run.file();
+    appendThree(f);
+    f.generations.freeze(FREEZE);
+    run.corruptRow(DOC, 1);
+    expect(f.log.tail(DOC, 1, 0, { quarantine: false }).corrupt).toEqual([1]);
+    expect(f.log.tail(DOC, 2, 0)).toMatchObject({ rows: [], corrupt: [1] });
   });
 
   test("a replay key is stored once", () => {

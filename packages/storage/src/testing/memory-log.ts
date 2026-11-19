@@ -265,10 +265,11 @@ export function corruptRow(
   seq: number,
 ): void {
   for (const log of logs) {
-    const updates = log.docs.get(docId)?.updates ?? [];
-    const index = updates.findIndex((u) => u.seq === seq);
-    const row = updates[index];
-    if (row !== undefined)
-      updates[index] = { ...row, update: flipFirstByte(row.update) };
+    const doc = log.docs.get(docId);
+    if (doc === undefined) continue;
+    // every generation's row, as the SQLite driver's hook damages them
+    doc.updates = doc.updates.map((u) =>
+      u.seq === seq ? { ...u, update: flipFirstByte(u.update) } : u,
+    );
   }
 }
