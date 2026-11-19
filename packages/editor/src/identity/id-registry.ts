@@ -28,6 +28,7 @@ class Registry implements IdRegistry {
   ) {}
 
   count(id: string): number {
+    if (id === "") return 0;
     // a state a later one has moved past counts its own blocks, which happens only when a state is applied twice
     if (this.counts.index !== this.index)
       return this.index.blocks.filter((block) => block.id === id).length;
@@ -53,7 +54,8 @@ function tally(
 ): void {
   for (let i = from; i < to; i++) {
     const { id } = blocks[i]!;
-    if (id === null) continue;
+    // a block with no id is laid out with an empty one
+    if (id === "") continue;
     const count = (byId.get(id) ?? 0) + by;
     if (count === 0) byId.delete(id);
     else byId.set(id, count);
@@ -82,7 +84,7 @@ function added(
   const found: number[] = [];
   for (let i = change.first; i < change.newEnd; i++) {
     const { id } = index.blocks[i]!;
-    if (id !== null && byId.get(id)! > 1) found.push(i);
+    if (id !== "" && byId.get(id)! > 1) found.push(i);
   }
   return found;
 }
@@ -134,7 +136,7 @@ export function idRegistryPlugin(options: {
       const registry = own(idRegistryKey.getState(state));
       const { blocks } = registry.index;
       const doubled = registry.doubled.filter(
-        (i) => registry.count(blocks[i]!.id!) > 1,
+        (i) => registry.count(blocks[i]!.id) > 1,
       );
       if (doubled.length === 0) return null;
       const tr = state.tr;

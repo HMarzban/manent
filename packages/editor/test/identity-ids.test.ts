@@ -251,3 +251,17 @@ test("a duplicate is renamed where a later transaction of the same dispatch move
     ["s000000000000001", bid(0), bid(1), "n000000000000001"],
   ]);
 });
+
+const unnamed = (): Node => schema.nodes.block.create({ type: "action" });
+
+test("blocks without an id are neither counted nor renamed", () => {
+  const doc = schema.node("doc", null, [
+    schema.node("section", null, [unnamed(), unnamed()]),
+  ]);
+  const s = withRegistry(doc);
+  const out = s.apply(s.tr.insert(endOfSection(s, 0), unnamed()));
+  expect([ids(out.doc), idRegistryKey.getState(out)!.count("")]).toEqual([
+    [["null", "null", "null"]],
+    0,
+  ]);
+});
