@@ -10,9 +10,11 @@ import type { BlockPlace, CursorPlace } from "../script-editor/ports.ts";
 /** Blocks searched on each side of a cursor's hint. */
 export const HINT_WINDOW = 200;
 
-// The pagination plugin's index when it describes this document; without pages, or while a composition holds
-// the index of the document before it, there is none.
-function currentIndex(state: EditorState): BlockIndex | null {
+/**
+ * The pagination plugin's index when it describes this document; null without pages, or while a composition holds
+ * the index of the document before it.
+ */
+export function currentIndex(state: EditorState): BlockIndex | null {
   const index = paginationKey.getState(state)?.index;
   return index !== undefined && index.doc === state.doc ? index : null;
 }
@@ -26,8 +28,8 @@ function blockPlaceAt($pos: ResolvedPos): BlockPlace | null {
     : null;
 }
 
-// The index of the block holding a position inside a block, counted in document order across sections.
-function blockNumber(state: EditorState, $pos: ResolvedPos): number {
+/** The index of the block holding a position inside a block, counted in document order across sections. */
+export function blockNumber(state: EditorState, $pos: ResolvedPos): number {
   const section = $pos.index(0);
   const index = currentIndex(state);
   if (index !== null) return index.sectionStart[section]! + $pos.index(1);
