@@ -111,6 +111,8 @@ export const SAMPLE: DocJSON = {
 export interface FakeTimers extends Timers {
   /** Moves the clock on, running every timer that falls due, in order. */
   advance(ms: number): void;
+  /** Timers scheduled and not yet run or cancelled. */
+  pending(): number;
 }
 
 export function fakeTimers(): FakeTimers {
@@ -138,6 +140,7 @@ export function fakeTimers(): FakeTimers {
       }
       now = until;
     },
+    pending: () => due.size,
   };
 }
 

@@ -6,13 +6,14 @@ import {
   yXmlFragmentForBinding,
 } from "@manent/crdt";
 import type { CrdtDoc, UndoRoot } from "@manent/crdt";
-import type { EditorBinding, PresencePort, Timers } from "@manent/editor";
+import type { EditorBinding, Timers } from "@manent/editor";
 import { parseDoc, schema } from "@manent/schema";
 import type { Node } from "prosemirror-model";
 import { Plugin } from "prosemirror-state";
 import { initProseMirrorDoc, ySyncPlugin, ySyncPluginKey } from "y-prosemirror";
 import { compositionPlugin } from "../history/composition.ts";
 import { createHistory } from "../history/undo.ts";
+import { createPresence } from "../presence/presence.ts";
 import { hasNewerContent } from "./gate.ts";
 import { isRemoteTransaction, isUndoRedoTransaction } from "./remote.ts";
 
@@ -28,12 +29,6 @@ export interface BoundDocument {
 export type BindResult =
   | { ok: true; binding: EditorBinding; destroy(): void }
   | { ok: false; reason: "newer_content"; doc: Node };
-
-const NO_PRESENCE: PresencePort = Object.freeze({
-  publish: () => {},
-  subscribe: () => () => {},
-  subscribePeople: () => () => {},
-});
 
 /** y-sync's plugin under its own key, its view writing to the CRDT only when the document changed, never on a selection change. */
 function syncOnDocChange(sync: Plugin): Plugin {
@@ -79,6 +74,11 @@ export function bindDocument(options: {
       roots: options.undoRoots,
     }),
   });
+  const presence = createPresence({
+    clientId: crdt.clientId,
+    document: options.document,
+    timers: options.timers,
+  });
   const binding: EditorBinding = {
     doc,
     plugins: [
@@ -89,7 +89,7 @@ export function bindDocument(options: {
     isRemote: isRemoteTransaction,
     isUndoRedo: isUndoRedoTransaction,
     history: history.port,
-    presence: NO_PRESENCE,
+    presence,
   };
-  return { ok: true, binding, destroy: () => {} };
+  return { ok: true, binding, destroy: presence.destroy };
 }
