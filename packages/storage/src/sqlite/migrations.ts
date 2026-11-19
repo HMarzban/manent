@@ -21,6 +21,7 @@ export const MIGRATIONS: {
       ) STRICT, WITHOUT ROWID`,
       `CREATE TABLE tombstones (doc_id TEXT PRIMARY KEY, deleted_by_user_id TEXT NOT NULL, deleted_at INTEGER NOT NULL) STRICT`,
     ],
+    [],
   ],
   documents: [
     [
@@ -65,6 +66,18 @@ export const MIGRATIONS: {
         verified_seq INTEGER NOT NULL, flagged_at INTEGER NOT NULL, pre_heal_version_id TEXT
       ) STRICT`,
     ],
+    [
+      `CREATE TABLE doc_generations (
+        doc_id TEXT NOT NULL, generation INTEGER NOT NULL,
+        final_state BLOB, final_seq INTEGER NOT NULL, frozen_at INTEGER NOT NULL, purge_after INTEGER NOT NULL,
+        reason TEXT NOT NULL, next_initial_bytes INTEGER NOT NULL, rebuilt_by_client_id INTEGER NOT NULL,
+        PRIMARY KEY (doc_id, generation)) STRICT, WITHOUT ROWID`,
+      `CREATE TABLE doc_replays (
+        doc_id TEXT NOT NULL, replay_key TEXT NOT NULL, user_id TEXT NOT NULL,
+        from_generation INTEGER NOT NULL, generation INTEGER NOT NULL, seq INTEGER NOT NULL,
+        result TEXT NOT NULL, created_at INTEGER NOT NULL,
+        PRIMARY KEY (doc_id, replay_key)) STRICT, WITHOUT ROWID`,
+    ],
   ],
   checkpoints: [
     [
@@ -73,6 +86,12 @@ export const MIGRATIONS: {
         state BLOB NOT NULL, sha256 BLOB NOT NULL, created_at INTEGER NOT NULL,
         PRIMARY KEY (doc_id, generation, seq)
       ) STRICT, WITHOUT ROWID`,
+    ],
+    [
+      `CREATE TABLE doc_measures (
+        doc_id TEXT NOT NULL, generation INTEGER NOT NULL, seq INTEGER NOT NULL,
+        live_bytes INTEGER NOT NULL, plain_bytes INTEGER NOT NULL, client_ids INTEGER NOT NULL, largest_section INTEGER NOT NULL,
+        PRIMARY KEY (doc_id, generation)) STRICT, WITHOUT ROWID`,
     ],
   ],
 });

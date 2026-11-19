@@ -1,17 +1,19 @@
 // The in-memory storage driver: plain maps, copied on write, with the faults a test can arm.
-import { crc32, sha256 } from "../checksum.ts";
+import { sha256 } from "../checksum.ts";
 import { homeKey, parseHome, wellFormedKey } from "../home.ts";
-import type {
-  AppendItem,
-  DocFile,
-  DocumentRow,
-  HealingRow,
-  Home,
-  Storage,
-  UpdateRow,
-  VersionRow,
-} from "../ports.ts";
-import { CHECKPOINTS_KEPT, COLOR_COUNT, StorageError } from "../ports.ts";
+import type { DocFile, Home, MeasureRow, Storage } from "../ports.ts";
+import { CHECKPOINTS_KEPT, StorageError } from "../ports.ts";
+import type { Logged, Write } from "./memory-log.ts";
+import {
+  copied,
+  copyLogged,
+  corruptRow,
+  createGenerations,
+  createLog,
+  createReplays,
+  flipFirstByte,
+  pairKey,
+} from "./memory-log.ts";
 
 /** Thrown by an armed `crashOnCommit`, standing for the process dying at that point. */
 export class SimulatedCrash extends Error {
@@ -34,29 +36,14 @@ export interface MemoryStorage extends Storage {
   commits(): number;
 }
 
-// Only a document's current generation has rows: `append` refuses any other.
-type StoredUpdate = UpdateRow & { crc: number };
 type StoredCheckpoint = { generation: number; seq: number; sha: string } & {
   state: Uint8Array;
 };
 
-// Values are replaced, never changed in place, so copying a document's maps and lists copies its state.
-interface MemoryDoc {
-  row: DocumentRow | null;
-  updates: StoredUpdate[];
-  clients: Map<number, { userId: string; ackedClock: number }>;
-  setRequests: Map<string, number>;
-  healing: HealingRow | null;
-}
-
-interface Logged {
-  docs: Map<string, MemoryDoc>;
-  versions: VersionRow[];
-}
-
 interface MemoryState {
   logs: Map<string, Logged>;
   checkpoints: Map<string, StoredCheckpoint[]>;
+  measures: Map<string, MeasureRow>;
   places: Map<string, { home: Home; kind: string }>;
   roles: Map<string, { role: string; capabilities: string[] }>;
   tombstones: Map<string, { deletedByUserId: string; deletedAt: number }>;
@@ -69,135 +56,9 @@ interface Context {
   commit<T>(apply: () => T): T;
 }
 
-type Write = <T>(op: (log: Logged) => T) => T;
-
-const copied = <T extends object>(value: T | null | undefined): T | null =>
-  value === null || value === undefined ? null : { ...value };
 const verifies = (c: StoredCheckpoint) => sha256(c.state).toHex() === c.sha;
 const newestFirst = (a: StoredCheckpoint, b: StoredCheckpoint) =>
   b.generation - a.generation || b.seq - a.seq;
-const pairKey = (a: string, b: string) => JSON.stringify([a, b]);
-
-const flipFirstByte = (bytes: Uint8Array) =>
-  bytes.map((byte, index) => (index === 0 ? byte ^ 0xff : byte));
-
-const copyDoc = (doc: MemoryDoc | undefined): MemoryDoc => ({
-  row: doc?.row ?? null,
-  updates: [...(doc?.updates ?? [])],
-  clients: new Map(doc?.clients),
-  setRequests: new Map(doc?.setRequests),
-  healing: doc?.healing ?? null,
-});
-
-function docOf(log: Logged, docId: string): MemoryDoc {
-  const doc = log.docs.get(docId) ?? copyDoc(undefined);
-  log.docs.set(docId, doc);
-  return doc;
-}
-
-function appendTo(log: Logged, item: AppendItem, createdAt: number): number {
-  const { docId, generation, userId, origin, setRequest } = item;
-  const doc = log.docs.get(docId);
-  if (doc?.row?.generation !== generation)
-    throw new RangeError(`no document ${docId} at generation ${generation}`);
-  const seq = doc.row.headSeq + 1;
-  const update = new Uint8Array(item.update);
-  const crc = crc32(update);
-  doc.updates.push({ seq, update, userId, origin, createdAt, crc });
-  doc.row = { ...doc.row, headSeq: seq };
-  for (const { clientId, clock } of item.clocks) {
-    const owner = doc.clients.get(clientId) ?? { userId, ackedClock: 0 };
-    const ackedClock = Math.max(owner.ackedClock, clock);
-    doc.clients.set(clientId, { userId: owner.userId, ackedClock });
-  }
-  if (setRequest !== undefined) {
-    const key = pairKey(userId, setRequest.deviceId);
-    const last = doc.setRequests.get(key) ?? 0;
-    doc.setRequests.set(key, Math.max(last, setRequest.clientSeq));
-  }
-  return seq;
-}
-
-function readTail(doc: MemoryDoc | undefined, after: number) {
-  const rows: UpdateRow[] = [];
-  const corrupt: number[] = [];
-  for (const { crc, ...row } of doc?.updates ?? []) {
-    if (row.seq <= after) continue;
-    if (crc32(row.update) !== crc) corrupt.push(row.seq);
-    else rows.push({ ...row, update: new Uint8Array(row.update) });
-  }
-  return { rows, corrupt };
-}
-
-// A colour goes to each person in the order of their first client id, which is never removed.
-function colorsOf(doc: MemoryDoc | undefined): Map<string, number> {
-  const colors = new Map<string, number>();
-  for (const { userId } of doc?.clients.values() ?? [])
-    if (!colors.has(userId)) colors.set(userId, colors.size % COLOR_COUNT);
-  return colors;
-}
-
-function createLog(now: () => number, read: () => Logged, write: Write) {
-  const doc = (docId: string) => read().docs.get(docId);
-  const docLog: DocFile["log"] = {
-    create: (input) =>
-      copied(doc(input.id)?.row) ??
-      write((log) => {
-        const row = { ...input, generation: 1, headSeq: 0, locked: 0 };
-        const target = docOf(log, input.id);
-        target.row = { ...row, createdAt: now(), deletedAt: null };
-        return { ...target.row };
-      }),
-    get: (docId) => copied(doc(docId)?.row),
-    append: (item) => write((log) => appendTo(log, item, now())),
-    raiseSchema: (docId, toVersion) =>
-      write((log) => {
-        const target = docOf(log, docId);
-        if (target.row !== null && target.row.schemaVersion < toVersion)
-          target.row = { ...target.row, schemaVersion: toVersion };
-      }),
-    tail(docId, generation, afterSeq, options) {
-      const current = doc(docId)?.row?.generation === generation;
-      const tail = readTail(current ? doc(docId) : undefined, afterSeq);
-      const { corrupt } = tail;
-      if (corrupt.length === 0 || options?.quarantine === false) return tail;
-      write((log) => {
-        const target = docOf(log, docId);
-        target.updates = target.updates.filter((u) => !corrupt.includes(u.seq));
-        for (const seq of corrupt)
-          docLog.flagHealing(docId, "quarantine", seq - 1);
-      });
-      return tail;
-    },
-    registerClients: (docId, userId, clientIds) =>
-      write((log) => {
-        const { clients } = docOf(log, docId);
-        for (const id of clientIds)
-          if (!clients.has(id)) clients.set(id, { userId, ackedClock: 0 });
-        return clientIds.filter((id) => clients.get(id)?.userId !== userId);
-      }),
-    ledger: (docId) => new Map(doc(docId)?.clients),
-    colors: (docId) => colorsOf(doc(docId)),
-    lastSetRequest: (docId, userId, deviceId) =>
-      doc(docId)?.setRequests.get(pairKey(userId, deviceId)) ?? 0,
-    healing: (docId) => copied(doc(docId)?.healing),
-    flagHealing: (docId, reason, verifiedSeq) =>
-      write((log) => {
-        const target = docOf(log, docId);
-        const fresh = { reason, flaggedAt: now(), preHealVersionId: null };
-        const old = target.healing ?? { ...fresh, verifiedSeq };
-        const lower = Math.min(old.verifiedSeq, verifiedSeq);
-        target.healing = { ...old, verifiedSeq: lower };
-      }),
-    notePreHeal: (docId, preHealVersionId) =>
-      write((log) => {
-        const target = docOf(log, docId);
-        if (target.healing !== null)
-          target.healing = { ...target.healing, preHealVersionId };
-      }),
-  };
-  return docLog;
-}
 
 function createCheckpoints(memory: () => MemoryState): DocFile["checkpoints"] {
   const stored = (docId: string) => memory().checkpoints.get(docId) ?? [];
@@ -207,7 +68,7 @@ function createCheckpoints(memory: () => MemoryState): DocFile["checkpoints"] {
     stored(docId)
       .filter((c) => c.generation === generation)
       .toSorted(newestFirst);
-  return {
+  const checkpoints: DocFile["checkpoints"] = {
     put(docId, generation, seq, state) {
       const sha = sha256(state).toHex();
       keep(docId, (c) => c.generation !== generation || c.seq !== seq);
@@ -216,8 +77,12 @@ function createCheckpoints(memory: () => MemoryState): DocFile["checkpoints"] {
       const older = ofGeneration(docId, generation).slice(CHECKPOINTS_KEPT);
       keep(docId, (c) => !older.includes(c));
     },
-    newest(docId, generation) {
-      const candidates = ofGeneration(docId, generation);
+    newest: (docId, generation) =>
+      checkpoints.atOrBefore(docId, generation, Number.MAX_SAFE_INTEGER),
+    atOrBefore(docId, generation, seq) {
+      const candidates = ofGeneration(docId, generation).filter(
+        (c) => c.seq <= seq,
+      );
       const index = candidates.findIndex(verifies);
       const failed = index < 0 ? candidates : candidates.slice(0, index);
       keep(docId, (c) => !failed.includes(c));
@@ -226,12 +91,25 @@ function createCheckpoints(memory: () => MemoryState): DocFile["checkpoints"] {
       return { seq: found.seq, state: new Uint8Array(found.state) };
     },
   };
+  return checkpoints;
+}
+
+const measureKey = (docId: string, generation: number) =>
+  pairKey(docId, String(generation));
+
+function createMeasures(memory: () => MemoryState): DocFile["measures"] {
+  return {
+    put: (docId, generation, row) =>
+      void memory().measures.set(measureKey(docId, generation), { ...row }),
+    get: (docId, generation) =>
+      copied(memory().measures.get(measureKey(docId, generation))),
+  };
 }
 
 function openFile(ctx: Context, home: Home, key: string): DocFile {
   const logs = () => ctx.state().logs;
   const file = (): Logged => {
-    const stored = logs().get(key) ?? { docs: new Map(), versions: [] };
+    const stored = logs().get(key) ?? copyLogged(undefined);
     logs().set(key, stored);
     return stored;
   };
@@ -241,9 +119,7 @@ function openFile(ctx: Context, home: Home, key: string): DocFile {
   const write: Write = (op) => transaction(() => op(read()));
   function transaction<T>(fn: () => T): T {
     if (work !== null) return fn();
-    const { docs, versions } = file();
-    const copy = { docs: new Map(docs), versions: [...versions] };
-    for (const [docId, doc] of docs) copy.docs.set(docId, copyDoc(doc));
+    const copy = copyLogged(file());
     work = copy;
     let result: T;
     try {
@@ -257,19 +133,26 @@ function openFile(ctx: Context, home: Home, key: string): DocFile {
     ctx.commit(() => logs().set(key, copy));
     return result;
   }
-  const versions = {
-    add: (version: VersionRow) => write((l) => l.versions.push({ ...version })),
+  const versions: DocFile["versions"] = {
+    add: (version) => write((l) => l.versions.push({ ...version })),
     // newest first; of two made at the same moment, the one added later
-    list: (docId: string) =>
+    list: (docId) =>
       read()
         .versions.filter((v) => v.docId === docId)
         .toReversed()
         .toSorted((a, b) => b.createdAt - a.createdAt)
         .map((v) => ({ ...v })),
   };
-  const log = createLog(ctx.now, read, write);
-  const checkpoints = createCheckpoints(ctx.state);
-  return { home: { ...home }, log, versions, checkpoints, transaction };
+  return {
+    home: { ...home },
+    log: createLog(ctx.now, read, write),
+    versions,
+    checkpoints: createCheckpoints(ctx.state),
+    generations: createGenerations(ctx.now, read, write),
+    replays: createReplays(read, write),
+    measures: createMeasures(ctx.state),
+    transaction,
+  };
 }
 
 function createDirectory(ctx: Context): Storage["directory"] {
@@ -317,16 +200,6 @@ function createDirectory(ctx: Context): Storage["directory"] {
   };
 }
 
-function corruptRow(state: MemoryState, docId: string, seq: number): void {
-  for (const log of state.logs.values()) {
-    const updates = log.docs.get(docId)?.updates ?? [];
-    const index = updates.findIndex((u) => u.seq === seq);
-    const row = updates[index];
-    if (row !== undefined)
-      updates[index] = { ...row, update: flipFirstByte(row.update) };
-  }
-}
-
 function corruptCheckpoint(state: MemoryState, docId: string): void {
   const stored = state.checkpoints.get(docId) ?? [];
   const newest = stored.filter(verifies).toSorted(newestFirst)[0];
@@ -342,6 +215,7 @@ export function createMemoryStorage(options: {
   let state: MemoryState = {
     logs: new Map(),
     checkpoints: new Map(),
+    measures: new Map(),
     places: new Map(),
     roles: new Map(),
     tombstones: new Map(),
@@ -380,7 +254,7 @@ export function createMemoryStorage(options: {
     crashOnCommit(when) {
       crash = when;
     },
-    corruptRow: (docId, seq) => corruptRow(state, docId, seq),
+    corruptRow: (docId, seq) => corruptRow(state.logs.values(), docId, seq),
     corruptCheckpoint: (docId) => corruptCheckpoint(state, docId),
     snapshot() {
       const handle = Object.freeze({});

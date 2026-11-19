@@ -1,4 +1,4 @@
-// One home's document file: its log and versions over one connection, and the checkpoints file beside it.
+// One home's document file: its log, versions, generations and replays over one connection, and the checkpoints file beside it.
 import type { Database } from "bun:sqlite";
 import { crc32 } from "../checksum.ts";
 import type {
@@ -15,8 +15,10 @@ import type {
   Versions,
 } from "../ports.ts";
 import { COLOR_COUNT, StorageError } from "../ports.ts";
-import { createSqliteCheckpoints } from "./checkpoints.ts";
+import { createCheckpointsFile } from "./checkpoints.ts";
 import { docFilePath, migrate, openDatabase, transact } from "./files.ts";
+import { createSqliteGenerations } from "./generations.ts";
+import { createSqliteReplays } from "./replays.ts";
 
 /** A document file the storage closes when it closes. */
 export interface SqliteDocFile extends DocFile {
@@ -129,7 +131,7 @@ function prepareLedger(db: Database) {
       { clientId: number; userId: string; ackedClock: number },
       [string]
     >(
-      "SELECT client_id AS clientId, user_id AS userId, acked_clock AS ackedClock FROM doc_clients WHERE doc_id = ?1",
+      "SELECT client_id AS clientId, user_id AS userId, acked_clock AS ackedClock FROM doc_clients WHERE doc_id = ?1 ORDER BY client_id",
     ),
     colors: db.query<{ userId: string; colorIndex: number }, [string]>(
       "SELECT user_id AS userId, color_index AS colorIndex FROM doc_people WHERE doc_id = ?1 ORDER BY first_seen, color_index",
@@ -329,22 +331,23 @@ export function openDocFile(options: {
     db.close();
     throw error;
   }
-  const checkpoints = createSqliteCheckpoints({
+  const { now } = options;
+  const caches = createCheckpointsFile({
     path: path.replace(/\.sqlite$/, ".checkpoints.sqlite"),
-    now: options.now,
+    now,
   });
+  const log = createLog(db, { ...prepareLog(db), ...prepareLedger(db) }, now);
   return {
     home: { ...options.home },
-    log: createLog(
-      db,
-      { ...prepareLog(db), ...prepareLedger(db) },
-      options.now,
-    ),
+    log,
     versions: createVersions(db),
-    checkpoints,
+    checkpoints: caches.checkpoints,
+    generations: createSqliteGenerations({ db, log, now }),
+    replays: createSqliteReplays(db),
+    measures: caches.measures,
     transaction: (fn) => transact(db, fn),
     close() {
-      checkpoints.close();
+      caches.close();
       db.close();
     },
   };

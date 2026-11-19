@@ -1,13 +1,9 @@
 // The tests every storage driver passes, registered by each driver's test file.
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import type {
-  AppendItem,
-  DocFile,
-  Home,
-  Storage,
-  VersionRow,
-} from "../ports.ts";
+import type { DocFile, Home, Storage, VersionRow } from "../ports.ts";
 import { COLOR_COUNT, StorageError } from "../ports.ts";
+import { DOC, DOC2, DOC3, HOME, item } from "./contract-fixtures.ts";
+import { generationsContract } from "./generations-contract.ts";
 
 /** A driver as its contract drives it: `corruptRow` and `corruptCheckpoint` damage stored bytes and leave their checksum. */
 export interface StorageUnderTest {
@@ -17,21 +13,6 @@ export interface StorageUnderTest {
   corruptRow(docId: string, seq: number): void;
   corruptCheckpoint(docId: string): void;
 }
-
-const PROJECT = "0b9f3c1e-6d2a-4e8b-9f1a-2c3d4e5f6a7b";
-const HOME: Home = { kind: "project", id: PROJECT };
-const DOC = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
-const DOC2 = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7ce";
-const DOC3 = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cf";
-
-const item = (n: number): AppendItem => ({
-  docId: DOC,
-  generation: 1,
-  update: new Uint8Array([n]),
-  userId: "sam",
-  origin: "edit",
-  clocks: [{ clientId: 7, clock: n }],
-});
 
 /** Registers the shared tests. Each runs on a fresh storage from `make`, whose clock starts at 1,000, holding DOC in HOME. */
 export function storageContract(
@@ -393,5 +374,12 @@ export function storageContract(
 
   test("a home that is not well formed is a caller's mistake", () => {
     expect(() => s.open({ kind: "user", id: "../x" })).toThrow(RangeError);
+  });
+
+  generationsContract({
+    file: () => f,
+    now: clock.now,
+    corruptRow,
+    corruptCheckpoint,
   });
 }
