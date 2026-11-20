@@ -89,17 +89,31 @@ test("whatever is written there reads back as a whole node file or as nothing", 
     fc.property(
       fc.oneof(nodeFile, near, fc.jsonValue()),
       (written: unknown) => {
-        writeFileSync(join(root, "node.json"), JSON.stringify(written));
+        const text = JSON.stringify(written);
+        writeFileSync(join(root, "node.json"), text);
         const read = readNodeFile(root);
         outcomes.add(read === null ? "nothing" : "file");
         if (read === null) return true;
-        expect(written).toMatchObject(read);
+        expect(JSON.parse(text)).toMatchObject(read);
         writeNodeFile(root, read);
         expect(readNodeFile(root)).toEqual(read);
         return true;
       },
     ),
-    { numRuns: 300 },
+    {
+      numRuns: 300,
+      examples: [
+        [
+          {
+            pid: 1,
+            nodeUrl: "http://a.aa",
+            launchToken: " ",
+            startedAt: 0,
+            firstFrameAt: -0,
+          },
+        ],
+      ],
+    },
   );
   expect([...outcomes].toSorted()).toEqual(["file", "nothing"]);
 });
