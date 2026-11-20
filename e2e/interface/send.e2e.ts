@@ -1,5 +1,4 @@
 import AxeBuilder from "@axe-core/playwright";
-import { DOCUMENT_WORDS } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 import { signedInAs } from "../support/tour.ts";
@@ -103,10 +102,10 @@ test("the Send screen passes the accessibility rules and works by keys alone", a
   await expect(
     page.getByRole("heading", { name: "Send draft", level: 1 }),
   ).toBeFocused();
-  // the covered document has drawn its status below its sheet, so the page holds text out of view
-  await expect(page.locator("[data-region='page'] [role='status']")).toHaveText(
-    DOCUMENT_WORDS.opening,
-  );
+  // the covered document has drawn its page, taller than the window, so the page holds text out of view
+  await expect(
+    page.locator("[data-region='page'] .mn-page-view"),
+  ).toBeAttached();
   const axe = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
     .analyze();

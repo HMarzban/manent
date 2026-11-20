@@ -169,7 +169,11 @@ test("the palette's key works before the page is editable, and every typed chara
   page,
 }) => {
   const editor = await holdTheEditor(page);
-  await signedInAs(page, "you", DOC);
+  // Firefox holds the load event while the held module is still on its way, so neither step waits for it
+  await page.goto(`${DOC}?person=you`, { waitUntil: "commit" });
+  await page.waitForURL((at) => !at.searchParams.has("person"), {
+    waitUntil: "commit",
+  });
   await page.locator("[data-region='page']").waitFor({ state: "attached" });
   expect(await editable(page).count()).toBe(0);
   await pressKeyOf(page, "app.palette");
