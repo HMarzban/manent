@@ -76,4 +76,6 @@ export interface NodeCoreOptions {
   storeUsage(): { scripts: number; bytes: number };
   /** http://127.0.0.1:<bound port>: the hosts and the socket's origin are built from it. */
   nodeUrl: string;
+  /** Empties the store for the demo's new seed: every document, every person's upstream store, and the records but the secret and the people. */
+  wipe(): Promise<void>;
 }

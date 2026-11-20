@@ -75,6 +75,8 @@ import {
   createRelayBridge,
 } from "../src/index.ts";
 import type { CloudApi, Handover, Mirror, RelayBridge } from "../src/index.ts";
+import { createNodeCore } from "../src/index.ts";
+import type { NodeCore } from "../src/index.ts";
 import { createFakeCloud, createMemoryRecords } from "../src/testing/index.ts";
 
 export const DOC = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
@@ -97,6 +99,8 @@ const IDLE_MS = 1_000;
 const CALM_ROUNDS = 14;
 const NO_FRAMES = { request: () => () => {} };
 const SLOW_ADOPT_MS = 3_000;
+/** The longest a settle of the core's world runs. */
+const SETTLE_SPAN_MS = 120_000;
 // peerOf never reads a connection's data, and only server-core can make a real one
 const NO_DATA = {} as ConnectionData;
 const STORE_WRITES = new Set([
@@ -271,6 +275,8 @@ class Cloud {
   /** By user: the client IDs of every push from the node's upstream clients. */
   readonly pushedIds = new Map<string, Set<number>>();
   readonly refusing = new Set<string>();
+  /** What the cloud's /api/demo names as its seed. */
+  seedId = "seed-1";
   private versionIds = 0;
 
   constructor(
@@ -305,7 +311,7 @@ class Cloud {
           now: this.clock.clock.now,
         }),
       },
-      demo: { seedId: () => "seed-1", control: null },
+      demo: { seedId: () => this.seedId, control: null },
       socket: {
         tickets: createTicketStore({ now: this.clock.clock.now }),
         versions: VERSIONS,
@@ -1141,4 +1147,406 @@ export interface WorldOptions {
 
 export function world(options?: WorldOptions): RelayWorld {
   return new RelayWorld(options);
+}
+
+/** The node's address, which no socket listens on: requests reach the core in memory. */
+const NODE_URL = "http://127.0.0.1:5197";
+const LAUNCH = "a".repeat(64);
+const NODE_PEOPLE = [
+  { userId: "sam", name: "Sam Okafor" },
+  { userId: "dana", name: "Dana Reyes" },
+  { userId: "you", name: "You" },
+];
+
+/** The demo's choices on the node: You starts without an account at the cloud. */
+const nodeSignIn = (): ReturnType<typeof createFakeSignIn> => {
+  const inner = createFakeSignIn(NODE_PEOPLE);
+  return {
+    describe: () => ({
+      choices: inner
+        .describe()
+        .choices.map((c) => ({ ...c, registered: c.userId !== "you" })),
+    }),
+    authenticate: (body) => inner.authenticate(body),
+  };
+};
+
+/** One window's socket to the core, delivered when the world steps. */
+interface Wire {
+  open: boolean;
+  toCore: (Uint8Array | string)[];
+  toWindow: Uint8Array[];
+  connection: Connection;
+  handlers: Parameters<Transport["connect"]>[0];
+}
+
+/** The core itself over memory parts, its windows reaching it through its server and connections, and the cloud as in the relay's world. */
+export class CoreWorld {
+  readonly clock = createFakeClock(START_AT);
+  readonly random = seeded(41);
+  readonly cloudNet: MemoryNetwork = createMemoryNetwork({
+    random: this.random,
+  });
+  readonly cloudStorage = createMemoryStorage({ now: this.clock.clock.now });
+  readonly nodeStorage = createMemoryStorage({ now: this.clock.clock.now });
+  readonly records = createMemoryRecords();
+  upstreamStores = createMemoryStoreSpace();
+  readonly cloud = new Cloud(this.cloudStorage, this.clock);
+  readonly deferred = new Deferred();
+  readonly core: NodeCore;
+  readonly tokens = new Map<string, string>();
+  private readonly empty = this.nodeStorage.snapshot();
+  private readonly wires = new Set<Wire>();
+  private readonly windows = new Map<string, Person>();
+  private activity = 0;
+  private readonly active = (): void => {
+    this.activity += 1;
+  };
+
+  constructor() {
+    this.cloudNet.serve({
+      connected: (end) =>
+        serveEnd(this.cloud.service, end, this.cloud.hooks(), this.active),
+      createDocument: (userId, request) => {
+        const made = this.cloud.service.access.create(userId, request);
+        if (made.ok) return { ok: true };
+        const code = made.code === "deleted" ? "deleted" : "forbidden";
+        return { ok: false, code };
+      },
+      replay: (userId, request) =>
+        this.cloud.service.replay(userId, JSON.parse(JSON.stringify(request))),
+    });
+    const cloud: CloudApi = {
+      signIn: (userId) => this.cloud.api.signIn(userId),
+      demo: () => this.cloud.api.demo(),
+      describe: (token, request) => this.cloud.api.describe(token, request),
+      adopt: (token, request) => this.cloud.api.adopt(token, request),
+    };
+    this.core = createNodeCore({
+      storage: this.nodeStorage,
+      records: this.records,
+      cloud,
+      upstream: {
+        create: (userId, token) => this.upstreamClient(userId, token),
+        store: (userId) => this.upstreamStores.store(userId),
+      },
+      clock: this.clock.clock,
+      defer: this.deferred.defer,
+      random: randomOf(seeded(43)),
+      signIn: nodeSignIn(),
+      directory: createFakeDirectory(
+        NODE_PEOPLE.map((user) => ({ user, workspaces: [] })),
+      ),
+      versions: VERSIONS,
+      build: "test",
+      webDir: null,
+      launchToken: LAUNCH,
+      registry: PRODUCT_SETTING_RULES,
+      boot: null,
+      storeUsage: () => ({ scripts: 0, bytes: 0 }),
+      nodeUrl: NODE_URL,
+      wipe: async () => {
+        this.nodeStorage.restore(this.empty);
+        this.upstreamStores = createMemoryStoreSpace();
+      },
+    });
+  }
+
+  /** A request to the core as the window sends it: the launch header, and the person's node token when given. */
+  async request(
+    method: "GET" | "POST",
+    path: string,
+    options: { token?: string | null; body?: unknown } = {},
+  ): Promise<Response> {
+    const headers: Record<string, string> = { "X-Manent-Launch": LAUNCH };
+    const token = options.token ?? null;
+    if (token !== null) headers.Authorization = `Bearer ${token}`;
+    if (options.body !== undefined)
+      headers["Content-Type"] = "application/json";
+    const init: RequestInit = { method, headers };
+    if (options.body !== undefined) init.body = JSON.stringify(options.body);
+    const answer = await this.core.server.fetch(
+      new Request(`${NODE_URL}${path}`, init),
+      { remoteAddress: "127.0.0.1", upgrade: () => false },
+    );
+    if (answer === null) throw new TypeError(`${path} was upgraded`);
+    return answer;
+  }
+
+  /** The person chooses themselves at the node, as the window's chooser does. */
+  async chooses(userId: string): Promise<string> {
+    const answer = await this.request("POST", "/api/sign-in", {
+      body: { userId },
+    });
+    const body: unknown = await answer.json();
+    const token =
+      typeof body === "object" && body !== null && "token" in body
+        ? body.token
+        : null;
+    if (typeof token !== "string")
+      throw new Error(`${userId} was not signed in`);
+    this.tokens.set(userId, token);
+    await this.settle();
+    return token;
+  }
+
+  /** The window's handle on the document, opened as the window would; `create` makes it on the node. */
+  async open(
+    userId: string,
+    docId: string,
+    create = false,
+  ): Promise<DocHandle> {
+    const person = this.windowOf(userId);
+    const known = person.handles.get(docId);
+    if (known !== undefined) return known;
+    const made = { kind: "script", home: HOME, workspaceId: null };
+    const opening = create
+      ? person.client.open(docId, { create: made })
+      : person.client.open(docId);
+    const handle = await this.drive(opening);
+    person.handles.set(docId, handle);
+    await this.settle();
+    return handle;
+  }
+
+  /** The person opens a script Dana made at the cloud, through the node, which mirrors and relays it. */
+  async openSynced(userId: string, docId: string): Promise<DocHandle> {
+    if (!this.cloudHas(docId))
+      this.cloud.service.access.create("dana", {
+        docId,
+        kind: "script",
+        home: HOME,
+      });
+    this.cloudStorage.directory.setRole(docId, userId, "edit", []);
+    if (!this.tokens.has(userId)) await this.chooses(userId);
+    return this.open(userId, docId);
+  }
+
+  windowTypes(userId: string, docId: string, text: string): void {
+    const handle = this.windowOf(userId).handles.get(docId);
+    if (handle === undefined)
+      throw new Error(`${userId} has no window on ${docId}`);
+    typeInto(handle.doc(), text);
+  }
+
+  windowStatus(userId: string, docId: string): DocStatus {
+    const handle = this.windowOf(userId).handles.get(docId);
+    if (handle === undefined)
+      throw new Error(`${userId} has no window on ${docId}`);
+    return handle.status.get();
+  }
+
+  cloudHas(docId: string): boolean {
+    return this.cloudStorage.directory.placeOf(docId) !== null;
+  }
+
+  cloudText(docId: string): string[] {
+    return textIn(this.cloudStorage, docId);
+  }
+
+  nodeText(docId: string): string[] {
+    return textIn(this.nodeStorage, docId);
+  }
+
+  async drive<T>(promise: Promise<T>): Promise<T> {
+    const state = { done: false };
+    const watched = promise.finally(() => {
+      state.done = true;
+    });
+    for (let step = 0; !state.done && step < MAX_STEPS; step++)
+      if (!(await this.step())) this.clock.advance(IDLE_MS);
+    if (!state.done)
+      throw new Error("the world stopped before the promise settled");
+    return watched;
+  }
+
+  /** As the relay's world settles; a world that keeps retrying, as one offline does, stops after SETTLE_SPAN_MS. */
+  async settle(): Promise<void> {
+    let calm = 0;
+    const until = this.clock.clock.now() + SETTLE_SPAN_MS;
+    for (let step = 0; step < MAX_STEPS; step++) {
+      const before = this.activity;
+      const busy = await this.step();
+      if (!busy) this.clock.advance(IDLE_MS);
+      if (this.activity !== before) calm = 0;
+      else if (!busy && ++calm >= CALM_ROUNDS) return;
+      if (this.clock.clock.now() >= until) return;
+    }
+    throw new Error(`the world did not settle in ${MAX_STEPS} steps`);
+  }
+
+  private async step(): Promise<boolean> {
+    await turn();
+    if (this.deferred.run() || this.cloud.deferred.run()) {
+      this.active();
+      return true;
+    }
+    for (const wire of this.wires) {
+      const toCore = wire.toCore.shift();
+      if (toCore !== undefined) {
+        this.active();
+        this.core.server.connections.message(wire.connection, toCore);
+        return true;
+      }
+      const toWindow = wire.toWindow.shift();
+      if (toWindow !== undefined) {
+        wire.handlers.onFrame(toWindow);
+        return true;
+      }
+    }
+    if (this.cloudNet.step()) return true;
+    await turn();
+    return this.cloudNet.queued() > 0;
+  }
+
+  private windowOf(userId: string): Person {
+    const known = this.windows.get(userId);
+    if (known !== undefined) return known;
+    const deviceId = `window-${userId}`;
+    const client = createSyncClient({
+      userId,
+      deviceId,
+      build: "test",
+      versions: V1,
+      minServer: MIN_SERVER,
+      via: "local_node",
+      ports: {
+        transport: this.windowTransport(userId),
+        store: createMemoryStore(userId),
+        leader: soloLeader(deviceId),
+        clock: this.clock.clock,
+        random: randomOf(seeded(deviceId.length * 977)),
+        frames: NO_FRAMES,
+      },
+    });
+    const person = { client, handles: new Map(), events: new Map() };
+    this.windows.set(userId, person);
+    return person;
+  }
+
+  /** The window's transport: its requests reach the core's server, and its socket the core's connections. */
+  private windowTransport(userId: string): Transport {
+    const token = (): string => {
+      const known = this.tokens.get(userId);
+      if (known === undefined) throw new ConnectError("sign_in");
+      return known;
+    };
+    const post = async (path: string, body?: unknown): Promise<Response> =>
+      this.request("POST", path, { token: token(), body });
+    return {
+      connect: async (handlers) => {
+        const ticketAnswer = await post("/api/ws-ticket");
+        const read: unknown = await ticketAnswer.json();
+        const ticket =
+          typeof read === "object" && read !== null && "ticket" in read
+            ? read.ticket
+            : null;
+        if (typeof ticket !== "string") throw new ConnectError("unreachable");
+        let data: ConnectionData | null = null;
+        await this.core.server.fetch(
+          new Request(`${NODE_URL}/ws?ticket=${ticket}`, {
+            headers: {
+              "X-Manent-Launch": LAUNCH,
+              Origin: new URL(NODE_URL).origin,
+            },
+          }),
+          {
+            remoteAddress: "127.0.0.1",
+            upgrade: (given) => {
+              data = given;
+              return true;
+            },
+          },
+        );
+        if (data === null) throw new ConnectError("unreachable");
+        const wire: Wire = {
+          open: true,
+          toCore: [],
+          toWindow: [],
+          handlers,
+          connection: {
+            data,
+            bufferedBytes: 0,
+            send: (frame) => {
+              if (wire.open) wire.toWindow.push(new Uint8Array(frame));
+              return "sent";
+            },
+            close: (code, reason) => {
+              if (!wire.open) return;
+              wire.open = false;
+              this.wires.delete(wire);
+              handlers.onClose(code, reason);
+            },
+          },
+        };
+        this.wires.add(wire);
+        this.core.server.connections.open(wire.connection);
+        return {
+          send: (frame) => {
+            if (wire.open) wire.toCore.push(new Uint8Array(frame));
+          },
+          close: () => {
+            if (!wire.open) return;
+            wire.open = false;
+            this.wires.delete(wire);
+            this.core.server.connections.close(wire.connection);
+          },
+        };
+      },
+      createDocument: async ({ workspaceId, ...request }) => {
+        const named = workspaceId === null ? {} : { workspaceId };
+        const { status } = await post("/api/docs", { ...request, ...named });
+        if (status === 200) return { ok: true };
+        if (status === 403) return { ok: false, code: "forbidden" };
+        if (status === 410) return { ok: false, code: "deleted" };
+        throw new ConnectError("unreachable");
+      },
+      replay: async () => {
+        throw new ConnectError("unreachable");
+      },
+    };
+  }
+
+  private upstreamClient(
+    userId: string,
+    token: () => string | null,
+  ): SyncClient {
+    const deviceId = `node-${userId}`;
+    const inner = this.cloudNet.transport(userId);
+    const gated = (): void => {
+      if (token() === null) throw new ConnectError("sign_in");
+    };
+    return createSyncClient({
+      userId,
+      deviceId,
+      build: "test",
+      versions: V1,
+      minServer: MIN_SERVER,
+      ports: {
+        transport: {
+          connect: async (handlers) => {
+            gated();
+            return inner.connect(handlers);
+          },
+          createDocument: async (request) => {
+            gated();
+            return inner.createDocument(request);
+          },
+          replay: async (request) => {
+            gated();
+            return inner.replay(request);
+          },
+        },
+        store: this.upstreamStores.store(userId),
+        leader: soloLeader(deviceId),
+        clock: this.clock.clock,
+        random: randomOf(seeded(userId.length * 6007)),
+        frames: NO_FRAMES,
+      },
+    });
+  }
+}
+
+export function nodeWorld(): CoreWorld {
+  return new CoreWorld();
 }

@@ -25,7 +25,7 @@ export const ORIGIN_RELAY = "relay";
 const FOLLOW_RETRY_MS = 5_000;
 
 /** The node's document as its log holds it, built without its room; null for one it has not placed. The caller destroys it. */
-function nodeDocOf(storage: Storage, docId: string): CrdtDoc | null {
+export function nodeDocOf(storage: Storage, docId: string): CrdtDoc | null {
   const place = storage.directory.placeOf(docId);
   if (place === null) return null;
   const file = storage.open(place.home);
