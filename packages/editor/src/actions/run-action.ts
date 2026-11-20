@@ -1,10 +1,10 @@
 import type { FormatId, IdSource } from "@manent/schema";
 import type { EditorView } from "prosemirror-view";
-import type { ElementSlot } from "../elements/slots.ts";
+import type { ElementRef, ElementSlot } from "../elements/slots.ts";
+import { setElement } from "../keys/element-keys.ts";
 import type { HistoryPort } from "../script-editor/ports.ts";
 import type { ActionResult, EditorAction } from "./action-types.ts";
 import { toggleDualDialogue } from "./dual.ts";
-import { setElement } from "./element.ts";
 import { setLayout, toggleAlign, toggleSpaceBefore } from "./layout.ts";
 import { insertPageBreak } from "./page-break.ts";
 import { setNamedMark, toggleStyle } from "./styles.ts";
@@ -12,10 +12,7 @@ import { setNamedMark, toggleStyle } from "./styles.ts";
 export interface ActionContext {
   format(): FormatId;
   /** The element a picker key gives in `format`; null when the format has none there. */
-  slotElement(
-    format: FormatId,
-    slot: ElementSlot,
-  ): { type: string; kind: string | null } | null;
+  slotElement(format: FormatId, slot: ElementSlot): ElementRef | null;
   history: HistoryPort;
   ids: IdSource;
   openPicker(view: EditorView): void;
@@ -37,7 +34,8 @@ export function runAction(
     case "element": {
       const element = context.slotElement(context.format(), action.slot);
       if (element === null) return { ok: false, reason: "not_in_format" };
-      return setElement(state, element, dispatch);
+      setElement(element)(state, dispatch);
+      return { ok: true };
     }
     case "picker":
       context.openPicker(view);

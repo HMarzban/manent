@@ -21,6 +21,7 @@ import type {
   ActionContext,
   ActionResult,
   EditorAction,
+  ElementRef,
   ElementSlot,
   HistoryPort,
 } from "../src/index.ts";
@@ -90,9 +91,7 @@ function marksAt(s: EditorState, pos: number): string[] {
 }
 
 // The slots these tests use; a format offers one when it has its element.
-const SLOT_ELEMENTS: Partial<
-  Record<ElementSlot, { type: string; kind: string | null }>
-> = {
+const SLOT_ELEMENTS: Partial<Record<ElementSlot, ElementRef>> = {
   "2": { type: "action", kind: null },
   "3": { type: "character", kind: null },
   "6": { type: "transition", kind: null },
