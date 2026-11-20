@@ -18,6 +18,7 @@ import type {
   SyncClientPorts,
 } from "../ports/ports.ts";
 import type { DocHandle } from "../session/doc-handle.ts";
+import type { Via } from "../upstream/window.ts";
 import { createViewer } from "../view/view.ts";
 import type { ViewHandle, Viewer } from "../view/view.ts";
 import { createLinkDriver } from "./link-driver.ts";
@@ -34,7 +35,7 @@ export interface LinkFacts {
   leader: boolean;
 }
 
-/** Without `uploadVersion`, device versions stay on the device. */
+/** Without `uploadVersion`, device versions stay on the device. `via` is "server" unless given. */
 export interface SyncClientOptions {
   userId: string;
   deviceId: string;
@@ -43,6 +44,7 @@ export interface SyncClientOptions {
   minServer: VersionSet;
   ports: SyncClientPorts;
   uploadVersion?: (version: DeviceVersion) => Promise<boolean>;
+  via?: Via;
 }
 
 export interface SyncClient {
@@ -101,6 +103,7 @@ class Client implements SyncClient, LinkDriverHost {
     });
     this.replicas = createReplicas({
       ports,
+      via: options.via ?? "server",
       link: this.driver,
       uploadVersion: options.uploadVersion ?? null,
       leading: () => this.leading,

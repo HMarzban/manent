@@ -4,6 +4,7 @@ import type { CrdtDoc } from "@manent/crdt";
 import { createSubscribable } from "../outbox/subscribable.ts";
 import type { DocStatus, RecoveredItem, Subscribable } from "../ports/ports.ts";
 import type { DocEvent, DocHandle } from "../session/doc-handle.ts";
+import type { UpstreamStatus } from "../upstream/status.ts";
 import type { ViewHandle } from "../view/view.ts";
 
 /**
@@ -18,7 +19,7 @@ export interface RelayHandle extends DocHandle {
 
 type Views = Pick<
   DocHandle,
-  "status" | "recovered" | "settings" | "writeSchema" | "readOnly"
+  "status" | "recovered" | "settings" | "writeSchema" | "readOnly" | "upstream"
 >;
 const VIEWS = [
   "status",
@@ -26,6 +27,7 @@ const VIEWS = [
   "settings",
   "writeSchema",
   "readOnly",
+  "upstream",
 ] as const;
 
 class Relay implements RelayHandle {
@@ -39,6 +41,9 @@ class Relay implements RelayHandle {
   >;
   readonly writeSchema: ReturnType<typeof createSubscribable<number>>;
   readonly readOnly: ReturnType<typeof createSubscribable<ViewHandle | null>>;
+  readonly upstream: ReturnType<
+    typeof createSubscribable<UpstreamStatus | null>
+  >;
   private backend: DocHandle;
   private readonly release: () => Promise<void>;
   private readonly listeners = new Set<(event: DocEvent) => void>();
@@ -55,6 +60,7 @@ class Relay implements RelayHandle {
     this.settings = createSubscribable(backend.settings.get());
     this.writeSchema = createSubscribable(backend.writeSchema.get());
     this.readOnly = createSubscribable(backend.readOnly.get());
+    this.upstream = createSubscribable(backend.upstream.get());
     this.attach(backend);
   }
 
@@ -104,6 +110,10 @@ class Relay implements RelayHandle {
 
   saveVersion(label: "session_end" | "manual"): Promise<void> {
     return this.backend.saveVersion(label);
+  }
+
+  adoptClientIds(ids: readonly number[]): void {
+    this.backend.adoptClientIds(ids);
   }
 
   close(): Promise<void> {

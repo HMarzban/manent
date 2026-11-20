@@ -1,6 +1,7 @@
 // The handle an app holds for one open document, and the events it hears on it.
 import type { CrdtDoc } from "@manent/crdt";
 import type { DocStatus, RecoveredItem, Subscribable } from "../ports/ports.ts";
+import type { UpstreamStatus } from "../upstream/status.ts";
 import type { ViewHandle } from "../view/view.ts";
 
 /**
@@ -35,6 +36,8 @@ export interface DocHandle {
   readonly writeSchema: Subscribable<number>;
   /** Set when the server answered 4408, or 4403 `read_only_role`: the app shows this reader instead of an editor. */
   readonly readOnly: Subscribable<ViewHandle | null>;
+  /** The latest upstream status the local node sent; always null unless the client runs with `via` "local_node". */
+  readonly upstream: Subscribable<UpstreamStatus | null>;
   on(listener: (event: DocEvent) => void): () => void;
   /** A request: shown at once, sent as SET, dropped if refused. TypeError for a value JSON cannot hold. */
   setSetting(key: string, value: unknown): void;
@@ -44,5 +47,12 @@ export interface DocHandle {
   sendAwareness(update: Uint8Array): void;
   onAwareness(listener: (update: Uint8Array) => void): () => void;
   saveVersion(label: "session_end" | "manual"): Promise<void>;
+  /**
+   * The IDs not yet held join this document's own client IDs and are stored,
+   * so that the heal counts them as this client's; a subscribed document
+   * subscribes again, so that the server registers them. RangeError in a tab
+   * that does not lead.
+   */
+  adoptClientIds(ids: readonly number[]): void;
   close(): Promise<void>;
 }
