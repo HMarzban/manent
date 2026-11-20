@@ -19,9 +19,14 @@ interface Rebuilt {
   healingFrom: number | null;
 }
 
+/** Every row of the generation, verified or not. */
+function rowsOf(storage: MemoryStorage, generation: number) {
+  return storage.open(HOME).log.tail(DOC, generation, 0, { quarantine: false });
+}
+
 export function rebuild(storage: MemoryStorage): Rebuilt {
   const { log } = storage.open(HOME);
-  const { rows, corrupt } = log.tail(DOC, 1, 0, { quarantine: false });
+  const { rows, corrupt } = rowsOf(storage, log.get(DOC)?.generation ?? 1);
   const doc = createDoc();
   for (const { update } of rows) doc.applyUpdate(update, ORIGIN_LOAD);
   const rebuilt = {
@@ -111,6 +116,47 @@ function isKept(books: Books, marker: string, cause: "merge" | null): boolean {
   );
 }
 
+/** In a recovered version of the device that typed it. */
+function isInRecoveredVersion(
+  books: Books,
+  marker: string,
+  typist: Device,
+): boolean {
+  return books.recoveredVersions.get(typist)?.includes(marker) ?? false;
+}
+
+/** The answer stored under a key wrote blocks, so its sequence is the replay's own row. */
+function isWritten(result: string): boolean {
+  const answer: unknown = JSON.parse(result);
+  if (typeof answer !== "object" || answer === null) return false;
+  const applied: unknown = Reflect.get(answer, "applied");
+  return typeof applied === "number" && applied > 0;
+}
+
+/**
+ * I6: every replay row of the log, in every generation, answers exactly one key a device sent,
+ * of the same person; a key applied twice leaves a row that answers none.
+ */
+function replayFault(storage: MemoryStorage, books: Books): string | null {
+  const file = storage.open(HOME);
+  const answered = new Map<string, number>();
+  for (const key of books.replayKeys) {
+    const row = file.replays.get(DOC, key);
+    if (row === null || !isWritten(row.result)) continue;
+    const at = `${row.generation}:${row.seq}:${row.userId}`;
+    answered.set(at, (answered.get(at) ?? 0) + 1);
+  }
+  const generations = file.log.get(DOC)?.generation ?? 1;
+  for (let generation = 1; generation <= generations; generation++)
+    for (const row of rowsOf(storage, generation).rows) {
+      if (row.origin !== "replay") continue;
+      const keys = answered.get(`${generation}:${row.seq}:${row.userId}`) ?? 0;
+      if (keys !== 1)
+        return `I6: replay row ${row.seq} of generation ${generation} answers ${keys} keys`;
+    }
+  return null;
+}
+
 /** The first invariant broken, named; null when all hold. `storeFault` is I4, found at the last settle. */
 export function firstBroken(world: {
   storage: MemoryStorage;
@@ -135,7 +181,11 @@ export function firstBroken(world: {
     )
       return `I2: ${device.device} is synced and holds other text than the log`;
   for (const [marker, typist] of books.typist)
-    if (gone(marker) && !isKept(books, marker, null))
+    if (
+      gone(marker) &&
+      !isKept(books, marker, null) &&
+      !isInRecoveredVersion(books, marker, typist)
+    )
       return `I3: ${marker}, typed by ${typist.device}, is nowhere`;
   if (world.storeFault !== null) return world.storeFault;
   for (let seq = 1; seq <= log.head; seq++)
@@ -146,5 +196,5 @@ export function firstBroken(world: {
       return `I5: the log has no row ${seq} of ${log.head}`;
   if (log.pending)
     return "I5: the script rebuilt from the log has pending structs";
-  return null;
+  return replayFault(world.storage, books);
 }

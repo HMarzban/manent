@@ -2,10 +2,11 @@
 // and memory storage, moved only by its clock, the service's deferred work and network steps.
 import { createRng, seededIdSource } from "@manent/demo";
 import type { Rng } from "@manent/demo";
+import type { SyncLimits } from "@manent/server-core";
 import { createMemoryStorage } from "@manent/storage/testing";
 import type { MemoryStorage } from "@manent/storage/testing";
 import { createSyncClient, soloLeader } from "@manent/sync-client";
-import type { Random, SyncClient } from "@manent/sync-client";
+import type { Random, SyncClient, Transport } from "@manent/sync-client";
 import {
   createFakeClock,
   createFaultyStoreSpace,
@@ -13,7 +14,14 @@ import {
 } from "@manent/sync-client/testing";
 import type { FakeClock, MemoryNetwork } from "@manent/sync-client/testing";
 import type { ServerVersions, VersionSet } from "@manent/sync-protocol";
-import { DOC, Device, createBooks, markersIn, noteHeld } from "./device.ts";
+import {
+  DOC,
+  Device,
+  createBooks,
+  linesOfContent,
+  markersIn,
+  noteHeld,
+} from "./device.ts";
 import type { Books, SimClient } from "./device.ts";
 import { firstBroken, isSettled, rebuild, storeFault } from "./invariants.ts";
 import { createSimServer } from "./network.ts";
@@ -37,7 +45,11 @@ export interface World {
   crashServer(when: "before_commit" | "after_commit" | "now"): void;
   /** A new service over the same storage. */
   startServer(): void;
-  /** The lines of the document rebuilt from the log alone. */
+  /** The service rebuilds the document at its next quiet moment, which the next settle lets pass. */
+  requestRebuild(): void;
+  /** Rebuilds the services have completed. */
+  rebuilds(): number;
+  /** The lines of the document's current generation rebuilt from the log alone. */
   serverText(): string[];
   /** The invariants; throws an Error naming the seed and the first one broken. */
   check(): void;
@@ -78,6 +90,8 @@ class SimWorld implements World {
   private storeFault: string | null = null;
   private restorePending = false;
   private restored = false;
+  /** A rebuild was requested since the last quiet moment a settle let pass. */
+  private quietOwed = false;
 
   constructor(
     readonly seed: number,
@@ -87,13 +101,24 @@ class SimWorld implements World {
   ) {
     this.clock = parts.clock;
     const { network, storage } = parts;
-    // sessions that expire close every connection, as the server does
+    const { rng } = tools;
+    // sessions that expire close every connection, as the server does; replays travel beside the frames
     this.network = {
       ...network,
       refuseSessions(refuse) {
         network.refuseSessions(refuse);
         if (refuse) server.expireSessions();
       },
+      partition(cut) {
+        network.partition(cut);
+        server.partition(cut);
+      },
+      step() {
+        const waiting = server.replaysQueued() > 0;
+        const replay = waiting && (network.queued() === 0 || rng.next() < 0.5);
+        return replay ? server.stepReplay() : network.step();
+      },
+      queued: () => network.queued() + server.replaysQueued(),
     };
     // a restored backup is told to the next service
     this.storage = {
@@ -122,7 +147,14 @@ class SimWorld implements World {
       await turn();
       if (this.network.queued() > 0) continue;
       const settled = this.clients.every((d) => isSettled(this.storage, d));
-      if (settled && calm) return this.witness();
+      if (settled && calm) {
+        if (!this.quietOwed) return this.witness();
+        // a requested rebuild waits for a quiet moment, which a calm world lets pass
+        this.quietOwed = false;
+        calm = false;
+        this.clock.advance(this.server.limits.rebuildQuietMs);
+        continue;
+      }
       calm = settled;
       this.clock.advance(IDLE_ADVANCE_MS);
     }
@@ -142,6 +174,15 @@ class SimWorld implements World {
     this.server.start();
     if (this.restorePending) this.server.restored();
     this.restorePending = false;
+  }
+
+  requestRebuild(): void {
+    this.server.requestRebuild();
+    this.quietOwed = true;
+  }
+
+  rebuilds(): number {
+    return this.server.rebuilds();
   }
 
   serverText(): string[] {
@@ -170,9 +211,25 @@ class SimWorld implements World {
           if (books.typist.has(marker)) books.acked.add(marker);
     }
     this.storeFault = null;
-    for (const device of this.clients)
+    for (const device of this.clients) {
       this.storeFault ??= await storeFault(device);
+      const versions = await device.store.versions(DOC);
+      const recovered = versions.filter((v) => v.kind === "recovered");
+      const lines = recovered.flatMap((v) => linesOfContent(v.content));
+      books.recoveredVersions.set(device, lines.join("\n"));
+    }
   }
+}
+
+/** The transport, with every replay key it sends kept in the books. */
+function keyed(transport: Transport, books: Books): Transport {
+  return {
+    ...transport,
+    replay(request) {
+      books.replayKeys.add(request.key);
+      return transport.replay(request);
+    },
+  };
 }
 
 /**
@@ -187,6 +244,7 @@ export async function createWorld(options: {
   faults?: { duplicate?: number };
   serverVersions?: ServerVersions;
   clientVersions?: (device: string) => VersionSet;
+  limits?: Partial<SyncLimits>;
 }): Promise<World> {
   const rng = createRng(options.seed);
   const clock = createFakeClock(START_AT);
@@ -195,7 +253,15 @@ export async function createWorld(options: {
   network.faults(options.faults ?? {});
   const versions = options.serverVersions ?? { current: V1, min: V1 };
   const random = rng.next;
-  const server = createSimServer({ network, storage, clock, versions, random });
+  const { limits } = options;
+  const server = createSimServer({
+    network,
+    storage,
+    clock,
+    versions,
+    random,
+    limits,
+  });
   const ids = seededIdSource(rng);
   seedScript(storage, options.users, versions, ids);
   server.start();
@@ -212,7 +278,7 @@ export async function createWorld(options: {
     const skew = index % 2 === 0 ? SKEW_MS : -SKEW_MS;
     const store = createFaultyStoreSpace().store(userId);
     const ports = {
-      transport: network.transport(userId),
+      transport: keyed(network.transport(userId), world.books),
       store,
       leader: soloLeader(device),
       clock: { ...clock.clock, now: () => clock.clock.now() + skew },

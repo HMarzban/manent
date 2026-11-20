@@ -2,6 +2,7 @@
 // the markers it writes, which the invariants are judged against.
 import { scriptBody } from "@manent/crdt";
 import type { BlockWriter, CrdtDoc } from "@manent/crdt";
+import type { DocJSON } from "@manent/schema";
 import type { DocHandle, SyncClient } from "@manent/sync-client";
 import type { FaultyStore } from "@manent/sync-client/testing";
 import type { VersionSet } from "@manent/sync-protocol";
@@ -29,18 +30,20 @@ export interface SimClient {
 export const DOC = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
 export const MARKER = /\[[^[\]]+\]/g;
 
-export function linesOf(doc: CrdtDoc): string[] {
-  const sections = scriptBody(doc).materialize().content ?? [];
-  return sections
+export function linesOfContent(content: DocJSON): string[] {
+  return (content.content ?? [])
     .flatMap((section) => section.content ?? [])
     .map((block) => (block.content ?? []).map((run) => run.text).join(""));
 }
+
+export const linesOf = (doc: CrdtDoc): string[] =>
+  linesOfContent(scriptBody(doc).materialize());
 
 export function markersIn(lines: readonly string[]): Set<string> {
   return new Set(lines.flatMap((line) => line.match(MARKER) ?? []));
 }
 
-/** Who typed each marker, who held it, and which were removed or acknowledged. */
+/** Who typed each marker, who held it, and which were removed or acknowledged; the replays sent. */
 export interface Books {
   typist: Map<string, Device>;
   holders: Map<string, Set<Device>>;
@@ -48,6 +51,10 @@ export interface Books {
   removed: Set<string>;
   /** Seen in the document of a synced client at the end of a settle. */
   acked: Set<string>;
+  /** The text of each device's recovered versions at the end of the last settle. */
+  recoveredVersions: Map<Device, string>;
+  /** Every replay key a device sent, which it stored before sending. */
+  replayKeys: Set<string>;
 }
 
 export function createBooks(): Books {
@@ -56,6 +63,8 @@ export function createBooks(): Books {
     holders: new Map(),
     removed: new Set(),
     acked: new Set(),
+    recoveredVersions: new Map(),
+    replayKeys: new Set(),
   };
 }
 
