@@ -21,6 +21,7 @@ import type {
 } from "@manent/ui";
 import type { EditorControl } from "../editor-host/control.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
+import type { PlaceStore } from "../editor-host/place.ts";
 import type { Where } from "../platform.ts";
 import type { TabStorage } from "../session.ts";
 import type { ShellDom } from "../shell/regions.tsx";
@@ -123,6 +124,8 @@ export interface PersonServices {
   /** The person's custom shortcuts, one entry per command and device. */
   keys: KeyValueMap;
   lastPane: { get(): SectionId; set(pane: SectionId): void };
+  /** Where the person left each script, and their panels and Ruler, on this device. */
+  place: PlaceStore;
   /** False when this device refuses to keep preferences beyond this session. */
   persisted: boolean;
   /** Empty until the editor, which loads apart from the entry, has loaded and supplied its keys. */

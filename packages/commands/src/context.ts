@@ -20,6 +20,10 @@ export interface CommandContext {
   rulerShown: boolean;
   /** The caret block has its own space before. */
   spaceBeforeSet: boolean;
+  /** The page's zoom as the person chose it, a percent or the mode; null off a document. */
+  zoom: "fit_width" | number | null;
+  /** The percent the page is drawn at; null off a document and in Ink. */
+  zoomPercent: number | null;
   /** Null off a document, and until production state is known. */
   production: {
     locked: boolean;

@@ -53,6 +53,8 @@ export const panelsActions: {
   close(panel: PanelId): void;
   toggle(panel: PanelId, tab: string): void;
   resize(panel: PanelId, widthPx: number): void;
+  get(): PanelsState;
+  subscribe(listener: () => void): () => void;
 } = Object.freeze({
   open: (panel: PanelId, tab: string) => setTab(panel, tab),
   close: (panel: PanelId) => setTab(panel, null),
@@ -68,4 +70,6 @@ export const panelsActions: {
     const clamped = Math.min(max, Math.max(min, widthPx));
     store.setState({ [panel]: { ...state, widthPx: clamped } });
   },
+  get: () => store.getState(),
+  subscribe: (listener: () => void) => store.subscribe(() => listener()),
 });

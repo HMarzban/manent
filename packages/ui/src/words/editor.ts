@@ -126,4 +126,12 @@ export const EDITOR_WORDS = {
     // beside the busy button after 2 s
     progress: (page: number, pages: number) => `Page ${page} of ${pages}`,
   },
+  // View ▾ → Zoom, and what is said when it changes
+  zoom: {
+    fitWidth: "Fit width",
+    percent: (n: number) => `${n} %`,
+    announce: (label: string) => `Zoom: ${label}`,
+    notAbove: (max: string) => `isn't available at ${max}`,
+    notBelow: (min: string) => `isn't available at ${min}`,
+  },
 } as const;

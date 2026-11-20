@@ -32,6 +32,62 @@ const inFormat = (group: string, order: number): readonly MenuPlacement[] => [
 const capitalised = (word: string): string =>
   word.charAt(0).toUpperCase() + word.slice(1);
 
+// the zooms View ▾ → Zoom offers, percent, as the page's zoom store holds them
+const ZOOM_PRESETS = [50, 75, 100, 125, 150, 200, 300] as const;
+const ZOOM_MIN = Math.min(...ZOOM_PRESETS);
+const ZOOM_MAX = Math.max(...ZOOM_PRESETS);
+const percent = (n: number): string => `${n}\u00a0%`;
+
+interface ZoomLimit {
+  when(ctx: CommandContext): boolean;
+  whyNot(ctx: CommandContext): string;
+}
+
+/** Runs on pages while the page is drawn short of `end`; a page not drawn yet is at no end. */
+const shortOf = (
+  end: number,
+  reached: (drawn: number) => boolean,
+): ZoomLimit => ({
+  when: (ctx) =>
+    onPages(ctx) && (ctx.zoomPercent === null || !reached(ctx.zoomPercent)),
+  whyNot: (ctx) =>
+    onPages(ctx) ? `isn't available at ${percent(end)}` : whyNotOnPages(ctx),
+});
+
+/** A choice of View ▾ → Zoom, for anyone who can view a script with pages. */
+function zoomCommand<const Id extends string>(
+  id: Id,
+  label: string,
+  more: {
+    order: number;
+    keys?: PlatformKeys;
+    limit?: ZoomLimit;
+    checked?: (ctx: CommandContext) => boolean;
+  },
+): CommandDefinition<Id> & { readonly label: string } {
+  return {
+    id,
+    label,
+    group: "view",
+    home: null,
+    scope: "global",
+    keys: more.keys ?? same(),
+    keysFixed: false,
+    when: more.limit?.when ?? onPages,
+    whyNot: more.limit?.whyNot ?? whyNotOnPages,
+    visible: null,
+    checked: more.checked ?? null,
+    passThrough: null,
+    menus: [
+      { menu: "view", group: "zoom", order: more.order, submenu: "Zoom" },
+    ],
+    palette: { keywords: [] },
+    opens: null,
+    reach: "self",
+    setting: null,
+  };
+}
+
 /** A command heard only in the page and shown only to people who can edit. */
 function pageCommand<const Id extends string>(
   id: Id,
@@ -87,7 +143,8 @@ export const EDITOR_COMMANDS = defineCommands([
   pageCommand("element.shot", "Shot", { keys: same("Mod+7") }),
   pageCommand("element.section", "Section", { keys: same("Mod+8") }),
   pageCommand("element.newAct", "New Act", { keys: same("Mod+9") }),
-  pageCommand("element.general", "General", { keys: same("Mod+0") }),
+  // Mod+0 is Zoom: Fit width's, and on the web the browser's
+  pageCommand("element.general", "General"),
   pageCommand("element.endOfAct", "End of Act"),
   pageCommand("element.emote", "Emote"),
   pageCommand("element.camera", "Camera"),
@@ -206,5 +263,26 @@ export const EDITOR_COMMANDS = defineCommands([
     reach: "self",
     setting: null,
   },
+  zoomCommand("view.zoomIn", "Zoom in", {
+    order: 90,
+    keys: same("Mod+="),
+    limit: shortOf(ZOOM_MAX, (drawn) => drawn >= ZOOM_MAX),
+  }),
+  zoomCommand("view.zoomOut", "Zoom out", {
+    order: 100,
+    keys: same("Mod+-"),
+    limit: shortOf(ZOOM_MIN, (drawn) => drawn <= ZOOM_MIN),
+  }),
+  zoomCommand("view.zoomFitWidth", "Zoom: Fit width", {
+    order: 10,
+    keys: same("Mod+0"),
+    checked: (ctx) => ctx.zoom === "fit_width",
+  }),
+  ...ZOOM_PRESETS.map((n, at) =>
+    zoomCommand(`view.zoom${n}`, `Zoom: ${percent(n)}`, {
+      order: 20 + 10 * at,
+      checked: (ctx) => ctx.zoom === n,
+    }),
+  ),
 ]);
 export type EditorCommandId = (typeof EDITOR_COMMANDS)[number]["id"];

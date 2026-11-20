@@ -133,7 +133,22 @@ test("the editor's words are these, exactly", () => {
       exported: ["Exported '1'.", "Exported '2'."],
       progress: ["Page 1 of 12", "Page 2 of 12"],
     },
+    zoom: {
+      fitWidth: "Fit width",
+      percent: ["1\u00a0%", "2\u00a0%"],
+      announce: ["Zoom: 1", "Zoom: 2"],
+      notAbove: ["isn't available at 1", "isn't available at 2"],
+      notBelow: ["isn't available at 1", "isn't available at 2"],
+    },
   });
+});
+
+test("zoom is said as its palette row reads", () => {
+  expect([
+    EDITOR_WORDS.zoom.percent(125),
+    EDITOR_WORDS.zoom.announce("125\u00a0%"),
+    EDITOR_WORDS.zoom.announce("Fit width"),
+  ]).toEqual(["125\u00a0%", "Zoom: 125\u00a0%", "Zoom: Fit width"]);
 });
 
 test("the comfort notice names the script and what to expect", () => {

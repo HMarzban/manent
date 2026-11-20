@@ -4,6 +4,7 @@ import type {
   CommandContext,
   CommandService,
   Resolved,
+  RunSource,
   SettingWriter,
 } from "@manent/commands";
 import { SETTINGS } from "@manent/settings";
@@ -11,11 +12,14 @@ import type { SettingsStore } from "@manent/settings";
 import { messageFor } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import type { Api } from "../api.ts";
+import type { EditorControl } from "../editor-host/control.ts";
+import { zoomAnnouncement } from "../editor-host/zoom.ts";
 import { createHandlers } from "../handlers/index.ts";
 import type { Navigation } from "../handlers/index.ts";
 import type { PersonStore } from "../state/person.store.ts";
 import { productionContextActions } from "../state/production-context.store.ts";
 import { rulerActions } from "../state/ruler.store.ts";
+import { zoomActions } from "../state/zoom.store.ts";
 import type { Environment, PersonServices, ShellState } from "./ports.ts";
 
 export type CommandsOptions = Environment & {
@@ -25,10 +29,19 @@ export type CommandsOptions = Environment & {
   router: Navigation;
 };
 
+interface CommandsParts {
+  settings: SettingsStore;
+  openScriptStore(docId: string): SettingsStore;
+  messages: MessageQueue;
+  resolved: Subscribable<Resolved>;
+  /** The open editor, whose drawn zoom a command may know. */
+  control: Pick<EditorControl, "zoomPercent">;
+}
+
 /** What a command may know: the window's state from the shell, the focus and connection read now, and the person's. */
 function commandContext(
   options: CommandsOptions,
-  openScriptStore: (docId: string) => SettingsStore,
+  parts: CommandsParts,
 ): CommandContext {
   const { docId, screen, panels, historyPresent, spaceBeforeSet } =
     options.shellState.get();
@@ -45,12 +58,19 @@ function commandContext(
     signedIn: (options.usePerson.getState().person?.token ?? null) !== null,
     panelOpen: { left: panels.left !== null, side: panels.side !== null },
     historyPresent,
-    format: docId === null ? null : openScriptStore(docId).get("script.format"),
+    format:
+      docId === null ? null : parts.openScriptStore(docId).get("script.format"),
     rulerShown: rulerActions.get(),
     spaceBeforeSet,
+    zoom: docId === null ? null : zoomActions.get(),
+    zoomPercent: docId === null ? null : parts.control.zoomPercent(),
     production: docId === null ? null : productionContextActions.get(docId),
   };
 }
+
+// a zoom chosen in a menu shows there as checked; one chosen by a key or in the palette is said
+const isSaidZoom = (id: string, from: RunSource): boolean =>
+  id.startsWith("view.zoom") && (from === "key" || from === "palette");
 
 const noop = (): void => {};
 
@@ -80,17 +100,12 @@ function followFormat(
 
 /**
  * The command service over `COMMANDS` and the handlers `fillHandlers` makes, told of every change to the window's state, the
- * person, the bindings, the settings, the open script's format and the Ruler; a setting command writes the open document's store,
- * so a script setting reaches its script.
+ * person, the bindings, the settings, the open script's format, the Ruler and the zoom; a setting command writes the open
+ * document's store, so a script setting reaches its script, and a zoom chosen by a key or in the palette is said.
  */
 export function createCommands(
   options: CommandsOptions,
-  parts: {
-    settings: SettingsStore;
-    openScriptStore(docId: string): SettingsStore;
-    messages: MessageQueue;
-    resolved: Subscribable<Resolved>;
-  },
+  parts: CommandsParts,
 ): {
   commands: CommandService;
   fillHandlers(services: PersonServices): void;
@@ -106,7 +121,7 @@ export function createCommands(
   const service = createCommandService({
     commands: COMMANDS,
     handlers,
-    context: () => commandContext(options, parts.openScriptStore),
+    context: () => commandContext(options, parts),
     settings: {
       get: (key) => settingsHere().get(key),
       set: (key, value) => settingsHere().set(key, value),
@@ -121,13 +136,17 @@ export function createCommands(
     resolved.subscribe(service.notify),
     ...SETTINGS.all.map((def) => settings.subscribe(def.key, service.notify)),
     rulerActions.subscribe(service.notify),
+    zoomActions.subscribe(service.notify),
     followFormat(options.shellState, parts.openScriptStore, service.notify),
   ];
   return {
     commands: {
       run(id, from) {
         const result = service.run(id, from);
-        if (result === "ran") options.ran(id);
+        if (result !== "ran") return result;
+        options.ran(id);
+        if (isSaidZoom(id, from))
+          options.dom.announce(zoomAnnouncement(zoomActions.get()));
         return result;
       },
       state: service.state,
