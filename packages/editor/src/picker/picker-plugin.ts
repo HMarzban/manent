@@ -49,6 +49,13 @@ function currentOption(state: EditorState, format: FormatId): number {
 }
 
 const CLOSE: PickerMeta = Object.freeze({ type: "close" });
+/** Held down on the way to a chord or a capital, so they leave the picker open. */
+const MODIFIER_KEYS: readonly string[] = Object.freeze([
+  "Shift",
+  "Control",
+  "Alt",
+  "Meta",
+]);
 
 function send(view: EditorView, meta: PickerMeta): void {
   view.dispatch(view.state.tr.setMeta(pickerKey, meta));
@@ -106,10 +113,15 @@ function handleKey(
     if (slot !== undefined) choose(view, format, slot);
     return true;
   }
+  // the picker owns Tab while open, so the line keeps its element and focus stays in the page
+  if (event.key === "Tab") return true;
   const slot = slotOfKey(event, offered);
-  if (slot === null) return false;
-  choose(view, format, slot);
-  return true;
+  if (slot !== null) {
+    choose(view, format, slot);
+    return true;
+  }
+  if (!MODIFIER_KEYS.includes(event.key)) send(view, CLOSE);
+  return false;
 }
 
 function drawList(
@@ -167,7 +179,7 @@ function markActive(list: HTMLElement, active: number): void {
   );
 }
 
-/** The element picker; it opens through openPicker, and while open its keys are the slots, the arrows, Enter and Escape. */
+/** The element picker; it opens through openPicker, and while open its keys are the slots, the arrows, Enter, Tab and Escape. Any other key, which then reaches the page, or a caret move closes it. */
 export function pickerPlugin(options: PickerOptions): Plugin {
   return new Plugin<PickerState>({
     key: pickerKey,
@@ -175,7 +187,8 @@ export function pickerPlugin(options: PickerOptions): Plugin {
       init: () => CLOSED,
       apply: (tr, value, _before, state) => {
         const meta: PickerMeta | undefined = tr.getMeta(pickerKey);
-        if (meta === undefined) return value;
+        if (meta === undefined)
+          return value.open && tr.selectionSet ? CLOSED : value;
         switch (meta.type) {
           case "open":
             return {

@@ -120,7 +120,7 @@ function activeId(layer: HTMLElement, label: string): string | null {
 
 function press(
   view: EditorView,
-  init: { code: string; key: string },
+  init: { code: string; key: string; shiftKey?: boolean },
 ): KeyboardEvent {
   const event = new KeyboardEvent("keydown", {
     ...init,
@@ -263,4 +263,46 @@ test("Escape closes the picker and goes no further", () => {
     layer.childElementCount,
     view.dom.getAttribute("aria-expanded"),
   ]).toEqual([false, true, false, 0, null]);
+});
+
+test("while the picker is open, Tab and Shift+Tab stay on the page and change nothing", () => {
+  const { view } = viewWith(blockOf("action", ""), "screenplay");
+  openPicker(view);
+  press(view, { code: "ShiftLeft", key: "Shift", shiftKey: true });
+  const back = press(view, { code: "Tab", key: "Tab", shiftKey: true });
+  const forward = press(view, { code: "Tab", key: "Tab" });
+  expect([
+    types(view.state),
+    pickerKey.getState(view.state)!.open,
+    view.dom.getAttribute("aria-activedescendant"),
+    back.defaultPrevented,
+    forward.defaultPrevented,
+  ]).toEqual([["action"], true, "mn-picker-2", true, true]);
+});
+
+test("a key the picker does not name closes it and still reaches the page", () => {
+  const { view, layer } = viewWith(blockOf("action", ""), "screenplay");
+  openPicker(view);
+  const event = press(view, { code: "KeyX", key: "x" });
+  expect([
+    types(view.state),
+    pickerKey.getState(view.state)!.open,
+    layer.childElementCount,
+    event.defaultPrevented,
+  ]).toEqual([["action"], false, 0, false]);
+});
+
+test("moving the caret closes the picker", () => {
+  const { view, layer } = viewWith(
+    blockOf("action", "Rain falls"),
+    "screenplay",
+  );
+  openPicker(view);
+  view.dispatch(
+    view.state.tr.setSelection(TextSelection.create(view.state.doc, 2)),
+  );
+  expect([
+    pickerKey.getState(view.state)!.open,
+    layer.childElementCount,
+  ]).toEqual([false, 0]);
 });
