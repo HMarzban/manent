@@ -6,6 +6,7 @@ import { DOMSerializer, Fragment, Slice } from "prosemirror-model";
 import type { Node } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { Transaction } from "prosemirror-state";
+import type { EditorView } from "prosemirror-view";
 import { pasteSlice } from "../sections/paste.ts";
 
 /** The attribute a cut puts on the clipboard HTML's outer element; its value is the cut's marker. */
@@ -70,19 +71,80 @@ function lineBlock(line: string, element: ElementRef): Node {
   );
 }
 
+interface ClipboardOptions {
+  ids: IdSource;
+  plainElement(): ElementRef;
+  formatElements(): readonly string[];
+  random: () => string;
+  isUndoRedo(tr: Transaction): boolean;
+}
+
+/** A block whose element is not in the format's list, as the format's plain element. */
+function asFormat(options: ClipboardOptions): (block: Node) => Node {
+  return (block) => {
+    if (options.formatElements().includes(String(block.attrs.type)))
+      return block;
+    const { type, kind } = options.plainElement();
+    return block.type.create({ ...block.attrs, type, kind }, block.content);
+  };
+}
+
+/** A cut of a selection records a new marker, outside history, and hands it to `arm` for the serialiser. */
+function cutHandler(
+  options: ClipboardOptions,
+  arm: (marker: string) => void,
+): (view: EditorView) => boolean {
+  return (view) => {
+    if (view.state.selection.empty) return false;
+    const marker = options.random();
+    arm(marker);
+    view.dispatch(
+      view.state.tr
+        .setMeta(clipboardKey, marker)
+        .setMeta("addToHistory", false),
+    );
+    return false;
+  };
+}
+
+/** Every paste in one transaction: ids kept for HTML carrying the recorded marker, new ones otherwise. */
+function pasteHandler(
+  options: ClipboardOptions,
+): (view: EditorView, event: ClipboardEvent, slice: Slice) => boolean {
+  return (view, event, slice) => {
+    const record = clipboardKey.getState(view.state)!;
+    const html = event.clipboardData?.getData("text/html") ?? "";
+    const keepIds =
+      record !== null && html.includes(`${CUT_MARKER_ATTR}="${record}"`);
+    view.dispatch(
+      pasteSlice(view.state, slice, options.ids, { keepIds })
+        .setMeta(clipboardKey, null)
+        .scrollIntoView(),
+    );
+    return true;
+  };
+}
+
+/** Plain text as one block of the plain element per line. */
+function textParser(options: ClipboardOptions): (text: string) => Slice {
+  return (text) => {
+    const element = options.plainElement();
+    const lines = sanitizeText(text).split("\n");
+    return new Slice(
+      Fragment.from(lines.map((line) => lineBlock(line, element))),
+      0,
+      0,
+    );
+  };
+}
+
 /**
  * Ids, elements and text on the clipboard. A cut marks the clipboard HTML with a marker from `random`; the first
  * paste of HTML carrying it keeps the blocks' ids, and any other paste gives new ones from `ids`. A paste or an
  * undo or redo forgets the cut. Plain text is one `plainElement()` per line; a pasted block whose element is not
  * in `formatElements()` becomes `plainElement()`. Placed before section editing, whose cut still writes the clipboard.
  */
-export function clipboardPlugin(options: {
-  ids: IdSource;
-  plainElement(): ElementRef;
-  formatElements(): readonly string[];
-  random: () => string;
-  isUndoRedo(tr: Transaction): boolean;
-}): Plugin {
+export function clipboardPlugin(options: ClipboardOptions): Plugin {
   // the marker of the cut being written to the clipboard now
   let cutting: string | null = null;
   const take = () => {
@@ -90,12 +152,7 @@ export function clipboardPlugin(options: {
     cutting = null;
     return marker;
   };
-  const asFormat = (block: Node): Node => {
-    if (options.formatElements().includes(String(block.attrs.type)))
-      return block;
-    const { type, kind } = options.plainElement();
-    return block.type.create({ ...block.attrs, type, kind }, block.content);
-  };
+  const element = asFormat(options);
   return new Plugin<CutRecord>({
     key: clipboardKey,
     state: {
@@ -109,41 +166,15 @@ export function clipboardPlugin(options: {
     props: {
       clipboardSerializer: new CutSerializer(take),
       handleDOMEvents: {
-        cut: (view) => {
-          if (view.state.selection.empty) return false;
-          cutting = options.random();
-          view.dispatch(
-            view.state.tr
-              .setMeta(clipboardKey, cutting)
-              .setMeta("addToHistory", false),
-          );
-          return false;
-        },
+        cut: cutHandler(options, (marker) => {
+          cutting = marker;
+        }),
       },
-      handlePaste: (view, event, slice) => {
-        const record = clipboardKey.getState(view.state)!;
-        const html = event.clipboardData?.getData("text/html") ?? "";
-        const keepIds =
-          record !== null && html.includes(`${CUT_MARKER_ATTR}="${record}"`);
-        view.dispatch(
-          pasteSlice(view.state, slice, options.ids, { keepIds })
-            .setMeta(clipboardKey, null)
-            .scrollIntoView(),
-        );
-        return true;
-      },
-      clipboardTextParser: (text) => {
-        const element = options.plainElement();
-        const lines = sanitizeText(text).split("\n");
-        return new Slice(
-          Fragment.from(lines.map((line) => lineBlock(line, element))),
-          0,
-          0,
-        );
-      },
+      handlePaste: pasteHandler(options),
+      clipboardTextParser: textParser(options),
       transformPasted: (slice) =>
         new Slice(
-          pastedFragment(slice.content, asFormat),
+          pastedFragment(slice.content, element),
           slice.openStart,
           slice.openEnd,
         ),
