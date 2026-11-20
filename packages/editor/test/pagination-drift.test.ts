@@ -15,8 +15,10 @@ import {
   driftKey,
   driftPlugin,
   forceLines,
+  keepPlugin,
   paginationKey,
 } from "../src/index.ts";
+import type { DriftReport } from "../src/index.ts";
 import { keysOf, script, state, stateWithDrift } from "./docs.ts";
 
 withDom();
@@ -83,4 +85,52 @@ test("the monitor waits for idle time through a port that refuses a receiver, as
   view.dispatch(view.state.tr.insertText("k", 300));
   expect(idle.length).toBe(1);
   view.destroy();
+});
+
+test("the monitor measures nothing while the script font loads, and makes one pass once it is ready", async () => {
+  const idle: (() => void)[] = [];
+  const reports: DriftReport[] = [];
+  // happy-dom lays nothing out: every block is 0 px tall, so each one the monitor measures drifts
+  const frame = document.body.appendChild(document.createElement("div"));
+  frame.innerHTML = "<style>p.el { padding-top: 0px }</style>";
+  frame.dataset["fonts"] = "loading";
+  const doc = parseDoc(
+    corpusDoc([
+      { type: "action", text: filledText(60, 1), kind: null, dual: null },
+    ]),
+  );
+  const view = new EditorView(frame, {
+    state: EditorState.create({
+      doc,
+      plugins: [
+        ...state(doc).plugins,
+        keepPlugin(),
+        driftPlugin({
+          whenIdle: (run) => idle.push(run),
+          onDrift: (report) => reports.push(report),
+        }),
+      ],
+    }),
+  });
+  for (const run of idle.splice(0)) run();
+  const whileLoading = [...reports];
+  frame.dataset["fonts"] = "ready";
+  await Promise.resolve();
+  const passes = idle.length;
+  for (const run of idle.splice(0)) run();
+  expect({ whileLoading, passes, reports }).toEqual({
+    whileLoading: [],
+    passes: 1,
+    reports: [
+      {
+        blockId: corpusId(0),
+        type: "action",
+        modelLines: 1,
+        domLines: 0,
+        fonts: "ready",
+      },
+    ],
+  });
+  view.destroy();
+  frame.remove();
 });

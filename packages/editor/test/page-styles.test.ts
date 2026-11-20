@@ -54,6 +54,12 @@ test("the page is set in physical units, in the real faces, with ligatures off",
   );
 });
 
+test("the page's glyphs keep their fractional advances at every device scale", () => {
+  expect(rule(PAGE_CSS, ".mn-page-view")).toContain(
+    "text-rendering: geometricPrecision",
+  );
+});
+
 test("the paper is an underlay, and nothing that holds text has a background", () => {
   expect(rule(PAGE_CSS, ".mn-sheet")).toEqual(
     expect.arrayContaining([
