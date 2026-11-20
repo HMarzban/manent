@@ -1,5 +1,6 @@
 // One handler per command, each thin: it moves focus, opens a surface, navigates or writes a store.
 import type { CommandHandlers } from "@manent/commands";
+import { SETTINGS } from "@manent/settings";
 import type { Api } from "../api.ts";
 import type { PersonServices, ShellState } from "../services/ports.ts";
 import type { ShellDom } from "../shell/regions.tsx";
@@ -37,11 +38,26 @@ export interface HandlerDeps {
 }
 
 export function createHandlers(deps: HandlerDeps): CommandHandlers {
+  const docId = (): string | null => deps.shellState().docId;
+  // the open script's format as Script settings names it ("Stage play")
+  const formatLabel = (): string | null => {
+    const shown = docId();
+    if (shown === null) return null;
+    const format = deps.services.openScriptStore(shown).get("script.format");
+    const { choices } = SETTINGS.get("script.format").type;
+    return choices?.find((choice) => choice.value === format)?.label ?? null;
+  };
   return {
     ...appHandlers(deps),
     ...preferencesHandlers(deps),
     ...documentHandlers(deps),
-    ...createEditorHandlers(),
+    ...createEditorHandlers({
+      control: deps.services.editor,
+      messages: deps.services.messages,
+      formatLabel,
+      docId,
+      navigate: (path) => deps.router.navigate(path),
+    }),
     ...libraryHandlers(deps),
     ...demoHandlers(),
   };

@@ -1,6 +1,5 @@
 import { withDom } from "@manent/testkit/dom";
 import * as commandsModule from "@manent/commands";
-import type { CommandDefinition } from "@manent/commands";
 import { afterEach, expect, mock, test } from "bun:test";
 import { messageFor } from "@manent/ui";
 import { act } from "react";
@@ -90,8 +89,8 @@ test("Title ▾ holds Script settings and Rename for an editor, and not Rename f
   const reader = await renderFrame({ title, role: "viewer" });
   await click(buttonNamed(region(reader.container, "title_bar"), title));
   expect([editorItems, menuItems()]).toEqual([
-    ["Script settings", "Rename"],
-    ["Script settings"],
+    ["Script settings", "Rename", "Export…", "Print…⌘P"],
+    ["Script settings", "Export…", "Print…⌘P"],
   ]);
 });
 
@@ -150,8 +149,9 @@ test("the Sync centre offers Sign in to sync to You, and Everything is on the se
       "Sync centre",
       "This script is only in this browser, so it is not backed up and you cannot open it anywhere else. Sign in to sync it.",
       "Sign in to sync",
+      "Export a copy",
     ],
-    ["Sync centre", "Everything is on the server."],
+    ["Sync centre", "Everything is on the server.", "Export a copy"],
   ]);
 });
 
@@ -178,6 +178,7 @@ test("the Sync centre lists what waits by scene, what is to review and the expla
       "The server runs an older Manent than this app. Your changes are saved here and sync once it runs a newer one.",
       "2 to review",
       "Sc. 8 · 12 waiting",
+      "Export a copy",
     ],
     ["Sync centre", "Can't save on this device — export a copy"],
   ]);
@@ -234,30 +235,9 @@ test("a message about your own work stays and is repeated in the Sync centre", a
   );
   expect([slot?.querySelector("p")?.textContent, syncCentreParts()]).toEqual([
     text,
-    ["Sync centre", "Everything is on the server.", text],
+    ["Sync centre", "Everything is on the server.", text, "Export a copy"],
   ]);
 });
-
-// a later feature's command, registered to show that its action is then drawn
-const EXPORT_COMMAND: CommandDefinition = {
-  id: "doc.export",
-  label: "Export",
-  group: "title",
-  home: null,
-  scope: "global",
-  keys: { mac: [], windows: [], linux: [] },
-  keysFixed: false,
-  when: null,
-  whyNot: null,
-  visible: null,
-  checked: null,
-  passThrough: null,
-  menus: [],
-  palette: { keywords: [] },
-  opens: null,
-  reach: "self",
-  setting: null,
-};
 
 /** The sentence in the page's place when access is removed, and the actions drawn under it. */
 function noAccessParts(container: HTMLElement): string[] {
@@ -271,12 +251,13 @@ function noAccessParts(container: HTMLElement): string[] {
 
 test("with no access, the page's place offers Export once its command is registered", async () => {
   const status = { ...SYNCED, server: "access_removed", notSent: 4 } as const;
-  const before = noAccessParts((await renderFrame({ status })).container);
-  unmountFrame();
   mock.module("@manent/commands", () => ({
     ...REAL_COMMANDS,
-    COMMANDS: [...REAL_COMMANDS.COMMANDS, EXPORT_COMMAND],
+    COMMANDS: REAL_COMMANDS.COMMANDS.filter((c) => c.id !== "doc.export"),
   }));
+  const before = noAccessParts((await renderFrame({ status })).container);
+  unmountFrame();
+  mock.module("@manent/commands", () => REAL_COMMANDS);
   const after = noAccessParts((await renderFrame({ status })).container);
   expect([before, after]).toEqual([
     ["You no longer have access"],

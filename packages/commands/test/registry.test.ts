@@ -3,6 +3,8 @@ import { MENU_IDS, createRegistry, setting, t } from "@manent/settings";
 import type { Platform } from "@manent/settings";
 import {
   COMMANDS,
+  EDITOR_COMMANDS,
+  ELEMENT_COMMAND_SLOTS,
   breaksLayoutRules,
   createCommandService,
   defineCommands,
@@ -32,11 +34,19 @@ const CTX: CommandContext = {
   signedIn: true,
   panelOpen: { left: false, side: false },
   historyPresent: false,
+  format: null,
+  rulerShown: false,
+  spaceBeforeSet: false,
   production: null,
 };
 
-const labelOf = (c: CommandDefinition, ctx: CommandContext): string =>
-  typeof c.label === "function" ? c.label(ctx) : c.label;
+const ctx = (over: Partial<CommandContext>): CommandContext => ({
+  ...CTX,
+  ...over,
+});
+
+const labelOf = (c: CommandDefinition, context: CommandContext): string =>
+  typeof c.label === "function" ? c.label(context) : c.label;
 
 const memorySettings = (initial: Record<string, unknown>): SettingWriter => {
   const values = new Map(Object.entries(initial));
@@ -89,10 +99,183 @@ test("the Stage 1 commands are these, with these words and keys", () => {
     ["history.open", "History", ["Mod+Shift+H"], ["Mod+Shift+H"]],
     ["doc.scriptSettings", "Script settings", [], []],
     ["doc.rename", "Rename", [], []],
+    ["format.element", "Element", ["Alt+Enter"], ["Alt+Enter"]],
+    ["element.sceneHeading", "Scene Heading", ["Mod+1"], ["Mod+1"]],
+    ["element.action", "Action", ["Mod+2"], ["Mod+2"]],
+    ["element.character", "Character", ["Mod+3"], ["Mod+3"]],
+    ["element.parenthetical", "Parenthetical", ["Mod+4"], ["Mod+4"]],
+    ["element.dialogue", "Dialogue", ["Mod+5"], ["Mod+5"]],
+    ["element.transition", "Transition", ["Mod+6"], ["Mod+6"]],
+    ["element.shot", "Shot", ["Mod+7"], ["Mod+7"]],
+    ["element.section", "Section", ["Mod+8"], ["Mod+8"]],
+    ["element.newAct", "New Act", ["Mod+9"], ["Mod+9"]],
+    ["element.general", "General", ["Mod+0"], ["Mod+0"]],
+    ["element.endOfAct", "End of Act", [], []],
+    ["element.emote", "Emote", [], []],
+    ["element.camera", "Camera", [], []],
+    ["element.engineDirection", "Engine Direction", [], []],
+    ["format.dualDialogue", "Dual dialogue", ["Mod+D"], ["Mod+D"]],
+    ["format.pageBreak", "Page break", ["Mod+Enter"], ["Mod+Enter"]],
+    ["format.bold", "Bold", ["Mod+B"], ["Mod+B"]],
+    ["format.italic", "Italic", ["Mod+I"], ["Mod+I"]],
+    ["format.underline", "Underline", ["Mod+U"], ["Mod+U"]],
+    ["format.strike", "Strikethrough", [], []],
+    ["format.caps", "All-caps", [], []],
+    ["format.alignLeft", "Align left", [], []],
+    ["format.alignCenter", "Align centre", [], []],
+    ["format.alignRight", "Align right", [], []],
+    ["format.spaceBefore", "Space before", [], []],
+    ["format.colour.none", "Text colour: None", [], []],
+    ["format.colour.red", "Text colour: Red", [], []],
+    ["format.colour.orange", "Text colour: Orange", [], []],
+    ["format.colour.green", "Text colour: Green", [], []],
+    ["format.colour.blue", "Text colour: Blue", [], []],
+    ["format.colour.violet", "Text colour: Violet", [], []],
+    ["format.highlight.none", "Highlight: None", [], []],
+    ["format.highlight.yellow", "Highlight: Yellow", [], []],
+    ["format.highlight.green", "Highlight: Green", [], []],
+    ["format.highlight.pink", "Highlight: Pink", [], []],
+    ["format.highlight.orange", "Highlight: Orange", [], []],
+    ["format.highlight.violet", "Highlight: Violet", [], []],
+    ["view.ruler", "Ruler", [], []],
+    ["doc.export", "Export…", [], []],
+    ["doc.print", "Print…", ["Mod+P"], ["Mod+P"]],
     ["library.newScript", "New script", [], []],
     ["library.newProject", "New project", [], []],
     ["demo.tour", "Tour", [], []],
   ]);
+});
+
+test("the editor's commands sit in these menus and answer to these palette words", () => {
+  const placed: unknown = EDITOR_COMMANDS.filter(
+    (c) =>
+      c.menus.length > 0 ||
+      ("keywords" in c.palette && c.palette.keywords.length > 0),
+  ).map((c) => [c.id, c.group, c.menus, c.palette, c.opens]);
+  expect(placed).toEqual([
+    [
+      "format.element",
+      "format",
+      [{ menu: "format", group: "element", order: 10, submenu: null }],
+      { keywords: ["block type", "line type"] },
+      null,
+    ],
+    ["element.sceneHeading", "format", [], { keywords: ["slugline"] }, null],
+    [
+      "format.dualDialogue",
+      "format",
+      [{ menu: "format", group: "speech", order: 10, submenu: null }],
+      { keywords: [] },
+      null,
+    ],
+    [
+      "format.pageBreak",
+      "format",
+      [{ menu: "format", group: "break", order: 10, submenu: null }],
+      { keywords: [] },
+      null,
+    ],
+    ...(
+      [
+        ["format.bold", "styles", 10],
+        ["format.italic", "styles", 20],
+        ["format.underline", "styles", 30],
+        ["format.strike", "styles", 40],
+        ["format.caps", "styles", 50],
+        ["format.alignLeft", "align", 10],
+        ["format.alignCenter", "align", 20],
+        ["format.alignRight", "align", 30],
+        ["format.spaceBefore", "align", 40],
+      ] as const
+    ).map(([id, group, order]) => [
+      id,
+      "format",
+      [{ menu: "format", group, order, submenu: null }],
+      { keywords: [] },
+      null,
+    ]),
+    [
+      "view.ruler",
+      "view",
+      [{ menu: "view", group: "page", order: 10, submenu: null }],
+      { keywords: [] },
+      null,
+    ],
+    [
+      "doc.export",
+      "file",
+      [
+        { menu: "title", group: "send", order: 20, submenu: null },
+        { menu: "file", group: "send", order: 10, submenu: null },
+      ],
+      { keywords: ["pdf", "download", "save as"] },
+      { surface: "send", focus: "first" },
+    ],
+    [
+      "doc.print",
+      "file",
+      [
+        { menu: "title", group: "send", order: 30, submenu: null },
+        { menu: "file", group: "send", order: 20, submenu: null },
+      ],
+      { keywords: [] },
+      { surface: "send", focus: "first" },
+    ],
+  ]);
+});
+
+test("the editor's commands belong to the page and appear only to people who can edit", () => {
+  for (const c of EDITOR_COMMANDS.filter((d) => d.scope === "editor"))
+    expect([
+      c.id,
+      c.visible!(ctx({ docOpen: true, role: "commenter" })),
+      c.visible!(ctx({ docOpen: true, role: "editor" })),
+    ]).toEqual([c.id, false, true]);
+  expect(
+    EDITOR_COMMANDS.filter((c) => c.scope !== "editor").map((c) => c.id),
+  ).toEqual(["view.ruler", "doc.export", "doc.print"]);
+});
+
+/** "ran" when the editor command `id` can run in `c`, else its reason. */
+const state = (id: string, c: Partial<CommandContext>) => {
+  const d = EDITOR_COMMANDS.find((x) => x.id === id)!;
+  const k = ctx(c);
+  return d.when!(k) ? "ran" : d.whyNot!(k);
+};
+
+test("Ruler, Export and Print are disabled with their reason off a document and in Ink, and run for a viewer", () => {
+  expect(
+    ["view.ruler", "doc.export", "doc.print"].map((id) => [
+      state(id, { docOpen: false }),
+      state(id, { docOpen: true, format: "ink" }),
+      state(id, { docOpen: true, format: "screenplay", role: "viewer" }),
+    ]),
+  ).toEqual(
+    Array.from({ length: 3 }, () => [
+      "needs a document open",
+      "isn't part of the Ink format",
+      "ran",
+    ]),
+  );
+});
+
+test("every element command names its key in the element picker", () => {
+  expect(ELEMENT_COMMAND_SLOTS).toEqual({
+    "element.sceneHeading": "1",
+    "element.action": "2",
+    "element.character": "3",
+    "element.parenthetical": "4",
+    "element.dialogue": "5",
+    "element.transition": "6",
+    "element.shot": "7",
+    "element.section": "8",
+    "element.newAct": "9",
+    "element.general": "0",
+    "element.endOfAct": "E",
+    "element.emote": "M",
+    "element.camera": "C",
+    "element.engineDirection": "G",
+  });
 });
 
 test("every command is well formed and reachable", () => {
@@ -376,6 +559,47 @@ test("the handler table names every command but the generated ones", () => {
     "history.open": noop,
     "doc.scriptSettings": noop,
     "doc.rename": noop,
+    "format.element": noop,
+    "element.sceneHeading": noop,
+    "element.action": noop,
+    "element.character": noop,
+    "element.parenthetical": noop,
+    "element.dialogue": noop,
+    "element.transition": noop,
+    "element.shot": noop,
+    "element.section": noop,
+    "element.newAct": noop,
+    "element.general": noop,
+    "element.endOfAct": noop,
+    "element.emote": noop,
+    "element.camera": noop,
+    "element.engineDirection": noop,
+    "format.dualDialogue": noop,
+    "format.pageBreak": noop,
+    "format.bold": noop,
+    "format.italic": noop,
+    "format.underline": noop,
+    "format.strike": noop,
+    "format.caps": noop,
+    "format.alignLeft": noop,
+    "format.alignCenter": noop,
+    "format.alignRight": noop,
+    "format.spaceBefore": noop,
+    "format.colour.none": noop,
+    "format.colour.red": noop,
+    "format.colour.orange": noop,
+    "format.colour.green": noop,
+    "format.colour.blue": noop,
+    "format.colour.violet": noop,
+    "format.highlight.none": noop,
+    "format.highlight.yellow": noop,
+    "format.highlight.green": noop,
+    "format.highlight.pink": noop,
+    "format.highlight.orange": noop,
+    "format.highlight.violet": noop,
+    "view.ruler": noop,
+    "doc.export": noop,
+    "doc.print": noop,
     "library.newScript": noop,
     "library.newProject": noop,
     "demo.tour": noop,

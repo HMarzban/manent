@@ -39,6 +39,9 @@ const CTX: CommandContext = {
   signedIn: true,
   panelOpen: { left: false, side: false },
   historyPresent: false,
+  format: null,
+  rulerShown: false,
+  spaceBeforeSet: false,
   production: null,
 };
 
@@ -247,7 +250,7 @@ test("empty, it is the menu and the last five commands", async () => {
   expect(options().slice(0, 3)).toEqual([
     "Left panel⌘⌥1",
     "Side panel⌘⌥2",
-    "Typewriter scrolling: Off · yoursPreferences → Writing",
+    "Ruler",
   ]);
 });
 

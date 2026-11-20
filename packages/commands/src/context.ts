@@ -1,5 +1,5 @@
 // What a command may know about where it runs: the screen, the focus, the person's access and the document's state.
-import type { Platform } from "@manent/settings";
+import type { Platform, SettingValue } from "@manent/settings";
 import type { PanelId, ScreenId } from "./ids.ts";
 
 export interface CommandContext {
@@ -15,6 +15,11 @@ export interface CommandContext {
   panelOpen: Readonly<Record<PanelId, boolean>>;
   /** The History tab is present; the document screen writes it as it writes `panelOpen`. */
   historyPresent: boolean;
+  /** The open script's format; null off a document. */
+  format: SettingValue<"script.format"> | null;
+  rulerShown: boolean;
+  /** The caret block has its own space before. */
+  spaceBeforeSet: boolean;
   /** Null off a document, and until production state is known. */
   production: {
     locked: boolean;

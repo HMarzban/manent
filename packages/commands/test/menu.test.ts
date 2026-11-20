@@ -49,6 +49,9 @@ const CTX: CommandContext = {
   signedIn: true,
   panelOpen: { left: false, side: false },
   historyPresent: false,
+  format: null,
+  rulerShown: false,
+  spaceBeforeSet: false,
   production: {
     locked: true,
     canLock: false,

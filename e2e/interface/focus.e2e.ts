@@ -1,7 +1,7 @@
 // Focus as the surface catalogue says: where each way of opening a surface puts it, where closing gives it back, Escape and F6.
 import type { CommandContext, CommandId, SurfaceId } from "@manent/commands";
 import type { Platform } from "@manent/settings";
-import { DOCUMENT_WORDS, REGIONS, SURFACES } from "@manent/ui";
+import { DOCUMENT_WORDS, REGIONS, SEND_WORDS, SURFACES } from "@manent/ui";
 import type { SurfaceEntry } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
@@ -22,6 +22,7 @@ const DOC = "/s/6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
 const POPUP = "[role='dialog'][data-open]";
 const PALETTE = "div:has(> [role='combobox'][aria-label='Commands'])";
 const RENAME = "[data-region='title_bar'] input[aria-label='Rename']";
+const SEND = `section[aria-label='${SEND_WORDS.pagesRegion}']`;
 const WAYS = ["key", "palette", "control"] as const;
 
 /**
@@ -67,6 +68,7 @@ const PLACES: Partial<Record<SurfaceId, Place>> = {
     close: null,
     name: null,
   },
+  send: { at: DOC, drawn: SEND, first: SEND, close: null, name: null },
 };
 
 // the openers drawn as a control on the page their surface is used from; every other opener has none there
@@ -223,6 +225,10 @@ for (const entry of SURFACES)
             opener === "demo.tour" &&
             by === "palette",
           "the Tour command does not yet name the side panel aloud when it shows it with focus in the page",
+        );
+        test.fixme(
+          entry.id === "send",
+          "the Export and Print forms are not drawn yet, so the Send screen goes straight back to the document",
         );
         const place = placeOf(entry.id);
         const command = commandOf(opener);
