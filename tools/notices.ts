@@ -44,6 +44,7 @@ export const DESKTOP_NOTICES = [
 const HEADER =
   "Manent includes the following software from others. Each is listed with its licence.";
 const LICENCE_FILE = /^(license|licence|copying|notice)(\..+)?$/i;
+const LOCKFILE_VERSION = 2;
 const NO_ASSERTION = "NOASSERTION";
 const STORE = "node_modules/.bun";
 // licence texts fetched for packages that ship none of their own, as <name>@<version>.txt with "/" as "+"
@@ -65,29 +66,52 @@ interface Lock {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const keysOf = (value: unknown): string[] =>
-  isRecord(value) ? Object.keys(value) : [];
+/** The names under `field` of the lock entry `key`; none when the field is absent. */
+function namesIn(
+  key: string,
+  meta: Record<string, unknown>,
+  field: "dependencies" | "peerDependencies",
+): string[] {
+  const value = meta[field];
+  if (value === undefined) return [];
+  if (!isRecord(value))
+    throw new TypeError(
+      `bun.lock: the ${field} field of ${key} is not a record`,
+    );
+  return Object.keys(value);
+}
 
 /** The names a lock entry needs at run time: its dependencies and its peers that are not optional. */
-function runtimeDeps(meta: unknown): string[] {
-  if (!isRecord(meta)) return [];
+function runtimeDeps(key: string, meta: Record<string, unknown>): string[] {
   const optional = Array.isArray(meta.optionalPeers) ? meta.optionalPeers : [];
   return [
-    ...keysOf(meta.dependencies),
-    ...keysOf(meta.peerDependencies).filter((name) => !optional.includes(name)),
+    ...namesIn(key, meta, "dependencies"),
+    ...namesIn(key, meta, "peerDependencies").filter(
+      (name) => !optional.includes(name),
+    ),
   ];
 }
 
+/** A workspace entry is its id alone; any other entry keeps its dependencies in a record at index 2. */
 function readLockPackage(key: string, value: unknown): LockPackage {
   const [id, , meta]: unknown[] = Array.isArray(value) ? value : [];
   const at = typeof id === "string" ? id.lastIndexOf("@") : -1;
   if (typeof id !== "string" || at < 1)
     throw new TypeError(`bun.lock: the package ${key} has no name@version`);
+  const name = id.slice(0, at);
   const version = id.slice(at + 1);
-  const workspace = version.startsWith("workspace:")
-    ? version.slice("workspace:".length)
-    : null;
-  return { name: id.slice(0, at), version, workspace, deps: runtimeDeps(meta) };
+  if (version.startsWith("workspace:"))
+    return {
+      name,
+      version,
+      workspace: version.slice("workspace:".length),
+      deps: [],
+    };
+  if (!isRecord(meta))
+    throw new TypeError(
+      `bun.lock: the package ${key} has no dependency record at index 2`,
+    );
+  return { name, version, workspace: null, deps: runtimeDeps(key, meta) };
 }
 
 function readLock(root: string): Lock {
@@ -96,12 +120,15 @@ function readLock(root: string): Lock {
   );
   if (!isRecord(lock) || !isRecord(lock.workspaces) || !isRecord(lock.packages))
     throw new TypeError(`bun.lock in ${root} has no workspaces or packages`);
+  if (lock.lockfileVersion !== LOCKFILE_VERSION)
+    throw new RangeError(
+      `bun.lock is version ${String(lock.lockfileVersion)}; this reader knows version ${LOCKFILE_VERSION}`,
+    );
   const workspaces = new Map<string, { name: string; deps: string[] }>();
   for (const [path, value] of Object.entries(lock.workspaces)) {
-    const name = isRecord(value) ? value.name : undefined;
-    if (typeof name !== "string")
+    if (!isRecord(value) || typeof value.name !== "string")
       throw new TypeError(`bun.lock: the workspace ${path} has no name`);
-    workspaces.set(path, { name, deps: runtimeDeps(value) });
+    workspaces.set(path, { name: value.name, deps: runtimeDeps(path, value) });
   }
   const packages = new Map<string, LockPackage>();
   for (const [key, value] of Object.entries(lock.packages))

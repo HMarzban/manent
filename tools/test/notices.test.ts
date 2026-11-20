@@ -30,9 +30,12 @@ const readExtra = (extra: {
   text: readFileSync(join(repoRoot, extra.path), "utf8"),
 });
 
-/** A bun.lock, written with trailing commas as Bun writes it, whose apps/web lists `pkg` under `field`. */
-const lockWith = (field: "dependencies" | "devDependencies"): string => `{
-  "lockfileVersion": 2,
+/** A bun.lock, written with trailing commas as Bun writes it, whose apps/web lists quiet-pkg under `field`. */
+const lockWith = (
+  field: "dependencies" | "devDependencies",
+  { lockfileVersion = 2, entry = `"quiet-pkg@1.0.0", "", {}, "sha512-0"` } = {},
+): string => `{
+  "lockfileVersion": ${lockfileVersion},
   "workspaces": {
     "": { "name": "manent", },
     "apps/web": { "name": "@manent/web", "${field}": { "quiet-pkg": "1.0.0", }, },
@@ -40,7 +43,7 @@ const lockWith = (field: "dependencies" | "devDependencies"): string => `{
     "apps/desktop": { "name": "@manent/desktop", },
   },
   "packages": {
-    "quiet-pkg": ["quiet-pkg@1.0.0", "", {}, "sha512-0"],
+    "quiet-pkg": [${entry}],
   },
 }
 `;
@@ -84,6 +87,39 @@ test("a bundled package without a licence text fails the check", async () => {
   expect(() => writeNotices(join(root, "n.txt"), root)).toThrow(
     "quiet-pkg@1.0.0",
   );
+});
+
+test("a lock of a version this reader does not know is refused", async () => {
+  const root = await trees.tree({
+    ...ONE_WITHOUT_LICENCE,
+    "bun.lock": lockWith("dependencies", { lockfileVersion: 3 }),
+  });
+  expect(() => collectNotices(root)).toThrow(RangeError);
+  expect(() => collectNotices(root)).toThrow(
+    "bun.lock is version 3; this reader knows version 2",
+  );
+});
+
+test("a package whose dependencies are not where the lock keeps them is refused", async () => {
+  const cases = [
+    {
+      entry: `"quiet-pkg@1.0.0", {}, "sha512-0"`,
+      message:
+        "bun.lock: the package quiet-pkg has no dependency record at index 2",
+    },
+    {
+      entry: `"quiet-pkg@1.0.0", "", { "dependencies": ["left-pad"] }, "sha512-0"`,
+      message: "bun.lock: the dependencies field of quiet-pkg is not a record",
+    },
+  ];
+  for (const { entry, message } of cases) {
+    const root = await trees.tree({
+      ...ONE_WITHOUT_LICENCE,
+      "bun.lock": lockWith("dependencies", { entry }),
+    });
+    expect(() => collectNotices(root)).toThrow(TypeError);
+    expect(() => collectNotices(root)).toThrow(message);
+  }
 });
 
 test("what only tests and tools use is not listed", async () => {
