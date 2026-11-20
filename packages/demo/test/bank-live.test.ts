@@ -37,7 +37,7 @@ const DIARY = [
 test("the live shows' bank holds three hundred news sentences and no chapters", () => {
   expect(LIVE_GUIDE.sentences.length).toBe(300);
   expect(LIVE_GUIDE.chapters.length).toBe(0);
-  expect(LIVE_GUIDE.names.length).toBe(26);
+  expect(LIVE_GUIDE.names.length).toBe(27);
 });
 
 test("news copy is held to twenty words a sentence and no word of judgement", () => {
@@ -60,6 +60,21 @@ test("every sentence is tagged with one item of the news diary, and every item i
   expect([
     ...new Set(LIVE_GUIDE.sentences.flatMap((sentence) => sentence.tags)),
   ]).toEqual(DIARY);
+});
+
+const told = (item: string): string[] =>
+  LIVE_GUIDE.sentences
+    .filter((sentence) => sentence.tags[0] === item)
+    .map((sentence) => sentence.text);
+
+test("the umbrella's owner is found through the podcast, and the census gives no total of its own", () => {
+  const umbrella = told("D the umbrella");
+  expect(umbrella.some((text) => text.includes("Handed In"))).toBe(true);
+  expect(umbrella.some((text) => text.includes("stitched"))).toBe(true);
+  expect(umbrella.filter((text) => text.includes("address"))).toEqual([]);
+  expect(
+    told("D census figures").filter((text) => text.includes("thousand")),
+  ).toEqual([]);
 });
 
 test("every sentence keeps to the newsroom's voice and names only what the diary holds", () => {
