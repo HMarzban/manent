@@ -25,6 +25,7 @@ import { DocumentStateBar } from "./document-state-bar.tsx";
 import { LeftPanel } from "./left-panel.tsx";
 import { fitPanels } from "./narrow-window.ts";
 import { useOpenDocument } from "./open-document.ts";
+import { RulerBar } from "./ruler-bar.tsx";
 import { useRemoteSettingMessages } from "./setting-messages.ts";
 import { SidePanel } from "./side-panel.tsx";
 import { CommandAction, StatusBar } from "./status-bar.tsx";
@@ -167,6 +168,7 @@ function Frame(props: { docId: string; doc: DocumentServices }): ReactNode {
     <>
       <TitleBar docId={docId} doc={doc} />
       <DocumentStateBar docId={docId} facts={doc.stateFacts} />
+      <RulerBar docId={docId} />
       <LeftPanel docId={docId} overlay={overPage} />
       <NoAccess docId={docId} status={status} />
       <SidePanel docId={docId} overlay={overPage} />
