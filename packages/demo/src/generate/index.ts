@@ -1,4 +1,5 @@
-// Style guides and phrase banks: their shapes, and the bank of every generated project.
+// Style guides and phrase banks: their shapes, the bank of every generated project, and the generator that writes from them.
+export { generateChapter, generateScenes } from "./grammar.ts";
 export { SeedBuildError } from "./guide.ts";
 export type {
   Beat,
@@ -10,6 +11,7 @@ export type {
   StyleRules,
   VarietyStory,
 } from "./guide.ts";
+export { checkGenerated } from "./rules.ts";
 export {
   EKBO_GUIDE,
   JUMPOX_GUIDE,
