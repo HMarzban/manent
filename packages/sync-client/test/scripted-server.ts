@@ -10,6 +10,7 @@ import {
   createFrameDecoder,
   createFrameEncoder,
   createMessageIds,
+  decodeReplayUpdates,
   encodeMessage,
 } from "@manent/sync-protocol";
 import type {
@@ -20,6 +21,7 @@ import type {
 } from "@manent/sync-protocol";
 import { createSyncClient, soloLeader } from "../src/index.ts";
 import type {
+  ConnectError,
   DocEvent,
   DocHandle,
   DocMeta,
@@ -162,6 +164,17 @@ type ServerError = {
   retryAfterMs?: number | null;
 };
 
+/** A replay request as the server read it, its updates decoded. */
+export interface ReplayCall {
+  docId: string;
+  generation: number;
+  lastServerSeq: number;
+  key: string;
+  updates: Uint8Array[];
+}
+
+export type ReplayAnswer = Awaited<ReturnType<Transport["replay"]>>;
+
 /** What a scripted end holds: its codec, and the documents it has been asked for. */
 interface ScriptedEnd {
   end: ServerEnd;
@@ -206,6 +219,10 @@ export interface ScriptedServer {
   viewPatch(docId: string, patch: unknown): void;
   /** From now on nothing is answered. */
   silence(): void;
+  /** Every replay request, in the order it arrived; each waits for `answerReplay`. */
+  replays(): ReplayCall[];
+  /** Answers the oldest replay not yet answered; a ConnectError rejects it, as an answer lost on the way. */
+  answerReplay(answer: ReplayAnswer | ConnectError): void;
 }
 
 /** SUBSCRIBED as the server sends it for an editor of the script. */
@@ -230,6 +247,11 @@ function scriptedServer(network: MemoryNetwork): ScriptedServer {
   const received: Message[] = [];
   const docs = new Map<string, CrdtDoc>();
   const ends: ScriptedEnd[] = [];
+  const replays: ReplayCall[] = [];
+  const unanswered: {
+    resolve(answer: ReplayAnswer): void;
+    reject(error: ConnectError): void;
+  }[] = [];
   let last: ScriptedEnd | null = null;
   const sync = (
     docId: string,
@@ -315,6 +337,14 @@ function scriptedServer(network: MemoryNetwork): ScriptedServer {
       server.answer.subscribe = false;
       server.answer.ping = false;
     },
+    replays: () => [...replays],
+    answerReplay(answer) {
+      const waiting = unanswered.shift();
+      if (waiting === undefined)
+        throw new RangeError("no replay is waiting for an answer");
+      if ("ok" in answer) waiting.resolve(answer);
+      else waiting.reject(answer);
+    },
   };
 
   const answer = (at: ScriptedEnd, m: Message): void => {
@@ -365,6 +395,15 @@ function scriptedServer(network: MemoryNetwork): ScriptedServer {
     createDocument(userId, request) {
       server.created.push({ userId, ...request });
       return { ok: true };
+    },
+    replay(_userId, request) {
+      const updates = decodeReplayUpdates(request.updates);
+      if (updates === null)
+        throw new RangeError("a replay's updates are base64 strings");
+      replays.push({ ...request, updates });
+      const waiting = Promise.withResolvers<ReplayAnswer>();
+      unanswered.push(waiting);
+      return waiting.promise;
     },
   });
   return server;
@@ -421,6 +460,7 @@ export function seededMeta(docId: string): DocMeta {
     recovering: null,
     lastDeviceVersionAt: 0,
     lastSyncedAt: null,
+    moving: null,
   };
 }
 
@@ -450,6 +490,7 @@ export async function setup(): Promise<World> {
       }));
     },
     createDocument: (request) => transport.createDocument(request),
+    replay: (request) => transport.replay(request),
   });
   const settle = async (): Promise<void> => {
     for (let i = 0; i < 100_000; i++) {

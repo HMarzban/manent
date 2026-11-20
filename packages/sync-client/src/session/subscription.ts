@@ -299,7 +299,9 @@ class DocSubscription implements Subscription {
     ).id;
     this.recovery = { versionId, heal, code, clientId: this.freshClientId() };
     this.side.add("rejected");
-    this.options.journal.patch({ recovering: { versionId, heal } });
+    this.options.journal.patch({
+      recovering: { versionId, heal, replaying: false },
+    });
     this.handshake.resubscribe();
   }
 

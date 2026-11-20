@@ -104,6 +104,7 @@ function freshMeta(docId: string, create: DocMeta["create"]): DocMeta {
     recovering: null,
     lastDeviceVersionAt: 0,
     lastSyncedAt: null,
+    moving: null,
   };
 }
 

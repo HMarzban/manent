@@ -28,9 +28,10 @@ const META: DocMeta = {
   neverSynced: false,
   create: { kind: "script", home: "user" },
   parked: { reason: "deleted", parkedAt: 1_000 },
-  recovering: { versionId: "v1", heal: true },
+  recovering: { versionId: "v1", heal: true, replaying: false },
   lastDeviceVersionAt: 900,
   lastSyncedAt: null,
+  moving: null,
 };
 const STATUS: DocStatus = {
   saved: true,
@@ -349,9 +350,23 @@ const meta: fc.Arbitrary<DocMeta> = fc.record({
       parkedAt: int,
     }),
   ),
-  recovering: nullable(fc.record({ versionId: text, heal: fc.boolean() })),
+  recovering: nullable(
+    fc.record({
+      versionId: text,
+      heal: fc.boolean(),
+      replaying: fc.boolean(),
+    }),
+  ),
   lastDeviceVersionAt: int,
   lastSyncedAt: nullable(int),
+  moving: nullable(
+    fc.record({
+      from: int,
+      to: int,
+      key: nullable(text),
+      throughLocalSeq: int,
+    }),
+  ),
 });
 const status: fc.Arbitrary<DocStatus> = fc.record({
   saved: fc.boolean(),
@@ -382,7 +397,7 @@ const item: fc.Arbitrary<RecoveredItem> = fc.record({
   nearBlockId: nullable(text),
   text,
   recoveredAt: int,
-  cause: fc.constantFrom("merge", "rejected"),
+  cause: fc.constantFrom("merge", "rejected", "overlap"),
 });
 const body: fc.Arbitrary<TabBody> = fc.oneof(
   fc.constant({ t: "who" as const }),

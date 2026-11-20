@@ -25,13 +25,15 @@ type StoreName =
 
 type EntryRecord = StoredEntry & { docId: string };
 
-/** `highestLocalSeq`: the highest `localSeq` the document has held that its checkpoint and entries may no longer show. */
-interface MetaRecord extends DocMeta {
+/** `highestLocalSeq`: the highest `localSeq` the document has held that its checkpoint and entries may no longer show. A record stored before moves existed lacks `moving`, and its `recovering` lacks `replaying`. */
+interface MetaRecord extends Omit<DocMeta, "recovering"> {
   highestLocalSeq: number;
+  recovering: { versionId: string; heal: boolean; replaying?: boolean } | null;
 }
 
 function docMetaOf({ highestLocalSeq: _mark, ...meta }: MetaRecord): DocMeta {
-  return meta;
+  const { moving = null, recovering: old } = meta;
+  return { ...meta, moving, recovering: old && { replaying: false, ...old } };
 }
 
 interface CheckpointRecord extends NonNullable<LoadedDocument["checkpoint"]> {
@@ -276,13 +278,11 @@ class IdbStore implements LocalStore {
     const storedMeta = structuredClone(meta);
     return this.write(DOC_STORES, (tx) => {
       let highest = 0;
-      const raise = (seq: number) => (highest = Math.max(highest, seq));
+      const raise = (seq = 0) => (highest = Math.max(highest, seq));
       read<CheckpointRecord>(tx, "checkpoints", docId, (r) =>
-        raise(r?.throughLocalSeq ?? 0),
+        raise(r?.throughLocalSeq),
       );
-      read<MetaRecord>(tx, "meta", docId, (r) =>
-        raise(r?.highestLocalSeq ?? 0),
-      );
+      read<MetaRecord>(tx, "meta", docId, (r) => raise(r?.highestLocalSeq));
       eachEntry(
         tx,
         docId,

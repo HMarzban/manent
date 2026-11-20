@@ -142,7 +142,7 @@ const readParkedReason = oneOf<ParkedReason>(
   Object.freeze({ access_removed: true, deleted: true }),
 );
 const readCause = oneOf<RecoveredItem["cause"]>(
-  Object.freeze({ merge: true, rejected: true }),
+  Object.freeze({ merge: true, rejected: true, overlap: true }),
 );
 
 function readCreate(value: unknown): NonNullable<DocMeta["create"]> {
@@ -158,11 +158,25 @@ function readParked(value: unknown): NonNullable<DocMeta["parked"]> {
   };
 }
 
+// a tab of a build from before moves sends no `replaying` and no `moving`
 function readRecovering(value: unknown): NonNullable<DocMeta["recovering"]> {
   const fields = readFields(value);
   return {
     versionId: readString(fields.versionId),
     heal: readBoolean(fields.heal),
+    replaying:
+      fields.replaying === undefined ? false : readBoolean(fields.replaying),
+  };
+}
+
+function readMoving(value: unknown): DocMeta["moving"] {
+  if (value === undefined || value === null) return null;
+  const fields = readFields(value);
+  return {
+    from: readNumber(fields.from),
+    to: readNumber(fields.to),
+    key: orNull(readString)(fields.key),
+    throughLocalSeq: readNumber(fields.throughLocalSeq),
   };
 }
 
@@ -187,6 +201,7 @@ function readMeta(value: unknown): DocMeta {
     recovering: orNull(readRecovering)(fields.recovering),
     lastDeviceVersionAt: readNumber(fields.lastDeviceVersionAt),
     lastSyncedAt: orNull(readNumber)(fields.lastSyncedAt),
+    moving: readMoving(fields.moving),
   };
 }
 

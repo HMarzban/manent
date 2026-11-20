@@ -16,6 +16,7 @@ export interface TestApi {
 
 const DOC = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
 const DOC2 = "5b0c3f4e-2d71-4e8a-9c16-0f7d2a9e4b3c";
+const KEY = "0f1e2d3c4b5a69788796a5b4c3d2e1f0";
 
 /** A document no server has named yet: generation 0, nothing synced, nothing set. */
 export function blankMeta(docId: string): DocMeta {
@@ -31,6 +32,7 @@ export function blankMeta(docId: string): DocMeta {
     recovering: null,
     lastDeviceVersionAt: 0,
     lastSyncedAt: null,
+    moving: null,
   };
 }
 
@@ -296,6 +298,18 @@ const CONTRACT: readonly ContractCase[] = [
         syncedBase: null,
         entries: [own(1), remote(2), own(3)],
       });
+    },
+  },
+  {
+    name: "a move in progress is kept across a reload",
+    async run(s, open, expect) {
+      await seed(s);
+      const moving = { from: 1, to: 2, key: KEY, throughLocalSeq: 9 };
+      await s.patchMeta(DOC, { moving });
+      const again = await open("dana");
+      expect((await again.load(DOC))!.meta.moving).toEqual(moving);
+      await again.reset(DOC, bytes(4), { ...blankMeta(DOC), moving: null });
+      expect((await (await open("dana")).load(DOC))!.meta.moving).toBeNull();
     },
   },
   {

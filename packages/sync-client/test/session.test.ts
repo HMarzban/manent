@@ -117,6 +117,7 @@ test("the local copy is loaded before the socket opens", async () => {
         return transport.connect(handlers);
       },
       createDocument: (request) => transport.createDocument(request),
+      replay: (request) => transport.replay(request),
     },
   });
   const opening = client.open(DOC);
@@ -755,6 +756,7 @@ test("a connection that closes before it has opened is tried again after a backo
         return opening;
       },
       createDocument: (request) => transport.createDocument(request),
+      replay: (request) => transport.replay(request),
     },
   });
   await client.open(DOC);
