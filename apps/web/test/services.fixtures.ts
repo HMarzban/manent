@@ -168,6 +168,7 @@ export function testEnvironment(
       system: "macOS",
     },
     language: "en-US",
+    userAgent: "test",
     now: clock.now,
     schedule: clock.schedule,
     frame: (fn) => clock.schedule(fn, 16),
@@ -178,6 +179,8 @@ export function testEnvironment(
     lastKeyAt: () => null,
     guard: createGuard({ flavour: "test" }),
     flavour: "test",
+    // the editor is tested over its own mount
+    editor: "placeholder",
     shellState: createValue<ShellState>(INITIAL_SHELL_STATE),
     dom: QUIET_DOM,
     online: () => true,

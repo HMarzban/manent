@@ -1,4 +1,5 @@
 // Preferences → This device (This browser on the web): Interface size, what comes from the system, what is stored here, and About.
+import { ENGINE_VERSION } from "@manent/pagination";
 import { Button, PREFERENCES_WORDS, SettingRow } from "@manent/ui";
 import {
   useCallback,
@@ -135,6 +136,9 @@ function About(): ReactNode {
   return (
     <Group heading={PREFERENCES_WORDS.about}>
       <p className="text-ui">{PREFERENCES_WORDS.version(version)}</p>
+      <p className="text-ui">
+        {PREFERENCES_WORDS.layoutEngine(ENGINE_VERSION)}
+      </p>
       <p className="text-ui">{PREFERENCES_WORDS.noUsageData}</p>
       <div className="flex flex-col gap-1">
         <p className="text-ui">{PREFERENCES_WORDS.aiPledge}</p>

@@ -113,15 +113,15 @@ const placeOf = (id: SurfaceId): Place => {
 
 /**
  * Opens `place.at` as You and waits for the screen's heading to hold focus, as it does on arrival, and on a script for
- * its page to say it is opening, so the page reads the same before and after a surface is used.
+ * its editor to be drawn, so the page reads the same before and after a surface is used.
  */
 async function arrive(page: Page, at: string): Promise<void> {
   await signedInAs(page, "you", at);
   await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
   if (at === DOC)
-    await expect(page.locator("[data-region='page']")).toHaveText(
-      DOCUMENT_WORDS.opening,
-    );
+    await expect(
+      page.locator("[data-region='page'] .mn-page-view"),
+    ).toBeVisible();
 }
 
 /** Whether the palette lists `id` here: a command whose `visible` is false in this context is absent from it. */

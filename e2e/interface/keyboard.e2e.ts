@@ -151,9 +151,24 @@ test("every default shortcut runs its command once, from the page, a panel and a
       }
 });
 
+/** Holds back every script that holds ProseMirror, the editor's, until `release`: the page stays its placeholder. */
+async function holdTheEditor(page: Page): Promise<{ release(): void }> {
+  const { promise: held, resolve: release } = Promise.withResolvers<void>();
+  await page.route("**/chunk-*.js", async (route) => {
+    const response = await route.fetch();
+    const body = await response.text();
+    // a sentence only ProseMirror's state module holds
+    if (body.includes("Adding different instances of a keyed plugin"))
+      await held;
+    await route.fulfill({ response, body });
+  });
+  return { release };
+}
+
 test("the palette's key works before the page is editable, and every typed character arrives", async ({
   page,
 }) => {
+  const editor = await holdTheEditor(page);
   await signedInAs(page, "you", DOC);
   await page.locator("[data-region='page']").waitFor({ state: "attached" });
   expect(await editable(page).count()).toBe(0);
@@ -162,6 +177,7 @@ test("the palette's key works before the page is editable, and every typed chara
   await expect(page.getByRole("combobox", { name: "Commands" })).toHaveValue(
     "Theme: dark",
   );
+  editor.release();
 });
 
 test("while an input method composes, Enter, Tab, Escape and the arrows belong to it", async ({

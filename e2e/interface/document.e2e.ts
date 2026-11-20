@@ -132,10 +132,10 @@ test("opening a panel never moves the page's lines up or down", async ({
   page,
 }) => {
   await signedInAs(page, "you", DOC);
-  // the page as the editor host draws it until the editor is mounted
-  const sheet = page.locator("[data-editor-host] [data-placeholder]");
+  // the page's first line; Fit width scales the page as a panel takes room, and keeps the line where it was
+  const line = page.locator("[data-editor-host] .mn-page-view p").first();
   const top = async (): Promise<number | undefined> =>
-    (await sheet.boundingBox())?.y;
+    (await line.boundingBox())?.y;
   const tops = [await top()];
   for (const panel of ["Side panel", "Left panel"]) {
     await page.getByRole("button", { name: "View" }).click();
@@ -150,5 +150,11 @@ test("opening a panel never moves the page's lines up or down", async ({
     await page.keyboard.press("Escape");
     tops.push(await top());
   }
-  expect([typeof tops[0], tops]).toEqual(["number", tops.map(() => tops[0])]);
+  // each opening moves the line by at most the pixel that scrolling rounds to
+  const moves = tops
+    .slice(1)
+    .map(
+      (at, i) => Math.abs((at ?? Number.NaN) - (tops[i] ?? Number.NaN)) <= 1,
+    );
+  expect([typeof tops[0], moves]).toEqual(["number", [true, true]]);
 });

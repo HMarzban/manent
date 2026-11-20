@@ -1,6 +1,11 @@
 // One person's services in this tab, composed once: each port's implementation is picked on one line, until sync and the editor supply their own.
 import { COMMANDS, isChord, resolveBindings } from "@manent/commands";
-import type { CustomBinding, Keys, Resolved } from "@manent/commands";
+import type {
+  CommandService,
+  CustomBinding,
+  Keys,
+  Resolved,
+} from "@manent/commands";
 import {
   SECTION_IDS,
   SETTINGS,
@@ -9,11 +14,15 @@ import {
   latestEntries,
 } from "@manent/settings";
 import type { Bag, KeyValueMap, SettingsStore } from "@manent/settings";
-import { createMessageQueue, createValue } from "@manent/ui";
-import type { MessageQueue, Subscribable } from "@manent/ui";
+import { createKeyResolver, createMessageQueue, createValue } from "@manent/ui";
+import type { MessageQueue, StatusFacts, Subscribable } from "@manent/ui";
 import { createEditorControl } from "../editor-host/control.ts";
+import type { EditorControl } from "../editor-host/control.ts";
+import type { OpenEditor } from "../editor-host/editor-mount.ts";
+import { createLazyMount } from "../editor-host/lazy-mount.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
 import { placeholderMount } from "../editor-host/placeholder-mount.ts";
+import { createEditorKeyRun } from "../handlers/editor.ts";
 import { deviceName } from "../platform.ts";
 import type { Where } from "../platform.ts";
 import type { TabPerson } from "../session.ts";
@@ -26,11 +35,13 @@ import { createLocalMap, createLocalText } from "./local-map.ts";
 import { createMemoryLibrary } from "./memory-library.ts";
 import { createCommands } from "./person-commands.ts";
 import type { CommandsOptions } from "./person-commands.ts";
-import type { DocumentSource, PersonServices, Reverses } from "./ports.ts";
+import type {
+  DocumentSource,
+  FixedKey,
+  PersonServices,
+  Reverses,
+} from "./ports.ts";
 import { createRemoteDeferral } from "./remote-deferral.ts";
-
-// until the editor supplies its own mount
-export const editorMount: EditorMount = placeholderMount;
 
 type Options = CommandsOptions & { person: TabPerson };
 
@@ -236,6 +247,84 @@ function createStores(
   };
 }
 
+/**
+ * The page's editor, whose modules load apart from the entry from the moment the services exist; `fixedKeys` gets the
+ * editor's keys once they have loaded. In the test build the editor's hooks are installed on the page's `__manent`.
+ */
+function createEditor(
+  options: Options,
+  parts: {
+    services: () => PersonServices;
+    control: EditorControl;
+    commands: CommandService;
+    messages: MessageQueue;
+    resolved: Subscribable<Resolved>;
+    fixedKeys: { set(keys: readonly FixedKey[]): void };
+  },
+): EditorMount {
+  const timers = { now: options.now, schedule: options.schedule };
+  const frames = { request: options.frame };
+  return createLazyMount(async () => {
+    const [mounts, { createLocalSessions }, { randomBlockId }, hooks] =
+      await Promise.all([
+        import("../editor-host/editor-mount.ts"),
+        import("../editor-host/editor-sessions.ts"),
+        // the schema, and with it ProseMirror's model, stays out of the entry
+        import("@manent/schema"),
+        options.flavour === "test"
+          ? import("../editor-host/test-hooks.ts")
+          : null,
+      ]);
+    parts.fixedKeys.set(mounts.EDITOR_FIXED_KEYS);
+    const sessions = createLocalSessions({
+      frames,
+      clock: timers,
+      ids: randomBlockId,
+    });
+    const access = new Map<string, StatusFacts["access"]>();
+    let current: OpenEditor | null = null;
+    const target: unknown = Reflect.get(globalThis, "__manent");
+    if (hooks !== null && typeof target === "object" && target !== null)
+      hooks.installEditorHooks(target, {
+        services: parts.services(),
+        navigate: (path) => options.router.navigate(path),
+        current: () => current,
+        sessions,
+        access,
+      });
+    return mounts.createEditorMount({
+      sessions,
+      services:
+        hooks === null
+          ? parts.services
+          : () => hooks.withRecordedAccess(parts.services(), access),
+      control: parts.control,
+      keys: {
+        resolve: createKeyResolver({
+          table: () => parts.resolved.get().editorTable,
+        }),
+        run: createEditorKeyRun({
+          commands: parts.commands,
+          messages: parts.messages,
+          labelOf: (id) => parts.commands.state(id).label,
+        }),
+      },
+      ports: mounts.browserPagePorts(options.userAgent),
+      frames,
+      timers,
+      platform: options.where.platform,
+      ids: randomBlockId,
+      random: options.randomId,
+      observe:
+        hooks === null
+          ? undefined
+          : (open) => {
+              current = open;
+            },
+    });
+  });
+}
+
 /** `person`'s services over `storage`; `dispose` stops listening to other tabs and drops every open document's store. */
 export function createPersonServices(options: Options): PersonServices {
   const kept = createKept(options);
@@ -261,6 +350,8 @@ export function createPersonServices(options: Options): PersonServices {
     messages,
     resolved,
   });
+  const control = createEditorControl();
+  const fixedKeys = createValue<readonly FixedKey[]>([]);
   const services: PersonServices = {
     userId: options.person.userId,
     settings,
@@ -276,10 +367,20 @@ export function createPersonServices(options: Options): PersonServices {
     get persisted() {
       return [kept.device, kept.prefs, kept.keys].every((k) => k.persisted);
     },
-    // empty until the editor supplies its structural and picker keys
-    fixedKeys: [],
+    fixedKeys,
     reverses: createReverses(messages),
-    editor: createEditorControl(),
+    editor: control,
+    mount:
+      options.editor === "placeholder"
+        ? placeholderMount
+        : createEditor(options, {
+            services: () => services,
+            control,
+            commands,
+            messages,
+            resolved,
+            fixedKeys,
+          }),
     dispose() {
       stop();
       kept.dispose();

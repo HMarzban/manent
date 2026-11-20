@@ -20,7 +20,6 @@ import { EditorHost } from "../editor-host/editor-host.tsx";
 import { standInMount } from "../editor-host/stand-in-mount.ts";
 import { historyTab } from "../screens/document/history-tab.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
-import { editorMount } from "../services/services.ts";
 import {
   FactsContext,
   OutlineContext,
@@ -153,7 +152,7 @@ function ShellPage(props: {
       <EditorHost
         docId={docId}
         covered={covered}
-        mount={standIn ? standInMount : editorMount}
+        mount={standIn ? standInMount : services.mount}
         ports={ports}
       />
     </ShellRegion>

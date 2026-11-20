@@ -20,6 +20,7 @@ import type {
   Subscribable,
 } from "@manent/ui";
 import type { EditorControl } from "../editor-host/control.ts";
+import type { EditorMount } from "../editor-host/mount.ts";
 import type { Where } from "../platform.ts";
 import type { TabStorage } from "../session.ts";
 import type { ShellDom } from "../shell/regions.tsx";
@@ -124,11 +125,13 @@ export interface PersonServices {
   lastPane: { get(): SectionId; set(pane: SectionId): void };
   /** False when this device refuses to keep preferences beyond this session. */
   persisted: boolean;
-  /** Empty until the editor supplies its keys. */
-  fixedKeys: readonly FixedKey[];
+  /** Empty until the editor, which loads apart from the entry, has loaded and supplied its keys. */
+  fixedKeys: Subscribable<readonly FixedKey[]>;
   reverses: Reverses;
   /** The one way a command reaches the open editor. */
   editor: EditorControl;
+  /** Draws this person's editor of a document into the page. */
+  mount: EditorMount;
   dispose(): void;
 }
 
@@ -157,6 +160,8 @@ export interface Environment {
   where: Where;
   /** The language the browser asks for ("en-GB"). */
   language: string;
+  /** The browser's user agent, which the editor's pages read the browser's engine from. */
+  userAgent: string;
   now: () => number;
   schedule: (fn: () => void, delayMs: number) => () => void;
   frame: (fn: () => void) => () => void;
@@ -170,6 +175,8 @@ export interface Environment {
   lastKeyAt: () => number | null;
   guard: Guard;
   flavour: "production" | "test";
+  /** `loaded`: each person's editor, loaded apart from the entry; `placeholder`: the placeholder alone, for the tests of what is around the page. */
+  editor: "loaded" | "placeholder";
   shellState: Subscribable<ShellState> & { set(value: ShellState): void };
   dom: ShellDom;
   online: () => boolean;

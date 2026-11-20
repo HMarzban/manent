@@ -57,7 +57,15 @@ export function deviceName(where: Where): string | null {
   return where.browser === null ? null : `${where.browser} on ${where.system}`;
 }
 
-/** Where this tab runs, and the language it asks for, read once from the browser. */
-export function readNavigator(): { where: Where; language: string } {
-  return { where: detectWhere(navigator), language: navigator.language };
+/** Where this tab runs, the language it asks for and its user agent, read once from the browser. */
+export function readNavigator(): {
+  where: Where;
+  language: string;
+  userAgent: string;
+} {
+  return {
+    where: detectWhere(navigator),
+    language: navigator.language,
+    userAgent: navigator.userAgent,
+  };
 }

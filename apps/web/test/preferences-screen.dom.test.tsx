@@ -2,6 +2,7 @@ import { withDom } from "@manent/testkit/dom";
 import { afterEach, expect, test } from "bun:test";
 import { SECTION_IDS, entryKey } from "@manent/settings";
 import type { SectionId } from "@manent/settings";
+import { createValue } from "@manent/ui";
 import {
   Outlet,
   RouterProvider,
@@ -111,7 +112,7 @@ async function renderPreferences(options: {
   });
   const services: PersonServices = {
     ...built,
-    fixedKeys: options.fixedKeys ?? [],
+    fixedKeys: createValue(options.fixedKeys ?? []),
   };
   const rootRoute = createRootRoute({
     component: () => (

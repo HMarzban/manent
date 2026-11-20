@@ -42,11 +42,12 @@ test("a new script as You shows eight controls and no state bar", async () => {
   const controls = ["title_bar", "status_bar"].flatMap((name) =>
     [...region(container, name).querySelectorAll("button")].map(nameOf),
   );
-  // Share and Element ▾, the other two of the eight, come with their own features
+  // Share, the last of the eight, comes with its own feature
   expect(controls).toEqual([
     "‹ Library",
     "Untitled script",
     "Saved · Only in this browser — not backed up",
+    "Element: scene_heading",
     "Page 1 of 1",
     "View",
     "Commands",
