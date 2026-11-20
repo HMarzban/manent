@@ -168,6 +168,93 @@ const nearMenus = fc.constantFrom(...DAMAGES).chain((damage) =>
   }),
 );
 
+// Valid values of every message kind and of the startup values.
+const text = fc.string({ unit: "binary", minLength: 1, maxLength: 40 });
+const nullable = <T>(arb: fc.Arbitrary<T>) => fc.option(arb, { nil: null });
+const commandId = fc.stringMatching(/^[a-z][A-Za-z0-9._-]{0,127}$/);
+const menuItem: fc.Arbitrary<NativeMenuItem> = fc.record({
+  id: commandId,
+  label: text,
+  enabled: fc.boolean(),
+  checked: nullable(fc.boolean()),
+  accelerator: nullable(
+    fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789,/[]"),
+  ),
+  role: nullable(fc.constantFrom(...NATIVE_ROLES)),
+  submenu: nullable(text),
+});
+const pageMessage: fc.Arbitrary<PageMessage> = fc.oneof(
+  fc.record({
+    v: fc.constant(1 as const),
+    t: fc.constant("menus" as const),
+    menus: fc.array(
+      fc.record({
+        menu: fc.constantFrom(...NATIVE_MENU_IDS),
+        label: text,
+        groups: fc.array(fc.array(menuItem, { maxLength: 4 }), {
+          maxLength: 3,
+        }),
+      }),
+      { maxLength: 3 },
+    ),
+  }),
+  fc.record({
+    v: fc.constant(1 as const),
+    t: fc.constant("first_paint" as const),
+    writes: fc.array(
+      fc.tuple(fc.constant("a" as const), text, nullable(fc.string())),
+      { maxLength: 6 },
+    ),
+  }),
+  fc.record({
+    v: fc.constant(1 as const),
+    t: fc.constant("close_answer" as const),
+    close: fc.boolean(),
+  }),
+  fc
+    .constantFrom(
+      "first_frame",
+      "open_in_browser",
+      "open_files",
+      "show_folder",
+      "check_for_updates",
+    )
+    .map((t) => ({ v: 1 as const, t })),
+);
+const shellMessage: fc.Arbitrary<ShellMessage> = fc.oneof(
+  fc.record({
+    v: fc.constant(1 as const),
+    t: fc.constant("menu_command" as const),
+    id: commandId,
+  }),
+  fc.record({
+    v: fc.constant(1 as const),
+    t: fc.constant("files_opened" as const),
+    files: fc.array(fc.record({ name: text, bytes: fc.base64String() }), {
+      maxLength: 4,
+    }),
+    refused: fc.array(
+      fc.record({ name: text, reason: fc.constantFrom(...FILE_REFUSALS) }),
+      { maxLength: 4 },
+    ),
+  }),
+  fc.record({
+    v: fc.constant(1 as const),
+    t: fc.constant("update_state" as const),
+    state: fc.constantFrom(...UPDATE_STATES),
+  }),
+  fc.constant({ v: 1 as const, t: "close_requested" as const }),
+);
+const desktopGlobal: fc.Arbitrary<DesktopGlobal> = fc.record({
+  v: fc.constant(1 as const),
+  platform: fc.constantFrom("mac", "windows", "linux"),
+  version: text,
+  channel: fc.constantFrom("stable", "canary"),
+  dataDir: text,
+});
+const throughJson = (value: unknown): unknown =>
+  JSON.parse(JSON.stringify(value));
+
 test("the shell channel's messages are pinned", () => {
   expect([
     DESKTOP_PROTOCOL_VERSION,
@@ -239,6 +326,17 @@ test("the shell channel's messages are pinned", () => {
     ["checking", "up_to_date", "ready", "check_failed"],
   ]);
   const pages: PageMessage[] = [
+    { v: 1, t: "first_frame" },
+    {
+      v: 1,
+      t: "first_paint",
+      writes: [
+        ["a", "data-theme", "dark"],
+        ["a", "data-zoom", null],
+      ],
+    },
+    { v: 1, t: "open_in_browser" },
+    { v: 1, t: "open_files" },
     { v: 1, t: "show_folder" },
     { v: 1, t: "check_for_updates" },
     { v: 1, t: "close_answer", close: false },
@@ -252,6 +350,12 @@ test("the shell channel's messages are pinned", () => {
       t: "files_opened",
       files: [],
       refused: [{ name: "draft.pdf", reason: "size" }],
+    },
+    {
+      v: 1,
+      t: "files_opened",
+      files: [{ name: "pilot.fdx", bytes: "PD94bWw=" }],
+      refused: [],
     },
   ];
   for (const m of shells) expect(parseShellMessage(m)).toEqual(m);
@@ -364,6 +468,22 @@ test("anything that is not a message of this version is refused whole", () => {
       dataDir: "/d",
     }),
   ).toBeNull();
+});
+
+test("every valid message comes back from JSON unchanged", () => {
+  fc.assert(
+    fc.property(
+      pageMessage,
+      shellMessage,
+      desktopGlobal,
+      (page, shell, startup) => {
+        expect(parsePageMessage(throughJson(page))).toEqual(page);
+        expect(parseShellMessage(throughJson(shell))).toEqual(shell);
+        expect(parseDesktopGlobal(throughJson(startup))).toEqual(startup);
+      },
+    ),
+    { numRuns: 2000 },
+  );
 });
 
 test("any input ends in a message or null, never a throw", () => {
