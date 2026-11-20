@@ -40,6 +40,7 @@ import { AppShell } from "../src/shell/app-shell.tsx";
 import { createShellDom } from "../src/shell/regions.tsx";
 import { dialogActions } from "../src/state/dialog.store.ts";
 import { bindGuard } from "../src/state/guard.ts";
+import { paletteActions } from "../src/state/palette.store.ts";
 import { panelsActions, usePanel } from "../src/state/panels.store.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
 import {
@@ -157,6 +158,7 @@ afterEach(() => {
   act(() => {
     panelsActions.close("side");
     dialogActions.close();
+    paletteActions.close();
   });
 });
 
@@ -567,4 +569,30 @@ test("in demo mode the Tour opens the first time a person reaches the Library, a
   act(() => probeRoot.render(<SideTabProbe seen={(t) => (tab = t)} />));
   expect(tab).toBeNull();
   act(() => probeRoot.unmount());
+});
+
+/** The tag of what holds focus, and its name. */
+const focused = (): string[] => {
+  const element = document.activeElement;
+  return [
+    element?.tagName ?? "",
+    element?.getAttribute("aria-label") ?? element?.textContent ?? "",
+  ];
+};
+
+test("the Library drawn while the palette is open leaves focus in the palette's field, and takes it once the palette closes", async () => {
+  const { router } = await renderLibrary({
+    person: YOU,
+    library: seededIndex({}),
+    path: `/s/${NIGHT_DOC}`,
+  });
+  await act(async () => paletteActions.open("all"));
+  expect(focused()).toEqual(["INPUT", "Commands"]);
+  await act(async () => router.navigate({ to: "/" }));
+  expect(focused()).toEqual(["INPUT", "Commands"]);
+  // sent to the window, where the shell hears it: happy-dom has no input event, so React would read the removed field
+  act(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+  });
+  expect(focused()).toEqual(["H1", "Library"]);
 });
