@@ -12,7 +12,6 @@ import type { CrdtDoc } from "@manent/crdt";
 import { blockText, blocksOf } from "@manent/schema";
 import {
   DEFAULT_LIMITS,
-  NO_SETTINGS,
   PRODUCT_SETTING_RULES,
   createServer,
   createSignedSessionStore,
@@ -70,8 +69,12 @@ import {
   createMessageIds,
 } from "@manent/sync-protocol";
 import type { ControlKind, Message } from "@manent/sync-protocol";
-import { createMirror, createRelayBridge } from "../src/index.ts";
-import type { CloudApi, Mirror, RelayBridge } from "../src/index.ts";
+import {
+  createHandover,
+  createMirror,
+  createRelayBridge,
+} from "../src/index.ts";
+import type { CloudApi, Handover, Mirror, RelayBridge } from "../src/index.ts";
 import { createFakeCloud, createMemoryRecords } from "../src/testing/index.ts";
 
 export const DOC = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
@@ -93,6 +96,7 @@ const IDLE_MS = 1_000;
 /** Idle rounds in a row that count as settled: long enough for a rebuild's quiet moment. */
 const CALM_ROUNDS = 14;
 const NO_FRAMES = { request: () => () => {} };
+const SLOW_ADOPT_MS = 3_000;
 // peerOf never reads a connection's data, and only server-core can make a real one
 const NO_DATA = {} as ConnectionData;
 const STORE_WRITES = new Set([
@@ -164,8 +168,16 @@ interface Hooks {
   closed?(peer: Peer): void;
 }
 
-/** One memory-network end served as the socket serves a connection: HELLO, WELCOME, then the service. */
-function serveEnd(service: SyncService, end: ServerEnd, hooks: Hooks): void {
+/**
+ * One memory-network end served as the socket serves a connection: HELLO, WELCOME, then the
+ * service. `active` hears every message either way but the heartbeat's.
+ */
+function serveEnd(
+  service: SyncService,
+  end: ServerEnd,
+  hooks: Hooks,
+  active: () => void,
+): void {
   const decoder = createFrameDecoder({ from: "client" });
   let peer: Peer | null = null;
   const connection: Connection = {
@@ -201,7 +213,15 @@ function serveEnd(service: SyncService, end: ServerEnd, hooks: Hooks): void {
         createMessageIds(),
         DEFAULT_LIMITS,
       );
-      peer = hooks.peer?.(made) ?? made;
+      const counted: Peer = {
+        ...made,
+        send(sent) {
+          if (!("type" in sent && sent.type === "PONG")) active();
+          made.send(sent);
+        },
+        close: (code, reason) => made.close(code, reason),
+      };
+      peer = hooks.peer?.(counted) ?? counted;
       const limits = {
         frameBytes: FRAME_LIMIT_BYTES,
         messageBytes: MESSAGE_LIMIT_BYTES,
@@ -217,6 +237,7 @@ function serveEnd(service: SyncService, end: ServerEnd, hooks: Hooks): void {
     }
     if (message.type === "PING")
       return peer.send({ type: "PONG", nonce: message.nonce });
+    active();
     if (hooks.heard?.(peer, message) === true) return;
     service.receive(peer, message);
   };
@@ -268,7 +289,7 @@ class Cloud {
       },
       auth: {
         signIn: createFakeSignIn(
-          ["sam", "dana", "leo"].map((userId) => ({
+          ["sam", "dana", "leo", "you"].map((userId) => ({
             userId,
             name: NAMES[userId] ?? "",
           })),
@@ -359,6 +380,8 @@ class NodeLife {
   readonly deferred = new Deferred();
   readonly service: SyncService;
   readonly bridge: RelayBridge;
+  readonly mirror: Mirror;
+  readonly handover: Handover;
   readonly peers = new Set<Peer>();
   readonly lastSet = new Map<string, { peer: Peer; message: Message }>();
   device: "ok" | "failing" = "ok";
@@ -407,9 +430,23 @@ class NodeLife {
         this.device = state;
       },
       upstream: this.bridge,
-      registry: NO_SETTINGS,
+      registry: PRODUCT_SETTING_RULES,
     });
     this.bridge.attach(this.service);
+    const tokenOf = (userId: string): string | null =>
+      records.person(userId)?.cloudToken ?? null;
+    this.mirror = createMirror({ storage, records, cloud: host.api, tokenOf });
+    this.handover = createHandover({
+      storage,
+      records,
+      cloud: host.api,
+      relay: this.bridge,
+      service: this.service,
+      tokenOf,
+      clock: this.clock,
+      random: randomOf(seeded(host.lives * 31)),
+      snapshot: (docId) => host.snapshotOf(docId),
+    });
     this.bridge.onStatus((docId, status) => {
       host.statuses.push({ docId, status });
       this.control(
@@ -594,7 +631,7 @@ export class RelayWorld {
   });
   readonly cloudStorage = createMemoryStorage({ now: this.clock.clock.now });
   readonly nodeStorage = createMemoryStorage({ now: this.clock.clock.now });
-  readonly records = createMemoryRecords();
+  records: ReturnType<typeof createMemoryRecords>;
   readonly upstreamStores = createMemoryStoreSpace();
   readonly cloud = new Cloud(this.cloudStorage, this.clock);
   readonly statuses: { docId: string; status: UpstreamStatus }[] = [];
@@ -602,30 +639,48 @@ export class RelayWorld {
     [];
   holdingAppends = false;
   lives = 0;
+  /** Counts every message and deferred run but the heartbeat's: a settle waits for it to stand still. */
+  private activity = 0;
+  private readonly active = (): void => {
+    this.activity += 1;
+  };
   life: NodeLife;
-  readonly mirror: Mirror;
+  readonly api: CloudApi;
+  /** By document: the workspace its window's POST /api/docs named. */
+  readonly workspaces = new Map<string, string>();
+  adoptCalls = 0;
+  /** A crash in the node's work, which takes the node down as a killed process does. */
+  private failure: unknown = null;
   private readonly windows = new Map<string, Person>();
   private readonly browsers = new Map<string, Person>();
   private snapshot: unknown = null;
   /** The person whose window a check reads unless told otherwise. */
   private lastOpened = "sam";
 
-  constructor() {
-    this.life = this.startLife();
-    const cloud: CloudApi = {
+  constructor(readonly options: WorldOptions = {}) {
+    this.records = createMemoryRecords(
+      options.crashOn === undefined ? {} : { crashOn: options.crashOn },
+    );
+    let drop = options.drop ?? null;
+    this.api = {
       signIn: (userId) => this.cloud.api.signIn(userId),
       demo: () => this.cloud.api.demo(),
       describe: (token, request) => this.cloud.api.describe(token, request),
-      adopt: (token, request) => this.cloud.api.adopt(token, request),
+      adopt: async (token, request) => {
+        this.adoptCalls += 1;
+        if (options.slowAdopt === true)
+          await new Promise((resolve) =>
+            this.clock.clock.schedule(() => resolve(null), SLOW_ADOPT_MS),
+          );
+        if (drop !== null) this.cloud.api.drop(drop);
+        drop = null;
+        return this.cloud.api.adopt(token, request);
+      },
     };
-    this.mirror = createMirror({
-      storage: this.nodeStorage,
-      records: this.records,
-      cloud,
-      tokenOf: (userId) => this.records.person(userId)?.cloudToken ?? null,
-    });
+    this.life = this.startLife();
     this.cloudNet.serve({
-      connected: (end) => serveEnd(this.cloud.service, end, this.cloud.hooks()),
+      connected: (end) =>
+        serveEnd(this.cloud.service, end, this.cloud.hooks(), this.active),
       createDocument: (userId, request) => {
         const made = this.cloud.service.access.create(userId, request);
         if (made.ok) return { ok: true };
@@ -640,7 +695,7 @@ export class RelayWorld {
     this.nodeNet.serve({
       connected: (end) => {
         if (!this.life.alive) return end.close(1006, "");
-        serveEnd(this.life.service, end, this.life.hooks());
+        serveEnd(this.life.service, end, this.life.hooks(), this.active);
       },
       createDocument: (userId, request) => {
         const made = this.life.service.access.create(userId, request);
@@ -653,11 +708,88 @@ export class RelayWorld {
       replay: (userId, request) =>
         this.life.service.replay(userId, JSON.parse(JSON.stringify(request))),
     });
-    this.cloudMakes(DOC, "dana", ["sam", "leo"]);
+    if (options.madeOnDevice !== true)
+      this.cloudMakes(DOC, "dana", ["sam", "leo"]);
   }
 
   get bridge(): RelayBridge {
     return this.life.bridge;
+  }
+
+  get mirror(): Mirror {
+    return this.life.mirror;
+  }
+
+  /** What a hand-off of the document starts from: the room's state now and where it lives. */
+  snapshotOf(docId: string): {
+    state: Uint8Array;
+    kind: string;
+    home: string;
+    workspaceId: string | null;
+  } {
+    const place = this.nodeStorage.directory.placeOf(docId);
+    const doc = nodeDocOf(this.nodeStorage, docId);
+    if (place === null || doc === null)
+      throw new RangeError(`the node holds no ${docId}`);
+    const state = doc.encodeState();
+    doc.destroy();
+    const home = `${place.home.kind}:${place.home.id}`;
+    const workspaceId = this.workspaces.get(docId) ?? null;
+    return { state, kind: place.kind, home, workspaceId };
+  }
+
+  /** The person signs in to sync: the node gets a cloud session for them and hands their scripts over. */
+  async signInToSync(userId: string): Promise<void> {
+    await this.signedIn(userId);
+    this.handOver(userId);
+  }
+
+  /** The node hands the person's scripts over, as when their session appears or the cloud comes back. */
+  handOver(userId: string): void {
+    const life = this.life;
+    life.handover.run(userId).catch((error: unknown) => {
+      if (life !== this.life) return;
+      if (error instanceof Error && error.message.startsWith("crashed in "))
+        return this.crashNode();
+      this.failure = error;
+    });
+  }
+
+  cloudHas(docId: string): boolean {
+    return this.cloudStorage.directory.placeOf(docId) !== null;
+  }
+
+  /** How many times the cloud took the document's whole state in. */
+  cloudAdoptions(docId: string): number {
+    return this.cloudLog(docId).filter((row) => row.origin === "import").length;
+  }
+
+  /** The person's window writes a line of its own, making the script on the node when it has none. */
+  async windowWritesLine(
+    userId: string,
+    docId: string,
+    text: string,
+  ): Promise<void> {
+    const handle =
+      this.windows.get(userId)?.handles.get(docId) ??
+      (await this.openWindow(userId, docId, {
+        kind: "script",
+        home: HOME,
+        workspaceId: null,
+      }));
+    const doc = handle.doc();
+    scriptBody(doc).write((w) => {
+      const last =
+        blocksOf(scriptBody(doc).materialize()).at(-1)?.attrs.id ?? null;
+      const id = `line${doc.clientId.toString(16)}${blocksOf(scriptBody(doc).materialize()).length}`;
+      w.insertBlocks(last, [
+        {
+          type: "block",
+          attrs: { id, type: "action" },
+          content: [{ type: "text", text }],
+        },
+      ]);
+    });
   }
 
   private startLife(): NodeLife {
@@ -702,12 +834,20 @@ export class RelayWorld {
     await this.openWindow(userId, docId);
   }
 
-  async openWindow(userId: string, docId: string): Promise<DocHandle> {
+  async openWindow(
+    userId: string,
+    docId: string,
+    create?: { kind: string; home: string; workspaceId: string | null },
+  ): Promise<DocHandle> {
     this.lastOpened = userId;
     const person = this.personIn(this.windows, userId, "window");
     const known = person.handles.get(docId);
     if (known !== undefined) return known;
-    const handle = await this.drive(person.client.open(docId));
+    const opening =
+      create === undefined
+        ? person.client.open(docId)
+        : person.client.open(docId, { create });
+    const handle = await this.drive(opening);
     this.watch(person, docId, handle);
     await this.settle();
     this.life.control(
@@ -922,8 +1062,14 @@ export class RelayWorld {
     this.holdingAppends = false;
   }
 
+  /** A new process over the same files: the records it reads are what the last one wrote, with no step failing. */
   async restartNode(): Promise<void> {
+    const kept = this.records.snapshot();
+    this.records = createMemoryRecords();
+    this.records.restore(kept);
     this.life = this.startLife();
+    for (const person of this.records.people())
+      if (person.cloudToken !== null) this.handOver(person.userId);
     await this.settle();
   }
 
@@ -940,12 +1086,14 @@ export class RelayWorld {
     return watched;
   }
 
-  /** Delivers, runs deferred work and advances the clock until nothing has happened for a while. */
+  /** Delivers, runs deferred work and advances the clock until nothing but heartbeats has happened for a while. */
   async settle(options: { cloud: boolean } = { cloud: true }): Promise<void> {
     let calm = 0;
     for (let step = 0; step < MAX_STEPS; step++) {
-      if (await this.round(options.cloud)) calm = 0;
-      else if (++calm >= CALM_ROUNDS) return;
+      const before = this.activity;
+      const busy = await this.round(options.cloud);
+      if (this.activity !== before) calm = 0;
+      else if (!busy && ++calm >= CALM_ROUNDS) return;
     }
     throw new Error(`the world did not settle in ${MAX_STEPS} steps`);
   }
@@ -962,9 +1110,12 @@ export class RelayWorld {
 
   private async step(cloud: boolean): Promise<boolean> {
     await turn();
-    if (this.life.deferred.run() || this.nodeNet.step()) return true;
-    if (cloud && (this.cloud.deferred.run() || this.cloudNet.step()))
+    if (this.failure !== null) throw this.failure;
+    if (this.life.deferred.run() || (cloud && this.cloud.deferred.run())) {
+      this.active();
       return true;
+    }
+    if (this.nodeNet.step() || (cloud && this.cloudNet.step())) return true;
     await turn();
     return this.nodeNet.queued() > 0 || (cloud && this.cloudNet.queued() > 0);
   }
@@ -977,6 +1128,17 @@ export class RelayWorld {
   }
 }
 
-export function world(): RelayWorld {
-  return new RelayWorld();
+export interface WorldOptions {
+  /** DOC is made on the device, and the cloud has never seen it; otherwise Dana made it at the cloud for Sam and Leo. */
+  madeOnDevice?: boolean;
+  /** The adoption's answer takes SLOW_ADOPT_MS to come. */
+  slowAdopt?: boolean;
+  /** The first adoption request, or its answer, is lost. */
+  drop?: "request" | "response";
+  /** That step of the node's records fails as a killed process would, until the node restarts. */
+  crashOn?: "startHandoff" | "finishHandoff";
+}
+
+export function world(options?: WorldOptions): RelayWorld {
+  return new RelayWorld(options);
 }
