@@ -224,3 +224,23 @@ test("a person who reads a rebuild after the room moved past it waits, and the t
     ["first then more"],
   ]);
 });
+
+test("two rebuilds the node hears before it follows either are followed in turn, and the text is held once", async () => {
+  const w = world();
+  await w.open("sam", DOC);
+  w.windowTypes("sam", DOC, "first");
+  await w.settle();
+  const held = new Set<string>();
+  w.watchers.add(() => held.add(w.nodeText(DOC).join(" / ")));
+  // both follows wait for a turn that ends only after the second rebuild
+  w.holdNodeTurns(true);
+  w.cloudRebuilds(DOC);
+  await w.settle();
+  w.cloudRebuilds(DOC);
+  await w.settle();
+  w.holdNodeTurns(false);
+  await w.settle();
+  expect(w.nodeGeneration(DOC)).toBe(3);
+  expect([...held]).toEqual(["first"]);
+  expect([w.cloudText(DOC), w.windowText(DOC)]).toEqual([["first"], ["first"]]);
+});

@@ -258,7 +258,6 @@ export function createFollowing(ports: FollowPorts): Following {
     line: Line,
     handle: DocHandle,
     reason: "rejected" | "generation",
-    paused: boolean,
     generation: number | null,
   ): void {
     if (reason === "generation" && generation !== null) {
@@ -266,7 +265,8 @@ export function createFollowing(ports: FollowPorts): Following {
       if (generation === room) return catchUp(line, handle, generation);
       if (generation < room) return;
     }
-    if (!paused) ports.service().pauseRelay(line.docId);
+    // `replaced` paused already, unless an earlier follow has ended that pause: a second pause does nothing
+    ports.service().pauseRelay(line.docId);
     follow(line, handle, generation);
   }
 
@@ -279,13 +279,9 @@ export function createFollowing(ports: FollowPorts): Following {
     line: Line,
     handle: DocHandle,
     reason: "rejected" | "generation",
-    paused: boolean,
   ): void {
     const again = (): void => {
-      clock.schedule(
-        () => decide(line, handle, reason, paused),
-        FOLLOW_RETRY_MS,
-      );
+      clock.schedule(() => decide(line, handle, reason), FOLLOW_RETRY_MS);
     };
     const read = (loaded: LoadedDocument | null): void => {
       const generation = loaded?.meta.generation ?? null;
@@ -294,7 +290,7 @@ export function createFollowing(ports: FollowPorts): Following {
         generation !== null &&
         generation <= line.generation;
       if (stale) return again();
-      defer(() => act(line, handle, reason, paused, generation));
+      defer(() => act(line, handle, reason, generation));
     };
     upstream.store(line.userId).load(line.docId).then(read, again);
   }
@@ -309,7 +305,7 @@ export function createFollowing(ports: FollowPorts): Following {
       const behind =
         reason === "generation" && known(line.docId) > line.generation;
       if (!behind) ports.service().pauseRelay(line.docId);
-      decide(line, handle, reason, !behind);
+      decide(line, handle, reason);
     },
     async resume(line, handle) {
       await synced(handle);
