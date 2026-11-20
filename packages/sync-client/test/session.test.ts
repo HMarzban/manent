@@ -117,6 +117,7 @@ test("the local copy is loaded before the socket opens", async () => {
         return transport.connect(handlers);
       },
       createDocument: (request) => transport.createDocument(request),
+      replay: (request) => transport.replay(request),
     },
   });
   const opening = client.open(DOC);
@@ -573,23 +574,32 @@ test("each ERROR for a document has its one answer", async () => {
 
   const moved = await openTyped();
   const events = listen(moved.h);
-  moved.w.server.send({
-    type: "GENERATION_MOVED",
-    docId: DOC,
-    generation: 1,
-    newGeneration: 2,
-  });
+  moved.w.server.answer.subscribe = false;
+  moved.w.server.moved(DOC, 1, 2);
   await moved.w.settle();
-  type(moved.h, "b");
-  moved.w.fake.advance(60_000);
+  moved.w.server.answerReplay({
+    ok: true,
+    response: {
+      docId: DOC,
+      generation: 2,
+      serverSeq: 2,
+      applied: 1,
+      overlaps: [],
+      setAside: [],
+    },
+  });
   await moved.w.settle();
   expect([
     events,
     moved.h.status.get().docSync,
     moved.h.status.get().waiting,
-  ]).toEqual([[], "local", 1]);
+  ]).toEqual([[], "syncing", 1]);
+  expect(moved.w.server.got("SUBSCRIBE").at(-1)).toMatchObject({
+    generation: 2,
+    lastServerSeq: 0,
+  });
   expect([subscribes(moved.w), moved.w.server.got("PUSH").length]).toEqual([
-    1, 1,
+    2, 1,
   ]);
 
   const taken = await setup();
@@ -755,6 +765,7 @@ test("a connection that closes before it has opened is tried again after a backo
         return opening;
       },
       createDocument: (request) => transport.createDocument(request),
+      replay: (request) => transport.replay(request),
     },
   });
   await client.open(DOC);

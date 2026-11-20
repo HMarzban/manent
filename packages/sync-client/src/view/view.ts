@@ -150,7 +150,7 @@ export interface Viewer {
  * SUBSCRIBE with mode `view` on every connection, then the snapshot and its
  * patches; nothing is stored. A SUBSCRIBED that does not come in time, a
  * payload that does not read, and an ERROR that may be retried each subscribe
- * again, from a snapshot.
+ * again, from a snapshot; GENERATION_MOVED subscribes to the new generation.
  */
 class DocViewer implements Viewer {
   readonly handle: ViewHandle;
@@ -161,6 +161,8 @@ class DocViewer implements Viewer {
     role: DocRole | null;
   }>({ link: "offline", live: false, role: null });
   private send: ((message: Message) => void) | null = null;
+  /** 0 until a move names one: the server answers with the current generation. */
+  private generation = 0;
   private stopped = false;
   private cancel: (() => void) | null = null;
   private readonly options: { docId: string; clock: Clock; closed(): void };
@@ -201,6 +203,9 @@ class DocViewer implements Viewer {
       this.show(
         patch === null ? null : applyViewPatch(this.blocks.get(), patch),
       );
+    } else if (m.type === "GENERATION_MOVED") {
+      this.generation = m.newGeneration;
+      this.subscribe();
     }
   }
 
@@ -231,7 +236,7 @@ class DocViewer implements Viewer {
     this.send({
       type: "SUBSCRIBE",
       docId,
-      generation: 0,
+      generation: this.generation,
       mode: "view",
       clientIds: [],
       lastServerSeq: 0,
@@ -250,7 +255,8 @@ class DocViewer implements Viewer {
 
   private close(): void {
     const { docId } = this.options;
-    this.send?.({ type: "UNSUBSCRIBE", docId, generation: 0 });
+    const { generation } = this;
+    this.send?.({ type: "UNSUBSCRIBE", docId, generation });
     this.stopped = true;
     this.wait(null);
     this.options.closed();

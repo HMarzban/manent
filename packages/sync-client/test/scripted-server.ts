@@ -10,6 +10,7 @@ import {
   createFrameDecoder,
   createFrameEncoder,
   createMessageIds,
+  decodeReplayUpdates,
   encodeMessage,
 } from "@manent/sync-protocol";
 import type {
@@ -20,6 +21,7 @@ import type {
 } from "@manent/sync-protocol";
 import { createSyncClient, soloLeader } from "../src/index.ts";
 import type {
+  ConnectError,
   DocEvent,
   DocHandle,
   DocMeta,
@@ -162,6 +164,17 @@ type ServerError = {
   retryAfterMs?: number | null;
 };
 
+/** A replay request as the server read it, its updates decoded. */
+export interface ReplayCall {
+  docId: string;
+  generation: number;
+  lastServerSeq: number;
+  key: string;
+  updates: Uint8Array[];
+}
+
+export type ReplayAnswer = Awaited<ReturnType<Transport["replay"]>>;
+
 /** What a scripted end holds: its codec, and the documents it has been asked for. */
 interface ScriptedEnd {
   end: ServerEnd;
@@ -199,21 +212,39 @@ export interface ScriptedServer {
   error(docId: string, error: ServerError): void;
   send(message: Message): void;
   sendFrame(frame: Uint8Array): void;
-  /** Answers the last SUBSCRIBE as a server holding `state` alone. */
-  subscribedWithState(docId: string, state: Uint8Array): void;
+  /** Answers the last SUBSCRIBE as a server holding `state` alone, in the generation and at the head given. */
+  subscribedWithState(
+    docId: string,
+    state: Uint8Array,
+    at?: { generation: number; headSeq: number },
+  ): void;
+  /**
+   * The server moved the document from one generation to the next: GENERATION_MOVED
+   * goes to the last subscriber, and while subscriptions are answered, one that
+   * names an older generation is answered with it too.
+   */
+  moved(docId: string, from: number, to: number): void;
   /** SUBSCRIBED, then VIEW_SNAPSHOT of the server's copy, as a reader is answered. */
   snapshot(docId: string): void;
   viewPatch(docId: string, patch: unknown): void;
   /** From now on nothing is answered. */
   silence(): void;
+  /** Every replay request, in the order it arrived; each waits for `answerReplay`. */
+  replays(): ReplayCall[];
+  /** Answers the oldest replay not yet answered; a ConnectError rejects it, as an answer lost on the way. */
+  answerReplay(answer: ReplayAnswer | ConnectError): void;
 }
 
 /** SUBSCRIBED as the server sends it for an editor of the script. */
-export function subscribed(docId: string, head: number): DocumentMessage {
+export function subscribed(
+  docId: string,
+  head: number,
+  generation = 1,
+): DocumentMessage {
   return {
     type: "SUBSCRIBED",
     docId,
-    generation: 1,
+    generation,
     role: "edit",
     capabilities: [],
     headSeq: head,
@@ -229,13 +260,27 @@ export function subscribed(docId: string, head: number): DocumentMessage {
 function scriptedServer(network: MemoryNetwork): ScriptedServer {
   const received: Message[] = [];
   const docs = new Map<string, CrdtDoc>();
+  const generations = new Map<string, number>();
+  const generationOf = (docId: string): number => generations.get(docId) ?? 1;
   const ends: ScriptedEnd[] = [];
+  const replays: ReplayCall[] = [];
+  const unanswered: {
+    resolve(answer: ReplayAnswer): void;
+    reject(error: ConnectError): void;
+  }[] = [];
   let last: ScriptedEnd | null = null;
   const sync = (
     docId: string,
     step: "step1" | "step2" | "update",
     data: Uint8Array,
-  ) => last?.send({ type: "SYNC", docId, generation: 1, step, data });
+  ) =>
+    last?.send({
+      type: "SYNC",
+      docId,
+      generation: generationOf(docId),
+      step,
+      data,
+    });
 
   const server: ScriptedServer = {
     got: <T extends Message["type"]>(...types: T[]) =>
@@ -270,7 +315,13 @@ function scriptedServer(network: MemoryNetwork): ScriptedServer {
       sync(docId, "update", update);
     },
     ack: (docId, clientSeq, serverSeq) =>
-      server.send({ type: "ACK", docId, generation: 1, clientSeq, serverSeq }),
+      server.send({
+        type: "ACK",
+        docId,
+        generation: generationOf(docId),
+        clientSeq,
+        serverSeq,
+      }),
     error: (docId, e) =>
       server.send({
         type: "ERROR",
@@ -278,26 +329,28 @@ function scriptedServer(network: MemoryNetwork): ScriptedServer {
         message: e.message,
         retryAfterMs: e.retryAfterMs ?? null,
         permanent: e.permanent,
-        doc: { docId, generation: 1 },
+        doc: { docId, generation: generationOf(docId) },
         clientSeq: e.clientSeq,
       }),
     send: (message) => last?.send(message),
     sendFrame: (frame) => last?.end.send(frame),
-    subscribedWithState(docId, state) {
+    subscribedWithState(docId, state, at) {
       docs.set(docId, loadDoc(state));
-      server.send(subscribed(docId, server.head));
+      if (at !== undefined) generations.set(docId, at.generation);
+      const head = at?.headSeq ?? server.head;
+      server.send(subscribed(docId, head, generationOf(docId)));
       sync(docId, "step1", server.doc(docId).encodeStateVector());
       sync(docId, "step2", state);
     },
     snapshot(docId) {
-      server.send(subscribed(docId, server.head));
+      server.send(subscribed(docId, server.head, generationOf(docId)));
       const sections =
         scriptBody(server.doc(docId)).materialize().content ?? [];
       const blocks = sections.flatMap((section) => section.content ?? []);
       server.send({
         type: "VIEW_SNAPSHOT",
         docId,
-        generation: 1,
+        generation: generationOf(docId),
         viewSeq: server.head,
         content: utf8(JSON.stringify({ v: 1, blocks })),
       });
@@ -306,7 +359,7 @@ function scriptedServer(network: MemoryNetwork): ScriptedServer {
       server.send({
         type: "VIEW_PATCH",
         docId,
-        generation: 1,
+        generation: generationOf(docId),
         viewSeq: server.head,
         patch: utf8(JSON.stringify(patch)),
       }),
@@ -314,6 +367,23 @@ function scriptedServer(network: MemoryNetwork): ScriptedServer {
       server.answer.hello = false;
       server.answer.subscribe = false;
       server.answer.ping = false;
+    },
+    moved(docId, from, to) {
+      generations.set(docId, to);
+      server.send({
+        type: "GENERATION_MOVED",
+        docId,
+        generation: from,
+        newGeneration: to,
+      });
+    },
+    replays: () => [...replays],
+    answerReplay(answer) {
+      const waiting = unanswered.shift();
+      if (waiting === undefined)
+        throw new RangeError("no replay is waiting for an answer");
+      if ("ok" in answer) waiting.resolve(answer);
+      else waiting.reject(answer);
     },
   };
 
@@ -336,7 +406,17 @@ function scriptedServer(network: MemoryNetwork): ScriptedServer {
     }
     if (!server.answer.subscribe) return;
     if (m.type === "SUBSCRIBE") {
-      at.send(subscribed(m.docId, server.head));
+      const current = generationOf(m.docId);
+      if (m.generation > 0 && m.generation < current) {
+        at.send({
+          type: "GENERATION_MOVED",
+          docId: m.docId,
+          generation: m.generation,
+          newGeneration: current,
+        });
+        return;
+      }
+      at.send(subscribed(m.docId, server.head, current));
       sync(m.docId, "step1", server.doc(m.docId).encodeStateVector());
     }
     if (m.type === "SYNC" && m.step === "step1")
@@ -365,6 +445,15 @@ function scriptedServer(network: MemoryNetwork): ScriptedServer {
     createDocument(userId, request) {
       server.created.push({ userId, ...request });
       return { ok: true };
+    },
+    replay(_userId, request) {
+      const updates = decodeReplayUpdates(request.updates);
+      if (updates === null)
+        throw new RangeError("a replay's updates are base64 strings");
+      replays.push({ ...request, updates });
+      const waiting = Promise.withResolvers<ReplayAnswer>();
+      unanswered.push(waiting);
+      return waiting.promise;
     },
   });
   return server;
@@ -421,6 +510,7 @@ export function seededMeta(docId: string): DocMeta {
     recovering: null,
     lastDeviceVersionAt: 0,
     lastSyncedAt: null,
+    moving: null,
   };
 }
 
@@ -450,6 +540,7 @@ export async function setup(): Promise<World> {
       }));
     },
     createDocument: (request) => transport.createDocument(request),
+    replay: (request) => transport.replay(request),
   });
   const settle = async (): Promise<void> => {
     for (let i = 0; i < 100_000; i++) {

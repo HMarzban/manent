@@ -1,13 +1,16 @@
 // One document's subscription as its session drives it: what SUBSCRIBE and the heal push carry,
 // the server's step 2, acknowledgements and refusals, what each ending stops or parks, and the
-// recovery from a permanently rejected push.
-import { createDoc, loadDoc, readStateVector, scriptBody } from "@manent/crdt";
+// recovery from a permanently rejected push or a move to a new generation it hands over to.
+import { createDoc, readStateVector } from "@manent/crdt";
 import { CODE } from "@manent/sync-protocol";
 import type { DocumentMessage, Message } from "@manent/sync-protocol";
 import type { ServerGate } from "../link/gate.ts";
+import { Move } from "../move/move.ts";
+import type { LeftDoc, MoveHost } from "../move/move.ts";
 import { createSubscribable } from "../outbox/subscribable.ts";
 import { SUBSCRIBE_CLIENT_IDS } from "../ports/defaults.ts";
 import { ConnectError } from "../ports/ports.ts";
+import { PushRecovery } from "../recovery/recover.ts";
 import type {
   SideState,
   Subscribable,
@@ -24,17 +27,23 @@ import type { Ending } from "./refusals.ts";
 /**
  * `side`: what the server's answers set aside from syncing. `connection`
  * counts connections made and lost, so that an answer for an older one is
- * dropped. `readOnly` is set when the server answered 4408.
+ * dropped. `readOnly` is set when the server answered 4408. `moving`: a move
+ * to a new generation is under way; `left`: the document a move left, while
+ * something may still write to it.
  */
 export interface Subscription extends HandshakeHost {
   readonly handshake: Handshake;
   readonly side: ReadonlySet<SideState>;
   readonly connection: number;
   readonly readOnly: Subscribable<ViewHandle | null>;
+  readonly moving: boolean;
+  readonly left: LeftDoc | null;
   /** The document is loaded: a recovery it resumes is shown, and a parked one stays stopped. */
   ready(): void;
   connected(send: (message: Message) => void, gate: ServerGate): void;
   disconnected(): void;
+  /** The session ends: a move sends nothing more. */
+  close(): void;
 }
 
 interface SubscriptionOptions {
@@ -49,18 +58,8 @@ interface SubscriptionOptions {
   /** What the session shows may have changed. */
   changed(): void;
   replaceConnection(reason: string): void;
-}
-
-/**
- * A permanently rejected push being recovered: the device version that keeps
- * the document, whether the push was the heal push, the code it was refused
- * with (null when a reopened session resumes one), and the new client ID.
- */
-interface Recovery {
-  versionId: string;
-  heal: boolean;
-  code: number | null;
-  clientId: number;
+  /** The tabs following this document. */
+  followers(): string[];
 }
 
 class DocSubscription implements Subscription {
@@ -73,7 +72,10 @@ class DocSubscription implements Subscription {
   private headSeq = 0;
   private receipt: { sent: number; setAside: number } | null = null;
   private syncedBase: Uint8Array | null;
-  private recovery: Recovery | null = null;
+  private readonly recovery: PushRecovery;
+  private move: Move | null = null;
+  left: LeftDoc | null = null;
+  private online = false;
   /** The `clientSeq` of the heal push in flight on this subscription. */
   private healSeq: number | null = null;
   private readonly options: SubscriptionOptions;
@@ -83,17 +85,30 @@ class DocSubscription implements Subscription {
     this.options = options;
     this.syncedBase = options.syncedBase;
     this.handshake = createHandshake({ docId, clock: ports.clock, host: this });
-    const { recovering } = options.journal.meta;
-    if (recovering !== null)
-      this.recovery = {
-        ...recovering,
-        code: null,
-        clientId: this.freshClientId(),
-      };
+    const { journal, copy } = options;
+    this.recovery = new PushRecovery({
+      journal,
+      copy,
+      freshClientId: (taken) => journal.freshClientId(taken, ports.random),
+      resubscribe: () => this.handshake.resubscribe(),
+      show: (recovering) => {
+        if (recovering) this.side.add("rejected");
+        else this.side.delete("rejected");
+        this.options.changed();
+      },
+    });
+    const { moving } = journal.meta;
+    if (moving !== null) this.move = new Move(this.moveHost(), moving);
   }
 
+  get moving(): boolean {
+    return this.move?.active === true;
+  }
+
+  /** A move the stored meta names is taken up here. */
   ready(): void {
-    if (this.recovery !== null) this.side.add("rejected");
+    this.move?.resume();
+    if (this.recovery.active) this.side.add("rejected");
     const { parked } = this.options.journal.meta;
     if (parked === null) this.options.changed();
     else this.stop(parked.reason);
@@ -106,38 +121,48 @@ class DocSubscription implements Subscription {
       this.stopped = false;
       this.handshake.resume();
     }
+    this.online = true;
     if (this.stopped) return;
     const { create, neverSynced } = this.options.journal.meta;
-    if (neverSynced && create !== null) this.createThenSubscribe(create);
+    if (this.move !== null) this.move.connected();
+    else if (neverSynced && create !== null) this.createThenSubscribe(create);
     else this.handshake.subscribe();
   }
 
   disconnected(): void {
     this.connection += 1;
+    this.online = false;
     this.handshake.disconnect();
     this.options.changed();
   }
 
-  /** A recovery subscribes under its new client ID, with an empty state vector, to be sent the whole state. */
+  close(): void {
+    this.move?.stop();
+  }
+
+  /**
+   * A recovery subscribes under its new client ID, and a move under the new
+   * generation's, with an empty state vector, to be sent the whole state.
+   */
   subscription(): ReturnType<HandshakeHost["subscription"]> {
-    const { recovery } = this;
+    const loading = this.move?.subscription() ?? null;
+    if (loading !== null) return loading;
+    const { fresh } = this.recovery;
     const { meta } = this.options.journal;
     const clientIds =
-      recovery === null
-        ? meta.clientIds
-        : [...meta.clientIds, recovery.clientId];
+      fresh === null ? meta.clientIds : [...meta.clientIds, fresh.clientId];
     const { doc } = this.options.copy;
     return {
-      generation: meta.generation,
+      generation: fresh?.generation ?? meta.generation,
       clientIds: clientIds.slice(-SUBSCRIBE_CLIENT_IDS),
-      lastServerSeq: meta.lastServerSeq,
-      vector: (recovery === null ? doc : createDoc()).encodeStateVector(),
+      lastServerSeq: this.recovery.redirected ? 0 : meta.lastServerSeq,
+      vector: (fresh === null ? doc : createDoc()).encodeStateVector(),
     };
   }
 
   heal(serverVector: Uint8Array): ReturnType<HandshakeHost["heal"]> {
     this.healSeq = null;
-    if (this.recovery !== null) return null;
+    if (this.recovery.fresh !== null || this.move !== null) return null;
     const { journal, copy } = this.options;
     const { meta } = journal;
     const due = needsHeal({
@@ -157,9 +182,14 @@ class DocSubscription implements Subscription {
     return this.options.journal.outbox(afterSeq);
   }
 
+  /**
+   * During a move, or a recovery a move redirected, the generation changes
+   * with the new document only.
+   */
   subscribed(m: Extract<DocumentMessage, { type: "SUBSCRIBED" }>): void {
     this.headSeq = m.headSeq;
-    this.options.journal.patch({ generation: m.generation });
+    if (this.move === null && !this.recovery.redirected)
+      this.options.journal.patch({ generation: m.generation });
   }
 
   /**
@@ -167,8 +197,19 @@ class DocSubscription implements Subscription {
    * changes nothing is not stored, so it takes no local sequence.
    */
   stepTwo(update: Uint8Array): void {
-    if (this.recovery !== null) this.recover(this.recovery, update);
-    else this.merge(update);
+    const { fresh } = this.recovery;
+    if (this.move !== null) {
+      this.move.loaded(update, this.headSeq);
+      this.move = null;
+    } else if (fresh !== null) {
+      this.syncedBase = this.recovery.loaded(
+        fresh,
+        update,
+        this.syncedBase,
+        this.headSeq,
+      );
+      this.healSeq = null;
+    } else this.merge(update);
     const { journal, ports } = this.options;
     journal.patch({
       neverSynced: false,
@@ -185,6 +226,7 @@ class DocSubscription implements Subscription {
     const { journal, copy, ports } = this.options;
     journal.acknowledge(clientSeq, serverSeq, ports.clock.now());
     copy.acknowledged(clientSeq);
+    this.recovery.acknowledged(clientSeq);
     this.settled();
   }
 
@@ -225,7 +267,10 @@ class DocSubscription implements Subscription {
         this.reject(CODE.BAD_FRAME, null);
         return;
       case "moved":
-        this.stop(null);
+        if (this.recovery.moved(ending.newGeneration))
+          this.handshake.subscribe();
+        else if (this.move !== null) this.move.raise(ending.newGeneration);
+        else this.beginMove(ending.newGeneration);
         return;
       default:
         ending satisfies never;
@@ -250,57 +295,43 @@ class DocSubscription implements Subscription {
     copy.merge(update);
   }
 
-  /**
-   * Step 2 of a recovery holds the server's whole state: the document is
-   * replaced by it, and what the rejected push held that the server lacks is
-   * filed as Recovered text, never written into the new document.
-   */
-  private recover(recovery: Recovery, update: Uint8Array): void {
-    const { journal, copy } = this.options;
-    const next = loadDoc(update, { clientId: recovery.clientId });
-    const theirs = scriptBody(next).materialize();
-    const synced =
-      this.syncedBase === null ? createDoc() : loadDoc(this.syncedBase);
-    // after a refused heal push the server lost part of what was synced: theirs is the base
-    const base = recovery.heal ? theirs : scriptBody(synced).materialize();
-    const items = copy.rejected(base, theirs);
-    const state = next.encodeState();
-    const { meta } = journal;
-    journal.reset(
-      state,
-      {
-        ...meta,
-        clientIds: [...meta.clientIds, recovery.clientId],
-        recovering: null,
-      },
-      items,
+  /** A permanently rejected push; the heal push when its `clientSeq` is the heal push's. */
+  private reject(code: number, clientSeq: number | null): void {
+    this.recovery.reject(
+      code,
+      clientSeq !== null && clientSeq === this.healSeq,
     );
-    this.syncedBase = state;
-    this.recovery = null;
-    this.healSeq = null;
-    copy.replace(next, items);
-    this.side.delete("rejected");
-    copy.showReplaced(items);
-    if (recovery.code !== null)
-      copy.emit({
-        type: "rejected",
-        code: recovery.code,
-        replayed: 0,
-        setAside: items.length,
-      });
   }
 
-  /** A permanently rejected push: the document is kept as a version, and subscribed to afresh under a new client ID. */
-  private reject(code: number, clientSeq: number | null): void {
-    const heal = clientSeq !== null && clientSeq === this.healSeq;
-    const versionId = this.options.copy.recordVersion(
-      "recovered",
-      "rejected",
-    ).id;
-    this.recovery = { versionId, heal, code, clientId: this.freshClientId() };
-    this.side.add("rejected");
-    this.options.journal.patch({ recovering: { versionId, heal } });
-    this.handshake.resubscribe();
+  /** GENERATION_MOVED for the edit subscription: no receipt is shown for the reconnect it ended. */
+  private beginMove(to: number): void {
+    this.receipt = null;
+    const from = this.options.journal.meta.generation;
+    const moving = { from, to, key: null, throughLocalSeq: 0 };
+    this.move = new Move(this.moveHost(), moving);
+    void this.move.begin();
+  }
+
+  private moveHost(): MoveHost {
+    const { docId, ports, journal, copy } = this.options;
+    return {
+      docId,
+      ports,
+      journal,
+      copy,
+      connected: () => this.online,
+      changed: () => this.options.changed(),
+      subscribe: () => this.handshake.subscribe(),
+      park: (reason) => this.park(reason),
+      ended: () => {
+        this.move = null;
+        this.handshake.subscribe();
+      },
+      followers: () => this.options.followers(),
+      leave: (left) => {
+        this.left = left;
+      },
+    };
   }
 
   /** Access removed, or the document deleted, with edits waiting: they are kept and never sent. */
@@ -328,10 +359,10 @@ class DocSubscription implements Subscription {
     );
   }
 
-  private stop(why: SideState | null): void {
+  private stop(why: SideState): void {
     this.stopped = true;
     this.handshake.stop();
-    if (why !== null) this.side.add(why);
+    this.side.add(why);
     this.options.changed();
   }
 
@@ -350,12 +381,6 @@ class DocSubscription implements Subscription {
 
   private hasWaiting(): boolean {
     return this.options.journal.waiting() > 0;
-  }
-
-  /** A Yjs client ID this device never used for the document. */
-  private freshClientId(): number {
-    const { journal, ports } = this.options;
-    return journal.freshClientId(this.recovery?.clientId ?? null, ports.random);
   }
 }
 

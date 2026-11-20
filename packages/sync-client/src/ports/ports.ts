@@ -1,6 +1,7 @@
 // The client's ports and the shapes it stores and reports. The core reaches time, chance,
 // the network, the disk and other tabs only through these.
 import type { DocJSON } from "@manent/schema";
+import type { ReplayRefusal, ReplayResponse } from "@manent/sync-protocol";
 
 /** The returned function cancels what `schedule` set. */
 export interface Clock {
@@ -50,6 +51,16 @@ export interface Transport {
     kind: string;
     home: string;
   }): Promise<{ ok: true } | { ok: false; code: "forbidden" | "deleted" }>;
+  /** Edits made against a generation the document has left, posted once under `key`; rejects ConnectError. */
+  replay(request: {
+    docId: string;
+    generation: number;
+    lastServerSeq: number;
+    key: string;
+    updates: readonly Uint8Array[];
+  }): Promise<
+    { ok: true; response: ReplayResponse } | { ok: false; code: ReplayRefusal }
+  >;
 }
 
 export class StoreError extends Error {
@@ -99,21 +110,41 @@ export interface DocMeta {
   neverSynced: boolean;
   create: { kind: string; home: string } | null;
   parked: { reason: "access_removed" | "deleted"; parkedAt: number } | null;
-  /** A rejected push being recovered; `heal`: the rejected push was the heal push. */
-  recovering: { versionId: string; heal: boolean } | null;
+  /**
+   * A rejected push being recovered; `heal`: the rejected push was the heal
+   * push; `replaying`: the recovery's own writes are waiting.
+   */
+  recovering: { versionId: string; heal: boolean; replaying: boolean } | null;
   lastDeviceVersionAt: number;
   /**
    * `clock.now()` at the last acknowledgement, or at the last subscribe that left
    * nothing waiting; a label, never an order.
    */
   lastSyncedAt: number | null;
+  /**
+   * A move from generation `from` to `to` under way: `key` is the replay's
+   * idempotency key (null when nothing was waiting), and the replay carries the
+   * own entries up to `throughLocalSeq`.
+   */
+  moving: {
+    from: number;
+    to: number;
+    key: string | null;
+    throughLocalSeq: number;
+  } | null;
 }
 
 export interface DeviceVersion {
   id: string;
   docId: string;
   kind: "device" | "recovered";
-  label: "session_end" | "hourly" | "before_reconnect" | "manual" | "rejected";
+  label:
+    | "session_end"
+    | "hourly"
+    | "before_reconnect"
+    | "manual"
+    | "rejected"
+    | "past_window";
   /** A label, never an order. */
   createdAt: number;
   /** The canonical form. */
@@ -128,7 +159,7 @@ export interface RecoveredItem {
   nearBlockId: string | null;
   text: string;
   recoveredAt: number;
-  cause: "merge" | "rejected";
+  cause: "merge" | "rejected" | "overlap";
 }
 
 export interface LoadedDocument {

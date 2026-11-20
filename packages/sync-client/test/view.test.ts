@@ -196,3 +196,28 @@ test("an app too old for a script reads it and keeps what it had typed", async (
   expect(own).toHaveLength(1);
   expect(server.got("PUSH")).toEqual([]);
 });
+
+test("a viewer follows a move to the new generation", async () => {
+  const w = await setup();
+  const { server } = w;
+  server.write(DOC2, (writer) => writer.insertBlocks(null, [b(A, "one")]));
+  const client = w.makeClient();
+  const view = client.view(DOC2);
+  await w.online();
+  server.answer.view = false;
+  server.moved(DOC2, 1, 2);
+  await w.settle();
+  expect(server.got("SUBSCRIBE").at(-1)).toEqual({
+    type: "SUBSCRIBE",
+    docId: DOC2,
+    generation: 2,
+    mode: "view",
+    clientIds: [],
+    lastServerSeq: 0,
+  });
+  server.write(DOC2, (writer) => writer.insertBlocks(A, [b(B, "two")]));
+  server.snapshot(DOC2);
+  await w.settle();
+  expect(view.blocks.get()).toEqual([b(A, "one"), b(B, "two")]);
+  expect(view.status.get()).toMatchObject({ live: true });
+});
