@@ -30,6 +30,7 @@ import type { EditorSession, EditorSessions } from "./editor-sessions.ts";
 import { editorWords } from "./editor-words.ts";
 import { registerLiveEditor } from "./live-editor.ts";
 import type { EditorMount } from "./mount.ts";
+import { keepPlace } from "./place.ts";
 import { EDITOR_PLUGINS } from "./plugins.ts";
 
 /** What one person's undo takes back. */
@@ -354,11 +355,12 @@ function openDocument(options: MountOptions, ports: MountPorts): () => void {
     desk: deskOf(ports.element),
   };
   let built = buildEditor(options, { ...opened, shown: shownNow() }, null);
+  const kept = keepPlace(person.place, docId, () => built.editor);
   let pending = noop;
   const rebuild = (): void => {
     pending();
     pending = noop;
-    const place = built.editor.place();
+    const place = kept.save();
     built.destroy();
     built = buildEditor(options, { ...opened, shown: shownNow() }, place);
   };
@@ -382,6 +384,7 @@ function openDocument(options: MountOptions, ports: MountPorts): () => void {
   return () => {
     pending();
     for (const stop of stops) stop();
+    kept.stop();
     built.destroy();
     options.observe?.(null);
     session.close();

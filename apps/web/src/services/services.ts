@@ -13,6 +13,12 @@ import { createMessageQueue, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import { createEditorControl } from "../editor-host/control.ts";
 import { createLazyMount } from "../editor-host/lazy-mount.ts";
+import {
+  createPlaceStore,
+  keepViewState,
+  placeKey,
+} from "../editor-host/place.ts";
+import type { PlaceStore } from "../editor-host/place.ts";
 import { deviceName } from "../platform.ts";
 import type { Where } from "../platform.ts";
 import type { TabPerson } from "../session.ts";
@@ -237,6 +243,23 @@ function createStores(
   };
 }
 
+// one place store per storage and person for the tab's life: the services built for one person one after another, and an
+// editor that earlier services mounted, write through one map and so never over one another's entries
+const placeStores = new WeakMap<object, Map<string, PlaceStore>>();
+const NO_STORAGE = Object.freeze({});
+
+function placeStoreOf(options: Options): PlaceStore {
+  const { storage, storageEvents: events, now, person } = options;
+  const byPerson = placeStores.get(storage ?? NO_STORAGE) ?? new Map();
+  placeStores.set(storage ?? NO_STORAGE, byPerson);
+  const key = placeKey(person.userId);
+  const store =
+    byPerson.get(person.userId) ??
+    createPlaceStore({ map: createLocalMap({ storage, key, events }), now });
+  byPerson.set(person.userId, store);
+  return store;
+}
+
 /** `person`'s services over `storage`; `dispose` stops listening to other tabs and drops every open document's store. */
 export function createPersonServices(options: Options): PersonServices {
   const kept = createKept(options);
@@ -263,6 +286,8 @@ export function createPersonServices(options: Options): PersonServices {
     resolved,
   });
   const control = createEditorControl();
+  const place = placeStoreOf(options);
+  const stopKeeping = keepViewState(place, options.schedule);
   const fixedKeys = createValue<readonly FixedKey[]>([]);
   const services: PersonServices = {
     userId: options.person.userId,
@@ -276,6 +301,7 @@ export function createPersonServices(options: Options): PersonServices {
     flags: kept.flags,
     keys: kept.keys,
     lastPane: kept.lastPane,
+    place,
     get persisted() {
       return [kept.device, kept.prefs, kept.keys].every((k) => k.persisted);
     },
@@ -294,6 +320,7 @@ export function createPersonServices(options: Options): PersonServices {
       }),
     ),
     dispose() {
+      stopKeeping();
       stop();
       kept.dispose();
       scripts.clear();
