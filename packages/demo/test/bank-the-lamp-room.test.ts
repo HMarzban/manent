@@ -11,6 +11,10 @@ test("the bank holds its counts of each list", () => {
   expect(LAMP_ROOM_GUIDE.beats.length).toBe(7);
   expect(LAMP_ROOM_GUIDE.stories.length).toBe(0);
   expect(LAMP_ROOM_GUIDE.barks.length).toBe(0);
+  expect(LAMP_ROOM_GUIDE.cast.length).toBe(5);
+  expect(LAMP_ROOM_GUIDE.places.length).toBe(5);
+  expect(LAMP_ROOM_GUIDE.names.length).toBe(5);
+  expect(LAMP_ROOM_GUIDE.vocabulary.length).toBe(10);
 });
 
 test("The Lamp Room is a screenplay", () => {
