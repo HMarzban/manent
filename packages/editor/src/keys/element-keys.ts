@@ -129,7 +129,13 @@ function enterKey(view: EditorView, context: ElementContext): boolean {
       context.openPicker(view);
       return true;
     }
-    return typeof to === "object" && setElement(to)(view.state, view.dispatch);
+    // a line already of its target element is left to the section plugin, which starts a new line
+    if (
+      typeof to !== "object" ||
+      (to.type === caret.element.type && to.kind === caret.element.kind)
+    )
+      return false;
+    return setElement(to)(view.state, view.dispatch);
   }
   const detected = detectOnEnter(
     format,

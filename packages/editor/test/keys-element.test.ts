@@ -173,6 +173,13 @@ test("Enter on an empty cue makes it action; on an empty action it opens the pic
   expect(picker.opened).toBe(1);
 });
 
+test("Enter on an empty Ink line starts a new Ink line", () => {
+  expect(types(typed(blockOf("ink_line", ""), "Enter", prefs, "ink"))).toEqual([
+    "ink_line",
+    "ink_line",
+  ]);
+});
+
 test("Enter after dialogue starts action, or character when the person prefers", () => {
   expect(types(typed(blockOf("dialogue", "Wait."), "Enter"))).toEqual([
     "dialogue",
