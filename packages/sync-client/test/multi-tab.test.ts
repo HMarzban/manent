@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { loadDoc, scriptBody } from "@manent/crdt";
 import { memoryTabs } from "../src/testing/index.ts";
 import type { MemoryTabs } from "../src/testing/index.ts";
 import type { SyncClient } from "../src/index.ts";
@@ -339,11 +340,11 @@ test("a following tab's edit the leader never stored is kept as Recovered text w
   typeIn(hb, B2, "only in b");
   await w.settle();
   await rejectLastPush(w);
+  w.fake.advance(50);
   expect(hb.recovered.get().map((r) => [r.blockId, r.text, r.cause])).toEqual([
     [B2, "only in b", "rejected"],
-    [B1, "from a", "rejected"],
   ]);
-  expect(textOf(hb.doc())).toBe("\n");
+  expect(textOf(hb.doc())).toBe("from a\n");
 });
 
 test("a following tab's edit the leader received is kept as Recovered text once when the script is replaced", async () => {
@@ -358,10 +359,67 @@ test("a following tab's edit the leader received is kept as Recovered text once 
   typeIn(hb, B2, "seen by a");
   await w.settle();
   await rejectLastPush(w);
-  expect(hb.recovered.get().map((r) => r.text)).toEqual([
-    "from a",
-    "seen by a",
-  ]);
+  expect(ha.recovered.get()).toEqual([]);
+  expect(hb.recovered.get().map((r) => r.text)).toEqual(["seen by a"]);
   w.store.releaseWrites();
   await w.settle();
+  w.fake.advance(50);
+  await w.settle();
+  expect([textOf(ha.doc()), textOf(hb.doc())]).toEqual([
+    "from a\nseen by a",
+    "from a\nseen by a",
+  ]);
 });
+
+test("a follower's edit made before it saw the move is merged into the new document", async () => {
+  const { w, tabs, tab } = await tabWorld();
+  const [a, b] = [tab("a"), tab("b")];
+  const ha = await a.open(DOC);
+  const hb = await b.open(DOC);
+  await w.online();
+  const left = ha.doc();
+  const heard: Uint8Array[] = [];
+  left.subscribe((update) => heard.push(update));
+  w.server.answer.subscribe = false;
+  w.server.moved(DOC, 1, 2);
+  await w.settle();
+  w.server.subscribedWithState(DOC, w.server.doc(DOC).encodeState(), {
+    generation: 2,
+    headSeq: 1,
+  });
+  while (w.network.step());
+  typeIn(hb, B2, "late");
+  w.server.answer.subscribe = true;
+  await w.settle();
+  w.fake.advance(50);
+  await w.settle();
+  expect(textOf(ha.doc())).toBe("\nlate");
+  expect(textOf(hb.doc())).toBe("\nlate");
+  const edit = tabs.posted().find((m) => m.t === "edit");
+  expect(edit).toMatchObject({ generation: 1 });
+  const opened = tabs.posted().find((m) => m.t === "opened");
+  expect(opened).toEqual({
+    v: 1,
+    from: "b",
+    t: "opened",
+    docId: DOC,
+    generation: 2,
+    clientId: hb.doc().clientId,
+  });
+  expect((await w.store.load(DOC))!.meta.clientIds).toContain(
+    hb.doc().clientId,
+  );
+  expect(w.server.got("PUSH").map((p) => p.generation)).toEqual([2]);
+  expect(textAfter2(w, w.server.got("PUSH")[0]!.update)).toBe("\nlate");
+  // released: what is written into the document the move left is heard by nobody
+  const before = heard.length;
+  scriptBody(left).write((writer) => writer.insertText(B1, 0, "?"));
+  expect(heard.length).toBe(before);
+});
+
+/** The server's text once the update is applied to its copy. */
+function textAfter2(w: World, update: Uint8Array): string {
+  const doc = loadDoc(w.server.doc(DOC).encodeState());
+  doc.applyUpdate(update);
+  return textOf(doc);
+}

@@ -5,6 +5,8 @@ import { join, relative } from "node:path";
 import type { BuildMetafile } from "bun";
 import tailwind from "bun-plugin-tailwind";
 import { BOOT_SCRIPT, bootScriptHash } from "./src/boot/boot-script.ts";
+import { buildId, precacheEntries } from "./src/sw/manifest.ts";
+import type { PrecacheEntry } from "./src/sw/manifest.ts";
 
 const ROOT_MANIFEST = join(import.meta.dir, "../../package.json");
 // every manifest in the repository starts at this version
@@ -32,9 +34,30 @@ async function insertBootScript(outDir: string): Promise<void> {
   );
 }
 
+/** Bundles the service worker to `<outDir>/sw.js` with the precache list and its hash compiled in. */
+async function buildWorker(
+  outDir: string,
+  entries: readonly PrecacheEntry[],
+): Promise<Bun.BuildOutput> {
+  return Bun.build({
+    entrypoints: [join(import.meta.dir, "src/sw/worker.ts")],
+    outdir: outDir,
+    naming: "sw.js",
+    minify: true,
+    target: "browser",
+    sourcemap: "none",
+    define: {
+      "process.env.NODE_ENV": '"production"',
+      "self.__SW_MANIFEST": JSON.stringify(entries),
+      "self.__BUILD_ID": JSON.stringify(buildId(entries)),
+    },
+  });
+}
+
 /**
- * Empties `outDir` and builds the app into it, split into chunks, with the boot script inlined.
- * `files` are the outputs' paths relative to `outDir`. The test flavour also serves the development screens.
+ * Empties `outDir` and builds the app into it, split into chunks, with the boot script inlined,
+ * then the service worker that precaches every file of the app. `files` are the outputs' paths
+ * relative to `outDir`, `sw.js` last. The test flavour also serves the development screens.
  */
 export async function buildWeb(options: {
   outDir: string;
@@ -67,9 +90,21 @@ export async function buildWeb(options: {
   if (result.metafile === undefined)
     return { ok: false, logs: ["the build wrote no metafile"] };
   await insertBootScript(outDir);
+  // read back from disk: the page has changed since the build wrote it
+  const written = await Promise.all(
+    result.outputs.map(async (output) => ({
+      path: output.path,
+      bytes: await Bun.file(output.path).bytes(),
+    })),
+  );
+  const worker = await buildWorker(outDir, precacheEntries(written, outDir));
+  if (!worker.success)
+    return { ok: false, logs: worker.logs.map((log) => log.message) };
   return {
     ok: true,
-    files: result.outputs.map((output) => relative(outDir, output.path)),
+    files: [...result.outputs, ...worker.outputs].map((output) =>
+      relative(outDir, output.path),
+    ),
     metafile: result.metafile,
   };
 }

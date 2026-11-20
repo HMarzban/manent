@@ -18,7 +18,7 @@ export type Ending =
     }
   | { type: "forbidden" }
   | { type: "client_id_taken" }
-  | { type: "moved" };
+  | { type: "moved"; newGeneration: number };
 
 /** The entry a node's `upstream_refused` names; null for data that names none. */
 export function readRefusal(

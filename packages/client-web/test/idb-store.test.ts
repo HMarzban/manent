@@ -218,3 +218,35 @@ test("a reset never issues again the sequence of a refused setting", async () =>
     entries: [],
   });
 });
+
+/** Puts a meta record as an earlier build wrote it, with raw IndexedDB calls. */
+async function putOlderMeta(
+  indexedDb: IDBFactory,
+  record: Record<string, unknown>,
+): Promise<void> {
+  const opening = indexedDb.open("manent:dana");
+  const db = await new Promise<IDBDatabase>((resolve) =>
+    opening.addEventListener("success", () => resolve(opening.result)),
+  );
+  const tx = db.transaction(["meta"], "readwrite");
+  tx.objectStore("meta").put(record);
+  await new Promise((resolve) => tx.addEventListener("complete", resolve));
+  db.close();
+}
+
+test("a document stored before moves existed reads as not moving", async () => {
+  const indexedDb = new IDBFactory();
+  const store = await openIdbStore({ userId: "dana", indexedDb });
+  const { moving: _moving, ...older } = blankMeta(DOC);
+  await putOlderMeta(indexedDb, {
+    ...older,
+    recovering: { versionId: "v1", heal: true },
+    highestLocalSeq: 0,
+  });
+  const meta = {
+    ...blankMeta(DOC),
+    recovering: { versionId: "v1", heal: true, replaying: false },
+  };
+  expect((await store.load(DOC))!.meta).toEqual(meta);
+  expect(await store.documents()).toEqual([meta]);
+});

@@ -1,0 +1,137 @@
+{
+  "older": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "section",
+        "content": [
+          {
+            "type": "block",
+            "attrs": {
+              "id": "aaaaaaaaaaaaaaaa",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "🎬 مرحبا يا صديقي"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "newer": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "section",
+        "content": [
+          {
+            "type": "block",
+            "attrs": {
+              "id": "aaaaaaaaaaaaaaaa",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "🎥 مرحبا يا صديقي العزيز"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "comparison": {
+    "v": 1,
+    "mode": "full",
+    "entries": [
+      {
+        "moved": false,
+        "attrs": [],
+        "inline": [
+          {
+            "kind": "deleted",
+            "offset": 0,
+            "length": 0,
+            "text": "🎬",
+            "marks": []
+          },
+          {
+            "kind": "inserted",
+            "offset": 0,
+            "length": 2,
+            "text": "🎥",
+            "marks": []
+          },
+          {
+            "kind": "inserted",
+            "offset": 17,
+            "length": 7,
+            "text": " العزيز",
+            "marks": []
+          }
+        ],
+        "splitFrom": null,
+        "joinedInto": null,
+        "after": null,
+        "id": "aaaaaaaaaaaaaaaa",
+        "kind": "changed",
+        "older": {
+          "type": "block",
+          "attrs": {
+            "id": "aaaaaaaaaaaaaaaa",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "🎬 مرحبا يا صديقي"
+            }
+          ]
+        },
+        "newer": {
+          "type": "block",
+          "attrs": {
+            "id": "aaaaaaaaaaaaaaaa",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "🎥 مرحبا يا صديقي العزيز"
+            }
+          ]
+        },
+        "sceneId": null,
+        "olderIndex": 0
+      }
+    ],
+    "counts": {
+      "added": 0,
+      "removed": 0,
+      "changed": 1,
+      "moved": 0
+    },
+    "scenes": []
+  }
+}

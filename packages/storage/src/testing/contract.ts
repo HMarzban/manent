@@ -295,6 +295,20 @@ export function storageContract(
     });
   });
 
+  test("the directory lists everyone holding a role on a document, by user", () => {
+    const d = s.directory;
+    d.setRole(DOC, "sam", "edit", ["comment"]);
+    d.setRole(DOC, "dana", "owner", ["delete"]);
+    d.setRole(DOC2, "ana", "view", []);
+    d.setRole(DOC, "leo", "comment", []);
+    expect(d.rolesOf(DOC)).toEqual([
+      { userId: "dana", role: "owner", capabilities: ["delete"] },
+      { userId: "leo", role: "comment", capabilities: [] },
+      { userId: "sam", role: "edit", capabilities: ["comment"] },
+    ]);
+    expect(d.rolesOf(DOC3)).toEqual([]);
+  });
+
   test("the directory names each home that holds a document once, in key order", () => {
     const d = s.directory;
     const sams: Home = { kind: "user", id: "sam" };

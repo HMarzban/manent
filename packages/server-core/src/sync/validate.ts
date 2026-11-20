@@ -2,6 +2,8 @@
 import type { TransactionReport } from "@manent/crdt";
 import { validateBlocks } from "@manent/schema";
 import type { Issue } from "@manent/schema";
+import { validateIndexPush } from "./index-docs.ts";
+import type { Room } from "./rooms.ts";
 
 /** Maps only the authority writes (a setting is a request, never a push). */
 const AUTHORITY_MAPS = ["settings", "settingsMeta"] as const;
@@ -25,4 +27,14 @@ export function validatePush(report: TransactionReport): Issue[] {
         message: `a push wrote the ${name} map, which only the authority writes`,
       });
   return issues;
+}
+
+/** A push judged as its room's kind is: an index by `validateIndexPush`, anything else by `validatePush`. */
+export function validateRoomPush(
+  report: TransactionReport,
+  room: Pick<Room, "kind" | "home">,
+): Issue[] {
+  return room.kind === "index"
+    ? validateIndexPush(report, room.home)
+    : validatePush(report);
 }

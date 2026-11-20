@@ -37,7 +37,13 @@ export type TrustEvent =
   | { kind: "setting_refused"; noun: string }
   | { kind: "command_unavailable"; label: string; reason: string }
   | { kind: "preferences_reset"; count: number }
-  | { kind: "past_comfort_limit"; title: string };
+  | { kind: "past_comfort_limit"; title: string }
+  | {
+      kind: "review_settled";
+      choice: "theirs" | "other" | "mine" | "merged" | "recovered";
+      names: string | null;
+      scene: string | null;
+    };
 
 type Words = Omit<Message, "id">;
 
@@ -57,6 +63,8 @@ const SCRIPT_SETTINGS = {
   commandId: "doc.scriptSettings",
 } as const;
 const UNDO_SETTING = { label: "Undo", commandId: "settings.undo" } as const;
+const UNDO_EDIT = { label: "Undo", commandId: "edit.undo" } as const;
+const UNDO_REVIEW = { label: "Undo", commandId: "review.undo" } as const;
 const SPLIT_INTO_PARTS = {
   label: EDITOR_WORDS.splitIntoParts,
   commandId: "doc.splitIntoParts",
@@ -85,6 +93,29 @@ function settingChanged(
   return {
     text: `${capitalised} is now ${valueLabel}${pages}.`,
     actions: [UNDO_SETTING],
+    ...REVERSE,
+  };
+}
+
+type ReviewSettled = Extract<TrustEvent, { kind: "review_settled" }>;
+
+const USED_OTHER = "Used the other wording";
+// what a review action did, before the scene it did it in; "theirs" without a name is the other wording
+const REVIEW_SETTLED: Readonly<
+  Record<ReviewSettled["choice"], (names: string | null) => string>
+> = Object.freeze({
+  theirs: (names) => (names === null ? USED_OTHER : `Used ${names}'s wording`),
+  other: () => USED_OTHER,
+  mine: () => "Used your wording",
+  merged: () => "Kept the merged wording",
+  recovered: () => "Put the recovered text back",
+});
+
+function reviewSettled(event: ReviewSettled): Words {
+  const where = event.scene === null ? "" : ` in ${event.scene}`;
+  return {
+    text: `${REVIEW_SETTLED[event.choice](event.names)}${where}.`,
+    actions: [event.choice === "merged" ? UNDO_REVIEW : UNDO_EDIT],
     ...REVERSE,
   };
 }
@@ -198,6 +229,8 @@ function wordsFor(event: TrustEvent): Words {
         lifetime: "until_dismissed",
         ownWork: false,
       };
+    case "review_settled":
+      return reviewSettled(event);
   }
 }
 

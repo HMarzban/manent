@@ -1,9 +1,11 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import * as Y from "yjs";
 import {
   ORIGIN_REMOTE,
   ORIGIN_REVIEW,
   createUndoScope,
+  isUndoStep,
+  observeScript,
   scriptBody,
   scriptDocFromJSON,
   undoManagerForBinding,
@@ -92,4 +94,53 @@ test("undo keeps the words someone else typed into a text my step created", () =
   ydoc.transact(() => text.insert(1, "b"), ORIGIN_REMOTE);
   manager.undo();
   expect(textOf(doc, ID)).toBe("b");
+});
+
+test("a review action right after typing is an undo step of its own", () => {
+  const doc = scriptDocFromJSON(SAMPLE);
+  const manager = undoManagerForBinding(
+    createUndoScope(doc, {
+      trackedOrigins: ["typing", ORIGIN_REVIEW],
+      roots: ["script"],
+    }),
+  );
+  scriptBody(doc).write((w) => w.insertText(FIRST_ID, 0, "a"), "typing");
+  scriptBody(doc).write((w) => w.insertText(FIRST_ID, 0, "R"), ORIGIN_REVIEW);
+  scriptBody(doc).write((w) => w.insertText(FIRST_ID, 0, "b"), "typing");
+  expect(manager.undoStack.length).toBe(3);
+  manager.undo();
+  manager.undo();
+  expect(textOf(doc, FIRST_ID)).toBe("aEXT. SALT FLATS - DAWN");
+});
+
+test("an undo and a redo are told apart from every other change", () => {
+  const doc = scriptDocFromJSON(SAMPLE);
+  // the editor binding types under an object, its plugin key
+  const typing = { key: "typing" };
+  const manager = undoManagerForBinding(
+    createUndoScope(doc, {
+      trackedOrigins: [typing, ORIGIN_REVIEW],
+      roots: ["script"],
+    }),
+  );
+  const seen: boolean[] = [];
+  const stop = observeScript(doc, (r) => seen.push(isUndoStep(r.origin)));
+  scriptBody(doc).write((w) => w.insertText(FIRST_ID, 0, "a"), typing);
+  scriptBody(doc).write((w) => w.insertText(FIRST_ID, 0, "b"), ORIGIN_REMOTE);
+  scriptBody(doc).write((w) => w.insertText(FIRST_ID, 0, "R"), ORIGIN_REVIEW);
+  manager.undo();
+  manager.redo();
+  stop();
+  expect(seen).toEqual([false, false, false, true, true]);
+});
+
+test("a destroyed scope no longer listens to the document", () => {
+  const doc = scriptDocFromJSON(SAMPLE);
+  const manager = undoManagerForBinding(
+    createUndoScope(doc, { trackedOrigins: ["typing"], roots: ["script"] }),
+  );
+  const stopCapturing = spyOn(manager, "stopCapturing");
+  manager.destroy();
+  scriptBody(doc).write((w) => w.insertText(FIRST_ID, 0, "R"), ORIGIN_REVIEW);
+  expect(stopCapturing.mock.calls.length).toBe(0);
 });

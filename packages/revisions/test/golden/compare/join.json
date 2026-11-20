@@ -1,0 +1,170 @@
+{
+  "older": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "section",
+        "content": [
+          {
+            "type": "block",
+            "attrs": {
+              "id": "aaaaaaaaaaaaaaaa",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Rain falls."
+              }
+            ]
+          },
+          {
+            "type": "block",
+            "attrs": {
+              "id": "bbbbbbbbbbbbbbbb",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": " He waits."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "newer": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "section",
+        "content": [
+          {
+            "type": "block",
+            "attrs": {
+              "id": "aaaaaaaaaaaaaaaa",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Rain falls. He waits."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "comparison": {
+    "v": 1,
+    "mode": "full",
+    "entries": [
+      {
+        "moved": false,
+        "attrs": [],
+        "inline": [
+          {
+            "kind": "inserted",
+            "offset": 11,
+            "length": 10,
+            "text": " He waits.",
+            "marks": []
+          }
+        ],
+        "splitFrom": null,
+        "joinedInto": null,
+        "after": null,
+        "id": "aaaaaaaaaaaaaaaa",
+        "kind": "changed",
+        "older": {
+          "type": "block",
+          "attrs": {
+            "id": "aaaaaaaaaaaaaaaa",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Rain falls."
+            }
+          ]
+        },
+        "newer": {
+          "type": "block",
+          "attrs": {
+            "id": "aaaaaaaaaaaaaaaa",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Rain falls. He waits."
+            }
+          ]
+        },
+        "sceneId": null,
+        "olderIndex": 0
+      },
+      {
+        "moved": false,
+        "attrs": [],
+        "inline": [],
+        "splitFrom": null,
+        "joinedInto": "aaaaaaaaaaaaaaaa",
+        "after": "aaaaaaaaaaaaaaaa",
+        "id": "bbbbbbbbbbbbbbbb",
+        "kind": "removed",
+        "older": {
+          "type": "block",
+          "attrs": {
+            "id": "bbbbbbbbbbbbbbbb",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": " He waits."
+            }
+          ]
+        },
+        "newer": null,
+        "sceneId": null,
+        "olderIndex": 1
+      }
+    ],
+    "counts": {
+      "added": 0,
+      "removed": 1,
+      "changed": 1,
+      "moved": 0
+    },
+    "scenes": []
+  }
+}

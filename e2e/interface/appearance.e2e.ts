@@ -102,19 +102,27 @@ test("no flash of the wrong theme at start-up", async ({ browser }) => {
     cache: null,
     path: "/choose",
   });
-  const [dark = "", light = ""] = [
-    ...(shown["dark cache /"] ?? []),
-    ...(shown["light cache /"] ?? []),
-  ];
-  // a load whose real frame is drawn before its first animation frame shows the static frame not at all
-  const expected: Record<string, string> = {
-    "dark cache /": dark,
-    "light cache /": light,
-    [`dark cache /s/${DOC_ID}`]: dark,
-    [`light cache /s/${DOC_ID}`]: light,
-    "no cache, dark system": dark,
-    "no cache, light system": light,
+  const themeOf: Record<string, "dark" | "light"> = {
+    "dark cache /": "dark",
+    "light cache /": "light",
+    [`dark cache /s/${DOC_ID}`]: "dark",
+    [`light cache /s/${DOC_ID}`]: "light",
+    "no cache, dark system": "dark",
+    "no cache, light system": "light",
   };
+  // a load whose real frame is drawn before its first animation frame shows the static frame not at all, so a
+  // theme's background is the first one any of its loads showed
+  const backgroundOf = (theme: "dark" | "light"): string =>
+    Object.keys(themeOf)
+      .filter((load) => themeOf[load] === theme)
+      .flatMap((load) => shown[load] ?? [])[0] ?? "";
+  const [dark, light] = [backgroundOf("dark"), backgroundOf("light")];
+  const expected = Object.fromEntries(
+    Object.entries(themeOf).map(([load, theme]) => [
+      load,
+      theme === "dark" ? dark : light,
+    ]),
+  );
   const wrong = Object.entries(shown).flatMap(([load, backgrounds]) =>
     backgrounds.filter((b) => b !== expected[load]).map((b) => [load, b]),
   );

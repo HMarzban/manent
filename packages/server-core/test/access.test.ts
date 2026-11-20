@@ -67,9 +67,15 @@ test("each way a request can be wrong has its code", () => {
     { docId: DOC, kind: "script", home: "project:nope" },
     { docId: "NOT-A-UUID", kind: "script", home: P },
     { docId: DOC.toUpperCase(), kind: "script", home: P },
+    { docId: DOC, kind: "index", home: P },
+    { docId: DOC, kind: "script", home: P, workspaceId: "bad id!" },
+    { docId: DOC, kind: "script", home: P, workspaceId: "" },
+    { docId: DOC, kind: "script", home: P, workspaceId: "m".repeat(65) },
+    { docId: DOC, kind: "script", home: P, workspaceId: null },
+    { docId: DOC, kind: "private", home: "user", workspaceId: "medium" },
   ])
     expect(codeOf(body)).toBe("bad_request");
-  for (const kind of ["rundown", "comments", "index", "draft"])
+  for (const kind of ["rundown", "comments", "draft"])
     expect(codeOf({ docId: DOC, kind, home: P })).toBe("unsupported_kind");
 });
 

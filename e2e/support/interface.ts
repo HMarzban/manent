@@ -44,11 +44,14 @@ export function labelOf(id: CommandId): string {
   return label;
 }
 
-/** The platform the page runs on, read from the browser as the app reads it. */
+/**
+ * The platform the app binds keys for: the system its user agent names, as the app reads it. Playwright's WebKit
+ * names macOS on every host, so on Linux it gets the Mac's keys while `navigator.platform` says Linux.
+ */
 export async function platformOf(page: Page): Promise<Platform> {
-  const name = await page.evaluate(() => navigator.platform);
-  if (name.startsWith("Mac")) return "mac";
-  return name.startsWith("Win") ? "windows" : "linux";
+  const agent = await page.evaluate(() => navigator.userAgent);
+  if (/\bMac OS X\b/.test(agent)) return "mac";
+  return /\bWindows\b/.test(agent) ? "windows" : "linux";
 }
 
 /** The keys Playwright presses for `chord`: `Mod` is Meta on macOS and Control elsewhere. */

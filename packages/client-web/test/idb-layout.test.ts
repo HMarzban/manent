@@ -23,6 +23,7 @@ const GOLDEN_META: DocMeta = {
   recovering: null,
   lastDeviceVersionAt: 0,
   lastSyncedAt: 1_700,
+  moving: null,
 };
 
 function own(n: number): StoredUpdate {

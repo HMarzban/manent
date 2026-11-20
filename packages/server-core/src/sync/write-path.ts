@@ -9,6 +9,8 @@ import {
   isPermanentPushError,
 } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
+import { answerReplay, commitReplay } from "../rebuild/replay-write.ts";
+import type { ReplayItem } from "../rebuild/replay-write.ts";
 import type { Refusal } from "./errors.ts";
 import type {
   Peer,
@@ -21,16 +23,16 @@ import type {
 import type { Room, Rooms, Subscription } from "./rooms.ts";
 import { applySetting } from "./settings.ts";
 import { isStorageError } from "./storage-error.ts";
-import { validatePush } from "./validate.ts";
+import { validateRoomPush } from "./validate.ts";
 
 export interface Committed {
   room: Room;
-  sender: Peer;
+  sender: Peer | null;
   seq: number;
   update: Uint8Array;
   /** Null for a setting the authority wrote. */
   report: TransactionReport | null;
-  /** Also send the update to the sender: a setting. */
+  /** Also send the update to the sender: a setting, or a replay, whose sender is null. */
   echo: boolean;
 }
 
@@ -86,13 +88,15 @@ export interface WritePath {
       generation: number;
     },
   ): void;
+  /** Queued like a push; a failed commit poisons the room, then calls done({ ok: false }). */
+  replay(room: Room, item: ReplayItem["write"], done: ReplayItem["done"]): void;
   /** Commits what is queued, now. */
   flush(): void;
   queued(): number;
 }
 
 /** What a turn holds until its commit. `ack` is a resend, acknowledged in its place. */
-type Item = {
+type PeerItem = {
   room: Room;
   subscription: Subscription;
   clientSeq: number;
@@ -112,6 +116,7 @@ type Item = {
   | { kind: "ack" }
   | { kind: "relay_set"; request: { key: string; value: Uint8Array } }
 );
+type Item = PeerItem | ReplayItem;
 
 function refusal(
   code: number,
@@ -220,7 +225,8 @@ export function createWritePath(ports: WritePathPorts): WritePath {
 
   /** The highest clientSeq of this person and device already queued as a setting; 0 when none. */
   function queuedSetting(peer: Peer, room: Room): number {
-    const theirs = queue.filter((item) => {
+    const theirs = queue.filter((item): item is PeerItem => {
+      if (item.kind === "replay") return false;
       const from = item.subscription.peer;
       const same =
         from.userId === peer.userId && from.deviceId === peer.deviceId;
@@ -238,6 +244,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
           const { room } = item;
           if (item.kind !== "append") {
             item.seq = heads.get(room) ?? room.row.headSeq;
+            if (item.kind === "replay") commitReplay(file, item, heads);
             continue;
           }
           const { append } = item;
@@ -257,6 +264,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
 
   /** Steps 9 and 10 for one committed item; a setting is published before it is acknowledged. */
   function answer(item: Item): void {
+    if (item.kind === "replay") return answerReplay(item, rooms, ports);
     const { room, subscription, clientSeq, setting, seq } = item;
     const { peer } = subscription;
     if (item.kind !== "append") return ports.ack(peer, room, clientSeq, seq);
@@ -272,12 +280,12 @@ export function createWritePath(ports: WritePathPorts): WritePath {
   }
 
   function upstreamOf(item: Item): UpstreamItem | null {
+    if (item.kind === "ack" || item.kind === "replay") return null;
     const { room, subscription, clientSeq, seq } = item;
     const ref = { docId: room.docId, generation: room.row.generation };
     const userId = subscription.peer.userId;
     if (item.kind === "relay_set")
       return { kind: "set", ...ref, userId, clientSeq, ...item.request };
-    if (item.kind === "ack") return null;
     return { kind: "update", ...ref, seq, update: item.append.update };
   }
 
@@ -294,6 +302,8 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       const poisoned = [...new Set(fileItems.map((item) => item.room))];
       ports.poisoned(poisoned);
       rooms.drop(poisoned);
+      for (const item of fileItems)
+        if (item.kind === "replay") item.done({ ok: false });
     }
     const done = items.filter((item) => !failed.has(item.room.file));
     const { upstream } = ports;
@@ -334,7 +344,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       if (doc.hasPendingStructs())
         return reloadAnd(CODE.BAD_FRAME, "incomplete");
       if (report === null) return enqueue({ kind: "ack", ...base });
-      if (validatePush(report).length > 0)
+      if (validateRoomPush(report, room).length > 0)
         return reloadAnd(CODE.VALIDATION_FAILED, "invalid");
       const floor =
         mode === "authority" && ports.schemaFloor !== null
@@ -382,6 +392,8 @@ export function createWritePath(ports: WritePathPorts): WritePath {
         heal: false,
       });
     },
+    replay: (room, write, done) =>
+      enqueue({ kind: "replay", room, write, done, seq: 0 }),
     flush,
     queued: () => queue.length,
   };

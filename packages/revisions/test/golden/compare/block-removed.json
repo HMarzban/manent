@@ -1,0 +1,242 @@
+{
+  "older": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "section",
+        "content": [
+          {
+            "type": "block",
+            "attrs": {
+              "id": "aaaaaaaaaaaaaaaa",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Rain falls."
+              }
+            ]
+          },
+          {
+            "type": "block",
+            "attrs": {
+              "id": "bbbbbbbbbbbbbbbb",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "A horn sounds."
+              }
+            ]
+          },
+          {
+            "type": "block",
+            "attrs": {
+              "id": "cccccccccccccccc",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Silence."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "newer": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "section",
+        "content": [
+          {
+            "type": "block",
+            "attrs": {
+              "id": "aaaaaaaaaaaaaaaa",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Rain falls."
+              }
+            ]
+          },
+          {
+            "type": "block",
+            "attrs": {
+              "id": "cccccccccccccccc",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Silence."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "comparison": {
+    "v": 1,
+    "mode": "full",
+    "entries": [
+      {
+        "moved": false,
+        "attrs": [],
+        "inline": [],
+        "splitFrom": null,
+        "joinedInto": null,
+        "after": null,
+        "id": "aaaaaaaaaaaaaaaa",
+        "kind": "unchanged",
+        "older": {
+          "type": "block",
+          "attrs": {
+            "id": "aaaaaaaaaaaaaaaa",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Rain falls."
+            }
+          ]
+        },
+        "newer": {
+          "type": "block",
+          "attrs": {
+            "id": "aaaaaaaaaaaaaaaa",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Rain falls."
+            }
+          ]
+        },
+        "sceneId": null,
+        "olderIndex": 0
+      },
+      {
+        "moved": false,
+        "attrs": [],
+        "inline": [],
+        "splitFrom": null,
+        "joinedInto": null,
+        "after": "aaaaaaaaaaaaaaaa",
+        "id": "bbbbbbbbbbbbbbbb",
+        "kind": "removed",
+        "older": {
+          "type": "block",
+          "attrs": {
+            "id": "bbbbbbbbbbbbbbbb",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "A horn sounds."
+            }
+          ]
+        },
+        "newer": null,
+        "sceneId": null,
+        "olderIndex": 1
+      },
+      {
+        "moved": false,
+        "attrs": [],
+        "inline": [],
+        "splitFrom": null,
+        "joinedInto": null,
+        "after": null,
+        "id": "cccccccccccccccc",
+        "kind": "unchanged",
+        "older": {
+          "type": "block",
+          "attrs": {
+            "id": "cccccccccccccccc",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Silence."
+            }
+          ]
+        },
+        "newer": {
+          "type": "block",
+          "attrs": {
+            "id": "cccccccccccccccc",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Silence."
+            }
+          ]
+        },
+        "sceneId": null,
+        "olderIndex": 2
+      }
+    ],
+    "counts": {
+      "added": 0,
+      "removed": 1,
+      "changed": 0,
+      "moved": 0
+    },
+    "scenes": []
+  }
+}

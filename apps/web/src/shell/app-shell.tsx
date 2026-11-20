@@ -4,20 +4,15 @@ import {
   CommandsProvider,
   GlobalKeys,
   SettingsProvider,
+  SurfaceBoundary,
   TimingProvider,
 } from "@manent/ui";
 import { useRouterState } from "@tanstack/react-router";
-import {
-  Suspense,
-  lazy,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { EditorHost } from "../editor-host/editor-host.tsx";
 import { standInMount } from "../editor-host/stand-in-mount.ts";
+import { loadApart } from "../load-apart.ts";
 import { historyTab } from "../screens/document/history-tab.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import {
@@ -102,11 +97,13 @@ export function ScreenArea(props: { children: ReactNode }): ReactNode {
   );
 }
 
-// the palette is loaded apart from the entry, which it would push over its size budget;
-// the shell draws it from its first render, so the chunk is fetched at mount, before the first open
-const ShellPalette = lazy(async () => ({
-  default: (await import("./shell-palette.tsx")).ShellPalette,
-}));
+// the palette is loaded apart from the entry, which it would push over its size budget
+const palette = loadApart(
+  async () => (await import("./shell-palette.tsx")).ShellPalette,
+);
+const ShellPalette = palette.Component;
+/** Starts loading the palette's code. */
+export const preloadShellPalette = palette.preload;
 
 /** The bridge's stores, made once for the life of the shell. */
 function useBridgeStores() {
@@ -147,8 +144,13 @@ function ShellPage(props: {
     }),
     [writers, services, docId, guard],
   );
+  // covered, the page is inert, and a region that scrolls with nothing a key can reach is out of the keyboard's reach;
+  // hidden, unlike clip, keeps the scroll offset for the way back
   return (
-    <ShellRegion region="page" className="min-h-0 overflow-auto">
+    <ShellRegion
+      region="page"
+      className={covered ? "min-h-0 overflow-hidden" : "min-h-0 overflow-auto"}
+    >
       <EditorHost
         docId={docId}
         covered={covered}
@@ -232,9 +234,12 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
                   {props.children}
                   <AnnouncerRegion />
                 </div>
-                <Suspense fallback={null}>
-                  <ShellPalette docId={docId} close={closePalette} />
-                </Suspense>
+                {/* a palette whose code cannot load leaves the shell as it is */}
+                <SurfaceBoundary fallback={() => null}>
+                  <Suspense fallback={null}>
+                    <ShellPalette docId={docId} close={closePalette} />
+                  </Suspense>
+                </SurfaceBoundary>
                 <GlobalKeys />
               </PeopleContext>
             </OutlineContext>

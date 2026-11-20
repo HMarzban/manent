@@ -2,6 +2,13 @@
 // session, then the socket that carries the frames.
 import { ConnectError } from "@manent/sync-client";
 import type { Connection, Transport } from "@manent/sync-client";
+import { REPLAY_REFUSALS, encodeReplayUpdates } from "@manent/sync-protocol";
+import type {
+  ReplayOverlap,
+  ReplayRefusal,
+  ReplayResponse,
+  ReplaySetAside,
+} from "@manent/sync-protocol";
 
 /** What the transport uses of a WebSocket. */
 export interface SocketLike {
@@ -24,7 +31,7 @@ type Fetch = (
   init: { method: string; headers: Record<string, string>; body?: string },
 ) => Promise<FetchAnswer>;
 
-/** A thrown fetch is ConnectError("unreachable"). */
+/** A thrown fetch is ConnectError("unreachable"). A body is JSON text. */
 async function post(
   send: Fetch,
   url: string,
@@ -32,7 +39,11 @@ async function post(
   body?: string,
 ): Promise<FetchAnswer> {
   try {
-    const headers = { Authorization: `Bearer ${session}` };
+    const authorization = { Authorization: `Bearer ${session}` };
+    const headers =
+      body === undefined
+        ? authorization
+        : { ...authorization, "Content-Type": "application/json" };
     return await send(url, { method: "POST", headers, body });
   } catch (cause) {
     throw new ConnectError("unreachable", { cause });
@@ -44,19 +55,74 @@ function refusal(status: number): ConnectError {
   return new ConnectError(status === 401 ? "sign_in" : "unreachable");
 }
 
-async function readTicket(response: FetchAnswer): Promise<string> {
-  let body: unknown;
+/** A body that is not JSON is ConnectError("unreachable"). */
+async function readBody(response: FetchAnswer): Promise<unknown> {
   try {
-    body = await response.json();
+    return await response.json();
   } catch (cause) {
     throw new ConnectError("unreachable", { cause });
   }
-  const ticket =
-    typeof body === "object" && body !== null && "ticket" in body
-      ? body.ticket
-      : null;
+}
+
+type Fields = Record<string, unknown>;
+
+function isFields(value: unknown): value is Fields {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function readTicket(response: FetchAnswer): Promise<string> {
+  const body = await readBody(response);
+  const ticket = isFields(body) ? body.ticket : null;
   if (typeof ticket !== "string") throw new ConnectError("unreachable");
   return ticket;
+}
+
+function isStringOrNull(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function readOverlap(value: unknown): ReplayOverlap | null {
+  if (!isFields(value)) return null;
+  const { blockId, text } = value;
+  return typeof blockId === "string" && typeof text === "string"
+    ? { blockId, text }
+    : null;
+}
+
+function readSetAside(value: unknown): ReplaySetAside | null {
+  if (!isFields(value)) return null;
+  const { blockId, nearBlockId, text } = value;
+  return isStringOrNull(blockId) &&
+    isStringOrNull(nearBlockId) &&
+    typeof text === "string"
+    ? { blockId, nearBlockId, text }
+    : null;
+}
+
+/** Null when the value is not a list, or one of its items does not read. */
+function readList<T>(
+  value: unknown,
+  read: (item: unknown) => T | null,
+): T[] | null {
+  if (!Array.isArray(value)) return null;
+  const items = value.map(read);
+  return items.every((item): item is T => item !== null) ? items : null;
+}
+
+/** Each field checked; a key this build does not know is dropped, as a newer server may add one. */
+function readReplayResponse(value: unknown): ReplayResponse | null {
+  if (!isFields(value)) return null;
+  const { docId, generation, serverSeq, applied } = value;
+  const overlaps = readList(value.overlaps, readOverlap);
+  const setAside = readList(value.setAside, readSetAside);
+  if (typeof docId !== "string" || typeof generation !== "number") return null;
+  if (typeof serverSeq !== "number" || typeof applied !== "number") return null;
+  if (overlaps === null || setAside === null) return null;
+  return { docId, generation, serverSeq, applied, overlaps, setAside };
+}
+
+function isReplayRefusal(value: unknown): value is ReplayRefusal {
+  return REPLAY_REFUSALS.some((code) => code === value);
 }
 
 function socketUrl(baseUrl: string, ticket: string): string {
@@ -172,6 +238,29 @@ export function webTransport(options: {
       if (status === 403) return { ok: false, code: "forbidden" };
       if (status === 410) return { ok: false, code: "deleted" };
       throw refusal(status);
+    },
+    async replay({ docId, generation, lastServerSeq, key, updates }) {
+      const token = session();
+      if (token === null) throw new ConnectError("sign_in");
+      const body = JSON.stringify({
+        docId,
+        generation,
+        lastServerSeq,
+        key,
+        updates: encodeReplayUpdates(updates),
+      });
+      const url = `${baseUrl}/api/docs/replay`;
+      const reply = await post(send, url, token, body);
+      if (reply.status === 401) throw refusal(reply.status);
+      const content = await readBody(reply);
+      if (reply.status === 200) {
+        const response = readReplayResponse(content);
+        if (response === null) throw new ConnectError("unreachable");
+        return { ok: true, response };
+      }
+      const code = isFields(content) ? content.error : null;
+      if (isReplayRefusal(code)) return { ok: false, code };
+      throw refusal(reply.status);
     },
   };
 }

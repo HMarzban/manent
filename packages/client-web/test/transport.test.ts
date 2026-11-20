@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { ConnectError } from "@manent/sync-client";
+import type { ReplayResponse } from "@manent/sync-protocol";
 import { webTransport } from "../src/index.ts";
 import type { SocketLike } from "../src/index.ts";
 
@@ -203,4 +204,90 @@ test("creating a document maps each answer", async () => {
     "sign_in",
   );
   expect(signedOut.asked).toEqual([]);
+});
+
+type Fetch = NonNullable<Parameters<typeof webTransport>[0]["fetch"]>;
+type Reply = { status: number; body: unknown } | "throw";
+
+/** A fetch that records each call and gives the replies in order. */
+function recordingFetch(calls: unknown[], replies: Reply[]): Fetch {
+  return async (url, init) => {
+    calls.push({ url, init });
+    const reply = replies.shift();
+    if (reply === undefined || reply === "throw")
+      throw new TypeError("network down");
+    return { status: reply.status, json: async () => reply.body };
+  };
+}
+
+const KEY = "0f1e2d3c4b5a69788796a5b4c3d2e1f0";
+const REPLAY = {
+  docId: DOC,
+  generation: 1,
+  lastServerSeq: 7,
+  key: KEY,
+  updates: [new Uint8Array([0, 1, 254, 255])],
+};
+const RESPONSE: ReplayResponse = {
+  docId: DOC,
+  generation: 2,
+  serverSeq: 3,
+  applied: 1,
+  overlaps: [{ blockId: "block-one-000001", text: "mine" }],
+  setAside: [{ blockId: null, nearBlockId: "block-one-000001", text: "gone" }],
+};
+
+test("a replay is posted with the session and its answers are read", async () => {
+  const calls: unknown[] = [];
+  const replies: Reply[] = [
+    { status: 200, body: RESPONSE },
+    { status: 409, body: { error: "past_window" } },
+    { status: 401, body: { error: "unauthenticated" } },
+    { status: 500, body: { error: "storage_failed" } },
+    { status: 200, body: { ...RESPONSE, generation: "2" } },
+    { status: 200, body: { ...RESPONSE, overlaps: [{ blockId: 4 }] } },
+    { status: 200, body: { ...RESPONSE, setAside: [{ text: "gone" }] } },
+    { status: 200, body: { ...RESPONSE, rebuiltAt: 9 } },
+    "throw",
+  ];
+  const t = webTransport({
+    baseUrl: "http://manent.test",
+    session: () => "tok",
+    fetch: recordingFetch(calls, replies),
+  });
+  expect(await t.replay(REPLAY)).toEqual({ ok: true, response: RESPONSE });
+  expect(calls[0]).toEqual({
+    url: "http://manent.test/api/docs/replay",
+    init: {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer tok",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        docId: DOC,
+        generation: 1,
+        lastServerSeq: 7,
+        key: KEY,
+        updates: ["AAH+/w=="],
+      }),
+    },
+  });
+  expect(await t.replay(REPLAY)).toEqual({ ok: false, code: "past_window" });
+  expect(await codeOf(t.replay(REPLAY))).toBe("sign_in");
+  // 500, then 200 with a mistyped generation, overlap and set-aside item
+  for (let i = 0; i < 4; i++)
+    expect(await codeOf(t.replay(REPLAY))).toBe("unreachable");
+  expect(await t.replay(REPLAY)).toEqual({ ok: true, response: RESPONSE });
+  expect(await codeOf(t.replay(REPLAY))).toBe("unreachable");
+  expect(calls).toHaveLength(9);
+
+  const signedOut: unknown[] = [];
+  const nobody = webTransport({
+    baseUrl: "http://manent.test",
+    session: () => null,
+    fetch: recordingFetch(signedOut, [{ status: 200, body: RESPONSE }]),
+  });
+  expect(await codeOf(nobody.replay(REPLAY))).toBe("sign_in");
+  expect(signedOut).toEqual([]);
 });

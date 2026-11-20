@@ -11,18 +11,21 @@ const SOURCES = [
   "tools/**/*.{ts,tsx}",
 ];
 
+// A phrase bank is data, not logic: hundreds of hand-written entries in one file.
+const BANKS = ["packages", "demo", "src", "generate", "banks"];
+
 test("no source file is longer than 400 lines", async () => {
   const long: string[] = [];
   for (const pattern of SOURCES)
     for await (const file of new Bun.Glob(pattern).scan({ cwd: repoRoot })) {
+      const parts = file.split(sep);
       if (
-        file
-          .split(sep)
-          .some(
-            (part) =>
-              part === "test" || part === "node_modules" || part === "dist",
-          ) ||
-        file.endsWith(".generated.ts")
+        parts.some(
+          (part) =>
+            part === "test" || part === "node_modules" || part === "dist",
+        ) ||
+        file.endsWith(".generated.ts") ||
+        BANKS.every((part, i) => parts[i] === part)
       )
         continue;
       if (
