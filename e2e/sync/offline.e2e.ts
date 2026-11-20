@@ -24,9 +24,17 @@ test("one person on two devices, one offline, re-merges", async ({
   await second.context().setOffline(false);
   await second.evaluate(() => window.harness.retryNow());
   await until(second, () => window.harness.status().synced);
-  await until(first, () => window.harness.text().includes("typed offline"));
-  expect(await first.evaluate(() => window.harness.text())).toBe(
-    await second.evaluate(() => window.harness.text()),
-  );
+  // the second's synced status covers what it sent and what the server held when it came back;
+  // the first's typing may reach the server after that, and the second a moment later
+  const merged = async (): Promise<{ same: boolean; lines: string[] }> => {
+    const [one, two] = await Promise.all([
+      first.evaluate(() => window.harness.text()),
+      second.evaluate(() => window.harness.text()),
+    ]);
+    return { same: one === two, lines: one.split("\n").toSorted() };
+  };
+  await expect
+    .poll(merged, { timeout: 30_000 })
+    .toEqual({ same: true, lines: ["typed offline", "typed online"] });
   await Promise.all([first.context().close(), second.context().close()]);
 });
