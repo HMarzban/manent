@@ -29,6 +29,8 @@ test("the Tour opens the first time a person reaches the Library, and the Tour b
   await expect(tourTab(page)).toHaveCount(0);
   await tourButton.click();
   await expect(tourTab(page)).toBeVisible();
+  await tourButton.click();
+  await expect(tourTab(page)).toHaveCount(0);
   // only the first time
   await page.reload();
   await expect(library).toBeFocused();

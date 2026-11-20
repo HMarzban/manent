@@ -33,6 +33,8 @@ export const ON_A_SCRIPT = {
   format: null,
   rulerShown: false,
   spaceBeforeSet: false,
+  zoom: null,
+  zoomPercent: null,
   production: null,
 } as const satisfies Partial<CommandContext>;
 

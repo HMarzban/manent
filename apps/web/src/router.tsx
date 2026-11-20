@@ -13,7 +13,7 @@ import type { AnyRouter } from "@tanstack/react-router";
 import type { Api } from "./api.ts";
 import { preloadDemoBarControls } from "./demo/demo-bar.tsx";
 import { RootLayout } from "./root-layout.tsx";
-import { SEND_FORM_IDS } from "./screens/send/forms.ts";
+import { SEND_FORM_IDS } from "./screens/send/form-ids.ts";
 import { chooseUrl, choosePerson, confirmPerson, safeNext } from "./session.ts";
 import { preloadShellPalette } from "./shell/app-shell.tsx";
 import type { PersonStore } from "./state/person.store.ts";

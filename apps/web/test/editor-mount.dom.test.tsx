@@ -139,7 +139,8 @@ function rig(
       attached.push(attached.length);
       return inner.attach(editor);
     },
-    run: (action) => inner.run(action),
+    run: (id) => inner.run(id),
+    zoomPercent: () => inner.zoomPercent(),
   };
   let ids = 0;
   const nextId = () => `block-${String(++ids).padStart(4, "0")}`;
@@ -224,7 +225,7 @@ test("the mount puts an editable page in the host and publishes its first facts"
 
 test("a command reaches the open page", () => {
   const r = rig();
-  const result = r.control.run({ kind: "element", slot: "3" });
+  const result = r.control.run("element.character");
   expect([
     result,
     r.view().state.doc.firstChild?.firstChild?.attrs.type,

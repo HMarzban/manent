@@ -13,12 +13,13 @@ import type {
 import type { ActionResult } from "@manent/editor";
 import { createMessageQueue } from "@manent/ui";
 import type { MessageQueue } from "@manent/ui";
-import { createEditorControl } from "../src/editor-host/control.ts";
 import {
   EDITOR_COMMAND_ACTIONS,
-  createEditorHandlers,
-  createEditorKeyRun,
-} from "../src/handlers/editor.ts";
+  actionOf,
+} from "../src/editor-host/command-actions.ts";
+import { createEditorControl } from "../src/editor-host/control.ts";
+import { createEditorHandlers } from "../src/handlers/editor.ts";
+import { createEditorKeyRun } from "../src/handlers/editor-key-run.ts";
 import { bindGuard, createGuard } from "../src/state/guard.ts";
 import { rulerActions } from "../src/state/ruler.store.ts";
 
@@ -41,6 +42,8 @@ const CTX: CommandContext = {
   format: null,
   rulerShown: false,
   spaceBeforeSet: false,
+  zoom: null,
+  zoomPercent: null,
   production: null,
 };
 
@@ -77,7 +80,8 @@ function slotAfter(
 ): string | null {
   const slot = queue();
   const control = createEditorControl();
-  if (answer !== null) control.attach({ run: () => answer });
+  if (answer !== null)
+    control.attach({ run: () => answer, zoomPercent: () => 100 });
   createEditorHandlers({
     control,
     messages: slot,
@@ -104,14 +108,27 @@ test("every editor command has an action", () => {
   );
 });
 
+test("Undo and Redo chosen outside the page are the page's own", () => {
+  expect([actionOf("edit.undo"), actionOf("edit.redo")]).toEqual([
+    { kind: "undo" },
+    { kind: "redo" },
+  ]);
+});
+
+test("a Ruler or Layout change reaches the page with the values it carries", () => {
+  const change = { kind: "layout", indent: 12 } as const;
+  expect(actionOf(change)).toBe(change);
+});
+
 test("each editor command asks the page for its own action", () => {
   const asked: unknown[] = [];
   const control = createEditorControl();
   control.attach({
-    run(action) {
-      asked.push(action);
+    run(id) {
+      asked.push(actionOf(id));
       return { ok: true };
     },
+    zoomPercent: () => 100,
   });
   const handlers = createEditorHandlers({
     control,

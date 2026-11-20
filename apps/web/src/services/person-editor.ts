@@ -11,7 +11,7 @@ import {
 import type { OpenEditor } from "../editor-host/editor-mount.ts";
 import { createLocalSessions } from "../editor-host/editor-sessions.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
-import { createEditorKeyRun } from "../handlers/editor.ts";
+import { createEditorKeyRun } from "../handlers/editor-key-run.ts";
 import type { EditorParts, Environment } from "./ports.ts";
 
 /** The editor's keys: a chord is looked up in the person's editor table and runs its command. */

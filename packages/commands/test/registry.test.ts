@@ -37,6 +37,8 @@ const CTX: CommandContext = {
   format: null,
   rulerShown: false,
   spaceBeforeSet: false,
+  zoom: null,
+  zoomPercent: null,
   production: null,
 };
 
@@ -109,7 +111,7 @@ test("the Stage 1 commands are these, with these words and keys", () => {
     ["element.shot", "Shot", ["Mod+7"], ["Mod+7"]],
     ["element.section", "Section", ["Mod+8"], ["Mod+8"]],
     ["element.newAct", "New Act", ["Mod+9"], ["Mod+9"]],
-    ["element.general", "General", ["Mod+0"], ["Mod+0"]],
+    ["element.general", "General", [], []],
     ["element.endOfAct", "End of Act", [], []],
     ["element.emote", "Emote", [], []],
     ["element.camera", "Camera", [], []],
@@ -140,6 +142,16 @@ test("the Stage 1 commands are these, with these words and keys", () => {
     ["view.ruler", "Ruler", [], []],
     ["doc.export", "Export…", [], []],
     ["doc.print", "Print…", ["Mod+P"], ["Mod+P"]],
+    ["view.zoomIn", "Zoom in", ["Mod+="], ["Mod+="]],
+    ["view.zoomOut", "Zoom out", ["Mod+-"], ["Mod+-"]],
+    ["view.zoomFitWidth", "Zoom: Fit width", ["Mod+0"], ["Mod+0"]],
+    ["view.zoom50", "Zoom: 50\u00a0%", [], []],
+    ["view.zoom75", "Zoom: 75\u00a0%", [], []],
+    ["view.zoom100", "Zoom: 100\u00a0%", [], []],
+    ["view.zoom125", "Zoom: 125\u00a0%", [], []],
+    ["view.zoom150", "Zoom: 150\u00a0%", [], []],
+    ["view.zoom200", "Zoom: 200\u00a0%", [], []],
+    ["view.zoom300", "Zoom: 300\u00a0%", [], []],
     ["library.newScript", "New script", [], []],
     ["library.newProject", "New project", [], []],
     ["demo.tour", "Tour", [], []],
@@ -221,6 +233,26 @@ test("the editor's commands sit in these menus and answer to these palette words
       { keywords: [] },
       { surface: "send", focus: "first" },
     ],
+    ...(
+      [
+        ["view.zoomIn", 90],
+        ["view.zoomOut", 100],
+        ["view.zoomFitWidth", 10],
+        ["view.zoom50", 20],
+        ["view.zoom75", 30],
+        ["view.zoom100", 40],
+        ["view.zoom125", 50],
+        ["view.zoom150", 60],
+        ["view.zoom200", 70],
+        ["view.zoom300", 80],
+      ] as const
+    ).map(([id, order]) => [
+      id,
+      "view",
+      [{ menu: "view", group: "zoom", order, submenu: "Zoom" }],
+      { keywords: [] },
+      null,
+    ]),
   ]);
 });
 
@@ -233,7 +265,21 @@ test("the editor's commands belong to the page and appear only to people who can
     ]).toEqual([c.id, false, true]);
   expect(
     EDITOR_COMMANDS.filter((c) => c.scope !== "editor").map((c) => c.id),
-  ).toEqual(["view.ruler", "doc.export", "doc.print"]);
+  ).toEqual([
+    "view.ruler",
+    "doc.export",
+    "doc.print",
+    "view.zoomIn",
+    "view.zoomOut",
+    "view.zoomFitWidth",
+    "view.zoom50",
+    "view.zoom75",
+    "view.zoom100",
+    "view.zoom125",
+    "view.zoom150",
+    "view.zoom200",
+    "view.zoom300",
+  ]);
 });
 
 /** "ran" when the editor command `id` can run in `c`, else its reason. */
@@ -257,6 +303,43 @@ test("Ruler, Export and Print are disabled with their reason off a document and 
       "ran",
     ]),
   );
+});
+
+test("Zoom in and out stop at the ends and say why", () => {
+  expect([
+    state("view.zoomIn", {
+      docOpen: true,
+      format: "screenplay",
+      zoomPercent: 300,
+    }),
+    state("view.zoomOut", {
+      docOpen: true,
+      format: "screenplay",
+      zoomPercent: 50,
+    }),
+    state("view.zoomIn", { docOpen: true, format: "ink", zoomPercent: null }),
+  ]).toEqual([
+    "isn't available at 300\u00a0%",
+    "isn't available at 50\u00a0%",
+    "isn't part of the Ink format",
+  ]);
+});
+
+test("the zoom keys are the desktop's, and the browser keeps them on the web", () => {
+  for (const platform of PLATFORMS) {
+    const at = (shell: "web" | "desktop") =>
+      resolveBindings({
+        commands: COMMANDS,
+        custom: [],
+        platform,
+        shell,
+        findings: { failsHere: new Set() },
+      }).effective;
+    expect([
+      at("desktop").get("view.zoomIn"),
+      at("web").get("view.zoomIn") ?? [],
+    ]).toEqual([["Mod+="], []]);
+  }
 });
 
 test("every element command names its key in the element picker", () => {
@@ -600,6 +683,16 @@ test("the handler table names every command but the generated ones", () => {
     "view.ruler": noop,
     "doc.export": noop,
     "doc.print": noop,
+    "view.zoomIn": noop,
+    "view.zoomOut": noop,
+    "view.zoomFitWidth": noop,
+    "view.zoom50": noop,
+    "view.zoom75": noop,
+    "view.zoom100": noop,
+    "view.zoom125": noop,
+    "view.zoom150": noop,
+    "view.zoom200": noop,
+    "view.zoom300": noop,
     "library.newScript": noop,
     "library.newProject": noop,
     "demo.tour": noop,
