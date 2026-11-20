@@ -5,7 +5,6 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { signedInAs } from "../support/tour.ts";
 
-const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
 const PAGE_VIEW = "[data-editor-host] .mn-page-view";
 const READOUT = /^Page \d+ of \d+$/;
 
@@ -26,9 +25,9 @@ function announceChoice(value: string): string {
   return choice.label;
 }
 
-/** Opens the script and records, from then on, every text the polite region is given. */
-async function openScript(page: Page): Promise<void> {
-  await page.goto(`/s/${DOC_ID}`);
+/** Opens script `docId` and records, from then on, every text the polite region is given. */
+async function openScript(page: Page, docId: string): Promise<void> {
+  await page.goto(`/s/${docId}`);
   await expect(page.locator(PAGE_VIEW)).toBeVisible();
   await page.evaluate(() => {
     const region = document.querySelector(
@@ -69,8 +68,12 @@ async function pasteLines(page: Page, lines: readonly string[]): Promise<void> {
   );
 }
 
-/** Chooses `value` for Announce while writing in Preferences, then opens the script, which a visit elsewhere leaves empty. */
-async function chooseAnnounce(page: Page, value: string): Promise<void> {
+/** Chooses `value` for Announce while writing in Preferences, then opens script `docId`, which a visit elsewhere leaves empty. */
+async function chooseAnnounce(
+  page: Page,
+  value: string,
+  docId: string,
+): Promise<void> {
   await page.goto("/preferences/writing");
   const choice = page.getByRole("radio", {
     name: announceChoice(value),
@@ -78,7 +81,7 @@ async function chooseAnnounce(page: Page, value: string): Promise<void> {
   });
   await choice.check();
   await expect(choice).toBeChecked();
-  await openScript(page);
+  await openScript(page, docId);
 }
 
 const polite = (page: Page) =>
@@ -122,8 +125,9 @@ async function downToPageTwo(page: Page): Promise<void> {
 test("the polite region says the element and the page as the caret moves", async ({
   page,
 }) => {
+  const docId = crypto.randomUUID();
   await signedInAs(page, "sam");
-  await openScript(page);
+  await openScript(page, docId);
   await pasteLines(page, actionLines(80));
   await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.press("Enter");
@@ -138,7 +142,7 @@ test("the polite region says the element and the page as the caret moves", async
   const fromDialogue = await saidSince(page);
   await downToPageTwo(page);
   const pageStart = await saidSince(page);
-  await chooseAnnounce(page, "elements");
+  await chooseAnnounce(page, "elements", docId);
   await pasteLines(page, actionLines(80));
   await downToPageTwo(page);
   const elementsOnly = await saidSince(page);
@@ -156,8 +160,9 @@ test("a script past the comfort limit says so once", async ({ page }) => {
   const notice = page.getByText(
     EDITOR_WORDS.pastComfortLimit(LIBRARY_WORDS.untitledScript),
   );
+  const docId = crypto.randomUUID();
   await signedInAs(page, "dana");
-  await openScript(page);
+  await openScript(page, docId);
   await pasteLines(page, lines);
   await expect(notice).toBeVisible();
   await page.reload();

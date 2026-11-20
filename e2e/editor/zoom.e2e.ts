@@ -4,7 +4,6 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { signedInAs } from "../support/tour.ts";
 
-const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
 const PAGE_VIEW = "[data-editor-host] .mn-page-view";
 // 2,400 paragraphs of action, each two lines long and a blank line before it: past 120 pages
 const LINES = Array.from(
@@ -137,7 +136,7 @@ test("a script opens at Fit width and zoom never moves a line or a page", async 
 }) => {
   // a long script takes a slow engine more than the default time to fill and draw
   test.setTimeout(120_000);
-  await signedInAs(page, "priya", `/s/${DOC_ID}`);
+  await signedInAs(page, "priya", `/s/${crypto.randomUUID()}`);
   await expect(page.locator(PAGE_VIEW)).toBeVisible();
   await pasteLines(page, LINES);
   await settled(page);
@@ -176,7 +175,7 @@ test("a script opens at Fit width and zoom never moves a line or a page", async 
 test("on the desktop shell the keys zoom, and on the web they are left to the browser", async ({
   page,
 }) => {
-  await signedInAs(page, "leo", `/s/${DOC_ID}`);
+  await signedInAs(page, "leo", `/s/${crypto.randomUUID()}`);
   await expect(page.locator(PAGE_VIEW)).toBeVisible();
   await page.locator(`${PAGE_VIEW} [data-id]`).first().click();
   await page.evaluate(() => {

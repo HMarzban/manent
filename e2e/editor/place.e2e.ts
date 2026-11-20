@@ -4,7 +4,6 @@ import { expect, test } from "@playwright/test";
 import type { BrowserContext, Page } from "@playwright/test";
 import { signedInAs } from "../support/tour.ts";
 
-const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
 const PAGE_VIEW = "[data-editor-host] .mn-page-view";
 // 2,400 paragraphs of action, each two lines long and a blank line before it: past 120 pages
 const LINES = Array.from(
@@ -13,9 +12,13 @@ const LINES = Array.from(
     `Line ${n + 1}: the tide turns under the harbour wall while the keeper climbs the stair with the lamp`,
 );
 
-/** Opens the script as `userId` in `page` and waits for its page. */
-async function openAs(page: Page, userId: string): Promise<void> {
-  await signedInAs(page, userId, `/s/${DOC_ID}`);
+/** Opens script `docId` as `userId` in `page` and waits for its page. */
+async function openAs(
+  page: Page,
+  userId: string,
+  docId: string,
+): Promise<void> {
+  await signedInAs(page, userId, `/s/${docId}`);
   await expect(page.locator(PAGE_VIEW)).toBeVisible();
 }
 
@@ -109,7 +112,8 @@ test("a reload opens the script at the caret, the line and the panels the person
 }) => {
   // a long script takes a slow engine more than the default time to fill and draw
   test.setTimeout(90_000);
-  await openAs(page, "dana");
+  const docId = crypto.randomUUID();
+  await openAs(page, "dana", docId);
   await pasteLines(page, LINES);
   const blockId =
     (await page
@@ -128,7 +132,7 @@ test("a reload opens the script at the caret, the line and the panels the person
   await topLineIn(page, blockId);
   await page.reload();
   await expect(page.locator(PAGE_VIEW)).toBeVisible();
-  const place = `doc:${DOC_ID}`;
+  const place = `doc:${docId}`;
   const offsetPx = await stored(page, "dana", [
     place,
     "place",
@@ -152,17 +156,22 @@ test("a reload opens the script at the caret, the line and the panels the person
   ]);
 });
 
-/** A new tab of the same browser with the script open as `userId`. */
-async function tabAs(context: BrowserContext, userId: string): Promise<Page> {
+/** A new tab of the same browser with script `docId` open as `userId`. */
+async function tabAs(
+  context: BrowserContext,
+  userId: string,
+  docId: string,
+): Promise<Page> {
   const page = await context.newPage();
-  await openAs(page, userId);
+  await openAs(page, userId, docId);
   return page;
 }
 
 test("another person in the same browser starts from their own place", async ({
   context,
 }) => {
-  const sam = await tabAs(context, "sam");
+  const samDocId = crypto.randomUUID();
+  const sam = await tabAs(context, "sam", samDocId);
   await viewItem(sam, /^Left panel/);
   await leftEdge(sam).focus();
   for (let step = 0; step < 5; step++) await sam.keyboard.press("ArrowRight");
@@ -170,10 +179,10 @@ test("another person in the same browser starts from their own place", async ({
     .poll(() => stored(sam, "sam", ["panels", "left"]))
     .toEqual({ tab: "scenes", widthPx: 300 });
   await sam.close();
-  const dana = await tabAs(context, "dana");
+  const dana = await tabAs(context, "dana", crypto.randomUUID());
   const danaLeft = await dana.locator("[data-region='left_panel']").count();
   await dana.close();
-  const again = await tabAs(context, "sam");
+  const again = await tabAs(context, "sam", samDocId);
   expect([
     danaLeft,
     await leftEdge(again).getAttribute("aria-valuenow"),

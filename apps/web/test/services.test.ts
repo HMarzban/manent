@@ -19,6 +19,7 @@ import {
   testEnvironment,
   testServices,
 } from "./services.fixtures.ts";
+import { until } from "./sync.fixtures.ts";
 
 bindGuard(createGuard({ flavour: "test" }));
 
@@ -166,7 +167,10 @@ test("New script makes an untitled film whose script opens first in Continue", a
   const docId = first?.docId ?? "";
   expect(services.library.documentTitle(docId).get()).toBe("Untitled script");
   expect(services.library.documentKind(docId).get()).toBe("film");
-  expect(services.openScriptStore(docId).get("script.paper")).toBe("a4");
+  // the script's settings are its handle's, which opens from the device a moment later
+  const script = services.openScriptStore(docId);
+  await until(() => script.get("script.paper") === "a4");
+  expect(script.get("script.paper")).toBe("a4");
 });
 
 test("a script's layout waits for authority once its page numbers are locked", () => {

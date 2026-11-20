@@ -44,8 +44,9 @@ test("the status never moves while its words change", async ({ page }) => {
   // the device slot, the middle dot, then the server slot
   const server = status.locator("span").nth(2);
   const boxes: ({ x: number; y: number; width: number } | null)[] = [];
+  // You has no session, so under the new script's words the source says Sign in to sync
   for (const [facts, words] of [
-    [{ neverSynced: false }, "Saved · Synced"],
+    [{ neverSynced: false, server: "synced" }, "Saved · Synced"],
     [{ server: "syncing", waiting: 3 }, "Saved · Syncing…"],
     [{ network: "offline", waiting: 12 }, "Saved · Offline, 12 waiting"],
     [
@@ -124,7 +125,8 @@ test("Sign in to sync gives You a session and the status follows the source", as
     )
     .toBe("string");
   await expect(status).toHaveAccessibleName(NEW_SCRIPT);
-  await setStatus(page, { neverSynced: false });
+  // the sync this tab started before the session keeps saying Sign in to sync under the new script's words
+  await setStatus(page, { neverSynced: false, server: "synced" });
   await expect(status).toHaveAccessibleName("Saved · Synced");
 });
 

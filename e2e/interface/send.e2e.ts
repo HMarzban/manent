@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 import { signedInAs } from "../support/tour.ts";
 
-// the stand-in editor's one document
-const STAND_IN_DOC_ID = "00000000-0000-4000-8000-000000000000";
+// leo's stand-in document
+const STAND_IN_DOC_ID = "00000000-0000-4000-8000-0000006c656f";
 const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
 
 /** The test form's address: its title, its button and its rows are read from it. */

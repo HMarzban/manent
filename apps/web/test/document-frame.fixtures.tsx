@@ -52,8 +52,8 @@ import {
   testServices,
 } from "./services.fixtures.ts";
 
-// the shell's one document on the stand-in route
-export const DOC_ID = "00000000-0000-4000-8000-000000000000";
+// You's document on the stand-in route
+export const DOC_ID = "00000000-0000-4000-8000-000000796f75";
 
 /** A document that has never synced, as a new script of You's. */
 export const NEW_SCRIPT: StatusFacts = Object.freeze({

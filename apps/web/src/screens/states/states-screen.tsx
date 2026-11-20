@@ -83,6 +83,7 @@ const fixtureApi = (options: {
   me: options.me ?? NEVER,
   signIn: NEVER,
   demo: async () => null,
+  removedDoc: async () => null,
 });
 
 interface Row {

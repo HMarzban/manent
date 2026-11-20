@@ -33,8 +33,6 @@ import { ShellRegion } from "./regions.tsx";
 
 const DOCUMENT_ROUTE = "/s/$docId";
 const STAND_IN_ROUTE = "/__stand-in";
-// the stand-in editor's one document, in the test build only
-const STAND_IN_DOC_ID = "00000000-0000-4000-8000-000000000000";
 const SCREENS: Readonly<Record<string, ScreenId>> = Object.freeze({
   "/": "library",
   [DOCUMENT_ROUTE]: "document",
@@ -62,6 +60,14 @@ const SCREEN_AREA: CSSProperties = Object.freeze({
   gridColumn: "1 / -1",
 });
 
+/** The stand-in editor's document of `userId`, in the test build only: the last 12 hex digits of the id's UTF-8 bytes end it. */
+function standInDocId(userId: string): string {
+  const hex = Array.from(new TextEncoder().encode(userId), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return `00000000-0000-4000-8000-${hex.padStart(12, "0").slice(-12)}`;
+}
+
 /** Which screen the route shows, the document under it, and whether a screen covers the page. */
 function useShellRoute(): {
   screen: ScreenId;
@@ -70,6 +76,7 @@ function useShellRoute(): {
   standIn: boolean;
 } {
   const { flavour } = useEnvironment();
+  const { userId } = useServices();
   const routeId = useRouterState({
     select: (state): string | null => state.matches.at(-1)?.routeId ?? null,
   });
@@ -81,7 +88,7 @@ function useShellRoute(): {
   const standIn = flavour === "test" && routeId === STAND_IN_ROUTE;
   return {
     screen: (routeId === null ? undefined : SCREENS[routeId]) ?? "library",
-    docId: standIn ? STAND_IN_DOC_ID : routeDocId,
+    docId: standIn ? standInDocId(userId) : routeDocId,
     covered: routeId !== DOCUMENT_ROUTE && !standIn,
     standIn,
   };

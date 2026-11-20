@@ -9,7 +9,8 @@ import {
   latestEntries,
 } from "@manent/settings";
 import type { Bag, KeyValueMap, SettingsStore } from "@manent/settings";
-import { createMessageQueue, createValue } from "@manent/ui";
+import type { SyncClient } from "@manent/sync-client";
+import { LIBRARY_WORDS, createMessageQueue, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import { createEditorControl } from "../editor-host/control.ts";
 import { createLazyMount } from "../editor-host/lazy-mount.ts";
@@ -26,7 +27,6 @@ import { productionContextActions } from "../state/production-context.store.ts";
 import { createDeviceBag } from "./device-bag.ts";
 import { readDeviceId } from "./device-id.ts";
 import { createFlags } from "./flags.ts";
-import { createLocalDocumentSource } from "./local-document-source.ts";
 import { createLocalMap, createLocalText } from "./local-map.ts";
 import { createMemoryLibrary } from "./memory-library.ts";
 import { createCommands } from "./person-commands.ts";
@@ -38,6 +38,8 @@ import type {
   Reverses,
 } from "./ports.ts";
 import { createRemoteDeferral } from "./remote-deferral.ts";
+import { createSyncDocumentSource } from "./sync/document-source.ts";
+import type { ReviewPort } from "./sync/document-source.ts";
 
 type Options = CommandsOptions & { person: TabPerson };
 
@@ -197,13 +199,13 @@ function createKept(options: Options) {
 /** The person's settings store, and one store per open document of `source` with its script settings. */
 function createStores(
   options: Options,
-  kept: { prefs: KeyValueMap; device: Bag },
+  kept: { prefs: KeyValueMap; device: Bag; deviceId: string },
   source: DocumentSource,
 ): { settings: SettingsStore; scripts: ScriptStores } {
   const { now, schedule, where } = options;
   const personal = createPersonalBag({
     map: kept.prefs,
-    deviceId: readDeviceId(options.storage, options.randomId),
+    deviceId: kept.deviceId,
     deviceName: deviceName(where) ?? "",
     now,
   });
@@ -260,24 +262,76 @@ function placeStoreOf(options: Options): PlaceStore {
   return store;
 }
 
-/** `person`'s services over `storage`; `dispose` stops listening to other tabs and drops every open document's store. */
+/**
+ * Until the Library creates each script in its project, a script this device opens that it has never held is
+ * created on the server in a project of its own at its first sync.
+ */
+function creatingScripts(
+  client: SyncClient,
+  projectHome: (docId: string) => string,
+): SyncClient {
+  return {
+    link: client.link,
+    open: (docId, options) =>
+      client.open(docId, {
+        create: { kind: "script", home: projectHome(docId), workspaceId: null },
+        ...options,
+      }),
+    create: (request) => client.create(request),
+    documents: () => client.documents(),
+    setOnline: (wanted) => client.setOnline(wanted),
+    retryNow: () => client.retryNow(),
+    view: (docId) => client.view(docId),
+    close: () => client.close(),
+  };
+}
+
+// until the review entries are read from the person's private index
+const NO_REVIEW: ReviewPort = Object.freeze({
+  openCount: () => createValue(0),
+  follow: () => () => {},
+});
+
+/**
+ * `person`'s services over `storage` and the person's sync, started here; `dispose` stops listening to other tabs,
+ * drops every open document's store and disposes the sync.
+ */
 export function createPersonServices(options: Options): PersonServices {
   const kept = createKept(options);
-  // until sync supplies the Library's index and the documents
-  const localDocuments = createLocalDocumentSource({
-    now: options.now,
-    shell: options.where.shell,
-  });
-  const library = createMemoryLibrary({
-    ids: options.randomId,
-    documents: localDocuments,
-    language: options.language,
-  });
-  const { settings, scripts } = createStores(options, kept, localDocuments);
+  const deviceId = readDeviceId(options.storage, options.randomId);
+  // the protocol is loaded apart from the entry
+  const sync = Promise.all([
+    options.startSync(options.person, deviceId),
+    import("@manent/sync-protocol"),
+  ]).then(([s, { projectHome }]) => ({
+    ...s,
+    client: creatingScripts(s.client, projectHome),
+  }));
   const messages = createMessageQueue({
     now: options.now,
     schedule: options.schedule,
   });
+  const documents = createSyncDocumentSource({
+    sync,
+    review: NO_REVIEW,
+    titles: (docId) =>
+      library.documentTitle(docId).get() ?? LIBRARY_WORDS.untitledScript,
+    messages,
+    now: options.now,
+    schedule: options.schedule,
+    removedInfo: (docId) => options.api.removedDoc(docId),
+  });
+  // until sync supplies the Library's index
+  const library = createMemoryLibrary({
+    ids: options.randomId,
+    documents,
+    language: options.language,
+  });
+  const { settings, scripts } = createStores(
+    options,
+    { prefs: kept.prefs, device: kept.device, deviceId },
+    documents,
+  );
   const resolved = createResolved(kept.keys, options.where);
   const control = createEditorControl();
   const { commands, fillHandlers, stop } = createCommands(options, {
@@ -318,6 +372,7 @@ export function createPersonServices(options: Options): PersonServices {
         resolved,
         fixedKeys,
         navigate: (path) => options.router.navigate(path),
+        client: sync.then((s) => s.client),
       }),
     ),
     dispose() {
@@ -325,6 +380,7 @@ export function createPersonServices(options: Options): PersonServices {
       stop();
       kept.dispose();
       scripts.clear();
+      void sync.then((s) => s.dispose());
     },
   };
   fillHandlers(services);

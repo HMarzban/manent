@@ -9,8 +9,8 @@ import {
   createEditorMount,
 } from "../editor-host/editor-mount.ts";
 import type { OpenEditor } from "../editor-host/editor-mount.ts";
-import { createLocalSessions } from "../editor-host/editor-sessions.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
+import { createSyncSessions } from "../editor-host/sync-sessions.ts";
 import { createEditorKeyRun } from "../handlers/editor.ts";
 import type { EditorParts, Environment } from "./ports.ts";
 
@@ -45,11 +45,7 @@ export async function loadEditor(
       ? await import("../editor-host/test-hooks.ts")
       : null;
   parts.fixedKeys.set(EDITOR_FIXED_KEYS);
-  const sessions = createLocalSessions({
-    frames,
-    clock: timers,
-    ids: randomBlockId,
-  });
+  const sessions = createSyncSessions({ client: parts.client });
   const access = new Map<string, StatusFacts["access"]>();
   let current: OpenEditor | null = null;
   const target: unknown = Reflect.get(globalThis, "__manent");
