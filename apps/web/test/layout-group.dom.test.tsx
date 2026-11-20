@@ -153,10 +153,76 @@ test("Layout is absent without a caret or pages, and read-only for someone who c
     (b) => b.textContent === "Right",
   );
   act(() => right?.click());
-  expect([before, withoutPages, readOnly, viewer.ran]).toEqual([
+  const indent = field(viewer.el, "Indent");
+  act(() => indent.focus());
+  press(indent, "ArrowUp");
+  const stepped = indent.value;
+  press(indent, "Enter");
+  expect([before, withoutPages, readOnly, stepped, viewer.ran]).toEqual([
     0,
     0,
     [true, true, true],
+    "1.5 in",
+    [],
+  ]);
+});
+
+test("Indent, Width and Space before are number fields whose arrow keys step the value, committed on Enter", () => {
+  const group = drawGroup();
+  group.publish(IN_A_BLOCK);
+  const spoken = ["Indent", "Width", "Space before"].map((name) => {
+    const input = field(group.el, name);
+    return [
+      input.getAttribute("role"),
+      input.getAttribute("aria-valuenow"),
+      input.getAttribute("aria-valuetext"),
+    ];
+  });
+  const indent = field(group.el, "Indent");
+  act(() => indent.focus());
+  press(indent, "ArrowUp");
+  press(indent, "ArrowUp");
+  const stepped = [indent.value, indent.getAttribute("aria-valuenow")];
+  const before = [...group.ran];
+  press(indent, "Enter");
+  const space = field(group.el, "Space before");
+  act(() => space.focus());
+  press(space, "ArrowDown");
+  press(space, "ArrowDown");
+  act(() => space.blur());
+  expect([spoken, stepped, before, group.ran]).toEqual([
+    [
+      ["spinbutton", "1.5", "1.5 in"],
+      ["spinbutton", "3.5", "3.5 in"],
+      ["spinbutton", "1", "1 line"],
+    ],
+    ["1.7 in", "1.7"],
+    [],
+    [
+      { kind: "layout", indent: 17 },
+      { kind: "layout", spaceBefore: 0 },
+    ],
+  ]);
+});
+
+test("a field refuses text that is not a number in its own unit, and shows the block's value again", () => {
+  const group = drawGroup();
+  group.publish(IN_A_BLOCK);
+  const cases: readonly (readonly [string, string])[] = [
+    ["Indent", "2,5"],
+    ["Indent", "1.5in2"],
+    ["Width", "3 lines"],
+    ["Space before", "3 lines 7"],
+    ["Space before", "2 in"],
+  ];
+  for (const [name, text] of cases) {
+    const input = field(group.el, name);
+    act(() => input.focus());
+    typeInto(input, text);
+    press(input, "Enter");
+  }
+  expect([values(group.el), group.ran]).toEqual([
+    ["1.5 in", "3.5 in", "1 line"],
     [],
   ]);
 });

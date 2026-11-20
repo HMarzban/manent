@@ -70,14 +70,22 @@ function Scale(props: { columnCells: number; at(cell: number): number }) {
   });
 }
 
+/** A drag in progress: the marker, where the pointer pressed it, and the cell its edge stood on then. */
+interface Drag {
+  readonly marker: Marker;
+  readonly startX: number;
+  readonly startCell: number;
+}
+
 /**
- * A drag (pointer capture) moves only a guide line; when it ends the marker's cell commits, the indent clamped to the
- * column and the width to at least one cell inside it. Escape cancels a drag; a read-only ruler's markers do not move.
+ * A drag (pointer capture) moves only a guide line, by the cells the pointer has travelled since the press, so a press
+ * off the marker's centre moves nothing; when it ends that cell commits, the indent clamped to the column and the width
+ * to at least one cell inside it. Escape cancels a drag; a read-only ruler's markers do not move.
  */
 export function Ruler(props: RulerProps): ReactNode {
   const { columnCells, cellPx, originPx, indent, width, editable } = props;
   const root = useRef<HTMLDivElement>(null);
-  const dragging = useRef<Marker | null>(null);
+  const dragging = useRef<Drag | null>(null);
   const [guidePx, setGuidePx] = useState<number | null>(null);
   const active = guidePx !== null;
   const at = (cell: number): number => originPx + cell * cellPx;
@@ -96,10 +104,10 @@ export function Ruler(props: RulerProps): ReactNode {
       doc.removeEventListener("keydown", onKeyDown, { capture: true });
   }, [active]);
 
-  const layoutAt = (marker: Marker, event: PointerEvent): Layout => {
-    const barLeft = root.current?.getBoundingClientRect().left ?? 0;
-    const cell = Math.round((event.clientX - barLeft - originPx) / cellPx);
-    return dragged(marker, cell, props);
+  const layoutAt = (drag: Drag, event: PointerEvent): Layout => {
+    const cell =
+      drag.startCell + Math.round((event.clientX - drag.startX) / cellPx);
+    return dragged(drag.marker, cell, props);
   };
   const end = (): void => {
     dragging.current = null;
@@ -109,22 +117,25 @@ export function Ruler(props: RulerProps): ReactNode {
     onPointerDown(event: PointerEvent<HTMLElement>) {
       event.preventDefault();
       event.currentTarget.setPointerCapture(event.pointerId);
-      dragging.current = marker;
-      setGuidePx(at(edgeOf(marker, layoutAt(marker, event))));
+      const startCell = edgeOf(marker, { indent, width });
+      dragging.current = { marker, startX: event.clientX, startCell };
+      setGuidePx(at(startCell));
     },
     onPointerMove(event: PointerEvent) {
-      if (dragging.current !== marker) return;
-      setGuidePx(at(edgeOf(marker, layoutAt(marker, event))));
+      const drag = dragging.current;
+      if (drag?.marker !== marker) return;
+      setGuidePx(at(edgeOf(marker, layoutAt(drag, event))));
     },
     onPointerUp(event: PointerEvent) {
-      if (dragging.current !== marker) return;
+      const drag = dragging.current;
+      if (drag?.marker !== marker) return;
       end();
-      const change = layoutAt(marker, event);
+      const change = layoutAt(drag, event);
       if (change.indent !== indent || change.width !== width)
         props.onCommit(change);
     },
     onPointerCancel() {
-      if (dragging.current === marker) end();
+      if (dragging.current?.marker === marker) end();
     },
   });
 

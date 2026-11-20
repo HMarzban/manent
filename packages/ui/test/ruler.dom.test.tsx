@@ -169,3 +169,23 @@ test("Escape cancels a drag, and a read-only ruler does not move", () => {
   pointer(marker(readOnly, "indent"), "pointerup", 300);
   expect([cancelled, still, seen]).toEqual([null, null, []]);
 });
+
+test("a press and release off a marker's centre neither moves the guide nor commits", () => {
+  const seen: unknown[] = [];
+  // at half zoom a cell is 4.8 px, so a press 4 px right of the marker's centre lies nearer the next cell
+  const r = render(
+    <Ruler
+      columnCells={60}
+      cellPx={4.8}
+      originPx={148}
+      indent={10}
+      width={35}
+      editable
+      onCommit={(change) => seen.push(change)}
+    />,
+  );
+  drag(r, "indent", 196 + 4, 196 + 4, { release: false });
+  const pressed = guide(r);
+  pointer(marker(r, "indent"), "pointerup", 196 + 4);
+  expect([pressed, seen]).toEqual([196, []]);
+});
