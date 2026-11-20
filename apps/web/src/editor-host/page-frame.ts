@@ -39,29 +39,43 @@ function measure(docId: string): PageFrame | null {
   };
 }
 
-/** Calls `moved` after each resize of the editor's scroller and each horizontal scroll of it; returns the stop. */
+/**
+ * Calls `moved` after each resize of the editor's scroller, each horizontal scroll of it and each new paper or format,
+ * which rewrites the page profile's styles beside `.mn-pages` and can move the column without resizing the scroller;
+ * returns the stop.
+ */
 function watchScroller(docId: string, moved: () => void): () => void {
-  const scroller = liveEditor(docId)?.scaffold?.pages.closest(PAGE_REGION);
-  if (!(scroller instanceof HTMLElement)) return () => {};
+  const zoom = liveEditor(docId)?.scaffold?.pages.parentElement ?? null;
+  const scroller = zoom?.closest(PAGE_REGION);
+  if (zoom === null || !(scroller instanceof HTMLElement)) return () => {};
   let scrollLeft = scroller.scrollLeft;
   const onScroll = (): void => {
     if (scroller.scrollLeft === scrollLeft) return;
     scrollLeft = scroller.scrollLeft;
     moved();
   };
-  const observer = new ResizeObserver(moved);
-  observer.observe(scroller);
+  const resized = new ResizeObserver(moved);
+  resized.observe(scroller);
+  const restyled = new MutationObserver(moved);
+  // Firefox rewrites a style's text node in place, a change inside the subtree
+  for (const style of zoom.querySelectorAll(":scope > style"))
+    restyled.observe(style, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
   scroller.addEventListener("scroll", onScroll, { passive: true });
   return () => {
-    observer.disconnect();
+    resized.disconnect();
+    restyled.disconnect();
     scroller.removeEventListener("scroll", onScroll);
   };
 }
 
 /**
  * The text column of `docId`'s paged editor; null while none is open. It is read once per frame after the editor's
- * first frame, a resize of its scroller, a horizontal scroll and a zoom change, and only while someone listens: a
- * keystroke never moves the page sideways, so it reads nothing.
+ * first frame, a resize of its scroller, a horizontal scroll, a zoom change and a change of paper or format, and only
+ * while someone listens: a keystroke never moves the page sideways, so it reads nothing.
  */
 export function pageFrame(docId: string): Subscribable<PageFrame | null> {
   const value = createValue<PageFrame | null>(null, sameFrame);

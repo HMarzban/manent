@@ -1,6 +1,8 @@
 // The Ruler over the page and the Layout fields in Details: both change the caret block's own indent.
 import { BLOCK_SLACK_CELLS } from "@manent/pagination";
 import type { BlockJSON, DocJSON } from "@manent/schema";
+import { SETTINGS } from "@manent/settings";
+import type { SettingKey } from "@manent/settings";
 import { DOCUMENT_WORDS, EDITOR_WORDS, READOUT_WORDS } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
@@ -156,6 +158,32 @@ const markerCentres = async (page: Page): Promise<number[]> => [
   (await centreOf(page.locator("[data-marker='right']"))).x,
 ];
 
+/** The label the interface gives `value`, one choice of the setting `key`. */
+function choiceLabel(key: SettingKey, value: string): string {
+  const choice = SETTINGS.get(key).type.choices?.find((c) => c.value === value);
+  if (choice === undefined)
+    throw new RangeError(`no choice ${value} of ${key}`);
+  return choice.label;
+}
+
+/** Turns View ▾ → Ruler on and closes the menu, which a checkbox item leaves open. */
+async function showRuler(page: Page): Promise<void> {
+  await page.getByRole("button", { name: DOCUMENT_WORDS.viewMenu }).click();
+  await page
+    .getByRole("menuitemcheckbox", { name: labelOf("view.ruler") })
+    .click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(page.locator("[data-marker]")).toHaveCount(2);
+}
+
+/** Whether each marker sits over its edge of the caret block's text, within 1 px. */
+const aligned = async (caretBlock: Locator): Promise<boolean[]> => {
+  const edges = await edgesOf(caretBlock);
+  const [indent = NaN, right = NaN] = await markerCentres(caretBlock.page());
+  return [Math.abs(indent - edges.left) < 1, Math.abs(right - edges.right) < 1];
+};
+
 test("the Ruler shows the caret's block and dragging its marker changes that block's indent", async ({
   page,
 }) => {
@@ -163,35 +191,19 @@ test("the Ruler shows the caret's block and dragging its marker changes that blo
   const lineBefore = await caretBlock.evaluate(
     (b) => b.getBoundingClientRect().top,
   );
-  await page.getByRole("button", { name: DOCUMENT_WORDS.viewMenu }).click();
-  await page
-    .getByRole("menuitemcheckbox", { name: labelOf("view.ruler") })
-    .click();
-  // a checkbox item leaves its menu open
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("menu")).toHaveCount(0);
-  await expect(page.locator("[data-marker]")).toHaveCount(2);
+  await showRuler(page);
   const lineAfter = await caretBlock.evaluate(
     (b) => b.getBoundingClientRect().top,
   );
   expect(Math.abs(lineAfter - lineBefore)).toBeLessThan(1);
 
-  // whether each marker sits over its edge of the caret block's text, within 1 px
-  const aligned = async (): Promise<boolean[]> => {
-    const edges = await edgesOf(caretBlock);
-    const [indent = NaN, right = NaN] = await markerCentres(page);
-    return [
-      Math.abs(indent - edges.left) < 1,
-      Math.abs(right - edges.right) < 1,
-    ];
-  };
-  await expect.poll(aligned).toEqual([true, true]);
+  await expect.poll(() => aligned(caretBlock)).toEqual([true, true]);
   const narrowCellPx = (await edgesOf(caretBlock)).cellPx;
   await page.setViewportSize(WIDE);
   await expect
     .poll(async () => (await edgesOf(caretBlock)).cellPx)
     .toBeGreaterThan(narrowCellPx * 1.3);
-  await expect.poll(aligned).toEqual([true, true]);
+  await expect.poll(() => aligned(caretBlock)).toEqual([true, true]);
 
   const before = await indents(page);
   const { cellPx } = await edgesOf(caretBlock);
@@ -227,4 +239,35 @@ test("the same change is made from the keyboard in Details", async ({
   await expect
     .poll(() => indents(page))
     .toEqual(before.map((cells, at) => (at === CARET_BLOCK ? 25 : cells)));
+});
+
+test("the Ruler stays over the caret's block when the paper or the format moves its text", async ({
+  page,
+}) => {
+  const caretBlock = await writing(page);
+  await page
+    .getByRole("button", { name: READOUT_WORDS.page("1", 1), exact: true })
+    .click();
+  await showRuler(page);
+  await expect.poll(() => aligned(caretBlock)).toEqual([true, true]);
+
+  // under Fit width a narrower sheet is drawn larger, and Manuscript's margin is narrower than Screenplay's
+  const changes = [
+    { key: "script.paper", value: "a4", picked: "radio" },
+    { key: "script.format", value: "manuscript", picked: "option" },
+  ] as const;
+  for (const { key, value, picked } of changes) {
+    const { left } = await edgesOf(caretBlock);
+    if (picked === "option")
+      await page
+        .getByRole("combobox", { name: SETTINGS.get(key).label, exact: true })
+        .click();
+    await page
+      .getByRole(picked, { name: choiceLabel(key, value), exact: true })
+      .click();
+    await expect
+      .poll(async () => (await edgesOf(caretBlock)).left)
+      .not.toBe(left);
+    await expect.poll(() => aligned(caretBlock)).toEqual([true, true]);
+  }
 });
