@@ -5,6 +5,7 @@ import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createApi } from "./api.ts";
+import { registerServiceWorker } from "./boot/register-sw.ts";
 import { readNavigator } from "./platform.ts";
 import { createAppRouter } from "./router.tsx";
 import { EnvironmentProvider } from "./services/context.tsx";
@@ -30,11 +31,15 @@ const startedAt = markStart();
 const root = document.getElementById("root");
 if (root === null) throw new Error("the page has no #root element");
 
-// the real frame has replaced the static one once the first render has taken it out of #root
+// the real frame has replaced the static one once the first render has taken it out of #root;
+// the service worker registers only then, so its precaching never delays the first frame
 const staticFrame = new MutationObserver(() => {
   if (root.querySelector(":scope > .mn-static-frame") !== null) return;
   markEnd("app.frame", startedAt);
   staticFrame.disconnect();
+  registerServiceWorker({
+    container: "serviceWorker" in navigator ? navigator.serviceWorker : null,
+  });
 });
 staticFrame.observe(root, { childList: true });
 

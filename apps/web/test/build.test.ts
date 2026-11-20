@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { createTempTrees } from "@manent/testkit";
 import { buildWeb } from "../build.ts";
 import { BOOT_SCRIPT } from "../src/boot/boot-script.ts";
@@ -125,4 +125,27 @@ test("first-load JavaScript is at most 350 KB gzip", async () => {
   expect({ chunk: "first load", kb, limit: 350 }).toEqual(
     withinBudget("first load", kb, 350),
   );
+}, 60_000);
+
+test("the build writes a service worker holding the whole shell, fonts included", async () => {
+  const outDir = await trees.tree({});
+  const built = await buildWeb({ outDir, flavour: "production" });
+  if (!built.ok) throw new TypeError(built.logs.join("\n"));
+  const sw = await Bun.file(join(outDir, "sw.js")).text();
+  for (const file of built.files.filter(
+    (f) => new RegExp("\\.(html|js|css|woff2?)$").test(f) && f !== "sw.js",
+  ))
+    expect(sw).toContain(JSON.stringify(`/${basename(file)}`));
+  const css = built.files.filter((f) => f.endsWith(".css"));
+  expect(css.length).toBe(1);
+  // the build inlines the stylesheet's fonts
+  expect(await Bun.file(join(outDir, css[0]!)).text()).toContain(
+    "data:font/woff2",
+  );
+  expect(sw).not.toContain('"/api/');
+  // the library stays in the worker
+  for (const file of built.files.filter(
+    (f) => f.endsWith(".js") && !f.endsWith("sw.js"),
+  ))
+    expect(await Bun.file(join(outDir, file)).text()).not.toContain("Serwist");
 }, 60_000);
