@@ -3,6 +3,7 @@ import {
   DEFAULT_BLOCK_ATTRS,
   SECTION_TARGET_BLOCKS,
   attrsForSplitTail,
+  isBlockId,
   parseDoc,
   schema,
 } from "@manent/schema";
@@ -18,12 +19,20 @@ function attrsOf(block: Node): BlockAttrs {
   return { ...DEFAULT_BLOCK_ATTRS, ...block.attrs };
 }
 
-/** The blocks as this build reads them, each given a new id. Throws a RangeError when one is malformed. */
-function freshBlocks(blocks: readonly BlockJSON[], ids: IdSource): Node[] {
-  const content = blocks.map((block) => ({
-    ...block,
-    attrs: { ...block.attrs, id: ids() },
-  }));
+/**
+ * The blocks as this build reads them, each given a new id, or with `keep` its own when it is a valid one.
+ * Throws a RangeError when one is malformed.
+ */
+function freshBlocks(
+  blocks: readonly BlockJSON[],
+  ids: IdSource,
+  keep: boolean,
+): Node[] {
+  const content = blocks.map((block) => {
+    const own = block.attrs?.id;
+    const id = keep && isBlockId(own) ? own : ids();
+    return { ...block, attrs: { ...block.attrs, id } };
+  });
   const nodes: Node[] = [];
   parseDoc({ type: "doc", content: [{ type: "section", content }] })
     .child(0)
@@ -67,17 +76,19 @@ function placeAfter(
  * first block's element, kind and text, and the rest follow it in its section.
  * At a block's start the blocks go before it in its section, at its end after
  * it, and in its middle between its two halves as Enter splits them, in its
- * section. The caret ends at the end of the last inserted block.
+ * section. The caret ends at the end of the last inserted block. With `keepIds`
+ * each block keeps a valid id of its own (a cut moved back in).
  */
 export function insertBlocks(
   tr: Transaction,
   blocks: readonly BlockJSON[],
   ids: IdSource,
+  options?: { keepIds?: boolean },
 ): Transaction {
   if (!tr.selection.empty)
     deleteRangeKeepingSections(tr, tr.selection.from, tr.selection.to);
   if (blocks.length === 0) return tr;
-  const nodes = freshBlocks(blocks, ids);
+  const nodes = freshBlocks(blocks, ids, options?.keepIds === true);
   const $caret = tr.selection.$from;
   const block = $caret.parent;
   if (block.content.size === 0) {

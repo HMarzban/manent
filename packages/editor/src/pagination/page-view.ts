@@ -80,17 +80,22 @@ function sanitizedSlice(slice: Slice): Slice {
 }
 
 /**
- * The page's frame in `place` and an editor of `doc` inside it, with the typesetting plugins and then
+ * The page's frame in `place` and an editor of `doc` inside it, with `before`, the typesetting plugins and then
  * `plugins`. The script font starts loading at once; the page is shown when it has loaded or the wait ends.
+ * `spelling` says whether the person wants spelling checked; above SPELLCHECK_MAX_BLOCKS blocks it never is.
  */
 export function mountPageView(
   options: TypesettingOptions & {
     place: HTMLElement;
     doc: Node;
     plugins?: readonly Plugin[];
+    readonly before?: readonly Plugin[];
+    readonly dispatchTransaction?: (view: EditorView, tr: Transaction) => void;
+    readonly editable?: () => boolean;
+    readonly spelling?: () => boolean;
   },
 ): { view: EditorView; scaffold: PageScaffold; destroy(): void } {
-  const { ports } = options;
+  const { ports, dispatchTransaction, spelling } = options;
   const engine = options.engine ?? detectEngine(ports.userAgent);
   const scaffold = createPageScaffold({
     place: options.place,
@@ -119,14 +124,22 @@ export function mountPageView(
   const view = new EditorView(scaffold.pages, {
     state: EditorState.create({
       doc: options.doc,
-      plugins: [...plugins, ...(options.plugins ?? [])],
+      plugins: [
+        ...(options.before ?? []),
+        ...plugins,
+        ...(options.plugins ?? []),
+      ],
     }),
+    dispatchTransaction:
+      dispatchTransaction && ((tr) => dispatchTransaction(view, tr)),
+    editable: options.editable,
     // every state of this view holds the typesetting plugins, the pagination plugin among them
     attributes: (state) => ({
       class: PAGE_VIEW_CLASS,
-      spellcheck: spellcheckFor(
-        paginationKey.getState(state)!.index.blocks.length,
-      ),
+      spellcheck:
+        spelling?.() === false
+          ? "false"
+          : spellcheckFor(paginationKey.getState(state)!.index.blocks.length),
     }),
     nodeViews: { section: sectionNodeView(engine) },
     transformPasted: sanitizedSlice,
