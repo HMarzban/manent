@@ -411,6 +411,24 @@ test("every shared line is filled with each film's own people and places, and no
   expect(alike).toEqual([]);
 });
 
+test("a line anyone may say, and every tag, names no one in the slate's cast", () => {
+  const names = new Set(
+    SLATE_GUIDES.flatMap((guide) =>
+      guide.cast.flatMap((member) => member.name.split(" ")),
+    ),
+  );
+  expect(
+    SLATE_GUIDES.flatMap((guide) => [
+      ...guide.dialogue
+        .filter((line) => line.speaker === null)
+        .map((line) => line.text),
+      ...guide.tags,
+    ]).filter((text) =>
+      text.split(/[^\p{L}]+/u).some((word) => names.has(word)),
+    ),
+  ).toEqual([]);
+});
+
 test("every question has an answer to match, and a quarter of the lines suit anyone", () => {
   const ratios = SLATE_GUIDES.map(({ dialogue }) => ({
     asks: dialogue.filter((line) => line.intent === "ask").length,

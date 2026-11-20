@@ -26,7 +26,7 @@ interface Film {
   beats: readonly Omit<Beat, "id">[];
 }
 
-/** `speaker` 0 is the line's `{cast:0}`; null is any of the beat's cast. */
+/** `speaker` 0 is the line's `{cast:0}`; null is any of the beat's cast, so such a line names only a place. */
 interface SharedLine {
   speaker: 0 | null;
   intent: LineIntent;
@@ -68,7 +68,7 @@ const FILMS: readonly Film[] = [
       { heading: "EXT. GLASS ORCHARD", spoken: "the glass orchard" },
       { heading: "INT. GUILD HALL", spoken: "the Guild Hall" },
       { heading: "INT. GLASSWORKS - FURNACE ROOM", spoken: "the furnace room" },
-      { heading: "INT. ASHBY HOUSE - KITCHEN", spoken: "Maud's kitchen" },
+      { heading: "INT. ASHBY HOUSE - KITCHEN", spoken: "the back kitchen" },
     ],
     names: ["Lantern"],
     beats: [
@@ -306,7 +306,7 @@ const FILMS: readonly Film[] = [
       { heading: "EXT. CARROW HEIGHT - GATE", spoken: "the Carrow gate" },
       {
         heading: "INT. PROVOST'S HOUSE - STUDY",
-        spoken: "the Provost's study",
+        spoken: "the study",
       },
       { heading: "INT. FOUNDING - CASTING FLOOR", spoken: "the casting floor" },
       { heading: "INT. BELL CHAMBER", spoken: "the bell chamber" },
@@ -388,7 +388,7 @@ const FILMS: readonly Film[] = [
     places: [
       {
         heading: "INT. LORRIMER STATIONERY - BACK ROOM",
-        spoken: "Abel's back room",
+        spoken: "the stationer's back room",
       },
       { heading: "EXT. CITY ROOFTOPS", spoken: "the rooftops" },
       { heading: "INT. TOWN HALL", spoken: "the town hall" },
@@ -563,7 +563,7 @@ const FILMS: readonly Film[] = [
       { heading: "EXT. OBSERVATORY - CAR PARK", spoken: "the car park" },
       {
         heading: "INT. UNIVERSITY - TILLY'S OFFICE",
-        spoken: "Professor Tilly's office",
+        spoken: "the professor's office",
       },
     ],
     names: [],
@@ -721,7 +721,7 @@ const FILMS: readonly Film[] = [
     ],
     places: [
       { heading: "INT. ALLOTMENT SHED", spoken: "the allotment shed" },
-      { heading: "INT. WALTER'S GARAGE", spoken: "Walter's garage" },
+      { heading: "INT. WALTER'S GARAGE", spoken: "the garage" },
       { heading: "INT. BRIDGE OFFICE", spoken: "the bridge office" },
       { heading: "EXT. RIVERSIDE - TOWPATH", spoken: "the towpath" },
       { heading: "EXT. IRON BRIDGE", spoken: "the iron bridge" },
@@ -1044,7 +1044,7 @@ const FILMS: readonly Film[] = [
     places: [
       {
         heading: "INT. AUDIT FIRM - HAMNETT'S OFFICE",
-        spoken: "Mr. Hamnett's office",
+        spoken: "the senior partner's office",
       },
       {
         heading: "INT. HONEY CO-OPERATIVE - OFFICE",
@@ -1130,9 +1130,9 @@ const FILMS: readonly Film[] = [
       { heading: "INT. ROSSITER HALL - STAGE", spoken: "the Rossiter stage" },
       {
         heading: "INT. ROSSITER HALL - DRESSING ROOM",
-        spoken: "Teddy's dressing room",
+        spoken: "the Rossiter dressing room",
       },
-      { heading: "INT. BOARDING HOUSE - RUBY'S ROOM", spoken: "Ruby's room" },
+      { heading: "INT. BOARDING HOUSE - RUBY'S ROOM", spoken: "the lodgings" },
       {
         heading: "INT. POLICE STATION - CORRIDOR",
         spoken: "the police corridor",
@@ -1383,7 +1383,7 @@ const FILMS: readonly Film[] = [
     places: [
       { heading: "INT. RESCUE POST", spoken: "the rescue post" },
       { heading: "EXT. RIDGE - ABOVE THE SNOWLINE", spoken: "the ridge" },
-      { heading: "INT. AILSA'S HOUSE - KITCHEN", spoken: "Ailsa's kitchen" },
+      { heading: "INT. AILSA'S HOUSE - KITCHEN", spoken: "the croft kitchen" },
       { heading: "EXT. BOTHY", spoken: "the bothy" },
       { heading: "EXT. SCREE SLOPE", spoken: "the scree slope" },
     ],
@@ -1457,7 +1457,7 @@ const FILMS: readonly Film[] = [
     ],
     places: [
       { heading: "INT. SHIPPING OFFICE", spoken: "the shipping office" },
-      { heading: "INT. MORTIMER'S FLAT", spoken: "Mortimer's flat" },
+      { heading: "INT. MORTIMER'S FLAT", spoken: "the top-floor flat" },
       { heading: "EXT. ROOFTOP LOFT", spoken: "the pigeon loft" },
       { heading: "INT. IRIS'S FLAT", spoken: "the flat across the street" },
     ],
@@ -1615,7 +1615,7 @@ const FILMS: readonly Film[] = [
       { heading: "INT. AMUSEMENT ARCADE", spoken: "the arcade" },
       {
         heading: "INT. MRS. TRELOAR'S PARLOUR",
-        spoken: "Mrs. Treloar's parlour",
+        spoken: "the front parlour",
       },
       { heading: "EXT. SLIPWAY", spoken: "the slipway" },
     ],
@@ -1874,7 +1874,7 @@ const FILMS: readonly Film[] = [
       { heading: "INT. JAGO COTTAGE - TIDE ROOM", spoken: "the tide room" },
       {
         heading: "INT. PASCOE COTTAGE - KITCHEN",
-        spoken: "the Pascoe kitchen",
+        spoken: "the quayside kitchen",
       },
       {
         heading: "INT. HARBOUR MASTER'S OFFICE",
@@ -2040,7 +2040,7 @@ const FILMS: readonly Film[] = [
         heading: "INT. THEATRE MUSEUM - STORE ROOM",
         spoken: "the museum store room",
       },
-      { heading: "INT. DIGS - MARNIE'S ROOM", spoken: "Marnie's digs" },
+      { heading: "INT. DIGS - MARNIE'S ROOM", spoken: "the digs" },
     ],
     names: [],
     beats: [
@@ -2220,7 +2220,7 @@ const FILMS: readonly Film[] = [
         heading: "INT. CITY ARCHIVE - READING ROOM",
         spoken: "the archive reading room",
       },
-      { heading: "INT. MARJORIE'S BUNGALOW", spoken: "Marjorie's bungalow" },
+      { heading: "INT. MARJORIE'S BUNGALOW", spoken: "the bungalow" },
       { heading: "INT. REGISTER OFFICE", spoken: "the register office" },
       { heading: "INT. CARE HOME - DAY ROOM", spoken: "the day room" },
     ],
@@ -2301,7 +2301,7 @@ const FILMS: readonly Film[] = [
       },
       { heading: "INT. GLASS STUDIO - FURNACE", spoken: "the studio furnace" },
       { heading: "EXT. GLASS STUDIO - YARD", spoken: "the studio yard" },
-      { heading: "INT. MAGDA'S FLAT", spoken: "Magda's flat" },
+      { heading: "INT. MAGDA'S FLAT", spoken: "the flat above the studio" },
     ],
     names: [],
     beats: [
@@ -2676,70 +2676,102 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "ask",
-    text: "Has anyone seen {cast:1} since this morning?",
+    text: "Has anyone been down to {place} since this morning?",
   },
   { speaker: 0, intent: "ask", text: "Is that the time already, {cast:1}?" },
   { speaker: 0, intent: "ask", text: "Why is the door of {place} open?" },
-  { speaker: null, intent: "ask", text: "Who told {cast:0} we were here?" },
+  {
+    speaker: null,
+    intent: "ask",
+    text: "Who left a light burning at {place}?",
+  },
   { speaker: 0, intent: "ask", text: "{cast:1}, can you hear that?" },
   { speaker: 0, intent: "ask", text: "What did you say to {cast:1}?" },
-  { speaker: null, intent: "ask", text: "How long has {cast:1} been waiting?" },
+  {
+    speaker: null,
+    intent: "ask",
+    text: "How long have we been waiting at {place}?",
+  },
   { speaker: 0, intent: "ask", text: "Did you lock up {place} last night?" },
   {
     speaker: 0,
     intent: "ask",
     text: "{cast:1}, are you going to finish that?",
   },
-  { speaker: null, intent: "ask", text: "Does {cast:0} know yet?" },
+  {
+    speaker: null,
+    intent: "ask",
+    text: "Does anybody know the way back from {place}?",
+  },
   { speaker: 0, intent: "ask", text: "When did you last sleep, {cast:1}?" },
   { speaker: 0, intent: "ask", text: "Is there any tea left in {place}?" },
-  { speaker: null, intent: "ask", text: "Who is going to tell {cast:1}?" },
+  { speaker: null, intent: "ask", text: "Who is going to sweep out {place}?" },
   { speaker: 0, intent: "ask", text: "{cast:1}, what are you looking at?" },
   { speaker: 0, intent: "ask", text: "Have you been in {place} all night?" },
-  { speaker: null, intent: "ask", text: "Can {cast:1} be trusted with this?" },
+  {
+    speaker: null,
+    intent: "ask",
+    text: "Is it safe to cross {place} after dark?",
+  },
   { speaker: 0, intent: "ask", text: "Are you cold, {cast:1}?" },
   { speaker: 0, intent: "ask", text: "Whose coat is this, {cast:1}?" },
-  { speaker: null, intent: "ask", text: "What would {cast:0} do?" },
+  {
+    speaker: null,
+    intent: "ask",
+    text: "What would anyone want with {place}?",
+  },
   { speaker: 0, intent: "ask", text: "Why are we whispering in {place}?" },
   {
     speaker: 0,
     intent: "ask",
     text: "{cast:1}, do you want the good news first?",
   },
-  { speaker: null, intent: "ask", text: "Did {cast:1} say when?" },
+  { speaker: null, intent: "ask", text: "Did they say when {place} opens?" },
   { speaker: 0, intent: "ask", text: "How did you get into {place}?" },
   {
     speaker: 0,
     intent: "ask",
     text: "Will you be all right on your own, {cast:1}?",
   },
-  { speaker: null, intent: "ask", text: "Is {cast:1} coming or not?" },
+  { speaker: null, intent: "ask", text: "Are we going to {place} or not?" },
   { speaker: 0, intent: "ask", text: "What time do they close {place}?" },
   { speaker: 0, intent: "ask", text: "{cast:1}, where were you?" },
-  { speaker: null, intent: "ask", text: "Has {cast:0} said sorry yet?" },
+  {
+    speaker: null,
+    intent: "ask",
+    text: "Has anyone thought to look round {place}?",
+  },
   { speaker: 0, intent: "ask", text: "Do you trust me, {cast:1}?" },
   { speaker: 0, intent: "ask", text: "Who else knows about {place}?" },
   {
     speaker: null,
     intent: "ask",
-    text: "Why does {cast:1} always get the window seat?",
+    text: "Why does everybody end up at {place}?",
   },
   { speaker: 0, intent: "ask", text: "Can you carry the other end, {cast:1}?" },
   { speaker: 0, intent: "ask", text: "Is it always this quiet in {place}?" },
-  { speaker: null, intent: "ask", text: "What did {cast:0} want?" },
+  { speaker: null, intent: "ask", text: "What was that noise from {place}?" },
   { speaker: 0, intent: "ask", text: "{cast:1}, have you got a pen?" },
   { speaker: 0, intent: "ask", text: "How much do we owe {cast:1}?" },
   {
     speaker: null,
     intent: "ask",
-    text: "Where does {cast:1} think we're going?",
+    text: "Where do we go after {place}?",
   },
   { speaker: 0, intent: "ask", text: "Did you hear the forecast, {cast:1}?" },
   { speaker: 0, intent: "ask", text: "Who left the lights on in {place}?" },
-  { speaker: null, intent: "ask", text: "Will {cast:1} be all right?" },
+  {
+    speaker: null,
+    intent: "ask",
+    text: "Will {place} still be there in the morning?",
+  },
   { speaker: 0, intent: "ask", text: "{cast:1}, what are we doing here?" },
   { speaker: 0, intent: "ask", text: "Is this yours, {cast:1}?" },
-  { speaker: null, intent: "ask", text: "When is {cast:0} back?" },
+  {
+    speaker: null,
+    intent: "ask",
+    text: "When did we last have a quiet hour at {place}?",
+  },
   {
     speaker: 0,
     intent: "ask",
@@ -2749,14 +2781,22 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "ask",
-    text: "Does anyone know where {cast:1} keeps the spare?",
+    text: "Does anyone know where the spare key to {place} is kept?",
   },
   { speaker: 0, intent: "ask", text: "{cast:1}, why didn't you tell me?" },
   { speaker: 0, intent: "ask", text: "Are we expected at {place}?" },
-  { speaker: null, intent: "ask", text: "Who taught {cast:0} that?" },
+  {
+    speaker: null,
+    intent: "ask",
+    text: "Who found {place} in the first place?",
+  },
   { speaker: 0, intent: "ask", text: "Are you laughing at me, {cast:1}?" },
   { speaker: 0, intent: "ask", text: "How far is it to {place} from here?" },
-  { speaker: null, intent: "ask", text: "Is that {cast:1} at the door?" },
+  {
+    speaker: null,
+    intent: "ask",
+    text: "Is that someone at {place}, or just the wind?",
+  },
   {
     speaker: 0,
     intent: "ask",
@@ -2767,33 +2807,49 @@ const DIALOGUE: readonly SharedLine[] = [
     intent: "ask",
     text: "Could we talk somewhere other than {place}?",
   },
-  { speaker: null, intent: "ask", text: "What has {cast:1} done now?" },
+  { speaker: null, intent: "ask", text: "What has happened at {place} now?" },
   { speaker: 0, intent: "ask", text: "Is it true, {cast:1}?" },
   { speaker: 0, intent: "ask", text: "Why would anyone put {place} up here?" },
-  { speaker: null, intent: "ask", text: "Did {cast:0} sign it?" },
+  {
+    speaker: null,
+    intent: "ask",
+    text: "Did anyone sign for the boxes at {place}?",
+  },
   { speaker: 0, intent: "ask", text: "{cast:1}, is this a good idea?" },
   { speaker: 0, intent: "ask", text: "Who's paying for all this, {cast:1}?" },
-  { speaker: null, intent: "ask", text: "Do we wait for {cast:1}?" },
+  { speaker: null, intent: "ask", text: "Do we wait at {place}, or go on?" },
   { speaker: 0, intent: "ask", text: "What happened in {place}?" },
   { speaker: 0, intent: "ask", text: "Will you come with me, {cast:1}?" },
   {
     speaker: null,
     intent: "ask",
-    text: "Has {cast:1} ever been wrong about this?",
+    text: "Has {place} ever let us down before?",
   },
   { speaker: 0, intent: "ask", text: "{cast:1}, what's that noise?" },
   { speaker: 0, intent: "ask", text: "Can I see {place} before we go?" },
-  { speaker: null, intent: "ask", text: "How does {cast:0} put up with it?" },
+  {
+    speaker: null,
+    intent: "ask",
+    text: "How does anybody work at {place} with all that noise?",
+  },
   {
     speaker: 0,
     intent: "ask",
     text: "Is anybody ever going to fix the step at {place}?",
   },
   { speaker: 0, intent: "ask", text: "Did you mean it, {cast:1}?" },
-  { speaker: null, intent: "ask", text: "Why is {cast:1} smiling?" },
+  {
+    speaker: null,
+    intent: "ask",
+    text: "Why is everyone so cheerful about {place}?",
+  },
   { speaker: 0, intent: "ask", text: "{cast:1}, what would you do?" },
   { speaker: 0, intent: "ask", text: "Are you staying the night at {place}?" },
-  { speaker: null, intent: "ask", text: "What is {cast:1} going to say?" },
+  {
+    speaker: null,
+    intent: "ask",
+    text: "What are we going to say when we get to {place}?",
+  },
   { speaker: 0, intent: "answer", text: "Not yet, {cast:1}. Give it an hour." },
   {
     speaker: 0,
@@ -2803,11 +2859,15 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "No, and {cast:1} would have said.",
+    text: "No, and nobody's been near {place} either.",
   },
   { speaker: 0, intent: "answer", text: "Since first light, {cast:1}." },
   { speaker: 0, intent: "answer", text: "Yes, I locked {place} myself." },
-  { speaker: null, intent: "answer", text: "{cast:0} told me, more or less." },
+  {
+    speaker: null,
+    intent: "answer",
+    text: "Someone from {place} told me, more or less.",
+  },
   { speaker: 0, intent: "answer", text: "Only the wind, {cast:1}." },
   {
     speaker: 0,
@@ -2817,7 +2877,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "Long enough for {cast:1} to get cross.",
+    text: "Long enough to know {place} by heart.",
   },
   {
     speaker: 0,
@@ -2832,7 +2892,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "{cast:0} knows. {cast:0} always knows.",
+    text: "We know the way. We always find {place} in the end.",
   },
   {
     speaker: 0,
@@ -2847,7 +2907,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "I'll tell {cast:1}. It ought to be me.",
+    text: "I'll sweep out {place}. It ought to be me.",
   },
   { speaker: 0, intent: "answer", text: "The road, {cast:1}. Just the road." },
   {
@@ -2858,7 +2918,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "{cast:1} can. I'd stake the house on it.",
+    text: "It's safe. I'd stake the house on {place}.",
   },
   {
     speaker: 0,
@@ -2869,7 +2929,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "{cast:0} would have done it already.",
+    text: "Nobody sensible would go near {place} at this hour.",
   },
   {
     speaker: 0,
@@ -2884,7 +2944,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "Tonight, {cast:1} said. Or tomorrow.",
+    text: "Tonight, they said, when {place} opens. Or tomorrow.",
   },
   {
     speaker: 0,
@@ -2895,7 +2955,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "{cast:1} is coming. Slowly, but coming.",
+    text: "We're going to {place}. Slowly, but going.",
   },
   {
     speaker: 0,
@@ -2906,7 +2966,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "Not in so many words, but {cast:0} meant it.",
+    text: "Not in so many words, but {place} has been on everyone's mind.",
   },
   {
     speaker: 0,
@@ -2917,7 +2977,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "Because {cast:1} gets there first.",
+    text: "Because {place} is the only warm spot for miles.",
   },
   {
     speaker: 0,
@@ -2932,14 +2992,14 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "{cast:0} wanted to say thank you, I think.",
+    text: "Something from {place}, I think. It's stopped now.",
   },
   { speaker: 0, intent: "answer", text: "Here, {cast:1}. Bring it back." },
   { speaker: 0, intent: "answer", text: "More than we've got, {cast:1}." },
   {
     speaker: null,
     intent: "answer",
-    text: "{cast:1} thinks we're going home.",
+    text: "After {place}, we go home.",
   },
   {
     speaker: 0,
@@ -2954,7 +3014,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "{cast:1} will be fine. {cast:1} always is.",
+    text: "It'll be there. Nothing ever moves {place}.",
   },
   {
     speaker: 0,
@@ -2965,7 +3025,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "{cast:0} said Thursday, but that means Friday.",
+    text: "They said Thursday for {place}, but that means Friday.",
   },
   {
     speaker: 0,
@@ -2980,7 +3040,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "Under the mat. {cast:1} keeps everything under the mat.",
+    text: "Under the mat at {place}, where it always is.",
   },
   {
     speaker: 0,
@@ -2995,7 +3055,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "Nobody taught {cast:0}. It just happened.",
+    text: "Nobody found {place}. It found us.",
   },
   { speaker: 0, intent: "answer", text: "With you, {cast:1}, never at you." },
   {
@@ -3006,7 +3066,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "It's {cast:1}. I'd know that knock anywhere.",
+    text: "It's only the wind. It always blows like that at {place}.",
   },
   { speaker: 0, intent: "answer", text: "Every minute of it, {cast:1}." },
   {
@@ -3014,7 +3074,11 @@ const DIALOGUE: readonly SharedLine[] = [
     intent: "answer",
     text: "Anywhere you like. The walls in {place} have ears.",
   },
-  { speaker: null, intent: "answer", text: "Nothing yet. Give {cast:1} time." },
+  {
+    speaker: null,
+    intent: "answer",
+    text: "Nothing yet. We'll know more at {place}.",
+  },
   { speaker: 0, intent: "answer", text: "Every word of it, {cast:1}." },
   {
     speaker: 0,
@@ -3024,7 +3088,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "{cast:0} signed it this morning, in ink.",
+    text: "I signed this morning, at {place}, in ink.",
   },
   {
     speaker: 0,
@@ -3039,7 +3103,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "We wait. {cast:1} would wait for us.",
+    text: "We wait. Someone will come to {place} for us.",
   },
   {
     speaker: 0,
@@ -3054,14 +3118,14 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "Once. {cast:1} still talks about it.",
+    text: "Once. People at {place} still talk about it.",
   },
   { speaker: 0, intent: "answer", text: "The pipes, {cast:1}. They do that." },
   { speaker: 0, intent: "answer", text: "You can see {place} on the way out." },
   {
     speaker: null,
     intent: "answer",
-    text: "{cast:0} doesn't. {cast:0} just stays.",
+    text: "You stop hearing it after a week at {place}.",
   },
   {
     speaker: 0,
@@ -3072,7 +3136,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "{cast:1} always smiles when it's going badly.",
+    text: "Everyone smiles at {place} when it's going badly.",
   },
   {
     speaker: 0,
@@ -3083,7 +3147,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "{cast:1} will say no, and then yes.",
+    text: "We say we got lost on the way to {place}, and then we say sorry.",
   },
   { speaker: 0, intent: "answer", text: "Yes, {cast:1}. I checked twice." },
   {
@@ -3094,7 +3158,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "answer",
-    text: "{cast:0} said to wait, so we wait.",
+    text: "We were told to wait at {place}, so we wait.",
   },
   { speaker: 0, intent: "answer", text: "Ask me tomorrow, {cast:1}." },
   { speaker: 0, intent: "answer", text: "Right where you left it, {cast:1}." },
@@ -3111,7 +3175,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "instruct",
-    text: "Go and find {cast:1}. Now, please.",
+    text: "Go and look round {place}. Now, please.",
   },
   {
     speaker: 0,
@@ -3123,37 +3187,49 @@ const DIALOGUE: readonly SharedLine[] = [
     intent: "instruct",
     text: "{cast:1}, stop talking and listen.",
   },
-  { speaker: null, intent: "instruct", text: "Tell {cast:0} we'll be late." },
+  {
+    speaker: null,
+    intent: "instruct",
+    text: "Tell them we'll be late to {place}.",
+  },
   { speaker: 0, intent: "instruct", text: "Put the kettle on, {cast:1}." },
   { speaker: 0, intent: "instruct", text: "Keep your voice down in {place}." },
-  { speaker: null, intent: "instruct", text: "Let {cast:1} finish." },
+  { speaker: null, intent: "instruct", text: "Let's finish at {place} first." },
   { speaker: 0, intent: "instruct", text: "{cast:1}, take the other end." },
   { speaker: 0, intent: "instruct", text: "Wait for me at {place}." },
-  { speaker: null, intent: "instruct", text: "Give {cast:0} the keys." },
+  { speaker: null, intent: "instruct", text: "Leave the keys at {place}." },
   { speaker: 0, intent: "instruct", text: "Take a slow breath, {cast:1}." },
   {
     speaker: 0,
     intent: "instruct",
     text: "Clear the table in {place}, would you?",
   },
-  { speaker: null, intent: "instruct", text: "Don't tell {cast:1} I said so." },
+  {
+    speaker: null,
+    intent: "instruct",
+    text: "Don't say a word about {place}.",
+  },
   { speaker: 0, intent: "instruct", text: "{cast:1}, write this down." },
   { speaker: 0, intent: "instruct", text: "Meet me outside {place} at six." },
-  { speaker: null, intent: "instruct", text: "Leave {cast:1} out of this." },
+  { speaker: null, intent: "instruct", text: "Don't drag {place} into this." },
   { speaker: 0, intent: "instruct", text: "Look at me, {cast:1}." },
   {
     speaker: 0,
     intent: "instruct",
     text: "Bring a torch. There are no lights in {place}.",
   },
-  { speaker: null, intent: "instruct", text: "Ask {cast:0}. Don't ask me." },
+  { speaker: null, intent: "instruct", text: "Ask at {place}. Don't ask me." },
   {
     speaker: 0,
     intent: "instruct",
     text: "{cast:1}, go home and get some sleep.",
   },
   { speaker: 0, intent: "instruct", text: "Lock {place} up when you leave." },
-  { speaker: null, intent: "instruct", text: "Help {cast:1} with the boxes." },
+  {
+    speaker: null,
+    intent: "instruct",
+    text: "Help me carry the boxes to {place}.",
+  },
   {
     speaker: 0,
     intent: "instruct",
@@ -3163,11 +3239,11 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "instruct",
-    text: "Ring {cast:1} and say it's off.",
+    text: "Send word to {place} and say it's off.",
   },
   { speaker: 0, intent: "instruct", text: "{cast:1}, give me your hand." },
   { speaker: 0, intent: "instruct", text: "Walk with me as far as {place}." },
-  { speaker: null, intent: "instruct", text: "Get {cast:0} a chair." },
+  { speaker: null, intent: "instruct", text: "Fetch a chair from {place}." },
   {
     speaker: 0,
     intent: "instruct",
@@ -3178,31 +3254,47 @@ const DIALOGUE: readonly SharedLine[] = [
     intent: "instruct",
     text: "Open the windows in {place}. It's stifling.",
   },
-  { speaker: null, intent: "instruct", text: "Wake {cast:1}. Gently." },
+  {
+    speaker: null,
+    intent: "instruct",
+    text: "Wake everyone at {place}. Gently.",
+  },
   { speaker: 0, intent: "instruct", text: "{cast:1}, eat something first." },
   {
     speaker: 0,
     intent: "instruct",
     text: "Sweep {place} before they get here.",
   },
-  { speaker: null, intent: "instruct", text: "Show {cast:0} the way out." },
+  {
+    speaker: null,
+    intent: "instruct",
+    text: "Show them the way out of {place}.",
+  },
   { speaker: 0, intent: "instruct", text: "Leave it with me, {cast:1}." },
   { speaker: 0, intent: "instruct", text: "Wait in {place} till I call." },
   {
     speaker: null,
     intent: "instruct",
-    text: "Tell {cast:1} the truth for once.",
+    text: "Tell the truth about {place}, for once.",
   },
   { speaker: 0, intent: "instruct", text: "{cast:1}, mind the step." },
   { speaker: 0, intent: "instruct", text: "Take the long way round {place}." },
-  { speaker: null, intent: "instruct", text: "Don't let {cast:0} pay." },
+  {
+    speaker: null,
+    intent: "instruct",
+    text: "Don't let anyone pay at {place}.",
+  },
   { speaker: 0, intent: "instruct", text: "Say that again, {cast:1}, slowly." },
   {
     speaker: 0,
     intent: "instruct",
     text: "Put everything back in {place} as you found it.",
   },
-  { speaker: null, intent: "instruct", text: "Find {cast:1} a coat." },
+  {
+    speaker: null,
+    intent: "instruct",
+    text: "Find a coat before we go to {place}.",
+  },
   {
     speaker: 0,
     intent: "instruct",
@@ -3213,7 +3305,11 @@ const DIALOGUE: readonly SharedLine[] = [
     intent: "instruct",
     text: "Check {place} once more before we go.",
   },
-  { speaker: null, intent: "instruct", text: "Let {cast:0} sleep." },
+  {
+    speaker: null,
+    intent: "instruct",
+    text: "Let them sleep. We'll see to {place} later.",
+  },
   {
     speaker: 0,
     intent: "instruct",
@@ -3227,7 +3323,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "instruct",
-    text: "Send {cast:1} up the minute you can.",
+    text: "Come up from {place} the minute you can.",
   },
   {
     speaker: 0,
@@ -3235,13 +3331,17 @@ const DIALOGUE: readonly SharedLine[] = [
     text: "{cast:1}, smile. It won't kill you.",
   },
   { speaker: 0, intent: "instruct", text: "Keep {place} warm for me." },
-  { speaker: null, intent: "instruct", text: "Make {cast:0} a sandwich." },
+  {
+    speaker: null,
+    intent: "instruct",
+    text: "Pack sandwiches for the walk to {place}.",
+  },
   { speaker: 0, intent: "instruct", text: "Trust me on this one, {cast:1}." },
   { speaker: 0, intent: "instruct", text: "You lead the way to {place}." },
-  { speaker: null, intent: "instruct", text: "Ask {cast:1} to wait." },
+  { speaker: null, intent: "instruct", text: "Save me a seat at {place}." },
   { speaker: 0, intent: "instruct", text: "Sing it again, {cast:1}." },
   { speaker: 0, intent: "instruct", text: "Turn the lights off in {place}." },
-  { speaker: null, intent: "instruct", text: "Thank {cast:0} for me." },
+  { speaker: null, intent: "instruct", text: "Thank them at {place} for me." },
   {
     speaker: 0,
     intent: "state",
@@ -3252,7 +3352,11 @@ const DIALOGUE: readonly SharedLine[] = [
     intent: "state",
     text: "It smells of wet coats and old soup in {place}.",
   },
-  { speaker: null, intent: "state", text: "{cast:0} was right. I hate that." },
+  {
+    speaker: null,
+    intent: "state",
+    text: "You were right about {place}. I'll never hear the end of it.",
+  },
   { speaker: 0, intent: "state", text: "You look tired, {cast:1}." },
   {
     speaker: 0,
@@ -3262,7 +3366,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:1} has a plan. That's what worries me.",
+    text: "There's a plan for {place}. That's what worries me.",
   },
   {
     speaker: 0,
@@ -3270,7 +3374,11 @@ const DIALOGUE: readonly SharedLine[] = [
     text: "I'm not cross, {cast:1}. I'm thinking.",
   },
   { speaker: 0, intent: "state", text: "Nobody comes to {place} any more." },
-  { speaker: null, intent: "state", text: "{cast:0} will want to hear this." },
+  {
+    speaker: null,
+    intent: "state",
+    text: "They'll want to hear about {place}.",
+  },
   {
     speaker: 0,
     intent: "state",
@@ -3280,14 +3388,14 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:1} never says goodbye. Just goes.",
+    text: "Nobody says goodbye at {place}. They just go.",
   },
   { speaker: 0, intent: "state", text: "I kept your seat, {cast:1}." },
   { speaker: 0, intent: "state", text: "My father ran {place} before I did." },
   {
     speaker: null,
     intent: "state",
-    text: "I'd follow {cast:1} anywhere. Not quickly, but anywhere.",
+    text: "I'd follow you to {place}. Not quickly, but I would.",
   },
   {
     speaker: 0,
@@ -3299,16 +3407,20 @@ const DIALOGUE: readonly SharedLine[] = [
     intent: "state",
     text: "I can't stay long in {place}. It makes me sad.",
   },
-  { speaker: null, intent: "state", text: "{cast:0} doesn't scare easily." },
+  { speaker: null, intent: "state", text: "I've never been easy at {place}." },
   { speaker: 0, intent: "state", text: "I'm sorry, {cast:1}. I mean it." },
   { speaker: 0, intent: "state", text: "It's colder in {place} than outside." },
-  { speaker: null, intent: "state", text: "{cast:1} makes terrible tea." },
+  {
+    speaker: null,
+    intent: "state",
+    text: "The tea at {place} tastes of the pot.",
+  },
   { speaker: 0, intent: "state", text: "I've made up my mind, {cast:1}." },
   { speaker: 0, intent: "state", text: "Everything I own is in {place}." },
   {
     speaker: null,
     intent: "state",
-    text: "That's {cast:0}'s chair. Nobody sits in it.",
+    text: "That's the best chair at {place}. Nobody sits in it.",
   },
   {
     speaker: 0,
@@ -3320,14 +3432,22 @@ const DIALOGUE: readonly SharedLine[] = [
     intent: "state",
     text: "You haven't changed a thing in {place}.",
   },
-  { speaker: null, intent: "state", text: "{cast:1} snores. I'm only saying." },
+  {
+    speaker: null,
+    intent: "state",
+    text: "It's cold at {place}. I'm only saying.",
+  },
   { speaker: 0, intent: "state", text: "I almost didn't come, {cast:1}." },
   {
     speaker: 0,
     intent: "state",
     text: "There's a draught in {place} that could cut you in half.",
   },
-  { speaker: null, intent: "state", text: "{cast:0} owes me a fiver." },
+  {
+    speaker: null,
+    intent: "state",
+    text: "I left a coat at {place} and never saw it again.",
+  },
   { speaker: 0, intent: "state", text: "I'm glad it was you, {cast:1}." },
   {
     speaker: 0,
@@ -3337,7 +3457,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:1} cried at the end. Don't tell anyone.",
+    text: "Somebody cried at {place}. Don't tell anyone.",
   },
   {
     speaker: 0,
@@ -3348,7 +3468,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:0} isn't as fierce as people think.",
+    text: "It isn't as grim at {place} as people think.",
   },
   {
     speaker: 0,
@@ -3363,7 +3483,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:1} knows every short cut in town.",
+    text: "There's a short cut past {place}, if you know it.",
   },
   { speaker: 0, intent: "state", text: "You're shivering, {cast:1}." },
   {
@@ -3371,13 +3491,17 @@ const DIALOGUE: readonly SharedLine[] = [
     intent: "state",
     text: "I found this in {place}, under the floor.",
   },
-  { speaker: null, intent: "state", text: "{cast:0} fixed it. Don't ask how." },
+  {
+    speaker: null,
+    intent: "state",
+    text: "It's fixed now, at {place}. Don't ask how.",
+  },
   { speaker: 0, intent: "state", text: "I don't need rescuing, {cast:1}." },
   { speaker: 0, intent: "state", text: "Someone's been sleeping in {place}." },
   {
     speaker: null,
     intent: "state",
-    text: "{cast:1} laughs at all the wrong moments.",
+    text: "Everyone laughs at the wrong moments at {place}.",
   },
   {
     speaker: 0,
@@ -3388,7 +3512,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:0} says it'll be fine. So it will be.",
+    text: "Things always look better from {place}.",
   },
   {
     speaker: 0,
@@ -3403,7 +3527,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:1} hasn't eaten since yesterday.",
+    text: "Nobody's eaten since we left {place}.",
   },
   {
     speaker: 0,
@@ -3418,7 +3542,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:0} can't sing, and never could.",
+    text: "Nobody can sing in {place}, and nobody ever could.",
   },
   {
     speaker: 0,
@@ -3430,7 +3554,11 @@ const DIALOGUE: readonly SharedLine[] = [
     intent: "state",
     text: "Somebody left a note for you at {place}.",
   },
-  { speaker: null, intent: "state", text: "{cast:1} will be the death of me." },
+  {
+    speaker: null,
+    intent: "state",
+    text: "I'll be the last one out of {place}, you watch.",
+  },
   { speaker: 0, intent: "state", text: "We used to be friends, {cast:1}." },
   {
     speaker: 0,
@@ -3440,7 +3568,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:0} keeps every receipt. Every one.",
+    text: "Somebody keeps every receipt at {place}. Every one.",
   },
   {
     speaker: 0,
@@ -3455,7 +3583,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:1} talks in the night, about nothing.",
+    text: "You can hear voices at {place} at night, about nothing.",
   },
   {
     speaker: 0,
@@ -3470,7 +3598,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:0} would rather walk than ask for a lift.",
+    text: "I'd rather walk to {place} than ask for a lift.",
   },
   {
     speaker: 0,
@@ -3481,7 +3609,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:1} is late. {cast:1} is always late.",
+    text: "We're late for {place}. We're always late.",
   },
   {
     speaker: 0,
@@ -3496,7 +3624,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:0} remembers things the rest of us forget.",
+    text: "It's years since {place} was new.",
   },
   {
     speaker: 0,
@@ -3511,7 +3639,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:1} gave me this. I've never taken it off.",
+    text: "I found this at {place}. I've never let it go.",
   },
   {
     speaker: 0,
@@ -3526,7 +3654,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:0} has the patience of a stone.",
+    text: "You need the patience of a stone at {place}.",
   },
   { speaker: 0, intent: "state", text: "I'm too old for this, {cast:1}." },
   {
@@ -3537,7 +3665,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:1} worked here before any of us.",
+    text: "Somebody worked at {place} before any of us.",
   },
   { speaker: 0, intent: "state", text: "I'd do it all again, {cast:1}." },
   {
@@ -3548,7 +3676,7 @@ const DIALOGUE: readonly SharedLine[] = [
   {
     speaker: null,
     intent: "state",
-    text: "{cast:0} is the bravest person I know.",
+    text: "The bravest thing I ever did was go back to {place}.",
   },
   {
     speaker: 0,
@@ -3558,34 +3686,34 @@ const DIALOGUE: readonly SharedLine[] = [
 ];
 
 const TAGS: readonly string[] = [
-  "if {cast:1} asks",
-  "or so {cast:1} says",
-  "and {cast:1} knows it",
-  "same as {cast:1} always does",
-  "whatever {cast:1} thinks",
-  "if you ask {cast:1}",
-  "and don't tell {cast:1}",
-  "according to {cast:1}",
-  "for {cast:1}'s sake",
-  "as {cast:1} keeps saying",
-  "before {cast:1} gets back",
-  "the way {cast:1} likes it",
-  "unless {cast:1} minds",
-  "if {cast:1} lets us",
-  "now {cast:1} is here",
-  "while {cast:1} isn't looking",
-  "and {cast:1} can whistle for it",
-  "{cast:1} or no {cast:1}",
-  "just like {cast:1} said",
-  "for all {cast:1} cares",
-  "if {cast:1} hasn't eaten it",
-  "ask {cast:1} if you don't believe me",
-  "not that {cast:1} would notice",
-  "since {cast:1} left",
-  "thanks to {cast:1}",
-  "with {cast:1}'s blessing",
-  "behind {cast:1}'s back",
-  "on {cast:1}'s word",
+  "if anyone at {place} asks",
+  "or so they say at {place}",
+  "and everyone at {place} knows it",
+  "same as it always is at {place}",
+  "whatever they think at {place}",
+  "if you ask anyone at {place}",
+  "and not a word to {place}",
+  "according to everyone at {place}",
+  "for the sake of {place}",
+  "as they keep saying at {place}",
+  "before we get back to {place}",
+  "the way it's done at {place}",
+  "unless {place} is shut",
+  "if {place} lets us",
+  "now we're at {place}",
+  "while nobody at {place} is looking",
+  "and {place} can whistle for it",
+  "{place} or no {place}",
+  "just like they said at {place}",
+  "for all anyone at {place} cares",
+  "if there's any left at {place}",
+  "ask at {place} if you don't believe me",
+  "not that anyone at {place} would notice",
+  "since we left {place}",
+  "thanks to {place}",
+  "with the blessing of {place}",
+  "round the back of {place}",
+  "as sure as {place} stands",
   "if {place} is still standing",
   "same as {place} ever was",
   "this side of {place}",
@@ -3594,10 +3722,10 @@ const TAGS: readonly string[] = [
   "the minute we're out of {place}",
   "as long as {place} is dry",
   "while we're still in {place}",
-  "before anyone sees {cast:1}",
-  "and {cast:1} can like it or not",
-  "if {cast:1} doesn't beat us to it",
-  "the way {cast:1} taught me",
+  "before anyone at {place} sees",
+  "and {place} can like it or not",
+  "if nobody at {place} beats us to it",
+  "the way they taught me at {place}",
 ];
 
 const SLOT = /\{cast:(\d)\}|\{place\}/g;
