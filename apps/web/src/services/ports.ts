@@ -135,6 +135,18 @@ export interface PersonServices {
   dispose(): void;
 }
 
+/** What one person's editor is built from, besides the environment. */
+export interface EditorParts {
+  services: () => PersonServices;
+  control: EditorControl;
+  commands: CommandService;
+  messages: MessageQueue;
+  resolved: Subscribable<Resolved>;
+  fixedKeys: { set(keys: readonly FixedKey[]): void };
+  /** `path` is a path inside the app. */
+  navigate: (path: string) => void;
+}
+
 /** What the shell knows of the window, written by the shell whenever it changes. */
 export interface ShellState {
   screen: ScreenId;
@@ -175,8 +187,11 @@ export interface Environment {
   lastKeyAt: () => number | null;
   guard: Guard;
   flavour: "production" | "test";
-  /** `loaded`: each person's editor, loaded apart from the entry; `placeholder`: the placeholder alone, for the tests of what is around the page. */
-  editor: "loaded" | "placeholder";
+  /** Builds one person's editor; the page shows the placeholder until it settles. */
+  loadEditor(
+    environment: Environment,
+    parts: EditorParts,
+  ): Promise<EditorMount>;
   shellState: Subscribable<ShellState> & { set(value: ShellState): void };
   dom: ShellDom;
   online: () => boolean;

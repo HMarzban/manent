@@ -467,6 +467,44 @@ test("the placeholder stands in until the editor has loaded, and a mount gone fi
   ]);
 });
 
+test("a person's page draws the editor their environment loads, built for that person", async () => {
+  const built: string[] = [];
+  const editor: EditorMount = {
+    mount({ element }) {
+      const page = element.appendChild(document.createElement("article"));
+      return () => page.remove();
+    },
+  };
+  const services = testServices({
+    userId: "leo",
+    environment: testEnvironment({
+      async loadEditor(_environment, parts) {
+        await Promise.resolve();
+        built.push(parts.services().userId);
+        return editor;
+      },
+    }),
+  });
+  const element = host();
+  const dispose = services.mount.mount({
+    element,
+    docId: DOC,
+    facts: { publish: noop },
+    outline: { publish: noop },
+    settings: { get: () => null, subscribe: () => noop },
+    guard: { enter: noop, leave: noop },
+  });
+  const waiting = element.querySelector("[data-placeholder]") !== null;
+  for (let tick = 0; tick < 4; tick++) await Promise.resolve();
+  const shown = [
+    element.querySelector("[data-placeholder]"),
+    element.querySelectorAll("article").length,
+  ];
+  dispose();
+  services.dispose();
+  expect([waiting, shown, built]).toEqual([true, [null, 1], ["leo"]]);
+});
+
 test("the element's words follow the format and the project", () => {
   const film = editorWords("film");
   const podcast = editorWords("podcast");

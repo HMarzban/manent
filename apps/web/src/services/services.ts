@@ -17,11 +17,9 @@ import type { Bag, KeyValueMap, SettingsStore } from "@manent/settings";
 import { createKeyResolver, createMessageQueue, createValue } from "@manent/ui";
 import type { MessageQueue, StatusFacts, Subscribable } from "@manent/ui";
 import { createEditorControl } from "../editor-host/control.ts";
-import type { EditorControl } from "../editor-host/control.ts";
 import type { OpenEditor } from "../editor-host/editor-mount.ts";
 import { createLazyMount } from "../editor-host/lazy-mount.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
-import { placeholderMount } from "../editor-host/placeholder-mount.ts";
 import { createEditorKeyRun } from "../handlers/editor.ts";
 import { deviceName } from "../platform.ts";
 import type { Where } from "../platform.ts";
@@ -37,6 +35,8 @@ import { createCommands } from "./person-commands.ts";
 import type { CommandsOptions } from "./person-commands.ts";
 import type {
   DocumentSource,
+  EditorParts,
+  Environment,
   FixedKey,
   PersonServices,
   Reverses,
@@ -273,65 +273,54 @@ function editorKeys(
 }
 
 /**
- * The page's editor (the placeholder when the environment asks for it), whose modules load apart from the entry from the
- * moment the services exist; `fixedKeys` gets the editor's keys once they have loaded. In the test build the editor's
- * hooks are installed on the page's `__manent`.
+ * The page's editor, from modules loaded apart from the entry; `fixedKeys` gets the editor's keys once they have
+ * loaded. In the test build the editor's hooks are installed on the page's `__manent`.
  */
-function createEditor(
-  options: Options,
-  parts: {
-    services: () => PersonServices;
-    control: EditorControl;
-    commands: CommandService;
-    messages: MessageQueue;
-    resolved: Subscribable<Resolved>;
-    fixedKeys: { set(keys: readonly FixedKey[]): void };
-  },
-): EditorMount {
-  if (options.editor === "placeholder") return placeholderMount;
-  const timers = { now: options.now, schedule: options.schedule };
-  const frames = { request: options.frame };
-  return createLazyMount(async () => {
-    const [mounts, { createLocalSessions }, { randomBlockId }, hooks] =
-      await loadEditorModules(options.flavour);
-    parts.fixedKeys.set(mounts.EDITOR_FIXED_KEYS);
-    const sessions = createLocalSessions({
-      frames,
-      clock: timers,
-      ids: randomBlockId,
-    });
-    const access = new Map<string, StatusFacts["access"]>();
-    let current: OpenEditor | null = null;
-    const target: unknown = Reflect.get(globalThis, "__manent");
-    if (hooks !== null && typeof target === "object" && target !== null)
-      hooks.installEditorHooks(target, {
-        services: parts.services(),
-        navigate: (path) => options.router.navigate(path),
-        current: () => current,
-        sessions,
-        access,
-      });
-    return mounts.createEditorMount({
+export async function loadEditor(
+  environment: Environment,
+  parts: EditorParts,
+): Promise<EditorMount> {
+  const timers = { now: environment.now, schedule: environment.schedule };
+  const frames = { request: environment.frame };
+  const [mounts, { createLocalSessions }, { randomBlockId }, hooks] =
+    await loadEditorModules(environment.flavour);
+  parts.fixedKeys.set(mounts.EDITOR_FIXED_KEYS);
+  const sessions = createLocalSessions({
+    frames,
+    clock: timers,
+    ids: randomBlockId,
+  });
+  const access = new Map<string, StatusFacts["access"]>();
+  let current: OpenEditor | null = null;
+  const target: unknown = Reflect.get(globalThis, "__manent");
+  if (hooks !== null && typeof target === "object" && target !== null)
+    hooks.installEditorHooks(target, {
+      services: parts.services(),
+      navigate: parts.navigate,
+      current: () => current,
       sessions,
-      services:
-        hooks === null
-          ? parts.services
-          : () => hooks.withRecordedAccess(parts.services(), access),
-      control: parts.control,
-      keys: editorKeys(parts.commands, parts.messages, parts.resolved),
-      ports: mounts.browserPagePorts(options.userAgent),
-      frames,
-      timers,
-      platform: options.where.platform,
-      ids: randomBlockId,
-      random: options.randomId,
-      observe:
-        hooks === null
-          ? undefined
-          : (open) => {
-              current = open;
-            },
+      access,
     });
+  return mounts.createEditorMount({
+    sessions,
+    services:
+      hooks === null
+        ? parts.services
+        : () => hooks.withRecordedAccess(parts.services(), access),
+    control: parts.control,
+    keys: editorKeys(parts.commands, parts.messages, parts.resolved),
+    ports: mounts.browserPagePorts(environment.userAgent),
+    frames,
+    timers,
+    platform: environment.where.platform,
+    ids: randomBlockId,
+    random: environment.randomId,
+    observe:
+      hooks === null
+        ? undefined
+        : (open) => {
+            current = open;
+          },
   });
 }
 
@@ -380,14 +369,17 @@ export function createPersonServices(options: Options): PersonServices {
     fixedKeys,
     reverses: createReverses(messages),
     editor: control,
-    mount: createEditor(options, {
-      services: () => services,
-      control,
-      commands,
-      messages,
-      resolved,
-      fixedKeys,
-    }),
+    mount: createLazyMount(() =>
+      options.loadEditor(options, {
+        services: () => services,
+        control,
+        commands,
+        messages,
+        resolved,
+        fixedKeys,
+        navigate: (path) => options.router.navigate(path),
+      }),
+    ),
     dispose() {
       stop();
       kept.dispose();

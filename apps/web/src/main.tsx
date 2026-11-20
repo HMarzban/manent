@@ -11,6 +11,7 @@ import { EnvironmentProvider } from "./services/context.tsx";
 import { browserStorage } from "./services/local-map.ts";
 import { INITIAL_SHELL_STATE } from "./services/ports.ts";
 import type { Environment, ShellState } from "./services/ports.ts";
+import { loadEditor } from "./services/services.ts";
 import { tabStorage } from "./session.ts";
 import { createShellDom } from "./shell/regions.tsx";
 import { bindGuard, createGuard } from "./state/guard.ts";
@@ -77,7 +78,7 @@ const environment: Environment = {
   lastKeyAt: () => lastKeyAt,
   guard,
   flavour,
-  editor: "loaded",
+  loadEditor,
   shellState: createValue<ShellState>(INITIAL_SHELL_STATE),
   dom: createShellDom(document),
   online: () => navigator.onLine,
