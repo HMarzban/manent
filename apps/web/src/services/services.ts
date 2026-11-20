@@ -247,9 +247,35 @@ function createStores(
   };
 }
 
+/** The editor's modules, and the schema with ProseMirror's model, which stay out of the entry; the hooks in the test build. */
+const loadEditorModules = (flavour: Options["flavour"]) =>
+  Promise.all([
+    import("../editor-host/editor-mount.ts"),
+    import("../editor-host/editor-sessions.ts"),
+    import("@manent/schema"),
+    flavour === "test" ? import("../editor-host/test-hooks.ts") : null,
+  ]);
+
+/** The editor's keys: a chord is looked up in the person's editor table and runs its command. */
+function editorKeys(
+  commands: CommandService,
+  messages: MessageQueue,
+  resolved: Subscribable<Resolved>,
+) {
+  return {
+    resolve: createKeyResolver({ table: () => resolved.get().editorTable }),
+    run: createEditorKeyRun({
+      commands,
+      messages,
+      labelOf: (id) => commands.state(id).label,
+    }),
+  };
+}
+
 /**
- * The page's editor, whose modules load apart from the entry from the moment the services exist; `fixedKeys` gets the
- * editor's keys once they have loaded. In the test build the editor's hooks are installed on the page's `__manent`.
+ * The page's editor (the placeholder when the environment asks for it), whose modules load apart from the entry from the
+ * moment the services exist; `fixedKeys` gets the editor's keys once they have loaded. In the test build the editor's
+ * hooks are installed on the page's `__manent`.
  */
 function createEditor(
   options: Options,
@@ -262,19 +288,12 @@ function createEditor(
     fixedKeys: { set(keys: readonly FixedKey[]): void };
   },
 ): EditorMount {
+  if (options.editor === "placeholder") return placeholderMount;
   const timers = { now: options.now, schedule: options.schedule };
   const frames = { request: options.frame };
   return createLazyMount(async () => {
     const [mounts, { createLocalSessions }, { randomBlockId }, hooks] =
-      await Promise.all([
-        import("../editor-host/editor-mount.ts"),
-        import("../editor-host/editor-sessions.ts"),
-        // the schema, and with it ProseMirror's model, stays out of the entry
-        import("@manent/schema"),
-        options.flavour === "test"
-          ? import("../editor-host/test-hooks.ts")
-          : null,
-      ]);
+      await loadEditorModules(options.flavour);
     parts.fixedKeys.set(mounts.EDITOR_FIXED_KEYS);
     const sessions = createLocalSessions({
       frames,
@@ -299,16 +318,7 @@ function createEditor(
           ? parts.services
           : () => hooks.withRecordedAccess(parts.services(), access),
       control: parts.control,
-      keys: {
-        resolve: createKeyResolver({
-          table: () => parts.resolved.get().editorTable,
-        }),
-        run: createEditorKeyRun({
-          commands: parts.commands,
-          messages: parts.messages,
-          labelOf: (id) => parts.commands.state(id).label,
-        }),
-      },
+      keys: editorKeys(parts.commands, parts.messages, parts.resolved),
       ports: mounts.browserPagePorts(options.userAgent),
       frames,
       timers,
@@ -370,17 +380,14 @@ export function createPersonServices(options: Options): PersonServices {
     fixedKeys,
     reverses: createReverses(messages),
     editor: control,
-    mount:
-      options.editor === "placeholder"
-        ? placeholderMount
-        : createEditor(options, {
-            services: () => services,
-            control,
-            commands,
-            messages,
-            resolved,
-            fixedKeys,
-          }),
+    mount: createEditor(options, {
+      services: () => services,
+      control,
+      commands,
+      messages,
+      resolved,
+      fixedKeys,
+    }),
     dispose() {
       stop();
       kept.dispose();

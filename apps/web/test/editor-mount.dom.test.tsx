@@ -361,6 +361,23 @@ test("a replaced document rebuilds at the same place, after the composition ends
   ]).toEqual([[1, false, contents], 2, false, caret]);
 });
 
+test("a mount gone between the composition's release and the rebuild builds no editor", () => {
+  const replacing = replaceable();
+  const r = rig({ sessions: replacing.sessions });
+  const old = r.view();
+  old.dom.dispatchEvent(new CompositionEvent("compositionstart"));
+  replacing.replace();
+  old.dom.dispatchEvent(new CompositionEvent("compositionend"));
+  // due with the release and queued after it, so it runs before the rebuild the release schedules
+  r.clock.schedule(r.dispose, 50);
+  r.clock.advance(50);
+  expect([
+    r.attached.length,
+    liveEditor(DOC),
+    r.element.childNodes.length,
+  ]).toEqual([1, null, 0]);
+});
+
 test("the live editor and the feature plugins come with the mount", () => {
   // the one plugin with no key and no state, its attributes a fixed object, taken from a read-only page, stands in for a feature's
   const lender = rig({ access: "comment" });

@@ -135,62 +135,94 @@ function whenLive(docId: string): Promise<void> {
   });
 }
 
+interface HookDeps {
+  services: PersonServices;
+  navigate(path: string): void;
+  current(): OpenEditor | null;
+  /** The sessions the mount opens: an open document's is the one it holds. */
+  sessions: { open(docId: string, format: FormatId): LocalSession };
+  /** The access `withRecordedAccess` reports for each document opened through the hooks. */
+  access: Map<string, StatusFacts["access"]>;
+}
+
+/** The editor the mount has open now; throws when it has none. */
+function openEditor(deps: HookDeps): OpenEditor {
+  const current = deps.current();
+  if (current === null) throw new RangeError("no editor is open");
+  return current;
+}
+
+/** The hooks' `open`: a new film project in `format`, navigated to, filled with `doc` once its editor is live. */
+function openScript(deps: HookDeps): EditorHooks["open"] {
+  const { services } = deps;
+  return async (format, doc, access = "edit") => {
+    const known = FORMATS.find((id) => id === format);
+    if (known === undefined) throw new RangeError(`no format ${format}`);
+    const { docId } = await services.library.createProject(
+      services.userId,
+      "film",
+    );
+    deps.access.set(docId, access);
+    services.openScriptStore(docId).set("script.format", known);
+    deps.navigate(`/s/${docId}`);
+    await whenLive(docId);
+    if (doc !== null) {
+      const { view } = openEditor(deps).editor;
+      const content = parseDoc(doc).content;
+      view.dispatch(
+        view.state.tr
+          .replaceWith(0, view.state.doc.content.size, content)
+          .setMeta("addToHistory", false),
+      );
+    }
+    return docId;
+  };
+}
+
+/** The hooks' `remote`: one simulated writer at a time over the open document's session. */
+function createRemote(deps: HookDeps): EditorHooks["remote"] {
+  let writer: SimulatedWriter | null = null;
+  const joined = (): SimulatedWriter => {
+    if (writer === null) throw new RangeError("nobody has joined");
+    return writer;
+  };
+  return {
+    join(person) {
+      const { docId } = openEditor(deps);
+      const format = deps.services.openScriptStore(docId).get("script.format");
+      writer?.leave();
+      writer = createSimulatedWriter({
+        session: deps.sessions.open(docId, format),
+        person,
+        clientId: Math.floor(Math.random() * 2 ** 31),
+      });
+    },
+    type: (block, offset, text) => joined().type(block, offset, text),
+    select: (block, offset) => joined().select(block, offset),
+    leave() {
+      joined().leave();
+      writer = null;
+    },
+  };
+}
+
 /** Sets `target.editor`: the hooks over the editor the mount has open now, which `current` gives. */
 export function installEditorHooks(
   target: { editor?: EditorHooks },
-  deps: {
-    services: PersonServices;
-    navigate(path: string): void;
-    current(): OpenEditor | null;
-    /** The sessions the mount opens: an open document's is the one it holds. */
-    sessions: { open(docId: string, format: FormatId): LocalSession };
-    /** The access `withRecordedAccess` reports for each document opened through the hooks. */
-    access: Map<string, StatusFacts["access"]>;
-  },
+  deps: HookDeps,
 ): void {
-  const { services } = deps;
-  const open = (): OpenEditor => {
-    const current = deps.current();
-    if (current === null) throw new RangeError("no editor is open");
-    return current;
-  };
+  const view = (): EditorView => openEditor(deps).editor.view;
   const pagination = () => {
-    const state = paginationKey.getState(open().editor.view.state);
+    const state = paginationKey.getState(view().state);
     if (state === undefined)
       throw new RangeError("the open script has no pages");
     return state;
   };
-  let writer: SimulatedWriter | null = null;
-  const remote = (): SimulatedWriter => {
-    if (writer === null) throw new RangeError("nobody has joined");
-    return writer;
-  };
   let dispatchesFromMs = 0;
   target.editor = {
-    async open(format, doc, access = "edit") {
-      const known = FORMATS.find((id) => id === format);
-      if (known === undefined) throw new RangeError(`no format ${format}`);
-      const { docId } = await services.library.createProject(
-        services.userId,
-        "film",
-      );
-      deps.access.set(docId, access);
-      services.openScriptStore(docId).set("script.format", known);
-      deps.navigate(`/s/${docId}`);
-      await whenLive(docId);
-      if (doc !== null) {
-        const { view } = open().editor;
-        const content = parseDoc(doc).content;
-        view.dispatch(
-          view.state.tr
-            .replaceWith(0, view.state.doc.content.size, content)
-            .setMeta("addToHistory", false),
-        );
-      }
-      return docId;
-    },
+    open: openScript(deps),
     blocks: () =>
-      blocksOf(open().editor.view.state.doc).map((block) => ({
+      blocksOf(view().state.doc).map((block) => ({
         id: block.attrs.id ?? "",
         type: block.attrs.type,
         kind: block.attrs.kind,
@@ -201,34 +233,17 @@ export function installEditorHooks(
     cold() {
       const { settings } = pagination();
       const fresh = settings.engine.paginate(
-        settings.engine.toLayoutBlocks(blocksOf(open().editor.view.state.doc)),
+        settings.engine.toLayoutBlocks(blocksOf(view().state.doc)),
         settings.profile,
         settings.locks,
       );
       return startsOf(fresh.pages);
     },
     engineRuns: () => pagination().engineRuns,
-    undoDepth: () => open().undoDepth(),
-    place: () => open().editor.place(),
-    remote: {
-      join(person) {
-        const { docId } = open();
-        const format = services.openScriptStore(docId).get("script.format");
-        writer?.leave();
-        writer = createSimulatedWriter({
-          session: deps.sessions.open(docId, format),
-          person,
-          clientId: Math.floor(Math.random() * 2 ** 31),
-        });
-      },
-      type: (block, offset, text) => remote().type(block, offset, text),
-      select: (block, offset) => remote().select(block, offset),
-      leave() {
-        remote().leave();
-        writer = null;
-      },
-    },
-    keystrokes: createKeystrokeProbe(() => open().editor.view),
+    undoDepth: () => openEditor(deps).undoDepth(),
+    place: () => openEditor(deps).editor.place(),
+    remote: createRemote(deps),
+    keystrokes: createKeystrokeProbe(view),
     dispatchMs: {
       start() {
         dispatchesFromMs = performance.now();

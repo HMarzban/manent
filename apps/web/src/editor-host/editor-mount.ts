@@ -152,13 +152,14 @@ function countSteps(history: HistoryPort): {
   };
 }
 
-/** The session as the binding sees it, counting the binding's holds; `whenReleased` runs once none is left, after the release returns. */
+/** The session as the binding sees it, counting the binding's holds; `whenReleased` runs once none is left, after the release returns, unless cancelled first. */
 function trackHolds(
   session: EditorSession,
   timers: Timers,
 ): { document: BoundDocument; whenReleased(run: () => void): () => void } {
   let holds = 0;
   let waiting: (() => void) | null = null;
+  let cancel = noop;
   return {
     document: {
       doc: () => session.doc(),
@@ -173,7 +174,10 @@ function trackHolds(
         if (holds > 0 || run === null) return;
         waiting = null;
         // the release may come from inside the view's update, which must finish first
-        timers.schedule(run, 0);
+        cancel = timers.schedule(() => {
+          cancel = noop;
+          run();
+        }, 0);
       },
       sendAwareness: (update) => session.sendAwareness(update),
       onAwareness: (listener) => session.onAwareness(listener),
@@ -186,6 +190,7 @@ function trackHolds(
       waiting = run;
       return () => {
         waiting = null;
+        cancel();
       };
     },
   };
@@ -222,35 +227,28 @@ function bindingFor(
   };
 }
 
-/** One editor of the document over its session, at `place` when it is given, attached to the control and registered as live. */
-function buildEditor(
+/** What one build of the document's editor is made from. */
+interface Opened {
+  ports: MountPorts;
+  session: EditorSession;
+  document: BoundDocument;
+  script: ScriptEditorOptions["script"];
+  words: ScriptEditorOptions["words"];
+  desk: ScriptEditorOptions["desk"];
+  shown: Shown;
+}
+
+/** The script editor's options for one build over `bound`'s binding, zoomed to fit the page's width. */
+function editorOptions(
   options: MountOptions,
-  open: {
-    ports: MountPorts;
-    session: EditorSession;
-    document: BoundDocument;
-    script: ScriptEditorOptions["script"];
-    words: ScriptEditorOptions["words"];
-    desk: ScriptEditorOptions["desk"];
-    shown: Shown;
-  },
-  place: SavedPlace | null,
-): Built {
+  open: Opened,
+  bound: { binding: EditorBinding; editable: boolean },
+): ScriptEditorOptions {
   const { element, docId, facts, outline, settings, guard } = open.ports;
-  const { timers, services } = options;
-  const bound = bindingFor(open.session, open.document, {
-    timers,
-    edit: open.shown.edit,
-  });
-  const counted =
-    options.observe === undefined ? null : countSteps(bound.binding.history);
-  const binding =
-    counted === null
-      ? bound.binding
-      : { ...bound.binding, history: counted.history };
-  const editor = createScriptEditor({
+  const { services } = options;
+  return {
     place: element,
-    binding,
+    binding: bound.binding,
     editable: bound.editable,
     personal: settings,
     script: open.script,
@@ -261,7 +259,7 @@ function buildEditor(
     guard,
     words: open.words,
     frames: options.frames,
-    timers,
+    timers: options.timers,
     ports: options.ports,
     platform: options.platform,
     ids: options.ids,
@@ -274,7 +272,29 @@ function buildEditor(
       EDITOR_PLUGINS.map((make) =>
         make({ ...host, docId, services: services(), facts }),
       ),
+  };
+}
+
+/** One editor of the document over its session, at `place` when it is given, attached to the control and registered as live. */
+function buildEditor(
+  options: MountOptions,
+  open: Opened,
+  place: SavedPlace | null,
+): Built {
+  const { docId } = open.ports;
+  const bound = bindingFor(open.session, open.document, {
+    timers: options.timers,
+    edit: open.shown.edit,
   });
+  const counted =
+    options.observe === undefined ? null : countSteps(bound.binding.history);
+  const binding =
+    counted === null
+      ? bound.binding
+      : { ...bound.binding, history: counted.history };
+  const editor = createScriptEditor(
+    editorOptions(options, open, { binding, editable: bound.editable }),
+  );
   if (place !== null) editor.restore(place);
   const detach = options.control.attach(editor);
   const unregister = registerLiveEditor({
