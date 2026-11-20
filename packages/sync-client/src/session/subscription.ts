@@ -152,12 +152,10 @@ class DocSubscription implements Subscription {
     const clientIds =
       fresh === null ? meta.clientIds : [...meta.clientIds, fresh.clientId];
     const { doc } = this.options.copy;
-    // a recovery that a move redirected has seen nothing of the new generation
-    const moved = fresh !== null && fresh.generation !== null;
     return {
       generation: fresh?.generation ?? meta.generation,
       clientIds: clientIds.slice(-SUBSCRIBE_CLIENT_IDS),
-      lastServerSeq: moved ? 0 : meta.lastServerSeq,
+      lastServerSeq: this.recovery.redirected ? 0 : meta.lastServerSeq,
       vector: (fresh === null ? doc : createDoc()).encodeStateVector(),
     };
   }
@@ -184,10 +182,13 @@ class DocSubscription implements Subscription {
     return this.options.journal.outbox(afterSeq);
   }
 
-  /** During a move the generation changes with the new document only. */
+  /**
+   * During a move, or a recovery a move redirected, the generation changes
+   * with the new document only.
+   */
   subscribed(m: Extract<DocumentMessage, { type: "SUBSCRIBED" }>): void {
     this.headSeq = m.headSeq;
-    if (this.move === null)
+    if (this.move === null && !this.recovery.redirected)
       this.options.journal.patch({ generation: m.generation });
   }
 

@@ -211,6 +211,11 @@ export class PushRecovery {
     return this.fresh !== null || this.writeBack !== null;
   }
 
+  /** The fresh subscription is due in the generation a move named, which it has seen nothing of. */
+  get redirected(): boolean {
+    return this.fresh !== null && this.fresh.generation !== null;
+  }
+
   /**
    * A permanently rejected push: the document is kept as a version, and
    * subscribed to afresh. A write-back refused in turn is not recovered again:

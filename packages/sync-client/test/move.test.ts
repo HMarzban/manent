@@ -11,6 +11,7 @@ import {
   DOC,
   listen,
   setup,
+  subscribed,
   textOf,
   typeIn,
 } from "./scripted-server.ts";
@@ -490,6 +491,41 @@ test("a move during the recovery of a rejected push continues the recovery in th
   server.ack(DOC, push.clientSeq, 2);
   await w.settle();
   expect((await store.load(DOC))!.meta.recovering).toBeNull();
+});
+
+test("a recovery closed between the new generation's SUBSCRIBED and its step 2 starts that generation from its head when reopened", async () => {
+  const { w, client, h } = await opened();
+  const { server, store } = w;
+  typeIn(h, B2, "kept");
+  await w.settle();
+  server.answer.subscribe = false;
+  server.error(DOC, {
+    code: CODE.VALIDATION_FAILED,
+    message: "invalid",
+    permanent: true,
+    clientSeq: server.got("PUSH").at(-1)!.clientSeq,
+  });
+  await w.settle();
+  server.moved(DOC, 1, 2);
+  await w.settle();
+  server.send(subscribed(DOC, 1, 2));
+  await w.settle();
+  await client.close();
+  const g = await w.makeClient().open(DOC);
+  await w.online();
+  expect(editSubscribes(w).at(-1)).toMatchObject({ generation: 1 });
+  server.moved(DOC, 1, 2);
+  await w.settle();
+  expect(editSubscribes(w).at(-1)).toMatchObject({
+    generation: 2,
+    lastServerSeq: 0,
+  });
+  server.subscribedWithState(DOC, rebuilt(w), { generation: 2, headSeq: 1 });
+  await w.settle();
+  expect(textOf(g.doc())).toBe("draft\nkept");
+  const { meta } = (await store.load(DOC))!;
+  expect(meta).toMatchObject({ generation: 2, lastServerSeq: 1 });
+  expect(meta.ackedClocks).toEqual({});
 });
 
 test("a move with nothing waiting is taken up again after a reload", async () => {
