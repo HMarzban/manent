@@ -149,50 +149,23 @@ function peopleOf(peers: Iterable<Peer>, me: string | null): PresentPerson[] {
 }
 
 /**
- * Sends this editor's caret as awareness state `{ cursor }`: a move to another
- * block at once, at most every PRESENCE_MIN_INTERVAL_MS; a move inside one
- * block after PRESENCE_IDLE_MS of stillness; the last state again every
- * PRESENCE_RENEW_MS. Reads the entries the server stamped for everyone else;
- * bytes that are not an awareness update are ignored. `destroy` sends a null
- * state once and stops every timer.
+ * Reads the awareness entries the server stamped for every other client into
+ * cursors and people; this client's own entry gives only its `userId`, which
+ * the people list leaves out. Bytes that are not an awareness update are ignored.
  */
-export function createPresence(options: {
-  clientId: number;
-  document: BoundDocument;
-  timers: Timers;
-}): PresencePort & { destroy(): void } {
-  const { clientId, document, timers } = options;
-  let clock = 0;
-  let sent: { place: CursorPlace | null; at: number } | null = null;
-  let cancelSend: (() => void) | null = null;
-  let cancelRenew: (() => void) | null = null;
-  let destroyed = false;
+function createPeers(options: { clientId: number; timers: Timers }): {
+  receive(update: Uint8Array): void;
+  cursors: PresencePort["subscribe"];
+  people: PresencePort["subscribePeople"];
+} {
+  const { clientId, timers } = options;
   let order = 0;
   let mine: Stamp | null = null;
   const peers = new Map<number, Peer>();
   const cursors = createChannel<RemoteCursor>();
   const people = createChannel<PresentPerson>();
 
-  const sendState = (state: AwarenessEntry["state"]) =>
-    document.sendAwareness(
-      encodeAwareness([{ clientId, clock: ++clock, state }]),
-    );
-  const send = (place: CursorPlace | null) => {
-    cancelRenew?.();
-    sent = { place, at: timers.now() };
-    sendState({ cursor: place });
-    cancelRenew = timers.schedule(() => send(place), PRESENCE_RENEW_MS);
-  };
-  const sendIn = (delayMs: number, place: CursorPlace | null) => {
-    if (delayMs <= 0) send(place);
-    else
-      cancelSend = timers.schedule(() => {
-        cancelSend = null;
-        send(place);
-      }, delayMs);
-  };
-
-  const receive = (entry: AwarenessEntry) => {
+  const take = (entry: AwarenessEntry) => {
     const { state } = entry;
     if (entry.clientId === clientId) {
       mine = state === null ? null : readStamp(state.user);
@@ -215,18 +188,64 @@ export function createPresence(options: {
       order: ++order,
     });
   };
-  const stopListening = document.onAwareness((update) => {
-    let entries: AwarenessEntry[];
-    try {
-      entries = decodeAwareness(update);
-    } catch (error) {
-      if (error instanceof CrdtUpdateError) return;
-      throw error;
-    }
-    for (const entry of entries) receive(entry);
-    cursors.offer(cursorsOf(peers.values()));
-    people.offer(peopleOf(peers.values(), mine?.userId ?? null));
-  });
+
+  return {
+    receive: (update) => {
+      let entries: AwarenessEntry[];
+      try {
+        entries = decodeAwareness(update);
+      } catch (error) {
+        if (error instanceof CrdtUpdateError) return;
+        throw error;
+      }
+      for (const entry of entries) take(entry);
+      cursors.offer(cursorsOf(peers.values()));
+      people.offer(peopleOf(peers.values(), mine?.userId ?? null));
+    },
+    cursors: cursors.subscribe,
+    people: people.subscribe,
+  };
+}
+
+/**
+ * Sends this editor's caret as awareness state `{ cursor }`: a move to another
+ * block at once, at most every PRESENCE_MIN_INTERVAL_MS; a move inside one
+ * block after PRESENCE_IDLE_MS of stillness; the last state again every
+ * PRESENCE_RENEW_MS. Reads everyone else's entries through `createPeers`.
+ * `destroy` sends a null state once and stops every timer.
+ */
+export function createPresence(options: {
+  clientId: number;
+  document: BoundDocument;
+  timers: Timers;
+}): PresencePort & { destroy(): void } {
+  const { clientId, document, timers } = options;
+  let clock = 0;
+  let sent: { place: CursorPlace | null; at: number } | null = null;
+  let cancelSend: (() => void) | null = null;
+  let cancelRenew: (() => void) | null = null;
+  let destroyed = false;
+  const peers = createPeers({ clientId, timers });
+  const stopListening = document.onAwareness(peers.receive);
+
+  const sendState = (state: AwarenessEntry["state"]) =>
+    document.sendAwareness(
+      encodeAwareness([{ clientId, clock: ++clock, state }]),
+    );
+  const send = (place: CursorPlace | null) => {
+    cancelRenew?.();
+    sent = { place, at: timers.now() };
+    sendState({ cursor: place });
+    cancelRenew = timers.schedule(() => send(place), PRESENCE_RENEW_MS);
+  };
+  const sendIn = (delayMs: number, place: CursorPlace | null) => {
+    if (delayMs <= 0) send(place);
+    else
+      cancelSend = timers.schedule(() => {
+        cancelSend = null;
+        send(place);
+      }, delayMs);
+  };
 
   return {
     publish: (place) => {
@@ -241,8 +260,8 @@ export function createPresence(options: {
           place,
         );
     },
-    subscribe: cursors.subscribe,
-    subscribePeople: people.subscribe,
+    subscribe: peers.cursors,
+    subscribePeople: peers.people,
     destroy: () => {
       if (destroyed) return;
       destroyed = true;
