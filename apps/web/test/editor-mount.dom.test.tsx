@@ -334,7 +334,8 @@ test("a replaced document rebuilds at the same place, after the composition ends
   const r = rig({ sessions: replacing.sessions });
   const old = r.view();
   topAtFirstBlock(old);
-  typeInto(old, "INT.");
+  // a whole heading: after "INT." alone, Enter would take a completion and split nothing
+  typeInto(old, "INT. HALL");
   const caret = caretOf(old);
   old.dom.dispatchEvent(new CompositionEvent("compositionstart"));
   replacing.replace();
@@ -342,6 +343,7 @@ test("a replaced document rebuilds at the same place, after the composition ends
   if (first === undefined || second === undefined)
     throw new TypeError("the document was not replaced");
   const contents = [contentOf(first), contentOf(second)];
+  old.dom.dispatchEvent(new CompositionEvent("compositionend"));
   old.dom.dispatchEvent(
     new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
   );
@@ -350,7 +352,6 @@ test("a replaced document rebuilds at the same place, after the composition ends
     old.editable,
     [contentOf(first), contentOf(second)],
   ];
-  old.dom.dispatchEvent(new CompositionEvent("compositionend"));
   r.clock.advance(50);
   const rebuilt = r.view();
   expect([
