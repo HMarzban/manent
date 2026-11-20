@@ -10,7 +10,7 @@ import { useCommandActions } from "./status-bar.tsx";
 const PAGE_REGION = "[data-region='page']";
 
 /** The bar's appearing, going or changing height scrolls the page by as much, before the frame is drawn, so its lines stay put. */
-function useKeepPageStill(bar: RefObject<HTMLElement | null>): void {
+export function useKeepPageStill(bar: RefObject<HTMLElement | null>): void {
   const height = useRef<number | null>(null);
   useLayoutEffect(() => {
     const element = bar.current;
