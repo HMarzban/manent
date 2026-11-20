@@ -208,6 +208,12 @@ export interface ScriptedServer {
   /** Changes the server's copy and returns the update; sends nothing. */
   change(docId: string, fn: (doc: CrdtDoc) => void): Uint8Array;
   write(docId: string, fn: (w: BlockWriter) => void): Uint8Array;
+  /** As `write`, the change made under the Yjs client ID given, as another person's device makes it. */
+  writeAs(
+    docId: string,
+    clientId: number,
+    fn: (w: BlockWriter) => void,
+  ): Uint8Array;
   syncUpdate(docId: string, update: Uint8Array): void;
   ack(docId: string, clientSeq: number, serverSeq: number): void;
   /** Takes in every push the clients sent for the document and acknowledges every own entry it holds, at a new head; nothing when none was sent. */
@@ -263,6 +269,7 @@ export function subscribed(
 function scriptedServer(network: MemoryNetwork): ScriptedServer {
   const received: Message[] = [];
   const docs = new Map<string, CrdtDoc>();
+  const authors = new Map<string, CrdtDoc>();
   const generations = new Map<string, number>();
   const generationOf = (docId: string): number => generations.get(docId) ?? 1;
   const ends: ScriptedEnd[] = [];
@@ -313,6 +320,20 @@ function scriptedServer(network: MemoryNetwork): ScriptedServer {
     },
     write: (docId, fn) =>
       server.change(docId, (doc) => scriptBody(doc).write(fn)),
+    writeAs(docId, clientId, fn) {
+      // one device per client ID: a second one under the same ID would make Yjs pick another
+      const key = `${docId}:${clientId}`;
+      const author = authors.get(key) ?? createDoc({ clientId });
+      authors.set(key, author);
+      author.applyUpdate(server.doc(docId).encodeState());
+      const updates: Uint8Array[] = [];
+      const stop = author.subscribe((update) => updates.push(update));
+      scriptBody(author).write(fn);
+      stop();
+      const update = updates[0] ?? new Uint8Array();
+      server.doc(docId).applyUpdate(update);
+      return update;
+    },
     syncUpdate(docId, update) {
       server.doc(docId).applyUpdate(update);
       sync(docId, "update", update);

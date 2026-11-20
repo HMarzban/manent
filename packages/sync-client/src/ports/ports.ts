@@ -1,6 +1,6 @@
 // The client's ports and the shapes it stores and reports. The core reaches time, chance,
 // the network, the disk and other tabs only through these.
-import type { DocJSON } from "@manent/schema";
+import type { BlockJSON, DocJSON } from "@manent/schema";
 import type { ReplayRefusal, ReplayResponse } from "@manent/sync-protocol";
 
 /** The returned function cancels what `schedule` set. */
@@ -154,6 +154,12 @@ export interface DeviceVersion {
   uploaded: boolean;
 }
 
+/**
+ * For an overlap, `mine` and `theirs` are the block as this device and the
+ * other side wrote it (null where that side no longer holds it), and
+ * `otherClientIds` the other side's Yjs client IDs, ascending, where known;
+ * null, null and [] for any other cause.
+ */
 export interface RecoveredItem {
   id: string;
   docId: string;
@@ -162,6 +168,21 @@ export interface RecoveredItem {
   text: string;
   recoveredAt: number;
   cause: "merge" | "rejected" | "overlap";
+  mine: BlockJSON | null;
+  theirs: BlockJSON | null;
+  otherClientIds: number[];
+}
+
+/** A recovered item as a store holds it: one stored before overlaps carried wordings lacks them. */
+export type StoredRecoveredItem = Omit<
+  RecoveredItem,
+  "mine" | "theirs" | "otherClientIds"
+> &
+  Partial<RecoveredItem>;
+
+/** The item a store holds, with no wordings where it was stored without them. */
+export function toRecoveredItem(stored: StoredRecoveredItem): RecoveredItem {
+  return { mine: null, theirs: null, otherClientIds: [], ...stored };
 }
 
 export interface LoadedDocument {
@@ -187,7 +208,7 @@ export interface LocalStore {
   ): Promise<void>;
   /** A refused setting: that one entry is removed. */
   refuse(docId: string, localSeq: number): Promise<void>;
-  /** Server entries up to `throughLocalSeq` become applied, and the items are stored, in one write. */
+  /** Server entries up to `throughLocalSeq` become applied, and the items are stored, in one write; an item under an id already held replaces it. */
   markApplied(
     docId: string,
     throughLocalSeq: number,

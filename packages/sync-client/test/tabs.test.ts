@@ -52,6 +52,24 @@ const ITEM: RecoveredItem = {
   text: "The kettle boils over.",
   recoveredAt: 700,
   cause: "merge",
+  mine: null,
+  theirs: null,
+  otherClientIds: [],
+};
+const OVERLAP: RecoveredItem = {
+  ...ITEM,
+  id: "r2",
+  blockId: "b3",
+  nearBlockId: null,
+  text: "Run.",
+  cause: "overlap",
+  mine: {
+    type: "block",
+    attrs: { id: "b3", type: "dialogue" },
+    content: [{ type: "text", text: "Run.", marks: [{ type: "em" }] }],
+  },
+  theirs: { type: "block", attrs: { id: "b3", type: "dialogue" } },
+  otherClientIds: [77],
 };
 const SAMPLES: Record<TabBody["t"], TabBody> = {
   who: { t: "who" },
@@ -82,7 +100,7 @@ const SAMPLES: Record<TabBody["t"], TabBody> = {
   remote: { t: "remote", docId: DOC, update: new Uint8Array([4]) },
   status: { t: "status", docId: DOC, status: STATUS },
   event: { t: "event", docId: DOC, event: { type: "replaced" } },
-  recovered: { t: "recovered", docId: DOC, items: [ITEM] },
+  recovered: { t: "recovered", docId: DOC, items: [ITEM, OVERLAP] },
   replace: {
     t: "replace",
     docId: DOC,
@@ -425,6 +443,9 @@ const item: fc.Arbitrary<RecoveredItem> = fc.record({
   text,
   recoveredAt: int,
   cause: fc.constantFrom("merge", "rejected", "overlap"),
+  mine: nullable(fc.constant({ type: "block" as const })),
+  theirs: nullable(fc.constant({ type: "block" as const })),
+  otherClientIds: fc.array(int, { maxLength: 2 }),
 });
 const body: fc.Arbitrary<TabBody> = fc.oneof(
   fc.constant({ t: "who" as const }),

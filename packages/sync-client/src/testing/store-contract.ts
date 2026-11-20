@@ -83,6 +83,9 @@ function item(id: string): RecoveredItem {
     text: "kept",
     recoveredAt: 5,
     cause: "merge",
+    mine: null,
+    theirs: null,
+    otherClientIds: [],
   };
 }
 
@@ -190,6 +193,21 @@ const CONTRACT: readonly ContractCase[] = [
       expect(await s.recovered(DOC)).toEqual([kept]);
       await s.dismissRecovered("r1");
       expect(await s.recovered(DOC)).toEqual([]);
+    },
+  },
+  {
+    name: "an item filed again under its id takes the place of the one before",
+    async run(s, _open, expect) {
+      await seed(s);
+      const wording = {
+        type: "block" as const,
+        attrs: { id: "b1", type: "action" },
+        content: [{ type: "text" as const, text: "the other wording" }],
+      };
+      const again = { ...item("r1"), theirs: wording, otherClientIds: [7] };
+      await s.markApplied(DOC, 0, [item("r1"), item("r2")]);
+      await s.markApplied(DOC, 0, [again]);
+      expect(await s.recovered(DOC)).toEqual([again, item("r2")]);
     },
   },
   {

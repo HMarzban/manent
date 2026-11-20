@@ -19,7 +19,7 @@ import type {
   SideState,
   SyncClientPorts,
 } from "../ports/ports.ts";
-import { differingText } from "../recovery/recover.ts";
+import { differingText, withFiled } from "../recovery/recover.ts";
 import type { DocEvent, DocHandle } from "../session/doc-handle.ts";
 import { elementsOf } from "../session/edits.ts";
 import type { UnsavedEdit } from "../session/edits.ts";
@@ -77,8 +77,10 @@ function readEvent(value: unknown): DocEvent | null {
         ? { type: "setting_refused", key, message }
         : null;
     case "receipt":
-      return typeof sent === "number" && typeof setAside === "number"
-        ? { type: "receipt", sent, setAside }
+      return typeof sent === "number" &&
+        typeof setAside === "number" &&
+        typeof overlaps === "number"
+        ? { type: "receipt", sent, setAside, overlaps }
         : null;
     case "rebuilt":
       return typeof applied === "number" &&
@@ -311,7 +313,7 @@ class TabFollower implements Follower {
     this.setRecovered([...this.recovered, ...items]);
   }
 
-  /** The leader's items; one this tab filed with the same block and text gives way to it. */
+  /** The leader's items; one this tab filed with the same block and text gives way to it, and one under an id held already takes its place. */
   private fileLeaders(items: readonly RecoveredItem[]): void {
     const filed = new Set(items.map(sameText));
     const kept = this.recovered.filter((item) => {
@@ -320,7 +322,7 @@ class TabFollower implements Follower {
       this.filedHere.delete(item.id);
       return false;
     });
-    this.setRecovered([...kept, ...items]);
+    this.setRecovered(withFiled(kept, items));
   }
 
   private setRecovered(items: RecoveredItem[]): void {

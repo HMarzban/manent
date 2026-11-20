@@ -11,6 +11,7 @@ import { createSubscribable } from "../outbox/subscribable.ts";
 import { SUBSCRIBE_CLIENT_IDS } from "../ports/defaults.ts";
 import { ConnectError } from "../ports/ports.ts";
 import { PushRecovery } from "../recovery/recover.ts";
+import { reconnectOverlaps } from "../review/overlaps.ts";
 import type {
   DocMeta,
   SideState,
@@ -141,12 +142,7 @@ class DocSubscription implements Subscription {
     this.move?.stop();
   }
 
-  /**
-   * A recovery subscribes under its new client ID, and a move under the new
-   * generation's, with an empty state vector, to be sent the whole state. With
-   * own entries waiting, step 1 carries the synced base's vector, so that step 2
-   * is everything the server holds beyond it.
-   */
+  /** A recovery subscribes under its new client ID, and a move under the new generation's, with an empty state vector, to be sent the whole state. With own entries waiting, step 1 carries the synced base's vector, so that step 2 is everything the server holds beyond it. */
   subscription(): ReturnType<HandshakeHost["subscription"]> {
     const loading = this.move?.subscription() ?? null;
     if (loading !== null) return loading;
@@ -295,11 +291,15 @@ class DocSubscription implements Subscription {
   private merge(update: Uint8Array): void {
     const { journal, copy } = this.options;
     const waiting = journal.waiting();
-    if (waiting > 0 && !journal.meta.neverSynced)
-      copy.recordVersion("device", "before_reconnect");
+    const mine =
+      waiting > 0 && !journal.meta.neverSynced
+        ? copy.recordVersion("device", "before_reconnect").content
+        : null;
     if (waiting > 0)
       this.receipt = { sent: waiting, setAside: copy.recovered.length };
-    copy.merge(update);
+    const { clientIds } = journal.meta;
+    const found = reconnectOverlaps(this.syncedBase, update, mine, clientIds);
+    copy.merge(update, found);
   }
 
   /** A permanently rejected push; the heal push when its `clientSeq` is the heal push's. */
@@ -373,17 +373,17 @@ class DocSubscription implements Subscription {
     this.options.changed();
   }
 
-  /** After an acknowledgement or a refusal: the receipt goes once nothing waits. */
+  /** After an acknowledgement or a refusal: the receipt goes once nothing waits, counting the items filed since the reconnect by cause. */
   private settled(): void {
     this.options.changed();
     if (this.receipt === null || this.hasWaiting()) return;
     const { sent, setAside } = this.receipt;
     this.receipt = null;
-    this.options.copy.emit({
-      type: "receipt",
-      sent,
-      setAside: this.options.copy.recovered.length - setAside,
-    });
+    const { copy } = this.options;
+    const filed = copy.recovered.slice(setAside);
+    const overlaps = filed.filter((item) => item.cause === "overlap").length;
+    const unplaced = filed.length - overlaps;
+    copy.emit({ type: "receipt", sent, setAside: unplaced, overlaps });
   }
 
   private hasWaiting(): boolean {

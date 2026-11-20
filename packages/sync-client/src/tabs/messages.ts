@@ -1,4 +1,5 @@
 // The messages one user's tabs exchange, and the reader that accepts only what this build knows.
+import type { BlockJSON, MarkJSON, TextJSON } from "@manent/schema";
 import { TAB_PROTOCOL_VERSION } from "../ports/defaults.ts";
 import type {
   DocMeta,
@@ -230,6 +231,32 @@ function readStatus(value: unknown): DocStatus {
   };
 }
 
+function readMark(value: unknown): MarkJSON {
+  const fields = readFields(value);
+  const mark: MarkJSON = { type: readString(fields.type) };
+  if (fields.attrs !== undefined) mark.attrs = readFields(fields.attrs);
+  return mark;
+}
+
+function readRun(value: unknown): TextJSON {
+  const fields = readFields(value);
+  if (fields.type !== "text") throw new Malformed();
+  const run: TextJSON = { type: "text", text: readString(fields.text) };
+  if (fields.marks !== undefined) run.marks = listOf(readMark)(fields.marks);
+  return run;
+}
+
+/** A block's shape; what its attributes and marks hold is passed on as it is. */
+function readBlock(value: unknown): BlockJSON {
+  const fields = readFields(value);
+  if (fields.type !== "block") throw new Malformed();
+  const block: BlockJSON = { type: "block" };
+  if (fields.attrs !== undefined) block.attrs = readFields(fields.attrs);
+  if (fields.content !== undefined)
+    block.content = listOf(readRun)(fields.content);
+  return block;
+}
+
 function readItem(value: unknown): RecoveredItem {
   const fields = readFields(value);
   return {
@@ -240,6 +267,9 @@ function readItem(value: unknown): RecoveredItem {
     text: readString(fields.text),
     recoveredAt: readNumber(fields.recoveredAt),
     cause: readCause(fields.cause),
+    mine: orNull(readBlock)(fields.mine),
+    theirs: orNull(readBlock)(fields.theirs),
+    otherClientIds: listOf(readNumber)(fields.otherClientIds),
   };
 }
 

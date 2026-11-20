@@ -1,6 +1,6 @@
 // The local store on IndexedDB: one database per user, every write one strict transaction
 // that settles only when the browser has completed or aborted it.
-import { StoreError } from "@manent/sync-client";
+import { StoreError, toRecoveredItem } from "@manent/sync-client";
 import type {
   DeviceVersion,
   DocMeta,
@@ -8,6 +8,7 @@ import type {
   LocalStore,
   RecoveredItem,
   StoredEntry,
+  StoredRecoveredItem,
 } from "@manent/sync-client";
 
 /** The IndexedDB database version. A later one adds stores or indexes by `oldVersion`, and never deletes or rekeys one of these. */
@@ -118,10 +119,7 @@ function transact<T>(
   });
 }
 
-/**
- * Visits one document's entries in `localSeq` order, then runs `end`. Keys alone bound
- * the walk: a key range needs the global IDBKeyRange, which the injected factory need not share.
- */
+/** Visits one document's entries in `localSeq` order, then runs `end`. Keys alone bound the walk: a key range needs the global IDBKeyRange, which the injected factory need not share. */
 function eachEntry(
   tx: IDBTransaction,
   docId: string,
@@ -320,8 +318,9 @@ class IdbStore implements LocalStore {
     );
   }
 
-  recovered(docId: string): Promise<RecoveredItem[]> {
-    return this.readAll("recovered", docId);
+  async recovered(docId: string): Promise<RecoveredItem[]> {
+    const items = await this.readAll<StoredRecoveredItem>("recovered", docId);
+    return items.map(toRecoveredItem);
   }
 
   dismissRecovered(itemId: string): Promise<void> {

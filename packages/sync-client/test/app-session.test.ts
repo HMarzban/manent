@@ -168,6 +168,9 @@ test("the documents on this device are summarised without opening them", async (
       text: "gone",
       recoveredAt: parkedAt,
       cause: "merge",
+      mine: null,
+      theirs: null,
+      otherClientIds: [],
     },
   ]);
   const client = w.makeClient();

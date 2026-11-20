@@ -7,6 +7,7 @@ import {
   updateMeta,
 } from "@manent/crdt";
 import type { BlockWriter, CrdtDoc } from "@manent/crdt";
+import { blockText, blockView } from "@manent/schema";
 import { CODE } from "@manent/sync-protocol";
 import * as entry from "../src/index.ts";
 import type { DeviceVersion, DocHandle } from "../src/index.ts";
@@ -161,6 +162,39 @@ test("after a rejected push, a block both sides changed merges by character", as
     setAside: 0,
   });
   expect(h.recovered.get()).toEqual([]);
+});
+
+test("after a rejected push an overlap keeps both wordings", async () => {
+  const w = await setup();
+  const base = stateOf([[B, "rain"]]);
+  await seed2(w, base, base);
+  const client = w.makeClient();
+  const h = await client.open(DOC2);
+  await w.online();
+  write(h, (writer) => {
+    writer.deleteText(B, 0, 4);
+    writer.insertText(B, 0, "snow");
+  });
+  await w.settle();
+  w.server.write(DOC2, (writer) => {
+    writer.deleteText(B, 0, 4);
+    writer.insertText(B, 0, "hail");
+  });
+  w.server.answer.subscribe = false;
+  refuse(w, DOC2, lastPush(w).clientSeq);
+  await w.settle();
+  w.server.subscribedWithState(DOC2, w.server.doc(DOC2).encodeState());
+  await w.settle();
+  expect(
+    h.recovered
+      .get()
+      .map((r) => [
+        r.blockId,
+        r.cause,
+        r.mine && blockText(blockView(r.mine)),
+        r.theirs && blockText(blockView(r.theirs)),
+      ]),
+  ).toEqual([[B, "overlap", "snow", "hail"]]);
 });
 
 test("after a rejected push, blocks the server lacks are written back and a deleted one is Recovered text", async () => {

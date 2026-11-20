@@ -22,8 +22,10 @@ import type {
   Subscribable,
   SyncClientPorts,
 } from "../ports/ports.ts";
+import { textLeftover, withFiled } from "../recovery/recover.ts";
 import type { Leftover } from "../recovery/recover.ts";
 import { deviceVersion } from "../recovery/versions.ts";
+import { OverlapWindow } from "../review/online.ts";
 import type { ViewHandle } from "../view/view.ts";
 import type { DocEvent, DocHandle } from "./doc-handle.ts";
 import { elementsOf } from "./edits.ts";
@@ -37,25 +39,15 @@ type ReplacedReason = Extract<DocEvent, { type: "replaced" }>["reason"];
 export interface LocalCopy {
   readonly doc: CrdtDoc;
   readonly recovered: readonly RecoveredItem[];
-  /**
-   * Shows `recovered` and every waiting setting, applies the server updates
-   * stored but not yet applied, and stores the edits a leader never saved.
-   */
+  /** Shows `recovered` and every waiting setting, applies the server updates stored but not yet applied, and stores the edits a leader never saved. */
   load(recovered: RecoveredItem[], unsaved: UnsavedEdit[]): void;
   /** A following tab's edit; resolves once its write has settled. */
   edit(edit: UnsavedEdit): Promise<void>;
   /** A server update is stored at once and shown at the next frame. */
   update(update: Uint8Array): void;
-  /**
-   * The server's step 2: applied now, or once remote updates are no longer
-   * held, after the updates buffered; stored only when it changes something.
-   */
-  merge(update: Uint8Array): void;
-  /**
-   * The document's content before it is replaced. Server updates still
-   * buffered or held are applied first, so what they set aside is filed as
-   * merged, not lost with the document.
-   */
+  /** The server's step 2: applied now, or once remote updates are no longer held, after the updates buffered; stored only when it changes something, and then with the reconnect's `overlaps` filed in the same write. */
+  merge(update: Uint8Array, overlaps: Leftover[]): void;
+  /** The document's content before it is replaced. Server updates still buffered or held are applied first, so what they set aside is filed as merged, not lost with the document. */
   mine(): DocJSON;
   /** Recovered text of this document, each piece under a new id. */
   items(leftovers: readonly Leftover[]): RecoveredItem[];
@@ -70,11 +62,11 @@ export interface LocalCopy {
   refused(entry: StoredSetting, message: string): void;
   emit(event: DocEvent): void;
   awareness(update: Uint8Array): void;
-  /** Keeps the document as a device version; `stored` settles once it is written. */
+  /** Keeps the document as a device version, `content`; `stored` settles once it is written. */
   recordVersion(
     kind: DeviceVersion["kind"],
     label: DeviceVersion["label"],
-  ): { id: string; stored: Promise<void> };
+  ): { id: string; stored: Promise<void>; content: DocJSON };
   writeSchema(version: number): void;
   /** Stops observing the document and applying server updates. */
   dispose(): void;
@@ -114,7 +106,7 @@ class BoundCopy implements LocalCopy {
   private unobserve: () => void = () => {};
   private holding = 0;
   /** Step 2s that arrived while remote updates were held, in order. */
-  private heldSteps: Uint8Array[] = [];
+  private heldSteps: { update: Uint8Array; overlaps: Leftover[] }[] = [];
   private remoteChanged = false;
   /** The local sequence of the newest server update stored. */
   private storedThrough = 0;
@@ -126,9 +118,11 @@ class BoundCopy implements LocalCopy {
   private readonly listeners = new Set<(event: DocEvent) => void>();
   private readonly awarenessListeners = new Set<(update: Uint8Array) => void>();
   private readonly options: LocalCopyOptions;
+  private readonly window: OverlapWindow;
 
   constructor(options: LocalCopyOptions) {
     this.options = options;
+    this.window = new OverlapWindow(this, options.ports.clock);
     this.doc = options.doc;
     if (options.checkpoint !== null)
       this.doc.applyUpdate(options.checkpoint, ORIGIN_LOAD);
@@ -167,9 +161,9 @@ class BoundCopy implements LocalCopy {
     this.coalescer.push(update, localSeq);
   }
 
-  merge(update: Uint8Array): void {
-    if (this.holding > 0) this.heldSteps.push(update);
-    else this.mergeNow(update);
+  merge(update: Uint8Array, overlaps: Leftover[]): void {
+    if (this.holding > 0) this.heldSteps.push({ update, overlaps });
+    else this.mergeNow(update, overlaps);
   }
 
   mine(): DocJSON {
@@ -226,7 +220,7 @@ class BoundCopy implements LocalCopy {
   recordVersion(
     kind: DeviceVersion["kind"],
     label: DeviceVersion["label"],
-  ): { id: string; stored: Promise<void> } {
+  ): { id: string; stored: Promise<void>; content: DocJSON } {
     const createdAt = this.now();
     const { docId, journal } = this.options;
     const id = this.newId();
@@ -238,7 +232,11 @@ class BoundCopy implements LocalCopy {
       createdAt,
     });
     journal.patch({ lastDeviceVersionAt: createdAt });
-    return { id, stored: journal.addVersion(version) };
+    return {
+      id,
+      stored: journal.addVersion(version),
+      content: version.content,
+    };
   }
 
   writeSchema(version: number): void {
@@ -312,15 +310,13 @@ class BoundCopy implements LocalCopy {
     return coalescer;
   }
 
-  /**
-   * Step 2 is applied on its own, after what is buffered: merged with them, its
-   * delete set, which holds what went with a deleted parent, would hide what
-   * they set aside.
-   */
-  private mergeNow(update: Uint8Array): void {
+  /** Step 2 is applied on its own, after what is buffered: merged with them, its delete set, which holds what went with a deleted parent, would hide what they set aside. */
+  private mergeNow(update: Uint8Array, overlaps: Leftover[]): void {
     this.coalescer.flushNow();
     this.remoteChanged = false;
-    const items = this.applyServer(update);
+    const items = [...this.applyServer(update), ...this.items(overlaps)];
+    // a reconnect's overlaps are found against the synced base, not the window
+    this.window.take();
     if (!this.remoteChanged) return;
     const localSeq = this.options.journal.appendServer(update, true);
     this.storedThrough = localSeq;
@@ -328,17 +324,20 @@ class BoundCopy implements LocalCopy {
   }
 
   private mergeHeld(): void {
-    for (const update of this.heldSteps.splice(0)) this.mergeNow(update);
+    for (const { update, overlaps } of this.heldSteps.splice(0))
+      this.mergeNow(update, overlaps);
   }
 
   /** A change made here, or the formatting Yjs tidies after a remote one: an own entry. */
   private changed(report: TransactionReport): void {
     if (report.origin === ORIGIN_LOAD) return;
+    const { journal } = this.options;
     if (report.origin === ORIGIN_REMOTE) {
       this.remoteChanged = true;
+      this.window.remote(report, new Set(journal.meta.clientIds));
       return;
     }
-    const { journal } = this.options;
+    this.window.own(report);
     void journal.appendOwn({
       update: report.update,
       elements: elementsOf(report),
@@ -355,13 +354,13 @@ class BoundCopy implements LocalCopy {
       update,
       new Set(this.options.journal.meta.clientIds),
     );
-    return this.items(setAside.map((a) => ({ ...a, cause: "merge" })));
+    return this.items(setAside.map((a) => textLeftover(a, "merge")));
   }
 
-  /** Server entries up to `through` are in the document, and `items` is what they set aside. */
+  /** Server entries up to `through` are in the document, and `items` is what they set aside; the overlaps found online are filed with them. */
   private appliedTo(through: number, items: RecoveredItem[]): void {
     this.options.journal.applied(through);
-    this.file(items, through);
+    this.file([...items, ...this.window.take()], through);
     this.overlay.applied(through);
     this.options.changed();
   }
@@ -369,7 +368,7 @@ class BoundCopy implements LocalCopy {
   file(items: RecoveredItem[], through: number): void {
     this.options.journal.markApplied(through, items);
     if (items.length === 0) return;
-    this.recovered = [...this.recovered, ...items];
+    this.recovered = withFiled(this.recovered, items);
     this.recoveredView.set(this.recovered);
     this.emit({ type: "recovered", items });
   }

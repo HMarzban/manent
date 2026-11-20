@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createDoc, loadDoc, rebuildDoc, scriptBody } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import { CODE, isReplayKey } from "@manent/sync-protocol";
+import { blockText, blockView } from "@manent/schema";
 import type { ReplayResponse } from "@manent/sync-protocol";
 import { ConnectError } from "../src/index.ts";
 import type { DocHandle, StoredUpdate, SyncClient } from "../src/index.ts";
@@ -322,6 +323,30 @@ test("overlaps and text that could not be placed become Recovered text and are c
     g.recovered.get().map((r) => [r.blockId, r.nearBlockId, r.text, r.cause]),
   ).toEqual(filed);
   expect(await store.recovered(DOC)).toHaveLength(2);
+});
+
+test("after a move an overlap keeps both wordings", async () => {
+  const { w, h } = await waitingEdits();
+  const { server } = w;
+  server.write(DOC, (writer) => writer.insertText(B1, 0, "first "));
+  server.moved(DOC, 1, 2);
+  await w.settle();
+  server.answerReplay({
+    ok: true,
+    response: { ...NO_CHANGE, overlaps: [{ blockId: B1, text: "draftx" }] },
+  });
+  await w.settle();
+  server.subscribedWithState(DOC, rebuilt(w), { generation: 2, headSeq: 3 });
+  await w.settle();
+  expect(
+    h.recovered
+      .get()
+      .map((r) => [
+        r.cause,
+        r.mine && blockText(blockView(r.mine)),
+        r.theirs && blockText(blockView(r.theirs)),
+      ]),
+  ).toEqual([["overlap", "draftx", "first draft"]]);
 });
 
 test("a waiting setting is sent again as it is after the move", async () => {

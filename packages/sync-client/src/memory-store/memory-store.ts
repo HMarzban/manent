@@ -1,5 +1,6 @@
 // A local store that keeps nothing past the process: for tests, and for headless clients
 // with nothing to persist.
+import { toRecoveredItem } from "../ports/ports.ts";
 import type {
   DeviceVersion,
   DocMeta,
@@ -7,6 +8,7 @@ import type {
   LocalStore,
   RecoveredItem,
   StoredEntry,
+  StoredRecoveredItem,
 } from "../ports/ports.ts";
 
 /** One device: every user's store on it. One user's store, asked for twice, holds the same data, as after a reload. */
@@ -27,7 +29,7 @@ interface DocRecord {
 interface StoreContents {
   docs: ReadonlyMap<string, DocRecord>;
   versions: readonly DeviceVersion[];
-  recovered: readonly RecoveredItem[];
+  recovered: readonly StoredRecoveredItem[];
 }
 
 function copyEntry(entry: StoredEntry): StoredEntry {
@@ -183,9 +185,13 @@ class MemoryStore implements LocalStore {
     throughLocalSeq: number,
     setAside: readonly RecoveredItem[],
   ): Promise<void> {
-    const items = setAside.map((item) => ({ ...item }));
+    const items = setAside.map((item) => structuredClone(item));
     return this.swap((contents) => {
       const record = recordOf(contents, docId);
+      // an item under an id already held takes that one's place
+      const byId = new Map(
+        [...contents.recovered, ...items].map((item) => [item.id, item]),
+      );
       return {
         ...withDoc(contents, docId, {
           ...record,
@@ -197,7 +203,7 @@ class MemoryStore implements LocalStore {
               : entry,
           ),
         }),
-        recovered: [...contents.recovered, ...items],
+        recovered: [...byId.values()],
       };
     });
   }
@@ -273,7 +279,7 @@ class MemoryStore implements LocalStore {
     await Promise.resolve();
     return this.contents.recovered
       .filter((item) => item.docId === docId)
-      .map((item) => ({ ...item }));
+      .map((item) => toRecoveredItem(structuredClone(item)));
   }
 
   dismissRecovered(itemId: string): Promise<void> {

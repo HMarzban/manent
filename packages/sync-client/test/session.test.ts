@@ -458,7 +458,9 @@ test("a reconnect that had something waiting ends in one receipt, counted in ele
   await w.settle();
   w.server.ack(DOC, 4, 5);
   await w.settle();
-  expect(events).toEqual([{ type: "receipt", sent: 2, setAside: 0 }]);
+  expect(events).toEqual([
+    { type: "receipt", sent: 2, setAside: 0, overlaps: 0 },
+  ]);
 });
 
 test("awareness passes through while the document is live", async () => {
