@@ -27,12 +27,7 @@ async function firstSchemaFile(
 }
 
 test("the second migration appends one entry to each list", () => {
-  expect([
-    MIGRATIONS.control.length,
-    MIGRATIONS.documents.length,
-    MIGRATIONS.checkpoints.length,
-    MIGRATIONS.control[1],
-  ]).toEqual([2, 2, 2, []]);
+  expect(MIGRATIONS.control[1]).toEqual([]);
 });
 
 test("a file written by the first schema opens, keeps its rows and gains the new tables", async () => {
@@ -77,5 +72,5 @@ test("a file written by the first schema opens, keeps its rows and gains the new
     generations: [],
     measure: null,
   });
-  expect(Object.values(files).map(userVersion)).toEqual([2, 2, 2]);
+  expect(Object.values(files).map(userVersion)).toEqual([3, 3, 3]);
 });

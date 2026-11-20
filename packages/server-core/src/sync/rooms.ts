@@ -5,7 +5,13 @@ import type { DocFile, DocumentRow, Home, Storage } from "@manent/storage";
 import type { DocKind } from "@manent/sync-protocol";
 import { createTokenBucket } from "../limits/bucket.ts";
 import type { Access } from "./access.ts";
-import type { Checkpointer, Clock, Peer, SyncLimits } from "./ports.ts";
+import type {
+  Checkpointer,
+  Clock,
+  Peer,
+  SyncLimits,
+  WriteMode,
+} from "./ports.ts";
 
 export interface Subscription {
   peer: Peer;
@@ -20,6 +26,8 @@ export interface Room {
   readonly home: Home;
   readonly file: DocFile;
   readonly kind: DocKind;
+  /** Asked when the room is created, and again when the service is told the mode changed. */
+  mode: WriteMode;
   /** Read again on load and after each commit. */
   row: DocumentRow;
   /** Null while nobody is editing. */
@@ -44,6 +52,8 @@ export interface Rooms {
   load(room: Room): { ok: true } | { ok: false; code: "busy" };
   /** Discards the document and builds it again from the log. */
   reload(room: Room): void;
+  /** The log's row and the document it builds, without what the room holds uncommitted; the room is not touched, and the caller destroys the document. */
+  committed(room: Room): { row: DocumentRow; doc: CrdtDoc };
   /** Forgets the documents and the rooms; telling their subscribers is the caller's job. */
   drop(rooms: readonly Room[]): void;
   /** The whole document, encoded once per change and reused for every joiner. RangeError for a room not loaded. */
@@ -91,13 +101,16 @@ function readPeople(room: Room): void {
     room.colors.set(userId, color);
 }
 
+/** `mode` defaults to "authority" for every document. */
 export function createRooms(ports: {
   storage: Storage;
   clock: Clock;
   limits: SyncLimits;
   checkpointer: Checkpointer;
+  mode?: (docId: string) => WriteMode;
 }): Rooms {
   const { storage, clock, limits, checkpointer } = ports;
+  const modeOf = ports.mode ?? (() => "authority");
   const rooms = new Map<string, Room>();
   const encoded = new Map<Room, Uint8Array>();
   const idle = new Map<Room, () => void>();
@@ -188,6 +201,7 @@ export function createRooms(ports: {
         home: { ...home },
         file,
         kind,
+        mode: modeOf(docId),
         row,
         doc: null,
         sizeBytes: 0,
@@ -214,6 +228,10 @@ export function createRooms(ports: {
       return { ok: true };
     },
     reload: rebuild,
+    committed(room) {
+      const row = room.file.log.get(room.docId) ?? room.row;
+      return { row, doc: build(room.file, row).doc };
+    },
     drop(dropped) {
       for (const room of dropped) {
         discard(room);

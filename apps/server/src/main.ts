@@ -11,19 +11,20 @@ import {
   createSignedSessionStore,
   createTicketStore,
   createWorkerCheckpointer,
+  serveWithBun,
 } from "@manent/server-core";
 import type {
   Clock,
-  ConnectionData,
+  Listener,
   ManentServer,
   ServerConfig,
   SyncSettings,
 } from "@manent/server-core";
 import { openSqliteStorage } from "@manent/storage";
 import { PROTOCOL_VERSION } from "@manent/sync-protocol";
-import { serveWithBun } from "./bun-adapter.ts";
 import { readServerEnv } from "./env.ts";
 import type { ServerEnv } from "./env.ts";
+import { onServeError } from "./serve-error.ts";
 
 const SESSION_KEY_BYTES = 32;
 
@@ -135,9 +136,9 @@ function listen(
   hostname: string,
   port: number,
   server: () => ManentServer,
-): Bun.Server<ConnectionData> {
+): Listener {
   try {
-    return serveWithBun({ hostname, port }, server);
+    return serveWithBun({ hostname, port }, server, onServeError);
   } catch (cause) {
     throw new Error(`Manent could not listen on ${hostname}:${port}.`, {
       cause,
@@ -189,11 +190,10 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
     return built;
   };
   const loopback = listen("127.0.0.1", env.port, server);
-  // a listener on a host and a port always reports the port it bound
-  const port = loopback.port!;
+  const { port } = loopback;
   const listening = [loopback];
   const stopListening = async () => {
-    await Promise.all(listening.map((s) => s.stop(true)));
+    await Promise.all(listening.map((s) => s.stop()));
   };
   if (env.lanHost !== null) {
     try {

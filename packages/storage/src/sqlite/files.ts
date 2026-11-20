@@ -1,5 +1,5 @@
 // Where each file lives, how a connection to it is opened, and how it reaches the current schema.
-import { Database } from "bun:sqlite";
+import { Database, SQLiteError } from "bun:sqlite";
 import { join } from "node:path";
 import { wellFormedKey } from "../home.ts";
 import type { Home } from "../ports.ts";
@@ -29,10 +29,14 @@ export function openDatabase(path: string): Database {
   }
 }
 
+// SQLite's result code when a write needs a page the disk, or the file's page limit, cannot give.
+const SQLITE_FULL = 13;
+
 /**
  * Runs `fn` as one `BEGIN IMMEDIATE` transaction, or inside the one already open.
- * A failure rolls it back and throws StorageError("commit_failed"); a RangeError,
- * the caller's mistake, passes through.
+ * A failure rolls it back and throws StorageError("disk_full") when SQLite reports
+ * SQLITE_FULL, else StorageError("commit_failed"); a RangeError, the caller's
+ * mistake, passes through.
  */
 export function transact<T>(db: Database, fn: () => T): T {
   if (db.inTransaction) return fn();
@@ -40,7 +44,10 @@ export function transact<T>(db: Database, fn: () => T): T {
     return db.transaction(fn).immediate();
   } catch (error) {
     if (error instanceof RangeError) throw error;
-    throw new StorageError("commit_failed", { cause: error });
+    const full = error instanceof SQLiteError && error.errno === SQLITE_FULL;
+    throw new StorageError(full ? "disk_full" : "commit_failed", {
+      cause: error,
+    });
   }
 }
 

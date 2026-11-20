@@ -1,6 +1,7 @@
-// The in-memory driver's document files: each document's row, updates, ledger and generations, and the replays.
+// The in-memory driver's document files: each document's row, updates, ledger and generations, the replays and the adoptions.
 import { crc32 } from "../checksum.ts";
 import type {
+  Adoption,
   AppendItem,
   DocFile,
   DocumentRow,
@@ -31,6 +32,7 @@ export interface Logged {
   docs: Map<string, MemoryDoc>;
   versions: VersionRow[];
   replays: Map<string, ReplayRow>;
+  adoptions: Map<string, Adoption>;
 }
 
 /** Runs `op` on the file's contents as one commit, or inside the transaction already open. */
@@ -251,12 +253,27 @@ export function createReplays(
   };
 }
 
+export function createAdoptions(
+  read: () => Logged,
+  write: Write,
+): DocFile["adoptions"] {
+  return {
+    get: (docId) => copied(read().adoptions.get(docId)),
+    put: (adoption) =>
+      write((log) => {
+        if (!log.adoptions.has(adoption.docId))
+          log.adoptions.set(adoption.docId, { ...adoption });
+      }),
+  };
+}
+
 /** A copy that a transaction may change without touching `log`. */
 export function copyLogged(log: Logged | undefined): Logged {
   const docs = new Map<string, MemoryDoc>();
   for (const [docId, doc] of log?.docs ?? []) docs.set(docId, copyDoc(doc));
   const versions = [...(log?.versions ?? [])];
-  return { docs, versions, replays: new Map(log?.replays) };
+  const replays = new Map(log?.replays);
+  return { docs, versions, replays, adoptions: new Map(log?.adoptions) };
 }
 
 export function corruptRow(

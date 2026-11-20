@@ -17,7 +17,9 @@ import { createInlineCheckpointer } from "./checkpointer.ts";
 import { countingCommits } from "./counted-storage.ts";
 import { createDeletions } from "./deletions.ts";
 import { refusalError, syncError } from "./errors.ts";
+import { createRelayIntake } from "./follow.ts";
 import { createHealing } from "./heal.ts";
+import { HELD_RETRY_MS, createHeldQueue } from "./held.ts";
 import { DEFAULT_LIMITS, NO_SETTINGS } from "./ports.ts";
 import type {
   Checkpointer,
@@ -116,16 +118,11 @@ export interface SyncSettings {
   airWindow?: (docId: string, now: number) => boolean;
 }
 
-const notBuilt = (what: "ingest" | "follow") => (): never => {
-  throw new RangeError(`${what} is not built yet`);
-};
-
 export function createSyncService(
   options: SyncSettings & { versions: ServerVersions },
 ): SyncService {
-  if (typeof options.mode === "function")
-    throw new RangeError("a write mode per document is not built yet");
-  const { clock, defer, mode: writeMode = "authority" } = options;
+  const { clock, defer, mode } = options;
+  const modeOf = typeof mode === "function" ? mode : () => mode ?? "authority";
   const limits: SyncLimits = { ...DEFAULT_LIMITS, ...options.limits };
   // duplicates are the acknowledgements that answered no new entry
   const counted = {
@@ -144,7 +141,13 @@ export function createSyncService(
   const checkpointer =
     options.checkpointer ??
     createInlineCheckpointer({ storage: options.storage, defer });
-  const rooms = createRooms({ storage, clock, limits, checkpointer });
+  const rooms = createRooms({
+    storage,
+    clock,
+    limits,
+    checkpointer,
+    mode: modeOf,
+  });
   const deletions = createDeletions();
   const access = createDocumentAccess({
     storage: options.storage,
@@ -153,8 +156,18 @@ export function createSyncService(
   const caps = createConnectionCaps(limits);
   const presence = createAwarenessHub({ clock, limits });
   const snapshotOf = createSnapshotAnswers(options.storage);
-  const heal = createHealing({ ...options, mode: writeMode, now: clock.now });
+  const heal = createHealing({ ...options, modeOf, now: clock.now });
   let closing = false;
+  // after the last retry at shutdown, what is still held is let go: the windows' outboxes, and for a relayed room the upstream's, still hold it
+  let heldDropped = false;
+  const heldQueue = createHeldQueue({
+    clock,
+    retryMs: HELD_RETRY_MS,
+    commit: (items) => heldDropped || writePath.commitHeld(items),
+    onState(state) {
+      if (!heldDropped) options.onDeviceStorage?.(state);
+    },
+  });
 
   const bucket = (perSecond: number, burst: number): TokenBucket =>
     createTokenBucket({ perSecond, burst, now: clock.now });
@@ -179,7 +192,6 @@ export function createSyncService(
   };
 
   const writePath = createWritePath({
-    mode: writeMode,
     limits,
     now: clock.now,
     defer,
@@ -229,15 +241,17 @@ export function createSyncService(
         : {
             enqueue(item) {
               if (item.kind === "set") counted.relayedSets += 1;
+              else if (intake.isPaused(item.docId)) return;
               options.upstream?.enqueue(item);
             },
           },
+    fullDisk: options.fullDisk ?? "poison",
+    held: heldQueue,
     registry: options.registry ?? NO_SETTINGS,
     schemaFloor: options.schemaFloor ?? null,
   });
   const rebuilder = createRebuilder({
     ...options,
-    mode: writeMode,
     limits,
     rooms,
     writePath,
@@ -245,6 +259,14 @@ export function createSyncService(
     poisoned: poison,
   });
   const replay = createReplay({ ...options, access, rooms, writePath, limits });
+  const intake = createRelayIntake({
+    ...options,
+    limits,
+    rooms,
+    writePath,
+    held: heldQueue,
+    endAll,
+  });
   const subscribePorts: SubscribePorts = {
     access,
     rooms,
@@ -340,10 +362,13 @@ export function createSyncService(
     restored: () => heal.restored(),
     requestRebuild: (docId) => rebuilder.request(docId),
     replay,
-    ingest: notBuilt("ingest"),
-    modeChanged: notBuilt("ingest"),
-    pauseRelay: notBuilt("follow"),
-    follow: notBuilt("follow"),
+    ingest: intake.ingest,
+    modeChanged(docId) {
+      const room = rooms.find(docId);
+      if (room !== null) room.mode = modeOf(docId);
+    },
+    pauseRelay: intake.pauseRelay,
+    follow: intake.follow,
     stats() {
       const { acks, relayedSets, ...counts } = counted;
       const { rooms: open, loaded } = rooms.stats();
@@ -360,6 +385,9 @@ export function createSyncService(
     async shutdown() {
       closing = true;
       writePath.flush();
+      heldQueue.retry();
+      heldDropped = true;
+      heldQueue.retry();
       for (const peer of peers.keys()) {
         peer.close(CODE.RESTARTING, "restarting");
         detach(peer);

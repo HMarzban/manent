@@ -139,6 +139,7 @@ export function createWorld(
     clock: clock.clock,
     limits,
     checkpointer: createInlineCheckpointer({ storage, defer: clock.defer }),
+    mode: () => options.mode ?? "authority",
   });
   const room = rooms.room(DOC, HOME, "script");
   rooms.load(room);
@@ -159,7 +160,6 @@ export function createWorld(
       throw new SimulatedCrash(`crash at ${step} ${count}`);
   };
   const path = createWritePath({
-    mode: options.mode ?? "authority",
     limits,
     now: clock.clock.now,
     defer: clock.defer,
@@ -198,6 +198,8 @@ export function createWorld(
             },
           }
         : null,
+    fullDisk: "poison",
+    held: { hold() {}, retry() {}, size: () => 0, state: "ok" },
     registry: options.registry ?? {
       check: () => ({ ok: true }),
       isGuarded: () => false,
