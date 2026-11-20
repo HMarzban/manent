@@ -13,7 +13,7 @@ const beatsOf = (episode: string): Beat[] =>
   );
 
 test("the bank holds its counts of each list", () => {
-  expect(HARBOUR_LIGHTS_GUIDE.cast.length).toBe(9);
+  expect(HARBOUR_LIGHTS_GUIDE.cast.length).toBe(8);
   expect(HARBOUR_LIGHTS_GUIDE.places.length).toBe(16);
   expect(HARBOUR_LIGHTS_GUIDE.names.length).toBe(9);
   expect(HARBOUR_LIGHTS_GUIDE.vocabulary.length).toBe(14);
@@ -111,6 +111,30 @@ test("in 201 Ida comes ashore on the island only once the late crossing has tied
         (beat) =>
           beat.cast.includes("IDA") &&
           beat.places.some((place) => ashore.has(place)),
+      )
+      .map((beat) => beat.id),
+  ).toEqual([]);
+});
+
+test("in 202 Nora keeps the café's money to herself until she reaches the bank", () => {
+  const money = /\b(pay|paid|cost|bills?|savings|money|owe|debt|figures)\b/;
+  const beats = beatsOf("202");
+  const bank = beats.findIndex((beat) => beat.summary.includes("to the bank"));
+  expect(bank).toBeGreaterThan(-1);
+  expect(beats[bank]?.pages).toEqual([26, 28]);
+  expect(
+    beats
+      .slice(0, bank)
+      .filter((beat) => money.test(beat.summary))
+      .map((beat) => beat.id),
+  ).toEqual([]);
+  expect(
+    beats
+      .filter(
+        (beat) =>
+          beat.pages[0] <= 11 &&
+          beat.pages[1] >= 11 &&
+          beat.cast.includes("NORA"),
       )
       .map((beat) => beat.id),
   ).toEqual([]);

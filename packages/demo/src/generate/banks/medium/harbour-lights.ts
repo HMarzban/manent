@@ -13,7 +13,6 @@ export const HARBOUR_LIGHTS_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     { cue: "ARNE", name: "Arne Hollis" },
     { cue: "ELSPETH", name: "Elspeth Dray" },
     { cue: "FINN", name: "Finn" },
-    { cue: "MR. BRACK", name: "Mr. Brack" },
   ],
   places: [
     "INT. WHEELHOUSE",
@@ -309,7 +308,7 @@ export const HARBOUR_LIGHTS_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
       places: ["INT. HOLLIS KITCHEN"],
       cast: ["NORA", "ARNE"],
       summary:
-        "Nora opens the café to three customers and a delivery she cannot pay for on the day.",
+        "Nora opens the café to three customers and is cheerful with every one of them, and Arne sees she has not sat down all morning.",
     },
     {
       id: "medium/harbour-lights/202#4",
@@ -336,10 +335,10 @@ export const HARBOUR_LIGHTS_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
       scenes: [11, 12],
       pages: [10, 12],
       timeOfDay: "DAY",
-      places: ["INT. ENGINE ROOM", "INT. HOLLIS KITCHEN"],
-      cast: ["PIKE", "IDA", "NORA"],
+      places: ["INT. ENGINE ROOM"],
+      cast: ["PIKE", "IDA"],
       summary:
-        "Pike explains to Ida how salt got into the port engine, and up at the café Nora adds up what the week has cost her.",
+        "Pike explains to Ida how salt got into the port engine, drawing the cooling pipe on the back of a tide table.",
     },
     {
       id: "medium/harbour-lights/202#7",
@@ -389,7 +388,7 @@ export const HARBOUR_LIGHTS_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
       places: ["INT. HOLLIS KITCHEN"],
       cast: ["NORA", "CAL", "ARNE"],
       summary:
-        "Cal finds the envelope of bills behind the clock and offers his savings, and Nora tells him to put them away.",
+        "Cal comes home full of his first week on deck, and Nora keeps him talking about the boat whenever Arne mentions the café.",
     },
     {
       id: "medium/harbour-lights/202#12",
