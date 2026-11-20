@@ -1,0 +1,207 @@
+{
+  "older": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "section",
+        "content": [
+          {
+            "type": "block",
+            "attrs": {
+              "id": "aaaaaaaaaaaaaaaa",
+              "type": "character",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "MARA"
+              }
+            ]
+          },
+          {
+            "type": "block",
+            "attrs": {
+              "id": "bbbbbbbbbbbbbbbb",
+              "type": "dialogue",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Go."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "newer": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "section",
+        "content": [
+          {
+            "type": "block",
+            "attrs": {
+              "id": "aaaaaaaaaaaaaaaa",
+              "type": "character",
+              "omitted": false,
+              "dual": "left",
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "MARA"
+              }
+            ]
+          },
+          {
+            "type": "block",
+            "attrs": {
+              "id": "bbbbbbbbbbbbbbbb",
+              "type": "dialogue",
+              "omitted": false,
+              "dual": "left",
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Go now."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "comparison": {
+    "v": 1,
+    "mode": "full",
+    "entries": [
+      {
+        "moved": false,
+        "attrs": ["dual"],
+        "inline": [],
+        "splitFrom": null,
+        "joinedInto": null,
+        "after": null,
+        "id": "aaaaaaaaaaaaaaaa",
+        "kind": "changed",
+        "older": {
+          "type": "block",
+          "attrs": {
+            "id": "aaaaaaaaaaaaaaaa",
+            "type": "character",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "MARA"
+            }
+          ]
+        },
+        "newer": {
+          "type": "block",
+          "attrs": {
+            "id": "aaaaaaaaaaaaaaaa",
+            "type": "character",
+            "omitted": false,
+            "dual": "left",
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "MARA"
+            }
+          ]
+        },
+        "sceneId": null,
+        "olderIndex": 0
+      },
+      {
+        "moved": false,
+        "attrs": ["dual"],
+        "inline": [
+          {
+            "kind": "inserted",
+            "offset": 2,
+            "length": 4,
+            "text": " now",
+            "marks": []
+          }
+        ],
+        "splitFrom": null,
+        "joinedInto": null,
+        "after": null,
+        "id": "bbbbbbbbbbbbbbbb",
+        "kind": "changed",
+        "older": {
+          "type": "block",
+          "attrs": {
+            "id": "bbbbbbbbbbbbbbbb",
+            "type": "dialogue",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Go."
+            }
+          ]
+        },
+        "newer": {
+          "type": "block",
+          "attrs": {
+            "id": "bbbbbbbbbbbbbbbb",
+            "type": "dialogue",
+            "omitted": false,
+            "dual": "left",
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Go now."
+            }
+          ]
+        },
+        "sceneId": null,
+        "olderIndex": 1
+      }
+    ],
+    "counts": {
+      "added": 0,
+      "removed": 0,
+      "changed": 2,
+      "moved": 0
+    },
+    "scenes": []
+  }
+}

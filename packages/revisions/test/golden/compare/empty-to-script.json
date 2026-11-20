@@ -1,0 +1,122 @@
+{
+  "older": {
+    "type": "doc"
+  },
+  "newer": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "section",
+        "content": [
+          {
+            "type": "block",
+            "attrs": {
+              "id": "h1h1h1h1h1h1h1h1",
+              "type": "scene_heading",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "INT. HALL - DAY"
+              }
+            ]
+          },
+          {
+            "type": "block",
+            "attrs": {
+              "id": "aaaaaaaaaaaaaaaa",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Rain falls."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "comparison": {
+    "v": 1,
+    "mode": "full",
+    "entries": [
+      {
+        "moved": false,
+        "attrs": [],
+        "inline": [],
+        "splitFrom": null,
+        "joinedInto": null,
+        "after": null,
+        "id": "h1h1h1h1h1h1h1h1",
+        "kind": "added",
+        "older": null,
+        "newer": {
+          "type": "block",
+          "attrs": {
+            "id": "h1h1h1h1h1h1h1h1",
+            "type": "scene_heading",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "INT. HALL - DAY"
+            }
+          ]
+        },
+        "sceneId": "h1h1h1h1h1h1h1h1",
+        "olderIndex": null
+      },
+      {
+        "moved": false,
+        "attrs": [],
+        "inline": [],
+        "splitFrom": null,
+        "joinedInto": null,
+        "after": null,
+        "id": "aaaaaaaaaaaaaaaa",
+        "kind": "added",
+        "older": null,
+        "newer": {
+          "type": "block",
+          "attrs": {
+            "id": "aaaaaaaaaaaaaaaa",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Rain falls."
+            }
+          ]
+        },
+        "sceneId": "h1h1h1h1h1h1h1h1",
+        "olderIndex": null
+      }
+    ],
+    "counts": {
+      "added": 2,
+      "removed": 0,
+      "changed": 0,
+      "moved": 0
+    },
+    "scenes": ["h1h1h1h1h1h1h1h1"]
+  }
+}
