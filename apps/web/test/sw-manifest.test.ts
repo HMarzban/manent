@@ -30,6 +30,21 @@ test("every file the build wrote is in the precache list, hashed names unrevisio
   expect(buildId(entries)).toMatch(new RegExp("^[0-9a-f]{16}$"));
 });
 
+test("a build written with backslashes is listed under the same URLs", () => {
+  expect(
+    precacheEntries(
+      [
+        out("C:\\out\\dist\\index.html", "<html>"),
+        out("C:\\out\\dist\\fonts\\courier-abc12345.woff2", "f"),
+      ],
+      "C:\\out\\dist",
+    ),
+  ).toEqual([
+    { url: "/fonts/courier-abc12345.woff2", revision: null },
+    { url: "/index.html", revision: sha256Hex("<html>") },
+  ]);
+});
+
 test("a source map is never precached", () => {
   expect(
     precacheEntries(
@@ -54,5 +69,11 @@ test("a different build has a different id; the same build the same", () => {
 test("a file outside the build's folder is refused", () => {
   expect(() =>
     precacheEntries([out("elsewhere/index.html", "<html>")], "dist"),
+  ).toThrow(RangeError);
+  expect(() =>
+    precacheEntries(
+      [out("C:\\out\\distant\\index.html", "<html>")],
+      "C:\\out\\dist",
+    ),
   ).toThrow(RangeError);
 });
