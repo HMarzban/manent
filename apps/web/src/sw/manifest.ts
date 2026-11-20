@@ -11,6 +11,9 @@ const PRECACHED = new RegExp("\\.(html|js|css|woff2?)$");
 // Bun names a chunk or an asset with an 8-character content hash
 const HASHED = new RegExp("-[a-z0-9]{8}\\.");
 
+// Windows paths use backslashes; URLs and the prefix check use slashes on every platform
+const toSlashes = (path: string): string => path.replaceAll("\\", "/");
+
 const sha256Hex = (data: Uint8Array | string): string =>
   new Bun.CryptoHasher("sha256").update(data).digest("hex");
 
@@ -19,16 +22,18 @@ export function precacheEntries(
   outputs: readonly { path: string; bytes: Uint8Array }[],
   outDir: string,
 ): PrecacheEntry[] {
-  const prefix = outDir.endsWith("/") ? outDir : `${outDir}/`;
+  const dir = toSlashes(outDir);
+  const prefix = dir.endsWith("/") ? dir : `${dir}/`;
   return (
     outputs
       .filter((output) => PRECACHED.test(output.path))
       .map((output) => {
-        if (!output.path.startsWith(prefix))
+        const path = toSlashes(output.path);
+        if (!path.startsWith(prefix))
           throw new RangeError(
             `a build output must be inside ${outDir}, not ${output.path}`,
           );
-        const name = output.path.slice(prefix.length);
+        const name = path.slice(prefix.length);
         const base = name.slice(name.lastIndexOf("/") + 1);
         return {
           url: `/${name}`,

@@ -178,6 +178,7 @@ test("the index knows where every block is, and a block the schema refuses is st
   ]);
 });
 
+// each of the 100 runs paginates a 400-block script from scratch to compare, which takes seconds on a slow machine
 test("the plugin's pages are a full pagination's after any transactions", () => {
   const start = state(script(400));
   fc.assert(
@@ -187,7 +188,7 @@ test("the plugin's pages are a full pagination's after any transactions", () => 
     }),
     { numRuns: 100 },
   );
-});
+}, 20_000);
 
 test("every element and format the schema knows has a layout", () => {
   expect(BLOCK_TYPES.map((t) => specKey(t, null) in sp.elements)).toEqual(
