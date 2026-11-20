@@ -33,7 +33,7 @@ import { editorWords } from "./editor-words.ts";
 import { registerLiveEditor } from "./live-editor.ts";
 import type { EditorMount } from "./mount.ts";
 import { followZoom } from "./page-zoom.ts";
-import { keepPlace } from "./place.ts";
+import { keepPlace } from "./keep-place.ts";
 import { EDITOR_PLUGINS } from "./plugins.ts";
 
 /** What one person's undo takes back. */
@@ -298,7 +298,7 @@ function buildEditor(
   if (place !== null) editor.restore(place);
   const stopZoom = followZoom({ ...options, editor, element });
   const detach = options.control.attach({
-    run: (id) => editor.run(actionOf(id)),
+    run: (request) => editor.run(actionOf(request)),
     zoomPercent: () => editor.zoomPercent(),
   });
   const unregister = registerLiveEditor({

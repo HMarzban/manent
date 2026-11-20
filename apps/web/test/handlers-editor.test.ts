@@ -18,10 +18,8 @@ import {
   actionOf,
 } from "../src/editor-host/command-actions.ts";
 import { createEditorControl } from "../src/editor-host/control.ts";
-import {
-  createEditorHandlers,
-  createEditorKeyRun,
-} from "../src/handlers/editor.ts";
+import { createEditorHandlers } from "../src/handlers/editor.ts";
+import { createEditorKeyRun } from "../src/handlers/editor-key-run.ts";
 import { bindGuard, createGuard } from "../src/state/guard.ts";
 import { rulerActions } from "../src/state/ruler.store.ts";
 
@@ -115,6 +113,11 @@ test("Undo and Redo chosen outside the page are the page's own", () => {
     { kind: "undo" },
     { kind: "redo" },
   ]);
+});
+
+test("a Ruler or Layout change reaches the page with the values it carries", () => {
+  const change = { kind: "layout", indent: 12 } as const;
+  expect(actionOf(change)).toBe(change);
 });
 
 test("each editor command asks the page for its own action", () => {

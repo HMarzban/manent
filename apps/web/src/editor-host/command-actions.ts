@@ -54,9 +54,13 @@ export const EDITOR_COMMAND_ACTIONS: Readonly<
   "format.highlight.violet": { kind: "highlight", value: "violet" },
 });
 
-/** The action the open page runs for `id`. */
-export function actionOf(id: PageCommandId | HistoryCommandId): EditorAction {
-  if (id === "edit.undo") return { kind: "undo" };
-  if (id === "edit.redo") return { kind: "redo" };
-  return EDITOR_COMMAND_ACTIONS[id];
+/** What the open page is asked to run: a command by its id, or an action that carries its own values. */
+export type PageRequest = PageCommandId | HistoryCommandId | EditorAction;
+
+/** The action the open page runs for `request`; an action is run as given. */
+export function actionOf(request: PageRequest): EditorAction {
+  if (typeof request !== "string") return request;
+  if (request === "edit.undo") return { kind: "undo" };
+  if (request === "edit.redo") return { kind: "redo" };
+  return EDITOR_COMMAND_ACTIONS[request];
 }

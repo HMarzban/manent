@@ -1,5 +1,4 @@
-// The Send screen's Export form. The forms are named in the entry; their frames, the pages and the PDF writer
-// load apart from it.
+// The Send screen's Export form, loaded with the screen; its frame, the pages and the PDF writer load apart from it.
 import { Suspense, lazy, useCallback, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import type { SendForm, SendFormProps } from "../screens/send/forms.ts";
