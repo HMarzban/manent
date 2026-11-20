@@ -1,5 +1,11 @@
 import { afterAll, beforeEach, expect, test } from "bun:test";
-import { loadDoc, scriptBody } from "@manent/crdt";
+import {
+  ORIGIN_LOAD,
+  createDoc,
+  loadDoc,
+  measureDoc,
+  scriptBody,
+} from "@manent/crdt";
 import { blockText, blocksOf } from "@manent/schema";
 import { openSqliteStorage } from "@manent/storage";
 import type { Home, Storage } from "@manent/storage";
@@ -86,6 +92,22 @@ test("a job writes the state at the head, through a document", () => {
   );
   // nothing new
   expect(runCheckpointJob(storage, { home: HOME, docId: DOC })).toBeNull();
+});
+
+test("a checkpoint job measures the document it wrote", () => {
+  seedLog(storage, 300);
+  runCheckpointJob(storage, { home: HOME, docId: DOC });
+  const file = storage.open(HOME);
+  const replayed = createDoc();
+  for (const row of file.log.tail(DOC, 1, 0).rows)
+    replayed.applyUpdate(row.update, ORIGIN_LOAD);
+  const measure = file.measures.get(DOC, 1);
+  expect(measure).toEqual({ seq: 300, ...measureDoc(replayed) });
+  expect(measure).toMatchObject({
+    plainBytes: 299,
+    clientIds: 1,
+    largestSection: 1,
+  });
 });
 
 test("a job leaves a damaged row for the serving thread", () => {
