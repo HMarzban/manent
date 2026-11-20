@@ -60,3 +60,20 @@ test("a reset of the demo empties the node, which keeps who was here", async () 
   expect(w.records.people().map((person) => person.userId)).toEqual(["sam"]);
   expect(w.records.seedId()).toBe("b");
 });
+
+test("a hand-off that fails partway leaves the node answering its window", async () => {
+  const w = nodeWorld({ crashOn: "finishHandoff" });
+  const token = await w.chooses("you");
+  const handle = await w.open("you", DOC, true);
+  w.windowTypes("you", DOC, "first scene");
+  await w.settle();
+  await w.request("POST", "/api/local/sign-in-to-sync", { token });
+  await w.settle();
+  w.windowTypes("you", DOC, " goes on");
+  await w.settle();
+  expect([w.cloudHas(DOC), w.nodeText(DOC)]).toEqual([
+    true,
+    ["first scene goes on"],
+  ]);
+  expect(handle.status.get()).toMatchObject({ saved: true, waiting: 0 });
+});

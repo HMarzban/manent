@@ -112,11 +112,10 @@ export function createRelayBridge(options: {
   const docOf = (docId: string): Relayed => {
     let doc = relayed.get(docId);
     if (doc === undefined) {
-      const seen = new Set<string>();
       doc = {
         current: null,
         events: [],
-        seen,
+        seen: new Set(),
         held: [],
         delayed: 0,
       };
@@ -132,17 +131,11 @@ export function createRelayBridge(options: {
   };
 
   /** Whose link a document the node is the authority for reports: its hand-off's person, else its owner, else the current person. */
-  function authorityUserId(docId: string): string | null {
-    const owner = storage.directory
-      .rolesOf(docId)
-      .find((held) => held.role === "owner");
-    return (
-      records.docState(docId)?.userId ??
-      owner?.userId ??
-      records.current()?.userId ??
-      null
-    );
-  }
+  const authorityUserId = (docId: string): string | null =>
+    records.docState(docId)?.userId ??
+    storage.directory.rolesOf(docId).find((r) => r.role === "owner")?.userId ??
+    records.current()?.userId ??
+    null;
 
   function status(docId: string): UpstreamStatus {
     const line = currentLine(docId);
@@ -293,7 +286,17 @@ export function createRelayBridge(options: {
       opened: opening.promise,
     };
     person.lines.set(docId, line);
-    openLine(line, person.client).then(opening.resolve, opening.reject);
+    openLine(line, person.client)
+      .catch(async (error: unknown) => {
+        // a line that could not open is forgotten: the person's next edit or open makes a new one
+        if (person.lines.get(docId) === line) person.lines.delete(docId);
+        line.stopDoc();
+        await line.handle?.close();
+        throw error;
+      })
+      .then(opening.resolve, opening.reject);
+    // only `open` waits for the line, and hears its failure; what else was relayed waits for the next line
+    opening.promise.catch(() => {});
     return line;
   }
 

@@ -221,6 +221,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     storage,
     mirror,
     tokenOf,
+    clock,
     subscribed(editor, docId) {
       editor.control(
         docId,
@@ -228,15 +229,20 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
         encodeUpstreamStatus(relay.status(docId)),
       );
       const { userId } = editor;
-      if (userId !== null && records.docState(docId)?.state === "synced")
-        void relay.open(userId, docId);
+      if (userId === null || records.docState(docId)?.state !== "synced")
+        return;
+      relay.open(userId, docId).catch(() => {
+        // a line that could not open is forgotten, and opened again at the window's next subscribe or edit
+      });
     },
   });
   watched = guarded;
 
   /** Hands the person's scripts over in the background. */
   function handOver(userId: string): void {
-    void handover.run(userId);
+    handover.run(userId).catch(() => {
+      // a run cut short resumes from the key and snapshot it stored, at the person's next connection or launch
+    });
   }
 
   /** A cloud session for the person, kept with them; null while the cloud cannot be reached. */
@@ -260,9 +266,14 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
   function chosen(person: Person): void {
     if (!person.wantsCloud) return;
     if (person.cloudToken !== null) return handOver(person.userId);
-    void cloudSession(person).then((token) => {
-      if (token !== null) handOver(person.userId);
-    });
+    cloudSession(person).then(
+      (token) => {
+        if (token !== null) handOver(person.userId);
+      },
+      () => {
+        // a session the node could not keep is asked for again when the person is next chosen or signs in to sync
+      },
+    );
   }
 
   /** The demo's cloud was reset: the node empties its store and keeps who was here. */
@@ -278,17 +289,22 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
   /** On each connection of a person's upstream: their hand-off, and the demo's seed checked. */
   function connected(userId: string): void {
     handOver(userId);
-    void cloud.demo().then(
-      ({ seedId }) => {
-        const stored = records.seedId();
-        if (seedId === null || seedId === stored) return;
-        if (stored === null) return records.setSeedId(seedId);
-        return reseeded(seedId);
-      },
-      () => {
-        // the cloud went away again: its seed is read at the next connection
-      },
-    );
+    cloud
+      .demo()
+      .then(
+        ({ seedId }) => {
+          const stored = records.seedId();
+          if (seedId === null || seedId === stored) return;
+          if (stored === null) return records.setSeedId(seedId);
+          return reseeded(seedId);
+        },
+        () => {
+          // the cloud went away again: its seed is read at the next connection
+        },
+      )
+      .catch(() => {
+        // a reset that could not finish stored no new seed: the next connection runs it again
+      });
   }
 
   const shell = createShellChannel({ clock, heartbeatMs: SSE_HEARTBEAT_MS });

@@ -1,6 +1,7 @@
 // The desktop's node as the app starts it: one store, one lock, one upstream client per person, over
 // the real clock, the system's randomness and the files of the data directory.
 import { Database } from "bun:sqlite";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { PRODUCT_SETTING_RULES } from "@manent/server-core";
@@ -35,6 +36,8 @@ import type { UpstreamFactory } from "./ports.ts";
 const NODE_FILE_WAIT_MS = 5_000;
 const NODE_FILE_POLL_MS = 100;
 const LAUNCH_TOKEN_BYTES = 32;
+/** Hex characters of the node's device ID after `desktop-`. */
+const DEVICE_ID_CHARS = 16;
 /** The records a demo reset keeps: the node's signing key and the people chosen here. */
 const KEPT_ON_RESET = new Set(["secret", "people"]);
 
@@ -92,6 +95,15 @@ const sqliteFiles = (dir: string): string[] =>
         .filter((name) => name.endsWith(".sqlite"))
         .map((name) => join(dir, name))
     : [];
+
+/**
+ * The node's device at the cloud, which recognises a re-sent setting by it: the same at every
+ * launch, as the records' secret is, and a one-way digest of it, so it names no secret.
+ */
+function deviceIdOf(secret: Uint8Array): string {
+  const digest = createHash("sha256").update("manent.device").update(secret);
+  return `desktop-${digest.digest("hex").slice(0, DEVICE_ID_CHARS)}`;
+}
 
 /** Every row of every table of the file but those of `kept`, in one transaction; the schema stays. */
 function emptyFile(path: string, kept: ReadonlySet<string>): void {
@@ -199,6 +211,7 @@ export async function createDesktopNode(
     return made;
   };
   const launchToken = randomBytes(LAUNCH_TOKEN_BYTES).toHex();
+  const deviceId = deviceIdOf(records.secret());
   const ports = bunUpstreamPorts({
     now: Date.now,
     random: Math.random,
@@ -208,7 +221,7 @@ export async function createDesktopNode(
     create: (userId, token) =>
       createSyncClient({
         userId,
-        deviceId: `desktop-${launchToken.slice(0, 16)}`,
+        deviceId,
         build: options.build,
         versions: options.versions.current,
         minServer: options.versions.min,

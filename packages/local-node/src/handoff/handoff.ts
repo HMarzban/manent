@@ -219,7 +219,9 @@ export function createHandover(options: {
     );
     const cancel = clock.schedule(() => {
       retries.set(userId, { delayMs, cancel: () => {} });
-      void run(userId);
+      run(userId).catch(() => {
+        // a retry cut short resumes from the key and snapshot it stored, at the person's next run
+      });
     }, delayMs);
     retries.set(userId, { delayMs, cancel });
   }

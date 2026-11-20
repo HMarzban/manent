@@ -13,7 +13,12 @@ import {
   createFakeDirectory,
   createFakeSignIn,
 } from "@manent/server-core/testing";
-import type { DesktopGlobal, FirstPaintWrite } from "@manent/sync-protocol";
+import { createFrameDecoder } from "@manent/sync-protocol";
+import type {
+  DesktopGlobal,
+  FirstPaintWrite,
+  FrameDecoder,
+} from "@manent/sync-protocol";
 import { createTempTrees, startTestServer } from "@manent/testkit";
 import type { TestServer } from "@manent/testkit";
 import {
@@ -67,10 +72,10 @@ afterAll(async () => {
   await trees.removeAll();
 });
 
-function options(root: string): DesktopNodeOptions {
+function options(root: string, cloudUrl = cloud.url): DesktopNodeOptions {
   return {
     root,
-    cloudUrl: cloud.url,
+    cloudUrl,
     webDir,
     signIn: createFakeSignIn(PEOPLE),
     directory: createFakeDirectory(
@@ -86,8 +91,9 @@ function options(root: string): DesktopNodeOptions {
 /** A node started on `root` and listening on a free port of loopback, as the app starts it. */
 async function started(
   root: string,
+  cloudUrl = cloud.url,
 ): Promise<{ node: DesktopNode; core: NodeCore; listener: Listener }> {
-  const start = await createDesktopNode(options(root));
+  const start = await createDesktopNode(options(root, cloudUrl));
   if (!start.ok) throw new Error(`the node did not start: ${start.reason}`);
   let core: NodeCore | null = null;
   const listener = serveWithBun(
@@ -244,6 +250,125 @@ test(
     });
     first.node.markFirstFrame();
     expect(readNodeFile(root)?.firstFrameAt).toEqual(expect.any(Number));
+  },
+  TIMEOUT,
+);
+
+/** A cloud that adopts every script it is handed and hears the device each socket's HELLO names, and nothing more. */
+function helloCloud(): {
+  url: string;
+  /** The device the next HELLO names. */
+  nextHello(): Promise<string>;
+  stop(): Promise<void>;
+} {
+  let waiting: ((deviceId: string) => void) | null = null;
+  const decoders = new Map<object, FrameDecoder>();
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    async fetch(request, served) {
+      const { pathname } = new URL(request.url);
+      if (pathname === "/ws")
+        return served.upgrade(request)
+          ? undefined
+          : new Response("", { status: 400 });
+      if (pathname === "/api/sign-in") return Response.json({ token: "c" });
+      if (pathname === "/api/ws-ticket") return Response.json({ ticket: "t" });
+      if (pathname !== "/api/docs/adopt")
+        return new Response("", { status: 404 });
+      const asked: unknown = await request.json();
+      const field = (key: string): unknown =>
+        typeof asked === "object" && asked !== null && key in asked
+          ? Reflect.get(asked, key)
+          : null;
+      return Response.json({
+        docId: field("docId"),
+        kind: "script",
+        home: field("home"),
+        generation: 1,
+        adoptedSeq: 1,
+        created: true,
+      });
+    },
+    websocket: {
+      message(ws, data) {
+        if (typeof data === "string") return;
+        const decoder =
+          decoders.get(ws) ?? createFrameDecoder({ from: "client" });
+        decoders.set(ws, decoder);
+        const read = decoder.push(new Uint8Array(data));
+        if (read.kind !== "message" || read.message.type !== "HELLO") return;
+        waiting?.(read.message.deviceId);
+        waiting = null;
+      },
+    },
+  });
+  return {
+    url: `http://127.0.0.1:${server.port}`,
+    nextHello: () =>
+      new Promise((resolve) => {
+        waiting = resolve;
+      }),
+    stop: () => server.stop(true),
+  };
+}
+
+/** Sam chooses themselves at the node, makes a script there and signs in to sync it. */
+async function syncsAScript(
+  launched: { node: DesktopNode; listener: Listener },
+  docId: string,
+): Promise<void> {
+  const nodeUrl = `http://127.0.0.1:${launched.listener.port}`;
+  const launch = { "X-Manent-Launch": launched.node.launchToken };
+  const json = { ...launch, "Content-Type": "application/json" };
+  const chose = await fetch(`${nodeUrl}/api/sign-in`, {
+    method: "POST",
+    headers: json,
+    body: JSON.stringify({ userId: "sam" }),
+  });
+  const body: unknown = await chose.json();
+  const token =
+    typeof body === "object" && body !== null && "token" in body
+      ? String(body.token)
+      : "";
+  const signed = { ...json, Authorization: `Bearer ${token}` };
+  const made = await fetch(`${nodeUrl}/api/docs`, {
+    method: "POST",
+    headers: signed,
+    body: JSON.stringify({ docId, kind: "script", home: `project:${PROJECT}` }),
+  });
+  const synced = await fetch(`${nodeUrl}/api/local/sign-in-to-sync`, {
+    method: "POST",
+    headers: signed,
+  });
+  expect([chose.status, made.status, synced.status]).toEqual([200, 200, 200]);
+}
+
+const PROJECT = "3b8e5d27-91c4-4f0a-a6d2-7e15c09b4f38";
+
+test(
+  "the node is one device at the cloud from launch to launch, and never names its launch secret",
+  async () => {
+    const root = await trees.tree({});
+    const fake = helloCloud();
+    const devices: string[] = [];
+    const tokens: string[] = [];
+    for (const docId of [
+      "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd",
+      "0193b1f4-2c1e-7a00-8000-00000000000b",
+    ]) {
+      const launch = await started(root, fake.url);
+      const hello = fake.nextHello();
+      await syncsAScript(launch, docId);
+      devices.push(await hello);
+      tokens.push(launch.node.launchToken);
+      await launch.listener.stop();
+      await launch.node.close();
+    }
+    await fake.stop();
+    const device = devices[0] ?? "";
+    expect(devices).toEqual([device, device]);
+    expect(tokens.some((token) => token.includes(device.slice(8)))).toBe(false);
   },
   TIMEOUT,
 );

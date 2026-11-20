@@ -2,6 +2,7 @@
 // here, and the windows' connections as the node knows them.
 import { SCHEMA_VERSION } from "@manent/schema";
 import type {
+  Clock,
   Connection,
   ConnectionData,
   ConnectionHandler,
@@ -84,7 +85,10 @@ export function createMirror(options: {
   };
 }
 
-/** An unknown document's SUBSCRIBE while the cloud cannot be reached is answered busy, to be tried again after this. */
+/**
+ * An unknown document's SUBSCRIBE while the cloud cannot be reached, or does not answer within
+ * this, is answered busy, to be tried again after this.
+ */
 export const MIRROR_RETRY_AFTER_MS = 5_000;
 
 /** A window's connection: who it is, and the documents it holds, each at its generation. */
@@ -95,13 +99,20 @@ export interface Editor {
   control(docId: string, kind: ControlKind, data: Uint8Array): void;
 }
 
+/** A frame from the window, and the message it completed; null for part of one. */
+interface Frame {
+  frame: Uint8Array | string;
+  message: Message | null;
+}
+
 interface Watched extends Editor {
   userId: string | null;
   readonly docs: Map<string, number>;
   readonly fromServer: FrameDecoder;
   readonly fromClient: FrameDecoder;
-  /** Frames held while a SUBSCRIBE waits for its mirror, in order; null when none waits. */
-  held: (Uint8Array | string)[] | null;
+  /** By document whose SUBSCRIBE waits for its mirror: the frames for it held since, in order. */
+  readonly held: Map<string, Frame[]>;
+  closed: boolean;
 }
 
 /** The one message a frame holds; null for part of one, or for a frame that is not one. */
@@ -139,15 +150,16 @@ function busy(
 
 /**
  * The windows' connections in front of the server's: a SUBSCRIBE of a document the node has never
- * placed waits for the mirror (and what the window sends after it waits too), and is answered 4429
- * `busy` while the cloud cannot be reached. Every connection is watched for the person it is and the
- * documents it holds; `subscribed` hears each SUBSCRIBED.
+ * placed waits for the mirror (and what the window sends for that document after it waits too), and
+ * is answered 4429 `busy` while the cloud cannot be reached. Every connection is watched for the
+ * person it is and the documents it holds; `subscribed` hears each SUBSCRIBED.
  */
 export function guardSubscribe(options: {
   inner: ConnectionHandler;
   storage: Storage;
   mirror: Mirror;
   tokenOf: (userId: string) => string | null;
+  clock: Clock;
   subscribed(editor: Editor, docId: string): void;
 }): { connections: ConnectionHandler; editors(): Editor[] } {
   const { inner, storage } = options;
@@ -159,7 +171,8 @@ export function guardSubscribe(options: {
       docs: new Map(),
       fromServer: createFrameDecoder({ from: "server" }),
       fromClient: createFrameDecoder({ from: "client" }),
-      held: null,
+      held: new Map(),
+      closed: false,
       control(docId, kind, data) {
         const generation = editor.docs.get(docId);
         if (generation === undefined) return;
@@ -212,23 +225,53 @@ export function guardSubscribe(options: {
     return ensured.ok || ensured.code !== "unreachable";
   }
 
-  function receive(connection: Connection, frame: Uint8Array | string): void {
-    const editor = watched.get(connection.data) ?? watch(connection);
-    if (editor.held !== null) return void editor.held.push(frame);
-    const message = messageOf(editor.fromClient, frame);
+  /** Frames for a document whose SUBSCRIBE waits are held; a SUBSCRIBE of one never placed waits. */
+  function route(connection: Connection, editor: Watched, next: Frame): void {
+    const { message } = next;
+    const docId = message !== null && "docId" in message ? message.docId : null;
+    const waiting = docId === null ? undefined : editor.held.get(docId);
+    if (waiting !== undefined) return void waiting.push(next);
     if (message?.type === "UNSUBSCRIBE") editor.docs.delete(message.docId);
     const unknown =
       message?.type === "SUBSCRIBE" &&
       storage.directory.placeOf(message.docId) === null;
-    if (!unknown) return inner.message(seen(connection, editor), frame);
-    const doc = { docId: message.docId, generation: message.generation };
-    editor.held = [];
-    void mirrored(editor.userId, doc.docId).then((pass) => {
-      const later = editor.held ?? [];
-      editor.held = null;
-      if (pass) inner.message(seen(connection, editor), frame);
+    if (!unknown) return inner.message(seen(connection, editor), next.frame);
+    wait(connection, editor, next, message);
+  }
+
+  /** Once the mirror answers, or after MIRROR_RETRY_AFTER_MS, whichever is first; nothing for a closed connection. */
+  function wait(
+    connection: Connection,
+    editor: Watched,
+    first: Frame,
+    doc: { docId: string; generation: number },
+  ): void {
+    const held: Frame[] = [];
+    editor.held.set(doc.docId, held);
+    let done = false;
+    const settle = (pass: boolean): void => {
+      if (done) return;
+      done = true;
+      cancel();
+      editor.held.delete(doc.docId);
+      if (editor.closed) return;
+      if (pass) inner.message(seen(connection, editor), first.frame);
       else busy(connection, doc);
-      for (const next of later) receive(connection, next);
+      for (const next of held) route(connection, editor, next);
+    };
+    const cancel = options.clock.schedule(
+      () => settle(false),
+      MIRROR_RETRY_AFTER_MS,
+    );
+    // a mirror that failed is answered busy too: the window asks again later
+    mirrored(editor.userId, doc.docId).then(settle, () => settle(false));
+  }
+
+  function receive(connection: Connection, frame: Uint8Array | string): void {
+    const editor = watched.get(connection.data) ?? watch(connection);
+    route(connection, editor, {
+      frame,
+      message: messageOf(editor.fromClient, frame),
     });
   }
 
@@ -244,6 +287,7 @@ export function guardSubscribe(options: {
       close(connection) {
         const editor = watched.get(connection.data) ?? watch(connection);
         watched.delete(connection.data);
+        editor.closed = true;
         inner.close(seen(connection, editor));
       },
     },

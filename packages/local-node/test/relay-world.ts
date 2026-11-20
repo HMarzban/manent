@@ -36,6 +36,7 @@ import { createMemoryStorage } from "@manent/storage/testing";
 import type { MemoryStorage } from "@manent/storage/testing";
 import {
   ConnectError,
+  StoreError,
   createMemoryStore,
   createSyncClient,
   soloLeader,
@@ -528,7 +529,8 @@ class NodeLife {
 
   /** The person's store; a dead process writes nothing, and while the world holds appends none settles. */
   private storeOf(userId: string): LocalStore {
-    const inner = this.host.upstreamStores.store(userId);
+    const { host } = this;
+    const inner = host.upstreamStores.store(userId);
     const blocked = (method: string): boolean =>
       STORE_WRITES.has(method) &&
       (!this.alive || (method === "append" && this.host.holdingAppends));
@@ -536,10 +538,13 @@ class NodeLife {
       get(target, key, receiver) {
         const value: unknown = Reflect.get(target, key, receiver);
         if (typeof value !== "function") return value;
-        return (...args: unknown[]) =>
-          blocked(String(key))
+        return (...args: unknown[]) => {
+          if (key === "load" && host.failingLoads)
+            return Promise.reject(new StoreError("unavailable"));
+          return blocked(String(key))
             ? new Promise(() => {})
             : Reflect.apply(value, target, args);
+        };
       },
     });
   }
@@ -647,6 +652,8 @@ export class RelayWorld {
   readonly controls: { userId: string; kind: ControlKind; data: Uint8Array }[] =
     [];
   holdingAppends = false;
+  /** While true, every read of an upstream store fails. */
+  failingLoads = false;
   lives = 0;
   /** Counts every message and deferred run but the heartbeat's: a settle waits for it to stand still. */
   private activity = 0;
@@ -1057,6 +1064,11 @@ export class RelayWorld {
     this.holdingAppends = hold;
   }
 
+  /** While true, no upstream store can be read. */
+  upstreamStoreUnreadable(failing: boolean): void {
+    this.failingLoads = failing;
+  }
+
   /** The node's deferred work waits while held, as a turn that has not ended. */
   holdNodeTurns(hold: boolean): void {
     this.life.deferred.held = hold;
@@ -1204,7 +1216,7 @@ export class CoreWorld {
   });
   readonly cloudStorage = createMemoryStorage({ now: this.clock.clock.now });
   readonly nodeStorage = createMemoryStorage({ now: this.clock.clock.now });
-  readonly records = createMemoryRecords();
+  readonly records: ReturnType<typeof createMemoryRecords>;
   upstreamStores = createMemoryStoreSpace();
   readonly cloud = new Cloud(this.cloudStorage, this.clock);
   readonly deferred = new Deferred();
@@ -1218,7 +1230,8 @@ export class CoreWorld {
     this.activity += 1;
   };
 
-  constructor() {
+  constructor(options: Pick<WorldOptions, "crashOn">) {
+    this.records = createMemoryRecords(options);
     this.cloudNet.serve({
       connected: (end) =>
         serveEnd(this.cloud.service, end, this.cloud.hooks(), this.active),
@@ -1562,6 +1575,8 @@ export class CoreWorld {
   }
 }
 
-export function nodeWorld(): CoreWorld {
-  return new CoreWorld();
+export function nodeWorld(
+  options: Pick<WorldOptions, "crashOn"> = {},
+): CoreWorld {
+  return new CoreWorld(options);
 }

@@ -181,3 +181,17 @@ test("a rebuild after one person's refused push is followed once, not merged twi
     ["first then more"],
   ]);
 });
+
+test("an upstream that could not be opened is opened again at the person's next edit", async () => {
+  const w = world();
+  await w.open("sam", DOC);
+  w.crashNode();
+  w.upstreamStoreUnreadable(true);
+  await w.restartNode();
+  w.windowTypes("sam", DOC, "one");
+  await w.settle();
+  w.upstreamStoreUnreadable(false);
+  w.windowTypes("sam", DOC, " two");
+  await w.settle();
+  expect(w.cloudText(DOC)).toEqual(["one two"]);
+});
