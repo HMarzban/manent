@@ -11,9 +11,11 @@ import {
 } from "@tanstack/react-router";
 import type { AnyRouter } from "@tanstack/react-router";
 import type { Api } from "./api.ts";
+import { preloadDemoBarControls } from "./demo/demo-bar.tsx";
 import { RootLayout } from "./root-layout.tsx";
 import { SEND_FORM_IDS } from "./screens/send/forms.ts";
 import { chooseUrl, choosePerson, confirmPerson, safeNext } from "./session.ts";
+import { preloadShellPalette } from "./shell/app-shell.tsx";
 import type { PersonStore } from "./state/person.store.ts";
 
 // the build's define; absent outside a build
@@ -71,7 +73,7 @@ const StandInScreen = lazyRouteComponent(
   loadScreen(() => import("./screens/states/stand-in-screen.tsx")),
   "StandInScreen",
 );
-// apart from the entry, whose size budget its stock button would break; loaded with the router, while the server still answers
+// apart from the entry, whose size budget its stock button would break
 const ScreenProblem = lazyRouteComponent(
   () => import("./shell/screen-problem.tsx"),
   "ScreenProblem",
@@ -83,7 +85,10 @@ export function createAppRouter(deps: {
   usePerson: PersonStore;
 }): AnyRouter {
   const { api, usePerson } = deps;
+  // the code the frame draws apart from the entry, fetched while the server that served the page still answers
   void ScreenProblem.preload?.();
+  preloadDemoBarControls();
+  preloadShellPalette();
 
   const rootRoute = createRootRoute({
     // `?person=<id>` chooses that person for this tab, then the parameter is dropped either way.
