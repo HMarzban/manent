@@ -80,22 +80,29 @@ export function reconnectOverlaps(
 }
 
 /**
- * The reconnect's overlaps whose block step 2, now applied to `doc`, changed:
- * a block it left as mine held it brought nothing from elsewhere, as when the
- * other side's change was already seen online.
+ * Reads the blocks of the reconnect's `overlaps` in `doc` before step 2 is
+ * applied; what it returns, called once step 2 is, gives the overlaps whose
+ * block step 2 changed. A block it left as it was brought nothing from
+ * elsewhere, as when the other side's change was already seen online.
  */
 export function changedByStepTwo(
   doc: CrdtDoc,
   overlaps: readonly Leftover[],
-): Leftover[] {
-  // a read of the whole script, made only when there is something to check
-  if (overlaps.length === 0) return [];
-  const ids = overlaps.flatMap(({ blockId }) => blockId ?? []);
-  const now = readBlocks(doc, new Set(ids));
-  return overlaps.filter(({ blockId, mine }) => {
-    const block = blockId === null ? undefined : now.get(blockId);
-    return block !== undefined && mine !== null && !isSameBlock(block, mine);
-  });
+): () => Leftover[] {
+  // two reads of the whole script, made only when there is something to check
+  if (overlaps.length === 0) return () => [];
+  const ids = new Set(overlaps.flatMap(({ blockId }) => blockId ?? []));
+  const before = readBlocks(doc, ids);
+  return () => {
+    const after = readBlocks(doc, ids);
+    return overlaps.filter(({ blockId }) => {
+      if (blockId === null) return false;
+      const block = after.get(blockId);
+      const was = before.get(blockId);
+      if (block === undefined || was === undefined) return false;
+      return !isSameBlock(block, was);
+    });
+  };
 }
 
 /** The overlaps a replay's answer names, with the block as `mine` and as `theirs` hold it. */

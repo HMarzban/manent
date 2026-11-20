@@ -315,8 +315,8 @@ class BoundCopy implements LocalCopy {
   private mergeNow(update: Uint8Array, overlaps: Leftover[]): void {
     this.coalescer.flushNow();
     this.remoteChanged = false;
-    const items = this.applyServer(update);
-    items.push(...this.items(changedByStepTwo(this.doc, overlaps)));
+    const changed = changedByStepTwo(this.doc, overlaps);
+    const items = [...this.applyServer(update), ...this.items(changed())];
     // a reconnect's overlaps are found against the synced base, not the window
     this.window.take();
     if (!this.remoteChanged) return;

@@ -183,6 +183,32 @@ test("a change seen online before going offline is not an overlap at the reconne
   expect(h.recovered.get()).toEqual([]);
 });
 
+test("a change seen online before going offline is not an overlap when the reconnect lands during a composition", async () => {
+  const w = await setup();
+  const client = w.makeClient();
+  const h = await client.open(DOC);
+  await w.settle();
+  const seen = w.server.writeAs(DOC, DANA, (writer) =>
+    writer.insertText(B1, 0, "Dana's"),
+  );
+  w.server.syncUpdate(DOC, seen);
+  await w.settle();
+  w.frames.fire();
+  await w.settle();
+  client.setOnline(false);
+  typeIn(h, B1, " mine");
+  h.holdRemote();
+  client.setOnline(true);
+  await reconnectWithServerChange(w, (writer) =>
+    writer.insertText(B2, 0, "Dana's"),
+  );
+  typeIn(h, B1, " composed");
+  h.releaseRemote();
+  w.server.ackAll(DOC);
+  await w.settle();
+  expect(h.recovered.get()).toEqual([]);
+});
+
 test("a deletion by someone else in a block typed offline is an overlap with nobody named", async () => {
   const w = await setup();
   const client = w.makeClient();
