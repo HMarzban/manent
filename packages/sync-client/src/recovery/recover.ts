@@ -243,13 +243,14 @@ export class PushRecovery {
    * The fresh subscription's step 2 holds the server's whole state: the
    * document is replaced by it, and mine's changes against the synced base
    * are written back into it as ordinary edits. After a refused heal push,
-   * every block mine holds otherwise than theirs is filed instead. Returns the
-   * new synced base.
+   * every block mine holds otherwise than theirs is filed instead. `headSeq`
+   * is the fresh SUBSCRIBED's. Returns the new synced base.
    */
   loaded(
     fresh: Fresh,
     update: Uint8Array,
     syncedBase: Uint8Array | null,
+    headSeq: number,
   ): Uint8Array {
     const { journal, copy } = this.host;
     const recovering = journal.meta.recovering;
@@ -268,9 +269,18 @@ export class PushRecovery {
         : null;
     const state = next.encodeState();
     const clientIds = [...journal.meta.clientIds, fresh.clientId];
+    // in a new generation nothing of the old one's sequence or acknowledgements holds
+    const generation =
+      fresh.generation === null
+        ? {}
+        : {
+            generation: fresh.generation,
+            lastServerSeq: headSeq,
+            ackedClocks: {},
+          };
     journal.reset(
       state,
-      { ...journal.meta, clientIds, recovering: writing },
+      { ...journal.meta, ...generation, clientIds, recovering: writing },
       items,
     );
     this.fresh = null;

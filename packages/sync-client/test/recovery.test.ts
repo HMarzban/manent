@@ -8,6 +8,7 @@ import {
 } from "@manent/crdt";
 import type { BlockWriter, CrdtDoc } from "@manent/crdt";
 import { CODE } from "@manent/sync-protocol";
+import * as entry from "../src/index.ts";
 import type { DeviceVersion, DocHandle } from "../src/index.ts";
 import {
   B1,
@@ -594,4 +595,9 @@ test("a recovery whose own push is refused files what it wrote and stops", async
     setAside: 2,
   });
   expect(await store.recovered(DOC)).toEqual([...h.recovered.get()]);
+});
+
+test("the recovery's own workings are not among the package's names", () => {
+  const internal = ["PushRecovery", "differingText", "mergeMine"];
+  expect(internal.filter((name) => name in entry)).toEqual([]);
 });

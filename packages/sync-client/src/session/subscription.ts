@@ -152,10 +152,12 @@ class DocSubscription implements Subscription {
     const clientIds =
       fresh === null ? meta.clientIds : [...meta.clientIds, fresh.clientId];
     const { doc } = this.options.copy;
+    // a recovery that a move redirected has seen nothing of the new generation
+    const moved = fresh !== null && fresh.generation !== null;
     return {
       generation: fresh?.generation ?? meta.generation,
       clientIds: clientIds.slice(-SUBSCRIBE_CLIENT_IDS),
-      lastServerSeq: meta.lastServerSeq,
+      lastServerSeq: moved ? 0 : meta.lastServerSeq,
       vector: (fresh === null ? doc : createDoc()).encodeStateVector(),
     };
   }
@@ -199,7 +201,12 @@ class DocSubscription implements Subscription {
       this.move.loaded(update, this.headSeq);
       this.move = null;
     } else if (fresh !== null) {
-      this.syncedBase = this.recovery.loaded(fresh, update, this.syncedBase);
+      this.syncedBase = this.recovery.loaded(
+        fresh,
+        update,
+        this.syncedBase,
+        this.headSeq,
+      );
       this.healSeq = null;
     } else this.merge(update);
     const { journal, ports } = this.options;

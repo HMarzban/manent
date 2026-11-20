@@ -470,7 +470,7 @@ test("a move during the recovery of a rejected push continues the recovery in th
   server.moved(DOC, 1, 2);
   await w.settle();
   const last = editSubscribes(w).at(-1)!;
-  expect(last).toMatchObject({ generation: 2 });
+  expect(last).toMatchObject({ generation: 2, lastServerSeq: 0 });
   expect(server.got("SYNC").at(-1)!.data).toEqual(
     createDoc().encodeStateVector(),
   );
@@ -480,10 +480,13 @@ test("a move during the recovery of a rejected push continues the recovery in th
   expect(textOf(h.doc())).toBe("draft\nkept");
   const push = server.got("PUSH").at(-1)!;
   expect(push).toMatchObject({ generation: 2 });
-  expect((await store.load(DOC))!.meta).toMatchObject({
+  const { meta } = (await store.load(DOC))!;
+  expect(meta).toMatchObject({
     generation: 2,
+    lastServerSeq: 1,
     recovering: { replaying: true },
   });
+  expect(meta.ackedClocks).toEqual({});
   server.ack(DOC, push.clientSeq, 2);
   await w.settle();
   expect((await store.load(DOC))!.meta.recovering).toBeNull();
