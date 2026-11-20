@@ -11,10 +11,15 @@ import { isSameBlock } from "./overlaps.ts";
 /** A change from elsewhere this soon after a change made here to the same block is an overlap. */
 export const OVERLAP_WINDOW_MS = 3_000;
 
-/** A block changed here: when last, from which clock of this device's client, and as that change left it. */
-interface Touch {
+/** One change made here: when, and from which clock of this device's client. */
+interface Change {
   at: number;
   fromClock: number;
+}
+
+/** A block changed here: its changes, oldest first, and the block as the last left it. */
+interface Touch {
+  changes: Change[];
   mine: BlockJSON;
 }
 
@@ -23,6 +28,10 @@ interface WindowHost {
   readonly doc: CrdtDoc;
   readonly recovered: readonly RecoveredItem[];
   items(leftovers: readonly Leftover[]): RecoveredItem[];
+}
+
+function isRecent(change: Change, now: number): boolean {
+  return now - change.at <= OVERLAP_WINDOW_MS;
 }
 
 function idOf(block: BlockJSON): string | null {
@@ -58,17 +67,20 @@ export class OverlapWindow {
     for (const mine of blocks) {
       const blockId = idOf(mine);
       if (blockId === null) continue;
-      const fromClock = this.touched.get(blockId)?.fromClock ?? own.fromClock;
+      const earlier = this.touched.get(blockId)?.changes ?? [];
+      const changes = earlier.filter((change) => isRecent(change, at));
+      changes.push({ at, fromClock: own.fromClock });
       // set again at the end, so that the map stays in the order of the last change
       this.touched.delete(blockId);
-      this.touched.set(blockId, { at, fromClock, mine });
+      this.touched.set(blockId, { changes, mine });
     }
   }
 
   /**
    * A change from the server, `own` holding this device's client IDs: each
    * block it changed that a change made here touched within the window, read
-   * without that change's text. A change only `own` clients made is none.
+   * without the text of this device's changes within the window. A change
+   * only `own` clients made is none.
    */
   remote(report: TransactionReport, own: ReadonlySet<number>): void {
     const others = updateMeta(report.update)
@@ -76,14 +88,17 @@ export class OverlapWindow {
       .filter((clientId) => !own.has(clientId))
       .toSorted((a, b) => a - b);
     if (others.length === 0) return;
-    this.forget(this.clock.now());
+    const now = this.clock.now();
+    this.forget(now);
     const { doc } = this.host;
     const leftovers: Leftover[] = [];
     for (const block of report.changed) {
       const blockId = idOf(block);
       const touch = blockId === null ? undefined : this.touched.get(blockId);
-      if (blockId === null || touch === undefined) continue;
-      const exclude = new Map([[doc.clientId, touch.fromClock]]);
+      const first = touch?.changes.find((change) => isRecent(change, now));
+      if (blockId === null || touch === undefined || first === undefined)
+        continue;
+      const exclude = new Map([[doc.clientId, first.fromClock]]);
       const theirs = readBlockExcluding(doc, blockId, exclude);
       if (theirs === null || isSameBlock(theirs, touch.mine)) continue;
       const overlap = { blockId, mine: touch.mine, theirs };
@@ -109,7 +124,8 @@ export class OverlapWindow {
 
   private forget(now: number): void {
     for (const [blockId, touch] of this.touched) {
-      if (now - touch.at <= OVERLAP_WINDOW_MS) return;
+      const last = touch.changes.at(-1);
+      if (last !== undefined && isRecent(last, now)) return;
       this.touched.delete(blockId);
     }
   }

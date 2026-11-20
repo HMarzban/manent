@@ -26,6 +26,7 @@ import { textLeftover, withFiled } from "../recovery/recover.ts";
 import type { Leftover } from "../recovery/recover.ts";
 import { deviceVersion } from "../recovery/versions.ts";
 import { OverlapWindow } from "../review/online.ts";
+import { changedByStepTwo } from "../review/overlaps.ts";
 import type { ViewHandle } from "../view/view.ts";
 import type { DocEvent, DocHandle } from "./doc-handle.ts";
 import { elementsOf } from "./edits.ts";
@@ -314,7 +315,8 @@ class BoundCopy implements LocalCopy {
   private mergeNow(update: Uint8Array, overlaps: Leftover[]): void {
     this.coalescer.flushNow();
     this.remoteChanged = false;
-    const items = [...this.applyServer(update), ...this.items(overlaps)];
+    const items = this.applyServer(update);
+    items.push(...this.items(changedByStepTwo(this.doc, overlaps)));
     // a reconnect's overlaps are found against the synced base, not the window
     this.window.take();
     if (!this.remoteChanged) return;

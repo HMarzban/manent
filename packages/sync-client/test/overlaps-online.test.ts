@@ -52,6 +52,22 @@ test("a block two people change within three seconds is listed once, with both w
   expect(wordings()).toEqual([["a", "zy"]]);
 });
 
+test("their wording keeps what was typed here before the window", async () => {
+  const { w, h } = await typedLive();
+  for (const letter of "bcdefghijk") {
+    w.fake.advance(1_000);
+    typeIn(h, B1, letter);
+  }
+  await w.settle();
+  w.server.ackAll(DOC);
+  await w.settle();
+  remoteTypingIn(w, B1, "z");
+  await shown(w);
+  expect(
+    h.recovered.get().map((item) => [textOf(item.mine), textOf(item.theirs)]),
+  ).toEqual([["abcdefghijk", "abcdefgz"]]);
+});
+
 test("a change that comes after the window is not an overlap", async () => {
   const { w, h } = await typedLive();
   w.fake.advance(3_001);

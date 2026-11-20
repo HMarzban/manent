@@ -160,6 +160,57 @@ test("a block only this device changed since the last synced state overlaps noth
   expect(h.recovered.get()).toEqual([]);
 });
 
+test("a change seen online before going offline is not an overlap at the reconnect", async () => {
+  const w = await setup();
+  const client = w.makeClient();
+  const h = await client.open(DOC);
+  await w.settle();
+  const seen = w.server.writeAs(DOC, DANA, (writer) =>
+    writer.insertText(B1, 0, "Dana's"),
+  );
+  w.server.syncUpdate(DOC, seen);
+  await w.settle();
+  w.frames.fire();
+  await w.settle();
+  client.setOnline(false);
+  typeIn(h, B1, " mine");
+  client.setOnline(true);
+  await reconnectWithServerChange(w, (writer) =>
+    writer.insertText(B2, 0, "Dana's"),
+  );
+  w.server.ackAll(DOC);
+  await w.settle();
+  expect(h.recovered.get()).toEqual([]);
+});
+
+test("a deletion by someone else in a block typed offline is an overlap with nobody named", async () => {
+  const w = await setup();
+  const client = w.makeClient();
+  const h = await client.open(DOC);
+  await w.settle();
+  typeIn(h, B1, "draft");
+  await w.settle();
+  w.server.ackAll(DOC);
+  await w.settle();
+  client.setOnline(false);
+  typeIn(h, B1, "x");
+  client.setOnline(true);
+  await reconnectWithServerChange(w, (writer) => writer.deleteText(B1, 0, 3));
+  w.server.ackAll(DOC);
+  await w.settle();
+  expect(
+    h.recovered
+      .get()
+      .map((item) => [
+        item.cause,
+        item.blockId,
+        textOf(item.mine),
+        textOf(item.theirs),
+        item.otherClientIds,
+      ]),
+  ).toEqual([["overlap", B1, "draftx", "ft", []]]);
+});
+
 test("text typed offline into a block someone deleted is Recovered text, not an overlap", async () => {
   const { w, h, events } = await typedOffline((typing) =>
     typeIn(typing, B1, "mine"),
