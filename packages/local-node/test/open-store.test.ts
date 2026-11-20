@@ -8,7 +8,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { STORAGE_SCHEMA_VERSION } from "@manent/storage";
 import { createTempTrees } from "@manent/testkit";
 import {
@@ -53,14 +53,20 @@ const readJson = (path: string): unknown =>
 function filesUnder(dir: string): string[] {
   return readdirSync(dir, { recursive: true, encoding: "utf8" })
     .filter((path) => statSync(join(dir, path)).isFile())
+    .map((path) => path.split(sep).join("/"))
     .toSorted();
 }
 
-// The -shm file is SQLite's shared-memory index, which any reader rewrites; it holds no data.
+// The -shm file is SQLite's shared-memory index, which any reader rewrites, and an empty -wal
+// is one a reader created where the last writer's close had removed it: neither holds data.
+const holdsData = (dir: string, path: string): boolean =>
+  !path.endsWith("-shm") &&
+  !(path.endsWith("-wal") && statSync(join(dir, path)).size === 0);
+
 function digestOf(dir: string): string {
   const hash = new Bun.CryptoHasher("sha256");
-  for (const path of filesUnder(dir).filter((p) => !p.endsWith("-shm"))) {
-    hash.update(relative(dir, join(dir, path)));
+  for (const path of filesUnder(dir).filter((p) => holdsData(dir, p))) {
+    hash.update(path);
     hash.update(readFileSync(join(dir, path)));
   }
   return hash.digest("hex");
