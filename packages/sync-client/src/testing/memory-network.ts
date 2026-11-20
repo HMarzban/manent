@@ -1,5 +1,11 @@
 // A network in memory between clients and one server, delivering one queued frame or close
 // at a time and only when a test steps it, with cuts, refused sessions and faults on request.
+import { encodeReplayUpdates } from "@manent/sync-protocol";
+import type {
+  ReplayRefusal,
+  ReplayRequest,
+  ReplayResponse,
+} from "@manent/sync-protocol";
 import { ConnectError } from "../ports/ports.ts";
 import type { Transport } from "../ports/ports.ts";
 
@@ -15,7 +21,7 @@ export interface ServerEnd {
 type CreateResult = { ok: true } | { ok: false; code: "forbidden" | "deleted" };
 
 export interface MemoryNetwork {
-  /** Null: nobody is signed in; `connect` rejects ConnectError("sign_in") and reaches no server. */
+  /** Null: nobody is signed in; every request rejects ConnectError("sign_in") and reaches no server. */
   transport(userId: string | null): Transport;
   serve(handlers: {
     connected(end: ServerEnd): void;
@@ -23,8 +29,16 @@ export interface MemoryNetwork {
       userId: string,
       request: { docId: string; kind: string; home: string },
     ): CreateResult;
+    /** Absent, a replay rejects ConnectError("unreachable"). */
+    replay?(
+      userId: string,
+      request: ReplayRequest,
+    ): Promise<
+      | { ok: true; response: ReplayResponse }
+      | { ok: false; code: ReplayRefusal }
+    >;
   }): void;
-  /** While cut, connects reject "unreachable", and every open connection closes with 1006. */
+  /** While cut, requests reject "unreachable", and every open connection closes with 1006. */
   partition(cut: boolean): void;
   /** Connects reject "sign_in", as for a session that expired. */
   refuseSessions(refuse: boolean): void;
@@ -153,6 +167,12 @@ function transportOf(net: Net, userId: string | null): Transport {
     async createDocument(request) {
       const [server, user] = reach(net, userId);
       return server.createDocument(user, request);
+    },
+    async replay(request) {
+      const [server, user] = reach(net, userId);
+      if (server.replay === undefined) throw new ConnectError("unreachable");
+      const updates = encodeReplayUpdates(request.updates);
+      return server.replay(user, { ...request, updates });
     },
   };
 }
