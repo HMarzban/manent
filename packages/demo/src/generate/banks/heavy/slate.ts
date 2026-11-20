@@ -3703,7 +3703,7 @@ const TAGS: readonly string[] = [
   "now we're at {place}",
   "while nobody at {place} is looking",
   "and {place} can whistle for it",
-  "{place} or no {place}",
+  "come what may at {place}",
   "just like they said at {place}",
   "for all anyone at {place} cares",
   "if there's any left at {place}",

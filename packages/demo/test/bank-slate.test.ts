@@ -400,6 +400,11 @@ test("every shared line is filled with each film's own people and places, and no
   expect(
     SLATE_GUIDES.flatMap(textsOf).filter((text) => /[{}]/.test(text)),
   ).toEqual([]);
+  expect(
+    SLATE_GUIDES.flatMap(textsOf).filter((text) =>
+      /\b(?:a|an|any|each|every|no|the)\s+the\b/i.test(text),
+    ),
+  ).toEqual([]);
   const shared = SLATE_GUIDES.flatMap((guide) =>
     sharedLists(guide).flatMap((list, kind) =>
       list.map((text, at) => `${kind}:${at}:${text}`),
