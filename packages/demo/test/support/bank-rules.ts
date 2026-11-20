@@ -235,22 +235,45 @@ function listedWords(guide: Guide): Set<string> {
   ]);
 }
 
-function lowerCaseWords(guides: readonly Guide[]): Set<string> {
-  const texts = guides.flatMap((guide) => [
-    ...entriesOf(guide).map((e) => e.text),
-    ...(isProse(guide) ? [] : guide.vocabulary),
-  ]);
-  return new Set(
-    texts.flatMap(wordsOf).filter((word) => word === word.toLowerCase()),
-  );
-}
-
 const repeatKey = (text: string): string =>
   text
     .toLowerCase()
     .replace(/[^\p{L}\p{N} ]/gu, "")
     .replace(/ +/g, " ")
     .trim();
+
+/** What the rules read of one bank, whichever bank is being checked. */
+interface Reading {
+  entries: Entry[];
+  /** The lower-case words of its entries and vocabulary. */
+  lowerCase: Set<string>;
+  /** The repeat key of each entry outside RECURRING_FIELDS. */
+  keys: string[];
+}
+
+// the slate checks every bank against all the others, so each is read once and kept: no bank changes once built
+const READINGS = new WeakMap<Guide, Reading>();
+
+function readingOf(guide: Guide): Reading {
+  const known = READINGS.get(guide);
+  if (known !== undefined) return known;
+  const entries = entriesOf(guide);
+  const texts = [
+    ...entries.map((e) => e.text),
+    ...(isProse(guide) ? [] : guide.vocabulary),
+  ];
+  const reading = {
+    entries,
+    lowerCase: new Set(
+      texts.flatMap(wordsOf).filter((word) => word === word.toLowerCase()),
+    ),
+    keys: entries
+      .filter((e) => !RECURRING_FIELDS.has(e.field))
+      .map((e) => repeatKey(e.text)),
+  };
+  READINGS.set(guide, reading);
+  return reading;
+}
 
 /** The banks whose entries this one may not repeat: those before it in ALL_GUIDES, or every one when it is not there. */
 function earlierThan(guide: Guide, others: readonly Guide[]): Guide[] {
@@ -265,13 +288,9 @@ function earlierThan(guide: Guide, others: readonly Guide[]): Guide[] {
 /** Marks each entry that repeats an earlier one: the same words, or six opening words shared within its field. */
 function findRepeats(
   entries: readonly Entry[],
-  earlier: readonly Entry[],
+  earlier: readonly Reading[],
 ): boolean[] {
-  const seen = new Set(
-    earlier
-      .filter((e) => !RECURRING_FIELDS.has(e.field))
-      .map((e) => repeatKey(e.text)),
-  );
+  const seen = new Set(earlier.flatMap((reading) => reading.keys));
   const openings = new Set<string>();
   return entries.map((e) => {
     if (RECURRING_FIELDS.has(e.field)) return false;
@@ -293,12 +312,12 @@ function findRepeats(
  * are ordinary and which lines are taken already.
  */
 export function checkBank(guide: Guide, others: readonly Guide[]): BankIssue[] {
-  const entries = entriesOf(guide);
+  const { entries } = readingOf(guide);
   const listed = listedWords(guide);
-  const ordinary = lowerCaseWords([guide, ...others]);
+  const ordinary = [guide, ...others].map((g) => readingOf(g).lowerCase);
   const repeats = findRepeats(
     entries,
-    earlierThan(guide, others).flatMap(entriesOf),
+    earlierThan(guide, others).map(readingOf),
   );
   const cues = new Set(isProse(guide) ? [] : guide.cast.map((m) => m.cue));
   const banned = [...guide.style.banned, FILLER];
@@ -309,7 +328,9 @@ export function checkBank(guide: Guide, others: readonly Guide[]): BankIssue[] {
       unlisted_name: words.some((word) => {
         const lower = word.toLowerCase();
         return (
-          isCapitalised(word) && !listed.has(lower) && !ordinary.has(lower)
+          isCapitalised(word) &&
+          !listed.has(lower) &&
+          !ordinary.some((lowerCase) => lowerCase.has(lower))
         );
       }),
       repeated: repeats[index] === true,
