@@ -87,10 +87,12 @@ export interface Rebuilder {
   stats(): RebuildStats;
 }
 
-/** The smallest positive integer that is not a key of `ledger`. */
-function freeClientId(ledger: ReadonlyMap<number, unknown>): number {
+/** The smallest positive integer that is a key of none of `taken`. */
+export function freeClientId(
+  ...taken: readonly ReadonlyMap<number, unknown>[]
+): number {
   let clientId = 1;
-  while (ledger.has(clientId)) clientId++;
+  while (taken.some((ids) => ids.has(clientId))) clientId++;
   return clientId;
 }
 

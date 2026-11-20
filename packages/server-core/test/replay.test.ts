@@ -1,15 +1,17 @@
 import { expect, test } from "bun:test";
+import fc from "fast-check";
 import {
   ORIGIN_LOAD,
   createDoc,
   loadDoc,
   scriptBody,
   scriptSettings,
+  updateMeta,
 } from "@manent/crdt";
 import type { BlockWriter, CrdtDoc } from "@manent/crdt";
 import { blockText, blocksOf } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
-import { encodeReplayUpdates } from "@manent/sync-protocol";
+import { REPLAY_REFUSALS, encodeReplayUpdates } from "@manent/sync-protocol";
 import type { Message, ReplayRequest } from "@manent/sync-protocol";
 import type { SyncLimits } from "../src/index.ts";
 import type { FakePeer } from "../src/testing/index.ts";
@@ -68,6 +70,31 @@ function stepTwoOf(messages: readonly Message[]): Uint8Array {
   );
   if (found?.type !== "SYNC") throw new RangeError("no step 2 was sent");
   return found.data;
+}
+
+/** An image element inside B2, which validation refuses, written on `doc`. */
+const imageEdit = (doc: CrdtDoc): Uint8Array =>
+  rawEdit(doc, (body, make) => {
+    const section = body.get(0) as ElementNode;
+    const block = section.get(1) as ElementNode;
+    block.insert(0, [make.element("img")]);
+  });
+
+/** A setting, which a replay may not write, written on `doc`. */
+const settingEdit = (doc: CrdtDoc): Uint8Array =>
+  capture(doc, () =>
+    scriptSettings(doc).set("script.paper", "a4", {
+      userId: "sam",
+      setAt: 1_000,
+      replaced: null,
+    }),
+  );
+
+/** Text typed into a block the log never held, without the update that made the block. */
+function needsMoreOf(clientId: number): Uint8Array {
+  const stranger = createDoc({ clientId });
+  written(stranger, (w) => w.insertBlocks(null, [action(B9, "")]));
+  return written(stranger, typeInto(B9, "Fog."));
 }
 
 /**
@@ -189,6 +216,35 @@ test("edits in untouched blocks are re-applied as that person's edits, after a v
   ).toEqual([["pre_merge", 2, 1, "sam"]]);
   expect(world.textOfRoom(B2)).toBe("Night. " + B2_TEXT);
   expect(dana.take()).toMatchObject([{ type: "SYNC", step: "update" }]);
+});
+
+test("each person's replayed edits are written under a client id that person owns", async () => {
+  const world = replayWorld();
+  const { file, samDoc, samOffline, rebuildNow, replayed, requestOf } = world;
+  const danaOffline = loadDoc(samDoc.encodeState(), { clientId: DANA_TABLET });
+  const sams = samOffline(typeInto(B1, "Dusk. "));
+  const danas = [written(danaOffline, typeInto(B2, "Dawn. "))];
+  rebuildNow();
+  const answers = [
+    await replayed("sam", requestOf(sams, { generation: 1, key: KEY })),
+    await replayed("dana", requestOf(danas, { generation: 1, key: OTHER_KEY })),
+  ];
+  expect(answers).toMatchObject([{ ok: true }, { ok: true }]);
+  const ledger = file.log.ledger(DOC);
+  const rows = file.log
+    .tail(DOC, 2, 1)
+    .rows.map((row) => [
+      row.userId,
+      updateMeta(row.update).map(
+        (meta) => ledger.get(meta.clientId)?.userId ?? null,
+      ),
+    ]);
+  expect(rows).toEqual([
+    ["sam", ["sam"]],
+    ["dana", ["dana"]],
+  ]);
+  expect(world.textOfRoom(B1)).toBe("Dusk. " + B1_TEXT);
+  expect(world.textOfRoom(B2)).toBe("Dawn. " + B2_TEXT);
 });
 
 test("both sides changing one block merge by character, or keep theirs with this person's text to review", async () => {
@@ -379,24 +435,11 @@ test("each way a replay can be refused has its answer, and writes nothing", asyn
     ...good,
     updates: encodeReplayUpdates([update]),
   });
-  const img = rawEdit(copy(SAM_CLIENT), (body, make) => {
-    const section = body.get(0) as ElementNode;
-    const block = section.get(1) as ElementNode;
-    block.insert(0, [make.element("img")]);
-  });
-  const settingsCopy = copy(SAM_CLIENT);
-  const settings = capture(settingsCopy, () =>
-    scriptSettings(settingsCopy).set("script.paper", "a4", {
-      userId: "sam",
-      setAt: 1_000,
-      replaced: null,
-    }),
-  );
+  const img = imageEdit(copy(SAM_CLIENT));
+  const settings = settingEdit(copy(SAM_CLIENT));
   // Dana's other device: a client id of hers that wrote nothing Sam's copy holds
   world.file.log.registerClients(DOC, "dana", [DANA_TABLET]);
-  const stranger = createDoc({ clientId: 8008 });
-  written(stranger, (w) => w.insertBlocks(null, [action(B9, "")]));
-  const needsMore = written(stranger, typeInto(B9, "Fog."));
+  const needsMore = needsMoreOf(8008);
   world.rebuildNow();
   const before = writtenOf(world);
   const cases: [string, string, unknown][] = [
@@ -479,4 +522,87 @@ test("each way a replay can be refused has its answer, and writes nothing", asyn
     code: "busy",
   });
   expect(writtenOf(full)).toEqual(fullBefore);
+});
+
+test("any body ends in an answer or one of the declared refusals, and never throws", async () => {
+  const world = replayWorld();
+  const { file, samDoc, samOffline, requestOf } = world;
+  const head = file.log.get(DOC)?.headSeq ?? 0;
+  // devices of whoever sends them first, resting on what Sam's copy was acknowledged at
+  const acked = samDoc.encodeState();
+  const fromAcked = written(
+    loadDoc(acked, { clientId: 1007 }),
+    typeInto(B1, "Dusk. "),
+  );
+  const img = imageEdit(loadDoc(acked, { clientId: 1008 }));
+  const settings = settingEdit(loadDoc(acked, { clientId: 1009 }));
+  const [valid] = samOffline(typeInto(B2, "Night. "));
+  if (valid === undefined) throw new RangeError("Sam's edit made no update");
+  world.rebuildNow();
+  // from a device nobody holds yet
+  const needsMore = fc.integer({ min: 10_000, max: 2 ** 30 }).map(needsMoreOf);
+  const update = fc.oneof(
+    { arbitrary: fc.constantFrom(valid, fromAcked), weight: 6 },
+    { arbitrary: needsMore, weight: 2 },
+    fc.constantFrom(img, settings),
+    fc.uint8Array({ maxLength: 48 }),
+    fc
+      .tuple(fc.nat(), fc.integer({ min: 0, max: 255 }))
+      .map(([at, byte]) => valid.with(at % valid.length, byte)),
+    fc.nat().map((cut) => valid.slice(0, cut % valid.length)),
+  );
+  const near = fc
+    .record({
+      generation: fc.constantFrom(1, 1, 1, 2, 7),
+      lastServerSeq: fc.constantFrom(0, head, head, 99),
+      // mostly a key never used, so that the checks after it run
+      key: fc.oneof(
+        fc
+          .uint8Array({ minLength: 16, maxLength: 16 })
+          .map((bytes) => Buffer.from(bytes).toString("hex")),
+        fc.constant(KEY),
+      ),
+      updates: fc.array(update, { minLength: 1, maxLength: 3 }),
+      docId: fc.constantFrom(DOC, DOC, DOC, DOC2),
+    })
+    .map(({ updates, generation, key, lastServerSeq, docId }) => ({
+      ...requestOf(updates, { generation, key, lastServerSeq }),
+      docId,
+    }));
+  const field = fc.constantFrom(
+    "docId",
+    "generation",
+    "lastServerSeq",
+    "key",
+    "updates",
+  );
+  const broken = fc
+    .tuple(near, field, fc.jsonValue())
+    .map(([request, name, value]) => ({ ...request, [name]: value }));
+  const body = fc.oneof({ arbitrary: near, weight: 3 }, broken, fc.jsonValue());
+  const declared: readonly string[] = REPLAY_REFUSALS;
+  const reached = new Set<string>();
+  await fc.assert(
+    fc.asyncProperty(
+      fc.constantFrom("sam", "sam", "dana", "leo"),
+      body,
+      async (userId, given) => {
+        const outcome = await world.replayed(userId, given);
+        const code = outcome.ok ? "ok" : outcome.code;
+        reached.add(code);
+        return outcome.ok || declared.includes(outcome.code);
+      },
+    ),
+    { numRuns: 400 },
+  );
+  expect([...reached].toSorted()).toEqual([
+    "bad_request",
+    "forbidden",
+    "generation_current",
+    "incomplete",
+    "invalid",
+    "not_found",
+    "ok",
+    "unknown_generation",
+  ]);
 });

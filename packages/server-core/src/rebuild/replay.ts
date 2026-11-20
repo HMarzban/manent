@@ -6,6 +6,7 @@ import {
   applyBlockOps,
   loadDoc,
   mergeUpdates,
+  readStateVector,
   scriptBody,
   updateMeta,
 } from "@manent/crdt";
@@ -38,6 +39,7 @@ import type { DocumentAccess } from "../sync/access.ts";
 import type { Clock, SyncLimits } from "../sync/ports.ts";
 import type { Room, Rooms } from "../sync/rooms.ts";
 import type { WritePath } from "../sync/write-path.ts";
+import { freeClientId } from "./rebuilder.ts";
 import { replayBase } from "./replay-base.ts";
 
 export type ReplayOutcome =
@@ -166,16 +168,29 @@ function contentOf(state: Uint8Array): DocJSON {
   return content;
 }
 
-/** The ops written to the document under ORIGIN_REPLAY, as one update; null when they wrote nothing. */
-function writeOps(doc: CrdtDoc, ops: readonly BlockOp[]): Uint8Array | null {
+/**
+ * The ops as one update, applied to the room's document under ORIGIN_REPLAY; null when they wrote nothing. They are
+ * written under a client id that neither the ledger nor the document holds, which the commit registers to this person.
+ */
+function writeOps(
+  room: Room,
+  doc: CrdtDoc,
+  ops: readonly BlockOp[],
+): Uint8Array | null {
+  const written = readStateVector(doc.encodeStateVector()).set(doc.clientId, 0);
+  const clientId = freeClientId(room.file.log.ledger(room.docId), written);
+  const copy = loadDoc(doc.encodeState(), { clientId });
   const made: Uint8Array[] = [];
-  const stop = doc.subscribe((update) => made.push(update));
+  copy.subscribe((update) => made.push(update));
   try {
-    applyBlockOps(doc, ops, ORIGIN_REPLAY);
+    applyBlockOps(copy, ops, ORIGIN_REPLAY);
   } finally {
-    stop();
+    copy.destroy();
   }
-  return made.length === 0 ? null : mergeUpdates(made);
+  if (made.length === 0) return null;
+  const update = mergeUpdates(made);
+  doc.applyUpdate(update, ORIGIN_REPLAY);
+  return update;
 }
 
 /** Every block the ops write passes validation without a reject or newer issue. */
@@ -301,7 +316,7 @@ export function createReplay(
     const theirs = [...checked.frozen.map(contentOf), current];
     const merge = mergeThrough(checked.base, checked.mine, theirs);
     if (!isWritable(merge.ops)) return refused("invalid");
-    const update = writeOps(doc, merge.ops);
+    const update = writeOps(room, doc, merge.ops);
     const stored = storedOf(merge, checked.setAside, room);
     const createdAt = clock.now();
     const version: VersionRow | null =
