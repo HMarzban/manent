@@ -6,7 +6,7 @@ import type { BlockJSON, DocJSON } from "@manent/schema";
 import { canonicalBlocksOf } from "../compare/align.ts";
 import type { BlockEntry } from "../compare/align.ts";
 import { compareDocs } from "../compare/comparison.ts";
-import { baselineOf, contentHash, markBlock, removedMarks } from "./marks.ts";
+import { baselineOf, contentHash, liveMarks, removedMarks } from "./marks.ts";
 import type { Baseline, BlockMark, Override } from "./marks.ts";
 import type { BlockChange, SetBlockRecord } from "./model.ts";
 import { blockMarkedLines } from "./page-marks.ts";
@@ -33,12 +33,12 @@ function rangesOf(
 }
 
 /**
- * Every block of `issued` marked against `baseline` (compareDocs for added,
- * removed and moved; markBlock for each), with the label of the page of `p`,
- * the issued script's pagination, its first marked line is on. A removed
- * block is labelled with the page of its deletion point, or the last page
- * when no block is left to mark. RangeError for a marked block `p` does not
- * hold, or a pagination whose engine this build does not carry.
+ * Every block of `issued` that liveMarks marks against `baseline`, and every
+ * removed block, with the label of the page of `p`, the issued script's
+ * pagination, its first marked line is on. A removed block is labelled with
+ * the page of its deletion point, or the last page when no block is left to
+ * mark. RangeError for a marked block `p` does not hold, or a pagination
+ * whose engine this build does not carry.
  */
 export function issueBlocks(
   baseline: DocJSON,
@@ -69,8 +69,15 @@ export function issueBlocks(
       line === undefined ? 0 : engine.lineStartsOf(p, index)[line]!;
     return p.pages[engine.pageOf(p, index, offset)]!.label;
   };
+  const { entries } = compareDocs(baseline, issued);
+  const marks = liveMarks(
+    base,
+    flat,
+    new Set(entries.filter((entry) => entry.moved).map((entry) => entry.id)),
+    overrides,
+  );
   const records: SetBlockRecord[] = [];
-  for (const entry of compareDocs(baseline, issued).entries) {
+  for (const entry of entries) {
     const { id, older, newer } = entry;
     if (newer === null) {
       if (older === null) continue;
@@ -86,13 +93,8 @@ export function issueBlocks(
       });
       continue;
     }
-    const mark = markBlock(base.blocks.get(id) ?? null, newer, {
-      baseVisible: base.visible.has(id),
-      visible: visible.has(id),
-      moved: entry.moved,
-      override: overrides(id),
-    });
-    if (mark === null) continue;
+    const mark = marks.get(id);
+    if (mark === undefined) continue;
     records.push({
       blockId: id,
       pageLabel: labelOf(id, mark),

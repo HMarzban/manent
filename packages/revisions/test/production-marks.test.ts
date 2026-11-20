@@ -389,15 +389,16 @@ function record(
   pageLabel: string,
   change: BlockChange,
   of: BlockJSON,
-  ranges: [number, number][] = [],
+  inserted: [number, number][] = [],
+  deletedAt: number[] = [],
 ): SetBlockRecord {
   return {
     blockId,
     pageLabel,
     change,
     hash: contentHash(of),
-    inserted: ranges,
-    deletedAt: [],
+    inserted,
+    deletedAt,
   };
 }
 
@@ -417,6 +418,20 @@ test("an issue records each marked block, what became of it and the page its fir
     record(H2, "2", "shown", h(H2, { num: "2" })),
     record(E, "2", "shown", b(E, "Wind.")),
   ]);
+});
+
+test("an issue records the block a removal is marked at, and the mark comes back while that block is unchanged", () => {
+  const records = issueBlocks(
+    BASELINE,
+    ISSUED,
+    paginateDoc(ISSUED),
+    () => null,
+  );
+  const silence = record(C, "1", "changed", b(C, "Silence."), [], [0]);
+  expect(records.find((found) => found.blockId === C)).toEqual(silence);
+  expect(issuedMarks(records, new Map([[C, b(C, "Silence.")]])).get(C)).toEqual(
+    { kind: "ranges", inserted: [], deletedAt: [0] },
+  );
 });
 
 test("an issued revision's marks come back where its blocks are unchanged", () => {
