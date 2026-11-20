@@ -52,19 +52,44 @@ function inside(block: Node, pos: number, offset: number): number {
   return pos + 1 + Math.min(Math.max(0, offset), block.content.size);
 }
 
+/** The index of the block with id `blockId` in `index`; null when it is not within HINT_WINDOW blocks of `hint`. */
+export function blockNear(
+  index: BlockIndex,
+  blockId: string,
+  hint: number,
+): number | null {
+  const last = Math.min(index.blocks.length - 1, hint + HINT_WINDOW);
+  for (let i = Math.max(0, hint - HINT_WINDOW); i <= last; i++)
+    if (index.blocks[i]!.id === blockId) return i;
+  return null;
+}
+
+/** The id of block `block` in document order; null when there is no such block or it has no id. */
+export function blockIdAt(state: EditorState, block: number): string | null {
+  const index = currentIndex(state);
+  if (index !== null) return index.blocks[block]?.id ?? null;
+  let rest = block;
+  for (let s = 0; s < state.doc.childCount; s++) {
+    const section = state.doc.child(s);
+    if (rest < section.childCount) {
+      const id: unknown = section.child(rest).attrs.id;
+      return typeof id === "string" ? id : null;
+    }
+    rest -= section.childCount;
+  }
+  return null;
+}
+
 function foundInIndex(
   state: EditorState,
   index: BlockIndex,
   place: BlockPlace,
   hint: number,
 ): number | null {
-  const last = Math.min(index.blocks.length - 1, hint + HINT_WINDOW);
-  for (let i = Math.max(0, hint - HINT_WINDOW); i <= last; i++) {
-    if (index.blocks[i]!.id !== place.blockId) continue;
-    const pos = blockPos(index, i);
-    return inside(state.doc.nodeAt(pos)!, pos, place.offset);
-  }
-  return null;
+  const found = blockNear(index, place.blockId, hint);
+  if (found === null) return null;
+  const pos = blockPos(index, found);
+  return inside(state.doc.nodeAt(pos)!, pos, place.offset);
 }
 
 // The place in the blocks `from` to `to` of a section that starts at `pos`, counted inside the section.

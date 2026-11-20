@@ -13,6 +13,7 @@ import {
   paginationKey,
   scrollPlugin,
   sectionEnter,
+  setPagination,
 } from "../src/index.ts";
 import { counter, docOf, script, state } from "./docs.ts";
 
@@ -171,6 +172,24 @@ test("a remote edit above the anchor scrolls by exactly the height it added", ()
   expect(m.scroller.writes).toEqual([shift * 1.25]);
 });
 
+test("a remote edit that adds 250 blocks above the reader still scrolls by the height it added", () => {
+  const m = mount(script(400));
+  m.layout.top = { block: 300, offsetPx: 0 };
+  scrolled(m.scroller.element);
+  const before = pagesOf(m.view);
+  m.view.dispatch(remote(m.view, withLinesAt(m.view.state.doc, 10, 250)));
+  const after = pagesOf(m.view);
+  expect(m.scroller.writes).toEqual([
+    anchorShiftPx(
+      before.pagination,
+      after.pagination,
+      after.settings.engine,
+      { first: 10, oldEnd: 10, newEnd: 260 },
+      550,
+    ),
+  ]);
+});
+
 test("a remote edit below the reader, and every local edit, move nothing here", () => {
   const m = mount(script(400));
   m.layout.top = { block: 300, offsetPx: 0 };
@@ -311,6 +330,57 @@ test("nothing moves while an input method composes", () => {
       after.settings.engine,
       { first: 10, oldEnd: 10, newEnd: 40 },
       330,
+    ),
+  ]);
+});
+
+/** One character composed by an input method at the caret, as ProseMirror dispatches it. */
+function composed(m: Mounted): void {
+  m.composing(true);
+  m.view.dispatch(m.view.state.tr.insertText("a").setMeta("composition", 1));
+}
+
+/** The pages of `doc` as a fresh pagination gives them. */
+const freshPages = (doc: Node) => paginationKey.getState(state(doc))!;
+
+test("a remote edit above the reader just after a composition in the caret's block scrolls by the height it added", () => {
+  const m = mount(script(400));
+  m.layout.caret = 400;
+  caretAt(m.view, 350);
+  composed(m);
+  m.composing(false);
+  const before = freshPages(m.view.state.doc);
+  m.view.dispatch(remote(m.view, withLinesAt(m.view.state.doc, 10, 30)));
+  const after = pagesOf(m.view);
+  expect(m.scroller.writes).toEqual([
+    anchorShiftPx(
+      before.pagination,
+      after.pagination,
+      after.settings.engine,
+      { first: 10, oldEnd: 10, newEnd: 40 },
+      380,
+    ),
+  ]);
+});
+
+test("a remote edit above the reader during a composition in the caret's block is made good once the composition ends", () => {
+  const m = mount(script(400));
+  m.layout.caret = 400;
+  caretAt(m.view, 350);
+  composed(m);
+  const before = freshPages(m.view.state.doc);
+  m.view.dispatch(remote(m.view, withLinesAt(m.view.state.doc, 10, 30)));
+  const after = pagesOf(m.view);
+  expect(m.scroller.writes).toEqual([]);
+  m.composing(false);
+  m.view.dispatch(setPagination(m.view.state.tr, { repaginate: true }));
+  expect(m.scroller.writes).toEqual([
+    anchorShiftPx(
+      before.pagination,
+      after.pagination,
+      after.settings.engine,
+      { first: 10, oldEnd: 10, newEnd: 40 },
+      380,
     ),
   ]);
 });

@@ -3,28 +3,16 @@
 import type { EditorState } from "prosemirror-state";
 import { Selection, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
-import { currentIndex, placeOf, positionOf } from "../cursors/place.ts";
+import {
+  blockIdAt,
+  currentIndex,
+  placeOf,
+  positionOf,
+} from "../cursors/place.ts";
 import { paginationKey } from "../pagination/plugin.ts";
 import type { SavedPlace } from "../script-editor/ports.ts";
 import { blockTopPx } from "./anchor.ts";
 import type { ScrollPorts } from "./stability.ts";
-
-// The id of block `block` in document order: from the pagination index when it describes this document, otherwise
-// counted through the sections.
-function blockIdAt(state: EditorState, block: number): string | null {
-  const index = currentIndex(state);
-  if (index !== null) return index.blocks[block]?.id ?? null;
-  let rest = block;
-  for (let s = 0; s < state.doc.childCount; s++) {
-    const section = state.doc.child(s);
-    if (rest < section.childCount) {
-      const id: unknown = section.child(rest).attrs.id;
-      return typeof id === "string" ? id : null;
-    }
-    rest -= section.childCount;
-  }
-  return null;
-}
 
 /** The selection, and the block at the top of the view with how far its top sits above the view's top at 100 %; null when either is not in a block. */
 export function savedPlaceOf(

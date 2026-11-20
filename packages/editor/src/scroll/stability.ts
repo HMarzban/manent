@@ -4,8 +4,9 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorState, PluginView, Transaction } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import {
+  blockIdAt,
+  blockNear,
   blockNumber,
-  currentIndex,
   placeOf,
   positionOf,
 } from "../cursors/place.ts";
@@ -13,7 +14,6 @@ import { updateIndex } from "../pagination/block-index.ts";
 import { paginationKey } from "../pagination/plugin.ts";
 import type { PaginationState } from "../pagination/plugin.ts";
 import { anchorShiftPx } from "./anchor.ts";
-import { savedPlaceOf } from "./saved-place.ts";
 import { holdLine, isInView } from "./typewriter.ts";
 
 /** The layout reads the scroll rules need, supplied by whoever mounts the editor. */
@@ -37,19 +37,22 @@ interface Changes {
 
 const changesKey = new PluginKey<Changes>("scroll");
 
-// What the reader reads: a block, and what its place is judged by after a change.
-type Anchor =
-  | {
-      readonly kind: "pages";
-      readonly block: number;
-      readonly pages: PaginationState;
-    }
-  | {
-      readonly kind: "flow";
-      readonly block: number;
-      readonly blockId: string;
-      readonly top: number;
-    };
+// What the reader reads: a block by id, looked for again near the index it last had.
+interface PagesAnchor {
+  readonly kind: "pages";
+  readonly blockId: string;
+  readonly block: number;
+}
+
+interface FlowAnchor {
+  readonly kind: "flow";
+  readonly blockId: string;
+  readonly block: number;
+  /** Its viewport top when it was last read, px. */
+  readonly top: number;
+}
+
+type Anchor = PagesAnchor | FlowAnchor;
 
 /** The caret's block when the caret is in view, else the block at the top. */
 function readAnchor(
@@ -63,52 +66,102 @@ function readAnchor(
     place !== null && isInView(scroller, ports.caretTop(view)) ? place : null;
   const block = caret?.at ?? ports.topBlock(view)?.block ?? null;
   if (block === null) return null;
-  const pages = paginationKey.getState(state);
-  if (pages !== undefined)
-    return currentIndex(state) === null
-      ? null
-      : { kind: "pages", block, pages };
-  const blockId =
-    caret?.head.blockId ?? savedPlaceOf(view, ports)?.top.blockId ?? null;
+  const blockId = caret?.head.blockId ?? blockIdAt(state, block);
+  if (blockId === null) return null;
+  if (paginationKey.getState(state) !== undefined)
+    return { kind: "pages", blockId, block };
   const top = ports.blockTop(view, block);
-  return blockId === null || top === null
-    ? null
-    : { kind: "flow", block, blockId, top };
+  return top === null ? null : { kind: "flow", blockId, block, top };
 }
 
-/** How far the anchor moved since it was read, px on screen; 0 when the change was at or below it, or took it away. */
-function shiftOf(view: EditorView, anchor: Anchor, ports: ScrollPorts): number {
-  const { state } = view;
-  if (anchor.kind === "flow") {
-    const pos = positionOf(
-      state,
-      { blockId: anchor.blockId, offset: 0 },
-      anchor.block,
-    );
-    const top =
-      pos === null
-        ? null
-        : ports.blockTop(view, blockNumber(state, state.doc.resolve(pos)));
-    return top === null ? 0 : top - anchor.top;
-  }
+type Pages = Pick<PaginationState, "settings" | "index" | "pagination">;
+
+/** The pages of the state's own document: while a composition is under way the plugin holds those of the one before it. */
+function pagesOf(state: EditorState): Pages | null {
   const pages = paginationKey.getState(state);
-  if (pages === undefined) return 0;
+  if (pages === undefined) return null;
+  if (pages.index.doc === state.doc) return pages;
+  const { settings } = pages;
+  const { index, change } = updateIndex(
+    pages.index,
+    state.doc,
+    settings.layout,
+  );
+  const pagination =
+    change === null
+      ? pages.pagination
+      : settings.engine.repaginate(pages.pagination, index.blocks, change);
+  return { settings, index, pagination };
+}
+
+// Where the anchor is after an update, and how far the update moved it on screen, px.
+interface Moved {
+  readonly anchor: Anchor;
+  readonly shift: number;
+}
+
+/** Judged on the change from `prev`'s document alone, so that what was typed or composed before it is not counted. */
+function movedOnPages(
+  prev: EditorState,
+  state: EditorState,
+  anchor: PagesAnchor,
+  zoom: number,
+): Moved | null {
+  const before = pagesOf(prev);
+  const after = pagesOf(state);
+  if (before === null || after === null) return null;
+  const from = blockNear(before.index, anchor.blockId, anchor.block);
+  if (from === null) return null;
   const { change } = updateIndex(
-    anchor.pages.index,
-    pages.index.doc,
-    pages.settings.layout,
+    before.index,
+    state.doc,
+    after.settings.layout,
   );
-  if (change === null) return 0;
-  // an anchor before the end of what the change replaced lands before the end of what it wrote, which moves nothing
-  return (
-    anchorShiftPx(
-      anchor.pages.pagination,
-      pages.pagination,
-      pages.settings.engine,
-      change,
-      anchor.block + change.newEnd - change.oldEnd,
-    ) * ports.zoom()
+  if (change === null) return { anchor: { ...anchor, block: from }, shift: 0 };
+  // a block after what the change replaced moves by the blocks it added; one inside it or before it keeps its index
+  const hint =
+    from >= change.oldEnd ? from + change.newEnd - change.oldEnd : from;
+  const to = blockNear(after.index, anchor.blockId, hint);
+  if (to === null) return null;
+  const shift = anchorShiftPx(
+    before.pagination,
+    after.pagination,
+    after.settings.engine,
+    change,
+    to,
   );
+  return { anchor: { ...anchor, block: to }, shift: shift * zoom };
+}
+
+function movedInFlow(
+  view: EditorView,
+  anchor: FlowAnchor,
+  ports: ScrollPorts,
+): Moved | null {
+  const { state } = view;
+  const pos = positionOf(
+    state,
+    { blockId: anchor.blockId, offset: 0 },
+    anchor.block,
+  );
+  if (pos === null) return null;
+  const block = blockNumber(state, state.doc.resolve(pos));
+  const top = ports.blockTop(view, block);
+  return top === null
+    ? null
+    : { anchor: { ...anchor, block, top }, shift: top - anchor.top };
+}
+
+/** Null when the update took the anchor's block away, which gives no correction. */
+function movedBy(
+  view: EditorView,
+  prev: EditorState,
+  anchor: Anchor,
+  ports: ScrollPorts,
+): Moved | null {
+  return anchor.kind === "pages"
+    ? movedOnPages(prev, view.state, anchor, ports.zoom())
+    : movedInFlow(view, anchor, ports);
 }
 
 type ScrollOptions = ScrollPorts & {
@@ -123,8 +176,8 @@ function scrollView(view: EditorView, options: ScrollOptions): PluginView {
   scroller.style.setProperty("overflow-anchor", "none");
   const line = holdLine(scroller, (at) => options.caretTop(at));
   let anchor: Anchor | null = null;
-  // a remote change came while an input method was composing: it is corrected once the composition ends
-  let pending = false;
+  // what remote changes have moved the anchor by, px, until it is corrected; null when no remote change waits
+  let owed: number | null = null;
   // the scroll as this plugin left it, so that a scroll by the person can be told from its own
   let settled = scroller.scrollTop;
   const record = () => {
@@ -141,20 +194,21 @@ function scrollView(view: EditorView, options: ScrollOptions): PluginView {
     update(_, prev: EditorState) {
       const was = changesKey.getState(prev)!;
       const now = changesKey.getState(view.state)!;
-      const remote = now.remote !== was.remote;
-      if (view.composing) {
-        pending ||= remote;
-        return;
+      if (now.remote !== was.remote) {
+        const moved =
+          anchor === null ? null : movedBy(view, prev, anchor, options);
+        anchor = moved?.anchor ?? null;
+        owed = (owed ?? 0) + (moved?.shift ?? 0);
       }
-      if (remote || pending) {
-        pending = false;
-        const shift = anchor === null ? 0 : shiftOf(view, anchor, options);
-        if (shift !== 0) scroller.scrollTop += shift;
+      // while an input method composes, nothing is corrected until the update after it ends
+      if (view.composing) return;
+      if (owed !== null) {
+        if (owed !== 0) scroller.scrollTop += owed;
+        owed = null;
         record();
       } else if (now.local !== was.local) {
         if (options.typewriter()) line.typed(view);
         else line.release();
-        record();
       } else if (!prev.selection.eq(view.state.selection)) {
         line.release();
         record();
