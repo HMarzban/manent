@@ -1,6 +1,8 @@
-// The pages a Send form shows: the open editor's own pagination, and its first sheets drawn small.
+// The pages a Send form sends: the open editor's own pagination, its first sheets drawn small, and what both forms
+// say about them.
 import type { Pagination } from "@manent/pagination";
-import { EDITOR_WORDS } from "@manent/ui";
+import { EDITOR_WORDS, LIBRARY_WORDS, useSubscribable } from "@manent/ui";
+import { useNavigate } from "@tanstack/react-router";
 import { useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import {
@@ -8,6 +10,9 @@ import {
   livePagination,
   subscribeLiveEditors,
 } from "../editor-host/live-editor.ts";
+import type { SendRow } from "../screens/send/send-frame.tsx";
+import { useServices } from "../services/context.tsx";
+import { outsideFontRow } from "./output-checks.tsx";
 import { drawSheet, engineOf } from "./print-pages.ts";
 
 const TILE_PAGES = 8;
@@ -19,7 +24,7 @@ const SHEET_SCALE: CSSProperties = Object.freeze({
 });
 
 /** The pagination of `docId`'s open editor, taken when that editor is registered; null while none is open. */
-export function useLivePagination(docId: string): Pagination | null {
+function useLivePagination(docId: string): Pagination | null {
   const editor = useSyncExternalStore(subscribeLiveEditors, () =>
     liveEditor(docId),
   );
@@ -52,7 +57,7 @@ function Tile(props: { p: Pagination; index: number }): ReactNode {
 }
 
 /** The first eight pages with their labels, then how many more there are. */
-export function PageTiles(props: { p: Pagination }): ReactNode {
+function PageTiles(props: { p: Pagination }): ReactNode {
   const { p } = props;
   const shown = p.pages.slice(0, TILE_PAGES);
   const more = p.pages.length - shown.length;
@@ -70,4 +75,37 @@ export function PageTiles(props: { p: Pagination }): ReactNode {
       ) : null}
     </>
   );
+}
+
+/** What a Send form sends and says: `p` and `tiles` are null while the document's editor is still opening. */
+interface SendPages {
+  p: Pagination | null;
+  title: string;
+  /** The Checks row, once the pages are known, then the What row. */
+  rows: SendRow[];
+  tiles: ReactNode;
+  /** Back to the document, in place of the form. */
+  back: () => void;
+}
+
+/** The pages of `docId` both Send forms start from. */
+export function useSendPages(docId: string): SendPages {
+  const p = useLivePagination(docId);
+  const { library } = useServices();
+  const navigate = useNavigate();
+  const title =
+    useSubscribable(library.documentTitle(docId)) ??
+    LIBRARY_WORDS.untitledScript;
+  const checks = useMemo(() => (p === null ? null : outsideFontRow(p)), [p]);
+  return {
+    p,
+    title,
+    rows: [
+      ...(checks === null ? [] : [checks]),
+      { id: "what", content: EDITOR_WORDS.send.wholeScript },
+    ],
+    tiles: p === null ? null : <PageTiles p={p} />,
+    back: () =>
+      void navigate({ to: "/s/$docId", params: { docId }, replace: true }),
+  };
 }

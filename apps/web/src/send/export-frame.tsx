@@ -1,16 +1,14 @@
 // The Export form's frame, loaded apart from the entry: a clean PDF of the whole script, written from the pages
 // on screen.
 import type { Pagination } from "@manent/pagination";
-import { EDITOR_WORDS, LIBRARY_WORDS, useSubscribable } from "@manent/ui";
-import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { EDITOR_WORDS } from "@manent/ui";
+import type { Message } from "@manent/ui";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { SendFormProps } from "../screens/send/forms.ts";
 import { SendFrame } from "../screens/send/send-frame.tsx";
-import type { SendRow } from "../screens/send/send-frame.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
-import { outsideFontRow } from "./output-checks.tsx";
-import { PageTiles, useLivePagination } from "./page-tiles.tsx";
+import { useSendPages } from "./page-tiles.tsx";
 import { loadPdfFonts } from "./pdf-fonts.ts";
 
 const WORDS = EDITOR_WORDS.send;
@@ -46,19 +44,45 @@ function save(bytes: Uint8Array<ArrayBuffer>, name: string): void {
 }
 
 /**
+ * Writes the clean PDF of `pages` and hands it to the browser as a download; nothing is saved once `signal` has
+ * aborted. Rejects when the fonts or the writer fail.
+ */
+async function exportPdf(work: {
+  pages: Pagination;
+  title: string;
+  now: () => number;
+  signal: AbortSignal;
+}): Promise<void> {
+  const { pages, title, now, signal } = work;
+  const [fonts, { writePdf }] = await Promise.all([
+    loadPdfFonts(fetchBytes),
+    import("@manent/formats"),
+  ]);
+  // a copy over an ArrayBuffer of its own, which a Blob takes
+  const bytes = new Uint8Array(
+    await writePdf(pages, { fonts, title, createdAt: now() }),
+  );
+  if (!signal.aborted) save(bytes, fileName(title));
+}
+
+function exportedMessage(title: string): Message {
+  return {
+    id: "exported",
+    text: WORDS.exported(title),
+    actions: [],
+    lifetime: "brief",
+    ownWork: false,
+  };
+}
+
+/**
  * The Export form: its rows from the first frame; the checks, the pages and the export itself once the document's
  * editor is open.
  */
 export function LiveExport(props: SendFormProps): ReactNode {
-  const { docId } = props;
-  const p = useLivePagination(docId);
-  const { library, messages } = useServices();
+  const { p, title, rows, tiles, back } = useSendPages(props.docId);
+  const { messages } = useServices();
   const { frame, now } = useEnvironment();
-  const navigate = useNavigate();
-  const title =
-    useSubscribable(library.documentTitle(docId)) ??
-    LIBRARY_WORDS.untitledScript;
-  const checks = useMemo(() => (p === null ? null : outsideFontRow(p)), [p]);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   // the form's lifetime: work still under way when it leaves stops where it is
@@ -69,55 +93,35 @@ export function LiveExport(props: SendFormProps): ReactNode {
     return () => controller.abort();
   }, []);
 
-  const write = async (pages: Pagination): Promise<void> => {
-    const { signal } = left.current;
-    let bytes: Uint8Array<ArrayBuffer>;
-    try {
-      const [fonts, { writePdf }] = await Promise.all([
-        loadPdfFonts(fetchBytes),
-        import("@manent/formats"),
-      ]);
-      // a copy over an ArrayBuffer of its own, which a Blob takes
-      bytes = new Uint8Array(
-        await writePdf(pages, { fonts, title, createdAt: now() }),
-      );
-    } catch {
-      // the person is told the file was not written and may try again; nothing was saved
-      if (signal.aborted) return;
-      setProblem(WORDS.exportFailed(title));
-      setBusy(false);
-      return;
-    }
-    if (signal.aborted) return;
-    save(bytes, fileName(title));
-    messages.push({
-      id: "exported",
-      text: WORDS.exported(title),
-      actions: [],
-      lifetime: "brief",
-      ownWork: false,
-    });
-    void navigate({ to: "/s/$docId", params: { docId }, replace: true });
-  };
   const run = (pages: Pagination): void => {
+    const { signal } = left.current;
     setBusy(true);
     setProblem(null);
     // one frame first, so that the busy label paints before the page is written
-    const cancel = frame(() => void write(pages));
-    left.current.signal.addEventListener("abort", cancel, { once: true });
+    const cancel = frame(() => {
+      exportPdf({ pages, title, now, signal }).then(
+        () => {
+          if (signal.aborted) return;
+          messages.push(exportedMessage(title));
+          back();
+        },
+        () => {
+          // the person is told the file was not written and may try again; nothing was saved
+          if (signal.aborted) return;
+          setProblem(WORDS.exportFailed(title));
+          setBusy(false);
+        },
+      );
+    });
+    signal.addEventListener("abort", cancel, { once: true });
   };
 
-  const rows: SendRow[] = [
-    ...(checks === null ? [] : [checks]),
-    { id: "what", content: WORDS.wholeScript },
-    { id: "as", content: WORDS.cleanPdf },
-  ];
   return (
     <SendFrame
       title={WORDS.exportTitle(1)}
       aside={null}
-      rows={rows}
-      pages={p === null ? null : <PageTiles p={p} />}
+      rows={[...rows, { id: "as", content: WORDS.cleanPdf }]}
+      pages={tiles}
       action={{
         label: WORDS.exportTitle(1),
         busyLabel: WORDS.exporting(1),
