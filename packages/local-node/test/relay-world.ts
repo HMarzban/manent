@@ -1270,8 +1270,10 @@ export class CoreWorld {
   upstreamStores = createMemoryStoreSpace();
   readonly cloud = new Cloud(this.cloudStorage, this.clock);
   readonly deferred = new Deferred();
-  readonly core: NodeCore;
+  core: NodeCore;
   readonly tokens = new Map<string, string>();
+  /** Every adopt request the cloud was sent, in order. */
+  readonly adoptions: { docId: string; workspaceId: string | null }[] = [];
   private readonly empty = this.nodeStorage.snapshot();
   private readonly wires = new Set<Wire>();
   private readonly windows = new Map<string, Person>();
@@ -1294,13 +1296,21 @@ export class CoreWorld {
       replay: (userId, request) =>
         this.cloud.service.replay(userId, JSON.parse(JSON.stringify(request))),
     });
+    this.core = this.startCore();
+  }
+
+  private startCore(): NodeCore {
     const cloud: CloudApi = {
       signIn: (userId) => this.cloud.api.signIn(userId),
       demo: () => this.cloud.api.demo(),
       describe: (token, request) => this.cloud.api.describe(token, request),
-      adopt: (token, request) => this.cloud.api.adopt(token, request),
+      adopt: (token, request) => {
+        const { docId, workspaceId } = request;
+        this.adoptions.push({ docId, workspaceId });
+        return this.cloud.api.adopt(token, request);
+      },
     };
-    this.core = createNodeCore({
+    return createNodeCore({
       storage: this.nodeStorage,
       records: this.records,
       cloud,
@@ -1328,6 +1338,14 @@ export class CoreWorld {
         this.upstreamStores = createMemoryStoreSpace();
       },
     });
+  }
+
+  /** The node's process restarts over the same storage and records; its windows' sockets drop. */
+  async restartNode(): Promise<void> {
+    await this.drive(this.core.close());
+    this.core = this.startCore();
+    for (const wire of this.wires) wire.connection.close(1012, "restart");
+    await this.settle();
   }
 
   /** A request to the core as the window sends it: the launch header, and the person's node token when given. */
@@ -1368,16 +1386,17 @@ export class CoreWorld {
     return token;
   }
 
-  /** The window's handle on the document, opened as the window would; `create` makes it on the node. */
+  /** The window's handle on the document, opened as the window would; `create` makes it on the node, in `workspaceId` when given. */
   async open(
     userId: string,
     docId: string,
     create = false,
+    workspaceId: string | null = null,
   ): Promise<DocHandle> {
     const person = this.windowOf(userId);
     const known = person.handles.get(docId);
     if (known !== undefined) return known;
-    const made = { kind: "script", home: HOME, workspaceId: null };
+    const made = { kind: "script", home: HOME, workspaceId };
     const opening = create
       ? person.client.open(docId, { create: made })
       : person.client.open(docId);

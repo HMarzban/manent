@@ -92,8 +92,6 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
   const tokenOf = (userId: string): string | null =>
     records.person(userId)?.cloudToken ?? null;
   const focus = new Set<() => void>();
-  /** By document: the workspace its window named when it made it, until it is handed over. */
-  const workspaces = new Map<string, string>();
   let device: UpstreamStatus["device"] = "ok";
   let watched: { editors(): Editor[] } | null = null;
 
@@ -210,11 +208,10 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
         state,
         kind: place.kind,
         home,
-        workspaceId: workspaces.get(docId) ?? null,
+        workspaceId: records.workspaceOf(docId),
       };
     },
   });
-  handover.onDone((docId) => workspaces.delete(docId));
 
   const guarded = guardSubscribe({
     inner: server.connections,
@@ -335,7 +332,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
       const named = await workspaceNamed(request);
       const answer = await server.fetch(request, context);
       if (named !== null && answer?.status === 200)
-        workspaces.set(named.docId, named.workspaceId);
+        records.setWorkspace(named.docId, named.workspaceId);
       return answer;
     },
   };

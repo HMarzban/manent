@@ -113,6 +113,27 @@ for (const [name, make] of drivers) {
     r.close();
   });
 
+  test(`${name}: a script's workspace is kept until its hand-off starts, which then holds it`, async () => {
+    const r = await make();
+    r.setWorkspace(DOC, "lamp-room");
+    r.setWorkspace(DOC2, "night-shift");
+    expect([r.workspaceOf(DOC), r.workspaceOf(DOC2)]).toEqual([
+      "lamp-room",
+      "night-shift",
+    ]);
+    r.startHandoff({ ...H1, workspaceId: "lamp-room" });
+    expect([
+      r.workspaceOf(DOC),
+      r.workspaceOf(DOC2),
+      r.handoff(DOC)?.workspaceId,
+    ]).toEqual([null, "night-shift", "lamp-room"]);
+    // a retry keeps the hand-off it finds, and takes nothing more
+    r.setWorkspace(DOC, "lamp-room");
+    r.startHandoff({ ...H1, key: "other" });
+    expect(r.workspaceOf(DOC)).toBe("lamp-room");
+    r.close();
+  });
+
   test(`${name}: the secret is made once and kept`, async () => {
     const r = await make();
     const secret = r.secret();
@@ -203,6 +224,7 @@ test("the records file is pinned", async () => {
       "CREATE TABLE handoffs (doc_id TEXT PRIMARY KEY, key TEXT NOT NULL, kind TEXT NOT NULL, home TEXT NOT NULL, workspace_id TEXT, snapshot BLOB NOT NULL, started_at INTEGER NOT NULL, refused TEXT) STRICT",
       "CREATE TABLE cloud (id INTEGER PRIMARY KEY CHECK (id = 1), seed_id TEXT) STRICT",
       "CREATE TABLE recovered (doc_id TEXT NOT NULL, n INTEGER NOT NULL, user_id TEXT NOT NULL, cause TEXT NOT NULL, block_id TEXT, near_block_id TEXT, text TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (doc_id, n)) STRICT",
+      "CREATE TABLE workspaces (doc_id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL) STRICT",
     ],
   ]);
 });

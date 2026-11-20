@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
+import { indexDocId, workspaceHome } from "@manent/sync-protocol";
 import { DOC, nodeWorld } from "./relay-world.ts";
+
+const WORKSPACE = "lamp-room";
 
 test("the window signs in at the node, opens a script and is answered by the node alone", async () => {
   const w = nodeWorld();
@@ -76,4 +79,26 @@ test("a hand-off that fails partway leaves the node answering its window", async
     ["first scene goes on"],
   ]);
   expect(handle.status.get()).toMatchObject({ saved: true, waiting: 0 });
+});
+
+test("a script made in a workspace before Sign in to sync is handed over into it after the node restarts", async () => {
+  const w = nodeWorld();
+  const token = await w.chooses("you");
+  const index = indexDocId("workspace", WORKSPACE);
+  const home = workspaceHome(WORKSPACE);
+  const body = { docId: index, kind: "index", home };
+  await w.request("POST", "/api/docs", { token, body });
+  // the window makes a workspace's script once it holds the workspace's index
+  await w.open("you", index);
+  await w.open("you", DOC, true, WORKSPACE);
+  w.windowTypes("you", DOC, "first scene");
+  await w.settle();
+  await w.restartNode();
+  await w.request("POST", "/api/local/sign-in-to-sync", { token });
+  await w.settle();
+  expect(w.adoptions).toEqual([
+    { docId: index, workspaceId: null },
+    { docId: DOC, workspaceId: WORKSPACE },
+  ]);
+  expect(w.cloudText(DOC)).toEqual(["first scene"]);
 });
