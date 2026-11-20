@@ -16,6 +16,9 @@ const serverLine = (page: Page) =>
 const storedPerson = (person: object) =>
   `sessionStorage.setItem("manent.demo.session", ${JSON.stringify(JSON.stringify(person))})`;
 
+// in WebKit, page.route misses the requests of a page a service worker controls
+test.use({ serviceWorkers: "block" });
+
 test("a tester chooses a person and reaches the Library", async ({
   page,
   browserName,
