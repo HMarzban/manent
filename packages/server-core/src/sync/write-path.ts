@@ -9,20 +9,20 @@ import {
   isPermanentPushError,
 } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
-import { answerReplay, commitReplay } from "../rebuild/replay-write.ts";
 import type { ReplayItem } from "../rebuild/replay-write.ts";
+import {
+  answer,
+  commitFile,
+  committedOf,
+  settle,
+  upstreamOf,
+} from "./commit.ts";
 import type { Refusal } from "./errors.ts";
-import type {
-  Peer,
-  SettingRules,
-  SyncLimits,
-  Upstream,
-  UpstreamItem,
-  WriteMode,
-} from "./ports.ts";
+import type { HeldQueue } from "./held.ts";
+import type { IngestItem } from "./ingest.ts";
+import type { Peer, SettingRules, SyncLimits, Upstream } from "./ports.ts";
 import type { Room, Rooms, Subscription } from "./rooms.ts";
 import { applySetting } from "./settings.ts";
-import { isStorageError } from "./storage-error.ts";
 import { validateRoomPush } from "./validate.ts";
 
 export interface Committed {
@@ -37,7 +37,6 @@ export interface Committed {
 }
 
 export interface WritePathPorts {
-  mode: WriteMode;
   limits: SyncLimits;
   now: () => number;
   /** Runs `fn` when this turn's messages have been handled: the group commit. */
@@ -61,8 +60,11 @@ export interface WritePathPorts {
   ): boolean;
   /** Inside the transaction, before each push's append. */
   beforeAppend(room: Room, userId: string, heal: boolean): void;
-  /** Relay mode only. */
+  /** Relayed rooms only. */
   upstream: Upstream | null;
+  /** On a full disk, "poison" ends the file's rooms; "hold" gives what the commit could not write to `held`. */
+  fullDisk: "poison" | "hold";
+  held: HeldQueue;
   registry: SettingRules;
   schemaFloor: ((touched: readonly unknown[]) => number) | null;
 }
@@ -90,6 +92,12 @@ export interface WritePath {
   ): void;
   /** Queued like a push; a failed commit poisons the room, then calls done({ ok: false }). */
   replay(room: Room, item: ReplayItem["write"], done: ReplayItem["done"]): void;
+  /** Queued like a push, acknowledged to nobody, published to every editor, handed upstream never. */
+  ingest(item: IngestItem): void;
+  /** Drops what the room has queued: no ACK and nothing upstream; a replay is answered { ok: false }. */
+  discard(room: Room): void;
+  /** One file's held items in one transaction, then acknowledged in arrival order; false when it did not commit. */
+  commitHeld(items: readonly QueuedItem[]): boolean;
   /** Commits what is queued, now. */
   flush(): void;
   queued(): number;
@@ -116,7 +124,8 @@ type PeerItem = {
   | { kind: "ack" }
   | { kind: "relay_set"; request: { key: string; value: Uint8Array } }
 );
-type Item = PeerItem | ReplayItem;
+/** An entry of the write path's queue: what a commit writes, then answers. */
+export type QueuedItem = PeerItem | ReplayItem | IngestItem;
 
 function refusal(
   code: number,
@@ -158,10 +167,12 @@ function appendOf(
 }
 
 export function createWritePath(ports: WritePathPorts): WritePath {
-  const { mode, limits, rooms } = ports;
-  let queue: Item[] = [];
+  const { limits, rooms } = ports;
+  let queue: QueuedItem[] = [];
+  /** Files with held items: what comes after waits behind them. */
+  const heldFiles = new Set<DocFile>();
 
-  const enqueue = (item: Item): void => {
+  const enqueue = (item: QueuedItem): void => {
     queue.push(item);
     if (queue.length === 1) ports.defer(flush);
   };
@@ -217,7 +228,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
     // only a heal can be admitted, and asking reads the document's whole ledger
     const admitted =
       heal &&
-      mode === "authority" &&
+      room.mode === "authority" &&
       ports.admitsForeign(room, peer.userId, heal, foreign);
     if (admitted) return "heal";
     return foreign.length === 0 ? "edit" : null;
@@ -226,7 +237,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
   /** The highest clientSeq of this person and device already queued as a setting; 0 when none. */
   function queuedSetting(peer: Peer, room: Room): number {
     const theirs = queue.filter((item): item is PeerItem => {
-      if (item.kind === "replay") return false;
+      if (item.kind === "replay" || item.kind === "ingest") return false;
       const from = item.subscription.peer;
       const same =
         from.userId === peer.userId && from.deviceId === peer.deviceId;
@@ -235,69 +246,23 @@ export function createWritePath(ports: WritePathPorts): WritePath {
     return Math.max(0, ...theirs.map((item) => item.clientSeq));
   }
 
-  /** One transaction for the file's items, in arrival order; false when it did not commit. */
-  function commitFile(file: DocFile, items: readonly Item[]): boolean {
-    const heads = new Map<Room, number>();
-    try {
-      file.transaction(() => {
-        for (const item of items) {
-          const { room } = item;
-          if (item.kind !== "append") {
-            item.seq = heads.get(room) ?? room.row.headSeq;
-            if (item.kind === "replay") commitReplay(file, item, heads);
-            continue;
-          }
-          const { append } = item;
-          if (!item.setting) ports.beforeAppend(room, append.userId, item.heal);
-          item.seq = file.log.append(append);
-          if (item.schemaTo !== null)
-            file.log.raiseSchema(room.docId, item.schemaTo);
-          heads.set(room, item.seq);
-        }
-      });
-    } catch (error) {
-      if (!isStorageError(error)) throw error;
-      return false;
-    }
-    return true;
-  }
-
-  /** Steps 9 and 10 for one committed item; a setting is published before it is acknowledged. */
-  function answer(item: Item): void {
-    if (item.kind === "replay") return answerReplay(item, rooms, ports);
-    const { room, subscription, clientSeq, setting, seq } = item;
-    const { peer } = subscription;
-    if (item.kind !== "append") return ports.ack(peer, room, clientSeq, seq);
-    const { append, report } = item;
-    const { update } = append;
-    const echo = setting;
-    const committed = { room, sender: peer, seq, update, report, echo };
-    if (setting) ports.publish(committed);
-    ports.ack(peer, room, clientSeq, seq);
-    rooms.changed(room, update.byteLength);
-    if (item.schemaTo !== null) ports.schemaRaised(room, item.schemaTo);
-    if (!setting) ports.publish(committed);
-  }
-
-  function upstreamOf(item: Item): UpstreamItem | null {
-    if (item.kind === "ack" || item.kind === "replay") return null;
-    const { room, subscription, clientSeq, seq } = item;
-    const ref = { docId: room.docId, generation: room.row.generation };
-    const userId = subscription.peer.userId;
-    if (item.kind === "relay_set")
-      return { kind: "set", ...ref, userId, clientSeq, ...item.request };
-    return { kind: "update", ...ref, seq, update: item.append.update };
-  }
-
   function flush(): void {
     const items = queue;
     queue = [];
-    const byFile = new Map<DocFile, Item[]>();
+    const byFile = new Map<DocFile, QueuedItem[]>();
     for (const item of items)
       byFile.set(item.room.file, [...(byFile.get(item.room.file) ?? []), item]);
     const failed = new Set<DocFile>();
     for (const [file, fileItems] of byFile) {
-      if (commitFile(file, fileItems)) continue;
+      const outcome = heldFiles.has(file)
+        ? "disk_full"
+        : commitFile(file, fileItems, ports);
+      if (outcome === "committed") continue;
+      if (outcome === "disk_full" && ports.fullDisk === "hold") {
+        heldFiles.add(file);
+        ports.held.hold(fileItems);
+        continue;
+      }
       failed.add(file);
       const poisoned = [...new Set(fileItems.map((item) => item.room))];
       ports.poisoned(poisoned);
@@ -306,12 +271,19 @@ export function createWritePath(ports: WritePathPorts): WritePath {
         if (item.kind === "replay") item.done({ ok: false });
     }
     const done = items.filter((item) => !failed.has(item.room.file));
-    const { upstream } = ports;
-    for (const item of upstream === null ? [] : done) {
+    for (const item of done) {
       const forwarded = upstreamOf(item);
-      if (forwarded !== null) upstream?.enqueue(forwarded);
+      if (forwarded !== null) ports.upstream?.enqueue(forwarded);
     }
-    for (const item of done) answer(item);
+    for (const item of done) {
+      if (!heldFiles.has(item.room.file)) {
+        answer(item, ports);
+        continue;
+      }
+      // a held item is shown now and acknowledged once it commits; a replay answers whole then
+      const committed = committedOf(item);
+      if (committed !== null) ports.publish(committed);
+    }
   }
 
   return {
@@ -347,7 +319,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       if (validateRoomPush(report, room).length > 0)
         return reloadAnd(CODE.VALIDATION_FAILED, "invalid");
       const floor =
-        mode === "authority" && ports.schemaFloor !== null
+        room.mode === "authority" && ports.schemaFloor !== null
           ? ports.schemaFloor(report.touched())
           : 0;
       const append = appendOf(room, peer.userId, update, origin, metas);
@@ -361,7 +333,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       const base = { setting: true, room, subscription, clientSeq, seq: 0 };
       const admitted = admit(room, subscription, message, value.byteLength);
       if (admitted !== null) return ports.refuse(peer, room, admitted);
-      if (mode === "relay")
+      if (room.mode === "relay")
         return enqueue({ kind: "relay_set", ...base, request: { key, value } });
       const { registry } = ports;
       const queued = queuedSetting(peer, room);
@@ -394,6 +366,22 @@ export function createWritePath(ports: WritePathPorts): WritePath {
     },
     replay: (room, write, done) =>
       enqueue({ kind: "replay", room, write, done, seq: 0 }),
+    ingest: enqueue,
+    discard(room) {
+      const dropped = queue.filter((item) => item.room === room);
+      queue = queue.filter((item) => item.room !== room);
+      for (const item of dropped)
+        if (item.kind === "replay") item.done({ ok: false });
+    },
+    commitHeld(items) {
+      const file = items[0]?.room.file;
+      if (file === undefined) return true;
+      if (commitFile(file, items, ports) !== "committed") return false;
+      heldFiles.delete(file);
+      // published when they were held
+      for (const item of items) settle(item, ports);
+      return true;
+    },
     flush,
     queued: () => queue.length,
   };

@@ -38,38 +38,36 @@ export function admitsForeign(
   });
 }
 
-/** The service's part in healing; in relay mode it does nothing and the head is the plain head. */
+/** The service's part in healing; for a relayed room it does nothing and the head is the plain head. */
 export interface Healing {
   /** SUBSCRIBED.headSeq for the room. */
   headOf(room: Room): number;
   /** A SUBSCRIBE that passed: one that reports a head beyond the server's flags the document `behind`. */
   subscribed(room: Room, lastServerSeq: number): void;
   ports: Pick<WritePathPorts, "admitsForeign" | "beforeAppend">;
-  /** Flags every placed document with reason `restore`, at its head. */
+  /** Flags every placed document this server is the authority for with reason `restore`, at its head. */
   restored(): void;
 }
 
+/** `modeOf` is asked of a document no room holds. */
 export function createHealing(options: {
-  mode: WriteMode;
+  modeOf(docId: string): WriteMode;
   storage: Storage;
   now: () => number;
   ids(): string;
 }): Healing {
   const { storage, now, ids } = options;
-  if (options.mode === "relay")
-    return {
-      headOf: (room) => room.row.headSeq,
-      subscribed: () => {},
-      ports: { admitsForeign: () => false, beforeAppend: () => {} },
-      restored: () => {},
-    };
   return {
-    headOf: (room) => verifiedHead(room.row, room.file.log.healing(room.docId)),
-    subscribed({ file, docId, row }, lastServerSeq) {
-      if (lastServerSeq > row.headSeq)
+    headOf: (room) =>
+      room.mode === "relay"
+        ? room.row.headSeq
+        : verifiedHead(room.row, room.file.log.healing(room.docId)),
+    subscribed({ file, docId, row, mode }, lastServerSeq) {
+      if (mode === "authority" && lastServerSeq > row.headSeq)
         file.log.flagHealing(docId, "behind", row.headSeq);
     },
     ports: {
+      // the write path asks only of a room in authority
       admitsForeign: ({ file, docId }, userId, heal, ranges) =>
         admitsForeign(
           file.log.healing(docId),
@@ -79,10 +77,11 @@ export function createHealing(options: {
           ranges,
         ),
       // the first accepted heal on a flagged document keeps what the log held before it
-      beforeAppend({ file, docId }, userId, heal) {
+      beforeAppend({ file, docId, mode }, userId, heal) {
         const healing = file.log.healing(docId);
         const row = file.log.get(docId);
         if (
+          mode === "relay" ||
           !heal ||
           healing === null ||
           healing.preHealVersionId !== null ||
@@ -108,7 +107,8 @@ export function createHealing(options: {
       for (const home of storage.directory.homes()) {
         const { log } = storage.open(home);
         for (const docId of storage.directory.documentsIn(home)) {
-          const row = log.get(docId);
+          const row =
+            options.modeOf(docId) === "authority" ? log.get(docId) : null;
           if (row !== null) log.flagHealing(docId, "restore", row.headSeq);
         }
       }

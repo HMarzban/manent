@@ -6,7 +6,7 @@ import type { Message } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
 import { SYNCABLE_KINDS } from "../sync/access.ts";
 import type { AwarenessHub } from "../sync/awareness.ts";
-import type { Clock, Peer, SyncLimits, WriteMode } from "../sync/ports.ts";
+import type { Clock, Peer, SyncLimits } from "../sync/ports.ts";
 import type { Room, Rooms, Subscription } from "../sync/rooms.ts";
 import { isStorageError } from "../sync/storage-error.ts";
 import { rebuildReason } from "./budget.ts";
@@ -96,9 +96,26 @@ export function freeClientId(
   return clientId;
 }
 
-/** `airWindow` defaults to never. */
+/** After a freeze: the room is built again from its new generation, and each subscriber is told it moved. */
+export function moveRoom(
+  room: Room,
+  ports: {
+    rooms: Pick<Rooms, "reload">;
+    endAll(room: Room, message: Message): void;
+  },
+): void {
+  const { docId, row } = room;
+  ports.rooms.reload(room);
+  ports.endAll(room, {
+    type: "GENERATION_MOVED",
+    docId,
+    generation: row.generation,
+    newGeneration: room.row.generation,
+  });
+}
+
+/** `airWindow` defaults to never; a relayed room is never rebuilt. */
 export function createRebuilder(ports: {
-  mode: WriteMode;
   clock: Clock;
   limits: SyncLimits;
   airWindow?: (docId: string, now: number) => boolean;
@@ -108,7 +125,7 @@ export function createRebuilder(ports: {
   /** Tells and unsubscribes everyone in these rooms. */
   poisoned(rooms: readonly Room[]): void;
 }): Rebuilder {
-  const { mode, clock, limits, rooms } = ports;
+  const { clock, limits, rooms } = ports;
   const airWindow = ports.airWindow ?? (() => false);
   const timers = new Map<Room, () => void>();
   const requests = new Set<string>();
@@ -151,9 +168,8 @@ export function createRebuilder(ports: {
     const { file, docId, row } = room;
     const { doc, built, reason, clientId } = rebuild;
     const at = clock.now();
-    let generation: number;
     try {
-      generation = file.transaction(() =>
+      file.transaction(() =>
         file.generations.freeze({
           docId,
           finalSeq: row.headSeq,
@@ -174,14 +190,7 @@ export function createRebuilder(ports: {
     } finally {
       built.destroy();
     }
-    rooms.reload(room);
-    const moved: Message = {
-      type: "GENERATION_MOVED",
-      docId,
-      generation: row.generation,
-      newGeneration: generation,
-    };
-    ports.endAll(room, moved);
+    moveRoom(room, ports);
     rebuilds += 1;
     requests.delete(docId);
   }
@@ -191,7 +200,7 @@ export function createRebuilder(ports: {
     timers.delete(room);
     const { doc, docId, file } = room;
     if (doc === null) return skip("not_loaded");
-    if (mode === "relay") return skip("relay");
+    if (room.mode === "relay") return skip("relay");
     if (!SYNCABLE_KINDS.includes(room.kind)) return skip("kind");
     if (ports.writePath.queued() > 0) return postpone(room, "busy_queue");
     if (file.log.healing(docId) !== null) return skip("healing");
