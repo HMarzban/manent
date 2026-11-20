@@ -4,8 +4,10 @@ import type { DocumentMessage } from "@manent/sync-protocol";
 import { createSubscribable } from "../outbox/subscribable.ts";
 import type { RecoveredItem } from "../ports/ports.ts";
 import type { DocEvent } from "../session/doc-handle.ts";
-import { decodeUpstreamStatus, isUpstreamEvent } from "./status.ts";
-import type { UpstreamEvent, UpstreamStatus } from "./status.ts";
+import { isUpstreamEvent } from "./events.ts";
+import type { UpstreamEvent } from "./events.ts";
+import { decodeUpstreamStatus } from "./status.ts";
+import type { UpstreamStatus } from "./status.ts";
 
 /** Where a client syncs its documents: with the server itself, or through the local node, which is then its store. */
 export type Via = "server" | "local_node";

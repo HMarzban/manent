@@ -17,11 +17,11 @@ import type {
   SideState,
   SyncClientPorts,
 } from "../ports/ports.ts";
-import { readEvent } from "../session/doc-handle.ts";
 import type { DocEvent, DocHandle } from "../session/doc-handle.ts";
 import { elementsOf } from "../session/edits.ts";
 import type { UnsavedEdit } from "../session/edits.ts";
 import type { TabBody } from "../tabs/messages.ts";
+import { readEvent } from "../upstream/events.ts";
 import type { UpstreamStatus } from "../upstream/status.ts";
 import type { ViewHandle } from "../view/view.ts";
 import { TabRecovered } from "./tab-recovered.ts";

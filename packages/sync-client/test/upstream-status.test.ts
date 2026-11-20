@@ -7,6 +7,7 @@ import {
   encodeUpstreamRefused,
   encodeUpstreamStatus,
 } from "../src/index.ts";
+import * as surface from "../src/index.ts";
 import type {
   RecoveredItem,
   UpstreamEvent,
@@ -284,4 +285,9 @@ test("a status round-trips, and anything else decodes to null", () => {
     decodeUpstreamStatus(notUtf8),
     decodeUpstreamStatus(json([STATUS])),
   ]).toEqual([STATUS, STATUS, null, null, null, null]);
+});
+
+test("the readers of a passed-on event are not among the package's names", () => {
+  const internal = ["isUpstreamEvent", "readEvent"];
+  expect(internal.filter((name) => name in surface)).toEqual([]);
 });

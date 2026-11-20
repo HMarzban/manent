@@ -1,5 +1,4 @@
-// The handle an app holds for one open document, the events it hears on it, and the reader of
-// an event another tab or the local node passed on.
+// The handle an app holds for one open document, and the events it hears on it.
 import type { CrdtDoc } from "@manent/crdt";
 import type { DocStatus, RecoveredItem, Subscribable } from "../ports/ports.ts";
 import type { UpstreamStatus } from "../upstream/status.ts";
@@ -56,51 +55,4 @@ export interface DocHandle {
    */
   adoptClientIds(ids: readonly number[]): void;
   close(): Promise<void>;
-}
-
-type Fields = Record<string, unknown>;
-
-function isFields(value: unknown): value is Fields {
-  return typeof value === "object" && value !== null;
-}
-
-/**
- * An event another tab or the local node passed on; null for anything else.
- * `replaced` and `recovered` read as null: a leading tab sends each as a
- * message of its own, and the node passes on neither.
- */
-export function readEvent(value: unknown): DocEvent | null {
-  if (!isFields(value)) return null;
-  const { code, replayed, setAside, sent, key, message } = value;
-  const { applied, overlaps, versionId } = value;
-  switch (value.type) {
-    case "rejected":
-      return typeof code === "number" &&
-        typeof replayed === "number" &&
-        typeof setAside === "number"
-        ? { type: "rejected", code, replayed, setAside }
-        : null;
-    case "setting_refused":
-      return typeof key === "string" && typeof message === "string"
-        ? { type: "setting_refused", key, message }
-        : null;
-    case "receipt":
-      return typeof sent === "number" &&
-        typeof setAside === "number" &&
-        typeof overlaps === "number"
-        ? { type: "receipt", sent, setAside, overlaps }
-        : null;
-    case "rebuilt":
-      return typeof applied === "number" &&
-        typeof overlaps === "number" &&
-        typeof setAside === "number"
-        ? { type: "rebuilt", applied, overlaps, setAside }
-        : null;
-    case "past_window":
-      return typeof versionId === "string"
-        ? { type: "past_window", versionId }
-        : null;
-    default:
-      return null;
-  }
 }

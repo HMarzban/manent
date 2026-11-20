@@ -2,8 +2,10 @@
 // of a CONTROL frame, and the refusal of one entry it passes on.
 import type { BlockJSON, MarkJSON, TextJSON } from "@manent/schema";
 import type { LinkState, RecoveredItem, SideState } from "../ports/ports.ts";
-import { readEvent } from "../session/doc-handle.ts";
-import type { DocEvent } from "../session/doc-handle.ts";
+import { isFields, isUpstreamEvent, readEvent } from "./events.ts";
+import type { UpstreamEvent } from "./events.ts";
+
+export type { UpstreamEvent } from "./events.ts";
 
 export const UPSTREAM_STATUS_VERSION = 1;
 
@@ -16,11 +18,6 @@ export const HANDOFF_REFUSALS = [
   "too_large",
 ] as const;
 export type HandoffRefusal = (typeof HANDOFF_REFUSALS)[number];
-
-export type UpstreamEvent = Extract<
-  DocEvent,
-  { type: "receipt" | "rebuilt" | "past_window" | "rejected" }
->;
 
 /**
  * The upstream handle's facts for one document. `lastSyncedAt` is its
@@ -44,7 +41,6 @@ export interface UpstreamStatus {
   events: { n: number; event: UpstreamEvent }[];
 }
 
-type Fields = Record<string, unknown>;
 type Is<T> = (value: unknown) => value is T;
 
 const UTF8 = new TextEncoder();
@@ -80,25 +76,8 @@ const isDevice = keyOf<UpstreamStatus["device"]>(
 const isCause = keyOf<RecoveredItem["cause"]>(
   Object.freeze({ merge: true, rejected: true, overlap: true }),
 );
-const UPSTREAM_EVENT_TYPES: Readonly<Record<UpstreamEvent["type"], true>> =
-  Object.freeze({
-    receipt: true,
-    rebuilt: true,
-    past_window: true,
-    rejected: true,
-  });
-
-/** One of the kinds of event the upstream status carries. */
-export function isUpstreamEvent(event: DocEvent): event is UpstreamEvent {
-  return Object.hasOwn(UPSTREAM_EVENT_TYPES, event.type);
-}
-
 function isRefusal(value: unknown): value is HandoffRefusal {
   return HANDOFF_REFUSALS.some((refusal) => refusal === value);
-}
-
-function isFields(value: unknown): value is Fields {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isString(value: unknown): value is string {
