@@ -128,18 +128,23 @@ function ServicesProbe(): ReactNode {
   return <h1 tabIndex={-1}>Library</h1>;
 }
 
-/** The app with d1 titled The Long Night showing `p`, at `path`; `frame` defaults to a frame every 16 ms of the clock. */
+/**
+ * The app with d1 titled The Long Night showing `p`, at `path`; `frame` defaults to a frame every 16 ms of the clock.
+ * With `opening`, d1's editor is still opening when the screen arrives, and `open()` opens it.
+ */
 async function renderApp(
   path: string,
   options: {
     p: Pagination;
     format?: "screenplay" | "ink";
     frame?: (fn: () => void) => () => void;
+    opening?: boolean;
   },
 ): Promise<{
   router: AnyRouter;
   container: HTMLElement;
   clock: ReturnType<typeof createClock>;
+  open(): void;
 }> {
   const clock = createClock();
   const environment = testEnvironment({
@@ -195,7 +200,12 @@ async function renderApp(
       ?.openScriptStore("d1")
       .set("script.format", options.format ?? "screenplay");
   });
-  restores.push(registerLiveEditor(liveOf("d1", options.p)));
+  const open = (): void => {
+    act(() => {
+      restores.push(registerLiveEditor(liveOf("d1", options.p)));
+    });
+  };
+  if (options.opening !== true) open();
   await act(() => router.navigate({ href: path }));
   // the frame loads apart, or the screen goes back to the document
   await until(
@@ -203,7 +213,7 @@ async function renderApp(
       container.querySelector("section") !== null ||
       router.state.location.pathname !== path,
   );
-  return { router, container, clock };
+  return { router, container, clock, open };
 }
 
 /** The frame's one primary button: the last button of the screen before its status bar. */
@@ -292,6 +302,65 @@ test("Export names one file, a clean PDF of the whole script, and the first page
     ["1", "2", "3", "4", "5", "6", "7", "8"],
     "… 22 more",
   ]);
+});
+
+test("while the script's editor is still opening, Export shows its rows, and its pages join when it opens", async () => {
+  const { container, open } = await renderApp("/s/d1/send/export", {
+    p: numbered(30),
+    opening: true,
+  });
+  const tiles = (): number =>
+    container.querySelector("section")?.querySelectorAll("li").length ?? -1;
+  const waiting = [
+    container.querySelector("button")?.textContent,
+    container.querySelector("h1")?.textContent,
+    document.activeElement?.tagName,
+    rowsOf(container),
+    tiles(),
+    actionButton(container).textContent,
+  ];
+  open();
+  expect([waiting, [document.activeElement?.tagName, tiles()]]).toEqual([
+    [
+      "‹ The Long Night",
+      "Export 1 file",
+      "H1",
+      [
+        ["What", "Whole script"],
+        ["As", "Clean PDF"],
+      ],
+      0,
+      "Export 1 file",
+    ],
+    ["H1", 8],
+  ]);
+});
+
+test("an export asked for while the script's editor is opening is written once it opens", async () => {
+  const saved = catchDownloads();
+  const writing = spyOn(formats, "writePdf").mockImplementation(() =>
+    Promise.resolve(new Uint8Array([37, 80, 68, 70, 45])),
+  );
+  restores.push(() => writing.mockRestore());
+  serveFonts();
+  const { container, router, clock, open } = await renderApp(
+    "/s/d1/send/export",
+    { p: numbered(30), opening: true },
+  );
+  act(() => actionButton(container).click());
+  act(() => clock.advance(16));
+  const asked = [
+    actionButton(container).textContent,
+    writing.mock.calls.length,
+  ];
+  open();
+  act(() => clock.advance(16));
+  await until(() => router.state.location.pathname === "/s/d1");
+  expect([
+    asked,
+    writing.mock.calls.map(([p]) => p.pages.length),
+    saved.map((file) => file.name),
+  ]).toEqual([["Exporting 1 file…", 0], [30], ["The Long Night.pdf"]]);
 });
 
 test("exporting writes the PDF, saves it under the script's name and goes back", async () => {

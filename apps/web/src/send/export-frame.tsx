@@ -45,16 +45,22 @@ function save(bytes: Uint8Array<ArrayBuffer>, name: string): void {
   URL.revokeObjectURL(href);
 }
 
-function ExportFrame(props: { docId: string; p: Pagination }): ReactNode {
-  const { docId, p } = props;
+/**
+ * The Export form: its rows from the first frame; the checks and the pages once the document's editor is open, and an
+ * export asked for before then is written when it opens.
+ */
+export function LiveExport(props: SendFormProps): ReactNode {
+  const { docId } = props;
+  const p = useLivePagination(docId);
   const { library, messages } = useServices();
   const { frame, now } = useEnvironment();
   const navigate = useNavigate();
   const title =
     useSubscribable(library.documentTitle(docId)) ??
     LIBRARY_WORDS.untitledScript;
-  const checks = useMemo(() => outsideFontRow(p), [p]);
+  const checks = useMemo(() => (p === null ? null : outsideFontRow(p)), [p]);
   const [busy, setBusy] = useState(false);
+  const [asked, setAsked] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   // the form's lifetime: work still under way when it leaves stops where it is
   const left = useRef(new AbortController());
@@ -64,7 +70,7 @@ function ExportFrame(props: { docId: string; p: Pagination }): ReactNode {
     return () => controller.abort();
   }, []);
 
-  const write = async (): Promise<void> => {
+  const write = async (pages: Pagination): Promise<void> => {
     const { signal } = left.current;
     let bytes: Uint8Array<ArrayBuffer>;
     try {
@@ -74,7 +80,7 @@ function ExportFrame(props: { docId: string; p: Pagination }): ReactNode {
       ]);
       // a copy over an ArrayBuffer of its own, which a Blob takes
       bytes = new Uint8Array(
-        await writePdf(p, { fonts, title, createdAt: now() }),
+        await writePdf(pages, { fonts, title, createdAt: now() }),
       );
     } catch {
       // the person is told the file was not written and may try again; nothing was saved
@@ -94,12 +100,18 @@ function ExportFrame(props: { docId: string; p: Pagination }): ReactNode {
     });
     void navigate({ to: "/s/$docId", params: { docId }, replace: true });
   };
+  useEffect(() => {
+    if (!asked || p === null) return undefined;
+    // one frame first, so that the busy label paints before the page is written
+    return frame(() => {
+      setAsked(false);
+      void write(p);
+    });
+  }, [asked, p]);
   const run = (): void => {
     setBusy(true);
+    setAsked(true);
     setProblem(null);
-    // one frame first, so that the busy label paints before the page is written
-    const cancel = frame(() => void write());
-    left.current.signal.addEventListener("abort", cancel, { once: true });
   };
 
   const rows: SendRow[] = [
@@ -112,7 +124,7 @@ function ExportFrame(props: { docId: string; p: Pagination }): ReactNode {
       title={WORDS.exportTitle(1)}
       aside={null}
       rows={rows}
-      pages={<PageTiles p={p} />}
+      pages={p === null ? null : <PageTiles p={p} />}
       action={{
         label: WORDS.exportTitle(1),
         busyLabel: WORDS.exporting(1),
@@ -126,11 +138,4 @@ function ExportFrame(props: { docId: string; p: Pagination }): ReactNode {
       }}
     />
   );
-}
-
-/** Waits, drawing nothing, until the document's editor is open and its pages exist. */
-export function LiveExport(props: SendFormProps): ReactNode {
-  const { docId } = props;
-  const p = useLivePagination(docId);
-  return p === null ? null : <ExportFrame docId={docId} p={p} />;
 }
