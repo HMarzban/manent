@@ -90,9 +90,31 @@ test("every question has an answer to match, and a quarter of the lines suit any
   expect({ asks, answers, anyone }).toEqual({
     asks: 81,
     answers: 98,
-    anyone: 110,
+    anyone: 108,
   });
   expect(answers >= asks && anyone * 4 >= dialogue.length).toBe(true);
+});
+
+test("no tag and no line that suits anyone names a member of the cast", () => {
+  const cast = new Set(
+    LONG_NIGHT_GUIDE.cast.flatMap((member) =>
+      `${member.cue} ${member.name}`.toLowerCase().split(/[\s.]+/),
+    ),
+  );
+  const open = [
+    ...LONG_NIGHT_GUIDE.tags,
+    ...LONG_NIGHT_GUIDE.dialogue
+      .filter((line) => line.speaker === null)
+      .map((line) => line.text),
+  ];
+  expect(
+    open.filter((text) =>
+      text
+        .toLowerCase()
+        .split(/[^a-z']+/)
+        .some((word) => cast.has(word)),
+    ),
+  ).toEqual([]);
 });
 
 test("every entry keeps to the voice of the film", () => {
