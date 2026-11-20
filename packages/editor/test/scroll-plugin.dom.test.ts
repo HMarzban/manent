@@ -15,7 +15,7 @@ import {
   sectionEnter,
   setPagination,
 } from "../src/index.ts";
-import { counter, docOf, script, state } from "./docs.ts";
+import { counter, docOf, script, state, stateAt } from "./docs.ts";
 
 withDom();
 
@@ -221,6 +221,32 @@ test("a remote edit above the reader after the person typed below it still scrol
   ]);
 });
 
+test("a remote edit above the person writing new lines keeps the line being written still", () => {
+  const m = mount(script(400));
+  m.layout.caret = 300;
+  const end = blockPos(pagesOf(m.view).index, 351) - 1;
+  m.view.dispatch(
+    m.view.state.tr.setSelection(TextSelection.create(m.view.state.doc, end)),
+  );
+  const enter = sectionEnter({ ids: counter("e") });
+  for (let i = 0; i < 3; i++) {
+    enter(m.view.state, m.view.dispatch);
+    m.view.dispatch(m.view.state.tr.insertText("More words on a new line."));
+  }
+  const before = pagesOf(m.view);
+  m.view.dispatch(remote(m.view, withLinesAt(m.view.state.doc, 10, 5)));
+  const after = pagesOf(m.view);
+  expect(m.scroller.writes).toEqual([
+    anchorShiftPx(
+      before.pagination,
+      after.pagination,
+      after.settings.engine,
+      { first: 10, oldEnd: 10, newEnd: 15 },
+      358,
+    ),
+  ]);
+});
+
 test("an anchor block the remote change deleted gives no correction", () => {
   const m = mount(script(400));
   caretAt(m.view, 300);
@@ -252,6 +278,26 @@ test("without pages a remote edit above the anchor scrolls by how far the anchor
   m.layout.top = { block: 3, offsetPx: 0 };
   m.layout.blockTop = (block) => block * 20 - m.scroller.element.scrollTop;
   scrolled(m.scroller.element);
+  m.view.dispatch(remote(m.view, withLinesAt(m.view.state.doc, 1, 2)));
+  expect(m.scroller.writes).toEqual([40]);
+});
+
+test("without pages a remote edit above the person who pressed Enter scrolls by how far the caret's block moved", () => {
+  const m = mount(
+    docOf([
+      ["one", "two", "three"],
+      ["four", "five"],
+    ]),
+    {
+      paged: false,
+    },
+  );
+  m.layout.caret = 60;
+  m.layout.blockTop = (block) => block * 20 - m.scroller.element.scrollTop;
+  m.view.dispatch(
+    m.view.state.tr.setSelection(stateAt(m.view.state.doc, 3, 0).selection),
+  );
+  sectionEnter({ ids: counter("e") })(m.view.state, m.view.dispatch);
   m.view.dispatch(remote(m.view, withLinesAt(m.view.state.doc, 1, 2)));
   expect(m.scroller.writes).toEqual([40]);
 });

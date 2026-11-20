@@ -37,17 +37,20 @@ interface Changes {
 
 const changesKey = new PluginKey<Changes>("scroll");
 
-// What the reader reads: a block by id, looked for again near the index it last had.
-interface PagesAnchor {
-  readonly kind: "pages";
+// What the reader reads: a block by id, looked for again near the index it last had. An anchor read from the
+// caret follows the caret through the person's own edits.
+interface BlockAnchor {
+  readonly by: "caret" | "top";
   readonly blockId: string;
   readonly block: number;
 }
 
-interface FlowAnchor {
+interface PagesAnchor extends BlockAnchor {
+  readonly kind: "pages";
+}
+
+interface FlowAnchor extends BlockAnchor {
   readonly kind: "flow";
-  readonly blockId: string;
-  readonly block: number;
   /** Its viewport top when it was last read, px. */
   readonly top: number;
 }
@@ -68,10 +71,25 @@ function readAnchor(
   if (block === null) return null;
   const blockId = caret?.head.blockId ?? blockIdAt(state, block);
   if (blockId === null) return null;
+  const by = caret === null ? "top" : "caret";
   if (paginationKey.getState(state) !== undefined)
-    return { kind: "pages", blockId, block };
+    return { kind: "pages", by, blockId, block };
   const top = ports.blockTop(view, block);
-  return top === null ? null : { kind: "flow", blockId, block, top };
+  return top === null ? null : { kind: "flow", by, blockId, block, top };
+}
+
+/** A caret anchor moved onto the caret's block after the person's own edit, from the selection alone; without pages its top is read again. */
+function followed(
+  view: EditorView,
+  anchor: Anchor,
+  ports: ScrollPorts,
+): Anchor | null {
+  const place = anchor.by === "caret" ? placeOf(view.state) : null;
+  if (place === null) return anchor;
+  const at = { blockId: place.head.blockId, block: place.at };
+  if (anchor.kind === "pages") return { ...anchor, ...at };
+  const top = ports.blockTop(view, place.at);
+  return top === null ? null : { ...anchor, ...at, top };
 }
 
 type Pages = Pick<PaginationState, "settings" | "index" | "pagination">;
@@ -207,6 +225,7 @@ function scrollView(view: EditorView, options: ScrollOptions): PluginView {
         owed = null;
         record();
       } else if (now.local !== was.local) {
+        anchor = anchor === null ? null : followed(view, anchor, options);
         if (options.typewriter()) line.typed(view);
         else line.release();
       } else if (!prev.selection.eq(view.state.selection)) {
