@@ -1,5 +1,6 @@
 // The simulated server: a sync service over memory storage, reached through the memory network's
-// server ends as the socket reaches it, and a crash that can take it down at any commit.
+// server ends as the socket reaches it and through replays that wait to be served and answered,
+// and a crash that can take it down at any commit.
 import {
   DEFAULT_LIMITS,
   createInlineCheckpointer,
@@ -11,6 +12,7 @@ import type {
   Connection,
   ConnectionData,
   Peer,
+  ReplayOutcome,
   SyncLimits,
   SyncService,
 } from "@manent/server-core";
@@ -35,8 +37,10 @@ import type {
   FrameDecoder,
   Message,
   PushResult,
+  ReplayRequest,
   ServerVersions,
 } from "@manent/sync-protocol";
+import { DOC } from "./device.ts";
 
 /** One server process: what it serves with, until it dies. */
 export interface SimServer {
@@ -50,6 +54,24 @@ export interface SimServer {
   expireSessions(): void;
   /** Runs what the service deferred, as the end of its turn would; false when nothing was. */
   runDeferred(): boolean;
+  /** The service rebuilds the world's document at its room's next quiet moment. */
+  requestRebuild(): void;
+  /** Rebuilds every service so far completed. */
+  rebuilds(): number;
+  /** Serves the oldest waiting replay, or delivers the oldest waiting answer; false when none waits. */
+  stepReplay(): boolean;
+  /** Replays and answers waiting. */
+  replaysQueued(): number;
+  /** While cut, waiting replays and answers are lost, and so is an answer made meanwhile. */
+  partition(cut: boolean): void;
+  readonly limits: SyncLimits;
+}
+
+/** A replay request waiting to be served, or its answer waiting to reach the device. */
+interface Exchange {
+  run(): void;
+  /** The device hears the request fail, as when a connection drops. */
+  lose(): void;
 }
 
 // peerOf never reads a connection's data, and only server-core can make a real one
@@ -79,6 +101,8 @@ class Life {
   readonly service: SyncService;
   readonly closers = new Set<(code: number, reason: string) => void>();
   readonly deferred: (() => void)[] = [];
+  /** How each replay being computed is lost when the process dies. */
+  readonly replaying = new Set<() => void>();
   alive = true;
   private readonly down: () => void;
 
@@ -86,10 +110,11 @@ class Life {
     storage: MemoryStorage;
     clock: FakeClock;
     versions: ServerVersions;
+    limits: SyncLimits;
     ids: () => string;
     down: () => void;
   }) {
-    const { storage, versions, ids } = options;
+    const { storage, versions, limits, ids } = options;
     this.down = options.down;
     const defer = (fn: () => void): void => {
       this.deferred.push(fn);
@@ -105,7 +130,7 @@ class Life {
       defer,
       ids,
       versions,
-      limits: LIMITS,
+      limits,
       checkpointer: createInlineCheckpointer({ storage, defer }),
     });
   }
@@ -221,22 +246,80 @@ function serveEnd(
   };
 }
 
-/** Starts down: `start()` brings the first service up. */
+/** The replays waiting, as HTTP carries them: a request until it is served, then its answer until it is delivered. */
+function createReplayLine(server: {
+  life(): Life | null;
+  runDeferred(): boolean;
+  down(): void;
+}) {
+  const waiting: Exchange[] = [];
+  let cut = false;
+  const serve = (
+    userId: string,
+    request: ReplayRequest,
+    answered: (outcome: ReplayOutcome) => void,
+    lose: () => void,
+  ): void => {
+    const life = server.life();
+    if (life === null) return lose();
+    life.replaying.add(lose);
+    // the route hands the service the body as parsed JSON
+    const body: unknown = JSON.parse(JSON.stringify(request));
+    life.service.replay(userId, body).then(
+      (outcome) => {
+        life.replaying.delete(lose);
+        if (cut) return lose();
+        waiting.push({ run: () => answered(outcome), lose });
+      },
+      (error: unknown) => {
+        if (!(error instanceof SimulatedCrash)) throw error;
+        server.down();
+      },
+    );
+    server.runDeferred();
+  };
+  return {
+    request: (userId: string, request: ReplayRequest) =>
+      new Promise<ReplayOutcome>((resolve, reject) => {
+        const lose = (): void => reject(new ConnectError("unreachable"));
+        const run = (): void => serve(userId, request, resolve, lose);
+        waiting.push({ run, lose });
+      }),
+    step(): boolean {
+      const next = waiting.shift();
+      next?.run();
+      return next !== undefined;
+    },
+    queued: () => waiting.length,
+    partition(cutNow: boolean): void {
+      cut = cutNow;
+      if (cut) for (const exchange of waiting.splice(0)) exchange.lose();
+    },
+  };
+}
+
+/** Starts down: `start()` brings the first service up. `limits` lays over the simulation's own. */
 export function createSimServer(options: {
   network: MemoryNetwork;
   storage: MemoryStorage;
   clock: FakeClock;
   versions: ServerVersions;
   random: () => number;
+  limits?: Partial<SyncLimits>;
 }): SimServer {
-  const { network, storage, versions } = options;
+  const { network, storage, clock, versions } = options;
+  const limits: SyncLimits = Object.freeze({ ...LIMITS, ...options.limits });
   let life: Life | null = null;
   let versionIds = 0;
+  /** Rebuilds of the services that have died. */
+  let rebuiltBefore = 0;
   const ids = (): string => `version-${++versionIds}`;
   const down = (): void => {
     if (life === null) return;
     life.alive = false;
+    rebuiltBefore += life.service.stats().rebuilds;
     for (const close of life.closers) close(1006, "");
+    for (const lose of life.replaying) lose();
     life = null;
   };
   const runDeferred = (): boolean => {
@@ -250,12 +333,8 @@ export function createSimServer(options: {
       current.guard(fn);
     return true;
   };
-  const context = {
-    versions,
-    limits: LIMITS,
-    random: options.random,
-    runDeferred,
-  };
+  const replays = createReplayLine({ life: () => life, runDeferred, down });
+  const context = { versions, limits, random: options.random, runDeferred };
   network.serve({
     connected(end) {
       if (life === null) return end.close(1006, "");
@@ -270,12 +349,13 @@ export function createSimServer(options: {
         code: made.code === "deleted" ? "deleted" : "forbidden",
       };
     },
+    replay: replays.request,
   });
   return {
     start() {
       down();
       storage.crashOnCommit(null);
-      life = new Life({ storage, clock: options.clock, versions, ids, down });
+      life = new Life({ storage, clock, versions, limits, ids, down });
     },
     crash(when) {
       if (when === "now") return down();
@@ -287,5 +367,11 @@ export function createSimServer(options: {
         close(CODE.UNAUTHENTICATED, "unauthenticated");
     },
     runDeferred,
+    requestRebuild: () => life?.service.requestRebuild(DOC),
+    rebuilds: () => rebuiltBefore + (life?.service.stats().rebuilds ?? 0),
+    stepReplay: replays.step,
+    replaysQueued: replays.queued,
+    partition: replays.partition,
+    limits,
   };
 }
