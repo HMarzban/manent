@@ -1,7 +1,13 @@
 // The tab's environment and the person's services, handed down the tree; the services are rebuilt when the person changes.
 import { markEnd, markStart } from "@manent/perf";
-import { applyAppearance } from "@manent/ui";
-import { createContext, useContext, useLayoutEffect, useMemo } from "react";
+import { applyAppearance, createValue } from "@manent/ui";
+import {
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import type { Api } from "../api.ts";
 import { writeBootCache } from "../boot/boot-cache.ts";
@@ -55,7 +61,8 @@ export function useServices(): PersonServices {
 
 /**
  * The services of `person`, null while there is none. A new person's services are built while rendering and their
- * appearance is written before the frame is drawn; the previous person's are disposed in the same task.
+ * appearance is written before the frame is drawn; the previous person's are disposed in the same task. `demo` may
+ * change under the same services: the demo's answer can arrive after the person is drawn.
  */
 export function usePersonServices(options: {
   person: TabPerson | null;
@@ -67,6 +74,8 @@ export function usePersonServices(options: {
   const environment = useEnvironment();
   const { person, demo, api, usePerson, router } = options;
   const userId = person?.userId ?? null;
+  const [demoValue] = useState(() => createValue(demo));
+  useLayoutEffect(() => demoValue.set(demo), [demoValue, demo]);
   const built = useMemo(
     () =>
       person === null
@@ -76,14 +85,14 @@ export function usePersonServices(options: {
             services: createPersonServices({
               ...environment,
               person,
-              demo,
+              demo: demoValue,
               api,
               usePerson,
               router,
             }),
           },
     // a new token or name keeps the same person's services; the store is read for them
-    [userId, demo, environment, api, usePerson, router],
+    [userId, demoValue, environment, api, usePerson, router],
   );
   useLayoutEffect(() => {
     if (built === null) return;
