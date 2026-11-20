@@ -23,12 +23,22 @@ const SCHEMA = [
     block_id TEXT, near_block_id TEXT, text TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (doc_id, n)) STRICT`,
 ] as const;
 
-const NODE_DOC_STATES: readonly NodeDocState[] = ["handing_off", "synced"];
-const RECOVERED_CAUSES: readonly RecoveredItem["cause"][] = [
-  "merge",
-  "rejected",
-  "overlap",
-];
+/** One entry per member, so a member added to the union fails typecheck until this driver can read it back. */
+type Members<T extends string> = { readonly [M in T]: M };
+
+const NODE_DOC_STATES: readonly NodeDocState[] = Object.freeze(
+  Object.values({
+    handing_off: "handing_off",
+    synced: "synced",
+  } satisfies Members<NodeDocState>),
+);
+const RECOVERED_CAUSES: readonly RecoveredItem["cause"][] = Object.freeze(
+  Object.values({
+    merge: "merge",
+    rejected: "rejected",
+    overlap: "overlap",
+  } satisfies Members<RecoveredItem["cause"]>),
+);
 
 interface PersonRow {
   user_id: string;
