@@ -33,7 +33,7 @@ export type WriteEvent =
   | { type: "commit" }
   | { type: "ack"; peer: Peer; clientSeq: number; serverSeq: number }
   | { type: "refuse"; peer: Peer; refusal: Refusal }
-  | { type: "publish"; peer: Peer; seq: number; echo: boolean }
+  | { type: "publish"; peer: Peer | null; seq: number; echo: boolean }
   | { type: "poisoned" }
   | { type: "schema_raised"; toVersion: number }
   | { type: "upstream" };

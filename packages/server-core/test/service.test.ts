@@ -738,5 +738,7 @@ test("what the service did is counted", async () => {
     poisoned: 0,
     awarenessDropped: 0,
     skipped: 1,
+    rebuilds: 0,
+    rebuildsSkipped: {},
   });
 });

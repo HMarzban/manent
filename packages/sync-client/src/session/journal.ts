@@ -15,6 +15,7 @@ import type {
   RecoveredItem,
   StoredEntry,
   StoredSetting,
+  StoredUpdate,
 } from "../ports/ports.ts";
 import { offerVersions } from "../recovery/versions.ts";
 import type { UnsavedEdit } from "./edits.ts";
@@ -40,6 +41,8 @@ export interface Journal {
   /** A Yjs client ID this device never used for the document, and not `taken`. */
   freshClientId(taken: number | null, random: Random): number;
   patch(patch: Partial<DocMeta>): void;
+  /** As `patch`, taken in only once the store holds it; false when the store refused it or nothing is written. */
+  commit(patch: Partial<DocMeta>): Promise<boolean>;
   /** An own edit; resolves once its write has settled. */
   appendOwn(edit: UnsavedEdit): Promise<void>;
   /** A server update, `applied` when it is in the document already; returns its local sequence. */
@@ -65,6 +68,8 @@ export interface Journal {
   /** The waiting entries after `afterSeq` that may be sent now, as items. */
   outbox(afterSeq: number): OutboxItem[];
   waiting(): number;
+  /** The own updates not yet acknowledged, by `localSeq`. */
+  waitingUpdates(): StoredUpdate[];
   /** Own entries and settings whose write has not settled. */
   unsavedWrites(): number;
   prune(): void;
@@ -104,6 +109,7 @@ function freshMeta(docId: string, create: DocMeta["create"]): DocMeta {
     recovering: null,
     lastDeviceVersionAt: 0,
     lastSyncedAt: null,
+    moving: null,
   };
 }
 
@@ -179,6 +185,21 @@ class StoreJournal implements Journal {
     this.meta = { ...this.meta, ...patch };
     void this.persist(() => this.store.patchMeta(this.docId, patch));
     this.options.changed();
+  }
+
+  async commit(patch: Partial<DocMeta>): Promise<boolean> {
+    if (this.memoryOnly) return false;
+    let held = true;
+    await this.persist(() =>
+      this.store.patchMeta(this.docId, patch).catch((error: unknown) => {
+        held = false;
+        throw error;
+      }),
+    );
+    if (!held) return false;
+    this.meta = { ...this.meta, ...patch };
+    this.options.changed();
+    return true;
   }
 
   appendOwn(edit: UnsavedEdit): Promise<void> {
@@ -291,6 +312,12 @@ class StoreJournal implements Journal {
 
   waiting(): number {
     return waitingCount(this.entries);
+  }
+
+  waitingUpdates(): StoredUpdate[] {
+    return this.entries.filter(
+      (e): e is StoredUpdate => e.kind === "update" && e.own && !e.acked,
+    );
   }
 
   unsavedWrites(): number {
