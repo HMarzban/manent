@@ -46,8 +46,8 @@ function save(bytes: Uint8Array<ArrayBuffer>, name: string): void {
 }
 
 /**
- * The Export form: its rows from the first frame; the checks and the pages once the document's editor is open, and an
- * export asked for before then is written when it opens.
+ * The Export form: its rows from the first frame; the checks, the pages and the export itself once the document's
+ * editor is open.
  */
 export function LiveExport(props: SendFormProps): ReactNode {
   const { docId } = props;
@@ -60,7 +60,6 @@ export function LiveExport(props: SendFormProps): ReactNode {
     LIBRARY_WORDS.untitledScript;
   const checks = useMemo(() => (p === null ? null : outsideFontRow(p)), [p]);
   const [busy, setBusy] = useState(false);
-  const [asked, setAsked] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   // the form's lifetime: work still under way when it leaves stops where it is
   const left = useRef(new AbortController());
@@ -100,18 +99,12 @@ export function LiveExport(props: SendFormProps): ReactNode {
     });
     void navigate({ to: "/s/$docId", params: { docId }, replace: true });
   };
-  useEffect(() => {
-    if (!asked || p === null) return undefined;
-    // one frame first, so that the busy label paints before the page is written
-    return frame(() => {
-      setAsked(false);
-      void write(p);
-    });
-  }, [asked, p]);
-  const run = (): void => {
+  const run = (pages: Pagination): void => {
     setBusy(true);
-    setAsked(true);
     setProblem(null);
+    // one frame first, so that the busy label paints before the page is written
+    const cancel = frame(() => void write(pages));
+    left.current.signal.addEventListener("abort", cancel, { once: true });
   };
 
   const rows: SendRow[] = [
@@ -134,7 +127,10 @@ export function LiveExport(props: SendFormProps): ReactNode {
         cancel: null,
         disabledReason: null,
         problem,
-        run,
+        // nothing leaves before the pages, and the checks drawn from them, are on screen
+        run: () => {
+          if (p !== null) run(p);
+        },
       }}
     />
   );

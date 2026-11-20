@@ -336,7 +336,7 @@ test("while the script's editor is still opening, Export shows its rows, and its
   ]);
 });
 
-test("an export asked for while the script's editor is opening is written once it opens", async () => {
+test("a press while the script's editor is still opening sends nothing before its checks are shown", async () => {
   const saved = catchDownloads();
   const writing = spyOn(formats, "writePdf").mockImplementation(() =>
     Promise.resolve(new Uint8Array([37, 80, 68, 70, 45])),
@@ -345,22 +345,24 @@ test("an export asked for while the script's editor is opening is written once i
   serveFonts();
   const { container, router, clock, open } = await renderApp(
     "/s/d1/send/export",
-    { p: numbered(30), opening: true },
+    { p: pagesOf(["The sign reads 日."]), opening: true },
   );
   act(() => actionButton(container).click());
   act(() => clock.advance(16));
-  const asked = [
-    actionButton(container).textContent,
-    writing.mock.calls.length,
-  ];
   open();
   act(() => clock.advance(16));
-  await until(() => router.state.location.pathname === "/s/d1");
+  await until(() => router.state.location.pathname !== "/s/d1/send/export");
   expect([
-    asked,
-    writing.mock.calls.map(([p]) => p.pages.length),
-    saved.map((file) => file.name),
-  ]).toEqual([["Exporting 1 file…", 0], [30], ["The Long Night.pdf"]]);
+    writing.mock.calls.length,
+    saved.length,
+    rowsOf(container)[0],
+    router.state.location.pathname,
+  ]).toEqual([
+    0,
+    0,
+    ["Checks", "! 日 is outside the script font and prints as a box"],
+    "/s/d1/send/export",
+  ]);
 });
 
 test("exporting writes the PDF, saves it under the script's name and goes back", async () => {
