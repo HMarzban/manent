@@ -225,7 +225,9 @@ function scrollView(view: EditorView, options: ScrollOptions): PluginView {
         owed = null;
         record();
       } else if (now.local !== was.local) {
-        anchor = anchor === null ? null : followed(view, anchor, options);
+        // typing over a selection leaves a caret where there was none, so the anchor is read afresh
+        if (!prev.selection.empty && view.state.selection.empty) record();
+        else if (anchor !== null) anchor = followed(view, anchor, options);
         if (options.typewriter()) line.typed(view);
         else line.release();
       } else if (!prev.selection.eq(view.state.selection)) {

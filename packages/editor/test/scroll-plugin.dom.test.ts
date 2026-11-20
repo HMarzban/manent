@@ -76,8 +76,10 @@ function mount(
   const ports: ScrollPorts = {
     scroller: () => scroller.element,
     zoom: () => options.zoom ?? 1,
-    caretTop: () =>
-      layout.caret === null ? null : layout.caret - scroller.element.scrollTop,
+    caretTop: (view) =>
+      layout.caret === null || !view.state.selection.empty
+        ? null
+        : layout.caret - scroller.element.scrollTop,
     topBlock: () => layout.top,
     blockTop: (_, block) => layout.blockTop(block),
   };
@@ -243,6 +245,31 @@ test("a remote edit above the person writing new lines keeps the line being writ
       after.settings.engine,
       { first: 10, oldEnd: 10, newEnd: 15 },
       358,
+    ),
+  ]);
+});
+
+test("a remote edit above the person who typed over a selection keeps the line being written still", () => {
+  const m = mount(script(400));
+  m.layout.top = { block: 300, offsetPx: 0 };
+  m.layout.caret = 300;
+  const end = blockPos(pagesOf(m.view).index, 351) - 1;
+  m.view.dispatch(
+    m.view.state.tr.setSelection(
+      TextSelection.create(m.view.state.doc, end - 3, end),
+    ),
+  );
+  m.view.dispatch(m.view.state.tr.insertText("typed over"));
+  const before = pagesOf(m.view);
+  m.view.dispatch(remote(m.view, withLinesAt(m.view.state.doc, 10, 5)));
+  const after = pagesOf(m.view);
+  expect(m.scroller.writes).toEqual([
+    anchorShiftPx(
+      before.pagination,
+      after.pagination,
+      after.settings.engine,
+      { first: 10, oldEnd: 10, newEnd: 15 },
+      355,
     ),
   ]);
 });
