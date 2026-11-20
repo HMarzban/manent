@@ -2,7 +2,9 @@ import { withDom } from "@manent/testkit/dom";
 import { afterEach, expect, test } from "bun:test";
 import { TOUR } from "@manent/demo";
 import type { TourScenario } from "@manent/demo";
-import type { SignInChoice } from "@manent/sync-protocol";
+import type { DemoResponse, SignInChoice } from "@manent/sync-protocol";
+import { useCommandState } from "@manent/ui";
+import type { Message } from "@manent/ui";
 import {
   QueryClient,
   QueryClientProvider,
@@ -27,7 +29,8 @@ import { TourScenarioRow } from "../src/demo/tour-scenario.tsx";
 import { SERVER_STATUS_QUERY } from "../src/demo/use-demo.ts";
 import { RootLayout } from "../src/root-layout.tsx";
 import { ChooseScreen } from "../src/screens/choose.tsx";
-import { EnvironmentProvider } from "../src/services/context.tsx";
+import { EnvironmentProvider, useServices } from "../src/services/context.tsx";
+import type { PersonServices } from "../src/services/ports.ts";
 import { AnnouncerRegion } from "../src/shell/announcer-region.tsx";
 import { createShellDom } from "../src/shell/regions.tsx";
 import { bindGuard } from "../src/state/guard.ts";
@@ -45,12 +48,13 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-/** Draws `node` as the app would: inside the environment, Query and a router at `/`. */
+/** Draws `node` as the app would: inside the environment, Query and a router at `/`, which draws `screen`. */
 async function render(
   node: ReactNode,
   options: {
     clock?: ReturnType<typeof createClock>;
     client?: QueryClient;
+    screen?: () => ReactNode;
   } = {},
 ): Promise<HTMLElement> {
   const clock = options.clock ?? createClock();
@@ -63,7 +67,11 @@ async function render(
   const rootRoute = createRootRoute({ component: () => node });
   const router = createRouter({
     routeTree: rootRoute.addChildren([
-      createRoute({ getParentRoute: () => rootRoute, path: "/" }),
+      createRoute({
+        getParentRoute: () => rootRoute,
+        path: "/",
+        component: options.screen,
+      }),
     ]),
     history: createMemoryHistory({ initialEntries: ["/"] }),
   });
@@ -286,6 +294,43 @@ test("the demo bar offers the Tour once the tab has a person", async () => {
     "Person: Dana Reyes",
     "Tour",
   ]);
+});
+
+test("a message shown before the demo's first answer stays, and the answer offers the Tour", async () => {
+  const { promise: answered, resolve: answer } =
+    Promise.withResolvers<DemoResponse | null>();
+  const api: Api = fakeApi({ demo: () => answered });
+  const usePerson = createPersonStore(null);
+  usePerson
+    .getState()
+    .setPerson({ token: null, userId: "dana", name: "Dana Reyes" });
+  const seen: { services: PersonServices; tour: boolean }[] = [];
+  const screen = (): ReactNode => {
+    seen.push({
+      services: useServices(),
+      tour: useCommandState("demo.tour").visible,
+    });
+    return null;
+  };
+  const notice: Message = {
+    id: "command_unavailable",
+    text: "Print needs a document open.",
+    actions: [],
+    lifetime: "brief",
+    ownWork: false,
+  };
+  await render(<RootLayout api={api} fetch={fetch} usePerson={usePerson} />, {
+    screen,
+  });
+  act(() => seen.at(-1)?.services.messages.push(notice));
+  await act(async () =>
+    answer({ demo: true, seedId: "seed-1", control: null }),
+  );
+  const last = seen.at(-1);
+  expect({
+    message: last?.services.messages.current() ?? null,
+    tour: last?.tour ?? null,
+  }).toEqual({ message: notice, tour: true });
 });
 
 const CHOICES: readonly SignInChoice[] = [

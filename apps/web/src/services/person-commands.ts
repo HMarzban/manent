@@ -19,7 +19,7 @@ import { rulerActions } from "../state/ruler.store.ts";
 import type { Environment, PersonServices, ShellState } from "./ports.ts";
 
 export type CommandsOptions = Environment & {
-  demo: boolean;
+  demo: Subscribable<boolean>;
   api: Api;
   usePerson: PersonStore;
   router: Navigation;
@@ -41,7 +41,7 @@ function commandContext(
     online: options.online(),
     platform: options.where.platform,
     shell: options.where.shell,
-    demo: options.demo,
+    demo: options.demo.get(),
     signedIn: (options.usePerson.getState().person?.token ?? null) !== null,
     panelOpen: { left: panels.left !== null, side: panels.side !== null },
     historyPresent,
@@ -118,6 +118,7 @@ export function createCommands(
   const unsubscribers = [
     options.shellState.subscribe(service.notify),
     options.usePerson.subscribe(service.notify),
+    options.demo.subscribe(service.notify),
     resolved.subscribe(service.notify),
     ...SETTINGS.all.map((def) => settings.subscribe(def.key, service.notify)),
     rulerActions.subscribe(service.notify),
