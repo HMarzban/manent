@@ -111,8 +111,14 @@ test("every default shortcut runs its command once, from the page, a panel and a
       for (const chord of effective.get(command.id) ?? []) {
         const ctx: CommandContext = { ...spot.context, platform };
         const outcome = outcomeOf(command, ctx);
-        // the page's command keymap is not mounted yet, so nothing hears an editor command's key
-        if (outcome === "absent" || command.scope === "editor") continue;
+        // an editor command's key goes to the page's own keymap, which editor/flow.e2e.ts drives; Mod+P opens the
+        // Send screen, which editor/send.e2e.ts follows
+        if (
+          outcome === "absent" ||
+          command.scope === "editor" ||
+          command.id === "doc.print"
+        )
+          continue;
         await signedInAs(page, "you", spot.at);
         await spot.focus(page);
         // a load of another document would drop this mark; the window's listener hears the key after the app
