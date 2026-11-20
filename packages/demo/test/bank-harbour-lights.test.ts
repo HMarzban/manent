@@ -87,3 +87,31 @@ test("every question has an answer to match, and a quarter of the lines suit any
 test("every entry keeps to the voice of the series", () => {
   expect(checkBank(HARBOUR_LIGHTS_GUIDE, OTHERS)).toEqual([]);
 });
+
+test("in 201 Ida comes ashore on the island only once the late crossing has tied up", () => {
+  const ashore = new Set([
+    "INT. HOLLIS KITCHEN",
+    "INT. TERMINAL OFFICE",
+    "EXT. BOATYARD",
+    "INT. BOATYARD OFFICE",
+  ]);
+  const beats = beatsOf("201");
+  const sails = beats.findIndex((beat) =>
+    beat.summary.includes("late crossing"),
+  );
+  const ties = beats.findIndex((beat) =>
+    beat.summary.includes("ties up at the island slip"),
+  );
+  expect(sails).toBeGreaterThan(-1);
+  expect(ties).toBeGreaterThan(sails);
+  expect(
+    beats
+      .slice(sails, ties)
+      .filter(
+        (beat) =>
+          beat.cast.includes("IDA") &&
+          beat.places.some((place) => ashore.has(place)),
+      )
+      .map((beat) => beat.id),
+  ).toEqual([]);
+});
