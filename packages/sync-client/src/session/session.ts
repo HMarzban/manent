@@ -18,6 +18,8 @@ import type {
   SideState,
   SyncClientPorts,
 } from "../ports/ports.ts";
+import { UpstreamWindow } from "../upstream/window.ts";
+import type { Via } from "../upstream/window.ts";
 import type { ViewHandle } from "../view/view.ts";
 import type { DocHandle } from "./doc-handle.ts";
 import type { UnsavedEdit } from "./edits.ts";
@@ -68,6 +70,8 @@ export interface Session {
 interface SessionOptions {
   docId: string;
   ports: SyncClientPorts;
+  /** `local_node`: the node is the store, Saved its acknowledgement, and Synced and the last sync the upstream's. */
+  via: Via;
   /** The tab's own document when it takes the lead, keeping its client ID; null for a new one. */
   doc: CrdtDoc | null;
   /** What the tab's leader never saved, stored first. */
@@ -120,6 +124,7 @@ class DocSession implements Session {
   private readonly copy: LocalCopy;
   private readonly subscription: Subscription;
   private readonly handshake: Handshake;
+  private readonly upstream: UpstreamWindow | null;
   private facts: SessionLink;
   private readonly status: ReturnType<typeof createSubscribable<DocStatus>>;
   /** The connection the device versions were last offered on. */
@@ -161,6 +166,15 @@ class DocSession implements Session {
     });
     this.journal = journal;
     this.facts = options.link;
+    this.upstream =
+      options.via === "local_node"
+        ? new UpstreamWindow({
+            // the day the document last synced is the upstream's; the meta's change shows the status
+            arrived: ({ lastSyncedAt }) => journal.patch({ lastSyncedAt }),
+            tell: (event) => this.copy.tell(event),
+          })
+        : null;
+    const relayed = this.upstream !== null;
     const doc =
       options.doc ??
       createDoc({ clientId: journal.freshClientId(null, ports.random) });
@@ -174,6 +188,9 @@ class DocSession implements Session {
       changed: () => this.refresh(),
       online: () => this.facts.state === "online",
       idle: () => this.subscription.left?.idle(),
+      // the node's upstream client holds every client ID of this device: it sets text aside
+      ownClientIds: () => (relayed ? [] : journal.meta.clientIds),
+      upstream: this.upstream,
     });
     this.subscription = createSubscription({
       docId,
@@ -185,6 +202,7 @@ class DocSession implements Session {
       changed: () => this.refresh(),
       replaceConnection: options.replaceConnection,
       followers: options.followers,
+      syncedAt: () => (relayed ? null : ports.clock.now()),
     });
     this.handshake = this.subscription.handshake;
     this.status = createSubscribable(this.computeStatus());
@@ -192,6 +210,7 @@ class DocSession implements Session {
       status: this.status,
       readOnly: this.subscription.readOnly,
       sendAwareness: (update) => this.handshake.sendAwareness(update),
+      adoptClientIds: (ids) => this.adoptClientIds(ids),
       close: () => this.close(),
     });
   }
@@ -204,7 +223,8 @@ class DocSession implements Session {
   async ready(loaded: LoadedDocument | StoreError | null): Promise<void> {
     const { journal } = this;
     await journal.open(loaded);
-    this.addId(this.copy.doc.clientId);
+    const { clientIds } = journal.meta;
+    journal.patch({ clientIds: [...clientIds, this.copy.doc.clientId] });
     await journal.written();
     const recovered = journal.memoryOnly ? [] : await journal.loadRecovered();
     this.copy.load(recovered, this.options.unsaved);
@@ -212,9 +232,7 @@ class DocSession implements Session {
   }
 
   addClient(clientId: number): void {
-    if (this.journal.meta.clientIds.includes(clientId)) return;
-    this.addId(clientId);
-    this.handshake.resubscribe();
+    this.adoptClientIds([clientId]);
   }
 
   edit(edit: UnsavedEdit, generation: number): Promise<boolean> {
@@ -277,7 +295,8 @@ class DocSession implements Session {
   }
 
   receive(message: DocumentMessage): void {
-    this.handshake.receive(message);
+    if (this.upstream?.receive(message) !== true)
+      this.handshake.receive(message);
   }
 
   /** A refusal of the old generation while a move is under way is not acted on. */
@@ -328,9 +347,12 @@ class DocSession implements Session {
     return this.journal.storeRefusing || this.kept.size > 0;
   }
 
-  private addId(clientId: number): void {
+  private adoptClientIds(ids: readonly number[]): void {
     const { clientIds } = this.journal.meta;
-    this.journal.patch({ clientIds: [...clientIds, clientId] });
+    const fresh = [...new Set(ids)].filter((id) => !clientIds.includes(id));
+    if (fresh.length === 0) return;
+    this.journal.patch({ clientIds: [...clientIds, ...fresh] });
+    this.handshake.resubscribe();
   }
 
   private computeStatus(): DocStatus {
@@ -338,6 +360,7 @@ class DocSession implements Session {
     const { journal } = this;
     const { side } = this.subscription;
     return deriveStatus({
+      ...this.upstream?.facts(),
       link: this.facts.state,
       // while moving the document is syncing, though no subscription is live
       subscribed: this.handshake.subscribed() || this.subscription.moving,

@@ -1,6 +1,8 @@
-// The handle an app holds for one open document, and the events it hears on it.
+// The handle an app holds for one open document, the events it hears on it, and the reader of
+// an event another tab or the local node passed on.
 import type { CrdtDoc } from "@manent/crdt";
 import type { DocStatus, RecoveredItem, Subscribable } from "../ports/ports.ts";
+import type { UpstreamStatus } from "../upstream/status.ts";
 import type { ViewHandle } from "../view/view.ts";
 
 /**
@@ -35,6 +37,8 @@ export interface DocHandle {
   readonly writeSchema: Subscribable<number>;
   /** Set when the server answered 4408, or 4403 `read_only_role`: the app shows this reader instead of an editor. */
   readonly readOnly: Subscribable<ViewHandle | null>;
+  /** The latest upstream status the local node sent; always null unless the client runs with `via` "local_node". */
+  readonly upstream: Subscribable<UpstreamStatus | null>;
   on(listener: (event: DocEvent) => void): () => void;
   /** A request: shown at once, sent as SET, dropped if refused. TypeError for a value JSON cannot hold. */
   setSetting(key: string, value: unknown): void;
@@ -44,5 +48,59 @@ export interface DocHandle {
   sendAwareness(update: Uint8Array): void;
   onAwareness(listener: (update: Uint8Array) => void): () => void;
   saveVersion(label: "session_end" | "manual"): Promise<void>;
+  /**
+   * The IDs not yet held join this document's own client IDs and are stored,
+   * so that the heal counts them as this client's; a subscribed document
+   * subscribes again, so that the server registers them. RangeError in a tab
+   * that does not lead.
+   */
+  adoptClientIds(ids: readonly number[]): void;
   close(): Promise<void>;
+}
+
+type Fields = Record<string, unknown>;
+
+function isFields(value: unknown): value is Fields {
+  return typeof value === "object" && value !== null;
+}
+
+/**
+ * An event another tab or the local node passed on; null for anything else.
+ * `replaced` and `recovered` read as null: a leading tab sends each as a
+ * message of its own, and the node passes on neither.
+ */
+export function readEvent(value: unknown): DocEvent | null {
+  if (!isFields(value)) return null;
+  const { code, replayed, setAside, sent, key, message } = value;
+  const { applied, overlaps, versionId } = value;
+  switch (value.type) {
+    case "rejected":
+      return typeof code === "number" &&
+        typeof replayed === "number" &&
+        typeof setAside === "number"
+        ? { type: "rejected", code, replayed, setAside }
+        : null;
+    case "setting_refused":
+      return typeof key === "string" && typeof message === "string"
+        ? { type: "setting_refused", key, message }
+        : null;
+    case "receipt":
+      return typeof sent === "number" &&
+        typeof setAside === "number" &&
+        typeof overlaps === "number"
+        ? { type: "receipt", sent, setAside, overlaps }
+        : null;
+    case "rebuilt":
+      return typeof applied === "number" &&
+        typeof overlaps === "number" &&
+        typeof setAside === "number"
+        ? { type: "rebuilt", applied, overlaps, setAside }
+        : null;
+    case "past_window":
+      return typeof versionId === "string"
+        ? { type: "past_window", versionId }
+        : null;
+    default:
+      return null;
+  }
 }

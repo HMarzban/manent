@@ -45,6 +45,8 @@ export interface MoveHost {
   ended(): void;
   /** The tabs following this document, each of which keeps the document a move left until it has moved too. */
   followers(): string[];
+  /** When a sync is recorded as made now; null: the last sync is not this move's to record. */
+  syncedAt(): number | null;
   /** The document a move left, kept while something may still write to it; null once it is released. */
   leave(left: LeftDoc | null): void;
 }
@@ -326,9 +328,10 @@ export class Move {
   private answered(response: ReplayResponse): void {
     this.response = response;
     this.moving = { ...this.moving, to: response.generation };
+    const syncedAt = this.host.syncedAt();
     this.host.journal.patch({
       moving: this.moving,
-      lastSyncedAt: this.host.ports.clock.now(),
+      ...(syncedAt === null ? {} : { lastSyncedAt: syncedAt }),
     });
     this.load();
   }

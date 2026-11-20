@@ -14,6 +14,13 @@ export function readStateVector(vector: StateVector): Map<number, number> {
   }
 }
 
+/** The bytes of a state vector holding these clocks: the inverse of readStateVector. */
+export function writeStateVector(
+  clocks: ReadonlyMap<number, number>,
+): Uint8Array {
+  return Y.encodeStateVector(new Map(clocks));
+}
+
 /** Drops the structs and the delete set that wait for something this document lacks; true when there were any. */
 export function discardPending(doc: CrdtDoc): boolean {
   const { store } = yDocOf(doc);

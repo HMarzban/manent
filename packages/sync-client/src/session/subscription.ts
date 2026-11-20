@@ -62,6 +62,8 @@ interface SubscriptionOptions {
   replaceConnection(reason: string): void;
   /** The tabs following this document. */
   followers(): string[];
+  /** When a sync is recorded as made now; null: the last sync is not this subscription's to record. */
+  syncedAt(): number | null;
 }
 
 class DocSubscription implements Subscription {
@@ -212,11 +214,12 @@ class DocSubscription implements Subscription {
       );
       this.healSeq = null;
     } else this.merge(update);
-    const { journal, ports } = this.options;
+    const { journal } = this.options;
+    const syncedAt = this.hasWaiting() ? null : this.options.syncedAt();
     journal.patch({
       neverSynced: false,
       lastServerSeq: Math.max(journal.meta.lastServerSeq, this.headSeq),
-      ...(this.hasWaiting() ? {} : { lastSyncedAt: ports.clock.now() }),
+      ...(syncedAt === null ? {} : { lastSyncedAt: syncedAt }),
     });
   }
 
@@ -225,8 +228,8 @@ class DocSubscription implements Subscription {
   }
 
   acknowledged(clientSeq: number, serverSeq: number): void {
-    const { journal, copy, ports } = this.options;
-    journal.acknowledge(clientSeq, serverSeq, ports.clock.now());
+    const { journal, copy } = this.options;
+    journal.acknowledge(clientSeq, serverSeq, this.options.syncedAt());
     copy.acknowledged(clientSeq);
     this.recovery.acknowledged(clientSeq);
     this.settled();
@@ -335,6 +338,7 @@ class DocSubscription implements Subscription {
         this.handshake.subscribe();
       },
       followers: () => this.options.followers(),
+      syncedAt: () => this.options.syncedAt(),
       leave: (left) => {
         this.left = left;
       },

@@ -17,10 +17,12 @@ import type {
   SideState,
   SyncClientPorts,
 } from "../ports/ports.ts";
+import { readEvent } from "../session/doc-handle.ts";
 import type { DocEvent, DocHandle } from "../session/doc-handle.ts";
 import { elementsOf } from "../session/edits.ts";
 import type { UnsavedEdit } from "../session/edits.ts";
 import type { TabBody } from "../tabs/messages.ts";
+import type { UpstreamStatus } from "../upstream/status.ts";
 import type { ViewHandle } from "../view/view.ts";
 import { TabRecovered } from "./tab-recovered.ts";
 
@@ -48,52 +50,6 @@ const OFFLINE: DocStatus = Object.freeze({
   recovered: 0,
   side: [],
 });
-
-type Fields = Record<string, unknown>;
-
-function isFields(value: unknown): value is Fields {
-  return typeof value === "object" && value !== null;
-}
-
-/**
- * A leader's event, which the reader of tab messages leaves unread. `replaced`
- * and `recovered` come as messages of their own, so they read as null here.
- */
-function readEvent(value: unknown): DocEvent | null {
-  if (!isFields(value)) return null;
-  const { code, replayed, setAside, sent, key, message } = value;
-  const { applied, overlaps, versionId } = value;
-  switch (value.type) {
-    case "rejected":
-      return typeof code === "number" &&
-        typeof replayed === "number" &&
-        typeof setAside === "number"
-        ? { type: "rejected", code, replayed, setAside }
-        : null;
-    case "setting_refused":
-      return typeof key === "string" && typeof message === "string"
-        ? { type: "setting_refused", key, message }
-        : null;
-    case "receipt":
-      return typeof sent === "number" &&
-        typeof setAside === "number" &&
-        typeof overlaps === "number"
-        ? { type: "receipt", sent, setAside, overlaps }
-        : null;
-    case "rebuilt":
-      return typeof applied === "number" &&
-        typeof overlaps === "number" &&
-        typeof setAside === "number"
-        ? { type: "rebuilt", applied, overlaps, setAside }
-        : null;
-    case "past_window":
-      return typeof versionId === "string"
-        ? { type: "past_window", versionId }
-        : null;
-    default:
-      return null;
-  }
-}
 
 type Unsaved = UnsavedEdit & { generation: number };
 
@@ -315,6 +271,7 @@ class TabFollower implements Follower {
       settings: this.settings,
       writeSchema: createSubscribable(writeSchema),
       readOnly: createSubscribable<ViewHandle | null>(null),
+      upstream: createSubscribable<UpstreamStatus | null>(null),
       on: (listener) => {
         this.listeners.add(listener);
         return () => this.listeners.delete(listener);
@@ -337,6 +294,11 @@ class TabFollower implements Follower {
             "a device version is kept by the tab that leads, which holds the store",
           ),
         ),
+      adoptClientIds: () => {
+        throw new RangeError(
+          "client IDs are adopted by the tab that leads, which holds the store",
+        );
+      },
       close: async () => {
         post({ t: "close", docId });
         this.detach();

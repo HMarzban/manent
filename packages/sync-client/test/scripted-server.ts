@@ -517,6 +517,7 @@ export interface World {
     versions?: VersionSet;
     minServer?: VersionSet;
     uploadVersion?: SyncClientOptions["uploadVersion"];
+    via?: SyncClientOptions["via"];
   }): SyncClient;
   /** One turn: every queued microtask runs. */
   turn(): Promise<void>;
@@ -601,6 +602,7 @@ export async function setup(): Promise<World> {
         ...(o.uploadVersion === undefined
           ? {}
           : { uploadVersion: o.uploadVersion }),
+        ...(o.via === undefined ? {} : { via: o.via }),
         ports: {
           transport: counted(
             o.transport ?? network.transport(o.userId ?? "dana"),

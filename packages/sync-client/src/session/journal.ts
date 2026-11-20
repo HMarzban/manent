@@ -49,8 +49,12 @@ export interface Journal {
   appendServer(update: Uint8Array, applied: boolean): number;
   /** A setting requested here; `value` is JSON text. */
   appendSetting(key: string, value: string): StoredSetting;
-  /** The entries up to `clientSeq` are acknowledged; the meta notes it in the same write. */
-  acknowledge(clientSeq: number, serverSeq: number, syncedAt: number): void;
+  /** The entries up to `clientSeq` are acknowledged; the meta notes it in the same write, with `syncedAt` unless it is null. */
+  acknowledge(
+    clientSeq: number,
+    serverSeq: number,
+    syncedAt: number | null,
+  ): void;
   /** Drops a setting refused for good; null when no setting has that sequence. */
   refuse(clientSeq: number): StoredSetting | null;
   /** Every server update up to `through` is in the document. */
@@ -234,7 +238,11 @@ class StoreJournal implements Journal {
     return entry;
   }
 
-  acknowledge(clientSeq: number, serverSeq: number, syncedAt: number): void {
+  acknowledge(
+    clientSeq: number,
+    serverSeq: number,
+    syncedAt: number | null,
+  ): void {
     const isNew = (e: StoredEntry): boolean =>
       !e.acked && e.localSeq <= clientSeq;
     const ackedClocks = { ...this.meta.ackedClocks };
@@ -250,7 +258,7 @@ class StoreJournal implements Journal {
       lastServerSeq: Math.max(this.meta.lastServerSeq, serverSeq),
       ackedClocks,
       neverSynced: false,
-      lastSyncedAt: syncedAt,
+      ...(syncedAt === null ? {} : { lastSyncedAt: syncedAt }),
     };
     this.meta = { ...this.meta, ...patch };
     void this.persist(() =>
