@@ -232,15 +232,14 @@ test("wrap is total", () => {
         expect(isClusterBoundary(s, starts[i]!)).toBe(true);
       }
       for (let i = 0; i < starts.length; i++) {
-        const line = s
-          .slice(starts[i]!, starts[i + 1] ?? s.length)
-          .replace(new RegExp("[ \\t\\n]+$"), "");
+        const line = lineOf(s, starts, i);
         expect(
           cellsOf(line) <= Math.max(1, width) || clusterCount(line) === 1,
         ).toBe(true); // too wide only when it is one cluster
       }
     }),
-    { numRuns: 500 },
+    // a line ending in a carriage return and a line feed
+    { numRuns: 500, examples: [["\u0000\r\n", 0]] },
   );
 });
 
