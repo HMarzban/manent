@@ -228,7 +228,9 @@ export async function writePdf(
     );
   const { widthPt, heightPt } = p.profile.geometry;
   const created = new Date(options.createdAt ?? 0);
-  const doc = new PDFDocument({
+  // pdfkit opens Helvetica unless font is null, and its browser build carries no standard fonts:
+  // every piece sets its own face, so none is opened.
+  const settings: PDFKit.PDFDocumentOptions = {
     size: [widthPt, heightPt],
     margin: 0,
     autoFirstPage: false,
@@ -237,7 +239,9 @@ export async function writePdf(
       CreationDate: created,
       ModDate: created,
     },
-  });
+  };
+  Reflect.set(settings, "font", null);
+  const doc = new PDFDocument(settings);
   const chunks: Uint8Array<ArrayBuffer>[] = [];
   const written = new Promise<Uint8Array>((resolve, reject) => {
     doc.on("data", (chunk: Uint8Array<ArrayBuffer>) => chunks.push(chunk));
