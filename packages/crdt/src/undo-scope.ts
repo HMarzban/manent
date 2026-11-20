@@ -1,6 +1,6 @@
 // The undo scope of one editor binding: the one place a Yjs UndoManager is built.
 import * as Y from "yjs";
-import { yDocOf } from "./doc.ts";
+import { ORIGIN_REVIEW, yDocOf } from "./doc.ts";
 import type { CrdtDoc } from "./doc.ts";
 import { FRAGMENT_NAME } from "./mapping.ts";
 
@@ -33,6 +33,34 @@ function keepFilledText(item: Y.Item): boolean {
   );
 }
 
+/** A manager that closes its current step before and after every review action, so that one is never merged with typing. */
+class ReviewStepManager extends Y.UndoManager {
+  private readonly closeAtReview = (tr: Y.Transaction): void => {
+    if (tr.origin === ORIGIN_REVIEW) this.stopCapturing();
+  };
+
+  constructor(
+    roots: (Y.XmlFragment | Y.Map<unknown>)[],
+    trackedOrigins: readonly unknown[],
+  ) {
+    super(roots, {
+      trackedOrigins: new Set(trackedOrigins),
+      captureTransaction: (tr) => tr.meta.get("addToHistory") !== false,
+      deleteFilter: keepFilledText,
+    });
+    // after the manager's own handler, so that the step it has just added is closed
+    this.doc.on("beforeTransaction", this.closeAtReview);
+    this.doc.on("afterTransaction", this.closeAtReview);
+  }
+
+  // Yjs emits nothing when a manager is destroyed, so its listeners come off here
+  override destroy(): void {
+    this.doc.off("beforeTransaction", this.closeAtReview);
+    this.doc.off("afterTransaction", this.closeAtReview);
+    super.destroy();
+  }
+}
+
 class YjsUndoScope implements UndoScope {
   readonly roots: readonly UndoRoot[];
   readonly manager: Y.UndoManager;
@@ -45,20 +73,17 @@ class YjsUndoScope implements UndoScope {
 
 /**
  * A manager over the roots that records only writes whose origin is one of
- * `trackedOrigins`, and never a transaction marked `addToHistory: false`.
+ * `trackedOrigins`, and never a transaction marked `addToHistory: false`. A
+ * transaction of origin ORIGIN_REVIEW is always a step of its own.
  */
 export function createUndoScope(
   doc: CrdtDoc,
   options: { trackedOrigins: readonly unknown[]; roots: readonly UndoRoot[] },
 ): UndoScope {
   const ydoc = yDocOf(doc);
-  const manager = new Y.UndoManager(
+  const manager = new ReviewStepManager(
     options.roots.map((root) => ROOT_TYPES[root](ydoc)),
-    {
-      trackedOrigins: new Set(options.trackedOrigins),
-      captureTransaction: (tr) => tr.meta.get("addToHistory") !== false,
-      deleteFilter: keepFilledText,
-    },
+    options.trackedOrigins,
   );
   return new YjsUndoScope([...options.roots], manager);
 }
@@ -68,4 +93,9 @@ export function undoManagerForBinding(scope: UndoScope): Y.UndoManager {
   if (!(scope instanceof YjsUndoScope))
     throw new TypeError("an undo scope must come from createUndoScope");
   return scope.manager;
+}
+
+/** True for the transaction of an undo or a redo made by a scope's manager. */
+export function isUndoStep(origin: unknown): boolean {
+  return origin instanceof ReviewStepManager;
 }
