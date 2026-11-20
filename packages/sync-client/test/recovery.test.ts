@@ -1,7 +1,14 @@
 import { expect, test } from "bun:test";
-import { createDoc, deletionsOf, loadDoc, scriptBody } from "@manent/crdt";
+import {
+  createDoc,
+  deletionsOf,
+  loadDoc,
+  scriptBody,
+  updateMeta,
+} from "@manent/crdt";
 import type { BlockWriter, CrdtDoc } from "@manent/crdt";
 import { CODE } from "@manent/sync-protocol";
+import * as entry from "../src/index.ts";
 import type { DeviceVersion, DocHandle } from "../src/index.ts";
 import {
   B1,
@@ -12,6 +19,7 @@ import {
   seededMeta,
   setup,
   subscribed,
+  textAfter,
   textOf,
   type,
   typeIn,
@@ -23,7 +31,6 @@ const A = "block-A-0000000";
 const B = "block-B-0000000";
 const C = "block-C-0000000";
 const D = "block-D-0000000";
-const E = "block-E-0000000";
 const N = "block-N-0000000";
 const X = "block-X-0000000";
 const Y = "block-Y-0000000";
@@ -65,7 +72,18 @@ function refuse(w: World, docId: string, clientSeq: number | null): void {
 
 const lastPush = (w: World) => w.server.got("PUSH").at(-1)!;
 
-test("a permanently rejected push is kept as a recovered version and its text as Recovered text, under a new client ID", async () => {
+/** The Yjs client IDs whose structs an update carries. */
+const clientsOf = (update: Uint8Array): number[] =>
+  updateMeta(update).map((m) => m.clientId);
+
+/** DOC2's text on the server once these updates are applied to its copy. */
+function textAfter2(w: World, updates: readonly Uint8Array[]): string {
+  const doc = loadDoc(w.server.doc(DOC2).encodeState());
+  for (const update of updates) doc.applyUpdate(update);
+  return textOf(doc);
+}
+
+test("a permanently rejected push is kept as a recovered version and written back under a new client ID", async () => {
   const w = await setup();
   const { server, store } = w;
   const client = w.makeClient();
@@ -85,83 +103,125 @@ test("a permanently rejected push is kept as a recovered version and its text as
   expect(fresh.at(-1)).not.toBe(first.clientId);
   expect(server.got("SYNC").at(-1)!.data).toEqual(EMPTY_VECTOR);
   expect(h.status.get().side).toEqual(["rejected"]);
-  const serverState = server.doc(DOC).encodeState();
-  server.subscribedWithState(DOC, serverState);
+  const pushed = server.got("PUSH").length;
+  server.subscribedWithState(DOC, server.doc(DOC).encodeState());
   await w.settle();
   expect(h.doc()).not.toBe(first);
   expect(h.doc().clientId).toBe(fresh.at(-1)!);
-  expect(textOf(h.doc())).toBe(textOf(loadDoc(serverState)));
-  expect(h.recovered.get().map((r) => [r.blockId, r.cause])).toEqual([
-    [B1, "rejected"],
-    [B2, "rejected"],
-  ]);
-  expect(h.recovered.get().map((r) => r.text)).toEqual(["kept", "also kept"]);
+  expect(textOf(h.doc())).toBe("kept\nalso kept");
+  const pushes = server.got("PUSH").slice(pushed);
+  expect(new Set(pushes.flatMap((p) => clientsOf(p.update)))).toEqual(
+    new Set([fresh.at(-1)!]),
+  );
+  expect(textAfter(pushes.map((p) => p.update))).toBe("kept\nalso kept");
+  expect((await store.load(DOC))!.meta.recovering).toMatchObject({
+    replaying: true,
+  });
+  server.ack(DOC, pushes.at(-1)!.clientSeq, 2);
+  await w.settle();
+  expect(h.recovered.get()).toEqual([]);
   expect((await store.versions(DOC)).map((x) => [x.kind, x.label])).toEqual([
     ["recovered", "rejected"],
   ]);
   expect(events).toEqual([
     { type: "replaced", reason: "rejected" },
-    { type: "recovered", items: [...h.recovered.get()] },
-    { type: "rejected", code: 4422, replayed: 0, setAside: 2 },
+    { type: "rejected", code: 4422, replayed: 2, setAside: 0 },
   ]);
-  expect(h.status.get()).toMatchObject({ side: [], recovered: 2 });
+  expect(h.status.get()).toMatchObject({ side: [], recovered: 0 });
   const meta = (await store.load(DOC))!.meta;
   expect([meta.recovering, meta.clientIds]).toEqual([null, fresh]);
-  expect(await store.recovered(DOC)).toEqual([...h.recovered.get()]);
 });
 
-test("only what the server lacks is filed, and a deletion files nothing", async () => {
+test("after a rejected push, a block both sides changed merges by character", async () => {
   const w = await setup();
-  const base: [string, string][] = [
+  const base = stateOf([[B, "rain"]]);
+  await seed2(w, base, base);
+  const client = w.makeClient();
+  const h = await client.open(DOC2);
+  await w.online();
+  const events = listen(h);
+  write(h, (writer) => writer.insertText(B, 0, "cold "));
+  await w.settle();
+  w.server.write(DOC2, (writer) => writer.insertText(B, 4, " falls"));
+  w.server.answer.subscribe = false;
+  refuse(w, DOC2, lastPush(w).clientSeq);
+  await w.settle();
+  const fresh = w.server.got("SUBSCRIBE").at(-1)!.clientIds.at(-1)!;
+  w.server.subscribedWithState(DOC2, w.server.doc(DOC2).encodeState());
+  await w.settle();
+  expect(textOf(h.doc())).toBe("cold rain falls");
+  const push = lastPush(w);
+  expect(clientsOf(push.update)).toEqual([fresh]);
+  w.server.ack(DOC2, push.clientSeq, 11);
+  await w.settle();
+  expect(events.at(-1)).toEqual({
+    type: "rejected",
+    code: 4422,
+    replayed: 1,
+    setAside: 0,
+  });
+  expect(h.recovered.get()).toEqual([]);
+});
+
+test("after a rejected push, blocks the server lacks are written back and a deleted one is Recovered text", async () => {
+  const w = await setup();
+  const base = stateOf([
     [A, "one"],
     [B, "two"],
     [C, "three"],
     [D, "four"],
-  ];
-  const theirs = loadDoc(stateOf(base));
-  scriptBody(theirs).write((writer) =>
-    writer.insertBlocks(D, [block(E, "same")]),
-  );
-  await seed2(w, stateOf(base), theirs.encodeState());
-  w.server.head = 11;
-  await w.store.patchMeta(DOC2, { lastServerSeq: 11 });
+  ]);
+  await seed2(w, base, base);
   const client = w.makeClient();
   const h = await client.open(DOC2);
-  client.setOnline(false);
+  await w.online();
   write(h, (writer) => {
     writer.deleteText(B, 0, 3);
     writer.insertText(B, 0, "TWO");
     writer.insertBlocks(B, [block(N, "new")]);
-    writer.insertBlocks(D, [block(E, "same")]);
-    writer.deleteBlock(D);
+    writer.insertText(D, 4, "!");
   });
   await w.settle();
-  client.setOnline(true);
-  await w.online();
+  w.server.write(DOC2, (writer) => writer.deleteBlock(D));
+  w.server.answer.subscribe = false;
   refuse(w, DOC2, lastPush(w).clientSeq);
   await w.settle();
+  const pushed = w.server.got("PUSH").length;
+  w.server.subscribedWithState(DOC2, w.server.doc(DOC2).encodeState());
+  await w.settle();
+  expect(textOf(h.doc())).toBe("one\nTWO\nnew\nthree");
   expect(
-    h.recovered.get().map(({ blockId, nearBlockId, text }) => ({
-      blockId,
-      nearBlockId,
-      text,
-    })),
-  ).toEqual([
-    { blockId: B, nearBlockId: A, text: "TWO" },
-    { blockId: N, nearBlockId: B, text: "new" },
-  ]);
+    h.recovered.get().map((r) => [r.blockId, r.nearBlockId, r.text, r.cause]),
+  ).toEqual([[D, C, "four!", "rejected"]]);
+  const pushes = w.server.got("PUSH").slice(pushed);
+  expect(
+    textAfter2(
+      w,
+      pushes.map((p) => p.update),
+    ),
+  ).toBe("one\nTWO\nnew\nthree");
 });
 
 test("Recovered text is filed by the nearest earlier block the server still holds", async () => {
   const w = await setup();
-  await seed2(w, stateOf([[A, "one"]]), stateOf([[A, "one"]]));
+  const base = stateOf([
+    [A, "one"],
+    [N, "first"],
+    [X, "second"],
+  ]);
+  await seed2(w, base, base);
   const client = w.makeClient();
   const h = await client.open(DOC2);
   await w.online();
-  write(h, (writer) =>
-    writer.insertBlocks(A, [block(N, "first"), block(X, "second")]),
-  );
+  write(h, (writer) => {
+    writer.insertText(N, 5, "!");
+    writer.insertText(X, 6, "!");
+  });
   await w.settle();
+  w.server.write(DOC2, (writer) => {
+    writer.deleteBlock(N);
+    writer.deleteBlock(X);
+  });
   refuse(w, DOC2, lastPush(w).clientSeq);
   await w.settle();
   expect(h.recovered.get().map((r) => [r.blockId, r.nearBlockId])).toEqual([
@@ -248,9 +308,9 @@ test("own synced text the server deleted unseen while the push was being refused
   refuse(w, DOC2, lastPush(w).clientSeq);
   await w.settle();
   await answer();
-  expect(recoveredOf(h)).toEqual([
-    [A, " [mine]", "merge"],
-    [B, "twox", "rejected"],
+  expect([recoveredOf(h), textOf(h.doc())]).toEqual([
+    [[A, " [mine]", "merge"]],
+    "twox",
   ]);
   expect(await w.store.recovered(DOC2)).toEqual([...h.recovered.get()]);
 });
@@ -284,9 +344,9 @@ test("own synced text the server deleted unseen while the push was being refused
   await w.settle();
   await answer();
   h.releaseRemote();
-  expect(recoveredOf(h)).toEqual([
-    [A, " [mine]", "merge"],
-    [B, "twox", "rejected"],
+  expect([recoveredOf(h), textOf(h.doc())]).toEqual([
+    [[A, " [mine]", "merge"]],
+    "twox",
   ]);
   expect(await w.store.recovered(DOC2)).toEqual([...h.recovered.get()]);
 });
@@ -302,6 +362,7 @@ test("a rejected block's Recovered text is whole characters in reading order", a
     writer.insertText(B1, 8, " café");
   });
   await w.settle();
+  w.server.write(DOC, (writer) => writer.deleteBlock(B1));
   refuse(w, DOC, lastPush(w).clientSeq);
   await w.settle();
   expect(h.recovered.get().map((r) => r.text)).toEqual(["مرحبا 🎭 café"]);
@@ -329,12 +390,14 @@ test("a recovery interrupted by a lost connection resumes", async () => {
   const again = w.makeClient();
   const g = await again.open(DOC);
   expect(g.status.get().side).toEqual(["rejected"]);
+  const pushed = server.got("PUSH").length;
   await w.online();
   expect(server.got("SYNC").at(-1)!.data).toEqual(EMPTY_VECTOR);
-  expect(g.recovered.get().map((r) => [r.blockId, r.text])).toEqual([
-    [B1, "typed"],
-  ]);
-  expect(await store.recovered(DOC)).toHaveLength(1);
+  const pushes = server.got("PUSH").slice(pushed);
+  expect(pushes.map((p) => textAfter([p.update]))).toEqual(["typed\n"]);
+  expect([textOf(g.doc()), g.recovered.get()]).toEqual(["typed\n", []]);
+  server.ack(DOC, pushes[0]!.clientSeq, 2);
+  await w.settle();
   expect((await store.load(DOC))!.meta.recovering).toBeNull();
   expect(g.status.get().side).toEqual([]);
 });
@@ -353,7 +416,7 @@ test("a waiting setting survives the recovery and is sent again as it is", async
   expect(sets).toHaveLength(2);
   expect(sets[1]).toEqual(sets[0]!);
   expect(h.settings.get()).toEqual({ "script.paper": "a4" });
-  expect(h.recovered.get().map((r) => r.text)).toEqual(["x"]);
+  expect([h.recovered.get(), textOf(h.doc())]).toEqual([[], "x\n"]);
 });
 
 test("typing during the recovery is never blocked and is not lost", async () => {
@@ -371,14 +434,15 @@ test("typing during the recovery is never blocked and is not lost", async () => 
   await w.settle();
   server.subscribedWithState(DOC, server.doc(DOC).encodeState());
   await w.settle();
+  const fresh = server.got("SUBSCRIBE").at(-1)!.clientIds.at(-1)!;
   typeIn(h, B2, "after");
   await w.settle();
-  expect(h.recovered.get().map((r) => [r.blockId, r.text])).toEqual([
-    [B1, "a"],
-    [B2, "between"],
-  ]);
-  expect(textOf(h.doc())).toBe("\nafter");
-  expect(lastPush(w)).toMatchObject({ heal: false, clientSeq: 3 });
+  expect(h.recovered.get()).toEqual([]);
+  expect(textOf(h.doc())).toBe("a\nbetweenafter");
+  const pushes = server
+    .got("PUSH")
+    .filter((p) => clientsOf(p.update).includes(fresh));
+  expect(textAfter(pushes.map((p) => p.update))).toBe("a\nbetweenafter");
 });
 
 test("access removed, or the document deleted, with edits waiting: they are kept, labelled, and never sent", async () => {
@@ -493,4 +557,47 @@ test("a client ID someone else holds is given up, and the session starts again u
   w.server.subscribedWithState(DOC, w.server.doc(DOC).encodeState());
   await w.settle();
   expect([h.doc().clientId, h.status.get().side]).toEqual([fresh!, []]);
+});
+
+test("a recovery whose own push is refused files what it wrote and stops", async () => {
+  const w = await setup();
+  const { server, store } = w;
+  const client = w.makeClient();
+  const h = await client.open(DOC);
+  await w.online();
+  const events = listen(h);
+  typeIn(h, B1, "kept");
+  typeIn(h, B2, "also kept");
+  await w.settle();
+  server.answer.subscribe = false;
+  refuse(w, DOC, lastPush(w).clientSeq);
+  await w.settle();
+  server.subscribedWithState(DOC, server.doc(DOC).encodeState());
+  await w.settle();
+  refuse(w, DOC, lastPush(w).clientSeq);
+  await w.settle();
+  const pushed = server.got("PUSH").length;
+  server.subscribedWithState(DOC, server.doc(DOC).encodeState());
+  await w.settle();
+  w.fake.advance(60_000);
+  await w.settle();
+  expect(recoveredOf(h)).toEqual([
+    [B1, "kept", "rejected"],
+    [B2, "also kept", "rejected"],
+  ]);
+  expect(server.got("PUSH").slice(pushed)).toEqual([]);
+  expect(textOf(h.doc())).toBe("\n");
+  expect((await store.load(DOC))!.meta.recovering).toBeNull();
+  expect(events.at(-1)).toEqual({
+    type: "rejected",
+    code: 4422,
+    replayed: 0,
+    setAside: 2,
+  });
+  expect(await store.recovered(DOC)).toEqual([...h.recovered.get()]);
+});
+
+test("the recovery's own workings are not among the package's names", () => {
+  const internal = ["PushRecovery", "differingText", "mergeMine"];
+  expect(internal.filter((name) => name in entry)).toEqual([]);
 });

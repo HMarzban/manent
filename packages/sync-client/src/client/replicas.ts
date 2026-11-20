@@ -65,10 +65,12 @@ interface Replica {
   queue: Promise<void>;
 }
 
-/** What a leader posts for a session's event: a replacement carries the new state, Recovered text its items. */
-function eventBody(docId: string, event: DocEvent, h: DocHandle): TabBody {
-  if (event.type === "replaced")
-    return { t: "replace", docId, state: h.doc().encodeState() };
+/** What a leader posts for a session's event: a replacement carries the new state and its generation, Recovered text its items. */
+function eventBody(docId: string, event: DocEvent, session: Session): TabBody {
+  if (event.type === "replaced") {
+    const { state, meta } = session.state();
+    return { t: "replace", docId, generation: meta.generation, state };
+  }
   if (event.type === "recovered")
     return { t: "recovered", docId, items: event.items };
   return { t: "event", docId, event };
@@ -254,6 +256,7 @@ class TabReplicas implements Replicas {
     unsaved: UnsavedEdit[],
   ): void {
     const { link } = this.options;
+    const { tabId } = this.options.ports.leader;
     const opening = openSession({
       docId,
       ports: this.options.ports,
@@ -263,6 +266,7 @@ class TabReplicas implements Replicas {
       stored: (update) => this.post({ t: "remote", docId, update }),
       view: () => this.options.view(docId),
       lostLead: () => this.options.lostLead(),
+      followers: () => [...replica.holders].filter((id) => id !== tabId),
       link: link.sessionLink(),
       writeSchema: link.writeSchema(),
       uploadVersion: this.options.uploadVersion,
@@ -271,7 +275,7 @@ class TabReplicas implements Replicas {
     }).then((session) => {
       this.opening.delete(docId);
       this.sessions.set(docId, session);
-      replica.unwire = this.wire(docId, session.handle);
+      replica.unwire = this.wire(docId, session);
       this.show(docId, replica, session.handle);
       session.link(link.sessionLink());
       if (link.sessionLink().state === "online")
@@ -282,10 +286,11 @@ class TabReplicas implements Replicas {
     void opening.catch(() => this.opening.delete(docId));
   }
 
-  private wire(docId: string, h: DocHandle): () => void {
+  private wire(docId: string, session: Session): () => void {
+    const h = session.handle;
     const offs = [
       h.status.subscribe((status) => this.post({ t: "status", docId, status })),
-      h.on((event) => this.post(eventBody(docId, event, h))),
+      h.on((event) => this.post(eventBody(docId, event, session))),
       h.onAwareness((update) => this.post({ t: "aw", docId, update })),
     ];
     this.post({ t: "status", docId, status: h.status.get() });
@@ -309,7 +314,7 @@ class TabReplicas implements Replicas {
       this.letGo(m.docId, m.from);
       return;
     }
-    if (m.t !== "open" && m.t !== "edit") return;
+    if (m.t !== "open" && m.t !== "edit" && m.t !== "opened") return;
     const replica = this.replica(m.docId, m.t === "open" ? m.create : null);
     if (m.t === "open") replica.holders.add(m.from);
     replica.queue = replica.queue.then(async () => {
@@ -317,6 +322,11 @@ class TabReplicas implements Replicas {
       const session =
         this.sessions.get(m.docId) ?? (await this.opening.get(m.docId));
       if (session === undefined) return;
+      if (m.t === "opened") {
+        session.addClient(m.clientId);
+        session.released(m.from);
+        return;
+      }
       if (m.t === "open") {
         session.addClient(m.clientId);
         this.post({
@@ -337,7 +347,7 @@ class TabReplicas implements Replicas {
       }
       this.storedEdits.set(key, m.n);
       // stored now, answered once the write settles, so that a slow write holds up no other request
-      void session.edit(m).then(saved);
+      void session.edit(m, m.generation).then(saved);
     });
   }
 
@@ -352,6 +362,7 @@ class TabReplicas implements Replicas {
     replica.holders.delete(tabId);
     replica.queue = replica.queue.then(async () => {
       await replica.ready.promise;
+      this.sessions.get(docId)?.released(tabId);
       this.storedEdits.delete(`${tabId}:${docId}`);
       await this.release(docId, replica);
     });

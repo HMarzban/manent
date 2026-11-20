@@ -495,7 +495,7 @@ test(
 );
 
 test(
-  "a hostile push is refused, its sender keeps its text as Recovered text, and nobody else notices",
+  "a hostile push is refused, its sender's text is written back by block without what was refused, and nobody else notices",
   () =>
     forSeeds(async (w) => {
       for (let i = 0; i < 50; i++) w.act();
@@ -511,8 +511,8 @@ test(
         .get()
         .filter((item) => item.text.includes(text))
         .map((item) => item.cause);
-      expect(kept).toEqual(["rejected"]);
-      expect(w.serverText().join("\n")).not.toContain(text);
+      expect(kept).toEqual([]);
+      expect(w.serverText().join("\n")).toContain(text);
       expect(others.map((c) => c.handle.recovered.get())).toEqual(before);
       expect(others.map((c) => c.handle.status.get().side)).toEqual(
         others.map(() => []),
