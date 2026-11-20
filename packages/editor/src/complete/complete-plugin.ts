@@ -1,7 +1,7 @@
 // Autocomplete inside the page: names, scene headings and transitions offered at the caret, keyboard first.
 import { mark } from "@manent/perf";
 import { Plugin, PluginKey } from "prosemirror-state";
-import type { EditorState } from "prosemirror-state";
+import type { EditorState, PluginView, Transaction } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { blockAt } from "../pagination/block-index.ts";
 import { paginationKey } from "../pagination/plugin.ts";
@@ -9,6 +9,7 @@ import type { Frames, Timers } from "../script-editor/ports.ts";
 import { collectNames, recentCues } from "./names.ts";
 import type { Names } from "./names.ts";
 import { createCompletePopover } from "./popover.ts";
+import type { CompletePopover } from "./popover.ts";
 import { suggest } from "./suggest.ts";
 import type { Suggestions } from "./suggest.ts";
 
@@ -60,6 +61,27 @@ function moved(state: EditorState, names: Names): CompleteState {
   };
 }
 
+/** The state after `tr`: a meta moves or closes the list; a caret that moved offers again, from `names`. */
+function applied(
+  tr: Transaction,
+  prev: CompleteState,
+  old: EditorState,
+  state: EditorState,
+  names: Names,
+): CompleteState {
+  const meta: CompleteMeta | undefined = tr.getMeta(completeKey);
+  if (meta?.kind === "move") return { ...prev, active: meta.active };
+  if (meta?.kind === "close") return CLOSED;
+  const [before, after] = [old.selection, state.selection];
+  if (
+    before.empty === after.empty &&
+    before.$head.parent === after.$head.parent &&
+    before.$head.parentOffset === after.$head.parentOffset
+  )
+    return prev;
+  return moved(state, names);
+}
+
 function accept(view: EditorView, open: Suggestions, active: number): void {
   const start = view.state.selection.$head.start();
   const item = open.items[active]!;
@@ -106,16 +128,71 @@ function handled(
   }
 }
 
+interface CompleteOptions {
+  layer: HTMLElement;
+  frames: Frames;
+  timers: Timers;
+}
+
+/** Collects the names when it starts and after a change, and shows, places and hides the list as the state says. */
+function completeView(
+  view: EditorView,
+  parts: {
+    popover: CompletePopover;
+    options: CompleteOptions;
+    setNames(names: Names): void;
+  },
+): PluginView {
+  const { popover, options } = parts;
+  let cancelTimer: (() => void) | null = null;
+  let cancelFrame: (() => void) | null = null;
+  const collect = () => {
+    cancelTimer = null;
+    const pagination = paginationKey.getState(view.state);
+    if (view.composing || pagination?.frozen === true) later();
+    else if (pagination !== undefined)
+      parts.setNames(collectNames(pagination.index.blocks));
+  };
+  const later = () => {
+    cancelTimer ??= options.timers.schedule(collect, NAMES_EVERY_MS);
+  };
+  const place = () => {
+    cancelFrame = null;
+    const caret = view.coordsAtPos(view.state.selection.head);
+    const box = options.layer.getBoundingClientRect();
+    popover.place(caret.left - box.left, caret.bottom - box.top);
+  };
+  const draw = () => {
+    const { open, active } = completeKey.getState(view.state)!;
+    cancelFrame?.();
+    cancelFrame = null;
+    if (open === null) popover.hide();
+    else if (!view.composing) {
+      popover.show(open.items, active);
+      cancelFrame = options.frames.request(place);
+    }
+  };
+  collect();
+  return {
+    update(_, prev) {
+      if (view.state.doc !== prev.doc) later();
+      if (completeKey.getState(view.state) !== completeKey.getState(prev))
+        draw();
+    },
+    destroy() {
+      cancelTimer?.();
+      cancelFrame?.();
+      popover.hide();
+    },
+  };
+}
+
 /**
  * The list of what `suggest` offers at the caret, drawn in `layer` and placed in a frame under the caret; focus
  * stays on the page. Names are collected when the view starts and then at most every 250 ms after a change, by a
  * timer that waits while an input method composes. Placed before the element keys.
  */
-export function completePlugin(options: {
-  layer: HTMLElement;
-  frames: Frames;
-  timers: Timers;
-}): Plugin {
+export function completePlugin(options: CompleteOptions): Plugin {
   const popover = createCompletePopover({ layer: options.layer });
   let names: Names = {
     characters: new Map(),
@@ -128,19 +205,7 @@ export function completePlugin(options: {
     key: completeKey,
     state: {
       init: () => CLOSED,
-      apply: (tr, prev, old, state) => {
-        const meta: CompleteMeta | undefined = tr.getMeta(completeKey);
-        if (meta?.kind === "move") return { ...prev, active: meta.active };
-        if (meta?.kind === "close") return CLOSED;
-        const [before, after] = [old.selection, state.selection];
-        if (
-          before.empty === after.empty &&
-          before.$head.parent === after.$head.parent &&
-          before.$head.parentOffset === after.$head.parentOffset
-        )
-          return prev;
-        return moved(state, names);
-      },
+      apply: (tr, prev, old, state) => applied(tr, prev, old, state, names),
     },
     props: {
       attributes: (state) => {
@@ -152,48 +217,13 @@ export function completePlugin(options: {
         !event.isComposing &&
         handled(view, event, completeKey.getState(view.state)!),
     },
-    view: (view) => {
-      let cancelTimer: (() => void) | null = null;
-      let cancelFrame: (() => void) | null = null;
-      const collect = () => {
-        cancelTimer = null;
-        const pagination = paginationKey.getState(view.state);
-        if (view.composing || pagination?.frozen === true) later();
-        else if (pagination !== undefined)
-          names = collectNames(pagination.index.blocks);
-      };
-      const later = () => {
-        cancelTimer ??= options.timers.schedule(collect, NAMES_EVERY_MS);
-      };
-      const place = () => {
-        cancelFrame = null;
-        const caret = view.coordsAtPos(view.state.selection.head);
-        const box = options.layer.getBoundingClientRect();
-        popover.place(caret.left - box.left, caret.bottom - box.top);
-      };
-      const draw = () => {
-        const { open, active } = completeKey.getState(view.state)!;
-        cancelFrame?.();
-        cancelFrame = null;
-        if (open === null) popover.hide();
-        else if (!view.composing) {
-          popover.show(open.items, active);
-          cancelFrame = options.frames.request(place);
-        }
-      };
-      collect();
-      return {
-        update(_, prev) {
-          if (view.state.doc !== prev.doc) later();
-          if (completeKey.getState(view.state) !== completeKey.getState(prev))
-            draw();
+    view: (view) =>
+      completeView(view, {
+        popover,
+        options,
+        setNames: (next) => {
+          names = next;
         },
-        destroy() {
-          cancelTimer?.();
-          cancelFrame?.();
-          popover.hide();
-        },
-      };
-    },
+      }),
   });
 }
