@@ -5,7 +5,12 @@ import type {
   SignInProvider,
 } from "@manent/server-core";
 import type { Storage } from "@manent/storage";
-import type { Clock, Random, SyncClient } from "@manent/sync-client";
+import type {
+  Clock,
+  LocalStore,
+  Random,
+  SyncClient,
+} from "@manent/sync-client";
 import type {
   AdoptRequest,
   AdoptResponse,
@@ -45,6 +50,8 @@ export interface CloudApi {
 /** One upstream client per person. */
 export interface UpstreamFactory {
   create(userId: string, token: () => string | null): SyncClient;
+  /** The store that person's upstream client keeps its documents in. */
+  store(userId: string): LocalStore;
 }
 
 export interface NodeCoreOptions {
