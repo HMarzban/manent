@@ -53,10 +53,20 @@ function isCovered(entry: StoredEntry, throughLocalSeq: number): boolean {
   );
 }
 
+/** A copy of the stored meta; a create stored before creates named a workspace names none. */
+function metaOf(meta: DocMeta): DocMeta {
+  const { create } = meta;
+  const workspaceId = create?.workspaceId ?? null;
+  return structuredClone({
+    ...meta,
+    create: create && { ...create, workspaceId },
+  });
+}
+
 function loaded(record: DocRecord): LoadedDocument {
   const { checkpoint } = record;
   return {
-    meta: structuredClone(record.meta),
+    meta: metaOf(record.meta),
     checkpoint:
       checkpoint === null
         ? null
@@ -276,7 +286,7 @@ class MemoryStore implements LocalStore {
   async documents(): Promise<DocMeta[]> {
     await Promise.resolve();
     return [...this.contents.docs.values()].map((record) =>
-      structuredClone(record.meta),
+      metaOf(record.meta),
     );
   }
 

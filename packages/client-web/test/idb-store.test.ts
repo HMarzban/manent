@@ -250,3 +250,19 @@ test("a document stored before moves existed reads as not moving", async () => {
   expect((await store.load(DOC))!.meta).toEqual(meta);
   expect(await store.documents()).toEqual([meta]);
 });
+
+test("a document stored before creates named a workspace reads as having none", async () => {
+  const indexedDb = new IDBFactory();
+  const store = await openIdbStore({ userId: "dana", indexedDb });
+  await putOlderMeta(indexedDb, {
+    ...blankMeta(DOC),
+    create: { kind: "script", home: "user" },
+    highestLocalSeq: 0,
+  });
+  const meta = {
+    ...blankMeta(DOC),
+    create: { kind: "script", home: "user", workspaceId: null },
+  };
+  expect((await store.load(DOC))!.meta).toEqual(meta);
+  expect(await store.documents()).toEqual([meta]);
+});

@@ -33,6 +33,7 @@ const SIDE_ORDER: Readonly<Record<SideState, number>> = Object.freeze({
   not_saved: 4,
   sign_in: 5,
   server_old: 6,
+  view_only: 7,
 });
 
 // planOutbox's test of an entry: an own update or a setting the server has not acknowledged

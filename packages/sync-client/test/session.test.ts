@@ -525,6 +525,12 @@ test("each ERROR for a document has its one answer", async () => {
       permanent: false,
       side: ["read_only"],
     },
+    {
+      code: CODE.FORBIDDEN,
+      message: "read_only_role",
+      permanent: false,
+      side: ["view_only"],
+    },
   ];
   for (const stop of stops) {
     const { w, h } = await openTyped();

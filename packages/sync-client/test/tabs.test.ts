@@ -26,7 +26,7 @@ const META: DocMeta = {
   clientIds: [7, 9],
   ackedClocks: { "7": 12 },
   neverSynced: false,
-  create: { kind: "script", home: "user" },
+  create: { kind: "script", home: "user", workspaceId: null },
   parked: { reason: "deleted", parkedAt: 1_000 },
   recovering: { versionId: "v1", heal: true, replaying: false },
   lastDeviceVersionAt: 900,
@@ -60,7 +60,7 @@ const SAMPLES: Record<TabBody["t"], TabBody> = {
     t: "open",
     docId: DOC,
     clientId: 7,
-    create: { kind: "script", home: "user" },
+    create: { kind: "script", home: "user", workspaceId: null },
   },
   close: { t: "close", docId: DOC },
   state: {
@@ -360,7 +360,9 @@ const text = fc.string({ maxLength: 8 });
 const int = fc.integer();
 const nullable = <T>(arb: fc.Arbitrary<T>) => fc.option(arb, { nil: null });
 const bytes = fc.uint8Array({ maxLength: 8 });
-const create = nullable(fc.record({ kind: text, home: text }));
+const create = nullable(
+  fc.record({ kind: text, home: text, workspaceId: nullable(text) }),
+);
 const meta: fc.Arbitrary<DocMeta> = fc.record({
   docId: text,
   generation: int,

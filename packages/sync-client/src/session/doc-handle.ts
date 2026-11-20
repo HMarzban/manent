@@ -32,7 +32,7 @@ export interface DocHandle {
   readonly settings: Subscribable<Readonly<Record<string, unknown>>>;
   /** The newest schema version this document may be written in right now. */
   readonly writeSchema: Subscribable<number>;
-  /** Set when the server answered 4408: the app shows this reader instead of an editor. */
+  /** Set when the server answered 4408, or 4403 `read_only_role`: the app shows this reader instead of an editor. */
   readonly readOnly: Subscribable<ViewHandle | null>;
   on(listener: (event: DocEvent) => void): () => void;
   /** A request: shown at once, sent as SET, dropped if refused. TypeError for a value JSON cannot hold. */

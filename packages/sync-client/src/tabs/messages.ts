@@ -27,7 +27,7 @@ export type TabBody =
       t: "open";
       docId: string;
       clientId: number;
-      create: { kind: string; home: string } | null;
+      create: DocMeta["create"];
     }
   | { t: "close"; docId: string }
   | { t: "state"; to: string; docId: string; state: Uint8Array; meta: DocMeta }
@@ -141,6 +141,7 @@ const readSide = oneOf<SideState>(
     not_saved: true,
     sign_in: true,
     server_old: true,
+    view_only: true,
   }),
 );
 const readParkedReason = oneOf<ParkedReason>(
@@ -152,7 +153,11 @@ const readCause = oneOf<RecoveredItem["cause"]>(
 
 function readCreate(value: unknown): NonNullable<DocMeta["create"]> {
   const fields = readFields(value);
-  return { kind: readString(fields.kind), home: readString(fields.home) };
+  return {
+    kind: readString(fields.kind),
+    home: readString(fields.home),
+    workspaceId: orNull(readString)(fields.workspaceId),
+  };
 }
 
 function readParked(value: unknown): NonNullable<DocMeta["parked"]> {

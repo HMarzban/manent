@@ -14,6 +14,7 @@ import {
   encodeMessage,
 } from "@manent/sync-protocol";
 import type {
+  CreateDocumentRequest,
   DocumentMessage,
   Message,
   ServerVersions,
@@ -201,7 +202,7 @@ export interface ScriptedServer {
   head: number;
   /** Connections served, and documents created through the route. */
   ends(): number;
-  created: { userId: string; docId: string; kind: string; home: string }[];
+  created: ({ userId: string } & CreateDocumentRequest)[];
   /** The server's copy: the seed for DOC, empty for any other. */
   doc(docId: string): CrdtDoc;
   /** Changes the server's copy and returns the update; sends nothing. */
@@ -209,6 +210,8 @@ export interface ScriptedServer {
   write(docId: string, fn: (w: BlockWriter) => void): Uint8Array;
   syncUpdate(docId: string, update: Uint8Array): void;
   ack(docId: string, clientSeq: number, serverSeq: number): void;
+  /** Takes in every push the clients sent for the document and acknowledges every own entry it holds, at a new head; nothing when none was sent. */
+  ackAll(docId: string): void;
   error(docId: string, error: ServerError): void;
   send(message: Message): void;
   sendFrame(frame: Uint8Array): void;
@@ -322,6 +325,15 @@ function scriptedServer(network: MemoryNetwork): ScriptedServer {
         clientSeq,
         serverSeq,
       }),
+    ackAll(docId) {
+      const sent = server.got("PUSH", "SET").filter((m) => m.docId === docId);
+      if (sent.length === 0) return;
+      for (const m of sent)
+        if (m.type === "PUSH") server.doc(docId).applyUpdate(m.update);
+      server.head += 1;
+      const through = Math.max(...sent.map((m) => m.clientSeq));
+      server.ack(docId, through, server.head);
+    },
     error: (docId, e) =>
       server.send({
         type: "ERROR",

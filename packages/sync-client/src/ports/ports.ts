@@ -45,11 +45,12 @@ export interface Transport {
     onFrame(frame: Uint8Array): void;
     onClose(code: number, reason: string): void;
   }): Promise<Connection>;
-  /** Idempotent; rejects ConnectError. */
+  /** Idempotent; rejects ConnectError. `workspaceId` is sent only when it is not null. */
   createDocument(request: {
     docId: string;
     kind: string;
     home: string;
+    workspaceId: string | null;
   }): Promise<{ ok: true } | { ok: false; code: "forbidden" | "deleted" }>;
   /** Edits made against a generation the document has left, posted once under `key`; rejects ConnectError. */
   replay(request: {
@@ -108,7 +109,8 @@ export interface DocMeta {
   /** Own client ID → highest acknowledged clock. */
   ackedClocks: Record<string, number>;
   neverSynced: boolean;
-  create: { kind: string; home: string } | null;
+  /** `workspaceId`: the workspace whose index a new script takes its roles from; null for any other document. */
+  create: { kind: string; home: string; workspaceId: string | null } | null;
   parked: { reason: "access_removed" | "deleted"; parkedAt: number } | null;
   /**
    * A rejected push being recovered; `heal`: the rejected push was the heal
@@ -246,6 +248,7 @@ export type LinkState = "offline" | "connecting" | "authenticating" | "online";
 /** `local`: no live subscription. */
 export type DocSyncState = "local" | "syncing" | "synced";
 
+/** `view_only`: the person's role cannot edit the document, so it is read through a viewer. */
 export type SideState =
   | "access_removed"
   | "deleted"
@@ -253,7 +256,8 @@ export type SideState =
   | "rejected"
   | "not_saved"
   | "sign_in"
-  | "server_old";
+  | "server_old"
+  | "view_only";
 
 export interface DocStatus {
   /** Every edit made here is committed to the local store. */
@@ -269,6 +273,18 @@ export interface DocStatus {
   recovered: number;
   side: readonly SideState[];
 }
+
+/** One document as the store holds it, read without opening it. */
+export interface DocSummary {
+  docId: string;
+  neverSynced: boolean;
+  waiting: number;
+  parked: DocMeta["parked"];
+  recovered: number;
+}
+
+/** While the store refuses an entry, it is written again this often. */
+export const STORE_RETRY_MS = 5_000;
 
 /** The listener runs only when the value changed, by deep equality. */
 export interface Subscribable<T> {

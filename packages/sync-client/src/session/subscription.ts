@@ -1,7 +1,7 @@
 // One document's subscription as its session drives it: what SUBSCRIBE and the heal push carry,
 // the server's step 2, acknowledgements and refusals, what each ending stops or parks, and the
 // recovery from a permanently rejected push or a move to a new generation it hands over to.
-import { createDoc, readStateVector } from "@manent/crdt";
+import { createDoc, loadDoc, readStateVector } from "@manent/crdt";
 import { CODE } from "@manent/sync-protocol";
 import type { DocumentMessage, Message } from "@manent/sync-protocol";
 import type { ServerGate } from "../link/gate.ts";
@@ -12,6 +12,7 @@ import { SUBSCRIBE_CLIENT_IDS } from "../ports/defaults.ts";
 import { ConnectError } from "../ports/ports.ts";
 import { PushRecovery } from "../recovery/recover.ts";
 import type {
+  DocMeta,
   SideState,
   Subscribable,
   SyncClientPorts,
@@ -27,9 +28,9 @@ import type { Ending } from "./refusals.ts";
 /**
  * `side`: what the server's answers set aside from syncing. `connection`
  * counts connections made and lost, so that an answer for an older one is
- * dropped. `readOnly` is set when the server answered 4408. `moving`: a move
- * to a new generation is under way; `left`: the document a move left, while
- * something may still write to it.
+ * dropped. `readOnly` is set when the server answered 4408 or 4403
+ * `read_only_role`. `moving`: a move to a new generation is under way;
+ * `left`: the document a move left, while something may still write to it.
  */
 export interface Subscription extends HandshakeHost {
   readonly handshake: Handshake;
@@ -142,7 +143,9 @@ class DocSubscription implements Subscription {
 
   /**
    * A recovery subscribes under its new client ID, and a move under the new
-   * generation's, with an empty state vector, to be sent the whole state.
+   * generation's, with an empty state vector, to be sent the whole state. With
+   * own entries waiting, step 1 carries the synced base's vector, so that step 2
+   * is everything the server holds beyond it.
    */
   subscription(): ReturnType<HandshakeHost["subscription"]> {
     const loading = this.move?.subscription() ?? null;
@@ -151,12 +154,15 @@ class DocSubscription implements Subscription {
     const { meta } = this.options.journal;
     const clientIds =
       fresh === null ? meta.clientIds : [...meta.clientIds, fresh.clientId];
-    const { doc } = this.options.copy;
+    const { syncedBase } = this;
+    const base =
+      syncedBase !== null && this.hasWaiting() ? loadDoc(syncedBase) : null;
+    const from = fresh === null ? (base ?? this.options.copy.doc) : createDoc();
     return {
       generation: fresh?.generation ?? meta.generation,
       clientIds: clientIds.slice(-SUBSCRIBE_CLIENT_IDS),
       lastServerSeq: this.recovery.redirected ? 0 : meta.lastServerSeq,
-      vector: (fresh === null ? doc : createDoc()).encodeStateVector(),
+      vector: from.encodeStateVector(),
     };
   }
 
@@ -245,7 +251,8 @@ class DocSubscription implements Subscription {
           this.reject(ending.code, ending.clientSeq);
         else if (ending.side === "deleted") this.park("deleted");
         else this.stop(ending.side);
-        if (ending.side === "read_only") this.readOnly.set(this.options.view());
+        if (ending.side === "read_only" || ending.side === "view_only")
+          this.readOnly.set(this.options.view());
         return;
       case "forbidden": {
         const { create, neverSynced } = journal.meta;
@@ -342,7 +349,7 @@ class DocSubscription implements Subscription {
     this.stop(reason);
   }
 
-  private createThenSubscribe(create: { kind: string; home: string }): void {
+  private createThenSubscribe(create: NonNullable<DocMeta["create"]>): void {
     const at = this.connection;
     const request = { docId: this.options.docId, ...create };
     this.options.ports.transport.createDocument(request).then(

@@ -104,9 +104,12 @@ test("with nobody signed in the server is never reached", async () => {
     { code: "sign_in" },
   );
   await expect(
-    network
-      .transport(null)
-      .createDocument({ docId: "d", kind: "script", home: "user" }),
+    network.transport(null).createDocument({
+      docId: "d",
+      kind: "script",
+      home: "user",
+      workspaceId: null,
+    }),
   ).rejects.toMatchObject({ code: "sign_in" });
   expect([ends.length, created]).toEqual([0, []]);
 });
@@ -121,15 +124,21 @@ test("a refused session and a cut each keep the server from being reached", asyn
   network.refuseSessions(false);
   network.partition(true);
   await expect(
-    network
-      .transport("dana")
-      .createDocument({ docId: "d", kind: "script", home: "user" }),
+    network.transport("dana").createDocument({
+      docId: "d",
+      kind: "script",
+      home: "user",
+      workspaceId: null,
+    }),
   ).rejects.toMatchObject({ code: "unreachable" });
   network.partition(false);
   expect(
-    await network
-      .transport("dana")
-      .createDocument({ docId: "d", kind: "script", home: "user" }),
+    await network.transport("dana").createDocument({
+      docId: "d",
+      kind: "script",
+      home: "user",
+      workspaceId: null,
+    }),
   ).toEqual({ ok: true });
   expect([ends.length, created]).toEqual([0, ["dana:d"]]);
 });
