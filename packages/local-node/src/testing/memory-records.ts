@@ -15,6 +15,7 @@ interface State {
     string,
     { userId: string; state: NodeDocState; generation: number }
   >;
+  workspaces: Map<string, string>;
   handoffs: Map<string, Handoff>;
   recovered: Map<string, RecoveredItem[]>;
   seedId: string | null;
@@ -32,6 +33,7 @@ const emptyState = (): State => ({
   people: new Map(),
   current: null,
   docs: new Map(),
+  workspaces: new Map(),
   handoffs: new Map(),
   recovered: new Map(),
   seedId: null,
@@ -98,6 +100,8 @@ function docRecords(
   | "docsOf"
   | "addRecovered"
   | "recovered"
+  | "setWorkspace"
+  | "workspaceOf"
 > {
   return {
     docState(docId) {
@@ -130,6 +134,10 @@ function docRecords(
     },
     recovered: (docId) =>
       structuredClone(held.state.recovered.get(docId) ?? []),
+    setWorkspace(docId, workspaceId) {
+      held.state.workspaces.set(docId, workspaceId);
+    },
+    workspaceOf: (docId) => held.state.workspaces.get(docId) ?? null,
   };
 }
 
@@ -150,8 +158,9 @@ function handoffRecords(
     },
     startHandoff(handoff) {
       crash("startHandoff");
-      if (!held.state.handoffs.has(handoff.docId))
-        held.state.handoffs.set(handoff.docId, copyHandoff(handoff));
+      if (held.state.handoffs.has(handoff.docId)) return;
+      held.state.handoffs.set(handoff.docId, copyHandoff(handoff));
+      held.state.workspaces.delete(handoff.docId);
     },
     refuseHandoff(docId, reason) {
       const handoff = held.state.handoffs.get(docId);

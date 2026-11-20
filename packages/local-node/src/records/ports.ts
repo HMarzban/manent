@@ -50,8 +50,12 @@ export interface NodeRecords {
     items: readonly RecoveredItem[],
   ): void;
   recovered(docId: string): RecoveredItem[];
+  /** The workspace a window named when it made the document on this device, kept until its hand-off starts. */
+  setWorkspace(docId: string, workspaceId: string): void;
+  /** Null when no window named one, or once the hand-off holds it. */
+  workspaceOf(docId: string): string | null;
   handoff(docId: string): Handoff | null;
-  /** An existing one is kept: a retry reuses its key and snapshot. */
+  /** An existing one is kept: a retry reuses its key and snapshot. A new one takes over the workspace, in one transaction. */
   startHandoff(handoff: Handoff): void;
   /** Keeps the row with its reason and removes the docs row, in one transaction. */
   refuseHandoff(docId: string, reason: HandoffRefusal): void;

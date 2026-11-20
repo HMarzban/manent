@@ -5,7 +5,12 @@ import type {
   SignInProvider,
 } from "@manent/server-core";
 import type { Storage } from "@manent/storage";
-import type { Clock, Random, SyncClient } from "@manent/sync-client";
+import type {
+  Clock,
+  LocalStore,
+  Random,
+  SyncClient,
+} from "@manent/sync-client";
 import type {
   AdoptRequest,
   AdoptResponse,
@@ -45,6 +50,8 @@ export interface CloudApi {
 /** One upstream client per person. */
 export interface UpstreamFactory {
   create(userId: string, token: () => string | null): SyncClient;
+  /** The store that person's upstream client keeps its documents in. */
+  store(userId: string): LocalStore;
 }
 
 export interface NodeCoreOptions {
@@ -69,4 +76,6 @@ export interface NodeCoreOptions {
   storeUsage(): { scripts: number; bytes: number };
   /** http://127.0.0.1:<bound port>: the hosts and the socket's origin are built from it. */
   nodeUrl: string;
+  /** Empties the store for the demo's new seed: every document, every person's upstream store, and the records but the secret and the people. */
+  wipe(): Promise<void>;
 }
