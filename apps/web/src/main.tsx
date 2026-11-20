@@ -60,11 +60,12 @@ const runs: string[] = [];
 if (flavour === "test")
   Reflect.set(window, "__manent", { guard, runs, readMarks });
 
-const { where, language } = readNavigator();
+const { where, language, userAgent } = readNavigator();
 const origin = browserStorage(window);
 const environment: Environment = {
   where,
   language,
+  userAgent,
   now,
   schedule(fn, delayMs) {
     const timer = setTimeout(fn, delayMs);
@@ -81,6 +82,9 @@ const environment: Environment = {
   lastKeyAt: () => lastKeyAt,
   guard,
   flavour,
+  // the person's editor, with everything only it needs, stays out of the entry
+  loadEditor: async (...args) =>
+    (await import("./services/person-editor.ts")).loadEditor(...args),
   shellState: createValue<ShellState>(INITIAL_SHELL_STATE),
   dom: createShellDom(document),
   online: () => navigator.onLine,

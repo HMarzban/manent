@@ -182,6 +182,8 @@ test("in the dark theme the sheet is dark by default, and white page makes it pa
   const context = await browser.newContext({ colorScheme: "dark" });
   const page = await context.newPage();
   await signedInAs(page, "you", `/s/${DOC_ID}`);
+  // the editor's sheet, once the editor has replaced its placeholder
+  await expect(page.locator(".mn-page-view")).toBeVisible();
   const dark = await sheetColours(page);
   expect(dark.paper).toBeLessThan(luminance(dark.ink));
   test.fixme(
@@ -393,6 +395,8 @@ test("in forced colours every state has an outline or a system colour", async ({
   const item = await outlineOf("[role='menuitem']:focus");
   await page.keyboard.press("Escape");
   await page.goto(`/s/${DOC_ID}`);
+  // the editor's sheet, once the editor has replaced its placeholder
+  await expect(page.locator(".mn-page-view")).toBeVisible();
   const sheet = await outlineOf(".mn-sheet");
   expect({ current, button, item, sheet }).toEqual({
     current: highlight,

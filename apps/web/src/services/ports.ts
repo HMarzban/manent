@@ -20,6 +20,7 @@ import type {
   Subscribable,
 } from "@manent/ui";
 import type { EditorControl } from "../editor-host/control.ts";
+import type { EditorMount } from "../editor-host/mount.ts";
 import type { Where } from "../platform.ts";
 import type { TabStorage } from "../session.ts";
 import type { ShellDom } from "../shell/regions.tsx";
@@ -124,12 +125,26 @@ export interface PersonServices {
   lastPane: { get(): SectionId; set(pane: SectionId): void };
   /** False when this device refuses to keep preferences beyond this session. */
   persisted: boolean;
-  /** Empty until the editor supplies its keys. */
-  fixedKeys: readonly FixedKey[];
+  /** Empty until the editor, which loads apart from the entry, has loaded and supplied its keys. */
+  fixedKeys: Subscribable<readonly FixedKey[]>;
   reverses: Reverses;
   /** The one way a command reaches the open editor. */
   editor: EditorControl;
+  /** Draws this person's editor of a document into the page. */
+  mount: EditorMount;
   dispose(): void;
+}
+
+/** What one person's editor is built from, besides the environment. */
+export interface EditorParts {
+  services: () => PersonServices;
+  control: EditorControl;
+  commands: CommandService;
+  messages: MessageQueue;
+  resolved: Subscribable<Resolved>;
+  fixedKeys: { set(keys: readonly FixedKey[]): void };
+  /** `path` is a path inside the app. */
+  navigate: (path: string) => void;
 }
 
 /** What the shell knows of the window, written by the shell whenever it changes. */
@@ -157,6 +172,8 @@ export interface Environment {
   where: Where;
   /** The language the browser asks for ("en-GB"). */
   language: string;
+  /** The browser's user agent, which the editor's pages read the browser's engine from. */
+  userAgent: string;
   now: () => number;
   schedule: (fn: () => void, delayMs: number) => () => void;
   frame: (fn: () => void) => () => void;
@@ -170,6 +187,11 @@ export interface Environment {
   lastKeyAt: () => number | null;
   guard: Guard;
   flavour: "production" | "test";
+  /** Builds one person's editor; the page shows the placeholder until it settles. */
+  loadEditor(
+    environment: Environment,
+    parts: EditorParts,
+  ): Promise<EditorMount>;
   shellState: Subscribable<ShellState> & { set(value: ShellState): void };
   dom: ShellDom;
   online: () => boolean;

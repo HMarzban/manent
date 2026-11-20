@@ -12,8 +12,7 @@ import type { Bag, KeyValueMap, SettingsStore } from "@manent/settings";
 import { createMessageQueue, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import { createEditorControl } from "../editor-host/control.ts";
-import type { EditorMount } from "../editor-host/mount.ts";
-import { placeholderMount } from "../editor-host/placeholder-mount.ts";
+import { createLazyMount } from "../editor-host/lazy-mount.ts";
 import { deviceName } from "../platform.ts";
 import type { Where } from "../platform.ts";
 import type { TabPerson } from "../session.ts";
@@ -26,11 +25,13 @@ import { createLocalMap, createLocalText } from "./local-map.ts";
 import { createMemoryLibrary } from "./memory-library.ts";
 import { createCommands } from "./person-commands.ts";
 import type { CommandsOptions } from "./person-commands.ts";
-import type { DocumentSource, PersonServices, Reverses } from "./ports.ts";
+import type {
+  DocumentSource,
+  FixedKey,
+  PersonServices,
+  Reverses,
+} from "./ports.ts";
 import { createRemoteDeferral } from "./remote-deferral.ts";
-
-// until the editor supplies its own mount
-export const editorMount: EditorMount = placeholderMount;
 
 type Options = CommandsOptions & { person: TabPerson };
 
@@ -261,6 +262,8 @@ export function createPersonServices(options: Options): PersonServices {
     messages,
     resolved,
   });
+  const control = createEditorControl();
+  const fixedKeys = createValue<readonly FixedKey[]>([]);
   const services: PersonServices = {
     userId: options.person.userId,
     settings,
@@ -276,10 +279,20 @@ export function createPersonServices(options: Options): PersonServices {
     get persisted() {
       return [kept.device, kept.prefs, kept.keys].every((k) => k.persisted);
     },
-    // empty until the editor supplies its structural and picker keys
-    fixedKeys: [],
+    fixedKeys,
     reverses: createReverses(messages),
-    editor: createEditorControl(),
+    editor: control,
+    mount: createLazyMount(() =>
+      options.loadEditor(options, {
+        services: () => services,
+        control,
+        commands,
+        messages,
+        resolved,
+        fixedKeys,
+        navigate: (path) => options.router.navigate(path),
+      }),
+    ),
     dispose() {
       stop();
       kept.dispose();

@@ -15,6 +15,8 @@ interface Chunk {
   entry: boolean;
   /** The chunks this one imports statically, by output name. */
   imports: readonly string[];
+  /** The source files in it, as the metafile names them. */
+  inputs: readonly string[];
 }
 
 /** The script outputs of a build, from its metafile. */
@@ -29,7 +31,28 @@ function chunksOf(built: Built, outDir: string): Chunk[] {
       imports: output.imports
         .filter((i) => i.kind === "import-statement")
         .map((i) => i.path),
+      inputs: Object.keys(output.inputs),
     }));
+}
+
+/** The editor, which the page loads apart from the entry: the chunk holding its mount and every chunk it imports, the entry aside. */
+function editorChunks(chunks: readonly Chunk[]): Set<string> {
+  const byName = new Map(chunks.map((c) => [c.name, c]));
+  const mount = chunks.find((c) =>
+    c.inputs.some((input) => input.endsWith("src/editor-host/editor-mount.ts")),
+  );
+  if (mount === undefined) throw new TypeError("no chunk holds the editor");
+  const found = new Set<string>();
+  const visit = (chunk: Chunk): void => {
+    if (chunk.entry || found.has(chunk.name)) return;
+    found.add(chunk.name);
+    for (const name of chunk.imports) {
+      const imported = byName.get(name);
+      if (imported !== undefined) visit(imported);
+    }
+  };
+  visit(mount);
+  return found;
 }
 
 /** Within its limit, a size equals itself capped at the limit; over it, the failure shows both. */
@@ -101,9 +124,11 @@ test("the test flavour is a build of its own", async () => {
   expect([testEntry === productionEntry, built.ok]).toEqual([false, true]);
 }, 60_000);
 
-test("bundle budget: entry ≤ 150 KB and every other chunk ≤ 60 KB gzip", async () => {
+test("bundle budget: entry ≤ 150 KB and every other chunk but the editor's ≤ 60 KB gzip", async () => {
   const { outDir, built } = await productionBuild();
-  for (const chunk of chunksOf(built, outDir)) {
+  const chunks = chunksOf(built, outDir);
+  const editor = editorChunks(chunks);
+  for (const chunk of chunks.filter((c) => !editor.has(c.name))) {
     const kb = await gzipKb(chunk);
     const limit = chunk.entry ? 150 : 60;
     expect({ chunk: chunk.name, kb, limit }).toEqual(
@@ -117,8 +142,10 @@ test("first-load JavaScript is at most 350 KB gzip", async () => {
   const chunks = chunksOf(built, outDir);
   const entry = chunks.find((c) => c.entry);
   if (entry === undefined) throw new TypeError("no entry chunk");
+  // the editor is loaded as soon as a person's services exist
+  const editor = editorChunks(chunks);
   const firstLoad = chunks.filter(
-    (c) => c === entry || entry.imports.includes(c.name),
+    (c) => c === entry || entry.imports.includes(c.name) || editor.has(c.name),
   );
   let kb = 0;
   for (const chunk of firstLoad) kb += await gzipKb(chunk);

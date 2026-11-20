@@ -310,7 +310,7 @@ export function KeyboardPane(props: {
 }): ReactNode {
   const { deviceName, onShortcuts } = props;
   const views = useShortcutViews();
-  const { fixedKeys } = useServices();
+  const fixedKeys = useSubscribable(useServices().fixedKeys);
   const [capturing, setCapturing] = useState<string | null>(null);
   const groups = MENU_IDS.map((menu) => ({
     menu,

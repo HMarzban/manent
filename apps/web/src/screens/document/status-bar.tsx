@@ -1,4 +1,4 @@
-// The bar under the page: the Element slot, the page and scene readouts, the message slot, View ▾ and Commands.
+// The bar under the page: the Element button, the page and scene readouts, the message slot, View ▾ and Commands.
 import { COMMANDS } from "@manent/commands";
 import {
   Button,
@@ -17,6 +17,7 @@ import { useServices } from "../../services/context.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { useEditorFact } from "../../state/facts.store.ts";
 import { panelsActions } from "../../state/panels.store.ts";
+import { ElementButton } from "./element-button.tsx";
 
 /** Runs a command a bar's action names, and says whether it is registered: an action whose command is not is not drawn. */
 export function useCommandActions(): {
@@ -81,10 +82,12 @@ export function StatusBar(): ReactNode {
   return (
     <ShellRegion
       region="status_bar"
-      className="flex h-statusbar items-center gap-2 border-t border-line bg-chrome px-2 text-ui"
+      // on a window too narrow for every control the bar scrolls, never the window
+      className="flex h-statusbar items-center gap-2 overflow-x-auto border-t border-line bg-chrome px-2 text-ui"
     >
-      {/* the Element slot, filled by the editor */}
-      <div className="w-34 shrink-0" />
+      <div className="w-34 shrink-0">
+        <ElementButton />
+      </div>
       {readout === null ? null : (
         // Details at Script, with focus left where it is
         <Button

@@ -1,6 +1,7 @@
 // Stand-ins for the world a person's services run in: storage, its events, a clock, the server, the router and the window.
 import { createValue } from "@manent/ui";
 import type { Api } from "../src/api.ts";
+import { placeholderMount } from "../src/editor-host/placeholder-mount.ts";
 import type { Navigation, RoutePlace } from "../src/handlers/index.ts";
 import { INITIAL_SHELL_STATE } from "../src/services/ports.ts";
 import type {
@@ -168,6 +169,7 @@ export function testEnvironment(
       system: "macOS",
     },
     language: "en-US",
+    userAgent: "test",
     now: clock.now,
     schedule: clock.schedule,
     frame: (fn) => clock.schedule(fn, 16),
@@ -178,6 +180,8 @@ export function testEnvironment(
     lastKeyAt: () => null,
     guard: createGuard({ flavour: "test" }),
     flavour: "test",
+    // the editor is tested over its own mount
+    loadEditor: () => Promise.resolve(placeholderMount),
     shellState: createValue<ShellState>(INITIAL_SHELL_STATE),
     dom: QUIET_DOM,
     online: () => true,
