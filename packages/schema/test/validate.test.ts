@@ -282,6 +282,7 @@ test("each kind of damage is named, with its severity", () => {
     duplicate_id: "repair",
     empty_section: "repair",
     empty_doc: "repair",
+    not_index: "reject",
   };
   for (const [label, json, code] of cases)
     expect({ label, issues: found(json) }).toEqual({

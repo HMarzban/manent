@@ -45,7 +45,10 @@ interface MemoryState {
   checkpoints: Map<string, StoredCheckpoint[]>;
   measures: Map<string, MeasureRow>;
   places: Map<string, { home: Home; kind: string }>;
-  roles: Map<string, { role: string; capabilities: string[] }>;
+  roles: Map<
+    string,
+    { docId: string; userId: string; role: string; capabilities: string[] }
+  >;
   tombstones: Map<string, { deletedByUserId: string; deletedAt: number }>;
 }
 
@@ -181,7 +184,7 @@ function createDirectory(ctx: Context): Storage["directory"] {
         .flatMap((key) => parseHome(key) ?? []),
     setRole: (docId, userId, role, capabilities) =>
       commit(() => {
-        const row = { role, capabilities: [...capabilities] };
+        const row = { docId, userId, role, capabilities: [...capabilities] };
         state().roles.set(pairKey(docId, userId), row);
       }),
     removeRole: (docId, userId) =>
@@ -191,6 +194,15 @@ function createDirectory(ctx: Context): Storage["directory"] {
       if (row === undefined) return null;
       return { role: row.role, capabilities: [...row.capabilities] };
     },
+    rolesOf: (docId) =>
+      [...state().roles.values()]
+        .filter((row) => row.docId === docId)
+        .map(({ userId, role, capabilities }) => ({
+          userId,
+          role,
+          capabilities: [...capabilities],
+        }))
+        .toSorted((a, b) => (a.userId < b.userId ? -1 : 1)),
     tombstone(docId, deletedByUserId) {
       const row = { deletedByUserId, deletedAt: now() };
       if (!state().tombstones.has(docId))

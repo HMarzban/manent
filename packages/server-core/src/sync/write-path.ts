@@ -23,7 +23,7 @@ import type {
 import type { Room, Rooms, Subscription } from "./rooms.ts";
 import { applySetting } from "./settings.ts";
 import { isStorageError } from "./storage-error.ts";
-import { validatePush } from "./validate.ts";
+import { validateRoomPush } from "./validate.ts";
 
 export interface Committed {
   room: Room;
@@ -344,7 +344,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       if (doc.hasPendingStructs())
         return reloadAnd(CODE.BAD_FRAME, "incomplete");
       if (report === null) return enqueue({ kind: "ack", ...base });
-      if (validatePush(report).length > 0)
+      if (validateRoomPush(report, room).length > 0)
         return reloadAnd(CODE.VALIDATION_FAILED, "invalid");
       const floor =
         mode === "authority" && ports.schemaFloor !== null

@@ -274,6 +274,10 @@ export interface DocDirectory {
     docId: string,
     userId: string,
   ): { role: string; capabilities: string[] } | null;
+  /** Every user holding a role on the document, ascending by userId; [] when none. */
+  rolesOf(
+    docId: string,
+  ): { userId: string; role: string; capabilities: string[] }[];
   /** Idempotent: the first tombstone wins. */
   tombstone(docId: string, deletedByUserId: string): void;
   tombstoneOf(
