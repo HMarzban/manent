@@ -2,8 +2,9 @@
 import { canonicalBlock, fillBlockAttrs } from "@manent/schema";
 import type { BlockJSON, BlockOp, DocJSON } from "@manent/schema";
 import {
-  SCENE_HEADINGS,
   canonicalBlocksOf,
+  idOf,
+  isSceneHeading,
   longestIncreasingSubsequence,
 } from "../compare/align.ts";
 import { applyBlockOpsToJSON } from "../merge/apply-ops.ts";
@@ -35,15 +36,6 @@ export interface RestorePlan {
   readonly result: DocJSON;
 }
 
-function idOf(block: BlockJSON): string | null {
-  const id = block.attrs?.id;
-  return typeof id === "string" ? id : null;
-}
-
-function isHeading(block: BlockJSON): boolean {
-  return SCENE_HEADINGS.some((type) => type === block.attrs?.type);
-}
-
 interface Scoped {
   /** Every block of the current document, in order. */
   all: BlockJSON[];
@@ -73,7 +65,10 @@ function anchorOfMissing(
     .slice(0, start)
     .findLast((block) => held.has(idOf(block)));
   let at = before === undefined ? -1 : held.get(idOf(before))!;
-  while (at + 1 < currentBlocks.length && !isHeading(currentBlocks[at + 1]!))
+  while (
+    at + 1 < currentBlocks.length &&
+    !isSceneHeading(currentBlocks[at + 1]!)
+  )
     at++;
   return at === -1 ? null : idOf(currentBlocks[at]!);
 }

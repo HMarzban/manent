@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { ENGINE_VERSION } from "@manent/pagination";
+import type { BlockJSON, DocJSON } from "@manent/schema";
 import {
   compareDocs,
   compareModeOf,
@@ -222,4 +223,41 @@ test("a comparison delivered in slices ends equal to the whole one", () => {
   }
   expect(partials).toBeGreaterThan(1);
   expect(step.value).toEqual(compareDocs(big.older, big.newer));
+});
+
+/** `json` with every block counting each read of its text into `reads`. */
+function countingReads(json: DocJSON, reads: { count: number }): DocJSON {
+  const counted = (block: BlockJSON): BlockJSON => ({
+    type: block.type,
+    attrs: block.attrs,
+    get content() {
+      reads.count++;
+      return block.content;
+    },
+  });
+  return {
+    ...json,
+    content: (json.content ?? []).map((section) => ({
+      ...section,
+      content: (section.content ?? []).map(counted),
+    })),
+  };
+}
+
+test("each slice of a comparison reads only a slice's worth of blocks", () => {
+  const big = corpusPair(2_700, 220);
+  const reads = { count: 0 };
+  const gen = sliceComparison(
+    countingReads(big.older, reads),
+    countingReads(big.newer, reads),
+    { now: () => reads.count, sliceMs: 8 },
+  );
+  const steps: number[] = [];
+  for (let done = false; !done;) {
+    const before = reads.count;
+    done = gen.next().done === true;
+    steps.push(reads.count - before);
+  }
+  expect(Math.max(...steps)).toBeLessThanOrEqual(8 + 2);
+  expect(reads.count).toBe(2 * 2_700);
 });

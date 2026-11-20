@@ -65,7 +65,8 @@ function changedAttrs(
   ];
 }
 
-function textOf(block: BlockJSON): string {
+/** The text of every run, joined. */
+export function textOf(block: BlockJSON): string {
   return (block.content ?? []).map((run) => run.text).join("");
 }
 

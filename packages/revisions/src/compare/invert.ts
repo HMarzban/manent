@@ -1,15 +1,17 @@
 // A comparison undone: the older version rebuilt from the newer one and what changed between them.
 import { canonicalDoc, sectionize } from "@manent/schema";
 import type { BlockJSON, DocJSON } from "@manent/schema";
-import { canonicalBlocksOf } from "./align.ts";
+import { canonicalBlocksOf, idOf } from "./align.ts";
 import type { BlockEntry } from "./align.ts";
 import type { Comparison } from "./comparison.ts";
 
 /** Each block of `doc` by id; the first wins when an id repeats. */
-function byId(doc: DocJSON): Map<unknown, BlockJSON> {
-  const found = new Map<unknown, BlockJSON>();
-  for (const block of canonicalBlocksOf(doc))
-    if (!found.has(block.attrs?.id)) found.set(block.attrs?.id, block);
+function byId(doc: DocJSON): Map<string, BlockJSON> {
+  const found = new Map<string, BlockJSON>();
+  for (const block of canonicalBlocksOf(doc)) {
+    const id = idOf(block);
+    if (id !== null && !found.has(id)) found.set(id, block);
+  }
   return found;
 }
 

@@ -1,12 +1,23 @@
 // Which block of one version is which block of the other, where each sits, and what became of it.
 import { canonicalBlock, parseFrom } from "@manent/schema";
 import type { BlockJSON, DocJSON } from "@manent/schema";
-import { compareBlock } from "./block-changes.ts";
+import { compareBlock, textOf } from "./block-changes.ts";
 import type { InlineChange } from "./block-changes.ts";
 import type { CompareMode } from "./compare-mode.ts";
 
 /** The elements that open a scene (a chapter in a manuscript). */
 export const SCENE_HEADINGS = ["scene_heading", "slug", "chapter"] as const;
+
+/** Whether the block's element is one of SCENE_HEADINGS. */
+export function isSceneHeading(block: BlockJSON): boolean {
+  return SCENE_HEADINGS.some((type) => type === block.attrs?.type);
+}
+
+/** The block's id as stored; null when it holds none, or holds something other than a string. */
+export function idOf(block: BlockJSON): string | null {
+  const id = block.attrs?.id;
+  return typeof id === "string" ? id : null;
+}
 
 /**
  * One block of either side. A block without an id, or holding an id an
@@ -37,11 +48,13 @@ export interface BlockEntry {
   readonly olderIndex: number | null;
 }
 
+function blocksIn(doc: DocJSON): BlockJSON[] {
+  return (doc.content ?? []).flatMap((section) => section.content ?? []);
+}
+
 /** The canonical blocks of every section, in document order. */
 export function canonicalBlocksOf(doc: DocJSON): BlockJSON[] {
-  return (doc.content ?? [])
-    .flatMap((section) => section.content ?? [])
-    .map(canonicalBlock);
+  return blocksIn(doc).map(canonicalBlock);
 }
 
 /**
@@ -73,6 +86,7 @@ export function longestIncreasingSubsequence(
 }
 
 interface Side {
+  /** As given: a block is read in canonical form only when its entry is reached. */
   readonly blocks: BlockJSON[];
   readonly ids: string[];
   /** The index of each block that holds its own id. */
@@ -81,32 +95,23 @@ interface Side {
   readonly scenes: (string | null)[];
 }
 
-function isHeading(block: BlockJSON): boolean {
-  return SCENE_HEADINGS.some((type) => type === block.attrs?.type);
-}
-
 function sideOf(doc: DocJSON, name: "older" | "newer"): Side {
   const side: Side = {
-    blocks: canonicalBlocksOf(doc),
+    blocks: blocksIn(doc),
     ids: [],
     at: new Map(),
     scenes: [],
   };
   let heading: string | null = null;
   side.blocks.forEach((block, i) => {
-    const own = block.attrs?.id;
-    const id =
-      typeof own === "string" && !side.at.has(own) ? own : `#${name}:${i}`;
+    const own = idOf(block);
+    const id = own !== null && !side.at.has(own) ? own : `#${name}:${i}`;
     if (id === own) side.at.set(id, i);
-    if (isHeading(block)) heading = id;
+    if (isSceneHeading(block)) heading = id;
     side.ids.push(id);
     side.scenes.push(heading);
   });
   return side;
-}
-
-function textOf(block: BlockJSON): string {
-  return (block.content ?? []).map((run) => run.text).join("");
 }
 
 const NO_CHANGE = Object.freeze({
@@ -164,7 +169,7 @@ function align(olderDoc: DocJSON, newerDoc: DocJSON): Alignment {
 
 function held(a: Alignment, j: number, mode: CompareMode): BlockEntry {
   const id = a.newer.ids[j]!;
-  const block = a.newer.blocks[j]!;
+  const block = canonicalBlock(a.newer.blocks[j]!);
   const sceneId = a.newer.scenes[j]!;
   const i = a.older.at.get(id);
   if (i === undefined) {
@@ -186,7 +191,7 @@ function held(a: Alignment, j: number, mode: CompareMode): BlockEntry {
       olderIndex: null,
     });
   }
-  const older = a.older.blocks[i]!;
+  const older = canonicalBlock(a.older.blocks[i]!);
   const changes =
     JSON.stringify(older) === JSON.stringify(block)
       ? null
@@ -205,7 +210,7 @@ function held(a: Alignment, j: number, mode: CompareMode): BlockEntry {
 }
 
 function removed(a: Alignment, { index, after }: Removal): BlockEntry {
-  const older = a.older.blocks[index]!;
+  const older = canonicalBlock(a.older.blocks[index]!);
   const text = textOf(older);
   const into = after === null ? undefined : a.newer.at.get(after);
   const joined =

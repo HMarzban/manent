@@ -1,6 +1,6 @@
 // The blocks a scene holds: its heading and everything up to the next heading.
 import type { DocJSON } from "@manent/schema";
-import { SCENE_HEADINGS, canonicalBlocksOf } from "../compare/align.ts";
+import { canonicalBlocksOf, idOf, isSceneHeading } from "../compare/align.ts";
 
 /**
  * The ids of the heading and of the blocks up to the next SCENE_HEADINGS
@@ -12,17 +12,15 @@ export function sceneBlocks(
   headingId: string,
 ): readonly string[] {
   const blocks = canonicalBlocksOf(doc);
-  const start = blocks.findIndex((block) => block.attrs?.id === headingId);
+  const start = blocks.findIndex((block) => idOf(block) === headingId);
   if (start === -1) return [];
   const end = blocks.findIndex(
-    (block, i) =>
-      i > start && SCENE_HEADINGS.some((type) => type === block.attrs?.type),
+    (block, i) => i > start && isSceneHeading(block),
   );
   return Object.freeze(
-    blocks
-      .slice(start, end === -1 ? blocks.length : end)
-      .flatMap((block) =>
-        typeof block.attrs?.id === "string" ? [block.attrs.id] : [],
-      ),
+    blocks.slice(start, end === -1 ? blocks.length : end).flatMap((block) => {
+      const id = idOf(block);
+      return id === null ? [] : [id];
+    }),
   );
 }

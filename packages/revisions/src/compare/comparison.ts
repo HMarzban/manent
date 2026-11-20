@@ -1,6 +1,6 @@
 // Two versions compared block by block: the entries, their counts and the scenes they touch.
 import type { DocJSON } from "@manent/schema";
-import { SCENE_HEADINGS, alignedEntries } from "./align.ts";
+import { alignedEntries, isSceneHeading } from "./align.ts";
 import type { BlockEntry } from "./align.ts";
 import type { CompareMode } from "./compare-mode.ts";
 
@@ -19,52 +19,61 @@ export interface Comparison {
   readonly scenes: readonly string[];
 }
 
+/**
+ * A comparison grown one entry at a time, in order: its counts and scenes are
+ * kept as entries are added, so that each comparison taken costs a copy of
+ * the entries, not a recount.
+ */
+export interface ComparisonBuilder {
+  add(entry: BlockEntry): void;
+  /** The comparison of the entries added so far. */
+  comparison(): Comparison;
+}
+
 function isChange(entry: BlockEntry): boolean {
   return entry.kind !== "unchanged" || entry.moved;
 }
 
-function countsOf(entries: readonly BlockEntry[]): Comparison["counts"] {
-  const count = (kind: BlockEntry["kind"]) =>
-    entries.filter((entry) => entry.kind === kind).length;
-  return Object.freeze({
-    added: count("added"),
-    removed: count("removed"),
-    changed: count("changed"),
-    moved: entries.filter((entry) => entry.moved).length,
-  });
+/** An empty comparison in `options.mode`, ready for its entries. */
+export function createComparisonBuilder(options: {
+  mode: CompareMode;
+}): ComparisonBuilder {
+  const entries: BlockEntry[] = [];
+  const counts = { added: 0, removed: 0, changed: 0, moved: 0 };
+  const touched = new Set<string>();
+  const headings = new Set<string>();
+  return {
+    add(entry) {
+      entries.push(entry);
+      if (entry.kind !== "unchanged") counts[entry.kind]++;
+      if (entry.moved) counts.moved++;
+      if (isChange(entry) && entry.sceneId !== null) touched.add(entry.sceneId);
+      if (entry.newer !== null && isSceneHeading(entry.newer))
+        headings.add(entry.id);
+    },
+    comparison() {
+      return Object.freeze({
+        v: 1,
+        mode: options.mode,
+        // each entry is frozen, the array is not: freezing an array costs time per element (about 7 ms for 45,000 in JavaScriptCore), so each slice would grow with the comparison
+        entries: [...entries],
+        counts: Object.freeze({ ...counts }),
+        scenes: Object.freeze([
+          ...[...headings].filter((id) => touched.has(id)),
+          ...[...touched].filter((id) => !headings.has(id)),
+        ]),
+      });
+    },
+  };
 }
 
-function changedScenes(entries: readonly BlockEntry[]): Set<string> {
-  return new Set(
-    entries.flatMap((entry) =>
-      isChange(entry) && entry.sceneId !== null ? [entry.sceneId] : [],
-    ),
-  );
-}
-
-function isNewerHeading(entry: BlockEntry): boolean {
-  return SCENE_HEADINGS.some((type) => type === entry.newer?.attrs?.type);
-}
-
-/** The comparison these entries, in order, make. */
-export function comparisonOf(
+function comparisonOf(
   mode: CompareMode,
-  entries: readonly BlockEntry[],
+  entries: Iterable<BlockEntry>,
 ): Comparison {
-  const touched = changedScenes(entries);
-  const headings = entries.filter(isNewerHeading).map((entry) => entry.id);
-  const newerScenes = headings.filter((id) => touched.has(id));
-  const shown = new Set(headings);
-  return Object.freeze({
-    v: 1,
-    mode,
-    entries: Object.freeze([...entries]),
-    counts: countsOf(entries),
-    scenes: Object.freeze([
-      ...newerScenes,
-      ...[...touched].filter((id) => !shown.has(id)),
-    ]),
-  });
+  const builder = createComparisonBuilder({ mode });
+  for (const entry of entries) builder.add(entry);
+  return builder.comparison();
 }
 
 /** Every block of `older` and `newer`, aligned by id; full mode unless `options.mode` says otherwise. */
@@ -74,7 +83,7 @@ export function compareDocs(
   options: { mode?: CompareMode } = {},
 ): Comparison {
   const mode = options.mode ?? "full";
-  return comparisonOf(mode, [...alignedEntries(older, newer, mode)]);
+  return comparisonOf(mode, alignedEntries(older, newer, mode));
 }
 
 /** The entries that are a change; a moved, unchanged block counts once. */
@@ -98,11 +107,10 @@ export function filterComparison(
         (entry.sceneId !== null && sceneIds.has(entry.sceneId))) &&
       (blockIds === null || blockIds.has(entry.id)),
   );
-  const touched = changedScenes(entries);
+  const narrowed = comparisonOf(c.mode, entries);
+  const touched = new Set(narrowed.scenes);
   return Object.freeze({
-    ...c,
-    entries: Object.freeze(entries),
-    counts: countsOf(entries),
+    ...narrowed,
     scenes: Object.freeze(c.scenes.filter((id) => touched.has(id))),
   });
 }
