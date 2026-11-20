@@ -1610,11 +1610,15 @@ export const TWELVE_ON_FOOT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
       intent: "instruct",
       text: "Send the flask along, there's enough for two.",
     },
-    { speaker: null, intent: "instruct", text: "Mind your head on the beam." },
     {
       speaker: null,
       intent: "instruct",
-      text: "Sit down before you fall down.",
+      text: "Mind your head on the low door.",
+    },
+    {
+      speaker: null,
+      intent: "instruct",
+      text: "Sit down before the van starts moving.",
     },
     {
       speaker: null,
