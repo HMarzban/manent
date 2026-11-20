@@ -185,6 +185,78 @@ test("a fact that changes is published once per frame, alone", () => {
   ]);
 });
 
+/** Composes `text` at the caret as an input method would; the view composes until `stop` is called. */
+function compose(view: EditorView, text: string): { stop(): void } {
+  // happy-dom has no input method: the view is told it composes
+  let composing = true;
+  Object.defineProperty(view, "composing", {
+    configurable: true,
+    get: () => composing,
+  });
+  view.dispatch(view.state.tr.insertText(text).setMeta("composition", 1));
+  return {
+    stop() {
+      composing = false;
+    },
+  };
+}
+
+function endComposition(view: EditorView): void {
+  view.dom.dispatchEvent(new Event("compositionend"));
+}
+
+test("a composition at the end of a line never publishes the next line's layout", () => {
+  const { view, frames, facts } = mount(
+    docOfBlocks([
+      ["action", "abc"],
+      ["character", "DANA"],
+    ]),
+    0,
+  );
+  frames.fire();
+  const typing = compose(view, "xyzwvq");
+  frames.fire();
+  typing.stop();
+  frames.fire();
+  endComposition(view);
+  frames.fire();
+  expect(facts.slice(1)).toEqual([]);
+});
+
+test("a composition at the end of a scene never moves the outline's current scene", () => {
+  const { view, timers, outline } = mount(
+    docOfBlocks([
+      ["scene_heading", "INT. A - DAY"],
+      ["action", "abc"],
+      ["scene_heading", "INT. B - DAY"],
+    ]),
+    1,
+  );
+  compose(view, "xyz").stop();
+  // the input method has stopped; the pages catch up only when its event comes
+  timers.advance(250);
+  endComposition(view);
+  timers.advance(250);
+  expect(outline).toEqual([
+    [
+      {
+        blockId: bid(0),
+        number: "1",
+        heading: "INT. A - DAY",
+        omitted: false,
+        current: true,
+      },
+      {
+        blockId: bid(2),
+        number: "2",
+        heading: "INT. B - DAY",
+        omitted: false,
+        current: false,
+      },
+    ],
+  ]);
+});
+
 /** The outline of one scene whose heading reads `heading`, the caret in it. */
 const row = (heading: string): OutlineEntry[] => [
   { blockId: bid(0), number: "1", heading, omitted: false, current: true },

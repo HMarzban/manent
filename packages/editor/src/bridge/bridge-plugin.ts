@@ -2,6 +2,7 @@
 import type { FormatId } from "@manent/schema";
 import { Plugin } from "prosemirror-state";
 import type { EditorState } from "prosemirror-state";
+import type { EditorView } from "prosemirror-view";
 import { blockAt } from "../pagination/block-index.ts";
 import type { BlockIndex } from "../pagination/block-index.ts";
 import { paginationKey } from "../pagination/plugin.ts";
@@ -86,12 +87,7 @@ function withOmitted(
   });
 }
 
-/**
- * Publishes the facts that changed in one frame after a change to what they depend on, and the outline at most
- * every 250 ms after a change to the document or the caret's block, never while an input method composes;
- * an outline whose entries are all the same is not published again. Neither walks the document.
- */
-export function bridgePlugin(options: {
+interface BridgeOptions {
   facts: FactsSink;
   outline: OutlineSink;
   history: HistoryPort;
@@ -99,71 +95,129 @@ export function bridgePlugin(options: {
   format(): FormatId;
   frames: Frames;
   timers: Timers;
-}): Plugin {
+}
+
+// while frozen, the pages and their index are the ones from before the composition, not of the caret's document
+const isFrozen = (state: EditorState): boolean =>
+  paginationKey.getState(state)?.frozen === true;
+
+/**
+ * Publishes, in one frame after `request`, the facts that changed; a frame while the pages wait for a composition
+ * publishes nothing, and the pages' next state asks for another.
+ */
+function factsPublisher(
+  view: EditorView,
+  options: BridgeOptions,
+  outline: () => OutlineIndex,
+): { request(): void; update(): void; destroy(): void } {
   const { history } = options;
+  let facts: FactsShape | null = null;
+  let tracked = trackedOf(view.state, history);
+  let cancelFrame: (() => void) | null = null;
+  const publish = () => {
+    cancelFrame = null;
+    if (isFrozen(view.state)) return;
+    const next = factsOf(view.state, {
+      history,
+      words: options.words,
+      format: options.format(),
+      outline: outline(),
+    });
+    const changed = changedFacts(facts, next);
+    facts = next;
+    if (changed !== null) options.facts.publish(changed);
+  };
+  const request = () => {
+    cancelFrame ??= options.frames.request(publish);
+  };
+  return {
+    request,
+    update() {
+      const next = trackedOf(view.state, history);
+      if (isSameList(next, tracked)) return;
+      tracked = next;
+      request();
+    },
+    destroy() {
+      cancelFrame?.();
+    },
+  };
+}
+
+/**
+ * Builds the outline now and at most every 250 ms after a change to the document or the caret's block, waiting
+ * while an input method composes or the pages wait for it; calls `published` after each outline it publishes.
+ */
+function outlinePublisher(
+  view: EditorView,
+  options: BridgeOptions,
+  published: () => void,
+): {
+  readonly index: OutlineIndex;
+  update(prev: EditorState): void;
+  destroy(): void;
+} {
+  let index = NO_OUTLINE;
+  let rows: readonly OutlineEntry[] | null = null;
+  let cancelTimer: (() => void) | null = null;
+  const later = () => {
+    cancelTimer ??= options.timers.schedule(rebuild, OUTLINE_EVERY_MS);
+  };
+  const rebuild = () => {
+    cancelTimer = null;
+    if (view.composing || isFrozen(view.state)) return later();
+    const pages = paginationKey.getState(view.state);
+    index =
+      pages === undefined
+        ? NO_OUTLINE
+        : outlineOf(
+            pages.pagination,
+            blockAt(pages.index, view.state.selection.head),
+          );
+    const next =
+      pages === undefined ? index.entries : withOmitted(index, pages.index);
+    if (rows !== null && isSameOutline(rows, next)) return;
+    rows = next;
+    options.outline.publish(next);
+    published();
+  };
+  rebuild();
+  return {
+    get index() {
+      return index;
+    },
+    update(prev) {
+      if (
+        view.state.doc !== prev.doc ||
+        view.state.selection.$head.parent !== prev.selection.$head.parent
+      )
+        later();
+    },
+    destroy() {
+      cancelTimer?.();
+    },
+  };
+}
+
+/**
+ * Publishes the facts that changed in one frame after a change to what they depend on, and the outline at most
+ * every 250 ms after a change to the document or the caret's block, never while an input method composes or the
+ * pages wait for it; an outline whose entries are all the same is not published again. Neither walks the document.
+ */
+export function bridgePlugin(options: BridgeOptions): Plugin {
   return new Plugin({
     view: (view) => {
-      let outline = NO_OUTLINE;
-      let rows: readonly OutlineEntry[] | null = null;
-      let facts: FactsShape | null = null;
-      let tracked = trackedOf(view.state, history);
-      let cancelFrame: (() => void) | null = null;
-      let cancelTimer: (() => void) | null = null;
-      const publishFacts = () => {
-        cancelFrame = null;
-        const next = factsOf(view.state, {
-          history,
-          words: options.words,
-          format: options.format(),
-          outline,
-        });
-        const changed = changedFacts(facts, next);
-        facts = next;
-        if (changed !== null) options.facts.publish(changed);
-      };
-      const requestFacts = () => {
-        cancelFrame ??= options.frames.request(publishFacts);
-      };
-      const later = () => {
-        cancelTimer ??= options.timers.schedule(rebuild, OUTLINE_EVERY_MS);
-      };
-      const rebuild = () => {
-        cancelTimer = null;
-        if (view.composing) return later();
-        const pages = paginationKey.getState(view.state);
-        outline =
-          pages === undefined
-            ? NO_OUTLINE
-            : outlineOf(
-                pages.pagination,
-                blockAt(pages.index, view.state.selection.head),
-              );
-        const next =
-          pages === undefined
-            ? outline.entries
-            : withOmitted(outline, pages.index);
-        if (rows !== null && isSameOutline(rows, next)) return;
-        rows = next;
-        options.outline.publish(next);
-        requestFacts();
-      };
-      rebuild();
-      requestFacts();
+      const facts = factsPublisher(view, options, () => outline.index);
+      const outline = outlinePublisher(view, options, facts.request);
+      facts.request();
       return {
         update(_, prev) {
-          if (
-            view.state.doc !== prev.doc ||
-            view.state.selection.$head.parent !== prev.selection.$head.parent
-          )
-            later();
-          const next = trackedOf(view.state, history);
-          if (isSameList(next, tracked)) return;
-          tracked = next;
-          requestFacts();
+          outline.update(prev);
+          facts.update();
         },
         destroy() {
-          cancelFrame?.();
-          cancelTimer?.();
+          facts.destroy();
+          outline.destroy();
         },
       };
     },
