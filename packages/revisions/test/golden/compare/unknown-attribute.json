@@ -1,0 +1,121 @@
+{
+  "older": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "section",
+        "content": [
+          {
+            "type": "block",
+            "attrs": {
+              "id": "aaaaaaaaaaaaaaaa",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false,
+              "glow": 3
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Rain falls."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "newer": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "section",
+        "content": [
+          {
+            "type": "block",
+            "attrs": {
+              "id": "aaaaaaaaaaaaaaaa",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false,
+              "glow": 4,
+              "hue": "amber"
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Rain falls."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "comparison": {
+    "v": 1,
+    "mode": "full",
+    "entries": [
+      {
+        "moved": false,
+        "attrs": ["glow", "hue"],
+        "inline": [],
+        "splitFrom": null,
+        "joinedInto": null,
+        "after": null,
+        "id": "aaaaaaaaaaaaaaaa",
+        "kind": "changed",
+        "older": {
+          "type": "block",
+          "attrs": {
+            "id": "aaaaaaaaaaaaaaaa",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false,
+            "glow": 3
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Rain falls."
+            }
+          ]
+        },
+        "newer": {
+          "type": "block",
+          "attrs": {
+            "id": "aaaaaaaaaaaaaaaa",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false,
+            "glow": 4,
+            "hue": "amber"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Rain falls."
+            }
+          ]
+        },
+        "sceneId": null,
+        "olderIndex": 0
+      }
+    ],
+    "counts": {
+      "added": 0,
+      "removed": 0,
+      "changed": 1,
+      "moved": 0
+    },
+    "scenes": []
+  }
+}

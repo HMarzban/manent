@@ -1,0 +1,355 @@
+{
+  "older": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "section",
+        "content": [
+          {
+            "type": "block",
+            "attrs": {
+              "id": "h1h1h1h1h1h1h1h1",
+              "type": "scene_heading",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "INT. HALL - DAY"
+              }
+            ]
+          },
+          {
+            "type": "block",
+            "attrs": {
+              "id": "aaaaaaaaaaaaaaaa",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Rain falls."
+              }
+            ]
+          },
+          {
+            "type": "block",
+            "attrs": {
+              "id": "h2h2h2h2h2h2h2h2",
+              "type": "scene_heading",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "INT. HALL - DAY"
+              }
+            ]
+          },
+          {
+            "type": "block",
+            "attrs": {
+              "id": "bbbbbbbbbbbbbbbb",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "A horn sounds."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "newer": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "section",
+        "content": [
+          {
+            "type": "block",
+            "attrs": {
+              "id": "h2h2h2h2h2h2h2h2",
+              "type": "scene_heading",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "INT. HALL - DAY"
+              }
+            ]
+          },
+          {
+            "type": "block",
+            "attrs": {
+              "id": "bbbbbbbbbbbbbbbb",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "A horn sounds."
+              }
+            ]
+          },
+          {
+            "type": "block",
+            "attrs": {
+              "id": "h1h1h1h1h1h1h1h1",
+              "type": "scene_heading",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "INT. HALL - DAY"
+              }
+            ]
+          },
+          {
+            "type": "block",
+            "attrs": {
+              "id": "aaaaaaaaaaaaaaaa",
+              "type": "action",
+              "omitted": false,
+              "synopsis": "",
+              "noContd": false,
+              "noTiming": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Rain falls."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "comparison": {
+    "v": 1,
+    "mode": "full",
+    "entries": [
+      {
+        "moved": false,
+        "attrs": [],
+        "inline": [],
+        "splitFrom": null,
+        "joinedInto": null,
+        "after": null,
+        "id": "h2h2h2h2h2h2h2h2",
+        "kind": "unchanged",
+        "older": {
+          "type": "block",
+          "attrs": {
+            "id": "h2h2h2h2h2h2h2h2",
+            "type": "scene_heading",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "INT. HALL - DAY"
+            }
+          ]
+        },
+        "newer": {
+          "type": "block",
+          "attrs": {
+            "id": "h2h2h2h2h2h2h2h2",
+            "type": "scene_heading",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "INT. HALL - DAY"
+            }
+          ]
+        },
+        "sceneId": "h2h2h2h2h2h2h2h2",
+        "olderIndex": 2
+      },
+      {
+        "moved": false,
+        "attrs": [],
+        "inline": [],
+        "splitFrom": null,
+        "joinedInto": null,
+        "after": null,
+        "id": "bbbbbbbbbbbbbbbb",
+        "kind": "unchanged",
+        "older": {
+          "type": "block",
+          "attrs": {
+            "id": "bbbbbbbbbbbbbbbb",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "A horn sounds."
+            }
+          ]
+        },
+        "newer": {
+          "type": "block",
+          "attrs": {
+            "id": "bbbbbbbbbbbbbbbb",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "A horn sounds."
+            }
+          ]
+        },
+        "sceneId": "h2h2h2h2h2h2h2h2",
+        "olderIndex": 3
+      },
+      {
+        "moved": true,
+        "attrs": [],
+        "inline": [],
+        "splitFrom": null,
+        "joinedInto": null,
+        "after": null,
+        "id": "h1h1h1h1h1h1h1h1",
+        "kind": "unchanged",
+        "older": {
+          "type": "block",
+          "attrs": {
+            "id": "h1h1h1h1h1h1h1h1",
+            "type": "scene_heading",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "INT. HALL - DAY"
+            }
+          ]
+        },
+        "newer": {
+          "type": "block",
+          "attrs": {
+            "id": "h1h1h1h1h1h1h1h1",
+            "type": "scene_heading",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "INT. HALL - DAY"
+            }
+          ]
+        },
+        "sceneId": "h1h1h1h1h1h1h1h1",
+        "olderIndex": 0
+      },
+      {
+        "moved": true,
+        "attrs": [],
+        "inline": [],
+        "splitFrom": null,
+        "joinedInto": null,
+        "after": null,
+        "id": "aaaaaaaaaaaaaaaa",
+        "kind": "unchanged",
+        "older": {
+          "type": "block",
+          "attrs": {
+            "id": "aaaaaaaaaaaaaaaa",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Rain falls."
+            }
+          ]
+        },
+        "newer": {
+          "type": "block",
+          "attrs": {
+            "id": "aaaaaaaaaaaaaaaa",
+            "type": "action",
+            "omitted": false,
+            "synopsis": "",
+            "noContd": false,
+            "noTiming": false
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Rain falls."
+            }
+          ]
+        },
+        "sceneId": "h1h1h1h1h1h1h1h1",
+        "olderIndex": 1
+      }
+    ],
+    "counts": {
+      "added": 0,
+      "removed": 0,
+      "changed": 0,
+      "moved": 2
+    },
+    "scenes": ["h1h1h1h1h1h1h1h1"]
+  }
+}
