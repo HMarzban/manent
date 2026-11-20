@@ -19,8 +19,9 @@ import { backoffDelayMs } from "../link/backoff.ts";
 import { SUBSCRIBE_CLIENT_IDS } from "../ports/defaults.ts";
 import { ConnectError } from "../ports/ports.ts";
 import type { DocMeta, SyncClientPorts } from "../ports/ports.ts";
-import { mergeMine } from "../recovery/recover.ts";
+import { mergeMine, textLeftover } from "../recovery/recover.ts";
 import type { Leftover, MineMerge } from "../recovery/recover.ts";
+import { wordingsOf } from "../review/overlaps.ts";
 import type { HandshakeHost } from "../session/handshake.ts";
 import type { Journal } from "../session/journal.ts";
 import type { LocalCopy } from "../session/local-copy.ts";
@@ -44,6 +45,8 @@ export interface MoveHost {
   ended(): void;
   /** The tabs following this document, each of which keeps the document a move left until it has moved too. */
   followers(): string[];
+  /** When a sync is recorded as made now; null: the last sync is not this move's to record. */
+  syncedAt(): number | null;
   /** The document a move left, kept while something may still write to it; null once it is released. */
   leave(left: LeftDoc | null): void;
 }
@@ -251,7 +254,7 @@ export class Move {
       JSON.stringify(canonicalDoc(before));
     const theirs = scriptBody(next).materialize();
     const local = typed ? mergeMine(this.sent, before, theirs, "merge") : null;
-    const items = copy.items(this.leftovers(local));
+    const items = copy.items(this.leftovers(local, theirs));
     const { to } = this.moving;
     const meta = { ...journal.meta, generation: to, lastServerSeq: headSeq };
     journal.reset(
@@ -325,9 +328,10 @@ export class Move {
   private answered(response: ReplayResponse): void {
     this.response = response;
     this.moving = { ...this.moving, to: response.generation };
+    const syncedAt = this.host.syncedAt();
     this.host.journal.patch({
       moving: this.moving,
-      lastSyncedAt: this.host.ports.clock.now(),
+      ...(syncedAt === null ? {} : { lastSyncedAt: syncedAt }),
     });
     this.load();
   }
@@ -376,17 +380,13 @@ export class Move {
     if (this.host.connected()) this.host.subscribe();
   }
 
-  /** The response's overlaps, then the local merge's leftovers, then the response's set-aside text. */
-  private leftovers(local: MineMerge | null): Leftover[] {
+  /** The response's overlaps with the block as sent and as `theirs` holds it, then the local merge's leftovers, then the response's set-aside text. */
+  private leftovers(local: MineMerge | null, theirs: DocJSON): Leftover[] {
     const { overlaps, setAside } = this.response ?? NOTHING_PLACED;
     return [
-      ...overlaps.map((o) => ({
-        ...o,
-        nearBlockId: null,
-        cause: "overlap" as const,
-      })),
+      ...wordingsOf(overlaps, this.sent, theirs),
       ...(local?.leftovers ?? []),
-      ...setAside.map((block) => ({ ...block, cause: "merge" as const })),
+      ...setAside.map((block) => textLeftover(block, "merge")),
     ];
   }
 

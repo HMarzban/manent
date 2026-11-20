@@ -6,7 +6,7 @@ export type Home =
   { kind: "project"; id: string } | { kind: "user"; id: string };
 
 export type UpdateOrigin =
-  "edit" | "restore" | "import" | "replay" | "heal" | "system";
+  "edit" | "restore" | "import" | "replay" | "heal" | "system" | "upstream";
 
 export type VersionKind =
   | "auto"
@@ -22,9 +22,9 @@ export type VersionKind =
   | "revision_baseline"
   | "revision_issue";
 
-/** `commit_failed`: a transaction wrote nothing. `corrupt`: stored bytes fail their check. */
+/** `commit_failed`: a transaction wrote nothing. `corrupt`: stored bytes fail their check. `disk_full`: a transaction wrote nothing because the disk is full. */
 export class StorageError extends Error {
-  readonly code: "commit_failed" | "corrupt";
+  readonly code: "commit_failed" | "corrupt" | "disk_full";
 
   constructor(code: StorageError["code"], options?: { cause?: unknown }) {
     super(code, options);
@@ -216,6 +216,21 @@ export interface Replays {
   put(row: ReplayRow): void;
 }
 
+/** A document handed over by a device: the key it came under and the sequence its state was written at. */
+export interface Adoption {
+  docId: string;
+  key: string;
+  userId: string;
+  seq: number;
+  adoptedAt: number;
+}
+
+export interface Adoptions {
+  get(docId: string): Adoption | null;
+  /** An existing docId keeps its row. */
+  put(adoption: Adoption): void;
+}
+
 /** What a checkpoint measured of the document at `seq`. */
 export interface MeasureRow {
   seq: number;
@@ -241,8 +256,9 @@ export interface DocFile {
   readonly generations: Generations;
   readonly replays: Replays;
   readonly measures: Measures;
+  readonly adoptions: Adoptions;
   /**
-   * The unit of work: every write to `log`, `versions`, `generations` and `replays` inside the synchronous
+   * The unit of work: every write to `log`, `versions`, `generations`, `replays` and `adoptions` inside the synchronous
    * `fn` commits together or not at all. A failure throws
    * StorageError("commit_failed") having written nothing. A write outside one
    * commits by itself.
@@ -292,7 +308,7 @@ export interface Storage {
   close(): void;
 }
 
-export const STORAGE_SCHEMA_VERSION = 2;
+export const STORAGE_SCHEMA_VERSION = 3;
 export const CHECKPOINT_FORMAT_VERSION = 1;
 export const CHECKPOINTS_KEPT = 3;
 

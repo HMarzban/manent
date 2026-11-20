@@ -122,6 +122,7 @@ test("the error codes are pinned in their order", () => {
     "past_window",
     "too_large",
     "unknown_generation",
+    "unreachable",
   ]);
   expect(REPLAY_REFUSALS).toEqual([
     "bad_request",

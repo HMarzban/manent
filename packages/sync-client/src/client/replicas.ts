@@ -14,6 +14,7 @@ import { openSession } from "../session/session.ts";
 import type { Session } from "../session/session.ts";
 import { readTabMessage, tabMessage } from "../tabs/messages.ts";
 import type { TabBody, TabMessage } from "../tabs/messages.ts";
+import type { Via } from "../upstream/window.ts";
 import type { ViewHandle } from "../view/view.ts";
 import { createFollower } from "./follower.ts";
 import type { Follower } from "./follower.ts";
@@ -39,6 +40,7 @@ export interface Replicas {
 
 interface ReplicasOptions {
   ports: SyncClientPorts;
+  via: Via;
   link: LinkDriver;
   uploadVersion: ((version: DeviceVersion) => Promise<boolean>) | null;
   leading(): boolean;
@@ -260,6 +262,7 @@ class TabReplicas implements Replicas {
     const opening = openSession({
       docId,
       ports: this.options.ports,
+      via: this.options.via,
       create: replica.create,
       doc,
       unsaved,
@@ -271,6 +274,10 @@ class TabReplicas implements Replicas {
       writeSchema: link.writeSchema(),
       uploadVersion: this.options.uploadVersion,
       replaceConnection: (reason) => link.replace(reason),
+      metaChanged: () => {
+        for (const [id, other] of this.sessions)
+          if (id !== docId) other.metaChanged(docId);
+      },
       closed: () => this.forget(docId),
     }).then((session) => {
       this.opening.delete(docId);

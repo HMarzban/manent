@@ -2,6 +2,7 @@ export * from "./access.ts";
 export * from "./awareness.ts";
 export * from "./checkpointer.ts";
 export * from "./errors.ts";
+export * from "./follow.ts";
 export * from "./heal.ts";
 export * from "./index-docs.ts";
 export * from "./peer.ts";

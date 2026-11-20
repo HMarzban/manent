@@ -14,6 +14,7 @@ import {
   encodeMessage,
 } from "@manent/sync-protocol";
 import type {
+  CreateDocumentRequest,
   DocumentMessage,
   Message,
   ServerVersions,
@@ -201,14 +202,22 @@ export interface ScriptedServer {
   head: number;
   /** Connections served, and documents created through the route. */
   ends(): number;
-  created: { userId: string; docId: string; kind: string; home: string }[];
+  created: ({ userId: string } & CreateDocumentRequest)[];
   /** The server's copy: the seed for DOC, empty for any other. */
   doc(docId: string): CrdtDoc;
   /** Changes the server's copy and returns the update; sends nothing. */
   change(docId: string, fn: (doc: CrdtDoc) => void): Uint8Array;
   write(docId: string, fn: (w: BlockWriter) => void): Uint8Array;
+  /** As `write`, the change made under the Yjs client ID given, as another person's device makes it. */
+  writeAs(
+    docId: string,
+    clientId: number,
+    fn: (w: BlockWriter) => void,
+  ): Uint8Array;
   syncUpdate(docId: string, update: Uint8Array): void;
   ack(docId: string, clientSeq: number, serverSeq: number): void;
+  /** Takes in every push the clients sent for the document and acknowledges every own entry it holds, at a new head; nothing when none was sent. */
+  ackAll(docId: string): void;
   error(docId: string, error: ServerError): void;
   send(message: Message): void;
   sendFrame(frame: Uint8Array): void;
@@ -260,6 +269,7 @@ export function subscribed(
 function scriptedServer(network: MemoryNetwork): ScriptedServer {
   const received: Message[] = [];
   const docs = new Map<string, CrdtDoc>();
+  const authors = new Map<string, CrdtDoc>();
   const generations = new Map<string, number>();
   const generationOf = (docId: string): number => generations.get(docId) ?? 1;
   const ends: ScriptedEnd[] = [];
@@ -310,6 +320,20 @@ function scriptedServer(network: MemoryNetwork): ScriptedServer {
     },
     write: (docId, fn) =>
       server.change(docId, (doc) => scriptBody(doc).write(fn)),
+    writeAs(docId, clientId, fn) {
+      // one device per client ID: a second one under the same ID would make Yjs pick another
+      const key = `${docId}:${clientId}`;
+      const author = authors.get(key) ?? createDoc({ clientId });
+      authors.set(key, author);
+      author.applyUpdate(server.doc(docId).encodeState());
+      const updates: Uint8Array[] = [];
+      const stop = author.subscribe((update) => updates.push(update));
+      scriptBody(author).write(fn);
+      stop();
+      const update = updates[0] ?? new Uint8Array();
+      server.doc(docId).applyUpdate(update);
+      return update;
+    },
     syncUpdate(docId, update) {
       server.doc(docId).applyUpdate(update);
       sync(docId, "update", update);
@@ -322,6 +346,15 @@ function scriptedServer(network: MemoryNetwork): ScriptedServer {
         clientSeq,
         serverSeq,
       }),
+    ackAll(docId) {
+      const sent = server.got("PUSH", "SET").filter((m) => m.docId === docId);
+      if (sent.length === 0) return;
+      for (const m of sent)
+        if (m.type === "PUSH") server.doc(docId).applyUpdate(m.update);
+      server.head += 1;
+      const through = Math.max(...sent.map((m) => m.clientSeq));
+      server.ack(docId, through, server.head);
+    },
     error: (docId, e) =>
       server.send({
         type: "ERROR",
@@ -484,6 +517,7 @@ export interface World {
     versions?: VersionSet;
     minServer?: VersionSet;
     uploadVersion?: SyncClientOptions["uploadVersion"];
+    via?: SyncClientOptions["via"];
   }): SyncClient;
   /** One turn: every queued microtask runs. */
   turn(): Promise<void>;
@@ -568,6 +602,7 @@ export async function setup(): Promise<World> {
         ...(o.uploadVersion === undefined
           ? {}
           : { uploadVersion: o.uploadVersion }),
+        ...(o.via === undefined ? {} : { via: o.via }),
         ports: {
           transport: counted(
             o.transport ?? network.transport(o.userId ?? "dana"),

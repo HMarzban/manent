@@ -179,11 +179,12 @@ test("an https base opens a wss socket", async () => {
 
 test("creating a document maps each answer", async () => {
   const body = { docId: DOC, kind: "script", home: `project:${PROJECT}` };
+  const request = { ...body, workspaceId: null };
   let asked: Asked[] = [];
   const create = (answer: Answer) => {
     const made = fakes(answer);
     asked = made.asked;
-    return made.transport.createDocument(body);
+    return made.transport.createDocument(request);
   };
   expect(await create(200)).toEqual({ ok: true });
   expect(asked).toEqual([
@@ -200,10 +201,31 @@ test("creating a document maps each answer", async () => {
   expect(await codeOf(create(503))).toBe("unreachable");
   expect(await codeOf(create("throw"))).toBe("unreachable");
   const signedOut = fakes(200, { session: null });
-  expect(await codeOf(signedOut.transport.createDocument(body))).toBe(
+  expect(await codeOf(signedOut.transport.createDocument(request))).toBe(
     "sign_in",
   );
   expect(signedOut.asked).toEqual([]);
+});
+
+test("a new script names its workspace to the server, and a document of no workspace names none", async () => {
+  const home = `project:${PROJECT}`;
+  const made = fakes(200);
+  await made.transport.createDocument({
+    docId: DOC,
+    kind: "script",
+    home,
+    workspaceId: "medium",
+  });
+  await made.transport.createDocument({
+    docId: DOC,
+    kind: "index",
+    home: "user",
+    workspaceId: null,
+  });
+  expect(made.asked.map((a) => a.body)).toEqual([
+    `{"docId":"${DOC}","kind":"script","home":"${home}","workspaceId":"medium"}`,
+    `{"docId":"${DOC}","kind":"index","home":"user"}`,
+  ]);
 });
 
 type Fetch = NonNullable<Parameters<typeof webTransport>[0]["fetch"]>;

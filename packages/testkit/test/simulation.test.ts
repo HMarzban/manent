@@ -595,14 +595,25 @@ test(
   LONG,
 );
 
-/** The storage's backup handle and every row of the log after one run of seed 4747. */
-const seededRun = async () => {
+/** The storage's backup handle, every row of the log and the rebuilds after one run of seed 4747; `halfway` runs mid-run. */
+const seededRun = async (halfway: (w: World) => void = () => {}) => {
   const w = await createWorld({ seed: 4747, users: ["dana", "sam"] });
-  for (let i = 0; i < 150; i++) w.act();
+  for (let i = 0; i < 150; i++) {
+    w.act();
+    if (i === 75) halfway(w);
+  }
   await w.settle();
-  return [w.storage.snapshot(), rowsOf(w)];
+  return [w.storage.snapshot(), rowsOf(w), w.rebuilds()];
 };
 
 test("the same seed gives the same run, byte for byte", async () => {
   expect(await seededRun()).toEqual(await seededRun());
+});
+
+const rebuild = (w: World): void => w.requestRebuild();
+
+test("the same seed gives the same run, byte for byte, with a rebuild in it", async () => {
+  const run = await seededRun(rebuild);
+  expect(run[2]).toBe(1);
+  expect(run).toEqual(await seededRun(rebuild));
 });

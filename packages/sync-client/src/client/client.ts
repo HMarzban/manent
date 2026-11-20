@@ -7,14 +7,18 @@ import type {
   VersionSet,
 } from "@manent/sync-protocol";
 import type { LinkIssue } from "../link/machine.ts";
+import { waitingCount } from "../outbox/plan.ts";
 import { createSubscribable } from "../outbox/subscribable.ts";
 import type {
   DeviceVersion,
+  DocMeta,
+  DocSummary,
   LinkState,
   Subscribable,
   SyncClientPorts,
 } from "../ports/ports.ts";
 import type { DocHandle } from "../session/doc-handle.ts";
+import type { Via } from "../upstream/window.ts";
 import { createViewer } from "../view/view.ts";
 import type { ViewHandle, Viewer } from "../view/view.ts";
 import { createLinkDriver } from "./link-driver.ts";
@@ -31,7 +35,7 @@ export interface LinkFacts {
   leader: boolean;
 }
 
-/** Without `uploadVersion`, device versions stay on the device. */
+/** Without `uploadVersion`, device versions stay on the device. `via` is "server" unless given. */
 export interface SyncClientOptions {
   userId: string;
   deviceId: string;
@@ -40,14 +44,27 @@ export interface SyncClientOptions {
   minServer: VersionSet;
   ports: SyncClientPorts;
   uploadVersion?: (version: DeviceVersion) => Promise<boolean>;
+  via?: Via;
 }
 
 export interface SyncClient {
   readonly link: Subscribable<LinkFacts>;
-  /** The local copy is loaded before anything is sent. */
-  open(docId: string): Promise<DocHandle>;
-  /** A new document under a version 7 ID, usable at once with no connection. */
-  create(request: { kind: string; home: string }): Promise<DocHandle>;
+  /**
+   * The local copy is loaded before anything is sent. With `create`, a document
+   * the store does not hold is new: it is created on the server at its first sync.
+   */
+  open(
+    docId: string,
+    options?: { create: NonNullable<DocMeta["create"]> },
+  ): Promise<DocHandle>;
+  /**
+   * A new document under a version 7 ID, usable at once with no connection. One
+   * with a `workspaceId` is created on the server only once the store holds that
+   * workspace's index as the server named it.
+   */
+  create(request: NonNullable<DocMeta["create"]>): Promise<DocHandle>;
+  /** Every document the store holds, read from the store in any tab without opening one. */
+  documents(): Promise<readonly DocSummary[]>;
   /** True at the start. */
   setOnline(wanted: boolean): void;
   /** The app calls it on online, visibility and focus events. */
@@ -86,6 +103,7 @@ class Client implements SyncClient, LinkDriverHost {
     });
     this.replicas = createReplicas({
       ports,
+      via: options.via ?? "server",
       link: this.driver,
       uploadVersion: options.uploadVersion ?? null,
       leading: () => this.leading,
@@ -96,14 +114,38 @@ class Client implements SyncClient, LinkDriverHost {
     this.unlisten = ports.leader.listen((value) => this.replicas.heard(value));
   }
 
-  open(docId: string): Promise<DocHandle> {
-    return this.replicas.hold(docId, null);
+  open(
+    docId: string,
+    options?: { create: NonNullable<DocMeta["create"]> },
+  ): Promise<DocHandle> {
+    return this.replicas.hold(docId, options?.create ?? null);
   }
 
-  create(request: { kind: string; home: string }): Promise<DocHandle> {
+  create(request: NonNullable<DocMeta["create"]>): Promise<DocHandle> {
     const { clock, random } = this.options.ports;
     const docId = docIdV7(clock.now(), random.bytes(10));
     return this.replicas.hold(docId, request);
+  }
+
+  async documents(): Promise<readonly DocSummary[]> {
+    const { store } = this.options.ports;
+    const metas = await store.documents();
+    return Promise.all(
+      metas.map(async ({ docId, neverSynced, parked }) => {
+        const [loaded, recovered] = await Promise.all([
+          store.load(docId),
+          store.recovered(docId),
+        ]);
+        const waiting = waitingCount(loaded?.entries ?? []);
+        return {
+          docId,
+          neverSynced,
+          waiting,
+          parked,
+          recovered: recovered.length,
+        };
+      }),
+    );
   }
 
   /** A tab that does not lead only remembers what is wanted, for when it leads. */

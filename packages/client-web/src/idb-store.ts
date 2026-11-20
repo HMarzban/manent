@@ -1,6 +1,6 @@
 // The local store on IndexedDB: one database per user, every write one strict transaction
 // that settles only when the browser has completed or aborted it.
-import { StoreError } from "@manent/sync-client";
+import { StoreError, toRecoveredItem } from "@manent/sync-client";
 import type {
   DeviceVersion,
   DocMeta,
@@ -8,6 +8,7 @@ import type {
   LocalStore,
   RecoveredItem,
   StoredEntry,
+  StoredRecoveredItem,
 } from "@manent/sync-client";
 
 /** The IndexedDB database version. A later one adds stores or indexes by `oldVersion`, and never deletes or rekeys one of these. */
@@ -25,15 +26,18 @@ type StoreName =
 
 type EntryRecord = StoredEntry & { docId: string };
 
-/** `highestLocalSeq`: the highest `localSeq` the document has held that its checkpoint and entries may no longer show. A record stored before moves existed lacks `moving`, and its `recovering` lacks `replaying`. */
-interface MetaRecord extends Omit<DocMeta, "recovering"> {
+/** `highestLocalSeq`: the highest `localSeq` the document has held that its checkpoint and entries may no longer show. A record stored before moves existed lacks `moving`, its `recovering` lacks `replaying`, and one stored before creates named a workspace lacks `workspaceId`. */
+interface MetaRecord extends Omit<DocMeta, "recovering" | "create"> {
   highestLocalSeq: number;
   recovering: { versionId: string; heal: boolean; replaying?: boolean } | null;
+  create: { kind: string; home: string; workspaceId?: string | null } | null;
 }
 
 function docMetaOf({ highestLocalSeq: _mark, ...meta }: MetaRecord): DocMeta {
-  const { moving = null, recovering: old } = meta;
-  return { ...meta, moving, recovering: old && { replaying: false, ...old } };
+  const { moving = null, recovering: old, create: made } = meta;
+  const recovering = old && { replaying: false, ...old };
+  const create = made && { ...made, workspaceId: made.workspaceId ?? null };
+  return { ...meta, moving, recovering, create };
 }
 
 interface CheckpointRecord extends NonNullable<LoadedDocument["checkpoint"]> {
@@ -52,11 +56,7 @@ function createLayout(db: IDBDatabase): void {
   db.createObjectStore("lease", { keyPath: "name" });
 }
 
-/**
- * Rejects StoreError("unavailable") when the database cannot be opened, as when a
- * newer build wrote it (a VersionError, which leaves it untouched). The connection
- * closes itself when another asks to delete or upgrade the database.
- */
+/** Rejects StoreError("unavailable") when the database cannot be opened, as when a newer build wrote it (a VersionError, which leaves it untouched). The connection closes itself when another asks to delete or upgrade the database. */
 export function openLocalDatabase(
   indexedDb: IDBFactory,
   userId: string,
@@ -119,10 +119,7 @@ function transact<T>(
   });
 }
 
-/**
- * Visits one document's entries in `localSeq` order, then runs `end`. Keys alone bound
- * the walk: a key range needs the global IDBKeyRange, which the injected factory need not share.
- */
+/** Visits one document's entries in `localSeq` order, then runs `end`. Keys alone bound the walk: a key range needs the global IDBKeyRange, which the injected factory need not share. */
 function eachEntry(
   tx: IDBTransaction,
   docId: string,
@@ -321,8 +318,9 @@ class IdbStore implements LocalStore {
     );
   }
 
-  recovered(docId: string): Promise<RecoveredItem[]> {
-    return this.readAll("recovered", docId);
+  async recovered(docId: string): Promise<RecoveredItem[]> {
+    const items = await this.readAll<StoredRecoveredItem>("recovered", docId);
+    return items.map(toRecoveredItem);
   }
 
   dismissRecovered(itemId: string): Promise<void> {

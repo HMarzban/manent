@@ -26,7 +26,7 @@ const META: DocMeta = {
   clientIds: [7, 9],
   ackedClocks: { "7": 12 },
   neverSynced: false,
-  create: { kind: "script", home: "user" },
+  create: { kind: "script", home: "user", workspaceId: null },
   parked: { reason: "deleted", parkedAt: 1_000 },
   recovering: { versionId: "v1", heal: true, replaying: false },
   lastDeviceVersionAt: 900,
@@ -52,6 +52,24 @@ const ITEM: RecoveredItem = {
   text: "The kettle boils over.",
   recoveredAt: 700,
   cause: "merge",
+  mine: null,
+  theirs: null,
+  otherClientIds: [],
+};
+const OVERLAP: RecoveredItem = {
+  ...ITEM,
+  id: "r2",
+  blockId: "b3",
+  nearBlockId: null,
+  text: "Run.",
+  cause: "overlap",
+  mine: {
+    type: "block",
+    attrs: { id: "b3", type: "dialogue" },
+    content: [{ type: "text", text: "Run.", marks: [{ type: "em" }] }],
+  },
+  theirs: { type: "block", attrs: { id: "b3", type: "dialogue" } },
+  otherClientIds: [77],
 };
 const SAMPLES: Record<TabBody["t"], TabBody> = {
   who: { t: "who" },
@@ -60,7 +78,7 @@ const SAMPLES: Record<TabBody["t"], TabBody> = {
     t: "open",
     docId: DOC,
     clientId: 7,
-    create: { kind: "script", home: "user" },
+    create: { kind: "script", home: "user", workspaceId: null },
   },
   close: { t: "close", docId: DOC },
   state: {
@@ -82,7 +100,7 @@ const SAMPLES: Record<TabBody["t"], TabBody> = {
   remote: { t: "remote", docId: DOC, update: new Uint8Array([4]) },
   status: { t: "status", docId: DOC, status: STATUS },
   event: { t: "event", docId: DOC, event: { type: "replaced" } },
-  recovered: { t: "recovered", docId: DOC, items: [ITEM] },
+  recovered: { t: "recovered", docId: DOC, items: [ITEM, OVERLAP] },
   replace: {
     t: "replace",
     docId: DOC,
@@ -360,7 +378,9 @@ const text = fc.string({ maxLength: 8 });
 const int = fc.integer();
 const nullable = <T>(arb: fc.Arbitrary<T>) => fc.option(arb, { nil: null });
 const bytes = fc.uint8Array({ maxLength: 8 });
-const create = nullable(fc.record({ kind: text, home: text }));
+const create = nullable(
+  fc.record({ kind: text, home: text, workspaceId: nullable(text) }),
+);
 const meta: fc.Arbitrary<DocMeta> = fc.record({
   docId: text,
   generation: int,
@@ -423,6 +443,9 @@ const item: fc.Arbitrary<RecoveredItem> = fc.record({
   text,
   recoveredAt: int,
   cause: fc.constantFrom("merge", "rejected", "overlap"),
+  mine: nullable(fc.constant({ type: "block" as const })),
+  theirs: nullable(fc.constant({ type: "block" as const })),
+  otherClientIds: fc.array(int, { maxLength: 2 }),
 });
 const body: fc.Arbitrary<TabBody> = fc.oneof(
   fc.constant({ t: "who" as const }),

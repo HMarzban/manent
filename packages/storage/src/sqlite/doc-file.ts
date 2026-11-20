@@ -1,4 +1,4 @@
-// One home's document file: its log, versions, generations and replays over one connection, and the checkpoints file beside it.
+// One home's document file: its log, versions, generations, replays and adoptions over one connection, and the checkpoints file beside it.
 import type { Database } from "bun:sqlite";
 import { crc32 } from "../checksum.ts";
 import type {
@@ -15,6 +15,7 @@ import type {
   Versions,
 } from "../ports.ts";
 import { COLOR_COUNT, StorageError } from "../ports.ts";
+import { createSqliteAdoptions } from "./adoptions.ts";
 import { createCheckpointsFile } from "./checkpoints.ts";
 import { docFilePath, migrate, openDatabase, transact } from "./files.ts";
 import { createSqliteGenerations } from "./generations.ts";
@@ -33,6 +34,7 @@ const ORIGINS = {
   replay: true,
   heal: true,
   system: true,
+  upstream: true,
 } satisfies Record<UpdateOrigin, true>;
 const REASONS = {
   quarantine: true,
@@ -317,6 +319,13 @@ function createVersions(db: Database): Versions {
   };
 }
 
+// Each open file's connection, for the page limit a test sets on the driver's own connection.
+const connections = new WeakMap<DocFile, Database>();
+
+/** The driver's connection to an open document file; null for a file another driver opened. */
+export const connectionOf = (file: DocFile): Database | null =>
+  connections.get(file) ?? null;
+
 /** Opens and migrates the home's file. RangeError for a home that is not well formed; StorageError("corrupt") for a file it cannot use. */
 export function openDocFile(options: {
   dir: string;
@@ -337,7 +346,7 @@ export function openDocFile(options: {
     now,
   });
   const log = createLog(db, { ...prepareLog(db), ...prepareLedger(db) }, now);
-  return {
+  const file: SqliteDocFile = {
     home: { ...options.home },
     log,
     versions: createVersions(db),
@@ -345,10 +354,13 @@ export function openDocFile(options: {
     generations: createSqliteGenerations({ db, log, now }),
     replays: createSqliteReplays(db),
     measures: caches.measures,
+    adoptions: createSqliteAdoptions(db),
     transaction: (fn) => transact(db, fn),
     close() {
       caches.close();
       db.close();
     },
   };
+  connections.set(file, db);
+  return file;
 }

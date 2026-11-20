@@ -9,6 +9,7 @@ import {
   scriptBody,
 } from "@manent/crdt";
 import { mergeByBlock } from "@manent/revisions";
+import type { Overlap } from "@manent/revisions";
 import { canonicalBlock } from "@manent/schema";
 import type { BlockJSON, BlockOp, DocJSON } from "@manent/schema";
 import type { RecoveredItem } from "../ports/ports.ts";
@@ -16,10 +17,41 @@ import type { Journal } from "../session/journal.ts";
 import type { LocalCopy } from "../session/local-copy.ts";
 
 /** One piece of Recovered text before it is given an id and a time. */
-export type Leftover = Pick<
-  RecoveredItem,
-  "blockId" | "nearBlockId" | "text" | "cause"
->;
+export type Leftover = Omit<RecoveredItem, "id" | "docId" | "recoveredAt">;
+
+/** A leftover of text alone: anything but an overlap, which carries both wordings. */
+export function textLeftover(
+  fields: Pick<Leftover, "blockId" | "nearBlockId" | "text">,
+  cause: Leftover["cause"],
+): Leftover {
+  return { ...fields, cause, mine: null, theirs: null, otherClientIds: [] };
+}
+
+/** An overlap as a leftover: this device's text of the block, with both wordings. */
+export function overlapLeftover(
+  overlap: Overlap,
+  otherClientIds: number[],
+): Leftover {
+  const { blockId, mine, theirs } = overlap;
+  return {
+    blockId,
+    nearBlockId: null,
+    text: runText(mine),
+    cause: "overlap",
+    mine,
+    theirs,
+    otherClientIds,
+  };
+}
+
+/** `items` filed after `list`: one under an id the list holds takes that item's place. */
+export function withFiled(
+  list: readonly RecoveredItem[],
+  items: readonly RecoveredItem[],
+): RecoveredItem[] {
+  const byId = new Map([...list, ...items].map((item) => [item.id, item]));
+  return [...byId.values()];
+}
 
 /**
  * The text of every run, joined. Read from the runs, not through `blockView`,
@@ -75,25 +107,24 @@ export function mergeMine(
   const unique = firstOfEachId(mine);
   const merge = mergeByBlock(base, unique.mine, theirs);
   const leftovers: Leftover[] = [
-    ...merge.overlaps.map((overlap) => ({
-      blockId: overlap.blockId,
-      nearBlockId: null,
-      text: runText(overlap.mine),
-      cause: "overlap" as const,
-    })),
-    ...merge.setAside.map((block) => ({ ...block, cause: setAside })),
-    ...unique.repeated.map((block) => ({
-      blockId: typeof block.attrs?.id === "string" ? block.attrs.id : null,
-      nearBlockId: null,
-      text: runText(block),
-      cause: setAside,
-    })),
+    ...merge.overlaps.map((overlap) => overlapLeftover(overlap, [])),
+    ...merge.setAside.map((block) => textLeftover(block, setAside)),
+    ...unique.repeated.map((block) =>
+      textLeftover(
+        {
+          blockId: typeof block.attrs?.id === "string" ? block.attrs.id : null,
+          nearBlockId: null,
+          text: runText(block),
+        },
+        setAside,
+      ),
+    ),
   ];
   return { ops: merge.ops, applied: merge.applied, leftovers };
 }
 
 /** The blocks of every section, in document order, each with its id; a block with none is passed over. */
-function blockList(doc: DocJSON): { id: string; block: BlockJSON }[] {
+export function blockList(doc: DocJSON): { id: string; block: BlockJSON }[] {
   return (doc.content ?? []).flatMap((section) =>
     (section.content ?? []).flatMap((block) => {
       const id = block.attrs?.id;
@@ -124,12 +155,12 @@ export function differingText(
   for (const { id, block } of blockList(mine)) {
     const differs = held.get(id) !== JSON.stringify(canonicalBlock(block));
     if (differs && keep(id))
-      listed.push({
-        blockId: id,
-        nearBlockId: near,
-        text: runText(block),
-        cause: "rejected",
-      });
+      listed.push(
+        textLeftover(
+          { blockId: id, nearBlockId: near, text: runText(block) },
+          "rejected",
+        ),
+      );
     if (held.has(id)) near = id;
   }
   return listed;

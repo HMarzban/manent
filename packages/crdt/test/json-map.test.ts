@@ -62,6 +62,7 @@ test("a value that is not JSON is refused, and nothing is written", () => {
     [1, undefined],
     { at: 1n },
     cycle,
+    JSON.parse('{"__proto__": 0}'),
   ])
     expect(() => flags.set("x", value)).toThrow(TypeError);
   expect(flags.keys()).toEqual([]);

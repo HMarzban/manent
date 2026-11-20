@@ -219,17 +219,18 @@ test("a reset never issues again the sequence of a refused setting", async () =>
   });
 });
 
-/** Puts a meta record as an earlier build wrote it, with raw IndexedDB calls. */
-async function putOlderMeta(
+/** Puts a record as an earlier build wrote it, with raw IndexedDB calls. */
+async function putOlder(
   indexedDb: IDBFactory,
+  store: "meta" | "recovered",
   record: Record<string, unknown>,
 ): Promise<void> {
   const opening = indexedDb.open("manent:dana");
   const db = await new Promise<IDBDatabase>((resolve) =>
     opening.addEventListener("success", () => resolve(opening.result)),
   );
-  const tx = db.transaction(["meta"], "readwrite");
-  tx.objectStore("meta").put(record);
+  const tx = db.transaction([store], "readwrite");
+  tx.objectStore(store).put(record);
   await new Promise((resolve) => tx.addEventListener("complete", resolve));
   db.close();
 }
@@ -238,7 +239,7 @@ test("a document stored before moves existed reads as not moving", async () => {
   const indexedDb = new IDBFactory();
   const store = await openIdbStore({ userId: "dana", indexedDb });
   const { moving: _moving, ...older } = blankMeta(DOC);
-  await putOlderMeta(indexedDb, {
+  await putOlder(indexedDb, "meta", {
     ...older,
     recovering: { versionId: "v1", heal: true },
     highestLocalSeq: 0,
@@ -249,4 +250,38 @@ test("a document stored before moves existed reads as not moving", async () => {
   };
   expect((await store.load(DOC))!.meta).toEqual(meta);
   expect(await store.documents()).toEqual([meta]);
+});
+
+test("a document stored before creates named a workspace reads as having none", async () => {
+  const indexedDb = new IDBFactory();
+  const store = await openIdbStore({ userId: "dana", indexedDb });
+  await putOlder(indexedDb, "meta", {
+    ...blankMeta(DOC),
+    create: { kind: "script", home: "user" },
+    highestLocalSeq: 0,
+  });
+  const meta = {
+    ...blankMeta(DOC),
+    create: { kind: "script", home: "user", workspaceId: null },
+  };
+  expect((await store.load(DOC))!.meta).toEqual(meta);
+  expect(await store.documents()).toEqual([meta]);
+});
+
+test("a recovered item stored before overlaps carried wordings reads with none", async () => {
+  const indexedDb = new IDBFactory();
+  const store = await openIdbStore({ userId: "dana", indexedDb });
+  const older = {
+    id: "item-1",
+    docId: DOC,
+    blockId: "b1",
+    nearBlockId: null,
+    text: "kept",
+    recoveredAt: 5,
+    cause: "merge" as const,
+  };
+  await putOlder(indexedDb, "recovered", older);
+  expect(await store.recovered(DOC)).toEqual([
+    { ...older, mine: null, theirs: null, otherClientIds: [] },
+  ]);
 });

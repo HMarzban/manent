@@ -229,10 +229,11 @@ export function webTransport(options: {
       const ticket = await readTicket(response);
       return openSocket(open(socketUrl(baseUrl, ticket)), handlers);
     },
-    async createDocument(request) {
+    async createDocument({ workspaceId, ...request }) {
       const token = session();
       if (token === null) throw new ConnectError("sign_in");
-      const body = JSON.stringify(request);
+      const named = workspaceId === null ? {} : { workspaceId };
+      const body = JSON.stringify({ ...request, ...named });
       const { status } = await post(send, `${baseUrl}/api/docs`, token, body);
       if (status === 200) return { ok: true };
       if (status === 403) return { ok: false, code: "forbidden" };

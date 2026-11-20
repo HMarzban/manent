@@ -336,6 +336,22 @@ test("a disabled button says why and stays focusable", async () => {
   ]);
 });
 
+test("a button whose work is still opening is disabled without a line above it and stays focusable", async () => {
+  setAction({ run: null });
+  const { container } = await renderApp("/s/d1/send/print");
+  const button = actionButton(container);
+  if (button === undefined) throw new Error("no action button");
+  act(() => button.click());
+  act(() => button.focus());
+  expect([
+    button.textContent,
+    button.getAttribute("aria-disabled"),
+    button.getAttribute("aria-describedby"),
+    button.parentElement?.previousElementSibling?.tagName ?? null,
+    document.activeElement?.textContent,
+  ]).toEqual(["Print 14 pages", "true", null, null, "Print 14 pages"]);
+});
+
 test("long work shows its progress in words, then offers Cancel", async () => {
   let cancels = 0;
   setAction({

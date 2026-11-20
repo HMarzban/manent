@@ -49,8 +49,12 @@ export interface Journal {
   appendServer(update: Uint8Array, applied: boolean): number;
   /** A setting requested here; `value` is JSON text. */
   appendSetting(key: string, value: string): StoredSetting;
-  /** The entries up to `clientSeq` are acknowledged; the meta notes it in the same write. */
-  acknowledge(clientSeq: number, serverSeq: number, syncedAt: number): void;
+  /** The entries up to `clientSeq` are acknowledged; the meta notes it in the same write, with `syncedAt` unless it is null. */
+  acknowledge(
+    clientSeq: number,
+    serverSeq: number,
+    syncedAt: number | null,
+  ): void;
   /** Drops a setting refused for good; null when no setting has that sequence. */
   refuse(clientSeq: number): StoredSetting | null;
   /** Every server update up to `through` is in the document. */
@@ -94,6 +98,8 @@ interface JournalOptions {
   lostLead(): void;
   /** The document's state for a checkpoint, and whether everything in it is synced. */
   checkpoint(): { state: Uint8Array; synced: boolean };
+  /** Writes an entry to the store; rejects StoreError as the store does. */
+  append(entry: StoredEntry): Promise<void>;
 }
 
 function freshMeta(docId: string, create: DocMeta["create"]): DocMeta {
@@ -232,7 +238,11 @@ class StoreJournal implements Journal {
     return entry;
   }
 
-  acknowledge(clientSeq: number, serverSeq: number, syncedAt: number): void {
+  acknowledge(
+    clientSeq: number,
+    serverSeq: number,
+    syncedAt: number | null,
+  ): void {
     const isNew = (e: StoredEntry): boolean =>
       !e.acked && e.localSeq <= clientSeq;
     const ackedClocks = { ...this.meta.ackedClocks };
@@ -248,7 +258,7 @@ class StoreJournal implements Journal {
       lastServerSeq: Math.max(this.meta.lastServerSeq, serverSeq),
       ackedClocks,
       neverSynced: false,
-      lastSyncedAt: syncedAt,
+      ...(syncedAt === null ? {} : { lastSyncedAt: syncedAt }),
     };
     this.meta = { ...this.meta, ...patch };
     void this.persist(() =>
@@ -346,9 +356,7 @@ class StoreJournal implements Journal {
     if (entry.kind === "update") this.options.stored(entry.update);
     const waits = entry.kind === "set" || entry.own;
     if (waits) this.unsettled.add(entry.localSeq);
-    const settled = this.persist(() =>
-      this.store.append(this.docId, entry),
-    ).then(() => {
+    const settled = this.persist(() => this.options.append(entry)).then(() => {
       if (!waits) return;
       this.unsettled.delete(entry.localSeq);
       this.options.sendable();

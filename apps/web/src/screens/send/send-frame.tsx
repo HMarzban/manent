@@ -51,7 +51,8 @@ export interface SendAction {
   readonly progress: string | null;
   /** Offered as Cancel beside a long-running busy button; null when the work cannot be cancelled. */
   readonly cancel: (() => void) | null;
-  run(): void;
+  /** Null while what it sends is still opening: the button is disabled, with no line above it. */
+  readonly run: (() => void) | null;
 }
 
 /** The place the Send screen was opened from, as its Back names it, and the way there. */
@@ -183,11 +184,11 @@ function ActionButton(props: {
     <Button
       ref={measure}
       size="lg"
-      disabled={busy || action.disabledReason !== null}
+      disabled={busy || action.disabledReason !== null || action.run === null}
       focusableWhenDisabled
       aria-describedby={describedBy}
       style={busy && idleWidthPx !== null ? { width: idleWidthPx } : undefined}
-      onClick={() => action.run()}
+      onClick={() => action.run?.()}
     >
       {busy ? action.busyLabel : label}
       {busy && step >= 1 ? <Spinner /> : null}

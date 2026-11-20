@@ -5,7 +5,6 @@ import {
   ORIGIN_REMOTE,
   loadDoc,
   observeScript,
-  scriptBody,
   scriptSettings,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
@@ -15,16 +14,17 @@ import { createSubscribable } from "../outbox/subscribable.ts";
 import type {
   DocMeta,
   DocStatus,
-  RecoveredItem,
   SideState,
   SyncClientPorts,
 } from "../ports/ports.ts";
-import { differingText } from "../recovery/recover.ts";
 import type { DocEvent, DocHandle } from "../session/doc-handle.ts";
 import { elementsOf } from "../session/edits.ts";
 import type { UnsavedEdit } from "../session/edits.ts";
 import type { TabBody } from "../tabs/messages.ts";
+import { readEvent } from "../upstream/events.ts";
+import type { UpstreamStatus } from "../upstream/status.ts";
 import type { ViewHandle } from "../view/view.ts";
+import { TabRecovered } from "./tab-recovered.ts";
 
 /** One document of a tab that does not lead, as its client drives it. */
 export interface Follower {
@@ -51,50 +51,6 @@ const OFFLINE: DocStatus = Object.freeze({
   side: [],
 });
 
-type Fields = Record<string, unknown>;
-
-function isFields(value: unknown): value is Fields {
-  return typeof value === "object" && value !== null;
-}
-
-/**
- * A leader's event, which the reader of tab messages leaves unread. `replaced`
- * and `recovered` come as messages of their own, so they read as null here.
- */
-function readEvent(value: unknown): DocEvent | null {
-  if (!isFields(value)) return null;
-  const { code, replayed, setAside, sent, key, message } = value;
-  const { applied, overlaps, versionId } = value;
-  switch (value.type) {
-    case "rejected":
-      return typeof code === "number" &&
-        typeof replayed === "number" &&
-        typeof setAside === "number"
-        ? { type: "rejected", code, replayed, setAside }
-        : null;
-    case "setting_refused":
-      return typeof key === "string" && typeof message === "string"
-        ? { type: "setting_refused", key, message }
-        : null;
-    case "receipt":
-      return typeof sent === "number" && typeof setAside === "number"
-        ? { type: "receipt", sent, setAside }
-        : null;
-    case "rebuilt":
-      return typeof applied === "number" &&
-        typeof overlaps === "number" &&
-        typeof setAside === "number"
-        ? { type: "rebuilt", applied, overlaps, setAside }
-        : null;
-    case "past_window":
-      return typeof versionId === "string"
-        ? { type: "past_window", versionId }
-        : null;
-    default:
-      return null;
-  }
-}
-
 type Unsaved = UnsavedEdit & { generation: number };
 
 interface FollowerOptions {
@@ -120,13 +76,8 @@ class TabFollower implements Follower {
   private readonly unsaved = new Map<number, Unsaved>();
   private refused = false;
   private leaderStatus: DocStatus = OFFLINE;
-  private recovered: RecoveredItem[] = [];
-  /** The ids of the items this tab filed itself, which the leader may file again. */
-  private readonly filedHere = new Set<string>();
+  private readonly recovered: TabRecovered;
   private readonly status = createSubscribable<DocStatus>(OFFLINE);
-  private readonly recoveredView = createSubscribable<readonly RecoveredItem[]>(
-    [],
-  );
   private readonly settings = createSubscribable<
     Readonly<Record<string, unknown>>
   >({});
@@ -140,6 +91,7 @@ class TabFollower implements Follower {
   constructor(options: FollowerOptions) {
     this.options = options;
     this.doc = options.doc;
+    this.recovered = new TabRecovered(options);
     for (const edit of options.unsaved)
       this.unsaved.set(options.nextEdit(), { ...edit, generation: 0 });
     this.loaded = new Promise((resolve) => {
@@ -189,7 +141,7 @@ class TabFollower implements Follower {
         return;
       }
       case "recovered":
-        this.fileLeaders(body.items);
+        this.recovered.fileLeaders(body.items);
         return;
       case "replace":
         if (body.generation === this.generation) this.replace(body.state);
@@ -254,7 +206,10 @@ class TabFollower implements Follower {
   /** A recovery replaced the leader's document: this tab loads it under a client ID of its own, never the old one. */
   private replace(state: Uint8Array): void {
     const previous = this.load(state);
-    this.fileUnsaved(previous);
+    const touched = new Set(
+      [...this.unsaved.values()].flatMap((edit) => edit.elements),
+    );
+    this.recovered.fileUnsaved(previous, this.doc, touched);
     this.unsaved.clear();
     this.announce();
     this.show();
@@ -287,47 +242,6 @@ class TabFollower implements Follower {
     return previous;
   }
 
-  /**
-   * The blocks this tab's unsaved edits touched, as `previous` held them and the
-   * new document does not: the leader may never have received those edits, so
-   * their text is filed here, as Recovered text of this tab.
-   */
-  private fileUnsaved(previous: CrdtDoc): void {
-    const touched = new Set(
-      [...this.unsaved.values()].flatMap((edit) => edit.elements),
-    );
-    if (touched.size === 0) return;
-    const { docId, ports } = this.options;
-    const theirs = scriptBody(this.doc).materialize();
-    const mine = scriptBody(previous).materialize();
-    const found = differingText(mine, theirs, (id) => touched.has(id));
-    const items = found.map((leftover) => ({
-      id: ports.random.bytes(16).toHex(),
-      docId,
-      ...leftover,
-      recoveredAt: ports.clock.now(),
-    }));
-    for (const item of items) this.filedHere.add(item.id);
-    this.setRecovered([...this.recovered, ...items]);
-  }
-
-  /** The leader's items; one this tab filed with the same block and text gives way to it. */
-  private fileLeaders(items: readonly RecoveredItem[]): void {
-    const filed = new Set(items.map(sameText));
-    const kept = this.recovered.filter((item) => {
-      if (!this.filedHere.has(item.id) || !filed.has(sameText(item)))
-        return true;
-      this.filedHere.delete(item.id);
-      return false;
-    });
-    this.setRecovered([...kept, ...items]);
-  }
-
-  private setRecovered(items: RecoveredItem[]): void {
-    this.recovered = items;
-    this.recoveredView.set(items);
-  }
-
   /** The leader's facts, saved only once the leader saved every edit made here. */
   private show(): void {
     const base = this.leaderStatus;
@@ -353,10 +267,11 @@ class TabFollower implements Follower {
       docId,
       doc: () => this.doc,
       status: this.status,
-      recovered: this.recoveredView,
+      recovered: this.recovered.view,
       settings: this.settings,
       writeSchema: createSubscribable(writeSchema),
       readOnly: createSubscribable<ViewHandle | null>(null),
+      upstream: createSubscribable<UpstreamStatus | null>(null),
       on: (listener) => {
         this.listeners.add(listener);
         return () => this.listeners.delete(listener);
@@ -379,6 +294,11 @@ class TabFollower implements Follower {
             "a device version is kept by the tab that leads, which holds the store",
           ),
         ),
+      adoptClientIds: () => {
+        throw new RangeError(
+          "client IDs are adopted by the tab that leads, which holds the store",
+        );
+      },
       close: async () => {
         post({ t: "close", docId });
         this.detach();
@@ -386,11 +306,6 @@ class TabFollower implements Follower {
       },
     };
   }
-}
-
-/** Two items of the same block and text are the same Recovered text. */
-function sameText(item: RecoveredItem): string {
-  return JSON.stringify([item.blockId, item.text]);
 }
 
 export function createFollower(options: FollowerOptions): Follower {

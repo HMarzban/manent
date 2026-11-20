@@ -105,6 +105,8 @@ export const EDITOR_WORDS = {
       files === 1 ? "Export 1 file" : `Export ${files} files`,
     printTitle: (pages: number) =>
       pages === 1 ? "Print 1 page" : `Print ${pages} pages`,
+    // the title and the button while the page count is not known yet
+    print: "Print",
     exporting: (files: number) =>
       files === 1 ? "Exporting 1 file…" : `Exporting ${files} files…`,
     preparing: (pages: number) =>

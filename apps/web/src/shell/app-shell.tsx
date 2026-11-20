@@ -49,11 +49,12 @@ const GRID: CSSProperties = Object.freeze({
     '"demobar demobar demobar"',
     '"titlebar titlebar titlebar"',
     '"statebar statebar statebar"',
+    '"ruler ruler ruler"',
     '"left page side"',
     '"statusbar statusbar statusbar"',
   ].join(" "),
   gridTemplateColumns: "auto minmax(0, 1fr) auto",
-  gridTemplateRows: "auto auto auto minmax(0, 1fr) auto",
+  gridTemplateRows: "auto auto auto auto minmax(0, 1fr) auto",
 });
 // a screen that is not a document covers everything from the title bar to the status bar, the page included
 const SCREEN_AREA: CSSProperties = Object.freeze({
@@ -193,7 +194,7 @@ function usePublishShellState(
 }
 
 /**
- * The grid every screen sits in, with areas `demobar`, `titlebar`, `statebar`, `left`, `page`, `side` and
+ * The grid every screen sits in, with areas `demobar`, `titlebar`, `statebar`, `ruler`, `left`, `page`, `side` and
  * `statusbar`, inside the providers of the person's settings and commands and of the bridge's stores.
  */
 export function AppShell(props: { children: ReactNode }): ReactNode {

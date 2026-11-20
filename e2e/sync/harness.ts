@@ -123,7 +123,7 @@ window.harness = {
     handle = await client.open(docId);
   },
   async create(request) {
-    handle = await client.create(request);
+    handle = await client.create({ ...request, workspaceId: null });
     return handle.docId;
   },
   type: (text) => write(current().doc(), text),

@@ -54,10 +54,11 @@ function copyJson(value: unknown, within: readonly object[]): unknown {
   if (prototype !== Object.prototype && prototype !== null)
     throw notJson(Object.prototype.toString.call(value));
   return Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [
-      wellFormed(key),
-      copyJson(item, inner),
-    ]),
+    Object.entries(value).map(([key, item]) => {
+      // Yjs's decoder drops this key, so another replica would read the object without it
+      if (key === "__proto__") throw notJson("a __proto__ key");
+      return [wellFormed(key), copyJson(item, inner)];
+    }),
   );
 }
 

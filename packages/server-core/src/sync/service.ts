@@ -1,4 +1,5 @@
 // The sync service: who is connected, what they hold open, and every document message they send.
+import type { Overlap, SetAsideBlock } from "@manent/revisions";
 import type { Storage } from "@manent/storage";
 import { CODE, prepareMessage } from "@manent/sync-protocol";
 import type { DocRef, Message, ServerVersions } from "@manent/sync-protocol";
@@ -16,7 +17,9 @@ import { createInlineCheckpointer } from "./checkpointer.ts";
 import { countingCommits } from "./counted-storage.ts";
 import { createDeletions } from "./deletions.ts";
 import { refusalError, syncError } from "./errors.ts";
+import { createRelayIntake } from "./follow.ts";
 import { createHealing } from "./heal.ts";
+import { HELD_RETRY_MS, createHeldQueue } from "./held.ts";
 import { DEFAULT_LIMITS, NO_SETTINGS } from "./ports.ts";
 import type {
   Checkpointer,
@@ -28,15 +31,9 @@ import type {
   WriteMode,
 } from "./ports.ts";
 import { createRooms } from "./rooms.ts";
-import type { Room, Subscription } from "./rooms.ts";
-import { isStorageError } from "./storage-error.ts";
-import {
-  answerStepOne,
-  checkSubscribe,
-  registerEditor,
-  subscribedOf,
-} from "./subscribe.ts";
-import type { SubscribeMessage } from "./subscribe.ts";
+import type { Room } from "./rooms.ts";
+import { answerStepOne, docOf, subscribe } from "./subscribe.ts";
+import type { SubscribePorts } from "./subscribe.ts";
 import { createSnapshotAnswers, viewPatchOf } from "./viewers.ts";
 import { createWritePath } from "./write-path.ts";
 
@@ -78,6 +75,21 @@ export interface SyncService {
   requestRebuild(docId: string): void;
   /** POST /api/docs/replay: `body` is the route's JSON, not yet checked. */
   replay(userId: string, body: unknown): Promise<ReplayOutcome>;
+  /** Relay only: commits what `produce` returns beyond the room's state vector, as `userId`'s, whose upstream it came through. */
+  ingest(
+    docId: string,
+    userId: string,
+    produce: (roomVector: Uint8Array) => Uint8Array,
+  ): void;
+  /** Asks `mode` again for that room. */
+  modeChanged(docId: string): void;
+  /** Relay only: the room keeps committing and acknowledging, and hands nothing upstream until it follows. */
+  pauseRelay(docId: string): void;
+  /** Relay only: a new generation from `theirs`, the upstream's state, with the room's own changes merged in by block. */
+  follow(
+    docId: string,
+    theirs: Uint8Array,
+  ): { update: Uint8Array; overlaps: Overlap[]; setAside: SetAsideBlock[] };
   stats(): ServiceStats;
   shutdown(): Promise<void>;
 }
@@ -92,7 +104,12 @@ export interface SyncSettings {
   defer(fn: () => void): void;
   /** A new version id. */
   ids(): string;
-  mode?: WriteMode;
+  /** A function is asked when a room is created and on `modeChanged`. */
+  mode?: WriteMode | ((docId: string) => WriteMode);
+  /** What a room does when the disk is full: "poison" (the default) ends its editors; "hold" keeps what it could not commit and retries. */
+  fullDisk?: "poison" | "hold";
+  /** Called on each change of whether held commits are waiting. */
+  onDeviceStorage?: (state: "ok" | "failing") => void;
   limits?: Partial<SyncLimits>;
   checkpointer?: Checkpointer;
   upstream?: Upstream;
@@ -101,14 +118,11 @@ export interface SyncSettings {
   airWindow?: (docId: string, now: number) => boolean;
 }
 
-function docOf(room: Room): DocRef {
-  return { docId: room.docId, generation: room.row.generation };
-}
-
 export function createSyncService(
   options: SyncSettings & { versions: ServerVersions },
 ): SyncService {
-  const { clock, defer, mode: writeMode = "authority" } = options;
+  const { clock, defer, mode } = options;
+  const modeOf = typeof mode === "function" ? mode : () => mode ?? "authority";
   const limits: SyncLimits = { ...DEFAULT_LIMITS, ...options.limits };
   // duplicates are the acknowledgements that answered no new entry
   const counted = {
@@ -127,7 +141,13 @@ export function createSyncService(
   const checkpointer =
     options.checkpointer ??
     createInlineCheckpointer({ storage: options.storage, defer });
-  const rooms = createRooms({ storage, clock, limits, checkpointer });
+  const rooms = createRooms({
+    storage,
+    clock,
+    limits,
+    checkpointer,
+    mode: modeOf,
+  });
   const deletions = createDeletions();
   const access = createDocumentAccess({
     storage: options.storage,
@@ -136,8 +156,18 @@ export function createSyncService(
   const caps = createConnectionCaps(limits);
   const presence = createAwarenessHub({ clock, limits });
   const snapshotOf = createSnapshotAnswers(options.storage);
-  const heal = createHealing({ ...options, mode: writeMode, now: clock.now });
+  const heal = createHealing({ ...options, modeOf, now: clock.now });
   let closing = false;
+  // after the last retry at shutdown, what is still held is let go: the windows' outboxes, and for a relayed room the upstream's, still hold it
+  let heldDropped = false;
+  const heldQueue = createHeldQueue({
+    clock,
+    retryMs: HELD_RETRY_MS,
+    commit: (items) => heldDropped || writePath.commitHeld(items),
+    onState(state) {
+      if (!heldDropped) options.onDeviceStorage?.(state);
+    },
+  });
 
   const bucket = (perSecond: number, burst: number): TokenBucket =>
     createTokenBucket({ perSecond, burst, now: clock.now });
@@ -162,7 +192,6 @@ export function createSyncService(
   };
 
   const writePath = createWritePath({
-    mode: writeMode,
     limits,
     now: clock.now,
     defer,
@@ -212,15 +241,17 @@ export function createSyncService(
         : {
             enqueue(item) {
               if (item.kind === "set") counted.relayedSets += 1;
+              else if (intake.isPaused(item.docId)) return;
               options.upstream?.enqueue(item);
             },
           },
+    fullDisk: options.fullDisk ?? "poison",
+    held: heldQueue,
     registry: options.registry ?? NO_SETTINGS,
     schemaFloor: options.schemaFloor ?? null,
   });
   const rebuilder = createRebuilder({
     ...options,
-    mode: writeMode,
     limits,
     rooms,
     writePath,
@@ -228,62 +259,26 @@ export function createSyncService(
     poisoned: poison,
   });
   const replay = createReplay({ ...options, access, rooms, writePath, limits });
-
-  function subscribe(
-    peer: Peer,
-    state: PeerState,
-    message: SubscribeMessage,
-  ): void {
-    const { docId } = message;
-    const check = checkSubscribe(
-      { access, rooms, limits, buckets: state.buckets },
-      peer,
-      message,
-    );
-    if (!check.ok) {
-      end(peer, docId);
-      if (check.room !== null) rooms.left(check.room);
-      return tell(peer, check.answer);
-    }
-    const { room, mode } = check;
-    try {
-      heal.subscribed(room, message.lastServerSeq);
-      if (mode === "edit") registerEditor(room, peer.userId, message.clientIds);
-    } catch (error) {
-      // the store refused what a SUBSCRIBE writes: told as a failed commit is, and nothing held
-      if (!isStorageError(error)) throw error;
-      end(peer, docId);
-      rooms.left(room);
-      const retryAfterMs = limits.poisonRetryMs;
-      return tell(
-        peer,
-        syncError("storage_failed", docOf(room), { retryAfterMs }),
-      );
-    }
-    if (mode === "view") presence.left(room, peer);
-    room.editors.delete(peer);
-    room.viewers.delete(peer);
-    const { access: granted } = check;
-    const subscription: Subscription = {
-      peer,
-      mode,
-      access: granted,
-      stalled: false,
-    };
-    // a viewer's snapshot holds only what is committed, and comes before any patch
-    if (mode === "view" && writePath.queued() > 0) writePath.flush();
-    const { lastServerSeq } = message;
-    state.held.set(docId, { room, subscription, lastServerSeq });
-    (mode === "edit" ? room.editors : room.viewers).set(peer, subscription);
-    tell(peer, subscribedOf(room, granted, heal.headOf(room)));
-    const vector = room.doc?.encodeStateVector();
-    if (mode === "edit" && vector !== undefined) {
-      rebuilder.touched(room);
-      tell(peer, { type: "SYNC", ...docOf(room), step: "step1", data: vector });
-      return presence.joined(room, peer);
-    }
-    tell(peer, snapshotOf(room));
-  }
+  const intake = createRelayIntake({
+    ...options,
+    limits,
+    rooms,
+    writePath,
+    held: heldQueue,
+    endAll,
+  });
+  const subscribePorts: SubscribePorts = {
+    access,
+    rooms,
+    limits,
+    heal,
+    presence,
+    writePath,
+    rebuilder,
+    snapshotOf,
+    tell,
+    end,
+  };
 
   /** Anything else a client sends for a document is ignored. */
   function receiveDocument(
@@ -292,7 +287,8 @@ export function createSyncService(
     message: Extract<Message, { docId: string }>,
   ): void {
     const { type, docId } = message;
-    if (type === "SUBSCRIBE") return subscribe(peer, state, message);
+    if (type === "SUBSCRIBE")
+      return subscribe(subscribePorts, peer, state, message);
     if (type === "UNSUBSCRIBE") return end(peer, docId);
     if (!["PUSH", "SET", "SYNC", "AWARENESS"].includes(type)) return;
     const held = state.held.get(docId);
@@ -366,6 +362,13 @@ export function createSyncService(
     restored: () => heal.restored(),
     requestRebuild: (docId) => rebuilder.request(docId),
     replay,
+    ingest: intake.ingest,
+    modeChanged(docId) {
+      const room = rooms.find(docId);
+      if (room !== null) room.mode = modeOf(docId);
+    },
+    pauseRelay: intake.pauseRelay,
+    follow: intake.follow,
     stats() {
       const { acks, relayedSets, ...counts } = counted;
       const { rooms: open, loaded } = rooms.stats();
@@ -382,6 +385,9 @@ export function createSyncService(
     async shutdown() {
       closing = true;
       writePath.flush();
+      heldQueue.retry();
+      heldDropped = true;
+      heldQueue.retry();
       for (const peer of peers.keys()) {
         peer.close(CODE.RESTARTING, "restarting");
         detach(peer);

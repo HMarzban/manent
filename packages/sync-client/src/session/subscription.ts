@@ -1,7 +1,7 @@
 // One document's subscription as its session drives it: what SUBSCRIBE and the heal push carry,
 // the server's step 2, acknowledgements and refusals, what each ending stops or parks, and the
 // recovery from a permanently rejected push or a move to a new generation it hands over to.
-import { createDoc, readStateVector } from "@manent/crdt";
+import { createDoc, loadDoc, readStateVector } from "@manent/crdt";
 import { CODE } from "@manent/sync-protocol";
 import type { DocumentMessage, Message } from "@manent/sync-protocol";
 import type { ServerGate } from "../link/gate.ts";
@@ -11,7 +11,9 @@ import { createSubscribable } from "../outbox/subscribable.ts";
 import { SUBSCRIBE_CLIENT_IDS } from "../ports/defaults.ts";
 import { ConnectError } from "../ports/ports.ts";
 import { PushRecovery } from "../recovery/recover.ts";
+import { reconnectOverlaps } from "../review/overlaps.ts";
 import type {
+  DocMeta,
   SideState,
   Subscribable,
   SyncClientPorts,
@@ -27,9 +29,9 @@ import type { Ending } from "./refusals.ts";
 /**
  * `side`: what the server's answers set aside from syncing. `connection`
  * counts connections made and lost, so that an answer for an older one is
- * dropped. `readOnly` is set when the server answered 4408. `moving`: a move
- * to a new generation is under way; `left`: the document a move left, while
- * something may still write to it.
+ * dropped. `readOnly` is set when the server answered 4408 or 4403
+ * `read_only_role`. `moving`: a move to a new generation is under way;
+ * `left`: the document a move left, while something may still write to it.
  */
 export interface Subscription extends HandshakeHost {
   readonly handshake: Handshake;
@@ -60,6 +62,8 @@ interface SubscriptionOptions {
   replaceConnection(reason: string): void;
   /** The tabs following this document. */
   followers(): string[];
+  /** When a sync is recorded as made now; null: the last sync is not this subscription's to record. */
+  syncedAt(): number | null;
 }
 
 class DocSubscription implements Subscription {
@@ -140,10 +144,7 @@ class DocSubscription implements Subscription {
     this.move?.stop();
   }
 
-  /**
-   * A recovery subscribes under its new client ID, and a move under the new
-   * generation's, with an empty state vector, to be sent the whole state.
-   */
+  /** A recovery subscribes under its new client ID, and a move under the new generation's, with an empty state vector, to be sent the whole state. With own entries waiting, step 1 carries the synced base's vector, so that step 2 is everything the server holds beyond it. */
   subscription(): ReturnType<HandshakeHost["subscription"]> {
     const loading = this.move?.subscription() ?? null;
     if (loading !== null) return loading;
@@ -151,12 +152,15 @@ class DocSubscription implements Subscription {
     const { meta } = this.options.journal;
     const clientIds =
       fresh === null ? meta.clientIds : [...meta.clientIds, fresh.clientId];
-    const { doc } = this.options.copy;
+    const { syncedBase } = this;
+    const base =
+      syncedBase !== null && this.hasWaiting() ? loadDoc(syncedBase) : null;
+    const from = fresh === null ? (base ?? this.options.copy.doc) : createDoc();
     return {
       generation: fresh?.generation ?? meta.generation,
       clientIds: clientIds.slice(-SUBSCRIBE_CLIENT_IDS),
       lastServerSeq: this.recovery.redirected ? 0 : meta.lastServerSeq,
-      vector: (fresh === null ? doc : createDoc()).encodeStateVector(),
+      vector: from.encodeStateVector(),
     };
   }
 
@@ -210,11 +214,12 @@ class DocSubscription implements Subscription {
       );
       this.healSeq = null;
     } else this.merge(update);
-    const { journal, ports } = this.options;
+    const { journal } = this.options;
+    const syncedAt = this.hasWaiting() ? null : this.options.syncedAt();
     journal.patch({
       neverSynced: false,
       lastServerSeq: Math.max(journal.meta.lastServerSeq, this.headSeq),
-      ...(this.hasWaiting() ? {} : { lastSyncedAt: ports.clock.now() }),
+      ...(syncedAt === null ? {} : { lastSyncedAt: syncedAt }),
     });
   }
 
@@ -223,8 +228,8 @@ class DocSubscription implements Subscription {
   }
 
   acknowledged(clientSeq: number, serverSeq: number): void {
-    const { journal, copy, ports } = this.options;
-    journal.acknowledge(clientSeq, serverSeq, ports.clock.now());
+    const { journal, copy } = this.options;
+    journal.acknowledge(clientSeq, serverSeq, this.options.syncedAt());
     copy.acknowledged(clientSeq);
     this.recovery.acknowledged(clientSeq);
     this.settled();
@@ -245,7 +250,8 @@ class DocSubscription implements Subscription {
           this.reject(ending.code, ending.clientSeq);
         else if (ending.side === "deleted") this.park("deleted");
         else this.stop(ending.side);
-        if (ending.side === "read_only") this.readOnly.set(this.options.view());
+        if (ending.side === "read_only" || ending.side === "view_only")
+          this.readOnly.set(this.options.view());
         return;
       case "forbidden": {
         const { create, neverSynced } = journal.meta;
@@ -288,11 +294,15 @@ class DocSubscription implements Subscription {
   private merge(update: Uint8Array): void {
     const { journal, copy } = this.options;
     const waiting = journal.waiting();
-    if (waiting > 0 && !journal.meta.neverSynced)
-      copy.recordVersion("device", "before_reconnect");
+    const mine =
+      waiting > 0 && !journal.meta.neverSynced
+        ? copy.recordVersion("device", "before_reconnect").content
+        : null;
     if (waiting > 0)
       this.receipt = { sent: waiting, setAside: copy.recovered.length };
-    copy.merge(update);
+    const { clientIds } = journal.meta;
+    const found = reconnectOverlaps(this.syncedBase, update, mine, clientIds);
+    copy.merge(update, found);
   }
 
   /** A permanently rejected push; the heal push when its `clientSeq` is the heal push's. */
@@ -328,6 +338,7 @@ class DocSubscription implements Subscription {
         this.handshake.subscribe();
       },
       followers: () => this.options.followers(),
+      syncedAt: () => this.options.syncedAt(),
       leave: (left) => {
         this.left = left;
       },
@@ -342,7 +353,7 @@ class DocSubscription implements Subscription {
     this.stop(reason);
   }
 
-  private createThenSubscribe(create: { kind: string; home: string }): void {
+  private createThenSubscribe(create: NonNullable<DocMeta["create"]>): void {
     const at = this.connection;
     const request = { docId: this.options.docId, ...create };
     this.options.ports.transport.createDocument(request).then(
@@ -366,17 +377,17 @@ class DocSubscription implements Subscription {
     this.options.changed();
   }
 
-  /** After an acknowledgement or a refusal: the receipt goes once nothing waits. */
+  /** After an acknowledgement or a refusal: the receipt goes once nothing waits, counting the items filed since the reconnect by cause. */
   private settled(): void {
     this.options.changed();
     if (this.receipt === null || this.hasWaiting()) return;
     const { sent, setAside } = this.receipt;
     this.receipt = null;
-    this.options.copy.emit({
-      type: "receipt",
-      sent,
-      setAside: this.options.copy.recovered.length - setAside,
-    });
+    const { copy } = this.options;
+    const filed = copy.recovered.slice(setAside);
+    const overlaps = filed.filter((item) => item.cause === "overlap").length;
+    const unplaced = filed.length - overlaps;
+    copy.emit({ type: "receipt", sent, setAside: unplaced, overlaps });
   }
 
   private hasWaiting(): boolean {

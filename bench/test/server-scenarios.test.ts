@@ -41,6 +41,7 @@ test("every server scenario is found and has its budget rows", async () => {
     "server.join-storm",
     "server.persistence",
     "server.push-cost",
+    "server.rebuild-stall",
     "server.room-memory",
     "server.soak",
   ]);

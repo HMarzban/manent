@@ -339,16 +339,16 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   about, accepts, affect, after, again, ago, agreed, all, already, always, am, an, another, any,
   anyone, anyway, anywhere, apart, apostrophes, app, appear, applied, applies, apr, around, arrived,
   arriving, ask, at, aug, automatically, available, away, be, because, been, between, both, box, build,
-  can't, cancel, cancels, cannot, capitals, changing, checking, clean, cleared, close, closing, comfortably,
+  can't, cancel, cancels, cannot, capitals, changing, checking, clean, cleared, close, closing, comfortably, computer,
   controls, copy, correctly, could, couldn't, created, data, date, day, dec, decline, deleted,
   differ, different, dismiss, do, down, each, edited, else, english, every, everything, example,
-  existed, ext, features, feb, flow, fri, generates, getting, handles, happens, has, have, height,
-  hidden, hide, how, hr, industry, installs, instruction, int, is, isn't, issued, itself, jan, jul,
-  jun, just, kept, key, keystroke, language, last, later, leave, leaving, letters, linux, list,
-  load, longer, look, made, make, mar, match, matches, may, mentions, min, missed, misspellings,
+  existed, ext, features, feb, flow, fri, generates, get, getting, handles, happens, has, have, height,
+  hidden, hide, holds, how, hr, identity, industry, installs, instruction, int, is, isn't, issued, itself, jan, jul,
+  jun, just, kept, key, keystroke, language, larger, last, later, leave, leaving, letters, linux, list,
+  load, longer, look, made, make, mar, match, matches, may, mb, mentions, min, missed, misspellings,
   mon, more, move, music, name, near, nearly, needs, never, newer, newscast, next, no, none,
   nothing, nov, now, number, oct, off, offered, older, once, one, opening, or, other, others, out,
-  outside, own, paste, pause, pick, placed, prepare, preparing, press, pressing, put, re-applied, reach,
+  outside, own, paste, pause, pick, placed, prepare, preparing, press, pressing, put, quit, re-applied, reach,
   reached, reacts, reading, ready, reduced, region, reload, reloading, removes, reorganised,
   request, resize, rest, right, running, runs, said, same, sat, save, say, says, sc, search, see,
   sees, sep, showing, sign, signed, slow, so, some, sound, speeches, standard, started, starting,
@@ -361,8 +361,8 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
 /** Words of the interface that name a part of Manent and are not yet listed terms; allowed until they are listed. */
 export const PENDING_TERMS: readonly string[] = listOf(`
   access, align, all-caps, animation, announce, appearance, avatars, bold, canary, channel,
-  collated, cont'd, continued, continueds, dark, desk, desktop, driving, editors, elsewhere,
-  exported, exporting, font, help, highlight, interface, italic, keyboard, kind, light, manuscript,
+  collated, cont'd, continued, continueds, dark, desk, desktop, docx, driving, editors, elsewhere,
+  exported, exporting, fdx, font, fountain, help, highlight, interface, italic, keyboard, kind, light, manuscript,
   margin, mores, multi-camera, paper, pdf, picker, redo, rename, same-speaker, screenplay, setup,
   size, spelling, stable, strikethrough, syncing, tabs, underline, undo, variety
 `);
@@ -388,6 +388,7 @@ export const BANNED_WORD_EXCEPTION: readonly string[] = Object.freeze([
   "The demo is not running. Run make demo again.",
   "Nothing to set. Manent updates once every Manent tab has been closed.",
   "Nothing to set. Manent is in English in this release; spelling follows your system's language.",
+  "Get the latest Manent",
 ]);
 
 /** The four sentences allowed to say "not sent", for changes that will never reach the server; `{…}` is any value. */

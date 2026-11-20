@@ -458,7 +458,9 @@ test("a reconnect that had something waiting ends in one receipt, counted in ele
   await w.settle();
   w.server.ack(DOC, 4, 5);
   await w.settle();
-  expect(events).toEqual([{ type: "receipt", sent: 2, setAside: 0 }]);
+  expect(events).toEqual([
+    { type: "receipt", sent: 2, setAside: 0, overlaps: 0 },
+  ]);
 });
 
 test("awareness passes through while the document is live", async () => {
@@ -524,6 +526,12 @@ test("each ERROR for a document has its one answer", async () => {
       message: "too_old",
       permanent: false,
       side: ["read_only"],
+    },
+    {
+      code: CODE.FORBIDDEN,
+      message: "read_only_role",
+      permanent: false,
+      side: ["view_only"],
     },
   ];
   for (const stop of stops) {

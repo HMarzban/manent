@@ -1,21 +1,12 @@
 // Bun's listener and sockets, adapted to the server's request and connection seams.
-import type {
-  Connection,
-  ConnectionData,
-  ManentServer,
-} from "@manent/server-core";
 import { FRAME_LIMIT_BYTES } from "@manent/sync-protocol";
+import type { Connection, ConnectionData } from "../socket/connection.ts";
+import type { ManentServer } from "./server.ts";
 
-/**
- * The answer to a request whose handler threw: a plain sentence, with nothing of the thrown value
- * on the page or in the log, since it may name files and lines of this machine.
- */
-export function onServeError(_error: unknown): Response {
-  console.error("A request could not be answered.");
-  return new Response("Manent could not answer that request.", {
-    status: 500,
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-  });
+/** A bound listener: the port it bound, and a stop that also closes its sockets. */
+export interface Listener {
+  readonly port: number;
+  stop(): Promise<void>;
 }
 
 function asConnection(socket: Bun.ServerWebSocket<ConnectionData>): Connection {
@@ -34,24 +25,26 @@ function asConnection(socket: Bun.ServerWebSocket<ConnectionData>): Connection {
 }
 
 /**
- * Listens on `listen` and hands every request and socket event to `server()`, which is called
- * per event because the server is built only once its listeners have bound their port.
+ * Listens on `listen` (port 0 asks for a free one) and hands every request and socket event to
+ * `server()`, which is called per event because the server is built only once its listeners have
+ * bound their port. A request whose handler throws is answered by `onError`.
  */
 export function serveWithBun(
   listen: { hostname: string; port: number },
   server: () => ManentServer,
-): Bun.Server<ConnectionData> {
-  return Bun.serve<ConnectionData>({
+  onError: (error: unknown) => Response,
+): Listener {
+  const bun = Bun.serve<ConnectionData>({
     hostname: listen.hostname,
     port: listen.port,
     development: false,
     // with development off, Bun shares a port that is already taken unless told not to
     reusePort: false,
-    error: onServeError,
-    async fetch(request, bun) {
+    error: onError,
+    async fetch(request, served) {
       const response = await server().fetch(request, {
-        remoteAddress: bun.requestIP(request)?.address ?? "",
-        upgrade: (data) => bun.upgrade(request, { data }),
+        remoteAddress: served.requestIP(request)?.address ?? "",
+        upgrade: (data) => served.upgrade(request, { data }),
       });
       return response ?? undefined;
     },
@@ -64,4 +57,7 @@ export function serveWithBun(
       close: (socket) => server().connections.close(asConnection(socket)),
     },
   });
+  // a listener on a host and a port always reports the port it bound
+  const port = bun.port!;
+  return { port, stop: () => bun.stop(true) };
 }

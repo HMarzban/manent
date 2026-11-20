@@ -1,6 +1,7 @@
 // What the server's HTTP routes and the demo's server control answer, and what a client sends them.
 import { fromBase64, toBase64 } from "lib0/buffer";
 import type { DocKind } from "./doc-id.ts";
+import type { Capability, DocRole } from "./messages.ts";
 
 export const HTTP_ERROR_CODES = [
   "bad_request",
@@ -20,6 +21,7 @@ export const HTTP_ERROR_CODES = [
   "past_window",
   "too_large",
   "unknown_generation",
+  "unreachable",
 ] as const;
 
 export type HttpErrorCode = (typeof HTTP_ERROR_CODES)[number];
@@ -101,6 +103,50 @@ export interface CreateDocumentResponse {
   generation: number;
   /** False when the document already existed. */
   created: boolean;
+}
+
+/**
+ * The body of POST /api/docs/adopt: a document made on a device, handed to the server with its whole state. A retry
+ * under the same `key` changes nothing.
+ */
+export interface AdoptRequest {
+  /** A canonical lower-case UUID (`isDocId`), made once per hand-off. */
+  key: string;
+  docId: string;
+  kind: string;
+  /** As `CreateDocumentRequest.home`. */
+  home: string;
+  /** As `CreateDocumentRequest.workspaceId`; null for none. */
+  workspaceId: string | null;
+  /** Base64 of one Yjs update. */
+  state: string;
+}
+
+/** The answer to POST /api/docs/adopt. */
+export interface AdoptResponse {
+  docId: string;
+  kind: DocKind;
+  home: string;
+  generation: number;
+  /** The sequence the adopted state was written at. */
+  adoptedSeq: number;
+  /** False for a retry under the key already recorded. */
+  created: boolean;
+}
+
+/** The body of POST /api/docs/describe. */
+export interface DescribeRequest {
+  docId: string;
+}
+
+/** The answer to POST /api/docs/describe: where the document lives and what the caller may do with it. */
+export interface DescribeResponse {
+  docId: string;
+  kind: DocKind;
+  home: string;
+  generation: number;
+  role: DocRole;
+  capabilities: Capability[];
 }
 
 /** The body of POST /api/docs/remove; repeating it changes nothing. */
@@ -234,7 +280,7 @@ export function encodeReplayUpdates(updates: readonly Uint8Array[]): string[] {
   return updates.map((update) => toBase64(update));
 }
 
-function isBase64(value: unknown): value is string {
+export function isBase64(value: unknown): value is string {
   return (
     typeof value === "string" && value.length % 4 === 0 && BASE64.test(value)
   );

@@ -38,9 +38,9 @@ afterEach(() => s.close());
 afterAll(() => trees.removeAll());
 
 test("the storage schema is exactly these tables", () => {
-  expect(STORAGE_SCHEMA_VERSION).toBe(2);
-  expect(userVersion(join(dir, "control.sqlite"))).toBe(2);
-  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(2);
+  expect(STORAGE_SCHEMA_VERSION).toBe(3);
+  expect(userVersion(join(dir, "control.sqlite"))).toBe(3);
+  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(3);
   expect(tableColumns(join(dir, "control.sqlite"))).toEqual({
     doc_directory: [
       "doc_id TEXT",
@@ -155,6 +155,13 @@ test("the storage schema is exactly these tables", () => {
       "seq INTEGER",
       "result TEXT",
       "created_at INTEGER",
+    ],
+    doc_adoptions: [
+      "doc_id TEXT",
+      "key TEXT",
+      "user_id TEXT",
+      "seq INTEGER",
+      "adopted_at INTEGER",
     ],
   });
 });

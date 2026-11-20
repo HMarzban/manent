@@ -9,7 +9,8 @@ import { BOOT_SCRIPT, bootScriptHash } from "./src/boot/boot-script.ts";
 import { buildId, precacheEntries } from "./src/sw/manifest.ts";
 import type { PrecacheEntry } from "./src/sw/manifest.ts";
 
-const ROOT_MANIFEST = join(import.meta.dir, "../../package.json");
+const REPO_ROOT = join(import.meta.dir, "../..");
+const ROOT_MANIFEST = join(REPO_ROOT, "package.json");
 // every manifest in the repository starts at this version
 const UNVERSIONED = "0.0.0";
 
@@ -57,8 +58,9 @@ async function buildWorker(
 
 /**
  * Empties `outDir` and builds the app into it, split into chunks, with the boot script inlined,
- * then the service worker that precaches every file of the app. `files` are the outputs' paths
- * relative to `outDir`, `sw.js` last. The test flavour also serves the development screens.
+ * then the service worker that precaches every file of the app, then the third-party notices.
+ * `files` are the outputs' paths relative to `outDir`, `sw.js` last. The test flavour also serves
+ * the development screens.
  */
 export async function buildWeb(options: {
   outDir: string;
@@ -101,6 +103,17 @@ export async function buildWeb(options: {
   const worker = await buildWorker(outDir, precacheEntries(written, outDir));
   if (!worker.success)
     return { ok: false, logs: worker.logs.map((log) => log.message) };
+  // a tool, so it runs as its own process: an app never imports tools
+  const notices = Bun.spawnSync(
+    [
+      process.execPath,
+      join(REPO_ROOT, "tools/notices.ts"),
+      resolve(outDir, "third-party-notices.txt"),
+    ],
+    { cwd: REPO_ROOT },
+  );
+  if (notices.exitCode !== 0)
+    return { ok: false, logs: [notices.stderr.toString()] };
   return {
     ok: true,
     files: [...result.outputs, ...worker.outputs].map((output) =>

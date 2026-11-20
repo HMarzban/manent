@@ -22,6 +22,7 @@ export const MIGRATIONS: {
       `CREATE TABLE tombstones (doc_id TEXT PRIMARY KEY, deleted_by_user_id TEXT NOT NULL, deleted_at INTEGER NOT NULL) STRICT`,
     ],
     [],
+    [],
   ],
   documents: [
     [
@@ -78,6 +79,10 @@ export const MIGRATIONS: {
         result TEXT NOT NULL, created_at INTEGER NOT NULL,
         PRIMARY KEY (doc_id, replay_key)) STRICT, WITHOUT ROWID`,
     ],
+    [
+      `CREATE TABLE doc_adoptions (doc_id TEXT PRIMARY KEY, key TEXT NOT NULL, user_id TEXT NOT NULL, seq INTEGER NOT NULL,
+        adopted_at INTEGER NOT NULL) STRICT, WITHOUT ROWID`,
+    ],
   ],
   checkpoints: [
     [
@@ -93,5 +98,6 @@ export const MIGRATIONS: {
         live_bytes INTEGER NOT NULL, plain_bytes INTEGER NOT NULL, client_ids INTEGER NOT NULL, largest_section INTEGER NOT NULL,
         PRIMARY KEY (doc_id, generation)) STRICT, WITHOUT ROWID`,
     ],
+    [],
   ],
 });
