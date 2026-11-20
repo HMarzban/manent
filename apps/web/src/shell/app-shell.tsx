@@ -27,7 +27,7 @@ import {
   PeopleContext,
 } from "../state/bridge-contexts.ts";
 import { createFactsStore } from "../state/facts.store.ts";
-import type { FactsWriter } from "../state/facts.store.ts";
+import type { FactsSelectors, FactsWriter } from "../state/facts.store.ts";
 import { createOutlineStore } from "../state/outline.store.ts";
 import type { OutlineWriter } from "../state/outline.store.ts";
 import { paletteActions, usePaletteOpen } from "../state/palette.store.ts";
@@ -160,15 +160,35 @@ function ShellPage(props: {
   );
 }
 
-/** Writes what the shell knows of the window for the commands' context, whenever it changes. */
-function usePublishShellState(screen: ScreenId, docId: string | null): void {
+/**
+ * Writes what the shell knows of the window for the commands' context, whenever it changes. Whether the caret block has its own
+ * space before is written as the fact changes, without a render, so a caret move never re-renders the shell.
+ */
+function usePublishShellState(
+  screen: ScreenId,
+  docId: string | null,
+  facts: FactsSelectors,
+): void {
   const { shellState } = useEnvironment();
   const left = usePanel("left").tab;
   const side = usePanel("side").tab;
   const historyPresent = historyTab.useTab(docId).present;
   useLayoutEffect(() => {
-    shellState.set({ screen, docId, panels: { left, side }, historyPresent });
-  }, [shellState, screen, docId, left, side, historyPresent]);
+    shellState.set({
+      screen,
+      docId,
+      panels: { left, side },
+      historyPresent,
+      spaceBeforeSet: facts.get("blockSpaceBeforeSet") === true,
+    });
+  }, [shellState, screen, docId, left, side, historyPresent, facts]);
+  useEffect(
+    () =>
+      facts.subscribe("blockSpaceBeforeSet", (value) =>
+        shellState.set({ ...shellState.get(), spaceBeforeSet: value === true }),
+      ),
+    [shellState, facts],
+  );
 }
 
 /**
@@ -190,7 +210,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
     paletteActions.close();
     dom.restoreFocus();
   };
-  usePublishShellState(screen, docId);
+  usePublishShellState(screen, docId, facts.selectors);
   useEscapeHandler({ dom, paletteOpen, closePalette });
   return (
     <SettingsProvider store={services.settings}>

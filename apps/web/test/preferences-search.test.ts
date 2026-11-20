@@ -40,8 +40,9 @@ test("a search never ends in nothing", () => {
     ["Reduce motion"],
     ["Notifications"],
   ]);
-  // no such command in this release; the screen then offers "Search all commands for …"
-  expect(searchPreferences("dual", deps).commands).toEqual([]);
+  expect(searchPreferences("dual", deps).commands).toEqual([
+    "format.dualDialogue",
+  ]);
 });
 
 test("a search finds commands by label and synonym, but not the commands that set a preference", () => {

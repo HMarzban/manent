@@ -19,6 +19,7 @@ import type {
   StatusFacts,
   Subscribable,
 } from "@manent/ui";
+import type { EditorControl } from "../editor-host/control.ts";
 import type { Where } from "../platform.ts";
 import type { TabStorage } from "../session.ts";
 import type { ShellDom } from "../shell/regions.tsx";
@@ -126,6 +127,8 @@ export interface PersonServices {
   /** Empty until the editor supplies its keys. */
   fixedKeys: readonly FixedKey[];
   reverses: Reverses;
+  /** The one way a command reaches the open editor. */
+  editor: EditorControl;
   dispose(): void;
 }
 
@@ -137,6 +140,8 @@ export interface ShellState {
   /** Each panel's tab; null while it is closed. */
   panels: Readonly<Record<PanelId, string | null>>;
   historyPresent: boolean;
+  /** The caret block has its own space before. */
+  spaceBeforeSet: boolean;
 }
 
 export const INITIAL_SHELL_STATE: ShellState = Object.freeze({
@@ -144,6 +149,7 @@ export const INITIAL_SHELL_STATE: ShellState = Object.freeze({
   docId: null,
   panels: Object.freeze({ left: null, side: null }),
   historyPresent: false,
+  spaceBeforeSet: false,
 });
 
 /** The world this tab runs in, made once by the composition root and shared by every person's services. */

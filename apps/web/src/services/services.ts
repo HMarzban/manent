@@ -1,18 +1,6 @@
 // One person's services in this tab, composed once: each port's implementation is picked on one line, until sync and the editor supply their own.
-import {
-  COMMANDS,
-  createCommandService,
-  isChord,
-  resolveBindings,
-} from "@manent/commands";
-import type {
-  CommandContext,
-  CommandService,
-  CustomBinding,
-  Keys,
-  Resolved,
-  SettingWriter,
-} from "@manent/commands";
+import { COMMANDS, isChord, resolveBindings } from "@manent/commands";
+import type { CustomBinding, Keys, Resolved } from "@manent/commands";
 import {
   SECTION_IDS,
   SETTINGS,
@@ -21,17 +9,14 @@ import {
   latestEntries,
 } from "@manent/settings";
 import type { Bag, KeyValueMap, SettingsStore } from "@manent/settings";
-import { createMessageQueue, createValue, messageFor } from "@manent/ui";
+import { createMessageQueue, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
-import type { Api } from "../api.ts";
+import { createEditorControl } from "../editor-host/control.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
 import { placeholderMount } from "../editor-host/placeholder-mount.ts";
-import { createHandlers } from "../handlers/index.ts";
-import type { Navigation } from "../handlers/index.ts";
 import { deviceName } from "../platform.ts";
 import type { Where } from "../platform.ts";
 import type { TabPerson } from "../session.ts";
-import type { PersonStore } from "../state/person.store.ts";
 import { productionContextActions } from "../state/production-context.store.ts";
 import { createDeviceBag } from "./device-bag.ts";
 import { readDeviceId } from "./device-id.ts";
@@ -39,24 +24,15 @@ import { createFlags } from "./flags.ts";
 import { createLocalDocumentSource } from "./local-document-source.ts";
 import { createLocalMap, createLocalText } from "./local-map.ts";
 import { createMemoryLibrary } from "./memory-library.ts";
-import type {
-  DocumentSource,
-  Environment,
-  PersonServices,
-  Reverses,
-} from "./ports.ts";
+import { createCommands } from "./person-commands.ts";
+import type { CommandsOptions } from "./person-commands.ts";
+import type { DocumentSource, PersonServices, Reverses } from "./ports.ts";
 import { createRemoteDeferral } from "./remote-deferral.ts";
 
 // until the editor supplies its own mount
 export const editorMount: EditorMount = placeholderMount;
 
-type Options = Environment & {
-  person: TabPerson;
-  demo: boolean;
-  api: Api;
-  usePerson: PersonStore;
-  router: Navigation;
-};
+type Options = CommandsOptions & { person: TabPerson };
 
 const isKeys = (value: unknown): value is Keys =>
   Array.isArray(value) &&
@@ -184,26 +160,6 @@ function createScriptStores(options: {
   };
 }
 
-/** What a command may know: the window's state from the shell, the focus and connection read now, and the person's. */
-function commandContext(options: Options): CommandContext {
-  const { docId, screen, panels, historyPresent } = options.shellState.get();
-  return {
-    screen,
-    focus: options.dom.focusKind(),
-    docOpen: docId !== null,
-    // every person edits every document until sync supplies roles
-    role: docId === null ? null : "editor",
-    online: options.online(),
-    platform: options.where.platform,
-    shell: options.where.shell,
-    demo: options.demo,
-    signedIn: (options.usePerson.getState().person?.token ?? null) !== null,
-    panelOpen: { left: panels.left !== null, side: panels.side !== null },
-    historyPresent,
-    production: docId === null ? null : productionContextActions.get(docId),
-  };
-}
-
 /** The person's maps and values kept in this origin's storage; `dispose` stops each map listening to other tabs. */
 function createKept(options: Options) {
   const { storage, storageEvents: events } = options;
@@ -280,71 +236,6 @@ function createStores(
   };
 }
 
-/**
- * The command service over `COMMANDS` and the handlers `fillHandlers` makes, told of every change to the window's state, the
- * person, the bindings and the settings; a setting command writes the open document's store, so a script setting reaches its script.
- */
-function createCommands(
-  options: Options,
-  parts: {
-    settings: SettingsStore;
-    openScriptStore(docId: string): SettingsStore;
-    messages: MessageQueue;
-    resolved: Subscribable<Resolved>;
-  },
-): {
-  commands: CommandService;
-  fillHandlers(services: PersonServices): void;
-  stop(): void;
-} {
-  const { settings, messages, resolved } = parts;
-  // filled once the services exist, before anything can run a command
-  const handlers: Record<string, () => void> = {};
-  const settingsHere = (): SettingWriter => {
-    const { docId } = options.shellState.get();
-    return docId === null ? settings : parts.openScriptStore(docId);
-  };
-  const service = createCommandService({
-    commands: COMMANDS,
-    handlers,
-    context: () => commandContext(options),
-    settings: {
-      get: (key) => settingsHere().get(key),
-      set: (key, value) => settingsHere().set(key, value),
-    },
-    bindings: () => resolved.get().effective,
-    onDisabled: (label, reason) =>
-      messages.push(messageFor({ kind: "command_unavailable", label, reason })),
-  });
-  const unsubscribers = [
-    options.shellState.subscribe(service.notify),
-    options.usePerson.subscribe(service.notify),
-    resolved.subscribe(service.notify),
-    ...SETTINGS.all.map((def) => settings.subscribe(def.key, service.notify)),
-  ];
-  return {
-    commands: {
-      run(id, from) {
-        const result = service.run(id, from);
-        if (result === "ran") options.ran(id);
-        return result;
-      },
-      state: service.state,
-      subscribe: service.subscribe,
-    },
-    fillHandlers(services) {
-      const shellState = options.shellState.get;
-      Object.assign(
-        handlers,
-        createHandlers({ ...options, services, shellState }),
-      );
-    },
-    stop() {
-      for (const unsubscribe of unsubscribers) unsubscribe();
-    },
-  };
-}
-
 /** `person`'s services over `storage`; `dispose` stops listening to other tabs and drops every open document's store. */
 export function createPersonServices(options: Options): PersonServices {
   const kept = createKept(options);
@@ -388,6 +279,7 @@ export function createPersonServices(options: Options): PersonServices {
     // empty until the editor supplies its structural and picker keys
     fixedKeys: [],
     reverses: createReverses(messages),
+    editor: createEditorControl(),
     dispose() {
       stop();
       kept.dispose();

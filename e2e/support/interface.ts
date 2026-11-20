@@ -30,6 +30,9 @@ export const ON_A_SCRIPT = {
   demo: true,
   signedIn: false,
   historyPresent: false,
+  format: null,
+  rulerShown: false,
+  spaceBeforeSet: false,
   production: null,
 } as const satisfies Partial<CommandContext>;
 

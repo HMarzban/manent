@@ -129,6 +129,9 @@ function contextFor(
       signedIn: signedIn(),
       panelOpen: { left: panels.left !== null, side: panels.side !== null },
       historyPresent,
+      format: null,
+      rulerShown: false,
+      spaceBeforeSet: false,
       production: null,
     };
   };

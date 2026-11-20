@@ -2,6 +2,7 @@
 
 import type { Message } from "../components/message-slot/message.ts";
 import { DIALOG_WORDS } from "./dialog.ts";
+import { EDITOR_WORDS } from "./editor.ts";
 import { formatCount, joinNames } from "./format.ts";
 import { receiptText } from "./receipt.ts";
 
@@ -35,7 +36,8 @@ export type TrustEvent =
     }
   | { kind: "setting_refused"; noun: string }
   | { kind: "command_unavailable"; label: string; reason: string }
-  | { kind: "preferences_reset"; count: number };
+  | { kind: "preferences_reset"; count: number }
+  | { kind: "past_comfort_limit"; title: string };
 
 type Words = Omit<Message, "id">;
 
@@ -55,6 +57,10 @@ const SCRIPT_SETTINGS = {
   commandId: "doc.scriptSettings",
 } as const;
 const UNDO_SETTING = { label: "Undo", commandId: "settings.undo" } as const;
+const SPLIT_INTO_PARTS = {
+  label: EDITOR_WORDS.splitIntoParts,
+  commandId: "doc.splitIntoParts",
+} as const;
 
 // A message about the person's own work stays until dismissed; anything else leaves after its time.
 const OWN_WORK = { lifetime: "until_dismissed", ownWork: true } as const;
@@ -184,6 +190,13 @@ function wordsFor(event: TrustEvent): Words {
             : `${formatCount(event.count)} preferences reset.`,
         actions: [UNDO_SETTING],
         ...REVERSE,
+      };
+    case "past_comfort_limit":
+      return {
+        text: EDITOR_WORDS.pastComfortLimit(event.title),
+        actions: [SPLIT_INTO_PARTS],
+        lifetime: "until_dismissed",
+        ownWork: false,
       };
   }
 }
