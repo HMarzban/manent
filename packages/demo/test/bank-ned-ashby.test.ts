@@ -45,3 +45,21 @@ test("every beat of the Ned Ashby films names only the bank's own people and pla
 test("every entry of the Ned Ashby bank keeps to the films' voice", () => {
   expect(checkBank(NED_ASHBY_GUIDE, OTHERS)).toEqual([]);
 });
+
+test("the glass orchard grows in plain sight, with no hidden way in behind a wall", () => {
+  const hiddenWayIn = [
+    /\bnever noticed\b/i,
+    /\bover a wall into\b/i,
+    /\bup the wall\b/i,
+    /\bother side of the wall\b/i,
+    /\bgate behind\b/i,
+  ];
+  const texts = [
+    ...NED_ASHBY_GUIDE.action,
+    ...NED_ASHBY_GUIDE.dialogue.map((line) => line.text),
+    ...NED_ASHBY_GUIDE.beats.map((beat) => beat.summary),
+  ];
+  expect(
+    texts.filter((text) => hiddenWayIn.some((pattern) => pattern.test(text))),
+  ).toEqual([]);
+});
