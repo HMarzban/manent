@@ -215,7 +215,7 @@ export function corpusOfPages(
  */
 export const groupHook = (
   page: Page,
-  group: "remote" | "dispatchMs",
+  group: "remote" | "keystrokes" | "dispatchMs",
   name: string,
   ...args: unknown[]
 ): Promise<unknown> =>

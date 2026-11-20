@@ -14,7 +14,7 @@ import type { Budget, Verdict } from "./budgets.ts";
 import { bootstrapInterval, percentile } from "./stats.ts";
 
 export const WORKLOADS = ["W1", "W2", "W3", "W4", "W5", "W6", "W7"] as const;
-export const UNITS = ["ms", "bytes", "count"] as const;
+export const UNITS = ["ms", "bytes", "count", "percent"] as const;
 
 export interface Measurement {
   metric: string;
@@ -107,7 +107,7 @@ function parseMeasurements(value: unknown, file: string): Measurement[] {
     const unit = UNITS.find((u) => u === item.unit);
     if (unit === undefined)
       throw new Error(
-        `${label} has unit ${JSON.stringify(item.unit)}; use ms, bytes or count`,
+        `${label} has unit ${JSON.stringify(item.unit)}; use ms, bytes, count or percent`,
       );
     if (
       !Array.isArray(samples) ||

@@ -246,6 +246,97 @@
       "stat": "p95",
       "budget": 500,
       "hardFail": 1000
+    },
+    {
+      "scenario": "typing-120",
+      "metric": "keystroke_paint",
+      "stat": "p50",
+      "budget": 16,
+      "hardFail": 33
+    },
+    {
+      "scenario": "typing-120",
+      "metric": "keystroke_paint",
+      "stat": "p95",
+      "budget": 33,
+      "hardFail": 50
+    },
+    {
+      "scenario": "typing-120",
+      "metric": "keystroke_paint",
+      "stat": "p99",
+      "budget": 50,
+      "hardFail": 100
+    },
+    {
+      "scenario": "typing-120",
+      "metric": "remote_extra",
+      "stat": "p50",
+      "budget": 8,
+      "hardFail": 16
+    },
+    {
+      "scenario": "typing-120",
+      "metric": "position_spread",
+      "stat": "p50",
+      "budget": 20,
+      "hardFail": 50
+    },
+    {
+      "scenario": "typing-120",
+      "metric": "dispatch",
+      "stat": "p95",
+      "budget": 4,
+      "hardFail": 8
+    },
+    {
+      "scenario": "typing-2000",
+      "metric": "keystroke_paint",
+      "stat": "p50",
+      "budget": 16,
+      "hardFail": 33
+    },
+    {
+      "scenario": "typing-2000",
+      "metric": "keystroke_paint",
+      "stat": "p95",
+      "budget": 33,
+      "hardFail": 50
+    },
+    {
+      "scenario": "typing-2000",
+      "metric": "keystroke_paint",
+      "stat": "p99",
+      "budget": 50,
+      "hardFail": 100
+    },
+    {
+      "scenario": "typing-2000",
+      "metric": "remote_extra",
+      "stat": "p50",
+      "budget": 8,
+      "hardFail": 16
+    },
+    {
+      "scenario": "typing-2000",
+      "metric": "position_spread",
+      "stat": "p50",
+      "budget": 20,
+      "hardFail": 50
+    },
+    {
+      "scenario": "typing-2000",
+      "metric": "dispatch",
+      "stat": "p95",
+      "budget": 4,
+      "hardFail": 8
+    },
+    {
+      "scenario": "paste-50",
+      "metric": "paste_paint",
+      "stat": "p95",
+      "budget": 300,
+      "hardFail": 1000
     }
   ]
 }
