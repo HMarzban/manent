@@ -62,6 +62,29 @@ test("what arrives while the disk is full waits behind what is held", () => {
   );
 });
 
+test("a document is not rebuilt while what it holds is not yet committed", () => {
+  const world = createRelayWorld({
+    fullDisk: "hold",
+    limits: { rebuildQuietMs: 1_000 },
+  });
+  const { service, clock, storage, sam } = world;
+  editing(world, DOC);
+  service.receive(sam, push(DOC, 1, world.typingIn(DOC)));
+  storage.fillDisk(true);
+  clock.runDeferred();
+  service.requestRebuild(DOC);
+  storage.fillDisk(false);
+  clock.advance(1_000);
+  expect(sam.take()).toEqual([]);
+  expect(service.stats().rebuildsSkipped).toEqual({ busy_queue: 1 });
+  // committed first, then rebuilt
+  clock.advance(4_000);
+  expect(sam.take()).toEqual([
+    ack(DOC, 1, 1),
+    { type: "GENERATION_MOVED", docId: DOC, generation: 1, newGeneration: 2 },
+  ]);
+});
+
 test("the cloud still poisons on a full disk", () => {
   const world = createRelayWorld();
   const { service, clock, storage, sam, deviceStates } = world;

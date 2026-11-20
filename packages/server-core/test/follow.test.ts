@@ -3,9 +3,11 @@ import type { CrdtDoc } from "@manent/crdt";
 import { StorageError } from "@manent/storage";
 import { DOC, DOC2, HOME } from "./seed.ts";
 import { SAM_CLIENT, push, subscribe } from "./service-world.ts";
+import type { ServiceOptions } from "./service-world.ts";
 import {
   B1,
   B2,
+  ack,
   createRelayWorld,
   materialize,
   rebuiltFrom,
@@ -21,8 +23,10 @@ const KEY = "0123456789abcdef0123456789abcdef";
  * Sam's window holds DOC2 with B1 "scene one" and B2 "scene two", both committed; `theirs` is that
  * content rebuilt into a fresh document at the cloud, where Dana then changed B2.
  */
-function relayed(): RelayWorld & { theirs: CrdtDoc } {
-  const world = createRelayWorld();
+function relayed(
+  options: ServiceOptions = {},
+): RelayWorld & { theirs: CrdtDoc } {
+  const world = createRelayWorld(options);
   const { service, clock, sam, typingIn } = world;
   service.receive(sam, subscribe(DOC2, "edit", [SAM_CLIENT]));
   service.receive(sam, push(DOC2, 1, typingIn(DOC2)));
@@ -36,6 +40,16 @@ function relayed(): RelayWorld & { theirs: CrdtDoc } {
 
 const generationOf = (world: RelayWorld): number | undefined =>
   world.storage.open(HOME).log.get(DOC2)?.generation;
+
+/** The error `fn` throws; null when it throws none. */
+function thrownBy(fn: () => unknown): unknown {
+  try {
+    fn();
+  } catch (error) {
+    return error;
+  }
+  return null;
+}
 
 test("a followed document starts a new generation on the node and windows move to it", () => {
   const world = relayed();
@@ -96,22 +110,58 @@ test("what was not committed when the node follows is replayed by the window, no
 
 test("a follow on a full disk changes nothing and can be tried again", () => {
   const world = relayed();
-  const { service, storage, theirs } = world;
+  const { service, clock, storage, sam, theirs, typingIn } = world;
   service.pauseRelay(DOC2);
+  // not yet committed when the follow fails
+  service.receive(sam, push(DOC2, 3, typingIn(DOC2, B1, " more")));
   storage.fillDisk(true);
-  let refused: unknown = null;
-  try {
-    service.follow(DOC2, theirs.encodeState());
-  } catch (error) {
-    refused = error;
-  }
+  const refused = thrownBy(() => service.follow(DOC2, theirs.encodeState()));
   expect(refused).toBeInstanceOf(StorageError);
   expect((refused as StorageError).code).toBe("disk_full");
   expect(generationOf(world)).toBe(1);
   storage.fillDisk(false);
+  clock.runDeferred();
+  expect(sam.take()).toEqual([ack(DOC2, 3, 3)]);
   service.follow(DOC2, theirs.encodeState());
   expect(generationOf(world)).toBe(2);
-  expect(materialize(roomDoc(world, DOC2))).toEqual(materialize(theirs));
+  expect(materialize(roomDoc(world, DOC2))).toEqual(
+    withBlock(materialize(theirs), B1, "scene one more"),
+  );
+});
+
+test("an edit that arrives before the pause and is acknowledged during it survives the follow", () => {
+  const world = relayed();
+  const { service, clock, sam, theirs, typingIn } = world;
+  service.receive(sam, push(DOC2, 3, typingIn(DOC2, B1, " more")));
+  service.pauseRelay(DOC2);
+  clock.runDeferred();
+  expect(sam.take()).toEqual([ack(DOC2, 3, 3)]);
+  service.follow(DOC2, theirs.encodeState());
+  expect(materialize(roomDoc(world, DOC2))).toEqual(
+    withBlock(materialize(theirs), B1, "scene one more"),
+  );
+});
+
+test("a follow waits until what the node holds on a full disk is committed", () => {
+  const world = relayed({ fullDisk: "hold" });
+  const { service, clock, storage, sam, theirs, typingIn } = world;
+  service.pauseRelay(DOC2);
+  service.receive(sam, push(DOC2, 3, typingIn(DOC2, B1, " more")));
+  storage.fillDisk(true);
+  clock.runDeferred();
+  // the follow's own retry of what is held fails, though its freeze would not
+  storage.fillDisk(false);
+  storage.failNextCommit("disk_full");
+  const refused = thrownBy(() => service.follow(DOC2, theirs.encodeState()));
+  expect(refused).toBeInstanceOf(StorageError);
+  expect((refused as StorageError).code).toBe("disk_full");
+  expect(generationOf(world)).toBe(1);
+  clock.advance(5_000);
+  expect(sam.take()).toEqual([ack(DOC2, 3, 3)]);
+  service.follow(DOC2, theirs.encodeState());
+  expect(materialize(roomDoc(world, DOC2))).toEqual(
+    withBlock(materialize(theirs), B1, "scene one more"),
+  );
 });
 
 test("follow refuses a room that is not paused or not relayed", () => {

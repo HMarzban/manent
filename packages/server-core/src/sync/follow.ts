@@ -26,7 +26,7 @@ import type { Clock, SyncLimits } from "./ports.ts";
 import type { Room, Rooms } from "./rooms.ts";
 import type { WritePath } from "./write-path.ts";
 
-export interface Follower {
+export interface RelayIntake {
   /** SyncService.ingest. */
   ingest(
     docId: string,
@@ -68,17 +68,17 @@ function nextOf(
   return { doc, clientId, update };
 }
 
-export function createFollower(ports: {
+export function createRelayIntake(ports: {
   storage: Pick<Storage, "directory">;
   clock: Clock;
   limits: SyncLimits;
-  rooms: Pick<Rooms, "room" | "load" | "reload" | "left">;
-  writePath: Pick<WritePath, "ingest" | "discard">;
+  rooms: Pick<Rooms, "room" | "reload" | "committed" | "left">;
+  writePath: Pick<WritePath, "ingest" | "discard" | "holdError">;
   held: Pick<HeldQueue, "size" | "retry">;
   endAll(room: Room, message: Message): void;
-}): Follower {
+}): RelayIntake {
   const { clock, limits, rooms, writePath, held } = ports;
-  /** By document: what the room held when it paused, the base of the follow's merge. */
+  /** By document: what the room's log held when it paused, the base of the follow's merge. */
   const bases = new Map<string, DocJSON>();
 
   /** The room of a placed document; RangeError for one this node has not placed. */
@@ -89,12 +89,12 @@ export function createFollower(ports: {
     return rooms.room(docId, place.home, place.kind);
   }
 
-  /** The room built from its log, loaded whether or not anyone edits it. */
-  function loaded(room: Room): CrdtDoc {
-    if (room.doc === null) rooms.reload(room);
-    if (room.doc === null)
-      throw new RangeError(`the room of ${room.docId} is not loaded`);
-    return room.doc;
+  /** What the room's log holds now, built without touching the room. */
+  function committedJSON(room: Room): DocJSON {
+    const { doc } = rooms.committed(room);
+    const json = materialize(doc);
+    doc.destroy();
+    return json;
   }
 
   return {
@@ -102,8 +102,8 @@ export function createFollower(ports: {
       const room = roomOf(docId);
       if (room.mode !== "relay")
         throw new RangeError("ingest is for a relayed document");
-      // a room too busy to load takes it all at the next ingest, which asks from its state vector
-      if (!rooms.load(room).ok) return;
+      // loaded whether or not anyone edits it: an ingest is never put off
+      if (room.doc === null) rooms.reload(room);
       const item = ingestItem(room, userId, produce);
       if (item !== null) writePath.ingest(item);
       rooms.left(room);
@@ -112,8 +112,8 @@ export function createFollower(ports: {
       const room = roomOf(docId);
       if (room.mode !== "relay")
         throw new RangeError("a pause is for a relayed document");
-      if (bases.has(docId)) return;
-      bases.set(docId, materialize(loaded(room)));
+      // the log, not the room: an edit not yet committed is acknowledged during the pause and never goes upstream
+      if (!bases.has(docId)) bases.set(docId, committedJSON(room));
       rooms.left(room);
     },
     follow(docId, theirs) {
@@ -122,23 +122,26 @@ export function createFollower(ports: {
       if (room.mode !== "relay" || base === undefined)
         throw new RangeError("follow needs a paused relayed document");
       if (held.size() > 0) held.retry();
-      // what is not committed is the windows' to replay into the new generation
-      writePath.discard(room);
-      rooms.reload(room);
-      const doc = loaded(room);
+      // what is held of the file would append to the generation the freeze ends
+      const holding = writePath.holdError(room.file);
+      if (holding !== null) throw holding;
+      const committed = rooms.committed(room);
+      const mine = materialize(committed.doc);
+      const finalState = committed.doc.encodeState();
+      committed.doc.destroy();
       const upstream = loadDoc(theirs);
-      const merge = mergeByBlock(base, materialize(doc), materialize(upstream));
+      const merge = mergeByBlock(base, mine, materialize(upstream));
       const written = readStateVector(upstream.encodeStateVector());
       upstream.destroy();
       const next = nextOf(room, { state: theirs, written }, merge.ops);
       const at = clock.now();
-      const { file, row } = room;
+      const { file } = room;
       try {
         file.transaction(() =>
           file.generations.freeze({
             docId,
-            finalSeq: row.headSeq,
-            finalState: doc.encodeState(),
+            finalSeq: committed.row.headSeq,
+            finalState,
             frozenAt: at,
             purgeAfter: at + limits.frozenKeepMs,
             reason: "follow",
@@ -150,6 +153,8 @@ export function createFollower(ports: {
       } finally {
         next.doc.destroy();
       }
+      // what is not committed is the windows' to replay into the new generation
+      writePath.discard(room);
       moveRoom(room, ports);
       bases.delete(docId);
       rooms.left(room);

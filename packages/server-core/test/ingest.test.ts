@@ -47,6 +47,18 @@ test("an update from upstream is stored and shown to every editor, and goes back
   expect(sam.take()).toEqual([]);
 });
 
+test("an update from upstream is stored though no room is free to load it", () => {
+  const world = createRelayWorld({ limits: { maxLoadedRooms: 1 } });
+  const { service, clock, sam } = world;
+  service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT]));
+  const cloud = docWithTyping("from dana", DANA_CLIENT);
+  service.ingest(DOC2, "sam", (vector) => cloud.diff(vector));
+  clock.runDeferred();
+  expect(tail(world, DOC2).map((r) => [r.origin, r.userId])).toEqual([
+    ["upstream", "sam"],
+  ]);
+});
+
 test("ingest refuses a document this node is the authority for", () => {
   const { service } = createRelayWorld();
   expect(() =>

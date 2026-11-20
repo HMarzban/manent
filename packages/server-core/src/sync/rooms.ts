@@ -52,6 +52,8 @@ export interface Rooms {
   load(room: Room): { ok: true } | { ok: false; code: "busy" };
   /** Discards the document and builds it again from the log. */
   reload(room: Room): void;
+  /** The log's row and the document it builds, without what the room holds uncommitted; the room is not touched, and the caller destroys the document. */
+  committed(room: Room): { row: DocumentRow; doc: CrdtDoc };
   /** Forgets the documents and the rooms; telling their subscribers is the caller's job. */
   drop(rooms: readonly Room[]): void;
   /** The whole document, encoded once per change and reused for every joiner. RangeError for a room not loaded. */
@@ -226,6 +228,10 @@ export function createRooms(ports: {
       return { ok: true };
     },
     reload: rebuild,
+    committed(room) {
+      const row = room.file.log.get(room.docId) ?? room.row;
+      return { row, doc: build(room.file, row).doc };
+    },
     drop(dropped) {
       for (const room of dropped) {
         discard(room);

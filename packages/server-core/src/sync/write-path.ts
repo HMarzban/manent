@@ -2,7 +2,12 @@
 // each turn's queue is committed per file before anything is acknowledged or published.
 import { CrdtUpdateError, applyInspecting, updateMeta } from "@manent/crdt";
 import type { TransactionReport } from "@manent/crdt";
-import type { AppendItem, DocFile, UpdateOrigin } from "@manent/storage";
+import type {
+  AppendItem,
+  DocFile,
+  StorageError,
+  UpdateOrigin,
+} from "@manent/storage";
 import {
   CODE,
   MESSAGE_LIMIT_BYTES,
@@ -98,8 +103,11 @@ export interface WritePath {
   discard(room: Room): void;
   /** One file's held items in one transaction, then acknowledged in arrival order; false when it did not commit. */
   commitHeld(items: readonly QueuedItem[]): boolean;
+  /** The full disk that began holding the file's commits; null when nothing of it is held. */
+  holdError(file: DocFile): StorageError | null;
   /** Commits what is queued, now. */
   flush(): void;
+  /** What is queued or held: written to no log yet. */
   queued(): number;
 }
 
@@ -169,8 +177,8 @@ function appendOf(
 export function createWritePath(ports: WritePathPorts): WritePath {
   const { limits, rooms } = ports;
   let queue: QueuedItem[] = [];
-  /** Files with held items: what comes after waits behind them. */
-  const heldFiles = new Set<DocFile>();
+  /** Files with held items, and the full disk that began it: what comes after waits behind them. */
+  const heldFiles = new Map<DocFile, StorageError>();
 
   const enqueue = (item: QueuedItem): void => {
     queue.push(item);
@@ -254,12 +262,10 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       byFile.set(item.room.file, [...(byFile.get(item.room.file) ?? []), item]);
     const failed = new Set<DocFile>();
     for (const [file, fileItems] of byFile) {
-      const outcome = heldFiles.has(file)
-        ? "disk_full"
-        : commitFile(file, fileItems, ports);
-      if (outcome === "committed") continue;
-      if (outcome === "disk_full" && ports.fullDisk === "hold") {
-        heldFiles.add(file);
+      const failure = heldFiles.get(file) ?? commitFile(file, fileItems, ports);
+      if (failure === null) continue;
+      if (failure.code === "disk_full" && ports.fullDisk === "hold") {
+        heldFiles.set(file, failure);
         ports.held.hold(fileItems);
         continue;
       }
@@ -376,13 +382,14 @@ export function createWritePath(ports: WritePathPorts): WritePath {
     commitHeld(items) {
       const file = items[0]?.room.file;
       if (file === undefined) return true;
-      if (commitFile(file, items, ports) !== "committed") return false;
+      if (commitFile(file, items, ports) !== null) return false;
       heldFiles.delete(file);
       // published when they were held
       for (const item of items) settle(item, ports);
       return true;
     },
+    holdError: (file) => heldFiles.get(file) ?? null,
     flush,
-    queued: () => queue.length,
+    queued: () => queue.length + ports.held.size(),
   };
 }

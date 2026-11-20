@@ -1,6 +1,6 @@
 // One file's queued items committed in one transaction, and what each answers once it is: the
 // acknowledgement, the update to the room, and what a relayed room hands upstream.
-import type { DocFile } from "@manent/storage";
+import type { DocFile, StorageError } from "@manent/storage";
 import { answerReplay, commitReplay } from "../rebuild/replay-write.ts";
 import type { UpstreamItem } from "./ports.ts";
 import type { Room } from "./rooms.ts";
@@ -12,12 +12,12 @@ type AnswerPorts = Pick<
   "rooms" | "ack" | "publish" | "schemaRaised"
 >;
 
-/** One transaction for the file's items, in arrival order; each item's `seq` is set inside it. */
+/** One transaction for the file's items, in arrival order; each item's `seq` is set inside it. Null once it commits. */
 export function commitFile(
   file: DocFile,
   items: readonly QueuedItem[],
   ports: Pick<WritePathPorts, "beforeAppend">,
-): "committed" | "disk_full" | "failed" {
+): StorageError | null {
   const heads = new Map<Room, number>();
   try {
     file.transaction(() => {
@@ -37,9 +37,9 @@ export function commitFile(
     });
   } catch (error) {
     if (!isStorageError(error)) throw error;
-    return error.code === "disk_full" ? "disk_full" : "failed";
+    return error;
   }
-  return "committed";
+  return null;
 }
 
 /** What a committed item sends the room; null for a resend, a relayed setting and a replay, which answers itself. */

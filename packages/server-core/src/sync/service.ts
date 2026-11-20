@@ -17,7 +17,7 @@ import { createInlineCheckpointer } from "./checkpointer.ts";
 import { countingCommits } from "./counted-storage.ts";
 import { createDeletions } from "./deletions.ts";
 import { refusalError, syncError } from "./errors.ts";
-import { createFollower } from "./follow.ts";
+import { createRelayIntake } from "./follow.ts";
 import { createHealing } from "./heal.ts";
 import { HELD_RETRY_MS, createHeldQueue } from "./held.ts";
 import { DEFAULT_LIMITS, NO_SETTINGS } from "./ports.ts";
@@ -241,7 +241,7 @@ export function createSyncService(
         : {
             enqueue(item) {
               if (item.kind === "set") counted.relayedSets += 1;
-              else if (follower.isPaused(item.docId)) return;
+              else if (intake.isPaused(item.docId)) return;
               options.upstream?.enqueue(item);
             },
           },
@@ -259,7 +259,7 @@ export function createSyncService(
     poisoned: poison,
   });
   const replay = createReplay({ ...options, access, rooms, writePath, limits });
-  const follower = createFollower({
+  const intake = createRelayIntake({
     ...options,
     limits,
     rooms,
@@ -362,13 +362,13 @@ export function createSyncService(
     restored: () => heal.restored(),
     requestRebuild: (docId) => rebuilder.request(docId),
     replay,
-    ingest: follower.ingest,
+    ingest: intake.ingest,
     modeChanged(docId) {
       const room = rooms.find(docId);
       if (room !== null) room.mode = modeOf(docId);
     },
-    pauseRelay: follower.pauseRelay,
-    follow: follower.follow,
+    pauseRelay: intake.pauseRelay,
+    follow: intake.follow,
     stats() {
       const { acks, relayedSets, ...counts } = counted;
       const { rooms: open, loaded } = rooms.stats();
