@@ -45,10 +45,10 @@ export function preferencesHandlers(
     // the page's and a field's own undo take the key before this runs; an undo with nothing to undo says nothing
     "edit.undo"() {
       if (onPreferences()) visitUndo.current?.undo();
-      else if (showsPage()) services.editor.run({ kind: "undo" });
+      else if (showsPage()) services.editor.run("edit.undo");
     },
     "edit.redo"() {
-      if (showsPage()) services.editor.run({ kind: "redo" });
+      if (showsPage()) services.editor.run("edit.redo");
     },
     "settings.undo"() {
       const shown = services.messages.current();

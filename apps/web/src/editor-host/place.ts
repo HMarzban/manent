@@ -1,12 +1,14 @@
-// Where each person left each script, the panels and the Ruler as they left them, and the notices they have seen:
-// view state, kept on this device per person and never in the script.
+// Where each person left each script, the panels, the Ruler and the zoom as they left them, and the notices they have
+// seen: view state, kept on this device per person and never in the script.
 import { LEFT_TABS, PANEL_IDS, SIDE_TABS } from "@manent/commands";
-import type { BlockPlace, SavedPlace } from "@manent/editor";
+import type { BlockPlace, SavedPlace, ZoomSetting } from "@manent/editor";
 import type { KeyValueMap } from "@manent/settings";
 import { panelsActions } from "../state/panels.store.ts";
 import type { PanelsState } from "../state/panels.store.ts";
 import { rulerActions } from "../state/ruler.store.ts";
 import { throttle } from "../state/throttle.ts";
+import { ZOOM_PRESETS } from "../state/zoom-presets.ts";
+import { zoomActions } from "../state/zoom.store.ts";
 
 /** The storage key of a person's place state, held in one local map. */
 export const placeKey = (userId: string): string => `manent.place.${userId}`;
@@ -25,6 +27,9 @@ export interface PlaceStore {
   /** False until the person shows it. */
   ruler(): boolean;
   saveRuler(shown: boolean): void;
+  /** Null until the person's zoom is first saved here. */
+  zoom(): ZoomSetting | null;
+  saveZoom(zoom: ZoomSetting): void;
   /** Whether this device has shown that the script is past the comfort limit. */
   noticeShown(docId: string): boolean;
   markNoticeShown(docId: string): void;
@@ -91,6 +96,14 @@ const isPanelsState = (value: unknown): value is PanelsState =>
   "side" in value &&
   isPanel(SIDE_TABS, value.side);
 
+// a percent from the editor's ZOOM_MIN to its ZOOM_MAX, which the presets begin and end at
+const isZoomSetting = (value: unknown): value is ZoomSetting =>
+  value === "fit_width" ||
+  (typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= Math.min(...ZOOM_PRESETS) &&
+    value <= Math.max(...ZOOM_PRESETS));
+
 /** The place state in `map`; `now` stamps each saved place, so the oldest is the one forgotten. */
 export function createPlaceStore(options: {
   map: KeyValueMap;
@@ -125,6 +138,11 @@ export function createPlaceStore(options: {
     savePanels: (state) => map.set("panels", state),
     ruler: () => map.get("ruler") === true,
     saveRuler: (shown) => map.set("ruler", shown),
+    zoom() {
+      const value = map.get("zoom");
+      return isZoomSetting(value) ? value : null;
+    },
+    saveZoom: (zoom) => map.set("zoom", zoom),
     noticeShown: (docId) => map.get(`notice:${docId}`) === true,
     markNoticeShown: (docId) => map.set(`notice:${docId}`, true),
   };
@@ -176,7 +194,7 @@ export function keepPlace(
   };
 }
 
-const PANELS_SAVE_MS = 500;
+const VIEW_SAVE_MS = 500;
 // the panels as someone who never changed them sees them
 const FIRST_PANELS = panelsActions.get();
 const noop = (): void => {};
@@ -197,9 +215,10 @@ function restorePanels(state: PanelsState): void {
 }
 
 /**
- * Puts the person's panels and Ruler from `store` into the tab's stores and saves each change back: the panels at most
- * once per 500 ms, the last state at the end, and whenever the page is hidden or left; the Ruler at once. The person
- * whose view state the stores held saves it and stops first. Returns the stop, which saves too.
+ * Puts the person's panels, Ruler and zoom (Fit width until they choose one) from `store` into the tab's stores and saves
+ * each change back: the panels and the zoom at most once per 500 ms, the last state at the end, and whenever the page is
+ * hidden or left; the Ruler at once. The person whose view state the stores held saves it and stops first. Returns the
+ * stop, which saves too.
  */
 export function keepViewState(
   store: PlaceStore,
@@ -208,17 +227,22 @@ export function keepViewState(
   stopCurrentKeeper();
   restorePanels(store.panels() ?? FIRST_PANELS);
   if (rulerActions.get() !== store.ruler()) rulerActions.set(store.ruler());
+  const keptZoom = store.zoom() ?? "fit_width";
+  if (zoomActions.get() !== keptZoom) zoomActions.set(keptZoom);
   const savePanels = (): void => store.savePanels(panelsActions.get());
-  const panels = throttle(
-    { delayMs: PANELS_SAVE_MS, schedule, paused: () => false },
-    savePanels,
-  );
+  const saveZoom = (): void => store.saveZoom(zoomActions.get());
+  const every = { delayMs: VIEW_SAVE_MS, schedule, paused: () => false };
+  const panels = throttle(every, savePanels);
+  const zoom = throttle(every, saveZoom);
   const flush = (): void => {
     panels.cancel();
+    zoom.cancel();
     savePanels();
+    saveZoom();
   };
   const stops = [
     panelsActions.subscribe(() => panels.request()),
+    zoomActions.subscribe(() => zoom.request()),
     rulerActions.subscribe(() => store.saveRuler(rulerActions.get())),
     whenPageLeaves(flush),
   ];

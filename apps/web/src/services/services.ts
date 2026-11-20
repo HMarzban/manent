@@ -279,13 +279,14 @@ export function createPersonServices(options: Options): PersonServices {
     schedule: options.schedule,
   });
   const resolved = createResolved(kept.keys, options.where);
+  const control = createEditorControl();
   const { commands, fillHandlers, stop } = createCommands(options, {
     settings,
     openScriptStore: scripts.openScriptStore,
     messages,
     resolved,
+    control,
   });
-  const control = createEditorControl();
   const place = placeStoreOf(options);
   const stopKeeping = keepViewState(place, options.schedule);
   const fixedKeys = createValue<readonly FixedKey[]>([]);

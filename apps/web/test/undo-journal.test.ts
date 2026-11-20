@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import type { CommandContext } from "@manent/commands";
-import type { EditorAction } from "@manent/editor";
 import { createValue } from "@manent/ui";
 import type { RoutePlace } from "../src/handlers/index.ts";
 import { INITIAL_SHELL_STATE } from "../src/services/ports.ts";
@@ -33,7 +32,7 @@ function at(
   place: RoutePlace,
   screen: ShellState["screen"],
   focus: CommandContext["focus"],
-): { services: PersonServices; actions: EditorAction[]; visits: number[] } {
+): { services: PersonServices; actions: string[]; visits: number[] } {
   const visits: number[] = [];
   const environment = testEnvironment({
     dom: { ...QUIET_DOM, focusKind: () => focus },
@@ -56,12 +55,13 @@ function at(
     environment,
     router: createNavigation(place).navigation,
   });
-  const actions: EditorAction[] = [];
+  const actions: string[] = [];
   services.editor.attach({
-    run(action) {
-      actions.push(action);
+    run(id) {
+      actions.push(id);
       return { ok: true };
     },
+    zoomPercent: () => 100,
   });
   return { services, actions, visits };
 }
@@ -69,7 +69,7 @@ function at(
 test("Undo from a panel undoes the person's last change in the open script", () => {
   const { services, actions, visits } = at(DOCUMENT, "document", "panel");
   expect([services.commands.run("edit.undo", "menu"), actions, visits]).toEqual(
-    ["ran", [{ kind: "undo" }], []],
+    ["ran", ["edit.undo"], []],
   );
 });
 
@@ -77,7 +77,7 @@ test("Redo from the status bar redoes in the open script", () => {
   const { services, actions } = at(DOCUMENT, "document", "other");
   expect([services.commands.run("edit.redo", "palette"), actions]).toEqual([
     "ran",
-    [{ kind: "redo" }],
+    ["edit.redo"],
   ]);
 });
 

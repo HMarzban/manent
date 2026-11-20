@@ -13,9 +13,12 @@ import type {
 import type { ActionResult } from "@manent/editor";
 import { createMessageQueue } from "@manent/ui";
 import type { MessageQueue } from "@manent/ui";
-import { createEditorControl } from "../src/editor-host/control.ts";
 import {
   EDITOR_COMMAND_ACTIONS,
+  actionOf,
+} from "../src/editor-host/command-actions.ts";
+import { createEditorControl } from "../src/editor-host/control.ts";
+import {
   createEditorHandlers,
   createEditorKeyRun,
 } from "../src/handlers/editor.ts";
@@ -41,6 +44,8 @@ const CTX: CommandContext = {
   format: null,
   rulerShown: false,
   spaceBeforeSet: false,
+  zoom: null,
+  zoomPercent: null,
   production: null,
 };
 
@@ -77,7 +82,8 @@ function slotAfter(
 ): string | null {
   const slot = queue();
   const control = createEditorControl();
-  if (answer !== null) control.attach({ run: () => answer });
+  if (answer !== null)
+    control.attach({ run: () => answer, zoomPercent: () => 100 });
   createEditorHandlers({
     control,
     messages: slot,
@@ -104,14 +110,22 @@ test("every editor command has an action", () => {
   );
 });
 
+test("Undo and Redo chosen outside the page are the page's own", () => {
+  expect([actionOf("edit.undo"), actionOf("edit.redo")]).toEqual([
+    { kind: "undo" },
+    { kind: "redo" },
+  ]);
+});
+
 test("each editor command asks the page for its own action", () => {
   const asked: unknown[] = [];
   const control = createEditorControl();
   control.attach({
-    run(action) {
-      asked.push(action);
+    run(id) {
+      asked.push(actionOf(id));
       return { ok: true };
     },
+    zoomPercent: () => 100,
   });
   const handlers = createEditorHandlers({
     control,

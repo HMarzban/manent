@@ -25,11 +25,14 @@ import type { FormatId, IdSource } from "@manent/schema";
 import type { Platform } from "@manent/settings";
 import type { KeyResolver } from "@manent/ui";
 import type { FixedKey, PersonServices } from "../services/ports.ts";
+import { zoomActions } from "../state/zoom.store.ts";
+import { actionOf } from "./command-actions.ts";
 import type { EditorControl } from "./control.ts";
 import type { EditorSession, EditorSessions } from "./editor-sessions.ts";
 import { editorWords } from "./editor-words.ts";
 import { registerLiveEditor } from "./live-editor.ts";
 import type { EditorMount } from "./mount.ts";
+import { followZoom } from "./page-zoom.ts";
 import { keepPlace } from "./place.ts";
 import { EDITOR_PLUGINS } from "./plugins.ts";
 
@@ -197,6 +200,12 @@ function trackHolds(
   };
 }
 
+const shownOnly = (binding: EditorBinding) => ({
+  binding,
+  editable: false,
+  destroy: noop,
+});
+
 /** The binding the editor gets, and whether it may edit: read-only content and newer content are shown, never bound. */
 function bindingFor(
   session: EditorSession,
@@ -204,23 +213,13 @@ function bindingFor(
   options: { timers: Timers; edit: boolean },
 ): { binding: EditorBinding; editable: boolean; destroy(): void } {
   const content = session.readOnly.get();
-  if (content !== null)
-    return {
-      binding: staticBinding(parseDoc(content)),
-      editable: false,
-      destroy: noop,
-    };
+  if (content !== null) return shownOnly(staticBinding(parseDoc(content)));
   const bound = bindDocument({
     document,
     timers: options.timers,
     undoRoots: UNDO_ROOTS,
   });
-  if (!bound.ok)
-    return {
-      binding: staticBinding(bound.doc),
-      editable: false,
-      destroy: noop,
-    };
+  if (!bound.ok) return shownOnly(staticBinding(bound.doc));
   return {
     binding: bound.binding,
     editable: options.edit,
@@ -239,7 +238,7 @@ interface Opened {
   shown: Shown;
 }
 
-/** The script editor's options for one build over `bound`'s binding, zoomed to fit the page's width. */
+/** The script editor's options for one build over `bound`'s binding, at the person's zoom. */
 function editorOptions(
   options: MountOptions,
   open: Opened,
@@ -267,7 +266,7 @@ function editorOptions(
     random: options.random,
     onUndoStep: () => services().messages.withdrawUndo(),
     keys: options.keys,
-    zoom: "fit_width",
+    zoom: zoomActions.get(),
     desk: open.desk,
     extraPlugins: (host) =>
       EDITOR_PLUGINS.map((make) =>
@@ -282,7 +281,7 @@ function buildEditor(
   open: Opened,
   place: SavedPlace | null,
 ): Built {
-  const { docId } = open.ports;
+  const { docId, element } = open.ports;
   const bound = bindingFor(open.session, open.document, {
     timers: options.timers,
     edit: open.shown.edit,
@@ -297,7 +296,11 @@ function buildEditor(
     editorOptions(options, open, { binding, editable: bound.editable }),
   );
   if (place !== null) editor.restore(place);
-  const detach = options.control.attach(editor);
+  const stopZoom = followZoom({ ...options, editor, element });
+  const detach = options.control.attach({
+    run: (id) => editor.run(actionOf(id)),
+    zoomPercent: () => editor.zoomPercent(),
+  });
   const unregister = registerLiveEditor({
     docId,
     view: editor.view,
@@ -306,15 +309,12 @@ function buildEditor(
     editable: bound.editable,
     zoom: () => (editor.zoomPercent() ?? 100) / 100,
   });
-  options.observe?.({
-    docId,
-    editor,
-    undoDepth: () => counted?.depth() ?? 0,
-  });
+  options.observe?.({ docId, editor, undoDepth: () => counted?.depth() ?? 0 });
   return {
     editor,
     shown: open.shown,
     destroy() {
+      stopZoom();
       detach();
       unregister();
       editor.destroy();
