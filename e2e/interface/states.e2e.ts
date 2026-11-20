@@ -244,27 +244,32 @@ const VARIANTS: readonly {
   device: Readonly<Record<string, string>>;
   skipRules: readonly string[];
 }[] = [
-  { name: "dark", options: { colorScheme: "dark" }, device: {}, skipRules: [] },
   {
-    name: "high contrast",
+    name: "in dark",
+    options: { colorScheme: "dark" },
+    device: {},
+    skipRules: [],
+  },
+  {
+    name: "in high contrast",
     options: { contrast: "more" },
     device: {},
     skipRules: [],
   },
   {
-    name: "forced colours",
+    name: "in forced colours",
     options: { forcedColors: "active" },
     device: {},
     skipRules: FORCED_COLOURS_RULES,
   },
   {
-    name: "reduced motion",
+    name: "with reduced motion",
     options: { reducedMotion: "reduce" },
     device: {},
     skipRules: [],
   },
   {
-    name: "200 %",
+    name: "at 200 %",
     options: {},
     device: { "device.interfaceSize": "200" },
     skipRules: [],
@@ -280,23 +285,22 @@ async function contextIn(browser: Browser, variant: (typeof VARIANTS)[number]) {
   return context;
 }
 
-test("the same in dark, high contrast, forced colours, reduced motion and at 200 %", async ({
-  browser,
-}) => {
-  for (const variant of VARIANTS) {
+// one test per variant, so that each has the whole test timeout for its walk of every gallery page
+for (const variant of VARIANTS)
+  test(`every surface in every state passes the automated accessibility rules ${variant.name}`, async ({
+    browser,
+  }) => {
     const context = await contextIn(browser, variant);
     const page = await context.newPage();
     for (const gallery of galleries(await platformOf(page))) {
       await openGallery(page, gallery);
       expect([
-        variant.name,
         gallery.search,
         await violationsOf(page, variant.skipRules),
-      ]).toEqual([variant.name, gallery.search, []]);
+      ]).toEqual([gallery.search, []]);
     }
     await context.close();
-  }
-});
+  });
 
 test("every state's words are the design's", async ({ page }) => {
   const all = galleries(await platformOf(page));

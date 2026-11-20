@@ -9,6 +9,7 @@ import {
   WRAP_MODE,
 } from "@manent/pagination";
 
+// geometricPrecision turns subpixel positioning on, without which Chromium on Linux rounds each advance to a whole pixel
 export const PAGE_CSS = `
 .mn-pages {
   --geo-cell: ${CELL_PT}pt;
@@ -29,6 +30,7 @@ export const PAGE_CSS = `
 .mn-page-view {
   font: 12pt/12pt "Courier Prime", monospace;
   font-synthesis: none;
+  text-rendering: geometricPrecision;
   font-kerning: none;
   font-variant-ligatures: none;
   letter-spacing: 0;

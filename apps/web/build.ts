@@ -1,7 +1,8 @@
-// Builds the web app to static files; run directly, it builds to apps/web/dist, in the test flavour when MANENT_FLAVOUR=test.
+// Builds the web app to static files; run directly, it builds to MANENT_WEB_DIR (apps/web/dist when unset),
+// the directory the server serves, in the test flavour when MANENT_FLAVOUR=test.
 
 import { readFile, rm, writeFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 import type { BuildMetafile } from "bun";
 import tailwind from "bun-plugin-tailwind";
 import { BOOT_SCRIPT, bootScriptHash } from "./src/boot/boot-script.ts";
@@ -110,7 +111,9 @@ export async function buildWeb(options: {
 }
 
 if (import.meta.main) {
-  const outDir = join(import.meta.dir, "dist");
+  const outDir = process.env.MANENT_WEB_DIR
+    ? resolve(process.env.MANENT_WEB_DIR)
+    : join(import.meta.dir, "dist");
   const flavour = process.env.MANENT_FLAVOUR === "test" ? "test" : "production";
   const built = await buildWeb({ outDir, flavour });
   if (!built.ok) {

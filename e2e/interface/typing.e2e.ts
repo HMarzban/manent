@@ -1,6 +1,6 @@
 // Typing reaches the page and nothing else: no change outside the editor, no interface store written, no animation.
 import type { CommandId, SurfaceId } from "@manent/commands";
-import { SURFACES } from "@manent/ui";
+import { DOCUMENT_WORDS, SURFACES } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { openSurface } from "../support/interface.ts";
@@ -29,6 +29,13 @@ async function writing(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
   await openPanel(page, "left_panel", "view.leftPanel", "left_panel");
   await openPanel(page, "side_panel", "view.sidePanel", "side_panel");
+  // the Script settings load apart: drawn before the typing, they cannot land among what it changes
+  await expect(
+    page.getByRole("button", {
+      name: DOCUMENT_WORDS.scriptSettingsHeading,
+      exact: true,
+    }),
+  ).toBeVisible();
   await page.locator(EDITABLE).click();
   await page.keyboard.type("The lamp is lit");
 }

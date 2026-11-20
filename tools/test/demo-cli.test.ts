@@ -14,6 +14,9 @@ const RUN = { timeout: 90_000 };
 
 const trees = createTempTrees("manent demo ");
 afterAll(() => trees.removeAll());
+// each demo builds the web app here, never into apps/web/dist, which an e2e server may be serving
+const webDir = await trees.tree({});
+const demoEnv = { ...process.env, MANENT_WEB_DIR: webDir };
 
 function freePort(): number {
   const probe = Bun.serve({
@@ -80,7 +83,7 @@ async function cli(
 ): Promise<Finished> {
   const child = Bun.spawn([process.execPath, "tools/demo/cli.ts", ...args], {
     cwd: repoRoot,
-    env: { ...process.env, ...env },
+    env: { ...demoEnv, ...env },
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -142,7 +145,7 @@ async function startDemo(
     [process.execPath, "tools/demo/cli.ts", ...demoArgs(at, extra)],
     {
       cwd: repoRoot,
-      env: { ...process.env, ...env },
+      env: { ...demoEnv, ...env },
       stdin: "ignore",
       stdout: "pipe",
       stderr: "pipe",
@@ -301,8 +304,7 @@ test(
     const at = await place();
     await startDemo(at);
     const run = await readRun(at.dir);
-    const built = (await stat(join(repoRoot, "apps/web/dist/index.html")))
-      .mtimeMs;
+    const built = (await stat(join(webDir, "index.html"))).mtimeMs;
     expect(await cli(demoArgs(at))).toEqual({
       exitCode: 0,
       stdout: `Manent is already running at http://localhost:${at.port}\n`,
@@ -310,9 +312,7 @@ test(
     });
     expect(await readRun(at.dir)).toEqual(run);
     expect(isAlive(run.serverPid)).toBe(true);
-    expect(
-      (await stat(join(repoRoot, "apps/web/dist/index.html"))).mtimeMs,
-    ).toBe(built);
+    expect((await stat(join(webDir, "index.html"))).mtimeMs).toBe(built);
   },
   RUN,
 );
