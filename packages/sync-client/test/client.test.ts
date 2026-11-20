@@ -28,7 +28,11 @@ test("a person with no session writes locally and asks the server nothing", asyn
     userId: "you",
     transport: w.network.transport(null),
   });
-  const h = await you.create({ kind: "script", home: "user" });
+  const h = await you.create({
+    kind: "script",
+    home: "user",
+    workspaceId: null,
+  });
   type(h, "page one");
   await w.settle();
   w.fake.advance(120_000);
@@ -50,7 +54,11 @@ test("a document made offline is created on the server at first sync, then synce
   const { server, store } = w;
   const client = w.makeClient();
   client.setOnline(false);
-  const h = await client.create({ kind: "script", home: "user" });
+  const h = await client.create({
+    kind: "script",
+    home: "user",
+    workspaceId: null,
+  });
   type(h, "first page");
   await w.settle();
   expect(h.status.get()).toMatchObject({ neverSynced: true, waiting: 1 });
@@ -75,7 +83,11 @@ test("a document created with nothing in it is created on the server once, and t
   const w = await setup();
   const { server, store } = w;
   const client = w.makeClient();
-  const h = await client.create({ kind: "script", home: "user" });
+  const h = await client.create({
+    kind: "script",
+    home: "user",
+    workspaceId: null,
+  });
   await w.online();
   const { neverSynced } = h.status.get();
   client.setOnline(false);

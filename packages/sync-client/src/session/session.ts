@@ -2,7 +2,7 @@
 // subscription to the server, and the status it shows.
 import { createDoc } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import { CODE } from "@manent/sync-protocol";
+import { CODE, indexDocId } from "@manent/sync-protocol";
 import type { DocumentMessage, Message } from "@manent/sync-protocol";
 import type { ServerGate } from "../link/gate.ts";
 import type { LinkIssue } from "../link/machine.ts";
@@ -24,6 +24,7 @@ import type { UnsavedEdit } from "./edits.ts";
 import type { Handshake } from "./handshake.ts";
 import { createJournal } from "./journal.ts";
 import type { Journal } from "./journal.ts";
+import { KeptWrites } from "./kept-writes.ts";
 import { createLocalCopy } from "./local-copy.ts";
 import type { LocalCopy } from "./local-copy.ts";
 import { createSubscription } from "./subscription.ts";
@@ -53,6 +54,8 @@ export interface Session {
   state(): { state: Uint8Array; meta: DocMeta };
   /** This tab no longer leads: the session stops using the store and the connection. */
   detach(): { doc: CrdtDoc; unsaved: UnsavedEdit[] };
+  /** Another document's meta changed: a creation waiting for that document asks again. */
+  metaChanged(docId: string): void;
   link(facts: SessionLink): void;
   connected(send: (message: Message) => void, gate: ServerGate): void;
   disconnected(): void;
@@ -83,6 +86,8 @@ interface SessionOptions {
   writeSchema: number;
   uploadVersion: ((version: DeviceVersion) => Promise<boolean>) | null;
   replaceConnection(reason: string): void;
+  /** This document's meta changed, and every write started so far has settled. */
+  metaChanged(): void;
   closed(): void;
 }
 
@@ -111,6 +116,7 @@ class DocSession implements Session {
   readonly handle: DocHandle;
   private readonly options: SessionOptions;
   private readonly journal: Journal;
+  private readonly kept: KeptWrites;
   private readonly copy: LocalCopy;
   private readonly subscription: Subscription;
   private readonly handshake: Handshake;
@@ -118,17 +124,30 @@ class DocSession implements Session {
   private readonly status: ReturnType<typeof createSubscribable<DocStatus>>;
   /** The connection the device versions were last offered on. */
   private offeredOn = -1;
+  /** A connection held back until the store holds the index of the workspace a new script is created in. */
+  private held: {
+    send: (message: Message) => void;
+    gate: ServerGate;
+    indexId: string;
+  } | null = null;
 
   constructor(options: SessionOptions, loaded: LoadedDocument | null) {
     const { docId, ports } = options;
     this.options = options;
+    this.kept = new KeptWrites({
+      docId,
+      ports,
+      entries: () => this.journal.entries,
+      changed: () => this.refresh(),
+      lostLead: options.lostLead,
+    });
     const journal = createJournal({
       docId,
       store: ports.store,
       loaded,
       create: options.create,
       stored: options.stored,
-      changed: () => this.refresh(),
+      changed: () => this.changedMeta(),
       sendable: () => {
         this.refresh();
         this.handshake.pump();
@@ -138,6 +157,7 @@ class DocSession implements Session {
         state: this.copy.doc.encodeState(),
         synced: this.computeStatus().synced,
       }),
+      append: (entry) => this.kept.append(entry),
     });
     this.journal = journal;
     this.facts = options.link;
@@ -199,7 +219,7 @@ class DocSession implements Session {
 
   edit(edit: UnsavedEdit, generation: number): Promise<boolean> {
     const { left } = this.subscription;
-    const refused = (): boolean => this.journal.storeRefusing;
+    const refused = (): boolean => this.refusing();
     if (left?.generation !== generation)
       return this.copy.edit(edit).then(refused);
     left.edit(edit.update);
@@ -215,7 +235,16 @@ class DocSession implements Session {
   }
 
   detach(): { doc: CrdtDoc; unsaved: UnsavedEdit[] } {
-    const unsaved = this.journal.detach();
+    const kept = this.kept
+      .entries()
+      .flatMap((e) =>
+        e.kind === "update" && e.own
+          ? [{ update: e.update, elements: e.elements }]
+          : [],
+      );
+    this.kept.stop();
+    this.held = null;
+    const unsaved = [...kept, ...this.journal.detach()];
     this.subscription.close();
     this.copy.dispose();
     this.handshake.disconnect();
@@ -228,11 +257,22 @@ class DocSession implements Session {
     this.refresh();
   }
 
+  metaChanged(docId: string): void {
+    if (docId === this.held?.indexId) void this.connectOnceIndexed();
+  }
+
   connected(send: (message: Message) => void, gate: ServerGate): void {
-    this.subscription.connected(send, gate);
+    const indexId = this.awaitedIndex();
+    if (indexId === null) {
+      this.subscription.connected(send, gate);
+      return;
+    }
+    this.held = { send, gate, indexId };
+    void this.connectOnceIndexed();
   }
 
   disconnected(): void {
+    this.held = null;
     this.subscription.disconnected();
   }
 
@@ -254,6 +294,40 @@ class DocSession implements Session {
     this.copy.writeSchema(version);
   }
 
+  /** The workspace index a never-synced script's creation waits for; null when nothing waits. */
+  private awaitedIndex(): string | null {
+    const { neverSynced, create } = this.journal.meta;
+    const workspaceId = create?.workspaceId ?? null;
+    if (!neverSynced || workspaceId === null) return null;
+    return indexDocId("workspace", workspaceId);
+  }
+
+  /** The server has named a generation for the index once the store holds one above 0. */
+  private async connectOnceIndexed(): Promise<void> {
+    const { held } = this;
+    if (held === null) return;
+    const stored = await this.options.ports.store
+      .load(held.indexId)
+      .catch((error: unknown) => {
+        // an index the store cannot read is not there yet: the next connection asks again
+        if (!(error instanceof StoreError)) throw error;
+        return null;
+      });
+    if (this.held !== held || (stored?.meta.generation ?? 0) === 0) return;
+    this.held = null;
+    this.subscription.connected(held.send, held.gate);
+  }
+
+  /** The meta changed, or the store refused a write: shown, and told once the writes started so far have settled. */
+  private changedMeta(): void {
+    this.refresh();
+    void this.journal.written().then(() => this.options.metaChanged());
+  }
+
+  private refusing(): boolean {
+    return this.journal.storeRefusing || this.kept.size > 0;
+  }
+
   private addId(clientId: number): void {
     const { clientIds } = this.journal.meta;
     this.journal.patch({ clientIds: [...clientIds, clientId] });
@@ -270,7 +344,7 @@ class DocSession implements Session {
       merged: this.handshake.merged(),
       entries: journal.entries,
       unsavedWrites: journal.unsavedWrites(),
-      storeRefusing: journal.storeRefusing,
+      storeRefusing: this.refusing(),
       wentOfflineAt: this.facts.wentOfflineAt,
       neverSynced: journal.meta.neverSynced,
       recovered: this.copy.recovered.length,
@@ -291,6 +365,8 @@ class DocSession implements Session {
   }
 
   private async close(): Promise<void> {
+    this.kept.stop();
+    this.held = null;
     this.subscription.close();
     this.copy.dispose();
     this.handshake.close();

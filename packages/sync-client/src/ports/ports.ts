@@ -1,6 +1,6 @@
 // The client's ports and the shapes it stores and reports. The core reaches time, chance,
 // the network, the disk and other tabs only through these.
-import type { DocJSON } from "@manent/schema";
+import type { BlockJSON, DocJSON } from "@manent/schema";
 import type { ReplayRefusal, ReplayResponse } from "@manent/sync-protocol";
 
 /** The returned function cancels what `schedule` set. */
@@ -45,11 +45,12 @@ export interface Transport {
     onFrame(frame: Uint8Array): void;
     onClose(code: number, reason: string): void;
   }): Promise<Connection>;
-  /** Idempotent; rejects ConnectError. */
+  /** Idempotent; rejects ConnectError. `workspaceId` is sent only when it is not null. */
   createDocument(request: {
     docId: string;
     kind: string;
     home: string;
+    workspaceId: string | null;
   }): Promise<{ ok: true } | { ok: false; code: "forbidden" | "deleted" }>;
   /** Edits made against a generation the document has left, posted once under `key`; rejects ConnectError. */
   replay(request: {
@@ -108,7 +109,8 @@ export interface DocMeta {
   /** Own client ID → highest acknowledged clock. */
   ackedClocks: Record<string, number>;
   neverSynced: boolean;
-  create: { kind: string; home: string } | null;
+  /** `workspaceId`: the workspace whose index a new script takes its roles from; null for any other document. */
+  create: { kind: string; home: string; workspaceId: string | null } | null;
   parked: { reason: "access_removed" | "deleted"; parkedAt: number } | null;
   /**
    * A rejected push being recovered; `heal`: the rejected push was the heal
@@ -152,6 +154,12 @@ export interface DeviceVersion {
   uploaded: boolean;
 }
 
+/**
+ * For an overlap, `mine` and `theirs` are the block as this device and the
+ * other side wrote it (null where that side no longer holds it), and
+ * `otherClientIds` the other side's Yjs client IDs, ascending, where known;
+ * null, null and [] for any other cause.
+ */
 export interface RecoveredItem {
   id: string;
   docId: string;
@@ -160,6 +168,21 @@ export interface RecoveredItem {
   text: string;
   recoveredAt: number;
   cause: "merge" | "rejected" | "overlap";
+  mine: BlockJSON | null;
+  theirs: BlockJSON | null;
+  otherClientIds: number[];
+}
+
+/** A recovered item as a store holds it: one stored before overlaps carried wordings lacks them. */
+export type StoredRecoveredItem = Omit<
+  RecoveredItem,
+  "mine" | "theirs" | "otherClientIds"
+> &
+  Partial<RecoveredItem>;
+
+/** The item a store holds, with no wordings where it was stored without them. */
+export function toRecoveredItem(stored: StoredRecoveredItem): RecoveredItem {
+  return { mine: null, theirs: null, otherClientIds: [], ...stored };
 }
 
 export interface LoadedDocument {
@@ -185,7 +208,7 @@ export interface LocalStore {
   ): Promise<void>;
   /** A refused setting: that one entry is removed. */
   refuse(docId: string, localSeq: number): Promise<void>;
-  /** Server entries up to `throughLocalSeq` become applied, and the items are stored, in one write. */
+  /** Server entries up to `throughLocalSeq` become applied, and the items are stored, in one write; an item under an id already held replaces it. */
   markApplied(
     docId: string,
     throughLocalSeq: number,
@@ -246,6 +269,7 @@ export type LinkState = "offline" | "connecting" | "authenticating" | "online";
 /** `local`: no live subscription. */
 export type DocSyncState = "local" | "syncing" | "synced";
 
+/** `view_only`: the person's role cannot edit the document, so it is read through a viewer. */
 export type SideState =
   | "access_removed"
   | "deleted"
@@ -253,7 +277,8 @@ export type SideState =
   | "rejected"
   | "not_saved"
   | "sign_in"
-  | "server_old";
+  | "server_old"
+  | "view_only";
 
 export interface DocStatus {
   /** Every edit made here is committed to the local store. */
@@ -269,6 +294,18 @@ export interface DocStatus {
   recovered: number;
   side: readonly SideState[];
 }
+
+/** One document as the store holds it, read without opening it. */
+export interface DocSummary {
+  docId: string;
+  neverSynced: boolean;
+  waiting: number;
+  parked: DocMeta["parked"];
+  recovered: number;
+}
+
+/** While the store refuses an entry, it is written again this often. */
+export const STORE_RETRY_MS = 5_000;
 
 /** The listener runs only when the value changed, by deep equality. */
 export interface Subscribable<T> {

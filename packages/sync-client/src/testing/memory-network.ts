@@ -2,6 +2,7 @@
 // at a time and only when a test steps it, with cuts, refused sessions and faults on request.
 import { encodeReplayUpdates } from "@manent/sync-protocol";
 import type {
+  CreateDocumentRequest,
   ReplayRefusal,
   ReplayRequest,
   ReplayResponse,
@@ -25,9 +26,10 @@ export interface MemoryNetwork {
   transport(userId: string | null): Transport;
   serve(handlers: {
     connected(end: ServerEnd): void;
+    /** `workspaceId` is present only when the client's request named one. */
     createDocument(
       userId: string,
-      request: { docId: string; kind: string; home: string },
+      request: CreateDocumentRequest,
     ): CreateResult;
     /** Absent, a replay rejects ConnectError("unreachable"). */
     replay?(
@@ -164,9 +166,10 @@ function transportOf(net: Net, userId: string | null): Transport {
         close: (code, reason) => closeFrom(wire, "client", code, reason),
       };
     },
-    async createDocument(request) {
+    async createDocument({ workspaceId, ...request }) {
       const [server, user] = reach(net, userId);
-      return server.createDocument(user, request);
+      const named = workspaceId === null ? {} : { workspaceId };
+      return server.createDocument(user, { ...request, ...named });
     },
     async replay(request) {
       const [server, user] = reach(net, userId);

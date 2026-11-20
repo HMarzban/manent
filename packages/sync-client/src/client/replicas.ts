@@ -271,6 +271,10 @@ class TabReplicas implements Replicas {
       writeSchema: link.writeSchema(),
       uploadVersion: this.options.uploadVersion,
       replaceConnection: (reason) => link.replace(reason),
+      metaChanged: () => {
+        for (const [id, other] of this.sessions)
+          if (id !== docId) other.metaChanged(docId);
+      },
       closed: () => this.forget(docId),
     }).then((session) => {
       this.opening.delete(docId);

@@ -7,9 +7,10 @@ import type { ViewHandle } from "../view/view.ts";
  * `replaced`: `doc()` now returns another document; bind again, and undo
  * starts over. `rejected`: `replayed` blocks were written back and `setAside`
  * items filed as Recovered text. `receipt`: once per reconnect that had
- * something waiting; its counts are elements. `rebuilt`: after the `replaced`
- * of a move, `applied` blocks of this device's were written into the new
- * document, and `overlaps` and `setAside` items filed as Recovered text.
+ * something waiting; `sent` counts elements, `setAside` and `overlaps` the
+ * items that reconnect filed. `rebuilt`: after the `replaced` of a move,
+ * `applied` blocks of this device's were written into the new document, and
+ * `overlaps` and `setAside` items filed as Recovered text.
  * `past_window`: the edits made against the old document are kept as the
  * device version `versionId`, never merged.
  */
@@ -18,7 +19,7 @@ export type DocEvent =
   | { type: "rejected"; code: number; replayed: number; setAside: number }
   | { type: "recovered"; items: RecoveredItem[] }
   | { type: "setting_refused"; key: string; message: string }
-  | { type: "receipt"; sent: number; setAside: number }
+  | { type: "receipt"; sent: number; setAside: number; overlaps: number }
   | { type: "rebuilt"; applied: number; overlaps: number; setAside: number }
   | { type: "past_window"; versionId: string };
 
@@ -32,7 +33,7 @@ export interface DocHandle {
   readonly settings: Subscribable<Readonly<Record<string, unknown>>>;
   /** The newest schema version this document may be written in right now. */
   readonly writeSchema: Subscribable<number>;
-  /** Set when the server answered 4408: the app shows this reader instead of an editor. */
+  /** Set when the server answered 4408, or 4403 `read_only_role`: the app shows this reader instead of an editor. */
   readonly readOnly: Subscribable<ViewHandle | null>;
   on(listener: (event: DocEvent) => void): () => void;
   /** A request: shown at once, sent as SET, dropped if refused. TypeError for a value JSON cannot hold. */
