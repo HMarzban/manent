@@ -14,7 +14,12 @@ import { blockText, blockView } from "@manent/schema";
 import type { SyncService, UpstreamItem } from "@manent/server-core";
 import { StorageError } from "@manent/storage";
 import type { Storage } from "@manent/storage";
-import type { Clock, DocHandle, RecoveredItem } from "@manent/sync-client";
+import type {
+  Clock,
+  DocHandle,
+  LoadedDocument,
+  RecoveredItem,
+} from "@manent/sync-client";
 import type { UpstreamFactory } from "../node/ports.ts";
 import type { NodeRecords } from "../records/ports.ts";
 
@@ -130,8 +135,8 @@ export interface Line {
   asked: SetItem[];
   lastSyncedAt: number | null;
   synced: boolean;
-  /** The document's follows this line has seen. */
-  seenFollows: number;
+  /** The cloud generation at which this line was last level with the room; 0 before the first. */
+  generation: number;
   stopDoc: () => void;
   readonly opened: Promise<void>;
 }
@@ -157,8 +162,6 @@ interface FollowPorts {
   defer(fn: () => void): void;
   ownerOf: (docId: string, clientId: number) => string | null;
   service(): SyncService;
-  /** The document's follows so far, which a follow counts up. */
-  followsOf(docId: string): { follows: number };
   /** Observes the handle's document for what the cloud sends. */
   bindDoc(line: Line, handle: DocHandle): void;
   /** The line is level with the room: what waited for that goes. */
@@ -209,75 +212,109 @@ export function createFollowing(ports: FollowPorts): Following {
     ports.ready(line);
   }
 
-  /** The room's generation is the upstream's now; its records follow once the store says which. */
-  async function recordGeneration(line: Line): Promise<void> {
-    const loaded = await upstream.store(line.userId).load(line.docId);
-    if (loaded !== null)
-      records.setDocState(
-        line.docId,
-        line.userId,
-        "synced",
-        loaded.meta.generation,
-      );
-  }
+  const known = (docId: string): number =>
+    records.docState(docId)?.generation ?? 0;
 
-  function follow(line: Line, handle: DocHandle): void {
+  /** `generation`: the upstream's, which the room's records take in the same run; null when its store holds none. */
+  function follow(
+    line: Line,
+    handle: DocHandle,
+    generation: number | null,
+  ): void {
     let items: RecoveredItem[];
     try {
       items = followUpstream(ports.service(), handle, clock.now());
     } catch (error) {
       if (!(error instanceof StorageError)) throw error;
-      clock.schedule(() => follow(line, handle), FOLLOW_RETRY_MS);
+      clock.schedule(() => follow(line, handle, generation), FOLLOW_RETRY_MS);
       return;
     }
     if (items.length > 0) records.addRecovered(line.docId, line.userId, items);
-    const doc = ports.followsOf(line.docId);
-    doc.follows += 1;
-    line.seenFollows = doc.follows;
+    if (generation !== null) {
+      records.setDocState(line.docId, line.userId, "synced", generation);
+      line.generation = generation;
+    }
     line.moving = false;
     ports.bindDoc(line, handle);
-    void recordGeneration(line);
     if (line.ready) ports.ready(line);
     else reconcile(line, handle);
   }
 
-  function pauseThenFollow(
+  /** Another person's line already moved the room to the generation this one reached: it only catches up. */
+  function catchUp(line: Line, handle: DocHandle, generation: number): void {
+    line.generation = generation;
+    line.moving = false;
+    ports.bindDoc(line, handle);
+    reconcile(line, handle);
+  }
+
+  /** Follows, unless the room is already at the handle's generation (null: its store holds none). */
+  function act(
     line: Line,
     handle: DocHandle,
-    later: boolean,
+    reason: "rejected" | "generation",
+    paused: boolean,
+    generation: number | null,
   ): void {
-    line.moving = true;
-    line.stopDoc();
-    ports.service().pauseRelay(line.docId);
-    if (later) defer(() => follow(line, handle));
-    else follow(line, handle);
+    if (reason === "generation" && generation === known(line.docId))
+      return catchUp(line, handle, generation);
+    if (!paused) ports.service().pauseRelay(line.docId);
+    follow(line, handle, generation);
+  }
+
+  /**
+   * Once the person's store says the handle's generation, `act` at the next turn. A store that
+   * cannot be read now, or has not yet taken the move, is read again later; meanwhile the line
+   * stays paused and loses nothing.
+   */
+  function decide(
+    line: Line,
+    handle: DocHandle,
+    reason: "rejected" | "generation",
+    paused: boolean,
+  ): void {
+    const again = (): void => {
+      clock.schedule(
+        () => decide(line, handle, reason, paused),
+        FOLLOW_RETRY_MS,
+      );
+    };
+    const read = (loaded: LoadedDocument | null): void => {
+      const generation = loaded?.meta.generation ?? null;
+      const stale =
+        reason === "generation" &&
+        generation !== null &&
+        generation <= line.generation;
+      if (stale) return again();
+      defer(() => act(line, handle, reason, paused, generation));
+    };
+    upstream.store(line.userId).load(line.docId).then(read, again);
   }
 
   return {
     ingest,
     pushOwn,
     replaced(line, handle, reason) {
-      const doc = ports.followsOf(line.docId);
-      if (reason !== "generation" || doc.follows <= line.seenFollows)
-        return pauseThenFollow(line, handle, true);
-      // another person's handle moved the room to this generation already
       line.moving = true;
       line.stopDoc();
-      defer(() => {
-        line.seenFollows = doc.follows;
-        line.moving = false;
-        ports.bindDoc(line, handle);
-        reconcile(line, handle);
-      });
+      // a room another person's line moved past this line's generation is not paused again: no follow would end it
+      const behind =
+        reason === "generation" && known(line.docId) > line.generation;
+      if (!behind) ports.service().pauseRelay(line.docId);
+      decide(line, handle, reason, !behind);
     },
     async resume(line, handle) {
       await synced(handle);
       const meta = (await upstream.store(line.userId).load(line.docId))?.meta;
       line.lastSyncedAt = meta?.lastSyncedAt ?? null;
-      const known = records.docState(line.docId)?.generation ?? 0;
       // a node that stopped after the upstream moved and before it followed follows now
-      if (meta !== undefined && meta.generation > known)
-        return pauseThenFollow(line, handle, false);
+      if (meta !== undefined && meta.generation > known(line.docId)) {
+        line.moving = true;
+        line.stopDoc();
+        ports.service().pauseRelay(line.docId);
+        return follow(line, handle, meta.generation);
+      }
+      line.generation = meta?.generation ?? 0;
       reconcile(line, handle);
     },
   };

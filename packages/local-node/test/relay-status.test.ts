@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { scriptBody } from "@manent/crdt";
-import { DOC, world } from "./relay-world.ts";
+import { DOC, DOC2, world } from "./relay-world.ts";
 
 test("the window is told the upstream's state as it changes, and no more often than every 250 ms", async () => {
   const w = world();
@@ -47,5 +47,17 @@ test("text the upstream set aside is in the window's status", async () => {
   await w.settle();
   expect(w.bridge.status(DOC).recovered.map((item) => item.text)).toEqual([
     " It flickers.",
+  ]);
+});
+
+test("a script made on the device reads its owner's link to the cloud", async () => {
+  const w = world({ madeOnDevice: true });
+  w.cloudMakes(DOC2, "dana", ["sam"]);
+  await w.open("sam", DOC2);
+  await w.windowWritesLine("sam", DOC, "a scene of my own");
+  await w.settle();
+  expect([w.bridge.status(DOC2).link, w.bridge.status(DOC).link]).toEqual([
+    "online",
+    "online",
   ]);
 });

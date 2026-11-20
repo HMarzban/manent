@@ -662,6 +662,8 @@ export class RelayWorld {
   private snapshot: unknown = null;
   /** The person whose window a check reads unless told otherwise. */
   private lastOpened = "sam";
+  /** Called after every step of the world. */
+  readonly watchers = new Set<() => void>();
 
   constructor(readonly options: WorldOptions = {}) {
     this.records = createMemoryRecords(
@@ -1115,6 +1117,12 @@ export class RelayWorld {
   }
 
   private async step(cloud: boolean): Promise<boolean> {
+    const moved = await this.move(cloud);
+    for (const watcher of this.watchers) watcher();
+    return moved;
+  }
+
+  private async move(cloud: boolean): Promise<boolean> {
     await turn();
     if (this.failure !== null) throw this.failure;
     if (this.life.deferred.run() || (cloud && this.cloud.deferred.run())) {

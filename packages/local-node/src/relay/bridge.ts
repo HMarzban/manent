@@ -54,7 +54,6 @@ interface Relayed {
   /** The person whose line the status reports. */
   current: string | null;
   events: UpstreamStatus["events"];
-  follows: number;
   /** Requests seen, as `userId:clientSeq`: a window re-sends one whose acknowledgement it lost. */
   seen: Set<string>;
   /** Requests made during the first sync, until it is answered. */
@@ -117,7 +116,6 @@ export function createRelayBridge(options: {
       doc = {
         current: null,
         events: [],
-        follows: 0,
         seen,
         held: [],
         delayed: 0,
@@ -133,14 +131,27 @@ export function createRelayBridge(options: {
       : (persons.get(userId)?.lines.get(docId) ?? null);
   };
 
+  /** Whose link a document the node is the authority for reports: its hand-off's person, else its owner, else the current person. */
+  function authorityUserId(docId: string): string | null {
+    const owner = storage.directory
+      .rolesOf(docId)
+      .find((held) => held.role === "owner");
+    return (
+      records.docState(docId)?.userId ??
+      owner?.userId ??
+      records.current()?.userId ??
+      null
+    );
+  }
+
   function status(docId: string): UpstreamStatus {
     const line = currentLine(docId);
     const device = options.deviceStorage();
     const relaying = records.docState(docId)?.state === "synced";
     if (!relaying || line?.handle == null) {
-      const owner = records.docState(docId)?.userId ?? null;
+      const userId = authorityUserId(docId);
       const client =
-        owner === null ? null : (persons.get(owner)?.client ?? null);
+        userId === null ? null : (persons.get(userId)?.client ?? null);
       const link = client?.link.get().state ?? "offline";
       return ownStatus({
         link,
@@ -208,7 +219,6 @@ export function createRelayBridge(options: {
     defer,
     ownerOf: options.ownerOf,
     service,
-    followsOf: docOf,
     bindDoc,
     ready(line) {
       for (const item of line.queued.splice(0)) send(line, item);
@@ -278,7 +288,7 @@ export function createRelayBridge(options: {
       asked: [],
       lastSyncedAt: null,
       synced: false,
-      seenFollows: docOf(docId).follows,
+      generation: 0,
       stopDoc: () => {},
       opened: opening.promise,
     };

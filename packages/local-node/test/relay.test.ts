@@ -161,3 +161,23 @@ test("a node that crashed between replaced and its follow follows at next open",
   expect(w.nodeGeneration(DOC)).toBe(2);
   expect(w.nodeText(DOC)).toEqual(["one"]);
 });
+
+test("a rebuild after one person's refused push is followed once, not merged twice", async () => {
+  const w = world();
+  await w.open("dana", DOC);
+  await w.open("sam", DOC);
+  w.windowTypes("sam", DOC, "first");
+  await w.settle();
+  w.cloudRefusesNext(DOC);
+  w.windowTypes("sam", DOC, " then more");
+  await w.settle();
+  const held = new Set<string>();
+  w.watchers.add(() => held.add(w.nodeText(DOC).join(" / ")));
+  w.cloudRebuilds(DOC);
+  await w.settle();
+  expect([...held]).toEqual(["first then more"]);
+  expect([w.cloudText(DOC), w.windowText(DOC, "dana")]).toEqual([
+    ["first then more"],
+    ["first then more"],
+  ]);
+});
