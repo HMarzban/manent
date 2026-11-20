@@ -104,3 +104,22 @@ test("each episode's scenes run in order, each starting a page of its own, with 
 test("no entry of the series' bank breaks a bank rule", () => {
   expect(checkBank(LARCH_ROAD_GUIDE, OTHERS)).toEqual([]);
 });
+
+test("no line for anyone in the scene and no tag names one of the cast", () => {
+  const castWords = new Set(
+    LARCH_ROAD_GUIDE.cast.flatMap((member) =>
+      `${member.cue} ${member.name}`.toLowerCase().split(" "),
+    ),
+  );
+  const namesCast = (text: string): boolean =>
+    text
+      .toLowerCase()
+      .split(/[^\p{L}]+/u)
+      .some(
+        (word) => castWords.has(word) || castWords.has(word.replace(/s$/u, "")),
+      );
+  const anyone = LARCH_ROAD_GUIDE.dialogue
+    .filter((line) => line.speaker === null)
+    .map((line) => line.text);
+  expect([...anyone, ...LARCH_ROAD_GUIDE.tags].filter(namesCast)).toEqual([]);
+});

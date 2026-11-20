@@ -2067,7 +2067,11 @@ export const LARCH_ROAD_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
       intent: "ask",
       text: "Is anyone else hearing a drip, or is it just me?",
     },
-    { speaker: null, intent: "ask", text: "Whose turn is it to tell Gerald?" },
+    {
+      speaker: null,
+      intent: "ask",
+      text: "Whose turn is it to tell next door?",
+    },
     {
       speaker: null,
       intent: "ask",
@@ -2098,7 +2102,7 @@ export const LARCH_ROAD_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "ask",
-      text: "Is the bathroom free, or is it still occupied by a teenager?",
+      text: "How long is the queue for the bathroom?",
     },
     { speaker: null, intent: "ask", text: "When did we start keeping score?" },
     { speaker: null, intent: "ask", text: "Where are we all supposed to sit?" },
@@ -2108,7 +2112,7 @@ export const LARCH_ROAD_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
       text: "Can somebody turn that down, please?",
     },
     { speaker: null, intent: "ask", text: "Is it too late to cancel?" },
-    { speaker: null, intent: "ask", text: "Who told Gerald?" },
+    { speaker: null, intent: "ask", text: "Who let it slip this time?" },
     { speaker: null, intent: "ask", text: "Are those my slippers?" },
     {
       speaker: null,
@@ -2139,7 +2143,7 @@ export const LARCH_ROAD_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "answer",
-      text: "No idea. Ask Molly. Molly knows.",
+      text: "No idea. Nobody tells me anything.",
     },
     {
       speaker: null,
@@ -2176,7 +2180,11 @@ export const LARCH_ROAD_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
       intent: "answer",
       text: "On the fridge. Under the takeaway menu. Where it always is.",
     },
-    { speaker: null, intent: "answer", text: "Gerald. It's always Gerald." },
+    {
+      speaker: null,
+      intent: "answer",
+      text: "Next door. It's always next door.",
+    },
     {
       speaker: null,
       intent: "answer",
@@ -2238,7 +2246,7 @@ export const LARCH_ROAD_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "answer",
-      text: "Because we're Lowes, and Lowes don't call plumbers.",
+      text: "Because calling a plumber would mean admitting it's a leak.",
     },
     {
       speaker: null,
@@ -2298,7 +2306,7 @@ export const LARCH_ROAD_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "instruct",
-      text: "Go and see who that is, and if it's Gerald, we're out.",
+      text: "Go and see who that is, and if it's for me, I'm out.",
     },
     {
       speaker: null,
@@ -2323,7 +2331,7 @@ export const LARCH_ROAD_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "state",
-      text: "There's a man at the back door, and it's Gerald, and he's got a toolbox.",
+      text: "There's somebody at the back door, and they've brought a toolbox.",
     },
     {
       speaker: null,
@@ -2378,7 +2386,7 @@ export const LARCH_ROAD_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "state",
-      text: "I'd miss him. I'd miss the fence. I'd miss being watched.",
+      text: "I'd miss the fence. I'd miss the arguments. I'd miss all of it.",
     },
     {
       speaker: null,
@@ -2388,7 +2396,7 @@ export const LARCH_ROAD_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "state",
-      text: "Gerald's watering his tomatoes, which means he's listening.",
+      text: "The garden's gone very quiet, which means somebody's listening.",
     },
     {
       speaker: null,
@@ -2400,7 +2408,7 @@ export const LARCH_ROAD_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     "if anybody asked me",
     "for the record",
     "and I mean that, love",
-    "no offence, Gerald",
+    "no offence meant",
     "and that's final",
     "apparently",
     "with respect",
@@ -2421,9 +2429,9 @@ export const LARCH_ROAD_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     "same as last year",
     "by Saturday",
     "give or take a fence post",
-    "according to Molly",
+    "according to the calendar",
     "for my sins",
-    "in fairness to Gerald",
+    "to be fair to everyone",
     "on the whole",
     "between ourselves",
     "for once",
@@ -2431,11 +2439,11 @@ export const LARCH_ROAD_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     "mark my words",
     "if that's all right",
     "while I'm still here",
-    "no thanks to Gerald",
+    "no thanks to anyone",
     "if we're honest",
     "end of discussion",
-    "as your mother",
-    "in front of Gerald",
+    "as a rule",
+    "in broad daylight",
     "on my life",
   ],
   stories: [],
