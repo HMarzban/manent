@@ -249,7 +249,11 @@ test("the status line appears empty, then speaks", async ({ page }) => {
 test("stopping and starting the server keeps the tab's person, and two tabs agree", async ({
   page,
   context,
+  request,
 }) => {
+  const { control } = (await (
+    await request.get("/api/demo")
+  ).json()) as DemoResponse;
   // the chooser has loaded its people once
   await page.goto("/");
   await page.getByRole("button", { name: leo() }).click();
@@ -292,7 +296,10 @@ test("stopping and starting the server keeps the tab's person, and two tabs agre
     ).toBeVisible();
   } finally {
     // the tests after this one need the server, whatever this one found
-    await page.request.post("http://127.0.0.1:4758/start-server");
+    const started = await request.post(`${control!.url}/start-server`, {
+      headers: { Authorization: `Bearer ${control!.token}` },
+    });
+    expect(await started.json()).toEqual({ server: "running" });
   }
 });
 
