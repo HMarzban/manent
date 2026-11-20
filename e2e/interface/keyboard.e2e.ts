@@ -46,13 +46,16 @@ const SPOTS: readonly Spot[] = [
     at: DOC,
     async focus(page) {
       await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
-      await page.getByRole("button", { name: "View" }).click();
-      await page.getByRole("menuitemcheckbox", { name: /^Side panel/ }).click();
-      await page.keyboard.press("Escape");
-      await page
-        .locator("[data-region='side_panel'] [role='tab']")
-        .first()
-        .focus();
+      const tabs = page.locator("[data-region='side_panel'] [role='tab']");
+      // the panel a press before left open comes back open for the same person
+      if ((await tabs.count()) === 0) {
+        await page.getByRole("button", { name: "View" }).click();
+        await page
+          .getByRole("menuitemcheckbox", { name: /^Side panel/ })
+          .click();
+        await page.keyboard.press("Escape");
+      }
+      await tabs.first().focus();
     },
     context: {
       ...ON_A_SCRIPT,
