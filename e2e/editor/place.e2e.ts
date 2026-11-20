@@ -125,6 +125,8 @@ test("a reload opens the script at the caret, the line and the panels the person
   await leftEdge(page).focus();
   for (let step = 0; step < 5; step++) await page.keyboard.press("ArrowRight");
   await viewItem(page, /^Ruler/);
+  // the Ruler's bar scrolls the page by its height as it appears, so the top line is set once it is there
+  await expect(page.locator("[data-marker]")).toHaveCount(2);
   await topLineIn(page, blockId);
   await page.reload();
   await expect(page.locator(PAGE_VIEW)).toBeVisible();

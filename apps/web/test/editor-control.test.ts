@@ -3,7 +3,7 @@ import { createEditorControl } from "../src/editor-host/control.ts";
 
 test("a command reaches the open editor, and nothing when none is open", () => {
   const control = createEditorControl();
-  const seen: string[] = [];
+  const seen: unknown[] = [];
   expect(control.run("format.pageBreak")).toBeNull();
   const detach = control.attach({
     run: (id) => (seen.push(id), { ok: true }),
