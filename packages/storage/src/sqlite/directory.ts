@@ -64,6 +64,12 @@ export function createSqliteDirectory(options: {
     roleOf: db.query<{ role: string; capabilities: string }, [string, string]>(
       "SELECT role, capabilities FROM doc_roles WHERE doc_id = ?1 AND user_id = ?2",
     ),
+    rolesOf: db.query<
+      { userId: string; role: string; capabilities: string },
+      [string]
+    >(
+      "SELECT user_id AS userId, role, capabilities FROM doc_roles WHERE doc_id = ?1 ORDER BY user_id",
+    ),
     tombstone: db.query<never, [string, string, number]>(
       "INSERT INTO tombstones (doc_id, deleted_by_user_id, deleted_at) VALUES (?1, ?2, ?3) ON CONFLICT (doc_id) DO NOTHING",
     ),
@@ -105,6 +111,12 @@ export function createSqliteDirectory(options: {
         capabilities: readCapabilities(row.capabilities),
       };
     },
+    rolesOf: (docId) =>
+      sql.rolesOf.all(docId).map((row) => ({
+        userId: row.userId,
+        role: row.role,
+        capabilities: readCapabilities(row.capabilities),
+      })),
     tombstone: (docId, deletedByUserId) =>
       write(() => sql.tombstone.run(docId, deletedByUserId, now())),
     tombstoneOf: (docId) => sql.tombstoneOf.get(docId),

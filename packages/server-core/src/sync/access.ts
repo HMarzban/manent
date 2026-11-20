@@ -3,6 +3,7 @@ import type { Home, Storage } from "@manent/storage";
 import {
   CAPABILITIES,
   DOC_ROLES,
+  indexDocId,
   isDocId,
   isDocKind,
 } from "@manent/sync-protocol";
@@ -13,6 +14,7 @@ import type {
   DocRole,
   ServerVersions,
 } from "@manent/sync-protocol";
+import { INDEX_KINDS } from "./index-docs.ts";
 
 /** Every capability, in CAPABILITIES' order: what the person who makes a document holds. */
 export const OWNER_CAPABILITIES: readonly Capability[] = Object.freeze([
@@ -67,6 +69,20 @@ function stringField(body: unknown, key: Field): string | null {
   return typeof value === "string" ? value : null;
 }
 
+const WORKSPACE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** The id of the index of the workspace a request names; null when it names none. */
+function workspaceIndexOf(
+  body: unknown,
+): { ok: true; index: string | null } | { ok: false } {
+  if (typeof body !== "object" || body === null || !("workspaceId" in body))
+    return { ok: true, index: null };
+  const value: unknown = Reflect.get(body, "workspaceId");
+  return typeof value === "string" && WORKSPACE_ID.test(value)
+    ? { ok: true, index: indexDocId("workspace", value) }
+    : { ok: false };
+}
+
 const isDocRole = (value: string): value is DocRole =>
   DOC_ROLES.some((role) => role === value);
 const isCapability = (value: string): value is Capability =>
@@ -74,14 +90,56 @@ const isCapability = (value: string): value is Capability =>
 
 const keyOf = (home: Home): string => `${home.kind}:${home.id}`;
 
-/** `"user"` is the caller's own file; a private copy lives there and nowhere else. */
-function homeOf(userId: string, kind: DocKind, home: string): Home | null {
-  if (kind === "private")
-    return home === "user" ? { kind: "user", id: userId } : null;
+/**
+ * `"user"` is the caller's own file; a private copy lives there and nowhere else, and so does
+ * the caller's own index. Any other index is a workspace's, in the project home of its own id.
+ */
+function homeOf(
+  userId: string,
+  docId: string,
+  kind: DocKind,
+  home: string,
+): Home | null {
+  const own: Home = { kind: "user", id: userId };
+  if (kind === "private") return home === "user" ? own : null;
+  if (kind === "index" && home === "user")
+    return docId === indexDocId("user", userId) ? own : null;
   const id = home.slice("project:".length);
-  return home.startsWith("project:") && isDocId(id)
-    ? { kind: "project", id }
-    : null;
+  if (!home.startsWith("project:") || !isDocId(id)) return null;
+  return kind === "index" && id !== docId ? null : { kind: "project", id };
+}
+
+type CreateCheck =
+  | {
+      ok: true;
+      docId: string;
+      kind: DocKind;
+      home: Home;
+      /** The index of the workspace whose roles the document takes; null for none. */
+      index: string | null;
+    }
+  | Extract<CreateResult, { ok: false }>;
+
+/** The request's fields, each well formed. */
+function checkCreate(userId: string, request: unknown): CreateCheck {
+  const docId = stringField(request, "docId");
+  const kind = stringField(request, "kind");
+  const given = stringField(request, "home");
+  const workspace = workspaceIndexOf(request);
+  if (!isDocId(docId) || kind === null || given === null || !workspace.ok)
+    return { ok: false, code: "bad_request" };
+  if (!isDocKind(kind) || ![...SYNCABLE_KINDS, ...INDEX_KINDS].includes(kind))
+    return { ok: false, code: "unsupported_kind" };
+  const home = homeOf(userId, docId, kind, given);
+  const { index } = workspace;
+  // a workspace is named only for a project's document: never by an index, nor in its index's own home
+  const misplaced =
+    index !== null &&
+    (home?.kind !== "project" ||
+      home.id === index ||
+      INDEX_KINDS.includes(kind));
+  if (home === null || misplaced) return { ok: false, code: "bad_request" };
+  return { ok: true, docId, kind, home, index };
 }
 
 export function createDocumentAccess(options: {
@@ -117,16 +175,24 @@ export function createDocumentAccess(options: {
     };
   }
 
+  /** Each other user's role on `index`, an owner's as `edit`, then the creator as owner. */
+  function grant(docId: string, userId: string, index: string | null): void {
+    const held = index === null ? [] : directory.rolesOf(index);
+    for (const other of held)
+      if (other.userId !== userId)
+        directory.setRole(
+          docId,
+          other.userId,
+          other.role === "owner" ? "edit" : other.role,
+          other.capabilities,
+        );
+    directory.setRole(docId, userId, "owner", OWNER_CAPABILITIES);
+  }
+
   function create(userId: string, request: unknown): CreateResult {
-    const docId = stringField(request, "docId");
-    const kind = stringField(request, "kind");
-    const given = stringField(request, "home");
-    if (!isDocId(docId) || kind === null || given === null)
-      return { ok: false, code: "bad_request" };
-    if (!isDocKind(kind) || !SYNCABLE_KINDS.includes(kind))
-      return { ok: false, code: "unsupported_kind" };
-    const home = homeOf(userId, kind, given);
-    if (home === null) return { ok: false, code: "bad_request" };
+    const checked = checkCreate(userId, request);
+    if (!checked.ok) return checked;
+    const { docId, kind, home, index } = checked;
     if (directory.tombstoneOf(docId) !== null)
       return { ok: false, code: "deleted" };
     const place = directory.placeOf(docId);
@@ -136,6 +202,8 @@ export function createDocumentAccess(options: {
       if (directory.roleOf(docId, userId) === null)
         return { ok: false, code: "forbidden" };
     } else {
+      if (index !== null && !canWrite(index, userId))
+        return { ok: false, code: "forbidden" };
       const neighbours = directory.documentsIn(home);
       if (
         neighbours.length > 0 &&
@@ -153,7 +221,7 @@ export function createDocumentAccess(options: {
       engineVersion: versions.current.engine,
     });
     const created = place === null;
-    if (created) directory.setRole(docId, userId, "owner", OWNER_CAPABILITIES);
+    if (created) grant(docId, userId, index);
     return {
       ok: true,
       document: {

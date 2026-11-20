@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { createMemoryStorage } from "@manent/storage/testing";
-import { prepareMessage } from "@manent/sync-protocol";
+import {
+  indexDocId,
+  prepareMessage,
+  workspaceHome,
+} from "@manent/sync-protocol";
 import type { Message } from "@manent/sync-protocol";
 import { createServer } from "../src/index.ts";
 import type { ManentServer } from "../src/index.ts";
@@ -95,6 +99,33 @@ test("the two routes answer as their table says", async () => {
   expect(await remove(DOC)).toEqual([200, { removed: true }]);
   expect(await create(script)).toEqual([410, { error: "deleted" }]);
   expect(await remove(DOC2)).toEqual([404, { error: "not_found" }]);
+});
+
+test("the create route passes the workspace on and refuses a malformed one", async () => {
+  const storage = createMemoryStorage({ now: () => 1_000 });
+  const { server, tokenOf } = serverWith({ storage });
+  const create = (body: unknown) =>
+    post(server, "/api/docs", JSON.stringify(body), tokenOf("sam"));
+  const index = indexDocId("workspace", "medium");
+  await create({ docId: index, kind: "index", home: workspaceHome("medium") });
+  storage.directory.setRole(index, "leo", "comment", []);
+  const script = { docId: DOC, kind: "script", home: HOME };
+  expect(await create({ ...script, workspaceId: "medium" })).toEqual([
+    200,
+    { docId: DOC, kind: "script", home: HOME, generation: 1, created: true },
+  ]);
+  expect(storage.directory.roleOf(DOC, "leo")).toEqual({
+    role: "comment",
+    capabilities: [],
+  });
+  expect(
+    await create({ ...script, docId: DOC2, workspaceId: "bad id!" }),
+  ).toEqual([400, { error: "bad_request" }]);
+  expect(await create({ ...script, docId: DOC2 })).toEqual([
+    200,
+    { docId: DOC2, kind: "script", home: HOME, generation: 1, created: true },
+  ]);
+  expect(storage.directory.roleOf(DOC2, "leo")).toBeNull();
 });
 
 test("without sync configured the routes answer not_found", async () => {

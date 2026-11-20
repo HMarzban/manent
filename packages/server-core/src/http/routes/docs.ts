@@ -1,4 +1,5 @@
 // The routes that create and delete documents; both repeat safely, keyed by the document's id.
+import type { Storage } from "@manent/storage";
 import type {
   CreateDocumentResponse,
   RemoveDocumentResponse,
@@ -24,7 +25,7 @@ export function hearRemovals(
   removals.set(config, service);
 }
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
+export const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
 type CreateRefusal = Extract<CreateResult, { ok: false }>["code"];
@@ -44,11 +45,14 @@ const REMOVE_STATUS: Readonly<Record<RemoveRefusal, number>> = {
   not_found: 404,
 };
 
-/** The caller, the body and the access rules; a Response when the request goes no further. */
-async function readRequest(
+/**
+ * The caller, the JSON body and the storage of a document route; a Response when the request
+ * goes no further: 404 without sync, 401 without a signed-in user, 400 for a body that is not JSON.
+ */
+export async function readRequest(
   context: RouteContext,
 ): Promise<
-  | { ok: true; userId: string; body: unknown; access: DocumentAccess }
+  | { ok: true; userId: string; body: unknown; storage: Storage }
   | { ok: false; response: Response }
 > {
   const { config, request, user } = context;
@@ -59,12 +63,12 @@ async function readRequest(
     return { ok: false, response: failure("unauthenticated", 401) };
   const read = await readJsonBody(request);
   if (!read.ok) return { ok: false, response: failure("bad_request", 400) };
-  const access = createDocumentAccess({
-    storage: config.sync.storage,
-    versions: config.socket.versions,
-  });
-  return { ok: true, userId: identity.userId, body: read.body, access };
+  const { storage } = config.sync;
+  return { ok: true, userId: identity.userId, body: read.body, storage };
 }
+
+const accessOf = (context: RouteContext, storage: Storage): DocumentAccess =>
+  createDocumentAccess({ storage, versions: context.config.socket.versions });
 
 export const docsRoutes: Route[] = [
   {
@@ -73,7 +77,8 @@ export const docsRoutes: Route[] = [
     async handle(context) {
       const read = await readRequest(context);
       if (!read.ok) return read.response;
-      const created = read.access.create(read.userId, read.body);
+      const access = accessOf(context, read.storage);
+      const created = access.create(read.userId, read.body);
       if (!created.ok)
         return failure(created.code, CREATE_STATUS[created.code]);
       return json<CreateDocumentResponse>(created.document);
@@ -85,7 +90,8 @@ export const docsRoutes: Route[] = [
     async handle(context) {
       const read = await readRequest(context);
       if (!read.ok) return read.response;
-      const removed = read.access.remove(read.userId, read.body);
+      const access = accessOf(context, read.storage);
+      const removed = access.remove(read.userId, read.body);
       if (!removed.ok)
         return failure(removed.code, REMOVE_STATUS[removed.code]);
       // a removal succeeds only for a body whose docId is a document's id
