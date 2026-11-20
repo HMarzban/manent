@@ -201,11 +201,13 @@ function liveRig(): {
   };
 }
 
-test("people arriving and leaving are said politely when the person chose to hear them", () => {
+test("people arriving and leaving are said politely when the person chose to hear them", async () => {
   const { services } = servicesRig();
   services.settings.set("writing.announce", "elements_pages_people");
   const live = liveRig();
   render(notices(services, factsRig()));
+  // the notices load the editors' registry apart from the frame
+  await act(() => import("../src/editor-host/live-editor.ts"));
   const said = watchPolite();
   live.offer([DANA]);
   live.offer([DANA, SAM]);

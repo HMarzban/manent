@@ -3,10 +3,6 @@
 import { LIBRARY_WORDS, messageFor, useSetting } from "@manent/ui";
 import { useContext, useEffect } from "react";
 import { pastComfortLimit } from "../../editor-host/comfort.ts";
-import {
-  liveEditor,
-  subscribeLiveEditors,
-} from "../../editor-host/live-editor.ts";
 import type { LiveEditor } from "../../editor-host/live-editor.ts";
 import {
   announcementsFor,
@@ -54,7 +50,10 @@ function announceFacts(
   };
 }
 
-/** Says who arrives at and leaves the open editor of `docId`, following it through each rebuild; returns the stop. */
+/**
+ * Says who arrives at and leaves the open editor of `docId`, following it through each rebuild; returns the stop. The
+ * editors' registry is loaded apart, as the editor is: it holds the editor's code, which the frame never waits for.
+ */
 function announcePeople(
   docId: string,
   setting: AnnounceSetting,
@@ -63,21 +62,27 @@ function announcePeople(
   let last: People = [];
   let watched: LiveEditor | null = null;
   let stopWatching = noop;
-  const follow = (): void => {
-    const live = liveEditor(docId);
-    if (live === watched) return;
-    stopWatching();
-    watched = live;
-    stopWatching =
-      live?.presence.subscribePeople((people) => {
-        for (const text of peopleAnnouncements(setting, last, people))
-          say(text);
-        last = people;
-      }) ?? noop;
-  };
-  follow();
-  const stopFollowing = subscribeLiveEditors(follow);
+  let stopFollowing = noop;
+  let stopped = false;
+  void import("../../editor-host/live-editor.ts").then((registry) => {
+    if (stopped) return;
+    const follow = (): void => {
+      const live = registry.liveEditor(docId);
+      if (live === watched) return;
+      stopWatching();
+      watched = live;
+      stopWatching =
+        live?.presence.subscribePeople((people) => {
+          for (const text of peopleAnnouncements(setting, last, people))
+            say(text);
+          last = people;
+        }) ?? noop;
+    };
+    follow();
+    stopFollowing = registry.subscribeLiveEditors(follow);
+  });
   return () => {
+    stopped = true;
     stopFollowing();
     stopWatching();
   };
