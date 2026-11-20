@@ -234,8 +234,9 @@ function findDrift(view: EditorView): DriftReport[] {
   const drift = driftKey.getState(view.state);
   if (pages === undefined || drift === undefined || pages.frozen) return [];
   const room = DRIFT.maxForcedBlocks - drift.forced.size;
-  if (room <= 0) return [];
   const fonts = fontsOf(view.dom);
+  // while the script font loads, the page is set in a fallback face
+  if (room <= 0 || fonts === "loading") return [];
   return measure(view, pages, drift.forced)
     .slice(0, room)
     .map(([block, domLines]) => {
@@ -278,19 +279,26 @@ function driftView(
   const doc = view.dom.ownerDocument;
   // a scroll of any element: the scroller is whatever holds the page
   doc.addEventListener("scroll", schedule, { capture: true, passive: true });
+  // the end of the script font's loading wakes the monitor, as a scroll does
+  const fontState = new MutationObserver(schedule);
+  const frame = view.dom.closest("[data-fonts]");
+  if (frame !== null)
+    fontState.observe(frame, { attributeFilter: ["data-fonts"] });
   schedule();
   return {
     update: schedule,
     destroy() {
       doc.removeEventListener("scroll", schedule, { capture: true });
+      fontState.disconnect();
     },
   };
 }
 
 /**
- * The drift monitor, listed after paginationPlugin. After an update or a scroll, when the page is idle, it compares
- * the rendered lines of the blocks in view with the engine's and holds each block that differs to the engine's
- * line starts, at most DRIFT.maxForcedBlocks of them; with DRIFT.enabled false it measures nothing.
+ * The drift monitor, listed after paginationPlugin. After an update, a scroll or the end of the script font's
+ * loading, when the page is idle, it compares the rendered lines of the blocks in view with the engine's and holds
+ * each block that differs to the engine's line starts, at most DRIFT.maxForcedBlocks of them. While the font loads,
+ * or with DRIFT.enabled false, it measures nothing.
  */
 export function driftPlugin(options: {
   whenIdle: (run: () => void) => void;
