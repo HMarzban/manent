@@ -22,7 +22,7 @@ import type {
   Subscribable,
   SyncClientPorts,
 } from "../ports/ports.ts";
-import { rejectedItems } from "../recovery/recover.ts";
+import type { Leftover } from "../recovery/recover.ts";
 import { deviceVersion } from "../recovery/versions.ts";
 import type { ViewHandle } from "../view/view.ts";
 import type { DocEvent, DocHandle } from "./doc-handle.ts";
@@ -31,7 +31,9 @@ import type { UnsavedEdit } from "./edits.ts";
 import type { Journal } from "./journal.ts";
 import { createSettingsOverlay } from "./settings.ts";
 
-/** `doc` is the bound document, which a recovery replaces. */
+type ReplacedReason = Extract<DocEvent, { type: "replaced" }>["reason"];
+
+/** `doc` is the bound document, which a recovery or a move replaces. */
 export interface LocalCopy {
   readonly doc: CrdtDoc;
   readonly recovered: readonly RecoveredItem[];
@@ -50,16 +52,19 @@ export interface LocalCopy {
    */
   merge(update: Uint8Array): void;
   /**
-   * The Recovered text a rejected push leaves: what this document holds that
-   * `theirs` lacks, against `base`. Server updates still buffered or held are
-   * applied first, so what they set aside is filed as merged, not lost with
-   * the document.
+   * The document's content before it is replaced. Server updates still
+   * buffered or held are applied first, so what they set aside is filed as
+   * merged, not lost with the document.
    */
-  rejected(base: DocJSON, theirs: DocJSON): RecoveredItem[];
-  /** A recovery's document is bound in place of this one, and `items` join the Recovered text. */
+  mine(): DocJSON;
+  /** Recovered text of this document, each piece under a new id. */
+  items(leftovers: readonly Leftover[]): RecoveredItem[];
+  /** A recovery's or a move's document is bound in place of this one, and `items` join the Recovered text. */
   replace(next: CrdtDoc, items: RecoveredItem[]): void;
   /** The settings of the replaced document are shown, and the app told. */
-  showReplaced(items: RecoveredItem[]): void;
+  showReplaced(items: RecoveredItem[], reason: ReplacedReason): void;
+  /** Stores `items` as Recovered text, with the server entries up to `through` marked applied. */
+  file(items: RecoveredItem[], through: number): void;
   /** The requests up to `clientSeq` are acknowledged. */
   acknowledged(clientSeq: number): void;
   refused(entry: StoredSetting, message: string): void;
@@ -98,6 +103,8 @@ interface LocalCopyOptions {
   changed(): void;
   /** Whether the link is online: offline, an edit keeps a device version once an hour. */
   online(): boolean;
+  /** Nothing holds remote updates, and the app read `doc()` or released its last hold. */
+  idle(): void;
 }
 
 class BoundCopy implements LocalCopy {
@@ -165,21 +172,23 @@ class BoundCopy implements LocalCopy {
     else this.mergeNow(update);
   }
 
-  rejected(base: DocJSON, theirs: DocJSON): RecoveredItem[] {
+  mine(): DocJSON {
     // this document is replaced next, so a hold protects nothing in it
     for (let i = 0; i < this.holding; i++) this.coalescer.release();
     this.coalescer.flushNow();
     this.mergeHeld();
     for (let i = 0; i < this.holding; i++) this.coalescer.hold();
-    const mine = scriptBody(this.doc).materialize();
-    return rejectedItems({
-      docId: this.options.docId,
-      base,
-      mine,
-      theirs,
+    return scriptBody(this.doc).materialize();
+  }
+
+  items(leftovers: readonly Leftover[]): RecoveredItem[] {
+    const { docId } = this.options;
+    return leftovers.map((leftover) => ({
+      id: this.newId(),
+      docId,
+      ...leftover,
       recoveredAt: this.now(),
-      newId: () => this.newId(),
-    });
+    }));
   }
 
   replace(next: CrdtDoc, items: RecoveredItem[]): void {
@@ -191,9 +200,9 @@ class BoundCopy implements LocalCopy {
     this.recoveredView.set(this.recovered);
   }
 
-  showReplaced(items: RecoveredItem[]): void {
+  showReplaced(items: RecoveredItem[], reason: ReplacedReason): void {
     this.overlay.show();
-    this.emit({ type: "replaced", reason: "rejected" });
+    this.emit({ type: "replaced", reason });
     if (items.length > 0) this.emit({ type: "recovered", items });
   }
 
@@ -244,7 +253,10 @@ class BoundCopy implements LocalCopy {
   handleOf(parts: SessionParts): DocHandle {
     return {
       docId: this.options.docId,
-      doc: () => this.doc,
+      doc: () => {
+        if (this.holding === 0) this.options.idle();
+        return this.doc;
+      },
       status: parts.status,
       recovered: this.recoveredView,
       settings: this.overlay.view,
@@ -262,7 +274,9 @@ class BoundCopy implements LocalCopy {
       releaseRemote: () => {
         this.coalescer.release();
         this.holding -= 1;
-        if (this.holding === 0) this.mergeHeld();
+        if (this.holding > 0) return;
+        this.mergeHeld();
+        this.options.idle();
       },
       sendAwareness: parts.sendAwareness,
       onAwareness: (listener) => {
@@ -341,13 +355,7 @@ class BoundCopy implements LocalCopy {
       update,
       new Set(this.options.journal.meta.clientIds),
     );
-    return setAside.map((a) => ({
-      id: this.newId(),
-      docId: this.options.docId,
-      ...a,
-      recoveredAt: this.now(),
-      cause: "merge",
-    }));
+    return this.items(setAside.map((a) => ({ ...a, cause: "merge" })));
   }
 
   /** Server entries up to `through` are in the document, and `items` is what they set aside. */
@@ -358,8 +366,7 @@ class BoundCopy implements LocalCopy {
     this.options.changed();
   }
 
-  /** Stores `items` as Recovered text, with the server entries up to `through` marked applied. */
-  private file(items: RecoveredItem[], through: number): void {
+  file(items: RecoveredItem[], through: number): void {
     this.options.journal.markApplied(through, items);
     if (items.length === 0) return;
     this.recovered = [...this.recovered, ...items];
