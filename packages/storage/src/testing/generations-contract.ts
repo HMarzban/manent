@@ -1,16 +1,19 @@
-// The contract's tests of closed generations, replay keys, measures and the checkpoint a replay starts from.
+// The contract's tests of closed generations, replay keys, adoptions, measures and the checkpoint a replay starts from.
 import { expect, test } from "bun:test";
-import type { DocFile, FreezeItem } from "../ports.ts";
+import type { DocFile, FreezeItem, Storage } from "../ports.ts";
 import { StorageError } from "../ports.ts";
-import { DOC, DOC2, bytes, item } from "./contract-fixtures.ts";
+import { DOC, DOC2, HOME, bytes, item } from "./contract-fixtures.ts";
 
-/** The running contract's current file and clock, and its driver's ways of damaging a row and a checkpoint. */
+/** The running contract's current file and clock, its driver's reopen, and its ways of damaging a row and a checkpoint. */
 interface ContractRun {
   file(): DocFile;
   now(): number;
+  reopen(): Promise<Storage>;
   corruptRow(docId: string, seq: number): void;
   corruptCheckpoint(docId: string): void;
 }
+
+const KEY = "0193b1f4-2c1e-7a00-8000-00000000000a";
 
 const FREEZE: FreezeItem = {
   docId: DOC,
@@ -128,6 +131,45 @@ export function generationsContract(run: ContractRun): void {
     // the first stays
     expect(f.replays.get(DOC, r.key)).toEqual(r);
     expect(f.replays.get(DOC, "f".repeat(32))).toBeNull();
+  });
+
+  test("an adoption is kept with its document and never replaced", async () => {
+    const file = run.file();
+    const adoption = {
+      docId: DOC,
+      key: KEY,
+      userId: "you",
+      seq: 1,
+      adoptedAt: 5,
+    };
+    file.transaction(() => file.adoptions.put(adoption));
+    file.adoptions.put({
+      docId: DOC,
+      key: "other",
+      userId: "sam",
+      seq: 9,
+      adoptedAt: 6,
+    });
+    const reopened = (await run.reopen()).open(HOME);
+    expect(reopened.adoptions.get(DOC)).toEqual(adoption);
+    expect(reopened.adoptions.get(DOC2)).toBeNull();
+  });
+
+  test("an adoption written in a transaction that throws is not kept", () => {
+    const file = run.file();
+    expect(() =>
+      file.transaction(() => {
+        file.adoptions.put({
+          docId: DOC,
+          key: KEY,
+          userId: "you",
+          seq: 1,
+          adoptedAt: 5,
+        });
+        throw new Error("stop");
+      }),
+    ).toThrow(StorageError);
+    expect(file.adoptions.get(DOC)).toBeNull();
   });
 
   test("a measure is kept per generation and replaced by the next", () => {

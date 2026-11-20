@@ -308,7 +308,7 @@ export interface Storage {
   close(): void;
 }
 
-export const STORAGE_SCHEMA_VERSION = 2;
+export const STORAGE_SCHEMA_VERSION = 3;
 export const CHECKPOINT_FORMAT_VERSION = 1;
 export const CHECKPOINTS_KEPT = 3;
 

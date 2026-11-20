@@ -393,6 +393,7 @@ export function storageContract(
   generationsContract({
     file: () => f,
     now: clock.now,
+    reopen: () => under.reopen(),
     corruptRow,
     corruptCheckpoint,
   });

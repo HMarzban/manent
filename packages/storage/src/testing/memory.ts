@@ -8,6 +8,7 @@ import {
   copied,
   copyLogged,
   corruptRow,
+  createAdoptions,
   createGenerations,
   createLog,
   createReplays,
@@ -21,8 +22,10 @@ export class SimulatedCrash extends Error {
 }
 
 export interface MemoryStorage extends Storage {
-  /** The next transaction or lone write throws StorageError("commit_failed"), writing nothing. */
-  failNextCommit(): void;
+  /** The next transaction or lone write throws StorageError with `code`, by default "commit_failed", writing nothing. */
+  failNextCommit(code?: "commit_failed" | "disk_full"): void;
+  /** While full, every transaction and lone write throws StorageError("disk_full") and writes nothing. */
+  fillDisk(full: boolean): void;
   /** The next transaction or lone write throws SimulatedCrash before, or after, it has committed; null disarms. */
   crashOnCommit(when: "before" | "after" | null): void;
   /** Flips the first byte of a stored update, leaving its checksum. */
@@ -109,10 +112,6 @@ function createMeasures(memory: () => MemoryState): DocFile["measures"] {
   };
 }
 
-const adoptionsNotBuilt = (): never => {
-  throw new RangeError("adoptions are not built yet");
-};
-
 function openFile(ctx: Context, home: Home, key: string): DocFile {
   const logs = () => ctx.state().logs;
   const file = (): Logged => {
@@ -158,7 +157,7 @@ function openFile(ctx: Context, home: Home, key: string): DocFile {
     generations: createGenerations(ctx.now, read, write),
     replays: createReplays(read, write),
     measures: createMeasures(ctx.state),
-    adoptions: { get: adoptionsNotBuilt, put: adoptionsNotBuilt },
+    adoptions: createAdoptions(read, write),
     transaction,
   };
 }
@@ -237,16 +236,19 @@ export function createMemoryStorage(options: {
     roles: new Map(),
     tombstones: new Map(),
   };
-  let failNext = false;
+  let failNext: "commit_failed" | "disk_full" | null = null;
   let crash: "before" | "after" | null = null;
+  let diskFull = false;
   let commits = 0;
   const ctx: Context = {
     now: options.now,
     state: () => state,
     commit(apply) {
+      // a full disk leaves the armed faults for the first commit that gets through
+      if (diskFull) throw new StorageError("disk_full");
       const [fail, armed] = [failNext, crash];
-      [failNext, crash] = [false, null];
-      if (fail) throw new StorageError("commit_failed");
+      [failNext, crash] = [null, null];
+      if (fail !== null) throw new StorageError(fail);
       if (armed === "before") throw new SimulatedCrash("crash before commit");
       const result = apply();
       commits += 1;
@@ -265,8 +267,11 @@ export function createMemoryStorage(options: {
       return opened;
     },
     close() {},
-    failNextCommit() {
-      failNext = true;
+    failNextCommit(code = "commit_failed") {
+      failNext = code;
+    },
+    fillDisk(full) {
+      diskFull = full;
     },
     crashOnCommit(when) {
       crash = when;
