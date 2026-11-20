@@ -109,6 +109,10 @@ function createMeasures(memory: () => MemoryState): DocFile["measures"] {
   };
 }
 
+const adoptionsNotBuilt = (): never => {
+  throw new RangeError("adoptions are not built yet");
+};
+
 function openFile(ctx: Context, home: Home, key: string): DocFile {
   const logs = () => ctx.state().logs;
   const file = (): Logged => {
@@ -154,6 +158,7 @@ function openFile(ctx: Context, home: Home, key: string): DocFile {
     generations: createGenerations(ctx.now, read, write),
     replays: createReplays(read, write),
     measures: createMeasures(ctx.state),
+    adoptions: { get: adoptionsNotBuilt, put: adoptionsNotBuilt },
     transaction,
   };
 }
