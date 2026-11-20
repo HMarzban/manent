@@ -11,9 +11,11 @@ import {
 } from "@tanstack/react-router";
 import type { AnyRouter } from "@tanstack/react-router";
 import type { Api } from "./api.ts";
+import { preloadDemoBarControls } from "./demo/demo-bar.tsx";
 import { RootLayout } from "./root-layout.tsx";
 import { SEND_FORM_IDS } from "./screens/send/forms.ts";
 import { chooseUrl, choosePerson, confirmPerson, safeNext } from "./session.ts";
+import { preloadShellPalette } from "./shell/app-shell.tsx";
 import type { PersonStore } from "./state/person.store.ts";
 
 // the build's define; absent outside a build
@@ -71,6 +73,11 @@ const StandInScreen = lazyRouteComponent(
   loadScreen(() => import("./screens/states/stand-in-screen.tsx")),
   "StandInScreen",
 );
+// apart from the entry, whose size budget its stock button would break
+const ScreenProblem = lazyRouteComponent(
+  () => import("./shell/screen-problem.tsx"),
+  "ScreenProblem",
+);
 
 export function createAppRouter(deps: {
   api: Api;
@@ -78,6 +85,10 @@ export function createAppRouter(deps: {
   usePerson: PersonStore;
 }): AnyRouter {
   const { api, usePerson } = deps;
+  // the code the frame draws apart from the entry, fetched while the server that served the page still answers
+  void ScreenProblem.preload?.();
+  preloadDemoBarControls();
+  preloadShellPalette();
 
   const rootRoute = createRootRoute({
     // `?person=<id>` chooses that person for this tab, then the parameter is dropped either way.
@@ -124,6 +135,7 @@ export function createAppRouter(deps: {
       const person = usePerson((s) => s.person);
       return <LibraryScreen api={api} person={person} />;
     },
+    errorComponent: ScreenProblem,
   });
 
   const chooseRoute = createRoute({
@@ -145,12 +157,14 @@ export function createAppRouter(deps: {
         />
       );
     },
+    errorComponent: ScreenProblem,
   });
 
   const documentRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/s/$docId",
     component: DocumentScreen,
+    errorComponent: ScreenProblem,
   });
 
   const sendRoute = createRoute({
@@ -165,6 +179,7 @@ export function createAppRouter(deps: {
       });
     },
     component: SendScreen,
+    errorComponent: ScreenProblem,
   });
 
   const preferencesRoute = createRoute({
@@ -187,18 +202,21 @@ export function createAppRouter(deps: {
       throw toFirstPane(location.searchStr);
     },
     component: PreferencesScreen,
+    errorComponent: ScreenProblem,
   });
 
   const statesRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/__states",
     component: StatesScreen,
+    errorComponent: ScreenProblem,
   });
 
   const standInRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/__stand-in",
     component: StandInScreen,
+    errorComponent: ScreenProblem,
   });
 
   return createRouter({

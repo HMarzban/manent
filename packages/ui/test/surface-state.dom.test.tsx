@@ -13,17 +13,24 @@ import type { SurfaceRenderers } from "../src/index.ts";
 
 withDom();
 
-const fakeClock = (): {
+// a task runs `earlyMs` before its time, as Firefox's timers do against Date.now, though never before 1 ms has passed
+const fakeClock = (
+  earlyMs = 0,
+): {
   now: () => number;
   schedule: (fn: () => void, delayMs: number) => () => void;
   advance: (ms: number) => void;
 } => {
   let at = 0;
-  let tasks: { at: number; fn: () => void }[] = [];
+  let tasks: { runAt: number; fn: () => void }[] = [];
   return {
     now: () => at,
     schedule: (fn, delayMs) => {
-      const task = { at: at + delayMs, fn };
+      const runAt = Math.min(
+        at + delayMs,
+        Math.max(at + delayMs - earlyMs, at + 1),
+      );
+      const task = { runAt, fn };
       tasks.push(task);
       return () => {
         tasks = tasks.filter((t) => t !== task);
@@ -33,11 +40,11 @@ const fakeClock = (): {
       const end = at + ms;
       for (;;) {
         const due = tasks
-          .filter((t) => t.at <= end)
-          .toSorted((a, b) => a.at - b.at)[0];
+          .filter((t) => t.runAt <= end)
+          .toSorted((a, b) => a.runAt - b.runAt)[0];
         if (due === undefined) break;
         tasks = tasks.filter((t) => t !== due);
-        at = due.at;
+        at = due.runAt;
         act(() => due.fn());
       }
       at = end;
@@ -214,6 +221,32 @@ test("a placeholder waits 150 ms and then stays at least 300 ms", () => {
     "placeholder",
     "ready",
   ]);
+});
+
+test("a timer that fires a moment early still brings the placeholder, then the data, on time", () => {
+  const ready = renderers(() => "ready");
+  const { el, rerender, clock } = render(
+    <SurfaceState
+      surface="choose"
+      state={{ kind: "loading", sinceMs: 0 }}
+      render={ready}
+    />,
+    fakeClock(1),
+  );
+  const seen = (): string =>
+    el.querySelector("[data-placeholder]") === null
+      ? (el.textContent ?? "")
+      : "placeholder";
+  clock.advance(150);
+  const at: string[] = [seen()];
+  clock.advance(50);
+  rerender(
+    <SurfaceState surface="choose" state={{ kind: "ready" }} render={ready} />,
+  );
+  at.push(seen());
+  clock.advance(250);
+  at.push(seen());
+  expect(at).toEqual(["placeholder", "placeholder", "ready"]);
 });
 
 test("data that arrives within 150 ms never shows a placeholder", () => {

@@ -24,6 +24,8 @@ export const TEXT = {
   serverStarting: "Starting the server…",
   serverFailed: "Couldn't start the server. See the terminal.",
   demoUnreachable: "The demo is not running. Run make demo again.",
+  screenProblem: "Couldn't load this screen. Your work is unaffected.",
+  reload: "Reload",
 } as const satisfies Readonly<Record<string, string>>;
 
 const STATUS_TEXT: Record<ControlState, string> = {

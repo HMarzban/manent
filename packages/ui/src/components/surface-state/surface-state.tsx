@@ -44,7 +44,7 @@ interface SurfaceStateProps {
 // nothing for LOADING_QUIET_MS, then the placeholder for at least LOADING_MIN_MS; null draws nothing
 function useLoadingRule(state: SurfaceStateValue): SurfaceStateValue | null {
   const { now, schedule } = useTiming();
-  const [, refresh] = useReducer((n: number) => n + 1, 0);
+  const [wakes, refresh] = useReducer((n: number) => n + 1, 0);
   const placeholder = useRef<{ state: Loading; shownAt: number } | null>(null);
   const at = now();
   const shown = placeholder.current;
@@ -72,9 +72,10 @@ function useLoadingRule(state: SurfaceStateValue): SurfaceStateValue | null {
         ? { state: view, shownAt: placeholder.current?.shownAt ?? at }
         : null;
   });
+  // a timer may fire a moment before its time (Firefox's, against Date.now), so every wake schedules again
   useEffect(
     () => (wakeAt === null ? undefined : schedule(refresh, wakeAt - now())),
-    [wakeAt, now, schedule],
+    [wakeAt, wakes, now, schedule],
   );
   return view;
 }
