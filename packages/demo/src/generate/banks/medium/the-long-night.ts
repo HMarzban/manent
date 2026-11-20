@@ -2453,7 +2453,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     "till the sun comes up at least",
     "same as any other night",
     "say what you like about the council",
-    "and I mean that kindly",
+    "and I say that as a friend",
     "whichever way you look at it",
     "now that we're all awake",
     "if the rain keeps off",

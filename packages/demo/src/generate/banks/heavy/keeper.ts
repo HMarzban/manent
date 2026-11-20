@@ -911,7 +911,7 @@ export const KEEPER_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: "WENNA",
       intent: "ask",
-      text: "Who taught you to tie a knot like that?",
+      text: "Who showed you how to lash a rope like that?",
     },
     {
       speaker: "WENNA",
@@ -2074,7 +2074,7 @@ export const KEEPER_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     "by my reckoning",
     "if the weather lets us",
     "before the snow",
-    "while there's light",
+    "while the day lasts",
     "come rain or sleet",
     "if the goats agree",
     "by the look of the sky",
@@ -2082,7 +2082,7 @@ export const KEEPER_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     "whatever the Provost says",
     "on my master's word",
     "if my leg allows",
-    "since you ask",
+    "seeing as you asked",
     "by the map at least",
     "before the Hush closes",
     "with or without the stick",

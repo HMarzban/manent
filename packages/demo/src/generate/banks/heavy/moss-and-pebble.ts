@@ -1487,7 +1487,7 @@ export const MOSS_AND_PEBBLE_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     "just in case",
     "slowly, slowly",
     "one, two, three",
-    "if that's all right",
+    "if it's no bother",
     "nice and gently",
     "a little bit",
     "if you please",
