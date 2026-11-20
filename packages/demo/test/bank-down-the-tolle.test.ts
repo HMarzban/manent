@@ -6,6 +6,8 @@ import { checkBank, othersThan } from "./support/bank-rules.ts";
 const GUIDE = DOWN_THE_TOLLE_GUIDE;
 const OTHERS = othersThan(GUIDE);
 const HOST = "ANIL";
+/** About how many dialogue lines a generated page uses; no line is used twice in one episode. */
+const DIALOGUE_LINES_PER_PAGE = 3.5;
 
 const count = (intent: LineIntent): number =>
   GUIDE.dialogue.filter((line) => line.intent === intent).length;
@@ -25,14 +27,14 @@ test("Down the Tolle is a Variety script whose lines run to thirty words", () =>
   });
 });
 
-test("the bank holds sixty episodes, four hundred lines and forty tags", () => {
+test("the bank holds sixty episodes, four hundred and fifty lines and forty tags", () => {
   expect(GUIDE.cast.length).toBe(61);
   expect(GUIDE.places.length).toBe(60);
   expect(GUIDE.names.length).toBe(1);
   expect(GUIDE.vocabulary.length).toBe(20);
   expect(GUIDE.beats.length).toBe(60);
   expect(GUIDE.action.length).toBe(0);
-  expect(GUIDE.dialogue.length).toBe(400);
+  expect(GUIDE.dialogue.length).toBe(450);
   expect(GUIDE.tags.length).toBe(40);
   expect(GUIDE.stories.length).toBe(59);
   expect(GUIDE.barks.length).toBe(0);
@@ -42,6 +44,23 @@ test("every question has an answer to meet it, and a quarter of the lines suit a
   const open = GUIDE.dialogue.filter((line) => line.speaker === null);
   expect(count("answer")).toBeGreaterThanOrEqual(count("ask"));
   expect(open.length * 4).toBeGreaterThanOrEqual(GUIDE.dialogue.length);
+});
+
+test("every episode has lines enough for its pages, each question with an answer", () => {
+  const short = GUIDE.beats.filter((beat) => {
+    const lines = GUIDE.dialogue.filter(
+      (line) => line.speaker === null || beat.cast.includes(line.speaker),
+    );
+    const asks = lines.filter((line) => line.intent === "ask").length;
+    const answers = lines.filter((line) => line.intent === "answer").length;
+    const states = lines.filter((line) => line.intent === "state").length;
+    // a question is used only with an answer, and an answer only after a question
+    return (
+      2 * Math.min(asks, answers) + states <
+      DIALOGUE_LINES_PER_PAGE * beat.pages[1]
+    );
+  });
+  expect(short.map((beat) => beat.id)).toEqual([]);
 });
 
 test("each of the sixty places has five lines in the voice from that place", () => {

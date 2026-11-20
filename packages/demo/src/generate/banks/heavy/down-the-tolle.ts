@@ -2055,6 +2055,125 @@ const ANYONE: readonly Line[] = [
   ["ask", "When does it look its worst?"],
   ["ask", "Is the river kind here, or just quiet?"],
   ["ask", "What's the one thing I should listen for?"],
+  [
+    "answer",
+    "Longer than I've known most people, and it's been kinder to me than some of them.",
+  ],
+  [
+    "answer",
+    "My aunt brought me, mostly so I'd stop asking her questions in the car.",
+  ],
+  [
+    "answer",
+    "Better than you'd think. The cold makes every sound carry further.",
+  ],
+  ["answer", "Lucky, I'd say. Give it an hour and the dog walkers arrive."],
+  ["answer", "Never tired, no. Cross with it in a flood, but that passes."],
+  ["answer", "Notice the water first, then the people who stop to look at it."],
+  [
+    "answer",
+    "I was small enough to be carried, so I remember it from somebody's shoulders.",
+  ],
+  ["answer", "It's changed less than I have, and that's saying something."],
+  [
+    "answer",
+    "They think it's empty. It's full, if you know what you're looking at.",
+  ],
+  [
+    "answer",
+    "Right on the edge, where the bank drops away and you can see both ways.",
+  ],
+  ["answer", "A handful of us, and we meet in the same place every Thursday."],
+  ["answer", "The stones in that wall, I suppose. Nobody knows who laid them."],
+  ["answer", "Wet stone and diesel, mostly, and wild garlic in the spring."],
+  [
+    "answer",
+    "The otters come out, if you believe the woman at the end cottage.",
+  ],
+  [
+    "answer",
+    "Everybody tells you about the ghost. Nobody tells you about the drains.",
+  ],
+  [
+    "answer",
+    "Up to the second step of the church, one winter. There's a mark to prove it.",
+  ],
+  ["answer", "I left once, for eleven years, and spent most of them homesick."],
+  ["answer", "Worked the boats, all of them, back as far as anyone can count."],
+  [
+    "answer",
+    "We call it the slack, when the water stops and thinks about things.",
+  ],
+  [
+    "answer",
+    "Early, before the traffic, when you can hear the water properly.",
+  ],
+  ["answer", "Last summer. A lad on a bike, and he stayed till it got dark."],
+  ["answer", "Some do, and some won't admit it until they've moved away."],
+  ["answer", "Not much you'd see on paper. Everything you'd feel, though."],
+  [
+    "answer",
+    "A few volunteers and a lot of goodwill, and the river does the rest.",
+  ],
+  [
+    "answer",
+    "The bell from the far side, carried over the water on a still night.",
+  ],
+  ["answer", "The birds go quiet first. Then the far bank disappears."],
+  ["answer", "A flask, a torch and a coat I should have thrown out years ago."],
+  [
+    "answer",
+    "Some of it, in a parish book that lives in somebody's kitchen drawer.",
+  ],
+  [
+    "answer",
+    "Once, in fog, when I couldn't find the bank I'd just stepped off.",
+  ],
+  [
+    "answer",
+    "Where the old path used to run. You can still feel it underfoot.",
+  ],
+  ["answer", "With my eyes shut. My feet know it better than my eyes do."],
+  [
+    "answer",
+    "The autumn, when the leaves come down and the water carries them off for you.",
+  ],
+  ["answer", "A wedding ring, once. We never found whose it was."],
+  [
+    "answer",
+    "Every day, and it never talks back, which is probably for the best.",
+  ],
+  ["answer", "The same river, only busier. They'd still know every bend."],
+  ["answer", "My dad. He'd have stood exactly where you're standing."],
+  ["answer", "Habit, at first. Now it's the only place I can think straight."],
+  ["answer", "Where the toilets are, mostly, and then where the river goes."],
+  ["answer", "Never. I thought I'd be gone by twenty, and here I still am."],
+  ["answer", "Further than it looks, and nearer than it feels on a cold day."],
+  ["answer", "One thing, and I'm keeping it, even from your microphone."],
+  ["answer", "Just the water, I think. That's what we all call it anyway."],
+  ["answer", "In February, under a grey sky, when the mud's at its worst."],
+  ["answer", "Kind, mostly. It's only cruel to people who won't listen to it."],
+  [
+    "answer",
+    "The water turning over the stones. Once you hear it, you can't stop.",
+  ],
+  ["answer", "Plenty, if you ask the right person and buy them a drink first."],
+  [
+    "answer",
+    "Not as much as you'd hope, and more than the council would like.",
+  ],
+  [
+    "answer",
+    "That's a hard one. Give me a minute and I'll think of something true.",
+  ],
+  [
+    "answer",
+    "Ask anyone round here and they'll tell you the same thing, more or less.",
+  ],
+  [
+    "answer",
+    "I couldn't tell you exactly, but I could show you, if you've got the boots.",
+  ],
   ["state", "Listen to that. You'd pay for a sound like that in a city."],
   [
     "state",
