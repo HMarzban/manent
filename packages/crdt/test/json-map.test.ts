@@ -1,4 +1,5 @@
 import { beforeEach, expect, test } from "bun:test";
+import fc from "fast-check";
 import {
   ORIGIN_REMOTE,
   PRIVATE_INDEX_MAPS,
@@ -64,4 +65,58 @@ test("a value that is not JSON is refused, and nothing is written", () => {
   ])
     expect(() => flags.set("x", value)).toThrow(TypeError);
   expect(flags.keys()).toEqual([]);
+});
+
+test("a string with a lone surrogate is refused, as value, object key or map key", () => {
+  const flags = jsonMap(a, "flags");
+  for (const [key, value] of [
+    ["x", "A\uD800B"],
+    ["x", "\uDC00"],
+    ["x", "\uDBFF\uDFFF\uDC00"],
+    ["x", { title: "A\uDBFF" }],
+    ["x", ["\uDFFFB"]],
+    ["x", { "\uD800": 1 }],
+    ["\uD800", 1],
+  ] as const)
+    expect(() => flags.set(key, value)).toThrow(TypeError);
+  expect(flags.keys()).toEqual([]);
+});
+
+// any code point, or now and then half of a surrogate pair on its own
+const UNIT = fc.oneof(
+  {
+    weight: 29,
+    arbitrary: fc.string({ unit: "binary", minLength: 1, maxLength: 1 }),
+  },
+  {
+    weight: 1,
+    arbitrary: fc
+      .integer({ min: 0xd800, max: 0xdfff })
+      .map((unit) => String.fromCharCode(unit)),
+  },
+);
+
+test("a value the map accepts reads back the same on another replica", () => {
+  fc.assert(
+    fc.property(
+      fc.string({ unit: UNIT }),
+      fc.jsonValue({ stringUnit: UNIT }),
+      (key, value) => {
+        const left = loadDoc(createDoc().encodeState());
+        const right = loadDoc(left.encodeState());
+        try {
+          jsonMap(left, "documents").set(key, value);
+        } catch (refused) {
+          if (!(refused instanceof TypeError)) throw refused;
+          return;
+        }
+        right.applyUpdate(left.diff(right.encodeStateVector()));
+        expect(jsonMap(right, "documents").entries()).toEqual(
+          jsonMap(left, "documents").entries(),
+        );
+        expect(jsonMap(right, "documents").get(key)).toEqual(value);
+      },
+    ),
+    { numRuns: 300 },
+  );
 });

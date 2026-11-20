@@ -7,7 +7,10 @@ import type { CrdtDoc } from "./doc.ts";
 export interface JsonMapView {
   /** Null for an absent key. */
   get(key: string): unknown;
-  /** One transaction. A value that is not JSON (undefined, a function, NaN, an object with a prototype) is a TypeError. */
+  /**
+   * One transaction. A value that is not JSON (undefined, a function, NaN, an object with a prototype)
+   * is a TypeError, and so is a key, object key or string holding a lone surrogate.
+   */
   set(key: string, value: unknown): void;
   delete(key: string): void;
   /** Ascending. */
@@ -23,10 +26,22 @@ export interface JsonMapView {
 const notJson = (what: string): TypeError =>
   new TypeError(`a map value must be JSON, not ${what}`);
 
+// Yjs would encode a lone surrogate as U+FFFD, so other replicas would read different text.
+const LONE_SURROGATE =
+  /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+/** `text`, or a TypeError when it holds a lone surrogate. */
+function wellFormed(text: string): string {
+  if (!LONE_SURROGATE.test(text)) return text;
+  throw new TypeError(
+    `a map string must be well-formed UTF-16, not ${JSON.stringify(text)}`,
+  );
+}
+
 /** A copy of `value` holding only JSON; throws a TypeError naming the first part that is not. */
 function copyJson(value: unknown, within: readonly object[]): unknown {
-  if (value === null || typeof value === "string" || typeof value === "boolean")
-    return value;
+  if (value === null || typeof value === "boolean") return value;
+  if (typeof value === "string") return wellFormed(value);
   if (typeof value === "number") {
     if (Number.isFinite(value)) return value;
     throw notJson(String(value));
@@ -39,7 +54,10 @@ function copyJson(value: unknown, within: readonly object[]): unknown {
   if (prototype !== Object.prototype && prototype !== null)
     throw notJson(Object.prototype.toString.call(value));
   return Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [key, copyJson(item, inner)]),
+    Object.entries(value).map(([key, item]) => [
+      wellFormed(key),
+      copyJson(item, inner),
+    ]),
   );
 }
 
@@ -51,8 +69,9 @@ export function jsonMap(doc: CrdtDoc, name: string): JsonMapView {
   return {
     get: (key) => map.get(key) ?? null,
     set(key, value) {
+      const at = wellFormed(key);
       const json = copyJson(value, []);
-      ydoc.transact(() => map.set(key, json));
+      ydoc.transact(() => map.set(at, json));
     },
     delete(key) {
       ydoc.transact(() => map.delete(key));
