@@ -117,6 +117,18 @@ test("no tag and no line that suits anyone names a member of the cast", () => {
   ).toEqual([]);
 });
 
+test("no tag and no line that suits anyone ties itself to the block of flats", () => {
+  const block =
+    /\b(stairs?|stairwell|landings?|floors?|block|building|flats?|hallway|roof)\b|\bon (six|seven|eight|nine|ten|eleven|fourteen)\b|\bup here\b/i;
+  const open = [
+    ...LONG_NIGHT_GUIDE.tags,
+    ...LONG_NIGHT_GUIDE.dialogue
+      .filter((line) => line.speaker === null)
+      .map((line) => line.text),
+  ];
+  expect(open.filter((text) => block.test(text))).toEqual([]);
+});
+
 test("every entry keeps to the voice of the film", () => {
   expect(checkBank(LONG_NIGHT_GUIDE, OTHERS)).toEqual([]);
 });

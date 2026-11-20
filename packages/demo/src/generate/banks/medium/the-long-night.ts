@@ -1874,12 +1874,12 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "ask",
-      text: "How many floors is it? Fourteen? It feels like forty.",
+      text: "How far is it now? It feels twice as far in the dark.",
     },
     {
       speaker: null,
       intent: "ask",
-      text: "Has anyone got a spare candle for the old lady on six?",
+      text: "Has anyone got a spare candle? Even a stub will do.",
     },
     {
       speaker: null,
@@ -1919,7 +1919,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "ask",
-      text: "Who's minding the children on seven?",
+      text: "Who's minding the children tonight?",
     },
     {
       speaker: null,
@@ -1934,7 +1934,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "ask",
-      text: "Does anyone know which flat the singing's coming from?",
+      text: "Does anyone know if the phones are working?",
     },
     {
       speaker: null,
@@ -1944,7 +1944,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "ask",
-      text: "Is it colder up here, or is that just me?",
+      text: "Is it getting colder, or is that just me?",
     },
     {
       speaker: null,
@@ -1969,7 +1969,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "ask",
-      text: "Why's everybody standing on the stairs like it's a bus stop?",
+      text: "Why's everybody standing about like it's a bus stop?",
     },
     {
       speaker: null,
@@ -1989,7 +1989,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "ask",
-      text: "Has anyone checked on the man in the basement flat?",
+      text: "Has anyone checked on the old man who lives on his own?",
     },
     {
       speaker: null,
@@ -2024,7 +2024,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "answer",
-      text: "About ten minutes, less if the stairs are clear.",
+      text: "About ten minutes, less if the roads are clear.",
     },
     {
       speaker: null,
@@ -2034,7 +2034,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "answer",
-      text: "Fourteen floors, and every one of them awake.",
+      text: "Not one light anywhere, and nobody asleep.",
     },
     {
       speaker: null,
@@ -2054,7 +2054,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "answer",
-      text: "Somebody on eleven has a whole drawer of candles.",
+      text: "Somebody always has a drawer full of candles. Ask around.",
     },
     {
       speaker: null,
@@ -2074,7 +2074,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "answer",
-      text: "Two floors down, the door on the left with the wreath.",
+      text: "Just past the corner, the door on the left with the wreath.",
     },
     {
       speaker: null,
@@ -2089,12 +2089,12 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "answer",
-      text: "Up on the landing, with everyone else.",
+      text: "With everyone else, waiting for news.",
     },
     {
       speaker: null,
       intent: "answer",
-      text: "The children are on seven with a woman who used to teach.",
+      text: "The children are with a woman who used to teach. They're fine.",
     },
     {
       speaker: null,
@@ -2124,7 +2124,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "answer",
-      text: "On the ninth landing, sitting with his back to the doors.",
+      text: "Sitting with his back to the wall, waiting like the rest of us.",
     },
     {
       speaker: null,
@@ -2144,7 +2144,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "answer",
-      text: "Half the block's on the stairs now. It's warmer.",
+      text: "Half the neighbourhood's out now. It's warmer in a crowd.",
     },
     {
       speaker: null,
@@ -2164,7 +2164,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "answer",
-      text: "The motor room's on the roof, through the door with the padlock.",
+      text: "The motor room's through the door with the padlock.",
     },
     {
       speaker: null,
@@ -2179,7 +2179,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "answer",
-      text: "Everybody knows. That's the trouble with a block like this.",
+      text: "Everybody knows. That's the trouble with this part of town.",
     },
     {
       speaker: null,
@@ -2189,12 +2189,12 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "answer",
-      text: "Up there. Follow the singing.",
+      text: "Over there. Follow the torches.",
     },
     {
       speaker: null,
       intent: "answer",
-      text: "Not since the lights went. I've been on these stairs ever since.",
+      text: "Not since the lights went. I've been waiting about ever since.",
     },
     {
       speaker: null,
@@ -2204,7 +2204,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "answer",
-      text: "The roof door's open. Somebody's gone up.",
+      text: "The back door's open. Somebody's gone out.",
     },
     {
       speaker: null,
@@ -2214,17 +2214,17 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "answer",
-      text: "A long time ago. Before the flats had numbers.",
+      text: "A long time ago. Before any of this was built.",
     },
     {
       speaker: null,
       intent: "answer",
-      text: "It's just you. It's warmer by the candles.",
+      text: "It's just you. You've been sitting still too long.",
     },
     {
       speaker: null,
       intent: "instruct",
-      text: "Mind the step. The third one's gone soft.",
+      text: "Mind yourself. You can't see a thing in this.",
     },
     {
       speaker: null,
@@ -2234,12 +2234,12 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "instruct",
-      text: "Keep your voice down, there's a baby asleep on ten.",
+      text: "Keep your voice down. Some people are managing to sleep.",
     },
     {
       speaker: null,
       intent: "instruct",
-      text: "Take a blanket. There's a pile of them on eight.",
+      text: "Take a blanket. There's a pile of them going spare.",
     },
     {
       speaker: null,
@@ -2254,7 +2254,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "instruct",
-      text: "Sit on the stairs for a bit. It helps, honestly.",
+      text: "Sit down for a bit. It helps, honestly.",
     },
     {
       speaker: null,
@@ -2269,12 +2269,12 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "instruct",
-      text: "Keep your coat on. It's colder on the stairs than it looks.",
+      text: "Keep your coat on. It's colder than it looks.",
     },
     {
       speaker: null,
       intent: "instruct",
-      text: "Watch your feet on the wet landing.",
+      text: "Watch your feet. It's wet underfoot.",
     },
     {
       speaker: null,
@@ -2284,7 +2284,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "instruct",
-      text: "Bring the chair from my hallway, the one with arms.",
+      text: "Bring a chair for her, the one with arms.",
     },
     {
       speaker: null,
@@ -2299,12 +2299,12 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "state",
-      text: "Half this block has never met the people on nine, not in twenty years.",
+      text: "Half of us have never met the people next door, not in twenty years.",
     },
     {
       speaker: null,
       intent: "state",
-      text: "It's funny how loud a building is when nothing's switched on.",
+      text: "It's funny what you can hear when nothing's switched on.",
     },
     {
       speaker: null,
@@ -2314,17 +2314,17 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "state",
-      text: "You can see every star from up here tonight. Well, nearly.",
+      text: "You can see every star tonight. Well, nearly.",
     },
     {
       speaker: null,
       intent: "state",
-      text: "The whole block smells of candles. Like a church, but with cabbage.",
+      text: "Everything smells of candles. Like a church, but with cabbage.",
     },
     {
       speaker: null,
       intent: "state",
-      text: "I'm not going back in my flat. It's lonely in the dark.",
+      text: "I'm not going home yet. It's lonely in the dark.",
     },
     {
       speaker: null,
@@ -2369,7 +2369,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "state",
-      text: "There's a man on eight who's never said good morning, and he's just given me his chair.",
+      text: "There's a man who's never once said good morning to me, and he's just given me his chair.",
     },
     {
       speaker: null,
@@ -2379,7 +2379,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "state",
-      text: "I didn't know this many people lived here.",
+      text: "I didn't know this many people were awake at night.",
     },
     {
       speaker: null,
@@ -2409,7 +2409,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: null,
       intent: "state",
-      text: "That's the third time the singing's gone round the block.",
+      text: "That's the third time the radio's said the same thing.",
     },
     {
       speaker: null,
@@ -2431,7 +2431,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     "for what my word's worth tonight",
     "whatever the radio says",
     "and I'd say it twice",
-    "if the stairs don't finish us first",
+    "if the cold doesn't finish us first",
     "as my mother would say",
     "dark or not",
     "at this hour",
@@ -2440,7 +2440,7 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     "while the candles last",
     "before the tea goes cold",
     "by my count",
-    "give or take a floor",
+    "give or take a minute",
     "if the batteries hold",
     "with the whole city dark",
     "whatever anyone tells you",
@@ -2451,13 +2451,13 @@ export const LONG_NIGHT_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     "and don't tell anyone I said so",
     "if you want my opinion, which you don't",
     "till the sun comes up at least",
-    "same as every night in this block",
+    "same as any other night",
     "say what you like about the council",
     "and I mean that kindly",
-    "whichever floor you're on",
+    "whichever way you look at it",
     "now that we're all awake",
-    "if the singing keeps up",
-    "for once in this building",
+    "if the rain keeps off",
+    "for once in this city",
     "as sure as the river's high",
     "between you and me",
     "and I'd say it in daylight too",
