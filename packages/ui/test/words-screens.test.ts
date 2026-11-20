@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  CLOSE_WORDS,
   DEMO_WORDS,
   DOCUMENT_WORDS,
   LIBRARY_WORDS,
@@ -7,10 +8,13 @@ import {
   NEW_PROJECT_CARDS,
   PREFERENCES_WORDS,
   READOUT_WORDS,
+  REVIEW_WORDS,
   SEND_WORDS,
   SYNC_CENTRE_WORDS,
   TOUR_WORDS,
+  messageFor,
 } from "../src/index.ts";
+import type { TrustEvent } from "../src/index.ts";
 
 test("the screens' words are the design's", () => {
   const L = LIBRARY_WORDS;
@@ -503,6 +507,10 @@ test("the screens' words are the design's", () => {
     demo: "Demo",
     person: "Person: Dana Reyes",
     tour: "Tour",
+    connection: "Connection",
+    online: "Online",
+    offline: "Offline",
+    slow: "Slow",
   });
 
   expect({
@@ -523,4 +531,82 @@ test("the screens' words are the design's", () => {
     desktopOnly:
       "This one needs the desktop app. Run make desktop, then open the Tour there.",
   });
+});
+
+test("the review, closing and connection words are the agreed ones", () => {
+  expect([
+    REVIEW_WORDS.heading,
+    REVIEW_WORDS.keepAsMerged,
+    REVIEW_WORDS.useMine,
+    REVIEW_WORDS.useNamed(["Dana"]),
+    REVIEW_WORDS.useNamed(["Dana", "Sam"]),
+    REVIEW_WORDS.useOther,
+  ]).toEqual([
+    "To review",
+    "Keep as merged",
+    "Use mine",
+    "Use Dana's",
+    "Use Dana and Sam's",
+    "Use the other wording",
+  ]);
+  const sc8 = REVIEW_WORDS.scene("8");
+  expect([
+    REVIEW_WORDS.bothChanged(sc8, "Sam"),
+    REVIEW_WORDS.bothChanged(null, "Sam"),
+    REVIEW_WORDS.severalChanged(sc8, ["Dana", "Sam"]),
+    REVIEW_WORDS.unknownChanged(sc8),
+    REVIEW_WORDS.recoveredRow(sc8),
+    REVIEW_WORDS.marginBar,
+  ]).toEqual([
+    "Sc. 8 · you and Sam both changed this",
+    "you and Sam both changed this",
+    "Sc. 8 · you, Dana and Sam changed this",
+    "Sc. 8 · changed here and elsewhere",
+    "Sc. 8 · Recovered text from this device",
+    "To review",
+  ]);
+  expect([
+    CLOSE_WORDS.title,
+    CLOSE_WORDS.body("14:10"),
+    CLOSE_WORDS.closeWithout,
+    CLOSE_WORDS.exportCopy,
+  ]).toEqual([
+    "Export a copy before closing?",
+    "Manent can't save on this device, so changes since 14:10 are only in this window.",
+    "Close without exporting",
+    "Export a copy",
+  ]);
+  expect([
+    DEMO_WORDS.connection,
+    DEMO_WORDS.online,
+    DEMO_WORDS.offline,
+    DEMO_WORDS.slow,
+  ]).toEqual(["Connection", "Online", "Offline", "Slow"]);
+});
+
+const said = (choice: string, names: string | null, scene: string | null) =>
+  messageFor({ kind: "review_settled", choice, names, scene } as TrustEvent);
+
+test("a review action is told with its way back", () => {
+  expect([
+    said("theirs", "Sam", "Sc. 8").text,
+    said("mine", null, "Sc. 8").text,
+    said("merged", null, null).text,
+    said("recovered", null, "Sc. 8").text,
+    said("other", null, "Sc. 8").text,
+  ]).toEqual([
+    "Used Sam's wording in Sc. 8.",
+    "Used your wording in Sc. 8.",
+    "Kept the merged wording.",
+    "Put the recovered text back in Sc. 8.",
+    "Used the other wording in Sc. 8.",
+  ]);
+  expect(said("mine", null, null)).toMatchObject({
+    actions: [{ label: "Undo", commandId: "edit.undo" }],
+    lifetime: "reverse",
+    ownWork: false,
+  });
+  expect(said("merged", null, "Sc. 8").actions).toEqual([
+    { label: "Undo", commandId: "review.undo" },
+  ]);
 });

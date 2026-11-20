@@ -50,7 +50,15 @@ export type {
 } from "./chunking.ts";
 export { gateConnection, gateDocument } from "./gating.ts";
 export type { ConnectionGate } from "./gating.ts";
-export { DOC_KINDS, docIdV7, isDocId, isDocKind } from "./doc-id.ts";
+export {
+  DOC_KINDS,
+  docIdV7,
+  indexDocId,
+  isDocId,
+  isDocKind,
+  projectHome,
+  workspaceHome,
+} from "./doc-id.ts";
 export type { DocKind } from "./doc-id.ts";
 export {
   HTTP_ERROR_CODES,
@@ -68,6 +76,8 @@ export type {
   CreateDocumentRequest,
   CreateDocumentResponse,
   DemoResponse,
+  DocClientsRequest,
+  DocClientsResponse,
   ErrorResponse,
   HealthResponse,
   HttpErrorCode,
@@ -75,6 +85,8 @@ export type {
   MeResponse,
   RemoveDocumentRequest,
   RemoveDocumentResponse,
+  RemovedDocRequest,
+  RemovedDocResponse,
   ReplayOverlap,
   ReplayRefusal,
   ReplayRequest,

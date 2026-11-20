@@ -103,6 +103,7 @@ export const TERMS: readonly Term[] = Object.freeze([
     ["Use mine", "Use Dana's", "Keep as merged", "Use this"],
     ["accept", "reject", "theirs"],
   ),
+  ...row("saving", ["Use the other wording"], ["accept", "reject", "theirs"]),
   ...row("saving", ["Suggestion"], ["tracked change"]),
   ...row("writing", ["Alternate"], ["alt", "variant"]),
   ...row("series", ["Pitch"], []),
@@ -300,6 +301,8 @@ export const TERMS: readonly Term[] = Object.freeze([
       "Demo bar",
       "Person",
       "Connection",
+      "Online",
+      "Slow",
       "Add writers",
       "Stop writers",
       "Stop the server",
@@ -335,8 +338,8 @@ export const NAMES: readonly string[] = Object.freeze([
 export const PLAIN_WORDS: readonly string[] = listOf(`
   about, accepts, affect, after, again, ago, agreed, all, already, always, am, an, another, any,
   anyone, anyway, anywhere, apart, apostrophes, app, appear, applied, applies, apr, around, arrived,
-  arriving, ask, at, aug, automatically, available, away, be, because, been, between, box, build,
-  can't, cancel, cancels, cannot, capitals, changing, checking, clean, cleared, close, comfortably,
+  arriving, ask, at, aug, automatically, available, away, be, because, been, between, both, box, build,
+  can't, cancel, cancels, cannot, capitals, changing, checking, clean, cleared, close, closing, comfortably,
   controls, copy, correctly, could, couldn't, created, data, date, day, dec, decline, deleted,
   differ, different, dismiss, do, down, each, edited, else, english, every, everything, example,
   existed, ext, features, feb, flow, fri, generates, getting, handles, happens, has, have, height,
@@ -345,13 +348,13 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   load, longer, look, made, make, mar, match, matches, may, mentions, min, missed, misspellings,
   mon, more, move, music, name, near, nearly, needs, never, newer, newscast, next, no, none,
   nothing, nov, now, number, oct, off, offered, older, once, one, opening, or, other, others, out,
-  outside, own, paste, pause, pick, placed, prepare, preparing, press, pressing, re-applied, reach,
+  outside, own, paste, pause, pick, placed, prepare, preparing, press, pressing, put, re-applied, reach,
   reached, reacts, reading, ready, reduced, region, reload, reloading, removes, reorganised,
   request, resize, rest, right, running, runs, said, same, sat, save, say, says, sc, search, see,
   sees, sep, showing, sign, signed, slow, so, some, sound, speeches, standard, started, starting,
   stay, still, stopped, stored, style, summaries, sun, switch, terminal, than, that, their, them,
   then, there, these, thu, train, try, tue, turn, two, typing, unaffected, underlines, untitled,
-  usage, used, voiceover, was, web, wed, were, whatever, when, where, which, while, whole, with,
+  usage, used, voiceover, was, web, wed, were, whatever, when, where, which, while, whole, with, without,
   work, works, would, write, yet, your
 `);
 

@@ -5,4 +5,9 @@ export const DEMO_WORDS = {
   demo: "Demo",
   person: (name: string): string => `Person: ${name}`,
   tour: "Tour",
+  /** The Connection control and its three choices. */
+  connection: "Connection",
+  online: "Online",
+  offline: "Offline",
+  slow: "Slow",
 } as const;

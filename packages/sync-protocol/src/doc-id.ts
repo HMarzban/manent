@@ -48,3 +48,35 @@ export function docIdV7(nowMs: number, random: Uint8Array): string {
   const variant = hex(0x80 | (random[2]! & 0x3f), 2);
   return `${time.slice(0, 8)}-${time.slice(8)}-7${bits.slice(0, 3)}-${variant}${bits.slice(6, 8)}-${bits.slice(8)}`;
 }
+
+const FNV_OFFSET = 0x6c62272e07bb014262b821756295c58dn;
+const FNV_PRIME = 0x0000000001000000000000000000013bn;
+const MASK_128 = (1n << 128n) - 1n;
+
+/**
+ * The id of a person's private index (`scope` "user", `id` their userId) or of a
+ * workspace's index (`scope` "workspace"): the same on every device. A version 8
+ * UUID of the FNV-1a 128 hash of the UTF-8 bytes of `manent:<scope>:<id>`.
+ */
+export function indexDocId(scope: "user" | "workspace", id: string): string {
+  let hash = FNV_OFFSET;
+  for (const byte of new TextEncoder().encode(`manent:${scope}:${id}`))
+    hash = ((hash ^ BigInt(byte)) * FNV_PRIME) & MASK_128;
+  // version 8 in the high nibble of byte 6, variant 10 in the top two bits of byte 8
+  const uuid =
+    (hash & ~(0xf0n << 72n) & ~(0xc0n << 56n)) |
+    (0x80n << 72n) |
+    (0x80n << 56n);
+  const h = uuid.toString(16).padStart(32, "0");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+/** The home of a workspace's index: the file of its own project. */
+export function workspaceHome(workspaceId: string): string {
+  return projectHome(indexDocId("workspace", workspaceId));
+}
+
+/** The home of every document of a project: one file per project. */
+export function projectHome(projectId: string): string {
+  return `project:${projectId}`;
+}

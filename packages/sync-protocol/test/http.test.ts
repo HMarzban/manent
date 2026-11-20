@@ -9,13 +9,20 @@ import {
   isHttpErrorCode,
   isReplayKey,
   isServerState,
+  projectHome,
 } from "../src/index.ts";
 import type {
+  CreateDocumentRequest,
   DemoResponse,
+  DocClientsResponse,
   MeResponse,
+  RemovedDocResponse,
   SignInOptions,
   SignInResponse,
 } from "../src/index.ts";
+
+const DOC = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
+const DOC2 = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7ce";
 
 test("the server states are a fixed list, and each list's guard refuses what is not on it", () => {
   expect(SERVER_STATES).toEqual(["running", "stopped", "starting", "failed"]);
@@ -67,6 +74,32 @@ test("each route body is the shape both sides compile against", () => {
     ["token", "user"],
     ["userId", "name", "title", "registered"],
     ["demo", "seedId", "control"],
+  ]);
+});
+
+test("the two document information bodies are fixed", () => {
+  const clients: DocClientsResponse = {
+    clients: [{ clientId: 7, userId: "sam", name: "Sam Okafor" }],
+  };
+  const removed: RemovedDocResponse = {
+    deletedByUserId: "dana",
+    deletedByName: "Dana Reyes",
+    deletedAt: 1,
+  };
+  const create: CreateDocumentRequest = {
+    docId: DOC,
+    kind: "script",
+    home: projectHome(DOC2),
+    workspaceId: "medium",
+  };
+  expect([
+    Object.keys(clients.clients[0]!),
+    Object.keys(removed),
+    Object.keys(create),
+  ]).toEqual([
+    ["clientId", "userId", "name"],
+    ["deletedByUserId", "deletedByName", "deletedAt"],
+    ["docId", "kind", "home", "workspaceId"],
   ]);
 });
 

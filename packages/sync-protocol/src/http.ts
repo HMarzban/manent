@@ -89,7 +89,7 @@ export interface CreateDocumentRequest {
   kind: string;
   /** "user" (the caller's own file) or "project:<uuid>". */
   home: string;
-  /** The workspace whose index's roles a new script takes; a reader that does not know it ignores it. */
+  /** The workspace whose index's roles a new script takes: 1 to 64 of A-Z, a-z, 0-9, _ and -. A reader that does not know it ignores it. */
   workspaceId?: string;
 }
 
@@ -111,6 +111,29 @@ export interface RemoveDocumentRequest {
 /** The answer to POST /api/docs/remove. */
 export interface RemoveDocumentResponse {
   removed: true;
+}
+
+/** The body of POST /api/docs/clients: at most 64 client ids of one document. */
+export interface DocClientsRequest {
+  docId: string;
+  clientIds: number[];
+}
+
+/** The answer to POST /api/docs/clients: only the ids the server has registered, in ascending `clientId`. */
+export interface DocClientsResponse {
+  clients: { clientId: number; userId: string; name: string }[];
+}
+
+/** The body of POST /api/docs/removed. */
+export interface RemovedDocRequest {
+  docId: string;
+}
+
+/** The answer to POST /api/docs/removed: who deleted the document, and when. */
+export interface RemovedDocResponse {
+  deletedByUserId: string;
+  deletedByName: string;
+  deletedAt: number;
 }
 
 export interface ControlEndpoint {

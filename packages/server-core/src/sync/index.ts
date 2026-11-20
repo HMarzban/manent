@@ -3,6 +3,7 @@ export * from "./awareness.ts";
 export * from "./checkpointer.ts";
 export * from "./errors.ts";
 export * from "./heal.ts";
+export * from "./index-docs.ts";
 export * from "./peer.ts";
 export * from "./ports.ts";
 export * from "./rooms.ts";

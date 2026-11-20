@@ -1,6 +1,7 @@
 // The live editor's feature plugins, one line per feature; each plugin follows the bridge.
 import type { EditorPluginHost, FactsSink, Plugin } from "@manent/editor";
 import type { PersonServices } from "../services/ports.ts";
+import { reviewBarPlugin } from "./review-bar.ts";
 
 export interface EditorPluginContext extends EditorPluginHost {
   readonly docId: string;
@@ -10,4 +11,4 @@ export interface EditorPluginContext extends EditorPluginHost {
 
 export const EDITOR_PLUGINS: readonly ((
   context: EditorPluginContext,
-) => Plugin)[] = [];
+) => Plugin)[] = [reviewBarPlugin];

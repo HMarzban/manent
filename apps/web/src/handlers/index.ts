@@ -11,6 +11,7 @@ import { documentHandlers } from "./document.ts";
 import { createEditorHandlers } from "./editor.ts";
 import { libraryHandlers } from "./library.ts";
 import { preferencesHandlers } from "./preferences.ts";
+import { syncHandlers } from "./sync.ts";
 
 /** Where the window is: its route's id, its path with the search, and the search as read. */
 export interface RoutePlace {
@@ -60,5 +61,6 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     }),
     ...libraryHandlers(deps),
     ...demoHandlers(),
+    ...syncHandlers(),
   };
 }
