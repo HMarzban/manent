@@ -23,6 +23,13 @@ test("the server's limits are the agreed ones", () => {
     clientIdsPerSubscribe: 256,
     poisonRetryMs: 1000,
     helloTimeoutMs: 10_000,
+    rebuildBytesRatio: 10,
+    rebuildMinBytes: 262_144,
+    rebuildClientIds: 10_000,
+    rebuildSectionBlocks: 400,
+    rebuildQuietMs: 10_000,
+    frozenKeepMs: 7_776_000_000,
+    replayBodyBytes: 67_108_864,
   });
   expect(CODE.STORAGE_FAILED).toBe(1011);
   expect([

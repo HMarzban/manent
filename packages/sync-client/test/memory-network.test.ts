@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { ReplayRequest, ReplayResponse } from "@manent/sync-protocol";
 import { createMemoryNetwork } from "../src/testing/index.ts";
 import type { MemoryNetwork, ServerEnd } from "../src/testing/index.ts";
 
@@ -166,4 +167,51 @@ test("the connection a step serves is the one random picks", async () => {
   ends[1]!.send(encoder.encode("two"));
   network.step();
   expect([first.got, second.got]).toEqual([[], ["two"]]);
+});
+
+test("a replay reaches the server as the route would read it, and a cut network refuses it", async () => {
+  const network = createMemoryNetwork({ random: () => 0 });
+  const heard: [string, ReplayRequest][] = [];
+  const response: ReplayResponse = {
+    docId: "d",
+    generation: 2,
+    serverSeq: 3,
+    applied: 1,
+    overlaps: [],
+    setAside: [],
+  };
+  network.serve({
+    connected: () => {},
+    createDocument: () => ({ ok: true }),
+    replay: async (userId, request) => {
+      heard.push([userId, request]);
+      return { ok: true, response };
+    },
+  });
+  const request = {
+    docId: "d",
+    generation: 1,
+    lastServerSeq: 7,
+    key: "0f1e2d3c4b5a69788796a5b4c3d2e1f0",
+    updates: [new Uint8Array([0, 1, 254, 255])],
+  };
+  expect(await network.transport("dana").replay(request)).toEqual({
+    ok: true,
+    response,
+  });
+  expect(heard).toEqual([["dana", { ...request, updates: ["AAH+/w=="] }]]);
+  network.partition(true);
+  await expect(network.transport("dana").replay(request)).rejects.toMatchObject(
+    { code: "unreachable" },
+  );
+  network.partition(false);
+  await expect(network.transport(null).replay(request)).rejects.toMatchObject({
+    code: "sign_in",
+  });
+  expect(heard.map(([userId]) => userId)).toEqual(["dana"]);
+
+  const unserved = setup();
+  await expect(
+    unserved.network.transport("dana").replay(request),
+  ).rejects.toMatchObject({ code: "unreachable" });
 });
