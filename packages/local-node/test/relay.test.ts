@@ -195,3 +195,32 @@ test("an upstream that could not be opened is opened again at the person's next 
   await w.settle();
   expect(w.cloudText(DOC)).toEqual(["one two"]);
 });
+
+test("a person who reads a rebuild after the room moved past it waits, and the text is held once", async () => {
+  const w = world();
+  await w.open("dana", DOC);
+  await w.open("sam", DOC);
+  w.windowTypes("sam", DOC, "first");
+  await w.settle();
+  const held = new Set<string>();
+  w.watchers.add(() => held.add(w.nodeText(DOC).join(" / ")));
+  // dana's line reads the first rebuild only once sam's has followed the second
+  w.slowStore("dana");
+  w.cloudRebuilds(DOC);
+  await w.settle();
+  w.slowLink("dana");
+  w.cloudRebuilds(DOC);
+  await w.settle();
+  w.storeReads("dana");
+  await w.settle();
+  w.windowTypes("sam", DOC, " then more");
+  await w.settle();
+  w.linkHears("dana");
+  await w.settle();
+  expect(w.nodeGeneration(DOC)).toBe(3);
+  expect([...held]).toEqual(["first", "first then more"]);
+  expect([w.cloudText(DOC), w.windowText(DOC, "dana")]).toEqual([
+    ["first then more"],
+    ["first then more"],
+  ]);
+});

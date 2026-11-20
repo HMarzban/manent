@@ -517,7 +517,11 @@ class NodeLife {
       versions: V1,
       minServer: MIN_SERVER,
       ports: {
-        transport: this.gated(this.host.cloudNet.transport(userId), token),
+        transport: this.gated(
+          userId,
+          this.host.cloudNet.transport(userId),
+          token,
+        ),
         store: this.storeOf(userId),
         leader: soloLeader(deviceId),
         clock: this.clock,
@@ -541,6 +545,11 @@ class NodeLife {
         return (...args: unknown[]) => {
           if (key === "load" && host.failingLoads)
             return Promise.reject(new StoreError("unavailable"));
+          const slow = key === "load" ? host.slowReads.get(userId) : undefined;
+          if (slow !== undefined)
+            return new Promise((resolve) =>
+              slow.push(() => resolve(Reflect.apply(value, target, args))),
+            );
           return blocked(String(key))
             ? new Promise(() => {})
             : Reflect.apply(value, target, args);
@@ -550,7 +559,11 @@ class NodeLife {
   }
 
   /** The cloud's network as this life reaches it: without a token nothing is asked, and a dead life hears nothing. */
-  private gated(inner: Transport, token: () => string | null): Transport {
+  private gated(
+    userId: string,
+    inner: Transport,
+    token: () => string | null,
+  ): Transport {
     const check = (): void => {
       if (!this.alive) throw new ConnectError("unreachable");
       if (token() === null) throw new ConnectError("sign_in");
@@ -560,7 +573,11 @@ class NodeLife {
         check();
         const connection = await inner.connect({
           onFrame: (frame) => {
-            if (this.alive) handlers.onFrame(frame);
+            if (!this.alive) return;
+            const slow = this.host.slowLinks.get(userId);
+            // a PONG is let through, or the client would give the connection up as dead
+            if (slow === undefined || isPong(frame)) handlers.onFrame(frame);
+            else slow.push(() => handlers.onFrame(frame));
           },
           onClose: (code, reason) => {
             if (this.alive) handlers.onClose(code, reason);
@@ -585,6 +602,11 @@ class NodeLife {
     };
   }
 }
+
+const isPong = (frame: Uint8Array): boolean => {
+  const read = createFrameDecoder({ from: "server" }).push(frame);
+  return read.kind === "message" && read.message.type === "PONG";
+};
 
 function ownerIn(
   storage: Storage,
@@ -674,6 +696,10 @@ export class RelayWorld {
   private lastOpened = "sam";
   /** Called after every step of the world. */
   readonly watchers = new Set<() => void>();
+  /** By person: what the cloud sent their upstream link that it has not yet heard, in order. */
+  readonly slowLinks = new Map<string, (() => void)[]>();
+  /** By person: the reads of their upstream store waiting to be made, in order. */
+  readonly slowReads = new Map<string, (() => void)[]>();
 
   constructor(readonly options: WorldOptions = {}) {
     this.records = createMemoryRecords(
@@ -1072,6 +1098,30 @@ export class RelayWorld {
   /** The node's deferred work waits while held, as a turn that has not ended. */
   holdNodeTurns(hold: boolean): void {
     this.life.deferred.held = hold;
+  }
+
+  /** From now on, the person's upstream link hears nothing the cloud sends until `linkHears`. */
+  slowLink(userId: string): void {
+    this.slowLinks.set(userId, []);
+  }
+
+  /** The person's upstream link hears, in order, what the cloud sent it meanwhile. */
+  linkHears(userId: string): void {
+    const unheard = this.slowLinks.get(userId) ?? [];
+    this.slowLinks.delete(userId);
+    for (const hear of unheard) hear();
+  }
+
+  /** From now on, a read of the person's upstream store waits for `storeReads`. */
+  slowStore(userId: string): void {
+    this.slowReads.set(userId, []);
+  }
+
+  /** The reads of the person's upstream store that waited are made now. */
+  storeReads(userId: string): void {
+    const waiting = this.slowReads.get(userId) ?? [];
+    this.slowReads.delete(userId);
+    for (const read of waiting) read();
   }
 
   /** The window sends its last setting request again, as after a lost acknowledgement. */

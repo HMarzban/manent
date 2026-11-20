@@ -248,7 +248,12 @@ export function createFollowing(ports: FollowPorts): Following {
     reconcile(line, handle);
   }
 
-  /** Follows, unless the room is already at the handle's generation (null: its store holds none). */
+  /**
+   * Follows, unless the room is already at the handle's generation (null: its store holds none).
+   * A handle on a generation the room has moved past is left moving: following it would take the
+   * room back onto an older history, so its person's items wait in the node's log until its next
+   * move. No pause is left behind: only a follow moves the room, and a follow ends the pause.
+   */
   function act(
     line: Line,
     handle: DocHandle,
@@ -256,8 +261,11 @@ export function createFollowing(ports: FollowPorts): Following {
     paused: boolean,
     generation: number | null,
   ): void {
-    if (reason === "generation" && generation === known(line.docId))
-      return catchUp(line, handle, generation);
+    if (reason === "generation" && generation !== null) {
+      const room = known(line.docId);
+      if (generation === room) return catchUp(line, handle, generation);
+      if (generation < room) return;
+    }
     if (!paused) ports.service().pauseRelay(line.docId);
     follow(line, handle, generation);
   }
