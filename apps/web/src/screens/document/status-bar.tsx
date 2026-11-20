@@ -11,13 +11,15 @@ import {
   keyLabel,
   useCommandState,
   useCommands,
+  useSubscribable,
 } from "@manent/ui";
 import type { ReactNode } from "react";
-import { useServices } from "../../services/context.tsx";
+import { useEnvironment, useServices } from "../../services/context.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { useEditorFact } from "../../state/facts.store.ts";
 import { panelsActions } from "../../state/panels.store.ts";
 import { ElementButton } from "./element-button.tsx";
+import { WritingNotices } from "./writing-notices.tsx";
 
 /** Runs a command a bar's action names, and says whether it is registered: an action whose command is not is not drawn. */
 export function useCommandActions(): {
@@ -79,6 +81,7 @@ export function StatusBar(): ReactNode {
   const { run, registered } = useCommandActions();
   const readout = usePageReadout();
   const scene = useEditorFact("scene");
+  const { docId } = useSubscribable(useEnvironment().shellState);
   return (
     <ShellRegion
       region="status_bar"
@@ -111,6 +114,7 @@ export function StatusBar(): ReactNode {
         }
       />
       <CommandsButton />
+      {docId === null ? null : <WritingNotices docId={docId} />}
     </ShellRegion>
   );
 }

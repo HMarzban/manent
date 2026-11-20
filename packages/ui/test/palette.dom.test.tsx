@@ -42,6 +42,8 @@ const CTX: CommandContext = {
   format: null,
   rulerShown: false,
   spaceBeforeSet: false,
+  zoom: null,
+  zoomPercent: null,
   production: null,
 };
 

@@ -1,64 +1,33 @@
-// The handlers of the editor's commands: a page command asks the open editor for its action and says why when it is refused.
+// The handlers of the editor's commands: a page command asks the open editor to run it and says why when it is refused;
+// a zoom command sets the zoom the open page follows.
 import { EDITOR_COMMANDS } from "@manent/commands";
 import type { CommandService, EditorCommandId } from "@manent/commands";
-import type { ActionResult, EditorAction } from "@manent/editor";
+import type { ActionResult, ZoomSetting } from "@manent/editor";
 import { EDITOR_WORDS, messageFor } from "@manent/ui";
 import type { MessageQueue } from "@manent/ui";
+import type { PageCommandId } from "../editor-host/command-actions.ts";
 import type { EditorControl } from "../editor-host/control.ts";
+import { zoomStep } from "../editor-host/zoom.ts";
 import { sendPath } from "../screens/send/forms.ts";
 import { rulerActions } from "../state/ruler.store.ts";
+import { zoomActions } from "../state/zoom.store.ts";
 
-type PageCommandId = Extract<
-  (typeof EDITOR_COMMANDS)[number],
-  { scope: "editor" }
->["id"];
 type Refusal = Extract<ActionResult, { ok: false }>["reason"];
 
-export const EDITOR_COMMAND_ACTIONS: Readonly<
-  Record<PageCommandId, EditorAction>
-> = Object.freeze({
-  "format.element": { kind: "picker" },
-  "element.sceneHeading": { kind: "element", slot: "1" },
-  "element.action": { kind: "element", slot: "2" },
-  "element.character": { kind: "element", slot: "3" },
-  "element.parenthetical": { kind: "element", slot: "4" },
-  "element.dialogue": { kind: "element", slot: "5" },
-  "element.transition": { kind: "element", slot: "6" },
-  "element.shot": { kind: "element", slot: "7" },
-  "element.section": { kind: "element", slot: "8" },
-  "element.newAct": { kind: "element", slot: "9" },
-  "element.general": { kind: "element", slot: "0" },
-  "element.endOfAct": { kind: "element", slot: "E" },
-  "element.emote": { kind: "element", slot: "M" },
-  "element.camera": { kind: "element", slot: "C" },
-  "element.engineDirection": { kind: "element", slot: "G" },
-  "format.dualDialogue": { kind: "dual_dialogue" },
-  "format.pageBreak": { kind: "page_break" },
-  "format.bold": { kind: "style", mark: "bold" },
-  "format.italic": { kind: "style", mark: "italic" },
-  "format.underline": { kind: "style", mark: "underline" },
-  "format.strike": { kind: "style", mark: "strike" },
-  "format.caps": { kind: "style", mark: "caps" },
-  "format.alignLeft": { kind: "align", value: "left" },
-  "format.alignCenter": { kind: "align", value: "center" },
-  "format.alignRight": { kind: "align", value: "right" },
-  "format.spaceBefore": { kind: "space_before" },
-  "format.colour.none": { kind: "colour", value: null },
-  "format.colour.red": { kind: "colour", value: "red" },
-  "format.colour.orange": { kind: "colour", value: "orange" },
-  "format.colour.green": { kind: "colour", value: "green" },
-  "format.colour.blue": { kind: "colour", value: "blue" },
-  "format.colour.violet": { kind: "colour", value: "violet" },
-  "format.highlight.none": { kind: "highlight", value: null },
-  "format.highlight.yellow": { kind: "highlight", value: "yellow" },
-  "format.highlight.green": { kind: "highlight", value: "green" },
-  "format.highlight.pink": { kind: "highlight", value: "pink" },
-  "format.highlight.orange": { kind: "highlight", value: "orange" },
-  "format.highlight.violet": { kind: "highlight", value: "violet" },
-});
+type Handler = () => void;
+
+const PAGE_COMMAND_IDS: readonly PageCommandId[] = EDITOR_COMMANDS.filter(
+  (c): c is Extract<typeof c, { scope: "editor" }> => c.scope === "editor",
+).map((c) => c.id);
+const PAGE_COMMANDS: ReadonlySet<string> = new Set(PAGE_COMMAND_IDS);
 
 const isPageCommand = (id: string): id is PageCommandId =>
-  Object.hasOwn(EDITOR_COMMAND_ACTIONS, id);
+  PAGE_COMMANDS.has(id);
+
+const hasEveryPage = (
+  rows: Partial<Record<PageCommandId, Handler>>,
+): rows is Record<PageCommandId, Handler> =>
+  PAGE_COMMAND_IDS.every((id) => rows[id] !== undefined);
 
 /** The clause the message slot gives a refusal; null when there is nothing to say. */
 function reasonOf(
@@ -86,6 +55,8 @@ function commandLabel(id: EditorCommandId): string {
   return def.label;
 }
 
+const zoomTo = (zoom: ZoomSetting) => (): void => zoomActions.set(zoom);
+
 /** One handler per editor command; `formatLabel` names the open script's format ("Stage play"), null off a document. */
 export function createEditorHandlers(deps: {
   control: EditorControl;
@@ -96,7 +67,7 @@ export function createEditorHandlers(deps: {
 }): Readonly<Record<EditorCommandId, () => void>> {
   const { control, messages, formatLabel, docId, navigate } = deps;
   const page = (id: PageCommandId) => () => {
-    const result = control.run(EDITOR_COMMAND_ACTIONS[id]);
+    const result = control.run(id);
     // null: no editor is open
     if (result === null || result.ok) return;
     const reason = reasonOf(result.reason, formatLabel);
@@ -113,48 +84,32 @@ export function createEditorHandlers(deps: {
     const shown = docId();
     if (shown !== null) navigate(sendPath(shown, form));
   };
+  // from the percent drawn, so Zoom in from Fit width goes to the next preset up
+  const zoomBy = (direction: "in" | "out") => () => {
+    const drawn = control.zoomPercent();
+    const next = drawn === null ? null : zoomStep(drawn, direction);
+    if (next !== null) zoomActions.set(next);
+  };
+  const pages: Partial<Record<PageCommandId, Handler>> = {};
+  for (const id of PAGE_COMMAND_IDS) pages[id] = page(id);
+  // the loop filled every row; this tells the type checker so, and never throws
+  if (!hasEveryPage(pages))
+    throw new RangeError("a page command has no handler");
   return {
-    "format.element": page("format.element"),
-    "element.sceneHeading": page("element.sceneHeading"),
-    "element.action": page("element.action"),
-    "element.character": page("element.character"),
-    "element.parenthetical": page("element.parenthetical"),
-    "element.dialogue": page("element.dialogue"),
-    "element.transition": page("element.transition"),
-    "element.shot": page("element.shot"),
-    "element.section": page("element.section"),
-    "element.newAct": page("element.newAct"),
-    "element.general": page("element.general"),
-    "element.endOfAct": page("element.endOfAct"),
-    "element.emote": page("element.emote"),
-    "element.camera": page("element.camera"),
-    "element.engineDirection": page("element.engineDirection"),
-    "format.dualDialogue": page("format.dualDialogue"),
-    "format.pageBreak": page("format.pageBreak"),
-    "format.bold": page("format.bold"),
-    "format.italic": page("format.italic"),
-    "format.underline": page("format.underline"),
-    "format.strike": page("format.strike"),
-    "format.caps": page("format.caps"),
-    "format.alignLeft": page("format.alignLeft"),
-    "format.alignCenter": page("format.alignCenter"),
-    "format.alignRight": page("format.alignRight"),
-    "format.spaceBefore": page("format.spaceBefore"),
-    "format.colour.none": page("format.colour.none"),
-    "format.colour.red": page("format.colour.red"),
-    "format.colour.orange": page("format.colour.orange"),
-    "format.colour.green": page("format.colour.green"),
-    "format.colour.blue": page("format.colour.blue"),
-    "format.colour.violet": page("format.colour.violet"),
-    "format.highlight.none": page("format.highlight.none"),
-    "format.highlight.yellow": page("format.highlight.yellow"),
-    "format.highlight.green": page("format.highlight.green"),
-    "format.highlight.pink": page("format.highlight.pink"),
-    "format.highlight.orange": page("format.highlight.orange"),
-    "format.highlight.violet": page("format.highlight.violet"),
+    ...pages,
     "view.ruler": () => rulerActions.toggle(),
     "doc.export": send("export"),
     "doc.print": send("print"),
+    "view.zoomIn": zoomBy("in"),
+    "view.zoomOut": zoomBy("out"),
+    "view.zoomFitWidth": zoomTo("fit_width"),
+    "view.zoom50": zoomTo(50),
+    "view.zoom75": zoomTo(75),
+    "view.zoom100": zoomTo(100),
+    "view.zoom125": zoomTo(125),
+    "view.zoom150": zoomTo(150),
+    "view.zoom200": zoomTo(200),
+    "view.zoom300": zoomTo(300),
   };
 }
 

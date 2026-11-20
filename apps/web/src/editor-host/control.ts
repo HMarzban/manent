@@ -1,19 +1,24 @@
 // The one way a command handler reaches the open editor.
-import type { ActionResult, EditorAction } from "@manent/editor";
+import type { ActionResult } from "@manent/editor";
+import type { HistoryCommandId, PageCommandId } from "./command-actions.ts";
 
-interface RunsActions {
-  run(action: EditorAction): ActionResult;
+interface ControlledEditor {
+  run(id: PageCommandId | HistoryCommandId): ActionResult;
+  /** Null: Ink, which has no pages. */
+  zoomPercent(): number | null;
 }
 
 export interface EditorControl {
   /** Returns its own detach; a second attach replaces the first. */
-  attach(editor: RunsActions): () => void;
+  attach(editor: ControlledEditor): () => void;
   /** Null: no editor is open. */
-  run(action: EditorAction): ActionResult | null;
+  run(id: PageCommandId | HistoryCommandId): ActionResult | null;
+  /** The percent the open page is drawn at; null when no editor is open or the script is Ink. */
+  zoomPercent(): number | null;
 }
 
 export function createEditorControl(): EditorControl {
-  let attached: RunsActions | null = null;
+  let attached: ControlledEditor | null = null;
   return {
     attach(editor) {
       attached = editor;
@@ -21,6 +26,7 @@ export function createEditorControl(): EditorControl {
         if (attached === editor) attached = null;
       };
     },
-    run: (action) => attached?.run(action) ?? null,
+    run: (id) => attached?.run(id) ?? null,
+    zoomPercent: () => attached?.zoomPercent() ?? null,
   };
 }
