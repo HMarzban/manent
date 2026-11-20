@@ -5,6 +5,10 @@ import type { DocRef, Message, ServerVersions } from "@manent/sync-protocol";
 import { createTokenBucket } from "../limits/bucket.ts";
 import type { TokenBucket } from "../limits/bucket.ts";
 import { createConnectionCaps } from "../limits/caps.ts";
+import { createRebuilder, createSubscriptions } from "../rebuild/rebuilder.ts";
+import type { PeerState, RebuildStats } from "../rebuild/rebuilder.ts";
+import { createReplay } from "../rebuild/replay.ts";
+import type { ReplayOutcome } from "../rebuild/replay.ts";
 import { createDocumentAccess } from "./access.ts";
 import { createAwarenessHub } from "./awareness.ts";
 import type { DocumentAccess } from "./access.ts";
@@ -36,7 +40,7 @@ import type { SubscribeMessage } from "./subscribe.ts";
 import { createSnapshotAnswers, viewPatchOf } from "./viewers.ts";
 import { createWritePath } from "./write-path.ts";
 
-export interface ServiceStats {
+export interface ServiceStats extends RebuildStats {
   peers: number;
   rooms: number;
   loadedRooms: number;
@@ -70,11 +74,18 @@ export interface SyncService {
   removed(docId: string): void;
   /** A backup was put back: every placed document is flagged `restore` at its head. */
   restored(): void;
+  /** Rebuilds the document at its room's next quiet moment, whatever its measure. */
+  requestRebuild(docId: string): void;
+  /** POST /api/docs/replay: `body` is the route's JSON, not yet checked. */
+  replay(userId: string, body: unknown): Promise<ReplayOutcome>;
   stats(): ServiceStats;
   shutdown(): Promise<void>;
 }
 
-/** Defaults: "authority", DEFAULT_LIMITS, an inline checkpointer, no upstream, NO_SETTINGS, no schema floor. */
+/**
+ * Defaults: "authority", DEFAULT_LIMITS, an inline checkpointer, no upstream, NO_SETTINGS, no schema floor, never
+ * inside an air window.
+ */
 export interface SyncSettings {
   storage: Storage;
   clock: Clock;
@@ -87,19 +98,7 @@ export interface SyncSettings {
   upstream?: Upstream;
   registry?: SettingRules;
   schemaFloor?: (touched: readonly unknown[]) => number;
-}
-
-interface Held {
-  room: Room;
-  subscription: Subscription;
-  /** As the SUBSCRIBE gave it. */
-  lastServerSeq: number;
-}
-
-interface PeerState {
-  buckets: { frames: TokenBucket; bytes: TokenBucket };
-  /** By document id. */
-  held: Map<string, Held>;
+  airWindow?: (docId: string, now: number) => boolean;
 }
 
 function docOf(room: Room): DocRef {
@@ -138,7 +137,6 @@ export function createSyncService(
   const presence = createAwarenessHub({ clock, limits });
   const snapshotOf = createSnapshotAnswers(options.storage);
   const heal = createHealing({ ...options, mode: writeMode, now: clock.now });
-  const peers = new Map<Peer, PeerState>();
   let closing = false;
 
   const bucket = (perSecond: number, burst: number): TokenBucket =>
@@ -150,23 +148,17 @@ export function createSyncService(
     peer.send(message);
   };
 
-  /** The subscription ends; the room is left. */
-  const end = (peer: Peer, docId: string): void => {
-    const held = peers.get(peer)?.held.get(docId);
-    if (held === undefined) return;
-    peers.get(peer)?.held.delete(docId);
-    if (held.subscription.mode === "edit") presence.left(held.room, peer);
-    held.room.editors.delete(peer);
-    held.room.viewers.delete(peer);
-    rooms.left(held.room);
-  };
+  const { peers, end, endAll, stateOf } = createSubscriptions({
+    rooms,
+    presence,
+    tell,
+  });
 
-  /** Each subscriber of the room hears `message`, and its subscription ends. */
-  const endAll = (room: Room, message: Message): void => {
-    for (const peer of [...room.editors.keys(), ...room.viewers.keys()]) {
-      tell(peer, message);
-      end(peer, room.docId);
-    }
+  const poison = (poisoned: readonly Room[]): void => {
+    counted.poisoned += poisoned.length;
+    const retryAfterMs = limits.poisonRetryMs;
+    for (const room of poisoned)
+      endAll(room, syncError("storage_failed", docOf(room), { retryAfterMs }));
   };
 
   const writePath = createWritePath({
@@ -199,21 +191,13 @@ export function createSyncService(
       });
       for (const peer of room.editors.keys())
         if (peer !== sender || echo) peer.send(prepared);
+      rebuilder.touched(room);
       const patch = viewPatchOf(committed);
       if (patch === null) return;
       const viewed = prepareMessage(patch);
       for (const peer of room.viewers.keys()) peer.send(viewed);
     },
-    poisoned(poisoned) {
-      counted.poisoned += poisoned.length;
-      for (const room of poisoned)
-        endAll(
-          room,
-          syncError("storage_failed", docOf(room), {
-            retryAfterMs: limits.poisonRetryMs,
-          }),
-        );
-    },
+    poisoned: poison,
     schemaRaised(room, toVersion) {
       for (const peer of room.editors.keys())
         if (peer.versions.schema < toVersion) {
@@ -234,14 +218,16 @@ export function createSyncService(
     registry: options.registry ?? NO_SETTINGS,
     schemaFloor: options.schemaFloor ?? null,
   });
-
-  /** A push or a setting reaches the write path only from an attached peer. */
-  function stateOf(peer: Peer): PeerState {
-    const state = peers.get(peer);
-    if (state === undefined)
-      throw new RangeError(`${peer.userId}'s peer is not attached`);
-    return state;
-  }
+  const rebuilder = createRebuilder({
+    ...options,
+    mode: writeMode,
+    limits,
+    rooms,
+    writePath,
+    endAll,
+    poisoned: poison,
+  });
+  const replay = createReplay({ ...options, access, rooms, writePath, limits });
 
   function subscribe(
     peer: Peer,
@@ -292,6 +278,7 @@ export function createSyncService(
     tell(peer, subscribedOf(room, granted, heal.headOf(room)));
     const vector = room.doc?.encodeStateVector();
     if (mode === "edit" && vector !== undefined) {
+      rebuilder.touched(room);
       tell(peer, { type: "SYNC", ...docOf(room), step: "step1", data: vector });
       return presence.joined(room, peer);
     }
@@ -377,12 +364,20 @@ export function createSyncService(
       rooms.drop([room]);
     },
     restored: () => heal.restored(),
+    requestRebuild: (docId) => rebuilder.request(docId),
+    replay,
     stats() {
       const { acks, relayedSets, ...counts } = counted;
       const { rooms: open, loaded } = rooms.stats();
       const duplicates = acks - counts.appended - relayedSets;
       const sizes = { peers: peers.size, rooms: open, loadedRooms: loaded };
-      return { ...counts, ...sizes, duplicates, refused: { ...refused } };
+      return {
+        ...counts,
+        ...sizes,
+        ...rebuilder.stats(),
+        duplicates,
+        refused: { ...refused },
+      };
     },
     async shutdown() {
       closing = true;

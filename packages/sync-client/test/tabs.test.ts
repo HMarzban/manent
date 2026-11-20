@@ -28,9 +28,10 @@ const META: DocMeta = {
   neverSynced: false,
   create: { kind: "script", home: "user" },
   parked: { reason: "deleted", parkedAt: 1_000 },
-  recovering: { versionId: "v1", heal: true },
+  recovering: { versionId: "v1", heal: true, replaying: false },
   lastDeviceVersionAt: 900,
   lastSyncedAt: null,
+  moving: null,
 };
 const STATUS: DocStatus = {
   saved: true,
@@ -73,6 +74,7 @@ const SAMPLES: Record<TabBody["t"], TabBody> = {
     t: "edit",
     docId: DOC,
     n: 3,
+    generation: 2,
     update: new Uint8Array([3]),
     elements: ["b1", "b2"],
   },
@@ -81,8 +83,14 @@ const SAMPLES: Record<TabBody["t"], TabBody> = {
   status: { t: "status", docId: DOC, status: STATUS },
   event: { t: "event", docId: DOC, event: { type: "replaced" } },
   recovered: { t: "recovered", docId: DOC, items: [ITEM] },
-  replace: { t: "replace", docId: DOC, state: new Uint8Array([5]) },
+  replace: {
+    t: "replace",
+    docId: DOC,
+    generation: 2,
+    state: new Uint8Array([5]),
+  },
   aw: { t: "aw", docId: DOC, update: new Uint8Array([6]) },
+  opened: { t: "opened", docId: DOC, generation: 2, clientId: 11 },
 };
 
 test("the channel's messages are pinned at version 1", () => {
@@ -92,6 +100,7 @@ test("the channel's messages are pinned at version 1", () => {
       t: "edit",
       docId: DOC,
       n: 3,
+      generation: 2,
       update: new Uint8Array([1]),
       elements: ["b1"],
     }),
@@ -101,6 +110,7 @@ test("the channel's messages are pinned at version 1", () => {
     t: "edit",
     docId: DOC,
     n: 3,
+    generation: 2,
     update: new Uint8Array([1]),
     elements: ["b1"],
   });
@@ -111,6 +121,7 @@ test("the channel's messages are pinned at version 1", () => {
     "event",
     "leader",
     "open",
+    "opened",
     "recovered",
     "remote",
     "replace",
@@ -140,6 +151,7 @@ test("a message from another version, of an unknown kind or of the wrong shape i
       t: "edit",
       docId: DOC,
       n: "3",
+      generation: 1,
       update: new Uint8Array(),
       elements: [],
     },
@@ -151,6 +163,20 @@ test("a message from another version, of an unknown kind or of the wrong shape i
     from: "t1",
     t: "who",
   });
+});
+
+test("a document's state from a tab of a build from before moves reads with nothing moving and nothing written back", () => {
+  const older = Object.fromEntries(
+    Object.entries(META).filter(([key]) => key !== "moving"),
+  );
+  const recovering = { versionId: "v1", heal: true };
+  const posted = {
+    v: 1,
+    from: "t1",
+    ...SAMPLES.state,
+    meta: { ...older, recovering },
+  };
+  expect(readTabMessage(posted)).toEqual(tabMessage("t1", SAMPLES.state));
 });
 
 test("bytes, a map or a date where an object belongs is of the wrong shape", () => {
@@ -349,9 +375,23 @@ const meta: fc.Arbitrary<DocMeta> = fc.record({
       parkedAt: int,
     }),
   ),
-  recovering: nullable(fc.record({ versionId: text, heal: fc.boolean() })),
+  recovering: nullable(
+    fc.record({
+      versionId: text,
+      heal: fc.boolean(),
+      replaying: fc.boolean(),
+    }),
+  ),
   lastDeviceVersionAt: int,
   lastSyncedAt: nullable(int),
+  moving: nullable(
+    fc.record({
+      from: int,
+      to: int,
+      key: nullable(text),
+      throughLocalSeq: int,
+    }),
+  ),
 });
 const status: fc.Arbitrary<DocStatus> = fc.record({
   saved: fc.boolean(),
@@ -382,7 +422,7 @@ const item: fc.Arbitrary<RecoveredItem> = fc.record({
   nearBlockId: nullable(text),
   text,
   recoveredAt: int,
-  cause: fc.constantFrom("merge", "rejected"),
+  cause: fc.constantFrom("merge", "rejected", "overlap"),
 });
 const body: fc.Arbitrary<TabBody> = fc.oneof(
   fc.constant({ t: "who" as const }),
@@ -405,6 +445,7 @@ const body: fc.Arbitrary<TabBody> = fc.oneof(
     t: fc.constant("edit" as const),
     docId: text,
     n: int,
+    generation: int,
     update: bytes,
     elements: fc.array(text, { maxLength: 3 }),
   }),
@@ -427,8 +468,19 @@ const body: fc.Arbitrary<TabBody> = fc.oneof(
     docId: text,
     items: fc.array(item, { maxLength: 2 }),
   }),
-  fc.record({ t: fc.constant("replace" as const), docId: text, state: bytes }),
+  fc.record({
+    t: fc.constant("replace" as const),
+    docId: text,
+    generation: int,
+    state: bytes,
+  }),
   fc.record({ t: fc.constant("aw" as const), docId: text, update: bytes }),
+  fc.record({
+    t: fc.constant("opened" as const),
+    docId: text,
+    generation: int,
+    clientId: int,
+  }),
 );
 
 test("a message another tab posted reads back unchanged, whatever its fields hold", () => {
@@ -472,6 +524,9 @@ const anyValue = fc.anything({
   withTypedArray: true,
 });
 
+/** The fields a tab of a build from before moves leaves out, which therefore may be absent. */
+const OPTIONAL_FIELDS = new Set(["moving", "replaying"]);
+
 /** A valid message with the value at one place replaced; `wrongKind` when the new value cannot be of that place's type. */
 const nearMessage = fc
   .tuple(text, body, fc.nat(), anyValue)
@@ -487,6 +542,7 @@ const nearMessage = fc
       path[0] !== "event" &&
       was !== null &&
       value !== null &&
+      !(value === undefined && OPTIONAL_FIELDS.has(path.at(-1)!)) &&
       kindOf(was) !== kindOf(value);
     return { message, path, wrongKind };
   });

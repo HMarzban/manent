@@ -13,9 +13,12 @@ import type {
  * What one tab tells another. `who` asks who leads; `leader` answers it, and is
  * posted on election. A follower opens and closes a document through the leader
  * (`clientId` is its Yjs client ID) and posts its `n`-th local update of a
- * document, counting from 1; `saved` says every edit of that tab up to `n` is in
- * the local store, or that the store refused it. `to` is the one tab a message is
- * for; `remote` is an update already stored; `aw` is awareness, passed through.
+ * document, counting from 1, with the generation of the document it typed in;
+ * `saved` says every edit of that tab up to `n` is in the local store, or that
+ * the store refused it. `to` is the one tab a message is for; `remote` is an
+ * update already stored; `aw` is awareness, passed through. `replace` carries
+ * the document that replaced the old one, and its generation; after a move a
+ * follower answers `opened`, having loaded it under the client ID it names.
  */
 export type TabBody =
   | { t: "who" }
@@ -32,6 +35,7 @@ export type TabBody =
       t: "edit";
       docId: string;
       n: number;
+      generation: number;
       update: Uint8Array;
       elements: string[];
     }
@@ -40,8 +44,9 @@ export type TabBody =
   | { t: "status"; docId: string; status: DocStatus }
   | { t: "event"; docId: string; event: unknown }
   | { t: "recovered"; docId: string; items: RecoveredItem[] }
-  | { t: "replace"; docId: string; state: Uint8Array }
-  | { t: "aw"; docId: string; update: Uint8Array };
+  | { t: "replace"; docId: string; generation: number; state: Uint8Array }
+  | { t: "aw"; docId: string; update: Uint8Array }
+  | { t: "opened"; docId: string; generation: number; clientId: number };
 
 /** `from` is the sending tab's ID. */
 export type TabMessage = TabBody & { v: 1; from: string };
@@ -142,7 +147,7 @@ const readParkedReason = oneOf<ParkedReason>(
   Object.freeze({ access_removed: true, deleted: true }),
 );
 const readCause = oneOf<RecoveredItem["cause"]>(
-  Object.freeze({ merge: true, rejected: true }),
+  Object.freeze({ merge: true, rejected: true, overlap: true }),
 );
 
 function readCreate(value: unknown): NonNullable<DocMeta["create"]> {
@@ -158,11 +163,25 @@ function readParked(value: unknown): NonNullable<DocMeta["parked"]> {
   };
 }
 
+// a tab of a build from before moves sends no `replaying` and no `moving`
 function readRecovering(value: unknown): NonNullable<DocMeta["recovering"]> {
   const fields = readFields(value);
   return {
     versionId: readString(fields.versionId),
     heal: readBoolean(fields.heal),
+    replaying:
+      fields.replaying === undefined ? false : readBoolean(fields.replaying),
+  };
+}
+
+function readMoving(value: unknown): DocMeta["moving"] {
+  if (value === undefined || value === null) return null;
+  const fields = readFields(value);
+  return {
+    from: readNumber(fields.from),
+    to: readNumber(fields.to),
+    key: orNull(readString)(fields.key),
+    throughLocalSeq: readNumber(fields.throughLocalSeq),
   };
 }
 
@@ -187,6 +206,7 @@ function readMeta(value: unknown): DocMeta {
     recovering: orNull(readRecovering)(fields.recovering),
     lastDeviceVersionAt: readNumber(fields.lastDeviceVersionAt),
     lastSyncedAt: orNull(readNumber)(fields.lastSyncedAt),
+    moving: readMoving(fields.moving),
   };
 }
 
@@ -243,6 +263,7 @@ const BODIES = Object.freeze<Bodies>({
     t: "edit",
     docId: readString(f.docId),
     n: readNumber(f.n),
+    generation: readNumber(f.generation),
     update: readBytes(f.update),
     elements: listOf(readString)(f.elements),
   }),
@@ -272,12 +293,19 @@ const BODIES = Object.freeze<Bodies>({
   replace: (f) => ({
     t: "replace",
     docId: readString(f.docId),
+    generation: readNumber(f.generation),
     state: readBytes(f.state),
   }),
   aw: (f) => ({
     t: "aw",
     docId: readString(f.docId),
     update: readBytes(f.update),
+  }),
+  opened: (f) => ({
+    t: "opened",
+    docId: readString(f.docId),
+    generation: readNumber(f.generation),
+    clientId: readNumber(f.clientId),
   }),
 });
 

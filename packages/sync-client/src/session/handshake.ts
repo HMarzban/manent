@@ -193,7 +193,7 @@ class Exchange implements Handshake {
         return;
       case "GENERATION_MOVED":
         this.end();
-        this.host.ended({ type: "moved" });
+        this.host.ended({ type: "moved", newGeneration: m.newGeneration });
         return;
       case "AWARENESS":
         this.host.awareness(m.update);

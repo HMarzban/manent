@@ -19,7 +19,7 @@ import type {
   SideState,
   SyncClientPorts,
 } from "../ports/ports.ts";
-import { rejectedItems } from "../recovery/recover.ts";
+import { differingText } from "../recovery/recover.ts";
 import type { DocEvent, DocHandle } from "../session/doc-handle.ts";
 import { elementsOf } from "../session/edits.ts";
 import type { UnsavedEdit } from "../session/edits.ts";
@@ -64,6 +64,7 @@ function isFields(value: unknown): value is Fields {
 function readEvent(value: unknown): DocEvent | null {
   if (!isFields(value)) return null;
   const { code, replayed, setAside, sent, key, message } = value;
+  const { applied, overlaps, versionId } = value;
   switch (value.type) {
     case "rejected":
       return typeof code === "number" &&
@@ -79,10 +80,22 @@ function readEvent(value: unknown): DocEvent | null {
       return typeof sent === "number" && typeof setAside === "number"
         ? { type: "receipt", sent, setAside }
         : null;
+    case "rebuilt":
+      return typeof applied === "number" &&
+        typeof overlaps === "number" &&
+        typeof setAside === "number"
+        ? { type: "rebuilt", applied, overlaps, setAside }
+        : null;
+    case "past_window":
+      return typeof versionId === "string"
+        ? { type: "past_window", versionId }
+        : null;
     default:
       return null;
   }
 }
+
+type Unsaved = UnsavedEdit & { generation: number };
 
 interface FollowerOptions {
   docId: string;
@@ -101,7 +114,10 @@ class TabFollower implements Follower {
   readonly handle: DocHandle;
   readonly loaded: Promise<void>;
   private doc: CrdtDoc;
-  private readonly unsaved = new Map<number, UnsavedEdit>();
+  /** The generation of the document this tab holds, as the leader names it. */
+  private generation = 0;
+  /** Each unsaved edit under its `n`, with the generation of the document it was made in. */
+  private readonly unsaved = new Map<number, Unsaved>();
   private refused = false;
   private leaderStatus: DocStatus = OFFLINE;
   private recovered: RecoveredItem[] = [];
@@ -125,7 +141,7 @@ class TabFollower implements Follower {
     this.options = options;
     this.doc = options.doc;
     for (const edit of options.unsaved)
-      this.unsaved.set(options.nextEdit(), edit);
+      this.unsaved.set(options.nextEdit(), { ...edit, generation: 0 });
     this.loaded = new Promise((resolve) => {
       this.markLoaded = resolve;
     });
@@ -149,6 +165,7 @@ class TabFollower implements Follower {
   receive(body: TabBody): void {
     switch (body.t) {
       case "state":
+        this.generation = body.meta.generation;
         this.doc.applyUpdate(body.state, ORIGIN_LOAD);
         this.markLoaded();
         this.show();
@@ -175,7 +192,8 @@ class TabFollower implements Follower {
         this.fileLeaders(body.items);
         return;
       case "replace":
-        this.replace(body.state);
+        if (body.generation === this.generation) this.replace(body.state);
+        else this.moved(body.state, body.generation);
         return;
       case "aw":
         for (const listener of this.awarenessListeners) listener(body.update);
@@ -185,6 +203,7 @@ class TabFollower implements Follower {
       case "open":
       case "close":
       case "edit":
+      case "opened":
         return;
       default:
         body satisfies never;
@@ -225,14 +244,39 @@ class TabFollower implements Follower {
 
   private edited(edit: UnsavedEdit): void {
     const n = this.options.nextEdit();
-    this.unsaved.set(n, edit);
+    const { generation } = this;
+    this.unsaved.set(n, { ...edit, generation });
     const { docId } = this.options;
-    this.options.post({ t: "edit", docId, n, ...edit });
+    this.options.post({ t: "edit", docId, n, generation, ...edit });
     this.show();
   }
 
   /** A recovery replaced the leader's document: this tab loads it under a client ID of its own, never the old one. */
   private replace(state: Uint8Array): void {
+    const previous = this.load(state);
+    this.fileUnsaved(previous);
+    this.unsaved.clear();
+    this.announce();
+    this.show();
+    this.emit({ type: "replaced", reason: "rejected" });
+  }
+
+  /**
+   * A move replaced the leader's document. The edits this tab made in the old
+   * one are the leader's to carry over, so they wait for `saved` as before.
+   */
+  private moved(state: Uint8Array, generation: number): void {
+    this.load(state);
+    this.generation = generation;
+    const { docId } = this.options;
+    const { clientId } = this.doc;
+    this.options.post({ t: "opened", docId, generation, clientId });
+    this.show();
+    this.emit({ type: "replaced", reason: "generation" });
+  }
+
+  /** The leader's document, bound in place of this tab's under a client ID of its own; returns the one it replaced. */
+  private load(state: Uint8Array): CrdtDoc {
     let clientId = this.options.ports.random.clientId();
     while (clientId === this.doc.clientId)
       clientId = this.options.ports.random.clientId();
@@ -240,11 +284,7 @@ class TabFollower implements Follower {
     const previous = this.doc;
     this.doc = loadDoc(state, { clientId });
     this.coalescer = this.bind(this.doc);
-    this.fileUnsaved(previous);
-    this.unsaved.clear();
-    this.announce();
-    this.show();
-    this.emit({ type: "replaced", reason: "rejected" });
+    return previous;
   }
 
   /**
@@ -259,14 +299,14 @@ class TabFollower implements Follower {
     if (touched.size === 0) return;
     const { docId, ports } = this.options;
     const theirs = scriptBody(this.doc).materialize();
-    const items = rejectedItems({
+    const mine = scriptBody(previous).materialize();
+    const found = differingText(mine, theirs, (id) => touched.has(id));
+    const items = found.map((leftover) => ({
+      id: ports.random.bytes(16).toHex(),
       docId,
-      base: theirs,
-      mine: scriptBody(previous).materialize(),
-      theirs,
+      ...leftover,
       recoveredAt: ports.clock.now(),
-      newId: () => ports.random.bytes(16).toHex(),
-    }).filter((item) => item.blockId !== null && touched.has(item.blockId));
+    }));
     for (const item of items) this.filedHere.add(item.id);
     this.setRecovered([...this.recovered, ...items]);
   }

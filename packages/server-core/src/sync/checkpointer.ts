@@ -1,6 +1,6 @@
 // Checkpoints: the state of a document at a sequence, built through a document from the log, on
 // the calling thread for tests or on one long-lived worker thread for the server.
-import { ORIGIN_LOAD, createDoc, loadDoc } from "@manent/crdt";
+import { ORIGIN_LOAD, createDoc, loadDoc, measureDoc } from "@manent/crdt";
 import type { Home, Storage } from "@manent/storage";
 import type { Checkpointer } from "./ports.ts";
 
@@ -11,8 +11,8 @@ interface Job {
 
 /**
  * Builds the document from its newest valid checkpoint and the tail after it, and stores its state
- * at the last sequence read. Null when nothing is new, or when a row does not verify: the row is
- * left for the serving thread to quarantine on its next load.
+ * and its measure at the last sequence read. Null when nothing is new, or when a row does not
+ * verify: the row is left for the serving thread to quarantine on its next load.
  */
 export function runCheckpointJob(
   storage: Storage,
@@ -33,6 +33,8 @@ export function runCheckpointJob(
   const doc = checkpoint === null ? createDoc() : loadDoc(checkpoint.state);
   for (const { update } of tail.rows) doc.applyUpdate(update, ORIGIN_LOAD);
   file.checkpoints.put(job.docId, row.generation, last.seq, doc.encodeState());
+  const measure = { seq: last.seq, ...measureDoc(doc) };
+  file.measures.put(job.docId, row.generation, measure);
   doc.destroy();
   return { seq: last.seq };
 }
