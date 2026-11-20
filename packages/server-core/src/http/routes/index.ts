@@ -4,6 +4,7 @@ import { AUTH_ROUTES } from "./auth.ts";
 import { DEMO_ROUTES } from "./demo.ts";
 import { docsRoutes } from "./docs.ts";
 import { HEALTH_ROUTES } from "./health.ts";
+import { replayRoutes } from "./replay.ts";
 import { SOCKET_ROUTES } from "./socket.ts";
 
 export const ROUTES: readonly Route[] = [
@@ -11,5 +12,6 @@ export const ROUTES: readonly Route[] = [
   ...DEMO_ROUTES,
   ...docsRoutes,
   ...HEALTH_ROUTES,
+  ...replayRoutes,
   ...SOCKET_ROUTES,
 ];

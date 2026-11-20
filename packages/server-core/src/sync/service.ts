@@ -7,6 +7,8 @@ import type { TokenBucket } from "../limits/bucket.ts";
 import { createConnectionCaps } from "../limits/caps.ts";
 import { createRebuilder, createSubscriptions } from "../rebuild/rebuilder.ts";
 import type { PeerState, RebuildStats } from "../rebuild/rebuilder.ts";
+import { createReplay } from "../rebuild/replay.ts";
+import type { ReplayOutcome } from "../rebuild/replay.ts";
 import { createDocumentAccess } from "./access.ts";
 import { createAwarenessHub } from "./awareness.ts";
 import type { DocumentAccess } from "./access.ts";
@@ -74,6 +76,8 @@ export interface SyncService {
   restored(): void;
   /** Rebuilds the document at its room's next quiet moment, whatever its measure. */
   requestRebuild(docId: string): void;
+  /** POST /api/docs/replay: `body` is the route's JSON, not yet checked. */
+  replay(userId: string, body: unknown): Promise<ReplayOutcome>;
   stats(): ServiceStats;
   shutdown(): Promise<void>;
 }
@@ -223,6 +227,7 @@ export function createSyncService(
     endAll,
     poisoned: poison,
   });
+  const replay = createReplay({ ...options, access, rooms, writePath, limits });
 
   function subscribe(
     peer: Peer,
@@ -360,6 +365,7 @@ export function createSyncService(
     },
     restored: () => heal.restored(),
     requestRebuild: (docId) => rebuilder.request(docId),
+    replay,
     stats() {
       const { acks, relayedSets, ...counts } = counted;
       const { rooms: open, loaded } = rooms.stats();

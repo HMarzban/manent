@@ -18,6 +18,7 @@ import { createSyncService } from "../sync/service.ts";
 import type { SyncService, SyncSettings } from "../sync/service.ts";
 import { failure } from "./respond.ts";
 import { hearRemovals } from "./routes/docs.ts";
+import { hearReplays } from "./routes/replay.ts";
 import { ROUTES } from "./routes/index.ts";
 import { serveStatic } from "./static.ts";
 
@@ -88,6 +89,7 @@ export function createServer(config: ServerConfig): ManentServer {
           limits: { ...DEFAULT_LIMITS, ...settings.limits },
         };
   if (sync !== null) hearRemovals(config, sync.service);
+  if (sync !== null) hearReplays(config, sync.service);
 
   return {
     sync: sync?.service ?? null,
