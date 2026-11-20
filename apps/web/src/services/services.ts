@@ -1,11 +1,6 @@
 // One person's services in this tab, composed once: each port's implementation is picked on one line, until sync and the editor supply their own.
 import { COMMANDS, isChord, resolveBindings } from "@manent/commands";
-import type {
-  CommandService,
-  CustomBinding,
-  Keys,
-  Resolved,
-} from "@manent/commands";
+import type { CustomBinding, Keys, Resolved } from "@manent/commands";
 import {
   SECTION_IDS,
   SETTINGS,
@@ -14,13 +9,10 @@ import {
   latestEntries,
 } from "@manent/settings";
 import type { Bag, KeyValueMap, SettingsStore } from "@manent/settings";
-import { createKeyResolver, createMessageQueue, createValue } from "@manent/ui";
-import type { MessageQueue, StatusFacts, Subscribable } from "@manent/ui";
+import { createMessageQueue, createValue } from "@manent/ui";
+import type { MessageQueue, Subscribable } from "@manent/ui";
 import { createEditorControl } from "../editor-host/control.ts";
-import type { OpenEditor } from "../editor-host/editor-mount.ts";
 import { createLazyMount } from "../editor-host/lazy-mount.ts";
-import type { EditorMount } from "../editor-host/mount.ts";
-import { createEditorKeyRun } from "../handlers/editor.ts";
 import { deviceName } from "../platform.ts";
 import type { Where } from "../platform.ts";
 import type { TabPerson } from "../session.ts";
@@ -35,8 +27,6 @@ import { createCommands } from "./person-commands.ts";
 import type { CommandsOptions } from "./person-commands.ts";
 import type {
   DocumentSource,
-  EditorParts,
-  Environment,
   FixedKey,
   PersonServices,
   Reverses,
@@ -245,83 +235,6 @@ function createStores(
       },
     }),
   };
-}
-
-/** The editor's modules, and the schema with ProseMirror's model, which stay out of the entry; the hooks in the test build. */
-const loadEditorModules = (flavour: Options["flavour"]) =>
-  Promise.all([
-    import("../editor-host/editor-mount.ts"),
-    import("../editor-host/editor-sessions.ts"),
-    import("@manent/schema"),
-    flavour === "test" ? import("../editor-host/test-hooks.ts") : null,
-  ]);
-
-/** The editor's keys: a chord is looked up in the person's editor table and runs its command. */
-function editorKeys(
-  commands: CommandService,
-  messages: MessageQueue,
-  resolved: Subscribable<Resolved>,
-) {
-  return {
-    resolve: createKeyResolver({ table: () => resolved.get().editorTable }),
-    run: createEditorKeyRun({
-      commands,
-      messages,
-      labelOf: (id) => commands.state(id).label,
-    }),
-  };
-}
-
-/**
- * The page's editor, from modules loaded apart from the entry; `fixedKeys` gets the editor's keys once they have
- * loaded. In the test build the editor's hooks are installed on the page's `__manent`.
- */
-export async function loadEditor(
-  environment: Environment,
-  parts: EditorParts,
-): Promise<EditorMount> {
-  const timers = { now: environment.now, schedule: environment.schedule };
-  const frames = { request: environment.frame };
-  const [mounts, { createLocalSessions }, { randomBlockId }, hooks] =
-    await loadEditorModules(environment.flavour);
-  parts.fixedKeys.set(mounts.EDITOR_FIXED_KEYS);
-  const sessions = createLocalSessions({
-    frames,
-    clock: timers,
-    ids: randomBlockId,
-  });
-  const access = new Map<string, StatusFacts["access"]>();
-  let current: OpenEditor | null = null;
-  const target: unknown = Reflect.get(globalThis, "__manent");
-  if (hooks !== null && typeof target === "object" && target !== null)
-    hooks.installEditorHooks(target, {
-      services: parts.services(),
-      navigate: parts.navigate,
-      current: () => current,
-      sessions,
-      access,
-    });
-  return mounts.createEditorMount({
-    sessions,
-    services:
-      hooks === null
-        ? parts.services
-        : () => hooks.withRecordedAccess(parts.services(), access),
-    control: parts.control,
-    keys: editorKeys(parts.commands, parts.messages, parts.resolved),
-    ports: mounts.browserPagePorts(environment.userAgent),
-    frames,
-    timers,
-    platform: environment.where.platform,
-    ids: randomBlockId,
-    random: environment.randomId,
-    observe:
-      hooks === null
-        ? undefined
-        : (open) => {
-            current = open;
-          },
-  });
 }
 
 /** `person`'s services over `storage`; `dispose` stops listening to other tabs and drops every open document's store. */
