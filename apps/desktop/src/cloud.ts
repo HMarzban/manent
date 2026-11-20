@@ -1,5 +1,5 @@
 // The installed demo's own server: the web server's entry run as a child process on a free loopback port.
-import { cp } from "node:fs/promises";
+import { cp, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 /** Each start takes a newly chosen free port. */
@@ -30,6 +30,13 @@ interface EmbeddedCloudOptions {
   fetch: typeof fetch;
 }
 
+/** The app's environment without its `MANENT_*` keys: the embedded cloud is configured by its four alone. */
+function systemEnv(): Record<string, string | undefined> {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith("MANENT_")),
+  );
+}
+
 type Attempt =
   { type: "ready"; cloud: CloudProcess } | { type: "exited"; code: number };
 
@@ -56,7 +63,7 @@ async function attempt(
   const url = `http://127.0.0.1:${port}`;
   const child = Bun.spawn(cloudCommand(options.execPath, options.entry), {
     env: {
-      ...process.env,
+      ...systemEnv(),
       MANENT_DEMO: "1",
       MANENT_PORT: String(port),
       MANENT_DATA_DIR: options.dataDir,
@@ -94,6 +101,19 @@ async function attempt(
 }
 
 /**
+ * Copies beside `dataDir` and renames the copy into place, so `dataDir` holds a whole seed or
+ * nothing; what an interrupted copy left is removed first. A `dataDir` without `data/seed.json`
+ * has never been served, so nothing in it is lost.
+ */
+async function copySeed(seedDir: string, dataDir: string): Promise<void> {
+  const partial = `${dataDir}.partial`;
+  await rm(partial, { recursive: true, force: true });
+  await cp(seedDir, partial, { recursive: true });
+  await rm(dataDir, { recursive: true, force: true });
+  await rename(partial, dataDir);
+}
+
+/**
  * Copies `seedDir` into `dataDir` when `dataDir` has no `data/seed.json`, then runs the server
  * there and resolves once `/health` answers. A server that exits before it answers (its port
  * was taken in between) is started again on another port, up to three times; the rejection
@@ -104,7 +124,7 @@ export async function startEmbeddedCloud(
 ): Promise<CloudProcess> {
   const { dataDir, seedDir } = options;
   if (!(await Bun.file(join(dataDir, "data", "seed.json")).exists()))
-    await cp(seedDir, dataDir, { recursive: true });
+    await copySeed(seedDir, dataDir);
   const deadlineAt = Date.now() + CLOUD_START_LIMIT_MS;
   let code = 0;
   for (let tried = 0; tried < CLOUD_START_ATTEMPTS; tried += 1) {

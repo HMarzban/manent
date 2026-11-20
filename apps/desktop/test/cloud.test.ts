@@ -1,7 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { cloudCommand, startEmbeddedCloud } from "../src/cloud.ts";
 
 const SERVER_MAIN = join(import.meta.dir, "../../server/src/main.ts");
@@ -149,6 +149,60 @@ test(
     } finally {
       holder.stop(true);
     }
+  },
+  TIMEOUT,
+);
+
+test(
+  "the embedded cloud takes none of the app's own Manent settings",
+  async () => {
+    const before = process.env.MANENT_LAN_HOST;
+    process.env.MANENT_LAN_HOST = "not an address";
+    try {
+      const cloud = await startEmbeddedCloud({
+        execPath: process.execPath,
+        entry: SERVER_MAIN,
+        dataDir: await tree({}),
+        webDir: await tree({}),
+        seedDir: await tree(seed(SEED_ID)),
+        freePort,
+        fetch,
+      });
+      expect(await demoBody(cloud.url)).toMatchObject({ seedId: SEED_ID });
+      await cloud.stop();
+    } finally {
+      if (before === undefined) delete process.env.MANENT_LAN_HOST;
+      else process.env.MANENT_LAN_HOST = before;
+    }
+  },
+  TIMEOUT,
+);
+
+test(
+  "a seed copy cut short is never taken for a finished one",
+  async () => {
+    const dataDir = join(await tree({}), "cloud");
+    // what a launch killed mid-copy leaves: the marker without the rest
+    await mkdir(join(`${dataDir}.partial`, "data"), { recursive: true });
+    await writeFile(
+      join(`${dataDir}.partial`, "data", "seed.json"),
+      JSON.stringify({ seedId: "0193b1f4-2c1e-7a00-8000-0000000000e2" }),
+    );
+    const cloud = await startEmbeddedCloud({
+      execPath: process.execPath,
+      entry: SERVER_MAIN,
+      dataDir,
+      webDir: await tree({}),
+      seedDir: await tree({ ...seed(SEED_ID), "data/beside.txt": "kept" }),
+      freePort,
+      fetch,
+    });
+    expect(await demoBody(cloud.url)).toMatchObject({ seedId: SEED_ID });
+    await cloud.stop();
+    expect(await readdir(dirname(dataDir))).toEqual(["cloud"]);
+    expect(await Bun.file(join(dataDir, "data", "beside.txt")).text()).toBe(
+      "kept",
+    );
   },
   TIMEOUT,
 );
