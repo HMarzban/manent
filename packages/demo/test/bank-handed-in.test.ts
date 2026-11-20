@@ -26,6 +26,9 @@ test("the bank holds three hundred lines, forty tags and five parts an episode",
   expect(HANDED_IN_GUIDE.beats.length).toBe(20);
   expect(HANDED_IN_GUIDE.stories.length).toBe(4);
   expect(HANDED_IN_GUIDE.barks.length).toBe(0);
+  expect(HANDED_IN_GUIDE.places.length).toBe(11);
+  expect(HANDED_IN_GUIDE.names.length).toBe(4);
+  expect(HANDED_IN_GUIDE.vocabulary.length).toBe(14);
 });
 
 test("every question has an answer to meet it, and a quarter of the lines suit anyone", () => {
