@@ -226,7 +226,7 @@ export const KEEPER_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
       places: ["EXT. FOUNDING ROAD", "INT. ROADSIDE FORGE"],
       cast: ["TAMSIN", "JOSS", "HILD"],
       summary:
-        "A cold forge where the road crosses a stream, and Hild, who left the Founding when its pit went cold. She hears the tongue and draws a bell in chalk on the floor.",
+        "A cold forge where the road crosses a stream, and Hild, whose grandmother poured the last bell at the Founding. She hears the tongue and draws a bell in chalk on the floor.",
     },
     {
       id: "heavy/h06/script#6",
@@ -1503,7 +1503,7 @@ export const KEEPER_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: "ANSEL",
       intent: "state",
-      text: "The last Provost rang the great bell of Carrow herself, every New Year.",
+      text: "The old books say each Provost rang the great bell of Carrow by hand, every New Year.",
     },
     {
       speaker: "VANE",
@@ -1643,7 +1643,7 @@ export const KEEPER_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: "HILD",
       intent: "answer",
-      text: "I left the Founding when they let the pit go cold. I wasn't going to watch it.",
+      text: "My grandmother poured the last bell at the Founding. I grew up on her stories of the pit.",
     },
     {
       speaker: "HILD",
@@ -1708,7 +1708,7 @@ export const KEEPER_GUIDE: StyleGuide = Object.freeze<StyleGuide>({
     {
       speaker: "HILD",
       intent: "state",
-      text: "I cast the yoke pins for the Carrow tower when I was your age.",
+      text: "I cast the yoke pins for the wayside belfry when I was your age.",
     },
     {
       speaker: "HILD",
