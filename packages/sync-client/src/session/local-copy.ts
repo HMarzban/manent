@@ -26,13 +26,13 @@ import { textLeftover, withFiled } from "../recovery/recover.ts";
 import type { Leftover } from "../recovery/recover.ts";
 import { deviceVersion } from "../recovery/versions.ts";
 import { OverlapWindow } from "../review/online.ts";
-import { changedByStepTwo } from "../review/overlaps.ts";
 import type { ViewHandle } from "../view/view.ts";
 import type { DocEvent, DocHandle } from "./doc-handle.ts";
 import { elementsOf } from "./edits.ts";
 import type { UnsavedEdit } from "./edits.ts";
 import type { Journal } from "./journal.ts";
 import { createSettingsOverlay } from "./settings.ts";
+import { StepTwo } from "./step-two.ts";
 
 type ReplacedReason = Extract<DocEvent, { type: "replaced" }>["reason"];
 
@@ -105,12 +105,20 @@ class BoundCopy implements LocalCopy {
   recovered: RecoveredItem[] = [];
   private coalescer: Coalescer;
   private unobserve: () => void = () => {};
-  private holding = 0;
-  /** Step 2s that arrived while remote updates were held, in order. */
-  private heldSteps: { update: Uint8Array; overlaps: Leftover[] }[] = [];
-  private remoteChanged = false;
   /** The local sequence of the newest server update stored. */
   private storedThrough = 0;
+  private readonly steps = new StepTwo({
+    doc: () => this.doc,
+    coalescer: () => this.coalescer,
+    applyServer: (update) => this.applyServer(update),
+    items: (leftovers) => this.items(leftovers),
+    dropOnline: () => this.window.take(),
+    store: (update, items) => {
+      const localSeq = this.options.journal.appendServer(update, true);
+      this.storedThrough = localSeq;
+      this.appliedTo(localSeq, items);
+    },
+  });
   private readonly overlay = createSettingsOverlay(() => this.doc);
   private readonly recoveredView = createSubscribable<readonly RecoveredItem[]>(
     [],
@@ -163,16 +171,12 @@ class BoundCopy implements LocalCopy {
   }
 
   merge(update: Uint8Array, overlaps: Leftover[]): void {
-    if (this.holding > 0) this.heldSteps.push({ update, overlaps });
-    else this.mergeNow(update, overlaps);
+    this.steps.merge(update, overlaps);
   }
 
   mine(): DocJSON {
     // this document is replaced next, so a hold protects nothing in it
-    for (let i = 0; i < this.holding; i++) this.coalescer.release();
-    this.coalescer.flushNow();
-    this.mergeHeld();
-    for (let i = 0; i < this.holding; i++) this.coalescer.hold();
+    this.steps.flushAll();
     return scriptBody(this.doc).materialize();
   }
 
@@ -253,7 +257,7 @@ class BoundCopy implements LocalCopy {
     return {
       docId: this.options.docId,
       doc: () => {
-        if (this.holding === 0) this.options.idle();
+        if (!this.steps.held) this.options.idle();
         return this.doc;
       },
       status: parts.status,
@@ -266,16 +270,9 @@ class BoundCopy implements LocalCopy {
         return () => this.listeners.delete(listener);
       },
       setSetting: (key, value) => this.setSetting(key, value),
-      holdRemote: () => {
-        this.coalescer.hold();
-        this.holding += 1;
-      },
+      holdRemote: () => this.steps.hold(),
       releaseRemote: () => {
-        this.coalescer.release();
-        this.holding -= 1;
-        if (this.holding > 0) return;
-        this.mergeHeld();
-        this.options.idle();
+        if (this.steps.release()) this.options.idle();
       },
       sendAwareness: parts.sendAwareness,
       onAwareness: (listener) => {
@@ -307,27 +304,8 @@ class BoundCopy implements LocalCopy {
       frames,
       clock,
     });
-    for (let i = 0; i < this.holding; i++) coalescer.hold();
+    this.steps.holdAll(coalescer);
     return coalescer;
-  }
-
-  /** Step 2 is applied on its own, after what is buffered: merged with them, its delete set, which holds what went with a deleted parent, would hide what they set aside. */
-  private mergeNow(update: Uint8Array, overlaps: Leftover[]): void {
-    this.coalescer.flushNow();
-    this.remoteChanged = false;
-    const changed = changedByStepTwo(this.doc, overlaps);
-    const items = [...this.applyServer(update), ...this.items(changed())];
-    // a reconnect's overlaps are found against the synced base, not the window
-    this.window.take();
-    if (!this.remoteChanged) return;
-    const localSeq = this.options.journal.appendServer(update, true);
-    this.storedThrough = localSeq;
-    this.appliedTo(localSeq, items);
-  }
-
-  private mergeHeld(): void {
-    for (const { update, overlaps } of this.heldSteps.splice(0))
-      this.mergeNow(update, overlaps);
   }
 
   /** A change made here, or the formatting Yjs tidies after a remote one: an own entry. */
@@ -335,7 +313,7 @@ class BoundCopy implements LocalCopy {
     if (report.origin === ORIGIN_LOAD) return;
     const { journal } = this.options;
     if (report.origin === ORIGIN_REMOTE) {
-      this.remoteChanged = true;
+      this.steps.remote();
       this.window.remote(report, new Set(journal.meta.clientIds));
       return;
     }
