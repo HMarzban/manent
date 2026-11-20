@@ -145,8 +145,13 @@ function ShellPage(props: {
     }),
     [writers, services, docId, guard],
   );
+  // covered, the page is inert, and a region that scrolls with nothing a key can reach is out of the keyboard's reach;
+  // hidden, unlike clip, keeps the scroll offset for the way back
   return (
-    <ShellRegion region="page" className="min-h-0 overflow-auto">
+    <ShellRegion
+      region="page"
+      className={covered ? "min-h-0 overflow-hidden" : "min-h-0 overflow-auto"}
+    >
       <EditorHost
         docId={docId}
         covered={covered}

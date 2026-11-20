@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { pressKeyOf } from "../support/interface.ts";
 import { signedInAs } from "../support/tour.ts";
 
 const tourTab = (page: Page) =>
@@ -40,7 +41,7 @@ test("two tabs as Sam share the theme, and a tab as Dana keeps hers", async ({
   const sam = await context.newPage();
   await signedInAs(sam, "sam");
   await expect(sam.getByRole("heading", { name: "Library" })).toBeFocused();
-  await sam.keyboard.press("ControlOrMeta+K");
+  await pressKeyOf(sam, "app.palette");
   await sam.keyboard.type("Theme: Dark");
   await sam.keyboard.press("Enter");
   await expect.poll(() => theme(sam)).toBe("dark");

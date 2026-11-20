@@ -122,6 +122,7 @@ const arbScriptAndEditAbove: fc.Arbitrary<EditAbove> = fc
     };
   });
 
+// each of the 200 runs paginates a script of up to 400 blocks from scratch, which takes seconds on a slow machine
 test("an edit above the anchor moves it by exactly the height it added", () => {
   fc.assert(
     fc.property(
@@ -136,7 +137,7 @@ test("an edit above the anchor moves it by exactly the height it added", () => {
     ),
     { numRuns: 200 },
   );
-});
+}, 20_000);
 
 test("an edit at or below the anchor moves nothing", () => {
   const blocks = layoutBlocksOf(generateBlocks("screenplay", 200, 3));

@@ -1,6 +1,7 @@
 import { SECTION_IDS } from "@manent/settings";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { pressKeyOf } from "../support/interface.ts";
 import { signedInAs } from "../support/tour.ts";
 
 /** Whether anything on the page, or the page itself, is wider than the box that holds it. */
@@ -24,7 +25,7 @@ test("⌘, d a r k ↓ → changes the theme without the pointer", async ({
   await expect(page.getByRole("heading", { name: "Library" })).toBeFocused();
   const theme = () => page.locator("html").getAttribute("data-theme");
   const before = await theme();
-  await page.keyboard.press("ControlOrMeta+Comma");
+  await pressKeyOf(page, "app.preferences");
   await expect(page.getByRole("searchbox", { name: "Search…" })).toBeFocused();
   await page.keyboard.type("dark");
   await expect(page.getByText("2 preferences")).toBeVisible();
@@ -38,7 +39,7 @@ test("Preferences opens on the last pane, each pane has an address, and ⌘, goe
 }) => {
   await signedInAs(page, "leo");
   await expect(page.getByRole("heading", { name: "Library" })).toBeFocused();
-  await page.keyboard.press("ControlOrMeta+Comma");
+  await pressKeyOf(page, "app.preferences");
   await expect(page).toHaveURL(/\/preferences\/writing\?from=%2F$/);
   await expect(page).toHaveTitle(
     "Preferences — Writing — Leo Marsh — Manent demo",
@@ -48,10 +49,10 @@ test("Preferences opens on the last pane, each pane has an address, and ⌘, goe
   await expect(
     page.getByRole("heading", { name: "Keyboard", level: 2 }),
   ).toBeVisible();
-  await page.keyboard.press("ControlOrMeta+Comma");
+  await pressKeyOf(page, "app.preferences");
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
-  await page.keyboard.press("ControlOrMeta+Comma");
+  await pressKeyOf(page, "app.preferences");
   await expect(page).toHaveURL(/\/preferences\/keyboard\?from=%2F$/);
   await page.goto("/preferences/appearance");
   await expect(
