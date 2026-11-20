@@ -43,57 +43,39 @@ interface KeptPlace {
 
 const DOC_PREFIX = "doc:";
 
+// an array lacks every field the shapes below need, so each check refuses it
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null;
+
 const isBlockPlace = (value: unknown): value is BlockPlace =>
-  typeof value === "object" &&
-  value !== null &&
-  "blockId" in value &&
+  isRecord(value) &&
   typeof value.blockId === "string" &&
-  "offset" in value &&
   typeof value.offset === "number" &&
   Number.isInteger(value.offset) &&
   value.offset >= 0;
 
-function isSavedPlace(value: unknown): value is SavedPlace {
-  if (typeof value !== "object" || value === null) return false;
-  if (!("anchor" in value && "head" in value && "top" in value)) return false;
-  const { top } = value;
-  return (
-    isBlockPlace(value.anchor) &&
-    isBlockPlace(value.head) &&
-    typeof top === "object" &&
-    top !== null &&
-    "blockId" in top &&
-    typeof top.blockId === "string" &&
-    "offsetPx" in top &&
-    Number.isFinite(top.offsetPx)
-  );
-}
+const isSavedPlace = (value: unknown): value is SavedPlace =>
+  isRecord(value) &&
+  isBlockPlace(value.anchor) &&
+  isBlockPlace(value.head) &&
+  isRecord(value.top) &&
+  typeof value.top.blockId === "string" &&
+  Number.isFinite(value.top.offsetPx);
 
 const isKeptPlace = (value: unknown): value is KeptPlace =>
-  typeof value === "object" &&
-  value !== null &&
-  "place" in value &&
-  isSavedPlace(value.place) &&
-  "at" in value &&
-  Number.isFinite(value.at);
+  isRecord(value) && isSavedPlace(value.place) && Number.isFinite(value.at);
 
 const isPanel = <T extends string>(
   tabs: readonly T[],
   value: unknown,
 ): value is { tab: T | null; widthPx: number } =>
-  typeof value === "object" &&
-  value !== null &&
-  "tab" in value &&
+  isRecord(value) &&
   (value.tab === null || tabs.some((tab) => tab === value.tab)) &&
-  "widthPx" in value &&
   Number.isFinite(value.widthPx);
 
 const isPanelsState = (value: unknown): value is PanelsState =>
-  typeof value === "object" &&
-  value !== null &&
-  "left" in value &&
+  isRecord(value) &&
   isPanel(LEFT_TABS, value.left) &&
-  "side" in value &&
   isPanel(SIDE_TABS, value.side);
 
 // a percent from the editor's ZOOM_MIN to its ZOOM_MAX, which the presets begin and end at
@@ -149,7 +131,7 @@ export function createPlaceStore(options: {
 }
 
 /** Runs `save` each time the page is hidden (another tab, a minimised window) and when it is left or reloaded; returns the disposer. */
-function whenPageLeaves(save: () => void): () => void {
+export function whenPageLeaves(save: () => void): () => void {
   const onVisibility = (): void => {
     if (document.visibilityState === "hidden") save();
   };
@@ -159,38 +141,6 @@ function whenPageLeaves(save: () => void): () => void {
   return () => {
     globalThis.removeEventListener("visibilitychange", onVisibility);
     globalThis.removeEventListener("pagehide", save);
-  };
-}
-
-/** What the mount keeps the place of: its open editor, whichever build that is. */
-interface Placed {
-  place(): SavedPlace | null;
-  restore(place: SavedPlace): void;
-}
-
-/**
- * Puts `editor()` at the place `store` holds for `docId`, then saves its place each time the page is hidden or left,
- * never on a keystroke. `save` saves it now and returns it (null when the editor has none); `stop` saves it and stops.
- */
-export function keepPlace(
-  store: PlaceStore,
-  docId: string,
-  editor: () => Placed,
-): { save(): SavedPlace | null; stop(): void } {
-  const saved = store.place(docId);
-  if (saved !== null) editor().restore(saved);
-  const save = (): SavedPlace | null => {
-    const place = editor().place();
-    if (place !== null) store.savePlace(docId, place);
-    return place;
-  };
-  const stopListening = whenPageLeaves(save);
-  return {
-    save,
-    stop() {
-      save();
-      stopListening();
-    },
   };
 }
 

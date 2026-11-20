@@ -32,7 +32,7 @@ function at(
   place: RoutePlace,
   screen: ShellState["screen"],
   focus: CommandContext["focus"],
-): { services: PersonServices; actions: string[]; visits: number[] } {
+): { services: PersonServices; actions: unknown[]; visits: number[] } {
   const visits: number[] = [];
   const environment = testEnvironment({
     dom: { ...QUIET_DOM, focusKind: () => focus },
@@ -55,7 +55,7 @@ function at(
     environment,
     router: createNavigation(place).navigation,
   });
-  const actions: string[] = [];
+  const actions: unknown[] = [];
   services.editor.attach({
     run(id) {
       actions.push(id);

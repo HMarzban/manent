@@ -17,6 +17,11 @@ export function usePaletteOpen(): PaletteFilter | null {
   return useSyncExternalStore(store.subscribe, read, read);
 }
 
+/** What code outside React reads of the palette. */
+export const selectors: { isOpen(): boolean } = Object.freeze({
+  isOpen: () => read() !== null,
+});
+
 export const paletteActions: {
   open(filter: PaletteFilter): void;
   close(): void;

@@ -1,14 +1,14 @@
 // The handlers of the editor's commands: a page command asks the open editor to run it and says why when it is refused;
 // a zoom command sets the zoom the open page follows.
 import { EDITOR_COMMANDS } from "@manent/commands";
-import type { CommandService, EditorCommandId } from "@manent/commands";
+import type { EditorCommandId } from "@manent/commands";
 import type { ActionResult, ZoomSetting } from "@manent/editor";
 import { EDITOR_WORDS, messageFor } from "@manent/ui";
 import type { MessageQueue } from "@manent/ui";
 import type { PageCommandId } from "../editor-host/command-actions.ts";
 import type { EditorControl } from "../editor-host/control.ts";
 import { zoomStep } from "../editor-host/zoom.ts";
-import { sendPath } from "../screens/send/forms.ts";
+import { sendPath } from "../screens/send/form-ids.ts";
 import { rulerActions } from "../state/ruler.store.ts";
 import { zoomActions } from "../state/zoom.store.ts";
 
@@ -21,7 +21,7 @@ const PAGE_COMMAND_IDS: readonly PageCommandId[] = EDITOR_COMMANDS.filter(
 ).map((c) => c.id);
 const PAGE_COMMANDS: ReadonlySet<string> = new Set(PAGE_COMMAND_IDS);
 
-const isPageCommand = (id: string): id is PageCommandId =>
+export const isPageCommand = (id: string): id is PageCommandId =>
   PAGE_COMMANDS.has(id);
 
 const hasEveryPage = (
@@ -110,29 +110,5 @@ export function createEditorHandlers(deps: {
     "view.zoom150": zoomTo(150),
     "view.zoom200": zoomTo(200),
     "view.zoom300": zoomTo(300),
-  };
-}
-
-/** The `run` of the page's command keymap: true when the key was used (the keymap then prevents the browser's default). */
-export function createEditorKeyRun(deps: {
-  commands: Pick<CommandService, "run">;
-  messages: MessageQueue;
-  labelOf: (id: string) => string;
-}): (id: string) => boolean {
-  const { commands, messages } = deps;
-  return (id) => {
-    const result = commands.run(id, "key");
-    // a disabled command has already said why
-    if (result === "ran" || result === "disabled") return true;
-    // a page command is absent only for someone who cannot edit, and its key still belongs to the page
-    if (result === "passed" || !isPageCommand(id)) return false;
-    messages.push(
-      messageFor({
-        kind: "command_unavailable",
-        label: deps.labelOf(id),
-        reason: EDITOR_WORDS.reasons.readOnly,
-      }),
-    );
-    return true;
   };
 }

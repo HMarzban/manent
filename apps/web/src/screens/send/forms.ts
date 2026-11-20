@@ -2,16 +2,10 @@
 import type { ComponentType } from "react";
 import { exportForm } from "../../send/export-form.tsx";
 import { printForm } from "../../send/print-form.tsx";
+import type { SendFormId } from "./form-ids.ts";
 
-/** In the order the Send screen offers them. */
-export const SEND_FORM_IDS = [
-  "export",
-  "print",
-  "send_draft",
-  "issue",
-  "recall",
-] as const;
-export type SendFormId = (typeof SEND_FORM_IDS)[number];
+// the ids and their addresses live apart, so that the entry, which needs them, does not load the forms
+export { SEND_FORM_IDS, sendPath } from "./form-ids.ts";
 
 export interface SendFormProps {
   readonly docId: string;
@@ -30,7 +24,3 @@ export const SEND_FORMS: readonly SendForm[] = [
   printForm,
   // issue and recall arrive with production revisions, send_draft later
 ];
-
-export function sendPath(docId: string, form: SendFormId): string {
-  return `/s/${docId}/send/${form}`;
-}
