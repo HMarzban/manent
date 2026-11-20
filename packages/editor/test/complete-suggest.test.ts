@@ -56,6 +56,7 @@ test("a cue completes from the scene first, then by use", () => {
     next: "close",
   });
   expect(suggest("character", "DANA", 2, names, [])).toBeNull(); // the caret is not at the end
+  expect(suggest("character", "Da", 1, names, [])).toBeNull();
 });
 
 test("a cue offers neither the name already typed nor anything before a letter", () => {
