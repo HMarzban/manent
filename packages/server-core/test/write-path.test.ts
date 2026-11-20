@@ -13,6 +13,7 @@ import {
   BLOCK,
   DOC,
   DOC2,
+  HOME,
   createTypist,
   placeScript,
   rawEdit,
@@ -377,6 +378,73 @@ test("when the commit fails the rooms are poisoned and nothing is acknowledged",
   expect(types(world)).toEqual(["poisoned"]);
   expect(dropped).toEqual([room]);
   expect(room.file.log.get(DOC)!.headSeq).toBe(0);
+});
+
+test("a replay commits its version, its update and its key together, and tells every editor", () => {
+  const KEY = "00112233445566778899aabbccddeeff";
+  const record = {
+    docId: DOC,
+    key: KEY,
+    userId: "sam",
+    fromGeneration: 1,
+    generation: 1,
+    result: "{}",
+    createdAt: 1_000,
+  };
+  const version = {
+    id: "version-1",
+    docId: DOC,
+    generation: 1,
+    seq: 0,
+    kind: "pre_merge" as const,
+    name: null,
+    createdByUserId: "sam",
+    createdAt: 1_000,
+    deviceId: null,
+  };
+  /** Writes BLOCK into the room's document as a replay does, and queues it. */
+  const replayInto = (world: WriteWorld, done: string[]): void => {
+    const { room } = world;
+    const made: Uint8Array[] = [];
+    const doc = room.doc!;
+    const stop = doc.subscribe((update) => made.push(update));
+    scriptBody(doc).write((w) =>
+      w.insertBlocks(null, [
+        { type: "block", attrs: { id: BLOCK, type: "action" }, content: [] },
+      ]),
+    );
+    stop();
+    const item = { userId: "sam", update: made[0]!, version, record };
+    world.path.replay(room, item, (result) =>
+      done.push(`${JSON.stringify(result)} after ${types(world).join(",")}`),
+    );
+  };
+
+  const world = createWorld();
+  const done: string[] = [];
+  replayInto(world, done);
+  world.clock.runDeferred();
+  expect(done).toEqual(['{"ok":true,"seq":1} after commit']);
+  expect(world.events).toEqual([
+    { type: "commit" },
+    { type: "publish", peer: null, seq: 1, echo: true },
+  ]);
+  const file = world.room.file;
+  expect(
+    file.log.tail(DOC, 1, 0).rows.map((r) => [r.seq, r.origin, r.userId]),
+  ).toEqual([[1, "replay", "sam"]]);
+  expect(file.versions.list(DOC)).toEqual([version]);
+  expect(file.replays.get(DOC, KEY)).toEqual({ ...record, seq: 1 });
+
+  const failing = createWorld();
+  const refused: string[] = [];
+  replayInto(failing, refused);
+  failing.storage.failNextCommit();
+  failing.clock.runDeferred();
+  expect(refused).toEqual(['{"ok":false} after poisoned']);
+  expect(failing.dropped).toEqual([failing.room]);
+  expect(failing.storage.open(HOME).replays.get(DOC, KEY)).toBeNull();
+  expect(failing.storage.open(HOME).versions.list(DOC)).toEqual([]);
 });
 
 test("killed at any step, nothing acknowledged is lost", () => {

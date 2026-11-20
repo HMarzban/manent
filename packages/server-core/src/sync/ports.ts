@@ -98,6 +98,19 @@ export interface SyncLimits {
   clientIdsPerSubscribe: number;
   poisonRetryMs: number;
   helloTimeoutMs: number;
+  /** The bytes trigger: live bytes over this many times the plain-text bytes. */
+  rebuildBytesRatio: number;
+  /** Below this many live bytes the bytes trigger never fires. */
+  rebuildMinBytes: number;
+  /** The client ids trigger: more than this many. */
+  rebuildClientIds: number;
+  /** The section trigger: a section of more than this many blocks. */
+  rebuildSectionBlocks: number;
+  /** A room is quiet this long after its last committed write or edit SUBSCRIBE. */
+  rebuildQuietMs: number;
+  /** How long a closed generation can still be replayed into. */
+  frozenKeepMs: number;
+  replayBodyBytes: number;
 }
 
 export const DEFAULT_LIMITS: SyncLimits = Object.freeze({
@@ -120,4 +133,11 @@ export const DEFAULT_LIMITS: SyncLimits = Object.freeze({
   clientIdsPerSubscribe: 256,
   poisonRetryMs: 1000,
   helloTimeoutMs: 10_000,
+  rebuildBytesRatio: 10,
+  rebuildMinBytes: 262_144,
+  rebuildClientIds: 10_000,
+  rebuildSectionBlocks: 400,
+  rebuildQuietMs: 10_000,
+  frozenKeepMs: 7_776_000_000,
+  replayBodyBytes: 64 * 1024 * 1024,
 });
