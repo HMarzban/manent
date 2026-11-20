@@ -306,3 +306,34 @@ test("moving the caret closes the picker", () => {
     layer.childElementCount,
   ]).toEqual([false, 0]);
 });
+
+test("a change from another writer leaves the picker open", () => {
+  const doc = schema.node(
+    "doc",
+    null,
+    schema.node("section", null, [
+      schema.node(
+        "block",
+        { id: "b000000000000000", type: "action" },
+        schema.text("Rain falls"),
+      ),
+      schema.node("block", { id: "b000000000000001", type: "action" }),
+    ]),
+  );
+  const { view, layer } = viewWith(
+    EditorState.create({ doc, selection: TextSelection.atEnd(doc) }),
+    "screenplay",
+  );
+  openPicker(view);
+  // a binding's remote change edits another block, then puts the caret back where it maps to
+  const tr = view.state.tr.insertText(" hard", 12);
+  tr.setSelection(
+    TextSelection.create(tr.doc, tr.mapping.map(view.state.selection.head)),
+  );
+  view.dispatch(tr);
+  expect([
+    pickerKey.getState(view.state)!.open,
+    layer.childElementCount,
+    view.state.doc.firstChild!.firstChild!.textContent,
+  ]).toEqual([true, 1, "Rain falls hard"]);
+});

@@ -187,8 +187,11 @@ export function pickerPlugin(options: PickerOptions): Plugin {
       init: () => CLOSED,
       apply: (tr, value, _before, state) => {
         const meta: PickerMeta | undefined = tr.getMeta(pickerKey);
+        // a remote change also sets the selection, to keep the caret in place, but it changes the doc
         if (meta === undefined)
-          return value.open && tr.selectionSet ? CLOSED : value;
+          return value.open && tr.selectionSet && !tr.docChanged
+            ? CLOSED
+            : value;
         switch (meta.type) {
           case "open":
             return {
