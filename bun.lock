@@ -80,6 +80,7 @@
         "@types/react-dom": "catalog:",
         "bun-plugin-tailwind": "catalog:",
         "fake-indexeddb": "catalog:",
+        "fast-check": "catalog:",
         "tailwindcss": "catalog:",
       },
     },
