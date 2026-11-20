@@ -71,6 +71,11 @@ const StandInScreen = lazyRouteComponent(
   loadScreen(() => import("./screens/states/stand-in-screen.tsx")),
   "StandInScreen",
 );
+// apart from the entry, whose size budget its stock button would break; loaded with the router, while the server still answers
+const ScreenProblem = lazyRouteComponent(
+  () => import("./shell/screen-problem.tsx"),
+  "ScreenProblem",
+);
 
 export function createAppRouter(deps: {
   api: Api;
@@ -78,6 +83,7 @@ export function createAppRouter(deps: {
   usePerson: PersonStore;
 }): AnyRouter {
   const { api, usePerson } = deps;
+  void ScreenProblem.preload?.();
 
   const rootRoute = createRootRoute({
     // `?person=<id>` chooses that person for this tab, then the parameter is dropped either way.
@@ -124,6 +130,7 @@ export function createAppRouter(deps: {
       const person = usePerson((s) => s.person);
       return <LibraryScreen api={api} person={person} />;
     },
+    errorComponent: ScreenProblem,
   });
 
   const chooseRoute = createRoute({
@@ -145,12 +152,14 @@ export function createAppRouter(deps: {
         />
       );
     },
+    errorComponent: ScreenProblem,
   });
 
   const documentRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/s/$docId",
     component: DocumentScreen,
+    errorComponent: ScreenProblem,
   });
 
   const sendRoute = createRoute({
@@ -165,6 +174,7 @@ export function createAppRouter(deps: {
       });
     },
     component: SendScreen,
+    errorComponent: ScreenProblem,
   });
 
   const preferencesRoute = createRoute({
@@ -187,18 +197,21 @@ export function createAppRouter(deps: {
       throw toFirstPane(location.searchStr);
     },
     component: PreferencesScreen,
+    errorComponent: ScreenProblem,
   });
 
   const statesRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/__states",
     component: StatesScreen,
+    errorComponent: ScreenProblem,
   });
 
   const standInRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/__stand-in",
     component: StandInScreen,
+    errorComponent: ScreenProblem,
   });
 
   return createRouter({

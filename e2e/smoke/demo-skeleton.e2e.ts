@@ -255,6 +255,8 @@ test("stopping and starting the server keeps the tab's person, and two tabs agre
   await page.getByRole("button", { name: leo() }).click();
   const other = await context.newPage();
   await signedInAs(other, "dana");
+  // both tabs agree before the stop; a tab cannot fetch its demo bar's code from a stopped server
+  await expect(serverLine(other)).toHaveText("Server running");
   // a request from port 4757 to 4758: it passes CORS or this line cannot work
   await page.getByRole("button", { name: "Stop the server" }).click();
   await expect(serverLine(page)).toHaveText(

@@ -25,6 +25,8 @@ test("the fixed sentences", () => {
     serverStarting: "Starting the server…",
     serverFailed: "Couldn't start the server. See the terminal.",
     demoUnreachable: "The demo is not running. Run make demo again.",
+    screenProblem: "Couldn't load this screen. Your work is unaffected.",
+    reload: "Reload",
   });
 });
 
