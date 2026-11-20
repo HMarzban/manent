@@ -304,64 +304,123 @@ test("Export names one file, a clean PDF of the whole script, and the first page
   ]);
 });
 
-test("while the script's editor is still opening, Export shows its rows, and its pages join when it opens", async () => {
-  const { container, open } = await renderApp("/s/d1/send/export", {
-    p: numbered(30),
-    opening: true,
-  });
-  const tiles = (): number =>
-    container.querySelector("section")?.querySelectorAll("li").length ?? -1;
-  const waiting = [
-    container.querySelector("button")?.textContent,
-    container.querySelector("h1")?.textContent,
-    document.activeElement?.tagName,
-    rowsOf(container),
-    tiles(),
-    actionButton(container).textContent,
-  ];
-  open();
-  expect([waiting, [document.activeElement?.tagName, tiles()]]).toEqual([
+/** Thirty pages, the first holding a character outside the script font. */
+const withOutside = (): Pagination =>
+  pagesOf(
+    Array.from({ length: 30 }, (_, k) =>
+      k === 0 ? "The sign reads 日." : `The lamp is lit on page ${k + 1}.`,
+    ),
+  );
+const OUTSIDE_ROW = [
+  "Checks",
+  "! 日 is outside the script font and prints as a box",
+];
+
+test("while the script's editor is still opening, Export and Print show their rows, and their checks and pages join when it opens", async () => {
+  const seen: unknown[] = [];
+  for (const form of ["export", "print"]) {
+    const { container, open } = await renderApp(`/s/d1/send/${form}`, {
+      p: withOutside(),
+      opening: true,
+    });
+    const shown = () => [
+      container.querySelector("h1")?.textContent,
+      document.activeElement?.tagName,
+      rowsOf(container),
+      container.querySelector("section")?.querySelectorAll("li").length,
+      actionButton(container).textContent,
+    ];
+    const waiting = [
+      container.querySelector("button")?.textContent,
+      ...shown(),
+    ];
+    open();
+    seen.push([waiting, shown()]);
+    act(() => mounted?.unmount());
+    for (const restore of restores.splice(0).toReversed()) restore();
+  }
+  expect(seen).toEqual([
     [
-      "‹ The Long Night",
-      "Export 1 file",
-      "H1",
       [
-        ["What", "Whole script"],
-        ["As", "Clean PDF"],
+        "‹ The Long Night",
+        "Export 1 file",
+        "H1",
+        [
+          ["What", "Whole script"],
+          ["As", "Clean PDF"],
+        ],
+        0,
+        "Export 1 file",
       ],
-      0,
-      "Export 1 file",
+      [
+        "Export 1 file",
+        "H1",
+        [OUTSIDE_ROW, ["What", "Whole script"], ["As", "Clean PDF"]],
+        8,
+        "Export 1 file",
+      ],
     ],
-    ["H1", 8],
+    [
+      [
+        "‹ The Long Night",
+        "Print",
+        "H1",
+        [["What", "Whole script"]],
+        0,
+        "Print",
+      ],
+      [
+        "Print 30 pages",
+        "H1",
+        [OUTSIDE_ROW, ["What", "Whole script"]],
+        8,
+        "Print 30 pages",
+      ],
+    ],
   ]);
 });
 
-test("a press while the script's editor is still opening sends nothing before its checks are shown", async () => {
+test("while the script's editor is still opening, Export and Print offer a disabled button and nothing leaves when it is pressed", async () => {
   const saved = catchDownloads();
   const writing = spyOn(formats, "writePdf").mockImplementation(() =>
     Promise.resolve(new Uint8Array([37, 80, 68, 70, 45])),
   );
   restores.push(() => writing.mockRestore());
-  serveFonts();
-  const { container, router, clock, open } = await renderApp(
-    "/s/d1/send/export",
-    { p: pagesOf(["The sign reads 日."]), opening: true },
-  );
-  act(() => actionButton(container).click());
-  act(() => clock.advance(16));
-  open();
-  act(() => clock.advance(16));
-  await until(() => router.state.location.pathname !== "/s/d1/send/export");
+  let printed = 0;
+  stub(window, "print", () => {
+    printed++;
+  });
+  const seen: unknown[] = [];
+  for (const form of ["export", "print"]) {
+    const { container, router, clock } = await renderApp(`/s/d1/send/${form}`, {
+      p: withOutside(),
+      opening: true,
+    });
+    const button = actionButton(container);
+    act(() => button.click());
+    act(() => clock.advance(16));
+    seen.push([
+      button.getAttribute("aria-disabled"),
+      button.textContent,
+      router.state.location.pathname,
+    ]);
+    act(() => mounted?.unmount());
+  }
   expect([
+    seen,
     writing.mock.calls.length,
     saved.length,
-    rowsOf(container)[0],
-    router.state.location.pathname,
+    printed,
+    document.querySelectorAll("#mn-print").length,
   ]).toEqual([
+    [
+      ["true", "Export 1 file", "/s/d1/send/export"],
+      ["true", "Print", "/s/d1/send/print"],
+    ],
     0,
     0,
-    ["Checks", "! 日 is outside the script font and prints as a box"],
-    "/s/d1/send/export",
+    0,
+    0,
   ]);
 });
 

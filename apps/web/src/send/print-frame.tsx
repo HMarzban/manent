@@ -16,31 +16,35 @@ import { PRINT_ID, printCss, printPages } from "./print-pages.ts";
 
 const WORDS = EDITOR_WORDS.send;
 
-function PrintFrame(props: { docId: string; p: Pagination }): ReactNode {
-  const { docId, p } = props;
+/**
+ * The Print form: its rows from the first frame, titled Print; the checks, the pages, the page count and the print
+ * itself once the document's editor is open.
+ */
+export function LivePrint(props: SendFormProps): ReactNode {
+  const { docId } = props;
+  const p = useLivePagination(docId);
   const { library } = useServices();
   const { frame } = useEnvironment();
   const navigate = useNavigate();
   const title =
     useSubscribable(library.documentTitle(docId)) ??
     LIBRARY_WORDS.untitledScript;
-  const checks = useMemo(() => outsideFontRow(p), [p]);
+  const checks = useMemo(() => (p === null ? null : outsideFontRow(p)), [p]);
   const [busy, setBusy] = useState(false);
   const [built, setBuilt] = useState(0);
   const [problem, setProblem] = useState<string | null>(null);
   const building = useRef<AbortController | null>(null);
   // Back aborts a build under way
   useEffect(() => () => building.current?.abort(), []);
-  const pages = p.pages.length;
 
-  const run = async (): Promise<void> => {
+  const run = async (pages: Pagination): Promise<void> => {
     const controller = new AbortController();
     building.current = controller;
     setBusy(true);
     setProblem(null);
     setBuilt(0);
     const style = document.createElement("style");
-    style.textContent = printCss(p);
+    style.textContent = printCss(pages);
     document.head.append(style);
     const counted: Frames = {
       request: (fn) =>
@@ -51,7 +55,7 @@ function PrintFrame(props: { docId: string; p: Pagination }): ReactNode {
     };
     let root: HTMLElement;
     try {
-      root = await printPages(p, {
+      root = await printPages(pages, {
         frames: counted,
         signal: controller.signal,
       });
@@ -76,33 +80,29 @@ function PrintFrame(props: { docId: string; p: Pagination }): ReactNode {
     void navigate({ to: "/s/$docId", params: { docId }, replace: true });
   };
 
+  const count = p === null ? null : p.pages.length;
+  const heading = count === null ? WORDS.print : WORDS.printTitle(count);
   const rows: SendRow[] = [
     ...(checks === null ? [] : [checks]),
     { id: "what", content: WORDS.wholeScript },
   ];
   return (
     <SendFrame
-      title={WORDS.printTitle(pages)}
+      title={heading}
       aside={null}
       rows={rows}
-      pages={<PageTiles p={p} />}
+      pages={p === null ? null : <PageTiles p={p} />}
       action={{
-        label: WORDS.printTitle(pages),
-        busyLabel: WORDS.preparing(pages),
+        label: heading,
+        // never shown before the count is known: the button is disabled until then
+        busyLabel: count === null ? heading : WORDS.preparing(count),
         busy,
-        progress: busy ? WORDS.progress(built, pages) : null,
+        progress: busy && count !== null ? WORDS.progress(built, count) : null,
         cancel: busy ? () => building.current?.abort() : null,
         disabledReason: null,
         problem,
-        run: () => void run(),
+        run: p === null ? null : () => void run(p),
       }}
     />
   );
-}
-
-/** Waits, drawing nothing, until the document's editor is open and its pages exist. */
-export function LivePrint(props: SendFormProps): ReactNode {
-  const { docId } = props;
-  const p = useLivePagination(docId);
-  return p === null ? null : <PrintFrame docId={docId} p={p} />;
 }

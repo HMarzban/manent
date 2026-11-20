@@ -19,7 +19,8 @@ import type { DocJSON } from "@manent/schema";
 import { expect, test } from "@playwright/test";
 import type { Download, Page } from "@playwright/test";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
-import { pressKeyOf } from "../support/interface.ts";
+import { editorHook, keepEveryHooks } from "../support/editor-hooks.ts";
+import { labelOf, pressKeyOf } from "../support/interface.ts";
 import { signedInAs } from "../support/tour.ts";
 
 /** The engine and profile the editor lays out a new screenplay with. */
@@ -158,40 +159,22 @@ async function pdfStarts(
   return starts;
 }
 
-interface Hooks {
-  open(format: string, doc: DocJSON | null, access?: string): Promise<string>;
-  pages(): { label: string; block: number; line: number }[];
-}
-
 /** Opens a new screenplay holding `doc` with `access`, through the test build's hooks. */
 async function openScript(
   page: Page,
   doc: DocJSON,
   access: "edit" | "view",
 ): Promise<void> {
+  await keepEveryHooks(page);
   await signedInAs(page, "you");
-  // the hooks arrive with the editor, which loads apart from the entry
-  await page.waitForFunction(
-    () => Reflect.get(Reflect.get(window, "__manent"), "editor") !== undefined,
-  );
-  await page.evaluate(
-    async ({ json, as }) => {
-      const hooks: Hooks = Reflect.get(
-        Reflect.get(window, "__manent"),
-        "editor",
-      );
-      await hooks.open("screenplay", json, as);
-    },
-    { json: doc, as: access },
-  );
+  // a page drawn first, so the hooks that find it can be told apart
+  await page
+    .getByRole("button", { name: labelOf("library.newScript") })
+    .first()
+    .click();
+  await expect(page.locator(".mn-page-view")).toBeAttached();
+  await editorHook(page, "open", "screenplay", doc, access);
 }
-
-/** The open editor's pages: where each starts and its label. */
-const editorPages = (page: Page) =>
-  page.evaluate(() => {
-    const hooks: Hooks = Reflect.get(Reflect.get(window, "__manent"), "editor");
-    return hooks.pages();
-  });
 
 /** Title ▾ → Export…, then the form's button: the file it saves. */
 async function exportFromTitle(page: Page): Promise<Download> {
@@ -219,7 +202,7 @@ test("Export from Title ▾ downloads the PDF of the pages on screen", async ({
   const { doc, p } = scriptOfPages(PAGES);
   const expected = layoutStarts(p);
   await openScript(page, doc, "edit");
-  const onScreen = await editorPages(page);
+  const onScreen = await editorHook(page, "pages");
   const first = await exportFromTitle(page);
   const exported = await pdfStarts(
     await bytesOf(first),
@@ -242,7 +225,7 @@ test("Export from Title ▾ downloads the PDF of the pages on screen", async ({
   ]).toEqual([
     "Untitled script.pdf",
     PAGES,
-    onScreen.map((start, k) => (k === 0 ? null : start.label)),
+    p.pages.map(({ label }, k) => (k === 0 ? null : label)),
   ]);
   expect(exported).toEqual(expected);
   expect(again).toEqual(exported);

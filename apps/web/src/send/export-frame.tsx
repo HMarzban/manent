@@ -127,10 +127,7 @@ export function LiveExport(props: SendFormProps): ReactNode {
         cancel: null,
         disabledReason: null,
         problem,
-        // nothing leaves before the pages, and the checks drawn from them, are on screen
-        run: () => {
-          if (p !== null) run(p);
-        },
+        run: p === null ? null : () => run(p),
       }}
     />
   );

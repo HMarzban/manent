@@ -112,6 +112,7 @@ test("the editor's words are these, exactly", () => {
     send: {
       exportTitle: ["Export 1 file", "Export 2 files"],
       printTitle: ["Print 1 page", "Print 2 pages"],
+      print: "Print",
       exporting: ["Exporting 1 file…", "Exporting 2 files…"],
       preparing: ["Preparing 1 page…", "Preparing 2 pages…"],
       wholeScript: "Whole script",
