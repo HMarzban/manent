@@ -193,6 +193,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     records,
     cloud,
     relay,
+    upstream,
     service,
     tokenOf,
     clock,

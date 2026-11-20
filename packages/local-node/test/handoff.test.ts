@@ -79,6 +79,27 @@ test("a setting requested during the hand-off goes upstream as a request", async
   expect(w.cloudRefusals()).toEqual([]);
 });
 
+test("an adopted script is kept as synced by the person's upstream, so what follows waits offline", async () => {
+  const w = handoffWorld({ downAfterAdopt: true });
+  await w.windowWritesLine("you", DOC, "one");
+  await w.settle();
+  await w.signInToSync("you");
+  await w.settle();
+  await w.windowWritesLine("you", DOC, "two");
+  await w.settle();
+  const kept = await w.upstreamStores.store("you").load(DOC);
+  expect([
+    kept?.meta.generation,
+    kept?.meta.neverSynced,
+    kept?.entries.filter((entry) => !entry.acked).length,
+  ]).toEqual([1, false, 1]);
+  w.cloudDown(false);
+  w.bridge.reconnect();
+  await w.settle();
+  expect(w.cloudText(DOC)).toEqual(["one", "two"]);
+  expect(w.cloudAdoptions(DOC)).toBe(1);
+});
+
 test("a retry after the cloud adopted sends nothing twice", async () => {
   const w = handoffWorld({ drop: "response" });
   await w.windowWritesLine("you", DOC, "one");

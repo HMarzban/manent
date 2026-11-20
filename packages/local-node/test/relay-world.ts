@@ -407,13 +407,15 @@ class NodeLife {
         }, delayMs),
     };
     const { nodeStorage: storage, records } = host;
+    const upstream = {
+      create: (userId: string, token: () => string | null) =>
+        this.upstreamClient(userId, token),
+      store: (userId: string) => this.storeOf(userId),
+    };
     this.bridge = createRelayBridge({
       storage,
       records,
-      upstream: {
-        create: (userId, token) => this.upstreamClient(userId, token),
-        store: (userId) => this.storeOf(userId),
-      },
+      upstream,
       clock: this.clock,
       defer: this.deferred.defer,
       deviceStorage: () => this.device,
@@ -447,6 +449,7 @@ class NodeLife {
       records,
       cloud: host.api,
       relay: this.bridge,
+      upstream,
       service: this.service,
       tokenOf,
       clock: this.clock,
@@ -682,7 +685,9 @@ export class RelayWorld {
           );
         if (drop !== null) this.cloud.api.drop(drop);
         drop = null;
-        return this.cloud.api.adopt(token, request);
+        const answer = await this.cloud.api.adopt(token, request);
+        if (options.downAfterAdopt === true) this.cloudDown(true);
+        return answer;
       },
     };
     this.life = this.startLife();
@@ -1149,6 +1154,8 @@ export interface WorldOptions {
   slowAdopt?: boolean;
   /** The first adoption request, or its answer, is lost. */
   drop?: "request" | "response";
+  /** The cloud goes down as soon as it has answered an adoption. */
+  downAfterAdopt?: boolean;
   /** That step of the node's records fails as a killed process would, until the node restarts. */
   crashOn?: "startHandoff" | "finishHandoff";
 }

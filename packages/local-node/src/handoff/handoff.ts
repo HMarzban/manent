@@ -1,5 +1,6 @@
 // The first sync of a document made on this device: its whole state handed to the cloud once,
 // under one key, after which the node relays it like any synced document.
+import { updateMeta } from "@manent/crdt";
 import { INDEX_KINDS, SYNCABLE_KINDS } from "@manent/server-core";
 import type { SyncService } from "@manent/server-core";
 import type { Storage } from "@manent/storage";
@@ -7,7 +8,7 @@ import { ConnectError, HANDOFF_REFUSALS } from "@manent/sync-client";
 import type { Clock, HandoffRefusal, Random } from "@manent/sync-client";
 import { docIdV7, indexDocId } from "@manent/sync-protocol";
 import type { AdoptResponse } from "@manent/sync-protocol";
-import type { CloudApi } from "../node/ports.ts";
+import type { CloudApi, UpstreamFactory } from "../node/ports.ts";
 import type { Handoff, NodeRecords } from "../records/ports.ts";
 import type { RelayBridge } from "../relay/bridge.ts";
 
@@ -49,6 +50,8 @@ export function createHandover(options: {
   records: NodeRecords;
   cloud: CloudApi;
   relay: RelayBridge;
+  /** The person's upstream store takes the adopted state as already synced. */
+  upstream: UpstreamFactory;
   service: SyncService;
   tokenOf: (userId: string) => string | null;
   clock: Clock;
@@ -118,12 +121,44 @@ export function createHandover(options: {
     relay.refuseHeld(docId, REFUSED_MESSAGE);
   }
 
+  /** The person's upstream document holds the adopted state as synced, so none of it is fetched again. */
+  async function keptSynced(
+    userId: string,
+    handoff: Handoff,
+    body: AdoptResponse,
+  ): Promise<void> {
+    const { docId, snapshot } = handoff;
+    const clocks = new Map<number, number>();
+    for (const { clientId, toClock } of updateMeta(snapshot))
+      clocks.set(clientId, Math.max(clocks.get(clientId) ?? 0, toClock));
+    const store = options.upstream.store(userId);
+    await store.create({
+      docId,
+      generation: body.generation,
+      lastServerSeq: body.adoptedSeq,
+      clientIds: [...clocks.keys()],
+      ackedClocks: Object.fromEntries(
+        [...clocks].map(([clientId, next]) => [String(clientId), next]),
+      ),
+      neverSynced: false,
+      create: null,
+      parked: null,
+      recovering: null,
+      lastDeviceVersionAt: 0,
+      lastSyncedAt: clock.now(),
+      moving: null,
+    });
+    await store.checkpoint(docId, snapshot, 0, true);
+  }
+
   /** Synced at the cloud's generation, and relayed from here: the relay's reconcile sends what came after the snapshot. */
   async function finished(
     userId: string,
-    docId: string,
+    handoff: Handoff,
     body: AdoptResponse,
   ): Promise<void> {
+    const { docId } = handoff;
+    await keptSynced(userId, handoff, body);
     records.finishHandoff(docId, body.generation);
     await relay.open(userId, docId);
     for (const listener of listeners) listener(docId);
@@ -161,7 +196,7 @@ export function createHandover(options: {
       return "later";
     }
     if (answer.ok) {
-      await finished(userId, docId, answer.body);
+      await finished(userId, handoff, answer.body);
       return "done";
     }
     const { code } = answer;
