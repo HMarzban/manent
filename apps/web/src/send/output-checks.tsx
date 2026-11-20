@@ -1,0 +1,44 @@
+// The Checks row both forms share: what the script font cannot draw, which prints as boxes.
+import type { Engine, Pagination } from "@manent/pagination";
+import { EDITOR_WORDS, joinNames } from "@manent/ui";
+import type { SendRow } from "../screens/send/send-frame.tsx";
+import { engineOf } from "./print-pages.ts";
+
+const SHOWN_CHARACTERS = 12;
+
+/** Adds to `found` each cluster of `text` that overlaps one of `runs` (the engine's `offFontRanges`) and takes a cell. */
+function addOffFont(
+  engine: Engine,
+  text: string,
+  runs: readonly number[],
+  found: Set<string>,
+): void {
+  let run = 0;
+  for (let at = 0; at < text.length && run < runs.length;) {
+    const end = engine.graphemeEnd(text, at);
+    while (run < runs.length && runs[run + 1]! <= at) run += 2;
+    if (
+      run < runs.length &&
+      runs[run]! < end &&
+      engine.clusterCells(text, at, end, false) > 0
+    )
+      found.add(text.slice(at, end));
+    at = end;
+  }
+}
+
+/** Null when the script font draws every character; else each such cluster once, in document order, the first 12 named. */
+export function outsideFontRow(p: Pagination): SendRow | null {
+  const engine = engineOf(p);
+  const found = new Set<string>();
+  for (const { text } of p.blocks) {
+    const runs = engine.offFontRanges(text);
+    if (runs.length > 0) addOffFont(engine, text, runs, found);
+  }
+  if (found.size === 0) return null;
+  const shown = [...found].slice(0, SHOWN_CHARACTERS);
+  return {
+    id: "checks",
+    content: EDITOR_WORDS.send.outsideFont(found.size, joinNames(shown)),
+  };
+}
