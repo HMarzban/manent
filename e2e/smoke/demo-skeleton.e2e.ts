@@ -2,6 +2,7 @@ import { DEMO_PEOPLE, TOUR_GROUPS } from "@manent/demo";
 import type { DemoResponse } from "@manent/sync-protocol";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { E2E_CONTROL_PORT } from "../support/ports.ts";
 import { signedInAs } from "../support/tour.ts";
 
 const leo = () => /^Leo Marsh/;
@@ -236,10 +237,13 @@ test("a session the server no longer accepts lands on the chooser", async ({
 });
 
 test("the status line appears empty, then speaks", async ({ page }) => {
-  await page.route("http://127.0.0.1:4758/status", async (route) => {
-    await new Promise((r) => setTimeout(r, 1500));
-    await route.continue();
-  });
+  await page.route(
+    `http://127.0.0.1:${E2E_CONTROL_PORT}/status`,
+    async (route) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      await route.continue();
+    },
+  );
   await signedInAs(page, "leo");
   // rendered as soon as a control exists
   await expect(serverLine(page)).toHaveText("");
@@ -259,7 +263,7 @@ test("stopping and starting the server keeps the tab's person, and two tabs agre
   await page.getByRole("button", { name: leo() }).click();
   const other = await context.newPage();
   await signedInAs(other, "dana");
-  // a request from port 4757 to 4758: it passes CORS or this line cannot work
+  // a request from the demo's port to its control port: it passes CORS or this line cannot work
   await page.getByRole("button", { name: "Stop the server" }).click();
   try {
     await expect(serverLine(page)).toHaveText(
