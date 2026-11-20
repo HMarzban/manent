@@ -1,4 +1,5 @@
 export * from "./demo.ts";
+export * from "./desktop.ts";
 export * from "./dialog.ts";
 export * from "./document.ts";
 export * from "./editor.ts";

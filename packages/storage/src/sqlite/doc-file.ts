@@ -33,6 +33,7 @@ const ORIGINS = {
   replay: true,
   heal: true,
   system: true,
+  upstream: true,
 } satisfies Record<UpdateOrigin, true>;
 const REASONS = {
   quarantine: true,
@@ -317,6 +318,10 @@ function createVersions(db: Database): Versions {
   };
 }
 
+const adoptionsNotBuilt = (): never => {
+  throw new RangeError("adoptions are not built yet");
+};
+
 /** Opens and migrates the home's file. RangeError for a home that is not well formed; StorageError("corrupt") for a file it cannot use. */
 export function openDocFile(options: {
   dir: string;
@@ -345,6 +350,7 @@ export function openDocFile(options: {
     generations: createSqliteGenerations({ db, log, now }),
     replays: createSqliteReplays(db),
     measures: caches.measures,
+    adoptions: { get: adoptionsNotBuilt, put: adoptionsNotBuilt },
     transaction: (fn) => transact(db, fn),
     close() {
       caches.close();

@@ -4,6 +4,7 @@ import { defineCommands } from "../define.ts";
 import { settingCommands } from "../settings-commands.ts";
 import { APP_COMMANDS } from "./app.ts";
 import { DEMO_COMMANDS } from "./demo.ts";
+import { DESKTOP_COMMANDS } from "./desktop.ts";
 import { DOCUMENT_COMMANDS } from "./document.ts";
 import { EDIT_COMMANDS } from "./edit.ts";
 import { EDITOR_COMMANDS } from "./editor.ts";
@@ -20,6 +21,7 @@ export const COMMANDS = defineCommands([
   ...LIBRARY_COMMANDS,
   ...SYNC_COMMANDS,
   ...DEMO_COMMANDS,
+  ...DESKTOP_COMMANDS,
   ...settingCommands(SETTINGS),
 ]);
 export type CommandId = (typeof COMMANDS)[number]["id"];

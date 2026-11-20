@@ -71,11 +71,15 @@ export {
   isServerState,
 } from "./http.ts";
 export type {
+  AdoptRequest,
+  AdoptResponse,
   ControlEndpoint,
   ControlStatusResponse,
   CreateDocumentRequest,
   CreateDocumentResponse,
   DemoResponse,
+  DescribeRequest,
+  DescribeResponse,
   DocClientsRequest,
   DocClientsResponse,
   ErrorResponse,
@@ -99,3 +103,27 @@ export type {
   WorkspaceRef,
   WsTicketResponse,
 } from "./http.ts";
+export {
+  DESKTOP_PROTOCOL_VERSION,
+  FILE_REFUSALS,
+  NATIVE_MENU_IDS,
+  NATIVE_ROLES,
+  OPENED_FILE_EXTENSIONS,
+  UPDATE_STATES,
+  parseDesktopGlobal,
+  parsePageMessage,
+  parseShellMessage,
+} from "./desktop.ts";
+export type {
+  DesktopGlobal,
+  FileRefusal,
+  FirstPaintWrite,
+  NativeMenu,
+  NativeMenuId,
+  NativeMenuItem,
+  NativeRole,
+  OpenedFile,
+  PageMessage,
+  ShellMessage,
+  UpdateState,
+} from "./desktop.ts";

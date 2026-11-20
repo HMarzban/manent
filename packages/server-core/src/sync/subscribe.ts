@@ -1,13 +1,17 @@
 // The checks a SUBSCRIBE passes, in order (the first that fails is the answer), and what passing gives.
 import { CrdtUpdateError, readStateVector } from "@manent/crdt";
 import { gateDocument } from "@manent/sync-protocol";
-import type { Message } from "@manent/sync-protocol";
+import type { DocRef, Message } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
+import type { PeerState, Rebuilder } from "../rebuild/rebuilder.ts";
 import type { Access, DocumentAccess } from "./access.ts";
+import type { AwarenessHub } from "./awareness.ts";
 import type { Deletions } from "./deletions.ts";
 import { syncError } from "./errors.ts";
+import type { Healing } from "./heal.ts";
 import type { Peer, SyncLimits } from "./ports.ts";
-import type { Room, Rooms } from "./rooms.ts";
+import type { Room, Rooms, Subscription } from "./rooms.ts";
+import { isStorageError } from "./storage-error.ts";
 
 export type SubscribeMessage = Extract<Message, { type: "SUBSCRIBE" }>;
 
@@ -121,6 +125,85 @@ export function subscribedOf(
   };
 }
 
+/** The document a room holds, at the generation it is on. */
+export function docOf(room: Room): DocRef {
+  return { docId: room.docId, generation: room.row.generation };
+}
+
+/** What a SUBSCRIBE reaches in the service: its checks, the room, and the peer's answers. */
+export interface SubscribePorts {
+  access: DocumentAccess;
+  rooms: Rooms;
+  limits: SyncLimits;
+  heal: Pick<Healing, "headOf" | "subscribed">;
+  presence: Pick<AwarenessHub, "joined" | "left">;
+  writePath: { queued(): number; flush(): void };
+  rebuilder: Pick<Rebuilder, "touched">;
+  snapshotOf(room: Room): Message;
+  tell(peer: Peer, message: Message): void;
+  end(peer: Peer, docId: string): void;
+}
+
+/** A SUBSCRIBE: refused with the first check that fails, otherwise held, answered SUBSCRIBED, then step 1 or a snapshot. */
+export function subscribe(
+  ports: SubscribePorts,
+  peer: Peer,
+  state: PeerState,
+  message: SubscribeMessage,
+): void {
+  const { access, rooms, limits, heal, presence, writePath } = ports;
+  const { rebuilder, snapshotOf, tell, end } = ports;
+  const { docId } = message;
+  const check = checkSubscribe(
+    { access, rooms, limits, buckets: state.buckets },
+    peer,
+    message,
+  );
+  if (!check.ok) {
+    end(peer, docId);
+    if (check.room !== null) rooms.left(check.room);
+    return tell(peer, check.answer);
+  }
+  const { room, mode } = check;
+  try {
+    heal.subscribed(room, message.lastServerSeq);
+    if (mode === "edit") registerEditor(room, peer.userId, message.clientIds);
+  } catch (error) {
+    // the store refused what a SUBSCRIBE writes: told as a failed commit is, and nothing held
+    if (!isStorageError(error)) throw error;
+    end(peer, docId);
+    rooms.left(room);
+    const retryAfterMs = limits.poisonRetryMs;
+    return tell(
+      peer,
+      syncError("storage_failed", docOf(room), { retryAfterMs }),
+    );
+  }
+  if (mode === "view") presence.left(room, peer);
+  room.editors.delete(peer);
+  room.viewers.delete(peer);
+  const { access: granted } = check;
+  const subscription: Subscription = {
+    peer,
+    mode,
+    access: granted,
+    stalled: false,
+  };
+  // a viewer's snapshot holds only what is committed, and comes before any patch
+  if (mode === "view" && writePath.queued() > 0) writePath.flush();
+  const { lastServerSeq } = message;
+  state.held.set(docId, { room, subscription, lastServerSeq });
+  (mode === "edit" ? room.editors : room.viewers).set(peer, subscription);
+  tell(peer, subscribedOf(room, granted, heal.headOf(room)));
+  const vector = room.doc?.encodeStateVector();
+  if (mode === "edit" && vector !== undefined) {
+    rebuilder.touched(room);
+    tell(peer, { type: "SYNC", ...docOf(room), step: "step1", data: vector });
+    return presence.joined(room, peer);
+  }
+  tell(peer, snapshotOf(room));
+}
+
 /**
  * The answer to an editor's step 1: the server's step 2, the cached full state for an empty
  * vector, otherwise what the vector lacks. Step 2's delete set also holds what Yjs deleted with a
@@ -139,7 +222,7 @@ export function answerStepOne(
   room: Room,
   step: { vector: Uint8Array; lastServerSeq: number },
 ): Message[] {
-  const doc = { docId: room.docId, generation: room.row.generation };
+  const doc = docOf(room);
   if (room.doc === null)
     throw new RangeError(`the room of ${room.docId} is not loaded`);
   let clocks: Map<number, number>;

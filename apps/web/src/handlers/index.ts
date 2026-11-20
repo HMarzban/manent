@@ -7,6 +7,7 @@ import type { ShellDom } from "../shell/regions.tsx";
 import type { PersonStore } from "../state/person.store.ts";
 import { appHandlers } from "./app.ts";
 import { demoHandlers } from "./demo.ts";
+import { createDesktopHandlers } from "./desktop.ts";
 import { documentHandlers } from "./document.ts";
 import { createEditorHandlers } from "./editor.ts";
 import { libraryHandlers } from "./library.ts";
@@ -62,5 +63,6 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     ...libraryHandlers(deps),
     ...demoHandlers(),
     ...syncHandlers(),
+    ...createDesktopHandlers(deps),
   };
 }

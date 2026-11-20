@@ -8,4 +8,5 @@ export * from "./recovery/index.ts";
 export * from "./review/index.ts";
 export * from "./session/index.ts";
 export * from "./tabs/index.ts";
+export * from "./upstream/index.ts";
 export * from "./view/index.ts";
