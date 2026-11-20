@@ -91,6 +91,8 @@ const SERVER_ROWS = [
   ["server.durability", "acked_lost", "p99", 0, 0],
   ["server.soak", "memory_growth_percent", "p99", 10, 30],
   ["server.soak", "diverged", "max", 0, 0],
+  ["server.rebuild-stall", "rebuild_stall_ms", "p99", 20, 100],
+  ["server.rebuild-stall", "replay_stall_ms", "p99", 20, 100],
 ];
 
 const LAYOUT = [

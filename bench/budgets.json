@@ -45,6 +45,27 @@
       "hardFail": 2
     },
     {
+      "scenario": "crdt.rebuild-size",
+      "metric": "bytes_ratio_after",
+      "stat": "p99",
+      "budget": 5,
+      "hardFail": 10
+    },
+    {
+      "scenario": "crdt.rebuild-size",
+      "metric": "client_ids_after",
+      "stat": "p99",
+      "budget": 2000,
+      "hardFail": 10000
+    },
+    {
+      "scenario": "crdt.rebuild-time",
+      "metric": "replay_ms",
+      "stat": "p99",
+      "budget": 100,
+      "hardFail": 500
+    },
+    {
       "scenario": "server.fanout",
       "metric": "fanout_ms",
       "stat": "p99",
@@ -127,6 +148,20 @@
       "stat": "max",
       "budget": 0,
       "hardFail": 0
+    },
+    {
+      "scenario": "server.rebuild-stall",
+      "metric": "rebuild_stall_ms",
+      "stat": "p99",
+      "budget": 20,
+      "hardFail": 100
+    },
+    {
+      "scenario": "server.rebuild-stall",
+      "metric": "replay_stall_ms",
+      "stat": "p99",
+      "budget": 20,
+      "hardFail": 100
     },
     {
       "scenario": "interface",
