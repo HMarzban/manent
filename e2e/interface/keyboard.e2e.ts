@@ -1,5 +1,5 @@
 // Every default shortcut from the registry, pressed where a person writes, reads a panel and types in a field.
-import { COMMANDS } from "@manent/commands";
+import { COMMANDS, resolveBindings } from "@manent/commands";
 import type { CommandContext, CommandDefinition } from "@manent/commands";
 import { DIALOG_WORDS } from "@manent/ui";
 import { expect, test } from "@playwright/test";
@@ -99,9 +99,16 @@ test("every default shortcut runs its command once, from the page, a panel and a
 }) => {
   test.setTimeout(240_000);
   const platform = await platformOf(page);
+  const { effective } = resolveBindings({
+    commands: COMMANDS,
+    custom: [],
+    platform,
+    shell: "web",
+    findings: { failsHere: new Set() },
+  });
   for (const spot of SPOTS)
     for (const command of COMMANDS)
-      for (const chord of command.keys[platform]) {
+      for (const chord of effective.get(command.id) ?? []) {
         const ctx: CommandContext = { ...spot.context, platform };
         const outcome = outcomeOf(command, ctx);
         // the page's command keymap is not mounted yet, so nothing hears an editor command's key
