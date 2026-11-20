@@ -2,7 +2,7 @@
 // record, and every write one transaction.
 import { Database, SQLiteError } from "bun:sqlite";
 import type { SQLQueryBindings } from "bun:sqlite";
-import { StoreError, toRecoveredItem } from "@manent/sync-client";
+import { StoreError } from "@manent/sync-client";
 import type {
   DeviceVersion,
   DocMeta,
@@ -341,9 +341,7 @@ class SqliteLocalStore implements LocalStore {
   }
 
   async recovered(docId: string): Promise<RecoveredItem[]> {
-    return this.sql.recovered
-      .all(docId)
-      .map((row) => toRecoveredItem(readRecovered(row.item)));
+    return this.sql.recovered.all(docId).map((row) => readRecovered(row.item));
   }
 
   async dismissRecovered(itemId: string): Promise<void> {
