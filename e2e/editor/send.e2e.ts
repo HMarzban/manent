@@ -176,6 +176,25 @@ async function openScript(
   await editorHook(page, "open", "screenplay", doc, access);
 }
 
+/**
+ * Keeps the name the page gives each file it saves, in `window.__savedNames`: the browser may rewrite it before it
+ * reports the download (WebKit on Linux turns each space into "_").
+ */
+async function keepSavedNames(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const names: string[] = [];
+    Reflect.set(window, "__savedNames", names);
+    const click = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
+      if (this.download !== "") names.push(this.download);
+      click.call(this);
+    };
+  });
+}
+
+const savedNames = (page: Page): Promise<unknown> =>
+  page.evaluate(() => Reflect.get(window, "__savedNames"));
+
 /** Title ▾ → Export…, then the form's button: the file it saves. */
 async function exportFromTitle(page: Page): Promise<Download> {
   await page
@@ -201,6 +220,7 @@ test("Export from Title ▾ downloads the PDF of the pages on screen", async ({
   test.setTimeout(120_000);
   const { doc, p } = scriptOfPages(PAGES);
   const expected = layoutStarts(p);
+  await keepSavedNames(page);
   await openScript(page, doc, "edit");
   const onScreen = await editorHook(page, "pages");
   const first = await exportFromTitle(page);
@@ -219,11 +239,11 @@ test("Export from Title ▾ downloads the PDF of the pages on screen", async ({
     p.pages.map(({ label, block, line }) => ({ label, block, line })),
   );
   expect([
-    first.suggestedFilename(),
+    await savedNames(page),
     exported.length,
     exported.map((start) => start.label),
   ]).toEqual([
-    "Untitled script.pdf",
+    ["Untitled script.pdf", "Untitled script.pdf"],
     PAGES,
     p.pages.map(({ label }, k) => (k === 0 ? null : label)),
   ]);
