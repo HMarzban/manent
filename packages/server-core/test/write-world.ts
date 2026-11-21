@@ -205,6 +205,8 @@ export function createWorld(
       isGuarded: () => false,
     },
     schemaFloor: null,
+    checkPush: () => [],
+    ids: () => "writer",
     ...options.ports,
   });
   let seen = 0;

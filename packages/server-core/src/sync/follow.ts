@@ -20,9 +20,8 @@ import { mergeUnique } from "../rebuild/unique-merge.ts";
 import { writerClientId } from "./client-ids.ts";
 import type { HeldQueue } from "./held.ts";
 import { ingestItem } from "./ingest.ts";
-import type { Clock, SyncLimits } from "./ports.ts";
+import type { Clock, SyncLimits, WritePath } from "./ports.ts";
 import type { Room, Rooms } from "./rooms.ts";
-import type { WritePath } from "./write-path.ts";
 
 export interface RelayIntake {
   /** SyncService.ingest. */
