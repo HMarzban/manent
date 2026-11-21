@@ -88,6 +88,33 @@ test("preferences set before this build moved them are carried over once", async
   expect(theme(again)).toBe("light");
 });
 
+test("what is set before the private index opens is kept when the page is hidden, and carried over at the next open", async () => {
+  const w = await createIndexWorld();
+  const storage = new MemoryStorage();
+  storage.setItem("manent.device.id", "d1");
+  const palette = entryKey("app.palette", "d1");
+  // this device's store never finishes a write, so the private index never opens on it
+  w.space("held").store("sam").holdWrites();
+  const unopened = await w.personServices({
+    person: SAM,
+    storage,
+    device: "held",
+  });
+  unopened.settings.set("appearance.theme", "dark");
+  unopened.keys.set(palette, { v: ["Mod+J"] });
+  globalThis.dispatchEvent(new Event("pagehide"));
+  unopened.dispose();
+  const next = await w.personServices({ person: SAM, storage });
+  await next.ready;
+  expect([
+    theme(next),
+    next.keys.get(palette),
+    storage.getItem("manent.prefs.sam"),
+    storage.getItem("manent.keys.sam"),
+  ]).toEqual(["dark", { v: ["Mod+J"] }, null, null]);
+  next.dispose();
+});
+
 test("You's first run opens a blank page, and You's work stays on the device", async () => {
   const { personServices, serverContacts } = await createIndexWorld();
   const you = await personServices({ person: YOU });

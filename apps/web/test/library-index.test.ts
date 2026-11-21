@@ -111,6 +111,21 @@ test("Continue lists what this person opened, newest first, in that workspace", 
   expect(dana.library.continueList(MEDIUM).get()).toEqual([]);
 });
 
+test("Continue lists a script opened here and left before it had loaded", async () => {
+  const { sam, settleAll } = await writersRoom();
+  const made = await sam.library.createProject(MEDIUM, "film");
+  await settleAll();
+  sam.documents.open(made.docId);
+  sam.documents.close(made.docId);
+  await settleAll();
+  expect(
+    sam.library
+      .continueList(MEDIUM)
+      .get()
+      .map((item) => item.docId),
+  ).toEqual([made.docId]);
+});
+
 test("a script someone else edited since you opened it says so", async () => {
   const { dana, sam, world, settleAll } = await writersRoom();
   const made = await dana.library.createProject(MEDIUM, "film");

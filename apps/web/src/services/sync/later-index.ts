@@ -19,6 +19,8 @@ type Listener = Parameters<KeyValueMap["subscribe"]>[0];
 /** A map that holds what is written until the index's own map arrives, then writes it there and reads only that. */
 export function createLaterMap(): KeyValueMap & {
   attach(map: KeyValueMap): void;
+  /** What is written and not yet in the index's map: nothing once it has arrived. */
+  held(): Readonly<Record<string, unknown>>;
 } {
   let target: KeyValueMap | null = null;
   const held = new Map<string, unknown>();
@@ -47,6 +49,7 @@ export function createLaterMap(): KeyValueMap & {
       held.clear();
       tell(map.keys(), "remote");
     },
+    held: () => Object.fromEntries(held),
   };
 }
 
@@ -103,6 +106,19 @@ export function createLaterLibrary(options: {
           initial,
           library.then((l) => (l === null ? null : read(l))),
         );
+  /** `start` once the library has opened, at once when it has, unless the returned function has run before. */
+  const once = (start: (l: SyncLibrary) => () => void): (() => void) => {
+    if (opened !== null) return start(opened);
+    let stop: (() => void) | null = null;
+    let stopped = false;
+    void library.then((l) => {
+      if (!stopped && l !== null) stop = start(l);
+    });
+    return () => {
+      stopped = true;
+      stop?.();
+    };
+  };
   const fresh = (): CreateResult => ({
     projectId: options.newId(),
     docId: options.newId(),
@@ -145,17 +161,8 @@ export function createLaterLibrary(options: {
       if (opened !== null) opened.renameDocument(docId, title);
       else void library.then((l) => l?.renameDocument(docId, title));
     },
-    follow(docId, handle) {
-      let stop: (() => void) | null = null;
-      let stopped = false;
-      void library.then((l) => {
-        if (!stopped && l !== null) stop = l.follow(docId, handle);
-      });
-      return () => {
-        stopped = true;
-        stop?.();
-      };
-    },
+    markOpened: (docId) => once((l) => l.markOpened(docId)),
+    follow: (docId, handle) => once((l) => l.follow(docId, handle)),
   };
 }
 

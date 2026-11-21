@@ -142,6 +142,8 @@ export interface PersonServices {
   editor: EditorControl;
   /** Draws this person's editor of a document into the page. */
   mount: EditorMount;
+  /** Settles once the person's preferences, keys and flags have been read from the device, or their sync could not start. */
+  ready: Promise<void>;
   dispose(): void;
 }
 

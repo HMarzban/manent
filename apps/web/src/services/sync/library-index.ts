@@ -57,7 +57,9 @@ interface Found {
 
 /** The Library, and what it does while a document is open in this tab. */
 export interface SyncLibrary extends LibraryIndex {
-  /** Writes Continue once the index holds the document, then `editedAt` on the person's own changes; the returned function stops. */
+  /** Writes Continue for a document opened here once an index holds it; the returned function stops waiting for one. */
+  markOpened(docId: string): () => void;
+  /** Writes `editedAt` on the person's own changes; the returned function stops. */
   follow(docId: string, handle: DocHandle): () => void;
 }
 
@@ -272,11 +274,16 @@ export function createSyncLibrary(options: {
       if (found === null) return;
       liveMap(found.handle, "documents").set(docId, { ...found.entry, title });
     },
-    follow(docId, handle) {
+    markOpened(docId) {
       continuing.add(docId);
       openKnown();
       show();
-      const stop = onTransactions(handle, (origin) => {
+      return () => {
+        continuing.delete(docId);
+      };
+    },
+    follow(docId, handle) {
+      return onTransactions(handle, (origin) => {
         const found = isOwn(origin) ? find(docId) : null;
         if (found === null) return;
         const { editedAt, editedByUserId } = found.entry;
@@ -292,10 +299,6 @@ export function createSyncLibrary(options: {
           editedByUserId: userId,
         });
       });
-      return () => {
-        continuing.delete(docId);
-        stop();
-      };
     },
   };
 }

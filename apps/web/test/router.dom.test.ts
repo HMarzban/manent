@@ -1,6 +1,10 @@
 import { withDom } from "@manent/testkit/dom";
 import { expect, test } from "bun:test";
-import { loadScreen } from "../src/router.tsx";
+import { act, createElement } from "react";
+import { createRoot } from "react-dom/client";
+import { OncePreferencesRead, loadScreen } from "../src/router.tsx";
+import { ServicesProvider } from "../src/services/context.tsx";
+import { testServices } from "./services.fixtures.ts";
 
 withDom();
 
@@ -36,4 +40,28 @@ test("a screen's code that cannot load while the page stays fails as it was give
   const loading = loadScreen(importer)();
   fail();
   expect(await outcome(loading)).toEqual({ error: cancelled });
+});
+
+test("a screen of preferences is drawn only once they have been read from the device", async () => {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  const services = { ...testServices({ userId: "sam" }), ready: promise };
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  await act(async () =>
+    root.render(
+      createElement(ServicesProvider, {
+        services,
+        children: createElement(OncePreferencesRead, {
+          children: createElement("p", null, "drawn"),
+        }),
+      }),
+    ),
+  );
+  const before = host.textContent;
+  await act(async () => resolve());
+  expect([before, host.textContent]).toEqual(["", "drawn"]);
+  act(() => root.unmount());
+  services.dispose();
+  host.remove();
 });

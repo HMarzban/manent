@@ -26,7 +26,7 @@ export function DemoBar(props: {
     <section
       data-surface="demo"
       aria-label={DEMO_WORDS.demo}
-      className="flex h-demobar items-center gap-2 bg-chrome px-3 text-meta text-fg"
+      className="flex min-h-demobar flex-wrap items-center gap-x-2 bg-chrome px-3 text-meta text-fg"
     >
       <span className="font-semibold tracking-wide uppercase">
         {DEMO_WORDS.demo}

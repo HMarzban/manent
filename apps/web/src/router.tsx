@@ -11,7 +11,8 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import type { AnyRouter } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import type { Api } from "./api.ts";
 import { preloadDemoBarControls } from "./demo/demo-bar.tsx";
 import { RootLayout } from "./root-layout.tsx";
@@ -89,6 +90,30 @@ function FirstRun(): null {
   return null;
 }
 
+// each services' `ready` once it has settled, so that a later visit draws Preferences at once
+const settled = new WeakSet<Promise<void>>();
+
+/**
+ * Draws `children` once the person's preferences have been read from the device, so no control shows a value they do
+ * not hold. It waits without a Suspense boundary, whose reveal React holds back for up to 300 ms.
+ */
+export function OncePreferencesRead(props: { children: ReactNode }): ReactNode {
+  const { ready } = useServices();
+  // the services whose `ready` this screen has seen settle: another person's services wait again
+  const [seen, setSeen] = useState<Promise<void> | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    void ready.then(() => {
+      settled.add(ready);
+      if (mounted) setSeen(ready);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [ready]);
+  return settled.has(ready) || seen === ready ? props.children : null;
+}
+
 const ChooseScreen = lazyRouteComponent(
   loadScreen(() => import("./screens/choose.tsx")),
   "ChooseScreen",
@@ -106,9 +131,20 @@ const SendScreen = lazyRouteComponent(
   "SendScreen",
 );
 const PreferencesScreen = lazyRouteComponent(
-  loadScreen(() => import("./screens/preferences/preferences-screen.tsx")),
+  loadScreen(async () => {
+    const { PreferencesScreen: Screen } =
+      await import("./screens/preferences/preferences-screen.tsx");
+    return {
+      PreferencesScreen: (): ReactNode => (
+        <OncePreferencesRead>
+          <Screen />
+        </OncePreferencesRead>
+      ),
+    };
+  }),
   "PreferencesScreen",
 );
+
 const StatesScreen = lazyRouteComponent(
   loadScreen(() => import("./screens/states/states-screen.tsx")),
   "StatesScreen",

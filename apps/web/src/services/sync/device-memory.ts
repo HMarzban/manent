@@ -32,11 +32,16 @@ export interface DeviceMemory {
   /** This tab's alone. */
   connection(): ConnectionMode | null;
   setConnection(mode: ConnectionMode): void;
-  /** The person's two preference maps kept before sync held them, removed as they are read. */
+  /**
+   * The person's two preference maps kept outside their private index, removed as they are read: those of the build
+   * before sync held them, and what a page wrote before its private index opened.
+   */
   takeLegacyMaps(userId: string): {
     prefs: Readonly<Record<string, unknown>> | null;
     keys: Readonly<Record<string, unknown>> | null;
   };
+  /** Adds each entry of `maps` to the two maps `takeLegacyMaps` hands over, in place of one under its key. */
+  keepLegacyMaps(userId: string, maps: { prefs: Fields; keys: Fields }): void;
 }
 
 type Fields = Readonly<Record<string, unknown>>;
@@ -121,10 +126,18 @@ export function createDeviceMemory(stores: {
 }): DeviceMemory {
   const local = kept(stores.local);
   const session = kept(stores.session);
-  const take = (key: string): Fields | null => {
+  const read = (key: string): Fields | null => {
     const value = parseJson(local.get(key));
-    local.set(key, null);
     return isFields(value) ? value : null;
+  };
+  const take = (key: string): Fields | null => {
+    const value = read(key);
+    local.set(key, null);
+    return value;
+  };
+  const keep = (key: string, entries: Fields): void => {
+    if (Object.keys(entries).length === 0) return;
+    local.set(key, JSON.stringify({ ...read(key), ...entries }));
   };
   return {
     offlineSince(userId) {
@@ -161,6 +174,10 @@ export function createDeviceMemory(stores: {
       prefs: take(`manent.prefs.${userId}`),
       keys: take(`manent.keys.${userId}`),
     }),
+    keepLegacyMaps(userId, maps) {
+      keep(`manent.prefs.${userId}`, maps.prefs);
+      keep(`manent.keys.${userId}`, maps.keys);
+    },
   };
 }
 

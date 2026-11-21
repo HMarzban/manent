@@ -7,6 +7,7 @@ import type { TabPerson } from "../session.ts";
 import type { CommandsOptions } from "./person-commands.ts";
 import type { DocumentSource } from "./ports.ts";
 import type { PersonSync } from "./sync/create-sync.ts";
+import type { DeviceMemory } from "./sync/device-memory.ts";
 import { createSyncDocumentSource } from "./sync/document-source.ts";
 import {
   createLaterLibrary,
@@ -38,6 +39,8 @@ export interface PersonDocuments {
   maps: { prefs: KeyValueMap; keys: KeyValueMap; flags: KeyValueMap };
   /** Settles once the private index has opened and its maps are attached, or the sync could not start. */
   ready: Promise<void>;
+  /** Keeps on the device what the maps hold for a private index that has not opened, for its next open to carry over. */
+  flush(): void;
   dispose(): void;
 }
 
@@ -144,7 +147,11 @@ export function createPersonDocuments(
   messages: MessageQueue,
 ): PersonDocuments {
   const sync = options.startSync(options.person, deviceId);
-  const client = sync.then((s) => s.client);
+  let memory: DeviceMemory | null = null;
+  const client = sync.then((s) => {
+    memory = s.memory;
+    return s.client;
+  });
   void client.catch(() => {
     // each document's status says that the sync cannot start
   });
@@ -172,7 +179,7 @@ export function createPersonDocuments(
   const review = createLaterReview({
     store: indexes.then((opened) => opened?.review ?? null),
   });
-  const documents = createSyncDocumentSource({
+  const source = createSyncDocumentSource({
     sync,
     review,
     titles: (docId) =>
@@ -195,6 +202,19 @@ export function createPersonDocuments(
       };
     },
   });
+  // Continue is written as a document is asked for, even when it is left before its handle has opened
+  const marked = new Map<string, () => void>();
+  const documents: DocumentSource = {
+    open(docId) {
+      if (!marked.has(docId)) marked.set(docId, library.markOpened(docId));
+      return source.open(docId);
+    },
+    close(docId) {
+      marked.get(docId)?.();
+      marked.delete(docId);
+      source.close(docId);
+    },
+  };
   return {
     client,
     documents,
@@ -202,6 +222,12 @@ export function createPersonDocuments(
     review,
     maps,
     ready,
+    flush() {
+      memory?.keepLegacyMaps(options.person.userId, {
+        prefs: maps.prefs.held(),
+        keys: maps.keys.held(),
+      });
+    },
     dispose() {
       review.dispose();
       void sync.then(

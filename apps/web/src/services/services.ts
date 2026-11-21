@@ -285,6 +285,9 @@ export function createPersonServices(options: Options): PersonServices {
   });
   const place = placeStoreOf(options);
   const stopKeeping = keepViewState(place, options.schedule);
+  // a page left before the private index opened would lose what it wrote into the index's maps
+  const flush = (): void => sync.flush();
+  globalThis.addEventListener("pagehide", flush);
   const fixedKeys = createValue<readonly FixedKey[]>([]);
   const services: PersonServices = {
     userId: options.person.userId,
@@ -320,7 +323,9 @@ export function createPersonServices(options: Options): PersonServices {
         client: sync.client,
       });
     }),
+    ready: sync.ready,
     dispose() {
+      globalThis.removeEventListener("pagehide", flush);
       stopKeeping();
       stop();
       kept.dispose();
