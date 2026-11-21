@@ -1,5 +1,6 @@
 // The Details tab's sections, one line per section, each in its scope.
 import type { ComponentType } from "react";
+import { ImportSection } from "../../import/import-section.tsx";
 import { LayoutGroup } from "./layout-group.tsx";
 import { WhoWrote } from "./who-wrote.tsx";
 
@@ -12,4 +13,5 @@ export interface DetailsSection {
 export const DETAILS_SECTIONS: readonly DetailsSection[] = [
   { id: "layout", scope: "selection", Section: LayoutGroup },
   { id: "who_wrote", scope: "selection", Section: WhoWrote },
+  { id: "import", scope: "script", Section: ImportSection },
 ];

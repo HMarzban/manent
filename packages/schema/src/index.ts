@@ -57,3 +57,5 @@ export type { RawDoc, RawElement, RawMark, RawText } from "./raw.ts";
 export { blockText, blockView, blocksOf } from "./block-view.ts";
 export type { BlockView, FlatBlock, TextRun } from "./block-view.ts";
 export type { BlockOp } from "./block-ops.ts";
+export { NOTE_CONTEXT_UNITS, isScriptNote, noteAnchorAt } from "./notes.ts";
+export type { NoteAnchor, ScriptNote } from "./notes.ts";
