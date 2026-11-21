@@ -6,7 +6,12 @@ import type {
   ScriptForExport,
   WrittenFile,
 } from "../script/model.ts";
-import { FOUNTAIN_ESCAPED, FOUNTAIN_MARKS, emphasisRuns } from "./inline.ts";
+import {
+  FOUNTAIN_ESCAPED,
+  FOUNTAIN_MARKS,
+  emphasisRuns,
+  fountainNote,
+} from "./inline.ts";
 import type { FountainMark } from "./inline.ts";
 import { FOUNTAIN_LINE_LIMIT, TITLE_KEY_LINE, classifyLines } from "./lines.ts";
 import type { FountainLine } from "./lines.ts";
@@ -78,7 +83,7 @@ function markedUp(
   let next = 0;
   const notesTo = (offset: number): void => {
     for (; next < notes.length && notes[next]!.at <= offset; next++)
-      out += `[[${notes[next]!.text}]]`;
+      out += fountainNote(notes[next]!.text);
   };
   for (const run of runs) {
     const marks = markup === "plain" ? [] : marksOf(run);
@@ -225,8 +230,7 @@ class Body {
   /** The notes that sit on no block of the script, on one line at the end. */
   finish(loose: readonly string[]): void {
     this.flush();
-    if (loose.length > 0)
-      this.groups.push([loose.map((note) => `[[${note}]]`).join("")]);
+    if (loose.length > 0) this.groups.push([loose.map(fountainNote).join("")]);
   }
 
   private startGroup(): void {

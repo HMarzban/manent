@@ -1,5 +1,6 @@
 // Fountain's text inside its lines: notes and boneyard taken out, and emphasis turned into marks.
 import type { TextJSON } from "@manent/schema";
+import { LINE_BREAK } from "./lines.ts";
 
 /** A note's index in the script's notes, at the UTF-16 offset in its text where it stood. */
 export interface NoteAt {
@@ -28,6 +29,26 @@ function nextFinder(find: (from: number) => number): (from: number) => number {
     if (found !== -1 && found < from) found = find(from);
     return found;
   };
+}
+
+/** An empty line inside a note: two spaces, so that the note does not end at a blank line. */
+const NOTE_EMPTY_LINE = "  ";
+
+/** A note as Fountain writes it, in double brackets, each empty line of its text written as two spaces. */
+export function fountainNote(text: string): string {
+  const lines = text
+    .split(LINE_BREAK)
+    .map((line) => (line.trim() === "" ? NOTE_EMPTY_LINE : line));
+  return `[[${lines.join("\n")}]]`;
+}
+
+/** A note's text as it was written: a line of two spaces inside it is an empty line. */
+function noteText(written: string): string {
+  return written
+    .trim()
+    .split("\n")
+    .map((line) => (line === NOTE_EMPTY_LINE ? "" : line))
+    .join("\n");
 }
 
 /**
@@ -82,7 +103,7 @@ export function removeHiddenText(body: string): {
       at = end + 2;
     } else {
       lineNotes.push({ at: text.length, note: notes.length });
-      notes.push(body.slice(at, end).trim());
+      notes.push(noteText(body.slice(at, end)));
       at = end + 2;
     }
     hidden.lastIndex = at;
