@@ -32,6 +32,8 @@ function depsAt(place: RoutePlace): {
       shellState: environment.shellState.get,
       frame: environment.frame,
       visitUndo: environment.visitUndo,
+      desktop: null,
+      nodeCloud: null,
     },
     visited: route.visited,
   };

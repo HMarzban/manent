@@ -118,7 +118,10 @@ async function mayLeave(guard: CloseGuard | null): Promise<boolean> {
   return guard === null || (await guard.ask()) === "leave";
 }
 
-/** The people to choose from, and choosing one: on success the tab has that person and goes on to `next`. */
+/**
+ * The people to choose from, and choosing one: on success the tab has that person and goes on to `next`. In the desktop
+ * app every person, You included, signs in at the node, which keeps the person's work and keeps You off the cloud.
+ */
 function useChooser(
   api: Api,
   setPerson: (person: TabPerson) => void,
@@ -126,6 +129,7 @@ function useChooser(
   guard: RefObject<CloseGuard | null>,
 ) {
   const navigate = useNavigate();
+  const { where } = useEnvironment();
   const [unreachable, setUnreachable] = useState(false);
 
   const choices = useQuery({
@@ -136,7 +140,10 @@ function useChooser(
   });
 
   const choose = useMutation({
-    mutationFn: (choice: SignInChoice) => choosePerson(choice, api),
+    mutationFn: (choice: SignInChoice) =>
+      where.shell === "desktop"
+        ? api.signIn(choice.userId)
+        : choosePerson(choice, api),
     onSuccess: async (result) => {
       setUnreachable(!result.ok && result.reason === "unreachable");
       if (!result.ok) {

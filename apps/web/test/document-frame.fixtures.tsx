@@ -213,6 +213,7 @@ function servicesFor(
       usePerson,
       router,
       shellState: environment.shellState.get,
+      nodeCloud: null,
     }),
   );
   return services;

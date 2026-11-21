@@ -102,11 +102,16 @@ export function usePersonServices(options: {
       store: services.settings,
       root: document.documentElement,
       frame: environment.frame,
-      onBootWrites: (writes) => writeBootCache(environment.tabStorage, writes),
+      onBootWrites(writes) {
+        writeBootCache(environment.tabStorage, writes);
+        environment.desktop?.firstPaint(writes);
+      },
     });
     markEnd("ui.switch.person", startedAt);
+    environment.personServices.set(services);
     return () => {
       stop();
+      environment.personServices.set(null);
       services.dispose();
     };
   }, [built, environment]);

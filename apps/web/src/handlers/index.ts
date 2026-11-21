@@ -2,6 +2,8 @@
 import type { CommandHandlers } from "@manent/commands";
 import { SETTINGS } from "@manent/settings";
 import type { Api } from "../api.ts";
+import type { DesktopHost } from "../desktop/host.ts";
+import type { NodeCloud } from "../desktop/node-cloud.ts";
 import type { PersonServices, ShellState } from "../services/ports.ts";
 import type { ShellDom } from "../shell/regions.tsx";
 import type { PersonStore } from "../state/person.store.ts";
@@ -38,6 +40,10 @@ export interface HandlerDeps {
   frame: (fn: () => void) => () => void;
   /** The undo list of the Preferences screen while it is shown; it sets `current` itself. */
   visitUndo: { current: { undo(): boolean } | null };
+  /** The desktop app's shell and node; null on the web. */
+  desktop: DesktopHost | null;
+  /** The person at the desktop app's node; null on the web. */
+  nodeCloud: NodeCloud | null;
 }
 
 export function createHandlers(deps: HandlerDeps): CommandHandlers {

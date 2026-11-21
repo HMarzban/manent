@@ -13,6 +13,7 @@ import type {
   SettingsStore,
 } from "@manent/settings";
 import type { SyncClient } from "@manent/sync-client";
+import type { UpdateState } from "@manent/sync-protocol";
 import type {
   ConsequenceDialogProps,
   MessageQueue,
@@ -22,6 +23,7 @@ import type {
   Subscribable,
 } from "@manent/ui";
 import type { ConnectionControl } from "../demo/connection-transport.ts";
+import type { DesktopHost } from "../desktop/host.ts";
 import type { EditorControl } from "../editor-host/control.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
 import type { PlaceStore } from "../editor-host/place.ts";
@@ -194,6 +196,12 @@ export const INITIAL_SHELL_STATE: ShellState = Object.freeze({
 /** The world this tab runs in, made once by the composition root and shared by every person's services. */
 export interface Environment {
   where: Where;
+  /** The desktop app's shell and node; null on the web. */
+  desktop: DesktopHost | null;
+  /** The desktop app's last word on updates in this window, or the check just asked for; null until then, and on the web. */
+  updateState: Subscribable<UpdateState | null> & {
+    set(state: UpdateState | null): void;
+  };
   /** The language the browser asks for ("en-GB"). */
   language: string;
   /** The browser's user agent, which the editor's pages read the browser's engine from. */
@@ -224,4 +232,8 @@ export interface Environment {
   visitUndo: { current: { undo(): boolean } | null };
   /** Starts the person's sync on this device; the services dispose it. */
   startSync(person: TabPerson, deviceId: string): Promise<PersonSync>;
+  /** The services of the person this window draws, set as they are built and disposed; null while it draws nobody. */
+  personServices: Subscribable<PersonServices | null> & {
+    set(services: PersonServices | null): void;
+  };
 }
