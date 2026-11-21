@@ -128,6 +128,7 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
     demo: async () => null,
     removedDoc: async () => null,
     docClients: async () => ({ clients: [] }),
+    prepareTour: async () => ({ ok: false, reason: "unknown" }),
     ...overrides,
   };
 }

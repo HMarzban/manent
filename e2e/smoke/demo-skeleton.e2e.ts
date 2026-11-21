@@ -1,4 +1,4 @@
-import { DEMO_PEOPLE, TOUR_GROUPS } from "@manent/demo";
+import { DEMO_PEOPLE, TOUR, TOUR_GROUPS, isShown } from "@manent/demo";
 import type { DemoResponse } from "@manent/sync-protocol";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
@@ -67,12 +67,14 @@ test("a tester chooses a person and reaches the Library", async ({
   await expect(serverLine(page)).toHaveText("Server running");
   // open on the first visit to the Library
   const tour = tourTab(page);
-  // "History" among them
+  await expect(tour.getByRole("heading", { level: 2 })).toHaveText("Tour");
+  // a group is drawn only when it lists a scenario
   for (const group of TOUR_GROUPS)
     await expect(
       tour.getByRole("heading", { name: group, exact: true }),
-    ).toBeVisible();
-  // a group with no scenario is its heading alone
+    ).toHaveCount(
+      TOUR.scenarios.some((s) => s.group === group && isShown(s)) ? 1 : 0,
+    );
   await expect(tour.getByText("Not in this build yet")).toHaveCount(0);
 });
 

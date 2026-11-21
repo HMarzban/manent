@@ -22,6 +22,7 @@ import type {
   StatusFacts,
   Subscribable,
 } from "@manent/ui";
+import type { Api } from "../api.ts";
 import type { ConnectionControl } from "../demo/connection-transport.ts";
 import type { DesktopHost } from "../desktop/host.ts";
 import type { EditorControl } from "../editor-host/control.ts";
@@ -135,6 +136,10 @@ export interface PersonServices {
   flags: Flags;
   /** The person's custom shortcuts, one entry per command and device. */
   keys: KeyValueMap;
+  /** The private index's Tour progress, one entry per scenario done. */
+  tour: KeyValueMap;
+  /** This tab's requests to the server, with the tab's session. */
+  api: Api;
   lastPane: { get(): SectionId; set(pane: SectionId): void };
   /** Where the person left each script, and their panels and Ruler, on this device. */
   place: PlaceStore;

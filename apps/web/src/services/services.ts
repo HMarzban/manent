@@ -309,6 +309,8 @@ export function createPersonServices(options: Options): PersonServices {
     messages,
     flags,
     keys: sync.maps.keys,
+    tour: sync.maps.tour,
+    api: options.api,
     lastPane: kept.lastPane,
     place,
     get persisted() {

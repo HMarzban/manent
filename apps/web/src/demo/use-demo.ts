@@ -2,15 +2,9 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DemoResponse } from "@manent/sync-protocol";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useSyncExternalStore,
-} from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { createServerControl } from "../api.ts";
-import type { Api, ControlState, ServerControl } from "../api.ts";
+import type { Api, ServerControl } from "../api.ts";
 import type { DeviceMemory } from "../services/sync/device-memory.ts";
 
 export const POLL_MS = 2000;
@@ -72,23 +66,6 @@ export function useDemo(deps: { api: Api; fetch: typeof fetch }): {
   );
 
   return { demo: demo ?? null, control };
-}
-
-/** The server's state as the demo bar last heard it; null before its first answer and outside demo mode. */
-export function useServerState(): ControlState | null {
-  const cache = useQueryClient().getQueryCache();
-  const subscribe = useCallback(
-    (onChange: () => void) => cache.subscribe(onChange),
-    [cache],
-  );
-  // the bar's own query is the one being watched; one left by an earlier control is not
-  const read = (): ControlState | null =>
-    cache.find<ControlState>({
-      queryKey: [SERVER_STATUS_QUERY],
-      exact: false,
-      type: "active",
-    })?.state.data ?? null;
-  return useSyncExternalStore(subscribe, read, read);
 }
 
 /**

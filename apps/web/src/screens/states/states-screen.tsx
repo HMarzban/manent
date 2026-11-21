@@ -85,6 +85,7 @@ const fixtureApi = (options: {
   demo: async () => null,
   removedDoc: async () => null,
   docClients: async () => ({ clients: [] }),
+  prepareTour: NEVER,
 });
 
 interface Row {

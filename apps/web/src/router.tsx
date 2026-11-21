@@ -1,5 +1,6 @@
 // The app's routes, defined in code.
 
+import { PANEL_IDS } from "@manent/commands";
 import { SECTION_IDS } from "@manent/settings";
 import {
   createRootRoute,
@@ -22,6 +23,7 @@ import { useServices } from "./services/context.tsx";
 import type { PersonServices } from "./services/ports.ts";
 import { chooseUrl, choosePerson, confirmPerson, safeNext } from "./session.ts";
 import { preloadShellPalette } from "./shell/app-shell.tsx";
+import { panelsActions } from "./state/panels.store.ts";
 import type { PersonStore } from "./state/person.store.ts";
 
 // the build's define; absent outside a build
@@ -205,9 +207,12 @@ export function createAppRouter(deps: {
   preloadDemoBarControls();
   preloadShellPalette();
 
+  // set by `?panels=closed` until the screen it opens has been drawn
+  let closingPanels = false;
   const rootRoute = createRootRoute({
-    // `?person=<id>` chooses that person for this tab, then the parameter is dropped either way. Without it, every
-    // screen but the chooser is a person's: a tab with none is asked who it is, then comes back to the address.
+    // `?person=<id>` chooses that person for this tab, and `?panels=closed` beside it closes both panels once the screen
+    // is drawn (a window the Tour opens beside another); both are then dropped. Without `?person=`, every screen but the
+    // chooser is a person's: a tab with none is asked who it is, then comes back to the address.
     beforeLoad: async ({ location, matches }) => {
       const params = new URLSearchParams(location.searchStr);
       const userId = params.get("person");
@@ -221,7 +226,9 @@ export function createAppRouter(deps: {
       const choice = choices.find((c) => c.userId === userId);
       const result = choice ? await choosePerson(choice, api) : null;
       if (result?.ok) usePerson.getState().setPerson(result.person);
+      closingPanels = params.get("panels") === "closed";
       params.delete("person");
+      params.delete("panels");
       const search = params.toString();
       const hash = location.hash ? `#${location.hash}` : "";
       throw redirect({
@@ -344,7 +351,7 @@ export function createAppRouter(deps: {
     errorComponent: ScreenProblem,
   });
 
-  return createRouter({
+  const router = createRouter({
     routeTree: rootRoute.addChildren([
       libraryRoute,
       documentRoute,
@@ -360,4 +367,11 @@ export function createAppRouter(deps: {
     defaultPendingMs: 150,
     defaultPendingMinMs: 300,
   });
+  // after the draw, which has put back the panels the person left open
+  router.subscribe("onRendered", () => {
+    if (!closingPanels) return;
+    closingPanels = false;
+    for (const panel of PANEL_IDS) panelsActions.close(panel);
+  });
+  return router;
 }
