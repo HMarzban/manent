@@ -8,8 +8,11 @@ import type { ServerEnd } from "@manent/sync-client/testing";
 import {
   SLOW_DELAY_MS,
   connectionTransport,
+  throughConnection,
 } from "../src/demo/connection-transport.ts";
 import type { ConnectionMode } from "../src/services/sync/device-memory.ts";
+import { SAM, createIndexWorld } from "./index.fixtures.ts";
+import { openWith, overlapItem, sceneEight } from "./review.fixtures.ts";
 import { START, createSyncWorld, settle } from "./sync.fixtures.ts";
 
 const F1 = new Uint8Array([1]);
@@ -102,6 +105,37 @@ test("Offline closes this tab's socket and lets nothing out", async () => {
       ),
     ]),
   ).toEqual(["unreachable", "unreachable", "unreachable"]);
+
+  // nor do the requests the person's sync makes to the app's own routes
+  const w = await createIndexWorld();
+  await w.seedWorkspace("medium", [["sam", "owner"]]);
+  const asked: string[] = [];
+  const sam = await w.personServices({
+    person: SAM,
+    api: {
+      docClients: async () => {
+        asked.push("clients");
+        return { clients: [] };
+      },
+      removedDoc: async () => {
+        asked.push("removed");
+        return null;
+      },
+    },
+  });
+  const { docId } = await sceneEight(sam, "medium");
+  await w.settleAll();
+  (await sam.connection).set("offline");
+  await openWith(sam, docId, [
+    overlapItem(docId, "item-1", { otherClientIds: [11] }),
+  ]);
+  await w.settleAll();
+  const removed = await refusal(
+    throughConnection({ mode: () => "offline" }, async () => {
+      asked.push("removed");
+    }),
+  );
+  expect([asked, removed]).toEqual([[], "unreachable"]);
 });
 
 test("Slow delays every frame both ways, in order", async () => {

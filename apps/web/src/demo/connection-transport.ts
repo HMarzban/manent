@@ -38,6 +38,16 @@ function createLine(clock: Clock): (delayMs: number, pass: () => void) => void {
   };
 }
 
+/** `send`, unless the tab's Connection is Offline: then it rejects ConnectError("unreachable") at once, and nothing leaves the tab. */
+export function throughConnection<T>(
+  control: { mode(): ConnectionMode },
+  send: () => Promise<T>,
+): Promise<T> {
+  return control.mode() === "offline"
+    ? Promise.reject(new ConnectError("unreachable"))
+    : send();
+}
+
 /**
  * `transport` as the tab's Connection leaves it. Offline: connect, createDocument and replay reject
  * ConnectError("unreachable") at once, and no frame goes either way. Slow: each frame either way and each request is
@@ -54,13 +64,15 @@ export function connectionTransport(options: {
   const delay = (): number => (control.mode() === "slow" ? options.delayMs : 0);
   const offline = (): boolean => control.mode() === "offline";
   const request = <T>(send: () => Promise<T>): Promise<T> =>
-    offline()
-      ? Promise.reject(new ConnectError("unreachable"))
-      : new Promise<T>((resolve, reject) => {
+    throughConnection(
+      control,
+      () =>
+        new Promise<T>((resolve, reject) => {
           out(delay(), () => {
             send().then(resolve, reject);
           });
-        });
+        }),
+    );
   return {
     connect(handlers) {
       const inward = createLine(options.clock);

@@ -3,6 +3,7 @@ import type { KeyValueMap } from "@manent/settings";
 import type { DocHandle, SyncClient } from "@manent/sync-client";
 import { LIBRARY_WORDS, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
+import { throughConnection } from "../demo/connection-transport.ts";
 import type { ConnectionControl } from "../demo/connection-transport.ts";
 import type { TabPerson } from "../session.ts";
 import type { CommandsOptions } from "./person-commands.ts";
@@ -60,6 +61,11 @@ export interface PersonDocuments {
   dispose(): void;
 }
 
+/** The tab's Connection, as a request to the app's own routes reads it. */
+const connectionOf = (sync: PersonSync) => ({
+  mode: () => sync.connection.mode.get(),
+});
+
 /** The person's private index and Library over `sync`, each loaded apart from the entry. */
 async function openIndexes(
   sync: PersonSync,
@@ -102,10 +108,12 @@ async function openIndexes(
     privateIndex,
     sync,
     // the server answers for at most 64 ids at once
-    names: async (docId, clientIds) =>
-      (await options.api.docClients(docId, clientIds.slice(0, 64))).clients.map(
-        (client) => client.userId,
-      ),
+    names: async (docId, clientIds) => {
+      const asked = await throughConnection(connectionOf(sync), () =>
+        options.api.docClients(docId, clientIds.slice(0, 64)),
+      );
+      return asked.clients.map((client) => client.userId);
+    },
     messages,
     announce: (text) => options.dom.announce(text),
     now: options.now,
@@ -335,7 +343,10 @@ export function createPersonDocuments(
     messages,
     now: options.now,
     schedule: options.schedule,
-    removedInfo: (docId) => options.api.removedDoc(docId),
+    removedInfo: async (docId) =>
+      throughConnection(connectionOf(await sync), () =>
+        options.api.removedDoc(docId),
+      ),
     opened: openedHook({
       library,
       indexes,
