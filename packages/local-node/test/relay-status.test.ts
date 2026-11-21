@@ -61,3 +61,18 @@ test("a script made on the device reads its owner's link to the cloud", async ()
     "online",
   ]);
 });
+
+test("seed 32: a script whose upstream was replaced is not synced until the node follows it", async () => {
+  const w = world();
+  await w.open("sam", DOC);
+  w.windowTypes("sam", DOC, "first");
+  await w.settle();
+  // the follow waits for a turn the node has not finished
+  w.holdNodeTurns(true);
+  w.cloudRebuilds(DOC);
+  await w.settle();
+  const moving = w.bridge.status(DOC).synced;
+  w.holdNodeTurns(false);
+  await w.settle();
+  expect([moving, w.bridge.status(DOC).synced]).toEqual([false, true]);
+});

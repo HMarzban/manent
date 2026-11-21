@@ -51,7 +51,10 @@ import type {
   Transport,
   UpstreamStatus,
 } from "@manent/sync-client";
-import { encodeUpstreamStatus } from "@manent/sync-client";
+import {
+  decodeUpstreamStatus,
+  encodeUpstreamStatus,
+} from "@manent/sync-client";
 import {
   createFakeClock,
   createMemoryNetwork,
@@ -69,7 +72,7 @@ import {
   createFrameDecoder,
   createMessageIds,
 } from "@manent/sync-protocol";
-import type { ControlKind, Message } from "@manent/sync-protocol";
+import type { ControlKind, FrameDecoder, Message } from "@manent/sync-protocol";
 import {
   createHandover,
   createMirror,
@@ -656,6 +659,17 @@ function textIn(storage: Storage, docId: string): string[] {
   return lines;
 }
 
+function settingsIn(
+  storage: Storage,
+  docId: string,
+): Readonly<Record<string, unknown>> {
+  const doc = nodeDocOf(storage, docId);
+  if (doc === null) return {};
+  const entries = scriptSettings(doc).entries();
+  doc.destroy();
+  return entries;
+}
+
 export class RelayWorld {
   readonly clock = createFakeClock(START_AT);
   readonly random = seeded(17);
@@ -1036,11 +1050,7 @@ export class RelayWorld {
   }
 
   cloudSettings(docId: string): Readonly<Record<string, unknown>> {
-    const doc = nodeDocOf(this.cloudStorage, docId);
-    if (doc === null) return {};
-    const entries = scriptSettings(doc).entries();
-    doc.destroy();
-    return entries;
+    return settingsIn(this.cloudStorage, docId);
   }
 
   cloudRebuilds(docId: string): void {
@@ -1250,9 +1260,12 @@ const nodeSignIn = (): ReturnType<typeof createFakeSignIn> => {
 
 /** One window's socket to the core, delivered when the world steps. */
 interface Wire {
+  readonly userId: string;
   open: boolean;
   toCore: (Uint8Array | string)[];
   toWindow: Uint8Array[];
+  /** Reads what the core sends the window. */
+  readonly fromCore: FrameDecoder;
   connection: Connection;
   handlers: Parameters<Transport["connect"]>[0];
 }
@@ -1266,7 +1279,7 @@ export class CoreWorld {
   });
   readonly cloudStorage = createMemoryStorage({ now: this.clock.clock.now });
   readonly nodeStorage = createMemoryStorage({ now: this.clock.clock.now });
-  readonly records: ReturnType<typeof createMemoryRecords>;
+  records: ReturnType<typeof createMemoryRecords>;
   upstreamStores = createMemoryStoreSpace();
   readonly cloud = new Cloud(this.cloudStorage, this.clock);
   readonly deferred = new Deferred();
@@ -1277,6 +1290,10 @@ export class CoreWorld {
   private readonly empty = this.nodeStorage.snapshot();
   private readonly wires = new Set<Wire>();
   private readonly windows = new Map<string, Person>();
+  /** By person: every message their window was sent, in order. */
+  private readonly heard = new Map<string, Message[]>();
+  /** People whose window loses the acknowledgements the core sends it. */
+  private readonly losingAcks = new Set<string>();
   private activity = 0;
   private readonly active = (): void => {
     this.activity += 1;
@@ -1340,9 +1357,12 @@ export class CoreWorld {
     });
   }
 
-  /** The node's process restarts over the same storage and records; its windows' sockets drop. */
+  /** The node's process restarts over the same storage and records, with no step failing; its windows' sockets drop. */
   async restartNode(): Promise<void> {
     await this.drive(this.core.close());
+    const kept = this.records.snapshot();
+    this.records = createMemoryRecords();
+    this.records.restore(kept);
     this.core = this.startCore();
     for (const wire of this.wires) wire.connection.close(1012, "restart");
     await this.settle();
@@ -1420,17 +1440,47 @@ export class CoreWorld {
   }
 
   windowTypes(userId: string, docId: string, text: string): void {
-    const handle = this.windowOf(userId).handles.get(docId);
-    if (handle === undefined)
-      throw new Error(`${userId} has no window on ${docId}`);
-    typeInto(handle.doc(), text);
+    typeInto(this.windowHandle(userId, docId).doc(), text);
+  }
+
+  windowSets(userId: string, docId: string, key: string, value: unknown): void {
+    this.windowHandle(userId, docId).setSetting(key, value);
   }
 
   windowStatus(userId: string, docId: string): DocStatus {
+    return this.windowHandle(userId, docId).status.get();
+  }
+
+  /** While true, the person's window loses every acknowledgement the core sends it. */
+  windowLosesAcks(userId: string, losing: boolean): void {
+    if (losing) this.losingAcks.add(userId);
+    else this.losingAcks.delete(userId);
+  }
+
+  /** The person's window drops its socket, and connects again as a window does. */
+  windowReconnects(userId: string): void {
+    for (const wire of this.wires)
+      if (wire.userId === userId) wire.connection.close(1006, "");
+  }
+
+  /** The upstream statuses the person's window was sent after the last acknowledgement it was sent. */
+  windowStatusesAfterAck(userId: string): (UpstreamStatus | null)[] {
+    const heard = this.heard.get(userId) ?? [];
+    const acked = heard.findLastIndex((message) => message.type === "ACK");
+    return heard
+      .slice(acked + 1)
+      .flatMap((message) =>
+        message.type === "CONTROL" && message.kind === "upstream_status"
+          ? [decodeUpstreamStatus(message.data)]
+          : [],
+      );
+  }
+
+  private windowHandle(userId: string, docId: string): DocHandle {
     const handle = this.windowOf(userId).handles.get(docId);
     if (handle === undefined)
       throw new Error(`${userId} has no window on ${docId}`);
-    return handle.status.get();
+    return handle;
   }
 
   cloudHas(docId: string): boolean {
@@ -1443,6 +1493,10 @@ export class CoreWorld {
 
   nodeText(docId: string): string[] {
     return textIn(this.nodeStorage, docId);
+  }
+
+  cloudSettings(docId: string): Readonly<Record<string, unknown>> {
+    return settingsIn(this.cloudStorage, docId);
   }
 
   async drive<T>(promise: Promise<T>): Promise<T> {
@@ -1487,13 +1541,26 @@ export class CoreWorld {
       }
       const toWindow = wire.toWindow.shift();
       if (toWindow !== undefined) {
-        wire.handlers.onFrame(toWindow);
+        if (this.delivers(wire, toWindow)) wire.handlers.onFrame(toWindow);
         return true;
       }
     }
     if (this.cloudNet.step()) return true;
     await turn();
     return this.cloudNet.queued() > 0;
+  }
+
+  /** Keeps what the window is sent; false for an acknowledgement it loses. */
+  private delivers(wire: Wire, frame: Uint8Array): boolean {
+    const read = wire.fromCore.push(frame);
+    if (read.kind !== "message") return true;
+    const { message } = read;
+    if (message.type === "ACK" && this.losingAcks.has(wire.userId))
+      return false;
+    const heard = this.heard.get(wire.userId) ?? [];
+    heard.push(message);
+    this.heard.set(wire.userId, heard);
+    return true;
   }
 
   private windowOf(userId: string): Person {
@@ -1557,9 +1624,11 @@ export class CoreWorld {
         );
         if (data === null) throw new ConnectError("unreachable");
         const wire: Wire = {
+          userId,
           open: true,
           toCore: [],
           toWindow: [],
+          fromCore: createFrameDecoder({ from: "server" }),
           handlers,
           connection: {
             data,

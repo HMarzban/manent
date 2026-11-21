@@ -121,6 +121,7 @@ function guarded(ensure: Mirror["ensure"]) {
     tokenOf: () => "cloud-token",
     clock: clock.clock,
     subscribed() {},
+    acked() {},
   });
   // the guard keys a connection by its data's identity, which only server-core can make
   const connection: Connection = {

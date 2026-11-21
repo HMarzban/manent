@@ -44,6 +44,8 @@ export interface RelayBridge extends Upstream {
   status(docId: string): UpstreamStatus;
   /** Throttled, on change. */
   onStatus(listener: StatusListener): () => void;
+  /** As on change, and even when it equals the last status sent: a window that was acknowledged waits for one. */
+  resendStatus(docId: string): void;
   /** The document's first sync was refused: every setting request held for it is answered with `message`. */
   refuseHeld(docId: string, message: string): void;
   close(): Promise<void>;
@@ -158,6 +160,7 @@ export function createRelayBridge(options: {
       device,
       recovered: [...handle.recovered.get(), ...records.recovered(docId)],
       lastSyncedAt: line.lastSyncedAt,
+      moving: line.moving,
       events: docOf(docId).events,
       delayed: docOf(docId).delayed,
     });
@@ -378,6 +381,7 @@ export function createRelayBridge(options: {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    resendStatus: (docId) => throttle.resend(docId),
     refuseHeld(docId, message) {
       for (const item of docOf(docId).held.splice(0))
         refuse(docId, item, message);

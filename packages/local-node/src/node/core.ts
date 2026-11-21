@@ -93,6 +93,8 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     records.person(userId)?.cloudToken ?? null;
   const focus = new Set<() => void>();
   let device: UpstreamStatus["device"] = "ok";
+  /** People whose hand-off waits until the disk has taken what it held. */
+  const afterDisk = new Set<string>();
   let watched: { editors(): Editor[] } | null = null;
 
   const control = (
@@ -151,6 +153,9 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
         editors.flatMap((editor) => [...editor.docs.keys()]),
       );
       for (const docId of held) sendStatus(docId, relay.status(docId));
+      if (state === "failing") return;
+      for (const userId of afterDisk) handOver(userId);
+      afterDisk.clear();
     },
     upstream: relay,
     checkpointer: createInlineCheckpointer({ storage, defer }),
@@ -232,11 +237,17 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
         // a line that could not open is forgotten, and opened again at the window's next subscribe or edit
       });
     },
+    acked(docId) {
+      if (records.docState(docId)?.state === "synced")
+        relay.resendStatus(docId);
+    },
   });
   watched = guarded;
 
   /** Hands the person's scripts over in the background. */
   function handOver(userId: string): void {
+    // a snapshot now would leave out the commits the disk holds, and the cloud would refuse them later as a push
+    if (device === "failing") return void afterDisk.add(userId);
     handover.run(userId).catch(() => {
       // a run cut short resumes from the key and snapshot it stored, at the person's next connection or launch
     });
@@ -348,6 +359,9 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
       name: person.name,
     });
   };
+  // a hand-off a stopped process left goes on at launch: no upstream connects for a script the node still holds as its own
+  for (const { userId } of records.people()) handOver(userId);
+
   const stopWake = createWakeWatch({
     clock,
     tickMs: WAKE_TICK_MS,

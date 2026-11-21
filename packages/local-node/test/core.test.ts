@@ -102,3 +102,59 @@ test("a script made in a workspace before Sign in to sync is handed over into it
   ]);
   expect(w.cloudText(DOC)).toEqual(["first scene"]);
 });
+
+test("seed 20: a hand-off cut short by a restart goes through after it", async () => {
+  const w = nodeWorld({ crashOn: "finishHandoff" });
+  const token = await w.chooses("you");
+  await w.open("you", DOC, true);
+  w.windowTypes("you", DOC, "first scene");
+  await w.settle();
+  await w.request("POST", "/api/local/sign-in-to-sync", { token });
+  await w.settle();
+  await w.restartNode();
+  expect(w.records.docState(DOC)).toEqual({
+    userId: "you",
+    state: "synced",
+    generation: 1,
+  });
+  expect(w.cloudText(DOC)).toEqual(["first scene"]);
+});
+
+test("seed 4: a setting held by a full disk before Sign in to sync never reaches the cloud as a push it refuses", async () => {
+  const w = nodeWorld();
+  const token = await w.chooses("you");
+  await w.open("you", DOC, true);
+  w.windowTypes("you", DOC, "first scene");
+  w.windowSets("you", DOC, "script.paper", "a4");
+  await w.settle();
+  w.nodeStorage.fillDisk(true);
+  w.windowSets("you", DOC, "script.paper", "letter");
+  await w.settle();
+  await w.request("POST", "/api/local/sign-in-to-sync", { token });
+  w.nodeStorage.fillDisk(false);
+  await w.settle();
+  // the node's next start writes upstream what its log holds beyond the cloud's
+  await w.restartNode();
+  expect(w.cloud.refusals).toEqual([]);
+  expect(w.cloudSettings(DOC)).toEqual({ "script.paper": "letter" });
+});
+
+test("a window that re-sends an edit whose acknowledgement it lost says synced once the node holds it", async () => {
+  const w = nodeWorld();
+  await w.openSynced("sam", DOC);
+  w.windowLosesAcks("sam", true);
+  w.windowTypes("sam", DOC, "a line the node holds");
+  await w.settle();
+  w.windowLosesAcks("sam", false);
+  w.windowReconnects("sam");
+  await w.settle();
+  expect(w.nodeText(DOC)).toEqual(["a line the node holds"]);
+  const told = w.windowStatusesAfterAck("sam");
+  expect(told.map((status) => [status?.synced, status?.waiting])).toEqual([
+    [true, 0],
+  ]);
+  expect(w.windowStatus("sam", DOC)).toMatchObject({
+    synced: true,
+    waiting: 0,
+  });
+});
