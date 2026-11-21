@@ -8,7 +8,7 @@ import { docOf } from "./docs.ts";
 withDom();
 
 /** A view whose command keymap resolves every key to `id`, then a keymap that records what reaches it. */
-function viewResolving(id: string | null) {
+function viewResolving(id: string | null, editable = true) {
   const runs: string[] = [];
   const later: string[] = [];
   const keys = commandKeymap({
@@ -19,6 +19,7 @@ function viewResolving(id: string | null) {
     },
   });
   const view = new EditorView(document.createElement("div"), {
+    editable: () => editable,
     state: EditorState.create({
       doc: docOf([["one"]]),
       plugins: [
@@ -66,4 +67,19 @@ test("a key pressed while an input method composes is left to it", () => {
     keydown({ key: "d", ctrlKey: true, isComposing: true }),
   );
   expect([handled, runs]).toEqual([false, []]);
+});
+
+test("on a read-only page a key still runs its command, and the browser does not act on it", () => {
+  const { view, runs } = viewResolving("format.bold", false);
+  const known = keydown({ key: "b", ctrlKey: true });
+  const unknown = keydown({ key: "q", ctrlKey: true });
+  const { view: other, runs: none } = viewResolving(null, false);
+  view.dom.dispatchEvent(known);
+  other.dom.dispatchEvent(unknown);
+  expect([
+    runs,
+    known.defaultPrevented,
+    none,
+    unknown.defaultPrevented,
+  ]).toEqual([["format.bold"], true, [], false]);
 });

@@ -2,7 +2,7 @@ import { afterAll, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createTempTrees } from "@manent/testkit";
-import { runSuite } from "../harness.ts";
+import { UNITS, runSuite } from "../harness.ts";
 import type { ResultFile } from "../harness.ts";
 import { bootstrapInterval } from "../stats.ts";
 
@@ -358,4 +358,8 @@ export default {
     metric: "size",
     samples: 1,
   });
+});
+
+test("a measurement's unit is one of these", () => {
+  expect(UNITS).toEqual(["ms", "bytes", "count", "percent"]);
 });

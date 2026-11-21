@@ -3,7 +3,7 @@ import { afterEach, expect, test } from "bun:test";
 import { schema } from "@manent/schema";
 import { Fragment } from "prosemirror-model";
 import type { Node } from "prosemirror-model";
-import { EditorState, TextSelection } from "prosemirror-state";
+import { EditorState, Plugin, TextSelection } from "prosemirror-state";
 import type { Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import type { ScrollPorts } from "../src/index.ts";
@@ -68,7 +68,13 @@ interface Mounted {
 
 function mount(
   doc: Node,
-  options: { typewriter?: boolean; zoom?: number; paged?: boolean } = {},
+  options: {
+    typewriter?: boolean;
+    zoom?: number;
+    paged?: boolean;
+    /** A plugin placed just before this one, given the scroller. */
+    ahead?: (scroller: HTMLElement) => Plugin;
+  } = {},
 ): Mounted {
   let typewriter = options.typewriter ?? false;
   const scroller = fakeScroller();
@@ -89,9 +95,16 @@ function mount(
     typewriter: () => typewriter,
   });
   const before = options.paged === false ? [] : state(doc).plugins;
+  const ahead =
+    options.ahead === undefined ? [] : [options.ahead(scroller.element)];
   const view = new EditorView(
     scroller.element.appendChild(document.createElement("div")),
-    { state: EditorState.create({ doc, plugins: [...before, plugin] }) },
+    {
+      state: EditorState.create({
+        doc,
+        plugins: [...before, ...ahead, plugin],
+      }),
+    },
   );
   views.push(view);
   let composing = false;
@@ -172,6 +185,34 @@ test("a remote edit above the anchor scrolls by exactly the height it added", ()
   );
   expect(shift).toBeGreaterThan(30 * 16);
   expect(m.scroller.writes).toEqual([shift * 1.25]);
+});
+
+/** A rule ahead of the scroll plugin that also corrects a document change, by its own reading of the page: 500 px. */
+const correctsToo = (scroller: HTMLElement): Plugin =>
+  new Plugin({
+    view: (view) => ({
+      update(_, prev) {
+        if (view.state.doc !== prev.doc) scroller.scrollTop += 500;
+      },
+    }),
+  });
+
+test("a remote edit above the reader that another rule already scrolled for still moves the reader by the height it added once", () => {
+  const m = mount(script(400), { ahead: correctsToo });
+  m.layout.top = { block: 300, offsetPx: 0 };
+  scrolled(m.scroller.element);
+  const before = pagesOf(m.view);
+  m.view.dispatch(remote(m.view, withLinesAt(m.view.state.doc, 10, 30)));
+  const after = pagesOf(m.view);
+  expect(m.scroller.element.scrollTop).toBe(
+    anchorShiftPx(
+      before.pagination,
+      after.pagination,
+      after.settings.engine,
+      { first: 10, oldEnd: 10, newEnd: 40 },
+      330,
+    ),
+  );
 });
 
 test("a remote edit that adds 250 blocks above the reader still scrolls by the height it added", () => {

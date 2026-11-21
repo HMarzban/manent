@@ -194,8 +194,9 @@ function scrollView(view: EditorView, options: ScrollOptions): PluginView {
   scroller.style.setProperty("overflow-anchor", "none");
   const line = holdLine(scroller, (at) => options.caretTop(at));
   let anchor: Anchor | null = null;
-  // what remote changes have moved the anchor by, px, until it is corrected; null when no remote change waits
-  let owed: number | null = null;
+  // the scroll before the first remote change not yet corrected, and how far the changes since have moved the anchor,
+  // px; null when no remote change waits
+  let owed: { readonly from: number; readonly by: number } | null = null;
   // the scroll as this plugin left it, so that a scroll by the person can be told from its own
   let settled = scroller.scrollTop;
   const record = () => {
@@ -216,12 +217,16 @@ function scrollView(view: EditorView, options: ScrollOptions): PluginView {
         const moved =
           anchor === null ? null : movedBy(view, prev, anchor, options);
         anchor = moved?.anchor ?? null;
-        owed = (owed ?? 0) + (moved?.shift ?? 0);
+        owed = {
+          from: owed?.from ?? settled,
+          by: (owed?.by ?? 0) + (moved?.shift ?? 0),
+        };
       }
       // while an input method composes, nothing is corrected until the update after it ends
       if (view.composing) return;
       if (owed !== null) {
-        if (owed !== 0) scroller.scrollTop += owed;
+        // set, not added to: a rule ahead of this one may already have scrolled for the same change
+        if (owed.by !== 0) scroller.scrollTop = owed.from + owed.by;
         owed = null;
         record();
       } else if (now.local !== was.local) {
