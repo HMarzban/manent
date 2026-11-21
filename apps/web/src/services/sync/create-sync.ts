@@ -26,6 +26,8 @@ export interface PersonSync {
   link: Subscribable<LinkFacts>;
   network: Subscribable<boolean>;
   offlineSince: Subscribable<number | null>;
+  /** What sync keeps in this browser's storage beside the store. */
+  memory: DeviceMemory;
   dispose(): Promise<void>;
 }
 
@@ -213,6 +215,7 @@ export async function createPersonSync(options: {
     link,
     network,
     offlineSince: kept.offlineSince,
+    memory: options.memory,
     async dispose() {
       stopAsking();
       stopDrain();

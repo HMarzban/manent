@@ -9,7 +9,7 @@ import {
   latestEntries,
 } from "@manent/settings";
 import type { Bag, KeyValueMap, SettingsStore } from "@manent/settings";
-import { LIBRARY_WORDS, createMessageQueue, createValue } from "@manent/ui";
+import { createMessageQueue, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import { createEditorControl } from "../editor-host/control.ts";
 import { createLazyMount } from "../editor-host/lazy-mount.ts";
@@ -27,7 +27,6 @@ import { createDeviceBag } from "./device-bag.ts";
 import { readDeviceId } from "./device-id.ts";
 import { createFlags } from "./flags.ts";
 import { createLocalMap, createLocalText } from "./local-map.ts";
-import { createMemoryLibrary } from "./memory-library.ts";
 import { createCommands } from "./person-commands.ts";
 import type { CommandsOptions } from "./person-commands.ts";
 import type {
@@ -36,9 +35,8 @@ import type {
   PersonServices,
   Reverses,
 } from "./ports.ts";
+import { createPersonDocuments } from "./person-documents.ts";
 import { createRemoteDeferral } from "./remote-deferral.ts";
-import { createSyncDocumentSource } from "./sync/document-source.ts";
-import type { ReviewPort } from "./sync/document-source.ts";
 
 type Options = CommandsOptions & { person: TabPerson };
 
@@ -168,31 +166,23 @@ function createScriptStores(options: {
   };
 }
 
-/** The person's maps and values kept in this origin's storage; `dispose` stops each map listening to other tabs. */
+/** What the person keeps in this origin's storage, for this device alone; `dispose` stops the bag listening to other tabs. */
 function createKept(options: Options) {
   const { storage, storageEvents: events } = options;
   const { userId } = options.person;
-  const maps = {
-    // until sync keeps these two maps in the person's private index
-    prefs: createLocalMap({ storage, key: `manent.prefs.${userId}`, events }),
-    keys: createLocalMap({ storage, key: `manent.keys.${userId}`, events }),
-    device: createDeviceBag({ storage, userId, events }),
-    flags: createFlags({ storage, userId, events }),
-  };
   const lastPane = createLocalText({
     storage,
     key: `manent.prefs.last-pane.${userId}`,
   });
+  const device = createDeviceBag({ storage, userId, events });
   return {
-    ...maps,
+    device,
     deviceId: readDeviceId(storage, options.randomId),
     lastPane: {
       get: () => SECTION_IDS.find((id) => id === lastPane.get()) ?? "writing",
       set: lastPane.set,
     },
-    dispose() {
-      for (const map of Object.values(maps)) map.dispose();
-    },
+    dispose: device.dispose,
   };
 }
 
@@ -262,64 +252,6 @@ function placeStoreOf(options: Options): PlaceStore {
   return store;
 }
 
-// until the review entries are read from the person's private index
-const NO_REVIEW: ReviewPort = Object.freeze({
-  openCount: () => createValue(0),
-  follow: () => () => {},
-});
-
-/**
- * The person's sync, started here on `deviceId`, the documents it opens, and the Library that lists them and makes a
- * script on this device; `dispose` disposes the sync.
- */
-function createPersonDocuments(
-  options: Options,
-  deviceId: string,
-  messages: MessageQueue,
-) {
-  const sync = options.startSync(options.person, deviceId);
-  const client = sync.then((s) => s.client);
-  void client.catch(() => {
-    // each document's status says that the sync cannot start
-  });
-  const documents = createSyncDocumentSource({
-    sync,
-    review: NO_REVIEW,
-    titles: (docId) =>
-      library.documentTitle(docId).get() ?? LIBRARY_WORDS.untitledScript,
-    messages,
-    now: options.now,
-    schedule: options.schedule,
-    removedInfo: (docId) => options.api.removedDoc(docId),
-  });
-  // until sync supplies the Library's index
-  const library = createMemoryLibrary({
-    ids: options.randomId,
-    // making a script is loaded apart from the entry
-    createScript: async (script) => {
-      const [c, { createScript }] = await Promise.all([
-        client,
-        import("./sync/create-script.ts"),
-      ]);
-      await createScript(c, script);
-    },
-    language: options.language,
-  });
-  return {
-    client,
-    documents,
-    library,
-    dispose() {
-      void sync.then(
-        (s) => s.dispose(),
-        () => {
-          // a sync that never started holds nothing to dispose
-        },
-      );
-    },
-  };
-}
-
 /**
  * `person`'s services over `storage` and the person's sync, started here; `dispose` stops listening to other tabs,
  * drops every open document's store and disposes the sync.
@@ -331,8 +263,18 @@ export function createPersonServices(options: Options): PersonServices {
     schedule: options.schedule,
   });
   const sync = createPersonDocuments(options, kept.deviceId, messages);
-  const { settings, scripts } = createStores(options, kept, sync.documents);
-  const resolved = createResolved(kept.keys, options.where);
+  const { settings, scripts } = createStores(
+    options,
+    { ...kept, prefs: sync.maps.prefs },
+    sync.documents,
+  );
+  const resolved = createResolved(sync.maps.keys, options.where);
+  const flags = createFlags({
+    index: sync.maps.flags,
+    storage: options.storage,
+    userId: options.person.userId,
+    events: options.storageEvents,
+  });
   const control = createEditorControl();
   const { commands, fillHandlers, stop } = createCommands(options, {
     settings,
@@ -353,18 +295,20 @@ export function createPersonServices(options: Options): PersonServices {
     documents: scripts.documents,
     openScriptStore: scripts.openScriptStore,
     messages,
-    flags: kept.flags,
-    keys: kept.keys,
+    flags,
+    keys: sync.maps.keys,
     lastPane: kept.lastPane,
     place,
     get persisted() {
-      return [kept.device, kept.prefs, kept.keys].every((k) => k.persisted);
+      return kept.device.persisted;
     },
     fixedKeys,
     reverses: createReverses(messages),
     editor: control,
-    mount: createLazyMount(() =>
-      options.loadEditor(options, {
+    // the editor reads the person's preferences as it mounts, so it waits for their private index
+    mount: createLazyMount(async () => {
+      await sync.ready;
+      return options.loadEditor(options, {
         services: () => services,
         control,
         commands,
@@ -373,12 +317,13 @@ export function createPersonServices(options: Options): PersonServices {
         fixedKeys,
         navigate: (path) => options.router.navigate(path),
         client: sync.client,
-      }),
-    ),
+      });
+    }),
     dispose() {
       stopKeeping();
       stop();
       kept.dispose();
+      flags.dispose();
       scripts.clear();
       sync.dispose();
     },

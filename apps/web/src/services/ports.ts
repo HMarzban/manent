@@ -69,6 +69,8 @@ export interface CreateResult {
 export interface LibraryIndex {
   continueList(workspaceId: string): Subscribable<readonly ContinueItem[]>;
   projects(workspaceId: string): Subscribable<readonly ProjectItem[]>;
+  /** The projects once the workspace's index has been read from the device. */
+  readProjects(workspaceId: string): Promise<readonly ProjectItem[]>;
   loadState(workspaceId: string): Subscribable<"cached" | "problem">;
   createProject(workspaceId: string, kind: ProjectKind): Promise<CreateResult>;
   /** Null for a document the index does not hold. */

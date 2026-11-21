@@ -3,7 +3,7 @@ import { scriptBody, yXmlFragmentForBinding } from "@manent/crdt";
 import { FORMATS } from "@manent/schema";
 import type { FormatId } from "@manent/schema";
 import { SETTINGS, paperForRegion } from "@manent/settings";
-import type { SyncClient } from "@manent/sync-client";
+import type { DocHandle, SyncClient } from "@manent/sync-client";
 import { projectHome } from "@manent/sync-protocol";
 import { firstBlock } from "../../editor-host/first-block.ts";
 
@@ -22,10 +22,17 @@ function defaultFormat(): FormatId {
   return format;
 }
 
-/**
- * Makes `script` in its project, created on the server at its first sync: one block of the default format's first
- * element, written only when the device holds none of the script, and the paper of its language's region.
- */
+/** Writes a new script's first block, one of the default format's first element, when the device holds none of it, and the paper of `language`'s region. */
+export function startScript(handle: DocHandle, language: string): void {
+  const doc = handle.doc();
+  if (yXmlFragmentForBinding(doc).length === 0)
+    scriptBody(doc).write((w) =>
+      w.insertBlocks(null, [firstBlock(defaultFormat())]),
+    );
+  handle.setSetting("script.paper", paperForRegion(language));
+}
+
+/** Makes `script` in a project of its own, created on the server at its first sync. */
 export async function createScript(
   client: SyncClient,
   script: NewScript,
@@ -37,11 +44,6 @@ export async function createScript(
       workspaceId: null,
     },
   });
-  const doc = handle.doc();
-  if (yXmlFragmentForBinding(doc).length === 0)
-    scriptBody(doc).write((w) =>
-      w.insertBlocks(null, [firstBlock(defaultFormat())]),
-    );
-  handle.setSetting("script.paper", paperForRegion(script.language));
+  startScript(handle, script.language);
   await handle.close();
 }

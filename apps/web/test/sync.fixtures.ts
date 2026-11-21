@@ -391,6 +391,7 @@ export function fakeSync(client: SyncClient): PersonSync {
     link: createValue(ONLINE_LINK),
     network: createValue(true),
     offlineSince: createValue<number | null>(null),
+    memory: createDeviceMemory({ local: null, session: null }),
     dispose: async () => {},
   };
 }

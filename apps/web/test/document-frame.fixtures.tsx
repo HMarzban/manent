@@ -184,11 +184,15 @@ function servicesFor(
     onDisabled: () => {},
   });
   environment.shellState.subscribe(commands.notify);
+  // the stand-in's document is in no index: its title is the fixture's own
+  const title = createValue<string | null>(null);
   const services: PersonServices = {
     ...base,
     library: {
       ...base.library,
+      documentTitle: () => title,
       documentKind: () => createValue(options.kind),
+      renameDocument: (_docId, named) => title.set(named),
     },
     documents: { open: () => doc, close: () => {} },
     openScriptStore: () => scriptStore,

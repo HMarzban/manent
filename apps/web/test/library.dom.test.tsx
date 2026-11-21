@@ -134,6 +134,7 @@ function seededIndex(seed: {
     finish: () => finish?.(),
     continueList: (id) => continueLists.get(id) ?? none,
     projects: (id) => projects.get(id) ?? none,
+    readProjects: async (id) => projects.get(id)?.get() ?? [],
     loadState: () => loadState,
     createProject(id, kind) {
       created.push([id, kind]);

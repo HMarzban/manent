@@ -1,4 +1,4 @@
-// The Library's index for this tab until sync supplies it: projects and Continue per workspace, held in memory.
+// A Library index held in memory, which the states screen draws its fixtures over.
 import { LIBRARY_WORDS, createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import type {
@@ -56,6 +56,7 @@ export function createMemoryLibrary(options: {
   return {
     continueList: (id) => workspace(id).continueList,
     projects: (id) => workspace(id).projects,
+    readProjects: async (id) => workspace(id).projects.get(),
     loadState: () => cached,
     async createProject(id, kind): Promise<CreateResult> {
       const result = { projectId: options.ids(), docId: options.ids() };

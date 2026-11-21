@@ -108,7 +108,7 @@ function ServicesProbe(): ReactNode {
   return <h1 tabIndex={-1}>Library</h1>;
 }
 
-/** The app at `/`, with document d1 titled The Lamp Room, then at `path`. */
+/** The app at `/`, then at `path`. */
 async function renderApp(path: string): Promise<{
   router: AnyRouter;
   container: HTMLElement;
@@ -164,7 +164,6 @@ async function renderApp(path: string): Promise<{
       </QueryClientProvider>,
     ),
   );
-  act(() => services?.library.renameDocument("d1", "The Lamp Room"));
   await act(() => router.navigate({ href: path }));
   return { router, container, clock };
 }
@@ -184,7 +183,12 @@ const actionButton = (container: HTMLElement): HTMLElement | undefined =>
     .at(-1);
 
 test("a registered form opens on its route, titled by its action, with focus on the title", async () => {
-  const { container } = await renderApp("/s/d1/send/print");
+  const { router, container } = await renderApp("/");
+  const library = services?.library;
+  if (library === undefined) throw new Error("the shell was never drawn");
+  const made = await act(() => library.createProject("leo", "film"));
+  act(() => library.renameDocument(made.docId, "The Lamp Room"));
+  await act(() => router.navigate({ href: `/s/${made.docId}/send/print` }));
   const heading = container.querySelector("h1");
   expect([
     heading?.textContent,

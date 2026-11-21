@@ -8,12 +8,16 @@ import {
   lazyRouteComponent,
   redirect,
   stripSearchParams,
+  useNavigate,
 } from "@tanstack/react-router";
 import type { AnyRouter } from "@tanstack/react-router";
+import { useEffect } from "react";
 import type { Api } from "./api.ts";
 import { preloadDemoBarControls } from "./demo/demo-bar.tsx";
 import { RootLayout } from "./root-layout.tsx";
 import { SEND_FORM_IDS } from "./screens/send/form-ids.ts";
+import { useServices } from "./services/context.tsx";
+import type { PersonServices } from "./services/ports.ts";
 import { chooseUrl, choosePerson, confirmPerson, safeNext } from "./session.ts";
 import { preloadShellPalette } from "./shell/app-shell.tsx";
 import type { PersonStore } from "./state/person.store.ts";
@@ -43,6 +47,46 @@ export function loadScreen<T>(importer: () => Promise<T>): () => Promise<T> {
       window.removeEventListener("beforeunload", leave);
     }
   };
+}
+
+// one first run per person's services, however often the Library is drawn, and opened once
+const firstRuns = new WeakMap<PersonServices, Promise<string | null>>();
+const openedFirstRuns = new WeakSet<PersonServices>();
+
+/**
+ * For a person with no session whose own workspace holds no project, once its index has been read from the device: the
+ * address of a new film's blank first page, made once. Null otherwise.
+ */
+export function firstRunPath(services: PersonServices): Promise<string | null> {
+  const known = firstRuns.get(services);
+  if (known !== undefined) return known;
+  const own = services.userId;
+  const made = services.library.readProjects(own).then(async (projects) => {
+    if (projects.length > 0) return null;
+    const { docId } = await services.library.createProject(own, "film");
+    return `/s/${docId}`;
+  });
+  firstRuns.set(services, made);
+  return made;
+}
+
+/** A first launch opens a blank page 1. */
+function FirstRun(): null {
+  const services = useServices();
+  const navigate = useNavigate();
+  useEffect(() => {
+    let shown = true;
+    void firstRunPath(services).then((path) => {
+      if (!shown || path === null || openedFirstRuns.has(services)) return;
+      openedFirstRuns.add(services);
+      // never awaited: a blocker may stop it, and then it never settles
+      void navigate({ href: path, replace: true });
+    });
+    return () => {
+      shown = false;
+    };
+  }, [services, navigate]);
+  return null;
 }
 
 const ChooseScreen = lazyRouteComponent(
@@ -133,7 +177,12 @@ export function createAppRouter(deps: {
     },
     component: function Library() {
       const person = usePerson((s) => s.person);
-      return <LibraryScreen api={api} person={person} />;
+      return (
+        <>
+          {person !== null && person.token === null ? <FirstRun /> : null}
+          <LibraryScreen api={api} person={person} />
+        </>
+      );
     },
     errorComponent: ScreenProblem,
   });

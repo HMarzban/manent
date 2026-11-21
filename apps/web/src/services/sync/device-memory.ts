@@ -41,7 +41,8 @@ export interface DeviceMemory {
 
 type Fields = Readonly<Record<string, unknown>>;
 
-const isFields = (value: unknown): value is Fields =>
+/** A JSON object, read from storage or a map. */
+export const isFields = (value: unknown): value is Fields =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** The JSON value of `raw`; null when there is none or it is not JSON. */
