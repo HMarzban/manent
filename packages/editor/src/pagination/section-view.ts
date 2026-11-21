@@ -44,8 +44,9 @@ export function contentHeightPx(state: PaginationState): number {
 
 /**
  * `div.section` as plain DOM, its own content. Where the engine has containment it carries
- * `contain-intrinsic-size: auto <height>px` from sectionHeightPx, set when it is made and on every update,
- * which ProseMirror makes only when the section's node or decorations change.
+ * `contain-intrinsic-size: <height>px` from sectionHeightPx, set when it is made and on every update,
+ * which ProseMirror makes only when the section's node or decorations change. It has no `auto`, with which WebKit
+ * draws a section it skips at the size it last drew, not at the height its pages now give it.
  */
 export function sectionNodeView(engine: BrowserEngine): NodeViewConstructor {
   return (node, view, getPos) => {
@@ -57,7 +58,7 @@ export function sectionNodeView(engine: BrowserEngine): NodeViewConstructor {
       if (!CONTAINMENT[engine] || state === undefined || pos === undefined)
         return;
       const section = view.state.doc.resolve(pos).index(0);
-      dom.style.containIntrinsicSize = `auto ${sectionHeightPx(state, section)}px`;
+      dom.style.containIntrinsicSize = `${sectionHeightPx(state, section)}px`;
     };
     size();
     return {

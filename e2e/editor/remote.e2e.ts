@@ -104,8 +104,14 @@ const lineTop = (page: Page, blockId: string): Promise<number> =>
     return range.getBoundingClientRect().top;
   }, blockId);
 
-/** The first block drawn below the top of the page's scroller, across the middle of the page, and its viewport top, px. */
-const firstVisible = (page: Page): Promise<{ id: string; top: number }> =>
+/** A drawn block and its viewport top, px. */
+interface Visible {
+  id: string;
+  top: number;
+}
+
+/** The first block drawn below the top of the page's scroller, across the middle of the page. */
+const firstVisible = (page: Page): Promise<Visible> =>
   page.evaluate((selector) => {
     const view = document.querySelector(selector);
     let scroller = view?.parentElement ?? null;
@@ -154,16 +160,9 @@ async function pageStart(page: Page, label: string): Promise<number> {
   return found.block;
 }
 
-// the page view sizes a section it hides off screen as "contain-intrinsic-size: auto <height>", which WebKit reads as
-// the size it last drew
-const KEEPS_LAST_SIZE =
-  "WebKit draws a hidden section at the size it last drew, not at the height its pages now give it, so a remote edit inside it moves the reader";
-
 test("a remote edit above the reader moves nothing on screen", async ({
   page,
-  browserName,
 }) => {
-  test.skip(browserName === "webkit", KEEPS_LAST_SIZE);
   test.setTimeout(120_000);
   await openScript(
     page,
@@ -195,16 +194,13 @@ test("a remote edit above the reader moves nothing on screen", async ({
   }).toEqual({ caretStays: true, sameLine: topBefore.id, lineStays: true });
 });
 
-test("the same in a 2,000-page script, where the sections above are not rendered", async ({
-  page,
-  browserName,
-}) => {
-  test.skip(browserName === "webkit", KEEPS_LAST_SIZE);
-  test.skip(
-    browserName === "chromium",
-    "in Chromium this edit takes about 90 ms to show, much of it the pages measuring the reader's block again after the change",
-  );
-  test.setTimeout(300_000);
+/**
+ * A 2,000-page manuscript read at page 1,500, and Dana's 40 lines at block 20: the first line drawn at the top before
+ * and after, and how long each of the edit's dispatches took, ms.
+ */
+async function editFarAbove(
+  page: Page,
+): Promise<{ before: Visible; after: Visible; dispatched: number[] }> {
   await openScript(
     page,
     "manuscript",
@@ -222,14 +218,41 @@ test("the same in a 2,000-page script, where the sections above are not rendered
   await settled(page);
   const after = await firstVisible(page);
   const dispatched = await groupHook(page, "dispatchMs", "stop");
+  return {
+    before,
+    after,
+    dispatched: Array.isArray(dispatched) ? dispatched.map(Number) : [],
+  };
+}
+
+test("the same in a 2,000-page script, where the sections above are not rendered", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  const { before, after } = await editFarAbove(page);
   expect({
     sameLine: after.id,
     lineStays: Math.abs(after.top - before.top) <= 1,
   }).toEqual({ sameLine: before.id, lineStays: true });
-  const durations = Array.isArray(dispatched) ? dispatched.map(Number) : [];
+});
+
+test("in Chromium that edit's frame does its work within the remote edit's hard fail", async ({
+  page,
+  browserName,
+}) => {
+  test.skip(
+    browserName !== "chromium",
+    "the frame's work is held to its budget in Chromium",
+  );
+  test.fixme(
+    true,
+    "in Chromium this edit takes about 90 ms to show, much of it the pages measuring the reader's block again after the change",
+  );
+  test.setTimeout(300_000);
+  const { dispatched } = await editFarAbove(page);
   // no dispatch measured reads as a fail, never as a pass
-  const longest = durations.length === 0 ? Infinity : Math.max(...durations);
-  if (browserName === "chromium") expect(longest).toBeLessThan(16);
+  const longest = dispatched.length === 0 ? Infinity : Math.max(...dispatched);
+  expect(longest).toBeLessThan(16);
 });
 
 /** The viewport bottom of the block that holds the caret, px. */
