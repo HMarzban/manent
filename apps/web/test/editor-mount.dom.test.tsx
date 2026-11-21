@@ -288,6 +288,65 @@ test("changing the format to Ink rebuilds once; the disposer leaves the host emp
   ]);
 });
 
+/** Local sessions whose document is kept only once `kept` says so, counting the sessions closed. */
+function keptLater(): {
+  sessions: (frames: ReturnType<typeof createFrames>) => EditorSessions;
+  kept: ReturnType<typeof createValue<boolean>>;
+  closed(): number;
+} {
+  const kept = createValue(false);
+  let closed = 0;
+  return {
+    sessions: (frames) => ({
+      open(docId, format: FormatId): EditorSession {
+        const local = createLocalSessions({
+          frames,
+          clock: createClock(),
+          ids: () => "block-0001",
+        }).open(docId, format);
+        return {
+          ...local,
+          kept,
+          close() {
+            closed++;
+            local.close();
+          },
+        };
+      },
+    }),
+    kept,
+    closed: () => closed,
+  };
+}
+
+test("a page stands as the placeholder until its document is kept on this device, and only then takes keys", () => {
+  const later = keptLater();
+  const r = rig({ sessions: later.sessions });
+  const drawn = () => [
+    r.element.querySelector(".mn-sheet[data-placeholder]") !== null,
+    liveEditor(DOC)?.view.dom.getAttribute("contenteditable") ?? null,
+    r.attached.length,
+  ];
+  const waiting = drawn();
+  later.kept.set(true);
+  expect([waiting, drawn()]).toEqual([
+    [true, null, 0],
+    [false, "true", 1],
+  ]);
+});
+
+test("a page gone before its document is kept leaves its host empty and its session closed", () => {
+  const later = keptLater();
+  const r = rig({ sessions: later.sessions });
+  r.dispose();
+  later.kept.set(true);
+  expect([
+    r.element.childNodes.length,
+    liveEditor(DOC),
+    later.closed(),
+  ]).toEqual([0, null, 1]);
+});
+
 /** Local sessions whose open document can be replaced by a copy of itself under a new client id. */
 function replaceable(): {
   sessions: (frames: ReturnType<typeof createFrames>) => EditorSessions;

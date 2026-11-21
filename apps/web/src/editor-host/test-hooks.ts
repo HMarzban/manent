@@ -9,6 +9,7 @@ import type { StatusFacts } from "@manent/ui";
 import type { PersonServices } from "../services/ports.ts";
 import type { OpenEditor } from "./editor-mount.ts";
 import type { LocalSession } from "./editor-sessions.ts";
+import { firstBlock } from "./first-block.ts";
 import { liveEditor, subscribeLiveEditors } from "./live-editor.ts";
 import { createSimulatedWriter } from "./simulated-writer.ts";
 import type { SimulatedWriter } from "./simulated-writer.ts";
@@ -54,7 +55,7 @@ interface PageStart {
 }
 
 export interface EditorHooks {
-  /** A new film project whose script has this format and content, opened with this access (default "edit"); resolves to its doc id once its editor is open. */
+  /** A new film project whose script has this format and content (null: the format's first block), opened with this access (default "edit"); resolves to its doc id once its editor is open. */
   open(format: string, doc: DocJSON | null, access?: Access): Promise<string>;
   blocks(): {
     id: string;
@@ -152,7 +153,7 @@ function openEditor(deps: HookDeps): OpenEditor {
   return current;
 }
 
-/** The hooks' `open`: a new film project in `format`, navigated to, filled with `doc` once its editor is live. */
+/** The hooks' `open`: a new film project in `format`, navigated to, filled with `doc`, or the format's first block, once its editor is live. */
 function openScript(deps: HookDeps): EditorHooks["open"] {
   const { services } = deps;
   return async (format, doc, access = "edit") => {
@@ -166,15 +167,17 @@ function openScript(deps: HookDeps): EditorHooks["open"] {
     services.openScriptStore(docId).set("script.format", known);
     deps.navigate(`/s/${docId}`);
     await whenLive(docId);
-    if (doc !== null) {
-      const { view } = openEditor(deps).editor;
-      const content = parseDoc(doc).content;
-      view.dispatch(
-        view.state.tr
-          .replaceWith(0, view.state.doc.content.size, content)
-          .setMeta("addToHistory", false),
-      );
-    }
+    // the Library writes the first element of the default format, so a script of another format starts from its own
+    const start: DocJSON = doc ?? {
+      type: "doc",
+      content: [{ type: "section", content: [firstBlock(known)] }],
+    };
+    const { view } = openEditor(deps).editor;
+    view.dispatch(
+      view.state.tr
+        .replaceWith(0, view.state.doc.content.size, parseDoc(start).content)
+        .setMeta("addToHistory", false),
+    );
     return docId;
   };
 }

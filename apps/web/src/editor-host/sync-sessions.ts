@@ -138,6 +138,7 @@ function createSession(
   const awareness = new Set<(update: Uint8Array) => void>();
   const scratch = scriptDocFromJSON(docOf([firstBlock(format)]));
   let doc = scratch;
+  const kept = createValue(false);
   const shown: Showing = {
     scratch,
     made: [scratch],
@@ -145,6 +146,8 @@ function createSession(
       if (next === doc) return;
       doc = next;
       for (const listener of replaced) listener();
+      // after the listeners: an editor bound when this turns true is not then told to bind again
+      kept.set(next !== scratch);
     },
     hear(update) {
       for (const listener of awareness) listener(update);
@@ -186,6 +189,7 @@ function createSession(
     onAwareness: (listener) => listen(awareness, listener),
     onReplaced: (listener) => listen(replaced, listener),
     readOnly: NEVER_READ_ONLY,
+    kept,
     receive(update) {
       if (holds > 0) held.push(update);
       else doc.applyUpdate(update, ORIGIN_REMOTE);

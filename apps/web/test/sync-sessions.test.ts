@@ -156,6 +156,32 @@ test("a person who may only view gets a page that follows other people's typing 
   ]).toEqual([2, "edit", true]);
 });
 
+test("a page may take keys only once it shows the device's document holding a block, or the copy of a view", async () => {
+  const handle = fakeHandle(DOC, createDoc());
+  const viewed = fakeHandle(DOC, createDoc());
+  const sessionOf = (opened: typeof handle) =>
+    createSyncSessions({
+      client: Promise.resolve(fakeClient(() => opened)),
+    }).open(DOC, "screenplay");
+  const [own, view] = [sessionOf(handle), sessionOf(viewed)];
+  const heard: boolean[] = [];
+  own.kept.subscribe((kept) => heard.push(kept));
+  await turn();
+  const whileEmpty = [own.kept.get(), view.kept.get()];
+  scriptBody(handle.doc()).write((w) =>
+    w.insertBlocks(null, [block("block-one-000001", "Dawn.")]),
+  );
+  viewed.readOnly.set(
+    fakeView(DOC, "view", [block("block-one-000001", "Dawn.")]),
+  );
+  expect([whileEmpty, own.kept.get(), view.kept.get(), heard]).toEqual([
+    [false, false],
+    true,
+    true,
+    [true],
+  ]);
+});
+
 /** A session of a script the device does not hold yet, with "INT. HARBOUR" typed into its first block while it opens. */
 function typedWhileOpening(client: Promise<SyncClient>) {
   const session = createSyncSessions({ client }).open(DOC, "screenplay");

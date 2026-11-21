@@ -14,6 +14,8 @@ export interface EditorSession extends BoundDocument {
   onReplaced(listener: () => void): () => void;
   /** Not null: this content is shown read-only instead of being bound (a view-only subscription). */
   readonly readOnly: Subscribable<DocJSON | null>;
+  /** True once `doc()` is the device's document holding a block, or a read-only view's copy: what may be bound. */
+  readonly kept: Subscribable<boolean>;
   close(): void;
 }
 
@@ -29,6 +31,8 @@ export interface LocalSession extends EditorSession {
 }
 
 const NEVER_READ_ONLY: Subscribable<DocJSON | null> = createValue(null);
+// a document of this tab is the one it keeps
+const ALWAYS_KEPT: Subscribable<boolean> = createValue(true);
 const noop = (): void => {};
 
 /** One section holding one empty block of the format's first element. */
@@ -72,6 +76,7 @@ export function createLocalSessions(options: {
       },
       onReplaced: () => noop,
       readOnly: NEVER_READ_ONLY,
+      kept: ALWAYS_KEPT,
       receive: (update) => coalescer.push(update, 0),
       receiveAwareness(update) {
         for (const listener of awareness) listener(update);
