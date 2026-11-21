@@ -45,8 +45,9 @@ export interface HistorySource {
   save(docId: string): Promise<{ ok: true } | { ok: false }>;
   /**
    * On the server when the request can be sent, else on the device. A request sent whose answer was lost is sent
-   * again whenever the link is next online, and the restore is then never made on the device. `offline`: the
-   * version's content is not on the device.
+   * again whenever the link is next online, and the restore is then never made on the device; so is one the server
+   * was too busy to take. `offline`: the version's content is not on the device. `refused`: the server cannot restore
+   * that version (409 `not_restorable`, 422 `invalid`). Rejects on any other refusal, such as a role that cannot edit.
    */
   restore(
     docId: string,
@@ -121,6 +122,9 @@ const isKept = (stored: Promise<unknown>): Promise<boolean> =>
     () => true,
     () => false,
   );
+
+/** The wait before a restore the server could not take then (429 busy, or 5xx) is sent again. */
+const RESTORE_RETRY_MS = 2_000;
 
 /** Resolves at the next status whose link is online. */
 const nextOnline = (handle: DocHandle): Promise<void> =>
@@ -261,7 +265,16 @@ export function createHistorySource(options: {
       await nextOnline(handle);
       return restoreOnServer(request, handle);
     }
-    if (!response.ok) return { ok: false, reason: "refused" };
+    if (response.status === 429 || response.status >= 500) {
+      // the server answers a key it holds with its first result, so sending it again restores at most once
+      await new Promise((resolve) => setTimeout(resolve, RESTORE_RETRY_MS));
+      if (handle.status.get().link !== "online") await nextOnline(handle);
+      return restoreOnServer(request, handle);
+    }
+    if (response.status === 409 || response.status === 422)
+      return { ok: false, reason: "refused" };
+    if (!response.ok)
+      throw new Error(`POST /api/versions/restore answered ${response.status}`);
     const { beforeVersionId } = await readAs<RestoreResponse>(response);
     lists.refresh(request.docId);
     return { ok: true, beforeVersionId };
