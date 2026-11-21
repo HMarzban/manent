@@ -188,7 +188,8 @@ test("a corrupt row heals from a client that had seen it, with a pre-heal versio
       .log.tail(DOC, 1, 3)
       .rows.map((r) => r.origin),
   ).toEqual(["heal"]);
-  expect(file(world).log.healing(DOC)?.preHealVersionId).toBe("version-1");
+  // the room's load and its reload took version-1 and version-2 for their client ids
+  expect(file(world).log.healing(DOC)?.preHealVersionId).toBe("version-3");
 });
 
 test("a heal push that carries only the pusher's own words is logged as a heal", () => {

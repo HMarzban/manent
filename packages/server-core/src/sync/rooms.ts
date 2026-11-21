@@ -1,6 +1,6 @@
 // Rooms: one per document someone has open, holding the live document while anyone edits it.
 import { ORIGIN_LOAD, createDoc, discardPending, loadDoc } from "@manent/crdt";
-import type { CrdtDoc } from "@manent/crdt";
+import type { CrdtDoc, DocOptions } from "@manent/crdt";
 import type { DocFile, DocumentRow, Home, Storage } from "@manent/storage";
 import type { DocKind } from "@manent/sync-protocol";
 import { createTokenBucket } from "../limits/bucket.ts";
@@ -78,10 +78,13 @@ interface Built {
  * read; structs that waited for it are dropped, and the document is flagged healing at the
  * checkpoint unless the quarantine flagged it already.
  */
-function build(file: DocFile, row: DocumentRow): Built {
+function build(file: DocFile, row: DocumentRow, options: DocOptions): Built {
   const { id, generation } = row;
   const checkpoint = file.checkpoints.newest(id, generation);
-  const doc = checkpoint === null ? createDoc() : loadDoc(checkpoint.state);
+  const doc =
+    checkpoint === null
+      ? createDoc(options)
+      : loadDoc(checkpoint.state, options);
   const from = checkpoint?.seq ?? 0;
   const tail = file.log.tail(id, generation, from);
   let sizeBytes = checkpoint?.state.byteLength ?? 0;
@@ -94,6 +97,17 @@ function build(file: DocFile, row: DocumentRow): Built {
   return { doc, sizeBytes, sinceCheckpoint: tail.rows.length };
 }
 
+const FNV_OFFSET = 0x811c9dc5;
+const FNV_PRIME = 0x01000193;
+
+/** FNV-1a 32-bit of the UTF-16 code units: a Yjs client id, an unsigned 32-bit integer. */
+function clientIdOf(id: string): number {
+  let hash = FNV_OFFSET;
+  for (let i = 0; i < id.length; i++)
+    hash = Math.imul(hash ^ id.charCodeAt(i), FNV_PRIME) >>> 0;
+  return hash;
+}
+
 function readPeople(room: Room): void {
   for (const [clientId, { userId }] of room.file.log.ledger(room.docId))
     room.owners.set(clientId, userId);
@@ -101,16 +115,22 @@ function readPeople(room: Room): void {
     room.colors.set(userId, color);
 }
 
-/** `mode` defaults to "authority" for every document. */
+/**
+ * `mode` defaults to "authority" for every document. Each document a room builds takes a new client
+ * id drawn from `ids`, so that a seeded source gives seeded bytes; without `ids`, Yjs draws it.
+ */
 export function createRooms(ports: {
   storage: Storage;
   clock: Clock;
   limits: SyncLimits;
   checkpointer: Checkpointer;
   mode?: (docId: string) => WriteMode;
+  ids?: () => string;
 }): Rooms {
-  const { storage, clock, limits, checkpointer } = ports;
+  const { storage, clock, limits, checkpointer, ids } = ports;
   const modeOf = ports.mode ?? (() => "authority");
+  const docOptions = (): DocOptions =>
+    ids === undefined ? {} : { clientId: clientIdOf(ids()) };
   const rooms = new Map<string, Room>();
   const encoded = new Map<Room, Uint8Array>();
   const idle = new Map<Room, () => void>();
@@ -160,7 +180,7 @@ export function createRooms(ports: {
 
   const rebuild = (room: Room): void => {
     room.row = room.file.log.get(room.docId) ?? room.row;
-    const built = build(room.file, room.row);
+    const built = build(room.file, room.row, docOptions());
     discard(room);
     room.doc = built.doc;
     room.sizeBytes = built.sizeBytes;
@@ -230,7 +250,7 @@ export function createRooms(ports: {
     reload: rebuild,
     committed(room) {
       const row = room.file.log.get(room.docId) ?? room.row;
-      return { row, doc: build(room.file, row).doc };
+      return { row, doc: build(room.file, row, docOptions()).doc };
     },
     drop(dropped) {
       for (const room of dropped) {

@@ -142,8 +142,8 @@ export function createSyncService(
     options.checkpointer ??
     createInlineCheckpointer({ storage: options.storage, defer });
   const rooms = createRooms({
+    ...options,
     storage,
-    clock,
     limits,
     checkpointer,
     mode: modeOf,
