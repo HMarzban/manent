@@ -1,5 +1,6 @@
 // The storage ports: one repository per aggregate, a unit of work, and the numbers they keep to.
 // `kind`, `role` and capabilities are plain strings here: storage does not know the wire.
+import type { ProductionStore } from "./production/ports.ts";
 
 /** The file a document lives in, written `project:<uuid>` or `user:<userId>`. */
 export type Home =
@@ -326,8 +327,9 @@ export interface DocFile {
   readonly replays: Replays;
   readonly measures: Measures;
   readonly adoptions: Adoptions;
+  readonly production: ProductionStore;
   /**
-   * The unit of work: every write to `log`, `versions`, `history`, `generations`, `replays` and `adoptions` inside the synchronous
+   * The unit of work: every write to `log`, `versions`, `history`, `generations`, `replays`, `adoptions` and `production` inside the synchronous
    * `fn` commits together or not at all. A failure throws
    * StorageError("commit_failed") having written nothing. A write outside one
    * commits by itself.
@@ -379,7 +381,7 @@ export interface Storage {
   close(): void;
 }
 
-export const STORAGE_SCHEMA_VERSION = 4;
+export const STORAGE_SCHEMA_VERSION = 5;
 export const CHECKPOINT_FORMAT_VERSION = 1;
 export const CHECKPOINTS_KEPT = 3;
 

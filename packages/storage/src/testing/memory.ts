@@ -3,6 +3,11 @@ import { sha256 } from "../checksum.ts";
 import { homeKey, parseHome, wellFormedKey } from "../home.ts";
 import type { DocFile, Home, MeasureRow, Storage } from "../ports.ts";
 import { CHECKPOINTS_KEPT, StorageError } from "../ports.ts";
+import type { ProductionTables } from "../production/memory.ts";
+import {
+  copyProductionTables,
+  createMemoryProduction,
+} from "../production/memory.ts";
 import type { Logged, Write } from "./memory-log.ts";
 import {
   copied,
@@ -46,6 +51,8 @@ type StoredCheckpoint = { generation: number; seq: number; sha: string } & {
 
 interface MemoryState {
   logs: Map<string, Logged>;
+  /** By file, as `logs`. */
+  production: Map<string, ProductionTables>;
   checkpoints: Map<string, StoredCheckpoint[]>;
   /** By version id. */
   pins: Map<string, { docId: string; generation: number; seq: number }>;
@@ -138,20 +145,30 @@ function createMeasures(memory: () => MemoryState): DocFile["measures"] {
   };
 }
 
+// The file's contents as committed, each part made empty on first use.
+function storedParts(ctx: Context, key: string) {
+  const { logs, production } = ctx.state();
+  const log = logs.get(key) ?? copyLogged(undefined);
+  const tables = production.get(key) ?? copyProductionTables(undefined);
+  logs.set(key, log);
+  production.set(key, tables);
+  return { log, production: tables };
+}
+
 function openFile(ctx: Context, home: Home, key: string): DocFile {
-  const logs = () => ctx.state().logs;
-  const file = (): Logged => {
-    const stored = logs().get(key) ?? copyLogged(undefined);
-    logs().set(key, stored);
-    return stored;
-  };
-  let work: Logged | null = null;
-  const read = () => work ?? file();
+  let work: { log: Logged; production: ProductionTables } | null = null;
+  const read = () => work?.log ?? storedParts(ctx, key).log;
+  const readProduction = () =>
+    work?.production ?? storedParts(ctx, key).production;
   // a lone write is a transaction of one
   const write: Write = (op) => transaction(() => op(read()));
   function transaction<T>(fn: () => T): T {
     if (work !== null) return fn();
-    const copy = copyLogged(file());
+    const stored = storedParts(ctx, key);
+    const copy = {
+      log: copyLogged(stored.log),
+      production: copyProductionTables(stored.production),
+    };
     work = copy;
     let result: T;
     try {
@@ -162,7 +179,10 @@ function openFile(ctx: Context, home: Home, key: string): DocFile {
     } finally {
       work = null;
     }
-    ctx.commit(() => logs().set(key, copy));
+    ctx.commit(() => {
+      ctx.state().logs.set(key, copy.log);
+      ctx.state().production.set(key, copy.production);
+    });
     return result;
   }
   const versions: DocFile["versions"] = {
@@ -185,6 +205,15 @@ function openFile(ctx: Context, home: Home, key: string): DocFile {
     replays: createReplays(read, write),
     measures: createMeasures(ctx.state),
     adoptions: createAdoptions(read, write),
+    production: createMemoryProduction({
+      read: readProduction,
+      write: (op) => transaction(() => op(readProduction())),
+      setLocked: (docId, locked) =>
+        write((l) => {
+          const doc = l.docs.get(docId);
+          if (doc?.row) doc.row = { ...doc.row, locked: Number(locked) };
+        }),
+    }),
     transaction,
   };
 }
@@ -261,6 +290,7 @@ export function createMemoryStorage(options: {
 }): MemoryStorage {
   let state: MemoryState = {
     logs: new Map(),
+    production: new Map(),
     checkpoints: new Map(),
     pins: new Map(),
     measures: new Map(),
