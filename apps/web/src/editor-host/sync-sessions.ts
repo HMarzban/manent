@@ -153,6 +153,8 @@ function createSession(
   let handle: DocHandle | null = null;
   let ended = false;
   let holds = 0;
+  // another writer's changes wait while the page holds remote changes, as the handle's own do
+  let held: Uint8Array[] = [];
   let detach = noop;
   client
     .then(async (c) => {
@@ -175,12 +177,19 @@ function createSession(
     releaseRemote() {
       holds -= 1;
       handle?.releaseRemote();
+      if (holds > 0) return;
+      const waiting = held;
+      held = [];
+      for (const update of waiting) doc.applyUpdate(update, ORIGIN_REMOTE);
     },
     sendAwareness: (update) => handle?.sendAwareness(update),
     onAwareness: (listener) => listen(awareness, listener),
     onReplaced: (listener) => listen(replaced, listener),
     readOnly: NEVER_READ_ONLY,
-    receive: (update) => doc.applyUpdate(update, ORIGIN_REMOTE),
+    receive(update) {
+      if (holds > 0) held.push(update);
+      else doc.applyUpdate(update, ORIGIN_REMOTE);
+    },
     receiveAwareness: shown.hear,
     close() {
       ended = true;

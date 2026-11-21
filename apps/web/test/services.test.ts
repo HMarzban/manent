@@ -195,6 +195,27 @@ test("a sync that cannot start never says a document is saved", async () => {
   ]);
 });
 
+test("New script on a device that cannot hold it still opens the script, whose status says it is not saved", async () => {
+  const route = createNavigation({ routeId: "/", href: "/", search: {} });
+  const services = testServices({
+    userId: "leo",
+    environment: testEnvironment({
+      startSync: () => Promise.reject(new StoreError("unavailable")),
+    }),
+    router: route.navigation,
+  });
+  const opened = route.next();
+  expect(services.commands.run("library.newScript", "control")).toBe("ran");
+  const docId = (await opened).slice("/s/".length);
+  const [first] = services.library.continueList("leo").get();
+  const { status } = services.documents.open(docId);
+  await until(() => status.get().device === "failing");
+  const { device } = statusText(status.get());
+  services.dispose();
+  await turn();
+  expect([first?.docId, device]).toEqual([docId, "Not saved on this device"]);
+});
+
 test("a script's layout waits for authority once its page numbers are locked", () => {
   const services = testServices({ userId: "leo" });
   const docId = "0b9f6c2e-3c1a-4c55-9a43-5d8f1e2a7b10";

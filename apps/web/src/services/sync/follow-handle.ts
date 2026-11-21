@@ -56,6 +56,13 @@ interface Opened {
 /** The waiting changes are grouped by scene at most this often. */
 const WAITING_EVERY_MS = 250;
 
+/** The same facts read at another time: nothing the status says has changed. */
+const isSameStatus = (a: StatusFacts, b: StatusFacts): boolean =>
+  Object.keys(a).every(
+    (key) =>
+      key === "now" || Object.is(Reflect.get(a, key), Reflect.get(b, key)),
+  );
+
 const NO_FACTS: readonly StateFact[] = Object.freeze([]);
 const ROLE_COMMENT: readonly StateFact[] = Object.freeze([
   { kind: "role_comment" },
@@ -118,18 +125,18 @@ export function followHandle(options: Following, open: Opened): () => void {
   let view: ViewHandle | null = null;
   const show = (): void => {
     const role = view?.status.get().role ?? null;
-    shown.status.set(
-      toStatusFacts({
-        status: handle.status.get(),
-        link: sync.link.get(),
-        network: sync.network.get(),
-        viewRole: role,
-        viewLive: view?.status.get().live ?? false,
-        offlineSinceAt: sync.offlineSince.get(),
-        toReview: toReview.get(),
-        now: options.now(),
-      }),
-    );
+    const facts = toStatusFacts({
+      status: handle.status.get(),
+      link: sync.link.get(),
+      network: sync.network.get(),
+      viewRole: role,
+      viewLive: view?.status.get().live ?? false,
+      offlineSinceAt: sync.offlineSince.get(),
+      toReview: toReview.get(),
+      now: options.now(),
+    });
+    // a keystroke changes the handle's status as it is saved, which the status never says
+    if (!isSameStatus(shown.status.get(), facts)) shown.status.set(facts);
     shown.stateFacts.set(role === "comment" ? ROLE_COMMENT : NO_FACTS);
   };
   let stopView: (() => void) | null = null;

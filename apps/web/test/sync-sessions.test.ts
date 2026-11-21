@@ -72,6 +72,27 @@ test("an editor session is the sync client's document, and a replaced document r
   expect(handle.closes()).toBe(1);
 });
 
+test("another writer's change waits while the page holds remote changes, and comes once it lets go", async () => {
+  const handle = fakeHandle(DOC, written());
+  const session = createSyncSessions({
+    client: Promise.resolve(fakeClient(() => handle)),
+  }).open(DOC, "screenplay");
+  await turn();
+  const other = createDoc();
+  other.applyUpdate(handle.doc().encodeState());
+  scriptBody(other).write((w) =>
+    w.insertBlocks(null, [block("block-two-000002", "Dusk.")]),
+  );
+  session.holdRemote();
+  session.receive(other.encodeState());
+  const whileHeld = textOf(handle.doc());
+  session.releaseRemote();
+  expect([whileHeld, textOf(handle.doc())]).toEqual([
+    ["Dawn."],
+    ["Dusk.", "Dawn."],
+  ]);
+});
+
 test("a person who may only view gets a page that follows other people's typing and takes no keys", async () => {
   const handle = fakeHandle(DOC, written());
   const client = fakeClient(() => handle);

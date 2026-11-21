@@ -24,6 +24,7 @@ import {
   SYNCED_STATUS,
   createSyncWorld,
   fakeClient,
+  fakeSync,
   fakeHandle,
   settle,
   turn,
@@ -102,6 +103,27 @@ test("a document opens from the device before anything is asked of the server", 
     "Saved · Syncing…",
     0,
   ]);
+});
+
+test("a keystroke that changes no fact of the status leaves the status as it was", async () => {
+  const world = createSyncWorld();
+  const handle = fakeHandle(DOC, createDoc());
+  const typed = { ...SYNCED_STATUS, synced: false, waiting: 1 };
+  handle.status.set(typed);
+  const { source } = sourceOver(
+    world,
+    Promise.resolve(fakeSync(fakeClient(() => handle))),
+  );
+  const { status } = source.open(DOC);
+  await until(() => !status.get().neverSynced);
+  const heard: string[] = [];
+  status.subscribe((facts) => heard.push(sentence(statusText(facts))));
+  world.fake.advance(1_000);
+  // a keystroke is saved on this device a moment after it is typed
+  handle.status.set({ ...typed, saved: false });
+  handle.status.set(typed);
+  handle.status.set({ ...typed, waiting: 2 });
+  expect(heard).toEqual(["Saved · Syncing…"]);
 });
 
 test("offline since survives a reload and is cleared only by a connection", async () => {

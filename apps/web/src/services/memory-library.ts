@@ -19,7 +19,7 @@ interface Workspace {
 
 /**
  * Every workspace starts empty. `createProject` makes one untitled document in a new project through `createScript`,
- * with the paper of `language`'s region, and lists it first in Continue once it is made.
+ * with the paper of `language`'s region, and lists it first in Continue once it is made; it never rejects.
  */
 export function createMemoryLibrary(options: {
   ids: () => string;
@@ -59,7 +59,11 @@ export function createMemoryLibrary(options: {
     loadState: () => cached,
     async createProject(id, kind): Promise<CreateResult> {
       const result = { projectId: options.ids(), docId: options.ids() };
-      await options.createScript({ ...result, language: options.language });
+      await options
+        .createScript({ ...result, language: options.language })
+        .catch(() => {
+          // a device that cannot hold the script still lists it, and its status says it is not saved
+        });
       const projectTitle = LIBRARY_WORDS.untitledProject(kind);
       const title = LIBRARY_WORDS.untitledScript;
       const place = { kind: "never_synced" } as const;
