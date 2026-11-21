@@ -76,7 +76,7 @@ const withRange = ({ row, from, to }: StoredAnchor) => ({
   toSeq: to?.seq ?? null,
 });
 
-// Closes the open table at `at` and opens `rows` from it; RangeError unless `at` is after the open table's start.
+// Closes the open table at `at` and opens `rows` from it; RangeError unless `at` is after every position the history already holds.
 function replaceIn(
   tables: ProductionTables,
   docId: string,
@@ -85,9 +85,13 @@ function replaceIn(
 ): void {
   const from = { ...at };
   const isOpen = (a: StoredAnchor) => a.docId === docId && a.to === null;
-  if (tables.anchors.some((a) => isOpen(a) && !isBefore(a.from, from)))
+  // a closed row's end counts too: an empty table leaves no open row to mark where it starts
+  const isHeldFrom = (a: StoredAnchor) =>
+    a.docId === docId &&
+    (!isBefore(a.from, from) || (a.to !== null && !isBefore(a.to, from)));
+  if (tables.anchors.some(isHeldFrom))
     throw new RangeError(
-      `the anchor table of ${docId} replaced at ${from.generation}:${from.seq} does not follow the open one`,
+      `the anchor table of ${docId} replaced at ${from.generation}:${from.seq} does not follow its history`,
     );
   const opened = rows.map((row) => ({
     docId,

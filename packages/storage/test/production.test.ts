@@ -251,6 +251,38 @@ test("an anchor table replaced at or before the position the open one starts at 
   );
 });
 
+test("after an empty anchor table, a replace at or before where it starts is refused", () => {
+  expect(
+    onBoth((f) => {
+      f.production.replaceAnchors(DOC, [row(1, "1", "a0")], {
+        generation: 1,
+        seq: 10,
+      });
+      f.production.replaceAnchors(DOC, [], { generation: 1, seq: 20 });
+      const replace = (seq: number) =>
+        thrownBy(() =>
+          f.production.replaceAnchors(DOC, [row(1, "1", "a1")], {
+            generation: 1,
+            seq,
+          }),
+        );
+      return {
+        samePosition: replace(20),
+        earlier: replace(15),
+        history: f.production
+          .anchorHistory(DOC)
+          .map((r) => [r.blockId, r.fromSeq, r.toSeq]),
+      };
+    }),
+  ).toEqual(
+    both({
+      samePosition: "RangeError",
+      earlier: "RangeError",
+      history: [["a0", 10, 20]],
+    }),
+  );
+});
+
 // A set, an anchor table and a request, as one request writes them.
 const writeRequest = (f: DocFile) => {
   f.production.addSet(set(1));

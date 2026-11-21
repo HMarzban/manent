@@ -101,9 +101,10 @@ function prepareAnchors(db: Database) {
       `SELECT ${ANCHOR}, from_generation AS fromGeneration, from_seq AS fromSeq, to_generation AS toGeneration,
        to_seq AS toSeq FROM page_locks WHERE doc_id = ?1 ORDER BY from_generation, from_seq, lock_level, page_order`,
     ),
-    openFromOrAfter: db.query<{ found: 1 }, [string, number, number]>(
-      `SELECT 1 AS found FROM page_locks WHERE doc_id = ?1 AND to_seq IS NULL
-       AND (from_generation, from_seq) >= (?2, ?3) LIMIT 1`,
+    // a closed row's end counts too: an empty table leaves no open row to mark where it starts
+    heldFromOrAfter: db.query<{ found: 1 }, [string, number, number]>(
+      `SELECT 1 AS found FROM page_locks WHERE doc_id = ?1 AND ((from_generation, from_seq) >= (?2, ?3)
+       OR (to_seq IS NOT NULL AND (to_generation, to_seq) >= (?2, ?3))) LIMIT 1`,
     ),
     close: db.query<never, [string, number, number]>(
       "UPDATE page_locks SET to_generation = ?2, to_seq = ?3 WHERE doc_id = ?1 AND to_seq IS NULL",
@@ -235,7 +236,7 @@ function readIssue(row: StoredIssue): IssueRow {
   };
 }
 
-// Closes the open table at `at` and opens `rows` from it, inside the caller's transaction; RangeError unless `at` is after the open table's start.
+// Closes the open table at `at` and opens `rows` from it, inside the caller's transaction; RangeError unless `at` is after every position the history already holds.
 function replaceAnchors(
   sql: Statements,
   docId: string,
@@ -243,9 +244,9 @@ function replaceAnchors(
   at: { generation: number; seq: number },
 ): void {
   const { generation, seq } = at;
-  if (sql.openFromOrAfter.get(docId, generation, seq) !== null)
+  if (sql.heldFromOrAfter.get(docId, generation, seq) !== null)
     throw new RangeError(
-      `the anchor table of ${docId} replaced at ${generation}:${seq} does not follow the open one`,
+      `the anchor table of ${docId} replaced at ${generation}:${seq} does not follow its history`,
     );
   sql.close.run(docId, generation, seq);
   for (const r of rows)
