@@ -1,11 +1,12 @@
 // What each of the person's devices holds, kept in their private index so a browser that cleared its data can be told.
-import type { DocSummary } from "@manent/sync-client";
-import type { TrustEvent } from "@manent/ui";
+import type { DocHandle, DocSummary } from "@manent/sync-client";
+import { LIBRARY_WORDS } from "@manent/ui";
+import type { Subscribable, TrustEvent } from "@manent/ui";
 import { isFields } from "./device-memory.ts";
 import type { PrivateIndex } from "./private-index.ts";
 
 /** `on_device[`${deviceId}|${docId}`]`: the script's title, whether the server holds all of it, and when (milliseconds since the epoch). */
-export function recordOnDevice(options: {
+function recordOnDevice(options: {
   privateIndex: PrivateIndex;
   deviceId: string;
   docId: string;
@@ -19,6 +20,39 @@ export function recordOnDevice(options: {
     synced,
     at: options.now(),
   });
+}
+
+/** Keeps the device's entry for an open document: its title, and whether the server holds all of it. */
+export function keepOnDevice(open: {
+  privateIndex: PrivateIndex;
+  title: Subscribable<string | null>;
+  docId: string;
+  handle: DocHandle;
+  deviceId: string;
+  now: () => number;
+}): () => void {
+  const { handle, title } = open;
+  let recorded = "";
+  const record = (): void => {
+    const status = handle.status.get();
+    const synced = !status.neverSynced && status.waiting === 0;
+    const named = title.get() ?? LIBRARY_WORDS.untitledScript;
+    if (recorded === `${synced}|${named}`) return;
+    recorded = `${synced}|${named}`;
+    recordOnDevice({
+      privateIndex: open.privateIndex,
+      deviceId: open.deviceId,
+      docId: open.docId,
+      title: named,
+      synced,
+      now: open.now,
+    });
+  };
+  record();
+  const stops = [handle.status.subscribe(record), title.subscribe(record)];
+  return () => {
+    for (const stop of stops) stop();
+  };
 }
 
 interface OnDeviceEntry {

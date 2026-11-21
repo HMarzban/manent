@@ -9,12 +9,6 @@ import type { TabPerson } from "../session.ts";
 import type { CommandsOptions } from "./person-commands.ts";
 import type { DocumentSource } from "./ports.ts";
 import type { PersonSync } from "./sync/create-sync.ts";
-import {
-  askPersistenceOnce,
-  followSeed,
-  markOpen,
-  tellCleared,
-} from "./sync/device-trust.ts";
 import { createSyncDocumentSource } from "./sync/document-source.ts";
 import {
   createLaterLibrary,
@@ -23,18 +17,25 @@ import {
 } from "./sync/later-index.ts";
 import type { LaterMap, PersonReview } from "./sync/later-index.ts";
 import type { SyncLibrary, onOwnChange } from "./sync/library-index.ts";
-import type { checkCleared, recordOnDevice } from "./sync/on-device.ts";
+import type { checkCleared, keepOnDevice } from "./sync/on-device.ts";
 import type { PrivateIndex } from "./sync/private-index.ts";
 import type { ReviewStore } from "./sync/review.ts";
 
 type Options = CommandsOptions & { person: TabPerson };
+
+/** The person's sync once it has started, with what lets them trust this device; `askPersistence` asks once a session. */
+interface Started {
+  sync: PersonSync;
+  trust: typeof import("./sync/device-trust.ts");
+  askPersistence: () => void;
+}
 
 interface Indexes {
   privateIndex: PrivateIndex;
   library: SyncLibrary;
   review: ReviewStore;
   onOwnChange: typeof onOwnChange;
-  recordOnDevice: typeof recordOnDevice;
+  keepOnDevice: typeof keepOnDevice;
   checkCleared: typeof checkCleared;
 }
 
@@ -118,43 +119,8 @@ async function openIndexes(
     library,
     review,
     onOwnChange: libraryParts.onOwnChange,
-    recordOnDevice: onDevice.recordOnDevice,
+    keepOnDevice: onDevice.keepOnDevice,
     checkCleared: onDevice.checkCleared,
-  };
-}
-
-/** Keeps the device's entry for an open document: its title, and whether the server holds all of it. */
-function keepOnDevice(
-  indexes: Indexes,
-  open: {
-    docId: string;
-    handle: DocHandle;
-    deviceId: string;
-    now: () => number;
-  },
-): () => void {
-  const { docId, handle } = open;
-  const title = indexes.library.documentTitle(docId);
-  let recorded = "";
-  const record = (): void => {
-    const status = handle.status.get();
-    const synced = !status.neverSynced && status.waiting === 0;
-    const named = title.get() ?? LIBRARY_WORDS.untitledScript;
-    if (recorded === `${synced}|${named}`) return;
-    recorded = `${synced}|${named}`;
-    indexes.recordOnDevice({
-      privateIndex: indexes.privateIndex,
-      deviceId: open.deviceId,
-      docId,
-      title: named,
-      synced,
-      now: open.now,
-    });
-  };
-  record();
-  const stops = [handle.status.subscribe(record), title.subscribe(record)];
-  return () => {
-    for (const stop of stops) stop();
   };
 }
 
@@ -165,14 +131,13 @@ function keepOnDevice(
 function openedHook(hook: {
   library: SyncLibrary;
   indexes: Promise<Indexes | null>;
-  started: () => PersonSync | null;
+  started: () => Started | null;
   handles: Subscribable<readonly DocHandle[]> & {
     set(handles: readonly DocHandle[]): void;
   };
   deviceId: string;
   messages: MessageQueue;
   now: () => number;
-  askPersistence: () => void;
 }): (docId: string, handle: DocHandle) => () => void {
   const { handles, deviceId, now } = hook;
   return (docId, handle) => {
@@ -182,15 +147,29 @@ function openedHook(hook: {
       hook.library.follow(docId, handle),
       ...(started === null
         ? []
-        : [markOpen(started, { docId, messages: hook.messages })]),
+        : [
+            started.trust.markOpen(started.sync, {
+              docId,
+              messages: hook.messages,
+            }),
+          ]),
       () => handles.set(handles.get().filter((each) => each !== handle)),
     ];
     let stopped = false;
     void hook.indexes.then((opened) => {
-      if (stopped || opened === null) return;
+      // the indexes open only over a started sync
+      const current = hook.started();
+      if (stopped || opened === null || current === null) return;
       stops.push(
-        keepOnDevice(opened, { docId, handle, deviceId, now }),
-        opened.onOwnChange(handle, hook.askPersistence),
+        opened.keepOnDevice({
+          privateIndex: opened.privateIndex,
+          title: opened.library.documentTitle(docId),
+          docId,
+          handle,
+          deviceId,
+          now,
+        }),
+        opened.onOwnChange(handle, current.askPersistence),
       );
     });
     return () => {
@@ -238,27 +217,6 @@ function laterMaps(indexes: Promise<Indexes | null>): {
   return { maps, ready };
 }
 
-/** What `PersonDocuments.leave` does, over the started sync. */
-function leavePage(
-  sync: PersonSync,
-  maps: { prefs: LaterMap; keys: LaterMap },
-  handles: readonly DocHandle[],
-): void {
-  const { memory, link, userId } = sync;
-  memory.keepLegacyMaps(userId, {
-    prefs: maps.prefs.held(),
-    keys: maps.keys.held(),
-  });
-  // only the leader marks what it opens
-  if (link.get().leader) memory.setOpenMarker(userId, null);
-  if (link.get().state === "online") return;
-  for (const handle of handles)
-    if (handle.status.get().waiting > 0)
-      void handle.saveVersion("session_end").catch(() => {
-        // best effort: the page is going, and the changes are already saved on the device
-      });
-}
-
 /** The person's sync, started once the demo's seed has been followed, and their indexes opened over it. */
 function startPersonSync(
   options: Options,
@@ -267,20 +225,25 @@ function startPersonSync(
 ): {
   sync: Promise<PersonSync>;
   /** Null until the sync has started. */
-  started: () => PersonSync | null;
+  started: () => Started | null;
   network: Subscribable<boolean>;
   client: Promise<SyncClient>;
   connection: Promise<ConnectionControl>;
   /** Null when the sync or the indexes could not start. */
   indexes: Promise<Indexes | null>;
 } {
-  const sync = followSeed(options).then(() =>
-    options.startSync(options.person, deviceId),
-  );
-  let started: PersonSync | null = null;
+  const trust = import("./sync/device-trust.ts").then((module) => ({
+    trust: module,
+    askPersistence: module.askPersistenceOnce(options.where),
+  }));
+  const sync = trust.then(async (t) => {
+    await t.trust.followSeed(options);
+    return options.startSync(options.person, deviceId);
+  });
+  let started: Started | null = null;
   const network = createValue(options.online());
-  const client = sync.then((s) => {
-    started = s;
+  const client = Promise.all([sync, trust]).then(([s, t]) => {
+    started = { sync: s, ...t };
     network.set(s.network.get());
     s.network.subscribe((online) => network.set(online));
     return s.client;
@@ -294,8 +257,11 @@ function startPersonSync(
   });
   const indexes = sync
     .then(async (s) => {
-      const opened = await openIndexes(s, options, messages);
-      tellCleared(s, opened, { deviceId, messages });
+      const [opened, t] = await Promise.all([
+        openIndexes(s, options, messages),
+        trust,
+      ]);
+      t.trust.tellCleared(s, opened, { deviceId, messages });
       return opened;
     })
     .catch(() => {
@@ -358,7 +324,6 @@ export function createPersonDocuments(
       deviceId,
       messages,
       now: options.now,
-      askPersistence: askPersistenceOnce(options.where),
     }),
   });
   const documents = continuedSource(source, library);
@@ -373,7 +338,8 @@ export function createPersonDocuments(
     ready,
     leave() {
       const going = started();
-      if (going !== null) leavePage(going, maps, handles.get());
+      if (going !== null)
+        going.trust.leavePage(going.sync, maps, handles.get());
     },
     dispose() {
       stopRefusals();
