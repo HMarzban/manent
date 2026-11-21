@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { SideTab } from "@manent/commands";
+import { createDoc } from "@manent/crdt";
 import { entryKey } from "@manent/settings";
 import { StoreError } from "@manent/sync-client";
 import { statusText } from "@manent/ui";
@@ -21,7 +22,13 @@ import {
   testEnvironment,
   testServices,
 } from "./services.fixtures.ts";
-import { turn, until } from "./sync.fixtures.ts";
+import {
+  fakeClient,
+  fakeHandle,
+  fakeSync,
+  turn,
+  until,
+} from "./sync.fixtures.ts";
 
 bindGuard(createGuard({ flavour: "test" }));
 
@@ -193,6 +200,26 @@ test("a sync that cannot start never says a document is saved", async () => {
     "Not saved on this device",
     "Only in this browser — not backed up",
   ]);
+});
+
+test("the person's sync ends with the services", async () => {
+  let disposed = 0;
+  const services = testServices({
+    userId: "leo",
+    environment: testEnvironment({
+      startSync: async () => ({
+        ...fakeSync(fakeClient(() => fakeHandle("d1", createDoc()))),
+        dispose: async () => {
+          disposed += 1;
+        },
+      }),
+    }),
+  });
+  await turn();
+  const before = disposed;
+  services.dispose();
+  await turn();
+  expect([before, disposed]).toEqual([0, 1]);
 });
 
 test("New script on a device that cannot hold it still opens the script, whose status says it is not saved", async () => {

@@ -282,6 +282,23 @@ test("a page whose document cannot be opened keeps what it shows", async () => {
   ]);
 });
 
+test("a page whose sync cannot start, or whose document cannot be opened, still takes keys over what it shows", async () => {
+  const unopened = {
+    ...fakeClient(() => fakeHandle(DOC, createDoc())),
+    open: () => Promise.reject(new StoreError("unavailable")),
+  };
+  const sessions = [
+    typedWhileOpening(Promise.reject(new StoreError("unavailable"))),
+    typedWhileOpening(Promise.resolve(unopened)),
+  ];
+  const before = sessions.map((session) => session.kept.get());
+  await turn();
+  expect([before, sessions.map((session) => session.kept.get())]).toEqual([
+    [false, false],
+    [true, true],
+  ]);
+});
+
 test("the two kinds of Subscribable are one shape", async () => {
   const synced = createSubscribable(SYNCED_STATUS);
   const status = asUiSubscribable(synced);

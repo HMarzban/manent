@@ -125,6 +125,43 @@ function listen<T>(listeners: Set<T>, listener: T): () => void {
 }
 
 /**
+ * Another writer's changes to `doc()`, held while the page holds remote changes, as the handle's own are; `attach`
+ * passes the holds made before the handle opened on to it.
+ */
+function heldRemote(doc: () => CrdtDoc): {
+  holdRemote(): void;
+  releaseRemote(): void;
+  receive(update: Uint8Array): void;
+  attach(handle: DocHandle): void;
+} {
+  let handle: DocHandle | null = null;
+  let holds = 0;
+  let held: Uint8Array[] = [];
+  return {
+    holdRemote() {
+      holds += 1;
+      handle?.holdRemote();
+    },
+    releaseRemote() {
+      holds -= 1;
+      handle?.releaseRemote();
+      if (holds > 0) return;
+      const waiting = held;
+      held = [];
+      for (const update of waiting) doc().applyUpdate(update, ORIGIN_REMOTE);
+    },
+    receive(update) {
+      if (holds > 0) held.push(update);
+      else doc().applyUpdate(update, ORIGIN_REMOTE);
+    },
+    attach(opened) {
+      handle = opened;
+      for (let i = 0; i < holds; i++) opened.holdRemote();
+    },
+  };
+}
+
+/**
  * One document's session. `receive` and `receiveAwareness` reach the open document as another writer's change and
  * caret would, for the test build's simulated writer.
  */
@@ -153,47 +190,33 @@ function createSession(
       for (const listener of awareness) listener(update);
     },
   };
+  const remote = heldRemote(() => doc);
   let handle: DocHandle | null = null;
   let ended = false;
-  let holds = 0;
-  // another writer's changes wait while the page holds remote changes, as the handle's own do
-  let held: Uint8Array[] = [];
   let detach = noop;
   client
     .then(async (c) => {
       const opened = await c.open(docId);
       if (ended) return opened.close();
       handle = opened;
-      for (let i = 0; i < holds; i++) opened.holdRemote();
+      remote.attach(opened);
       detach = attachHandle(opened, shown);
     })
     .catch(() => {
-      // the document's status says this device is not saving it; the page keeps what it shows
+      // the document's status says this device is not saving it, so typing goes on in what the page shows
+      kept.set(true);
     });
   return {
     docId,
     doc: () => doc,
-    holdRemote() {
-      holds += 1;
-      handle?.holdRemote();
-    },
-    releaseRemote() {
-      holds -= 1;
-      handle?.releaseRemote();
-      if (holds > 0) return;
-      const waiting = held;
-      held = [];
-      for (const update of waiting) doc.applyUpdate(update, ORIGIN_REMOTE);
-    },
+    holdRemote: remote.holdRemote,
+    releaseRemote: remote.releaseRemote,
     sendAwareness: (update) => handle?.sendAwareness(update),
     onAwareness: (listener) => listen(awareness, listener),
     onReplaced: (listener) => listen(replaced, listener),
     readOnly: NEVER_READ_ONLY,
     kept,
-    receive(update) {
-      if (holds > 0) held.push(update);
-      else doc.applyUpdate(update, ORIGIN_REMOTE);
-    },
+    receive: remote.receive,
     receiveAwareness: shown.hear,
     close() {
       ended = true;

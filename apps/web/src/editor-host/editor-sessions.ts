@@ -14,7 +14,10 @@ export interface EditorSession extends BoundDocument {
   onReplaced(listener: () => void): () => void;
   /** Not null: this content is shown read-only instead of being bound (a view-only subscription). */
   readonly readOnly: Subscribable<DocJSON | null>;
-  /** True once `doc()` is the device's document holding a block, or a read-only view's copy: what may be bound. */
+  /**
+   * True once `doc()` is the device's document holding a block, a read-only view's copy, or, when the device cannot
+   * open the document, what it shows: what may be bound.
+   */
   readonly kept: Subscribable<boolean>;
   close(): void;
 }

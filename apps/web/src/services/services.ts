@@ -185,6 +185,7 @@ function createKept(options: Options) {
   });
   return {
     ...maps,
+    deviceId: readDeviceId(storage, options.randomId),
     lastPane: {
       get: () => SECTION_IDS.find((id) => id === lastPane.get()) ?? "writing",
       set: lastPane.set,
@@ -268,20 +269,18 @@ const NO_REVIEW: ReviewPort = Object.freeze({
 });
 
 /**
- * `person`'s services over `storage` and the person's sync, started here; `dispose` stops listening to other tabs,
- * drops every open document's store and disposes the sync.
+ * The person's sync, started here on `deviceId`, the documents it opens, and the Library that lists them and makes a
+ * script on this device; `dispose` disposes the sync.
  */
-export function createPersonServices(options: Options): PersonServices {
-  const kept = createKept(options);
-  const deviceId = readDeviceId(options.storage, options.randomId);
+function createPersonDocuments(
+  options: Options,
+  deviceId: string,
+  messages: MessageQueue,
+) {
   const sync = options.startSync(options.person, deviceId);
   const client = sync.then((s) => s.client);
   void client.catch(() => {
-    // each document's status says a sync that cannot start, and an editor keeps the page it shows
-  });
-  const messages = createMessageQueue({
-    now: options.now,
-    schedule: options.schedule,
+    // each document's status says that the sync cannot start
   });
   const documents = createSyncDocumentSource({
     sync,
@@ -306,11 +305,33 @@ export function createPersonServices(options: Options): PersonServices {
     },
     language: options.language,
   });
-  const { settings, scripts } = createStores(
-    options,
-    { prefs: kept.prefs, device: kept.device, deviceId },
+  return {
+    client,
     documents,
-  );
+    library,
+    dispose() {
+      void sync.then(
+        (s) => s.dispose(),
+        () => {
+          // a sync that never started holds nothing to dispose
+        },
+      );
+    },
+  };
+}
+
+/**
+ * `person`'s services over `storage` and the person's sync, started here; `dispose` stops listening to other tabs,
+ * drops every open document's store and disposes the sync.
+ */
+export function createPersonServices(options: Options): PersonServices {
+  const kept = createKept(options);
+  const messages = createMessageQueue({
+    now: options.now,
+    schedule: options.schedule,
+  });
+  const sync = createPersonDocuments(options, kept.deviceId, messages);
+  const { settings, scripts } = createStores(options, kept, sync.documents);
   const resolved = createResolved(kept.keys, options.where);
   const control = createEditorControl();
   const { commands, fillHandlers, stop } = createCommands(options, {
@@ -328,7 +349,7 @@ export function createPersonServices(options: Options): PersonServices {
     settings,
     commands,
     resolved,
-    library,
+    library: sync.library,
     documents: scripts.documents,
     openScriptStore: scripts.openScriptStore,
     messages,
@@ -351,7 +372,7 @@ export function createPersonServices(options: Options): PersonServices {
         resolved,
         fixedKeys,
         navigate: (path) => options.router.navigate(path),
-        client,
+        client: sync.client,
       }),
     ),
     dispose() {
@@ -359,12 +380,7 @@ export function createPersonServices(options: Options): PersonServices {
       stop();
       kept.dispose();
       scripts.clear();
-      void sync.then(
-        (s) => s.dispose(),
-        () => {
-          // a sync that never started holds nothing to dispose
-        },
-      );
+      sync.dispose();
     },
   };
   fillHandlers(services);
