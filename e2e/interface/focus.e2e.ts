@@ -222,7 +222,8 @@ async function expectOpenFocus(
   }
 }
 
-for (const entry of SURFACES)
+// the file picker is the system's own, drawn by no page
+for (const entry of SURFACES.filter((s) => s.id !== "file_picker"))
   for (const opener of entry.openedBy)
     for (const by of WAYS) {
       test(`${entry.id} opened by ${opener} through ${by} puts focus where the catalogue says, and gives it back`, async ({

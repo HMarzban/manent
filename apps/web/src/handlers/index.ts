@@ -14,6 +14,7 @@ import { createDesktopHandlers } from "./desktop.ts";
 import { documentHandlers } from "./document.ts";
 import { createEditorHandlers } from "./editor.ts";
 import { historyHandlers } from "./history.ts";
+import { importHandlers } from "./import.ts";
 import { libraryHandlers } from "./library.ts";
 import { preferencesHandlers } from "./preferences.ts";
 import { syncHandlers } from "./sync.ts";
@@ -69,6 +70,7 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
       navigate: (path) => deps.router.navigate(path),
     }),
     ...libraryHandlers(deps),
+    ...importHandlers(deps),
     ...demoHandlers(),
     ...syncHandlers(deps),
     ...createDesktopHandlers(deps),

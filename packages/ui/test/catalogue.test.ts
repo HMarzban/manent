@@ -25,6 +25,12 @@ test("the catalogue lists every surface once, with where focus goes", () => {
     focusOnOpen: "cancel",
     focusOnClose: "opener",
   });
+  expect(SURFACES.find((s) => s.id === "file_picker")).toMatchObject({
+    kind: "dialog",
+    openedBy: ["file.import", "file.open"],
+    focusOnOpen: "stay",
+    focusOnClose: "opener",
+  });
 });
 
 test("a surface is opened by exactly the commands that name it", () => {
