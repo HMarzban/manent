@@ -11,6 +11,9 @@ export const TRACKED_ROOTS = [
   "docs/architecture/",
   "docs/benchmark/",
   "docs/decisions/",
+  "docs/development/",
+  "docs/guide/",
+  "docs/images/",
   "docs/memory/",
 ] as const;
 
@@ -30,6 +33,10 @@ export const TRACKED_FILES = [
   "NOTICE",
   "CHANGELOG.md",
   "AGENTS.md",
+  "CONTRIBUTING.md",
+  "SECURITY.md",
+  "CODE_OF_CONDUCT.md",
+  "docs/README.md",
 ] as const;
 
 const files: ReadonlySet<string> = new Set(TRACKED_FILES);
