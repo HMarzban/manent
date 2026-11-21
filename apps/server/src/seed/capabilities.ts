@@ -16,6 +16,8 @@ const CAPABILITY_ROUTES: readonly (readonly [SeedCapability, string | null])[] =
     ["device_versions", "/api/versions/upload"],
     // the live server and the seed server both run their sync service over PRODUCT_SETTING_RULES
     ["settings", null],
+    ["production", "/api/production/state"],
+    ["rebuild", null],
   ];
 
 const probed = new WeakMap<ManentServer, ReadonlySet<SeedCapability>>();

@@ -4,11 +4,18 @@ import {
   createDoc,
   jsonMap,
   mergeUpdates,
+  revisedOverrides,
   scriptBody,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import { SeedDriverError, seedProject } from "@manent/demo";
-import type { SeedCapability, SeedDriver, SeedSession } from "@manent/demo";
+import { SeedDriverError, createSeedTime, seedProject } from "@manent/demo";
+import type {
+  SeedCapability,
+  SeedDriver,
+  SeedProduction,
+  SeedSession,
+} from "@manent/demo";
+import { contentHash, overrideKey, revisedPages } from "@manent/revisions";
 import { SCHEMA_VERSION, canonicalDoc } from "@manent/schema";
 import type { DocJSON } from "@manent/schema";
 import type {
@@ -18,7 +25,12 @@ import type {
   SyncService,
 } from "@manent/server-core";
 import type { Storage } from "@manent/storage";
-import { docIdV7, indexDocId, workspaceHome } from "@manent/sync-protocol";
+import {
+  docIdV7,
+  indexDocId,
+  isProductionState,
+  workspaceHome,
+} from "@manent/sync-protocol";
 import { seedCapabilities } from "./capabilities.ts";
 import { isFields, openSeamLink } from "./link.ts";
 import type { SeamLink } from "./link.ts";
@@ -64,14 +76,6 @@ const isSeedClock = (clock: Clock): clock is SeedClock =>
 
 const hex = (byte: number): string => byte.toString(16).padStart(2, "0");
 
-/** The body of a 200 answer; any other answer is refused, naming its status and code. */
-async function readAnswer(response: Response, what: string): Promise<unknown> {
-  const body: unknown = await response.json().catch(() => null);
-  if (response.status === 200) return body;
-  const code = isFields(body) ? String(body.error) : "no code";
-  throw new SeedDriverError("refused", `${what}: ${response.status} ${code}`);
-}
-
 function createDriving(
   target: SeedServer | LiveTarget,
   random: () => number,
@@ -90,7 +94,11 @@ function createDriving(
     capabilities: seedCapabilities(target),
     async call(userId, route) {
       const answer = await callRoute(target.server, tokenOf(userId), route);
-      return readAnswer(answer, `${route.method} ${route.path} as ${userId}`);
+      const body: unknown = await answer.json().catch(() => null);
+      if (answer.status === 200) return body;
+      const code = isFields(body) ? String(body.error) : "no code";
+      const what = `${route.method} ${route.path} as ${userId}`;
+      throw new SeedDriverError("refused", `${what}: ${answer.status} ${code}`);
     },
     link(userId) {
       const link = links.get(userId) ?? openSeamLink(target, userId);
@@ -219,6 +227,90 @@ async function listVersions(
   return found;
 }
 
+/** The local calendar day of `at`, in this machine's zone at that moment. */
+const localDay = (at: number): string =>
+  createSeedTime({
+    seedAt: at,
+    zoneOffsetMs: -new Date(at).getTimezoneOffset() * 60_000,
+  }).day(at);
+
+/** What an issue and a correction send besides their pages: the marked PDF, no tint. */
+const SENT = Object.freeze({ files: ["pdf_marked"], tint: false });
+
+/** The production routes; a request that changes something reads the state first, for the active set. */
+function createProduction(d: Driving): SeedProduction {
+  const post = (userId: string, path: string, body: object) =>
+    d.call(userId, { method: "POST", path: `/api/production/${path}`, body });
+  const state = async (userId: string, docId: string) => {
+    const answer = await post(userId, "state", { docId });
+    if (!isProductionState(answer))
+      throw new SeedDriverError("unavailable", `${docId} has no state`);
+    return answer;
+  };
+  const today = () => localDay(d.target.clock.now());
+  return {
+    state,
+    async lock(userId, docId) {
+      const lockedOn = today();
+      const body = { docId, key: d.key(), numbering: "suffix", lockedOn };
+      await post(userId, "lock", { ...body, colourOrder: "standard" });
+    },
+    async issue(userId, docId, memo) {
+      // the revision being worked on is the last of the script's sets
+      const active = (await state(userId, docId)).sets.at(-1);
+      if (active === undefined)
+        throw new SeedDriverError("refused", `${docId} is not locked`);
+      const script = readServerScript(d.target.storage, docId);
+      const pages =
+        script.pagination === null
+          ? []
+          : revisedPages(script.pagination, script.marks);
+      const request = { docId, key: d.key(), expectedOrdinal: active.ordinal };
+      const answer = await post(userId, "issue", {
+        ...request,
+        ...SENT,
+        what: "changed",
+        pages,
+        recipientUserIds: [],
+        memo,
+        issuedOn: today(),
+      });
+      const issue = isFields(answer) ? answer.issue : null;
+      const after = isFields(answer) ? answer.state : null;
+      const setId = isFields(issue) ? issue.setId : null;
+      const set = isProductionState(after)
+        ? after.sets.find((s) => s.setId === setId)
+        : undefined;
+      if (set === undefined)
+        throw new SeedDriverError("unavailable", `${docId}'s issue has no set`);
+      return { colour: set.colour };
+    },
+    async recall(userId, docId, pages, memo) {
+      const issued = (await state(userId, docId)).sets.findLast(
+        (s) => s.issuedAt !== null,
+      );
+      if (issued === undefined)
+        throw new SeedDriverError("refused", `${docId} has issued nothing`);
+      const { setId } = issued;
+      const body = { docId, key: d.key(), setId, pages, memo, ...SENT };
+      await post(userId, "recall", { ...body, issuedOn: today() });
+    },
+    async setOverride(session, setId, blockId, value) {
+      await session.change((doc) => {
+        const sections = scriptBody(doc).materialize().content ?? [];
+        const block = sections
+          .flatMap((section) => section.content ?? [])
+          .find((b) => b.attrs?.id === blockId);
+        if (block === undefined)
+          throw new RangeError(`the script holds no block ${blockId}`);
+        const stored =
+          value === "marked" ? "marked" : `cleared@${contentHash(block)}`;
+        revisedOverrides(doc).set(overrideKey(setId, blockId), stored, null);
+      });
+    },
+  };
+}
+
 /**
  * A driver whose people act on `target` one answer at a time: every edit a push on their own
  * socket, every request a call to the server's routes. Ids, keys and client ids come from `random`.
@@ -293,9 +385,10 @@ export function createSeedDriver(options: {
       await d.runDue();
     },
     versions: (userId, docId) => listVersions(d, userId, docId),
-    production: null,
+    production: d.capabilities.has("production") ? createProduction(d) : null,
     async requestRebuild(docId) {
-      throw new SeedDriverError("unavailable", `no rebuild of ${docId} yet`);
+      target.sync.requestRebuild(docId);
+      await d.runDue();
     },
     async check(docId, passage, firstBlockId) {
       const script = readServerScript(target.storage, docId);
