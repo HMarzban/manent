@@ -659,6 +659,13 @@
       "stat": "p95",
       "budget": 150,
       "hardFail": 500
+    },
+    {
+      "scenario": "demo.seed",
+      "metric": "foreground_ms",
+      "stat": "max",
+      "budget": 30000,
+      "hardFail": 60000
     }
   ]
 }
