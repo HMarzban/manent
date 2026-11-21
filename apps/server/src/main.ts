@@ -7,6 +7,7 @@ import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import {
   PRODUCT_SETTING_RULES,
+  createHistoryService,
   createServer,
   createSignedSessionStore,
   createTicketStore,
@@ -204,9 +205,17 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
     }
   }
   const sync = openSync(env.dataDir);
+  const { storage, ids } = sync;
+  const history = createHistoryService({
+    sync: () => serving.sync!,
+    storage,
+    clock,
+    ids,
+  });
   const serving = createServer({
     ...buildServerConfig(env, secret, port),
-    sync,
+    sync: { ...sync, hooks: [history] },
+    history,
   });
   built = serving;
   let stopped: Promise<void> | null = null;
