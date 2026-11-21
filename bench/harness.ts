@@ -3,6 +3,8 @@
 
 import { mkdir } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
+import { summarise } from "@manent/perf";
+import type { Summary } from "@manent/perf";
 import {
   assertBudgetsMatched,
   isRecord,
@@ -11,7 +13,6 @@ import {
   readBudgets,
 } from "./budgets.ts";
 import type { Budget, Verdict } from "./budgets.ts";
-import { bootstrapInterval, percentile } from "./stats.ts";
 
 export const WORKLOADS = ["W1", "W2", "W3", "W4", "W5", "W6", "W7"] as const;
 export const UNITS = ["ms", "bytes", "count", "percent"] as const;
@@ -32,21 +33,9 @@ export interface Scenario {
   run(): Promise<Measurement[]>;
 }
 
-export interface MetricSummary {
+export interface MetricSummary extends Summary {
   metric: string;
   unit: Measurement["unit"];
-  /** How many samples were pooled. */
-  samples: number;
-  p50: number;
-  p95: number;
-  p99: number;
-  /** The largest sample. */
-  max: number;
-  intervals: {
-    p50: [number, number];
-    p95: [number, number];
-    p99: [number, number];
-  };
   verdict: Verdict;
 }
 
@@ -76,7 +65,6 @@ export interface SuiteRun {
 
 export const RUN_TIER = "host";
 const AREAS = ["corpus", "crdt", "client", "server"] as const;
-const INTERVAL = { rounds: 1000, seed: 4747 } as const;
 
 async function findScenarios(
   root: string,
@@ -207,32 +195,20 @@ function pool(file: string, runs: Measurement[][]): Measurement[] {
   return [...pooled.values()];
 }
 
-function summarise(
+function summaryOf(
   scenario: Scenario,
   m: Measurement,
   budgets: readonly Budget[],
 ): MetricSummary {
-  const { samples } = m;
-  const stats = {
-    p50: percentile(samples, 50),
-    p95: percentile(samples, 95),
-    p99: percentile(samples, 99),
-    max: samples.reduce((a, b) => Math.max(a, b)),
-  };
+  const summary = summarise(m.samples);
   const budget = budgets.find(
     (b) => b.scenario === scenario.id && b.metric === m.metric,
   );
   return {
     metric: m.metric,
     unit: m.unit,
-    samples: samples.length,
-    ...stats,
-    intervals: {
-      p50: bootstrapInterval(samples, 50, INTERVAL),
-      p95: bootstrapInterval(samples, 95, INTERVAL),
-      p99: bootstrapInterval(samples, 99, INTERVAL),
-    },
-    verdict: budget ? judge(stats[budget.stat], budget) : "no_budget",
+    ...summary,
+    verdict: budget ? judge(summary[budget.stat], budget) : "no_budget",
   };
 }
 
@@ -250,7 +226,7 @@ async function runScenario(
     id: scenario.id,
     workload: scenario.workload,
     processes: scenario.processes,
-    metrics: pool(rel, runs).map((m) => summarise(scenario, m, budgets)),
+    metrics: pool(rel, runs).map((m) => summaryOf(scenario, m, budgets)),
   };
 }
 

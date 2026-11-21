@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { createTempTrees } from "@manent/testkit";
 import { UNITS, runSuite } from "../harness.ts";
 import type { ResultFile } from "../harness.ts";
-import { bootstrapInterval } from "../stats.ts";
+import { bootstrapInterval } from "@manent/perf";
 
 const trees = createTempTrees("manent-bench-");
 afterAll(() => trees.removeAll());
