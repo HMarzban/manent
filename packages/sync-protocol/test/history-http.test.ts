@@ -23,7 +23,7 @@ test("the version kinds and the new error code are pinned in their order", () =>
     "revision_baseline",
     "revision_issue",
   ]);
-  expect(HTTP_ERROR_CODES.at(-1)).toBe("not_restorable");
+  expect(HTTP_ERROR_CODES[18]).toBe("not_restorable");
   expect(
     ["1700000000000:a1", "x:a1", "1:", "1:a/b", 7].map(isVersionCursor),
   ).toEqual([true, false, false, false, false]);
