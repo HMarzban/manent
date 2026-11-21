@@ -26,6 +26,8 @@ import type {
   VersionResponse,
 } from "@manent/sync-protocol";
 import type { Clock, SyncHooks, SyncService } from "../sync/ports.ts";
+import { createAttribution } from "./attribution.ts";
+import type { Attribution } from "./attribution.ts";
 import { contentAt, openVersion, uploadedContent } from "./content.ts";
 import type { LocksAt } from "./content.ts";
 import { createMaintenance } from "./maintenance.ts";
@@ -61,7 +63,7 @@ export interface HistoryExtras {
   authority(file: DocFile, docId: string): AuthorityValues;
 }
 
-export interface HistoryService extends SyncHooks {
+export interface HistoryService extends SyncHooks, Attribution {
   list(
     userId: string,
     docId: string,
@@ -110,10 +112,7 @@ const controlOf = (
   beforeVersionId: null,
 });
 
-const failed = (code: HttpErrorCode): { ok: false; code: HttpErrorCode } => ({
-  ok: false,
-  code,
-});
+const failed = (code: HttpErrorCode) => ({ ok: false, code }) as const;
 
 export function createHistoryService(options: {
   sync: () => SyncService;
@@ -393,6 +392,7 @@ export function createHistoryService(options: {
       recorder.forget(docId);
       recorder.record(file, version, { ...base, locks }, how, previous);
     },
+    ...createAttribution({ authorize }),
     maintain: maintenance.now,
   };
 }
