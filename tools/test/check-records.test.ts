@@ -638,6 +638,35 @@ test("a link must lead to a file git tracks or would track", async () => {
   ).toEqual([]);
 });
 
+test("the guides, the contributor documents and the docs index are read as records", async () => {
+  const broken = "See [it](gone.md).";
+  expect(
+    await check({
+      "docs/guide/writing.md": lines("# Writing", "", broken),
+      "docs/development/testing.md": lines("# Testing", "", broken),
+      "docs/README.md": lines("# Documentation", "", broken),
+      "CONTRIBUTING.md": lines(
+        "# Contributing",
+        "",
+        "Write to sam@example.org.",
+      ),
+      "SECURITY.md": lines("# Security", "", "As the design says."),
+      "CODE_OF_CONDUCT.md": lines(
+        "# Code of conduct",
+        "",
+        "It is in /Users/sam/notes.",
+      ),
+    }),
+  ).toEqual([
+    "CODE_OF_CONDUCT.md:3 home-path",
+    "CONTRIBUTING.md:3 email",
+    "SECURITY.md:3 note-ref",
+    "docs/README.md:3 link",
+    "docs/development/testing.md:3 link",
+    "docs/guide/writing.md:3 link",
+  ]);
+});
+
 test("link syntax inside code is not a link", async () => {
   expect(
     await check(edit(LESSONS, { 9: "Write `[title](gone.md)` to link." })),

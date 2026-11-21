@@ -12,8 +12,16 @@ export const ARCHITECTURE_DIR = "docs/architecture";
 export const BENCHMARK_DIR = "docs/benchmark";
 export const OVERVIEW = "docs/architecture/overview.md";
 
-/** Public documents at the root; each is read when it exists. */
-export const PUBLIC_FILES = [AGENTS, CHANGELOG, README] as const;
+/** Public documents outside the folders below; each is read when it exists. */
+export const PUBLIC_FILES = [
+  AGENTS,
+  CHANGELOG,
+  README,
+  "CONTRIBUTING.md",
+  "SECURITY.md",
+  "CODE_OF_CONDUCT.md",
+  "docs/README.md",
+] as const;
 
 /** A finding when one is absent. */
 export const REQUIRED_FILES = [
@@ -30,6 +38,8 @@ export const PUBLIC_DIRS = [
   ARCHITECTURE_DIR,
   BENCHMARK_DIR,
   DECISIONS_DIR,
+  "docs/development",
+  "docs/guide",
   MEMORY_DIR,
 ] as const;
 
