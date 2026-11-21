@@ -126,8 +126,8 @@ test("Sign in to sync gives You a session and the status follows the source", as
     .toBe("string");
   await expect(status).toHaveAccessibleName(NEW_SCRIPT);
   // the sync this tab started before the session keeps saying Sign in to sync under the new script's words
-  await setStatus(page, { neverSynced: false, server: "synced" });
-  await expect(status).toHaveAccessibleName("Saved · Synced");
+  await setStatus(page, { neverSynced: false });
+  await expect(status).toHaveAccessibleName("Saved · Sign in to sync");
 });
 
 test("opening a panel never moves the page's lines up or down", async ({

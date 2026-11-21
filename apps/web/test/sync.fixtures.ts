@@ -35,14 +35,18 @@ import {
   createFrameEncoder,
   createMessageIds,
 } from "@manent/sync-protocol";
-import type { DocRole, Message } from "@manent/sync-protocol";
+import type {
+  CreateDocumentRequest,
+  DocRole,
+  Message,
+} from "@manent/sync-protocol";
 import { createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import { createPersonSync } from "../src/services/sync/create-sync.ts";
 import type { PersonSync } from "../src/services/sync/create-sync.ts";
 import { createDeviceMemory } from "../src/services/sync/device-memory.ts";
 import type { TabPerson } from "../src/session.ts";
-import { FIXED_RANDOM, MemoryStorage, V1 } from "./services.fixtures.ts";
+import { MemoryStorage, V1, fixedRandom } from "./services.fixtures.ts";
 
 export const START = 1_794_319_800_000;
 export const DANA: TabPerson = Object.freeze({
@@ -58,6 +62,8 @@ export interface ScriptedServer {
   ): Extract<Message, { type: T }>[];
   /** While true, every SET is refused with 4423; otherwise acknowledged. */
   refusingSettings: boolean;
+  /** Every document the clients asked the server to create, in order. */
+  readonly created: CreateDocumentRequest[];
   doc(docId: string): CrdtDoc;
 }
 
@@ -72,6 +78,7 @@ export function scriptedServer(network: MemoryNetwork): ScriptedServer {
         types.some((t) => t === m.type),
       ),
     refusingSettings: false,
+    created: [],
     doc(docId) {
       const doc = docs.get(docId) ?? createDoc({ clientId: 1 });
       docs.set(docId, doc);
@@ -150,7 +157,10 @@ export function scriptedServer(network: MemoryNetwork): ScriptedServer {
         answer(send, result.message);
       };
     },
-    createDocument: () => ({ ok: true }),
+    createDocument(_userId, request) {
+      server.created.push(request);
+      return { ok: true };
+    },
   });
   return server;
 }
@@ -231,7 +241,7 @@ export function createSyncWorld(): SyncWorld {
       store: space.store(DANA.userId),
       leader: soloLeader(`tab-${++tabs}`),
       clock: fake.clock,
-      random: FIXED_RANDOM,
+      random: fixedRandom(),
       frames: FRAMES,
     };
   };

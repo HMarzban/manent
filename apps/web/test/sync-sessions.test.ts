@@ -1,6 +1,6 @@
 import { withDom } from "@manent/testkit/dom";
 import { expect, test } from "bun:test";
-import { ORIGIN_REMOTE, createDoc, scriptBody } from "@manent/crdt";
+import { createDoc, scriptBody } from "@manent/crdt";
 import { blockText, blocksOf } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
 import { StoreError, createSubscribable } from "@manent/sync-client";
@@ -10,8 +10,13 @@ import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { createSyncSessions } from "../src/editor-host/sync-sessions.ts";
 import { createSyncDocumentSource } from "../src/services/sync/document-source.ts";
+import type { PersonSync } from "../src/services/sync/create-sync.ts";
 import { asUiSubscribable } from "../src/services/sync/subscribable.ts";
-import { createClock } from "./services.fixtures.ts";
+import {
+  createClock,
+  testEnvironment,
+  testServices,
+} from "./services.fixtures.ts";
 import {
   SYNCED_STATUS,
   createSyncWorld,
@@ -23,6 +28,7 @@ import {
   turn,
   until,
 } from "./sync.fixtures.ts";
+import type { SyncWorld } from "./sync.fixtures.ts";
 
 withDom();
 
@@ -37,8 +43,17 @@ const block = (id: string, text: string): BlockJSON => ({
 const textOf = (doc: ReturnType<typeof createDoc>): string[] =>
   blocksOf(scriptBody(doc).materialize()).map(blockText);
 
+/** A document holding the line "Dawn.", as one this device has made or been given. */
+function written(): ReturnType<typeof createDoc> {
+  const doc = createDoc();
+  scriptBody(doc).write((w) =>
+    w.insertBlocks(null, [block("block-one-000001", "Dawn.")]),
+  );
+  return doc;
+}
+
 test("an editor session is the sync client's document, and a replaced document remounts it", async () => {
-  const handle = fakeHandle(DOC, createDoc());
+  const handle = fakeHandle(DOC, written());
   const sessions = createSyncSessions({
     client: Promise.resolve(fakeClient(() => handle)),
   });
@@ -48,7 +63,7 @@ test("an editor session is the sync client's document, and a replaced document r
   await turn();
   expect([session.doc() === handle.doc(), replaced]).toEqual([true, 1]);
   expect(sessions.open(DOC, "screenplay")).toBe(session);
-  const rebuilt = createDoc();
+  const rebuilt = written();
   handle.replaceDoc(rebuilt);
   handle.emit({ type: "replaced", reason: "rejected" });
   expect([session.doc() === rebuilt, replaced]).toEqual([true, 2]);
@@ -58,7 +73,7 @@ test("an editor session is the sync client's document, and a replaced document r
 });
 
 test("a person who may only view gets a page that follows other people's typing and takes no keys", async () => {
-  const handle = fakeHandle(DOC, createDoc());
+  const handle = fakeHandle(DOC, written());
   const client = fakeClient(() => handle);
   const clock = createClock();
   const source = createSyncDocumentSource({
@@ -136,13 +151,6 @@ const typed = (doc: ReturnType<typeof createDoc>): string[][] =>
     blockText(b),
   ]);
 
-const NOT_YET_SYNCED = Object.freeze({
-  ...SYNCED_STATUS,
-  synced: false,
-  docSync: "local",
-  neverSynced: true,
-} as const);
-
 test("a script the server holds gains nothing from a device that opens it for the first time", async () => {
   const world = createSyncWorld();
   scriptBody(world.server.doc(DOC)).write((w) =>
@@ -159,71 +167,53 @@ test("a script the server holds gains nothing from a device that opens it for th
   ]);
 });
 
-test("a script that is empty on this device starts from what was typed while it opened", async () => {
-  const fresh = fakeHandle(DOC, createDoc());
-  fresh.status.set(NOT_YET_SYNCED);
-  const session = typedWhileOpening(Promise.resolve(fakeClient(() => fresh)));
-  await turn();
-  expect([session.doc() === fresh.doc(), typed(fresh.doc())]).toEqual([
-    true,
-    [["scene_heading", "INT. HARBOUR"]],
-  ]);
-});
-
-/** Applies to `doc`, as the server's, what `write` does to a copy of it. */
-function fromServer(
-  doc: ReturnType<typeof createDoc>,
-  write: (copy: ReturnType<typeof createDoc>) => void,
-): void {
-  const copy = createDoc();
-  copy.applyUpdate(doc.encodeState());
-  write(copy);
-  doc.applyUpdate(copy.diff(doc.encodeStateVector()), ORIGIN_REMOTE);
+/** A person's services whose sync is `world`'s, and that sync once it has started. */
+function servicesOver(world: SyncWorld) {
+  let started: PersonSync | null = null;
+  const services = testServices({
+    userId: "dana",
+    environment: testEnvironment({
+      language: "en-GB",
+      startSync: async () => (started = await world.personSync()),
+    }),
+  });
+  const sync = async (): Promise<PersonSync> => {
+    await until(() => started !== null);
+    if (started === null) throw new RangeError("the sync never started");
+    return started;
+  };
+  return { services, sync };
 }
 
-test("a new script keeps every line written in it once the server has answered with nothing", async () => {
-  const fresh = fakeHandle(DOC, createDoc());
-  fresh.status.set(NOT_YET_SYNCED);
-  const session = createSyncSessions({
-    client: Promise.resolve(fakeClient(() => fresh)),
-  }).open(DOC, "screenplay");
-  await turn();
-  scriptBody(session.doc()).write((w) =>
-    w.insertBlocks(null, [
-      block("block-one-000001", "Rain."),
-      block("block-two-000002", "Wind."),
-    ]),
-  );
-  // another of the person's devices names the script's first scene
-  fromServer(fresh.doc(), (copy) => {
-    const [, , heading] = blocksOf(scriptBody(copy).materialize());
-    scriptBody(copy).write((w) =>
-      w.setBlockAttrs(heading?.attrs.id ?? "", { type: "scene_heading" }),
-    );
-  });
-  fresh.status.set(SYNCED_STATUS);
-  expect(typed(fresh.doc())).toEqual([
-    ["action", "Rain."],
-    ["action", "Wind."],
-    ["scene_heading", ""],
-  ]);
+test("a script made in the Library has its first block and paper on the device before the editor opens it, offline too", async () => {
+  const world = createSyncWorld();
+  const { services, sync } = servicesOver(world);
+  const { client } = await sync();
+  client.setOnline(false);
+  const { docId } = await services.library.createProject("dana", "film");
+  const handle = await client.open(docId);
+  await settle(world.network);
+  expect([
+    typed(handle.doc()),
+    handle.settings.get()["script.paper"],
+    world.server.got("SUBSCRIBE", "PUSH", "SET").length,
+  ]).toEqual([[["scene_heading", ""]], "a4", 0]);
 });
 
-test("what was written before the server answered stays beside the script it held", async () => {
-  const fresh = fakeHandle(DOC, createDoc());
-  fresh.status.set(NOT_YET_SYNCED);
-  typedWhileOpening(Promise.resolve(fakeClient(() => fresh)));
-  await turn();
-  const held = createDoc();
-  scriptBody(held).write((w) =>
-    w.insertBlocks(null, [block("block-one-000001", "Dawn.")]),
-  );
-  fresh.doc().applyUpdate(held.encodeState(), ORIGIN_REMOTE);
-  fresh.status.set(SYNCED_STATUS);
-  expect(typed(fresh.doc()).toSorted()).toEqual([
-    ["action", "Dawn."],
-    ["scene_heading", "INT. HARBOUR"],
-  ]);
+test("an address this device never made, opened signed in, asks for no create and stores nothing of the scratch", async () => {
+  const world = createSyncWorld();
+  const { services, sync } = servicesOver(world);
+  const { client } = await sync();
+  services.documents.open(DOC);
+  const session = typedWhileOpening(Promise.resolve(client));
+  await settle(world.network);
+  const stored = await client.open(DOC);
+  expect([
+    world.server.created,
+    typed(stored.doc()),
+    textOf(world.server.doc(DOC)),
+    typed(session.doc()),
+  ]).toEqual([[], [], [], [["scene_heading", "INT. HARBOUR"]]]);
 });
 
 test("a page whose document cannot be opened keeps what it shows", async () => {

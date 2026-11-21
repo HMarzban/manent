@@ -1,27 +1,20 @@
-// One person's sync in this tab: the one place the app builds the sync client's options, what the status reads beside it, and the test build's hooks.
+// One person's sync in this tab: the one place the app builds the sync client's options, what the status reads beside it, and where the test build's hooks are set.
 import { browserPorts } from "@manent/client-web";
-import {
-  StoreError,
-  createSubscribable,
-  createSyncClient,
-} from "@manent/sync-client";
+import { createSubscribable, createSyncClient } from "@manent/sync-client";
 import type {
-  DocEvent,
   DocHandle,
-  DocStatus,
   LinkFacts,
-  LinkIssue,
   LocalStore,
-  SideState,
   Subscribable,
   SyncClient,
   SyncClientPorts,
-  Transport,
 } from "@manent/sync-client";
 import type { VersionSet } from "@manent/sync-protocol";
 import type { TabPerson } from "../../session.ts";
 import type { DeviceMemory } from "./device-memory.ts";
 import { DRAIN_PARALLEL, startDrain } from "./drain.ts";
+import { NO_OVERLAY, both, createTestHooks } from "./sync-hooks.ts";
+import type { Overlay } from "./sync-hooks.ts";
 
 /**
  * `network`: the browser says it is online. `offlineSince`: when this person's link was first lost since it was last
@@ -34,55 +27,6 @@ export interface PersonSync {
   network: Subscribable<boolean>;
   offlineSince: Subscribable<number | null>;
   dispose(): Promise<void>;
-}
-
-/** The test build's `__manent.sync`. */
-export interface SyncHooks {
-  /** The store's next writes reject with this code; null accepts them again. */
-  refuseStore(code: "quota" | "write_failed" | null): void;
-  /** The sockets this tab holds open. */
-  connections(): number;
-  /** Laid over the real facts of the document, for its status and its messages; an issue is laid over the link. */
-  inject(
-    docId: string,
-    fact: { side: SideState } | { issue: LinkIssue } | { event: DocEvent },
-  ): void;
-}
-
-/** What the hooks lay over the client's facts; nothing in production. */
-interface Overlay {
-  link(link: Subscribable<LinkFacts>): Subscribable<LinkFacts>;
-  status(
-    docId: string,
-    status: Subscribable<DocStatus>,
-  ): Subscribable<DocStatus>;
-  on(docId: string, listener: (event: DocEvent) => void): () => void;
-}
-
-const NO_OVERLAY: Overlay = Object.freeze<Overlay>({
-  link: (link) => link,
-  status: (_docId, status) => status,
-  on: () => () => {},
-});
-
-const both = (first: () => void, second: () => void) => (): void => {
-  first();
-  second();
-};
-
-/** `source` with `lay` applied, told again whenever `source` or `over` changes. */
-function laidOver<T>(
-  source: Subscribable<T>,
-  over: Subscribable<unknown>,
-  lay: (value: T) => T,
-): Subscribable<T> {
-  return {
-    get: () => lay(source.get()),
-    subscribe(listener) {
-      const tell = (): void => listener(lay(source.get()));
-      return both(source.subscribe(tell), over.subscribe(tell));
-    },
-  };
 }
 
 /** One open of a document: the client's handle, with its own `close`. */
@@ -164,131 +108,6 @@ function shareHandles(
   };
 }
 
-type Refusal = Parameters<SyncHooks["refuseStore"]>[0];
-
-/** The store, whose writes reject with `refusal()` while it is not null. */
-function refusingStore(store: LocalStore, refusal: () => Refusal): LocalStore {
-  const refused = (): Promise<never> | null => {
-    const code = refusal();
-    return code === null ? null : Promise.reject(new StoreError(code));
-  };
-  return {
-    userId: store.userId,
-    load: (docId) => store.load(docId),
-    create: (...args) => refused() ?? store.create(...args),
-    append: (...args) => refused() ?? store.append(...args),
-    acknowledge: (...args) => refused() ?? store.acknowledge(...args),
-    refuse: (...args) => refused() ?? store.refuse(...args),
-    markApplied: (...args) => refused() ?? store.markApplied(...args),
-    checkpoint: (...args) => refused() ?? store.checkpoint(...args),
-    patchMeta: (...args) => refused() ?? store.patchMeta(...args),
-    reset: (...args) => refused() ?? store.reset(...args),
-    addVersion: (...args) => refused() ?? store.addVersion(...args),
-    versions: (docId) => store.versions(docId),
-    markUploaded: (...args) => refused() ?? store.markUploaded(...args),
-    recovered: (docId) => store.recovered(docId),
-    dismissRecovered: (...args) => refused() ?? store.dismissRecovered(...args),
-    documents: () => store.documents(),
-    close: () => store.close(),
-  };
-}
-
-/** The transport, and the connections it holds open now. */
-function countedTransport(transport: Transport): {
-  transport: Transport;
-  open: Set<object>;
-} {
-  const open = new Set<object>();
-  return {
-    open,
-    transport: {
-      async connect(handlers) {
-        const connected = {};
-        let closed = false;
-        const end = (): void => {
-          closed = true;
-          open.delete(connected);
-        };
-        const connection = await transport.connect({
-          onFrame: (frame) => handlers.onFrame(frame),
-          onClose(code, reason) {
-            end();
-            handlers.onClose(code, reason);
-          },
-        });
-        if (!closed) open.add(connected);
-        return {
-          send: (frame) => connection.send(frame),
-          close(code, reason) {
-            end();
-            connection.close(code, reason);
-          },
-        };
-      },
-      createDocument: (request) => transport.createDocument(request),
-      replay: (request) => transport.replay(request),
-    },
-  };
-}
-
-/** Where the page has the test build's `__manent`: it, the hooks over `ports`, the ports they watch and what they lay. */
-function createTestHooks(ports: SyncClientPorts): {
-  hooks: SyncHooks;
-  target: object;
-  ports: SyncClientPorts;
-  overlay: Overlay;
-} | null {
-  const target: unknown = Reflect.get(globalThis, "__manent");
-  if (typeof target !== "object" || target === null) return null;
-  let refusal: Refusal = null;
-  const counted = countedTransport(ports.transport);
-  const sides = createSubscribable<Readonly<Record<string, SideState[]>>>({});
-  const issue = createSubscribable<LinkIssue | null>(null);
-  const heard = new Set<{ docId: string; listener(event: DocEvent): void }>();
-  return {
-    target,
-    ports: {
-      ...ports,
-      store: refusingStore(ports.store, () => refusal),
-      transport: counted.transport,
-    },
-    hooks: {
-      refuseStore(code) {
-        refusal = code;
-      },
-      connections: () => counted.open.size,
-      inject(docId, fact) {
-        if ("side" in fact) {
-          const laid = sides.get()[docId] ?? [];
-          sides.set({ ...sides.get(), [docId]: [...laid, fact.side] });
-        } else if ("issue" in fact) issue.set(fact.issue);
-        else
-          for (const one of heard)
-            if (one.docId === docId) one.listener(fact.event);
-      },
-    },
-    overlay: {
-      link: (link) =>
-        laidOver(link, issue, (facts) => ({
-          ...facts,
-          issue: issue.get() ?? facts.issue,
-        })),
-      status: (docId, status) =>
-        laidOver(status, sides, (facts) => ({
-          ...facts,
-          side: [...new Set([...facts.side, ...(sides.get()[docId] ?? [])])],
-        })),
-      on(docId, listener) {
-        const one = { docId, listener };
-        heard.add(one);
-        return () => {
-          heard.delete(one);
-        };
-      },
-    },
-  };
-}
-
 /** Kept per person in `memory`: set when the link is first lost while none is kept, cleared once it is online. */
 function keepOfflineSince(
   userId: string,
@@ -358,7 +177,14 @@ export async function createPersonSync(options: {
       session: () => person.token,
       userId: person.userId,
     }));
-  const test = createTestHooks(given);
+  // the hooks make a script as the Library does, each in a project of its own
+  const test = createTestHooks(given, async (docId) =>
+    (await import("./create-script.ts")).createScript(client, {
+      docId,
+      projectId: docId,
+      language: navigator.language,
+    }),
+  );
   const ports = test?.ports ?? given;
   const overlay = test?.overlay ?? NO_OVERLAY;
   const raw = createSyncClient({

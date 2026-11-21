@@ -173,12 +173,15 @@ export const V1: VersionSet = Object.freeze({
   table: 0,
 });
 
-/** The same draw every time, so a run is the same every time. */
-export const FIXED_RANDOM: Random = Object.freeze({
-  next: () => 0.5,
-  clientId: () => 7,
-  bytes: (length: number) => new Uint8Array(length).fill(7),
-});
+/** The same draws in every run: the middle of the range, and client ids counting up from 7, so a reopened document can take a new one. */
+export function fixedRandom(): Random {
+  let clientId = 6;
+  return {
+    next: () => 0.5,
+    clientId: () => ++clientId,
+    bytes: (length: number) => new Uint8Array(length).fill(7),
+  };
+}
 
 export function testEnvironment(
   overrides: Partial<Environment> = {},
@@ -227,7 +230,7 @@ export function testEnvironment(
           store: createMemoryStore(person.userId),
           leader: soloLeader(deviceId),
           clock: { now: clock.now, schedule: clock.schedule },
-          random: FIXED_RANDOM,
+          random: fixedRandom(),
           frames: { request: (fn) => clock.schedule(fn, 16) },
         },
         memory: createDeviceMemory({ local: null, session: null }),

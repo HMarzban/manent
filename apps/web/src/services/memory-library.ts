@@ -1,15 +1,14 @@
 // The Library's index for this tab until sync supplies it: projects and Continue per workspace, held in memory.
-import { paperForRegion } from "@manent/settings";
 import { LIBRARY_WORDS, createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import type {
   ContinueItem,
   CreateResult,
-  DocumentSource,
   LibraryIndex,
   ProjectItem,
   ProjectKind,
 } from "./ports.ts";
+import type { NewScript } from "./sync/create-script.ts";
 
 type Value<T> = Subscribable<T> & { set(value: T): void };
 
@@ -19,12 +18,12 @@ interface Workspace {
 }
 
 /**
- * Every workspace starts empty. `createProject` makes one untitled document in a new project, first in Continue,
- * and writes the paper of `language`'s region into its script settings through `documents`.
+ * Every workspace starts empty. `createProject` makes one untitled document in a new project through `createScript`,
+ * with the paper of `language`'s region, and lists it first in Continue once it is made.
  */
 export function createMemoryLibrary(options: {
   ids: () => string;
-  documents: DocumentSource;
+  createScript: (script: NewScript) => Promise<void>;
   language: string;
 }): LibraryIndex {
   const workspaces = new Map<string, Workspace>();
@@ -60,6 +59,7 @@ export function createMemoryLibrary(options: {
     loadState: () => cached,
     async createProject(id, kind): Promise<CreateResult> {
       const result = { projectId: options.ids(), docId: options.ids() };
+      await options.createScript({ ...result, language: options.language });
       const projectTitle = LIBRARY_WORDS.untitledProject(kind);
       const title = LIBRARY_WORDS.untitledScript;
       const place = { kind: "never_synced" } as const;
@@ -81,10 +81,6 @@ export function createMemoryLibrary(options: {
       ]);
       valueOf(titles, result.docId).set(title);
       valueOf(kinds, result.docId).set(kind);
-      options.documents
-        .open(result.docId)
-        .scriptBag.write({ "script.paper": paperForRegion(options.language) });
-      options.documents.close(result.docId);
       return result;
     },
     documentTitle: (docId) => valueOf(titles, docId),

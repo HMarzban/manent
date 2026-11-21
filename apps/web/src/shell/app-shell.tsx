@@ -15,6 +15,7 @@ import { standInMount } from "../editor-host/stand-in-mount.ts";
 import { loadApart } from "../load-apart.ts";
 import { historyTab } from "../screens/document/history-tab.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
+import { readDeviceId } from "../services/device-id.ts";
 import {
   FactsContext,
   OutlineContext,
@@ -60,15 +61,7 @@ const SCREEN_AREA: CSSProperties = Object.freeze({
   gridColumn: "1 / -1",
 });
 
-/** The stand-in editor's document of `userId`, in the test build only: the last 12 hex digits of the id's UTF-8 bytes end it. */
-function standInDocId(userId: string): string {
-  const hex = Array.from(new TextEncoder().encode(userId), (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
-  return `00000000-0000-4000-8000-${hex.padStart(12, "0").slice(-12)}`;
-}
-
-/** Which screen the route shows, the document under it, and whether a screen covers the page. */
+/** Which screen the route shows, the document under it (the stand-in's is made apart), and whether a screen covers the page. */
 function useShellRoute(): {
   screen: ScreenId;
   docId: string | null;
@@ -76,7 +69,6 @@ function useShellRoute(): {
   standIn: boolean;
 } {
   const { flavour } = useEnvironment();
-  const { userId } = useServices();
   const routeId = useRouterState({
     select: (state): string | null => state.matches.at(-1)?.routeId ?? null,
   });
@@ -88,10 +80,38 @@ function useShellRoute(): {
   const standIn = flavour === "test" && routeId === STAND_IN_ROUTE;
   return {
     screen: (routeId === null ? undefined : SCREENS[routeId]) ?? "library",
-    docId: standIn ? standInDocId(userId) : routeDocId,
+    docId: standIn ? null : routeDocId,
     covered: routeId !== DOCUMENT_ROUTE && !standIn,
     standIn,
   };
+}
+
+/** The test build's stand-in document of this person on this device, once it is made; null until then and off its route. */
+function useStandInDocId(standIn: boolean): string | null {
+  const { userId } = useServices();
+  const { storage, randomId, schedule } = useEnvironment();
+  const [made, setMade] = useState<{ userId: string; docId: string } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!standIn) return;
+    let stop: (() => void) | null = null;
+    let live = true;
+    void import("./stand-in-script.ts").then(({ makeStandInScript }) => {
+      if (!live) return;
+      stop = makeStandInScript({
+        userId,
+        deviceId: readDeviceId(storage, randomId),
+        schedule,
+        made: (docId) => setMade({ userId, docId }),
+      });
+    });
+    return () => {
+      live = false;
+      stop?.();
+    };
+  }, [standIn, userId, storage, randomId, schedule]);
+  return standIn && made?.userId === userId ? made.docId : null;
 }
 
 /** Where the route's screen draws: over the frame while it is not a document; a document draws its parts in their own areas. */
@@ -207,7 +227,10 @@ function usePublishShellState(
 export function AppShell(props: { children: ReactNode }): ReactNode {
   const services = useServices();
   const { where, now, schedule, dom } = useEnvironment();
-  const { screen, docId, covered, standIn } = useShellRoute();
+  const route = useShellRoute();
+  const { screen, covered, standIn } = route;
+  const standInDocId = useStandInDocId(standIn);
+  const docId = standIn ? standInDocId : route.docId;
   const { facts, outline, people } = useBridgeStores();
   const timing = useMemo(() => ({ now, schedule }), [now, schedule]);
   const writers = useMemo(

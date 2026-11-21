@@ -2,7 +2,7 @@
 import { DOCUMENT_WORDS } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { BrowserContext, Page } from "@playwright/test";
-import { signedInAs } from "../support/tour.ts";
+import { openMadeScript } from "../support/made-script.ts";
 
 const PAGE_VIEW = "[data-editor-host] .mn-page-view";
 // 2,400 paragraphs of action, each two lines long and a blank line before it: past 120 pages
@@ -12,13 +12,13 @@ const LINES = Array.from(
     `Line ${n + 1}: the tide turns under the harbour wall while the keeper climbs the stair with the lamp`,
 );
 
-/** Opens script `docId` as `userId` in `page` and waits for its page. */
+/** Opens script `docId`, made as the Library makes one, as `userId` in `page` and waits for its page. */
 async function openAs(
   page: Page,
   userId: string,
   docId: string,
 ): Promise<void> {
-  await signedInAs(page, userId, `/s/${docId}`);
+  await openMadeScript(page, userId, docId);
   await expect(page.locator(PAGE_VIEW)).toBeVisible();
 }
 

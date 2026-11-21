@@ -9,7 +9,6 @@ import {
   latestEntries,
 } from "@manent/settings";
 import type { Bag, KeyValueMap, SettingsStore } from "@manent/settings";
-import type { SyncClient } from "@manent/sync-client";
 import { LIBRARY_WORDS, createMessageQueue, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import { createEditorControl } from "../editor-host/control.ts";
@@ -262,30 +261,6 @@ function placeStoreOf(options: Options): PlaceStore {
   return store;
 }
 
-/**
- * Until the Library creates each script in its project, a script this device opens that it has never held is
- * created on the server in a project of its own at its first sync.
- */
-function creatingScripts(
-  client: SyncClient,
-  projectHome: (docId: string) => string,
-): SyncClient {
-  return {
-    link: client.link,
-    open: (docId, options) =>
-      client.open(docId, {
-        create: { kind: "script", home: projectHome(docId), workspaceId: null },
-        ...options,
-      }),
-    create: (request) => client.create(request),
-    documents: () => client.documents(),
-    setOnline: (wanted) => client.setOnline(wanted),
-    retryNow: () => client.retryNow(),
-    view: (docId) => client.view(docId),
-    close: () => client.close(),
-  };
-}
-
 // until the review entries are read from the person's private index
 const NO_REVIEW: ReviewPort = Object.freeze({
   openCount: () => createValue(0),
@@ -299,14 +274,7 @@ const NO_REVIEW: ReviewPort = Object.freeze({
 export function createPersonServices(options: Options): PersonServices {
   const kept = createKept(options);
   const deviceId = readDeviceId(options.storage, options.randomId);
-  // the protocol is loaded apart from the entry
-  const sync = Promise.all([
-    options.startSync(options.person, deviceId),
-    import("@manent/sync-protocol"),
-  ]).then(([s, { projectHome }]) => ({
-    ...s,
-    client: creatingScripts(s.client, projectHome),
-  }));
+  const sync = options.startSync(options.person, deviceId);
   const client = sync.then((s) => s.client);
   void client.catch(() => {
     // each document's status says a sync that cannot start, and an editor keeps the page it shows
@@ -328,7 +296,14 @@ export function createPersonServices(options: Options): PersonServices {
   // until sync supplies the Library's index
   const library = createMemoryLibrary({
     ids: options.randomId,
-    documents,
+    // making a script is loaded apart from the entry
+    createScript: async (script) => {
+      const [c, { createScript }] = await Promise.all([
+        client,
+        import("./sync/create-script.ts"),
+      ]);
+      await createScript(c, script);
+    },
     language: options.language,
   });
   const { settings, scripts } = createStores(

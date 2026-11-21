@@ -11,13 +11,11 @@ import { createMessageQueue, createValue, statusText } from "@manent/ui";
 import type { StatusWords } from "@manent/ui";
 import { createApi } from "../src/api.ts";
 import type { DocumentServices } from "../src/services/ports.ts";
-import type {
-  PersonSync,
-  SyncHooks,
-} from "../src/services/sync/create-sync.ts";
+import type { PersonSync } from "../src/services/sync/create-sync.ts";
 import { createDeviceMemory } from "../src/services/sync/device-memory.ts";
 import { createSyncDocumentSource } from "../src/services/sync/document-source.ts";
 import { startDrain } from "../src/services/sync/drain.ts";
+import type { SyncHooks } from "../src/services/sync/sync-hooks.ts";
 import { MemoryStorage, RefusingStorage } from "./services.fixtures.ts";
 import {
   DANA,
