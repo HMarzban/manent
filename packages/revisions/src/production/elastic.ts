@@ -9,14 +9,35 @@ export const ELASTIC_LINES = 4;
 const isOverflow = (page: Page | undefined): page is Page =>
   page !== undefined && !page.locked && !page.forced;
 
+// The pages made before, by the base pages they came from: a base page the engine kept as the same object
+// gives back the same elastic page, so a caller that compares pages by identity sees only what changed.
+const mergedFrom = new WeakMap<Page, { overflow: Page; page: Page }>();
+const movedFrom = new WeakMap<Page, Page>();
+
 // The parent drawn down to where its overflow ended.
-const merged = (parent: Page, overflow: Page): Page =>
-  Object.freeze({
+const merged = (parent: Page, overflow: Page, index: number): Page => {
+  const kept = mergedFrom.get(parent);
+  if (kept?.overflow === overflow && kept.page.index === index)
+    return kept.page;
+  const page = Object.freeze({
     ...parent,
+    index,
     more: overflow.more,
     usedUnits: parent.usedUnits + overflow.usedUnits - overflow.topUnits,
     readAhead: Math.max(parent.readAhead, overflow.readAhead),
   });
+  mergedFrom.set(parent, { overflow, page });
+  return page;
+};
+
+const moved = (page: Page, index: number): Page => {
+  if (page.index === index) return page;
+  const kept = movedFrom.get(page);
+  if (kept?.index === index) return kept;
+  const copy = Object.freeze({ ...page, index });
+  movedFrom.set(page, copy);
+  return copy;
+};
 
 /**
  * The pages with each elastic imported page drawn whole: an import-anchored page followed by exactly one
@@ -44,7 +65,7 @@ export function elasticPages(p: Pagination): {
       sources.get(page.label) !== "import" ||
       !isOverflow(overflow)
     ) {
-      pages.push(page);
+      pages.push(moved(page, pages.length));
       continue;
     }
     if (
@@ -52,21 +73,17 @@ export function elasticPages(p: Pagination): {
       overflow.usedUnits - overflow.topUnits > ELASTIC_LINES * UNITS_PER_LINE
     ) {
       overflowing.push(page.label);
-      pages.push(page);
+      pages.push(moved(page, pages.length));
       continue;
     }
-    pages.push(merged(page, overflow));
+    pages.push(merged(page, overflow, pages.length));
     k++;
   }
   if (pages.length === p.pages.length) return { pagination: p, overflowing };
   return {
     pagination: Object.freeze({
       ...p,
-      pages: Object.freeze(
-        pages.map((page, index) =>
-          page.index === index ? page : Object.freeze({ ...page, index }),
-        ),
-      ),
+      pages: Object.freeze(pages),
     }),
     overflowing,
   };
