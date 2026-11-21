@@ -608,6 +608,21 @@ test("a setting request reaches the write path, and its update comes back to the
   expect(dana.take()).toEqual([toSam[0]!]);
 });
 
+/** What Sam receives for one setting, which the room writes itself, so its bytes carry the room's client id. */
+function settingRun(): Message[] {
+  const { service, sam, clock } = createServiceWorld({
+    registry: { check: () => ({ ok: true }), isGuarded: () => false },
+  });
+  service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT]));
+  service.receive(sam, set(DOC, 2, "script.paper", "a4"));
+  clock.runDeferred();
+  return sam.take();
+}
+
+test("seed 4747: the same seed gives the same run, byte for byte", () => {
+  expect(settingRun()).toEqual(settingRun());
+});
+
 test("a skipped document frame is answered, never left hanging", () => {
   const { service, sam } = createServiceWorld();
   service.skipped(sam, { docId: DOC, generation: 1 });
