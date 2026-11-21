@@ -1,4 +1,5 @@
 // To review: what the device filed, moved into the person's private index, listed per script, with its choices and undo.
+import { observeScript } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { DocHandle } from "@manent/sync-client";
 import { createValue, statusText } from "@manent/ui";
@@ -7,8 +8,14 @@ import { cached } from "./cached.ts";
 import type { PersonSync } from "./create-sync.ts";
 import type { ReviewPort } from "./document-source.ts";
 import type { PrivateIndex } from "./private-index.ts";
-import { blockOrder, createReviewActions } from "./review-actions.ts";
-import type { Acting } from "./review-actions.ts";
+import {
+  anchorOf,
+  blockOrder,
+  createReviewActions,
+  seenNow,
+  trackOrder,
+} from "./review-actions.ts";
+import type { Acting, SeenOrder } from "./review-actions.ts";
 import { listOpen, readAll } from "./review-entries.ts";
 import type { Listed, ReviewEntry } from "./review-entries.ts";
 import { createReviewMoves, quietly } from "./review-moves.ts";
@@ -42,21 +49,21 @@ interface Followed extends Acting {
 }
 
 /**
- * Writes, for each open overlap of the script whose block it holds, the block before that one as the overlap's anchor
- * when it has changed; true when it wrote one.
+ * Writes, for each open overlap of the script, the nearest block before its own that the script still holds, in what
+ * this tab saw, as the overlap's anchor when it has changed; true when it wrote one.
  */
 function keepAnchors(
   privateIndex: PrivateIndex,
   every: readonly Listed[],
   docId: string,
-  order: readonly string[],
+  seen: SeenOrder,
 ): boolean {
   let wrote = false;
-  for (const { id, ...entry } of every) {
+  for (const listed of every) {
+    const { id, ...entry } = listed;
     if (entry.kind !== "overlap" || entry.settled || entry.docId !== docId)
       continue;
-    const at = order.indexOf(entry.blockId);
-    const nearBlockId = at === -1 ? entry.nearBlockId : (order[at - 1] ?? null);
+    const nearBlockId = anchorOf(seen, listed);
     if (nearBlockId === entry.nearBlockId) continue;
     wrote = true;
     privateIndex.review.set(id, { ...entry, nearBlockId });
@@ -68,6 +75,8 @@ interface Lists {
   listOf(docId: string): Value<readonly Listed[]>;
   countOf(docId: string): Value<number>;
   show(): void;
+  /** Follows the order of an open script's blocks while To review lists something there; the returned function stops. */
+  followOrder(docId: string, open: Acting): () => void;
   dispose(): void;
 }
 
@@ -82,17 +91,28 @@ function createLists(options: {
   const counts = new Map<string, Value<number>>();
   const countOf = (docId: string) =>
     cached(counts, docId, () => createValue(0));
+  // only the leader keeps anchors, and a write shows the entries again
+  const keptAnchors = (
+    docId: string,
+    open: Acting,
+    every: readonly Listed[],
+  ): boolean =>
+    sync.link.get().leader &&
+    open.seen !== null &&
+    keepAnchors(privateIndex, every, docId, open.seen);
   const show = (): void => {
     const every = readAll(privateIndex.review);
-    const orders = new Map(
-      [...followed].map(([docId, open]) => [docId, blockOrder(open.doc)]),
-    );
-    // only the leader keeps anchors, and a write shows the entries again
-    const leader = sync.link.get().leader;
-    for (const [docId, order] of orders)
-      if (leader && keepAnchors(privateIndex, every, docId, order)) return;
+    const listed = new Map<string, Listed[]>();
+    for (const [docId, open] of followed) {
+      const order = blockOrder(open.doc);
+      const entries = listOpen(every, docId, order);
+      open.seen =
+        entries.length === 0 ? null : (open.seen ?? seenNow(open.doc));
+      listed.set(docId, entries);
+      if (keptAnchors(docId, open, every)) return;
+    }
     for (const [docId, list] of lists) {
-      const open = listOpen(every, docId, orders.get(docId) ?? []);
+      const open = listed.get(docId) ?? listOpen(every, docId, []);
       list.set(open);
       countOf(docId).set(open.length);
     }
@@ -109,6 +129,13 @@ function createLists(options: {
     },
     countOf,
     show,
+    followOrder: (docId, open) =>
+      observeScript(open.doc, (report) => {
+        if (open.seen === null) return;
+        if (report.inserted.length + report.removed.length === 0) return;
+        trackOrder(open.seen, report);
+        keptAnchors(docId, open, readAll(privateIndex.review));
+      }),
     dispose,
   };
 }
@@ -259,11 +286,13 @@ export function createReviewStore(options: {
         doc,
         handle: null,
         acted: new Map(),
+        seen: null,
         unannounced: 0,
       };
       followed.set(docId, open);
       lists.listOf(docId);
       lists.show();
+      const stopOrder = lists.followOrder(docId, open);
       const stop = followScript(sync, docId, open, {
         undo: () => actions.followUndo(open),
         move: () => quietly(moves.move(docId)),
@@ -271,6 +300,7 @@ export function createReviewStore(options: {
       });
       return () => {
         stop();
+        stopOrder();
         if (followed.get(docId) === open) followed.delete(docId);
       };
     },

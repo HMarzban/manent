@@ -1,13 +1,16 @@
 import { expect, test } from "bun:test";
 import {
+  ORIGIN_REMOTE,
   ORIGIN_REVIEW,
   applyBlockOps,
+  createDoc,
   createUndoScope,
   jsonMap,
   readBlocks,
   scriptBody,
   undoManagerForBinding,
 } from "@manent/crdt";
+import type { CrdtDoc } from "@manent/crdt";
 import { canonicalBlock } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
 import { memoryTabs } from "@manent/sync-client/testing";
@@ -336,6 +339,89 @@ test("Use mine on a block gone since the script was last open here puts it back 
     [heading, B1, B2, B3],
     "The tide turns at once.",
   ]);
+});
+
+/** Deletes `ids` from the script in one change made elsewhere, as a sync delivers it. */
+function deleteElsewhere(doc: CrdtDoc, ids: readonly string[]): void {
+  const other = createDoc({ clientId: 99 });
+  other.applyUpdate(doc.encodeState());
+  scriptBody(other).write((writer) => {
+    for (const id of ids) writer.deleteBlock(id);
+  });
+  doc.applyUpdate(other.encodeState(), ORIGIN_REMOTE);
+}
+
+test("Use mine on a block gone with the one before it in one change puts it back after the nearest block left", async () => {
+  const { sam, doc, heading } = await samWith((d) => [
+    overlapItem(d, "item-1", { blockId: B3 }),
+  ]);
+  deleteElsewhere(doc, [B2, B3]);
+  sam.review.useMine("item-1", doc);
+  expect(idsOf(doc)).toEqual([heading, B1, B3]);
+});
+
+test("in a tab that keeps no anchors, Use mine on a block gone with the one before it puts it back after the nearest block left", async () => {
+  const w = await room();
+  const tabs = memoryTabs();
+  const lead = await w.personServices({ person: SAM, leader: tabs.port("a") });
+  const { docId, heading } = await sceneEight(lead, MEDIUM);
+  const other = await w.personServices({ person: SAM, leader: tabs.port("b") });
+  await openWith(lead, docId, [overlapItem(docId, "item-1", { blockId: B3 })]);
+  other.documents.open(docId);
+  await w.settleAll();
+  await until(
+    () =>
+      other.review.docOf(docId) !== null &&
+      other.review.entries(docId).get().length === 1,
+  );
+  const doc = other.review.docOf(docId);
+  if (doc === null) throw new RangeError("the script was never followed");
+  deleteElsewhere(doc, [B2, B3]);
+  other.review.useMine("item-1", doc);
+  expect([other.sync.link.get().leader, idsOf(doc)]).toEqual([
+    false,
+    [heading, B1, B3],
+  ]);
+});
+
+test("Recovered text near a block gone with the one before it is put back after the nearest block left", async () => {
+  const { sam, doc, heading } = await samWith((d) => [recoveredItem(d)]);
+  deleteElsewhere(doc, [B2, B3]);
+  sam.review.useMine("item-1", doc);
+  const ids = idsOf(doc);
+  expect([ids.slice(0, 2), ids.length, textOf(doc, ids[2] ?? "")]).toEqual([
+    [heading, B1],
+    3,
+    "The harbour lights go out.",
+  ]);
+});
+
+test("an overlap's anchor follows the script while it is open here, so its passage goes back in place after the services are built again", async () => {
+  const w = await room();
+  const before = await w.personServices({ person: SAM });
+  const { docId, heading } = await sceneEight(before, MEDIUM);
+  const open = await openWith(before, docId, [
+    overlapItem(docId, "item-1", { blockId: B3 }),
+  ]);
+  scriptBody(open).write((writer) => writer.deleteBlock(B2));
+  await w.settleAll();
+  before.documents.close(docId);
+  before.dispose();
+  // the services are built again, and the passage goes while no tab has the script open
+  const sam = await w.personServices({ person: SAM });
+  const handle = await sam.sync.client.open(docId);
+  scriptBody(handle.doc()).write((writer) => writer.deleteBlock(B3));
+  await handle.close();
+  sam.documents.open(docId);
+  await until(
+    () =>
+      sam.review.docOf(docId) !== null &&
+      sam.review.entries(docId).get().length === 1,
+  );
+  const doc = sam.review.docOf(docId);
+  if (doc === null) throw new RangeError("the script was never followed");
+  sam.review.useMine("item-1", doc);
+  expect(idsOf(doc)).toEqual([heading, B1, B3]);
 });
 
 /** The private index's entry `id` of Sam's, as it is stored: its fields in their order. */

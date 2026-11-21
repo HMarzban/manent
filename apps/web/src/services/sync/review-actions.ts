@@ -9,7 +9,7 @@ import {
   sceneOf,
   scriptBody,
 } from "@manent/crdt";
-import type { CrdtDoc, JsonMapView } from "@manent/crdt";
+import type { CrdtDoc, JsonMapView, TransactionReport } from "@manent/crdt";
 import { canonicalBlock, randomBlockId } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
 import { REVIEW_WORDS, joinNames, messageFor } from "@manent/ui";
@@ -27,10 +27,18 @@ export interface Acted {
   wrote: BlockJSON;
 }
 
+/** A script's blocks in the order this tab saw them; a deleted block keeps its place among them, and is `gone`. */
+export interface SeenOrder {
+  ids: string[];
+  gone: Set<string>;
+}
+
 /** A script open in this tab, and what this tab's actions wrote there, by block id. */
 export interface Acting {
   doc: CrdtDoc;
   acted: Map<string, Acted>;
+  /** Null while To review lists nothing for the script here. */
+  seen: SeenOrder | null;
 }
 
 export interface ReviewActions {
@@ -68,19 +76,44 @@ export function sceneWords(
 const blockIn = (doc: CrdtDoc, blockId: string): BlockJSON | null =>
   readBlocks(doc, new Set([blockId])).get(blockId) ?? null;
 
-/** `blockId` when the document still holds it; else null, the start. */
-const heldOrStart = (doc: CrdtDoc, blockId: string | null): string | null =>
-  blockId !== null && blockIn(doc, blockId) !== null ? blockId : null;
+/** The document's blocks as it stands, none gone. */
+export function seenNow(doc: CrdtDoc): SeenOrder {
+  return { ids: blockOrder(doc), gone: new Set() };
+}
 
-/** Where Recovered text goes back: after the block it was near, else after the block before its own, else the start. */
-function recoveredAnchor(
-  doc: CrdtDoc,
-  entry: Listed & { kind: "recovered" },
-): string | null {
-  const near = heldOrStart(doc, entry.nearBlockId);
-  if (near !== null || entry.blockId === null) return near;
-  const order = blockOrder(doc);
-  return order[order.indexOf(entry.blockId) - 1] ?? null;
+/** Keeps `seen` as one change left the script: each deleted block stays in its place, each new one goes after the block before it. */
+export function trackOrder(seen: SeenOrder, report: TransactionReport): void {
+  for (const id of report.removed) seen.gone.add(id);
+  for (const { block, after } of report.inserted) {
+    const id = block.attrs?.id;
+    if (typeof id !== "string") continue;
+    const was = seen.ids.indexOf(id);
+    if (was !== -1) seen.ids.splice(was, 1);
+    seen.gone.delete(id);
+    const at = after === null ? 0 : seen.ids.indexOf(after) + 1;
+    seen.ids.splice(at, 0, id);
+  }
+}
+
+/**
+ * The block a passage the script no longer holds goes back after: the nearest one still held before its place in what
+ * this tab saw. An overlap's place is before its own block, else after its anchor; Recovered text's is after the block
+ * it was near, else before its own. Null: the start, also when this tab never saw either block.
+ */
+export function anchorOf(seen: SeenOrder, entry: Listed): string | null {
+  const placeAt = (blockId: string | null, past: 0 | 1): number | null => {
+    const at = blockId === null ? -1 : seen.ids.indexOf(blockId);
+    return at === -1 ? null : at + past;
+  };
+  const place =
+    entry.kind === "overlap"
+      ? (placeAt(entry.blockId, 0) ?? placeAt(entry.nearBlockId, 1))
+      : (placeAt(entry.nearBlockId, 1) ?? placeAt(entry.blockId, 0));
+  for (let at = (place ?? 0) - 1; at >= 0; at -= 1) {
+    const blockId = seen.ids[at]!;
+    if (!seen.gone.has(blockId)) return blockId;
+  }
+  return null;
 }
 
 /** Sets each entry `settled`, keeping `before` while it is settled. */
@@ -129,6 +162,7 @@ function putBack(
   review: JsonMapView,
   entry: Listed & { kind: "recovered" },
   doc: CrdtDoc,
+  seen: SeenOrder,
 ): Chosen {
   const blockId = randomBlockId();
   const block = canonicalBlock({
@@ -136,7 +170,7 @@ function putBack(
     attrs: { id: blockId, type: "action" },
     content: entry.text === "" ? [] : [{ type: "text", text: entry.text }],
   });
-  const after = recoveredAnchor(doc, entry);
+  const after = anchorOf(seen, entry);
   applyBlockOps(doc, [{ op: "insert", after, block }], ORIGIN_REVIEW);
   settleEntries(review, [entry.id], true, null);
   const scene = sceneWords(doc, blockId);
@@ -152,6 +186,7 @@ function useWording(
   review: JsonMapView,
   entry: Listed & { kind: "overlap" },
   doc: CrdtDoc,
+  seen: SeenOrder,
   side: "mine" | "theirs",
 ): Chosen {
   const { blockId } = entry;
@@ -160,10 +195,9 @@ function useWording(
     (e) => e.id,
   );
   const before = blockIn(doc, blockId);
-  const after = heldOrStart(doc, entry.nearBlockId);
   const op =
     before === null
-      ? ({ op: "insert", after, block: wrote } as const)
+      ? ({ op: "insert", after: anchorOf(seen, entry), block: wrote } as const)
       : ({ op: "replace", block: wrote } as const);
   applyBlockOps(doc, [op], ORIGIN_REVIEW);
   settleEntries(review, ids, true, before);
@@ -196,11 +230,13 @@ export function createReviewActions(options: {
     const entry = find(id);
     if (entry === null) return;
     lastKept = null;
+    const open = followed.get(entry.docId);
+    const seen = open?.seen ?? seenNow(doc);
     const chosen =
       entry.kind === "recovered"
-        ? putBack(review, entry, doc)
-        : useWording(review, entry, doc, side);
-    followed.get(entry.docId)?.acted.set(chosen.blockId, chosen.done);
+        ? putBack(review, entry, doc, seen)
+        : useWording(review, entry, doc, seen, side);
+    open?.acted.set(chosen.blockId, chosen.done);
     messages.push(messageFor(chosen.said));
   };
   return {
