@@ -369,11 +369,16 @@ test(
           c.online(true);
           await settle(watch);
         }
-        expect(watch.followed.map((f) => f.receipts)).toEqual(
+        const receipts = watch.followed.map((f) => f.receipts);
+        expect(receipts).toEqual([
+          [{ overlaps: 0, setAside: 0 }],
+          [{ overlaps: 3, setAside: 0 }],
+        ]);
+        expect(receipts).toEqual(
           w.clients.map((c) => [countsOf(c.handle.recovered.get())]),
         );
       },
-      { users: ["dana", "sam"] },
+      { users: ["dana", "sam"], faults: { duplicate: 0.05 } },
     ),
   LONG,
 );
