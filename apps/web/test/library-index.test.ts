@@ -14,6 +14,7 @@ import { checkCleared } from "../src/services/sync/on-device.ts";
 import { openPrivateIndex } from "../src/services/sync/private-index.ts";
 import { DANA, SAM, createIndexWorld } from "./index.fixtures.ts";
 import type { TabServices } from "./index.fixtures.ts";
+import { mostly } from "./arbitraries.ts";
 import { MemoryStorage } from "./services.fixtures.ts";
 import { until } from "./sync.fixtures.ts";
 
@@ -228,26 +229,18 @@ test("the Library lists every project entry whose shape it reads, passes over th
   );
 });
 
-/** A document entry near the shape the Library reads: each field valid, of another type, or absent. */
-const nearDocument = fc.record(
-  {
-    projectId: fc.oneof(fc.constant("p1"), fc.constant(7)),
-    title: fc.oneof(fc.string({ maxLength: 4 }), fc.constant(7)),
-    kind: fc.constantFrom("script", "index", "film"),
-    createdAt: fc.oneof(fc.integer(), fc.constant(1.5), fc.constant("1")),
-    editedAt: fc.oneof(
-      fc.integer({ min: 0 }),
-      fc.constant(null),
-      fc.constant(1.5),
-    ),
-    editedByUserId: fc.oneof(
-      fc.constant("dana"),
-      fc.constant(null),
-      fc.constant(7),
-    ),
-  },
-  { requiredKeys: [] },
-);
+/** A document entry near the shape the Library reads: each field valid, or of another type. */
+const nearDocument = fc.record({
+  projectId: mostly(fc.constant("p1"), fc.constant(7)),
+  title: mostly(fc.string({ maxLength: 4 }), fc.constant(7)),
+  kind: mostly(fc.constantFrom("script", "index"), fc.constant("film")),
+  createdAt: mostly(fc.integer(), fc.constant(1.5), fc.constant("1")),
+  editedAt: mostly(
+    fc.oneof(fc.integer({ min: 0 }), fc.constant(null)),
+    fc.constant(1.5),
+  ),
+  editedByUserId: mostly(fc.constantFrom("dana", null), fc.constant(7)),
+});
 
 const isReadableDocument = (entry: Readonly<Record<string, unknown>>) =>
   typeof entry.projectId === "string" &&
@@ -321,17 +314,10 @@ test("every document entry the Library reads is listed in Continue and dates its
 });
 
 /** A Continue entry near the shape the Library reads. */
-const nearContinue = fc.record(
-  {
-    workspaceId: fc.constantFrom(MEDIUM, "other", 7),
-    openedAt: fc.oneof(
-      fc.integer({ min: 0 }),
-      fc.constant(1.5),
-      fc.constant("1"),
-    ),
-  },
-  { requiredKeys: [] },
-);
+const nearContinue = fc.record({
+  workspaceId: mostly(fc.constantFrom(MEDIUM, "other"), fc.constant(7)),
+  openedAt: mostly(fc.integer({ min: 0 }), fc.constant(1.5), fc.constant("1")),
+});
 
 const CONTINUED = ["d1", "d2", "d3", "d4"] as const;
 
@@ -391,14 +377,11 @@ test("every Continue entry the Library reads of a workspace is listed, newest fi
 });
 
 /** An entry of what a device holds, near the shape the cleared check reads. */
-const nearOnDevice = fc.record(
-  {
-    title: fc.oneof(fc.string({ maxLength: 4 }), fc.constant(7)),
-    synced: fc.oneof(fc.boolean(), fc.constant("yes")),
-    at: fc.oneof(fc.integer(), fc.constant(null)),
-  },
-  { requiredKeys: [] },
-);
+const nearOnDevice = fc.record({
+  title: mostly(fc.string({ maxLength: 4 }), fc.constant(7)),
+  synced: mostly(fc.boolean(), fc.constant("yes")),
+  at: fc.oneof(fc.integer(), fc.constant(null)),
+});
 
 test("a cleared browser is told of every entry of this device it reads, and only the lost ones are removed", async () => {
   const w = await createIndexWorld();

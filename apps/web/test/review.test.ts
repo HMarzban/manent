@@ -16,6 +16,7 @@ import fc from "fast-check";
 import { readEntry } from "../src/services/sync/review-entries.ts";
 import { DANA, SAM, createIndexWorld } from "./index.fixtures.ts";
 import type { TabServices } from "./index.fixtures.ts";
+import { mostly } from "./arbitraries.ts";
 import { sceneEightDoc } from "./review-dom.fixtures.ts";
 import {
   B1,
@@ -443,16 +444,6 @@ test("an overlap found online is announced, and one a receipt counts is not", as
   await w.settleAll();
   expect([online, said]).toEqual([["Saved · Synced, 1 to review"], []]);
 });
-
-/** `valid` nine times in ten, else one of `others`. */
-const mostly = <T>(
-  valid: fc.Arbitrary<T>,
-  ...others: fc.Arbitrary<unknown>[]
-): fc.Arbitrary<unknown> =>
-  fc.oneof(
-    { weight: 9, arbitrary: valid },
-    ...others.map((arbitrary) => ({ weight: 1, arbitrary })),
-  );
 
 /** A block near what the script holds: each part valid, of another kind, or absent. */
 const nearBlock = fc.record(
