@@ -1,7 +1,12 @@
 // Text pasted into a script: Final Draft's text read by its indents, Fountain by its reader, anything else left plain.
 import { canonicalBlock } from "@manent/schema";
 import type { BlockJSON, BlockType, IdSource } from "@manent/schema";
-import { isFountainHeading } from "../fountain/lines.ts";
+import {
+  LINE_BREAK,
+  LOWER_CASE_LETTER,
+  TAB_AS_SPACES,
+  isFountainHeading,
+} from "../fountain/lines.ts";
 import { readFountain } from "../fountain/read.ts";
 import { FormatError } from "../script/model.ts";
 import type { ImportedScript } from "../script/model.ts";
@@ -14,11 +19,6 @@ export interface PastedText {
   readonly blocks: readonly BlockJSON[];
 }
 
-const LINE_BREAK = /\r\n|\r|\n/;
-const LOWER = /\p{Ll}/u;
-/** A tab counts as four spaces of indent. */
-const TAB = "    ";
-
 interface Line {
   /** Leading spaces, a tab counted as four. */
   readonly indent: number;
@@ -30,7 +30,7 @@ const isBetween = (indent: number, from: number, to: number): boolean =>
   indent >= from && indent <= to;
 
 function lineOf(raw: string): Line {
-  const line = raw.replaceAll("\t", TAB).trimEnd();
+  const line = raw.replaceAll("\t", TAB_AS_SPACES).trimEnd();
   const text = line.trimStart();
   return { indent: line.length - text.length, text };
 }
@@ -41,7 +41,7 @@ function isFinalDraftText(lines: readonly Line[]): boolean {
     (line, i) =>
       line.text !== "" &&
       isBetween(line.indent, 20, 30) &&
-      !LOWER.test(line.text) &&
+      !LOWER_CASE_LETTER.test(line.text) &&
       lines[i + 1]?.text !== "" &&
       isBetween(lines[i + 1]?.indent ?? -1, 8, 13),
   );

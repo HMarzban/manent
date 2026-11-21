@@ -4,6 +4,13 @@ import type { ActBreakKind } from "@manent/schema";
 /** The longest line a Fountain file may hold, in UTF-16 units; a longer one is malformed. */
 export const FOUNTAIN_LINE_LIMIT = 100_000;
 
+/** A line break of any platform. */
+export const LINE_BREAK = /\r\n|\r|\n/;
+/** What a tab counts as when a line is read: four spaces. */
+export const TAB_AS_SPACES = "    ";
+/** A lower-case letter of any script. */
+export const LOWER_CASE_LETTER = /\p{Ll}/u;
+
 /** A title page's `Key: value` line, the key in the first group and the value in the second. */
 export const TITLE_KEY_LINE = /^([A-Za-z][A-Za-z0-9 ]*):(.*)$/;
 
@@ -42,7 +49,6 @@ const FORCED_HEADING = /^\.[\p{L}\p{N}]/u;
 const SCENE_NUMBER = /\s*#([\p{L}\p{N}.-]+)#$/u;
 const PAGE_BREAK = /^={3,}$/;
 const LETTER = /\p{L}/u;
-const LOWER = /\p{Ll}/u;
 const EXTENSION = /\s*\([^()]*\)$/;
 /** The words of a centred line that make it an act break. */
 const ACT_BREAK_WORDS: readonly (readonly [RegExp, ActBreakKind])[] = [
@@ -60,7 +66,7 @@ export function isFountainHeading(line: string): boolean {
 /** Whether a cue's text reads as one: a letter, and no lower-case letter outside a trailing extension. */
 function isCue(text: string): boolean {
   const name = text.replace(EXTENSION, "");
-  return LETTER.test(name) && !LOWER.test(name);
+  return LETTER.test(name) && !LOWER_CASE_LETTER.test(name);
 }
 
 /** The kind of act break a centred line's text names, or null. */
@@ -139,7 +145,7 @@ function lineOf(line: string, before: boolean, after: boolean): FountainLine {
   }
   if (FORCED_HEADING.test(text)) return heading(line, rest);
   if (before && HEADING.test(text)) return heading(line, [from, to]);
-  if (before && after && !LOWER.test(text) && text.endsWith("TO:"))
+  if (before && after && !LOWER_CASE_LETTER.test(text) && text.endsWith("TO:"))
     return { type: "transition", span: [from, to] };
   if (before && !after && isCue(text.replace(/\s*\^$/, "")))
     return character(line, from, to);

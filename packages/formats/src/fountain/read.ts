@@ -10,11 +10,14 @@ import { FormatError } from "../script/model.ts";
 import type { ImportedScript, KeptItem } from "../script/model.ts";
 import { emphasisRuns, removeHiddenText } from "./inline.ts";
 import type { Boneyard, NoteAt, NotedText } from "./inline.ts";
-import { FOUNTAIN_LINE_LIMIT, TITLE_KEY_LINE, classifyLines } from "./lines.ts";
+import {
+  FOUNTAIN_LINE_LIMIT,
+  LINE_BREAK,
+  TAB_AS_SPACES,
+  TITLE_KEY_LINE,
+  classifyLines,
+} from "./lines.ts";
 import type { FountainLine, Span } from "./lines.ts";
-
-const LINE_BREAK = /\r\n|\r|\n/;
-const TAB = "    ";
 
 /** Line, then column: where something stood in the script's body; the title page comes before line 0. */
 type Place = readonly [number, number];
@@ -346,7 +349,7 @@ export function readFountain(
       "malformed",
       `a Fountain line may hold ${FOUNTAIN_LINE_LIMIT} characters, not ${long.length}`,
     );
-  const lines = raw.map((line) => line.replaceAll("\t", TAB));
+  const lines = raw.map((line) => line.replaceAll("\t", TAB_AS_SPACES));
   const page = options.titlePage ? titlePageOf(lines) : null;
   const hidden = removeHiddenText(lines.slice(page?.lines ?? 0).join("\n"));
   const shown = hidden.lines.filter((line) => !isNoteOnly(line));
