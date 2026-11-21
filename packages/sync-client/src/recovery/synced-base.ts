@@ -23,17 +23,22 @@ export class SyncedBase {
   heal: Heal | null = null;
   private doc: CrdtDoc | null = null;
 
-  /** `stored`: the store's synced base; null when there is none. */
-  constructor(private stored: Uint8Array | null) {}
+  /** `start`: the store's synced base; null when there is none. */
+  constructor(private start: Uint8Array | null) {}
 
-  /** The base's state; null when nothing was ever synced. */
+  /** The base with everything it took; null when nothing was ever synced. */
   state(): Uint8Array | null {
-    return this.doc?.encodeState() ?? this.stored;
+    return this.doc?.encodeState() ?? this.start;
+  }
+
+  /** The base it started from, the store's or the last whole state a recovery or a move loaded, without what it took since. */
+  startState(): Uint8Array | null {
+    return this.start;
   }
 
   /** The base's state vector; null when nothing was ever synced. */
   vector(): Uint8Array | null {
-    if (this.doc === null && this.stored === null) return null;
+    if (this.doc === null && this.start === null) return null;
     return this.loaded().encodeStateVector();
   }
 
@@ -68,12 +73,12 @@ export class SyncedBase {
   reset(state: Uint8Array): void {
     this.doc?.destroy();
     this.doc = null;
-    this.stored = state;
+    this.start = state;
     this.heal = null;
   }
 
   private loaded(): CrdtDoc {
-    this.doc ??= this.stored === null ? createDoc() : loadDoc(this.stored);
+    this.doc ??= this.start === null ? createDoc() : loadDoc(this.start);
     return this.doc;
   }
 }

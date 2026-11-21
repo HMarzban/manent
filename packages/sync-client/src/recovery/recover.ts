@@ -15,6 +15,7 @@ import type { BlockJSON, BlockOp, DocJSON } from "@manent/schema";
 import type { RecoveredItem } from "../ports/ports.ts";
 import type { Journal } from "../session/journal.ts";
 import type { LocalCopy } from "../session/local-copy.ts";
+import type { SyncedBase } from "./synced-base.ts";
 
 /** One piece of Recovered text before it is given an id and a time. */
 export type Leftover = Omit<RecoveredItem, "id" | "docId" | "recoveredAt">;
@@ -168,6 +169,34 @@ export function differingText(
 
 const EVERY_BLOCK = (): boolean => true;
 
+/** The script in `state`; an empty one for null. */
+function contentOf(state: Uint8Array | null): DocJSON {
+  return scriptBody(
+    state === null ? createDoc() : loadDoc(state),
+  ).materialize();
+}
+
+/**
+ * The base a write-back merges against: `known`, with each block mine no
+ * longer holds as `start` held it, and left out when `start` lacks it. Text
+ * the server took into such a block since `start` may never have been shown
+ * here, as when it came after the block was deleted, so it keeps the block.
+ */
+function writeBackBase(known: DocJSON, start: DocJSON, mine: DocJSON): DocJSON {
+  const held = new Set(blockList(mine).map(({ id }) => id));
+  const was = new Map(blockList(start).map(({ id, block }) => [id, block]));
+  const content = (known.content ?? []).map((section) => ({
+    ...section,
+    content: (section.content ?? []).flatMap((block) => {
+      const id = block.attrs?.id;
+      if (typeof id !== "string" || held.has(id)) return [block];
+      const started = was.get(id);
+      return started === undefined ? [] : [started];
+    }),
+  }));
+  return { ...known, content };
+}
+
 /** Mine's changes against base as block operations on theirs, or, when `filing` picks blocks, only their text. */
 function writeBackOf(
   base: DocJSON,
@@ -285,7 +314,7 @@ export class PushRecovery {
   loaded(
     fresh: Fresh,
     update: Uint8Array,
-    syncedBase: Uint8Array | null,
+    synced: SyncedBase,
     headSeq: number,
   ): Uint8Array {
     const { journal, copy } = this.host;
@@ -293,8 +322,8 @@ export class PushRecovery {
     const next = loadDoc(update, { clientId: fresh.clientId });
     const theirs = scriptBody(next).materialize();
     const mine = copy.mine();
-    const synced = syncedBase === null ? createDoc() : loadDoc(syncedBase);
-    const base = scriptBody(synced).materialize();
+    const known = contentOf(synced.state());
+    const base = writeBackBase(known, contentOf(synced.startState()), mine);
     // after a refused heal push the server lost part of what was synced, which another device may hold too
     const filing = recovering?.heal === true ? EVERY_BLOCK : fresh.filing;
     const { ops, applied, leftovers } = writeBackOf(base, mine, theirs, filing);

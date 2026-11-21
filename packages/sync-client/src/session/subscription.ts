@@ -209,7 +209,7 @@ class DocSubscription implements Subscription {
       this.base.reset(update);
     } else if (fresh !== null) {
       const { base, headSeq } = this;
-      base.reset(this.recovery.loaded(fresh, update, base.state(), headSeq));
+      base.reset(this.recovery.loaded(fresh, update, base, headSeq));
     } else this.merge(update);
     const { journal } = this.options;
     const syncedAt = this.hasWaiting() ? null : this.options.syncedAt();

@@ -289,6 +289,33 @@ test("seed 2: after a rejected push, text a heal push gave back to the server is
   ]);
 });
 
+test("seed 3: after a rejected push, a block deleted here keeps the text the server took into it, which was never shown here", async () => {
+  const w = await setup();
+  const base = stateOf([
+    [A, "one"],
+    [B, "rain"],
+  ]);
+  await seed2(w, base, base);
+  const { server } = w;
+  const client = w.makeClient();
+  const h = await client.open(DOC2);
+  await w.online();
+  write(h, (writer) => writer.deleteBlock(B));
+  await w.settle();
+  const late = server.writeAs(DOC2, 99, (writer) =>
+    writer.insertText(B, 0, "cold "),
+  );
+  server.syncUpdate(DOC2, late);
+  await w.settle();
+  w.frames.fire();
+  server.answer.subscribe = false;
+  refuse(w, DOC2, lastPush(w).clientSeq);
+  await w.settle();
+  server.subscribedWithState(DOC2, server.doc(DOC2).encodeState());
+  await w.settle();
+  expect([textOf(h.doc()), h.recovered.get()]).toEqual(["one\ncold rain", []]);
+});
+
 test("seed 2: an acknowledgement that covers the refused push does not count its text as the server's", async () => {
   const w = await setup();
   const base = stateOf([[B, "rain"]]);
