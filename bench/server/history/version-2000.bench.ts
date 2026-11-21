@@ -2,7 +2,9 @@
 // on the serving thread, through the history service, from the end of the session to the room
 // being told.
 import { corpusDoc, generateBlocks } from "@manent/pagination/testing";
+import { benchMode } from "../../env.ts";
 import type { Measurement, Scenario } from "../../harness.ts";
+import { sampleMs } from "../../measure.ts";
 import { OWNER } from "../support.ts";
 import {
   WRITER,
@@ -33,17 +35,22 @@ async function versionTimes(samples: number): Promise<number[]> {
     const writer = world.join(WRITER, 1000 + n);
     await writer.type(edited);
     const told = owner.control();
-    const start = performance.now();
-    writer.leave();
-    await told;
-    times.push(performance.now() - start);
+    times.push(
+      await sampleMs(async () => {
+        writer.leave();
+        await told;
+      }),
+    );
   }
   return times;
 }
 
-/** `version_ms`: `samples` sessions (default 5) of 20 edits ended, each version made against the last. */
+/** Sessions a process when not given: 8 outside quick mode, so five processes give the 40 a p95 is judged over. */
+const SAMPLES = { quick: 5, standard: 8, full: 8 } as const;
+
+/** `version_ms`: `samples` sessions (default by mode, SAMPLES) of 20 edits ended, each version made against the last. */
 export function versionScenario(options: { samples?: number } = {}): Scenario {
-  const { samples = 5 } = options;
+  const { samples } = options;
   return {
     id: "history.version.2000",
     workload: "W7",
@@ -52,7 +59,7 @@ export function versionScenario(options: { samples?: number } = {}): Scenario {
       {
         metric: "version_ms",
         unit: "ms",
-        samples: await versionTimes(samples),
+        samples: await versionTimes(samples ?? SAMPLES[benchMode()]),
       },
     ],
   };

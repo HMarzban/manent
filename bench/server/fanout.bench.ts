@@ -7,6 +7,7 @@ import { createMemoryStorage } from "@manent/storage/testing";
 import { FRAME } from "@manent/sync-protocol";
 import type { SyncService } from "@manent/server-core";
 import type { Measurement, Scenario } from "../harness.ts";
+import { sampleMs } from "../measure.ts";
 import {
   EMPTY_VECTOR,
   HOME,
@@ -31,32 +32,31 @@ const TIMER_MS = 10;
 const SETTLE_TIMEOUT_MS = 10_000;
 const SEED = 4747;
 
-/** Lateness of a 10 ms timer, rescheduled each time it fires, until `stop()`. */
-function watchEventLoop(): { lateness: number[]; stop(): void } {
+/** Lateness of a 10 ms timer, set again each time it fires, until `stop()` resolves. */
+function watchEventLoop(): { lateness: number[]; stop(): Promise<void> } {
   const lateness: number[] = [];
-  let timer: Timer | null = null;
-  const arm = (): void => {
-    const due = performance.now() + TIMER_MS;
-    timer = setTimeout(() => {
-      lateness.push(Math.max(0, performance.now() - due));
-      arm();
-    }, TIMER_MS);
-  };
-  arm();
+  const stopping = new AbortController();
+  const watched = (async () => {
+    while (!stopping.signal.aborted) {
+      const ms = await sampleMs(() => delay(TIMER_MS));
+      lateness.push(Math.max(0, ms - TIMER_MS));
+    }
+  })();
   return {
     lateness,
-    stop() {
-      if (timer !== null) clearTimeout(timer);
+    async stop() {
+      stopping.abort();
+      await watched;
     },
   };
 }
 
 /** What a run's typists sent and its listeners heard. */
 interface Fanout {
-  /** When each committed push was sent, in the order the room publishes them. */
-  sentAt: number[];
+  /** For each committed push, in the order the room publishes them: what tells each listener's sample its copy arrived. */
+  arrivals: (() => void)[][];
   /** From a push to one listener's copy of it, in ms. */
-  samples: number[];
+  samples: Promise<number>[];
 }
 
 /** The editors who only listen: each reads the n-th update it hears as the n-th push sent. */
@@ -70,9 +70,7 @@ function joinListeners(
     let heard = 0;
     const peer = createBenchPeer(userId, (message) => {
       if (message.type !== FRAME.SYNC) return;
-      fanout.samples.push(
-        performance.now() - (fanout.sentAt[heard] ?? Number.NaN),
-      );
+      fanout.arrivals[heard]?.[n]?.();
       heard += 1;
     });
     joinAsEditor(service, peer, {
@@ -89,7 +87,8 @@ function startTyping(
   service: SyncService,
   script: { docId: string; state: Uint8Array; blockId: string },
   users: readonly string[],
-  sentAt: number[],
+  fanout: Fanout,
+  listeners: number,
 ): () => void {
   const rng = createRng(SEED);
   const stops = users.map((userId, n) => {
@@ -102,7 +101,11 @@ function startTyping(
     });
     const type = (): void => {
       const push = keystrokes.next();
-      sentAt.push(performance.now());
+      const arrived = Array.from({ length: listeners }, () =>
+        Promise.withResolvers<void>(),
+      );
+      fanout.arrivals.push(arrived.map((a) => a.resolve));
+      for (const a of arrived) fanout.samples.push(sampleMs(() => a.promise));
       service.receive(peer, push);
     };
     let interval: Timer | null = null;
@@ -135,25 +138,30 @@ async function measure(): Promise<Measurement[]> {
   const state = stateOf(script);
   const users = Array.from({ length: EDITORS }, (_, n) => `bot-${n}`);
   placeScript(service, storage, { docId, home: HOME, state, editors: users });
-  const fanout: Fanout = { sentAt: [], samples: [] };
+  const fanout: Fanout = { arrivals: [], samples: [] };
   const listeners = joinListeners(service, docId, users.slice(TYPISTS), fanout);
   const loop = watchEventLoop();
   const stopTyping = startTyping(
     service,
     { docId, state, blockId: firstBlockOf(script) },
     users.slice(0, TYPISTS),
-    fanout.sentAt,
+    fanout,
+    listeners.length,
   );
   await delay(TYPING_MS);
   stopTyping();
   await until(
-    () => listeners.every((heard) => heard() === fanout.sentAt.length),
+    () => listeners.every((heard) => heard() === fanout.arrivals.length),
     SETTLE_TIMEOUT_MS,
   );
-  loop.stop();
+  await loop.stop();
   await service.shutdown();
   return [
-    { metric: "fanout_ms", unit: "ms", samples: fanout.samples },
+    {
+      metric: "fanout_ms",
+      unit: "ms",
+      samples: await Promise.all(fanout.samples),
+    },
     { metric: "event_loop_lag_ms", unit: "ms", samples: loop.lateness },
   ];
 }

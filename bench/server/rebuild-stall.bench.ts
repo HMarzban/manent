@@ -10,7 +10,9 @@ import type { FakeClock } from "@manent/server-core/testing";
 import { createMemoryStorage } from "@manent/storage/testing";
 import { encodeReplayUpdates } from "@manent/sync-protocol";
 import { ageScript, editOffline } from "../crdt/aged.ts";
+import { benchMode } from "../env.ts";
 import type { Measurement, Scenario } from "../harness.ts";
+import { sampleMs } from "../measure.ts";
 import {
   EMPTY_VECTOR,
   HOME,
@@ -23,7 +25,8 @@ import {
 } from "./support.ts";
 
 const AGED = { pages: 2_000, sessions: 400, editsPerSession: 150, seed: 7 };
-const SAMPLES = 5;
+/** Samples a process: 40 outside quick mode, so five processes give the 200 a p99 is judged over. */
+const SAMPLES = { quick: 5, standard: 40, full: 40 } as const;
 /** Rows after the checkpoint, each one keystroke, spread over the script's first blocks. */
 const LOG_ROWS = 100_000;
 const TYPED_BLOCKS = 100;
@@ -125,14 +128,12 @@ function createWorld(script: Script): World {
 }
 
 /** From the moment the quiet timer fires to the end of the announcement. */
-function rebuildStall(world: World): number {
+async function rebuildStall(world: World): Promise<number> {
   const { clock, service } = world;
   service.requestRebuild(world.docId);
   // anything else due before the quiet moment runs first, outside the measure
   clock.advance(DEFAULT_LIMITS.rebuildQuietMs - 1);
-  const startedAt = performance.now();
-  clock.advance(1);
-  const ms = performance.now() - startedAt;
+  const ms = await sampleMs(() => clock.advance(1));
   if (service.stats().rebuilds !== 1)
     throw new Error("the requested rebuild did not run");
   return ms;
@@ -161,11 +162,13 @@ async function replayStall(
     key: n.toString(16).padStart(32, "0"),
     updates: encodeReplayUpdates(updates),
   };
-  const startedAt = performance.now();
-  const answer = world.service.replay(OWNER, body);
-  world.clock.runDeferred();
-  const outcome = await answer;
-  const ms = performance.now() - startedAt;
+  const answers: Awaited<ReturnType<SyncService["replay"]>>[] = [];
+  const ms = await sampleMs(async () => {
+    const answer = world.service.replay(OWNER, body);
+    world.clock.runDeferred();
+    answers.push(await answer);
+  });
+  const outcome = answers[0]!;
   if (!outcome.ok) throw new Error(`the replay was refused: ${outcome.code}`);
   return ms;
 }
@@ -173,14 +176,14 @@ async function replayStall(
 const scenario: Scenario = {
   id: "server.rebuild-stall",
   workload: null,
-  processes: 3,
+  processes: 5,
   async run(): Promise<Measurement[]> {
     const script = agedScript();
     const rebuilds: number[] = [];
     const replays: number[] = [];
-    for (let n = 0; n < SAMPLES; n++) {
+    for (let n = 0; n < SAMPLES[benchMode()]; n++) {
       const world = createWorld(script);
-      rebuilds.push(rebuildStall(world));
+      rebuilds.push(await rebuildStall(world));
       replays.push(await replayStall(world, offlineUpdates(script, n), n));
       await world.service.shutdown();
     }

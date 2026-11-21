@@ -2,32 +2,31 @@ import { afterAll, expect, test } from "bun:test";
 import { join } from "node:path";
 import { createTempTrees } from "@manent/testkit";
 import { readBudgets } from "../budgets.ts";
-import { RUN_TIER, runSuite } from "../harness.ts";
+import { runSuite } from "../harness.ts";
 
 const repoRoot = join(import.meta.dir, "../..");
 const trees = createTempTrees("manent-bench-");
 afterAll(() => trees.removeAll());
 
-/** A scenario file running the scenario of `file` once, in one process, so each metric pools its 20 iterations alone. */
-const once = (file: string): string => `
+/** A scenario file running the scenario of `file` in `processes` processes. */
+const inProcesses = (file: string, processes: number): string => `
 import scenario from ${JSON.stringify(join(repoRoot, "bench/client/production", file))};
-export default { ...scenario, processes: 1 };
+export default { ...scenario, processes: ${processes} };
 `;
 
 test("the revisions scenario reports its keystroke cost and is judged by its budget", async () => {
   const root = await trees.tree({
-    // the real rows, judging this run as a run on their tier
-    "budgets.json": (
-      await Bun.file(join(repoRoot, "bench/budgets.json")).text()
-    ).replace(`"tier": "D-modest"`, `"tier": "${RUN_TIER}"`),
-    "client/issue.bench.ts": once("issue.bench.ts"),
-    "client/lock.bench.ts": once("lock.bench.ts"),
-    "client/marks.bench.ts": once("marks.bench.ts"),
+    "budgets.json": await Bun.file(join(repoRoot, "bench/budgets.json")).text(),
+    "client/issue.bench.ts": inProcesses("issue.bench.ts", 1),
+    "client/lock.bench.ts": inProcesses("lock.bench.ts", 1),
+    // a timing row is judged over at least five processes
+    "client/marks.bench.ts": inProcesses("marks.bench.ts", 5),
   });
   const run = await runSuite({
     root,
     outDir: join(root, "out"),
     filter: "client/",
+    tier: "D-modest",
   });
   const written: unknown = await Bun.file(run.file).json();
   expect(written).toMatchObject({
@@ -53,9 +52,11 @@ test("the revisions scenario reports its keystroke cost and is judged by its bud
           {
             metric: "marks_ms",
             unit: "ms",
-            samples: 20,
+            samples: 100,
             max: expect.any(Number),
-            verdict: expect.stringMatching(/^(pass|over_budget|hard_fail)$/),
+            verdict: expect.stringMatching(
+              /^(pass|over_budget|hard_fail|inconclusive)$/,
+            ),
           },
         ],
       },

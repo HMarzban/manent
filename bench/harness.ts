@@ -1,18 +1,30 @@
-// Finds scenarios, runs each in fresh processes, pools their samples and
-// writes the result file.
+// Finds scenarios, runs each in fresh processes, pools and judges their samples, and writes the
+// result file. A scenario that cannot finish is recorded, and the run goes on.
 
-import { mkdir } from "node:fs/promises";
+import { availableParallelism } from "node:os";
 import { join, resolve, sep } from "node:path";
-import { summarise } from "@manent/perf";
-import type { Summary } from "@manent/perf";
 import {
-  assertBudgetsMatched,
+  isInForce,
   isRecord,
-  judge,
-  metricKey,
+  proofWaitMs,
   readBudgets,
+  refusalsOf,
+  summariseMetric,
+  unprovedRows,
 } from "./budgets.ts";
-import type { Budget, Verdict } from "./budgets.ts";
+import type { Budget, JudgingRun, Reported } from "./budgets.ts";
+import {
+  NotMeasured,
+  benchThrottle,
+  benchTier,
+  runEnvironment,
+  scenarioEnv,
+} from "./env.ts";
+import { isQuiet, measurement, waitForQuiet } from "./measure.ts";
+import { writeResultFile } from "./result.ts";
+import type { MetricSummary, Quiet, ScenarioResult } from "./result.ts";
+import { AREAS } from "./tiers/tiers.ts";
+import type { Area, TierId } from "./tiers/tiers.ts";
 
 export const WORKLOADS = ["W1", "W2", "W3", "W4", "W5", "W6", "W7"] as const;
 export const UNITS = ["ms", "bytes", "count", "percent"] as const;
@@ -33,54 +45,48 @@ export interface Scenario {
   run(): Promise<Measurement[]>;
 }
 
-export interface MetricSummary extends Summary {
-  metric: string;
-  unit: Measurement["unit"];
-  verdict: Verdict;
-}
-
-interface ScenarioResult {
-  id: string;
-  workload: Scenario["workload"];
-  processes: number;
-  metrics: MetricSummary[];
-}
-
-export interface ResultFile {
-  formatVersion: 1;
-  /** Milliseconds since the epoch. */
-  startedAt: number;
-  tier: string;
-  bun: string;
-  platform: string;
-  arch: string;
-  scenarios: ScenarioResult[];
-}
-
 export interface SuiteRun {
   file: string;
   scenarios: number;
   hardFails: number;
+  failed: number;
+  notMeasured: number;
+  void: number;
+  inconclusive: number;
+  /** Each `<scenario> <metric>`. */
+  unproved: string[];
+  unmatched: string[];
 }
 
-export const RUN_TIER = "host";
-const AREAS = ["corpus", "crdt", "client", "server"] as const;
+/** Until the corpus module names its version, the corpus every scenario generates is this one. */
+const CORPUS_VERSION = 1;
+const OUTPUT_CHARS = 4000;
 
-async function findScenarios(
-  root: string,
-  filter: string | undefined,
-): Promise<string[]> {
-  const glob = new Bun.Glob(`{${AREAS.join(",")}}/**/*.bench.ts`);
-  const found: string[] = [];
-  for await (const path of glob.scan({ cwd: root, onlyFiles: true })) {
-    const rel = path.split(sep).join("/");
-    if (filter === undefined || rel.includes(filter)) found.push(rel);
-  }
-  return found.toSorted();
+interface Run extends JudgingRun {
+  budgets: readonly Budget[];
+  quiet: (() => Quiet) | null;
+  waitMs: (ms: number) => Promise<void>;
+  /** The cores this process sees, against which the load average is read. */
+  cpus: number;
+  /** Milliseconds since the epoch. */
+  now: () => number;
 }
 
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
+/** A scenario file, by its path under the suite's root. */
+interface ScenarioFile {
+  rel: string;
+  file: string;
+  area: Area;
+}
+
+/** A scenario file and what its default export declares. */
+interface Found extends ScenarioFile {
+  scenario: Scenario;
+}
+
+interface Row {
+  scenario: string;
+  metric: string;
 }
 
 function parseMeasurements(value: unknown, file: string): Measurement[] {
@@ -88,22 +94,17 @@ function parseMeasurements(value: unknown, file: string): Measurement[] {
     throw new Error(`${file}: the scenario's result is not a list`);
   return value.map((item: unknown, i) => {
     const label = `${file}: measurement ${i + 1}`;
-    if (!isRecord(item)) throw new Error(`${label} is not an object`);
-    const { metric, samples } = item;
-    if (typeof metric !== "string")
+    if (!isRecord(item) || typeof item.metric !== "string")
       throw new Error(`${label} needs a metric name`);
     const unit = UNITS.find((u) => u === item.unit);
     if (unit === undefined)
       throw new Error(
         `${label} has unit ${JSON.stringify(item.unit)}; use ms, bytes, count or percent`,
       );
-    if (
-      !Array.isArray(samples) ||
-      samples.length === 0 ||
-      !samples.every(isFiniteNumber)
-    )
-      throw new Error(`${label} needs at least one sample, each finite`);
-    return { metric, unit, samples };
+    const { samples } = item;
+    if (!Array.isArray(samples) || !samples.every((s) => typeof s === "number"))
+      throw new Error(`${label} needs a list of samples`);
+    return measurement(item.metric, unit, samples);
   });
 }
 
@@ -143,144 +144,253 @@ async function loadScenario(file: string): Promise<Scenario> {
   return parseScenario(exported, file);
 }
 
-/** Runs the scenario in `file` here and prints its measurements as the last line. Used by `run.ts --child`. */
-export async function runChild(file: string): Promise<void> {
-  const scenario = await loadScenario(file);
-  const measurements = await scenario.run();
-  // A leading newline keeps the JSON on its own line after output that lacks one.
-  await Bun.write(Bun.stdout, `\n${JSON.stringify(measurements)}\n`);
+/** Every scenario file of every area under `root`, by path. */
+async function findScenarioFiles(root: string): Promise<ScenarioFile[]> {
+  const glob = new Bun.Glob(`{${AREAS.join(",")}}/**/*.bench.ts`);
+  const files: ScenarioFile[] = [];
+  for await (const path of glob.scan({ cwd: root, onlyFiles: true })) {
+    const rel = path.split(sep).join("/");
+    const area = AREAS.find((a) => rel.startsWith(`${a}/`));
+    if (area === undefined) throw new Error(`${rel} lies in no area`);
+    files.push({ rel, file: resolve(root, rel), area });
+  }
+  return files.toSorted((x, y) => (x.rel < y.rel ? -1 : 1));
 }
 
-async function runProcess(file: string): Promise<Measurement[]> {
+/** Runs the scenario in `file` here and prints its measurements, or why it cannot run, as the last line. Used by `run.ts --child`. */
+export async function runChild(file: string): Promise<void> {
+  const scenario = await loadScenario(file);
+  let result: Measurement[] | { notMeasured: string };
+  try {
+    result = await scenario.run();
+  } catch (error) {
+    if (!(error instanceof NotMeasured)) throw error;
+    result = { notMeasured: error.message };
+  }
+  // A leading newline keeps the JSON on its own line after output that lacks one.
+  await Bun.write(Bun.stdout, `\n${JSON.stringify(result)}\n`);
+}
+
+type ProcessResult =
+  | { outcome: "measured"; measurements: Measurement[] }
+  | { outcome: "not_measured"; reason: string }
+  | { outcome: "failed"; exitCode: number; output: string };
+
+/** The result a process printed on its last line, or why that line is not one. */
+function readResultLine(found: Found, stdout: string): ProcessResult | string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout.trimEnd().split("\n").at(-1) ?? "");
+  } catch {
+    // what went wrong is in the scenario's own output, which the caller keeps
+    return `${found.rel}: the last line of output is not a result`;
+  }
+  if (isRecord(parsed) && typeof parsed.notMeasured === "string")
+    return { outcome: "not_measured", reason: parsed.notMeasured };
+  try {
+    const measurements = parseMeasurements(parsed, found.rel);
+    return { outcome: "measured", measurements };
+  } catch (error) {
+    if (!(error instanceof Error)) throw error;
+    return error.message;
+  }
+}
+
+async function runProcess(
+  found: Found,
+  env: Record<string, string>,
+): Promise<ProcessResult> {
   const child = Bun.spawn(
-    [process.execPath, join(import.meta.dir, "run.ts"), "--child", file],
-    { stdout: "pipe", stderr: "pipe" },
+    [process.execPath, join(import.meta.dir, "run.ts"), "--child", found.file],
+    { stdout: "pipe", stderr: "pipe", env },
   );
-  const [stdout, stderr, code] = await Promise.all([
+  const [stdout, stderr, exitCode] = await Promise.all([
     new Response(child.stdout).text(),
     new Response(child.stderr).text(),
     child.exited,
   ]);
-  if (code !== 0)
-    throw new Error(`${file} exited with ${code}:\n${stderr}${stdout}`);
-  const lastLine = stdout.trimEnd().split("\n").at(-1) ?? "";
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(lastLine);
-  } catch (cause) {
-    throw new Error(
-      `${file}: the last line of output is not JSON:\n${stdout}`,
-      {
-        cause,
-      },
-    );
-  }
-  return parseMeasurements(parsed, file);
+  const printed = `${stdout}${stderr}`;
+  const failed = (output: string): ProcessResult => ({
+    outcome: "failed",
+    exitCode,
+    output: output.slice(-OUTPUT_CHARS),
+  });
+  if (exitCode !== 0) return failed(printed);
+  const read = readResultLine(found, stdout);
+  return typeof read === "string" ? failed(`${printed}\n${read}`) : read;
 }
 
-/** Joins each metric's samples across processes, in process order. */
-function pool(file: string, runs: Measurement[][]): Measurement[] {
-  const pooled = new Map<string, Measurement>();
-  for (const run of runs)
-    for (const m of run) {
-      const seen = pooled.get(m.metric);
-      if (seen === undefined) {
-        pooled.set(m.metric, { ...m, samples: [...m.samples] });
-        continue;
-      }
-      if (seen.unit !== m.unit)
-        throw new Error(`${file}: metric ${m.metric} has two units`);
-      for (const sample of m.samples) seen.samples.push(sample);
-    }
+/** Each metric's samples, one list per process that reported it, in process order; a string when a metric has two units. */
+function pool(runs: readonly Measurement[][]): Reported[] | string {
+  const pooled = new Map<string, Reported>();
+  for (const m of runs.flat()) {
+    const seen = pooled.get(m.metric) ?? {
+      metric: m.metric,
+      unit: m.unit,
+      raw: [],
+    };
+    if (seen.unit !== m.unit) return `metric ${m.metric} has two units`;
+    seen.raw.push(m.samples);
+    pooled.set(m.metric, seen);
+  }
   return [...pooled.values()];
 }
 
-function summaryOf(
-  scenario: Scenario,
-  m: Measurement,
-  budgets: readonly Budget[],
-): MetricSummary {
-  const summary = summarise(m.samples);
-  const budget = budgets.find(
-    (b) => b.scenario === scenario.id && b.metric === m.metric,
-  );
-  return {
-    metric: m.metric,
-    unit: m.unit,
-    ...summary,
-    verdict: budget ? judge(summary[budget.stat], budget) : "no_budget",
-  };
+/** What a result says of its scenario whatever its outcome; quick mode runs one process. */
+function scenarioBase(found: Found, run: Run) {
+  const { id, workload } = found.scenario;
+  const processes = run.mode === "quick" ? 1 : found.scenario.processes;
+  return { id, area: found.area, workload, processes };
 }
 
-async function runScenario(
-  root: string,
-  rel: string,
-  budgets: readonly Budget[],
-): Promise<ScenarioResult> {
-  const file = resolve(root, rel);
-  const scenario = await loadScenario(file);
+async function runScenario(found: Found, run: Run): Promise<ScenarioResult> {
+  const base = scenarioBase(found, run);
+  const refuse = (output: string): ScenarioResult => ({
+    ...base,
+    outcome: "failed",
+    exitCode: 0,
+    output,
+  });
+  const quiet =
+    run.quiet === null || run.mode === "quick"
+      ? null
+      : await waitForQuiet({ ...run, quiet: run.quiet });
+  if (quiet !== null && !isQuiet(quiet, run.cpus))
+    return { ...base, outcome: "void", reason: "busy_machine", quiet };
+  const startedAt = run.now();
+  const prove = run.prove ? proofWaitMs(base.id, run.budgets) : null;
+  const env = scenarioEnv(run, prove);
   const runs: Measurement[][] = [];
-  for (let i = 0; i < scenario.processes; i++)
-    runs.push(await runProcess(file));
+  for (let i = 0; i < base.processes; i++) {
+    const ran = await runProcess(found, env);
+    if (ran.outcome !== "measured") return { ...base, ...ran };
+    runs.push(ran.measurements);
+  }
+  const reported = pool(runs);
+  if (typeof reported === "string") return refuse(`${found.rel}: ${reported}`);
+  const refused = refusalsOf(found.scenario, reported, run.budgets, run.mode);
+  if (refused.length > 0) return refuse(refused.join("\n"));
+  const rows = run.budgets.filter(
+    (b) => b.scenario === base.id && isInForce(b, found.area, run),
+  );
+  const metrics = reported.flatMap((m) => {
+    const own = rows.filter((b) => b.metric === m.metric);
+    return summariseMetric(m, own, run.mode) ?? [];
+  });
+  const elapsedMs = run.now() - startedAt;
+  return { ...base, outcome: "measured", metrics, quiet, elapsedMs };
+}
+
+/** The budget rows, once each, whose scenario no file under the root declares. */
+async function unmatchedRows(
+  files: readonly ScenarioFile[],
+  budgets: readonly Budget[],
+): Promise<Row[]> {
+  const ids = new Set<string>();
+  for (const f of files) ids.add((await loadScenario(f.file)).id);
+  const keys = new Set(
+    budgets
+      .filter((b) => !ids.has(b.scenario))
+      .map((b) => `${b.scenario} ${b.metric}`),
+  );
+  return budgets
+    .filter((b) => keys.delete(`${b.scenario} ${b.metric}`))
+    .map(({ scenario, metric }) => ({ scenario, metric }));
+}
+
+function suiteRun(
+  file: string,
+  scenarios: readonly ScenarioResult[],
+  rows: { unproved: readonly Row[]; unmatched: readonly Row[] },
+): SuiteRun {
+  const outcomes = (outcome: ScenarioResult["outcome"]): number =>
+    scenarios.filter((s) => s.outcome === outcome).length;
+  const metrics = scenarios.flatMap((s) =>
+    s.outcome === "measured" ? s.metrics : [],
+  );
+  const verdicts = (verdict: MetricSummary["verdict"]): number =>
+    metrics.filter((m) => m.verdict === verdict).length;
+  const named = (list: readonly Row[]): string[] =>
+    list.map((r) => `${r.scenario} ${r.metric}`);
   return {
-    id: scenario.id,
-    workload: scenario.workload,
-    processes: scenario.processes,
-    metrics: pool(rel, runs).map((m) => summaryOf(scenario, m, budgets)),
+    file,
+    scenarios: scenarios.length,
+    hardFails: verdicts("hard_fail"),
+    failed: outcomes("failed"),
+    notMeasured: outcomes("not_measured"),
+    void: outcomes("void"),
+    inconclusive: verdicts("inconclusive"),
+    unproved: named(rows.unproved),
+    unmatched: named(rows.unmatched),
   };
 }
 
-/** `2026-11-17T10:00:00.000Z` becomes `2026-11-17T10-00-00Z`. */
-function fileStamp(ms: number): string {
-  return new Date(ms)
-    .toISOString()
-    .replace(/\.\d{3}Z$/, "Z")
-    .replaceAll(":", "-");
-}
-
-/** Writes `result` under `outDir`, named for its start, and returns the file's path. */
-async function writeResult(
-  outDir: string,
-  result: ResultFile,
-): Promise<string> {
-  await mkdir(outDir, { recursive: true });
-  const file = join(outDir, `${fileStamp(result.startedAt)}.json`);
-  await Bun.write(file, `${JSON.stringify(result, null, 2)}\n`);
-  return file;
-}
-
-/** Runs every scenario under `root` whose path contains `filter`; `now` is in milliseconds since the epoch. */
+/**
+ * Runs every scenario under `root` of `areas` (default: all) whose path contains `filter`, and
+ * writes the result file. `now` is in milliseconds since the epoch; `tier` and `throttle` default
+ * to the environment's. A proof runs only scenarios with a row to prove; `cannotRun` records every
+ * chosen scenario as not measured, for that reason, and runs none.
+ */
 export async function runSuite(options: {
   root: string;
   outDir: string;
   filter?: string;
   now?: () => number;
+  tier?: TierId;
+  throttle?: 1 | 4 | 6;
+  mode?: "quick" | "standard" | "full";
+  prove?: boolean;
+  areas?: readonly Area[];
+  quiet?: () => Quiet;
+  waitMs?: (ms: number) => Promise<void>;
+  cannotRun?: string;
 }): Promise<SuiteRun> {
-  const startedAt = (options.now ?? Date.now)();
-  const table = await readBudgets(options.root, RUN_TIER);
+  const { filter, cannotRun, prove = false, now = Date.now } = options;
+  const startedAt = now();
+  const judging: JudgingRun = {
+    tier: options.tier ?? benchTier(),
+    throttle: options.throttle ?? benchThrottle(),
+    mode: prove ? "quick" : (options.mode ?? "standard"),
+    prove,
+  };
+  const { budgets } = await readBudgets(options.root, "D-modest");
+  const run: Run = {
+    ...judging,
+    budgets,
+    quiet: options.quiet ?? null,
+    waitMs: options.waitMs ?? ((ms) => Bun.sleep(ms)),
+    cpus: availableParallelism(),
+    now,
+  };
+  const files = await findScenarioFiles(options.root);
+  const areas = options.areas ?? AREAS;
   const scenarios: ScenarioResult[] = [];
-  for (const rel of await findScenarios(options.root, options.filter))
-    scenarios.push(await runScenario(options.root, rel, table.budgets));
-  if (options.filter === undefined)
-    assertBudgetsMatched(
-      table,
-      new Set(
-        scenarios.flatMap((s) =>
-          s.metrics.map((m) => metricKey(s.id, m.metric)),
-        ),
-      ),
-    );
-  const file = await writeResult(options.outDir, {
-    formatVersion: 1,
+  const unproved: Row[] = [];
+  for (const f of files) {
+    if (!areas.includes(f.area)) continue;
+    if (filter !== undefined && !f.rel.includes(filter)) continue;
+    const found = { ...f, scenario: await loadScenario(f.file) };
+    const { id } = found.scenario;
+    if (cannotRun !== undefined) {
+      const base = scenarioBase(found, run);
+      scenarios.push({ ...base, outcome: "not_measured", reason: cannotRun });
+    } else if (!prove || proofWaitMs(id, budgets) !== null) {
+      const result = await runScenario(found, run);
+      scenarios.push(result);
+      if (prove && result.outcome === "measured")
+        unproved.push(...unprovedRows(id, result.metrics, budgets));
+    }
+  }
+  const unmatched =
+    filter === undefined ? await unmatchedRows(files, budgets) : [];
+  const file = await writeResultFile(options.outDir, {
+    formatVersion: 2,
     startedAt,
-    tier: RUN_TIER,
-    bun: Bun.version,
-    platform: process.platform,
-    arch: process.arch,
+    finishedAt: now(),
+    environment: runEnvironment({ ...judging, corpusVersion: CORPUS_VERSION }),
     scenarios,
+    unmatched,
+    unproved,
   });
-  const hardFails = scenarios
-    .flatMap((s) => s.metrics)
-    .filter((m) => m.verdict === "hard_fail").length;
-  return { file, scenarios: scenarios.length, hardFails };
+  return suiteRun(file, scenarios, { unproved, unmatched });
 }
