@@ -178,11 +178,15 @@ export function itemOf(file: DocFile, row: VersionRow): VersionItem {
   };
 }
 
-/** The newest version of a document and its content: the previous side of the next summary. */
+/**
+ * The newest version of a document and its content: the previous side of the next summary. Its
+ * position and content are null when its content is gone or does not read: the next version is
+ * made as the first.
+ */
 export interface NewestVersion {
   id: string;
   position: VersionPosition | null;
-  content: VersionContent;
+  content: VersionContent | null;
 }
 
 /** How a version is recorded. */
@@ -205,7 +209,7 @@ export type Recorded =
 export interface Recorder {
   /**
    * The newest version and its content: from memory while it stays the newest, else
-   * materialised. Throws `corruptError` for one that does not read.
+   * materialised.
    */
   previousOf(file: DocFile, docId: string): NewestVersion | null;
   /**
@@ -231,8 +235,7 @@ export interface Recorder {
    * A version at the head, recorded at its turn in the write queue by an authority write that
    * writes nothing; the version before it is read before the commit. Its item is null when it
    * waits for something new and the head is not past the newest version's position; busy when
-   * the version before it does not read, another was recorded meanwhile, or the write could not
-   * be made.
+   * another was recorded meanwhile, or the write could not be made.
    */
   atHead(
     file: DocFile,
@@ -242,6 +245,9 @@ export interface Recorder {
   /** The room was unloaded, or a version was recorded outside it: what is kept of its newest version goes. */
   forget(docId: string): void;
 }
+
+const newestRow = (file: DocFile, docId: string): VersionRow | undefined =>
+  file.history.page(docId, null, 1)[0];
 
 export function createRecorder(options: {
   sync: () => SyncService;
@@ -253,14 +259,19 @@ export function createRecorder(options: {
   const newest = new Map<string, NewestVersion>();
 
   function previousOf(file: DocFile, docId: string): NewestVersion | null {
-    const [row] = file.history.page(docId, null, 1);
+    const row = newestRow(file, docId);
     if (row === undefined) return null;
+    const { id } = row;
     const cached = newest.get(docId);
-    if (cached?.id === row.id) return cached;
-    const content = materializeVersion(file, row);
-    return content === null
-      ? null
-      : { id: row.id, position: positionOf(row), content };
+    if (cached?.id === id) return cached;
+    try {
+      const content = materializeVersion(file, row);
+      if (content !== null) return { id, position: positionOf(row), content };
+    } catch (error) {
+      // a newest version that does not read is one with no content: no write fails for it
+      if (!isStorageError(error) || error.code !== "corrupt") throw error;
+    }
+    return { id, position: null, content: null };
   }
 
   function record(
@@ -329,38 +340,30 @@ export function createRecorder(options: {
   ): Promise<Recorded> {
     const { docId } = made;
     const id = ids();
-    const newestId = (): string | null =>
-      file.history.page(docId, null, 1)[0]?.id ?? null;
     const state: {
       doc: VersionContent | null;
-      read: { id: string | null; previous: NewestVersion | null } | null;
+      previous: NewestVersion | null;
       written: ReturnType<typeof record> | null;
       raced: boolean;
-    } = { doc: null, read: null, written: null, raced: false };
+    } = { doc: null, previous: null, written: null, raced: false };
     const result = await options.sync().authorityWrite(docId, {
       userId: made.createdByUserId,
       origin: "system",
       edit(doc) {
         const row = file.log.get(docId);
         if (row === null) throw new RangeError(`no document ${docId} here`);
-        // read here, before the commit every queued write of the file shares: a version that does
-        // not read refuses this write alone
-        try {
-          state.read = { id: newestId(), previous: previousOf(file, docId) };
-        } catch (error) {
-          if (!isStorageError(error)) throw error;
-          return { ok: false, reason: error.code };
-        }
+        // read here, out of the commit every queued write of the file shares
+        state.previous = previousOf(file, docId);
         state.doc = contentOfDoc(doc, row, {});
         return { ok: true };
       },
       inTransaction(_file, at) {
         const head = { generation: at.generation, seq: at.before };
         const row = file.log.get(docId);
-        const { doc, read } = state;
-        if (doc === null || read === null || row === null) return;
-        state.raced = newestId() !== read.id;
-        const was = read.previous?.position ?? null;
+        const { doc, previous } = state;
+        if (doc === null || row === null) return;
+        state.raced = newestRow(file, docId)?.id !== previous?.id;
+        const was = previous?.position ?? null;
         const stale =
           was?.generation === head.generation && was.seq >= head.seq;
         if (state.raced || (how.onlyWhenNew && stale)) return;
@@ -369,14 +372,14 @@ export function createRecorder(options: {
         const base = { ...doc, schemaVersion, engineVersion, locks };
         const createdAt = clock.now();
         const version = { ...made, id, ...head, createdAt, deviceId: null };
-        state.written = record(file, version, base, how, read.previous);
+        state.written = record(file, version, base, how, previous);
       },
     });
     if (!result.ok || state.raced) {
       file.checkpoints.unpin([id]);
       return { ok: false, code: "busy" };
     }
-    const kept = state.written?.newest ?? state.read?.previous ?? null;
+    const kept = state.written?.newest ?? state.previous;
     if (kept !== null) newest.set(docId, kept);
     return { ok: true, item: state.written?.item ?? null };
   }

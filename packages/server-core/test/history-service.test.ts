@@ -745,7 +745,7 @@ function damageSnapshot(file: DocFile, versionId: string): void {
   file.history.removeChunks([Uint8Array.fromHex(snapshot.ref)]);
 }
 
-test("a session's version is refused when the version before it is damaged, and the push queued beside it commits", async () => {
+test("a session's version is made as the first when the version before it is damaged, and the push queued beside it commits", async () => {
   const { sam, dana, clock, file, service, settle, versions, named } =
     historyWorld();
   const { version } = valueOf(await named("First draft", 1));
@@ -762,7 +762,20 @@ test("a session's version is refused when the version before it is damaged, and 
   expect(service.stats().poisoned).toBe(0);
   expect(file.log.get(DOC)?.headSeq).toBe(3);
   expect(dana.peer.take().filter((m) => m.type === "ERROR")).toEqual([]);
-  expect((await versions()).map((v) => v.kind)).toEqual(["named"]);
+  expect(await versions()).toMatchObject([
+    { kind: "auto", summary: { changes: 12, scenes: 6 } },
+    { kind: "named" },
+  ]);
+});
+
+test("a save is kept when the version before it is damaged", async () => {
+  const { clock, file, run, history, versions, named } = historyWorld();
+  const { version } = valueOf(await named("First draft", 1));
+  clock.advance(30_000);
+  damageSnapshot(file, version.id);
+  const body = { docId: DOC, key: key(2), kind: "saved" } as const;
+  valueOf(await run(history.save("sam", body)));
+  expect((await versions()).map((v) => v.kind)).toEqual(["saved", "named"]);
 });
 
 test("an upload to a script nobody has open is read again for the version after it", async () => {
@@ -774,7 +787,10 @@ test("an upload to a script nobody has open is read again for the version after 
   sam.type(SCENE_2_ACTION, "cold ");
   sam.leave();
   await settle();
-  expect((await versions()).map((v) => v.kind)).toEqual(["device"]);
+  expect(await versions()).toMatchObject([
+    { kind: "auto", summary: { changes: 12, scenes: 6 } },
+    { kind: "device" },
+  ]);
 });
 
 test("a name for a listed version, or an upload, whose commit fails answers busy and keeps nothing", async () => {

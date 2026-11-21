@@ -24,12 +24,11 @@ import type {
   VersionResponse,
 } from "@manent/sync-protocol";
 import type { Clock, SyncHooks, SyncService } from "../sync/ports.ts";
-import { isStorageError } from "../sync/storage-error.ts";
 import { contentAt, openVersion, uploadedContent } from "./content.ts";
 import type { LocksAt } from "./content.ts";
 import { createMaintenance } from "./maintenance.ts";
 import { createSessions } from "./sessions.ts";
-import type { NewestVersion, Recorded, Recorder } from "./summaries.ts";
+import type { Recorded, Recorder } from "./summaries.ts";
 import {
   createRecorder,
   itemOf,
@@ -374,13 +373,7 @@ export function createHistoryService(options: {
       const locks =
         extras === undefined ? base.locks : locksAt(file, docId, head);
       const how = { carry: content === undefined, snapshot: true, key: null };
-      let previous: NewestVersion | null = null;
-      try {
-        previous = recorder.previousOf(file, docId);
-      } catch (error) {
-        // the caller's write never fails for a damaged earlier version: this one starts afresh
-        if (!isStorageError(error) || error.code !== "corrupt") throw error;
-      }
+      const previous = recorder.previousOf(file, docId);
       recorder.forget(docId);
       recorder.record(file, version, { ...base, locks }, how, previous);
     },
