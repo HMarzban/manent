@@ -9,16 +9,27 @@ const repoRoot = join(import.meta.dir, "..", "..");
 const trees = createTempTrees("manent tour ");
 afterAll(trees.removeAll);
 
-const EMPTY = { formatVersion: 1, groups: [...TOUR_GROUPS], scenarios: [] };
+const EMPTY = { formatVersion: 2, groups: [...TOUR_GROUPS], scenarios: [] };
+const SETUP = {
+  userId: "dana",
+  open: "/",
+  extraWindows: [],
+  prepare: null,
+  shell: "any",
+};
 const SCENARIO = {
   group: "Go offline",
   promise: "Writing goes on without the server.",
-  setup: { userId: "dana", open: "/", secondWindow: null },
+  setup: SETUP,
   steps: [
-    { text: "Stop the server.", highlight: "stop-server" },
-    { text: "Type a line.", highlight: "editor" },
+    { text: "Stop the server.", highlight: "demo:server" },
+    { text: "Type a line.", highlight: "page" },
   ],
   check: "Saved on this device",
+  evidence: ["Saved on this device"],
+  fresh: false,
+  waitsFor: null,
+  hidden: null,
 };
 const withScenario = (id: string, fields: Record<string, unknown> = {}) => ({
   ...EMPTY,
@@ -83,7 +94,7 @@ test("a scenario without its test is a violation, and so is a test without its s
 
 test("a damaged Tour is reported through validateTour", async () => {
   const damaged = withScenario("write-offline", {
-    setup: { userId: "mallory", open: "/", secondWindow: null },
+    setup: { ...SETUP, userId: "mallory" },
   });
   expect(await checkTour(await rootWith({}), damaged)).toEqual([
     {

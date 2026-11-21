@@ -43,7 +43,7 @@ export function makeConfig(
         now: () => 1_700_000_000_000,
       }),
     },
-    demo: { seedId: () => "s1", control: CONTROL },
+    demo: { seedId: () => "s1", control: CONTROL, controls: null },
     socket: {
       tickets: createTicketStore({ now: () => 0 }),
       versions: { current: v, min: v },

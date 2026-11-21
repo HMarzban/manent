@@ -144,11 +144,11 @@ test("the background phase runs only the background steps and reports progress",
   const m = await buildSeed({
     steps: [heavy],
     phase: "background",
-    onProgress: (w, done, total) => seen.push([w, done, total]),
+    onProgress: (done, total) => seen.push([done, total]),
   });
   expect(seen).toEqual([
-    ["heavy", 1, 2],
-    ["heavy", 2, 2],
+    [1, 2],
+    [2, 2],
   ]);
   expect(m.workspaces.find((w) => w.id === "heavy")!.projects).toEqual([
     { project: "p", documents: 1 },
