@@ -134,7 +134,12 @@ test("a permanently rejected push is kept as a recovered version and written bac
   expect([meta.recovering, meta.clientIds]).toEqual([null, fresh]);
 });
 
-test("seed 44: a step 2 answering a subscription the recovery superseded is not taken for the server's whole state, after an ERROR the server sent by itself", async () => {
+/**
+ * Seed 44: the ACK timeout's SUBSCRIBE on the same connection is unanswered when a refusal starts a
+ * recovery; `unasked` runs, then that SUBSCRIBE's answer arrives, then the whole state after the backoff.
+ * Gives the text, the text the recovery pushed and the Recovered text.
+ */
+async function answerSuperseded(unasked: (w: World) => void) {
   const w = await setup();
   const { server } = w;
   const client = w.makeClient();
@@ -153,13 +158,7 @@ test("seed 44: a step 2 answering a subscription the recovery superseded is not 
   refuse(w, DOC, refused);
   await w.settle();
   const pushed = server.got("PUSH").length;
-  server.error(DOC, {
-    code: CODE.STORAGE_FAILED,
-    message: "storage_failed",
-    permanent: false,
-    retryAfterMs: 1_000,
-    clientSeq: null,
-  });
+  unasked(w);
   server.send(subscribed(DOC, server.head));
   for (const [step, data] of [
     ["step1", server.doc(DOC).encodeStateVector()],
@@ -172,11 +171,33 @@ test("seed 44: a step 2 answering a subscription the recovery superseded is not 
   server.subscribedWithState(DOC, server.doc(DOC).encodeState());
   await w.settle();
   const pushes = server.got("PUSH").slice(pushed);
-  expect([
+  return [
     textOf(h.doc()),
     textAfter(pushes.map((p) => p.update)),
     h.recovered.get(),
-  ]).toEqual(["kept\n", "kept\n", []]);
+  ];
+}
+
+function storageFailed(w: World): void {
+  w.server.error(DOC, {
+    code: CODE.STORAGE_FAILED,
+    message: "storage_failed",
+    permanent: false,
+    retryAfterMs: 1_000,
+    clientSeq: null,
+  });
+}
+
+test("seed 44: a step 2 answering a subscription the recovery superseded is not taken for the server's whole state", async () => {
+  expect(await answerSuperseded(() => {})).toEqual(["kept\n", "kept\n", []]);
+});
+
+test("seed 44: a step 2 answering a subscription the recovery superseded is not taken for the server's whole state, after an ERROR the server sent by itself", async () => {
+  expect(await answerSuperseded(storageFailed)).toEqual([
+    "kept\n",
+    "kept\n",
+    [],
+  ]);
 });
 
 test("seed 2: after a rejected push, a block received live keeps what another person wrote in it since", async () => {
