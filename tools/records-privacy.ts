@@ -14,11 +14,14 @@ import {
   LOCAL_TERMS_FILE,
   LOCAL_TERMS_NAME,
   NOTE_REF,
+  NOTICE_COPYRIGHT,
+  NOTICE_FILE,
   PRODUCT_PAGE,
   PROFILE_LINK,
   README,
   SCAN_LIMIT_BYTES,
   SECTION_REF,
+  SITE_PAGE,
   UNSCANNED,
 } from "./records.config.ts";
 
@@ -284,6 +287,17 @@ function productPageTerms(
   );
 }
 
+/** The footer line a site page may name the copyright holder in, and the holder, from NOTICE's second line. */
+function copyrightFooter(
+  notice: string | null,
+): { line: string; holder: string } | null {
+  const [, year, holder] =
+    NOTICE_COPYRIGHT.exec(notice?.split(/\r?\n/)[1]?.trim() ?? "") ?? [];
+  return year === undefined || holder === undefined
+    ? null
+    : { line: `© ${year} ${holder}`, holder };
+}
+
 /** The two local rules over every tracked file that is not one of the public `documents`. */
 export async function scanTracked(
   root: string,
@@ -292,6 +306,7 @@ export async function scanTracked(
 ): Promise<Violation[]> {
   const { files, paths, terms } = local;
   if (files === null || (paths.length === 0 && terms.length === 0)) return [];
+  const footer = copyrightFooter(await readIfPresent(join(root, NOTICE_FILE)));
   const found: Violation[] = [];
   for (const file of [...files].toSorted()) {
     if (documents.has(file) || UNSCANNED.includes(file)) continue;
@@ -301,9 +316,15 @@ export async function scanTracked(
       file === PRODUCT_PAGE
         ? productPageTerms(text, terms, documents.get(README))
         : terms;
-    for (const [i, line] of text.split(/\r?\n/).entries())
-      for (const hit of [localPath(line, paths), localTerm(line, barred)])
+    const atFooter =
+      footer !== null && SITE_PAGE.test(file)
+        ? barred.filter((term) => !term.test(footer.holder))
+        : barred;
+    for (const [i, line] of text.split(/\r?\n/).entries()) {
+      const lineTerms = line.trim() === footer?.line ? atFooter : barred;
+      for (const hit of [localPath(line, paths), localTerm(line, lineTerms)])
         if (hit !== null) found.push({ file, line: i + 1, ...hit });
+    }
   }
   return found;
 }

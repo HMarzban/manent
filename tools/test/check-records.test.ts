@@ -677,6 +677,70 @@ test("only the comparison page may name products, and only those it lists, never
   ).toEqual([`${COMPARE}:8 private-term`, `${COMPARE}:9 private-term`]);
 });
 
+const PAGE = "site/index.html";
+const HOLDER_NOTICE = edit(NOTICE, { 2: "Copyright 2026 Z. Zebra" });
+/** A site page whose footer names the holder on line 2. */
+const footer = (...extra: string[]) =>
+  lines("<footer>", "  © 2026 Z. Zebra", ...extra, "</footer>");
+const holderTerms = (names: string[], paths: string[] = []): LocalRules => ({
+  ...tracked(PAGE, COMPARE, ...paths),
+  terms: names.map((word) => new RegExp(String.raw`\b${word}\b`, "i")),
+});
+
+test("a site page's footer may name the copyright holder that NOTICE names", async () => {
+  expect(
+    await check(
+      { ...HOLDER_NOTICE, [PAGE]: footer() },
+      holderTerms(["zebra", "quokka"]),
+    ),
+  ).toEqual([]);
+  // the comparison page too, beside the products it lists
+  expect(
+    await check(
+      { ...HOLDER_NOTICE, [COMPARE]: comparison("© 2026 Z. Zebra") },
+      products(),
+    ),
+  ).toEqual([]);
+});
+
+test("only that footer line may name the holder, and only the holder", async () => {
+  const source = "packages/one/credits.txt";
+  const local = holderTerms(["zebra"], [source]);
+  // anywhere else in a site page, or a line that adds to the copyright
+  expect(
+    await check(
+      {
+        ...HOLDER_NOTICE,
+        [PAGE]: footer(
+          "<p>Z. Zebra wrote it.</p>",
+          "<p>© 2026 Z. Zebra</p>",
+          "© 2026 Z. Zebra and friends",
+        ),
+      },
+      local,
+    ),
+  ).toEqual([
+    `${PAGE}:3 private-term`,
+    `${PAGE}:4 private-term`,
+    `${PAGE}:5 private-term`,
+  ]);
+  // the same line in a file outside the site
+  expect(await check({ ...HOLDER_NOTICE, [source]: footer() }, local)).toEqual([
+    `${source}:2 private-term`,
+  ]);
+  // a holder NOTICE does not name
+  expect(await check({ [PAGE]: footer() }, local)).toEqual([
+    `${PAGE}:2 private-term`,
+  ]);
+  // another private term the footer line holds
+  expect(
+    await check(
+      { ...HOLDER_NOTICE, [PAGE]: footer() },
+      { ...local, terms: [...local.terms, /© 2026/i] },
+    ),
+  ).toEqual([`${PAGE}:2 private-term`]);
+});
+
 test("a link must lead to a file git tracks or would track", async () => {
   const untracked = "tools/out/report.md";
   const files = {

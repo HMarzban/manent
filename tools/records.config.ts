@@ -145,6 +145,13 @@ export const UNSCANNED: readonly string[] = [
  * with. A term the README's two fixed sections hold never does.
  */
 export const PRODUCT_PAGE = "site/compare.html";
+/**
+ * The site's pages: on each, a line that is only the copyright NOTICE's second line states, "©" for
+ * "Copyright", may name the holder; a term of the local list that names the holder stands there.
+ */
+export const SITE_PAGE = /^site\/[^/]+\.html$/;
+/** NOTICE's second line: the year and the holder. */
+export const NOTICE_COPYRIGHT = /^Copyright (\d{4}) (.+)$/;
 /** A larger tracked file is not read as text. */
 export const SCAN_LIMIT_BYTES = 1024 * 1024;
 export const LOCAL_EXCLUDE_FILE = "info/exclude";
