@@ -337,6 +337,55 @@
       "stat": "p95",
       "budget": 300,
       "hardFail": 1000
+    },
+    {
+      "scenario": "history.list.first_page",
+      "metric": "list_ms",
+      "stat": "p95",
+      "budget": 300,
+      "hardFail": 1000
+    },
+    {
+      "scenario": "history.compare.120",
+      "metric": "compare_ms",
+      "stat": "p95",
+      "budget": 500,
+      "hardFail": 2000
+    },
+    {
+      "scenario": "history.restore.120",
+      "metric": "restore_ms",
+      "stat": "p95",
+      "budget": 1000,
+      "hardFail": 3000
+    },
+    {
+      "scenario": "history.compare.2000",
+      "metric": "compare_ms",
+      "stat": "p95",
+      "budget": 4000,
+      "hardFail": 10000
+    },
+    {
+      "scenario": "history.compare.2000",
+      "metric": "longest_slice_ms",
+      "stat": "p95",
+      "budget": 8,
+      "hardFail": 16
+    },
+    {
+      "scenario": "history.version.2000",
+      "metric": "version_ms",
+      "stat": "p95",
+      "budget": 100,
+      "hardFail": 400
+    },
+    {
+      "scenario": "history.restore.2000",
+      "metric": "restore_ms",
+      "stat": "p95",
+      "budget": 3000,
+      "hardFail": 8000
     }
   ]
 }
