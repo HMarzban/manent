@@ -128,6 +128,13 @@ manent/
 │   ├── check-records.ts        the check of the public documents; records*.ts hold its rules
 │   └── test/                   tests of the checks, and of the workspace's own conventions
 │
+├── site/                   the landing page, served by GitHub Pages; no build step              built
+│   ├── index.html              the page: its styles and its one small script inline
+│   ├── 404.html                what a missing address under the site shows
+│   ├── sitemap.xml             the page's one address, for search engines
+│   ├── og.png                  the picture a link to the page shows
+│   └── fonts/                  Courier Prime, the script face, and its licence
+│
 └── types/
     └── assets.d.ts         lets TypeScript accept stylesheet imports
 ```

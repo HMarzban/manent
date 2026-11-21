@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Page not found — Manent</title>
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- GitHub Pages serves this file for any missing path under the site, so links start from the site's root -->
+    <base href="/manent/" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='2' width='22' height='28' rx='2' fill='%23FFFFFF' stroke='%231F1D1A' stroke-width='2'/%3E%3Cpath d='M10 10h12M10 15h9M14 20h8' stroke='%231F1D1A' stroke-width='2'/%3E%3Cpath d='M23 17v8' stroke='%232450BE' stroke-width='2.5'/%3E%3C/svg%3E"
+    />
+    <style>
+      @font-face {
+        font-family: "Courier Prime";
+        src: url("fonts/courier-prime-400.woff2") format("woff2");
+        font-display: swap;
+      }
+
+      :root {
+        --desk: #e9e6e0;
+        --paper: #ffffff;
+        --ink: #1a1a1a;
+        --fg: #1f1d1a;
+        --fg-muted: #5a564f;
+        --accent: #2450be;
+        --on-accent: #ffffff;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --desk: #1f1d1a;
+          --paper: #2a2826;
+          --ink: #efece6;
+          --fg: #efece6;
+          --fg-muted: #b8b2a7;
+          --accent: #8daeff;
+          --on-accent: #121211;
+        }
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 1.5rem;
+        box-sizing: border-box;
+        background: var(--desk);
+        color: var(--fg);
+        font-family:
+          Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+        font-size: 1.125rem;
+        line-height: 1.6;
+      }
+
+      main {
+        width: min(100%, 30rem);
+        background: var(--paper);
+        color: var(--ink);
+        padding: 2.5rem 2rem;
+        box-shadow: 0 1px 3px rgb(31 29 26 / 0.18);
+      }
+
+      .script {
+        font-family: "Courier Prime", "Courier New", Courier, monospace;
+        font-size: 1rem;
+        line-height: 1.25;
+      }
+
+      .script p {
+        margin: 0 0 1.25em;
+      }
+
+      h1 {
+        font-size: 1.75rem;
+        line-height: 1.15;
+        margin: 0 0 1rem;
+      }
+
+      a {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.5rem 1.125rem;
+        border-radius: 6px;
+        background: var(--accent);
+        color: var(--on-accent);
+        font-family: system-ui, sans-serif;
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      a:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="script" aria-hidden="true">
+        <p>INT. A PAGE THAT ISN'T HERE - DAY</p>
+        <p>An empty room. Nothing on the desk.</p>
+      </div>
+      <h1>This page does not exist</h1>
+      <p>The address may be mistyped, or the page has moved.</p>
+      <a href="./">Go to the Manent home page</a>
+    </main>
+  </body>
+</html>

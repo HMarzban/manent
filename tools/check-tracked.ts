@@ -8,6 +8,7 @@ export const TRACKED_ROOTS = [
   "types/",
   "spikes/",
   ".github/",
+  "site/",
   "docs/architecture/",
   "docs/benchmark/",
   "docs/decisions/",
