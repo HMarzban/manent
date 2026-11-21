@@ -18,4 +18,6 @@ export const PERF_MARKS: readonly string[] = [
   "editor.dispatch",
   "editor.complete",
   "editor.keystroke",
+  "open.editable",
+  "sync.ack",
 ];

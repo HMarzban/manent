@@ -19,6 +19,7 @@ import type {
   Timers,
 } from "@manent/editor";
 import { ENGINE_VERSION, engineFor } from "@manent/pagination";
+import { markEnd } from "@manent/perf";
 import { parseDoc } from "@manent/schema";
 import type { FormatId, IdSource } from "@manent/schema";
 import type { Platform } from "@manent/settings";
@@ -315,6 +316,8 @@ function openDocument(
     desk: deskOf(ports.element),
   };
   let built = buildEditor(options, { ...opened, shown: shownNow() }, null);
+  // token 0 is navigation start, the origin of performance.now(); a rebuild records nothing
+  markEnd("open.editable", 0);
   const kept = keepPlace(person.place, docId, () => built.editor);
   let pending = noop;
   const rebuild = (): void => {
