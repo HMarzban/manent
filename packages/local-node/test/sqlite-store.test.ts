@@ -178,7 +178,10 @@ const version = fc.record({
     "manual",
     "rejected",
     "past_window",
+    "named",
+    "before_restore",
   ),
+  name: nullable(text),
   createdAt: int,
   content,
 });

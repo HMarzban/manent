@@ -43,6 +43,8 @@ function eventOf(event: DocEvent): TrustEvent[] {
     case "past_window":
     case "replaced":
     case "recovered":
+    case "control":
+    case "subscribed":
       return [];
   }
 }

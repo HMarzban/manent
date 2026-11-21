@@ -330,6 +330,11 @@ export function fakeHandle(docId: string, initial: CrdtDoc): FakeHandle {
     sendAwareness() {},
     onAwareness: () => () => {},
     saveVersion: async () => {},
+    nameVersion: () => Promise.reject(new RangeError("not kept by the fake")),
+    restoreLocally: () =>
+      Promise.reject(new RangeError("not restored by the fake")),
+    deviceVersions: async () => [],
+    lastServerSeq: () => 0,
     adoptClientIds() {},
     async close() {
       closes += 1;
