@@ -85,15 +85,18 @@ function readNumber(r: Reader, blockId: string, num: string | null): void {
     keep(r, "scene_number", blockId, "Number", num);
 }
 
+function addPageBreak(r: Reader): void {
+  r.blocks.push(
+    canonicalBlock({
+      type: "block",
+      attrs: { id: r.ids(), type: "page_break" },
+    }),
+  );
+}
+
 function readParagraph(r: Reader, paragraph: XmlNode, dual: Dual | null): void {
   const settings = readParagraphSettings(paragraph);
-  if (settings.newPage)
-    r.blocks.push(
-      canonicalBlock({
-        type: "block",
-        attrs: { id: r.ids(), type: "page_break" },
-      }),
-    );
+  if (settings.newPage) addPageBreak(r);
   const id = r.ids();
   const runs = readRuns(paragraph, r.revisionIds);
   const scene = childNamed(paragraph, "SceneProperties");
@@ -143,6 +146,8 @@ function readDual(
   wrapper: XmlNode,
   speeches: readonly XmlNode[],
 ): void {
+  const newPage = attr(wrapper, "StartsNewPage") === "Yes";
+  if (newPage) addPageBreak(r);
   const first = r.counted.length;
   let cues = 0;
   for (const speech of speeches) {
@@ -150,10 +155,9 @@ function readDual(
     readParagraph(r, speech, cues >= 2 ? "right" : "left");
   }
   r.duals[r.duals.length - 1] = true;
-  const own = withoutAttributes(
-    wrapper,
-    new Set(attr(wrapper, "Type") === "General" ? ["Type"] : []),
-  );
+  const taken = new Set(newPage ? ["StartsNewPage"] : []);
+  if (attr(wrapper, "Type") === "General") taken.add("Type");
+  const own = withoutAttributes(wrapper, taken);
   const others = elementsOf(wrapper).filter(
     (child) =>
       child.name !== "DualDialogue" &&
@@ -207,20 +211,25 @@ interface Parts {
   title: string | null;
   paper: "letter" | "a4" | null;
   numberScheme: string | null;
+  revisions: XmlNode | null;
   readonly lockedPages: XmlNode[];
   readonly deletions: XmlNode[];
 }
 
+/**
+ * The top-level elements but `Content` and `ScriptNotes`, which are read first. The `Revisions` element's
+ * attributes are kept after them, without `ActiveSet`, which the writer gives anew.
+ */
 function readParts(
   r: Reader,
   top: readonly XmlNode[],
   content: XmlNode | null,
-  starts: Int32Array,
 ): Parts {
   const parts: Parts = {
     title: null,
     paper: null,
     numberScheme: null,
+    revisions: null,
     lockedPages: [],
     deletions: [],
   };
@@ -240,8 +249,7 @@ function readParts(
         keep(r, "document_part", null, node.name, node);
         break;
       case "Revisions":
-        if (Object.keys(node.attributes).length > 0)
-          keep(r, "document_part", null, node.name, { ...node, children: [] });
+        parts.revisions ??= node;
         break;
       case "LockedPages":
         parts.lockedPages.push(
@@ -254,14 +262,21 @@ function readParts(
         );
         break;
       case "ScriptNotes":
-        for (const note of elementsOf(node))
-          if (note.name === "ScriptNote")
-            addNote(r, readRangedNote(note, r.counted, starts));
         break;
       default:
         keep(r, "document_part", null, node.name, node);
     }
   }
+  const settings =
+    parts.revisions === null
+      ? {}
+      : withoutAttributes(parts.revisions, new Set(["ActiveSet"]));
+  if (Object.keys(settings).length > 0)
+    keep(r, "document_part", null, "Revisions", {
+      name: "Revisions",
+      attributes: settings,
+      children: [],
+    });
   return parts;
 }
 
@@ -308,7 +323,11 @@ export function readFdx(
   const content = childNamed(root, "Content");
   if (content !== null) readContent(r, content);
   const starts = scriptOffsets(r.counted, r.duals);
-  const parts = readParts(r, elementsOf(root), content, starts);
+  for (const list of elementsOf(root))
+    for (const note of list.name === "ScriptNotes" ? elementsOf(list) : [])
+      if (note.name === "ScriptNote")
+        addNote(r, readRangedNote(note, r.counted, starts));
+  const parts = readParts(r, elementsOf(root), content);
   const { production, unplaced } = readProduction({
     counted: r.counted,
     starts,

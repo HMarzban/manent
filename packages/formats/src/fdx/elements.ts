@@ -111,3 +111,83 @@ export function readSceneProperties(scene: XmlNode): {
         : { name: scene.name, attributes: scene.attributes, children: others },
   };
 }
+
+/** The interface's names of the elements a file has no `Type` for, which are written as General. */
+const UNWRITTEN_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  slug: "Slug",
+  bracket: "Bracket",
+  emote: "Emote",
+  camera: "Camera",
+  engine: "Engine Direction",
+  ink_line: "Ink line",
+  group: "Section",
+  chapter: "Chapter",
+  body: "Body",
+  break: "Break",
+  quote: "Quote",
+});
+const UNWRITTEN_ACT_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  teaser: "Teaser",
+  tag: "Tag scene",
+});
+
+/** The `Type` an element is written with, and its label when the file has none for it and it is written as General. */
+export function fdxTypeOf(
+  element: string,
+  kind: unknown,
+): { readonly type: string; readonly leftOut: string | null } {
+  const types = element === "act_break" ? ACT_TYPES : TYPES;
+  const value = element === "act_break" ? kind : element;
+  for (const [type, own] of types)
+    if (own === value) return { type, leftOut: null };
+  const label =
+    element === "act_break"
+      ? UNWRITTEN_ACT_LABELS[String(kind)]
+      : UNWRITTEN_LABELS[element];
+  return { type: "General", leftOut: label ?? element };
+}
+
+/** The `Alignment` written for a block's `align`. */
+export function fdxAlignment(align: Alignment): string {
+  for (const [name, own] of ALIGNMENTS) if (own === align) return name;
+  return "Left";
+}
+
+/** `SpaceBefore` in points for a block's `spaceBefore` lines. */
+export function fdxSpaceBefore(lines: number): string {
+  return String(lines * POINTS_PER_LINE);
+}
+
+/**
+ * The scene's `SceneProperties`: the kept element with a `Summary` of `synopsis` first, or a bare one holding
+ * only that summary; null with neither.
+ */
+export function writeSceneProperties(
+  synopsis: string,
+  kept: XmlNode | null,
+): XmlNode | null {
+  if (synopsis === "" && kept === null) return null;
+  const summary: XmlNode[] =
+    synopsis === ""
+      ? []
+      : [
+          {
+            name: "Summary",
+            attributes: {},
+            children: [
+              {
+                name: "Paragraph",
+                attributes: { Type: "General" },
+                children: [
+                  { name: "Text", attributes: {}, children: [synopsis] },
+                ],
+              },
+            ],
+          },
+        ];
+  return {
+    name: "SceneProperties",
+    attributes: kept?.attributes ?? {},
+    children: [...summary, ...(kept?.children ?? [])],
+  };
+}

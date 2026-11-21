@@ -96,3 +96,67 @@ export function readRangedNote(
     new Set(["Range"]),
   );
 }
+
+const pad = (value: number, width: number): string =>
+  String(value).padStart(width, "0");
+
+/** `YYYYMMDDTHHMMSS` in UTC, as a file gives a note's time. */
+function formatDateTime(at: number): string {
+  const d = new Date(at);
+  return (
+    pad(d.getUTCFullYear(), 4) +
+    pad(d.getUTCMonth() + 1, 2) +
+    pad(d.getUTCDate(), 2) +
+    "T" +
+    pad(d.getUTCHours(), 2) +
+    pad(d.getUTCMinutes(), 2) +
+    pad(d.getUTCSeconds(), 2)
+  );
+}
+
+function writeNote(
+  note: ScriptNote,
+  part: XmlNode | null,
+  own: Readonly<Record<string, string>>,
+): XmlNode {
+  return {
+    name: "ScriptNote",
+    attributes: {
+      ...part?.attributes,
+      ...own,
+      ...(note.at === null ? {} : { DateTime: formatDateTime(note.at) }),
+    },
+    children: [
+      ...note.text.split("\n").map((line) => ({
+        name: "Paragraph",
+        attributes: {},
+        children: [{ name: "Text", attributes: {}, children: [line] }],
+      })),
+      ...(part?.children ?? []),
+    ],
+  };
+}
+
+/** A note at the start of its block, written inside the block's paragraph, with its kept `part`. */
+export function writeInlineNote(
+  note: ScriptNote,
+  part: XmlNode | null,
+): XmlNode {
+  return writeNote(
+    note,
+    part,
+    note.writerName === null ? {} : { Author: note.writerName },
+  );
+}
+
+/** A note of the script's `ScriptNotes` list: `range` its script offsets, null for a note on no text. */
+export function writeRangedNote(
+  note: ScriptNote,
+  part: XmlNode | null,
+  range: readonly [number, number] | null,
+): XmlNode {
+  return writeNote(note, part, {
+    ...(range === null ? {} : { Range: `${range[0]},${range[1]}` }),
+    ...(note.writerName === null ? {} : { WriterName: note.writerName }),
+  });
+}
