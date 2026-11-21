@@ -8,6 +8,7 @@ import { SCHEMA_VERSION } from "@manent/schema";
 import {
   PRODUCT_SETTING_RULES,
   createHistoryService,
+  createProductionService,
   createServer,
   createSignedSessionStore,
   createTicketStore,
@@ -16,6 +17,7 @@ import {
 } from "@manent/server-core";
 import type {
   Clock,
+  HistoryExtras,
   Listener,
   ManentServer,
   ServerConfig,
@@ -25,6 +27,7 @@ import { openSqliteStorage } from "@manent/storage";
 import { PROTOCOL_VERSION } from "@manent/sync-protocol";
 import { readServerEnv } from "./env.ts";
 import type { ServerEnv } from "./env.ts";
+import { createServerRenderPdf, readScriptFonts } from "./production.ts";
 import { onServeError } from "./serve-error.ts";
 
 const SESSION_KEY_BYTES = 32;
@@ -183,6 +186,7 @@ function openSync(dataDir: string): SyncSettings & { close(): void } {
  */
 export async function startServer(env: ServerEnv): Promise<RunningServer> {
   const secret = await loadSessionSecret(env.dataDir);
+  const renderPdf = createServerRenderPdf(await readScriptFonts());
   let built: ManentServer | null = null;
   // the listeners bind and the server is built in one synchronous run, so no event comes first
   const server = (): ManentServer => {
@@ -206,16 +210,34 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
   }
   const sync = openSync(env.dataDir);
   const { storage, ids } = sync;
+  const config = buildServerConfig(env, secret, port);
+  // the history service and the production service take each other through getters
+  const extras: HistoryExtras = {
+    locksAt: (...args) => production.extras.locksAt(...args),
+    authority: (...args) => production.extras.authority(...args),
+  };
   const history = createHistoryService({
     sync: () => serving.sync!,
     storage,
     clock,
     ids,
+    extras,
+  });
+  const production = createProductionService({
+    storage,
+    sync: () => serving.sync!,
+    history,
+    now: clock.now,
+    ids,
+    names: (userId) => config.auth.directory.user(userId)?.name ?? userId,
+    renderPdf,
+    rules: PRODUCT_SETTING_RULES,
   });
   const serving = createServer({
-    ...buildServerConfig(env, secret, port),
-    sync: { ...sync, hooks: [history] },
+    ...config,
+    sync: { ...sync, hooks: [history, production.hooks] },
     history,
+    production,
   });
   built = serving;
   let stopped: Promise<void> | null = null;

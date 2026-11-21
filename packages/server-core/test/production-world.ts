@@ -27,6 +27,8 @@ import {
   createSyncService,
 } from "../src/index.ts";
 import type {
+  HistoryExtras,
+  HistoryService,
   ProductionOutcome,
   ProductionService,
   RenderPdf,
@@ -107,9 +109,12 @@ export interface ProductionWorld {
   readonly storage: MemoryStorage;
   readonly file: DocFile;
   readonly service: ProductionService;
+  readonly history: HistoryService;
   readonly sync: SyncService;
   readonly sam: Person;
   readonly leo: Person;
+  /** Another person subscribes to edit, holding what the server sent them. */
+  join(userId: string, clientId: number): Person;
   /** Lets every queued commit run, and every promise waiting on one settle. */
   run<T>(answer: Promise<T>): Promise<T>;
   lock(key?: string): Promise<ProductionState>;
@@ -166,11 +171,17 @@ export function productionWorld(): ProductionWorld {
     if (built === null) throw new RangeError("no sync service yet");
     return built;
   };
+  // the history service and the production service take each other through getters
+  const extras: HistoryExtras = {
+    locksAt: (...args) => service.extras.locksAt(...args),
+    authority: (...args) => service.extras.authority(...args),
+  };
   const history = createHistoryService({
     sync,
     storage,
     clock: clock.clock,
     ids,
+    extras,
   });
   const service = createProductionService({
     storage,
@@ -314,9 +325,11 @@ export function productionWorld(): ProductionWorld {
     storage,
     file,
     service,
+    history,
     sync: sync(),
     sam,
     leo,
+    join: (userId, clientId) => person(userId, clientId, "edit"),
     run,
     lock: async (lockKey = KEY1) =>
       valueOf(await run(service.lock("priya", lockRequest(lockKey)))),

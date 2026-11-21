@@ -128,7 +128,10 @@ function readStored(text: string): unknown {
   }
 }
 
-export function createRequests(options: ProductionOptions): Requests {
+/** `committed` is told after each commit of a request, before its answer. */
+export function createRequests(
+  options: ProductionOptions & { committed(docId: string): void },
+): Requests {
   const { storage, now } = options;
   /** By document: the tail of its requests, which run one at a time. */
   const chains = new Map<string, Promise<void>>();
@@ -227,6 +230,7 @@ export function createRequests(options: ProductionOptions): Requests {
         : refused("busy");
     const [done] = made;
     if (done === undefined) return refused("busy");
+    options.committed(docId);
     tell(file, userId, mutation, done.kept);
     return { ok: true, value: done.answer };
   }

@@ -181,7 +181,7 @@ export function layoutBlocks(
   );
 }
 
-function recordsOf(rows: readonly AnchorRow[]): LockAnchorRecord[] {
+export function recordsOf(rows: readonly AnchorRow[]): LockAnchorRecord[] {
   return rows.map((row) => ({
     level: row.level,
     order: row.order,

@@ -11,7 +11,9 @@ import type {
   RecallRequest,
 } from "@manent/sync-protocol";
 import type { HistoryExtras } from "../history/service.ts";
+import { PRODUCTION_EXTRAS } from "./extras.ts";
 import { issuedFile } from "./files.ts";
+import { createProductionHooks } from "./hooks.ts";
 import { issueMutation } from "./issue.ts";
 import { layoutMutation } from "./layout.ts";
 import { endMutation, lockMutation, unlockMutation } from "./lock.ts";
@@ -64,7 +66,8 @@ export interface ProductionService {
 export function createProductionService(
   options: ProductionOptions,
 ): ProductionService {
-  const requests = createRequests(options);
+  const { hooks, committed } = createProductionHooks(options);
+  const requests = createRequests({ ...options, committed });
   return {
     state(userId, docId) {
       const opened = requests.open(userId, docId);
@@ -96,7 +99,7 @@ export function createProductionService(
         recallMutation(options, requests, userId, request),
       ),
     file: (userId, request) => issuedFile(options, requests, userId, request),
-    hooks: { subscribed: () => null, checkPush: () => [] },
-    extras: { locksAt: () => null, authority: () => () => null },
+    hooks,
+    extras: PRODUCTION_EXTRAS,
   };
 }
