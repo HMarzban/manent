@@ -62,6 +62,31 @@ const ids = (): string => crypto.randomUUID();
 /** The idempotency key of the n-th request a scenario makes. */
 export const keyOf = (n: number): string => n.toString(16).padStart(32, "0");
 
+/** What the room answered one connection's pushes: how far it acknowledged them, and its first refusal. */
+function answers() {
+  let acked = 0;
+  // a refusal can come while the edits are still being pushed, before anything waits for it
+  let refused: string | null = null;
+  let awaiting: { seq: number; settle(): void } | null = null;
+  return {
+    heard(message: Message): void {
+      if (message.type === "ACK") acked = message.clientSeq;
+      if (message.type === "ERROR") refused ??= message.message;
+      if (awaiting !== null && (refused !== null || acked >= awaiting.seq))
+        awaiting.settle();
+    },
+    /** Resolves once `seq` is acknowledged, or throws the first refusal. */
+    async through(seq: number): Promise<void> {
+      if (refused === null && acked < seq)
+        await new Promise<void>((settle) => {
+          awaiting = { seq, settle };
+        });
+      awaiting = null;
+      if (refused !== null) throw new Error(`an edit was refused: ${refused}`);
+    },
+  };
+}
+
 function joined(
   service: SyncService,
   docId: string,
@@ -69,10 +94,7 @@ function joined(
 ): Editor {
   const { clientId } = person;
   let state: Uint8Array | null = null;
-  let acked = 0;
-  /** Settles with null once `seq` is acknowledged, or with the refusal that came first. */
-  let awaiting: { seq: number; settle(refusal: string | null): void } | null =
-    null;
+  const answered = answers();
   let told: (() => void) | null = null;
   const heard = (message: Message | PreparedMessage): void => {
     if ("body" in message) {
@@ -81,9 +103,7 @@ function joined(
     }
     if (message.type === "SYNC" && message.step === "step2")
       state = message.data;
-    if (message.type === "ACK") acked = message.clientSeq;
-    if (message.type === "ERROR") awaiting?.settle(message.message);
-    else if (awaiting !== null && acked >= awaiting.seq) awaiting.settle(null);
+    answered.heard(message);
   };
   const peer = createBenchPeer(person.userId, heard);
   joinAsEditor(service, peer, { docId, clientId, vector: EMPTY_VECTOR });
@@ -107,15 +127,7 @@ function joined(
     async type(blockIds) {
       for (const blockId of blockIds)
         body.write((w) => w.insertText(blockId, 0, "x"));
-      const seq = clientSeq;
-      const refusal =
-        acked >= seq
-          ? null
-          : await new Promise<string | null>((settle) => {
-              awaiting = { seq, settle };
-            });
-      awaiting = null;
-      if (refusal !== null) throw new Error(`an edit was refused: ${refusal}`);
+      await answered.through(clientSeq);
     },
     control: () =>
       new Promise<void>((resolve) => {
