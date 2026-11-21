@@ -8,18 +8,22 @@ import {
 import { canonicalDoc } from "@manent/schema";
 import type { BlockJSON, DocJSON } from "@manent/schema";
 import type { LockAnchorRecord, Message } from "@manent/sync-protocol";
-import { uploadRequestOf } from "../src/index.ts";
+import { tabMessage, uploadRequestOf } from "../src/index.ts";
+import { memoryTabs } from "../src/testing/index.ts";
+import type { MemoryTabs } from "../src/testing/index.ts";
 import type { DeviceVersion, DocEvent, DocHandle } from "../src/index.ts";
 import {
   B1,
   B2,
   DOC,
   block,
+  fakeFrames,
   setup,
   textOf,
   typeIn,
   utf8,
 } from "./scripted-server.ts";
+import type { World } from "./scripted-server.ts";
 
 const B3 = "block-three-0003";
 
@@ -236,4 +240,74 @@ test("every CONTROL frame and every subscription reaches the handle as an event"
     1,
     9,
   ]);
+});
+
+/** Two tabs of one user on DOC, online: the events the second, following tab's handle hears from now on. */
+async function followingTab(): Promise<{
+  w: World;
+  tabs: MemoryTabs;
+  leads: boolean;
+  events: DocEvent[];
+}> {
+  const w = await setup();
+  const tabs = memoryTabs();
+  const tab = (id: string) =>
+    w.makeClient({ leader: tabs.port(id), frames: fakeFrames() });
+  await tab("a").open(DOC);
+  const following = tab("b");
+  const h = await following.open(DOC);
+  await w.online();
+  const events: DocEvent[] = [];
+  h.on((event) => events.push(event));
+  return { w, tabs, leads: following.link.get().leader, events };
+}
+
+test("a following tab hears every CONTROL frame and every subscription the leading tab hears", async () => {
+  const { w, leads, events } = await followingTab();
+  const data = utf8('{"kind":"restored"}');
+  w.server.send({
+    type: "CONTROL",
+    docId: DOC,
+    generation: 1,
+    seq: 4,
+    kind: "restored",
+    data,
+  });
+  w.server.send(lockedSubscribed({ table: [ANCHOR] }));
+  await w.settle();
+  expect([leads, events]).toEqual([
+    false,
+    [
+      { type: "control", kind: "restored", data },
+      {
+        type: "subscribed",
+        lockLevel: 2,
+        lockAnchors: [ANCHOR],
+        revision: REVISION,
+      },
+    ],
+  ]);
+});
+
+test("a following tab hears no CONTROL frame or subscription passed on in the wrong shape", async () => {
+  const { w, tabs, events } = await followingTab();
+  const subscribed: DocEvent = {
+    type: "subscribed",
+    lockLevel: 2,
+    lockAnchors: null,
+    revision: null,
+  };
+  const other = tabs.port("c");
+  for (const event of [
+    { type: "control", kind: "shouted", data: new Uint8Array() },
+    { type: "control", kind: "restored", data: [1, 2] },
+    { ...subscribed, lockLevel: "2" },
+    { ...subscribed, lockAnchors: [{ ...ANCHOR, source: "guess" }] },
+    { ...subscribed, lockAnchors: { table: [ANCHOR] } },
+    { ...subscribed, revision: { setId: "set-1" } },
+    subscribed,
+  ])
+    other.post(tabMessage("c", { t: "event", docId: DOC, event }));
+  await w.settle();
+  expect(events).toEqual([subscribed]);
 });
