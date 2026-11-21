@@ -13,10 +13,18 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { ChooseScreen } from "../src/screens/choose.tsx";
-import { EnvironmentProvider } from "../src/services/context.tsx";
+import {
+  EnvironmentProvider,
+  usePersonServices,
+} from "../src/services/context.tsx";
 import type { TabPerson } from "../src/session.ts";
+import { createPersonStore } from "../src/state/person.store.ts";
 import { fakeHost } from "./desktop.fixtures.ts";
-import { fakeApi, testEnvironment } from "./services.fixtures.ts";
+import {
+  createNavigation,
+  fakeApi,
+  testEnvironment,
+} from "./services.fixtures.ts";
 import { until } from "./sync.fixtures.ts";
 
 withDom();
@@ -108,4 +116,38 @@ test("in the desktop app choosing You signs in at the node, which keeps You's wo
     },
     { signedIn: [], chosen: [{ token: null, userId: "you", name: "You" }] },
   ]);
+});
+
+test("the window knows whose services it draws, and that it draws nobody once the person is gone", async () => {
+  const environment = testEnvironment({ desktop: fakeHost() });
+  const api = fakeApi();
+  const usePerson = createPersonStore(null);
+  const { navigation } = createNavigation({
+    routeId: "/",
+    href: "/",
+    search: {},
+  });
+  function Drawn(props: { person: TabPerson | null }): null {
+    usePersonServices({
+      person: props.person,
+      demo: false,
+      api,
+      usePerson,
+      router: navigation,
+    });
+    return null;
+  }
+  const draw = (person: TabPerson | null) =>
+    act(async () =>
+      mounted?.render(
+        <EnvironmentProvider environment={environment}>
+          <Drawn person={person} />
+        </EnvironmentProvider>,
+      ),
+    );
+  mounted = createRoot(document.createElement("div"));
+  await draw({ token: "node-token", userId: "sam", name: "Sam" });
+  const drawn = environment.personServices.get()?.userId ?? null;
+  await draw(null);
+  expect([drawn, environment.personServices.get()]).toEqual(["sam", null]);
 });

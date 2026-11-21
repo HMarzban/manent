@@ -160,14 +160,15 @@ function keepOnDevice(
 
 /**
  * What an open document keeps current in this tab: its `editedAt`, the open marker, its entry of what this device
- * holds, the persistence request at the person's first own change, and the message of a refused first sync on desktop;
- * `handles` holds it while it is open.
+ * holds, and the persistence request at the person's first own change; `handles` holds it while it is open.
  */
 function openedHook(hook: {
   library: SyncLibrary;
   indexes: Promise<Indexes | null>;
   started: () => PersonSync | null;
-  handles: Set<DocHandle>;
+  handles: Subscribable<readonly DocHandle[]> & {
+    set(handles: readonly DocHandle[]): void;
+  };
   deviceId: string;
   messages: MessageQueue;
   now: () => number;
@@ -175,21 +176,14 @@ function openedHook(hook: {
 }): (docId: string, handle: DocHandle) => () => void {
   const { handles, deviceId, now } = hook;
   return (docId, handle) => {
-    handles.add(handle);
+    handles.set([...handles.get(), handle]);
     const started = hook.started();
     const stops = [
       hook.library.follow(docId, handle),
       ...(started === null
         ? []
         : [markOpen(started, { docId, messages: hook.messages })]),
-      () => handles.delete(handle),
-      // only the desktop app's node sends an upstream status: on the web this says nothing
-      watchHandoffRefusals({
-        handles: () => [handle],
-        title: (id) =>
-          hook.library.documentTitle(id).get() ?? LIBRARY_WORDS.untitledScript,
-        queue: hook.messages,
-      }),
+      () => handles.set(handles.get().filter((each) => each !== handle)),
     ];
     let stopped = false;
     void hook.indexes.then((opened) => {
@@ -248,7 +242,7 @@ function laterMaps(indexes: Promise<Indexes | null>): {
 function leavePage(
   sync: PersonSync,
   maps: { prefs: LaterMap; keys: LaterMap },
-  handles: ReadonlySet<DocHandle>,
+  handles: readonly DocHandle[],
 ): void {
   const { memory, link, userId } = sync;
   memory.keepLegacyMaps(userId, {
@@ -337,12 +331,20 @@ export function createPersonDocuments(
   const review = createLaterReview({
     store: indexes.then((opened) => opened?.review ?? null),
   });
-  const handles = new Set<DocHandle>();
+  const handles = createValue<readonly DocHandle[]>([]);
+  const titles = (docId: string): string =>
+    library.documentTitle(docId).get() ?? LIBRARY_WORDS.untitledScript;
+  // only the desktop app's node sends an upstream status: on the web this says nothing
+  const stopRefusals = watchHandoffRefusals({
+    handles: handles.get,
+    handlesChanged: handles.subscribe,
+    title: titles,
+    queue: messages,
+  });
   const source = createSyncDocumentSource({
     sync,
     review,
-    titles: (docId) =>
-      library.documentTitle(docId).get() ?? LIBRARY_WORDS.untitledScript,
+    titles,
     messages,
     now: options.now,
     schedule: options.schedule,
@@ -371,9 +373,10 @@ export function createPersonDocuments(
     ready,
     leave() {
       const going = started();
-      if (going !== null) leavePage(going, maps, handles);
+      if (going !== null) leavePage(going, maps, handles.get());
     },
     dispose() {
+      stopRefusals();
       review.dispose();
       void sync.then(
         (s) => s.dispose(),

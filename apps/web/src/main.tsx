@@ -1,5 +1,6 @@
 import { markEnd, markStart, readMarks, setMarksEnabled } from "@manent/perf";
 import type { SyncClientOptions } from "@manent/sync-client";
+import type { UpdateState } from "@manent/sync-protocol";
 import { createValue } from "@manent/ui";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
@@ -14,7 +15,11 @@ import { createAppRouter } from "./router.tsx";
 import { EnvironmentProvider } from "./services/context.tsx";
 import { browserStorage } from "./services/local-map.ts";
 import { INITIAL_SHELL_STATE } from "./services/ports.ts";
-import type { Environment, ShellState } from "./services/ports.ts";
+import type {
+  Environment,
+  PersonServices,
+  ShellState,
+} from "./services/ports.ts";
 import type { PersonSync } from "./services/sync/create-sync.ts";
 import { tabStorage } from "./session.ts";
 import type { TabPerson } from "./session.ts";
@@ -140,6 +145,7 @@ function createEnvironment(desktop: DesktopHost | null): Environment {
   return {
     where: { ...where, shell: desktop === null ? "web" : "desktop" },
     desktop,
+    updateState: createValue<UpdateState | null>(null),
     language,
     userAgent,
     now,
@@ -169,6 +175,7 @@ function createEnvironment(desktop: DesktopHost | null): Environment {
     },
     visitUndo: { current: null },
     startSync: (person, deviceId) => startSync(desktop, person, deviceId),
+    personServices: createValue<PersonServices | null>(null),
   };
 }
 
@@ -182,8 +189,11 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false } },
 });
 
-/** Draws the app into `container`. */
-function start(container: HTMLElement, desktop: DesktopHost | null): void {
+/** Draws the app into `container`, in the environment it returns. */
+function start(
+  container: HTMLElement,
+  desktop: DesktopHost | null,
+): Environment {
   const environment = createEnvironment(desktop);
   createRoot(container).render(
     <StrictMode>
@@ -199,6 +209,7 @@ function start(container: HTMLElement, desktop: DesktopHost | null): void {
     afterFirstFrame(() => desktop.send({ v: 1, t: "first_frame" }), {
       request: environment.frame,
     });
+  return environment;
 }
 
 // the desktop app's node writes the shell's startup values into the page it serves; the web has none, and never loads
@@ -206,6 +217,16 @@ function start(container: HTMLElement, desktop: DesktopHost | null): void {
 const desktopGlobal: unknown = Reflect.get(window, "manentDesktop");
 if (desktopGlobal === undefined) start(root, null);
 else
-  void import("./desktop/host.ts").then(({ readDesktopHost }) =>
-    start(root, readDesktopHost(desktopGlobal, location.origin)),
-  );
+  void Promise.all([
+    import("./desktop/host.ts"),
+    import("./desktop/shell-channel.ts"),
+  ]).then(([{ readDesktopHost }, { answerShell }]) => {
+    const desktop = readDesktopHost(desktopGlobal, location.origin);
+    const environment = start(root, desktop);
+    if (desktop !== null)
+      answerShell({
+        host: desktop,
+        environment,
+        pathname: () => router.state.location.pathname,
+      });
+  });

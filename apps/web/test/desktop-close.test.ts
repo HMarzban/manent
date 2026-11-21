@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { installDesktopClose } from "../src/desktop/desktop-close.ts";
+import { answerShell } from "../src/desktop/shell-channel.ts";
+import { INITIAL_SHELL_STATE } from "../src/services/ports.ts";
 import type { CloseGuard } from "../src/services/sync/close-guard.ts";
 import { fakeHost, recordingQueue } from "./desktop.fixtures.ts";
+import { testEnvironment, testServices } from "./services.fixtures.ts";
 import { turn } from "./sync.fixtures.ts";
 
 const DOC = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
@@ -166,4 +169,47 @@ test("a stopped close answers the shell no more", () => {
   stop();
   shell.emit({ v: 1, t: "close_requested" });
   expect(host.sent).toEqual([]);
+});
+
+test("closing the window while nobody is chosen closes it at once", () => {
+  const host = fakeHost({ platform: "linux" });
+  const environment = testEnvironment({ desktop: host });
+  const stop = answerShell({ host, environment, pathname: () => "/choose" });
+  host.emit({ v: 1, t: "close_requested" });
+  stop();
+  expect(host.sent).toEqual([{ v: 1, t: "close_answer", close: true }]);
+});
+
+test("the window's close asks the person it draws, and closes once their open script's copy is written", async () => {
+  const host = fakeHost({ platform: "linux" });
+  const environment = testEnvironment({ desktop: host });
+  const stop = answerShell({ host, environment, pathname: () => EXPORT_PATH });
+  const services = testServices({ userId: "sam", environment });
+  const guard = fakeGuard();
+  environment.personServices.set({
+    ...services,
+    closing: { ...services.closing, guard },
+  });
+  environment.shellState.set({ ...INITIAL_SHELL_STATE, docId: DOC });
+  guard.failingAt(DOC, at("14:10"));
+  host.emit({ v: 1, t: "close_requested" });
+  guard.answer("export");
+  await settle();
+  const beforeWritten = [...host.sent];
+  services.messages.push({
+    id: "exported",
+    text: "Exported 'Untitled script'.",
+    actions: [],
+    lifetime: "brief",
+    ownWork: false,
+  });
+  stop();
+  services.dispose();
+  expect([beforeWritten, host.sent]).toEqual([
+    [{ v: 1, t: "close_answer", close: false }],
+    [
+      { v: 1, t: "close_answer", close: false },
+      { v: 1, t: "close_answer", close: true },
+    ],
+  ]);
 });

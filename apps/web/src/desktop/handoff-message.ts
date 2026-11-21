@@ -5,10 +5,12 @@ import type { MessageQueue } from "@manent/ui";
 
 /**
  * Pushes one message for each document of `handles()` whose upstream status first carries a refused hand-off, and once
- * only per document and refusal. The returned function stops.
+ * only per document and refusal, however often it is opened: `handles()` is read again at each `handlesChanged`. The
+ * returned function stops.
  */
 export function watchHandoffRefusals(options: {
   handles: () => readonly DocHandle[];
+  handlesChanged: (listener: () => void) => () => void;
   title: (docId: string) => string;
   queue: MessageQueue;
 }): () => void {
@@ -37,8 +39,21 @@ export function watchHandoffRefusals(options: {
     read();
     return handle.upstream.subscribe(read);
   };
-  const stops = options.handles().map(follow);
+  const followed = new Map<DocHandle, () => void>();
+  const readHandles = (): void => {
+    const open = new Set(options.handles());
+    for (const [handle, stop] of followed)
+      if (!open.has(handle)) {
+        stop();
+        followed.delete(handle);
+      }
+    for (const handle of open)
+      if (!followed.has(handle)) followed.set(handle, follow(handle));
+  };
+  readHandles();
+  const stopReading = options.handlesChanged(readHandles);
   return () => {
-    for (const stop of stops) stop();
+    stopReading();
+    for (const stop of followed.values()) stop();
   };
 }

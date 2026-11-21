@@ -7,7 +7,7 @@ import {
   createMemoryStore,
 } from "@manent/sync-client/testing";
 import { indexDocId, workspaceHome } from "@manent/sync-protocol";
-import type { VersionSet } from "@manent/sync-protocol";
+import type { UpdateState, VersionSet } from "@manent/sync-protocol";
 import { createValue } from "@manent/ui";
 import type { Api } from "../src/api.ts";
 import { placeholderMount } from "../src/editor-host/placeholder-mount.ts";
@@ -207,6 +207,7 @@ export function testEnvironment(
       system: "macOS",
     },
     desktop: null,
+    updateState: createValue<UpdateState | null>(null),
     language: "en-US",
     userAgent: "test",
     now: clock.now,
@@ -251,6 +252,7 @@ export function testEnvironment(
         visible: () => true,
         now: clock.now,
       }),
+    personServices: createValue<PersonServices | null>(null),
     ...overrides,
   };
 }

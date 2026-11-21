@@ -1,12 +1,12 @@
 // Preferences → This device (This browser on the web): Interface size, what comes from the system, what is stored here, and About.
 import { ENGINE_VERSION } from "@manent/pagination";
-import type { UpdateState } from "@manent/sync-protocol";
 import {
   Button,
   DESKTOP_WORDS,
   PREFERENCES_WORDS,
   SPINNER_AFTER_MS,
   SettingRow,
+  useSubscribable,
   useTiming,
 } from "@manent/ui";
 import {
@@ -14,6 +14,7 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -226,30 +227,26 @@ interface DesktopDevice {
 
 /**
  * This device's rows in the desktop app: the node's usage, read when the pane opens and after each Show folder, and the
- * shell's last answer to Check for updates while the pane is open, each outcome said politely.
+ * window's last word on updates, each outcome said politely as it comes.
  */
 function useDesktopDevice(host: DesktopHost): DesktopDevice {
-  const { dom } = useEnvironment();
+  const { dom, updateState } = useEnvironment();
   const { commands } = useServices();
   const [usage, setUsage] = useState<{ scripts: number; bytes: number } | null>(
     null,
   );
-  const [update, setUpdate] = useState<UpdateState | null>(null);
   const readUsage = useCallback(() => {
     void host.storage().then(setUsage);
   }, [host]);
   useEffect(readUsage, [readUsage]);
-  useEffect(
-    () =>
-      host.onMessage((message) => {
-        if (message.t === "update_state") setUpdate(message.state);
-      }),
-    [host],
-  );
+  const update = useSubscribable(updateState);
   const rows = desktopDeviceRows({ host, usage, update });
   const { line } = rows.update;
+  // the line the pane opened with was said when it came
+  const said = useRef(line);
   useEffect(() => {
-    if (line !== null) dom.announce(line);
+    if (line !== null && line !== said.current) dom.announce(line);
+    said.current = line;
   }, [line, dom]);
   return {
     rows,
@@ -259,7 +256,7 @@ function useDesktopDevice(host: DesktopHost): DesktopDevice {
       readUsage();
     },
     checkForUpdates() {
-      setUpdate("checking");
+      updateState.set("checking");
       host.send({ v: 1, t: "check_for_updates" });
     },
   };

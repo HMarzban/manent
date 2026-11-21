@@ -1,14 +1,26 @@
 import { expect, test } from "bun:test";
 import { createDoc } from "@manent/crdt";
-import type { HandoffRefusal, UpstreamStatus } from "@manent/sync-client";
+import type {
+  DocHandle,
+  HandoffRefusal,
+  UpstreamStatus,
+} from "@manent/sync-client";
 import { createValue } from "@manent/ui";
 import { watchRefusedFiles } from "../src/desktop/file-messages.ts";
 import { watchHandoffRefusals } from "../src/desktop/handoff-message.ts";
+import { answerShell } from "../src/desktop/shell-channel.ts";
 import { fakeHost, recordingQueue } from "./desktop.fixtures.ts";
 import { testEnvironment, testServices } from "./services.fixtures.ts";
-import { fakeClient, fakeHandle, fakeSync, until } from "./sync.fixtures.ts";
+import {
+  fakeClient,
+  fakeHandle,
+  fakeSync,
+  turn,
+  until,
+} from "./sync.fixtures.ts";
 
 const DOC = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
+const OTHER = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7ce";
 
 const UP: UpstreamStatus = {
   v: 1,
@@ -25,21 +37,39 @@ const UP: UpstreamStatus = {
   events: [],
 };
 
-/** A handle of `docId` whose upstream status the test sets, watched under the title "The Lamp Room". */
-function watched() {
+/** A handle of `docId` whose upstream status the test sets. */
+function refusable(docId: string) {
   const upstream = createValue<UpstreamStatus | null>(null);
-  const handle = {
-    ...fakeHandle(DOC, createDoc()),
+  return {
+    ...fakeHandle(docId, createDoc()),
     upstream,
     setUpstream: upstream.set,
   };
+}
+
+/** The watch over the open handles, which `open` and `close` change; `DOC` is titled "The Lamp Room". */
+function watching(...initial: DocHandle[]) {
+  const handles = createValue<readonly DocHandle[]>(initial);
   const queue = recordingQueue();
   const stop = watchHandoffRefusals({
-    handles: () => [handle],
+    handles: handles.get,
+    handlesChanged: handles.subscribe,
     title: (docId) => (docId === DOC ? "The Lamp Room" : "Another"),
     queue,
   });
-  return { handle, queue, stop };
+  return {
+    queue,
+    stop,
+    open: (handle: DocHandle) => handles.set([...handles.get(), handle]),
+    close: (handle: DocHandle) =>
+      handles.set(handles.get().filter((each) => each !== handle)),
+  };
+}
+
+/** One handle of `DOC`, watched from the start. */
+function watched() {
+  const handle = refusable(DOC);
+  return { handle, ...watching(handle) };
 }
 
 test("a refused hand-off says why, once, with Export", () => {
@@ -86,6 +116,25 @@ test("a status with no refusal says nothing, and a stopped watch hears no more",
   expect(queue.items()).toEqual([]);
 });
 
+test("a refused hand-off is said once however often its script opens, and a script opened later is heard", () => {
+  const { queue, open, close } = watching();
+  const first = refusable(DOC);
+  open(first);
+  first.setUpstream({ ...UP, handoffRefused: "forbidden" });
+  close(first);
+  first.setUpstream({ ...UP, handoffRefused: "deleted" });
+  const again = refusable(DOC);
+  again.setUpstream({ ...UP, handoffRefused: "forbidden" });
+  open(again);
+  const other = refusable(OTHER);
+  open(other);
+  other.setUpstream({ ...UP, handoffRefused: "invalid" });
+  expect(queue.items().map((message) => message.text)).toEqual([
+    "Couldn't sync 'The Lamp Room': you can't add scripts to this workspace. It stays on this device only.",
+    "Couldn't sync 'Another': Manent couldn't read part of it. It stays on this device only.",
+  ]);
+});
+
 test("a file Manent cannot open is named with the reason", () => {
   const host = fakeHost();
   const queue = recordingQueue();
@@ -124,7 +173,28 @@ test("a file Manent cannot open is named with the reason", () => {
   ]);
 });
 
-test("an open script whose first sync was refused says so in the person's messages", async () => {
+test("a file refused while nobody is chosen is said to the next person", async () => {
+  const host = fakeHost({ platform: "linux" });
+  const environment = testEnvironment({ desktop: host });
+  const stop = answerShell({ host, environment, pathname: () => "/choose" });
+  host.emit({
+    v: 1,
+    t: "files_opened",
+    files: [],
+    refused: [{ name: "notes.txt", reason: "type" }],
+  });
+  const services = testServices({ userId: "sam", environment });
+  environment.personServices.set(services);
+  const text = services.messages.current()?.text;
+  stop();
+  services.dispose();
+  await turn();
+  expect(text).toBe(
+    "Couldn't open 'notes.txt': Manent opens .fdx, .fountain, .pdf, .docx and .ink files.",
+  );
+});
+
+test("an open script whose first sync was refused says so in the person's messages, once however often it opens", async () => {
   const upstream = createValue<UpstreamStatus | null>({
     ...UP,
     handoffRefused: "deleted",
@@ -138,9 +208,13 @@ test("an open script whose first sync was refused says so in the person's messag
   });
   services.documents.open(DOC);
   await until(() => services.messages.current() !== null);
-  const text = services.messages.current()?.text;
+  services.documents.close(DOC);
+  await turn();
+  services.documents.open(DOC);
+  await turn();
+  const said = services.messages.receipts().map((message) => message.text);
   services.dispose();
-  expect(text).toBe(
+  expect(said).toEqual([
     "Couldn't sync 'Untitled script': it was deleted on the server. It stays on this device only.",
-  );
+  ]);
 });

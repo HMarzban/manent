@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { desktopDeviceRows } from "../src/desktop/device-rows.ts";
 import type { DesktopHost } from "../src/desktop/host.ts";
+import { answerShell } from "../src/desktop/shell-channel.ts";
 import { DevicePane } from "../src/screens/preferences/device-pane.tsx";
 import {
   EnvironmentProvider,
@@ -27,13 +28,19 @@ withDom();
 
 const noop = (): void => {};
 let mounted: Root | null = null;
+let stopAnswering = noop;
 afterEach(() => {
   act(() => mounted?.unmount());
   mounted = null;
+  stopAnswering();
+  stopAnswering = noop;
   document.body.replaceChildren();
 });
 
-/** This device's pane, in the desktop app when `host` is given, on the web otherwise; `visited` lists every navigation. */
+/**
+ * This device's pane, in the desktop app when `host` is given (with the window answering the shell), on the web
+ * otherwise; `visited` lists every navigation, and `close` and `open` take the pane away and draw it again.
+ */
 async function devicePane(options: {
   host: FakeHost | null;
   announced?: string[];
@@ -41,6 +48,8 @@ async function devicePane(options: {
   container: HTMLElement;
   visited: string[];
   advance(ms: number): void;
+  close(): void;
+  open(): Promise<void>;
 }> {
   // a system that prefers nothing
   Reflect.set(window, "matchMedia", (media: string) => ({
@@ -72,6 +81,12 @@ async function devicePane(options: {
     href: "/preferences/device",
     search: {},
   });
+  if (host !== null)
+    stopAnswering = answerShell({
+      host,
+      environment,
+      pathname: () => "/preferences/device",
+    });
   const services = testServices({
     userId: "sam",
     environment,
@@ -79,24 +94,32 @@ async function devicePane(options: {
   });
   const container = document.createElement("div");
   document.body.append(container);
-  mounted = createRoot(container);
-  await act(async () =>
-    mounted?.render(
-      <EnvironmentProvider environment={environment}>
-        <ServicesProvider services={services}>
-          <SettingsProvider store={services.settings}>
-            <TimingProvider timing={clock}>
-              <DevicePane deviceName="Manent for macOS" persisted />
-            </TimingProvider>
-          </SettingsProvider>
-        </ServicesProvider>
-      </EnvironmentProvider>,
-    ),
-  );
+  const open = async (): Promise<void> => {
+    mounted = createRoot(container);
+    await act(async () =>
+      mounted?.render(
+        <EnvironmentProvider environment={environment}>
+          <ServicesProvider services={services}>
+            <SettingsProvider store={services.settings}>
+              <TimingProvider timing={clock}>
+                <DevicePane deviceName="Manent for macOS" persisted />
+              </TimingProvider>
+            </SettingsProvider>
+          </ServicesProvider>
+        </EnvironmentProvider>,
+      ),
+    );
+  };
+  await open();
   return {
     container,
     visited: route.visited,
     advance: (ms) => act(() => clock.advance(ms)),
+    close() {
+      act(() => mounted?.unmount());
+      mounted = null;
+    },
+    open,
   };
 }
 
@@ -222,6 +245,20 @@ test("Check for updates asks the shell and shows its answer", async () => {
       "Couldn't check for updates. Try again later.",
     ],
   });
+});
+
+test("the update line keeps the window's last answer, heard while This device was closed, without saying it again", async () => {
+  const host = desktopHost();
+  const announced: string[] = [];
+  const { container, close, open } = await devicePane({ host, announced });
+  close();
+  host.emit({ v: 1, t: "update_state", state: "ready" });
+  await open();
+  expect([
+    texts(container, "Update ready — installs the next time Manent starts")
+      .length,
+    announced,
+  ]).toEqual([1, []]);
 });
 
 test("a store under a megabyte reads as 1 MB", async () => {
