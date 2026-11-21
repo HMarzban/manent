@@ -33,15 +33,26 @@ bun run --filter @manent/e2e install-browsers   # once
 bun run test:e2e                                 # build the test flavour, then every test in every engine
 ```
 
-`test:e2e` builds the web app's test flavour first (`MANENT_FLAVOUR=test`). To run a part of the suite, build once and then call Playwright through the e2e workspace:
+`test:e2e` is the simple way: it builds the web app's test flavour (`MANENT_FLAVOUR=test`), which adds the hooks and screens the tests use, and runs every test in one engine after another.
+
+The suite's demo builds the web app again each time it starts, in the flavour `MANENT_FLAVOUR` names. So to run a part of the suite, set `MANENT_FLAVOUR=test` on the Playwright command itself:
 
 ```sh
-MANENT_FLAVOUR=test bun run build:web
-bun run --filter @manent/e2e test smoke --project webkit
-bun run --filter @manent/e2e test editor/flow --project chromium
+MANENT_FLAVOUR=test bun run --filter @manent/e2e test smoke --project webkit
+MANENT_FLAVOUR=test bun run --filter @manent/e2e test editor/flow --project chromium
 ```
 
 The words after `test` filter by file path; `--project` is `chromium`, `firefox` or `webkit`.
+
+The fast way to run the whole suite is the three engines at once, each with its own demo: its own port, and its own folder for the built app (`MANENT_WEB_DIR`), because each demo empties that folder when it builds. Run each line in a terminal of its own:
+
+```sh
+MANENT_FLAVOUR=test MANENT_WEB_DIR="$(mktemp -d)" MANENT_E2E_PORT=4800 bun run --filter @manent/e2e test --project chromium
+MANENT_FLAVOUR=test MANENT_WEB_DIR="$(mktemp -d)" MANENT_E2E_PORT=4810 bun run --filter @manent/e2e test --project firefox
+MANENT_FLAVOUR=test MANENT_WEB_DIR="$(mktemp -d)" MANENT_E2E_PORT=4820 bun run --filter @manent/e2e test --project webkit
+```
+
+On an 18-core Mac the three took about 7 minutes together, as a rough guide. This also leaves `apps/web/dist` as it was, so `make demo` keeps its own build.
 
 | Folder             | What it covers                                                                             |
 | ------------------ | ------------------------------------------------------------------------------------------ |
@@ -54,10 +65,10 @@ The words after `test` filter by file path; `--project` is `chromium`, `firefox`
 
 ### Ports
 
-The suite's demo listens on port 4757 and its supervisor on 4758. `MANENT_E2E_PORT` moves both (the supervisor takes the next port), so two copies of the repository can run the suite at once:
+The suite's demo listens on port 4757 and its supervisor on 4758. `MANENT_E2E_PORT` moves both (the supervisor takes the next port), so two copies of the repository, or two engines as above, can run the suite at once:
 
 ```sh
-MANENT_E2E_PORT=4791 bun run --filter @manent/e2e test smoke --project webkit
+MANENT_FLAVOUR=test MANENT_E2E_PORT=4790 bun run --filter @manent/e2e test smoke --project webkit
 ```
 
 The tests run one at a time (`workers: 1`), because some of them stop and start the one server.
@@ -81,14 +92,17 @@ Some tests take a count from the environment, so CI stays quick and a long run i
 | `MANENT_SIM_SEEDS`        | 25      | Seeds of the sync and status simulations                                                                                               |
 | `MANENT_FUZZ_RUNS`        | 100     | Runs of the conservation fuzz test                                                                                                     |
 | `bun run test:offline`    | —       | Only the offline end-to-end test, after a test-flavour build                                                                           |
+| `MANENT_AGED=1`           | off     | About 13 minutes: builds an aged script in `bench/test/crdt-rebuild.test.ts` and checks the rebuild budget                             |
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs on every push and pull request, on Ubuntu, macOS and Windows. Each runner installs Bun 1.4.4 and the dependencies from the lockfile, installs the browsers, then runs `bun run verify`, `bun run test:e2e` and `bun run test:clone`. A unit test pins the workflow, so a change to it is a deliberate one.
+`.github/workflows/ci.yml` runs on every push and pull request, on Ubuntu, macOS and Windows. Each runner installs Bun 1.4.4 and the dependencies from the lockfile, installs the browsers, then runs `bun run verify`, `bun run test:e2e` and `bun run test:clone`, stopping at the first that does not pass. A unit test pins the workflow, so a change to it is a deliberate one.
+
+CI does not pass on every system yet. Until it does, run `bun run verify` and the end-to-end tests that cover a change on your own machine.
 
 ## Writing a test
 
 - Write the test first and watch it fail for the reason you expect.
 - Assert exact values. A test that cannot fail is not a test.
-- Never weaken, skip or delete a test to make the gate pass. `test.skip`, `test.only` and `test.todo` are not committed.
+- Never weaken, skip or delete a test to make the gate pass. `test.skip`, `test.only` and `test.todo` are not committed. The one exception is a long run that an environment variable switches on, such as `test.skipIf(process.env.MANENT_AGED !== "1")`.
 - A test that needs a temporary folder uses `createTempTrees` from `@manent/testkit`, which removes what it made.

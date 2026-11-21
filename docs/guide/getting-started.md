@@ -6,7 +6,7 @@ How to run Manent on your own machine and find your way around the demo.
 
 - [Bun](https://bun.com) 1.4.4 or later. `make demo` checks the version first and tells you how to install Bun if it is missing.
 - Git, to get the code.
-- macOS, Linux or Windows. The test suite runs on all three.
+- macOS, Linux or Windows. CI is set up to test all three; it does not pass on every one yet, and Windows has not been tried by hand.
 - A current Chromium-based browser, Firefox or Safari. The end-to-end tests run in Chromium, Firefox and WebKit.
 - `make` is optional. Every `make` target runs a `bun run` script of the same name, so `bun run demo` does the same as `make demo`.
 
@@ -18,7 +18,7 @@ cd manent
 make demo
 ```
 
-The first run takes a little longer. `make demo`:
+`make demo`:
 
 1. checks your Bun version and that ports 4747 and 4748 are free;
 2. installs the dependencies from the lockfile;
@@ -27,7 +27,7 @@ The first run takes a little longer. `make demo`:
 5. starts the server under a small supervisor, which restarts it if it stops on its own;
 6. opens `http://localhost:4747` in your browser.
 
-To stop it, press Ctrl+C in the terminal, or run `make stop` from another one. `make reset` deletes the demo data and creates it again.
+To stop it, press Ctrl+C in the terminal, or run `make stop` from another one. `make reset` deletes the demo data and creates it again; see [The demo's data](saving-and-syncing.md#the-demos-data).
 
 ## Choose who you are
 
@@ -35,30 +35,32 @@ To stop it, press Ctrl+C in the terminal, or run `make stop` from another one. `
 
 The demo has no passwords. You choose a person with one click:
 
-| Person         | Role in the demo                                      |
-| -------------- | ----------------------------------------------------- |
-| A showrunner   | Owns the shared workspaces                            |
-| A staff writer | Editor; has a desk of their own and the writers' room |
-| A coordinator  | Editor with production permissions                    |
-| An executive   | Reader and commenter                                  |
-| A producer     | Editor of news rundowns                               |
-| You            | A new person with an empty workspace, not signed in   |
+| Person     | As the chooser shows it                                | Workspaces                          |
+| ---------- | ------------------------------------------------------ | ----------------------------------- |
+| Dana Reyes | Showrunner, workspace owner                            | Writers' room, Lanternfield Studios |
+| Sam Okafor | Staff writer, editor                                   | Sam's desk, Writers' room           |
+| Priya Nair | Script coordinator, editor with production permissions | Writers' room, Lanternfield Studios |
+| Leo Marsh  | Executive, reader and commenter                        | Writers' room                       |
+| Ana Costa  | News producer, editor of rundowns                      | Writers' room                       |
+| You        | A new person with an empty workspace                   | Your desk                           |
 
-Each browser tab is its own person, so two tabs can be two people. Switch person from the bar at the top ("Person: …") or from the person menu in the Library.
+**You** is not signed in, so nothing You writes is sent to the server; choose anyone else to see syncing.
+
+Each browser tab is its own person, so two tabs can be two people. A new tab asks who you are before it shows anything, even when it opens on a script's address, and then goes on to that address. Switch person from the bar at the top ("Person: …") or from the person menu in the Library.
 
 ## The demo bar
 
-A purple bar labelled **Demo** sits at the top of every screen. It shows who you are (click to switch), whether the server is running, and two buttons:
+A purple bar labelled **Demo** sits at the top of every screen. It shows who you are (click to switch) and whether the server is running, and has these buttons:
 
 - **Stop the server** and **Start the server.** Stopping the server is the quickest way to see Manent work without a connection. See [Saving and syncing](saving-and-syncing.md).
-- **Tour** opens the Tour panel.
+- **Tour**, once you have chosen a person, opens the Tour panel.
 
 ## The Library
 
 The Library lists the projects of one workspace. Choose the workspace from the menu at the top left. Each demo person belongs to one or more workspaces, such as a personal desk, a writers' room or a studio.
 
 - **New script** makes a film project with one empty script and opens it.
-- **New project** offers Film, Series, Show, News, Podcast, Book, Game and Stage play. In this build every kind starts with one Screenplay script; change its format in **Details → Script settings**.
+- **New project** offers Film, Series, Show, News, Podcast, Book, Game and Stage play. In this build every kind starts with one Screenplay script; change its format in **Details → Script**, under Script settings.
 
 > [!NOTE]
 > In this build the Library list lives in the tab's memory. After a reload it starts empty again. Your scripts are not lost: they are kept on the device and on the server, and the address `/s/<id>` opens one again.
@@ -69,12 +71,12 @@ The Tour panel opens the first time you reach the Library. It is meant to be a g
 
 ## What to try
 
-1. Choose a person and click **New script**.
-2. Type `INT. LIGHTHOUSE - NIGHT`, press Escape to close the list of headings, then Enter. Type a line of action, press Tab, type a name, press Enter and type what they say. See [Writing a script](writing.md).
+1. Choose any person except **You** and click **New script**.
+2. Click the page, type `INT. LIGHTHOUSE - NIGHT`, press Escape to close the list of headings, then Enter. Type a line of action, press Tab, type a name, press Enter and type what they say. See [Writing a script](writing.md).
 3. Watch the status beside the title: **Saved** as you type, then **Synced**.
 4. Click **Stop the server** in the demo bar and keep typing. The status says "Can't reach Manent, 1 waiting". Click **Start the server**; after a few seconds it says **Synced** again.
-5. Open the script's address in a new tab and choose the same person. The script opens there too, with the other tab's cursor drawn by name, and an edit in either tab appears in both.
-6. Open the command palette with Ctrl+K (⌘K on a Mac), type "Export" and press Enter to save the script as a PDF. See [Export and print](export-and-print.md).
+5. Copy the script's id: the part of the address after `/s/`. In a new tab, open `http://localhost:4747/choose?next=/s/<id>` with that id in place of `<id>`, and choose the same person. The script opens there too, with the other tab's cursor drawn by name, and a change in either tab appears in both. See [Working together](working-together.md).
+6. Open the command palette with Ctrl+K (⌘K on a Mac), type "Export" and press Enter. The Export screen opens; click **Export 1 file** to save the script as a PDF. See [Export and print](export-and-print.md).
 
 ## Let a second machine join
 
@@ -91,7 +93,7 @@ A browser keeps Manent's offline copy of the app only on a secure address. `loca
 `make demo` takes no options, but the script behind it does:
 
 ```sh
-bun tools/demo/cli.ts demo --port 4800 --control-port 4801 --data-dir /tmp/manent-demo --no-open
+bun tools/demo/cli.ts demo --port 4800 --control-port 4801 --data-dir .manent-demo/second --no-open
 ```
 
 | Option                | Default         | What it sets                                               |
@@ -106,7 +108,13 @@ Stop it with `bun tools/demo/cli.ts stop --data-dir <the same folder>`.
 
 ## If something goes wrong
 
+- **"Manent needs Bun 1.4.4 or later (found …)."** Install or update Bun with the command it prints, then run `make demo` again.
 - **"Port 4747 is in use."** Another demo may still be running. Run `make stop`, or stop whatever holds the port.
+- **"Manent is already running at …"** `make demo` found a demo that is still running and opened it, without building the web app again. After a change to the code, run `make stop` and then `make demo`.
+- **"The packages could not be installed."** The lines above it say why; most often there is no network. Run `make demo` again once it is back.
+- **"The web app could not be built."** The lines above it say why. On a fresh clone this is a bug: please [open an issue](https://github.com/HMarzban/manent/issues).
+- **"No private network address was found on this machine."** `LAN=1` needs a private network address. Connect to the network, or name the address with `--lan-host`.
 - **"Can't reach Manent. Start the server, then choose again."** The server is stopped. Click **Start the server** in the demo bar, or run `make demo` again.
 - **"The demo is not running. Run make demo again."** The supervisor has gone. Run `make demo`.
+- **"Couldn't load this screen. Your work is unaffected."** Click **Reload**. If the same screen comes back, open `http://localhost:4747/choose` and choose your person again.
 - **The browser did not open.** Open `http://localhost:4747` yourself.

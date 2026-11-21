@@ -1,11 +1,11 @@
 # Working together
 
-Several people can be in one script at once. Each edit reaches the others as it is made, and edits made at the same time are merged, not overwritten.
+Several people can be in one script at once. Each change reaches the others as it is made, and changes made at the same time are merged, not overwritten.
 
 ## What works in this build
 
-- **Live edits.** Every change is sent to the server and passed on to everyone else who has the script open.
-- **Cursors.** Other people's carets and selections are drawn on the page, each with a tab that shows the person's name. **Preferences → Writing → Show other people's cursors** turns them off.
+- **Live changes.** Every change is sent to the server and passed on to everyone else who has the script open.
+- **Cursors.** Other people's cursors and selections are drawn on the page, each with a tab that shows the person's name. **Preferences → Writing → Show other people's cursors** turns them off.
 - **Arrivals and departures.** With **Preferences → Writing → Announce while writing** set to "Element changes, page starts and people arriving or leaving", a screen reader hears "… arrived" and "… left".
 - **Undo is yours.** Undo takes back your own changes and leaves other people's in place.
 - **Merging after time apart.** Changes made without a connection are merged when they reach the server. See [Saving and syncing](saving-and-syncing.md#when-two-copies-changed).
@@ -13,11 +13,7 @@ Several people can be in one script at once. Each edit reaches the others as it 
 
 ## Try it in the demo
 
-In this build a script opens only for the person who made it, so the demo shows live editing between two tabs of one person:
-
-1. Choose a person and click **New script**.
-2. Open the script's address in a new tab and choose the same person.
-3. Type in either tab. The words appear in the other, with a cursor tab that names the person.
+In this build a script opens only for the person who made it, so the demo shows live changes between two tabs of one person: step 5 of [What to try](getting-started.md#what-to-try) sets them up.
 
 ## Not in this build
 

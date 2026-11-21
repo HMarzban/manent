@@ -2,7 +2,7 @@
 
 Open **Preferences** with Ctrl+, (⌘, on a Mac) or from the person menu in the Library. A search at the top finds a preference by name. It also answers for things there is nothing to set for, such as "Auto-save" or "Font".
 
-Preferences are yours and change nothing for anyone else. Script settings (format, paper, (MORE) and (CONT'D)) belong to the script and are shared; they are in **Details → Script settings**.
+Preferences are yours and change nothing for anyone else. Script settings (format, paper, (MORE) and (CONT'D)) belong to the script and are shared; they are in **Details → Script**, under Script settings.
 
 ## Writing
 

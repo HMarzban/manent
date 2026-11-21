@@ -6,7 +6,7 @@ How to get Manent running from source, and the commands you will use every day.
 
 - **Bun 1.4.4.** It is the only toolchain: never npm, yarn, pnpm or npx. The version is pinned in `package.json` (`packageManager`) and in the CI workflow.
 - **Git.**
-- **macOS, Linux or Windows.** CI runs the whole gate and the end-to-end tests on all three.
+- **macOS, Linux or Windows.** CI runs the gate and the end-to-end tests on all three; it does not pass on every one yet.
 - **Playwright's browsers**, for the end-to-end tests only (see [Testing](testing.md)).
 
 ## Get the code
@@ -25,7 +25,7 @@ bun install
 make demo            # or: bun run demo
 ```
 
-This installs, builds the web app into `apps/web/dist`, creates the demo data in `.manent-demo/`, starts the server under a supervisor and opens `http://localhost:4747`. [Getting started](../guide/getting-started.md) has the details, the options for other ports and folders, and what to try.
+[Getting started](../guide/getting-started.md) says what `make demo` does, its options for other ports and folders, and what to try. It builds the web app into `apps/web/dist`.
 
 | Command                        | What it does                                                     |
 | ------------------------------ | ---------------------------------------------------------------- |

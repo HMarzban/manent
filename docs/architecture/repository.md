@@ -67,7 +67,7 @@ apps/
 │   ├── build.ts         builds into apps/web/dist (not tracked); MANENT_FLAVOUR=test builds the test flavour
 │   └── src/
 │       ├── main.tsx, router.tsx    entry and routes: /choose, /, /s/<id>, /s/<id>/send/<form>, /preferences/<pane>
-│       ├── screens/                the chooser, the Library, the script, Send, Preferences
+│       ├── screens/                the chooser, the Library, the script, Send (Export and Print), Preferences
 │       ├── editor-host/            where the editor and the CRDT binding are mounted
 │       ├── services/               per-person services: sync, the Library list, preferences
 │       ├── send/                   Export and Print

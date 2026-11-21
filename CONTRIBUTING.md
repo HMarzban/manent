@@ -1,6 +1,6 @@
 # Contributing to Manent
 
-Thank you for wanting to help. This page says how to propose a change and what happens to it. The rules every change follows are in [AGENTS.md](AGENTS.md); [Coding standards](docs/development/standards.md) explains them in more detail.
+Thank you for wanting to help. This page says how to propose a change and what happens to it. The rules every change follows are in [AGENTS.md](AGENTS.md); [Coding standards](docs/development/standards.md) adds the conventions it does not cover.
 
 ## Before you start
 
@@ -10,7 +10,7 @@ Thank you for wanting to help. This page says how to propose a change and what h
 
 ## Set up
 
-You need Bun 1.4.4 and Git. [Set up a development copy](docs/development/setup.md) has the details.
+You need Bun 1.4.4 (the version CI uses; the demo accepts later ones) and Git. [Set up a development copy](docs/development/setup.md) has the details.
 
 ```sh
 git clone https://github.com/HMarzban/manent.git
@@ -34,13 +34,13 @@ Then open a pull request. The template asks what changed, why, and how you check
 
 ## How a change is reviewed
 
-- **CI.** The workflow runs `bun run verify`, the end-to-end tests in Chromium, Firefox and WebKit, and the fresh-clone test, on Ubuntu, macOS and Windows. A pull request is not merged while any of them fails.
+- **CI.** The workflow runs `bun run verify`, the end-to-end tests in Chromium, Firefox and WebKit, and the fresh-clone test, on Ubuntu, macOS and Windows. It does not pass on `main` yet; until it does, the reviewer runs `bun run verify` and the end-to-end tests that cover the change locally, and says so in the review.
 - **Does it do what it says?** The reviewer reads the change against the issue or the description: every stated behaviour is there and tested, and nothing else is.
-- **Is it clean?** The reviewer checks the [coding standards](docs/development/standards.md): the layer rules, names, comments, the interface's words, tests that assert exact values, no defensive code for what the types already rule out, nothing duplicated.
+- **Is it clean?** The reviewer checks [AGENTS.md](AGENTS.md) and the [coding standards](docs/development/standards.md): the layer rules, names, comments, the interface's words, tests that assert exact values, no defensive code for what the types already rule out, nothing duplicated.
 - **Are the records kept?** A changelog entry; a decision record where a decision was made; a lesson where a mistake revealed a class of mistakes.
 - **Findings** come back as comments. Fix them in new commits on the same branch; the reviewer looks again at what changed.
 
-A maintainer merges once CI passes and the review has no open findings.
+A maintainer merges once those checks pass and the review has no open findings.
 
 ## Licence of contributions
 

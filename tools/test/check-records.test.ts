@@ -667,6 +667,26 @@ test("the guides, the contributor documents and the docs index are read as recor
   ]);
 });
 
+test("the issue and pull-request templates are read as records", async () => {
+  expect(
+    await check({
+      ".github/ISSUE_TEMPLATE/bug_report.md": lines(
+        "## What happened",
+        "",
+        "Write to sam@example.org.",
+      ),
+      ".github/pull_request_template.md": lines(
+        "## Why",
+        "",
+        "It is in /Users/sam/notes.",
+      ),
+    }),
+  ).toEqual([
+    ".github/ISSUE_TEMPLATE/bug_report.md:3 email",
+    ".github/pull_request_template.md:3 home-path",
+  ]);
+});
+
 test("link syntax inside code is not a link", async () => {
   expect(
     await check(edit(LESSONS, { 9: "Write `[title](gone.md)` to link." })),

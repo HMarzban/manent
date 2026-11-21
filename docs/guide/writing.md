@@ -1,10 +1,10 @@
 # Writing a script
 
-How to type a script in Manent: the formats, the elements, and the keys that move a line from one element to the next. Everything here works in this build.
+How to type a script in Manent: the formats, the elements, and the keys that move a line from one element to the next.
 
 ## Formats
 
-A script has one format. Choose it in **Details → Script settings → Format**. The script settings are shared with everyone on the script.
+A script has one format. Choose it in **Details → Script**, under Script settings → Format. The script settings are shared with everyone on the script.
 
 | Format       | Elements                                                                             |
 | ------------ | ------------------------------------------------------------------------------------ |
@@ -21,7 +21,7 @@ Every format also has Section, the act breaks (New Act, End of Act, Teaser, Tag 
 
 Script settings also hold the paper (US Letter or A4), "(MORE) and (CONT'D) at page breaks", "Same-speaker (CONT'D)" and "Scene CONTINUED".
 
-Every script is set in Courier Prime, on real pages. The page count and the page you are on are in the status bar ("Page 3 of 12"). A character the script font cannot draw is marked on the page; it prints as a box.
+Every script is set in Courier Prime, on pages laid out as they print. The page count and the page you are on are in the status bar ("Page 3 of 12"). A character the script font cannot draw is marked on the page; it prints as a box.
 
 ## Tab and Enter
 

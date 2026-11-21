@@ -5,15 +5,15 @@ A script leaves Manent as a PDF or on paper. Both are drawn from the same page l
 ## Export a PDF
 
 1. Open the script.
-2. Choose **Export…** from the title menu (click the script's title), or open the command palette with Ctrl+K (⌘K on a Mac) and type "Export" or "PDF".
+2. Choose **Export…** from **Title ▾** (click the script's title), or open the command palette with Ctrl+K (⌘K on a Mac) and type "Export" or "PDF".
 3. The Export screen shows what will go ("Whole script", as "Clean PDF") and the pages as they will look.
-4. Click the export button. The browser saves `<title>.pdf`, and Manent says "Exported '<title>'."
+4. Click **Export 1 file**. The browser saves `<title>.pdf`, and Manent says "Exported '<title>'."
 
 If the script holds a character that the script font cannot draw, the **Checks** row names it and says that it prints as a box. The page also marks such text while you write.
 
 ## Print
 
-Choose **Print…** from the title menu or press Ctrl+P (⌘P). The Print screen says how many pages will print. Manent prepares the pages ("Preparing 12 pages…") and then opens the browser's print dialog.
+Choose **Print…** from **Title ▾** or press Ctrl+P (⌘P). The Print screen says how many pages will print. Manent prepares the pages ("Preparing 12 pages…") and then opens the browser's print dialog.
 
 ## Limits in this build
 

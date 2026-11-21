@@ -1,4 +1,5 @@
 // What the public documents must look like. Read by tools/check-records.ts.
+import { TRACKED_FILES, TRACKED_ROOTS } from "./check-tracked.ts";
 import { UCD_DIR, UCD_SHA256 } from "./unicode/generate-tables.ts";
 
 export const CHANGELOG = "CHANGELOG.md";
@@ -7,21 +8,14 @@ export const README = "README.md";
 export const DECISIONS_DIR = "docs/decisions";
 export const DECISIONS_INDEX = "docs/decisions/README.md";
 export const LESSONS = "docs/memory/lessons.md";
-export const MEMORY_DIR = "docs/memory";
 export const ARCHITECTURE_DIR = "docs/architecture";
-export const BENCHMARK_DIR = "docs/benchmark";
 export const OVERVIEW = "docs/architecture/overview.md";
 
-/** Public documents outside the folders below; each is read when it exists. */
-export const PUBLIC_FILES = [
-  AGENTS,
-  CHANGELOG,
-  README,
-  "CONTRIBUTING.md",
-  "SECURITY.md",
-  "CODE_OF_CONDUCT.md",
-  "docs/README.md",
-] as const;
+/** Public documents outside the folders below: every tracked Markdown file named in the allow-list, and the pull-request template; each is read when it exists. */
+export const PUBLIC_FILES: readonly string[] = [
+  ...TRACKED_FILES.filter((file) => file.endsWith(".md")),
+  ".github/pull_request_template.md",
+];
 
 /** A finding when one is absent. */
 export const REQUIRED_FILES = [
@@ -33,15 +27,13 @@ export const REQUIRED_FILES = [
   OVERVIEW,
 ] as const;
 
-/** Every Markdown file in these folders is a public document; a folder that does not exist holds none. */
-export const PUBLIC_DIRS = [
-  ARCHITECTURE_DIR,
-  BENCHMARK_DIR,
-  DECISIONS_DIR,
-  "docs/development",
-  "docs/guide",
-  MEMORY_DIR,
-] as const;
+/** Every Markdown file in these folders is a public document: the tracked folders under docs/, and the issue templates. A folder that does not exist holds none. */
+export const PUBLIC_DIRS: readonly string[] = [
+  ...TRACKED_ROOTS.filter((dir) => dir.startsWith("docs/")).map((dir) =>
+    dir.slice(0, -1),
+  ),
+  ".github/ISSUE_TEMPLATE",
+];
 
 /** Keep a Changelog's groups. */
 export const CHANGE_GROUPS = [

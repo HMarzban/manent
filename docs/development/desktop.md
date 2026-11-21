@@ -15,12 +15,12 @@ The desktop app is not in this build yet.
 
 ## What exists towards it
 
-| Part                  | State                                                                                                                                                                                                                                           |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/local-node` | A library with tests: the service the app will run on loopback, with a durable SQLite store, a relay to the server, an outbox, a lock so only one copy runs, and the hand-off of a script's first sync. Nothing outside its tests uses it yet   |
-| `apps/desktop/src`    | Starting the web server as a child process on a free loopback port (`cloud.ts`), the window's size and place (`window-state.ts`, `frames.ts`) and the app's words, each with tests. The shell itself (window, menus, dialogs, updater) is empty |
-| `tools/desktop/`      | Empty: the build, the size check, the smoke and headless tests, and the release notes                                                                                                                                                           |
-| The web app           | The desktop words and status wording ("On this device only") exist; the desktop parts of the web app are empty                                                                                                                                  |
+| Part                  | State                                                                                                                                                                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/local-node` | A library with tests: the service the app will run on loopback, with a durable SQLite store, a relay to the server, an outbox, a lock so only one copy runs, and the hand-off of a script's first sync. Nothing outside its tests uses it yet                 |
+| `apps/desktop/src`    | Starting the web server as a child process on a free loopback port (`cloud.ts`), the window's size and place (`window-state.ts`, `frames.ts`), each with tests, and the app's words (`words.ts`). The shell itself (window, menus, dialogs, updater) is empty |
+| `tools/desktop/`      | Empty: the build, the size check, the smoke and headless tests, and the release notes                                                                                                                                                                         |
+| The web app           | The desktop words and status wording ("On this device only") exist; the desktop parts of the web app are empty                                                                                                                                                |
 
 The shell will be built on Electrobun (2.0.6 is in the catalog). Only `apps/desktop` may import it; the boundary check enforces that.
 

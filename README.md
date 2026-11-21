@@ -1,25 +1,25 @@
 # Manent
 
-An open-source app for writing scripts — screenplays, multi-camera and animation scripts, stage plays, manuscripts, variety scripts, game scripts and Ink — on true script pages, online or off, and built for several people at once.
+An open-source app for writing scripts — screenplays, multi-camera and animation scripts, stage plays, manuscripts, variety scripts, game scripts and Ink — on pages laid out as they print, online or off, and built for several people at once.
 
 ![A screenplay open in Manent: a scene heading, action, two speeches and a transition on a script page, with "Saved · Synced" beside the title](docs/images/editor.png)
 
 ## What it is
 
-Manent is a script editor that runs in the browser and keeps every change on your device before it goes to the server. You write on real script pages, laid out the same way on screen, in print and in the PDF. It is built so that several people can work in one script, their changes merging instead of overwriting each other; the table below says how much of that works today.
+Manent is a script editor that runs in the browser and keeps every change on your device before it goes to the server. Its pages are laid out as they print: the screen, print and the PDF share one layout. It is built so that several people can work in one script, their changes merging instead of overwriting each other; the table below says how much of that works today.
 
 The repository is a Bun monorepo: React 19 and plain ProseMirror for the editor, a CRDT (Yjs, behind Manent's own interface) for merging, a sync server of its own on Bun and SQLite, and end-to-end tests in Chromium, Firefox and WebKit. Today you run it on your own machine as a demo with six made-up people.
 
-### What works today
+### Status
 
 | Capability                                                                                       | Status                                                                                               |
 | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| Writing in eight formats, with the Tab and Enter flow, the element picker and name completion    | Works today                                                                                          |
-| Exact pages: one layout engine for the screen, print and PDF; (MORE) and (CONT'D); Letter and A4 | Works today                                                                                          |
-| Saving on the device first, syncing to the server, working without a connection                  | Works today                                                                                          |
-| Export to PDF, and print                                                                         | Works today                                                                                          |
-| Command palette, rebindable shortcuts, preferences, themes, keyboard and screen-reader support   | Works today                                                                                          |
-| Several people in one script: live edits, cursors, merging                                       | In progress: works between tabs of one person; a second person cannot yet open someone else's script |
+| Writing in eight formats, with the Tab and Enter flow, the element picker and name completion    | Works                                                                                                |
+| Exact pages: one layout engine for the screen, print and PDF; (MORE) and (CONT'D); Letter and A4 | Works                                                                                                |
+| Saving on the device first, syncing to the server, working without a connection                  | Works                                                                                                |
+| Export to PDF, and print                                                                         | Works                                                                                                |
+| Command palette, rebindable shortcuts, preferences, themes, keyboard and screen-reader support   | Works; screen-reader support is checked by axe, not yet tested with screen-reader users              |
+| Several people in one script: live changes, cursors, merging                                     | In progress: works between tabs of one person; a second person cannot yet open someone else's script |
 | The Library of projects and scripts                                                              | In progress: the list is kept per tab and is empty again after a reload                              |
 | The demo's content and its guided Tour                                                           | In progress: people and workspaces exist; no seeded scripts, and the Tour's groups are empty         |
 | Version history: versions, compare, restore                                                      | In progress: the server side is written and tested but not connected; nothing in the app yet         |
@@ -33,7 +33,7 @@ The [architecture overview](docs/architecture/overview.md) gives the status of e
 
 ## Quick start
 
-You need [Bun](https://bun.com) 1.4.4 or later and Git, on macOS, Linux or Windows.
+You need [Bun](https://bun.com) 1.4.4 or later and Git. Manent is built for macOS, Linux and Windows; CI runs on all three, and does not pass on every one yet.
 
 ```sh
 git clone https://github.com/HMarzban/manent.git
@@ -41,29 +41,17 @@ cd manent
 make demo        # without make: bun run demo
 ```
 
-`make demo` installs the dependencies, builds the web app, creates the demo data, starts the server on your machine and opens `http://localhost:4747`. Stop it with Ctrl+C or `make stop`; `make reset` starts the demo data afresh.
+It opens `http://localhost:4747`, where you will see:
 
-What you will see:
-
-1. **Choose who you are.** Six demo people, each with a role; one click, no password. Each browser tab is its own person.
+1. **Choose who you are.** Six demo people, each with a role; one click, no password. Pick anyone but **You**: You is a new person who is not signed in, so nothing syncs.
 2. **The Library**, empty. Click **New script**.
-3. **A script page.** Type `INT. LIGHTHOUSE - NIGHT`, press Escape to close the list of headings, then Enter, and keep writing: Tab and Enter choose the next element for you.
+3. **A script page.** Click the page, type `INT. LIGHTHOUSE - NIGHT`, press Escape to close the list of headings, then Enter, and keep writing: Tab and Enter choose the next element for you.
 
-Then try:
-
-- **Work offline.** Click **Stop the server** in the purple demo bar and keep typing: the status says "Can't reach Manent, 1 waiting". Start the server again and it says "Synced".
-- **Two tabs.** Open the script's address in a new tab as the same person and type in both.
-- **Export.** Press Ctrl+K (⌘K), type "Export" and press Enter.
-
-[Getting started](docs/guide/getting-started.md) has the rest: letting a second machine join, other ports, and what to do when something goes wrong.
+[What to try](docs/guide/getting-started.md#what-to-try) goes on from there: working offline, two tabs, and export. Stop the demo with Ctrl+C or `make stop`.
 
 ## Documentation
 
-- **Using Manent:** [Getting started](docs/guide/getting-started.md) · [Writing a script](docs/guide/writing.md) · [Saving and syncing](docs/guide/saving-and-syncing.md) · [Working together](docs/guide/working-together.md) · [Export and print](docs/guide/export-and-print.md) · [Keyboard shortcuts](docs/guide/keyboard-shortcuts.md) · [Preferences and accessibility](docs/guide/preferences-and-accessibility.md)
-- **Working on Manent:** [Set up a development copy](docs/development/setup.md) · [Testing](docs/development/testing.md) · [Benchmarks](docs/development/benchmarks.md) · [Desktop app](docs/development/desktop.md) · [Coding standards](docs/development/standards.md)
-- **How it is built:** [Architecture overview](docs/architecture/overview.md) · [Layers](docs/architecture/layers.md) · [Repository outline](docs/architecture/repository.md) · [Decision records](docs/decisions/README.md) · [Lessons](docs/memory/lessons.md)
-
-The [documentation index](docs/README.md) lists every page.
+Start with [Getting started](docs/guide/getting-started.md) to use Manent, [Set up a development copy](docs/development/setup.md) to work on it, or the [architecture overview](docs/architecture/overview.md) to see how it is built. The [documentation index](docs/README.md) lists every page.
 
 ## Project status and roadmap
 

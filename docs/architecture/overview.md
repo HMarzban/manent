@@ -21,8 +21,8 @@ How Manent is put together, and how much of it exists. [layers.md](layers.md) ha
 ```text
  BROWSER TAB (apps/web)                                     DESKTOP APP (apps/desktop)           [planned]
  ┌─────────────────────────────────────────────────┐        ┌───────────────────────────────────────────┐
- │ React screens: chooser, Library, script, Send,  │        │ shell: window, menus, updater   [planned]  │
- │   Preferences                         [built]   │        │ the same web app in the window             │
+ │ React screens: chooser, Library, script,        │        │ shell: window, menus, updater   [planned]  │
+ │   Send (Export, Print), Preferences   [built]   │        │ the same web app in the window             │
  │ editor: ProseMirror, pages, picker    [built]   │        │ local node (packages/local-node):          │
  │   CRDT binding · presence             [built]   │        │   loopback service, SQLite store,          │
  │ sync client: link, journal, outbox    [built]   │        │   relay to the server   [library, unused]  │
@@ -132,7 +132,7 @@ doc ── section+ ── block+ ── text*
 
 Anything that must mean one thing to everyone, such as a version or a lock, is ordered by one authority. Anything that can be computed from the document is computed, so it cannot go stale. Script settings live in maps that only the server writes, at a person's request.
 
-## An edit, step by step
+## A change, step by step
 
 ```mermaid
 sequenceDiagram
@@ -149,7 +149,7 @@ sequenceDiagram
   S->>D: commit in one transaction
   S-->>C: ACK {clientSeq, serverSeq}
   C->>L: marked acknowledged → "Synced"
-  S-->>O: SYNC update to editors, VIEW_PATCH to viewers
+  S-->>O: SYNC update to editors, VIEW_PATCH to readers
 ```
 
 1. **In the editor.** `createScriptEditor` (`packages/editor`) is bound to the script's Yjs document by `bindDocument` (`packages/crdt-binding`). y-prosemirror writes each transaction into the document; remote updates are held back while a person composes text with an input method.
