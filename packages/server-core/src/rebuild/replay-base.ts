@@ -7,6 +7,7 @@ import {
   createDoc,
   loadDoc,
   observeScript,
+  readStateVector,
   scriptBody,
 } from "@manent/crdt";
 import type { CrdtDoc, SetAside } from "@manent/crdt";
@@ -49,11 +50,14 @@ function catchUp(
   return setAside;
 }
 
-/** Mine with the updates applied, and the set-aside text; "invalid" when one is not an update or writes what a push may not. */
+/**
+ * Mine with the updates applied, and the text of `writers` they removed unseen; "invalid" when one
+ * is not an update or writes what a push may not.
+ */
 function applyWaiting(
   mine: CrdtDoc,
   updates: readonly Uint8Array[],
-  own: ReadonlySet<number>,
+  writers: ReadonlySet<number>,
 ): SetAside[] | "invalid" {
   let refused = false;
   const stop = observeScript(mine, (report) => {
@@ -64,7 +68,7 @@ function applyWaiting(
   const setAside: SetAside[] = [];
   try {
     for (const update of updates)
-      setAside.push(...applyRemote(mine, update, own, ORIGIN_REPLAY));
+      setAside.push(...applyRemote(mine, update, writers, ORIGIN_REPLAY));
   } catch (error) {
     if (!(error instanceof CrdtUpdateError)) throw error;
     return "invalid";
@@ -77,10 +81,11 @@ function applyWaiting(
 /**
  * base: the generation at `lastServerSeq` (its newest checkpoint at or before it, then its rows),
  * moved on to the smallest later sequence at which the waiting updates are complete; mine: base with
- * the updates applied. setAside: own text the updates or those later rows removed unseen. invalid:
- * an update is not one, writes a root map, or leaves a block validation refuses; incomplete: the
- * updates still wait at the generation's last row, or a row they need does not verify. RangeError
- * for a generation that is not closed.
+ * the updates applied. setAside: anyone's text the updates removed unseen (the replay writes those
+ * deletions afresh, so whoever typed it would never be told), then own text those later rows
+ * removed unseen. invalid: an update is not one, writes a root map, or leaves a block validation
+ * refuses; incomplete: the updates still wait at the generation's last row, or a row they need does
+ * not verify. RangeError for a generation that is not closed.
  */
 export function replayBase(
   file: DocFile,
@@ -107,7 +112,9 @@ export function replayBase(
     if (!applyRows(base, rows, from, acked))
       return { ok: false, code: "incomplete" };
     mine.applyUpdate(base.encodeState(), ORIGIN_LOAD);
-    const waiting = applyWaiting(mine, updates, ownClientIds);
+    const writers = new Set(readStateVector(base.encodeStateVector()).keys());
+    for (const clientId of ownClientIds) writers.add(clientId);
+    const waiting = applyWaiting(mine, updates, writers);
     if (waiting === "invalid") return { ok: false, code: "invalid" };
     const own = ownClientIds;
     const later = catchUp(base, mine, rows, { seq: acked, finalSeq, own });

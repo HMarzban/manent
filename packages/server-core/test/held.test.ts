@@ -1,13 +1,24 @@
 import { expect, test } from "bun:test";
+import { scriptSettings } from "@manent/crdt";
+import { blockText, blocksOf } from "@manent/schema";
 import { DOC, DOC2 } from "./seed.ts";
 import {
   DANA_CLIENT,
+  EMPTY_VECTOR,
   SAM_CLIENT,
   push,
   set,
+  step1,
+  stepTwoOf,
   subscribe,
 } from "./service-world.ts";
-import { ack, createRelayWorld, tail } from "./relay-world.ts";
+import {
+  ack,
+  createRelayWorld,
+  materialize,
+  roomDoc,
+  tail,
+} from "./relay-world.ts";
 import type { RelayWorld } from "./relay-world.ts";
 
 /** Sam and Dana edit `docId`; what they were sent is dropped. */
@@ -108,6 +119,35 @@ test("seed 9: a setting the authority writes on a full disk reaches no window un
   expect([typesOf(sam.take()), typesOf(dana.take())]).toEqual([
     ["SYNC", "ACK"],
     ["SYNC"],
+  ]);
+});
+
+test("seed 9: a window that subscribes while commits are held is sent them, but no setting the authority has yet to commit", () => {
+  const world = createRelayWorld({ fullDisk: "hold" });
+  const { service, clock, storage, sam, dana } = world;
+  editing(world, DOC);
+  service.receive(sam, push(DOC, 1, world.typingIn(DOC)));
+  clock.runDeferred();
+  const committed = roomDoc(world, DOC).encodeStateVector();
+  storage.fillDisk(true);
+  service.receive(sam, set(DOC, 2, "script.paper", "a4"));
+  service.receive(sam, push(DOC, 3, world.typingIn(DOC, undefined, "!")));
+  clock.runDeferred();
+  dana.take();
+  // the disk has room again, and what is held waits for its retry
+  storage.fillDisk(false);
+  // a window that holds nothing, and one that holds what is committed
+  const shown = [EMPTY_VECTOR, committed].map((vector) => {
+    service.receive(dana, subscribe(DOC, "edit", [DANA_CLIENT]));
+    service.receive(dana, step1(DOC, vector));
+    const doc = roomDoc(world, DOC);
+    doc.applyUpdate(stepTwoOf(dana.take()));
+    const [block] = blocksOf(materialize(doc));
+    return [scriptSettings(doc).entries(), block && blockText(block)];
+  });
+  expect(shown).toEqual([
+    [{}, "scene one!"],
+    [{}, "scene one!"],
   ]);
 });
 
