@@ -1,4 +1,11 @@
 // Stand-ins for the world a person's services run in: storage, its events, a clock, the server, the router and the window.
+import { soloLeader } from "@manent/sync-client";
+import type { Random } from "@manent/sync-client";
+import {
+  createMemoryNetwork,
+  createMemoryStore,
+} from "@manent/sync-client/testing";
+import type { VersionSet } from "@manent/sync-protocol";
 import { createValue } from "@manent/ui";
 import type { Api } from "../src/api.ts";
 import { placeholderMount } from "../src/editor-host/placeholder-mount.ts";
@@ -10,6 +17,8 @@ import type {
   ShellState,
 } from "../src/services/ports.ts";
 import { createPersonServices } from "../src/services/services.ts";
+import { createPersonSync } from "../src/services/sync/create-sync.ts";
+import { createDeviceMemory } from "../src/services/sync/device-memory.ts";
 import type { StorageEvents } from "../src/services/local-map.ts";
 import type { ShellDom } from "../src/shell/regions.tsx";
 import { createGuard } from "../src/state/guard.ts";
@@ -114,6 +123,7 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
     signIn: async () => ({ ok: false, reason: "unreachable" }),
     me: async () => ({ ok: false, reason: "unauthenticated" }),
     demo: async () => null,
+    removedDoc: async () => null,
     ...overrides,
   };
 }
@@ -156,6 +166,23 @@ export const QUIET_DOM: ShellDom = Object.freeze({
   announce: () => {},
 });
 
+export const V1: VersionSet = Object.freeze({
+  protocol: 1,
+  schema: 1,
+  engine: 0,
+  table: 0,
+});
+
+/** The same draws in every run: the middle of the range, and client ids counting up from 7, so a reopened document can take a new one. */
+export function fixedRandom(): Random {
+  let clientId = 6;
+  return {
+    next: () => 0.5,
+    clientId: () => ++clientId,
+    bytes: (length: number) => new Uint8Array(length).fill(7),
+  };
+}
+
 export function testEnvironment(
   overrides: Partial<Environment> = {},
 ): Environment {
@@ -187,6 +214,30 @@ export function testEnvironment(
     online: () => true,
     ran: () => {},
     visitUndo: { current: null },
+    // a server that never answers: every document opens from its memory store
+    startSync: (person, deviceId) =>
+      createPersonSync({
+        person,
+        baseUrl: "http://manent.test",
+        deviceId,
+        build: "test",
+        versions: V1,
+        minServer: V1,
+        ports: {
+          transport: createMemoryNetwork({ random: () => 0 }).transport(
+            person.userId,
+          ),
+          store: createMemoryStore(person.userId),
+          leader: soloLeader(deviceId),
+          clock: { now: clock.now, schedule: clock.schedule },
+          random: fixedRandom(),
+          frames: { request: (fn) => clock.schedule(fn, 16) },
+        },
+        memory: createDeviceMemory({ local: null, session: null }),
+        onlineEvents: null,
+        visible: () => true,
+        now: clock.now,
+      }),
     ...overrides,
   };
 }

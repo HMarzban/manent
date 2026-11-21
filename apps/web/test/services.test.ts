@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import type { SideTab } from "@manent/commands";
+import { createDoc } from "@manent/crdt";
 import { entryKey } from "@manent/settings";
+import { StoreError } from "@manent/sync-client";
+import { statusText } from "@manent/ui";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createRemoteDeferral } from "../src/services/remote-deferral.ts";
@@ -19,6 +22,13 @@ import {
   testEnvironment,
   testServices,
 } from "./services.fixtures.ts";
+import {
+  fakeClient,
+  fakeHandle,
+  fakeSync,
+  turn,
+  until,
+} from "./sync.fixtures.ts";
 
 bindGuard(createGuard({ flavour: "test" }));
 
@@ -166,7 +176,71 @@ test("New script makes an untitled film whose script opens first in Continue", a
   const docId = first?.docId ?? "";
   expect(services.library.documentTitle(docId).get()).toBe("Untitled script");
   expect(services.library.documentKind(docId).get()).toBe("film");
-  expect(services.openScriptStore(docId).get("script.paper")).toBe("a4");
+  // the script's settings are its handle's, which opens from the device a moment later
+  const script = services.openScriptStore(docId);
+  await until(() => script.get("script.paper") === "a4");
+  expect(script.get("script.paper")).toBe("a4");
+});
+
+test("a sync that cannot start never says a document is saved", async () => {
+  const services = testServices({
+    userId: "leo",
+    environment: testEnvironment({
+      startSync: () => Promise.reject(new StoreError("unavailable")),
+    }),
+  });
+  const { status } = services.documents.open(
+    "0b9f6c2e-3c1a-4c55-9a43-5d8f1e2a7b10",
+  );
+  await until(() => status.get().device === "failing");
+  const { device, server } = statusText(status.get());
+  services.dispose();
+  await turn();
+  expect([device, server]).toEqual([
+    "Not saved on this device",
+    "Only in this browser — not backed up",
+  ]);
+});
+
+test("the person's sync ends with the services", async () => {
+  let disposed = 0;
+  const services = testServices({
+    userId: "leo",
+    environment: testEnvironment({
+      startSync: async () => ({
+        ...fakeSync(fakeClient(() => fakeHandle("d1", createDoc()))),
+        dispose: async () => {
+          disposed += 1;
+        },
+      }),
+    }),
+  });
+  await turn();
+  const before = disposed;
+  services.dispose();
+  await turn();
+  expect([before, disposed]).toEqual([0, 1]);
+});
+
+test("New script on a device that cannot hold it still opens the script, whose status says it is not saved", async () => {
+  const route = createNavigation({ routeId: "/", href: "/", search: {} });
+  const services = testServices({
+    userId: "leo",
+    environment: testEnvironment({
+      startSync: () => Promise.reject(new StoreError("unavailable")),
+    }),
+    router: route.navigation,
+  });
+  const opened = route.next();
+  expect(services.commands.run("library.newScript", "control")).toBe("ran");
+  const docId = (await opened).slice("/s/".length);
+  const [first] = services.library.continueList("leo").get();
+  const { status } = services.documents.open(docId);
+  await until(() => status.get().device === "failing");
+  const { device } = statusText(status.get());
+  services.dispose();
+  await turn();
+  expect([first?.docId, device]).toEqual([docId, "Not saved on this device"]);
 });
 
 test("a script's layout waits for authority once its page numbers are locked", () => {

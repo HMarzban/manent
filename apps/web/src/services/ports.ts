@@ -12,6 +12,7 @@ import type {
   SectionId,
   SettingsStore,
 } from "@manent/settings";
+import type { SyncClient } from "@manent/sync-client";
 import type {
   MessageQueue,
   NEW_PROJECT_CARDS,
@@ -23,11 +24,12 @@ import type { EditorControl } from "../editor-host/control.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
 import type { PlaceStore } from "../editor-host/place.ts";
 import type { Where } from "../platform.ts";
-import type { TabStorage } from "../session.ts";
+import type { TabPerson, TabStorage } from "../session.ts";
 import type { ShellDom } from "../shell/regions.tsx";
 import type { Guard } from "../state/guard.ts";
 import type { PersonPresent } from "../state/people.store.ts";
 import type { StorageEvents } from "./local-map.ts";
+import type { PersonSync } from "./sync/create-sync.ts";
 
 /** The kinds New project offers, in its order. */
 export type ProjectKind = (typeof NEW_PROJECT_CARDS)[number]["kind"];
@@ -148,6 +150,8 @@ export interface EditorParts {
   fixedKeys: { set(keys: readonly FixedKey[]): void };
   /** `path` is a path inside the app. */
   navigate: (path: string) => void;
+  /** The person's sync client, whose handles the editor's sessions are. */
+  client: Promise<SyncClient>;
 }
 
 /** What the shell knows of the window, written by the shell whenever it changes. */
@@ -201,4 +205,6 @@ export interface Environment {
   /** Told the id of every command that ran. */
   ran: (commandId: string) => void;
   visitUndo: { current: { undo(): boolean } | null };
+  /** Starts the person's sync on this device; the services dispose it. */
+  startSync(person: TabPerson, deviceId: string): Promise<PersonSync>;
 }
