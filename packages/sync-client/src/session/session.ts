@@ -4,6 +4,7 @@ import { createDoc } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import { CODE } from "@manent/sync-protocol";
 import type { DocumentMessage, Message } from "@manent/sync-protocol";
+import { restoreLocally } from "../history/local-restore.ts";
 import type { ServerGate } from "../link/gate.ts";
 import type { LinkIssue } from "../link/machine.ts";
 import { deriveStatus } from "../outbox/status.ts";
@@ -23,6 +24,7 @@ import type { Via } from "../upstream/window.ts";
 import type { ViewHandle } from "../view/view.ts";
 import type { DocHandle } from "./doc-handle.ts";
 import type { UnsavedEdit } from "./edits.ts";
+import { toDocEvent } from "./frame-events.ts";
 import type { Handshake } from "./handshake.ts";
 import { IndexWait } from "./index-wait.ts";
 import { createJournal } from "./journal.ts";
@@ -215,6 +217,19 @@ class DocSession implements Session {
       sendAwareness: (update) => this.handshake.sendAwareness(update),
       adoptClientIds: (ids) => this.adoptClientIds(ids),
       close: () => this.close(),
+      nameVersion: async (name) => {
+        const { stored, ...version } = this.copy.recordVersion(
+          "device",
+          "named",
+          name,
+        );
+        await stored;
+        return version;
+      },
+      restoreLocally: (target, scope) =>
+        restoreLocally(this.copy, target, scope, ports.random),
+      deviceVersions: () => ports.store.versions(docId),
+      lastServerSeq: () => journal.meta.lastServerSeq,
     });
   }
 
@@ -292,12 +307,9 @@ class DocSession implements Session {
   }
 
   receive(message: DocumentMessage): void {
-    const { upstream } = this;
-    if (upstream === null) return this.handshake.receive(message);
-    if (message.type === "ACK") this.upstreamOutdated = true;
-    if (message.type === "CONTROL" && message.kind === "upstream_status")
-      this.upstreamOutdated = false;
-    if (!upstream.receive(message)) this.handshake.receive(message);
+    this.route(message);
+    const event = toDocEvent(message);
+    if (event !== null) this.copy.emit(event);
   }
 
   /** A refusal of the old generation while a move is under way is not acted on. */
@@ -312,6 +324,15 @@ class DocSession implements Session {
 
   writeSchema(version: number): void {
     this.copy.writeSchema(version);
+  }
+
+  private route(message: DocumentMessage): void {
+    const { upstream } = this;
+    if (upstream === null) return this.handshake.receive(message);
+    if (message.type === "ACK") this.upstreamOutdated = true;
+    if (message.type === "CONTROL" && message.kind === "upstream_status")
+      this.upstreamOutdated = false;
+    if (!upstream.receive(message)) this.handshake.receive(message);
   }
 
   /** The meta changed, or the store refused a write: shown, and told once the writes started so far have settled. */

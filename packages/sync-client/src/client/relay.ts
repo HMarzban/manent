@@ -1,8 +1,15 @@
 // The handle an app holds: one object for a document's whole life in a tab, linked to the session
 // that leads it here or to the follower that mirrors another tab's.
 import type { CrdtDoc } from "@manent/crdt";
+import type { RestoreScope } from "@manent/revisions";
+import type { DocJSON } from "@manent/schema";
 import { createSubscribable } from "../outbox/subscribable.ts";
-import type { DocStatus, RecoveredItem, Subscribable } from "../ports/ports.ts";
+import type {
+  DeviceVersion,
+  DocStatus,
+  RecoveredItem,
+  Subscribable,
+} from "../ports/ports.ts";
 import type { DocEvent, DocHandle } from "../session/doc-handle.ts";
 import type { UpstreamStatus } from "../upstream/status.ts";
 import type { ViewHandle } from "../view/view.ts";
@@ -110,6 +117,25 @@ class Relay implements RelayHandle {
 
   saveVersion(label: "session_end" | "manual"): Promise<void> {
     return this.backend.saveVersion(label);
+  }
+
+  nameVersion(name: string): Promise<DeviceVersion> {
+    return this.backend.nameVersion(name);
+  }
+
+  restoreLocally(
+    target: DocJSON,
+    scope: RestoreScope,
+  ): Promise<{ beforeVersionId: string; applied: number }> {
+    return this.backend.restoreLocally(target, scope);
+  }
+
+  deviceVersions(): Promise<DeviceVersion[]> {
+    return this.backend.deviceVersions();
+  }
+
+  lastServerSeq(): number {
+    return this.backend.lastServerSeq();
   }
 
   adoptClientIds(ids: readonly number[]): void {
