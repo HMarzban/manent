@@ -334,6 +334,7 @@ export const NAMES: readonly string[] = Object.freeze([
   "A4",
   "A12",
   "Courier Prime",
+  "Final Draft",
 ]);
 
 /** Words of the interface that name a part of Manent and are not yet listed terms; allowed until they are listed. */
@@ -367,6 +368,9 @@ export const BANNED_WORD_EXCEPTION: readonly string[] = Object.freeze([
   "Nothing to set. Manent updates once every Manent tab has been closed.",
   "Nothing to set. Manent is in English in this release; spelling follows your system's language.",
   "Get the latest Manent",
+  "Page numbers came in locked: pages start where Final Draft started them, not where Manent would.",
+  "Cast list",
+  "Paragraph settings",
 ]);
 
 /** The four sentences allowed to say "not sent", for changes that will never reach the server; `{…}` is any value. */

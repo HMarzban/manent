@@ -25,6 +25,7 @@ export * from "./json-map.ts";
 export * from "./measure.ts";
 export * from "./rebuild.ts";
 export * from "./revised-overrides.ts";
+export * from "./script-maps.ts";
 export * from "./set-aside.ts";
 export * from "./settings.ts";
 export * from "./undo-scope.ts";
