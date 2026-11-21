@@ -1,4 +1,4 @@
-// One home's document file: its log, versions, generations, replays and adoptions over one connection, and the checkpoints file beside it.
+// One home's document file: its log, versions, history, generations, replays and adoptions over one connection, and the checkpoints file beside it.
 import type { Database } from "bun:sqlite";
 import { crc32 } from "../checksum.ts";
 import type {
@@ -10,15 +10,13 @@ import type {
   Home,
   UpdateOrigin,
   UpdateRow,
-  VersionKind,
-  VersionRow,
-  Versions,
 } from "../ports.ts";
 import { COLOR_COUNT, StorageError } from "../ports.ts";
 import { createSqliteAdoptions } from "./adoptions.ts";
 import { createCheckpointsFile } from "./checkpoints.ts";
 import { docFilePath, migrate, openDatabase, transact } from "./files.ts";
 import { createSqliteGenerations } from "./generations.ts";
+import { createSqliteHistory, createSqliteVersions } from "./history.ts";
 import { createSqliteReplays } from "./replays.ts";
 
 /** A document file the storage closes when it closes. */
@@ -41,20 +39,6 @@ const REASONS = {
   behind: true,
   restore: true,
 } satisfies Record<HealingRow["reason"], true>;
-const VERSION_KINDS = {
-  auto: true,
-  saved: true,
-  named: true,
-  sent: true,
-  export: true,
-  device: true,
-  pre_restore: true,
-  pre_merge: true,
-  pre_heal: true,
-  recovered: true,
-  revision_baseline: true,
-  revision_issue: true,
-} satisfies Record<VersionKind, true>;
 
 const isIn = <T extends string>(
   table: Record<T, true>,
@@ -275,50 +259,6 @@ function createLog(db: Database, sql: Statements, now: () => number): DocLog {
   return log;
 }
 
-function createVersions(db: Database): Versions {
-  const add = db.query<
-    never,
-    [
-      string,
-      string,
-      number | null,
-      number | null,
-      string,
-      string | null,
-      string,
-      number,
-      string | null,
-    ]
-  >(
-    "INSERT INTO doc_versions (id, doc_id, generation, seq, kind, name, created_by, created_at, device_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-  );
-  const list = db.query<Omit<VersionRow, "kind"> & { kind: string }, [string]>(
-    `SELECT id, doc_id AS docId, generation, seq, kind, name, created_by AS createdByUserId, created_at AS createdAt,
-     device_id AS deviceId FROM doc_versions WHERE doc_id = ?1 ORDER BY created_at DESC, rowid DESC`,
-  );
-  return {
-    add(v) {
-      transact(db, () =>
-        add.run(
-          v.id,
-          v.docId,
-          v.generation,
-          v.seq,
-          v.kind,
-          v.name,
-          v.createdByUserId,
-          v.createdAt,
-          v.deviceId,
-        ),
-      );
-    },
-    list: (docId) =>
-      list
-        .all(docId)
-        .map((row) => ({ ...row, kind: member(VERSION_KINDS, row.kind) })),
-  };
-}
-
 // Each open file's connection, for the page limit a test sets on the driver's own connection.
 const connections = new WeakMap<DocFile, Database>();
 
@@ -349,7 +289,8 @@ export function openDocFile(options: {
   const file: SqliteDocFile = {
     home: { ...options.home },
     log,
-    versions: createVersions(db),
+    versions: createSqliteVersions(db),
+    history: createSqliteHistory(db),
     checkpoints: caches.checkpoints,
     generations: createSqliteGenerations({ db, log, now }),
     replays: createSqliteReplays(db),

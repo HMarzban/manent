@@ -23,6 +23,7 @@ export const MIGRATIONS: {
     ],
     [],
     [],
+    [],
   ],
   documents: [
     [
@@ -83,6 +84,14 @@ export const MIGRATIONS: {
       `CREATE TABLE doc_adoptions (doc_id TEXT PRIMARY KEY, key TEXT NOT NULL, user_id TEXT NOT NULL, seq INTEGER NOT NULL,
         adopted_at INTEGER NOT NULL) STRICT, WITHOUT ROWID`,
     ],
+    [
+      `CREATE TABLE version_chunks (hash BLOB PRIMARY KEY, body BLOB NOT NULL) STRICT, WITHOUT ROWID`,
+      `CREATE TABLE version_summaries (version_id TEXT PRIMARY KEY, author_ids TEXT NOT NULL,
+        block_ids TEXT NOT NULL, scene_ids TEXT NOT NULL) STRICT, WITHOUT ROWID`,
+      `CREATE TABLE history_requests (doc_id TEXT NOT NULL, request_key TEXT NOT NULL, user_id TEXT NOT NULL,
+        result TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (doc_id, request_key)) STRICT, WITHOUT ROWID`,
+      `CREATE INDEX doc_versions_page ON doc_versions (doc_id, created_at DESC, id DESC)`,
+    ],
   ],
   checkpoints: [
     [
@@ -99,5 +108,9 @@ export const MIGRATIONS: {
         PRIMARY KEY (doc_id, generation)) STRICT, WITHOUT ROWID`,
     ],
     [],
+    [
+      `CREATE TABLE checkpoint_pins (version_id TEXT PRIMARY KEY, doc_id TEXT NOT NULL, generation INTEGER NOT NULL,
+        seq INTEGER NOT NULL) STRICT, WITHOUT ROWID`,
+    ],
   ],
 });

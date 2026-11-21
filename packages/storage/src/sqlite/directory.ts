@@ -21,7 +21,8 @@ function readPlace(row: PlaceRow | null) {
   return { home: readHome(row.home), kind: row.kind };
 }
 
-function readCapabilities(text: string): string[] {
+/** A stored JSON array of strings; StorageError("corrupt") for anything else. */
+export function readStrings(text: string): string[] {
   let value: unknown;
   try {
     value = JSON.parse(text);
@@ -70,6 +71,9 @@ export function createSqliteDirectory(options: {
     >(
       "SELECT user_id AS userId, role, capabilities FROM doc_roles WHERE doc_id = ?1 ORDER BY user_id",
     ),
+    roleBesides: db.query<{ held: 1 }, [string, string]>(
+      "SELECT 1 AS held FROM doc_roles WHERE doc_id = ?1 AND user_id <> ?2 LIMIT 1",
+    ),
     tombstone: db.query<never, [string, string, number]>(
       "INSERT INTO tombstones (doc_id, deleted_by_user_id, deleted_at) VALUES (?1, ?2, ?3) ON CONFLICT (doc_id) DO NOTHING",
     ),
@@ -108,15 +112,17 @@ export function createSqliteDirectory(options: {
       if (row === null) return null;
       return {
         role: row.role,
-        capabilities: readCapabilities(row.capabilities),
+        capabilities: readStrings(row.capabilities),
       };
     },
     rolesOf: (docId) =>
       sql.rolesOf.all(docId).map((row) => ({
         userId: row.userId,
         role: row.role,
-        capabilities: readCapabilities(row.capabilities),
+        capabilities: readStrings(row.capabilities),
       })),
+    hasRoleBesides: (docId, userId) =>
+      sql.roleBesides.get(docId, userId) !== null,
     tombstone: (docId, deletedByUserId) =>
       write(() => sql.tombstone.run(docId, deletedByUserId, now())),
     tombstoneOf: (docId) => sql.tombstoneOf.get(docId),

@@ -144,7 +144,10 @@ export interface Versions {
 
 /** Disposable caches, never part of a transaction. */
 export interface Checkpoints {
-  /** Hashes the state, and keeps the newest CHECKPOINTS_KEPT per document. */
+  /**
+   * Hashes the state, and keeps of its generation the newest CHECKPOINTS_KEPT, plus, for each pin of the document
+   * in that generation, the newest checkpoint at or before the pin's seq.
+   */
   put(docId: string, generation: number, seq: number, state: Uint8Array): void;
   /** The newest whose hash verifies; one that fails is deleted and the next older tried. */
   newest(
@@ -157,6 +160,11 @@ export interface Checkpoints {
     generation: number,
     seq: number,
   ): { seq: number; state: Uint8Array } | null;
+  /** Keeps the newest checkpoint at or before `seq` while the pin stands; pinning a version again moves its pin. */
+  pin(versionId: string, docId: string, generation: number, seq: number): void;
+  unpin(versionIds: readonly string[]): void;
+  /** Deletes every checkpoint and pin of that generation. */
+  purge(docId: string, generation: number): void;
 }
 
 /** A closed generation. `finalState` null: its final state has been purged. */
@@ -247,18 +255,79 @@ export interface Measures {
   get(docId: string, generation: number): MeasureRow | null;
 }
 
+/** What a version changed: who wrote it, the blocks it changed and their scenes. */
+export interface VersionSummary {
+  authorIds: string[];
+  blockIds: string[];
+  sceneIds: string[];
+}
+
+/** Where a page of versions continues: strictly older than this. */
+export interface VersionCursor {
+  createdAt: number;
+  id: string;
+}
+
+/** One history request's answer under its idempotency key: `result` is the response as JSON text. */
+export interface HistoryRequestRow {
+  docId: string;
+  key: string;
+  userId: string;
+  result: string;
+  createdAt: number;
+}
+
+/** A document file's versions beyond their rows: pages, snapshots, the chunks snapshots are cut into, summaries, request keys and the purge of a frozen log. */
+export interface History {
+  /** Newest first, by createdAt then id, both descending; strictly before `before` when it is not null. */
+  page(
+    docId: string,
+    before: VersionCursor | null,
+    limit: number,
+  ): VersionRow[];
+  get(versionId: string): VersionRow | null;
+  /** Null when the version is unknown or has no snapshot. */
+  snapshotOf(
+    versionId: string,
+  ): { ref: string; engineVersion: number | null } | null;
+  setSnapshot(
+    versionId: string,
+    ref: string,
+    engineVersion: number | null,
+  ): void;
+  /** Removes the rows and their summaries. */
+  remove(versionIds: readonly string[]): void;
+  /** Idempotent: a hash already stored keeps its body. */
+  putChunk(hash: Uint8Array, body: Uint8Array): void;
+  chunk(hash: Uint8Array): Uint8Array | null;
+  chunkHashes(): Uint8Array[];
+  removeChunks(hashes: readonly Uint8Array[]): void;
+  summary(versionId: string): VersionSummary | null;
+  /** Replaces the version's summary. */
+  setSummary(versionId: string, summary: VersionSummary): void;
+  request(docId: string, key: string): HistoryRequestRow | null;
+  /** RangeError for a key already stored for the document. */
+  putRequest(row: HistoryRequestRow): void;
+  /**
+   * Deletes that generation's log rows and sets its final state null, returning the rows removed.
+   * RangeError for an unknown document, or a generation that is not frozen.
+   */
+  purgeLog(docId: string, generation: number): number;
+}
+
 /** One project's or one user's documents. */
 export interface DocFile {
   readonly home: Home;
   readonly log: DocLog;
   readonly versions: Versions;
+  readonly history: History;
   readonly checkpoints: Checkpoints;
   readonly generations: Generations;
   readonly replays: Replays;
   readonly measures: Measures;
   readonly adoptions: Adoptions;
   /**
-   * The unit of work: every write to `log`, `versions`, `generations`, `replays` and `adoptions` inside the synchronous
+   * The unit of work: every write to `log`, `versions`, `history`, `generations`, `replays` and `adoptions` inside the synchronous
    * `fn` commits together or not at all. A failure throws
    * StorageError("commit_failed") having written nothing. A write outside one
    * commits by itself.
@@ -294,6 +363,8 @@ export interface DocDirectory {
   rolesOf(
     docId: string,
   ): { userId: string; role: string; capabilities: string[] }[];
+  /** Whether a user other than `userId` holds a role on the document. */
+  hasRoleBesides(docId: string, userId: string): boolean;
   /** Idempotent: the first tombstone wins. */
   tombstone(docId: string, deletedByUserId: string): void;
   tombstoneOf(
@@ -308,7 +379,7 @@ export interface Storage {
   close(): void;
 }
 
-export const STORAGE_SCHEMA_VERSION = 3;
+export const STORAGE_SCHEMA_VERSION = 4;
 export const CHECKPOINT_FORMAT_VERSION = 1;
 export const CHECKPOINTS_KEPT = 3;
 
