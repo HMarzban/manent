@@ -4,7 +4,7 @@ import type { CrdtDoc } from "@manent/crdt";
 import { canonicalBlocksOf } from "@manent/revisions";
 import type { BlockJSON, DocJSON } from "@manent/schema";
 import { StorageError } from "@manent/storage";
-import type { VersionCursor, VersionRow } from "@manent/storage";
+import type { DocFile, VersionCursor, VersionRow } from "@manent/storage";
 import { createMemoryStorage } from "@manent/storage/testing";
 import { isVersionCursor } from "@manent/sync-protocol";
 import type {
@@ -77,6 +77,8 @@ interface Person {
   readonly peer: FakePeer;
   join(): void;
   type(blockId: string, text: string): void;
+  /** An edit sent, left queued until the next commit. */
+  send(blockId: string, text: string): void;
   /** `count` one-letter edits, committed in turns of 500. */
   typeMany(blockId: string, count: number): void;
   leave(): void;
@@ -177,6 +179,7 @@ function historyWorld(options: { extras?: HistoryExtras } = {}) {
         edit(blockId, text);
         clock.runDeferred();
       },
+      send: edit,
       typeMany(blockId, count) {
         for (let i = 1; i <= count; i++) {
           edit(blockId, "x");
@@ -695,6 +698,19 @@ test("a reader may list and open versions but not name, save or upload", async (
   expect(await run(history.list("ana", DOC, null, 500))).toEqual(refused);
 });
 
+/** A named version another feature keeps at a position of the script. */
+const keptRow = (id: string, seq: number, createdAt: number): VersionRow => ({
+  id,
+  docId: DOC,
+  generation: 1,
+  seq,
+  kind: "named",
+  name: "White production draft",
+  createdByUserId: "sam",
+  createdAt,
+  deviceId: null,
+});
+
 test("a version another feature keeps inside its own write is listed with its snapshot and its locks", async () => {
   const extras: HistoryExtras = {
     locksAt: () => [ANCHOR],
@@ -704,17 +720,7 @@ test("a version another feature keeps inside its own write is listed with its sn
     historyWorld({ extras });
   sam.join();
   sam.type(SCENE_2_ACTION, "cold ");
-  const row: VersionRow = {
-    id: "white-draft",
-    docId: DOC,
-    generation: 1,
-    seq: 2,
-    kind: "named",
-    name: "White production draft",
-    createdByUserId: "sam",
-    createdAt: clock.clock.now(),
-    deviceId: null,
-  };
+  const row = keptRow("white-draft", 2, clock.clock.now());
   file.transaction(() => history.keep(file, row));
   expect(await versions()).toMatchObject([
     { id: "white-draft", kind: "named", name: "White production draft" },
@@ -730,4 +736,92 @@ test("a version another feature keeps inside its own write is listed with its sn
     file.transaction(() => history.keep(file, { ...row, id: "white-2" })),
   ).toThrow(StorageError);
   expect(file.history.get("white-2")).toBeNull();
+});
+
+/** Removes `versionId`'s snapshot manifest: the version no longer reads. */
+function damageSnapshot(file: DocFile, versionId: string): void {
+  const snapshot = file.history.snapshotOf(versionId);
+  if (snapshot === null) throw new RangeError(`${versionId} has no snapshot`);
+  file.history.removeChunks([Uint8Array.fromHex(snapshot.ref)]);
+}
+
+test("a session's version is refused when the version before it is damaged, and the push queued beside it commits", async () => {
+  const { sam, dana, clock, file, service, settle, versions, named } =
+    historyWorld();
+  const { version } = valueOf(await named("First draft", 1));
+  // nobody holds the room: it is unloaded and forgotten, and what was kept of it with it
+  clock.advance(30_000);
+  damageSnapshot(file, version.id);
+  sam.join();
+  dana.join();
+  sam.type(SCENE_2_ACTION, "cold ");
+  dana.peer.take();
+  dana.send(SCENE_5_ACTION, "x");
+  sam.leave();
+  await settle();
+  expect(service.stats().poisoned).toBe(0);
+  expect(file.log.get(DOC)?.headSeq).toBe(3);
+  expect(dana.peer.take().filter((m) => m.type === "ERROR")).toEqual([]);
+  expect((await versions()).map((v) => v.kind)).toEqual(["named"]);
+});
+
+test("an upload to a script nobody has open is read again for the version after it", async () => {
+  const { sam, file, settle, run, history, versions } = historyWorld();
+  const upload = deviceVersion("device-version-4");
+  valueOf(await run(history.upload("sam", upload)));
+  damageSnapshot(file, "device-version-4");
+  sam.join();
+  sam.type(SCENE_2_ACTION, "cold ");
+  sam.leave();
+  await settle();
+  expect((await versions()).map((v) => v.kind)).toEqual(["device"]);
+});
+
+test("a name for a listed version, or an upload, whose commit fails answers busy and keeps nothing", async () => {
+  const { storage, file, run, history, versions, named } = historyWorld();
+  const { version } = valueOf(await named("First draft", 1));
+  storage.failNextCommit();
+  const body = {
+    docId: DOC,
+    key: key(2),
+    name: "Studio draft",
+    fromVersionId: version.id,
+  };
+  expect(await run(history.name("sam", body))).toEqual({
+    ok: false,
+    code: "busy",
+  });
+  storage.failNextCommit();
+  expect(
+    await run(history.upload("sam", deviceVersion("device-version-3"))),
+  ).toEqual({ ok: false, code: "busy" });
+  expect(file.history.get("device-version-3")).toBeNull();
+  expect((await versions()).map((v) => v.name)).toEqual(["First draft"]);
+});
+
+test("a version another feature keeps is kept when the version before it is damaged", async () => {
+  const { file, clock, history, versions, named } = historyWorld();
+  const { version } = valueOf(await named("First draft", 1));
+  clock.advance(30_000);
+  damageSnapshot(file, version.id);
+  const row = keptRow("white-draft", 1, clock.clock.now());
+  file.transaction(() => history.keep(file, row));
+  expect((await versions()).map((v) => v.id)).toEqual([
+    "white-draft",
+    version.id,
+  ]);
+});
+
+test("a session's version is refused when another version is kept before its turn", async () => {
+  const { sam, file, clock, service, history, settle, versions } =
+    historyWorld();
+  sam.join();
+  sam.type(SCENE_2_ACTION, "cold ");
+  // the session ends, and its version waits for its turn in the write queue
+  service.receive(sam.peer, { type: "UNSUBSCRIBE", docId: DOC, generation: 1 });
+  // kept at the seeded script, so the session's change is new since it
+  const row = keptRow("white-draft", 1, clock.clock.now());
+  file.transaction(() => history.keep(file, row));
+  await settle();
+  expect((await versions()).map((v) => v.id)).toEqual(["white-draft"]);
 });

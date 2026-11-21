@@ -24,11 +24,12 @@ import type {
   VersionResponse,
 } from "@manent/sync-protocol";
 import type { Clock, SyncHooks, SyncService } from "../sync/ports.ts";
+import { isStorageError } from "../sync/storage-error.ts";
 import { contentAt, openVersion, uploadedContent } from "./content.ts";
 import type { LocksAt } from "./content.ts";
 import { createMaintenance } from "./maintenance.ts";
 import { createSessions } from "./sessions.ts";
-import type { Recorded } from "./summaries.ts";
+import type { NewestVersion, Recorded, Recorder } from "./summaries.ts";
 import {
   createRecorder,
   itemOf,
@@ -207,32 +208,24 @@ export function createHistoryService(options: {
       deviceId: null,
     };
     const how = { carry: false, snapshot: true, key: made.key };
-    const written = file.transaction(() =>
-      recorder.record(file, version, base, how),
-    );
-    recorder.remember(made.docId, written.newest);
-    return { ok: true, item: written.item };
+    return recorder.recordAlone(file, version, base, how);
   }
 
-  /** A device's version kept as a snapshot, its time the server's; null for a document the file lacks. */
+  /** A device's version kept as a snapshot, its time the server's. */
   function uploaded(
     file: DocFile,
     userId: string,
     { docId, version }: UploadRequest,
-  ): VersionItem | null {
+  ): ReturnType<Recorder["recordAlone"]> {
     const base = uploadedContent(file, docId, version, locksAt);
-    if (base === null) return null;
+    if (base === null) return failed("not_found");
     const { id, kind, name, deviceId } = version;
     const createdAt = clock.now();
     const at = { generation: null, seq: null };
     const stored = { id, docId, ...at, kind, name, deviceId, createdAt };
     const row = { ...stored, createdByUserId: userId };
     const how = { carry: true, snapshot: true, key: null, authorIds: [userId] };
-    const written = file.transaction(() =>
-      recorder.record(file, row, base, how),
-    );
-    recorder.remember(docId, written.newest);
-    return written.item;
+    return recorder.recordAlone(file, row, base, how);
   }
 
   const sessions = createSessions({
@@ -367,9 +360,8 @@ export function createHistoryService(options: {
         );
         if (rejects(validateBlocks(blocks, { isIdTaken: () => false })))
           return failed("invalid");
-        const item = uploaded(file, userId, body);
-        if (item === null) return failed("not_found");
-        return { ok: true, value: { version: item } };
+        const made = uploaded(file, userId, body);
+        return made.ok ? { ok: true, value: { version: made.item } } : made;
       });
     },
     keep(file, version, content) {
@@ -382,7 +374,15 @@ export function createHistoryService(options: {
       const locks =
         extras === undefined ? base.locks : locksAt(file, docId, head);
       const how = { carry: content === undefined, snapshot: true, key: null };
-      recorder.record(file, version, { ...base, locks }, how);
+      let previous: NewestVersion | null = null;
+      try {
+        previous = recorder.previousOf(file, docId);
+      } catch (error) {
+        // the caller's write never fails for a damaged earlier version: this one starts afresh
+        if (!isStorageError(error) || error.code !== "corrupt") throw error;
+      }
+      recorder.forget(docId);
+      recorder.record(file, version, { ...base, locks }, how, previous);
     },
     maintain: maintenance.now,
   };

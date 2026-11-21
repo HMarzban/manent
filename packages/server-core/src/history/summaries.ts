@@ -12,6 +12,7 @@ import type {
   VersionResponse,
 } from "@manent/sync-protocol";
 import type { Clock, SyncService } from "../sync/ports.ts";
+import { isStorageError } from "../sync/storage-error.ts";
 import {
   carryAuthors,
   contentOfDoc,
@@ -200,34 +201,45 @@ export interface Recording {
 export type Recorded =
   { ok: true; item: VersionItem | null } | { ok: false; code: HttpErrorCode };
 
-/** Versions recorded with their summaries, against each loaded room's newest version, kept in memory. */
+/** Versions recorded with their summaries, and the newest version of each room that made one at its head, kept in memory. */
 export interface Recorder {
-  /** The newest version and its content: from memory while it stays the newest, else materialised. */
+  /**
+   * The newest version and its content: from memory while it stays the newest, else
+   * materialised. Throws `corruptError` for one that does not read.
+   */
   previousOf(file: DocFile, docId: string): NewestVersion | null;
   /**
-   * In the caller's transaction: `version` holding `base`, its summary against the newest version
-   * before it, its snapshot or its pin, and the request's answer. Carried authors give each
-   * changed block the summary's one author, else the version's maker.
+   * In the caller's transaction: `version` holding `base`, its summary against `previous` (the
+   * newest version before it), its snapshot or its pin, and the request's answer. Carried authors
+   * give each changed block the summary's one author, else the version's maker.
    */
   record(
     file: DocFile,
     version: VersionRow,
     base: VersionContent,
     how: Recording,
+    previous: NewestVersion | null,
   ): { item: VersionItem; newest: NewestVersion };
+  /** `record` in a transaction of its own, against the newest version; busy when that does not commit. */
+  recordAlone(
+    file: DocFile,
+    version: VersionRow,
+    base: VersionContent,
+    how: Recording,
+  ): { ok: true; item: VersionItem } | { ok: false; code: HttpErrorCode };
   /**
    * A version at the head, recorded at its turn in the write queue by an authority write that
-   * writes nothing. Its item is null when it waits for something new and the head is not past
-   * the newest version's position; busy when the write could not be made.
+   * writes nothing; the version before it is read before the commit. Its item is null when it
+   * waits for something new and the head is not past the newest version's position; busy when
+   * the version before it does not read, another was recorded meanwhile, or the write could not
+   * be made.
    */
   atHead(
     file: DocFile,
     made: Pick<VersionRow, "docId" | "kind" | "name" | "createdByUserId">,
     how: Recording & { onlyWhenNew: boolean },
   ): Promise<Recorded>;
-  /** After the commit that recorded it. */
-  remember(docId: string, newest: NewestVersion): void;
-  /** The room was unloaded. */
+  /** The room was unloaded, or a version was recorded outside it: what is kept of its newest version goes. */
   forget(docId: string): void;
 }
 
@@ -246,10 +258,9 @@ export function createRecorder(options: {
     const cached = newest.get(docId);
     if (cached?.id === row.id) return cached;
     const content = materializeVersion(file, row);
-    if (content === null) return null;
-    const found = { id: row.id, position: positionOf(row), content };
-    newest.set(docId, found);
-    return found;
+    return content === null
+      ? null
+      : { id: row.id, position: positionOf(row), content };
   }
 
   function record(
@@ -257,9 +268,9 @@ export function createRecorder(options: {
     version: VersionRow,
     base: VersionContent,
     how: Recording,
+    previous: NewestVersion | null,
   ): { item: VersionItem; newest: NewestVersion } {
     const { docId, id, createdByUserId: userId, createdAt } = version;
-    const previous = previousOf(file, docId);
     const position = positionOf(version);
     const was = previous?.position ?? null;
     const authorIds =
@@ -291,6 +302,26 @@ export function createRecorder(options: {
     return { item, newest: { id, position, content } };
   }
 
+  function recordAlone(
+    file: DocFile,
+    version: VersionRow,
+    base: VersionContent,
+    how: Recording,
+  ): ReturnType<Recorder["recordAlone"]> {
+    const { docId } = version;
+    try {
+      const { item } = file.transaction(() =>
+        record(file, version, base, how, previousOf(file, docId)),
+      );
+      return { ok: true, item };
+    } catch (error) {
+      if (!isStorageError(error)) throw error;
+      return { ok: false, code: "busy" };
+    } finally {
+      newest.delete(docId);
+    }
+  }
+
   async function atHead(
     file: DocFile,
     made: Pick<VersionRow, "docId" | "kind" | "name" | "createdByUserId">,
@@ -298,49 +329,63 @@ export function createRecorder(options: {
   ): Promise<Recorded> {
     const { docId } = made;
     const id = ids();
+    const newestId = (): string | null =>
+      file.history.page(docId, null, 1)[0]?.id ?? null;
     const state: {
       doc: VersionContent | null;
+      read: { id: string | null; previous: NewestVersion | null } | null;
       written: ReturnType<typeof record> | null;
-    } = { doc: null, written: null };
+      raced: boolean;
+    } = { doc: null, read: null, written: null, raced: false };
     const result = await options.sync().authorityWrite(docId, {
       userId: made.createdByUserId,
       origin: "system",
       edit(doc) {
         const row = file.log.get(docId);
         if (row === null) throw new RangeError(`no document ${docId} here`);
+        // read here, before the commit every queued write of the file shares: a version that does
+        // not read refuses this write alone
+        try {
+          state.read = { id: newestId(), previous: previousOf(file, docId) };
+        } catch (error) {
+          if (!isStorageError(error)) throw error;
+          return { ok: false, reason: error.code };
+        }
         state.doc = contentOfDoc(doc, row, {});
         return { ok: true };
       },
       inTransaction(_file, at) {
         const head = { generation: at.generation, seq: at.before };
-        const was = previousOf(file, docId)?.position ?? null;
         const row = file.log.get(docId);
-        if (state.doc === null || row === null) return;
+        const { doc, read } = state;
+        if (doc === null || read === null || row === null) return;
+        state.raced = newestId() !== read.id;
+        const was = read.previous?.position ?? null;
         const stale =
           was?.generation === head.generation && was.seq >= head.seq;
-        if (how.onlyWhenNew && stale) return;
+        if (state.raced || (how.onlyWhenNew && stale)) return;
         const { schemaVersion, engineVersion } = row;
         const locks = locksAt(file, docId, head);
-        const base = { ...state.doc, schemaVersion, engineVersion, locks };
+        const base = { ...doc, schemaVersion, engineVersion, locks };
         const createdAt = clock.now();
         const version = { ...made, id, ...head, createdAt, deviceId: null };
-        state.written = record(file, version, base, how);
+        state.written = record(file, version, base, how, read.previous);
       },
     });
-    if (!result.ok) {
+    if (!result.ok || state.raced) {
       file.checkpoints.unpin([id]);
       return { ok: false, code: "busy" };
     }
-    if (state.written === null) return { ok: true, item: null };
-    newest.set(docId, state.written.newest);
-    return { ok: true, item: state.written.item };
+    const kept = state.written?.newest ?? state.read?.previous ?? null;
+    if (kept !== null) newest.set(docId, kept);
+    return { ok: true, item: state.written?.item ?? null };
   }
 
   return {
     previousOf,
     record,
+    recordAlone,
     atHead,
-    remember: (docId, made) => newest.set(docId, made),
     forget: (docId) => newest.delete(docId),
   };
 }

@@ -17,6 +17,7 @@ import type {
   VersionContent,
   VersionPosition,
 } from "@manent/sync-protocol";
+import { isStorageError } from "../sync/storage-error.ts";
 import { corruptError } from "./chunks.ts";
 import { readSnapshot } from "./snapshot.ts";
 
@@ -117,7 +118,7 @@ function docAt(
   return doc;
 }
 
-/** The content of the newest version at or before `position` that has a snapshot. */
+/** The content of the newest version at or before `position` that has a snapshot; null when that one does not read. */
 function snapshotBefore(
   file: DocFile,
   docId: string,
@@ -132,7 +133,14 @@ function snapshotBefore(
     const ref = file.history.snapshotOf(id)?.ref;
     if (ref !== undefined) newest = { ref, at };
   }
-  return newest === null ? null : readSnapshot(file, newest.ref);
+  if (newest === null) return null;
+  try {
+    return readSnapshot(file, newest.ref);
+  } catch (error) {
+    // a damaged earlier snapshot leaves who wrote each block unknown, not this content unread
+    if (isStorageError(error) && error.code === "corrupt") return null;
+    throw error;
+  }
 }
 
 function contentFromLog(
@@ -159,7 +167,8 @@ function contentFromLog(
 
 /**
  * The document at `position`; null past the head, or once that generation's log is purged. Its
- * authors are those of the newest snapshot before it, for the blocks it holds unchanged.
+ * authors are those of the newest snapshot before it, for the blocks it holds unchanged; none
+ * when that snapshot does not read.
  * Throws StorageError("corrupt") (`corruptError`) for a row in reach that does not verify.
  */
 export function contentAt(
