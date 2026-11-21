@@ -386,6 +386,13 @@
       "stat": "p95",
       "budget": 3000,
       "hardFail": 8000
+    },
+    {
+      "scenario": "production.marks",
+      "metric": "marks_ms",
+      "stat": "p95",
+      "budget": 0.5,
+      "hardFail": 2
     }
   ]
 }
