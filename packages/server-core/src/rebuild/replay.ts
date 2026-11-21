@@ -5,6 +5,7 @@ import {
   ORIGIN_REPLAY,
   applyBlockOps,
   loadDoc,
+  revisedOverrides,
   scriptBody,
   updateMeta,
 } from "@manent/crdt";
@@ -79,17 +80,24 @@ function contentOf(state: Uint8Array): DocJSON {
   return content;
 }
 
-/** The ops as one update, written on a copy and applied to the room's document under ORIGIN_REPLAY; null when they wrote nothing. */
+/**
+ * The ops and the overrides that differ from the room's as one update, written on a copy and
+ * applied to the room's document under ORIGIN_REPLAY; null when they wrote nothing.
+ */
 function writeOps(
   room: Room,
-  ops: readonly BlockOp[],
+  changes: { ops: readonly BlockOp[]; overrides: Checked["overrides"] },
   ids: () => string,
 ): Uint8Array | null {
   const written = writeOnCopy(
     room,
     ORIGIN_REPLAY,
     (copy) => {
-      applyBlockOps(copy, ops, ORIGIN_REPLAY);
+      applyBlockOps(copy, changes.ops, ORIGIN_REPLAY);
+      const overrides = revisedOverrides(copy);
+      for (const [key, value] of changes.overrides)
+        if (overrides.get(key) !== value)
+          overrides.set(key, value, ORIGIN_REPLAY);
       return { ok: true };
     },
     ids,
@@ -159,6 +167,8 @@ interface Checked {
   kind: DocKind;
   frozen: Uint8Array[];
   setAside: ReplaySetAside[];
+  /** Mine's revisedOverrides entries that differ from base's; null removes one. */
+  overrides: [string, string | null][];
 }
 
 /**
@@ -200,9 +210,9 @@ export function createReplay(
     const own = ownClientIds(file, docId, userId);
     const based = replayBase(file, docId, from, lastServerSeq, updates, own);
     if (!based.ok) return based.code;
-    const { base, mine, setAside } = based;
+    const { base, mine, setAside, overrides } = based;
     const { kind } = resolved;
-    return { userId, request, kind, base, mine, frozen, setAside };
+    return { userId, request, kind, base, mine, frozen, setAside, overrides };
   }
 
   /** The merge through every generation since, written on the loaded room. */
@@ -220,7 +230,8 @@ export function createReplay(
     const theirs = [...checked.frozen.map(contentOf), current];
     const merge = mergeUniqueThrough(checked.base, checked.mine, theirs);
     if (!isWritable(merge.ops)) return refused("invalid");
-    const update = writeOps(room, merge.ops, ports.ids);
+    const { overrides } = checked;
+    const update = writeOps(room, { ops: merge.ops, overrides }, ports.ids);
     const stored = storedOf(merge, checked.setAside, room);
     const createdAt = clock.now();
     const version: VersionRow | null =
