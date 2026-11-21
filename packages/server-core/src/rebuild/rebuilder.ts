@@ -44,6 +44,8 @@ export function createSubscriptions(ports: {
   rooms: Pick<Rooms, "left">;
   presence: Pick<AwarenessHub, "left">;
   tell(peer: Peer, message: Message): void;
+  /** An edit subscription ended: the peer is no longer among the room's editors. */
+  editorLeft(room: Room, userId: string): void;
 }): Subscriptions {
   const { rooms, presence } = ports;
   const peers = new Map<Peer, PeerState>();
@@ -54,6 +56,8 @@ export function createSubscriptions(ports: {
     if (held.subscription.mode === "edit") presence.left(held.room, peer);
     held.room.editors.delete(peer);
     held.room.viewers.delete(peer);
+    if (held.subscription.mode === "edit")
+      ports.editorLeft(held.room, peer.userId);
     rooms.left(held.room);
   };
   return {

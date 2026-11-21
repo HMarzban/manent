@@ -8,7 +8,8 @@ import {
 import type { Home } from "@manent/storage";
 import { SimulatedCrash } from "@manent/storage/testing";
 import { MESSAGE_LIMIT_BYTES } from "@manent/sync-protocol";
-import type { WritePathPorts } from "../src/index.ts";
+import { blocksOf } from "@manent/schema";
+import type { AuthorityWrite, WritePathPorts } from "../src/index.ts";
 import {
   BLOCK,
   DOC,
@@ -609,4 +610,128 @@ test("a push the heal rule admits is stored as a heal", () => {
   expect(
     world.room.file.log.tail(DOC, 1, 0).rows.map((r) => [r.origin, r.userId]),
   ).toEqual([["heal", "sam"]]);
+});
+
+/** An authority write by Dana that adds BLOCK2 at the end and keeps a version; `seen` records what it was given. */
+function authorityWriteOf(seen: string[]): AuthorityWrite {
+  return {
+    userId: "dana",
+    origin: "restore",
+    edit(doc) {
+      const ids = blocksOf(scriptBody(doc).materialize()).map(
+        (b) => b.attrs.id,
+      );
+      seen.push(`edit ${ids.join(",")}`);
+      scriptBody(doc).write((w) =>
+        w.insertBlocks(ids.at(-1) ?? null, [
+          {
+            type: "block",
+            attrs: { id: BLOCK2, type: "action" },
+            content: [{ type: "text", text: "Snow" }],
+          },
+        ]),
+      );
+      return { ok: true };
+    },
+    inTransaction(file, at) {
+      seen.push(`rows ${JSON.stringify(at)}`);
+      file.versions.add({
+        id: "version-1",
+        docId: DOC,
+        generation: at.generation,
+        seq: at.before,
+        kind: "pre_restore",
+        name: null,
+        createdByUserId: "dana",
+        createdAt: 1_000,
+        deviceId: null,
+      });
+    },
+  };
+}
+
+test("an authority write commits its rows and its update together, and tells every editor", () => {
+  const world = createWorld();
+  const { path, room, subA, clock } = world;
+  const seen: string[] = [];
+  path.push(room, subA, pushOf(1, typistFor(ALICE_CLIENT, BLOCK)("a")));
+  path.authority(room, authorityWriteOf(seen), (result) =>
+    seen.push(`${JSON.stringify(result)} after ${types(world).join(",")}`),
+  );
+  expect(seen).toEqual([`edit ${BLOCK}`]);
+  clock.runDeferred();
+  expect(seen).toEqual([
+    `edit ${BLOCK}`,
+    'rows {"generation":1,"before":1,"seq":2}',
+    '{"ok":true,"generation":1,"seq":2} after commit,ack,publish',
+  ]);
+  expect(world.events.slice(1)).toEqual([
+    { type: "ack", peer: subA.peer, clientSeq: 1, serverSeq: 1 },
+    { type: "publish", peer: subA.peer, seq: 1, echo: false },
+    { type: "publish", peer: null, seq: 2, echo: true },
+  ]);
+  const { file } = room;
+  expect(
+    file.log.tail(DOC, 1, 0).rows.map((r) => [r.seq, r.origin, r.userId]),
+  ).toEqual([
+    [1, "edit", "sam"],
+    [2, "restore", "dana"],
+  ]);
+  expect(file.versions.list(DOC)).toEqual([
+    {
+      id: "version-1",
+      docId: DOC,
+      generation: 1,
+      seq: 1,
+      kind: "pre_restore",
+      name: null,
+      createdByUserId: "dana",
+      createdAt: 1_000,
+      deviceId: null,
+    },
+  ]);
+  expect(textOf(room)).toBe("a\nSnow");
+
+  const failing = createWorld();
+  const answered: string[] = [];
+  failing.path.authority(failing.room, authorityWriteOf([]), (result) =>
+    answered.push(
+      `${JSON.stringify(result)} after ${types(failing).join(",")}`,
+    ),
+  );
+  failing.storage.failNextCommit();
+  failing.clock.runDeferred();
+  expect(answered).toEqual([
+    '{"ok":false,"code":"commit_failed"} after poisoned',
+  ]);
+  expect(failing.dropped).toEqual([failing.room]);
+  const stored = failing.storage.open(HOME);
+  expect(stored.log.get(DOC)!.headSeq).toBe(0);
+  expect(stored.versions.list(DOC)).toEqual([]);
+});
+
+test("an authority write whose edit refuses writes nothing", () => {
+  const world = createWorld();
+  const { path, room, clock } = world;
+  const seen: string[] = [];
+  const write = authorityWriteOf(seen);
+  path.authority(
+    room,
+    {
+      ...write,
+      edit(doc) {
+        write.edit(doc);
+        return { ok: false, reason: "invalid" };
+      },
+    },
+    (result) => seen.push(JSON.stringify(result)),
+  );
+  clock.runDeferred();
+  expect(seen).toEqual([
+    "edit ",
+    '{"ok":false,"code":"refused","reason":"invalid"}',
+  ]);
+  expect(world.events).toEqual([]);
+  expect(room.file.log.get(DOC)!.headSeq).toBe(0);
+  expect(textOf(room)).toBe("");
 });

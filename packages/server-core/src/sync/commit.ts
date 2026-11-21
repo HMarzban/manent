@@ -2,6 +2,7 @@
 // acknowledgement, the update to the room, and what a relayed room hands upstream.
 import type { DocFile, StorageError } from "@manent/storage";
 import { answerReplay, commitReplay } from "../rebuild/replay-write.ts";
+import { answerAuthority, commitAuthority } from "./authority-write.ts";
 import type { UpstreamItem } from "./ports.ts";
 import type { Room } from "./rooms.ts";
 import { isStorageError } from "./storage-error.ts";
@@ -31,6 +32,7 @@ export function commitFile(
           heads.set(room, item.seq);
         } else item.seq = heads.get(room) ?? room.row.headSeq;
         if (item.kind === "replay") commitReplay(file, item, heads);
+        if (item.kind === "authority") commitAuthority(file, item, heads);
         if (push !== null && push.schemaTo !== null)
           file.log.raiseSchema(room.docId, push.schemaTo);
       }
@@ -42,7 +44,7 @@ export function commitFile(
   return null;
 }
 
-/** What a committed item sends the room; null for a resend, a relayed setting and a replay, which answers itself. */
+/** What a committed item sends the room; null for a resend, a relayed setting, a replay and an authority write, which answer themselves. */
 export function committedOf(item: QueuedItem): Committed | null {
   const { room, seq } = item;
   if (item.kind === "ingest") {
@@ -66,6 +68,7 @@ export function committedOf(item: QueuedItem): Committed | null {
 export function settle(item: QueuedItem, ports: AnswerPorts): void {
   const { rooms } = ports;
   if (item.kind === "replay") return answerReplay(item, rooms, ports);
+  if (item.kind === "authority") return answerAuthority(item, ports);
   if (item.kind === "ingest")
     return rooms.changed(item.room, item.append.update.byteLength);
   const { room, subscription, clientSeq, seq } = item;
@@ -94,8 +97,10 @@ export function upstreamOf(item: QueuedItem): UpstreamItem | null {
       ? null
       : { kind: "update", ...ref, seq, update: item.write.update };
   if (item.kind === "ack" || item.kind === "ingest") return null;
-  if (item.kind === "append")
-    return { kind: "update", ...ref, seq, update: item.append.update };
+  if (item.kind === "append" || item.kind === "authority")
+    return item.append === null
+      ? null
+      : { kind: "update", ...ref, seq, update: item.append.update };
   const { clientSeq, request } = item;
   const userId = item.subscription.peer.userId;
   return { kind: "set", ...ref, userId, clientSeq, ...request };
