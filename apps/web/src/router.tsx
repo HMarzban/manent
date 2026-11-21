@@ -91,11 +91,16 @@ export function createAppRouter(deps: {
   preloadShellPalette();
 
   const rootRoute = createRootRoute({
-    // `?person=<id>` chooses that person for this tab, then the parameter is dropped either way.
-    beforeLoad: async ({ location }) => {
+    // `?person=<id>` chooses that person for this tab, then the parameter is dropped either way. Without it, every
+    // screen but the chooser is a person's: a tab with none is asked who it is, then comes back to the address.
+    beforeLoad: async ({ location, matches }) => {
       const params = new URLSearchParams(location.searchStr);
       const userId = params.get("person");
-      if (userId === null) return;
+      if (userId === null) {
+        const choosing = matches.some((m) => m.routeId === "/choose");
+        if (choosing || usePerson.getState().person !== null) return;
+        throw redirect({ href: chooseUrl(location.href), replace: true });
+      }
       // a server that cannot be reached leaves the tab who it was
       const choices = await api.choices().catch(() => []);
       const choice = choices.find((c) => c.userId === userId);
