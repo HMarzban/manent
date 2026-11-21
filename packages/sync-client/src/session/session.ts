@@ -2,7 +2,7 @@
 // subscription to the server, and the status it shows.
 import { createDoc } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import { CODE, indexDocId } from "@manent/sync-protocol";
+import { CODE } from "@manent/sync-protocol";
 import type { DocumentMessage, Message } from "@manent/sync-protocol";
 import type { ServerGate } from "../link/gate.ts";
 import type { LinkIssue } from "../link/machine.ts";
@@ -24,6 +24,7 @@ import type { ViewHandle } from "../view/view.ts";
 import type { DocHandle } from "./doc-handle.ts";
 import type { UnsavedEdit } from "./edits.ts";
 import type { Handshake } from "./handshake.ts";
+import { IndexWait } from "./index-wait.ts";
 import { createJournal } from "./journal.ts";
 import type { Journal } from "./journal.ts";
 import { KeptWrites } from "./kept-writes.ts";
@@ -127,14 +128,9 @@ class DocSession implements Session {
   private readonly upstream: UpstreamWindow | null;
   private facts: SessionLink;
   private readonly status: ReturnType<typeof createSubscribable<DocStatus>>;
+  private readonly indexWait: IndexWait;
   /** The connection the device versions were last offered on. */
   private offeredOn = -1;
-  /** A connection held back until the store holds the index of the workspace a new script is created in. */
-  private held: {
-    send: (message: Message) => void;
-    gate: ServerGate;
-    indexId: string;
-  } | null = null;
 
   constructor(options: SessionOptions, loaded: LoadedDocument | null) {
     const { docId, ports } = options;
@@ -205,6 +201,11 @@ class DocSession implements Session {
       syncedAt: () => (relayed ? null : ports.clock.now()),
     });
     this.handshake = this.subscription.handshake;
+    this.indexWait = new IndexWait({
+      store: ports.store,
+      meta: () => journal.meta,
+      connect: (send, gate) => this.subscription.connected(send, gate),
+    });
     this.status = createSubscribable(this.computeStatus());
     this.handle = this.copy.handleOf({
       status: this.status,
@@ -261,7 +262,7 @@ class DocSession implements Session {
           : [],
       );
     this.kept.stop();
-    this.held = null;
+    this.indexWait.drop();
     const unsaved = [...kept, ...this.journal.detach()];
     this.subscription.close();
     this.copy.dispose();
@@ -276,21 +277,15 @@ class DocSession implements Session {
   }
 
   metaChanged(docId: string): void {
-    if (docId === this.held?.indexId) void this.connectOnceIndexed();
+    this.indexWait.metaChanged(docId);
   }
 
   connected(send: (message: Message) => void, gate: ServerGate): void {
-    const indexId = this.awaitedIndex();
-    if (indexId === null) {
-      this.subscription.connected(send, gate);
-      return;
-    }
-    this.held = { send, gate, indexId };
-    void this.connectOnceIndexed();
+    this.indexWait.connected(send, gate);
   }
 
   disconnected(): void {
-    this.held = null;
+    this.indexWait.drop();
     this.subscription.disconnected();
   }
 
@@ -311,30 +306,6 @@ class DocSession implements Session {
 
   writeSchema(version: number): void {
     this.copy.writeSchema(version);
-  }
-
-  /** The workspace index a never-synced script's creation waits for; null when nothing waits. */
-  private awaitedIndex(): string | null {
-    const { neverSynced, create } = this.journal.meta;
-    const workspaceId = create?.workspaceId ?? null;
-    if (!neverSynced || workspaceId === null) return null;
-    return indexDocId("workspace", workspaceId);
-  }
-
-  /** The server has named a generation for the index once the store holds one above 0. */
-  private async connectOnceIndexed(): Promise<void> {
-    const { held } = this;
-    if (held === null) return;
-    const stored = await this.options.ports.store
-      .load(held.indexId)
-      .catch((error: unknown) => {
-        // an index the store cannot read is not there yet: the next connection asks again
-        if (!(error instanceof StoreError)) throw error;
-        return null;
-      });
-    if (this.held !== held || (stored?.meta.generation ?? 0) === 0) return;
-    this.held = null;
-    this.subscription.connected(held.send, held.gate);
   }
 
   /** The meta changed, or the store refused a write: shown, and told once the writes started so far have settled. */
@@ -389,7 +360,7 @@ class DocSession implements Session {
 
   private async close(): Promise<void> {
     this.kept.stop();
-    this.held = null;
+    this.indexWait.drop();
     this.subscription.close();
     this.copy.dispose();
     this.handshake.close();
