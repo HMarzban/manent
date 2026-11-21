@@ -2,6 +2,10 @@
 import type { Page } from "@playwright/test";
 import { signedInAs } from "./tour.ts";
 
+// not the Library: a first visit there opens the Tour in the side panel once the demo answers, and the person's panels
+// go with them to the script
+const SIGN_IN_AT = "/preferences/writing";
+
 /** Makes the script `docId` on `page`'s device through the test build's hooks, for the person signed in there. */
 export async function makeScript(page: Page, docId: string): Promise<void> {
   // the person's sync sets its hooks once it has started
@@ -21,13 +25,20 @@ export async function makeScript(page: Page, docId: string): Promise<void> {
   }, docId);
 }
 
-/** Signs `page` in as `userId`, makes the script `docId`, and opens `/s/<docId>`. */
+/**
+ * Signs `page` in as `userId`, makes the script `docId` once the demo has answered, and opens `/s/<docId>`. Waiting for
+ * the demo makes every machine take the order a slow one takes.
+ */
 export async function openMadeScript(
   page: Page,
   userId: string,
   docId: string,
 ): Promise<void> {
-  await signedInAs(page, userId);
+  await signedInAs(page, userId, SIGN_IN_AT);
+  await page
+    .getByRole("region", { name: "Demo" })
+    .getByRole("button", { name: "Tour" })
+    .waitFor();
   await makeScript(page, docId);
   await page.goto(`/s/${docId}`);
 }
