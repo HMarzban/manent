@@ -14,6 +14,8 @@ import type {
   HttpErrorCode,
   LockAnchorRecord,
   NameRequest,
+  RestoreRequest,
+  RestoreResponse,
   SaveRequest,
   UploadRequest,
   VersionContent,
@@ -24,9 +26,12 @@ import type {
   VersionResponse,
 } from "@manent/sync-protocol";
 import type { Clock, SyncHooks, SyncService } from "../sync/ports.ts";
+import { createAttribution } from "./attribution.ts";
+import type { Attribution } from "./attribution.ts";
 import { contentAt, openVersion, uploadedContent } from "./content.ts";
 import type { LocksAt } from "./content.ts";
 import { createMaintenance } from "./maintenance.ts";
+import { createRestorer } from "./restore.ts";
 import { createSessions } from "./sessions.ts";
 import type { Recorded, Recorder } from "./summaries.ts";
 import {
@@ -58,7 +63,7 @@ export interface HistoryExtras {
   authority(file: DocFile, docId: string): AuthorityValues;
 }
 
-export interface HistoryService extends SyncHooks {
+export interface HistoryService extends SyncHooks, Attribution {
   list(
     userId: string,
     docId: string,
@@ -82,16 +87,32 @@ export interface HistoryService extends SyncHooks {
     userId: string,
     body: UploadRequest,
   ): Promise<HistoryOutcome<VersionResponse>>;
+  restore(
+    userId: string,
+    body: RestoreRequest,
+  ): Promise<HistoryOutcome<RestoreResponse>>;
   /** Inside the caller's transaction: the row, its snapshot and its summary. `content` absent: the document at its head now. */
   keep(file: DocFile, version: VersionRow, content?: VersionContent): void;
   /** Thins, fixes, purges and sweeps the document's history now. */
   maintain(docId: string): void;
 }
 
-const failed = (code: HttpErrorCode): { ok: false; code: HttpErrorCode } => ({
-  ok: false,
-  code,
+/** What the room is told of a version made. */
+const controlOf = (
+  kind: HistoryControl["kind"],
+  item: VersionItem,
+): HistoryControl => ({
+  kind,
+  versionId: item.id,
+  userId: item.createdByUserId,
+  at: item.createdAt,
+  name: item.name,
+  versionAt: item.createdAt,
+  scene: null,
+  beforeVersionId: null,
 });
+
+const failed = (code: HttpErrorCode) => ({ ok: false, code }) as const;
 
 export function createHistoryService(options: {
   sync: () => SyncService;
@@ -142,25 +163,12 @@ export function createHistoryService(options: {
   }
 
   /** A version made: CONTROL to every editor and viewer of the room, then maintenance if due. */
-  function announce(
-    docId: string,
-    kind: HistoryControl["kind"],
-    item: VersionItem,
-  ): void {
-    const control: HistoryControl = {
-      kind,
-      versionId: item.id,
-      userId: item.createdByUserId,
-      at: item.createdAt,
-      name: item.name,
-      versionAt: item.createdAt,
-      scene: null,
-      beforeVersionId: null,
-    };
+  function announce(docId: string, control: HistoryControl): void {
     const data = new TextEncoder().encode(JSON.stringify(control));
-    options.sync().broadcast(docId, kind, data);
+    options.sync().broadcast(docId, control.kind, data);
     maintenance.soon(docId);
   }
+  const restorer = createRestorer({ ...options, recorder, locksAt, announce });
 
   /** A request answered once: its stored answer, else what `make` makes, told to the room. */
   function requested(
@@ -183,7 +191,7 @@ export function createHistoryService(options: {
       if (!made.ok) return made;
       if (made.item === null)
         throw new RangeError("a requested version is always made");
-      announce(docId, request.tells, made.item);
+      announce(docId, controlOf(request.tells, made.item));
       return { ok: true, value: { version: made.item } };
     });
   }
@@ -247,7 +255,7 @@ export function createHistoryService(options: {
       inChain(docId, () => recorder.atHead(file, made, how))
         .then((outcome) => {
           if (!outcome.ok || outcome.item === null) return;
-          announce(docId, "version_created", outcome.item);
+          announce(docId, controlOf("version_created", outcome.item));
         })
         .catch(() => {
           // a session's version is made when it can be: a document deleted meanwhile keeps none,
@@ -363,6 +371,13 @@ export function createHistoryService(options: {
         return made.ok ? { ok: true, value: { version: made.item } } : made;
       });
     },
+    async restore(userId, body) {
+      const access = authorize(userId, body.docId, "edit");
+      if (!access.ok) return access;
+      if (!isReplayKey(body.key)) return failed("bad_request");
+      const restore = () => restorer.restore(access.file, userId, body);
+      return inChain(body.docId, restore);
+    },
     keep(file, version, content) {
       const { docId } = version;
       const row = file.log.get(docId);
@@ -377,6 +392,7 @@ export function createHistoryService(options: {
       recorder.forget(docId);
       recorder.record(file, version, { ...base, locks }, how, previous);
     },
+    ...createAttribution({ authorize }),
     maintain: maintenance.now,
   };
 }

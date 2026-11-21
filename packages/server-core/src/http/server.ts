@@ -7,6 +7,7 @@ import type {
 import type { Directory } from "../auth/directory.ts";
 import type { SessionStore } from "../auth/sessions.ts";
 import type { SignInProvider } from "../auth/sign-in.ts";
+import type { HistoryService } from "../history/service.ts";
 import type {
   ConnectionData,
   ConnectionHandler,
@@ -56,6 +57,8 @@ export interface ServerConfig {
   };
   /** Null: every document frame is answered 4403, and the document routes answer not_found. */
   sync: SyncSettings | null;
+  /** Absent: every history route answers not_found. */
+  history?: HistoryService;
 }
 
 /** What an app hands to its listener; this package never listens itself. */
