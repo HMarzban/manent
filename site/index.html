@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'sha256-zAkE5cHJtjD+i7g44Iq1xDEbY18e8ujnGIxPHweYjKY='; style-src 'sha256-9s2ViZ73G0f3XBa214OVIu5MQns9FJPCkSQa/l8sRCc='; img-src 'self' data:; font-src 'self'; media-src 'self'; base-uri 'self'; form-action 'none'"
+      content="default-src 'none'; script-src 'sha256-zAkE5cHJtjD+i7g44Iq1xDEbY18e8ujnGIxPHweYjKY='; style-src 'sha256-93pbkes4Ld8zvZYWVvIK3ySHc8oXNyBDzYGozH+tI8Q='; img-src 'self' data:; font-src 'self'; media-src 'self'; base-uri 'self'; form-action 'none'"
     />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>Manent — Write anywhere. Lose nothing.</title>
@@ -1133,6 +1133,159 @@
         margin-top: 0.5rem;
       }
 
+      /* ---------- how it compares ---------- */
+
+      .ruled {
+        border-top: 1px solid var(--line);
+      }
+
+      .compare-after {
+        margin-top: 1.25rem;
+        display: grid;
+        gap: 1rem;
+        justify-items: start;
+        font-family: var(--sans);
+        font-size: 0.9375rem;
+        color: var(--fg-muted);
+      }
+
+      /* ---------- comparison tables: on paper, and one card per row on a narrow screen ---------- */
+
+      .sheet-table {
+        background: var(--paper);
+        border: 1px solid var(--line-strong);
+        border-radius: 10px;
+        padding: 0.25rem 0.75rem;
+      }
+
+      .compare-table {
+        width: 100%;
+        table-layout: fixed;
+        border-collapse: collapse;
+        font-family: var(--sans);
+        font-size: 0.875rem;
+        line-height: 1.45;
+      }
+
+      .compare-table th,
+      .compare-table td {
+        padding: 0.75rem;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .compare-table tbody tr:last-child > * {
+        border-bottom: 0;
+      }
+
+      .compare-table thead th {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--fg-muted);
+        border-bottom-color: var(--line-strong);
+      }
+
+      .compare-table thead th:first-child {
+        width: 10rem;
+      }
+
+      .compare-table tbody th {
+        font-family: var(--serif);
+        font-size: 1rem;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+
+      .compare-table .us {
+        background: color-mix(in srgb, var(--accent) 6%, var(--paper));
+      }
+
+      .compare-table thead .us {
+        color: var(--fg);
+        box-shadow: inset 0 3px 0 var(--accent);
+      }
+
+      .compare-table .us .status {
+        display: block;
+        width: fit-content;
+        margin-bottom: 0.375rem;
+      }
+
+      .value {
+        display: block;
+        font-weight: 600;
+      }
+
+      .compare-table summary {
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .compare-table summary:hover {
+        color: var(--accent);
+      }
+
+      .compare-table details p {
+        margin-top: 0.375rem;
+        color: var(--fg-muted);
+      }
+
+      .compare-table details a {
+        overflow-wrap: anywhere;
+      }
+
+      @media (max-width: 60rem) {
+        .compare-table,
+        .compare-table tbody,
+        .compare-table tr,
+        .compare-table th,
+        .compare-table td {
+          display: block;
+        }
+
+        /* the column names stay for screen readers; each cell shows its own */
+        .compare-table thead {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          overflow: hidden;
+          clip-path: inset(50%);
+          white-space: nowrap;
+        }
+
+        .compare-table tbody tr {
+          padding-block: 1rem;
+          border-bottom: 1px solid var(--line-strong);
+        }
+
+        .compare-table tbody tr:last-child {
+          border-bottom: 0;
+        }
+
+        .compare-table tbody th {
+          padding: 0 0 0.5rem;
+          border: 0;
+          font-size: 1.125rem;
+        }
+
+        .compare-table td {
+          padding: 0.625rem 0.75rem;
+          border-bottom: 0;
+          border-top: 1px solid var(--line);
+        }
+
+        .compare-table td::before {
+          content: attr(data-label);
+          content: attr(data-label) / "";
+          display: block;
+          margin-bottom: 0.25rem;
+          font-size: 0.8125rem;
+          font-weight: 600;
+          color: var(--fg-muted);
+        }
+      }
+
       /* ---------- try it ---------- */
 
       .try-grid {
@@ -1371,6 +1524,7 @@
             <li class="section-link"><a href="#watch">See it work</a></li>
             <li class="section-link"><a href="#write">Who it's for</a></li>
             <li class="section-link"><a href="#status">What works</a></li>
+            <li class="section-link"><a href="#compare">How it compares</a></li>
             <li class="section-link"><a href="#faq">Questions</a></li>
             <li><a href="https://github.com/HMarzban/manent">GitHub</a></li>
             <li><a class="button button-small" href="#try">Try it</a></li>
@@ -2346,6 +2500,315 @@ The clerk doesn't look up.
                   <span class="status status-planned">Planned</span>
                 </li>
               </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="section ruled"
+        id="compare"
+        aria-labelledby="compare-title"
+      >
+        <div class="wrap">
+          <div class="section-head">
+            <h2 id="compare-title">How it compares</h2>
+            <p>
+              What each kind of writing tool typically offers, beside where
+              Manent stands, in the same labels as the list above. Manent has no
+              release yet: the demo runs from source, and FDX and Fountain files
+              are planned.
+            </p>
+          </div>
+          <div class="sheet-table">
+            <table
+              class="compare-table"
+              role="table"
+              aria-labelledby="compare-title"
+            >
+              <thead role="rowgroup">
+                <tr role="row">
+                  <th scope="col" role="columnheader">Feature</th>
+                  <th scope="col" role="columnheader" class="us">Manent</th>
+                  <th scope="col" role="columnheader">
+                    Desktop screenwriting apps
+                  </th>
+                  <th scope="col" role="columnheader">
+                    Cloud screenwriting apps
+                  </th>
+                  <th scope="col" role="columnheader">
+                    Open-source screenwriting apps
+                  </th>
+                  <th scope="col" role="columnheader">
+                    General document editors
+                  </th>
+                </tr>
+              </thead>
+              <tbody role="rowgroup">
+                <tr role="row">
+                  <th scope="row" role="rowheader">Works offline</th>
+                  <td role="cell" class="us" data-label="Manent">
+                    <span class="status status-demo">In the demo</span> Every
+                    change is stored on your device first, in the browser;
+                    waiting changes sync when the connection is back.
+                  </td>
+                  <td role="cell" data-label="Desktop screenwriting apps">
+                    <span class="value">Yes</span> The full app works on local
+                    files; the cloud companions need a connection.
+                  </td>
+                  <td role="cell" data-label="Cloud screenwriting apps">
+                    <span class="value">Partial</span> Offline edits sync later,
+                    mainly in the desktop app; offline in the browser is
+                    limited, or was retired.
+                  </td>
+                  <td role="cell" data-label="Open-source screenwriting apps">
+                    <span class="value">Yes</span> Local files.
+                  </td>
+                  <td role="cell" data-label="General document editors">
+                    <span class="value">Partial</span> Offline edits sync later,
+                    once offline is turned on per browser or per file.
+                  </td>
+                </tr>
+                <tr role="row">
+                  <th scope="row" role="rowheader">Live collaboration</th>
+                  <td role="cell" class="us" data-label="Manent">
+                    <span class="status status-built">Being built</span> Live
+                    edits with named cursors work between windows of one person;
+                    a second person cannot open the script yet.
+                  </td>
+                  <td role="cell" data-label="Desktop screenwriting apps">
+                    <span class="value">Partial</span> Live sessions in most,
+                    with every writer on the same version, or through a paid
+                    cloud service.
+                  </td>
+                  <td role="cell" data-label="Cloud screenwriting apps">
+                    <span class="value">Yes</span> Simultaneous editing with
+                    cursors or avatars; inviting editors often needs a paid
+                    plan.
+                  </td>
+                  <td role="cell" data-label="Open-source screenwriting apps">
+                    <span class="value">No</span> Single-user, or through a paid
+                    cloud plan.
+                  </td>
+                  <td role="cell" data-label="General document editors">
+                    <span class="value">Yes</span> Simultaneous editing.
+                  </td>
+                </tr>
+                <tr role="row">
+                  <th scope="row" role="rowheader">
+                    Same pages on every device and in the PDF
+                  </th>
+                  <td role="cell" class="us" data-label="Manent">
+                    <span class="status status-built">Being built</span> Pages,
+                    page breaks and page count are in the demo; the screen and
+                    the PDF matching line for line is being built.
+                  </td>
+                  <td role="cell" data-label="Desktop screenwriting apps">
+                    <span class="value">Partial</span> The desktop app is the
+                    reference; one vendor states that its cloud version does not
+                    paginate exactly as the desktop.
+                  </td>
+                  <td role="cell" data-label="Cloud screenwriting apps">
+                    <span class="value">Unknown</span> Mostly no public claim;
+                    one vendor claimed identical page counts on every device and
+                    in PDFs, in 2018.
+                  </td>
+                  <td role="cell" data-label="Open-source screenwriting apps">
+                    <span class="value">Partial</span> One app states that it
+                    produces exactly the same output on every platform.
+                  </td>
+                  <td role="cell" data-label="General document editors">
+                    <span class="value">Unknown</span> No claim; not a script
+                    layout.
+                  </td>
+                </tr>
+                <tr role="row">
+                  <th scope="row" role="rowheader">Production revisions</th>
+                  <td role="cell" class="us" data-label="Manent">
+                    <span class="status status-built">Being built</span> Locked
+                    numbers, A-pages, colours, asterisks, Issue and Recall.
+                  </td>
+                  <td role="cell" data-label="Desktop screenwriting apps">
+                    <span class="value">Yes</span> Locked pages, A-pages,
+                    colours and asterisks in most; colours and asterisks only in
+                    one.
+                  </td>
+                  <td role="cell" data-label="Cloud screenwriting apps">
+                    <span class="value">Partial</span> Revision colours and
+                    asterisks on paid plans; locked pages with A-pages in one.
+                  </td>
+                  <td role="cell" data-label="Open-source screenwriting apps">
+                    <span class="value">Partial</span> None in one; some in the
+                    other.
+                  </td>
+                  <td role="cell" data-label="General document editors">
+                    <span class="value">No</span> None.
+                  </td>
+                </tr>
+                <tr role="row">
+                  <th scope="row" role="rowheader">Version history</th>
+                  <td role="cell" class="us" data-label="Manent">
+                    <span class="status status-built">Being built</span> Named
+                    drafts, Changes since, restore.
+                  </td>
+                  <td role="cell" data-label="Desktop screenwriting apps">
+                    <span class="value">Partial</span> Backups and comparing on
+                    the desktop; full history in a paid cloud service.
+                  </td>
+                  <td role="cell" data-label="Cloud screenwriting apps">
+                    <span class="value">Yes</span> Snapshots, comparing and
+                    restore, often on the top plan.
+                  </td>
+                  <td role="cell" data-label="Open-source screenwriting apps">
+                    <span class="value">Partial</span> Drafts, or comparing two
+                    files.
+                  </td>
+                  <td role="cell" data-label="General document editors">
+                    <span class="value">Yes</span> Version history with restore
+                    and named versions.
+                  </td>
+                </tr>
+                <tr role="row">
+                  <th scope="row" role="rowheader">
+                    Formats, including games and Ink
+                  </th>
+                  <td role="cell" class="us" data-label="Manent">
+                    <span class="status status-demo">In the demo</span> Eight
+                    formats: screenplay, multi-camera, stage play, manuscript,
+                    animation, variety, game script and Ink.
+                  </td>
+                  <td role="cell" data-label="Desktop screenwriting apps">
+                    <span class="value">Partial</span> Screenplay, TV and stage
+                    everywhere; some add multi-camera, novel, comic or podcast;
+                    no games or branching.
+                  </td>
+                  <td role="cell" data-label="Cloud screenwriting apps">
+                    <span class="value">Partial</span> Screenplay and TV
+                    everywhere; stage, AV and others vary; games only in a
+                    separate product.
+                  </td>
+                  <td role="cell" data-label="Open-source screenwriting apps">
+                    <span class="value">Partial</span> Screenplay only, or
+                    screenplay, series, stage, novel, comic and audio.
+                  </td>
+                  <td role="cell" data-label="General document editors">
+                    <span class="value">No</span> No script formats without
+                    third-party add-ons.
+                  </td>
+                </tr>
+                <tr role="row">
+                  <th scope="row" role="rowheader">FDX and Fountain files</th>
+                  <td role="cell" class="us" data-label="Manent">
+                    <span class="status status-planned">Planned</span> FDX and
+                    Fountain import and export are not in this build; today you
+                    can export a clean PDF.
+                  </td>
+                  <td role="cell" data-label="Desktop screenwriting apps">
+                    <span class="value">Yes</span> FDX in and out; most read and
+                    write Fountain, and one cannot open it.
+                  </td>
+                  <td role="cell" data-label="Cloud screenwriting apps">
+                    <span class="value">Yes</span> FDX and Fountain in and out;
+                    one imports FDX only.
+                  </td>
+                  <td role="cell" data-label="Open-source screenwriting apps">
+                    <span class="value">Yes</span> FDX and Fountain in and out.
+                  </td>
+                  <td role="cell" data-label="General document editors">
+                    <span class="value">No</span> Neither, without third-party
+                    add-ons.
+                  </td>
+                </tr>
+                <tr role="row">
+                  <th scope="row" role="rowheader">
+                    Open source, and your files
+                  </th>
+                  <td role="cell" class="us" data-label="Manent">
+                    <span class="status status-demo">In the demo</span> Apache
+                    License 2.0. Scripts stay on your device and a server you
+                    run; no vendor cloud.
+                  </td>
+                  <td role="cell" data-label="Desktop screenwriting apps">
+                    <span class="value">No</span> Proprietary; scripts are local
+                    files, and the terms leave them yours.
+                  </td>
+                  <td role="cell" data-label="Cloud screenwriting apps">
+                    <span class="value">No</span> Proprietary; scripts live in
+                    the vendor&#x27;s cloud, with export, and the terms leave
+                    them yours.
+                  </td>
+                  <td role="cell" data-label="Open-source screenwriting apps">
+                    <span class="value">Yes</span> Source published under the
+                    GPL, one with paid modules kept private; local files.
+                  </td>
+                  <td role="cell" data-label="General document editors">
+                    <span class="value">No</span> Proprietary; documents live in
+                    the vendor&#x27;s cloud, with full export.
+                  </td>
+                </tr>
+                <tr role="row">
+                  <th scope="row" role="rowheader">Price</th>
+                  <td role="cell" class="us" data-label="Manent">
+                    <span class="status status-demo">In the demo</span> Free; no
+                    account.
+                  </td>
+                  <td role="cell" data-label="Desktop screenwriting apps">
+                    <span class="value">One-time</span> A licence of about USD
+                    80 to 250, with optional cloud subscriptions; one is sold by
+                    subscription only.
+                  </td>
+                  <td role="cell" data-label="Cloud screenwriting apps">
+                    <span class="value">Free + paid tiers</span> A free tier,
+                    then about USD 70 to 225 a year for one writer; production
+                    features on upper tiers.
+                  </td>
+                  <td role="cell" data-label="Open-source screenwriting apps">
+                    <span class="value">Free</span> Free; one also sells paid
+                    tiers and AI credits.
+                  </td>
+                  <td role="cell" data-label="General document editors">
+                    <span class="value">Free + paid tiers</span> Free for
+                    personal use; per-user business plans.
+                  </td>
+                </tr>
+                <tr role="row">
+                  <th scope="row" role="rowheader">
+                    AI features, and training on your words
+                  </th>
+                  <td role="cell" class="us" data-label="Manent">
+                    <span class="status status-demo">In the demo</span> No
+                    features that write for you; your scripts are never used to
+                    train AI.
+                  </td>
+                  <td role="cell" data-label="Desktop screenwriting apps">
+                    <span class="value">No</span> No AI writing features found;
+                    one vendor states that it never uses scripts to train AI.
+                  </td>
+                  <td role="cell" data-label="Cloud screenwriting apps">
+                    <span class="value">Yes</span> Paid AI add-ons in most; what
+                    each says about training differs.
+                  </td>
+                  <td role="cell" data-label="Open-source screenwriting apps">
+                    <span class="value">Partial</span> None in one; a paid AI
+                    assistant in the other, with no published training policy.
+                  </td>
+                  <td role="cell" data-label="General document editors">
+                    <span class="value">Yes</span> Built-in generative AI; the
+                    vendor says it does not train on your content without
+                    permission.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="compare-after">
+            <p>
+              Category cells describe what is typical; individual apps vary.
+            </p>
+            <div class="actions">
+              <a class="button button-quiet" href="compare.html"
+                >See the named comparison, checked 21 November 2026</a
+              >
             </div>
           </div>
         </div>
