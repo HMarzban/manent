@@ -40,7 +40,7 @@ export interface Page {
   readonly sceneContinued: boolean;
   /** Units the top furniture takes. */
   readonly topUnits: number;
-  /** Everything placed, furniture included; never above linesPerPage × 2. */
+  /** Everything placed, furniture included; never above linesPerPage × 2, but on a page that `elasticPages` in `@manent/revisions` merged, which holds up to four lines more. */
   readonly usedUnits: number;
   /** The highest block index examined while this page was filled. */
   readonly readAhead: number;
