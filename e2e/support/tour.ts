@@ -351,6 +351,28 @@ export function tourScenario(id: string, body: TourBody): void {
     );
 }
 
+/**
+ * Whether some visible element of `page` outside its Tour shows `text`, as part of its text. The Tour is left out because
+ * it lists every scenario's check, which holds each of its evidence strings; it is the side panel's one tab panel while
+ * the side panel's selected tab is the Tour's.
+ */
+async function showsOutsideTour(page: Page, text: string): Promise<boolean> {
+  return page
+    .getByText(text)
+    .filter({ visible: true })
+    .evaluateAll((shown, tourTab) => {
+      const side = document.querySelector("[data-region='side_panel']");
+      const selected = side?.querySelector(
+        "[role='tab'][aria-selected='true']",
+      );
+      const tour =
+        selected?.textContent === tourTab
+          ? side?.querySelector("[role='tabpanel']")
+          : null;
+      return shown.some((element) => tour?.contains(element) !== true);
+    }, DOCUMENT_WORDS.tourTab);
+}
+
 /** Asserts that each of the scenario's evidence strings is visible, as part of a text, in at least one of `pages`. */
 export async function expectEvidence(
   pages: readonly Page[],
@@ -359,7 +381,7 @@ export async function expectEvidence(
   for (const text of scenario.evidence)
     await expect(async () => {
       const seen = await Promise.all(
-        pages.map((p) => p.getByText(text).first().isVisible()),
+        pages.map((p) => showsOutsideTour(p, text)),
       );
       expect(seen).toContain(true);
     }).toPass();

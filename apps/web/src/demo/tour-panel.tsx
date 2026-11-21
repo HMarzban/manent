@@ -15,6 +15,7 @@ import { useRouter } from "@tanstack/react-router";
 import { useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import type { Api } from "../api.ts";
+import type { Where } from "../platform.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { createTourProgress } from "./tour-progress.ts";
 import { TourScenarioRow } from "./tour-scenario.tsx";
@@ -85,35 +86,25 @@ function useHeavyWorkspace(
   );
 }
 
-/** Lists only the scenarios `isShown` passes, and draws no group that lists none. Never takes focus. */
-export function TourPanel(): ReactNode {
+/** What keeps the scenario from being set up in `shell` while Lanternfield Studios is as `heavy` says; null when nothing does. */
+function holdOf(
+  scenario: TourScenario,
+  heavy: WorkspaceRef | null,
+  shell: Where["shell"],
+): SetupHold | null {
+  if (scenario.setup.shell === "desktop" && shell !== "desktop")
+    return { kind: "desktop_only" };
+  if (heavy?.seeding == null || heavy.seeding.failed) return null;
+  if (!HEAVY_LISTED.includes(scenario.id)) return null;
+  const { done, total } = heavy.seeding;
+  return { kind: "seeding", workspace: heavy.name, done, total };
+}
+
+/** Set it up for this tab: the set-up's work done with the tab's services and router. */
+function useScenarioSetUp(): (scenario: TourScenario) => Promise<SetupOutcome> {
   const services = useServices();
-  const { where, now } = useEnvironment();
   const router = useRouter();
-  const progress = useMemo(() => createTourProgress(services.tour), [services]);
-  const heavy = useHeavyWorkspace(
-    services.api,
-    services.userId,
-    HEAVY_LISTED.length > 0,
-  );
-  // the ids of the scenarios done, as one string: a snapshot equal while nothing changes
-  const doneIds = useSyncExternalStore(progress.subscribe, () =>
-    LISTED.filter((s) => progress.done(s.id))
-      .map((s) => s.id)
-      .join(" "),
-  ).split(" ");
-
-  const holdOf = (scenario: TourScenario): SetupHold | null => {
-    if (scenario.setup.shell === "desktop" && where.shell !== "desktop")
-      return { kind: "desktop_only" };
-    const seeding = heavy?.seeding ?? null;
-    if (heavy === null || seeding === null || seeding.failed) return null;
-    if (!HEAVY_LISTED.includes(scenario.id)) return null;
-    const { done, total } = seeding;
-    return { kind: "seeding", workspace: heavy.name, done, total };
-  };
-
-  const setUp = (scenario: TourScenario): Promise<SetupOutcome> =>
+  return (scenario) =>
     runSetup(scenario, {
       prepare: (id) => services.api.prepareTour(id),
       async switchPerson(userId) {
@@ -130,6 +121,25 @@ export function TourPanel(): ReactNode {
       // a window the browser refused: the scenario says it could not be set up
       () => SET_UP_FAILED,
     );
+}
+
+/** Lists only the scenarios `isShown` passes, and draws no group that lists none. Never takes focus. */
+export function TourPanel(): ReactNode {
+  const services = useServices();
+  const { where, now } = useEnvironment();
+  const setUp = useScenarioSetUp();
+  const progress = useMemo(() => createTourProgress(services.tour), [services]);
+  const heavy = useHeavyWorkspace(
+    services.api,
+    services.userId,
+    HEAVY_LISTED.length > 0,
+  );
+  // the ids of the scenarios done, as one string: a snapshot equal while nothing changes
+  const doneIds = useSyncExternalStore(progress.subscribe, () =>
+    LISTED.filter((s) => progress.done(s.id))
+      .map((s) => s.id)
+      .join(" "),
+  ).split(" ");
 
   return (
     <div className="flex flex-col gap-4 p-3">
@@ -147,7 +157,7 @@ export function TourPanel(): ReactNode {
                 <TourScenarioRow
                   key={scenario.id}
                   scenario={scenario}
-                  hold={holdOf(scenario)}
+                  hold={holdOf(scenario, heavy, where.shell)}
                   done={doneIds.includes(scenario.id)}
                   onDone={(done) => progress.mark(scenario.id, done, now())}
                   setUp={setUp}
