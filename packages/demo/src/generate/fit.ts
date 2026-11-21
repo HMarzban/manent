@@ -3,7 +3,7 @@ import type { FormatId } from "@manent/schema";
 import type { ProductionState } from "@manent/sync-protocol";
 import type { SeedBlock } from "../content/markup.ts";
 import type { Rng } from "../seed/rng.ts";
-import { withTag } from "./grammar.ts";
+import { freeAction, withTag } from "./grammar.ts";
 import { SeedBuildError } from "./guide.ts";
 import type { LineIntent, StyleGuide } from "./guide.ts";
 
@@ -112,16 +112,28 @@ export function unitsIn(
   return units;
 }
 
-/** An unused action fragment of the guide, marked used; SeedBuildError "generator_exhausted" when none is left. */
-export function freeAction(
-  guide: StyleGuide,
-  rng: Rng,
-  used: Set<string>,
+/**
+ * An unused action fragment, marked used, for a block added at `at`: it names only the cast cued in the scene of
+ * the block before it. SeedBuildError "generator_exhausted" when none is left.
+ */
+export function actionAt(
+  doc: readonly SeedBlock[],
+  at: number,
+  options: { guide: StyleGuide; rng: Rng; used: Set<string> },
 ): SeedBlock {
-  const free = guide.action.filter((text) => !used.has(text));
-  if (free.length === 0)
+  const { guide, rng, used } = options;
+  const heading = doc.findLastIndex(
+    (b, i) => i < at && b.element === "scene_heading",
+  );
+  const next = doc.findIndex(
+    (b, i) => i > heading && b.element === "scene_heading",
+  );
+  const cues = doc
+    .slice(Math.max(heading, 0), next === -1 ? doc.length : next)
+    .flatMap((b) => (b.element === "character" ? [b.text] : []));
+  const text = freeAction(guide, cues, rng, used);
+  if (text === null)
     throw new SeedBuildError("generator_exhausted", guide.project);
-  const text = rng.pick(free);
   used.add(text);
   return { element: "action", text, marks: [], kind: null };
 }
@@ -133,14 +145,6 @@ interface Fitting {
   rng: Rng;
   used: Set<string>;
 }
-
-const addAction = (fitting: Fitting, at: number): void => {
-  fitting.doc.splice(
-    at,
-    0,
-    freeAction(fitting.guide, fitting.rng, fitting.used),
-  );
-};
 
 /** What a span needs to fit: an action more, its last unit less, nothing, or what no length can give. */
 type Verdict = "fits" | "grow" | "shrink" | "never";
@@ -160,7 +164,7 @@ async function fitSpan(
     if (verdict === "fits") return end;
     if (verdict === "never" || attempt === FIT_ATTEMPTS) throw unfit;
     if (verdict === "grow") {
-      addAction(fitting, end);
+      fitting.doc.splice(end, 0, actionAt(fitting.doc, end, fitting));
       end += 1;
       continue;
     }

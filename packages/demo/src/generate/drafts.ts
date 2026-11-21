@@ -1,7 +1,7 @@
 // Earlier drafts as deterministic changes to the generated parts of the final one, and the sessions between two.
 import type { SeedBlock } from "../content/markup.ts";
 import type { Rng } from "../seed/rng.ts";
-import { FIT_ATTEMPTS, freeAction, intentsOf, unitsIn } from "./fit.ts";
+import { FIT_ATTEMPTS, actionAt, intentsOf, unitsIn } from "./fit.ts";
 import type { PageMeter, SeedLayout, Unit } from "./fit.ts";
 import { SeedBuildError } from "./guide.ts";
 import type { LineIntent, StyleGuide } from "./guide.ts";
@@ -80,8 +80,7 @@ async function reachPages(
     const ends = Array.from({ length: size }, () =>
       units.length === 0 ? draft.length : rng.pick(units).to,
     ).toSorted((x, y) => y - x);
-    for (const at of ends)
-      draft.splice(at, 0, freeAction(guide, rng, deriving.used));
+    for (const at of ends) draft.splice(at, 0, actionAt(draft, at, deriving));
   }
 }
 
@@ -125,19 +124,10 @@ export async function deriveDrafts(
 
 type Step = "keep" | "delete" | "insert";
 
-// one string per block, so two blocks are the same when every field is
-const keyOf = (block: SeedBlock): string =>
-  JSON.stringify([
-    block.element,
-    block.text,
-    block.kind,
-    block.marks.map((m) => [m.mark, m.from, m.to]),
-  ]);
-
 // Myers' forward pass: for each round d, the furthest x on every diagonal k = x - y in [-d - 1, d + 1] before it
 function furthestReaching(
-  a: readonly string[],
-  b: readonly string[],
+  a: readonly SeedBlock[],
+  b: readonly SeedBlock[],
 ): Int32Array[] {
   const offset = a.length + b.length + 1;
   const v = new Int32Array(2 * offset + 1);
@@ -161,7 +151,10 @@ function furthestReaching(
 }
 
 // Myers' shortest edit script from a to b, front to back
-function shortestEdit(a: readonly string[], b: readonly string[]): Step[] {
+function shortestEdit(
+  a: readonly SeedBlock[],
+  b: readonly SeedBlock[],
+): Step[] {
   const trace = furthestReaching(a, b);
   const backwards: Step[] = [];
   let x = a.length;
@@ -222,8 +215,9 @@ function changesOf(
 /**
  * The changes that turn `older` into `newer` (the fewest blocks added and taken out, a block taken out and one
  * added in its place being one rewrite), in document order, cut into `count` runs of consecutive changes as
- * even as they divide; a run may be empty. Applying the runs in order to `older` gives `newer`. Throws a
- * RangeError unless `count` is a positive integer.
+ * even as they divide; a run may be empty. Applying the runs in order to `older` gives `newer`. A block is
+ * unchanged only when it is the same object in both, as deriveDrafts keeps every block it does not change.
+ * Throws a RangeError unless `count` is a positive integer.
  */
 export function sessionsBetween(
   older: readonly SeedBlock[],
@@ -234,10 +228,7 @@ export function sessionsBetween(
     throw new RangeError(
       `the sessions between two drafts must be a positive integer count, not ${count}`,
     );
-  const changes = changesOf(
-    shortestEdit(older.map(keyOf), newer.map(keyOf)),
-    newer,
-  );
+  const changes = changesOf(shortestEdit(older, newer), newer);
   return Array.from({ length: count }, (_, n) =>
     changes.slice(
       Math.floor((n * changes.length) / count),
