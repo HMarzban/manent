@@ -623,6 +623,60 @@ test("what this machine keeps private stays out of every tracked file", async ()
   expect(await check(files, local(false))).toEqual(["LICENSE:1 license"]);
 });
 
+const COMPARE = "site/compare.html";
+/** A comparison page: one product in a column heading, one in its left-out list. */
+const comparison = (...extra: string[]) =>
+  lines(
+    "<table>", // 1
+    '<tr><th scope="col">Feature</th><th scope="col">Quillmate</th></tr>', // 2
+    "<tr><td>Quillmate Cloud runs on the web.</td></tr>", // 3
+    "</table>", // 4
+    '<ul class="left-out">', // 5
+    "<li>Inkwell Classic: no longer sold.</li>", // 6
+    "</ul>", // 7
+    ...extra, // 8 on
+  );
+const products = (paths: string[] = []): LocalRules => ({
+  ...tracked(COMPARE, ...paths),
+  paths: ["docs/drafts"],
+  terms: ["quillmate", "inkwell", "zebra", "quokka"].map(
+    (word) => new RegExp(String.raw`\b${word}\b`, "i"),
+  ),
+});
+
+test("the comparison page may name the products it lists", async () => {
+  expect(await check({ [COMPARE]: comparison() }, products())).toEqual([]);
+});
+
+test("only the comparison page may name products, and only those it lists, never the acknowledged name", async () => {
+  // the same text in any other tracked file
+  const other = "site/index.html";
+  expect(await check({ [other]: comparison() }, products([other]))).toEqual([
+    `${other}:2 private-term`,
+    `${other}:3 private-term`,
+    `${other}:6 private-term`,
+  ]);
+  // a private term the page does not list as a product, and a private path
+  expect(
+    await check(
+      { [COMPARE]: comparison("<p>Zebra wrote it.</p>", "<p>docs/drafts</p>") },
+      products(),
+    ),
+  ).toEqual([`${COMPARE}:8 private-term`, `${COMPARE}:9 private-path`]);
+  // the name the README's acknowledgement holds, even when listed as a product
+  expect(
+    await check(
+      {
+        [COMPARE]: comparison(
+          '<tr><th scope="col">Quokka</th></tr>',
+          "<p>Quokka does it too.</p>",
+        ),
+      },
+      products(),
+    ),
+  ).toEqual([`${COMPARE}:8 private-term`, `${COMPARE}:9 private-term`]);
+});
+
 test("a link must lead to a file git tracks or would track", async () => {
   const untracked = "tools/out/report.md";
   const files = {

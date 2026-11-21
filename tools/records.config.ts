@@ -139,6 +139,12 @@ export const UNSCANNED: readonly string[] = [
   "bun.lock",
   ...Object.keys(UCD_SHA256).map((name) => `${UCD_DIR}/${name}`),
 ];
+/**
+ * The one tracked file that may name other products: a term of the local list stands there when
+ * it names a product the page lists in a column heading, or leads an item of its left-out list
+ * with. A term the README's two fixed sections hold never does.
+ */
+export const PRODUCT_PAGE = "site/compare.html";
 /** A larger tracked file is not read as text. */
 export const SCAN_LIMIT_BYTES = 1024 * 1024;
 export const LOCAL_EXCLUDE_FILE = "info/exclude";
