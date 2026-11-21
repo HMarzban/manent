@@ -137,6 +137,12 @@ a:hover {
   border-radius: 2px;
 }
 
+kbd {
+  font-family: var(--sans);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 code {
   font-family: var(--mono);
   font-size: 0.85em;
@@ -190,6 +196,7 @@ video {
 .brand {
   display: inline-flex;
   align-items: center;
+  min-height: 2.75rem;
   gap: 0.5rem;
   color: var(--fg);
   text-decoration: none;
@@ -217,7 +224,15 @@ video {
 }
 
 .masthead nav a:not(.button) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
   color: var(--fg);
+}
+
+/* the underline sits under the words, not at the foot of the taller target */
+:is(.masthead nav, .site-foot) .m-link {
+  background-position-y: calc(50% + 0.75em);
 }
 
 @media (max-width: 64rem) {
@@ -226,9 +241,31 @@ video {
   }
 }
 
+/* a phone keeps the brand, the pause control and Download; GitHub stays in the footer */
+/* the narrowest phones keep the brand's mark; its name is still the link's */
 @media (max-width: 22rem) {
+  .masthead .brand {
+    font-size: 0;
+  }
+}
+
+@media (max-width: 30rem) {
+  .masthead ul {
+    gap: 0.5rem;
+  }
+
   .masthead .github {
     display: none;
+  }
+
+  /* Watch keeps its icon; its words stay for screen readers */
+  .masthead .bar-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 
@@ -253,13 +290,14 @@ video {
   font-weight: 600;
   line-height: 1.2;
   text-decoration: none;
-  background: var(--accent);
+  --fill: var(--accent);
+  background: var(--fill);
   color: var(--on-accent);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--fill);
 }
 
 .button:hover {
-  filter: brightness(1.08);
+  background: color-mix(in srgb, var(--fill) 92%, #000);
 }
 
 .button-quiet {
@@ -270,11 +308,10 @@ video {
 
 .button-quiet:hover {
   background: var(--paper);
-  filter: none;
 }
 
 .button-small {
-  min-height: 2.25rem;
+  min-height: 2.75rem;
   padding: 0.25rem 0.875rem;
   font-size: 0.9375rem;
 }
@@ -302,6 +339,18 @@ video {
   font-family: var(--sans);
   font-size: 0.875rem;
   color: var(--fg-muted);
+}
+
+/* a link that stands alone on its line gets a 44px target without moving the line */
+/* the line that hands a section on to the next, or to a download */
+.handoff {
+  margin-top: clamp(2rem, 4vw, 3rem);
+}
+
+:is(.quiet-line, .small-print) > a:only-child {
+  display: inline-block;
+  padding-block: 0.75rem;
+  margin-block: -0.75rem;
 }
 
 /* ---------- sections ---------- */
@@ -350,6 +399,24 @@ video {
   line-height: 1.5;
   color: var(--fg-muted);
   max-width: var(--measure);
+}
+
+/* a call to action between sections: one line in the serif, the two buttons, the hand-off */
+.cta {
+  margin-top: clamp(3rem, 6vw, 4.5rem);
+  padding-top: clamp(2rem, 4vw, 3rem);
+  border-top: 1px solid var(--line-strong);
+}
+
+.cta-title {
+  margin-bottom: 1.25rem;
+  font-size: clamp(1.375rem, 2.4vw, 1.75rem);
+  line-height: 1.3;
+}
+
+/* the body under a full-width picture */
+.after-figure {
+  margin-top: 2rem;
 }
 
 .prose {
@@ -445,16 +512,12 @@ video {
   color: var(--fg-muted);
 }
 
-.points-three {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
-}
-
 .points-compact {
   margin-top: 1.5rem;
   gap: 1.25rem 1.75rem;
 }
 
-/* ---------- figures: vignettes, screenshots and the recording ---------- */
+/* ---------- figures: the scenes ---------- */
 
 .figure-note {
   margin-top: 0.875rem;
@@ -462,20 +525,6 @@ video {
   font-size: 0.875rem;
   color: var(--fg-muted);
   max-width: 40rem;
-}
-
-.kind {
-  font-weight: 600;
-  color: var(--fg);
-}
-
-.shot {
-  display: block;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  background: var(--raised);
 }
 
 /* the vignettes' windows carry their own frame; this lifts them off the desk, with room kept round them for the shadow */
@@ -488,10 +537,6 @@ video {
   box-shadow:
     0 1px 2px rgb(31 29 26 / 0.08),
     0 16px 32px -12px rgb(31 29 26 / 0.3);
-}
-
-.gap-top {
-  margin-top: 2rem;
 }
 
 /* ---------- the hero ---------- */
@@ -543,34 +588,6 @@ video {
 
 .hero .actions {
   margin-top: 2rem;
-}
-
-/* ---------- the trust strip ---------- */
-
-.facts {
-  border-block: 1px solid var(--line);
-  background: var(--raised);
-}
-
-.facts ul {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.75rem 2rem;
-  padding: 1.25rem 0;
-  list-style: none;
-  font-family: var(--sans);
-  font-size: 0.9375rem;
-}
-
-.facts li {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.facts .m-icon {
-  color: var(--accent);
 }
 
 /* ---------- who it's for: the switcher ---------- */
@@ -630,6 +647,35 @@ video {
     margin-bottom: 0.75rem;
     padding: 0.25rem 0.125rem;
     scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 2rem;
+  }
+
+  .tabs [role="tablist"]::-webkit-scrollbar {
+    display: none;
+  }
+
+  [role="tab"] {
+    scroll-snap-align: start;
+  }
+
+  /* the strip fades out at whichever edge has more tabs past it (site.js sets data-more) */
+  .tabs [role="tablist"][data-more="end"] {
+    mask-image: linear-gradient(90deg, #000 calc(100% - 3.5rem), transparent);
+  }
+
+  .tabs [role="tablist"][data-more="start"] {
+    mask-image: linear-gradient(90deg, transparent, #000 3.5rem);
+  }
+
+  .tabs [role="tablist"][data-more="start end"] {
+    mask-image: linear-gradient(
+      90deg,
+      transparent,
+      #000 3.5rem,
+      #000 calc(100% - 3.5rem),
+      transparent
+    );
   }
 
   [role="tab"],
@@ -681,41 +727,108 @@ video {
   letter-spacing: -0.01em;
 }
 
+/* a writer's day: three steps, each led by its time */
+.beats {
+  display: grid;
+  gap: 0.875rem;
+  margin-top: 1.5rem;
+  padding: 0;
+  list-style: none;
+  font-size: 1rem;
+  max-width: var(--measure);
+}
+
+.beats b {
+  display: block;
+  font-family: var(--sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.panel .problem {
+  margin-top: 1.25rem;
+}
+
+/* the Books figure's one big claim, under its scene */
+.number-band {
+  margin-top: 1.5rem;
+  font-size: clamp(1.375rem, 2.6vw, 1.875rem);
+  line-height: 1.25;
+}
+
+.number-band a {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-family: var(--sans);
+  font-size: 0.9375rem;
+}
+
+/* a phone's narrowest column: the picture runs to the panel's edge, so its text keeps its size */
+@media (max-width: 359px) {
+  .panel figure {
+    margin-inline: calc(-1 * clamp(1.25rem, 4vw, 3rem));
+  }
+}
+
+.after-tabs {
+  margin-top: 1.5rem;
+  max-width: var(--measure);
+  font-size: 1rem;
+  color: var(--fg-muted);
+}
+
 .panel .for {
   margin-top: 0.5rem;
   color: var(--fg-muted);
   font-size: 1rem;
 }
 
-.panel h4 {
-  margin-top: 1.75rem;
-  font-weight: 600;
-  font-family: var(--sans);
-  font-size: 0.9375rem;
-  color: var(--fg-muted);
-}
-
-.panel h4 + * {
-  margin-top: 0.625rem;
-}
-
-.pains {
-  padding-left: 1.25rem;
-  display: grid;
-  gap: 0.375rem;
-  font-size: 1rem;
-}
-
-.pains li::marker {
-  color: var(--fg-muted);
-}
-
 .uses .points {
   margin-top: 1rem;
 }
 
-.uses > h4 {
-  margin-top: 0;
+/* on a narrow screen the picture follows the heading, in a section (.split) and in a tab's panel: the text column
+   opens up, and what comes after the heading (the body, the points, the buttons) follows the picture */
+@media (width < 62rem) {
+  .split,
+  .panel {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .split > div,
+  .panel > div:first-child {
+    display: contents;
+  }
+
+  .split > div > *,
+  .panel > div:first-child > * {
+    order: 2;
+  }
+
+  .split > div > :is(.eyebrow, .problem, .section-head),
+  .panel > div:first-child > :is(h3, .for) {
+    order: 0;
+  }
+
+  .split > figure,
+  .split > div > figure {
+    order: 1;
+    margin-block: 0 2.5rem;
+  }
+
+  .panel > figure {
+    order: 1;
+    margin-block: 1.5rem 0.5rem;
+  }
+
+  .panel > .uses {
+    order: 3;
+    margin-top: 2rem;
+  }
 }
 
 /* the Ink source beside its player, drawn */
@@ -844,198 +957,61 @@ video {
   background: var(--chip);
 }
 
-/* ---------- how sync works ---------- */
+/* ---------- getting Manent: the systems, the developers' steps ---------- */
 
-.terms {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--line);
-}
-
-.terms > div {
-  padding: 1.25rem 1.5rem;
-  background: var(--paper);
-}
-
-.terms .m-card-icon {
-  width: 2.5rem;
-  height: 2.5rem;
-}
-
-.terms dt {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-family: var(--sans);
-  font-weight: 600;
-}
-
-.terms dd {
-  padding-left: 3.25rem;
-  color: var(--fg-muted);
-  font-size: 1rem;
-}
-
-/* the diagram: page, this device, the server, the other windows */
-.flow {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin-top: 1.5rem;
-  padding: 1.5rem 1rem 1rem;
-  border: 1px dashed var(--line-strong);
-  border-radius: 10px;
-  font-family: var(--sans);
-  font-size: 0.8125rem;
-  text-align: center;
-  position: relative;
-}
-
-.flow > span {
-  display: grid;
-  justify-items: center;
-  gap: 0.375rem;
-  position: relative;
-  z-index: 1;
-}
-
-.flow .m-icon {
-  width: 2.75rem;
-  height: 2.75rem;
-  padding: 0.6rem;
-  border-radius: 50%;
-  border: 1px solid var(--line-strong);
-  background: var(--paper);
-  color: var(--accent);
-}
-
-.flow b {
-  font-weight: 600;
-}
-
-/* the wire the change travels along, behind the stations */
-.flow::before {
-  content: "";
-  position: absolute;
-  left: 12.5%;
-  right: 12.5%;
-  top: calc(1.5rem + 1.375rem);
-  border-top: 2px dotted var(--line-strong);
-}
-
-.flow-dot {
-  position: absolute;
-  left: 12.5%;
-  top: calc(1.5rem + 1.375rem - 4px);
-  width: 10px;
-  height: 10px;
-  margin-left: -5px;
-  border-radius: 50%;
-  background: var(--accent);
-  z-index: 2;
-  opacity: 0;
-}
-
-.flow-review {
-  grid-column: 1 / -1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding: 0.5rem;
-  border-radius: 6px;
-  background: var(--attention-bg);
-  color: var(--attention);
-  font-weight: 600;
-}
-
-/* ---------- formats and files ---------- */
-
-.formats {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
-  gap: 1px;
-  padding: 0;
-  list-style: none;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--line);
-}
-
-.formats li {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  column-gap: 0.75rem;
-  padding: 1rem 1.125rem;
-  background: var(--paper);
-}
-
-.formats .m-icon {
-  grid-row: span 2;
-  color: var(--accent);
-  margin-top: 0.15rem;
-}
-
-.formats b {
-  font-family: var(--sans);
-  font-size: 0.9375rem;
-}
-
-.formats span {
-  font-size: 0.9375rem;
-  color: var(--fg-muted);
-  line-height: 1.45;
-}
-
-.after-grid {
-  margin-top: 1rem;
-  font-size: 1rem;
-  color: var(--fg-muted);
-}
-
-.subhead {
-  margin-top: clamp(3.5rem, 7vw, 5.5rem);
-  margin-bottom: 1.5rem;
-  font-size: clamp(1.5rem, 2.6vw, 2rem);
-}
-
-/* ---------- fast at any length ---------- */
-
-.figures {
-  display: grid;
-  gap: 0;
-  border-top: 1px solid var(--line-strong);
-}
-
-.figures > div {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.25rem 1.5rem;
-  padding: 0.875rem 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.figures dt {
-  font-size: 1rem;
-}
-
-.figures dd {
-  font-family: var(--sans);
-  font-weight: 600;
-  font-size: 1rem;
-}
-
-/* ---------- the desktop app and the demo ---------- */
-
+/* the three systems side by side; once site.js knows the visitor's, it leads on its own row */
 .platforms {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   margin-top: 2rem;
+}
+
+.platforms > .button {
+  justify-content: center;
+}
+
+/* the visitor's system is the button; the other two are quieter links on the row below */
+.platforms[data-found] {
+  grid-template-columns: repeat(2, auto);
+  justify-content: start;
+  gap: 0.5rem 1.5rem;
+}
+
+.platforms[data-found] > :first-child {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.platforms[data-found] > .button-quiet {
+  padding-inline: 0;
+  border-color: transparent;
+  background: none;
+  color: var(--accent);
+  font-size: 0.9375rem;
+}
+
+.platforms[data-found] > .button-quiet:hover {
+  text-decoration: underline;
+}
+
+.platforms[data-found] > .button-quiet::after {
+  display: none;
+}
+
+/* on a phone or a tablet: what Manent installs on, said once, above the links */
+.get-phone {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  max-width: var(--measure);
+  font-family: var(--sans);
+  font-size: 0.9375rem;
+  color: var(--fg-muted);
+}
+
+.get-phone + .platforms {
+  margin-top: 1rem;
 }
 
 .small-print {
@@ -1044,39 +1020,6 @@ video {
   font-family: var(--sans);
   font-size: 0.875rem;
   color: var(--fg-muted);
-}
-
-.demo {
-  margin-top: clamp(4rem, 8vw, 6rem);
-  padding: clamp(1.5rem, 4vw, 3rem);
-  border: 1px solid var(--line-strong);
-  border-radius: 14px;
-  background: var(--paper);
-}
-
-.demo > h3 {
-  font-size: clamp(1.5rem, 2.8vw, 2.125rem);
-  letter-spacing: -0.01em;
-  max-width: 28em;
-}
-
-.demo > p {
-  margin-top: 1rem;
-  max-width: var(--measure);
-}
-
-.demo-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 2.5rem 4rem;
-  margin-top: 2.5rem;
-  align-items: start;
-}
-
-@media (min-width: 62rem) {
-  .demo-grid {
-    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
-  }
 }
 
 .steps {
@@ -1108,7 +1051,7 @@ video {
   grid-row: span 3;
 }
 
-.steps h4 {
+.steps h3 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -1152,7 +1095,7 @@ video {
 .copy {
   font: inherit;
   font-weight: 600;
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   padding: 0.4rem 0.9rem;
   border-radius: 6px;
   border: 1px solid var(--code-line);
@@ -1193,32 +1136,111 @@ video {
   margin-top: 0.2rem;
 }
 
-.recording {
-  margin-top: 2.5rem;
-}
-
-.recording video {
-  width: 100%;
-  background: var(--desk-deep);
-}
-
-details.transcript {
+/* a small disclosure: what the recording shows, what to click on first launch, the developers' steps */
+.disclosure {
   margin-top: 0.75rem;
   font-family: var(--sans);
   font-size: 0.9375rem;
 }
 
-details.transcript summary {
+.disclosure summary {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  width: fit-content;
+  min-height: 2.75rem;
+  list-style: none;
   cursor: pointer;
   color: var(--accent);
+  font-weight: 600;
 }
 
-details.transcript ol {
-  margin-top: 0.75rem;
+.disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure summary .m-icon {
+  width: 1em;
+  height: 1em;
+}
+
+.disclosure[open] summary .m-icon {
+  transform: rotate(180deg);
+}
+
+.disclosure > :is(ol, ul):not(.steps) {
+  margin-top: 0.25rem;
   padding-left: 1.25rem;
   display: grid;
   gap: 0.375rem;
   max-width: 46rem;
+}
+
+.disclosure > :not(summary) + :not(.steps) {
+  margin-top: 1rem;
+}
+
+.disclosure > p {
+  max-width: 46rem;
+  color: var(--fg-muted);
+}
+
+.first-launch li {
+  color: var(--fg-muted);
+}
+
+.first-launch b {
+  color: var(--code-fg);
+}
+
+/* ---------- the recording, in a dialog: opened from [data-watch] ---------- */
+
+.watch {
+  width: min(100% - 2 * var(--gutter), 68rem);
+  max-width: none;
+  max-height: calc(100% - 2rem);
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--raised);
+  color: var(--fg);
+  box-shadow: var(--shadow);
+}
+
+.watch::backdrop {
+  background: rgb(18 18 17 / 0.72);
+}
+
+/* the dialog itself has no padding, so a click that lands on it, not on this, is a click on the backdrop */
+.watch-body {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+}
+
+.watch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.watch-head h2 {
+  font-size: clamp(1.25rem, 2.4vw, 1.625rem);
+}
+
+.watch video {
+  width: 100%;
+  border-radius: 8px;
+  background: var(--desk-deep);
+}
+
+.watch .figure-note {
+  margin-top: 0;
+}
+
+html:has(.watch[open]) {
+  overflow: hidden;
 }
 
 /* ---------- yours to keep ---------- */
@@ -1230,6 +1252,11 @@ details.transcript ol {
   border-radius: 0 10px 10px 0;
   background: var(--paper);
   max-width: 50rem;
+}
+
+.pledge > .m-icon {
+  margin-bottom: 0.75rem;
+  color: var(--accent);
 }
 
 .pledge p {
@@ -1244,12 +1271,84 @@ details.transcript ol {
   color: var(--fg-muted);
 }
 
-.developers {
-  margin-top: 2rem;
+/* ---------- how it compares, in marks ---------- */
+
+.compare {
+  margin-top: clamp(4rem, 8vw, 6rem);
 }
 
-.developers .actions {
-  margin-top: 1rem;
+.compare h3 {
+  max-width: 40rem;
+  margin-bottom: 1.75rem;
+  font-size: clamp(1.5rem, 2.8vw, 2.125rem);
+  line-height: 1.15;
+}
+
+.compare-marks {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--sans);
+  font-size: 0.875rem;
+}
+
+.compare-marks :is(th, td) {
+  padding: 0.75rem;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.compare-marks tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.compare-marks thead th {
+  vertical-align: bottom;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+  border-bottom-color: var(--line-strong);
+}
+
+.compare-marks tbody th {
+  text-align: left;
+  font-family: var(--serif);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.compare-marks td {
+  font-size: 1.125rem;
+}
+
+.compare-marks .us {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.compare-marks thead .us {
+  color: var(--fg);
+  box-shadow: inset 0 3px 0 var(--accent);
+}
+
+/* on a phone each row keeps Manent's mark, and one line says how the other kinds fare */
+.compare-marks small {
+  display: none;
+}
+
+@media (max-width: 40rem) {
+  .compare-marks :is(th, td):not(:nth-child(-n + 2)) {
+    display: none;
+  }
+
+  .compare-marks small {
+    display: block;
+    margin-top: 0.25rem;
+    font-family: var(--sans);
+    font-size: 0.8125rem;
+    font-weight: 400;
+    color: var(--fg-muted);
+  }
 }
 
 /* ---------- comparison tables: on paper, and one card per row on a narrow screen ---------- */
@@ -1389,16 +1488,6 @@ details.transcript ol {
   }
 }
 
-.compare-after {
-  margin-top: 1.25rem;
-  display: grid;
-  gap: 1rem;
-  justify-items: start;
-  font-family: var(--sans);
-  font-size: 0.9375rem;
-  color: var(--fg-muted);
-}
-
 /* ---------- questions ---------- */
 
 .faq {
@@ -1438,13 +1527,21 @@ details.transcript ol {
   margin-bottom: 1.25rem;
 }
 
+/* two columns of questions, read across, so the open answers fill the width */
+@media (min-width: 62rem) {
+  .faq {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 3rem;
+    max-width: none;
+  }
+}
+
 .faq ul {
   padding-left: 1.25rem;
   display: grid;
   gap: 0.375rem;
 }
-
-/* ---------- the closing call: page 1, blank, with its first line ---------- */
 
 .closing {
   background: var(--code-bg);
@@ -1480,8 +1577,7 @@ details.transcript ol {
 }
 
 .closing .button {
-  background: var(--code-accent);
-  border-color: var(--code-accent);
+  --fill: var(--code-accent);
   color: #121211;
 }
 
@@ -1489,6 +1585,10 @@ details.transcript ol {
   background: transparent;
   border-color: var(--code-line);
   color: var(--code-fg);
+}
+
+.closing .button-quiet:hover {
+  background: color-mix(in srgb, var(--code-fg) 8%, transparent);
 }
 
 .closing a:not(.button) {
@@ -1499,38 +1599,22 @@ details.transcript ol {
   color: var(--code-muted);
 }
 
-.page-one {
-  aspect-ratio: 8.5 / 7;
-  padding: 12% 10% 0 15%;
-  border-radius: 4px;
-  background: #ffffff;
-  color: #1a1a1a;
-  box-shadow: 0 24px 64px rgb(0 0 0 / 0.45);
-  font-family: var(--script);
-  font-size: clamp(0.8125rem, 1.4vw, 1rem);
-  position: relative;
+.closing :is(.eyebrow, .disclosure summary),
+.closing .platforms[data-found] > .button-quiet {
+  color: var(--code-accent);
 }
 
-.page-one .no {
-  position: absolute;
-  top: 6%;
-  right: 10%;
+.closing .code {
+  border: 1px solid var(--code-line);
 }
 
-.page-one .m-caret {
-  background: #1a1a1a;
+.closing .steps > li::before {
+  background: color-mix(in srgb, var(--code-accent) 18%, transparent);
+  color: var(--code-accent);
 }
 
-.page-one .saved {
-  position: absolute;
-  left: 15%;
-  bottom: 8%;
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-family: var(--sans);
-  font-size: 0.8125rem;
-  color: #17633d;
+.closing .disclosure {
+  margin-top: 1.25rem;
 }
 
 /* ---------- footer ---------- */
@@ -1547,12 +1631,23 @@ details.transcript ol {
   gap: 1.25rem;
 }
 
+.site-foot .brand {
+  justify-self: start;
+  color: var(--fg);
+}
+
 .site-foot ul {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1.5rem;
+  gap: 0 1.5rem;
   list-style: none;
   padding: 0;
+}
+
+.site-foot li a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
 }
 
 /* ---------- the named comparison ---------- */
@@ -1669,42 +1764,12 @@ details.transcript ol {
   max-width: 18em;
 }
 
-/* ---------- what moves on this page beyond motion.css: the change travelling the wire, and the answers opening ---------- */
+/* ---------- what moves on this page beyond motion.css: the disclosures opening ---------- */
 
 @media (prefers-reduced-motion: no-preference) {
   :root:not([data-motion="reduce"]) {
-    .flow.is-playing .flow-dot {
-      animation: flow-dot 5.2s var(--m-ease-move) infinite;
-    }
-
-    .faq summary .m-icon {
+    :is(.faq, .disclosure) summary .m-icon {
       transition: transform var(--m-dur-base) var(--m-ease-settle);
     }
-  }
-}
-
-@keyframes flow-dot {
-  0% {
-    left: 12.5%;
-    opacity: 0;
-  }
-  6% {
-    opacity: 1;
-  }
-  22%,
-  36% {
-    left: 37.5%;
-  }
-  52%,
-  66% {
-    left: 62.5%;
-  }
-  84% {
-    left: 87.5%;
-    opacity: 1;
-  }
-  100% {
-    left: 87.5%;
-    opacity: 0;
   }
 }

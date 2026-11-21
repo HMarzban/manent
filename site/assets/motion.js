@@ -1,1 +1,323 @@
-(()=>{let a=document,d=a.documentElement,x=matchMedia("(prefers-reduced-motion: reduce)"),h=()=>x.matches||d.dataset.motion==="reduce",r=(t)=>a.querySelectorAll(t),p=(t,e)=>Object.assign(a.createElement(t),{className:e}),c=(t,e,o)=>a.addEventListener(t,e,o),v=(t,e)=>new IntersectionObserver((o)=>o.forEach(t),e),E=new IntersectionObserver((t)=>{t.forEach(({isIntersecting:e,target:o})=>{if(!e)return;o.classList.add("is-revealed"),E.unobserve(o)}),d.classList.add("m-js")}),q=(t)=>{if(t.dataset.reveal==="stagger")[...t.children].forEach((e,o)=>e.style.setProperty("--m-i",Math.min(o,8)));E.observe(t)},A=(t)=>{let e=p("span","m-tab-indicator");t.prepend(e),t.classList.add("is-indicated");let o=()=>{let s=t.querySelector('[aria-selected="true"]');if(!s)return;e.style.cssText=`--m-ind-x:${s.offsetLeft}px;--m-ind-y:${s.offsetTop}px;--m-ind-w:${s.offsetWidth}px;--m-ind-h:${s.offsetHeight}px`,e.offsetWidth,e.classList.add("is-placed")};new MutationObserver((s)=>{o(),s.forEach(({target:i})=>{let n=i.ariaSelected==="true"&&a.getElementById(i.getAttribute("aria-controls"));if(!n)return;n.classList.remove("m-panel-in"),n.offsetWidth,n.classList.add("m-panel-in")})}).observe(t,{subtree:!0,attributeFilter:["aria-selected"]}),new ResizeObserver(o).observe(t),a.fonts?.ready.then(o)},O=(t)=>{let e=p("div","");e.style.cssText="position:absolute;top:0;height:8px;width:1px",a.body.prepend(e),v(({isIntersecting:o})=>t.toggleAttribute("data-scrolled",!o)).observe(e)},m=p("div","m-toaster");m.role="status";let N={ok:"check",info:"info",error:"circle-alert"},w=(t,{tone:e="ok",icon:o=N[e]}={})=>{let s=p("div","m-toast");if(s.dataset.tone=e,s.innerHTML=`<svg class="m-icon" aria-hidden="true"><use href="${d.dataset.mSprite??"icons.svg"}#i-${o}"/></svg>`,s.append(t),m.append(s),m.children.length>3)m.firstChild.remove();setTimeout(()=>{s.classList.add("is-leaving"),setTimeout(()=>s.remove(),400)},3600)},C=new WeakMap,W=async(t)=>{let e=t.closest("[data-copy-scope]")||t.parentNode,o=e.querySelector("[data-copy-said]"),{copy:s,copyText:i}=t.dataset,n=s?a.querySelector(s):e.querySelector("[data-copy-source]"),u=(f,F,P)=>{if(clearTimeout(C.get(t)),t.dataset.state=f,o)o.textContent=F;else w(F,{tone:f==="done"?"ok":"error"});C.set(t,setTimeout(()=>{if(delete t.dataset.state,o)o.textContent=""},P))},H=setTimeout(()=>t.dataset.state="busy",150);try{let f=i??n?.textContent.trim();if(!f)throw Error("nothing to copy");await navigator.clipboard.writeText(f),u("done","Copied",2500)}catch{if(n)getSelection().selectAllChildren(n);u("error",n?"Selected: press Ctrl+C or ⌘C to copy":"Could not copy",6000)}clearTimeout(H)},l=new Map,L=(t)=>{let{final:e,spoken:o}=l.get(t);l.delete(t),M.unobserve(t),o.remove(),t.textContent=e,t.removeAttribute("aria-hidden"),t.style.minWidth=""},M=v(({isIntersecting:t,target:e})=>{let o=l.get(e);if(!t||!o||o.start)return;o.start=performance.now();let s=parseFloat(getComputedStyle(d).getPropertyValue("--m-dur-count"))||900,i=(n)=>{if(!l.has(e))return;let u=Math.min(1,(n-o.start)/s);if(u===1)return L(e);e.textContent=o.format(o.to*(1-(1-u)**3)),requestAnimationFrame(i)};requestAnimationFrame(i)},{threshold:0.5}),I=(t)=>{let e=parseFloat(t.dataset.countTo);if(h()||Number.isNaN(e))return;let o=+t.dataset.countDecimals||0,{format:s}=new Intl.NumberFormat(d.lang||void 0,{minimumFractionDigits:o,maximumFractionDigits:o}),i=p("span","m-sr"),n=i.textContent=t.textContent;t.style.minWidth=t.offsetWidth+"px",l.set(t,{to:e,format:s,final:n,spoken:i}),t.after(i),t.setAttribute("aria-hidden","true"),t.textContent=s(0),M.observe(t)},y=new Map,S=(t)=>{let e=y.get(t)&&!h()&&!a.hidden;if(t.classList.contains("is-playing")===e)return;t.classList.toggle("is-playing",e),t.dispatchEvent(new Event(e?"vignette:start":"vignette:stop"))},D=v(({isIntersecting:t,target:e})=>{y.set(e,t),S(e)},{rootMargin:"80px"}),g=()=>{if(y.forEach((t,e)=>S(e)),h())l.forEach((t,e)=>L(e))},b=(t)=>r(".m-note[open]").forEach((e)=>e.open=e===t),T=({target:t,relatedTarget:e})=>{let o=t.closest?.(".m-tip[data-dismissed]");if(o&&!o.contains(e))delete o.dataset.dismissed},j=()=>{c("click",({target:t})=>{let e=t.closest("[data-copy], [data-copy-text]");if(e)W(e);if(!t.closest(".m-note"))b()}),c("toggle",({target:t})=>t.open&&t.matches(".m-note")&&b(t),!0),c("keydown",({key:t})=>{if(t!=="Escape")return;r(".m-tip:is(:hover, :focus-within)").forEach((o)=>o.dataset.dismissed="");let e=a.activeElement.closest(".m-note[open]");b(),e?.querySelector("summary").focus()}),c("mouseout",T),c("focusout",T),c("visibilitychange",g),x.addEventListener("change",g),new MutationObserver(g).observe(d,{attributeFilter:["data-motion"]})},k=()=>{a.body.append(m),j(),r("[data-reveal]").forEach(q),r("[data-tab-indicator]").forEach(A),r("[data-topbar]").forEach(O),r("[data-copy][hidden]").forEach((t)=>t.hidden=!1),r("[data-count-to]").forEach(I),r("[data-vignette]").forEach((t)=>D.observe(t))};if(window.ManentMotion={toast:w,reduced:h},a.readyState==="loading")c("DOMContentLoaded",k);else k()})();
+// Manent site motion: the pause control, reveal, tab indicator, top bar, copy, toast, notes, count-up and vignettes.
+// Without this script the page reads and works in full; with reduced motion nothing moves.
+(() => {
+  const doc = document;
+  const root = doc.documentElement;
+  const media = matchMedia("(prefers-reduced-motion: reduce)");
+  // no movement at all: the system asks for it, or the page is told so
+  const reduced = () => media.matches || root.dataset.motion === "reduce";
+  // no loops: the visitor paused them, or motion is reduced and they have not asked to play
+  const still = () => root.dataset.motion !== "play";
+  const all = (selector) => doc.querySelectorAll(selector);
+  const make = (tag, className) =>
+    Object.assign(doc.createElement(tag), { className });
+  const on = (type, handler, capture) =>
+    doc.addEventListener(type, handler, capture);
+  const watch = (callback, options) =>
+    new IntersectionObserver((entries) => entries.forEach(callback), options);
+
+  // ---------- the pause control: <html data-motion="play|paused">, the visitor's choice remembered ----------
+  const KEY = "manent.site.motion";
+
+  const chosen = () => {
+    try {
+      return localStorage.getItem(KEY);
+    } catch {
+      return null; // storage can be blocked; the system's setting decides
+    }
+  };
+
+  const remember = (state) => {
+    try {
+      localStorage.setItem(KEY, state);
+    } catch {
+      // remembering the choice is a convenience only
+    }
+  };
+
+  const show = () => {
+    if (root.dataset.motion === "reduce") return;
+    const state = chosen();
+    root.dataset.motion =
+      state === "play" || state === "paused"
+        ? state
+        : media.matches
+          ? "paused"
+          : "play";
+  };
+
+  const toggles = () => {
+    all("[data-motion-toggle]").forEach((button) => {
+      button.hidden = false;
+      button.setAttribute("aria-pressed", String(still()));
+    });
+  };
+
+  // ---------- scroll reveal ----------
+  // .m-js, which lets the CSS hide what has not been revealed, waits for the first report,
+  // so whatever is already on screen is revealed before it could blink out and back
+  const revealer = new IntersectionObserver((entries) => {
+    entries.forEach(({ isIntersecting, target }) => {
+      if (!isIntersecting) return;
+      target.classList.add("is-revealed");
+      revealer.unobserve(target);
+    });
+    root.classList.add("m-js");
+  });
+
+  // a staggered group arrives within four steps, however many children it has
+  const reveal = (el) => {
+    if (el.dataset.reveal === "stagger")
+      [...el.children].forEach((child, n) =>
+        child.style.setProperty("--m-i", Math.min(n, 3)),
+      );
+    revealer.observe(el);
+  };
+
+  // ---------- tabs: a sliding indicator under the chosen tab, and the new panel fading in ----------
+  const tabs = (list) => {
+    const bar = make("span", "m-tab-indicator");
+    list.prepend(bar);
+    list.classList.add("is-indicated");
+
+    const place = () => {
+      const tab = list.querySelector('[aria-selected="true"]');
+      if (!tab) return;
+      // the bar is 100px wide and scaled to the tab, so the slide moves only a transform
+      bar.style.cssText = `--m-ind-x:${tab.offsetLeft}px;--m-ind-y:${tab.offsetTop}px;--m-ind-s:${tab.offsetWidth / 100}`;
+      // the first position is a jump, not a slide from zero
+      void bar.offsetWidth;
+      bar.classList.add("is-placed");
+    };
+
+    new MutationObserver((changes) => {
+      place();
+      changes.forEach(({ target }) => {
+        const panel =
+          target.ariaSelected === "true" &&
+          doc.getElementById(target.getAttribute("aria-controls"));
+        if (!panel) return;
+        panel.classList.remove("m-panel-in");
+        void panel.offsetWidth; // restarts the animation
+        panel.classList.add("m-panel-in");
+      });
+    }).observe(list, { subtree: true, attributeFilter: ["aria-selected"] });
+    new ResizeObserver(place).observe(list);
+    doc.fonts?.ready.then(place);
+  };
+
+  // ---------- top bar: data-scrolled once the page has left its top ----------
+  const topbar = (bar) => {
+    const probe = make("div", "");
+    probe.style.cssText = "position:absolute;top:0;height:8px;width:1px";
+    doc.body.prepend(probe);
+    watch(({ isIntersecting }) =>
+      bar.toggleAttribute("data-scrolled", !isIntersecting),
+    ).observe(probe);
+  };
+
+  // ---------- toast ----------
+  const toaster = make("div", "m-toaster");
+  toaster.role = "status";
+  const ICONS = { ok: "check", info: "info", error: "circle-alert" };
+
+  const toast = (text, { tone = "ok", icon = ICONS[tone] } = {}) => {
+    const item = make("div", "m-toast");
+    item.dataset.tone = tone;
+    item.innerHTML = `<svg class="m-icon" aria-hidden="true"><use href="${root.dataset.mSprite ?? "icons.svg"}#i-${icon}"/></svg>`;
+    item.append(text);
+    toaster.append(item);
+    if (toaster.children.length > 3) toaster.firstChild.remove();
+    setTimeout(() => {
+      item.classList.add("is-leaving");
+      setTimeout(() => item.remove(), 400);
+    }, 3600);
+  };
+
+  // ---------- copy to clipboard ----------
+  const resets = new WeakMap();
+
+  const copy = async (button) => {
+    const scope = button.closest("[data-copy-scope]") || button.parentNode;
+    const said = scope.querySelector("[data-copy-said]");
+    const { copy: target, copyText } = button.dataset;
+    const source = target
+      ? doc.querySelector(target)
+      : scope.querySelector("[data-copy-source]");
+
+    const tell = (state, message, wait) => {
+      clearTimeout(resets.get(button));
+      button.dataset.state = state;
+      if (said) said.textContent = message;
+      else toast(message, { tone: state === "done" ? "ok" : "error" });
+      resets.set(
+        button,
+        setTimeout(() => {
+          delete button.dataset.state;
+          if (said) said.textContent = "";
+        }, wait),
+      );
+    };
+
+    const slow = setTimeout(() => (button.dataset.state = "busy"), 150);
+    try {
+      const text = copyText ?? source?.textContent.trim();
+      if (!text) throw Error("nothing to copy");
+      await navigator.clipboard.writeText(text);
+      tell("done", "Copied", 2500);
+    } catch {
+      // no clipboard access (blocked, or an insecure page): select the words so a key press copies them
+      if (source) getSelection().selectAllChildren(source);
+      tell(
+        "error",
+        source ? "Selected: press Ctrl+C or ⌘C to copy" : "Could not copy",
+        6000,
+      );
+    }
+    clearTimeout(slow);
+  };
+
+  // ---------- count-up, only on numbers marked data-count-to ----------
+  const counting = new Map();
+
+  const settle = (el) => {
+    const { final, spoken } = counting.get(el);
+    counting.delete(el);
+    counter.unobserve(el);
+    spoken.remove();
+    el.textContent = final;
+    el.removeAttribute("aria-hidden");
+    el.style.minWidth = "";
+  };
+
+  const counter = watch(
+    ({ isIntersecting, target }) => {
+      const job = counting.get(target);
+      if (!isIntersecting || !job || job.start) return;
+      job.start = performance.now();
+      const duration =
+        parseFloat(getComputedStyle(root).getPropertyValue("--m-dur-count")) ||
+        900;
+      const step = (now) => {
+        if (!counting.has(target)) return;
+        const t = Math.min(1, (now - job.start) / duration);
+        if (t === 1) return settle(target);
+        target.textContent = job.format(job.to * (1 - (1 - t) ** 3));
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    },
+    { threshold: 0.5 },
+  );
+
+  const count = (el) => {
+    const to = parseFloat(el.dataset.countTo);
+    if (reduced() || Number.isNaN(to)) return;
+    const digits = +el.dataset.countDecimals || 0;
+    const { format } = new Intl.NumberFormat(root.lang || undefined, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    });
+    // screen readers get the final number at once; the counting digits are for the eye only
+    const spoken = make("span", "m-sr");
+    const final = (spoken.textContent = el.textContent);
+    el.style.minWidth = el.offsetWidth + "px";
+    counting.set(el, { to, format, final, spoken });
+    el.after(spoken);
+    el.setAttribute("aria-hidden", "true");
+    el.textContent = format(0);
+    counter.observe(el);
+  };
+
+  // ---------- vignettes: .is-playing and vignette:start / vignette:stop only while on screen and not paused ----------
+  const vignettes = new Map();
+
+  const play = (el) => {
+    const playing = vignettes.get(el) && !still() && !doc.hidden;
+    if (el.classList.contains("is-playing") === playing) return;
+    el.classList.toggle("is-playing", playing);
+    el.dispatchEvent(new Event(playing ? "vignette:start" : "vignette:stop"));
+  };
+
+  const viewer = watch(
+    ({ isIntersecting, target }) => {
+      vignettes.set(target, isIntersecting);
+      play(target);
+    },
+    { rootMargin: "80px" },
+  );
+
+  const sync = () => {
+    toggles();
+    vignettes.forEach((_, el) => play(el));
+    if (reduced()) counting.forEach((_, el) => settle(el));
+  };
+
+  // ---------- notes and tooltips: Escape, outside clicks, one note open at a time ----------
+  const closeNotes = (except) =>
+    all(".m-note[open]").forEach((note) => (note.open = note === except));
+
+  const undismiss = ({ target, relatedTarget }) => {
+    const tip = target.closest?.(".m-tip[data-dismissed]");
+    if (tip && !tip.contains(relatedTarget)) delete tip.dataset.dismissed;
+  };
+
+  const listen = () => {
+    on("click", ({ target }) => {
+      const button = target.closest("[data-copy], [data-copy-text]");
+      if (button) copy(button);
+      const toggle = target.closest("[data-motion-toggle]");
+      if (toggle) {
+        const state = still() ? "play" : "paused";
+        remember(state);
+        root.dataset.motion = state;
+      }
+      if (!target.closest(".m-note")) closeNotes();
+    });
+    on(
+      "toggle",
+      ({ target }) =>
+        target.open && target.matches(".m-note") && closeNotes(target),
+      true,
+    );
+    on("keydown", ({ key }) => {
+      if (key !== "Escape") return;
+      all(".m-tip:is(:hover, :focus-within)").forEach(
+        (tip) => (tip.dataset.dismissed = ""),
+      );
+      const note = doc.activeElement.closest(".m-note[open]");
+      closeNotes();
+      note?.querySelector("summary").focus();
+    });
+    on("mouseout", undismiss);
+    on("focusout", undismiss);
+    on("visibilitychange", sync);
+    // until the visitor chooses, the system's setting decides
+    media.addEventListener("change", () => {
+      show();
+      sync();
+    });
+    new MutationObserver(sync).observe(root, {
+      attributeFilter: ["data-motion"],
+    });
+  };
+
+  // ---------- start ----------
+  const start = () => {
+    doc.body.append(toaster);
+    listen();
+    toggles();
+    all("[data-reveal]").forEach(reveal);
+    all("[data-tab-indicator]").forEach(tabs);
+    all("[data-topbar]").forEach(topbar);
+    all("[data-copy][hidden]").forEach((button) => (button.hidden = false));
+    all("[data-count-to]").forEach(count);
+    all("[data-vignette]").forEach((el) => viewer.observe(el));
+  };
+
+  // set at once, before vignettes.js and site.js read it
+  show();
+  window.ManentMotion = { toast, reduced, still };
+  if (doc.readyState === "loading") on("DOMContentLoaded", start);
+  else start();
+})();

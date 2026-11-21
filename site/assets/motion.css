@@ -2,7 +2,9 @@
   Manent site: motion, micro-interactions and icons.
   Extends the page's own tokens (--desk, --paper, --fg, --line, --accent, --ok, …) and adds the --m-* tokens below.
   Rule of the file: anything that moves sits in the block at the end, inside prefers-reduced-motion: no-preference,
-  and also stops when <html data-motion="reduce"> is set. Outside that block every component is still and complete.
+  and also stops when <html data-motion="reduce"> is set; what loops stops too when the visitor pauses it
+  (<html data-motion="paused">). Outside that block every component is still and complete.
+  Only transform and opacity are animated: shadows and surfaces fade in on a pseudo-element, colours change at once.
 */
 
 /* ---------- tokens ---------- */
@@ -34,7 +36,6 @@
   --m-elev-2: 0 1px 2px rgb(31 29 26 / 0.08), 0 14px 32px rgb(31 29 26 / 0.13);
   --m-bar-shadow: 0 1px 0 var(--line), 0 8px 24px rgb(31 29 26 / 0.08);
   --m-bar-h: 3.5rem;
-  --m-bar-h-compact: 3rem;
   --m-ring: 3px solid var(--accent);
   --m-ring-offset: 3px;
   --m-grain-opacity: 0.06;
@@ -118,6 +119,70 @@
 .m-btn[aria-disabled="true"] {
   opacity: 0.6;
   cursor: default;
+}
+
+/* the hover shadow sits on its own layer, so only its opacity changes */
+.m-btn::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  box-shadow: var(--m-elev-1);
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (hover: hover) {
+  .m-btn:hover:not([aria-disabled="true"])::after {
+    opacity: 1;
+  }
+}
+
+.m-btn:active::after {
+  opacity: 0;
+}
+
+/* ---------- the pause control: button[data-motion-toggle], aria-pressed while loops are paused ---------- */
+
+.m-motion-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.m-motion-toggle > * {
+  grid-area: 1 / 1;
+}
+
+@media (hover: hover) {
+  .m-motion-toggle:hover {
+    border-color: var(--line-strong);
+    background: var(--raised);
+  }
+}
+
+.m-motion-toggle:focus-visible {
+  outline: var(--m-ring);
+  outline-offset: 0;
+}
+
+/* two bars while loops play; the play triangle once they are paused */
+.m-pause-glyph {
+  width: 0.75rem;
+  height: 0.875rem;
+  border-inline: 0.25rem solid currentColor;
+}
+
+.m-motion-toggle[aria-pressed="true"] .m-pause-glyph,
+.m-motion-toggle:not([aria-pressed="true"]) .m-play-glyph {
+  display: none;
 }
 
 /* the copy button: one icon slot, four states set by motion.js on data-state */
@@ -235,11 +300,12 @@
   left: 0;
   top: 0;
   z-index: 2;
-  width: var(--m-ind-w, 0);
+  width: 100px;
   height: 3px;
-  border-radius: 3px 3px 0 0;
   background: var(--accent);
-  transform: translate(var(--m-ind-x, 0), var(--m-ind-y, 0));
+  transform-origin: 0 0;
+  transform: translate(var(--m-ind-x, 0), var(--m-ind-y, 0))
+    scaleX(var(--m-ind-s, 0));
   pointer-events: none;
   opacity: 0;
 }
@@ -253,21 +319,10 @@
   box-shadow: none;
 }
 
-/* on a phone the page fills the chosen pill; the indicator becomes that fill and slides */
+/* on a phone the page fills the chosen pill, and there is no bar to slide */
 @media (max-width: 40rem) {
   .m-tab-indicator {
-    z-index: 0;
-    height: var(--m-ind-h, 0);
-    border-radius: 999px;
-  }
-
-  [data-tab-indicator].is-indicated [role="tab"] {
-    position: relative;
-    z-index: 1;
-  }
-
-  [data-tab-indicator].is-indicated [role="tab"][aria-selected="true"] {
-    background: transparent;
+    display: none;
   }
 }
 
@@ -304,11 +359,23 @@
 
 /* ---------- top bar: data-topbar on the header; motion.js sets data-scrolled ---------- */
 
-[data-topbar][data-scrolled] {
+/* once scrolled, the bar turns frosted at once and its shadow fades in underneath; the row keeps its height */
+[data-topbar]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   box-shadow: var(--m-bar-shadow);
+  opacity: 0;
+  pointer-events: none;
+}
+
+[data-topbar][data-scrolled] {
   border-bottom-color: transparent;
-  /* keeps the page below from jumping when the row gets shorter */
-  margin-bottom: calc(var(--m-bar-h) - var(--m-bar-h-compact));
+}
+
+[data-topbar][data-scrolled]::before {
+  opacity: 1;
 }
 
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
@@ -321,10 +388,6 @@
 
 .m-topbar-row {
   min-height: var(--m-bar-h);
-}
-
-[data-topbar][data-scrolled] .m-topbar-row {
-  min-height: var(--m-bar-h-compact);
 }
 
 /* ---------- toast: motion.js creates one .m-toaster and fills it ---------- */
@@ -655,34 +718,28 @@
       --m-i: 4;
     }
 
-    /* buttons */
+    /* buttons: a lift on hover, with the shadow fading in under it; a press drops it back */
     .m-btn {
-      transition:
-        transform var(--m-dur-quick) var(--m-ease-settle),
-        box-shadow var(--m-dur-quick) var(--m-ease-settle),
-        background-color var(--m-dur-quick) linear,
-        border-color var(--m-dur-quick) linear,
-        color var(--m-dur-quick) linear,
-        filter var(--m-dur-quick) linear;
+      transition: transform var(--m-dur-quick) var(--m-ease-settle);
+    }
+
+    .m-btn::after {
+      transition: opacity var(--m-dur-quick) var(--m-ease-settle);
     }
 
     @media (hover: hover) {
       .m-btn:hover:not([aria-disabled="true"]) {
         transform: translateY(calc(-1 * var(--m-lift)));
-        box-shadow: var(--m-elev-1);
       }
     }
 
     .m-btn:active:not([aria-disabled="true"]) {
       transform: scale(var(--m-press));
-      box-shadow: none;
       transition-duration: var(--m-dur-instant);
     }
 
-    .m-btn:focus-visible,
-    .m-card:has(.m-card-link:focus-visible),
-    .m-tip-trigger:focus-visible {
-      animation: m-ring var(--m-dur-quick) var(--m-ease-settle);
+    .m-btn:active::after {
+      transition-duration: var(--m-dur-instant);
     }
 
     .m-btn .m-icon {
@@ -723,10 +780,7 @@
 
     /* cards */
     .m-card {
-      transition:
-        transform var(--m-dur-base) var(--m-ease-settle),
-        box-shadow var(--m-dur-base) var(--m-ease-settle),
-        border-color var(--m-dur-quick) linear;
+      transition: transform var(--m-dur-base) var(--m-ease-settle);
     }
 
     .m-card-icon,
@@ -750,44 +804,21 @@
 
     /* tabs */
     .m-tab-indicator.is-placed {
-      transition:
-        transform var(--m-dur-base) var(--m-ease-move),
-        width var(--m-dur-base) var(--m-ease-move),
-        height var(--m-dur-base) var(--m-ease-move);
+      transition: transform var(--m-dur-base) var(--m-ease-move);
     }
 
-    [data-tab-indicator] [role="tab"] {
-      transition:
-        color var(--m-dur-quick) linear,
-        background-color var(--m-dur-quick) linear;
+    /* a strip of tabs too wide for its screen slides to the chosen one */
+    [role="tablist"] {
+      scroll-behavior: smooth;
     }
 
     .m-panel-in {
       animation: m-fade-up var(--m-dur-base) var(--m-ease-settle);
     }
 
-    /* links */
-    .m-link {
-      transition: background-size var(--m-dur-base) var(--m-ease-settle);
-    }
-
-    .m-link-inline {
-      transition:
-        text-decoration-color var(--m-dur-quick) linear,
-        text-decoration-thickness var(--m-dur-quick) linear;
-    }
-
-    /* top bar */
-    [data-topbar] {
-      transition:
-        box-shadow var(--m-dur-base) linear,
-        background-color var(--m-dur-base) linear,
-        border-color var(--m-dur-base) linear,
-        margin-bottom var(--m-dur-base) var(--m-ease-move);
-    }
-
-    .m-topbar-row {
-      transition: min-height var(--m-dur-base) var(--m-ease-move);
+    /* top bar: its shadow fades in */
+    [data-topbar]::before {
+      transition: opacity var(--m-dur-base) linear;
     }
 
     /* toast */
@@ -800,6 +831,15 @@
 
     .m-toast.is-leaving {
       transform: translateY(6px);
+    }
+
+    /* the recording's dialog */
+    .watch[open] {
+      animation: m-fade-up var(--m-dur-base) var(--m-ease-settle);
+    }
+
+    .watch[open]::backdrop {
+      animation: m-fade var(--m-dur-base) linear;
     }
 
     /* tooltip and note */
@@ -823,15 +863,18 @@
       transition: rotate var(--m-dur-base) var(--m-ease-move);
     }
 
-    /* hero light: drifts over minutes; motion.js pauses it off screen */
-    .m-light::after {
-      animation: m-drift var(--m-dur-ambient) var(--m-ease-move) infinite
-        alternate;
-    }
+    /* loops: they run only until the visitor pauses them */
+    &:not([data-motion="paused"]) {
+      /* hero light: drifts over minutes; motion.js pauses it off screen */
+      .m-light::after {
+        animation: m-drift var(--m-dur-ambient) var(--m-ease-move) infinite
+          alternate;
+      }
 
-    /* caret: blinks a few times, then rests solid */
-    .m-caret {
-      animation: m-blink 1.1s steps(1, end) 6;
+      /* caret: blinks a few times, then rests solid */
+      .m-caret {
+        animation: m-blink 1.1s steps(1, end) 4;
+      }
     }
 
     /* vignettes: CSS animations inside [data-vignette] run only while it is on screen;
@@ -876,10 +919,9 @@
   }
 }
 
-@keyframes m-ring {
+@keyframes m-fade {
   from {
-    outline-offset: 7px;
-    outline-color: transparent;
+    opacity: 0;
   }
 }
 

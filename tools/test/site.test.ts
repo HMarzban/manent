@@ -95,22 +95,25 @@ test("every in-page link and reference on each page names an element on it", () 
   expect(missing).toEqual([]);
 });
 
-test("every link from one page to another names a page of the site and an element on it", () => {
+test("every link from one page to another names a page of the site and an element on it, or a file of the site", async () => {
   const links = Object.values(PAGES).flatMap((read) =>
     read.elements
       .filter(({ tag }) => tag === "a")
       .flatMap(({ attributes }) => attributes.get("href") ?? [])
       .filter((href) => !/^[a-z]+:/.test(href) && !href.startsWith("#")),
   );
-  const missing = links.filter((href) => {
+  const missing: string[] = [];
+  for (const href of new Set(links)) {
     const [path = "", id] = href.split("#");
     const target = PAGES[path === "./" ? "index.html" : path];
-    return (
-      !target || (id !== undefined && !valuesIn(target, "id").includes(id))
-    );
-  });
+    const found = target
+      ? id === undefined || valuesIn(target, "id").includes(id)
+      : id === undefined && (await Bun.file(join(site, path)).exists());
+    if (!found) missing.push(href);
+  }
   expect(links).toContain("compare.html");
   expect(links).toContain("./#compare");
+  expect(links).toContain("media/demo-recording.mp4");
   expect(missing).toEqual([]);
 });
 
@@ -211,4 +214,15 @@ test("the landing page's structured data is JSON", () => {
   )?.[1];
   const parsed: unknown = JSON.parse(data ?? "");
   expect(parsed).toMatchObject({ "@context": "https://schema.org" });
+});
+
+test("every length the landing page gives the recording is the length its captions run to", async () => {
+  const captions = await Bun.file(
+    join(site, "media", "demo-recording.vtt"),
+  ).text();
+  const [, minutes = "", seconds = "", millis = ""] =
+    [...captions.matchAll(/--> (\d+):(\d+)\.(\d+)/g)].at(-1) ?? [];
+  const length = Number(minutes) * 60 + Number(seconds) + Number(millis) / 1000;
+  const said = [...index.matchAll(/(\d+) seconds/g)].map(([, n]) => n);
+  expect(new Set(said)).toEqual(new Set([String(Math.ceil(length))]));
 });

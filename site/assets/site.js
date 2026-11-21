@@ -1,35 +1,138 @@
-// Without this script the page still reads in full; it adds the tab switcher and names the visitor's system on Download.
+// Without this script the page still reads in full; it points Download at the visitor's system, switches the
+// audience tabs, opens the recording in a dialog and lets a phone send the page on.
 (() => {
-  // ---------- Download: the visitor's system first ----------
+  // ---------- Download: the file for the visitor's system ----------
+  // Each release publishes one file per system under these names. A system without a file, or a visitor whose
+  // system is not found, is sent to the releases page or to the list of systems instead.
+  const RELEASES = "https://github.com/HMarzban/manent/releases";
   const SYSTEMS = [
-    ["mac", "Mac", /mac/i],
-    ["windows", "Windows", /win/i],
-    ["linux", "Linux", /linux|x11|cros/i],
+    { key: "mac", name: "Mac", file: "Manent-mac.dmg", pattern: /mac/i },
+    {
+      key: "windows",
+      name: "Windows",
+      file: "Manent-windows.exe",
+      pattern: /win/i,
+    },
+    {
+      key: "linux",
+      name: "Linux",
+      file: "Manent-linux.AppImage",
+      pattern: /linux|x11|cros/i,
+    },
   ];
+  const fileFor = ({ file }) =>
+    file ? `${RELEASES}/latest/download/${file}` : RELEASES;
+
   const platform =
     navigator.userAgentData?.platform || navigator.platform || "";
-  const found = /iphone|ipad|android/i.test(navigator.userAgent)
+  // an iPad asks for the desktop site and calls itself a Mac, but it has a touch screen
+  const handheld =
+    navigator.userAgentData?.mobile ||
+    /iphone|ipad|ipod|android/i.test(navigator.userAgent) ||
+    (/mac/i.test(platform) && navigator.maxTouchPoints > 1);
+  const found = handheld
     ? undefined
-    : SYSTEMS.find(([, , pattern]) => pattern.test(platform));
+    : SYSTEMS.find(({ pattern }) => pattern.test(platform));
+  const all = (selector) => document.querySelectorAll(selector);
+
+  for (const button of all("[data-get]")) {
+    const label = button.querySelector("[data-get-label]");
+    const system = button.querySelector("[data-system]");
+    if (handheld) {
+      button.href = "#download";
+      if (label) label.textContent = label.dataset.handheld;
+      if (system) system.textContent = system.dataset.handheld;
+    } else if (found) {
+      button.href = fileFor(found);
+      if (system) system.textContent = `for ${found.name}`;
+    } else button.href = "#download";
+  }
+
+  for (const link of all("[data-download]")) {
+    const system = SYSTEMS.find(({ key }) => key === link.dataset.download);
+    link.href = fileFor(system);
+  }
+
+  for (const line of all("[data-get-phone]")) line.hidden = !handheld;
+  for (const list of all("[data-downloads]")) list.hidden = handheld;
+
+  // a phone cannot install Manent: it sends the page on, by the share sheet or by copying its address
+  for (const button of all("[data-share]")) {
+    const said = button.parentElement.querySelector("[data-share-said]");
+    const url = location.href.split("#")[0];
+    button.addEventListener("click", async () => {
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: document.title, url });
+        } catch {
+          // the visitor closed the share sheet
+        }
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        said.textContent = "Link copied";
+      } catch {
+        // no clipboard access: the address is shown to copy by hand
+        said.textContent = url;
+      }
+    });
+  }
+
+  // a shortcut is written as the visitor's keyboard shows it
+  if (!/mac|iphone|ipad/i.test(platform))
+    for (const key of all("[data-shortcut]"))
+      key.textContent = key.dataset.shortcut;
+
   if (found) {
-    const [key, name] = found;
-    const others = SYSTEMS.filter(([other]) => other !== key).map(
-      ([, label]) => label,
+    const others = SYSTEMS.filter((system) => system !== found).map(
+      ({ name }) => name,
     );
-    for (const label of document.querySelectorAll("[data-system]"))
-      label.textContent = `for ${name}`;
-    for (const line of document.querySelectorAll("[data-also]"))
+    for (const line of all("[data-also]")) {
       line.textContent = `Also for ${others.join(" and ")}`;
-    for (const list of document.querySelectorAll("[data-downloads]")) {
-      const mine = list.querySelector(`[data-download="${key}"]`);
+      line.hidden = false;
+    }
+    for (const list of all("[data-downloads]")) {
+      const mine = list.querySelector(`[data-download="${found.key}"]`);
       mine.classList.remove("button-quiet");
       list.prepend(mine);
+      list.dataset.found = "";
     }
+    // first-launch help names the visitor's system first
+    for (const item of all(`[data-launch="${found.key}"]`))
+      item.parentElement.prepend(item);
+  }
+
+  // ---------- the recording, in a dialog ----------
+  // [data-watch] names the dialog; without this script the link opens the recording itself
+  const openers = new Map();
+  for (const opener of all("[data-watch]")) {
+    const dialog = document.getElementById(opener.dataset.watch);
+    const video = dialog.querySelector("video");
+    opener.addEventListener("click", (event) => {
+      event.preventDefault();
+      openers.set(dialog, opener);
+      dialog.showModal();
+      // a browser may refuse to start it; the controls are there to press play
+      video.play().catch(() => {});
+    });
+    if (openers.has(dialog)) continue;
+    openers.set(dialog, opener);
+    // a click on the dialog itself, outside its body, is a click on the backdrop
+    dialog.addEventListener("click", ({ target }) => {
+      if (target === dialog || target.closest("[data-watch-close]"))
+        dialog.close();
+    });
+    dialog.addEventListener("close", () => {
+      video.pause();
+      openers.get(dialog).focus();
+    });
   }
 
   // ---------- who it's for: one panel at a time ----------
   const tabs = document.querySelector("[data-tabs]");
-  const list = [...tabs.querySelectorAll('[role="tab"]')];
+  const strip = tabs.querySelector('[role="tablist"]');
+  const list = [...strip.querySelectorAll('[role="tab"]')];
   const panels = list.map((tab) =>
     document.getElementById(tab.getAttribute("aria-controls")),
   );
@@ -41,6 +144,26 @@
     panel.tabIndex = 0;
   });
 
+  // on a phone the strip scrolls sideways: data-more names the edges with tabs past them, and the chosen tab is
+  // brought into the strip's view (only sideways, so the page itself does not move)
+  const edges = () => {
+    const end = strip.scrollWidth - strip.clientWidth;
+    const more = [];
+    if (strip.scrollLeft > 1) more.push("start");
+    if (strip.scrollLeft < end - 1) more.push("end");
+    if (more.length) strip.dataset.more = more.join(" ");
+    else delete strip.dataset.more;
+  };
+  strip.addEventListener("scroll", edges, { passive: true });
+  new ResizeObserver(edges).observe(strip);
+
+  const reach = (tab) => {
+    if (strip.scrollWidth <= strip.clientWidth) return;
+    strip.scrollTo({
+      left: tab.offsetLeft - (strip.clientWidth - tab.offsetWidth) / 2,
+    });
+  };
+
   const select = (index, focus) => {
     list.forEach((tab, i) => {
       const on = i === index;
@@ -48,7 +171,8 @@
       tab.tabIndex = on ? 0 : -1;
       panels[i].hidden = !on;
     });
-    if (focus) list[index].focus();
+    if (focus) list[index].focus({ preventScroll: true });
+    reach(list[index]);
   };
 
   const keep = (index) => {

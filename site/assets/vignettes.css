@@ -1,6 +1,7 @@
 /* Manent vignettes: the shared base. Tokens are the app's theme values,
    resolved by the colour scheme of whatever contains the vignette.
-   Every vignette is .mv > .mv-crop > .mv-stage (600 px wide by design). */
+   Every vignette is .mv > .mv-crop > .mv-stage, drawn at its design size (--w by --h,
+   600 x 380 unless the scene says otherwise) and scaled to its column. */
 
 .mv {
   --bg-desk: light-dark(#e9e6e0, #121211);
@@ -46,9 +47,12 @@
   --face-page: "Courier Prime", "Courier New", Courier, monospace;
   --enter: cubic-bezier(0.2, 0, 0, 1);
 
-  /* scale: the stage is 600 px; it never shrinks below 0.82, so 11 px stays 9 px */
-  --z: 1;
-  --fx: 0.5; /* where a phone's crop looks, 0 left to 1 right */
+  /* the stage's design size, and its size in a column narrower than 492 px (a phone) */
+  --w: 600px;
+  --h: 380px;
+  --wn: 352px;
+  --hn: 400px;
+  --zmax: 1.15;
   container-type: inline-size;
   overflow: hidden;
   color: var(--fg);
@@ -64,32 +68,29 @@
 .mv[data-theme="dark"] {
   color-scheme: dark;
 }
-@container (min-width: 690px) {
-  .mv-crop {
-    --z: 1.15;
-  }
-}
-@container (max-width: 599px) {
-  .mv-crop {
-    --z: 0.9;
-  }
-}
-@container (max-width: 539px) {
-  .mv-crop {
-    --z: 0.82;
-  }
-}
+/* The stage is drawn at its design size and scaled to fill the column, never past --zmax.
+   Below 492 px (where 600 px would take 11 px text under 9 px) the scene switches to its
+   narrow layout, --wn wide, which still keeps 11 px at 9 px or more in a 288 px column.
+   tan(atan2(a, b)) is a / b as a number: the only cross-engine way to divide two lengths. */
 .mv-crop {
-  --w: calc(600px * var(--z));
-  --d: calc(100cqw - var(--w));
-  width: var(--w);
-  margin-left: calc(max(var(--d), 0px) / 2 + min(var(--d), 0px) * var(--fx));
+  --W: var(--w);
+  --H: var(--h);
+  --z: min(var(--zmax), tan(atan2(100cqw, var(--W))));
+  height: calc(var(--H) * var(--z));
+}
+@container (max-width: 491px) {
+  .mv-crop {
+    --W: var(--wn);
+    --H: var(--hn);
+  }
 }
 .mv-stage {
-  zoom: var(--z);
   position: relative;
-  width: 600px;
-  height: var(--h, 380px);
+  width: var(--W);
+  height: var(--H);
+  margin-left: calc((100cqw - var(--W) * var(--z)) / 2);
+  transform: scale(var(--z));
+  transform-origin: 0 0;
 }
 .mv *,
 .mv *::before,
@@ -192,8 +193,9 @@
 }
 .mv-msg > * {
   grid-area: 1 / 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  align-self: center;
+  white-space: normal;
+  line-height: 12px;
 }
 .mv-link {
   text-decoration: underline;
@@ -251,13 +253,18 @@
 }
 .mv-sheet p {
   margin: 1em 0 0;
-  width: 60ch;
+  width: var(--measure, 60ch);
 }
 .mv-sheet > p:first-of-type {
   margin-top: 0;
 }
 .mv-sheet .sh {
+  position: relative;
   text-transform: uppercase;
+}
+/* the layout engine wraps greedily; the site's balanced wrapping must not reach the page */
+.mv p {
+  text-wrap: wrap;
 }
 .mv-sheet .ch {
   margin-left: 22ch;
@@ -280,9 +287,49 @@
   position: absolute;
   top: 3em;
   left: 15ch;
-  right: 10ch;
+  width: var(--measure, 60ch);
   display: flex;
   justify-content: space-between;
+}
+
+/* a PDF viewer: dark chrome, and paper that stays white in either theme */
+.mv-pdf {
+  --bg-chrome: #3b3a38;
+  --bg-desk: #575551;
+  --fg: #efece6;
+  --fg-muted: #c9c4bb;
+  --line: #2a2826;
+  color: var(--fg);
+}
+.mv-pdf .mv-sheet {
+  --page-paper: #fff;
+  --page-ink: #1a1a1a;
+  --page-edge: transparent;
+}
+.mv-pdf-page {
+  padding: 0 6px;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.1);
+}
+
+/* ---------- a narrow column: the window keeps what says where your words are ---------- */
+@container (max-width: 491px) {
+  /* "‹ Library", View and Commands give way; the page shows its text column edge to edge */
+  .mv-tb > span:first-child:not([class]),
+  .mv-bar > .mv-menu:not(:first-child),
+  .mv-bar > span:has(> .mv-kbd) {
+    display: none;
+  }
+  .mv-tb,
+  .mv-sb,
+  .mv-bar {
+    gap: 10px;
+    padding: 0 10px;
+  }
+  .mv-sheet {
+    --measure: 46ch;
+    left: calc(16px - 15ch);
+  }
 }
 
 /* a caret: your own is ink; another person's carries their colour and name */
@@ -359,7 +406,10 @@
 }
 .mv[data-paused] *,
 .mv[data-paused] *::before,
-.mv[data-paused] *::after {
+.mv[data-paused] *::after,
+:root[data-motion="paused"] .mv *,
+:root[data-motion="paused"] .mv *::before,
+:root[data-motion="paused"] .mv *::after {
   animation-play-state: paused !important;
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -389,9 +439,43 @@
   }
 }
 
-/* Hero: the editor, two people typing beside you. */
+/* Hero: the editor, two people typing beside you; you go offline, keep typing, and sync.
+   The page is cropped to its text column so the script reads at 12-13 px in the hero's column. */
+.mv-hero {
+  --w: 540px;
+  --h: 400px;
+  --hn: 440px;
+  --zmax: 1.2;
+}
 .mv-hero .mv-sheet {
   top: 14px;
+  left: -21px;
+}
+.mv-warn {
+  color: var(--fg-attention);
+}
+.mv[data-play] .mv-caret[data-who] {
+  transition: opacity 300ms var(--enter);
+}
+.mv-hero[data-play]:has(.mv-hero-off[data-on]) .mv-caret[data-who] {
+  opacity: 0.3;
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* the loop ends by fading the whole page, never by taking words back */
+  .mv-hero[data-play] .mv-sheet {
+    transition: opacity 400ms ease;
+  }
+  .mv-hero[data-reset] .mv-sheet {
+    opacity: 0;
+  }
+}
+@container (max-width: 491px) {
+  .mv-hero .mv-sheet {
+    left: calc(16px - 15ch);
+  }
+  .mv-hero-scene {
+    display: none;
+  }
 }
 
 /* Offline: the window keeps saving while the network is off. */
@@ -435,9 +519,6 @@
 }
 
 /* Collaborate: Sam's window above, Dana's below. */
-.mv-collab {
-  --fx: 0.1;
-}
 .mv-collab .mv-win {
   height: 184px;
 }
@@ -496,70 +577,116 @@
 .mv-bubble p {
   margin: 4px 0 0;
 }
-
-/* Same page: the screen and its PDF, line for line. */
-.mv-same {
-  --fx: 0;
-  --top: 22px; /* where the first line sits in both panels */
+.mv-collab {
+  --hn: 470px;
 }
-.mv-same-screen {
-  right: 308px;
+@container (max-width: 491px) {
+  .mv-collab .mv-win {
+    height: 226px;
+  }
+  .mv-collab-a {
+    inset: 0 14px auto 0;
+  }
+  .mv-collab-b {
+    inset: auto 0 0 14px;
+  }
+  .mv-collab .mv-sheet {
+    top: -51px;
+    left: calc(16px - 15ch);
+  }
+  .mv-marker {
+    left: auto;
+    right: 8px;
+  }
+  .mv-bubble {
+    top: auto;
+    bottom: 6px;
+  }
+}
+
+/* Same page: page 47 on screen and in its PDF, margins, page number and line breaks alike.
+   In a wide column (940 px and up) the two sit side by side, each page whole across;
+   narrower, the PDF sits under the screen. */
+.mv-same {
+  --h: 620px;
+  --hn: 620px;
+  --lines: 14; /* the lines the scan steps through */
+}
+.mv-same .mv-win {
+  height: 300px;
 }
 .mv-same-pdf {
-  left: 308px;
-  --bg-chrome: #3b3a38;
-  --bg-desk: #575551;
-  --fg: #efece6;
-  --fg-muted: #c9c4bb;
-  --line: #2a2826;
-  color: var(--fg);
+  top: 320px;
 }
 .mv-same .mv-sheet {
-  top: calc(var(--top) - 6em);
-  left: calc(3px - 15ch);
-}
-.mv-same-pdf .mv-sheet {
-  --page-paper: #fff;
-  --page-ink: #1a1a1a;
-  --page-edge: transparent;
-}
-.mv-pdf-page {
-  padding: 0 6px;
-  border-radius: 3px;
-  background: rgb(255 255 255 / 0.1);
+  top: 10px;
 }
 .mv-links {
-  position: absolute;
-  top: calc(33px + var(--top));
-  left: 292px;
-  width: 16px;
-  height: 165px;
+  display: none;
 }
-.mv-links i {
-  position: absolute;
-  top: calc(var(--l) * 11px + 5px);
-  left: 2px;
-  right: 2px;
-  border-top: 1px dotted var(--line-strong);
-}
+/* the scan band covers one line of the page; its first line is 6 lines under the page's top */
 .mv-scan {
   position: absolute;
-  top: var(--top);
+  top: calc(10px + 6em);
   left: 0;
   right: 0;
   height: 11px;
+  font-size: 11px;
   background: color-mix(in srgb, var(--bg-accent) 16%, transparent);
-  transform: translateY(154px);
+  transform: translateY(calc((var(--lines) - 1) * 11px));
 }
 .mv:not([data-play]) .mv-scan {
   display: none;
 }
+@container (min-width: 940px) {
+  .mv-same .mv-crop {
+    --W: 1160px;
+    --H: 470px;
+    --lines: 28;
+  }
+  .mv-same .mv-win {
+    height: auto;
+    inset: 0 590px 0 0;
+  }
+  .mv-same .mv-same-pdf {
+    inset: 0 0 0 590px;
+  }
+  .mv-same .mv-sheet {
+    left: 4px;
+  }
+  .mv-links {
+    display: block;
+    position: absolute;
+    top: calc(32px + 10px + 66px);
+    left: 570px;
+    width: 20px;
+    height: calc(28 * 11px);
+  }
+  .mv-links i {
+    position: absolute;
+    top: calc(var(--l) * 11px + 5px);
+    left: 3px;
+    right: 3px;
+    border-top: 1px dotted var(--line-strong);
+  }
+}
+@container (max-width: 491px) {
+  .mv-same .mv-win {
+    inset: 0 0 auto;
+  }
+  .mv-same .mv-same-pdf {
+    inset: 320px 0 auto;
+  }
+  .mv-same .mv-bar > :nth-child(3) {
+    display: none;
+  }
+}
 @media (prefers-reduced-motion: no-preference) {
   .mv-same[data-play] .mv-links[data-on] {
-    animation: mv-same-reveal 3.4s steps(15, start) both;
+    animation: mv-same-reveal 3.8s steps(var(--lines), start) both;
   }
   .mv-same[data-play] .mv-scan[data-on] {
-    animation: mv-same-scan 3.4s steps(14, end) both;
+    animation: mv-same-scan 3.8s steps(var(--lines), jump-none) both;
   }
   .mv-same[data-play] .mv-pulse[data-on] {
     animation: mv-same-pulse 1s ease-out 2;
@@ -589,27 +716,199 @@
   }
 }
 
-/* a narrow column: the screen above its PDF, so both stay whole */
-@container (max-width: 539px) {
-  .mv-same .mv-stage {
-    --h: 470px;
-  }
-  .mv-same-screen {
-    right: 0;
-    bottom: 216px;
-  }
-  .mv-same-pdf {
-    left: 0;
-    top: 262px;
-  }
-  .mv-same-pdf .mv-bar {
+/* Film: page 23 as you write it, then sent to a reader as a watermarked PDF. */
+.mv-film {
+  --h: 400px;
+  --hn: 450px;
+}
+.mv-film .mv-sheet {
+  top: 12px;
+}
+.mv-film-draft {
+  padding: 0 8px;
+  border-radius: 9px;
+  background: var(--bg-subtle);
+  color: var(--fg-muted);
+}
+.mv-send dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 12px 0 16px;
+}
+.mv-send dt {
+  color: var(--fg-muted);
+}
+.mv-send dd {
+  margin: 0;
+}
+.mv-check {
+  display: inline-grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  margin-right: 6px;
+  vertical-align: -2px;
+  border-radius: 3px;
+  background: var(--bg-accent);
+  color: var(--fg-on-accent);
+  font-size: 11px;
+  line-height: 1;
+}
+.mv-check::after {
+  content: "\2713";
+}
+@container (max-width: 491px) {
+  .mv-film .sn,
+  .mv-film .mv-bar > :nth-child(2),
+  .mv-film .mv-bar > :nth-child(3) {
     display: none;
   }
-  .mv-same-pdf .mv-pdf-page {
-    margin-left: 0;
-  }
-  .mv-links {
+}
+
+/* Stage play: centred names and headings, directions in parentheses, today's new pages. */
+.mv-stageplay {
+  --h: 400px;
+  --hn: 440px;
+}
+.mv-stageplay .mv-sheet {
+  top: 12px;
+}
+.mv-stageplay :is(.sh, .ch) {
+  margin-left: 0;
+  width: var(--measure, 60ch);
+  text-align: center;
+}
+.mv-stageplay .di {
+  margin-left: 0;
+  width: var(--measure, 60ch);
+}
+.mv-stageplay .pa {
+  margin-left: 10ch;
+  width: 40ch;
+}
+.mv-stageplay .ac {
+  margin-left: 15ch;
+  width: 45ch;
+}
+.mv-stageplay .ac::before {
+  content: "(";
+}
+.mv-stageplay .ac::after {
+  content: ")";
+}
+.mv-stageplay .mv-ast {
+  left: calc(var(--measure, 60ch) + 18ch);
+}
+.mv-stageplay .mv-sb {
+  justify-content: flex-start;
+}
+.mv-stageplay-since {
+  color: var(--fg-muted);
+}
+.mv-stageplay-new {
+  padding: 0 8px;
+  border-radius: 9px;
+  background: var(--bg-selected);
+  font-weight: 500;
+}
+.mv-stageplay-print {
+  position: relative;
+  overflow: hidden;
+  margin-left: auto;
+}
+@container (max-width: 491px) {
+  .mv-stageplay-since,
+  .mv-stageplay-page {
     display: none;
+  }
+  .mv-stageplay .pa {
+    margin-left: 8ch;
+    width: 30ch;
+  }
+  .mv-stageplay .ac {
+    margin-left: 8ch;
+    width: 38ch;
+  }
+}
+
+/* Books: the chapter list, and a chapter opening on a new page in standard manuscript layout:
+   1 in margins, a 65-cell column, double-spaced, first lines indented. */
+.mv-book {
+  --w: 640px;
+  --h: 400px;
+  --hn: 520px;
+}
+.mv-book .mv-lp {
+  width: 160px;
+}
+.mv-chapters {
+  margin: 0;
+  padding: 4px 6px;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+.mv-chapters li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.mv-chapters li > :last-child {
+  color: var(--fg-muted);
+}
+.mv-chap-on {
+  background: var(--bg-selected);
+  box-shadow: inset 2px 0 var(--bg-accent);
+}
+.mv-book .mv-sheet {
+  top: 12px;
+  left: -31px;
+  padding-left: 10ch;
+}
+.mv-book .mv-head {
+  left: 10ch;
+  width: var(--measure, 65ch);
+}
+.mv-book .mv-sheet p {
+  width: var(--measure, 65ch);
+  margin: 0;
+  line-height: 2;
+  text-indent: 5ch;
+}
+.mv-book .mv-sheet .chap {
+  text-indent: 0;
+  text-align: center;
+}
+.mv-book .mv-sheet .chap:first-of-type {
+  margin-top: 4em;
+}
+.mv-book .mv-sheet .chap + p:not(.chap) {
+  margin-top: 2em;
+}
+@container (max-width: 491px) {
+  .mv-book .mv-long-body {
+    flex-direction: column;
+  }
+  .mv-book .mv-lp {
+    width: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .mv-chapters .mv-chap-far,
+  .mv-book-page {
+    display: none;
+  }
+  .mv-book .mv-sheet {
+    left: calc(16px - 10ch);
+  }
+  .mv-book .mv-sheet .chap:first-of-type {
+    margin-top: 2em;
   }
 }
 
@@ -644,9 +943,6 @@
   background: var(--rev-blue-fill);
   border-right: 1px solid var(--rev-blue-edge);
 }
-.mv-rev .sh {
-  position: relative;
-}
 .sn {
   position: absolute;
   left: -6ch;
@@ -679,6 +975,21 @@
   border-bottom: 0;
   border-radius: 3px 3px 0 0;
 }
+@container (max-width: 491px) {
+  .mv-rev .mv-sb {
+    font-size: 11px;
+  }
+  .mv-rev .mv-sb .mv-btn {
+    display: none;
+  }
+  .mv-rev .mv-ast {
+    left: calc(18ch + var(--measure));
+  }
+  .mv-lock {
+    left: auto;
+    right: 8px;
+  }
+}
 .mv-rev[data-play] .mv-pages[data-on] {
   transform: translateY(-600px);
 }
@@ -698,9 +1009,6 @@
 }
 
 /* History: Changes since, shown on the page, then Restore. */
-.mv-hist {
-  --fx: 1;
-}
 .mv-hist-body {
   display: flex;
   flex: 1;
@@ -902,18 +1210,41 @@
   display: none;
 }
 
-/* a narrow column shows the panel's side, so the dialog sits there */
-@container (max-width: 539px) {
-  .mv-scrim {
-    place-items: center end;
-    padding-right: 12px;
+/* a narrow column: the changed lines above, the History panel under them */
+.mv-hist {
+  --hn: 560px;
+}
+@container (max-width: 491px) {
+  .mv-hist-body {
+    flex-direction: column;
+  }
+  .mv-hist .mv-desk {
+    flex: 0 0 150px;
+  }
+  .mv-hist .mv-sheet {
+    left: calc(16px - 15ch);
+  }
+  .mv-panel {
+    flex: 1;
+    width: auto;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+  .mv-hist .mv-sb > :first-child {
+    display: none;
+  }
+}
+.mv-hist .mv-bar:has(.mv-msg [data-on]) > :nth-child(2) {
+  display: none;
+}
+@container (max-width: 491px) {
+  .mv-hist .mv-bar > .mv-link,
+  .mv-hist .mv-bar:has(.mv-msg [data-on]) > .mv-menu {
+    display: none;
   }
 }
 
 /* Series: the Library's episode table. */
-.mv-series {
-  --fx: 1;
-}
 .mv-series .mv-stack {
   display: inline-grid;
 }
@@ -1036,6 +1367,22 @@
 .mv-eps tr {
   isolation: isolate;
 }
+/* a narrow column: the season's table alone, without Due */
+.mv-series {
+  --hn: 330px;
+}
+@container (max-width: 491px) {
+  .mv-side,
+  .mv-search,
+  .mv-series .mv-tb .mv-btn,
+  .mv-eps-head .mv-btn,
+  .mv-eps :is(th, td):nth-child(4) {
+    display: none;
+  }
+  .mv-series .mv-av {
+    margin-left: auto;
+  }
+}
 @keyframes mv-series-flash {
   to {
     opacity: 0;
@@ -1043,9 +1390,6 @@
 }
 
 /* Rundown: the grid with back timing, and the prompter window. */
-.mv-rundown {
-  --fx: 0.15;
-}
 .mv-rundown .mv-stack {
   display: inline-grid;
 }
@@ -1057,8 +1401,6 @@
   background: var(--bg-raised);
 }
 .mv-rd-air > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
   color: var(--fg-attention);
 }
 .mv-alert {
@@ -1181,7 +1523,7 @@
 .mv-pr-text {
   padding: 4px 16px 0 32px;
   font: 500 17px/24px var(--face-ui);
-  transform: translateY(-64px);
+  transform: translateY(var(--pr-still, -64px));
 }
 .mv-pr-text p {
   margin: 0 0 10px;
@@ -1201,7 +1543,39 @@
     transform: translateY(0);
   }
   to {
-    transform: translateY(-96px);
+    transform: translateY(var(--pr-to, -96px));
+  }
+}
+/* a narrow column: the grid without # and Start, the prompter under it */
+.mv-rundown {
+  --hn: 440px;
+}
+@container (max-width: 491px) {
+  .mv-rd-main {
+    bottom: 128px;
+  }
+  .mv-prompter {
+    inset: 320px 0 0 18px;
+  }
+  .mv-rd-date,
+  .mv-rd-note,
+  .mv-rd-long,
+  .mv-rd-main .mv-bar > :first-child,
+  .mv-grid :is(th, td):is(:nth-child(1), :nth-child(4)) {
+    display: none;
+  }
+  .mv-grid {
+    font-size: 11px;
+  }
+  .mv-grid :is(th, td) {
+    padding: 0 5px;
+  }
+  .mv-pr-view {
+    height: 96px;
+  }
+  .mv-pr-text {
+    font-size: 14px;
+    line-height: 20px;
   }
 }
 
@@ -1264,7 +1638,7 @@
 /* Stage play: centred scene and character, full-width speech, directions in parentheses */
 .mv-formats:has(.k-stage[data-on]) .fm-play :is(.sh, .ch) {
   margin-left: 0;
-  width: 60ch;
+  width: var(--measure, 60ch);
   text-align: center;
 }
 .mv-formats:has(.k-stage[data-on]) .fm-play .sh {
@@ -1272,7 +1646,7 @@
 }
 .mv-formats:has(.k-stage[data-on]) .fm-play .di {
   margin-left: 0;
-  width: 60ch;
+  width: var(--measure, 60ch);
 }
 .mv-formats:has(.k-stage[data-on]) .fm-play .pa {
   margin-left: 10ch;
@@ -1299,7 +1673,7 @@
   line-height: 2;
 }
 .mv-formats:has(.k-ms[data-on]) .fm-ms p {
-  width: 65ch;
+  width: var(--measure, 65ch);
   margin: 0;
 }
 .mv-formats .chap {
@@ -1307,6 +1681,20 @@
 }
 .mv-formats .body {
   text-indent: 5ch;
+}
+
+@container (max-width: 491px) {
+  .mv-formats:has(.k-stage[data-on]) .fm-play .pa {
+    margin-left: 8ch;
+    width: 30ch;
+  }
+  .mv-formats:has(.k-stage[data-on]) .fm-play .ac {
+    margin-left: 8ch;
+    width: 38ch;
+  }
+  .mv-formats:has(.k-ms[data-on]) .fm-ms {
+    margin-left: 0;
+  }
 }
 
 /* Game Script: the screenplay page, with Camera and Engine direction */
@@ -1354,7 +1742,7 @@
 .mv-file {
   position: absolute;
   top: 70px;
-  left: 262px;
+  left: calc(50% - 38px);
   width: 76px;
   display: grid;
   justify-items: center;
@@ -1489,9 +1877,6 @@
 }
 .mv-long .mv-desk {
   overflow: hidden;
-}
-.mv-long {
-  --fx: 0.3;
 }
 .mv-strip,
 .mv-strip-2 {
@@ -1662,7 +2047,7 @@
   --l: 2;
 }
 .mv-links i:nth-child(3) {
-  --l: 4;
+  --l: 3;
 }
 .mv-links i:nth-child(4) {
   --l: 5;
@@ -1677,7 +2062,7 @@
   --l: 8;
 }
 .mv-links i:nth-child(8) {
-  --l: 10;
+  --l: 9;
 }
 .mv-links i:nth-child(9) {
   --l: 11;
@@ -1686,5 +2071,32 @@
   --l: 12;
 }
 .mv-links i:nth-child(11) {
-  --l: 14;
+  --l: 13;
+}
+.mv-links i:nth-child(12) {
+  --l: 15;
+}
+.mv-links i:nth-child(13) {
+  --l: 17;
+}
+.mv-links i:nth-child(14) {
+  --l: 19;
+}
+.mv-links i:nth-child(15) {
+  --l: 20;
+}
+.mv-links i:nth-child(16) {
+  --l: 21;
+}
+.mv-links i:nth-child(17) {
+  --l: 23;
+}
+.mv-links i:nth-child(18) {
+  --l: 24;
+}
+.mv-links i:nth-child(19) {
+  --l: 25;
+}
+.mv-links i:nth-child(20) {
+  --l: 27;
 }
