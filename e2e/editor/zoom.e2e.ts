@@ -109,12 +109,21 @@ async function openZoomMenu(page: Page): Promise<void> {
     .press("ArrowRight");
 }
 
-/** Chooses `label` in View ▾ → Zoom ("150 %", "Fit width"). */
+/** Closes Zoom, then View ▾: a checkbox item leaves both open, and a click on View would then close the menu, not open it. */
+async function closeZoomMenu(page: Page): Promise<void> {
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+}
+
+/** Chooses `label` in View ▾ → Zoom ("150 %", "Fit width"); the menu is closed again. */
 async function zoomTo(page: Page, label: string): Promise<void> {
   await openZoomMenu(page);
   await page
     .getByRole("menuitemcheckbox", { name: label, exact: true })
     .press("Enter");
+  await closeZoomMenu(page);
   await settled(page);
 }
 
@@ -124,8 +133,7 @@ async function zoomChecked(page: Page, label: string): Promise<string | null> {
   const checked = await page
     .getByRole("menuitemcheckbox", { name: label, exact: true })
     .getAttribute("aria-checked");
-  await page.keyboard.press("Escape");
-  await page.keyboard.press("Escape");
+  await closeZoomMenu(page);
   return checked;
 }
 

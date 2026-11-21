@@ -3,25 +3,12 @@ import { Database } from "bun:sqlite";
 import type { RecoveredItem } from "@manent/sync-client";
 import { HANDOFF_REFUSALS } from "@manent/sync-client";
 import type { Handoff, NodeDocState, NodeRecords, Person } from "./ports.ts";
+import { SCHEMA } from "./schema.ts";
 
 /** `PRAGMA user_version` of records.sqlite. */
 export const RECORDS_VERSION = 1;
 
 const SECRET_BYTES = 32;
-
-const SCHEMA = [
-  `CREATE TABLE secret (id INTEGER PRIMARY KEY CHECK (id = 1), key BLOB NOT NULL) STRICT`,
-  `CREATE TABLE people (user_id TEXT PRIMARY KEY, name TEXT NOT NULL, wants_cloud INTEGER NOT NULL,
-    cloud_token TEXT, chosen_at INTEGER NOT NULL) STRICT`,
-  `CREATE TABLE current_person (id INTEGER PRIMARY KEY CHECK (id = 1), user_id TEXT NOT NULL, node_token TEXT NOT NULL) STRICT`,
-  `CREATE TABLE docs (doc_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, state TEXT NOT NULL,
-    generation INTEGER NOT NULL, changed_at INTEGER NOT NULL) STRICT`,
-  `CREATE TABLE handoffs (doc_id TEXT PRIMARY KEY, key TEXT NOT NULL, kind TEXT NOT NULL, home TEXT NOT NULL, workspace_id TEXT,
-    snapshot BLOB NOT NULL, started_at INTEGER NOT NULL, refused TEXT) STRICT`,
-  `CREATE TABLE cloud (id INTEGER PRIMARY KEY CHECK (id = 1), seed_id TEXT) STRICT`,
-  `CREATE TABLE recovered (doc_id TEXT NOT NULL, n INTEGER NOT NULL, user_id TEXT NOT NULL, cause TEXT NOT NULL,
-    block_id TEXT, near_block_id TEXT, text TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (doc_id, n)) STRICT`,
-] as const;
 
 /** One entry per member, so a member added to the union fails typecheck until this driver can read it back. */
 type Members<T extends string> = { readonly [M in T]: M };
@@ -221,6 +208,15 @@ function prepare(db: Database) {
       `INSERT INTO handoffs (doc_id, key, kind, home, workspace_id, snapshot, started_at, refused)
        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) ON CONFLICT (doc_id) DO NOTHING`,
     ),
+    setWorkspace: db.query<never, [string, string]>(
+      "INSERT OR REPLACE INTO workspaces (doc_id, workspace_id) VALUES (?1, ?2)",
+    ),
+    workspaceOf: db.query<{ workspaceId: string }, [string]>(
+      "SELECT workspace_id AS workspaceId FROM workspaces WHERE doc_id = ?1",
+    ),
+    removeWorkspace: db.query<never, [string]>(
+      "DELETE FROM workspaces WHERE doc_id = ?1",
+    ),
     refuseHandoff: db.query<never, [string, string]>(
       "UPDATE handoffs SET refused = ?2 WHERE doc_id = ?1",
     ),
@@ -296,6 +292,8 @@ function docRecords(
   | "docsOf"
   | "addRecovered"
   | "recovered"
+  | "setWorkspace"
+  | "workspaceOf"
 > {
   return {
     docState(docId) {
@@ -331,6 +329,10 @@ function docRecords(
       });
     },
     recovered: (docId) => sql.recovered.all(docId).map(toRecovered),
+    setWorkspace(docId, workspaceId) {
+      sql.setWorkspace.run(docId, workspaceId);
+    },
+    workspaceOf: (docId) => sql.workspaceOf.get(docId)?.workspaceId ?? null,
   };
 }
 
@@ -348,16 +350,19 @@ function handoffRecords(
       return row === null ? null : toHandoff(row);
     },
     startHandoff(handoff) {
-      sql.startHandoff.run(
-        handoff.docId,
-        handoff.key,
-        handoff.kind,
-        handoff.home,
-        handoff.workspaceId,
-        handoff.snapshot,
-        handoff.startedAt,
-        handoff.refused,
-      );
+      inOne(() => {
+        const { changes } = sql.startHandoff.run(
+          handoff.docId,
+          handoff.key,
+          handoff.kind,
+          handoff.home,
+          handoff.workspaceId,
+          handoff.snapshot,
+          handoff.startedAt,
+          handoff.refused,
+        );
+        if (changes === 1) sql.removeWorkspace.run(handoff.docId);
+      });
     },
     refuseHandoff(docId, reason) {
       inOne(() => {

@@ -201,7 +201,7 @@ async function renderLibrary(options: {
     ...createPersonServices({
       ...environment,
       person,
-      demo: options.demo ?? false,
+      demo: createValue(options.demo ?? false),
       api,
       usePerson: createPersonStore(null),
       router: navigation,

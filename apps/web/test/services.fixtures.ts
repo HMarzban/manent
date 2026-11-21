@@ -202,7 +202,7 @@ export function testServices(options: {
   return createPersonServices({
     ...environment,
     person: { token: null, userId: options.userId, name: options.userId },
-    demo: false,
+    demo: createValue(false),
     api: options.api ?? fakeApi(),
     usePerson: createPersonStore(null),
     router:
