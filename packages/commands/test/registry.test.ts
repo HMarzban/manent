@@ -171,6 +171,31 @@ test("the Stage 1 commands are these, with these words and keys", () => {
     ["history.restoreBefore", "Restore 'Before restore'", [], []],
     ["history.seeWhatChanged", "See what changed", [], []],
     ["history.whoWrote", "Who wrote this?", [], []],
+    ["production.lock", "Lock for production…", [], []],
+    ["production.issue", "Issue…", [], []],
+    ["production.recall", "Recall…", [], []],
+    ["production.markRevised", "Mark revised", [], []],
+    ["production.clearRevised", "Clear revised", [], []],
+    ["production.lockPages", "Lock or unlock page numbers", [], []],
+    ["production.lockAPages", "Lock A-pages", [], []],
+    ["production.renumber", "Renumber", [], []],
+    ["production.omitScene", "Omit scene", [], []],
+    ["production.bringBackScene", "Bring back scene", [], []],
+    ["production.changeLayout", "Change layout…", [], []],
+    ["production.unlock", "Unlock…", [], []],
+    ["production.end", "End production…", [], []],
+    ["view.pages", "Pages", [], []],
+    ["view.marks.collated", "Revision marks: Collated", [], []],
+    ["view.marks.this_revision", "Revision marks: This revision only", [], []],
+    ["view.marks.all", "Revision marks: All revisions", [], []],
+    [
+      "view.marks.since_full_draft",
+      "Revision marks: Since the last full draft",
+      [],
+      [],
+    ],
+    ["view.marks.none", "Revision marks: None", [], []],
+    ["view.colourRevised", "Colour revised pages", [], []],
   ]);
 });
 
@@ -620,9 +645,10 @@ test("a script setting lives in Script settings and is absent off a document", (
   ]).toEqual(["homeScriptSettings", "homeScriptSettings", true, false]);
 });
 
-test("only Script settings and the preferences have a home in the palette", () => {
+test("only Script settings, the preferences and Lock for production have a home in the palette", () => {
   const homes = new Set(COMMANDS.map((c) => c.home));
   expect([...homes].toSorted()).toEqual([
+    "homeBeforeLock",
     "homePreferences:appearance",
     "homePreferences:device",
     "homePreferences:writing",
@@ -633,7 +659,7 @@ test("only Script settings and the preferences have a home in the palette", () =
     COMMANDS.filter((c) => c.home !== null && !c.id.startsWith("setting.")).map(
       (c) => c.id,
     ),
-  ).toEqual(["doc.scriptSettings"]);
+  ).toEqual(["doc.scriptSettings", "production.lock"]);
 });
 
 test("a setting that is not offered in the palette generates commands hidden from it", () => {
@@ -755,6 +781,26 @@ test("the handler table names every command but the generated ones", () => {
     "history.restoreBefore": noop,
     "history.seeWhatChanged": noop,
     "history.whoWrote": noop,
+    "production.lock": noop,
+    "production.issue": noop,
+    "production.recall": noop,
+    "production.markRevised": noop,
+    "production.clearRevised": noop,
+    "production.lockPages": noop,
+    "production.lockAPages": noop,
+    "production.renumber": noop,
+    "production.omitScene": noop,
+    "production.bringBackScene": noop,
+    "production.changeLayout": noop,
+    "production.unlock": noop,
+    "production.end": noop,
+    "view.pages": noop,
+    "view.marks.collated": noop,
+    "view.marks.this_revision": noop,
+    "view.marks.all": noop,
+    "view.marks.since_full_draft": noop,
+    "view.marks.none": noop,
+    "view.colourRevised": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))
