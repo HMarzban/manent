@@ -201,14 +201,18 @@ async function startCloud(
   }
 }
 
-/** A node that did not start: the running one is asked to come forward, or the newer store is said. */
+/**
+ * A node that did not start: the running one is asked to come forward, or the newer store is said.
+ * Inside the app `process.exit` starts a graceful quit and returns, so each outcome returns after it.
+ */
 async function refuse(
   start: Extract<DesktopNodeStart, { ok: false }>,
   repository: string,
-): Promise<never> {
+): Promise<void> {
   if (start.reason === "running") {
     if (start.running !== null) await askToFocus(start.running, fetch);
     process.exit(0);
+    return;
   }
   console.error(SHELL_WORDS.newerStoreLine);
   await alertNewerStore(repository);
