@@ -226,3 +226,30 @@ export function isProductionState(value: unknown): value is ProductionState {
     ].every((list) => Array.isArray(list))
   );
 }
+
+/** One revision set of an imported script, as the file marked it. */
+export interface ImportedSetRequest {
+  sourceName: string;
+  /** One of the revision colours. */
+  colour: string;
+  mark: string;
+  fullDraft: boolean;
+  /** UTF-16 ranges inserted inside each block's text, and the offsets where text was deleted. */
+  blocks: {
+    blockId: string;
+    inserted: [number, number][];
+    deletedAt: number[];
+  }[];
+}
+
+/** The body of POST /api/production/import: lock an imported script where the file locked it. */
+export interface ImportLockRequest extends Mutating {
+  /** The device's day, YYYY-MM-DD. */
+  lockedOn: string;
+  numbering: NumberingScheme;
+  /** Page starts in page order; empty: the authority records every page as Lock does. */
+  anchors: { label: string; blockId: string; offset: number }[];
+  sceneNumbers: { blockId: string; num: string }[];
+  /** Oldest first. */
+  sets: ImportedSetRequest[];
+}
