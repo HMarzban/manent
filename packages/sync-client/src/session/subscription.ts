@@ -92,7 +92,7 @@ class DocSubscription implements Subscription {
       journal,
       copy,
       freshClientId: (taken) => journal.freshClientId(taken, ports.random),
-      resubscribe: () => this.handshake.resubscribe(),
+      resubscribe: () => this.handshake.subscribeAfresh(),
       show: (recovering) => {
         if (recovering) this.side.add("rejected");
         else this.side.delete("rejected");

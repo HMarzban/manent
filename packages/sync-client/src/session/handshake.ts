@@ -13,7 +13,6 @@ import {
 import type { Clock } from "../ports/ports.ts";
 import { endingOf, readRefusal } from "./refusals.ts";
 import type { Ending } from "./refusals.ts";
-import { SubscribeAnswers } from "./subscribe-answers.ts";
 
 type Subscribed = Extract<DocumentMessage, { type: "SUBSCRIBED" }>;
 type ErrorMessage = Extract<Message, { type: "ERROR" }>;
@@ -61,6 +60,8 @@ export interface Handshake {
   subscribe(): void;
   /** UNSUBSCRIBE, then SUBSCRIBE again from the start. */
   resubscribe(): void;
+  /** As `resubscribe`, for a step 2 read as the server's whole state: while a SUBSCRIBE sent on this connection may be unanswered, the connection is replaced instead. */
+  subscribeAfresh(): void;
   stop(): void;
   resume(): void;
   receive(message: DocumentMessage): void;
@@ -102,7 +103,8 @@ class Exchange implements Handshake {
   private generation = 0;
   private gotSubscribed = false;
   private timeouts = 0;
-  private readonly answers = new SubscribeAnswers();
+  /** SUBSCRIBEs sent on this connection beyond the SUBSCRIBEDs received; an ERROR or GENERATION_MOVED may come unasked, so neither counts as an answer. */
+  private unanswered = 0;
   /** The `clientSeq` of each push and setting sent and not yet answered, oldest first. */
   private inFlight: number[] = [];
   private sentThrough = 0;
@@ -122,7 +124,7 @@ class Exchange implements Handshake {
   connect(send: (message: Message) => void, gate: ServerGate): void {
     this.send = send;
     this.gate = gate;
-    this.answers.reset();
+    this.unanswered = 0;
     this.phase = "idle";
   }
 
@@ -141,7 +143,7 @@ class Exchange implements Handshake {
     this.inFlight = [];
     this.sentThrough = 0;
     this.phase = "handshake";
-    this.answers.asked();
+    this.unanswered += 1;
     this.send({
       type: "SUBSCRIBE",
       docId,
@@ -165,6 +167,12 @@ class Exchange implements Handshake {
     this.subscribe();
   }
 
+  subscribeAfresh(): void {
+    if (this.unanswered > 0)
+      this.host.replaceConnection("subscribe_unanswered");
+    else this.resubscribe();
+  }
+
   stop(): void {
     this.stopped = true;
     this.end();
@@ -177,8 +185,8 @@ class Exchange implements Handshake {
   receive(m: DocumentMessage): void {
     switch (m.type) {
       case "SUBSCRIBED":
-        if (this.answers.take() === "superseded" || this.phase !== "handshake")
-          return;
+        this.unanswered -= 1;
+        if (this.phase !== "handshake") return;
         this.gotSubscribed = true;
         this.generation = m.generation;
         this.host.subscribed(m);
@@ -193,7 +201,6 @@ class Exchange implements Handshake {
         this.pump();
         return;
       case "GENERATION_MOVED":
-        if (this.answers.take() === "superseded") return;
         this.end();
         this.host.ended({ type: "moved", newGeneration: m.newGeneration });
         return;
@@ -223,7 +230,6 @@ class Exchange implements Handshake {
       this.refuse(m.clientSeq, m.message);
       return;
     }
-    if (m.clientSeq === null && this.answers.take() === "superseded") return;
     this.end();
     const ending = endingOf(m, this.gate);
     if (ending === null)

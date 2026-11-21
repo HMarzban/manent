@@ -223,7 +223,7 @@ export interface RecoveryHost {
   readonly copy: LocalCopy;
   /** A Yjs client ID this device never used for the document, and not `taken`. */
   freshClientId(taken: number | null): number;
-  /** UNSUBSCRIBE, then SUBSCRIBE again: from nothing, under the new client ID. */
+  /** SUBSCRIBE again from nothing, under the new client ID, on this connection or the next. */
   resubscribe(): void;
   /** `rejected` joins the side states, or leaves them. */
   show(recovering: boolean): void;

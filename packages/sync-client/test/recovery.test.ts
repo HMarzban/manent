@@ -10,7 +10,7 @@ import type { BlockWriter, CrdtDoc } from "@manent/crdt";
 import { blockText, blockView } from "@manent/schema";
 import { CODE } from "@manent/sync-protocol";
 import * as entry from "../src/index.ts";
-import { ACK_TIMEOUT_MS } from "../src/index.ts";
+import { ACK_TIMEOUT_MS, BACKOFF_BASE_MS, HEARTBEAT_MS } from "../src/index.ts";
 import type { DeviceVersion, DocHandle } from "../src/index.ts";
 import {
   B1,
@@ -134,7 +134,7 @@ test("a permanently rejected push is kept as a recovered version and written bac
   expect([meta.recovering, meta.clientIds]).toEqual([null, fresh]);
 });
 
-test("seed 44: a step 2 answering a subscription the recovery superseded is not taken for the server's whole state", async () => {
+test("seed 44: a step 2 answering a subscription the recovery superseded is not taken for the server's whole state, after an ERROR the server sent by itself", async () => {
   const w = await setup();
   const { server } = w;
   const client = w.makeClient();
@@ -144,18 +144,31 @@ test("seed 44: a step 2 answering a subscription the recovery superseded is not 
   await w.settle();
   const refused = lastPush(w).clientSeq;
   server.answer.subscribe = false;
-  w.fake.advance(ACK_TIMEOUT_MS);
-  await w.settle();
+  // the heartbeat between is answered, so the ACK timeout subscribes again on the same connection
+  for (const ms of [HEARTBEAT_MS, ACK_TIMEOUT_MS - HEARTBEAT_MS]) {
+    w.fake.advance(ms);
+    await w.settle();
+  }
   const [, superseded] = server.got("SYNC").filter((m) => m.step === "step1");
   refuse(w, DOC, refused);
   await w.settle();
   const pushed = server.got("PUSH").length;
+  server.error(DOC, {
+    code: CODE.STORAGE_FAILED,
+    message: "storage_failed",
+    permanent: false,
+    retryAfterMs: 1_000,
+    clientSeq: null,
+  });
   server.send(subscribed(DOC, server.head));
   for (const [step, data] of [
     ["step1", server.doc(DOC).encodeStateVector()],
     ["step2", server.doc(DOC).diff(superseded!.data)],
   ] as const)
     server.send({ type: "SYNC", docId: DOC, generation: 1, step, data });
+  await w.settle();
+  w.fake.advance(BACKOFF_BASE_MS);
+  await w.settle();
   server.subscribedWithState(DOC, server.doc(DOC).encodeState());
   await w.settle();
   const pushes = server.got("PUSH").slice(pushed);
@@ -789,6 +802,9 @@ test("a client ID someone else holds is given up, and the session starts again u
     permanent: true,
     clientSeq: null,
   });
+  await w.settle();
+  // an ERROR may come unasked, so the SUBSCRIBE counts as unanswered: the next goes on a new connection
+  w.fake.advance(BACKOFF_BASE_MS);
   await w.settle();
   const [fresh] = w.server.got("SUBSCRIBE")[1]!.clientIds;
   expect(w.server.got("SUBSCRIBE")[1]!.clientIds).toEqual([fresh!]);
