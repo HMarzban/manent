@@ -19,6 +19,7 @@ manent/
 ├── .gitattributes          LF line endings on every system; the three record files merge by keeping both sides
 ├── .gitignore
 ├── LICENSE                 the licence terms
+├── NOTICE                  the copyright line
 ├── README.md               what it is and what runs today
 ├── AGENTS.md               the rules for anyone who changes the repository
 ├── CHANGELOG.md            what changed, newest first

@@ -5,7 +5,6 @@ import { readLines } from "./records-format.ts";
 import type { Add, Line } from "./records-format.ts";
 import {
   EMPTY_ENTRY,
-  LICENSE_SEPARATOR,
   LICENSE_WORD,
   README_SECTIONS,
   STATUS_HEADER,
@@ -42,21 +41,9 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isStringList = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
 
-/** The line after the first separator, and the checksum of the text from there on; null without a separator. */
-function belowSeparator(source: string): { line: number; sum: string } | null {
-  const lines = source.split(/\r?\n/);
-  const at = lines.findIndex((line) => LICENSE_SEPARATOR.test(line));
-  if (at === -1) return null;
-  const text = lines
-    .slice(at + 1)
-    .join("\n")
-    .trimEnd();
-  return { line: at + 2, sum: sha256(text) };
-}
-
-/** SHA-256 (hex) of the lines below the first separator line, joined by "\n", trailing white space trimmed; null without a separator. */
-export function licenseSum(source: string): string | null {
-  return belowSeparator(source)?.sum ?? null;
+/** SHA-256 (hex) of the whole text, its lines joined by "\n", trailing white space trimmed. */
+export function licenseSum(source: string): string {
+  return sha256(source.split(/\r?\n/).join("\n").trimEnd());
 }
 
 export function checkLicense(
@@ -64,14 +51,9 @@ export function checkLicense(
   expected: string,
   add: Add,
 ): void {
-  const below = source === null ? null : belowSeparator(source);
   if (source === null) add(1, "is missing");
-  else if (below === null) add(1, "has no separator line of hyphens");
-  else if (below.sum !== expected)
-    add(
-      below.line,
-      "the text below the separator does not match the recorded checksum; restore it",
-    );
+  else if (licenseSum(source) !== expected)
+    add(1, "the text does not match the recorded checksum; restore it");
 }
 
 /** The lines after the first "## <heading>" outside code, up to the next "## " heading. */

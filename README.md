@@ -57,6 +57,6 @@ Thank you to the Scripto team.
 
 ## Licence
 
-Manent is licensed under the PolyForm Strict License 1.0.0, with one additional permission: anyone may run the unmodified software to evaluate it. Commercial use, distribution, and making changes or new works based on it are not permitted. The [LICENSE](LICENSE) file is the authority; this paragraph only points to it.
+Manent is licensed under the Apache License 2.0. The [LICENSE](LICENSE) file is the authority; this paragraph only points to it.
 
-If you like the project, or want to use it in a way the licence does not cover, get in touch: https://github.com/HMarzban or marzban98@gmail.com
+If you like the project, get in touch: https://github.com/HMarzban or marzban98@gmail.com
