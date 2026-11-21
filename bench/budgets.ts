@@ -224,9 +224,22 @@ export interface Reported {
 /** The fewest processes a scenario with a row judged on an interval runs. */
 const TIMING_PROCESSES = 5;
 
+/** Each process's samples of `m` that are judged: outside quick mode an interaction metric's warm-up is dropped. */
+function warmedUp(
+  m: Reported,
+  mode: JudgingRun["mode"],
+): { kept: number[]; dropped: number }[] {
+  const interaction = INTERACTION_METRICS.includes(m.metric);
+  return m.raw.map((samples) =>
+    interaction && mode !== "quick"
+      ? afterWarmup(samples)
+      : { kept: samples, dropped: 0 },
+  );
+}
+
 /**
- * Why a scenario that ran is refused, one line each: a budgeted metric it did not report, and,
- * outside quick mode, too few processes for a row judged on an interval. Empty when it stands.
+ * Why a scenario that ran is refused, one line each: a budgeted metric of which no process kept a
+ * sample, and, outside quick mode, too few processes for a row judged on an interval. Empty when it stands.
  */
 export function refusalsOf(
   scenario: { id: string; processes: number },
@@ -236,10 +249,13 @@ export function refusalsOf(
 ): string[] {
   const { id, processes } = scenario;
   const rows = budgets.filter((b) => b.scenario === id);
+  const measured = (metric: string): boolean =>
+    reported.some(
+      (m) =>
+        m.metric === metric && warmedUp(m, mode).some((w) => w.kept.length > 0),
+    );
   const missing = new Set(
-    rows
-      .map((b) => b.metric)
-      .filter((metric) => !reported.some((m) => m.metric === metric)),
+    rows.map((b) => b.metric).filter((metric) => !measured(metric)),
   );
   const lines = [...missing].map(
     (metric) => `${id} ${metric} was budgeted and not measured`,
@@ -307,7 +323,7 @@ export function unprovedRows(
 
 /**
  * One metric's summary over the samples each process kept, judged by `rows` (those in force for
- * it): outside quick mode an interaction metric's warm-up is dropped first. Null when nothing is kept.
+ * it), with one list per process, empty when its warm-up took every sample. Null when nothing is kept.
  */
 export function summariseMetric(
   m: Reported,
@@ -315,15 +331,12 @@ export function summariseMetric(
   mode: JudgingRun["mode"],
 ): MetricSummary | null {
   const interaction = INTERACTION_METRICS.includes(m.metric);
-  const warm = m.raw.map((samples) =>
-    interaction && mode !== "quick"
-      ? afterWarmup(samples)
-      : { kept: samples, dropped: 0 },
-  );
-  const raw = warm.map((w) => w.kept).filter((kept) => kept.length > 0);
-  if (raw.length === 0) return null;
-  const summary = summarise(raw.flat());
-  const p50s = raw.map((kept) => percentile(kept, 50));
+  const warm = warmedUp(m, mode);
+  const raw = warm.map((w) => w.kept);
+  const nonEmpty = raw.filter((kept) => kept.length > 0);
+  if (nonEmpty.length === 0) return null;
+  const summary = summarise(nonEmpty.flat());
+  const p50s = nonEmpty.map((kept) => percentile(kept, 50));
   return {
     metric: m.metric,
     unit: m.unit,
