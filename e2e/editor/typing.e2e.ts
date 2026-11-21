@@ -16,6 +16,7 @@ import {
   groupHook,
   openScript,
   settled,
+  typeLine,
 } from "./support.ts";
 
 // 40 characters, typed inside one line
@@ -201,4 +202,24 @@ test("nothing animates on a keystroke", async ({ page }) => {
   expect(await page.evaluate(() => Reflect.get(window, "__started"))).toEqual(
     [],
   );
+});
+
+test("a script whose faces never arrive takes what is typed once its page is drawn in the fallback face", async ({
+  browser,
+}) => {
+  // a service worker would answer from its own cache, out of the route's reach
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  const page = await context.newPage();
+  // never answered: the page stays hidden for the whole wait, then gives way to the fallback face
+  await page.route("**/courier-prime-*.woff2", () => {});
+  await openScript(page, "screenplay");
+  await typeLine(page, "INT. LIGHTHOUSE - DAY");
+  await expect(page.locator("[data-editor-host] .mn-pages")).toHaveAttribute(
+    "data-fonts",
+    "fallback",
+  );
+  expect((await blocks(page)).map((block) => [block.type, block.text])).toEqual(
+    [["scene_heading", "INT. LIGHTHOUSE - DAY"]],
+  );
+  await context.close();
 });
