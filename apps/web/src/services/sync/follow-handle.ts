@@ -29,6 +29,8 @@ export interface Following {
   now: () => number;
   schedule: (fn: () => void, delayMs: number) => () => void;
   removedInfo: (docId: string) => Promise<RemovedDocResponse | null>;
+  /** Told each document once its handle has opened here; the returned function stops what it started. */
+  opened: (docId: string, handle: DocHandle) => () => void;
 }
 
 type Value<T> = Subscribable<T> & { set(value: T): void };
@@ -171,6 +173,7 @@ export function followHandle(options: Following, open: Opened): () => void {
       push: (event) => options.messages.push(messageFor(event)),
     }),
     groupWaiting(options, open),
+    options.opened(docId, handle),
   ];
   return () => {
     for (const stop of stops) stop();

@@ -146,8 +146,8 @@ async function keepEveryHooks(page: Page): Promise<void> {
 }
 
 /**
- * Starts the demo and Chromium, its CPU slowed `throttle` times through the DevTools protocol, signed in as You on a
- * new script of the Library's. The caller closes it.
+ * Starts the demo and Chromium, its CPU slowed `throttle` times through the DevTools protocol, signed in as You on the
+ * blank script a first launch opens. The caller closes it.
  */
 export async function openTypingPage(options: {
   throttle: number;
@@ -166,8 +166,7 @@ export async function openTypingPage(options: {
     });
     await keepEveryHooks(page);
     await page.goto(`${demo.url}/?person=you`);
-    await page.waitForURL((at) => !at.searchParams.has("person"));
-    await page.getByRole("button", { name: "New script" }).first().click();
+    await page.waitForURL((at) => at.pathname.startsWith("/s/"));
     await page.locator(PAGE_VIEW).waitFor({ state: "attached" });
     return { page, close };
   } catch (error) {

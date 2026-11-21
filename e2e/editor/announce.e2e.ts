@@ -4,6 +4,7 @@ import { EDITOR_WORDS, LIBRARY_WORDS } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { openMadeScript } from "../support/made-script.ts";
+import { committedOnDevice } from "../support/tour.ts";
 
 const PAGE_VIEW = "[data-editor-host] .mn-page-view";
 const READOUT = /^Page \d+ of \d+$/;
@@ -81,6 +82,8 @@ async function chooseAnnounce(
   });
   await choice.check();
   await expect(choice).toBeChecked();
+  // the next page reads the preference from the device
+  await committedOnDevice(page, userId);
   await openScript(page, userId);
 }
 

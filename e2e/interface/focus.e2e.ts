@@ -15,8 +15,8 @@ import {
   pressKeyOf,
   runs,
 } from "../support/interface.ts";
-import { openMadeScript } from "../support/made-script.ts";
-import { signedInAs } from "../support/tour.ts";
+import { makeScript } from "../support/made-script.ts";
+import { closeFirstTour, signedInAs } from "../support/tour.ts";
 
 const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
 const DOC = `/s/${DOC_ID}`;
@@ -118,8 +118,13 @@ const placeOf = (id: SurfaceId): Place => {
  * its editor to be drawn, so the page reads the same before and after a surface is used.
  */
 async function arrive(page: Page, at: string): Promise<void> {
-  if (at === DOC) await openMadeScript(page, "you", DOC_ID);
-  else await signedInAs(page, "you", at);
+  await signedInAs(page, "you", at === DOC ? "/" : at);
+  if (at === DOC) {
+    // the Tour that You's first launch opens is the demo's; the script is opened without it
+    await closeFirstTour(page);
+    await makeScript(page, DOC_ID);
+    await page.goto(DOC);
+  }
   await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
   if (at === DOC)
     await expect(

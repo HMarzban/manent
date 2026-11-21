@@ -259,8 +259,13 @@ test("the demo bar is its own colour scope and says Demo", async () => {
   expect(word?.textContent).toBe("Demo");
   // set in capitals by the stylesheet, not in the words
   expect(word?.className.split(" ").includes("uppercase")).toBe(true);
-  // 32 px whether or not its controls have arrived, so nothing moves when they do
-  expect(bar?.className.split(" ").includes("h-demobar")).toBe(true);
+  // 32 px whether or not its controls have arrived, so nothing moves when they do; in a window too narrow for them
+  // they wrap onto a second row rather than scroll sideways
+  expect(
+    ["min-h-demobar", "flex-wrap"].map((name) =>
+      bar?.className.split(" ").includes(name),
+    ),
+  ).toEqual([true, true]);
   await demoBarControls();
   expect(buttons(container).map((b) => b.textContent)).toEqual([
     "Person: Dana Reyes",

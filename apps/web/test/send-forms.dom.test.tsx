@@ -29,7 +29,13 @@ import type { PersonServices } from "../src/services/ports.ts";
 import { createShellDom } from "../src/shell/regions.tsx";
 import { bindGuard } from "../src/state/guard.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
-import { createClock, fakeApi, testEnvironment } from "./services.fixtures.ts";
+import {
+  createClock,
+  fakeApi,
+  keepingSyncs,
+  listDocument,
+  testEnvironment,
+} from "./services.fixtures.ts";
 
 withDom();
 
@@ -129,7 +135,7 @@ function ServicesProbe(): ReactNode {
 }
 
 /**
- * The app with d1 titled The Long Night showing `p`, at `path`; `frame` defaults to a frame every 16 ms of the clock.
+ * The app with d1 listed as The Long Night showing `p`, at `path`; `frame` defaults to a frame every 16 ms of the clock.
  * With `opening`, d1's editor is still opening when the screen arrives, and `open()` opens it.
  */
 async function renderApp(
@@ -147,12 +153,14 @@ async function renderApp(
   open(): void;
 }> {
   const clock = createClock();
-  const environment = testEnvironment({
-    dom: createShellDom(document),
-    now: clock.now,
-    schedule: clock.schedule,
-    frame: options.frame ?? ((fn) => clock.schedule(fn, 16)),
-  });
+  const { environment, started } = keepingSyncs(
+    testEnvironment({
+      dom: createShellDom(document),
+      now: clock.now,
+      schedule: clock.schedule,
+      frame: options.frame ?? ((fn) => clock.schedule(fn, 16)),
+    }),
+  );
   bindGuard(environment.guard);
   const usePerson = createPersonStore(null);
   usePerson.getState().setPerson(LEO);
@@ -194,8 +202,16 @@ async function renderApp(
       </QueryClientProvider>,
     ),
   );
+  const [sync] = started;
+  if (sync === undefined) throw new Error("the shell started no sync");
+  await act(async () =>
+    listDocument(await sync, {
+      workspaceId: "leo",
+      docId: "d1",
+      title: "The Long Night",
+    }),
+  );
   act(() => {
-    services?.library.renameDocument("d1", "The Long Night");
     services
       ?.openScriptStore("d1")
       .set("script.format", options.format ?? "screenplay");
