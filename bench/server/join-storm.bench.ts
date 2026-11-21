@@ -6,8 +6,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEMO_USER_IDS, createRng } from "@manent/demo";
 import { createBot, startTestServer } from "@manent/testkit";
-import type { TestServer } from "@manent/testkit";
+import type { Bot, TestServer } from "@manent/testkit";
 import type { Measurement, Scenario } from "../harness.ts";
+import { sampleMs } from "../measure.ts";
 import {
   OWNER,
   delay,
@@ -29,14 +30,16 @@ async function joinTime(
   docId: string,
   person: { userId: string; token: string },
 ): Promise<number> {
-  const joinedAt = performance.now();
-  const bot = createBot({ server, ...person });
+  const joined: Bot[] = [];
   try {
-    const handle = await bot.open(docId);
-    await until(() => handle.status.get().synced, SYNC_TIMEOUT_MS);
-    return performance.now() - joinedAt;
+    return await sampleMs(async () => {
+      const bot = createBot({ server, ...person });
+      joined.push(bot);
+      const handle = await bot.open(docId);
+      await until(() => handle.status.get().synced, SYNC_TIMEOUT_MS);
+    });
   } finally {
-    await bot.close();
+    await Promise.all(joined.map((bot) => bot.close()));
   }
 }
 

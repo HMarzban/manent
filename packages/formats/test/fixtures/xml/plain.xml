@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<?keeper ready?>
+<Script Title="The Lamp Room">
+  <Scene Number="1">
+    <Heading>INT. LAMP ROOM - NIGHT</Heading>
+    <Action>The lens turns. Salt on the glass.</Action>
+  </Scene>
+  <Scene Number="2"><?cue fog?></Scene>
+</Script>

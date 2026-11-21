@@ -10,8 +10,10 @@ import {
   scriptAt,
   versionContent,
 } from "@manent/server-core";
+import type { ProductionService } from "@manent/server-core";
 import type { IssueRequest } from "@manent/sync-protocol";
 import type { Measurement, Scenario } from "../../harness.ts";
+import { sampleMs } from "../../measure.ts";
 import { keyOf, spread } from "../../server/history/restore-120.bench.ts";
 import { HOME, OWNER, scriptOfPages } from "../../server/support.ts";
 import { DAY, createProductionBench, lockRequest } from "./lock.bench.ts";
@@ -88,9 +90,13 @@ async function issueTimes(): Promise<number[]> {
   const times: number[] = [];
   for (let n = 0; n < ITERATIONS; n++) {
     const request = await revised(bench, changed);
-    const start = performance.now();
-    const issued = await bench.service.issue(OWNER, request);
-    times.push(performance.now() - start);
+    const issues: Awaited<ReturnType<ProductionService["issue"]>>[] = [];
+    times.push(
+      await sampleMs(async () => {
+        issues.push(await bench.service.issue(OWNER, request));
+      }),
+    );
+    const issued = issues[0]!;
     if (!issued.ok)
       throw new Error(`the issue was refused: ${JSON.stringify(issued.body)}`);
   }

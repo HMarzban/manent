@@ -3,7 +3,9 @@
 import { corpusDoc, generateBlocks } from "@manent/pagination/testing";
 import { sliceComparison } from "@manent/revisions";
 import type { DocJSON } from "@manent/schema";
+import { benchMode } from "../../env.ts";
 import type { Measurement, Scenario } from "../../harness.ts";
+import { sampleMs } from "../../measure.ts";
 import { editedScript } from "./compare.bench.ts";
 
 const EDITS = 2_000;
@@ -12,44 +14,55 @@ const COMPARE_SLICE_MS = 8;
 /** The real clock, in milliseconds. */
 const now = (): number => performance.now();
 
+/** Comparisons a process when not given: 8 outside quick mode, so five processes give the 40 a p95 is judged over. */
+const SAMPLES = { quick: 3, standard: 8, full: 8 } as const;
+
 /** The time of the whole comparison and of its longest slice, in milliseconds. */
-function sliced(older: DocJSON, newer: DocJSON): [number, number] {
+async function sliced(
+  older: DocJSON,
+  newer: DocJSON,
+): Promise<[number, number]> {
   const slices = sliceComparison(older, newer, {
     now,
     sliceMs: COMPARE_SLICE_MS,
   });
-  const start = now();
-  let longest = 0;
-  for (;;) {
-    const sliceStart = now();
-    const { done } = slices.next();
-    longest = Math.max(longest, now() - sliceStart);
-    if (done === true) return [now() - start, longest];
-  }
+  const steps: number[] = [];
+  const progress = { done: false };
+  const all = await sampleMs(async () => {
+    while (!progress.done)
+      steps.push(
+        await sampleMs(() => {
+          progress.done = slices.next().done === true;
+        }),
+      );
+  });
+  return [all, Math.max(...steps)];
 }
 
 /**
- * `compare_ms` and `longest_slice_ms`: `samples` sliced comparisons (default 3) of a 2,000-page
- * script with itself 2,000 edits later.
+ * `compare_ms` and `longest_slice_ms`: `samples` sliced comparisons (default by mode, SAMPLES) of a
+ * 2,000-page script with itself 2,000 edits later.
  */
 export function sliceScenario(options: { samples?: number } = {}): Scenario {
-  const { samples = 3 } = options;
+  const { samples } = options;
   return {
     id: "history.compare.2000",
     workload: "W7",
     processes: 5,
-    run(): Promise<Measurement[]> {
+    async run(): Promise<Measurement[]> {
       const older = corpusDoc(generateBlocks("screenplay", 45_000, 7));
       const newer = editedScript(older, EDITS);
-      const runs = Array.from({ length: samples }, () => sliced(older, newer));
-      return Promise.resolve([
+      const runs: [number, number][] = [];
+      for (let n = 0; n < (samples ?? SAMPLES[benchMode()]); n++)
+        runs.push(await sliced(older, newer));
+      return [
         { metric: "compare_ms", unit: "ms", samples: runs.map(([all]) => all) },
         {
           metric: "longest_slice_ms",
           unit: "ms",
           samples: runs.map(([, longest]) => longest),
         },
-      ]);
+      ];
     },
   };
 }

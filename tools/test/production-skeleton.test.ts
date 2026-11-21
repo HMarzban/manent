@@ -18,6 +18,8 @@ const ENTRIES: Readonly<Record<string, readonly string[]>> = {
     "extras.ts",
     "files.ts",
     "hooks.ts",
+    "import-lock.ts",
+    "import-pages.ts",
     "issue.ts",
     "layout.ts",
     "lock.ts",

@@ -1,13 +1,16 @@
 // What the sync service asks the production service: the lock table and active revision a subscriber is
-// told, and the rule that only the authority writes a scene number once the script is in production.
+// told, the rule that only the authority writes a scene number once the script is in production, and the
+// end of an imported page's elasticity at its first edit.
 import type { BlockJSON, Issue } from "@manent/schema";
-import type { DocFile, Storage } from "@manent/storage";
+import type { DocFile } from "@manent/storage";
+import { createImportPageHooks } from "./import-pages.ts";
 import type { ProductionHooks } from "./ports.ts";
+import type { ProductionOptions } from "./requests.ts";
 import { isLocked, recordsOf } from "./state.ts";
 
 export interface ProductionHookSet {
   readonly hooks: ProductionHooks;
-  /** After each of the service's own commits: the document's issued numbers are read again on its next push. */
+  /** After each of the service's own commits: the document's issued numbers and import anchors are read again on its next commit. */
   committed(docId: string): void;
 }
 
@@ -16,10 +19,11 @@ const numOf = (block: BlockJSON): string | null => {
   return typeof num === "string" ? num : null;
 };
 
-export function createProductionHooks(options: {
-  storage: Storage;
-}): ProductionHookSet {
+export function createProductionHooks(
+  options: Pick<ProductionOptions, "storage" | "sync">,
+): ProductionHookSet {
   const { storage } = options;
+  const pages = createImportPageHooks(options);
   /** By document in production: each block's issued scene number, loaded on its first push. */
   const issued = new Map<string, ReadonlyMap<string, string>>();
 
@@ -77,7 +81,12 @@ export function createProductionHooks(options: {
           ];
         });
       },
+      committed: pages.committed,
+      forgotten: pages.forgotten,
     },
-    committed: (docId) => void issued.delete(docId),
+    committed(docId) {
+      issued.delete(docId);
+      pages.refresh(docId);
+    },
   };
 }

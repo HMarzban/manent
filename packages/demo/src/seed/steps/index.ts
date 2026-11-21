@@ -1,4 +1,29 @@
 // The seed's steps, one line each, in the order they run; each step's own file sits beside this one.
 import type { SeedStep } from "../seed.ts";
+import { MEMBERS_STEP } from "./members.ts";
+import { EVERY_KEY_BUT_ONE } from "./every-key-but-one.ts";
+import { JUMPOX } from "./jumpox.ts";
+import { HANDED_IN } from "./handed-in.ts";
+import { DOWN_THE_BACK } from "./down-the-back.ts";
+import { THE_LONG_NIGHT } from "./the-long-night.ts";
+import { HARBOUR_LIGHTS } from "./harbour-lights.ts";
+import { THE_LATE_DESK } from "./the-late-desk.ts";
+import { LANNICK_ONE_NEWS } from "./lannick-one-news.ts";
+import { GAME_SAMPLES } from "./game-samples.ts";
+import { THE_LAMP_ROOM } from "./the-lamp-room.ts";
+import { STUDIO } from "./studio.ts";
 
-export const SEED_STEPS: readonly SeedStep[] = [];
+export const SEED_STEPS: readonly SeedStep[] = [
+  MEMBERS_STEP,
+  EVERY_KEY_BUT_ONE,
+  JUMPOX,
+  HANDED_IN,
+  DOWN_THE_BACK,
+  THE_LONG_NIGHT,
+  HARBOUR_LIGHTS,
+  THE_LATE_DESK,
+  LANNICK_ONE_NEWS,
+  GAME_SAMPLES,
+  THE_LAMP_ROOM,
+  STUDIO,
+];

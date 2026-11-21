@@ -82,7 +82,7 @@ const ROOM: WorkspaceRef = {
 const STUDIOS: WorkspaceRef = {
   id: "heavy",
   name: "Lanternfield Studios",
-  seeding: { done: 12, total: 40 },
+  seeding: { done: 12, total: 40, failed: false },
 };
 
 const LONG_NIGHT: ProjectItem = {

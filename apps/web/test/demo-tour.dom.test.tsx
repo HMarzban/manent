@@ -113,12 +113,22 @@ const SCENARIO: TourScenario = {
   id: "a-first-page",
   group: "Write",
   promise: "Write a first page and watch it reach the server.",
-  setup: { userId: "sam", open: "/", secondWindow: null },
+  setup: {
+    userId: "sam",
+    open: "/",
+    extraWindows: [],
+    prepare: null,
+    shell: "any",
+  },
   steps: [
     { text: "Open the commands.", highlight: "app.palette" },
     { text: "Choose New script.", highlight: "library.newScript" },
   ],
   check: "Saved · Synced",
+  evidence: ["Saved · Synced"],
+  fresh: false,
+  waitsFor: null,
+  hidden: null,
 };
 
 test("the Tour lists the eight groups", async () => {

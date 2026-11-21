@@ -1,12 +1,13 @@
-// One room, 200 editors, 5 of them typing 5 characters a second for 20 seconds: the time from a
-// typist's PUSH to each listening editor's copy of the update, and how late a 10 ms timer fires
-// meanwhile, with the service in this process.
+// One room, 200 editors, 5 of them typing 5 characters a second for 20 seconds: the time from
+// just before the service receives a typist's PUSH to the last listening editor's copy of the
+// update, and how late a 10 ms timer fires meanwhile, with the service in this process.
 import { browserClock } from "@manent/client-web";
 import { createRng } from "@manent/demo";
 import { createMemoryStorage } from "@manent/storage/testing";
 import { FRAME } from "@manent/sync-protocol";
 import type { SyncService } from "@manent/server-core";
 import type { Measurement, Scenario } from "../harness.ts";
+import { sampleMs } from "../measure.ts";
 import {
   EMPTY_VECTOR,
   HOME,
@@ -31,32 +32,31 @@ const TIMER_MS = 10;
 const SETTLE_TIMEOUT_MS = 10_000;
 const SEED = 4747;
 
-/** Lateness of a 10 ms timer, rescheduled each time it fires, until `stop()`. */
-function watchEventLoop(): { lateness: number[]; stop(): void } {
+/** Lateness of a 10 ms timer, set again each time it fires, until `stop()` resolves. */
+function watchEventLoop(): { lateness: number[]; stop(): Promise<void> } {
   const lateness: number[] = [];
-  let timer: Timer | null = null;
-  const arm = (): void => {
-    const due = performance.now() + TIMER_MS;
-    timer = setTimeout(() => {
-      lateness.push(Math.max(0, performance.now() - due));
-      arm();
-    }, TIMER_MS);
-  };
-  arm();
+  const stopping = new AbortController();
+  const watched = (async () => {
+    while (!stopping.signal.aborted) {
+      const ms = await sampleMs(() => delay(TIMER_MS));
+      lateness.push(Math.max(0, ms - TIMER_MS));
+    }
+  })();
   return {
     lateness,
-    stop() {
-      if (timer !== null) clearTimeout(timer);
+    async stop() {
+      stopping.abort();
+      await watched;
     },
   };
 }
 
 /** What a run's typists sent and its listeners heard. */
 interface Fanout {
-  /** When each committed push was sent, in the order the room publishes them. */
-  sentAt: number[];
-  /** From a push to one listener's copy of it, in ms. */
-  samples: number[];
+  /** For each committed push, in the order the room publishes them: what each listener calls when its copy arrives. */
+  arrivals: (() => void)[];
+  /** One per push: from just before the service receives it to the last listener's copy of it, in ms. */
+  samples: Promise<number>[];
 }
 
 /** The editors who only listen: each reads the n-th update it hears as the n-th push sent. */
@@ -70,9 +70,7 @@ function joinListeners(
     let heard = 0;
     const peer = createBenchPeer(userId, (message) => {
       if (message.type !== FRAME.SYNC) return;
-      fanout.samples.push(
-        performance.now() - (fanout.sentAt[heard] ?? Number.NaN),
-      );
+      fanout.arrivals[heard]?.();
       heard += 1;
     });
     joinAsEditor(service, peer, {
@@ -89,7 +87,8 @@ function startTyping(
   service: SyncService,
   script: { docId: string; state: Uint8Array; blockId: string },
   users: readonly string[],
-  sentAt: number[],
+  fanout: Fanout,
+  listeners: number,
 ): () => void {
   const rng = createRng(SEED);
   const stops = users.map((userId, n) => {
@@ -102,8 +101,18 @@ function startTyping(
     });
     const type = (): void => {
       const push = keystrokes.next();
-      sentAt.push(performance.now());
-      service.receive(peer, push);
+      const lastCopy = Promise.withResolvers<void>();
+      let waiting = listeners;
+      fanout.arrivals.push(() => {
+        waiting -= 1;
+        if (waiting === 0) lastCopy.resolve();
+      });
+      fanout.samples.push(
+        sampleMs(() => {
+          service.receive(peer, push);
+          return lastCopy.promise;
+        }),
+      );
     };
     let interval: Timer | null = null;
     const start = setTimeout(
@@ -135,25 +144,30 @@ async function measure(): Promise<Measurement[]> {
   const state = stateOf(script);
   const users = Array.from({ length: EDITORS }, (_, n) => `bot-${n}`);
   placeScript(service, storage, { docId, home: HOME, state, editors: users });
-  const fanout: Fanout = { sentAt: [], samples: [] };
+  const fanout: Fanout = { arrivals: [], samples: [] };
   const listeners = joinListeners(service, docId, users.slice(TYPISTS), fanout);
   const loop = watchEventLoop();
   const stopTyping = startTyping(
     service,
     { docId, state, blockId: firstBlockOf(script) },
     users.slice(0, TYPISTS),
-    fanout.sentAt,
+    fanout,
+    listeners.length,
   );
   await delay(TYPING_MS);
   stopTyping();
   await until(
-    () => listeners.every((heard) => heard() === fanout.sentAt.length),
+    () => listeners.every((heard) => heard() === fanout.arrivals.length),
     SETTLE_TIMEOUT_MS,
   );
-  loop.stop();
+  await loop.stop();
   await service.shutdown();
   return [
-    { metric: "fanout_ms", unit: "ms", samples: fanout.samples },
+    {
+      metric: "fanout_ms",
+      unit: "ms",
+      samples: await Promise.all(fanout.samples),
+    },
     { metric: "event_loop_lag_ms", unit: "ms", samples: loop.lateness },
   ];
 }

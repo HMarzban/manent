@@ -252,6 +252,8 @@ test("a script's layout waits for authority once its page numbers are locked", (
     activeName: "Pink",
     recallName: null,
     selection: null,
+    mode: "collated",
+    tint: false,
   });
   expect(store.set("script.paper", "letter")).toMatchObject({
     ok: false,

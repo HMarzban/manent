@@ -5,9 +5,9 @@ import {
   corpusId,
   generateBlocks,
 } from "@manent/pagination/testing";
+import { percentile } from "@manent/perf";
 import type { Page } from "@playwright/test";
 import type { Measurement, Scenario } from "../../harness.ts";
-import { percentile } from "../../stats.ts";
 import { scriptOfPages } from "../pagination-engine/script.ts";
 import {
   caretAtEnd,

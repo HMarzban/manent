@@ -179,7 +179,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
       directory: options.directory,
       sessions,
     },
-    demo: { seedId: () => records.seedId(), control: null },
+    demo: { seedId: () => records.seedId(), control: null, controls: null },
     socket: {
       tickets: createTicketStore({ now: clock.now }),
       versions: options.versions,

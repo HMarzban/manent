@@ -63,6 +63,8 @@ const CTX: CommandContext = {
     activeName: "Pink",
     recallName: null,
     selection: null,
+    mode: "collated",
+    tint: false,
   },
 };
 
