@@ -5,6 +5,7 @@ export * from "./link/index.ts";
 export * from "./memory-store/index.ts";
 export * from "./outbox/index.ts";
 export * from "./ports/index.ts";
+export * from "./production/index.ts";
 export * from "./recovery/index.ts";
 export * from "./review/index.ts";
 export * from "./session/index.ts";

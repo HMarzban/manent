@@ -36,7 +36,7 @@ const row = (
 ): Term[] => words.map((term) => ({ term, neverCalled, paletteOnly, feature }));
 
 /** A list written as its entries separated by commas. */
-const listOf = (text: string): readonly string[] =>
+export const listOf = (text: string): readonly string[] =>
   Object.freeze(text.trim().split(/\s*,\s*/));
 
 export const TERMS: readonly Term[] = Object.freeze([
@@ -332,31 +332,9 @@ export const NAMES: readonly string[] = Object.freeze([
   "Manent",
   "US Letter",
   "A4",
+  "A12",
   "Courier Prime",
 ]);
-
-/** Words that name no part, state or action of Manent: verbs, adjectives, function words and ordinary nouns. A word joins only in a reviewed change that says why it is not a term. */
-export const PLAIN_WORDS: readonly string[] = listOf(`
-  about, accepts, affect, after, again, ago, agreed, all, already, always, am, an, another, any, anyone, anyway,
-  anywhere, apart, apostrophes, app, appear, applied, applies, apr, around, arrived, arriving, ask, at, aug,
-  automatically, available, away, be, because, been, between, both, box, build, came, can't, cancel, cancels,
-  cannot, capitals, changing, checking, clean, cleared, close, closing, comfortably, computer, controls, copy,
-  correctly, could, couldn't, created, data, date, day, dec, decline, deleted, differ, different, dismiss, do, down,
-  each, edited, eighth, else, english, every, everything, example, existed, ext, features, feb, fifth, first, flow,
-  fourth, fri, generates, get, getting, handles, happens, has, have, height, hidden, hide, holds, how, hr, identity,
-  industry, installs, instruction, int, is, isn't, issued, itself, jan, jul, jun, just, kept, key, keystroke, laid,
-  language, larger, last, later, leave, leaving, letters, linux, list, load, longer, look, made, make, mar, match,
-  matches, may, mb, mentions, min, missed, misspellings, mon, more, move, music, name, named, near, nearly, need,
-  needs, never, newer, newscast, next, ninth, no, none, nothing, nov, now, number, oct, off, offered, older, once,
-  one, opening, or, other, others, out, outside, own, paste, pause, pick, placed, prepare, preparing, press,
-  pressing, previously, put, quit, re-applied, reach, reached, reacts, reading, ready, recorded, reduced, region,
-  reload, reloading, removes, reorganised, request, resize, rest, restored, right, running, runs, said, same, sat,
-  save, say, says, sc, search, second, see, sees, sep, seventh, showing, shown, sign, signed, sixth, slow, so, some,
-  sound, speeches, standard, started, starting, stay, still, stopped, stored, style, summaries, sun, switch, tenth,
-  terminal, than, that, their, them, then, there, these, third, thu, today, train, try, tue, turn, two, typing,
-  unaffected, unchanged, underlines, untitled, usage, used, voiceover, was, web, wed, were, whatever, when, where,
-  which, while, whole, with, without, work, works, would, write, written, wrote, yesterday, yet, your
-`);
 
 /** Words of the interface that name a part of Manent and are not yet listed terms; allowed until they are listed. */
 export const PENDING_TERMS: readonly string[] = listOf(`
