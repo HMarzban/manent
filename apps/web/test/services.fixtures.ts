@@ -1,7 +1,7 @@
 // Stand-ins for the world a person's services run in: storage, its events, a clock, the server, the router and the window.
 import { jsonMap } from "@manent/crdt";
 import { soloLeader } from "@manent/sync-client";
-import type { Random } from "@manent/sync-client";
+import type { LocalStore, Random } from "@manent/sync-client";
 import {
   createMemoryNetwork,
   createMemoryStore,
@@ -187,8 +187,13 @@ export function fixedRandom(): Random {
   };
 }
 
+/**
+ * `overrides` over a test tab's environment, whose sync keeps each person's documents in `stores`: a store of its own
+ * per sync unless given, as a browser that keeps nothing between loads.
+ */
 export function testEnvironment(
   overrides: Partial<Environment> = {},
+  stores: { store(userId: string): LocalStore } = { store: createMemoryStore },
 ): Environment {
   const clock = createClock();
   const storage =
@@ -233,7 +238,7 @@ export function testEnvironment(
           transport: createMemoryNetwork({ random: () => 0 }).transport(
             person.userId,
           ),
-          store: createMemoryStore(person.userId),
+          store: stores.store(person.userId),
           leader: soloLeader(deviceId),
           clock: { now: clock.now, schedule: clock.schedule },
           random: fixedRandom(),

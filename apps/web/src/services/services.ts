@@ -277,12 +277,7 @@ export function createPersonServices(options: Options): PersonServices {
     guard,
   );
   const resolved = createResolved(sync.maps.keys, options.where);
-  const flags = createFlags({
-    index: sync.maps.flags,
-    storage: options.storage,
-    userId: options.person.userId,
-    events: options.storageEvents,
-  });
+  const flags = createFlags({ index: sync.maps.flags });
   const control = createEditorControl();
   const { commands, fillHandlers, stop } = createCommands(options, {
     settings,
@@ -345,7 +340,6 @@ export function createPersonServices(options: Options): PersonServices {
       stopKeeping();
       stop();
       kept.dispose();
-      flags.dispose();
       scripts.clear();
       sync.dispose();
     },

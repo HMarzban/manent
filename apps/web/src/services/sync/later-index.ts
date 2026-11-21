@@ -10,6 +10,7 @@ import type {
   ProjectItem,
   ProjectKind,
 } from "../ports.ts";
+import { cached } from "./cached.ts";
 import type { SyncLibrary } from "./library-index.ts";
 import type { Listed } from "./review-entries.ts";
 import type { ReviewStore } from "./review.ts";
@@ -17,11 +18,13 @@ import type { ReviewStore } from "./review.ts";
 type Listener = Parameters<KeyValueMap["subscribe"]>[0];
 
 /** A map that holds what is written until the index's own map arrives, then writes it there and reads only that. */
-export function createLaterMap(): KeyValueMap & {
+export interface LaterMap extends KeyValueMap {
   attach(map: KeyValueMap): void;
   /** What is written and not yet in the index's map: nothing once it has arrived. */
   held(): Readonly<Record<string, unknown>>;
-} {
+}
+
+export function createLaterMap(): LaterMap {
   let target: KeyValueMap | null = null;
   const held = new Map<string, unknown>();
   const listeners = new Set<Listener>();
@@ -51,19 +54,6 @@ export function createLaterMap(): KeyValueMap & {
     },
     held: () => Object.fromEntries(held),
   };
-}
-
-/** One value per key, made once. */
-function cached<T>(
-  values: Map<string, Subscribable<T>>,
-  key: string,
-  make: () => Subscribable<T>,
-): Subscribable<T> {
-  const known = values.get(key);
-  if (known !== undefined) return known;
-  const made = make();
-  values.set(key, made);
-  return made;
 }
 
 /** `initial` until `source` arrives, then the source's value. */

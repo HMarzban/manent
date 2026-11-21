@@ -98,7 +98,7 @@ export interface DocumentSource {
   close(docId: string): void;
 }
 
-/** One-way facts about a person, kept on this device. */
+/** One-way facts about a person, in their private index: none is known until `PersonServices.ready` has settled. */
 export interface Flags {
   has(flag: "tour_seen"): boolean;
   set(flag: "tour_seen"): void;

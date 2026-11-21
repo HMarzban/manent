@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { SideTab } from "@manent/commands";
 import { createDoc } from "@manent/crdt";
 import { StoreError } from "@manent/sync-client";
+import { createFaultyStoreSpace } from "@manent/sync-client/testing";
 import { statusText } from "@manent/ui";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -48,35 +49,44 @@ test("the device bag and the device id use their fixed keys", () => {
   expect(storage.getItem("manent.device.id")).toBe("d1");
 });
 
-test("the flags and the last Preferences pane use their fixed keys, and the shortcuts are kept in the private index alone", () => {
+test("the last Preferences pane uses its fixed key, and the shortcuts and the flags are kept in the private index alone", () => {
   const storage = new MemoryStorage();
   const services = testServices({
     userId: "leo",
     environment: testEnvironment({ storage }),
   });
   services.keys.set("app.palette|d1", { v: ["Mod+K"] });
+  services.flags.set("tour_seen");
+  services.lastPane.set("keyboard");
   expect([
     services.keys.get("app.palette|d1"),
+    services.flags.has("tour_seen"),
     storage.getItem("manent.keys.leo"),
-  ]).toEqual([{ v: ["Mod+K"] }, null]);
-  services.lastPane.set("keyboard");
-  expect(storage.getItem("manent.prefs.last-pane.leo")).toBe("keyboard");
-  services.flags.set("tour_seen");
-  expect(storage.getItem("manent.flags.leo")).toBe('{"tour_seen":true}');
+    storage.getItem("manent.flags.leo"),
+    storage.getItem("manent.prefs.last-pane.leo"),
+  ]).toEqual([{ v: ["Mod+K"] }, true, null, null, "keyboard"]);
 });
 
-test("a flag once set stays set for the person, and for no one else", () => {
-  const storage = new MemoryStorage();
-  const tab = (userId: string) =>
-    testServices({ userId, environment: testEnvironment({ storage }) });
-  const first = tab("leo");
-  expect(first.flags.has("tour_seen")).toBe(false);
+test("a flag once set stays set for the person, and for no one else", async () => {
+  const stores = createFaultyStoreSpace();
+  const tab = async (userId: string) => {
+    const services = testServices({
+      userId,
+      environment: testEnvironment({}, stores),
+    });
+    await services.ready;
+    return services;
+  };
+  const first = await tab("leo");
+  const unset = first.flags.has("tour_seen");
   first.flags.set("tour_seen");
   first.flags.set("tour_seen");
-  expect(first.flags.has("tour_seen")).toBe(true);
-  expect(tab("leo").flags.has("tour_seen")).toBe(true);
-  expect(tab("dana").flags.has("tour_seen")).toBe(false);
-  expect(storage.getItem("manent.flags.leo")).toBe('{"tour_seen":true}');
+  expect([
+    unset,
+    first.flags.has("tour_seen"),
+    (await tab("leo")).flags.has("tour_seen"),
+    (await tab("dana")).flags.has("tour_seen"),
+  ]).toEqual([false, true, true, false]);
 });
 
 test("a device bag over refusing storage keeps values for the session", () => {
