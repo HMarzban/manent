@@ -9,6 +9,7 @@ import type {
   SyncClient,
   SyncClientOptions,
   SyncClientPorts,
+  Transport,
 } from "@manent/sync-client";
 import type { VersionSet } from "@manent/sync-protocol";
 import {
@@ -173,16 +174,54 @@ function askOnEvents(
 }
 
 /**
- * The tab's Connection, kept in `memory`: Offline asks `client` to stay offline, anything else to connect at once; with no
- * `client`, the Connection is the local node's to act on. `network` is false while the browser is offline or the Connection is.
+ * Where the demo's Connection acts, by the client's server: on this tab's own link to the server, whose transport it cuts
+ * off or slows, whose client it asks to stay offline and whose requests it refuses; or, through the local node, on the
+ * node's link to the cloud, which leaves the tab's transport, client and requests as they are.
+ */
+interface ConnectionPlace {
+  transport(given: SyncClientPorts, mode: () => ConnectionMode): Transport;
+  /** What the Connection, set to `mode`, asks of the tab's client. */
+  ask(client: SyncClient, mode: ConnectionMode): void;
+  throughConnection<T>(
+    mode: () => ConnectionMode,
+    send: () => Promise<T>,
+  ): Promise<T>;
+}
+
+const CONNECTION_PLACES: Readonly<
+  Record<NonNullable<SyncClientOptions["via"]>, ConnectionPlace>
+> = Object.freeze({
+  server: {
+    transport: (given, mode) =>
+      connectionTransport({
+        transport: given.transport,
+        clock: given.clock,
+        delayMs: SLOW_DELAY_MS,
+        control: { mode },
+      }),
+    ask: (client, mode) => client.setOnline(mode !== "offline"),
+    throughConnection: (mode, send) => throughConnection({ mode }, send),
+  },
+  local_node: {
+    transport: (given) => given.transport,
+    ask() {
+      // the node is told of the Connection, and keeps the tab's own link to it
+    },
+    throughConnection: (_mode, send) => send(),
+  },
+});
+
+/**
+ * The tab's Connection, kept in `memory`: each change is passed to `ask`, and Offline at the start too. `network` is false
+ * while the browser is offline or the Connection is.
  */
 function followConnection(options: {
   mode: Subscribable<ConnectionMode> & { set(mode: ConnectionMode): void };
   memory: DeviceMemory;
-  client: SyncClient | null;
+  ask: (mode: ConnectionMode) => void;
   browser: Subscribable<boolean>;
 }): { connection: ConnectionControl; network: Subscribable<boolean> } {
-  const { mode, memory, client, browser } = options;
+  const { mode, memory, ask, browser } = options;
   const reachable = (): boolean => browser.get() && mode.get() !== "offline";
   const network = createSubscribable(reachable());
   browser.subscribe(() => network.set(reachable()));
@@ -192,18 +231,17 @@ function followConnection(options: {
       memory.setConnection(next);
       mode.set(next);
       network.set(reachable());
-      client?.setOnline(next !== "offline");
+      ask(next);
     },
   };
-  if (mode.get() === "offline") client?.setOnline(false);
+  if (mode.get() === "offline") ask("offline");
   return { connection, network };
 }
 
 /**
- * The person's sync client over `ports` (the browser's drivers unless given), draining what waits each time it connects.
- * `via` "local_node": the client's server is the desktop app's node, whose link to the cloud the demo's Connection acts on,
- * so the tab's transport is left as it is. Where the page has the test build's `__manent`, it sets `__manent.sync` to the
- * hooks and removes them in `dispose`.
+ * The person's sync client over `ports` (the browser's drivers unless given), draining what waits each time it connects;
+ * `via` also says where the demo's Connection acts. Where the page has the test build's `__manent`, it sets
+ * `__manent.sync` to the hooks and removes them in `dispose`.
  */
 export async function createPersonSync(options: {
   person: TabPerson;
@@ -233,15 +271,9 @@ export async function createPersonSync(options: {
       userId: person.userId,
     }));
   const mode = createSubscribable(options.memory.connection() ?? "online");
-  const atNode = options.via === "local_node";
-  const transport = atNode
-    ? given.transport
-    : connectionTransport({
-        transport: given.transport,
-        clock: given.clock,
-        delayMs: SLOW_DELAY_MS,
-        control: { mode: () => mode.get() },
-      });
+  const current = (): ConnectionMode => mode.get();
+  const place = CONNECTION_PLACES[options.via ?? "server"];
+  const transport = place.transport(given, current);
   // the hooks make a script as the Library does, each in a project of its own
   const test = createTestHooks({ ...given, transport }, async (docId) =>
     (await import("./create-script.ts")).createScript(client, {
@@ -268,7 +300,7 @@ export async function createPersonSync(options: {
   const { connection, network } = followConnection({
     mode,
     memory: options.memory,
-    client: atNode ? null : raw,
+    ask: (next) => place.ask(raw, next),
     browser,
   });
   const kept = keepOfflineSince(person.userId, options.memory, link);
@@ -287,8 +319,7 @@ export async function createPersonSync(options: {
     network,
     offlineSince: kept.offlineSince,
     connection,
-    throughConnection: (send) =>
-      atNode ? send() : throughConnection({ mode: () => mode.get() }, send),
+    throughConnection: (send) => place.throughConnection(current, send),
     hadDatabase,
     memory: options.memory,
     async dispose() {
