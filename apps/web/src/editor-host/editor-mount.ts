@@ -3,7 +3,6 @@ import type { UndoRoot } from "@manent/crdt";
 import { bindDocument } from "@manent/crdt-binding";
 import type { BoundDocument } from "@manent/crdt-binding";
 import {
-  DRIFT,
   ELEMENT_SLOTS,
   STRUCTURAL_KEYS,
   createScriptEditor,
@@ -40,37 +39,13 @@ import { EDITOR_PLUGINS } from "./plugins.ts";
 import { countSteps } from "./undo-depth.ts";
 
 /** What one person's undo takes back. */
-export const UNDO_ROOTS: readonly UndoRoot[] = ["script"];
+export const UNDO_ROOTS: readonly UndoRoot[] = ["script", "revisedOverrides"];
 
 /** The structural keys as "flow", then the picker's keys as "picker". */
 export const EDITOR_FIXED_KEYS: readonly FixedKey[] = Object.freeze([
   ...STRUCTURAL_KEYS.map((chord) => ({ chord, reason: "flow" as const })),
   ...ELEMENT_SLOTS.map((chord) => ({ chord, reason: "picker" as const })),
 ]);
-
-/** The pages' ports in this browser, whose engine `userAgent` names; the fonts are read when the editor first draws a page. */
-export function browserPagePorts(userAgent: string): PageViewPorts {
-  return {
-    get fonts() {
-      return document.fonts;
-    },
-    makeFace: (d) =>
-      new FontFace(d.family, `url(${d.source}) format("woff2")`, {
-        weight: d.weight,
-        style: d.style,
-        unicodeRange: d.unicodeRange,
-        display: d.display,
-      }),
-    wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    defer: (run) => queueMicrotask(run),
-    // a timer where the browser has no idle callback
-    whenIdle: (run) => {
-      if ("requestIdleCallback" in window) requestIdleCallback(() => run());
-      else setTimeout(run, DRIFT.idleMs);
-    },
-    userAgent,
-  };
-}
 
 /** A content change of read-only content rebuilds at most this often. */
 const READ_ONLY_REBUILD_MS = 250;
