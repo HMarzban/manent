@@ -656,6 +656,17 @@ function textIn(storage: Storage, docId: string): string[] {
   return lines;
 }
 
+function settingsIn(
+  storage: Storage,
+  docId: string,
+): Readonly<Record<string, unknown>> {
+  const doc = nodeDocOf(storage, docId);
+  if (doc === null) return {};
+  const entries = scriptSettings(doc).entries();
+  doc.destroy();
+  return entries;
+}
+
 export class RelayWorld {
   readonly clock = createFakeClock(START_AT);
   readonly random = seeded(17);
@@ -1036,11 +1047,7 @@ export class RelayWorld {
   }
 
   cloudSettings(docId: string): Readonly<Record<string, unknown>> {
-    const doc = nodeDocOf(this.cloudStorage, docId);
-    if (doc === null) return {};
-    const entries = scriptSettings(doc).entries();
-    doc.destroy();
-    return entries;
+    return settingsIn(this.cloudStorage, docId);
   }
 
   cloudRebuilds(docId: string): void {
@@ -1266,7 +1273,7 @@ export class CoreWorld {
   });
   readonly cloudStorage = createMemoryStorage({ now: this.clock.clock.now });
   readonly nodeStorage = createMemoryStorage({ now: this.clock.clock.now });
-  readonly records: ReturnType<typeof createMemoryRecords>;
+  records: ReturnType<typeof createMemoryRecords>;
   upstreamStores = createMemoryStoreSpace();
   readonly cloud = new Cloud(this.cloudStorage, this.clock);
   readonly deferred = new Deferred();
@@ -1340,9 +1347,12 @@ export class CoreWorld {
     });
   }
 
-  /** The node's process restarts over the same storage and records; its windows' sockets drop. */
+  /** The node's process restarts over the same storage and records, with no step failing; its windows' sockets drop. */
   async restartNode(): Promise<void> {
     await this.drive(this.core.close());
+    const kept = this.records.snapshot();
+    this.records = createMemoryRecords();
+    this.records.restore(kept);
     this.core = this.startCore();
     for (const wire of this.wires) wire.connection.close(1012, "restart");
     await this.settle();
@@ -1420,17 +1430,22 @@ export class CoreWorld {
   }
 
   windowTypes(userId: string, docId: string, text: string): void {
-    const handle = this.windowOf(userId).handles.get(docId);
-    if (handle === undefined)
-      throw new Error(`${userId} has no window on ${docId}`);
-    typeInto(handle.doc(), text);
+    typeInto(this.windowHandle(userId, docId).doc(), text);
+  }
+
+  windowSets(userId: string, docId: string, key: string, value: unknown): void {
+    this.windowHandle(userId, docId).setSetting(key, value);
   }
 
   windowStatus(userId: string, docId: string): DocStatus {
+    return this.windowHandle(userId, docId).status.get();
+  }
+
+  private windowHandle(userId: string, docId: string): DocHandle {
     const handle = this.windowOf(userId).handles.get(docId);
     if (handle === undefined)
       throw new Error(`${userId} has no window on ${docId}`);
-    return handle.status.get();
+    return handle;
   }
 
   cloudHas(docId: string): boolean {
@@ -1443,6 +1458,10 @@ export class CoreWorld {
 
   nodeText(docId: string): string[] {
     return textIn(this.nodeStorage, docId);
+  }
+
+  cloudSettings(docId: string): Readonly<Record<string, unknown>> {
+    return settingsIn(this.cloudStorage, docId);
   }
 
   async drive<T>(promise: Promise<T>): Promise<T> {

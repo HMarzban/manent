@@ -214,6 +214,8 @@ export function createFollowing(ports: FollowPorts): Following {
 
   const known = (docId: string): number =>
     records.docState(docId)?.generation ?? 0;
+  /** By line: the cancel of a follow the disk put off; a later follow of the line takes its place. */
+  const putOff = new Map<Line, () => void>();
 
   /** `generation`: the upstream's, which the room's records take in the same run; null when its store holds none. */
   function follow(
@@ -221,12 +223,15 @@ export function createFollowing(ports: FollowPorts): Following {
     handle: DocHandle,
     generation: number | null,
   ): void {
+    putOff.get(line)?.();
+    putOff.delete(line);
     let items: RecoveredItem[];
     try {
       items = followUpstream(ports.service(), handle, clock.now());
     } catch (error) {
       if (!(error instanceof StorageError)) throw error;
-      clock.schedule(() => follow(line, handle, generation), FOLLOW_RETRY_MS);
+      const retry = (): void => follow(line, handle, generation);
+      putOff.set(line, clock.schedule(retry, FOLLOW_RETRY_MS));
       return;
     }
     if (items.length > 0) records.addRecovered(line.docId, line.userId, items);
