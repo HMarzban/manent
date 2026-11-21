@@ -172,12 +172,12 @@ test("the Sync centre lists what waits by scene, what is to review and the expla
     frame.status.set({ ...SYNCED, device: "failing", network: "offline" }),
   );
   const alert = syncCentreParts();
-  // Review is drawn once history.review is registered
   expect([outOfDate, alert.slice(0, 2)]).toEqual([
     [
       "Sync centre",
       "The server runs an older Manent than this app. Your changes are saved here and sync once it runs a newer one.",
       "2 to review",
+      "Review",
       "Sc. 8 · 12 waiting",
       "Export a copy",
     ],

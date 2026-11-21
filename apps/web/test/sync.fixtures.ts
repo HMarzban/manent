@@ -45,6 +45,7 @@ import type { Subscribable } from "@manent/ui";
 import { createPersonSync } from "../src/services/sync/create-sync.ts";
 import type { PersonSync } from "../src/services/sync/create-sync.ts";
 import { createDeviceMemory } from "../src/services/sync/device-memory.ts";
+import type { ConnectionMode } from "../src/services/sync/device-memory.ts";
 import type { TabPerson } from "../src/session.ts";
 import { MemoryStorage, V1, fixedRandom } from "./services.fixtures.ts";
 
@@ -386,11 +387,16 @@ export function fakeClient(
 /** A person's sync over `client`, online, with a memory store. */
 export function fakeSync(client: SyncClient): PersonSync {
   return {
+    userId: DANA.userId,
     client,
     store: createMemoryStore(DANA.userId),
     link: createValue(ONLINE_LINK),
     network: createValue(true),
     offlineSince: createValue<number | null>(null),
+    connection: { mode: createValue<ConnectionMode>("online"), set() {} },
+    throughConnection: (send) => send(),
+    hadDatabase: null,
+    memory: createDeviceMemory({ local: null, session: null }),
     dispose: async () => {},
   };
 }

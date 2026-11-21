@@ -65,6 +65,7 @@ function sourceOver(world: SyncWorld, sync: Promise<PersonSync>) {
   const source = createSyncDocumentSource({
     sync,
     review: { openCount: () => createValue(0), follow: () => () => {} },
+    opened: () => () => {},
     titles: () => "Low Tide",
     messages,
     now: clock.now,

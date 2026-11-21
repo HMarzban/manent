@@ -39,6 +39,7 @@ import {
   testEnvironment,
   testServices,
 } from "./services.fixtures.ts";
+import { until } from "./sync.fixtures.ts";
 
 withDom();
 
@@ -556,7 +557,8 @@ test("a person's page draws the editor their environment loads, built for that p
     guard: { enter: noop, leave: noop },
   });
   const waiting = element.querySelector("[data-placeholder]") !== null;
-  for (let tick = 0; tick < 4; tick++) await Promise.resolve();
+  // the editor is built once the person's private index has opened
+  await until(() => element.querySelector("article") !== null);
   const shown = [
     element.querySelector("[data-placeholder]"),
     element.querySelectorAll("article").length,

@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { openMadeScript } from "../support/made-script.ts";
 import { E2E_CONTROL_PORT } from "../support/ports.ts";
-import { signedInAs } from "../support/tour.ts";
+import { reseedDemo, signedInAs } from "../support/tour.ts";
 
 const leo = () => /^Leo Marsh/;
 const tourTab = (page: Page) =>
@@ -23,7 +23,10 @@ test.use({ serviceWorkers: "block" });
 test("a tester chooses a person and reaches the Library", async ({
   page,
   browserName,
+  request,
 }) => {
+  // a first visit is once per person on this server, and earlier tests have had Leo's
+  await reseedDemo(request);
   // `/` with no person redirects to the chooser
   await page.goto("/");
   await expect(page).toHaveURL(/\/choose\?next=%2F$/);
