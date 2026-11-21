@@ -6,6 +6,7 @@ import type { Message } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
 import { SYNCABLE_KINDS } from "../sync/access.ts";
 import type { AwarenessHub } from "../sync/awareness.ts";
+import { freeClientId } from "../sync/client-ids.ts";
 import type { Clock, Peer, SyncLimits } from "../sync/ports.ts";
 import type { Room, Rooms, Subscription } from "../sync/rooms.ts";
 import { isStorageError } from "../sync/storage-error.ts";
@@ -85,15 +86,6 @@ export interface Rebuilder {
   /** The document is rebuilt at its room's next quiet moment, whatever its measure. */
   request(docId: string): void;
   stats(): RebuildStats;
-}
-
-/** The smallest positive integer that is a key of none of `taken`. */
-export function freeClientId(
-  ...taken: readonly ReadonlyMap<number, unknown>[]
-): number {
-  let clientId = 1;
-  while (taken.some((ids) => ids.has(clientId))) clientId++;
-  return clientId;
 }
 
 /** After a freeze: the room is built again from its new generation, and each subscriber is told it moved. */

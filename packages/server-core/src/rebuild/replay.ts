@@ -11,116 +11,31 @@ import {
   updateMeta,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import { mergeThrough } from "@manent/revisions";
 import type { BlockMerge } from "@manent/revisions";
 import { blockText, blockView, validateBlocks } from "@manent/schema";
 import type { BlockOp, DocJSON } from "@manent/schema";
-import type {
-  DocFile,
-  Home,
-  ReplayRow,
-  Storage,
-  VersionRow,
-} from "@manent/storage";
-import {
-  decodeReplayUpdates,
-  isDocId,
-  isReplayKey,
-} from "@manent/sync-protocol";
+import type { DocFile, Home, Storage, VersionRow } from "@manent/storage";
 import type {
   DocKind,
-  ReplayOverlap,
   ReplayRefusal,
   ReplayRequest,
   ReplayResponse,
   ReplaySetAside,
 } from "@manent/sync-protocol";
 import type { DocumentAccess } from "../sync/access.ts";
+import { writerClientId } from "../sync/client-ids.ts";
 import type { Clock, SyncLimits } from "../sync/ports.ts";
 import type { Room, Rooms } from "../sync/rooms.ts";
 import type { WritePath } from "../sync/write-path.ts";
-import { freeClientId } from "./rebuilder.ts";
 import { replayBase } from "./replay-base.ts";
+import { readRequest, storedResponse } from "./replay-request.ts";
+import { mergeUniqueThrough } from "./unique-merge.ts";
 
 export type ReplayOutcome =
   { ok: true; response: ReplayResponse } | { ok: false; code: ReplayRefusal };
 
-type Read =
-  | { ok: true; request: ReplayRequest; updates: Uint8Array[] }
-  | { ok: false; code: "bad_request" | "too_large" };
-
-const isCount = (value: unknown, least: number): value is number =>
-  typeof value === "number" && Number.isSafeInteger(value) && value >= least;
-const isText = (value: unknown): value is string => typeof value === "string";
-const isTextOrNull = (value: unknown): value is string | null =>
-  value === null || isText(value);
-
-/** The fields of a JSON object; null for anything else. */
-function fieldsOf(value: unknown): ((name: string) => unknown) | null {
-  if (typeof value !== "object" || value === null || Array.isArray(value))
-    return null;
-  return (name) => Reflect.get(value, name);
-}
-
-/**
- * The body as a request and its updates. Its size is the length of the updates' base64 text,
- * which is nearly all of a body, and is checked before any of it is decoded.
- */
-function readRequest(body: unknown, limits: SyncLimits): Read {
-  const bad: Read = { ok: false, code: "bad_request" };
-  const field = fieldsOf(body);
-  if (field === null) return bad;
-  const [docId, generation, lastServerSeq, key, given] = [
-    "docId",
-    "generation",
-    "lastServerSeq",
-    "key",
-    "updates",
-  ].map(field);
-  if (!isDocId(docId) || !isReplayKey(key) || !Array.isArray(given)) return bad;
-  if (!isCount(generation, 1) || !isCount(lastServerSeq, 0)) return bad;
-  if (!given.every(isText)) return bad;
-  const size = given.reduce((sum, text) => sum + text.length, 0);
-  if (size > limits.replayBodyBytes) return { ok: false, code: "too_large" };
-  const updates = decodeReplayUpdates(given);
-  if (updates === null) return bad;
-  const request = { docId, generation, lastServerSeq, key, updates: given };
-  return { ok: true, request, updates };
-}
-
-function isOverlap(value: unknown): value is ReplayOverlap {
-  const field = fieldsOf(value);
-  return field !== null && isText(field("blockId")) && isText(field("text"));
-}
-
-function isSetAside(value: unknown): value is ReplaySetAside {
-  const field = fieldsOf(value);
-  if (field === null || !isText(field("text"))) return false;
-  return isTextOrNull(field("blockId")) && isTextOrNull(field("nearBlockId"));
-}
-
 /** What a key stores: the response without serverSeq, which is the row's `seq`. */
 type Stored = Omit<ReplayResponse, "serverSeq">;
-
-/** The answer stored under a key. RangeError when what is stored is not one. */
-function storedResponse(row: ReplayRow): ReplayResponse {
-  const broken = new RangeError(
-    `the answer stored under ${row.key} is not one`,
-  );
-  const stored: unknown = JSON.parse(row.result);
-  const field = fieldsOf(stored);
-  if (field === null) throw broken;
-  const docId = field("docId");
-  const generation = field("generation");
-  const applied = field("applied");
-  const overlaps = field("overlaps");
-  const setAside = field("setAside");
-  if (!isText(docId) || !isCount(generation, 1) || !isCount(applied, 0))
-    throw broken;
-  if (!Array.isArray(overlaps) || !overlaps.every(isOverlap)) throw broken;
-  if (!Array.isArray(setAside) || !setAside.every(isSetAside)) throw broken;
-  return { docId, generation, serverSeq: row.seq, applied, overlaps, setAside };
-}
 
 /** Every client id in the updates; null when one of them is not an update. */
 function clientIdsOf(updates: readonly Uint8Array[]): number[] | null {
@@ -176,9 +91,11 @@ function writeOps(
   room: Room,
   doc: CrdtDoc,
   ops: readonly BlockOp[],
+  ids: () => string,
 ): Uint8Array | null {
   const written = readStateVector(doc.encodeStateVector()).set(doc.clientId, 0);
-  const clientId = freeClientId(room.file.log.ledger(room.docId), written);
+  const ledger = room.file.log.ledger(room.docId);
+  const clientId = writerClientId(room.mode, ids, [ledger, written]);
   const copy = loadDoc(doc.encodeState(), { clientId });
   const made: Uint8Array[] = [];
   copy.subscribe((update) => made.push(update));
@@ -314,9 +231,9 @@ export function createReplay(
     const { userId, request } = checked;
     const current = scriptBody(doc).materialize();
     const theirs = [...checked.frozen.map(contentOf), current];
-    const merge = mergeThrough(checked.base, checked.mine, theirs);
+    const merge = mergeUniqueThrough(checked.base, checked.mine, theirs);
     if (!isWritable(merge.ops)) return refused("invalid");
-    const update = writeOps(room, doc, merge.ops);
+    const update = writeOps(room, doc, merge.ops, ports.ids);
     const stored = storedOf(merge, checked.setAside, room);
     const createdAt = clock.now();
     const version: VersionRow | null =

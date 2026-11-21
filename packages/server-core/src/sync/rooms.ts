@@ -5,6 +5,7 @@ import type { DocFile, DocumentRow, Home, Storage } from "@manent/storage";
 import type { DocKind } from "@manent/sync-protocol";
 import { createTokenBucket } from "../limits/bucket.ts";
 import type { Access } from "./access.ts";
+import { clientIdOf } from "./client-ids.ts";
 import type {
   Checkpointer,
   Clock,
@@ -95,17 +96,6 @@ function build(file: DocFile, row: DocumentRow, options: DocOptions): Built {
   if (discardPending(doc) && file.log.healing(id) === null)
     file.log.flagHealing(id, "quarantine", from);
   return { doc, sizeBytes, sinceCheckpoint: tail.rows.length };
-}
-
-const FNV_OFFSET = 0x811c9dc5;
-const FNV_PRIME = 0x01000193;
-
-/** FNV-1a 32-bit of the UTF-16 code units: a Yjs client id, an unsigned 32-bit integer. */
-function clientIdOf(id: string): number {
-  let hash = FNV_OFFSET;
-  for (let i = 0; i < id.length; i++)
-    hash = Math.imul(hash ^ id.charCodeAt(i), FNV_PRIME) >>> 0;
-  return hash;
 }
 
 function readPeople(room: Room): void {
