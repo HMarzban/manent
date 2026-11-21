@@ -9,6 +9,8 @@ export type EscapeSnapshot = {
   focus: "page" | "frame";
   /** Changes no step: returning focus to the page is what closes a panel that overlays it. */
   overlayPanelOpen: boolean;
+  /** A version is open as it was in the page's place. */
+  viewingVersion: boolean;
 };
 
 export type EscapeAction =
@@ -18,6 +20,7 @@ export type EscapeAction =
   | "close_field"
   | "clear_filter"
   | "focus_page"
+  | "back_to_working"
   | "none";
 
 /** `ignore` leaves the key to the input method; `none` lets the next Tab leave the page. */
@@ -28,5 +31,6 @@ export function escapeAction(snapshot: EscapeSnapshot): EscapeAction {
   if (snapshot.fieldOpen) return "close_field";
   if (snapshot.filterWithText) return "clear_filter";
   if (snapshot.focus === "frame") return "focus_page";
+  if (snapshot.viewingVersion) return "back_to_working";
   return "none";
 }

@@ -69,6 +69,12 @@ const ROWS: Readonly<Record<SurfaceId, Row>> = {
     focusOnClose: "opener",
   },
   send: screen("heading"),
+  version_view: { kind: "screen", focusOnOpen: "first", focusOnClose: "caret" },
+  name_field: {
+    kind: "bar_field",
+    focusOnOpen: "item",
+    focusOnClose: "previous_place",
+  },
 };
 
 const openersOf = (id: SurfaceId): readonly CommandId[] =>

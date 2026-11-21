@@ -103,6 +103,28 @@ export type {
   WorkspaceRef,
   WsTicketResponse,
 } from "./http.ts";
+export { VERSION_KINDS, isVersionCursor } from "./history-http.ts";
+export type {
+  AuthorsRequest,
+  AuthorsResponse,
+  HistoryControl,
+  HistoryVersionKind,
+  NameRequest,
+  RestoreRequest,
+  RestoreResponse,
+  RestoreScopeBody,
+  SaveRequest,
+  SinceResponse,
+  UploadRequest,
+  VersionAuthor,
+  VersionContent,
+  VersionContentResponse,
+  VersionItem,
+  VersionListResponse,
+  VersionPosition,
+  VersionResponse,
+  WhoWroteResponse,
+} from "./history-http.ts";
 export {
   DESKTOP_PROTOCOL_VERSION,
   FILE_REFUSALS,

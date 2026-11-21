@@ -63,6 +63,7 @@ test("Escape does one thing, the first that applies", () => {
     filterWithText: false,
     focus: "page",
     overlayPanelOpen: false,
+    viewingVersion: false,
   } as const;
   expect(escapeAction({ ...base, composing: true, popoverOpen: true })).toBe(
     "ignore",
