@@ -2,14 +2,13 @@
 // stays mounted, keeps its caret, scroll and undo, and keeps receiving remote edits.
 import { ENGINE_VERSION, engineFor } from "@manent/pagination";
 import { compareModeOf } from "@manent/revisions";
-import type { CompareNote } from "@manent/revisions";
+import type { CompareNote, Comparison } from "@manent/revisions";
 import { SCHEMA_VERSION } from "@manent/schema";
 import type { VersionContent } from "@manent/sync-protocol";
 import { EDITOR_WORDS, HISTORY_WORDS } from "@manent/ui";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { shownComparison } from "../../editor-host/changes.ts";
 import { livePagination } from "../../editor-host/live-editor.ts";
 import { mountVersionView } from "../../editor-host/version-view.ts";
 import type { VersionView } from "../../editor-host/version-view.ts";
@@ -126,41 +125,50 @@ function sideBySide(
   };
 }
 
-/** The version of the baseline, drawn in the page's grid area; nothing while the window has no page. */
+/**
+ * The version of the baseline, `content`, drawn in the page's grid area; nothing while the window has no page. Side
+ * by side marks `comparison`, the baseline against Working, unfiltered, and waits for it.
+ */
 export function VersionPane(props: {
   docId: string;
   position: "page" | "beside";
+  content: VersionContent | null;
+  comparison: Comparison | null;
 }): ReactNode {
-  const { docId, position } = props;
+  const { docId, position, content } = props;
   const { pagePorts } = useServices();
   const baseline = useHistory("baseline");
-  const content = useBaselineContent(docId);
+  const { sceneIds } = useHistory("filter");
   const place = useRef<HTMLDivElement>(null);
   const page = document.querySelector<HTMLElement>(PAGE_REGION);
+  const beside = position === "beside";
+  const comparison = beside ? props.comparison : null;
+  const scope = beside ? sceneIds : null;
 
   useLayoutEffect(() => {
     const element = place.current;
     if (element === null || content === null) return undefined;
+    if (beside && comparison === null) return undefined;
     const view: VersionView = mountVersionView({
       place: element,
       content,
       ports: pagePorts,
       offFontNote: EDITOR_WORDS.offFontNote,
-      // the older side marks the changes the live page shows as the view opens
-      comparison: position === "beside" ? shownComparison(docId) : null,
+      comparison,
+      sceneIds: scope,
       engineFor,
     });
     // a read-only page has no caret, so the view itself holds the focus ring
     element.focus({ preventScroll: true });
+    const top = beside && page !== null ? blockAtTop(page) : null;
+    if (top !== null) view.scrollToBlock(top);
     const stop =
-      position === "beside" && page !== null
-        ? sideBySide(page, element, view)
-        : null;
+      beside && page !== null ? sideBySide(page, element, view) : null;
     return () => {
       stop?.();
       view.destroy();
     };
-  }, [content, position, docId, pagePorts, page]);
+  }, [content, beside, comparison, scope, pagePorts, page]);
 
   const grid = page?.parentElement ?? null;
   if (grid === null || baseline === null) return null;
@@ -168,8 +176,7 @@ export function VersionPane(props: {
     baseline.date === null
       ? baseline.title
       : `${baseline.title}, ${baseline.date}`;
-  const note =
-    position === "beside" && content !== null ? noteOf(content, docId) : null;
+  const note = beside && content !== null ? noteOf(content, docId) : null;
   return createPortal(
     <div
       data-version-pane
@@ -181,7 +188,7 @@ export function VersionPane(props: {
       }
       style={{ gridArea: "page" }}
     >
-      {position === "beside" ? (
+      {beside ? (
         <header className="flex flex-col gap-1 px-3 py-2 text-ui">
           <span>{title}</span>
           {note === null ? null : (

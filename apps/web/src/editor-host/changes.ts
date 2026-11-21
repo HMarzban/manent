@@ -2,7 +2,11 @@
 import { changesKey, setChanges } from "@manent/editor";
 import type { ChangesDisplay } from "@manent/editor";
 import { ENGINE_VERSION } from "@manent/pagination";
-import { SCENE_HEADINGS, compareDocs, compareModeOf } from "@manent/revisions";
+import {
+  SCENE_HEADINGS,
+  compareModeOf,
+  sliceComparison,
+} from "@manent/revisions";
 import type { Comparison } from "@manent/revisions";
 import { SCHEMA_VERSION } from "@manent/schema";
 import type { VersionContent } from "@manent/sync-protocol";
@@ -39,11 +43,18 @@ export function shownComparison(docId: string): Comparison | null {
     : (changesKey.getState(view.state)?.comparison ?? null);
 }
 
-/** `baseline` against Working, in the mode their builds and engines allow; null while the script has no editor, or for a baseline the schema refuses. */
-export function workingComparison(
+/** The longest slice of a comparison on the main thread, in milliseconds. */
+const COMPARE_SLICE_MS = 8;
+
+/**
+ * `baseline` against Working as it is now, in the mode their builds and engines allow: each `next()` compares for
+ * at most COMPARE_SLICE_MS, and the last returns the whole comparison. Null while the script has no editor, or for a
+ * baseline the schema refuses.
+ */
+export function sliceWorkingComparison(
   docId: string,
   baseline: VersionContent,
-): Comparison | null {
+): Generator<Comparison, Comparison> | null {
   const view = liveEditor(docId)?.view;
   const older = docOfContent(baseline);
   if (view === undefined || older === null) return null;
@@ -51,7 +62,11 @@ export function workingComparison(
     schemaVersion: SCHEMA_VERSION,
     engineVersion: livePagination(docId)?.engineVersion ?? ENGINE_VERSION,
   });
-  return compareDocs(older, view.state.doc.toJSON(), { mode });
+  return sliceComparison(older, view.state.doc.toJSON(), {
+    mode,
+    now: () => performance.now(),
+    sliceMs: COMPARE_SLICE_MS,
+  });
 }
 
 /** The heading of the scene holding the live caret; null before the first scene, or while the script has no editor. */

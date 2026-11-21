@@ -11,7 +11,7 @@ import {
   joinNames,
 } from "@manent/ui";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
+import type { KeyboardEvent, ReactNode, RefObject } from "react";
 import { baselineOfRow } from "../../history/baseline.ts";
 import { isTitledByTime } from "../../history/history-rows.ts";
 import type { HistoryRow } from "../../history/history-rows.ts";
@@ -202,47 +202,51 @@ function VersionRow(props: {
   );
 }
 
-export function VersionRows(props: {
-  docId: string;
-  rows: readonly HistoryRow[];
-  offline: boolean;
-  onNearEnd(): void;
-}): ReactNode {
-  const { docId, rows } = props;
-  const { history, userId } = useServices();
-  const draftsOnly = useHistory("draftsOnly");
-  const naming = useHistory("naming");
-  const selected = useHistory("selected");
-  // the version the row menu's Name this draft… names; null: Working
-  const [target, setTarget] = useState<string | null>(null);
+/** A draft named and not yet answered, shown under Working; `name` names a draft of Working or of a version. */
+interface DraftNaming {
+  pending: Pending | null;
+  name(draft: string, fromVersionId: string | null): void;
+  working: RefObject<HTMLElement | null>;
+}
+
+function useDraftNaming(docId: string): DraftNaming {
+  const { history } = useServices();
   const [pending, setPending] = useState<Pending | null>(null);
   const working = useRef<HTMLElement>(null);
-  const drawnTo = useRef(0);
-  const items = itemsOf(rows, draftsOnly);
-  useEffect(() => {
-    if (drawnTo.current >= items.length - MORE_WITHIN_ROWS) props.onNearEnd();
-  });
-  useEffect(() => {
-    if (!naming) setTarget(null);
-  }, [naming]);
-
-  const name = (draft: string, fromVersionId: string | null): void => {
-    historyActions.setNaming(false);
-    setPending({ name: draft, fromVersionId, failed: false });
-    working.current?.focus();
-    void history.name(docId, draft, fromVersionId).then((named) => {
-      setPending(
-        named.ok ? null : { name: draft, fromVersionId, failed: true },
-      );
-    });
+  return {
+    pending,
+    working,
+    name(draft, fromVersionId) {
+      historyActions.setNaming(false);
+      setPending({ name: draft, fromVersionId, failed: false });
+      working.current?.focus();
+      void history.name(docId, draft, fromVersionId).then((named) => {
+        setPending(
+          named.ok ? null : { name: draft, fromVersionId, failed: true },
+        );
+      });
+    },
   };
+}
+
+/** Working, its name field while Working is named (`own`), and the draft named and not yet answered. */
+function WorkingRow(props: {
+  rows: readonly HistoryRow[];
+  own: boolean;
+  draft: DraftNaming;
+}): ReactNode {
+  const { rows, draft } = props;
+  const { userId } = useServices();
+  const naming = useHistory("naming");
+  const selected = useHistory("selected");
+  const { pending } = draft;
   // the newest version stands for the last change: who made it and when
   const newest = rows[0]?.item ?? null;
-  const workingRow = (
+  return (
     <>
       {newest === null ? null : (
         <Row
-          rowRef={working}
+          rowRef={draft.working}
           selected={selected === null}
           onActivate={() => historyActions.select(null)}
         >
@@ -254,10 +258,10 @@ export function VersionRows(props: {
           )}
         </Row>
       )}
-      {naming && target === null ? (
+      {naming && props.own ? (
         <NameField
           initial={nextDraftName(rows)}
-          onName={(draft) => name(draft, null)}
+          onName={(name) => draft.name(name, null)}
           onCancel={() => historyActions.setNaming(false)}
         />
       ) : null}
@@ -283,7 +287,7 @@ export function VersionRows(props: {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => name(pending.name, pending.fromVersionId)}
+                onClick={() => draft.name(pending.name, pending.fromVersionId)}
               >
                 {HISTORY_WORDS.tryAgain}
               </Button>
@@ -292,6 +296,37 @@ export function VersionRows(props: {
         </div>
       )}
     </>
+  );
+}
+
+/** Name this draft… on a script with no versions listed yet: Working's name field, and the draft named. */
+export function WorkingAlone(props: { docId: string }): ReactNode {
+  const draft = useDraftNaming(props.docId);
+  return <WorkingRow rows={[]} own draft={draft} />;
+}
+
+export function VersionRows(props: {
+  docId: string;
+  rows: readonly HistoryRow[];
+  offline: boolean;
+  onNearEnd(): void;
+}): ReactNode {
+  const { docId, rows } = props;
+  const draftsOnly = useHistory("draftsOnly");
+  const naming = useHistory("naming");
+  // the version the row menu's Name this draft… names; null: Working
+  const [target, setTarget] = useState<string | null>(null);
+  const draft = useDraftNaming(docId);
+  const drawnTo = useRef(0);
+  const items = itemsOf(rows, draftsOnly);
+  useEffect(() => {
+    if (drawnTo.current >= items.length - MORE_WITHIN_ROWS) props.onNearEnd();
+  });
+  useEffect(() => {
+    if (!naming) setTarget(null);
+  }, [naming]);
+  const workingRow = (
+    <WorkingRow rows={rows} own={target === null} draft={draft} />
   );
   const renderRow = (index: number): ReactNode => {
     drawnTo.current = Math.max(drawnTo.current, index);
@@ -317,7 +352,7 @@ export function VersionRows(props: {
           setTarget(item.row.item.id);
           historyActions.setNaming(true);
         }}
-        name={(draft) => name(draft, item.row.item.id)}
+        name={(name) => draft.name(name, item.row.item.id)}
       />
     );
   };

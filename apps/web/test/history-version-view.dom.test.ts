@@ -3,6 +3,7 @@ import { afterEach, expect, test } from "bun:test";
 import { mountPageView } from "@manent/editor";
 import { ENGINE_VERSION, engineFor, profileFor } from "@manent/pagination";
 import type { Engine } from "@manent/pagination";
+import { compareDocs } from "@manent/revisions";
 import { parseDoc, sectionize } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
 import type { VersionContent } from "@manent/sync-protocol";
@@ -115,6 +116,7 @@ function viewOf(content: VersionContent, engines = engineFor) {
     ports: PORTS,
     offFontNote: "Not in the script font",
     comparison: null,
+    sceneIds: null,
     engineFor: engines,
   });
   cleanups.push(() => view.destroy());
@@ -173,15 +175,8 @@ test("a version is paginated by its own engine", async () => {
 
   const grid = placeIn();
   placeIn(grid).dataset["region"] = "page";
-  const base = testServices({ userId: "sam" });
-  const services = {
-    ...base,
-    pagePorts: PORTS,
-    history: {
-      ...base.history,
-      content: async () => ({ ...CONTENT, engineVersion: 3 }),
-    },
-  };
+  const services = { ...testServices({ userId: "sam" }), pagePorts: PORTS };
+  const doc = sectionize([...BLOCKS]);
   historyActions.reset(DOC);
   historyActions.setBaseline({
     versionId: "v1",
@@ -198,6 +193,8 @@ test("a version is paginated by its own engine", async () => {
         children: createElement(VersionPane, {
           docId: DOC,
           position: "beside",
+          content: { ...CONTENT, engineVersion: 3 },
+          comparison: compareDocs(doc, doc),
         }),
       }),
     ),

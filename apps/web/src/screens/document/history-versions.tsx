@@ -19,10 +19,10 @@ import { historyView } from "../../history/history-view.ts";
 import { restoreQuestion } from "../../history/restore-question.ts";
 import { useServices } from "../../services/context.tsx";
 import { historyActions, useHistory } from "../../state/history.store.ts";
-import { HistoryChanges } from "./history-changes.tsx";
-import { VersionRows } from "./history-version-rows.tsx";
+import { HistoryChanges, useWorkingComparison } from "./history-changes.tsx";
+import { VersionRows, WorkingAlone } from "./history-version-rows.tsx";
 import { useCanEdit } from "./ruler-bar.tsx";
-import { VersionPane } from "./version-pane.tsx";
+import { VersionPane, useBaselineContent } from "./version-pane.tsx";
 
 const PLACEHOLDER_ROWS = 3;
 
@@ -37,7 +37,7 @@ function stateOf(
   return state;
 }
 
-/** Plan 04's consequence dialog while a restore asks first; its focus starts on Cancel. */
+/** The consequence dialog while a restore asks first; its focus starts on Cancel. */
 function RestoreDialog(): ReactNode {
   const question = useSubscribable(restoreQuestion);
   if (question === null) return null;
@@ -115,6 +115,8 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
   const editable = useCanEdit(docId);
   const baseline = useHistory("baseline");
   const mode = useHistory("mode");
+  const content = useBaselineContent(docId);
+  const comparison = useWorkingComparison(docId, content);
   useShownToCommands(docId, listed.rows);
   const state = stateOf(listed.state, listed.rows.length, editable);
   const offline = listed.state.kind === "offline";
@@ -136,7 +138,12 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
           : null;
   return (
     <section aria-label={DOCUMENT_WORDS.historyTab} className="flex flex-col">
-      <HistoryChanges docId={docId} rows={listed.rows} />
+      <HistoryChanges
+        docId={docId}
+        rows={listed.rows}
+        content={content}
+        all={comparison}
+      />
       <SurfaceState
         surface="side_panel"
         state={state}
@@ -144,8 +151,18 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
           ready: rows,
           read_only: rows,
           offline: rows,
-          empty: () => <EmptyLine />,
-          loading: () => <Placeholders />,
+          empty: () => (
+            <>
+              <WorkingAlone docId={docId} />
+              <EmptyLine />
+            </>
+          ),
+          loading: () => (
+            <>
+              <WorkingAlone docId={docId} />
+              <Placeholders />
+            </>
+          ),
           problem: () => (
             <>
               <p className="px-2 py-2 text-ui text-fg-muted">
@@ -158,7 +175,14 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
         }}
       />
       <RestoreDialog />
-      {pane === null ? null : <VersionPane docId={docId} position={pane} />}
+      {pane === null ? null : (
+        <VersionPane
+          docId={docId}
+          position={pane}
+          content={content}
+          comparison={comparison}
+        />
+      )}
     </section>
   );
 }

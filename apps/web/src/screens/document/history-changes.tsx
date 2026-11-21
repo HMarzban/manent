@@ -18,7 +18,10 @@ import {
 } from "@manent/ui";
 import { useEffect, useId, useLayoutEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { showChanges, workingComparison } from "../../editor-host/changes.ts";
+import {
+  showChanges,
+  sliceWorkingComparison,
+} from "../../editor-host/changes.ts";
 import {
   baselineOfRow,
   defaultBaseline,
@@ -29,7 +32,7 @@ import { readLastOpened } from "../../history/last-opened.ts";
 import { useServices } from "../../services/context.tsx";
 import { historyActions, useHistory } from "../../state/history.store.ts";
 import type { ChangesMode, HistoryState } from "../../state/history.store.ts";
-import { noteOf, useBaselineContent } from "./version-pane.tsx";
+import { noteOf } from "./version-pane.tsx";
 
 /** In the order of HISTORY_WORDS.modes. */
 const MODES: readonly ChangesMode[] = [
@@ -66,43 +69,63 @@ function useOffered(
 }
 
 /**
- * The baseline against Working, filtered to the chosen scenes, drawn on the live page in the chosen mode; hidden
- * while a version is viewed as it was, and when this is no longer drawn.
+ * `content`, the baseline, against Working, compared a slice per frame so that a long script never holds the main
+ * thread; null while it is compared, while a version is viewed as it was, and while no baseline is shown.
+ */
+export function useWorkingComparison(
+  docId: string,
+  content: VersionContent | null,
+): Comparison | null {
+  const mode = useHistory("mode");
+  const compared = mode === "as_it_was" ? null : content;
+  const [done, setDone] = useState<{
+    content: VersionContent;
+    comparison: Comparison;
+  } | null>(null);
+  useEffect(() => {
+    const slices =
+      compared === null ? null : sliceWorkingComparison(docId, compared);
+    if (compared === null || slices === null) return undefined;
+    let frame = 0;
+    const next = (): void => {
+      const slice = slices.next();
+      if (slice.done) setDone({ content: compared, comparison: slice.value });
+      else frame = requestAnimationFrame(next);
+    };
+    frame = requestAnimationFrame(next);
+    return () => cancelAnimationFrame(frame);
+  }, [docId, compared]);
+  return done?.content === compared ? done.comparison : null;
+}
+
+/**
+ * `all`, the baseline against Working, filtered to the chosen scenes and drawn on the live page in the chosen mode;
+ * hidden while it is compared, and when this is no longer drawn.
  */
 function useShownChanges(
   docId: string,
   content: VersionContent | null,
-): {
-  all: Comparison | null;
-  shown: Comparison | null;
-} {
-  const baseline = useHistory("baseline");
+  all: Comparison | null,
+): Comparison | null {
   const mode = useHistory("mode");
   const { sceneIds } = useHistory("filter");
-  const [all, setAll] = useState<Comparison | null>(null);
-  const showing = baseline !== null && mode !== "as_it_was" ? content : null;
   useLayoutEffect(() => {
-    const comparison =
-      showing === null ? null : workingComparison(docId, showing);
-    setAll(comparison);
     // the stepper starts again on other changes
     historyActions.setStep(null);
-    if (showing === null || comparison === null) {
+    if (content === null || all === null) {
       showChanges(docId, null);
       return undefined;
     }
     showChanges(docId, {
-      baseline: showing,
-      comparison: filterComparison(comparison, { sceneIds, blockIds: null }),
+      baseline: content,
+      comparison: filterComparison(all, { sceneIds, blockIds: null }),
       display: mode === "asterisks" ? "asterisks" : "page",
     });
     return () => showChanges(docId, null);
-  }, [docId, showing, mode, sceneIds]);
-  return {
-    all,
-    shown:
-      all === null ? null : filterComparison(all, { sceneIds, blockIds: null }),
-  };
+  }, [docId, content, all, mode, sceneIds]);
+  return all === null
+    ? null
+    : filterComparison(all, { sceneIds, blockIds: null });
 }
 
 const choose = (baseline: HistoryState["baseline"]) => (): void =>
@@ -243,15 +266,17 @@ function Stepper(props: { count: number }): ReactNode {
   );
 }
 
+/** `content` is the baseline's, and `all` its comparison with Working, unfiltered. */
 export function HistoryChanges(props: {
   docId: string;
   rows: readonly HistoryRow[];
+  content: VersionContent | null;
+  all: Comparison | null;
 }): ReactNode {
-  const { docId, rows } = props;
+  const { docId, rows, content, all } = props;
   const offered = useOffered(docId, rows);
   const draftsOnly = useHistory("draftsOnly");
-  const content = useBaselineContent(docId);
-  const { all, shown } = useShownChanges(docId, content);
+  const shown = useShownChanges(docId, content, all);
   const note = content === null ? null : noteOf(content, docId);
   return (
     <div className="flex flex-col gap-2 px-2 py-2">
