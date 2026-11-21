@@ -10,11 +10,10 @@ import { FormatError } from "../script/model.ts";
 import type { ImportedScript, KeptItem } from "../script/model.ts";
 import { emphasisRuns, removeHiddenText } from "./inline.ts";
 import type { Boneyard, NoteAt, NotedText } from "./inline.ts";
-import { FOUNTAIN_LINE_LIMIT, classifyLines } from "./lines.ts";
+import { FOUNTAIN_LINE_LIMIT, TITLE_KEY_LINE, classifyLines } from "./lines.ts";
 import type { FountainLine, Span } from "./lines.ts";
 
 const LINE_BREAK = /\r\n|\r|\n/;
-const TITLE_KEY = /^([A-Za-z][A-Za-z0-9 ]*):(.*)$/;
 const TAB = "    ";
 
 /** Line, then column: where something stood in the script's body; the title page comes before line 0. */
@@ -54,13 +53,13 @@ function append(draft: Draft, more: NotedText): void {
 /** The `Title` key's value with its continuation lines, joined by one space, emphasis removed; null when there is none. */
 function titleOf(page: readonly string[]): string | null {
   const at = page.findIndex(
-    (line) => TITLE_KEY.exec(line)?.[1]?.toLowerCase() === "title",
+    (line) => TITLE_KEY_LINE.exec(line)?.[1]?.toLowerCase() === "title",
   );
   if (at === -1) return null;
   const rest = page.slice(at + 1);
   const end = rest.findIndex((line) => !/^\s/.test(line));
   const text = [
-    TITLE_KEY.exec(page[at]!)![2]!,
+    TITLE_KEY_LINE.exec(page[at]!)![2]!,
     ...rest.slice(0, end === -1 ? rest.length : end),
   ]
     .map((part) => part.trim())
@@ -70,15 +69,17 @@ function titleOf(page: readonly string[]): string | null {
   return title === "" ? null : title;
 }
 
+const isPageLine = (line: string): boolean =>
+  TITLE_KEY_LINE.test(line) || /^\s/.test(line);
+
 /** The title page, when the first line is a `Key: value` line and every line to the first blank one is another or a continuation. */
 function titlePageOf(
   lines: readonly string[],
 ): { text: string; title: string | null; lines: number } | null {
   const end = lines.findIndex((line) => line.trim() === "");
   const page = lines.slice(0, end === -1 ? lines.length : end);
-  const isPageLine = (line: string): boolean =>
-    TITLE_KEY.test(line) || /^\s/.test(line);
-  if (!TITLE_KEY.test(page[0] ?? "") || !page.every(isPageLine)) return null;
+  if (!TITLE_KEY_LINE.test(page[0] ?? "") || !page.every(isPageLine))
+    return null;
   return {
     text: page.join("\n"),
     title: titleOf(page),

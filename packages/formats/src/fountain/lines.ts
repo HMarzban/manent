@@ -4,6 +4,9 @@ import type { ActBreakKind } from "@manent/schema";
 /** The longest line a Fountain file may hold, in UTF-16 units; a longer one is malformed. */
 export const FOUNTAIN_LINE_LIMIT = 100_000;
 
+/** A title page's `Key: value` line, the key in the first group and the value in the second. */
+export const TITLE_KEY_LINE = /^([A-Za-z][A-Za-z0-9 ]*):(.*)$/;
+
 /** Where an element's text lies inside its line: from, then to, in UTF-16 units. */
 export type Span = readonly [number, number];
 

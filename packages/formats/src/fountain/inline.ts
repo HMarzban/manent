@@ -91,15 +91,17 @@ export function removeHiddenText(body: string): {
   return { lines, notes, boneyards };
 }
 
-const ESCAPED = "*_\\";
-type Emphasis = "bold" | "italic" | "underline";
+/** The characters a backslash escapes. */
+export const FOUNTAIN_ESCAPED = "*_\\";
+/** The marks Fountain writes, in the order a run lists them. */
+export const FOUNTAIN_MARKS = ["bold", "italic", "underline"] as const;
+export type FountainMark = (typeof FOUNTAIN_MARKS)[number];
 /** The marks an opening run of one, two or three stars gives. */
-const STAR_MARKS: Readonly<Record<number, readonly Emphasis[]>> = {
+const STAR_MARKS: Readonly<Record<number, readonly FountainMark[]>> = {
   1: ["italic"],
   2: ["bold"],
   3: ["bold", "italic"],
 };
-const EMPHASIS: readonly Emphasis[] = ["bold", "italic", "underline"];
 
 interface Opener {
   readonly underline: boolean;
@@ -113,8 +115,11 @@ interface Opener {
 /** Emphasis read with a stack: a run of stars closes what is open before it opens anything, so `**a***b*` is bold then italic. */
 class EmphasisReader {
   readonly dropped: Uint8Array;
-  readonly spans: { marks: readonly Emphasis[]; from: number; to: number }[] =
-    [];
+  readonly spans: {
+    marks: readonly FountainMark[];
+    from: number;
+    to: number;
+  }[] = [];
   private readonly stack: Opener[] = [];
 
   constructor(private readonly text: string) {
@@ -122,7 +127,7 @@ class EmphasisReader {
     let i = 0;
     while (i < text.length) {
       const char = text[i]!;
-      if (char === "\\" && ESCAPED.includes(text[i + 1] ?? "")) {
+      if (char === "\\" && FOUNTAIN_ESCAPED.includes(text[i + 1] ?? "")) {
         this.dropped[i] = 1;
         i += 2;
       } else if (char === "_") {
@@ -198,23 +203,23 @@ export function emphasisRuns(noted: NotedText): {
   const source = noted.text;
   const { dropped, spans } = new EmphasisReader(source);
   // per mark, +1 where a span of it begins and -1 where one ends
-  const changes = EMPHASIS.map(() => new Int32Array(source.length + 1));
+  const changes = FOUNTAIN_MARKS.map(() => new Int32Array(source.length + 1));
   for (const { marks, from, to } of spans)
     for (const mark of marks) {
-      const change = changes[EMPHASIS.indexOf(mark)]!;
+      const change = changes[FOUNTAIN_MARKS.indexOf(mark)]!;
       change[from]!++;
       change[to]!--;
     }
-  const open = EMPHASIS.map(() => 0);
+  const open = FOUNTAIN_MARKS.map(() => 0);
   const offsets = new Int32Array(source.length + 1);
   const content: TextJSON[] = [];
   let text = "";
   let key = "";
   for (let i = 0; i < source.length; i++) {
     offsets[i] = text.length;
-    for (let m = 0; m < EMPHASIS.length; m++) open[m]! += changes[m]![i]!;
+    for (let m = 0; m < FOUNTAIN_MARKS.length; m++) open[m]! += changes[m]![i]!;
     if (dropped[i] === 1) continue;
-    const marks = EMPHASIS.filter((_, m) => open[m]! > 0);
+    const marks = FOUNTAIN_MARKS.filter((_, m) => open[m]! > 0);
     const runKey = marks.join("+");
     if (content.length === 0 || runKey !== key)
       content.push(
