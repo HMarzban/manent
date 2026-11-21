@@ -101,9 +101,9 @@ function prepareAnchors(db: Database) {
       `SELECT ${ANCHOR}, from_generation AS fromGeneration, from_seq AS fromSeq, to_generation AS toGeneration,
        to_seq AS toSeq FROM page_locks WHERE doc_id = ?1 ORDER BY from_generation, from_seq, lock_level, page_order`,
     ),
-    // a table opened at the position it is replaced at never held one
-    dropOpenedAt: db.query<never, [string, number, number]>(
-      "DELETE FROM page_locks WHERE doc_id = ?1 AND to_seq IS NULL AND from_generation = ?2 AND from_seq = ?3",
+    openFromOrAfter: db.query<{ found: 1 }, [string, number, number]>(
+      `SELECT 1 AS found FROM page_locks WHERE doc_id = ?1 AND to_seq IS NULL
+       AND (from_generation, from_seq) >= (?2, ?3) LIMIT 1`,
     ),
     close: db.query<never, [string, number, number]>(
       "UPDATE page_locks SET to_generation = ?2, to_seq = ?3 WHERE doc_id = ?1 AND to_seq IS NULL",
@@ -235,7 +235,7 @@ function readIssue(row: StoredIssue): IssueRow {
   };
 }
 
-// Closes the open table at `at` and opens `rows` from it, inside the caller's transaction.
+// Closes the open table at `at` and opens `rows` from it, inside the caller's transaction; RangeError unless `at` is after the open table's start.
 function replaceAnchors(
   sql: Statements,
   docId: string,
@@ -243,7 +243,10 @@ function replaceAnchors(
   at: { generation: number; seq: number },
 ): void {
   const { generation, seq } = at;
-  sql.dropOpenedAt.run(docId, generation, seq);
+  if (sql.openFromOrAfter.get(docId, generation, seq) !== null)
+    throw new RangeError(
+      `the anchor table of ${docId} replaced at ${generation}:${seq} does not follow the open one`,
+    );
   sql.close.run(docId, generation, seq);
   for (const r of rows)
     sql.insert.run({

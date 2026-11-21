@@ -210,7 +210,7 @@ test("an anchor table replaced closes the old rows and keeps their history", () 
   );
 });
 
-test("an anchor table replaced at the position it opened at takes its place", () => {
+test("an anchor table replaced at or before the position the open one starts at is refused", () => {
   expect(
     onBoth((f) => {
       f.production.replaceAnchors(DOC, [row(1, "1", "a0")], {
@@ -221,19 +221,33 @@ test("an anchor table replaced at the position it opened at takes its place", ()
         generation: 1,
         seq: 20,
       });
-      f.production.replaceAnchors(DOC, [row(1, "1", "a1")], {
-        generation: 1,
-        seq: 20,
-      });
-      return f.production
-        .anchorHistory(DOC)
-        .map((r) => [r.blockId, r.fromSeq, r.toSeq]);
+      const replace = (generation: number, seq: number) =>
+        thrownBy(() =>
+          f.production.replaceAnchors(DOC, [row(1, "1", "a1")], {
+            generation,
+            seq,
+          }),
+        );
+      return {
+        samePosition: replace(1, 20),
+        earlier: replace(1, 15),
+        earlierGeneration: replace(0, 30),
+        history: f.production
+          .anchorHistory(DOC)
+          .map((r) => [r.blockId, r.fromSeq, r.toSeq]),
+      };
     }),
   ).toEqual(
-    both([
-      ["a0", 10, 20],
-      ["a1", 20, null],
-    ]),
+    both({
+      samePosition: "RangeError",
+      earlier: "RangeError",
+      earlierGeneration: "RangeError",
+      history: [
+        ["a0", 10, 20],
+        ["a0", 20, null],
+        ["a3", 20, null],
+      ],
+    }),
   );
 });
 
