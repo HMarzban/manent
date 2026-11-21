@@ -1,11 +1,18 @@
 import { withDom } from "@manent/testkit/dom";
 import { createMemoryHistory } from "@tanstack/react-router";
 import { expect, test } from "bun:test";
-import { createAppRouter, loadScreen } from "../src/router.tsx";
+import { act, createElement } from "react";
+import { createRoot } from "react-dom/client";
+import {
+  OncePreferencesRead,
+  createAppRouter,
+  loadScreen,
+} from "../src/router.tsx";
+import { ServicesProvider } from "../src/services/context.tsx";
 import { SESSION_KEY } from "../src/session.ts";
 import type { TabStorage } from "../src/session.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
-import { fakeApi } from "./services.fixtures.ts";
+import { fakeApi, testServices } from "./services.fixtures.ts";
 
 withDom();
 
@@ -96,4 +103,28 @@ test("a tab with no person that opens any screen but the chooser is asked who it
 test("a tab that has a person opens a script's address as it is", async () => {
   const leo = JSON.stringify({ token: null, userId: "leo", name: "Leo Marsh" });
   expect(await landing(DOC, leo)).toBe(DOC);
+});
+
+test("a screen of preferences is drawn only once they have been read from the device", async () => {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  const services = { ...testServices({ userId: "sam" }), ready: promise };
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  await act(async () =>
+    root.render(
+      createElement(ServicesProvider, {
+        services,
+        children: createElement(OncePreferencesRead, {
+          children: createElement("p", null, "drawn"),
+        }),
+      }),
+    ),
+  );
+  const before = host.textContent;
+  await act(async () => resolve());
+  expect([before, host.textContent]).toEqual(["", "drawn"]);
+  act(() => root.unmount());
+  services.dispose();
+  host.remove();
 });

@@ -74,6 +74,7 @@ export function usePersonServices(options: {
   const environment = useEnvironment();
   const { person, demo, api, usePerson, router } = options;
   const userId = person?.userId ?? null;
+  const token = person?.token ?? null;
   const [demoValue] = useState(() => createValue(demo));
   useLayoutEffect(() => demoValue.set(demo), [demoValue, demo]);
   const built = useMemo(
@@ -91,8 +92,8 @@ export function usePersonServices(options: {
               router,
             }),
           },
-    // a new token or name keeps the same person's services; the store is read for them
-    [userId, demoValue, environment, api, usePerson, router],
+    // signing in starts the person's services again with the token; a new name keeps them, and the store is read for it
+    [userId, token, demoValue, environment, api, usePerson, router],
   );
   useLayoutEffect(() => {
     if (built === null) return;

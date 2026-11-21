@@ -63,7 +63,7 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     }),
     ...libraryHandlers(deps),
     ...demoHandlers(),
-    ...syncHandlers(),
+    ...syncHandlers(deps),
     ...createDesktopHandlers(deps),
     ...historyHandlers(),
   };

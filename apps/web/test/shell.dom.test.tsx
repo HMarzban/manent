@@ -25,6 +25,7 @@ import {
   fakeApi,
   testEnvironment,
 } from "./services.fixtures.ts";
+import { until } from "./sync.fixtures.ts";
 
 withDom();
 
@@ -172,7 +173,10 @@ const themeEntry = (value: string): string =>
     },
   });
 
-test("switching person rebuilds the services and applies the new person's theme in the same task", async () => {
+const theme = (): string | null =>
+  document.documentElement.getAttribute("data-theme");
+
+test("switching person rebuilds the services and applies the new person's theme once it is read from the device", async () => {
   const storage = new MemoryStorage();
   storage.setItem("manent.device.id", "this-device");
   storage.setItem("manent.prefs.leo", themeEntry("dark"));
@@ -181,10 +185,10 @@ test("switching person rebuilds the services and applies the new person's theme 
   usePerson.getState().setPerson(LEO);
   seen.length = 0;
   await renderApp({ path: "/", usePerson, storage });
-  expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  await act(() => until(() => theme() === "dark"));
   const before = seen.at(-1);
   act(() => usePerson.getState().setPerson(DANA));
-  expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+  await act(() => until(() => theme() === "light"));
   expect(seen.at(-1)?.userId).toBe("dana");
   expect(seen.at(-1)).not.toBe(before);
   expect(before?.userId).toBe("leo");

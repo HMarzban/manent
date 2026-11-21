@@ -36,6 +36,8 @@ interface CommandsParts {
   resolved: Subscribable<Resolved>;
   /** The open editor, whose drawn zoom a command may know. */
   control: Pick<EditorControl, "zoomPercent">;
+  /** The person's sync can reach the network: the browser is online and the tab's Connection is not Offline. */
+  network: Subscribable<boolean>;
 }
 
 /** What a command may know: the window's state from the shell, the focus and connection read now, and the person's. */
@@ -51,7 +53,7 @@ function commandContext(
     docOpen: docId !== null,
     // every person edits every document until sync supplies roles
     role: docId === null ? null : "editor",
-    online: options.online(),
+    online: parts.network.get(),
     platform: options.where.platform,
     shell: options.where.shell,
     demo: options.demo.get(),
@@ -135,6 +137,7 @@ export function createCommands(
     options.usePerson.subscribe(service.notify),
     options.demo.subscribe(service.notify),
     resolved.subscribe(service.notify),
+    parts.network.subscribe(service.notify),
     ...SETTINGS.all.map((def) => settings.subscribe(def.key, service.notify)),
     rulerActions.subscribe(service.notify),
     zoomActions.subscribe(service.notify),

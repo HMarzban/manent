@@ -14,12 +14,14 @@ import type {
 } from "@manent/settings";
 import type { SyncClient } from "@manent/sync-client";
 import type {
+  ConsequenceDialogProps,
   MessageQueue,
   NEW_PROJECT_CARDS,
   StateFact,
   StatusFacts,
   Subscribable,
 } from "@manent/ui";
+import type { ConnectionControl } from "../demo/connection-transport.ts";
 import type { EditorControl } from "../editor-host/control.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
 import type { PlaceStore } from "../editor-host/place.ts";
@@ -29,7 +31,9 @@ import type { ShellDom } from "../shell/regions.tsx";
 import type { Guard } from "../state/guard.ts";
 import type { PersonPresent } from "../state/people.store.ts";
 import type { StorageEvents } from "./local-map.ts";
+import type { CloseGuard } from "./sync/close-guard.ts";
 import type { PersonSync } from "./sync/create-sync.ts";
+import type { PersonReview } from "./sync/later-index.ts";
 
 /** The kinds New project offers, in its order. */
 export type ProjectKind = (typeof NEW_PROJECT_CARDS)[number]["kind"];
@@ -69,6 +73,8 @@ export interface CreateResult {
 export interface LibraryIndex {
   continueList(workspaceId: string): Subscribable<readonly ContinueItem[]>;
   projects(workspaceId: string): Subscribable<readonly ProjectItem[]>;
+  /** The projects once the workspace's index has been read from the device. */
+  readProjects(workspaceId: string): Promise<readonly ProjectItem[]>;
   loadState(workspaceId: string): Subscribable<"cached" | "problem">;
   createProject(workspaceId: string, kind: ProjectKind): Promise<CreateResult>;
   /** Null for a document the index does not hold. */
@@ -92,7 +98,7 @@ export interface DocumentSource {
   close(docId: string): void;
 }
 
-/** One-way facts about a person, kept on this device. */
+/** One-way facts about a person, in their private index: none is known until `PersonServices.ready` has settled. */
 export interface Flags {
   has(flag: "tour_seen"): boolean;
   set(flag: "tour_seen"): void;
@@ -119,6 +125,8 @@ export interface PersonServices {
   resolved: Subscribable<Resolved>;
   library: LibraryIndex;
   documents: DocumentSource;
+  /** What the person has to review in each script, and its choices. */
+  review: PersonReview;
   /** The store of one open document, with its script settings; the same store until the document is closed. */
   openScriptStore(docId: string): SettingsStore;
   messages: MessageQueue;
@@ -137,6 +145,15 @@ export interface PersonServices {
   editor: EditorControl;
   /** Draws this person's editor of a document into the page. */
   mount: EditorMount;
+  /** Settles once the person's preferences, keys and flags have been read from the device, or their sync could not start. */
+  ready: Promise<void>;
+  /** Leaving a document this device cannot save asks `question`, which the screen draws while it is not null. */
+  closing: {
+    guard: CloseGuard;
+    question: Subscribable<ConsequenceDialogProps | null>;
+  };
+  /** The demo's Connection of this tab, once the person's sync has started; rejects when it cannot start. */
+  connection: Promise<ConnectionControl>;
   dispose(): void;
 }
 

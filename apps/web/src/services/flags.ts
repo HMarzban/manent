@@ -1,24 +1,14 @@
-// A person's one-way facts on this device, such as having seen the Tour.
-import { createLocalMap } from "./local-map.ts";
-import type { StorageEvents } from "./local-map.ts";
+// A person's one-way facts, such as having seen the Tour, kept in their private index.
+import type { KeyValueMap } from "@manent/settings";
 import type { Flags } from "./ports.ts";
 
-/** `localStorage["manent.flags.<userId>"]`, one JSON object of the flags set; a flag is never cleared. */
-export function createFlags(options: {
-  storage: Storage | null;
-  userId: string;
-  events: StorageEvents;
-}): Flags & { dispose(): void } {
-  const map = createLocalMap({
-    storage: options.storage,
-    key: `manent.flags.${options.userId}`,
-    events: options.events,
-  });
+/** `index` holds `true` under each flag set; a flag is never cleared. */
+export function createFlags(options: { index: KeyValueMap }): Flags {
+  const { index } = options;
   return {
-    has: (flag) => map.get(flag) === true,
+    has: (flag) => index.get(flag) === true,
     set(flag) {
-      if (map.get(flag) !== true) map.set(flag, true);
+      if (index.get(flag) !== true) index.set(flag, true);
     },
-    dispose: map.dispose,
   };
 }

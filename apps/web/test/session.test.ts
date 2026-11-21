@@ -108,6 +108,7 @@ test("a person without an account is chosen without asking the server", async ()
     me: () => Promise.reject(new Error("not asked")),
     demo: () => Promise.reject(new Error("not asked")),
     removedDoc: () => Promise.reject(new Error("not asked")),
+    docClients: () => Promise.reject(new Error("not asked")),
     signIn(userId): Promise<SignInResult> {
       asked.push(userId);
       return Promise.resolve({ ok: true, person: LEO });
