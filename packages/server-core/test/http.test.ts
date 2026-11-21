@@ -111,7 +111,9 @@ test("a signed session for a user the directory no longer lists is 401", async (
 test("demo mode is announced only when it is on, with the seed's id", async () => {
   let seed: string | null = "s1";
   const demo = createServer(
-    makeConfig({ demo: { seedId: () => seed, control: CONTROL } }),
+    makeConfig({
+      demo: { seedId: () => seed, control: CONTROL, controls: null },
+    }),
   );
   const seedId = async () =>
     (
@@ -127,7 +129,7 @@ test("demo mode is announced only when it is on, with the seed's id", async () =
   seed = null;
   expect(await seedId()).toBeNull();
   const withoutSupervisor = createServer(
-    makeConfig({ demo: { seedId: () => "s1", control: null } }),
+    makeConfig({ demo: { seedId: () => "s1", control: null, controls: null } }),
   );
   expect(
     await (
