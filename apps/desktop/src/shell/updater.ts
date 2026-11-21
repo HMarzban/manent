@@ -9,26 +9,33 @@ import {
 import type { UpdateMoment } from "../update-policy.ts";
 import { Updater } from "./sdk.ts";
 
-/** Applying quits the app and its helper opens the new version, so nothing after it runs. */
-async function applyStaged(moment: UpdateMoment): Promise<void> {
-  if (!Updater.updateInfo().updateReady || !mayApplyUpdate(moment)) return;
+/**
+ * True when the apply began: this app's quit has started, and its helper opens the new version once
+ * the quit ends. `applyUpdate` resolves whether it began or not, so the last status it logged tells which.
+ */
+async function applyStaged(moment: UpdateMoment): Promise<boolean> {
+  if (!Updater.updateInfo().updateReady || !mayApplyUpdate(moment))
+    return false;
   try {
     await Updater.applyUpdate();
   } catch {
     // the installed version goes on, and the next launch tries the staged update again
+    return false;
   }
+  return Updater.getStatusHistory().at(-1)?.status === "launching-new-version";
 }
 
 /**
  * Checks for an update, waiting at most `LAUNCH_UPDATE_WAIT_MS`, and applies one an earlier run
- * downloaded. Resolves, and the launch goes on, when the check is slow, offline or finds nothing staged.
+ * downloaded. True when the apply began, and the launch must stop there; false, and the launch goes on,
+ * when the check is slow, offline or finds nothing staged.
  */
-export async function updateAtLaunch(): Promise<void> {
+export async function updateAtLaunch(): Promise<boolean> {
   const answered = await Promise.race([
     Updater.checkForUpdate().then(() => true),
     Bun.sleep(LAUNCH_UPDATE_WAIT_MS).then(() => false),
   ]);
-  if (answered) await applyStaged("launch");
+  return answered && (await applyStaged("launch"));
 }
 
 /** The answer of one check and, when it finds an update, of its download. */

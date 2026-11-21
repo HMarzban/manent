@@ -270,7 +270,8 @@ function openApp(options: {
 async function launch(): Promise<void> {
   const root = appDataDir(process.platform, process.env, homedir());
   const { version, channel } = await Updater.getLocalInfo();
-  await updateAtLaunch();
+  // the app is quitting and the new version opens in its place
+  if (await updateAtLaunch()) return;
   const resources = join(PATHS.RESOURCES_FOLDER, "app");
   const build = readBuildFile(join(resources, "build.json"));
   const statePath = join(root, "window-state.json");
