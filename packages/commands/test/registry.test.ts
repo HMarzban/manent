@@ -157,6 +157,7 @@ test("the Stage 1 commands are these, with these words and keys", () => {
     ["history.review", "Review", [], []],
     ["review.undo", "Undo", [], []],
     ["demo.tour", "Tour", [], []],
+    ["app.openInBrowser", "Open in browser", [], []],
     ["history.markVersion", "Mark a version", ["Mod+S"], ["Mod+S"]],
     ["history.nameDraft", "Name this draft…", ["Mod+Shift+S"], ["Mod+Shift+S"]],
     ["history.changesSince", "Changes since", [], []],
@@ -268,6 +269,33 @@ test("the editor's commands sit in these menus and answer to these palette words
       { keywords: [] },
       null,
     ]),
+  ]);
+});
+
+test("Open in browser sits in File and is offered only in the desktop app's demo", () => {
+  const open = byId("app.openInBrowser");
+  expect([
+    pick("app.openInBrowser"),
+    open.scope,
+    open.reach,
+    open.opens,
+    [
+      ctx({ shell: "desktop", demo: true }),
+      ctx({ shell: "desktop", demo: false }),
+      ctx({ shell: "web", demo: true }),
+    ].map((context) => open.visible?.(context)),
+  ]).toEqual([
+    {
+      label: "Open in browser",
+      home: null,
+      menus: [{ menu: "file", group: "browser", order: 80, submenu: null }],
+      palette: { keywords: [] },
+      setting: null,
+    },
+    "global",
+    "self",
+    null,
+    [true, false, false],
   ]);
 });
 
@@ -713,6 +741,7 @@ test("the handler table names every command but the generated ones", () => {
     "history.review": noop,
     "review.undo": noop,
     "demo.tour": noop,
+    "app.openInBrowser": noop,
     "history.markVersion": noop,
     "history.nameDraft": noop,
     "history.changesSince": noop,

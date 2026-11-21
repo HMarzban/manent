@@ -4,6 +4,7 @@ import type { DocHandle, SyncClient } from "@manent/sync-client";
 import { LIBRARY_WORDS, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import type { ConnectionControl } from "../demo/connection-transport.ts";
+import { watchHandoffRefusals } from "../desktop/handoff-message.ts";
 import type { TabPerson } from "../session.ts";
 import type { CommandsOptions } from "./person-commands.ts";
 import type { DocumentSource } from "./ports.ts";
@@ -165,7 +166,9 @@ function openedHook(hook: {
   library: SyncLibrary;
   indexes: Promise<Indexes | null>;
   started: () => PersonSync | null;
-  handles: Set<DocHandle>;
+  handles: Subscribable<readonly DocHandle[]> & {
+    set(handles: readonly DocHandle[]): void;
+  };
   deviceId: string;
   messages: MessageQueue;
   now: () => number;
@@ -173,14 +176,14 @@ function openedHook(hook: {
 }): (docId: string, handle: DocHandle) => () => void {
   const { handles, deviceId, now } = hook;
   return (docId, handle) => {
-    handles.add(handle);
+    handles.set([...handles.get(), handle]);
     const started = hook.started();
     const stops = [
       hook.library.follow(docId, handle),
       ...(started === null
         ? []
         : [markOpen(started, { docId, messages: hook.messages })]),
-      () => handles.delete(handle),
+      () => handles.set(handles.get().filter((each) => each !== handle)),
     ];
     let stopped = false;
     void hook.indexes.then((opened) => {
@@ -239,7 +242,7 @@ function laterMaps(indexes: Promise<Indexes | null>): {
 function leavePage(
   sync: PersonSync,
   maps: { prefs: LaterMap; keys: LaterMap },
-  handles: ReadonlySet<DocHandle>,
+  handles: readonly DocHandle[],
 ): void {
   const { memory, link, userId } = sync;
   memory.keepLegacyMaps(userId, {
@@ -328,12 +331,20 @@ export function createPersonDocuments(
   const review = createLaterReview({
     store: indexes.then((opened) => opened?.review ?? null),
   });
-  const handles = new Set<DocHandle>();
+  const handles = createValue<readonly DocHandle[]>([]);
+  const titles = (docId: string): string =>
+    library.documentTitle(docId).get() ?? LIBRARY_WORDS.untitledScript;
+  // only the desktop app's node sends an upstream status: on the web this says nothing
+  const stopRefusals = watchHandoffRefusals({
+    handles: handles.get,
+    handlesChanged: handles.subscribe,
+    title: titles,
+    queue: messages,
+  });
   const source = createSyncDocumentSource({
     sync,
     review,
-    titles: (docId) =>
-      library.documentTitle(docId).get() ?? LIBRARY_WORDS.untitledScript,
+    titles,
     messages,
     now: options.now,
     schedule: options.schedule,
@@ -362,9 +373,10 @@ export function createPersonDocuments(
     ready,
     leave() {
       const going = started();
-      if (going !== null) leavePage(going, maps, handles);
+      if (going !== null) leavePage(going, maps, handles.get());
     },
     dispose() {
+      stopRefusals();
       review.dispose();
       void sync.then(
         (s) => s.dispose(),
