@@ -105,7 +105,11 @@ export function type(h: DocHandle, text: string): void {
 
 export function listen(h: DocHandle): DocEvent[] {
   const events: DocEvent[] = [];
-  h.on((event) => events.push(event));
+  h.on((event) => {
+    // The handle's frame relays are heard by the tests that pin them.
+    if (event.type !== "control" && event.type !== "subscribed")
+      events.push(event);
+  });
   return events;
 }
 

@@ -69,11 +69,12 @@ export interface LocalCopy {
   /** An event of the upstream's, told as it is. */
   tell(event: UpstreamEvent): void;
   awareness(update: Uint8Array): void;
-  /** Keeps the document as a device version, `content`; `stored` settles once it is written. */
+  /** Keeps the document as a device version, returned; `stored` settles once it is written. */
   recordVersion(
     kind: DeviceVersion["kind"],
     label: DeviceVersion["label"],
-  ): { id: string; stored: Promise<void>; content: DocJSON };
+    name?: string,
+  ): DeviceVersion & { stored: Promise<void> };
   writeSchema(version: number): void;
   /** Stops observing the document and applying server updates. */
   dispose(): void;
@@ -82,7 +83,10 @@ export interface LocalCopy {
 }
 
 /** The parts of a handle its session keeps. */
-interface SessionParts {
+interface SessionParts extends Pick<
+  DocHandle,
+  "nameVersion" | "restoreLocally" | "deviceVersions" | "lastServerSeq"
+> {
   status: Subscribable<DocStatus>;
   readOnly: Subscribable<ViewHandle | null>;
   sendAwareness(update: Uint8Array): void;
@@ -240,23 +244,20 @@ class BoundCopy implements LocalCopy {
   recordVersion(
     kind: DeviceVersion["kind"],
     label: DeviceVersion["label"],
-  ): { id: string; stored: Promise<void>; content: DocJSON } {
+    name?: string,
+  ): DeviceVersion & { stored: Promise<void> } {
     const createdAt = this.now();
     const { docId, journal } = this.options;
-    const id = this.newId();
     const version = deviceVersion(this.doc, {
-      id,
+      id: this.newId(),
       docId,
       kind,
       label,
+      name: name ?? null,
       createdAt,
     });
     journal.patch({ lastDeviceVersionAt: createdAt });
-    return {
-      id,
-      stored: journal.addVersion(version),
-      content: version.content,
-    };
+    return { ...version, stored: journal.addVersion(version) };
   }
 
   writeSchema(version: number): void {
@@ -299,6 +300,10 @@ class BoundCopy implements LocalCopy {
         return () => this.awarenessListeners.delete(listener);
       },
       saveVersion: (label) => this.recordVersion("device", label).stored,
+      nameVersion: parts.nameVersion,
+      restoreLocally: parts.restoreLocally,
+      deviceVersions: parts.deviceVersions,
+      lastServerSeq: parts.lastServerSeq,
       adoptClientIds: parts.adoptClientIds,
       close: parts.close,
     };

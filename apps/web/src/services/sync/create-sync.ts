@@ -68,6 +68,10 @@ function handleView(
     sendAwareness: (update) => handle.sendAwareness(update),
     onAwareness: (listener) => handle.onAwareness(listener),
     saveVersion: (label) => handle.saveVersion(label),
+    nameVersion: (name) => handle.nameVersion(name),
+    restoreLocally: (target, scope) => handle.restoreLocally(target, scope),
+    deviceVersions: () => handle.deviceVersions(),
+    lastServerSeq: () => handle.lastServerSeq(),
     adoptClientIds: (ids) => handle.adoptClientIds(ids),
     close,
   };
