@@ -1,6 +1,12 @@
 import { expect, test } from "bun:test";
 import { DOC, DOC2 } from "./seed.ts";
-import { DANA_CLIENT, SAM_CLIENT, push, subscribe } from "./service-world.ts";
+import {
+  DANA_CLIENT,
+  SAM_CLIENT,
+  push,
+  set,
+  subscribe,
+} from "./service-world.ts";
 import { ack, createRelayWorld, tail } from "./relay-world.ts";
 import type { RelayWorld } from "./relay-world.ts";
 
@@ -12,6 +18,9 @@ function editing(world: RelayWorld, docId: string): void {
   sam.take();
   dana.take();
 }
+
+const typesOf = (messages: readonly { type: string }[]): string[] =>
+  messages.map((m) => m.type);
 
 test("on a full disk the node holds what it could not commit and retries", () => {
   const world = createRelayWorld({ fullDisk: "hold" });
@@ -82,6 +91,23 @@ test("a document is not rebuilt while what it holds is not yet committed", () =>
   expect(sam.take()).toEqual([
     ack(DOC, 1, 1),
     { type: "GENERATION_MOVED", docId: DOC, generation: 1, newGeneration: 2 },
+  ]);
+});
+
+test("seed 9: a setting the authority writes on a full disk reaches no window until it is committed", () => {
+  const world = createRelayWorld({ fullDisk: "hold" });
+  const { service, clock, storage, sam, dana } = world;
+  editing(world, DOC);
+  storage.fillDisk(true);
+  service.receive(sam, set(DOC, 1, "script.paper", "a4"));
+  clock.runDeferred();
+  // a window would hold structs under the authority's client id that a crash could take from the log
+  expect([sam.take(), dana.take()]).toEqual([[], []]);
+  storage.fillDisk(false);
+  clock.advance(5_000);
+  expect([typesOf(sam.take()), typesOf(dana.take())]).toEqual([
+    ["SYNC", "ACK"],
+    ["SYNC"],
   ]);
 });
 

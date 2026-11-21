@@ -8,13 +8,10 @@ import type {
   StorageError,
   UpdateOrigin,
 } from "@manent/storage";
-import {
-  CODE,
-  MESSAGE_LIMIT_BYTES,
-  isPermanentPushError,
-} from "@manent/sync-protocol";
+import { CODE } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
 import type { ReplayItem } from "../rebuild/replay-write.ts";
+import { admit, refusal } from "./admission.ts";
 import {
   answer,
   commitFile,
@@ -105,6 +102,8 @@ export interface WritePath {
   commitHeld(items: readonly QueuedItem[]): boolean;
   /** The full disk that began holding the file's commits; null when nothing of it is held. */
   holdError(file: DocFile): StorageError | null;
+  /** What the document's held items append, in arrival order: in its room, and in no log yet. */
+  heldUpdates(docId: string): readonly Uint8Array[];
   /** Commits what is queued, now. */
   flush(): void;
   /** What is queued or held: written to no log yet. */
@@ -135,17 +134,6 @@ type PeerItem = {
 /** An entry of the write path's queue: what a commit writes, then answers. */
 export type QueuedItem = PeerItem | ReplayItem | IngestItem;
 
-function refusal(
-  code: number,
-  message: string,
-  clientSeq: number,
-  retryAfterMs: number | null = null,
-): Refusal {
-  const permanent = isPermanentPushError(code);
-  const named = permanent ? clientSeq : null;
-  return { code, message, permanent, retryAfterMs, clientSeq: named };
-}
-
 /** What `fn` gives; "bad" when the bytes it read are not a whole update. */
 function readUpdate<T>(fn: () => T): T | "bad" {
   try {
@@ -174,45 +162,40 @@ function appendOf(
   return { docId, generation: row.generation, update, userId, origin, clocks };
 }
 
+/** The update the item appends once committed; null for one that appends none. */
+function appendedBy(item: QueuedItem): Uint8Array | null {
+  if (item.kind === "append" || item.kind === "ingest")
+    return item.append.update;
+  return item.kind === "replay" ? item.write.update : null;
+}
+
+/**
+ * A setting the authority wrote into the room's document. Shown before it commits, it would leave
+ * a window holding structs under the authority's client id, which a crash can take from the log
+ * and no window may push back.
+ */
+const isAuthorityWrite = (item: QueuedItem): boolean =>
+  item.kind === "append" && item.setting;
+
 export function createWritePath(ports: WritePathPorts): WritePath {
-  const { limits, rooms } = ports;
+  const { rooms } = ports;
   let queue: QueuedItem[] = [];
   /** Files with held items, and the full disk that began it: what comes after waits behind them. */
   const heldFiles = new Map<DocFile, StorageError>();
+  /** By document: what its held items append, in arrival order. */
+  const heldUpdates = new Map<string, Uint8Array[]>();
+
+  const keepHeld = (item: QueuedItem): void => {
+    const update = appendedBy(item);
+    if (update === null) return;
+    const { docId } = item.room;
+    heldUpdates.set(docId, [...(heldUpdates.get(docId) ?? []), update]);
+  };
 
   const enqueue = (item: QueuedItem): void => {
     queue.push(item);
     if (queue.length === 1) ports.defer(flush);
   };
-
-  /** Steps 0 and 1: the subscription, the generation, the buckets and the sizes. Null admits. */
-  function admit(
-    room: Room,
-    subscription: Subscription,
-    message: { clientSeq: number; generation: number },
-    bytes: number,
-  ): Refusal | null {
-    const no = (
-      code: number,
-      text: string,
-      retryAfterMs: number | null = null,
-    ) => refusal(code, text, message.clientSeq, retryAfterMs);
-    if (subscription.mode !== "edit")
-      return no(CODE.FORBIDDEN, "not_subscribed");
-    if (message.generation !== room.row.generation)
-      return no(CODE.GENERATION_MISMATCH, "generation_moved");
-    const { frames, bytes: volume } = ports.bucketOf(subscription.peer);
-    // a bucket refuses a cost above its burst for ever: a larger message waits for a full one
-    const cost = Math.min(bytes, limits.byteBurst);
-    const frame = frames.take(1);
-    const taken = frame.ok ? volume.take(cost) : frame;
-    if (!taken.ok)
-      return no(CODE.RATE_LIMITED, "rate_limited", taken.retryAfterMs);
-    const tooLarge =
-      bytes > MESSAGE_LIMIT_BYTES ||
-      room.sizeBytes + bytes > limits.documentBytes;
-    return tooLarge ? no(CODE.TOO_LARGE, "too_large") : null;
-  }
 
   /** A permanent refusal stalls the subscription until its next SUBSCRIBE. */
   function refusePush(room: Room, sub: Subscription, refused: Refusal): void {
@@ -267,6 +250,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       if (failure.code === "disk_full" && ports.fullDisk === "hold") {
         heldFiles.set(file, failure);
         ports.held.hold(fileItems);
+        for (const item of fileItems) keepHeld(item);
         continue;
       }
       failed.add(file);
@@ -286,8 +270,9 @@ export function createWritePath(ports: WritePathPorts): WritePath {
         answer(item, ports);
         continue;
       }
-      // a held item is shown now and acknowledged once it commits; a replay answers whole then
-      const committed = committedOf(item);
+      // a held item is shown now, but for what the authority wrote, and acknowledged once it commits;
+      // a replay answers whole then
+      const committed = isAuthorityWrite(item) ? null : committedOf(item);
       if (committed !== null) ports.publish(committed);
     }
   }
@@ -300,7 +285,13 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       const base = { setting: false, room, subscription, clientSeq, seq: 0 };
       const no = (code: number, text: string): void =>
         refusePush(room, subscription, refusal(code, text, clientSeq));
-      const admitted = admit(room, subscription, message, update.byteLength);
+      const admitted = admit(
+        ports,
+        room,
+        subscription,
+        message,
+        update.byteLength,
+      );
       if (admitted !== null) return refusePush(room, subscription, admitted);
       // an editor holds the room loaded; a viewer of an unloaded one was refused above
       const { doc } = room;
@@ -337,7 +328,13 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       const { clientSeq, key, value } = message;
       const { peer } = subscription;
       const base = { setting: true, room, subscription, clientSeq, seq: 0 };
-      const admitted = admit(room, subscription, message, value.byteLength);
+      const admitted = admit(
+        ports,
+        room,
+        subscription,
+        message,
+        value.byteLength,
+      );
       if (admitted !== null) return ports.refuse(peer, room, admitted);
       if (room.mode === "relay")
         return enqueue({ kind: "relay_set", ...base, request: { key, value } });
@@ -384,11 +381,16 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       if (file === undefined) return true;
       if (commitFile(file, items, ports) !== null) return false;
       heldFiles.delete(file);
-      // published when they were held
-      for (const item of items) settle(item, ports);
+      for (const item of items) {
+        heldUpdates.delete(item.room.docId);
+        // published when they were held, but for what the authority wrote
+        if (isAuthorityWrite(item)) answer(item, ports);
+        else settle(item, ports);
+      }
       return true;
     },
     holdError: (file) => heldFiles.get(file) ?? null,
+    heldUpdates: (docId) => heldUpdates.get(docId) ?? [],
     flush,
     queued: () => queue.length + ports.held.size(),
   };

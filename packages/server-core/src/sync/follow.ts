@@ -1,6 +1,7 @@
 // What a relayed room takes from its upstream: updates beyond its own, a pause of what it hands
 // upstream, and a new generation built from the upstream's state with its own changes merged in.
 import {
+  ORIGIN_LOAD,
   ORIGIN_REPLAY,
   applyBlockOps,
   loadDoc,
@@ -9,17 +10,14 @@ import {
   scriptBody,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import { mergeByBlock } from "@manent/revisions";
 import type { Overlap, SetAsideBlock } from "@manent/revisions";
 import type { BlockOp, DocJSON } from "@manent/schema";
 import type { Storage } from "@manent/storage";
 import { isDocKind } from "@manent/sync-protocol";
 import type { Message } from "@manent/sync-protocol";
-import {
-  SYSTEM_USER_ID,
-  freeClientId,
-  moveRoom,
-} from "../rebuild/rebuilder.ts";
+import { SYSTEM_USER_ID, moveRoom } from "../rebuild/rebuilder.ts";
+import { mergeUnique } from "../rebuild/unique-merge.ts";
+import { writerClientId } from "./client-ids.ts";
 import type { HeldQueue } from "./held.ts";
 import { ingestItem } from "./ingest.ts";
 import type { Clock, SyncLimits } from "./ports.ts";
@@ -55,9 +53,11 @@ function nextOf(
   room: Room,
   theirs: { state: Uint8Array; written: Map<number, number> },
   ops: readonly BlockOp[],
+  ids: () => string,
 ): { doc: CrdtDoc; clientId: number; update: Uint8Array } {
   const ledger = room.file.log.ledger(room.docId);
-  const clientId = freeClientId(ledger, theirs.written);
+  const taken = [ledger, theirs.written];
+  const clientId = writerClientId(room.mode, ids, taken);
   const doc = loadDoc(theirs.state, { clientId });
   const made: Uint8Array[] = [];
   const stop = doc.subscribe((update) => made.push(update));
@@ -71,14 +71,18 @@ function nextOf(
 export function createRelayIntake(ports: {
   storage: Pick<Storage, "directory">;
   clock: Clock;
+  ids(): string;
   limits: SyncLimits;
   rooms: Pick<Rooms, "room" | "reload" | "committed" | "left">;
-  writePath: Pick<WritePath, "ingest" | "discard" | "holdError">;
+  writePath: Pick<
+    WritePath,
+    "ingest" | "discard" | "holdError" | "heldUpdates"
+  >;
   held: Pick<HeldQueue, "size" | "retry">;
   endAll(room: Room, message: Message): void;
 }): RelayIntake {
-  const { clock, limits, rooms, writePath, held } = ports;
-  /** By document: what the room's log held when it paused, the base of the follow's merge. */
+  const { clock, ids, limits, rooms, writePath, held } = ports;
+  /** By document: what upstream and the room shared when it paused, the base of the follow's merge. */
   const bases = new Map<string, DocJSON>();
 
   /** The room of a placed document; RangeError for one this node has not placed. */
@@ -89,9 +93,11 @@ export function createRelayIntake(ports: {
     return rooms.room(docId, place.home, place.kind);
   }
 
-  /** What the room's log holds now, built without touching the room. */
-  function committedJSON(room: Room): DocJSON {
+  /** What upstream and the room share: the log, and what the disk holds of the room; the room is not touched. */
+  function sharedJSON(room: Room): DocJSON {
     const { doc } = rooms.committed(room);
+    for (const update of writePath.heldUpdates(room.docId))
+      doc.applyUpdate(update, ORIGIN_LOAD);
     const json = materialize(doc);
     doc.destroy();
     return json;
@@ -112,8 +118,9 @@ export function createRelayIntake(ports: {
       const room = roomOf(docId);
       if (room.mode !== "relay")
         throw new RangeError("a pause is for a relayed document");
-      // the log, not the room: an edit not yet committed is acknowledged during the pause and never goes upstream
-      if (!bases.has(docId)) bases.set(docId, committedJSON(room));
+      // not the room: an edit not yet committed is acknowledged during the pause and never goes upstream,
+      // while what the disk holds came from upstream or was handed there when it was held
+      if (!bases.has(docId)) bases.set(docId, sharedJSON(room));
       rooms.left(room);
     },
     follow(docId, theirs) {
@@ -130,10 +137,10 @@ export function createRelayIntake(ports: {
       const finalState = committed.doc.encodeState();
       committed.doc.destroy();
       const upstream = loadDoc(theirs);
-      const merge = mergeByBlock(base, mine, materialize(upstream));
+      const merge = mergeUnique(base, mine, materialize(upstream));
       const written = readStateVector(upstream.encodeStateVector());
       upstream.destroy();
-      const next = nextOf(room, { state: theirs, written }, merge.ops);
+      const next = nextOf(room, { state: theirs, written }, merge.ops, ids);
       const at = clock.now();
       const { file } = room;
       try {
