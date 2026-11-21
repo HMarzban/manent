@@ -92,8 +92,28 @@ function collidesFrom(
 }
 
 /**
+ * Whether a set-aside anchor may hold again after a change to pages `from` to `to`: the change reached the pages
+ * from the locked page before its label to the label's page, which alone decide whether the parent still
+ * overflows, since that locked page starts hard. A missing label means the overflow is gone; laid out again,
+ * the anchor holds, so this cannot repeat on the next change.
+ */
+function reachesSetAside(
+  p: Pagination,
+  dropped: readonly string[],
+  from: number,
+  to: number,
+): boolean {
+  return dropped.some((label) => {
+    const at = p.pages.findIndex((page) => page.label === label);
+    if (at < 0) return true;
+    const before = p.pages.findLastIndex((page, k) => k < at && page.locked);
+    return from <= at && to >= Math.max(before, 0);
+  });
+}
+
+/**
  * Whether the pages, laid out under `locked`'s table, must be laid out again from the records: a page the
- * change reached collides with an issued A-page, or the change is at or before a page whose anchor was set aside.
+ * change reached collides with an issued A-page, or the change may let a set-aside anchor hold again.
  */
 function needsRelock(
   pages: PaginationState,
@@ -102,16 +122,13 @@ function needsRelock(
 ): boolean {
   const { change, pagination: p, settings } = pages;
   if (change === null || settings.locks !== locked.locks) return false;
-  const from =
-    change.first < p.blocks.length
-      ? settings.engine.pageOf(p, change.first, 0)
+  const pageAt = (block: number): number =>
+    block < p.blocks.length
+      ? settings.engine.pageOf(p, block, 0)
       : p.pages.length - 1;
-  if (locked.dropped.length > 0) {
-    const last = p.pages.findLastIndex((page) =>
-      locked.dropped.includes(page.label),
-    );
-    if (last < 0 || from <= last) return true;
-  }
+  const from = pageAt(change.first);
+  const to = pageAt(Math.max(change.first, change.newEnd - 1));
+  if (reachesSetAside(p, locked.dropped, from, to)) return true;
   return collidesFrom(p, records, from);
 }
 

@@ -496,6 +496,34 @@ test("an issued A-page takes its parent's overflow on screen as it does in print
   view.destroy();
 });
 
+test("typing on a page before a set-aside A-page's parent lays nothing out again", async () => {
+  const doc = docOfBlocks(
+    [5, 70, 50, 5].map((n) => ["action", filledText(60, n)] as const),
+  );
+  const records = [
+    anchorAt("11", 0, "lock"),
+    anchorAt("12", 1, "lock"),
+    anchorAt("12A", 2, "issue"),
+    anchorAt("13", 3, "lock"),
+  ].map((r, i) => ({ ...r, order: i + 1 }));
+  const view = mount(doc, fakePort(lockedView(doc, { records })).port);
+  await settle();
+  const spy = spyOn(revisions, "lockedPagination");
+  caretIn(view, 0, index(view).blocks[0]!.text.length);
+  view.dispatch(view.state.tr.insertText("a"));
+  await settle();
+  view.dispatch(view.state.tr.insertText("b"));
+  await settle();
+  const calls = spy.mock.calls.length;
+  spy.mockRestore();
+  expect([labels(view), revision(view).locked!.dropped, calls]).toEqual([
+    ["11", "12", "12A", "12B", "13"],
+    ["12A"],
+    0,
+  ]);
+  view.destroy();
+});
+
 test("a lock or an unlock that arrives while someone types takes effect without losing a keystroke", async () => {
   const { doc, records } = aPageScript([70, 5, 1], false);
   const start = lockedView(doc, { records });
