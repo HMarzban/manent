@@ -129,6 +129,8 @@ class DocSession implements Session {
   private facts: SessionLink;
   private readonly status: ReturnType<typeof createSubscribable<DocStatus>>;
   private readonly indexWait: IndexWait;
+  /** The node acknowledged an entry after the upstream status it last sent: Synced waits for the next. */
+  private upstreamOutdated = false;
   /** The connection the device versions were last offered on. */
   private offeredOn = -1;
 
@@ -290,8 +292,12 @@ class DocSession implements Session {
   }
 
   receive(message: DocumentMessage): void {
-    if (this.upstream?.receive(message) !== true)
-      this.handshake.receive(message);
+    const { upstream } = this;
+    if (upstream === null) return this.handshake.receive(message);
+    if (message.type === "ACK") this.upstreamOutdated = true;
+    if (message.type === "CONTROL" && message.kind === "upstream_status")
+      this.upstreamOutdated = false;
+    if (!upstream.receive(message)) this.handshake.receive(message);
   }
 
   /** A refusal of the old generation while a move is under way is not acted on. */
@@ -335,12 +341,14 @@ class DocSession implements Session {
       link: this.facts.state,
       // while moving the document is syncing, though no subscription is live
       subscribed: this.handshake.subscribed() || this.subscription.moving,
-      merged: this.handshake.merged(),
+      // and the new document is merged only once the move has loaded it
+      merged: this.handshake.merged() && !this.subscription.moving,
       entries: journal.entries,
       unsavedWrites: journal.unsavedWrites(),
       storeRefusing: this.refusing(),
       wentOfflineAt: this.facts.wentOfflineAt,
       neverSynced: journal.meta.neverSynced,
+      upstreamOutdated: this.upstreamOutdated,
       recovered: this.copy.recovered.length,
       side: linkSide === null ? [...side] : [...side, linkSide],
     });

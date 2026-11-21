@@ -28,6 +28,8 @@ export interface StatusInput {
   via?: Via;
   /** With `via` "local_node": the latest status the node sent of its upstream, absent before the first. */
   upstream?: UpstreamStatus;
+  /** With `via` "local_node": the node acknowledged an entry after it sent `upstream`, which says nothing of that entry. */
+  upstreamOutdated?: boolean;
 }
 
 // the order side states are listed in
@@ -103,9 +105,10 @@ function serverStatus(input: StatusInput): DocStatus {
 
 /**
  * Saved only when the node acknowledged every own entry, the store took every
- * write and the node's device is not failing; synced only when saved and the
- * upstream is synced. The link, the offline time, the never-synced state and
- * the Recovered text are the upstream's.
+ * write and the node's device is not failing; synced only when saved, the
+ * node's step 2 merged, and the upstream, as the node told it after its latest
+ * acknowledgement, synced. The link, the offline time, the never-synced state
+ * and the Recovered text are the upstream's.
  */
 function nodeStatus(input: StatusInput): DocStatus {
   const { neverSynced } = input;
@@ -113,7 +116,8 @@ function nodeStatus(input: StatusInput): DocStatus {
   const failing = upstream.device === "failing";
   const saved =
     !input.storeRefusing && !failing && !input.entries.some(isWaiting);
-  const synced = saved && upstream.synced;
+  const synced =
+    saved && input.merged && upstream.synced && input.upstreamOutdated !== true;
   const live = input.link === "online" && input.subscribed;
   const side = new Set([...input.side, ...upstream.side]);
   if (input.storeRefusing || failing) side.add("not_saved");
