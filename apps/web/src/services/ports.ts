@@ -22,6 +22,7 @@ import type {
   Subscribable,
 } from "@manent/ui";
 import type { ConnectionControl } from "../demo/connection-transport.ts";
+import type { DesktopHost } from "../desktop/host.ts";
 import type { EditorControl } from "../editor-host/control.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
 import type { PlaceStore } from "../editor-host/place.ts";
@@ -194,6 +195,8 @@ export const INITIAL_SHELL_STATE: ShellState = Object.freeze({
 /** The world this tab runs in, made once by the composition root and shared by every person's services. */
 export interface Environment {
   where: Where;
+  /** The desktop app's shell and node; null on the web. */
+  desktop: DesktopHost | null;
   /** The language the browser asks for ("en-GB"). */
   language: string;
   /** The browser's user agent, which the editor's pages read the browser's engine from. */

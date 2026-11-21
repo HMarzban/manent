@@ -206,6 +206,7 @@ export function testEnvironment(
       browser: "Chrome",
       system: "macOS",
     },
+    desktop: null,
     language: "en-US",
     userAgent: "test",
     now: clock.now,
