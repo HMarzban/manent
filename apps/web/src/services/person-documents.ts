@@ -4,6 +4,7 @@ import type { DocHandle, SyncClient } from "@manent/sync-client";
 import { LIBRARY_WORDS, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import type { ConnectionControl } from "../demo/connection-transport.ts";
+import { watchHandoffRefusals } from "../desktop/handoff-message.ts";
 import type { TabPerson } from "../session.ts";
 import type { CommandsOptions } from "./person-commands.ts";
 import type { DocumentSource } from "./ports.ts";
@@ -159,7 +160,8 @@ function keepOnDevice(
 
 /**
  * What an open document keeps current in this tab: its `editedAt`, the open marker, its entry of what this device
- * holds, and the persistence request at the person's first own change; `handles` holds it while it is open.
+ * holds, the persistence request at the person's first own change, and the message of a refused first sync on desktop;
+ * `handles` holds it while it is open.
  */
 function openedHook(hook: {
   library: SyncLibrary;
@@ -181,6 +183,13 @@ function openedHook(hook: {
         ? []
         : [markOpen(started, { docId, messages: hook.messages })]),
       () => handles.delete(handle),
+      // only the desktop app's node sends an upstream status: on the web this says nothing
+      watchHandoffRefusals({
+        handles: () => [handle],
+        title: (id) =>
+          hook.library.documentTitle(id).get() ?? LIBRARY_WORDS.untitledScript,
+        queue: hook.messages,
+      }),
     ];
     let stopped = false;
     void hook.indexes.then((opened) => {

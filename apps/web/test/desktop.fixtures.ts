@@ -1,5 +1,6 @@
-// A desktop host the tests drive: what the page sent the shell, and the shell's messages emitted by hand.
+// A desktop host the tests drive, what the page sent the shell and the shell's messages emitted by hand; and a queue that keeps every message.
 import type { PageMessage, ShellMessage } from "@manent/sync-protocol";
+import type { Message, MessageQueue } from "@manent/ui";
 import type { DesktopHost } from "../src/desktop/host.ts";
 
 export const DATA_DIR = "/Users/sam/Library/Application Support/Manent";
@@ -35,5 +36,26 @@ export function fakeHost(overrides: Partial<DesktopHost> = {}): FakeHost {
     emit(message) {
       for (const listener of listeners) listener(message);
     },
+  };
+}
+
+/** A message queue that keeps every message pushed; the current message is the latest, and `items` lists them all. */
+export function recordingQueue(): MessageQueue & { items(): Message[] } {
+  const items: Message[] = [];
+  const listeners = new Set<() => void>();
+  return {
+    push(message) {
+      items.push(message);
+      for (const listener of listeners) listener();
+    },
+    current: () => items.at(-1) ?? null,
+    dismiss() {},
+    withdrawUndo() {},
+    receipts: () => items.filter((message) => message.ownWork),
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    items: () => [...items],
   };
 }
