@@ -2,7 +2,8 @@
 import { paginationKey } from "@manent/editor";
 import type { EditorView, SavedPlace } from "@manent/editor";
 import type { Page } from "@manent/pagination";
-import { readMarks } from "@manent/perf";
+import { readMarks, setMarksEnabled } from "@manent/perf";
+import type { MarkRecord } from "@manent/perf";
 import { FORMATS, blocksOf, parseDoc } from "@manent/schema";
 import type { DocJSON, FormatId } from "@manent/schema";
 import type { StatusFacts } from "@manent/ui";
@@ -82,6 +83,8 @@ export interface EditorHooks {
   keystrokes: { start(): void; stop(): number[] };
   /** The durations of the editor's document-changing dispatches, ms. */
   dispatchMs: { start(): void; stop(): number[] };
+  /** The product marks kept under `name`, oldest first. */
+  marks(name: string): MarkRecord[];
 }
 
 const startsOf = (pages: readonly Page[]): PageStart[] =>
@@ -209,7 +212,7 @@ function createRemote(deps: HookDeps): EditorHooks["remote"] {
   };
 }
 
-/** Sets `target.editor`: the hooks over the editor the mount has open now, which `current` gives. */
+/** Sets `target.editor`: the hooks over the editor the mount has open now, which `current` gives. Turns the product marks on, so the first mount is recorded. */
 export function installEditorHooks(
   target: { editor?: EditorHooks },
   deps: HookDeps,
@@ -256,5 +259,7 @@ export function installEditorHooks(
           .filter((record) => record.startMs >= dispatchesFromMs)
           .map((record) => record.durationMs),
     },
+    marks: readMarks,
   };
+  setMarksEnabled(true);
 }

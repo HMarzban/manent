@@ -393,6 +393,272 @@
       "stat": "p95",
       "budget": 0.5,
       "hardFail": 2
+    },
+    {
+      "scenario": "typing-book-2000",
+      "metric": "keystroke_paint",
+      "stat": "p50",
+      "budget": 16,
+      "hardFail": 33
+    },
+    {
+      "scenario": "typing-book-2000",
+      "metric": "keystroke_paint",
+      "stat": "p95",
+      "budget": 33,
+      "hardFail": 50
+    },
+    {
+      "scenario": "typing-book-2000",
+      "metric": "keystroke_paint",
+      "stat": "p99",
+      "budget": 50,
+      "hardFail": 100
+    },
+    {
+      "scenario": "typing-boundary-2000",
+      "metric": "keystroke_paint",
+      "stat": "p50",
+      "budget": 16,
+      "hardFail": 33
+    },
+    {
+      "scenario": "typing-boundary-2000",
+      "metric": "keystroke_paint",
+      "stat": "p95",
+      "budget": 33,
+      "hardFail": 50
+    },
+    {
+      "scenario": "typing-boundary-2000",
+      "metric": "keystroke_paint",
+      "stat": "p99",
+      "budget": 50,
+      "hardFail": 100
+    },
+    {
+      "scenario": "locked-120",
+      "metric": "keystroke_paint",
+      "stat": "p50",
+      "budget": 16,
+      "hardFail": 33
+    },
+    {
+      "scenario": "locked-120",
+      "metric": "keystroke_paint",
+      "stat": "p95",
+      "budget": 33,
+      "hardFail": 50
+    },
+    {
+      "scenario": "locked-120",
+      "metric": "keystroke_paint",
+      "stat": "p99",
+      "budget": 50,
+      "hardFail": 100
+    },
+    {
+      "scenario": "open-120",
+      "metric": "first_editable_warm",
+      "stat": "p95",
+      "budget": 1000,
+      "hardFail": 2000
+    },
+    {
+      "scenario": "open-120",
+      "metric": "first_editable_offline",
+      "stat": "p95",
+      "budget": 1000,
+      "hardFail": 2000
+    },
+    {
+      "scenario": "open-300",
+      "metric": "first_editable_warm",
+      "stat": "p95",
+      "budget": 2000,
+      "hardFail": 4000
+    },
+    {
+      "scenario": "open-300",
+      "metric": "first_editable_offline",
+      "stat": "p95",
+      "budget": 2000,
+      "hardFail": 4000
+    },
+    {
+      "scenario": "open-2000",
+      "metric": "first_editable_warm",
+      "stat": "p95",
+      "budget": 6000,
+      "hardFail": 12000
+    },
+    {
+      "scenario": "open-2000",
+      "metric": "first_editable_offline",
+      "stat": "p95",
+      "budget": 6000,
+      "hardFail": 12000
+    },
+    {
+      "scenario": "open-120",
+      "metric": "heap_bytes",
+      "stat": "p95",
+      "budget": 150000000,
+      "hardFail": 400000000
+    },
+    {
+      "scenario": "open-2000",
+      "metric": "heap_bytes",
+      "stat": "p95",
+      "budget": 600000000,
+      "hardFail": 1500000000
+    },
+    {
+      "scenario": "scroll-120",
+      "metric": "frame_ms",
+      "stat": "p95",
+      "budget": 16.7,
+      "hardFail": 33
+    },
+    {
+      "scenario": "scroll-120",
+      "metric": "frames_over_50",
+      "stat": "max",
+      "budget": 1,
+      "hardFail": 5
+    },
+    {
+      "scenario": "scroll-2000",
+      "metric": "frame_ms",
+      "stat": "p95",
+      "budget": 16.7,
+      "hardFail": 33
+    },
+    {
+      "scenario": "scroll-2000",
+      "metric": "frames_over_50",
+      "stat": "max",
+      "budget": 1,
+      "hardFail": 5
+    },
+    {
+      "scenario": "repaginate-120",
+      "metric": "breaks_frame_ms",
+      "stat": "p95",
+      "budget": 50,
+      "hardFail": 100
+    },
+    {
+      "scenario": "repaginate-2000",
+      "metric": "breaks_frame_ms",
+      "stat": "p95",
+      "budget": 50,
+      "hardFail": 100
+    },
+    {
+      "scenario": "saved-web-120",
+      "metric": "keystroke_saved",
+      "stat": "p95",
+      "budget": 100,
+      "hardFail": 500
+    },
+    {
+      "scenario": "interface-2000",
+      "metric": "theme_apply_ms",
+      "stat": "p95",
+      "budget": 100,
+      "hardFail": 200
+    },
+    {
+      "scenario": "interface-2000",
+      "metric": "inp_outside_ms",
+      "stat": "p95",
+      "budget": 100,
+      "hardFail": 200
+    },
+    {
+      "scenario": "export.pdf-120",
+      "metric": "pdf_ms",
+      "stat": "p95",
+      "budget": 3000,
+      "hardFail": 10000
+    },
+    {
+      "scenario": "crowd-120",
+      "metric": "remote_extra_realistic",
+      "stat": "max",
+      "budget": 8,
+      "hardFail": 16
+    },
+    {
+      "scenario": "convergence-120",
+      "metric": "visible_ms",
+      "stat": "p50",
+      "budget": 100,
+      "hardFail": 250
+    },
+    {
+      "scenario": "convergence-120",
+      "metric": "visible_ms",
+      "stat": "p99",
+      "budget": 500,
+      "hardFail": 1000
+    },
+    {
+      "scenario": "merge-offline-120",
+      "metric": "converge_ms",
+      "stat": "max",
+      "budget": 3000,
+      "hardFail": 10000
+    },
+    {
+      "scenario": "merge-offline-120",
+      "metric": "longest_task_ms",
+      "stat": "p95",
+      "budget": 100,
+      "hardFail": 500
+    },
+    {
+      "scenario": "merge-offline-book-2000",
+      "metric": "converge_ms",
+      "stat": "max",
+      "budget": 3000,
+      "hardFail": 10000
+    },
+    {
+      "scenario": "merge-offline-book-2000",
+      "metric": "longest_task_ms",
+      "stat": "p95",
+      "budget": 100,
+      "hardFail": 500
+    },
+    {
+      "scenario": "soak-client-120",
+      "metric": "heap_growth",
+      "stat": "max",
+      "budget": 10,
+      "hardFail": 30
+    },
+    {
+      "scenario": "crdt.aged",
+      "metric": "bytes_ratio_400",
+      "stat": "max",
+      "budget": 5,
+      "hardFail": 10
+    },
+    {
+      "scenario": "crdt.aged",
+      "metric": "client_ids_400",
+      "stat": "max",
+      "budget": 2000,
+      "hardFail": 10000
+    },
+    {
+      "scenario": "desktop.saved-fsync",
+      "metric": "keystroke_saved",
+      "stat": "p95",
+      "budget": 150,
+      "hardFail": 500
     }
   ]
 }
