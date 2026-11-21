@@ -141,6 +141,8 @@ export type {
   BlockChange,
   ColourOrderId,
   FileRequest,
+  ImportLockRequest,
+  ImportedSetRequest,
   IssueFile,
   IssueRequest,
   IssueResponse,
