@@ -231,14 +231,15 @@ class ProductionSession {
     const key = this.options.random.bytes(16).toHex();
     const body = { docId: this.options.docId, key, ...request };
     const outcome = await this.post(path, body, readState);
-    if (outcome.ok) void this.absorb(outcome.value);
+    // an answer is never shown: a retried key answers the state as at its commit, whatever came since
+    if (outcome.ok) void this.refresh();
     return outcome;
   }
 
   async issue(path: string, request: object): Answered<IssueResponse> {
     const body = { docId: this.options.docId, ...request };
     const outcome = await this.post(path, body, readIssueResponse);
-    if (outcome.ok) void this.absorb(outcome.value.state);
+    if (outcome.ok) void this.refresh();
     return outcome;
   }
 

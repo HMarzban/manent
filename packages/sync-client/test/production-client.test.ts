@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { isRequestKey } from "@manent/sync-protocol";
+import { PRODUCTION_REFUSALS, isRequestKey } from "@manent/sync-protocol";
 import type {
   ControlKind,
   IssueRequest,
@@ -10,7 +10,12 @@ import type {
   RevisionSetView,
   VersionContent,
 } from "@manent/sync-protocol";
-import { ConnectError, createProductionClient } from "../src/index.ts";
+import fc from "fast-check";
+import {
+  ConnectError,
+  createProductionClient,
+  isVersionContent,
+} from "../src/index.ts";
 import type {
   CachedProduction,
   DocHandle,
@@ -535,10 +540,10 @@ test("an issue made before this device last synced is not told as made while it 
 
 test("an issue is sent under the screen's key, and the state after it is shown", async () => {
   const { w, server, client } = await production(BLUE_ACTIVE);
-  server.on("/api/production/issue", async () => ({
-    status: 200,
-    body: { state: PINK_ACTIVE, issue: BLUE_ISSUE },
-  }));
+  server.on("/api/production/issue", async () => {
+    server.state = PINK_ACTIVE;
+    return { status: 200, body: { state: PINK_ACTIVE, issue: BLUE_ISSUE } };
+  });
   const outcome = await client.issue(ISSUE_BLUE);
   await w.settle();
   const sent = server.posts.filter((p) => p.path === "/api/production/issue");
@@ -567,4 +572,188 @@ test("a refusal is reported with its body", async () => {
   server.on("/api/production/issue", async () => ({ status: 409, body }));
   const outcome = await client.issue(ISSUE_BLUE);
   expect(outcome).toEqual({ ok: false, code: "already_issued", body });
+});
+
+test("a retried request's stored answer never replaces the newer state shown since", async () => {
+  const { w, server, client } = await production(BLUE_ACTIVE);
+  const control = (seq: number) =>
+    w.server.send({
+      type: "CONTROL",
+      docId: DOC,
+      generation: 1,
+      seq,
+      kind: "lock_anchors_changed",
+      data: new Uint8Array(),
+    });
+  const locked = { ...BLUE_ACTIVE, headSeq: 5 };
+  const moved = {
+    ...BLUE_ACTIVE,
+    headSeq: 6,
+    anchors: [{ ...ANCHOR, offset: 1 }],
+  };
+  let committed = false;
+  server.on("/api/production/lock", async () => {
+    if (committed) return { status: 200, body: locked };
+    committed = true;
+    server.state = locked;
+    throw new ConnectError("unreachable");
+  });
+  const outcome = client.lock(LOCK);
+  await w.settle();
+  control(2);
+  await w.settle();
+  server.state = moved;
+  control(3);
+  await w.settle();
+  w.fake.advance(1_000);
+  await w.settle();
+  expect([await outcome, client.current().get()]).toEqual([
+    { ok: true, value: locked },
+    cached(moved, WHITE_VERSION),
+  ]);
+});
+
+const OFFLINE = { ok: false, code: "offline", body: null } as const;
+
+/** Sends ISSUE_BLUE to a server refusing it with `body`, and waits out the 30 seconds. */
+async function refusedWith(
+  { w, server, client }: Setting,
+  body: unknown,
+): Promise<unknown> {
+  server.on("/api/production/issue", async () => ({ status: 409, body }));
+  const outcome = client.issue(ISSUE_BLUE);
+  await w.settle();
+  w.fake.advance(30_000);
+  await w.settle();
+  return outcome;
+}
+
+const ISSUED = {
+  name: "Blue",
+  byName: "Priya",
+  issuedAt: BLUE_ISSUE_AT,
+  nextName: "Pink",
+};
+
+test("a refusal naming no code this build knows answers offline", async () => {
+  const setting = await production(BLUE_ACTIVE);
+  const outcomes: unknown[] = [];
+  for (const body of [{ error: "on_fire" }, { error: 7 }, "busy", null])
+    outcomes.push(await refusedWith(setting, body));
+  expect(outcomes).toEqual([OFFLINE, OFFLINE, OFFLINE, OFFLINE]);
+});
+
+test("a refusal's issue that does not read is reported as none", async () => {
+  const setting = await production(BLUE_ACTIVE);
+  const { nextName: _, ...noNextName } = ISSUED;
+  const outcomes: unknown[] = [];
+  for (const issued of [
+    noNextName,
+    { ...ISSUED, issuedAt: "10000" },
+    { ...ISSUED, byName: null },
+    "Blue",
+  ])
+    outcomes.push(
+      await refusedWith(setting, { error: "already_issued", issued }),
+    );
+  const none = {
+    ok: false,
+    code: "already_issued",
+    body: { error: "already_issued", issued: null },
+  };
+  expect(outcomes).toEqual([none, none, none, none]);
+});
+
+const ABSENT = Symbol("absent");
+
+/** A field drawn from valid values three times in four, else invalid or left out; `valid` says which. */
+const field = (valid: readonly unknown[], invalid: readonly unknown[]) =>
+  fc.oneof(
+    {
+      weight: 3,
+      arbitrary: fc
+        .constantFrom(...valid)
+        .map((value) => ({ valid: true, value })),
+    },
+    {
+      weight: 1,
+      arbitrary: fc
+        .constantFrom(...invalid, ABSENT)
+        .map((value) => ({ valid: false, value })),
+    },
+  );
+
+type Drawn = Record<string, { valid: boolean; value: unknown }>;
+
+const fieldsOf = (drawn: Drawn): Record<string, unknown> =>
+  Object.fromEntries(
+    Object.entries(drawn)
+      .filter(([, { value }]) => value !== ABSENT)
+      .map(([key, { value }]) => [key, value]),
+  );
+
+const isValid = (drawn: Drawn): boolean =>
+  Object.values(drawn).every((f) => f.valid);
+
+test("a version's content reads only when every field is of its kind", () => {
+  const nearContent = fc.record({
+    v: field([1], [2, "1", null]),
+    blocks: field([[], content("White").blocks], [{}, "blocks", null]),
+    settings: field([{}, { "script.numbering": "suffix" }], [[], "x", null]),
+    schemaVersion: field([1, 3], ["1", null]),
+    engineVersion: field([null, 1], ["1", false]),
+    locks: field([null, [], [ANCHOR]], [{}, "locks"]),
+    authors: field([{}], [[], null, "dana"]),
+  });
+  fc.assert(
+    fc.property(nearContent, (drawn) => {
+      expect(isVersionContent(fieldsOf(drawn))).toBe(isValid(drawn));
+    }),
+    { numRuns: 2000 },
+  );
+  fc.assert(
+    fc.property(fc.anything(), (value) => {
+      expect(isVersionContent(value)).toBe(false);
+    }),
+    { numRuns: 500 },
+  );
+});
+
+test("a refusal answers its code with its issue where both read, and offline otherwise", async () => {
+  const setting = await production(BLUE_ACTIVE);
+  const nearRefusal = fc.record({
+    error: field(PRODUCTION_REFUSALS, ["on_fire", "", 7, null]),
+    issued: fc.oneof(
+      fc.constantFrom(ABSENT, null, "Blue"),
+      fc.record({
+        name: field(["Blue"], [1, null]),
+        byName: field(["Priya", ""], [null, {}]),
+        issuedAt: field([BLUE_ISSUE_AT, 0], ["10000", null]),
+        nextName: field(["Pink"], [false, null]),
+      }),
+    ),
+  });
+  await fc.assert(
+    fc.asyncProperty(nearRefusal, async ({ error, issued }) => {
+      const drawnIssued = typeof issued === "object" && issued !== null;
+      const body = fieldsOf({
+        error,
+        issued: {
+          valid: true,
+          value: drawnIssued ? fieldsOf(issued) : issued,
+        },
+      });
+      const read = drawnIssued && isValid(issued) ? fieldsOf(issued) : null;
+      expect(await refusedWith(setting, body)).toEqual(
+        error.valid
+          ? {
+              ok: false,
+              code: error.value,
+              body: { error: error.value, issued: read },
+            }
+          : OFFLINE,
+      );
+    }),
+    { numRuns: 200 },
+  );
 });

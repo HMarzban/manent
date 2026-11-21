@@ -96,3 +96,31 @@ test("the production cache keeps one entry per document and survives a reopen", 
     null,
   ]);
 });
+
+test("an entry whose baseline does not read is read as nothing", async () => {
+  const indexedDb = new IDBFactory();
+  const cache = createIdbProductionCache({ userId: "sam", indexedDb });
+  const baseline = LOCKED.baseline!;
+  const { blocks: _, ...noBlocks } = baseline.content;
+  const entries: unknown[] = [
+    LOCKED,
+    { ...LOCKED, baseline: { ...baseline, versionId: 7 } },
+    { ...LOCKED, baseline: { ...baseline, content: noBlocks } },
+    {
+      ...LOCKED,
+      baseline: {
+        ...baseline,
+        content: { ...baseline.content, engineVersion: "1" },
+      },
+    },
+    { ...LOCKED, baseline: { versionId: baseline.versionId } },
+    { ...LOCKED, baseline: "version-white" },
+  ];
+  await cache.write(DOC, { state: state(DOC, 1), baseline: null });
+  const read: unknown[] = [];
+  for (const entry of entries) {
+    await rawPut(indexedDb, DOC, entry);
+    read.push(await cache.read(DOC));
+  }
+  expect(read).toEqual([LOCKED, null, null, null, null, null]);
+});
