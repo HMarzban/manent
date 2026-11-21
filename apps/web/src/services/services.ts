@@ -9,7 +9,7 @@ import {
   latestEntries,
 } from "@manent/settings";
 import type { Bag, KeyValueMap, SettingsStore } from "@manent/settings";
-import { createMessageQueue, createValue } from "@manent/ui";
+import { LIBRARY_WORDS, createMessageQueue, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import { createEditorControl } from "../editor-host/control.ts";
 import { createLazyMount } from "../editor-host/lazy-mount.ts";
@@ -26,7 +26,6 @@ import { productionContextActions } from "../state/production-context.store.ts";
 import { createDeviceBag } from "./device-bag.ts";
 import { readDeviceId } from "./device-id.ts";
 import { createFlags } from "./flags.ts";
-import { createLocalDocumentSource } from "./local-document-source.ts";
 import { createLocalMap, createLocalText } from "./local-map.ts";
 import { createMemoryLibrary } from "./memory-library.ts";
 import { createCommands } from "./person-commands.ts";
@@ -38,6 +37,8 @@ import type {
   Reverses,
 } from "./ports.ts";
 import { createRemoteDeferral } from "./remote-deferral.ts";
+import { createSyncDocumentSource } from "./sync/document-source.ts";
+import type { ReviewPort } from "./sync/document-source.ts";
 
 type Options = CommandsOptions & { person: TabPerson };
 
@@ -184,6 +185,7 @@ function createKept(options: Options) {
   });
   return {
     ...maps,
+    deviceId: readDeviceId(storage, options.randomId),
     lastPane: {
       get: () => SECTION_IDS.find((id) => id === lastPane.get()) ?? "writing",
       set: lastPane.set,
@@ -197,13 +199,13 @@ function createKept(options: Options) {
 /** The person's settings store, and one store per open document of `source` with its script settings. */
 function createStores(
   options: Options,
-  kept: { prefs: KeyValueMap; device: Bag },
+  kept: { prefs: KeyValueMap; device: Bag; deviceId: string },
   source: DocumentSource,
 ): { settings: SettingsStore; scripts: ScriptStores } {
   const { now, schedule, where } = options;
   const personal = createPersonalBag({
     map: kept.prefs,
-    deviceId: readDeviceId(options.storage, options.randomId),
+    deviceId: kept.deviceId,
     deviceName: deviceName(where) ?? "",
     now,
   });
@@ -260,24 +262,76 @@ function placeStoreOf(options: Options): PlaceStore {
   return store;
 }
 
-/** `person`'s services over `storage`; `dispose` stops listening to other tabs and drops every open document's store. */
-export function createPersonServices(options: Options): PersonServices {
-  const kept = createKept(options);
-  // until sync supplies the Library's index and the documents
-  const localDocuments = createLocalDocumentSource({
-    now: options.now,
-    shell: options.where.shell,
+// until the review entries are read from the person's private index
+const NO_REVIEW: ReviewPort = Object.freeze({
+  openCount: () => createValue(0),
+  follow: () => () => {},
+});
+
+/**
+ * The person's sync, started here on `deviceId`, the documents it opens, and the Library that lists them and makes a
+ * script on this device; `dispose` disposes the sync.
+ */
+function createPersonDocuments(
+  options: Options,
+  deviceId: string,
+  messages: MessageQueue,
+) {
+  const sync = options.startSync(options.person, deviceId);
+  const client = sync.then((s) => s.client);
+  void client.catch(() => {
+    // each document's status says that the sync cannot start
   });
+  const documents = createSyncDocumentSource({
+    sync,
+    review: NO_REVIEW,
+    titles: (docId) =>
+      library.documentTitle(docId).get() ?? LIBRARY_WORDS.untitledScript,
+    messages,
+    now: options.now,
+    schedule: options.schedule,
+    removedInfo: (docId) => options.api.removedDoc(docId),
+  });
+  // until sync supplies the Library's index
   const library = createMemoryLibrary({
     ids: options.randomId,
-    documents: localDocuments,
+    // making a script is loaded apart from the entry
+    createScript: async (script) => {
+      const [c, { createScript }] = await Promise.all([
+        client,
+        import("./sync/create-script.ts"),
+      ]);
+      await createScript(c, script);
+    },
     language: options.language,
   });
-  const { settings, scripts } = createStores(options, kept, localDocuments);
+  return {
+    client,
+    documents,
+    library,
+    dispose() {
+      void sync.then(
+        (s) => s.dispose(),
+        () => {
+          // a sync that never started holds nothing to dispose
+        },
+      );
+    },
+  };
+}
+
+/**
+ * `person`'s services over `storage` and the person's sync, started here; `dispose` stops listening to other tabs,
+ * drops every open document's store and disposes the sync.
+ */
+export function createPersonServices(options: Options): PersonServices {
+  const kept = createKept(options);
   const messages = createMessageQueue({
     now: options.now,
     schedule: options.schedule,
   });
+  const sync = createPersonDocuments(options, kept.deviceId, messages);
+  const { settings, scripts } = createStores(options, kept, sync.documents);
   const resolved = createResolved(kept.keys, options.where);
   const control = createEditorControl();
   const { commands, fillHandlers, stop } = createCommands(options, {
@@ -295,7 +349,7 @@ export function createPersonServices(options: Options): PersonServices {
     settings,
     commands,
     resolved,
-    library,
+    library: sync.library,
     documents: scripts.documents,
     openScriptStore: scripts.openScriptStore,
     messages,
@@ -318,6 +372,7 @@ export function createPersonServices(options: Options): PersonServices {
         resolved,
         fixedKeys,
         navigate: (path) => options.router.navigate(path),
+        client: sync.client,
       }),
     ),
     dispose() {
@@ -325,6 +380,7 @@ export function createPersonServices(options: Options): PersonServices {
       stop();
       kept.dispose();
       scripts.clear();
+      sync.dispose();
     },
   };
   fillHandlers(services);

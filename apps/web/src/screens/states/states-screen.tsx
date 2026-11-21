@@ -83,6 +83,7 @@ const fixtureApi = (options: {
   me: options.me ?? NEVER,
   signIn: NEVER,
   demo: async () => null,
+  removedDoc: async () => null,
 });
 
 interface Row {
@@ -130,7 +131,12 @@ function FixtureSection(props: { row: Row }): ReactNode {
       waitingByScene: createValue(waiting),
     };
     const documents: DocumentSource = { open: () => doc, close: noop };
-    const library = createMemoryLibrary({ ids: randomId, documents, language });
+    // the fixture's scripts are its one document
+    const library = createMemoryLibrary({
+      ids: randomId,
+      createScript: () => Promise.resolve(),
+      language,
+    });
     for (let n = 0; n < projects; n++)
       void library.createProject(SIGNED_OUT.userId, "film");
     const queries = new QueryClient({
