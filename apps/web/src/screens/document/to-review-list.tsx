@@ -1,5 +1,4 @@
 // To review's rows: each entry's words, its wordings and its choices, read with the open script.
-import { sceneOf } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { BlockJSON } from "@manent/schema";
 import {
@@ -14,21 +13,13 @@ import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { nameOf } from "../../services/sync/index-entries.ts";
 import type { PersonReview } from "../../services/sync/later-index.ts";
+import { sceneWords } from "../../services/sync/review-actions.ts";
 import type { ReviewEntry } from "../../services/sync/review.ts";
 
 type Entry = ReviewEntry & { id: string };
 
 const textOf = (block: BlockJSON): string =>
   (block.content ?? []).map((run) => run.text).join("");
-
-/** The scene the block is in, in To review's words; null outside a scene or while the script is not open. */
-function sceneWords(
-  doc: CrdtDoc | null,
-  blockId: string | null,
-): string | null {
-  const n = doc === null || blockId === null ? null : sceneOf(doc, blockId);
-  return n === null ? null : REVIEW_WORDS.scene(n);
-}
 
 /** What the row says the passage is. */
 function labelOf(entry: Entry, scene: string | null): string {

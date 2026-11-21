@@ -1,17 +1,27 @@
 import { expect, test } from "bun:test";
 import {
   ORIGIN_REVIEW,
+  applyBlockOps,
   createUndoScope,
+  jsonMap,
+  readBlocks,
   scriptBody,
   undoManagerForBinding,
 } from "@manent/crdt";
+import { canonicalBlock } from "@manent/schema";
+import type { BlockJSON } from "@manent/schema";
 import { memoryTabs } from "@manent/sync-client/testing";
+import { indexDocId } from "@manent/sync-protocol";
+import fc from "fast-check";
+import { readEntry } from "../src/services/sync/review-entries.ts";
 import { DANA, SAM, createIndexWorld } from "./index.fixtures.ts";
 import type { TabServices } from "./index.fixtures.ts";
+import { sceneEightDoc } from "./review-dom.fixtures.ts";
 import {
   B1,
   B2,
   B3,
+  action,
   eventually,
   idsOf,
   openWith,
@@ -246,18 +256,19 @@ test("an item settled on one device leaves the other", async () => {
   expect(there.get()).toEqual([]);
 });
 
+/** Recovered text the device filed, that was near B3. */
+const recoveredItem = (docId: string): ReturnType<typeof overlapItem> => ({
+  ...overlapItem(docId, "item-1"),
+  cause: "merge",
+  blockId: null,
+  nearBlockId: B3,
+  text: "The harbour lights go out.",
+  mine: null,
+  theirs: null,
+});
+
 test("Recovered text is put back after the block it was near", async () => {
-  const { sam, docId, doc, heading } = await samWith((d) => [
-    {
-      ...overlapItem(d, "item-1"),
-      cause: "merge",
-      blockId: null,
-      nearBlockId: B3,
-      text: "The harbour lights go out.",
-      mine: null,
-      theirs: null,
-    },
-  ]);
+  const { sam, docId, doc, heading } = await samWith((d) => [recoveredItem(d)]);
   const [entry] = sam.review.entries(docId).get();
   sam.review.useMine(entry?.id ?? "", doc);
   const ids = idsOf(doc);
@@ -266,6 +277,94 @@ test("Recovered text is put back after the block it was near", async () => {
     [heading, B1, B2, B3],
     "The harbour lights go out.",
     "Put the recovered text back in Sc. 8.",
+  ]);
+});
+
+test("Recovered text put back follows the script's undo and redo", async () => {
+  const { sam, docId, doc } = await samWith((d) => [recoveredItem(d)]);
+  const manager = undoManagerForBinding(
+    createUndoScope(doc, {
+      trackedOrigins: [ORIGIN_REVIEW],
+      roots: ["script"],
+    }),
+  );
+  const listed = () =>
+    sam.review
+      .entries(docId)
+      .get()
+      .map((e) => e.id);
+  sam.review.useMine("item-1", doc);
+  const put = [idsOf(doc).length, listed()];
+  manager.undo();
+  const undone = [idsOf(doc).length, listed()];
+  manager.redo();
+  expect([put, undone, [idsOf(doc).length, listed()]]).toEqual([
+    [5, []],
+    [4, ["item-1"]],
+    [5, []],
+  ]);
+});
+
+test("Use mine on a block gone since the script was last open here puts it back where it was", async () => {
+  const w = await room();
+  const before = await w.personServices({ person: SAM });
+  const { docId, heading } = await sceneEight(before, MEDIUM);
+  await openWith(before, docId, [
+    overlapItem(docId, "item-1", { blockId: B2 }),
+  ]);
+  await w.settleAll();
+  before.documents.close(docId);
+  before.dispose();
+  // the services are built again, and the passage goes while no tab has the script open
+  const sam = await w.personServices({ person: SAM });
+  const handle = await sam.sync.client.open(docId);
+  scriptBody(handle.doc()).write((writer) => writer.deleteBlock(B2));
+  await handle.close();
+  sam.documents.open(docId);
+  await until(
+    () =>
+      sam.review.docOf(docId) !== null &&
+      sam.review.entries(docId).get().length === 1,
+  );
+  const doc = sam.review.docOf(docId);
+  if (doc === null) throw new RangeError("the script was never followed");
+  const without = idsOf(doc);
+  sam.review.useMine("item-1", doc);
+  expect([without, idsOf(doc), textOf(doc, B2)]).toEqual([
+    [heading, B1, B3],
+    [heading, B1, B2, B3],
+    "The tide turns at once.",
+  ]);
+});
+
+/** The private index's entry `id` of Sam's, as it is stored: its fields in their order. */
+async function storedEntryOf(sam: TabServices, id: string): Promise<string> {
+  const index = await sam.sync.client.open(indexDocId("user", "sam"));
+  const stored = JSON.stringify(jsonMap(index.doc(), "review").get(id));
+  await index.close();
+  return stored;
+}
+
+test("an entry is kept with its fields in their stored order, as filed and as settled", async () => {
+  const { sam, docId, heading } = await samWith(
+    (d) => [
+      overlapItem(d, "item-1", { otherClientIds: [11] }),
+      { ...recoveredItem(d), id: "item-2" },
+    ],
+    { 11: "dana" },
+  );
+  const filed = [
+    await storedEntryOf(sam, "item-1"),
+    await storedEntryOf(sam, "item-2"),
+  ];
+  sam.review.keepAsMerged("item-1");
+  const mine = `{"type":"block","attrs":{"id":"block-one-1","type":"action"},"content":[{"type":"text","text":"The tide turns at once."}]}`;
+  const theirs = `{"type":"block","attrs":{"id":"block-one-1","type":"action"},"content":[{"type":"text","text":"The tide holds."}]}`;
+  const before = `{"type":"block","attrs":{"id":"block-one-1","type":"action","omitted":false,"synopsis":"","noContd":false,"noTiming":false},"content":[{"type":"text","text":"The tide turns."}]}`;
+  expect([...filed, await storedEntryOf(sam, "item-1")]).toEqual([
+    `{"kind":"overlap","docId":"${docId}","blockId":"block-one-1","mine":${mine},"theirs":${theirs},"otherUserIds":["dana"],"at":1000,"settled":false,"before":null,"nearBlockId":"${heading}"}`,
+    `{"kind":"recovered","docId":"${docId}","blockId":null,"nearBlockId":"block-three-3","text":"The harbour lights go out.","at":1000,"settled":false,"before":null}`,
+    `{"kind":"overlap","docId":"${docId}","blockId":"block-one-1","mine":${mine},"theirs":${theirs},"otherUserIds":["dana"],"at":1000,"settled":true,"before":${before},"nearBlockId":"${heading}"}`,
   ]);
 });
 
@@ -343,4 +442,144 @@ test("an overlap found online is announced, and one a receipt counts is not", as
   await until(() => sam.review.openCount(docId).get() === 2);
   await w.settleAll();
   expect([online, said]).toEqual([["Saved · Synced, 1 to review"], []]);
+});
+
+/** `valid` four times in five, else one of `others`. */
+const mostly = <T>(
+  valid: fc.Arbitrary<T>,
+  ...others: fc.Arbitrary<unknown>[]
+): fc.Arbitrary<unknown> =>
+  fc.oneof(
+    { weight: 4, arbitrary: valid },
+    ...others.map((arbitrary) => ({ weight: 1, arbitrary })),
+  );
+
+/** A block near what the script holds: each part valid, of another kind, or absent. */
+const nearBlock = fc.record(
+  {
+    type: mostly(fc.constant("block"), fc.constant("section")),
+    attrs: mostly(
+      fc.record({
+        id: mostly(fc.constant(B1), fc.constant(B2), fc.constant(7)),
+        type: mostly(fc.constant("action"), fc.constant("nope")),
+      }),
+      fc.constant(null),
+    ),
+    content: fc.array(
+      fc.record({
+        type: mostly(fc.constant("text"), fc.constant("image")),
+        text: mostly(fc.string({ minLength: 1, maxLength: 3 }), fc.constant(7)),
+      }),
+      { maxLength: 2 },
+    ),
+  },
+  { requiredKeys: ["type", "attrs"] },
+);
+
+/** An entry near what the review map holds; `nearBlockId` absent as an older build wrote it. */
+const nearEntry = fc.record(
+  {
+    kind: mostly(fc.constantFrom("overlap", "recovered"), fc.constant("other")),
+    docId: mostly(fc.constant("doc-1"), fc.constant(7)),
+    blockId: mostly(fc.constant(B1), fc.constant(null), fc.constant(5)),
+    mine: nearBlock,
+    theirs: nearBlock,
+    otherUserIds: mostly(fc.constantFrom(["dana"], []), fc.constant([7])),
+    at: mostly(fc.integer({ min: 0 }), fc.constant(1.5)),
+    settled: mostly(fc.boolean(), fc.constant("no")),
+    before: mostly(fc.constant(null), nearBlock),
+    nearBlockId: mostly(fc.constantFrom(null, B2), fc.constant(3)),
+    text: mostly(fc.string({ maxLength: 3 }), fc.constant(7)),
+  },
+  {
+    requiredKeys: [
+      "kind",
+      "docId",
+      "blockId",
+      "mine",
+      "theirs",
+      "otherUserIds",
+      "at",
+      "settled",
+      "before",
+      "text",
+    ],
+  },
+);
+
+/** The text of a block's runs, as To review's rows show it. */
+const wordingOf = (block: BlockJSON): string =>
+  (block.content ?? []).map((run) => run.text).join("");
+
+test("every entry To review reads can be shown and written into the script as it stands", () => {
+  fc.assert(
+    fc.property(fc.oneof(nearEntry, fc.jsonValue()), (value) => {
+      const entry = readEntry(value);
+      if (entry?.kind !== "overlap") return;
+      for (const side of [entry.mine, entry.theirs, entry.before]) {
+        if (side === null) continue;
+        const doc = sceneEightDoc();
+        const wrote = applyBlockOps(
+          doc,
+          [{ op: "replace", block: canonicalBlock(side) }],
+          ORIGIN_REVIEW,
+        );
+        expect([
+          wrote,
+          wordingOf(readBlocks(doc, new Set([B1])).get(B1) ?? action(B1, "")),
+          side.attrs?.id,
+        ]).toEqual([1, wordingOf(side), entry.blockId]);
+      }
+    }),
+    { numRuns: 1_000 },
+  );
+});
+
+test("an entry with any part a consumer cannot use is refused", () => {
+  const block = action(B1, "The tide turns.");
+  const overlap = {
+    kind: "overlap",
+    docId: "doc-1",
+    blockId: B1,
+    mine: block,
+    theirs: block,
+    otherUserIds: ["dana"],
+    at: 1_000,
+    settled: false,
+    before: null,
+    nearBlockId: null,
+  };
+  const recovered = {
+    kind: "recovered",
+    docId: "doc-1",
+    blockId: null,
+    nearBlockId: B3,
+    text: "The harbour lights go out.",
+    at: 1_000,
+    settled: false,
+    before: null,
+  };
+  const refused = [
+    { ...overlap, kind: "conflict" },
+    { ...overlap, docId: 7 },
+    { ...overlap, at: 1.5 },
+    { ...overlap, settled: "no" },
+    { ...overlap, blockId: null },
+    { ...overlap, mine: action(B2, "The tide turns.") },
+    { ...overlap, theirs: { ...block, content: [{ type: "image" }] } },
+    { ...overlap, before: action(B2, "Gulls circle.") },
+    { ...overlap, otherUserIds: [7] },
+    { ...overlap, nearBlockId: 3 },
+    { ...recovered, text: 7 },
+    { ...recovered, blockId: 5 },
+    { ...recovered, nearBlockId: 3 },
+    { ...recovered, before: block },
+  ];
+  const { nearBlockId: _absent, ...older } = overlap;
+  expect([
+    readEntry(overlap)?.kind,
+    readEntry(older)?.kind,
+    readEntry(recovered)?.kind,
+    ...refused.map(readEntry),
+  ]).toEqual(["overlap", "overlap", "recovered", ...refused.map(() => null)]);
 });
