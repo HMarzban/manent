@@ -1,5 +1,6 @@
 // The keys that move a line between elements, pressed in a real page: the Enter and Tab tables, the element picker,
-// dual dialogue, page breaks and the names offered while a cue is typed.
+// dual dialogue, page breaks, every editor shortcut and the names offered while a cue is typed.
+import { COMMANDS } from "@manent/commands";
 import type { ElementRef, FlowTarget } from "@manent/editor";
 import { corpusDoc } from "@manent/pagination/testing";
 import type { CorpusBlock } from "@manent/pagination/testing";
@@ -8,7 +9,7 @@ import { EDITOR_WORDS } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { editorHook } from "../support/editor-hooks.ts";
-import { pressKeyOf } from "../support/interface.ts";
+import { platformOf, pressKeyOf, runs } from "../support/interface.ts";
 import {
   EDITABLE,
   blocks,
@@ -232,6 +233,27 @@ test("Mod+D pairs two speeches, Mod+Enter breaks the page, and a lone speech say
       { exact: true },
     ),
   ).toBeVisible();
+});
+
+test("every editor shortcut runs its command once from an editable page", async ({
+  page,
+}) => {
+  const platform = await platformOf(page);
+  await openScript(page, "screenplay", corpusDoc(SPEECHES));
+  const speech = (await blocks(page))[4]!.id;
+  for (const command of COMMANDS) {
+    if (command.scope !== "editor" || command.keys[platform].length === 0)
+      continue;
+    await caretAt(page, speech, "end");
+    const ran = (await runs(page)).length;
+    await pressKeyOf(page, command.id);
+    // every key is reported, not only the first that differs
+    expect
+      .soft({ command: command.id, ran: (await runs(page)).slice(ran) })
+      .toEqual({ command: command.id, ran: [command.id] });
+    if (await page.locator(PICKER).isVisible())
+      await page.keyboard.press("Escape");
+  }
 });
 
 // the actions fill most of a page, so the pair fits under them only as two columns
