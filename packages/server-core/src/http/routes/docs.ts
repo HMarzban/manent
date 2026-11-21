@@ -77,6 +77,12 @@ export const docsRoutes: Route[] = [
     async handle(context) {
       const read = await readRequest(context);
       if (!read.ok) return read.response;
+      const home = isObject(read.body) ? read.body.home : null;
+      if (
+        typeof home === "string" &&
+        context.config.demo?.isHomeReady?.(home) === false
+      )
+        return failure("busy", 429);
       const access = accessOf(context, read.storage);
       const created = access.create(read.userId, read.body);
       if (!created.ok)

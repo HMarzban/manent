@@ -16,13 +16,11 @@ function asPerson(place: TourWindow): string {
 /** A group with no scenario is its heading alone. Never takes focus. */
 export function TourPanel(): ReactNode {
   const router = useRouter();
-  // the second window is opened first, while the press still allows a new window
+  // the extra windows are opened first, while the press still allows a new window
   const setUp = ({ setup }: TourScenario): void => {
-    if (
-      setup.secondWindow !== null &&
-      window.open(asPerson(setup.secondWindow)) === null
-    )
-      throw new Error("the browser refused the scenario's second window");
+    for (const extra of setup.extraWindows)
+      if (window.open(asPerson(extra)) === null)
+        throw new Error("the browser refused one of the scenario's windows");
     void router.navigate({ href: asPerson(setup) });
   };
   return (

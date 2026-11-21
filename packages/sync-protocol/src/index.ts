@@ -57,6 +57,7 @@ export {
   isDocId,
   isDocKind,
   projectHome,
+  seedDocId,
   workspaceHome,
 } from "./doc-id.ts";
 export type { DocKind } from "./doc-id.ts";
@@ -77,6 +78,7 @@ export type {
   ControlStatusResponse,
   CreateDocumentRequest,
   CreateDocumentResponse,
+  DemoControls,
   DemoResponse,
   DescribeRequest,
   DescribeResponse,
@@ -87,6 +89,8 @@ export type {
   HttpErrorCode,
   Identity,
   MeResponse,
+  RebuildRequest,
+  RebuildResponse,
   RemoveDocumentRequest,
   RemoveDocumentResponse,
   RemovedDocRequest,
@@ -100,7 +104,11 @@ export type {
   SignInChoice,
   SignInOptions,
   SignInResponse,
+  TourPrepareRequest,
+  TourPrepareResponse,
   WorkspaceRef,
+  WritersRequest,
+  WritersResponse,
   WsTicketResponse,
 } from "./http.ts";
 export { VERSION_KINDS, isVersionCursor } from "./history-http.ts";
