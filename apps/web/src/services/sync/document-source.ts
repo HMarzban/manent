@@ -97,7 +97,7 @@ export function createSyncDocumentSource(options: Options): DocumentSource {
     const scriptBag = createLaterBag();
     let closed = false;
     let stop = noop;
-    void (async () => {
+    (async () => {
       const sync = await options.sync;
       const [handle, parts] = await Promise.all([
         sync.client.open(docId),
@@ -126,7 +126,10 @@ export function createSyncDocumentSource(options: Options): DocumentSource {
         stopBag();
         void handle.close();
       };
-    })();
+    })().catch(() => {
+      // a sync that cannot start, or a document it cannot open, is never said to be saved on this device
+      shown.status.set({ ...opening(options.now()), device: "failing" });
+    });
     return {
       services: {
         ...shown,

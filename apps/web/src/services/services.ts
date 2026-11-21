@@ -307,6 +307,10 @@ export function createPersonServices(options: Options): PersonServices {
     ...s,
     client: creatingScripts(s.client, projectHome),
   }));
+  const client = sync.then((s) => s.client);
+  void client.catch(() => {
+    // each document's status says a sync that cannot start, and an editor keeps the page it shows
+  });
   const messages = createMessageQueue({
     now: options.now,
     schedule: options.schedule,
@@ -372,7 +376,7 @@ export function createPersonServices(options: Options): PersonServices {
         resolved,
         fixedKeys,
         navigate: (path) => options.router.navigate(path),
-        client: sync.then((s) => s.client),
+        client,
       }),
     ),
     dispose() {
@@ -380,7 +384,12 @@ export function createPersonServices(options: Options): PersonServices {
       stop();
       kept.dispose();
       scripts.clear();
-      void sync.then((s) => s.dispose());
+      void sync.then(
+        (s) => s.dispose(),
+        () => {
+          // a sync that never started holds nothing to dispose
+        },
+      );
     },
   };
   fillHandlers(services);

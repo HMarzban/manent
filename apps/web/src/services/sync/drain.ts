@@ -7,6 +7,9 @@ import type {
   SyncClient,
 } from "@manent/sync-client";
 
+/** Documents a drain holds open at once. */
+export const DRAIN_PARALLEL = 3;
+
 // a document parked or read only syncs no further until something changes on the server
 const STOPPED_SIDES: readonly DocStatus["side"][number][] = Object.freeze([
   "access_removed",
@@ -17,6 +20,9 @@ const STOPPED_SIDES: readonly DocStatus["side"][number][] = Object.freeze([
 
 const isLive = (link: LinkFacts): boolean =>
   link.state === "online" && link.leader;
+
+// a document the device cannot list or open now keeps its changes, and the next connection drains it again
+const passOver = (): void => {};
 
 const isDone = (status: DocStatus): boolean =>
   status.synced || status.side.some((side) => STOPPED_SIDES.includes(side));
@@ -59,13 +65,13 @@ export function startDrain(options: {
     await handle.close();
   };
   const drain = async (): Promise<void> => {
-    const listed = await client.documents();
+    const listed = await client.documents().catch(() => []);
     const queue = listed
       .filter((d) => d.parked === null && (d.waiting > 0 || d.neverSynced))
       .map((d) => d.docId);
     const worker = async (): Promise<void> => {
       for (let id = queue.shift(); id !== undefined; id = queue.shift())
-        if (!stopped) await drainOne(id);
+        if (!stopped) await drainOne(id).catch(passOver);
     };
     await Promise.all(Array.from({ length: options.parallel }, worker));
   };

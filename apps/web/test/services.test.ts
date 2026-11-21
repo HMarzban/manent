@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import type { SideTab } from "@manent/commands";
 import { entryKey } from "@manent/settings";
+import { StoreError } from "@manent/sync-client";
+import { statusText } from "@manent/ui";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createRemoteDeferral } from "../src/services/remote-deferral.ts";
@@ -19,7 +21,7 @@ import {
   testEnvironment,
   testServices,
 } from "./services.fixtures.ts";
-import { until } from "./sync.fixtures.ts";
+import { turn, until } from "./sync.fixtures.ts";
 
 bindGuard(createGuard({ flavour: "test" }));
 
@@ -171,6 +173,26 @@ test("New script makes an untitled film whose script opens first in Continue", a
   const script = services.openScriptStore(docId);
   await until(() => script.get("script.paper") === "a4");
   expect(script.get("script.paper")).toBe("a4");
+});
+
+test("a sync that cannot start never says a document is saved", async () => {
+  const services = testServices({
+    userId: "leo",
+    environment: testEnvironment({
+      startSync: () => Promise.reject(new StoreError("unavailable")),
+    }),
+  });
+  const { status } = services.documents.open(
+    "0b9f6c2e-3c1a-4c55-9a43-5d8f1e2a7b10",
+  );
+  await until(() => status.get().device === "failing");
+  const { device, server } = statusText(status.get());
+  services.dispose();
+  await turn();
+  expect([device, server]).toEqual([
+    "Not saved on this device",
+    "Only in this browser — not backed up",
+  ]);
 });
 
 test("a script's layout waits for authority once its page numbers are locked", () => {

@@ -1,9 +1,9 @@
 import { withDom } from "@manent/testkit/dom";
 import { expect, test } from "bun:test";
-import { createDoc, scriptBody } from "@manent/crdt";
+import { ORIGIN_REMOTE, createDoc, scriptBody } from "@manent/crdt";
 import { blockText, blocksOf } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
-import { createSubscribable } from "@manent/sync-client";
+import { StoreError, createSubscribable } from "@manent/sync-client";
 import type { SyncClient } from "@manent/sync-client";
 import { createMessageQueue, createValue, useSubscribable } from "@manent/ui";
 import { act, createElement } from "react";
@@ -14,10 +14,12 @@ import { asUiSubscribable } from "../src/services/sync/subscribable.ts";
 import { createClock } from "./services.fixtures.ts";
 import {
   SYNCED_STATUS,
+  createSyncWorld,
   fakeClient,
   fakeHandle,
   fakeSync,
   fakeView,
+  settle,
   turn,
   until,
 } from "./sync.fixtures.ts";
@@ -118,26 +120,129 @@ test("a person who may only view gets a page that follows other people's typing 
   ]).toEqual([2, "edit", true]);
 });
 
-test("a script that is empty on this device starts from what was typed while it opened", async () => {
-  const fresh = fakeHandle(DOC, createDoc());
-  const client = Promise.withResolvers<SyncClient>();
-  const session = createSyncSessions({ client: client.promise }).open(
-    DOC,
-    "screenplay",
-  );
+/** A session of a script the device does not hold yet, with "INT. HARBOUR" typed into its first block while it opens. */
+function typedWhileOpening(client: Promise<SyncClient>) {
+  const session = createSyncSessions({ client }).open(DOC, "screenplay");
   const [first] = blocksOf(scriptBody(session.doc()).materialize());
   scriptBody(session.doc()).write((w) =>
     w.insertText(first?.attrs.id ?? "", 0, "INT. HARBOUR"),
   );
-  client.resolve(fakeClient(() => fresh));
+  return session;
+}
+
+const typed = (doc: ReturnType<typeof createDoc>): string[][] =>
+  blocksOf(scriptBody(doc).materialize()).map((b) => [
+    b.attrs.type,
+    blockText(b),
+  ]);
+
+const NOT_YET_SYNCED = Object.freeze({
+  ...SYNCED_STATUS,
+  synced: false,
+  docSync: "local",
+  neverSynced: true,
+} as const);
+
+test("a script the server holds gains nothing from a device that opens it for the first time", async () => {
+  const world = createSyncWorld();
+  scriptBody(world.server.doc(DOC)).write((w) =>
+    w.insertBlocks(null, [block("block-one-000001", "Dawn.")]),
+  );
+  const sync = await world.personSync();
+  const session = createSyncSessions({
+    client: Promise.resolve(sync.client),
+  }).open(DOC, "screenplay");
+  await settle(world.network);
+  expect([textOf(world.server.doc(DOC)), textOf(session.doc())]).toEqual([
+    ["Dawn."],
+    ["Dawn."],
+  ]);
+});
+
+test("a script that is empty on this device starts from what was typed while it opened", async () => {
+  const fresh = fakeHandle(DOC, createDoc());
+  fresh.status.set(NOT_YET_SYNCED);
+  const session = typedWhileOpening(Promise.resolve(fakeClient(() => fresh)));
   await turn();
-  expect([
-    session.doc() === fresh.doc(),
-    blocksOf(scriptBody(fresh.doc()).materialize()).map((b) => [
-      b.attrs.type,
-      blockText(b),
+  expect([session.doc() === fresh.doc(), typed(fresh.doc())]).toEqual([
+    true,
+    [["scene_heading", "INT. HARBOUR"]],
+  ]);
+});
+
+/** Applies to `doc`, as the server's, what `write` does to a copy of it. */
+function fromServer(
+  doc: ReturnType<typeof createDoc>,
+  write: (copy: ReturnType<typeof createDoc>) => void,
+): void {
+  const copy = createDoc();
+  copy.applyUpdate(doc.encodeState());
+  write(copy);
+  doc.applyUpdate(copy.diff(doc.encodeStateVector()), ORIGIN_REMOTE);
+}
+
+test("a new script keeps every line written in it once the server has answered with nothing", async () => {
+  const fresh = fakeHandle(DOC, createDoc());
+  fresh.status.set(NOT_YET_SYNCED);
+  const session = createSyncSessions({
+    client: Promise.resolve(fakeClient(() => fresh)),
+  }).open(DOC, "screenplay");
+  await turn();
+  scriptBody(session.doc()).write((w) =>
+    w.insertBlocks(null, [
+      block("block-one-000001", "Rain."),
+      block("block-two-000002", "Wind."),
     ]),
-  ]).toEqual([true, [["scene_heading", "INT. HARBOUR"]]]);
+  );
+  // another of the person's devices names the script's first scene
+  fromServer(fresh.doc(), (copy) => {
+    const [, , heading] = blocksOf(scriptBody(copy).materialize());
+    scriptBody(copy).write((w) =>
+      w.setBlockAttrs(heading?.attrs.id ?? "", { type: "scene_heading" }),
+    );
+  });
+  fresh.status.set(SYNCED_STATUS);
+  expect(typed(fresh.doc())).toEqual([
+    ["action", "Rain."],
+    ["action", "Wind."],
+    ["scene_heading", ""],
+  ]);
+});
+
+test("what was written before the server answered stays beside the script it held", async () => {
+  const fresh = fakeHandle(DOC, createDoc());
+  fresh.status.set(NOT_YET_SYNCED);
+  typedWhileOpening(Promise.resolve(fakeClient(() => fresh)));
+  await turn();
+  const held = createDoc();
+  scriptBody(held).write((w) =>
+    w.insertBlocks(null, [block("block-one-000001", "Dawn.")]),
+  );
+  fresh.doc().applyUpdate(held.encodeState(), ORIGIN_REMOTE);
+  fresh.status.set(SYNCED_STATUS);
+  expect(typed(fresh.doc()).toSorted()).toEqual([
+    ["action", "Dawn."],
+    ["scene_heading", "INT. HARBOUR"],
+  ]);
+});
+
+test("a page whose document cannot be opened keeps what it shows", async () => {
+  const opening = fakeClient(() => fakeHandle(DOC, createDoc()));
+  const session = typedWhileOpening(
+    Promise.resolve({
+      ...opening,
+      open: () => Promise.reject(new StoreError("unavailable")),
+    }),
+  );
+  const scratch = session.doc();
+  let replaced = 0;
+  session.onReplaced(() => replaced++);
+  await turn();
+  expect([session.doc() === scratch, replaced, typed(scratch)]).toEqual([
+    true,
+    0,
+    [["scene_heading", "INT. HARBOUR"]],
+  ]);
 });
 
 test("the two kinds of Subscribable are one shape", async () => {

@@ -1,5 +1,4 @@
-// One person's sync in this tab: the one place the app builds the sync client's options, what the status reads beside
-// it, and the test build's hooks into it.
+// One person's sync in this tab: the one place the app builds the sync client's options, what the status reads beside it, and the test build's hooks.
 import { browserPorts } from "@manent/client-web";
 import {
   StoreError,
@@ -22,10 +21,7 @@ import type {
 import type { VersionSet } from "@manent/sync-protocol";
 import type { TabPerson } from "../../session.ts";
 import type { DeviceMemory } from "./device-memory.ts";
-import { startDrain } from "./drain.ts";
-
-/** Documents the drain holds open at once. */
-const DRAIN_PARALLEL = 3;
+import { DRAIN_PARALLEL, startDrain } from "./drain.ts";
 
 /**
  * `network`: the browser says it is online. `offlineSince`: when this person's link was first lost since it was last
@@ -69,7 +65,6 @@ const NO_OVERLAY: Overlay = Object.freeze<Overlay>({
   on: () => () => {},
 });
 
-/** Stops both. */
 const both = (first: () => void, second: () => void) => (): void => {
   first();
   second();
@@ -137,6 +132,9 @@ function shareHandles(
     const entry = held.get(docId) ?? { opens: 0, handle: open() };
     held.set(docId, entry);
     entry.opens += 1;
+    // an open that failed is asked of the client again next time
+    const forget = () => held.get(docId) === entry && held.delete(docId);
+    void entry.handle.catch(forget);
     const handle = await entry.handle;
     let closed = false;
     return handleView(handle, overlay, async () => {
@@ -233,18 +231,22 @@ function countedTransport(transport: Transport): {
   };
 }
 
-/** The hooks over `ports`, the ports they watch, and what they lay over the client's facts. */
+/** Where the page has the test build's `__manent`: it, the hooks over `ports`, the ports they watch and what they lay. */
 function createTestHooks(ports: SyncClientPorts): {
   hooks: SyncHooks;
+  target: object;
   ports: SyncClientPorts;
   overlay: Overlay;
-} {
+} | null {
+  const target: unknown = Reflect.get(globalThis, "__manent");
+  if (typeof target !== "object" || target === null) return null;
   let refusal: Refusal = null;
   const counted = countedTransport(ports.transport);
   const sides = createSubscribable<Readonly<Record<string, SideState[]>>>({});
   const issue = createSubscribable<LinkIssue | null>(null);
   const heard = new Set<{ docId: string; listener(event: DocEvent): void }>();
   return {
+    target,
     ports: {
       ...ports,
       store: refusingStore(ports.store, () => refusal),
@@ -287,12 +289,6 @@ function createTestHooks(ports: SyncClientPorts): {
   };
 }
 
-/** The object the test build puts at `__manent`; null in production, which has none. */
-function hooksTarget(): object | null {
-  const target: unknown = Reflect.get(globalThis, "__manent");
-  return typeof target === "object" && target !== null ? target : null;
-}
-
 /** Kept per person in `memory`: set when the link is first lost while none is kept, cleared once it is online. */
 function keepOfflineSince(
   userId: string,
@@ -313,10 +309,33 @@ function keepOfflineSince(
   return { offlineSince, stop: link.subscribe(follow) };
 }
 
+/** Asks `client` to connect at once when `target` is back online, focused or visible, and keeps `network` to it. */
+function askOnEvents(
+  target: EventTarget | null,
+  client: SyncClient,
+  network: { set(online: boolean): void },
+  visible: () => boolean,
+): () => void {
+  const heard = Object.entries({
+    online() {
+      network.set(true);
+      client.retryNow();
+    },
+    offline: () => network.set(false),
+    focus: () => client.retryNow(),
+    visibilitychange() {
+      if (visible()) client.retryNow();
+    },
+  });
+  for (const [name, hear] of heard) target?.addEventListener(name, hear);
+  return () => {
+    for (const [name, hear] of heard) target?.removeEventListener(name, hear);
+  };
+}
+
 /**
- * The person's sync client over `ports` (the browser's drivers unless given), asked to connect at once when the
- * window comes back online, gets focus or becomes visible, and draining what waits each time it connects. Where the
- * page has the test build's `__manent`, it sets `__manent.sync` to the hooks and removes them in `dispose`.
+ * The person's sync client over `ports` (the browser's drivers unless given), draining what waits each time it connects.
+ * Where the page has the test build's `__manent`, it sets `__manent.sync` to the hooks and removes them in `dispose`.
  */
 export async function createPersonSync(options: {
   person: TabPerson;
@@ -331,7 +350,7 @@ export async function createPersonSync(options: {
   visible: () => boolean;
   now: () => number;
 }): Promise<PersonSync> {
-  const { person } = options;
+  const { person, onlineEvents, visible } = options;
   const given =
     options.ports ??
     (await browserPorts({
@@ -339,8 +358,7 @@ export async function createPersonSync(options: {
       session: () => person.token,
       userId: person.userId,
     }));
-  const target = hooksTarget();
-  const test = target === null ? null : createTestHooks(given);
+  const test = createTestHooks(given);
   const ports = test?.ports ?? given;
   const overlay = test?.overlay ?? NO_OVERLAY;
   const raw = createSyncClient({
@@ -356,25 +374,13 @@ export async function createPersonSync(options: {
   // undefined outside a browser, which is never offline
   const network = createSubscribable(navigator.onLine !== false);
   const kept = keepOfflineSince(person.userId, options.memory, link);
-  const heard = Object.entries({
-    online() {
-      network.set(true);
-      raw.retryNow();
-    },
-    offline: () => network.set(false),
-    focus: () => raw.retryNow(),
-    visibilitychange() {
-      if (options.visible()) raw.retryNow();
-    },
-  });
-  for (const [name, hear] of heard)
-    options.onlineEvents?.addEventListener(name, hear);
+  const stopAsking = askOnEvents(onlineEvents, raw, network, visible);
   const stopDrain = startDrain({
     client,
     parallel: DRAIN_PARALLEL,
     trigger: link,
   });
-  if (target !== null) Reflect.set(target, "sync", test?.hooks);
+  if (test !== null) Reflect.set(test.target, "sync", test.hooks);
   return {
     client,
     store: ports.store,
@@ -382,12 +388,11 @@ export async function createPersonSync(options: {
     network,
     offlineSince: kept.offlineSince,
     async dispose() {
-      for (const [name, hear] of heard)
-        options.onlineEvents?.removeEventListener(name, hear);
+      stopAsking();
       stopDrain();
       kept.stop();
-      if (target !== null && Reflect.get(target, "sync") === test?.hooks)
-        Reflect.deleteProperty(target, "sync");
+      if (test !== null && Reflect.get(test.target, "sync") === test.hooks)
+        Reflect.deleteProperty(test.target, "sync");
       await raw.close();
       await ports.store.close();
     },

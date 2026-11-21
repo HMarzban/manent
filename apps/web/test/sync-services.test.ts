@@ -1,6 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import { createDoc, scriptBody } from "@manent/crdt";
-import type { DocMeta, DocSummary, LinkFacts } from "@manent/sync-client";
+import { StoreError } from "@manent/sync-client";
+import type {
+  DocMeta,
+  DocSummary,
+  LinkFacts,
+  SyncClient,
+} from "@manent/sync-client";
 import { createMessageQueue, createValue, statusText } from "@manent/ui";
 import type { StatusWords } from "@manent/ui";
 import { createApi } from "../src/api.ts";
@@ -243,6 +249,40 @@ test("documents with changes waiting sync without being opened, three at a time"
     ],
   ]);
   expect([...handles.values()].map((h) => h.closes())).toEqual([1, 1, 1, 1, 1]);
+});
+
+test("a document the device cannot open waits for the next drain, and the others still sync", async () => {
+  const summaries: DocSummary[] = ["d1", "d2"].map((docId) => ({
+    docId,
+    neverSynced: false,
+    waiting: 1,
+    parked: null,
+    recovered: 0,
+  }));
+  const synced = fakeHandle("d2", createDoc());
+  const client = fakeClient(() => synced, summaries);
+  let listing = true;
+  const failing: SyncClient = {
+    ...client,
+    open: (docId) =>
+      docId === "d1"
+        ? Promise.reject(new StoreError("unavailable"))
+        : client.open(docId),
+    documents: () =>
+      listing
+        ? client.documents()
+        : Promise.reject(new StoreError("unavailable")),
+  };
+  const trigger = createValue<LinkFacts>({ ...ONLINE_LINK, state: "offline" });
+  const stop = startDrain({ client: failing, parallel: 1, trigger });
+  trigger.set(ONLINE_LINK);
+  await until(() => synced.closes() === 1);
+  listing = false;
+  trigger.set({ ...ONLINE_LINK, state: "offline" });
+  trigger.set(ONLINE_LINK);
+  await turn();
+  stop();
+  expect([client.opened, synced.closes()]).toEqual([["d2"], 1]);
 });
 
 test("the browser's online, visible and focus events ask for a connection at once", async () => {
