@@ -13,12 +13,15 @@ import { createMessageQueue, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import { createEditorControl } from "../editor-host/control.ts";
 import { createLazyMount } from "../editor-host/lazy-mount.ts";
+import { browserPagePorts } from "../editor-host/page-ports.ts";
 import {
   createPlaceStore,
   keepViewState,
   placeKey,
 } from "../editor-host/place.ts";
 import type { PlaceStore } from "../editor-host/place.ts";
+import { followHistoryEvents } from "../history/follow-events.ts";
+import { createLazySource } from "../history/lazy-source.ts";
 import { deviceName } from "../platform.ts";
 import type { Where } from "../platform.ts";
 import type { TabPerson } from "../session.ts";
@@ -297,13 +300,32 @@ export function createPersonServices(options: Options): PersonServices {
   globalThis.addEventListener("pagehide", leave);
   globalThis.addEventListener("beforeunload", askBeforeClosing);
   const fixedKeys = createValue<readonly FixedKey[]>([]);
+  const openHandle = async (docId: string) => (await sync.client).open(docId);
+  // history's requests and pages load apart from the entry
+  const history = createLazySource({
+    now: options.now,
+    load: async () =>
+      (await import("../history/source.ts")).createHistorySource({
+        fetch,
+        token: () => options.person.token,
+        open: openHandle,
+        userId: options.person.userId,
+        now: options.now,
+        // a request's key is 32 lower-case hex digits
+        ids: () => options.randomId().replaceAll("-", ""),
+      }),
+  });
   const services: PersonServices = {
     userId: options.person.userId,
     settings,
     commands,
     resolved,
     library: sync.library,
-    documents: scripts.documents,
+    documents: followHistoryEvents(scripts.documents, {
+      open: openHandle,
+      messages,
+      userId: options.person.userId,
+    }),
     review: sync.review,
     openScriptStore: scripts.openScriptStore,
     messages,
@@ -331,6 +353,8 @@ export function createPersonServices(options: Options): PersonServices {
         client: sync.client,
       });
     }),
+    history,
+    pagePorts: browserPagePorts(options.userAgent),
     ready: sync.ready,
     closing: { guard, question },
     connection: sync.connection,

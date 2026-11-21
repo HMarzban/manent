@@ -18,6 +18,7 @@ import {
   throughConnection,
 } from "../../demo/connection-transport.ts";
 import type { ConnectionControl } from "../../demo/connection-transport.ts";
+import { createUploader } from "../../history/source.ts";
 import type { TabPerson } from "../../session.ts";
 import { browserStores } from "./device-memory.ts";
 import type { ConnectionMode, DeviceMemory } from "./device-memory.ts";
@@ -295,6 +296,11 @@ export async function createPersonSync(options: {
     versions: options.versions,
     minServer: options.minServer,
     ports,
+    uploadVersion: createUploader({
+      fetch,
+      token: () => person.token,
+      deviceId: options.deviceId,
+    }),
     via: options.via,
   });
   const link = overlay.link(raw.link);
