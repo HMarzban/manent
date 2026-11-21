@@ -33,8 +33,9 @@ export async function signedInAs(
     LIBRARY_WORDS.continueHeading,
   );
   if ((await opened.jsonValue()) !== "first") return;
-  // back inside the app, which has the new script in its index already
-  await page.getByRole("button", { name: "‹ Library" }).click();
+  // back inside the app, which has the new script in its index already; by key, as a click would leave the next focus
+  // drawn as a pointer's in Firefox and WebKit
+  await page.getByRole("button", { name: "‹ Library" }).press("Enter");
   await page.waitForURL((at) => at.pathname === "/");
 }
 
