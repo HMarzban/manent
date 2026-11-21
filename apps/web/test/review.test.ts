@@ -444,13 +444,13 @@ test("an overlap found online is announced, and one a receipt counts is not", as
   expect([online, said]).toEqual([["Saved · Synced, 1 to review"], []]);
 });
 
-/** `valid` four times in five, else one of `others`. */
+/** `valid` nine times in ten, else one of `others`. */
 const mostly = <T>(
   valid: fc.Arbitrary<T>,
   ...others: fc.Arbitrary<unknown>[]
 ): fc.Arbitrary<unknown> =>
   fc.oneof(
-    { weight: 4, arbitrary: valid },
+    { weight: 9, arbitrary: valid },
     ...others.map((arbitrary) => ({ weight: 1, arbitrary })),
   );
 
@@ -531,7 +531,7 @@ test("every entry To review reads can be shown and written into the script as it
         ]).toEqual([1, wordingOf(side), entry.blockId]);
       }
     }),
-    { numRuns: 1_000 },
+    { numRuns: 2_000 },
   );
 });
 
