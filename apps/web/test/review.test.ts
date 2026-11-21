@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import {
   ORIGIN_REMOTE,
   ORIGIN_REVIEW,
@@ -9,6 +9,7 @@ import {
   readBlocks,
   scriptBody,
   undoManagerForBinding,
+  yXmlFragmentForBinding,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import { canonicalBlock } from "@manent/schema";
@@ -422,6 +423,44 @@ test("an overlap's anchor follows the script while it is open here, so its passa
   if (doc === null) throw new RangeError("the script was never followed");
   sam.review.useMine("item-1", doc);
   expect(idsOf(doc)).toEqual([heading, B1, B3]);
+});
+
+/** A stored element of the script: a section or a block. */
+interface Stored {
+  toArray(): unknown[];
+  getAttribute(name: string): unknown;
+  getAttributes(): unknown;
+}
+
+const isStored = (node: unknown): node is Stored =>
+  typeof node === "object" && node !== null && "toArray" in node;
+
+/** The elements among `nodes`, leaving out text. */
+const elementsOf = (nodes: readonly unknown[]): Stored[] =>
+  nodes.filter(isStored);
+
+/** The stored block `id` of the document; a read of its attributes is a read of the block itself. */
+function storedBlock(doc: CrdtDoc, id: string): Stored {
+  const block = elementsOf(yXmlFragmentForBinding(doc).toArray())
+    .flatMap((section) => elementsOf(section.toArray()))
+    .find((b) => b.getAttribute("id") === id);
+  if (block === undefined) throw new RangeError(`no block ${id}`);
+  return block;
+}
+
+test("Enter typed just above a passage To review lists moves its anchor and reads none of the rest of the script", async () => {
+  const { sam, docId, doc } = await samWith((d) => [
+    overlapItem(d, "item-1", { blockId: B2 }),
+  ]);
+  const reads = spyOn(storedBlock(doc, B3), "getAttributes");
+  scriptBody(doc).write((writer) =>
+    writer.insertBlocks(B1, [action("block-new-4", "")]),
+  );
+  const [entry] = sam.review.entries(docId).get();
+  expect([
+    entry?.kind === "overlap" ? entry.nearBlockId : null,
+    reads.mock.calls.length,
+  ]).toEqual(["block-new-4", 0]);
 });
 
 /** The private index's entry `id` of Sam's, as it is stored: its fields in their order. */

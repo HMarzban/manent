@@ -3,11 +3,11 @@
 import {
   ORIGIN_REVIEW,
   applyBlockOps,
+  blockIds,
   isUndoStep,
   observeScript,
   readBlocks,
   sceneOf,
-  scriptBody,
 } from "@manent/crdt";
 import type { CrdtDoc, JsonMapView, TransactionReport } from "@manent/crdt";
 import { canonicalBlock, randomBlockId } from "@manent/schema";
@@ -54,15 +54,6 @@ export interface ReviewActions {
 const sameBlock = (a: BlockJSON | null, b: BlockJSON | null): boolean =>
   JSON.stringify(a) === JSON.stringify(b);
 
-/** The ids of the document's blocks, in order. */
-export function blockOrder(doc: CrdtDoc): string[] {
-  return (scriptBody(doc).materialize().content ?? []).flatMap((section) =>
-    (section.content ?? []).flatMap((block) =>
-      typeof block.attrs?.id === "string" ? [block.attrs.id] : [],
-    ),
-  );
-}
-
 /** The scene the block is in, in To review's words; null outside a scene, or while the script is not open. */
 export function sceneWords(
   doc: CrdtDoc | null,
@@ -78,7 +69,12 @@ const blockIn = (doc: CrdtDoc, blockId: string): BlockJSON | null =>
 
 /** The document's blocks as it stands, none gone. */
 export function seenNow(doc: CrdtDoc): SeenOrder {
-  return { ids: blockOrder(doc), gone: new Set() };
+  return { ids: blockIds(doc), gone: new Set() };
+}
+
+/** The blocks of `seen` the script still holds, in order. */
+export function heldOf(seen: SeenOrder): string[] {
+  return seen.ids.filter((id) => !seen.gone.has(id));
 }
 
 /** Keeps `seen` as one change left the script: each deleted block stays in its place, each new one goes after the block before it. */

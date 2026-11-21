@@ -10,8 +10,8 @@ import type { ReviewPort } from "./document-source.ts";
 import type { PrivateIndex } from "./private-index.ts";
 import {
   anchorOf,
-  blockOrder,
   createReviewActions,
+  heldOf,
   seenNow,
   trackOrder,
 } from "./review-actions.ts";
@@ -49,26 +49,21 @@ interface Followed extends Acting {
 }
 
 /**
- * Writes, for each open overlap of the script, the nearest block before its own that the script still holds, in what
- * this tab saw, as the overlap's anchor when it has changed; true when it wrote one.
+ * Writes, for each listed overlap of a script, the nearest block before its own that the script still holds, in what
+ * this tab saw, as the overlap's anchor when it has changed.
  */
 function keepAnchors(
   privateIndex: PrivateIndex,
-  every: readonly Listed[],
-  docId: string,
+  listed: readonly Listed[],
   seen: SeenOrder,
-): boolean {
-  let wrote = false;
-  for (const listed of every) {
-    const { id, ...entry } = listed;
-    if (entry.kind !== "overlap" || entry.settled || entry.docId !== docId)
-      continue;
-    const nearBlockId = anchorOf(seen, listed);
+): void {
+  for (const entry of listed) {
+    if (entry.kind !== "overlap") continue;
+    const nearBlockId = anchorOf(seen, entry);
     if (nearBlockId === entry.nearBlockId) continue;
-    wrote = true;
-    privateIndex.review.set(id, { ...entry, nearBlockId });
+    const { id, ...stored } = entry;
+    privateIndex.review.set(id, { ...stored, nearBlockId });
   }
-  return wrote;
 }
 
 interface Lists {
@@ -91,31 +86,33 @@ function createLists(options: {
   const counts = new Map<string, Value<number>>();
   const countOf = (docId: string) =>
     cached(counts, docId, () => createValue(0));
-  // only the leader keeps anchors, and a write shows the entries again
-  const keptAnchors = (
-    docId: string,
-    open: Acting,
-    every: readonly Listed[],
-  ): boolean =>
-    sync.link.get().leader &&
-    open.seen !== null &&
-    keepAnchors(privateIndex, every, docId, open.seen);
+  let anchoring = false;
+  // only the leader keeps anchors; each write shows the entries again at once, and that show writes none of its own
+  const keptAnchors = (open: Acting, listed: readonly Listed[]): void => {
+    if (anchoring || !sync.link.get().leader || open.seen === null) return;
+    anchoring = true;
+    try {
+      keepAnchors(privateIndex, listed, open.seen);
+    } finally {
+      anchoring = false;
+    }
+  };
   const show = (): void => {
     const every = readAll(privateIndex.review);
     const listed = new Map<string, Listed[]>();
     for (const [docId, open] of followed) {
-      const order = blockOrder(open.doc);
-      const entries = listOpen(every, docId, order);
-      open.seen =
-        entries.length === 0 ? null : (open.seen ?? seenNow(open.doc));
-      listed.set(docId, entries);
-      if (keptAnchors(docId, open, every)) return;
+      const any = every.some((e) => e.docId === docId && !e.settled);
+      open.seen = any ? (open.seen ?? seenNow(open.doc)) : null;
+      const order = open.seen === null ? [] : heldOf(open.seen);
+      listed.set(docId, listOpen(every, docId, order));
     }
     for (const [docId, list] of lists) {
       const open = listed.get(docId) ?? listOpen(every, docId, []);
       list.set(open);
       countOf(docId).set(open.length);
     }
+    for (const [docId, open] of followed)
+      keptAnchors(open, listed.get(docId) ?? []);
   };
   const dispose = privateIndex.review.subscribe(show);
   return {
@@ -134,7 +131,7 @@ function createLists(options: {
         if (open.seen === null) return;
         if (report.inserted.length + report.removed.length === 0) return;
         trackOrder(open.seen, report);
-        keptAnchors(docId, open, readAll(privateIndex.review));
+        keptAnchors(open, lists.get(docId)?.get() ?? []);
       }),
     dispose,
   };
