@@ -7,6 +7,7 @@ import { parseArgs } from "node:util";
 import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import { PROTOCOL_VERSION } from "@manent/sync-protocol";
+import type { VersionSet } from "@manent/sync-protocol";
 import type { FoundDemo } from "../demo/cli.ts";
 import { checkBunVersion } from "../demo/preflight.ts";
 import { resetSeed } from "../demo/seed.ts";
@@ -25,6 +26,14 @@ export const CHANNELS = ["stable", "canary"] as const;
 export type Channel = (typeof CHANNELS)[number];
 
 export const REPOSITORY = "HMarzban/manent";
+
+/** The versions this checkout's app runs, which its node offers and asks of its cloud. */
+export const VERSIONS: Readonly<VersionSet> = Object.freeze({
+  protocol: PROTOCOL_VERSION,
+  schema: SCHEMA_VERSION,
+  engine: ENGINE_VERSION,
+  table: TABLE_VERSION,
+});
 
 /** Where a channel's update files are published: one fixed release per channel. */
 export function updateBaseUrl(repository: string, channel: Channel): string {
@@ -210,15 +219,9 @@ async function stageApp(plan: BuildPlan, root: string): Promise<string[]> {
   });
   await stageCloud(root, plan.cloudEntry);
   await resetSeed(plan.seed);
-  const versions = {
-    protocol: PROTOCOL_VERSION,
-    schema: SCHEMA_VERSION,
-    engine: ENGINE_VERSION,
-    table: TABLE_VERSION,
-  };
   await writeFile(
     join(plan.stage, "build.json"),
-    JSON.stringify({ repository: REPOSITORY, versions }),
+    JSON.stringify({ repository: REPOSITORY, versions: VERSIONS }),
   );
   const notices = desktopNotices(
     await readFile(join(plan.web, "third-party-notices.txt"), "utf8"),

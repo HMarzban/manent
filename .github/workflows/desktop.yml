@@ -1,0 +1,104 @@
+name: desktop
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apps/desktop/**
+      - packages/local-node/**
+      - tools/desktop/**
+      - .github/workflows/desktop.yml
+  pull_request:
+    paths:
+      - apps/desktop/**
+      - packages/local-node/**
+      - tools/desktop/**
+      - .github/workflows/desktop.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, windows-2025, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - if: runner.os == 'Linux'
+        run: sudo apt-get install -y libgtk-3-0 libayatana-appindicator3-1 librsvg2-2 libnss3 libgbm1 libasound2t64 xvfb
+      - run: bun install --frozen-lockfile
+      - run: bun test ./packages/local-node/test/instance-lock.test.ts ./packages/local-node/test/open-store.test.ts
+      - run: bun run desktop:build --channel canary --version 0.0.1 --update-url http://127.0.0.1:47471/
+      - run: bun run desktop:check
+      - run: bun tools/desktop/check-size.ts apps/desktop/artifacts/Manent-0.0.1-canary-*
+      - name: Keep the installer
+        run: mkdir -p "$RUNNER_TEMP/installers" && cp apps/desktop/artifacts/Manent-0.0.1-canary-* "$RUNNER_TEMP/installers/"
+      - name: Install (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          volume=$(hdiutil attach -nobrowse apps/desktop/artifacts/Manent-0.0.1-canary-*.dmg | grep -o '/Volumes/.*' | head -n 1)
+          cp -R "$volume"/*.app /Applications/
+          hdiutil detach "$volume"
+          echo "MANENT_SMOKE_APP=$(ls -d /Applications/Manent*.app)/Contents/MacOS/launcher" >> "$GITHUB_ENV"
+      - name: Install (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = Join-Path $env:RUNNER_TEMP "setup"
+          Expand-Archive (Get-Item "apps/desktop/artifacts/Manent-0.0.1-canary-*.zip") -DestinationPath $setup
+          $exe = Get-ChildItem $setup -Recurse -Filter *.exe | Select-Object -First 1
+          $deadline = (Get-Date).AddMinutes(5)
+          foreach ($flag in @("/S", "--silent")) {
+            $left = [int]($deadline - (Get-Date)).TotalMilliseconds
+            if ($left -le 0) { break }
+            $run = Start-Process $exe.FullName -ArgumentList $flag -WindowStyle Hidden -PassThru
+            if ($run.WaitForExit($left) -and $run.ExitCode -eq 0) { break }
+            if (-not $run.HasExited) { $run.Kill() }
+          }
+          $app = Get-ChildItem (Join-Path $env:LOCALAPPDATA "app.manent.desktop") -Recurse -Filter launcher.exe | Select-Object -First 1
+          "MANENT_SMOKE_APP=$($app.FullName)" >> $env:GITHUB_ENV
+      - name: Install (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p "$RUNNER_TEMP/setup"
+          tar -xzf apps/desktop/artifacts/Manent-0.0.1-canary-*.tar.gz -C "$RUNNER_TEMP/setup"
+          "$(find "$RUNNER_TEMP/setup" -name installer -type f | head -n 1)"
+          app=$(find "$HOME/.local/share/app.manent.desktop" -name launcher -type f | head -n 1)
+          echo "MANENT_SMOKE_APP=$app" >> "$GITHUB_ENV"
+      - name: Libraries the install root links (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p results
+          root=$(dirname "$(dirname "$MANENT_SMOKE_APP")")
+          find "$root" -type f \( -perm -u+x -o -name '*.so*' \) |
+            while read -r file; do echo "== $file"; ldd "$file" 2>&1; done > results/ldd-linux.txt
+      - run: bun run desktop:build --channel canary --version 0.0.2 --update-url http://127.0.0.1:47471/
+      - name: Keep the update
+        run: |
+          mkdir -p "${{ runner.temp }}/update-0.0.2"
+          cp -R apps/desktop/artifacts/. "${{ runner.temp }}/update-0.0.2/"
+          cp apps/desktop/artifacts/Manent-0.0.2-canary-* "$RUNNER_TEMP/installers/"
+      - if: runner.os != 'Linux'
+        run: bun run desktop:smoke --app "$MANENT_SMOKE_APP" --update-from "${{ runner.temp }}/update-0.0.2"
+      - if: runner.os == 'Linux'
+        run: xvfb-run -a bun run desktop:smoke --app "$MANENT_SMOKE_APP" --update-from "${{ runner.temp }}/update-0.0.2"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            results/
+            ${{ runner.temp }}/installers/
