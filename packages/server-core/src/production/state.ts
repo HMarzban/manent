@@ -12,12 +12,13 @@ import {
 import type { Engine, LockAnchorRecord, PageProfile } from "@manent/pagination";
 import {
   COLOUR_ORDERS,
+  REVISION_COLOURS,
   compareSceneNumbers,
   deriveNumbers,
   lockedPagination,
   productionLayout,
 } from "@manent/revisions";
-import type { LockedLayout } from "@manent/revisions";
+import type { LockedLayout, RevisionColour } from "@manent/revisions";
 import { blocksOf } from "@manent/schema";
 import type { DocJSON, FlatBlock } from "@manent/schema";
 import type {
@@ -221,7 +222,7 @@ function setView(
   };
 }
 
-function issueView(
+export function issueView(
   row: IssueRow,
   names: (userId: string) => string,
 ): IssueView {
@@ -240,6 +241,13 @@ function issueView(
     tint: row.tint,
     what: memberOf(ISSUE_WHATS, row.what, "issue extent"),
   };
+}
+
+/** The script's colour order as it was locked; the standard order for a script never locked. */
+export function colourOrderOf(file: DocFile, docId: string): RevisionColour[] {
+  const stored =
+    file.production.get(docId)?.colourOrder ?? COLOUR_ORDERS.standard;
+  return stored.map((colour) => memberOf(REVISION_COLOURS, colour, "colour"));
 }
 
 /** True from Lock for production until End production. */

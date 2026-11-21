@@ -110,6 +110,8 @@ export interface ProductionWorld {
   lock(key?: string): Promise<ProductionState>;
   /** Sam appends `words` words to the last block of the page as seeded, committed. */
   editPage(page: number, words: number): Promise<void>;
+  /** The same edit pushed and left queued, not yet committed. */
+  queueEdit(page: number, words: number): void;
   blocks(): FlatBlock[];
   settings(): Record<string, unknown>;
   versions(): VersionRow[];
@@ -285,6 +287,12 @@ export function productionWorld(): ProductionWorld {
   const leo = person("leo", 5005, "view");
   leo.take();
 
+  const queueEdit = (page: number, words: number): void => {
+    const id = lastBlockOf(page);
+    const at = sam.text(id).length;
+    sam.push((w) => w.insertText(id, at, ` ${WORD.repeat(words).trim()}`));
+  };
+
   const content = (): VersionContent => {
     const seq = file.log.get(DOC)?.headSeq ?? 0;
     const found = contentAt(file, DOC, { generation: 1, seq });
@@ -304,11 +312,10 @@ export function productionWorld(): ProductionWorld {
     lock: async (lockKey = KEY1) =>
       valueOf(await run(service.lock("priya", lockRequest(lockKey)))),
     async editPage(page, words) {
-      const id = lastBlockOf(page);
-      const at = sam.text(id).length;
-      sam.push((w) => w.insertText(id, at, ` ${WORD.repeat(words).trim()}`));
+      queueEdit(page, words);
       await run(Promise.resolve());
     },
+    queueEdit,
     blocks: () => blocksOf(sectionize(content().blocks)),
     settings: () => content().settings,
     versions: () => file.history.page(DOC, null, 500),

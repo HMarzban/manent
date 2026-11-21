@@ -17,7 +17,6 @@ import {
 import type { RevisionColour } from "@manent/revisions";
 import { blocksOf } from "@manent/schema";
 import { SETTINGS } from "@manent/settings";
-import { COLOUR_ORDER_IDS, NUMBERING_SCHEMES } from "@manent/sync-protocol";
 import type {
   LockRequest,
   ProductionState,
@@ -78,11 +77,7 @@ export function lockMutation(
     need: "lock_page_numbers",
     tells: ["lock_anchors_changed", "layout_changed"],
     check(file) {
-      const valid =
-        NUMBERING_SCHEMES.includes(request.numbering) &&
-        COLOUR_ORDER_IDS.includes(request.colourOrder) &&
-        isDay(request.lockedOn);
-      if (!valid) return refused("bad_request");
+      if (!isDay(request.lockedOn)) return refused("bad_request");
       return isLocked(file, docId) ? refused("already_locked") : null;
     },
     edit(doc, file) {

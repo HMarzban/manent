@@ -11,6 +11,7 @@ import type {
   RecallRequest,
 } from "@manent/sync-protocol";
 import type { HistoryExtras } from "../history/service.ts";
+import { issueMutation } from "./issue.ts";
 import { endMutation, lockMutation, unlockMutation } from "./lock.ts";
 import type { ProductionOutcome } from "./outcome.ts";
 import { pagesMutation } from "./pages.ts";
@@ -83,7 +84,11 @@ export function createProductionService(
     end: (userId, request) =>
       requests.mutate(userId, endMutation(options, requests, userId, request)),
     layout: unbuilt("layout"),
-    issue: unbuilt("issue"),
+    issue: (userId, request) =>
+      requests.mutate(
+        userId,
+        issueMutation(options, requests, userId, request),
+      ),
     recall: unbuilt("recall"),
     file: unbuilt("file"),
     hooks: { subscribed: () => null, checkPush: () => [] },
