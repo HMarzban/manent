@@ -176,16 +176,16 @@ function fontsOf(dom: HTMLElement): DriftReport["fonts"] {
 }
 
 /**
- * Whether the monitor measures a block: not one with a node decoration marking a change (named `changes` in
- * its spec), which draws text beside the block's own that the engine never laid out. `decorations` are those
- * drawn over the block.
+ * Whether the monitor measures a block: not one with a node decoration marking a change (its spec names the
+ * change as `changes` and the block's id as `blockId`), which draws text beside the block's own that the engine
+ * never laid out. `decorations` are those drawn over the block, and may hold its neighbours' too.
  */
 export function isDriftCandidate(
   node: Node,
   decorations: readonly Decoration[],
 ): boolean {
   return !decorations.some(
-    (d) => d.to - d.from === node.nodeSize && d.spec.changes !== undefined,
+    (d) => d.spec.changes !== undefined && d.spec.blockId === node.attrs["id"],
   );
 }
 

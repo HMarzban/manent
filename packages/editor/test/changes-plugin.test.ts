@@ -16,7 +16,13 @@ import {
   setChanges,
 } from "../src/index.ts";
 import type { ChangesDisplay } from "../src/index.ts";
-import { arbTransactions, bid, state as paginated } from "./docs.ts";
+import {
+  arbTransactions,
+  bid,
+  ids,
+  state as paginated,
+  replaceWholeDoc,
+} from "./docs.ts";
 
 const A = "action";
 const b = (type: string, text: string): [string, string] => [type, text];
@@ -70,17 +76,22 @@ const baselineWith = (
     k % (2_000 / count) === 0 ? change(block) : block,
   ]);
 
-/** A state of `live` with the pagination plugin and then the changes plugin, showing the changes since `baseline`. */
+/** A state of `live` with the pagination plugin and then the changes plugin, showing nothing. */
+function withPlugin(live: DocJSON): EditorState {
+  const plain = paginated(parseDoc(live));
+  return EditorState.create({
+    doc: plain.doc,
+    plugins: [...plain.plugins, changesPlugin()],
+  });
+}
+
+/** withPlugin(live), showing the changes since `baseline`. */
 function withChanges(
   live: DocJSON,
   baseline: DocJSON,
   display: ChangesDisplay = "page",
 ): EditorState {
-  const plain = paginated(parseDoc(live));
-  const s = EditorState.create({
-    doc: plain.doc,
-    plugins: [...plain.plugins, changesPlugin()],
-  });
+  const s = withPlugin(live);
   return s.apply(
     setChanges(s.tr, {
       baseline,
@@ -255,14 +266,15 @@ const baselines = [
       : [block],
   ),
 ];
+const versions = baselines.flatMap((baseline) =>
+  (["page", "asterisks"] as const).map((display) => ({
+    baseline,
+    display,
+    state: withChanges(script, baseline, display),
+  })),
+);
 const arbEditsWithChanges = fc.record({
-  state: fc.constantFrom(
-    ...baselines.flatMap((baseline) =>
-      (["page", "asterisks"] as const).map((display) =>
-        withChanges(script, baseline, display),
-      ),
-    ),
-  ),
+  state: fc.constantFrom(...versions.map(({ state }) => state)),
   steps: arbTransactions,
 });
 const applyAll = (s: EditorState, steps: (s: EditorState) => EditorState) =>
@@ -277,6 +289,202 @@ test("the decorations never change the document", () => {
     }),
     { numRuns: 300 },
   );
+});
+
+/** Every decoration of the plugin, with its place, spec and what it draws, in one order. */
+const drawingOf = (s: EditorState): string[] =>
+  changesKey
+    .getState(s)!
+    .decorations.find()
+    .map((d) =>
+      JSON.stringify([
+        d.from,
+        d.to,
+        d.spec,
+        shapeOf(s, d) === "widget" ? drawn(d).textContent : attrsOf(d),
+      ]),
+    )
+    .toSorted();
+
+const moveBlock = (s: EditorState, from: number, to: number): EditorState => {
+  const at = posIn(s, from) - 1;
+  const node = s.doc.nodeAt(at)!;
+  const tr = s.tr.delete(at, at + node.nodeSize);
+  return s.apply(tr.insert(tr.mapping.map(posIn(s, to) - 1), node));
+};
+
+/** A block taken from its place and put at another in one transaction. */
+const arbMove = fc.tuple(fc.nat(), fc.nat()).map(([from, to]) =>
+  Object.assign(
+    (s: EditorState): EditorState => {
+      const count = paginationKey.getState(s)!.index.blocks.length;
+      return count < 2 ? s : moveBlock(s, from % count, to % (count + 1));
+    },
+    { toString: () => `move ${from} to ${to}` },
+  ),
+);
+
+/** Up to three runs of edits or moves, applied in order. */
+const arbEdits = fc
+  .array(fc.oneof(arbTransactions, arbMove), { minLength: 1, maxLength: 3 })
+  .map((runs) =>
+    Object.assign(
+      (s: EditorState) => runs.reduce((state, edits) => edits(state), s),
+      { toString: () => runs.map(String).join(" then ") },
+    ),
+  );
+
+test("after any edits the changes kept equal those of comparing the script afresh", () => {
+  fc.assert(
+    fc.property(
+      fc.nat({ max: versions.length - 1 }),
+      arbEdits,
+      (version, steps) => {
+        const { baseline, display, state } = versions[version]!;
+        const marked = steps(state);
+        const held = ids(marked.doc).flat();
+        // the editor keeps block ids unique; the generator's id sources restart with each edit
+        fc.pre(new Set(held).size === held.length);
+        const live: DocJSON = marked.doc.toJSON();
+        const fresh = withChanges(live, baseline, display);
+        expect([
+          changesKey.getState(marked)!.comparison,
+          drawingOf(marked),
+        ]).toEqual([compareDocs(baseline, live), drawingOf(fresh)]);
+      },
+    ),
+    { numRuns: 300 },
+  );
+});
+
+test("a block moved off the baseline's order counts as moved until it is moved back", () => {
+  const blocks = doc(b(A, "Rain"), b(A, "Dusk"), b(A, "Dawn"));
+  const s = withChanges(blocks, blocks);
+  const moved = moveBlock(s, 2, 0);
+  const back = moveBlock(moved, 0, 3);
+  expect(
+    [moved, back].map((t) => {
+      const comparison = changesKey.getState(t)!.comparison!;
+      return [
+        comparison.counts,
+        changeCount(comparison),
+        comparison.entries.map((entry) => [entry.id, entry.moved]),
+      ];
+    }),
+  ).toEqual([
+    [
+      { added: 0, removed: 0, changed: 0, moved: 1 },
+      1,
+      [
+        [bid(2), true],
+        [bid(0), false],
+        [bid(1), false],
+      ],
+    ],
+    [
+      { added: 0, removed: 0, changed: 0, moved: 0 },
+      0,
+      [
+        [bid(0), false],
+        [bid(1), false],
+        [bid(2), false],
+      ],
+    ],
+  ]);
+});
+
+test("a comparison taken before the last keystroke is shown as the page is now", () => {
+  const live = doc(b(A, "Rain"), b(A, "No one crossed"));
+  const baseline = doc(b(A, "Rain"), b(A, "No one has crossed"));
+  const s = withPlugin(live);
+  const typed = s.apply(s.tr.insertText("has ", posIn(s, 1, 7)));
+  const t = typed.apply(
+    setChanges(typed.tr, {
+      baseline,
+      comparison: compareDocs(baseline, live),
+      display: "page",
+    }),
+  );
+  expect([
+    decorationsOf(t),
+    changeCount(changesKey.getState(t)!.comparison!),
+  ]).toEqual([[], 0]);
+});
+
+test("a removed block is listed before the next block that keeps its place, after blocks added since", () => {
+  const blocks = doc(b(A, "Rain"), b(A, "The ferry leaves."), b(A, "Dawn"));
+  const s = withChanges(blocks, blocks);
+  const deleted = s.apply(s.tr.delete(posIn(s, 1) - 1, posIn(s, 2) - 1));
+  const { schema } = deleted;
+  const t = deleted.apply(
+    deleted.tr.insert(
+      posIn(deleted, 1) - 1,
+      schema.nodes["block"]!.create({ id: bid(3) }, schema.text("Fog")),
+    ),
+  );
+  expect(
+    changesKey
+      .getState(t)!
+      .comparison!.entries.map((entry) => [entry.id, entry.kind, entry.after]),
+  ).toEqual([
+    [bid(0), "unchanged", null],
+    [bid(3), "added", null],
+    [bid(1), "removed", bid(0)],
+    [bid(2), "unchanged", null],
+  ]);
+});
+
+test("a block split from one deleted later is no longer shown as split from it", () => {
+  const baseline = doc(b(A, "Rain"), b(A, "Dusk"));
+  const live = edited(
+    doc(b(A, "Rain"), b(A, "Dusk"), b(A, "Dawn")),
+    (block, k) => [
+      k === 2
+        ? { ...block, attrs: { ...block.attrs, from: `${bid(1)}:n1` } }
+        : block,
+    ],
+  );
+  const s = withChanges(live, baseline);
+  const t = s.apply(s.tr.delete(posIn(s, 1) - 1, posIn(s, 2) - 1));
+  expect(
+    [s, t].map((state) =>
+      changesKey
+        .getState(state)!
+        .comparison!.entries.map((entry) => [
+          entry.id,
+          entry.kind,
+          entry.splitFrom,
+        ]),
+    ),
+  ).toEqual([
+    [
+      [bid(0), "unchanged", null],
+      [bid(1), "unchanged", null],
+      [bid(2), "added", bid(1)],
+    ],
+    [
+      [bid(0), "unchanged", null],
+      [bid(2), "added", null],
+      [bid(1), "removed", null],
+    ],
+  ]);
+});
+
+test("a remote change replacing the whole script keeps the marks of the blocks it left alone", () => {
+  const s = withChanges(
+    doc(b(A, "Rain"), b(A, "The ferry leaves."), b(A, "Dawn")),
+    doc(b(A, "Rain"), b(A, "The ferry left."), b(A, "Dawn")),
+  );
+  const t = s.apply(
+    replaceWholeDoc(s, 2, "Dawn breaks").setMeta("remote", true),
+  );
+  expect(decorationsOf(t)).toEqual([
+    ["widget", "del", "left"],
+    ["inline", "ins", "mn-added", "leaves"],
+    ["inline", "ins", "mn-added", " breaks"],
+    ["node", "changed"],
+    ["node", "changed"],
+  ]);
 });
 
 test("hiding changes leaves no decoration", () => {
@@ -294,8 +502,8 @@ test("hiding changes leaves no decoration", () => {
 
 test("a block carrying change marks is not measured for drift", () => {
   const s = withChanges(
-    doc(b(A, "Rain"), b(A, "The ferry leaves."), b(A, "Dawn")),
-    doc(b(A, "Rain"), b(A, "The ferry left."), b(A, "Dawn")),
+    doc(b(A, "Rain"), b(A, "Dask"), b(A, "Dawn")),
+    doc(b(A, "Rain"), b(A, "Dusk"), b(A, "Dawn")),
   );
   const sets = [
     paginationKey.getState(s)!.decorations,

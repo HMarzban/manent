@@ -6,6 +6,7 @@ import {
   createComparisonBuilder,
   idOf,
   isSceneHeading,
+  longestIncreasingSubsequence,
   textOf,
 } from "@manent/revisions";
 import type { BlockEntry, CompareMode, Comparison } from "@manent/revisions";
@@ -143,68 +144,60 @@ function splitOf(
     : null;
 }
 
-/** One live block against the baseline; `was` is its entry before, whose scene and split it keeps until the walk sets them. */
-function liveEntry(
-  { id, block }: LiveBlock,
-  was: BlockEntry | undefined,
-  b: Baseline,
-): BlockEntry {
-  const older = b.older.get(id);
-  const sceneId = was?.sceneId ?? null;
-  if (older === undefined)
-    return Object.freeze({
-      ...NO_CHANGE,
-      id,
-      kind: "added",
-      older: null,
-      newer: block,
-      sceneId,
-      olderIndex: null,
-    });
+/** One live block against the baseline; its scene, split and move are left for the walk to set. */
+function liveEntry({ id, block }: LiveBlock, b: Baseline): BlockEntry {
+  const older = b.older.get(id) ?? null;
   const changes =
-    JSON.stringify(older) === JSON.stringify(block)
+    older === null || JSON.stringify(older) === JSON.stringify(block)
       ? null
       : compareBlock(older, block, b.mode);
   return Object.freeze({
     ...NO_CHANGE,
     ...changes,
     id,
-    kind: changes === null ? "unchanged" : "changed",
-    moved: was?.moved ?? false,
+    kind: older === null ? "added" : changes === null ? "unchanged" : "changed",
     older,
     newer: block,
-    sceneId,
+    sceneId: null,
     olderIndex: b.olderAt.get(id)?.index ?? null,
   });
 }
 
-/** The removed ids after each baseline block the live document holds (null: the start), in baseline order. */
-function groupByAfter(
+/**
+ * The removed blocks, in baseline order, by the block that keeps its place they are listed before (null: the
+ * end); `staying` holds the baseline places of the blocks that keep theirs, ascending.
+ */
+function groupRemoved(
   b: Baseline,
   removed: ReadonlySet<string>,
-): Map<string | null, string[]> {
+  staying: readonly number[],
+): Map<string | null, Pick<BlockEntry, "id" | "after">[]> {
   const afterOf = new Map<string, string | null>();
-  const groups = new Map<string | null, string[]>();
+  const groups = new Map<string | null, Pick<BlockEntry, "id" | "after">[]>();
   const ids = [...removed].toSorted(
     (x, y) => b.olderAt.get(x)!.index - b.olderAt.get(y)!.index,
   );
+  let s = 0;
   for (const id of ids) {
-    const before = b.order[b.olderAt.get(id)!.index - 1] ?? null;
+    const i = b.olderAt.get(id)!.index;
+    const prior = b.order[i - 1] ?? null;
     // ascending order: a removed block before this one already has its answer
     const after =
-      before !== null && removed.has(before) ? afterOf.get(before)! : before;
+      prior !== null && removed.has(prior) ? afterOf.get(prior)! : prior;
     afterOf.set(id, after);
-    const group = groups.get(after);
-    if (group === undefined) groups.set(after, [id]);
-    else group.push(id);
+    while (s < staying.length && staying[s]! < i) s++;
+    const before = s < staying.length ? b.order[staying[s]!]! : null;
+    const group = groups.get(before);
+    if (group === undefined) groups.set(before, [{ id, after }]);
+    else group.push({ id, after });
   }
   return groups;
 }
 
 /**
- * The comparison of the live entries and the removed blocks, in compareDocs' order, with scene headings and
- * removed blocks' places set again, and the removed entries to draw anew: those new, changed, or after a
- * block `near` names.
+ * The comparison of the live entries and the removed blocks, in compareDocs' order, with scene headings, splits,
+ * moves and removed blocks' places set again, and the removed entries to draw anew: those new, changed, or after
+ * a block `near` names.
  */
 function assemble(
   b: Baseline,
@@ -213,15 +206,29 @@ function assemble(
   was: ReadonlyMap<string, BlockEntry>,
   near: (k: number) => boolean,
 ) {
-  const groups = groupByAfter(b, removedIds);
+  // as compareDocs moves them: the blocks both sides hold off the longest run in the baseline's order
+  const held = entries.flatMap((entry, k) =>
+    entry.olderIndex === null ? [] : [k],
+  );
+  const places = held.map((k) => entries[k]!.olderIndex!);
+  const run = longestIncreasingSubsequence(places);
+  const staying = new Set(run.map((j) => held[j]!));
+  const liveAt = new Map(held.map((k) => [entries[k]!.id, k]));
+  const groups = groupRemoved(
+    b,
+    removedIds,
+    run.map((j) => places[j]!),
+  );
   const builder = createComparisonBuilder({ mode: b.mode });
   const removed = new Map<string, BlockEntry>();
   const placed: PlacedRemoval[] = [];
-  const emit = (after: string | null, k: number, at: BlockJSON | null) => {
-    for (const id of groups.get(after) ?? []) {
+  const emit = (before: string | null) => {
+    for (const { id, after } of groups.get(before) ?? []) {
+      const k = after === null ? -1 : liveAt.get(after)!;
       const older = b.older.get(id)!;
       const place = b.olderAt.get(id)!;
       const text = textOf(older);
+      const at = k < 0 ? null : entries[k]!.newer;
       const joined =
         at !== null && text !== "" && textOf(at).endsWith(text) ? after : null;
       const prev = was.get(id);
@@ -243,32 +250,27 @@ function assemble(
       builder.add(entry);
       if (entry !== prev || near(k)) placed.push({ entry, after: k });
     }
-    groups.delete(after);
-  };
-  // as compareDocs lists them: before the next block that keeps its place, after any added or moved ones
-  let pending: [string | null, number, BlockJSON | null][] = [[null, -1, null]];
-  const flush = () => {
-    for (const [after, k, at] of pending) emit(after, k, at);
-    pending = [];
   };
   let heading: string | null = null;
   const live = entries.map((entry, k) => {
-    if (entry.older !== null && !entry.moved) flush();
+    if (staying.has(k)) emit(entry.id);
     if (entry.newer !== null && isSceneHeading(entry.newer)) heading = entry.id;
     // a block leaving or coming back changes the scene and the split of blocks the change never reached
     const splitFrom =
       entry.kind === "added" && entry.newer !== null
         ? splitOf(entry.newer, b, removedIds)
         : null;
+    const moved = entry.olderIndex !== null && !staying.has(k);
     const next =
-      entry.sceneId === heading && entry.splitFrom === splitFrom
+      entry.sceneId === heading &&
+      entry.splitFrom === splitFrom &&
+      entry.moved === moved
         ? entry
-        : Object.freeze({ ...entry, sceneId: heading, splitFrom });
+        : Object.freeze({ ...entry, sceneId: heading, splitFrom, moved });
     builder.add(next);
-    pending.push([next.id, k, next.newer]);
     return next;
   });
-  flush();
+  emit(null);
   return { kept: { live, removed, comparison: builder.comparison() }, placed };
 }
 
@@ -285,9 +287,14 @@ function shown(value: ChangesValue, state: EditorState): Tracked {
   );
   const held = new Set(blocks.map(({ id }) => id));
   const removedIds = new Set(b.order.filter((id) => !held.has(id)));
-  const entries = blocks.map(
-    (live) => given.get(live.id) ?? liveEntry(live, undefined, b),
-  );
+  // a comparison taken in slices is older than the page when the person typed while it ran
+  const entries = blocks.map((live) => {
+    const entry = given.get(live.id);
+    return entry !== undefined &&
+      JSON.stringify(entry.newer) === JSON.stringify(live.block)
+      ? entry
+      : liveEntry(live, b);
+  });
   const a = assemble(b, entries, removedIds, new Map(), () => false);
   const decorations =
     value.display === "asterisks"
@@ -319,24 +326,14 @@ function recompare(
   );
   for (const { id } of replaced)
     if (!entering.has(id) && prev.older.has(id)) removedIds.add(id);
-  const was = new Map(replaced.map((entry) => [entry.id, entry]));
-  const fresh = blocks.map((live) => liveEntry(live, was.get(live.id), prev));
-  const entries = [
-    ...prev.live.slice(0, first),
-    ...fresh,
-    ...prev.live.slice(oldEnd),
-  ];
-  const a = assemble(
-    prev,
-    entries,
-    removedIds,
-    prev.removed,
-    (k) => k >= first - 1 && k < newEnd,
-  );
+  const fresh = blocks.map((live) => liveEntry(live, prev));
+  const entries = prev.live.toSpliced(first, oldEnd - first, ...fresh);
+  const near = (k: number) => k >= first - 1 && k < newEnd;
+  const a = assemble(prev, entries, removedIds, prev.removed, near);
   const redraw = {
     ...a.kept,
     placed: a.placed,
-    replaced: new Set([...was.keys(), ...entering]),
+    replaced: new Set([...replaced.map(({ id }) => id), ...entering]),
     was: prev.removed,
   };
   return {
