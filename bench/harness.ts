@@ -21,13 +21,12 @@ import {
   scenarioEnv,
 } from "./env.ts";
 import { isQuiet, measurement, waitForQuiet } from "./measure.ts";
-import { writeResultFile } from "./result.ts";
+import { UNITS, WORKLOADS, writeResultFile } from "./result.ts";
 import type { MetricSummary, Quiet, ScenarioResult } from "./result.ts";
 import { AREAS } from "./tiers/tiers.ts";
 import type { Area, TierId } from "./tiers/tiers.ts";
 
-export const WORKLOADS = ["W1", "W2", "W3", "W4", "W5", "W6", "W7"] as const;
-export const UNITS = ["ms", "bytes", "count", "percent"] as const;
+export { UNITS, WORKLOADS };
 
 export interface Measurement {
   metric: string;

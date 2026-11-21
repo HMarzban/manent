@@ -6,9 +6,11 @@ import { join } from "node:path";
 import { BUDGET_STATS, VERDICTS, isRecord } from "./budgets.ts";
 import type { Verdict } from "./budgets.ts";
 import { MODES, THROTTLES } from "./env.ts";
-import { UNITS, WORKLOADS } from "./harness.ts";
 import { AREAS, TIER_IDS } from "./tiers/tiers.ts";
 import type { Area, TierId } from "./tiers/tiers.ts";
+
+export const WORKLOADS = ["W1", "W2", "W3", "W4", "W5", "W6", "W7"] as const;
+export const UNITS = ["ms", "bytes", "count", "percent"] as const;
 
 export type Unit = (typeof UNITS)[number];
 export type Workload = (typeof WORKLOADS)[number];

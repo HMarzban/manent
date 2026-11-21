@@ -1,6 +1,6 @@
-// One room, 200 editors, 5 of them typing 5 characters a second for 20 seconds: the time from a
-// typist's PUSH to each listening editor's copy of the update, and how late a 10 ms timer fires
-// meanwhile, with the service in this process.
+// One room, 200 editors, 5 of them typing 5 characters a second for 20 seconds: the time from
+// just before the service receives a typist's PUSH to the last listening editor's copy of the
+// update, and how late a 10 ms timer fires meanwhile, with the service in this process.
 import { browserClock } from "@manent/client-web";
 import { createRng } from "@manent/demo";
 import { createMemoryStorage } from "@manent/storage/testing";
@@ -53,9 +53,9 @@ function watchEventLoop(): { lateness: number[]; stop(): Promise<void> } {
 
 /** What a run's typists sent and its listeners heard. */
 interface Fanout {
-  /** For each committed push, in the order the room publishes them: what tells each listener's sample its copy arrived. */
-  arrivals: (() => void)[][];
-  /** From a push to one listener's copy of it, in ms. */
+  /** For each committed push, in the order the room publishes them: what each listener calls when its copy arrives. */
+  arrivals: (() => void)[];
+  /** One per push: from just before the service receives it to the last listener's copy of it, in ms. */
   samples: Promise<number>[];
 }
 
@@ -70,7 +70,7 @@ function joinListeners(
     let heard = 0;
     const peer = createBenchPeer(userId, (message) => {
       if (message.type !== FRAME.SYNC) return;
-      fanout.arrivals[heard]?.[n]?.();
+      fanout.arrivals[heard]?.();
       heard += 1;
     });
     joinAsEditor(service, peer, {
@@ -101,12 +101,18 @@ function startTyping(
     });
     const type = (): void => {
       const push = keystrokes.next();
-      const arrived = Array.from({ length: listeners }, () =>
-        Promise.withResolvers<void>(),
+      const lastCopy = Promise.withResolvers<void>();
+      let waiting = listeners;
+      fanout.arrivals.push(() => {
+        waiting -= 1;
+        if (waiting === 0) lastCopy.resolve();
+      });
+      fanout.samples.push(
+        sampleMs(() => {
+          service.receive(peer, push);
+          return lastCopy.promise;
+        }),
       );
-      fanout.arrivals.push(arrived.map((a) => a.resolve));
-      for (const a of arrived) fanout.samples.push(sampleMs(() => a.promise));
-      service.receive(peer, push);
     };
     let interval: Timer | null = null;
     const start = setTimeout(
