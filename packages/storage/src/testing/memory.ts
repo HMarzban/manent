@@ -10,6 +10,7 @@ import {
   corruptRow,
   createAdoptions,
   createGenerations,
+  createHistory,
   createLog,
   createReplays,
   flipFirstByte,
@@ -46,6 +47,8 @@ type StoredCheckpoint = { generation: number; seq: number; sha: string } & {
 interface MemoryState {
   logs: Map<string, Logged>;
   checkpoints: Map<string, StoredCheckpoint[]>;
+  /** By version id. */
+  pins: Map<string, { docId: string; generation: number; seq: number }>;
   measures: Map<string, MeasureRow>;
   places: Map<string, { home: Home; kind: string }>;
   roles: Map<
@@ -74,13 +77,25 @@ function createCheckpoints(memory: () => MemoryState): DocFile["checkpoints"] {
     stored(docId)
       .filter((c) => c.generation === generation)
       .toSorted(newestFirst);
+  // for each pin of the generation, the newest checkpoint at or before its seq
+  const pinned = (docId: string, generation: number) =>
+    [...memory().pins.values()]
+      .filter((p) => p.docId === docId && p.generation === generation)
+      .flatMap((p) =>
+        ofGeneration(docId, generation)
+          .filter((c) => c.seq <= p.seq)
+          .slice(0, 1),
+      );
   const checkpoints: DocFile["checkpoints"] = {
     put(docId, generation, seq, state) {
       const sha = sha256(state).toHex();
       keep(docId, (c) => c.generation !== generation || c.seq !== seq);
       const copy = new Uint8Array(state);
       stored(docId).push({ generation, seq, sha, state: copy });
-      const older = ofGeneration(docId, generation).slice(CHECKPOINTS_KEPT);
+      const kept = pinned(docId, generation);
+      const older = ofGeneration(docId, generation)
+        .slice(CHECKPOINTS_KEPT)
+        .filter((c) => !kept.includes(c));
       keep(docId, (c) => !older.includes(c));
     },
     newest: (docId, generation) =>
@@ -95,6 +110,17 @@ function createCheckpoints(memory: () => MemoryState): DocFile["checkpoints"] {
       const found = candidates[index];
       if (found === undefined) return null;
       return { seq: found.seq, state: new Uint8Array(found.state) };
+    },
+    pin: (versionId, docId, generation, seq) =>
+      void memory().pins.set(versionId, { docId, generation, seq }),
+    unpin(versionIds) {
+      for (const versionId of versionIds) memory().pins.delete(versionId);
+    },
+    purge(docId, generation) {
+      keep(docId, (c) => c.generation !== generation);
+      for (const [versionId, p] of memory().pins)
+        if (p.docId === docId && p.generation === generation)
+          memory().pins.delete(versionId);
     },
   };
   return checkpoints;
@@ -153,6 +179,7 @@ function openFile(ctx: Context, home: Home, key: string): DocFile {
     home: { ...home },
     log: createLog(ctx.now, read, write),
     versions,
+    history: createHistory(read, write),
     checkpoints: createCheckpoints(ctx.state),
     generations: createGenerations(ctx.now, read, write),
     replays: createReplays(read, write),
@@ -207,6 +234,10 @@ function createDirectory(ctx: Context): Storage["directory"] {
           capabilities: [...capabilities],
         }))
         .toSorted((a, b) => (a.userId < b.userId ? -1 : 1)),
+    hasRoleBesides: (docId, userId) =>
+      [...state().roles.values()].some(
+        (row) => row.docId === docId && row.userId !== userId,
+      ),
     tombstone(docId, deletedByUserId) {
       const row = { deletedByUserId, deletedAt: now() };
       if (!state().tombstones.has(docId))
@@ -231,6 +262,7 @@ export function createMemoryStorage(options: {
   let state: MemoryState = {
     logs: new Map(),
     checkpoints: new Map(),
+    pins: new Map(),
     measures: new Map(),
     places: new Map(),
     roles: new Map(),

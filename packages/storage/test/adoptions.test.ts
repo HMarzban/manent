@@ -83,7 +83,7 @@ test("a file written at version 2 is carried to 3 and keeps its rows", async () 
     ],
     adoption: null,
   });
-  expect(userVersion(path)).toBe(3);
+  expect(userVersion(path)).toBe(STORAGE_SCHEMA_VERSION);
   expect(rawRows(path, "SELECT * FROM doc_adoptions")).toEqual([]);
 });
 

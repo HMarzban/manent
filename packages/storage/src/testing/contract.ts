@@ -4,6 +4,7 @@ import type { DocFile, Home, Storage, VersionRow } from "../ports.ts";
 import { COLOR_COUNT, StorageError } from "../ports.ts";
 import { DOC, DOC2, DOC3, HOME, item } from "./contract-fixtures.ts";
 import { generationsContract } from "./generations-contract.ts";
+import { historyContract } from "./history-contract.ts";
 
 /** A driver as its contract drives it: `corruptRow` and `corruptCheckpoint` damage stored bytes and leave their checksum. */
 export interface StorageUnderTest {
@@ -39,9 +40,6 @@ export function storageContract(
     createdAt: clock.now(),
     deviceId: null,
   });
-  const corruptRow = (docId: string, seq: number) =>
-    under.corruptRow(docId, seq);
-  const corruptCheckpoint = (docId: string) => under.corruptCheckpoint(docId);
 
   beforeEach(async () => {
     time = 1_000;
@@ -223,7 +221,7 @@ export function storageContract(
 
   test("a row whose checksum fails is quarantined, the rest still loads, and the document is flagged", () => {
     for (const n of [1, 2, 3]) f.log.append(item(n));
-    corruptRow(DOC, 2);
+    under.corruptRow(DOC, 2);
     // looked at, not moved
     expect(f.log.tail(DOC, 1, 0, { quarantine: false })).toMatchObject({
       corrupt: [2],
@@ -253,14 +251,14 @@ export function storageContract(
       seq: 40,
       state: new Uint8Array([40]),
     });
-    corruptCheckpoint(DOC);
+    under.corruptCheckpoint(DOC);
     expect(f.checkpoints.newest(DOC, 1)).toEqual({
       seq: 30,
       state: new Uint8Array([30]),
     });
     // 30, then 20: seq 10 was dropped when 40 was put
-    corruptCheckpoint(DOC);
-    corruptCheckpoint(DOC);
+    under.corruptCheckpoint(DOC);
+    under.corruptCheckpoint(DOC);
     expect(f.checkpoints.newest(DOC, 1)).toBeNull();
     expect(f.checkpoints.newest(DOC, 2)).toBeNull();
   });
@@ -394,7 +392,8 @@ export function storageContract(
     file: () => f,
     now: clock.now,
     reopen: () => under.reopen(),
-    corruptRow,
-    corruptCheckpoint,
+    corruptRow: (docId, seq) => under.corruptRow(docId, seq),
+    corruptCheckpoint: (docId) => under.corruptCheckpoint(docId),
   });
+  historyContract({ file: () => f, storage: () => s });
 }
