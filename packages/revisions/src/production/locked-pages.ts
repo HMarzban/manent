@@ -9,12 +9,15 @@ import type {
   PageProfile,
   Pagination,
 } from "@manent/pagination";
+import { elasticPages } from "./elastic.ts";
 
 export interface LockedLayout {
   readonly locks: LockTable;
   readonly pagination: Pagination;
   /** Labels of issue anchors set aside so that their pages absorb their parent's overflow. */
   readonly dropped: readonly string[];
+  /** Labels of imported pages that hold more than ELASTIC_LINES over and continue on A-pages. */
+  readonly overflowing: readonly string[];
 }
 
 const LEADING_LETTERS = /^[A-Z]+/;
@@ -65,7 +68,7 @@ function collisions(
  * The pages under the records. Where a parent's overflow would be labelled with a prefix in front of
  * a page that a level-1 issue anchor starts, that anchor is set aside and the script laid out again,
  * so the overflow takes the A-page's label; once the parent fits, the anchor holds again. An anchor
- * of another level or source is never set aside.
+ * of another level or source is never set aside. The pages are elasticPages of that layout.
  */
 export function lockedPagination(
   blocks: readonly LayoutBlock[],
@@ -79,12 +82,15 @@ export function lockedPagination(
     const locks = toLockTable(kept);
     const pagination = engine.paginate(blocks, profile, locks);
     const colliding = new Set(collisions(pagination, kept));
-    if (colliding.size === 0)
+    if (colliding.size === 0) {
+      const elastic = elasticPages(pagination);
       return Object.freeze({
         locks,
-        pagination,
+        pagination: elastic.pagination,
         dropped: Object.freeze(dropped),
+        overflowing: Object.freeze(elastic.overflowing),
       });
+    }
     kept = kept.filter(
       (record) => !(isAbsorbing(record) && colliding.has(record.label)),
     );
