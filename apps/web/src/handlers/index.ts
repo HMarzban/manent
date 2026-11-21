@@ -10,6 +10,7 @@ import { demoHandlers } from "./demo.ts";
 import { createDesktopHandlers } from "./desktop.ts";
 import { documentHandlers } from "./document.ts";
 import { createEditorHandlers } from "./editor.ts";
+import { historyHandlers } from "./history.ts";
 import { libraryHandlers } from "./library.ts";
 import { preferencesHandlers } from "./preferences.ts";
 import { syncHandlers } from "./sync.ts";
@@ -64,5 +65,6 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     ...demoHandlers(),
     ...syncHandlers(),
     ...createDesktopHandlers(deps),
+    ...historyHandlers(),
   };
 }

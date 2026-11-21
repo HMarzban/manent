@@ -155,6 +155,19 @@ test("the Stage 1 commands are these, with these words and keys", () => {
     ["library.newScript", "New script", [], []],
     ["library.newProject", "New project", [], []],
     ["demo.tour", "Tour", [], []],
+    ["history.markVersion", "Mark a version", ["Mod+S"], ["Mod+S"]],
+    ["history.nameDraft", "Name this draft…", ["Mod+Shift+S"], ["Mod+Shift+S"]],
+    ["history.changesSince", "Changes since", [], []],
+    ["history.hideChanges", "Hide", [], []],
+    ["history.showSinceOpened", "Show", [], []],
+    ["history.backToWorking", "Back to Working", [], []],
+    ["history.nextChange", "Next change", [], []],
+    ["history.previousChange", "Previous change", [], []],
+    ["history.restore", "Restore", [], []],
+    ["history.restoreScene", "Restore this scene", [], []],
+    ["history.restoreBefore", "Restore 'Before restore'", [], []],
+    ["history.seeWhatChanged", "See what changed", [], []],
+    ["history.whoWrote", "Who wrote this?", [], []],
   ]);
 });
 
@@ -696,6 +709,19 @@ test("the handler table names every command but the generated ones", () => {
     "library.newScript": noop,
     "library.newProject": noop,
     "demo.tour": noop,
+    "history.markVersion": noop,
+    "history.nameDraft": noop,
+    "history.changesSince": noop,
+    "history.hideChanges": noop,
+    "history.showSinceOpened": noop,
+    "history.backToWorking": noop,
+    "history.nextChange": noop,
+    "history.previousChange": noop,
+    "history.restore": noop,
+    "history.restoreScene": noop,
+    "history.restoreBefore": noop,
+    "history.seeWhatChanged": noop,
+    "history.whoWrote": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))

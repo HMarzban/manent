@@ -230,6 +230,14 @@ for (const entry of SURFACES)
           entry.id === "send",
           "the Export and Print forms are not drawn yet, so the Send screen goes straight back to the document",
         );
+        test.fixme(
+          entry.id === "name_field",
+          "Name this draft does nothing yet: the History tab's naming field is not drawn",
+        );
+        test.fixme(
+          entry.id === "side_panel" && opener === "history.open",
+          "History opens on an empty tab: the History tab's versions list is not drawn",
+        );
         const place = placeOf(entry.id);
         const command = commandOf(opener);
         const platform = await platformOf(page);

@@ -225,7 +225,7 @@ test("the side position draws only the tabs that are present, in list order, and
     fixtureTab("details", false),
     fixtureTab("tour", true),
   ]);
-  expect([...html.matchAll(/Tab (\w+)/g)].map((m) => m[1])).toEqual([
+  expect([...html.matchAll(/>Tab (\w+)</g)].map((m) => m[1])).toEqual([
     "history",
     "tour",
   ]);

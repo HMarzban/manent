@@ -15,6 +15,7 @@ export { CrdtUpdateError, mergeUpdates, updateMeta } from "./updates.ts";
 export type { StateVector, Update } from "./updates.ts";
 export { scriptBody } from "./writer.ts";
 export type { BlockWriter, ScriptBody } from "./writer.ts";
+export { ORIGIN_RESTORE } from "./restore-origin.ts";
 export * from "./awareness.ts";
 export * from "./block-ops.ts";
 export * from "./block-reads.ts";

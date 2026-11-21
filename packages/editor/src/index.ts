@@ -2,6 +2,7 @@
 // A line is added only by the task that lays out a piece of work, never by a task that fills it in.
 export * from "./actions/index.ts";
 export * from "./bridge/index.ts";
+export * from "./changes/index.ts";
 export * from "./complete/index.ts";
 export * from "./cursors/index.ts";
 export * from "./elements/index.ts";
