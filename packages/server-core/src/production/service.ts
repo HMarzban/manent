@@ -2,6 +2,7 @@
 // each sequenced by the authority.
 import type {
   FileRequest,
+  ImportLockRequest,
   IssueRequest,
   IssueResponse,
   LayoutRequest,
@@ -14,6 +15,7 @@ import type { HistoryExtras } from "../history/service.ts";
 import { PRODUCTION_EXTRAS } from "./extras.ts";
 import { issuedFile } from "./files.ts";
 import { createProductionHooks } from "./hooks.ts";
+import { importLockMutation } from "./import-lock.ts";
 import { issueMutation } from "./issue.ts";
 import { layoutMutation } from "./layout.ts";
 import { endMutation, lockMutation, unlockMutation } from "./lock.ts";
@@ -30,6 +32,10 @@ export interface ProductionService {
   lock(
     userId: string,
     request: LockRequest,
+  ): Promise<ProductionOutcome<ProductionState>>;
+  importLock(
+    userId: string,
+    request: ImportLockRequest,
   ): Promise<ProductionOutcome<ProductionState>>;
   pages(
     userId: string,
@@ -77,6 +83,11 @@ export function createProductionService(
     },
     lock: (userId, request) =>
       requests.mutate(userId, lockMutation(options, requests, userId, request)),
+    importLock: (userId, request) =>
+      requests.mutate(
+        userId,
+        importLockMutation(options, requests, userId, request),
+      ),
     pages: (userId, request) =>
       requests.mutate(userId, pagesMutation(options, request)),
     unlock: (userId, request) =>

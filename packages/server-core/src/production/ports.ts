@@ -4,9 +4,9 @@ import type { RevisionSource } from "@manent/revisions";
 import type { VersionContent } from "@manent/sync-protocol";
 import type { SyncHooks } from "../sync/ports.ts";
 
-/** `checkPush` refuses a pushed scene number once the script is in production. */
+/** `checkPush` refuses a pushed scene number once the script is in production; `committed` ends an imported page's elasticity at its first edit. */
 export type ProductionHooks = Required<
-  Pick<SyncHooks, "subscribed" | "checkPush">
+  Pick<SyncHooks, "subscribed" | "checkPush" | "committed" | "forgotten">
 >;
 
 /** Draws an issued file; `pages` null draws every page. */
