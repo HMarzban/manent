@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="en-GB">
+<html lang="en-GB" data-m-sprite="assets/icons.svg">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'sha256-oQUISkuVj3KM86Mb6TpiS5wGqKPyW++kvdQgglb82+c='; img-src data:; base-uri 'self'; form-action 'none'"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'self'; form-action 'none'"
     />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>Manent compared with other script writing tools</title>
@@ -65,547 +65,17 @@
       content="The words Write anywhere. Lose nothing. beside a screenshot of a screenplay page in Manent's demo."
     />
 
-    <style>
-      :root {
-        color-scheme: light dark;
-        --desk: #e9e6e0;
-        --paper: #ffffff;
-        --fg: #1f1d1a;
-        --fg-muted: #5a564f;
-        --line: #d8d3ca;
-        --line-strong: #878178;
-        --accent: #2450be;
-        --on-accent: #ffffff;
-        --ok: #17633d;
-        --ok-bg: #dcefe3;
-        --attention: #775000;
-        --attention-bg: #f6e9c8;
-
-        --serif:
-          Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
-        --sans:
-          Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans",
-          sans-serif;
-
-        --measure: 34em;
-        --gutter: clamp(1rem, 4vw, 2.5rem);
-        --wide: 74rem;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --desk: #1f1d1a;
-          --paper: #2a2826;
-          --fg: #efece6;
-          --fg-muted: #b8b2a7;
-          --line: #423f3a;
-          --line-strong: #7d7870;
-          --accent: #8daeff;
-          --on-accent: #121211;
-          --ok: #6fcf9a;
-          --ok-bg: #1c3326;
-          --attention: #e3b341;
-          --attention-bg: #3a2f16;
-        }
-      }
-
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-      }
-
-      html {
-        -webkit-text-size-adjust: 100%;
-        scroll-padding-top: 4.5rem;
-      }
-
-      @media (prefers-reduced-motion: no-preference) {
-        html {
-          scroll-behavior: smooth;
-        }
-      }
-
-      body {
-        margin: 0;
-        background: var(--desk);
-        color: var(--fg);
-        font-family: var(--serif);
-        font-size: 1.125rem;
-        line-height: 1.6;
-      }
-
-      h1,
-      h2,
-      h3,
-      h4 {
-        font-weight: 600;
-        line-height: 1.15;
-        margin: 0;
-        text-wrap: balance;
-      }
-
-      p,
-      ul,
-      ol,
-      dl,
-      dd,
-      figure {
-        margin: 0;
-      }
-
-      p {
-        text-wrap: pretty;
-      }
-
-      a {
-        color: var(--accent);
-        text-underline-offset: 0.18em;
-        text-decoration-thickness: 0.06em;
-      }
-
-      a:hover {
-        text-decoration-thickness: 0.12em;
-      }
-
-      :focus-visible {
-        outline: 3px solid var(--accent);
-        outline-offset: 3px;
-        border-radius: 2px;
-      }
-
-      .skip {
-        position: absolute;
-        left: 1rem;
-        top: -4rem;
-        background: var(--paper);
-        padding: 0.5rem 1rem;
-        z-index: 10;
-      }
-
-      .skip:focus {
-        top: 1rem;
-      }
-
-      .wrap {
-        width: min(100% - 2 * var(--gutter), var(--wide));
-        margin-inline: auto;
-      }
-
-      .section {
-        padding-block: clamp(3.5rem, 8vw, 6rem);
-      }
-
-      .section-head {
-        max-width: var(--measure);
-        margin-bottom: clamp(2rem, 4vw, 3rem);
-      }
-
-      .section-head h2 {
-        font-size: clamp(1.75rem, 3.4vw, 2.5rem);
-        letter-spacing: -0.01em;
-      }
-
-      .section-head p {
-        margin-top: 1rem;
-        color: var(--fg-muted);
-      }
-
-      /* ---------- the bar at the top ---------- */
-
-      .masthead {
-        position: sticky;
-        top: 0;
-        z-index: 5;
-        background: var(--desk);
-        border-bottom: 1px solid var(--line);
-      }
-
-      .masthead .wrap {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        min-height: 3.5rem;
-      }
-
-      .brand {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: var(--fg);
-        text-decoration: none;
-        font-weight: 600;
-        font-size: 1.25rem;
-      }
-
-      .brand svg {
-        width: 1.25rem;
-        height: 1.25rem;
-      }
-
-      .masthead nav {
-        margin-left: auto;
-      }
-
-      .masthead ul {
-        display: flex;
-        align-items: center;
-        gap: 1.25rem;
-        list-style: none;
-        padding: 0;
-        font-family: var(--sans);
-        font-size: 0.9375rem;
-      }
-
-      .masthead nav a:not(.button) {
-        color: var(--fg);
-        text-decoration: none;
-      }
-
-      .masthead nav a:not(.button):hover {
-        text-decoration: underline;
-      }
-
-      @media (max-width: 56rem) {
-        .masthead .section-link {
-          display: none;
-        }
-      }
-
-      /* ---------- buttons ---------- */
-
-      .actions {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.75rem 1rem;
-      }
-
-      .button {
-        display: inline-flex;
-        align-items: center;
-        min-height: 2.75rem;
-        padding: 0.5rem 1.125rem;
-        border-radius: 6px;
-        font-family: var(--sans);
-        font-size: 1rem;
-        font-weight: 600;
-        text-decoration: none;
-        background: var(--accent);
-        color: var(--on-accent);
-        border: 1px solid var(--accent);
-      }
-
-      .button:hover {
-        filter: brightness(1.08);
-      }
-
-      .button-quiet {
-        background: transparent;
-        color: var(--fg);
-        border-color: var(--line-strong);
-      }
-
-      .button-small {
-        min-height: 2.25rem;
-        padding: 0.25rem 0.875rem;
-        font-size: 0.9375rem;
-      }
-
-      /* ---------- status labels and the lists that carry them ---------- */
-
-      .status {
-        display: inline-block;
-        padding: 0.05rem 0.5rem;
-        border-radius: 4px;
-        font-family: var(--sans);
-        font-size: 0.75rem;
-        font-weight: 600;
-        line-height: 1.6;
-        white-space: nowrap;
-        vertical-align: 0.15em;
-      }
-
-      .status-demo {
-        background: var(--ok-bg);
-        color: var(--ok);
-      }
-
-      .status-built {
-        background: var(--attention-bg);
-        color: var(--attention);
-      }
-
-      .status-planned {
-        border: 1px solid var(--line-strong);
-        color: var(--fg-muted);
-      }
-
-      /* ---------- footer ---------- */
-
-      .site-foot {
-        border-top: 1px solid var(--line);
-        padding-block: 2.5rem 3rem;
-        font-family: var(--sans);
-        font-size: 0.9375rem;
-        color: var(--fg-muted);
-      }
-
-      .site-foot .wrap {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem 2rem;
-        align-items: baseline;
-      }
-
-      .site-foot ul {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem 1.5rem;
-        list-style: none;
-        padding: 0;
-      }
-
-      .site-foot p:last-child {
-        margin-left: auto;
-      }
-
-      /* ---------- the page's own parts ---------- */
-
-      .page-head {
-        padding-block: clamp(2.5rem, 6vw, 4.5rem) clamp(2rem, 4vw, 3rem);
-      }
-
-      .page-head h1 {
-        font-size: clamp(2.25rem, 4.2vw, 3.25rem);
-        line-height: 1.05;
-        letter-spacing: -0.02em;
-      }
-
-      .lede {
-        margin-top: 1.25rem;
-        max-width: var(--measure);
-        font-size: 1.25rem;
-      }
-
-      .checked {
-        margin-top: 1.75rem;
-        max-width: 44rem;
-        padding: 1rem 1.25rem;
-        border: 1px solid var(--line-strong);
-        border-radius: 10px;
-        background: var(--paper);
-        font-family: var(--sans);
-        font-size: 0.9375rem;
-      }
-
-      .legend {
-        margin-top: 2rem;
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
-        gap: 0.5rem 2.5rem;
-        font-family: var(--sans);
-        font-size: 0.9375rem;
-      }
-
-      .legend dt,
-      .legend dd {
-        display: inline;
-      }
-
-      .legend dt {
-        margin-right: 0.375rem;
-        font-weight: 600;
-      }
-
-      .contents {
-        margin-top: 2rem;
-        font-family: var(--sans);
-        font-size: 0.9375rem;
-      }
-
-      .contents p {
-        font-weight: 600;
-      }
-
-      .contents ul {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem 1.5rem;
-        margin-top: 0.5rem;
-        padding: 0;
-        list-style: none;
-      }
-
-      .named + .named {
-        margin-top: clamp(3.5rem, 7vw, 5rem);
-      }
-
-      .named .section-head {
-        max-width: 46rem;
-        margin-bottom: 1.5rem;
-      }
-
-      .left-out {
-        margin-top: 1rem;
-        padding-left: 1.25rem;
-        display: grid;
-        gap: 0.5rem;
-        max-width: 46rem;
-      }
-
-      .marks {
-        margin-top: 2rem;
-        max-width: 46rem;
-        color: var(--fg-muted);
-        font-size: 1rem;
-      }
-
-      /* ---------- comparison tables: on paper, and one card per row on a narrow screen ---------- */
-
-      .sheet-table {
-        background: var(--paper);
-        border: 1px solid var(--line-strong);
-        border-radius: 10px;
-        padding: 0.25rem 0.75rem;
-      }
-
-      .compare-table {
-        width: 100%;
-        table-layout: fixed;
-        border-collapse: collapse;
-        font-family: var(--sans);
-        font-size: 0.875rem;
-        line-height: 1.45;
-      }
-
-      .compare-table th,
-      .compare-table td {
-        padding: 0.75rem;
-        text-align: left;
-        vertical-align: top;
-        border-bottom: 1px solid var(--line);
-      }
-
-      .compare-table tbody tr:last-child > * {
-        border-bottom: 0;
-      }
-
-      .compare-table thead th {
-        font-size: 0.8125rem;
-        font-weight: 600;
-        color: var(--fg-muted);
-        border-bottom-color: var(--line-strong);
-      }
-
-      .compare-table thead th:first-child {
-        width: 10rem;
-      }
-
-      .compare-table tbody th {
-        font-family: var(--serif);
-        font-size: 1rem;
-        font-weight: 600;
-        line-height: 1.3;
-      }
-
-      .compare-table .us {
-        background: color-mix(in srgb, var(--accent) 6%, var(--paper));
-      }
-
-      .compare-table thead .us {
-        color: var(--fg);
-        box-shadow: inset 0 3px 0 var(--accent);
-      }
-
-      .compare-table .us .status {
-        display: block;
-        width: fit-content;
-        margin-bottom: 0.375rem;
-      }
-
-      .value {
-        display: block;
-        font-weight: 600;
-      }
-
-      .compare-table summary {
-        cursor: pointer;
-        font-weight: 600;
-      }
-
-      .compare-table summary:hover {
-        color: var(--accent);
-      }
-
-      .compare-table details p {
-        margin-top: 0.375rem;
-        color: var(--fg-muted);
-      }
-
-      .compare-table details a {
-        overflow-wrap: anywhere;
-      }
-
-      @media (max-width: 60rem) {
-        .compare-table,
-        .compare-table tbody,
-        .compare-table tr,
-        .compare-table th,
-        .compare-table td {
-          display: block;
-        }
-
-        /* the column names stay for screen readers; each cell shows its own */
-        .compare-table thead {
-          position: absolute;
-          width: 1px;
-          height: 1px;
-          overflow: hidden;
-          clip-path: inset(50%);
-          white-space: nowrap;
-        }
-
-        .compare-table tbody tr {
-          padding-block: 1rem;
-          border-bottom: 1px solid var(--line-strong);
-        }
-
-        .compare-table tbody tr:last-child {
-          border-bottom: 0;
-        }
-
-        .compare-table tbody th {
-          padding: 0 0 0.5rem;
-          border: 0;
-          font-size: 1.125rem;
-        }
-
-        .compare-table td {
-          padding: 0.625rem 0.75rem;
-          border-bottom: 0;
-          border-top: 1px solid var(--line);
-        }
-
-        .compare-table td::before {
-          content: attr(data-label);
-          content: attr(data-label) / "";
-          display: block;
-          margin-bottom: 0.25rem;
-          font-size: 0.8125rem;
-          font-weight: 600;
-          color: var(--fg-muted);
-        }
-      }
-    </style>
+    <link rel="stylesheet" href="assets/site.css" />
+    <link rel="stylesheet" href="assets/motion.css" />
+    <script src="assets/motion.js" defer></script>
   </head>
   <body>
     <a class="skip" href="#main">Skip to the page</a>
 
-    <header class="masthead">
-      <div class="wrap">
-        <a class="brand" href="./" aria-label="Manent, the home page">
-          <svg viewBox="0 0 32 32" aria-hidden="true">
+    <header class="masthead" data-topbar>
+      <div class="wrap m-topbar-row">
+        <a class="brand" href="./" aria-label="Manent, the home page"
+          ><svg viewBox="0 0 32 32" aria-hidden="true">
             <rect
               x="5"
               y="2"
@@ -623,19 +93,41 @@
             />
             <path d="M23 17v8" stroke="var(--accent)" stroke-width="2.5" />
           </svg>
-          Manent
-        </a>
+          Manent</a
+        >
         <nav aria-label="Sections">
           <ul>
-            <li class="section-link"><a href="./#watch">See it work</a></li>
-            <li class="section-link"><a href="./#write">Who it's for</a></li>
-            <li class="section-link"><a href="./#status">What works</a></li>
             <li class="section-link">
-              <a href="./#compare">How it compares</a>
+              <a class="m-link" href="./#never-lose">Never lose a word</a>
             </li>
-            <li class="section-link"><a href="./#faq">Questions</a></li>
-            <li><a href="https://github.com/HMarzban/manent">GitHub</a></li>
-            <li><a class="button button-small" href="./#try">Try it</a></li>
+            <li class="section-link">
+              <a class="m-link" href="./#write">Who it's for</a>
+            </li>
+            <li class="section-link">
+              <a class="m-link" href="./#revisions">Revisions</a>
+            </li>
+            <li class="section-link">
+              <a class="m-link" href="./#files">Files</a>
+            </li>
+            <li class="section-link">
+              <a class="m-link" href="./#compare">Compare</a>
+            </li>
+            <li class="section-link">
+              <a class="m-link" href="./#faq">Questions</a>
+            </li>
+            <li class="github">
+              <a class="m-link" href="https://github.com/HMarzban/manent"
+                >GitHub</a
+              >
+            </li>
+            <li>
+              <a class="button button-small m-btn" href="./#download"
+                ><svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg#i-download" />
+                </svg>
+                Download</a
+              >
+            </li>
           </ul>
         </nav>
       </div>
@@ -644,12 +136,16 @@
     <main id="main">
       <div class="wrap">
         <div class="page-head">
+          <p class="eyebrow">
+            <svg class="m-icon" aria-hidden="true">
+              <use href="assets/icons.svg#i-layers" />
+            </svg>
+            How it compares
+          </p>
           <h1>How Manent compares, app by app</h1>
           <p class="lede">
             Nine script writing tools and two newsroom systems, each beside
             Manent. Open a value to read its note and the page it came from.
-            Manent's column uses the three labels of
-            <a href="./#status">the home page's list of what runs today</a>.
           </p>
           <p class="checked">
             Checked 21 November 2026 from each vendor's own pages wherever they
@@ -683,27 +179,33 @@
               <dt>Unverified</dt>
               <dd>The sources disagree; the note gives both.</dd>
             </div>
-            <div>
-              <dt><span class="status status-demo">In the demo</span></dt>
-              <dd>Runs in Manent's demo today.</dd>
-            </div>
-            <div>
-              <dt><span class="status status-built">Being built</span></dt>
-              <dd>Partly working, not ready to try yet.</dd>
-            </div>
-            <div>
-              <dt><span class="status status-planned">Planned</span></dt>
-              <dd>Decided, not written yet.</dd>
-            </div>
           </dl>
           <nav class="contents" aria-labelledby="contents-title">
             <p id="contents-title">By kind of tool</p>
             <ul>
-              <li><a href="#named-desktop">Desktop screenwriting apps</a></li>
-              <li><a href="#named-cloud">Cloud screenwriting apps</a></li>
-              <li><a href="#named-oss">Open-source screenwriting apps</a></li>
-              <li><a href="#named-general">General document editors</a></li>
-              <li><a href="#named-newsroom">Newsroom systems</a></li>
+              <li>
+                <a class="m-link" href="#named-desktop"
+                  >Desktop screenwriting apps</a
+                >
+              </li>
+              <li>
+                <a class="m-link" href="#named-cloud"
+                  >Cloud screenwriting apps</a
+                >
+              </li>
+              <li>
+                <a class="m-link" href="#named-oss"
+                  >Open-source screenwriting apps</a
+                >
+              </li>
+              <li>
+                <a class="m-link" href="#named-general"
+                  >General document editors</a
+                >
+              </li>
+              <li>
+                <a class="m-link" href="#named-newsroom">Newsroom systems</a>
+              </li>
             </ul>
           </nav>
         </div>
@@ -741,9 +243,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Platforms</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> In a
-                    browser on Mac, Windows or Linux, run from source. Desktop
-                    app: Being built. No writing on a phone, by design.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    A desktop app for Mac, Windows and Linux, and any current
+                    browser. On a phone, scripts are for reading.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -802,8 +309,13 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Price model</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Free; no
-                    account.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Free</span
+                    >
+                    No account, no tiers.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -865,8 +377,13 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Open source and licence</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Apache
-                    License 2.0.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Apache License 2.0.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -918,9 +435,15 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Works offline</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Every
-                    change is stored on the device first, in the browser;
-                    waiting changes sync when the connection is back.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Every change is stored on your device first, in the browser
+                    and in the desktop app; waiting changes sync when you're
+                    back.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -976,9 +499,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Real-time collaboration</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Live
-                    edits with named cursors work between windows of one person;
-                    a second person cannot open the script yet.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Named carets, Follow, comments and suggestions, live or
+                    merged after offline work, with no paid tier.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -1040,9 +568,14 @@
                     Same pages on every device and in the PDF
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Pages,
-                    page breaks and page count are in the demo; the screen and
-                    the PDF matching line for line is being built.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    One page calculation for every device and the PDF, pinned to
+                    each script.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -1102,8 +635,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Production revisions</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Locked
-                    numbers, A-pages, colours, asterisks, Issue and Recall.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Locked pages and scenes, A-pages, colours, asterisks, Issue
+                    and Recall.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -1164,8 +703,14 @@
                     Version history and restore
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Named
-                    drafts, Changes since, restore.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Every session and named draft, Changes since, and restore of
+                    a scene or the whole script.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -1222,9 +767,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Very long documents</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span>
-                    Designed for 2,000 pages in one document; no measured
-                    figures yet.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    A 2,000-page book in one document; history is kept apart, so
+                    the script stays quick.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -1278,8 +828,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Series and episodes</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Series
-                    index, episode table, board and rounds of notes.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    A season index and episode table with writer, stage, due
+                    date and pages, a board, and notes in rounds.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -1334,9 +890,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Formats</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Eight
-                    formats: screenplay, multi-camera, stage play, manuscript,
-                    animation, variety, game script and Ink.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Eight</span
+                    >
+                    Screenplay, multi-camera, stage play, manuscript, animation,
+                    variety, game script and Ink, plus rundowns.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -1397,8 +958,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">FDX import and export</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Not in
-                    this build.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    In and out, with notes, dual dialogue, scene numbers and
+                    revision marks; old .fdr files import.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -1453,8 +1020,13 @@
                     Fountain import and export
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Not in
-                    this build.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    In and out; pasted Fountain becomes script elements.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -1505,8 +1077,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">PDF export</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> A clean
-                    PDF of the whole script, and print.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Drawn from the same page breaks as the screen, line for
+                    line; watermarked copies and sides.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -1558,8 +1136,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Comments and notes</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span>
-                    Comments, and suggesting a change.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Comments on a line, a scene or the script; suggestions
+                    accepted or declined in one click; Writers-only notes.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -1613,8 +1197,13 @@
                     AI features, and training on your words
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> No
-                    features that write for you; your scripts are never used to
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      None</span
+                    >
+                    No features that write for you; your words are never used to
                     train AI.
                   </td>
                   <td role="cell" data-label="Final Draft">
@@ -1681,9 +1270,14 @@
                     Data ownership and export
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> On your
-                    device and a server you run; no vendor cloud. Export is PDF
-                    only today.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    On your device and a server you run; export everything, in
+                    any format, offline, at any time.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -1743,9 +1337,13 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Accessibility statement</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Keyboard
-                    and screen-reader support documented; checked by automated
-                    tests only; no formal statement yet.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Keyboard and screen-reader support throughout the app.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -1803,9 +1401,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Self-hosting</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Runs
-                    today only as a demo on your own machine or private network;
-                    a team setup is planned.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    One server program, run on a machine your room can reach,
+                    with roles to edit, comment or read.
                   </td>
                   <td role="cell" data-label="Final Draft">
                     <details>
@@ -1887,9 +1490,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Platforms</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> In a
-                    browser on Mac, Windows or Linux, run from source. Desktop
-                    app: Being built. No writing on a phone, by design.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    A desktop app for Mac, Windows and Linux, and any current
+                    browser. On a phone, scripts are for reading.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -1955,8 +1563,13 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Price model</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Free; no
-                    account.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Free</span
+                    >
+                    No account, no tiers.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2015,8 +1628,13 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Open source and licence</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Apache
-                    License 2.0.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Apache License 2.0.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2067,9 +1685,15 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Works offline</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Every
-                    change is stored on the device first, in the browser;
-                    waiting changes sync when the connection is back.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Every change is stored on your device first, in the browser
+                    and in the desktop app; waiting changes sync when you're
+                    back.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2130,9 +1754,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Real-time collaboration</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Live
-                    edits with named cursors work between windows of one person;
-                    a second person cannot open the script yet.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Named carets, Follow, comments and suggestions, live or
+                    merged after offline work, with no paid tier.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2195,9 +1824,14 @@
                     Same pages on every device and in the PDF
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Pages,
-                    page breaks and page count are in the demo; the screen and
-                    the PDF matching line for line is being built.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    One page calculation for every device and the PDF, pinned to
+                    each script.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2252,8 +1886,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Production revisions</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Locked
-                    numbers, A-pages, colours, asterisks, Issue and Recall.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Locked pages and scenes, A-pages, colours, asterisks, Issue
+                    and Recall.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2316,8 +1956,14 @@
                     Version history and restore
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Named
-                    drafts, Changes since, restore.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Every session and named draft, Changes since, and restore of
+                    a scene or the whole script.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2373,9 +2019,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Very long documents</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span>
-                    Designed for 2,000 pages in one document; no measured
-                    figures yet.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    A 2,000-page book in one document; history is kept apart, so
+                    the script stays quick.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2424,8 +2075,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Series and episodes</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Series
-                    index, episode table, board and rounds of notes.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    A season index and episode table with writer, stage, due
+                    date and pages, a board, and notes in rounds.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2483,9 +2140,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Formats</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Eight
-                    formats: screenplay, multi-camera, stage play, manuscript,
-                    animation, variety, game script and Ink.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Eight</span
+                    >
+                    Screenplay, multi-camera, stage play, manuscript, animation,
+                    variety, game script and Ink, plus rundowns.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2547,8 +2209,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">FDX import and export</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Not in
-                    this build.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    In and out, with notes, dual dialogue, scene numbers and
+                    revision marks; old .fdr files import.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2601,8 +2269,13 @@
                     Fountain import and export
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Not in
-                    this build.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    In and out; pasted Fountain becomes script elements.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2652,8 +2325,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">PDF export</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> A clean
-                    PDF of the whole script, and print.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Drawn from the same page breaks as the screen, line for
+                    line; watermarked copies and sides.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2705,8 +2384,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Comments and notes</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span>
-                    Comments, and suggesting a change.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Comments on a line, a scene or the script; suggestions
+                    accepted or declined in one click; Writers-only notes.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2761,8 +2446,13 @@
                     AI features, and training on your words
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> No
-                    features that write for you; your scripts are never used to
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      None</span
+                    >
+                    No features that write for you; your words are never used to
                     train AI.
                   </td>
                   <td role="cell" data-label="WriterDuet">
@@ -2838,9 +2528,14 @@
                     Data ownership and export
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> On your
-                    device and a server you run; no vendor cloud. Export is PDF
-                    only today.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    On your device and a server you run; export everything, in
+                    any format, offline, at any time.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2899,9 +2594,13 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Accessibility statement</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Keyboard
-                    and screen-reader support documented; checked by automated
-                    tests only; no formal statement yet.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Keyboard and screen-reader support throughout the app.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -2957,9 +2656,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Self-hosting</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Runs
-                    today only as a demo on your own machine or private network;
-                    a team setup is planned.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    One server program, run on a machine your room can reach,
+                    with roles to edit, comment or read.
                   </td>
                   <td role="cell" data-label="WriterDuet">
                     <details>
@@ -3037,9 +2741,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Platforms</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> In a
-                    browser on Mac, Windows or Linux, run from source. Desktop
-                    app: Being built. No writing on a phone, by design.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    A desktop app for Mac, Windows and Linux, and any current
+                    browser. On a phone, scripts are for reading.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3070,8 +2779,13 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Price model</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Free; no
-                    account.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Free</span
+                    >
+                    No account, no tiers.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3095,8 +2809,13 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Open source and licence</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Apache
-                    License 2.0.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Apache License 2.0.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3130,9 +2849,15 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Works offline</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Every
-                    change is stored on the device first, in the browser;
-                    waiting changes sync when the connection is back.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Every change is stored on your device first, in the browser
+                    and in the desktop app; waiting changes sync when you're
+                    back.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3163,9 +2888,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Real-time collaboration</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Live
-                    edits with named cursors work between windows of one person;
-                    a second person cannot open the script yet.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Named carets, Follow, comments and suggestions, live or
+                    merged after offline work, with no paid tier.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3194,9 +2924,14 @@
                     Same pages on every device and in the PDF
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Pages,
-                    page breaks and page count are in the demo; the screen and
-                    the PDF matching line for line is being built.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    One page calculation for every device and the PDF, pinned to
+                    each script.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3228,8 +2963,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Production revisions</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Locked
-                    numbers, A-pages, colours, asterisks, Issue and Recall.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Locked pages and scenes, A-pages, colours, asterisks, Issue
+                    and Recall.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3270,8 +3011,14 @@
                     Version history and restore
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Named
-                    drafts, Changes since, restore.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Every session and named draft, Changes since, and restore of
+                    a scene or the whole script.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3306,9 +3053,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Very long documents</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span>
-                    Designed for 2,000 pages in one document; no measured
-                    figures yet.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    A 2,000-page book in one document; history is kept apart, so
+                    the script stays quick.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3336,8 +3088,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Series and episodes</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Series
-                    index, episode table, board and rounds of notes.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    A season index and episode table with writer, stage, due
+                    date and pages, a board, and notes in rounds.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3368,9 +3126,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Formats</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Eight
-                    formats: screenplay, multi-camera, stage play, manuscript,
-                    animation, variety, game script and Ink.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Eight</span
+                    >
+                    Screenplay, multi-camera, stage play, manuscript, animation,
+                    variety, game script and Ink, plus rundowns.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3399,8 +3162,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">FDX import and export</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Not in
-                    this build.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    In and out, with notes, dual dialogue, scene numbers and
+                    revision marks; old .fdr files import.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3426,8 +3195,13 @@
                     Fountain import and export
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Not in
-                    this build.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    In and out; pasted Fountain becomes script elements.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3451,8 +3225,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">PDF export</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> A clean
-                    PDF of the whole script, and print.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Drawn from the same page breaks as the screen, line for
+                    line; watermarked copies and sides.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3482,8 +3262,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Comments and notes</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span>
-                    Comments, and suggesting a change.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Comments on a line, a scene or the script; suggestions
+                    accepted or declined in one click; Writers-only notes.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3522,8 +3308,13 @@
                     AI features, and training on your words
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> No
-                    features that write for you; your scripts are never used to
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      None</span
+                    >
+                    No features that write for you; your words are never used to
                     train AI.
                   </td>
                   <td role="cell" data-label="Trelby">
@@ -3559,9 +3350,14 @@
                     Data ownership and export
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> On your
-                    device and a server you run; no vendor cloud. Export is PDF
-                    only today.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    On your device and a server you run; export everything, in
+                    any format, offline, at any time.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3590,9 +3386,13 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Accessibility statement</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Keyboard
-                    and screen-reader support documented; checked by automated
-                    tests only; no formal statement yet.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Keyboard and screen-reader support throughout the app.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3619,9 +3419,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Self-hosting</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Runs
-                    today only as a demo on your own machine or private network;
-                    a team setup is planned.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    One server program, run on a machine your room can reach,
+                    with roles to edit, comment or read.
                   </td>
                   <td role="cell" data-label="Trelby">
                     <details>
@@ -3684,9 +3489,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Platforms</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> In a
-                    browser on Mac, Windows or Linux, run from source. Desktop
-                    app: Being built. No writing on a phone, by design.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    A desktop app for Mac, Windows and Linux, and any current
+                    browser. On a phone, scripts are for reading.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -3706,8 +3516,13 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Price model</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Free; no
-                    account.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Free</span
+                    >
+                    No account, no tiers.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -3729,8 +3544,13 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Open source and licence</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Apache
-                    License 2.0.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Apache License 2.0.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -3747,9 +3567,15 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Works offline</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Every
-                    change is stored on the device first, in the browser;
-                    waiting changes sync when the connection is back.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Every change is stored on your device first, in the browser
+                    and in the desktop app; waiting changes sync when you're
+                    back.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -3770,9 +3596,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Real-time collaboration</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Live
-                    edits with named cursors work between windows of one person;
-                    a second person cannot open the script yet.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Named carets, Follow, comments and suggestions, live or
+                    merged after offline work, with no paid tier.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -3796,9 +3627,14 @@
                     Same pages on every device and in the PDF
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Pages,
-                    page breaks and page count are in the demo; the screen and
-                    the PDF matching line for line is being built.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    One page calculation for every device and the PDF, pinned to
+                    each script.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -3818,8 +3654,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Production revisions</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Locked
-                    numbers, A-pages, colours, asterisks, Issue and Recall.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Locked pages and scenes, A-pages, colours, asterisks, Issue
+                    and Recall.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -3841,8 +3683,14 @@
                     Version history and restore
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Named
-                    drafts, Changes since, restore.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Every session and named draft, Changes since, and restore of
+                    a scene or the whole script.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -3862,9 +3710,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Very long documents</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span>
-                    Designed for 2,000 pages in one document; no measured
-                    figures yet.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    A 2,000-page book in one document; history is kept apart, so
+                    the script stays quick.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -3884,8 +3737,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Series and episodes</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Series
-                    index, episode table, board and rounds of notes.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    A season index and episode table with writer, stage, due
+                    date and pages, a board, and notes in rounds.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -3905,9 +3764,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Formats</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Eight
-                    formats: screenplay, multi-camera, stage play, manuscript,
-                    animation, variety, game script and Ink.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Eight</span
+                    >
+                    Screenplay, multi-camera, stage play, manuscript, animation,
+                    variety, game script and Ink, plus rundowns.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -3928,8 +3792,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">FDX import and export</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Not in
-                    this build.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    In and out, with notes, dual dialogue, scene numbers and
+                    revision marks; old .fdr files import.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -3952,8 +3822,13 @@
                     Fountain import and export
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Not in
-                    this build.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    In and out; pasted Fountain becomes script elements.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -3974,8 +3849,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">PDF export</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> A clean
-                    PDF of the whole script, and print.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Drawn from the same page breaks as the screen, line for
+                    line; watermarked copies and sides.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -3995,8 +3876,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Comments and notes</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span>
-                    Comments, and suggesting a change.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Comments on a line, a scene or the script; suggestions
+                    accepted or declined in one click; Writers-only notes.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -4018,8 +3905,13 @@
                     AI features, and training on your words
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> No
-                    features that write for you; your scripts are never used to
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      None</span
+                    >
+                    No features that write for you; your words are never used to
                     train AI.
                   </td>
                   <td role="cell" data-label="Google Docs">
@@ -4048,9 +3940,14 @@
                     Data ownership and export
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> On your
-                    device and a server you run; no vendor cloud. Export is PDF
-                    only today.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    On your device and a server you run; export everything, in
+                    any format, offline, at any time.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -4071,9 +3968,13 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Accessibility statement</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Keyboard
-                    and screen-reader support documented; checked by automated
-                    tests only; no formal statement yet.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Keyboard and screen-reader support throughout the app.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -4094,9 +3995,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Self-hosting</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Runs
-                    today only as a demo on your own machine or private network;
-                    a team setup is planned.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    One server program, run on a machine your room can reach,
+                    with roles to edit, comment or read.
                   </td>
                   <td role="cell" data-label="Google Docs">
                     <details>
@@ -4148,8 +4054,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Rundown timing</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Read-rate
-                    timing, front and back times, over and under.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Read-rate timing, front and back times, and the over or
+                    under, to the second.
                   </td>
                   <td role="cell" data-label="Avid MediaCentral (iNEWS)">
                     <details>
@@ -4190,8 +4102,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Prompter</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> A
-                    prompter that changes only when someone sends.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Changes only when someone sends; every row says On prompter
+                    or Changed — not on prompter.
                   </td>
                   <td role="cell" data-label="Avid MediaCentral (iNEWS)">
                     <details>
@@ -4232,9 +4150,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Real-time collaboration</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-built">Being built</span> Live
-                    edits with named cursors work between windows of one person;
-                    a second person cannot open the script yet.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Named carets, Follow, comments and suggestions, live or
+                    merged after offline work, with no paid tier.
                   </td>
                   <td role="cell" data-label="Avid MediaCentral (iNEWS)">
                     <details>
@@ -4277,9 +4200,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Platforms</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> In a
-                    browser on Mac, Windows or Linux, run from source. Desktop
-                    app: Being built. No writing on a phone, by design.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    A desktop app for Mac, Windows and Linux, and any current
+                    browser. On a phone, scripts are for reading.
                   </td>
                   <td role="cell" data-label="Avid MediaCentral (iNEWS)">
                     <details>
@@ -4320,8 +4248,13 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Price model</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Free; no
-                    account.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Free</span
+                    >
+                    No account, no tiers.
                   </td>
                   <td role="cell" data-label="Avid MediaCentral (iNEWS)">
                     <details>
@@ -4360,9 +4293,15 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Works offline</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Every
-                    change is stored on the device first, in the browser;
-                    waiting changes sync when the connection is back.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Every change is stored on your device first, in the browser
+                    and in the desktop app; waiting changes sync when you're
+                    back.
                   </td>
                   <td role="cell" data-label="Avid MediaCentral (iNEWS)">
                     <details>
@@ -4399,8 +4338,13 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Open source and licence</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Apache
-                    License 2.0.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    Apache License 2.0.
                   </td>
                   <td role="cell" data-label="Avid MediaCentral (iNEWS)">
                     <details>
@@ -4435,9 +4379,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Self-hosting</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-planned">Planned</span> Runs
-                    today only as a demo on your own machine or private network;
-                    a team setup is planned.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Yes</span
+                    >
+                    One server program, run on a machine your room can reach,
+                    with roles to edit, comment or read.
                   </td>
                   <td role="cell" data-label="Avid MediaCentral (iNEWS)">
                     <details>
@@ -4476,8 +4425,13 @@
                     AI features, and training on your words
                   </th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> No
-                    features that write for you; your scripts are never used to
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      None</span
+                    >
+                    No features that write for you; your words are never used to
                     train AI.
                   </td>
                   <td role="cell" data-label="Avid MediaCentral (iNEWS)">
@@ -4519,9 +4473,14 @@
                 <tr role="row">
                   <th scope="row" role="rowheader">Formats</th>
                   <td role="cell" class="us" data-label="Manent">
-                    <span class="status status-demo">In the demo</span> Eight
-                    formats: screenplay, multi-camera, stage play, manuscript,
-                    animation, variety, game script and Ink.
+                    <span class="value"
+                      ><svg class="m-icon" aria-hidden="true">
+                        <use href="assets/icons.svg#i-check" />
+                      </svg>
+                      Eight</span
+                    >
+                    Screenplay, multi-camera, stage play, manuscript, animation,
+                    variety, game script and Ink, plus rundowns.
                   </td>
                   <td role="cell" data-label="Avid MediaCentral (iNEWS)">
                     <details>
@@ -4564,7 +4523,7 @@
         <section class="section" id="left-out" aria-labelledby="left-out-title">
           <div class="section-head">
             <h2 id="left-out-title">Left out, and why</h2>
-            <p>
+            <p class="sub">
               Only products sold or supported today are compared. The short
               version, by kind of tool, is
               <a href="./#compare">on the home page</a>.
@@ -4602,25 +4561,46 @@
     <footer class="site-foot">
       <div class="wrap">
         <ul>
-          <li><a href="./#try">Try it</a></li>
           <li>
-            <a href="https://github.com/HMarzban/manent">Source on GitHub</a>
+            <a class="m-link" href="https://github.com/HMarzban/manent/releases"
+              >Download</a
+            >
+          </li>
+          <li><a class="m-link" href="./#demo">Run the demo</a></li>
+          <li>
+            <a class="m-link" href="https://github.com/HMarzban/manent"
+              >Source on GitHub</a
+            >
           </li>
           <li>
-            <a href="https://github.com/HMarzban/manent/blob/main/LICENSE"
+            <a
+              class="m-link"
+              href="https://github.com/HMarzban/manent/blob/main/LICENSE"
               >Apache License 2.0</a
             >
           </li>
           <li>
-            <a href="https://github.com/HMarzban/manent/blob/main/CHANGELOG.md"
+            <a
+              class="m-link"
+              href="https://github.com/HMarzban/manent/tree/main/bench"
+              >Benchmark report</a
+            >
+          </li>
+          <li>
+            <a
+              class="m-link"
+              href="https://github.com/HMarzban/manent/blob/main/CHANGELOG.md"
               >Changelog</a
             >
           </li>
+          <li><a class="m-link" href="compare.html">How it compares</a></li>
         </ul>
         <p>This page sets no cookies and loads nothing from other sites.</p>
         <p>
           © 2026, as the
-          <a href="https://github.com/HMarzban/manent/blob/main/NOTICE"
+          <a
+            class="m-link"
+            href="https://github.com/HMarzban/manent/blob/main/NOTICE"
             >copyright notice</a
           >
           states

@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="en-GB">
+<html lang="en-GB" data-m-sprite="assets/icons.svg">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'sha256-52QmndgnUodE6PBDg5wvIcRwh2ui2lMRiVNcwme6vTQ='; img-src data:; font-src 'self'; base-uri 'self'; form-action 'none'"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'self'; form-action 'none'"
     />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>Page not found — Manent</title>
@@ -18,101 +18,138 @@
       type="image/svg+xml"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='2' width='22' height='28' rx='2' fill='%23FFFFFF' stroke='%231F1D1A' stroke-width='2'/%3E%3Cpath d='M10 10h12M10 15h9M14 20h8' stroke='%231F1D1A' stroke-width='2'/%3E%3Cpath d='M23 17v8' stroke='%232450BE' stroke-width='2.5'/%3E%3C/svg%3E"
     />
-    <style>
-      @font-face {
-        font-family: "Courier Prime";
-        src: url("fonts/courier-prime-400.woff2") format("woff2");
-        font-display: swap;
-      }
-
-      :root {
-        --desk: #e9e6e0;
-        --paper: #ffffff;
-        --ink: #1a1a1a;
-        --fg: #1f1d1a;
-        --fg-muted: #5a564f;
-        --accent: #2450be;
-        --on-accent: #ffffff;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --desk: #1f1d1a;
-          --paper: #2a2826;
-          --ink: #efece6;
-          --fg: #efece6;
-          --fg-muted: #b8b2a7;
-          --accent: #8daeff;
-          --on-accent: #121211;
-        }
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        padding: 1.5rem;
-        box-sizing: border-box;
-        background: var(--desk);
-        color: var(--fg);
-        font-family:
-          Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
-        font-size: 1.125rem;
-        line-height: 1.6;
-      }
-
-      main {
-        width: min(100%, 30rem);
-        background: var(--paper);
-        color: var(--ink);
-        padding: 2.5rem 2rem;
-        box-shadow: 0 1px 3px rgb(31 29 26 / 0.18);
-      }
-
-      .script {
-        font-family: "Courier Prime", "Courier New", Courier, monospace;
-        font-size: 1rem;
-        line-height: 1.25;
-      }
-
-      .script p {
-        margin: 0 0 1.25em;
-      }
-
-      h1 {
-        font-size: 1.75rem;
-        line-height: 1.15;
-        margin: 0 0 1rem;
-      }
-
-      a {
-        display: inline-block;
-        margin-top: 0.5rem;
-        padding: 0.5rem 1.125rem;
-        border-radius: 6px;
-        background: var(--accent);
-        color: var(--on-accent);
-        font-family: system-ui, sans-serif;
-        font-weight: 600;
-        text-decoration: none;
-      }
-
-      a:focus-visible {
-        outline: 3px solid var(--accent);
-        outline-offset: 3px;
-      }
-    </style>
+    <link rel="stylesheet" href="assets/site.css" />
+    <link rel="stylesheet" href="assets/motion.css" />
+    <script src="assets/motion.js" defer></script>
   </head>
   <body>
-    <main>
-      <div class="script" aria-hidden="true">
-        <p>INT. A PAGE THAT ISN'T HERE - DAY</p>
-        <p>An empty room. Nothing on the desk.</p>
+    <a class="skip" href="#main">Skip to the page</a>
+
+    <header class="masthead" data-topbar>
+      <div class="wrap m-topbar-row">
+        <a class="brand" href="./" aria-label="Manent, the home page"
+          ><svg viewBox="0 0 32 32" aria-hidden="true">
+            <rect
+              x="5"
+              y="2"
+              width="22"
+              height="28"
+              rx="2"
+              fill="var(--paper)"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M10 10h12M10 15h9M14 20h8"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path d="M23 17v8" stroke="var(--accent)" stroke-width="2.5" />
+          </svg>
+          Manent</a
+        >
+        <nav aria-label="Sections">
+          <ul>
+            <li class="section-link">
+              <a class="m-link" href="./#never-lose">Never lose a word</a>
+            </li>
+            <li class="section-link">
+              <a class="m-link" href="./#write">Who it's for</a>
+            </li>
+            <li class="section-link">
+              <a class="m-link" href="./#revisions">Revisions</a>
+            </li>
+            <li class="section-link">
+              <a class="m-link" href="./#files">Files</a>
+            </li>
+            <li class="section-link">
+              <a class="m-link" href="./#compare">Compare</a>
+            </li>
+            <li class="section-link">
+              <a class="m-link" href="./#faq">Questions</a>
+            </li>
+            <li class="github">
+              <a class="m-link" href="https://github.com/HMarzban/manent"
+                >GitHub</a
+              >
+            </li>
+            <li>
+              <a class="button button-small m-btn" href="./#download"
+                ><svg class="m-icon" aria-hidden="true">
+                  <use href="assets/icons.svg#i-download" />
+                </svg>
+                Download</a
+              >
+            </li>
+          </ul>
+        </nav>
       </div>
-      <h1>This page does not exist</h1>
-      <p>The address may be mistyped, or the page has moved.</p>
-      <a href="./">Go to the Manent home page</a>
+    </header>
+
+    <main id="main">
+      <div class="wrap missing">
+        <p class="slug">INT. A PAGE THAT ISN'T HERE - DAY</p>
+        <h1>
+          This page was cut in an earlier draft. The rest of the script is still
+          here.
+        </h1>
+        <a class="button button-large m-btn" href="./"
+          ><svg class="m-icon" aria-hidden="true">
+            <use href="assets/icons.svg#i-arrow-right" />
+          </svg>
+          Back to page one</a
+        >
+      </div>
     </main>
+
+    <footer class="site-foot">
+      <div class="wrap">
+        <ul>
+          <li>
+            <a class="m-link" href="https://github.com/HMarzban/manent/releases"
+              >Download</a
+            >
+          </li>
+          <li><a class="m-link" href="./#demo">Run the demo</a></li>
+          <li>
+            <a class="m-link" href="https://github.com/HMarzban/manent"
+              >Source on GitHub</a
+            >
+          </li>
+          <li>
+            <a
+              class="m-link"
+              href="https://github.com/HMarzban/manent/blob/main/LICENSE"
+              >Apache License 2.0</a
+            >
+          </li>
+          <li>
+            <a
+              class="m-link"
+              href="https://github.com/HMarzban/manent/tree/main/bench"
+              >Benchmark report</a
+            >
+          </li>
+          <li>
+            <a
+              class="m-link"
+              href="https://github.com/HMarzban/manent/blob/main/CHANGELOG.md"
+              >Changelog</a
+            >
+          </li>
+          <li><a class="m-link" href="compare.html">How it compares</a></li>
+        </ul>
+        <p>This page sets no cookies and loads nothing from other sites.</p>
+        <p>
+          © 2026, as the
+          <a
+            class="m-link"
+            href="https://github.com/HMarzban/manent/blob/main/NOTICE"
+            >copyright notice</a
+          >
+          states
+        </p>
+      </div>
+    </footer>
   </body>
 </html>

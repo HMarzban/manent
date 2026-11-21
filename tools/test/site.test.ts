@@ -1,4 +1,4 @@
-// The pages under site/: their links and references, status labels, figure captions, files and security policy.
+// The pages under site/: their links and references, pictures, measured figures, files, icons and security policy.
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
@@ -7,47 +7,54 @@ const site = join(import.meta.dir, "..", "..", "site");
 const index = await Bun.file(join(site, "index.html")).text();
 const compare = await Bun.file(join(site, "compare.html")).text();
 const notFound = await Bun.file(join(site, "404.html")).text();
+const sprite = await Bun.file(join(site, "assets", "icons.svg")).text();
 
-/** What the checks below read from a page: every element's attributes, each figure's kind and caption, each status label. */
+interface Element {
+  tag: string;
+  attributes: Map<string, string>;
+}
+
+/** What the checks below read from a page: every element, each figure's kind and caption, the measured placeholders, and the inline blocks. */
 interface PageParts {
-  attributes: Map<string, string>[];
-  figures: { drawn: boolean; shot: boolean; caption: string }[];
-  statuses: { classes: string; text: string }[];
+  elements: Element[];
+  figures: { kind: "media" | "picture" | "none"; caption: string }[];
+  measured: string[];
   scripts: string[];
   styles: string[];
 }
 
 async function readPage(html: string): Promise<PageParts> {
   const read: PageParts = {
-    attributes: [],
+    elements: [],
     figures: [],
-    statuses: [],
+    measured: [],
     scripts: [],
     styles: [],
   };
   const figure = () => read.figures.at(-1)!;
   await new HTMLRewriter()
     .on("*", {
-      element: (el) => void read.attributes.push(new Map(el.attributes)),
+      element: (el) =>
+        void read.elements.push({
+          tag: el.tagName,
+          attributes: new Map(el.attributes),
+        }),
     })
     .on("figure", {
-      element: () =>
-        void read.figures.push({ drawn: false, shot: false, caption: "" }),
+      element: () => void read.figures.push({ kind: "none", caption: "" }),
     })
-    .on("figure .app", { element: () => void (figure().drawn = true) })
+    .on("figure [role=img][aria-label]", {
+      element: () => void (figure().kind = "picture"),
+    })
     .on("figure img, figure video", {
-      element: () => void (figure().shot = true),
+      element: () => void (figure().kind = "media"),
     })
     .on("figcaption", { text: (t) => void (figure().caption += t.text) })
-    .on(".status", {
-      element: (el) =>
-        void read.statuses.push({
-          classes: el.getAttribute("class") ?? "",
-          text: "",
-        }),
-      text: (t) => void (read.statuses.at(-1)!.text += t.text),
+    .on("[data-placeholder=measured]", {
+      element: () => void read.measured.push(""),
+      text: (t) => void (read.measured[read.measured.length - 1] += t.text),
     })
-    .on("script:not([type])", {
+    .on("script:not([type]):not([src])", {
       element: () => void read.scripts.push(""),
       text: (t) => void (read.scripts[read.scripts.length - 1] += t.text),
     })
@@ -66,15 +73,17 @@ const PAGES: Record<string, PageParts> = {
   "index.html": page,
   "compare.html": await readPage(compare),
 };
+const ALL = [...Object.values(PAGES), await readPage(notFound)];
 const valuesIn = (read: PageParts, name: string): string[] =>
-  read.attributes.flatMap((a) => a.get(name) ?? []);
-const valuesOf = (name: string): string[] => valuesIn(page, name);
+  read.elements.flatMap(({ attributes }) => attributes.get(name) ?? []);
 
 test("every in-page link and reference on each page names an element on it", () => {
   const missing = Object.entries(PAGES).flatMap(([file, read]) => {
     const ids = new Set(valuesIn(read, "id"));
     const named = [
-      ...valuesIn(read, "href")
+      ...read.elements
+        .filter(({ tag }) => tag === "a")
+        .flatMap(({ attributes }) => attributes.get("href") ?? [])
         .filter((href) => href.startsWith("#") && href !== "#")
         .map((href) => href.slice(1)),
       ...["aria-controls", "aria-labelledby", "aria-describedby"].flatMap(
@@ -87,11 +96,10 @@ test("every in-page link and reference on each page names an element on it", () 
 });
 
 test("every link from one page to another names a page of the site and an element on it", () => {
-  // a link to a page has no rel; a preloaded font has one
   const links = Object.values(PAGES).flatMap((read) =>
-    read.attributes
-      .filter((a) => !a.has("rel"))
-      .flatMap((a) => a.get("href") ?? [])
+    read.elements
+      .filter(({ tag }) => tag === "a")
+      .flatMap(({ attributes }) => attributes.get("href") ?? [])
       .filter((href) => !/^[a-z]+:/.test(href) && !href.startsWith("#")),
   );
   const missing = links.filter((href) => {
@@ -106,83 +114,94 @@ test("every link from one page to another names a page of the site and an elemen
   expect(missing).toEqual([]);
 });
 
-test("every status label on each page is In the demo, Being built or Planned", () => {
-  const LABELS: Record<string, string> = {
-    "status status-demo": "In the demo",
-    "status status-built": "Being built",
-    "status status-planned": "Planned",
-  };
-  expect(
-    Object.values(PAGES)
-      .flatMap((read) => read.statuses)
-      .filter(({ classes, text }) => LABELS[classes] !== text.trim()),
-  ).toEqual([]);
-});
-
-test("every drawn picture on the landing page is captioned as a design mock-up, and every screenshot as the demo", () => {
+test("every picture on the landing page says what it shows, and every screenshot and recording says it is of the demo", () => {
   expect(
     page.figures
-      .filter(({ drawn, shot, caption }) =>
-        drawn
-          ? !caption.includes("Design mock-up.")
-          : !shot || !/(Screenshot|Recording) of the demo/.test(caption),
+      .filter(({ kind, caption }) =>
+        kind === "media"
+          ? !/(Screenshot|Recording) of the demo/.test(caption)
+          : kind === "none" || caption.trim() === "",
       )
       .map(({ caption }) => caption.trim()),
   ).toEqual([]);
 });
 
-test("every file the landing page loads is in the site folder", async () => {
-  const local = [
-    ...valuesOf("src"),
-    ...valuesOf("srcset"),
-    ...valuesOf("poster"),
-    ...page.attributes
-      .filter((a) => a.get("rel") === "preload")
-      .map((a) => a.get("href") ?? ""),
-  ];
+test("a figure that waits for its benchmark is words, never a number", () => {
+  expect(page.measured.length).toBeGreaterThan(0);
+  expect(page.measured.filter((text) => /\d/.test(text))).toEqual([]);
+});
+
+test("every file each page loads is in the site folder", async () => {
+  const local = ALL.flatMap((read) =>
+    read.elements.flatMap(({ tag, attributes }) => {
+      const href = attributes.get("href");
+      return [
+        ...["src", "srcset", "poster"].flatMap(
+          (name) => attributes.get(name) ?? [],
+        ),
+        ...(href !== undefined &&
+        (tag === "use" ||
+          (tag === "link" &&
+            ["stylesheet", "preload"].includes(attributes.get("rel") ?? "")))
+          ? [href.split("#")[0]!]
+          : []),
+      ];
+    }),
+  ).filter((path) => path !== "" && !path.startsWith("data:"));
   const missing: string[] = [];
-  for (const path of local)
+  for (const path of new Set(local))
     if (/^[a-z]+:/.test(path) || !(await Bun.file(join(site, path)).exists()))
       missing.push(path);
   expect(missing).toEqual([]);
+});
+
+test("every icon a page draws is a symbol of the sprite", () => {
+  const symbols = new Set(
+    [...sprite.matchAll(/<symbol id="([^"]+)"/g)].map(([, id]) => id),
+  );
+  const drawn = ALL.flatMap((read) =>
+    read.elements
+      .filter(({ tag }) => tag === "use")
+      .map(({ attributes }) => attributes.get("href")?.split("#")[1] ?? ""),
+  );
+  expect(drawn.length).toBeGreaterThan(0);
+  expect([...new Set(drawn)].filter((id) => !symbols.has(id))).toEqual([]);
 });
 
 /** The CSP source for an inline block of `text`. */
 const hashOf = (text: string): string =>
   `'sha256-${createHash("sha256").update(text).digest("base64")}'`;
 
-test("each page's content security policy allows its own inline script and style, and nothing else inline", async () => {
-  const found = await Promise.all(
-    [index, compare, notFound].map(async (html) => {
-      const read = await readPage(html);
-      const directives = (
-        read.attributes
-          .find((a) => a.get("http-equiv") === "Content-Security-Policy")
-          ?.get("content") ?? ""
-      )
-        .split(";")
-        .map((part) => part.trim());
-      const directive = (name: string): string =>
-        directives.find((part) => part.startsWith(`${name} `)) ??
-        `${name} 'none'`;
-      return {
-        policy: [
-          directive("default-src"),
-          directive("script-src"),
-          directive("style-src"),
-        ],
-        inline: [
-          "default-src 'none'",
-          read.scripts.length === 0
-            ? "script-src 'none'"
-            : `script-src ${read.scripts.map(hashOf).join(" ")}`,
-          `style-src ${read.styles.map(hashOf).join(" ")}`,
-        ],
-      };
-    }),
-  );
+test("each page's content security policy allows the site's own files and its inline blocks, and nothing else", () => {
+  const found = ALL.map((read) => {
+    const directives = (
+      read.elements
+        .find(
+          ({ attributes }) =>
+            attributes.get("http-equiv") === "Content-Security-Policy",
+        )
+        ?.attributes.get("content") ?? ""
+    )
+      .split(";")
+      .map((part) => part.trim());
+    const directive = (name: string): string =>
+      directives.find((part) => part.startsWith(`${name} `)) ??
+      `${name} 'none'`;
+    return {
+      policy: [
+        directive("default-src"),
+        directive("script-src"),
+        directive("style-src"),
+      ],
+      allowed: [
+        "default-src 'none'",
+        ["script-src 'self'", ...read.scripts.map(hashOf)].join(" "),
+        ["style-src 'self'", ...read.styles.map(hashOf)].join(" "),
+      ],
+    };
+  });
   expect(found.map(({ policy }) => policy)).toEqual(
-    found.map(({ inline }) => inline),
+    found.map(({ allowed }) => allowed),
   );
 });
 
