@@ -1,9 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
+import { makeScript } from "../support/made-script.ts";
 import { signedInAs } from "../support/tour.ts";
-
-const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
 
 /** The test form's address: its title, its button and its rows are read from it. */
 const sendDraft = (docId: string, search: Record<string, string>): string =>
@@ -92,10 +91,12 @@ test("the Send screen passes the accessibility rules and works by keys alone", a
   browserName,
 }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await signedInAs(
-    page,
-    "leo",
-    sendDraft(DOC_ID, {
+  // a script made signed in is made on the server too, so each run makes its own
+  const docId = crypto.randomUUID();
+  await signedInAs(page, "leo");
+  await makeScript(page, docId);
+  await page.goto(
+    sendDraft(docId, {
       title: "Send draft",
       button: "Send draft",
       what: "Whole script",
@@ -133,5 +134,5 @@ test("the Send screen passes the accessibility rules and works by keys alone", a
   await page.keyboard.press(`Shift+${tab}`);
   await expect(page.getByRole("button", { name: /^‹ / })).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(new RegExp(`/s/${DOC_ID}$`));
+  await expect(page).toHaveURL(new RegExp(`/s/${docId}$`));
 });

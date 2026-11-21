@@ -1,9 +1,11 @@
 // The document frame in a browser: the status, the title bar on a narrow window, and signing in from the Sync centre.
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
+import { openMadeScript } from "../support/made-script.ts";
 import { signedInAs } from "../support/tour.ts";
 
-const DOC = "/s/6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+const DOC = `/s/${DOC_ID}`;
 const NEW_SCRIPT = "Saved · Only in this browser — not backed up";
 
 /** Lays `facts` over the open document's status, through the test build's hook. */
@@ -133,7 +135,7 @@ test("Sign in to sync gives You a session and the status follows the source", as
 test("opening a panel never moves the page's lines up or down", async ({
   page,
 }) => {
-  await signedInAs(page, "you", DOC);
+  await openMadeScript(page, "you", DOC_ID);
   // the page's first line; Fit width scales the page as a panel takes room, and keeps the line where it was
   const line = page.locator("[data-editor-host] .mn-page-view p").first();
   const top = async (): Promise<number | undefined> =>
