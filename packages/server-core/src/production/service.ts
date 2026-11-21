@@ -11,10 +11,13 @@ import type {
   RecallRequest,
 } from "@manent/sync-protocol";
 import type { HistoryExtras } from "../history/service.ts";
+import { issuedFile } from "./files.ts";
 import { issueMutation } from "./issue.ts";
+import { layoutMutation } from "./layout.ts";
 import { endMutation, lockMutation, unlockMutation } from "./lock.ts";
 import type { ProductionOutcome } from "./outcome.ts";
 import { pagesMutation } from "./pages.ts";
+import { recallMutation } from "./recall.ts";
 import type { ProductionHooks } from "./ports.ts";
 import { createRequests } from "./requests.ts";
 import type { ProductionOptions } from "./requests.ts";
@@ -58,9 +61,6 @@ export interface ProductionService {
   readonly extras: HistoryExtras;
 }
 
-const unbuilt = (what: string) => () =>
-  Promise.reject(new Error(`${what} is not built yet`));
-
 export function createProductionService(
   options: ProductionOptions,
 ): ProductionService {
@@ -83,14 +83,19 @@ export function createProductionService(
       ),
     end: (userId, request) =>
       requests.mutate(userId, endMutation(options, requests, userId, request)),
-    layout: unbuilt("layout"),
+    layout: (userId, request) =>
+      requests.mutate(userId, layoutMutation(options, userId, request)),
     issue: (userId, request) =>
       requests.mutate(
         userId,
         issueMutation(options, requests, userId, request),
       ),
-    recall: unbuilt("recall"),
-    file: unbuilt("file"),
+    recall: (userId, request) =>
+      requests.mutate(
+        userId,
+        recallMutation(options, requests, userId, request),
+      ),
+    file: (userId, request) => issuedFile(options, requests, userId, request),
     hooks: { subscribed: () => null, checkPush: () => [] },
     extras: { locksAt: () => null, authority: () => () => null },
   };

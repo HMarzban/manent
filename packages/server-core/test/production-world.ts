@@ -1,6 +1,11 @@
 // A thirty-page script on a sync service over memory storage, with the history and production services
 // in its hooks: Priya coordinates it, Dana may issue, Sam edits and Leo views.
-import { loadDoc, scriptBody, scriptDocFromJSON } from "@manent/crdt";
+import {
+  createDoc,
+  loadDoc,
+  scriptBody,
+  scriptDocFromJSON,
+} from "@manent/crdt";
 import type { BlockWriter, CrdtDoc } from "@manent/crdt";
 import { blocksOf, sectionize } from "@manent/schema";
 import type { BlockJSON, DocJSON, FlatBlock } from "@manent/schema";
@@ -112,7 +117,11 @@ export interface ProductionWorld {
   editPage(page: number, words: number): Promise<void>;
   /** The same edit pushed and left queued, not yet committed. */
   queueEdit(page: number, words: number): void;
+  /** The script at the head of the log. */
+  script(): DocJSON;
   blocks(): FlatBlock[];
+  /** The script as the log holds it now, every root map included. */
+  replica(): CrdtDoc;
   settings(): Record<string, unknown>;
   versions(): VersionRow[];
   /** The kinds of CONTROL Leo was sent since the last call. */
@@ -316,7 +325,14 @@ export function productionWorld(): ProductionWorld {
       await run(Promise.resolve());
     },
     queueEdit,
+    script: () => sectionize(content().blocks),
     blocks: () => blocksOf(sectionize(content().blocks)),
+    replica() {
+      const doc = createDoc({ clientId: 7007 });
+      for (const row of file.log.tail(DOC, 1, 0).rows)
+        doc.applyUpdate(row.update);
+      return doc;
+    },
     settings: () => content().settings,
     versions: () => file.history.page(DOC, null, 500),
     controlKinds: () =>

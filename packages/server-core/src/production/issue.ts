@@ -111,8 +111,13 @@ export function isSending(request: {
   );
 }
 
-const sameList = (a: readonly string[], b: readonly string[]): boolean =>
-  a.length === b.length && a.every((label, i) => label === b[i]);
+/** The same labels in the same order. */
+export function isSameList(
+  a: readonly string[],
+  b: readonly string[],
+): boolean {
+  return a.length === b.length && a.every((label, i) => label === b[i]);
+}
 
 /** The answer of an issue or a correction, and how a stored one reads back. */
 export function issueAnswer(
@@ -154,6 +159,33 @@ function alreadyIssued(
     issuedAt: set.issuedAt,
     nextName: next.name,
   });
+}
+
+/** The revision after `active`, named and coloured by the locked order, started on what was issued. */
+function nextSet(
+  file: DocFile,
+  active: RevisionSetRow,
+  made: { id: string; baseline: string; now: number },
+): RevisionSetRow {
+  const order = colourOrderOf(file, active.docId);
+  const ordinal = active.ordinal + 1;
+  return {
+    id: made.id,
+    docId: active.docId,
+    ordinal,
+    name: revisionName(order, ordinal),
+    colour: revisionColour(order, ordinal),
+    mark: DEFAULT_MARK,
+    baselineVersionId: made.baseline,
+    issuedVersionId: null,
+    issuedAt: null,
+    issuedOn: null,
+    issuedByUserId: null,
+    recalledAt: null,
+    fullDraft: false,
+    startedAt: made.now,
+    engineVersion: active.engineVersion,
+  };
 }
 
 interface Issued {
@@ -218,7 +250,7 @@ export function issueMutation(
         request.what === "full"
           ? p.pages.map((page) => page.label)
           : revisedPages(p, marksSince(baseline, content, flat, overrides));
-      if (!sameList(pages, request.pages))
+      if (!isSameList(pages, request.pages))
         return { ok: false, reason: "changed" };
       scriptBody(doc).write((w) => {
         for (const [blockId, num] of numbers) w.setBlockAttrs(blockId, { num });
@@ -274,25 +306,9 @@ export function issueMutation(
         issuedByUserId: userId,
         fullDraft: request.what === "full",
       });
-      const order = colourOrderOf(file, docId);
-      const next = active.ordinal + 1;
-      production.addSet({
-        id: options.ids(),
-        docId,
-        ordinal: next,
-        name: revisionName(order, next),
-        colour: revisionColour(order, next),
-        mark: DEFAULT_MARK,
-        baselineVersionId: version.id,
-        issuedVersionId: null,
-        issuedAt: null,
-        issuedOn: null,
-        issuedByUserId: null,
-        recalledAt: null,
-        fullDraft: false,
-        startedAt: now,
-        engineVersion: active.engineVersion,
-      });
+      production.addSet(
+        nextSet(file, active, { id: options.ids(), baseline: version.id, now }),
+      );
       issued.issue = {
         id: options.ids(),
         docId,

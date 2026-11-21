@@ -9,7 +9,12 @@ import {
   profileFromSettings,
   readLayoutSettings,
 } from "@manent/pagination";
-import type { Engine, LockAnchorRecord, PageProfile } from "@manent/pagination";
+import type {
+  Engine,
+  LayoutBlock,
+  LockAnchorRecord,
+  PageProfile,
+} from "@manent/pagination";
 import {
   COLOUR_ORDERS,
   REVISION_COLOURS,
@@ -39,6 +44,7 @@ import type {
   NumberingScheme,
   ProductionState,
   RevisionSetView,
+  SetBlockRecord,
 } from "@manent/sync-protocol";
 import { refused } from "./outcome.ts";
 import type { ProductionRefused } from "./outcome.ts";
@@ -47,7 +53,7 @@ import type { Mutation, ProductionOptions } from "./requests.ts";
 const ISSUE_WHATS = ["changed", "full"] as const;
 
 /** `value` as a member of `list`; a RangeError for a stored value this service never writes. */
-function memberOf<T extends string>(
+export function memberOf<T extends string>(
   list: readonly T[],
   value: string,
   what: string,
@@ -159,11 +165,20 @@ export function scriptPages(
   records: readonly LockAnchorRecord[],
   engine: Engine,
 ): LockedLayout {
-  const blocks = applyLayoutPatches(
+  const blocks = layoutBlocks(flat, numbers, engine);
+  return lockedPagination(blocks, profile, records, engine);
+}
+
+/** The blocks as the engine lays them out in production: derived numbers and omitted scenes patched in. */
+export function layoutBlocks(
+  flat: readonly FlatBlock[],
+  numbers: ReadonlyMap<string, string>,
+  engine: Engine,
+): LayoutBlock[] {
+  return applyLayoutPatches(
     engine.toLayoutBlocks(flat),
     productionLayout(flat, numbers),
   );
-  return lockedPagination(blocks, profile, records, engine);
 }
 
 function recordsOf(rows: readonly AnchorRow[]): LockAnchorRecord[] {
@@ -186,22 +201,24 @@ export function rowsOf(records: readonly LockAnchorRecord[]): AnchorRow[] {
   }));
 }
 
+/** The blocks an issued revision marked, as the store holds them. */
+export function setBlocksOf(file: DocFile, setId: string): SetBlockRecord[] {
+  return file.production.setBlocks(setId).map((block) => ({
+    blockId: block.blockId,
+    pageLabel: block.pageLabel,
+    change: memberOf(BLOCK_CHANGES, block.change, "block change"),
+    hash: block.hash,
+    inserted: block.inserted,
+    deletedAt: block.deletedAt,
+  }));
+}
+
 function setView(
   file: DocFile,
   row: RevisionSetRow,
   names: (userId: string) => string,
 ): RevisionSetView {
-  const blocks =
-    row.issuedAt === null
-      ? []
-      : file.production.setBlocks(row.id).map((block) => ({
-          blockId: block.blockId,
-          pageLabel: block.pageLabel,
-          change: memberOf(BLOCK_CHANGES, block.change, "block change"),
-          hash: block.hash,
-          inserted: block.inserted,
-          deletedAt: block.deletedAt,
-        }));
+  const blocks = row.issuedAt === null ? [] : setBlocksOf(file, row.id);
   return {
     setId: row.id,
     ordinal: row.ordinal,
