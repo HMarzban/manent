@@ -6,6 +6,7 @@ import type {
   Resolved,
   ScreenId,
 } from "@manent/commands";
+import type { PageViewPorts } from "@manent/editor";
 import type {
   Bag,
   KeyValueMap,
@@ -27,6 +28,7 @@ import type { DesktopHost } from "../desktop/host.ts";
 import type { EditorControl } from "../editor-host/control.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
 import type { PlaceStore } from "../editor-host/place.ts";
+import type { HistorySource } from "../history/source.ts";
 import type { Where } from "../platform.ts";
 import type { TabPerson, TabStorage } from "../session.ts";
 import type { ShellDom } from "../shell/regions.tsx";
@@ -147,6 +149,10 @@ export interface PersonServices {
   editor: EditorControl;
   /** Draws this person's editor of a document into the page. */
   mount: EditorMount;
+  /** The versions of each script, their content, and naming, saving and restoring them. */
+  history: HistorySource;
+  /** The ports of every page this person's editor and version view draw. */
+  pagePorts: PageViewPorts;
   /** Settles once the person's preferences, keys and flags have been read from the device, or their sync could not start. */
   ready: Promise<void>;
   /** Leaving a document this device cannot save asks `question`, which the screen draws while it is not null. */

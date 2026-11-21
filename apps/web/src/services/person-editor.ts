@@ -5,7 +5,6 @@ import { createKeyResolver } from "@manent/ui";
 import type { MessageQueue, StatusFacts, Subscribable } from "@manent/ui";
 import {
   EDITOR_FIXED_KEYS,
-  browserPagePorts,
   createEditorMount,
 } from "../editor-host/editor-mount.ts";
 import type { OpenEditor } from "../editor-host/editor-mount.ts";
@@ -65,7 +64,7 @@ export async function loadEditor(
         : () => hooks.withRecordedAccess(parts.services(), access),
     control: parts.control,
     keys: editorKeys(parts.commands, parts.messages, parts.resolved),
-    ports: browserPagePorts(environment.userAgent),
+    ports: parts.services().pagePorts,
     frames,
     timers,
     platform: environment.where.platform,

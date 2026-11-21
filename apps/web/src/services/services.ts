@@ -13,12 +13,14 @@ import { createMessageQueue, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import { createEditorControl } from "../editor-host/control.ts";
 import { createLazyMount } from "../editor-host/lazy-mount.ts";
+import { browserPagePorts } from "../editor-host/page-ports.ts";
 import {
   createPlaceStore,
   keepViewState,
   placeKey,
 } from "../editor-host/place.ts";
 import type { PlaceStore } from "../editor-host/place.ts";
+import { createLazySource } from "../history/lazy-source.ts";
 import { deviceName } from "../platform.ts";
 import type { Where } from "../platform.ts";
 import type { TabPerson } from "../session.ts";
@@ -40,6 +42,8 @@ import { createRemoteDeferral } from "./remote-deferral.ts";
 import { createCloseGuard, createCloseQuestion } from "./sync/close-guard.ts";
 
 type Options = CommandsOptions & { person: TabPerson };
+
+const noop = (): void => {};
 
 const isKeys = (value: unknown): value is Keys =>
   Array.isArray(value) &&
@@ -127,18 +131,25 @@ interface ScriptStores {
   clear(): void;
 }
 
-/** The open documents, counted, and one settings store per open document, released when its last opener closes it. */
+/**
+ * The open documents, counted, each followed by `follow` from its first open to its last close, and one settings store
+ * per open document, released when its last opener closes it.
+ */
 function createScriptStores(options: {
   source: DocumentSource;
+  follow: (docId: string) => () => void;
   store: (scriptBag: Bag, docId: string) => ScriptStore;
 }): ScriptStores {
   const { source } = options;
   const opens = new Map<string, number>();
+  const follows = new Map<string, () => void>();
   const stores = new Map<string, ScriptStore>();
   return {
     documents: {
       open(docId) {
-        opens.set(docId, (opens.get(docId) ?? 0) + 1);
+        const count = opens.get(docId) ?? 0;
+        opens.set(docId, count + 1);
+        if (count === 0) follows.set(docId, options.follow(docId));
         return source.open(docId);
       },
       close(docId) {
@@ -148,6 +159,8 @@ function createScriptStores(options: {
           return;
         }
         opens.delete(docId);
+        follows.get(docId)?.();
+        follows.delete(docId);
         stores.get(docId)?.release();
         stores.delete(docId);
         source.close(docId);
@@ -187,11 +200,14 @@ function createKept(options: Options) {
   };
 }
 
-/** The person's settings store, and one store per open document of `source` with its script settings. */
+/** The person's settings store, and one store per open document of `documents.source` with its script settings. */
 function createStores(
   options: Options,
   kept: { prefs: KeyValueMap; device: Bag; deviceId: string },
-  source: DocumentSource,
+  documents: {
+    source: DocumentSource;
+    follow: (docId: string) => () => void;
+  },
 ): { settings: SettingsStore; scripts: ScriptStores } {
   const { now, schedule, where } = options;
   const personal = createPersonalBag({
@@ -225,7 +241,7 @@ function createStores(
       () => false,
     ),
     scripts: createScriptStores({
-      source,
+      ...documents,
       store(scriptBag, docId) {
         const { view, release } = createBagViews();
         const locked = () =>
@@ -271,10 +287,26 @@ export function createPersonServices(options: Options): PersonServices {
     run: (commandId) => void commands.run(commandId, "control"),
     now: options.now,
   });
+  const openHandle = async (docId: string) => (await sync.client).open(docId);
   const { settings, scripts } = createStores(
     options,
     { ...kept, prefs: sync.maps.prefs },
-    guard,
+    {
+      source: guard,
+      follow(docId) {
+        const stop = import("../history/follow-events.ts")
+          .then(({ followHistoryEvents }) =>
+            followHistoryEvents(docId, {
+              open: openHandle,
+              messages,
+              userId: options.person.userId,
+            }),
+          )
+          // a script whose sync never started has no history to follow
+          .catch(() => noop);
+        return () => void stop.then((stopFollowing) => stopFollowing());
+      },
+    },
   );
   const resolved = createResolved(sync.maps.keys, options.where);
   const flags = createFlags({ index: sync.maps.flags });
@@ -297,6 +329,20 @@ export function createPersonServices(options: Options): PersonServices {
   globalThis.addEventListener("pagehide", leave);
   globalThis.addEventListener("beforeunload", askBeforeClosing);
   const fixedKeys = createValue<readonly FixedKey[]>([]);
+  // history's requests and pages load apart from the entry
+  const history = createLazySource({
+    now: options.now,
+    load: async () =>
+      (await import("../history/source.ts")).createHistorySource({
+        fetch,
+        token: () => options.person.token,
+        open: openHandle,
+        userId: options.person.userId,
+        now: options.now,
+        // a request's key is 32 lower-case hex digits
+        ids: () => options.randomId().replaceAll("-", ""),
+      }),
+  });
   const services: PersonServices = {
     userId: options.person.userId,
     settings,
@@ -331,6 +377,8 @@ export function createPersonServices(options: Options): PersonServices {
         client: sync.client,
       });
     }),
+    history,
+    pagePorts: browserPagePorts(options.userAgent),
     ready: sync.ready,
     closing: { guard, question },
     connection: sync.connection,
