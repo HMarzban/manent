@@ -11,7 +11,17 @@ import type {
   RecoveredItem,
   UpstreamStatus,
 } from "../src/index.ts";
-import { B1, DOC, listen, setup, type, typeIn } from "./scripted-server.ts";
+import {
+  B1,
+  B2,
+  DOC,
+  listen,
+  seedState,
+  setup,
+  textOf,
+  type,
+  typeIn,
+} from "./scripted-server.ts";
 import type { World } from "./scripted-server.ts";
 
 /** What the node says of a script the server holds, every edit synced. */
@@ -95,6 +105,93 @@ test("Saved on the desktop is the node's acknowledgement, Synced is the cloud's"
     synced: true,
     waiting: 0,
   });
+});
+
+test("seed 3: Synced on the desktop waits until the cloud holds the edit", async () => {
+  const { w, h } = await windowOnNode();
+  await upstream(w, UP);
+  const before = h.status.get().synced;
+  type(h, "a");
+  await w.settle();
+  w.server.ackAll(DOC);
+  await w.settle();
+  // the node's latest status was sent before it took the edit
+  const acknowledged = h.status.get();
+  await upstream(w, UP);
+  expect([before, acknowledged, h.status.get().synced]).toEqual([
+    true,
+    {
+      saved: true,
+      synced: false,
+      waiting: 0,
+      link: "online",
+      docSync: "syncing",
+      wentOfflineAt: null,
+      neverSynced: false,
+      recovered: 0,
+      side: [],
+    },
+    true,
+  ]);
+});
+
+test("a window on the desktop says synced only once it holds what the node holds", async () => {
+  const w = await setup();
+  w.server.answer.subscribe = false;
+  const store = createMemoryStore("dana");
+  const h = await w.makeClient({ store, via: "local_node" }).open(DOC);
+  await w.online();
+  await upstream(w, UP);
+  const before = h.status.get();
+  w.server.subscribedWithState(DOC, w.server.doc(DOC).encodeState());
+  await w.settle();
+  expect([before, h.status.get().synced]).toEqual([
+    {
+      saved: true,
+      synced: false,
+      waiting: 0,
+      link: "online",
+      docSync: "local",
+      wentOfflineAt: null,
+      neverSynced: false,
+      recovered: 0,
+      side: [],
+    },
+    true,
+  ]);
+});
+
+test("a window on the desktop says synced during a move only once it holds the new document", async () => {
+  const { w, h } = await windowOnNode();
+  typeIn(h, B1, " typed");
+  await w.settle();
+  w.server.ackAll(DOC);
+  await w.settle();
+  await upstream(w, UP);
+  // an update from the node waits for a frame when the move loads, which applies it first
+  const dana = w.server.writeAs(DOC, 77, (writer) =>
+    writer.insertText(B2, 0, "dana"),
+  );
+  w.server.syncUpdate(DOC, dana);
+  await w.settle();
+  // the node moved without the typed text, which it set aside
+  const kept = loadDoc(seedState());
+  kept.applyUpdate(dana);
+  const built = rebuildDoc(kept, { clientId: 2 });
+  if (!built.ok) throw new RangeError(`no rebuild: ${built.code}`);
+  const seen: string[] = [];
+  h.status.subscribe((status) => {
+    if (status.synced) seen.push(textOf(h.doc()));
+  });
+  w.server.answer.subscribe = false;
+  w.server.moved(DOC, 1, 2);
+  await w.settle();
+  w.server.subscribedWithState(DOC, built.doc.encodeState(), {
+    generation: 2,
+    headSeq: 1,
+  });
+  await w.settle();
+  expect(seen).toEqual(["\ndana"]);
 });
 
 test("the upstream's offline time, never-synced state and sides reach the window", async () => {
