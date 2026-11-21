@@ -36,5 +36,7 @@ export const SURFACE_IDS = [
   "inline_rename",
   "shortcut_capture",
   "send",
+  "version_view",
+  "name_field",
 ] as const;
 export type SurfaceId = (typeof SURFACE_IDS)[number];

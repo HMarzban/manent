@@ -22,6 +22,7 @@ export const HTTP_ERROR_CODES = [
   "too_large",
   "unknown_generation",
   "unreachable",
+  "not_restorable",
 ] as const;
 
 export type HttpErrorCode = (typeof HTTP_ERROR_CODES)[number];

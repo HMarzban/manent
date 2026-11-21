@@ -31,15 +31,17 @@ export function PanelTabs({
         <TabsList
           variant="line"
           aria-label={label}
-          className="flex-1 justify-start"
+          className="min-w-0 flex-1 justify-start"
         >
           {tabs.map((tab) => (
             <TabsTrigger
               key={tab.id}
               value={tab.id}
-              className="flex-none text-ui"
+              className="min-w-0 shrink text-ui"
             >
-              {tab.label}
+              <span className="truncate" title={tab.label}>
+                {tab.label}
+              </span>
             </TabsTrigger>
           ))}
         </TabsList>
