@@ -94,7 +94,7 @@ export async function closeFirstTour(page: Page): Promise<void> {
   await expect(close).toHaveCount(0);
 }
 
-/** Registers the test of the Tour scenario `id`, with its window, and its second window when it has one, already open. Throws a RangeError when the Tour has no such scenario. */
+/** Registers the test of the Tour scenario `id`, with its window, and each of its extra windows, already open. Throws a RangeError when the Tour has no such scenario. */
 export function tourScenario(
   id: string,
   body: (args: {
@@ -109,12 +109,8 @@ export function tourScenario(
   test(`Tour: ${scenario.promise}`, async ({ page, context }) => {
     const { setup } = scenario;
     await signedInAs(page, setup.userId, setup.open);
-    if (setup.secondWindow !== null)
-      await signedInAs(
-        await context.newPage(),
-        setup.secondWindow.userId,
-        setup.secondWindow.open,
-      );
+    for (const extra of setup.extraWindows)
+      await signedInAs(await context.newPage(), extra.userId, extra.open);
     await body({ page, context, scenario });
   });
 }

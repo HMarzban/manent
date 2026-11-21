@@ -8,6 +8,7 @@ export const PRIVATE_INDEX_MAPS = Object.freeze([
   "continue",
   "review",
   "on_device",
+  "tour",
 ] as const);
 
 /** The maps of a workspace's index. */

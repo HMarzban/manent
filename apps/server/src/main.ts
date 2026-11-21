@@ -2,7 +2,11 @@ import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { createDemoDirectory, createDemoSignIn } from "@manent/demo";
+import {
+  createDemoDirectory,
+  createDemoSignIn,
+  createSeedTime,
+} from "@manent/demo";
 import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import {
@@ -25,9 +29,13 @@ import type {
 } from "@manent/server-core";
 import { openSqliteStorage } from "@manent/storage";
 import { PROTOCOL_VERSION } from "@manent/sync-protocol";
+import type { DemoControls } from "@manent/sync-protocol";
+import { createDemoServices } from "./demo/services.ts";
 import { readServerEnv } from "./env.ts";
 import type { ServerEnv } from "./env.ts";
 import { createServerRenderPdf, readScriptFonts } from "./production.ts";
+import { startBackgroundSeed } from "./seed/background.ts";
+import { runSeedCommand } from "./seed/command.ts";
 import { onServeError } from "./serve-error.ts";
 
 const SESSION_KEY_BYTES = 32;
@@ -80,7 +88,11 @@ export function buildServerConfig(
       directory: createDemoDirectory(),
       sessions: createSignedSessionStore({ secret, now: Date.now }),
     },
-    demo: { seedId: () => readSeedId(env.dataDir), control: env.control },
+    demo: {
+      seedId: () => readSeedId(env.dataDir),
+      control: env.control,
+      controls: null,
+    },
     socket: {
       tickets: createTicketStore({ now: Date.now }),
       versions: { current: versions, min: versions },
@@ -149,6 +161,13 @@ function listen(
     });
   }
 }
+
+/** The seed's clock at `seedAt`, in this machine's zone at that moment. */
+const seedTimeAt = (seedAt: number) =>
+  createSeedTime({
+    seedAt,
+    zoneOffsetMs: -new Date(seedAt).getTimezoneOffset() * 60_000,
+  });
 
 const clock: Clock = {
   now: Date.now,
@@ -233,16 +252,45 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
     renderPdf,
     rules: PRODUCT_SETTING_RULES,
   });
+  // the demo's services need the server these controls are given to, so the controls call them once they exist
+  const controls: DemoControls = {
+    writers: (...args) => services.writers(...args),
+    prepare: (...args) => services.prepare(...args),
+    rebuild: (...args) => services.rebuild(...args),
+  };
   const serving = createServer({
     ...config,
+    demo: config.demo === null ? null : { ...config.demo, controls },
     sync: { ...sync, hooks: [history, production.hooks] },
     history,
     production,
   });
   built = serving;
+  const services = createDemoServices({
+    live: {
+      server: serving,
+      sessions: config.auth.sessions,
+      storage,
+      sync: serving.sync!,
+      clock,
+    },
+    time: () => seedTimeAt(Date.now()),
+    random: Math.random,
+  });
+  const background = startBackgroundSeed({
+    execPath: process.execPath,
+    entry: import.meta.path,
+    dataDir: env.dataDir,
+    seedAt: Date.now(),
+    onProgress: () => {},
+    onDone: async () => {},
+    onFailed: () => {},
+  });
   let stopped: Promise<void> | null = null;
   const stop = (): Promise<void> => {
     stopped ??= (async () => {
+      await background.stop();
+      await services.close();
       await serving.sync?.shutdown();
       await stopListening();
       sync.close();
@@ -258,6 +306,9 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
 }
 
 if (import.meta.main) {
+  // the seed command runs before the environment is read: its child process is given only its arguments
+  if (process.argv[2] === "seed")
+    process.exit(await runSeedCommand(process.argv.slice(2)));
   try {
     const running = await startServer(readServerEnv(process.env));
     process.on("SIGTERM", () => {
