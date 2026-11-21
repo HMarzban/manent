@@ -26,6 +26,7 @@ import { SHELL_WORDS } from "../words.ts";
 import { alertNewerStore, chooseFiles } from "./dialogs.ts";
 import { createNativeMenu } from "./menus.ts";
 import { Electrobun, PATHS, Updater, Utils } from "./sdk.ts";
+import { createRunningUpdates, updateAtLaunch } from "./updater.ts";
 import { hold, openMainWindow } from "./window.ts";
 import type { MainWindow } from "./window.ts";
 
@@ -109,6 +110,7 @@ interface App {
   menu: { draw(menus: readonly NativeMenu[] | null): void } | null;
   windowState: ReturnType<typeof createWindowStateWriter>;
   firstFrame(): void;
+  updates: { check(): void };
   send(message: ShellMessage): void;
 }
 
@@ -136,6 +138,7 @@ function answer(app: App, message: PageMessage): void {
       Utils.openPath(app.root);
       return;
     case "check_for_updates":
+      app.updates.check();
       return;
     case "close_answer":
       app.window.answerClose(message.close);
@@ -228,6 +231,7 @@ function openApp(options: {
     clock,
     delayMs: WINDOW_STATE_SAVE_MS,
   });
+  const updates = createRunningUpdates(send);
   const platform = platformOf(process.platform);
   const menu =
     platform === "linux" ? null : createNativeMenu({ platform, send });
@@ -237,6 +241,7 @@ function openApp(options: {
     saved: readWindowState(options.statePath).roles.main ?? null,
     onPlaced: (patch) => windowState.update("main", patch),
     onCloseRequested: () => send({ v: 1, t: "close_requested" }),
+    onShown: () => updates.check(),
   });
   let marked = false;
   const app: App = {
@@ -250,6 +255,7 @@ function openApp(options: {
       marked = true;
       node.markFirstFrame();
     },
+    updates,
     send,
   };
   core.shell.onMessage((message) => answer(app, message));
@@ -260,6 +266,7 @@ function openApp(options: {
 async function launch(): Promise<void> {
   const root = appDataDir(process.platform, process.env, homedir());
   const { version, channel } = await Updater.getLocalInfo();
+  await updateAtLaunch();
   const resources = join(PATHS.RESOURCES_FOLDER, "app");
   const build = readBuildFile(join(resources, "build.json"));
   const statePath = join(root, "window-state.json");

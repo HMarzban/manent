@@ -38,6 +38,8 @@ export interface MainWindowOptions {
   ): void;
   /** The window wants to close and is held until `answerClose`, or `CLOSE_ANSWER_MS`. */
   onCloseRequested(): void;
+  /** The window has been shown, once. */
+  onShown(): void;
 }
 
 const setFrame = (win: BrowserWindow, frame: Frame): void =>
@@ -72,6 +74,7 @@ export function openMainWindow(options: MainWindowOptions): MainWindow {
     shown = true;
     clearTimeout(showing);
     win.show();
+    options.onShown();
   };
   const showing = setTimeout(show, SHOW_AFTER_MS);
   const placed = (): void =>
