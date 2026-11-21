@@ -136,7 +136,7 @@ export function createImportPageHooks(
   return {
     committed({ room, report }) {
       const { docId, doc } = room;
-      if (report === null || doc === null) return;
+      if (doc === null) return;
       if (!isAnchored(room)) {
         orders.delete(docId);
         return;
@@ -144,8 +144,8 @@ export function createImportPageHooks(
       const after = orderOf(doc);
       const before = orders.get(docId) ?? null;
       orders.set(docId, after);
-      // the authority's own writes (numbers, settings, this hook's) edit no page
-      if (report.origin === "system") return;
+      // a replay's commit (no report) and the authority's own writes (numbers, settings, this hook's) edit no page
+      if (report === null || report.origin === "system") return;
       const records = recordsOf(room.file.production.anchors(docId));
       const labels = touchedPages({ before, after }, records, report);
       if (labels.length === 0) return;
