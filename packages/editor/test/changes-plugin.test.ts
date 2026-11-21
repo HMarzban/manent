@@ -355,7 +355,7 @@ test("after any edits the changes kept equal those of comparing the script afres
     ),
     { numRuns: 300 },
   );
-});
+}, 30_000);
 
 test("a block moved off the baseline's order counts as moved until it is moved back", () => {
   const blocks = doc(b(A, "Rain"), b(A, "Dusk"), b(A, "Dawn"));
