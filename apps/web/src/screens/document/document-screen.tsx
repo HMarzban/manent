@@ -98,14 +98,19 @@ function useTestStatus(
   const [status] = useState(() =>
     flavour === "test" ? createValue(source.get()) : null,
   );
+  // what the hook laid stays over every later value of the source
+  const laid = useRef<Partial<StatusFacts>>({});
   useEffect(() => {
     if (status === null) return;
-    const stop = source.subscribe(status.set);
+    const stop = source.subscribe((facts) =>
+      status.set({ ...facts, ...laid.current }),
+    );
     const hook: unknown = Reflect.get(window, "__manent");
     if (typeof hook !== "object" || hook === null) return stop;
-    Reflect.set(hook, "setStatus", (facts: Partial<StatusFacts>) =>
-      status.set({ ...status.get(), ...facts }),
-    );
+    Reflect.set(hook, "setStatus", (patch: Partial<StatusFacts>) => {
+      laid.current = { ...laid.current, ...patch };
+      status.set({ ...status.get(), ...patch });
+    });
     return () => {
       stop();
       Reflect.deleteProperty(hook, "setStatus");

@@ -1,11 +1,11 @@
 // The app's requests to the server and to the demo's server control.
 
-import { isHttpErrorCode, isServerState } from "@manent/sync-protocol";
 import type {
   ControlEndpoint,
   DemoResponse,
   HttpErrorCode,
   MeResponse,
+  RemovedDocResponse,
   ServerState,
   SignInChoice,
   SignInOptions,
@@ -30,6 +30,8 @@ export interface Api {
   me(): Promise<MeResult>;
   /** Null outside demo mode; throws when it cannot tell. */
   demo(): Promise<DemoResponse | null>;
+  /** Who deleted the document and when; null when the server holds no record of it; throws when it cannot tell. */
+  removedDoc(docId: string): Promise<RemovedDocResponse | null>;
 }
 
 export interface ServerControl {
@@ -66,6 +68,8 @@ async function errorCodeOf(response: Response): Promise<HttpErrorCode | null> {
   const body = await readJson(response);
   if (typeof body !== "object" || body === null || !("error" in body))
     return null;
+  // the protocol's guards are loaded apart from the entry
+  const { isHttpErrorCode } = await import("@manent/sync-protocol");
   return isHttpErrorCode(body.error) ? body.error : null;
 }
 
@@ -142,6 +146,18 @@ export function createApi(options: {
         throw new Error(`GET /api/demo answered ${response.status}`);
       return readAs<DemoResponse>(response);
     },
+
+    async removedDoc(docId) {
+      const response = await request("/api/docs/removed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId }),
+      });
+      if (response.status === 404) return null;
+      if (!response.ok)
+        throw new Error(`POST /api/docs/removed answered ${response.status}`);
+      return readAs<RemovedDocResponse>(response);
+    },
   };
 }
 
@@ -174,6 +190,7 @@ export function createServerControl(options: {
       }
       if (!response.ok) return "unreachable";
       const body = await readJson(response);
+      const { isServerState } = await import("@manent/sync-protocol");
       return typeof body === "object" &&
         body !== null &&
         "server" in body &&

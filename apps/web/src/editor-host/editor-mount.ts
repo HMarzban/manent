@@ -12,7 +12,6 @@ import {
 import type {
   EditorBinding,
   Frames,
-  HistoryPort,
   PageViewPorts,
   SavedPlace,
   ScriptEditor,
@@ -28,13 +27,16 @@ import type { FixedKey, PersonServices } from "../services/ports.ts";
 import { zoomActions } from "../state/zoom.store.ts";
 import { actionOf } from "./command-actions.ts";
 import type { EditorControl } from "./control.ts";
+import { deskOf } from "./desk.ts";
 import type { EditorSession, EditorSessions } from "./editor-sessions.ts";
 import { editorWords } from "./editor-words.ts";
 import { registerLiveEditor } from "./live-editor.ts";
 import type { EditorMount } from "./mount.ts";
 import { followZoom } from "./page-zoom.ts";
 import { keepPlace } from "./keep-place.ts";
+import { placeholderMount } from "./placeholder-mount.ts";
 import { EDITOR_PLUGINS } from "./plugins.ts";
+import { countSteps } from "./undo-depth.ts";
 
 /** What one person's undo takes back. */
 export const UNDO_ROOTS: readonly UndoRoot[] = ["script"];
@@ -110,51 +112,6 @@ interface Built {
 }
 
 const noop = (): void => {};
-
-/** The element's inner width and horizontal padding, px, and its resizes. */
-function deskOf(element: HTMLElement): ScriptEditorOptions["desk"] {
-  const padding = (): number => {
-    const style = getComputedStyle(element);
-    // a padding the page never set reads as no length at all
-    return (
-      (Number.parseFloat(style.paddingLeft) || 0) +
-      (Number.parseFloat(style.paddingRight) || 0)
-    );
-  };
-  return {
-    widthPx: () => element.clientWidth - padding(),
-    paddingPx: padding,
-    observe(listener) {
-      const observer = new ResizeObserver(() => listener());
-      observer.observe(element);
-      return () => observer.disconnect();
-    },
-  };
-}
-
-/** The history with a count of the steps it can undo: each step added counts one, each undo it runs takes one away. */
-function countSteps(history: HistoryPort): {
-  history: HistoryPort;
-  depth(): number;
-  stop(): void;
-} {
-  let depth = 0;
-  const stop = history.onStep(() => {
-    depth++;
-  });
-  return {
-    history: {
-      ...history,
-      undo(state, dispatch) {
-        const done = history.undo(state, dispatch);
-        if (done && dispatch !== undefined) depth--;
-        return done;
-      },
-    },
-    depth: () => depth,
-    stop,
-  };
-}
 
 /** The session as the binding sees it, counting the binding's holds; `whenReleased` runs once none is left, after the release returns, unless cancelled first. */
 function trackHolds(
@@ -333,13 +290,16 @@ const differs = (a: Shown, b: Shown): boolean =>
  * and when the document is replaced: then the old page takes no more input at once, and an input method composing is let
  * finish first. Returns the disposer.
  */
-function openDocument(options: MountOptions, ports: MountPorts): () => void {
+function openDocument(
+  options: MountOptions,
+  ports: MountPorts,
+  session: EditorSession,
+): () => void {
   const { docId } = ports;
   const person = options.services();
   const script = person.openScriptStore(docId);
   const { status } = person.documents.open(docId);
   const format = (): FormatId => script.get("script.format");
-  const session = options.sessions.open(docId, format());
   const holds = trackHolds(session, options.timers);
   const shownNow = (): Shown => ({
     ink: format() === "ink",
@@ -392,7 +352,33 @@ function openDocument(options: MountOptions, ports: MountPorts): () => void {
   };
 }
 
+/**
+ * Draws the placeholder until the session's document is kept on this device, then opens its editor, so no keystroke
+ * reaches a document that is never stored. Returns the disposer.
+ */
+function openWhenKept(options: MountOptions, ports: MountPorts): () => void {
+  const { docId } = ports;
+  const script = options.services().openScriptStore(docId);
+  const session = options.sessions.open(docId, script.get("script.format"));
+  if (session.kept.get()) return openDocument(options, ports, session);
+  const placeholder = placeholderMount.mount(ports);
+  let dispose = (): void => {
+    placeholder();
+    session.close();
+  };
+  const stop = session.kept.subscribe((kept) => {
+    if (!kept) return;
+    stop();
+    placeholder();
+    dispose = openDocument(options, ports, session);
+  });
+  return () => {
+    stop();
+    dispose();
+  };
+}
+
 /** The mount of the page's editor; `services` is read at each mount, so the person's services are always the current ones. */
 export function createEditorMount(options: MountOptions): EditorMount {
-  return { mount: (ports) => openDocument(options, ports) };
+  return { mount: (ports) => openWhenKept(options, ports) };
 }

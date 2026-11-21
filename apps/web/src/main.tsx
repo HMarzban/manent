@@ -17,8 +17,9 @@ import { createShellDom } from "./shell/regions.tsx";
 import { bindGuard, createGuard } from "./state/guard.ts";
 import { createPersonStore } from "./state/person.store.ts";
 
-// the build's define; absent outside a build
+// the build's defines; absent outside a build
 declare const MANENT_FLAVOUR: string | undefined;
+declare const MANENT_VERSION: string | undefined;
 
 const flavour =
   typeof MANENT_FLAVOUR !== "undefined" && MANENT_FLAVOUR === "test"
@@ -92,6 +93,36 @@ const environment: Environment = {
     if (flavour === "test") runs.push(commandId);
   },
   visitUndo: { current: null },
+  // sync, with everything only it needs, stays out of the entry
+  async startSync(person, deviceId) {
+    const [sync, device, { PROTOCOL_VERSION }, { SCHEMA_VERSION }, engine] =
+      await Promise.all([
+        import("./services/sync/create-sync.ts"),
+        import("./services/sync/device-memory.ts"),
+        import("@manent/sync-protocol"),
+        import("@manent/schema"),
+        import("@manent/pagination"),
+      ]);
+    const versions = {
+      protocol: PROTOCOL_VERSION,
+      schema: SCHEMA_VERSION,
+      engine: engine.ENGINE_VERSION,
+      table: engine.TABLE_VERSION,
+    };
+    return sync.createPersonSync({
+      person,
+      baseUrl: location.origin,
+      deviceId,
+      build: typeof MANENT_VERSION === "undefined" ? "0.0.0" : MANENT_VERSION,
+      versions,
+      // the server that serves this build runs the same versions
+      minServer: versions,
+      memory: device.createDeviceMemory(device.browserStores()),
+      onlineEvents: window,
+      visible: () => document.visibilityState === "visible",
+      now,
+    });
+  },
 };
 
 const usePerson = createPersonStore(tabStorage());
