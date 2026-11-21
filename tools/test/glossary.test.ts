@@ -266,8 +266,10 @@ test("a scoped file that is missing stops the check", async () => {
 });
 
 test("the vocabulary file holds words only", async () => {
-  const text = await Bun.file(join(repoRoot, "tools/glossary.ts")).text();
-  expect(text).not.toMatch(/\b\d+\.\d+\b|design|glossary\.md|superpowers/); // no section number, no citation of a private document
+  for (const file of ["tools/glossary.ts", "tools/plain-words.ts"]) {
+    const text = await Bun.file(join(repoRoot, file)).text();
+    expect(text).not.toMatch(/\b\d+\.\d+\b|design|glossary\.md|superpowers/); // no section number, no citation of a private document
+  }
 });
 
 test("every interface string of this repository passes", async () => {

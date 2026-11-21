@@ -12,6 +12,7 @@ export * from "./margin-marks/index.ts";
 export * from "./page/index.ts";
 export * from "./pagination/index.ts";
 export * from "./picker/index.ts";
+export * from "./revisions/index.ts";
 export * from "./script-editor/index.ts";
 export * from "./scroll/index.ts";
 export * from "./sections/index.ts";
