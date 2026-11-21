@@ -222,6 +222,7 @@ export function createSyncService(
     snapshotOf,
     tell,
     end,
+    editorLeft: hooks.editorLeft,
     extras: hooks.subscribed,
   };
 

@@ -151,6 +151,8 @@ export interface SubscribePorts {
   snapshotOf(room: Room): Message;
   tell(peer: Peer, message: Message): void;
   end(peer: Peer, docId: string): void;
+  /** An edit subscription ended: the peer is no longer among the room's editors. */
+  editorLeft(room: Room, userId: string): void;
   /** SUBSCRIBED's lock and revision fields; null: the plain values. */
   extras(docId: string): SubscribedExtras | null;
 }
@@ -190,9 +192,11 @@ export function subscribe(
       syncError("storage_failed", docOf(room), { retryAfterMs }),
     );
   }
+  const wasEditor = room.editors.has(peer);
   if (mode === "view") presence.left(room, peer);
   room.editors.delete(peer);
   room.viewers.delete(peer);
+  if (wasEditor && mode === "view") ports.editorLeft(room, peer.userId);
   const { access: granted } = check;
   const subscription: Subscription = {
     peer,

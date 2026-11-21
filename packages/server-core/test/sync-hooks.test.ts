@@ -80,6 +80,19 @@ test("the service tells every hook what it committed, who left, and what it forg
   expect(log.slice(4)).toEqual([`a forgot ${DOC}`, `b forgot ${DOC}`]);
 });
 
+test("an edit subscription that becomes a view tells every hook its editor left, once", () => {
+  const log: string[] = [];
+  const { service, sam } = createServiceWorld({
+    hooks: [spy("a", log), spy("b", log)],
+  });
+  service.receive(sam, subscribe(DOC, "edit", [SAM_CLIENT]));
+  service.receive(sam, subscribe(DOC, "view", []));
+  expect(log).toEqual([`a left ${DOC} sam`, `b left ${DOC} sam`]);
+  service.receive(sam, subscribe(DOC, "view", []));
+  service.receive(sam, { type: "UNSUBSCRIBE", docId: DOC, generation: 1 });
+  expect(log).toHaveLength(2);
+});
+
 test("SUBSCRIBED carries the first lock fields a hook gives", () => {
   const asked: string[] = [];
   const { service, sam } = createServiceWorld({
