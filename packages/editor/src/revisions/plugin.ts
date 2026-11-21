@@ -2,6 +2,7 @@
 // plugin that keeps the script's marks, numbers and lock table and draws them.
 import { NO_LOCKS } from "@manent/pagination";
 import type { LockAnchorRecord } from "@manent/pagination";
+import { baseEngine } from "@manent/revisions";
 import type {
   Baseline,
   MarkMode,
@@ -31,7 +32,7 @@ import {
 } from "./derive.ts";
 import type { RevisionKept, RevisionState } from "./derive.ts";
 import { lockMarkersPlugin } from "./markers.ts";
-import { clearedNumbers, withPages } from "./numbers.ts";
+import { clearedNumbers, productionEngine, withPages } from "./numbers.ts";
 import { pagesFeedPlugin } from "./pages-feed.ts";
 import type { PagesSink } from "./pages-feed.ts";
 import { createSheetPainter } from "./sheets.ts";
@@ -136,15 +137,22 @@ function pendingSettings(
   const kept = keptOf(state);
   const { settings, index } = pagesOf(state);
   if (kept === null) return null;
-  if (kept.view === null)
-    return sent && (settings.layout !== null || settings.locks !== NO_LOCKS)
-      ? { layout: null, locks: NO_LOCKS }
+  if (kept.view === null) {
+    const engine = baseEngine(settings.engine);
+    return sent &&
+      (settings.layout !== null ||
+        settings.locks !== NO_LOCKS ||
+        settings.engine !== engine)
+      ? { layout: null, locks: NO_LOCKS, engine }
       : null;
+  }
   if ((kept.layout?.key ?? null) !== index.layoutKey)
     return { layout: kept.layout };
-  if (kept.locked !== null && kept.locked.locks !== settings.locks)
-    return { locks: kept.locked.locks };
-  return null;
+  if (kept.locked === null) return null;
+  const engine = productionEngine(settings.engine, kept.view.records);
+  return kept.locked.locks !== settings.locks || engine !== settings.engine
+    ? { locks: kept.locked.locks, engine }
+    : null;
 }
 
 /**
