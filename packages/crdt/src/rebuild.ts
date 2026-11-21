@@ -7,8 +7,8 @@ import { FRAGMENT_NAME, scriptDocFromJSON } from "./mapping.ts";
 import { ORIGIN_SYSTEM } from "./settings.ts";
 import { scriptBody } from "./writer.ts";
 
-/** The settings maps, copied entry by entry. */
-const COPIED_MAPS = ["settings", "settingsMeta"] as const;
+/** The settings maps and the overrides map, copied entry by entry. */
+const COPIED_MAPS = ["settings", "settingsMeta", "revisedOverrides"] as const;
 
 /** The roots a rebuild knows how to copy. */
 export const ROOT_TYPE_NAMES = [FRAGMENT_NAME, ...COPIED_MAPS] as const;
@@ -54,8 +54,8 @@ function evenSections(blocks: readonly BlockJSON[]): SectionJSON[] {
   return sections;
 }
 
-/** Sets every entry of the source's settings maps in `built`, keys in ascending order, in one transaction. */
-function copySettings(source: CrdtDoc, built: CrdtDoc): void {
+/** Sets every entry of the source's copied maps in `built`, keys in ascending order, in one transaction. */
+function copyMaps(source: CrdtDoc, built: CrdtDoc): void {
   const from = yDocOf(source);
   const to = yDocOf(built);
   to.transact(() => {
@@ -70,7 +70,7 @@ function copySettings(source: CrdtDoc, built: CrdtDoc): void {
 
 /**
  * A fresh document holding the source's blocks (IDs, attributes known and unknown, text and marks) redistributed with
- * sectionize into even sections, and the settings and settingsMeta maps; every struct is the given client's.
+ * sectionize into even sections, and the settings, settingsMeta and revisedOverrides maps; every struct is the given client's.
  */
 export function rebuildDoc(
   source: CrdtDoc,
@@ -90,6 +90,6 @@ export function rebuildDoc(
     { type: "doc", content: evenSections(blocks) },
     { clientId: options.clientId },
   );
-  copySettings(source, built);
+  copyMaps(source, built);
   return { ok: true, doc: built };
 }

@@ -138,8 +138,13 @@ test("what a newer build wrote survives a rebuild", () => {
   });
 });
 
-test("a rebuild copies the script body and the two settings maps, and no other root", () => {
-  expect(ROOT_TYPE_NAMES).toEqual(["prosemirror", "settings", "settingsMeta"]);
+test("a rebuild copies the script body, the two settings maps and the overrides map, and no other root", () => {
+  expect(ROOT_TYPE_NAMES).toEqual([
+    "prosemirror",
+    "settings",
+    "settingsMeta",
+    "revisedOverrides",
+  ]);
 });
 
 test("a document that cannot be copied faithfully is left alone", () => {
