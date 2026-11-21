@@ -38,5 +38,6 @@ export const SURFACE_IDS = [
   "send",
   "version_view",
   "name_field",
+  "file_picker",
 ] as const;
 export type SurfaceId = (typeof SURFACE_IDS)[number];
