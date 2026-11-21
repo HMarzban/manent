@@ -6,6 +6,7 @@ import {
   DEFAULT_MARK,
   FALLBACK_IDS,
   QUOTE_UNITS,
+  deriveNumbers,
   paperRgb,
   revisionColour,
   revisionName,
@@ -223,10 +224,27 @@ function importedAnchors(
   });
 }
 
+/** Every heading's number as the authority locks it: the file's, else derived from its numbered neighbours. */
+function importedNumbers(
+  script: ImportedScript,
+  p: ImportedProduction,
+): Map<string, string> {
+  const given = new Map(p.sceneNumbers.map((n) => [n.blockId, n.num]));
+  const headings = script.blocks.flatMap(({ attrs }) =>
+    attrs?.type === "scene_heading" && attrs.id
+      ? [{ blockId: attrs.id, num: given.get(attrs.id) ?? null }]
+      : [],
+  );
+  return new Map([
+    ...given,
+    ...deriveNumbers(headings, p.numbering, new Set()),
+  ]);
+}
+
 /**
  * The production of an import as the export sees it right after the authority locked it: its page starts as
- * import anchors, its numbers, White with no marks, one source per set with its marks, then an empty active
- * set. `day` is the import's, from the record; "" without one.
+ * import anchors, every heading's number, White with no marks, one source per set with its marks, then an
+ * empty active set. `day` is the import's, from the record; "" without one.
  */
 export function importedForExport(
   script: ImportedScript,
@@ -259,7 +277,7 @@ export function importedForExport(
         ? null
         : {
             anchors: importedAnchors(script, p.anchors),
-            numbers: new Map(p.sceneNumbers.map((n) => [n.blockId, n.num])),
+            numbers: importedNumbers(script, p),
             numbering: p.numbering,
             sources: [
               turn(0),

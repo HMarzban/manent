@@ -18,6 +18,7 @@ import type { KeptDraft } from "./kept.ts";
 import { writeInlineNote, writeRangedNote } from "./notes.ts";
 import { scriptOffsets } from "./offsets.ts";
 import { writeProduction } from "./production.ts";
+import type { ScriptOffsetOf } from "./production.ts";
 import { blockTextOf, revisionsOf, writeRuns } from "./runs.ts";
 
 /** The `Version` written: Final Draft 11's, which later versions read. */
@@ -199,6 +200,77 @@ const isInline = (note: ScriptNote, written: ReadonlySet<string>): boolean =>
   note.anchor.end === 0 &&
   written.has(note.anchor.blockId);
 
+/** The notes written inside their block, by its id, and the rest, for the `ScriptNotes` list. */
+function notesOf(
+  script: ScriptForExport,
+  writtenIds: ReadonlySet<string>,
+): { inline: Map<string, Note[]>; ranged: Note[] } {
+  const inline = new Map<string, Note[]>();
+  const ranged: Note[] = [];
+  for (const note of script.notes) {
+    const blockId = note.note.anchor?.blockId ?? "";
+    if (isInline(note.note, writtenIds))
+      inline.set(blockId, [...(inline.get(blockId) ?? []), note]);
+    else ranged.push(note);
+  }
+  return { inline, ranged };
+}
+
+/** Script offsets of the blocks as they are written, an offset past a block's text held at its end. */
+function offsetsOf(groups: readonly Group[]): ScriptOffsetOf {
+  const written = groups.flatMap((group) => group.blocks);
+  const duals = groups.flatMap((group) =>
+    group.blocks.map((_, i) => group.dual && i === group.blocks.length - 1),
+  );
+  const starts = scriptOffsets(
+    written.map((block) => ({ text: blockTextOf(block) })),
+    duals,
+  );
+  const at = new Map(written.map((block, i) => [idOf(block), i]));
+  return (blockId, offset) => {
+    const i = at.get(blockId);
+    return i === undefined
+      ? null
+      : starts[i]! + Math.min(offset, blockTextOf(written[i]!).length);
+  };
+}
+
+/** A note of the `ScriptNotes` list, by its range in script offsets; with no range when its block is not written. */
+function writeListedNote(
+  w: Writing,
+  { id, note }: Note,
+  offsetOf: ScriptOffsetOf,
+): XmlNode {
+  const { anchor } = note;
+  const start = anchor === null ? null : offsetOf(anchor.blockId, anchor.start);
+  const end = anchor === null ? null : offsetOf(anchor.blockId, anchor.end);
+  return writeRangedNote(
+    note,
+    w.kept.node("note_part", id, "ScriptNote"),
+    start === null || end === null ? null : [start, end],
+  );
+}
+
+/** What the production is written with: the file's set names, its kept `Revisions` settings and unplaced locks. */
+function productionOptions(
+  script: ScriptForExport,
+  own: readonly KeptItem[],
+  kept: KeptIndex,
+): Parameters<typeof writeProduction>[2] {
+  return {
+    names:
+      script.record?.from === "fdx"
+        ? (script.record.production?.sets.map((set) => set.sourceName) ?? [])
+        : [],
+    settings: kept.node("document_part", null, "Revisions")?.attributes ?? {},
+    unplaced: own.flatMap((item) =>
+      item.kind === "unplaced_lock" && typeof item.value !== "string"
+        ? [item.value]
+        : [],
+    ),
+  };
+}
+
 /**
  * The script as a Final Draft file: every block a paragraph, each dual run one wrapper, its notes, numbers and
  * kept parts, and with production its locked pages, revision sets and deletions. A note at the start of its
@@ -210,16 +282,8 @@ export function writeFdx(script: ScriptForExport): WrittenFile {
   const kept = script.record?.kept ?? [];
   const own = kept.filter((item) => item.from === "fdx");
   const groups = groupsOf(script.blocks);
-  const written = groups.flatMap((group) => group.blocks);
-  const writtenIds = new Set(written.map(idOf));
-  const inline = new Map<string, Note[]>();
-  const ranged: Note[] = [];
-  for (const note of script.notes) {
-    const blockId = note.note.anchor?.blockId ?? "";
-    if (isInline(note.note, writtenIds))
-      inline.set(blockId, [...(inline.get(blockId) ?? []), note]);
-    else ranged.push(note);
-  }
+  const writtenIds = new Set(groups.flatMap((group) => group.blocks.map(idOf)));
+  const { inline, ranged } = notesOf(script, writtenIds);
   const w: Writing = {
     script,
     kept: keptIndex(own),
@@ -228,31 +292,8 @@ export function writeFdx(script: ScriptForExport): WrittenFile {
     headings: 0,
   };
   const content = groups.map((group) => writeGroup(w, group));
-  const duals = groups.flatMap((group) =>
-    group.blocks.map((_, i) => group.dual && i === group.blocks.length - 1),
-  );
-  const starts = scriptOffsets(
-    written.map((block) => ({ text: blockTextOf(block) })),
-    duals,
-  );
-  const at = new Map(written.map((block, i) => [idOf(block), i]));
-  const offsetOf = (blockId: string, offset: number): number | null => {
-    const i = at.get(blockId);
-    return i === undefined
-      ? null
-      : starts[i]! + Math.min(offset, blockTextOf(written[i]!).length);
-  };
-  const notes: XmlNode[] = ranged.map(({ id, note }) => {
-    const { anchor } = note;
-    const start =
-      anchor === null ? null : offsetOf(anchor.blockId, anchor.start);
-    const end = anchor === null ? null : offsetOf(anchor.blockId, anchor.end);
-    return writeRangedNote(
-      note,
-      w.kept.node("note_part", id, "ScriptNote"),
-      start === null || end === null ? null : [start, end],
-    );
-  });
+  const offsetOf = offsetsOf(groups);
+  const notes = ranged.map((note) => writeListedNote(w, note, offsetOf));
   const parts = own.flatMap((item) =>
     (item.kind === "title_page" || item.kind === "document_part") &&
     item.name !== "Revisions" &&
@@ -263,20 +304,11 @@ export function writeFdx(script: ScriptForExport): WrittenFile {
   const production =
     script.production === null
       ? []
-      : writeProduction(script.production, offsetOf, {
-          names:
-            script.record?.from === "fdx"
-              ? (script.record.production?.sets.map((set) => set.sourceName) ??
-                [])
-              : [],
-          settings:
-            w.kept.node("document_part", null, "Revisions")?.attributes ?? {},
-          unplaced: own.flatMap((item) =>
-            item.kind === "unplaced_lock" && typeof item.value !== "string"
-              ? [item.value]
-              : [],
-          ),
-        });
+      : writeProduction(
+          script.production,
+          offsetOf,
+          productionOptions(script, own, w.kept),
+        );
   const root: XmlNode = {
     name: "FinalDraft",
     attributes: {

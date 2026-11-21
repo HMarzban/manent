@@ -85,7 +85,9 @@ function readNumber(r: Reader, blockId: string, num: string | null): void {
     keep(r, "scene_number", blockId, "Number", num);
 }
 
+/** A break with no block before it starts no new page, so none is made: the script's first block is never one. */
 function addPageBreak(r: Reader): void {
+  if (r.blocks.length === 0) return;
   r.blocks.push(
     canonicalBlock({
       type: "block",
