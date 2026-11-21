@@ -2,6 +2,7 @@
 // each turn's queue is committed per file before anything is acknowledged or published.
 import { CrdtUpdateError, applyInspecting, updateMeta } from "@manent/crdt";
 import type { TransactionReport } from "@manent/crdt";
+import type { Issue } from "@manent/schema";
 import type {
   AppendItem,
   DocFile,
@@ -12,6 +13,8 @@ import { CODE } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
 import type { ReplayItem } from "../rebuild/replay-write.ts";
 import { admit, refusal } from "./admission.ts";
+import { writeOnCopy } from "./authority-write.ts";
+import type { AuthorityItem } from "./authority-write.ts";
 import {
   answer,
   commitFile,
@@ -22,7 +25,13 @@ import {
 import type { Refusal } from "./errors.ts";
 import type { HeldQueue } from "./held.ts";
 import type { IngestItem } from "./ingest.ts";
-import type { Peer, SettingRules, SyncLimits, Upstream } from "./ports.ts";
+import type {
+  Peer,
+  SettingRules,
+  SyncLimits,
+  Upstream,
+  WritePath,
+} from "./ports.ts";
 import type { Room, Rooms, Subscription } from "./rooms.ts";
 import { applySetting } from "./settings.ts";
 import { validateRoomPush } from "./validate.ts";
@@ -69,45 +78,10 @@ export interface WritePathPorts {
   held: HeldQueue;
   registry: SettingRules;
   schemaFloor: ((touched: readonly unknown[]) => number) | null;
-}
-
-export interface WritePath {
-  push(
-    room: Room,
-    subscription: Subscription,
-    message: {
-      clientSeq: number;
-      update: Uint8Array;
-      heal: boolean;
-      generation: number;
-    },
-  ): void;
-  set(
-    room: Room,
-    subscription: Subscription,
-    message: {
-      clientSeq: number;
-      key: string;
-      value: Uint8Array;
-      generation: number;
-    },
-  ): void;
-  /** Queued like a push; a failed commit poisons the room, then calls done({ ok: false }). */
-  replay(room: Room, item: ReplayItem["write"], done: ReplayItem["done"]): void;
-  /** Queued like a push, acknowledged to nobody, published to every editor, handed upstream never. */
-  ingest(item: IngestItem): void;
-  /** Drops what the room has queued: no ACK and nothing upstream; a replay is answered { ok: false }. */
-  discard(room: Room): void;
-  /** One file's held items in one transaction, then acknowledged in arrival order; false when it did not commit. */
-  commitHeld(items: readonly QueuedItem[]): boolean;
-  /** The full disk that began holding the file's commits; null when nothing of it is held. */
-  holdError(file: DocFile): StorageError | null;
-  /** What the document's held items append, in arrival order: in its room, and in no log yet. */
-  heldUpdates(docId: string): readonly Uint8Array[];
-  /** Commits what is queued, now. */
-  flush(): void;
-  /** What is queued or held: written to no log yet. */
-  queued(): number;
+  /** Step 5: issues joined to validatePush's, any of which refuses the push. */
+  checkPush(room: Room, report: TransactionReport): Issue[];
+  /** Drawn from for the client id an authority write is made under in a relayed room. */
+  ids(): string;
 }
 
 /** What a turn holds until its commit. `ack` is a resend, acknowledged in its place. */
@@ -132,7 +106,7 @@ type PeerItem = {
   | { kind: "relay_set"; request: { key: string; value: Uint8Array } }
 );
 /** An entry of the write path's queue: what a commit writes, then answers. */
-export type QueuedItem = PeerItem | ReplayItem | IngestItem;
+export type QueuedItem = PeerItem | ReplayItem | IngestItem | AuthorityItem;
 
 /** What `fn` gives; "bad" when the bytes it read are not a whole update. */
 function readUpdate<T>(fn: () => T): T | "bad" {
@@ -166,7 +140,15 @@ function appendOf(
 function appendedBy(item: QueuedItem): Uint8Array | null {
   if (item.kind === "append" || item.kind === "ingest")
     return item.append.update;
+  if (item.kind === "authority") return item.append?.update ?? null;
   return item.kind === "replay" ? item.write.update : null;
+}
+
+/** A replay or an authority write that will never commit is answered as failed. */
+function answerFailed(item: QueuedItem): void {
+  if (item.kind === "replay") item.done({ ok: false });
+  if (item.kind === "authority")
+    item.done({ ok: false, code: "commit_failed" });
 }
 
 /**
@@ -228,7 +210,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
   /** The highest clientSeq of this person and device already queued as a setting; 0 when none. */
   function queuedSetting(peer: Peer, room: Room): number {
     const theirs = queue.filter((item): item is PeerItem => {
-      if (item.kind === "replay" || item.kind === "ingest") return false;
+      if (!("subscription" in item)) return false;
       const from = item.subscription.peer;
       const same =
         from.userId === peer.userId && from.deviceId === peer.deviceId;
@@ -257,8 +239,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       const poisoned = [...new Set(fileItems.map((item) => item.room))];
       ports.poisoned(poisoned);
       rooms.drop(poisoned);
-      for (const item of fileItems)
-        if (item.kind === "replay") item.done({ ok: false });
+      for (const item of fileItems) answerFailed(item);
     }
     const done = items.filter((item) => !failed.has(item.room.file));
     for (const item of done) {
@@ -271,7 +252,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
         continue;
       }
       // a held item is shown now, but for what the authority wrote, and acknowledged once it commits;
-      // a replay answers whole then
+      // a replay and an authority write answer whole then
       const committed = isAuthorityWrite(item) ? null : committedOf(item);
       if (committed !== null) ports.publish(committed);
     }
@@ -313,7 +294,9 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       if (doc.hasPendingStructs())
         return reloadAnd(CODE.BAD_FRAME, "incomplete");
       if (report === null) return enqueue({ kind: "ack", ...base });
-      if (validateRoomPush(report, room).length > 0)
+      const issues = validateRoomPush(report, room);
+      issues.push(...ports.checkPush(room, report));
+      if (issues.length > 0)
         return reloadAnd(CODE.VALIDATION_FAILED, "invalid");
       const floor =
         room.mode === "authority" && ports.schemaFloor !== null
@@ -369,12 +352,31 @@ export function createWritePath(ports: WritePathPorts): WritePath {
     },
     replay: (room, write, done) =>
       enqueue({ kind: "replay", room, write, done, seq: 0 }),
+    authority(room, write, done) {
+      const { userId, origin, inTransaction } = write;
+      const written = writeOnCopy(room, origin, write.edit, ports.ids);
+      if (!written.ok)
+        return done({ ok: false, code: "refused", reason: written.reason });
+      const { update, report } = written;
+      const append =
+        update === null
+          ? null
+          : appendOf(room, userId, update, origin, updateMeta(update));
+      enqueue({
+        kind: "authority",
+        room,
+        append,
+        report,
+        inTransaction,
+        done,
+        seq: 0,
+      });
+    },
     ingest: enqueue,
     discard(room) {
       const dropped = queue.filter((item) => item.room === room);
       queue = queue.filter((item) => item.room !== room);
-      for (const item of dropped)
-        if (item.kind === "replay") item.done({ ok: false });
+      for (const item of dropped) answerFailed(item);
     },
     commitHeld(items) {
       const file = items[0]?.room.file;

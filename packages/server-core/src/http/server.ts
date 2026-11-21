@@ -15,7 +15,7 @@ import { createConnectionHandler } from "../socket/handler.ts";
 import type { TicketStore } from "../socket/tickets.ts";
 import { DEFAULT_LIMITS } from "../sync/ports.ts";
 import { createSyncService } from "../sync/service.ts";
-import type { SyncService, SyncSettings } from "../sync/service.ts";
+import type { SyncService, SyncSettings } from "../sync/ports.ts";
 import { failure } from "./respond.ts";
 import { hearRemovals } from "./routes/docs.ts";
 import { hearReplays } from "./routes/replay.ts";

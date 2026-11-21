@@ -1,18 +1,14 @@
 // The sync service: who is connected, what they hold open, and every document message they send.
-import type { Overlap, SetAsideBlock } from "@manent/revisions";
-import type { Storage } from "@manent/storage";
-import { CODE, prepareMessage } from "@manent/sync-protocol";
-import type { DocRef, Message, ServerVersions } from "@manent/sync-protocol";
+import { CODE, isDocKind, prepareMessage } from "@manent/sync-protocol";
+import type { Message, ServerVersions } from "@manent/sync-protocol";
 import { createTokenBucket } from "../limits/bucket.ts";
 import type { TokenBucket } from "../limits/bucket.ts";
 import { createConnectionCaps } from "../limits/caps.ts";
 import { createRebuilder, createSubscriptions } from "../rebuild/rebuilder.ts";
-import type { PeerState, RebuildStats } from "../rebuild/rebuilder.ts";
+import type { PeerState } from "../rebuild/rebuilder.ts";
 import { createReplay } from "../rebuild/replay.ts";
-import type { ReplayOutcome } from "../rebuild/replay.ts";
 import { createDocumentAccess } from "./access.ts";
 import { createAwarenessHub } from "./awareness.ts";
-import type { DocumentAccess } from "./access.ts";
 import { createInlineCheckpointer } from "./checkpointer.ts";
 import { countingCommits } from "./counted-storage.ts";
 import { createDeletions } from "./deletions.ts";
@@ -22,13 +18,11 @@ import { createHealing } from "./heal.ts";
 import { HELD_RETRY_MS, createHeldQueue } from "./held.ts";
 import { DEFAULT_LIMITS, NO_SETTINGS } from "./ports.ts";
 import type {
-  Checkpointer,
-  Clock,
   Peer,
-  SettingRules,
+  SyncHooks,
   SyncLimits,
-  Upstream,
-  WriteMode,
+  SyncService,
+  SyncSettings,
 } from "./ports.ts";
 import { createRooms } from "./rooms.ts";
 import type { Room } from "./rooms.ts";
@@ -37,85 +31,28 @@ import type { SubscribePorts } from "./subscribe.ts";
 import { createSnapshotAnswers, viewPatchOf } from "./viewers.ts";
 import { createWritePath } from "./write-path.ts";
 
-export interface ServiceStats extends RebuildStats {
-  peers: number;
-  rooms: number;
-  loadedRooms: number;
-  /** Transactions committed. */
-  commits: number;
-  /** Updates and settings appended to a log. */
-  appended: number;
-  /** Pushes and settings acknowledged as resends. */
-  duplicates: number;
-  /** ERRORs sent, by message. */
-  refused: Record<string, number>;
-  /** Rooms poisoned by a failed commit. */
-  poisoned: number;
-  awarenessDropped: number;
-  /** Document frames a peer's decoder skipped. */
-  skipped: number;
-}
-
-export interface SyncService {
-  /** After WELCOME; refused (4429) over a connection cap or while shutting down. */
-  attach(peer: Peer): { ok: true } | { ok: false; code: number };
-  /** Every message after HELLO but PING and PONG. */
-  receive(peer: Peer, message: Message): void;
-  /** The peer's decoder skipped a document frame. */
-  skipped(peer: Peer, doc: DocRef): void;
-  detach(peer: Peer): void;
-  readonly access: DocumentAccess;
-  /** A role was changed: resolves it again, and ends what is no longer allowed. */
-  accessChanged(docId: string, userId: string): void;
-  /** A document was deleted: tells and unsubscribes everyone. */
-  removed(docId: string): void;
-  /** A backup was put back: every placed document is flagged `restore` at its head. */
-  restored(): void;
-  /** Rebuilds the document at its room's next quiet moment, whatever its measure. */
-  requestRebuild(docId: string): void;
-  /** POST /api/docs/replay: `body` is the route's JSON, not yet checked. */
-  replay(userId: string, body: unknown): Promise<ReplayOutcome>;
-  /** Relay only: commits what `produce` returns beyond the room's state vector, as `userId`'s, whose upstream it came through. */
-  ingest(
-    docId: string,
-    userId: string,
-    produce: (roomVector: Uint8Array) => Uint8Array,
-  ): void;
-  /** Asks `mode` again for that room. */
-  modeChanged(docId: string): void;
-  /** Relay only: the room keeps committing and acknowledging, and hands nothing upstream until it follows. */
-  pauseRelay(docId: string): void;
-  /** Relay only: a new generation from `theirs`, the upstream's state, with the room's own changes merged in by block. */
-  follow(
-    docId: string,
-    theirs: Uint8Array,
-  ): { update: Uint8Array; overlaps: Overlap[]; setAside: SetAsideBlock[] };
-  stats(): ServiceStats;
-  shutdown(): Promise<void>;
-}
-
-/**
- * Defaults: "authority", DEFAULT_LIMITS, an inline checkpointer, no upstream, NO_SETTINGS, no schema floor, never
- * inside an air window.
- */
-export interface SyncSettings {
-  storage: Storage;
-  clock: Clock;
-  defer(fn: () => void): void;
-  /** A new version id. */
-  ids(): string;
-  /** A function is asked when a room is created and on `modeChanged`. */
-  mode?: WriteMode | ((docId: string) => WriteMode);
-  /** What a room does when the disk is full: "poison" (the default) ends its editors; "hold" keeps what it could not commit and retries. */
-  fullDisk?: "poison" | "hold";
-  /** Called on each change of whether held commits are waiting. */
-  onDeviceStorage?: (state: "ok" | "failing") => void;
-  limits?: Partial<SyncLimits>;
-  checkpointer?: Checkpointer;
-  upstream?: Upstream;
-  registry?: SettingRules;
-  schemaFloor?: (touched: readonly unknown[]) => number;
-  airWindow?: (docId: string, now: number) => boolean;
+/** The hooks as one: each member asks every hook in list order; `subscribed` answers the first non-null. */
+function combineHooks(hooks: readonly SyncHooks[]): Required<SyncHooks> {
+  return {
+    committed(committed) {
+      for (const hook of hooks) hook.committed?.(committed);
+    },
+    editorLeft(room, userId) {
+      for (const hook of hooks) hook.editorLeft?.(room, userId);
+    },
+    forgotten(room) {
+      for (const hook of hooks) hook.forgotten?.(room);
+    },
+    subscribed(docId) {
+      for (const hook of hooks) {
+        const extras = hook.subscribed?.(docId) ?? null;
+        if (extras !== null) return extras;
+      }
+      return null;
+    },
+    checkPush: (room, report) =>
+      hooks.flatMap((hook) => hook.checkPush?.(room, report) ?? []),
+  };
 }
 
 export function createSyncService(
@@ -124,6 +61,7 @@ export function createSyncService(
   const { clock, defer, mode } = options;
   const modeOf = typeof mode === "function" ? mode : () => mode ?? "authority";
   const limits: SyncLimits = { ...DEFAULT_LIMITS, ...options.limits };
+  const hooks = combineHooks(options.hooks ?? []);
   // duplicates are the acknowledgements that answered no new entry
   const counted = {
     commits: 0,
@@ -147,6 +85,7 @@ export function createSyncService(
     limits,
     checkpointer,
     mode: modeOf,
+    forgotten: hooks.forgotten,
   });
   const deletions = createDeletions();
   const access = createDocumentAccess({
@@ -182,6 +121,7 @@ export function createSyncService(
     rooms,
     presence,
     tell,
+    editorLeft: hooks.editorLeft,
   });
 
   const poison = (poisoned: readonly Room[]): void => {
@@ -222,9 +162,11 @@ export function createSyncService(
         if (peer !== sender || echo) peer.send(prepared);
       rebuilder.touched(room);
       const patch = viewPatchOf(committed);
-      if (patch === null) return;
-      const viewed = prepareMessage(patch);
-      for (const peer of room.viewers.keys()) peer.send(viewed);
+      if (patch !== null) {
+        const viewed = prepareMessage(patch);
+        for (const peer of room.viewers.keys()) peer.send(viewed);
+      }
+      hooks.committed(committed);
     },
     poisoned: poison,
     schemaRaised(room, toVersion) {
@@ -249,6 +191,8 @@ export function createSyncService(
     held: heldQueue,
     registry: options.registry ?? NO_SETTINGS,
     schemaFloor: options.schemaFloor ?? null,
+    checkPush: hooks.checkPush,
+    ids: options.ids,
   });
   const rebuilder = createRebuilder({
     ...options,
@@ -278,7 +222,16 @@ export function createSyncService(
     snapshotOf,
     tell,
     end,
+    extras: hooks.subscribed,
   };
+
+  /** The room of a placed document; RangeError for one this node has not placed. */
+  function placedRoom(docId: string): Room {
+    const place = options.storage.directory.placeOf(docId);
+    if (place === null || !isDocKind(place.kind))
+      throw new RangeError(`no script ${docId} is placed here`);
+    return rooms.room(docId, place.home, place.kind);
+  }
 
   /** Anything else a client sends for a document is ignored. */
   function receiveDocument(
@@ -362,6 +315,31 @@ export function createSyncService(
     restored: () => heal.restored(),
     requestRebuild: (docId) => rebuilder.request(docId),
     replay,
+    async authorityWrite(docId, write) {
+      const room = placedRoom(docId);
+      try {
+        if (!rooms.load(room).ok) return { ok: false, code: "busy" };
+        return await new Promise((resolve) =>
+          writePath.authority(room, write, resolve),
+        );
+      } finally {
+        rooms.left(room);
+      }
+    },
+    broadcast(docId, kind, data) {
+      const room = rooms.find(docId);
+      if (room === null || room.doc === null) return;
+      const seq = room.row.headSeq;
+      const control = prepareMessage({
+        type: "CONTROL",
+        ...docOf(room),
+        seq,
+        kind,
+        data,
+      });
+      for (const peer of [...room.editors.keys(), ...room.viewers.keys()])
+        peer.send(control);
+    },
     ingest: intake.ingest,
     modeChanged(docId) {
       const room = rooms.find(docId);

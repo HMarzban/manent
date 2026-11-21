@@ -108,6 +108,7 @@ function readPeople(room: Room): void {
 /**
  * `mode` defaults to "authority" for every document. Each document a room builds takes a new client
  * id drawn from `ids`, so that a seeded source gives seeded bytes; without `ids`, Yjs draws it.
+ * `forgotten` is told of each room once it is forgotten.
  */
 export function createRooms(ports: {
   storage: Storage;
@@ -116,6 +117,7 @@ export function createRooms(ports: {
   checkpointer: Checkpointer;
   mode?: (docId: string) => WriteMode;
   ids?: () => string;
+  forgotten?: (room: Room) => void;
 }): Rooms {
   const { storage, clock, limits, checkpointer, ids } = ports;
   const modeOf = ports.mode ?? (() => "authority");
@@ -146,7 +148,9 @@ export function createRooms(ports: {
     stopIdle(room);
     encoded.delete(room);
     touched.delete(room);
-    if (rooms.get(room.docId) === room) rooms.delete(room.docId);
+    if (rooms.get(room.docId) !== room) return;
+    rooms.delete(room.docId);
+    ports.forgotten?.(room);
   };
 
   const checkpoint = (room: Room): void => {
