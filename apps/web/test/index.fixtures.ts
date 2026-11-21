@@ -1,14 +1,20 @@
 // People's services over one memory network and a server running the sync service over memory storage, on one fake clock:
 // each tab of a person has its own storage view of one browser, and the same store.
-import { ConnectError, soloLeader } from "@manent/sync-client";
-import type { LeaderPort, Random, Transport } from "@manent/sync-client";
-import { createMemoryStoreSpace } from "@manent/sync-client/testing";
-import type { MemoryStoreSpace } from "@manent/sync-client/testing";
+import { ConnectError, StoreError, soloLeader } from "@manent/sync-client";
+import type {
+  LeaderPort,
+  LocalStore,
+  Random,
+  Transport,
+} from "@manent/sync-client";
+import { createFaultyStoreSpace } from "@manent/sync-client/testing";
+import type { FaultyStoreSpace } from "@manent/sync-client/testing";
 import { indexDocId, workspaceHome } from "@manent/sync-protocol";
 import type { DocRole, WorkspaceRef } from "@manent/sync-protocol";
 import { createWorld } from "@manent/testkit";
 import type { World } from "@manent/testkit";
 import { createValue } from "@manent/ui";
+import type { Api } from "../src/api.ts";
 import type { PersonServices } from "../src/services/ports.ts";
 import { createPersonServices } from "../src/services/services.ts";
 import { createPersonSync } from "../src/services/sync/create-sync.ts";
@@ -18,6 +24,7 @@ import type { TabPerson } from "../src/session.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
 import {
   MemoryStorage,
+  QUIET_DOM,
   V1,
   createNavigation,
   fakeApi,
@@ -40,12 +47,17 @@ export type TabServices = PersonServices & { sync: PersonSync };
 
 export interface IndexWorld {
   world: World;
-  space: MemoryStoreSpace;
+  /** Each browser's store of a person: `device` names the browser, "main" unless given. */
+  space(device?: string): FaultyStoreSpace;
   /** The person's services in a tab of their browser; `leader` decides which of their tabs leads. */
   personServices(options: {
     person: TabPerson;
     leader?: LeaderPort;
     storage?: MemoryStorage;
+    device?: string;
+    api?: Partial<Api>;
+    /** Told what the tab says aloud. */
+    announce?: (text: string) => void;
   }): Promise<TabServices>;
   /** Delivers everything and runs what is due, until nothing moves. */
   settleAll(): Promise<void>;
@@ -53,6 +65,8 @@ export interface IndexWorld {
   serverContacts(): number;
   /** The file the server keeps a document in, as `kind:id`; null for one it does not hold. */
   serverHomeOf(docId: string): string | null;
+  /** While on, every device refuses to store a change of `userId`'s private index, and stores everything else. */
+  refusePrivateIndex(userId: string, refuse: boolean): void;
   /** The seed's workspace index, with these roles on it; the first is its owner. */
   seedWorkspace(
     workspaceId: string,
@@ -64,6 +78,21 @@ export interface IndexWorld {
 const ROOM: readonly WorkspaceRef[] = Object.freeze([
   { id: "medium", name: "Writers' room", seeding: null },
 ]);
+
+/** `store`, refusing to append to the documents `refused` names. */
+function refusing(store: LocalStore, refused: ReadonlySet<string>): LocalStore {
+  return new Proxy(store, {
+    get(target, key) {
+      if (key === "append")
+        return (docId: string, entry: Parameters<LocalStore["append"]>[1]) =>
+          refused.has(docId)
+            ? Promise.reject(new StoreError("quota"))
+            : target.append(docId, entry);
+      const value: unknown = Reflect.get(target, key);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
 
 /** A canonical UUID per draw, counting up. */
 function uuids(): () => string {
@@ -91,10 +120,16 @@ export async function createIndexWorld(): Promise<IndexWorld> {
     users: ["seed"],
     devicesPerUser: 0,
   });
-  const space = createMemoryStoreSpace();
+  const spaces = new Map<string, FaultyStoreSpace>();
+  const space = (device = "main"): FaultyStoreSpace => {
+    const known = spaces.get(device) ?? createFaultyStoreSpace();
+    spaces.set(device, known);
+    return known;
+  };
   const browsers = new Map<string, MemoryStorage>();
   const { clock } = world.clock;
   const random = worldRandom();
+  const refused = new Set<string>();
   let contacts = 0;
   let tabs = 0;
   /** The network as a browser reaches it: nothing leaves without a session. */
@@ -124,9 +159,10 @@ export async function createIndexWorld(): Promise<IndexWorld> {
     space,
     async personServices(options) {
       const { person } = options;
+      const browser = `${options.device ?? "main"}|${person.userId}`;
       const storage =
-        options.storage ?? browsers.get(person.userId) ?? new MemoryStorage();
-      browsers.set(person.userId, storage);
+        options.storage ?? browsers.get(browser) ?? new MemoryStorage();
+      browsers.set(browser, storage);
       const started: { sync: Promise<PersonSync> | null } = { sync: null };
       const services = createPersonServices({
         ...testEnvironment({
@@ -135,6 +171,7 @@ export async function createIndexWorld(): Promise<IndexWorld> {
           storage,
           randomId: uuids(),
           language: "en-GB",
+          dom: { ...QUIET_DOM, announce: options.announce ?? (() => {}) },
           startSync: (tabPerson, deviceId) => {
             started.sync = createPersonSync({
               person: tabPerson,
@@ -145,7 +182,10 @@ export async function createIndexWorld(): Promise<IndexWorld> {
               minServer: V1,
               ports: {
                 transport: transport(tabPerson),
-                store: space.store(tabPerson.userId),
+                store: refusing(
+                  space(options.device).store(tabPerson.userId),
+                  refused,
+                ),
                 leader: options.leader ?? soloLeader(`tab-${++tabs}`),
                 clock,
                 random,
@@ -166,6 +206,7 @@ export async function createIndexWorld(): Promise<IndexWorld> {
             ok: true,
             me: { userId: person.userId, name: person.name, workspaces: ROOM },
           }),
+          ...options.api,
         }),
         usePerson: createPersonStore(null),
         router: createNavigation({ routeId: "/", href: "/", search: {} })
@@ -177,6 +218,11 @@ export async function createIndexWorld(): Promise<IndexWorld> {
     },
     settleAll: () => world.settle(),
     serverContacts: () => contacts,
+    refusePrivateIndex(userId, refuse) {
+      const docId = indexDocId("user", userId);
+      if (refuse) refused.add(docId);
+      else refused.delete(docId);
+    },
     serverHomeOf(docId) {
       const place = world.storage.directory.placeOf(docId);
       return place === null ? null : `${place.home.kind}:${place.home.id}`;

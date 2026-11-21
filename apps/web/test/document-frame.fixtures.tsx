@@ -20,6 +20,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { createHandlers } from "../src/handlers/index.ts";
+import type { PersonReview } from "../src/services/sync/later-index.ts";
 import { DocumentFrame } from "../src/screens/document/document-screen.tsx";
 import {
   EnvironmentProvider,
@@ -160,7 +161,11 @@ const scriptStoreOver = (scriptBag: DocumentServices["scriptBag"]) =>
 function servicesFor(
   environment: Environment,
   doc: TestDocument,
-  options: { role: CommandContext["role"]; kind: ProjectKind | null },
+  options: {
+    role: CommandContext["role"];
+    kind: ProjectKind | null;
+    review: PersonReview | null;
+  },
 ): PersonServices {
   const usePerson = createPersonStore(null);
   const router = createNavigation({
@@ -195,6 +200,7 @@ function servicesFor(
       renameDocument: (_docId, named) => title.set(named),
     },
     documents: { open: () => doc, close: () => {} },
+    review: options.review ?? base.review,
     openScriptStore: () => scriptStore,
     commands,
   };
@@ -286,6 +292,7 @@ export async function renderFrame(
     viewportWidthPx?: number;
     startAt?: number;
     brokenOutline?: boolean;
+    review?: PersonReview;
   } = {},
 ): Promise<Frame> {
   const viewport: unknown = Reflect.get(window, "happyDOM");
@@ -323,6 +330,7 @@ export async function renderFrame(
   const services = servicesFor(environment, doc, {
     role: options.role ?? "editor",
     kind: options.kind ?? null,
+    review: options.review ?? null,
   });
   if (options.title !== undefined)
     services.library.renameDocument(DOC_ID, options.title);

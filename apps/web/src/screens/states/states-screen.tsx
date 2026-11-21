@@ -84,6 +84,7 @@ const fixtureApi = (options: {
   signIn: NEVER,
   demo: async () => null,
   removedDoc: async () => null,
+  docClients: async () => ({ clients: [] }),
 });
 
 interface Row {

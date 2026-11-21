@@ -30,6 +30,7 @@ import type { Guard } from "../state/guard.ts";
 import type { PersonPresent } from "../state/people.store.ts";
 import type { StorageEvents } from "./local-map.ts";
 import type { PersonSync } from "./sync/create-sync.ts";
+import type { PersonReview } from "./sync/later-index.ts";
 
 /** The kinds New project offers, in its order. */
 export type ProjectKind = (typeof NEW_PROJECT_CARDS)[number]["kind"];
@@ -121,6 +122,8 @@ export interface PersonServices {
   resolved: Subscribable<Resolved>;
   library: LibraryIndex;
   documents: DocumentSource;
+  /** What the person has to review in each script, and its choices. */
+  review: PersonReview;
   /** The store of one open document, with its script settings; the same store until the document is closed. */
   openScriptStore(docId: string): SettingsStore;
   messages: MessageQueue;

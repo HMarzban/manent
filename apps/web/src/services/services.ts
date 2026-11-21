@@ -293,6 +293,7 @@ export function createPersonServices(options: Options): PersonServices {
     resolved,
     library: sync.library,
     documents: scripts.documents,
+    review: sync.review,
     openScriptStore: scripts.openScriptStore,
     messages,
     flags,

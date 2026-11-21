@@ -8,23 +8,23 @@ import type { CommandsOptions } from "./person-commands.ts";
 import type { DocumentSource } from "./ports.ts";
 import type { PersonSync } from "./sync/create-sync.ts";
 import { createSyncDocumentSource } from "./sync/document-source.ts";
-import type { ReviewPort } from "./sync/document-source.ts";
-import { createLaterLibrary, createLaterMap } from "./sync/later-index.ts";
+import {
+  createLaterLibrary,
+  createLaterMap,
+  createLaterReview,
+} from "./sync/later-index.ts";
+import type { PersonReview } from "./sync/later-index.ts";
 import type { SyncLibrary } from "./sync/library-index.ts";
 import type { recordOnDevice } from "./sync/on-device.ts";
 import type { PrivateIndex } from "./sync/private-index.ts";
+import type { ReviewStore } from "./sync/review.ts";
 
 type Options = CommandsOptions & { person: TabPerson };
-
-// until the review entries are read from the person's private index
-const NO_REVIEW: ReviewPort = Object.freeze({
-  openCount: () => createValue(0),
-  follow: () => () => {},
-});
 
 interface Indexes {
   privateIndex: PrivateIndex;
   library: SyncLibrary;
+  review: ReviewStore;
   recordOnDevice: typeof recordOnDevice;
 }
 
@@ -33,6 +33,7 @@ export interface PersonDocuments {
   client: Promise<SyncClient>;
   documents: DocumentSource;
   library: SyncLibrary;
+  review: PersonReview;
   /** The private index's maps, holding what is written until it opens. */
   maps: { prefs: KeyValueMap; keys: KeyValueMap; flags: KeyValueMap };
   /** Settles once the private index has opened and its maps are attached, or the sync could not start. */
@@ -44,13 +45,17 @@ export interface PersonDocuments {
 async function openIndexes(
   sync: PersonSync,
   options: Options,
+  messages: MessageQueue,
 ): Promise<Indexes> {
   const { person } = options;
-  const [privateParts, libraryParts, onDevice] = await Promise.all([
-    import("./sync/private-index.ts"),
-    import("./sync/library-index.ts"),
-    import("./sync/on-device.ts"),
-  ]);
+  const [privateParts, libraryParts, onDevice, reviewParts] = await Promise.all(
+    [
+      import("./sync/private-index.ts"),
+      import("./sync/library-index.ts"),
+      import("./sync/on-device.ts"),
+      import("./sync/review.ts"),
+    ],
+  );
   const { userId } = person;
   const privateIndex = await privateParts.openPrivateIndex({
     sync,
@@ -74,7 +79,24 @@ async function openIndexes(
     now: options.now,
     newId: options.randomId,
   });
-  return { privateIndex, library, recordOnDevice: onDevice.recordOnDevice };
+  const review = reviewParts.createReviewStore({
+    privateIndex,
+    sync,
+    // the server answers for at most 64 ids at once
+    names: async (docId, clientIds) =>
+      (await options.api.docClients(docId, clientIds.slice(0, 64))).clients.map(
+        (client) => client.userId,
+      ),
+    messages,
+    announce: (text) => options.dom.announce(text),
+    now: options.now,
+  });
+  return {
+    privateIndex,
+    library,
+    review,
+    recordOnDevice: onDevice.recordOnDevice,
+  };
 }
 
 /** Keeps the device's entry for an open document: its title, and whether the server holds all of it. */
@@ -127,7 +149,7 @@ export function createPersonDocuments(
     // each document's status says that the sync cannot start
   });
   const indexes = sync
-    .then((s) => openIndexes(s, options))
+    .then((s) => openIndexes(s, options, messages))
     .catch(() => {
       // the maps hold what is written for this session, and the Library stays empty
       return null;
@@ -147,9 +169,12 @@ export function createPersonDocuments(
     library: indexes.then((opened) => opened?.library ?? null),
     newId: options.randomId,
   });
+  const review = createLaterReview({
+    store: indexes.then((opened) => opened?.review ?? null),
+  });
   const documents = createSyncDocumentSource({
     sync,
-    review: NO_REVIEW,
+    review,
     titles: (docId) =>
       library.documentTitle(docId).get() ?? LIBRARY_WORDS.untitledScript,
     messages,
@@ -174,9 +199,11 @@ export function createPersonDocuments(
     client,
     documents,
     library,
+    review,
     maps,
     ready,
     dispose() {
+      review.dispose();
       void sync.then(
         (s) => s.dispose(),
         () => {

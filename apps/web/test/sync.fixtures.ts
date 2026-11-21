@@ -386,6 +386,7 @@ export function fakeClient(
 /** A person's sync over `client`, online, with a memory store. */
 export function fakeSync(client: SyncClient): PersonSync {
   return {
+    userId: DANA.userId,
     client,
     store: createMemoryStore(DANA.userId),
     link: createValue(ONLINE_LINK),

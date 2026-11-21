@@ -1,4 +1,6 @@
-// What the services read of the person's indexes before those have opened from the device: held writes and empty lists.
+// What the services read of the person's indexes before those have opened from the device: held writes, empty lists and
+// nothing to review.
+import type { CrdtDoc } from "@manent/crdt";
 import type { KeyValueMap } from "@manent/settings";
 import { createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
@@ -9,6 +11,8 @@ import type {
   ProjectKind,
 } from "../ports.ts";
 import type { SyncLibrary } from "./library-index.ts";
+import type { Listed } from "./review-entries.ts";
+import type { ReviewStore } from "./review.ts";
 
 type Listener = Parameters<KeyValueMap["subscribe"]>[0];
 
@@ -151,6 +155,75 @@ export function createLaterLibrary(options: {
         stopped = true;
         stop?.();
       };
+    },
+  };
+}
+
+/** To review as the services hold it, with the open script each action writes. */
+export interface PersonReview extends ReviewStore {
+  /** The script followed here; null while it is not open in this tab. */
+  docOf(docId: string): CrdtDoc | null;
+}
+
+/** To review once `store` has opened, with nothing to review until then; every script it follows is kept for `docOf`. */
+export function createLaterReview(options: {
+  /** Null: the sync could not start. */
+  store: Promise<ReviewStore | null>;
+}): PersonReview {
+  let opened: ReviewStore | null = null;
+  const { store } = options;
+  void store.then((s) => {
+    opened = s;
+  });
+  const docs = new Map<string, CrdtDoc>();
+  const later = <T>(
+    initial: T,
+    read: (s: ReviewStore) => Subscribable<T>,
+  ): Subscribable<T> =>
+    opened !== null
+      ? read(opened)
+      : laterValue(
+          initial,
+          store.then((s) => (s === null ? null : read(s))),
+        );
+  const act = (run: (s: ReviewStore) => void): void => {
+    if (opened !== null) run(opened);
+  };
+  const values = {
+    counts: new Map<string, Subscribable<number>>(),
+    entries: new Map<string, Subscribable<readonly Listed[]>>(),
+    targets: new Map<string, Subscribable<string | null>>(),
+  };
+  return {
+    openCount: (docId) =>
+      cached(values.counts, docId, () => later(0, (s) => s.openCount(docId))),
+    entries: (docId) =>
+      cached(values.entries, docId, () => later([], (s) => s.entries(docId))),
+    follow(docId, doc) {
+      docs.set(docId, doc);
+      let stop: (() => void) | null = null;
+      let stopped = false;
+      void store.then((s) => {
+        if (!stopped && s !== null) stop = s.follow(docId, doc);
+      });
+      return () => {
+        stopped = true;
+        stop?.();
+        if (docs.get(docId) === doc) docs.delete(docId);
+      };
+    },
+    keepAsMerged: (id) => act((s) => s.keepAsMerged(id)),
+    useMine: (id, doc) => act((s) => s.useMine(id, doc)),
+    useTheirs: (id, doc) => act((s) => s.useTheirs(id, doc)),
+    reopenKept: () => opened?.reopenKept() ?? false,
+    focus: (docId, blockId) => act((s) => s.focus(docId, blockId)),
+    focusTarget: (docId) =>
+      cached(values.targets, docId, () =>
+        later(null, (s) => s.focusTarget(docId)),
+      ),
+    docOf: (docId) => docs.get(docId) ?? null,
+    dispose() {
+      void store.then((s) => s?.dispose());
     },
   };
 }

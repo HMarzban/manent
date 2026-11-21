@@ -127,6 +127,7 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
     me: async () => ({ ok: false, reason: "unauthenticated" }),
     demo: async () => null,
     removedDoc: async () => null,
+    docClients: async () => ({ clients: [] }),
     ...overrides,
   };
 }

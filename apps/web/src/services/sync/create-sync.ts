@@ -21,6 +21,7 @@ import type { Overlay } from "./sync-hooks.ts";
  * online, kept across reloads (milliseconds since the epoch).
  */
 export interface PersonSync {
+  userId: string;
   client: SyncClient;
   store: LocalStore;
   link: Subscribable<LinkFacts>;
@@ -210,6 +211,7 @@ export async function createPersonSync(options: {
   });
   if (test !== null) Reflect.set(test.target, "sync", test.hooks);
   return {
+    userId: person.userId,
     client,
     store: ports.store,
     link,

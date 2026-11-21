@@ -3,6 +3,7 @@
 import type {
   ControlEndpoint,
   DemoResponse,
+  DocClientsResponse,
   HttpErrorCode,
   MeResponse,
   RemovedDocResponse,
@@ -32,6 +33,11 @@ export interface Api {
   demo(): Promise<DemoResponse | null>;
   /** Who deleted the document and when; null when the server holds no record of it; throws when it cannot tell. */
   removedDoc(docId: string): Promise<RemovedDocResponse | null>;
+  /** Who wrote under each of the document's client ids the server knows; throws when it cannot tell. */
+  docClients(
+    docId: string,
+    clientIds: readonly number[],
+  ): Promise<DocClientsResponse>;
 }
 
 export interface ServerControl {
@@ -157,6 +163,17 @@ export function createApi(options: {
       if (!response.ok)
         throw new Error(`POST /api/docs/removed answered ${response.status}`);
       return readAs<RemovedDocResponse>(response);
+    },
+
+    async docClients(docId, clientIds) {
+      const response = await request("/api/docs/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId, clientIds }),
+      });
+      if (!response.ok)
+        throw new Error(`POST /api/docs/clients answered ${response.status}`);
+      return readAs<DocClientsResponse>(response);
     },
   };
 }
