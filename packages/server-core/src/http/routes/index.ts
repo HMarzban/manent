@@ -7,6 +7,7 @@ import { docsRoutes } from "./docs.ts";
 import { DOCS_INFO_ROUTES } from "./docs-info.ts";
 import { HEALTH_ROUTES } from "./health.ts";
 import { historyRoutes } from "./history.ts";
+import { productionRoutes } from "./production.ts";
 import { replayRoutes } from "./replay.ts";
 import { SOCKET_ROUTES } from "./socket.ts";
 
@@ -18,6 +19,7 @@ export const ROUTES: readonly Route[] = [
   ...DOCS_INFO_ROUTES,
   ...HEALTH_ROUTES,
   ...historyRoutes,
+  ...productionRoutes,
   ...replayRoutes,
   ...SOCKET_ROUTES,
 ];

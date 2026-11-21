@@ -124,6 +124,13 @@ test("the error codes are pinned in their order", () => {
     "unknown_generation",
     "unreachable",
     "not_restorable",
+    "already_issued",
+    "already_locked",
+    "changed",
+    "engine_unavailable",
+    "not_locked",
+    "recall_closed",
+    "unknown_label",
   ]);
   expect(REPLAY_REFUSALS).toEqual([
     "bad_request",

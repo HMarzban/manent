@@ -23,6 +23,13 @@ export const HTTP_ERROR_CODES = [
   "unknown_generation",
   "unreachable",
   "not_restorable",
+  "already_issued",
+  "already_locked",
+  "changed",
+  "engine_unavailable",
+  "not_locked",
+  "recall_closed",
+  "unknown_label",
 ] as const;
 
 export type HttpErrorCode = (typeof HTTP_ERROR_CODES)[number];
