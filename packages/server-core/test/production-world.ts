@@ -1,5 +1,5 @@
-// A thirty-page script on a sync service over memory storage, with the history and production services
-// in its hooks: Priya coordinates it, Dana may issue, Sam edits and Leo views.
+// A thirty-page script on a sync service over memory storage, or a store the test opens, with the
+// history and production services in its hooks: Priya coordinates it, Dana may issue, Sam edits and Leo views.
 import {
   createDoc,
   loadDoc,
@@ -9,7 +9,7 @@ import {
 import type { BlockWriter, CrdtDoc } from "@manent/crdt";
 import { blocksOf, sectionize } from "@manent/schema";
 import type { BlockJSON, DocJSON, FlatBlock } from "@manent/schema";
-import type { DocFile, VersionRow } from "@manent/storage";
+import type { DocFile, Storage, VersionRow } from "@manent/storage";
 import { createMemoryStorage } from "@manent/storage/testing";
 import type { MemoryStorage } from "@manent/storage/testing";
 import type {
@@ -104,9 +104,9 @@ export interface Person {
   text(blockId: string): string;
 }
 
-export interface ProductionWorld {
+export interface ProductionWorld<S extends Storage = MemoryStorage> {
   readonly clock: FakeClock;
-  readonly storage: MemoryStorage;
+  readonly storage: S;
   readonly file: DocFile;
   readonly service: ProductionService;
   readonly history: HistoryService;
@@ -161,9 +161,15 @@ const fakeRenderPdf: RenderPdf = (input) =>
     ),
   );
 
-export function productionWorld(): ProductionWorld {
+export function productionWorld(): ProductionWorld;
+export function productionWorld<S extends Storage>(
+  open: (now: () => number) => S,
+): ProductionWorld<S>;
+export function productionWorld(
+  open: (now: () => number) => Storage = (now) => createMemoryStorage({ now }),
+): ProductionWorld<Storage> {
   const clock = fakeClock(T0);
-  const storage = createMemoryStorage({ now: () => clock.clock.now() });
+  const storage = open(() => clock.clock.now());
   let made = 0;
   const ids = (): string => `id-${String(++made).padStart(5, "0")}`;
   let built: SyncService | null = null;

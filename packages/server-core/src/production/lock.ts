@@ -28,7 +28,6 @@ import { isDay } from "./requests.ts";
 import type { Mutation, ProductionOptions, Requests } from "./requests.ts";
 import {
   documentOf,
-  isLocked,
   layoutUnder,
   notLocked,
   rowsOf,
@@ -78,7 +77,10 @@ export function lockMutation(
     tells: ["lock_anchors_changed", "layout_changed"],
     check(file) {
       if (!isDay(request.lockedOn)) return refused("bad_request");
-      return isLocked(file, docId) ? refused("already_locked") : null;
+      // a script is locked once: End keeps its sets, whose ordinals name their colours
+      return file.production.get(docId) === null
+        ? null
+        : refused("already_locked");
     },
     edit(doc, file) {
       const { engineVersion } = documentOf(file, docId);

@@ -1,11 +1,13 @@
-import { expect, test } from "bun:test";
+import { afterAll, expect, test } from "bun:test";
 import {
   DEFAULT_LAYOUT_SETTINGS,
   engineFor,
   profileFromSettings,
 } from "@manent/pagination";
 import { captureAnchors, mergeAnchors } from "@manent/revisions";
+import { openSqliteStorage } from "@manent/storage";
 import type { PagesRequest } from "@manent/sync-protocol";
+import { createTempTrees } from "@manent/testkit";
 import { scriptPages } from "../src/index.ts";
 import {
   KEY1,
@@ -17,6 +19,9 @@ import {
 } from "./production-world.ts";
 import type { ProductionWorld } from "./production-world.ts";
 import { DOC } from "./seed.ts";
+
+const trees = createTempTrees("manent-production-");
+afterAll(() => trees.removeAll());
 
 const pages = (
   w: ProductionWorld,
@@ -260,4 +265,21 @@ test("ending production saves a draft, clears the numbers and unfreezes the layo
     ["ACK"],
     "a4",
   ]);
+});
+
+test("a script whose production has ended is refused a second lock, on the SQLite store", async () => {
+  const dir = await trees.tree({});
+  const w = productionWorld((now) => openSqliteStorage({ dir, now }));
+  await w.lock();
+  valueOf(await w.run(w.service.end("priya", { docId: DOC, key: key(2) })));
+  const ask = async (n: number) => {
+    const answer = await w.run(w.service.lock("priya", lockRequest(key(n))));
+    return answer.ok ? "locked" : [answer.status, answer.body.error];
+  };
+  expect([await ask(3), await ask(4), w.file.log.get(DOC)!.locked]).toEqual([
+    [409, "already_locked"],
+    [409, "already_locked"],
+    0,
+  ]);
+  w.storage.close();
 });
