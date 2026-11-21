@@ -9,6 +9,7 @@ export * from "./library.ts";
 export * from "./messages.ts";
 export * from "./offline.ts";
 export * from "./preferences.ts";
+export * from "./production.ts";
 export * from "./receipt.ts";
 export * from "./send.ts";
 export * from "./state-bar.ts";
