@@ -1,4 +1,6 @@
 import { markEnd, markStart, readMarks, setMarksEnabled } from "@manent/perf";
+import type { SyncClientOptions } from "@manent/sync-client";
+import type { UpdateState } from "@manent/sync-protocol";
 import { createValue } from "@manent/ui";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
@@ -6,13 +8,21 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createApi } from "./api.ts";
 import { registerServiceWorker } from "./boot/register-sw.ts";
+import { afterFirstFrame } from "./desktop/first-frame.ts";
+import type { DesktopHost } from "./desktop/host.ts";
 import { readNavigator } from "./platform.ts";
 import { createAppRouter } from "./router.tsx";
 import { EnvironmentProvider } from "./services/context.tsx";
 import { browserStorage } from "./services/local-map.ts";
 import { INITIAL_SHELL_STATE } from "./services/ports.ts";
-import type { Environment, ShellState } from "./services/ports.ts";
+import type {
+  Environment,
+  PersonServices,
+  ShellState,
+} from "./services/ports.ts";
+import type { PersonSync } from "./services/sync/create-sync.ts";
 import { tabStorage } from "./session.ts";
+import type { TabPerson } from "./session.ts";
 import { createShellDom } from "./shell/regions.tsx";
 import { bindGuard, createGuard } from "./state/guard.ts";
 import { createPersonStore } from "./state/person.store.ts";
@@ -61,69 +71,113 @@ const runs: string[] = [];
 if (flavour === "test")
   Reflect.set(window, "__manent", { guard, runs, readMarks });
 
-const { where, language, userAgent } = readNavigator();
-const origin = browserStorage(window);
-const environment: Environment = {
-  where,
-  language,
-  userAgent,
-  now,
-  schedule(fn, delayMs) {
-    const timer = setTimeout(fn, delayMs);
-    return () => clearTimeout(timer);
-  },
-  frame(fn) {
-    const id = requestAnimationFrame(fn);
-    return () => cancelAnimationFrame(id);
-  },
-  storage: origin.storage,
-  storageEvents: origin.events,
-  tabStorage: tabStorage(),
-  randomId: () => crypto.randomUUID(),
-  lastKeyAt: () => lastKeyAt,
-  guard,
-  flavour,
-  // the person's editor, with everything only it needs, stays out of the entry
-  loadEditor: async (...args) =>
-    (await import("./services/person-editor.ts")).loadEditor(...args),
-  shellState: createValue<ShellState>(INITIAL_SHELL_STATE),
-  dom: createShellDom(document),
-  online: () => navigator.onLine,
-  ran: (commandId) => {
-    if (flavour === "test") runs.push(commandId);
-  },
-  visitUndo: { current: null },
-  // sync, with everything only it needs, stays out of the entry
-  async startSync(person, deviceId) {
-    const [sync, device, { PROTOCOL_VERSION }, { SCHEMA_VERSION }, engine] =
-      await Promise.all([
-        import("./services/sync/create-sync.ts"),
-        import("./services/sync/device-memory.ts"),
-        import("@manent/sync-protocol"),
-        import("@manent/schema"),
-        import("@manent/pagination"),
-      ]);
-    const versions = {
-      protocol: PROTOCOL_VERSION,
-      schema: SCHEMA_VERSION,
-      engine: engine.ENGINE_VERSION,
-      table: engine.TABLE_VERSION,
-    };
-    return sync.createPersonSync({
-      person,
-      baseUrl: location.origin,
-      deviceId,
-      build: typeof MANENT_VERSION === "undefined" ? "0.0.0" : MANENT_VERSION,
-      versions,
-      // the server that serves this build runs the same versions
-      minServer: versions,
-      memory: device.createDeviceMemory(device.browserStores()),
-      onlineEvents: window,
-      visible: () => document.visibilityState === "visible",
-      now,
-    });
-  },
-};
+/** The parts of the person's sync that differ on desktop, where the node is the window's server and store. */
+async function nodeSync(
+  person: TabPerson,
+): Promise<Pick<SyncClientOptions, "via" | "ports">> {
+  const [web, node] = await Promise.all([
+    import("@manent/client-web"),
+    import("./desktop/desktop-sync.ts"),
+  ]);
+  const { via, store, transport } = node.desktopSyncParts({
+    origin: location.origin,
+    userId: person.userId,
+    token: () => person.token,
+  });
+  // the leader, clock, random and frames stay the web's own
+  const leader = web.webLeader({
+    userId: person.userId,
+    tabId: crypto.randomUUID(),
+  });
+  return {
+    via,
+    ports: {
+      store,
+      transport,
+      leader,
+      clock: web.browserClock,
+      random: web.browserRandom,
+      frames: web.browserFrames,
+    },
+  };
+}
+
+// sync, with everything only it needs, stays out of the entry
+async function startSync(
+  desktop: DesktopHost | null,
+  person: TabPerson,
+  deviceId: string,
+): Promise<PersonSync> {
+  const [sync, device, { PROTOCOL_VERSION }, { SCHEMA_VERSION }, engine] =
+    await Promise.all([
+      import("./services/sync/create-sync.ts"),
+      import("./services/sync/device-memory.ts"),
+      import("@manent/sync-protocol"),
+      import("@manent/schema"),
+      import("@manent/pagination"),
+    ]);
+  const versions = {
+    protocol: PROTOCOL_VERSION,
+    schema: SCHEMA_VERSION,
+    engine: engine.ENGINE_VERSION,
+    table: engine.TABLE_VERSION,
+  };
+  return sync.createPersonSync({
+    person,
+    baseUrl: location.origin,
+    deviceId,
+    build: typeof MANENT_VERSION === "undefined" ? "0.0.0" : MANENT_VERSION,
+    versions,
+    // the server that serves this build runs the same versions
+    minServer: versions,
+    memory: device.createDeviceMemory(device.browserStores()),
+    onlineEvents: window,
+    visible: () => document.visibilityState === "visible",
+    now,
+    ...(desktop === null ? {} : await nodeSync(person)),
+  });
+}
+
+/** The world this tab runs in; `desktop` is the desktop app's shell and node, null on the web. */
+function createEnvironment(desktop: DesktopHost | null): Environment {
+  const { where, language, userAgent } = readNavigator();
+  const origin = browserStorage(window);
+  return {
+    where: { ...where, shell: desktop === null ? "web" : "desktop" },
+    desktop,
+    updateState: createValue<UpdateState | null>(null),
+    language,
+    userAgent,
+    now,
+    schedule(fn, delayMs) {
+      const timer = setTimeout(fn, delayMs);
+      return () => clearTimeout(timer);
+    },
+    frame(fn) {
+      const id = requestAnimationFrame(fn);
+      return () => cancelAnimationFrame(id);
+    },
+    storage: origin.storage,
+    storageEvents: origin.events,
+    tabStorage: tabStorage(),
+    randomId: () => crypto.randomUUID(),
+    lastKeyAt: () => lastKeyAt,
+    guard,
+    flavour,
+    // the person's editor, with everything only it needs, stays out of the entry
+    loadEditor: async (...args) =>
+      (await import("./services/person-editor.ts")).loadEditor(...args),
+    shellState: createValue<ShellState>(INITIAL_SHELL_STATE),
+    dom: createShellDom(document),
+    online: () => navigator.onLine,
+    ran: (commandId) => {
+      if (flavour === "test") runs.push(commandId);
+    },
+    visitUndo: { current: null },
+    startSync: (person, deviceId) => startSync(desktop, person, deviceId),
+    personServices: createValue<PersonServices | null>(null),
+  };
+}
 
 const usePerson = createPersonStore(tabStorage());
 const api = createApi({
@@ -135,12 +189,44 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false } },
 });
 
-createRoot(root).render(
-  <StrictMode>
-    <EnvironmentProvider environment={environment}>
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
-    </EnvironmentProvider>
-  </StrictMode>,
-);
+/** Draws the app into `container`, in the environment it returns. */
+function start(
+  container: HTMLElement,
+  desktop: DesktopHost | null,
+): Environment {
+  const environment = createEnvironment(desktop);
+  createRoot(container).render(
+    <StrictMode>
+      <EnvironmentProvider environment={environment}>
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </EnvironmentProvider>
+    </StrictMode>,
+  );
+  // the shell shows the window once the page's first frame is on screen
+  if (desktop !== null)
+    afterFirstFrame(() => desktop.send({ v: 1, t: "first_frame" }), {
+      request: environment.frame,
+    });
+  return environment;
+}
+
+// the desktop app's node writes the shell's startup values into the page it serves; the web has none, and never loads
+// what reads them
+const desktopGlobal: unknown = Reflect.get(window, "manentDesktop");
+if (desktopGlobal === undefined) start(root, null);
+else
+  void Promise.all([
+    import("./desktop/host.ts"),
+    import("./desktop/shell-channel.ts"),
+  ]).then(([{ readDesktopHost }, { answerShell }]) => {
+    const desktop = readDesktopHost(desktopGlobal, location.origin);
+    const environment = start(root, desktop);
+    if (desktop !== null)
+      answerShell({
+        host: desktop,
+        environment,
+        pathname: () => router.state.location.pathname,
+      });
+  });

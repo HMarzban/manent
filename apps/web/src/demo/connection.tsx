@@ -7,7 +7,8 @@ import {
 } from "@manent/ui";
 import { useContext, useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
-import { useServices } from "../services/context.tsx";
+import { connectionAtNode } from "../desktop/desktop-sync.ts";
+import { useEnvironment, useServices } from "../services/context.tsx";
 import { asUiSubscribable } from "../services/sync/subscribable.ts";
 import {
   CONNECTION_MODES,
@@ -25,12 +26,17 @@ export function Connection(): ReactNode {
 
 function PersonConnection(): ReactNode {
   const { connection } = useServices();
+  const { desktop } = useEnvironment();
   const [control, setControl] = useState<ConnectionControl | null>(null);
   useEffect(() => {
     let current = true;
     connection.then(
       (started) => {
-        if (current) setControl(started);
+        // on desktop the node's link to the cloud is cut or slowed, never the window's to the node
+        if (current)
+          setControl(
+            desktop === null ? started : connectionAtNode(started, desktop),
+          );
       },
       () => {
         // a sync that cannot start has no connection to cut or slow
@@ -39,7 +45,7 @@ function PersonConnection(): ReactNode {
     return () => {
       current = false;
     };
-  }, [connection]);
+  }, [connection, desktop]);
   return control === null ? null : <ConnectionChoice control={control} />;
 }
 

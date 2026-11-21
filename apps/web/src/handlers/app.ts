@@ -18,7 +18,7 @@ export function appHandlers(
   | "app.signInToSync"
   | "app.switchPerson"
 > {
-  const { services, api, usePerson, router, dom } = deps;
+  const { services, api, usePerson, router, dom, nodeCloud } = deps;
   return {
     "app.palette"() {
       dom.rememberFocus();
@@ -36,6 +36,11 @@ export function appHandlers(
       dialogActions.open("sync_centre");
     },
     "app.signInToSync"() {
+      // on desktop the node signs the person in, and the window's own token stays the node's
+      if (nodeCloud !== null) {
+        void nodeCloud.signIn();
+        return;
+      }
       void api.signIn(services.userId).then((result) => {
         if (result.ok) usePerson.getState().setPerson(result.person);
       });
