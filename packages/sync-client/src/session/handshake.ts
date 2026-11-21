@@ -13,6 +13,7 @@ import {
 import type { Clock } from "../ports/ports.ts";
 import { endingOf, readRefusal } from "./refusals.ts";
 import type { Ending } from "./refusals.ts";
+import { SubscribeAnswers } from "./subscribe-answers.ts";
 
 type Subscribed = Extract<DocumentMessage, { type: "SUBSCRIBED" }>;
 type ErrorMessage = Extract<Message, { type: "ERROR" }>;
@@ -101,6 +102,7 @@ class Exchange implements Handshake {
   private generation = 0;
   private gotSubscribed = false;
   private timeouts = 0;
+  private readonly answers = new SubscribeAnswers();
   /** The `clientSeq` of each push and setting sent and not yet answered, oldest first. */
   private inFlight: number[] = [];
   private sentThrough = 0;
@@ -120,6 +122,7 @@ class Exchange implements Handshake {
   connect(send: (message: Message) => void, gate: ServerGate): void {
     this.send = send;
     this.gate = gate;
+    this.answers.reset();
     this.phase = "idle";
   }
 
@@ -138,6 +141,7 @@ class Exchange implements Handshake {
     this.inFlight = [];
     this.sentThrough = 0;
     this.phase = "handshake";
+    this.answers.asked();
     this.send({
       type: "SUBSCRIBE",
       docId,
@@ -157,11 +161,7 @@ class Exchange implements Handshake {
   }
 
   resubscribe(): void {
-    this.send?.({
-      type: "UNSUBSCRIBE",
-      docId: this.docId,
-      generation: this.generation,
-    });
+    this.unsubscribe();
     this.subscribe();
   }
 
@@ -177,7 +177,8 @@ class Exchange implements Handshake {
   receive(m: DocumentMessage): void {
     switch (m.type) {
       case "SUBSCRIBED":
-        if (this.phase !== "handshake") return;
+        if (this.answers.take() === "superseded" || this.phase !== "handshake")
+          return;
         this.gotSubscribed = true;
         this.generation = m.generation;
         this.host.subscribed(m);
@@ -192,6 +193,7 @@ class Exchange implements Handshake {
         this.pump();
         return;
       case "GENERATION_MOVED":
+        if (this.answers.take() === "superseded") return;
         this.end();
         this.host.ended({ type: "moved", newGeneration: m.newGeneration });
         return;
@@ -221,6 +223,7 @@ class Exchange implements Handshake {
       this.refuse(m.clientSeq, m.message);
       return;
     }
+    if (m.clientSeq === null && this.answers.take() === "superseded") return;
     this.end();
     const ending = endingOf(m, this.gate);
     if (ending === null)
@@ -251,12 +254,7 @@ class Exchange implements Handshake {
   }
 
   close(): void {
-    if (this.gotSubscribed)
-      this.send?.({
-        type: "UNSUBSCRIBE",
-        docId: this.docId,
-        generation: this.generation,
-      });
+    if (this.gotSubscribed) this.unsubscribe();
     this.stop();
   }
 
@@ -342,12 +340,12 @@ class Exchange implements Handshake {
       return;
     }
     this.timeouts = 1;
-    this.send?.({
-      type: "UNSUBSCRIBE",
-      docId: this.docId,
-      generation: this.generation,
-    });
-    this.subscribe();
+    this.resubscribe();
+  }
+
+  private unsubscribe(): void {
+    const { docId, generation } = this;
+    this.send?.({ type: "UNSUBSCRIBE", docId, generation });
   }
 
   private refuse(clientSeq: number, message: string): void {

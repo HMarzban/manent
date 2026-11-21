@@ -22,8 +22,9 @@ import type {
   Subscribable,
   SyncClientPorts,
 } from "../ports/ports.ts";
-import { textLeftover, withFiled } from "../recovery/recover.ts";
+import { textLeftover } from "../recovery/recover.ts";
 import type { Leftover } from "../recovery/recover.ts";
+import { RecoveredList } from "../recovery/recovered-list.ts";
 import { deviceVersion } from "../recovery/versions.ts";
 import { OverlapWindow } from "../review/online.ts";
 import type { UpstreamEvent, UpstreamStatus } from "../upstream/status.ts";
@@ -106,13 +107,12 @@ interface LocalCopyOptions {
   idle(): void;
   /** The client IDs whose text a server update may set aside. */
   ownClientIds(): readonly number[];
-  /** Through the local node: its upstream's status, Recovered text and events stand for this copy's. */
+  /** Through the local node: its upstream's status and events stand for this copy's, and its Recovered text comes before the copy's own. */
   upstream: UpstreamWindow | null;
 }
 
 class BoundCopy implements LocalCopy {
   doc: CrdtDoc;
-  recovered: RecoveredItem[] = [];
   private coalescer: Coalescer;
   private unobserve: () => void = () => {};
   /** The local sequence of the newest server update stored. */
@@ -130,9 +130,7 @@ class BoundCopy implements LocalCopy {
     },
   });
   private readonly overlay = createSettingsOverlay(() => this.doc);
-  private readonly recoveredView = createSubscribable<readonly RecoveredItem[]>(
-    [],
-  );
+  private readonly list: RecoveredList;
   private readonly schema: ReturnType<typeof createSubscribable<number>>;
   private readonly listeners = new Set<(event: DocEvent) => void>();
   private readonly awarenessListeners = new Set<(update: Uint8Array) => void>();
@@ -142,6 +140,7 @@ class BoundCopy implements LocalCopy {
   constructor(options: LocalCopyOptions) {
     this.options = options;
     this.window = new OverlapWindow(this, options.ports.clock);
+    this.list = new RecoveredList(options.upstream?.recovered ?? null);
     this.doc = options.doc;
     if (options.checkpoint !== null)
       this.doc.applyUpdate(options.checkpoint, ORIGIN_LOAD);
@@ -152,10 +151,13 @@ class BoundCopy implements LocalCopy {
     this.schema = createSubscribable(options.writeSchema);
   }
 
+  get recovered(): readonly RecoveredItem[] {
+    return this.list.items;
+  }
+
   load(recovered: RecoveredItem[], unsaved: UnsavedEdit[]): void {
     const { journal } = this.options;
-    this.recovered = recovered;
-    this.recoveredView.set(this.recovered);
+    this.list.reset(recovered);
     for (const e of journal.entries) {
       if (e.kind === "set" && !e.acked) this.overlay.request(e);
       if (e.kind !== "update" || e.applied) continue;
@@ -205,8 +207,7 @@ class BoundCopy implements LocalCopy {
     this.doc = next;
     this.coalescer = this.bind(next);
     previous.dispose();
-    this.recovered = [...this.recovered, ...items];
-    this.recoveredView.set(this.recovered);
+    this.list.file(items);
   }
 
   showReplaced(items: RecoveredItem[], reason: ReplacedReason): void {
@@ -263,6 +264,7 @@ class BoundCopy implements LocalCopy {
   }
 
   dispose(): void {
+    this.list.dispose();
     this.unobserve();
     this.coalescer.dispose();
   }
@@ -276,7 +278,7 @@ class BoundCopy implements LocalCopy {
         return this.doc;
       },
       status: parts.status,
-      recovered: upstream?.recovered ?? this.recoveredView,
+      recovered: this.list.view,
       settings: this.overlay.view,
       writeSchema: this.schema,
       readOnly: parts.readOnly,
@@ -363,8 +365,7 @@ class BoundCopy implements LocalCopy {
   file(items: RecoveredItem[], through: number): void {
     this.options.journal.markApplied(through, items);
     if (items.length === 0) return;
-    this.recovered = withFiled(this.recovered, items);
-    this.recoveredView.set(this.recovered);
+    this.list.file(items);
     this.emit({ type: "recovered", items });
   }
 

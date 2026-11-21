@@ -10,6 +10,7 @@ import type { BlockWriter, CrdtDoc } from "@manent/crdt";
 import { blockText, blockView } from "@manent/schema";
 import { CODE } from "@manent/sync-protocol";
 import * as entry from "../src/index.ts";
+import { ACK_TIMEOUT_MS } from "../src/index.ts";
 import type { DeviceVersion, DocHandle } from "../src/index.ts";
 import {
   B1,
@@ -131,6 +132,183 @@ test("a permanently rejected push is kept as a recovered version and written bac
   expect(h.status.get()).toMatchObject({ side: [], recovered: 0 });
   const meta = (await store.load(DOC))!.meta;
   expect([meta.recovering, meta.clientIds]).toEqual([null, fresh]);
+});
+
+test("seed 44: a step 2 answering a subscription the recovery superseded is not taken for the server's whole state", async () => {
+  const w = await setup();
+  const { server } = w;
+  const client = w.makeClient();
+  const h = await client.open(DOC);
+  await w.online();
+  typeIn(h, B1, "kept");
+  await w.settle();
+  const refused = lastPush(w).clientSeq;
+  server.answer.subscribe = false;
+  w.fake.advance(ACK_TIMEOUT_MS);
+  await w.settle();
+  const [, superseded] = server.got("SYNC").filter((m) => m.step === "step1");
+  refuse(w, DOC, refused);
+  await w.settle();
+  const pushed = server.got("PUSH").length;
+  server.send(subscribed(DOC, server.head));
+  for (const [step, data] of [
+    ["step1", server.doc(DOC).encodeStateVector()],
+    ["step2", server.doc(DOC).diff(superseded!.data)],
+  ] as const)
+    server.send({ type: "SYNC", docId: DOC, generation: 1, step, data });
+  server.subscribedWithState(DOC, server.doc(DOC).encodeState());
+  await w.settle();
+  const pushes = server.got("PUSH").slice(pushed);
+  expect([
+    textOf(h.doc()),
+    textAfter(pushes.map((p) => p.update)),
+    h.recovered.get(),
+  ]).toEqual(["kept\n", "kept\n", []]);
+});
+
+test("seed 2: after a rejected push, a block received live keeps what another person wrote in it since", async () => {
+  const w = await setup();
+  const base = stateOf([[B, "rain"]]);
+  await seed2(w, base, base);
+  const { server } = w;
+  const client = w.makeClient();
+  const h = await client.open(DOC2);
+  await w.online();
+  const live = server.writeAs(DOC2, 99, (writer) =>
+    writer.insertBlocks(B, [block(N, "theirs")]),
+  );
+  server.syncUpdate(DOC2, live);
+  await w.settle();
+  w.frames.fire();
+  write(h, (writer) => writer.insertText(B, 0, "cold "));
+  await w.settle();
+  server.writeAs(DOC2, 99, (writer) => writer.insertText(N, 0, "more "));
+  server.answer.subscribe = false;
+  refuse(w, DOC2, lastPush(w).clientSeq);
+  await w.settle();
+  const pushed = server.got("PUSH").length;
+  server.subscribedWithState(DOC2, server.doc(DOC2).encodeState());
+  await w.settle();
+  const pushes = server.got("PUSH").slice(pushed);
+  expect([
+    textOf(h.doc()),
+    textAfter2(
+      w,
+      pushes.map((p) => p.update),
+    ),
+    h.recovered.get(),
+  ]).toEqual(["cold rain\nmore theirs", "cold rain\nmore theirs", []]);
+});
+
+test("seed 2: after a rejected push, a block a reconnect brought keeps what another person wrote in it since", async () => {
+  const w = await setup();
+  const base = stateOf([[B, "rain"]]);
+  await seed2(w, base, base);
+  const { server } = w;
+  const client = w.makeClient();
+  const h = await client.open(DOC2);
+  await w.online();
+  client.setOnline(false);
+  await w.settle();
+  server.writeAs(DOC2, 99, (writer) =>
+    writer.insertBlocks(B, [block(N, "theirs")]),
+  );
+  write(h, (writer) => writer.insertText(B, 0, "cold "));
+  client.setOnline(true);
+  await w.settle();
+  w.frames.fire();
+  server.writeAs(DOC2, 99, (writer) => writer.insertText(N, 0, "more "));
+  server.answer.subscribe = false;
+  refuse(w, DOC2, lastPush(w).clientSeq);
+  await w.settle();
+  server.subscribedWithState(DOC2, server.doc(DOC2).encodeState());
+  await w.settle();
+  expect([textOf(h.doc()), h.recovered.get()]).toEqual([
+    "cold rain\nmore theirs",
+    [],
+  ]);
+});
+
+test("seed 2: after a rejected push, own text the server acknowledged is not written into the block again", async () => {
+  const w = await setup();
+  const base = stateOf([
+    [A, "one"],
+    [B, "rain"],
+  ]);
+  await seed2(w, base, base);
+  const { server } = w;
+  const client = w.makeClient();
+  const h = await client.open(DOC2);
+  await w.online();
+  write(h, (writer) => writer.insertText(B, 0, "cold "));
+  await w.settle();
+  server.ackAll(DOC2);
+  await w.settle();
+  write(h, (writer) => writer.insertText(A, 3, "!"));
+  await w.settle();
+  server.writeAs(DOC2, 99, (writer) => writer.insertText(B, 0, "very "));
+  server.answer.subscribe = false;
+  refuse(w, DOC2, lastPush(w).clientSeq);
+  await w.settle();
+  server.subscribedWithState(DOC2, server.doc(DOC2).encodeState());
+  await w.settle();
+  expect([textOf(h.doc()), h.recovered.get()]).toEqual([
+    "one!\nvery cold rain",
+    [],
+  ]);
+});
+
+test("seed 2: after a rejected push, text a heal push gave back to the server is not written into the block again", async () => {
+  const w = await setup();
+  const base = stateOf([
+    [A, "one"],
+    [B, "rain"],
+  ]);
+  await seed2(w, base, base);
+  const kept = loadDoc(base, { clientId: 5 });
+  scriptBody(kept).write((writer) => writer.insertText(B, 0, "cold "));
+  await w.store.checkpoint(DOC2, kept.encodeState(), 0, false);
+  const { server } = w;
+  server.head = 5;
+  const client = w.makeClient();
+  const h = await client.open(DOC2);
+  await w.online();
+  server.ackAll(DOC2);
+  await w.settle();
+  write(h, (writer) => writer.insertText(A, 3, "!"));
+  await w.settle();
+  server.writeAs(DOC2, 99, (writer) => writer.insertText(B, 0, "very "));
+  server.answer.subscribe = false;
+  refuse(w, DOC2, lastPush(w).clientSeq);
+  await w.settle();
+  server.subscribedWithState(DOC2, server.doc(DOC2).encodeState());
+  await w.settle();
+  expect([textOf(h.doc()), h.recovered.get()]).toEqual([
+    "one!\nvery cold rain",
+    [],
+  ]);
+});
+
+test("seed 2: an acknowledgement that covers the refused push does not count its text as the server's", async () => {
+  const w = await setup();
+  const base = stateOf([[B, "rain"]]);
+  await seed2(w, base, base);
+  const { server } = w;
+  const client = w.makeClient();
+  const h = await client.open(DOC2);
+  await w.online();
+  write(h, (writer) => writer.insertText(B, 0, "cold "));
+  await w.settle();
+  h.setSetting("paper", "a4");
+  await w.settle();
+  const [set] = server.got("SET");
+  server.answer.subscribe = false;
+  refuse(w, DOC2, lastPush(w).clientSeq);
+  server.ack(DOC2, set!.clientSeq, 11);
+  await w.settle();
+  server.subscribedWithState(DOC2, server.doc(DOC2).encodeState());
+  await w.settle();
+  expect([textOf(h.doc()), h.recovered.get()]).toEqual(["cold rain", []]);
 });
 
 test("after a rejected push, a block both sides changed merges by character", async () => {

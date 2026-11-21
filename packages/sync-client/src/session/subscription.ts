@@ -1,7 +1,7 @@
 // One document's subscription as its session drives it: what SUBSCRIBE and the heal push carry,
 // the server's step 2, acknowledgements and refusals, what each ending stops or parks, and the
 // recovery from a permanently rejected push or a move to a new generation it hands over to.
-import { createDoc, loadDoc, readStateVector } from "@manent/crdt";
+import { createDoc, readStateVector } from "@manent/crdt";
 import { CODE } from "@manent/sync-protocol";
 import type { DocumentMessage, Message } from "@manent/sync-protocol";
 import type { ServerGate } from "../link/gate.ts";
@@ -11,7 +11,7 @@ import { createSubscribable } from "../outbox/subscribable.ts";
 import { SUBSCRIBE_CLIENT_IDS } from "../ports/defaults.ts";
 import { ConnectError } from "../ports/ports.ts";
 import { PushRecovery } from "../recovery/recover.ts";
-import { reconnectOverlaps } from "../review/overlaps.ts";
+import { SyncedBase } from "../recovery/synced-base.ts";
 import type {
   DocMeta,
   SideState,
@@ -75,19 +75,17 @@ class DocSubscription implements Subscription {
   private createdAgain = false;
   private headSeq = 0;
   private receipt: { sent: number; setAside: number } | null = null;
-  private syncedBase: Uint8Array | null;
+  private readonly base: SyncedBase;
   private readonly recovery: PushRecovery;
   private move: Move | null = null;
   left: LeftDoc | null = null;
   private online = false;
-  /** The `clientSeq` of the heal push in flight on this subscription. */
-  private healSeq: number | null = null;
   private readonly options: SubscriptionOptions;
 
   constructor(options: SubscriptionOptions) {
     const { docId, ports } = options;
     this.options = options;
-    this.syncedBase = options.syncedBase;
+    this.base = new SyncedBase(options.syncedBase);
     this.handshake = createHandshake({ docId, clock: ports.clock, host: this });
     const { journal, copy } = options;
     this.recovery = new PushRecovery({
@@ -152,20 +150,19 @@ class DocSubscription implements Subscription {
     const { meta } = this.options.journal;
     const clientIds =
       fresh === null ? meta.clientIds : [...meta.clientIds, fresh.clientId];
-    const { syncedBase } = this;
-    const base =
-      syncedBase !== null && this.hasWaiting() ? loadDoc(syncedBase) : null;
-    const from = fresh === null ? (base ?? this.options.copy.doc) : createDoc();
+    const synced =
+      fresh === null && this.hasWaiting() ? this.base.vector() : null;
+    const from = fresh === null ? this.options.copy.doc : createDoc();
     return {
       generation: fresh?.generation ?? meta.generation,
       clientIds: clientIds.slice(-SUBSCRIBE_CLIENT_IDS),
       lastServerSeq: this.recovery.redirected ? 0 : meta.lastServerSeq,
-      vector: from.encodeStateVector(),
+      vector: synced ?? from.encodeStateVector(),
     };
   }
 
   heal(serverVector: Uint8Array): ReturnType<HandshakeHost["heal"]> {
-    this.healSeq = null;
+    this.base.heal = null;
     if (this.recovery.fresh !== null || this.move !== null) return null;
     const { journal, copy } = this.options;
     const { meta } = journal;
@@ -178,8 +175,12 @@ class DocSubscription implements Subscription {
       ackedClocks: meta.ackedClocks,
     });
     if (!due) return null;
-    this.healSeq = journal.healSeq();
-    return { clientSeq: this.healSeq, update: copy.doc.diff(serverVector) };
+    const heal = {
+      clientSeq: journal.healSeq(),
+      update: copy.doc.diff(serverVector),
+    };
+    this.base.heal = heal;
+    return heal;
   }
 
   outbox(afterSeq: number): ReturnType<HandshakeHost["outbox"]> {
@@ -205,14 +206,10 @@ class DocSubscription implements Subscription {
     if (this.move !== null) {
       this.move.loaded(update, this.headSeq);
       this.move = null;
+      this.base.reset(update);
     } else if (fresh !== null) {
-      this.syncedBase = this.recovery.loaded(
-        fresh,
-        update,
-        this.syncedBase,
-        this.headSeq,
-      );
-      this.healSeq = null;
+      const { base, headSeq } = this;
+      base.reset(this.recovery.loaded(fresh, update, base.state(), headSeq));
     } else this.merge(update);
     const { journal } = this.options;
     const syncedAt = this.hasWaiting() ? null : this.options.syncedAt();
@@ -225,10 +222,14 @@ class DocSubscription implements Subscription {
 
   update(update: Uint8Array): void {
     this.options.copy.update(update);
+    this.base.take(update);
   }
 
   acknowledged(clientSeq: number, serverSeq: number): void {
     const { journal, copy } = this.options;
+    // one that comes while a recovery waits may cover the refused push: the fresh state is the base
+    if (this.recovery.fresh === null)
+      this.base.acknowledged(clientSeq, journal.waitingUpdates());
     journal.acknowledge(clientSeq, serverSeq, this.options.syncedAt());
     copy.acknowledged(clientSeq);
     this.recovery.acknowledged(clientSeq);
@@ -301,15 +302,14 @@ class DocSubscription implements Subscription {
     if (waiting > 0)
       this.receipt = { sent: waiting, setAside: copy.recovered.length };
     const { clientIds } = journal.meta;
-    const found = reconnectOverlaps(this.syncedBase, update, mine, clientIds);
-    copy.merge(update, found);
+    copy.merge(update, this.base.stepTwo(update, mine, clientIds));
   }
 
   /** A permanently rejected push; the heal push when its `clientSeq` is the heal push's. */
   private reject(code: number, clientSeq: number | null): void {
     this.recovery.reject(
       code,
-      clientSeq !== null && clientSeq === this.healSeq,
+      clientSeq !== null && clientSeq === this.base.heal?.clientSeq,
     );
   }
 
