@@ -8,6 +8,7 @@ import type { Directory } from "../auth/directory.ts";
 import type { SessionStore } from "../auth/sessions.ts";
 import type { SignInProvider } from "../auth/sign-in.ts";
 import type { HistoryService } from "../history/service.ts";
+import type { ProductionService } from "../production/service.ts";
 import type {
   ConnectionData,
   ConnectionHandler,
@@ -59,6 +60,8 @@ export interface ServerConfig {
   sync: SyncSettings | null;
   /** Absent: every history route answers not_found. */
   history?: HistoryService;
+  /** Absent: every production route answers not_found. */
+  production?: ProductionService;
 }
 
 /** What an app hands to its listener; this package never listens itself. */
