@@ -4,7 +4,7 @@ import type { CrdtDoc } from "@manent/crdt";
 import { CODE, isReplayKey } from "@manent/sync-protocol";
 import { blockText, blockView } from "@manent/schema";
 import type { ReplayResponse } from "@manent/sync-protocol";
-import { ConnectError } from "../src/index.ts";
+import { ConnectError, OVERLAP_WINDOW_MS } from "../src/index.ts";
 import type { DocHandle, StoredUpdate, SyncClient } from "../src/index.ts";
 import {
   B1,
@@ -516,6 +516,43 @@ test("a move during the recovery of a rejected push continues the recovery in th
   server.ack(DOC, push.clientSeq, 2);
   await w.settle();
   expect((await store.load(DOC))!.meta.recovering).toBeNull();
+});
+
+test("seed 2: a push rejected after a move is merged against the new generation, with what reached it live", async () => {
+  const { w, h } = await opened();
+  const { server } = w;
+  server.answer.subscribe = false;
+  server.moved(DOC, 1, 2);
+  await w.settle();
+  server.subscribedWithState(DOC, rebuilt(w), { generation: 2, headSeq: 1 });
+  await w.settle();
+  // "draft" was typed long enough ago that the change to its block is no overlap online
+  w.fake.advance(OVERLAP_WINDOW_MS + 1);
+  const live = server.writeAs(DOC, 99, (writer) =>
+    writer.insertText(B1, 0, "new "),
+  );
+  server.syncUpdate(DOC, live);
+  await w.settle();
+  w.frames.fire();
+  typeIn(h, B2, "mine");
+  await w.settle();
+  server.writeAs(DOC, 99, (writer) => writer.insertText(B1, 0, "more "));
+  server.error(DOC, {
+    code: CODE.VALIDATION_FAILED,
+    message: "invalid",
+    permanent: true,
+    clientSeq: server.got("PUSH").at(-1)!.clientSeq,
+  });
+  await w.settle();
+  server.subscribedWithState(DOC, server.doc(DOC).encodeState(), {
+    generation: 2,
+    headSeq: 3,
+  });
+  await w.settle();
+  expect([textOf(h.doc()), h.recovered.get()]).toEqual([
+    "more new draft\nmine",
+    [],
+  ]);
 });
 
 test("a recovery closed between the new generation's SUBSCRIBED and its step 2 starts that generation from its head when reopened", async () => {

@@ -60,6 +60,8 @@ export interface Handshake {
   subscribe(): void;
   /** UNSUBSCRIBE, then SUBSCRIBE again from the start. */
   resubscribe(): void;
+  /** As `resubscribe`, for a step 2 read as the server's whole state: while a SUBSCRIBE sent on this connection may be unanswered, the connection is replaced instead. */
+  subscribeAfresh(): void;
   stop(): void;
   resume(): void;
   receive(message: DocumentMessage): void;
@@ -101,6 +103,8 @@ class Exchange implements Handshake {
   private generation = 0;
   private gotSubscribed = false;
   private timeouts = 0;
+  /** SUBSCRIBEs sent on this connection beyond the SUBSCRIBEDs received; an ERROR or GENERATION_MOVED may come unasked, so neither counts as an answer. */
+  private unanswered = 0;
   /** The `clientSeq` of each push and setting sent and not yet answered, oldest first. */
   private inFlight: number[] = [];
   private sentThrough = 0;
@@ -120,6 +124,7 @@ class Exchange implements Handshake {
   connect(send: (message: Message) => void, gate: ServerGate): void {
     this.send = send;
     this.gate = gate;
+    this.unanswered = 0;
     this.phase = "idle";
   }
 
@@ -138,6 +143,7 @@ class Exchange implements Handshake {
     this.inFlight = [];
     this.sentThrough = 0;
     this.phase = "handshake";
+    this.unanswered += 1;
     this.send({
       type: "SUBSCRIBE",
       docId,
@@ -157,12 +163,14 @@ class Exchange implements Handshake {
   }
 
   resubscribe(): void {
-    this.send?.({
-      type: "UNSUBSCRIBE",
-      docId: this.docId,
-      generation: this.generation,
-    });
+    this.unsubscribe();
     this.subscribe();
+  }
+
+  subscribeAfresh(): void {
+    if (this.unanswered > 0)
+      this.host.replaceConnection("subscribe_unanswered");
+    else this.resubscribe();
   }
 
   stop(): void {
@@ -177,6 +185,7 @@ class Exchange implements Handshake {
   receive(m: DocumentMessage): void {
     switch (m.type) {
       case "SUBSCRIBED":
+        this.unanswered -= 1;
         if (this.phase !== "handshake") return;
         this.gotSubscribed = true;
         this.generation = m.generation;
@@ -251,12 +260,7 @@ class Exchange implements Handshake {
   }
 
   close(): void {
-    if (this.gotSubscribed)
-      this.send?.({
-        type: "UNSUBSCRIBE",
-        docId: this.docId,
-        generation: this.generation,
-      });
+    if (this.gotSubscribed) this.unsubscribe();
     this.stop();
   }
 
@@ -342,12 +346,12 @@ class Exchange implements Handshake {
       return;
     }
     this.timeouts = 1;
-    this.send?.({
-      type: "UNSUBSCRIBE",
-      docId: this.docId,
-      generation: this.generation,
-    });
-    this.subscribe();
+    this.resubscribe();
+  }
+
+  private unsubscribe(): void {
+    const { docId, generation } = this;
+    this.send?.({ type: "UNSUBSCRIBE", docId, generation });
   }
 
   private refuse(clientSeq: number, message: string): void {

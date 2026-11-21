@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { loadDoc, rebuildDoc } from "@manent/crdt";
+import { CODE } from "@manent/sync-protocol";
 import {
   createMemoryStore,
   encodeUpstreamRefused,
@@ -248,6 +249,29 @@ test("text the node set aside is the window's Recovered text", async () => {
   const { w, h } = await windowOnNode();
   await upstream(w, { ...UP, recovered: [ITEM] });
   expect([h.recovered.get(), h.status.get().recovered]).toEqual([[ITEM], 1]);
+});
+
+test("seed 9: text the window filed itself is its Recovered text beside the node's", async () => {
+  const { w, h } = await windowOnNode();
+  await upstream(w, { ...UP, recovered: [ITEM] });
+  typeIn(h, B2, "kept");
+  await w.settle();
+  const [push] = w.server.got("PUSH");
+  w.server.write(DOC, (writer) => writer.deleteBlock(B2));
+  w.server.answer.subscribe = false;
+  w.server.error(DOC, {
+    code: CODE.VALIDATION_FAILED,
+    message: "invalid",
+    permanent: true,
+    clientSeq: push!.clientSeq,
+  });
+  await w.settle();
+  w.server.subscribedWithState(DOC, w.server.doc(DOC).encodeState());
+  await w.settle();
+  expect(h.recovered.get().map((item) => [item.text, item.cause])).toEqual([
+    [ITEM.text, ITEM.cause],
+    ["kept", "rejected"],
+  ]);
 });
 
 test("a setting the cloud refused upstream drops the overlay", async () => {
