@@ -18,3 +18,7 @@ What changed in Manent, newest first, written for a reader who did not see the w
 - 2026-11-17 — `@manent/server-core` and `apps/server`: the demo sign-in provider and its sessions, and the routes `GET /health`, `GET` and `POST /api/sign-in`, `GET /api/me` and `GET /api/demo`. The server will not listen on an address outside loopback and the private ranges, answers only requests addressed to its own host, and serves the built web app.
 - 2026-11-17 — `bun run boundaries` (`tools/check-boundaries.ts`) refuses an import that the allow-list in `tools/boundaries.config.ts` does not permit, a deep import into another package, a Bun or Node module in a package that runs in a browser, and a browser or Bun global in a pure package. It is a step of `bun run verify`, the one gate, beside `bun run tracked`, which accepts only the files on the allow-list of the public tree in `tools/check-tracked.ts`.
 - 2026-11-17 — A Bun workspace with one version catalog in the root `package.json`, fourteen packages and three apps as empty entries, `make` targets that wrap `bun run`, LF line endings on every system (`.gitattributes`), and a rule in `bunfig.toml` that a release must be three days old before it is installed.
+
+### Changed
+
+- 2026-11-21 — Manent is now licensed under the Apache License 2.0. The terms are in `LICENSE`, and the copyright line is in `NOTICE`.

@@ -27,6 +27,7 @@ export const TRACKED_FILES = [
   "Makefile",
   "README.md",
   "LICENSE",
+  "NOTICE",
   "CHANGELOG.md",
   "AGENTS.md",
 ] as const;

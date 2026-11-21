@@ -15,6 +15,7 @@ test("only the public tree may be tracked", () => {
       "CHANGELOG.md",
       "AGENTS.md",
       "LICENSE",
+      "NOTICE",
       "docs/architecture/overview.md",
       "docs/benchmark/report.md",
       "docs/decisions/0001-a.md",
