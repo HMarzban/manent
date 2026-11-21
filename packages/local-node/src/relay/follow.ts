@@ -214,23 +214,25 @@ export function createFollowing(ports: FollowPorts): Following {
 
   const known = (docId: string): number =>
     records.docState(docId)?.generation ?? 0;
-  /** By line: the cancel of a follow the disk put off; a later follow of the line takes its place. */
+  /** By line: the cancel of a follow the disk put off; the line's next `act` takes its place. */
   const putOff = new Map<Line, () => void>();
 
-  /** `generation`: the upstream's, which the room's records take in the same run; null when its store holds none. */
+  /**
+   * `generation`: the upstream's, which the room's records take in the same run; null when its store
+   * holds none. One the disk refuses is acted on again later, as the room is then.
+   */
   function follow(
     line: Line,
     handle: DocHandle,
+    reason: "rejected" | "generation",
     generation: number | null,
   ): void {
-    putOff.get(line)?.();
-    putOff.delete(line);
     let items: RecoveredItem[];
     try {
       items = followUpstream(ports.service(), handle, clock.now());
     } catch (error) {
       if (!(error instanceof StorageError)) throw error;
-      const retry = (): void => follow(line, handle, generation);
+      const retry = (): void => act(line, handle, reason, generation);
       putOff.set(line, clock.schedule(retry, FOLLOW_RETRY_MS));
       return;
     }
@@ -265,14 +267,16 @@ export function createFollowing(ports: FollowPorts): Following {
     reason: "rejected" | "generation",
     generation: number | null,
   ): void {
+    putOff.get(line)?.();
+    putOff.delete(line);
     if (reason === "generation" && generation !== null) {
       const room = known(line.docId);
       if (generation === room) return catchUp(line, handle, generation);
       if (generation < room) return;
     }
-    // `replaced` paused already, unless an earlier follow has ended that pause: a second pause does nothing
+    // `replaced` paused already, unless another follow has ended that pause since: a second pause does nothing
     ports.service().pauseRelay(line.docId);
-    follow(line, handle, generation);
+    follow(line, handle, reason, generation);
   }
 
   /**
@@ -320,8 +324,7 @@ export function createFollowing(ports: FollowPorts): Following {
       if (meta !== undefined && meta.generation > known(line.docId)) {
         line.moving = true;
         line.stopDoc();
-        ports.service().pauseRelay(line.docId);
-        return follow(line, handle, meta.generation);
+        return act(line, handle, "generation", meta.generation);
       }
       line.generation = meta?.generation ?? 0;
       reconcile(line, handle);

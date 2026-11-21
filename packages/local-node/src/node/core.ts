@@ -237,6 +237,10 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
         // a line that could not open is forgotten, and opened again at the window's next subscribe or edit
       });
     },
+    acked(docId) {
+      if (records.docState(docId)?.state === "synced")
+        relay.resendStatus(docId);
+    },
   });
   watched = guarded;
 

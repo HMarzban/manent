@@ -152,7 +152,8 @@ function busy(
  * The windows' connections in front of the server's: a SUBSCRIBE of a document the node has never
  * placed waits for the mirror (and what the window sends for that document after it waits too), and
  * is answered 4429 `busy` while the cloud cannot be reached. Every connection is watched for the
- * person it is and the documents it holds; `subscribed` hears each SUBSCRIBED.
+ * person it is and the documents it holds; `subscribed` hears each SUBSCRIBED, and `acked` each
+ * ACK, once the window was sent it.
  */
 export function guardSubscribe(options: {
   inner: ConnectionHandler;
@@ -161,6 +162,7 @@ export function guardSubscribe(options: {
   tokenOf: (userId: string) => string | null;
   clock: Clock;
   subscribed(editor: Editor, docId: string): void;
+  acked(docId: string): void;
 }): { connections: ConnectionHandler; editors(): Editor[] } {
   const { inner, storage } = options;
   const watched = new Map<ConnectionData, Watched>();
@@ -209,7 +211,9 @@ export function guardSubscribe(options: {
         }
         if (message?.type === "GENERATION_MOVED")
           editor.docs.set(message.docId, message.newGeneration);
-        return connection.send(frame);
+        const sent = connection.send(frame);
+        if (message?.type === "ACK") options.acked(message.docId);
+        return sent;
       },
       close: (code, reason) => connection.close(code, reason),
     };

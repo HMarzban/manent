@@ -138,3 +138,23 @@ test("seed 4: a setting held by a full disk before Sign in to sync never reaches
   expect(w.cloud.refusals).toEqual([]);
   expect(w.cloudSettings(DOC)).toEqual({ "script.paper": "letter" });
 });
+
+test("a window that re-sends an edit whose acknowledgement it lost says synced once the node holds it", async () => {
+  const w = nodeWorld();
+  await w.openSynced("sam", DOC);
+  w.windowLosesAcks("sam", true);
+  w.windowTypes("sam", DOC, "a line the node holds");
+  await w.settle();
+  w.windowLosesAcks("sam", false);
+  w.windowReconnects("sam");
+  await w.settle();
+  expect(w.nodeText(DOC)).toEqual(["a line the node holds"]);
+  const told = w.windowStatusesAfterAck("sam");
+  expect(told.map((status) => [status?.synced, status?.waiting])).toEqual([
+    [true, 0],
+  ]);
+  expect(w.windowStatus("sam", DOC)).toMatchObject({
+    synced: true,
+    waiting: 0,
+  });
+});

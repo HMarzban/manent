@@ -39,12 +39,17 @@ export function ownStatus(facts: {
   };
 }
 
-/** `delayed`: what the node holds back for the demo's slow connection, which the cloud has not seen. */
+/**
+ * `moving`: the upstream document was replaced and the node has not yet followed it, so the room may
+ * hold what the cloud set aside. `delayed`: what the node holds back for the demo's slow connection,
+ * which the cloud has not seen.
+ */
 export function relayedStatus(facts: {
   status: DocStatus;
   device: Device;
   recovered: RecoveredItem[];
   lastSyncedAt: number | null;
+  moving: boolean;
   events: UpstreamStatus["events"];
   delayed: number;
 }): UpstreamStatus {
@@ -52,7 +57,7 @@ export function relayedStatus(facts: {
   return {
     v: UPSTREAM_STATUS_VERSION,
     link: status.link,
-    synced: status.synced && delayed === 0,
+    synced: status.synced && delayed === 0 && !facts.moving,
     waiting: status.waiting + delayed,
     wentOfflineAt: status.wentOfflineAt,
     neverSynced: false,
@@ -86,6 +91,8 @@ export function withEvent(
 export interface StatusThrottle {
   /** The document's status may have changed: a different one is sent now, or once the throttle allows. */
   changed(docId: string): void;
+  /** As `changed`, and the status is sent even when it equals the last one sent. */
+  resend(docId: string): void;
   close(): void;
 }
 
@@ -107,6 +114,14 @@ export function createStatusThrottle(options: {
 }): StatusThrottle {
   const { clock } = options;
   const sent = new Map<string, Sent>();
+  const entryOf = (docId: string): Sent => {
+    let entry = sent.get(docId);
+    if (entry === undefined) {
+      entry = { text: null, at: -Infinity, cancel: null };
+      sent.set(docId, entry);
+    }
+    return entry;
+  };
   const sendNow = (docId: string, entry: Sent): void => {
     entry.cancel = null;
     const status = options.read(docId);
@@ -116,27 +131,28 @@ export function createStatusThrottle(options: {
     entry.at = clock.now();
     options.send(docId, status);
   };
+  const changed = (docId: string): void => {
+    const entry = entryOf(docId);
+    if (entry.cancel !== null) return;
+    const wait = entry.at + UPSTREAM_STATUS_THROTTLE_MS - clock.now();
+    if (wait > 0) {
+      entry.cancel = clock.schedule(() => sendNow(docId, entry), wait);
+      return;
+    }
+    let live = true;
+    entry.cancel = () => {
+      live = false;
+    };
+    options.defer(() => {
+      if (live) sendNow(docId, entry);
+    });
+  };
   return {
-    changed(docId) {
-      let entry = sent.get(docId);
-      if (entry === undefined) {
-        entry = { text: null, at: -Infinity, cancel: null };
-        sent.set(docId, entry);
-      }
-      if (entry.cancel !== null) return;
-      const waiting = entry;
-      const wait = entry.at + UPSTREAM_STATUS_THROTTLE_MS - clock.now();
-      if (wait > 0) {
-        entry.cancel = clock.schedule(() => sendNow(docId, waiting), wait);
-        return;
-      }
-      let live = true;
-      entry.cancel = () => {
-        live = false;
-      };
-      options.defer(() => {
-        if (live) sendNow(docId, waiting);
-      });
+    changed,
+    resend(docId) {
+      // what was last sent is forgotten, so the next status is never taken for a repeat
+      entryOf(docId).text = null;
+      changed(docId);
     },
     close() {
       for (const entry of sent.values()) entry.cancel?.();
