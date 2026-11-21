@@ -1,4 +1,5 @@
-// One home's document file: its log, versions, history, generations, replays and adoptions over one connection, and the checkpoints file beside it.
+// One home's document file: its log, versions, history, generations, replays, adoptions and production tables over one connection,
+// and the checkpoints file beside it.
 import type { Database } from "bun:sqlite";
 import { crc32 } from "../checksum.ts";
 import type {
@@ -12,6 +13,7 @@ import type {
   UpdateRow,
 } from "../ports.ts";
 import { COLOR_COUNT, StorageError } from "../ports.ts";
+import { createSqliteProduction } from "../production/sqlite.ts";
 import { createSqliteAdoptions } from "./adoptions.ts";
 import { createCheckpointsFile } from "./checkpoints.ts";
 import { docFilePath, migrate, openDatabase, transact } from "./files.ts";
@@ -296,6 +298,7 @@ export function openDocFile(options: {
     replays: createSqliteReplays(db),
     measures: caches.measures,
     adoptions: createSqliteAdoptions(db),
+    production: createSqliteProduction(db),
     transaction: (fn) => transact(db, fn),
     close() {
       caches.close();
