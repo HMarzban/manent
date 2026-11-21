@@ -58,6 +58,8 @@ export async function openScript(
 ): Promise<string> {
   await newScript(page);
   const docId = String(await editorHook(page, "open", format, doc ?? null));
+  // the page stays hidden until its faces have loaded, and a hidden page takes no focus
+  await expect(page.locator(EDITABLE)).toBeVisible();
   const [first] = await blocks(page);
   if (first === undefined) throw new Error("the script holds no line");
   await caretAt(page, first.id, "end");
