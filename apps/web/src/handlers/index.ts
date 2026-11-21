@@ -5,6 +5,7 @@ import type { Api } from "../api.ts";
 import type { DesktopHost } from "../desktop/host.ts";
 import type { NodeCloud } from "../desktop/node-cloud.ts";
 import type { PersonServices, ShellState } from "../services/ports.ts";
+import { productionHandlers } from "../production/handlers.ts";
 import type { ShellDom } from "../shell/regions.tsx";
 import type { PersonStore } from "../state/person.store.ts";
 import { appHandlers } from "./app.ts";
@@ -72,5 +73,6 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     ...syncHandlers(deps),
     ...createDesktopHandlers(deps),
     ...historyHandlers(),
+    ...productionHandlers(),
   };
 }

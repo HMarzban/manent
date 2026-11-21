@@ -189,9 +189,11 @@ const CTX: CommandContext = {
   zoomPercent: null,
   production: null,
 };
-const historyCommands = COMMANDS.slice(
-  COMMANDS.findIndex((c) => c.id === "history.markVersion"),
-).filter((c) => !c.id.startsWith("setting."));
+// History and Review are declared with the View and sync commands
+const DECLARED_ELSEWHERE = new Set(["history.open", "history.review"]);
+const historyCommands = COMMANDS.filter(
+  (c) => c.id.startsWith("history.") && !DECLARED_ELSEWHERE.has(c.id),
+);
 const visibleTo = (c: CommandDefinition, over: Partial<CommandContext>) =>
   c.visible === null || c.visible({ ...CTX, ...over });
 
