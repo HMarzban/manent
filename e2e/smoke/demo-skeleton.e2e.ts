@@ -2,6 +2,7 @@ import { DEMO_PEOPLE, TOUR_GROUPS } from "@manent/demo";
 import type { DemoResponse } from "@manent/sync-protocol";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { openMadeScript } from "../support/made-script.ts";
 import { E2E_CONTROL_PORT } from "../support/ports.ts";
 import { signedInAs } from "../support/tour.ts";
 
@@ -178,6 +179,35 @@ test("choosing You signs nobody in", async ({ page }) => {
   expect(
     await page.evaluate(() => sessionStorage.getItem("manent.demo.session")),
   ).toBe('{"token":null,"userId":"you","name":"You"}');
+});
+
+test("a script's address opened in a new tab asks who you are, then opens the script, and a reload keeps each", async ({
+  page,
+  browser,
+}) => {
+  const docId = crypto.randomUUID();
+  const address = `/s/${docId}`;
+  await openMadeScript(page, "dana", docId);
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  try {
+    const tab = await context.newPage();
+    await tab.goto(address);
+    const chooser = `/choose?next=${encodeURIComponent(address)}`;
+    await expect(tab).toHaveURL(chooser);
+    const heading = tab.getByRole("heading", { name: "Choose who you are" });
+    await expect(heading).toBeFocused();
+    await tab.reload();
+    await expect(tab).toHaveURL(chooser);
+    await expect(heading).toBeFocused();
+    await tab.getByRole("button", { name: /^Dana Reyes/ }).click();
+    await expect(tab).toHaveURL(address);
+    const title = "Untitled script — Dana Reyes — Manent demo";
+    await expect(tab).toHaveTitle(title);
+    await tab.reload();
+    await expect(tab).toHaveTitle(title);
+  } finally {
+    await context.close();
+  }
 });
 
 test("?person= signs a tab in and leaves the address as it was", async ({
