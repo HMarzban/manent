@@ -1,12 +1,20 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { loadDoc, scriptBody, scriptDocFromJSON } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import { canonicalBlocksOf } from "@manent/revisions";
 import type { BlockJSON } from "@manent/schema";
 import { createMemoryStorage } from "@manent/storage/testing";
 import type { VersionPosition, VersionSet } from "@manent/sync-protocol";
-import { createHistoryService, createSyncService } from "../src/index.ts";
-import type { HistoryOutcome, SyncService } from "../src/index.ts";
+import {
+  createHistoryService,
+  createSyncService,
+  lastChanges,
+} from "../src/index.ts";
+import type {
+  BlockLastChange,
+  HistoryOutcome,
+  SyncService,
+} from "../src/index.ts";
 import { fakeClock, fakePeer } from "../src/testing/index.ts";
 import type { FakePeer } from "../src/testing/index.ts";
 import { DOC, HOME, PROJECT, appendAll } from "./seed.ts";
@@ -332,4 +340,47 @@ test("a block unchanged after a version has no author after it, though older ver
     ok: true,
     value: { authors: {} },
   });
+});
+
+test("attribution by version reads each version once, however many blocks are asked about", async () => {
+  const { sam, dana, clock, file, run, named } = attributionWorld();
+  await named("First draft", 1);
+  sam.join();
+  clock.advance(60_000);
+  for (const id of [A, B, C, D]) sam.type(id, "Rain.");
+  sam.leave();
+  await run(Promise.resolve());
+  const [session] = file.history.page(DOC, null, 1);
+  if (session === undefined) throw new RangeError("no session version");
+  clock.advance(3_600_000);
+  dana.join();
+  dana.typeMany("scene-heading-1", 2_500);
+  dana.leave();
+  await run(Promise.resolve());
+  const reads = spyOn(file.checkpoints, "atOrBefore");
+  const changes = lastChanges(file, DOC, new Set([A, B, C, D]), null);
+  const before = (id: string): BlockLastChange => ({
+    userId: "sam",
+    at: session.createdAt,
+    previous: {
+      type: "block",
+      attrs: {
+        id,
+        type: "action",
+        noContd: false,
+        noTiming: false,
+        omitted: false,
+        synopsis: "",
+      },
+    },
+    exact: false,
+  });
+  expect(Object.fromEntries(changes)).toEqual({
+    [A]: before(A),
+    [B]: before(B),
+    [C]: before(C),
+    [D]: before(D),
+  });
+  expect(reads).toHaveBeenCalledTimes(2);
+  reads.mockRestore();
 });

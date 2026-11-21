@@ -68,6 +68,19 @@ const isAtOrBefore = (at: VersionPosition, since: VersionPosition): boolean =>
   at.generation < since.generation ||
   (at.generation === since.generation && at.seq <= since.seq);
 
+/** Each wanted block by id, the first of an id winning. */
+function blocksById(
+  blocks: readonly BlockJSON[],
+  wanted: ReadonlySet<string>,
+): Map<string, BlockJSON> {
+  const byId = new Map<string, BlockJSON>();
+  for (const block of blocks) {
+    const id = idOf(block);
+    if (id !== null && wanted.has(id) && !byId.has(id)) byId.set(id, block);
+  }
+  return byId;
+}
+
 /** What the log after the newest checkpoint tells of the wanted blocks. */
 interface Tail {
   /** The last change of each block after `since`. */
@@ -92,12 +105,8 @@ function readTail(
       quarantine: false,
     });
     if (tail.corrupt.length > 0) throw corruptError();
-    const latest = new Map<string, BlockJSON>();
-    for (const block of canonicalBlocksOf(scriptBody(doc).materialize())) {
-      const id = idOf(block);
-      if (id !== null && wanted.has(id) && !latest.has(id))
-        latest.set(id, block);
-    }
+    const blocks = canonicalBlocksOf(scriptBody(doc).materialize());
+    const latest = blocksById(blocks, wanted);
     const result: Tail = {
       found: new Map(),
       changed: new Set(),
@@ -147,44 +156,68 @@ function readVersion(
   }
 }
 
+/** A change made by `version`, from `previous`: by its summary's one author, else its maker. */
+function changeBy(
+  file: DocFile,
+  version: VersionRow,
+  previous: BlockJSON | null,
+): BlockLastChange {
+  const authorIds = file.history.summary(version.id)?.authorIds ?? [];
+  const userId = soleAuthor(authorIds, version.createdByUserId);
+  return { userId, at: version.createdAt, previous, exact: false };
+}
+
 /**
- * The block's last change by version: the version just newer than the newest one holding the
- * block otherwise than `current`. Only versions whose summary names the block are read. Past
- * VERSIONS_WALKED versions, or the oldest, the oldest one read names the block's author.
+ * The last change by version of each block of `current` (by id, the block as it is now, null
+ * when it is gone): the version just newer than the newest one holding the block otherwise.
+ * One walk serves every block: a version is read at most once, and only when its summary names
+ * a block still unsettled. Past VERSIONS_WALKED versions, or the oldest, the oldest version read
+ * for a block names its author. A block neither tells of is left out.
  */
-function versionChange(
+function versionChanges(
   file: DocFile,
   docId: string,
-  blockId: string,
-  current: BlockJSON | null,
+  current: ReadonlyMap<string, BlockJSON | null>,
   since: VersionPosition | null,
-): BlockLastChange | null {
-  const now = JSON.stringify(current);
-  let newer: VersionRow | null = null;
-  let oldest: VersionContent | null = null;
-  for (const version of file.history.page(docId, null, VERSIONS_WALKED)) {
+): Map<string, BlockLastChange> {
+  const found = new Map<string, BlockLastChange>();
+  const open = new Map(
+    [...current].map(([id, block]) => [id, JSON.stringify(block)]),
+  );
+  const oldest = new Map<string, VersionContent>();
+  const versions = file.history.page(docId, null, VERSIONS_WALKED);
+  for (const [index, version] of versions.entries()) {
+    if (open.size === 0) return found;
     const position = positionOf(version);
     if (since !== null && position !== null && isAtOrBefore(position, since))
-      return null;
+      return found;
     const summary = file.history.summary(version.id);
-    const read =
-      summary === null || summary.blockIds.includes(blockId)
-        ? readVersion(file, version)
-        : null;
-    const block = read?.blocks.find((b) => idOf(b) === blockId) ?? null;
-    if (read !== null && JSON.stringify(block) !== now) {
-      if (newer === null) return null;
-      const authorIds = file.history.summary(newer.id)?.authorIds ?? [];
-      const userId = soleAuthor(authorIds, newer.createdByUserId);
-      return { userId, at: newer.createdAt, previous: block, exact: false };
+    const named = new Set(
+      summary === null
+        ? open.keys()
+        : summary.blockIds.filter((id) => open.has(id)),
+    );
+    const read = named.size > 0 ? readVersion(file, version) : null;
+    if (read === null) continue;
+    const blocks = blocksById(read.blocks, named);
+    const newer = versions[index - 1] ?? null;
+    for (const id of named) {
+      const block = blocks.get(id) ?? null;
+      if (JSON.stringify(block) === open.get(id)) oldest.set(id, read);
+      else {
+        open.delete(id);
+        if (newer !== null) found.set(id, changeBy(file, newer, block));
+      }
     }
-    oldest = read ?? oldest;
-    newer = version;
   }
-  const authors = oldest?.authors ?? {};
-  if (since !== null || !Object.hasOwn(authors, blockId)) return null;
-  const { userId, at } = authors[blockId]!;
-  return { userId, at, previous: null, exact: false };
+  if (since !== null) return found;
+  for (const id of open.keys()) {
+    const authors = oldest.get(id)?.authors ?? {};
+    if (!Object.hasOwn(authors, id)) continue;
+    const { userId, at } = authors[id]!;
+    found.set(id, { userId, at, previous: null, exact: false });
+  }
+  return found;
 }
 
 /**
@@ -202,11 +235,10 @@ export function lastChanges(
   const row = file.log.get(docId);
   if (row === null) return new Map();
   const { found, changed, start } = readTail(file, row, blockIds, since);
-  for (const id of blockIds) {
-    if (changed.has(id)) continue;
-    const change = versionChange(file, docId, id, start.get(id) ?? null, since);
-    if (change !== null) found.set(id, change);
-  }
+  const unchanged = [...blockIds].filter((id) => !changed.has(id));
+  const current = new Map(unchanged.map((id) => [id, start.get(id) ?? null]));
+  for (const [id, change] of versionChanges(file, docId, current, since))
+    found.set(id, change);
   return found;
 }
 
