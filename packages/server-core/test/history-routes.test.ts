@@ -103,10 +103,14 @@ function historyServer(
     const headers: Record<string, string> =
       token === null ? {} : { Authorization: `Bearer ${token}` };
     const init = method === "GET" ? { headers } : { method, headers, body };
-    const response = await server.fetch(
-      new Request(`http://127.0.0.1:4747${path}`, init),
-      { remoteAddress: "127.0.0.1", upgrade: () => false },
-    );
+    return send(new Request(`http://127.0.0.1:4747${path}`, init));
+  }
+  /** The status and the JSON body of the answer to `request`. */
+  async function send(request: Request): Promise<[number, unknown]> {
+    const response = await server.fetch(request, {
+      remoteAddress: "127.0.0.1",
+      upgrade: () => false,
+    });
     if (response === null) throw new TypeError("the request was upgraded");
     return [response.status, await response.json()];
   }
@@ -114,7 +118,7 @@ function historyServer(
     call("POST", path, JSON.stringify(body), token);
   const get = (path: string, token: string | null = ana) =>
     call("GET", path, null, token);
-  return { storage, leo, call, post, get };
+  return { storage, ana, leo, call, send, post, get };
 }
 
 const notFound: [number, unknown] = [404, { error: "not_found" }];
@@ -353,6 +357,28 @@ const EVERY_ROUTE: ["GET" | "POST", string, unknown][] = [
     { docId: DOC, since: { versionId: "version-1" }, blockIds: [ACTION] },
   ],
 ];
+
+test("a body declared larger than a history route takes is refused before any of it is read", async () => {
+  const { ana, send } = historyServer();
+  let pulled = false;
+  const body = new ReadableStream<Uint8Array>(
+    {
+      pull(controller) {
+        pulled = true;
+        controller.enqueue(new TextEncoder().encode("{}"));
+        controller.close();
+      },
+    },
+    { highWaterMark: 0 },
+  );
+  const request = new Request("http://127.0.0.1:4747/api/versions/upload", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${ana}`, "Content-Length": "67108865" },
+    body,
+  });
+  expect(await send(request)).toEqual([413, { error: "too_large" }]);
+  expect(pulled).toBe(false);
+});
 
 test("every history route is not found while sync or history is off, or in relay mode", async () => {
   const servers = [

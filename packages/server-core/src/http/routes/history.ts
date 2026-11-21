@@ -94,10 +94,12 @@ function readPosition(value: unknown): VersionPosition | null {
 }
 
 /**
- * The body as text, read a chunk at a time; null once it passes HISTORY_BODY_BYTES, before the
- * rest is read.
+ * The body as text, read a chunk at a time; null when its declared length passes
+ * HISTORY_BODY_BYTES, before any of it is read, or once what is read passes it.
  */
 async function readText(request: Request): Promise<string | null> {
+  const declared = Number(request.headers.get("content-length") ?? 0);
+  if (declared > HISTORY_BODY_BYTES) return null;
   const chunks: Uint8Array[] = [];
   let size = 0;
   if (request.body !== null)
