@@ -24,7 +24,7 @@ const NOTES: Readonly<Record<CompareNote, string>> = Object.freeze({
 });
 
 /** The baseline's content once it has loaded; null while it loads, and when it cannot be had. */
-function useBaselineContent(docId: string): VersionContent | null {
+export function useBaselineContent(docId: string): VersionContent | null {
   const { history } = useServices();
   const baseline = useHistory("baseline");
   const at =
@@ -55,7 +55,7 @@ function useBaselineContent(docId: string): VersionContent | null {
 }
 
 /** The header's line: why the changes are shown by text and element only, when they are. */
-function noteOf(content: VersionContent, docId: string): string | null {
+export function noteOf(content: VersionContent, docId: string): string | null {
   if (engineFor(content.engineVersion ?? ENGINE_VERSION) === null)
     return HISTORY_WORDS.compareNewer;
   const { note } = compareModeOf(content, {

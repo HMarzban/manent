@@ -3,7 +3,7 @@ import { SCHEMA_VERSION } from "@manent/schema";
 import { uploadRequestOf } from "@manent/sync-client";
 import type { DeviceVersion } from "@manent/sync-client";
 import type { VersionItem } from "@manent/sync-protocol";
-import { HISTORY_WORDS, formatTime, versionTitle } from "@manent/ui";
+import { HISTORY_WORDS, formatDay, formatTime, versionTitle } from "@manent/ui";
 import type { SurfaceStateValue } from "@manent/ui";
 
 /** One version as History shows it; `local` is the device's copy of a version not uploaded yet. */
@@ -14,6 +14,10 @@ export interface HistoryRow {
   time: string;
   local: DeviceVersion | null;
 }
+
+/** The row's title is its day and time ("Mon 14:10"): the version has no name or label of its own. */
+export const isTitledByTime = (row: HistoryRow): boolean =>
+  row.title === `${formatDay(row.item.createdAt)} ${row.time}`;
 
 /** `othersCanOpen` is null until the server has said. */
 export interface HistoryRows {
