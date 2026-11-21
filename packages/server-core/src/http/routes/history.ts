@@ -50,6 +50,13 @@ const STATUS: Readonly<Record<HttpErrorCode, number>> = {
   unknown_generation: 409,
   unreachable: 502,
   not_restorable: 409,
+  already_issued: 409,
+  already_locked: 409,
+  changed: 409,
+  engine_unavailable: 422,
+  not_locked: 409,
+  recall_closed: 409,
+  unknown_label: 422,
 };
 
 const refused = (code: HttpErrorCode) => ({ ok: false, code }) as const;

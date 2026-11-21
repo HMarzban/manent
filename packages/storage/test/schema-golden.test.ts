@@ -45,9 +45,9 @@ afterEach(() => s.close());
 afterAll(() => trees.removeAll());
 
 test("the storage schema is exactly these tables", () => {
-  expect(STORAGE_SCHEMA_VERSION).toBe(4);
-  expect(userVersion(join(dir, "control.sqlite"))).toBe(4);
-  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(4);
+  expect(STORAGE_SCHEMA_VERSION).toBe(5);
+  expect(userVersion(join(dir, "control.sqlite"))).toBe(5);
+  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(5);
   expect(tableColumns(join(dir, "control.sqlite"))).toEqual({
     doc_directory: [
       "doc_id TEXT",
@@ -181,6 +181,85 @@ test("the storage schema is exactly these tables", () => {
       "doc_id TEXT",
       "request_key TEXT",
       "user_id TEXT",
+      "result TEXT",
+      "created_at INTEGER",
+    ],
+    production: [
+      "doc_id TEXT",
+      "numbering TEXT",
+      "colour_order TEXT",
+      "locked_at INTEGER",
+      "locked_on TEXT",
+      "locked_by TEXT",
+      "ended_at INTEGER",
+    ],
+    page_locks: [
+      "doc_id TEXT",
+      "lock_level INTEGER",
+      "page_order INTEGER",
+      "label TEXT",
+      "block_id TEXT",
+      "offset INTEGER",
+      "quote TEXT",
+      "fallback_ids TEXT",
+      "source TEXT",
+      "from_generation INTEGER",
+      "from_seq INTEGER",
+      "to_generation INTEGER",
+      "to_seq INTEGER",
+    ],
+    revision_sets: [
+      "id TEXT",
+      "doc_id TEXT",
+      "ordinal INTEGER",
+      "name TEXT",
+      "color TEXT",
+      "mark TEXT",
+      "baseline_version_id TEXT",
+      "issued_version_id TEXT",
+      "issued_at INTEGER",
+      "issued_on TEXT",
+      "issued_by TEXT",
+      "recalled_at INTEGER",
+      "is_full_draft INTEGER",
+      "started_at INTEGER",
+      "engine_version INTEGER",
+    ],
+    revision_set_blocks: [
+      "set_id TEXT",
+      "block_id TEXT",
+      "page_label TEXT",
+      "change TEXT",
+      "hash TEXT",
+      "ranges TEXT",
+    ],
+    revision_issues: [
+      "id TEXT",
+      "doc_id TEXT",
+      "set_id TEXT",
+      "kind TEXT",
+      "version_id TEXT",
+      "issued_by TEXT",
+      "issued_at INTEGER",
+      "issued_on TEXT",
+      "recipients TEXT",
+      "pages TEXT",
+      "memo TEXT",
+      "files TEXT",
+      "tint INTEGER",
+      "what TEXT",
+    ],
+    issued_scene_numbers: [
+      "doc_id TEXT",
+      "block_id TEXT",
+      "num TEXT",
+      "reserved INTEGER",
+    ],
+    production_requests: [
+      "doc_id TEXT",
+      "request_key TEXT",
+      "user_id TEXT",
+      "status INTEGER",
       "result TEXT",
       "created_at INTEGER",
     ],
@@ -355,7 +434,7 @@ test("a file written at version 3 is carried to 4 and keeps its rows", async () 
     snapshot: null,
     checkpoint: { seq: 1, state: new Uint8Array([5]) },
   });
-  expect(Object.values(files).map(userVersion)).toEqual([4, 4, 4]);
+  expect(Object.values(files).map(userVersion)).toEqual([5, 5, 5]);
   expect(
     rawRows(
       files.documents,
