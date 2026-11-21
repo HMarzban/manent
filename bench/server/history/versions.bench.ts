@@ -14,6 +14,7 @@ import { openSqliteStorage } from "@manent/storage";
 import type { DocFile, VersionRow } from "@manent/storage";
 import type { VersionAuthor, VersionContent } from "@manent/sync-protocol";
 import type { Measurement, Scenario } from "../../harness.ts";
+import { sampleMs } from "../../measure.ts";
 import { HOME, OWNER, scriptOfPages } from "../support.ts";
 import { T0, WRITER, createHistoryWorld, spread } from "./restore-120.bench.ts";
 
@@ -184,9 +185,13 @@ async function listTimes(
 ): Promise<number[]> {
   const times: number[] = [];
   for (let n = 0; n < samples; n++) {
-    const start = performance.now();
-    const listed = await history.list(OWNER, docId, null, PAGE_ROWS);
-    times.push(performance.now() - start);
+    const answers: Awaited<ReturnType<HistoryService["list"]>>[] = [];
+    times.push(
+      await sampleMs(async () => {
+        answers.push(await history.list(OWNER, docId, null, PAGE_ROWS));
+      }),
+    );
+    const listed = answers[0]!;
     if (!listed.ok) throw new Error(`the list was refused: ${listed.code}`);
   }
   return times;

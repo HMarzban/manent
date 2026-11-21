@@ -1,7 +1,9 @@
-// `bun run bench [--filter <text>]` runs the suite; `--child <file>` is the
-// harness's own way to run one scenario in a fresh process.
+// `bun run bench [--quick | --full] [--prove] [--filter <text>]` runs the suite; `--child <file>`
+// is the harness's own way to run one scenario in a fresh process.
 
-import { RUN_TIER, runChild, runSuite } from "./harness.ts";
+import { runChild, runSuite } from "./harness.ts";
+import { readQuiet } from "./measure.ts";
+import { readResultFile } from "./result.ts";
 
 function optionValue(args: readonly string[], name: string): string | null {
   const at = args.indexOf(name);
@@ -9,6 +11,11 @@ function optionValue(args: readonly string[], name: string): string | null {
   const value = args[at + 1];
   if (value === undefined) throw new Error(`${name} needs a value`);
   return value;
+}
+
+function modeOf(args: readonly string[]): "quick" | "standard" | "full" {
+  if (args.includes("--quick")) return "quick";
+  return args.includes("--full") ? "full" : "standard";
 }
 
 if (import.meta.main) {
@@ -22,11 +29,32 @@ if (import.meta.main) {
     root: "bench",
     outDir: "bench/results",
     filter: optionValue(args, "--filter") ?? undefined,
+    mode: modeOf(args),
+    prove: args.includes("--prove"),
+    quiet: readQuiet,
   });
-  console.log(`Tier: ${RUN_TIER}`);
+  const file = await readResultFile(result.file);
+  const { tier, throttle, mode } = file.environment;
+  const measured = file.scenarios.filter((s) => s.outcome === "measured");
+  console.log(`Tier: ${tier} · ${throttle}x · ${mode}`);
   console.log(
-    `${result.scenarios} ${result.scenarios === 1 ? "scenario" : "scenarios"}`,
+    `${result.scenarios} scenarios: ${measured.length} measured, ${result.failed} could not finish, ${result.notMeasured} not measured, ${result.void} void`,
   );
+  for (const s of file.scenarios)
+    if (s.outcome === "failed")
+      console.log(
+        `${s.id} could not finish: ${s.output.trimEnd().split("\n").at(-1) ?? ""}`,
+      );
+  for (const row of result.unmatched)
+    console.log(`${row} has a budget and no scenario`);
+  for (const row of result.unproved)
+    console.log(
+      `${row} cannot fail its budget: its samples do not pass through the shared measuring path`,
+    );
   console.log(`Results: ${result.file}`);
-  if (result.hardFails > 0) process.exit(1);
+  const broken =
+    result.failed > 0 ||
+    result.unproved.length > 0 ||
+    result.unmatched.length > 0;
+  if (broken) process.exit(1);
 }

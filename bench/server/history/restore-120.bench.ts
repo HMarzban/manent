@@ -14,7 +14,9 @@ import type { Storage } from "@manent/storage";
 import { createMemoryStorage } from "@manent/storage/testing";
 import { FRAME, PROTOCOL_VERSION } from "@manent/sync-protocol";
 import type { Message, PreparedMessage } from "@manent/sync-protocol";
+import { benchMode } from "../../env.ts";
 import type { Measurement, Scenario } from "../../harness.ts";
+import { sampleMs } from "../../measure.ts";
 import {
   EMPTY_VECTOR,
   HOME,
@@ -223,29 +225,38 @@ async function restoreTimes(
     typist?.leave();
     typist = next;
     await typist.type(edited);
-    const start = performance.now();
-    const restored = await history.restore(OWNER, {
-      docId,
-      key: keyOf(n),
-      versionId,
-      scope: { kind: "script" },
-    });
-    times.push(performance.now() - start);
+    const restores: Awaited<ReturnType<HistoryService["restore"]>>[] = [];
+    times.push(
+      await sampleMs(async () => {
+        restores.push(
+          await history.restore(OWNER, {
+            docId,
+            key: keyOf(n),
+            versionId,
+            scope: { kind: "script" },
+          }),
+        );
+      }),
+    );
+    const restored = restores[0]!;
     if (!restored.ok)
       throw new Error(`the restore was refused: ${restored.code}`);
   }
   return times;
 }
 
+/** Restores a process when not given: 8 outside quick mode, so five processes give the 40 a p95 is judged over. */
+const SAMPLES = { quick: 3, standard: 8, full: 8 } as const;
+
 /**
- * `restore_ms`: `samples` restores (default 3) of a whole script of `pages` pages, through the
- * history service, each after 220 edits at 120 pages or 2,000 at 2,000, one block each.
+ * `restore_ms`: `samples` restores (default by mode, SAMPLES) of a whole script of `pages` pages,
+ * through the history service, each after 220 edits at 120 pages or 2,000 at 2,000, one block each.
  */
 export function restoreScenario(options: {
   pages: keyof typeof RESTORES;
   samples?: number;
 }): Scenario {
-  const { pages, samples = 3 } = options;
+  const { pages, samples } = options;
   return {
     id: `history.restore.${pages}`,
     workload: RESTORES[pages].workload,
@@ -254,7 +265,7 @@ export function restoreScenario(options: {
       {
         metric: "restore_ms",
         unit: "ms",
-        samples: await restoreTimes(pages, samples),
+        samples: await restoreTimes(pages, samples ?? SAMPLES[benchMode()]),
       },
     ],
   };

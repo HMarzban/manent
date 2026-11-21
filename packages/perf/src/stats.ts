@@ -48,3 +48,38 @@ export function bootstrapInterval(
   const sorted = estimates.toSorted();
   return [nearestRank(sorted, 2.5), nearestRank(sorted, 97.5)];
 }
+
+/** The resamples and seed of every interval the benchmark and the demo's Timings show. */
+export const INTERVAL_OPTIONS = { rounds: 1000, seed: 4747 } as const;
+
+export interface Summary {
+  /** How many samples were summarised. */
+  samples: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  /** The largest sample. */
+  max: number;
+  intervals: {
+    p50: [number, number];
+    p95: [number, number];
+    p99: [number, number];
+  };
+}
+
+/** Nearest-rank p50, p95 and p99 with their intervals, and the largest sample. Throws a RangeError on an empty list. */
+export function summarise(samples: readonly number[]): Summary {
+  const sorted = Float64Array.from(samples).toSorted();
+  return {
+    samples: sorted.length,
+    p50: nearestRank(sorted, 50),
+    p95: nearestRank(sorted, 95),
+    p99: nearestRank(sorted, 99),
+    max: sorted[sorted.length - 1]!,
+    intervals: {
+      p50: bootstrapInterval(samples, 50, INTERVAL_OPTIONS),
+      p95: bootstrapInterval(samples, 95, INTERVAL_OPTIONS),
+      p99: bootstrapInterval(samples, 99, INTERVAL_OPTIONS),
+    },
+  };
+}

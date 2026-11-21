@@ -18,6 +18,7 @@ import { corpusDoc, generateBlocks } from "@manent/pagination/testing";
 import { openSqliteStorage } from "@manent/storage";
 import type { DocFile, Home, Storage } from "@manent/storage";
 import type { Measurement, Scenario } from "../harness.ts";
+import { sampleMs } from "../measure.ts";
 import {
   HOME,
   OWNER,
@@ -60,7 +61,10 @@ async function filesBytes(dir: string, home: Home): Promise<number> {
 }
 
 /** The storage with every transaction of every file timed, each wrapped once so it keeps its identity. */
-function timingCommits(storage: Storage, timed: (ms: number) => void): Storage {
+function timingCommits(
+  storage: Storage,
+  timed: (sample: Promise<number>) => void,
+): Storage {
   const files = new Map<string, DocFile>();
   const open = (home: Home): DocFile => {
     const key = `${home.kind}:${home.id}`;
@@ -68,10 +72,14 @@ function timingCommits(storage: Storage, timed: (ms: number) => void): Storage {
     const file = files.get(key) ?? {
       ...inner,
       transaction<T>(fn: () => T): T {
-        const startedAt = performance.now();
-        const result = inner.transaction(fn);
-        timed(performance.now() - startedAt);
-        return result;
+        // sampleMs runs a synchronous fn before it returns, so the result is already here
+        const results: T[] = [];
+        timed(
+          sampleMs(() => {
+            results.push(inner.transaction(fn));
+          }),
+        );
+        return results[0]!;
       },
     };
     files.set(key, file);
@@ -195,11 +203,11 @@ async function measure(dir: string): Promise<Measurement[]> {
     createWorkerCheckpointer({ entry: WORKER, data: { dir } }),
     docIdOf(1),
   );
-  const stalls: number[] = [];
+  const stalls: Promise<number>[] = [];
   const storage = timingCommits(
     openSqliteStorage({ dir, now: Date.now }),
-    (ms) => {
-      if (watched.writing()) stalls.push(ms);
+    (sample) => {
+      if (watched.writing()) stalls.push(sample);
     },
   );
   const service = createBenchService({
@@ -225,7 +233,7 @@ async function measure(dir: string): Promise<Measurement[]> {
     {
       metric: "checkpoint_stall_ms",
       unit: "ms",
-      samples: [Math.max(...stalls)],
+      samples: [Math.max(...(await Promise.all(stalls)))],
     },
   ];
 }
