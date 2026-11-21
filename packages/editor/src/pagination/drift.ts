@@ -1,6 +1,7 @@
 // The drift monitor: while the page is idle it finds blocks the browser wraps otherwise than the engine and holds
 // them to the engine's line starts. Pagination is never changed.
 import { LINE_PX } from "@manent/pagination";
+import type { Node } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorState, PluginView, Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
@@ -174,21 +175,58 @@ function fontsOf(dom: HTMLElement): DriftReport["fonts"] {
   return fonts === "loading" || fonts === "fallback" ? fonts : "ready";
 }
 
+/**
+ * Whether the monitor measures a block: not one with a node decoration marking a change (named `changes` in
+ * its spec), which draws text beside the block's own that the engine never laid out. `decorations` are those
+ * drawn over the block.
+ */
+export function isDriftCandidate(
+  node: Node,
+  decorations: readonly Decoration[],
+): boolean {
+  return !decorations.some(
+    (d) => d.to - d.from === node.nodeSize && d.spec.changes !== undefined,
+  );
+}
+
+// Every decoration a plugin of the view draws over [from, to].
+function drawnOver(view: EditorView, from: number, to: number): Decoration[] {
+  const found: Decoration[] = [];
+  view.someProp("decorations", (decorations) => {
+    decorations(view.state)?.forEachSet((set) =>
+      found.push(...set.find(from, to)),
+    );
+  });
+  return found;
+}
+
 // One section's blocks that are not held, as [block, rendered lines] where the count differs from the engine's.
 function measureSection(
-  section: Element,
-  first: number,
+  view: EditorView,
+  s: number,
   state: PaginationState,
   forced: ReadonlySet<string>,
   room: number,
 ): [number, number][] {
   const found: [number, number][] = [];
-  const blocks = section.querySelectorAll<HTMLElement>(":scope > p.el");
-  for (let k = 0; k < Math.min(blocks.length, room); k++) {
+  const { index } = state;
+  const first = index.sectionStart[s]!;
+  const nodes = index.doc.child(s);
+  const blocks =
+    view.dom.children[s]!.querySelectorAll<HTMLElement>(":scope > p.el");
+  let pos = index.sectionPos[s]! + 1;
+  for (let k = 0; k < Math.min(blocks.length, nodes.childCount, room); k++) {
     const el = blocks[k]!;
     const block = first + k;
+    const node = nodes.child(k);
+    const from = pos;
+    pos += node.nodeSize;
     const metrics = state.pagination.metrics[block]!;
-    if (!metrics.spec.printed || forced.has(state.index.blocks[block]!.id))
+    if (
+      !metrics.spec.printed ||
+      forced.has(index.blocks[block]!.id) ||
+      !isDriftCandidate(node, drawnOver(view, from, pos))
+    )
       continue;
     const breaks = [...el.querySelectorAll<HTMLElement>(":scope > .pb")];
     const extra =
@@ -221,9 +259,8 @@ function measure(
     const box = section.getBoundingClientRect();
     const shown = box.bottom > 0 && box.top < viewport;
     if (!shown && !section.classList.contains("keep")) continue;
-    const first = index.sectionStart[s]!;
-    found.push(...measureSection(section, first, state, forced, room));
-    room -= index.sectionStart[s + 1]! - first;
+    found.push(...measureSection(view, s, state, forced, room));
+    room -= index.sectionStart[s + 1]! - index.sectionStart[s]!;
   }
   return found;
 }
