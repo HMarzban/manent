@@ -172,6 +172,7 @@ function mount(
           zoom: () => 1,
           scenesNumbered,
           lockIcon: () => document.createElement("span"),
+          lockMarkerName: "Page number locked",
         }),
       ],
     }),

@@ -30,7 +30,9 @@ import {
   withView,
 } from "./derive.ts";
 import type { RevisionKept, RevisionState } from "./derive.ts";
+import { lockMarkersPlugin } from "./markers.ts";
 import { clearedNumbers, withPages } from "./numbers.ts";
+import { pagesFeedPlugin } from "./pages-feed.ts";
 import type { PagesSink } from "./pages-feed.ts";
 import { createSheetPainter } from "./sheets.ts";
 
@@ -75,6 +77,8 @@ export interface RevisionPluginOptions {
   scenesNumbered(on: boolean): void;
   /** A fresh copy of the host's lock icon. */
   lockIcon: () => Element;
+  /** The accessible name of the lock beside a locked page's number. */
+  lockMarkerName: string;
 }
 
 type RevisionMeta =
@@ -201,8 +205,35 @@ function revisionView(
   };
 }
 
-/** The revision state of the script in production: its marks, its numbers and omitted scenes, drawn on its sheets. */
+/** Several views as one, each told of every update in turn. */
+function oneView(views: readonly PluginView[]): PluginView {
+  return {
+    update(view, prev) {
+      for (const one of views) one.update?.(view, prev);
+    },
+    destroy() {
+      for (const one of views) one.destroy?.();
+    },
+  };
+}
+
+/**
+ * The revision state of the script in production: its marks, its numbers and omitted scenes, drawn on its sheets,
+ * with the locks beside locked page numbers and the Pages feed, as one plugin.
+ */
 export function revisionPlugins(options: RevisionPluginOptions): Plugin {
+  const { port } = options;
+  const parts = [
+    pagesFeedPlugin({ sink: options.pages, facts: options.facts }),
+    lockMarkersPlugin({
+      layer: options.layer,
+      name: options.lockMarkerName,
+      // a page is locked only in production, but the pages may keep its locks until the next update
+      tooltip: (next) => port.view()?.words.lockTooltip(next) ?? "",
+      zoom: options.zoom,
+      icon: options.lockIcon,
+    }),
+  ];
   return new Plugin<RevisionState>({
     key: revisionKey,
     state: {
@@ -222,6 +253,10 @@ export function revisionPlugins(options: RevisionPluginOptions): Plugin {
         ? null
         : clearedNumbers(trs, state, production.view);
     },
-    view: (view) => revisionView(view, options),
+    view: (view) =>
+      oneView([
+        revisionView(view, options),
+        ...parts.flatMap((part) => part.spec.view?.(view) ?? []),
+      ]),
   });
 }
