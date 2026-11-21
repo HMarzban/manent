@@ -118,7 +118,7 @@ const REGISTRATIONS: readonly (readonly [string, string])[] = [
     "apps/web/src/screens/document/history-sections.ts",
     '{ id: "versions", Section: HistoryList, useVisible: () => true }',
   ],
-  ["apps/web/src/screens/document/state-facts.ts", "= [useHistoryFacts]"],
+  ["apps/web/src/screens/document/state-facts.ts", "= [useHistoryFacts,"],
   [
     "apps/web/src/screens/document/details-sections.ts",
     '{ id: "who_wrote", scope: "selection", Section: WhoWrote }',

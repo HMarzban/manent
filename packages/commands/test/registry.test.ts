@@ -584,6 +584,10 @@ test("every setting command has a fixed id, so a stored shortcut keeps finding i
     "setting.script.moresAtBreaks",
     "setting.script.sameSpeakerContd",
     "setting.script.sceneContinued",
+    "setting.script.numbering.suffix",
+    "setting.script.numbering.prefix",
+    "setting.script.colourOrder.standard",
+    "setting.script.colourOrder.extended",
   ]);
 });
 

@@ -39,7 +39,7 @@ import { EDITOR_PLUGINS } from "./plugins.ts";
 import { countSteps } from "./undo-depth.ts";
 
 /** What one person's undo takes back. */
-export const UNDO_ROOTS: readonly UndoRoot[] = ["script"];
+export const UNDO_ROOTS: readonly UndoRoot[] = ["script", "revisedOverrides"];
 
 /** The structural keys as "flow", then the picker's keys as "picker". */
 export const EDITOR_FIXED_KEYS: readonly FixedKey[] = Object.freeze([
