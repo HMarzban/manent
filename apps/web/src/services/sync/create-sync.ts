@@ -13,6 +13,7 @@ import type { VersionSet } from "@manent/sync-protocol";
 import {
   SLOW_DELAY_MS,
   connectionTransport,
+  throughConnection,
 } from "../../demo/connection-transport.ts";
 import type { ConnectionControl } from "../../demo/connection-transport.ts";
 import type { TabPerson } from "../../session.ts";
@@ -35,6 +36,8 @@ export interface PersonSync {
   offlineSince: Subscribable<number | null>;
   /** The demo's Connection of this tab, kept across reloads. */
   connection: ConnectionControl;
+  /** `send`, a request to the app's own routes, unless the Connection is Offline: then it rejects ConnectError("unreachable") at once. */
+  throughConnection<T>(send: () => Promise<T>): Promise<T>;
   /** This browser held the person's store before the sync opened it; null where it cannot tell, and over given ports. */
   hadDatabase: boolean | null;
   /** What sync keeps in this browser's storage beside the store. */
@@ -273,6 +276,8 @@ export async function createPersonSync(options: {
     network,
     offlineSince: kept.offlineSince,
     connection,
+    throughConnection: (send) =>
+      throughConnection({ mode: () => mode.get() }, send),
     hadDatabase,
     memory: options.memory,
     async dispose() {
