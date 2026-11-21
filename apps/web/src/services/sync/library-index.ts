@@ -66,13 +66,15 @@ export interface SyncLibrary extends LibraryIndex {
 const isOwn = (origin: unknown): boolean =>
   origin !== ORIGIN_REMOTE && origin !== ORIGIN_LOAD;
 
-/** Each transaction of whichever document `handle` holds, a document replaced under it included. */
-function onTransactions(
+/** Each change the person makes in whichever document `handle` holds, a document replaced under it included. */
+export function onOwnChange(
   handle: DocHandle,
-  listener: (origin: unknown) => void,
+  listener: () => void,
 ): () => void {
   const watch = (doc: CrdtDoc) =>
-    doc.subscribe((_, origin) => listener(origin));
+    doc.subscribe((_, origin) => {
+      if (isOwn(origin)) listener();
+    });
   let stop = watch(handle.doc());
   const stopReplaced = handle.on((event) => {
     if (event.type !== "replaced") return;
@@ -283,8 +285,8 @@ export function createSyncLibrary(options: {
       };
     },
     follow(docId, handle) {
-      return onTransactions(handle, (origin) => {
-        const found = isOwn(origin) ? find(docId) : null;
+      return onOwnChange(handle, () => {
+        const found = find(docId);
         if (found === null) return;
         const { editedAt, editedByUserId } = found.entry;
         const at = now();

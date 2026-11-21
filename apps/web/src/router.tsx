@@ -8,6 +8,7 @@ import {
   lazyRouteComponent,
   redirect,
   stripSearchParams,
+  useBlocker,
   useNavigate,
 } from "@tanstack/react-router";
 import type { AnyRouter } from "@tanstack/react-router";
@@ -16,7 +17,7 @@ import type { ReactNode } from "react";
 import type { Api } from "./api.ts";
 import { preloadDemoBarControls } from "./demo/demo-bar.tsx";
 import { RootLayout } from "./root-layout.tsx";
-import { SEND_FORM_IDS } from "./screens/send/form-ids.ts";
+import { SEND_FORM_IDS, sendPath } from "./screens/send/form-ids.ts";
 import { useServices } from "./services/context.tsx";
 import type { PersonServices } from "./services/ports.ts";
 import { chooseUrl, choosePerson, confirmPerson, safeNext } from "./session.ts";
@@ -122,8 +123,42 @@ const LibraryScreen = lazyRouteComponent(
   loadScreen(() => import("./screens/library/library-screen.tsx")),
   "LibraryScreen",
 );
+/**
+ * Leaving a document this device cannot save asks first, though never for that document's own Send screen. Nothing
+ * awaits a navigation this stops: its promise never settles.
+ */
+export function CloseBlocker(): null {
+  const { guard } = useServices().closing;
+  useBlocker({
+    shouldBlockFn: async ({ next }) => {
+      const failing = guard.failing();
+      if (failing === null) return false;
+      const ownSend = (form: (typeof SEND_FORM_IDS)[number]) =>
+        next.pathname === sendPath(failing.docId, form);
+      if (SEND_FORM_IDS.some(ownSend)) return false;
+      return (await guard.ask()) !== "leave";
+    },
+    enableBeforeUnload: false,
+  });
+  return null;
+}
+
 const DocumentScreen = lazyRouteComponent(
-  loadScreen(() => import("./screens/document/document-screen.tsx")),
+  loadScreen(async () => {
+    const [{ DocumentScreen: Screen }, { CloseQuestion }] = await Promise.all([
+      import("./screens/document/document-screen.tsx"),
+      import("./services/sync/close-question.tsx"),
+    ]);
+    return {
+      DocumentScreen: (): ReactNode => (
+        <>
+          <Screen />
+          <CloseBlocker />
+          <CloseQuestion />
+        </>
+      ),
+    };
+  }),
   "DocumentScreen",
 );
 const SendScreen = lazyRouteComponent(

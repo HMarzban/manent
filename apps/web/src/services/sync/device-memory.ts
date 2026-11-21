@@ -4,7 +4,7 @@ import type { WorkspaceRef } from "@manent/sync-protocol";
 /** The demo's Connection control of this tab. */
 export type ConnectionMode = "online" | "offline" | "slow";
 
-const CONNECTION_MODES: readonly ConnectionMode[] = Object.freeze([
+export const CONNECTION_MODES: readonly ConnectionMode[] = Object.freeze([
   "online",
   "offline",
   "slow",
@@ -91,7 +91,7 @@ function readWorkspaces(value: unknown): readonly WorkspaceRef[] | null {
   return Array.isArray(value) && value.every(isWorkspaceRef) ? value : null;
 }
 
-const isConnectionMode = (value: unknown): value is ConnectionMode =>
+export const isConnectionMode = (value: unknown): value is ConnectionMode =>
   CONNECTION_MODES.some((mode) => mode === value);
 
 /** One storage, read and written so that a refusal is never thrown. */

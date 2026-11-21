@@ -14,12 +14,14 @@ import type {
 } from "@manent/settings";
 import type { SyncClient } from "@manent/sync-client";
 import type {
+  ConsequenceDialogProps,
   MessageQueue,
   NEW_PROJECT_CARDS,
   StateFact,
   StatusFacts,
   Subscribable,
 } from "@manent/ui";
+import type { ConnectionControl } from "../demo/connection-transport.ts";
 import type { EditorControl } from "../editor-host/control.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
 import type { PlaceStore } from "../editor-host/place.ts";
@@ -29,6 +31,7 @@ import type { ShellDom } from "../shell/regions.tsx";
 import type { Guard } from "../state/guard.ts";
 import type { PersonPresent } from "../state/people.store.ts";
 import type { StorageEvents } from "./local-map.ts";
+import type { CloseGuard } from "./sync/close-guard.ts";
 import type { PersonSync } from "./sync/create-sync.ts";
 import type { PersonReview } from "./sync/later-index.ts";
 
@@ -144,6 +147,13 @@ export interface PersonServices {
   mount: EditorMount;
   /** Settles once the person's preferences, keys and flags have been read from the device, or their sync could not start. */
   ready: Promise<void>;
+  /** Leaving a document this device cannot save asks `question`, which the screen draws while it is not null. */
+  closing: {
+    guard: CloseGuard;
+    question: Subscribable<ConsequenceDialogProps | null>;
+  };
+  /** The demo's Connection of this tab, once the person's sync has started; rejects when it cannot start. */
+  connection: Promise<ConnectionControl>;
   dispose(): void;
 }
 

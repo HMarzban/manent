@@ -1,13 +1,15 @@
 // The person's sync and what it opens: their private index, the Library read from index documents, and their documents.
 import type { KeyValueMap } from "@manent/settings";
 import type { DocHandle, SyncClient } from "@manent/sync-client";
-import { LIBRARY_WORDS, createValue } from "@manent/ui";
-import type { MessageQueue } from "@manent/ui";
+import { LIBRARY_WORDS, createValue, messageFor } from "@manent/ui";
+import type { MessageQueue, Subscribable } from "@manent/ui";
+import type { ConnectionControl } from "../demo/connection-transport.ts";
+import { followDemoSeed } from "../demo/use-demo.ts";
+import type { Where } from "../platform.ts";
 import type { TabPerson } from "../session.ts";
 import type { CommandsOptions } from "./person-commands.ts";
 import type { DocumentSource } from "./ports.ts";
 import type { PersonSync } from "./sync/create-sync.ts";
-import type { DeviceMemory } from "./sync/device-memory.ts";
 import { createSyncDocumentSource } from "./sync/document-source.ts";
 import {
   createLaterLibrary,
@@ -15,8 +17,8 @@ import {
   createLaterReview,
 } from "./sync/later-index.ts";
 import type { PersonReview } from "./sync/later-index.ts";
-import type { SyncLibrary } from "./sync/library-index.ts";
-import type { recordOnDevice } from "./sync/on-device.ts";
+import type { SyncLibrary, onOwnChange } from "./sync/library-index.ts";
+import type { checkCleared, recordOnDevice } from "./sync/on-device.ts";
 import type { PrivateIndex } from "./sync/private-index.ts";
 import type { ReviewStore } from "./sync/review.ts";
 
@@ -26,12 +28,18 @@ interface Indexes {
   privateIndex: PrivateIndex;
   library: SyncLibrary;
   review: ReviewStore;
+  onOwnChange: typeof onOwnChange;
   recordOnDevice: typeof recordOnDevice;
+  checkCleared: typeof checkCleared;
 }
 
 /** What the services keep of the person's sync. */
 export interface PersonDocuments {
   client: Promise<SyncClient>;
+  /** Rejects when the sync cannot start. */
+  connection: Promise<ConnectionControl>;
+  /** The person's sync says it can reach the network; the browser's word until the sync has started. */
+  network: Subscribable<boolean>;
   documents: DocumentSource;
   library: SyncLibrary;
   review: PersonReview;
@@ -39,8 +47,12 @@ export interface PersonDocuments {
   maps: { prefs: KeyValueMap; keys: KeyValueMap; flags: KeyValueMap };
   /** Settles once the private index has opened and its maps are attached, or the sync could not start. */
   ready: Promise<void>;
-  /** Keeps on the device what the maps hold for a private index that has not opened, for its next open to carry over. */
-  flush(): void;
+  /**
+   * The page is going: what the maps hold for a private index that has not opened is kept for its next open to carry
+   * over, the open marker is removed, and each open document with own changes waiting and no connection saves a
+   * version of the session's end.
+   */
+  leave(): void;
   dispose(): void;
 }
 
@@ -98,7 +110,9 @@ async function openIndexes(
     privateIndex,
     library,
     review,
+    onOwnChange: libraryParts.onOwnChange,
     recordOnDevice: onDevice.recordOnDevice,
+    checkCleared: onDevice.checkCleared,
   };
 }
 
@@ -138,6 +152,107 @@ function keepOnDevice(
 }
 
 /**
+ * In this tab's leader, marks `docId` open from the store's next local sequence, and removes the mark when it closes.
+ * A mark of the same document found already there means the page ended without leaving: the own changes stored since
+ * are told as already saved.
+ */
+function markOpen(
+  sync: PersonSync,
+  open: { docId: string; messages: MessageQueue },
+): () => void {
+  const { docId } = open;
+  const { memory, userId } = sync;
+  let closed = false;
+  void (async () => {
+    if (!sync.link.get().leader) return;
+    const before = memory.openMarker(userId);
+    const entries = (await sync.store.load(docId))?.entries ?? [];
+    if (closed) return;
+    const changed = new Set(
+      entries.flatMap((entry) =>
+        before?.docId === docId &&
+        entry.kind === "update" &&
+        entry.own &&
+        entry.localSeq >= before.fromLocalSeq
+          ? entry.elements
+          : [],
+      ),
+    );
+    if (changed.size > 0)
+      open.messages.push(
+        messageFor({ kind: "crash_recovered", count: changed.size }),
+      );
+    const last = Math.max(0, ...entries.map((entry) => entry.localSeq));
+    memory.setOpenMarker(userId, { docId, fromLocalSeq: last + 1 });
+  })();
+  return () => {
+    closed = true;
+    if (memory.openMarker(userId)?.docId === docId)
+      memory.setOpenMarker(userId, null);
+  };
+}
+
+/**
+ * Asks the browser to keep this origin's data, once, at the person's first own change of the session. Firefox would
+ * ask the person a question, so there only Preferences asks.
+ */
+function askPersistenceOnce(where: Where): () => void {
+  let asked = where.browser === "Firefox";
+  return () => {
+    if (asked) return;
+    asked = true;
+    void import("@manent/client-web")
+      .then(({ requestPersistence }) =>
+        requestPersistence("storage" in navigator ? navigator.storage : null),
+      )
+      .catch(() => {
+        // a browser that cannot be asked keeps the data as it decides; Preferences says which
+      });
+  };
+}
+
+/** Once the private index has synced, tells what came back to a browser that cleared Manent's data. */
+function tellCleared(
+  sync: PersonSync,
+  indexes: Indexes,
+  open: { deviceId: string; messages: MessageQueue },
+): void {
+  const { handle } = indexes.privateIndex;
+  const check = async (): Promise<void> => {
+    const event = await indexes.checkCleared({
+      hadDatabase: sync.hadDatabase,
+      privateIndex: indexes.privateIndex,
+      deviceId: open.deviceId,
+      documents: () => sync.client.documents(),
+    });
+    if (event !== null) open.messages.push(messageFor(event));
+  };
+  if (handle.status.get().synced) return void check();
+  const stop = handle.status.subscribe((status) => {
+    if (!status.synced) return;
+    stop();
+    void check();
+  });
+}
+
+/** Settles once the demo's seed has been followed: never when this device's data is cleared and the page reloaded. */
+async function followSeed(options: Options): Promise<void> {
+  const device = await import("./sync/device-memory.ts");
+  await followDemoSeed({
+    demo: () => options.api.demo(),
+    memory: device.createDeviceMemory({
+      local: options.storage,
+      session: null,
+    }),
+    clear: async () =>
+      (await import("@manent/client-web")).clearManentData(
+        device.browserStores(),
+      ),
+    reload: () => location.reload(),
+  });
+}
+
+/**
  * The person's sync, started here on `deviceId`; their preference maps, held until the private index opens; the
  * documents it opens; and the Library. `dispose` disposes the sync.
  */
@@ -146,17 +261,27 @@ export function createPersonDocuments(
   deviceId: string,
   messages: MessageQueue,
 ): PersonDocuments {
-  const sync = options.startSync(options.person, deviceId);
-  let memory: DeviceMemory | null = null;
+  const { person } = options;
+  const sync = followSeed(options).then(() =>
+    options.startSync(person, deviceId),
+  );
+  let started: PersonSync | null = null;
+  const network = createValue(options.online());
   const client = sync.then((s) => {
-    memory = s.memory;
+    started = s;
+    network.set(s.network.get());
+    s.network.subscribe((online) => network.set(online));
     return s.client;
   });
   void client.catch(() => {
     // each document's status says that the sync cannot start
   });
   const indexes = sync
-    .then((s) => openIndexes(s, options, messages))
+    .then(async (s) => {
+      const opened = await openIndexes(s, options, messages);
+      tellCleared(s, opened, { deviceId, messages });
+      return opened;
+    })
     .catch(() => {
       // the maps hold what is written for this session, and the Library stays empty
       return null;
@@ -179,6 +304,8 @@ export function createPersonDocuments(
   const review = createLaterReview({
     store: indexes.then((opened) => opened?.review ?? null),
   });
+  const handles = new Set<DocHandle>();
+  const askPersistence = askPersistenceOnce(options.where);
   const source = createSyncDocumentSource({
     sync,
     review,
@@ -189,12 +316,20 @@ export function createPersonDocuments(
     schedule: options.schedule,
     removedInfo: (docId) => options.api.removedDoc(docId),
     opened(docId, handle) {
-      const stops = [library.follow(docId, handle)];
+      handles.add(handle);
+      const stops = [
+        library.follow(docId, handle),
+        ...(started === null ? [] : [markOpen(started, { docId, messages })]),
+        () => handles.delete(handle),
+      ];
       let stopped = false;
       void indexes.then((opened) => {
         if (stopped || opened === null) return;
         const { now } = options;
-        stops.push(keepOnDevice(opened, { docId, handle, deviceId, now }));
+        stops.push(
+          keepOnDevice(opened, { docId, handle, deviceId, now }),
+          opened.onOwnChange(handle, askPersistence),
+        );
       });
       return () => {
         stopped = true;
@@ -215,18 +350,34 @@ export function createPersonDocuments(
       source.close(docId);
     },
   };
+  const connection = sync.then((s) => s.connection);
+  void connection.catch(() => {
+    // the demo bar draws no Connection for a sync that cannot start
+  });
   return {
     client,
+    connection,
+    network,
     documents,
     library,
     review,
     maps,
     ready,
-    flush() {
-      memory?.keepLegacyMaps(options.person.userId, {
+    leave() {
+      if (started === null) return;
+      const { memory, link } = started;
+      memory.keepLegacyMaps(person.userId, {
         prefs: maps.prefs.held(),
         keys: maps.keys.held(),
       });
+      // only the leader marks what it opens
+      if (link.get().leader) memory.setOpenMarker(person.userId, null);
+      if (link.get().state === "online") return;
+      for (const handle of handles)
+        if (handle.status.get().waiting > 0)
+          void handle.saveVersion("session_end").catch(() => {
+            // best effort: the page is going, and the changes are already saved on the device
+          });
     },
     dispose() {
       review.dispose();

@@ -37,6 +37,7 @@ import type {
 } from "./ports.ts";
 import { createPersonDocuments } from "./person-documents.ts";
 import { createRemoteDeferral } from "./remote-deferral.ts";
+import { createCloseGuard, createCloseQuestion } from "./sync/close-guard.ts";
 
 type Options = CommandsOptions & { person: TabPerson };
 
@@ -263,10 +264,17 @@ export function createPersonServices(options: Options): PersonServices {
     schedule: options.schedule,
   });
   const sync = createPersonDocuments(options, kept.deviceId, messages);
+  const { question, dialog } = createCloseQuestion();
+  const guard = createCloseGuard({
+    documents: sync.documents,
+    dialog,
+    run: (commandId) => void commands.run(commandId, "control"),
+    now: options.now,
+  });
   const { settings, scripts } = createStores(
     options,
     { ...kept, prefs: sync.maps.prefs },
-    sync.documents,
+    guard,
   );
   const resolved = createResolved(sync.maps.keys, options.where);
   const flags = createFlags({
@@ -282,12 +290,17 @@ export function createPersonServices(options: Options): PersonServices {
     messages,
     resolved,
     control,
+    network: sync.network,
   });
   const place = placeStoreOf(options);
   const stopKeeping = keepViewState(place, options.schedule);
-  // a page left before the private index opened would lose what it wrote into the index's maps
-  const flush = (): void => sync.flush();
-  globalThis.addEventListener("pagehide", flush);
+  const leave = (): void => sync.leave();
+  // the browser asks with its own words, which cannot carry Manent's
+  const askBeforeClosing = (event: Event): void => {
+    if (guard.failing() !== null) event.preventDefault();
+  };
+  globalThis.addEventListener("pagehide", leave);
+  globalThis.addEventListener("beforeunload", askBeforeClosing);
   const fixedKeys = createValue<readonly FixedKey[]>([]);
   const services: PersonServices = {
     userId: options.person.userId,
@@ -324,8 +337,11 @@ export function createPersonServices(options: Options): PersonServices {
       });
     }),
     ready: sync.ready,
+    closing: { guard, question },
+    connection: sync.connection,
     dispose() {
-      globalThis.removeEventListener("pagehide", flush);
+      globalThis.removeEventListener("pagehide", leave);
+      globalThis.removeEventListener("beforeunload", askBeforeClosing);
       stopKeeping();
       stop();
       kept.dispose();

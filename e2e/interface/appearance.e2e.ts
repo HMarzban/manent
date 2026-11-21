@@ -433,7 +433,12 @@ test("at 200 % in 1,280 × 800 nothing scrolls sideways, and every target is at 
           "button, a[href], input, select, [role='tab'], [role='menuitem']",
         ),
       ]
-        .filter((element) => element.checkVisibility())
+        // a radio's hidden input belongs to the form, not to the pointer: the radio drawn beside it is the target
+        .filter(
+          (element) =>
+            element.checkVisibility() &&
+            element.getAttribute("aria-hidden") !== "true",
+        )
         .filter((element) => {
           const box = element.getBoundingClientRect();
           return box.width < 24 || box.height < 24;

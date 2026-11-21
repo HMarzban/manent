@@ -1,5 +1,5 @@
 // One person's sync in this tab: the one place the app builds the sync client's options, what the status reads beside it, and where the test build's hooks are set.
-import { browserPorts } from "@manent/client-web";
+import { browserPorts, hasLocalDatabase } from "@manent/client-web";
 import { createSubscribable, createSyncClient } from "@manent/sync-client";
 import type {
   DocHandle,
@@ -10,15 +10,21 @@ import type {
   SyncClientPorts,
 } from "@manent/sync-client";
 import type { VersionSet } from "@manent/sync-protocol";
+import {
+  SLOW_DELAY_MS,
+  connectionTransport,
+} from "../../demo/connection-transport.ts";
+import type { ConnectionControl } from "../../demo/connection-transport.ts";
 import type { TabPerson } from "../../session.ts";
-import type { DeviceMemory } from "./device-memory.ts";
+import { browserStores } from "./device-memory.ts";
+import type { ConnectionMode, DeviceMemory } from "./device-memory.ts";
 import { DRAIN_PARALLEL, startDrain } from "./drain.ts";
 import { NO_OVERLAY, both, createTestHooks } from "./sync-hooks.ts";
 import type { Overlay } from "./sync-hooks.ts";
 
 /**
- * `network`: the browser says it is online. `offlineSince`: when this person's link was first lost since it was last
- * online, kept across reloads (milliseconds since the epoch).
+ * `network`: the browser says it is online and the tab's Connection is not Offline. `offlineSince`: when this person's
+ * link was first lost since it was last online, kept across reloads (milliseconds since the epoch).
  */
 export interface PersonSync {
   userId: string;
@@ -27,6 +33,10 @@ export interface PersonSync {
   link: Subscribable<LinkFacts>;
   network: Subscribable<boolean>;
   offlineSince: Subscribable<number | null>;
+  /** The demo's Connection of this tab, kept across reloads. */
+  connection: ConnectionControl;
+  /** This browser held the person's store before the sync opened it; null where it cannot tell, and over given ports. */
+  hadDatabase: boolean | null;
   /** What sync keeps in this browser's storage beside the store. */
   memory: DeviceMemory;
   dispose(): Promise<void>;
@@ -131,19 +141,19 @@ function keepOfflineSince(
   return { offlineSince, stop: link.subscribe(follow) };
 }
 
-/** Asks `client` to connect at once when `target` is back online, focused or visible, and keeps `network` to it. */
+/** Asks `client` to connect at once when `target` is back online, focused or visible, and keeps `browser` to it. */
 function askOnEvents(
   target: EventTarget | null,
   client: SyncClient,
-  network: { set(online: boolean): void },
+  browser: { set(online: boolean): void },
   visible: () => boolean,
 ): () => void {
   const heard = Object.entries({
     online() {
-      network.set(true);
+      browser.set(true);
       client.retryNow();
     },
-    offline: () => network.set(false),
+    offline: () => browser.set(false),
     focus: () => client.retryNow(),
     visibilitychange() {
       if (visible()) client.retryNow();
@@ -153,6 +163,33 @@ function askOnEvents(
   return () => {
     for (const [name, hear] of heard) target?.removeEventListener(name, hear);
   };
+}
+
+/**
+ * The tab's Connection, kept in `memory`: Offline asks `client` to stay offline, anything else to connect at once.
+ * `network` is false while the browser is offline or the Connection is.
+ */
+function followConnection(options: {
+  mode: Subscribable<ConnectionMode> & { set(mode: ConnectionMode): void };
+  memory: DeviceMemory;
+  client: SyncClient;
+  browser: Subscribable<boolean>;
+}): { connection: ConnectionControl; network: Subscribable<boolean> } {
+  const { mode, memory, client, browser } = options;
+  const reachable = (): boolean => browser.get() && mode.get() !== "offline";
+  const network = createSubscribable(reachable());
+  browser.subscribe(() => network.set(reachable()));
+  const connection: ConnectionControl = {
+    mode,
+    set(next) {
+      memory.setConnection(next);
+      mode.set(next);
+      network.set(reachable());
+      client.setOnline(next !== "offline");
+    },
+  };
+  if (mode.get() === "offline") client.setOnline(false);
+  return { connection, network };
 }
 
 /**
@@ -173,6 +210,11 @@ export async function createPersonSync(options: {
   now: () => number;
 }): Promise<PersonSync> {
   const { person, onlineEvents, visible } = options;
+  // looked for before the browser's store is opened, which makes it
+  const hadDatabase =
+    options.ports === undefined
+      ? await hasLocalDatabase(browserStores().indexedDb, person.userId)
+      : null;
   const given =
     options.ports ??
     (await browserPorts({
@@ -180,15 +222,22 @@ export async function createPersonSync(options: {
       session: () => person.token,
       userId: person.userId,
     }));
+  const mode = createSubscribable(options.memory.connection() ?? "online");
+  const transport = connectionTransport({
+    transport: given.transport,
+    clock: given.clock,
+    delayMs: SLOW_DELAY_MS,
+    control: { mode: () => mode.get() },
+  });
   // the hooks make a script as the Library does, each in a project of its own
-  const test = createTestHooks(given, async (docId) =>
+  const test = createTestHooks({ ...given, transport }, async (docId) =>
     (await import("./create-script.ts")).createScript(client, {
       docId,
       projectId: docId,
       language: navigator.language,
     }),
   );
-  const ports = test?.ports ?? given;
+  const ports = test?.ports ?? { ...given, transport };
   const overlay = test?.overlay ?? NO_OVERLAY;
   const raw = createSyncClient({
     userId: person.userId,
@@ -201,9 +250,15 @@ export async function createPersonSync(options: {
   const link = overlay.link(raw.link);
   const client = shareHandles(raw, overlay, link);
   // undefined outside a browser, which is never offline
-  const network = createSubscribable(navigator.onLine !== false);
+  const browser = createSubscribable(navigator.onLine !== false);
+  const { connection, network } = followConnection({
+    mode,
+    memory: options.memory,
+    client: raw,
+    browser,
+  });
   const kept = keepOfflineSince(person.userId, options.memory, link);
-  const stopAsking = askOnEvents(onlineEvents, raw, network, visible);
+  const stopAsking = askOnEvents(onlineEvents, raw, browser, visible);
   const stopDrain = startDrain({
     client,
     parallel: DRAIN_PARALLEL,
@@ -217,6 +272,8 @@ export async function createPersonSync(options: {
     link,
     network,
     offlineSince: kept.offlineSince,
+    connection,
+    hadDatabase,
     memory: options.memory,
     async dispose() {
       stopAsking();
