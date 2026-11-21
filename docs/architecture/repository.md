@@ -30,7 +30,8 @@ manent/
 │   └── memory/             lessons.md: mistakes, near-misses and the rule each one produced
 │
 ├── .github/workflows/
-│   └── ci.yml              the gate, the end-to-end tests and the fresh-clone test on macOS, Windows and Linux
+│   ├── ci.yml              the gate, the end-to-end tests and the fresh-clone test on macOS, Windows and Linux
+│   └── pages.yml           publishes site/ to GitHub Pages, only when started by hand
 │
 ├── packages/               libraries; each has one entry point, src/index.ts
 │   ├── schema/             document model                                              built
@@ -128,11 +129,12 @@ manent/
 │   ├── check-records.ts        the check of the public documents; records*.ts hold its rules
 │   └── test/                   tests of the checks, and of the workspace's own conventions
 │
-├── site/                   the landing page, served by GitHub Pages; no build step              built
+├── site/                   the landing page, not published yet; no build step          built
 │   ├── index.html              the page: its styles and its one small script inline
 │   ├── 404.html                what a missing address under the site shows
 │   ├── sitemap.xml             the page's one address, for search engines
 │   ├── og.png                  the picture a link to the page shows
+│   ├── media/                  screenshots and a recording of the demo, with its captions
 │   └── fonts/                  Courier Prime, the script face, and its licence
 │
 └── types/
@@ -209,4 +211,4 @@ Settings the server program reads from the environment, which `make demo` sets f
 | -------------- | ------------------------------ | -------------------------------------------------------------------------- |
 | `make desktop` | Build and open the desktop app | Prints "The desktop app is not in this build yet." and exits with status 1 |
 
-The workflow in `.github/workflows/ci.yml` runs on every push and pull request, on Linux, macOS and Windows: it installs from the lockfile, runs `bun run verify`, installs the browsers, and runs `bun run test:e2e` and `bun run test:clone`.
+The workflow in `.github/workflows/ci.yml` runs on every push and pull request, on Linux, macOS and Windows: it installs from the lockfile, runs `bun run verify`, installs the browsers, and runs `bun run test:e2e` and `bun run test:clone`. The workflow in `.github/workflows/pages.yml` runs only when started by hand: it uploads `site/` as it is and publishes it to GitHub Pages.

@@ -1,12 +1,17 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-GB">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Manent — Open-source screenwriting app that works offline</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'sha256-zAkE5cHJtjD+i7g44Iq1xDEbY18e8ujnGIxPHweYjKY='; style-src 'sha256-9s2ViZ73G0f3XBa214OVIu5MQns9FJPCkSQa/l8sRCc='; img-src 'self' data:; font-src 'self'; media-src 'self'; base-uri 'self'; form-action 'none'"
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>Manent — Write anywhere. Lose nothing.</title>
     <meta
       name="description"
-      content="Manent is an open-source script writing app in early development: true script pages, live collaboration and offline work that is never silently lost."
+      content="Manent is a free, open-source script writing app in early development. Every change is saved on your device first, you can keep writing offline, and your words reach every open window as you type."
     />
     <link rel="canonical" href="https://hmarzban.github.io/manent/" />
     <meta name="color-scheme" content="light dark" />
@@ -30,11 +35,11 @@
     <meta property="og:site_name" content="Manent" />
     <meta
       property="og:title"
-      content="Manent — script writing that works offline, together"
+      content="Manent — Write anywhere. Lose nothing."
     />
     <meta
       property="og:description"
-      content="An open-source screenwriting app for film, TV, stage, books, games and news: true script pages, live collaboration, offline work."
+      content="A free, open-source script writing app in early development: every change saved on your device first, writing offline, and words that reach every open window as you type."
     />
     <meta property="og:url" content="https://hmarzban.github.io/manent/" />
     <meta
@@ -45,13 +50,13 @@
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="A screenplay page beside the words: Every word kept. Every page the same."
+      content="The words Write anywhere. Lose nothing. beside a screenshot of a screenplay page in Manent's demo."
     />
     <meta property="og:locale" content="en_GB" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta
       name="twitter:image:alt"
-      content="A screenplay page beside the words: Every word kept. Every page the same."
+      content="The words Write anywhere. Lose nothing. beside a screenshot of a screenplay page in Manent's demo."
     />
 
     <link
@@ -70,12 +75,12 @@
             "@type": "SoftwareApplication",
             "@id": "https://hmarzban.github.io/manent/#app",
             "name": "Manent",
-            "description": "An open-source screenwriting app for film, TV, stage, books, games and news, with true script pages, real-time collaboration and offline work. In early development.",
+            "description": "A free, open-source script writing app in early development: every change saved on the device first, writing offline, and edits that reach every open window as they are typed.",
             "url": "https://hmarzban.github.io/manent/",
             "image": "https://hmarzban.github.io/manent/og.png",
             "applicationCategory": "BusinessApplication",
             "applicationSubCategory": "Screenwriting software",
-            "operatingSystem": "Web browser, macOS, Windows, Linux",
+            "operatingSystem": "Web browser",
             "isAccessibleForFree": true,
             "offers": {
               "@type": "Offer",
@@ -83,19 +88,16 @@
               "priceCurrency": "USD"
             },
             "license": "https://www.apache.org/licenses/LICENSE-2.0",
-            "author": {
-              "@type": "Organization",
-              "name": "Manent contributors",
-              "url": "https://github.com/HMarzban/manent"
-            },
             "sameAs": ["https://github.com/HMarzban/manent"],
             "featureList": [
               "Runs on your own machine with one command",
               "No account needed to try it",
-              "Script pages set in Courier Prime with a page count",
+              "Script pages in Courier Prime with page breaks and a page count",
+              "Screenplay, multi-camera, stage play, manuscript, animation, variety, game script and Ink formats",
               "Every change saved on the device first, with Saved and Synced status",
               "Writing continues offline and syncs on reconnect",
-              "Edits reach every open window as they are typed"
+              "Edits reach every open window as they are typed",
+              "Export to a clean PDF"
             ]
           },
           {
@@ -107,108 +109,6 @@
             "runtimePlatform": "Bun",
             "license": "https://www.apache.org/licenses/LICENSE-2.0",
             "targetProduct": { "@id": "https://hmarzban.github.io/manent/#app" }
-          },
-          {
-            "@type": "FAQPage",
-            "@id": "https://hmarzban.github.io/manent/#faq",
-            "mainEntity": [
-              {
-                "@type": "Question",
-                "name": "Is Manent free and open source?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Yes. Manent is open source under the Apache License 2.0: you may read it, run it, change it and share it under those terms. There is no account to make and nothing to pay."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Does Manent work offline?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Yes. Every change is saved on your device before it is sent anywhere. Saved means it is on this device; Synced means the server has it. While you are offline the status counts what is waiting, and it all syncs when the connection comes back."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "What happens when two people edit the same scene while one of them is offline?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Both sets of changes are merged when the offline writer reconnects. Passages that overlap are listed under To review, and text that cannot be placed is kept as Recovered text, so nothing is dropped. Most of this is on the main branch; the receipt and the review list are still being finished."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Can a writers' room write together in real time?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Yes. In the demo, every window open on a script sees the others' edits as they are typed. Names and carets for each writer, comments and suggestions are being built."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Can I open my .fdx and Fountain files?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Not yet. FDX and Fountain import and export are planned, and the list of what works today will say when they arrive."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Will my page count match other screenwriting apps?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Not page for page, and Manent does not promise it. What Manent promises is that its own pages are the same on every device and in its own PDF."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Does it handle production revisions: coloured pages, A-pages, locked scene numbers?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "That is being built: locked page and scene numbers, A-pages, revision colours in the standard order, asterisks in the margin, and Issue and Recall, while the room keeps writing in the same script."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Which formats does it support?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Screenplays work in the demo today. Multi-camera, animation, stage play, manuscript and game script are being built; variety, rundowns, podcasts and Ink are planned."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Does it run on Mac, Windows and Linux?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "The demo runs on all three, in your browser, with Bun 1.4.4 or later. A desktop app that works with no network is being built; no installer has been released yet."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Does Manent use AI, or train on my scripts?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "No. Manent has no features that write for you, and your scripts are never used to train AI."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Can I host it myself?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Manent is one Bun program. Today it runs as a demo on your own machine, and it refuses to listen on a public address because the demo has no passwords. A hosted setup is planned."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Is it ready for real work?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Not yet. Manent is early, and the list of what works today says exactly what runs. Keep a copy of anything that matters somewhere else."
-                }
-              }
-            ]
           }
         ]
       }
@@ -229,6 +129,8 @@
         --desk-deep: #e1ddd5;
         --raised: #f6f4f0;
         --paper: #ffffff;
+        --sheet: #ffffff;
+        --sheet-edge: rgb(31 29 26 / 0.18);
         --ink: #1a1a1a;
         --fg: #1f1d1a;
         --fg-muted: #5a564f;
@@ -242,13 +144,14 @@
         --ok-bg: #dcefe3;
         --attention: #775000;
         --attention-bg: #f6e9c8;
-        --who-1: #ad3409;
-        --who-2: #0a6777;
-        --who-on: #ffffff;
         --rev-blue: #d3e6fa;
         --rev-blue-edge: #1f63b5;
         --code-bg: #232220;
         --code-fg: #efece6;
+        --code-muted: #a9a49b;
+        --code-accent: #8daeff;
+        --code-line: #7d7870;
+        --clock-over: #f5d27a;
         --shadow:
           0 1px 2px rgb(31 29 26 / 0.08), 0 12px 32px rgb(31 29 26 / 0.12);
 
@@ -271,6 +174,8 @@
           --desk-deep: #1a1918;
           --raised: #272523;
           --paper: #2a2826;
+          --sheet: #36332f;
+          --sheet-edge: #4a463f;
           --ink: #efece6;
           --fg: #efece6;
           --fg-muted: #b8b2a7;
@@ -284,9 +189,6 @@
           --ok-bg: #1c3326;
           --attention: #e3b341;
           --attention-bg: #3a2f16;
-          --who-1: #ff9b73;
-          --who-2: #5fd0e0;
-          --who-on: #121211;
           --rev-blue: #1c2f45;
           --rev-blue-edge: #d3e6fa;
           --code-bg: #121211;
@@ -318,7 +220,6 @@
         font-family: var(--serif);
         font-size: 1.125rem;
         line-height: 1.6;
-        overflow-x: clip;
       }
 
       h1,
@@ -360,10 +261,16 @@
         border-radius: 2px;
       }
 
-      code,
-      kbd {
+      code {
         font-family: var(--mono);
         font-size: 0.85em;
+      }
+
+      img,
+      video {
+        display: block;
+        max-width: 100%;
+        height: auto;
       }
 
       [hidden] {
@@ -388,21 +295,8 @@
         margin-inline: auto;
       }
 
-      /* one column until a breakpoint says otherwise; minmax(0, …) lets a column shrink below its widest line */
-      .hero .wrap,
-      .promise-grid,
-      .panel,
-      .together-grid,
-      .today,
-      .ledger,
-      .yours-grid,
-      .two-windows,
-      .ink {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
       .section {
-        padding-block: clamp(3.5rem, 8vw, 6.5rem);
+        padding-block: clamp(3.5rem, 8vw, 6rem);
       }
 
       .section-head {
@@ -420,12 +314,20 @@
         color: var(--fg-muted);
       }
 
-      .prose {
-        max-width: var(--measure);
+      .band {
+        background: var(--raised);
+        border-block: 1px solid var(--line);
       }
 
-      .prose > * + * {
-        margin-top: 1rem;
+      /* one column until a breakpoint says otherwise; minmax(0, …) lets a column shrink below its widest line */
+      .hero .wrap,
+      .panel,
+      .today,
+      .yours-grid,
+      .try-grid,
+      .terms {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
       }
 
       /* ---------- the bar at the top ---------- */
@@ -441,7 +343,7 @@
       .masthead .wrap {
         display: flex;
         align-items: center;
-        gap: 1.5rem;
+        gap: 1rem;
         min-height: 3.5rem;
       }
 
@@ -466,6 +368,7 @@
 
       .masthead ul {
         display: flex;
+        align-items: center;
         gap: 1.25rem;
         list-style: none;
         padding: 0;
@@ -473,16 +376,16 @@
         font-size: 0.9375rem;
       }
 
-      .masthead nav a {
+      .masthead nav a:not(.button) {
         color: var(--fg);
         text-decoration: none;
       }
 
-      .masthead nav a:hover {
+      .masthead nav a:not(.button):hover {
         text-decoration: underline;
       }
 
-      @media (max-width: 52rem) {
+      @media (max-width: 56rem) {
         .masthead .section-link {
           display: none;
         }
@@ -494,13 +397,12 @@
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 0.75rem 1.25rem;
+        gap: 0.75rem 1rem;
       }
 
       .button {
         display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
         min-height: 2.75rem;
         padding: 0.5rem 1.125rem;
         border-radius: 6px;
@@ -514,7 +416,6 @@
       }
 
       .button:hover {
-        text-decoration: none;
         filter: brightness(1.08);
       }
 
@@ -524,6 +425,35 @@
         border-color: var(--line-strong);
       }
 
+      .button-small {
+        min-height: 2.25rem;
+        padding: 0.25rem 0.875rem;
+        font-size: 0.9375rem;
+      }
+
+      /* ---------- figures: screenshots of the demo, and drawn mock-ups ---------- */
+
+      .shot {
+        display: block;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        background: var(--chrome);
+      }
+
+      .figure-note {
+        margin-top: 0.75rem;
+        font-family: var(--sans);
+        font-size: 0.875rem;
+        color: var(--fg-muted);
+      }
+
+      .kind {
+        font-weight: 600;
+        color: var(--fg);
+      }
+
       /* ---------- the hero ---------- */
 
       .hero {
@@ -531,7 +461,6 @@
       }
 
       .hero .wrap {
-        display: grid;
         gap: clamp(2.5rem, 5vw, 4rem);
         align-items: center;
       }
@@ -543,13 +472,16 @@
       }
 
       .hero h1 {
-        font-size: clamp(2.5rem, 4.4vw, 3.75rem);
+        font-size: clamp(2.5rem, 4.6vw, 3.875rem);
         line-height: 1.04;
         letter-spacing: -0.02em;
-        font-weight: 600;
       }
 
-      .hero .lede {
+      .hero h1 span {
+        display: block;
+      }
+
+      .lede {
         margin-top: 1.5rem;
         font-size: 1.25rem;
         max-width: 30em;
@@ -561,9 +493,275 @@
 
       .early {
         margin-top: 1.5rem;
+        max-width: 32em;
         font-family: var(--sans);
         font-size: 0.9375rem;
         color: var(--fg-muted);
+      }
+
+      /* ---------- see it work ---------- */
+
+      .recording video {
+        width: 100%;
+        background: var(--desk-deep);
+      }
+
+      .terms {
+        margin-top: clamp(2rem, 4vw, 3rem);
+        gap: 1.5rem 2.5rem;
+      }
+
+      @media (min-width: 52rem) {
+        .terms {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+
+      .terms dt {
+        font-weight: 600;
+      }
+
+      .terms dd {
+        margin-top: 0.25rem;
+      }
+
+      .after {
+        margin-top: 2rem;
+        max-width: var(--measure);
+        display: grid;
+        gap: 0.75rem;
+        font-size: 1rem;
+        color: var(--fg-muted);
+      }
+
+      details.transcript {
+        margin-top: 0.75rem;
+        font-family: var(--sans);
+        font-size: 0.9375rem;
+      }
+
+      details.transcript summary {
+        cursor: pointer;
+        color: var(--accent);
+      }
+
+      details.transcript ol {
+        margin-top: 0.75rem;
+        padding-left: 1.25rem;
+        display: grid;
+        gap: 0.375rem;
+        max-width: 46rem;
+      }
+
+      /* ---------- status labels and the lists that carry them ---------- */
+
+      .status {
+        display: inline-block;
+        padding: 0.05rem 0.5rem;
+        border-radius: 4px;
+        font-family: var(--sans);
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.6;
+        white-space: nowrap;
+        vertical-align: 0.15em;
+      }
+
+      .status-demo {
+        background: var(--ok-bg);
+        color: var(--ok);
+      }
+
+      .status-built {
+        background: var(--attention-bg);
+        color: var(--attention);
+      }
+
+      .status-planned {
+        border: 1px solid var(--line-strong);
+        color: var(--fg-muted);
+      }
+
+      .list-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.25rem 0.75rem;
+        margin-top: 1.75rem;
+        font-family: var(--sans);
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--fg-muted);
+      }
+
+      .gets {
+        margin-top: 0.75rem;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 0.5rem;
+      }
+
+      .gets li {
+        border-top: 1px solid var(--line);
+        padding-top: 0.5rem;
+      }
+
+      .gets.later li {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: space-between;
+        align-items: baseline;
+        color: var(--fg-muted);
+        font-size: 1rem;
+      }
+
+      /* ---------- what do you write? ---------- */
+
+      .tabs [role="tablist"] {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+      }
+
+      .tabs:not(.is-ready) [role="tablist"] {
+        display: none;
+      }
+
+      [role="tab"] {
+        font: inherit;
+        font-family: var(--sans);
+        font-size: 0.9375rem;
+        font-weight: 600;
+        min-height: 2.75rem;
+        padding: 0.5rem 1rem;
+        color: var(--fg);
+        background: transparent;
+        border: 1px solid var(--line-strong);
+        border-bottom: 0;
+        border-radius: 8px 8px 0 0;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      [role="tab"]:hover {
+        background: var(--raised);
+      }
+
+      [role="tab"][aria-selected="true"] {
+        background: var(--paper);
+        box-shadow: inset 0 3px 0 var(--accent);
+        position: relative;
+        z-index: 1;
+        margin-bottom: -1px;
+        padding-bottom: calc(0.5rem + 1px);
+      }
+
+      [role="tab"]:focus-visible {
+        outline-offset: -3px;
+      }
+
+      /* on a phone: one row of pills that scrolls sideways, the chosen one filled */
+      @media (max-width: 40rem) {
+        .tabs [role="tablist"] {
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          gap: 0.5rem;
+          margin-bottom: 0.75rem;
+          padding: 0.25rem 0.125rem;
+          scrollbar-width: none;
+        }
+
+        [role="tab"],
+        [role="tab"][aria-selected="true"] {
+          border: 1px solid var(--line-strong);
+          border-radius: 999px;
+          margin: 0;
+          padding: 0.375rem 1rem;
+          box-shadow: none;
+        }
+
+        [role="tab"][aria-selected="true"] {
+          background: var(--accent);
+          border-color: var(--accent);
+          color: var(--on-accent);
+        }
+
+        .tabs .panel {
+          border-radius: 10px;
+        }
+      }
+
+      .panel {
+        background: var(--paper);
+        border: 1px solid var(--line-strong);
+        border-radius: 0 10px 10px 10px;
+        padding: clamp(1.25rem, 4vw, 2.75rem);
+        column-gap: 2.5rem;
+        grid-template-areas: "head" "figure" "body";
+      }
+
+      .tabs:not(.is-ready) .panel + .panel {
+        margin-top: 2rem;
+      }
+
+      @media (min-width: 60rem) {
+        .panel {
+          grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+          grid-template-rows: auto 1fr;
+          grid-template-areas: "head figure" "body figure";
+        }
+      }
+
+      .panel-head {
+        grid-area: head;
+      }
+
+      .panel-body {
+        grid-area: body;
+      }
+
+      .panel > figure {
+        grid-area: figure;
+        margin-block: 1.5rem 0.5rem;
+      }
+
+      @media (min-width: 60rem) {
+        .panel > figure {
+          margin: 0;
+        }
+      }
+
+      .panel h3 {
+        font-size: clamp(1.5rem, 2.6vw, 1.875rem);
+        letter-spacing: -0.01em;
+      }
+
+      .panel-head p {
+        margin-top: 0.75rem;
+      }
+
+      .panel .for {
+        margin-top: 0.5rem;
+        color: var(--fg-muted);
+        font-size: 1rem;
+      }
+
+      .pains {
+        margin-top: 0.75rem;
+        padding-left: 1.25rem;
+        display: grid;
+        gap: 0.5rem;
+      }
+
+      .panel-body > .list-head:first-child {
+        margin-top: 0;
+      }
+
+      @media (min-width: 60rem) {
+        .panel-body > .list-head:first-child {
+          margin-top: 1.75rem;
+        }
       }
 
       /* ---------- a window of the app, drawn ---------- */
@@ -595,59 +793,9 @@
         font-weight: 600;
       }
 
-      .app-bar .who {
-        margin-left: auto;
-        display: flex;
-        gap: 0.25rem;
-      }
-
-      .avatar {
-        display: inline-grid;
-        place-items: center;
-        width: 1.5rem;
-        height: 1.5rem;
-        border-radius: 50%;
-        font-size: 0.6875rem;
-        font-weight: 600;
-        color: var(--who-on);
-      }
-
-      .who-1 {
-        --who: var(--who-1);
-      }
-
-      .who-2 {
-        --who: var(--who-2);
-      }
-
-      .who-you {
-        --who: var(--accent);
-      }
-
-      .avatar {
-        background: var(--who);
-      }
-
       .app-desk {
         background: var(--desk-deep);
         padding: clamp(0.75rem, 3vw, 1.75rem);
-      }
-
-      .app-foot {
-        display: flex;
-        gap: 1rem;
-        padding: 0.45rem 0.875rem;
-        border-top: 1px solid var(--line);
-        white-space: nowrap;
-        overflow: hidden;
-      }
-
-      .app-foot span:last-child {
-        margin-left: auto;
-      }
-
-      .status-line {
-        font-variant-numeric: tabular-nums;
       }
 
       /* ---------- the page: US Letter at true proportions ----------
@@ -656,73 +804,60 @@
 
       .sheet {
         container-type: inline-size;
-        background: var(--paper);
+        background: var(--sheet);
         color: var(--ink);
-        aspect-ratio: 8.5 / 11;
+        aspect-ratio: 6.9 / 3.4;
         width: 100%;
-        box-shadow: 0 1px 3px rgb(31 29 26 / 0.18);
+        box-shadow: 0 0 0 1px var(--sheet-edge);
         position: relative;
         overflow: hidden;
       }
 
+      /* zoomed in on the text column, as the editor does at a larger zoom:
+         the same page, with less of its margins in view */
       .sheet-body {
-        --page-in: 8.5;
-        --left-in: 1.5;
-        --right-in: 1;
+        --page-in: 6.9;
+        --left-in: 0.45;
+        --right-in: 0.45;
         --in: calc(100cqi / var(--page-in));
         font-family: var(--script);
         font-size: calc(var(--in) / 6);
         line-height: 1;
-        padding: var(--in) calc(var(--right-in) * var(--in)) var(--in)
-          calc(var(--left-in) * var(--in));
-        height: 100%;
+        padding: calc(0.75 * var(--in)) calc(var(--right-in) * var(--in))
+          calc(0.5 * var(--in)) calc(var(--left-in) * var(--in));
       }
 
-      /* zoomed in on the text column, as the editor does at a larger zoom:
-         the same page, with less of its margins in view */
-      .zoom .sheet-body {
-        --page-in: 6.9;
-        --left-in: 0.45;
-        --right-in: 0.45;
-        padding-top: calc(0.75 * var(--in));
-      }
-
-      .zoom .sheet {
-        aspect-ratio: 6.9 / 4.4;
-      }
-
-      /* on a phone, closer still: the text column and a sliver of margin */
+      /* on a phone the page grows to its text, and the text never drops below 9px */
       @media (max-width: 40rem) {
-        .zoom .sheet-body,
-        .hero .sheet-body {
+        .sheet {
+          aspect-ratio: auto;
+        }
+
+        .sheet-body {
           --page-in: 6.4;
           --left-in: 0.2;
           --right-in: 0.2;
+          font-size: max(9px, calc(var(--in) / 6));
         }
 
-        .hero .sheet {
-          aspect-ratio: 6.4 / 6.2;
+        /* clear of the Blue strip down the left edge */
+        .revised .sheet-body {
+          --left-in: 0.45;
         }
-      }
-
-      .state .sheet {
-        aspect-ratio: 6.9 / 2.5;
       }
 
       .sheet-body p {
         margin: 0 0 1em;
-        text-wrap: wrap;
+      }
+
+      .sheet-body p:last-child {
+        margin-bottom: 0;
       }
 
       .sheet-body .no {
         position: absolute;
         top: calc(0.25 * var(--in));
         right: calc(var(--right-in) * var(--in));
-        margin: 0;
-      }
-
-      .sheet-body .sh {
-        text-transform: uppercase;
       }
 
       .sheet-body .ch {
@@ -733,335 +868,16 @@
       .sheet-body .pa {
         margin: 0;
         padding-left: calc(1.6 * var(--in));
-        width: calc(3.6 * var(--in));
+        max-width: calc(3.6 * var(--in));
       }
 
       .sheet-body .di {
         margin-left: var(--in);
-        width: calc(3.5 * var(--in));
+        max-width: calc(3.5 * var(--in));
       }
 
       .sheet-body .tr {
         text-align: right;
-      }
-
-      .sheet-body .more {
-        padding-left: calc(2.2 * var(--in));
-      }
-
-      /* someone else's caret, with their name above it */
-      .caret {
-        position: relative;
-        display: inline-block;
-        width: 0;
-        height: 1em;
-        vertical-align: -0.12em;
-        border-left: 2px solid var(--who);
-      }
-
-      .caret[data-name]::after {
-        content: attr(data-name);
-        position: absolute;
-        left: -2px;
-        bottom: 100%;
-        padding: 0.1em 0.35em;
-        border-radius: 3px 3px 3px 0;
-        background: var(--who);
-        color: var(--who-on);
-        font-family: var(--sans);
-        font-size: max(0.6875rem, 0.7em);
-        font-weight: 600;
-        line-height: 1.2;
-        white-space: nowrap;
-      }
-
-      .typed {
-        background: color-mix(in srgb, var(--who-2) 14%, transparent);
-      }
-
-      .hero .app-desk {
-        padding-bottom: 0;
-      }
-
-      .hero .sheet {
-        aspect-ratio: 8.5 / 6.2;
-      }
-
-      .hero-figure figcaption,
-      .figure-note {
-        margin-top: 0.75rem;
-        font-family: var(--sans);
-        font-size: 0.875rem;
-        color: var(--fg-muted);
-      }
-
-      /* ---------- the promise ---------- */
-
-      .promise {
-        background: var(--raised);
-        border-block: 1px solid var(--line);
-      }
-
-      .promise-grid {
-        display: grid;
-        gap: 2.5rem;
-      }
-
-      @media (min-width: 60rem) {
-        .promise-grid {
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-          align-items: start;
-        }
-      }
-
-      .states {
-        list-style: none;
-        padding: 0;
-        display: grid;
-        gap: 1rem;
-      }
-
-      .state {
-        display: grid;
-        gap: 0.5rem;
-      }
-
-      .state-when {
-        font-family: var(--sans);
-        font-size: 0.875rem;
-        color: var(--fg-muted);
-      }
-
-      .state .app-bar {
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: var(--chrome);
-        font-family: var(--sans);
-        font-size: 0.875rem;
-        color: var(--chrome-fg);
-        white-space: normal;
-        flex-wrap: wrap;
-        row-gap: 0.25rem;
-      }
-
-      .state .app .app-bar {
-        border: 0;
-        border-bottom: 1px solid var(--line);
-        border-radius: 0;
-      }
-
-      .badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        padding: 0.1rem 0.5rem;
-        border-radius: 999px;
-        border: 1px solid var(--line-strong);
-        font-size: 0.8125rem;
-        font-weight: 600;
-        color: var(--fg);
-      }
-
-      .badge::before {
-        content: "";
-        width: 0.5rem;
-        height: 0.5rem;
-        border-radius: 50%;
-        border: 1.5px solid currentColor;
-      }
-
-      .receipt {
-        color: var(--fg);
-      }
-
-      .terms {
-        display: grid;
-        gap: 1.25rem;
-      }
-
-      .terms dt {
-        font-family: var(--sans);
-        font-weight: 600;
-        font-size: 1rem;
-      }
-
-      .terms dd {
-        margin-top: 0.25rem;
-      }
-
-      .aside {
-        margin-top: 1.75rem;
-        padding-left: 1rem;
-        border-left: 3px solid var(--line-strong);
-        color: var(--fg-muted);
-        font-size: 1rem;
-      }
-
-      /* ---------- status labels ---------- */
-
-      .status {
-        display: inline-block;
-        padding: 0.05rem 0.5rem;
-        border-radius: 4px;
-        font-family: var(--sans);
-        font-size: 0.75rem;
-        font-weight: 600;
-        line-height: 1.6;
-        white-space: nowrap;
-        vertical-align: 0.15em;
-      }
-
-      .status-demo {
-        background: var(--ok-bg);
-        color: var(--ok);
-      }
-
-      .status-built {
-        background: var(--attention-bg);
-        color: var(--attention);
-      }
-
-      .status-planned {
-        border: 1px solid var(--line-strong);
-        color: var(--fg-muted);
-      }
-
-      /* ---------- what do you write? ---------- */
-
-      .tabs [role="tablist"] {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.25rem;
-        padding: 0;
-        margin: 0;
-      }
-
-      .tabs:not(.is-ready) [role="tablist"] {
-        display: none;
-      }
-
-      @media (max-width: 40rem) {
-        .tabs [role="tablist"] {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.5rem;
-          margin-bottom: 0.75rem;
-        }
-
-        .tabs [role="tab"],
-        .tabs [role="tab"][aria-selected="true"] {
-          border: 1px solid var(--line-strong);
-          border-radius: 8px;
-          margin: 0;
-          padding: 0.5rem 0.75rem;
-          text-align: left;
-        }
-
-        .tabs .panel {
-          border-radius: 10px;
-        }
-      }
-
-      [role="tab"] {
-        font: inherit;
-        font-family: var(--sans);
-        font-size: 0.9375rem;
-        font-weight: 600;
-        min-height: 2.75rem;
-        padding: 0.5rem 1rem;
-        color: var(--fg);
-        background: transparent;
-        border: 1px solid var(--line);
-        border-bottom: 0;
-        border-radius: 8px 8px 0 0;
-        cursor: pointer;
-      }
-
-      [role="tab"]:hover {
-        background: var(--raised);
-      }
-
-      [role="tab"][aria-selected="true"] {
-        background: var(--paper);
-        border-color: var(--line-strong);
-        box-shadow: inset 0 3px 0 var(--accent);
-        position: relative;
-        z-index: 1;
-        margin-bottom: -1px;
-        padding-bottom: calc(0.5rem + 1px);
-      }
-
-      [role="tab"]:focus-visible {
-        outline-offset: -3px;
-      }
-
-      .panel {
-        background: var(--paper);
-        border: 1px solid var(--line-strong);
-        border-radius: 0 10px 10px 10px;
-        padding: clamp(1.25rem, 4vw, 2.75rem);
-        display: grid;
-        gap: 2.5rem;
-      }
-
-      .tabs:not(.is-ready) .panel + .panel {
-        margin-top: 2rem;
-      }
-
-      @media (min-width: 60rem) {
-        .panel {
-          grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-          align-items: start;
-        }
-      }
-
-      .panel h3 {
-        font-size: clamp(1.5rem, 2.6vw, 1.875rem);
-        letter-spacing: -0.01em;
-      }
-
-      .panel .for {
-        margin-top: 0.5rem;
-        color: var(--fg-muted);
-      }
-
-      .panel h4 {
-        margin-top: 1.75rem;
-        font-family: var(--sans);
-        font-size: 0.9375rem;
-        color: var(--fg-muted);
-        font-weight: 600;
-      }
-
-      .pains,
-      .gets {
-        margin-top: 0.75rem;
-        padding-left: 1.25rem;
-        display: grid;
-        gap: 0.5rem;
-      }
-
-      .gets {
-        list-style: none;
-        padding-left: 0;
-      }
-
-      .gets li {
-        display: flex;
-        gap: 0.75rem;
-        justify-content: space-between;
-        align-items: baseline;
-        border-top: 1px solid var(--line);
-        padding-top: 0.5rem;
-      }
-
-      .panel figure,
-      .figure {
-        margin: 0;
-      }
-
-      .panel .app-desk {
-        border-radius: 0;
       }
 
       /* the revised page: a strip of Blue paper down the left edge */
@@ -1073,7 +889,7 @@
             var(--rev-blue-edge) 0 calc(4.1% + 2px),
             transparent 0
           ),
-          var(--paper);
+          var(--sheet);
       }
 
       .rev-head {
@@ -1085,14 +901,17 @@
         justify-content: space-between;
       }
 
-      .star {
-        position: relative;
-      }
-
+      /* the asterisk sits in the page's right margin, so it is placed against the page, not the line */
       .star::after {
         content: "*";
         position: absolute;
-        right: calc(-1.85 * var(--in));
+        right: calc(var(--right-in) * var(--in) / 2);
+      }
+
+      @media (min-width: 40.0625rem) {
+        .mc .sheet {
+          aspect-ratio: 6.9 / 4.2;
+        }
       }
 
       .mc .sh {
@@ -1103,55 +922,10 @@
         line-height: 2;
       }
 
-      .play .ch {
-        padding-left: 0;
-        text-align: center;
-        margin-right: calc(0.5 * var(--in));
-      }
-
-      .play .sd {
-        padding-left: calc(2.5 * var(--in));
-      }
-
-      .play .di {
-        margin-left: 0;
-        width: auto;
-      }
-
-      .play .act {
-        text-align: center;
-        margin-right: calc(0.5 * var(--in));
-        text-decoration: underline;
-      }
-
-      .ms .sheet-body {
-        line-height: 2;
-      }
-
-      .ms .sheet-body p {
-        margin: 0;
-        text-indent: calc(0.5 * var(--in));
-      }
-
-      .ms .chapter {
-        text-align: center;
-        text-indent: 0 !important;
-        padding-top: calc(0.5 * var(--in));
-        padding-bottom: 1em;
-      }
-
-      .ms .no {
-        line-height: 1;
-      }
-
       /* the PDF beside the screen */
       .pair {
         display: grid;
         gap: clamp(0.75rem, 2vw, 1.25rem);
-      }
-
-      .pair .sheet {
-        aspect-ratio: 6.9 / 3.3;
       }
 
       .pair-label {
@@ -1161,6 +935,19 @@
         font-size: 0.75rem;
         font-weight: 600;
         color: var(--chrome-fg);
+      }
+
+      .pdf-bar {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.3rem 0.5rem;
+        background: #5f5c58;
+        color: #ffffff;
+        font-family: var(--sans);
+        font-size: 0.6875rem;
+        white-space: nowrap;
+        overflow: hidden;
       }
 
       /* the rundown: dense on purpose */
@@ -1177,7 +964,6 @@
         padding: 0.6rem 0.875rem;
         background: var(--code-bg);
         color: var(--code-fg);
-        font-size: 0.8125rem;
       }
 
       .clock b {
@@ -1187,7 +973,7 @@
 
       .clock .over {
         margin-left: auto;
-        color: #f5d27a;
+        color: var(--clock-over);
       }
 
       .rundown table {
@@ -1211,8 +997,7 @@
         font-size: 0.75rem;
       }
 
-      .rundown td.num,
-      .rundown th.num {
+      .rundown .num {
         text-align: right;
       }
 
@@ -1226,8 +1011,21 @@
       }
 
       @media (max-width: 40rem) {
+        .rundown {
+          font-size: 0.75rem;
+        }
+
+        .rundown th,
+        .rundown td {
+          padding: 0.35rem 0.3rem;
+        }
+
         .rundown .opt {
           display: none;
+        }
+
+        .rundown td:last-child {
+          white-space: normal;
         }
       }
 
@@ -1255,11 +1053,11 @@
       }
 
       .ink .k {
-        color: #8daeff;
+        color: var(--code-accent);
       }
 
       .ink .c {
-        color: #a9a49b;
+        color: var(--code-muted);
       }
 
       .player {
@@ -1278,106 +1076,9 @@
         color: var(--accent);
       }
 
-      /* ---------- what it is built on ---------- */
-
-      .ledger {
-        display: grid;
-        gap: 0;
-      }
-
-      @media (min-width: 52rem) {
-        .ledger {
-          grid-template-columns: 1fr 1fr;
-          column-gap: clamp(2rem, 5vw, 4.5rem);
-        }
-      }
-
-      .ledger > div {
-        padding-block: 1.5rem;
-        border-top: 1px solid var(--line-strong);
-      }
-
-      .ledger h3 {
-        font-size: 1.3125rem;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.25rem 0.75rem;
-        align-items: baseline;
-      }
-
-      .ledger p {
-        margin-top: 0.5rem;
-      }
-
-      /* ---------- together ---------- */
-
-      .together-grid {
-        display: grid;
-        gap: 2.5rem;
-      }
-
-      @media (min-width: 60rem) {
-        .together-grid {
-          grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-          align-items: start;
-        }
-      }
-
-      .steps {
-        padding-left: 1.5rem;
-        display: grid;
-        gap: 1.25rem;
-      }
-
-      .steps li::marker {
-        font-family: var(--sans);
-        font-weight: 600;
-        color: var(--fg-muted);
-      }
-
-      .steps strong {
-        display: block;
-        font-family: var(--sans);
-        font-size: 1rem;
-      }
-
-      .two-windows {
-        display: grid;
-        gap: 1rem;
-      }
-
-      .two-windows .sheet {
-        aspect-ratio: 6.9 / 1.7;
-      }
-
-      .figures {
-        margin-top: 2.5rem;
-        padding: 1.25rem 1.5rem;
-        border: 1px dashed var(--line-strong);
-        border-radius: 8px;
-        max-width: var(--measure);
-      }
-
-      .figures h3 {
-        font-family: var(--sans);
-        font-size: 1rem;
-      }
-
-      .figures p {
-        margin-top: 0.5rem;
-        font-size: 1rem;
-        color: var(--fg-muted);
-      }
-
-      /* ---------- yours ---------- */
-
-      .yours {
-        background: var(--raised);
-        border-block: 1px solid var(--line);
-      }
+      /* ---------- yours to keep ---------- */
 
       .yours-grid {
-        display: grid;
         gap: 2rem 3rem;
       }
 
@@ -1387,7 +1088,9 @@
         }
       }
 
-      .yours-grid h3 {
+      .yours-grid h3,
+      .today h3,
+      .try-grid h3 {
         font-size: 1.3125rem;
       }
 
@@ -1409,51 +1112,113 @@
         color: var(--fg-muted);
       }
 
-      /* ---------- what works today ---------- */
+      /* ---------- what you can try today ---------- */
 
       .today {
-        display: grid;
-        gap: 2.5rem;
+        gap: 2.5rem 4rem;
+        align-items: start;
       }
 
       @media (min-width: 60rem) {
         .today {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 2.5rem;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         }
       }
 
-      .today h3 {
-        display: flex;
-        align-items: baseline;
-        gap: 0.75rem;
-        font-size: 1.3125rem;
+      .today figure {
+        margin-top: 2rem;
       }
 
-      .today h3 + p {
+      .today .small {
         margin-top: 0.5rem;
+      }
+
+      /* ---------- try it ---------- */
+
+      .try-grid {
+        gap: 3rem 4rem;
+        align-items: start;
+      }
+
+      @media (min-width: 60rem) {
+        .try-grid {
+          grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+        }
+      }
+
+      .steps {
+        padding-left: 1.5rem;
+        display: grid;
+        gap: 1.5rem;
+      }
+
+      .steps li::marker {
+        font-family: var(--sans);
+        font-weight: 600;
+        color: var(--fg-muted);
+      }
+
+      .steps h3 {
+        font-size: 1.125rem;
+      }
+
+      .steps p {
+        margin-top: 0.375rem;
+      }
+
+      .code {
+        margin-top: 0.75rem;
+        background: var(--code-bg);
+        color: var(--code-fg);
+        border-radius: 8px;
+        padding: 0.875rem 1.125rem;
+      }
+
+      .code pre {
+        margin: 0;
+        font-family: var(--mono);
+        font-size: 0.875rem;
+        line-height: 1.7;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+
+      .copy-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem 1rem;
+        margin-top: 0.75rem;
+        font-family: var(--sans);
+        font-size: 0.875rem;
+      }
+
+      .copy {
+        font: inherit;
+        font-weight: 600;
+        min-height: 2.5rem;
+        padding: 0.4rem 0.9rem;
+        border-radius: 6px;
+        border: 1px solid var(--code-line);
+        background: transparent;
+        color: var(--code-fg);
+        cursor: pointer;
+      }
+
+      .copy:focus-visible {
+        outline-color: var(--code-accent);
+      }
+
+      .small {
         font-size: 1rem;
         color: var(--fg-muted);
       }
 
-      .today ul {
-        margin-top: 1rem;
-        padding-left: 1.25rem;
-        display: grid;
-        gap: 0.5rem;
-        font-size: 1rem;
+      .checklist {
+        margin-top: 2.5rem;
       }
 
-      .limits {
-        margin-top: 3rem;
-        max-width: var(--measure);
-      }
-
-      .limits h3 {
-        font-size: 1.3125rem;
-      }
-
-      .limits ul {
+      .checklist ol {
         margin-top: 0.75rem;
         padding-left: 1.25rem;
         display: grid;
@@ -1461,56 +1226,21 @@
         font-size: 1rem;
       }
 
-      /* ---------- try it ---------- */
-
-      .try-box {
-        margin-top: 0.5rem;
-        background: var(--code-bg);
-        color: var(--code-fg);
-        border-radius: 10px;
+      .card {
+        margin-top: 2rem;
         padding: 1.25rem 1.5rem;
-        display: grid;
-        gap: 1rem;
-        max-width: 44rem;
+        border: 1px solid var(--line-strong);
+        border-radius: 10px;
+        background: var(--paper);
       }
 
-      .try-box pre {
-        margin: 0;
-        font-family: var(--mono);
-        font-size: 0.9375rem;
-        line-height: 1.7;
-        white-space: pre-wrap;
-        word-break: break-word;
+      .card p {
+        margin-top: 0.5rem;
+        font-size: 1rem;
       }
 
-      .try-box .c {
-        color: #a9a49b;
-      }
-
-      .copy {
-        justify-self: start;
-        font: inherit;
-        font-family: var(--sans);
-        font-size: 0.875rem;
-        font-weight: 600;
-        min-height: 2.5rem;
-        padding: 0.4rem 0.9rem;
-        border-radius: 6px;
-        border: 1px solid #7d7870;
-        background: transparent;
-        color: var(--code-fg);
-        cursor: pointer;
-      }
-
-      .copy:focus-visible {
-        outline-color: #8daeff;
-      }
-
-      .try-notes {
-        margin-top: 1.5rem;
-        max-width: var(--measure);
-        display: grid;
-        gap: 0.75rem;
+      .card .actions {
+        margin-top: 1rem;
       }
 
       /* ---------- questions ---------- */
@@ -1551,8 +1281,32 @@
         content: "−";
       }
 
-      .faq details p {
-        padding-bottom: 1.25rem;
+      .faq details > :not(summary) {
+        max-width: var(--measure);
+        margin-bottom: 1.25rem;
+      }
+
+      .faq ul {
+        padding-left: 1.25rem;
+        display: grid;
+        gap: 0.375rem;
+      }
+
+      /* ---------- the closing call ---------- */
+
+      .closing .wrap {
+        display: grid;
+        gap: 1.5rem;
+        justify-items: start;
+      }
+
+      .closing h2 {
+        font-size: clamp(1.75rem, 3.4vw, 2.5rem);
+        letter-spacing: -0.01em;
+      }
+
+      .closing p {
+        color: var(--fg-muted);
         max-width: var(--measure);
       }
 
@@ -1584,24 +1338,6 @@
       .site-foot p:last-child {
         margin-left: auto;
       }
-
-      .visually-hidden {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        *,
-        *::before,
-        *::after {
-          transition: none !important;
-          animation: none !important;
-        }
-      }
     </style>
   </head>
   <body>
@@ -1632,12 +1368,12 @@
         </a>
         <nav aria-label="Sections">
           <ul>
-            <li class="section-link"><a href="#offline">Offline</a></li>
+            <li class="section-link"><a href="#watch">See it work</a></li>
             <li class="section-link"><a href="#write">Who it's for</a></li>
-            <li class="section-link"><a href="#together">Together</a></li>
             <li class="section-link"><a href="#status">What works</a></li>
             <li class="section-link"><a href="#faq">Questions</a></li>
             <li><a href="https://github.com/HMarzban/manent">GitHub</a></li>
+            <li><a class="button button-small" href="#try">Try it</a></li>
           </ul>
         </nav>
       </div>
@@ -1647,214 +1383,164 @@
       <section class="hero" id="top" aria-labelledby="hero-title">
         <div class="wrap">
           <div>
-            <h1 id="hero-title">Every word kept. Every page the same.</h1>
+            <h1 id="hero-title">
+              <span>Write anywhere.</span> <span>Lose nothing.</span>
+            </h1>
             <p class="lede">
-              Manent is an open-source screenwriting app for film, TV, stage,
-              books, games and the newsroom. Write on true script pages, with
-              your room in real time, with or without a connection.
+              Manent is a free, open-source app for writing scripts, being built
+              for <a href="#write-film">film</a>, <a href="#write-tv">TV</a>,
+              <a href="#write-stage">the stage</a>,
+              <a href="#write-books">books</a>,
+              <a href="#write-games">games</a> and
+              <a href="#write-news">the newsroom</a>. Every change is saved on
+              your device first, so you can write on a train with no signal, and
+              your words reach every window open on the script as you type.
             </p>
             <div class="actions">
-              <a class="button" href="#try">Try the demo on your machine</a>
-              <a
-                class="button button-quiet"
-                href="https://github.com/HMarzban/manent"
-                >View on GitHub</a
+              <a class="button" href="#watch">Watch it work (32 s)</a>
+              <a class="button button-quiet" href="#try"
+                >Try it on your machine</a
               >
             </div>
             <p class="early">
-              Early and in development.
-              <a href="#status">Here is exactly what runs today.</a>
+              Early, and moving fast: writing, offline work and live editing run
+              today; production revisions and history are next.
+              <a href="#status">See what runs today.</a>
             </p>
           </div>
 
-          <!-- Placeholder: replace with a screenshot of the same moment in the real editor
-               (a page of The Long Night, two collaborators' carets, the status reading
-               Saved · Synced) once the seeded scripts and named carets are in the demo. -->
-          <figure class="hero-figure" data-placeholder="hero-screenshot">
-            <div
-              class="app"
-              role="img"
-              aria-label="Page 12 of a screenplay called The Long Night, open in Manent: a scene heading, action, and dialogue between Mara and a clerk, set in 12 point Courier. Two collaborators, Dana and Sam, have named carets in the text. The status above the page reads Saved, Synced."
-            >
-              <div class="app-bar" aria-hidden="true">
-                <strong>The Long Night</strong>
-                <span class="status-line" data-status
-                  >Saved · <span data-server>Synced</span></span
-                >
-                <span class="who">
-                  <span class="avatar who-1">DR</span>
-                  <span class="avatar who-2">SO</span>
-                  <span class="avatar who-you">You</span>
-                </span>
-              </div>
-              <div class="app-desk" aria-hidden="true">
-                <div class="sheet">
-                  <div class="sheet-body">
-                    <p class="no">12.</p>
-                    <p class="sh">INT. FERRY TERMINAL - NIGHT</p>
-                    <p>
-                      Rows of plastic seats bolted to the floor. A vending
-                      machine hums. Rain runs down the long window in sheets.
-                    </p>
-                    <p>
-                      MARA (40s, a coat too thin for the weather) stands at the
-                      ticket desk. The shutter is down.
-                    </p>
-                    <p class="ch">MARA</p>
-                    <p class="pa">(to the shutter)</p>
-                    <p class="di">
-                      I can hear the radio. I know you're in there.
-                    </p>
-                    <p>
-                      A pause. The shutter rises a hand's width.<span
-                        class="caret who-1"
-                        data-name="Dana"
-                      ></span>
-                    </p>
-                    <p class="ch">CLERK (O.S.)</p>
-                    <p class="di">Last boat went at ten.</p>
-                    <p class="ch">MARA</p>
-                    <p class="di">The board says eleven forty.</p>
-                    <p>
-                      <span data-typed class="typed"
-                        >She slides a folded timetable under the shutter.</span
-                      ><span class="caret who-2" data-name="Sam"></span>
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div class="app-foot" aria-hidden="true">
-                <span>Action</span>
-                <span>Page 12 of 104</span>
-                <span>Scene 7</span>
-              </div>
-            </div>
-            <figcaption>
-              The page is US Letter at true proportions: 12 pt Courier Prime,
-              the standard margins, six lines to the inch.
+          <figure>
+            <picture class="shot">
+              <source
+                media="(max-width: 40rem)"
+                srcset="media/demo-script-phone.webp"
+                width="800"
+                height="783"
+              />
+              <img
+                src="media/demo-script.webp"
+                width="1600"
+                height="1031"
+                alt="A screenplay called The Long Night open in Manent's demo: a scene heading, two lines of action, Mara's name with a parenthetical and her dialogue, and a clerk's line, set in Courier. The status beside the title reads Saved · Synced, and the caret of a second window, labelled Sam Okafor, sits at the end of the last line."
+              />
+            </picture>
+            <figcaption class="figure-note">
+              <span class="kind"
+                >Screenshot of the demo, 21 November 2026.</span
+              >
+              A second window on the same script is typing; its caret carries
+              its person's name. The purple strip is the demo's own control bar.
             </figcaption>
           </figure>
         </div>
       </section>
 
-      <section
-        class="section promise"
-        id="offline"
-        aria-labelledby="offline-title"
-      >
-        <div class="wrap promise-grid">
-          <div>
-            <div class="section-head">
-              <h2 id="offline-title">Write anywhere. Lose nothing.</h2>
-              <p>
-                Every change is saved on your device before it goes anywhere. A
-                dropped connection, a stopped server or a long flight costs you
-                nothing, and the app tells you plainly where your words are.
-              </p>
-            </div>
-            <dl class="terms">
-              <div>
-                <dt>
-                  Saved <span class="status status-demo">In the demo</span>
-                </dt>
-                <dd>
-                  The change is on this device. It is written to your own
-                  computer first, before anything is sent.
-                </dd>
-              </div>
-              <div>
-                <dt>
-                  Synced <span class="status status-demo">In the demo</span>
-                </dt>
-                <dd>
-                  The server has it, and everyone else in the script can get it.
-                  The two words never stand in for each other.
-                </dd>
-              </div>
-              <div>
-                <dt>
-                  Offline, 12 waiting
-                  <span class="status status-demo">In the demo</span>
-                </dt>
-                <dd>
-                  You keep writing. The count is the changes waiting on your
-                  device; they go as soon as the connection is back.
-                </dd>
-              </div>
-              <div>
-                <dt>
-                  The receipt
-                  <span class="status status-built">Being built</span>
-                </dt>
-                <dd>
-                  On reconnect, one line says what synced and what overlaps with
-                  someone else's edits. Text that cannot be placed is kept as
-                  Recovered text. Nothing is dropped without a word.
-                </dd>
-              </div>
-            </dl>
-            <p class="aside">
-              A browser may clear what a site stores when the disk runs low, and
-              Manent says so. The desktop app, being built, keeps your scripts
-              on disk for good.
+      <section class="section band" id="watch" aria-labelledby="watch-title">
+        <div class="wrap">
+          <div class="section-head">
+            <h2 id="watch-title">See it work</h2>
+            <p>
+              A crash, a dropped connection or a cleared browser can still cost
+              a writer a scene. Manent keeps every change on your device first,
+              and its status tells you plainly where your words are.
             </p>
           </div>
 
-          <!-- Placeholder: replace with a short recording (10 s, muted, captions in the
-               page text) of the same three moments in the demo: Synced, then Offline with
-               a count while typing, then the receipt after reconnecting. -->
-          <figure class="figure zoom" data-placeholder="offline-recording">
-            <ol
-              class="states"
-              role="img"
-              aria-label="The same script at three moments of one day. At a desk: Saved, Synced. On a train with no signal, the writer keeps typing a new scene and the status reads Saved, Offline, 12 waiting. Back online: 12 changes synced, 1 passage overlaps, review."
-            >
-              <li class="state" aria-hidden="true">
-                <span class="state-when">At your desk</span>
-                <span class="app-bar"
-                  ><strong>The Long Night</strong> Saved · Synced</span
-                >
-              </li>
-              <li class="state" aria-hidden="true">
-                <span class="state-when">On a train with no signal</span>
-                <div class="app">
-                  <div class="app-bar">
-                    <strong>The Long Night</strong>
-                    <span>Saved · Offline, 12 waiting</span>
-                    <span class="badge">Offline</span>
-                  </div>
-                  <div class="app-desk">
-                    <div class="sheet">
-                      <div class="sheet-body">
-                        <p class="sh">INT. NIGHT TRAIN - MOVING</p>
-                        <p>
-                          Mara has the carriage to herself. Her phone shows no
-                          bars. She writes the timetable's times on the back of
-                          her hand, one under the other.
-                        </p>
-                        <p class="ch">MARA</p>
-                        <p class="pa">(to herself)</p>
-                        <p class="di">
-                          Eleven forty. Then nothing till six.<span
-                            class="caret who-you"
-                          ></span>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </li>
-              <li class="state" aria-hidden="true">
-                <span class="state-when">Back online</span>
-                <span class="app-bar receipt"
-                  >12 changes synced · 1 passage overlaps — review</span
-                >
-              </li>
-            </ol>
+          <figure class="recording">
+            <div class="shot">
+              <video
+                controls
+                muted
+                playsinline
+                preload="none"
+                poster="media/demo-recording-poster.webp"
+                width="1792"
+                height="684"
+                aria-describedby="watch-transcript"
+                data-recording
+              >
+                <source src="media/demo-recording.webm" type="video/webm" />
+                <source src="media/demo-recording.mp4" type="video/mp4" />
+                <track
+                  kind="captions"
+                  src="media/demo-recording.vtt"
+                  srclang="en-GB"
+                  label="English"
+                  default
+                />
+              </video>
+            </div>
             <figcaption class="figure-note">
-              The status beside a script's title, in the app's own words.
+              <span class="kind">Recording of the demo, 21 November 2026.</span>
+              Two windows on one script, as a laptop and a desktop would have
+              it; one loses its network and keeps writing. 32 seconds, no sound.
             </figcaption>
           </figure>
+          <details class="transcript" id="watch-transcript">
+            <summary>What the recording shows</summary>
+            <ol>
+              <li>
+                Two windows are open on The Long Night, both signed in as Sam
+                Okafor. Both read Saved · Synced.
+              </li>
+              <li>
+                Window 1 types. Tab makes the character name MARA, Enter starts
+                her dialogue, and every letter appears in window 2 as it is
+                typed, with window 1's caret and name.
+              </li>
+              <li>
+                Window 2 types a line of action, and it appears in window 1.
+              </li>
+              <li>
+                Window 2's network is cut. It keeps writing a clerk's line and
+                Mara's answer, and its status reads Offline, 4 waiting. Window 1
+                does not have those lines yet.
+              </li>
+              <li>
+                The network comes back. Window 2 reads Syncing…, then Synced,
+                and window 1 now holds every line.
+              </li>
+            </ol>
+          </details>
+
+          <dl class="terms">
+            <div>
+              <dt>Saved</dt>
+              <dd>
+                The change is on this device, written there before anything is
+                sent.
+              </dd>
+            </div>
+            <div>
+              <dt>Synced</dt>
+              <dd>
+                The server has it, and every other window on the script can get
+                it.
+              </dd>
+            </div>
+            <div>
+              <dt>Offline, 4 waiting</dt>
+              <dd>
+                You keep writing. The count is the changes waiting on your
+                device; they go as soon as the connection is back.
+              </dd>
+            </div>
+          </dl>
+          <div class="after">
+            <p>
+              All three run in the demo, in the app's own words.
+              <span class="status status-demo">In the demo</span>
+            </p>
+            <p>
+              Next, on reconnecting, one line will say what synced and list
+              anything that overlapped someone else's edit, so you can see both
+              and choose. <span class="status status-built">Being built</span>
+            </p>
+            <p>
+              A browser may clear what a site stores when the disk runs low, and
+              Manent says so. The desktop app will keep every script on disk.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -1863,9 +1549,8 @@
           <div class="section-head">
             <h2 id="write-title">What do you write?</h2>
             <p>
-              One app for the feature, the room, the newsroom, the stage, the
-              novel and the game. Choose yours to see what gets in your way and
-              what Manent does about it.
+              Choose yours to see what gets in your way, what you can try today
+              and what is on the way.
             </p>
           </div>
 
@@ -1885,7 +1570,7 @@
                 aria-controls="write-tv"
                 type="button"
               >
-                TV and writers' rooms
+                TV
               </button>
               <button
                 role="tab"
@@ -1917,74 +1602,57 @@
                 aria-controls="write-games"
                 type="button"
               >
-                Games and animation
+                Games
               </button>
             </div>
 
-            <!-- Film -->
-            <div
-              class="panel"
-              role="tabpanel"
-              id="write-film"
-              aria-labelledby="tab-film"
-              tabindex="0"
-            >
-              <div>
-                <h3>Draft to shooting script without changing tools.</h3>
+            <div class="panel" id="write-film">
+              <div class="panel-head">
+                <h3>Your spec, on pages a reader trusts.</h3>
                 <p class="for">For feature and short film writers.</p>
-                <h4>What gets in the way</h4>
-                <ul class="pains">
-                  <li>A crash or a lost sync takes a day's pages with it.</li>
-                  <li>
-                    A reader notices when the margins or the page count look
-                    wrong.
-                  </li>
-                  <li>
-                    Activation keys and sign-in walls stand between you and your
-                    own script.
-                  </li>
-                </ul>
-                <h4>What Manent does</h4>
-                <ul class="gets">
-                  <li>
-                    Script pages in 12 pt Courier Prime, with the page count
-                    beside them
-                    <span class="status status-demo">In the demo</span>
-                  </li>
-                  <li>
-                    Every change saved on your device first; no account, no
-                    activation
-                    <span class="status status-demo">In the demo</span>
-                  </li>
-                  <li>
-                    The page on screen is the page in the PDF
-                    <span class="status status-built">Being built</span>
-                  </li>
-                  <li>
-                    Named drafts, and Changes since any of them
-                    <span class="status status-built">Being built</span>
-                  </li>
-                  <li>
-                    FDX and Fountain in and out
-                    <span class="status status-planned">Planned</span>
-                  </li>
-                </ul>
+                <p>
+                  Write the scene the way you see it, and let the page keep the
+                  format.
+                </p>
               </div>
-              <!-- Placeholder: replace with a screenshot of a page in the editor beside the
-                   same page of the exported PDF, once the PDF export is in the demo. -->
-              <figure class="zoom" data-placeholder="film-screen-and-pdf">
+              <figure>
                 <div
                   class="app"
                   role="img"
-                  aria-label="Page 47 of The Long Night twice, side by side: on screen in Manent and in the exported PDF. Every line breaks in the same place."
+                  aria-label="Page 47 of The Long Night twice, side by side: on screen in Manent and in the exported PDF, open in a PDF viewer. Every line breaks in the same place, down to CUT TO:."
                 >
-                  <div class="app-desk pair" aria-hidden="true" data-pair>
+                  <div class="app-desk pair" aria-hidden="true">
                     <div>
                       <span class="pair-label">On screen</span>
-                      <div class="sheet" data-pair-source>
+                      <div class="sheet">
                         <div class="sheet-body">
                           <p class="no">47.</p>
-                          <p class="sh">EXT. HARBOUR WALL - DAWN</p>
+                          <p>EXT. HARBOUR WALL - DAWN</p>
+                          <p>
+                            The ferry sits low in the water, its lights still
+                            on. Mara walks the wall with the timetable in her
+                            fist.
+                          </p>
+                          <p class="ch">CLERK</p>
+                          <p class="pa">(calling after her)</p>
+                          <p class="di">It was never going to leave on time.</p>
+                          <p class="ch">MARA</p>
+                          <p class="di">
+                            Then it can leave late. With me on it.
+                          </p>
+                          <p class="tr">CUT TO:</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <span class="pair-label">In the PDF</span>
+                      <div class="pdf-bar">
+                        <span>The Long Night.pdf</span><span>47 / 104</span>
+                      </div>
+                      <div class="sheet">
+                        <div class="sheet-body">
+                          <p class="no">47.</p>
+                          <p>EXT. HARBOUR WALL - DAWN</p>
                           <p>
                             The ferry sits low in the water, its lights still
                             on. Mara walks the wall with the timetable in her
@@ -2004,67 +1672,71 @@
                   </div>
                 </div>
                 <figcaption class="figure-note">
-                  One layout calculation, used by the screen and the PDF alike.
+                  <span class="kind">Design mock-up.</span> One layout
+                  calculation for the screen and the PDF, so page 47 starts on
+                  the same line in both.
                   <span class="status status-built">Being built</span>
                 </figcaption>
               </figure>
-            </div>
-
-            <!-- TV -->
-            <div
-              class="panel"
-              role="tabpanel"
-              id="write-tv"
-              aria-labelledby="tab-tv"
-              tabindex="0"
-            >
-              <div>
-                <h3>The whole room in one script.</h3>
-                <p class="for">
-                  For showrunners, staff writers, writers' assistants and script
-                  coordinators.
-                </p>
-                <h4>What gets in the way</h4>
+              <div class="panel-body">
+                <h4 class="list-head">What gets in the way</h4>
                 <ul class="pains">
+                  <li>A crash or a lost sync takes a day's pages with it.</li>
                   <li>
-                    Every round has to be marked, issued and checked again,
-                    usually at 2 a.m.
+                    A reader notices when the margins or the page count look
+                    wrong.
                   </li>
-                  <li>Scenes from five writers have to become one script.</li>
                   <li>
-                    A wrong colour, a missing A-page or a renumbered scene costs
-                    the crew a morning.
+                    Activation keys and sign-in walls stand between you and your
+                    own script.
                   </li>
                 </ul>
-                <h4>What Manent does</h4>
+                <h4 class="list-head">
+                  Try it today
+                  <span class="status status-demo">In the demo</span>
+                </h4>
                 <ul class="gets">
                   <li>
-                    The room writes in one script at once, and every edit
-                    appears as it is typed
-                    <span class="status status-demo">In the demo</span>
+                    Script pages in 12 pt Courier Prime, with page breaks and
+                    the page count
                   </li>
                   <li>
-                    Names and carets show who is where
+                    Every change saved on your device first; no account, no
+                    activation
+                  </li>
+                  <li>Export a clean PDF</li>
+                </ul>
+                <h4 class="list-head">On the way</h4>
+                <ul class="gets later">
+                  <li>
+                    The page on screen is the page in the PDF, line for line
                     <span class="status status-built">Being built</span>
                   </li>
                   <li>
-                    Lock page numbers, issue Blue, and get 12A and the asterisks
-                    without asking
+                    Named drafts, and Changes since any of them
                     <span class="status status-built">Being built</span>
                   </li>
                   <li>
-                    Issue and Recall, while the room keeps typing
-                    <span class="status status-built">Being built</span>
-                  </li>
-                  <li>
-                    A series index with its episode table and rounds of notes
+                    FDX and Fountain in and out
                     <span class="status status-planned">Planned</span>
                   </li>
                 </ul>
               </div>
-              <!-- Placeholder: replace with a screenshot of an issued Blue page with an
-                   A-page label and asterisks, once production revisions are in the demo. -->
-              <figure class="revised zoom" data-placeholder="tv-blue-page">
+            </div>
+
+            <div class="panel" id="write-tv">
+              <div class="panel-head">
+                <h3>The whole room in one script.</h3>
+                <p class="for">
+                  For showrunners, staff and animation writers, writers'
+                  assistants and script coordinators.
+                </p>
+                <p>
+                  Break the story together and write it while it is still warm,
+                  in the script everyone already has open.
+                </p>
+              </div>
+              <figure class="revised mc">
                 <div
                   class="app"
                   role="img"
@@ -2074,7 +1746,7 @@
                     <strong>Night Ferry, episode 104</strong>
                     <span>Blue in progress</span>
                   </div>
-                  <div class="app-desk mc" aria-hidden="true">
+                  <div class="app-desk" aria-hidden="true">
                     <div class="sheet">
                       <div class="sheet-body">
                         <div class="rev-head">
@@ -2096,69 +1768,78 @@
                   </div>
                 </div>
                 <figcaption class="figure-note">
-                  Blue pages: the colour is named in the header, not only shown.
-                  Design mock-up.
+                  <span class="kind">Design mock-up.</span> Blue pages: the
+                  colour is named in the header, not only shown.
                   <span class="status status-built">Being built</span>
                 </figcaption>
               </figure>
+              <div class="panel-body">
+                <h4 class="list-head">What gets in the way</h4>
+                <ul class="pains">
+                  <li>
+                    Every round has to be marked, issued and checked again,
+                    usually at 2 a.m.
+                  </li>
+                  <li>Scenes from five writers have to become one script.</li>
+                  <li>
+                    A wrong colour, a missing A-page or a renumbered scene costs
+                    the crew a morning.
+                  </li>
+                </ul>
+                <h4 class="list-head">
+                  Try it today
+                  <span class="status status-demo">In the demo</span>
+                </h4>
+                <ul class="gets">
+                  <li>
+                    Multi-camera and animation formats: action in capitals,
+                    scenes lettered
+                  </li>
+                  <li>
+                    Every window open on a script shows each edit as it is
+                    typed, with that window's caret and name
+                  </li>
+                </ul>
+                <h4 class="list-head">On the way</h4>
+                <ul class="gets later">
+                  <li>
+                    The room in one script: share it with your writers
+                    <span class="status status-built">Being built</span>
+                  </li>
+                  <li>
+                    Lock page numbers, issue Blue or recall it while the room
+                    keeps typing, and get 12A and the asterisks without asking
+                    <span class="status status-built">Being built</span>
+                  </li>
+                  <li>
+                    Numbered dialogue lines and pickup lists for the record
+                    <span class="status status-planned">Planned</span>
+                  </li>
+                </ul>
+              </div>
             </div>
 
-            <!-- News and live -->
-            <div
-              class="panel"
-              role="tabpanel"
-              id="write-news"
-              aria-labelledby="tab-news"
-              tabindex="0"
-            >
-              <div>
+            <div class="panel" id="write-news">
+              <div class="panel-head">
                 <h3>The script, the clock and the prompter agree.</h3>
                 <p class="for">
                   For news producers, late-night and variety writers, and
                   podcasters.
                 </p>
-                <h4>What gets in the way</h4>
-                <ul class="pains">
-                  <li>Breaking news rewrites the show minutes before air.</li>
-                  <li>The over and under has to be right to the second.</li>
-                  <li>The prompter must never show text that nobody sent.</li>
-                </ul>
-                <h4>What Manent will do</h4>
-                <ul class="gets">
-                  <li>
-                    A rundown with front and back timing, and the over or under
-                    <span class="status status-planned">Planned</span>
-                  </li>
-                  <li>
-                    One story per document, so a late change touches one story
-                    <span class="status status-planned">Planned</span>
-                  </li>
-                  <li>
-                    Read-rate timing for copy, segments and cues
-                    <span class="status status-planned">Planned</span>
-                  </li>
-                  <li>
-                    A prompter that changes only when someone sends, and says
-                    when its feed is lost
-                    <span class="status status-planned">Planned</span>
-                  </li>
-                </ul>
-                <p class="figure-note">
-                  Manent will not talk to MOS or drive a vendor's prompter; the
-                  prompter is its own.
+                <p>
+                  Rewrite a story two minutes before air and know that what goes
+                  to the prompter is what you sent.
                 </p>
               </div>
-              <!-- Placeholder: replace with a screenshot of the rundown and prompter once
-                   they are built. Until then this stays labelled as a design mock-up. -->
-              <figure data-placeholder="news-rundown">
+              <figure>
                 <div
                   class="app rundown"
                   role="img"
-                  aria-label="A rundown for the 18:00 news, on air, 48 seconds over. Each row has a page, slug, talent, type, duration, back time and prompter state; one row reads Changed, not on prompter."
+                  aria-label="A rundown for the 18:00 news, a six-minute show, on air at 18:01:30 and 48 seconds over. The live row is A2, Quay fire. Each row has a page, slug, talent, type, duration, front time, back time and prompter state; the next row, A3 Council vote, reads Not on prompter."
                 >
                   <div class="clock" aria-hidden="true">
-                    <span>18:00 News</span>
-                    <span>On air <b>18:04:12</b></span>
+                    <span>18:00 News · 6:00</span>
+                    <span>On air <b>18:01:30</b></span>
                     <span class="over">Over 0:48</span>
                   </div>
                   <table aria-hidden="true">
@@ -2169,7 +1850,8 @@
                         <th class="opt">Talent</th>
                         <th class="opt">Type</th>
                         <th class="num">Dur</th>
-                        <th class="num">Back</th>
+                        <th class="num opt">Front</th>
+                        <th class="num opt">Back</th>
                         <th>Prompter</th>
                       </tr>
                     </thead>
@@ -2180,8 +1862,9 @@
                         <td class="opt">Both</td>
                         <td class="opt">Live</td>
                         <td class="num">0:45</td>
-                        <td class="num">18:00:00</td>
-                        <td>On prompter</td>
+                        <td class="num opt">18:00:00</td>
+                        <td class="num opt">17:59:12</td>
+                        <td>Sent</td>
                       </tr>
                       <tr class="now">
                         <td>A2</td>
@@ -2189,17 +1872,19 @@
                         <td class="opt">Ines</td>
                         <td class="opt">VO/SOT</td>
                         <td class="num">1:20</td>
-                        <td class="num">18:00:45</td>
-                        <td>On prompter</td>
+                        <td class="num opt">18:00:45</td>
+                        <td class="num opt">17:59:57</td>
+                        <td>On air</td>
                       </tr>
                       <tr>
                         <td>A3</td>
                         <td>Council vote</td>
                         <td class="opt">Tom</td>
                         <td class="opt">PKG</td>
-                        <td class="num">2:10</td>
-                        <td class="num">18:02:05</td>
-                        <td class="changed">Changed — not on prompter</td>
+                        <td class="num">2:58</td>
+                        <td class="num opt">18:02:05</td>
+                        <td class="num opt">18:01:17</td>
+                        <td class="changed">Not on prompter</td>
                       </tr>
                       <tr>
                         <td>B1</td>
@@ -2207,8 +1892,9 @@
                         <td class="opt">Ines</td>
                         <td class="opt">Live</td>
                         <td class="num">1:30</td>
-                        <td class="num">18:04:15</td>
-                        <td>On prompter</td>
+                        <td class="num opt">18:05:03</td>
+                        <td class="num opt">18:04:15</td>
+                        <td>Sent</td>
                       </tr>
                       <tr>
                         <td>B2</td>
@@ -2216,33 +1902,85 @@
                         <td class="opt">Tom</td>
                         <td class="opt">VO</td>
                         <td class="num">0:15</td>
-                        <td class="num">18:05:45</td>
-                        <td>On prompter</td>
+                        <td class="num opt">18:06:33</td>
+                        <td class="num opt">18:05:45</td>
+                        <td>Sent</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
                 <figcaption class="figure-note">
-                  Design mock-up.
+                  <span class="kind">Design mock-up.</span> A3 changed after it
+                  was sent, and the rundown says so before it goes to air.
                   <span class="status status-planned">Planned</span>
                 </figcaption>
               </figure>
+              <div class="panel-body">
+                <h4 class="list-head">What gets in the way</h4>
+                <ul class="pains">
+                  <li>Breaking news rewrites the show minutes before air.</li>
+                  <li>The packet gets cut from fifty pages to four by air.</li>
+                  <li>The prompter must never show text that nobody sent.</li>
+                </ul>
+                <h4 class="list-head">
+                  Try it today
+                  <span class="status status-demo">In the demo</span>
+                </h4>
+                <ul class="gets">
+                  <li>A variety format to write sketches in</li>
+                  <li>
+                    Every change saved on your device first, online or off
+                  </li>
+                </ul>
+                <h4 class="list-head">
+                  On the way: rundowns and the prompter
+                  <span class="status status-planned">Planned</span>
+                </h4>
+                <ul class="gets later">
+                  <li>
+                    A rundown with read-rate timing, front and back times, and
+                    the over or under
+                  </li>
+                  <li>
+                    One story per document, so a late change touches one story
+                  </li>
+                  <li>
+                    A prompter that changes only when someone sends, and says
+                    when its feed is lost
+                  </li>
+                </ul>
+              </div>
             </div>
 
-            <!-- Stage -->
-            <div
-              class="panel"
-              role="tabpanel"
-              id="write-stage"
-              aria-labelledby="tab-stage"
-              tabindex="0"
-            >
-              <div>
+            <div class="panel" id="write-stage">
+              <div class="panel-head">
                 <h3>Plays laid out as plays, not screenplays in disguise.</h3>
                 <p class="for">
                   For playwrights, dramaturgs and stage managers.
                 </p>
-                <h4>What gets in the way</h4>
+                <p>
+                  Bring the day's new pages to rehearsal knowing exactly which
+                  lines changed.
+                </p>
+              </div>
+              <figure>
+                <div class="shot">
+                  <img
+                    src="media/demo-stage.webp"
+                    width="1200"
+                    height="529"
+                    loading="lazy"
+                    alt="A stage play called Thursday in Manent's demo: the heading ACT ONE, SCENE TWO centred, a stage direction in parentheses setting a kitchen in late autumn, then RUTH and TOM with their names centred above their lines."
+                  />
+                </div>
+                <figcaption class="figure-note">
+                  <span class="kind">Screenshot of the demo.</span> The stage
+                  play format: names centred, the stage direction set in
+                  parentheses by the layout.
+                </figcaption>
+              </figure>
+              <div class="panel-body">
+                <h4 class="list-head">What gets in the way</h4>
                 <ul class="pains">
                   <li>
                     A word processor needs a home-made template before it can
@@ -2257,13 +1995,18 @@
                     the last reading?
                   </li>
                 </ul>
-                <h4>What Manent does</h4>
+                <h4 class="list-head">
+                  Try it today
+                  <span class="status status-demo">In the demo</span>
+                </h4>
                 <ul class="gets">
                   <li>
                     A stage play format: centred names, stage directions set by
                     the layout
-                    <span class="status status-built">Being built</span>
                   </li>
+                </ul>
+                <h4 class="list-head">On the way</h4>
+                <ul class="gets later">
                   <li>
                     Cast of characters and setting on front pages of their own
                     <span class="status status-built">Being built</span>
@@ -2273,58 +2016,39 @@
                     <span class="status status-built">Being built</span>
                   </li>
                   <li>
-                    A PDF any theatre can open
+                    A PDF any theatre can open, page for page
                     <span class="status status-built">Being built</span>
                   </li>
                 </ul>
               </div>
-              <!-- Placeholder: replace with a screenshot of a stage play page in the editor. -->
-              <figure class="play zoom" data-placeholder="stage-page">
-                <div
-                  class="app"
-                  role="img"
-                  aria-label="A stage play page: Act One, Scene Two, centred. A stage direction in parentheses sets a kitchen in late autumn; Ruth and Tom speak, their names centred above their lines."
-                >
-                  <div class="app-desk" aria-hidden="true">
-                    <div class="sheet">
-                      <div class="sheet-body">
-                        <p class="no">14.</p>
-                        <p class="act">ACT ONE</p>
-                        <p class="act">Scene Two</p>
-                        <p class="sd">
-                          (A kitchen in late autumn. A radio murmurs. RUTH
-                          stands at the window with a cold cup of tea.)
-                        </p>
-                        <p class="ch">RUTH</p>
-                        <p class="di">He said Thursday.</p>
-                        <p class="ch">TOM</p>
-                        <p class="sd">(Not looking up from the paper.)</p>
-                        <p class="di">He says a lot of things on a Monday.</p>
-                        <p class="ch">RUTH</p>
-                        <p class="di">This time he wrote it down.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <figcaption class="figure-note">
-                  Design mock-up.
-                  <span class="status status-built">Being built</span>
-                </figcaption>
-              </figure>
             </div>
 
-            <!-- Books -->
-            <div
-              class="panel"
-              role="tabpanel"
-              id="write-books"
-              aria-labelledby="tab-books"
-              tabindex="0"
-            >
-              <div>
+            <div class="panel" id="write-books">
+              <div class="panel-head">
                 <h3>A whole manuscript in one document.</h3>
                 <p class="for">For novelists and long-form writers.</p>
-                <h4>What gets in the way</h4>
+                <p>
+                  Stay inside one book instead of a folder of chapter files, and
+                  keep going wherever you are.
+                </p>
+              </div>
+              <figure>
+                <div class="shot">
+                  <img
+                    src="media/demo-manuscript.webp"
+                    width="1200"
+                    height="458"
+                    loading="lazy"
+                    alt="A manuscript called The Salt Road in Manent's demo: the heading CHAPTER ONE, then two double-spaced paragraphs with their first lines indented."
+                  />
+                </div>
+                <figcaption class="figure-note">
+                  <span class="kind">Screenshot of the demo.</span> The
+                  manuscript format: double-spaced, first lines indented.
+                </figcaption>
+              </figure>
+              <div class="panel-body">
+                <h4 class="list-head">What gets in the way</h4>
                 <ul class="pains">
                   <li>A sync that went wrong cost a chapter.</li>
                   <li>
@@ -2333,15 +2057,26 @@
                   </li>
                   <li>Terms that let a company train on your words.</li>
                 </ul>
-                <h4>What Manent does</h4>
+                <h4 class="list-head">
+                  Try it today
+                  <span class="status status-demo">In the demo</span>
+                </h4>
                 <ul class="gets">
                   <li>
-                    Every change kept on your device first, online or off
-                    <span class="status status-demo">In the demo</span>
+                    Standard manuscript layout: double-spaced, first lines
+                    indented
                   </li>
+                  <li>Every change kept on your device first, online or off</li>
                   <li>
-                    Standard manuscript layout, with chapters listed beside the
-                    page <span class="status status-built">Being built</span>
+                    Your words are never used to train AI:
+                    <a href="#pledge">the pledge</a> is in the app's preferences
+                  </li>
+                </ul>
+                <h4 class="list-head">On the way</h4>
+                <ul class="gets later">
+                  <li>
+                    Chapters listed beside the page
+                    <span class="status status-built">Being built</span>
                   </li>
                   <li>
                     Every version kept; restore a chapter or the whole book
@@ -2354,88 +2089,18 @@
                   </li>
                 </ul>
               </div>
-              <!-- Placeholder: replace with a screenshot of a manuscript page in the editor. -->
-              <figure class="ms zoom" data-placeholder="books-manuscript">
-                <div
-                  class="app"
-                  role="img"
-                  aria-label="A manuscript page in standard format: the title and page number in the header, Chapter One a third of the way down, then double-spaced paragraphs with indented first lines."
-                >
-                  <div class="app-desk" aria-hidden="true">
-                    <div class="sheet">
-                      <div class="sheet-body">
-                        <p class="no">The Salt Road / 1</p>
-                        <p class="chapter">Chapter One</p>
-                        <p>
-                          The road to the salt flats was older than the town,
-                          and the town had never quite forgiven it.
-                        </p>
-                        <p>
-                          Every spring it washed out at the second bridge, and
-                          every spring someone from the council drove out to
-                          look at it, shook their head and drove back.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <figcaption class="figure-note">
-                  Design mock-up.
-                  <span class="status status-built">Being built</span>
-                </figcaption>
-              </figure>
             </div>
 
-            <!-- Games and animation -->
-            <div
-              class="panel"
-              role="tabpanel"
-              id="write-games"
-              aria-labelledby="tab-games"
-              tabindex="0"
-            >
-              <div>
+            <div class="panel" id="write-games">
+              <div class="panel-head">
                 <h3>Branching lines and Ink, written like a script.</h3>
-                <p class="for">
-                  For narrative designers, game writers and animation writers.
+                <p class="for">For narrative designers and game writers.</p>
+                <p>
+                  Write a branch the way you imagine it, and keep it in the same
+                  place as the rest of the story.
                 </p>
-                <h4>What gets in the way</h4>
-                <ul class="pains">
-                  <li>Moving a line must not break the build.</li>
-                  <li>
-                    Text gets retyped for the engine, the voice session and
-                    localisation.
-                  </li>
-                  <li>
-                    The record draft changes after the voices are recorded.
-                  </li>
-                </ul>
-                <h4>What Manent does</h4>
-                <ul class="gets">
-                  <li>
-                    Game script elements: Emote, Camera, Engine direction
-                    <span class="status status-built">Being built</span>
-                  </li>
-                  <li>
-                    Animation scripts with their own format
-                    <span class="status status-built">Being built</span>
-                  </li>
-                  <li>
-                    Branching lines, and line data with stable IDs in JSON and
-                    XML <span class="status status-planned">Planned</span>
-                  </li>
-                  <li>
-                    Ink that compiles as you type and plays beside the source
-                    <span class="status status-planned">Planned</span>
-                  </li>
-                  <li>
-                    Numbered dialogue lines and pickup lists for the record
-                    <span class="status status-planned">Planned</span>
-                  </li>
-                </ul>
               </div>
-              <!-- Placeholder: replace with a screenshot of the Ink editor and its player once built. -->
-              <figure data-placeholder="games-ink">
+              <figure>
                 <div
                   class="app"
                   role="img"
@@ -2460,260 +2125,94 @@ The clerk doesn't look up.
                   </div>
                 </div>
                 <figcaption class="figure-note">
-                  Design mock-up.
+                  <span class="kind">Design mock-up.</span> Ink beside its
+                  player, compiled as you type.
                   <span class="status status-planned">Planned</span>
                 </figcaption>
               </figure>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="features" aria-labelledby="features-title">
-        <div class="wrap">
-          <div class="section-head">
-            <h2 id="features-title">What it is built to do</h2>
-            <p>
-              Desktop apps keep your work offline; browser apps let you write
-              together. Manent is built to do both in the same script, on pages
-              that are the same for everyone.
-            </p>
-          </div>
-          <div class="ledger">
-            <div>
-              <h3>
-                Offline first, and honest about it
-                <span class="status status-demo">In the demo</span>
-              </h3>
-              <p>
-                Saved means on this device. Synced means the server has it.
-                Offline is a normal way to work, not a warning.
-              </p>
-            </div>
-            <div>
-              <h3>
-                Live, on the same page
-                <span class="status status-demo">In the demo</span>
-              </h3>
-              <p>
-                Everyone with the script open sees each edit as it is typed.
-                Named carets for each writer are being built.
-              </p>
-            </div>
-            <div>
-              <h3>
-                The same pages everywhere
-                <span class="status status-built">Being built</span>
-              </h3>
-              <p>
-                Pages are calculated, not measured from the screen, so every
-                device and the PDF agree on where page 47 starts.
-              </p>
-            </div>
-            <div>
-              <h3>
-                Production revisions
-                <span class="status status-built">Being built</span>
-              </h3>
-              <p>
-                Lock page numbers, issue colours in the standard order, get
-                A-pages and asterisks, recall an issue, and keep writing.
-              </p>
-            </div>
-            <div>
-              <h3>
-                Version history
-                <span class="status status-built">Being built</span>
-              </h3>
-              <p>
-                Every session and named draft kept, opened exactly as it was
-                paginated, compared with today and restored by the scene.
-              </p>
-            </div>
-            <div>
-              <h3>
-                Very long documents
-                <span class="status status-built">Being built</span>
-              </h3>
-              <p>
-                Designed so that a 2,000-page manuscript types like a 120-page
-                script. Figures will be published once they are measured.
-              </p>
-            </div>
-            <div>
-              <h3>
-                Series and episodes under one index
-                <span class="status status-planned">Planned</span>
-              </h3>
-              <p>
-                A season as one index over its episodes, with an episode table,
-                a draft ladder and rounds of notes.
-              </p>
-            </div>
-            <div>
-              <h3>
-                A desktop app that needs no network
-                <span class="status status-built">Being built</span>
-              </h3>
-              <p>
-                The same app in its own window, keeping every script on your
-                disk. Not released yet; the first builds will be unsigned.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section
-        class="section promise"
-        id="together"
-        aria-labelledby="together-title"
-      >
-        <div class="wrap">
-          <div class="section-head">
-            <h2 id="together-title">How an edit reaches everyone</h2>
-            <p>
-              Each keystroke takes the same short path, whether two of you are
-              in the script or twenty.
-            </p>
-          </div>
-          <div class="together-grid">
-            <ol class="steps">
-              <li>
-                <strong>You type</strong>
-                The change is saved on your device at once, before anything is
-                sent. The status reads Saved.
-              </li>
-              <li>
-                <strong>The server puts it in order</strong>
-                Manent's server records each change in one order for everyone,
-                then confirms it. The status reads Synced.
-              </li>
-              <li>
-                <strong>Everyone sees it</strong>
-                Every window open on the script shows the change as it lands, on
-                the same page and the same line.
-              </li>
-              <li>
-                <strong>Offline, it waits</strong>
-                With no connection, changes wait on your device and go when you
-                reconnect. Overlapping passages are listed for review, never
-                silently overwritten.
-              </li>
-            </ol>
-
-            <!-- Placeholder: replace with a recording of two demo windows side by side,
-                 one typing and the other showing the text arrive. -->
-            <figure
-              class="figure zoom"
-              data-placeholder="two-windows-recording"
-            >
-              <div
-                class="two-windows"
-                role="img"
-                aria-label="Two windows on the same script: Dana's laptop and Sam's laptop. Both show the same scene heading and the same line, with Sam's caret at the end of the line in both."
-              >
-                <div class="app" aria-hidden="true">
-                  <div class="app-bar">
-                    <strong>Dana's laptop</strong><span>Saved · Synced</span>
-                  </div>
-                  <div class="app-desk">
-                    <div class="sheet">
-                      <div class="sheet-body">
-                        <p class="sh">EXT. PIER - DAWN</p>
-                        <p>
-                          Gulls fight over a dropped sandwich.<span
-                            class="caret who-2"
-                            data-name="Sam"
-                          ></span>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="app" aria-hidden="true">
-                  <div class="app-bar">
-                    <strong>Sam's laptop</strong><span>Saved · Synced</span>
-                  </div>
-                  <div class="app-desk">
-                    <div class="sheet">
-                      <div class="sheet-body">
-                        <p class="sh">EXT. PIER - DAWN</p>
-                        <p>
-                          Gulls fight over a dropped sandwich.<span
-                            class="caret who-you"
-                          ></span>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <div class="panel-body">
+                <h4 class="list-head">What gets in the way</h4>
+                <ul class="pains">
+                  <li>Moving a line must not break the build.</li>
+                  <li>
+                    Text gets retyped for the engine, the voice session and
+                    localisation.
+                  </li>
+                  <li>
+                    The record draft changes after the voices are recorded.
+                  </li>
+                </ul>
+                <h4 class="list-head">
+                  Try it today
+                  <span class="status status-demo">In the demo</span>
+                </h4>
+                <ul class="gets">
+                  <li>A game script format, and Ink as a format of its own</li>
+                </ul>
+                <h4 class="list-head">On the way</h4>
+                <ul class="gets later">
+                  <li>
+                    Game script elements: Emote, Camera, Engine direction
+                    <span class="status status-built">Being built</span>
+                  </li>
+                  <li>
+                    Branching lines, and line data with stable IDs in JSON and
+                    XML
+                    <span class="status status-planned">Planned</span>
+                  </li>
+                  <li>
+                    Ink that compiles as you type and plays beside the source
+                    <span class="status status-planned">Planned</span>
+                  </li>
+                </ul>
               </div>
-              <figcaption class="figure-note">
-                Two windows on one script. Live editing is in the demo; named
-                carets are being built.
-              </figcaption>
-            </figure>
-          </div>
-
-          <!-- Placeholder: replace with the measured figures (keystroke to Saved, an edit
-               visible in another window, offline merge time) linked to the published
-               benchmark report, with the machine and conditions of each. -->
-          <div class="figures" data-placeholder="benchmark-figures">
-            <h3>How fast, in numbers</h3>
-            <p>
-              Not measured yet. Each figure will appear here with the machine it
-              was measured on and a link to the published benchmark report.
-              Until then, this page makes no claim about speed in numbers.
-            </p>
+            </div>
           </div>
         </div>
       </section>
 
-      <section
-        class="section yours"
-        id="open-source"
-        aria-labelledby="open-title"
-      >
+      <section class="section band" id="yours" aria-labelledby="yours-title">
         <div class="wrap">
           <div class="section-head">
-            <h2 id="open-title">Open source, and your words stay yours</h2>
+            <h2 id="yours-title">Yours to keep</h2>
             <p>
-              Manent is open source under the Apache License 2.0. Read every
-              line, run it, change it and share it.
+              Free and open source under the Apache License 2.0. It runs on your
+              own computer and needs no account.
             </p>
           </div>
           <div class="yours-grid">
             <div>
-              <h3>Read it, fork it, improve it</h3>
+              <h3>Free, and nobody can take it away</h3>
               <p>
-                The whole app is on GitHub: the editor, the page layout, the
-                sync and the server. Issues and pull requests are welcome.
+                Every line of the app is public. If the project stopped
+                tomorrow, your copy would keep working. Developers may read,
+                change and share it under the licence.
               </p>
             </div>
             <div>
-              <h3>It runs on your machine</h3>
+              <h3>On your computer</h3>
               <p>
-                The demo is one command, on your own computer, with no account.
-                It refuses to listen on a public address, because the demo has
-                no passwords.
+                One command starts it on your own machine. There is no account,
+                and it sends no usage data.
               </p>
             </div>
             <div>
               <h3>Your files leave with you</h3>
               <p>
-                Export a copy of any script, offline, at any time
-                <span class="status status-built">Being built</span>. FDX and
+                Export a clean PDF of any script
+                <span class="status status-demo">In the demo</span>. FDX and
                 Fountain <span class="status status-planned">Planned</span>.
               </p>
             </div>
           </div>
-          <blockquote class="pledge">
+          <blockquote class="pledge" id="pledge">
             <p>
               Manent has no features that write for you, and your scripts are
               never used to train AI.
             </p>
-            <footer>The pledge, as the app states it in its preferences</footer>
+            <footer>
+              The pledge, word for word as the app's preferences state it
+            </footer>
           </blockquote>
         </div>
       </section>
@@ -2721,119 +2220,252 @@ The clerk doesn't look up.
       <section class="section" id="status" aria-labelledby="status-title">
         <div class="wrap">
           <div class="section-head">
-            <h2 id="status-title">What works today</h2>
+            <h2 id="status-title">What you can try today</h2>
             <p>
-              Checked against the demo on 21 November 2026. Every label on this
-              page means one of these three things. The pictures on this page
-              are drawn from the app's own words and layout rules; they are not
-              screenshots.
+              The page keeps the format, so your attention stays on the story,
+              not on the margins. Everything in the first list runs in the demo,
+              checked on 21 November 2026.
             </p>
           </div>
           <div class="today">
             <div>
-              <h3><span class="status status-demo">In the demo</span></h3>
-              <p>Runs when you start <code>make demo</code>.</p>
-              <ul>
-                <li>Everything on your own machine with one command</li>
-                <li>No account: pick a person and start</li>
-                <li>A script page in Courier Prime, with its page count</li>
-                <li>Saved and Synced for every script</li>
+              <h3>
+                Try it today
+                <span class="status status-demo">In the demo</span>
+              </h3>
+              <ul class="gets">
+                <li>Pick a person and start: no account, no password</li>
                 <li>
-                  Writing offline, with the waiting count, and syncing on
-                  reconnect
+                  Write on script pages in Courier, with page breaks and the
+                  page count
                 </li>
                 <li>
-                  Two windows on one script seeing each other's edits as they
-                  are typed
+                  Let Tab and Enter set the format: scene heading, action,
+                  character, dialogue; the empty line says what comes next
                 </li>
-                <li>The source, under the Apache License 2.0</li>
+                <li>
+                  Switch between eight formats: screenplay, multi-camera, stage
+                  play, manuscript, animation, variety, game script and Ink
+                </li>
+                <li>
+                  Keep the line you are writing at the same height, with
+                  typewriter scrolling
+                </li>
+                <li>
+                  Lose the connection and keep writing; watch the waiting count,
+                  then Synced
+                </li>
+                <li>
+                  Open the script in a second window and watch your words arrive
+                  as you type
+                </li>
+                <li>Export a clean PDF</li>
+                <li>Read the source, under the Apache License 2.0</li>
               </ul>
+              <figure>
+                <div class="shot">
+                  <img
+                    src="media/demo-flow.webp"
+                    width="1200"
+                    height="694"
+                    loading="lazy"
+                    alt="A scene in Manent's demo: a scene heading, a line of action, the clerk's name and his dialogue. Below them the empty line reads, in grey: Action · Tab for Character. The element shown in the footer is Action."
+                  />
+                </div>
+                <figcaption class="figure-note">
+                  <span class="kind">Screenshot of the demo.</span> After
+                  dialogue, Enter starts a line of action, and the empty line
+                  says that Tab makes it a character.
+                </figcaption>
+              </figure>
             </div>
             <div>
-              <h3><span class="status status-built">Being built</span></h3>
-              <p>
-                Partly on the main branch; not yet walked through end to end.
+              <h3>On the way</h3>
+              <p class="small">
+                Being built: partly working, not ready to try yet. Planned:
+                decided, not written yet.
               </p>
-              <ul>
-                <li>Version history: drafts, Changes since, restore</li>
-                <li>The PDF, page for page the same as the screen</li>
+              <ul class="gets later">
+                <li>
+                  Writing in one script with other people
+                  <span class="status status-built">Being built</span>
+                </li>
+                <li>
+                  Version history: drafts, Changes since, restore
+                  <span class="status status-built">Being built</span>
+                </li>
+                <li>
+                  The PDF line for line the same as the screen
+                  <span class="status status-built">Being built</span>
+                </li>
                 <li>
                   Production revisions: locked numbers, A-pages, colours,
                   asterisks, Issue and Recall
+                  <span class="status status-built">Being built</span>
                 </li>
-                <li>Names and carets, comments and suggestions</li>
-                <li>The reconnect receipt, To review and Recovered text</li>
                 <li>
-                  Multi-camera, animation, stage play, manuscript and game
-                  script formats
+                  Comments, and suggesting a change without overwriting a
+                  co-writer's line
+                  <span class="status status-built">Being built</span>
                 </li>
-                <li>Very long documents</li>
-                <li>The desktop app</li>
-              </ul>
-            </div>
-            <div>
-              <h3><span class="status status-planned">Planned</span></h3>
-              <p>Decided, not written yet.</p>
-              <ul>
+                <li>
+                  The reconnect receipt, To review and Recovered text
+                  <span class="status status-built">Being built</span>
+                </li>
+                <li>
+                  Very long documents, designed for 2,000 pages
+                  <span class="status status-built">Being built</span>
+                </li>
+                <li>
+                  The desktop app
+                  <span class="status status-built">Being built</span>
+                </li>
                 <li>
                   FDX and Fountain import and export; PDF, Word and text import
+                  <span class="status status-planned">Planned</span>
                 </li>
-                <li>Series index, episode table, board and rounds of notes</li>
-                <li>Rundowns, read-rate timing and the prompter</li>
-                <li>Ink with its player; line data export</li>
-                <li>A hosted service with sign-in</li>
-                <li>The published benchmark report</li>
+                <li>
+                  Series index, episode table, board and rounds of notes
+                  <span class="status status-planned">Planned</span>
+                </li>
+                <li>
+                  Rundowns, read-rate timing and the prompter
+                  <span class="status status-planned">Planned</span>
+                </li>
+                <li>
+                  Ink with its player; line data export
+                  <span class="status status-planned">Planned</span>
+                </li>
+                <li>
+                  A hosted setup
+                  <span class="status status-planned">Planned</span>
+                </li>
+                <li>
+                  Speed figures, with the machine and the method, in a published
+                  benchmark report
+                  <span class="status status-planned">Planned</span>
+                </li>
               </ul>
             </div>
-          </div>
-          <div class="limits">
-            <h3>What Manent will not do</h3>
-            <ul>
-              <li>Match another app's page count page for page.</li>
-              <li>
-                Typeset right-to-left or wide scripts exactly: their text is
-                kept, not laid out.
-              </li>
-              <li>
-                Let you write on a phone; on a phone, scripts are for reading.
-              </li>
-              <li>Talk to MOS or drive a vendor's prompter.</li>
-            </ul>
           </div>
         </div>
       </section>
 
-      <section class="section promise" id="try" aria-labelledby="try-title">
+      <section class="section band" id="try" aria-labelledby="try-title">
         <div class="wrap">
           <div class="section-head">
-            <h2 id="try-title">Try it on your machine</h2>
+            <h2 id="try-title">Try it on your computer</h2>
             <p>
-              You need Bun 1.4.4 or later. The demo builds the app, seeds six
-              people to be, and opens it in your browser.
+              About five minutes, on a Mac, Windows or Linux. The demo comes
+              with six people you can sign in as, no password needed.
             </p>
           </div>
-          <div class="try-box">
-            <pre data-copy-source>
+          <div class="try-grid">
+            <div>
+              <ol class="steps">
+                <li>
+                  <h3>Install Bun</h3>
+                  <p>
+                    Bun is the free tool that runs Manent; you need 1.4.4 or
+                    later. On a Mac or Linux, paste
+                    <code>curl -fsSL https://bun.com/install | bash</code> into
+                    Terminal. On Windows, follow the steps at
+                    <a href="https://bun.com">bun.com</a>.
+                  </p>
+                </li>
+                <li>
+                  <h3>Get the code, and start it</h3>
+                  <p>
+                    Run these three lines in a terminal. No git? Download
+                    <a
+                      href="https://github.com/HMarzban/manent/archive/refs/heads/main.zip"
+                      >the code as a ZIP</a
+                    >, unpack it, and run the last line inside its folder.
+                  </p>
+                  <div class="code">
+                    <pre data-copy-source>
 git clone https://github.com/HMarzban/manent.git
 cd manent
 make demo</pre>
-            <button class="copy" type="button" data-copy hidden>
-              Copy the commands
-            </button>
-          </div>
-          <div class="try-notes">
-            <p>
-              It opens at <code>http://localhost:4747</code>. Each browser tab
-              can be a different person, so two tabs can write together. Stop it
-              with Ctrl+C or <code>make stop</code>.
-            </p>
-            <p>
-              No make? Run <code>bun run demo</code> instead.
-              <a href="https://github.com/HMarzban/manent#readme"
-                >Read the README</a
-              >
-              for the rest.
-            </p>
+                    <div class="copy-row">
+                      <button class="copy" type="button" data-copy hidden>
+                        Copy the commands
+                      </button>
+                      <span role="status" data-copy-said></span>
+                    </div>
+                  </div>
+                  <p class="small">
+                    No make, as on Windows? Run <code>bun run demo</code>
+                    instead.
+                  </p>
+                </li>
+                <li>
+                  <h3>Write</h3>
+                  <p>
+                    It opens at <code>http://localhost:4747</code> in your
+                    browser. Stop it with Ctrl+C or <code>make stop</code>.
+                  </p>
+                </li>
+              </ol>
+
+              <div class="checklist">
+                <h3>What to try in five minutes</h3>
+                <ol>
+                  <li>Pick Sam Okafor, then choose New script.</li>
+                  <li>
+                    Type a scene heading and press Enter for the action; press
+                    Tab for a character and Enter for the dialogue.
+                  </li>
+                  <li>
+                    Copy the script's address into a second browser window, pick
+                    Sam again, and type in both.
+                  </li>
+                  <li>
+                    Press Stop the server in the purple bar and keep writing:
+                    the status counts the changes waiting. Press Start the
+                    server and watch it turn to Synced.
+                  </li>
+                  <li>
+                    Open the menu beside the script's title and choose Export…
+                    for a clean PDF.
+                  </li>
+                </ol>
+              </div>
+            </div>
+
+            <div>
+              <figure>
+                <div class="shot">
+                  <img
+                    src="media/demo-chooser.webp"
+                    width="1200"
+                    height="747"
+                    loading="lazy"
+                    alt="The first screen of Manent's demo: Choose who you are. Pick anyone; each browser tab can be a different person. Six people are listed: Dana Reyes, Sam Okafor, Priya Nair, Leo Marsh, Ana Costa and You."
+                  />
+                </div>
+                <figcaption class="figure-note">
+                  <span class="kind">Screenshot of the demo.</span> What opens:
+                  choose who you are.
+                </figcaption>
+              </figure>
+              <div class="card">
+                <h3>Desktop app — coming soon</h3>
+                <p>
+                  Manent in its own window, keeping every script on your disk
+                  and working with no network. No installer has been released
+                  yet. On GitHub, choose Watch, then Custom, then Releases, and
+                  GitHub tells you when it ships.
+                </p>
+                <div class="actions">
+                  <a
+                    class="button button-quiet"
+                    href="https://github.com/HMarzban/manent/releases"
+                    >Watch releases on GitHub</a
+                  >
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -2841,54 +2473,29 @@ make demo</pre>
       <section class="section" id="faq" aria-labelledby="faq-title">
         <div class="wrap">
           <div class="section-head">
-            <h2 id="faq-title">Questions</h2>
+            <h2 id="faq-title">Questions writers ask</h2>
           </div>
           <div class="faq">
             <details>
-              <summary>Is Manent free and open source?</summary>
+              <summary>Is Manent free?</summary>
               <p>
-                Yes. Manent is open source under the Apache License 2.0: you may
-                read it, run it, change it and share it under those terms. There
-                is no account to make and nothing to pay.
+                Yes. Manent is free and open source under the Apache License
+                2.0. There is no account to make and nothing to pay.
               </p>
             </details>
             <details>
-              <summary>Does Manent work offline?</summary>
+              <summary>Is it ready for real work?</summary>
               <p>
-                Yes. Every change is saved on your device before it is sent
-                anywhere. Saved means it is on this device; Synced means the
-                server has it. While you are offline the status counts what is
-                waiting, and it all syncs when the connection comes back.
-              </p>
-            </details>
-            <details>
-              <summary>
-                What happens when two people edit the same scene while one of
-                them is offline?
-              </summary>
-              <p>
-                Both sets of changes are merged when the offline writer
-                reconnects. Passages that overlap are listed under To review,
-                and text that cannot be placed is kept as Recovered text, so
-                nothing is dropped. Most of this is on the main branch; the
-                receipt and the review list are still being finished.
-              </p>
-            </details>
-            <details>
-              <summary>
-                Can a writers' room write together in real time?
-              </summary>
-              <p>
-                Yes. In the demo, every window open on a script sees the others'
-                edits as they are typed. Names and carets for each writer,
-                comments and suggestions are being built.
+                Not yet. Manent is early, and
+                <a href="#status">the list above</a> says exactly what runs.
+                Keep a copy of anything that matters somewhere else.
               </p>
             </details>
             <details>
               <summary>Can I open my .fdx and Fountain files?</summary>
               <p>
-                Not yet. FDX and Fountain import and export are planned, and the
-                list of what works today will say when they arrive.
+                Not yet: FDX and Fountain import and export are planned. Today
+                you can export a clean PDF.
               </p>
             </details>
             <details>
@@ -2896,62 +2503,63 @@ make demo</pre>
                 Will my page count match other screenwriting apps?
               </summary>
               <p>
-                Not page for page, and Manent does not promise it. What Manent
-                promises is that its own pages are the same on every device and
-                in its own PDF.
-              </p>
-            </details>
-            <details>
-              <summary>
-                Does it handle production revisions: coloured pages, A-pages,
-                locked scene numbers?
-              </summary>
-              <p>
-                That is being built: locked page and scene numbers, A-pages,
-                revision colours in the standard order, asterisks in the margin,
-                and Issue and Recall, while the room keeps writing in the same
-                script.
-              </p>
-            </details>
-            <details>
-              <summary>Which formats does it support?</summary>
-              <p>
-                Screenplays work in the demo today. Multi-camera, animation,
-                stage play, manuscript and game script are being built; variety,
-                rundowns, podcasts and Ink are planned.
+                Not page for page, and Manent does not promise it. The promise
+                is that Manent's own pages are the same on every device and in
+                its own PDF; that is being built.
               </p>
             </details>
             <details>
               <summary>Does it run on Mac, Windows and Linux?</summary>
               <p>
-                The demo runs on all three, in your browser, with Bun 1.4.4 or
-                later. A desktop app that works with no network is being built;
-                no installer has been released yet.
+                The demo runs on all three, in your browser. A desktop app that
+                works with no network is being built; no installer has been
+                released yet.
+                <a href="https://github.com/HMarzban/manent/releases"
+                  >Watch releases on GitHub</a
+                >.
               </p>
             </details>
             <details>
               <summary>Does Manent use AI, or train on my scripts?</summary>
-              <p>
-                No. Manent has no features that write for you, and your scripts
-                are never used to train AI.
-              </p>
+              <p>No. <a href="#pledge">The pledge</a> says it in one line.</p>
             </details>
             <details>
               <summary>Can I host it myself?</summary>
               <p>
                 Manent is one Bun program. Today it runs as a demo on your own
-                machine, and it refuses to listen on a public address because
-                the demo has no passwords. A hosted setup is planned.
+                computer, and it refuses to listen on a public address, because
+                the demo has no passwords. With <code>make demo LAN=1</code> a
+                second computer on your network can join. A hosted setup is
+                planned.
               </p>
             </details>
             <details>
-              <summary>Is it ready for real work?</summary>
-              <p>
-                Not yet. Manent is early, and the list of what works today says
-                exactly what runs. Keep a copy of anything that matters
-                somewhere else.
-              </p>
+              <summary>What will Manent not do?</summary>
+              <ul>
+                <li>Match another app's page count page for page.</li>
+                <li>
+                  Let you write on a phone; on a phone, scripts are for reading.
+                </li>
+                <li>Talk to MOS or drive a vendor's prompter.</li>
+                <li>
+                  Typeset right-to-left or wide scripts exactly, in this
+                  release: their text is kept, not laid out.
+                </li>
+              </ul>
             </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="section band closing" aria-labelledby="closing-title">
+        <div class="wrap">
+          <h2 id="closing-title">Write your first page today.</h2>
+          <p>
+            It is free, it runs on your own computer, and it needs no account.
+          </p>
+          <div class="actions">
+            <a class="button" href="#try">Try it on your computer</a>
+            <a class="button button-quiet" href="#watch">Watch it work</a>
           </div>
         </div>
       </section>
@@ -2960,6 +2568,7 @@ make demo</pre>
     <footer class="site-foot">
       <div class="wrap">
         <ul>
+          <li><a href="#try">Try it</a></li>
           <li>
             <a href="https://github.com/HMarzban/manent">Source on GitHub</a>
           </li>
@@ -2973,20 +2582,23 @@ make demo</pre>
               >Changelog</a
             >
           </li>
-          <li>
-            <a
-              href="https://github.com/HMarzban/manent/blob/main/docs/architecture/overview.md"
-              >How it is built</a
-            >
-          </li>
         </ul>
-        <p>This page sets no cookies and loads nothing from other sites.</p>
-        <p>© 2026 Manent contributors</p>
+        <p>
+          This page sets no cookies, loads nothing from other sites, and
+          remembers your choice of tab in this browser only.
+        </p>
+        <p>
+          © 2026, as the
+          <a href="https://github.com/HMarzban/manent/blob/main/NOTICE"
+            >copyright notice</a
+          >
+          states
+        </p>
       </div>
     </footer>
 
     <script>
-      // The page reads in full without this script: it adds the tabs, the copy button and the hero's one moment of typing.
+      // Without this script the page still reads in full; it adds the tab switcher, the copy button, and play on "Watch it work".
       (() => {
         const tabs = document.querySelector("[data-tabs]");
         const list = [...tabs.querySelectorAll('[role="tab"]')];
@@ -2994,6 +2606,12 @@ make demo</pre>
           document.getElementById(tab.getAttribute("aria-controls")),
         );
         const KEY = "manent.site.write";
+
+        panels.forEach((panel, i) => {
+          panel.setAttribute("role", "tabpanel");
+          panel.setAttribute("aria-labelledby", list[i].id);
+          panel.tabIndex = 0;
+        });
 
         const select = (index, focus) => {
           list.forEach((tab, i) => {
@@ -3005,9 +2623,16 @@ make demo</pre>
           if (focus) list[index].focus();
         };
 
-        const fromHash = panels.findIndex(
-          (panel) => "#" + panel.id === location.hash,
-        );
+        const keep = (index) => {
+          try {
+            localStorage.setItem(KEY, panels[index].id);
+          } catch {
+            // remembering the choice is a convenience only
+          }
+        };
+
+        const fromHash = () =>
+          panels.findIndex((panel) => "#" + panel.id === location.hash);
         let remembered = -1;
         try {
           remembered = panels.findIndex(
@@ -3016,25 +2641,20 @@ make demo</pre>
         } catch {
           // storage can be blocked; the first tab is then the choice
         }
-        select(fromHash >= 0 ? fromHash : Math.max(remembered, 0), false);
+        const linked = fromHash();
+        select(linked >= 0 ? linked : Math.max(remembered, 0), false);
         tabs.classList.add("is-ready");
-        if (fromHash >= 0) tabs.scrollIntoView();
-        addEventListener("hashchange", () => {
-          const index = panels.findIndex(
-            (panel) => "#" + panel.id === location.hash,
+        // after the browser's own jump to the linked panel, which comes after load, so the tabs end up under the bar
+        if (linked >= 0)
+          addEventListener("load", () =>
+            setTimeout(() => tabs.scrollIntoView({ behavior: "instant" })),
           );
+        addEventListener("hashchange", () => {
+          const index = fromHash();
           if (index < 0) return;
           select(index, false);
-          panels[index].scrollIntoView();
+          tabs.scrollIntoView();
         });
-
-        const keep = (index) => {
-          try {
-            localStorage.setItem(KEY, panels[index].id);
-          } catch {
-            // remembering the choice is a convenience only
-          }
-        };
 
         list.forEach((tab, i) => {
           tab.addEventListener("click", () => {
@@ -3056,37 +2676,31 @@ make demo</pre>
           });
         });
 
-        // the PDF is the same page: it is drawn from the screen's copy, so the two cannot differ
-        const pair = document.querySelector("[data-pair]");
-        const pdf = pair.firstElementChild.cloneNode(true);
-        pdf.querySelector(".pair-label").textContent = "In the PDF";
-        pair.append(pdf);
-
         const copy = document.querySelector("[data-copy]");
         const source = document.querySelector("[data-copy-source]");
+        const said = document.querySelector("[data-copy-said]");
         if (navigator.clipboard) {
           copy.hidden = false;
           copy.addEventListener("click", async () => {
-            await navigator.clipboard.writeText(source.textContent);
-            copy.textContent = "Copied";
+            try {
+              await navigator.clipboard.writeText(source.textContent);
+              said.textContent = "Copied";
+            } catch {
+              getSelection().selectAllChildren(source);
+              said.textContent = "Selected: press Ctrl+C or ⌘C to copy";
+            }
+            setTimeout(() => (said.textContent = ""), 2500);
           });
         }
 
-        // one moment of motion: Sam's line arrives letter by letter while the status says Syncing…, then Synced
-        if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-        const typed = document.querySelector("[data-typed]");
-        const server = document.querySelector("[data-server]");
-        const line = typed.textContent;
-        typed.textContent = "";
-        server.textContent = "Syncing…";
-        let n = 0;
-        const step = () => {
-          n += 1;
-          typed.textContent = line.slice(0, n);
-          if (n < line.length) return setTimeout(step, 45 + Math.random() * 70);
-          setTimeout(() => (server.textContent = "Synced"), 2000);
-        };
-        setTimeout(step, 900);
+        const recording = document.querySelector("[data-recording]");
+        document.querySelectorAll('a[href="#watch"]').forEach((link) =>
+          link.addEventListener("click", () =>
+            recording.play().catch(() => {
+              // a browser that will not start it leaves the recording's own play button
+            }),
+          ),
+        );
       })();
     </script>
   </body>

@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00.000 --> 00:02.000
+Two windows on one script, both signed in as Sam Okafor. Both read Saved · Synced.
+
+00:02.000 --> 00:09.100
+Window 1 types. Tab makes a character name, Enter starts the dialogue, and every letter appears in window 2 as it is typed.
+
+00:09.100 --> 00:15.600
+Window 2 types a line of action, and it appears in window 1.
+
+00:15.600 --> 00:26.900
+Window 2's network is cut. It keeps writing, and its status reads Offline, 4 waiting. Window 1 does not have those lines yet.
+
+00:26.900 --> 00:32.400
+The network is back. Window 2 reads Syncing…, then Synced, and window 1 holds every line.
