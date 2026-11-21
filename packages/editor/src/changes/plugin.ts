@@ -194,10 +194,35 @@ function groupRemoved(
   return groups;
 }
 
+/** A removed block after the live block `after`, whose JSON is `at`; `prev` stays while its place and join hold. */
+function removedEntry(
+  b: Baseline,
+  id: string,
+  after: string | null,
+  at: BlockJSON | null,
+  prev: BlockEntry | null,
+): BlockEntry {
+  const older = b.older.get(id)!;
+  const text = textOf(older);
+  const joined =
+    at !== null && text !== "" && textOf(at).endsWith(text) ? after : null;
+  if (prev?.after === after && prev.joinedInto === joined) return prev;
+  const place = b.olderAt.get(id)!;
+  return Object.freeze({
+    ...NO_CHANGE,
+    id,
+    kind: "removed",
+    older,
+    newer: null,
+    joinedInto: joined,
+    sceneId: place.scene,
+    after,
+    olderIndex: place.index,
+  });
+}
+
 /**
- * The comparison of the live entries and the removed blocks, in compareDocs' order, with scene headings, splits,
- * moves and removed blocks' places set again, and the removed entries to draw anew: those new, changed, or after
- * a block `near` names.
+ * The comparison, its scenes, splits and moves set again, and the removed entries to draw: new, changed or after `near`.
  */
 function assemble(
   b: Baseline,
@@ -214,38 +239,17 @@ function assemble(
   const run = longestIncreasingSubsequence(places);
   const staying = new Set(run.map((j) => held[j]!));
   const liveAt = new Map(held.map((k) => [entries[k]!.id, k]));
-  const groups = groupRemoved(
-    b,
-    removedIds,
-    run.map((j) => places[j]!),
-  );
+  const stayingPlaces = run.map((j) => places[j]!);
+  const groups = groupRemoved(b, removedIds, stayingPlaces);
   const builder = createComparisonBuilder({ mode: b.mode });
   const removed = new Map<string, BlockEntry>();
   const placed: PlacedRemoval[] = [];
   const emit = (before: string | null) => {
     for (const { id, after } of groups.get(before) ?? []) {
       const k = after === null ? -1 : liveAt.get(after)!;
-      const older = b.older.get(id)!;
-      const place = b.olderAt.get(id)!;
-      const text = textOf(older);
+      const prev = was.get(id) ?? null;
       const at = k < 0 ? null : entries[k]!.newer;
-      const joined =
-        at !== null && text !== "" && textOf(at).endsWith(text) ? after : null;
-      const prev = was.get(id);
-      const entry =
-        prev?.after === after && prev.joinedInto === joined
-          ? prev
-          : Object.freeze({
-              ...NO_CHANGE,
-              id,
-              kind: "removed" as const,
-              older,
-              newer: null,
-              joinedInto: joined,
-              sceneId: place.scene,
-              after,
-              olderIndex: place.index,
-            });
+      const entry = removedEntry(b, id, after, at, prev);
       removed.set(id, entry);
       builder.add(entry);
       if (entry !== prev || near(k)) placed.push({ entry, after: k });
