@@ -34,8 +34,8 @@ test("Bun is pinned to 1.4.4, the lockfile is frozen, and the whole gate runs", 
   expect(steps[1]!.with).toEqual({ "bun-version": "1.4.4" });
   expect(steps.map((s) => s.run).filter(Boolean)).toEqual([
     "bun install --frozen-lockfile",
-    "bun run verify",
     "bun run --filter @manent/e2e install-browsers",
+    "bun run verify",
     "bun run test:e2e",
     "bun run test:clone",
   ]);

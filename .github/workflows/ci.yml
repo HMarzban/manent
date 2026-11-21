@@ -23,7 +23,7 @@ jobs:
         with:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
-      - run: bun run verify
       - run: bun run --filter @manent/e2e install-browsers
+      - run: bun run verify
       - run: bun run test:e2e
       - run: bun run test:clone

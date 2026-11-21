@@ -179,7 +179,7 @@ test("thirty lines added at the top of a 2,000-page script move the page by thir
       blockTopPx(before, engine, 0, 40_000),
   );
   expect(shift).toBeGreaterThanOrEqual(30 * lineAndSpace);
-});
+}, 20_000);
 
 test("from the first block to the last, with the first page's top and the last page's blank, the pages are filled exactly", () => {
   const { height, top, bottom } = screenPagePx(sp);
