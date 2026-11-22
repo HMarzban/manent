@@ -6,7 +6,7 @@ import type { SeedBlock } from "../../content/markup.ts";
 import { HARBOUR_LIGHTS_GUIDE } from "../../generate/banks/medium/harbour-lights.ts";
 import { deriveDrafts, sessionsBetween } from "../../generate/drafts.ts";
 import type { BlockChange } from "../../generate/drafts.ts";
-import { intentsOf, unitsIn } from "../../generate/fit.ts";
+import { fitToPages, intentsOf, unitsIn } from "../../generate/fit.ts";
 import { SeedBuildError } from "../../generate/guide.ts";
 import { SEED_DOCS, seedProject } from "../catalogue.ts";
 import type { SeedStep } from "../seed.ts";
@@ -21,6 +21,8 @@ import {
   sceneStart,
   toPages,
   unlockedLayout,
+  usedNear,
+  withoutRepeats,
 } from "./harbour-lights-script.ts";
 import type { Episode, Plan, WrittenScript } from "./harbour-lights-script.ts";
 
@@ -109,8 +111,8 @@ const UNDERTOW = {
   resignation: 33,
   /** The scene the Network draft has her threat before, about page 12. */
   early: 12,
-  /** Where the three lines are trimmed instead of the argument. */
-  trimmed: [38, 40, 42],
+  /** How many lines are trimmed instead of the argument: one from each of the last scenes that speak one. */
+  trimmed: 3,
 } as const;
 
 // [from, to) of the scene whose heading is `heading`, wherever it now stands
@@ -137,11 +139,11 @@ function moveScene(
   return [...rest.slice(0, at), ...blocks.slice(from, to), ...rest.slice(at)];
 }
 
-// `blocks` without the last unit of the scene under `heading` that speaks one line
+// `blocks` without the last unit of the scene under `heading` that speaks one line; null when the scene has none
 function trimLine(
   blocks: readonly SeedBlock[],
   heading: SeedBlock,
-): SeedBlock[] {
+): SeedBlock[] | null {
   const [from, to] = sceneAt(blocks, heading);
   const speech = unitsIn(blocks, from + 1, to, {
     intentOf: intentsOf(GUIDE),
@@ -152,12 +154,9 @@ function trimLine(
       blocks.slice(unit.from, unit.to).filter((b) => b.element === "dialogue")
         .length === 1,
   );
-  if (speech === undefined)
-    throw new SeedBuildError(
-      "unfit",
-      `${GUIDE.project}: a line to trim in 203`,
-    );
-  return [...blocks.slice(0, speech.from), ...blocks.slice(speech.to)];
+  return speech === undefined
+    ? null
+    : [...blocks.slice(0, speech.from), ...blocks.slice(speech.to)];
 }
 
 /**
@@ -193,8 +192,33 @@ async function undertowDrafts(
     boat,
     ...addressed.slice(swim).filter((b) => b.text !== text),
   ];
-  for (const n of UNDERTOW.trimmed) trimmed = trimLine(trimmed, heading(n));
-  const working = await fitted(episode, trimmed, 61, new Set([boat]));
+  const named: readonly number[] = [UNDERTOW.swim, UNDERTOW.resignation];
+  const scenes = generated.filter((b) => b.element === "scene_heading").length;
+  for (let n = scenes, lines = 0; lines < UNDERTOW.trimmed; n -= 1) {
+    const shorter = named.includes(n) ? null : trimLine(trimmed, heading(n));
+    if (shorter === null) continue;
+    trimmed = shorter;
+    lines += 1;
+  }
+  // every action the cast may take is somewhere in 61 pages, so the text is brought back to them in its last
+  // scene, clear of the actions near it
+  const clear = withoutRepeats(trimmed, {
+    guide: GUIDE,
+    rng: episode.context.rng,
+    fixed: new Set([boat]),
+  });
+  const last = clear.findLastIndex((b) => b.element === "scene_heading") + 1;
+  const working = await fitToPages(
+    clear,
+    [{ generated: [last, clear.length], mustStart: null }],
+    {
+      meter: episode.meter,
+      guide: GUIDE,
+      rng: episode.context.rng,
+      used: usedNear(GUIDE, clear, clear.length),
+      totals: [{ layout: LAYOUT, pages: 61 }],
+    },
+  );
   return { network, addressed, working };
 }
 

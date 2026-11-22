@@ -5,15 +5,24 @@ import type { IdSource } from "@manent/schema";
 import type { SeedBlock, SeedPassage } from "../../content/markup.ts";
 import { deriveDrafts } from "../../generate/drafts.ts";
 import type { BlockChange } from "../../generate/drafts.ts";
+import { actionAt } from "../../generate/fit.ts";
 import type { PageMeter, SeedLayout } from "../../generate/fit.ts";
-import { generateScenes, withTag } from "../../generate/grammar.ts";
+import {
+  GENERATED_REPEAT_PAGES,
+  LINES_PER_PAGE,
+  createUsedLines,
+  createUsedOnce,
+  estimatedLines,
+  generateScenes,
+} from "../../generate/grammar.ts";
+import type { UsedLines } from "../../generate/grammar.ts";
 import { SeedBuildError } from "../../generate/guide.ts";
 import type { StyleGuide } from "../../generate/guide.ts";
 import { seedDoc } from "../catalogue.ts";
 import type { SeedSession } from "../driver.ts";
 import type { Rng } from "../rng.ts";
 import type { SeedContext } from "../seed.ts";
-import { toBlockJSON } from "../story.ts";
+import { ownPages, toBlockJSON } from "../story.ts";
 import type { Story } from "../story.ts";
 
 /** An unlocked script in the guide's format, its settings left as they are when it is created. */
@@ -21,67 +30,97 @@ export function unlockedLayout(guide: StyleGuide): SeedLayout {
   return { format: guide.format, settings: {}, anchors: null };
 }
 
-/** No generated action comes back within this many pages of where it was last used; a speech never comes back. */
-const REPEAT_PAGES = 10;
+/** A generated page speaks about this many lines, so a document of P pages spends about 3.5 × P of its bank. */
+const SPEECHES_PER_PAGE = 3.5;
+/** How much further back than the generator's window an action is held: fitting takes units out between two copies. */
+const SLACK = 1.1;
 
 /**
- * The scenes of every beat of the document `key`, in order (see generateScenes). A beat speaks no
- * line an earlier beat spoke, and draws no action a beat within REPEAT_PAGES pages before it drew, by
- * the pages the beats give.
+ * The scenes of every beat of the document `key`, each beat on the pages it does not share with the next, drawn
+ * through one record. While the document has spoken SPEECHES_PER_PAGE lines a page of what it has written, every
+ * speech is held back and the generator writes an action instead, so the bank's lines last the whole document,
+ * none spoken twice.
  */
 export function generateScript(
   guide: StyleGuide,
   key: string,
   rng: Rng,
 ): SeedBlock[] {
-  const lines = new Set(guide.dialogue.map((entry) => entry.text));
-  const spoken = new Set<string>();
-  const drawn: { last: number; actions: Set<string>; blocks: SeedBlock[] }[] =
-    [];
-  for (const beat of guide.beats) {
-    if (!beat.id.startsWith(`${key}#`)) continue;
-    const near = new Set(
-      drawn
-        .filter((d) => d.last > beat.pages[0] - REPEAT_PAGES)
-        .flatMap((d) => [...d.actions]),
-    );
-    const used = new Set([...spoken, ...near]);
-    const blocks = generateScenes(guide, beat, rng, used);
-    const actions = new Set<string>();
-    for (const text of used) {
-      if (spoken.has(text) || near.has(text)) continue;
-      if (lines.has(text)) spoken.add(text);
-      else actions.add(text);
-    }
-    drawn.push({ last: beat.pages[1], actions, blocks });
-  }
-  return drawn.flatMap((d) => d.blocks);
+  const lines = createUsedLines();
+  const speeches = new Set(guide.dialogue.map((entry) => entry.text));
+  let spoken = 0;
+  let written = 0;
+  const paced = (): boolean =>
+    spoken >= (SPEECHES_PER_PAGE * written) / LINES_PER_PAGE[guide.format];
+  const used: UsedLines = {
+    ...lines,
+    has: (text, window) =>
+      (speeches.has(text) && paced()) || lines.has(text, window * SLACK),
+    addDialogue(text) {
+      spoken += 1;
+      lines.addDialogue(text);
+    },
+    pass(block) {
+      written += estimatedLines(block);
+      lines.pass(block);
+    },
+  };
+  const beats = guide.beats.filter((beat) => beat.id.startsWith(`${key}#`));
+  return beats.flatMap((_, i) =>
+    generateScenes(guide, ownPages(beats, i), rng, used),
+  );
 }
 
 /**
- * What a line drawn at block `at` of a script of `pages` pages must not repeat: the dialogue entry of
- * every speech in `blocks`, with or without one joined tag, and the text of every other block within
- * REPEAT_PAGES pages of `at`.
+ * The record a fit at block `at` of `blocks` draws its actions through: every block but a speech that starts
+ * within GENERATED_REPEAT_PAGES pages of `at`'s start, by estimated lines as checkGenerated measures them, is
+ * taken, and so is every action the fit draws. A fit draws no speech, and the generator never spoke one twice.
  */
 export function usedNear(
   guide: StyleGuide,
   blocks: readonly SeedBlock[],
   at: number,
-  pages: number,
-): Set<string> {
-  const entries = new Map<string, string>();
-  for (const { text } of guide.dialogue) {
-    entries.set(text, text);
-    for (const tag of guide.tags) entries.set(withTag(text, tag), text);
+): UsedLines {
+  const window = GENERATED_REPEAT_PAGES * LINES_PER_PAGE[guide.format];
+  let line = 0;
+  const starts = blocks.map((block) => {
+    const start = line;
+    line += estimatedLines(block);
+    return start;
+  });
+  const here = starts[at] ?? line;
+  const used = createUsedOnce();
+  for (const [i, block] of blocks.entries())
+    if (block.element !== "dialogue" && Math.abs(starts[i]! - here) < window)
+      used.add(block.text);
+  return used;
+}
+
+/**
+ * `blocks` with each action that comes back fewer than GENERATED_REPEAT_PAGES pages after a block of the same text,
+ * by estimated lines as checkGenerated measures them, replaced by an action free where it stands; a block in
+ * `fixed` is kept. Moving scenes and putting fixed text in place of generated text bring copies closer.
+ */
+export function withoutRepeats(
+  blocks: readonly SeedBlock[],
+  options: { guide: StyleGuide; rng: Rng; fixed: ReadonlySet<SeedBlock> },
+): SeedBlock[] {
+  const { guide, rng, fixed } = options;
+  const window = GENERATED_REPEAT_PAGES * LINES_PER_PAGE[guide.format];
+  const doc = [...blocks];
+  const lastAt = new Map<string, number>();
+  let line = 0;
+  for (const [i, block] of doc.entries()) {
+    const near = line - (lastAt.get(block.text) ?? -Infinity) < window;
+    const kept =
+      block.element !== "action" || fixed.has(block) || !near
+        ? block
+        : actionAt(doc, i, { guide, rng, used: usedNear(guide, doc, i) });
+    doc[i] = kept;
+    if (kept.element !== "dialogue") lastAt.set(kept.text, line);
+    line += estimatedLines(kept);
   }
-  const reach = Math.ceil((REPEAT_PAGES * blocks.length) / Math.max(pages, 1));
-  const near = blocks
-    .slice(Math.max(at - reach, 0), at + reach)
-    .filter((b) => b.element !== "dialogue");
-  const spoken = blocks
-    .filter((b) => b.element === "dialogue")
-    .map((b) => entries.get(b.text) ?? b.text);
-  return new Set([...spoken, ...near.map((b) => b.text)]);
+  return doc;
 }
 
 /**

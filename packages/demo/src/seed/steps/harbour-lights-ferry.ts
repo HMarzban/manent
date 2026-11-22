@@ -27,6 +27,7 @@ import {
   toPages,
   unlockedLayout,
   usedNear,
+  withoutRepeats,
 } from "./harbour-lights-script.ts";
 import type { Episode, WrittenScript } from "./harbour-lights-script.ts";
 
@@ -86,7 +87,11 @@ async function studioDraft({
     PAGES - SCENE_8_PAGE + 1,
     options,
   );
-  const joined = [...before, ...after];
+  const joined = withoutRepeats([...before, ...after], {
+    guide: GUIDE,
+    rng,
+    fixed,
+  });
   const blocks = await fitToPages(
     joined,
     [
@@ -99,7 +104,7 @@ async function studioDraft({
       meter,
       guide: GUIDE,
       rng,
-      used: usedNear(GUIDE, joined, before.length, PAGES),
+      used: usedNear(GUIDE, joined, before.length),
       totals: [{ layout: LAYOUT, pages: PAGES }],
     },
   );
@@ -135,7 +140,7 @@ function addedActions(script: WrittenScript, rng: Rng): SeedBlock[] {
         actionAt(doc, place, {
           guide: GUIDE,
           rng,
-          used: usedNear(GUIDE, doc, place, PAGES),
+          used: usedNear(GUIDE, doc, place),
         }),
       );
   }

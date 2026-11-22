@@ -144,7 +144,7 @@ async function fitRun(
       layout: LAYOUT,
       guide: GUIDE,
       rng: episode.context.rng,
-      used: usedNear(GUIDE, script.blocks, options.start, PAGES),
+      used: usedNear(GUIDE, script.blocks, options.start),
       fixed: indicesOf(room, fixed),
     },
   );
