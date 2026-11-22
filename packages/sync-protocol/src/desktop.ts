@@ -96,7 +96,10 @@ export const OPENED_FILE_EXTENSIONS = [
   ".pdf",
   ".docx",
   ".ink",
+  ".fdr",
 ] as const;
+/** The largest file the shell opens; a larger one is refused for its size. */
+export const OPENED_FILE_LIMIT_BYTES = 32 * 1024 * 1024;
 
 const PLATFORMS = ["mac", "windows", "linux"] as const;
 const CHANNELS = ["stable", "canary"] as const;
