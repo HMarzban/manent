@@ -75,7 +75,7 @@ test("a project made offline is in the Library at once and on the server after t
     {
       title: "Untitled series",
       kind: "series",
-      place: { kind: "never_synced" },
+      place: { kind: "waiting", count: 3 },
     },
   ]);
   await settleAll();
@@ -214,6 +214,7 @@ test("the Library lists every project entry whose shape it reads, passes over th
         });
         const listed = projectItems(index, {
           userId: "sam",
+          signedIn: true,
           summaries: new Map(),
           continued: new Map(),
           nameOf: (userId) => userId,
@@ -280,6 +281,7 @@ test("every document entry the Library reads is listed in Continue and dates its
         );
         const facts = {
           userId: "sam",
+          signedIn: true,
           summaries: new Map(),
           continued: new Map(
             stored.map(([key]) => [
@@ -349,6 +351,7 @@ test("every Continue entry the Library reads of a workspace is listed, newest fi
           readWorkspace({ projects, documents }),
           {
             userId: "sam",
+            signedIn: true,
             summaries: new Map(),
             continued: readContinueMap(map),
             nameOf: (userId) => userId,

@@ -11,7 +11,8 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import { useCommands } from "../commands-react/commands-context.tsx";
 import { Kbd } from "../components/stock/kbd.tsx";
-import { MENU_WORDS, READOUT_WORDS } from "../words/document.ts";
+import { READOUT_WORDS } from "../words/document.ts";
+import { MENU_LABELS } from "./menu-labels.ts";
 import { matchedRuns, rankRows } from "./palette-rank.ts";
 import type { PaletteRow, PaletteSource } from "./palette-sources.ts";
 
@@ -42,21 +43,6 @@ const keyOf = (entry: Entry): string =>
 
 const textOf = (entry: Entry): string =>
   entry.type === "menu" ? entry.label : entry.row.label;
-
-// the title and person menus are named by the document's title and the person's initials, so the palette has no word for them
-const MENU_LABELS: Readonly<Record<MenuId, string | null>> = {
-  app: MENU_WORDS.app,
-  file: MENU_WORDS.file,
-  edit: MENU_WORDS.edit,
-  view: MENU_WORDS.view,
-  format: MENU_WORDS.format,
-  script: MENU_WORDS.script,
-  production: MENU_WORDS.production,
-  window: MENU_WORDS.window,
-  help: MENU_WORDS.help,
-  title: null,
-  person: null,
-};
 
 /** The menus that hold a command available now, each under its menu word. */
 function menuEntries(service: CommandService): Entry[] {

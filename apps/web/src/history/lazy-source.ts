@@ -60,7 +60,7 @@ export function createLazySource(options: {
     content: async (docId, at) => (await source()).content(docId, at),
     name: async (docId, name, fromVersionId) =>
       (await source()).name(docId, name, fromVersionId),
-    save: async (docId) => (await source()).save(docId),
+    save: async (docId, kind) => (await source()).save(docId, kind),
     restore: async (docId, versionId, scope) =>
       (await source()).restore(docId, versionId, scope),
     whoWrote: async (docId, blockId) =>

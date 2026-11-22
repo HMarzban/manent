@@ -53,6 +53,11 @@ export function markOpen(
   };
 }
 
+/** In this tab's leader, removes the open marker: the page or the person's sync ends without a crash. */
+export function unmarkOpen(sync: PersonSync): void {
+  if (sync.link.get().leader) sync.memory.setOpenMarker(sync.userId, null);
+}
+
 /**
  * Asks the browser to keep this origin's data, once, at the person's first own change of the session. Firefox would
  * ask the person a question, so there only Preferences asks.
@@ -126,8 +131,7 @@ export function leavePage(
     prefs: maps.prefs.held(),
     keys: maps.keys.held(),
   });
-  // only the leader marks what it opens
-  if (link.get().leader) memory.setOpenMarker(userId, null);
+  unmarkOpen(sync);
   if (link.get().state === "online") return;
   for (const handle of handles)
     if (handle.status.get().waiting > 0)

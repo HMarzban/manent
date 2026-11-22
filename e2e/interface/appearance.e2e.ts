@@ -187,10 +187,6 @@ test("in the dark theme the sheet is dark by default, and white page makes it pa
   await expect(page.locator(".mn-page-view")).toBeVisible();
   const dark = await sheetColours(page);
   expect(dark.paper).toBeLessThan(luminance(dark.ink));
-  test.fixme(
-    true,
-    "White page in dark theme leaves the sheet dark: the built stylesheet fixes the page's colours once for the whole window, so the pages' own light scheme does not reach them",
-  );
   await runFromPalette(page, WHITE_PAGE);
   await expect(page.locator("html")).toHaveAttribute("data-white-page", "");
   const white = await sheetColours(page);
@@ -418,7 +414,12 @@ test("at 200 % in 1,280 × 800 nothing scrolls sideways, and every target is at 
   const found: Record<string, unknown> = {};
   for (const path of ["/", `/s/${DOC_ID}`]) {
     await page.goto(path);
-    await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+    // the Library's heading takes focus, and a script's page at the caret
+    await expect(
+      path === "/"
+        ? page.getByRole("heading", { level: 1 })
+        : page.locator("[data-region='page'] .mn-page-view"),
+    ).toBeFocused();
     found[path] = await page.evaluate(() => {
       const root = document.documentElement;
       const sideways = [...document.querySelectorAll("*")].filter((element) => {

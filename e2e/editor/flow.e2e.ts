@@ -428,8 +428,8 @@ test("autocomplete offers the script's names at 50 % and at 200 %", async ({
     await caretAt(page, cue, "end");
     await page.keyboard.type(typed);
     await expect(page.locator(EDITABLE)).toHaveAttribute(
-      "aria-expanded",
-      "true",
+      "aria-controls",
+      "mn-complete",
     );
     await settled(page);
     seen.push(await offered(page, cue));

@@ -42,6 +42,7 @@ function EndingDialog(props: {
           action: WORDS.unlockButton,
           busy: WORDS.unlockingButton,
           body: WORDS.unlockBody(title),
+          refused: WORDS.unlockRefused,
           ask: services.client.unlock,
         }
       : {
@@ -49,6 +50,7 @@ function EndingDialog(props: {
           action: WORDS.endButton,
           busy: WORDS.endingButton,
           body: WORDS.endBody(active, title),
+          refused: WORDS.endRefused,
           ask: services.client.end,
         };
   return (
@@ -58,12 +60,14 @@ function EndingDialog(props: {
       body={words.body}
       action={words.action}
       busyLabel={request.busy ? words.busy : null}
-      refusal={null}
+      refusal={request.refusal}
       disabledReason={request.disabledReason}
       destructive={false}
-      // the state the server answers says what happened; a refusal has no words of its own
       onAction={() =>
-        request.send(words.ask, { ok: onClose, refused: onClose })
+        request.send(words.ask, {
+          ok: onClose,
+          refused: () => words.refused,
+        })
       }
       onCancel={onClose}
     />

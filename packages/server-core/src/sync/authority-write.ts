@@ -28,16 +28,18 @@ export interface AuthorityItem {
 }
 
 /**
- * Runs `write` on a copy of the room's loaded document, under a client id that neither the ledger
- * nor the document holds, which the commit registers to the writer. What it made is merged into
- * one update and applied to the room's document under `origin`; `update` is null when it made
- * nothing, and nothing is applied when `write` answers ok false.
+ * Runs `write` on a copy of the room's loaded document, under `writer` when given (a client id the
+ * document does not hold), else under one that neither the ledger nor the document holds, which
+ * the commit registers to the writer. What it made is merged into one update and applied to the
+ * room's document under `origin`; `update` is null when it made nothing, and nothing is applied
+ * when `write` answers ok false.
  */
 export function writeOnCopy(
   room: Room,
   origin: string,
   write: AuthorityWrite["edit"],
   ids: () => string,
+  writer?: number,
 ):
   | { ok: true; update: Uint8Array | null; report: TransactionReport | null }
   | { ok: false; reason: string } {
@@ -46,7 +48,7 @@ export function writeOnCopy(
     throw new RangeError(`the room of ${room.docId} is not loaded`);
   const written = readStateVector(doc.encodeStateVector()).set(doc.clientId, 0);
   const ledger = room.file.log.ledger(room.docId);
-  const clientId = writerClientId(room.mode, ids, [ledger, written]);
+  const clientId = writer ?? writerClientId(room.mode, ids, [ledger, written]);
   const copy = loadDoc(doc.encodeState(), { clientId });
   const made: Uint8Array[] = [];
   copy.subscribe((update) => made.push(update));

@@ -284,8 +284,10 @@ class Exchange implements Handshake {
       this.arm(HANDSHAKE_TIMEOUT_MS, () => this.timedOut());
       return;
     }
-    if (m.step === "update") {
-      this.host.update(m.data);
+    if (m.step === "update" || this.phase === "live") {
+      // a step 2 while live answers a later SUBSCRIBE, and holds what came while the first was replaced
+      if (m.step === "update" || m.generation === this.generation)
+        this.host.update(m.data);
       return;
     }
     if (this.phase !== "handshake") return;

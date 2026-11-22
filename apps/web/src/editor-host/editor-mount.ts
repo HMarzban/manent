@@ -6,6 +6,7 @@ import {
   ELEMENT_SLOTS,
   STRUCTURAL_KEYS,
   createScriptEditor,
+  outlineOf,
   staticBinding,
 } from "@manent/editor";
 import type {
@@ -18,6 +19,7 @@ import { markEnd } from "@manent/perf";
 import { parseDoc } from "@manent/schema";
 import type { FormatId } from "@manent/schema";
 import type { FixedKey } from "../services/ports.ts";
+import { panelsActions } from "../state/panels.store.ts";
 import { actionOf } from "./command-actions.ts";
 import type { EditorControl } from "./control.ts";
 import { deskOf } from "./desk.ts";
@@ -47,6 +49,17 @@ export const EDITOR_FIXED_KEYS: readonly FixedKey[] = Object.freeze([
 
 /** A content change of read-only content rebuilds at most this often. */
 const READ_ONLY_REBUILD_MS = 250;
+
+/** A script that opens with this many scenes opens the left panel at Scenes, until the person chooses otherwise. */
+const SCENES_AT_OPEN = 3;
+
+/** Whether the editor's script has enough scenes to open the left panel at Scenes; false without pages (Ink). */
+function hasScenesToShow(editor: ScriptEditor): boolean {
+  const p = editor.pagination();
+  if (p === null) return false;
+  const scenes = outlineOf(p, 0).entries.filter((e) => e.kind === "scene");
+  return scenes.length >= SCENES_AT_OPEN;
+}
 
 /** The editor a mount has open, for the test build's hooks; `undoDepth` counts the steps the person can undo. */
 export interface OpenEditor {
@@ -150,6 +163,32 @@ function bindingFor(
   };
 }
 
+/**
+ * Focus goes to the page at the caret once it is shown, so no keystroke is lost, unless something other than the page's
+ * region holds it by then. A page is hidden until its fonts are ready. Returns the disposer.
+ */
+function takeFocus(editor: ScriptEditor, element: HTMLElement): () => void {
+  const { view } = editor;
+  const focus = (): void => {
+    const active = element.ownerDocument.activeElement;
+    if (active !== null && !active.contains(element)) return;
+    // the view focuses itself only while it is editable, so a read-only page is focused as a text box
+    if (view.editable) view.focus();
+    else view.dom.focus({ preventScroll: true });
+  };
+  const pages = editor.scaffold?.pages;
+  if (pages === undefined || pages.dataset["fonts"] !== "loading") {
+    focus();
+    return noop;
+  }
+  const shown = new MutationObserver(() => {
+    shown.disconnect();
+    focus();
+  });
+  shown.observe(pages, { attributeFilter: ["data-fonts"] });
+  return () => shown.disconnect();
+}
+
 /** What one build of the document's editor is made from. */
 interface Opened extends OpenedScript {
   session: EditorSession;
@@ -180,6 +219,7 @@ function buildEditor(
   if (place !== null) editor.restore(place);
   // the first zoom holds the caret's line where it lay at 100 %, which would open a page scrolled past the desk above it
   else element.closest(PAGE_REGION)?.scrollTo({ top: 0 });
+  const stopFocus = takeFocus(editor, element);
   const stopZoom = followZoom({ ...options, editor, element });
   const detach = options.control.attach({
     run: (request) => editor.run(actionOf(request)),
@@ -199,6 +239,7 @@ function buildEditor(
     editor,
     shown: open.shown,
     destroy() {
+      stopFocus();
       stopZoom();
       detach();
       unregister();
@@ -245,6 +286,14 @@ function openDocument(
   let built = buildEditor(options, { ...opened, shown: shownNow() }, null);
   // token 0 is navigation start, the origin of performance.now(); a rebuild records nothing
   markEnd("open.editable", 0);
+  // the document a session holds may arrive with a rebuild, so each build of this opening may be the one with scenes
+  let scenesShown = false;
+  const showScenes = (): void => {
+    if (scenesShown || !hasScenesToShow(built.editor)) return;
+    scenesShown = true;
+    panelsActions.openScenesUnchosen();
+  };
+  showScenes();
   const kept = keepPlace(person.place, docId, () => built.editor);
   let pending = noop;
   const rebuild = (): void => {
@@ -253,6 +302,7 @@ function openDocument(
     const place = kept.save();
     built.destroy();
     built = buildEditor(options, { ...opened, shown: shownNow() }, place);
+    showScenes();
   };
   const follow = (): void => {
     if (differs(shownNow(), built.shown)) rebuild();

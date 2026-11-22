@@ -9,15 +9,13 @@ import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import {
   PRODUCT_SETTING_RULES,
-  createHistoryService,
-  createProductionService,
   createServer,
   createSignedSessionStore,
   createTicketStore,
+  createWorkflow,
 } from "@manent/server-core";
 import type {
   Clock,
-  HistoryExtras,
   ManentServer,
   SessionStore,
   SyncService,
@@ -25,7 +23,7 @@ import type {
 import { openSqliteStorage } from "@manent/storage";
 import type { Storage } from "@manent/storage";
 import { PROTOCOL_VERSION, docIdV7 } from "@manent/sync-protocol";
-import { createServerRenderPdf, readScriptFonts } from "../production.ts";
+import { readServerRenderPdf } from "../production.ts";
 import { probeSeedCapabilities } from "./capabilities.ts";
 
 /** The host every request to a seed server names. */
@@ -80,10 +78,7 @@ const SEED_LIMITS = Object.freeze({
 
 /** A clock that moves only when it is set; what it schedules runs when `runDue` is asked, in time order. */
 export interface SeedClock extends Clock {
-  /**
-   * Moves the clock to `at`, later or earlier, as each of a seed's stories starts in its own past. Moving it back
-   * moves every scheduled function back by as much, so each keeps the delay it had left.
-   */
+  /** Moves the clock to `at`, back as well as forward: each seed step tells its story from its own start. A function still scheduled keeps the delay it had left. */
   set(at: number): void;
   /** Runs every scheduled function whose time has come, those they schedule for now included. */
   runDue(): Promise<void>;
@@ -120,8 +115,8 @@ export function createSeedClock(startAt: number): SeedClock {
       return () => scheduled.delete(item);
     },
     set(at) {
-      const back = now - at;
-      if (back > 0) for (const item of scheduled) item.at -= back;
+      const shift = at - now;
+      if (shift < 0) for (const item of scheduled) item.at += shift;
       now = at;
     },
     async runDue() {
@@ -166,20 +161,13 @@ export async function createSeedServer(options: {
     secret: rngBytes(rng, SESSION_KEY_BYTES),
     now: clock.now,
   });
-  const renderPdf = createServerRenderPdf(await readScriptFonts());
+  const renderPdf = await readServerRenderPdf();
   const directory = createDemoDirectory();
-  // the history service and the production service take each other through getters
-  const extras: HistoryExtras = {
-    locksAt: (...args) => production.extras.locksAt(...args),
-    authority: (...args) => production.extras.authority(...args),
-  };
   const sync = (): SyncService => server.sync!;
-  const history = createHistoryService({ sync, storage, clock, ids, extras });
-  const production = createProductionService({
+  const { history, production } = createWorkflow({
     storage,
     sync,
-    history,
-    now: clock.now,
+    clock,
     ids,
     names: (userId) => directory.user(userId)?.name ?? userId,
     renderPdf,

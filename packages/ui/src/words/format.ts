@@ -44,6 +44,20 @@ export function formatTime(at: number): string {
   return `${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}`;
 }
 
+/** The local calendar day of `at`, as a number that is one apart for consecutive days. */
+export function dayNumber(at: number): number {
+  const date = new Date(at);
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / DAY_MS;
+}
+
+/** A time in this week, in local time: "Today 14:10", "Yesterday 14:10", else the day of the week: "Mon 14:10". */
+export function formatDayTime(at: number, now: number): string {
+  const daysAgo = dayNumber(now) - dayNumber(at);
+  const day =
+    daysAgo === 0 ? "Today" : daysAgo === 1 ? "Yesterday" : formatDay(at);
+  return `${day} ${formatTime(at)}`;
+}
+
 /** How long ago `at` was, for the Library's Last edited column: "just now", "14 min ago", "1 hr ago", "Mon", then "12 Nov". */
 export function formatWhen(at: number, now: number): string {
   const ago = now - at;
@@ -52,6 +66,11 @@ export function formatWhen(at: number, now: number): string {
   if (ago < DAY_MS) return `${Math.floor(ago / HOUR_MS)} hr ago`;
   if (ago < WEEK_MS) return formatDay(at);
   return formatDate(at);
+}
+
+/** Where one item stands among `n`, as a stepper writes it: "3 of 17". */
+export function formatPosition(i: number, n: number): string {
+  return `${formatCount(i)} of ${formatCount(n)}`;
 }
 
 /** "Dana", "Dana and Sam", "Dana, Sam and Priya". */

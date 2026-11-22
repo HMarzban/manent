@@ -13,6 +13,7 @@ const AUTHORITY_MAPS = ["settings", "settingsMeta"] as const;
  * `unknown_node` issue for each authority map it wrote. An empty list accepts the push.
  */
 export function validatePush(report: TransactionReport): Issue[] {
+  // a held ID is a `repair` issue, which this step drops: the write path's step 6 repairs copies
   const issues = validateBlocks(report.touched(), {
     isIdTaken: () => false,
   }).filter(
