@@ -131,6 +131,12 @@ export function createUsedLines(): UsedLines {
   };
 }
 
+/** A record for a document a later cut shortens, so no distance holds: nothing drawn comes back in it. */
+export function createUsedOnce(): UsedLines {
+  const lines = createUsedLines();
+  return { ...lines, has: (text) => lines.has(text, Infinity) };
+}
+
 const WORD = new RegExp("[\\p{L}\\p{N}'’.-]+", "gu");
 const WORD_EDGES = new RegExp("^[.'’-]+|[.'’-]+$", "g");
 const POSSESSIVE = new RegExp("['’]s$");

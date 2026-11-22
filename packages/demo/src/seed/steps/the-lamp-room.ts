@@ -13,7 +13,7 @@ import {
   unitsIn,
 } from "../../generate/fit.ts";
 import type { SeedLayout } from "../../generate/fit.ts";
-import { createUsedLines, generateScenes } from "../../generate/grammar.ts";
+import { createUsedOnce, generateScenes } from "../../generate/grammar.ts";
 import type { UsedLines } from "../../generate/grammar.ts";
 import type { StyleGuide } from "../../generate/guide.ts";
 import type { SeedSession } from "../driver.ts";
@@ -249,7 +249,7 @@ async function lampRoomDrafts(
   before: SeedBlock[];
   working: SeedBlock[];
 }> {
-  const used = createUsedLines();
+  const used = createUsedOnce();
   const working = await workingScript(telling, passage, used);
   // the First draft was named before Dana switched Scene CONTINUED on
   const [firstDraft] = await deriveDrafts(
