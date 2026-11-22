@@ -1,6 +1,7 @@
 // The Library read from index documents: each workspace's index of projects and documents, and the person's Continue.
 import { ORIGIN_LOAD, ORIGIN_REMOTE } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
+import type { FormatId } from "@manent/schema";
 import type { DocHandle } from "@manent/sync-client";
 import { projectHome } from "@manent/sync-protocol";
 import type { WorkspaceRef } from "@manent/sync-protocol";
@@ -15,7 +16,11 @@ import type {
 } from "../ports.ts";
 import { cached } from "./cached.ts";
 import type { PersonSync } from "./create-sync.ts";
-import { startImported, startScript } from "./create-script.ts";
+import {
+  PROJECT_KIND_FORMATS,
+  startImported,
+  startScript,
+} from "./create-script.ts";
 import { createShelves } from "./index-shelves.ts";
 import type { Found, Shelf, Shelves } from "./index-shelves.ts";
 import { liveMap } from "./private-index.ts";
@@ -58,7 +63,7 @@ export function onOwnChange(
   };
 }
 
-/** Lists a new project of `kind` in the index of `workspaceId`, with its one script, made on the device first and begun by `start`. */
+/** Lists a new project of `kind` in the index of `workspaceId`, with its one script, made on the device first and begun by `start` in the kind's format. */
 async function addProject(
   options: {
     sync: PersonSync;
@@ -71,7 +76,7 @@ async function addProject(
   workspaceId: string,
   kind: ProjectKind,
   titles: { project: string; script: string },
-  start: (handle: DocHandle) => void,
+  start: (handle: DocHandle, format: FormatId) => void,
 ): Promise<CreateResult> {
   const { sync, shelves } = options;
   const index = await shelves.shelf(workspaceId).handle;
@@ -81,7 +86,7 @@ async function addProject(
     home: projectHome(projectId),
     workspaceId,
   });
-  start(handle);
+  start(handle, PROJECT_KIND_FORMATS[kind]);
   const at = options.now();
   liveMap(index, "projects").set(projectId, {
     title: titles.project,
@@ -263,7 +268,7 @@ export function createSyncLibrary(options: {
           project: LIBRARY_WORDS.untitledProject(kind),
           script: LIBRARY_WORDS.untitledScript,
         },
-        (handle) => startScript(handle, options.language),
+        (handle, format) => startScript(handle, options.language, format),
       ),
     importProject: (ws, imported) =>
       addProject(
@@ -271,7 +276,8 @@ export function createSyncLibrary(options: {
         ws,
         "film",
         { project: imported.title, script: imported.title },
-        (handle) => startImported(handle, imported, options.language),
+        (handle, format) =>
+          startImported(handle, imported, options.language, format),
       ),
     documentTitle: values.title,
     documentKind: values.kind,
