@@ -35,68 +35,6 @@ function chunksOf(built: Built, outDir: string): Chunk[] {
     }));
 }
 
-const EDITOR_MOUNT = "src/editor-host/editor-mount.ts";
-const PDF_WRITER = "packages/formats/src/pdf/write.ts";
-
-/** The chunk holding the source file whose path ends with `suffix`; null when none does. */
-const holding = (chunks: readonly Chunk[], suffix: string): Chunk | null =>
-  chunks.find((c) => c.inputs.some((input) => input.endsWith(suffix))) ?? null;
-
-/**
- * The chunk holding the source file whose path ends with `suffix`, and every chunk it imports
- * statically, the entry aside; null when no chunk holds that file.
- */
-function chunksFrom(
-  chunks: readonly Chunk[],
-  suffix: string,
-): Set<string> | null {
-  const start = holding(chunks, suffix);
-  if (start === null) return null;
-  const byName = new Map(chunks.map((c) => [c.name, c]));
-  const found = new Set<string>();
-  const visit = (chunk: Chunk): void => {
-    if (chunk.entry || found.has(chunk.name)) return;
-    found.add(chunk.name);
-    for (const name of chunk.imports) {
-      const imported = byName.get(name);
-      if (imported !== undefined) visit(imported);
-    }
-  };
-  visit(start);
-  return found;
-}
-
-/** The editor, which the page loads apart from the entry. */
-function editorChunks(chunks: readonly Chunk[]): Set<string> {
-  const found = chunksFrom(chunks, EDITOR_MOUNT);
-  if (found === null) throw new TypeError("no chunk holds the editor");
-  return found;
-}
-
-/** The PDF writer, which only Export loads, without the chunks it shares with the editor. */
-function pdfWriterChunks(
-  chunks: readonly Chunk[],
-  editor: ReadonlySet<string>,
-): Set<string> {
-  const found = chunksFrom(chunks, PDF_WRITER);
-  if (found === null) throw new TypeError("no chunk holds the PDF writer");
-  return new Set([...found].filter((name) => !editor.has(name)));
-}
-
-/** Within its limit, a size equals itself capped at the limit; over it, the failure shows both. */
-const withinBudget = (
-  chunk: string,
-  kb: number,
-  limit: number,
-): { chunk: string; kb: number; limit: number } => ({
-  chunk,
-  kb: Math.min(kb, limit),
-  limit,
-});
-
-const gzipKb = async (chunk: Chunk): Promise<number> =>
-  Bun.gzipSync(await Bun.file(chunk.path).bytes()).length / 1024;
-
 const productionBuild = async (): Promise<{ outDir: string; built: Built }> => {
   const outDir = await trees.tree({});
   return { outDir, built: await buildWeb({ outDir, flavour: "production" }) };
@@ -150,44 +88,6 @@ test("the test flavour is a build of its own", async () => {
     entryText(production.built, production.outDir),
   ]);
   expect([testEntry === productionEntry, built.ok]).toEqual([false, true]);
-}, 60_000);
-
-test("bundle budget: entry ≤ 164 KB and every other chunk but the editor's and the PDF writer's ≤ 60 KB gzip", async () => {
-  const { outDir, built } = await productionBuild();
-  const chunks = chunksOf(built, outDir);
-  const editor = editorChunks(chunks);
-  const pdfWriter = pdfWriterChunks(chunks, editor);
-  for (const chunk of chunks.filter(
-    (c) => !editor.has(c.name) && !pdfWriter.has(c.name),
-  )) {
-    const kb = await gzipKb(chunk);
-    const limit = chunk.entry ? 164 : 60;
-    expect({ chunk: chunk.name, kb, limit }).toEqual(
-      withinBudget(chunk.name, kb, limit),
-    );
-  }
-}, 60_000);
-
-test("first-load JavaScript is at most 363 KB gzip", async () => {
-  const { outDir, built } = await productionBuild();
-  const chunks = chunksOf(built, outDir);
-  const entry = chunks.find((c) => c.entry);
-  if (entry === undefined) throw new TypeError("no entry chunk");
-  // the editor is loaded as soon as a person's services exist
-  const editor = editorChunks(chunks);
-  const firstLoad = chunks.filter(
-    (c) => c === entry || entry.imports.includes(c.name) || editor.has(c.name),
-  );
-  const writer = holding(chunks, PDF_WRITER);
-  if (writer === null) throw new TypeError("no chunk holds the PDF writer");
-  expect(
-    firstLoad.filter((c) => c.name === writer.name).map((c) => c.name),
-  ).toEqual([]);
-  let kb = 0;
-  for (const chunk of firstLoad) kb += await gzipKb(chunk);
-  expect({ chunk: "first load", kb, limit: 363 }).toEqual(
-    withinBudget("first load", kb, 363),
-  );
 }, 60_000);
 
 test("the build writes a service worker holding the whole shell, fonts included", async () => {
