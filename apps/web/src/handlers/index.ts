@@ -75,6 +75,6 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     ...syncHandlers(deps),
     ...createDesktopHandlers(deps),
     ...historyHandlers(deps),
-    ...productionHandlers(),
+    ...productionHandlers(deps),
   };
 }
