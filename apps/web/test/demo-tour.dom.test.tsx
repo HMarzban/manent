@@ -1,5 +1,6 @@
 import { withDom } from "@manent/testkit/dom";
 import { afterEach, expect, test } from "bun:test";
+import { TOUR, isShown } from "@manent/demo";
 import type { TourScenario } from "@manent/demo";
 import type { DemoResponse, SignInChoice } from "@manent/sync-protocol";
 import { useCommandState } from "@manent/ui";
@@ -154,11 +155,14 @@ test("a group with no scenario listed is not drawn", async () => {
     </ServicesProvider>,
   );
   expect(container.querySelector("h2")?.textContent).toBe("Tour");
-  // the shipped Tour lists Write and Work together scenarios only: no other group is drawn
-  const groups = [...container.querySelectorAll("h3")].map(
-    (h) => h.textContent,
+  // the groups drawn are exactly those that list a shown scenario, in the Tour's order
+  const listed = TOUR.groups.filter((group) =>
+    TOUR.scenarios.some((s) => s.group === group && isShown(s)),
   );
-  expect(groups).toEqual(["Write", "Work together"]);
+  expect(listed.length).toBeLessThan(TOUR.groups.length);
+  expect(
+    [...container.querySelectorAll("h3")].map((h) => h.textContent),
+  ).toEqual(listed);
   services.dispose();
 });
 
