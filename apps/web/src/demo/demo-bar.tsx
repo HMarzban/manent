@@ -1,8 +1,9 @@
-// The demo bar: a colour scope of its own above everything, with the person, the server, the Tour and the Connection.
+// The demo bar: a colour scope of its own above everything, with the person, the Connection, the server and the Tour.
 import { DEMO_WORDS, SurfaceBoundary } from "@manent/ui";
 import { Suspense } from "react";
 import type { ReactNode } from "react";
 import { loadApart } from "../load-apart.ts";
+import type { TabPerson } from "../session.ts";
 import type { DemoControl } from "./use-demo.ts";
 // the Tour's ring is drawn by a sheet in the entry: a sheet imported only by a chunk loaded later is never linked to the page
 import "./tour-ring.css";
@@ -13,19 +14,14 @@ const controls = loadApart(
   async () => (await import("./demo-bar-controls.tsx")).DemoBarControls,
 );
 const DemoBarControls = controls.Component;
-const connection = loadApart(
-  async () => (await import("./connection.tsx")).Connection,
-);
-const Connection = connection.Component;
 /** Starts loading the controls' code. */
 export function preloadDemoBarControls(): void {
   controls.preload();
-  connection.preload();
 }
 
-/** Never takes focus; F6 reaches it. */
+/** Never takes focus; F6 reaches it. One row at every width: short of room, its controls keep only their icons. */
 export function DemoBar(props: {
-  personLabel: string;
+  person: TabPerson | null;
   onPersonClick: () => void;
   control: DemoControl | null;
 }): ReactNode {
@@ -33,18 +29,15 @@ export function DemoBar(props: {
     <section
       data-surface="demo"
       aria-label={DEMO_WORDS.demo}
-      className="flex min-h-demobar flex-wrap items-center gap-x-2 bg-chrome px-3 text-meta text-fg"
+      className="mn-bar flex min-h-demobar items-center gap-2 border-b border-line-strong bg-chrome px-3 text-meta text-fg sm:gap-3"
     >
-      <span className="font-semibold tracking-wide uppercase">
+      <span className="mn-tag shrink-0" data-fill>
         {DEMO_WORDS.demo}
       </span>
       {/* controls whose code cannot load leave the bar, and the tab, as they are */}
       <SurfaceBoundary fallback={() => null}>
         <Suspense fallback={null}>
           <DemoBarControls {...props} />
-        </Suspense>
-        <Suspense fallback={null}>
-          <Connection />
         </Suspense>
       </SurfaceBoundary>
     </section>

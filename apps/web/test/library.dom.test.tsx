@@ -377,7 +377,7 @@ test("the switcher lists the person's workspaces and says which is getting ready
   expect(
     items.map((item) => [rowWords(item), item.getAttribute("aria-current")]),
   ).toEqual([
-    [["✓", "Writers' room", "2 projects · The Long Night"], "true"],
+    [["Writers' room", "2 projects · The Long Night"], "true"],
     [["Lanternfield Studios", "getting ready, 12 of 40 projects"], null],
   ]);
   await act(async () => items[1]?.click());
@@ -399,7 +399,7 @@ test("a person with no session has one workspace, on this device only, and can s
   expect(switcherButton().textContent).toContain("Your desk");
   const items = await openMenu(switcherButton());
   expect(items.map(rowWords)).toEqual([
-    ["✓", "Your desk", "Only in this browser"],
+    ["Your desk", "Only in this browser"],
     ["Sign in to sync"],
   ]);
   await act(async () => items[1]?.click());
@@ -543,7 +543,7 @@ test("when the server cannot be reached, the Library keeps the workspaces it las
   ]).toEqual([
     0,
     LIBRARY_PROBLEM,
-    "Writers' room▾",
+    "Writers' room",
     [["The Long Night", "Film", "Priya, 14 min ago", "Synced"]],
   ]);
 });
