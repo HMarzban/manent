@@ -1,9 +1,10 @@
-// `bun run bench` runs the suite on every tier, on one (`--tier`, `--throttle`), or one area on the
-// tier that judges it; `compare` and `baseline` track regressions. `--inside` is a tier's container
-// running its own tier, and `--child <file>` the harness's own way to run one scenario.
+// `bun run bench` runs the suite on every tier, on one (`--tier`, `--throttle`), or one area on
+// the tier that judges it; `compare` and `baseline` track regressions; `fetch-traces` downloads the
+// editing traces. `--inside` runs a tier inside its container; `--child <file>` runs one scenario.
 
 import { readFileSync } from "node:fs";
 import { compareRuns, toBaseline } from "./compare.ts";
+import { fetchTraces } from "./corpus/traces.ts";
 import { MODES, THROTTLES, benchTier, commandLine } from "./env.ts";
 import { runChild, runSuite } from "./harness.ts";
 import { readQuiet } from "./measure.ts";
@@ -241,6 +242,18 @@ async function writeBaseline(files: readonly string[]): Promise<number> {
   return formatted.exited;
 }
 
+/** Downloads every locked trace and prints one line for each; 1 when any was not fetched. */
+async function fetchAll(): Promise<number> {
+  const fetched = await fetchTraces({ dir: `${ROOT}/corpus/traces`, fetch });
+  for (const { name, reason } of fetched)
+    console.log(
+      reason === null
+        ? `${name} fetched`
+        : `${name} could not be fetched: ${reason}`,
+    );
+  return fetched.every((f) => f.ok) ? 0 : 1;
+}
+
 /** The one tier asked for, or every tier in order, each with the filter asked for. */
 function runsOf(args: BenchArgs): TierRun[] {
   const { tier, throttle, filter } = args;
@@ -272,6 +285,8 @@ async function main(args: BenchArgs): Promise<number> {
       return compare(subcommand.args);
     case "baseline":
       return writeBaseline(subcommand.args);
+    case "fetch-traces":
+      return fetchAll();
     default:
       throw new Error(`bun run bench has no subcommand ${subcommand.name}`);
   }
