@@ -17,6 +17,7 @@ import { openHarness, until } from "../sync/support.ts";
 const HEADING = "INT. LAMP ROOM - NIGHT";
 const ACTION = "The lamp turns.";
 const LATER = " The keeper sleeps.";
+const MORE = " Again.";
 
 const historyTab = (page: Page): Locator =>
   page.locator("[data-region='side_panel']").getByRole("region", {
@@ -165,8 +166,14 @@ test("restore a scene and undo it with its reverse", async ({ page }) => {
   const [, action] = await blocks(page);
   if (action === undefined) throw new Error("the script has no action");
   await caretAt(page, action.id, "end");
+  await typeLine(page, MORE);
+  await expect.poll(() => lines(page)).toEqual([HEADING, `${ACTION}${MORE}`]);
+  // Undo takes back what was typed after the restore, and the next Undo leaves the restore standing
   await pressKeyOf(page, "edit.undo");
   await expect.poll(() => lines(page)).toEqual([HEADING, ACTION]);
+  await pressKeyOf(page, "edit.undo");
+  await settled(page);
+  expect(await lines(page)).toEqual([HEADING, ACTION]);
   await page.getByRole("button", { name: "Restore 'Before restore'" }).click();
   await expect.poll(() => lines(page)).toEqual([HEADING, `${ACTION}${LATER}`]);
 });
