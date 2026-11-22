@@ -103,6 +103,8 @@ test("Rename commits on Enter, cancels on Escape, and returns focus to the title
     if (input === null) throw new Error("no rename field is open");
     return input;
   };
+  // the page takes focus on open; the rename starts from the title
+  act(() => titleBar.querySelector("h1")?.focus());
   act(() => {
     services.commands.run("doc.rename", "menu");
   });

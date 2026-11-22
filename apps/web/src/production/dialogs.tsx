@@ -3,9 +3,12 @@
 import {
   ConsequenceDialog,
   PRODUCTION_WORDS,
+  SurfaceBoundary,
   useSubscribable,
 } from "@manent/ui";
+import { Suspense, useEffect } from "react";
 import type { ReactNode } from "react";
+import { loadApart } from "../load-apart.ts";
 import { useDocumentTitle } from "../screens/document/title-bar.tsx";
 import { useProductionContext } from "../state/production-context.store.ts";
 import {
@@ -13,13 +16,18 @@ import {
   useDialogRequest,
   useDialogServices,
 } from "./dialog-context.ts";
-import { ChangeLayoutDialog } from "./layout-dialog.tsx";
 import { useProductionServices } from "./live-services.ts";
 import { LockDialog } from "./lock-dialog.tsx";
 import { NOTHING_OPEN } from "./services.ts";
 import type { ProductionServices } from "./services.ts";
 
 const WORDS = PRODUCTION_WORDS;
+
+// Change layout… reads the open editor's pages, so it is loaded apart: the document screen never waits for the editor
+const changeLayout = loadApart(
+  async () => (await import("./layout-dialog.tsx")).ChangeLayoutDialog,
+);
+const ChangeLayoutDialog = changeLayout.Component;
 
 /** Unlock and End production, which ask nothing but the button. */
 function EndingDialog(props: {
@@ -42,6 +50,7 @@ function EndingDialog(props: {
           action: WORDS.unlockButton,
           busy: WORDS.unlockingButton,
           body: WORDS.unlockBody(title),
+          refused: WORDS.unlockRefused,
           ask: services.client.unlock,
         }
       : {
@@ -49,6 +58,7 @@ function EndingDialog(props: {
           action: WORDS.endButton,
           busy: WORDS.endingButton,
           body: WORDS.endBody(active, title),
+          refused: WORDS.endRefused,
           ask: services.client.end,
         };
   return (
@@ -58,12 +68,14 @@ function EndingDialog(props: {
       body={words.body}
       action={words.action}
       busyLabel={request.busy ? words.busy : null}
-      refusal={null}
+      refusal={request.refusal}
       disabledReason={request.disabledReason}
       destructive={false}
-      // the state the server answers says what happened; a refusal has no words of its own
       onAction={() =>
-        request.send(words.ask, { ok: onClose, refused: onClose })
+        request.send(words.ask, {
+          ok: onClose,
+          refused: () => words.refused,
+        })
       }
       onCancel={onClose}
     />
@@ -74,13 +86,19 @@ function Dialogs(props: { services: ProductionServices }): ReactNode {
   const { services } = props;
   const open = useSubscribable(services.open);
   const close = (): void => services.open.set(NOTHING_OPEN);
+  useEffect(changeLayout.preload, []);
   return (
     <DialogServices.Provider value={services}>
       <LockDialog open={open.kind === "lock"} onClose={close} />
-      <ChangeLayoutDialog
-        change={open.kind === "change_layout" ? open.change : null}
-        onClose={close}
-      />
+      {/* a dialog whose code cannot load is never drawn, and leaves the screen as it is */}
+      <SurfaceBoundary fallback={() => null}>
+        <Suspense fallback={null}>
+          <ChangeLayoutDialog
+            change={open.kind === "change_layout" ? open.change : null}
+            onClose={close}
+          />
+        </Suspense>
+      </SurfaceBoundary>
       <EndingDialog
         kind="unlock"
         open={open.kind === "unlock"}

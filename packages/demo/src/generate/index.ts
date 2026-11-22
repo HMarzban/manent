@@ -3,7 +3,8 @@ export { deriveDrafts, sessionsBetween } from "./drafts.ts";
 export type { BlockChange, DraftTarget } from "./drafts.ts";
 export { fitAPages, fitToPages } from "./fit.ts";
 export type { APageRun, FitRange, PageMeter, SeedLayout } from "./fit.ts";
-export { generateChapter, generateScenes } from "./grammar.ts";
+export { createUsedLines, generateChapter, generateScenes } from "./grammar.ts";
+export type { UsedLines } from "./grammar.ts";
 export { SeedBuildError } from "./guide.ts";
 export type {
   Beat,

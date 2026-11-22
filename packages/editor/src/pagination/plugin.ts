@@ -24,8 +24,7 @@ import type { CaretPlace } from "./caret.ts";
 import { updateDecorations } from "./decorations.ts";
 import type { DecorationOptions } from "./decorations.ts";
 import type { IsRemote } from "./page-view.ts";
-import { ownScroller, readingKeeper } from "./reading-anchor.ts";
-import type { ReadingKeeper } from "./reading-anchor.ts";
+import { ownScroller } from "./scroller.ts";
 import { assertSameEngine, needsFullRun, withPatch } from "./settings-patch.ts";
 import type { SettingsPatch } from "./settings-patch.ts";
 
@@ -266,31 +265,22 @@ function caretKeeper(
   };
 }
 
-// What the plugin's views learn of remote changes.
-interface RemoteChanges {
-  /** Whether a remote change made this state. */
-  has(state: EditorState): boolean;
-  /** Told of each remote change before any view shows it; each view adds its own while it lives. */
-  readonly keepers: Set<ReadingKeeper>;
-}
-
 /**
  * After a composition, the pages are brought up to date once the view has stopped composing; a local edit that
- * carries the caret to another page leaves its line where it was, and a remote change leaves what the reader reads.
+ * carries the caret to another page leaves its line where it was. `isRemoteState` says whether a remote change made
+ * a state.
  */
 function paginationView(
   view: EditorView,
   options: PaginationOptions,
-  remote: RemoteChanges,
+  isRemoteState: (state: EditorState) => boolean,
 ): PluginView {
   // a port is called without a receiver: queueMicrotask refuses any other
   const { defer } = options;
   let pages = stateOf(view.state).pagination.pages.length;
   let scroller: Element | null = null;
   const scrollerOf = () => (scroller ??= ownScroller(view, options.scroller));
-  const keepCaret = caretKeeper(view, scrollerOf, remote.has);
-  const keepReading = readingKeeper(view, scrollerOf);
-  remote.keepers.add(keepReading);
+  const keepCaret = caretKeeper(view, scrollerOf, isRemoteState);
   let scheduled = false;
   const isWaiting = () => !view.composing && stateOf(view.state).frozen;
   const resume = () => {
@@ -312,7 +302,6 @@ function paginationView(
   return {
     update(_, prev) {
       resume();
-      keepReading.after(prev);
       keepCaret(prev);
       const count = stateOf(view.state).pagination.pages.length;
       if (count === pages) return;
@@ -320,7 +309,6 @@ function paginationView(
       options.onPages?.(count);
     },
     destroy() {
-      remote.keepers.delete(keepReading);
       view.dom.removeEventListener("compositionend", resume);
     },
   };
@@ -339,7 +327,6 @@ export function paginationPlugin(
   const isRemote = options.isRemote ?? (() => false);
   // the states a remote change made, kept while they are in use
   const remoteStates = new WeakSet<EditorState>();
-  const keepers = new Set<ReadingKeeper>();
   return new Plugin<PaginationState>({
     key: paginationKey,
     state: {
@@ -347,18 +334,12 @@ export function paginationPlugin(
       apply: (tr, prev, _old, state) =>
         applyTransaction(tr, prev, state, decorations),
     },
-    appendTransaction: (trs, old, state) => {
-      if (!trs.some(isRemote)) return null;
-      remoteStates.add(state);
-      // no view has shown the change yet: each reads its reader's place from the DOM of `old`
-      for (const keeper of keepers) keeper.before(old);
+    appendTransaction: (trs, _old, state) => {
+      if (trs.some(isRemote)) remoteStates.add(state);
       return null;
     },
     view: (view) =>
-      paginationView(view, options, {
-        has: (state) => remoteStates.has(state),
-        keepers,
-      }),
+      paginationView(view, options, (state) => remoteStates.has(state)),
     props: {
       decorations: (state) => paginationKey.getState(state)?.decorations,
       // WebKit selects nothing when a document's first and last children are breaks that cannot be edited

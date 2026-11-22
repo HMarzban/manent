@@ -1,11 +1,17 @@
-// Where a version is drawn: over the page As it was, or beside it Side by side under its header row. The live editor
-// stays mounted, keeps its caret, scroll and undo, and keeps receiving remote edits.
+// Where a version is drawn: over the page As it was, or beside it Side by side under its header row of title, status
+// and ✕. The live editor stays mounted, keeps its caret, scroll and undo, and keeps receiving remote edits.
 import { ENGINE_VERSION, engineFor } from "@manent/pagination";
 import { compareModeOf } from "@manent/revisions";
 import type { CompareNote, Comparison } from "@manent/revisions";
 import { SCHEMA_VERSION } from "@manent/schema";
 import type { VersionContent } from "@manent/sync-protocol";
-import { EDITOR_WORDS, HISTORY_WORDS } from "@manent/ui";
+import {
+  CloseButton,
+  DOCUMENT_WORDS,
+  EDITOR_WORDS,
+  HISTORY_WORDS,
+} from "@manent/ui";
+import type { StatusFacts, Subscribable } from "@manent/ui";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -15,6 +21,8 @@ import type { VersionView } from "../../editor-host/version-view.ts";
 import { baselineAt } from "../../history/baseline.ts";
 import { useServices } from "../../services/context.tsx";
 import { useHistory } from "../../state/history.store.ts";
+import { useOpenDocument } from "./open-document.ts";
+import { useStatusSlots } from "./status-button.tsx";
 
 const PAGE_REGION = "[data-region='page']";
 
@@ -119,6 +127,21 @@ function sideBySide(
   };
 }
 
+/** The script's status in the header's two slots, as the title bar says it. */
+function BesideStatus(props: { source: Subscribable<StatusFacts> }): ReactNode {
+  const { root, deviceSlot, serverSlot } = useStatusSlots(props.source);
+  return (
+    <span
+      ref={root}
+      className="group flex shrink-0 tabular-nums data-[tone=alert]:text-danger data-[tone=attention]:text-attention data-[tone=quiet]:text-fg-muted"
+    >
+      <span ref={deviceSlot} className="group-data-spans:hidden" />
+      <span className="whitespace-pre group-data-spans:hidden">{" · "}</span>
+      <span ref={serverSlot} />
+    </span>
+  );
+}
+
 /**
  * The version of the baseline, `content`, drawn in the page's grid area; nothing while the window has no page. Side
  * by side marks `comparison`, the baseline against Working, unfiltered, and waits for it.
@@ -130,7 +153,8 @@ export function VersionPane(props: {
   comparison: Comparison | null;
 }): ReactNode {
   const { docId, position, content } = props;
-  const { pagePorts } = useServices();
+  const { pagePorts, commands } = useServices();
+  const status = useOpenDocument(docId)?.status ?? null;
   const baseline = useHistory("baseline");
   const { sceneIds } = useHistory("filter");
   const place = useRef<HTMLDivElement>(null);
@@ -184,7 +208,14 @@ export function VersionPane(props: {
     >
       {beside ? (
         <header className="flex flex-col gap-1 px-3 py-2 text-ui">
-          <span>{title}</span>
+          <div className="flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate">{title}</span>
+            {status === null ? null : <BesideStatus source={status} />}
+            <CloseButton
+              label={DOCUMENT_WORDS.closeBeside(title)}
+              onClick={() => commands.run("history.backToWorking", "control")}
+            />
+          </div>
           {note === null ? null : (
             <p className="text-meta text-fg-muted">{note}</p>
           )}

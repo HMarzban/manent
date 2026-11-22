@@ -39,6 +39,9 @@ export interface PlaceStore {
   /** Null until the person's zoom is first saved here. */
   zoom(): ZoomSetting | null;
   saveZoom(zoom: ZoomSetting): void;
+  /** Whether the left panel was opened or closed on this device, by the person or by a script with scenes. */
+  leftChosen(): boolean;
+  markLeftChosen(): void;
   /** Whether this device has shown that the script is past the comfort limit. */
   noticeShown(docId: string): boolean;
   markNoticeShown(docId: string): void;
@@ -136,6 +139,8 @@ export function createPlaceStore(options: {
       return isZoomSetting(value) ? value : null;
     },
     saveZoom: (zoom) => map.set("zoom", zoom),
+    leftChosen: () => map.get("left_chosen") === true,
+    markLeftChosen: () => map.set("left_chosen", true),
     noticeShown: (docId) => map.get(`notice:${docId}`) === true,
     markNoticeShown: (docId) => map.set(`notice:${docId}`, true),
   };
@@ -187,6 +192,8 @@ export function keepViewState(
 ): () => void {
   stopCurrentKeeper();
   restorePanels(store.panels() ?? FIRST_PANELS);
+  // after the panels, whose writes are not this person's choice; a script with scenes leaves an open left panel alone
+  panelsActions.setLeftChosen(store.leftChosen());
   if (rulerActions.get() !== store.ruler()) rulerActions.set(store.ruler());
   if (layoutViewActions.get() !== store.layoutView())
     layoutViewActions.set(store.layoutView());
@@ -204,7 +211,11 @@ export function keepViewState(
     saveZoom();
   };
   const stops = [
-    panelsActions.subscribe(() => panels.request()),
+    panelsActions.subscribe(() => {
+      if (panelsActions.leftChosen() && !store.leftChosen())
+        store.markLeftChosen();
+      panels.request();
+    }),
     zoomActions.subscribe(() => zoom.request()),
     rulerActions.subscribe(() => store.saveRuler(rulerActions.get())),
     layoutViewActions.subscribe(() =>

@@ -286,6 +286,28 @@ test("the production commands are these, with these words, menus and conditions"
     ].map((text): unknown => JSON.parse(text)),
   ).toEqual([
     ["editor", { mac: [], windows: [], linux: [] }, false, "others", null],
+    [
+      "editor",
+      {
+        mac: ["Mod+Shift+]"],
+        windows: ["Mod+Shift+]"],
+        linux: ["Mod+Shift+]"],
+      },
+      false,
+      "others",
+      null,
+    ],
+    [
+      "editor",
+      {
+        mac: ["Mod+Shift+["],
+        windows: ["Mod+Shift+["],
+        linux: ["Mod+Shift+["],
+      },
+      false,
+      "others",
+      null,
+    ],
   ]);
   expect([
     shownAt(at(null)),

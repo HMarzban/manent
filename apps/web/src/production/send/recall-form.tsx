@@ -12,8 +12,8 @@ import { useEnvironment, useServices } from "../../services/context.tsx";
 import { useProductionContext } from "../../state/production-context.store.ts";
 import { useProductionServices } from "../live-services.ts";
 import type { ProductionServices } from "../services.ts";
-import { deviceDay } from "../state-facts.ts";
-import { MemoRow } from "./memo-row.tsx";
+import { deviceDay, latestIssue } from "../state-facts.ts";
+import { MemoRow, memoOf } from "./memo-row.tsx";
 import { Packet } from "./packet.tsx";
 import {
   useBackToPage,
@@ -76,31 +76,31 @@ function Recall(props: {
   const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set());
   const [memo, setMemo] = useState<string | null>(null);
   // the latest issued revision, which Recall withdraws, and its issue
-  const set = state?.sets.at(-2);
-  const issue = state?.issues.find(
-    (held) => held.kind === "issue" && held.setId === set?.setId,
-  );
-  if (set === undefined || issue === undefined) return null;
+  const latest = state === null ? null : latestIssue(state);
+  if (latest === null) return null;
+  const { set, issue } = latest;
   const { name } = set;
   const p = live?.locked.pagination ?? null;
   const changed = live?.revisedPages ?? [];
   // in page order, whatever order they were ticked in
   const pages = changed.filter((label) => ticked.has(label));
-  const shownMemo = memo ?? recallMemo(name, today, pages, issue.issuedOn);
+  const shownMemo = memoOf(memo, pages, (labels) =>
+    recallMemo(name, today, labels, issue.issuedOn),
+  );
   const tick = (label: string, on: boolean): void => {
     const next = new Set(ticked);
     if (on) next.add(label);
     else next.delete(label);
     setTicked(next);
   };
-  const recall = (): void =>
+  const recall = (sentMemo: string): void =>
     request.send(
       (key) =>
         services.client.recall({
           key,
           setId: set.setId,
           pages,
-          memo: shownMemo,
+          memo: sentMemo,
           issuedOn: today,
           files: [...issue.files],
           tint: issue.tint,
@@ -112,8 +112,7 @@ function Recall(props: {
           );
           back();
         },
-        // the state the server answers says what happened, and the form has no words for it
-        refused: () => {},
+        refused: () => WORDS.recallRefused(name),
       },
     );
   return (
@@ -133,12 +132,20 @@ function Recall(props: {
           ),
         },
         { id: "to", content: WORDS.people(issue.recipientUserIds.length) },
-        {
-          id: "memo",
-          content: (
-            <MemoRow memo={shownMemo} edited={memo !== null} onEdit={setMemo} />
-          ),
-        },
+        ...(shownMemo === null
+          ? []
+          : [
+              {
+                id: "memo" as const,
+                content: (
+                  <MemoRow
+                    memo={shownMemo}
+                    edited={memo !== null}
+                    onEdit={setMemo}
+                  />
+                ),
+              },
+            ]),
       ]}
       pages={
         p === null || live === null ? null : (
@@ -150,16 +157,16 @@ function Recall(props: {
           />
         )
       }
-      action={{
-        label: WORDS.recallButton(name),
-        busyLabel: WORDS.recallingButton(name),
-        busy: request.busy,
-        disabledReason: request.disabledReason(waiting),
-        problem: request.problem,
-        progress: null,
-        cancel: null,
-        run: live === null || pages.length === 0 ? null : recall,
-      }}
+      action={request.action(
+        {
+          label: WORDS.recallButton(name),
+          busyLabel: WORDS.recallingButton(name),
+        },
+        waiting,
+        live === null || pages.length === 0 || shownMemo === null
+          ? null
+          : () => recall(shownMemo),
+      )}
     />
   );
 }

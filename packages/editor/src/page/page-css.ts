@@ -136,6 +136,9 @@ p.el.pg-first {
 .el[data-close]::after {
   content: attr(data-close);
 }
+.el[data-close] > br.ProseMirror-trailingBreak {
+  display: none;
+}
 .el[data-mark]::before {
   content: attr(data-mark);
 }

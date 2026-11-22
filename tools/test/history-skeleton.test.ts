@@ -4,7 +4,9 @@ import type { CommandContext, CommandDefinition } from "@manent/commands";
 import type { VersionItem } from "@manent/sync-protocol";
 import {
   HISTORY_WORDS,
+  PLACE_WORDS,
   escapeAction,
+  formatPosition,
   historyMessage,
   versionRef,
   versionTitle,
@@ -273,9 +275,9 @@ test("the history words are the sentences people read", async () => {
     "Dana named a draft: 'Studio draft'.",
   );
   expect([
-    HISTORY_WORDS.sceneItem("8", "INT. FERRY - NIGHT"),
+    PLACE_WORDS.scene("8", "INT. FERRY - NIGHT"),
     HISTORY_WORDS.stepName(3, 41),
-    HISTORY_WORDS.step(3, 41),
+    formatPosition(3, 41),
   ]).toEqual(["Sc. 8 · INT. FERRY - NIGHT", "Change 3 of 41", "3 of 41"]);
   expect([
     HISTORY_WORDS.dayGroup(MON_16_NOV_2026, NOW),
@@ -418,6 +420,7 @@ test("the history commands sit in these menus, answer these palette words and ap
     ],
     ["history.hideChanges", [], { keywords: [] }, null],
     ["history.showSinceOpened", [], { hidden: "the state bar's action" }, null],
+    ["history.dismissSinceOpened", [], { hidden: "the state bar's ✕" }, null],
     ["history.backToWorking", [], { keywords: [] }, null],
     ["history.nextChange", [], { keywords: [] }, null],
     ["history.previousChange", [], { keywords: [] }, null],

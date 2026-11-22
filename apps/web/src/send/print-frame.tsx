@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 import { liveFrontPages } from "../editor-host/live-editor.ts";
 import type { SendFormProps } from "../screens/send/forms.ts";
 import { SendFrame } from "../screens/send/send-frame.tsx";
-import { useEnvironment } from "../services/context.tsx";
+import { useEnvironment, useServices } from "../services/context.tsx";
 import type { Environment } from "../services/ports.ts";
 import { useSendPages } from "./page-tiles.tsx";
 import { PRINT_ID, printCss, printPages } from "./print-pages.ts";
@@ -64,6 +64,7 @@ async function printScript(work: {
 export function LivePrint(props: SendFormProps): ReactNode {
   const { p, title, rows, tiles, back } = useSendPages(props.docId);
   const { frame } = useEnvironment();
+  const { history } = useServices();
   const [busy, setBusy] = useState(false);
   const [built, setBuilt] = useState(0);
   const [problem, setProblem] = useState<string | null>(null);
@@ -93,6 +94,7 @@ export function LivePrint(props: SendFormProps): ReactNode {
       return;
     }
     building.current = null;
+    void history.save(props.docId, "export");
     back();
   };
 

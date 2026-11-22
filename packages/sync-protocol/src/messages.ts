@@ -27,6 +27,7 @@ export const CONTROL_KINDS = [
   "sent_to_prompter",
   "upstream_status",
   "upstream_refused",
+  "copies_kept",
 ] as const;
 export const SYNC_STEPS = ["step1", "step2", "update"] as const;
 export const VERSION_FIELDS = [

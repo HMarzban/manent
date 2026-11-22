@@ -1,6 +1,6 @@
 // The rules generated text is held to: no filler, no line back too soon, every speaker and place known, every question answered.
 import type { SeedBlock } from "../content/markup.ts";
-import { withTag } from "./grammar.ts";
+import { GENERATED_REPEAT_PAGES, estimatedLines, withTag } from "./grammar.ts";
 import type {
   GeneratedIssue,
   LineIntent,
@@ -8,7 +8,6 @@ import type {
   StyleGuide,
 } from "./guide.ts";
 
-const GENERATED_REPEAT_PAGES = 10;
 const FILLER = /lorem|ipsum|\bTBD\b|placeholder|^Scene \d+$/i;
 // a sentence ends at its full stop, question mark, exclamation mark or ellipsis, and any closing quotes
 const SENTENCE = new RegExp("[^.!?…]*[.!?…]+[\"'”’]*", "g");
@@ -32,20 +31,24 @@ const locationOf = (heading: string): string => {
   return dash === -1 ? heading : heading.slice(0, dash);
 };
 
+// `distance` in estimated lines, counted from the start of the earlier block to the start of the later one
 function repeatedSentences(
   blocks: readonly SeedBlock[],
   distance: number,
 ): GeneratedIssue[] {
   const lastAt = new Map<string, number>();
+  let line = 0;
   return blocks.flatMap((block, blockIndex) => {
+    const at = line;
+    line += estimatedLines(block);
     if (block.element === "dialogue") return [];
     let repeated = false;
     for (const match of block.text.match(SENTENCE) ?? []) {
       const sentence = match.trim();
       if (sentence.split(/\s+/).length <= SHORT_SENTENCE_WORDS) continue;
-      const at = lastAt.get(sentence);
-      if (at !== undefined && blockIndex - at < distance) repeated = true;
-      lastAt.set(sentence, blockIndex);
+      const before = lastAt.get(sentence);
+      if (before !== undefined && at - before < distance) repeated = true;
+      lastAt.set(sentence, at);
     }
     return repeated ? [{ code: "repeated_sentence" as const, blockIndex }] : [];
   });
@@ -102,7 +105,7 @@ function unanswered(
 
 /**
  * What generated blocks break of the generator's rules, in block order. A sentence of more than four words
- * outside dialogue may come back only ten pages of `linesPerPage` blocks later; a speech never comes back.
+ * outside dialogue may come back only ten pages of `linesPerPage` estimated lines later; a speech never comes back.
  */
 export function checkGenerated(
   blocks: readonly SeedBlock[],

@@ -1,14 +1,19 @@
-// The outline, one row per scene: written by the bridge, published through the throttle, read one row at a time.
+// The outline, one row per act, section and scene: written by the bridge, published through the throttle, read one row
+// at a time.
 
 import { useContext, useSyncExternalStore } from "react";
 import { OutlineContext } from "./bridge-contexts.ts";
 import type { Guard } from "./guard.ts";
 import { createThrottledList } from "./throttle.ts";
 
+/** A scene, an act or a section; `eighths` is a scene's length in eighths of a page, null for an act or a section. */
 export interface OutlineRow {
   blockId: string;
+  kind: "scene" | "act" | "section";
   number: string | null;
   heading: string;
+  synopsis: string;
+  eighths: number | null;
   /** An omitted scene reads "{number}  OMITTED". */
   omitted: boolean;
   current: boolean;

@@ -5,11 +5,13 @@ import {
   ORIGIN_REPLAY,
   applyBlockOps,
   loadDoc,
+  readStateVector,
   revisedOverrides,
   scriptBody,
   titlePage,
   updateMeta,
 } from "@manent/crdt";
+import type { TypedText } from "@manent/crdt";
 import type { BlockMerge } from "@manent/revisions";
 import { blockText, blockView, validateBlocks } from "@manent/schema";
 import type { BlockOp, DocJSON, TitlePageField } from "@manent/schema";
@@ -27,6 +29,7 @@ import type { Clock, SyncLimits, WritePath } from "../sync/ports.ts";
 import type { Room, Rooms } from "../sync/rooms.ts";
 import { replayBase } from "./replay-base.ts";
 import { readRequest, storedResponse } from "./replay-request.ts";
+import { writeTyping } from "./replay-typing.ts";
 import { mergeUniqueThrough } from "./unique-merge.ts";
 
 export type ReplayOutcome =
@@ -82,16 +85,18 @@ function contentOf(state: Uint8Array): DocJSON {
 }
 
 /**
- * The ops, and the overrides and title page fields that differ from the room's, as one update,
- * written on a copy and applied to the room's document under ORIGIN_REPLAY; null when they wrote
- * nothing.
+ * The ops, with the device's typing where it was typed, and the overrides and title page fields
+ * that differ from the room's as one update, written on a copy and applied to the room's document
+ * under ORIGIN_REPLAY, under `writer` when given; null when they wrote nothing.
  */
 function writeOps(
   room: Room,
   changes: {
     ops: readonly BlockOp[];
+    typed: Checked["typed"];
     overrides: Checked["overrides"];
     titlePage: Checked["titlePage"];
+    writer?: number;
   },
   ids: () => string,
 ): Uint8Array | null {
@@ -99,6 +104,7 @@ function writeOps(
     room,
     ORIGIN_REPLAY,
     (copy) => {
+      writeTyping(copy, changes.ops, changes.typed, ORIGIN_REPLAY);
       applyBlockOps(copy, changes.ops, ORIGIN_REPLAY);
       const overrides = revisedOverrides(copy);
       for (const [key, value] of changes.overrides)
@@ -110,6 +116,7 @@ function writeOps(
       return { ok: true };
     },
     ids,
+    changes.writer,
   );
   return written.ok ? written.update : null;
 }
@@ -125,9 +132,12 @@ function isWritable(ops: readonly BlockOp[]): boolean {
 /** The answer a key keeps: overlaps carry this device's text, and set-aside text comes first from the updates. */
 function storedOf(
   merge: BlockMerge,
-  setAside: readonly ReplaySetAside[],
+  found: Pick<Checked, "setAside" | "unseen">,
   room: Room,
 ): Stored {
+  const merged = new Set<string | null>(
+    merge.setAside.map((item) => item.blockId),
+  );
   return {
     docId: room.docId,
     generation: room.row.generation,
@@ -136,9 +146,12 @@ function storedOf(
       blockId: overlap.blockId,
       text: blockText(blockView(overlap.mine)),
     })),
-    setAside: [...setAside, ...merge.setAside].map(
-      ({ blockId, nearBlockId, text }) => ({ blockId, nearBlockId, text }),
-    ),
+    // the merge sets aside mine's whole block, which still holds the unseen text found in it
+    setAside: [
+      ...found.setAside,
+      ...found.unseen.filter((item) => !merged.has(item.blockId)),
+      ...merge.setAside,
+    ].map(({ blockId, nearBlockId, text }) => ({ blockId, nearBlockId, text })),
   };
 }
 
@@ -175,11 +188,18 @@ interface Checked {
   mine: DocJSON;
   kind: DocKind;
   frozen: Uint8Array[];
+  /** Own text the updates or the rows base moved on by removed from mine unseen. */
   setAside: ReplaySetAside[];
+  /** Own text mine still holds that the generation's later rows removed unseen. */
+  unseen: ReplaySetAside[];
+  /** By block, mine's text and which of its characters the device's updates wrote. */
+  typed: ReadonlyMap<string, TypedText>;
   /** Mine's revisedOverrides entries that differ from base's; null removes one. */
   overrides: [string, string | null][];
   /** Mine's title page fields that differ from base's; "" empties one. */
   titlePage: [TitlePageField, string][];
+  /** The client ids of the device's updates, in order. An authority writes the replay under the first its document does not hold, so that the device knows the text as its own; a relayed room draws one, as its upstream may hold any. */
+  writers: number[];
 }
 
 /**
@@ -221,7 +241,7 @@ export function createReplay(
     const own = ownClientIds(file, docId, userId);
     const based = replayBase(file, docId, from, lastServerSeq, updates, own);
     if (!based.ok) return based.code;
-    const { base, mine, setAside, overrides } = based;
+    const { base, mine, setAside, unseen, typed, overrides } = based;
     const { kind } = resolved;
     return {
       userId,
@@ -231,8 +251,11 @@ export function createReplay(
       mine,
       frozen,
       setAside,
+      unseen,
+      typed,
       overrides,
       titlePage: based.titlePage,
+      writers: clientIds,
     };
   }
 
@@ -251,10 +274,21 @@ export function createReplay(
     const theirs = [...checked.frozen.map(contentOf), current];
     const merge = mergeUniqueThrough(checked.base, checked.mine, theirs);
     if (!isWritable(merge.ops)) return refused("invalid");
-    const { overrides } = checked;
-    const changes = { ops: merge.ops, overrides, titlePage: checked.titlePage };
+    const { typed, overrides } = checked;
+    const held = readStateVector(doc.encodeStateVector());
+    const writer =
+      room.mode === "authority"
+        ? checked.writers.find((clientId) => !held.has(clientId))
+        : undefined;
+    const changes = {
+      ops: merge.ops,
+      typed,
+      overrides,
+      titlePage: checked.titlePage,
+      writer,
+    };
     const update = writeOps(room, changes, ports.ids);
-    const stored = storedOf(merge, checked.setAside, room);
+    const stored = storedOf(merge, checked, room);
     const createdAt = clock.now();
     const version: VersionRow | null =
       update === null

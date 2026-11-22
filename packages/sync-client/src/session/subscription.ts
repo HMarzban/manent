@@ -205,7 +205,7 @@ class DocSubscription implements Subscription {
   stepTwo(update: Uint8Array): void {
     const { fresh } = this.recovery;
     if (this.move !== null) {
-      this.move.loaded(update, this.headSeq);
+      this.move.loaded(update, this.headSeq, this.base.content());
       this.move = null;
       this.base.reset(update);
     } else if (fresh !== null) {
@@ -222,6 +222,8 @@ class DocSubscription implements Subscription {
   }
 
   update(update: Uint8Array): void {
+    // the old document must not take the new generation's updates; the step 2 a move loads holds them
+    if (this.move !== null) return;
     this.options.copy.update(update);
     this.base.take(update);
   }

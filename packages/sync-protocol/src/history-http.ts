@@ -91,6 +91,24 @@ export interface VersionContent {
   authors: Record<string, VersionAuthor>;
 }
 
+/** A version a device hands over with its document in POST /api/docs/adopt, kept as its content under its own id. */
+export interface AdoptedVersion {
+  id: string;
+  kind: HistoryVersionKind;
+  name: string | null;
+  createdByUserId: string;
+  createdAt: number;
+  /** The device whose window made it; null for one the device's authority made. */
+  deviceId: string | null;
+  content: VersionContent;
+  /** What it changed since the version before it; null for one recorded without that. */
+  summary: {
+    authorUserIds: string[];
+    blockIds: string[];
+    sceneIds: string[];
+  } | null;
+}
+
 /** The answer to GET /api/versions/content. */
 export interface VersionContentResponse {
   content: VersionContent;
@@ -191,6 +209,24 @@ export interface HistoryControl {
   /** For a restore of one scene, its number; null for the whole script. */
   scene: string | null;
   beforeVersionId: string | null;
+}
+
+/** The data of a `copies_kept` CONTROL frame, as UTF-8 JSON: what the server found twice after the push of `userId`. */
+export interface CopiesKeptControl {
+  userId: string;
+  at: number;
+  /**
+   * Each copy that differs, left in the script: `blockId` names the kept block and `copyId` the copy;
+   * `mine` is the copy's wording under the kept block's ID, `theirs` the kept block's; `otherUserIds`
+   * wrote the kept block, ascending.
+   */
+  copies: {
+    blockId: string;
+    copyId: string;
+    mine: BlockJSON;
+    theirs: BlockJSON;
+    otherUserIds: string[];
+  }[];
 }
 
 const VERSION_CURSOR = /^\d+:[A-Za-z0-9_-]{1,64}$/;

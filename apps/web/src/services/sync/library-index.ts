@@ -7,13 +7,7 @@ import { projectHome } from "@manent/sync-protocol";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import { LIBRARY_WORDS, createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
-import type {
-  ContinueItem,
-  CreateResult,
-  LibraryIndex,
-  ProjectItem,
-  ProjectKind,
-} from "../ports.ts";
+import type { CreateResult, LibraryIndex, ProjectKind } from "../ports.ts";
 import { cached } from "./cached.ts";
 import type { PersonSync } from "./create-sync.ts";
 import {
@@ -24,9 +18,10 @@ import {
 import { readWorkspace } from "./index-entries.ts";
 import type { WorkspaceEntries } from "./index-entries.ts";
 import { createShelves } from "./index-shelves.ts";
-import type { Found, Shelf, Shelves } from "./index-shelves.ts";
+import type { Found, Shelves } from "./index-shelves.ts";
 import { liveMap } from "./private-index.ts";
 import type { PrivateIndex } from "./private-index.ts";
+import { createSeedingLists, seedingShelf } from "./seeding-lists.ts";
 
 /** At most one `editedAt` write per person and document this often. */
 const LAST_EDITED_EVERY_MS = 600_000;
@@ -215,23 +210,6 @@ function createDocumentValues(options: {
   };
 }
 
-/** The shelf of a workspace still being seeded: empty, opening no index, and refusing a new project. */
-function seedingShelf(): Shelf {
-  const handle = Promise.reject<DocHandle>(
-    new Error("The workspace is still being seeded."),
-  );
-  // only a new project asks for the index, and it is told the refusal
-  handle.catch(() => {});
-  return {
-    projects: createValue<readonly ProjectItem[]>([]),
-    continueList: createValue<readonly ContinueItem[]>([]),
-    loadState: createValue<"cached" | "problem">("cached"),
-    handle,
-    ready: Promise.resolve(),
-    opened: null,
-  };
-}
-
 /**
  * Each workspace's index opens, from the device first, when its lists are first asked for, and stays open while the
  * services live. Rows say where each document is from what the device's store holds.
@@ -267,14 +245,13 @@ export function createSyncLibrary(options: {
     drawn: values.draw,
   });
   const seeding = seedingShelf();
+  const isSeeding = (ws: string): boolean =>
+    options.workspaces
+      .get()
+      .some((ref) => ref.id === ws && ref.seeding !== null);
   const shelves: Shelves = {
     ...opening,
-    shelf: (ws) =>
-      options.workspaces
-        .get()
-        .some((ref) => ref.id === ws && ref.seeding !== null)
-        ? seeding
-        : opening.shelf(ws),
+    shelf: (ws) => (isSeeding(ws) ? seeding : opening.shelf(ws)),
   };
   options.workspaces.subscribe(() => {
     if (values.asked()) shelves.openKnown();
@@ -296,15 +273,19 @@ export function createSyncLibrary(options: {
     liveMap(found.handle, "documents").delete(docId);
     options.privateIndex.continueMap.delete(docId);
   };
+  const lists = createSeedingLists(
+    { workspaces: options.workspaces, isSeeding },
+    opening.shelf,
+  );
   return {
-    continueList: (ws) => shelves.shelf(ws).continueList,
-    projects: (ws) => shelves.shelf(ws).projects,
+    continueList: lists.continueList,
+    projects: lists.projects,
     async readProjects(ws) {
       const { ready, projects } = shelves.shelf(ws);
       await ready;
       return projects.get();
     },
-    loadState: (ws) => shelves.shelf(ws).loadState,
+    loadState: lists.loadState,
     async createProject(ws, kind) {
       let title = "";
       const made = await addProject(

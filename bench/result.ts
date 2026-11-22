@@ -333,13 +333,17 @@ function fileStamp(ms: number): string {
     .replaceAll(":", "-");
 }
 
-/** Writes `result` under `outDir`, named for its start, and returns the file's path. */
+/** Writes `result` under `outDir`, named for its start (`-2`, `-3`… after a name already taken), and returns the file's path. */
 export async function writeResultFile(
   outDir: string,
   result: ResultFile,
 ): Promise<string> {
   await mkdir(outDir, { recursive: true });
-  const file = join(outDir, `${fileStamp(result.startedAt)}.json`);
-  await Bun.write(file, `${JSON.stringify(result, null, 2)}\n`);
-  return file;
+  for (let n = 1; ; n++) {
+    const suffix = n === 1 ? "" : `-${n}`;
+    const file = join(outDir, `${fileStamp(result.startedAt)}${suffix}.json`);
+    if (await Bun.file(file).exists()) continue;
+    await Bun.write(file, `${JSON.stringify(result, null, 2)}\n`);
+    return file;
+  }
 }

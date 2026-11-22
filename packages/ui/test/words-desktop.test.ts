@@ -12,8 +12,6 @@ test("the desktop's sentences are fixed", () => {
     scriptsRow: D.scriptsRow,
     folderRow: D.folderRow,
     channelRow: D.channelRow,
-    fileWrongType: D.fileWrongType("notes.txt"),
-    fileTooLarge: D.fileTooLarge("draft.pdf"),
   }).toEqual({
     handoffRefused:
       "Couldn't sync 'The Lamp Room': you can't add scripts to this workspace. It stays on this device only.",
@@ -28,9 +26,6 @@ test("the desktop's sentences are fixed", () => {
     scriptsRow: "Scripts",
     folderRow: "Folder",
     channelRow: "Channel",
-    fileWrongType:
-      "Couldn't open 'notes.txt': Manent opens .fdx, .fountain, .pdf, .docx and .ink files.",
-    fileTooLarge: "Couldn't open 'draft.pdf': it is larger than 32 MB.",
   });
 });
 

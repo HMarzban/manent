@@ -9,6 +9,7 @@ import type {
 import { ENGINE_VERSION, engineFor } from "@manent/pagination";
 import type { IdSource } from "@manent/schema";
 import type { Platform } from "@manent/settings";
+import { LIBRARY_WORDS } from "@manent/ui";
 import type { KeyResolver } from "@manent/ui";
 import type { PersonServices } from "../services/ports.ts";
 import { layoutViewActions } from "../state/layout-view.store.ts";
@@ -49,6 +50,7 @@ export function editorOptions(
 ): ScriptEditorOptions {
   const { element, docId, facts, outline, settings, guard } = open.ports;
   const { services } = options;
+  const title = services().library.documentTitle(docId);
   return {
     place: element,
     binding: bound.binding,
@@ -72,6 +74,10 @@ export function editorOptions(
       messages: services().messages,
     }),
     onUndoStep: () => services().messages.withdrawUndo(),
+    title: {
+      get: () => title.get() ?? LIBRARY_WORDS.untitledScript,
+      subscribe: (listener) => title.subscribe(listener),
+    },
     keys: options.keys,
     zoom: zoomActions.get(),
     titlePage: bound.titlePage,

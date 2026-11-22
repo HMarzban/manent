@@ -1,0 +1,16 @@
+*
+!packages
+!apps
+!bench
+!e2e
+!tools
+!types
+!package.json
+!bun.lock
+!bunfig.toml
+!tsconfig*.json
+!Makefile
+bench/results
+bench/corpus/cache
+**/node_modules
+**/dist

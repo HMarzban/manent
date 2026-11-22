@@ -60,6 +60,39 @@ export function pageAtHeight(view: EditorView, top: number): number | null {
   return at === null ? null : pageAtPos(view.state, at);
 }
 
+// The first of `elements`, laid out top to bottom, whose box ends below `top`; found by halving.
+function firstEndingBelow(
+  elements: ArrayLike<Element>,
+  top: number,
+): Element | null {
+  let low = 0;
+  let high = elements.length;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    if (elements[mid]!.getBoundingClientRect().bottom > top) high = mid;
+    else low = mid + 1;
+  }
+  return elements[low] ?? null;
+}
+
+/** The block across viewport height `top`, or the first below it: its index and viewport top. */
+function blockAcross(
+  view: EditorView,
+  top: number,
+): { block: number; top: number } | null {
+  const section = firstEndingBelow(view.dom.children, top);
+  const block =
+    section === null
+      ? null
+      : firstEndingBelow(section.querySelectorAll(":scope > p.el"), top);
+  if (block === null) return null;
+  const $pos = view.state.doc.resolve(view.posAtDOM(block, 0));
+  return {
+    block: blockNumber(view.state, $pos),
+    top: block.getBoundingClientRect().top,
+  };
+}
+
 /** Where block `block` starts, counted in document order; without pages there is no index, so the blocks before it are counted. */
 function flowBlockStart(doc: Node, block: number): number | null {
   let rest = block;
@@ -86,7 +119,8 @@ export function createScrollPorts(
     caretTop: (view) => caretPlace(view)?.top ?? null,
     topBlock(view) {
       const edge = scrollerOf(place).getBoundingClientRect().top;
-      const found = blockAtHeight(view, edge + 1);
+      // between two pages the point lands in no block
+      const found = blockAtHeight(view, edge + 1) ?? blockAcross(view, edge);
       return found === null
         ? null
         : { block: found.block, offsetPx: edge - found.top };

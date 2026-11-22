@@ -7,6 +7,8 @@ export {
   loadDoc,
 } from "./doc.ts";
 export type { CrdtDoc, DocOptions, Unsubscribe } from "./doc.ts";
+export { findCopies, repairCopies } from "./copies.ts";
+export type { CopyPair, RepairedCopy } from "./copies.ts";
 export {
   FRAGMENT_NAME,
   scriptDocFromJSON,
