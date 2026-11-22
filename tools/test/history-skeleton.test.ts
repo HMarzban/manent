@@ -112,13 +112,13 @@ const REGISTRATIONS: readonly (readonly [string, string])[] = [
   ["packages/editor/src/index.ts", 'export * from "./changes/index.ts";'],
   ["packages/ui/src/words/index.ts", 'export * from "./history.ts";'],
   ["packages/commands/src/definitions/index.ts", "...HISTORY_COMMANDS,"],
-  ["apps/web/src/handlers/index.ts", "...historyHandlers(),"],
+  ["apps/web/src/handlers/index.ts", "...historyHandlers(deps),"],
   ["apps/web/src/editor-host/plugins.ts", "() => changesPlugin()"],
   [
     "apps/web/src/screens/document/history-sections.ts",
     '{ id: "versions", Section: HistoryList, useVisible: () => true }',
   ],
-  ["apps/web/src/screens/document/state-facts.ts", "= [useHistoryFacts]"],
+  ["apps/web/src/screens/document/state-facts.ts", "= [useHistoryFacts,"],
   [
     "apps/web/src/screens/document/details-sections.ts",
     '{ id: "who_wrote", scope: "selection", Section: WhoWrote }',
@@ -189,9 +189,11 @@ const CTX: CommandContext = {
   zoomPercent: null,
   production: null,
 };
-const historyCommands = COMMANDS.slice(
-  COMMANDS.findIndex((c) => c.id === "history.markVersion"),
-).filter((c) => !c.id.startsWith("setting."));
+// History and Review are declared with the View and sync commands
+const DECLARED_ELSEWHERE = new Set(["history.open", "history.review"]);
+const historyCommands = COMMANDS.filter(
+  (c) => c.id.startsWith("history.") && !DECLARED_ELSEWHERE.has(c.id),
+);
 const visibleTo = (c: CommandDefinition, over: Partial<CommandContext>) =>
   c.visible === null || c.visible({ ...CTX, ...over });
 

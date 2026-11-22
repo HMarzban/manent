@@ -74,8 +74,8 @@ export interface SignInResponse {
 export interface WorkspaceRef {
   id: string;
   name: string;
-  /** Null once the workspace is ready. */
-  seeding: { done: number; total: number } | null;
+  /** Null once the workspace is ready; `failed` is false while it is seeding, true once its seed stopped. */
+  seeding: { done: number; total: number; failed: boolean } | null;
 }
 
 /** The answer to GET /api/me. */
@@ -200,6 +200,48 @@ export interface DemoResponse {
   demo: true;
   seedId: string | null;
   control: ControlEndpoint | null;
+}
+
+/** The body of POST /api/demo/writers: 0 stops them; `afterBlockId` is the caller's caret block. */
+export interface WritersRequest {
+  docId: string;
+  count: 0 | 1 | 5 | 20;
+  afterBlockId: string | null;
+}
+
+/** `count` writers started, at most `asked`; `endsAt` is when they stop by themselves, null when none runs. */
+export interface WritersResponse {
+  asked: number;
+  count: number;
+  names: string[];
+  endsAt: number | null;
+}
+
+/** The body of POST /api/demo/tour/prepare. */
+export interface TourPrepareRequest {
+  scenarioId: string;
+}
+
+export type TourPrepareResponse =
+  { ok: true } | { ok: false; reason: "used" | "seeding" | "unknown" };
+
+/** The body of POST /api/demo/rebuild. */
+export interface RebuildRequest {
+  docId: string;
+}
+
+export interface RebuildResponse {
+  requested: true;
+}
+
+/** What the demo's control routes ask of the running server, as the signed-in person `userId`. */
+export interface DemoControls {
+  writers(userId: string, request: WritersRequest): Promise<WritersResponse>;
+  prepare(
+    userId: string,
+    request: TourPrepareRequest,
+  ): Promise<TourPrepareResponse>;
+  rebuild(userId: string, docId: string): Promise<void>;
 }
 
 export const SERVER_STATES = [

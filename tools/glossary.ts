@@ -308,6 +308,11 @@ export const TERMS: readonly Term[] = Object.freeze([
       "Stop writers",
       "Stop the server",
       "Timings",
+      "Keystroke to frame",
+      "Pagination time",
+      "Sync round trip",
+      "p50",
+      "p95",
       "samples",
       "Reorganise",
       "Reset",
@@ -334,6 +339,7 @@ export const NAMES: readonly string[] = Object.freeze([
   "A4",
   "A12",
   "Courier Prime",
+  "Final Draft",
 ]);
 
 /** Words of the interface that name a part of Manent and are not yet listed terms; allowed until they are listed. */
@@ -364,9 +370,13 @@ export const BANNED_WORD_EXCEPTION: readonly string[] = Object.freeze([
   "This has already been done in this demo. Reset the demo to do it again.",
   "This one needs the desktop app. Run make desktop, then open the Tour there.",
   "The demo is not running. Run make demo again.",
+  "Couldn't get ready. Run make reset to try again.",
   "Nothing to set. Manent updates once every Manent tab has been closed.",
   "Nothing to set. Manent is in English in this release; spelling follows your system's language.",
   "Get the latest Manent",
+  "Page numbers came in locked: pages start where Final Draft started them, not where Manent would.",
+  "Cast list",
+  "Paragraph settings",
 ]);
 
 /** The four sentences allowed to say "not sent", for changes that will never reach the server; `{…}` is any value. */

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="5">
+  <Content>
+    <Paragraph Type="Scene Heading">
+      <SceneProperties Length="1/8" Page="1" Title="">
+        <Summary>
+          <Paragraph Alignment="Left" Type="General">
+            <Text>The keeper wakes</Text>
+          </Paragraph>
+          <Paragraph Type="General">
+            <Text>before the storm.</Text>
+          </Paragraph>
+        </Summary>
+      </SceneProperties>
+      <Text>INT. LAMP ROOM - NIGHT</Text>
+    </Paragraph>
+    <Paragraph FirstIndent="0.00" Leading="Regular" Type="Action">
+      <Text TagNumber="3">Oil can</Text>
+      <Text>, rag, </Text>
+      <Text AdornmentStyle="0" TagNumber="4">matches</Text>
+      <Text>.</Text>
+      <Bookmark Name="storm"/>
+    </Paragraph>
+  </Content>
+  <TitlePage>
+    <Content>
+      <Paragraph Alignment="Center" Type="Action">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" Type="Action">
+        <Text>The Lamp Room</Text>
+      </Paragraph>
+    </Content>
+  </TitlePage>
+  <ElementSettings Type="Action">
+    <FontSpec Font="Courier Final Draft" Size="12"/>
+  </ElementSettings>
+  <HeaderAndFooter FooterFirstPage="Yes" FooterVisible="No" HeaderFirstPage="No" HeaderVisible="Yes"/>
+  <SmartType>
+    <Characters>
+      <Character>DANA</Character>
+    </Characters>
+  </SmartType>
+  <TagData>
+    <TagCategories>
+      <TagCategory Color="#000000000000" Id="1" Name="Props" Number="3"/>
+    </TagCategories>
+  </TagData>
+  <ListItems/>
+  <FutureThing Kind="beat board">Cards to come.</FutureThing>
+</FinalDraft>

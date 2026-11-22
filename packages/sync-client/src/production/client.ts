@@ -3,6 +3,7 @@
 import { PRODUCTION_REFUSALS, isProductionState } from "@manent/sync-protocol";
 import type {
   ControlKind,
+  ImportLockRequest,
   IssueFile,
   IssueRequest,
   IssueResponse,
@@ -36,7 +37,8 @@ export type RequestOutcome<T> =
       body: ProductionRefusalBody | null;
     };
 
-/** A request as the caller gives it: the client adds the document and a key. */
+/** A request as the caller gives it: the client adds the document, and a key unless the caller holds one (Keyed). */
+type Keyed<R> = Omit<R, "docId">;
 type Unkeyed<R> = Omit<R, "docId" | "key">;
 type Answered<T> = Promise<RequestOutcome<T>>;
 
@@ -64,9 +66,11 @@ export interface ProductionClient {
   layout(request: Unkeyed<LayoutRequest>): Answered<ProductionState>;
   unlock(): Answered<ProductionState>;
   end(): Answered<ProductionState>;
+  /** The import record holds the key, so a retry from another tab or a later session sends the same one. */
+  importLock(request: Keyed<ImportLockRequest>): Answered<ProductionState>;
   /** The screen holds the key, so a second press retries the same issue. */
-  issue(request: Omit<IssueRequest, "docId">): Answered<IssueResponse>;
-  recall(request: Omit<RecallRequest, "docId">): Answered<IssueResponse>;
+  issue(request: Keyed<IssueRequest>): Answered<IssueResponse>;
+  recall(request: Keyed<RecallRequest>): Answered<IssueResponse>;
   /** The issued file's PDF bytes. */
   file(issueId: string, file: IssueFile): Answered<Uint8Array>;
   dispose(): void;
@@ -315,11 +319,8 @@ class ProductionSession {
     }
     const value = { state, baseline };
     this.current.set(value);
-    try {
-      await this.options.cache.write(this.options.docId, value);
-    } catch {
-      // a cache that cannot be written still shows the state this session; the next one asks again
-    }
+    // a cache that cannot be written still shows the state this session; the next one asks again
+    await this.options.cache.write(this.options.docId, value).catch(() => {});
     return true;
   }
 
@@ -389,6 +390,7 @@ export function createProductionClient(
     layout: (request) => session.mutate("/api/production/layout", request),
     unlock: () => session.mutate("/api/production/unlock", {}),
     end: () => session.mutate("/api/production/end", {}),
+    importLock: (request) => session.mutate("/api/production/import", request),
     issue: (request) => session.issue("/api/production/issue", request),
     recall: (request) => session.issue("/api/production/recall", request),
     file: (issueId, file) =>

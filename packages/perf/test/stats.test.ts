@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { bootstrapInterval, percentile } from "../stats.ts";
+import {
+  INTERVAL_OPTIONS,
+  bootstrapInterval,
+  percentile,
+  summarise,
+} from "../src/index.ts";
 
 test("percentiles use nearest rank", () => {
   const s = Array.from({ length: 100 }, (_, i) => i + 1);
@@ -38,4 +43,17 @@ test("the bootstrap interval is deterministic for a seed and brackets the percen
   expect(() => bootstrapInterval([1], 50, { rounds: 0, seed: 1 })).toThrow(
     RangeError,
   );
+});
+
+test("a summary is nearest-rank percentiles, the largest sample and their intervals", () => {
+  const s = Array.from({ length: 100 }, (_, i) => i + 1);
+  const r = summarise(s);
+  expect([r.samples, r.p50, r.p95, r.p99, r.max]).toEqual([
+    100, 50, 95, 99, 100,
+  ]);
+  expect(r.intervals.p95).toEqual(bootstrapInterval(s, 95, INTERVAL_OPTIONS));
+});
+
+test("a summary of no samples is refused", () => {
+  expect(() => summarise([])).toThrow(RangeError);
 });

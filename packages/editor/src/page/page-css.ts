@@ -96,10 +96,10 @@ p.el.pg-first {
   padding-left: calc(var(--geo-left) + var(--geo-cue-indent) * var(--geo-cell));
 }
 .pb-fill {
-  height: calc(var(--fill) * var(--geo-unit));
+  height: calc(max(0, var(--fill)) * var(--geo-unit));
 }
 .pb-foot {
-  height: var(--geo-bottom);
+  height: calc(var(--geo-bottom) + min(0, var(--fill)) * var(--geo-unit));
   padding-right: var(--geo-right);
   text-align: right;
 }

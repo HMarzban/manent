@@ -11,6 +11,7 @@ import type {
   SignInChoice,
   SignInOptions,
   SignInResponse,
+  TourPrepareResponse,
 } from "@manent/sync-protocol";
 import type { TabPerson } from "./session.ts";
 
@@ -38,6 +39,8 @@ export interface Api {
     docId: string,
     clientIds: readonly number[],
   ): Promise<DocClientsResponse>;
+  /** Puts the scenario's state in place on the demo's server; an answer other than 200 is `unknown`; throws when the server cannot be reached. */
+  prepareTour(scenarioId: string): Promise<TourPrepareResponse>;
 }
 
 export interface ServerControl {
@@ -59,6 +62,12 @@ async function readAs<T>(response: Response): Promise<T> {
   return body as T;
 }
 
+/** The body of a success, as `readAs` trusts it; throws, naming the request `what`, for any other answer. */
+async function readOk<T>(response: Response, what: string): Promise<T> {
+  if (!response.ok) throw new Error(`${what} answered ${response.status}`);
+  return readAs<T>(response);
+}
+
 /** The body as JSON; null when there is none or it is not JSON. */
 async function readJson(response: Response): Promise<unknown> {
   try {
@@ -78,6 +87,13 @@ async function errorCodeOf(response: Response): Promise<HttpErrorCode | null> {
   const { isHttpErrorCode } = await import("@manent/sync-protocol");
   return isHttpErrorCode(body.error) ? body.error : null;
 }
+
+/** A POST of `body` as JSON. */
+const jsonPost = (body: unknown): RequestInit => ({
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
 
 const UNREACHABLE = Object.freeze({
   ok: false,
@@ -112,17 +128,12 @@ export function createApi(options: {
   return {
     async choices() {
       const response = await request("/api/sign-in");
-      if (!response.ok)
-        throw new Error(`GET /api/sign-in answered ${response.status}`);
-      return (await readAs<SignInOptions>(response)).choices;
+      return (await readOk<SignInOptions>(response, "GET /api/sign-in"))
+        .choices;
     },
 
     async signIn(userId) {
-      const response = await attempt("/api/sign-in", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
-      });
+      const response = await attempt("/api/sign-in", jsonPost({ userId }));
       if (response === null) return UNREACHABLE;
       if (!response.ok)
         return (await errorCodeOf(response)) === "unknown_user"
@@ -148,32 +159,30 @@ export function createApi(options: {
     async demo() {
       const response = await request("/api/demo");
       if (response.status === 404) return null;
-      if (!response.ok)
-        throw new Error(`GET /api/demo answered ${response.status}`);
-      return readAs<DemoResponse>(response);
+      return readOk<DemoResponse>(response, "GET /api/demo");
     },
 
     async removedDoc(docId) {
-      const response = await request("/api/docs/removed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId }),
-      });
+      const response = await request("/api/docs/removed", jsonPost({ docId }));
       if (response.status === 404) return null;
-      if (!response.ok)
-        throw new Error(`POST /api/docs/removed answered ${response.status}`);
-      return readAs<RemovedDocResponse>(response);
+      return readOk<RemovedDocResponse>(response, "POST /api/docs/removed");
     },
 
     async docClients(docId, clientIds) {
-      const response = await request("/api/docs/clients", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId, clientIds }),
-      });
-      if (!response.ok)
-        throw new Error(`POST /api/docs/clients answered ${response.status}`);
-      return readAs<DocClientsResponse>(response);
+      const response = await request(
+        "/api/docs/clients",
+        jsonPost({ docId, clientIds }),
+      );
+      return readOk<DocClientsResponse>(response, "POST /api/docs/clients");
+    },
+
+    async prepareTour(scenarioId) {
+      const response = await request(
+        "/api/demo/tour/prepare",
+        jsonPost({ scenarioId }),
+      );
+      if (response.status !== 200) return { ok: false, reason: "unknown" };
+      return readAs<TourPrepareResponse>(response);
     },
   };
 }

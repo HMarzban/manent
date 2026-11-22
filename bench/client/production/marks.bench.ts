@@ -24,6 +24,7 @@ import type { BlockMark, RevisionSource } from "@manent/revisions";
 import { blocksOf, sectionize } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
 import type { Measurement, Scenario } from "../../harness.ts";
+import { sampleMs } from "../../measure.ts";
 import { spread } from "../../server/history/restore-120.bench.ts";
 import { scriptOfPages } from "../../server/support.ts";
 import { DAY } from "./lock.bench.ts";
@@ -102,7 +103,7 @@ function issuedSources(ids: readonly string[]): RevisionSource[] {
   });
 }
 
-function marksTimes(): number[] {
+async function marksTimes(): Promise<number[]> {
   const { engine, base, changed, current, pagination: p } = lockedScript();
   const baseline = baselineOf(base);
   const earlier = issuedSources(base.map(idOf));
@@ -114,7 +115,8 @@ function marksTimes(): number[] {
   );
   const at = new Map(p.blocks.map((b, i) => [b.id, i]));
   const byId = new Map(current.map((b) => [idOf(b), b]));
-  return spread(changed, ITERATIONS).map((id) => {
+  const times: number[] = [];
+  for (const id of spread(changed, ITERATIONS)) {
     const before = byId.get(id);
     const index = at.get(id);
     if (before === undefined || index === undefined)
@@ -124,23 +126,25 @@ function marksTimes(): number[] {
     const first = Math.min(page, p.pages.length - IN_VIEW);
     // no scene is omitted, so a block is shown exactly when the baseline shows it
     const shown = baseline.visible.has(id);
-    const start = performance.now();
-    const mark = markBlock(baseline.blocks.get(id) ?? null, block, {
-      baseVisible: shown,
-      visible: shown,
-      moved: false,
-      override: null,
-    });
-    const next = new Map(marks);
-    if (mark === null) next.delete(id);
-    else next.set(id, mark);
-    const sources = [...earlier, source(ISSUED + 1, next)];
-    for (let i = first; i < first + IN_VIEW; i++)
-      pageRevision(p, i, sources, "collated");
-    const elapsed = performance.now() - start;
-    marks = next;
-    return elapsed;
-  });
+    times.push(
+      await sampleMs(() => {
+        const mark = markBlock(baseline.blocks.get(id) ?? null, block, {
+          baseVisible: shown,
+          visible: shown,
+          moved: false,
+          override: null,
+        });
+        const next = new Map(marks);
+        if (mark === null) next.delete(id);
+        else next.set(id, mark);
+        const sources = [...earlier, source(ISSUED + 1, next)];
+        for (let i = first; i < first + IN_VIEW; i++)
+          pageRevision(p, i, sources, "collated");
+        marks = next;
+      }),
+    );
+  }
+  return times;
 }
 
 /**
@@ -151,10 +155,9 @@ const scenario: Scenario = {
   id: "production.marks",
   workload: "W1",
   processes: 5,
-  run: () =>
-    Promise.resolve<Measurement[]>([
-      { metric: "marks_ms", unit: "ms", samples: marksTimes() },
-    ]),
+  run: async (): Promise<Measurement[]> => [
+    { metric: "marks_ms", unit: "ms", samples: await marksTimes() },
+  ],
 };
 
 export default scenario;

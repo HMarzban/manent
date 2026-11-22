@@ -53,14 +53,10 @@ const FNV_OFFSET = 0x6c62272e07bb014262b821756295c58dn;
 const FNV_PRIME = 0x0000000001000000000000000000013bn;
 const MASK_128 = (1n << 128n) - 1n;
 
-/**
- * The id of a person's private index (`scope` "user", `id` their userId) or of a
- * workspace's index (`scope` "workspace"): the same on every device. A version 8
- * UUID of the FNV-1a 128 hash of the UTF-8 bytes of `manent:<scope>:<id>`.
- */
-export function indexDocId(scope: "user" | "workspace", id: string): string {
+/** The FNV-1a 128 hash of the UTF-8 bytes of `text`, as a version 8 UUID. */
+function hashId(text: string): string {
   let hash = FNV_OFFSET;
-  for (const byte of new TextEncoder().encode(`manent:${scope}:${id}`))
+  for (const byte of new TextEncoder().encode(text))
     hash = ((hash ^ BigInt(byte)) * FNV_PRIME) & MASK_128;
   // version 8 in the high nibble of byte 6, variant 10 in the top two bits of byte 8
   const uuid =
@@ -69,6 +65,30 @@ export function indexDocId(scope: "user" | "workspace", id: string): string {
     (0x80n << 56n);
   const h = uuid.toString(16).padStart(32, "0");
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+/**
+ * The id of a person's private index (`scope` "user", `id` their userId) or of a
+ * workspace's index (`scope` "workspace"): the same on every device. A version 8
+ * UUID of the FNV-1a 128 hash of the UTF-8 bytes of `manent:<scope>:<id>`.
+ */
+export function indexDocId(scope: "user" | "workspace", id: string): string {
+  return hashId(`manent:${scope}:${id}`);
+}
+
+const SEED_KEY = /^[a-z0-9][a-z0-9/:-]{0,199}$/;
+
+/**
+ * The id of a seeded document or project, the same in every seed: the version 8 UUID
+ * of `manent:seed:<key>`, hashed as indexDocId hashes. Throws RangeError unless `key`
+ * is 1 to 200 characters of a-z, 0-9, "/", ":" and "-", starting with a letter or digit.
+ */
+export function seedDocId(key: string): string {
+  if (!SEED_KEY.test(key))
+    throw new RangeError(
+      `a seed key is 1 to 200 characters of a-z, 0-9, "/", ":" and "-", not ${JSON.stringify(key)}`,
+    );
+  return hashId(`manent:seed:${key}`);
 }
 
 /** The home of a workspace's index: the file of its own project. */

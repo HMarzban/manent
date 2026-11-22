@@ -20,6 +20,7 @@ interface RowProps {
   selected?: boolean;
   /** The word that says why the row cannot be opened; the row is drawn muted and never activates. */
   unavailable?: string;
+  /** A 14 px icon, a 20 px avatar or a number: muted, and accent on the current row. */
   leading?: ReactNode;
   children: ReactNode;
   /** A second line; the row is then two lines high. */
@@ -58,7 +59,7 @@ export function Row({
     <div
       ref={(node) => attach(rowRef, node)}
       className={cn(
-        "mn-row flex items-center gap-2 px-2 text-ui",
+        "mn-row flex items-center gap-2 px-3 text-ui",
         meta === undefined ? "min-h-row" : "min-h-row-2",
         unavailable !== undefined && "text-fg-muted",
       )}
@@ -73,7 +74,11 @@ export function Row({
       onClick={activate}
       onKeyDown={onKeyDown}
     >
-      {leading}
+      {leading === undefined ? null : (
+        <span data-leading className="flex shrink-0 text-fg-muted">
+          {leading}
+        </span>
+      )}
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate">{children}</span>
         {meta === undefined ? null : (

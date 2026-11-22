@@ -41,6 +41,7 @@ import type {
   FactsSink,
   Frames,
   OutlineSink,
+  PastedTextPort,
   SavedPlace,
   SettingsReader,
   Timers,
@@ -87,6 +88,8 @@ export interface ScriptEditorOptions {
   platform: "mac" | "windows" | "linux";
   ids: IdSource;
   random: () => string;
+  /** Reads pasted text from outside Manent as elements. */
+  pastedText: PastedTextPort;
   /** The undo stack gained a step. */
   onUndoStep(): void;
   keys: {
@@ -167,6 +170,8 @@ function editorPlugins(
       ids,
       random: options.random,
       isUndoRedo: binding.isUndoRedo,
+      history: binding.history,
+      pastedText: options.pastedText,
       plainElement: () => plainTextElement(format()),
       formatElements: () => FORMAT_ELEMENTS[format()],
     }),

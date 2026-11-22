@@ -29,13 +29,22 @@ import { TourScenarioRow } from "../src/demo/tour-scenario.tsx";
 import { SERVER_STATUS_QUERY } from "../src/demo/use-demo.ts";
 import { RootLayout } from "../src/root-layout.tsx";
 import { ChooseScreen } from "../src/screens/choose.tsx";
-import { EnvironmentProvider, useServices } from "../src/services/context.tsx";
+import {
+  EnvironmentProvider,
+  ServicesProvider,
+  useServices,
+} from "../src/services/context.tsx";
 import type { PersonServices } from "../src/services/ports.ts";
 import { AnnouncerRegion } from "../src/shell/announcer-region.tsx";
 import { createShellDom } from "../src/shell/regions.tsx";
 import { bindGuard } from "../src/state/guard.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
-import { createClock, fakeApi, testEnvironment } from "./services.fixtures.ts";
+import {
+  createClock,
+  fakeApi,
+  testEnvironment,
+  testServices,
+} from "./services.fixtures.ts";
 
 withDom();
 // Query tells its observers at once, so a test sees an answer in the act that delivered it
@@ -113,34 +122,39 @@ const SCENARIO: TourScenario = {
   id: "a-first-page",
   group: "Write",
   promise: "Write a first page and watch it reach the server.",
-  setup: { userId: "sam", open: "/", secondWindow: null },
+  setup: {
+    userId: "sam",
+    open: "/",
+    extraWindows: [],
+    prepare: null,
+    shell: "any",
+  },
   steps: [
     { text: "Open the commands.", highlight: "app.palette" },
     { text: "Choose New script.", highlight: "library.newScript" },
   ],
   check: "Saved · Synced",
+  evidence: ["Saved · Synced"],
+  fresh: false,
+  waitsFor: null,
+  hidden: null,
 };
 
-test("the Tour lists the eight groups", async () => {
-  const container = await render(<TourPanel />);
-  expect(container.querySelector("h2")?.textContent).toBe("Tour");
-  expect(
-    [...container.querySelectorAll("h3")].map((h) => h.textContent),
-  ).toEqual([
-    "Write",
-    "Work together",
-    "Go offline",
-    "History",
-    "Production",
-    "Long documents",
-    "Rundown and prompter",
-    "Desktop",
-  ]);
-  // the shipped Tour has no scenario yet: each group is its heading alone
-  expect(TOUR.scenarios).toEqual([]);
-  expect(container.textContent).toBe(
-    "TourWriteWork togetherGo offlineHistoryProductionLong documentsRundown and prompterDesktop",
+/** A row with nothing in Set it up's place and not yet done. */
+const ROW = { hold: null, done: false, onDone: () => {} } as const;
+
+test("a group with no scenario listed is not drawn", async () => {
+  const services = testServices({ userId: "sam" });
+  const container = await render(
+    <ServicesProvider services={services}>
+      <TourPanel />
+    </ServicesProvider>,
   );
+  expect(container.querySelector("h2")?.textContent).toBe("Tour");
+  // the shipped Tour has no scenario yet: no group is drawn
+  expect(TOUR.scenarios).toEqual([]);
+  expect(container.textContent).toBe("Tour");
+  services.dispose();
 });
 
 /** A server status the demo bar has heard, as its query holds it. */
@@ -158,9 +172,8 @@ test("a set-up that did not work says why, with Set it up again", async () => {
     <>
       <TourScenarioRow
         scenario={SCENARIO}
-        setUp={() => {
-          throw new Error("the window was refused");
-        }}
+        {...ROW}
+        setUp={async () => ({ ok: false, reason: "unknown" })}
       />
       <AnnouncerRegion />
     </>,
@@ -185,7 +198,11 @@ test("a set-up that did not work says why, with Set it up again", async () => {
       <HeardServer state="stopped" />
       <TourScenarioRow
         scenario={SCENARIO}
-        setUp={(scenario) => setUps.push(scenario.id)}
+        {...ROW}
+        setUp={async (scenario) => {
+          setUps.push(scenario.id);
+          return { ok: true };
+        }}
       />
       <AnnouncerRegion />
     </>,
@@ -210,7 +227,11 @@ test("a scenario shows its promise, one primary Set it up, numbered steps and it
   const container = await render(
     <TourScenarioRow
       scenario={SCENARIO}
-      setUp={(scenario) => setUps.push(scenario.id)}
+      {...ROW}
+      setUp={async (scenario) => {
+        setUps.push(scenario.id);
+        return { ok: true };
+      }}
     />,
   );
   expect(paragraphs(container)).toEqual([
@@ -236,7 +257,13 @@ test("a step marks its control with the Tour ring, which is not focus", async ()
   const field = document.createElement("input");
   document.body.append(control, field);
   field.focus();
-  await render(<TourScenarioRow scenario={SCENARIO} setUp={() => {}} />);
+  await render(
+    <TourScenarioRow
+      scenario={SCENARIO}
+      {...ROW}
+      setUp={async () => ({ ok: true })}
+    />,
+  );
   expect(control.getAttribute("data-tour-ring")).toBe("");
   expect(document.activeElement).toBe(field);
   act(() => mounted?.unmount());

@@ -39,13 +39,36 @@ function depsAt(place: RoutePlace): {
   };
 }
 
-test("every command but the generated ones has a handler, and none reaches other people", () => {
+test("every command but the generated ones has a handler, and only the production commands reach other people", () => {
   const { deps } = depsAt({ routeId: "/", href: "/", search: {} });
   const ids = COMMANDS.map((c) => c.id).filter(
     (id) => !id.startsWith("setting."),
   );
   expect(Object.keys(createHandlers(deps)).toSorted()).toEqual(ids.toSorted());
-  expect(COMMANDS.filter((c) => c.reach === "others")).toEqual([]);
+  expect(COMMANDS.filter((c) => c.reach === "others").map((c) => c.id)).toEqual(
+    [
+      "production.lock",
+      "production.issue",
+      "production.recall",
+      "production.markRevised",
+      "production.clearRevised",
+      "production.lockPages",
+      "production.lockAPages",
+      "production.renumber",
+      "production.omitScene",
+      "production.bringBackScene",
+      "production.changeLayout",
+      "production.unlock",
+      "production.end",
+      "view.pages",
+      "view.marks.collated",
+      "view.marks.this_revision",
+      "view.marks.all",
+      "view.marks.since_full_draft",
+      "view.marks.none",
+      "view.colourRevised",
+    ],
+  );
 });
 
 test("Preferences pressed inside Preferences goes back", () => {

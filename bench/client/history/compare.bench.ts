@@ -2,6 +2,7 @@
 import { canonicalBlocksOf, compareDocs, textOf } from "@manent/revisions";
 import type { DocJSON } from "@manent/schema";
 import type { Measurement, Scenario } from "../../harness.ts";
+import { sampleMs } from "../../measure.ts";
 import { scriptOfPages } from "../../server/support.ts";
 
 const EDITS = 400;
@@ -42,17 +43,17 @@ export function compareScenario(options: { samples?: number } = {}): Scenario {
     id: "history.compare.120",
     workload: "W1",
     processes: 5,
-    run(): Promise<Measurement[]> {
+    async run(): Promise<Measurement[]> {
       const older = scriptOfPages(120);
       const newer = editedScript(older, EDITS);
-      const times = Array.from({ length: samples }, () => {
-        const start = performance.now();
-        compareDocs(older, newer);
-        return performance.now() - start;
-      });
-      return Promise.resolve([
-        { metric: "compare_ms", unit: "ms", samples: times },
-      ]);
+      const times: number[] = [];
+      for (let n = 0; n < samples; n++)
+        times.push(
+          await sampleMs(() => {
+            compareDocs(older, newer);
+          }),
+        );
+      return [{ metric: "compare_ms", unit: "ms", samples: times }];
     },
   };
 }

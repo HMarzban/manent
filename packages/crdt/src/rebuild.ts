@@ -4,11 +4,18 @@ import type { BlockJSON, SectionJSON } from "@manent/schema";
 import { yDocOf } from "./doc.ts";
 import type { CrdtDoc } from "./doc.ts";
 import { FRAGMENT_NAME, scriptDocFromJSON } from "./mapping.ts";
+import { IMPORT_MAP, NOTES_MAP } from "./script-maps.ts";
 import { ORIGIN_SYSTEM } from "./settings.ts";
 import { scriptBody } from "./writer.ts";
 
-/** The settings maps and the overrides map, copied entry by entry. */
-const COPIED_MAPS = ["settings", "settingsMeta", "revisedOverrides"] as const;
+/** The settings maps, the overrides map, the notes and the import record, copied entry by entry. */
+const COPIED_MAPS = [
+  "settings",
+  "settingsMeta",
+  "revisedOverrides",
+  NOTES_MAP,
+  IMPORT_MAP,
+] as const;
 
 /** The roots a rebuild knows how to copy. */
 export const ROOT_TYPE_NAMES = [FRAGMENT_NAME, ...COPIED_MAPS] as const;
@@ -70,7 +77,8 @@ function copyMaps(source: CrdtDoc, built: CrdtDoc): void {
 
 /**
  * A fresh document holding the source's blocks (IDs, attributes known and unknown, text and marks) redistributed with
- * sectionize into even sections, and the settings, settingsMeta and revisedOverrides maps; every struct is the given client's.
+ * sectionize into even sections, and the settings, settingsMeta, revisedOverrides, notes and imported maps; every struct is
+ * the given client's.
  */
 export function rebuildDoc(
   source: CrdtDoc,

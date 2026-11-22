@@ -6,13 +6,14 @@ import type {
   Resolved,
   ScreenId,
 } from "@manent/commands";
+import type { PageViewPorts } from "@manent/editor";
 import type {
   Bag,
   KeyValueMap,
   SectionId,
   SettingsStore,
 } from "@manent/settings";
-import type { SyncClient } from "@manent/sync-client";
+import type { DocHandle, SyncClient } from "@manent/sync-client";
 import type { UpdateState } from "@manent/sync-protocol";
 import type {
   ConsequenceDialogProps,
@@ -22,11 +23,13 @@ import type {
   StatusFacts,
   Subscribable,
 } from "@manent/ui";
+import type { Api } from "../api.ts";
 import type { ConnectionControl } from "../demo/connection-transport.ts";
 import type { DesktopHost } from "../desktop/host.ts";
 import type { EditorControl } from "../editor-host/control.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
 import type { PlaceStore } from "../editor-host/place.ts";
+import type { HistorySource } from "../history/source.ts";
 import type { Where } from "../platform.ts";
 import type { TabPerson, TabStorage } from "../session.ts";
 import type { ShellDom } from "../shell/regions.tsx";
@@ -135,6 +138,10 @@ export interface PersonServices {
   flags: Flags;
   /** The person's custom shortcuts, one entry per command and device. */
   keys: KeyValueMap;
+  /** The private index's Tour progress, one entry per scenario done. */
+  tour: KeyValueMap;
+  /** This tab's requests to the server, with the tab's session. */
+  api: Api;
   lastPane: { get(): SectionId; set(pane: SectionId): void };
   /** Where the person left each script, and their panels and Ruler, on this device. */
   place: PlaceStore;
@@ -147,6 +154,12 @@ export interface PersonServices {
   editor: EditorControl;
   /** Draws this person's editor of a document into the page. */
   mount: EditorMount;
+  /** The versions of each script, their content, and naming, saving and restoring them. */
+  history: HistorySource;
+  /** The person's handle of a script over their sync; rejects when their sync could not start. */
+  openHandle(docId: string): Promise<DocHandle>;
+  /** The ports of every page this person's editor and version view draw. */
+  pagePorts: PageViewPorts;
   /** Settles once the person's preferences, keys and flags have been read from the device, or their sync could not start. */
   ready: Promise<void>;
   /** Leaving a document this device cannot save asks `question`, which the screen draws while it is not null. */

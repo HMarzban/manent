@@ -21,6 +21,7 @@ import { createMemoryStorage } from "@manent/storage/testing";
 import { PROTOCOL_VERSION } from "@manent/sync-protocol";
 import type { LockRequest, VersionSet } from "@manent/sync-protocol";
 import type { Measurement, Scenario } from "../../harness.ts";
+import { sampleMs } from "../../measure.ts";
 import { T0, keyOf } from "../../server/history/restore-120.bench.ts";
 import {
   HOME,
@@ -122,9 +123,13 @@ async function lockTimes(): Promise<number[]> {
   const times: number[] = [];
   for (let n = 0; n < ITERATIONS; n++) {
     const docId = bench.place();
-    const start = performance.now();
-    const locked = await bench.service.lock(OWNER, lockRequest(docId));
-    times.push(performance.now() - start);
+    const locks: Awaited<ReturnType<ProductionService["lock"]>>[] = [];
+    times.push(
+      await sampleMs(async () => {
+        locks.push(await bench.service.lock(OWNER, lockRequest(docId)));
+      }),
+    );
+    const locked = locks[0]!;
     if (!locked.ok)
       throw new Error(`the lock was refused: ${JSON.stringify(locked.body)}`);
   }

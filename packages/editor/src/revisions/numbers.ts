@@ -1,12 +1,15 @@
 // Production's layout of the live script, derived scene numbers and omitted scenes, the numbers an edit may not
-// carry, and the lock table its pages keep.
+// carry, the lock table its pages keep, and the engine that lays them out.
 import type {
+  Engine,
   LayoutPatches,
   LockAnchorRecord,
   Pagination,
 } from "@manent/pagination";
 import {
+  baseEngine,
   deriveNumbers,
+  elasticEngine,
   lockedPagination,
   productionLayout,
 } from "@manent/revisions";
@@ -40,13 +43,31 @@ export function layoutOf(
   );
 }
 
+/**
+ * The engine production's pages are laid out by: while `records` hold an import anchor, the elastic engine over
+ * `engine`'s base, so each imported page is drawn whole; else the base itself. `engine` when it already is that one.
+ */
+export function productionEngine(
+  engine: Engine,
+  records: readonly LockAnchorRecord[],
+): Engine {
+  return records.some((record) => record.source === "import")
+    ? elasticEngine(engine)
+    : baseEngine(engine);
+}
+
 /** The pages' blocks laid out under `records`, as the issued file lays them out. */
 function lockedOf(
   pages: PaginationState,
   records: readonly LockAnchorRecord[],
 ): LockedLayout {
   const { engine, profile } = pages.settings;
-  return lockedPagination(pages.index.blocks, profile, records, engine);
+  return lockedPagination(
+    pages.index.blocks,
+    profile,
+    records,
+    baseEngine(engine),
+  );
 }
 
 function prefixAndRest(label: string): readonly [string, string] {

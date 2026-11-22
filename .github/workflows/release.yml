@@ -1,0 +1,76 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, windows-2025, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - name: Build the tag's version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          channel=stable
+          if [[ "$tag" == *-canary ]]; then channel=canary; fi
+          bun run desktop:build --channel "$channel" --version "${tag%-canary}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os }}
+          path: apps/desktop/artifacts/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Choose the channel
+        run: |
+          channel=stable
+          if [[ "$GITHUB_REF_NAME" == *-canary ]]; then channel=canary; fi
+          echo "CHANNEL=$channel" >> "$GITHUB_ENV"
+      - name: Create the release with the installers
+        run: |
+          bun -e 'import { RELEASE_NOTES } from "./tools/desktop/release-notes.ts"; await Bun.write("release-notes.md", RELEASE_NOTES);'
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md artifacts/Manent-*
+      - name: Make sure the channel's release exists
+        run: |
+          gh release view "channel-$CHANNEL" > /dev/null 2>&1 ||
+            gh release create "channel-$CHANNEL" --title "channel-$CHANNEL" --notes-file release-notes.md --prerelease --target "$GITHUB_SHA"
+      - name: Upload the channel's bundles
+        run: |
+          find artifacts -maxdepth 1 -type f -name "$CHANNEL-*" ! -name '*-update-v2.json' ! -name '*-update.json' -print0 |
+            xargs -0 gh release upload "channel-$CHANNEL" --clobber
+      - name: Upload the channel's update manifests
+        run: gh release upload "channel-$CHANNEL" --clobber artifacts/"$CHANNEL"-*-update-v2.json artifacts/"$CHANNEL"-*-update.json

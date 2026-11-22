@@ -2,7 +2,13 @@ import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { createDemoDirectory, createDemoSignIn } from "@manent/demo";
+import {
+  SEED_PROJECTS,
+  createDemoDirectory,
+  createDemoSignIn,
+  createSeedTime,
+  heavyHomes,
+} from "@manent/demo";
 import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import {
@@ -24,10 +30,16 @@ import type {
   SyncSettings,
 } from "@manent/server-core";
 import { openSqliteStorage } from "@manent/storage";
-import { PROTOCOL_VERSION } from "@manent/sync-protocol";
+import type { Storage } from "@manent/storage";
+import { PROTOCOL_VERSION, indexDocId } from "@manent/sync-protocol";
+import type { DemoControls, WorkspaceRef } from "@manent/sync-protocol";
+import { createDemoServices } from "./demo/services.ts";
 import { readServerEnv } from "./env.ts";
 import type { ServerEnv } from "./env.ts";
 import { createServerRenderPdf, readScriptFonts } from "./production.ts";
+import { adoptStaging, resumeStaging } from "./seed/adopt.ts";
+import { stagingDirOf, startBackgroundSeed } from "./seed/background.ts";
+import { runSeedCommand } from "./seed/command.ts";
 import { onServeError } from "./serve-error.ts";
 
 const SESSION_KEY_BYTES = 32;
@@ -80,7 +92,11 @@ export function buildServerConfig(
       directory: createDemoDirectory(),
       sessions: createSignedSessionStore({ secret, now: Date.now }),
     },
-    demo: { seedId: () => readSeedId(env.dataDir), control: env.control },
+    demo: {
+      seedId: () => readSeedId(env.dataDir),
+      control: env.control,
+      controls: null,
+    },
     socket: {
       tickets: createTicketStore({ now: Date.now }),
       versions: { current: versions, min: versions },
@@ -150,6 +166,13 @@ function listen(
   }
 }
 
+/** The seed's clock at `seedAt`, in this machine's zone at that moment. */
+const seedTimeAt = (seedAt: number) =>
+  createSeedTime({
+    seedAt,
+    zoneOffsetMs: -new Date(seedAt).getTimezoneOffset() * 60_000,
+  });
+
 const clock: Clock = {
   now: Date.now,
   schedule(fn, delayMs) {
@@ -177,6 +200,61 @@ function openSync(dataDir: string): SyncSettings & { close(): void } {
   };
 }
 
+/** The projects Lanternfield Studios' background seed writes, as its progress counts them. */
+const HEAVY_TOTAL = SEED_PROJECTS.filter(
+  (p) => p.workspaceId === "heavy",
+).length;
+
+/** Where the background seed adopts into: the live data and Lanternfield Studios' homes. */
+const adoptionOf = (dataDir: string, live: Storage) => ({
+  live,
+  stagingDir: stagingDirOf(dataDir),
+  dataDir: join(dataDir, "data"),
+  homes: heavyHomes(),
+});
+
+/**
+ * Lanternfield Studios before the server listens: an adoption under way is finished, a stopped
+ * seed cleared, through storage opened and closed here. True when its seed has yet to run.
+ */
+async function isHeavyWaiting(dataDir: string): Promise<boolean> {
+  const live = openSqliteStorage({ dir: join(dataDir, "data"), now: Date.now });
+  try {
+    if (live.directory.placeOf(indexDocId("workspace", "heavy")) !== null)
+      return false;
+    return (await resumeStaging(adoptionOf(dataDir, live))) === "cleared";
+  } finally {
+    live.close();
+  }
+}
+
+/**
+ * While `waiting`, `seeding` tells /api/me how far Lanternfield Studios' seed has come, and none of
+ * its homes is ready until `adopted` is called.
+ */
+function createHeavyState(waiting: boolean, dataDir: string, live: Storage) {
+  const adoption = adoptionOf(dataDir, live);
+  let seeding: WorkspaceRef["seeding"] = waiting
+    ? { done: 0, total: HEAVY_TOTAL, failed: false }
+    : null;
+  return {
+    seeding: (workspaceId: string) =>
+      workspaceId === "heavy" ? seeding : null,
+    isHomeReady: (home: string) =>
+      seeding === null || !adoption.homes.has(home),
+    progress(done: number, total: number) {
+      seeding = { done, total, failed: false };
+    },
+    failed() {
+      if (seeding !== null) seeding = { ...seeding, failed: true };
+    },
+    async adopted() {
+      await adoptStaging(adoption);
+      seeding = null;
+    },
+  };
+}
+
 /**
  * Listens on loopback, then on the LAN host on the port loopback bound, and
  * only then builds the server, so that its hosts name that port. `env.port`
@@ -187,6 +265,7 @@ function openSync(dataDir: string): SyncSettings & { close(): void } {
 export async function startServer(env: ServerEnv): Promise<RunningServer> {
   const secret = await loadSessionSecret(env.dataDir);
   const renderPdf = createServerRenderPdf(await readScriptFonts());
+  const waiting = await isHeavyWaiting(env.dataDir);
   let built: ManentServer | null = null;
   // the listeners bind and the server is built in one synchronous run, so no event comes first
   const server = (): ManentServer => {
@@ -211,6 +290,7 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
   const sync = openSync(env.dataDir);
   const { storage, ids } = sync;
   const config = buildServerConfig(env, secret, port);
+  const heavy = createHeavyState(waiting, env.dataDir, storage);
   // the history service and the production service take each other through getters
   const extras: HistoryExtras = {
     locksAt: (...args) => production.extras.locksAt(...args),
@@ -233,16 +313,57 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
     renderPdf,
     rules: PRODUCT_SETTING_RULES,
   });
+  // the demo's services need the server these controls are given to, so the controls call them once they exist
+  const controls: DemoControls = {
+    writers: (...args) => services.writers(...args),
+    prepare: (...args) => services.prepare(...args),
+    rebuild: (...args) => services.rebuild(...args),
+  };
   const serving = createServer({
     ...config,
+    auth: {
+      ...config.auth,
+      directory: createDemoDirectory({ seeding: heavy.seeding }),
+    },
+    demo:
+      config.demo === null
+        ? null
+        : { ...config.demo, controls, isHomeReady: heavy.isHomeReady },
     sync: { ...sync, hooks: [history, production.hooks] },
     history,
     production,
   });
   built = serving;
+  const services = createDemoServices({
+    live: {
+      server: serving,
+      sessions: config.auth.sessions,
+      storage,
+      sync: serving.sync!,
+      clock,
+    },
+    time: () => seedTimeAt(Date.now()),
+    random: Math.random,
+  });
+  const background = waiting
+    ? startBackgroundSeed({
+        execPath: process.execPath,
+        entry: import.meta.path,
+        dataDir: env.dataDir,
+        seedAt: Date.now(),
+        onProgress: heavy.progress,
+        onDone: heavy.adopted,
+        onFailed(reason) {
+          console.error(reason);
+          heavy.failed();
+        },
+      })
+    : { stop: async () => {} };
   let stopped: Promise<void> | null = null;
   const stop = (): Promise<void> => {
     stopped ??= (async () => {
+      await background.stop();
+      await services.close();
       await serving.sync?.shutdown();
       await stopListening();
       sync.close();
@@ -258,6 +379,9 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
 }
 
 if (import.meta.main) {
+  // the seed command runs before the environment is read: its child process is given only its arguments
+  if (process.argv[2] === "seed")
+    process.exit(await runSeedCommand(process.argv.slice(2)));
   try {
     const running = await startServer(readServerEnv(process.env));
     process.on("SIGTERM", () => {

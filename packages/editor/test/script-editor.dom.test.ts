@@ -12,6 +12,7 @@ import {
 import type { Transaction } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import {
+  NO_PASTED_TEXT,
   createScriptEditor,
   elementKeysPlugin,
   paginationKey,
@@ -249,6 +250,7 @@ function editor(
     platform: "mac",
     ids: counter("n"),
     random: () => "r",
+    pastedText: NO_PASTED_TEXT,
     onUndoStep: () => {},
     keys: { resolve: () => null, run: () => false },
     zoom: options.zoom ?? 100,
