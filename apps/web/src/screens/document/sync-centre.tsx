@@ -2,11 +2,13 @@
 import {
   CommandButton,
   PopoverTitle,
+  cn,
   SYNC_CENTRE_WORDS,
   statusText,
   useSubscribable,
 } from "@manent/ui";
 import type { StatusFacts } from "@manent/ui";
+import { DownloadIcon } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { useServices } from "../../services/context.tsx";
@@ -34,6 +36,21 @@ function explanation(facts: StatusFacts): string | null {
   }
 }
 
+/** One part of the Sync centre, a hairline above every part but the first. */
+function Part(props: { className?: string; children: ReactNode }): ReactNode {
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-start gap-2 border-t border-line px-4 py-3 first:border-t-0",
+        props.className,
+      )}
+    >
+      {props.children}
+    </div>
+  );
+}
+
+/** In the design's order: the heading and its explanation, the alert, signing in, to review, what waits, the receipts. */
 export function SyncCentre(props: { doc: DocumentServices }): ReactNode {
   const { doc } = props;
   const { messages } = useServices();
@@ -46,54 +63,71 @@ export function SyncCentre(props: { doc: DocumentServices }): ReactNode {
     !facts.neverSynced && waiting.length === 0 && facts.toReview === 0;
   return (
     <>
-      <PopoverTitle className="text-heading">
-        {SYNC_CENTRE_WORDS.title}
-      </PopoverTitle>
+      <Part className="gap-1">
+        <PopoverTitle className="text-title font-semibold">
+          {SYNC_CENTRE_WORDS.title}
+        </PopoverTitle>
+        {line === null ? null : <p className="text-fg-muted">{line}</p>}
+      </Part>
       {words.tone === "alert" ? (
-        <div className="flex flex-col items-start gap-1">
-          <p>{words.device ?? words.server}</p>
+        <Part>
+          <p className="font-medium text-danger">
+            {words.device ?? words.server}
+          </p>
           <CommandAction
             commandId="doc.export"
             label={SYNC_CENTRE_WORDS.exportCopy}
           />
-        </div>
+        </Part>
       ) : null}
       {facts.neverSynced ? (
-        <div className="flex flex-col items-start gap-1">
+        <Part>
           <p>{SYNC_CENTRE_WORDS.neverSynced(facts.shell === "desktop")}</p>
           <CommandButton id="app.signInToSync" variant="outline" size="sm" />
-        </div>
+        </Part>
       ) : null}
-      {line === null ? null : <p className="text-fg-muted">{line}</p>}
       {facts.toReview === 0 ? null : (
-        <div className="flex items-center gap-2">
-          <p>{SYNC_CENTRE_WORDS.toReview(facts.toReview)}</p>
+        <Part className="flex-row items-center justify-between">
+          <p className="text-attention">
+            {SYNC_CENTRE_WORDS.toReview(facts.toReview)}
+          </p>
           <CommandAction
             commandId="history.review"
             label={SYNC_CENTRE_WORDS.review}
           />
-        </div>
+        </Part>
       )}
       {settled ? (
-        <p>{SYNC_CENTRE_WORDS.empty}</p>
-      ) : (
-        <ul className="tabular-nums">
-          {waiting.map((row) => (
-            <li key={row.scene}>
-              {SYNC_CENTRE_WORDS.waitingInScene(row.scene, row.count)}
-            </li>
-          ))}
-        </ul>
+        <Part>
+          <p className="text-fg-muted">{SYNC_CENTRE_WORDS.empty}</p>
+        </Part>
+      ) : waiting.length === 0 ? null : (
+        <Part>
+          <ul className="flex flex-col gap-1 text-meta tabular-nums">
+            {waiting.map((row) => (
+              <li key={row.scene}>
+                {SYNC_CENTRE_WORDS.waitingInScene(row.scene, row.count)}
+              </li>
+            ))}
+          </ul>
+        </Part>
       )}
-      <ul className="text-meta">
-        {receipts.toReversed().map((receipt, index) => (
-          <li key={index}>{receipt.text}</li>
-        ))}
-      </ul>
-      <CommandAction
-        commandId="doc.export"
-        label={SYNC_CENTRE_WORDS.exportCopy}
-      />
+      {receipts.length === 0 ? null : (
+        <Part>
+          <ul className="flex flex-col gap-2">
+            {receipts.toReversed().map((receipt, index) => (
+              <li key={index}>{receipt.text}</li>
+            ))}
+          </ul>
+        </Part>
+      )}
+      <Part className="bg-chrome py-2">
+        <CommandAction
+          commandId="doc.export"
+          label={SYNC_CENTRE_WORDS.exportCopy}
+          icon={DownloadIcon}
+        />
+      </Part>
     </>
   );
 }

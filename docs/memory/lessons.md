@@ -4,6 +4,106 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## A screen took focus from the open command palette
+
+- Date: 2026-11-21
+
+### What happened
+
+On a slow machine the Library or a script could finish drawing after the person had already opened the command palette. The screen's heading then took focus in the middle of the query, so the rest of what was typed, and the Enter, went to the heading instead. A fast machine never showed it.
+
+### How it was caught
+
+An end-to-end test that picks a theme from the palette failed in Firefox on the Linux and Windows CI runners. It failed locally too once the machine was under full load (6 of 20 runs), and a probe that logged focus and keystrokes showed the heading taking focus mid-query.
+
+### Rule
+
+A screen moves focus on arrival only when nothing above it holds focus: while the palette is open it waits, and takes focus when the palette closes. A test that fails only on CI is run under load before it is called a timing problem, because a slow machine is where a person meets the race.
+
+### Enforced by
+
+`apps/web/test/library.dom.test.tsx`, which draws the Library while the palette is open and expects focus to stay in the palette's field.
+
+## A test typed into a page that could not take keys yet
+
+- Date: 2026-11-21
+
+### What happened
+
+A script's page stays hidden until its fonts have loaded, and a hidden page takes no focus. The end-to-end helper that opens a script resolved as soon as the editor was registered, so on a slow machine it placed the caret while the page was still hidden: focus stayed on the title heading and every key the test typed went to the heading's menu. Tests of Enter, Tab and the element picker failed in Firefox on CI. A person could not meet it, since nobody types into a page they cannot see, but it cost a round of CI repairs.
+
+### How it was caught
+
+By the CI failures, reproduced under load (11 of 180 runs failed before the fix, none of 360 after).
+
+### Rule
+
+A test helper waits for what a person waits for, the page shown and able to take keys, and never for an internal signal that comes earlier, such as a component being registered.
+
+### Enforced by
+
+`e2e/editor/support.ts`, whose open waits until the page is shown, and a test in `e2e/editor/typing.e2e.ts` that holds the font files unanswered and types once the page is drawn in the fallback face.
+
+## Tests that fit in five seconds here ran out of time on slower runners
+
+- Date: 2026-11-21
+
+### What happened
+
+Four tests passed on the machine where they were written and ran past Bun's default limit of five seconds per test on a slower CI runner: two property checks of the editor's pagination and change tracking, a scroll check on a 2,000-page script that took 5.4 seconds, and a check of the demo's phrase banks that re-read every other bank for each one, so its cost grew with the square of the banks' size.
+
+### How it was caught
+
+By the CI runners, each time on a different test.
+
+### Rule
+
+A test whose work is large states its own time limit, sized for a slow machine. Before raising a limit, check that the cost grows as the work does: a check that re-reads everything for every item is fixed, not given more time.
+
+### Enforced by
+
+Nothing yet beyond CI on three systems, `.github/workflows/ci.yml`; no check reads a test's limit against its work.
+
+## A path written with backslashes on Windows broke a build and two tests
+
+- Date: 2026-11-20
+
+### What happened
+
+Three times, code compared or listed paths that held forward slashes on macOS and Linux and backslashes on Windows. The size test lost its exemption for test files, because it split each path on a forward slash. The web build stopped on Windows, because its list of files to precache compared each output path with the build folder joined by a slash, and every file fell outside it. A test of the desktop node's store listed its files with backslashes and no longer matched its expectation.
+
+### How it was caught
+
+By the Windows job of the CI workflow, each time after the change had merged.
+
+### Rule
+
+A path that is compared, listed, stored or turned into a URL is first written with forward slashes; only a call to the file system takes the platform's own form.
+
+### Enforced by
+
+`apps/web/test/sw-manifest.test.ts`, which builds the precache list from backslash paths, and the Windows job in `.github/workflows/ci.yml`.
+
+## Branches that each passed the gate failed it together
+
+- Date: 2026-11-20
+
+### What happened
+
+Phrase banks for the demo's projects were written on separate branches at once, and each branch's check held its bank to its own voice. Merged, eleven lines turned out to stand in two banks, which the check of every bank against the others refuses. The same day a branch that kept the web app's entry chunk under its 150 KB budget, merged onto a `main` that was also under it, came out at 150.50 KB, and `main` was reset to its last passing commit.
+
+### How it was caught
+
+By running `bun run verify` on the merge result before it stayed on `main`.
+
+### Rule
+
+A check over the whole tree, such as uniqueness across files or the size of a bundle, is judged on the merge result, never on a branch alone. Every merge to `main` is followed by the gate, and a merge that fails it is fixed or undone at once.
+
+### Enforced by
+
+`packages/demo/test/banks-all.test.ts` and `apps/web/test/build.test.ts`, run by `bun run verify` after every merge.
+
 ## A font-loaded check said yes for a font nobody had declared
 
 - Date: 2026-11-17

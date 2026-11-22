@@ -123,8 +123,8 @@ export function PreferencesSearch(props: {
     ));
   if (found.preferences.length > 0)
     return (
-      <div className="flex flex-col gap-1">
-        <p className="text-meta text-fg-muted">
+      <div className="flex flex-col gap-2">
+        <p className="text-meta text-fg-muted tabular-nums">
           {PREFERENCES_WORDS.resultsCount(found.preferences.length)}
         </p>
         {rows(
@@ -148,9 +148,7 @@ export function PreferencesSearch(props: {
   return (
     <div className="flex flex-col gap-1">
       <p className="text-ui">{PREFERENCES_WORDS.noMatch(query.trim())}</p>
-      <h3 className="pt-2 text-micro uppercase text-fg-muted">
-        {PREFERENCES_WORDS.elsewhere}
-      </h3>
+      <h3 className="mn-group-label px-0!">{PREFERENCES_WORDS.elsewhere}</h3>
       {rows([
         ...found.elsewhere.map((pointer): SearchResult => ({
           kind: "pointer",

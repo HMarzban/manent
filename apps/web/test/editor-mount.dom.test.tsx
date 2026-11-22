@@ -646,7 +646,7 @@ test("the Element button shows the element, is named by it and opens the picker"
   frame();
   const container = render(
     <FactsContext value={facts.selectors}>
-      <ElementButton />
+      <ElementButton docId="doc" />
     </FactsContext>,
     services,
   );
@@ -656,7 +656,7 @@ test("the Element button shows the element, is named by it and opens the picker"
   facts.writer.publish({ element: null });
   act(() => frame());
   expect([shown, runs, container.innerHTML]).toEqual([
-    ["Dialogue▾", "Element: Dialogue"],
+    ["Dialogue", "Element: Dialogue"],
     [["format.element", "control"]],
     "",
   ]);
