@@ -115,6 +115,7 @@ export { VERSION_KINDS, isVersionCursor } from "./history-http.ts";
 export type {
   AuthorsRequest,
   AuthorsResponse,
+  CopiesKeptControl,
   HistoryControl,
   HistoryVersionKind,
   NameRequest,
