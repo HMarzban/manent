@@ -24,7 +24,7 @@ export type AuthorityValues = (
 export interface RestoreOptions {
   /** Absent: every block the current document lacks gets num null, omitted false. */
   readonly authority?: AuthorityValues;
-  /** For a scene restore only: the id of a copy of a target block the current document holds outside the scene. */
+  /** The id of a copy: of a target block a scene restore finds outside the scene, or of a target block an earlier one shares its id with. */
   readonly newId: () => string;
 }
 
@@ -112,9 +112,14 @@ function scopedOf(
   };
 }
 
-/** Each target block with the current number and omission of its id, or the authority's; a copy under a new id where the current document holds it outside the scope. */
+/**
+ * Each target block with the current number and omission of its id, or the
+ * authority's; a copy under a new id where the current document holds it
+ * outside the scope, or an earlier target block holds its id.
+ */
 function withAuthority(scoped: Scoped, options: RestoreOptions): BlockJSON[] {
   const held = new Map(scoped.all.map((block) => [idOf(block), block]));
+  const seen = new Set<string>();
   return scoped.target.flatMap((block) => {
     const id = idOf(block);
     if (id === null) return [];
@@ -125,7 +130,8 @@ function withAuthority(scoped: Scoped, options: RestoreOptions): BlockJSON[] {
         : fillBlockAttrs(now.attrs);
     const attrs: Record<string, unknown> = { ...block.attrs };
     for (const key of AUTHORITY_ATTRS) attrs[key] = values[key];
-    if (scoped.outside.has(id)) attrs.id = options.newId();
+    if (scoped.outside.has(id) || seen.has(id)) attrs.id = options.newId();
+    seen.add(id);
     return [canonicalBlock({ ...block, attrs })];
   });
 }
