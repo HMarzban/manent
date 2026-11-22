@@ -9,14 +9,28 @@ import { tourProjects } from "./support/tour.ts";
 
 // only the scenarios the Tour shows: a hidden or waiting scenario's file is never matched
 const TOUR_FILES = tourProjects(TOUR);
+// the Tour's own files run only in its Chromium projects
+const ENGINE_IGNORE = ["e2e/tour/**", "e2e/demo/**"];
 
 export default defineConfig({
   testDir: ".",
   testMatch: "**/*.e2e.ts",
   projects: [
-    { name: "chromium", use: { browserName: "chromium" } },
-    { name: "firefox", use: { browserName: "firefox" } },
-    { name: "webkit", use: { browserName: "webkit" } },
+    {
+      name: "chromium",
+      use: { browserName: "chromium" },
+      testIgnore: ENGINE_IGNORE,
+    },
+    {
+      name: "firefox",
+      use: { browserName: "firefox" },
+      testIgnore: ENGINE_IGNORE,
+    },
+    {
+      name: "webkit",
+      use: { browserName: "webkit" },
+      testIgnore: ENGINE_IGNORE,
+    },
     {
       name: "tour",
       use: { browserName: "chromium" },
