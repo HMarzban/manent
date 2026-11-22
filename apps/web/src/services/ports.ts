@@ -13,7 +13,7 @@ import type {
   SectionId,
   SettingsStore,
 } from "@manent/settings";
-import type { SyncClient } from "@manent/sync-client";
+import type { DocHandle, SyncClient } from "@manent/sync-client";
 import type { UpdateState } from "@manent/sync-protocol";
 import type {
   ConsequenceDialogProps,
@@ -151,6 +151,8 @@ export interface PersonServices {
   mount: EditorMount;
   /** The versions of each script, their content, and naming, saving and restoring them. */
   history: HistorySource;
+  /** The person's handle of a script over their sync; rejects when their sync could not start. */
+  openHandle(docId: string): Promise<DocHandle>;
   /** The ports of every page this person's editor and version view draw. */
   pagePorts: PageViewPorts;
   /** Settles once the person's preferences, keys and flags have been read from the device, or their sync could not start. */
