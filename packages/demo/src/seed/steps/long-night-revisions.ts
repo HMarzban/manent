@@ -23,8 +23,9 @@ import {
 } from "./long-night-telling.ts";
 import type { Telling } from "./long-night-telling.ts";
 
-const BLUE_MEMO =
-  "Blue revisions: pp. 3, 9, 16, 17, 17A, 21, 21A, 21B, 29, 33, 41, 58, 87, 102. Sc. 25 omitted. Sc. 26A added.";
+/** Blue's memo, naming the pages its issue sends. */
+const blueMemo = (pages: readonly string[]): string =>
+  `Blue revisions: pp. ${pages.join(", ")}. Sc. 25 omitted. Sc. 26A added.`;
 /** The pages where Mr. Adeyemi, through the lift doors, counts the hours since his tablets. */
 const PAYOFF_PAGES = ["29", "33", "41", "58", "87", "102"] as const;
 
@@ -105,9 +106,9 @@ async function thePharmacy(t: Telling, s: SeedSession): Promise<void> {
 }
 
 /**
- * D−5 in Blue and N−8:40 in Pink: scene 29 as `passage` writes it over `length` blocks from its heading, filling `pages`. Pink's
- * new lines come before the block 21A was locked on, and page 21 holds fixed text only: no fit can move that
- * break, so in Pink only 21A and 21B are filled.
+ * D−5 in Blue and N−8:40 in Pink: scene 29 as `passage` writes it over `length` blocks from its heading, filling
+ * `pages`. Pink's new lines come before the block 21A was locked on, on a page 21 of fixed text only: 21A takes
+ * page 21's overflow, and runs on to 21AA.
  */
 async function theVan(
   t: Telling,
@@ -210,9 +211,11 @@ export async function inProduction(t: Telling): Promise<void> {
     await check(t, s, bluePassages(t));
   });
   await t.story.at("D−1 22:41");
-  await t.story.issue("priya", KEY, BLUE_MEMO);
+  const issuing = t.driver.production?.revisedPages(seedDoc(KEY).docId);
+  await t.story.issue("priya", KEY, blueMemo((await issuing) ?? []));
   await sit(t, ["sam", "N−8:40"], async (s) => {
-    await theVan(t, s, pink29, blue29.blocks.length, ["21A", "21B"]);
+    const pages = ["21", "21A", "21AA", "21B"];
+    await theVan(t, s, pink29, blue29.blocks.length, pages);
     const after = t.state.indexOf(t.headings[63]!) + 1;
     keep(t, pink64.blocks);
     await writeTo(t, s, replaced(t.state, [after, after], pink64.blocks));

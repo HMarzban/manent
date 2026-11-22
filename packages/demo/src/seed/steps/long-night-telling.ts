@@ -321,16 +321,18 @@ async function locked(t: Telling, s: SeedSession): Promise<Locked | null> {
   };
 }
 
-/** Where locked page `label` starts, and where the locked page after it does. */
+/** Where locked page `labels[0]` starts, and where the first locked page after it outside `labels` does. */
 function lockedSpan(
   t: Telling,
   placed: Placed,
-  label: string,
+  labels: readonly string[],
 ): [number, number] {
-  const at = placed.findIndex(([record]) => record.label === label);
+  const at = placed.findIndex(([record]) => record.label === labels[0]);
   if (at === -1)
-    throw new SeedBuildError("unfit", `${GUIDE.project}: page ${label}`);
-  const next = placed[at + 1]?.[1];
+    throw new SeedBuildError("unfit", `${GUIDE.project}: page ${labels[0]}`);
+  const next = placed.find(
+    ([record], i) => i > at && !labels.includes(record.label),
+  )?.[1];
   const end = next === undefined ? t.state.length : t.state.indexOf(next);
   return [t.state.indexOf(placed[at]![1]), end];
 }
@@ -342,7 +344,7 @@ export async function pageSpan(
   label: string,
 ): Promise<[number, number]> {
   const lock = await locked(t, s);
-  if (lock !== null) return lockedSpan(t, lock.placed, label);
+  if (lock !== null) return lockedSpan(t, lock.placed, [label]);
   const pages = await t.driver.meter.pages(t.state, WHITE);
   const at = pages.findIndex((p) => p.label === label);
   if (at === -1)
@@ -350,7 +352,10 @@ export async function pageSpan(
   return [pages[at]!.blockIndex, pages[at + 1]?.blockIndex ?? t.state.length];
 }
 
-/** Pads or trims the run of locked page `labels[0]` so it fills exactly `labels`; nothing without production. */
+/**
+ * Pads or trims the run of locked page `labels[0]` so it fills exactly `labels`, its pages as the engine names
+ * them under the server's lock table, locked A-pages among them; nothing without production.
+ */
 export async function fillPages(
   t: Telling,
   s: SeedSession,
@@ -358,22 +363,18 @@ export async function fillPages(
 ): Promise<void> {
   const lock = await locked(t, s);
   if (lock === null) return;
-  const { layout, placed } = lock;
-  const isLocked = (label: string) => placed.some(([r]) => r.label === label);
-  // A-pages locked by an issue each start a page of their own, so each is filled on its own
-  const pages = labels.every(isLocked) ? labels.map((l) => [l]) : [labels];
-  for (const page of pages) {
-    const [first, end] = lockedSpan(t, placed, page[0]!);
-    const run = { firstBlock: first, lastBlock: end - 1, labels: page };
-    const fixed = new Set(
-      t.state.flatMap((b, i) => (t.fixed.has(b) ? [i] : [])),
-    );
-    const { rng } = t.context;
-    // the page's run is laid out from the page whose number it carries
-    const meter = lock.meterOf(page[0]!.match(/^\d+/)![0]);
-    const options = { meter, layout, guide: GUIDE, rng, used: t.used, fixed };
-    await writeTo(t, s, await fitAPages(t.state, run, options));
-  }
+  const [first, end] = lockedSpan(t, lock.placed, labels);
+  const run = { firstBlock: first, lastBlock: end - 1, labels };
+  const fixed = new Set(t.state.flatMap((b, i) => (t.fixed.has(b) ? [i] : [])));
+  const options = {
+    meter: lock.meterOf(labels[0]!),
+    layout: lock.layout,
+    guide: GUIDE,
+    rng: t.context.rng,
+    used: t.used,
+    fixed,
+  };
+  await writeTo(t, s, await fitAPages(t.state, run, options));
 }
 
 /** Each passage checked from its first block against the server's pages, numbers and marks; rules_broken on any. */

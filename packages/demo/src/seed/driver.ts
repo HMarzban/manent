@@ -76,6 +76,8 @@ export interface SeedProduction {
     blockId: string,
     value: "marked" | "cleared",
   ): Promise<void>;
+  /** The pages the active revision would issue now, in page order: those issue() sends. */
+  revisedPages(docId: string): Promise<readonly string[]>;
 }
 
 export interface SeedDriver {
