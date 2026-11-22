@@ -2,6 +2,7 @@
 import { paginate, profileFor, repaginate } from "@manent/pagination";
 import type { LayoutBlock } from "@manent/pagination";
 import type { Measurement, Scenario } from "../../harness.ts";
+import { sampleMs } from "../../measure.ts";
 import { scriptOfPages } from "./script.ts";
 
 /** Where in the script the keystrokes land, as fractions of its blocks. */
@@ -29,31 +30,35 @@ function keystroke(
   );
 }
 
-function timed(run: () => void): number {
-  const start = performance.now();
-  run();
-  return performance.now() - start;
-}
-
-function measure(
+async function measure(
   pages: number,
   coldSamples: number,
   keystrokeSamples: number,
-): Measurement[] {
+): Promise<Measurement[]> {
   const blocks = scriptOfPages(pages);
   const profile = profileFor("screenplay")!;
-  const cold = Array.from({ length: coldSamples }, () => {
+  const cold: number[] = [];
+  for (let n = 0; n < coldSamples; n++) {
     const copy = blocks.map((block) => Object.freeze({ ...block }));
-    return timed(() => paginate(copy, profile));
-  });
+    cold.push(
+      await sampleMs(() => {
+        paginate(copy, profile);
+      }),
+    );
+  }
   const settled = paginate(blocks, profile);
-  const keystrokes = KEYSTROKE_AT.flatMap((at) => {
+  const keystrokes: number[] = [];
+  for (const at of KEYSTROKE_AT) {
     const i = Math.floor(blocks.length * at);
-    return Array.from({ length: keystrokeSamples }, (_, k) => {
+    for (let k = 0; k < keystrokeSamples; k++) {
       const edited = keystroke(blocks, i, k);
-      return timed(() => repaginate(settled, edited));
-    });
-  });
+      keystrokes.push(
+        await sampleMs(() => {
+          repaginate(settled, edited);
+        }),
+      );
+    }
+  }
   return [
     { metric: "cold_repagination", unit: "ms", samples: cold },
     { metric: "keystroke_engine", unit: "ms", samples: keystrokes },
@@ -78,6 +83,6 @@ export function engineScenario(options: {
     id: `pagination-engine-${pages}`,
     workload,
     processes: 5,
-    run: () => Promise.resolve(measure(pages, coldSamples, keystrokeSamples)),
+    run: () => measure(pages, coldSamples, keystrokeSamples),
   };
 }

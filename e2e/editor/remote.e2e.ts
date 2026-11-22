@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { editorHook } from "../support/editor-hooks.ts";
 import { pressKeyOf } from "../support/interface.ts";
-import { signedInAs } from "../support/tour.ts";
+import { committedOnDevice, signedInAs } from "../support/tour.ts";
 import {
   DANA,
   PAGE_VIEW,
@@ -35,6 +35,8 @@ async function preference(
   const control = page.getByRole("switch", { name: label, exact: true });
   await control.setChecked(on);
   await expect(control).toBeChecked({ checked: on });
+  // the next page reads the preference from the device
+  await committedOnDevice(page, "you");
 }
 
 /** Waits until block `index` holds `text`. */
@@ -246,7 +248,7 @@ test("in Chromium that edit's frame does its work within the remote edit's hard 
   );
   test.fixme(
     true,
-    "in Chromium this edit takes about 90 ms to show, much of it the pages measuring the reader's block again after the change",
+    "in Chromium, which draws every section, this edit takes about 100 ms to show: it moves every page break after it, and styling and laying out the pages again takes about 75 ms of that",
   );
   test.setTimeout(300_000);
   const { dispatched } = await editFarAbove(page);

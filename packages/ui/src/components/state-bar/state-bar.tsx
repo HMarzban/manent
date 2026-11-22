@@ -1,7 +1,9 @@
 // The bar under the title bar that says what state the document is in (left) and what mode you are in (right).
 import { cn } from "cn";
-import { CircleAlertIcon } from "lucide-react";
+import { TriangleExclamationPointIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { DOCUMENT_WORDS } from "../../words/document.ts";
+import { CloseButton } from "../panel-tabs/close-button.tsx";
 import { Button } from "../stock/button.tsx";
 import type { StateLine } from "./state-line.ts";
 
@@ -29,6 +31,7 @@ function StateSide({ line, run, registered }: SideProps): ReactNode {
       `a side of the state bar holds at most two actions, not ${line.actions.length}`,
     );
   }
+  const { dismiss } = line;
   return (
     <div
       className={cn(
@@ -36,13 +39,11 @@ function StateSide({ line, run, registered }: SideProps): ReactNode {
         line.attention && "text-attention",
       )}
     >
-      {line.attention ? <CircleAlertIcon aria-hidden="true" /> : null}
+      {line.attention ? (
+        <TriangleExclamationPointIcon aria-hidden="true" />
+      ) : null}
       {line.chip === null ? null : (
-        <span
-          data-rev={line.chip}
-          aria-hidden="true"
-          className="size-3 shrink-0 rounded-micro border border-line"
-        />
+        <span data-rev={line.chip} aria-hidden="true" className="mn-rev-chip" />
       )}
       <span className="truncate">{line.sentence}</span>
       {line.actions
@@ -57,6 +58,12 @@ function StateSide({ line, run, registered }: SideProps): ReactNode {
             {action.label}
           </Button>
         ))}
+      {dismiss !== null && registered(dismiss) ? (
+        <CloseButton
+          label={DOCUMENT_WORDS.dismiss}
+          onClick={() => run(dismiss)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -73,6 +80,7 @@ export function StateBar({
     <div
       role="status"
       aria-live="polite"
+      data-tour="state_bar"
       className="flex h-statebar items-center justify-between gap-4 border-b border-line bg-chrome px-3 text-ui"
     >
       <StateSide line={left} run={run} registered={registered} />

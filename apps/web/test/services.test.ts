@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import type { SideTab } from "@manent/commands";
 import { createDoc } from "@manent/crdt";
-import { entryKey } from "@manent/settings";
 import { StoreError } from "@manent/sync-client";
+import { createFaultyStoreSpace } from "@manent/sync-client/testing";
 import { statusText } from "@manent/ui";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -18,7 +18,6 @@ import {
   RefusingStorage,
   createClock,
   createNavigation,
-  createStorageEvents,
   testEnvironment,
   testServices,
 } from "./services.fixtures.ts";
@@ -50,34 +49,44 @@ test("the device bag and the device id use their fixed keys", () => {
   expect(storage.getItem("manent.device.id")).toBe("d1");
 });
 
-test("the shortcuts, the flags and the last Preferences pane use their fixed keys", () => {
+test("the last Preferences pane uses its fixed key, and the shortcuts and the flags are kept in the private index alone", () => {
   const storage = new MemoryStorage();
   const services = testServices({
     userId: "leo",
     environment: testEnvironment({ storage }),
   });
   services.keys.set("app.palette|d1", { v: ["Mod+K"] });
-  expect(storage.getItem("manent.keys.leo")).toBe(
-    '{"app.palette|d1":{"v":["Mod+K"]}}',
-  );
-  services.lastPane.set("keyboard");
-  expect(storage.getItem("manent.prefs.last-pane.leo")).toBe("keyboard");
   services.flags.set("tour_seen");
-  expect(storage.getItem("manent.flags.leo")).toBe('{"tour_seen":true}');
+  services.lastPane.set("keyboard");
+  expect([
+    services.keys.get("app.palette|d1"),
+    services.flags.has("tour_seen"),
+    storage.getItem("manent.keys.leo"),
+    storage.getItem("manent.flags.leo"),
+    storage.getItem("manent.prefs.last-pane.leo"),
+  ]).toEqual([{ v: ["Mod+K"] }, true, null, null, "keyboard"]);
 });
 
-test("a flag once set stays set for the person, and for no one else", () => {
-  const storage = new MemoryStorage();
-  const tab = (userId: string) =>
-    testServices({ userId, environment: testEnvironment({ storage }) });
-  const first = tab("leo");
-  expect(first.flags.has("tour_seen")).toBe(false);
+test("a flag once set stays set for the person, and for no one else", async () => {
+  const stores = createFaultyStoreSpace();
+  const tab = async (userId: string) => {
+    const services = testServices({
+      userId,
+      environment: testEnvironment({}, stores),
+    });
+    await services.ready;
+    return services;
+  };
+  const first = await tab("leo");
+  const unset = first.flags.has("tour_seen");
   first.flags.set("tour_seen");
   first.flags.set("tour_seen");
-  expect(first.flags.has("tour_seen")).toBe(true);
-  expect(tab("leo").flags.has("tour_seen")).toBe(true);
-  expect(tab("dana").flags.has("tour_seen")).toBe(false);
-  expect(storage.getItem("manent.flags.leo")).toBe('{"tour_seen":true}');
+  expect([
+    unset,
+    first.flags.has("tour_seen"),
+    (await tab("leo")).flags.has("tour_seen"),
+    (await tab("dana")).flags.has("tour_seen"),
+  ]).toEqual([false, true, true, false]);
 });
 
 test("a device bag over refusing storage keeps values for the session", () => {
@@ -98,25 +107,6 @@ test("a device bag over refusing storage keeps values for the session", () => {
   full.settings.set("device.interfaceSize", "125");
   expect(full.settings.get("device.interfaceSize")).toBe("125");
   expect(full.persisted).toBe(false);
-});
-
-test("a preference set in one tab reaches another tab of the same person, and never another person", () => {
-  const storage = new MemoryStorage();
-  const { events, fire } = createStorageEvents();
-  const tab = () => testEnvironment({ storage, storageEvents: events });
-  const first = testServices({ userId: "leo", environment: tab() });
-  const second = testServices({ userId: "leo", environment: tab() });
-  const other = testServices({ userId: "dana", environment: tab() });
-  first.settings.set("appearance.theme", "dark");
-  expect(second.settings.get("appearance.theme")).toBe("system");
-  fire("manent.prefs.leo");
-  expect(second.settings.get("appearance.theme")).toBe("dark");
-  expect(other.settings.get("appearance.theme")).toBe("system");
-  fire(null);
-  expect(other.settings.get("appearance.theme")).toBe("system");
-  expect(
-    Object.keys(JSON.parse(storage.getItem("manent.prefs.leo") ?? "{}")),
-  ).toEqual([entryKey("appearance.theme", "id-1")]);
 });
 
 test("a remote change is applied at the next five-second pause after the last key", () => {
@@ -140,7 +130,7 @@ test("a remote change is applied at the next five-second pause after the last ke
   expect(applied).toEqual([10_000, 10_000]);
 });
 
-test("New script makes an untitled film whose script opens first in Continue", async () => {
+test("New script makes an untitled film whose script, once opened, is first in Continue", async () => {
   const route = createNavigation({ routeId: "/", href: "/", search: {} });
   const environment = testEnvironment({ language: "en-GB" });
   environment.shellState.set({
@@ -154,28 +144,33 @@ test("New script makes an untitled film whose script opens first in Continue", a
   });
   const opened = route.next();
   expect(services.commands.run("library.newScript", "control")).toBe("ran");
-  const href = await opened;
-  const [first] = services.library.continueList("leo").get();
-  expect(first).toEqual({
-    docId: href.slice("/s/".length),
-    title: "Untitled script",
-    projectTitle: "Untitled film",
-    kind: "film",
-    place: { kind: "never_synced" },
-  });
+  const docId = (await opened).slice("/s/".length);
+  services.documents.open(docId);
+  const continued = services.library.continueList("leo");
+  await until(() => continued.get().length === 1);
+  expect(continued.get()).toEqual([
+    {
+      docId,
+      title: "Untitled script",
+      projectTitle: "Untitled film",
+      kind: "film",
+      place: { kind: "never_synced" },
+    },
+  ]);
   expect(services.library.projects("leo").get()).toEqual([
     {
       projectId: expect.any(String),
       title: "Untitled film",
       kind: "film",
-      firstDocId: first?.docId ?? null,
+      firstDocId: docId,
       lastEdited: null,
       place: { kind: "never_synced" },
     },
   ]);
-  const docId = first?.docId ?? "";
-  expect(services.library.documentTitle(docId).get()).toBe("Untitled script");
-  expect(services.library.documentKind(docId).get()).toBe("film");
+  const title = services.library.documentTitle(docId);
+  const kind = services.library.documentKind(docId);
+  await until(() => kind.get() !== null);
+  expect([title.get(), kind.get()]).toEqual(["Untitled script", "film"]);
   // the script's settings are its handle's, which opens from the device a moment later
   const script = services.openScriptStore(docId);
   await until(() => script.get("script.paper") === "a4");
@@ -234,13 +229,12 @@ test("New script on a device that cannot hold it still opens the script, whose s
   const opened = route.next();
   expect(services.commands.run("library.newScript", "control")).toBe("ran");
   const docId = (await opened).slice("/s/".length);
-  const [first] = services.library.continueList("leo").get();
   const { status } = services.documents.open(docId);
   await until(() => status.get().device === "failing");
   const { device } = statusText(status.get());
   services.dispose();
   await turn();
-  expect([first?.docId, device]).toEqual([docId, "Not saved on this device"]);
+  expect([docId, device]).toEqual(["id-3", "Not saved on this device"]);
 });
 
 test("a script's layout waits for authority once its page numbers are locked", () => {
@@ -258,6 +252,8 @@ test("a script's layout waits for authority once its page numbers are locked", (
     activeName: "Pink",
     recallName: null,
     selection: null,
+    mode: "collated",
+    tint: false,
   });
   expect(store.set("script.paper", "letter")).toMatchObject({
     ok: false,

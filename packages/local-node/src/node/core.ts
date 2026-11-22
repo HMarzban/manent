@@ -1,5 +1,6 @@
 // The node core: the server-core write path for the node's own config, behind the launch guard and
-// the node's own routes, with the relay, the mirror, the hand-off and the window's upstream status.
+// the node's own routes, with history and production, the relay, the mirror, the hand-off and the
+// window's upstream status.
 import {
   createInlineCheckpointer,
   createServer,
@@ -18,6 +19,7 @@ import { createHandover } from "../handoff/handoff.ts";
 import { bootScript } from "../http/boot-script.ts";
 import { createLaunchGuard } from "../http/launch-guard.ts";
 import { localRoutes } from "../http/local-routes.ts";
+import { workspaceNamed } from "../http/workspace-named.ts";
 import { createShellChannel } from "../http/shell-channel.ts";
 import type { ShellEnd } from "../http/shell-channel.ts";
 import { createNodeSignIn } from "../auth/node-sign-in.ts";
@@ -29,6 +31,7 @@ import { createMirror, guardSubscribe } from "../relay/mirror.ts";
 import type { Editor } from "../relay/mirror.ts";
 import { createWakeWatch } from "../relay/wake.ts";
 import type { NodeCoreOptions, UpstreamFactory } from "./ports.ts";
+import { createNodeWorkflow } from "./workflow.ts";
 
 const SSE_HEARTBEAT_MS = 30_000;
 const WAKE_TICK_MS = 5_000;
@@ -53,26 +56,6 @@ function ownerIn(
   if (place === null) return null;
   const ledger = storage.open(place.home).log.ledger(docId);
   return ledger.get(clientId)?.userId ?? null;
-}
-
-/** The document and workspace a window's POST /api/docs names, read from a copy of its body; null for none. */
-async function workspaceNamed(
-  request: Request,
-): Promise<{ docId: string; workspaceId: string } | null> {
-  const isDocs =
-    request.method === "POST" && new URL(request.url).pathname === "/api/docs";
-  // a body that is not JSON names nothing: the route refuses it
-  const body: unknown = isDocs
-    ? await request
-        .clone()
-        .json()
-        .catch(() => null)
-    : null;
-  if (typeof body !== "object" || body === null) return null;
-  if (!("docId" in body && "workspaceId" in body)) return null;
-  const { docId, workspaceId } = body;
-  if (typeof docId !== "string" || typeof workspaceId !== "string") return null;
-  return { docId, workspaceId };
 }
 
 function serviceOf(server: ManentServer): SyncService {
@@ -138,12 +121,19 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
       control(docId, "upstream_refused", data, userId),
   });
   relay.onStatus(sendStatus);
+  const ids = (): string => random.bytes(16).toHex();
+  const workflow = createNodeWorkflow({
+    ...options,
+    sessions,
+    ids,
+    sync: () => serviceOf(server),
+  });
 
   const sync: NonNullable<ServerConfig["sync"]> = {
     storage,
     clock,
     defer,
-    ids: () => random.bytes(16).toHex(),
+    ids,
     mode: (docId) => (records.docState(docId) === null ? "authority" : "relay"),
     fullDisk: "hold",
     onDeviceStorage(state) {
@@ -160,6 +150,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     upstream: relay,
     checkpointer: createInlineCheckpointer({ storage, defer }),
     registry: options.registry,
+    hooks: workflow.hooks,
   };
 
   const server = createServer({
@@ -179,13 +170,15 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
       directory: options.directory,
       sessions,
     },
-    demo: { seedId: () => records.seedId(), control: null },
+    demo: { seedId: () => records.seedId(), control: null, controls: null },
     socket: {
       tickets: createTicketStore({ now: clock.now }),
       versions: options.versions,
       allowedOrigins: [url.origin],
     },
     sync,
+    history: workflow.history,
+    production: workflow.production,
   });
   const service = serviceOf(server);
   relay.attach(service);
@@ -338,8 +331,9 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     sync: service,
     connections: guarded.connections,
     async fetch(request, context) {
-      const local = await routes(request);
-      if (local !== null) return local;
+      const handled =
+        (await routes(request)) ?? (await workflow.forward(request));
+      if (handled !== null) return handled;
       const named = await workspaceNamed(request);
       const answer = await server.fetch(request, context);
       if (named !== null && answer?.status === 200)

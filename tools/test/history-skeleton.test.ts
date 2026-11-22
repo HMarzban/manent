@@ -4,7 +4,9 @@ import type { CommandContext, CommandDefinition } from "@manent/commands";
 import type { VersionItem } from "@manent/sync-protocol";
 import {
   HISTORY_WORDS,
+  PLACE_WORDS,
   escapeAction,
+  formatPosition,
   historyMessage,
   versionRef,
   versionTitle,
@@ -112,13 +114,13 @@ const REGISTRATIONS: readonly (readonly [string, string])[] = [
   ["packages/editor/src/index.ts", 'export * from "./changes/index.ts";'],
   ["packages/ui/src/words/index.ts", 'export * from "./history.ts";'],
   ["packages/commands/src/definitions/index.ts", "...HISTORY_COMMANDS,"],
-  ["apps/web/src/handlers/index.ts", "...historyHandlers(),"],
+  ["apps/web/src/handlers/index.ts", "...historyHandlers(deps),"],
   ["apps/web/src/editor-host/plugins.ts", "() => changesPlugin()"],
   [
     "apps/web/src/screens/document/history-sections.ts",
     '{ id: "versions", Section: HistoryList, useVisible: () => true }',
   ],
-  ["apps/web/src/screens/document/state-facts.ts", "= [useHistoryFacts]"],
+  ["apps/web/src/screens/document/state-facts.ts", "= [useHistoryFacts,"],
   [
     "apps/web/src/screens/document/details-sections.ts",
     '{ id: "who_wrote", scope: "selection", Section: WhoWrote }',
@@ -184,14 +186,17 @@ const CTX: CommandContext = {
   historyPresent: true,
   format: null,
   rulerShown: false,
+  layoutView: "page",
   spaceBeforeSet: false,
   zoom: null,
   zoomPercent: null,
   production: null,
 };
-const historyCommands = COMMANDS.slice(
-  COMMANDS.findIndex((c) => c.id === "history.markVersion"),
-).filter((c) => !c.id.startsWith("setting."));
+// History and Review are declared with the View and sync commands
+const DECLARED_ELSEWHERE = new Set(["history.open", "history.review"]);
+const historyCommands = COMMANDS.filter(
+  (c) => c.id.startsWith("history.") && !DECLARED_ELSEWHERE.has(c.id),
+);
 const visibleTo = (c: CommandDefinition, over: Partial<CommandContext>) =>
   c.visible === null || c.visible({ ...CTX, ...over });
 
@@ -270,9 +275,9 @@ test("the history words are the sentences people read", async () => {
     "Dana named a draft: 'Studio draft'.",
   );
   expect([
-    HISTORY_WORDS.sceneItem("8", "INT. FERRY - NIGHT"),
+    PLACE_WORDS.scene("8", "INT. FERRY - NIGHT"),
     HISTORY_WORDS.stepName(3, 41),
-    HISTORY_WORDS.step(3, 41),
+    formatPosition(3, 41),
   ]).toEqual(["Sc. 8 · INT. FERRY - NIGHT", "Change 3 of 41", "3 of 41"]);
   expect([
     HISTORY_WORDS.dayGroup(MON_16_NOV_2026, NOW),
@@ -293,13 +298,11 @@ test("the history words are the sentences people read", async () => {
     HISTORY_WORDS.savedYou,
     HISTORY_WORDS.nameFailed,
     HISTORY_WORDS.tryAgain,
-    HISTORY_WORDS.rowMenu,
   ]).toEqual([
     "Couldn't load older versions. Showing what is on this device.",
     "Saved by you.",
     "Couldn't name this draft.",
     "Try again",
-    ["Restore", "Restore this scene", "Name this draft…"],
   ]);
   expect(historyMessage({ kind: "restored_you", ref: draft }, "m1")).toEqual({
     id: "m1",
@@ -415,6 +418,7 @@ test("the history commands sit in these menus, answer these palette words and ap
     ],
     ["history.hideChanges", [], { keywords: [] }, null],
     ["history.showSinceOpened", [], { hidden: "the state bar's action" }, null],
+    ["history.dismissSinceOpened", [], { hidden: "the state bar's ✕" }, null],
     ["history.backToWorking", [], { keywords: [] }, null],
     ["history.nextChange", [], { keywords: [] }, null],
     ["history.previousChange", [], { keywords: [] }, null],

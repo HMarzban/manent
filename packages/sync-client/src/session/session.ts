@@ -4,25 +4,22 @@ import { createDoc } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import { CODE } from "@manent/sync-protocol";
 import type { DocumentMessage, Message } from "@manent/sync-protocol";
+import { restoreLocally } from "../history/local-restore.ts";
 import type { ServerGate } from "../link/gate.ts";
 import type { LinkIssue } from "../link/machine.ts";
 import { deriveStatus } from "../outbox/status.ts";
 import { createSubscribable } from "../outbox/subscribable.ts";
 import { StoreError } from "../ports/ports.ts";
 import type {
-  DeviceVersion,
   DocMeta,
   DocStatus,
-  LinkState,
   LoadedDocument,
   SideState,
-  SyncClientPorts,
 } from "../ports/ports.ts";
 import { UpstreamWindow } from "../upstream/window.ts";
-import type { Via } from "../upstream/window.ts";
-import type { ViewHandle } from "../view/view.ts";
 import type { DocHandle } from "./doc-handle.ts";
 import type { UnsavedEdit } from "./edits.ts";
+import { toDocEvent } from "./frame-events.ts";
 import type { Handshake } from "./handshake.ts";
 import { IndexWait } from "./index-wait.ts";
 import { createJournal } from "./journal.ts";
@@ -30,15 +27,12 @@ import type { Journal } from "./journal.ts";
 import { KeptWrites } from "./kept-writes.ts";
 import { createLocalCopy } from "./local-copy.ts";
 import type { LocalCopy } from "./local-copy.ts";
+import { PushMarks } from "./push-marks.ts";
+import type { SessionLink, SessionOptions } from "./session-options.ts";
 import { createSubscription } from "./subscription.ts";
 import type { Subscription } from "./subscription.ts";
 
-/** What a session hears from the link. */
-export interface SessionLink {
-  state: LinkState;
-  issue: LinkIssue;
-  wentOfflineAt: number | null;
-}
+export type { SessionLink } from "./session-options.ts";
 
 /** One open document as its client drives it. */
 export interface Session {
@@ -66,34 +60,6 @@ export interface Session {
   error(message: Extract<Message, { type: "ERROR" }>): void;
   skipped(): void;
   writeSchema(version: number): void;
-}
-
-interface SessionOptions {
-  docId: string;
-  ports: SyncClientPorts;
-  /** `local_node`: the node is the store, Saved its acknowledgement, and Synced and the last sync the upstream's. */
-  via: Via;
-  /** The tab's own document when it takes the lead, keeping its client ID; null for a new one. */
-  doc: CrdtDoc | null;
-  /** What the tab's leader never saved, stored first. */
-  unsaved: UnsavedEdit[];
-  /** Every update stored: the server's, this tab's, another tab's. */
-  stored(update: Uint8Array): void;
-  /** A reader of the document, for when it may not be edited. */
-  view(): ViewHandle;
-  /** The store refused a write because another tab now leads. */
-  lostLead(): void;
-  /** The tabs following this document. */
-  followers(): string[];
-  /** A new document's request; null to open one that may exist. */
-  create: DocMeta["create"];
-  link: SessionLink;
-  writeSchema: number;
-  uploadVersion: ((version: DeviceVersion) => Promise<boolean>) | null;
-  replaceConnection(reason: string): void;
-  /** This document's meta changed, and every write started so far has settled. */
-  metaChanged(): void;
-  closed(): void;
 }
 
 const LINK_SIDE: Readonly<Record<LinkIssue, SideState | null>> = Object.freeze({
@@ -129,6 +95,7 @@ class DocSession implements Session {
   private facts: SessionLink;
   private readonly status: ReturnType<typeof createSubscribable<DocStatus>>;
   private readonly indexWait: IndexWait;
+  private readonly pushes = new PushMarks();
   /** The node acknowledged an entry after the upstream status it last sent: Synced waits for the next. */
   private upstreamOutdated = false;
   /** The connection the device versions were last offered on. */
@@ -215,6 +182,19 @@ class DocSession implements Session {
       sendAwareness: (update) => this.handshake.sendAwareness(update),
       adoptClientIds: (ids) => this.adoptClientIds(ids),
       close: () => this.close(),
+      nameVersion: async (name) => {
+        const { stored, ...version } = this.copy.recordVersion(
+          "device",
+          "named",
+          name,
+        );
+        await stored;
+        return version;
+      },
+      restoreLocally: (target, scope) =>
+        restoreLocally(this.copy, target, scope, ports.random),
+      deviceVersions: () => ports.store.versions(docId),
+      lastServerSeq: () => journal.meta.lastServerSeq,
     });
   }
 
@@ -283,27 +263,28 @@ class DocSession implements Session {
   }
 
   connected(send: (message: Message) => void, gate: ServerGate): void {
-    this.indexWait.connected(send, gate);
+    this.indexWait.connected(this.pushes.timed(send), gate);
   }
 
   disconnected(): void {
+    this.pushes.dropped();
     this.indexWait.drop();
     this.subscription.disconnected();
   }
 
   receive(message: DocumentMessage): void {
-    const { upstream } = this;
-    if (upstream === null) return this.handshake.receive(message);
-    if (message.type === "ACK") this.upstreamOutdated = true;
-    if (message.type === "CONTROL" && message.kind === "upstream_status")
-      this.upstreamOutdated = false;
-    if (!upstream.receive(message)) this.handshake.receive(message);
+    this.pushes.answered(message);
+    this.route(message);
+    const event = toDocEvent(message);
+    if (event !== null) this.copy.emit(event);
   }
 
   /** A refusal of the old generation while a move is under way is not acted on. */
   error(message: Extract<Message, { type: "ERROR" }>): void {
     const old = message.code === CODE.GENERATION_MISMATCH;
-    if (!old || !this.subscription.moving) this.handshake.error(message);
+    if (old && this.subscription.moving) return;
+    this.pushes.ended(message);
+    this.handshake.error(message);
   }
 
   skipped(): void {
@@ -312,6 +293,15 @@ class DocSession implements Session {
 
   writeSchema(version: number): void {
     this.copy.writeSchema(version);
+  }
+
+  private route(message: DocumentMessage): void {
+    const { upstream } = this;
+    if (upstream === null) return this.handshake.receive(message);
+    if (message.type === "ACK") this.upstreamOutdated = true;
+    if (message.type === "CONTROL" && message.kind === "upstream_status")
+      this.upstreamOutdated = false;
+    if (!upstream.receive(message)) this.handshake.receive(message);
   }
 
   /** The meta changed, or the store refused a write: shown, and told once the writes started so far have settled. */

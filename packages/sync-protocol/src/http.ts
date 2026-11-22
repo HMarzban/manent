@@ -1,7 +1,9 @@
 // What the server's HTTP routes and the demo's server control answer, and what a client sends them.
 import { fromBase64, toBase64 } from "lib0/buffer";
 import type { DocKind } from "./doc-id.ts";
+import type { AdoptedVersion } from "./history-http.ts";
 import type { Capability, DocRole } from "./messages.ts";
+import type { AdoptedProduction } from "./production.ts";
 
 export const HTTP_ERROR_CODES = [
   "bad_request",
@@ -23,6 +25,13 @@ export const HTTP_ERROR_CODES = [
   "unknown_generation",
   "unreachable",
   "not_restorable",
+  "already_issued",
+  "already_locked",
+  "changed",
+  "engine_unavailable",
+  "not_locked",
+  "recall_closed",
+  "unknown_label",
 ] as const;
 
 export type HttpErrorCode = (typeof HTTP_ERROR_CODES)[number];
@@ -67,8 +76,8 @@ export interface SignInResponse {
 export interface WorkspaceRef {
   id: string;
   name: string;
-  /** Null once the workspace is ready. */
-  seeding: { done: number; total: number } | null;
+  /** Null once the workspace is ready; `failed` is false while it is seeding, true once its seed stopped. */
+  seeding: { done: number; total: number; failed: boolean } | null;
 }
 
 /** The answer to GET /api/me. */
@@ -107,8 +116,8 @@ export interface CreateDocumentResponse {
 }
 
 /**
- * The body of POST /api/docs/adopt: a document made on a device, handed to the server with its whole state. A retry
- * under the same `key` changes nothing.
+ * The body of POST /api/docs/adopt: a document made on a device, handed to the server with its whole state, its
+ * versions and its production. A retry under the same `key` changes nothing.
  */
 export interface AdoptRequest {
   /** A canonical lower-case UUID (`isDocId`), made once per hand-off. */
@@ -121,6 +130,10 @@ export interface AdoptRequest {
   workspaceId: string | null;
   /** Base64 of one Yjs update. */
   state: string;
+  /** The device's versions, newest first. */
+  versions: AdoptedVersion[];
+  /** Null for a script its device never locked. */
+  production: AdoptedProduction | null;
 }
 
 /** The answer to POST /api/docs/adopt. */
@@ -171,6 +184,16 @@ export interface DocClientsResponse {
   clients: { clientId: number; userId: string; name: string }[];
 }
 
+/** The body of POST /api/docs/people. */
+export interface DocPeopleRequest {
+  docId: string;
+}
+
+/** The answer to POST /api/docs/people: everyone with a role on the document, ascending by `userId`. */
+export interface DocPeopleResponse {
+  people: { userId: string; name: string }[];
+}
+
 /** The body of POST /api/docs/removed. */
 export interface RemovedDocRequest {
   docId: string;
@@ -193,6 +216,48 @@ export interface DemoResponse {
   demo: true;
   seedId: string | null;
   control: ControlEndpoint | null;
+}
+
+/** The body of POST /api/demo/writers: 0 stops them; `afterBlockId` is the caller's caret block. */
+export interface WritersRequest {
+  docId: string;
+  count: 0 | 1 | 5 | 20;
+  afterBlockId: string | null;
+}
+
+/** `count` writers started, at most `asked`; `endsAt` is when they stop by themselves, null when none runs. */
+export interface WritersResponse {
+  asked: number;
+  count: number;
+  names: string[];
+  endsAt: number | null;
+}
+
+/** The body of POST /api/demo/tour/prepare. */
+export interface TourPrepareRequest {
+  scenarioId: string;
+}
+
+export type TourPrepareResponse =
+  { ok: true } | { ok: false; reason: "used" | "seeding" | "unknown" };
+
+/** The body of POST /api/demo/rebuild. */
+export interface RebuildRequest {
+  docId: string;
+}
+
+export interface RebuildResponse {
+  requested: true;
+}
+
+/** What the demo's control routes ask of the running server, as the signed-in person `userId`. */
+export interface DemoControls {
+  writers(userId: string, request: WritersRequest): Promise<WritersResponse>;
+  prepare(
+    userId: string,
+    request: TourPrepareRequest,
+  ): Promise<TourPrepareResponse>;
+  rebuild(userId: string, docId: string): Promise<void>;
 }
 
 export const SERVER_STATES = [

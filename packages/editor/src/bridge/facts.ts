@@ -1,6 +1,7 @@
 // The facts the interface shows about the caret: its element, page, scene and block layout, and the undo state.
 import type { FormatId } from "@manent/schema";
 import type { EditorState } from "prosemirror-state";
+import { findCount } from "../find/find-plugin.ts";
 import { blockAt } from "../pagination/block-index.ts";
 import { paginationKey } from "../pagination/plugin.ts";
 import type { PaginationState } from "../pagination/plugin.ts";
@@ -59,10 +60,18 @@ function pageFacts(
   };
 }
 
+/** The selection's text when it lies inside one element, read from that element only; "" otherwise. */
+function selectedText(state: EditorState): string {
+  const { $from, $to, empty } = state.selection;
+  if (empty || $from.parent !== $to.parent || !$from.parent.isTextblock)
+    return "";
+  return $from.parent.textBetween($from.parentOffset, $to.parentOffset);
+}
+
 /**
- * Constant work: a search of the block index, the pages and the outline. Without pages (Ink) the page and layout
- * facts are null; with everything selected, so are the facts of the caret's block. `pageRevision` and
- * `pageOrdinal` are always null here.
+ * Constant work: a search of the block index, the pages and the outline, the Find bar's count, and the selected text
+ * inside one element. Without pages (Ink) the page and layout facts are null; with everything selected, so are the
+ * facts of the caret's block. `pageRevision` and `pageOrdinal` are always null here.
  */
 export function factsOf(
   state: EditorState,
@@ -83,6 +92,7 @@ export function factsOf(
       : blockAt(pages.index, selection.head);
   const heading = block === null ? null : headingAt(options.outline, block);
   const entry = heading === null ? null : options.outline.entries[heading]!;
+  const found = findCount(state);
   return {
     element:
       node === null
@@ -104,5 +114,8 @@ export function factsOf(
     canUndo: options.history.canUndo(state),
     canRedo: options.history.canRedo(state),
     selectionEmpty: selection.empty,
+    selectedText: selectedText(state),
+    findCount: found.count,
+    findCurrent: found.current,
   };
 }

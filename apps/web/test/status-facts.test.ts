@@ -46,6 +46,7 @@ const SYNCED_INPUT: StatusInput = {
   viewLive: false,
   offlineSinceAt: null,
   toReview: 0,
+  signedIn: false,
   now: TUE_14_10,
 };
 

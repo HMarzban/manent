@@ -45,6 +45,7 @@ import type { Subscribable } from "@manent/ui";
 import { createPersonSync } from "../src/services/sync/create-sync.ts";
 import type { PersonSync } from "../src/services/sync/create-sync.ts";
 import { createDeviceMemory } from "../src/services/sync/device-memory.ts";
+import type { ConnectionMode } from "../src/services/sync/device-memory.ts";
 import type { TabPerson } from "../src/session.ts";
 import { MemoryStorage, V1, fixedRandom } from "./services.fixtures.ts";
 
@@ -169,13 +170,17 @@ export function scriptedServer(network: MemoryNetwork): ScriptedServer {
 export const turn = (): Promise<void> =>
   new Promise((resolve) => setImmediate(resolve));
 
-/** Turns until `done` holds, as long as loading a module may take; throws after that. */
+// within the test runner's five seconds, and as long as loading a module takes on a busy machine
+const UNTIL_MS = 4_000;
+
+/** Turns until `done` holds, for as long as loading a module may take; throws after that. */
 export async function until(done: () => boolean): Promise<void> {
-  for (let i = 0; i < 5_000; i++) {
+  const deadline = performance.now() + UNTIL_MS;
+  do {
     if (done()) return;
     await turn();
-  }
-  throw new RangeError("it never came about");
+  } while (performance.now() < deadline);
+  if (!done()) throw new RangeError("it never came about");
 }
 
 /** Delivers everything the network holds, and what that causes, until nothing moves. */
@@ -329,6 +334,11 @@ export function fakeHandle(docId: string, initial: CrdtDoc): FakeHandle {
     sendAwareness() {},
     onAwareness: () => () => {},
     saveVersion: async () => {},
+    nameVersion: () => Promise.reject(new RangeError("not kept by the fake")),
+    restoreLocally: () =>
+      Promise.reject(new RangeError("not restored by the fake")),
+    deviceVersions: async () => [],
+    lastServerSeq: () => 0,
     adoptClientIds() {},
     async close() {
       closes += 1;
@@ -386,11 +396,18 @@ export function fakeClient(
 /** A person's sync over `client`, online, with a memory store. */
 export function fakeSync(client: SyncClient): PersonSync {
   return {
+    userId: DANA.userId,
+    signedIn: true,
     client,
     store: createMemoryStore(DANA.userId),
     link: createValue(ONLINE_LINK),
     network: createValue(true),
     offlineSince: createValue<number | null>(null),
+    connection: { mode: createValue<ConnectionMode>("online"), set() {} },
+    throughConnection: (send) => send(),
+    hadDatabase: null,
+    memory: createDeviceMemory({ local: null, session: null }),
     dispose: async () => {},
+    onControl: () => () => {},
   };
 }

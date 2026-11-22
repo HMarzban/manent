@@ -17,11 +17,14 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { focusHeading } from "../../focus.ts";
+import { ProductionDialogs } from "../../production/dialogs.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
+import { selectors as paletteSelectors } from "../../state/palette.store.ts";
 import { panelsActions, usePanel } from "../../state/panels.store.ts";
 import { pageTitle } from "../../text.ts";
 import { DocumentStateBar } from "./document-state-bar.tsx";
+import { FindBarRow } from "./find-bar.tsx";
 import { LeftPanel } from "./left-panel.tsx";
 import { fitPanels } from "./narrow-window.ts";
 import { useOpenDocument } from "./open-document.ts";
@@ -35,8 +38,9 @@ const route = getRouteApi("/s/$docId");
 
 // drawn over the page, which stays mounted under it
 const PAGE_AREA = Object.freeze({ gridArea: "page" });
-// the sheet at 100 % zoom and its desk padding
-const PAGE_PX = 816 + 2 * 32;
+// the sheet at 100 % zoom and 16 px of desk either side, so that a 1440 px window holds the page and both panels;
+// Fit width scales the sheet to the room left
+const PAGE_PX = 816 + 2 * 16;
 const PAGE_REGION = "[data-region='page']";
 
 function subscribeToResize(listener: () => void): () => void {
@@ -134,7 +138,7 @@ function NoAccess(props: {
   });
   return (
     <div
-      className="z-10 flex flex-col items-center justify-center gap-2 bg-desk text-heading"
+      className="z-10 flex flex-col items-start gap-2 bg-desk p-12 text-ui"
       style={PAGE_AREA}
     >
       <p>{DOCUMENT_WORDS.noAccess}</p>
@@ -166,18 +170,24 @@ function Frame(props: { docId: string; doc: DocumentServices }): ReactNode {
   const overPage = usePanelsOverPage();
   useRemoteSettingMessages(props.doc);
   useTabTitle(docId);
+  const { dom } = useEnvironment();
+  const title = useDocumentTitle(docId);
   useEffect(() => {
-    focusHeading(document);
+    // the page takes focus, else its region until the page is shown, and the title is read
+    if (!paletteSelectors.isOpen() && !dom.focusPage()) focusHeading(document);
+    dom.announce(title);
   }, [docId]);
   return (
     <>
       <TitleBar docId={docId} doc={doc} />
       <DocumentStateBar docId={docId} facts={doc.stateFacts} />
+      <FindBarRow docId={docId} />
       <RulerBar docId={docId} />
       <LeftPanel docId={docId} overlay={overPage} />
       <NoAccess docId={docId} status={status} />
       <SidePanel docId={docId} overlay={overPage} />
       <StatusBar />
+      <ProductionDialogs docId={docId} />
     </>
   );
 }

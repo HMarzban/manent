@@ -1,12 +1,14 @@
-// The handlers of the version history commands.
+// The handlers of the version history commands; what each does loads apart from the entry the first time one runs.
 import type { CommandHandlers } from "@manent/commands";
+import type { HandlerDeps } from "./index.ts";
 
-type HistoryCommandId =
+export type HistoryCommandId =
   | "history.markVersion"
   | "history.nameDraft"
   | "history.changesSince"
   | "history.hideChanges"
   | "history.showSinceOpened"
+  | "history.dismissSinceOpened"
   | "history.backToWorking"
   | "history.nextChange"
   | "history.previousChange"
@@ -14,25 +16,35 @@ type HistoryCommandId =
   | "history.restoreScene"
   | "history.restoreBefore"
   | "history.seeWhatChanged"
+  | "doc.openBeside"
   | "history.whoWrote";
 
-// the History tab is not drawn yet, so no command has anything to act on
-const nothingYet = (): void => {};
-
-export function historyHandlers(): Pick<CommandHandlers, HistoryCommandId> {
+export function historyHandlers(
+  deps: HandlerDeps,
+): Pick<CommandHandlers, HistoryCommandId> {
+  let loaded: Promise<Readonly<Record<HistoryCommandId, () => void>>> | null =
+    null;
+  const run = (id: HistoryCommandId) => (): void => {
+    loaded ??= import("../history/history-commands.ts").then((module) =>
+      module.createHistoryCommands(deps),
+    );
+    void loaded.then((commands) => commands[id]());
+  };
   return {
-    "history.markVersion": nothingYet,
-    "history.nameDraft": nothingYet,
-    "history.changesSince": nothingYet,
-    "history.hideChanges": nothingYet,
-    "history.showSinceOpened": nothingYet,
-    "history.backToWorking": nothingYet,
-    "history.nextChange": nothingYet,
-    "history.previousChange": nothingYet,
-    "history.restore": nothingYet,
-    "history.restoreScene": nothingYet,
-    "history.restoreBefore": nothingYet,
-    "history.seeWhatChanged": nothingYet,
-    "history.whoWrote": nothingYet,
+    "history.markVersion": run("history.markVersion"),
+    "history.nameDraft": run("history.nameDraft"),
+    "history.changesSince": run("history.changesSince"),
+    "history.hideChanges": run("history.hideChanges"),
+    "history.showSinceOpened": run("history.showSinceOpened"),
+    "history.dismissSinceOpened": run("history.dismissSinceOpened"),
+    "history.backToWorking": run("history.backToWorking"),
+    "history.nextChange": run("history.nextChange"),
+    "history.previousChange": run("history.previousChange"),
+    "history.restore": run("history.restore"),
+    "history.restoreScene": run("history.restoreScene"),
+    "history.restoreBefore": run("history.restoreBefore"),
+    "history.seeWhatChanged": run("history.seeWhatChanged"),
+    "doc.openBeside": run("doc.openBeside"),
+    "history.whoWrote": run("history.whoWrote"),
   };
 }

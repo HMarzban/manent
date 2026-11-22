@@ -29,13 +29,22 @@ import { TourScenarioRow } from "../src/demo/tour-scenario.tsx";
 import { SERVER_STATUS_QUERY } from "../src/demo/use-demo.ts";
 import { RootLayout } from "../src/root-layout.tsx";
 import { ChooseScreen } from "../src/screens/choose.tsx";
-import { EnvironmentProvider, useServices } from "../src/services/context.tsx";
+import {
+  EnvironmentProvider,
+  ServicesProvider,
+  useServices,
+} from "../src/services/context.tsx";
 import type { PersonServices } from "../src/services/ports.ts";
 import { AnnouncerRegion } from "../src/shell/announcer-region.tsx";
 import { createShellDom } from "../src/shell/regions.tsx";
 import { bindGuard } from "../src/state/guard.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
-import { createClock, fakeApi, testEnvironment } from "./services.fixtures.ts";
+import {
+  createClock,
+  fakeApi,
+  testEnvironment,
+  testServices,
+} from "./services.fixtures.ts";
 
 withDom();
 // Query tells its observers at once, so a test sees an answer in the act that delivered it
@@ -106,6 +115,10 @@ const buttons = (root: ParentNode): HTMLButtonElement[] => [
   ...root.querySelectorAll("button"),
 ];
 
+/** A button's name: its label when it has one, otherwise its words. */
+const nameOf = (button: HTMLButtonElement): string | null =>
+  button.getAttribute("aria-label") ?? button.textContent;
+
 const paragraphs = (root: ParentNode): (string | null)[] =>
   [...root.querySelectorAll("p")].map((p) => p.textContent);
 
@@ -113,34 +126,39 @@ const SCENARIO: TourScenario = {
   id: "a-first-page",
   group: "Write",
   promise: "Write a first page and watch it reach the server.",
-  setup: { userId: "sam", open: "/", secondWindow: null },
+  setup: {
+    userId: "sam",
+    open: "/",
+    extraWindows: [],
+    prepare: null,
+    shell: "any",
+  },
   steps: [
     { text: "Open the commands.", highlight: "app.palette" },
     { text: "Choose New script.", highlight: "library.newScript" },
   ],
   check: "Saved · Synced",
+  evidence: ["Saved · Synced"],
+  fresh: false,
+  waitsFor: null,
+  hidden: null,
 };
 
-test("the Tour lists the eight groups", async () => {
-  const container = await render(<TourPanel />);
-  expect(container.querySelector("h2")?.textContent).toBe("Tour");
-  expect(
-    [...container.querySelectorAll("h3")].map((h) => h.textContent),
-  ).toEqual([
-    "Write",
-    "Work together",
-    "Go offline",
-    "History",
-    "Production",
-    "Long documents",
-    "Rundown and prompter",
-    "Desktop",
-  ]);
-  // the shipped Tour has no scenario yet: each group is its heading alone
-  expect(TOUR.scenarios).toEqual([]);
-  expect(container.textContent).toBe(
-    "TourWriteWork togetherGo offlineHistoryProductionLong documentsRundown and prompterDesktop",
+/** A row with nothing in Set it up's place and not yet done. */
+const ROW = { hold: null, done: false, onDone: () => {} } as const;
+
+test("a group with no scenario listed is not drawn", async () => {
+  const services = testServices({ userId: "sam" });
+  const container = await render(
+    <ServicesProvider services={services}>
+      <TourPanel />
+    </ServicesProvider>,
   );
+  expect(container.querySelector("h2")?.textContent).toBe("Tour");
+  // the shipped Tour has no scenario yet: no group is drawn
+  expect(TOUR.scenarios).toEqual([]);
+  expect(container.textContent).toBe("Tour");
+  services.dispose();
 });
 
 /** A server status the demo bar has heard, as its query holds it. */
@@ -158,9 +176,8 @@ test("a set-up that did not work says why, with Set it up again", async () => {
     <>
       <TourScenarioRow
         scenario={SCENARIO}
-        setUp={() => {
-          throw new Error("the window was refused");
-        }}
+        {...ROW}
+        setUp={async () => ({ ok: false, reason: "unknown" })}
       />
       <AnnouncerRegion />
     </>,
@@ -185,7 +202,11 @@ test("a set-up that did not work says why, with Set it up again", async () => {
       <HeardServer state="stopped" />
       <TourScenarioRow
         scenario={SCENARIO}
-        setUp={(scenario) => setUps.push(scenario.id)}
+        {...ROW}
+        setUp={async (scenario) => {
+          setUps.push(scenario.id);
+          return { ok: true };
+        }}
       />
       <AnnouncerRegion />
     </>,
@@ -210,7 +231,11 @@ test("a scenario shows its promise, one primary Set it up, numbered steps and it
   const container = await render(
     <TourScenarioRow
       scenario={SCENARIO}
-      setUp={(scenario) => setUps.push(scenario.id)}
+      {...ROW}
+      setUp={async (scenario) => {
+        setUps.push(scenario.id);
+        return { ok: true };
+      }}
     />,
   );
   expect(paragraphs(container)).toEqual([
@@ -236,7 +261,13 @@ test("a step marks its control with the Tour ring, which is not focus", async ()
   const field = document.createElement("input");
   document.body.append(control, field);
   field.focus();
-  await render(<TourScenarioRow scenario={SCENARIO} setUp={() => {}} />);
+  await render(
+    <TourScenarioRow
+      scenario={SCENARIO}
+      {...ROW}
+      setUp={async () => ({ ok: true })}
+    />,
+  );
   expect(control.getAttribute("data-tour-ring")).toBe("");
   expect(document.activeElement).toBe(field);
   act(() => mounted?.unmount());
@@ -247,7 +278,7 @@ test("a step marks its control with the Tour ring, which is not focus", async ()
 test("the demo bar is its own colour scope and says Demo", async () => {
   const container = await render(
     <DemoBar
-      personLabel="Person: Dana Reyes"
+      person={{ token: null, userId: "dana", name: "Dana Reyes" }}
       onPersonClick={() => {}}
       control={null}
     />,
@@ -257,14 +288,12 @@ test("the demo bar is its own colour scope and says Demo", async () => {
   expect(bar?.getAttribute("aria-label")).toBe("Demo");
   const word = bar?.firstElementChild;
   expect(word?.textContent).toBe("Demo");
-  // set in capitals by the stylesheet, not in the words
-  expect(word?.className.split(" ").includes("uppercase")).toBe(true);
+  // the filled tag, set in capitals by the stylesheet, not in the words
+  expect(word?.hasAttribute("data-fill")).toBe(true);
   // 32 px whether or not its controls have arrived, so nothing moves when they do
-  expect(bar?.className.split(" ").includes("h-demobar")).toBe(true);
+  expect(bar?.className.split(" ").includes("min-h-demobar")).toBe(true);
   await demoBarControls();
-  expect(buttons(container).map((b) => b.textContent)).toEqual([
-    "Person: Dana Reyes",
-  ]);
+  expect(buttons(container).map(nameOf)).toEqual(["Person: Dana Reyes"]);
 });
 
 test("the demo bar offers the Tour once the tab has a person", async () => {
@@ -280,9 +309,7 @@ test("the demo bar offers the Tour once the tab has a person", async () => {
   const bar = (): Element | null =>
     container.querySelector("[data-surface='demo']");
   await demoBarControls();
-  expect(buttons(bar() ?? container).map((b) => b.textContent)).toEqual([
-    "Person",
-  ]);
+  expect(buttons(bar() ?? container).map(nameOf)).toEqual([]);
   // the shell loads its palette lazily: loaded here first, it arrives inside the act below
   await import("../src/shell/shell-palette.tsx");
   await act(async () =>
@@ -290,8 +317,14 @@ test("the demo bar offers the Tour once the tab has a person", async () => {
       .getState()
       .setPerson({ token: null, userId: "dana", name: "Dana Reyes" }),
   );
-  expect(buttons(bar() ?? container).map((b) => b.textContent)).toEqual([
+  expect(buttons(bar() ?? container).map(nameOf)).toEqual([
     "Person: Dana Reyes",
+    "Online",
+    "Offline",
+    "Slow",
+    "Add writers",
+    "Timings",
+    "Reorganise",
     "Tour",
   ]);
 });
@@ -369,10 +402,10 @@ test("the chosen person carries the word Chosen as well as aria-current", async 
   );
   await settle();
   const [dana, leo] = buttons(container);
-  expect(dana?.textContent).toBe("Dana ReyesHead writer");
+  expect(dana?.textContent).toBe("DRDana ReyesHead writer");
   expect(dana?.hasAttribute("aria-current")).toBe(false);
   expect(leo?.textContent).toBe(
-    "Leo MarshExecutive, reader and commenterChosen",
+    "LMLeo MarshExecutive, reader and commenterChosen",
   );
   expect(leo?.getAttribute("aria-current")).toBe("true");
 });
@@ -412,7 +445,7 @@ test("while the people load the chooser shows nothing, then six placeholder rows
   act(() => clock.advance(300));
   expect(placeholders()).toEqual([]);
   expect(buttons(container).map((b) => b.textContent)).toEqual([
-    "Dana ReyesHead writer",
-    "Leo MarshExecutive, reader and commenter",
+    "DRDana ReyesHead writer",
+    "LMLeo MarshExecutive, reader and commenter",
   ]);
 });

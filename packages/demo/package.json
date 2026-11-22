@@ -3,6 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "sideEffects": [
+    "./src/*.ts",
+    "./src/content/**",
+    "./src/people/**",
+    "./src/tour/**",
+    "./src/writers/**"
+  ],
   "exports": {
     ".": "./src/index.ts"
   },

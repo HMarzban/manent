@@ -44,7 +44,7 @@ function cloudServer(host: string): ManentServer {
         now: () => 1_700_000_000_000,
       }),
     },
-    demo: { seedId: () => "seed-1", control: null },
+    demo: { seedId: () => "seed-1", control: null, controls: null },
     socket: {
       tickets: createTicketStore({ now: () => 0 }),
       versions: { current: V, min: V },
@@ -94,6 +94,8 @@ const ADOPT: AdoptRequest = {
   home: HOME,
   workspaceId: null,
   state: scene(),
+  versions: [],
+  production: null,
 };
 
 test("the cloud's answers come back typed, and a refusal as its code", async () => {

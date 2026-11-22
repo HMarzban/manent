@@ -1,18 +1,21 @@
-import { DEMO_PEOPLE, TOUR_GROUPS } from "@manent/demo";
+import { DEMO_PEOPLE, TOUR, TOUR_GROUPS, isShown } from "@manent/demo";
 import type { DemoResponse } from "@manent/sync-protocol";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { openMadeScript } from "../support/made-script.ts";
 import { E2E_CONTROL_PORT } from "../support/ports.ts";
-import { signedInAs } from "../support/tour.ts";
+import { reseedDemo, signedInAs } from "../support/tour.ts";
 
 const leo = () => /^Leo Marsh/;
 const tourTab = (page: Page) =>
   page
     .locator("[data-region='side_panel']")
     .getByRole("tabpanel", { name: "Tour" });
-// the demo bar's line about the server; the message slot is a status too
+// the demo bar's line about the server
 const serverLine = (page: Page) =>
-  page.getByRole("region", { name: "Demo" }).getByRole("status");
+  page
+    .getByRole("region", { name: "Demo" })
+    .locator("[data-slot='bar-status']");
 const storedPerson = (person: object) =>
   `sessionStorage.setItem("manent.demo.session", ${JSON.stringify(JSON.stringify(person))})`;
 
@@ -22,7 +25,10 @@ test.use({ serviceWorkers: "block" });
 test("a tester chooses a person and reaches the Library", async ({
   page,
   browserName,
+  request,
 }) => {
+  // a first visit is once per person on this server, and earlier tests have had Leo's
+  await reseedDemo(request);
   // `/` with no person redirects to the chooser
   await page.goto("/");
   await expect(page).toHaveURL(/\/choose\?next=%2F$/);
@@ -61,14 +67,20 @@ test("a tester chooses a person and reaches the Library", async ({
     "No scripts yet",
   );
   await expect(serverLine(page)).toHaveText("Server running");
-  // open on the first visit to the Library
+  // open on the first visit to the Library, once the Tour lists a scenario
   const tour = tourTab(page);
-  // "History" among them
+  if (!TOUR.scenarios.some(isShown)) {
+    await expect(tour).toHaveCount(0);
+    return;
+  }
+  await expect(tour.getByRole("heading", { level: 2 })).toHaveText("Tour");
+  // a group is drawn only when it lists a scenario
   for (const group of TOUR_GROUPS)
     await expect(
       tour.getByRole("heading", { name: group, exact: true }),
-    ).toBeVisible();
-  // a group with no scenario is its heading alone
+    ).toHaveCount(
+      TOUR.scenarios.some((s) => s.group === group && isShown(s)) ? 1 : 0,
+    );
   await expect(tour.getByText("Not in this build yet")).toHaveCount(0);
 });
 
@@ -180,6 +192,35 @@ test("choosing You signs nobody in", async ({ page }) => {
   ).toBe('{"token":null,"userId":"you","name":"You"}');
 });
 
+test("a script's address opened in a new tab asks who you are, then opens the script, and a reload keeps each", async ({
+  page,
+  browser,
+}) => {
+  const docId = crypto.randomUUID();
+  const address = `/s/${docId}`;
+  await openMadeScript(page, "dana", docId);
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  try {
+    const tab = await context.newPage();
+    await tab.goto(address);
+    const chooser = `/choose?next=${encodeURIComponent(address)}`;
+    await expect(tab).toHaveURL(chooser);
+    const heading = tab.getByRole("heading", { name: "Choose who you are" });
+    await expect(heading).toBeFocused();
+    await tab.reload();
+    await expect(tab).toHaveURL(chooser);
+    await expect(heading).toBeFocused();
+    await tab.getByRole("button", { name: /^Dana Reyes/ }).click();
+    await expect(tab).toHaveURL(address);
+    const title = "Untitled script — Dana Reyes — Manent demo";
+    await expect(tab).toHaveTitle(title);
+    await tab.reload();
+    await expect(tab).toHaveTitle(title);
+  } finally {
+    await context.close();
+  }
+});
+
 test("?person= signs a tab in and leaves the address as it was", async ({
   page,
 }) => {
@@ -234,9 +275,8 @@ test("a session the server no longer accepts lands on the chooser", async ({
   // /api/me answers 401
   await page.goto("/");
   await expect(page).toHaveURL(/\/choose\?next=%2F$/);
-  await expect(
-    page.getByRole("button", { name: "Person", exact: true }),
-  ).toBeVisible();
+  // the demo bar draws no person
+  await expect(page.getByRole("button", { name: /^Person/ })).toHaveCount(0);
 });
 
 test("the status line appears empty, then speaks", async ({ page }) => {

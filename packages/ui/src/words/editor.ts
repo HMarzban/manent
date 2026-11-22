@@ -1,4 +1,5 @@
 // The editor's words: element names and placeholders, the reasons a page command cannot run, the Layout group and the Export and Print forms.
+import { formatCount } from "./format.ts";
 
 export const EDITOR_WORDS = {
   elements: {
@@ -70,6 +71,18 @@ export const EDITOR_WORDS = {
   gameGeneralPlaceholder:
     "General — text, or * for a choice and - for a gather",
   picker: "Element",
+  // each title page field's accessible name and placeholder
+  titlePage: {
+    title: "Title",
+    credit: "Credit",
+    authors: "Authors",
+    source: "Source",
+    contact: "Contact",
+    draft: "Draft",
+    cast: "Cast of characters",
+    setting: "Setting",
+    summary: "Summary",
+  },
   // Element ▾'s accessible name
   elementButton: (label: string) => `Element: ${label}`,
   reasons: {
@@ -102,36 +115,39 @@ export const EDITOR_WORDS = {
   // the Export and Print forms
   send: {
     exportTitle: (files: number) =>
-      files === 1 ? "Export 1 file" : `Export ${files} files`,
+      files === 1 ? "Export 1 file" : `Export ${formatCount(files)} files`,
     printTitle: (pages: number) =>
-      pages === 1 ? "Print 1 page" : `Print ${pages} pages`,
+      pages === 1 ? "Print 1 page" : `Print ${formatCount(pages)} pages`,
     // the title and the button while the page count is not known yet
     print: "Print",
     exporting: (files: number) =>
-      files === 1 ? "Exporting 1 file…" : `Exporting ${files} files…`,
+      files === 1
+        ? "Exporting 1 file…"
+        : `Exporting ${formatCount(files)} files…`,
     preparing: (pages: number) =>
-      pages === 1 ? "Preparing 1 page…" : `Preparing ${pages} pages…`,
+      pages === 1
+        ? "Preparing 1 page…"
+        : `Preparing ${formatCount(pages)} pages…`,
     wholeScript: "Whole script",
     cleanPdf: "Clean PDF",
-    morePages: (n: number) => `… ${n} more`,
+    morePages: (n: number) => `… ${formatCount(n)} more`,
     // the characters joined as names are
     outsideFont: (count: number, characters: string) =>
       count === 1
-        ? `! ${characters} is outside the script font and prints as a box`
-        : `! ${characters} are outside the script font and print as boxes`,
+        ? `${characters} is outside the script font and prints as a box`
+        : `${characters} are outside the script font and print as boxes`,
     exportFailed: (title: string) => `Couldn't export '${title}'. Try again.`,
     printFailed: (title: string) =>
       `Couldn't prepare '${title}' to print. Try again.`,
     exported: (title: string) => `Exported '${title}'.`,
     // beside the busy button after 2 s
-    progress: (page: number, pages: number) => `Page ${page} of ${pages}`,
+    progress: (page: number, pages: number) =>
+      `Page ${formatCount(page)} of ${formatCount(pages)}`,
   },
   // View ▾ → Zoom, and what is said when it changes
   zoom: {
     fitWidth: "Fit width",
     percent: (n: number) => `${n} %`,
     announce: (label: string) => `Zoom: ${label}`,
-    notAbove: (max: string) => `isn't available at ${max}`,
-    notBelow: (min: string) => `isn't available at ${min}`,
   },
 } as const;

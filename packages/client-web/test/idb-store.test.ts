@@ -222,7 +222,7 @@ test("a reset never issues again the sequence of a refused setting", async () =>
 /** Puts a record as an earlier build wrote it, with raw IndexedDB calls. */
 async function putOlder(
   indexedDb: IDBFactory,
-  store: "meta" | "recovered",
+  store: "meta" | "recovered" | "versions",
   record: Record<string, unknown>,
 ): Promise<void> {
   const opening = indexedDb.open("manent:dana");
@@ -284,4 +284,28 @@ test("a recovered item stored before overlaps carried wordings reads with none",
   expect(await store.recovered(DOC)).toEqual([
     { ...older, mine: null, theirs: null, otherClientIds: [] },
   ]);
+});
+
+test("a device version keeps its name", async () => {
+  const indexedDb = new IDBFactory();
+  const store = await openIdbStore({ userId: "dana", indexedDb });
+  const content = { type: "doc" as const };
+  const older = {
+    id: "version-1",
+    docId: DOC,
+    kind: "device" as const,
+    label: "manual" as const,
+    createdAt: 5,
+    content,
+    uploaded: false,
+  };
+  await putOlder(indexedDb, "versions", older);
+  const named = {
+    ...older,
+    id: "version-2",
+    label: "named" as const,
+    name: "Table read draft",
+  };
+  await store.addVersion(named);
+  expect(await store.versions(DOC)).toEqual([{ ...older, name: null }, named]);
 });

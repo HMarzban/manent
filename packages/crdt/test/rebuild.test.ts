@@ -138,12 +138,20 @@ test("what a newer build wrote survives a rebuild", () => {
   });
 });
 
-test("a rebuild copies the script body and the two settings maps, and no other root", () => {
-  expect(ROOT_TYPE_NAMES).toEqual(["prosemirror", "settings", "settingsMeta"]);
+test("a rebuild copies the script body, the two settings maps, the overrides map, the notes, the import record and the title page, and no other root", () => {
+  expect(ROOT_TYPE_NAMES).toEqual([
+    "prosemirror",
+    "settings",
+    "settingsMeta",
+    "revisedOverrides",
+    "notes",
+    "imported",
+    "titlePage",
+  ]);
 });
 
 test("a document that cannot be copied faithfully is left alone", () => {
-  expect(rebuildDoc(withRoot(SAMPLE, "notes"), { clientId: 1 })).toEqual({
+  expect(rebuildDoc(withRoot(SAMPLE, "elsewhere"), { clientId: 1 })).toEqual({
     ok: false,
     code: "unknown_root",
   });

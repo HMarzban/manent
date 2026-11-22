@@ -1,11 +1,24 @@
-// The sync service's ports: the clock, a peer, the checkpointer, the upstream of a relay,
-// the setting rules, and the limits it keeps to.
-import type { Home } from "@manent/storage";
+// The sync service and its ports: the clock, a peer, the checkpointer, the upstream of a relay,
+// the setting rules, the hooks of the features it serves, the write path, and the limits it keeps to.
+import type { CrdtDoc, TransactionReport } from "@manent/crdt";
+import type { Overlap, SetAsideBlock } from "@manent/revisions";
+import type { Issue } from "@manent/schema";
+import type { DocFile, Home, Storage, StorageError } from "@manent/storage";
 import type {
+  ControlKind,
+  DocRef,
+  LockAnchorRecord,
   Message,
   PreparedMessage,
   VersionSet,
 } from "@manent/sync-protocol";
+import type { RebuildStats } from "../rebuild/rebuilder.ts";
+import type { ReplayItem } from "../rebuild/replay-write.ts";
+import type { ReplayOutcome } from "../rebuild/replay.ts";
+import type { DocumentAccess } from "./access.ts";
+import type { IngestItem } from "./ingest.ts";
+import type { Room, Subscription } from "./rooms.ts";
+import type { Committed, QueuedItem } from "./write-path.ts";
 
 /** The returned function cancels what `schedule` set. */
 export interface Clock {
@@ -69,6 +82,49 @@ export interface SettingRules {
   /** May not change once page numbers are locked. */
   isGuarded(key: string): boolean;
 }
+
+/** What a hook gives SUBSCRIBED in place of its plain lock and revision fields. */
+export interface SubscribedExtras {
+  lockLevel: number;
+  lockAnchors: LockAnchorRecord[] | null;
+  revision: { setId: string; baselineVersionId: string } | null;
+}
+
+/** What the sync service tells a feature and asks it; every member returns at once and never throws. */
+export interface SyncHooks {
+  /** After each commit, in commit order. */
+  committed?(committed: Committed): void;
+  /** An edit subscription ended: the peer is no longer among the room's editors. */
+  editorLeft?(room: Room, userId: string): void;
+  /** The room was forgotten: nobody holds it, and its document is unloaded. */
+  forgotten?(room: Room): void;
+  /** Null leaves SUBSCRIBED to the next hook, and after the last to its plain values. */
+  subscribed?(docId: string): SubscribedExtras | null;
+  /** Step 5 of the write path adds these to validatePush's issues, any of which refuses the push. */
+  checkPush?(room: Room, report: TransactionReport): Issue[];
+}
+
+/** A write the authority makes into a loaded room, at its turn in the write path's queue. */
+export interface AuthorityWrite {
+  userId: string;
+  origin: "restore" | "system";
+  /** Runs after every push queued before it; its updates are merged into one. ok false: nothing is written. */
+  edit(doc: CrdtDoc): { ok: true } | { ok: false; reason: string };
+  /**
+   * Inside the commit, after the update's append. `before` is the head just before it; `seq` is
+   * the update's, null when `edit` wrote nothing.
+   */
+  inTransaction(
+    file: DocFile,
+    at: { generation: number; before: number; seq: number | null },
+  ): void;
+}
+
+/** busy: the room could not be loaded; refused: `edit` answered ok false. */
+export type AuthorityWriteResult =
+  | { ok: true; generation: number; seq: number | null }
+  | { ok: false; code: "busy" | "commit_failed" }
+  | { ok: false; code: "refused"; reason: string };
 
 /** Knows no key: every SET is refused `unknown_key`. */
 export const NO_SETTINGS: SettingRules = Object.freeze<SettingRules>({
@@ -141,3 +197,150 @@ export const DEFAULT_LIMITS: SyncLimits = Object.freeze({
   frozenKeepMs: 7_776_000_000,
   replayBodyBytes: 64 * 1024 * 1024,
 });
+
+export interface WritePath {
+  push(
+    room: Room,
+    subscription: Subscription,
+    message: {
+      clientSeq: number;
+      update: Uint8Array;
+      heal: boolean;
+      generation: number;
+    },
+  ): void;
+  set(
+    room: Room,
+    subscription: Subscription,
+    message: {
+      clientSeq: number;
+      key: string;
+      value: Uint8Array;
+      generation: number;
+    },
+  ): void;
+  /** Queued like a push; a failed commit poisons the room, then calls done({ ok: false }). */
+  replay(room: Room, item: ReplayItem["write"], done: ReplayItem["done"]): void;
+  /**
+   * Runs `edit` now, then is queued like a push; a failed commit poisons the room, then answers
+   * commit_failed. RangeError for a room that is not loaded.
+   */
+  authority(
+    room: Room,
+    write: AuthorityWrite,
+    done: (result: AuthorityWriteResult) => void,
+  ): void;
+  /** Queued like a push, acknowledged to nobody, published to every editor, handed upstream never. */
+  ingest(item: IngestItem): void;
+  /** Drops what the room has queued: no ACK and nothing upstream; a replay or an authority write is answered as failed. */
+  discard(room: Room): void;
+  /** One file's held items in one transaction, then acknowledged in arrival order; false when it did not commit. */
+  commitHeld(items: readonly QueuedItem[]): boolean;
+  /** The full disk that began holding the file's commits; null when nothing of it is held. */
+  holdError(file: DocFile): StorageError | null;
+  /** What the document's held items append, in arrival order: in its room, and in no log yet. */
+  heldUpdates(docId: string): readonly Uint8Array[];
+  /** What of the document's held items its windows were sent, in arrival order: all but what waits for its commit. */
+  heldShownUpdates(docId: string): readonly Uint8Array[];
+  /** Commits what is queued, now. */
+  flush(): void;
+  /** What is queued or held: written to no log yet. */
+  queued(): number;
+}
+
+export interface ServiceStats extends RebuildStats {
+  peers: number;
+  rooms: number;
+  loadedRooms: number;
+  /** Transactions committed. */
+  commits: number;
+  /** Updates and settings appended to a log. */
+  appended: number;
+  /** Pushes and settings acknowledged as resends. */
+  duplicates: number;
+  /** ERRORs sent, by message. */
+  refused: Record<string, number>;
+  /** Rooms poisoned by a failed commit. */
+  poisoned: number;
+  awarenessDropped: number;
+  /** Document frames a peer's decoder skipped. */
+  skipped: number;
+}
+
+export interface SyncService {
+  /** After WELCOME; refused (4429) over a connection cap or while shutting down. */
+  attach(peer: Peer): { ok: true } | { ok: false; code: number };
+  /** Every message after HELLO but PING and PONG. */
+  receive(peer: Peer, message: Message): void;
+  /** The peer's decoder skipped a document frame. */
+  skipped(peer: Peer, doc: DocRef): void;
+  detach(peer: Peer): void;
+  readonly access: DocumentAccess;
+  /** A role was changed: resolves it again, and ends what is no longer allowed. */
+  accessChanged(docId: string, userId: string): void;
+  /** A document was deleted: tells and unsubscribes everyone. */
+  removed(docId: string): void;
+  /** A backup was put back: every placed document is flagged `restore` at its head. */
+  restored(): void;
+  /** Rebuilds the document at its room's next quiet moment, whatever its measure. */
+  requestRebuild(docId: string): void;
+  /** POST /api/docs/replay: `body` is the route's JSON, not yet checked. */
+  replay(userId: string, body: unknown): Promise<ReplayOutcome>;
+  /**
+   * Loads the room (busy when that is refused) and writes through the write path; after the
+   * commit the update reaches every editor, echo included, and viewers their patch. RangeError for
+   * a document this node has not placed.
+   */
+  authorityWrite(
+    docId: string,
+    write: AuthorityWrite,
+  ): Promise<AuthorityWriteResult>;
+  /**
+   * CONTROL { seq: the room's head, kind, data } to every editor and viewer of the loaded room;
+   * nothing when it is not loaded. `data` is sent as given.
+   */
+  broadcast(docId: string, kind: ControlKind, data: Uint8Array): void;
+  /** Relay only: commits what `produce` returns beyond the room's state vector, as `userId`'s, whose upstream it came through. */
+  ingest(
+    docId: string,
+    userId: string,
+    produce: (roomVector: Uint8Array) => Uint8Array,
+  ): void;
+  /** Asks `mode` again for that room. */
+  modeChanged(docId: string): void;
+  /** Relay only: the room keeps committing and acknowledging, and hands nothing upstream until it follows. */
+  pauseRelay(docId: string): void;
+  /** Relay only: a new generation from `theirs`, the upstream's state, with the room's own changes merged in by block. */
+  follow(
+    docId: string,
+    theirs: Uint8Array,
+  ): { update: Uint8Array; overlaps: Overlap[]; setAside: SetAsideBlock[] };
+  stats(): ServiceStats;
+  shutdown(): Promise<void>;
+}
+
+/**
+ * Defaults: "authority", DEFAULT_LIMITS, an inline checkpointer, no upstream, NO_SETTINGS, no schema floor, never
+ * inside an air window, no hooks.
+ */
+export interface SyncSettings {
+  storage: Storage;
+  clock: Clock;
+  defer(fn: () => void): void;
+  /** A new version id. */
+  ids(): string;
+  /** A function is asked when a room is created and on `modeChanged`. */
+  mode?: WriteMode | ((docId: string) => WriteMode);
+  /** What a room does when the disk is full: "poison" (the default) ends its editors; "hold" keeps what it could not commit and retries. */
+  fullDisk?: "poison" | "hold";
+  /** Called on each change of whether held commits are waiting. */
+  onDeviceStorage?: (state: "ok" | "failing") => void;
+  limits?: Partial<SyncLimits>;
+  checkpointer?: Checkpointer;
+  upstream?: Upstream;
+  registry?: SettingRules;
+  schemaFloor?: (touched: readonly unknown[]) => number;
+  airWindow?: (docId: string, now: number) => boolean;
+  /** Each is told and asked in list order. */
+  hooks?: readonly SyncHooks[];
+}

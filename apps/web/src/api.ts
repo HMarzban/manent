@@ -3,6 +3,7 @@
 import type {
   ControlEndpoint,
   DemoResponse,
+  DocClientsResponse,
   HttpErrorCode,
   MeResponse,
   RemovedDocResponse,
@@ -10,6 +11,9 @@ import type {
   SignInChoice,
   SignInOptions,
   SignInResponse,
+  TourPrepareResponse,
+  WritersRequest,
+  WritersResponse,
 } from "@manent/sync-protocol";
 import type { TabPerson } from "./session.ts";
 
@@ -32,12 +36,25 @@ export interface Api {
   demo(): Promise<DemoResponse | null>;
   /** Who deleted the document and when; null when the server holds no record of it; throws when it cannot tell. */
   removedDoc(docId: string): Promise<RemovedDocResponse | null>;
+  /** Who wrote under each of the document's client ids the server knows; throws when it cannot tell. */
+  docClients(
+    docId: string,
+    clientIds: readonly number[],
+  ): Promise<DocClientsResponse>;
+  /** Puts the scenario's state in place on the demo's server; an answer other than 200 is `unknown`; throws when the server cannot be reached. */
+  prepareTour(scenarioId: string): Promise<TourPrepareResponse>;
+  /** Starts or stops the demo's simulated writers in a script; throws for any other answer than 200. */
+  writers(request: WritersRequest): Promise<WritersResponse>;
+  /** Asks the demo's server to reorganise how a script is stored; throws for any other answer than 200. */
+  rebuild(docId: string): Promise<void>;
 }
 
 export interface ServerControl {
   status(): Promise<ControlState>;
   stop(): Promise<void>;
   start(): Promise<void>;
+  /** Stops the server, seeds the demo again and starts it; the state the server is left in. */
+  reset(): Promise<ControlState>;
 }
 
 function bearer(token: string | null): Record<string, string> {
@@ -51,6 +68,12 @@ function bearer(token: string | null): Record<string, string> {
 async function readAs<T>(response: Response): Promise<T> {
   const body: unknown = await response.json();
   return body as T;
+}
+
+/** The body of a success, as `readAs` trusts it; throws, naming the request `what`, for any other answer. */
+async function readOk<T>(response: Response, what: string): Promise<T> {
+  if (!response.ok) throw new Error(`${what} answered ${response.status}`);
+  return readAs<T>(response);
 }
 
 /** The body as JSON; null when there is none or it is not JSON. */
@@ -72,6 +95,13 @@ async function errorCodeOf(response: Response): Promise<HttpErrorCode | null> {
   const { isHttpErrorCode } = await import("@manent/sync-protocol");
   return isHttpErrorCode(body.error) ? body.error : null;
 }
+
+/** A POST of `body` as JSON. */
+const jsonPost = (body: unknown): RequestInit => ({
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
 
 const UNREACHABLE = Object.freeze({
   ok: false,
@@ -106,17 +136,12 @@ export function createApi(options: {
   return {
     async choices() {
       const response = await request("/api/sign-in");
-      if (!response.ok)
-        throw new Error(`GET /api/sign-in answered ${response.status}`);
-      return (await readAs<SignInOptions>(response)).choices;
+      return (await readOk<SignInOptions>(response, "GET /api/sign-in"))
+        .choices;
     },
 
     async signIn(userId) {
-      const response = await attempt("/api/sign-in", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
-      });
+      const response = await attempt("/api/sign-in", jsonPost({ userId }));
       if (response === null) return UNREACHABLE;
       if (!response.ok)
         return (await errorCodeOf(response)) === "unknown_user"
@@ -142,21 +167,42 @@ export function createApi(options: {
     async demo() {
       const response = await request("/api/demo");
       if (response.status === 404) return null;
-      if (!response.ok)
-        throw new Error(`GET /api/demo answered ${response.status}`);
-      return readAs<DemoResponse>(response);
+      return readOk<DemoResponse>(response, "GET /api/demo");
     },
 
     async removedDoc(docId) {
-      const response = await request("/api/docs/removed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId }),
-      });
+      const response = await request("/api/docs/removed", jsonPost({ docId }));
       if (response.status === 404) return null;
-      if (!response.ok)
-        throw new Error(`POST /api/docs/removed answered ${response.status}`);
-      return readAs<RemovedDocResponse>(response);
+      return readOk<RemovedDocResponse>(response, "POST /api/docs/removed");
+    },
+
+    async docClients(docId, clientIds) {
+      const response = await request(
+        "/api/docs/clients",
+        jsonPost({ docId, clientIds }),
+      );
+      return readOk<DocClientsResponse>(response, "POST /api/docs/clients");
+    },
+
+    async prepareTour(scenarioId) {
+      const response = await request(
+        "/api/demo/tour/prepare",
+        jsonPost({ scenarioId }),
+      );
+      if (response.status !== 200) return { ok: false, reason: "unknown" };
+      return readAs<TourPrepareResponse>(response);
+    },
+
+    async writers(body) {
+      const path = "/api/demo/writers";
+      const response = await request(path, jsonPost(body));
+      return readOk<WritersResponse>(response, `POST ${path}`);
+    },
+
+    async rebuild(docId) {
+      const path = "/api/demo/rebuild";
+      const response = await request(path, jsonPost({ docId }));
+      await readOk(response, `POST ${path}`);
     },
   };
 }
@@ -178,27 +224,33 @@ export function createServerControl(options: {
     if (!response.ok)
       throw new Error(`POST ${path} answered ${response.status}`);
   };
+  /** The server's state the control answers with; unreachable when it answers nothing or anything else. */
+  const stateOf = async (
+    method: "GET" | "POST",
+    path: string,
+  ): Promise<ControlState> => {
+    let response: Response;
+    try {
+      response = await send(method, path);
+    } catch {
+      // the control answers nothing: the demo is not running
+      return "unreachable";
+    }
+    if (!response.ok) return "unreachable";
+    const body = await readJson(response);
+    const { isServerState } = await import("@manent/sync-protocol");
+    return typeof body === "object" &&
+      body !== null &&
+      "server" in body &&
+      isServerState(body.server)
+      ? body.server
+      : "unreachable";
+  };
 
   return {
-    async status() {
-      let response: Response;
-      try {
-        response = await send("GET", "/status");
-      } catch {
-        // the control answers nothing: the demo is not running
-        return "unreachable";
-      }
-      if (!response.ok) return "unreachable";
-      const body = await readJson(response);
-      const { isServerState } = await import("@manent/sync-protocol");
-      return typeof body === "object" &&
-        body !== null &&
-        "server" in body &&
-        isServerState(body.server)
-        ? body.server
-        : "unreachable";
-    },
+    status: () => stateOf("GET", "/status"),
     stop: () => post("/stop-server"),
     start: () => post("/start-server"),
+    reset: () => stateOf("POST", "/reset"),
   };
 }

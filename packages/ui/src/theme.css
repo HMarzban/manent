@@ -158,8 +158,9 @@ html[data-white-page] .mn-pages {
   --p-write-violet-bright: #C6A8FF;
 
   /* demo instrumentation: a hue no surface of the product uses */
-  --p-demo-900: #352A56;
-  --p-demo-800: #44386B;
+  --p-demo-900: #29242F;
+  --p-demo-800: #3A3342;
+  --p-demo-700: #4B4257;
   --p-demo-600: #8574B0;
   --p-demo-300: #C9BEDD;
   --p-demo-200: #D5C4FF;
@@ -174,6 +175,8 @@ html[data-white-page] .mn-pages {
   --bg-chrome: light-dark(var(--p-warm-50), var(--p-warm-925));
   --bg-raised: light-dark(var(--p-warm-25), var(--p-warm-900));
   --bg-overlay: light-dark(var(--p-warm-25), var(--p-warm-800));
+  /* a field is a well, darker than the chrome it sits in */
+  --bg-well: light-dark(var(--p-warm-100), var(--p-warm-950));
   --bg-subtle: light-dark(rgb(31 29 26 / 0.06), rgb(239 236 230 / 0.06));
   --bg-control: light-dark(rgb(31 29 26 / 0.10), rgb(239 236 230 / 0.09));
   --bg-selected: light-dark(var(--p-blue-50), var(--p-blue-900));
@@ -198,7 +201,12 @@ html[data-white-page] .mn-pages {
   --elev-dialog:
     0 4px 12px light-dark(rgb(31 29 26 / 0.10), rgb(0 0 0 / 0.50)),
     0 16px 48px light-dark(rgb(31 29 26 / 0.16), rgb(0 0 0 / 0.50));
+}
 
+/* Drawn inside the page too, so declared again on the white page's pages
+   for the reason the page tokens below give. */
+:root,
+html[data-white-page] .mn-pages {
   /* a revision is a strip of its paper: the fill is the paper's own colour in
      every theme; the edge gives it 3:1 where the fill alone does not */
   --rev-white-fill: var(--p-warm-0);
@@ -252,12 +260,14 @@ html[data-white-page] .mn-pages {
 }
 
 /* --------------------------------------------------------------------------
-   TIER 2 — SEMANTIC: PAGE. The same pairs, resolved by the sheet's own
-   color-scheme, so a white sheet can sit in dark chrome. Marks are
-   translucent: they keep their contrast on any revision paper without
-   knowing which paper is under them.
+   TIER 2 — SEMANTIC: PAGE. The same pairs, declared again on the white
+   page's pages: the bundler turns light-dark() into variables that resolve
+   where a token is declared, so a white sheet in dark chrome needs its own
+   declaration. Marks are translucent: they keep their contrast on any
+   revision paper without knowing which paper is under them.
    -------------------------------------------------------------------------- */
-:root {
+:root,
+html[data-white-page] .mn-pages {
   --page-paper: light-dark(var(--p-warm-0), var(--p-warm-825));
   --page-ink: light-dark(var(--p-ink), var(--p-warm-100));
   --page-ink-muted: light-dark(var(--p-warm-700), var(--p-warm-350));
@@ -301,6 +311,13 @@ html[data-white-page] .mn-pages {
     var(--p-write-violet-deep),
     var(--p-write-violet-bright)
   );
+  /* Ink source and a game script's branching lines: each role in one of the writer's colours */
+  --page-src-knot: var(--page-text-blue);
+  --page-src-divert: var(--page-text-violet);
+  --page-src-choice: var(--page-text-green);
+  --page-src-logic: var(--page-text-orange);
+  --page-src-tag: var(--page-text-red);
+  --page-src-comment: var(--page-ink-muted);
   --page-hl-yellow: light-dark(rgb(240 190 0 / 0.38), rgb(227 179 65 / 0.18));
   --page-hl-green: light-dark(rgb(40 170 90 / 0.28), rgb(90 200 130 / 0.18));
   --page-hl-pink: light-dark(rgb(230 70 140 / 0.24), rgb(240 110 160 / 0.20));
@@ -362,6 +379,7 @@ html[data-white-page] .mn-pages {
     --bg-chrome: light-dark(var(--p-warm-50), var(--p-warm-1000));
     --bg-raised: light-dark(var(--p-warm-0), var(--p-warm-950));
     --bg-overlay: light-dark(var(--p-warm-0), var(--p-warm-925));
+    --bg-well: light-dark(var(--p-warm-0), var(--p-black));
     --bg-subtle: light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.10));
     --bg-control: light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.12));
     --bg-selected: light-dark(var(--p-blue-50), var(--p-blue-950));
@@ -382,7 +400,9 @@ html[data-white-page] .mn-pages {
     --chip-line: light-dark(var(--p-black), var(--p-warm-0));
     --elev-overlay: 0 0 0 1px light-dark(var(--p-warm-900), var(--p-warm-100));
     --elev-dialog: 0 0 0 2px light-dark(var(--p-warm-900), var(--p-warm-100));
-
+  }
+  :root,
+  html[data-white-page] .mn-pages {
     --page-paper: light-dark(var(--p-warm-0), var(--p-black));
     --page-ink: light-dark(var(--p-black), var(--p-warm-0));
     --page-ink-muted: light-dark(var(--p-warm-800), var(--p-warm-300));
@@ -426,9 +446,10 @@ html[data-white-page] .mn-pages {
   --bg-chrome: var(--p-demo-900);
   --bg-raised: var(--p-demo-800);
   --bg-overlay: var(--p-demo-800);
+  --bg-well: var(--p-demo-900);
   --bg-subtle: rgb(243 238 251 / 0.08);
   --bg-control: rgb(243 238 251 / 0.12);
-  --bg-selected: var(--p-demo-800);
+  --bg-selected: var(--p-demo-700);
   --bg-accent: var(--p-demo-200);
   --bg-scrim: rgb(0 0 0 / 0.5);
   --fg: var(--p-demo-50);
@@ -440,7 +461,8 @@ html[data-white-page] .mn-pages {
   --fg-attention: var(--p-amber-300);
   --fg-danger: var(--p-red-300);
   --fg-on-danger: var(--p-warm-950);
-  --line: var(--p-demo-800);
+  /* a bordered button's only edge, so 3.69:1 on the bar's ground */
+  --line: var(--p-demo-600);
   --line-strong: var(--p-demo-600);
   --focus: var(--p-demo-200);
   --chip-line: transparent;
@@ -516,10 +538,21 @@ html[data-white-page] .mn-pages {
   --dialog-w-wide: 35rem; /* 560 */
   --palette-w: 40rem; /* 640 */
   --palette-max-h: 26.25rem; /* 420 */
-  --status-device-w: 4.5rem; /* 72: slot one, "Saved" */
   --status-server-w: 17.5rem; /* 280: slot two, the longest status sentence (tested) */
   --avatar: 1.5rem; /* 24: title bar, threads */
   --avatar-sm: 1.25rem; /* 20: in rows; the smallest that holds 11 px initials */
+  --avatar-lg: 2.5rem; /* 40: a person's card */
+  --content-w: 45rem; /* 720: a form's column */
+  --content-w-wide: 55rem; /* 880: a screen's main column at most */
+  --menu-min-w: 14rem; /* 224 */
+  --menu-max-w: 22.5rem; /* 360 */
+  --popover-w: 24rem; /* 384 */
+  --element-w: 8.5rem; /* 136: Element in the status bar */
+  --col-kind: 7.5rem; /* 120 */
+  --col-edited: 10.5rem; /* 168 */
+  --preview-w: 21.25rem; /* 340 */
+  --key-w: 5.25rem; /* 84: a form's key column */
+  --label-w: 3.5rem; /* 56: a short label column */
   --marker: 1.5rem; /* 24: a gutter marker; never scaled by page zoom */
 
   /* desk and page furniture: px. --desk-pad scales with page zoom;
@@ -660,6 +693,7 @@ html[data-white-page] .mn-pages {
   --color-chrome: var(--bg-chrome);
   --color-raised: var(--bg-raised);
   --color-overlay: var(--bg-overlay);
+  --color-well: var(--bg-well);
   --color-subtle: var(--bg-subtle);
   --color-control: var(--bg-control);
   --color-selected: var(--bg-selected);
@@ -773,6 +807,18 @@ html[data-white-page] .mn-pages {
   --spacing-icon-lg: var(--icon-lg);
   --spacing-avatar: var(--avatar);
   --spacing-avatar-sm: var(--avatar-sm);
+  --spacing-avatar-lg: var(--avatar-lg);
+  --spacing-content: var(--content-w);
+  --spacing-content-wide: var(--content-w-wide);
+  --spacing-menu-min: var(--menu-min-w);
+  --spacing-menu-max: var(--menu-max-w);
+  --spacing-popover: var(--popover-w);
+  --spacing-element: var(--element-w);
+  --spacing-col-kind: var(--col-kind);
+  --spacing-col-edited: var(--col-edited);
+  --spacing-preview: var(--preview-w);
+  --spacing-key: var(--key-w);
+  --spacing-label: var(--label-w);
   --spacing-marker: var(--marker);
 }
 
@@ -825,24 +871,40 @@ html[data-white-page] .mn-pages {
    of a stock component. Adding one needs a design-system review.
    -------------------------------------------------------------------------- */
 
-/* 1. One focus ring for every focusable thing, stock or ours. */
+/* 1. One focus ring for every focusable thing, stock or ours. A heading or a
+      refusal focused on arrival is where focus starts, not a control: no ring.
+      Nor has the palette's field, which holds focus while the palette is open
+      and is the palette's own top edge: its caret is the focus, as it is on a
+      page being written. A field inside an input group rings the whole
+      group, as a plain field rings itself, unless the group is marked
+      data-arrival: its field was focused on arrival and not yet left. */
 :focus-visible:not(
   [role="dialog"],
   [role="alertdialog"],
   [role="menu"],
   [role="listbox"],
-  [role="tooltip"]
+  [role="tooltip"],
+  :is(h1, [data-arrival])[tabindex="-1"],
+  .mn-palette-field,
+  .mn-page-view[contenteditable="true"],
+  .mn-plain[contenteditable="true"],
+  .mn-front-field[contenteditable="plaintext-only"],
+  [data-slot="input-group-control"]
 ) {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
   --tw-ring-color: transparent; /* retire the stock halo: one ring, not two */
 }
-[data-slot="input-group"]:focus-within {
-  --tw-ring-color: transparent;
-}
+[data-slot="input-group"]:not([data-arrival]):has(
+    [data-slot="input-group-control"]:focus-visible
+  ),
 [data-slot="slider-thumb"]:has(:focus-visible) {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
+}
+/* nor the browser's own ring, which it draws on a heading focused by script */
+:is(h1, [data-arrival])[tabindex="-1"]:focus-visible {
+  outline: none;
 }
 /* after any key use the item under the pointer also matches :focus-visible */
 [role^="menuitem"]:hover,
@@ -856,16 +918,24 @@ html[data-white-page] .mn-pages {
 [role="grid"],
 [role="tree"],
 [role="tablist"],
+[role="tabpanel"],
 [data-ring="inset"] {
   --focus-gap: calc(var(--focus-w) * -1);
 }
 
-/* 3. Where focus stays in a field and the list is driven from it (the palette,
-      autocomplete, a combobox), the active option is where Enter will act:
-      it gets the ring, because its fill alone is 1.1:1. */
-[role="listbox"]:not(:focus-within) [role="option"][data-highlighted] {
+/* 3. The option the keys are on, in every menu and list: the pressed fill and
+      the inset ring, because a fill alone is 1.1:1. Where focus stays in a
+      field and the list is driven from it (the palette, a combobox, the
+      editor's picker and completion list), the active option is that option.
+      A pointer alone gives the hover fill and no ring. */
+[role="listbox"]:not(:focus-within) [role="option"][data-highlighted],
+:is(#mn-picker, #mn-complete) [aria-selected="true"] {
+  background-color: var(--bg-control);
   outline: var(--focus-w) solid var(--focus);
   outline-offset: calc(var(--focus-w) * -1);
+}
+:is([role^="menuitem"], [data-slot="select-item"]):focus-visible:not(:hover) {
+  background-color: var(--bg-control);
 }
 
 /* 4. The scrim is a token, and nothing blurs. */
@@ -880,7 +950,9 @@ html[data-white-page] .mn-pages {
   --tw-shadow: var(--elev-dialog);
 }
 
-/* 6. Nothing is smaller than the micro size; group labels are one style. */
+/* 6. Nothing is smaller than the micro size; group labels are one style, the
+      same in menus, panels, places, forms and table heads. A keyboard hint
+      has an edge and no fill. */
 [data-slot="kbd"],
 [data-slot$="-shortcut"],
 [data-slot="badge"] {
@@ -888,14 +960,23 @@ html[data-white-page] .mn-pages {
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
 }
+[data-slot="kbd"]:not([data-slot="tooltip-content"] *) {
+  background-color: transparent;
+  color: var(--fg-muted);
+  border: 1px solid var(--line);
+  border-radius: var(--shape-micro);
+}
 [data-slot$="menu-label"],
 [data-slot="select-label"],
-[data-slot="menubar-label"] {
+[data-slot="menubar-label"],
+.mn-group-label,
+.mn-table-head {
   font-size: var(--type-micro);
   line-height: var(--lh-micro);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  color: var(--fg-muted);
 }
 
 /* 7. Loading placeholders hold still. */
@@ -903,14 +984,17 @@ html[data-white-page] .mn-pages {
   animation: none;
 }
 
-/* 8. A toggle that is on takes the selected role and an edge, not the hover fill. */
-[data-slot^="toggle"][aria-pressed="true"] {
+/* 8. A toggle that is on, or a button pressed as one, takes the selected role
+      and an edge, not the hover fill. */
+[data-slot^="toggle"][aria-pressed="true"],
+[data-slot="button"][aria-pressed="true"] {
   background-color: var(--bg-selected);
   color: var(--fg);
   outline: 1px solid var(--line-strong);
   outline-offset: -1px;
 }
-[data-slot^="toggle"][aria-pressed="true"]:focus-visible {
+[data-slot^="toggle"][aria-pressed="true"]:focus-visible,
+[data-slot="button"][aria-pressed="true"]:focus-visible {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
 }
@@ -918,6 +1002,72 @@ html[data-white-page] .mn-pages {
 /* 9. One hover strength: the outline button hovers like every other control. */
 [data-slot="button"][class~="hover:bg-input/50"]:hover {
   background-color: var(--bg-subtle);
+}
+
+/* 10. A field is a well with a strong edge, its text the interface size; an
+       invalid field keeps its edge (the sentence under it says why). */
+[data-slot="input"],
+[data-slot="textarea"],
+[data-slot="select-trigger"],
+[data-slot="input-group"] {
+  background-color: var(--bg-well);
+  border-color: var(--line-strong);
+  font-size: var(--type-ui);
+  line-height: var(--lh-ui);
+  --tw-ring-color: transparent;
+}
+
+/* 11. The selected tab's bar is blue; a tab at rest is muted text. */
+[data-slot="tabs-trigger"] {
+  color: var(--fg-muted);
+}
+[data-slot="tabs-trigger"]:is([data-active], :hover) {
+  color: var(--fg);
+}
+[data-slot="tabs-trigger"]::after {
+  background-color: var(--bg-accent);
+}
+
+/* 12. One menu surface: its edge is a hairline, it is as wide as its longest
+       item between two limits, and an item stays on one line. A caller that
+       sets its own width or padding keeps it. */
+:is(
+  [data-slot$="menu-content"],
+  [data-slot$="menu-sub-content"],
+  [data-slot="select-content"],
+  [data-slot="popover-content"]
+) {
+  --tw-ring-color: var(--line);
+}
+:is(
+  [data-slot$="menu-content"],
+  [data-slot$="menu-sub-content"],
+  [data-slot="select-content"]
+)[class~="min-w-32"] {
+  min-width: var(--menu-min-w);
+}
+:is(
+  [data-slot$="menu-content"],
+  [data-slot$="menu-sub-content"],
+  [data-slot="select-content"]
+):is([class~="w-(--anchor-width)"], [class~="w-auto"]) {
+  width: max-content;
+  max-width: var(--menu-max-w);
+}
+:is([role^="menuitem"], [data-slot="select-item"]) {
+  white-space: nowrap;
+}
+[data-slot="popover-content"][class~="p-2.5"] {
+  padding: 1rem;
+}
+
+/* 13. A tooltip is small and close: 4/8 padding, 12/500. */
+[data-slot="tooltip-content"] {
+  padding: 0.25rem 0.5rem;
+  font-size: var(--type-meta);
+  line-height: var(--lh-meta);
+  font-weight: 500;
+  max-width: 16.25rem;
 }
 
 /* --------------------------------------------------------------------------
@@ -929,7 +1079,10 @@ html[data-white-page] .mn-pages {
   position: relative;
   border-radius: var(--shape-control);
 }
-.mn-row:hover {
+/* only a row that does something looks like it does: its own keys, or the
+   control around it */
+.mn-row[tabindex]:not([aria-disabled="true"]):hover,
+button:not(:disabled):hover > .mn-row {
   background-color: var(--bg-subtle);
 }
 .mn-row[aria-current]:not([aria-current="false"]),
@@ -954,6 +1107,151 @@ html[data-white-page] .mn-pages {
 .mn-row[aria-selected="true"]:focus-visible {
   outline-width: var(--focus-w);
   outline-offset: calc(var(--focus-w) * -1);
+}
+.mn-row[aria-current]:not([aria-current="false"]) [data-leading] {
+  color: var(--fg-accent);
+}
+
+/* --------------------------------------------------------------------------
+   SHARED PIECES. Each is drawn the same wherever it appears; layout around
+   them is utilities.
+   -------------------------------------------------------------------------- */
+
+/* A group's label: the type is correction 6's; this is its place in a list. */
+.mn-group-label {
+  padding: 1rem 0.75rem 0.25rem;
+}
+
+/* A table on chrome, drawn on a row list: a raised card with a head row and a
+   hairline between rows. Its cells are sized by utilities, in rem. */
+.mn-table {
+  background-color: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--shape-surface);
+  overflow: hidden;
+}
+.mn-table-head {
+  min-height: var(--row-h);
+  background-color: var(--bg-chrome);
+  border-block-end: 1px solid var(--line);
+}
+.mn-table .mn-row {
+  border-radius: 0;
+  border-block-start: 1px solid var(--line);
+}
+.mn-table [aria-posinset="1"] > .mn-row {
+  border-block-start: 0;
+}
+.mn-num {
+  justify-content: flex-end;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A fact attached to a row ("On this device"): an edge, never a fill. The
+   demo's own tag is the one filled tag. */
+.mn-tag {
+  display: inline-flex;
+  align-items: center;
+  padding-inline: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--shape-micro);
+  color: var(--fg-muted);
+  font-size: var(--type-micro);
+  line-height: var(--lh-micro);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.mn-tag[data-fill] {
+  background-color: var(--bg-accent);
+  border-color: var(--bg-accent);
+  color: var(--fg-on-accent);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* A bar of controls on one row, which never wraps or scrolls sideways. Short
+   of room, its buttons keep only their icons, their words staying their
+   names, and its labels go; narrower still, so do its status words. */
+.mn-bar {
+  container: mn-bar / inline-size;
+}
+@container mn-bar (width < 72rem) {
+  .mn-bar :is([data-slot="button-label"], [data-slot="bar-label"]) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .mn-bar [data-slot="button"]:has(> [data-slot="button-label"]) {
+    width: var(--control-h-sm);
+    padding-inline: 0;
+  }
+}
+@container mn-bar (width < 40rem) {
+  .mn-bar [data-slot="bar-status"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* A revision's chip: a small square of its paper, always beside its name. */
+.mn-rev-chip {
+  display: inline-block;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: var(--shape-micro);
+  background-color: var(--band-fill);
+  border: 1px solid var(--band-edge);
+  outline: 1px solid var(--chip-line);
+}
+
+/* A person: coloured only where they have a colour (inside a script, by its
+   index); elsewhere a ring round their initials. */
+.mn-avatar {
+  border: 1px solid var(--line-strong);
+  color: var(--fg-muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.mn-avatar[data-who] {
+  background-color: var(--who);
+  border-color: var(--who);
+  color: var(--collab-on);
+}
+.mn-avatar[data-more] {
+  border-color: var(--line);
+}
+
+/* A card to choose (a person, a kind of project): raised, its edge strong
+   under the pointer, the chosen one selected. A new one ("You") is open: no
+   fill, a dashed strong edge. */
+.mn-card {
+  background-color: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--shape-surface);
+}
+.mn-card[data-new] {
+  background-color: transparent;
+  border-style: dashed;
+  border-color: var(--line-strong);
+}
+.mn-card:hover:not(:disabled) {
+  border-color: var(--line-strong);
+}
+.mn-card[aria-current]:not([aria-current="false"]) {
+  background-color: var(--bg-selected);
+  border-color: var(--focus);
 }
 
 /* --------------------------------------------------------------------------
@@ -990,6 +1288,13 @@ html[data-white-page] .mn-pages {
   box-shadow: var(--elev-page);
   border-radius: var(--shape-none);
 }
+/* A page drawn small beside a Send form is white paper in every theme, as
+   the printer gets it. Its own values, because the page tokens are resolved
+   on the root. */
+.mn-tile {
+  --page-paper: var(--p-warm-0);
+  --page-ink: var(--p-ink);
+}
 .mn-sheet[data-rev]::before {
   /* the band: a strip of the revision's own paper */
   content: "";
@@ -1003,6 +1308,11 @@ html[data-white-page] .mn-pages {
 }
 .mn-pages[data-tint="on"] .mn-sheet[data-rev] {
   background: var(--band-tint);
+}
+[data-rev="white"] {
+  --band-fill: var(--rev-white-fill);
+  --band-edge: var(--rev-white-edge);
+  --band-tint: var(--page-rev-white-paper);
 }
 [data-rev="blue"] {
   --band-fill: var(--rev-blue-fill);
@@ -1263,6 +1573,51 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   outline-offset: -1px;
 }
 
+/* The editor's element picker and completion list: the menu surface, drawn by
+   the editor beside the caret. The option the keys are on is correction 3's. */
+:is(#mn-picker, #mn-complete) {
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem;
+  background-color: var(--bg-overlay);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: var(--shape-surface);
+  box-shadow: var(--elev-overlay);
+  font: 400 var(--type-ui) / var(--lh-ui) var(--face-ui);
+}
+#mn-picker {
+  min-width: var(--menu-min-w);
+}
+#mn-complete {
+  min-width: 10rem;
+}
+:is(#mn-picker, #mn-complete) [role="option"] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--row-h);
+  padding-inline: 0.5rem;
+  border-radius: var(--shape-control);
+  white-space: nowrap;
+  cursor: default;
+}
+:is(#mn-picker, #mn-complete) [role="option"]:hover {
+  background-color: var(--bg-subtle);
+}
+#mn-picker kbd {
+  margin-inline-start: auto;
+  min-width: 1.25rem;
+  padding-inline: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--shape-micro);
+  color: var(--fg-muted);
+  font: 500 var(--type-micro) / var(--lh-micro) var(--face-ui);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
 /* Room view: the projected script shows the driver's caret and nothing else */
 [data-surface="room"]
   :is(.mn-who-sel, .mn-who-tab, .mn-who-caret:not([data-driver]), .mn-marker) {
@@ -1320,7 +1675,8 @@ html[data-switching] *::after {
    here is an outline, a border or a system highlight.
    -------------------------------------------------------------------------- */
 @media (forced-colors: active) {
-  :root:root {
+  :root:root,
+  html[data-white-page] .mn-pages {
     --focus: Highlight;
     --line: CanvasText;
     --line-strong: CanvasText;
@@ -1340,9 +1696,13 @@ html[data-switching] *::after {
     border-inline-end: 4px double CanvasText;
   }
   [data-slot^="toggle"][aria-pressed="true"],
+  [data-slot="button"][aria-pressed="true"],
   .mn-row[aria-current]:not([aria-current="false"]),
   .mn-row[aria-selected="true"],
-  [role="option"][data-highlighted] {
+  [role="option"][data-highlighted],
+  :is(#mn-picker, #mn-complete) [aria-selected="true"],
+  :is([role^="menuitem"], [data-slot="select-item"]):focus-visible,
+  .mn-card[aria-current]:not([aria-current="false"]) {
     forced-color-adjust: none;
     background-color: Highlight;
     color: HighlightText;

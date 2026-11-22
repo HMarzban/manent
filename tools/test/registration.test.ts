@@ -11,7 +11,6 @@ const LISTS = [
   "packages/sync-client/src/index.ts",
   "packages/ui/src/components/index.ts",
   "packages/ui/src/index.ts",
-  "packages/ui/src/tokens/index.ts",
 ];
 
 test("a registration list holds one sorted line per feature folder and nothing else", async () => {

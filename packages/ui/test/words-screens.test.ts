@@ -503,7 +503,14 @@ test("the screens' words are the design's", () => {
     valueOff: "Off",
   });
 
-  expect({ ...DEMO_WORDS, person: DEMO_WORDS.person("Dana Reyes") }).toEqual({
+  expect({
+    ...DEMO_WORDS,
+    person: DEMO_WORDS.person("Dana Reyes"),
+    writersTyping: [1, 5].map(DEMO_WORDS.writersTyping),
+    writersShort: DEMO_WORDS.writersShort(3, 5),
+    stats: [DEMO_WORDS.stats(6, 8, 200), DEMO_WORDS.stats(6.04, 8, 1)],
+    bytes: [50, 9.25].map(DEMO_WORDS.bytes),
+  }).toEqual({
     demo: "Demo",
     person: "Person: Dana Reyes",
     tour: "Tour",
@@ -511,6 +518,33 @@ test("the screens' words are the design's", () => {
     online: "Online",
     offline: "Offline",
     slow: "Slow",
+    addWriters: "Add writers",
+    stopWriters: "Stop writers",
+    writersTyping: ["1 writer typing", "5 writers typing"],
+    writersShort: "3 of 5 writers typing — each needs a scene of its own",
+    needsScript: "needs a script open",
+    needsConnection: "needs a connection",
+    timings: "Timings",
+    timingRows: [
+      "Keystroke to frame",
+      "Pagination time",
+      "Sync round trip",
+      "Document size",
+    ],
+    stats: [
+      "p50 6.0 ms · p95 8.0 ms · 200 samples",
+      "p50 6.0 ms · p95 8.0 ms · 1 sample",
+    ],
+    bytes: ["50 KB", "9.3 KB"],
+    nothingMeasured: "—",
+    timingsNote: "Measured in this window while Timings is open.",
+    reorganise: "Reorganise",
+    reset: "Reset",
+    resetTitle: "Reset the demo?",
+    resetAction: "Reset the demo",
+    resetBody:
+      "Every workspace goes back to its seeded state for everyone using this demo. Changes made since it was seeded are not kept. Each browser and the desktop app clear their copies when they next connect.",
+    seedingFailed: "Couldn't get ready. Run make reset to try again.",
   });
 
   expect({

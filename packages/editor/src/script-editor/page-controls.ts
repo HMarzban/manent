@@ -5,8 +5,9 @@ import type { Node } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
 import { blockNumber } from "../cursors/place.ts";
 import { ZOOM_MAX, ZOOM_MIN } from "../page/config.ts";
+import type { LayoutView } from "../page/config.ts";
 import type { PageScaffold } from "../page/scaffold.ts";
-import { caretPlace } from "../pagination/caret.ts";
+import { caretPlace, pageAtPos } from "../pagination/caret.ts";
 import { paginationKey, setPagination } from "../pagination/plugin.ts";
 import type { ScrollPorts } from "../scroll/stability.ts";
 import { isInView } from "../scroll/typewriter.ts";
@@ -31,21 +32,65 @@ function topOf(view: EditorView, pos: number): number | null {
   return dom instanceof HTMLElement ? dom.getBoundingClientRect().top : null;
 }
 
+/** The position under the page's middle at viewport height `top`; null where there is none. */
+function posAtHeight(view: EditorView, top: number): number | null {
+  const box = view.dom.getBoundingClientRect();
+  return view.posAtCoords({ left: box.left + box.width / 2, top })?.pos ?? null;
+}
+
 /** The block under the page's middle at viewport height `top`: its index, where it starts and its viewport top. */
 function blockAtHeight(
   view: EditorView,
   top: number,
 ): { block: number; pos: number; top: number } | null {
-  const box = view.dom.getBoundingClientRect();
-  const at = view.posAtCoords({ left: box.left + box.width / 2, top });
+  const at = posAtHeight(view, top);
   if (at === null) return null;
-  const $pos = view.state.doc.resolve(at.pos);
+  const $pos = view.state.doc.resolve(at);
   if ($pos.depth < 2) return null;
   const pos = $pos.before(2);
   const blockTop = topOf(view, pos);
   return blockTop === null
     ? null
     : { block: blockNumber(view.state, $pos), pos, top: blockTop };
+}
+
+/** The index of the page under the page's middle at viewport height `top`; null without pages or where there is none. */
+export function pageAtHeight(view: EditorView, top: number): number | null {
+  const at = posAtHeight(view, top);
+  return at === null ? null : pageAtPos(view.state, at);
+}
+
+// The first of `elements`, laid out top to bottom, whose box ends below `top`; found by halving.
+function firstEndingBelow(
+  elements: ArrayLike<Element>,
+  top: number,
+): Element | null {
+  let low = 0;
+  let high = elements.length;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    if (elements[mid]!.getBoundingClientRect().bottom > top) high = mid;
+    else low = mid + 1;
+  }
+  return elements[low] ?? null;
+}
+
+/** The block across viewport height `top`, or the first below it: its index and viewport top. */
+function blockAcross(
+  view: EditorView,
+  top: number,
+): { block: number; top: number } | null {
+  const section = firstEndingBelow(view.dom.children, top);
+  const block =
+    section === null
+      ? null
+      : firstEndingBelow(section.querySelectorAll(":scope > p.el"), top);
+  if (block === null) return null;
+  const $pos = view.state.doc.resolve(view.posAtDOM(block, 0));
+  return {
+    block: blockNumber(view.state, $pos),
+    top: block.getBoundingClientRect().top,
+  };
 }
 
 /** Where block `block` starts, counted in document order; without pages there is no index, so the blocks before it are counted. */
@@ -74,7 +119,8 @@ export function createScrollPorts(
     caretTop: (view) => caretPlace(view)?.top ?? null,
     topBlock(view) {
       const edge = scrollerOf(place).getBoundingClientRect().top;
-      const found = blockAtHeight(view, edge + 1);
+      // between two pages the point lands in no block
+      const found = blockAtHeight(view, edge + 1) ?? blockAcross(view, edge);
       return found === null
         ? null
         : { block: found.block, offsetPx: edge - found.top };
@@ -120,7 +166,8 @@ export interface PageControls {
 
 /**
  * A paged editor's profile and zoom. A new profile is a meta-only transaction; a zoom scales the page around its
- * anchor and scrolls in the same frame so the anchor stays where it was, and dispatches nothing.
+ * anchor and scrolls in the same frame so the anchor stays where it was, with room added above the first page when
+ * the view cannot scroll back far enough, and dispatches nothing.
  */
 export function createPageControls(options: {
   view: EditorView;
@@ -128,28 +175,43 @@ export function createPageControls(options: {
   ports: ScrollPorts;
   desk: Desk;
   zoom: ZoomSetting;
+  /** In Reflow view the text wraps to the window at any zoom, so Fit width is 100 %. */
+  layoutView: LayoutView;
   profile(): PageProfile | null;
 }): PageControls {
   const { view, scaffold, ports, desk } = options;
   let setting = options.zoom;
   let percent = 100;
   const profileNow = () => paginationKey.getState(view.state)!.settings.profile;
+  const percentNow = (): number => {
+    if (setting !== "fit_width")
+      return Math.min(Math.max(setting, ZOOM_MIN), ZOOM_MAX);
+    if (options.layoutView === "reflow") return 100;
+    return fitWidthPercent(
+      desk.widthPx(),
+      pageSizePx(profileNow()).width,
+      desk.paddingPx(),
+    );
+  };
+  // room added above the first page, px, where keeping the anchor still needed scroll the view did not have
+  let room = 0;
+  const scrollBy = (shiftPx: number): void => {
+    const scroller = ports.scroller();
+    // the room gives way before the view scrolls down
+    const given = Math.min(room, Math.max(shiftPx, 0));
+    const scrollTop = scroller.scrollTop + shiftPx - given;
+    room += Math.max(-scrollTop, 0) - given;
+    scaffold.setRoomAbove(room);
+    scroller.scrollTop = Math.max(scrollTop, 0);
+  };
   const fit = (): void => {
-    const next =
-      setting === "fit_width"
-        ? fitWidthPercent(
-            desk.widthPx(),
-            pageSizePx(profileNow()).width,
-            desk.paddingPx(),
-          )
-        : Math.min(Math.max(setting, ZOOM_MIN), ZOOM_MAX);
+    const next = percentNow();
     if (next === percent) return;
     const anchor = zoomAnchor(view, ports);
     percent = next;
     scaffold.applyZoom(next);
     const top = anchor?.read() ?? null;
-    if (anchor !== null && top !== null)
-      ports.scroller().scrollTop += top - anchor.top;
+    if (anchor !== null && top !== null) scrollBy(top - anchor.top);
   };
   const unobserve = desk.observe(fit);
   fit();

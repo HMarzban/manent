@@ -10,7 +10,8 @@ export interface SurfaceEntry {
   /** In the order of `COMMANDS`. */
   openedBy: readonly CommandId[];
   /** A command's own `opens.focus` overrides this. */
-  focusOnOpen: "heading" | "search" | "first" | "item" | "stay" | "cancel";
+  focusOnOpen:
+    "heading" | "search" | "first" | "item" | "stay" | "cancel" | "caret";
   focusOnClose: "opener" | "caret" | "previous_place";
 }
 
@@ -41,7 +42,8 @@ const POPOVER: Row = {
 
 const ROWS: Readonly<Record<SurfaceId, Row>> = {
   library: screen("heading"),
-  document: screen("heading"),
+  // the page takes focus at the caret, so the first keystroke lands on it
+  document: screen("caret"),
   preferences: screen("search"),
   choose: screen("heading"),
   left_panel: PANEL,
@@ -75,6 +77,8 @@ const ROWS: Readonly<Record<SurfaceId, Row>> = {
     focusOnOpen: "item",
     focusOnClose: "previous_place",
   },
+  // the system's own file picker, drawn by no page
+  file_picker: { kind: "dialog", focusOnOpen: "stay", focusOnClose: "opener" },
 };
 
 const openersOf = (id: SurfaceId): readonly CommandId[] =>

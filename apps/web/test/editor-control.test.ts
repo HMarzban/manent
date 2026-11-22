@@ -8,6 +8,7 @@ test("a command reaches the open editor, and nothing when none is open", () => {
   const detach = control.attach({
     run: (id) => (seen.push(id), { ok: true }),
     zoomPercent: () => 125,
+    showTitlePage: () => {},
   });
   expect([control.run("edit.undo"), seen]).toEqual([
     { ok: true },
@@ -23,9 +24,14 @@ test("the zoom the open page is drawn at is known, and nothing when none is open
   const detach = control.attach({
     run: () => ({ ok: true }),
     zoomPercent: () => 125,
+    showTitlePage: () => {},
   });
   const drawn = control.zoomPercent();
   detach();
-  control.attach({ run: () => ({ ok: true }), zoomPercent: () => null });
+  control.attach({
+    run: () => ({ ok: true }),
+    zoomPercent: () => null,
+    showTitlePage: () => {},
+  });
   expect([before, drawn, control.zoomPercent()]).toEqual([null, 125, null]);
 });

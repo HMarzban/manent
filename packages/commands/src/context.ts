@@ -18,6 +18,8 @@ export interface CommandContext {
   /** The open script's format; null off a document. */
   format: SettingValue<"script.format"> | null;
   rulerShown: boolean;
+  /** Which view the open script's pages are drawn in. */
+  layoutView: "page" | "reflow";
   /** The caret block has its own space before. */
   spaceBeforeSet: boolean;
   /** The page's zoom as the person chose it, a percent or the mode; null off a document. */
@@ -36,5 +38,9 @@ export interface CommandContext {
     /** The revision Recall would withdraw ("Blue"), or null when there is none. */
     recallName: string | null;
     selection: "text" | "scene" | "omitted_scene" | "pages" | null;
+    /** The revision marks shown (MARK_MODES of @manent/revisions). */
+    mode: "collated" | "this_revision" | "all" | "since_full_draft" | "none";
+    /** Colour revised pages is on. */
+    tint: boolean;
   } | null;
 }

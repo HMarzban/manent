@@ -1,13 +1,27 @@
 import { expect, test } from "bun:test";
-import { DOC, DOC2 } from "./seed.ts";
+import { loadDoc, scriptSettings } from "@manent/crdt";
+import { blockText, blocksOf } from "@manent/schema";
+import { encodeReplayUpdates } from "@manent/sync-protocol";
+import { DOC, DOC2, createTypist } from "./seed.ts";
 import {
   DANA_CLIENT,
+  EMPTY_VECTOR,
   SAM_CLIENT,
   push,
   set,
+  step1,
+  stepTwoOf,
   subscribe,
 } from "./service-world.ts";
-import { ack, createRelayWorld, tail } from "./relay-world.ts";
+import {
+  B1,
+  ack,
+  createRelayWorld,
+  materialize,
+  rebuiltFrom,
+  roomDoc,
+  tail,
+} from "./relay-world.ts";
 import type { RelayWorld } from "./relay-world.ts";
 
 /** Sam and Dana edit `docId`; what they were sent is dropped. */
@@ -109,6 +123,118 @@ test("seed 9: a setting the authority writes on a full disk reaches no window un
     ["SYNC", "ACK"],
     ["SYNC"],
   ]);
+});
+
+test("seed 9: a window that subscribes while commits are held is sent them, but no setting the authority has yet to commit", () => {
+  const world = createRelayWorld({ fullDisk: "hold" });
+  const { service, clock, storage, sam, dana } = world;
+  editing(world, DOC);
+  service.receive(sam, push(DOC, 1, world.typingIn(DOC)));
+  clock.runDeferred();
+  const committed = roomDoc(world, DOC).encodeStateVector();
+  storage.fillDisk(true);
+  service.receive(sam, set(DOC, 2, "script.paper", "a4"));
+  service.receive(sam, push(DOC, 3, world.typingIn(DOC, undefined, "!")));
+  clock.runDeferred();
+  dana.take();
+  // the disk has room again, and what is held waits for its retry
+  storage.fillDisk(false);
+  // a window that holds nothing, and one that holds what is committed
+  const shown = [EMPTY_VECTOR, committed].map((vector) => {
+    service.receive(dana, subscribe(DOC, "edit", [DANA_CLIENT]));
+    service.receive(dana, step1(DOC, vector));
+    const doc = roomDoc(world, DOC);
+    doc.applyUpdate(stepTwoOf(dana.take()));
+    const [block] = blocksOf(materialize(doc));
+    return [scriptSettings(doc).entries(), block && blockText(block)];
+  });
+  expect(shown).toEqual([
+    [{}, "scene one!"],
+    [{}, "scene one!"],
+  ]);
+});
+
+test("seed 9: a window that subscribes while a replay is held is sent none of its text", async () => {
+  const world = createRelayWorld({
+    fullDisk: "hold",
+    limits: { rebuildClientIds: 0, checkpointEvery: 1 },
+  });
+  const { service, clock, storage, sam, dana } = world;
+  editing(world, DOC);
+  const samCopy = createTypist(SAM_CLIENT);
+  service.receive(sam, push(DOC, 1, samCopy.insertBlock(B1, null, "scene")));
+  clock.runDeferred();
+  // the room goes quiet and is rebuilt, while Sam types on in the generation it left
+  clock.advance(10_000);
+  const offline = samCopy.type(B1, " at night");
+  const replayed = service.replay("sam", {
+    docId: DOC,
+    generation: 1,
+    lastServerSeq: 1,
+    key: "00112233445566778899aabbccddeeff",
+    updates: encodeReplayUpdates([offline]),
+  });
+  // the replay's checks have committed; its merge is queued, and the disk fills before it commits
+  storage.fillDisk(true);
+  clock.runDeferred();
+  dana.take();
+  // the disk has room again, and what is held waits for its retry
+  storage.fillDisk(false);
+  service.receive(dana, subscribe(DOC, "edit", [DANA_CLIENT]));
+  service.receive(dana, {
+    type: "SYNC",
+    docId: DOC,
+    generation: 2,
+    step: "step1",
+    data: EMPTY_VECTOR,
+  });
+  const [block] = blocksOf(materialize(loadDoc(stepTwoOf(dana.take()))));
+  expect(block && blockText(block)).toBe("scene");
+  clock.advance(5_000);
+  expect((await replayed).ok).toBe(true);
+});
+
+test("a window that subscribes to a relayed script while a replay into it is held is sent none of its text", async () => {
+  const world = createRelayWorld({ fullDisk: "hold" });
+  const { service, clock, storage, sam, dana, typingIn } = world;
+  service.receive(sam, subscribe(DOC2, "edit", [SAM_CLIENT]));
+  service.receive(sam, push(DOC2, 1, typingIn(DOC2)));
+  clock.runDeferred();
+  sam.take();
+  const theirs = rebuiltFrom(materialize(roomDoc(world, DOC2)), 9009);
+  // Sam types on while the node is paused, and the node follows the cloud without it
+  service.pauseRelay(DOC2);
+  const more = typingIn(DOC2, B1, " more");
+  service.receive(sam, push(DOC2, 2, more));
+  service.follow(DOC2, theirs.encodeState());
+  clock.runDeferred();
+  const replayed = service.replay("sam", {
+    docId: DOC2,
+    generation: 1,
+    lastServerSeq: 1,
+    key: "0123456789abcdef0123456789abcdef",
+    updates: [more.toBase64()],
+  });
+  // the replay writes into the room, and the disk fills before its merge commits
+  storage.fillDisk(true);
+  clock.runDeferred();
+  storage.fillDisk(false);
+  service.receive(
+    dana,
+    subscribe(DOC2, "edit", [DANA_CLIENT], { generation: 2 }),
+  );
+  dana.take();
+  service.receive(dana, {
+    type: "SYNC",
+    docId: DOC2,
+    generation: 2,
+    step: "step1",
+    data: EMPTY_VECTOR,
+  });
+  const [block] = blocksOf(materialize(loadDoc(stepTwoOf(dana.take()))));
+  expect(block && blockText(block)).toBe("scene one");
+  clock.advance(5_000);
+  expect((await replayed).ok).toBe(true);
 });
 
 test("the cloud still poisons on a full disk", () => {

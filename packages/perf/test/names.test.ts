@@ -22,6 +22,8 @@ test("the mark names are a fixed list", () => {
     "editor.dispatch",
     "editor.complete",
     "editor.keystroke",
+    "open.editable",
+    "sync.ack",
   ]);
 });
 
@@ -52,7 +54,8 @@ test("the interface marks are listed, in their order", () => {
 });
 
 test("the editor marks are listed, in their order", () => {
-  expect(PERF_MARKS.slice(-3)).toEqual([
+  const i = PERF_MARKS.indexOf("editor.dispatch");
+  expect(PERF_MARKS.slice(i, i + 3)).toEqual([
     "editor.dispatch",
     "editor.complete",
     "editor.keystroke",

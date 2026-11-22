@@ -146,13 +146,21 @@ export interface DeviceVersion {
     | "before_reconnect"
     | "manual"
     | "rejected"
-    | "past_window";
+    | "past_window"
+    | "named"
+    | "before_restore";
+  /** The draft's name for a `named` version; null for any other. */
+  name: string | null;
   /** A label, never an order. */
   createdAt: number;
   /** The canonical form. */
   content: DocJSON;
   uploaded: boolean;
 }
+
+/** A device version as a store holds it: one stored before drafts were named on the device lacks `name`. */
+export type StoredDeviceVersion = Omit<DeviceVersion, "name"> &
+  Partial<Pick<DeviceVersion, "name">>;
 
 /**
  * For an overlap, `mine` and `theirs` are the block as this device and the

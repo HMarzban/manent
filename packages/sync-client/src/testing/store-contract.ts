@@ -95,6 +95,7 @@ function version(id: string, docId: string): DeviceVersion {
     docId,
     kind: "device",
     label: "manual",
+    name: null,
     createdAt: 1,
     content: {
       type: "doc",

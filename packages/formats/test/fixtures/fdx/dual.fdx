@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="5">
+  <Content>
+    <Paragraph Type="General">
+      <DualDialogue>
+        <Paragraph Type="Character">
+          <Text>DANA</Text>
+        </Paragraph>
+        <Paragraph Type="Parenthetical">
+          <Text>(shouting)</Text>
+        </Paragraph>
+        <Paragraph Type="Dialogue">
+          <Text>The lamp!</Text>
+        </Paragraph>
+        <Paragraph Type="Character">
+          <Text>SAM</Text>
+        </Paragraph>
+        <Paragraph Type="Dialogue">
+          <Text>The glass!</Text>
+        </Paragraph>
+      </DualDialogue>
+      <Text></Text>
+    </Paragraph>
+    <Paragraph StartsNewPage="No" Type="General">
+      <DualDialogue>
+        <Paragraph Type="Character">
+          <Text>DANA (V.O.)</Text>
+        </Paragraph>
+        <Paragraph Type="Character">
+          <Text>SAM (V.O.)</Text>
+        </Paragraph>
+      </DualDialogue>
+      <Text></Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>The gulls go quiet.</Text>
+    </Paragraph>
+  </Content>
+</FinalDraft>

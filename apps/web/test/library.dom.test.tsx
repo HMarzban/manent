@@ -1,5 +1,8 @@
 import { withDom } from "@manent/testkit/dom";
+import { TOUR, isShown } from "@manent/demo";
 import { afterEach, expect, test } from "bun:test";
+import type { LocalStore } from "@manent/sync-client";
+import { createFaultyStoreSpace } from "@manent/sync-client/testing";
 import { createValue } from "@manent/ui";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
@@ -49,6 +52,7 @@ import {
   fakeApi,
   testEnvironment,
 } from "./services.fixtures.ts";
+import { turn } from "./sync.fixtures.ts";
 
 withDom();
 
@@ -79,7 +83,7 @@ const ROOM: WorkspaceRef = {
 const STUDIOS: WorkspaceRef = {
   id: "heavy",
   name: "Lanternfield Studios",
-  seeding: { done: 12, total: 40 },
+  seeding: { done: 12, total: 40, failed: false },
 };
 
 const LONG_NIGHT: ProjectItem = {
@@ -134,6 +138,7 @@ function seededIndex(seed: {
     finish: () => finish?.(),
     continueList: (id) => continueLists.get(id) ?? none,
     projects: (id) => projects.get(id) ?? none,
+    readProjects: async (id) => projects.get(id)?.get() ?? [],
     loadState: () => loadState,
     createProject(id, kind) {
       created.push([id, kind]);
@@ -141,6 +146,7 @@ function seededIndex(seed: {
         finish = () => resolve({ projectId: "new", docId: NEW_DOC });
       });
     },
+    importProject: () => new Promise<CreateResult>(() => {}),
     documentTitle: () => createValue(null),
     documentKind: () => createValue(null),
     renameDocument: () => {},
@@ -169,19 +175,22 @@ async function renderLibrary(options: {
   api?: Api;
   path?: string;
   demo?: boolean;
-  storage?: MemoryStorage;
+  /** The browser's store of each person, kept from one drawing to the next; a store of its own unless given. */
+  stores?: { store(userId: string): LocalStore };
   client?: QueryClient;
-}): Promise<{ router: AnyRouter }> {
+}): Promise<{ router: AnyRouter; services: PersonServices }> {
   const { person } = options;
   const api = options.api ?? fakeApi();
-  const storage = options.storage ?? new MemoryStorage();
   const clock = createClock(NOW);
-  const environment = testEnvironment({
-    dom: createShellDom(document),
-    now: clock.now,
-    schedule: clock.schedule,
-    storage,
-  });
+  const environment = testEnvironment(
+    {
+      dom: createShellDom(document),
+      now: clock.now,
+      schedule: clock.schedule,
+      storage: new MemoryStorage(),
+    },
+    options.stores,
+  );
   bindGuard(environment.guard);
   let router: AnyRouter | null = null;
   const navigation: Navigation = {
@@ -252,7 +261,7 @@ async function renderLibrary(options: {
   );
   // the server's answer about the person's workspaces
   await act(async () => {});
-  return { router };
+  return { router, services };
 }
 
 const region = (name: string): HTMLElement => {
@@ -302,10 +311,14 @@ test("an empty workspace teaches by doing", async () => {
   await renderLibrary({ person: YOU, library: seededIndex({}) });
   const projects = region("Projects");
   expect(projects.textContent).toContain("No scripts yet");
-  expect(buttonNames(projects)).toEqual(["New script", "New project"]);
+  expect(buttonNames(projects)).toEqual([
+    "Import…",
+    "New script",
+    "New project",
+  ]);
   expect(
     buttonNames(document).filter((name) => name.includes("Import")),
-  ).toEqual([]);
+  ).toEqual(["Import…", "Import…"]);
   const heading = document.querySelector("h1");
   expect([heading?.textContent, document.activeElement]).toEqual([
     "Library",
@@ -365,7 +378,7 @@ test("the switcher lists the person's workspaces and says which is getting ready
   expect(
     items.map((item) => [rowWords(item), item.getAttribute("aria-current")]),
   ).toEqual([
-    [["✓", "Writers' room", "2 projects · The Long Night"], "true"],
+    [["Writers' room", "2 projects · The Long Night"], "true"],
     [["Lanternfield Studios", "getting ready, 12 of 40 projects"], null],
   ]);
   await act(async () => items[1]?.click());
@@ -387,7 +400,7 @@ test("a person with no session has one workspace, on this device only, and can s
   expect(switcherButton().textContent).toContain("Your desk");
   const items = await openMenu(switcherButton());
   expect(items.map(rowWords)).toEqual([
-    ["✓", "Your desk", "Only in this browser"],
+    ["Your desk", "Only in this browser"],
     ["Sign in to sync"],
   ]);
   await act(async () => items[1]?.click());
@@ -531,7 +544,7 @@ test("when the server cannot be reached, the Library keeps the workspaces it las
   ]).toEqual([
     0,
     LIBRARY_PROBLEM,
-    "Writers' room▾",
+    "Writers' room",
     [["The Long Night", "Film", "Priya, 14 min ago", "Synced"]],
   ]);
 });
@@ -543,31 +556,33 @@ function SideTabProbe(props: { seen: (tab: string | null) => void }) {
 }
 
 test("in demo mode the Tour opens the first time a person reaches the Library, and only then", async () => {
-  const storage = new MemoryStorage();
-  await renderLibrary({
-    person: YOU,
-    library: seededIndex({}),
-    demo: true,
-    storage,
-  });
+  const stores = createFaultyStoreSpace();
+  const draw = () =>
+    renderLibrary({
+      person: YOU,
+      library: seededIndex({}),
+      demo: true,
+      stores,
+    });
   let tab: string | null = null;
   const probe = document.createElement("div");
   const probeRoot = createRoot(probe);
-  act(() => probeRoot.render(<SideTabProbe seen={(t) => (tab = t)} />));
-  expect([tab, storage.getItem("manent.flags.you")]).toEqual([
-    "tour",
-    '{"tour_seen":true}',
-  ]);
+  /** The side panel's tab once the person's flags have been read and looked at. */
+  const tabOnceRead = async (services: PersonServices) => {
+    await act(async () => {
+      await services.ready;
+      await turn();
+    });
+    act(() => probeRoot.render(<SideTabProbe seen={(t) => (tab = t)} />));
+    return tab;
+  };
+  const first = await tabOnceRead((await draw()).services);
   act(() => panelsActions.close("side"));
   act(() => mounted?.unmount());
-  await renderLibrary({
-    person: YOU,
-    library: seededIndex({}),
-    demo: true,
-    storage,
-  });
-  act(() => probeRoot.render(<SideTabProbe seen={(t) => (tab = t)} />));
-  expect(tab).toBeNull();
+  const second = await tabOnceRead((await draw()).services);
+  // a Tour that lists no scenario is not opened on its own
+  const opened = TOUR.scenarios.some(isShown) ? "tour" : null;
+  expect([first, second]).toEqual([opened, null]);
   act(() => probeRoot.unmount());
 });
 

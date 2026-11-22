@@ -4,7 +4,7 @@ import type { WorkspaceRef } from "@manent/sync-protocol";
 /** The demo's Connection control of this tab. */
 export type ConnectionMode = "online" | "offline" | "slow";
 
-const CONNECTION_MODES: readonly ConnectionMode[] = Object.freeze([
+export const CONNECTION_MODES: readonly ConnectionMode[] = Object.freeze([
   "online",
   "offline",
   "slow",
@@ -32,16 +32,22 @@ export interface DeviceMemory {
   /** This tab's alone. */
   connection(): ConnectionMode | null;
   setConnection(mode: ConnectionMode): void;
-  /** The person's two preference maps kept before sync held them, removed as they are read. */
+  /**
+   * The person's two preference maps kept outside their private index, removed as they are read: those of the build
+   * before sync held them, and what a page wrote before its private index opened.
+   */
   takeLegacyMaps(userId: string): {
     prefs: Readonly<Record<string, unknown>> | null;
     keys: Readonly<Record<string, unknown>> | null;
   };
+  /** Adds each entry of `maps` to the two maps `takeLegacyMaps` hands over, in place of one under its key. */
+  keepLegacyMaps(userId: string, maps: { prefs: Fields; keys: Fields }): void;
 }
 
 type Fields = Readonly<Record<string, unknown>>;
 
-const isFields = (value: unknown): value is Fields =>
+/** A JSON object, read from storage or a map. */
+export const isFields = (value: unknown): value is Fields =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** The JSON value of `raw`; null when there is none or it is not JSON. */
@@ -85,7 +91,7 @@ function readWorkspaces(value: unknown): readonly WorkspaceRef[] | null {
   return Array.isArray(value) && value.every(isWorkspaceRef) ? value : null;
 }
 
-const isConnectionMode = (value: unknown): value is ConnectionMode =>
+export const isConnectionMode = (value: unknown): value is ConnectionMode =>
   CONNECTION_MODES.some((mode) => mode === value);
 
 /** One storage, read and written so that a refusal is never thrown. */
@@ -120,10 +126,18 @@ export function createDeviceMemory(stores: {
 }): DeviceMemory {
   const local = kept(stores.local);
   const session = kept(stores.session);
-  const take = (key: string): Fields | null => {
+  const read = (key: string): Fields | null => {
     const value = parseJson(local.get(key));
-    local.set(key, null);
     return isFields(value) ? value : null;
+  };
+  const take = (key: string): Fields | null => {
+    const value = read(key);
+    local.set(key, null);
+    return value;
+  };
+  const keep = (key: string, entries: Fields): void => {
+    if (Object.keys(entries).length === 0) return;
+    local.set(key, JSON.stringify({ ...read(key), ...entries }));
   };
   return {
     offlineSince(userId) {
@@ -160,6 +174,10 @@ export function createDeviceMemory(stores: {
       prefs: take(`manent.prefs.${userId}`),
       keys: take(`manent.keys.${userId}`),
     }),
+    keepLegacyMaps(userId, maps) {
+      keep(`manent.prefs.${userId}`, maps.prefs);
+      keep(`manent.keys.${userId}`, maps.keys);
+    },
   };
 }
 

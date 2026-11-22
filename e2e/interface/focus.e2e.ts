@@ -15,8 +15,8 @@ import {
   pressKeyOf,
   runs,
 } from "../support/interface.ts";
-import { openMadeScript } from "../support/made-script.ts";
-import { signedInAs } from "../support/tour.ts";
+import { makeScript } from "../support/made-script.ts";
+import { closeFirstTour, signedInAs } from "../support/tour.ts";
 
 const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
 const DOC = `/s/${DOC_ID}`;
@@ -25,6 +25,7 @@ const POPUP = "[role='dialog'][data-open]";
 const PALETTE = "div:has(> [role='combobox'][aria-label='Commands'])";
 const RENAME = "[data-region='title_bar'] input[aria-label='Rename']";
 const SEND = `section[aria-label='${SEND_WORDS.pagesRegion}']`;
+const CONSEQUENCE = "[role='alertdialog']";
 const WAYS = ["key", "palette", "control"] as const;
 
 /**
@@ -71,6 +72,13 @@ const PLACES: Partial<Record<SurfaceId, Place>> = {
     name: null,
   },
   send: { at: DOC, drawn: SEND, first: SEND, close: null, name: null },
+  consequence_dialog: {
+    at: DOC,
+    drawn: CONSEQUENCE,
+    first: CONSEQUENCE,
+    close: null,
+    name: null,
+  },
 };
 
 // the openers drawn as a control on the page their surface is used from; every other opener has none there
@@ -118,9 +126,19 @@ const placeOf = (id: SurfaceId): Place => {
  * its editor to be drawn, so the page reads the same before and after a surface is used.
  */
 async function arrive(page: Page, at: string): Promise<void> {
-  if (at === DOC) await openMadeScript(page, "you", DOC_ID);
-  else await signedInAs(page, "you", at);
-  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+  await signedInAs(page, "you", at === DOC ? "/" : at);
+  if (at === DOC) {
+    // the Tour that You's first launch opens is the demo's; the script is opened without it
+    await closeFirstTour(page);
+    await makeScript(page, DOC_ID);
+    await page.goto(DOC);
+  }
+  // a script's page takes focus at the caret, any other screen its heading
+  await expect(
+    at === DOC
+      ? page.locator("[data-region='page'] .mn-page-view")
+      : page.getByRole("heading", { level: 1 }),
+  ).toBeFocused();
   if (at === DOC)
     await expect(
       page.locator("[data-region='page'] .mn-page-view"),
@@ -212,12 +230,16 @@ async function expectOpenFocus(
     case "cancel":
       await expect.poll(described).toMatch(/ button "Cancel"$/);
       return;
+    case "caret":
+      await expect.poll(() => regionOfFocus(page)).toBe("page");
+      return;
     default:
       intent satisfies never;
   }
 }
 
-for (const entry of SURFACES)
+// the file picker is the system's own, drawn by no page
+for (const entry of SURFACES.filter((s) => s.id !== "file_picker"))
   for (const opener of entry.openedBy)
     for (const by of WAYS) {
       test(`${entry.id} opened by ${opener} through ${by} puts focus where the catalogue says, and gives it back`, async ({

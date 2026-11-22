@@ -6,30 +6,40 @@ import type {
   Resolved,
   ScreenId,
 } from "@manent/commands";
+import type { PageViewPorts } from "@manent/editor";
+import type { ImportRecord, ImportedScript } from "@manent/formats";
 import type {
   Bag,
   KeyValueMap,
   SectionId,
   SettingsStore,
 } from "@manent/settings";
-import type { SyncClient } from "@manent/sync-client";
+import type { DocHandle, SyncClient } from "@manent/sync-client";
+import type { UpdateState } from "@manent/sync-protocol";
 import type {
+  ConsequenceDialogProps,
   MessageQueue,
   NEW_PROJECT_CARDS,
   StateFact,
   StatusFacts,
   Subscribable,
 } from "@manent/ui";
+import type { Api } from "../api.ts";
+import type { ConnectionControl } from "../demo/connection-transport.ts";
+import type { DesktopHost } from "../desktop/host.ts";
 import type { EditorControl } from "../editor-host/control.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
 import type { PlaceStore } from "../editor-host/place.ts";
+import type { HistorySource } from "../history/source.ts";
 import type { Where } from "../platform.ts";
 import type { TabPerson, TabStorage } from "../session.ts";
 import type { ShellDom } from "../shell/regions.tsx";
 import type { Guard } from "../state/guard.ts";
 import type { PersonPresent } from "../state/people.store.ts";
 import type { StorageEvents } from "./local-map.ts";
+import type { CloseGuard } from "./sync/close-guard.ts";
 import type { PersonSync } from "./sync/create-sync.ts";
+import type { PersonReview } from "./sync/later-index.ts";
 
 /** The kinds New project offers, in its order. */
 export type ProjectKind = (typeof NEW_PROJECT_CARDS)[number]["kind"];
@@ -66,11 +76,25 @@ export interface CreateResult {
   docId: string;
 }
 
+/** A file read for the Library: its script's title, what it holds, and the record kept with it. */
+export interface ImportedProject {
+  title: string;
+  script: ImportedScript;
+  record: ImportRecord;
+}
+
 export interface LibraryIndex {
   continueList(workspaceId: string): Subscribable<readonly ContinueItem[]>;
   projects(workspaceId: string): Subscribable<readonly ProjectItem[]>;
+  /** The projects once the workspace's index has been read from the device. */
+  readProjects(workspaceId: string): Promise<readonly ProjectItem[]>;
   loadState(workspaceId: string): Subscribable<"cached" | "problem">;
   createProject(workspaceId: string, kind: ProjectKind): Promise<CreateResult>;
+  /** A film project and its script, both titled `imported.title`, made on the device like `createProject`; rejects when the workspace's index is missing or its write throws. */
+  importProject(
+    workspaceId: string,
+    imported: ImportedProject,
+  ): Promise<CreateResult>;
   /** Null for a document the index does not hold. */
   documentTitle(docId: string): Subscribable<string | null>;
   documentKind(docId: string): Subscribable<ProjectKind | null>;
@@ -92,7 +116,7 @@ export interface DocumentSource {
   close(docId: string): void;
 }
 
-/** One-way facts about a person, kept on this device. */
+/** One-way facts about a person, in their private index: none is known until `PersonServices.ready` has settled. */
 export interface Flags {
   has(flag: "tour_seen"): boolean;
   set(flag: "tour_seen"): void;
@@ -119,12 +143,18 @@ export interface PersonServices {
   resolved: Subscribable<Resolved>;
   library: LibraryIndex;
   documents: DocumentSource;
+  /** What the person has to review in each script, and its choices. */
+  review: PersonReview;
   /** The store of one open document, with its script settings; the same store until the document is closed. */
   openScriptStore(docId: string): SettingsStore;
   messages: MessageQueue;
   flags: Flags;
   /** The person's custom shortcuts, one entry per command and device. */
   keys: KeyValueMap;
+  /** The private index's Tour progress, one entry per scenario done. */
+  tour: KeyValueMap;
+  /** This tab's requests to the server, with the tab's session. */
+  api: Api;
   lastPane: { get(): SectionId; set(pane: SectionId): void };
   /** Where the person left each script, and their panels and Ruler, on this device. */
   place: PlaceStore;
@@ -137,6 +167,21 @@ export interface PersonServices {
   editor: EditorControl;
   /** Draws this person's editor of a document into the page. */
   mount: EditorMount;
+  /** The versions of each script, their content, and naming, saving and restoring them. */
+  history: HistorySource;
+  /** The person's handle of a script over their sync; rejects when their sync could not start. */
+  openHandle(docId: string): Promise<DocHandle>;
+  /** The ports of every page this person's editor and version view draw. */
+  pagePorts: PageViewPorts;
+  /** Settles once the person's preferences, keys and flags have been read from the device, or their sync could not start. */
+  ready: Promise<void>;
+  /** Leaving a document this device cannot save asks `question`, which the screen draws while it is not null. */
+  closing: {
+    guard: CloseGuard;
+    question: Subscribable<ConsequenceDialogProps | null>;
+  };
+  /** The demo's Connection of this tab, once the person's sync has started; rejects when it cannot start. */
+  connection: Promise<ConnectionControl>;
   dispose(): void;
 }
 
@@ -177,6 +222,12 @@ export const INITIAL_SHELL_STATE: ShellState = Object.freeze({
 /** The world this tab runs in, made once by the composition root and shared by every person's services. */
 export interface Environment {
   where: Where;
+  /** The desktop app's shell and node; null on the web. */
+  desktop: DesktopHost | null;
+  /** The desktop app's last word on updates in this window, or the check just asked for; null until then, and on the web. */
+  updateState: Subscribable<UpdateState | null> & {
+    set(state: UpdateState | null): void;
+  };
   /** The language the browser asks for ("en-GB"). */
   language: string;
   /** The browser's user agent, which the editor's pages read the browser's engine from. */
@@ -207,4 +258,8 @@ export interface Environment {
   visitUndo: { current: { undo(): boolean } | null };
   /** Starts the person's sync on this device; the services dispose it. */
   startSync(person: TabPerson, deviceId: string): Promise<PersonSync>;
+  /** The services of the person this window draws, set as they are built and disposed; null while it draws nobody. */
+  personServices: Subscribable<PersonServices | null> & {
+    set(services: PersonServices | null): void;
+  };
 }

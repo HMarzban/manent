@@ -23,7 +23,6 @@ import {
   useServices,
 } from "../../services/context.tsx";
 import { createLocalDocumentSource } from "../../services/local-document-source.ts";
-import { createMemoryLibrary } from "../../services/memory-library.ts";
 import type {
   DocumentServices,
   DocumentSource,
@@ -46,8 +45,9 @@ import { SIDE_PANEL_TABS } from "../document/side-tabs.ts";
 import { SyncCentre } from "../document/sync-centre.tsx";
 import { LibraryScreen } from "../library/library-screen.tsx";
 import { Pane } from "../preferences/pane.tsx";
-import { SendPlaceContext } from "../send/send-frame.tsx";
+import { SendLayout } from "../send/send-frame.tsx";
 import { testSendForm } from "../send/test-form.tsx";
+import { createFixtureLibrary } from "./fixture-library.ts";
 
 type StateKind = SurfaceStateValue["kind"];
 type Waiting = readonly { scene: string; count: number }[];
@@ -84,6 +84,10 @@ const fixtureApi = (options: {
   signIn: NEVER,
   demo: async () => null,
   removedDoc: async () => null,
+  docClients: async () => ({ clients: [] }),
+  prepareTour: NEVER,
+  writers: NEVER,
+  rebuild: NEVER,
 });
 
 interface Row {
@@ -120,7 +124,7 @@ const row = (
 function FixtureSection(props: { row: Row }): ReactNode {
   const { surface, state, draw, facts, waiting, projects } = props.row;
   const services = useServices();
-  const { now, where, randomId, language } = useEnvironment();
+  const { now, where, randomId } = useEnvironment();
   const [fixture] = useState(() => {
     const local = createLocalDocumentSource({ now, shell: where.shell }).open(
       DOC_ID,
@@ -131,14 +135,7 @@ function FixtureSection(props: { row: Row }): ReactNode {
       waitingByScene: createValue(waiting),
     };
     const documents: DocumentSource = { open: () => doc, close: noop };
-    // the fixture's scripts are its one document
-    const library = createMemoryLibrary({
-      ids: randomId,
-      createScript: () => Promise.resolve(),
-      language,
-    });
-    for (let n = 0; n < projects; n++)
-      void library.createProject(SIGNED_OUT.userId, "film");
+    const library = createFixtureLibrary({ count: projects, ids: randomId });
     const queries = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -181,7 +178,7 @@ const frame = (): ReactNode => <DocumentFrame docId={DOC_ID} />;
 // the Sync centre draws in its popover; closed, the popover's root still names its title
 const syncCentre = (doc: DocumentServices): ReactNode => (
   <Popover>
-    <div className="flex flex-col gap-2 p-2.5 text-ui">
+    <div className="flex flex-col gap-2 p-4 text-ui">
       <SyncCentre doc={doc} />
     </div>
   </Popover>
@@ -195,9 +192,9 @@ const pane = (persisted: boolean) => (): ReactNode => (
   />
 );
 const send = (): ReactNode => (
-  <SendPlaceContext value={{ name: LIBRARY_WORDS.title, back: noop }}>
+  <SendLayout place={{ name: LIBRARY_WORDS.title, back: noop }} side={null}>
     <testSendForm.Body docId={DOC_ID} />
-  </SendPlaceContext>
+  </SendLayout>
 );
 const sidePanel = (): ReactNode => <SidePanel docId={DOC_ID} overlay={false} />;
 const outlined = (outline: OutlineSelectors) => (): ReactNode => (
@@ -216,8 +213,11 @@ const outlineOf = (
 const SCENES: readonly OutlineRow[] = DEMO_WORKSPACES.map(
   (workspace, index) => ({
     blockId: workspace.id,
+    kind: "scene",
     number: String(index + 1),
     heading: workspace.name.toUpperCase(),
+    synopsis: "",
+    eighths: null,
     omitted: false,
     current: index === 0,
   }),

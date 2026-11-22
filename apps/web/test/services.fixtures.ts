@@ -1,11 +1,13 @@
 // Stand-ins for the world a person's services run in: storage, its events, a clock, the server, the router and the window.
+import { jsonMap } from "@manent/crdt";
 import { soloLeader } from "@manent/sync-client";
-import type { Random } from "@manent/sync-client";
+import type { LocalStore, Random } from "@manent/sync-client";
 import {
   createMemoryNetwork,
   createMemoryStore,
 } from "@manent/sync-client/testing";
-import type { VersionSet } from "@manent/sync-protocol";
+import { indexDocId, workspaceHome } from "@manent/sync-protocol";
+import type { UpdateState, VersionSet } from "@manent/sync-protocol";
 import { createValue } from "@manent/ui";
 import type { Api } from "../src/api.ts";
 import { placeholderMount } from "../src/editor-host/placeholder-mount.ts";
@@ -18,6 +20,7 @@ import type {
 } from "../src/services/ports.ts";
 import { createPersonServices } from "../src/services/services.ts";
 import { createPersonSync } from "../src/services/sync/create-sync.ts";
+import type { PersonSync } from "../src/services/sync/create-sync.ts";
 import { createDeviceMemory } from "../src/services/sync/device-memory.ts";
 import type { StorageEvents } from "../src/services/local-map.ts";
 import type { ShellDom } from "../src/shell/regions.tsx";
@@ -124,6 +127,15 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
     me: async () => ({ ok: false, reason: "unauthenticated" }),
     demo: async () => null,
     removedDoc: async () => null,
+    docClients: async () => ({ clients: [] }),
+    prepareTour: async () => ({ ok: false, reason: "unknown" }),
+    writers: async (request) => ({
+      asked: request.count,
+      count: 0,
+      names: [],
+      endsAt: null,
+    }),
+    rebuild: async () => {},
     ...overrides,
   };
 }
@@ -183,10 +195,17 @@ export function fixedRandom(): Random {
   };
 }
 
+/**
+ * `overrides` over a test tab's environment, whose sync keeps each person's documents in `stores`: a store of its own
+ * per sync unless given, as a browser that keeps nothing between loads.
+ */
 export function testEnvironment(
   overrides: Partial<Environment> = {},
+  stores: { store(userId: string): LocalStore } = { store: createMemoryStore },
 ): Environment {
   const clock = createClock();
+  const storage =
+    overrides.storage === undefined ? new MemoryStorage() : overrides.storage;
   let ids = 0;
   return {
     where: {
@@ -195,12 +214,14 @@ export function testEnvironment(
       browser: "Chrome",
       system: "macOS",
     },
+    desktop: null,
+    updateState: createValue<UpdateState | null>(null),
     language: "en-US",
     userAgent: "test",
     now: clock.now,
     schedule: clock.schedule,
     frame: (fn) => clock.schedule(fn, 16),
-    storage: new MemoryStorage(),
+    storage,
     storageEvents: createStorageEvents().events,
     tabStorage: null,
     randomId: () => `id-${++ids}`,
@@ -227,17 +248,19 @@ export function testEnvironment(
           transport: createMemoryNetwork({ random: () => 0 }).transport(
             person.userId,
           ),
-          store: createMemoryStore(person.userId),
+          store: stores.store(person.userId),
           leader: soloLeader(deviceId),
           clock: { now: clock.now, schedule: clock.schedule },
           random: fixedRandom(),
           frames: { request: (fn) => clock.schedule(fn, 16) },
         },
-        memory: createDeviceMemory({ local: null, session: null }),
+        // sync keeps its own values in the tab's storage, as a browser's localStorage
+        memory: createDeviceMemory({ local: storage, session: null }),
         onlineEvents: null,
         visible: () => true,
         now: clock.now,
       }),
+    personServices: createValue<PersonServices | null>(null),
     ...overrides,
   };
 }
@@ -260,4 +283,54 @@ export function testServices(options: {
       options.router ??
       createNavigation({ routeId: "/", href: "/", search: {} }).navigation,
   });
+}
+
+/** `environment`, keeping each person's sync it starts in `started`, oldest first. */
+export function keepingSyncs(environment: Environment): {
+  environment: Environment;
+  started: Promise<PersonSync>[];
+} {
+  const started: Promise<PersonSync>[] = [];
+  return {
+    environment: {
+      ...environment,
+      startSync(person, deviceId) {
+        const sync = environment.startSync(person, deviceId);
+        started.push(sync);
+        return sync;
+      },
+    },
+    started,
+  };
+}
+
+/** Lists `docId` under `title` in a film project of its own in the index of `workspaceId`, as another device would have. */
+export async function listDocument(
+  sync: PersonSync,
+  entry: { workspaceId: string; docId: string; title: string },
+): Promise<void> {
+  const { workspaceId, docId, title } = entry;
+  const handle = await sync.client.open(indexDocId("workspace", workspaceId), {
+    create: {
+      kind: "index",
+      home: workspaceHome(workspaceId),
+      workspaceId: null,
+    },
+  });
+  const projectId = `project-${docId}`;
+  jsonMap(handle.doc(), "projects").set(projectId, {
+    title,
+    kind: "film",
+    createdAt: 0,
+    createdByUserId: "seed",
+  });
+  jsonMap(handle.doc(), "documents").set(docId, {
+    projectId,
+    title,
+    kind: "script",
+    createdAt: 0,
+    editedAt: null,
+    editedByUserId: null,
+  });
+  await handle.close();
 }

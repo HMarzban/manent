@@ -1,8 +1,9 @@
-// The demo bar: a colour scope of its own above everything, with the person, the server and the Tour.
+// The demo bar: a colour scope of its own above everything, with the controls that prove the product's claims.
 import { DEMO_WORDS, SurfaceBoundary } from "@manent/ui";
 import { Suspense } from "react";
 import type { ReactNode } from "react";
 import { loadApart } from "../load-apart.ts";
+import type { TabPerson } from "../session.ts";
 import type { DemoControl } from "./use-demo.ts";
 // the Tour's ring is drawn by a sheet in the entry: a sheet imported only by a chunk loaded later is never linked to the page
 import "./tour-ring.css";
@@ -14,11 +15,16 @@ const controls = loadApart(
 );
 const DemoBarControls = controls.Component;
 /** Starts loading the controls' code. */
-export const preloadDemoBarControls = controls.preload;
+export function preloadDemoBarControls(): void {
+  controls.preload();
+}
 
-/** Never takes focus; F6 reaches it. */
+/**
+ * Never takes focus; F6 reaches it. One row while its controls fit: short of room they keep only their icons, and in
+ * the narrowest bar they take a second row rather than widen the window.
+ */
 export function DemoBar(props: {
-  personLabel: string;
+  person: TabPerson | null;
   onPersonClick: () => void;
   control: DemoControl | null;
 }): ReactNode {
@@ -26,9 +32,9 @@ export function DemoBar(props: {
     <section
       data-surface="demo"
       aria-label={DEMO_WORDS.demo}
-      className="flex h-demobar items-center gap-2 bg-chrome px-3 text-meta text-fg"
+      className="mn-bar flex min-h-demobar items-center gap-2 border-b border-line-strong bg-chrome px-3 text-meta text-fg sm:gap-3"
     >
-      <span className="font-semibold tracking-wide uppercase">
+      <span className="mn-tag shrink-0" data-fill>
         {DEMO_WORDS.demo}
       </span>
       {/* controls whose code cannot load leave the bar, and the tab, as they are */}

@@ -1,5 +1,6 @@
 // The Script settings of this release, shared by everyone on a script and guarded once page numbers are locked.
 import { setting } from "../define.ts";
+import type { SettingValue } from "../store.ts";
 import { t } from "../types.ts";
 
 export const SCRIPT_SETTINGS = Object.freeze([
@@ -101,6 +102,55 @@ export const SCRIPT_SETTINGS = Object.freeze([
     guard: "layout",
     keywords: [],
   }),
+  setting({
+    key: "script.numbering",
+    scope: "script",
+    type: t.choice([
+      { value: "suffix", label: "12A" },
+      { value: "prefix", label: "A12" },
+    ]),
+    default: "suffix" as const,
+    label: "Numbering scheme",
+    description: null,
+    noun: "numbering scheme",
+    surfaces: [
+      { in: "scriptSettings", group: "scene_numbers", order: 10 },
+      { in: "palette" },
+    ],
+    apply: { how: "editor", effect: "layout" },
+    boot: false,
+    guard: "layout",
+    keywords: [],
+  }),
+  setting({
+    key: "script.colourOrder",
+    scope: "script",
+    // the revision colours' names, written out because this package imports nothing
+    type: t.choice([
+      {
+        value: "standard",
+        label:
+          "White → Blue → Pink → Yellow → Green → Goldenrod → Buff → Salmon → Cherry",
+      },
+      {
+        value: "extended",
+        label:
+          "White → Blue → Pink → Yellow → Green → Goldenrod → Buff → Salmon → Cherry → Tan",
+      },
+    ]),
+    default: "standard" as const,
+    label: "Colour order",
+    description: null,
+    noun: "colour order",
+    surfaces: [
+      { in: "scriptSettings", group: "revisions", order: 10 },
+      { in: "palette" },
+    ],
+    apply: { how: "editor", effect: "layout" },
+    boot: false,
+    guard: "layout",
+    keywords: [],
+  }),
 ] as const);
 
 const LETTER_REGIONS: ReadonlySet<string> = new Set([
@@ -126,4 +176,12 @@ const REGION =
 export function paperForRegion(language: string): "letter" | "a4" {
   const region = REGION.exec(language)?.[1]?.toUpperCase();
   return region !== undefined && LETTER_REGIONS.has(region) ? "letter" : "a4";
+}
+
+/** Whether a script setting does something in `format`: a script without pages (Ink) has its format and nothing else. */
+export function appliesToFormat(
+  key: string,
+  format: SettingValue<"script.format">,
+): boolean {
+  return format !== "ink" || key === "script.format";
 }

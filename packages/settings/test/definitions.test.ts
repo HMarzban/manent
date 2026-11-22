@@ -90,6 +90,8 @@ test("each setting keeps its label, its default and whether it applies before th
     ["script.moresAtBreaks", "(MORE) and (CONT'D) at page breaks", true, false],
     ["script.sameSpeakerContd", "Same-speaker (CONT'D)", true, false],
     ["script.sceneContinued", "Scene CONTINUED", false, false],
+    ["script.numbering", "Numbering scheme", "suffix", false],
+    ["script.colourOrder", "Colour order", "standard", false],
   ]);
   expect(SETTINGS.get("writing.announce").type.choices).toEqual([
     { value: "elements", label: "Element changes" },
@@ -147,7 +149,13 @@ test("each setting's help, values, places and effect are fixed", () => {
       noun: null,
       surfaces: [
         { in: "preferences", section: "writing", order: 20 },
-        { in: "menu", menu: "view", group: "writing", order: 10 },
+        {
+          in: "menu",
+          menu: "view",
+          group: "writing",
+          order: 10,
+          under: null,
+        },
         palette,
       ],
       apply: { how: "editor", effect: "behaviour" },
@@ -163,7 +171,13 @@ test("each setting's help, values, places and effect are fixed", () => {
       noun: null,
       surfaces: [
         { in: "preferences", section: "writing", order: 30 },
-        { in: "menu", menu: "edit", group: "spelling", order: 10 },
+        {
+          in: "menu",
+          menu: "edit",
+          group: "spelling",
+          order: 10,
+          under: null,
+        },
         palette,
       ],
       apply: { how: "editor", effect: "decorations" },
@@ -179,7 +193,7 @@ test("each setting's help, values, places and effect are fixed", () => {
       noun: null,
       surfaces: [
         { in: "preferences", section: "writing", order: 40 },
-        { in: "menu", menu: "view", group: "people", order: 10 },
+        { in: "menu", menu: "view", group: "people", order: 10, under: null },
         palette,
       ],
       apply: {
@@ -207,7 +221,7 @@ test("each setting's help, values, places and effect are fixed", () => {
       surfaces: [{ in: "preferences", section: "writing", order: 50 }, palette],
       apply: { how: "read" },
       guard: null,
-      keywords: [],
+      keywords: ["accessibility"],
     },
     {
       key: "appearance.theme",
@@ -221,7 +235,13 @@ test("each setting's help, values, places and effect are fixed", () => {
       noun: null,
       surfaces: [
         { in: "preferences", section: "appearance", order: 10 },
-        { in: "menu", menu: "view", group: "theme", order: 10 },
+        {
+          in: "menu",
+          menu: "view",
+          group: "theme",
+          order: 10,
+          under: null,
+        },
         palette,
       ],
       apply: {
@@ -240,7 +260,13 @@ test("each setting's help, values, places and effect are fixed", () => {
       noun: null,
       surfaces: [
         { in: "preferences", section: "appearance", order: 20 },
-        { in: "menu", menu: "view", group: "theme", order: 20 },
+        {
+          in: "menu",
+          menu: "view",
+          group: "theme",
+          order: 20,
+          under: "appearance.theme",
+        },
         palette,
       ],
       apply: {
@@ -265,7 +291,13 @@ test("each setting's help, values, places and effect are fixed", () => {
       noun: null,
       surfaces: [
         { in: "preferences", section: "device", order: 10 },
-        { in: "menu", menu: "view", group: "size", order: 10 },
+        {
+          in: "menu",
+          menu: "view",
+          group: "size",
+          order: 10,
+          under: null,
+        },
         palette,
       ],
       apply: {
@@ -345,6 +377,48 @@ test("each setting's help, values, places and effect are fixed", () => {
       description: null,
       noun: "scene CONTINUED",
       surfaces: [{ in: "scriptSettings", group: "mores", order: 30 }, palette],
+      apply: { how: "editor", effect: "layout" },
+      guard: "layout",
+      keywords: [],
+    },
+    {
+      key: "script.numbering",
+      scope: "script",
+      choices: [
+        { value: "suffix", label: "12A" },
+        { value: "prefix", label: "A12" },
+      ],
+      description: null,
+      noun: "numbering scheme",
+      surfaces: [
+        { in: "scriptSettings", group: "scene_numbers", order: 10 },
+        palette,
+      ],
+      apply: { how: "editor", effect: "layout" },
+      guard: "layout",
+      keywords: [],
+    },
+    {
+      key: "script.colourOrder",
+      scope: "script",
+      choices: [
+        {
+          value: "standard",
+          label:
+            "White → Blue → Pink → Yellow → Green → Goldenrod → Buff → Salmon → Cherry",
+        },
+        {
+          value: "extended",
+          label:
+            "White → Blue → Pink → Yellow → Green → Goldenrod → Buff → Salmon → Cherry → Tan",
+        },
+      ],
+      description: null,
+      noun: "colour order",
+      surfaces: [
+        { in: "scriptSettings", group: "revisions", order: 10 },
+        palette,
+      ],
       apply: { how: "editor", effect: "layout" },
       guard: "layout",
       keywords: [],
@@ -440,12 +514,12 @@ test("a search never ends in nothing: one signpost and an answer for each defaul
       null,
     ],
     [
-      ["reduce motion", "motion", "animation"],
+      ["reduce motion", "motion", "animation", "accessibility"],
       "Nothing to set. Manent follows your system: turn on reduced motion there.",
       null,
     ],
     [
-      ["contrast", "high contrast"],
+      ["contrast", "high contrast", "accessibility"],
       "Nothing to set. Manent follows your system: turn on more contrast there.",
       null,
     ],
@@ -488,6 +562,8 @@ test("script settings carry the nouns their messages use", () => {
     ["script.moresAtBreaks", "(MORE) and (CONT'D) at page breaks"],
     ["script.sameSpeakerContd", "same-speaker (CONT'D)"],
     ["script.sceneContinued", "scene CONTINUED"],
+    ["script.numbering", "numbering scheme"],
+    ["script.colourOrder", "colour order"],
   ]);
 });
 

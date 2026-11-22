@@ -6,11 +6,13 @@ import { markEnd, markStart, mark } from "@manent/perf";
 import { MENU_IDS } from "@manent/settings";
 import type { MenuId } from "@manent/settings";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { SearchIcon } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import { useCommands } from "../commands-react/commands-context.tsx";
 import { Kbd } from "../components/stock/kbd.tsx";
-import { MENU_WORDS, READOUT_WORDS } from "../words/document.ts";
+import { READOUT_WORDS } from "../words/document.ts";
+import { MENU_LABELS } from "./menu-labels.ts";
 import { matchedRuns, rankRows } from "./palette-rank.ts";
 import type { PaletteRow, PaletteSource } from "./palette-sources.ts";
 
@@ -41,21 +43,6 @@ const keyOf = (entry: Entry): string =>
 
 const textOf = (entry: Entry): string =>
   entry.type === "menu" ? entry.label : entry.row.label;
-
-// the title and person menus are named by the document's title and the person's initials, so the palette has no word for them
-const MENU_LABELS: Readonly<Record<MenuId, string | null>> = {
-  app: MENU_WORDS.app,
-  file: MENU_WORDS.file,
-  edit: MENU_WORDS.edit,
-  view: MENU_WORDS.view,
-  format: MENU_WORDS.format,
-  script: MENU_WORDS.script,
-  production: MENU_WORDS.production,
-  window: MENU_WORDS.window,
-  help: MENU_WORDS.help,
-  title: null,
-  person: null,
-};
 
 /** The menus that hold a command available now, each under its menu word. */
 function menuEntries(service: CommandService): Entry[] {
@@ -183,7 +170,7 @@ function EntryList(props: {
   const { entries, query, activate } = props;
   const scroller = useRef<HTMLDivElement>(null);
   return (
-    <Autocomplete.List ref={scroller} className="overflow-auto">
+    <Autocomplete.List ref={scroller} className="overflow-auto p-1">
       {entries.length > VIRTUAL_ABOVE ? (
         <VirtualEntries
           entries={entries}
@@ -296,23 +283,29 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
       virtualized={entries.length > VIRTUAL_ABOVE}
     >
       <div
-        className="fixed inset-x-0 mx-auto flex flex-col overflow-hidden rounded-control bg-overlay shadow-overlay"
+        className="fixed inset-x-0 mx-auto flex flex-col overflow-hidden rounded-surface border border-line bg-overlay shadow-dialog"
         style={{
           top: "12vh",
           width: "var(--palette-w)",
           maxHeight: "var(--palette-max-h)",
         }}
       >
-        <Autocomplete.Input
-          autoFocus
-          onKeyDown={(event) => {
-            // while an input method composes, Enter, Escape and the arrows are its own
-            if (event.nativeEvent.isComposing || event.keyCode === 229)
-              event.preventBaseUIHandler();
-          }}
-          aria-label={READOUT_WORDS.commandsHint}
-          className="h-control px-3 text-ui"
-        />
+        <div className="flex h-findbar shrink-0 items-center gap-2 border-b border-line px-4">
+          <SearchIcon
+            aria-hidden="true"
+            className="size-icon-lg text-fg-muted"
+          />
+          <Autocomplete.Input
+            autoFocus
+            onKeyDown={(event) => {
+              // while an input method composes, Enter, Escape and the arrows are its own
+              if (event.nativeEvent.isComposing || event.keyCode === 229)
+                event.preventBaseUIHandler();
+            }}
+            aria-label={READOUT_WORDS.commandsHint}
+            className="mn-palette-field h-full min-w-0 flex-1 bg-transparent text-ui outline-none"
+          />
+        </div>
         <EntryList entries={entries} query={query} activate={activate} />
       </div>
     </Autocomplete.Root>

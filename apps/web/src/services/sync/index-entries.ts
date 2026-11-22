@@ -1,0 +1,214 @@
+// The entries of the index documents' maps as the Library reads them: each value's shape checked, and the rows built from them.
+import type { JsonMapView } from "@manent/crdt";
+import { DEMO_PEOPLE } from "@manent/demo";
+import type { DocSummary } from "@manent/sync-client";
+import { isDocKind } from "@manent/sync-protocol";
+import type { DocKind } from "@manent/sync-protocol";
+import { NEW_PROJECT_CARDS } from "@manent/ui";
+import { isFields } from "./device-memory.ts";
+import type {
+  ContinueItem,
+  ProjectItem,
+  ProjectKind,
+  RowPlace,
+} from "../ports.ts";
+
+/** What a sentence calls a person: the first of the demo's names for them ("Dana"); their id for one it does not know. */
+export function nameOf(userId: string): string {
+  const name = DEMO_PEOPLE.find((person) => person.userId === userId)?.name;
+  return name?.split(" ")[0] ?? userId;
+}
+
+/** At most this many entries are shown in Continue. */
+const CONTINUE_LIMIT = 20;
+
+export interface ProjectEntry {
+  title: string;
+  kind: ProjectKind;
+  createdAt: number;
+  createdByUserId: string;
+}
+
+export interface DocumentEntry {
+  projectId: string;
+  title: string;
+  kind: DocKind;
+  createdAt: number;
+  editedAt: number | null;
+  editedByUserId: string | null;
+}
+
+export interface ContinueEntry {
+  workspaceId: string;
+  openedAt: number;
+}
+
+const isProjectKind = (value: unknown): value is ProjectKind =>
+  NEW_PROJECT_CARDS.some((card) => card.kind === value);
+
+const isInstant = (value: unknown): value is number =>
+  typeof value === "number" && Number.isSafeInteger(value);
+
+function readProject(value: unknown): ProjectEntry | null {
+  if (!isFields(value)) return null;
+  const { title, kind, createdAt, createdByUserId } = value;
+  if (typeof title !== "string" || !isProjectKind(kind)) return null;
+  if (!isInstant(createdAt) || typeof createdByUserId !== "string") return null;
+  return { title, kind, createdAt, createdByUserId };
+}
+
+function readDocument(value: unknown): DocumentEntry | null {
+  if (!isFields(value)) return null;
+  const { projectId, title, kind, createdAt, editedAt, editedByUserId } = value;
+  if (typeof projectId !== "string" || typeof title !== "string") return null;
+  if (!isDocKind(kind) || !isInstant(createdAt)) return null;
+  if (editedAt !== null && !isInstant(editedAt)) return null;
+  if (editedByUserId !== null && typeof editedByUserId !== "string")
+    return null;
+  return { projectId, title, kind, createdAt, editedAt, editedByUserId };
+}
+
+function readContinue(value: unknown): ContinueEntry | null {
+  if (!isFields(value)) return null;
+  const { workspaceId, openedAt } = value;
+  return typeof workspaceId === "string" && isInstant(openedAt)
+    ? { workspaceId, openedAt }
+    : null;
+}
+
+/** Every entry whose value `read` accepts; the others are skipped and stay in the map. */
+function entriesOf<T>(
+  map: JsonMapView,
+  read: (value: unknown) => T | null,
+): Map<string, T> {
+  const entries = new Map<string, T>();
+  for (const [key, value] of Object.entries(map.entries())) {
+    const entry = read(value);
+    if (entry !== null) entries.set(key, entry);
+  }
+  return entries;
+}
+
+/** One workspace index, read. */
+export interface WorkspaceEntries {
+  projects: Map<string, ProjectEntry>;
+  documents: Map<string, DocumentEntry>;
+}
+
+export function readWorkspace(maps: {
+  projects: JsonMapView;
+  documents: JsonMapView;
+}): WorkspaceEntries {
+  return {
+    projects: entriesOf(maps.projects, readProject),
+    documents: entriesOf(maps.documents, readDocument),
+  };
+}
+
+export const readContinueMap = (map: JsonMapView): Map<string, ContinueEntry> =>
+  entriesOf(map, readContinue);
+
+/** Where a document is, from what the device's store holds of it; absent: not on this device. Only someone without a session is told it was never synced. */
+function placeOf(summary: DocSummary | undefined, signedIn: boolean): RowPlace {
+  if (summary === undefined) return { kind: "not_on_device" };
+  if (summary.neverSynced && !signedIn) return { kind: "never_synced" };
+  if (summary.waiting > 0) return { kind: "waiting", count: summary.waiting };
+  return { kind: "synced" };
+}
+
+/** What the rows are read with besides the index. */
+export interface RowFacts {
+  userId: string;
+  /** The person has a session. */
+  signedIn: boolean;
+  summaries: ReadonlyMap<string, DocSummary>;
+  continued: ReadonlyMap<string, ContinueEntry>;
+  nameOf: (userId: string) => string;
+}
+
+const byCreation = (
+  a: [string, { createdAt: number }],
+  b: [string, { createdAt: number }],
+): number => a[1].createdAt - b[1].createdAt || a[0].localeCompare(b[0]);
+
+/** The latest edit of `documents`, or that someone else changed one since this person opened it. */
+function lastEditedOf(
+  documents: readonly [string, DocumentEntry][],
+  facts: RowFacts,
+): ProjectItem["lastEdited"] {
+  const changed = documents.some(([docId, d]) => {
+    const openedAt = facts.continued.get(docId)?.openedAt;
+    return (
+      d.editedAt !== null &&
+      d.editedByUserId !== facts.userId &&
+      openedAt !== undefined &&
+      d.editedAt > openedAt
+    );
+  });
+  if (changed) return { changedSinceOpened: true };
+  const latest = documents
+    .flatMap(([, d]) =>
+      d.editedAt === null || d.editedByUserId === null
+        ? []
+        : [{ at: d.editedAt, by: d.editedByUserId }],
+    )
+    .toSorted((a, b) => b.at - a.at)[0];
+  return latest === undefined
+    ? null
+    : { byName: facts.nameOf(latest.by), at: latest.at };
+}
+
+/** The workspace's projects, newest first, each with its oldest document. */
+export function projectItems(
+  index: WorkspaceEntries,
+  facts: RowFacts,
+): ProjectItem[] {
+  const documents = [...index.documents].toSorted(byCreation);
+  return [...index.projects]
+    .toSorted(byCreation)
+    .toReversed()
+    .map(([projectId, project]) => {
+      const own = documents.filter(([, d]) => d.projectId === projectId);
+      const firstDocId = own[0]?.[0] ?? null;
+      return {
+        projectId,
+        title: project.title,
+        kind: project.kind,
+        firstDocId,
+        lastEdited: lastEditedOf(own, facts),
+        place:
+          firstDocId === null
+            ? { kind: "not_on_device" }
+            : placeOf(facts.summaries.get(firstDocId), facts.signedIn),
+      };
+    });
+}
+
+/** The person's Continue entries of `workspaceId`, newest first, at most CONTINUE_LIMIT; a document the index does not hold is left out. */
+export function continueItems(
+  workspaceId: string,
+  index: WorkspaceEntries,
+  facts: RowFacts,
+): ContinueItem[] {
+  return [...facts.continued]
+    .filter(([, entry]) => entry.workspaceId === workspaceId)
+    .toSorted((a, b) => b[1].openedAt - a[1].openedAt)
+    .flatMap(([docId]) => {
+      const document = index.documents.get(docId);
+      const project =
+        document === undefined
+          ? undefined
+          : index.projects.get(document.projectId);
+      if (document === undefined || project === undefined) return [];
+      return [
+        {
+          docId,
+          title: document.title,
+          projectTitle: project.title,
+          kind: project.kind,
+          place: placeOf(facts.summaries.get(docId), facts.signedIn),
+        },
+      ];
+    })
+    .slice(0, CONTINUE_LIMIT);
+}

@@ -2,6 +2,7 @@
 import { changesPlugin } from "@manent/editor";
 import type { EditorPluginHost, FactsSink, Plugin } from "@manent/editor";
 import type { PersonServices } from "../services/ports.ts";
+import { productionEditorPlugin } from "./production.ts";
 import { reviewBarPlugin } from "./review-bar.ts";
 
 export interface EditorPluginContext extends EditorPluginHost {
@@ -12,4 +13,8 @@ export interface EditorPluginContext extends EditorPluginHost {
 
 export const EDITOR_PLUGINS: readonly ((
   context: EditorPluginContext,
-) => Plugin)[] = [reviewBarPlugin, () => changesPlugin()];
+) => Plugin)[] = [
+  reviewBarPlugin,
+  () => changesPlugin(),
+  productionEditorPlugin,
+];

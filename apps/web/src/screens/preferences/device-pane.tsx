@@ -1,15 +1,26 @@
 // Preferences → This device (This browser on the web): Interface size, what comes from the system, what is stored here, and About.
 import { ENGINE_VERSION } from "@manent/pagination";
-import { Button, PREFERENCES_WORDS, SettingRow } from "@manent/ui";
+import {
+  BusyButton,
+  Button,
+  DESKTOP_WORDS,
+  PREFERENCES_WORDS,
+  SettingRow,
+  useSubscribable,
+} from "@manent/ui";
 import {
   useCallback,
   useEffect,
   useId,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
-import { useEnvironment } from "../../services/context.tsx";
+import { desktopDeviceRows } from "../../desktop/device-rows.ts";
+import type { DesktopDeviceRows } from "../../desktop/device-rows.ts";
+import type { DesktopHost } from "../../desktop/host.ts";
+import { useEnvironment, useServices } from "../../services/context.tsx";
 
 // the build's define; absent outside a build
 declare const MANENT_VERSION: string | undefined;
@@ -47,8 +58,8 @@ function Fact(props: { label: string; value: string }): ReactNode {
 
 function Group(props: { heading: string; children: ReactNode }): ReactNode {
   return (
-    <section className="flex flex-col py-2">
-      <h3 className="text-micro uppercase text-fg-muted">{props.heading}</h3>
+    <section className="flex flex-col">
+      <h3 className="mn-group-label px-0!">{props.heading}</h3>
       {props.children}
     </section>
   );
@@ -119,7 +130,7 @@ function StoredHere(): ReactNode {
       </p>
       {kept ? null : (
         <div>
-          <Button variant="outline" size="sm" onClick={ask}>
+          <Button variant="outline" onClick={ask}>
             {PREFERENCES_WORDS.askToKeep}
           </Button>
         </div>
@@ -128,14 +139,131 @@ function StoredHere(): ReactNode {
   );
 }
 
-function About(): ReactNode {
+/** A row with its label, its value and the one button that acts on it. */
+function ActionRow(props: {
+  label: string;
+  value: string;
+  action: string;
+  onAction(): void;
+}): ReactNode {
+  return (
+    <div className="flex min-h-row items-center justify-between gap-4 text-ui">
+      <span>{props.label}</span>
+      <span className="min-w-0 grow truncate text-fg-muted">{props.value}</span>
+      <Button variant="outline" size="sm" onClick={props.onAction}>
+        {props.action}
+      </Button>
+    </div>
+  );
+}
+
+interface DesktopDevice {
+  rows: DesktopDeviceRows;
+  showLibrary(): void;
+  showFolder(): void;
+  checkForUpdates(): void;
+}
+
+/**
+ * This device's rows in the desktop app: the node's usage, read when the pane opens and after each Show folder, and the
+ * window's last word on updates, each outcome said politely as it comes.
+ */
+function useDesktopDevice(host: DesktopHost): DesktopDevice {
+  const { dom, updateState } = useEnvironment();
+  const { commands } = useServices();
+  const [usage, setUsage] = useState<{ scripts: number; bytes: number } | null>(
+    null,
+  );
+  const readUsage = useCallback(() => {
+    void host.storage().then(setUsage);
+  }, [host]);
+  useEffect(readUsage, [readUsage]);
+  const update = useSubscribable(updateState);
+  const rows = desktopDeviceRows({ host, usage, update });
+  const { line } = rows.update;
+  // the line the pane opened with was said when it came
+  const said = useRef(line);
+  useEffect(() => {
+    if (line !== null && line !== said.current) dom.announce(line);
+    said.current = line;
+  }, [line, dom]);
+  return {
+    rows,
+    showLibrary: () => void commands.run("app.library", "control"),
+    showFolder() {
+      host.send({ v: 1, t: "show_folder" });
+      readUsage();
+    },
+    checkForUpdates() {
+      updateState.set("checking");
+      host.send({ v: 1, t: "check_for_updates" });
+    },
+  };
+}
+
+/** What the node stores, and the folder it keeps it in; nothing but the heading until the node answers. */
+function DesktopStoredHere(props: { device: DesktopDevice }): ReactNode {
+  const { rows, showLibrary, showFolder } = props.device;
+  return (
+    <Group heading={PREFERENCES_WORDS.storedHere}>
+      {rows.stored === null ? null : (
+        <>
+          <ActionRow
+            label={DESKTOP_WORDS.scriptsRow}
+            value={rows.stored.scripts}
+            action={PREFERENCES_WORDS.showInLibrary}
+            onAction={showLibrary}
+          />
+          <ActionRow
+            label={DESKTOP_WORDS.folderRow}
+            value={rows.stored.folder}
+            action={PREFERENCES_WORDS.showFolder}
+            onAction={showFolder}
+          />
+        </>
+      )}
+    </Group>
+  );
+}
+
+/** The version, its channel and Check for updates, with the check's outcome under it. */
+function DesktopVersion(props: { device: DesktopDevice }): ReactNode {
+  const { rows, checkForUpdates } = props.device;
+  return (
+    <>
+      <p className="text-ui">{rows.version}</p>
+      <Fact label={DESKTOP_WORDS.channelRow} value={rows.channel} />
+      <div>
+        <BusyButton
+          variant="outline"
+          size="sm"
+          label={PREFERENCES_WORDS.checkForUpdates}
+          busyLabel={
+            rows.update.busy ? PREFERENCES_WORDS.checkingForUpdates : null
+          }
+          onClick={checkForUpdates}
+        />
+      </div>
+      {rows.update.line === null ? null : (
+        <p className="text-ui">{rows.update.line}</p>
+      )}
+    </>
+  );
+}
+
+/** On the web the version is the build's; in the desktop app it is the app's, with its channel and update check. */
+function About(props: { desktop: DesktopDevice | null }): ReactNode {
   const [pledgeOpen, setPledgeOpen] = useState(false);
   const pledgeId = useId();
   const version =
     typeof MANENT_VERSION === "undefined" ? UNVERSIONED : MANENT_VERSION;
   return (
     <Group heading={PREFERENCES_WORDS.about}>
-      <p className="text-ui">{PREFERENCES_WORDS.version(version)}</p>
+      {props.desktop === null ? (
+        <p className="text-ui">{PREFERENCES_WORDS.version(version)}</p>
+      ) : (
+        <DesktopVersion device={props.desktop} />
+      )}
       <p className="text-ui">
         {PREFERENCES_WORDS.layoutEngine(ENGINE_VERSION)}
       </p>
@@ -145,7 +273,7 @@ function About(): ReactNode {
         <div>
           <Button
             variant="link"
-            size="sm"
+            className="h-auto p-0"
             aria-expanded={pledgeOpen}
             aria-controls={pledgeId}
             onClick={() => setPledgeOpen((open) => !open)}
@@ -163,11 +291,21 @@ function About(): ReactNode {
   );
 }
 
+function DesktopGroups(props: { host: DesktopHost }): ReactNode {
+  const device = useDesktopDevice(props.host);
+  return (
+    <>
+      <DesktopStoredHere device={device} />
+      <About desktop={device} />
+    </>
+  );
+}
+
 export function DevicePane(props: {
   deviceName: string | null;
   persisted: boolean;
 }): ReactNode {
-  const { where } = useEnvironment();
+  const { desktop } = useEnvironment();
   return (
     <>
       <SettingRow
@@ -176,8 +314,14 @@ export function DevicePane(props: {
         persisted={props.persisted}
       />
       <FromYourSystem />
-      {where.shell === "web" ? <StoredHere /> : null}
-      <About />
+      {desktop === null ? (
+        <>
+          <StoredHere />
+          <About desktop={null} />
+        </>
+      ) : (
+        <DesktopGroups host={desktop} />
+      )}
     </>
   );
 }

@@ -62,7 +62,6 @@ test("the ui entry lists its folders, and every folder entry names only modules 
       "./settings-react",
       "./subscribable",
       "./surfaces",
-      "./tokens",
       "./words",
     ].map((f) => `export * from "${f}/index.ts";`),
   );
@@ -88,6 +87,7 @@ test("the test build adds the development screens", () => {
   try {
     expect(routePaths()).toEqual([
       "/",
+      "/__keys",
       "/__stand-in",
       "/__states",
       "/choose",
@@ -123,7 +123,7 @@ test("the Send screen's forms are a registration list that starts empty", () => 
     sendPath("d1", "print"),
   ]).toEqual([
     ["export", "print", "send_draft", "issue", "recall"],
-    ["export", "print"],
+    ["export", "print", "issue", "recall"],
     "/s/d1/send/print",
   ]);
 });

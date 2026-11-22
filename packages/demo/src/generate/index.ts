@@ -1,5 +1,10 @@
 // Style guides and phrase banks: their shapes, the bank of every generated project, and the generator that writes from them.
-export { generateChapter, generateScenes } from "./grammar.ts";
+export { deriveDrafts, sessionsBetween } from "./drafts.ts";
+export type { BlockChange, DraftTarget } from "./drafts.ts";
+export { fitAPages, fitToPages } from "./fit.ts";
+export type { APageRun, FitRange, PageMeter, SeedLayout } from "./fit.ts";
+export { createUsedLines, generateChapter, generateScenes } from "./grammar.ts";
+export type { UsedLines } from "./grammar.ts";
 export { SeedBuildError } from "./guide.ts";
 export type {
   Beat,

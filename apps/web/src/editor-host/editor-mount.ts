@@ -3,31 +3,30 @@ import type { UndoRoot } from "@manent/crdt";
 import { bindDocument } from "@manent/crdt-binding";
 import type { BoundDocument } from "@manent/crdt-binding";
 import {
-  DRIFT,
   ELEMENT_SLOTS,
   STRUCTURAL_KEYS,
   createScriptEditor,
+  outlineOf,
   staticBinding,
 } from "@manent/editor";
 import type {
   EditorBinding,
-  Frames,
-  PageViewPorts,
   SavedPlace,
   ScriptEditor,
-  ScriptEditorOptions,
   Timers,
+  TitlePageSource,
 } from "@manent/editor";
-import { ENGINE_VERSION, engineFor } from "@manent/pagination";
+import { markEnd } from "@manent/perf";
 import { parseDoc } from "@manent/schema";
-import type { FormatId, IdSource } from "@manent/schema";
-import type { Platform } from "@manent/settings";
-import type { KeyResolver } from "@manent/ui";
-import type { FixedKey, PersonServices } from "../services/ports.ts";
-import { zoomActions } from "../state/zoom.store.ts";
+import type { FormatId } from "@manent/schema";
+import type { FixedKey } from "../services/ports.ts";
+import { layoutViewActions } from "../state/layout-view.store.ts";
+import { panelsActions } from "../state/panels.store.ts";
 import { actionOf } from "./command-actions.ts";
 import type { EditorControl } from "./control.ts";
 import { deskOf } from "./desk.ts";
+import { editorOptions } from "./editor-options.ts";
+import type { EditorSources, OpenedScript } from "./editor-options.ts";
 import type { EditorSession, EditorSessions } from "./editor-sessions.ts";
 import { editorWords } from "./editor-words.ts";
 import { registerLiveEditor } from "./live-editor.ts";
@@ -35,11 +34,20 @@ import type { EditorMount } from "./mount.ts";
 import { followZoom } from "./page-zoom.ts";
 import { keepPlace } from "./keep-place.ts";
 import { placeholderMount } from "./placeholder-mount.ts";
-import { EDITOR_PLUGINS } from "./plugins.ts";
+import { takeFocus } from "./take-focus.ts";
+import { titlePageSource } from "./title-page-port.ts";
 import { countSteps } from "./undo-depth.ts";
 
+// page-frame.ts loads apart from the editor: importing this selector from it would push the editor's first load
+// over its size budget
+const PAGE_REGION = "[data-region='page']";
+
 /** What one person's undo takes back. */
-export const UNDO_ROOTS: readonly UndoRoot[] = ["script"];
+export const UNDO_ROOTS: readonly UndoRoot[] = [
+  "script",
+  "revisedOverrides",
+  "titlePage",
+];
 
 /** The structural keys as "flow", then the picker's keys as "picker". */
 export const EDITOR_FIXED_KEYS: readonly FixedKey[] = Object.freeze([
@@ -47,32 +55,19 @@ export const EDITOR_FIXED_KEYS: readonly FixedKey[] = Object.freeze([
   ...ELEMENT_SLOTS.map((chord) => ({ chord, reason: "picker" as const })),
 ]);
 
-/** The pages' ports in this browser, whose engine `userAgent` names; the fonts are read when the editor first draws a page. */
-export function browserPagePorts(userAgent: string): PageViewPorts {
-  return {
-    get fonts() {
-      return document.fonts;
-    },
-    makeFace: (d) =>
-      new FontFace(d.family, `url(${d.source}) format("woff2")`, {
-        weight: d.weight,
-        style: d.style,
-        unicodeRange: d.unicodeRange,
-        display: d.display,
-      }),
-    wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    defer: (run) => queueMicrotask(run),
-    // a timer where the browser has no idle callback
-    whenIdle: (run) => {
-      if ("requestIdleCallback" in window) requestIdleCallback(() => run());
-      else setTimeout(run, DRIFT.idleMs);
-    },
-    userAgent,
-  };
-}
-
 /** A content change of read-only content rebuilds at most this often. */
 const READ_ONLY_REBUILD_MS = 250;
+
+/** A script that opens with this many scenes opens the left panel at Scenes, until the person chooses otherwise. */
+const SCENES_AT_OPEN = 3;
+
+/** Whether the editor's script has enough scenes to open the left panel at Scenes; false without pages (Ink). */
+function hasScenesToShow(editor: ScriptEditor): boolean {
+  const p = editor.pagination();
+  if (p === null) return false;
+  const scenes = outlineOf(p, 0).entries.filter((e) => e.kind === "scene");
+  return scenes.length >= SCENES_AT_OPEN;
+}
 
 /** The editor a mount has open, for the test build's hooks; `undoDepth` counts the steps the person can undo. */
 export interface OpenEditor {
@@ -81,17 +76,9 @@ export interface OpenEditor {
   undoDepth(): number;
 }
 
-interface MountOptions {
+interface MountOptions extends EditorSources {
   sessions: EditorSessions;
-  services: () => PersonServices;
   control: EditorControl;
-  keys: { resolve: KeyResolver; run(id: string): boolean };
-  ports: PageViewPorts;
-  frames: Frames;
-  timers: Timers;
-  platform: Platform;
-  ids: IdSource;
-  random: () => string;
   /** Told of each editor the mount opens, and null once it has none; only the test build listens. */
   observe?: (open: OpenEditor | null) => void;
 }
@@ -103,6 +90,7 @@ interface Shown {
   ink: boolean;
   edit: boolean;
   readOnly: boolean;
+  reflow: boolean;
 }
 
 interface Built {
@@ -160,15 +148,21 @@ function trackHolds(
 const shownOnly = (binding: EditorBinding) => ({
   binding,
   editable: false,
+  titlePage: null,
   destroy: noop,
 });
 
-/** The binding the editor gets, and whether it may edit: read-only content and newer content are shown, never bound. */
+/** The binding the editor gets, whether it may edit, and the title page it may show: read-only content and newer content are shown, never bound. */
 function bindingFor(
   session: EditorSession,
   document: BoundDocument,
   options: { timers: Timers; edit: boolean },
-): { binding: EditorBinding; editable: boolean; destroy(): void } {
+): {
+  binding: EditorBinding;
+  editable: boolean;
+  titlePage: TitlePageSource | null;
+  destroy(): void;
+} {
   const content = session.readOnly.get();
   if (content !== null) return shownOnly(staticBinding(parseDoc(content)));
   const bound = bindDocument({
@@ -180,56 +174,16 @@ function bindingFor(
   return {
     binding: bound.binding,
     editable: options.edit,
+    titlePage: titlePageSource(document.doc()),
     destroy: bound.destroy,
   };
 }
 
 /** What one build of the document's editor is made from. */
-interface Opened {
-  ports: MountPorts;
+interface Opened extends OpenedScript {
   session: EditorSession;
   document: BoundDocument;
-  script: ScriptEditorOptions["script"];
-  words: ScriptEditorOptions["words"];
-  desk: ScriptEditorOptions["desk"];
   shown: Shown;
-}
-
-/** The script editor's options for one build over `bound`'s binding, at the person's zoom. */
-function editorOptions(
-  options: MountOptions,
-  open: Opened,
-  bound: { binding: EditorBinding; editable: boolean },
-): ScriptEditorOptions {
-  const { element, docId, facts, outline, settings, guard } = open.ports;
-  const { services } = options;
-  return {
-    place: element,
-    binding: bound.binding,
-    editable: bound.editable,
-    personal: settings,
-    script: open.script,
-    // every script is laid out by the first engine until a script stores its own
-    layoutEngine: engineFor(ENGINE_VERSION)!,
-    facts,
-    outline,
-    guard,
-    words: open.words,
-    frames: options.frames,
-    timers: options.timers,
-    ports: options.ports,
-    platform: options.platform,
-    ids: options.ids,
-    random: options.random,
-    onUndoStep: () => services().messages.withdrawUndo(),
-    keys: options.keys,
-    zoom: zoomActions.get(),
-    desk: open.desk,
-    extraPlugins: (host) =>
-      EDITOR_PLUGINS.map((make) =>
-        make({ ...host, docId, services: services(), facts }),
-      ),
-  };
 }
 
 /** One editor of the document over its session, at `place` when it is given, attached to the control and registered as live. */
@@ -249,29 +203,53 @@ function buildEditor(
     counted === null
       ? bound.binding
       : { ...bound.binding, history: counted.history };
+  const { editable, titlePage } = bound;
   const editor = createScriptEditor(
-    editorOptions(options, open, { binding, editable: bound.editable }),
+    editorOptions(options, open, { binding, editable, titlePage }),
   );
+  const region = element.closest<HTMLElement>(PAGE_REGION);
   if (place !== null) editor.restore(place);
+  // the first zoom holds the caret's line where it lay at 100 %, which would open a page scrolled past the desk above it
+  else region?.scrollTo({ top: 0 });
+  const stopFocus = takeFocus(editor, element);
   const stopZoom = followZoom({ ...options, editor, element });
+  let stopThumb = noop;
+  let built = true;
+  // loaded apart: it shows only once the person scrolls
+  if (editor.scaffold !== null && region !== null)
+    void import("./thumb-label.ts").then(({ followThumb }) => {
+      if (!built) return;
+      stopThumb = followThumb({
+        editor,
+        scroller: region,
+        docId,
+        timers: options.timers,
+      });
+    });
   const detach = options.control.attach({
     run: (request) => editor.run(actionOf(request)),
     zoomPercent: () => editor.zoomPercent(),
+    showTitlePage: () => editor.showTitlePage(),
   });
   const unregister = registerLiveEditor({
     docId,
+    doc: open.document.doc(),
     view: editor.view,
     scaffold: editor.scaffold,
     presence: binding.presence,
     editable: bound.editable,
     zoom: () => (editor.zoomPercent() ?? 100) / 100,
+    frontPages: () => editor.frontPages(),
   });
   options.observe?.({ docId, editor, undoDepth: () => counted?.depth() ?? 0 });
   return {
     editor,
     shown: open.shown,
     destroy() {
+      built = false;
+      stopFocus();
       stopZoom();
+      stopThumb();
       detach();
       unregister();
       editor.destroy();
@@ -282,13 +260,16 @@ function buildEditor(
 }
 
 const differs = (a: Shown, b: Shown): boolean =>
-  a.ink !== b.ink || a.edit !== b.edit || a.readOnly !== b.readOnly;
+  a.ink !== b.ink ||
+  a.edit !== b.edit ||
+  a.readOnly !== b.readOnly ||
+  a.reflow !== b.reflow;
 
 /**
  * Opens the document's session and editor, and builds the editor again at the person's place when the format changes to
  * or from Ink, when the access crosses "edit", when read-only content comes or goes (or changes, at most once per 250 ms),
- * and when the document is replaced: then the old page takes no more input at once, and an input method composing is let
- * finish first. Returns the disposer.
+ * when the person changes between Page view and Reflow view, and when the document is replaced: then the old page takes
+ * no more input at once, and an input method composing is let finish first. Returns the disposer.
  */
 function openDocument(
   options: MountOptions,
@@ -305,6 +286,7 @@ function openDocument(
     ink: format() === "ink",
     edit: status.get().access === "edit",
     readOnly: session.readOnly.get() !== null,
+    reflow: layoutViewActions.get() === "reflow",
   });
   const opened = {
     ports,
@@ -315,6 +297,16 @@ function openDocument(
     desk: deskOf(ports.element),
   };
   let built = buildEditor(options, { ...opened, shown: shownNow() }, null);
+  // token 0 is navigation start, the origin of performance.now(); a rebuild records nothing
+  markEnd("open.editable", 0);
+  // the document a session holds may arrive with a rebuild, so each build of this opening may be the one with scenes
+  let scenesShown = false;
+  const showScenes = (): void => {
+    if (scenesShown || !hasScenesToShow(built.editor)) return;
+    scenesShown = true;
+    panelsActions.openScenesUnchosen();
+  };
+  showScenes();
   const kept = keepPlace(person.place, docId, () => built.editor);
   let pending = noop;
   const rebuild = (): void => {
@@ -323,6 +315,7 @@ function openDocument(
     const place = kept.save();
     built.destroy();
     built = buildEditor(options, { ...opened, shown: shownNow() }, place);
+    showScenes();
   };
   const follow = (): void => {
     if (differs(shownNow(), built.shown)) rebuild();
@@ -330,6 +323,7 @@ function openDocument(
   const stops = [
     script.subscribe("script.format", follow),
     status.subscribe(follow),
+    layoutViewActions.subscribe(follow),
     session.readOnly.subscribe((content) => {
       if (content === null || !built.shown.readOnly) follow();
       else if (pending === noop)

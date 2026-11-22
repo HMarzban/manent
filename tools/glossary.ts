@@ -36,7 +36,7 @@ const row = (
 ): Term[] => words.map((term) => ({ term, neverCalled, paletteOnly, feature }));
 
 /** A list written as its entries separated by commas. */
-const listOf = (text: string): readonly string[] =>
+export const listOf = (text: string): readonly string[] =>
   Object.freeze(text.trim().split(/\s*,\s*/));
 
 export const TERMS: readonly Term[] = Object.freeze([
@@ -292,6 +292,7 @@ export const TERMS: readonly Term[] = Object.freeze([
   ...row("writing", ["Theme"], [], ["night mode"]),
   ...row("writing", ["Shortcut"], ["hotkey", "keybinding"]),
   ...row("writing", ["Motion", "Contrast"], []),
+  ...row("writing", ["Channel"], ["track", "beta"]),
   ...row("writing", ["Fixed"], []),
   // The demo's own words
   ...row(
@@ -308,6 +309,11 @@ export const TERMS: readonly Term[] = Object.freeze([
       "Stop writers",
       "Stop the server",
       "Timings",
+      "Keystroke to frame",
+      "Pagination time",
+      "Sync round trip",
+      "p50",
+      "p95",
       "samples",
       "Reorganise",
       "Reset",
@@ -332,38 +338,17 @@ export const NAMES: readonly string[] = Object.freeze([
   "Manent",
   "US Letter",
   "A4",
+  "A12",
   "Courier Prime",
+  "Final Draft",
 ]);
-
-/** Words that name no part, state or action of Manent: verbs, adjectives, function words and ordinary nouns. A word joins only in a reviewed change that says why it is not a term. */
-export const PLAIN_WORDS: readonly string[] = listOf(`
-  about, accepts, affect, after, again, ago, agreed, all, already, always, am, an, another, any, anyone, anyway,
-  anywhere, apart, apostrophes, app, appear, applied, applies, apr, around, arrived, arriving, ask, at, aug,
-  automatically, available, away, be, because, been, between, both, box, build, came, can't, cancel, cancels,
-  cannot, capitals, changing, checking, clean, cleared, close, closing, comfortably, computer, controls, copy,
-  correctly, could, couldn't, created, data, date, day, dec, decline, deleted, differ, different, dismiss, do, down,
-  each, edited, eighth, else, english, every, everything, example, existed, ext, features, feb, fifth, first, flow,
-  fourth, fri, generates, get, getting, handles, happens, has, have, height, hidden, hide, holds, how, hr, identity,
-  industry, installs, instruction, int, is, isn't, issued, itself, jan, jul, jun, just, kept, key, keystroke, laid,
-  language, larger, last, later, leave, leaving, letters, linux, list, load, longer, look, made, make, mar, match,
-  matches, may, mb, mentions, min, missed, misspellings, mon, more, move, music, name, named, near, nearly, need,
-  needs, never, newer, newscast, next, ninth, no, none, nothing, nov, now, number, oct, off, offered, older, once,
-  one, opening, or, other, others, out, outside, own, paste, pause, pick, placed, prepare, preparing, press,
-  pressing, previously, put, quit, re-applied, reach, reached, reacts, reading, ready, recorded, reduced, region,
-  reload, reloading, removes, reorganised, request, resize, rest, restored, right, running, runs, said, same, sat,
-  save, say, says, sc, search, second, see, sees, sep, seventh, showing, shown, sign, signed, sixth, slow, so, some,
-  sound, speeches, standard, started, starting, stay, still, stopped, stored, style, summaries, sun, switch, tenth,
-  terminal, than, that, their, them, then, there, these, third, thu, today, train, try, tue, turn, two, typing,
-  unaffected, unchanged, underlines, untitled, usage, used, voiceover, was, web, wed, were, whatever, when, where,
-  which, while, whole, with, without, work, works, would, write, written, wrote, yesterday, yet, your
-`);
 
 /** Words of the interface that name a part of Manent and are not yet listed terms; allowed until they are listed. */
 export const PENDING_TERMS: readonly string[] = listOf(`
-  access, align, all-caps, animation, announce, appearance, author, avatars, bold, canary, channel,
+  access, align, all-caps, animation, announce, appearance, author, avatars, bold, canary,
   collated, cont'd, continued, continueds, dark, desk, desktop, docx, driving, editors, elsewhere,
   exported, exporting, fdx, font, fountain, help, highlight, interface, italic, keyboard, kind, light, manuscript,
-  margin, mores, multi-camera, paper, pdf, picker, reconnect, redo, rename, same-speaker, screenplay, setup,
+  margin, mores, multi-camera, paper, pdf, picker, probe, reconnect, redo, rename, same-speaker, screenplay, setup,
   size, spelling, stable, strikethrough, syncing, tabs, underline, undo, variety
 `);
 
@@ -386,9 +371,13 @@ export const BANNED_WORD_EXCEPTION: readonly string[] = Object.freeze([
   "This has already been done in this demo. Reset the demo to do it again.",
   "This one needs the desktop app. Run make desktop, then open the Tour there.",
   "The demo is not running. Run make demo again.",
+  "Couldn't get ready. Run make reset to try again.",
   "Nothing to set. Manent updates once every Manent tab has been closed.",
   "Nothing to set. Manent is in English in this release; spelling follows your system's language.",
   "Get the latest Manent",
+  "Page numbers came in locked: pages start where Final Draft started them, not where Manent would.",
+  "Cast list",
+  "Paragraph settings",
 ]);
 
 /** The four sentences allowed to say "not sent", for changes that will never reach the server; `{…}` is any value. */

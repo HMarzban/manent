@@ -1,7 +1,8 @@
 // The one write path: a push or a setting is checked against the room's document and queued, and
 // each turn's queue is committed per file before anything is acknowledged or published.
-import { CrdtUpdateError, applyInspecting, updateMeta } from "@manent/crdt";
+import { applyInspecting, findCopies, updateMeta } from "@manent/crdt";
 import type { TransactionReport } from "@manent/crdt";
+import type { Issue } from "@manent/schema";
 import type {
   AppendItem,
   DocFile,
@@ -9,20 +10,35 @@ import type {
   UpdateOrigin,
 } from "@manent/storage";
 import { CODE } from "@manent/sync-protocol";
+import type { CopiesKeptControl } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
 import type { ReplayItem } from "../rebuild/replay-write.ts";
 import { admit, refusal } from "./admission.ts";
+import { writeOnCopy } from "./authority-write.ts";
+import type { AuthorityItem } from "./authority-write.ts";
 import {
   answer,
+  answerFailed,
+  appendedBy,
   commitFile,
-  committedOf,
+  isAuthorityWrite,
   settle,
+  shownWhileHeld,
   upstreamOf,
 } from "./commit.ts";
+import { copiesRepair } from "./copies.ts";
 import type { Refusal } from "./errors.ts";
 import type { HeldQueue } from "./held.ts";
 import type { IngestItem } from "./ingest.ts";
-import type { Peer, SettingRules, SyncLimits, Upstream } from "./ports.ts";
+import type {
+  Peer,
+  SettingRules,
+  SyncLimits,
+  Upstream,
+  WritePath,
+} from "./ports.ts";
+import { appendOf, readUpdate } from "./push-update.ts";
+import type { Meta } from "./push-update.ts";
 import type { Room, Rooms, Subscription } from "./rooms.ts";
 import { applySetting } from "./settings.ts";
 import { validateRoomPush } from "./validate.ts";
@@ -69,45 +85,12 @@ export interface WritePathPorts {
   held: HeldQueue;
   registry: SettingRules;
   schemaFloor: ((touched: readonly unknown[]) => number) | null;
-}
-
-export interface WritePath {
-  push(
-    room: Room,
-    subscription: Subscription,
-    message: {
-      clientSeq: number;
-      update: Uint8Array;
-      heal: boolean;
-      generation: number;
-    },
-  ): void;
-  set(
-    room: Room,
-    subscription: Subscription,
-    message: {
-      clientSeq: number;
-      key: string;
-      value: Uint8Array;
-      generation: number;
-    },
-  ): void;
-  /** Queued like a push; a failed commit poisons the room, then calls done({ ok: false }). */
-  replay(room: Room, item: ReplayItem["write"], done: ReplayItem["done"]): void;
-  /** Queued like a push, acknowledged to nobody, published to every editor, handed upstream never. */
-  ingest(item: IngestItem): void;
-  /** Drops what the room has queued: no ACK and nothing upstream; a replay is answered { ok: false }. */
-  discard(room: Room): void;
-  /** One file's held items in one transaction, then acknowledged in arrival order; false when it did not commit. */
-  commitHeld(items: readonly QueuedItem[]): boolean;
-  /** The full disk that began holding the file's commits; null when nothing of it is held. */
-  holdError(file: DocFile): StorageError | null;
-  /** What the document's held items append, in arrival order: in its room, and in no log yet. */
-  heldUpdates(docId: string): readonly Uint8Array[];
-  /** Commits what is queued, now. */
-  flush(): void;
-  /** What is queued or held: written to no log yet. */
-  queued(): number;
+  /** Step 5: issues joined to validatePush's, any of which refuses the push. */
+  checkPush(room: Room, report: TransactionReport): Issue[];
+  /** Drawn from for the client id an authority write is made under in a relayed room, and for the ID a copy is given. */
+  ids(): string;
+  /** Step 6 left copies that differ in the room's script, which the person whose push made them reviews. */
+  copiesKept(room: Room, control: CopiesKeptControl): void;
 }
 
 /** What a turn holds until its commit. `ack` is a resend, acknowledged in its place. */
@@ -132,50 +115,7 @@ type PeerItem = {
   | { kind: "relay_set"; request: { key: string; value: Uint8Array } }
 );
 /** An entry of the write path's queue: what a commit writes, then answers. */
-export type QueuedItem = PeerItem | ReplayItem | IngestItem;
-
-/** What `fn` gives; "bad" when the bytes it read are not a whole update. */
-function readUpdate<T>(fn: () => T): T | "bad" {
-  try {
-    return fn();
-  } catch (error) {
-    if (error instanceof CrdtUpdateError) return "bad";
-    throw error;
-  }
-}
-
-/** A client id's clock range in an update, `toClock` exclusive. */
-interface Meta {
-  clientId: number;
-  toClock: number;
-}
-
-function appendOf(
-  room: Room,
-  userId: string,
-  update: Uint8Array,
-  origin: UpdateOrigin,
-  metas: readonly Meta[],
-): AppendItem {
-  const { docId, row } = room;
-  const clocks = metas.map((m) => ({ clientId: m.clientId, clock: m.toClock }));
-  return { docId, generation: row.generation, update, userId, origin, clocks };
-}
-
-/** The update the item appends once committed; null for one that appends none. */
-function appendedBy(item: QueuedItem): Uint8Array | null {
-  if (item.kind === "append" || item.kind === "ingest")
-    return item.append.update;
-  return item.kind === "replay" ? item.write.update : null;
-}
-
-/**
- * A setting the authority wrote into the room's document. Shown before it commits, it would leave
- * a window holding structs under the authority's client id, which a crash can take from the log
- * and no window may push back.
- */
-const isAuthorityWrite = (item: QueuedItem): boolean =>
-  item.kind === "append" && item.setting;
+export type QueuedItem = PeerItem | ReplayItem | IngestItem | AuthorityItem;
 
 export function createWritePath(ports: WritePathPorts): WritePath {
   const { rooms } = ports;
@@ -184,17 +124,43 @@ export function createWritePath(ports: WritePathPorts): WritePath {
   const heldFiles = new Map<DocFile, StorageError>();
   /** By document: what its held items append, in arrival order. */
   const heldUpdates = new Map<string, Uint8Array[]>();
+  /** By document: what of its held items its windows were sent, in arrival order. */
+  const heldShownUpdates = new Map<string, Uint8Array[]>();
 
   const keepHeld = (item: QueuedItem): void => {
     const update = appendedBy(item);
     if (update === null) return;
     const { docId } = item.room;
     heldUpdates.set(docId, [...(heldUpdates.get(docId) ?? []), update]);
+    if (shownWhileHeld(item) === null) return;
+    const shown = heldShownUpdates.get(docId) ?? [];
+    heldShownUpdates.set(docId, [...shown, update]);
   };
 
   const enqueue = (item: QueuedItem): void => {
     queue.push(item);
     if (queue.length === 1) ports.defer(flush);
+  };
+
+  const authority: WritePath["authority"] = (room, write, done) => {
+    const { userId, origin, inTransaction } = write;
+    const written = writeOnCopy(room, origin, write.edit, ports.ids);
+    if (!written.ok)
+      return done({ ok: false, code: "refused", reason: written.reason });
+    const { update, report } = written;
+    const append =
+      update === null
+        ? null
+        : appendOf(room, userId, update, origin, updateMeta(update));
+    enqueue({
+      kind: "authority",
+      room,
+      append,
+      report,
+      inTransaction,
+      done,
+      seq: 0,
+    });
   };
 
   /** A permanent refusal stalls the subscription until its next SUBSCRIBE. */
@@ -228,7 +194,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
   /** The highest clientSeq of this person and device already queued as a setting; 0 when none. */
   function queuedSetting(peer: Peer, room: Room): number {
     const theirs = queue.filter((item): item is PeerItem => {
-      if (item.kind === "replay" || item.kind === "ingest") return false;
+      if (!("subscription" in item)) return false;
       const from = item.subscription.peer;
       const same =
         from.userId === peer.userId && from.deviceId === peer.deviceId;
@@ -257,8 +223,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       const poisoned = [...new Set(fileItems.map((item) => item.room))];
       ports.poisoned(poisoned);
       rooms.drop(poisoned);
-      for (const item of fileItems)
-        if (item.kind === "replay") item.done({ ok: false });
+      for (const item of fileItems) answerFailed(item);
     }
     const done = items.filter((item) => !failed.has(item.room.file));
     for (const item of done) {
@@ -271,9 +236,9 @@ export function createWritePath(ports: WritePathPorts): WritePath {
         continue;
       }
       // a held item is shown now, but for what the authority wrote, and acknowledged once it commits;
-      // a replay answers whole then
-      const committed = isAuthorityWrite(item) ? null : committedOf(item);
-      if (committed !== null) ports.publish(committed);
+      // a replay and an authority write answer whole then
+      const shown = shownWhileHeld(item);
+      if (shown !== null) ports.publish(shown);
     }
   }
 
@@ -313,7 +278,9 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       if (doc.hasPendingStructs())
         return reloadAnd(CODE.BAD_FRAME, "incomplete");
       if (report === null) return enqueue({ kind: "ack", ...base });
-      if (validateRoomPush(report, room).length > 0)
+      const issues = validateRoomPush(report, room);
+      issues.push(...ports.checkPush(room, report));
+      if (issues.length > 0)
         return reloadAnd(CODE.VALIDATION_FAILED, "invalid");
       const floor =
         room.mode === "authority" && ports.schemaFloor !== null
@@ -321,7 +288,15 @@ export function createWritePath(ports: WritePathPorts): WritePath {
           : 0;
       const append = appendOf(room, peer.userId, update, origin, metas);
       const schemaTo = floor > room.row.schemaVersion ? floor : null;
+      // step 6: only a push that made a block can have made a copy
+      const copies =
+        room.mode === "authority" && report.inserted.length > 0
+          ? findCopies(doc, metas)
+          : [];
       enqueue({ kind: "append", ...base, append, report, schemaTo, heal });
+      if (copies.length === 0) return;
+      const repair = copiesRepair(room, peer.userId, copies, ports);
+      authority(room, repair.write, repair.done);
     },
     set(room, subscription, message) {
       if (subscription.stalled) return;
@@ -369,12 +344,12 @@ export function createWritePath(ports: WritePathPorts): WritePath {
     },
     replay: (room, write, done) =>
       enqueue({ kind: "replay", room, write, done, seq: 0 }),
+    authority,
     ingest: enqueue,
     discard(room) {
       const dropped = queue.filter((item) => item.room === room);
       queue = queue.filter((item) => item.room !== room);
-      for (const item of dropped)
-        if (item.kind === "replay") item.done({ ok: false });
+      for (const item of dropped) answerFailed(item);
     },
     commitHeld(items) {
       const file = items[0]?.room.file;
@@ -383,6 +358,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       heldFiles.delete(file);
       for (const item of items) {
         heldUpdates.delete(item.room.docId);
+        heldShownUpdates.delete(item.room.docId);
         // published when they were held, but for what the authority wrote
         if (isAuthorityWrite(item)) answer(item, ports);
         else settle(item, ports);
@@ -391,6 +367,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
     },
     holdError: (file) => heldFiles.get(file) ?? null,
     heldUpdates: (docId) => heldUpdates.get(docId) ?? [],
+    heldShownUpdates: (docId) => heldShownUpdates.get(docId) ?? [],
     flush,
     queued: () => queue.length + ports.held.size(),
   };

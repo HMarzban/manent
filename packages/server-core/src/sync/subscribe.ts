@@ -1,5 +1,6 @@
 // The checks a SUBSCRIBE passes, in order (the first that fails is the answer), and what passing gives.
-import { CrdtUpdateError, readStateVector } from "@manent/crdt";
+import { CrdtUpdateError, ORIGIN_LOAD, readStateVector } from "@manent/crdt";
+import type { CrdtDoc } from "@manent/crdt";
 import { gateDocument } from "@manent/sync-protocol";
 import type { DocRef, Message } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
@@ -9,7 +10,7 @@ import type { AwarenessHub } from "./awareness.ts";
 import type { Deletions } from "./deletions.ts";
 import { syncError } from "./errors.ts";
 import type { Healing } from "./heal.ts";
-import type { Peer, SyncLimits } from "./ports.ts";
+import type { Peer, SubscribedExtras, SyncLimits, WritePath } from "./ports.ts";
 import type { Room, Rooms, Subscription } from "./rooms.ts";
 import { isStorageError } from "./storage-error.ts";
 
@@ -102,13 +103,22 @@ export function registerEditor(
     room.colors.set(user, color);
 }
 
-/** The answer to a SUBSCRIBE that passed, reporting `headSeq` as the document's head. */
+/** What SUBSCRIBED says of locks and revisions when no feature says otherwise. */
+const PLAIN_EXTRAS: SubscribedExtras = Object.freeze({
+  lockLevel: 0,
+  lockAnchors: null,
+  revision: null,
+});
+
+/** The answer to a SUBSCRIBE that passed, reporting `headSeq` as the document's head; null `extras` are the plain values. */
 export function subscribedOf(
   room: Room,
   access: Access,
   headSeq: number,
+  extras: SubscribedExtras | null,
 ): Message {
   const { row } = room;
+  const { lockLevel, lockAnchors, revision } = extras ?? PLAIN_EXTRAS;
   return {
     type: "SUBSCRIBED",
     docId: room.docId,
@@ -118,9 +128,9 @@ export function subscribedOf(
     headSeq,
     minSchemaVersion: row.schemaVersion,
     engineVersion: row.engineVersion ?? 0,
-    lockLevel: 0,
-    lockAnchors: null,
-    revision: null,
+    lockLevel,
+    lockAnchors: lockAnchors === null ? null : { table: lockAnchors },
+    revision,
     airWindow: null,
   };
 }
@@ -142,6 +152,10 @@ export interface SubscribePorts {
   snapshotOf(room: Room): Message;
   tell(peer: Peer, message: Message): void;
   end(peer: Peer, docId: string): void;
+  /** An edit subscription ended: the peer is no longer among the room's editors. */
+  editorLeft(room: Room, userId: string): void;
+  /** SUBSCRIBED's lock and revision fields; null: the plain values. */
+  extras(docId: string): SubscribedExtras | null;
 }
 
 /** A SUBSCRIBE: refused with the first check that fails, otherwise held, answered SUBSCRIBED, then step 1 or a snapshot. */
@@ -179,9 +193,11 @@ export function subscribe(
       syncError("storage_failed", docOf(room), { retryAfterMs }),
     );
   }
+  const wasEditor = room.editors.has(peer);
   if (mode === "view") presence.left(room, peer);
   room.editors.delete(peer);
   room.viewers.delete(peer);
+  if (wasEditor && mode === "view") ports.editorLeft(room, peer.userId);
   const { access: granted } = check;
   const subscription: Subscription = {
     peer,
@@ -194,7 +210,8 @@ export function subscribe(
   const { lastServerSeq } = message;
   state.held.set(docId, { room, subscription, lastServerSeq });
   (mode === "edit" ? room.editors : room.viewers).set(peer, subscription);
-  tell(peer, subscribedOf(room, granted, heal.headOf(room)));
+  const extras = ports.extras(docId);
+  tell(peer, subscribedOf(room, granted, heal.headOf(room), extras));
   const vector = room.doc?.encodeStateVector();
   if (mode === "edit" && vector !== undefined) {
     rebuilder.touched(room);
@@ -205,19 +222,39 @@ export function subscribe(
 }
 
 /**
+ * What the room shows of its document while its file holds commits: the log and what of the held
+ * items its windows were sent. Null when nothing is held. The caller destroys the document.
+ */
+function heldShown(
+  rooms: Pick<Rooms, "committed">,
+  room: Room,
+  held: readonly Uint8Array[],
+  shownUpdates: readonly Uint8Array[],
+): CrdtDoc | null {
+  if (held.length === 0) return null;
+  const shown = rooms.committed(room).doc;
+  for (const update of shownUpdates) shown.applyUpdate(update, ORIGIN_LOAD);
+  return shown;
+}
+
+/**
  * The answer to an editor's step 1: the server's step 2, the cached full state for an empty
- * vector, otherwise what the vector lacks. Step 2's delete set also holds what Yjs deleted with a
- * deleted parent, so it comes after the deletions the rows after `lastServerSeq` made, when there
- * are any, which tell the client which of its own text that was. A device that holds nothing and
- * never synced has no text to set aside. The deletions are read only from committed rows, so what
- * the write path holds is committed first; a failed commit answers every subscriber itself. Bytes
- * that are not a state vector are refused, and may be sent again.
+ * vector, otherwise what the vector lacks, each read from what the room shows while its file
+ * holds commits. Step 2's delete set also holds what Yjs deleted with a deleted parent, so it
+ * comes after the deletions the rows after `lastServerSeq` made, when there are any, which tell
+ * the client which of its own text that was. A device that holds nothing and never synced has no
+ * text to set aside. The deletions are read only from committed rows, so what the write path holds
+ * is committed first; a failed commit answers every subscriber itself. Bytes that are not a state
+ * vector are refused, and may be sent again.
  */
 export function answerStepOne(
   ports: {
     rooms: Rooms;
     deletions: Deletions;
-    writePath: { queued(): number; flush(): void };
+    writePath: Pick<
+      WritePath,
+      "queued" | "flush" | "heldUpdates" | "heldShownUpdates"
+    >;
   },
   room: Room,
   step: { vector: Uint8Array; lastServerSeq: number },
@@ -236,7 +273,16 @@ export function answerStepOne(
   // the commit failed: the room was dropped, and its subscribers told
   if (room.doc === null) return [];
   const fresh = clocks.size === 0;
-  const data = fresh ? ports.rooms.fullState(room) : room.doc.diff(step.vector);
+  const { writePath } = ports;
+  const held = writePath.heldUpdates(room.docId);
+  const sent = writePath.heldShownUpdates(room.docId);
+  const shown = heldShown(ports.rooms, room, held, sent);
+  let data: Uint8Array;
+  if (shown !== null) {
+    data = shown.diff(step.vector);
+    shown.destroy();
+  } else
+    data = fresh ? ports.rooms.fullState(room) : room.doc.diff(step.vector);
   const stepTwo: Message = { type: "SYNC", ...doc, step: "step2", data };
   const deletions =
     fresh && step.lastServerSeq === 0

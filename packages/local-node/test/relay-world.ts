@@ -3,6 +3,7 @@
 // cloud in a browser, over two memory networks, with faults on request.
 import {
   ORIGIN_LOAD,
+  ORIGIN_REMOTE,
   createDoc,
   scriptBody,
   scriptSettings,
@@ -315,7 +316,7 @@ class Cloud {
           now: this.clock.clock.now,
         }),
       },
-      demo: { seedId: () => this.seedId, control: null },
+      demo: { seedId: () => this.seedId, control: null, controls: null },
       socket: {
         tickets: createTicketStore({ now: this.clock.clock.now }),
         versions: VERSIONS,
@@ -395,6 +396,8 @@ class NodeLife {
   readonly peers = new Set<Peer>();
   readonly lastSet = new Map<string, { peer: Peer; message: Message }>();
   device: "ok" | "failing" = "ok";
+  /** By person: this life's upstream client. */
+  readonly upstreams = new Map<string, SyncClient>();
   /** The connections of this life's upstream clients, closed when it dies. */
   private readonly upstreamLinks = new Set<{
     close(code: number, reason: string): void;
@@ -513,7 +516,7 @@ class NodeLife {
     token: () => string | null,
   ): SyncClient {
     const deviceId = `node-${userId}`;
-    return createSyncClient({
+    const client = createSyncClient({
       userId,
       deviceId,
       build: "test",
@@ -532,6 +535,8 @@ class NodeLife {
         frames: NO_FRAMES,
       },
     });
+    this.upstreams.set(userId, client);
+    return client;
   }
 
   /** The person's store; a dead process writes nothing, and while the world holds appends none settles. */
@@ -736,6 +741,7 @@ export class RelayWorld {
         if (options.downAfterAdopt === true) this.cloudDown(true);
         return answer;
       },
+      forward: (token, request) => this.cloud.api.forward(token, request),
     };
     this.life = this.startLife();
     this.cloudNet.serve({
@@ -1110,6 +1116,20 @@ export class RelayWorld {
     this.life.deferred.held = hold;
   }
 
+  /** The person's upstream document takes `update` as the cloud's, as a frame brings it. */
+  async upstreamHears(
+    userId: string,
+    docId: string,
+    update: Uint8Array,
+  ): Promise<void> {
+    const client = this.life.upstreams.get(userId);
+    if (client === undefined)
+      throw new RangeError(`${userId} has no upstream client`);
+    (await this.drive(client.open(docId)))
+      .doc()
+      .applyUpdate(update, ORIGIN_REMOTE);
+  }
+
   /** From now on, the person's upstream link hears nothing the cloud sends until `linkHears`. */
   slowLink(userId: string): void {
     this.slowLinks.set(userId, []);
@@ -1326,6 +1346,7 @@ export class CoreWorld {
         this.adoptions.push({ docId, workspaceId });
         return this.cloud.api.adopt(token, request);
       },
+      forward: (token, request) => this.cloud.api.forward(token, request),
     };
     return createNodeCore({
       storage: this.nodeStorage,
@@ -1347,6 +1368,7 @@ export class CoreWorld {
       webDir: null,
       launchToken: LAUNCH,
       registry: PRODUCT_SETTING_RULES,
+      renderPdf: async () => new Uint8Array(),
       boot: null,
       storeUsage: () => ({ scripts: 0, bytes: 0 }),
       nodeUrl: NODE_URL,

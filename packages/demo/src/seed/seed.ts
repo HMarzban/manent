@@ -1,10 +1,14 @@
 // The demo's seed: its workspaces, built by steps that share one seeded generator.
 import type { IdSource } from "@manent/schema";
+import type { PageMeter } from "../generate/fit.ts";
 import { DEMO_PEOPLE, DEMO_WORKSPACES } from "../people.ts";
 import type { DemoPerson } from "../people.ts";
+import type { SeedCapability, SeedDriver } from "./driver.ts";
 import { createRng, seededIdSource } from "./rng.ts";
 import type { Rng } from "./rng.ts";
 import { SEED_STEPS } from "./steps/index.ts";
+import { createSeedTime } from "./time.ts";
+import type { SeedTime } from "./time.ts";
 
 export const DEMO_SEED = 4747;
 
@@ -29,7 +33,14 @@ export interface SeedContext {
   dataDir: string | null;
   /** The server a step replays edits through; null when there is none. */
   serverUrl: string | null;
-  /** Progress, for a step that runs in the background. */
+  /** Null when only the manifest is built: the step then returns its entries and writes nothing. */
+  driver: SeedDriver | null;
+  /** The engine's page meter; null when the seed is built without a driver. */
+  meter: PageMeter | null;
+  time: SeedTime;
+  /** Records an action left out because the server lacks `capability`; `what` says it in a few words. */
+  skip(capability: SeedCapability, what: string): void;
+  /** Progress, for a step that runs in the background; nothing hears it in the foreground. */
   report(done: number, total: number): void;
 }
 
@@ -49,6 +60,13 @@ export interface SeedManifest {
   workspaces: SeedWorkspace[];
 }
 
+/** An action a step left out because the server lacked its capability. */
+export interface SkippedAction {
+  step: string;
+  capability: SeedCapability;
+  what: string;
+}
+
 export interface SeedOptions {
   seed?: number;
   steps?: readonly SeedStep[];
@@ -56,14 +74,21 @@ export interface SeedOptions {
   serverUrl?: string;
   /** Which steps run; default "foreground". */
   phase?: "foreground" | "background" | "all";
-  onProgress?(workspace: string, done: number, total: number): void;
+  onProgress?(done: number, total: number): void;
+  driver?: SeedDriver;
+  meter?: PageMeter;
+  /** The moment the seed runs, epoch ms; default 0. */
+  seedAt?: number;
+  /** The local offset east of UTC at `seedAt`; default 0. */
+  zoneOffsetMs?: number;
+  onSkipped?(entry: SkippedAction): void;
 }
 
 /**
  * Runs the steps of `phase` in order, each adding its entries to its own
  * workspace. Defaults: `DEMO_SEED`, the package's steps, no data directory, no
- * server, the foreground phase. Rejects with a RangeError naming a step whose
- * workspace does not exist, before any step runs.
+ * server, no driver, no meter, the foreground phase. Rejects with a RangeError
+ * naming a step whose workspace does not exist, before any step runs.
  */
 export async function buildSeed(
   options: SeedOptions = {},
@@ -89,6 +114,10 @@ export async function buildSeed(
   });
   const rng = createRng(seed);
   const ids = seededIdSource(rng);
+  const time = createSeedTime({
+    seedAt: options.seedAt ?? 0,
+    zoneOffsetMs: options.zoneOffsetMs ?? 0,
+  });
   for (const [i, step] of steps.entries()) {
     if (phase !== "all" && step.background !== (phase === "background"))
       continue;
@@ -100,8 +129,12 @@ export async function buildSeed(
       workspace,
       dataDir: options.dataDir ?? null,
       serverUrl: options.serverUrl ?? null,
-      report: (done, total) =>
-        options.onProgress?.(step.workspace, done, total),
+      driver: options.driver ?? null,
+      meter: options.meter ?? null,
+      time,
+      skip: (capability, what) =>
+        options.onSkipped?.({ step: step.id, capability, what }),
+      report: (done, total) => options.onProgress?.(done, total),
     });
     workspace.projects.push(...entries);
   }

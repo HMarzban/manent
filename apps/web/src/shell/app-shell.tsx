@@ -12,6 +12,7 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { EditorHost } from "../editor-host/editor-host.tsx";
 import { standInMount } from "../editor-host/stand-in-mount.ts";
+import { useFileDrop } from "../import/file-drop.ts";
 import { loadApart } from "../load-apart.ts";
 import { historyTab } from "../screens/document/history-tab.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
@@ -48,12 +49,13 @@ const GRID: CSSProperties = Object.freeze({
     '"demobar demobar demobar"',
     '"titlebar titlebar titlebar"',
     '"statebar statebar statebar"',
+    '"findbar findbar findbar"',
     '"ruler ruler ruler"',
     '"left page side"',
     '"statusbar statusbar statusbar"',
   ].join(" "),
   gridTemplateColumns: "auto minmax(0, 1fr) auto",
-  gridTemplateRows: "auto auto auto auto minmax(0, 1fr) auto",
+  gridTemplateRows: "auto auto auto auto auto minmax(0, 1fr) auto",
 });
 // a screen that is not a document covers everything from the title bar to the status bar, the page included
 const SCREEN_AREA: CSSProperties = Object.freeze({
@@ -221,8 +223,8 @@ function usePublishShellState(
 }
 
 /**
- * The grid every screen sits in, with areas `demobar`, `titlebar`, `statebar`, `ruler`, `left`, `page`, `side` and
- * `statusbar`, inside the providers of the person's settings and commands and of the bridge's stores.
+ * The grid every screen sits in, with areas `demobar`, `titlebar`, `statebar`, `findbar`, `ruler`, `left`, `page`,
+ * `side` and `statusbar`, inside the providers of the person's settings and commands and of the bridge's stores.
  */
 export function AppShell(props: { children: ReactNode }): ReactNode {
   const services = useServices();
@@ -244,6 +246,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
   };
   usePublishShellState(screen, docId, facts.selectors);
   useEscapeHandler({ dom, paletteOpen, closePalette });
+  const drop = useFileDrop();
   return (
     <SettingsProvider store={services.settings}>
       <CommandsProvider
@@ -255,7 +258,11 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
           <FactsContext value={facts.selectors}>
             <OutlineContext value={outline.selectors}>
               <PeopleContext value={people.selectors}>
-                <div className="grid h-screen bg-chrome text-fg" style={GRID}>
+                <div
+                  className="grid h-screen bg-chrome text-fg"
+                  style={GRID}
+                  {...drop}
+                >
                   <ShellPage
                     docId={docId}
                     covered={covered}

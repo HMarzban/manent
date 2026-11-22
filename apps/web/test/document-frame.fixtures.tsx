@@ -20,6 +20,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { createHandlers } from "../src/handlers/index.ts";
+import type { PersonReview } from "../src/services/sync/later-index.ts";
 import { DocumentFrame } from "../src/screens/document/document-screen.tsx";
 import {
   EnvironmentProvider,
@@ -134,6 +135,7 @@ function contextFor(
       historyPresent,
       format: null,
       rulerShown: false,
+      layoutView: "page",
       spaceBeforeSet: false,
       zoom: null,
       zoomPercent: null,
@@ -160,7 +162,11 @@ const scriptStoreOver = (scriptBag: DocumentServices["scriptBag"]) =>
 function servicesFor(
   environment: Environment,
   doc: TestDocument,
-  options: { role: CommandContext["role"]; kind: ProjectKind | null },
+  options: {
+    role: CommandContext["role"];
+    kind: ProjectKind | null;
+    review: PersonReview | null;
+  },
 ): PersonServices {
   const usePerson = createPersonStore(null);
   const router = createNavigation({
@@ -184,13 +190,18 @@ function servicesFor(
     onDisabled: () => {},
   });
   environment.shellState.subscribe(commands.notify);
+  // the stand-in's document is in no index: its title is the fixture's own
+  const title = createValue<string | null>(null);
   const services: PersonServices = {
     ...base,
     library: {
       ...base.library,
+      documentTitle: () => title,
       documentKind: () => createValue(options.kind),
+      renameDocument: (_docId, named) => title.set(named),
     },
     documents: { open: () => doc, close: () => {} },
+    review: options.review ?? base.review,
     openScriptStore: () => scriptStore,
     commands,
   };
@@ -203,6 +214,7 @@ function servicesFor(
       usePerson,
       router,
       shellState: environment.shellState.get,
+      nodeCloud: null,
     }),
   );
   return services;
@@ -282,6 +294,7 @@ export async function renderFrame(
     viewportWidthPx?: number;
     startAt?: number;
     brokenOutline?: boolean;
+    review?: PersonReview;
   } = {},
 ): Promise<Frame> {
   const viewport: unknown = Reflect.get(window, "happyDOM");
@@ -319,6 +332,7 @@ export async function renderFrame(
   const services = servicesFor(environment, doc, {
     role: options.role ?? "editor",
     kind: options.kind ?? null,
+    review: options.review ?? null,
   });
   if (options.title !== undefined)
     services.library.renameDocument(DOC_ID, options.title);

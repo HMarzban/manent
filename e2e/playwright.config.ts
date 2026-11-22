@@ -1,17 +1,48 @@
-// End-to-end tests in three browsers, against one demo started on ports of its own.
+// End-to-end tests in three browsers, and the Tour's in Chromium, against one demo started on ports of its own.
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { TOUR } from "@manent/demo";
 import { defineConfig } from "@playwright/test";
 import { E2E_CONTROL_PORT, E2E_PORT } from "./support/ports.ts";
+import { tourProjects } from "./support/tour.ts";
+
+// only the scenarios the Tour shows: a hidden or waiting scenario's file is never matched
+const TOUR_FILES = tourProjects(TOUR);
+// the Tour's own files run only in its Chromium projects
+const ENGINE_IGNORE = ["e2e/tour/**", "e2e/demo/**"];
 
 export default defineConfig({
   testDir: ".",
   testMatch: "**/*.e2e.ts",
   projects: [
-    { name: "chromium", use: { browserName: "chromium" } },
-    { name: "firefox", use: { browserName: "firefox" } },
-    { name: "webkit", use: { browserName: "webkit" } },
+    {
+      name: "chromium",
+      use: { browserName: "chromium" },
+      testIgnore: ENGINE_IGNORE,
+    },
+    {
+      name: "firefox",
+      use: { browserName: "firefox" },
+      testIgnore: ENGINE_IGNORE,
+    },
+    {
+      name: "webkit",
+      use: { browserName: "webkit" },
+      testIgnore: ENGINE_IGNORE,
+    },
+    {
+      name: "tour",
+      use: { browserName: "chromium" },
+      testMatch: [...TOUR_FILES.any, "e2e/demo/*.e2e.ts"],
+      workers: 1,
+    },
+    {
+      name: "tour-desktop",
+      use: { browserName: "chromium" },
+      testMatch: TOUR_FILES.desktop,
+      workers: 1,
+    },
   ],
   use: { baseURL: `http://localhost:${E2E_PORT}` },
   reporter: "line",

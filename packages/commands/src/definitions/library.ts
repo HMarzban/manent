@@ -1,8 +1,5 @@
-// The Library's commands: a new script, or a new project of any kind.
-import type { CommandContext } from "../context.ts";
+// A new script, or a new project of any kind, from any screen.
 import type { CommandDefinition } from "../define.ts";
-
-const inLibrary = (ctx: CommandContext): boolean => ctx.screen === "library";
 
 export const LIBRARY_COMMANDS = [
   {
@@ -15,7 +12,7 @@ export const LIBRARY_COMMANDS = [
     keysFixed: false,
     when: null,
     whyNot: null,
-    visible: inLibrary,
+    visible: null,
     checked: null,
     passThrough: null,
     menus: [{ menu: "file", group: "new", order: 10, submenu: null }],
@@ -34,7 +31,7 @@ export const LIBRARY_COMMANDS = [
     keysFixed: false,
     when: null,
     whyNot: null,
-    visible: inLibrary,
+    visible: null,
     checked: null,
     passThrough: null,
     menus: [{ menu: "file", group: "new", order: 20, submenu: null }],

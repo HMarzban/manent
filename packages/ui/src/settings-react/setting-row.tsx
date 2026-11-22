@@ -7,6 +7,7 @@ import type {
   SettingValue,
   SettingsStore,
 } from "@manent/settings";
+import { cn } from "cn";
 import { useId, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { Segmented } from "../components/segmented/segmented.tsx";
@@ -90,7 +91,8 @@ function defaultLine(
   )
     return PREFERENCES_WORDS.defaultIs(defaultLabel);
   const { on } = provenance;
-  const from = on === null || on === deviceName ? null : on;
+  // "" is a device that never said its name
+  const from = on === null || on === "" || on === deviceName ? null : on;
   return PREFERENCES_WORDS.setByYou(
     formatDate(provenance.at),
     defaultLabel,
@@ -226,47 +228,60 @@ export function SettingRow(props: {
   const describedBy =
     def.description === null ? ids.line : `${ids.help} ${ids.line}`;
   const Control = controlFor(settingKey);
+  // a radio group lists its choices under its label; every other control sits at the row's end
+  const stacked = Control === RadioControl;
   return (
-    <div className="flex flex-col gap-1 py-2">
-      <div className="flex items-center justify-between gap-4">
-        <span id={ids.label} className="text-ui">
+    <div
+      data-tour={`setting:${settingKey}`}
+      className={cn(
+        "flex gap-x-4 gap-y-2 py-1",
+        stacked ? "flex-col" : "items-center justify-between",
+        def.description === null && !explained.modified
+          ? "min-h-row"
+          : "min-h-row-2",
+      )}
+    >
+      <div className="flex min-w-0 flex-col">
+        <span id={ids.label} className="text-ui font-medium">
           {def.label}
         </span>
-        <Control
-          settingKey={settingKey}
-          value={value}
-          labelId={ids.label}
-          describedBy={describedBy}
-          disabled={!explained.writable}
-        />
-      </div>
-      {def.description === null ? null : (
-        <p id={ids.help} className="text-meta text-fg-muted">
-          {def.description}
-        </p>
-      )}
-      <div className="flex items-center justify-between gap-4">
-        <p
-          id={ids.line}
-          className={explained.modified ? "text-meta text-fg-muted" : "sr-only"}
-        >
-          {defaultLine(settingKey, explained, deviceName)}
-        </p>
-        {explained.modified ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => store.reset(settingKey)}
+        {def.description === null ? null : (
+          <p id={ids.help} className="text-meta text-fg-muted">
+            {def.description}
+          </p>
+        )}
+        <div className="flex items-center gap-2">
+          <p
+            id={ids.line}
+            className={
+              explained.modified ? "text-meta text-fg-muted" : "sr-only"
+            }
           >
-            {PREFERENCES_WORDS.reset}
-          </Button>
-        ) : null}
+            {defaultLine(settingKey, explained, deviceName)}
+          </p>
+          {explained.modified ? (
+            <Button
+              variant="link"
+              className="h-auto p-0 text-meta"
+              onClick={() => store.reset(settingKey)}
+            >
+              {PREFERENCES_WORDS.reset}
+            </Button>
+          ) : null}
+        </div>
+        {persisted ? null : (
+          <p className="text-meta text-attention">
+            {PREFERENCES_WORDS.notSavedHere}
+          </p>
+        )}
       </div>
-      {persisted ? null : (
-        <p className="text-meta text-attention">
-          {PREFERENCES_WORDS.notSavedHere}
-        </p>
-      )}
+      <Control
+        settingKey={settingKey}
+        value={value}
+        labelId={ids.label}
+        describedBy={describedBy}
+        disabled={!explained.writable}
+      />
     </div>
   );
 }

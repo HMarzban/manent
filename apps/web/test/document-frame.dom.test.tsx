@@ -103,6 +103,8 @@ test("Rename commits on Enter, cancels on Escape, and returns focus to the title
     if (input === null) throw new Error("no rename field is open");
     return input;
   };
+  // the page takes focus on open; the rename starts from the title
+  act(() => titleBar.querySelector("h1")?.focus());
   act(() => {
     services.commands.run("doc.rename", "menu");
   });
@@ -172,12 +174,12 @@ test("the Sync centre lists what waits by scene, what is to review and the expla
     frame.status.set({ ...SYNCED, device: "failing", network: "offline" }),
   );
   const alert = syncCentreParts();
-  // Review is drawn once history.review is registered
   expect([outOfDate, alert.slice(0, 2)]).toEqual([
     [
       "Sync centre",
       "The server runs an older Manent than this app. Your changes are saved here and sync once it runs a newer one.",
       "2 to review",
+      "Review",
       "Sc. 8 · 12 waiting",
       "Export a copy",
     ],
@@ -209,7 +211,7 @@ test("avatars are named by their people, and the count by how many more", async 
       nameOf(el),
       el.textContent ?? "",
     ]);
-  expect([named("[data-who]"), named("[data-count='more']")]).toEqual([
+  expect([named("[data-who]"), named("[data-more]")]).toEqual([
     [
       ["Dana Reyes", "DR"],
       ["Sam Okafor", "SO"],

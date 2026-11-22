@@ -9,5 +9,7 @@ e2e/playwright-report/
 apps/desktop/.hutch/
 apps/desktop/build/
 apps/desktop/artifacts/
+apps/desktop/.hutch-cli/
+apps/desktop/.hutch-home/
 bench/corpus/cache/
 bench/corpus/traces/

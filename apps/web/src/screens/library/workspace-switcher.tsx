@@ -2,6 +2,7 @@
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   Button,
+  DEMO_WORDS,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -11,19 +12,19 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
+import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 
-/** "6 projects · The Long Night", or how far a workspace being seeded has got. */
+/** "6 projects · The Long Night", how far a workspace being seeded has got, or that its seed stopped. */
 function useWorkspaceLine(workspace: WorkspaceRef): string {
   const { library } = useServices();
   const projects = useSubscribable(library.projects(workspace.id));
   const continueList = useSubscribable(library.continueList(workspace.id));
-  if (workspace.seeding !== null)
-    return LIBRARY_WORDS.seeding(
-      workspace.seeding.done,
-      workspace.seeding.total,
-    );
+  const { seeding } = workspace;
+  if (seeding?.failed) return DEMO_WORDS.seedingFailed;
+  if (seeding !== null)
+    return LIBRARY_WORDS.seeding(seeding.done, seeding.total);
   return LIBRARY_WORDS.workspaceLine(
     projects.length,
     continueList[0]?.title ?? null,
@@ -42,13 +43,13 @@ function WorkspaceItem(props: {
       aria-current={current ? "true" : undefined}
       onClick={onChoose}
     >
-      <span aria-hidden="true" className="w-4 shrink-0">
-        {current ? "✓" : null}
-      </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate">{name}</span>
+        <span className="truncate font-medium">{name}</span>
         <span className="truncate text-meta text-fg-muted">{line}</span>
       </span>
+      {current ? (
+        <CheckIcon aria-hidden="true" className="text-fg-accent" />
+      ) : null}
     </DropdownMenuItem>
   );
 }
@@ -90,11 +91,15 @@ export function WorkspaceSwitcher(props: {
     void navigate({ href: `/?w=${encodeURIComponent(id)}` });
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" />}>
-        {name}
-        <span aria-hidden="true">▾</span>
+      {/* a narrow title bar shortens the name before it loses a control */}
+      <DropdownMenuTrigger
+        data-tour="workspace_switcher"
+        render={<Button variant="ghost" className="min-w-0 shrink" />}
+      >
+        <span className="truncate font-semibold">{name}</span>
+        <ChevronDownIcon aria-hidden="true" className="text-fg-muted" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-auto min-w-64">
+      <DropdownMenuContent>
         {workspaces === null ? (
           <>
             <WorkspaceItem

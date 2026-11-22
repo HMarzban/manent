@@ -10,7 +10,9 @@ import type {
   StatusFacts,
   Subscribable,
 } from "@manent/ui";
+import { historyEvents } from "../../history/history-events.ts";
 import type { PersonSync } from "./create-sync.ts";
+import { nameOf } from "./index-entries.ts";
 import { toStatusFacts } from "./status-facts.ts";
 import { trustEventsOf } from "./trust-events.ts";
 
@@ -29,6 +31,8 @@ export interface Following {
   now: () => number;
   schedule: (fn: () => void, delayMs: number) => () => void;
   removedInfo: (docId: string) => Promise<RemovedDocResponse | null>;
+  /** Told each document once its handle has opened here; the returned function stops what it started. */
+  opened: (docId: string, handle: DocHandle) => () => void;
 }
 
 type Value<T> = Subscribable<T> & { set(value: T): void };
@@ -132,6 +136,7 @@ export function followHandle(options: Following, open: Opened): () => void {
       viewRole: role,
       viewLive: view?.status.get().live ?? false,
       offlineSinceAt: sync.offlineSince.get(),
+      signedIn: sync.signedIn,
       toReview: toReview.get(),
       now: options.now(),
     });
@@ -170,7 +175,14 @@ export function followHandle(options: Following, open: Opened): () => void {
         (await sync.store.load(docId))?.meta.lastSyncedAt ?? null,
       push: (event) => options.messages.push(messageFor(event)),
     }),
+    historyEvents({
+      handle,
+      messages: options.messages,
+      nameOf,
+      viewerUserId: sync.userId,
+    }),
     groupWaiting(options, open),
+    options.opened(docId, handle),
   ];
   return () => {
     for (const stop of stops) stop();

@@ -1,4 +1,4 @@
-// What the desktop app's page says: a script whose first sync was refused, a file it cannot open, and This device's rows.
+// What the desktop app's page says: a script whose first sync was refused, and This device's rows.
 
 import { formatCount } from "./format.ts";
 
@@ -18,10 +18,6 @@ export const DESKTOP_WORDS = {
   scriptsRow: "Scripts",
   folderRow: "Folder",
   channelRow: "Channel",
-  fileWrongType: (name: string): string =>
-    `Couldn't open '${name}': Manent opens .fdx, .fountain, .pdf, .docx and .ink files.`,
-  fileTooLarge: (name: string): string =>
-    `Couldn't open '${name}': it is larger than 32 MB.`,
   /** The size `PREFERENCES_WORDS.scriptsStored` names: whole megabytes, never less than 1. */
   storedSize: (bytes: number): string =>
     `${formatCount(Math.max(1, Math.round(bytes / 1_000_000)))} MB`,

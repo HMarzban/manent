@@ -40,7 +40,7 @@ interface DemoOptions {
 }
 
 /** A demo found through run.json: `live` when its supervisor answers; a stale file may hold nothing readable. */
-type FoundDemo =
+export type FoundDemo =
   { live: true; run: RunFile } | { live: false; run: RunFile | null };
 
 const portInUse = (port: number): string =>
@@ -383,8 +383,8 @@ async function main(args: string[]): Promise<number> {
   if (command === "stop") return stop(dataDir);
   if (command === "reset") return reset(dataDir);
   if (command === "desktop") {
-    console.error("The desktop app is not in this build yet.");
-    return 1;
+    const { buildAgainst } = await import("../desktop/build.ts");
+    return buildAgainst(await findDemo(dataDir), join(dataDir, "desktop"));
   }
   throw new Error(`Unknown command ${command}. Run make to see the commands.`);
 }

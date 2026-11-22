@@ -98,8 +98,10 @@ test("a person who may only view gets a page that follows other people's typing 
   const client = fakeClient(() => handle);
   const clock = createClock();
   const source = createSyncDocumentSource({
+    signedIn: false,
     sync: Promise.resolve(fakeSync(client)),
     review: { openCount: () => createValue(0), follow: () => () => {} },
+    opened: () => () => {},
     titles: () => "Low Tide",
     messages: createMessageQueue({ now: clock.now, schedule: clock.schedule }),
     now: clock.now,
@@ -256,7 +258,8 @@ test("an address this device never made, opened signed in, asks for no create an
   await settle(world.network);
   const stored = await client.open(DOC);
   expect([
-    world.server.created,
+    // the person's index documents are asked for, and nothing of the address
+    world.server.created.filter((request) => request.docId === DOC),
     typed(stored.doc()),
     textOf(world.server.doc(DOC)),
     typed(session.doc()),

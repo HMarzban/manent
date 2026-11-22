@@ -36,6 +36,7 @@ const drivingLine = (count: number): StateLine => ({
   sentence: "Dana is driving",
   chip: null,
   actions: ["Pitch", "Take keys", "More"].slice(0, count).map(action),
+  dismiss: null,
   attention: false,
 });
 
@@ -44,6 +45,7 @@ test("the state bar draws an action only when its command is registered", () => 
     sentence: "14 changes by Dana and Sam since you last opened",
     chip: null,
     actions: [{ label: "Show", commandId: "history.showSinceOpened" }],
+    dismiss: null,
     attention: false,
   };
   const ran: string[] = [];
@@ -84,6 +86,7 @@ test("the state bar is a polite status region and is absent when nothing is true
         sentence: "View only — you can comment",
         chip: null,
         actions: [],
+        dismiss: null,
         attention: false,
       }}
       right={null}

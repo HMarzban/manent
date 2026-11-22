@@ -9,7 +9,10 @@ import { DOCUMENT_COMMANDS } from "./document.ts";
 import { EDIT_COMMANDS } from "./edit.ts";
 import { EDITOR_COMMANDS } from "./editor.ts";
 import { HISTORY_COMMANDS } from "./history.ts";
+import { IMPORT_COMMANDS } from "./import.ts";
 import { LIBRARY_COMMANDS } from "./library.ts";
+import { NAVIGATION_COMMANDS } from "./navigation.ts";
+import { PRODUCTION_COMMANDS } from "./production.ts";
 import { SYNC_COMMANDS } from "./sync.ts";
 import { VIEW_COMMANDS } from "./view.ts";
 
@@ -19,11 +22,14 @@ export const COMMANDS = defineCommands([
   ...VIEW_COMMANDS,
   ...DOCUMENT_COMMANDS,
   ...EDITOR_COMMANDS,
+  ...NAVIGATION_COMMANDS,
   ...LIBRARY_COMMANDS,
+  ...IMPORT_COMMANDS,
   ...SYNC_COMMANDS,
   ...DEMO_COMMANDS,
   ...DESKTOP_COMMANDS,
   ...HISTORY_COMMANDS,
+  ...PRODUCTION_COMMANDS,
   ...settingCommands(SETTINGS),
 ]);
 export type CommandId = (typeof COMMANDS)[number]["id"];
