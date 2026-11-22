@@ -11,12 +11,12 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "../components/stock/dropdown-menu.tsx";
+import { Kbd } from "../components/stock/kbd.tsx";
 import {
   Tooltip,
   TooltipContent,
@@ -57,9 +57,7 @@ function MenuItem(props: {
     <>
       {item.label}
       {chord === undefined ? null : (
-        <DropdownMenuShortcut className="text-micro text-fg-muted">
-          {keyLabel(chord, platform)}
-        </DropdownMenuShortcut>
+        <Kbd className="ml-auto">{keyLabel(chord, platform)}</Kbd>
       )}
     </>
   );
