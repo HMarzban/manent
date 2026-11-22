@@ -7,6 +7,7 @@ import type {
   ScreenId,
 } from "@manent/commands";
 import type { PageViewPorts } from "@manent/editor";
+import type { ImportRecord, ImportedScript } from "@manent/formats";
 import type {
   Bag,
   KeyValueMap,
@@ -75,6 +76,13 @@ export interface CreateResult {
   docId: string;
 }
 
+/** A file read for the Library: its script's title, what it holds, and the record kept with it. */
+export interface ImportedProject {
+  title: string;
+  script: ImportedScript;
+  record: ImportRecord;
+}
+
 export interface LibraryIndex {
   continueList(workspaceId: string): Subscribable<readonly ContinueItem[]>;
   projects(workspaceId: string): Subscribable<readonly ProjectItem[]>;
@@ -82,6 +90,11 @@ export interface LibraryIndex {
   readProjects(workspaceId: string): Promise<readonly ProjectItem[]>;
   loadState(workspaceId: string): Subscribable<"cached" | "problem">;
   createProject(workspaceId: string, kind: ProjectKind): Promise<CreateResult>;
+  /** A film project and its script, both titled `imported.title`, made on the device like `createProject`; rejects when the workspace's index is missing or its write throws. */
+  importProject(
+    workspaceId: string,
+    imported: ImportedProject,
+  ): Promise<CreateResult>;
   /** Null for a document the index does not hold. */
   documentTitle(docId: string): Subscribable<string | null>;
   documentKind(docId: string): Subscribable<ProjectKind | null>;

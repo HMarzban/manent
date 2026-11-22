@@ -18,6 +18,7 @@ import type {
 import type { Capability } from "@manent/sync-protocol";
 import { createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
+import { watchImportLock } from "../import/lock-sender.ts";
 import { browserStorage } from "../services/local-map.ts";
 import { browserStores } from "../services/sync/device-memory.ts";
 import { readPerson, tabStorage } from "../session.ts";
@@ -303,6 +304,17 @@ export function createProductionServices(options: {
       if (event.type === "subscribed") followAccess();
     }),
     tellIssuedOffline(client, options.messages),
+    watchImportLock({
+      client,
+      doc: handle.doc(),
+      today: () => deviceDay(now()),
+      timers: {
+        every(ms, run) {
+          const timer = setInterval(run, ms);
+          return () => clearInterval(timer);
+        },
+      },
+    }),
   ];
   followAccess();
   showView();
