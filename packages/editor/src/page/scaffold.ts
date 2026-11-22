@@ -97,6 +97,8 @@ export interface PageScaffold {
   /** Sizes the scroll area and draws the sheets. */
   setPageCount(count: number): void;
   applyZoom(percent: number): void;
+  /** Room above the first page, px, so that a zoom can keep a line still where the view cannot scroll back. */
+  setRoomAbove(px: number): void;
   setFontState(state: "loading" | "ready" | "fallback"): void;
   /** What a sheet shows of a revision; null: nothing. */
   setSheetDecor(decor: SheetDecor | null): void;
@@ -290,6 +292,9 @@ export function createPageScaffold(options: {
     applyZoom(next) {
       percent = next;
       layout();
+    },
+    setRoomAbove(px) {
+      zoom.style.marginTop = px > 0 ? `${px}px` : "";
     },
     setFontState(state) {
       pages.classList.toggle("fonts-loading", state === "loading");

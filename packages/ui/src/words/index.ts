@@ -3,6 +3,7 @@ export * from "./desktop.ts";
 export * from "./dialog.ts";
 export * from "./document.ts";
 export * from "./editor.ts";
+export * from "./fdr.ts";
 export * from "./format.ts";
 export * from "./history.ts";
 export * from "./import.ts";
