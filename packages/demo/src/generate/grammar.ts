@@ -26,6 +26,8 @@ const LINES_PER_PAGE: Readonly<Record<FormatId, number>> = Object.freeze({
 // characters to a printed line, for estimating the lines a block takes
 const DIALOGUE_WIDTH = 35;
 const ACTION_WIDTH = 60;
+// a sentence placed this many pages back may be drawn again
+const GENERATED_REPEAT_PAGES = 10;
 
 const UNITS = ["action", "exchange", "instruction", "statement"] as const;
 type Unit = (typeof UNITS)[number];
@@ -76,6 +78,29 @@ const block = (element: BlockType, text: string): SeedBlock => ({
   marks: [],
   kind: null,
 });
+
+/**
+ * Takes out of `used` each text that, with the texts placed after it, measures at least `window` by `size`; a
+ * text in `kept` stays whatever its age.
+ */
+function slide(
+  used: Set<string>,
+  window: number,
+  size: (text: string) => number,
+  kept: ReadonlySet<string>,
+): void {
+  let measured = 0;
+  for (const text of [...used].toReversed()) {
+    measured += size(text);
+    if (measured >= window && !kept.has(text)) used.delete(text);
+  }
+}
+
+// every text drawn for a scene is one block or more, so counting texts never runs ahead of the blocks
+const ONE_BLOCK = (): number => 1;
+// a sentence's share of its paragraph's printed lines
+const sentenceLines = (text: string): number => text.length / ACTION_WIDTH;
+const NONE: ReadonlySet<string> = new Set();
 
 const wordCount = (text: string): number =>
   text.split(/\s+/).filter((word) => word !== "").length;
@@ -223,7 +248,8 @@ function writeUnit(draw: Draw): SeedBlock[] {
 
 /**
  * Writes the beat's scenes, each a heading and enough units for its share of the beat's pages (an estimate).
- * Every line and action used is added to `used` and never used again; throws SeedBuildError
+ * Every line used is added to `used` and never used again; an action stays in it until GENERATED_REPEAT_PAGES
+ * pages of blocks (checkGenerated's measure) follow it, and may then be drawn again. Throws SeedBuildError
  * "generator_exhausted" when no unused line fits.
  */
 export function generateScenes(
@@ -237,6 +263,9 @@ export function generateScenes(
   const share =
     ((beat.pages[1] - beat.pages[0] + 1) * LINES_PER_PAGE[guide.format]) /
     scenes;
+  // a speech is never spoken twice; an action may come back GENERATED_REPEAT_PAGES pages of blocks later
+  const spoken = new Set(guide.dialogue.map((entry) => entry.text));
+  const window = GENERATED_REPEAT_PAGES * LINES_PER_PAGE[guide.format];
   const blocks: SeedBlock[] = [];
   for (let scene = 0; scene < scenes; scene += 1) {
     const place = beat.places[scene % beat.places.length]!;
@@ -247,6 +276,7 @@ export function generateScenes(
       for (const written of writeUnit(draw)) {
         blocks.push(written);
         lines += estimatedLines(written);
+        slide(used, window, ONE_BLOCK, spoken);
       }
   }
   return blocks;
@@ -265,6 +295,8 @@ function numberInWords(n: number): string {
 /**
  * Writes one chapter of about `words` words: its heading, paragraphs of unused sentences that share a tag with
  * the chapter, a break halfway, the chapter's ledger entry as a quote, and a one-sentence closing paragraph.
+ * `used` keeps the sentences of the last GENERATED_REPEAT_PAGES pages of estimated printed lines only, across
+ * the calls that share it.
  * Throws a RangeError for a chapter the guide lacks, and SeedBuildError "generator_exhausted" when no unused
  * sentence fits.
  */
@@ -294,6 +326,12 @@ export function generateChapter(
       used.add(text);
       taken.push(text);
     }
+    slide(
+      used,
+      GENERATED_REPEAT_PAGES * LINES_PER_PAGE.manuscript,
+      sentenceLines,
+      NONE,
+    );
     return taken.join(" ");
   };
   const blocks = [
