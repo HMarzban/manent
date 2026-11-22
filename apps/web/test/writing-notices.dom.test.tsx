@@ -180,6 +180,7 @@ function liveRig(): {
   const leave = registerLiveEditor({
     docId: "d1",
     // the people are all this test reads of the editor
+    doc: {} as LiveEditor["doc"],
     view: {} as LiveEditor["view"],
     scaffold: null,
     presence: {
