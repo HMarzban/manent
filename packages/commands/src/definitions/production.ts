@@ -20,12 +20,13 @@ const ONLINE: Need = {
 
 const waitingOf = (ctx: CommandContext): number => ctx.production?.waiting ?? 0;
 
+/** The reason clause while `n` changes made on this device wait to sync, with thousands separators: "needs this device's 1,200 waiting changes synced first". */
+export const waitingReason = (n: number): string =>
+  `needs this device's ${n === 1 ? "1 waiting change" : `${n.toLocaleString("en-GB")} waiting changes`} synced first`;
+
 const SYNCED: Need = {
   holds: (ctx) => waitingOf(ctx) === 0,
-  reason: (ctx) => {
-    const n = waitingOf(ctx);
-    return `needs this device's ${n.toLocaleString("en-GB")} waiting ${n === 1 ? "change" : "changes"} synced first`;
-  },
+  reason: (ctx) => waitingReason(waitingOf(ctx)),
 };
 
 const selecting = (kinds: readonly Selection[], reason: string): Need => ({

@@ -41,6 +41,8 @@ export const DOCUMENT_WORDS = {
   resizeLeftPanel: "Resize left panel",
   resizeSidePanel: "Resize side panel",
   dismiss: "Dismiss",
+  /** A row's handle, named by the row's title. */
+  rowMenuName: (title: string): string => `${title} — row menu`,
   leftTab,
   detailsTab: "Details",
   tourTab: "Tour",

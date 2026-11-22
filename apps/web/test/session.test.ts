@@ -5,7 +5,6 @@ import {
   chooseUrl,
   choosePerson,
   confirmPerson,
-  personLabel,
   readPerson,
   safeNext,
   writePerson,
@@ -129,11 +128,6 @@ test("a person without an account is chosen without asking the server", async ()
     ),
   ).toEqual({ ok: true, person: LEO });
   expect(asked).toEqual(["leo"]);
-});
-
-test("the person button names the tab's person", () => {
-  expect(personLabel(LEO)).toBe("Person: Leo Marsh");
-  expect(personLabel(null)).toBe("Person");
 });
 
 test("next is only ever a path inside the app", () => {

@@ -122,8 +122,8 @@ export const EDITOR_WORDS = {
     // the characters joined as names are
     outsideFont: (count: number, characters: string) =>
       count === 1
-        ? `! ${characters} is outside the script font and prints as a box`
-        : `! ${characters} are outside the script font and print as boxes`,
+        ? `${characters} is outside the script font and prints as a box`
+        : `${characters} are outside the script font and print as boxes`,
     exportFailed: (title: string) => `Couldn't export '${title}'. Try again.`,
     printFailed: (title: string) =>
       `Couldn't prepare '${title}' to print. Try again.`,
@@ -137,7 +137,5 @@ export const EDITOR_WORDS = {
     fitWidth: "Fit width",
     percent: (n: number) => `${n} %`,
     announce: (label: string) => `Zoom: ${label}`,
-    notAbove: (max: string) => `isn't available at ${max}`,
-    notBelow: (min: string) => `isn't available at ${min}`,
   },
 } as const;

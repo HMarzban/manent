@@ -89,7 +89,6 @@ export const HISTORY_WORDS = {
   /** The accessible name of the stepper's position, which `formatPosition` writes. */
   stepName: (i: number, n: number): string => `Change ${formatPosition(i, n)}`,
   draftsOnly: "Drafts only",
-  rowMenu: ["Restore", "Restore this scene", "Name this draft…"],
   /** `ref` is `versionRef`'s. */
   restoreTitle: (ref: string): string => `Restore ${ref}?`,
   restoreBody: "The script as it is now is kept as 'Before restore'.",

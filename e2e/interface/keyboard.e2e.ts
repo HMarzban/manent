@@ -95,7 +95,9 @@ function outcomeOf(command: CommandDefinition, ctx: CommandContext): Outcome {
 }
 
 const labelOf = (command: CommandDefinition, ctx: CommandContext): string =>
-  typeof command.label === "string" ? command.label : command.label(ctx);
+  typeof command.label === "string"
+    ? command.label
+    : command.label(ctx, { get: () => undefined });
 
 test("every default shortcut runs its command once, from the page, a panel and a field", async ({
   page,

@@ -3,16 +3,17 @@ import {
   Avatar,
   Button,
   CommandButton,
+  DEMO_WORDS,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@manent/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PanelRightIcon, PowerIcon } from "lucide-react";
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import type { ReactNode } from "react";
 import { initialsOf } from "../initials.ts";
-import { personLabel } from "../session.ts";
+import { useAnnouncer } from "../shell/announcer-region.tsx";
 import type { TabPerson } from "../session.ts";
 import { usePanel } from "../state/panels.store.ts";
 import { FactsContext } from "../state/bridge-contexts.ts";
@@ -55,7 +56,7 @@ function Person(props: {
       <Button
         variant="ghost"
         size="sm"
-        aria-label={personLabel(person)}
+        aria-label={DEMO_WORDS.person(person.name)}
         onClick={onClick}
       >
         <Avatar
@@ -89,6 +90,10 @@ function ServerControl(props: DemoControl): ReactNode {
   });
 
   const state = status.data;
+  const announcer = useAnnouncer();
+  useEffect(() => {
+    if (state !== undefined) announcer.announce(serverStatusText(state));
+  }, [announcer, state]);
   const kind =
     state === "running"
       ? "stop"
@@ -118,13 +123,8 @@ function ServerControl(props: DemoControl): ReactNode {
           <TooltipContent>{label}</TooltipContent>
         </Tooltip>
       )}
-      {/* rendered before the first answer: a live region that appears together with its text is not announced; cut
-          short where the bar runs out of room, the whole sentence is still what it says */}
-      <p
-        role="status"
-        data-slot="bar-status"
-        className="min-w-0 truncate text-fg-muted"
-      >
+      {/* cut short where the bar runs out of room; the shell's announcer says the whole sentence */}
+      <p data-slot="bar-status" className="min-w-0 truncate text-fg-muted">
         {state && serverStatusText(state)}
       </p>
     </div>

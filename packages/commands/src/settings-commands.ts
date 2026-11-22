@@ -8,6 +8,7 @@ import type {
 import type { CommandDefinition, MenuPlacement } from "./define.ts";
 
 type SettingCommand = CommandDefinition<`setting.${string}`>;
+type Registry = SettingsRegistry<readonly SettingDefinition[]>;
 type PreferencesSurface = Extract<Surface, { in: "preferences" }>;
 type MenuSurface = Extract<Surface, { in: "menu" }>;
 
@@ -31,13 +32,28 @@ function groupOf(def: SettingDefinition): MenuId {
   return def.scope === "script" ? "format" : "view";
 }
 
+// a choice is drawn under its own label; a switch under the label of the setting it is `under`, if any
+function submenuOf(
+  def: SettingDefinition,
+  under: string | null,
+  registry: Registry,
+): string | null {
+  if (def.type.choices !== null) return def.label;
+  return under === null ? null : registry.get(under).label;
+}
+
 function menusOf(
   def: SettingDefinition,
-  submenu: string | null,
+  registry: Registry,
 ): readonly MenuPlacement[] {
   return def.surfaces
     .filter(isMenuSurface)
-    .map(({ menu, group, order }) => ({ menu, group, order, submenu }));
+    .map(({ menu, group, order, under }) => ({
+      menu,
+      group,
+      order,
+      submenu: submenuOf(def, under, registry),
+    }));
 }
 
 function shared(
@@ -62,16 +78,20 @@ function shared(
   };
 }
 
-function commandsOf(def: SettingDefinition): readonly SettingCommand[] {
+function commandsOf(
+  def: SettingDefinition,
+  registry: Registry,
+): readonly SettingCommand[] {
   const { key, label, type } = def;
   if (type.choices === null)
     return [
       {
         ...shared(def),
         id: `setting.${key}`,
-        label: `${label}: turn on`,
+        label: (_ctx, read) =>
+          `${label}: ${read.get(key) === true ? "turn off" : "turn on"}`,
         checked: (_ctx, read) => read.get(key) === true,
-        menus: menusOf(def, null),
+        menus: menusOf(def, registry),
         setting: { key, value: null },
       },
     ];
@@ -80,17 +100,17 @@ function commandsOf(def: SettingDefinition): readonly SettingCommand[] {
     id: `setting.${key}.${choice.value}`,
     label: `${label}: ${choice.label}`,
     checked: (_ctx, read) => read.get(key) === choice.value,
-    menus: menusOf(def, label),
+    menus: menusOf(def, registry),
     setting: { key, value: choice.value },
   }));
 }
 
 /**
- * The commands `registry` generates, in its order: `setting.<key>` turns a boolean over, `setting.<key>.<value>` sets one
- * choice. A choice's menu placements are drawn under a submenu named by the setting's label ("Theme" › "Dark").
+ * The commands `registry` generates, in its order: `setting.<key>` turns a boolean over, and its label says which way
+ * ("Typewriter scrolling: turn off" while it is on); `setting.<key>.<value>` sets one choice ("Theme: Dark"). A choice's
+ * menu placements are drawn under a submenu named by the setting's label ("Theme" › "Dark"), and so is a switch whose
+ * menu surface is `under` that setting. Throws a RangeError for an `under` the registry does not hold.
  */
-export function settingCommands(
-  registry: SettingsRegistry<readonly SettingDefinition[]>,
-): readonly SettingCommand[] {
-  return registry.all.flatMap(commandsOf);
+export function settingCommands(registry: Registry): readonly SettingCommand[] {
+  return registry.all.flatMap((def) => commandsOf(def, registry));
 }

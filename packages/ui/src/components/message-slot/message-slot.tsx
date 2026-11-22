@@ -2,12 +2,10 @@
 import { cn } from "cn";
 import { useCallback, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
+import { DOCUMENT_WORDS } from "../../words/document.ts";
 import { CloseButton } from "../panel-tabs/close-button.tsx";
 import { Button } from "../stock/button.tsx";
 import type { MessageQueue } from "./message.ts";
-
-// the dismiss button's name, until the document's words hold it
-const DISMISS = "Dismiss";
 
 interface MessageSlotProps {
   queue: MessageQueue;
@@ -60,7 +58,7 @@ export function MessageSlot({
             ))}
           {message.lifetime === "until_dismissed" ? (
             <CloseButton
-              label={DISMISS}
+              label={DOCUMENT_WORDS.dismiss}
               onClick={() => queue.dismiss(message.id)}
             />
           ) : null}

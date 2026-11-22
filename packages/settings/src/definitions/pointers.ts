@@ -59,14 +59,14 @@ export const POINTERS: readonly SearchPointer[] = Object.freeze([
   },
   {
     label: "Reduce motion",
-    keywords: ["reduce motion", "motion", "animation"],
+    keywords: ["reduce motion", "motion", "animation", "accessibility"],
     kind: "answer",
     says: "Nothing to set. Manent follows your system: turn on reduced motion there.",
     opens: null,
   },
   {
     label: "Contrast",
-    keywords: ["contrast", "high contrast"],
+    keywords: ["contrast", "high contrast", "accessibility"],
     kind: "answer",
     says: "Nothing to set. Manent follows your system: turn on more contrast there.",
     opens: null,
