@@ -112,7 +112,12 @@ function Rows(props: { rows: readonly SendRow[] }): ReactNode {
       style={ROWS_GRID}
     >
       {given.map((row) => (
-        <div key={row.id} className="col-span-2 grid grid-cols-subgrid">
+        <div
+          key={row.id}
+          // the Tour points at the checks, and at no other row
+          data-tour={row.id === "checks" ? "send:checks" : undefined}
+          className="col-span-2 grid grid-cols-subgrid"
+        >
           <dt className="text-ui text-fg-muted">{SEND_WORDS[row.id]}</dt>
           <dd className="min-w-0 text-ui break-words">{row.content}</dd>
         </div>
@@ -187,6 +192,7 @@ function ActionButton(props: {
       disabled={busy || action.disabledReason !== null || action.run === null}
       focusableWhenDisabled
       aria-describedby={describedBy}
+      data-tour="send:confirm"
       style={busy && idleWidthPx !== null ? { width: idleWidthPx } : undefined}
       onClick={() => action.run?.()}
     >

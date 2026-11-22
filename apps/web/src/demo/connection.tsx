@@ -5,7 +5,7 @@ import {
   RadioGroupItem,
   useSubscribable,
 } from "@manent/ui";
-import { useContext, useEffect, useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
 import { connectionAtNode } from "../desktop/desktop-sync.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
@@ -14,17 +14,10 @@ import {
   CONNECTION_MODES,
   isConnectionMode,
 } from "../services/sync/device-memory.ts";
-import { FactsContext } from "../state/bridge-contexts.ts";
 import type { ConnectionControl } from "./connection-transport.ts";
 
-/** Drawn only inside the shell, once the person's sync has started. */
-export function Connection(): ReactNode {
-  // the shell provides the services together with the bridge's contexts
-  const inShell = useContext(FactsContext) !== null;
-  return inShell ? <PersonConnection /> : null;
-}
-
-function PersonConnection(): ReactNode {
+/** This tab's Connection once the person's sync has started; null until then, and when it cannot start. Inside the shell only. */
+export function useConnectionControl(): ConnectionControl | null {
   const { connection } = useServices();
   const { desktop } = useEnvironment();
   const [control, setControl] = useState<ConnectionControl | null>(null);
@@ -46,15 +39,17 @@ function PersonConnection(): ReactNode {
       current = false;
     };
   }, [connection, desktop]);
-  return control === null ? null : <ConnectionChoice control={control} />;
+  return control;
 }
 
-function ConnectionChoice(props: { control: ConnectionControl }): ReactNode {
+export function ConnectionChoice(props: {
+  control: ConnectionControl;
+}): ReactNode {
   const { control } = props;
   const mode = useSubscribable(asUiSubscribable(control.mode));
   const id = useId();
   return (
-    <div className="flex items-center gap-2">
+    <div data-tour="demo:connection" className="flex items-center gap-2">
       <span id={`${id}-label`}>{DEMO_WORDS.connection}</span>
       <RadioGroup
         aria-labelledby={`${id}-label`}

@@ -13,6 +13,7 @@ export function ElementButton(): ReactNode {
     <Button
       variant="ghost"
       size="sm"
+      data-tour="readout:element"
       aria-label={EDITOR_WORDS.elementButton(element)}
       onClick={() => commands.run("format.element", "control")}
     >

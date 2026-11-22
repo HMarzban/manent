@@ -90,7 +90,10 @@ export function WorkspaceSwitcher(props: {
     void navigate({ href: `/?w=${encodeURIComponent(id)}` });
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" />}>
+      <DropdownMenuTrigger
+        data-tour="workspace_switcher"
+        render={<Button variant="ghost" />}
+      >
         {name}
         <span aria-hidden="true">▾</span>
       </DropdownMenuTrigger>

@@ -90,7 +90,7 @@ export function RulerBar(props: { docId: string }): ReactNode {
     width !== null &&
     frame !== null;
   return (
-    <div ref={bar} style={RULER_AREA}>
+    <div ref={bar} data-tour="ruler" style={RULER_AREA}>
       {drawn ? (
         <Ruler
           columnCells={columnCells}

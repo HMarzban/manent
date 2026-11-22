@@ -123,7 +123,11 @@ export function ToReviewList(props: {
   }, [entries, dom, focusPending]);
   if (doc === null || entries.length === 0) return null;
   return (
-    <section aria-label={REVIEW_WORDS.heading} className="py-1">
+    <section
+      aria-label={REVIEW_WORDS.heading}
+      data-tour="to_review"
+      className="py-1"
+    >
       <h3 className="px-2 pt-2 text-micro text-fg-muted uppercase">
         {[REVIEW_WORDS.heading, formatCount(entries.length)].join(" · ")}
       </h3>

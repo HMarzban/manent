@@ -324,6 +324,9 @@ test("the demo bar offers the Tour once the tab has a person", async () => {
   );
   expect(buttons(bar() ?? container).map((b) => b.textContent)).toEqual([
     "Person: Dana Reyes",
+    "Add writers",
+    "Timings",
+    "Reorganise",
     "Tour",
   ]);
 });

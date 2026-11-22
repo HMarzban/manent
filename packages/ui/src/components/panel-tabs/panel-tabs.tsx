@@ -37,6 +37,7 @@ export function PanelTabs({
             <TabsTrigger
               key={tab.id}
               value={tab.id}
+              data-tour={`tab:${tab.id}`}
               className="min-w-0 shrink text-ui"
             >
               <span className="truncate" title={tab.label}>

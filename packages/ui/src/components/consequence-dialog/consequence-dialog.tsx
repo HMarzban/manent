@@ -37,6 +37,8 @@ export interface ConsequenceDialogProps {
   /** The reason clause ("needs a connection") of an action that cannot run now. */
   disabledReason?: string;
   destructive: boolean;
+  /** The action button's Tour target ("lock:confirm"); absent, the Tour points at nothing in the dialog. */
+  actionTour?: string;
   onAction(): void;
   onCancel(): void;
   alternative?: { label: string; destructive?: boolean; onAction(): void };
@@ -130,6 +132,7 @@ interface ActionButtonProps {
   destructive: boolean;
   disabled: boolean;
   describedBy: string | undefined;
+  tour: string | undefined;
   onAction(): void;
 }
 
@@ -140,6 +143,7 @@ function ActionButton({
   destructive,
   disabled,
   describedBy,
+  tour,
   onAction,
 }: ActionButtonProps): ReactNode {
   const [idleWidth, setIdleWidth] = useState<number | null>(null);
@@ -157,6 +161,7 @@ function ActionButton({
       disabled={disabled || busyLabel !== null}
       focusableWhenDisabled
       aria-describedby={describedBy}
+      data-tour={tour}
       style={
         busyLabel !== null && idleWidth !== null
           ? { width: `${idleWidth}px` }
@@ -204,6 +209,7 @@ export function ConsequenceDialog({
   refusal,
   disabledReason,
   destructive,
+  actionTour,
   onAction,
   onCancel,
   alternative,
@@ -258,6 +264,7 @@ export function ConsequenceDialog({
             destructive={destructive}
             disabled={disabledLine !== null}
             describedBy={describing ? lineId : undefined}
+            tour={actionTour}
             onAction={onAction}
           />
         </div>

@@ -29,6 +29,7 @@ export const EditorHost = memo(
       <div
         ref={ref}
         data-editor-host=""
+        data-tour="page"
         inert={props.covered}
         style={props.covered ? COVERED : undefined}
       />

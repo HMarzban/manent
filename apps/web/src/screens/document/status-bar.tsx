@@ -96,6 +96,7 @@ export function StatusBar(): ReactNode {
         <Button
           variant="ghost"
           size="sm"
+          data-tour="status:page"
           onClick={() => panelsActions.open("side", "details")}
         >
           {readout}

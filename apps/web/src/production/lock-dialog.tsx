@@ -138,6 +138,7 @@ export function LockDialog(props: {
       refusal={null}
       disabledReason={request.disabledReason}
       destructive={false}
+      actionTour="lock:confirm"
       onAction={lock}
       onCancel={onClose}
     >

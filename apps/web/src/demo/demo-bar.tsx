@@ -1,4 +1,4 @@
-// The demo bar: a colour scope of its own above everything, with the person, the server, the Tour and the Connection.
+// The demo bar: a colour scope of its own above everything, with the controls that prove the product's claims.
 import { DEMO_WORDS, SurfaceBoundary } from "@manent/ui";
 import { Suspense } from "react";
 import type { ReactNode } from "react";
@@ -13,14 +13,9 @@ const controls = loadApart(
   async () => (await import("./demo-bar-controls.tsx")).DemoBarControls,
 );
 const DemoBarControls = controls.Component;
-const connection = loadApart(
-  async () => (await import("./connection.tsx")).Connection,
-);
-const Connection = connection.Component;
 /** Starts loading the controls' code. */
 export function preloadDemoBarControls(): void {
   controls.preload();
-  connection.preload();
 }
 
 /** Never takes focus; F6 reaches it. */
@@ -42,9 +37,6 @@ export function DemoBar(props: {
       <SurfaceBoundary fallback={() => null}>
         <Suspense fallback={null}>
           <DemoBarControls {...props} />
-        </Suspense>
-        <Suspense fallback={null}>
-          <Connection />
         </Suspense>
       </SurfaceBoundary>
     </section>

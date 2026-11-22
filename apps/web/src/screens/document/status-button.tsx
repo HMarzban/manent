@@ -94,6 +94,7 @@ export function StatusButton(props: { doc: DocumentServices }): ReactNode {
         >
           <span
             ref={deviceSlot}
+            data-tour="status:device"
             className="max-w-full shrink-0 w-(--status-device-w) group-data-spans:hidden group-data-[tone=alert]:w-auto"
           />
           <span className="whitespace-pre group-data-spans:hidden">
@@ -101,6 +102,7 @@ export function StatusButton(props: { doc: DocumentServices }): ReactNode {
           </span>
           <span
             ref={serverSlot}
+            data-tour="status:server"
             className="max-w-full w-(--status-server-w) group-data-spans:w-auto group-data-[tone=alert]:w-auto"
           />
         </PopoverTrigger>
