@@ -31,6 +31,7 @@ export const EditorHost = memo(
       <div
         ref={ref}
         data-editor-host=""
+        data-tour="page"
         className="mn-desk min-h-full [--page-zoom:1] [&>.mn-zoom]:mx-auto"
         inert={props.covered}
         style={props.covered ? COVERED : undefined}

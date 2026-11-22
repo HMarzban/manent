@@ -232,6 +232,7 @@ export function SettingRow(props: {
   const stacked = Control === RadioControl;
   return (
     <div
+      data-tour={`setting:${settingKey}`}
       className={cn(
         "flex gap-x-4 gap-y-2 py-1",
         stacked ? "flex-col" : "items-center justify-between",

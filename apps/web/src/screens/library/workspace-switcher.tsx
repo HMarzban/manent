@@ -93,6 +93,7 @@ export function WorkspaceSwitcher(props: {
     <DropdownMenu>
       {/* a narrow title bar shortens the name before it loses a control */}
       <DropdownMenuTrigger
+        data-tour="workspace_switcher"
         render={<Button variant="ghost" className="min-w-0 shrink" />}
       >
         <span className="truncate font-semibold">{name}</span>

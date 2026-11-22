@@ -12,6 +12,8 @@ import type {
   SignInOptions,
   SignInResponse,
   TourPrepareResponse,
+  WritersRequest,
+  WritersResponse,
 } from "@manent/sync-protocol";
 import type { TabPerson } from "./session.ts";
 
@@ -41,12 +43,18 @@ export interface Api {
   ): Promise<DocClientsResponse>;
   /** Puts the scenario's state in place on the demo's server; an answer other than 200 is `unknown`; throws when the server cannot be reached. */
   prepareTour(scenarioId: string): Promise<TourPrepareResponse>;
+  /** Starts or stops the demo's simulated writers in a script; throws for any other answer than 200. */
+  writers(request: WritersRequest): Promise<WritersResponse>;
+  /** Asks the demo's server to reorganise how a script is stored; throws for any other answer than 200. */
+  rebuild(docId: string): Promise<void>;
 }
 
 export interface ServerControl {
   status(): Promise<ControlState>;
   stop(): Promise<void>;
   start(): Promise<void>;
+  /** Stops the server, seeds the demo again and starts it; the state the server is left in. */
+  reset(): Promise<ControlState>;
 }
 
 function bearer(token: string | null): Record<string, string> {
@@ -184,6 +192,18 @@ export function createApi(options: {
       if (response.status !== 200) return { ok: false, reason: "unknown" };
       return readAs<TourPrepareResponse>(response);
     },
+
+    async writers(body) {
+      const path = "/api/demo/writers";
+      const response = await request(path, jsonPost(body));
+      return readOk<WritersResponse>(response, `POST ${path}`);
+    },
+
+    async rebuild(docId) {
+      const path = "/api/demo/rebuild";
+      const response = await request(path, jsonPost({ docId }));
+      await readOk(response, `POST ${path}`);
+    },
   };
 }
 
@@ -204,27 +224,33 @@ export function createServerControl(options: {
     if (!response.ok)
       throw new Error(`POST ${path} answered ${response.status}`);
   };
+  /** The server's state the control answers with; unreachable when it answers nothing or anything else. */
+  const stateOf = async (
+    method: "GET" | "POST",
+    path: string,
+  ): Promise<ControlState> => {
+    let response: Response;
+    try {
+      response = await send(method, path);
+    } catch {
+      // the control answers nothing: the demo is not running
+      return "unreachable";
+    }
+    if (!response.ok) return "unreachable";
+    const body = await readJson(response);
+    const { isServerState } = await import("@manent/sync-protocol");
+    return typeof body === "object" &&
+      body !== null &&
+      "server" in body &&
+      isServerState(body.server)
+      ? body.server
+      : "unreachable";
+  };
 
   return {
-    async status() {
-      let response: Response;
-      try {
-        response = await send("GET", "/status");
-      } catch {
-        // the control answers nothing: the demo is not running
-        return "unreachable";
-      }
-      if (!response.ok) return "unreachable";
-      const body = await readJson(response);
-      const { isServerState } = await import("@manent/sync-protocol");
-      return typeof body === "object" &&
-        body !== null &&
-        "server" in body &&
-        isServerState(body.server)
-        ? body.server
-        : "unreachable";
-    },
+    status: () => stateOf("GET", "/status"),
     stop: () => post("/stop-server"),
     start: () => post("/start-server"),
+    reset: () => stateOf("POST", "/reset"),
   };
 }

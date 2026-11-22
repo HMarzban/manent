@@ -1,6 +1,6 @@
 // The demo bar's Connection: this tab's sync online, cut off or slowed, kept for the tab.
 import { DEMO_WORDS, Segmented, useSubscribable } from "@manent/ui";
-import { useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { connectionAtNode } from "../desktop/desktop-sync.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
@@ -9,7 +9,6 @@ import {
   CONNECTION_MODES,
   isConnectionMode,
 } from "../services/sync/device-memory.ts";
-import { FactsContext } from "../state/bridge-contexts.ts";
 import type { ConnectionControl } from "./connection-transport.ts";
 import { BarLabelled } from "./demo-bar-control.tsx";
 
@@ -18,14 +17,8 @@ const OPTIONS = CONNECTION_MODES.map((mode) => ({
   label: DEMO_WORDS[mode],
 }));
 
-/** Drawn only inside the shell, once the person's sync has started. */
-export function Connection(): ReactNode {
-  // the shell provides the services together with the bridge's contexts
-  const inShell = useContext(FactsContext) !== null;
-  return inShell ? <PersonConnection /> : null;
-}
-
-function PersonConnection(): ReactNode {
+/** This tab's Connection once the person's sync has started; null until then, and when it cannot start. Inside the shell only. */
+export function useConnectionControl(): ConnectionControl | null {
   const { connection } = useServices();
   const { desktop } = useEnvironment();
   const [control, setControl] = useState<ConnectionControl | null>(null);
@@ -47,14 +40,16 @@ function PersonConnection(): ReactNode {
       current = false;
     };
   }, [connection, desktop]);
-  return control === null ? null : <ConnectionChoice control={control} />;
+  return control;
 }
 
-function ConnectionChoice(props: { control: ConnectionControl }): ReactNode {
+export function ConnectionChoice(props: {
+  control: ConnectionControl;
+}): ReactNode {
   const { control } = props;
   const mode = useSubscribable(asUiSubscribable(control.mode));
   return (
-    <BarLabelled label={DEMO_WORDS.connection}>
+    <BarLabelled label={DEMO_WORDS.connection} tour="demo:connection">
       <Segmented
         label={DEMO_WORDS.connection}
         size="sm"
