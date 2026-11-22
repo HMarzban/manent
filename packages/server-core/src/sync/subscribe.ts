@@ -231,7 +231,7 @@ function heldShown(
   held: readonly Uint8Array[],
   shownUpdates: readonly Uint8Array[],
 ): CrdtDoc | null {
-  if (room.mode !== "authority" || held.length === 0) return null;
+  if (held.length === 0) return null;
   const shown = rooms.committed(room).doc;
   for (const update of shownUpdates) shown.applyUpdate(update, ORIGIN_LOAD);
   return shown;
