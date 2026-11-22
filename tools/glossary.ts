@@ -292,6 +292,7 @@ export const TERMS: readonly Term[] = Object.freeze([
   ...row("writing", ["Theme"], [], ["night mode"]),
   ...row("writing", ["Shortcut"], ["hotkey", "keybinding"]),
   ...row("writing", ["Motion", "Contrast"], []),
+  ...row("writing", ["Channel"], ["track", "beta"]),
   ...row("writing", ["Fixed"], []),
   // The demo's own words
   ...row(
@@ -344,7 +345,7 @@ export const NAMES: readonly string[] = Object.freeze([
 
 /** Words of the interface that name a part of Manent and are not yet listed terms; allowed until they are listed. */
 export const PENDING_TERMS: readonly string[] = listOf(`
-  access, align, all-caps, animation, announce, appearance, author, avatars, bold, canary, channel,
+  access, align, all-caps, animation, announce, appearance, author, avatars, bold, canary,
   collated, cont'd, continued, continueds, dark, desk, desktop, docx, driving, editors, elsewhere,
   exported, exporting, fdx, font, fountain, help, highlight, interface, italic, keyboard, kind, light, manuscript,
   margin, mores, multi-camera, paper, pdf, picker, reconnect, redo, rename, same-speaker, screenplay, setup,
