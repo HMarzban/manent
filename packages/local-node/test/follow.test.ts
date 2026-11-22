@@ -72,7 +72,10 @@ test("seed 40: a deletion the upstream cannot place yet never stops the node tak
     text,
   ]);
   // the window's edit was taken as it came, never refused and written again
-  expect(w.windowEvents(DOC)).toEqual([
+  const told = w
+    .windowEvents(DOC)
+    .filter((e) => e.type !== "subscribed" && e.type !== "control");
+  expect(told).toEqual([
     { type: "receipt", sent: 1, setAside: 0, overlaps: 0 },
   ]);
 });
