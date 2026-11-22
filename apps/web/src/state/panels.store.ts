@@ -23,6 +23,9 @@ const store = createStore<PanelsState>()(() => ({
   side: { tab: null, widthPx: WIDTHS_PX.side.initial },
 }));
 
+// until the left panel is chosen, a script that opens with three or more scenes opens it
+let leftChosen = false;
+
 const isLeftTab = (tab: string | null): tab is LeftTab | null =>
   tab === null || LEFT_TABS.some((t) => t === tab);
 const isSideTab = (tab: string | null): tab is SideTab | null =>
@@ -31,9 +34,10 @@ const isSideTab = (tab: string | null): tab is SideTab | null =>
 function setTab(panel: PanelId, tab: string | null): void {
   guardWrite("panels");
   const { left, side } = store.getState();
-  if (panel === "left" && isLeftTab(tab))
+  if (panel === "left" && isLeftTab(tab)) {
+    leftChosen = true;
     store.setState({ left: { ...left, tab } });
-  else if (panel === "side" && isSideTab(tab))
+  } else if (panel === "side" && isSideTab(tab))
     store.setState({ side: { ...side, tab } });
   else throw new RangeError(`${tab} is not a tab of the ${panel} panel`);
 }
@@ -50,6 +54,14 @@ export function usePanel(panel: PanelId): {
 /** Opening a tab that is not the panel's throws a RangeError; a width is clamped to the panel's range, and one that is not finite throws a RangeError. */
 export const panelsActions: {
   open(panel: PanelId, tab: string): void;
+  /** Opens the left panel at Scenes while the person has made no choice of it. */
+  openScenesUnchosen(): void;
+  /**
+   * Whether the left panel is past its first opening: the person opened or closed it, or a script opened it at
+   * Scenes. Set from the person's view state when it is put back.
+   */
+  leftChosen(): boolean;
+  setLeftChosen(chosen: boolean): void;
   close(panel: PanelId): void;
   toggle(panel: PanelId, tab: string): void;
   resize(panel: PanelId, widthPx: number): void;
@@ -57,6 +69,17 @@ export const panelsActions: {
   subscribe(listener: () => void): () => void;
 } = Object.freeze({
   open: (panel: PanelId, tab: string) => setTab(panel, tab),
+  openScenesUnchosen() {
+    const { left } = store.getState();
+    if (leftChosen || left.tab !== null) return;
+    guardWrite("panels");
+    leftChosen = true;
+    store.setState({ left: { ...left, tab: "scenes" } });
+  },
+  leftChosen: () => leftChosen,
+  setLeftChosen(chosen: boolean) {
+    leftChosen = chosen;
+  },
   close: (panel: PanelId) => setTab(panel, null),
   toggle(panel: PanelId, tab: string) {
     setTab(panel, store.getState()[panel].tab === tab ? null : tab);

@@ -1,7 +1,13 @@
 // The words of version history: the versions list, Changes since, restoring, and who wrote what.
 
 import type { Message } from "../components/message-slot/message.ts";
-import { formatCount, formatDate, formatDay, formatTime } from "./format.ts";
+import {
+  formatCount,
+  formatDate,
+  formatDay,
+  formatPosition,
+  formatTime,
+} from "./format.ts";
 
 /** The fields of the sync protocol's `VersionItem` a version's name is made from; this package does not import the protocol. */
 interface VersionItem {
@@ -82,17 +88,11 @@ export const HISTORY_WORDS = {
     "Changes are shown by text and element only: these were laid out by different layout engines, so page breaks may differ.",
   filter: "Filter",
   allScenes: "All scenes",
-  sceneItem: (number: string, heading: string): string =>
-    `Sc. ${number} · ${heading}`,
   allPeople: "All people",
   previousChange: "Previous change",
   nextChange: "Next change",
-  /** Shown between the stepper's buttons. */
-  step: (i: number, n: number): string =>
-    `${formatCount(i)} of ${formatCount(n)}`,
-  /** The step's accessible name. */
-  stepName: (i: number, n: number): string =>
-    `Change ${formatCount(i)} of ${formatCount(n)}`,
+  /** The accessible name of the stepper's position, which `formatPosition` writes. */
+  stepName: (i: number, n: number): string => `Change ${formatPosition(i, n)}`,
   draftsOnly: "Drafts only",
   rowMenu: ["Restore", "Restore this scene", "Name this draft…"],
   /** `ref` is `versionRef`'s. */
