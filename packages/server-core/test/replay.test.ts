@@ -3,6 +3,7 @@ import fc from "fast-check";
 import {
   ORIGIN_LOAD,
   createDoc,
+  findTyped,
   loadDoc,
   scriptBody,
   scriptSettings,
@@ -386,6 +387,22 @@ test("edits that rest on what the device saw after its last acknowledgement stil
     ),
   ).toMatchObject({ ok: true, response: { applied: 1, setAside: [] } });
   expect(world.textOfRoom(B9)).toBe("Fog.");
+});
+
+test("offline typing a replay writes is the device's own text where it was typed", async () => {
+  const world = replayWorld();
+  const offline = world.samOffline(typeInto(B1, "Rain. "));
+  world.rebuildNow();
+  await world.replayed(
+    "sam",
+    world.requestOf(offline, { generation: 1, key: KEY }),
+  );
+  const doc = createDoc();
+  for (const row of world.file.log.tail(DOC, 2, 0).rows)
+    doc.applyUpdate(row.update, ORIGIN_LOAD);
+  const found = findTyped(doc, new Map([[SAM_CLIENT, 0]])).get(B1);
+  const typed = [...(found?.text ?? "")].filter((_, i) => found?.typed[i]);
+  expect([found?.text, typed.join("")]).toEqual(["Rain. " + B1_TEXT, "Rain. "]);
 });
 
 test("offline text a block's move removed unseen is set aside beside the moved block when that one is set aside too", async () => {

@@ -10,6 +10,7 @@ import {
   scriptBody,
   updateMeta,
 } from "@manent/crdt";
+import type { TypedText } from "@manent/crdt";
 import type { BlockMerge } from "@manent/revisions";
 import { blockText, blockView, validateBlocks } from "@manent/schema";
 import type { BlockOp, DocJSON } from "@manent/schema";
@@ -27,6 +28,7 @@ import type { Clock, SyncLimits, WritePath } from "../sync/ports.ts";
 import type { Room, Rooms } from "../sync/rooms.ts";
 import { replayBase } from "./replay-base.ts";
 import { readRequest, storedResponse } from "./replay-request.ts";
+import { writeTyping } from "./replay-typing.ts";
 import { mergeUniqueThrough } from "./unique-merge.ts";
 
 export type ReplayOutcome =
@@ -82,14 +84,15 @@ function contentOf(state: Uint8Array): DocJSON {
 }
 
 /**
- * The ops and the overrides that differ from the room's as one update, written on a copy and
- * applied to the room's document under ORIGIN_REPLAY, under `writer` when given; null when they
- * wrote nothing.
+ * The ops, with the device's typing where it was typed, and the overrides that differ from the
+ * room's as one update, written on a copy and applied to the room's document under ORIGIN_REPLAY,
+ * under `writer` when given; null when they wrote nothing.
  */
 function writeOps(
   room: Room,
   changes: {
     ops: readonly BlockOp[];
+    typed: Checked["typed"];
     overrides: Checked["overrides"];
     writer?: number;
   },
@@ -99,6 +102,7 @@ function writeOps(
     room,
     ORIGIN_REPLAY,
     (copy) => {
+      writeTyping(copy, changes.ops, changes.typed, ORIGIN_REPLAY);
       applyBlockOps(copy, changes.ops, ORIGIN_REPLAY);
       const overrides = revisedOverrides(copy);
       for (const [key, value] of changes.overrides)
@@ -183,6 +187,8 @@ interface Checked {
   setAside: ReplaySetAside[];
   /** Own text mine still holds that the generation's later rows removed unseen. */
   unseen: ReplaySetAside[];
+  /** By block, mine's text and which of its characters the device's updates wrote. */
+  typed: ReadonlyMap<string, TypedText>;
   /** Mine's revisedOverrides entries that differ from base's; null removes one. */
   overrides: [string, string | null][];
   /** The client ids of the device's updates, in order. An authority writes the replay under the first its document does not hold, so that the device knows the text as its own; a relayed room draws one, as its upstream may hold any. */
@@ -228,7 +234,7 @@ export function createReplay(
     const own = ownClientIds(file, docId, userId);
     const based = replayBase(file, docId, from, lastServerSeq, updates, own);
     if (!based.ok) return based.code;
-    const { base, mine, setAside, unseen, overrides } = based;
+    const { base, mine, setAside, unseen, typed, overrides } = based;
     const { kind } = resolved;
     return {
       userId,
@@ -239,6 +245,7 @@ export function createReplay(
       frozen,
       setAside,
       unseen,
+      typed,
       overrides,
       writers: clientIds,
     };
@@ -259,13 +266,13 @@ export function createReplay(
     const theirs = [...checked.frozen.map(contentOf), current];
     const merge = mergeUniqueThrough(checked.base, checked.mine, theirs);
     if (!isWritable(merge.ops)) return refused("invalid");
-    const { overrides } = checked;
+    const { typed, overrides } = checked;
     const held = readStateVector(doc.encodeStateVector());
     const writer =
       room.mode === "authority"
         ? checked.writers.find((clientId) => !held.has(clientId))
         : undefined;
-    const changes = { ops: merge.ops, overrides, writer };
+    const changes = { ops: merge.ops, typed, overrides, writer };
     const update = writeOps(room, changes, ports.ids);
     const stored = storedOf(merge, checked, room);
     const createdAt = clock.now();

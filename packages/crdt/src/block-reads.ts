@@ -123,6 +123,36 @@ export function readBlocks(
   return found;
 }
 
+/** A block's live text, and for each of its characters whether the clients asked about wrote it. */
+export interface TypedText {
+  text: string;
+  typed: boolean[];
+}
+
+/**
+ * Each block holding live text that client c wrote at a clock from since.get(c), the first block of
+ * an id only.
+ */
+export function findTyped(
+  doc: CrdtDoc,
+  since: ReadonlyMap<number, number>,
+): Map<string, TypedText> {
+  const { store } = yDocOf(doc);
+  const seen = new Set<string>();
+  const found = new Map<string, TypedText>();
+  for (const block of blocksIn(doc)) {
+    const id = block.getAttribute("id");
+    if (typeof id !== "string" || seen.has(id)) continue;
+    seen.add(id);
+    const typed = keptCharacters(store, block, since).map((kept) => !kept);
+    const text = runsIn(block)
+      .map((run) => run.text)
+      .join("");
+    if (typed.includes(true)) found.set(id, { text, typed });
+  }
+  return found;
+}
+
 /**
  * The client ids, ascending, that wrote an attribute or text of the block at a
  * clock `since` does not hold, counting text deleted since; [] when the block

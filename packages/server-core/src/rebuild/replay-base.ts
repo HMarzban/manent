@@ -6,12 +6,15 @@ import {
   applyRemote,
   createDoc,
   deletionsOf,
+  findTyped,
   loadDoc,
   observeScript,
+  readStateVector,
   revisedOverrides,
   scriptBody,
+  updateMeta,
 } from "@manent/crdt";
-import type { CrdtDoc, SetAside } from "@manent/crdt";
+import type { CrdtDoc, SetAside, TypedText } from "@manent/crdt";
 import type { DocJSON } from "@manent/schema";
 import type { DocFile } from "@manent/storage";
 import { validatePush } from "../sync/validate.ts";
@@ -98,6 +101,16 @@ function applyWaiting(
   return refused ? "invalid" : setAside;
 }
 
+/** For each client of the updates, the first clock base does not hold. */
+function sinceOf(
+  updates: readonly Uint8Array[],
+  base: CrdtDoc,
+): Map<number, number> {
+  const held = readStateVector(base.encodeStateVector());
+  const clients = updates.flatMap(updateMeta).map((meta) => meta.clientId);
+  return new Map(clients.map((c) => [c, held.get(c) ?? 0]));
+}
+
 /** Mine's overrides that differ from base's, keys ascending; a null value removes the key. */
 function changedOverrides(
   base: CrdtDoc,
@@ -118,10 +131,11 @@ function changedOverrides(
  * moved on to the smallest later sequence at which the waiting updates are complete; mine: base with
  * the updates applied. setAside: own text the updates or the rows base moved on by removed from
  * mine unseen; unseen: own text mine still holds that the generation's later rows removed unseen.
- * overrides: mine's revisedOverrides entries that differ from base's. invalid: an update is
- * not one, writes a root map other than revisedOverrides, or leaves a block validation refuses;
- * incomplete: the updates still wait at the generation's last row, or a row they need does not
- * verify. RangeError for a generation that is not closed.
+ * typed: by block, mine's text and which of its characters the updates wrote. overrides: mine's
+ * revisedOverrides entries that differ from base's. invalid: an update is not one, writes a root
+ * map other than revisedOverrides, or leaves a block validation refuses; incomplete: the updates
+ * still wait at the generation's last row, or a row they need does not verify. RangeError for a
+ * generation that is not closed.
  */
 export function replayBase(
   file: DocFile,
@@ -137,6 +151,7 @@ export function replayBase(
       mine: DocJSON;
       setAside: SetAside[];
       unseen: SetAside[];
+      typed: Map<string, TypedText>;
       overrides: [string, string | null][];
     }
   | { ok: false; code: "incomplete" | "invalid" } {
@@ -169,6 +184,7 @@ export function replayBase(
       mine: scriptBody(mine).materialize(),
       setAside: [...waiting, ...later],
       unseen: removedUnseen(mine, rest, own),
+      typed: findTyped(mine, sinceOf(updates, base)),
       overrides: changedOverrides(base, mine),
     };
   } finally {
