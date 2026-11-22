@@ -325,6 +325,32 @@ test("overlaps and text that could not be placed become Recovered text and are c
   expect(await store.recovered(DOC)).toHaveLength(2);
 });
 
+test("a block the replay wrote and someone removed before the new document loaded is kept in Recovered text", async () => {
+  const { w, h } = await waitingEdits();
+  const { server } = w;
+  server.moved(DOC, 1, 2);
+  await w.settle();
+  server.answerReplay({ ok: true, response: NO_CHANGE });
+  await w.settle();
+  // the replay wrote under this device's old client id, then someone removed B2 without seeing it
+  const replayed = loadDoc(rebuilt(w), { clientId: h.doc().clientId });
+  scriptBody(replayed).write((writer) => {
+    writer.insertText(B1, 5, "x");
+    writer.insertText(B2, 0, "y");
+  });
+  const theirs = loadDoc(replayed.encodeState());
+  scriptBody(theirs).write((writer) => writer.deleteBlock(B2));
+  server.subscribedWithState(DOC, theirs.encodeState(), {
+    generation: 2,
+    headSeq: 4,
+  });
+  await w.settle();
+  expect(
+    h.recovered.get().map((r) => [r.blockId, r.nearBlockId, r.text, r.cause]),
+  ).toEqual([[B2, B1, "y", "merge"]]);
+  expect(textOf(h.doc())).toBe("draftx");
+});
+
 test("after a move an overlap keeps both wordings", async () => {
   const { w, h } = await waitingEdits();
   const { server } = w;
