@@ -118,10 +118,7 @@ export function generateScript(
   return drawn.flatMap((d) => d.blocks);
 }
 
-/**
- * The text of every block within REPEAT_PAGES pages of block `at` in a script of `pages` pages:
- * what a line drawn there must not repeat.
- */
+/** The text of every block within REPEAT_PAGES pages of block `at` in a script of `pages` pages: what a line drawn there must not repeat. */
 export function usedNear(
   blocks: readonly SeedBlock[],
   at: number,
@@ -134,9 +131,8 @@ export function usedNear(
 }
 
 /**
- * `blocks` brought to `pages` pages as deriveDrafts brings a draft to its length: generated units
- * taken out, or unused actions added, across the whole script; a block in `fixed` never changes.
- * The generator's estimate of a page runs long, so the text it writes can be many pages over.
+ * `blocks` brought to `pages` pages as deriveDrafts brings a draft to its length, across the whole script; a block
+ * in `fixed` never changes. The generator's estimate of a page runs long, so its text can be many pages over.
  */
 export async function toPages(
   blocks: readonly SeedBlock[],
@@ -264,6 +260,33 @@ export async function applyBlockChanges(
       }
     }),
   );
+}
+
+/** An action of a step's history and when it happens, in the seed's notation. */
+export type Plan = (at: string, run: () => Promise<void>) => void;
+
+/** What one document's history is planned with. */
+export interface Episode {
+  context: SeedContext;
+  story: Story;
+  meter: PageMeter;
+  plan: Plan;
+}
+
+/** Each slice of `slices` as a session of the person at its time, written into `script`. */
+export function planSessions(
+  { context, story, plan }: Episode,
+  key: string,
+  script: WrittenScript,
+  slices: readonly (readonly BlockChange[])[],
+  times: readonly { at: string; userId: string }[],
+): void {
+  for (const [i, { at, userId }] of times.entries())
+    plan(at, () =>
+      story.sessionWith(userId, key, (session) =>
+        applyBlockChanges(session, script, slices[i]!, context.ids),
+      ),
+    );
 }
 
 /**

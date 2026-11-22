@@ -6,21 +6,22 @@ import type { SeedBlock } from "../../content/markup.ts";
 import { HARBOUR_LIGHTS_GUIDE } from "../../generate/banks/medium/harbour-lights.ts";
 import { deriveDrafts, sessionsBetween } from "../../generate/drafts.ts";
 import type { BlockChange } from "../../generate/drafts.ts";
+import { intentsOf, unitsIn } from "../../generate/fit.ts";
 import { SeedBuildError } from "../../generate/guide.ts";
-import type { PageMeter } from "../../generate/fit.ts";
 import { SEED_DOCS, seedProject } from "../catalogue.ts";
-import type { SeedContext, SeedStep } from "../seed.ts";
+import type { SeedStep } from "../seed.ts";
 import {
   applyBlockChanges,
   assertWritten,
   createStory,
   generateScript,
   meterOf,
+  planSessions,
   sceneStart,
   toPages,
   unlockedLayout,
 } from "../story.ts";
-import type { Story, WrittenScript } from "../story.ts";
+import type { Episode, Plan, WrittenScript } from "../story.ts";
 import { planFerry } from "./harbour-lights-ferry.ts";
 import { planSalt } from "./harbour-lights-salt.ts";
 
@@ -42,16 +43,6 @@ const MEMBERS = [
   { userId: "leo", role: "comment", capabilities: [] },
 ] as const;
 
-/** An action of the season's history and when it happens, in the seed's notation. */
-type Plan = (at: string, run: () => Promise<void>) => void;
-
-interface Episode {
-  context: SeedContext;
-  story: Story;
-  meter: PageMeter;
-  plan: Plan;
-}
-
 /** `blocks` brought to `pages` pages; `fixed` blocks are kept as they are. */
 function fitted(
   { context, meter }: Episode,
@@ -67,22 +58,6 @@ function fitted(
     meter,
     layout: LAYOUT,
   });
-}
-
-/** Each slice of `slices` as a session of the person at its time. */
-function planSessions(
-  { context, story, plan }: Episode,
-  key: string,
-  script: WrittenScript,
-  slices: readonly (readonly BlockChange[])[],
-  times: readonly { at: string; userId: string }[],
-): void {
-  for (const [i, { at, userId }] of times.entries())
-    plan(at, () =>
-      story.sessionWith(userId, key, (session) =>
-        applyBlockChanges(session, script, slices[i]!, context.ids),
-      ),
-    );
 }
 
 const empty = (): WrittenScript => ({ blocks: [], ids: [] });
@@ -138,24 +113,113 @@ async function planLowTide(episode: Episode): Promise<void> {
   plan("D−12", () => story.issue("priya", key, memo));
 }
 
+/** 203's scenes the Network's notes name, numbered as the bank orders them. */
+const UNDERTOW = {
+  /** Cal in the water: the safety boat stays in shot. */
+  swim: 16,
+  /** Maren's threat to resign, in Act Three once addressed. */
+  resignation: 33,
+  /** The scene the Network draft has her threat before, about page 12. */
+  early: 12,
+  /** Where the three lines are trimmed instead of the argument. */
+  trimmed: [38, 40, 42],
+} as const;
+
+// [from, to) of the scene whose heading is `heading`, wherever it now stands
+function sceneAt(
+  blocks: readonly SeedBlock[],
+  heading: SeedBlock,
+): [number, number] {
+  const from = blocks.indexOf(heading);
+  const next = blocks.findIndex(
+    (b, i) => i > from && b.element === "scene_heading",
+  );
+  return [from, next === -1 ? blocks.length : next];
+}
+
+// `blocks` with the scene under `heading` moved to just before the block `before`
+function moveScene(
+  blocks: readonly SeedBlock[],
+  heading: SeedBlock,
+  before: SeedBlock,
+): SeedBlock[] {
+  const [from, to] = sceneAt(blocks, heading);
+  const rest = [...blocks.slice(0, from), ...blocks.slice(to)];
+  const at = rest.indexOf(before);
+  return [...rest.slice(0, at), ...blocks.slice(from, to), ...rest.slice(at)];
+}
+
+// `blocks` without the last unit of the scene under `heading` that speaks one line
+function trimLine(
+  blocks: readonly SeedBlock[],
+  heading: SeedBlock,
+): SeedBlock[] {
+  const [from, to] = sceneAt(blocks, heading);
+  const speech = unitsIn(blocks, from + 1, to, {
+    intentOf: intentsOf(GUIDE),
+    movable: () => true,
+  }).findLast(
+    (unit) =>
+      blocks[unit.from]!.element === "character" &&
+      blocks.slice(unit.from, unit.to).filter((b) => b.element === "dialogue")
+        .length === 1,
+  );
+  if (speech === undefined)
+    throw new SeedBuildError(
+      "unfit",
+      `${GUIDE.project}: a line to trim in 203`,
+    );
+  return [...blocks.slice(0, speech.from), ...blocks.slice(speech.to)];
+}
+
+/**
+ * 203 as the Network draft has it, then with the first two notes addressed (the swim opens the
+ * episode, Maren's threat moves to Act Three), then the Working text: the safety boat in the swim, and
+ * three lines trimmed elsewhere instead of the argument the fourth note would shorten.
+ */
+async function undertowDrafts(
+  episode: Episode,
+  generated: readonly SeedBlock[],
+): Promise<{
+  network: SeedBlock[];
+  addressed: SeedBlock[];
+  working: SeedBlock[];
+}> {
+  const heading = (n: number) => generated[sceneStart(generated, n)]!;
+  const resignation = heading(UNDERTOW.resignation);
+  const early = moveScene(generated, resignation, heading(UNDERTOW.early));
+  const network = await fitted(episode, early, 61);
+  const addressed = moveScene(
+    moveScene(network, resignation, heading(UNDERTOW.resignation + 1)),
+    heading(3),
+    heading(1),
+  );
+  const text = GUIDE.action.find((a) => a.startsWith("A safety boat"));
+  if (text === undefined)
+    throw new SeedBuildError("unfit", `${GUIDE.project}: the safety boat`);
+  const boat: SeedBlock = { element: "action", text, marks: [], kind: null };
+  const swim = addressed.indexOf(heading(UNDERTOW.swim)) + 1;
+  // the one safety boat action of the bank stands in the swim alone, so it is never said twice
+  let trimmed = [
+    ...addressed.slice(0, swim).filter((b) => b.text !== text),
+    boat,
+    ...addressed.slice(swim).filter((b) => b.text !== text),
+  ];
+  for (const n of UNDERTOW.trimmed) trimmed = trimLine(trimmed, heading(n));
+  const working = await fitted(episode, trimmed, 61, new Set([boat]));
+  return { network, addressed, working };
+}
+
 // 203: three named drafts by Dana, then the sessions that answer the Network's first four notes
 async function planUndertow(episode: Episode): Promise<void> {
   const { context, story, meter, plan } = episode;
   const key = `${PROJECT}/203`;
   const { rng } = context;
   const generated = generateScript(GUIDE, key, rng);
-  const network = await fitted(episode, generated, 61);
-  // the first note: scene 3 moves into the teaser, ahead of scene 1
-  const first = sceneStart(network, 1);
-  const third = sceneStart(network, 3);
-  const fourth = sceneStart(network, 4);
-  const moved = [
-    ...network.slice(0, first),
-    ...network.slice(third, fourth),
-    ...network.slice(first, third),
-    ...network.slice(fourth),
-  ];
-  const working = await fitted(episode, moved, 61);
+  const { network, addressed, working } = await undertowDrafts(
+    episode,
+    generated,
+  );
   const [writersFirst, studio] = await deriveDrafts(
     network,
     [
@@ -188,7 +252,8 @@ async function planUndertow(episode: Episode): Promise<void> {
   named("D−9", "Studio draft");
   sessions(studio!, network, ["D−8 10:20", "D−7 10:40"]);
   named("D−5", "Network draft");
-  sessions(network, working, ["D−3", "D−2"]);
+  sessions(network, addressed, ["D−3"]);
+  sessions(addressed, working, ["D−2"]);
 }
 
 // 205: Sam writes scenes 1 to 14 and Dana 15 to 22, each in sessions of their own, the misspelt ferry in scene 4
@@ -299,9 +364,9 @@ export const HARBOUR_LIGHTS: SeedStep = {
       });
     });
     await planLowTide(episode);
-    await planSalt(context, story, episode.meter, plan);
+    await planSalt(episode);
     await planUndertow(episode);
-    await planFerry(context, story, episode.meter, plan);
+    await planFerry(episode);
     await planSlackWater(episode);
     planBar(episode);
     for (const row of rows.toSorted((a, b) => a.at - b.at)) {

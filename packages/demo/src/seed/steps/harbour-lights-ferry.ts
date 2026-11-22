@@ -9,27 +9,34 @@ import type { SeedBlock } from "../../content/markup.ts";
 import { HARBOUR_LIGHTS_GUIDE } from "../../generate/banks/medium/harbour-lights.ts";
 import { deriveDrafts, sessionsBetween } from "../../generate/drafts.ts";
 import type { BlockChange } from "../../generate/drafts.ts";
-import { actionAt, intentsOf, unitsIn } from "../../generate/fit.ts";
-import type { PageMeter } from "../../generate/fit.ts";
+import {
+  actionAt,
+  fitToPages,
+  intentsOf,
+  unitsIn,
+} from "../../generate/fit.ts";
 import type { SeedSession } from "../driver.ts";
 import type { Rng } from "../rng.ts";
-import type { SeedContext } from "../seed.ts";
 import {
   applyBlockChanges,
   assertWritten,
   generateScript,
   indicesOf,
+  planSessions,
   sceneStart,
   toPages,
   unlockedLayout,
   usedNear,
 } from "../story.ts";
-import type { Story, WrittenScript } from "../story.ts";
+import type { Episode, WrittenScript } from "../story.ts";
 
 const KEY = "medium/harbour-lights/204";
 const GUIDE = HARBOUR_LIGHTS_GUIDE;
 const WHERE = `${GUIDE.project}: 204`;
 const PAGES = 52;
+const LAYOUT = unlockedLayout(GUIDE);
+/** The page scene 8 starts, where the Tour sends the tester to read what changed. */
+const SCENE_8_PAGE = 12;
 /** The lines of scene 8 Dana rewrote offline, each when she did; Sam rewrote AFTER_LINES once she was back. */
 const OFFLINE_LINES = [
   ["N−10:20", 0],
@@ -37,6 +44,12 @@ const OFFLINE_LINES = [
   ["N−9:05", 8],
 ] as const;
 const AFTER_LINES = [2, 4, 5];
+/** Sam's first pass and the two named drafts, the last of them the Studio draft itself. */
+const FERRY_DRAFTS = [
+  { name: null, pages: 46 },
+  { name: "Writer's First", pages: 50 },
+  { name: "Studio draft", pages: PAGES },
+] as const;
 /** How many actions the session after Dana's reconnection adds to each scene it touches. */
 const ADDED = [
   { scene: 10, actions: 1 },
@@ -44,32 +57,53 @@ const ADDED = [
   { scene: 26, actions: 5 },
 ] as const;
 
-// the Studio draft: 38 scenes, scene 8 under its generated heading and scenes 10 and 11 fixed, 52 pages
-async function studioDraft(
-  context: SeedContext,
-  meter: PageMeter,
-): Promise<{ blocks: SeedBlock[]; fixed: Set<SeedBlock> }> {
+// the Studio draft: 38 scenes, scene 8 under its generated heading starting page 12, and scenes 10 and 11
+// fixed, 52 pages; the text before scene 8 and the text from it are each brought to their pages first
+async function studioDraft({
+  context,
+  meter,
+}: Episode): Promise<{ blocks: SeedBlock[]; fixed: Set<number> }> {
   const { rng } = context;
   const generated = generateScript(GUIDE, KEY, rng);
   const scene8 = parseSeedText(FERRY_SCENE_8_STUDIO).blocks;
   const scenes10To11 = parseSeedText(FERRY_SCENES_10_11).blocks;
   const at = (n: number) => sceneStart(generated, n);
-  const draft = [
-    ...generated.slice(0, at(8) + 1),
-    ...scene8,
-    ...generated.slice(at(9), at(10)),
-    ...scenes10To11,
-    ...generated.slice(at(12)),
-  ];
   const fixed = new Set([...scene8, ...scenes10To11]);
-  const blocks = await toPages(draft, PAGES, {
-    fixed,
-    guide: GUIDE,
-    rng,
-    meter,
-    layout: unlockedLayout(GUIDE),
-  });
-  return { blocks, fixed };
+  const options = { fixed, guide: GUIDE, rng, meter, layout: LAYOUT };
+  const before = await toPages(
+    generated.slice(0, at(8)),
+    SCENE_8_PAGE - 1,
+    options,
+  );
+  const after = await toPages(
+    [
+      ...generated.slice(at(8), at(8) + 1),
+      ...scene8,
+      ...generated.slice(at(9), at(10)),
+      ...scenes10To11,
+      ...generated.slice(at(12)),
+    ],
+    PAGES - SCENE_8_PAGE + 1,
+    options,
+  );
+  const joined = [...before, ...after];
+  const blocks = await fitToPages(
+    joined,
+    [
+      {
+        generated: [0, before.length],
+        mustStart: { page: String(SCENE_8_PAGE), blockIndex: before.length },
+      },
+    ],
+    {
+      meter,
+      guide: GUIDE,
+      rng,
+      used: usedNear(joined, before.length, PAGES),
+      totals: [{ layout: LAYOUT, pages: PAGES }],
+    },
+  );
+  return { blocks, fixed: indicesOf(blocks, fixed) };
 }
 
 // scene 8's line `i` as the Working text has it, in place of the Studio draft's
@@ -108,77 +142,9 @@ function addedActions(script: WrittenScript, rng: Rng): SeedBlock[] {
   return doc;
 }
 
-/**
- * Plans 204's history: Sam writes its 38 headings, drafts it in sessions, with Dana once, and names
- * Writer's First; Priya's fixes and Dana's Studio draft follow. On the train this morning Dana rewrites
- * three of scene 8's lines offline and reconnects, which keeps the script as it was before them as a
- * device version; the session after rewrites the other three, and adds to scenes 10, 15 and 26.
- */
-export async function planFerry(
-  context: SeedContext,
-  story: Story,
-  meter: PageMeter,
-  plan: (at: string, run: () => Promise<void>) => void,
-): Promise<void> {
-  const { rng, ids } = context;
-  const studio = await studioDraft(context, meter);
-  const [firstPass, writersFirst] = await deriveDrafts(
-    studio.blocks,
-    [
-      { name: null, pages: 46 },
-      { name: "Writer's First", pages: 50 },
-      { name: "Studio draft", pages: 52 },
-    ],
-    {
-      fixed: indicesOf(studio.blocks, studio.fixed),
-      guide: GUIDE,
-      rng,
-      meter,
-      layout: unlockedLayout(GUIDE),
-    },
-  );
-  const headings = studio.blocks.filter((b) => b.element === "scene_heading");
-  const script: WrittenScript = { blocks: [], ids: [] };
-  const sessions = (
-    from: readonly SeedBlock[],
-    to: readonly SeedBlock[],
-    turns: readonly (readonly [string, string])[],
-  ) => {
-    const slices = sessionsBetween(from, to, turns.length);
-    for (const [i, [at, userId]] of turns.entries())
-      plan(at, () =>
-        story.sessionWith(userId, KEY, (session) =>
-          applyBlockChanges(session, script, slices[i]!, ids),
-        ),
-      );
-  };
-  sessions([], headings, [["D−18 11:00", "sam"]]);
-  sessions(
-    headings,
-    firstPass!,
-    ["D−17", "D−16", "D−15", "D−13", "D−11", "D−9", "D−8", "D−6"].map(
-      (day) => [`${day} 10:30`, "sam"] as const,
-    ),
-  );
-  sessions(firstPass!, writersFirst!, [
-    ["D−5 09:30", "sam"],
-    ["D−5 17:55", "sam"],
-    ["D−5 17:55", "dana"],
-    ["D−4 10:40", "sam"],
-  ]);
-  plan("D−4 18:05", async () => {
-    await story.name("sam", KEY, "Writer's First");
-  });
-  sessions(writersFirst!, studio.blocks, [
-    ["D−1 11:15", "sam"],
-    ["D−1 15:12", "sam"],
-    ["D−1 15:12", "priya"],
-  ]);
-  plan("D−1 17:40", async () => {
-    await story.name("dana", KEY, "Studio draft");
-  });
-
-  // Dana's session on the train, open from her first offline change until she reconnects
+// Dana's session on the train, open from her first offline change until she reconnects at N−8:58
+function planOffline(episode: Episode, script: WrittenScript): void {
+  const { context, story, plan } = episode;
   let train: SeedSession | null = null;
   const onTrain = (): SeedSession => {
     if (train === null)
@@ -191,12 +157,23 @@ export async function planFerry(
   });
   for (const [at, line] of OFFLINE_LINES)
     plan(at, () =>
-      applyBlockChanges(onTrain(), script, [workingLine(script, line)], ids),
+      applyBlockChanges(
+        onTrain(),
+        script,
+        [workingLine(script, line)],
+        context.ids,
+      ),
     );
   plan("N−8:58", async () => {
     await onTrain().online();
     await onTrain().close();
   });
+}
+
+// the session after Dana's return: she adds to scenes 10, 15 and 26, then Sam rewrites the rest of scene 8
+function planReturn(episode: Episode, script: WrittenScript): void {
+  const { context, story, plan } = episode;
+  const { rng, ids } = context;
   plan("N−3:50", async () => {
     await story.sessionWith("dana", KEY, async (session) => {
       const added = addedActions(script, rng);
@@ -214,4 +191,67 @@ export async function planFerry(
     const passage = parseSeedText(FERRY_SCENES_10_11);
     await assertWritten(context, KEY, passage, scene10, `${WHERE} scene 10`);
   });
+}
+
+const sam = (at: string): { at: string; userId: string } => ({
+  at,
+  userId: "sam",
+});
+
+/**
+ * Plans 204's history: Sam writes its 38 headings, drafts it in sessions, with Dana once, and names
+ * Writer's First; Priya's fixes and Dana's Studio draft follow. On the train this morning Dana rewrites
+ * three of scene 8's lines offline and reconnects, which keeps the script as it was before them as a
+ * device version; the session after rewrites the other three, and adds to scenes 10, 15 and 26.
+ */
+export async function planFerry(episode: Episode): Promise<void> {
+  const { context, story, meter, plan } = episode;
+  const { rng } = context;
+  const studio = await studioDraft(episode);
+  const [firstPass, writersFirst] = await deriveDrafts(
+    studio.blocks,
+    FERRY_DRAFTS,
+    { fixed: studio.fixed, guide: GUIDE, rng, meter, layout: LAYOUT },
+  );
+  const headings = studio.blocks.filter((b) => b.element === "scene_heading");
+  const script: WrittenScript = { blocks: [], ids: [] };
+  const sessions = (
+    from: readonly SeedBlock[],
+    to: readonly SeedBlock[],
+    turns: readonly { at: string; userId: string }[],
+  ) =>
+    planSessions(
+      episode,
+      KEY,
+      script,
+      sessionsBetween(from, to, turns.length),
+      turns,
+    );
+  sessions([], headings, [sam("D−18 11:00")]);
+  sessions(
+    headings,
+    firstPass!,
+    ["D−17", "D−16", "D−15", "D−13", "D−11", "D−9", "D−8", "D−6"].map((day) =>
+      sam(`${day} 10:30`),
+    ),
+  );
+  sessions(firstPass!, writersFirst!, [
+    sam("D−5 09:30"),
+    sam("D−5 17:55"),
+    { at: "D−5 17:55", userId: "dana" },
+    sam("D−4 10:40"),
+  ]);
+  plan("D−4 18:05", async () => {
+    await story.name("sam", KEY, "Writer's First");
+  });
+  sessions(writersFirst!, studio.blocks, [
+    sam("D−1 11:15"),
+    sam("D−1 15:12"),
+    { at: "D−1 15:12", userId: "priya" },
+  ]);
+  plan("D−1 17:40", async () => {
+    await story.name("dana", KEY, "Studio draft");
+  });
+  planOffline(episode, script);
+  planReturn(episode, script);
 }
