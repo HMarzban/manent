@@ -55,15 +55,17 @@ jobs:
               apps/server/src/main.ts apps/server/src/checkpoint-worker.ts \
               --outfile "server/manent-${target#bun-}"
           done
-      - name: Build the web app it serves
-        run: MANENT_WEB_DIR=server/web bun apps/web/build.ts
+      - name: Build the web app it serves, archived where the binary looks for it
+        run: |
+          bun apps/web/build.ts
+          tar -czf server/manent-web.tar.gz apps/web/dist
       - uses: actions/upload-artifact@v4
         with:
           name: server
           path: server/
 
   publish:
-    needs: build
+    needs: [build, server]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -85,10 +87,10 @@ jobs:
           channel=stable
           if [[ "$GITHUB_REF_NAME" == *-canary ]]; then channel=canary; fi
           echo "CHANNEL=$channel" >> "$GITHUB_ENV"
-      - name: Create the release with the installers
+      - name: Create the release with the installers and the server
         run: |
           bun -e 'import { RELEASE_NOTES } from "./tools/desktop/release-notes.ts"; await Bun.write("release-notes.md", RELEASE_NOTES);'
-          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md artifacts/Manent-*
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md artifacts/Manent-* artifacts/manent-*
       - name: Make sure the channel's release exists
         run: |
           gh release view "channel-$CHANNEL" > /dev/null 2>&1 ||
