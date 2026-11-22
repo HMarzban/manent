@@ -1,6 +1,5 @@
-// The rows of the demo bar's Timings: this window's performance marks, read with the benchmark's statistics.
-import { timingsOf } from "@manent/perf";
-import type { MarkRecord, Summary } from "@manent/perf";
+// The rows of the demo bar's Timings: this window's performance marks, read as the benchmark reads its samples.
+import type { MarkRecord } from "@manent/perf";
 import { DEMO_WORDS } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 
@@ -16,40 +15,43 @@ export interface TimingsRow {
 
 const [KEYSTROKE, PAGINATION, ROUND_TRIP, SIZE] = DEMO_WORDS.timingRows;
 
-/** The last TIMINGS_WINDOW records of each mark name, in the order they came. */
-function lastOfEach(records: readonly MarkRecord[]): MarkRecord[] {
-  const counts = new Map<string, number>();
-  const kept: MarkRecord[] = [];
-  for (const record of records.toReversed()) {
-    const count = counts.get(record.name) ?? 0;
-    if (count >= TIMINGS_WINDOW) continue;
-    counts.set(record.name, count + 1);
-    kept.push(record);
-  }
-  return kept.toReversed();
-}
+/** The smallest sample with at least p % of the samples at or below it: the benchmark's nearest rank. */
+const nearestRank = (sorted: readonly number[], p: number): number =>
+  sorted[Math.max(1, Math.ceil((p * sorted.length) / 100)) - 1]!;
 
-const statsOf = (summary: Summary | null): string =>
-  summary === null
+/**
+ * p50, p95 and the count of the mark's last TIMINGS_WINDOW samples. Read here rather than with `timingsOf`: its
+ * statistics would join the page's first load, and their intervals would cost the window it measures every second.
+ */
+function statsOf(records: readonly MarkRecord[], name: string): string {
+  const sorted = records
+    .filter((record) => record.name === name)
+    .slice(-TIMINGS_WINDOW)
+    .map((record) => record.durationMs)
+    .toSorted((a, b) => a - b);
+  return sorted.length === 0
     ? DEMO_WORDS.nothingMeasured
-    : DEMO_WORDS.stats(summary.p50, summary.p95, summary.samples);
+    : DEMO_WORDS.stats(
+        nearestRank(sorted, 50),
+        nearestRank(sorted, 95),
+        sorted.length,
+      );
+}
 
 function rowsOf(
   records: readonly MarkRecord[],
   doc: { liveBytes: number; plainBytes: number } | null,
 ): TimingsRow[] {
-  const timings = timingsOf(lastOfEach(records), doc);
-  const { size } = timings;
   return [
-    { label: KEYSTROKE, stats: statsOf(timings.keystroke) },
-    { label: PAGINATION, stats: statsOf(timings.pagination) },
-    { label: ROUND_TRIP, stats: statsOf(timings.roundTrip) },
+    { label: KEYSTROKE, stats: statsOf(records, "editor.keystroke") },
+    { label: PAGINATION, stats: statsOf(records, "pagination.engine") },
+    { label: ROUND_TRIP, stats: statsOf(records, "sync.ack") },
     {
       label: SIZE,
       stats:
-        size === null
+        doc === null
           ? DEMO_WORDS.nothingMeasured
-          : DEMO_WORDS.bytes(size.liveBytes / 1000),
+          : DEMO_WORDS.bytes(doc.liveBytes / 1000),
     },
   ];
 }
