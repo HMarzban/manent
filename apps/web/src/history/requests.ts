@@ -30,20 +30,18 @@ export function createHistoryHttp(options: {
   };
 }
 
-/**
- * The body of a success from this build's own server: the shared contract fixes its shape, so it is trusted. Throws
- * when the body is not JSON.
- */
-export async function readAs<T>(response: Response): Promise<T> {
-  const body: unknown = await response.json();
-  return body as T;
-}
-
-/** As `readAs`, with the body's length in bytes. */
-export async function readSized<T>(
+/** A success's body with its length in bytes; null when the body is not JSON or not of the shape `is` checks. */
+export async function readBody<T>(
   response: Response,
-): Promise<{ value: T; bytes: number }> {
+  is: (value: unknown) => value is T,
+): Promise<{ value: T; bytes: number } | null> {
   const body = await response.arrayBuffer();
-  const value: unknown = JSON.parse(new TextDecoder().decode(body));
-  return { value: value as T, bytes: body.byteLength };
+  let value: unknown;
+  try {
+    value = JSON.parse(new TextDecoder().decode(body));
+  } catch {
+    // a body that is not JSON answers nothing this build can read
+    return null;
+  }
+  return is(value) ? { value, bytes: body.byteLength } : null;
 }

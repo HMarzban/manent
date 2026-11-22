@@ -23,6 +23,7 @@ import {
   sliceWorkingComparison,
 } from "../../editor-host/changes.ts";
 import {
+  baselineAt,
   baselineOfRow,
   defaultBaseline,
   sinceOpenedBaseline,
@@ -30,6 +31,7 @@ import {
 import type { HistoryRow } from "../../history/history-rows.ts";
 import { readLastOpened } from "../../history/last-opened.ts";
 import { useServices } from "../../services/context.tsx";
+import { nameOf } from "../../services/sync/index-entries.ts";
 import { historyActions, useHistory } from "../../state/history.store.ts";
 import type { ChangesMode, HistoryState } from "../../state/history.store.ts";
 import { noteOf } from "./version-pane.tsx";
@@ -44,6 +46,53 @@ const MODES: readonly ChangesMode[] = [
 
 const isMode = (value: unknown): value is ChangesMode =>
   MODES.some((mode) => mode === value);
+
+/** By block id, the person of its last change since the baseline. */
+type Authors = Readonly<Record<string, string>>;
+
+const isChange = (entry: Comparison["entries"][number]): boolean =>
+  entry.kind !== "unchanged" || entry.moved;
+
+/** Of each change of `all`, who made it last since the baseline; null until the server has said, or when it cannot. */
+export function useAuthors(
+  docId: string,
+  all: Comparison | null,
+): Authors | null {
+  const { history } = useServices();
+  const baseline = useHistory("baseline");
+  const [told, setTold] = useState<{
+    all: Comparison;
+    authors: Authors;
+  } | null>(null);
+  useEffect(() => {
+    const since = baselineAt(baseline);
+    if (all === null || since === null) return undefined;
+    const changed = all.entries.filter(isChange).map((entry) => entry.id);
+    let shown = true;
+    void history.authors(docId, since, changed).then((answer) => {
+      if (shown && answer !== null) setTold({ all, authors: answer.authors });
+    });
+    return () => {
+      shown = false;
+    };
+  }, [history, docId, baseline, all]);
+  return told?.all === all ? told.authors : null;
+}
+
+/** The changes of `all` made last by one of `people`; null narrows nothing, as while who made them is not known. */
+export function authoredBlocks(
+  all: Comparison | null,
+  authors: Authors | null,
+  people: readonly string[] | null,
+): readonly string[] | null {
+  if (all === null || authors === null || people === null) return null;
+  return all.entries
+    .filter((entry) => {
+      const by = authors[entry.id];
+      return by !== undefined && people.includes(by);
+    })
+    .map((entry) => entry.id);
+}
 
 /** The baseline Changes since offers until one is chosen: since you last opened when others edited, else the newest draft. */
 function useOffered(
@@ -99,13 +148,14 @@ export function useWorkingComparison(
 }
 
 /**
- * `all`, the baseline against Working, filtered to the chosen scenes and drawn on the live page in the chosen mode;
- * hidden while it is compared, and when this is no longer drawn.
+ * `all`, the baseline against Working, filtered to the chosen scenes and to `blockIds` and drawn on the live page in
+ * the chosen mode; hidden while it is compared, and when this is no longer drawn.
  */
 function useShownChanges(
   docId: string,
   content: VersionContent | null,
   all: Comparison | null,
+  blockIds: readonly string[] | null,
 ): Comparison | null {
   const mode = useHistory("mode");
   const { sceneIds } = useHistory("filter");
@@ -118,21 +168,16 @@ function useShownChanges(
     }
     showChanges(docId, {
       baseline: content,
-      comparison: filterComparison(all, { sceneIds, blockIds: null }),
+      comparison: filterComparison(all, { sceneIds, blockIds }),
       display: mode === "asterisks" ? "asterisks" : "page",
     });
     return () => showChanges(docId, null);
-  }, [docId, content, all, mode, sceneIds]);
-  return all === null
-    ? null
-    : filterComparison(all, { sceneIds, blockIds: null });
+  }, [docId, content, all, mode, sceneIds, blockIds]);
+  return all === null ? null : filterComparison(all, { sceneIds, blockIds });
 }
 
 const choose = (baseline: HistoryState["baseline"]) => (): void =>
   historyActions.setBaseline(baseline);
-
-const only = (sceneIds: readonly string[] | null) => (): void =>
-  historyActions.setFilter({ sceneIds, authorUserIds: null });
 
 function BaselineMenu(props: {
   docId: string;
@@ -208,15 +253,36 @@ function ShowModes(props: { offered: HistoryState["baseline"] }): ReactNode {
   );
 }
 
-/** Filter ▾: every scene with a change, by its number and heading. */
-function SceneFilter(props: { docId: string; all: Comparison }): ReactNode {
+/** The people of `authors`, each once, in the order of their first change in `all`. */
+const peopleOf = (all: Comparison, authors: Authors): string[] => [
+  ...new Set(
+    all.entries.flatMap((entry) => {
+      const by = authors[entry.id];
+      return by === undefined ? [] : [by];
+    }),
+  ),
+];
+
+/** Filter ▾: every scene with a change, by its number and heading; then everyone who made one, by name. */
+function ChangesFilter(props: {
+  docId: string;
+  all: Comparison;
+  authors: Authors | null;
+}): ReactNode {
   const { review } = useServices();
+  const filter = useHistory("filter");
   const doc = review.docOf(props.docId);
   const headingOf = (sceneId: string): string => {
     const entry = props.all.entries.find((e) => e.id === sceneId);
     const block = entry?.newer ?? entry?.older ?? null;
     return block === null ? "" : textOf(block);
   };
+  const people =
+    props.authors === null ? [] : peopleOf(props.all, props.authors);
+  const scenes = (sceneIds: readonly string[] | null) => (): void =>
+    historyActions.setFilter({ ...filter, sceneIds });
+  const by = (authorUserIds: readonly string[] | null) => (): void =>
+    historyActions.setFilter({ ...filter, authorUserIds });
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
@@ -224,17 +290,30 @@ function SceneFilter(props: { docId: string; all: Comparison }): ReactNode {
         <span aria-hidden="true">▾</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="max-h-80 overflow-auto">
-        <DropdownMenuItem onClick={only(null)}>
+        <DropdownMenuItem onClick={scenes(null)}>
           {HISTORY_WORDS.allScenes}
         </DropdownMenuItem>
         {props.all.scenes.map((sceneId) => (
-          <DropdownMenuItem key={sceneId} onClick={only([sceneId])}>
+          <DropdownMenuItem key={sceneId} onClick={scenes([sceneId])}>
             {HISTORY_WORDS.sceneItem(
               (doc === null ? null : sceneOf(doc, sceneId)) ?? "",
               headingOf(sceneId),
             )}
           </DropdownMenuItem>
         ))}
+        {people.length === 0 ? null : (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={by(null)}>
+              {HISTORY_WORDS.allPeople}
+            </DropdownMenuItem>
+            {people.map((userId) => (
+              <DropdownMenuItem key={userId} onClick={by([userId])}>
+                {nameOf(userId)}
+              </DropdownMenuItem>
+            ))}
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -266,17 +345,22 @@ function Stepper(props: { count: number }): ReactNode {
   );
 }
 
-/** `content` is the baseline's, and `all` its comparison with Working, unfiltered. */
+/**
+ * `content` is the baseline's, `all` its comparison with Working, unfiltered, `authors` who made each of its changes,
+ * and `blockIds` the changes the person chosen in Filter ▾ made.
+ */
 export function HistoryChanges(props: {
   docId: string;
   rows: readonly HistoryRow[];
   content: VersionContent | null;
   all: Comparison | null;
+  authors: Authors | null;
+  blockIds: readonly string[] | null;
 }): ReactNode {
   const { docId, rows, content, all } = props;
   const offered = useOffered(docId, rows);
   const draftsOnly = useHistory("draftsOnly");
-  const shown = useShownChanges(docId, content, all);
+  const shown = useShownChanges(docId, content, all, props.blockIds);
   const note = content === null ? null : noteOf(content, docId);
   return (
     <div className="flex flex-col gap-2 px-2 py-2">
@@ -285,7 +369,7 @@ export function HistoryChanges(props: {
       <ShowModes offered={offered} />
       {all === null || shown === null ? null : (
         <div className="flex flex-wrap items-center gap-2">
-          <SceneFilter docId={docId} all={all} />
+          <ChangesFilter docId={docId} all={all} authors={props.authors} />
           <Stepper count={changeCount(shown)} />
         </div>
       )}

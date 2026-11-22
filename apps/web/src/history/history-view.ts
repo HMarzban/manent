@@ -9,6 +9,8 @@ interface HistoryView {
   selected: HistoryRow | null;
   step: number | null;
   filter: HistoryState["filter"];
+  /** The changes the person chosen in Filter ▾ made; null narrows nothing. */
+  blockIds: readonly string[] | null;
 }
 
 let shown: HistoryView | null = null;
