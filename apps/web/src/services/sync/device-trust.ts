@@ -1,11 +1,14 @@
 // What lets the person trust this device with their work: the open marker that tells a crash, the browser asked to
-// keep the data, a cleared browser told what came back, and the demo's new seed followed before any store opens.
+// keep the data, a cleared browser told what came back, the demo's new seed followed before any store opens, and what
+// is kept as the page goes.
+import type { DocHandle } from "@manent/sync-client";
 import { messageFor } from "@manent/ui";
 import type { MessageQueue } from "@manent/ui";
 import { followDemoSeed } from "../../demo/use-demo.ts";
 import type { Where } from "../../platform.ts";
 import type { CommandsOptions } from "../person-commands.ts";
 import type { PersonSync } from "./create-sync.ts";
+import type { LaterMap } from "./later-index.ts";
 import type { checkCleared } from "./on-device.ts";
 import type { PrivateIndex } from "./private-index.ts";
 
@@ -110,4 +113,25 @@ export async function followSeed(
       ),
     reload: () => location.reload(),
   });
+}
+
+/** What the person's documents do as the page goes, over the started sync. */
+export function leavePage(
+  sync: PersonSync,
+  maps: { prefs: LaterMap; keys: LaterMap },
+  handles: readonly DocHandle[],
+): void {
+  const { memory, link, userId } = sync;
+  memory.keepLegacyMaps(userId, {
+    prefs: maps.prefs.held(),
+    keys: maps.keys.held(),
+  });
+  // only the leader marks what it opens
+  if (link.get().leader) memory.setOpenMarker(userId, null);
+  if (link.get().state === "online") return;
+  for (const handle of handles)
+    if (handle.status.get().waiting > 0)
+      void handle.saveVersion("session_end").catch(() => {
+        // best effort: the page is going, and the changes are already saved on the device
+      });
 }

@@ -1,5 +1,5 @@
 // Leaving a document this device cannot save asks first: the person may export a copy, stay, or leave without it.
-import { CLOSE_WORDS, createValue, formatTime } from "@manent/ui";
+import { createValue } from "@manent/ui";
 import type { ConsequenceDialogProps, Subscribable } from "@manent/ui";
 import type { DocumentServices, DocumentSource } from "../ports.ts";
 
@@ -59,22 +59,9 @@ export function createCloseGuard(options: {
     async ask() {
       const shown = failing();
       if (shown === null) return "leave";
-      const answer = await options.dialog({
-        open: true,
-        title: CLOSE_WORDS.title,
-        body: CLOSE_WORDS.body(formatTime(shown.since)),
-        action: CLOSE_WORDS.exportCopy,
-        destructive: false,
-        alternative: {
-          label: CLOSE_WORDS.closeWithout,
-          destructive: true,
-          onAction: noop,
-        },
-        busyLabel: null,
-        refusal: null,
-        onAction: noop,
-        onCancel: noop,
-      });
+      // the question's words load apart from the entry
+      const { closeDialog } = await import("./close-dialog.ts");
+      const answer = await options.dialog(closeDialog(shown.since));
       if (answer === "cancel") return "stay";
       if (answer === "alternative") return "leave";
       options.run("doc.export");

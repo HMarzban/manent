@@ -4,20 +4,13 @@ import type { DocHandle } from "@manent/sync-client";
 import type { HistoryControl } from "@manent/sync-protocol";
 import { formatTime, historyMessage, versionRef } from "@manent/ui";
 import type { HistoryMessage, MessageQueue } from "@manent/ui";
+import { isInstant, isRecord, isText, isTextOrNull } from "./bodies.ts";
 
 const CONTROL_KINDS: readonly HistoryControl["kind"][] = [
   "version_created",
   "draft_named",
   "restored",
 ];
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-const isText = (value: unknown): value is string => typeof value === "string";
-const isTextOrNull = (value: unknown): value is string | null =>
-  value === null || typeof value === "string";
-const isInstant = (value: unknown): value is number =>
-  Number.isSafeInteger(value);
 
 /** A CONTROL frame's data about history; null for one this build cannot read. */
 function readControl(data: Uint8Array): HistoryControl | null {

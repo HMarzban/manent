@@ -152,7 +152,7 @@ test("the test flavour is a build of its own", async () => {
   expect([testEntry === productionEntry, built.ok]).toEqual([false, true]);
 }, 60_000);
 
-test("bundle budget: entry ≤ 162 KB and every other chunk but the editor's and the PDF writer's ≤ 60 KB gzip", async () => {
+test("bundle budget: entry ≤ 160 KB and every other chunk but the editor's and the PDF writer's ≤ 60 KB gzip", async () => {
   const { outDir, built } = await productionBuild();
   const chunks = chunksOf(built, outDir);
   const editor = editorChunks(chunks);
@@ -161,7 +161,7 @@ test("bundle budget: entry ≤ 162 KB and every other chunk but the editor's and
     (c) => !editor.has(c.name) && !pdfWriter.has(c.name),
   )) {
     const kb = await gzipKb(chunk);
-    const limit = chunk.entry ? 162 : 60;
+    const limit = chunk.entry ? 160 : 60;
     expect({ chunk: chunk.name, kb, limit }).toEqual(
       withinBudget(chunk.name, kb, limit),
     );

@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { livePagination } from "../../editor-host/live-editor.ts";
 import { mountVersionView } from "../../editor-host/version-view.ts";
 import type { VersionView } from "../../editor-host/version-view.ts";
+import { baselineAt } from "../../history/baseline.ts";
 import { useServices } from "../../services/context.tsx";
 import { useHistory } from "../../state/history.store.ts";
 
@@ -26,14 +27,7 @@ const NOTES: Readonly<Record<CompareNote, string>> = Object.freeze({
 export function useBaselineContent(docId: string): VersionContent | null {
   const { history } = useServices();
   const baseline = useHistory("baseline");
-  const at =
-    baseline === null
-      ? null
-      : baseline.versionId !== null
-        ? { versionId: baseline.versionId }
-        : baseline.position !== null
-          ? { position: baseline.position }
-          : null;
+  const at = baselineAt(baseline);
   const key = JSON.stringify(at);
   const [loaded, setLoaded] = useState<{
     key: string;

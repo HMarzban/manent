@@ -21,6 +21,15 @@ export function baselineOfRow(row: HistoryRow): Baseline {
   };
 }
 
+/** Where the baseline is in the script's history; null for none. */
+export function baselineAt(
+  baseline: HistoryState["baseline"],
+): { versionId: string } | { position: VersionPosition } | null {
+  if (baseline === null) return null;
+  if (baseline.versionId !== null) return { versionId: baseline.versionId };
+  return baseline.position === null ? null : { position: baseline.position };
+}
+
 /** Where the person last opened the script, as a baseline. */
 export function sinceOpenedBaseline(lastOpened: VersionPosition): Baseline {
   return {

@@ -5,18 +5,25 @@ import { SCHEMA_VERSION } from "@manent/schema";
 import { uploadRequestOf } from "@manent/sync-client";
 import type { DeviceVersion, DocHandle } from "@manent/sync-client";
 import type {
-  RestoreResponse,
+  AuthorsRequest,
+  AuthorsResponse,
   SinceResponse,
   VersionContent,
-  VersionContentResponse,
   VersionPosition,
   WhoWroteResponse,
 } from "@manent/sync-protocol";
 import type { Subscribable, SurfaceStateValue } from "@manent/ui";
+import {
+  isAuthors,
+  isContentAnswer,
+  isRestoreAnswer,
+  isSince,
+  isWhoWrote,
+} from "./bodies.ts";
 import { createContentCache } from "./content-cache.ts";
 import { docOfContent } from "./content-doc.ts";
 import { readLastOpened } from "./last-opened.ts";
-import { createHistoryHttp, readAs, readSized } from "./requests.ts";
+import { createHistoryHttp, readBody } from "./requests.ts";
 import { createVersionLists } from "./version-list.ts";
 import type { HistoryRow } from "./history-rows.ts";
 
@@ -47,7 +54,8 @@ export interface HistorySource {
    * On the server when the request can be sent, else on the device. A request sent whose answer was lost is sent
    * again whenever the link is next online, and the restore is then never made on the device; so is one the server
    * was too busy to take. `offline`: the version's content is not on the device. `refused`: the server cannot restore
-   * that version (409 `not_restorable`, 422 `invalid`). Rejects on any other refusal, such as a role that cannot edit.
+   * that version (409 `not_restorable`, 422 `invalid`). Rejects on any other refusal, such as a role that cannot edit,
+   * and on a success whose body cannot be read.
    */
   restore(
     docId: string,
@@ -61,6 +69,12 @@ export interface HistorySource {
   whoWrote(docId: string, blockId: string): Promise<WhoWroteResponse | null>;
   /** Null when the person has not opened the script on this device before, or the server cannot tell. */
   sinceOpened(docId: string): Promise<SinceResponse | null>;
+  /** Of each of `blockIds`, the person of its last change after `since`; null when the server cannot tell. */
+  authors(
+    docId: string,
+    since: AuthorsRequest["since"],
+    blockIds: readonly string[],
+  ): Promise<AuthorsResponse | null>;
 }
 
 const DONE = Object.freeze({ ok: true } as const);
@@ -207,10 +221,10 @@ export function createHistorySource(options: {
     try {
       const response = await http.get("/api/versions/content", query);
       if (!response.ok) return null;
-      const { value, bytes } =
-        await readSized<VersionContentResponse>(response);
-      cache.put(cacheKeyOf(docId, at), value.content, bytes);
-      return value.content;
+      const answer = await readBody(response, isContentAnswer);
+      if (answer === null) return null;
+      cache.put(cacheKeyOf(docId, at), answer.value.content, answer.bytes);
+      return answer.value.content;
     } catch {
       // the server cannot be reached: the content is not to be had now
       return null;
@@ -275,9 +289,13 @@ export function createHistorySource(options: {
       return { ok: false, reason: "refused" };
     if (!response.ok)
       throw new Error(`POST /api/versions/restore answered ${response.status}`);
-    const { beforeVersionId } = await readAs<RestoreResponse>(response);
+    const answer = await readBody(response, isRestoreAnswer);
     lists.refresh(request.docId);
-    return { ok: true, beforeVersionId };
+    if (answer === null)
+      throw new Error(
+        "POST /api/versions/restore answered a body this build cannot read",
+      );
+    return { ok: true, beforeVersionId: answer.value.beforeVersionId };
   }
 
   return {
@@ -334,7 +352,12 @@ export function createHistorySource(options: {
       if (response.status === 404) return null;
       if (!response.ok)
         throw new Error(`GET /api/versions/who answered ${response.status}`);
-      return readAs<WhoWroteResponse>(response);
+      const answer = await readBody(response, isWhoWrote);
+      if (answer === null)
+        throw new Error(
+          "GET /api/versions/who answered a body this build cannot read",
+        );
+      return answer.value;
     },
     async sinceOpened(docId) {
       const at = readLastOpened(userId, docId);
@@ -345,9 +368,24 @@ export function createHistorySource(options: {
           generation: String(at.generation),
           seq: String(at.seq),
         });
-        return response.ok ? await readAs<SinceResponse>(response) : null;
+        if (!response.ok) return null;
+        return (await readBody(response, isSince))?.value ?? null;
       } catch {
         // the server cannot be reached: nothing is said about others' changes
+        return null;
+      }
+    },
+    async authors(docId, since, blockIds) {
+      try {
+        const response = await http.post("/api/versions/authors", {
+          docId,
+          since,
+          blockIds,
+        });
+        if (!response.ok) return null;
+        return (await readBody(response, isAuthors))?.value ?? null;
+      } catch {
+        // the server cannot be reached: the changes are not told apart by person
         return null;
       }
     },

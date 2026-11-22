@@ -43,8 +43,6 @@ import { createCloseGuard, createCloseQuestion } from "./sync/close-guard.ts";
 
 type Options = CommandsOptions & { person: TabPerson };
 
-const noop = (): void => {};
-
 const isKeys = (value: unknown): value is Keys =>
   Array.isArray(value) &&
   value.every((chord) => typeof chord === "string" && isChord(chord));
@@ -131,25 +129,18 @@ interface ScriptStores {
   clear(): void;
 }
 
-/**
- * The open documents, counted, each followed by `follow` from its first open to its last close, and one settings store
- * per open document, released when its last opener closes it.
- */
+/** The open documents, counted, and one settings store per open document, released when its last opener closes it. */
 function createScriptStores(options: {
   source: DocumentSource;
-  follow: (docId: string) => () => void;
   store: (scriptBag: Bag, docId: string) => ScriptStore;
 }): ScriptStores {
   const { source } = options;
   const opens = new Map<string, number>();
-  const follows = new Map<string, () => void>();
   const stores = new Map<string, ScriptStore>();
   return {
     documents: {
       open(docId) {
-        const count = opens.get(docId) ?? 0;
-        opens.set(docId, count + 1);
-        if (count === 0) follows.set(docId, options.follow(docId));
+        opens.set(docId, (opens.get(docId) ?? 0) + 1);
         return source.open(docId);
       },
       close(docId) {
@@ -159,8 +150,6 @@ function createScriptStores(options: {
           return;
         }
         opens.delete(docId);
-        follows.get(docId)?.();
-        follows.delete(docId);
         stores.get(docId)?.release();
         stores.delete(docId);
         source.close(docId);
@@ -200,14 +189,11 @@ function createKept(options: Options) {
   };
 }
 
-/** The person's settings store, and one store per open document of `documents.source` with its script settings. */
+/** The person's settings store, and one store per open document of `source` with its script settings. */
 function createStores(
   options: Options,
   kept: { prefs: KeyValueMap; device: Bag; deviceId: string },
-  documents: {
-    source: DocumentSource;
-    follow: (docId: string) => () => void;
-  },
+  source: DocumentSource,
 ): { settings: SettingsStore; scripts: ScriptStores } {
   const { now, schedule, where } = options;
   const personal = createPersonalBag({
@@ -241,7 +227,7 @@ function createStores(
       () => false,
     ),
     scripts: createScriptStores({
-      ...documents,
+      source,
       store(scriptBag, docId) {
         const { view, release } = createBagViews();
         const locked = () =>
@@ -287,26 +273,10 @@ export function createPersonServices(options: Options): PersonServices {
     run: (commandId) => void commands.run(commandId, "control"),
     now: options.now,
   });
-  const openHandle = async (docId: string) => (await sync.client).open(docId);
   const { settings, scripts } = createStores(
     options,
     { ...kept, prefs: sync.maps.prefs },
-    {
-      source: guard,
-      follow(docId) {
-        const stop = import("../history/follow-events.ts")
-          .then(({ followHistoryEvents }) =>
-            followHistoryEvents(docId, {
-              open: openHandle,
-              messages,
-              userId: options.person.userId,
-            }),
-          )
-          // a script whose sync never started has no history to follow
-          .catch(() => noop);
-        return () => void stop.then((stopFollowing) => stopFollowing());
-      },
-    },
+    guard,
   );
   const resolved = createResolved(sync.maps.keys, options.where);
   const flags = createFlags({ index: sync.maps.flags });
@@ -336,7 +306,7 @@ export function createPersonServices(options: Options): PersonServices {
       (await import("../history/source.ts")).createHistorySource({
         fetch,
         token: () => options.person.token,
-        open: openHandle,
+        open: async (docId) => (await sync.client).open(docId),
         userId: options.person.userId,
         now: options.now,
         // a request's key is 32 lower-case hex digits

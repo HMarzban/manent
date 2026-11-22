@@ -9,7 +9,6 @@ import type { TabPerson } from "../session.ts";
 import type { CommandsOptions } from "./person-commands.ts";
 import type { DocumentSource } from "./ports.ts";
 import type { PersonSync } from "./sync/create-sync.ts";
-import type { markOpen } from "./sync/device-trust.ts";
 import { createSyncDocumentSource } from "./sync/document-source.ts";
 import {
   createLaterLibrary,
@@ -17,15 +16,27 @@ import {
   createLaterReview,
 } from "./sync/later-index.ts";
 import type { LaterMap, PersonReview } from "./sync/later-index.ts";
-import type { SyncLibrary } from "./sync/library-index.ts";
-import type { Indexes } from "./sync/person-indexes.ts";
+import type { SyncLibrary, onOwnChange } from "./sync/library-index.ts";
+import type { checkCleared, keepOnDevice } from "./sync/on-device.ts";
+import type { PrivateIndex } from "./sync/private-index.ts";
+import type { ReviewStore } from "./sync/review.ts";
 
 type Options = CommandsOptions & { person: TabPerson };
 
-/** The started sync, and how an open document is marked open in it. */
+/** The person's sync once it has started, with what lets them trust this device; `askPersistence` asks once a session. */
 interface Started {
   sync: PersonSync;
-  markOpen: typeof markOpen;
+  trust: typeof import("./sync/device-trust.ts");
+  askPersistence: () => void;
+}
+
+interface Indexes {
+  privateIndex: PrivateIndex;
+  library: SyncLibrary;
+  review: ReviewStore;
+  onOwnChange: typeof onOwnChange;
+  keepOnDevice: typeof keepOnDevice;
+  checkCleared: typeof checkCleared;
 }
 
 /** What the services keep of the person's sync. */
@@ -51,6 +62,68 @@ export interface PersonDocuments {
   dispose(): void;
 }
 
+/** The person's private index and Library over `sync`, each loaded apart from the entry. */
+async function openIndexes(
+  sync: PersonSync,
+  options: Options,
+  messages: MessageQueue,
+): Promise<Indexes> {
+  const { person } = options;
+  const [privateParts, libraryParts, onDevice, reviewParts] = await Promise.all(
+    [
+      import("./sync/private-index.ts"),
+      import("./sync/library-index.ts"),
+      import("./sync/on-device.ts"),
+      import("./sync/review.ts"),
+    ],
+  );
+  const { userId } = person;
+  const privateIndex = await privateParts.openPrivateIndex({
+    sync,
+    userId,
+    memory: sync.memory,
+  });
+  const workspaces = createValue(sync.memory.workspaces(userId) ?? []);
+  if (person.token !== null)
+    void options.api.me().then((answer) => {
+      if (!answer.ok) return;
+      sync.memory.setWorkspaces(userId, answer.me.workspaces);
+      workspaces.set(answer.me.workspaces);
+    });
+  const library = libraryParts.createSyncLibrary({
+    sync,
+    privateIndex,
+    userId,
+    workspaces,
+    localWorkspaceId: person.token === null ? userId : null,
+    language: options.language,
+    now: options.now,
+    newId: options.randomId,
+  });
+  const review = reviewParts.createReviewStore({
+    privateIndex,
+    sync,
+    // the server answers for at most 64 ids at once
+    names: async (docId, clientIds) => {
+      const asked = await sync.throughConnection(() =>
+        options.api.docClients(docId, clientIds.slice(0, 64)),
+      );
+      return asked.clients.map((client) => client.userId);
+    },
+    messages,
+    announce: (text) => options.dom.announce(text),
+    now: options.now,
+  });
+  return {
+    privateIndex,
+    library,
+    review,
+    onOwnChange: libraryParts.onOwnChange,
+    keepOnDevice: onDevice.keepOnDevice,
+    checkCleared: onDevice.checkCleared,
+  };
+}
+
 /**
  * What an open document keeps current in this tab: its `editedAt`, the open marker, its entry of what this device
  * holds, and the persistence request at the person's first own change; `handles` holds it while it is open.
@@ -62,9 +135,11 @@ function openedHook(hook: {
   handles: Subscribable<readonly DocHandle[]> & {
     set(handles: readonly DocHandle[]): void;
   };
+  deviceId: string;
   messages: MessageQueue;
+  now: () => number;
 }): (docId: string, handle: DocHandle) => () => void {
-  const { handles } = hook;
+  const { handles, deviceId, now } = hook;
   return (docId, handle) => {
     handles.set([...handles.get(), handle]);
     const started = hook.started();
@@ -72,13 +147,30 @@ function openedHook(hook: {
       hook.library.follow(docId, handle),
       ...(started === null
         ? []
-        : [started.markOpen(started.sync, { docId, messages: hook.messages })]),
+        : [
+            started.trust.markOpen(started.sync, {
+              docId,
+              messages: hook.messages,
+            }),
+          ]),
       () => handles.set(handles.get().filter((each) => each !== handle)),
     ];
     let stopped = false;
     void hook.indexes.then((opened) => {
-      if (stopped || opened === null) return;
-      stops.push(opened.keep(docId, handle));
+      // the indexes open only over a started sync
+      const current = hook.started();
+      if (stopped || opened === null || current === null) return;
+      stops.push(
+        opened.keepOnDevice({
+          privateIndex: opened.privateIndex,
+          title: opened.library.documentTitle(docId),
+          docId,
+          handle,
+          deviceId,
+          now,
+        }),
+        opened.onOwnChange(handle, current.askPersistence),
+      );
     });
     return () => {
       stopped = true;
@@ -125,27 +217,6 @@ function laterMaps(indexes: Promise<Indexes | null>): {
   return { maps, ready };
 }
 
-/** What `PersonDocuments.leave` does, over the started sync. */
-function leavePage(
-  sync: PersonSync,
-  maps: { prefs: LaterMap; keys: LaterMap },
-  handles: readonly DocHandle[],
-): void {
-  const { memory, link, userId } = sync;
-  memory.keepLegacyMaps(userId, {
-    prefs: maps.prefs.held(),
-    keys: maps.keys.held(),
-  });
-  // only the leader marks what it opens
-  if (link.get().leader) memory.setOpenMarker(userId, null);
-  if (link.get().state === "online") return;
-  for (const handle of handles)
-    if (handle.status.get().waiting > 0)
-      void handle.saveVersion("session_end").catch(() => {
-        // best effort: the page is going, and the changes are already saved on the device
-      });
-}
-
 /** The person's sync, started once the demo's seed has been followed, and their indexes opened over it. */
 function startPersonSync(
   options: Options,
@@ -161,16 +232,18 @@ function startPersonSync(
   /** Null when the sync or the indexes could not start. */
   indexes: Promise<Indexes | null>;
 } {
-  // following the seed, and what only a started sync runs, load apart from the entry
-  const trust = import("./sync/device-trust.ts");
-  const sync = trust.then(async ({ followSeed }) => {
-    await followSeed(options);
+  const trust = import("./sync/device-trust.ts").then((module) => ({
+    trust: module,
+    askPersistence: module.askPersistenceOnce(options.where),
+  }));
+  const sync = trust.then(async (t) => {
+    await t.trust.followSeed(options);
     return options.startSync(options.person, deviceId);
   });
   let started: Started | null = null;
   const network = createValue(options.online());
-  const client = Promise.all([sync, trust]).then(([s, { markOpen }]) => {
-    started = { sync: s, markOpen };
+  const client = Promise.all([sync, trust]).then(([s, t]) => {
+    started = { sync: s, ...t };
     network.set(s.network.get());
     s.network.subscribe((online) => network.set(online));
     return s.client;
@@ -182,10 +255,15 @@ function startPersonSync(
   void connection.catch(() => {
     // the demo bar draws no Connection for a sync that cannot start
   });
-  const indexes = Promise.all([sync, import("./sync/person-indexes.ts")])
-    .then(([s, { openIndexes }]) =>
-      openIndexes(s, options, { deviceId, messages }),
-    )
+  const indexes = sync
+    .then(async (s) => {
+      const [opened, t] = await Promise.all([
+        openIndexes(s, options, messages),
+        trust,
+      ]);
+      t.trust.tellCleared(s, opened, { deviceId, messages });
+      return opened;
+    })
     .catch(() => {
       // the maps hold what is written for this session, and the Library stays empty
       return null;
@@ -243,7 +321,9 @@ export function createPersonDocuments(
       indexes,
       started,
       handles,
+      deviceId,
       messages,
+      now: options.now,
     }),
   });
   const documents = continuedSource(source, library);
@@ -258,7 +338,8 @@ export function createPersonDocuments(
     ready,
     leave() {
       const going = started();
-      if (going !== null) leavePage(going.sync, maps, handles.get());
+      if (going !== null)
+        going.trust.leavePage(going.sync, maps, handles.get());
     },
     dispose() {
       stopRefusals();

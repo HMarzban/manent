@@ -17,7 +17,8 @@ import type { Subscribable } from "@manent/ui";
 import { historyRows } from "./history-rows.ts";
 import type { HistoryRows, ListPhase } from "./history-rows.ts";
 import { writeLastOpened } from "./last-opened.ts";
-import { readAs } from "./requests.ts";
+import { isVersionList } from "./bodies.ts";
+import { readBody } from "./requests.ts";
 import type { HistoryHttp } from "./requests.ts";
 
 export interface VersionLists {
@@ -149,7 +150,8 @@ export function createVersionLists(options: {
           });
           if (!response.ok)
             return { kind: "problem", reason: String(response.status) };
-          return await readAs<VersionListResponse>(response);
+          const answer = await readBody(response, isVersionList);
+          return answer?.value ?? { kind: "problem", reason: "unreadable" };
         } catch {
           // the request never reached the server, or its answer was lost
           return { kind: "problem", reason: "unreachable" };
@@ -180,9 +182,8 @@ export function createVersionLists(options: {
             docId: entry.docId,
             cursor,
           });
-          return response.ok
-            ? await readAs<VersionListResponse>(response)
-            : null;
+          if (!response.ok) return null;
+          return (await readBody(response, isVersionList))?.value ?? null;
         } catch {
           // the page is asked for again when the list is next scrolled to its end
           return null;
