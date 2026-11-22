@@ -9,6 +9,7 @@ import { createApi } from "./api.ts";
 import { registerServiceWorker } from "./boot/register-sw.ts";
 import { afterFirstFrame } from "./desktop/first-frame.ts";
 import type { DesktopHost } from "./desktop/host.ts";
+import { domXml } from "./import/dom-xml.ts";
 import { readNavigator } from "./platform.ts";
 import { createAppRouter } from "./router.tsx";
 import { EnvironmentProvider } from "./services/context.tsx";
@@ -62,10 +63,10 @@ window.addEventListener(
   },
   { capture: true },
 );
-// the end-to-end tests read the guard's count, every command that ran and the marks
+// the end-to-end tests read the guard's count, every command that ran and the marks, and parse XML as the app does
 const runs: string[] = [];
 if (flavour === "test")
-  Reflect.set(window, "__manent", { guard, runs, readMarks });
+  Reflect.set(window, "__manent", { guard, runs, readMarks, domXml });
 
 /** The world this tab runs in; `desktop` is the desktop app's shell and node, null on the web. */
 function createEnvironment(desktop: DesktopHost | null): Environment {

@@ -139,6 +139,12 @@ export function createLaterLibrary(options: {
       const l = await library;
       return l === null ? fresh() : l.createProject(ws, kind).catch(fresh);
     },
+    // an imported script needs the device's index: without one nothing is made, and the opener says so
+    async importProject(ws, imported): Promise<CreateResult> {
+      const l = await library;
+      if (l === null) throw new Error("the person's sync could not start");
+      return l.importProject(ws, imported);
+    },
     documentTitle: (docId) =>
       cached(lists.titles, docId, () =>
         later(null, (l) => l.documentTitle(docId)),

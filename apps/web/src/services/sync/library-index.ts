@@ -15,7 +15,7 @@ import type {
 } from "../ports.ts";
 import { cached } from "./cached.ts";
 import type { PersonSync } from "./create-sync.ts";
-import { startScript } from "./create-script.ts";
+import { startImported, startScript } from "./create-script.ts";
 import { createShelves } from "./index-shelves.ts";
 import type { Found, Shelf, Shelves } from "./index-shelves.ts";
 import { liveMap } from "./private-index.ts";
@@ -58,7 +58,7 @@ export function onOwnChange(
   };
 }
 
-/** Lists a new project of `kind` in the index of `workspaceId`, with its one script, made on the device first. */
+/** Lists a new project of `kind` in the index of `workspaceId`, with its one script, made on the device first and begun by `start`. */
 async function addProject(
   options: {
     sync: PersonSync;
@@ -70,6 +70,8 @@ async function addProject(
   },
   workspaceId: string,
   kind: ProjectKind,
+  titles: { project: string; script: string },
+  start: (handle: DocHandle) => void,
 ): Promise<CreateResult> {
   const { sync, shelves } = options;
   const index = await shelves.shelf(workspaceId).handle;
@@ -79,17 +81,17 @@ async function addProject(
     home: projectHome(projectId),
     workspaceId,
   });
-  startScript(handle, options.language);
+  start(handle);
   const at = options.now();
   liveMap(index, "projects").set(projectId, {
-    title: LIBRARY_WORDS.untitledProject(kind),
+    title: titles.project,
     kind,
     createdAt: at,
     createdByUserId: options.userId,
   });
   liveMap(index, "documents").set(handle.docId, {
     projectId,
-    title: LIBRARY_WORDS.untitledScript,
+    title: titles.script,
     kind: "script",
     createdAt: at,
     editedAt: null,
@@ -252,7 +254,25 @@ export function createSyncLibrary(options: {
       return projects.get();
     },
     loadState: (ws) => shelves.shelf(ws).loadState,
-    createProject: (ws, kind) => addProject({ ...options, shelves }, ws, kind),
+    createProject: (ws, kind) =>
+      addProject(
+        { ...options, shelves },
+        ws,
+        kind,
+        {
+          project: LIBRARY_WORDS.untitledProject(kind),
+          script: LIBRARY_WORDS.untitledScript,
+        },
+        (handle) => startScript(handle, options.language),
+      ),
+    importProject: (ws, imported) =>
+      addProject(
+        { ...options, shelves },
+        ws,
+        "film",
+        { project: imported.title, script: imported.title },
+        (handle) => startImported(handle, imported, options.language),
+      ),
     documentTitle: values.title,
     documentKind: values.kind,
     renameDocument(docId, title) {
