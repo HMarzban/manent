@@ -4,16 +4,16 @@ import {
   DEMO_WORDS,
   Popover,
   PopoverContent,
-  PopoverTrigger,
   Segmented,
 } from "@manent/ui";
 import type { WritersRequest, WritersResponse } from "@manent/sync-protocol";
+import { UsersIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useCanEdit } from "../screens/document/ruler-bar.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { useEditorFact } from "../state/facts.store.ts";
-import { UnavailableControl } from "./unavailable-control.tsx";
+import { BarButton } from "./bar-button.tsx";
 
 const TOUR = "demo:writers";
 const CHOICES = [1, 5, 20].map((n) => ({ value: String(n), label: String(n) }));
@@ -46,20 +46,15 @@ export function WritersControl(props: {
     if (endsAt === null) return undefined;
     return schedule(() => setRunning(null), Math.max(0, endsAt - now()));
   }, [endsAt, now, schedule]);
-  if (docId === null)
+  if (docId === null || offline)
     return (
-      <UnavailableControl
+      <BarButton
         label={DEMO_WORDS.addWriters}
-        reason={DEMO_WORDS.needsScript}
+        icon={UsersIcon}
         tour={TOUR}
-      />
-    );
-  if (offline)
-    return (
-      <UnavailableControl
-        label={DEMO_WORDS.addWriters}
-        reason={DEMO_WORDS.needsConnection}
-        tour={TOUR}
+        unavailable={
+          docId === null ? DEMO_WORDS.needsScript : DEMO_WORDS.needsConnection
+        }
       />
     );
   return (
@@ -93,12 +88,7 @@ function ScriptWriters(props: {
   };
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        data-tour={TOUR}
-        render={<Button variant="ghost" size="sm" />}
-      >
-        {labelOf(running)}
-      </PopoverTrigger>
+      <BarButton label={labelOf(running)} icon={UsersIcon} tour={TOUR} opens />
       <PopoverContent data-surface="demo" align="start" className="w-auto">
         <Segmented
           label={DEMO_WORDS.addWriters}

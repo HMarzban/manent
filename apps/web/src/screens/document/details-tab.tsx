@@ -28,16 +28,18 @@ function DetailsPanel(props: { docId: string }): ReactNode {
     );
     if (scope !== "script" && sections.length === 0) return null;
     return (
-      <section key={scope} className="flex flex-col gap-2 p-2">
-        <h2 className="text-meta font-semibold text-fg-muted">{heading}</h2>
-        {scope === "script" ? (
-          <Suspense fallback={null}>
-            <ScriptSettings docId={docId} />
-          </Suspense>
-        ) : null}
-        {sections.map(({ id, Section }) => (
-          <Section key={id} docId={docId} />
-        ))}
+      <section key={scope} className="flex flex-col pb-2">
+        <h2 className="mn-group-label">{heading}</h2>
+        <div className="flex flex-col gap-2 px-3">
+          {scope === "script" ? (
+            <Suspense fallback={null}>
+              <ScriptSettings docId={docId} />
+            </Suspense>
+          ) : null}
+          {sections.map(({ id, Section }) => (
+            <Section key={id} docId={docId} />
+          ))}
+        </div>
       </section>
     );
   });

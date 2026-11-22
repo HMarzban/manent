@@ -1,8 +1,10 @@
 // Reset: the demo seeded again for everyone, after the consequence dialog.
-import { Button, ConsequenceDialog, DEMO_WORDS } from "@manent/ui";
+import { ConsequenceDialog, DEMO_WORDS } from "@manent/ui";
 import { useQueryClient } from "@tanstack/react-query";
+import { RotateCcwIcon } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { BarButton } from "./bar-button.tsx";
 import { SERVER_STATUS_QUERY } from "./use-demo.ts";
 import type { DemoControl } from "./use-demo.ts";
 
@@ -26,14 +28,12 @@ export function ResetControl(props: DemoControl): ReactNode {
   };
   return (
     <>
-      <Button
-        variant="ghost"
-        size="sm"
-        data-tour="demo:reset"
+      <BarButton
+        label={DEMO_WORDS.reset}
+        icon={RotateCcwIcon}
+        tour="demo:reset"
         onClick={() => setOpen(true)}
-      >
-        {DEMO_WORDS.reset}
-      </Button>
+      />
       <ConsequenceDialog
         open={open}
         title={DEMO_WORDS.resetTitle}

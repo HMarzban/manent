@@ -38,7 +38,7 @@ export function PanelTabs({
               key={tab.id}
               value={tab.id}
               data-tour={`tab:${tab.id}`}
-              className="min-w-0 shrink text-ui"
+              className="min-w-0 flex-initial px-2 text-ui"
             >
               <span className="truncate" title={tab.label}>
                 {tab.label}

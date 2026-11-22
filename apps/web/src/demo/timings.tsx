@@ -3,18 +3,17 @@ import { measureDoc } from "@manent/crdt";
 import { marksEnabled, readMarks, setMarksEnabled } from "@manent/perf";
 import type { DocHandle } from "@manent/sync-client";
 import {
-  Button,
   DEMO_WORDS,
   Popover,
   PopoverContent,
-  PopoverTrigger,
   useSubscribable,
 } from "@manent/ui";
+import { GaugeIcon } from "lucide-react";
 import { useEffect, useMemo, useReducer, useState } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { TIMINGS_REFRESH_MS, createTimingsSource } from "./timings-source.ts";
-import { UnavailableControl } from "./unavailable-control.tsx";
+import { BarButton } from "./bar-button.tsx";
 
 const TOUR = "demo:timings";
 
@@ -26,20 +25,21 @@ export function Timings(props: {
   const [open, setOpen] = useState(false);
   if (props.offline)
     return (
-      <UnavailableControl
+      <BarButton
         label={DEMO_WORDS.timings}
-        reason={DEMO_WORDS.needsConnection}
+        icon={GaugeIcon}
         tour={TOUR}
+        unavailable={DEMO_WORDS.needsConnection}
       />
     );
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        data-tour={TOUR}
-        render={<Button variant="ghost" size="sm" />}
-      >
-        {DEMO_WORDS.timings}
-      </PopoverTrigger>
+      <BarButton
+        label={DEMO_WORDS.timings}
+        icon={GaugeIcon}
+        tour={TOUR}
+        opens
+      />
       <PopoverContent data-surface="demo" align="end" className="w-auto">
         <TimingRows docId={props.docId} />
       </PopoverContent>

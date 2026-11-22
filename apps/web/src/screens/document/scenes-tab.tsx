@@ -64,7 +64,7 @@ function SceneRow(props: {
   if (row.omitted)
     return (
       <Row current={row.current}>
-        <span className="whitespace-pre">
+        <span className="whitespace-pre text-fg-muted">
           {row.number === null
             ? DOCUMENT_WORDS.omitted
             : `${row.number}  ${DOCUMENT_WORDS.omitted}`}
@@ -77,7 +77,7 @@ function SceneRow(props: {
       current={row.current}
       leading={
         row.number === null ? undefined : (
-          <span className="tabular-nums">{row.number}</span>
+          <span className="w-6 text-end tabular-nums">{row.number}</span>
         )
       }
       trailing={
@@ -132,7 +132,7 @@ function ScenesList(props: { docId: string }): ReactNode {
           />
         ),
         empty: () => (
-          <p className="p-3 text-ui text-fg-muted">
+          <p className="p-4 text-ui text-fg-muted">
             {DOCUMENT_WORDS.scenesEmpty(
               format,
               kind,

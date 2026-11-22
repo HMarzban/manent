@@ -26,10 +26,13 @@ export const EditorHost = memo(
       return props.mount.mount({ element, docId, ...props.ports });
     }, [docId]);
     return (
+      // the desk around the sheets, which sit in its middle; its padding stays one size at every zoom, so Fit width
+      // never measures a moving edge
       <div
         ref={ref}
         data-editor-host=""
         data-tour="page"
+        className="mn-desk min-h-full [--page-zoom:1] [&>.mn-zoom]:mx-auto"
         inert={props.covered}
         style={props.covered ? COVERED : undefined}
       />
