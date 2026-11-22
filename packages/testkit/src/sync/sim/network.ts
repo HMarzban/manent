@@ -13,6 +13,7 @@ import type {
   ConnectionData,
   Peer,
   ReplayOutcome,
+  SyncHooks,
   SyncLimits,
   SyncService,
 } from "@manent/server-core";
@@ -64,6 +65,8 @@ export interface SimServer {
   replaysQueued(): number;
   /** While cut, waiting replays and answers are lost, and so is an answer made meanwhile. */
   partition(cut: boolean): void;
+  /** The service running now; RangeError while the server is down. */
+  service(): SyncService;
   readonly limits: SyncLimits;
 }
 
@@ -112,9 +115,10 @@ class Life {
     versions: ServerVersions;
     limits: SyncLimits;
     ids: () => string;
+    hooks: readonly SyncHooks[];
     down: () => void;
   }) {
-    const { storage, versions, limits, ids } = options;
+    const { storage, versions, limits, ids, hooks } = options;
     this.down = options.down;
     const defer = (fn: () => void): void => {
       this.deferred.push(fn);
@@ -132,6 +136,7 @@ class Life {
       versions,
       limits,
       checkpointer: createInlineCheckpointer({ storage, defer }),
+      hooks,
     });
   }
 
@@ -298,7 +303,7 @@ function createReplayLine(server: {
   };
 }
 
-/** Starts down: `start()` brings the first service up. `limits` lays over the simulation's own. */
+/** Starts down: `start()` brings the first service up. `limits` lays over the simulation's own; every service gets `hooks`. */
 export function createSimServer(options: {
   network: MemoryNetwork;
   storage: MemoryStorage;
@@ -306,8 +311,10 @@ export function createSimServer(options: {
   versions: ServerVersions;
   random: () => number;
   limits?: Partial<SyncLimits>;
+  hooks?: readonly SyncHooks[];
 }): SimServer {
   const { network, storage, clock, versions } = options;
+  const hooks = options.hooks ?? [];
   const limits: SyncLimits = Object.freeze({ ...LIMITS, ...options.limits });
   let life: Life | null = null;
   let versionIds = 0;
@@ -355,7 +362,7 @@ export function createSimServer(options: {
     start() {
       down();
       storage.crashOnCommit(null);
-      life = new Life({ storage, clock, versions, limits, ids, down });
+      life = new Life({ storage, clock, versions, limits, ids, hooks, down });
     },
     crash(when) {
       if (when === "now") return down();
@@ -372,6 +379,10 @@ export function createSimServer(options: {
     stepReplay: replays.step,
     replaysQueued: replays.queued,
     partition: replays.partition,
+    service() {
+      if (life === null) throw new RangeError("the server is down");
+      return life.service;
+    },
     limits,
   };
 }
