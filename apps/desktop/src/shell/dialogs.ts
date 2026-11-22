@@ -1,11 +1,13 @@
 // The system's dialogs: the one alert, for scripts a newer build wrote, and the chooser for files to open.
 import { basename } from "node:path";
-import { OPENED_FILE_EXTENSIONS } from "@manent/sync-protocol";
+import {
+  OPENED_FILE_EXTENSIONS,
+  OPENED_FILE_LIMIT_BYTES,
+} from "@manent/sync-protocol";
 import type { FileRefusal, OpenedFile } from "@manent/sync-protocol";
 import { SHELL_WORDS } from "../words.ts";
 import { Utils } from "./sdk.ts";
 
-const OPENED_FILE_LIMIT_BYTES = 32 * 1024 * 1024;
 /** The shell channel carries at most this many files, and as many refusals, in one message. */
 const OPENED_FILES_LIMIT = 32;
 
@@ -43,7 +45,7 @@ export async function chooseFiles(): Promise<{
   refused: { name: string; reason: FileRefusal }[];
 }> {
   const paths = await Utils.openFileDialog({
-    allowedFileTypes: "fdx,fountain,pdf,docx,ink",
+    allowedFileTypes: OPENED_FILE_EXTENSIONS.map((e) => e.slice(1)).join(","),
     canChooseFiles: true,
     canChooseDirectory: false,
     allowsMultipleSelection: true,
