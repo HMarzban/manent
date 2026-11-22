@@ -1267,6 +1267,13 @@ button:not(:disabled):hover > .mn-row {
   box-shadow: var(--elev-page);
   border-radius: var(--shape-none);
 }
+/* A page drawn small beside a Send form is white paper in every theme, as
+   the printer gets it. Its own values, because the page tokens are resolved
+   on the root. */
+.mn-tile {
+  --page-paper: var(--p-warm-0);
+  --page-ink: var(--p-ink);
+}
 .mn-sheet[data-rev]::before {
   /* the band: a strip of the revision's own paper */
   content: "";
