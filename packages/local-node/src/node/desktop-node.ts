@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { PRODUCT_SETTING_RULES } from "@manent/server-core";
-import type { Directory, SignInProvider } from "@manent/server-core";
+import type { Directory, RenderPdf, SignInProvider } from "@manent/server-core";
 import { openSqliteStorage } from "@manent/storage";
 import { createSyncClient, soloLeader } from "@manent/sync-client";
 import type { LocalStore } from "@manent/sync-client";
@@ -50,6 +50,7 @@ export interface DesktopNodeOptions {
   versions: ServerVersions;
   build: string;
   platform: NodeJS.Platform;
+  renderPdf: RenderPdf;
   /** Passed on as the core's `boot`. */
   boot: (() => { global: DesktopGlobal; boot: FirstPaintWrite[] }) | null;
 }
@@ -256,6 +257,7 @@ export async function createDesktopNode(
           webDir: options.webDir,
           launchToken,
           registry: PRODUCT_SETTING_RULES,
+          renderPdf: options.renderPdf,
           boot: options.boot,
           storeUsage: () => readStoreUsage(storeDir),
           nodeUrl,

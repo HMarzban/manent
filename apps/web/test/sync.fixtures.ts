@@ -170,13 +170,17 @@ export function scriptedServer(network: MemoryNetwork): ScriptedServer {
 export const turn = (): Promise<void> =>
   new Promise((resolve) => setImmediate(resolve));
 
-/** Turns until `done` holds, as long as loading a module may take; throws after that. */
+// within the test runner's five seconds, and as long as loading a module takes on a busy machine
+const UNTIL_MS = 4_000;
+
+/** Turns until `done` holds, for as long as loading a module may take; throws after that. */
 export async function until(done: () => boolean): Promise<void> {
-  for (let i = 0; i < 5_000; i++) {
+  const deadline = performance.now() + UNTIL_MS;
+  do {
     if (done()) return;
     await turn();
-  }
-  throw new RangeError("it never came about");
+  } while (performance.now() < deadline);
+  if (!done()) throw new RangeError("it never came about");
 }
 
 /** Delivers everything the network holds, and what that causes, until nothing moves. */

@@ -44,8 +44,8 @@ function readMessage(value: unknown): ChildMessage | null {
  * `stop` ends the child and removes what it wrote; an adoption under way is finished first.
  */
 export function startBackgroundSeed(options: {
-  execPath: string;
-  entry: string;
+  /** What starts this server: a compiled binary alone, or Bun with its flags and the entry file. */
+  command: readonly string[];
   dataDir: string;
   seedAt: number;
   onProgress(done: number, total: number): void;
@@ -58,9 +58,7 @@ export function startBackgroundSeed(options: {
   let stopped = false;
   const child = Bun.spawn(
     [
-      options.execPath,
-      "--no-orphans",
-      options.entry,
+      ...options.command,
       "seed",
       "--phase",
       "background",

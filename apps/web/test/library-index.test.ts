@@ -75,7 +75,7 @@ test("a project made offline is in the Library at once and on the server after t
     {
       title: "Untitled series",
       kind: "series",
-      place: { kind: "waiting", count: 2 },
+      place: { kind: "waiting", count: 3 },
     },
   ]);
   await settleAll();

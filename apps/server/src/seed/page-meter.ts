@@ -15,7 +15,6 @@ import {
   engineFor,
   profileFromSettings,
   readLayoutSettings,
-  toLockTable,
 } from "@manent/pagination";
 import type {
   Engine,
@@ -23,6 +22,7 @@ import type {
   LockAnchorRecord,
   Pagination,
 } from "@manent/pagination";
+import { lockedPagination, revisedPages } from "@manent/revisions";
 import type { BlockMark } from "@manent/revisions";
 import { blocksOf } from "@manent/schema";
 import type {
@@ -133,7 +133,8 @@ function placedAnchors(
 
 /**
  * Pages as the engine of this build lays out `blocks` in `layout`: its format and settings, and,
- * for a locked script, its anchors and its scene numbers shown. A format without pages has none.
+ * for a locked script, its anchors as production lays them out and its scene numbers shown. A
+ * format without pages has none.
  */
 export function createPageMeter(): PageMeter {
   const engine = buildEngine();
@@ -153,8 +154,12 @@ export function createPageMeter(): PageMeter {
         content: [{ type: "section", content: blocks.map(toBlockJSON) }],
       });
       const laid = engine.toLayoutBlocks(flat);
-      const locks = toLockTable(placedAnchors(layout.anchors ?? [], laid));
-      return pageStarts(engine.paginate(laid, profile, locks));
+      if (layout.anchors === null)
+        return pageStarts(engine.paginate(laid, profile, NO_LOCKS));
+      const records = placedAnchors(layout.anchors, laid);
+      return pageStarts(
+        lockedPagination(laid, profile, records, engine).pagination,
+      );
     },
   };
 }
@@ -229,6 +234,14 @@ export function readServerScript(
   } finally {
     doc.destroy();
   }
+}
+
+/** The pages the active revision of `docId` would issue now, in page order: those holding a line it marks. */
+export function revisedPagesOf(storage: Storage, docId: string): string[] {
+  const script = readServerScript(storage, docId);
+  return script.pagination === null
+    ? []
+    : revisedPages(script.pagination, script.marks);
 }
 
 /** What the server's pages, numbers and marks disagree with in `passage`, written from the block `firstBlockId`. */
