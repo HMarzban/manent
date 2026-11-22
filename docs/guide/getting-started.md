@@ -64,9 +64,9 @@ The Library lists the projects of one workspace. Choose the workspace from the m
 - **Import…** makes a script from a Final Draft or Fountain file; see [Import a script](export-and-print.md#import-a-script).
 - **New project** offers Film, Series, Show, News, Podcast, Book, Game and Stage play. Each kind starts with one script in its own format: Film and Series as a screenplay, Show, News and Podcast as Variety, Book as a manuscript, Game as Game Script and Stage play as a stage play. Change the format in **Details → Script**, under Script settings.
 
-The Library is kept like a script, on the device and on the server, so it is still there after a reload and in another browser you sign in from. A script that is not on this device yet says "Not on this device".
+The Library is kept like a script, on the device and on the server, so it is still there after a reload and in another browser you sign in from. A script that is not on this device yet says "Not on this device", and in this build such a row does not open from the Library; the script opens by its address, `/s/` and its id, as step 5 of [What to try](#what-to-try) shows.
 
-The Writers' room also lists the demo's first seeded projects, such as The Long Night. In this build their scripts do not open from the Library yet.
+The Writers' room also lists the demo's first seeded projects, such as The Long Night. They are not on a new device either, so they do not open from the Library yet.
 
 ## The Tour
 
