@@ -1,10 +1,5 @@
 // The checks a SUBSCRIBE passes, in order (the first that fails is the answer), and what passing gives.
-import {
-  CrdtUpdateError,
-  ORIGIN_LOAD,
-  applyInspecting,
-  readStateVector,
-} from "@manent/crdt";
+import { CrdtUpdateError, ORIGIN_LOAD, readStateVector } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import { gateDocument } from "@manent/sync-protocol";
 import type { DocRef, Message } from "@manent/sync-protocol";
@@ -18,7 +13,6 @@ import type { Healing } from "./heal.ts";
 import type { Peer, SubscribedExtras, SyncLimits, WritePath } from "./ports.ts";
 import type { Room, Rooms, Subscription } from "./rooms.ts";
 import { isStorageError } from "./storage-error.ts";
-import { validateRoomPush } from "./validate.ts";
 
 export type SubscribeMessage = Extract<Message, { type: "SUBSCRIBE" }>;
 
@@ -228,29 +222,18 @@ export function subscribe(
 }
 
 /**
- * What the room shows of its document while its file holds commits: the log and what is held, but
- * for what only the authority writes (a setting), which a crash may yet take from the log and no
- * window could push back. Null when nothing is held. The caller destroys the document.
+ * What the room shows of its document while its file holds commits: the log and what of the held
+ * items its windows were sent. Null when nothing is held. The caller destroys the document.
  */
 function heldShown(
   rooms: Pick<Rooms, "committed">,
   room: Room,
   held: readonly Uint8Array[],
+  shownUpdates: readonly Uint8Array[],
 ): CrdtDoc | null {
   if (room.mode !== "authority" || held.length === 0) return null;
-  // the probe takes every held update in turn, so each one's report reads what it wrote
-  const probe = rooms.committed(room).doc;
   const shown = rooms.committed(room).doc;
-  try {
-    for (const update of held) {
-      const report = applyInspecting(probe, update, ORIGIN_LOAD);
-      // a held push was accepted as one; what no push may write is the authority's
-      if (report === null || validateRoomPush(report, room).length === 0)
-        shown.applyUpdate(update, ORIGIN_LOAD);
-    }
-  } finally {
-    probe.destroy();
-  }
+  for (const update of shownUpdates) shown.applyUpdate(update, ORIGIN_LOAD);
   return shown;
 }
 
@@ -268,7 +251,10 @@ export function answerStepOne(
   ports: {
     rooms: Rooms;
     deletions: Deletions;
-    writePath: Pick<WritePath, "queued" | "flush" | "heldUpdates">;
+    writePath: Pick<
+      WritePath,
+      "queued" | "flush" | "heldUpdates" | "heldShownUpdates"
+    >;
   },
   room: Room,
   step: { vector: Uint8Array; lastServerSeq: number },
@@ -287,8 +273,10 @@ export function answerStepOne(
   // the commit failed: the room was dropped, and its subscribers told
   if (room.doc === null) return [];
   const fresh = clocks.size === 0;
-  const held = ports.writePath.heldUpdates(room.docId);
-  const shown = heldShown(ports.rooms, room, held);
+  const { writePath } = ports;
+  const held = writePath.heldUpdates(room.docId);
+  const sent = writePath.heldShownUpdates(room.docId);
+  const shown = heldShown(ports.rooms, room, held, sent);
   let data: Uint8Array;
   if (shown !== null) {
     data = shown.diff(step.vector);
