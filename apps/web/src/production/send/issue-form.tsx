@@ -147,7 +147,9 @@ function Issue(props: {
     live !== null && revised.length === 0 ? (issued?.name ?? name) : null;
   const order = state.colourOrder.flatMap((colour) => colourOf(colour) ?? []);
   const today = deviceDay(now());
-  const shownMemo = memo ?? memoText(name, today, pages);
+  // a memo names at least one page: with nothing revised there is nothing to say
+  const shownMemo =
+    memo ?? (pages.length === 0 ? "" : memoText(name, today, pages));
   const disabledReason = request.disabledReason(waiting);
   const rows: SendRow[] = [
     {

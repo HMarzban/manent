@@ -86,7 +86,10 @@ function Recall(props: {
   const changed = live?.revisedPages ?? [];
   // in page order, whatever order they were ticked in
   const pages = changed.filter((label) => ticked.has(label));
-  const shownMemo = memo ?? recallMemo(name, today, pages, issue.issuedOn);
+  // a memo names at least one page: with none ticked there is nothing to say yet
+  const shownMemo =
+    memo ??
+    (pages.length === 0 ? "" : recallMemo(name, today, pages, issue.issuedOn));
   const tick = (label: string, on: boolean): void => {
     const next = new Set(ticked);
     if (on) next.add(label);
