@@ -145,6 +145,7 @@ function seededIndex(seed: {
         finish = () => resolve({ projectId: "new", docId: NEW_DOC });
       });
     },
+    importProject: () => new Promise<CreateResult>(() => {}),
     documentTitle: () => createValue(null),
     documentKind: () => createValue(null),
     renameDocument: () => {},
