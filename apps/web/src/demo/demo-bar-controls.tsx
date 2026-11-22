@@ -37,15 +37,16 @@ export function DemoBarControls(props: {
   // the shell provides the services and the commands together with the bridge's contexts
   const inShell = useContext(FactsContext) !== null;
   const { control } = props;
+  // one row while they fit; in the narrowest bar, where it drops the server's words, a second row
   return (
-    <>
+    <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 @max-[40rem]/mn-bar:flex-wrap @max-[40rem]/mn-bar:py-1">
       <Person person={props.person} onClick={props.onPersonClick} />
       {inShell ? (
         <ShellControls control={control} />
       ) : (
         control && <ServerControl {...control} />
       )}
-    </>
+    </div>
   );
 }
 

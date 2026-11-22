@@ -19,7 +19,10 @@ export function preloadDemoBarControls(): void {
   controls.preload();
 }
 
-/** Never takes focus; F6 reaches it. One row at every width: short of room, its controls keep only their icons. */
+/**
+ * Never takes focus; F6 reaches it. One row while its controls fit: short of room they keep only their icons, and in
+ * the narrowest bar they take a second row rather than widen the window.
+ */
 export function DemoBar(props: {
   person: TabPerson | null;
   onPersonClick: () => void;
