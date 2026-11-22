@@ -65,8 +65,12 @@ test("a tester chooses a person and reaches the Library", async ({
     "No scripts yet",
   );
   await expect(serverLine(page)).toHaveText("Server running");
-  // open on the first visit to the Library
+  // open on the first visit to the Library, once the Tour lists a scenario
   const tour = tourTab(page);
+  if (!TOUR.scenarios.some(isShown)) {
+    await expect(tour).toHaveCount(0);
+    return;
+  }
   await expect(tour.getByRole("heading", { level: 2 })).toHaveText("Tour");
   // a group is drawn only when it lists a scenario
   for (const group of TOUR_GROUPS)
@@ -269,9 +273,8 @@ test("a session the server no longer accepts lands on the chooser", async ({
   // /api/me answers 401
   await page.goto("/");
   await expect(page).toHaveURL(/\/choose\?next=%2F$/);
-  await expect(
-    page.getByRole("button", { name: "Person", exact: true }),
-  ).toBeVisible();
+  // the demo bar draws no person
+  await expect(page.getByRole("button", { name: /^Person/ })).toHaveCount(0);
 });
 
 test("the status line appears empty, then speaks", async ({ page }) => {

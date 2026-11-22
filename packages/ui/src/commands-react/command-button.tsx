@@ -28,14 +28,18 @@ function isFocusIntoPopup(event: Event): boolean {
 /**
  * Drawn only while the command is visible. While disabled it stays focusable (`aria-disabled`), and its tooltip,
  * "{Label} — {reason}", is also its accessible description; a press then answers with the reason, as the key does.
+ * With an `icon`, the label follows it in a `button-label` slot, which a `.mn-bar` short of room hides from sight
+ * while it stays the button's name. `pressed` draws a command whose on state the registry does not carry as a toggle.
  */
 export function CommandButton(props: {
   id: CommandId;
   variant?: "ghost" | "outline";
   size?: "sm" | "default";
+  icon?: ReactNode;
+  pressed?: boolean;
   children?: never;
 }): ReactNode {
-  const { id, variant = "ghost", size = "default" } = props;
+  const { id, variant = "ghost", size = "default", icon, pressed } = props;
   const { service, platform } = useCommands();
   const state = useCommandState(id);
   const reasonId = useId();
@@ -65,13 +69,21 @@ export function CommandButton(props: {
               variant={variant}
               size={size}
               data-tour={id}
+              aria-pressed={pressed}
               aria-disabled={reason === null ? undefined : true}
               aria-describedby={reason === null ? undefined : reasonId}
               onClick={() => service.run(id, "control")}
             />
           }
         >
-          {state.label}
+          {icon === undefined ? (
+            state.label
+          ) : (
+            <>
+              {icon}
+              <span data-slot="button-label">{state.label}</span>
+            </>
+          )}
         </TooltipTrigger>
         <TooltipContent>
           {reason ?? state.label}

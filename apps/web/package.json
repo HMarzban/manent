@@ -25,7 +25,8 @@
     "@tanstack/react-query": "catalog:",
     "zustand": "catalog:",
     "serwist": "catalog:",
-    "@fontsource/courier-prime": "catalog:"
+    "@fontsource/courier-prime": "catalog:",
+    "lucide-react": "catalog:"
   },
   "devDependencies": {
     "@manent/testkit": "workspace:*",
