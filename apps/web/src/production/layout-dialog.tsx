@@ -60,7 +60,12 @@ export function ChangeLayoutDialog(props: {
         }),
       {
         ok: onClose,
-        refused: (code) => (code === "changed" ? countAgain() : onClose()),
+        // a changed answer restates the counts in the body, and the person decides again
+        refused: (code) => {
+          if (code !== "changed") return WORDS.changeLayoutRefused(what);
+          countAgain();
+          return null;
+        },
       },
     );
   };
@@ -75,7 +80,7 @@ export function ChangeLayoutDialog(props: {
       )}
       action={WORDS.changeLayoutButton(what)}
       busyLabel={request.busy ? WORDS.changingLayoutButton(what) : null}
-      refusal={null}
+      refusal={request.refusal}
       disabledReason={request.disabledReason}
       destructive={false}
       onAction={send}

@@ -1,5 +1,6 @@
-// The rows of the History tab: Working, then the versions under their days, or with Drafts only the drafts oldest
-// first, ending in Working; the name field of Name this draft…, and a draft named and not yet answered.
+// The rows of the History tab: Working; the versions and the changes to script settings under their days, or with
+// Drafts only the drafts oldest first; the name field of Name this draft…, and a draft named and not yet answered.
+import { SETTINGS } from "@manent/settings";
 import {
   Button,
   DOCUMENT_WORDS,
@@ -17,20 +18,23 @@ import { isTitledByTime } from "../../history/history-rows.ts";
 import type { HistoryRow } from "../../history/history-rows.ts";
 import { selectRow } from "../../history/history-view.ts";
 import { ROW_EXTENSIONS } from "../../history/row-extensions.ts";
-import { useServices } from "../../services/context.tsx";
+import { useSettingChanges } from "../../history/setting-changes.ts";
+import type { SettingChange } from "../../history/setting-changes.ts";
+import { useEnvironment, useServices } from "../../services/context.tsx";
 import { nameOf } from "../../services/sync/index-entries.ts";
 import { historyActions, useHistory } from "../../state/history.store.ts";
 import { HistoryRowMenu } from "./history-row-menu.tsx";
+import { valueLabel } from "./setting-messages.ts";
 
 // the next page is asked for while a row this close to the end is drawn
 const MORE_WITHIN_ROWS = 50;
-// the person, in the Working row, when they made the last change
+// the person, in a setting's row, when they made the change
 const YOU = "you";
 
 type Item =
-  | { kind: "working" }
   | { kind: "day"; label: string }
-  | { kind: "version"; row: HistoryRow };
+  | { kind: "version"; row: HistoryRow }
+  | { kind: "setting"; change: SettingChange };
 
 interface Pending {
   name: string;
@@ -47,22 +51,36 @@ const initialsOf = (name: string): string =>
     .map((word) => Array.from(word)[0]?.toUpperCase() ?? "")
     .join("");
 
-/** Working, then each day's versions under its day; with Drafts only the drafts oldest first, then Working. */
-function itemsOf(rows: readonly HistoryRow[], draftsOnly: boolean): Item[] {
+/** Each day's versions and setting changes under its day, newest first; with Drafts only the drafts oldest first. */
+function itemsOf(
+  rows: readonly HistoryRow[],
+  changes: readonly SettingChange[],
+  draftsOnly: boolean,
+  now: number,
+): Item[] {
   if (draftsOnly)
-    return [
-      ...rows
-        .filter((row) => row.item.kind === "named")
-        .toReversed()
-        .map((row): Item => ({ kind: "version", row })),
-      { kind: "working" },
-    ];
-  const items: Item[] = [{ kind: "working" }];
+    return rows
+      .filter((row) => row.item.kind === "named")
+      .toReversed()
+      .map((row): Item => ({ kind: "version", row }));
+  const dated = [
+    ...rows.map((row) => ({
+      at: row.item.createdAt,
+      day: row.day,
+      item: { kind: "version", row } satisfies Item,
+    })),
+    ...changes.map((change) => ({
+      at: change.at,
+      day: HISTORY_WORDS.dayGroup(change.at, now),
+      item: { kind: "setting", change } satisfies Item,
+    })),
+  ].toSorted((a, b) => b.at - a.at);
+  const items: Item[] = [];
   let day: string | null = null;
-  for (const row of rows) {
-    if (row.day !== day) items.push({ kind: "day", label: row.day });
-    day = row.day;
-    items.push({ kind: "version", row });
+  for (const each of dated) {
+    if (each.day !== day) items.push({ kind: "day", label: each.day });
+    day = each.day;
+    items.push(each.item);
   }
   return items;
 }
@@ -202,20 +220,35 @@ function VersionRow(props: {
   );
 }
 
-/** A draft named and not yet answered, shown under Working; `name` names a draft of Working or of a version. */
+/**
+ * A draft named and not yet answered, shown under Working; `target` is the version whose row holds the name field,
+ * null for Working; `name` names a draft of Working or of a version.
+ */
 interface DraftNaming {
   pending: Pending | null;
+  target: string | null;
+  nameVersion(versionId: string): void;
   name(draft: string, fromVersionId: string | null): void;
   working: RefObject<HTMLElement | null>;
 }
 
-function useDraftNaming(docId: string): DraftNaming {
+export function useDraftNaming(docId: string): DraftNaming {
   const { history } = useServices();
+  const naming = useHistory("naming");
   const [pending, setPending] = useState<Pending | null>(null);
+  const [target, setTarget] = useState<string | null>(null);
   const working = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!naming) setTarget(null);
+  }, [naming]);
   return {
     pending,
+    target,
     working,
+    nameVersion(versionId) {
+      setTarget(versionId);
+      historyActions.setNaming(true);
+    },
     name(draft, fromVersionId) {
       historyActions.setNaming(false);
       setPending({ name: draft, fromVersionId, failed: false });
@@ -229,36 +262,29 @@ function useDraftNaming(docId: string): DraftNaming {
   };
 }
 
-/** Working, its name field while Working is named (`own`), and the draft named and not yet answered. */
-function WorkingRow(props: {
+/**
+ * Working, the focus target of naming; its name field while Working is named, once the list has `answered` and so
+ * can offer the next draft's name; and the draft named and not yet answered.
+ */
+export function WorkingRow(props: {
   rows: readonly HistoryRow[];
-  own: boolean;
+  answered: boolean;
   draft: DraftNaming;
 }): ReactNode {
   const { rows, draft } = props;
-  const { userId } = useServices();
   const naming = useHistory("naming");
   const selected = useHistory("selected");
   const { pending } = draft;
-  // the newest version stands for the last change: who made it and when
-  const newest = rows[0]?.item ?? null;
   return (
     <>
-      {newest === null ? null : (
-        <Row
-          rowRef={draft.working}
-          selected={selected === null}
-          onActivate={() => historyActions.select(null)}
-        >
-          {HISTORY_WORDS.working(
-            newest.createdByUserId === userId
-              ? YOU
-              : nameOf(newest.createdByUserId),
-            formatTime(newest.createdAt),
-          )}
-        </Row>
-      )}
-      {naming && props.own ? (
+      <Row
+        rowRef={draft.working}
+        selected={selected === null}
+        onActivate={() => historyActions.select(null)}
+      >
+        {HISTORY_WORDS.workingLabel}
+      </Row>
+      {naming && draft.target === null && props.answered ? (
         <NameField
           initial={nextDraftName(rows)}
           onName={(name) => draft.name(name, null)}
@@ -299,39 +325,45 @@ function WorkingRow(props: {
   );
 }
 
-/** Name this draft… on a script with no versions listed yet: Working's name field, and the draft named. */
-export function WorkingAlone(props: { docId: string }): ReactNode {
-  const draft = useDraftNaming(props.docId);
-  return <WorkingRow rows={[]} own draft={draft} />;
+/** A change to a script setting: the setting, then who made it, when, and the value it replaced. */
+function SettingRow(props: { change: SettingChange }): ReactNode {
+  const { key, at, byUserId, was } = props.change;
+  const { userId } = useServices();
+  return (
+    <Row
+      meta={DOCUMENT_WORDS.setBy(
+        byUserId === userId ? YOU : nameOf(byUserId),
+        formatTime(at),
+        valueLabel(key, was, "row"),
+      )}
+    >
+      {SETTINGS.get(key).label}
+    </Row>
+  );
 }
 
+/** The versions and setting changes; `draft` is the History tab's naming, which a row menu's Name this draft… uses. */
 export function VersionRows(props: {
   docId: string;
   rows: readonly HistoryRow[];
   offline: boolean;
+  draft: DraftNaming;
   onNearEnd(): void;
 }): ReactNode {
-  const { docId, rows } = props;
+  const { docId, rows, draft } = props;
+  const { now } = useEnvironment();
   const draftsOnly = useHistory("draftsOnly");
   const naming = useHistory("naming");
-  // the version the row menu's Name this draft… names; null: Working
-  const [target, setTarget] = useState<string | null>(null);
-  const draft = useDraftNaming(docId);
+  const changes = useSettingChanges(docId);
   const drawnTo = useRef(0);
-  const items = itemsOf(rows, draftsOnly);
+  const items = itemsOf(rows, changes, draftsOnly, now());
   useEffect(() => {
     if (drawnTo.current >= items.length - MORE_WITHIN_ROWS) props.onNearEnd();
   });
-  useEffect(() => {
-    if (!naming) setTarget(null);
-  }, [naming]);
-  const workingRow = (
-    <WorkingRow rows={rows} own={target === null} draft={draft} />
-  );
   const renderRow = (index: number): ReactNode => {
     drawnTo.current = Math.max(drawnTo.current, index);
     const item = items[index]!;
-    if (item.kind === "working") return workingRow;
+    if (item.kind === "setting") return <SettingRow change={item.change} />;
     if (item.kind === "day")
       return (
         <h4 className="px-2 pt-2 text-micro text-fg-muted uppercase">
@@ -344,14 +376,11 @@ export function VersionRows(props: {
         row={item.row}
         offline={props.offline}
         naming={
-          naming && target === item.row.item.id
+          naming && draft.target === item.row.item.id
             ? (item.row.item.name ?? nextDraftName(rows))
             : null
         }
-        onName={() => {
-          setTarget(item.row.item.id);
-          historyActions.setNaming(true);
-        }}
+        onName={() => draft.nameVersion(item.row.item.id)}
         name={(name) => draft.name(name, item.row.item.id)}
       />
     );

@@ -417,6 +417,7 @@ const S: HistoryState = {
   step: null,
   draftsOnly: false,
   naming: false,
+  sinceDismissed: null,
 };
 const NAMES: Readonly<Record<string, string>> = { dana: "Dana", sam: "Sam" };
 const NAME = (userId: string): string => NAMES[userId] ?? userId;

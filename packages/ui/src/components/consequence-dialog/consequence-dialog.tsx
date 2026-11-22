@@ -1,20 +1,10 @@
 // The one dialog frame for an action other people will see and Manent cannot quietly reverse.
-import { LoaderCircleIcon, TriangleExclamationPointIcon } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { TriangleExclamationPointIcon } from "lucide-react";
+import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
-import {
-  SPINNER_AFTER_MS,
-  STILL_WORKING_MS,
-  useTiming,
-} from "../../surfaces/timing.ts";
+import { STILL_WORKING_MS } from "../../surfaces/timing.ts";
 import { DIALOG_WORDS } from "../../words/dialog.ts";
+import { BusyButton, useHeldFor } from "../busy-button/busy-button.tsx";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -37,6 +27,8 @@ export interface ConsequenceDialogProps {
   /** The reason clause ("needs a connection") of an action that cannot run now. */
   disabledReason?: string;
   destructive: boolean;
+  /** The action button's Tour target ("lock:confirm"); absent, the Tour points at nothing in the dialog. */
+  actionTour?: string;
   onAction(): void;
   onCancel(): void;
   alternative?: { label: string; destructive?: boolean; onAction(): void };
@@ -44,7 +36,8 @@ export interface ConsequenceDialogProps {
   children?: ReactNode;
 }
 
-type BusyPhase = "idle" | "waiting" | "spinning" | "still_working";
+// the stock dialog's scrim
+const SCRIM_SELECTOR = "[data-slot='alert-dialog-overlay']";
 
 const assertQuestionTitle = (title: string, action: string): void => {
   if (!title.endsWith("?")) {
@@ -62,21 +55,21 @@ const assertQuestionTitle = (title: string, action: string): void => {
   }
 };
 
-function useBusyPhase(busy: boolean): BusyPhase {
-  const { schedule } = useTiming();
-  const [phase, setPhase] = useState<BusyPhase>("idle");
-  useLayoutEffect(() => {
-    setPhase(busy ? "waiting" : "idle");
-    if (!busy) return undefined;
-    const cancels = [
-      schedule(() => setPhase("spinning"), SPINNER_AFTER_MS),
-      schedule(() => setPhase("still_working"), STILL_WORKING_MS),
-    ];
-    return () => {
-      for (const cancel of cancels) cancel();
+/** While `open`, a press on the scrim does nothing, so focus stays on the dialog's control instead of going to the body. */
+function useInertScrim(open: boolean): void {
+  useEffect(() => {
+    if (!open) return undefined;
+    const keepFocus = (event: MouseEvent): void => {
+      if (
+        event.target instanceof Element &&
+        event.target.matches(SCRIM_SELECTOR)
+      )
+        event.preventDefault();
     };
-  }, [busy, schedule]);
-  return phase;
+    // capturing, before the dialog's own handlers see the press
+    globalThis.addEventListener("mousedown", keepFocus, true);
+    return () => globalThis.removeEventListener("mousedown", keepFocus, true);
+  }, [open]);
 }
 
 interface LineProps {
@@ -123,55 +116,6 @@ function LineAboveButtons({
   );
 }
 
-interface ActionButtonProps {
-  label: string;
-  busyLabel: string | null;
-  phase: BusyPhase;
-  destructive: boolean;
-  disabled: boolean;
-  describedBy: string | undefined;
-  onAction(): void;
-}
-
-function ActionButton({
-  label,
-  busyLabel,
-  phase,
-  destructive,
-  disabled,
-  describedBy,
-  onAction,
-}: ActionButtonProps): ReactNode {
-  const [idleWidth, setIdleWidth] = useState<number | null>(null);
-  // measured when the button is drawn and whenever its idle label changes; kept while the busy label shows
-  const measure = useCallback(
-    (node: HTMLButtonElement | null) => {
-      if (node !== null && busyLabel === null) setIdleWidth(node.offsetWidth);
-    },
-    [busyLabel, label],
-  );
-  return (
-    <Button
-      ref={measure}
-      variant={destructive ? "destructive" : "default"}
-      disabled={disabled || busyLabel !== null}
-      focusableWhenDisabled
-      aria-describedby={describedBy}
-      style={
-        busyLabel !== null && idleWidth !== null
-          ? { width: `${idleWidth}px` }
-          : undefined
-      }
-      onClick={onAction}
-    >
-      {busyLabel ?? label}
-      {phase === "spinning" || phase === "still_working" ? (
-        <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
-      ) : null}
-    </Button>
-  );
-}
-
 // the close question's middle button; disabled while the action runs
 function AlternativeButton({
   alternative,
@@ -204,6 +148,7 @@ export function ConsequenceDialog({
   refusal,
   disabledReason,
   destructive,
+  actionTour,
   onAction,
   onCancel,
   alternative,
@@ -212,10 +157,10 @@ export function ConsequenceDialog({
 }: ConsequenceDialogProps): ReactNode {
   if (titledBy === "question") assertQuestionTitle(title, action);
   const busy = busyLabel !== null;
-  const phase = useBusyPhase(busy);
+  const stillWorking = useHeldFor(busy, STILL_WORKING_MS);
+  useInertScrim(open);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const lineId = useId();
-  const stillWorking = phase === "still_working";
   const disabledLine =
     disabledReason === undefined || busy
       ? null
@@ -251,14 +196,14 @@ export function ConsequenceDialog({
             {DIALOG_WORDS.cancel}
           </Button>
           <AlternativeButton alternative={alternative} busy={busy} />
-          <ActionButton
+          <BusyButton
             label={refusal === null ? action : DIALOG_WORDS.tryAgain}
             busyLabel={busyLabel}
-            phase={phase}
-            destructive={destructive}
+            variant={destructive ? "destructive" : "default"}
             disabled={disabledLine !== null}
-            describedBy={describing ? lineId : undefined}
-            onAction={onAction}
+            aria-describedby={describing ? lineId : undefined}
+            data-tour={actionTour}
+            onClick={onAction}
           />
         </div>
       </AlertDialogContent>

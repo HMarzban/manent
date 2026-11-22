@@ -488,9 +488,9 @@ test("an entry is kept with its fields in their stored order, as filed and as se
   const theirs = `{"type":"block","attrs":{"id":"block-one-1","type":"action"},"content":[{"type":"text","text":"The tide holds."}]}`;
   const before = `{"type":"block","attrs":{"id":"block-one-1","type":"action","omitted":false,"synopsis":"","noContd":false,"noTiming":false},"content":[{"type":"text","text":"The tide turns."}]}`;
   expect([...filed, await storedEntryOf(sam, "item-1")]).toEqual([
-    `{"kind":"overlap","docId":"${docId}","blockId":"block-one-1","mine":${mine},"theirs":${theirs},"otherUserIds":["dana"],"at":1000,"settled":false,"before":null,"nearBlockId":"${heading}"}`,
+    `{"kind":"overlap","docId":"${docId}","blockId":"block-one-1","mine":${mine},"theirs":${theirs},"otherUserIds":["dana"],"at":1000,"settled":false,"before":null,"nearBlockId":"${heading}","copyId":null}`,
     `{"kind":"recovered","docId":"${docId}","blockId":null,"nearBlockId":"block-three-3","text":"The harbour lights go out.","at":1000,"settled":false,"before":null}`,
-    `{"kind":"overlap","docId":"${docId}","blockId":"block-one-1","mine":${mine},"theirs":${theirs},"otherUserIds":["dana"],"at":1000,"settled":true,"before":${before},"nearBlockId":"${heading}"}`,
+    `{"kind":"overlap","docId":"${docId}","blockId":"block-one-1","mine":${mine},"theirs":${theirs},"otherUserIds":["dana"],"at":1000,"settled":true,"before":${before},"nearBlockId":"${heading}","copyId":null}`,
   ]);
 });
 

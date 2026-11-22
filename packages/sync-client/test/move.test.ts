@@ -325,6 +325,95 @@ test("overlaps and text that could not be placed become Recovered text and are c
   expect(await store.recovered(DOC)).toHaveLength(2);
 });
 
+test("a block the replay wrote and someone removed before the new document loaded is kept in Recovered text", async () => {
+  const { w, h } = await waitingEdits();
+  const { server } = w;
+  server.moved(DOC, 1, 2);
+  await w.settle();
+  server.answerReplay({ ok: true, response: NO_CHANGE });
+  await w.settle();
+  // the replay wrote under this device's old client id, then someone removed B2 without seeing it
+  const replayed = loadDoc(rebuilt(w), { clientId: h.doc().clientId });
+  scriptBody(replayed).write((writer) => {
+    writer.insertText(B1, 5, "x");
+    writer.insertText(B2, 0, "y");
+  });
+  const theirs = loadDoc(replayed.encodeState());
+  scriptBody(theirs).write((writer) => writer.deleteBlock(B2));
+  server.subscribedWithState(DOC, theirs.encodeState(), {
+    generation: 2,
+    headSeq: 4,
+  });
+  await w.settle();
+  expect(
+    h.recovered.get().map((r) => [r.blockId, r.nearBlockId, r.text, r.cause]),
+  ).toEqual([[B2, B1, "y", "merge"]]);
+  expect(textOf(h.doc())).toBe("draftx");
+});
+
+test("an overlap a move filed stays the one listed when its block overlaps again online", async () => {
+  const { w, h } = await waitingEdits();
+  const { server } = w;
+  server.write(DOC, (writer) => writer.insertText(B1, 0, "first "));
+  server.moved(DOC, 1, 2);
+  await w.settle();
+  server.answerReplay({
+    ok: true,
+    response: { ...NO_CHANGE, overlaps: [{ blockId: B1, text: "draftx" }] },
+  });
+  await w.settle();
+  server.subscribedWithState(DOC, rebuilt(w), { generation: 2, headSeq: 3 });
+  await w.settle();
+  typeIn(h, B1, "!");
+  const update = server.writeAs(DOC, 77, (writer) =>
+    writer.insertText(B1, 0, "z"),
+  );
+  server.syncUpdate(DOC, update);
+  await w.settle();
+  w.frames.fire();
+  await w.settle();
+  expect(
+    h.recovered
+      .get()
+      .map((r) => [r.cause, r.mine && blockText(blockView(r.mine))]),
+  ).toEqual([["overlap", "draftx"]]);
+});
+
+test("an update of the new generation that comes before its step 2 leaves the old document as it was", async () => {
+  const { w, h } = await waitingEdits();
+  const { server } = w;
+  server.moved(DOC, 1, 2);
+  await w.settle();
+  const waiting = server.replays()[0]!.updates;
+  server.answerReplay({ ok: true, response: NO_CHANGE });
+  await w.settle();
+  // the replay wrote under this device's old client id, and someone deleted what it wrote
+  const { clientId } = h.doc();
+  const next = loadDoc(rebuilt(w, waiting), { clientId });
+  scriptBody(next).write((writer) => writer.insertText(B1, 0, "zzzzz"));
+  const replayed = next.encodeStateVector();
+  scriptBody(next).write((writer) => writer.deleteText(B1, 0, 5));
+  const at = { docId: DOC, generation: 2 };
+  server.send(subscribed(DOC, 4, 2));
+  server.send({
+    type: "SYNC",
+    ...at,
+    step: "update",
+    data: next.diff(replayed),
+  });
+  await w.settle();
+  server.send({
+    type: "SYNC",
+    ...at,
+    step: "step1",
+    data: next.encodeStateVector(),
+  });
+  server.send({ type: "SYNC", ...at, step: "step2", data: next.encodeState() });
+  await w.settle();
+  expect(textOf(h.doc())).toBe("draftx\ny");
+  expect(h.recovered.get()).toEqual([]);
+});
+
 test("after a move an overlap keeps both wordings", async () => {
   const { w, h } = await waitingEdits();
   const { server } = w;

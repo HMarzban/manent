@@ -13,6 +13,7 @@ import type { KeyboardEvent, ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { ProjectKind } from "../../services/ports.ts";
 import { dialogActions, useOpenDialog } from "../../state/dialog.store.ts";
+import { KindIcon } from "./project-kind.tsx";
 
 const SURFACE = "new_project";
 const COLUMNS = 4;
@@ -88,10 +89,16 @@ export function NewProjectPopover(props: {
               onClick={() => {
                 if (workspaceId !== null) void create(workspaceId, card.kind);
               }}
-              className="flex w-36 flex-col items-start gap-1 rounded-control border border-line bg-raised p-3 text-start hover:bg-subtle disabled:text-fg-disabled"
+              className="mn-card flex w-36 flex-col items-start gap-1 p-3 text-start disabled:text-fg-disabled"
             >
-              <span id={`${id}-${card.kind}`} className="text-ui font-medium">
-                {card.label}
+              <span className="flex items-center gap-2">
+                <KindIcon
+                  kind={card.kind}
+                  className="size-icon-lg text-fg-muted"
+                />
+                <span id={`${id}-${card.kind}`} className="text-ui font-medium">
+                  {card.label}
+                </span>
               </span>
               <span
                 id={`${id}-${card.kind}-line`}

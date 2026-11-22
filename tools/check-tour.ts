@@ -59,6 +59,7 @@ const naming = (name: string): CommandContext => ({
   historyPresent: true,
   format: "screenplay",
   rulerShown: false,
+  layoutView: "page",
   spaceBeforeSet: false,
   zoom: null,
   zoomPercent: null,
@@ -76,13 +77,18 @@ const naming = (name: string): CommandContext => ({
   },
 });
 
-/** Every way a command's label may read: each revision it may name, and the part after "{submenu}: ". */
+// a switch is either way round
+const SWITCH_READS = [true, false].map((on) => ({ get: () => on }));
+
+/** Every way a command's label may read: each revision it may name, each way a switch is, and the part after "{submenu}: ". */
 function labelsOf(command: CommandDefinition): string[] {
   const { label } = command;
   const labels =
     typeof label === "string"
       ? [label]
-      : REVISION_NAMES.map((name) => label(naming(name)));
+      : REVISION_NAMES.flatMap((name) =>
+          SWITCH_READS.map((read) => label(naming(name), read)),
+        );
   return labels.flatMap((text) => {
     const at = text.indexOf(": ");
     return at === -1 ? [text] : [text, text.slice(at + 2)];

@@ -6,13 +6,21 @@ import {
   REVISION_COLOURS,
   formatRevisionDate,
 } from "@manent/revisions";
-import type { MarkMode, RevisionColour } from "@manent/revisions";
+import type {
+  MarkMode,
+  NumberingScheme,
+  RevisionColour,
+} from "@manent/revisions";
 import type { CachedProduction } from "@manent/sync-client";
-import type { RevisionSetView } from "@manent/sync-protocol";
+import type {
+  IssueView,
+  ProductionState,
+  RevisionSetView,
+} from "@manent/sync-protocol";
 import {
+  PRODUCTION_WORDS,
   createValue,
-  formatDay,
-  formatTime,
+  formatDayTime,
   useSubscribable,
 } from "@manent/ui";
 import type { StateFact } from "@manent/ui";
@@ -40,23 +48,44 @@ export function colourOrderStart(
   return `${names.join(" → ")} …`;
 }
 
-/** The issue the state bar offers to recall: the newest, while it is an issue made within the window. */
-function recallFact(
-  state: CachedProduction["state"],
-  now: number,
-): StateFact | null {
-  const [latest] = state.issues;
-  if (latest === undefined || latest.kind !== "issue") return null;
-  if (now - latest.issuedAt > RECALL_WINDOW_MS) return null;
-  const set = state.sets.find((held) => held.setId === latest.setId);
-  const colour = set === undefined ? null : colourOf(set.colour);
-  if (set === undefined || colour === null) return null;
+// the defaults line names the first three colours of the order
+const DEFAULTS_COLOURS = 3;
+
+/** "Scene numbers 12A · White → Blue → Pink …": what a script is locked with, or would be. */
+export function defaultsLine(
+  numbering: NumberingScheme,
+  order: readonly RevisionColour[],
+): string {
+  return PRODUCTION_WORDS.lockDefaults(
+    PRODUCTION_WORDS.numberingChoices[numbering],
+    colourOrderStart(order, DEFAULTS_COLOURS),
+  );
+}
+
+/** The newest issue, with the revision it issued, while it is an issue and not a correction; null before the first. */
+export function latestIssue(
+  state: ProductionState,
+): { issue: IssueView; set: RevisionSetView } | null {
+  const [issue] = state.issues;
+  if (issue === undefined || issue.kind !== "issue") return null;
+  const set = state.sets.find((held) => held.setId === issue.setId);
+  return set === undefined ? null : { issue, set };
+}
+
+/** The issue the state bar offers to recall: the latest issue, while it was made within the window. */
+function recallFact(state: ProductionState, now: number): StateFact | null {
+  const latest = latestIssue(state);
+  if (latest === null || now - latest.issue.issuedAt > RECALL_WINDOW_MS)
+    return null;
+  const { issue, set } = latest;
+  const colour = colourOf(set.colour);
+  if (colour === null) return null;
   return {
     kind: "recall",
     colour,
     name: set.name,
-    at: `${formatDay(latest.issuedAt)} ${formatTime(latest.issuedAt)}`,
-    people: latest.recipientUserIds.length,
+    at: formatDayTime(issue.issuedAt, now),
+    people: issue.recipientUserIds.length,
   };
 }
 

@@ -4,7 +4,11 @@ import { SETTINGS } from "@manent/settings";
 import type { Api } from "../api.ts";
 import type { DesktopHost } from "../desktop/host.ts";
 import type { NodeCloud } from "../desktop/node-cloud.ts";
-import type { PersonServices, ShellState } from "../services/ports.ts";
+import type {
+  Environment,
+  PersonServices,
+  ShellState,
+} from "../services/ports.ts";
 import { productionHandlers } from "../production/handlers.ts";
 import type { ShellDom } from "../shell/regions.tsx";
 import type { PersonStore } from "../state/person.store.ts";
@@ -16,6 +20,7 @@ import { createEditorHandlers } from "./editor.ts";
 import { historyHandlers } from "./history.ts";
 import { importHandlers } from "./import.ts";
 import { libraryHandlers } from "./library.ts";
+import { navigationHandlers } from "./navigation.ts";
 import { preferencesHandlers } from "./preferences.ts";
 import { syncHandlers } from "./sync.ts";
 
@@ -32,7 +37,10 @@ export interface Navigation {
   here(): RoutePlace;
 }
 
-export interface HandlerDeps {
+export interface HandlerDeps extends Pick<
+  Environment,
+  "language" | "now" | "storage"
+> {
   services: PersonServices;
   api: Api;
   usePerson: PersonStore;
@@ -69,6 +77,7 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
       docId,
       navigate: (path) => deps.router.navigate(path),
     }),
+    ...navigationHandlers(deps),
     ...libraryHandlers(deps),
     ...importHandlers(deps),
     ...demoHandlers(),

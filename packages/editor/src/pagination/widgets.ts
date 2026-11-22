@@ -1,4 +1,4 @@
-// A page break's DOM: furniture drawn by the page styles from data attributes, never a text node.
+// The DOM of a page break and of a cast list: furniture drawn by the page styles from data attributes, never a text node.
 import type { BreakKind, BreakSpec } from "./break-specs.ts";
 
 const ROOT_CLASS: Readonly<Record<BreakKind, string>> = Object.freeze({
@@ -7,6 +7,7 @@ const ROOT_CLASS: Readonly<Record<BreakKind, string>> = Object.freeze({
   mid: "pb pb-mid",
   col: "pb pb-col",
   last: "pb pb-last",
+  rule: "pb pb-rule",
 });
 
 /** Each child as [class, its text or null], in order, only when it applies. */
@@ -14,6 +15,8 @@ function childrenOf(spec: BreakSpec): [string, string | null][] {
   switch (spec.kind) {
     case "first":
       return [["pb-head", null]];
+    case "rule":
+      return [];
     case "last":
       return [
         ["pb-fill", null],
@@ -56,4 +59,14 @@ export function renderBreak(spec: BreakSpec): HTMLElement {
     root.append(child);
   }
   return root;
+}
+
+/** The cast list under a scene heading: a `span` the page styles make a block of its own lines. */
+export function renderCast(text: string): HTMLElement {
+  const span = document.createElement("span");
+  span.className = "mn-cast";
+  span.dataset["text"] = text;
+  span.contentEditable = "false";
+  span.setAttribute("aria-hidden", "true");
+  return span;
 }

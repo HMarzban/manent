@@ -37,6 +37,8 @@ const ZOOM_PRESETS = [50, 75, 100, 125, 150, 200, 300] as const;
 const ZOOM_MIN = Math.min(...ZOOM_PRESETS);
 const ZOOM_MAX = Math.max(...ZOOM_PRESETS);
 const percent = (n: number): string => `${n}\u00a0%`;
+// the preset Mod+0 sets: the platform's actual size
+const ACTUAL_SIZE = 100;
 
 interface ZoomLimit {
   when(ctx: CommandContext): boolean;
@@ -143,7 +145,7 @@ export const EDITOR_COMMANDS = defineCommands([
   pageCommand("element.shot", "Shot", { keys: same("Mod+7") }),
   pageCommand("element.section", "Section", { keys: same("Mod+8") }),
   pageCommand("element.newAct", "New Act", { keys: same("Mod+9") }),
-  // Mod+0 is Zoom: Fit width's, and on the web the browser's
+  // Mod+0 is the zoom's actual size; General is the picker's 0
   pageCommand("element.general", "General"),
   pageCommand("element.endOfAct", "End of Act"),
   pageCommand("element.emote", "Emote"),
@@ -201,6 +203,44 @@ export const EDITOR_COMMANDS = defineCommands([
     ),
   ),
   {
+    id: "view.pageView",
+    label: "Page view",
+    group: "view",
+    home: null,
+    scope: "global",
+    keys: same(),
+    keysFixed: false,
+    when: onPages,
+    whyNot: whyNotOnPages,
+    visible: null,
+    checked: (ctx) => ctx.layoutView === "page",
+    passThrough: null,
+    menus: [{ menu: "view", group: "page", order: 1, submenu: null }],
+    palette: { keywords: [] },
+    opens: null,
+    reach: "self",
+    setting: null,
+  },
+  {
+    id: "view.reflow",
+    label: "Reflow view",
+    group: "view",
+    home: null,
+    scope: "global",
+    keys: same(),
+    keysFixed: false,
+    when: onPages,
+    whyNot: whyNotOnPages,
+    visible: null,
+    checked: (ctx) => ctx.layoutView === "reflow",
+    passThrough: null,
+    menus: [{ menu: "view", group: "page", order: 2, submenu: null }],
+    palette: { keywords: [] },
+    opens: null,
+    reach: "self",
+    setting: null,
+  },
+  {
     id: "view.ruler",
     label: "Ruler",
     group: "view",
@@ -214,6 +254,27 @@ export const EDITOR_COMMANDS = defineCommands([
     checked: (ctx) => ctx.rulerShown,
     passThrough: null,
     menus: [{ menu: "view", group: "page", order: 10, submenu: null }],
+    palette: { keywords: [] },
+    opens: null,
+    reach: "self",
+    setting: null,
+  },
+  {
+    id: "format.titlePage",
+    label: "Title page",
+    group: "format",
+    home: null,
+    scope: "global",
+    keys: same(),
+    keysFixed: false,
+    when: onPages,
+    whyNot: whyNotOnPages,
+    visible: null,
+    checked: null,
+    passThrough: null,
+    menus: [
+      { menu: "format", group: "script_settings", order: 20, submenu: null },
+    ],
     palette: { keywords: [] },
     opens: null,
     reach: "self",
@@ -275,12 +336,12 @@ export const EDITOR_COMMANDS = defineCommands([
   }),
   zoomCommand("view.zoomFitWidth", "Zoom: Fit width", {
     order: 10,
-    keys: same("Mod+0"),
     checked: (ctx) => ctx.zoom === "fit_width",
   }),
   ...ZOOM_PRESETS.map((n, at) =>
     zoomCommand(`view.zoom${n}`, `Zoom: ${percent(n)}`, {
       order: 20 + 10 * at,
+      ...(n === ACTUAL_SIZE ? { keys: same("Mod+0") } : {}),
       checked: (ctx) => ctx.zoom === n,
     }),
   ),

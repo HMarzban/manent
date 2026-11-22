@@ -58,7 +58,17 @@ export const t: {
 export type Surface =
   | { in: "preferences"; section: SectionId; order: number }
   | { in: "scriptSettings"; group: ScriptGroup; order: number }
-  | { in: "menu"; menu: MenuId; group: string; order: number }
+  /**
+   * A choice is drawn in a submenu named by its own label. `under` is the key of the choice setting whose submenu a
+   * switch is drawn in ("appearance.theme"); null for a switch drawn on its own, and always null for a choice.
+   */
+  | {
+      in: "menu";
+      menu: MenuId;
+      group: string;
+      order: number;
+      under: string | null;
+    }
   | { in: "palette" };
 
 /** How a value takes effect: a root attribute (each value mapped to the attribute's value, null to remove it), the editor, or read where it is used. */

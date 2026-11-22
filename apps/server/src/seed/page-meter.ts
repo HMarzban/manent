@@ -8,14 +8,14 @@ import {
   scriptSettings,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import type { SeedBlock, SeedPassage } from "@manent/demo";
+import { toBlockJSON } from "@manent/demo";
+import type { PageMeter, SeedPassage } from "@manent/demo";
 import {
   ENGINE_VERSION,
   NO_LOCKS,
   engineFor,
   profileFromSettings,
   readLayoutSettings,
-  toLockTable,
 } from "@manent/pagination";
 import type {
   Engine,
@@ -23,15 +23,10 @@ import type {
   LockAnchorRecord,
   Pagination,
 } from "@manent/pagination";
+import { lockedPagination, revisedPages } from "@manent/revisions";
 import type { BlockMark } from "@manent/revisions";
 import { blocksOf } from "@manent/schema";
-import type {
-  BlockJSON,
-  DocJSON,
-  FlatBlock,
-  FormatId,
-  TextJSON,
-} from "@manent/schema";
+import type { DocJSON, FlatBlock } from "@manent/schema";
 import {
   activeSet,
   isLocked,
@@ -41,20 +36,6 @@ import {
   versionContent,
 } from "@manent/server-core";
 import type { DocFile, Storage } from "@manent/storage";
-import type { ProductionState } from "@manent/sync-protocol";
-
-// The demo's PageMeter port and its SeedLayout, field for field: its entry does not export them.
-export interface SeedLayout {
-  format: FormatId;
-  settings: Readonly<Record<string, unknown>>;
-  anchors: ProductionState["anchors"] | null;
-}
-export interface PageMeter {
-  pages(
-    blocks: readonly SeedBlock[],
-    layout: SeedLayout,
-  ): Promise<readonly { label: string; blockIndex: number }[]>;
-}
 
 /** The engine this build lays pages out with. */
 function buildEngine(): Engine {
@@ -72,41 +53,9 @@ function pageStarts(p: Pagination): { label: string; blockIndex: number }[] {
   }));
 }
 
-/** The text runs of `block`, each with the marks that cover it. */
-function runsOf(block: SeedBlock): TextJSON[] {
-  const cuts = new Set([0, block.text.length]);
-  for (const { from, to } of block.marks) cuts.add(from).add(to);
-  const sorted = [...cuts].toSorted((a, b) => a - b);
-  return sorted.slice(1).flatMap((to, i) => {
-    const from = sorted[i]!;
-    const text = block.text.slice(from, to);
-    if (text === "") return [];
-    const marks = block.marks
-      .filter((m) => m.from <= from && m.to >= to)
-      .map((m) => ({ type: m.mark }));
-    return [
-      marks.length === 0
-        ? { type: "text", text }
-        : { type: "text", text, marks },
-    ];
-  });
-}
-
 /** A block id for the block at `index`, the same for every measure. */
 const meterId = (index: number): string =>
   `m${index.toString(36).padStart(15, "0")}`;
-
-function toBlockJSON(block: SeedBlock, index: number): BlockJSON {
-  const attrs = {
-    id: meterId(index),
-    type: block.element,
-    ...(block.kind === null ? {} : { kind: block.kind }),
-  };
-  const content = runsOf(block);
-  return content.length === 0
-    ? { type: "block", attrs }
-    : { type: "block", attrs, content };
-}
 
 /**
  * The anchors on the measured blocks, which carry ids of their own: each is placed on the first
@@ -133,7 +82,8 @@ function placedAnchors(
 
 /**
  * Pages as the engine of this build lays out `blocks` in `layout`: its format and settings, and,
- * for a locked script, its anchors and its scene numbers shown. A format without pages has none.
+ * for a locked script, its anchors as production lays them out and its scene numbers shown. A
+ * format without pages has none.
  */
 export function createPageMeter(): PageMeter {
   const engine = buildEngine();
@@ -150,11 +100,20 @@ export function createPageMeter(): PageMeter {
       if (profile === null) return [];
       const flat = blocksOf({
         type: "doc",
-        content: [{ type: "section", content: blocks.map(toBlockJSON) }],
+        content: [
+          {
+            type: "section",
+            content: blocks.map((block, i) => toBlockJSON(block, meterId(i))),
+          },
+        ],
       });
       const laid = engine.toLayoutBlocks(flat);
-      const locks = toLockTable(placedAnchors(layout.anchors ?? [], laid));
-      return pageStarts(engine.paginate(laid, profile, locks));
+      if (layout.anchors === null)
+        return pageStarts(engine.paginate(laid, profile, NO_LOCKS));
+      const records = placedAnchors(layout.anchors, laid);
+      return pageStarts(
+        lockedPagination(laid, profile, records, engine).pagination,
+      );
     },
   };
 }
@@ -229,6 +188,14 @@ export function readServerScript(
   } finally {
     doc.destroy();
   }
+}
+
+/** The pages the active revision of `docId` would issue now, in page order: those holding a line it marks. */
+export function revisedPagesOf(storage: Storage, docId: string): string[] {
+  const script = readServerScript(storage, docId);
+  return script.pagination === null
+    ? []
+    : revisedPages(script.pagination, script.marks);
 }
 
 /** What the server's pages, numbers and marks disagree with in `passage`, written from the block `firstBlockId`. */

@@ -45,6 +45,21 @@ export function nodeDocOf(storage: Storage, docId: string): CrdtDoc | null {
   return doc;
 }
 
+/**
+ * What `upstream` holds beyond `vector`, without what waits there for something it lacks: the room
+ * would wait for it too, and take no push of a window after it.
+ */
+function placedDiff(upstream: CrdtDoc, vector: Uint8Array): Uint8Array {
+  if (!upstream.hasPendingStructs()) return upstream.diff(vector);
+  const placed = loadDoc(upstream.encodeState());
+  try {
+    discardPending(placed);
+    return placed.diff(vector);
+  } finally {
+    placed.destroy();
+  }
+}
+
 /** The client IDs of an update; [] for none. */
 export function clientIdsOf(update: Uint8Array): number[] {
   return update.length === 0 ? [] : updateMeta(update).map((m) => m.clientId);
@@ -188,7 +203,9 @@ export function createFollowing(ports: FollowPorts): Following {
   const ingest = (line: Line, handle: DocHandle): void =>
     ports
       .service()
-      .ingest(line.docId, line.userId, (vector) => handle.doc().diff(vector));
+      .ingest(line.docId, line.userId, (vector) =>
+        placedDiff(handle.doc(), vector),
+      );
 
   function pushOwn(line: Line, handle: DocHandle): void {
     const node = nodeDocOf(storage, line.docId);

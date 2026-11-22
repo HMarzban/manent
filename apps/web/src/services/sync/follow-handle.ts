@@ -136,6 +136,7 @@ export function followHandle(options: Following, open: Opened): () => void {
       viewRole: role,
       viewLive: view?.status.get().live ?? false,
       offlineSinceAt: sync.offlineSince.get(),
+      signedIn: sync.signedIn,
       toReview: toReview.get(),
       now: options.now(),
     });

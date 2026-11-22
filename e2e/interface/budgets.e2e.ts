@@ -10,6 +10,7 @@ import {
   pressKeyOf,
   runFromPalette,
 } from "../support/interface.ts";
+import { makeScript } from "../support/made-script.ts";
 import { signedInAs } from "../support/tour.ts";
 
 const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
@@ -105,8 +106,12 @@ test("menus, popovers and the palette open within 100 ms, panels and dialogs wit
     POPOVER,
   );
   await page.keyboard.press("Escape");
+  // a page opens only a script its device keeps
+  await makeScript(page, DOC_ID);
   await signedInAs(page, "you", `/s/${DOC_ID}`);
-  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+  await expect(
+    page.locator("[data-region='page'] .mn-page-view"),
+  ).toBeFocused();
   popovers.title_menu = await openingMs(
     page,
     {
@@ -208,11 +213,12 @@ test("switching person takes less than one second, with no frame in the other pe
     const frames: [string, string | null][] = [];
     Reflect.set(window, "__frames", frames);
     const record = (): void => {
+      // the person control is named by its label; its text is the avatar's initials and the name
       const person = [...document.querySelectorAll("button")].find((button) =>
-        button.textContent?.startsWith(prefix),
+        button.getAttribute("aria-label")?.startsWith(prefix),
       );
       frames.push([
-        person?.textContent ?? "",
+        person?.getAttribute("aria-label") ?? "",
         document.documentElement.getAttribute("data-theme"),
       ]);
       requestAnimationFrame(record);

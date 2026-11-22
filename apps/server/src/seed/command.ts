@@ -14,6 +14,7 @@ import {
 import type { SeedDriver, SeedStep, SkippedAction } from "@manent/demo";
 import { createSeedDriver } from "./driver.ts";
 import { isFields } from "./link.ts";
+import { createPageMeter } from "./page-meter.ts";
 import { createSeedServer } from "./server.ts";
 
 /** The disk's refusals, by the code the system gives them, and the clause each is told with. */
@@ -142,6 +143,7 @@ async function seedPhase(
     await buildSeed({
       phase,
       driver: watchDocuments(driver, seen),
+      meter: createPageMeter(),
       seedAt,
       zoneOffsetMs: zoneOffsetAt(seedAt),
       onSkipped: (entry) => skipped.push(entry),

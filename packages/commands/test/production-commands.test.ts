@@ -31,6 +31,7 @@ const CTX: CommandContext = {
   historyPresent: false,
   format: null,
   rulerShown: false,
+  layoutView: "page",
   spaceBeforeSet: false,
   zoom: null,
   zoomPercent: null,
@@ -107,7 +108,9 @@ test("the production commands are these, with these words, menus and conditions"
   expect(
     productionCommands().map((c) => [
       c.id,
-      typeof c.label === "function" ? c.label(CTX) : c.label,
+      typeof c.label === "function"
+        ? c.label(CTX, { get: () => undefined })
+        : c.label,
       c.home,
       c.menus,
       c.palette,
@@ -285,6 +288,28 @@ test("the production commands are these, with these words, menus and conditions"
     ].map((text): unknown => JSON.parse(text)),
   ).toEqual([
     ["editor", { mac: [], windows: [], linux: [] }, false, "others", null],
+    [
+      "editor",
+      {
+        mac: ["Mod+Shift+]"],
+        windows: ["Mod+Shift+]"],
+        linux: ["Mod+Shift+]"],
+      },
+      false,
+      "others",
+      null,
+    ],
+    [
+      "editor",
+      {
+        mac: ["Mod+Shift+["],
+        windows: ["Mod+Shift+["],
+        linux: ["Mod+Shift+["],
+      },
+      false,
+      "others",
+      null,
+    ],
   ]);
   expect([
     shownAt(at(null)),

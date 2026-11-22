@@ -15,9 +15,10 @@ import type {
   ProductionCache,
   ProductionClient,
 } from "@manent/sync-client";
-import type { Capability } from "@manent/sync-protocol";
+import type { Capability, DocPeopleResponse } from "@manent/sync-protocol";
 import { createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
+import { watchImportLock } from "../import/lock-sender.ts";
 import { browserStorage } from "../services/local-map.ts";
 import { browserStores } from "../services/sync/device-memory.ts";
 import { readPerson, tabStorage } from "../session.ts";
@@ -28,9 +29,9 @@ import { createProductionPagesStore } from "../state/production-pages.store.ts";
 import type { ProductionPagesSelectors } from "../state/production-pages.store.ts";
 import { blocksById, overridesOf, viewOf } from "./editor-port.ts";
 import { issuedOfflineMessage } from "./messages.ts";
-import { deviceDay } from "./state-facts.ts";
+import { deviceDay, latestIssue } from "./state-facts.ts";
 import { createProductionViewState } from "./view-state.ts";
-import type { ProductionViewState } from "./view-state.ts";
+import type { ProductionAccess, ProductionViewState } from "./view-state.ts";
 
 type Selection = NonNullable<
   ReturnType<typeof productionContextActions.get>
@@ -66,11 +67,6 @@ export type ProductionOpen =
 
 export const NOTHING_OPEN: ProductionOpen = Object.freeze({ kind: "none" });
 
-export interface ProductionAccess {
-  canLock: boolean;
-  canIssue: boolean;
-}
-
 export interface ProductionServices {
   readonly docId: string;
   readonly userId: string;
@@ -88,11 +84,13 @@ export interface ProductionServices {
   readonly revisedPages: Subscribable<readonly string[]>;
   readonly view: ProductionViewState;
   readonly mode: Subscribable<MarkMode>;
-  /** False for both until the server has said. */
+  /** As the server last said to this device; false for both before it first has. */
   readonly access: Subscribable<ProductionAccess>;
   readonly open: Subscribable<ProductionOpen> & {
     set(value: ProductionOpen): void;
   };
+  /** Everyone with a role on the script, asked of the server each time; null while it cannot say. */
+  people(): Promise<DocPeopleResponse["people"] | null>;
   /** Follows `editor` until the returned detach. */
   attach(editor: ProductionEditor): () => void;
   dispose(): void;
@@ -131,22 +129,26 @@ function forgetContext(docId: string): void {
     productionContextActions.set(docId, null);
 }
 
-/** The revision Recall would withdraw, and when its window closes; null when there is none. */
+/** The revision Recall would withdraw, and when its window closes; null before the first issue and after a correction. */
 function recallable(
-  held: CachedProduction | null,
+  held: CachedProduction,
 ): { name: string; closesAt: number } | null {
-  const sets = held?.state.sets ?? [];
-  const last = sets.at(-2);
-  if (last === undefined || last.issuedAt === null) return null;
-  return { name: last.name, closesAt: last.issuedAt + RECALL_WINDOW_MS };
+  const latest = latestIssue(held.state);
+  if (latest === null) return null;
+  return {
+    name: latest.set.name,
+    closesAt: latest.issue.issuedAt + RECALL_WINDOW_MS,
+  };
 }
+
+type Post = (
+  path: string,
+  body: unknown,
+) => Promise<{ status: number; body: unknown }>;
 
 /** The person's capabilities on the script, asked of the server; null while it cannot say. */
 async function askAccess(
-  post: (
-    path: string,
-    body: unknown,
-  ) => Promise<{ status: number; body: unknown }>,
+  post: Post,
   docId: string,
 ): Promise<ProductionAccess | null> {
   const answer = await post("/api/docs/describe", { docId }).catch(() => null);
@@ -162,6 +164,29 @@ async function askAccess(
     canLock: has("lock_page_numbers"),
     canIssue: has("issue_revisions"),
   };
+}
+
+type ScriptPerson = DocPeopleResponse["people"][number];
+
+const isScriptPerson = (value: unknown): value is ScriptPerson =>
+  typeof value === "object" &&
+  value !== null &&
+  typeof Reflect.get(value, "userId") === "string" &&
+  typeof Reflect.get(value, "name") === "string";
+
+/** Everyone with a role on the script, asked of the server; null while it cannot say. */
+async function askPeople(
+  post: Post,
+  docId: string,
+): Promise<DocPeopleResponse["people"] | null> {
+  const answer = await post("/api/docs/people", { docId }).catch(() => null);
+  if (answer === null || answer.status !== 200) return null;
+  const body: unknown = answer.body;
+  const list: unknown =
+    typeof body === "object" && body !== null
+      ? Reflect.get(body, "people")
+      : null;
+  return Array.isArray(list) && list.every(isScriptPerson) ? list : null;
 }
 
 /** Says an issue made while this device was offline once, and tells the client when the person dismisses it. */
@@ -227,7 +252,7 @@ export function createProductionServices(options: {
   });
   const mode = createValue(view.mode());
   const tint = createValue(view.tint());
-  const access = createValue(NO_ACCESS);
+  const access = createValue(view.access() ?? NO_ACCESS);
   const chosenPages = createValue<readonly string[]>(NO_PAGES);
   const revisedPages = createValue<readonly string[]>(NO_PAGES);
   const open = createValue(NOTHING_OPEN);
@@ -282,7 +307,9 @@ export function createProductionServices(options: {
   };
   const followAccess = (): void =>
     void askAccess(transport.post, docId).then((known) => {
-      if (known !== null) access.set(known);
+      if (known === null) return;
+      view.setAccess(known);
+      access.set(known);
     });
   const stops = [
     client.current().subscribe(showView),
@@ -303,6 +330,17 @@ export function createProductionServices(options: {
       if (event.type === "subscribed") followAccess();
     }),
     tellIssuedOffline(client, options.messages),
+    watchImportLock({
+      client,
+      doc: handle.doc(),
+      today: () => deviceDay(now()),
+      timers: {
+        every(ms, run) {
+          const timer = setInterval(run, ms);
+          return () => clearInterval(timer);
+        },
+      },
+    }),
   ];
   followAccess();
   showView();
@@ -327,6 +365,7 @@ export function createProductionServices(options: {
     mode,
     access,
     open,
+    people: () => askPeople(transport.post, docId),
     attach(attached) {
       editor = attached;
       return () => {

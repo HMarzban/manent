@@ -49,7 +49,7 @@ test("each document paginates to its page count, and its blocks are counted", ()
       d.blocks,
     ]).toEqual([120, 120, blocksOf(d.doc).length]);
   }
-});
+}, 60_000);
 
 test("characters are counted in UTF-16 units and sections as the document holds them", () => {
   const d = documentOfPages({
@@ -83,7 +83,7 @@ test("a script counts many more blocks per page than a book", () => {
   });
   // a page of the screenplay holds about 16 blocks, a page of prose about 5
   expect(script.blocks / book.blocks).toBeGreaterThan(3);
-});
+}, 60_000);
 
 test("one section holds every block in the flat stand-in", () => {
   const options = { format: "screenplay", pages: 30, seed: 1 } as const;

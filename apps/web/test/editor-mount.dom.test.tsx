@@ -142,6 +142,7 @@ function rig(
     },
     run: (id) => inner.run(id),
     zoomPercent: () => inner.zoomPercent(),
+    showTitlePage: () => inner.showTitlePage(),
   };
   let ids = 0;
   const nextId = () => `block-${String(++ids).padStart(4, "0")}`;
@@ -277,9 +278,9 @@ test("someone who cannot edit gets a read-only page, and gains the caret when th
 
 test("changing the format to Ink rebuilds once; the disposer leaves the host empty", () => {
   const r = rig();
-  const paged = r.element.querySelector(".mn-sheet") !== null;
+  const paged = r.element.querySelector(".mn-pages") !== null;
   r.services.openScriptStore(DOC).set("script.format", "ink");
-  const ink = [r.attached.length, r.element.querySelector(".mn-sheet")];
+  const ink = [r.attached.length, r.element.querySelector(".mn-pages")];
   r.dispose();
   expect([paged, ink, r.element.childNodes.length, liveEditor(DOC)]).toEqual([
     true,
@@ -441,11 +442,13 @@ test("a mount gone between the composition's release and the rebuild builds no e
 });
 
 test("the live editor and the feature plugins come with the mount", () => {
-  // the one plugin with no key and no state, its attributes a fixed object, taken from a read-only page, stands in for a feature's
+  // the one plugin with attributes and no state, the page's own, taken from a read-only page, stands in for a feature's
   const lender = rig({ access: "comment" });
   const plugin = lender
     .view()
-    .state.plugins.find((p) => typeof p.props.attributes === "object");
+    .state.plugins.find(
+      (p) => p.props.attributes !== undefined && p.spec.state === undefined,
+    );
   lender.dispose();
   if (plugin === undefined) throw new TypeError("no plugin to lend");
   const contexts: EditorPluginContext[] = [];
@@ -644,7 +647,7 @@ test("the Element button shows the element, is named by it and opens the picker"
   frame();
   const container = render(
     <FactsContext value={facts.selectors}>
-      <ElementButton />
+      <ElementButton docId="doc" />
     </FactsContext>,
     services,
   );
@@ -654,7 +657,7 @@ test("the Element button shows the element, is named by it and opens the picker"
   facts.writer.publish({ element: null });
   act(() => frame());
   expect([shown, runs, container.innerHTML]).toEqual([
-    ["Dialogue▾", "Element: Dialogue"],
+    ["Dialogue", "Element: Dialogue"],
     [["format.element", "control"]],
     "",
   ]);

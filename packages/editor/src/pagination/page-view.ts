@@ -46,14 +46,19 @@ export interface TypesettingOptions
   readonly onDrift?: (report: DriftReport) => void;
 }
 
-/** Section editing, the edge keys, pagination, the kept sections and the drift monitor, in that order. */
+/**
+ * Section editing, the edge keys, pagination, the kept sections and the drift monitor, in that order. Reflow view has
+ * no drift monitor: its lines wrap to the window and were never the engine's.
+ */
 export function typesettingPlugins(options: TypesettingOptions): Plugin[] {
   return [
     sectionEditingPlugin(options),
     edgeKeysPlugin(),
     paginationPlugin({ ...options, defer: options.ports.defer }),
     keepPlugin(),
-    driftPlugin({ ...options, whenIdle: options.ports.whenIdle }),
+    ...(options.view === "reflow"
+      ? []
+      : [driftPlugin({ ...options, whenIdle: options.ports.whenIdle })]),
   ];
 }
 
@@ -101,6 +106,7 @@ export function mountPageView(
     place: options.place,
     profile: options.profile,
     engine,
+    view: options.view,
   });
   loadScriptFonts({
     fonts: ports.fonts,

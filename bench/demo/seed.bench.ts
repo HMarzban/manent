@@ -4,20 +4,21 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Measurement, Scenario } from "../harness.ts";
+import { sampleMs } from "../measure.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const RUNS = 3;
 
 /**
  * How long `ensureSeed` takes on the fresh folder `dir`, in milliseconds. It runs in a process of
- * its own, which times it and prints the figure, since the bench never imports the tools.
+ * its own, which times it through the shared measuring path and prints the figure, since the bench
+ * never imports the tools.
  */
 async function timedSeed(dir: string): Promise<number> {
   const code = [
     `const { ensureSeed } = await import("./tools/demo/seed.ts");`,
-    "const startedAt = performance.now();",
-    `await ensureSeed(${JSON.stringify(dir)});`,
-    "console.log(performance.now() - startedAt);",
+    `const { sampleMs } = await import("./bench/measure.ts");`,
+    `console.log(await sampleMs(() => ensureSeed(${JSON.stringify(dir)})));`,
   ].join("\n");
   const child = Bun.spawn([process.execPath, "-e", code], {
     cwd: ROOT,
@@ -35,28 +36,29 @@ async function timedSeed(dir: string): Promise<number> {
 
 /** How long the background seed takes to run to its end in `dir`, in milliseconds. */
 async function timedStudio(dir: string): Promise<number> {
-  const startedAt = performance.now();
-  const child = Bun.spawn(
-    [
-      process.execPath,
-      "apps/server/src/main.ts",
-      "seed",
-      "--phase",
-      "background",
-      "--data-dir",
-      dir,
-    ],
-    {
-      cwd: ROOT,
-      stdin: "ignore",
-      stdout: "ignore",
-      stderr: "inherit",
-      ipc() {},
-    },
-  );
-  const exitCode = await child.exited;
-  if (exitCode !== 0) throw new Error(`the background seed exited ${exitCode}`);
-  return performance.now() - startedAt;
+  return sampleMs(async () => {
+    const child = Bun.spawn(
+      [
+        process.execPath,
+        "apps/server/src/main.ts",
+        "seed",
+        "--phase",
+        "background",
+        "--data-dir",
+        dir,
+      ],
+      {
+        cwd: ROOT,
+        stdin: "ignore",
+        stdout: "ignore",
+        stderr: "inherit",
+        ipc() {},
+      },
+    );
+    const exitCode = await child.exited;
+    if (exitCode !== 0)
+      throw new Error(`the background seed exited ${exitCode}`);
+  });
 }
 
 export default {

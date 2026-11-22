@@ -1,6 +1,7 @@
 // What the node core is built from: storage, its records, the server's HTTP, one upstream client per person, and the world.
 import type {
   Directory,
+  RenderPdf,
   SettingRules,
   SignInProvider,
 } from "@manent/server-core";
@@ -45,6 +46,8 @@ export interface CloudApi {
   ): Promise<
     { ok: true; body: AdoptResponse } | { ok: false; code: HttpErrorCode }
   >;
+  /** `request` sent on as it is, as the person `token` signs in, and the cloud's answer as it came. */
+  forward(token: string, request: Request): Promise<Response>;
 }
 
 /** One upstream client per person. */
@@ -70,6 +73,8 @@ export interface NodeCoreOptions {
   launchToken: string;
   /** PRODUCT_SETTING_RULES in production. */
   registry: SettingRules;
+  /** Draws the issued files of the scripts the node is the authority of. */
+  renderPdf: RenderPdf;
   /** The page's startup values, for the boot script; null: insert none. */
   boot: (() => { global: DesktopGlobal; boot: FirstPaintWrite[] }) | null;
   /** scripts: placed documents of kind script without a tombstone; bytes: every file under the store. */
