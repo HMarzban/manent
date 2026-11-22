@@ -1,39 +1,43 @@
-// Typing in the real editor: keystroke to paint at the start, middle and end of a script, alone and beside another
-// writer, the editor's own work per keystroke, and a paste of fifty pages.
-import {
-  corpusDoc,
-  corpusId,
-  generateBlocks,
-} from "@manent/pagination/testing";
+// Typing in the real editor: keystroke to paint at the start, middle and end of a script or across its section
+// boundaries, alone and beside another writer, the editor's own work per keystroke, and a paste of fifty pages.
+import { corpusId, generateBlocks } from "@manent/pagination/testing";
 import { percentile } from "@manent/perf";
 import type { Page } from "@playwright/test";
+import { documentOfPages } from "../../corpus/documents.ts";
+import { benchMode } from "../../env.ts";
 import type { Measurement, Scenario } from "../../harness.ts";
+import { inputBlocks } from "../../measure.ts";
+import { startBenchDemo } from "../driver.ts";
 import { scriptOfPages } from "../pagination-engine/script.ts";
 import {
-  caretAtEnd,
+  caretAt,
   editorHook,
   openScript,
-  openTypingPage,
   pageStarts,
   pasteToPaintMs,
   pressPaced,
   scriptBlocks,
 } from "./run-typing.ts";
-import type { TypingPage } from "./run-typing.ts";
+import type { ScriptBlock } from "./run-typing.ts";
+
+type TypingFormat = "screenplay" | "manuscript";
 
 /** Where the caret types, as fractions of the script's blocks: near its start, its middle and near its end. */
 const POSITIONS = [0.05, 0.5, 0.95] as const;
+/** The element typed into, in each format: the one that holds running prose. */
+const PROSE: Readonly<Record<TypingFormat, string>> = {
+  screenplay: "action",
+  manuscript: "body",
+};
 const TYPED = "the tide turns ";
+/** Keys typed at each place, by mode; a quick run keeps a few samples. */
+const KEYSTROKES = { quick: 1, standard: 200, full: 200 } as const;
+/** At a section boundary, an Enter and a Backspace follow every this many keys. */
+const BOUNDARY_EVERY = 20;
 /** The simulated writer types five characters a second. */
 const WRITER_INTERVAL_MS = 200;
 const WRITER = { userId: "dana", name: "Dana Reyes", colorIndex: 0 };
 const PASTES = 5;
-
-/** The seeded screenplay corpus's first `pages` pages: its blocks, and the document of them. */
-function scriptDoc(pages: number) {
-  const corpus = generateBlocks("screenplay", scriptOfPages(pages).length, 1);
-  return { doc: corpusDoc(corpus), corpus };
-}
 
 /** Playwright's key names for `count` characters of TYPED, over and over. */
 const keysOf = (count: number): string[] =>
@@ -42,17 +46,68 @@ const keysOf = (count: number): string[] =>
     return key === " " ? "Space" : key;
   });
 
-/** The first action at or after each of POSITIONS, by id and index. */
-async function actionsAt(page: Page): Promise<{ id: string; index: number }[]> {
-  const blocks = await scriptBlocks(page);
+/** keysOf(count), with an Enter and a Backspace after every BOUNDARY_EVERY of them. */
+const boundaryKeysOf = (count: number): string[] =>
+  keysOf(count).flatMap((key, k) =>
+    (k + 1) % BOUNDARY_EVERY === 0 ? [key, "Enter", "Backspace"] : [key],
+  );
+
+/** One run of keys at one place: the block, which edge of it the caret starts at, and the keys. */
+interface Leg {
+  id: string;
+  edge: "start" | "end";
+  keys: readonly string[];
+}
+
+/** Where one position types: the block index the writer works above, and the legs typed there. */
+interface Place {
+  index: number;
+  legs: Leg[];
+}
+
+/** The first block of `element` at or after each of POSITIONS, typed into at its end. */
+function prosePlaces(
+  blocks: readonly ScriptBlock[],
+  element: string,
+  keys: readonly string[],
+): Place[] {
   return POSITIONS.map((at) => {
     const from = Math.floor(blocks.length * at);
     const index = blocks.findIndex(
-      (block, i) => i >= from && block.type === "action",
+      (block, i) => i >= from && block.type === element,
     );
     if (index === -1)
-      throw new RangeError(`the script has no action after block ${from}`);
-    return { id: blocks[index]!.id, index };
+      throw new RangeError(`the script has no ${element} after block ${from}`);
+    return { index, legs: [{ id: blocks[index]!.id, edge: "end", keys }] };
+  });
+}
+
+/**
+ * At each of POSITIONS, the boundary after the section it falls in (before it, in the last section): keys at the end
+ * of that section's last block, then at the start of the next section's first block.
+ */
+function boundaryPlaces(
+  blocks: readonly ScriptBlock[],
+  keys: readonly string[],
+): Place[] {
+  const last = blocks.at(-1)!.section;
+  return POSITIONS.map((at) => {
+    const section = Math.min(
+      blocks[Math.floor(blocks.length * at)]!.section,
+      last - 1,
+    );
+    const index = blocks.findLastIndex((block) => block.section === section);
+    if (index === -1 || index + 1 >= blocks.length)
+      throw new RangeError(
+        `the script has no boundary after section ${section}`,
+      );
+    return {
+      index,
+      legs: [
+        { id: blocks[index]!.id, edge: "end", keys },
+        { id: blocks[index + 1]!.id, edge: "start", keys },
+      ],
+    };
   });
 }
 
@@ -78,25 +133,35 @@ function startWriter(page: Page, block: number): () => Promise<void> {
 const numbers = (value: unknown): number[] =>
   Array.isArray(value) ? value.map(Number) : [];
 
+/** Each place's keystroke-to-paint samples, every leg of it in turn. */
+async function typeAt(
+  page: Page,
+  place: Place,
+  intervalMs: number,
+): Promise<number[]> {
+  const samples: number[] = [];
+  for (const leg of place.legs) {
+    await caretAt(page, leg.id, leg.edge);
+    samples.push(...(await pressPaced(page, leg.keys, intervalMs)));
+  }
+  return samples;
+}
+
+/** 05's five metrics over `places`: alone, then beside the simulated writer two pages above each. */
 async function measureTyping(
-  { page }: TypingPage,
-  keys: readonly string[],
+  page: Page,
+  places: readonly Place[],
   intervalMs: number,
 ): Promise<Measurement[]> {
-  const places = await actionsAt(page);
   await editorHook(page, ["dispatchMs", "start"]);
   const alone: number[][] = [];
-  for (const place of places) {
-    await caretAtEnd(page, place.id);
-    alone.push(await pressPaced(page, keys, intervalMs));
-  }
+  for (const place of places) alone.push(await typeAt(page, place, intervalMs));
   const dispatch = numbers(await editorHook(page, ["dispatchMs", "stop"]));
   await editorHook(page, ["remote", "join"], WRITER);
   const beside: number[][] = [];
   for (const place of places) {
-    await caretAtEnd(page, place.id);
     const stop = startWriter(page, await twoPagesAbove(page, place.index));
-    beside.push(await pressPaced(page, keys, intervalMs));
+    beside.push(await typeAt(page, place, intervalMs));
     await stop();
   }
   const solo = alone.flat();
@@ -120,32 +185,77 @@ async function measureTyping(
   ];
 }
 
+/** What a typing scenario changes from a screenplay in sections typed at three positions; its id names it. */
+type TypingKind = "plain" | "book" | "flat" | "boundary";
+
+/** The workload each kind stands for; a plain one's depends on its length. */
+const KIND_WORKLOADS: Readonly<
+  Record<Exclude<TypingKind, "plain">, Scenario["workload"]>
+> = { book: "W7", flat: "W6", boundary: "W7" };
+/** A plain script's workload by length: W1's film and W7's length; the comfort envelope's other lengths have none. */
+const PLAIN_WORKLOADS: Readonly<Record<number, Scenario["workload"]>> = {
+  120: "W1",
+  2000: "W7",
+};
+
+function kindOf(options: {
+  format: TypingFormat;
+  sections: "even" | "one";
+  at: "positions" | "boundaries";
+}): TypingKind {
+  if (options.format === "manuscript") return "book";
+  if (options.sections === "one") return "flat";
+  return options.at === "boundaries" ? "boundary" : "plain";
+}
+
 /**
- * Typing in a screenplay of `pages` pages in Chromium at CPU throttle `throttle` (default 1), `keystrokes` keys
- * (default 200) `intervalMs` apart (default 60) at each of its start, middle and end: `keystroke_paint` alone,
+ * Typing in the corpus's document of `pages` pages (seed 1) of `format` (default screenplay) in `sections` (default
+ * "even"), opened through the editor's hooks, `keystrokes` keys a place (by mode, KEYSTROKES, when not given)
+ * `intervalMs` apart (default 60), at the start, middle and end of the script, or across the section boundary nearest
+ * each (`at: "boundaries"`, with an Enter and a Backspace every 20 keys): `keystroke_paint` alone,
  * `keystroke_paint_remote` with a simulated writer typing five characters a second two pages above the caret,
- * `remote_extra` the second's p95 less the first's, `position_spread` the spread of the three positions' p50 as a
- * percent of the least, and `dispatch` every editor dispatch while typing alone.
+ * `remote_extra` the second's p95 less the first's, `position_spread` the spread of the three places' p50 as a
+ * percent of the least, `dispatch` every editor dispatch while typing alone, and `input_blocks`.
  */
 export function typingScenario(options: {
-  pages: 120 | 2000;
+  pages: number;
+  format?: TypingFormat;
+  sections?: "even" | "one";
+  at?: "positions" | "boundaries";
   keystrokes?: number;
   intervalMs?: number;
-  throttle?: 1 | 4 | 6;
 }): Scenario {
-  const { pages, keystrokes = 200, intervalMs = 60, throttle = 1 } = options;
+  const {
+    pages,
+    format = "screenplay",
+    sections = "even",
+    at = "positions",
+    intervalMs = 60,
+  } = options;
+  const kind = kindOf({ format, sections, at });
   return {
-    id: `typing-${pages}`,
-    workload: pages === 120 ? "W1" : "W7",
+    id: kind === "plain" ? `typing-${pages}` : `typing-${kind}-${pages}`,
+    workload:
+      kind === "plain"
+        ? (PLAIN_WORKLOADS[pages] ?? null)
+        : KIND_WORKLOADS[kind],
     processes: 5,
     async run() {
-      const { doc, corpus } = scriptDoc(pages);
-      const typing = await openTypingPage({ throttle });
+      const d = documentOfPages({ format, pages, seed: 1, sections });
+      const count = options.keystrokes ?? KEYSTROKES[benchMode()];
+      const demo = await startBenchDemo();
       try {
-        await openScript(typing.page, doc, corpus.length);
-        return await measureTyping(typing, keysOf(keystrokes), intervalMs);
+        const { page } = await demo.openPage({ userId: "you" });
+        await openScript(page, format, d.doc, d.blocks);
+        const blocks = await scriptBlocks(page);
+        const places =
+          at === "boundaries"
+            ? boundaryPlaces(blocks, boundaryKeysOf(count))
+            : prosePlaces(blocks, PROSE[format], keysOf(count));
+        const typed = await measureTyping(page, places, intervalMs);
+        return [...typed, inputBlocks(d.blocks)];
       } finally {
-        await typing.close();
+        await demo.stop();
       }
     },
   };
@@ -171,19 +281,25 @@ export function pasteScenario(): Scenario {
     workload: null,
     processes: 5,
     async run() {
-      const { doc, corpus } = scriptDoc(20);
+      const d = documentOfPages({
+        format: "screenplay",
+        pages: 20,
+        seed: 1,
+        sections: "even",
+      });
       const html = fiftyPagesHtml();
-      const typing = await openTypingPage({ throttle: 1 });
+      const demo = await startBenchDemo();
       try {
+        const { page } = await demo.openPage({ userId: "you" });
         const samples: number[] = [];
         for (let n = 0; n < PASTES; n++) {
-          await openScript(typing.page, doc, corpus.length);
-          await caretAtEnd(typing.page, corpusId(corpus.length - 1));
-          samples.push(await pasteToPaintMs(typing.page, html));
+          await openScript(page, "screenplay", d.doc, d.blocks);
+          await caretAt(page, corpusId(d.blocks - 1), "end");
+          samples.push(await pasteToPaintMs(page, html));
         }
         return [{ metric: "paste_paint", unit: "ms", samples }];
       } finally {
-        await typing.close();
+        await demo.stop();
       }
     },
   };
