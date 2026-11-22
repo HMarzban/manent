@@ -15,7 +15,7 @@ import type {
   SeedProduction,
   SeedSession,
 } from "@manent/demo";
-import { contentHash, overrideKey, revisedPages } from "@manent/revisions";
+import { contentHash, overrideKey } from "@manent/revisions";
 import { SCHEMA_VERSION, canonicalDoc } from "@manent/schema";
 import type { DocJSON } from "@manent/schema";
 import type {
@@ -34,8 +34,12 @@ import {
 import { seedCapabilities } from "./capabilities.ts";
 import { isFields, openSeamLink } from "./link.ts";
 import type { SeamLink } from "./link.ts";
-import { checkPassage, readServerScript } from "./page-meter.ts";
-import { createPageMeter } from "./page-meter.ts";
+import {
+  checkPassage,
+  createPageMeter,
+  readServerScript,
+  revisedPagesOf,
+} from "./page-meter.ts";
 import { callRoute } from "./server.ts";
 import type { SeedClock, SeedServer } from "./server.ts";
 
@@ -261,17 +265,12 @@ function createProduction(d: Driving): SeedProduction {
       const active = (await state(userId, docId)).sets.at(-1);
       if (active === undefined)
         throw new SeedDriverError("refused", `${docId} is not locked`);
-      const script = readServerScript(d.target.storage, docId);
-      const pages =
-        script.pagination === null
-          ? []
-          : revisedPages(script.pagination, script.marks);
       const request = { docId, key: d.key(), expectedOrdinal: active.ordinal };
       const answer = await post(userId, "issue", {
         ...request,
         ...SENT,
         what: "changed",
-        pages,
+        pages: revisedPagesOf(d.target.storage, docId),
         recipientUserIds: [],
         memo,
         issuedOn: today(),
@@ -309,6 +308,7 @@ function createProduction(d: Driving): SeedProduction {
         revisedOverrides(doc).set(overrideKey(setId, blockId), stored, null);
       });
     },
+    revisedPages: async (docId) => revisedPagesOf(d.target.storage, docId),
   };
 }
 
