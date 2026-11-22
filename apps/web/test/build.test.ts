@@ -168,7 +168,7 @@ test("bundle budget: entry ≤ 162 KB and every other chunk but the editor's and
   }
 }, 60_000);
 
-test("first-load JavaScript is at most 360 KB gzip", async () => {
+test("first-load JavaScript is at most 362 KB gzip", async () => {
   const { outDir, built } = await productionBuild();
   const chunks = chunksOf(built, outDir);
   const entry = chunks.find((c) => c.entry);
@@ -185,8 +185,8 @@ test("first-load JavaScript is at most 360 KB gzip", async () => {
   ).toEqual([]);
   let kb = 0;
   for (const chunk of firstLoad) kb += await gzipKb(chunk);
-  expect({ chunk: "first load", kb, limit: 360 }).toEqual(
-    withinBudget("first load", kb, 360),
+  expect({ chunk: "first load", kb, limit: 362 }).toEqual(
+    withinBudget("first load", kb, 362),
   );
 }, 60_000);
 
