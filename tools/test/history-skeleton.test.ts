@@ -186,6 +186,7 @@ const CTX: CommandContext = {
   historyPresent: true,
   format: null,
   rulerShown: false,
+  layoutView: "page",
   spaceBeforeSet: false,
   zoom: null,
   zoomPercent: null,

@@ -105,6 +105,8 @@ test("the screenplay elements", () => {
     sceneContinued: false,
     scenesNumbered: false,
     scenesLettered: false,
+    castLists: false,
+    speechesNumbered: false,
     moreText: "(MORE)",
     contdText: " (CONT'D)",
     continuedTopText: "CONTINUED:",

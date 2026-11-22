@@ -59,6 +59,7 @@ const naming = (name: string): CommandContext => ({
   historyPresent: true,
   format: "screenplay",
   rulerShown: false,
+  layoutView: "page",
   spaceBeforeSet: false,
   zoom: null,
   zoomPercent: null,

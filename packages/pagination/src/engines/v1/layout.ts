@@ -11,14 +11,15 @@ import type {
 import { STYLE, UNIT_PT, UNITS_PER_LINE } from "../../units.ts";
 import { clusterCells, upperCase } from "./cells.ts";
 import { runAt } from "./dual.ts";
-import { hasSpeakerSuffix, isSceneHeading } from "./fill.ts";
+import { isSceneHeading, speechNumber } from "./cast.ts";
+import { suffixOf } from "./fill.ts";
 import { pageNumberText } from "./furniture.ts";
 import { keyAt } from "./keep.ts";
 import { sceneNumber } from "./scene-numbers.ts";
 import { walkOf, walkPage } from "./walk.ts";
 import type { Walk } from "./walk.ts";
 
-/** Cells between a scene number and the column, on either side. */
+/** Cells between a scene or speech number and the column, on either side. */
 const SCENE_NUMBER_GAP = 2;
 const TRAILING_BLANKS: ReadonlySet<string> = new Set([" ", "\t", "\n"]);
 
@@ -64,11 +65,8 @@ function runsOf(
     add(p.profile.furniture.breakMark, 0);
     return { runs, cells };
   }
-  const suffix = hasSpeakerSuffix(p.blocks, p.profile, i)
-    ? p.profile.furniture.contdText
-    : "";
   const [open, close] = spec.enclosure ?? ["", ""];
-  const drawn = block.text + suffix + close;
+  const drawn = block.text + suffixOf(p.blocks, p.profile, i).text + close;
   const styleAt = (at: number) =>
     at < block.text.length ? (block.styles?.[at] ?? 0) : 0;
   let end = starts[m + 1] ?? drawn.length;
@@ -92,7 +90,40 @@ function xOf(spec: ElementSpec, cells: number, firstLine: boolean): number {
   }
 }
 
-// Line m of block i in the slot whose top is `top`, with a scene number on each side of a heading.
+// The margin numbers level with line 0 of block i: a scene heading's on each side, a cue's speech number on its
+// column's side.
+function addNumbers(
+  p: Pagination,
+  lines: PositionedLine[],
+  i: number,
+  y: number,
+): void {
+  const speech = speechNumber(p, i);
+  if (speech !== null) {
+    const line = furnitureLine("speech_number", 0, y, String(speech));
+    const run = runAt(p.blocks, p.profile, i);
+    const right = run !== null && i >= run.split;
+    lines.push({
+      ...line,
+      x: right
+        ? p.profile.columnCells + SCENE_NUMBER_GAP
+        : -SCENE_NUMBER_GAP - line.cells,
+    });
+  }
+  if (
+    !p.profile.furniture.scenesNumbered ||
+    !isSceneHeading(keyAt(p.blocks, i))
+  )
+    return;
+  const number = sceneNumber(p, i)!;
+  const left = furnitureLine("scene_number", 0, y, number);
+  lines.push(
+    { ...left, x: -SCENE_NUMBER_GAP - left.cells },
+    { ...left, x: p.profile.columnCells + SCENE_NUMBER_GAP },
+  );
+}
+
+// Line m of block i in the slot whose top is `top`, with the margin numbers beside a block's first line.
 function addText(
   p: Pagination,
   lines: PositionedLine[],
@@ -112,18 +143,7 @@ function addText(
     blockId: p.blocks[i]!.id,
     blockLine: m,
   });
-  if (
-    m > 0 ||
-    !p.profile.furniture.scenesNumbered ||
-    !isSceneHeading(keyAt(p.blocks, i))
-  )
-    return;
-  const number = sceneNumber(p, i)!;
-  const left = furnitureLine("scene_number", 0, y, number);
-  lines.push(
-    { ...left, x: -SCENE_NUMBER_GAP - left.cells },
-    { ...left, x: p.profile.columnCells + SCENE_NUMBER_GAP },
-  );
+  if (m === 0) addNumbers(p, lines, i, y);
 }
 
 // Where a cue of the column block `block` is in sits: the character spec's indent, or a dual column's.

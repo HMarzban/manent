@@ -3,9 +3,10 @@ import * as Y from "yjs";
 import { ORIGIN_REVIEW, yDocOf } from "./doc.ts";
 import type { CrdtDoc } from "./doc.ts";
 import { FRAGMENT_NAME } from "./mapping.ts";
+import { TITLE_PAGE_MAP } from "./script-maps.ts";
 
-/** The script's fragment, and the production map of revised-page overrides. */
-export type UndoRoot = "script" | "revisedOverrides";
+/** The script's fragment, the production map of revised-page overrides, and the title page. */
+export type UndoRoot = "script" | "revisedOverrides" | "titlePage";
 
 /** Opaque but for the roots it covers. */
 export interface UndoScope {
@@ -17,6 +18,7 @@ const ROOT_TYPES: Readonly<
 > = Object.freeze({
   script: (ydoc) => ydoc.getXmlFragment(FRAGMENT_NAME),
   revisedOverrides: (ydoc) => ydoc.getMap("revisedOverrides"),
+  titlePage: (ydoc) => ydoc.getMap(TITLE_PAGE_MAP),
 });
 
 /**

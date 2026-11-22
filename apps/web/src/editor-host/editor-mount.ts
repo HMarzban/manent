@@ -14,11 +14,13 @@ import type {
   SavedPlace,
   ScriptEditor,
   Timers,
+  TitlePageSource,
 } from "@manent/editor";
 import { markEnd } from "@manent/perf";
 import { parseDoc } from "@manent/schema";
 import type { FormatId } from "@manent/schema";
 import type { FixedKey } from "../services/ports.ts";
+import { layoutViewActions } from "../state/layout-view.store.ts";
 import { panelsActions } from "../state/panels.store.ts";
 import { actionOf } from "./command-actions.ts";
 import type { EditorControl } from "./control.ts";
@@ -32,6 +34,8 @@ import type { EditorMount } from "./mount.ts";
 import { followZoom } from "./page-zoom.ts";
 import { keepPlace } from "./keep-place.ts";
 import { placeholderMount } from "./placeholder-mount.ts";
+import { takeFocus } from "./take-focus.ts";
+import { titlePageSource } from "./title-page-port.ts";
 import { countSteps } from "./undo-depth.ts";
 
 // page-frame.ts loads apart from the editor: importing this selector from it would push the editor's first load
@@ -39,7 +43,11 @@ import { countSteps } from "./undo-depth.ts";
 const PAGE_REGION = "[data-region='page']";
 
 /** What one person's undo takes back. */
-export const UNDO_ROOTS: readonly UndoRoot[] = ["script", "revisedOverrides"];
+export const UNDO_ROOTS: readonly UndoRoot[] = [
+  "script",
+  "revisedOverrides",
+  "titlePage",
+];
 
 /** The structural keys as "flow", then the picker's keys as "picker". */
 export const EDITOR_FIXED_KEYS: readonly FixedKey[] = Object.freeze([
@@ -82,6 +90,7 @@ interface Shown {
   ink: boolean;
   edit: boolean;
   readOnly: boolean;
+  reflow: boolean;
 }
 
 interface Built {
@@ -139,15 +148,21 @@ function trackHolds(
 const shownOnly = (binding: EditorBinding) => ({
   binding,
   editable: false,
+  titlePage: null,
   destroy: noop,
 });
 
-/** The binding the editor gets, and whether it may edit: read-only content and newer content are shown, never bound. */
+/** The binding the editor gets, whether it may edit, and the title page it may show: read-only content and newer content are shown, never bound. */
 function bindingFor(
   session: EditorSession,
   document: BoundDocument,
   options: { timers: Timers; edit: boolean },
-): { binding: EditorBinding; editable: boolean; destroy(): void } {
+): {
+  binding: EditorBinding;
+  editable: boolean;
+  titlePage: TitlePageSource | null;
+  destroy(): void;
+} {
   const content = session.readOnly.get();
   if (content !== null) return shownOnly(staticBinding(parseDoc(content)));
   const bound = bindDocument({
@@ -159,34 +174,9 @@ function bindingFor(
   return {
     binding: bound.binding,
     editable: options.edit,
+    titlePage: titlePageSource(document.doc()),
     destroy: bound.destroy,
   };
-}
-
-/**
- * Focus goes to the page at the caret once it is shown, so no keystroke is lost, unless something other than the page's
- * region holds it by then. A page is hidden until its fonts are ready. Returns the disposer.
- */
-function takeFocus(editor: ScriptEditor, element: HTMLElement): () => void {
-  const { view } = editor;
-  const focus = (): void => {
-    const active = element.ownerDocument.activeElement;
-    if (active !== null && !active.contains(element)) return;
-    // the view focuses itself only while it is editable, so a read-only page is focused as a text box
-    if (view.editable) view.focus();
-    else view.dom.focus({ preventScroll: true });
-  };
-  const pages = editor.scaffold?.pages;
-  if (pages === undefined || pages.dataset["fonts"] !== "loading") {
-    focus();
-    return noop;
-  }
-  const shown = new MutationObserver(() => {
-    shown.disconnect();
-    focus();
-  });
-  shown.observe(pages, { attributeFilter: ["data-fonts"] });
-  return () => shown.disconnect();
 }
 
 /** What one build of the document's editor is made from. */
@@ -213,17 +203,33 @@ function buildEditor(
     counted === null
       ? bound.binding
       : { ...bound.binding, history: counted.history };
+  const { editable, titlePage } = bound;
   const editor = createScriptEditor(
-    editorOptions(options, open, { binding, editable: bound.editable }),
+    editorOptions(options, open, { binding, editable, titlePage }),
   );
+  const region = element.closest<HTMLElement>(PAGE_REGION);
   if (place !== null) editor.restore(place);
   // the first zoom holds the caret's line where it lay at 100 %, which would open a page scrolled past the desk above it
-  else element.closest(PAGE_REGION)?.scrollTo({ top: 0 });
+  else region?.scrollTo({ top: 0 });
   const stopFocus = takeFocus(editor, element);
   const stopZoom = followZoom({ ...options, editor, element });
+  let stopThumb = noop;
+  let built = true;
+  // loaded apart: it shows only once the person scrolls
+  if (editor.scaffold !== null && region !== null)
+    void import("./thumb-label.ts").then(({ followThumb }) => {
+      if (!built) return;
+      stopThumb = followThumb({
+        editor,
+        scroller: region,
+        docId,
+        timers: options.timers,
+      });
+    });
   const detach = options.control.attach({
     run: (request) => editor.run(actionOf(request)),
     zoomPercent: () => editor.zoomPercent(),
+    showTitlePage: () => editor.showTitlePage(),
   });
   const unregister = registerLiveEditor({
     docId,
@@ -233,14 +239,17 @@ function buildEditor(
     presence: binding.presence,
     editable: bound.editable,
     zoom: () => (editor.zoomPercent() ?? 100) / 100,
+    frontPages: () => editor.frontPages(),
   });
   options.observe?.({ docId, editor, undoDepth: () => counted?.depth() ?? 0 });
   return {
     editor,
     shown: open.shown,
     destroy() {
+      built = false;
       stopFocus();
       stopZoom();
+      stopThumb();
       detach();
       unregister();
       editor.destroy();
@@ -251,13 +260,16 @@ function buildEditor(
 }
 
 const differs = (a: Shown, b: Shown): boolean =>
-  a.ink !== b.ink || a.edit !== b.edit || a.readOnly !== b.readOnly;
+  a.ink !== b.ink ||
+  a.edit !== b.edit ||
+  a.readOnly !== b.readOnly ||
+  a.reflow !== b.reflow;
 
 /**
  * Opens the document's session and editor, and builds the editor again at the person's place when the format changes to
  * or from Ink, when the access crosses "edit", when read-only content comes or goes (or changes, at most once per 250 ms),
- * and when the document is replaced: then the old page takes no more input at once, and an input method composing is let
- * finish first. Returns the disposer.
+ * when the person changes between Page view and Reflow view, and when the document is replaced: then the old page takes
+ * no more input at once, and an input method composing is let finish first. Returns the disposer.
  */
 function openDocument(
   options: MountOptions,
@@ -274,6 +286,7 @@ function openDocument(
     ink: format() === "ink",
     edit: status.get().access === "edit",
     readOnly: session.readOnly.get() !== null,
+    reflow: layoutViewActions.get() === "reflow",
   });
   const opened = {
     ports,
@@ -310,6 +323,7 @@ function openDocument(
   const stops = [
     script.subscribe("script.format", follow),
     status.subscribe(follow),
+    layoutViewActions.subscribe(follow),
     session.readOnly.subscribe((content) => {
       if (content === null || !built.shown.readOnly) follow();
       else if (pending === noop)

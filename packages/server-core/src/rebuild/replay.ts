@@ -8,12 +8,13 @@ import {
   readStateVector,
   revisedOverrides,
   scriptBody,
+  titlePage,
   updateMeta,
 } from "@manent/crdt";
 import type { TypedText } from "@manent/crdt";
 import type { BlockMerge } from "@manent/revisions";
 import { blockText, blockView, validateBlocks } from "@manent/schema";
-import type { BlockOp, DocJSON } from "@manent/schema";
+import type { BlockOp, DocJSON, TitlePageField } from "@manent/schema";
 import type { DocFile, Home, Storage, VersionRow } from "@manent/storage";
 import type {
   DocKind,
@@ -84,9 +85,9 @@ function contentOf(state: Uint8Array): DocJSON {
 }
 
 /**
- * The ops, with the device's typing where it was typed, and the overrides that differ from the
- * room's as one update, written on a copy and applied to the room's document under ORIGIN_REPLAY,
- * under `writer` when given; null when they wrote nothing.
+ * The ops, with the device's typing where it was typed, and the overrides and title page fields
+ * that differ from the room's as one update, written on a copy and applied to the room's document
+ * under ORIGIN_REPLAY, under `writer` when given; null when they wrote nothing.
  */
 function writeOps(
   room: Room,
@@ -94,6 +95,7 @@ function writeOps(
     ops: readonly BlockOp[];
     typed: Checked["typed"];
     overrides: Checked["overrides"];
+    titlePage: Checked["titlePage"];
     writer?: number;
   },
   ids: () => string,
@@ -108,6 +110,9 @@ function writeOps(
       for (const [key, value] of changes.overrides)
         if (overrides.get(key) !== value)
           overrides.set(key, value, ORIGIN_REPLAY);
+      const page = titlePage(copy);
+      for (const [field, value] of changes.titlePage)
+        if (page.get(field) !== value) page.set(field, value, ORIGIN_REPLAY);
       return { ok: true };
     },
     ids,
@@ -191,6 +196,8 @@ interface Checked {
   typed: ReadonlyMap<string, TypedText>;
   /** Mine's revisedOverrides entries that differ from base's; null removes one. */
   overrides: [string, string | null][];
+  /** Mine's title page fields that differ from base's; "" empties one. */
+  titlePage: [TitlePageField, string][];
   /** The client ids of the device's updates, in order. An authority writes the replay under the first its document does not hold, so that the device knows the text as its own; a relayed room draws one, as its upstream may hold any. */
   writers: number[];
 }
@@ -247,6 +254,7 @@ export function createReplay(
       unseen,
       typed,
       overrides,
+      titlePage: based.titlePage,
       writers: clientIds,
     };
   }
@@ -272,7 +280,13 @@ export function createReplay(
       room.mode === "authority"
         ? checked.writers.find((clientId) => !held.has(clientId))
         : undefined;
-    const changes = { ops: merge.ops, typed, overrides, writer };
+    const changes = {
+      ops: merge.ops,
+      typed,
+      overrides,
+      titlePage: checked.titlePage,
+      writer,
+    };
     const update = writeOps(room, changes, ports.ids);
     const stored = storedOf(merge, checked, room);
     const createdAt = clock.now();

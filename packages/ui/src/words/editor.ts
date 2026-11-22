@@ -71,6 +71,18 @@ export const EDITOR_WORDS = {
   gameGeneralPlaceholder:
     "General — text, or * for a choice and - for a gather",
   picker: "Element",
+  // each title page field's accessible name and placeholder
+  titlePage: {
+    title: "Title",
+    credit: "Credit",
+    authors: "Authors",
+    source: "Source",
+    contact: "Contact",
+    draft: "Draft",
+    cast: "Cast of characters",
+    setting: "Setting",
+    summary: "Summary",
+  },
   // Element ▾'s accessible name
   elementButton: (label: string) => `Element: ${label}`,
   reasons: {
