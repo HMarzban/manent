@@ -146,6 +146,7 @@ export function StatusBar(): ReactNode {
         <Button
           variant="ghost"
           size="sm"
+          data-tour="status:page"
           className="shrink-0 text-meta font-normal text-fg-muted tabular-nums"
           onClick={() => openDetailsAt("script", frame)}
         >

@@ -110,6 +110,21 @@ function rawRuns(text: Y.XmlText): RawText[] {
   }));
 }
 
+/** The live items of a text, or of an element's children, in order; Yjs keeps the head of the list private, and only deleted or format items lie before the first live one. */
+export function* liveItemsOf(
+  store: Y.Doc["store"],
+  type: Y.XmlText | Y.XmlElement,
+): Generator<Y.Item> {
+  const first = Y.createRelativePositionFromTypeIndex(type, 0).item;
+  if (first === null) return;
+  for (
+    let item: Y.Item | null = Y.getItem(store, first);
+    item !== null;
+    item = item.right
+  )
+    if (!item.deleted) yield item;
+}
+
 export function isElement(node: unknown, name: string): node is Y.XmlElement {
   return node instanceof Y.XmlElement && node.nodeName === name;
 }
@@ -166,7 +181,8 @@ export function scriptDocFromJSON(
   return doc;
 }
 
-function blockJSON(block: Y.XmlElement): BlockJSON {
+/** The block as stored, before its canonical form. */
+export function blockJSON(block: Y.XmlElement): BlockJSON {
   return {
     type: "block",
     attrs: block.getAttributes(),

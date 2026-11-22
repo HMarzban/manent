@@ -41,6 +41,7 @@ const CTX: CommandContext = {
   historyPresent: false,
   format: null,
   rulerShown: false,
+  layoutView: "page",
   spaceBeforeSet: false,
   zoom: null,
   zoomPercent: null,
@@ -253,7 +254,7 @@ test("empty, it is the menu and the last five commands", async () => {
   expect(options().slice(0, 3)).toEqual([
     "Left panelView⌘⌥1",
     "Side panelView⌘⌥2",
-    "RulerView",
+    "Page viewView",
   ]);
 });
 

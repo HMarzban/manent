@@ -1,8 +1,14 @@
-// Where each person left each script, the panels, the Ruler and the zoom as they left them, and the notices they have
-// seen: view state, kept on this device per person and never in the script.
+// Where each person left each script, the panels, the Ruler, the view of the pages and the zoom as they left them, and
+// the notices they have seen: view state, kept on this device per person and never in the script.
 import { LEFT_TABS, PANEL_IDS, SIDE_TABS } from "@manent/commands";
-import type { BlockPlace, SavedPlace, ZoomSetting } from "@manent/editor";
+import type {
+  BlockPlace,
+  LayoutView,
+  SavedPlace,
+  ZoomSetting,
+} from "@manent/editor";
 import type { KeyValueMap } from "@manent/settings";
+import { layoutViewActions } from "../state/layout-view.store.ts";
 import { panelsActions } from "../state/panels.store.ts";
 import type { PanelsState } from "../state/panels.store.ts";
 import { rulerActions } from "../state/ruler.store.ts";
@@ -27,6 +33,9 @@ export interface PlaceStore {
   /** False until the person shows it. */
   ruler(): boolean;
   saveRuler(shown: boolean): void;
+  /** Page view until the person chooses Reflow view. */
+  layoutView(): LayoutView;
+  saveLayoutView(view: LayoutView): void;
   /** Null until the person's zoom is first saved here. */
   zoom(): ZoomSetting | null;
   saveZoom(zoom: ZoomSetting): void;
@@ -123,6 +132,8 @@ export function createPlaceStore(options: {
     savePanels: (state) => map.set("panels", state),
     ruler: () => map.get("ruler") === true,
     saveRuler: (shown) => map.set("ruler", shown),
+    layoutView: () => (map.get("layoutView") === "reflow" ? "reflow" : "page"),
+    saveLayoutView: (view) => map.set("layoutView", view),
     zoom() {
       const value = map.get("zoom");
       return isZoomSetting(value) ? value : null;
@@ -170,9 +181,9 @@ function restorePanels(state: PanelsState): void {
 }
 
 /**
- * Puts the person's panels, Ruler and zoom (Fit width until they choose one) from `store` into the tab's stores and saves
- * each change back: the panels and the zoom at most once per 500 ms, the last state at the end, and whenever the page is
- * hidden or left; the Ruler at once. The person whose view state the stores held saves it and stops first. Returns the
+ * Puts the person's panels, Ruler, view of the pages and zoom (Fit width until they choose one) from `store` into the
+ * tab's stores and saves each change back: the panels and the zoom at most once per 500 ms, the last state at the end,
+ * and whenever the page is hidden or left; the Ruler and the view at once. The person whose view state the stores held saves it and stops first. Returns the
  * stop, which saves too.
  */
 export function keepViewState(
@@ -184,6 +195,8 @@ export function keepViewState(
   // after the panels, whose writes are not this person's choice; a script with scenes leaves an open left panel alone
   panelsActions.setLeftChosen(store.leftChosen());
   if (rulerActions.get() !== store.ruler()) rulerActions.set(store.ruler());
+  if (layoutViewActions.get() !== store.layoutView())
+    layoutViewActions.set(store.layoutView());
   const keptZoom = store.zoom() ?? "fit_width";
   if (zoomActions.get() !== keptZoom) zoomActions.set(keptZoom);
   const savePanels = (): void => store.savePanels(panelsActions.get());
@@ -205,6 +218,9 @@ export function keepViewState(
     }),
     zoomActions.subscribe(() => zoom.request()),
     rulerActions.subscribe(() => store.saveRuler(rulerActions.get())),
+    layoutViewActions.subscribe(() =>
+      store.saveLayoutView(layoutViewActions.get()),
+    ),
     whenPageLeaves(flush),
   ];
   const stop = (): void => {

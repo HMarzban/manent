@@ -22,6 +22,7 @@ export function ElementButton(props: { docId: string }): ReactNode {
     <Button
       variant="ghost"
       size="sm"
+      data-tour="readout:element"
       aria-label={EDITOR_WORDS.elementButton(element)}
       className="max-w-full text-ui"
       onClick={() => commands.run("format.element", "control")}

@@ -1,4 +1,4 @@
-// The commands of the app itself: the palette, Preferences, regions, the Library, sync and the person.
+// The commands of the app itself: the palette, Preferences, Help, regions, the Library, sync and the person.
 import type { CommandDefinition } from "../define.ts";
 
 export const APP_COMMANDS = [
@@ -78,6 +78,25 @@ export const APP_COMMANDS = [
     checked: null,
     passThrough: null,
     menus: [{ menu: "help", group: "shortcuts", order: 10, submenu: null }],
+    palette: { keywords: [] },
+    opens: null,
+    reach: "self",
+    setting: null,
+  },
+  {
+    id: "app.aiPledge",
+    label: "AI pledge",
+    group: "help",
+    home: null,
+    scope: "global",
+    keys: { mac: [], windows: [], linux: [] },
+    keysFixed: false,
+    when: null,
+    whyNot: null,
+    visible: null,
+    checked: null,
+    passThrough: null,
+    menus: [{ menu: "help", group: "shortcuts", order: 20, submenu: null }],
     palette: { keywords: [] },
     opens: null,
     reach: "self",

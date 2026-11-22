@@ -5,10 +5,11 @@ import type {
   HandoffRefusal,
   UpstreamStatus,
 } from "@manent/sync-client";
-import { createValue } from "@manent/ui";
+import { IMPORT_WORDS, createValue } from "@manent/ui";
 import { watchRefusedFiles } from "../src/desktop/file-messages.ts";
 import { watchHandoffRefusals } from "../src/desktop/handoff-message.ts";
 import { answerShell } from "../src/desktop/shell-channel.ts";
+import { IMPORTABLE_EXTENSIONS } from "../src/import/readers.ts";
 import { fakeHost, recordingQueue } from "./desktop.fixtures.ts";
 import { testEnvironment, testServices } from "./services.fixtures.ts";
 import {
@@ -135,7 +136,7 @@ test("a refused hand-off is said once however often its script opens, and a scri
   ]);
 });
 
-test("a file Manent cannot open is named with the reason", () => {
+test("a file Manent cannot open is named with the reason", async () => {
   const host = fakeHost();
   const queue = recordingQueue();
   const stop = watchRefusedFiles({ host, queue });
@@ -155,10 +156,13 @@ test("a file Manent cannot open is named with the reason", () => {
     files: [],
     refused: [{ name: "late.txt", reason: "type" }],
   });
+  // the answer loads apart, then says them
+  await import("../src/desktop/opened-files.ts");
+  await until(() => queue.items().length === 2);
   expect(queue.items()).toEqual([
     {
       id: expect.any(String),
-      text: "Couldn't open 'notes.txt': Manent opens .fdx, .fountain, .pdf, .docx and .ink files.",
+      text: IMPORT_WORDS.notImportable("notes.txt", IMPORTABLE_EXTENSIONS),
       actions: [],
       lifetime: "brief",
       ownWork: false,
@@ -183,6 +187,9 @@ test("a file refused while nobody is chosen is said to the next person", async (
     files: [],
     refused: [{ name: "notes.txt", reason: "type" }],
   });
+  // the answer loads apart, then says it while nobody is chosen
+  await import("../src/desktop/opened-files.ts");
+  await turn();
   const services = testServices({ userId: "sam", environment });
   environment.personServices.set(services);
   const text = services.messages.current()?.text;
@@ -190,7 +197,7 @@ test("a file refused while nobody is chosen is said to the next person", async (
   services.dispose();
   await turn();
   expect(text).toBe(
-    "Couldn't open 'notes.txt': Manent opens .fdx, .fountain, .pdf, .docx and .ink files.",
+    IMPORT_WORDS.notImportable("notes.txt", IMPORTABLE_EXTENSIONS),
   );
 });
 

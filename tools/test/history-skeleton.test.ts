@@ -186,6 +186,7 @@ const CTX: CommandContext = {
   historyPresent: true,
   format: null,
   rulerShown: false,
+  layoutView: "page",
   spaceBeforeSet: false,
   zoom: null,
   zoomPercent: null,
@@ -297,13 +298,11 @@ test("the history words are the sentences people read", async () => {
     HISTORY_WORDS.savedYou,
     HISTORY_WORDS.nameFailed,
     HISTORY_WORDS.tryAgain,
-    HISTORY_WORDS.rowMenu,
   ]).toEqual([
     "Couldn't load older versions. Showing what is on this device.",
     "Saved by you.",
     "Couldn't name this draft.",
     "Try again",
-    ["Restore", "Restore this scene", "Name this draft…"],
   ]);
   expect(historyMessage({ kind: "restored_you", ref: draft }, "m1")).toEqual({
     id: "m1",
@@ -419,6 +418,7 @@ test("the history commands sit in these menus, answer these palette words and ap
     ],
     ["history.hideChanges", [], { keywords: [] }, null],
     ["history.showSinceOpened", [], { hidden: "the state bar's action" }, null],
+    ["history.dismissSinceOpened", [], { hidden: "the state bar's ✕" }, null],
     ["history.backToWorking", [], { keywords: [] }, null],
     ["history.nextChange", [], { keywords: [] }, null],
     ["history.previousChange", [], { keywords: [] }, null],

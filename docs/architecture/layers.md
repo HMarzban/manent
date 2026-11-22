@@ -28,7 +28,7 @@ One row per workspace, in the order of `RULES`. `@manent/` is left out of every 
 | `pagination`    | Domain engines               | pure    | `schema` (types only)                                                                                                                                                        | none                                                                  |
 | `revisions`     | Domain engines               | pure    | `schema`, `pagination`                                                                                                                                                       | `prosemirror-changeset`, `prosemirror-model`, `prosemirror-transform` |
 | `crdt`          | Domain engines               | pure    | `schema`                                                                                                                                                                     | `yjs`, `y-protocols`, `lib0`                                          |
-| `formats`       | Domain engines               | browser | `schema`, `pagination`, `revisions`                                                                                                                                          | any declared                                                          |
+| `formats`       | Domain engines               | pure    | `schema`, `pagination`, `revisions`                                                                                                                                          | `pdfkit`                                                              |
 | `sync-client`   | Services                     | pure    | `sync-protocol`, `crdt`, `revisions`, `schema`, `perf`                                                                                                                       | none                                                                  |
 | `client-web`    | Services                     | browser | `sync-client`, `sync-protocol`, `perf`                                                                                                                                       | any declared                                                          |
 | `storage`       | Services                     | Bun     | `perf`                                                                                                                                                                       | any declared                                                          |
@@ -65,7 +65,7 @@ Some libraries are confined: whatever the rows say, only the workspaces named he
 
 ## 3. Pure and browser packages
 
-Nine rows are pure: `schema`, `settings`, `sync-protocol`, `perf`, `pagination`, `revisions`, `crdt`, `sync-client` and `commands`. Pure code runs unchanged in a browser, a worker, the server and a test. In a pure package's product code the check refuses:
+Ten rows are pure: `schema`, `settings`, `sync-protocol`, `perf`, `pagination`, `revisions`, `crdt`, `formats`, `sync-client` and `commands`. Pure code runs unchanged in a browser, a worker, the server and a test. In a pure package's product code the check refuses:
 
 | Refused                                 | Detail                                                                                                                                     |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -76,7 +76,7 @@ Nine rows are pure: `schema`, `settings`, `sync-protocol`, `perf`, `pagination`,
 
 A global counts as used when it is followed by `.`, `[`, `(` or `?`, or read from `globalThis`.
 
-Seven rows run in a browser: `formats`, `client-web`, `crdt-binding`, `editor`, `ui`, `demo` and `web`. Their product code may not import `bun`, a `bun:` module or a `node:` module. Their use of globals is not checked.
+Six rows run in a browser: `client-web`, `crdt-binding`, `editor`, `ui`, `demo` and `web`. Their product code may not import `bun`, a `bun:` module or a `node:` module. Their use of globals is not checked.
 
 ## 4. One entry point, and the testing entry
 

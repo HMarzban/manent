@@ -1,18 +1,17 @@
 // The one frame every Send form draws: the way back, the title, the rows, the pages and the action that sends them.
 import {
+  BusyButton,
   Button,
   CANCEL_AFTER_MS,
   DIALOG_WORDS,
   PROGRESS_AFTER_MS,
   SEND_WORDS,
-  SPINNER_AFTER_MS,
   STILL_WORKING_MS,
   useTiming,
 } from "@manent/ui";
-import { LoaderCircleIcon, TriangleExclamationPointIcon } from "lucide-react";
+import { TriangleExclamationPointIcon } from "lucide-react";
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useId,
@@ -113,9 +112,8 @@ export function SendLayout(props: {
   );
 }
 
-// each one shows once the work has been busy for that long: the spinner, the progress, Still working…, then Cancel
+// each one shows once the work has been busy for that long: the progress, Still working…, then Cancel
 const BUSY_STEPS = [
-  SPINNER_AFTER_MS,
   PROGRESS_AFTER_MS,
   STILL_WORKING_MS,
   CANCEL_AFTER_MS,
@@ -146,7 +144,12 @@ function Rows(props: { rows: readonly SendRow[] }): ReactNode {
   return (
     <dl className="flex flex-col divide-y divide-line">
       {given.map((row) => (
-        <div key={row.id} className="flex gap-4">
+        <div
+          key={row.id}
+          // the Tour points at the checks, and at no other row
+          data-tour={row.id === "checks" ? "send:checks" : undefined}
+          className="flex gap-4"
+        >
           <dt className="mn-group-label w-key shrink-0 px-0!">
             {SEND_WORDS[row.id]}
           </dt>
@@ -199,39 +202,6 @@ function ActionLine(props: {
 const PAIR =
   "mx-auto flex w-fit max-w-full flex-col gap-8 p-6 @min-[68.75rem]:flex-row @min-[68.75rem]:items-start";
 
-/** The one primary button; while busy it keeps the width it had with `label`. */
-function ActionButton(props: {
-  action: SendAction;
-  step: number;
-  describedBy: string | undefined;
-}): ReactNode {
-  const { action, step, describedBy } = props;
-  const { label, busy } = action;
-  const [idleWidthPx, setIdleWidthPx] = useState<number | null>(null);
-  const measure = useCallback(
-    (node: HTMLButtonElement | null) => {
-      if (node !== null && !busy) setIdleWidthPx(node.offsetWidth);
-    },
-    [busy, label],
-  );
-  return (
-    <Button
-      ref={measure}
-      size="lg"
-      disabled={busy || action.disabledReason !== null || action.run === null}
-      focusableWhenDisabled
-      aria-describedby={describedBy}
-      style={busy && idleWidthPx !== null ? { width: idleWidthPx } : undefined}
-      onClick={() => action.run?.()}
-    >
-      {busy ? action.busyLabel : label}
-      {busy && step >= 1 ? (
-        <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
-      ) : null}
-    </Button>
-  );
-}
-
 /** What long work shows beside its busy button: its progress, Still working…, and Cancel when it can be cancelled. */
 function BusyAside(props: { action: SendAction; step: number }): ReactNode {
   const { action, step } = props;
@@ -239,15 +209,15 @@ function BusyAside(props: { action: SendAction; step: number }): ReactNode {
   if (!action.busy) return null;
   return (
     <>
-      {progress !== null && step >= 2 ? (
+      {progress !== null && step >= 1 ? (
         <span className="text-ui text-fg-muted">{progress}</span>
       ) : null}
-      {step >= 3 ? (
+      {step >= 2 ? (
         <span className="text-ui text-fg-muted">
           {DIALOG_WORDS.stillWorking}
         </span>
       ) : null}
-      {cancel !== null && step >= 4 ? (
+      {cancel !== null && step >= 3 ? (
         <Button variant="outline" size="lg" onClick={cancel}>
           {DIALOG_WORDS.cancel}
         </Button>
@@ -315,10 +285,16 @@ export function SendFrame(props: {
               />
               <div className="flex flex-wrap items-center justify-end gap-3">
                 <BusyAside action={action} step={step} />
-                <ActionButton
-                  action={action}
-                  step={step}
-                  describedBy={describing ? lineId : undefined}
+                <BusyButton
+                  size="lg"
+                  label={action.label}
+                  busyLabel={action.busy ? action.busyLabel : null}
+                  disabled={
+                    action.disabledReason !== null || action.run === null
+                  }
+                  aria-describedby={describing ? lineId : undefined}
+                  data-tour="send:confirm"
+                  onClick={() => action.run?.()}
                 />
               </div>
             </div>

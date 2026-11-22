@@ -8,32 +8,32 @@ An open-source app for writing scripts — screenplays, multi-camera and animati
 
 Manent is a script editor that runs in the browser and keeps every change on your device before it goes to the server. Its pages are laid out as they print: the screen, print and the PDF share one layout. It is built so that several people can work in one script, their changes merging instead of overwriting each other; the table below says how much of that works today.
 
-The repository is a Bun monorepo: React 19 and plain ProseMirror for the editor, a CRDT (Yjs, behind Manent's own interface) for merging, a sync server of its own on Bun and SQLite, and end-to-end tests in Chromium, Firefox and WebKit. Today you run it on your own machine as a demo with six made-up people.
+The repository is a Bun monorepo: React 19 and plain ProseMirror for the editor, a CRDT (Yjs, behind Manent's own interface) for merging, a sync server of its own on Bun and SQLite, and end-to-end tests in Chromium, Firefox and WebKit. Today you run it on your own machine as a demo with six made-up people, in the browser or in the desktop app.
 
 ### Status
 
-| Capability                                                                                       | Status                                                                                               |
-| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| Writing in eight formats, with the Tab and Enter flow, the element picker and name completion    | Works                                                                                                |
-| Exact pages: one layout engine for the screen, print and PDF; (MORE) and (CONT'D); Letter and A4 | Works                                                                                                |
-| Saving on the device first, syncing to the server, working without a connection                  | Works                                                                                                |
-| Export to PDF, and print                                                                         | Works                                                                                                |
-| Command palette, rebindable shortcuts, preferences, themes, keyboard and screen-reader support   | Works; screen-reader support is checked by axe, not yet tested with screen-reader users              |
-| Several people in one script: live changes, cursors, merging                                     | In progress: works between tabs of one person; a second person cannot yet open someone else's script |
-| The Library of projects and scripts                                                              | In progress: the list is kept per tab and is empty again after a reload                              |
-| The demo's content and its guided Tour                                                           | In progress: people and workspaces exist; no seeded scripts, and the Tour's groups are empty         |
-| Version history: versions, compare, restore                                                      | In progress: the server side is written and tested but not connected; nothing in the app yet         |
-| Production revisions: locked pages, revision colours, asterisks, revised pages                   | Planned: the page model and the packet writer exist as libraries                                     |
-| Comments                                                                                         | Planned                                                                                              |
-| Import from and export to other script formats                                                   | Planned                                                                                              |
-| Desktop app                                                                                      | Planned: its local service exists as a tested library                                                |
-| A hosted service with real accounts                                                              | Planned                                                                                              |
+| Capability                                                                                                                                 | Status                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Writing in eight formats, with the Tab and Enter flow, the element picker, name completion, Find and replace, and Go to                    | Works                                                                                                                                                                                          |
+| Exact pages: one layout engine for the screen, print and PDF; (MORE) and (CONT'D); Letter and A4                                           | Works                                                                                                                                                                                          |
+| Saving on the device first, syncing to the server, working without a connection; a Library and preferences that follow you to every device | Works in part: a Library row marked "Not on this device" does not open from the Library yet; the script opens by its address                                                                   |
+| Version history: versions and named drafts, compare, restore a script or one scene, who wrote what                                         | Works                                                                                                                                                                                          |
+| Production revisions: locked pages, revision colours, asterisks, issuing and recalling a revision                                          | Works                                                                                                                                                                                          |
+| Export to PDF, Final Draft (FDX) and Fountain, and print                                                                                   | Works                                                                                                                                                                                          |
+| Import from Final Draft (FDX) and Fountain files, and pasted script text                                                                   | Works; in progress: a refusal of Final Draft's older `.fdr` files that says why                                                                                                                |
+| Command palette, rebindable shortcuts, preferences, themes, keyboard and screen-reader support                                             | Works; screen-reader support is checked by axe, not yet tested with screen-reader users                                                                                                        |
+| Several people in one script: live changes, cursors, merging                                                                               | Works in part, in a shared workspace such as the demo's Writers' room: another person's script opens by its address, not yet from the Library; no screen yet shares a script or changes a role |
+| The demo's seeded projects and its guided Tour                                                                                             | In progress: the Writers' room lists its first seeded projects, which, like every row marked "Not on this device", do not open from the Library yet; the Tour shows no walkthroughs yet        |
+| Desktop app                                                                                                                                | Works: unsigned installers for macOS, Windows and Linux, with history, production revisions and Open… for Final Draft and Fountain files                                                       |
+| Benchmark report                                                                                                                           | In progress: `make bench` runs the suite; the report of its results is not published yet                                                                                                       |
+| Comments                                                                                                                                   | Planned                                                                                                                                                                                        |
+| A hosted service with real accounts                                                                                                        | Planned                                                                                                                                                                                        |
 
 The [architecture overview](docs/architecture/overview.md) gives the status of every package and how it was judged.
 
 ## Quick start
 
-You need [Bun](https://bun.com) 1.4.4 or later and Git. Manent is built for macOS, Linux and Windows; CI runs on all three, and does not pass on every one yet.
+You need [Bun](https://bun.com) 1.4.4 and Git. Manent is built for macOS, Linux and Windows; CI runs on all three, and does not pass on every one yet. In the browser it supports Chrome 123, Safari 17.5 and Firefox 120 or later, the versions with CSS `light-dark()`, which its themes need.
 
 ```sh
 git clone https://github.com/HMarzban/manent.git
@@ -44,7 +44,7 @@ make demo        # without make: bun run demo
 It opens `http://localhost:4747`, where you will see:
 
 1. **Choose who you are.** Six demo people, each with a role; one click, no password. Pick anyone but **You**: You is a new person who is not signed in, so nothing syncs.
-2. **The Library**, empty. Click **New script**.
+2. **The Library.** Sam opens on his own desk, which starts empty; the others open on the Writers' room, which all five share. Click **New script**.
 3. **A script page.** Click the page, type `INT. LIGHTHOUSE - NIGHT`, press Escape to close the list of headings, then Enter, and keep writing: Tab and Enter choose the next element for you.
 
 [What to try](docs/guide/getting-started.md#what-to-try) goes on from there: working offline, two tabs, and export. Stop the demo with Ctrl+C or `make stop`.
@@ -55,15 +55,14 @@ Start with [Getting started](docs/guide/getting-started.md) to use Manent, [Set 
 
 ## Project status and roadmap
 
-Manent is early and has made no release. Writing, pages, offline saving and sync, export and print work in the demo; the table above says what does not yet. Next, in rough order:
+Manent is early and has made no release. Writing, pages, offline saving and sync, working together in a shared workspace, version history, production revisions, import, export and print work in the demo and in the desktop app; the table above says what does not yet. Next, in rough order:
 
-1. Opening and editing a script together as different people, and a Library that is kept.
-2. Version history in the app: versions, compare and restore.
-3. Production revisions: locked pages, revision colours and revised pages.
-4. The demo's scripts and the guided Tour.
-5. The desktop app.
+1. Opening from the Library a script that is not on this device yet, such as another person's.
+2. The demo's seeded projects and the guided Tour.
+3. The refusal of Final Draft's older `.fdr` files.
+4. The benchmark report.
 
-The order may change. [CHANGELOG.md](CHANGELOG.md) records what has changed, newest first.
+Comments and a hosted service are planned after that. The order may change. [CHANGELOG.md](CHANGELOG.md) records what has changed, newest first.
 
 ## Contributing
 

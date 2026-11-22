@@ -41,4 +41,4 @@ export { createMemoryBag, createPersonalBag } from "./bags.ts";
 export type { KeyValueMap } from "./bags.ts";
 export { PREFERENCE_LIST, RETIRED_KEYS, SETTINGS } from "./settings.ts";
 export { POINTERS } from "./definitions/pointers.ts";
-export { paperForRegion } from "./definitions/script.ts";
+export { appliesToFormat, paperForRegion } from "./definitions/script.ts";

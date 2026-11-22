@@ -91,7 +91,8 @@ function defaultLine(
   )
     return PREFERENCES_WORDS.defaultIs(defaultLabel);
   const { on } = provenance;
-  const from = on === null || on === deviceName ? null : on;
+  // "" is a device that never said its name
+  const from = on === null || on === "" || on === deviceName ? null : on;
   return PREFERENCES_WORDS.setByYou(
     formatDate(provenance.at),
     defaultLabel,
@@ -231,6 +232,7 @@ export function SettingRow(props: {
   const stacked = Control === RadioControl;
   return (
     <div
+      data-tour={`setting:${settingKey}`}
       className={cn(
         "flex gap-x-4 gap-y-2 py-1",
         stacked ? "flex-col" : "items-center justify-between",

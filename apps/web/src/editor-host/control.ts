@@ -6,6 +6,7 @@ interface ControlledEditor {
   run(request: PageRequest): ActionResult;
   /** Null: Ink, which has no pages. */
   zoomPercent(): number | null;
+  showTitlePage(): void;
 }
 
 export interface EditorControl {
@@ -15,6 +16,8 @@ export interface EditorControl {
   run(request: PageRequest): ActionResult | null;
   /** The percent the open page is drawn at; null when no editor is open or the script is Ink. */
   zoomPercent(): number | null;
+  /** Scrolls the open page to its title page; nothing when no editor is open or it has none. */
+  showTitlePage(): void;
 }
 
 export function createEditorControl(): EditorControl {
@@ -28,5 +31,6 @@ export function createEditorControl(): EditorControl {
     },
     run: (request) => attached?.run(request) ?? null,
     zoomPercent: () => attached?.zoomPercent() ?? null,
+    showTitlePage: () => attached?.showTitlePage(),
   };
 }

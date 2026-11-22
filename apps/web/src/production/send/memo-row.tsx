@@ -2,6 +2,16 @@
 import { Button, PRODUCTION_WORDS, SEND_WORDS, Textarea } from "@manent/ui";
 import type { ReactNode } from "react";
 
+/** The person's own memo once edited, else Manent's for `pages`; null while there is no page to write it for. */
+export function memoOf(
+  own: string | null,
+  pages: readonly string[],
+  write: (pages: readonly string[]) => string,
+): string | null {
+  if (own !== null) return own;
+  return pages.length === 0 ? null : write(pages);
+}
+
 /** The memo as Manent writes it until Edit makes it the person's own. */
 export function MemoRow(props: {
   memo: string;

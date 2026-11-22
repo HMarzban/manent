@@ -1,8 +1,7 @@
 // A panel's tab row with its close button, and the current tab's content.
-import { XIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { Button } from "../stock/button.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../stock/tabs.tsx";
+import { CloseButton } from "./close-button.tsx";
 
 interface PanelTabsProps {
   label: string;
@@ -37,6 +36,7 @@ export function PanelTabs({
             <TabsTrigger
               key={tab.id}
               value={tab.id}
+              data-tour={`tab:${tab.id}`}
               className="min-w-0 flex-initial px-2 text-ui"
             >
               <span className="truncate" title={tab.label}>
@@ -45,14 +45,7 @@ export function PanelTabs({
             </TabsTrigger>
           ))}
         </TabsList>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={closeLabel}
-          onClick={onClose}
-        >
-          <XIcon aria-hidden="true" />
-        </Button>
+        <CloseButton label={closeLabel} onClick={onClose} />
       </div>
       <TabsContent value={current} className="min-h-0 overflow-auto">
         {children}

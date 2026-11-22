@@ -3,23 +3,30 @@ import {
   CrdtUpdateError,
   ORIGIN_LOAD,
   ORIGIN_REPLAY,
+  TITLE_PAGE_MAP,
   applyRemote,
   createDoc,
+  deletionsOf,
+  findTyped,
   loadDoc,
   observeScript,
+  readStateVector,
   revisedOverrides,
   scriptBody,
+  titlePage,
+  updateMeta,
 } from "@manent/crdt";
-import type { CrdtDoc, SetAside } from "@manent/crdt";
-import type { DocJSON } from "@manent/schema";
+import type { CrdtDoc, SetAside, TypedText } from "@manent/crdt";
+import { TITLE_PAGE_FIELDS, blockText, blocksOf } from "@manent/schema";
+import type { DocJSON, TitlePageField } from "@manent/schema";
 import type { DocFile } from "@manent/storage";
 import { validatePush } from "../sync/validate.ts";
 
 /** The verified rows of a generation after `seq`, by sequence. */
 type Rows = ReadonlyMap<number, Uint8Array>;
 
-/** The one root map a replay may write: what a person marked or cleared as revised while offline. */
-const REPLAYED_MAP = "revisedOverrides";
+/** The root maps a replay may write: what a person marked or cleared as revised while offline, and the title page. */
+const REPLAYED_MAPS: readonly string[] = ["revisedOverrides", TITLE_PAGE_MAP];
 
 /** Applies the rows after `from` up to `to`; false when one of them does not verify. */
 function applyRows(
@@ -53,6 +60,49 @@ function catchUp(
   return setAside;
 }
 
+/** What applyRemote sets aside when the deletions are applied to a copy of `doc`. */
+function setAsideOn(
+  doc: CrdtDoc,
+  deletions: Uint8Array,
+  own: ReadonlySet<number>,
+): SetAside[] {
+  const copy = loadDoc(doc.encodeState());
+  try {
+    return applyRemote(copy, deletions, own, ORIGIN_LOAD);
+  } finally {
+    copy.destroy();
+  }
+}
+
+const isSame = (a: SetAside, b: SetAside): boolean =>
+  a.blockId === b.blockId && a.text === b.text;
+
+/**
+ * Own text the later rows removed with a block their writer held without it: found on a copy of
+ * mine, and on a copy of base where mine holds it in a block of that id, as when mine moved the
+ * block and the rows removed the one base holds. A heal row is left out: its delete set also holds
+ * what went with a deleted parent.
+ */
+function removedUnseen(
+  docs: { base: CrdtDoc; mine: CrdtDoc; mineContent: DocJSON },
+  later: readonly Uint8Array[],
+  own: ReadonlySet<number>,
+): SetAside[] {
+  const deletions = deletionsOf(later);
+  if (deletions === null) return [];
+  const inMine = setAsideOn(docs.mine, deletions, own);
+  const blocks = blocksOf(docs.mineContent);
+  const isHeld = (item: SetAside): boolean =>
+    blocks.some(
+      (block) =>
+        block.attrs.id === item.blockId && blockText(block).includes(item.text),
+    );
+  const inBase = setAsideOn(docs.base, deletions, own).filter(
+    (item) => isHeld(item) && !inMine.some((found) => isSame(found, item)),
+  );
+  return [...inMine, ...inBase];
+}
+
 /** Mine with the updates applied, and the set-aside text; "invalid" when one is not an update, writes another root map, or writes what a push may not. */
 function applyWaiting(
   mine: CrdtDoc,
@@ -62,7 +112,7 @@ function applyWaiting(
   let refused = false;
   const stop = observeScript(mine, (report) => {
     if (report.origin !== ORIGIN_REPLAY) return;
-    const otherMap = report.maps.some((name) => name !== REPLAYED_MAP);
+    const otherMap = report.maps.some((name) => !REPLAYED_MAPS.includes(name));
     if (otherMap || validatePush(report).length > 0) refused = true;
   });
   const setAside: SetAside[] = [];
@@ -76,6 +126,16 @@ function applyWaiting(
     stop();
   }
   return refused ? "invalid" : setAside;
+}
+
+/** For each client of the updates, the first clock base does not hold. */
+function sinceOf(
+  updates: readonly Uint8Array[],
+  base: CrdtDoc,
+): Map<number, number> {
+  const held = readStateVector(base.encodeStateVector());
+  const clients = updates.flatMap(updateMeta).map((meta) => meta.clientId);
+  return new Map(clients.map((c) => [c, held.get(c) ?? 0]));
 }
 
 /** Mine's overrides that differ from base's, keys ascending; a null value removes the key. */
@@ -93,14 +153,30 @@ function changedOverrides(
     });
 }
 
+/** Mine's title page fields that differ from base's, in `TITLE_PAGE_FIELDS` order; "" empties one. */
+function changedTitlePage(
+  base: CrdtDoc,
+  mine: CrdtDoc,
+): [TitlePageField, string][] {
+  const before = titlePage(base);
+  const after = titlePage(mine);
+  return TITLE_PAGE_FIELDS.flatMap((field): [TitlePageField, string][] => {
+    const value = after.get(field);
+    return value === before.get(field) ? [] : [[field, value]];
+  });
+}
+
 /**
  * base: the generation at `lastServerSeq` (its newest checkpoint at or before it, then its rows),
  * moved on to the smallest later sequence at which the waiting updates are complete; mine: base with
- * the updates applied. setAside: own text the updates or those later rows removed unseen. overrides:
- * mine's revisedOverrides entries that differ from base's. invalid: an update is not one, writes a
- * root map other than revisedOverrides, or leaves a block validation refuses; incomplete: the
- * updates still wait at the generation's last row, or a row they need does not verify. RangeError
- * for a generation that is not closed.
+ * the updates applied. setAside: own text the updates or the rows base moved on by removed from
+ * mine unseen; unseen: own text mine still holds that the generation's later rows removed unseen.
+ * typed: by block, mine's text and which of its characters the updates wrote. overrides: mine's
+ * revisedOverrides entries that differ from base's. titlePage: mine's fields that differ from
+ * base's. invalid: an update is not one, writes a root map other than revisedOverrides and
+ * titlePage, or leaves a block validation refuses; incomplete: the updates still wait at the
+ * generation's last row, or a row they need does not verify. RangeError for a generation that is
+ * not closed.
  */
 export function replayBase(
   file: DocFile,
@@ -115,7 +191,10 @@ export function replayBase(
       base: DocJSON;
       mine: DocJSON;
       setAside: SetAside[];
+      unseen: SetAside[];
+      typed: Map<string, TypedText>;
       overrides: [string, string | null][];
+      titlePage: [TitlePageField, string][];
     }
   | { ok: false; code: "incomplete" | "invalid" } {
   const frozen = file.generations.get(docId, generation);
@@ -138,12 +217,19 @@ export function replayBase(
     const own = ownClientIds;
     const later = catchUp(base, mine, rows, { seq: acked, finalSeq, own });
     if (later === "incomplete") return { ok: false, code: "incomplete" };
+    const rest = tail.rows
+      .filter((row) => row.seq > acked && row.origin !== "heal")
+      .map((row) => row.update);
+    const mineContent = scriptBody(mine).materialize();
     return {
       ok: true,
       base: scriptBody(base).materialize(),
-      mine: scriptBody(mine).materialize(),
+      mine: mineContent,
       setAside: [...waiting, ...later],
+      unseen: removedUnseen({ base, mine, mineContent }, rest, own),
+      typed: findTyped(mine, sinceOf(updates, base)),
       overrides: changedOverrides(base, mine),
+      titlePage: changedTitlePage(base, mine),
     };
   } finally {
     base.destroy();

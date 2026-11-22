@@ -7,13 +7,8 @@ import type {
   Pagination,
 } from "../../pages.ts";
 import { runAt } from "./dual.ts";
-import {
-  fillPage,
-  firstStart,
-  hasSpeakerSuffix,
-  isSceneBoundary,
-  measureAt,
-} from "./fill.ts";
+import { castListOf, isSceneBoundary, isSceneHeading } from "./cast.ts";
+import { fillPage, firstStart, hasSpeakerSuffix, measureAt } from "./fill.ts";
 import type { FilledPage, PageStart } from "./fill.ts";
 import { createFlow, keyAt } from "./keep.ts";
 import type { Flow } from "./keep.ts";
@@ -95,16 +90,41 @@ function relocked(
   return differ;
 }
 
-// The end of what the edit reaches: same-speaker suffixes up to the next scene boundary, and the
-// whole of a dual run on either side.
+// The scene heading whose scene holds block `before`, read back to the scene's start; -1 for none.
+function headingOf(blocks: readonly LayoutBlock[], before: number): number {
+  for (let j = before; j >= 0; j--) {
+    const key = keyAt(blocks, j);
+    if (isSceneBoundary(key)) return isSceneHeading(key) ? j : -1;
+  }
+  return -1;
+}
+
+// What the edit reaches: the cast list of the scene it starts in, same-speaker suffixes up to the next scene
+// boundary, and the whole of a dual run on either side. `first` is the earliest block measured again.
 function reachOf(
   prev: Pagination,
   blocks: readonly LayoutBlock[],
   change: ChangeHint,
-): { readonly end: number; readonly resuffixed: ReadonlySet<number> } {
+): {
+  readonly first: number;
+  readonly end: number;
+  readonly resuffixed: ReadonlySet<number>;
+} {
   const { profile } = prev;
   const shift = change.newEnd - change.oldEnd;
   const resuffixed = new Set<number>();
+  let first = change.first;
+  const heading = profile.furniture.castLists
+    ? headingOf(blocks, change.first - 1)
+    : -1;
+  if (
+    heading >= 0 &&
+    castListOf(blocks, profile, heading) !==
+      castListOf(prev.blocks, profile, heading)
+  ) {
+    resuffixed.add(heading);
+    first = heading;
+  }
   let end = change.newEnd;
   for (
     let i = change.newEnd;
@@ -121,6 +141,7 @@ function reachOf(
   const now = runAt(blocks, profile, end);
   const was = runAt(prev.blocks, profile, end - shift);
   return {
+    first,
     end: Math.max(end, now?.end ?? end, was === null ? end : was.end + shift),
     resuffixed,
   };
@@ -248,7 +269,7 @@ export function repaginate(
     ? planLocks(own, profile, locks)
     : { starts: before, taken: takenOf(locks) };
   const moved = relocked(before, plan.starts);
-  let first = edit.first;
+  let { first } = reach;
   for (const block of moved) {
     first = Math.min(first, block);
     end = Math.max(end, block + 1);

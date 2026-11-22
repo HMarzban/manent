@@ -62,7 +62,6 @@ test("the ui entry lists its folders, and every folder entry names only modules 
       "./settings-react",
       "./subscribable",
       "./surfaces",
-      "./tokens",
       "./words",
     ].map((f) => `export * from "${f}/index.ts";`),
   );
@@ -88,6 +87,7 @@ test("the test build adds the development screens", () => {
   try {
     expect(routePaths()).toEqual([
       "/",
+      "/__keys",
       "/__stand-in",
       "/__states",
       "/choose",

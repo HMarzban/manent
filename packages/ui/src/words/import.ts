@@ -1,5 +1,6 @@
 // The words of bringing a script in from a file or a paste, of the Import group in Details, and of Export's formats.
 
+import { FDR_NOT_READABLE } from "./fdr.ts";
 import { formatCount, joinNames } from "./format.ts";
 
 const plural = (n: number, one: string, many: string): string =>
@@ -93,6 +94,7 @@ export const IMPORT_WORDS = {
     `Couldn't open '${name}': Manent couldn't read it as a ${format} file.`,
   notSaved: (name: string): string =>
     `Couldn't add '${name}' to the Library. Nothing was imported; try again.`,
+  fdrNotReadable: FDR_NOT_READABLE,
   formatNames: {
     fdx: "Final Draft",
     fountain: "Fountain",

@@ -21,6 +21,7 @@ const fake = (docId: string): LiveEditor => ({
   },
   editable: true,
   zoom: () => 1,
+  frontPages: () => null,
 });
 
 test("the live editor of a document is the one registered last, until it leaves", () => {

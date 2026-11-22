@@ -5,7 +5,7 @@ import { availableParallelism, totalmem } from "node:os";
 import { relative } from "node:path";
 import type { RunEnvironment } from "./result.ts";
 import { TIER_IDS } from "./tiers/tiers.ts";
-import type { TierId } from "./tiers/tiers.ts";
+import type { ContainerLimits, TierId } from "./tiers/tiers.ts";
 
 export const MODES = ["quick", "standard", "full"] as const;
 /** The processor slowdowns a client scenario may run under. */
@@ -64,15 +64,27 @@ export function proveMs(): number | null {
   return ms;
 }
 
-/** What a run records about where it ran. Throws when git cannot name the commit measured. */
-export function runEnvironment(run: {
-  tier: TierId;
-  throttle: 1 | 4 | 6;
-  mode: "quick" | "standard" | "full";
-  prove: boolean;
-  corpusVersion: number;
-}): RunEnvironment {
+/** The command line this process was started with, its script relative to the working directory. */
+export function commandLine(): string {
   const [, script = "", ...args] = process.argv;
+  return ["bun", relative(process.cwd(), script), ...args].join(" ");
+}
+
+/**
+ * What a run records about where it ran. `container` is what a tier's container saw (its limits)
+ * and was told (the host's command line); null outside one, where the limits are null. The commit
+ * is the one a tier's image was built from, or else git's; throws when neither names it.
+ */
+export function runEnvironment(
+  run: {
+    tier: TierId;
+    throttle: 1 | 4 | 6;
+    mode: "quick" | "standard" | "full";
+    prove: boolean;
+    corpusVersion: number;
+  },
+  container: { limits: ContainerLimits; command: string } | null,
+): RunEnvironment {
   return {
     tier: run.tier,
     throttle: run.throttle,
@@ -83,12 +95,22 @@ export function runEnvironment(run: {
     arch: process.arch,
     cpus: availableParallelism(),
     memoryBytes: totalmem(),
-    limits: { cpus: null, memoryBytes: null },
+    limits: container?.limits ?? { cpus: null, memoryBytes: null },
     chromium: null,
+    ...readSource(),
+    corpusVersion: run.corpusVersion,
+    command: container?.command ?? commandLine(),
+  };
+}
+
+/** The commit measured and whether its tree had changes. A tier's image has no repository, so it carries both from its build. */
+export function readSource(): { commit: string; dirty: boolean } {
+  const commit = process.env.MANENT_BENCH_COMMIT;
+  if (commit !== undefined && commit !== "")
+    return { commit, dirty: process.env.MANENT_BENCH_DIRTY === "true" };
+  return {
     commit: git(["rev-parse", "HEAD"]),
     dirty: git(["status", "--porcelain"]) !== "",
-    corpusVersion: run.corpusVersion,
-    command: ["bun", relative(process.cwd(), script), ...args].join(" "),
   };
 }
 

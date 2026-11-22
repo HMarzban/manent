@@ -1,5 +1,5 @@
 // The commands of production revisions: locking, the Pages tab, marking, omitting, issuing and recalling.
-import type { PlatformKeys } from "../chord.ts";
+import type { Chord, PlatformKeys } from "../chord.ts";
 import type { CommandContext } from "../context.ts";
 import { defineCommands } from "../define.ts";
 import type { CommandDefinition, MenuPlacement } from "../define.ts";
@@ -20,12 +20,13 @@ const ONLINE: Need = {
 
 const waitingOf = (ctx: CommandContext): number => ctx.production?.waiting ?? 0;
 
+/** The reason clause while `n` changes made on this device wait to sync, with thousands separators: "needs this device's 1,200 waiting changes synced first". */
+export const waitingReason = (n: number): string =>
+  `needs this device's ${n === 1 ? "1 waiting change" : `${n.toLocaleString("en-GB")} waiting changes`} synced first`;
+
 const SYNCED: Need = {
   holds: (ctx) => waitingOf(ctx) === 0,
-  reason: (ctx) => {
-    const n = waitingOf(ctx);
-    return `needs this device's ${n} waiting ${n === 1 ? "change" : "changes"} synced first`;
-  },
+  reason: (ctx) => waitingReason(waitingOf(ctx)),
 };
 
 const selecting = (kinds: readonly Selection[], reason: string): Need => ({
@@ -46,11 +47,10 @@ const ONLINE_WITH_PAGES = both(
   selecting(["pages"], "needs pages selected in the Pages tab"),
 );
 
-const NO_KEYS: PlatformKeys = Object.freeze({
-  mac: [],
-  windows: [],
-  linux: [],
-});
+const same = (...keys: Chord[]): PlatformKeys =>
+  Object.freeze({ mac: keys, windows: keys, linux: keys });
+
+const NO_KEYS = same();
 
 const placed = (
   menu: MenuPlacement["menu"],
@@ -80,6 +80,7 @@ function productionCommand<const Id extends string>(
   more: {
     shown: (p: Production) => boolean;
     need?: Need;
+    keys?: PlatformKeys;
     menus?: readonly MenuPlacement[];
     home?: string;
     palette?: CommandDefinition["palette"];
@@ -94,11 +95,15 @@ function productionCommand<const Id extends string>(
     group: more.menus?.[0]?.menu ?? "production",
     home: more.home ?? null,
     scope: "editor",
-    keys: NO_KEYS,
+    keys: more.keys ?? NO_KEYS,
     keysFixed: false,
     when: more.need?.holds ?? null,
     whyNot: more.need?.reason ?? null,
-    visible: (ctx) => ctx.production !== null && more.shown(ctx.production),
+    // a script without pages (Ink) has nothing to lock
+    visible: (ctx) =>
+      ctx.format !== "ink" &&
+      ctx.production !== null &&
+      more.shown(ctx.production),
     checked: more.checked ?? null,
     passThrough: null,
     menus: more.menus ?? [],
@@ -160,14 +165,17 @@ export const PRODUCTION_COMMANDS = defineCommands([
       opens: SEND,
     },
   ),
+  // the browser's next and previous tab, so bound on the desktop only
   productionCommand("production.markRevised", "Mark revised", {
     shown: locked,
     need: TEXT_SELECTED,
+    keys: same("Mod+Shift+]"),
     menus: [placed("production", "marks", 10)],
   }),
   productionCommand("production.clearRevised", "Clear revised", {
     shown: locked,
     need: TEXT_SELECTED,
+    keys: same("Mod+Shift+["),
     menus: [placed("production", "marks", 20)],
   }),
   productionCommand("production.lockPages", "Lock or unlock page numbers", {

@@ -7,6 +7,7 @@ import {
   ORIGIN_REPLAY,
   applyBlockOps,
   createDoc,
+  hasDeletedOwn,
   loadDoc,
   observeScript,
   scriptBody,
@@ -19,12 +20,11 @@ import { backoffDelayMs } from "../link/backoff.ts";
 import { SUBSCRIBE_CLIENT_IDS } from "../ports/defaults.ts";
 import { ConnectError } from "../ports/ports.ts";
 import type { DocMeta, SyncClientPorts } from "../ports/ports.ts";
-import { mergeMine, textLeftover } from "../recovery/recover.ts";
-import type { Leftover, MineMerge } from "../recovery/recover.ts";
-import { wordingsOf } from "../review/overlaps.ts";
+import { mergeMine } from "../recovery/recover.ts";
 import type { HandshakeHost } from "../session/handshake.ts";
 import type { Journal } from "../session/journal.ts";
 import type { LocalCopy } from "../session/local-copy.ts";
+import { filedOnLoad } from "./filed-on-load.ts";
 
 type Moving = NonNullable<DocMeta["moving"]>;
 type ParkReason = NonNullable<DocMeta["parked"]>["reason"];
@@ -72,10 +72,6 @@ const REFUSED: Readonly<Record<ReplayRefusal, Refused>> = Object.freeze({
   too_large: { kind: "rejected", status: 413 },
   unknown_generation: { kind: "rejected", status: 409 },
 });
-
-/** The answer of a replay that was not made. */
-const NOTHING_PLACED: Pick<ReplayResponse, "overlaps" | "setAside"> =
-  Object.freeze({ overlaps: [], setAside: [] });
 
 /**
  * The document a move left, kept while anything may still write to it: an
@@ -238,8 +234,8 @@ export class Move {
     this.replay();
   }
 
-  /** The new document's state replaces the old one, which is kept while something may still write to it. */
-  loaded(update: Uint8Array, headSeq: number): void {
+  /** The new document's state replaces the old one, which is kept while something may still write to it; `synced`: the old one's synced base. */
+  loaded(update: Uint8Array, headSeq: number, synced: DocJSON): void {
     const { journal, copy } = this.host;
     const { clientId } = this;
     if (clientId === null)
@@ -254,7 +250,10 @@ export class Move {
       JSON.stringify(canonicalDoc(before));
     const theirs = scriptBody(next).materialize();
     const local = typed ? mergeMine(this.sent, before, theirs, "merge") : null;
-    const items = copy.items(this.leftovers(local, theirs));
+    const removed = hasDeletedOwn(next, new Set(journal.meta.clientIds));
+    const { response: answer, sent } = this;
+    const load = { answer, synced, sent, local, theirs, removed };
+    const items = copy.items(filedOnLoad(load));
     const { to } = this.moving;
     const meta = { ...journal.meta, generation: to, lastServerSeq: headSeq };
     journal.reset(
@@ -378,16 +377,6 @@ export class Move {
     this.clientId = journal.freshClientId(null, ports.random);
     journal.patch({ clientIds: [...journal.meta.clientIds, this.clientId] });
     if (this.host.connected()) this.host.subscribe();
-  }
-
-  /** The response's overlaps with the block as sent and as `theirs` holds it, then the local merge's leftovers, then the response's set-aside text. */
-  private leftovers(local: MineMerge | null, theirs: DocJSON): Leftover[] {
-    const { overlaps, setAside } = this.response ?? NOTHING_PLACED;
-    return [
-      ...wordingsOf(overlaps, this.sent, theirs),
-      ...(local?.leftovers ?? []),
-      ...setAside.map((block) => textLeftover(block, "merge")),
-    ];
   }
 
   private end(): void {
