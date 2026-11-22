@@ -29,6 +29,7 @@ test("only the public tree may be tracked", () => {
       "docs/images/editor.png",
       "spikes/01/RESULT.md",
       ".github/workflows/ci.yml",
+      "site/index.html",
       "notes/plan.md",
       "docs/anything/a.md",
       "docs/notes.md",

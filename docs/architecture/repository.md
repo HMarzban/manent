@@ -15,7 +15,8 @@ manent/
 ├── .oxlintrc.json          lint rules: correctness and suspicious patterns are errors
 ├── .prettierignore         files the formatter skips
 ├── .gitattributes          LF line endings everywhere; the record files merge by keeping both sides
-├── .github/                the CI, desktop and release workflows, issue templates and the pull-request template
+├── .github/                the CI, desktop, release and Pages workflows, issue templates and the pull-request template
+├── site/                   the public landing page and comparison page, published to GitHub Pages by hand (pages.yml)
 ├── LICENSE, NOTICE         the licence terms and the copyright line
 ├── README.md               what Manent is, what works, how to run it
 ├── AGENTS.md               the rules for anyone who changes the repository
