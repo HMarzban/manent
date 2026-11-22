@@ -10,24 +10,19 @@ import {
 } from "@manent/editor";
 import type {
   EditorBinding,
-  Frames,
-  PageViewPorts,
   SavedPlace,
   ScriptEditor,
-  ScriptEditorOptions,
   Timers,
 } from "@manent/editor";
-import { ENGINE_VERSION, engineFor } from "@manent/pagination";
 import { markEnd } from "@manent/perf";
 import { parseDoc } from "@manent/schema";
-import type { FormatId, IdSource } from "@manent/schema";
-import type { Platform } from "@manent/settings";
-import type { KeyResolver } from "@manent/ui";
-import type { FixedKey, PersonServices } from "../services/ports.ts";
-import { zoomActions } from "../state/zoom.store.ts";
+import type { FormatId } from "@manent/schema";
+import type { FixedKey } from "../services/ports.ts";
 import { actionOf } from "./command-actions.ts";
 import type { EditorControl } from "./control.ts";
 import { deskOf } from "./desk.ts";
+import { editorOptions } from "./editor-options.ts";
+import type { EditorSources, OpenedScript } from "./editor-options.ts";
 import type { EditorSession, EditorSessions } from "./editor-sessions.ts";
 import { editorWords } from "./editor-words.ts";
 import { registerLiveEditor } from "./live-editor.ts";
@@ -35,7 +30,6 @@ import type { EditorMount } from "./mount.ts";
 import { followZoom } from "./page-zoom.ts";
 import { keepPlace } from "./keep-place.ts";
 import { placeholderMount } from "./placeholder-mount.ts";
-import { EDITOR_PLUGINS } from "./plugins.ts";
 import { countSteps } from "./undo-depth.ts";
 
 /** What one person's undo takes back. */
@@ -57,17 +51,9 @@ export interface OpenEditor {
   undoDepth(): number;
 }
 
-interface MountOptions {
+interface MountOptions extends EditorSources {
   sessions: EditorSessions;
-  services: () => PersonServices;
   control: EditorControl;
-  keys: { resolve: KeyResolver; run(id: string): boolean };
-  ports: PageViewPorts;
-  frames: Frames;
-  timers: Timers;
-  platform: Platform;
-  ids: IdSource;
-  random: () => string;
   /** Told of each editor the mount opens, and null once it has none; only the test build listens. */
   observe?: (open: OpenEditor | null) => void;
 }
@@ -161,51 +147,10 @@ function bindingFor(
 }
 
 /** What one build of the document's editor is made from. */
-interface Opened {
-  ports: MountPorts;
+interface Opened extends OpenedScript {
   session: EditorSession;
   document: BoundDocument;
-  script: ScriptEditorOptions["script"];
-  words: ScriptEditorOptions["words"];
-  desk: ScriptEditorOptions["desk"];
   shown: Shown;
-}
-
-/** The script editor's options for one build over `bound`'s binding, at the person's zoom. */
-function editorOptions(
-  options: MountOptions,
-  open: Opened,
-  bound: { binding: EditorBinding; editable: boolean },
-): ScriptEditorOptions {
-  const { element, docId, facts, outline, settings, guard } = open.ports;
-  const { services } = options;
-  return {
-    place: element,
-    binding: bound.binding,
-    editable: bound.editable,
-    personal: settings,
-    script: open.script,
-    // every script is laid out by the first engine until a script stores its own
-    layoutEngine: engineFor(ENGINE_VERSION)!,
-    facts,
-    outline,
-    guard,
-    words: open.words,
-    frames: options.frames,
-    timers: options.timers,
-    ports: options.ports,
-    platform: options.platform,
-    ids: options.ids,
-    random: options.random,
-    onUndoStep: () => services().messages.withdrawUndo(),
-    keys: options.keys,
-    zoom: zoomActions.get(),
-    desk: open.desk,
-    extraPlugins: (host) =>
-      EDITOR_PLUGINS.map((make) =>
-        make({ ...host, docId, services: services(), facts }),
-      ),
-  };
 }
 
 /** One editor of the document over its session, at `place` when it is given, attached to the control and registered as live. */

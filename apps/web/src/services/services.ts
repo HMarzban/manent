@@ -9,6 +9,7 @@ import {
   latestEntries,
 } from "@manent/settings";
 import type { Bag, KeyValueMap, SettingsStore } from "@manent/settings";
+import type { DocHandle } from "@manent/sync-client";
 import { createMessageQueue, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import { createEditorControl } from "../editor-host/control.ts";
@@ -299,6 +300,8 @@ export function createPersonServices(options: Options): PersonServices {
   globalThis.addEventListener("pagehide", leave);
   globalThis.addEventListener("beforeunload", askBeforeClosing);
   const fixedKeys = createValue<readonly FixedKey[]>([]);
+  const openHandle = async (docId: string): Promise<DocHandle> =>
+    (await sync.client).open(docId);
   // history's requests and pages load apart from the entry
   const history = createLazySource({
     now: options.now,
@@ -306,7 +309,7 @@ export function createPersonServices(options: Options): PersonServices {
       (await import("../history/source.ts")).createHistorySource({
         fetch,
         token: () => options.person.token,
-        open: async (docId) => (await sync.client).open(docId),
+        open: openHandle,
         userId: options.person.userId,
         now: options.now,
         // a request's key is 32 lower-case hex digits
@@ -350,6 +353,7 @@ export function createPersonServices(options: Options): PersonServices {
       });
     }),
     history,
+    openHandle,
     pagePorts: browserPagePorts(options.userAgent),
     ready: sync.ready,
     closing: { guard, question },
@@ -361,6 +365,10 @@ export function createPersonServices(options: Options): PersonServices {
       stop();
       kept.dispose();
       scripts.clear();
+      // production's services load with the editor, and so does what disposes them
+      void import("../production/live-services.ts").then((loaded) =>
+        loaded.disposeProductionServices(options.person.userId),
+      );
       sync.dispose();
     },
   };
