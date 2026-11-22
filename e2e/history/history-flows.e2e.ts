@@ -111,16 +111,17 @@ test("every version is kept, by day, with who and how much", async ({
   await leave(page);
   await reopen(page, docId);
   await openHistory(page);
-  // Working, the day, then each session's version, newest first
+  // the day, then each session's version, newest first, each with its writer's avatar
   const items = historyTab(page).getByRole("listitem");
-  await expect(items).toHaveCount(4);
-  await expect(items.nth(1)).toHaveText("Today");
+  await expect(items.first()).toHaveText("Today");
+  const versions = items.filter({ has: page.getByRole("img") });
+  await expect(versions).toHaveCount(2);
   for (const [at, summary] of [
-    [2, "1 change, 1 scene"],
-    [3, "2 changes, 1 scene"],
+    [0, "1 change, 1 scene"],
+    [1, "2 changes, 1 scene"],
   ] as const) {
-    await expect(items.nth(at)).toContainText(summary);
-    await expect(items.nth(at).getByRole("img")).toHaveAccessibleName("Sam");
+    await expect(versions.nth(at)).toContainText(summary);
+    await expect(versions.nth(at).getByRole("img")).toHaveAccessibleName("Sam");
   }
 });
 
@@ -174,6 +175,8 @@ test("restore a scene and undo it with its reverse", async ({ page }) => {
   await pressKeyOf(page, "edit.undo");
   await settled(page);
   expect(await lines(page)).toEqual([HEADING, ACTION]);
+  // the reverse is planned on the server, so it waits for the Undo to reach it
+  await expect(statusOf(page, "Synced")).toBeVisible();
   await page.getByRole("button", { name: "Restore 'Before restore'" }).click();
   await expect.poll(() => lines(page)).toEqual([HEADING, `${ACTION}${LATER}`]);
 });
