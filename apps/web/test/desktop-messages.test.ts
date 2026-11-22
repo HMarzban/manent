@@ -136,7 +136,7 @@ test("a refused hand-off is said once however often its script opens, and a scri
   ]);
 });
 
-test("a file Manent cannot open is named with the reason", () => {
+test("a file Manent cannot open is named with the reason", async () => {
   const host = fakeHost();
   const queue = recordingQueue();
   const stop = watchRefusedFiles({ host, queue });
@@ -156,6 +156,9 @@ test("a file Manent cannot open is named with the reason", () => {
     files: [],
     refused: [{ name: "late.txt", reason: "type" }],
   });
+  // the answer loads apart, then says them
+  await import("../src/desktop/opened-files.ts");
+  await until(() => queue.items().length === 2);
   expect(queue.items()).toEqual([
     {
       id: expect.any(String),
@@ -184,6 +187,9 @@ test("a file refused while nobody is chosen is said to the next person", async (
     files: [],
     refused: [{ name: "notes.txt", reason: "type" }],
   });
+  // the answer loads apart, then says it while nobody is chosen
+  await import("../src/desktop/opened-files.ts");
+  await turn();
   const services = testServices({ userId: "sam", environment });
   environment.personServices.set(services);
   const text = services.messages.current()?.text;
