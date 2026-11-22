@@ -1,4 +1,10 @@
-import { DEMO_PEOPLE, TOUR, TOUR_GROUPS, isShown } from "@manent/demo";
+import {
+  DEMO_PEOPLE,
+  SEED_PROJECTS,
+  TOUR,
+  TOUR_GROUPS,
+  isShown,
+} from "@manent/demo";
 import type { DemoResponse } from "@manent/sync-protocol";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
@@ -63,9 +69,13 @@ test("a tester chooses a person and reaches the Library", async ({
   // focused after a navigation
   await expect(page.getByRole("heading", { name: "Library" })).toBeFocused();
   await expect(page).toHaveTitle("Library — Leo Marsh — Manent demo");
-  await expect(page.getByRole("region", { name: "Projects" })).toContainText(
-    "No scripts yet",
-  );
+  // a reader of the Writers' room is listed each of its projects
+  for (const { title } of SEED_PROJECTS.filter(
+    (p) => p.workspaceId === "medium",
+  ))
+    await expect(page.getByRole("region", { name: "Projects" })).toContainText(
+      title,
+    );
   await expect(serverLine(page)).toHaveText("Server running");
   // open on the first visit to the Library, once the Tour lists a scenario
   const tour = tourTab(page);

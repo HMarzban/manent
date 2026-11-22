@@ -15,7 +15,7 @@ export const PLACE_COLUMN =
 /** The head's cell over the status column, which has no word of its own. */
 export const PLACE_HEAD = "w-col-kind shrink-0 @lg:w-col-edited";
 
-/** A row's place in words with its icon; null when it is not on this device, which the row says as its unavailable word. */
+/** A row's place in words with its icon; null when it has no word of its own. */
 function placeOf(
   place: RowPlace,
   shell: "web" | "desktop",
@@ -34,18 +34,37 @@ function placeOf(
         Icon: MonitorDotIcon,
       };
     case "not_on_device":
+    case "fetching":
+    case "on_server":
       return null;
   }
 }
 
-/** A row's place, drawn at its end: the place word, or the unavailable word that keeps the row from opening. */
+/** Whether a row's document is on this device, for each place. */
+export const ON_DEVICE: Readonly<Record<RowPlace["kind"], boolean>> =
+  Object.freeze({
+    synced: true,
+    waiting: true,
+    never_synced: true,
+    not_on_device: false,
+    fetching: false,
+    on_server: false,
+  });
+
+/**
+ * A row's place, drawn at its end: the place word; the unavailable word that keeps the row from opening; or, for a
+ * document read from the server, an empty cell, muted and busy while it is fetched.
+ */
 export function placeProps(
   place: RowPlace,
   shell: "web" | "desktop",
-): { trailing: readonly ReactNode[]; unavailable?: string } {
-  const shown = placeOf(place, shell);
-  if (shown === null)
+): { trailing: readonly ReactNode[]; unavailable?: string; busy?: boolean } {
+  if (place.kind === "not_on_device")
     return { trailing: [], unavailable: LIBRARY_WORDS.notOnDevice };
+  const shown = placeOf(place, shell);
+  // the empty cell keeps the status column
+  if (shown === null)
+    return { trailing: [null], busy: place.kind === "fetching" };
   const { word, Icon } = shown;
   return {
     trailing: [

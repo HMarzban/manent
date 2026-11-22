@@ -108,10 +108,21 @@ export function readWorkspace(maps: {
 export const readContinueMap = (map: JsonMapView): Map<string, ContinueEntry> =>
   entriesOf(map, readContinue);
 
-/** Where a document is, from what the device's store holds of it; absent: not on this device. Only someone without a session is told it was never synced. */
-function placeOf(summary: DocSummary | undefined, signedIn: boolean): RowPlace {
-  if (summary === undefined) return { kind: "not_on_device" };
-  if (summary.neverSynced && !signedIn) return { kind: "never_synced" };
+/**
+ * Where `docId` is, from what the device's store holds of it. A record a signed-in person never synced, with nothing
+ * waiting, holds none of the document yet: what a fetch leaves until the server's copy arrives. Only someone without a
+ * session is told it was never synced. Null when the server refused the person: the row is not listed.
+ */
+function placeOf(docId: string, facts: RowFacts): RowPlace | null {
+  if (facts.refused.has(docId)) return null;
+  const summary = facts.summaries.get(docId);
+  const empty =
+    summary === undefined ||
+    (summary.neverSynced && summary.waiting === 0 && facts.signedIn);
+  if (empty && !facts.online) return { kind: "not_on_device" };
+  if (empty)
+    return { kind: facts.fetched.has(docId) ? "on_server" : "fetching" };
+  if (summary.neverSynced && !facts.signedIn) return { kind: "never_synced" };
   if (summary.waiting > 0) return { kind: "waiting", count: summary.waiting };
   return { kind: "synced" };
 }
@@ -121,7 +132,13 @@ export interface RowFacts {
   userId: string;
   /** The person has a session. */
   signedIn: boolean;
+  /** The link is online, so a document the device does not hold is fetched. */
+  online: boolean;
   summaries: ReadonlyMap<string, DocSummary>;
+  /** Documents whose fetch has ended. */
+  fetched: ReadonlySet<string>;
+  /** Documents whose fetch the server refused: the person has no access to them, or they were deleted. */
+  refused: ReadonlySet<string>;
   continued: ReadonlyMap<string, ContinueEntry>;
   nameOf: (userId: string) => string;
 }
@@ -158,7 +175,7 @@ function lastEditedOf(
     : { byName: facts.nameOf(latest.by), at: latest.at };
 }
 
-/** The workspace's projects, newest first, each with its oldest document. */
+/** The workspace's projects, newest first, each with its oldest document; one whose document the server refused is left out. */
 export function projectItems(
   index: WorkspaceEntries,
   facts: RowFacts,
@@ -167,24 +184,28 @@ export function projectItems(
   return [...index.projects]
     .toSorted(byCreation)
     .toReversed()
-    .map(([projectId, project]) => {
+    .flatMap(([projectId, project]) => {
       const own = documents.filter(([, d]) => d.projectId === projectId);
       const firstDocId = own[0]?.[0] ?? null;
-      return {
-        projectId,
-        title: project.title,
-        kind: project.kind,
-        firstDocId,
-        lastEdited: lastEditedOf(own, facts),
-        place:
-          firstDocId === null
-            ? { kind: "not_on_device" }
-            : placeOf(facts.summaries.get(firstDocId), facts.signedIn),
-      };
+      const place: RowPlace | null =
+        firstDocId === null
+          ? { kind: "not_on_device" }
+          : placeOf(firstDocId, facts);
+      if (place === null) return [];
+      return [
+        {
+          projectId,
+          title: project.title,
+          kind: project.kind,
+          firstDocId,
+          lastEdited: lastEditedOf(own, facts),
+          place,
+        },
+      ];
     });
 }
 
-/** The person's Continue entries of `workspaceId`, newest first, at most CONTINUE_LIMIT; a document the index does not hold is left out. */
+/** The person's Continue entries of `workspaceId`, newest first, at most CONTINUE_LIMIT; a document the index does not hold, or the server refused, is left out. */
 export function continueItems(
   workspaceId: string,
   index: WorkspaceEntries,
@@ -199,14 +220,16 @@ export function continueItems(
         document === undefined
           ? undefined
           : index.projects.get(document.projectId);
-      if (document === undefined || project === undefined) return [];
+      const place = placeOf(docId, facts);
+      if (document === undefined || project === undefined || place === null)
+        return [];
       return [
         {
           docId,
           title: document.title,
           projectTitle: project.title,
           kind: project.kind,
-          place: placeOf(facts.summaries.get(docId), facts.signedIn),
+          place,
         },
       ];
     })

@@ -49,7 +49,8 @@ test("as Dana the switcher shows both workspaces, and New script opens an untitl
 
 test("the Library is reached by keys alone", async ({ page, browserName }) => {
   const tab = tabKey(browserName);
-  await signedInAs(page, "leo");
+  // a writer: a reader of the workspace cannot add a project to it
+  await signedInAs(page, "priya");
   const heading = page.getByRole("heading", { name: "Library" });
   await expect(heading).toBeFocused();
   // the switcher is drawn once the server has listed the person's workspaces
@@ -80,8 +81,9 @@ test("the Library is reached by keys alone", async ({ page, browserName }) => {
     "Import…",
     "New script",
     "New project",
-    "LM",
-    // the row ends with where the script is, which changes as it syncs
-    expect.stringMatching(/^Untitled scriptUntitled film · Film/),
+    "PN",
+    // the row ends with where the script is, which changes as it syncs; the project is numbered after the film
+    // projects the workspace holds already
+    expect.stringMatching(/^Untitled scriptUntitled film( \d+)? · Film/),
   ]);
 });
