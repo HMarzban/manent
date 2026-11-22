@@ -90,3 +90,14 @@ test("the same words typed at once by two people leave nothing to review", async
   await shown(w);
   expect(h.recovered.get()).toEqual([]);
 });
+
+test("a scene number the server writes into a block changed here is not an overlap", async () => {
+  const { w, h } = await typedLive();
+  w.fake.advance(2_000);
+  const update = w.server.writeAs(DOC, DANA, (writer) =>
+    writer.setBlockAttrs(B1, { num: "12A" }),
+  );
+  w.server.syncUpdate(DOC, update);
+  await shown(w);
+  expect(h.recovered.get()).toEqual([]);
+});
