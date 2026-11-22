@@ -58,13 +58,16 @@ export const t: {
 export type Surface =
   | { in: "preferences"; section: SectionId; order: number }
   | { in: "scriptSettings"; group: ScriptGroup; order: number }
-  /** `submenu` is the label of the submenu the item is drawn under ("Theme"), or null. */
+  /**
+   * A choice is drawn in a submenu named by its own label. `under` is the key of the choice setting whose submenu a
+   * switch is drawn in ("appearance.theme"); null for a switch drawn on its own, and always null for a choice.
+   */
   | {
       in: "menu";
       menu: MenuId;
       group: string;
       order: number;
-      submenu: string | null;
+      under: string | null;
     }
   | { in: "palette" };
 

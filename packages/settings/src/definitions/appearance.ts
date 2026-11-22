@@ -17,7 +17,7 @@ export const APPEARANCE_SETTINGS = Object.freeze([
     noun: null,
     surfaces: [
       { in: "preferences", section: "appearance", order: 10 },
-      { in: "menu", menu: "view", group: "theme", order: 10, submenu: "Theme" },
+      { in: "menu", menu: "view", group: "theme", order: 10, under: null },
       { in: "palette" },
     ],
     apply: {
@@ -39,7 +39,13 @@ export const APPEARANCE_SETTINGS = Object.freeze([
     noun: null,
     surfaces: [
       { in: "preferences", section: "appearance", order: 20 },
-      { in: "menu", menu: "view", group: "theme", order: 20, submenu: "Theme" },
+      {
+        in: "menu",
+        menu: "view",
+        group: "theme",
+        order: 20,
+        under: "appearance.theme",
+      },
       { in: "palette" },
     ],
     apply: {
