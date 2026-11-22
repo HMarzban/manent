@@ -26,8 +26,9 @@ export interface SettingWriter extends SettingReader {
 
 export interface CommandDefinition<Id extends string = string> {
   readonly id: Id;
-  /** A function when the label carries its object ("Issue Pink…"), so that every place shows one label. */
-  readonly label: string | ((ctx: CommandContext) => string);
+  /** A function when the label carries its object ("Issue Pink…") or a setting's value, so that every place shows one label. */
+  readonly label:
+    string | ((ctx: CommandContext, read: SettingReader) => string);
   readonly group: MenuId;
   /** Where the command lives, shown in the palette; null when it has no home. */
   readonly home: string | null;
@@ -104,7 +105,11 @@ export function defineCommands<const D extends readonly CommandDefinition[]>(
   return definitions;
 }
 
-/** The label as shown in this context. */
-export function labelOf(def: CommandDefinition, ctx: CommandContext): string {
-  return typeof def.label === "function" ? def.label(ctx) : def.label;
+/** The label as shown in this context, with these settings. */
+export function labelOf(
+  def: CommandDefinition,
+  ctx: CommandContext,
+  read: SettingReader,
+): string {
+  return typeof def.label === "function" ? def.label(ctx, read) : def.label;
 }

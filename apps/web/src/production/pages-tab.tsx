@@ -10,13 +10,13 @@ import {
   useSubscribable,
   useTiming,
 } from "@manent/ui";
+import { LockIcon } from "lucide-react";
 import { useEffect, useReducer, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { panelRenderers } from "../screens/document/panel-surface.tsx";
 import type { PanelTab } from "../shell/panel-tab.ts";
 import { useProductionContext } from "../state/production-context.store.ts";
 import { useProductionServices } from "./live-services.ts";
-import { LOCK_ICON } from "./lock-icon.ts";
 import { PageRowMenu } from "./page-row-menu.tsx";
 import { NOTHING_OPEN } from "./services.ts";
 import type { ProductionServices } from "./services.ts";
@@ -27,27 +27,10 @@ type PageRow = NonNullable<ReturnType<ProductionServices["pages"]["row"]>>;
 const WORDS = PRODUCTION_WORDS;
 const READY = Object.freeze({ kind: "ready" });
 
-// the icon's data names its attributes as SVG does; React names them in camel case, but for aria-*
-const reactName = (name: string): string =>
-  name.startsWith("aria-")
-    ? name
-    : name.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
-
-const LOCK_SVG = Object.fromEntries(
-  Object.entries(LOCK_ICON.svg).map(([name, value]) => [
-    reactName(name),
-    value,
-  ]),
-);
-
 function LockGlyph(): ReactNode {
   return (
     <span role="img" aria-label={WORDS.lockMarkerName} className="flex">
-      <svg {...LOCK_SVG}>
-        {LOCK_ICON.shapes.map(({ tag: Tag, attrs }) => (
-          <Tag key={Tag} {...attrs} />
-        ))}
-      </svg>
+      <LockIcon aria-hidden="true" />
     </span>
   );
 }
@@ -125,7 +108,11 @@ function PageLine(props: {
     <Row
       selected={chosen}
       leading={
-        row.locked ? <LockGlyph /> : <span aria-hidden="true" className="w-3" />
+        row.locked ? (
+          <LockGlyph />
+        ) : (
+          <span aria-hidden="true" className="w-icon" />
+        )
       }
       trailing={handle === null ? revision : [...revision, handle]}
       onActivate={props.onChoose}

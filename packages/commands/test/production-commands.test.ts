@@ -107,7 +107,9 @@ test("the production commands are these, with these words, menus and conditions"
   expect(
     productionCommands().map((c) => [
       c.id,
-      typeof c.label === "function" ? c.label(CTX) : c.label,
+      typeof c.label === "function"
+        ? c.label(CTX, { get: () => undefined })
+        : c.label,
       c.home,
       c.menus,
       c.palette,

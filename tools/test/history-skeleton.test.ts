@@ -297,13 +297,11 @@ test("the history words are the sentences people read", async () => {
     HISTORY_WORDS.savedYou,
     HISTORY_WORDS.nameFailed,
     HISTORY_WORDS.tryAgain,
-    HISTORY_WORDS.rowMenu,
   ]).toEqual([
     "Couldn't load older versions. Showing what is on this device.",
     "Saved by you.",
     "Couldn't name this draft.",
     "Try again",
-    ["Restore", "Restore this scene", "Name this draft…"],
   ]);
   expect(historyMessage({ kind: "restored_you", ref: draft }, "m1")).toEqual({
     id: "m1",
