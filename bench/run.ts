@@ -1,6 +1,8 @@
 // `bun run bench [--quick | --full] [--prove] [--filter <text>]` runs the suite; `--child <file>`
-// is the harness's own way to run one scenario in a fresh process.
+// is the harness's own way to run one scenario in a fresh process; `bun run bench fetch-traces`
+// downloads the editing traces.
 
+import { fetchTraces } from "./corpus/traces.ts";
 import { runChild, runSuite } from "./harness.ts";
 import { readQuiet } from "./measure.ts";
 import { readResultFile } from "./result.ts";
@@ -20,6 +22,16 @@ function modeOf(args: readonly string[]): "quick" | "standard" | "full" {
 
 if (import.meta.main) {
   const args = process.argv.slice(2);
+  if (args[0] === "fetch-traces") {
+    const fetched = await fetchTraces({ dir: "bench/corpus/traces", fetch });
+    for (const { name, reason } of fetched)
+      console.log(
+        reason === null
+          ? `${name} fetched`
+          : `${name} could not be fetched: ${reason}`,
+      );
+    process.exit(fetched.every((f) => f.ok) ? 0 : 1);
+  }
   const child = optionValue(args, "--child");
   if (child !== null) {
     await runChild(child);
