@@ -1046,7 +1046,8 @@ html[data-white-page] .mn-pages {
   position: relative;
   border-radius: var(--shape-control);
 }
-.mn-row:hover {
+/* only a row that does something looks like it does */
+.mn-row[tabindex]:not([aria-disabled="true"]):hover {
   background-color: var(--bg-subtle);
 }
 .mn-row[aria-current]:not([aria-current="false"]),
@@ -1071,6 +1072,111 @@ html[data-white-page] .mn-pages {
 .mn-row[aria-selected="true"]:focus-visible {
   outline-width: var(--focus-w);
   outline-offset: calc(var(--focus-w) * -1);
+}
+.mn-row[aria-current]:not([aria-current="false"]) [data-leading] {
+  color: var(--fg-accent);
+}
+
+/* --------------------------------------------------------------------------
+   SHARED PIECES. Each is drawn the same wherever it appears; layout around
+   them is utilities.
+   -------------------------------------------------------------------------- */
+
+/* A group's label: the type is correction 6's; this is its place in a list. */
+.mn-group-label {
+  padding: 1rem 0.75rem 0.25rem;
+}
+
+/* A table on chrome, drawn on a row list: a raised card with a head row and a
+   hairline between rows. Its cells are sized by utilities, in rem. */
+.mn-table {
+  background-color: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--shape-surface);
+  overflow: hidden;
+}
+.mn-table-head {
+  min-height: var(--row-h);
+  background-color: var(--bg-chrome);
+  border-block-end: 1px solid var(--line);
+}
+.mn-table .mn-row {
+  border-radius: 0;
+  border-block-start: 1px solid var(--line);
+}
+.mn-table [aria-posinset="1"] > .mn-row {
+  border-block-start: 0;
+}
+.mn-num {
+  justify-content: flex-end;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A fact attached to a row ("On this device"): an edge, never a fill. The
+   demo's own tag is the one filled tag. */
+.mn-tag {
+  display: inline-flex;
+  align-items: center;
+  padding-inline: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--shape-micro);
+  color: var(--fg-muted);
+  font-size: var(--type-micro);
+  line-height: var(--lh-micro);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.mn-tag[data-fill] {
+  background-color: var(--bg-accent);
+  border-color: var(--bg-accent);
+  color: var(--fg-on-accent);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* A revision's chip: a small square of its paper, always beside its name. */
+.mn-rev-chip {
+  display: inline-block;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: var(--shape-micro);
+  background-color: var(--band-fill);
+  border: 1px solid var(--band-edge);
+  outline: 1px solid var(--chip-line);
+}
+
+/* A person: coloured only where they have a colour (inside a script, by its
+   index); elsewhere a ring round their initials. */
+.mn-avatar {
+  border: 1px solid var(--line-strong);
+  color: var(--fg-muted);
+}
+.mn-avatar[data-who] {
+  background-color: var(--who);
+  border-color: var(--who);
+  color: var(--collab-on);
+}
+.mn-avatar[data-more] {
+  border-color: var(--line);
+}
+
+/* A card to choose (a person, a kind of project): raised, its edge strong
+   under the pointer, the chosen one selected. */
+.mn-card {
+  background-color: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--shape-surface);
+}
+.mn-card:hover:not(:disabled) {
+  border-color: var(--line-strong);
+}
+.mn-card[aria-current]:not([aria-current="false"]) {
+  background-color: var(--bg-selected);
+  border-color: var(--focus);
 }
 
 /* --------------------------------------------------------------------------
@@ -1120,6 +1226,11 @@ html[data-white-page] .mn-pages {
 }
 .mn-pages[data-tint="on"] .mn-sheet[data-rev] {
   background: var(--band-tint);
+}
+[data-rev="white"] {
+  --band-fill: var(--rev-white-fill);
+  --band-edge: var(--rev-white-edge);
+  --band-tint: var(--page-rev-white-paper);
 }
 [data-rev="blue"] {
   --band-fill: var(--rev-blue-fill);
