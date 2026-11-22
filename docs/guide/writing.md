@@ -99,7 +99,14 @@ Open the command palette with **Ctrl+K** (⌘K) and type the name of a style:
 
 **Details → Selection → Layout** sets the alignment, indent, width and space before of the selected lines.
 
+## Paste
+
+Text pasted from another app comes in one paragraph to an element. Fountain or Final Draft text becomes the elements it describes, and Manent says "Pasted as 12 elements. Undo to paste as plain text." One Undo turns it back into plain text. To bring in a whole file, see [Import a script](export-and-print.md#import-a-script).
+
+## Moving around
+
+The **Scenes** tab of the left panel lists the script's acts, sections and scenes, each with its length in eighths of a page; click one to go there. **Find** (Ctrl+F) and **Go to** (Ctrl+G) are described in [Keyboard shortcuts](keyboard-shortcuts.md#find-and-go-to).
+
 ## Not in this build
 
 - Comments.
-- Import from, and export to, other script formats. Export to PDF works; see [Export and print](export-and-print.md).
