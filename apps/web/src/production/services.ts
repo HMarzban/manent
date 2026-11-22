@@ -281,6 +281,12 @@ export function createProductionServices(options: {
       tint: tint.get(),
     });
   };
+  // the waiting count changes inside the editor's transaction, when no interface store may be written
+  let cancelWaiting = NOTHING_TO_STOP;
+  const publishAfterTransaction = (): void => {
+    cancelWaiting();
+    cancelWaiting = schedule(publishContext, 0);
+  };
   const followAccess = (): void =>
     void askAccess(transport.post, docId).then((known) => {
       if (known !== null) access.set(known);
@@ -288,7 +294,7 @@ export function createProductionServices(options: {
   const stops = [
     client.current().subscribe(showView),
     client.current().subscribe(publishContext),
-    client.waiting().subscribe(publishContext),
+    client.waiting().subscribe(publishAfterTransaction),
     access.subscribe(publishContext),
     chosenPages.subscribe(publishContext),
     view.subscribe(() => {
@@ -348,6 +354,7 @@ export function createProductionServices(options: {
     dispose() {
       for (const stop of stops) stop();
       cancelRecallEnd();
+      cancelWaiting();
       viewListeners.clear();
       client.dispose();
       view.dispose();
