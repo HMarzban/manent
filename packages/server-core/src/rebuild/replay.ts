@@ -7,11 +7,12 @@ import {
   loadDoc,
   revisedOverrides,
   scriptBody,
+  titlePage,
   updateMeta,
 } from "@manent/crdt";
 import type { BlockMerge } from "@manent/revisions";
 import { blockText, blockView, validateBlocks } from "@manent/schema";
-import type { BlockOp, DocJSON } from "@manent/schema";
+import type { BlockOp, DocJSON, TitlePageField } from "@manent/schema";
 import type { DocFile, Home, Storage, VersionRow } from "@manent/storage";
 import type {
   DocKind,
@@ -81,12 +82,17 @@ function contentOf(state: Uint8Array): DocJSON {
 }
 
 /**
- * The ops and the overrides that differ from the room's as one update, written on a copy and
- * applied to the room's document under ORIGIN_REPLAY; null when they wrote nothing.
+ * The ops, and the overrides and title page fields that differ from the room's, as one update,
+ * written on a copy and applied to the room's document under ORIGIN_REPLAY; null when they wrote
+ * nothing.
  */
 function writeOps(
   room: Room,
-  changes: { ops: readonly BlockOp[]; overrides: Checked["overrides"] },
+  changes: {
+    ops: readonly BlockOp[];
+    overrides: Checked["overrides"];
+    titlePage: Checked["titlePage"];
+  },
   ids: () => string,
 ): Uint8Array | null {
   const written = writeOnCopy(
@@ -98,6 +104,9 @@ function writeOps(
       for (const [key, value] of changes.overrides)
         if (overrides.get(key) !== value)
           overrides.set(key, value, ORIGIN_REPLAY);
+      const page = titlePage(copy);
+      for (const [field, value] of changes.titlePage)
+        if (page.get(field) !== value) page.set(field, value, ORIGIN_REPLAY);
       return { ok: true };
     },
     ids,
@@ -169,6 +178,8 @@ interface Checked {
   setAside: ReplaySetAside[];
   /** Mine's revisedOverrides entries that differ from base's; null removes one. */
   overrides: [string, string | null][];
+  /** Mine's title page fields that differ from base's; "" empties one. */
+  titlePage: [TitlePageField, string][];
 }
 
 /**
@@ -212,7 +223,17 @@ export function createReplay(
     if (!based.ok) return based.code;
     const { base, mine, setAside, overrides } = based;
     const { kind } = resolved;
-    return { userId, request, kind, base, mine, frozen, setAside, overrides };
+    return {
+      userId,
+      request,
+      kind,
+      base,
+      mine,
+      frozen,
+      setAside,
+      overrides,
+      titlePage: based.titlePage,
+    };
   }
 
   /** The merge through every generation since, written on the loaded room. */
@@ -231,7 +252,8 @@ export function createReplay(
     const merge = mergeUniqueThrough(checked.base, checked.mine, theirs);
     if (!isWritable(merge.ops)) return refused("invalid");
     const { overrides } = checked;
-    const update = writeOps(room, { ops: merge.ops, overrides }, ports.ids);
+    const changes = { ops: merge.ops, overrides, titlePage: checked.titlePage };
+    const update = writeOps(room, changes, ports.ids);
     const stored = storedOf(merge, checked.setAside, room);
     const createdAt = clock.now();
     const version: VersionRow | null =

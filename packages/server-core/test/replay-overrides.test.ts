@@ -6,6 +6,7 @@ import {
   revisedOverrides,
   scriptBody,
   scriptSettings,
+  titlePage,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { BlockJSON } from "@manent/schema";
@@ -47,10 +48,11 @@ function stepTwoOf(messages: readonly Message[]): Uint8Array {
 }
 
 /**
- * Dana has written one block of DOC in generation 1 and Sam has joined, so his copy is
- * acknowledged at the head; what Sam writes on that copy waits for the room's rebuild.
+ * Dana has written one block of DOC in generation 1, and `title` on its title page when given, and
+ * Sam has joined, so his copy is acknowledged at the head; what Sam writes on that copy waits for the
+ * room's rebuild.
  */
-function overridesWorld() {
+function overridesWorld(title: string | null = null) {
   const world = createServiceWorld({ limits: FORCE });
   const { service, clock, storage, sam, dana } = world;
   const file = storage.open(HOME);
@@ -82,9 +84,27 @@ function overridesWorld() {
     ),
     heal: false,
   });
+  if (title !== null)
+    service.receive(dana, {
+      type: "PUSH",
+      docId: DOC,
+      generation: generation(),
+      clientSeq: 2,
+      update: capture(danaDoc, () =>
+        titlePage(danaDoc).set("title", title, "typing"),
+      ),
+      heal: false,
+    });
   clock.runDeferred();
   const samDoc = join(sam);
   const acked = file.log.get(DOC)?.headSeq ?? 0;
+  /** The document the log of the current generation builds. */
+  const roomDoc = (): CrdtDoc => {
+    const doc = createDoc();
+    for (const row of file.log.tail(DOC, generation(), 0).rows)
+      doc.applyUpdate(row.update, ORIGIN_LOAD);
+    return doc;
+  };
   return {
     samDoc,
     /** The room goes quiet and is rebuilt; Sam replays the updates his device held. */
@@ -102,11 +122,12 @@ function overridesWorld() {
       return outcome;
     },
     /** The overrides as the log of the current generation builds them. */
-    roomOverrides(): [string, string][] {
-      const doc = createDoc();
-      for (const row of file.log.tail(DOC, generation(), 0).rows)
-        doc.applyUpdate(row.update, ORIGIN_LOAD);
-      return revisedOverrides(doc).entries();
+    roomOverrides: (): [string, string][] =>
+      revisedOverrides(roomDoc()).entries(),
+    /** The title page's title and credit as the log of the current generation builds them. */
+    roomTitlePage(): string[] {
+      const page = titlePage(roomDoc());
+      return [page.get("title"), page.get("credit")];
     },
   };
 }
@@ -149,4 +170,24 @@ test("a replay never writes the settings maps", async () => {
     code: "invalid",
   });
   expect(world.roomOverrides()).toEqual([]);
+});
+
+test("a rebuild keeps the title page, and a title page edit made offline is kept by the replay", async () => {
+  const world = overridesWorld("The Long Shift");
+  const { samDoc } = world;
+  const offline = capture(samDoc, () =>
+    titlePage(samDoc).set("credit", "written by", "typing"),
+  );
+  expect(await world.replayed([offline])).toEqual({
+    ok: true,
+    response: {
+      docId: DOC,
+      generation: 2,
+      serverSeq: 2,
+      applied: 0,
+      overlaps: [],
+      setAside: [],
+    },
+  });
+  expect(world.roomTitlePage()).toEqual(["The Long Shift", "written by"]);
 });

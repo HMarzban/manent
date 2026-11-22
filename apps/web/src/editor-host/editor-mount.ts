@@ -38,7 +38,11 @@ import { countSteps } from "./undo-depth.ts";
 const PAGE_REGION = "[data-region='page']";
 
 /** What one person's undo takes back. */
-export const UNDO_ROOTS: readonly UndoRoot[] = ["script", "revisedOverrides"];
+export const UNDO_ROOTS: readonly UndoRoot[] = [
+  "script",
+  "revisedOverrides",
+  "titlePage",
+];
 
 /** The structural keys as "flow", then the picker's keys as "picker". */
 export const EDITOR_FIXED_KEYS: readonly FixedKey[] = Object.freeze([
