@@ -24,7 +24,7 @@ test:
 	@$(NEED_BUN) && bun run test
 
 bench:
-	@$(NEED_BUN) && bun run bench
+	@$(NEED_BUN) && bun run bench $(if $(TIER),--tier $(TIER)) $(if $(THROTTLE),--throttle $(THROTTLE)) $(if $(FILTER),--filter $(FILTER)) $(if $(QUICK),--quick) $(if $(FULL),--full) $(if $(PROVE),--prove)
 
 stop:
 	@$(NEED_BUN) && bun run stop

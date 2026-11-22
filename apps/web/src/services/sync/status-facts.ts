@@ -5,7 +5,8 @@ import type { StatusFacts } from "@manent/ui";
 
 /**
  * `network`: the browser says it is online. `viewRole` and `viewLive`: the read-only view's role and liveness, null and
- * false without a view. `toReview`: the document's open review entries.
+ * false without a view. `toReview`: the document's open review entries. `signedIn`: the person has a session, and so
+ * is never told that a script is only on this device.
  */
 export interface StatusInput {
   status: DocStatus;
@@ -15,6 +16,7 @@ export interface StatusInput {
   viewLive: boolean;
   offlineSinceAt: number | null;
   toReview: number;
+  signedIn: boolean;
   now: number;
 }
 
@@ -54,7 +56,7 @@ export function toStatusFacts(input: StatusInput): StatusFacts {
     notSent: parked ? status.waiting : 0,
     offlineSinceAt:
       !network || link.state !== "online" ? input.offlineSinceAt : null,
-    neverSynced: status.neverSynced,
+    neverSynced: status.neverSynced && !input.signedIn,
     shell: "web",
     toReview: input.toReview,
     now: input.now,

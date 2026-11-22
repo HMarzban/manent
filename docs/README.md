@@ -6,9 +6,9 @@ Start with the part that matches what you want to do. Each page says what works 
 
 - [Getting started](guide/getting-started.md): run the demo, choose a person, and what to try first.
 - [Writing a script](guide/writing.md): formats, elements, Tab and Enter, the element picker.
-- [Saving and syncing](guide/saving-and-syncing.md): what "Saved", "Synced" and "waiting" mean, and working without a connection.
+- [Saving and syncing](guide/saving-and-syncing.md): what "Saved", "Synced" and "waiting" mean, working without a connection, and versions.
 - [Working together](guide/working-together.md): live changes and cursors, and what is not there yet.
-- [Export and print](guide/export-and-print.md): a PDF of the script, or paper.
+- [Export and print](guide/export-and-print.md): a PDF, FDX or Fountain file of the script, paper, and importing a script.
 - [Keyboard shortcuts](guide/keyboard-shortcuts.md): every default key.
 - [Preferences and accessibility](guide/preferences-and-accessibility.md): what you can set, and how Manent works with a keyboard and a screen reader.
 
@@ -17,7 +17,7 @@ Start with the part that matches what you want to do. Each page says what works 
 - [Set up a development copy](development/setup.md): requirements, the commands, the server's settings and the gate.
 - [Testing](development/testing.md): unit, DOM and property tests, end-to-end tests in three engines, and long runs.
 - [Benchmarks](development/benchmarks.md): the suite, its scenarios and how budgets apply.
-- [Desktop app](development/desktop.md): what exists towards it.
+- [Desktop app](development/desktop.md): building it, running it against the demo, and what it does.
 - [Coding standards](development/standards.md): the rules a reviewer checks.
 - [Contributing](../CONTRIBUTING.md): how to propose a change and how it is reviewed.
 

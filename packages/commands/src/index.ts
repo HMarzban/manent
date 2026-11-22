@@ -32,6 +32,8 @@ export { BROWSER_ZOOM_KEYS, resolveBindings } from "./bindings.ts";
 export type { CustomBinding, Findings, Resolved } from "./bindings.ts";
 export { checkCapture } from "./capture.ts";
 export type { CaptureVerdict } from "./capture.ts";
+export { probeChords } from "./key-probe.ts";
+export type { ProbedKey } from "./key-probe.ts";
 export { RESERVED_KEYS } from "./reserved-keys.ts";
 export type { ReservedKey } from "./reserved-keys.ts";
 export { settingCommands } from "./settings-commands.ts";

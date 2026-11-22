@@ -4,6 +4,7 @@ import type { EscapeSnapshot } from "@manent/ui";
 import { useEffect, useRef } from "react";
 import { useServices } from "../services/context.tsx";
 import { useOpenDialog } from "../state/dialog.store.ts";
+import { findActions, useFindBar } from "../state/find.store.ts";
 import { useHistory } from "../state/history.store.ts";
 import { renameActions, useRenaming } from "../state/rename.store.ts";
 import type { ShellDom } from "./regions.tsx";
@@ -23,7 +24,7 @@ const isFilterWithText = (element: Element | null): boolean =>
   element.value !== "";
 
 /**
- * Escape closes the palette, then a field open in a bar, then returns focus from the frame to the page; any other
+ * Escape closes the palette, then a field open in a bar or the Find bar, then returns focus from the frame to the page; any other
  * popover, a dialog and a filter handle their own Escape. It never leaves a screen.
  */
 export function useEscapeHandler(options: {
@@ -37,6 +38,7 @@ export function useEscapeHandler(options: {
     ...options,
     dialogId: useOpenDialog(),
     renaming: useRenaming(),
+    finding: useFindBar().open,
     commands: useServices().commands,
     viewingVersion: baseline !== null && mode === "as_it_was",
   };
@@ -53,6 +55,7 @@ export function useEscapeHandler(options: {
         closePalette,
         dialogId,
         renaming,
+        finding,
         commands,
         viewingVersion,
       } = latest.current;
@@ -65,7 +68,7 @@ export function useEscapeHandler(options: {
           document.querySelector(OPEN_POPUP) !== null,
         dialogOpen:
           held === "dialog" || document.querySelector(OPEN_DIALOG) !== null,
-        fieldOpen: renaming !== null,
+        fieldOpen: renaming !== null || finding,
         filterWithText: isFilterWithText(document.activeElement),
         focus: dom.pageFocused() ? "page" : "frame",
         // no panel overlays the page yet
@@ -78,7 +81,12 @@ export function useEscapeHandler(options: {
           if (paletteOpen) closePalette();
           break;
         case "close_field":
-          renameActions.stop();
+          if (renaming !== null) renameActions.stop();
+          else {
+            // the caret is left at the current match
+            findActions.close();
+            dom.focusPage();
+          }
           break;
         case "focus_page":
           // false while a screen covers the page: Escape never leaves a screen

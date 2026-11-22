@@ -15,6 +15,7 @@ const ENTRIES: Readonly<Record<string, readonly string[]>> = {
     "sqlite.ts",
   ],
   "packages/server-core/src/production/index.ts": [
+    "adoption.ts",
     "extras.ts",
     "files.ts",
     "hooks.ts",
@@ -24,6 +25,7 @@ const ENTRIES: Readonly<Record<string, readonly string[]>> = {
     "layout.ts",
     "lock.ts",
     "outcome.ts",
+    "packet.ts",
     "pages.ts",
     "ports.ts",
     "recall.ts",
@@ -243,6 +245,18 @@ const SAID: Readonly<Record<keyof typeof PRODUCTION_WORDS, readonly string[]>> =
     unlockingButton: [W.unlockingButton],
     endingButton: [W.endingButton],
     changingLayoutButton: [W.changingLayoutButton("paper size to A4")],
+    lockRefused: [W.lockRefused],
+    unlockRefused: [W.unlockRefused],
+    endRefused: [W.endRefused],
+    changeLayoutRefused: [W.changeLayoutRefused("paper size to A4")],
+    issueRefused: [W.issueRefused("Pink")],
+    recallRefused: [W.recallRefused("Blue")],
+    groupTitle: [W.groupTitle],
+    revisionRow: [
+      W.revisionRow("Blue", "16 Nov 2026", "*", false),
+      W.revisionRow("White", "27 Oct 2026", "*", true),
+    ],
+    revisedDescription: [W.revisedDescription("Blue")],
   };
 
 const productionStrings = (): StringSource[] =>

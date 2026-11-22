@@ -87,6 +87,7 @@ test("the test build adds the development screens", () => {
   try {
     expect(routePaths()).toEqual([
       "/",
+      "/__keys",
       "/__stand-in",
       "/__states",
       "/choose",

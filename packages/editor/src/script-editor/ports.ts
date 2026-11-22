@@ -101,17 +101,28 @@ export interface FactsShape {
   canUndo: boolean;
   canRedo: boolean;
   selectionEmpty: boolean;
+  /** The selected text when the selection lies inside one element; "" otherwise. */
+  selectedText: string;
+  /** How many matches the Find bar's text has, and which of them the selection holds, from 1; null when none. */
+  findCount: number;
+  findCurrent: number | null;
 }
 
 export interface FactsSink {
   publish(changed: Partial<FactsShape>): void;
 }
 
-/** `omitted`: the heading's own attribute. */
+/**
+ * A scene (a scene heading, slug or chapter), an act, or a section. `synopsis` and `omitted`: the heading's own
+ * attributes. `eighths`: a scene's length in eighths of a page; null for an act or a section.
+ */
 export interface OutlineEntry {
   blockId: string;
+  kind: "scene" | "act" | "section";
   number: string | null;
   heading: string;
+  synopsis: string;
+  eighths: number | null;
   omitted: boolean;
   current: boolean;
 }

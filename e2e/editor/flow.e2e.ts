@@ -1,6 +1,6 @@
 // The keys that move a line between elements, pressed in a real page: the Enter and Tab tables, the element picker,
 // dual dialogue, page breaks, every editor shortcut and the names offered while a cue is typed.
-import { COMMANDS } from "@manent/commands";
+import { COMMANDS, resolveBindings } from "@manent/commands";
 import type { ElementRef, FlowTarget } from "@manent/editor";
 import { corpusDoc } from "@manent/pagination/testing";
 import type { CorpusBlock } from "@manent/pagination/testing";
@@ -54,8 +54,8 @@ const elementsOf = (tables: Tables, format: FormatId): ElementRef[] =>
 
 const hasText = (key: Key): boolean => key === "enter" || key === "tabAtEnd";
 
-/** A new block Enter or Tab starts: its element's type, never a kind. */
-const started = (to: ElementRef): Line => [to.type, null, ""];
+/** A new block Enter or Tab starts: the element the table names, with its kind. */
+const started = (to: ElementRef): Line => [to.type, to.kind, ""];
 
 /** The lines `key` leaves in place of one line of `element`, as the format's row says; "picker": the picker opens instead. */
 function afterKey(
@@ -241,8 +241,19 @@ test("every editor shortcut runs its command once from an editable page", async 
   const platform = await platformOf(page);
   await openScript(page, "screenplay", corpusDoc(SPEECHES));
   const speech = (await blocks(page))[4]!.id;
+  // the web leaves the browser's own keys to the browser, so a command whose every key is one of them has none here
+  const { effective } = resolveBindings({
+    commands: COMMANDS,
+    custom: [],
+    platform,
+    shell: "web",
+    findings: { failsHere: new Set() },
+  });
   for (const command of COMMANDS) {
-    if (command.scope !== "editor" || command.keys[platform].length === 0)
+    if (
+      command.scope !== "editor" ||
+      (effective.get(command.id) ?? []).length === 0
+    )
       continue;
     await caretAt(page, speech, "end");
     const ran = (await runs(page)).length;
@@ -350,7 +361,8 @@ test("Mod+D pairs two speeches across a section boundary, drawn stacked while th
   );
   expect({
     sections: after.map((b) => b.section),
-    stackedOnScreen: drawn.top >= drawn.bottom,
+    // Firefox may start the next line a fraction of a pixel above the last one's end; side by side, a line or more above
+    stackedOnScreen: drawn.top >= drawn.bottom - 1,
     paired,
     columnsMovedTheBreak: JSON.stringify(stacked) !== JSON.stringify(paired),
   }).toEqual({
@@ -428,8 +440,8 @@ test("autocomplete offers the script's names at 50 % and at 200 %", async ({
     await caretAt(page, cue, "end");
     await page.keyboard.type(typed);
     await expect(page.locator(EDITABLE)).toHaveAttribute(
-      "aria-expanded",
-      "true",
+      "aria-controls",
+      "mn-complete",
     );
     await settled(page);
     seen.push(await offered(page, cue));

@@ -314,7 +314,7 @@ test("Export names one file, a clean PDF of the whole script, and the first page
     "Export 1 file",
     [
       ["What", "Whole script"],
-      ["As", "Clean PDF"],
+      ["As", "Clean PDFFDXFountain"],
     ],
     ["1", "2", "3", "4", "5", "6", "7", "8"],
     "… 22 more",
@@ -364,7 +364,7 @@ test("while the script's editor is still opening, Export and Print show their ro
         "H1",
         [
           ["What", "Whole script"],
-          ["As", "Clean PDF"],
+          ["As", "Clean PDFFDXFountain"],
         ],
         0,
         "Export 1 file",
@@ -372,7 +372,7 @@ test("while the script's editor is still opening, Export and Print show their ro
       [
         "Export 1 file",
         "H1",
-        [OUTSIDE_ROW, ["What", "Whole script"], ["As", "Clean PDF"]],
+        [OUTSIDE_ROW, ["What", "Whole script"], ["As", "Clean PDFFDXFountain"]],
         8,
         "Export 1 file",
       ],

@@ -20,7 +20,8 @@ import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { useEditorFact } from "../../state/facts.store.ts";
-import { panelsActions } from "../../state/panels.store.ts";
+import type { EditorFacts } from "../../state/facts.store.ts";
+import { openDetailsAt } from "./details-tab.tsx";
 import { ElementButton } from "./element-button.tsx";
 import { MenuFace } from "./menu-face.tsx";
 import { WritingNotices } from "./writing-notices.tsx";
@@ -69,15 +70,31 @@ export function CommandAction(props: {
 }
 
 /** `Page 12 of 52`, or `Page 12A · Blue (14 of 112)` on a page of a revision; null while the caret is on no page. */
-function usePageReadout(): string | null {
-  const page = useEditorFact("page");
-  const pageCount = useEditorFact("pageCount");
-  const revision = useEditorFact("pageRevision");
-  const ordinal = useEditorFact("pageOrdinal");
+export function pageReadoutOf(
+  facts: Pick<
+    EditorFacts,
+    "page" | "pageCount" | "pageRevision" | "pageOrdinal"
+  >,
+): string | null {
+  const { page, pageCount, pageRevision, pageOrdinal } = facts;
   if (page === null || pageCount === null) return null;
-  if (revision === null || ordinal === null)
+  if (pageRevision === null || pageOrdinal === null)
     return READOUT_WORDS.page(page, pageCount);
-  return READOUT_WORDS.pageWithRevision(page, revision, ordinal, pageCount);
+  return READOUT_WORDS.pageWithRevision(
+    page,
+    pageRevision,
+    pageOrdinal,
+    pageCount,
+  );
+}
+
+function usePageReadout(): string | null {
+  return pageReadoutOf({
+    page: useEditorFact("page"),
+    pageCount: useEditorFact("pageCount"),
+    pageRevision: useEditorFact("pageRevision"),
+    pageOrdinal: useEditorFact("pageOrdinal"),
+  });
 }
 
 /** The palette's button, with its key shown beside it on a window wide enough. */
@@ -110,7 +127,8 @@ export function StatusBar(): ReactNode {
   const { run, registered } = useCommandActions();
   const readout = usePageReadout();
   const scene = useEditorFact("scene");
-  const { docId } = useSubscribable(useEnvironment().shellState);
+  const { shellState, frame } = useEnvironment();
+  const { docId } = useSubscribable(shellState);
   return (
     <ShellRegion
       region="status_bar"
@@ -125,20 +143,24 @@ export function StatusBar(): ReactNode {
         {docId === null ? null : <ElementButton docId={docId} />}
       </div>
       {readout === null ? null : (
-        // Details at Script, with focus left where it is
         <Button
           variant="ghost"
           size="sm"
           className="shrink-0 text-meta font-normal text-fg-muted tabular-nums"
-          onClick={() => panelsActions.open("side", "details")}
+          onClick={() => openDetailsAt("script", frame)}
         >
           {readout}
         </Button>
       )}
       {scene === null ? null : (
-        <span className="shrink-0 px-2 text-meta text-fg-muted tabular-nums max-sm:hidden">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="shrink-0 text-meta font-normal text-fg-muted tabular-nums max-sm:hidden"
+          onClick={() => openDetailsAt("scene", frame)}
+        >
           {READOUT_WORDS.scene(scene)}
-        </span>
+        </Button>
       )}
       <MessageSlot queue={messages} run={run} registered={registered} />
       <CommandMenu

@@ -155,7 +155,7 @@ test("every command label and menu word is sentence case", () => {
     PREFERENCES_WORDS.device(false),
   ];
   const menuWords = Object.values(MENU_WORDS).flatMap((word) =>
-    typeof word === "string" ? [word] : panes.map(word),
+    typeof word === "string" ? [word] : panes.map((pane) => word(pane, pane)),
   );
   const texts = [
     ...COMMANDS.map((c) => labelOf(c, CTX)),
