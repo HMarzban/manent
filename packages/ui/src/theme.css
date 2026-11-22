@@ -858,7 +858,8 @@ html[data-white-page] .mn-pages {
 /* 1. One focus ring for every focusable thing, stock or ours. A heading or a
       refusal focused on arrival is where focus starts, not a control: no ring.
       Nor has the palette's field, which holds focus while the palette is open
-      and is the palette's own top edge: its caret is the focus. */
+      and is the palette's own top edge: its caret is the focus. A field inside
+      an input group rings the whole group, as a plain field rings itself. */
 :focus-visible:not(
   [role="dialog"],
   [role="alertdialog"],
@@ -866,15 +867,14 @@ html[data-white-page] .mn-pages {
   [role="listbox"],
   [role="tooltip"],
   :is(h1, [data-arrival])[tabindex="-1"],
-  .mn-palette-field
+  .mn-palette-field,
+  [data-slot="input-group-control"]
 ) {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
   --tw-ring-color: transparent; /* retire the stock halo: one ring, not two */
 }
-[data-slot="input-group"]:focus-within {
-  --tw-ring-color: transparent;
-}
+[data-slot="input-group"]:has([data-slot="input-group-control"]:focus-visible),
 [data-slot="slider-thumb"]:has(:focus-visible) {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
@@ -1049,8 +1049,10 @@ html[data-white-page] .mn-pages {
   position: relative;
   border-radius: var(--shape-control);
 }
-/* only a row that does something looks like it does */
-.mn-row[tabindex]:not([aria-disabled="true"]):hover {
+/* only a row that does something looks like it does: its own keys, or the
+   control around it */
+.mn-row[tabindex]:not([aria-disabled="true"]):hover,
+button:not(:disabled):hover > .mn-row {
   background-color: var(--bg-subtle);
 }
 .mn-row[aria-current]:not([aria-current="false"]),
