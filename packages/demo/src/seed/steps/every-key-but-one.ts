@@ -5,14 +5,18 @@ import {
   EKBO_SCENE_14_FIRST,
   EKBO_SCENE_14_SECOND,
 } from "../../content/small/index.ts";
-import { deriveDrafts, sessionsBetween } from "../../generate/drafts.ts";
+import { sessionsBetween } from "../../generate/drafts.ts";
 import { fitToPages } from "../../generate/fit.ts";
 import type { PageMeter, SeedLayout } from "../../generate/fit.ts";
+import { LINES_PER_PAGE } from "../../generate/grammar.ts";
 import {
   EKBO_GUIDE,
+  SeedBuildError,
+  checkGenerated,
   createUsedLines,
   generateScenes,
 } from "../../generate/index.ts";
+import type { UsedLines } from "../../generate/index.ts";
 import type { Rng } from "../rng.ts";
 import type { SeedStep } from "../seed.ts";
 import {
@@ -36,8 +40,9 @@ const LAYOUT: SeedLayout = {
 };
 const WORKING_PAGES = 99;
 const FIRST_DRAFT_PAGES = 104;
-// the two voicemail scenes the second draft cut, each a copy of the van's beat, put before these scenes
-const CUT_BEFORE_SCENES = [18, 27] as const;
+// the two voicemail scenes the second draft cut, each a copy of the van's beat, stood before these scenes
+const CUT_BEFORE_SCENES: readonly number[] = [18, 27];
+const CUT_PAGES = 2;
 const VAN_BEAT = `${SCRIPT}#22`;
 
 /** The script as each draft holds it, and its fixed scene 14 in each. */
@@ -50,12 +55,10 @@ interface Drafts {
   sceneSecond: SeedPassage;
 }
 
-// the index of scene `scene`'s heading, counting from 1; the end of the script past its last scene
-function headingAt(blocks: readonly SeedBlock[], scene: number): number {
-  const headings = blocks.flatMap((b, i) =>
-    b.element === "scene_heading" ? [i] : [],
-  );
-  return headings[scene - 1] ?? blocks.length;
+/** A cut scene and the heading it stood before. */
+interface Cut {
+  before: SeedBlock;
+  blocks: SeedBlock[];
 }
 
 /** `blocks` with the run `from` replaced by `to`, found by identity. */
@@ -68,19 +71,69 @@ function swapped(
   return [...blocks.slice(0, at), ...to, ...blocks.slice(at + from.length)];
 }
 
+/** `blocks` with each cut put back before its heading. */
+function withCuts(
+  blocks: readonly SeedBlock[],
+  cuts: readonly Cut[],
+): SeedBlock[] {
+  const longer = [...blocks];
+  for (const cut of cuts) {
+    const at = longer.indexOf(cut.before);
+    if (at === -1)
+      throw new RangeError(
+        `the script no longer holds the heading "${cut.before.text}"`,
+      );
+    longer.splice(at, 0, ...cut.blocks);
+  }
+  return longer;
+}
+
+/** Throws SeedBuildError "rules_broken" on the first generator rule `draft` breaks outside the `fixed` blocks. */
+function checkDraft(
+  draft: readonly SeedBlock[],
+  name: string,
+  fixed: readonly SeedBlock[],
+): void {
+  const issue = checkGenerated(
+    draft,
+    EKBO_GUIDE,
+    LINES_PER_PAGE.screenplay,
+  ).find((found) => !fixed.includes(draft[found.blockIndex]!));
+  if (issue !== undefined)
+    throw new SeedBuildError(
+      "rules_broken",
+      `${EKBO_GUIDE.project}: ${name}, block ${issue.blockIndex}: ${issue.code}`,
+    );
+}
+
 async function buildDrafts(meter: PageMeter, rng: Rng): Promise<Drafts> {
   const guide = EKBO_GUIDE;
   const used = createUsedLines();
+  // a cut scene is drawn where it stands without moving the current line on, so what follows it is no nearer to
+  // what came before it in Working, which lacks it, and only further in the first draft, which holds it
+  const inPlace: UsedLines = { ...used, pass: () => {} };
   const sceneSecond = parseSeedText(EKBO_SCENE_14_SECOND);
   const sceneFirst = parseSeedText(EKBO_SCENE_14_FIRST).blocks;
   const beats = guide.beats.filter((b) => b.id.startsWith(`${SCRIPT}#`));
+  const van = beats.find((b) => b.id === VAN_BEAT);
+  if (van === undefined)
+    throw new RangeError(
+      `the guide of ${guide.project} has no beat ${VAN_BEAT}`,
+    );
   const generated: SeedBlock[] = [];
+  const cuts: Cut[] = [];
   for (const [i, beat] of beats.entries()) {
     if (beat.id === `${SCRIPT}#14`) {
       generated.push(...sceneSecond.blocks);
       for (const block of sceneSecond.blocks) used.pass(block);
-    } else
-      generated.push(...generateScenes(guide, ownPages(beats, i), rng, used));
+      continue;
+    }
+    const cut = CUT_BEFORE_SCENES.includes(beat.scenes[0])
+      ? generateScenes(guide, { ...van, pages: [1, CUT_PAGES] }, rng, inPlace)
+      : null;
+    const scenes = generateScenes(guide, ownPages(beats, i), rng, used);
+    if (cut !== null) cuts.push({ before: scenes[0]!, blocks: cut });
+    generated.push(...scenes);
   }
   const after = generated.indexOf(sceneSecond.blocks.at(-1)!) + 1;
   const working = await fitToPages(
@@ -95,32 +148,24 @@ async function buildDrafts(meter: PageMeter, rng: Rng): Promise<Drafts> {
     },
   );
   const beforeAnswer = swapped(working, sceneSecond.blocks, sceneFirst);
-  // the cut scenes make the first draft longer than it was named at, so deriving it only takes units out
-  const short =
-    FIRST_DRAFT_PAGES + 1 - (await meter.pages(beforeAnswer, LAYOUT)).length;
-  const van = beats.find((b) => b.id === VAN_BEAT)!;
-  const cutPages = Math.max(1, Math.ceil(short / CUT_BEFORE_SCENES.length));
-  const longer = [...beforeAnswer];
-  for (const scene of CUT_BEFORE_SCENES.toReversed()) {
-    const cut = generateScenes(
+  const longer = withCuts(beforeAnswer, cuts);
+  // only the script's end makes the first draft its length: units Working has that were not yet written, or actions it lost
+  const end = longer.indexOf(sceneFirst.at(-1)!) + 1;
+  const first = await fitToPages(
+    longer,
+    [{ generated: [end, longer.length], mustStart: null }],
+    {
+      meter,
       guide,
-      { ...van, pages: [1, cutPages] },
       rng,
       used,
-    );
-    longer.splice(headingAt(longer, scene), 0, ...cut);
-  }
-  const at = longer.indexOf(sceneFirst[0]!);
-  const fixed = new Set(sceneFirst.map((_, i) => at + i));
-  const [first] = await deriveDrafts(
-    longer,
-    [
-      { name: "First draft", pages: FIRST_DRAFT_PAGES },
-      { name: null, pages: WORKING_PAGES },
-    ],
-    { fixed, guide, rng, meter, layout: LAYOUT },
+      totals: [{ layout: LAYOUT, pages: FIRST_DRAFT_PAGES }],
+    },
   );
-  return { first: first!, beforeAnswer, working, sceneFirst, sceneSecond };
+  checkDraft(first, "First draft", sceneFirst);
+  checkDraft(beforeAnswer, "the second draft before scene 14", sceneFirst);
+  checkDraft(working, "Working", sceneSecond.blocks);
+  return { first, beforeAnswer, working, sceneFirst, sceneSecond };
 }
 
 export const EVERY_KEY_BUT_ONE: SeedStep = {

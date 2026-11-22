@@ -210,11 +210,6 @@ function freeLine(
   return { entry, cue: draw.rng.pick(speakers(entry)) };
 }
 
-function act(draw: Draw, text: string): SeedBlock {
-  draw.used.add(text);
-  return block("action", text);
-}
-
 // at most one line in three carries a tag, and only a line that ends in a full stop
 function speak(draw: Draw, { entry, cue }: Line): SeedBlock[] {
   draw.used.addDialogue(entry.text);
@@ -235,7 +230,7 @@ const UNIT_WRITERS: Readonly<Record<Unit, (draw: Draw) => SeedBlock[] | null>> =
   {
     action: (draw) => {
       const text = freeAction(draw.guide, draw.beat.cast, draw.rng, draw.used);
-      return text === null ? null : [act(draw, text)];
+      return text === null ? null : [block("action", text)];
     },
     exchange: (draw) => {
       const ask = freeLine(draw, "ask", null);
@@ -247,7 +242,7 @@ const UNIT_WRITERS: Readonly<Record<Unit, (draw: Draw) => SeedBlock[] | null>> =
       const line = freeLine(draw, "instruct", null);
       const text = freeAction(draw.guide, draw.beat.cast, draw.rng, draw.used);
       if (line === null || text === null) return null;
-      return [...speak(draw, line), act(draw, text)];
+      return [...speak(draw, line), block("action", text)];
     },
     statement: (draw) => {
       const line = freeLine(draw, "state", null);
@@ -293,6 +288,8 @@ export function generateScenes(
     let lines = estimatedLines(heading);
     while (lines < share)
       for (const written of writeUnit(draw)) {
+        // an action is recorded at its own line, which in an instruction is past the speech before it
+        if (written.element === "action") used.add(written.text);
         blocks.push(written);
         used.pass(written);
         lines += estimatedLines(written);
