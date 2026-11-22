@@ -20,7 +20,7 @@ import type {
 import { backoffDelayMs } from "../link/backoff.ts";
 import { createSubscribable } from "../outbox/subscribable.ts";
 import { ACK_TIMEOUT_MS } from "../ports/defaults.ts";
-import type { Clock, DocStatus, Subscribable } from "../ports/ports.ts";
+import type { Clock, Subscribable } from "../ports/ports.ts";
 import { ConnectError } from "../ports/ports.ts";
 import type { DocEvent, DocHandle } from "../session/doc-handle.ts";
 import { isFields } from "../upstream/events.ts";
@@ -91,9 +91,8 @@ type Read<T> = (body: unknown) => T | null;
 type Settable<T> = Subscribable<T> & { set(value: T): void };
 type Subscribed = Extract<DocEvent, { type: "subscribed" }>;
 
-/** A subscription made with changes waiting: when this device was last synced, and the state it held then. */
+/** A subscription made with changes waiting: the state this device held then. */
 interface Reconnection {
-  since: number | null;
   before: ProductionState | null;
 }
 
@@ -184,7 +183,10 @@ function isStale(event: Subscribed, held: CachedProduction | null): boolean {
   );
 }
 
-/** The newest issue in `state` that the state held at the reconnection lacks, made after this device was last synced. */
+/**
+ * The newest issue in `state` that the state held at the reconnection lacks. Issues are told apart by
+ * id alone: an issue's time is the server's clock and this device's own may run ahead of it or behind.
+ */
 function issuedSince(
   at: Reconnection,
   state: ProductionState,
@@ -194,8 +196,7 @@ function issuedSince(
   const active = state.sets.at(-1);
   if (issue === undefined || set === undefined || active === undefined)
     return null;
-  if (at.before === null || (at.since !== null && issue.issuedAt <= at.since))
-    return null;
+  if (at.before === null) return null;
   if (at.before.issues.some((held) => held.issueId === issue.issueId))
     return null;
   return { byName: issue.issuedByName, name: set.name, active: active.name };
@@ -210,8 +211,6 @@ class ProductionSession {
   private readonly options: ProductionOptions;
   private readonly syncWaits = new Set<() => void>();
   private readonly stops: (() => void)[];
-  /** `clock.now()` when the document was last seen synced: the handle does not carry DocMeta's. */
-  private lastSyncedAt: number | null;
   private reconnection: Reconnection | null = null;
   private asking = false;
   private askAgain = false;
@@ -222,9 +221,8 @@ class ProductionSession {
     this.options = options;
     const { status } = options.handle;
     this.waiting = createSubscribable(status.get().waiting);
-    this.lastSyncedAt = status.get().synced ? options.clock.now() : null;
     this.stops = [
-      status.subscribe((value) => this.statusChanged(value)),
+      status.subscribe((value) => this.waiting.set(value.waiting)),
       options.handle.on((event) => this.heard(event)),
     ];
     void this.start();
@@ -261,11 +259,6 @@ class ProductionSession {
     await this.refresh();
   }
 
-  private statusChanged(status: DocStatus): void {
-    this.waiting.set(status.waiting);
-    if (status.synced) this.lastSyncedAt = this.options.clock.now();
-  }
-
   private heard(event: DocEvent): void {
     if (event.type === "control" && PRODUCTION_KINDS.includes(event.kind))
       void this.refresh();
@@ -273,7 +266,7 @@ class ProductionSession {
       return;
     const waiting = this.options.handle.status.get().waiting > 0;
     const before = this.current.get()?.state ?? null;
-    this.reconnection = waiting ? { since: this.lastSyncedAt, before } : null;
+    this.reconnection = waiting ? { before } : null;
     void this.refresh();
   }
 
