@@ -1,55 +1,38 @@
-// The handlers of the production commands.
+// The handlers of the production commands, which load what they do the first time one of them runs.
 import type { CommandHandlers } from "@manent/commands";
+import type { HandlerDeps } from "../handlers/index.ts";
+import type { ProductionCommandId } from "./actions.ts";
 
-type ProductionCommandId =
-  | "production.lock"
-  | "production.issue"
-  | "production.recall"
-  | "production.markRevised"
-  | "production.clearRevised"
-  | "production.lockPages"
-  | "production.lockAPages"
-  | "production.renumber"
-  | "production.omitScene"
-  | "production.bringBackScene"
-  | "production.changeLayout"
-  | "production.unlock"
-  | "production.end"
-  | "view.pages"
-  | "view.marks.collated"
-  | "view.marks.this_revision"
-  | "view.marks.all"
-  | "view.marks.since_full_draft"
-  | "view.marks.none"
-  | "view.colourRevised";
-
-// nothing acts on production until its services exist
-const nothingYet = (): void => {};
-
-export function productionHandlers(): Pick<
-  CommandHandlers,
-  ProductionCommandId
-> {
+export function productionHandlers(
+  deps: HandlerDeps,
+): Pick<CommandHandlers, ProductionCommandId> {
+  const later = (id: ProductionCommandId) => (): void => {
+    const { docId } = deps.shellState();
+    if (docId === null) return;
+    void import("./actions.ts").then((loaded) =>
+      loaded.runProductionCommand(id, docId, deps),
+    );
+  };
   return {
-    "production.lock": nothingYet,
-    "production.issue": nothingYet,
-    "production.recall": nothingYet,
-    "production.markRevised": nothingYet,
-    "production.clearRevised": nothingYet,
-    "production.lockPages": nothingYet,
-    "production.lockAPages": nothingYet,
-    "production.renumber": nothingYet,
-    "production.omitScene": nothingYet,
-    "production.bringBackScene": nothingYet,
-    "production.changeLayout": nothingYet,
-    "production.unlock": nothingYet,
-    "production.end": nothingYet,
-    "view.pages": nothingYet,
-    "view.marks.collated": nothingYet,
-    "view.marks.this_revision": nothingYet,
-    "view.marks.all": nothingYet,
-    "view.marks.since_full_draft": nothingYet,
-    "view.marks.none": nothingYet,
-    "view.colourRevised": nothingYet,
+    "production.lock": later("production.lock"),
+    "production.issue": later("production.issue"),
+    "production.recall": later("production.recall"),
+    "production.markRevised": later("production.markRevised"),
+    "production.clearRevised": later("production.clearRevised"),
+    "production.lockPages": later("production.lockPages"),
+    "production.lockAPages": later("production.lockAPages"),
+    "production.renumber": later("production.renumber"),
+    "production.omitScene": later("production.omitScene"),
+    "production.bringBackScene": later("production.bringBackScene"),
+    "production.changeLayout": later("production.changeLayout"),
+    "production.unlock": later("production.unlock"),
+    "production.end": later("production.end"),
+    "view.pages": later("view.pages"),
+    "view.marks.collated": later("view.marks.collated"),
+    "view.marks.this_revision": later("view.marks.this_revision"),
+    "view.marks.all": later("view.marks.all"),
+    "view.marks.since_full_draft": later("view.marks.since_full_draft"),
+    "view.marks.none": later("view.marks.none"),
+    "view.colourRevised": later("view.colourRevised"),
   };
 }
