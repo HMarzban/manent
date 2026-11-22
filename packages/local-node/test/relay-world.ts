@@ -736,6 +736,7 @@ export class RelayWorld {
         if (options.downAfterAdopt === true) this.cloudDown(true);
         return answer;
       },
+      forward: (token, request) => this.cloud.api.forward(token, request),
     };
     this.life = this.startLife();
     this.cloudNet.serve({
@@ -1326,6 +1327,7 @@ export class CoreWorld {
         this.adoptions.push({ docId, workspaceId });
         return this.cloud.api.adopt(token, request);
       },
+      forward: (token, request) => this.cloud.api.forward(token, request),
     };
     return createNodeCore({
       storage: this.nodeStorage,
@@ -1347,6 +1349,7 @@ export class CoreWorld {
       webDir: null,
       launchToken: LAUNCH,
       registry: PRODUCT_SETTING_RULES,
+      renderPdf: async () => new Uint8Array(),
       boot: null,
       storeUsage: () => ({ scripts: 0, bytes: 0 }),
       nodeUrl: NODE_URL,

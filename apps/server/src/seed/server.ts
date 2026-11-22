@@ -9,15 +9,13 @@ import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import {
   PRODUCT_SETTING_RULES,
-  createHistoryService,
-  createProductionService,
   createServer,
   createSignedSessionStore,
   createTicketStore,
+  createWorkflow,
 } from "@manent/server-core";
 import type {
   Clock,
-  HistoryExtras,
   ManentServer,
   SessionStore,
   SyncService,
@@ -25,7 +23,7 @@ import type {
 import { openSqliteStorage } from "@manent/storage";
 import type { Storage } from "@manent/storage";
 import { PROTOCOL_VERSION, docIdV7 } from "@manent/sync-protocol";
-import { createServerRenderPdf, readScriptFonts } from "../production.ts";
+import { readServerRenderPdf } from "../production.ts";
 import { probeSeedCapabilities } from "./capabilities.ts";
 
 /** The host every request to a seed server names. */
@@ -167,20 +165,13 @@ export async function createSeedServer(options: {
     secret: rngBytes(rng, SESSION_KEY_BYTES),
     now: clock.now,
   });
-  const renderPdf = createServerRenderPdf(await readScriptFonts());
+  const renderPdf = await readServerRenderPdf();
   const directory = createDemoDirectory();
-  // the history service and the production service take each other through getters
-  const extras: HistoryExtras = {
-    locksAt: (...args) => production.extras.locksAt(...args),
-    authority: (...args) => production.extras.authority(...args),
-  };
   const sync = (): SyncService => server.sync!;
-  const history = createHistoryService({ sync, storage, clock, ids, extras });
-  const production = createProductionService({
+  const { history, production } = createWorkflow({
     storage,
     sync,
-    history,
-    now: clock.now,
+    clock,
     ids,
     names: (userId) => directory.user(userId)?.name ?? userId,
     renderPdf,

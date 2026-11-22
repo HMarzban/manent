@@ -11,7 +11,6 @@ import type { BlockAttrs, BlockJSON, IdSource } from "@manent/schema";
 import type { Node, ResolvedPos } from "prosemirror-model";
 import { TextSelection } from "prosemirror-state";
 import type { Transaction } from "prosemirror-state";
-import { sameElement } from "./commands.ts";
 import { deleteRangeKeepingSections } from "./delete-range.ts";
 
 // The block node declares every attribute with a default, so its attrs hold every key.
@@ -116,12 +115,7 @@ export function insertBlocks(
   const origin = attrsOf(block);
   const id = ids();
   const tail = schema.nodes.block.create(
-    attrsForSplitTail(
-      origin,
-      sameElement(origin, "middle"),
-      id,
-      ids().slice(0, 6),
-    ),
+    attrsForSplitTail(origin, origin.type, id, ids().slice(0, 6)),
     block.content.cut($caret.parentOffset),
   );
   const at = $caret.pos + 1;

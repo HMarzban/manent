@@ -1,4 +1,5 @@
-// The commands of version history: marking and naming versions, comparing, viewing, restoring and who wrote what.
+// The commands of version history: marking and naming versions, comparing, viewing, restoring, recovered work and who
+// wrote what.
 import type { Keys, PlatformKeys } from "../chord.ts";
 import type { CommandContext } from "../context.ts";
 import { defineCommands } from "../define.ts";
@@ -74,6 +75,9 @@ export const HISTORY_COMMANDS = defineCommands([
   historyCommand("history.showSinceOpened", "Show", {
     palette: { hidden: "the state bar's action" },
   }),
+  historyCommand("history.dismissSinceOpened", "Dismiss", {
+    palette: { hidden: "the state bar's ✕" },
+  }),
   historyCommand("history.backToWorking", "Back to Working"),
   historyCommand("history.nextChange", "Next change"),
   historyCommand("history.previousChange", "Previous change"),
@@ -88,6 +92,10 @@ export const HISTORY_COMMANDS = defineCommands([
     visible: canEdit,
   }),
   historyCommand("history.seeWhatChanged", "See what changed"),
+  // the recovered version, side by side with Working
+  historyCommand("doc.openBeside", "Open beside", {
+    palette: { hidden: "the action of a message about recovered work" },
+  }),
   {
     ...historyCommand("history.whoWrote", "Who wrote this?", {
       menus: [placed("script", "who", 10)],

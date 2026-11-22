@@ -455,7 +455,9 @@ test("in a narrow window one panel closes the other, and a panel over the page c
   const narrower = await renderFrame({ viewportWidthPx: 1000 });
   await run(narrower, "view.sidePanel");
   const overlaid = sidePanel(narrower).closest("[data-overlay]") !== null;
-  press(buttonNamed(sidePanel(narrower), "Close side panel"), "Escape");
+  const close = buttonNamed(sidePanel(narrower), "Close side panel");
+  act(() => close.focus());
+  press(close, "Escape");
   expect([
     open,
     overlaid,

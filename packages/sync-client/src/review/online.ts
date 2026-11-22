@@ -48,6 +48,8 @@ export class OverlapWindow {
   private readonly touched = new Map<string, Touch>();
   /** By block: the overlaps found since the last `take`. */
   private found = new Map<string | null, RecoveredItem>();
+  /** By block: the id of the last overlap this window filed, which a later one replaces. */
+  private readonly filed = new Map<string | null, string>();
   private readonly host: WindowHost;
   private readonly clock: Clock;
 
@@ -98,20 +100,20 @@ export class OverlapWindow {
       const first = touch?.changes.find((change) => isRecent(change, now));
       if (blockId === null || touch === undefined || first === undefined)
         continue;
+      if (this.isHeldElsewhere(blockId)) continue;
       const exclude = new Map([[doc.clientId, first.fromClock]]);
       const theirs = readBlockExcluding(doc, blockId, exclude);
       if (theirs === null || isSameBlock(theirs, touch.mine)) continue;
       const overlap = { blockId, mine: touch.mine, theirs };
       leftovers.push(overlapLeftover(overlap, others));
     }
-    // each takes the id of its block's open overlap, which it replaces
+    // each takes the id of the overlap this window filed for its block and still open, which it replaces
     for (const item of this.host.items(leftovers)) {
-      const open =
-        this.found.get(item.blockId) ??
-        this.host.recovered.find(
-          (r) => r.cause === "overlap" && r.blockId === item.blockId,
-        );
-      this.found.set(item.blockId, { ...item, id: open?.id ?? item.id });
+      const earlier = this.filed.get(item.blockId);
+      const open = this.host.recovered.some((r) => r.id === earlier);
+      const id = earlier !== undefined && open ? earlier : item.id;
+      this.filed.set(item.blockId, id);
+      this.found.set(item.blockId, { ...item, id });
     }
   }
 
@@ -120,6 +122,17 @@ export class OverlapWindow {
     const found = [...this.found.values()];
     this.found = new Map();
     return found;
+  }
+
+  /**
+   * Whether the block has an open overlap this window did not file: a reconnect's or a rebuilt
+   * script's, holding a wording kept nowhere else, which stays the one To review lists.
+   */
+  private isHeldElsewhere(blockId: string): boolean {
+    const filed = this.filed.get(blockId);
+    return this.host.recovered.some(
+      (r) => r.cause === "overlap" && r.blockId === blockId && r.id !== filed,
+    );
   }
 
   private forget(now: number): void {

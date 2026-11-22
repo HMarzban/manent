@@ -32,8 +32,8 @@ export const settled = (page: Page): Promise<unknown> =>
 /** Closes the list of suggestions when one is open, so the next key reaches the line. */
 async function closeSuggestions(page: Page): Promise<void> {
   await settled(page);
-  const expanded = await page.locator(EDITABLE).getAttribute("aria-expanded");
-  if (expanded === "true") await page.keyboard.press("Escape");
+  const list = await page.locator(EDITABLE).getAttribute("aria-controls");
+  if (list !== null) await page.keyboard.press("Escape");
 }
 
 /** You, with the test build's hooks kept, in a new screenplay made with the Library's New script. */

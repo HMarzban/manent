@@ -26,7 +26,7 @@ async function openPanel(
 /** The stand-in as Sam with both panels open, and the caret at the end of a line of text. */
 async function writing(page: Page): Promise<void> {
   await signedInAs(page, "sam", "/__stand-in");
-  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+  await expect(page.locator(EDITABLE)).toBeFocused();
   await openPanel(page, "left_panel", "view.leftPanel", "left_panel");
   await openPanel(page, "side_panel", "view.sidePanel", "side_panel");
   // the Script settings load apart: drawn before the typing, they cannot land among what it changes

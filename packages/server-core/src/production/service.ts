@@ -11,7 +11,9 @@ import type {
   ProductionState,
   RecallRequest,
 } from "@manent/sync-protocol";
-import type { HistoryExtras } from "../history/service.ts";
+import { createHistoryService } from "../history/service.ts";
+import type { HistoryExtras, HistoryService } from "../history/service.ts";
+import type { Clock } from "../sync/ports.ts";
 import { PRODUCTION_EXTRAS } from "./extras.ts";
 import { issuedFile } from "./files.ts";
 import { createProductionHooks } from "./hooks.ts";
@@ -113,4 +115,31 @@ export function createProductionService(
     hooks,
     extras: PRODUCTION_EXTRAS,
   };
+}
+
+/** An authority's history and production services over one store. */
+export interface Workflow {
+  readonly history: HistoryService;
+  readonly production: ProductionService;
+}
+
+/** The history service and the production service, each given what it learns from the other. */
+export function createWorkflow(
+  options: Omit<ProductionOptions, "history" | "now"> & { clock: Clock },
+): Workflow {
+  const { clock, ...rest } = options;
+  const { storage, sync, ids } = rest;
+  const history = createHistoryService({
+    sync,
+    storage,
+    clock,
+    ids,
+    extras: PRODUCTION_EXTRAS,
+  });
+  const production = createProductionService({
+    ...rest,
+    history,
+    now: clock.now,
+  });
+  return { history, production };
 }

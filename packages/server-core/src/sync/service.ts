@@ -131,6 +131,21 @@ export function createSyncService(
       endAll(room, syncError("storage_failed", docOf(room), { retryAfterMs }));
   };
 
+  const broadcast: SyncService["broadcast"] = (docId, kind, data) => {
+    const room = rooms.find(docId);
+    if (room === null || room.doc === null) return;
+    const seq = room.row.headSeq;
+    const control = prepareMessage({
+      type: "CONTROL",
+      ...docOf(room),
+      seq,
+      kind,
+      data,
+    });
+    for (const peer of [...room.editors.keys(), ...room.viewers.keys()])
+      peer.send(control);
+  };
+
   const writePath = createWritePath({
     limits,
     now: clock.now,
@@ -193,6 +208,12 @@ export function createSyncService(
     schemaFloor: options.schemaFloor ?? null,
     checkPush: hooks.checkPush,
     ids: options.ids,
+    copiesKept: (room, control) =>
+      broadcast(
+        room.docId,
+        "copies_kept",
+        new TextEncoder().encode(JSON.stringify(control)),
+      ),
   });
   const rebuilder = createRebuilder({
     ...options,
@@ -327,20 +348,7 @@ export function createSyncService(
         rooms.left(room);
       }
     },
-    broadcast(docId, kind, data) {
-      const room = rooms.find(docId);
-      if (room === null || room.doc === null) return;
-      const seq = room.row.headSeq;
-      const control = prepareMessage({
-        type: "CONTROL",
-        ...docOf(room),
-        seq,
-        kind,
-        data,
-      });
-      for (const peer of [...room.editors.keys(), ...room.viewers.keys()])
-        peer.send(control);
-    },
+    broadcast,
     ingest: intake.ingest,
     modeChanged(docId) {
       const room = rooms.find(docId);

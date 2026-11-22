@@ -45,7 +45,9 @@ const SPOTS: readonly Spot[] = [
     name: "the side panel",
     at: DOC,
     async focus(page) {
-      await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+      await expect(
+        page.locator("[data-region='page'] .mn-page-view"),
+      ).toBeFocused();
       const tabs = page.locator("[data-region='side_panel'] [role='tab']");
       // the panel a press before left open comes back open for the same person
       if ((await tabs.count()) === 0) {
