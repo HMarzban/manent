@@ -144,7 +144,12 @@ function Rows(props: { rows: readonly SendRow[] }): ReactNode {
   return (
     <dl className="flex flex-col divide-y divide-line">
       {given.map((row) => (
-        <div key={row.id} className="flex gap-4">
+        <div
+          key={row.id}
+          // the Tour points at the checks, and at no other row
+          data-tour={row.id === "checks" ? "send:checks" : undefined}
+          className="flex gap-4"
+        >
           <dt className="mn-group-label w-key shrink-0 px-0!">
             {SEND_WORDS[row.id]}
           </dt>
@@ -288,6 +293,7 @@ export function SendFrame(props: {
                     action.disabledReason !== null || action.run === null
                   }
                   aria-describedby={describing ? lineId : undefined}
+                  data-tour="send:confirm"
                   onClick={() => action.run?.()}
                 />
               </div>

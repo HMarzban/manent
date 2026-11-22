@@ -146,14 +146,20 @@ export function StatusButton(props: { doc: DocumentServices }): ReactNode {
         >
           {/* the two slots wrap as one: "Saved · Synced" is never split across lines */}
           <span className="flex max-w-full items-center">
-            <span className="flex max-w-full shrink-0 items-center gap-1 group-data-spans:hidden">
+            <span
+              data-tour="status:device"
+              className="flex max-w-full shrink-0 items-center gap-1 group-data-spans:hidden"
+            >
               <SlotIcons icons={Object.values(DEVICE_ICONS)} />
               <span ref={deviceSlot} />
             </span>
             <span className="whitespace-pre text-fg-muted group-data-spans:hidden">
               {" · "}
             </span>
-            <span className="flex max-w-full items-center gap-1 w-(--status-server-w) group-data-spans:w-auto group-data-[tone=alert]:w-auto">
+            <span
+              data-tour="status:server"
+              className="flex max-w-full items-center gap-1 w-(--status-server-w) group-data-spans:w-auto group-data-[tone=alert]:w-auto"
+            >
               <SlotIcons icons={Object.values(SERVER_ICONS)} />
               <span ref={serverSlot} className="min-w-0" />
             </span>

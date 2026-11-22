@@ -1,4 +1,4 @@
-// The demo bar: a colour scope of its own above everything, with the person, the Connection, the server and the Tour.
+// The demo bar: a colour scope of its own above everything, with the controls that prove the product's claims.
 import { DEMO_WORDS, SurfaceBoundary } from "@manent/ui";
 import { Suspense } from "react";
 import type { ReactNode } from "react";
@@ -19,7 +19,10 @@ export function preloadDemoBarControls(): void {
   controls.preload();
 }
 
-/** Never takes focus; F6 reaches it. One row at every width: short of room, its controls keep only their icons. */
+/**
+ * Never takes focus; F6 reaches it. One row while its controls fit: short of room they keep only their icons, and in
+ * the narrowest bar they take a second row rather than widen the window.
+ */
 export function DemoBar(props: {
   person: TabPerson | null;
   onPersonClick: () => void;

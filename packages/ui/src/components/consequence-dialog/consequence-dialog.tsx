@@ -27,6 +27,8 @@ export interface ConsequenceDialogProps {
   /** The reason clause ("needs a connection") of an action that cannot run now. */
   disabledReason?: string;
   destructive: boolean;
+  /** The action button's Tour target ("lock:confirm"); absent, the Tour points at nothing in the dialog. */
+  actionTour?: string;
   onAction(): void;
   onCancel(): void;
   alternative?: { label: string; destructive?: boolean; onAction(): void };
@@ -146,6 +148,7 @@ export function ConsequenceDialog({
   refusal,
   disabledReason,
   destructive,
+  actionTour,
   onAction,
   onCancel,
   alternative,
@@ -199,6 +202,7 @@ export function ConsequenceDialog({
             variant={destructive ? "destructive" : "default"}
             disabled={disabledLine !== null}
             aria-describedby={describing ? lineId : undefined}
+            data-tour={actionTour}
             onClick={onAction}
           />
         </div>

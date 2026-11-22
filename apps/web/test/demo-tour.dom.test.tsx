@@ -322,6 +322,9 @@ test("the demo bar offers the Tour once the tab has a person", async () => {
     "Online",
     "Offline",
     "Slow",
+    "Add writers",
+    "Timings",
+    "Reorganise",
     "Tour",
   ]);
 });

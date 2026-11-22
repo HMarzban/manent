@@ -169,7 +169,11 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
           ? "beside"
           : null;
   return (
-    <section aria-label={DOCUMENT_WORDS.historyTab} className="flex flex-col">
+    <section
+      aria-label={DOCUMENT_WORDS.historyTab}
+      data-tour="history_list"
+      className="flex flex-col"
+    >
       <HistoryChanges
         docId={docId}
         rows={listed.rows}
