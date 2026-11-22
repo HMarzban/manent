@@ -39,7 +39,7 @@ test("the demo bar keeps its place and its name when its controls' code cannot l
       mounted?.render(
         <>
           <DemoBar
-            personLabel="Person: Leo Marsh"
+            person={{ token: null, userId: "leo", name: "Leo Marsh" }}
             onPersonClick={() => {}}
             control={null}
           />

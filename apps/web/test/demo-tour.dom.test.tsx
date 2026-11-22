@@ -115,6 +115,10 @@ const buttons = (root: ParentNode): HTMLButtonElement[] => [
   ...root.querySelectorAll("button"),
 ];
 
+/** A button's name: its label when it has one, otherwise its words. */
+const nameOf = (button: HTMLButtonElement): string | null =>
+  button.getAttribute("aria-label") ?? button.textContent;
+
 const paragraphs = (root: ParentNode): (string | null)[] =>
   [...root.querySelectorAll("p")].map((p) => p.textContent);
 
@@ -274,7 +278,7 @@ test("a step marks its control with the Tour ring, which is not focus", async ()
 test("the demo bar is its own colour scope and says Demo", async () => {
   const container = await render(
     <DemoBar
-      personLabel="Person: Dana Reyes"
+      person={{ token: null, userId: "dana", name: "Dana Reyes" }}
       onPersonClick={() => {}}
       control={null}
     />,
@@ -284,19 +288,12 @@ test("the demo bar is its own colour scope and says Demo", async () => {
   expect(bar?.getAttribute("aria-label")).toBe("Demo");
   const word = bar?.firstElementChild;
   expect(word?.textContent).toBe("Demo");
-  // set in capitals by the stylesheet, not in the words
-  expect(word?.className.split(" ").includes("uppercase")).toBe(true);
-  // 32 px whether or not its controls have arrived, so nothing moves when they do; in a window too narrow for them
-  // they wrap onto a second row rather than scroll sideways
-  expect(
-    ["min-h-demobar", "flex-wrap"].map((name) =>
-      bar?.className.split(" ").includes(name),
-    ),
-  ).toEqual([true, true]);
+  // the filled tag, set in capitals by the stylesheet, not in the words
+  expect(word?.hasAttribute("data-fill")).toBe(true);
+  // 32 px whether or not its controls have arrived, so nothing moves when they do
+  expect(bar?.className.split(" ").includes("min-h-demobar")).toBe(true);
   await demoBarControls();
-  expect(buttons(container).map((b) => b.textContent)).toEqual([
-    "Person: Dana Reyes",
-  ]);
+  expect(buttons(container).map(nameOf)).toEqual(["Person: Dana Reyes"]);
 });
 
 test("the demo bar offers the Tour once the tab has a person", async () => {
@@ -312,9 +309,7 @@ test("the demo bar offers the Tour once the tab has a person", async () => {
   const bar = (): Element | null =>
     container.querySelector("[data-surface='demo']");
   await demoBarControls();
-  expect(buttons(bar() ?? container).map((b) => b.textContent)).toEqual([
-    "Person",
-  ]);
+  expect(buttons(bar() ?? container).map(nameOf)).toEqual(["Person"]);
   // the shell loads its palette lazily: loaded here first, it arrives inside the act below
   await import("../src/shell/shell-palette.tsx");
   await act(async () =>
@@ -322,8 +317,11 @@ test("the demo bar offers the Tour once the tab has a person", async () => {
       .getState()
       .setPerson({ token: null, userId: "dana", name: "Dana Reyes" }),
   );
-  expect(buttons(bar() ?? container).map((b) => b.textContent)).toEqual([
+  expect(buttons(bar() ?? container).map(nameOf)).toEqual([
     "Person: Dana Reyes",
+    "Online",
+    "Offline",
+    "Slow",
     "Tour",
   ]);
 });
@@ -401,10 +399,10 @@ test("the chosen person carries the word Chosen as well as aria-current", async 
   );
   await settle();
   const [dana, leo] = buttons(container);
-  expect(dana?.textContent).toBe("Dana ReyesHead writer");
+  expect(dana?.textContent).toBe("DRDana ReyesHead writer");
   expect(dana?.hasAttribute("aria-current")).toBe(false);
   expect(leo?.textContent).toBe(
-    "Leo MarshExecutive, reader and commenterChosen",
+    "LMLeo MarshExecutive, reader and commenterChosen",
   );
   expect(leo?.getAttribute("aria-current")).toBe("true");
 });
@@ -444,7 +442,7 @@ test("while the people load the chooser shows nothing, then six placeholder rows
   act(() => clock.advance(300));
   expect(placeholders()).toEqual([]);
   expect(buttons(container).map((b) => b.textContent)).toEqual([
-    "Dana ReyesHead writer",
-    "Leo MarshExecutive, reader and commenter",
+    "DRDana ReyesHead writer",
+    "LMLeo MarshExecutive, reader and commenter",
   ]);
 });
