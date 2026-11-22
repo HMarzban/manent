@@ -158,6 +158,7 @@ function createAnnouncing(options: {
         viewRole: null,
         viewLive: false,
         offlineSinceAt: sync.offlineSince.get(),
+        signedIn: sync.signedIn,
         toReview: options.countOf(docId).get(),
         now: options.now(),
       }),

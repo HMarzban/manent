@@ -393,6 +393,7 @@ export function fakeClient(
 export function fakeSync(client: SyncClient): PersonSync {
   return {
     userId: DANA.userId,
+    signedIn: true,
     client,
     store: createMemoryStore(DANA.userId),
     link: createValue(ONLINE_LINK),
