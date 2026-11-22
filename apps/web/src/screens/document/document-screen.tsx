@@ -17,6 +17,7 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { focusHeading } from "../../focus.ts";
+import { ProductionDialogs } from "../../production/dialogs.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
 import { panelsActions, usePanel } from "../../state/panels.store.ts";
@@ -178,6 +179,7 @@ function Frame(props: { docId: string; doc: DocumentServices }): ReactNode {
       <NoAccess docId={docId} status={status} />
       <SidePanel docId={docId} overlay={overPage} />
       <StatusBar />
+      <ProductionDialogs docId={docId} />
     </>
   );
 }
