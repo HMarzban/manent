@@ -90,15 +90,18 @@ function scenesFor(
   return freeScenes(flat, afterBlockId, held);
 }
 
-/** Each seat's person typing in its scene; the n-th draws from DEMO_SEED, n and the moment they start. */
-function seat(
+/**
+ * Each seat's person typing in its scene; the n-th draws from DEMO_SEED, n and the moment they
+ * start. When one cannot open, the ones that did are stopped before the failure is passed on.
+ */
+async function seat(
   state: Live,
   docId: string,
   seats: readonly { userId: string; scene: Scene | null }[],
   profile: WritingProfile,
 ): Promise<Writer[]> {
   const startedAt = state.live.clock.now();
-  return Promise.all(
+  const opened = await Promise.allSettled(
     seats.map(({ userId, scene }, i) =>
       startWriter(state.live, {
         docId,
@@ -110,6 +113,15 @@ function seat(
       }),
     ),
   );
+  const writers = opened.flatMap((r) =>
+    r.status === "fulfilled" ? [r.value] : [],
+  );
+  const failed = opened.find(
+    (r): r is PromiseRejectedResult => r.status === "rejected",
+  );
+  if (failed === undefined) return writers;
+  await Promise.allSettled(writers.map((w) => w.stop()));
+  throw failed.reason;
 }
 
 async function stopGroup(state: Live, docId: string): Promise<void> {

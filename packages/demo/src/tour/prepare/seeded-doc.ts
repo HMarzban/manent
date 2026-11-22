@@ -37,27 +37,45 @@ export const issuedSet = (
 ): RevisionSetView | null =>
   state.sets.find((s) => s.colour === colour && s.issuedAt !== null) ?? null;
 
+/** The stored value of script setting `setting` of the seeded document `key`, read as `userId`. */
+async function heldSetting(
+  driver: SeedDriver,
+  userId: string,
+  key: string,
+  setting: string,
+): Promise<unknown> {
+  const session = await driver.open(userId, seedDoc(key).docId);
+  try {
+    return scriptSettings(session.doc).entries()[setting];
+  } finally {
+    await session.close();
+  }
+}
+
 /**
  * As `userId`, sets the script setting `setting` of the seeded document `key` to `value` when
  * another value is stored. Both callers' `value` is the setting's default, which a script that
- * never stored the setting holds already. SeedDriverError "refused" when the server refuses it.
+ * never stored the setting holds already. SeedDriverError "refused" when the server refuses it,
+ * or when a fresh read after an accepted change still finds the old value.
  */
 export async function settleSetting(
   driver: SeedDriver,
   userId: string,
   change: { key: string; setting: string; value: string },
 ): Promise<TourPrepareResponse> {
+  const refused = (): SeedDriverError =>
+    new SeedDriverError("refused", `${change.setting} on ${change.key}`);
   const session = await driver.open(userId, seedDoc(change.key).docId);
   try {
     const held = scriptSettings(session.doc).entries()[change.setting];
     if (held === undefined || held === change.value) return READY;
     if ((await session.set(change.setting, change.value)) === "refused")
-      throw new SeedDriverError(
-        "refused",
-        `${change.setting} on ${change.key}`,
-      );
-    return READY;
+      throw refused();
   } finally {
     await session.close();
   }
+  const stored = await heldSetting(driver, userId, change.key, change.setting);
+  // a script that holds no value holds the default
+  if (stored !== undefined && stored !== change.value) throw refused();
+  return READY;
 }
