@@ -75,8 +75,8 @@ function placeBox(
   style.width = `${at.width * CELL_PX}px`;
 }
 
-/** Draws the front pages in `scaffold.front` from the title page, and tells the scaffold the height they take. */
-export function createFrontPages(options: {
+/** What the front pages are drawn from. */
+export interface FrontPagesOptions {
   scaffold: PageScaffold;
   titlePage: TitlePageSource;
   profile: PageProfile;
@@ -85,108 +85,132 @@ export function createFrontPages(options: {
   keys: FieldKeys;
   /** The element the page scrolls in. */
   scroller(): HTMLElement;
-}): FrontPages {
-  const { scaffold, editable, view, keys } = options;
-  const { port, words } = options.titlePage;
-  const doc = scaffold.front.ownerDocument;
-  const style = doc.createElement("style");
-  style.textContent = FRONT_CSS;
-  const boxes = new Map<TitlePageField, FieldBox>();
-  let profile = options.profile;
-  const sheets: HTMLElement[] = [];
-  let labels: string[] = [];
+}
 
-  const boxOf = (field: TitlePageField): FieldBox => {
-    const kept = boxes.get(field);
-    if (kept !== undefined) return kept;
-    const box = createFieldBox({
-      doc,
-      field,
-      word: words[field],
-      editable,
-      write: (text) => port.set(field, text),
-      keys,
-    });
-    boxes.set(field, box);
-    return box;
-  };
-  const sheetAt = (k: number): HTMLElement => {
-    while (sheets.length <= k) {
-      const sheet = doc.createElement("div");
-      sheet.className = "mn-front-sheet";
-      scaffold.front.append(sheet);
-      sheets.push(sheet);
+/** The drawn sheets and boxes, and the profile and labels they were last laid out with. */
+interface Drawn {
+  readonly options: FrontPagesOptions;
+  readonly sheets: HTMLElement[];
+  readonly boxes: Map<TitlePageField, FieldBox>;
+  profile: PageProfile;
+  labels: string[];
+}
+
+function boxOf(drawn: Drawn, field: TitlePageField): FieldBox {
+  const kept = drawn.boxes.get(field);
+  if (kept !== undefined) return kept;
+  const { scaffold, titlePage, editable, keys } = drawn.options;
+  const box = createFieldBox({
+    doc: scaffold.front.ownerDocument,
+    field,
+    word: titlePage.words[field],
+    editable,
+    write: (text) => titlePage.port.set(field, text),
+    keys,
+  });
+  drawn.boxes.set(field, box);
+  return box;
+}
+
+function sheetAt(drawn: Drawn, k: number): HTMLElement {
+  const { front } = drawn.options.scaffold;
+  while (drawn.sheets.length <= k) {
+    const sheet = front.ownerDocument.createElement("div");
+    sheet.className = "mn-front-sheet";
+    front.append(sheet);
+    drawn.sheets.push(sheet);
+  }
+  return drawn.sheets[k]!;
+}
+
+// Sheets and boxes are kept and only moved when they must be, so the box being typed in keeps its focus and caret;
+// returns the height they take.
+function layOut(drawn: Drawn): number {
+  const { titlePage, view } = drawn.options;
+  const { profile } = drawn;
+  const fields = titlePage.port.get();
+  const pages = layoutFrontPages(fields, profile, { printed: false });
+  const placed = new Set<TitlePageField>();
+  let top = 0;
+  pages.forEach((page, k) => {
+    const sheet = sheetAt(drawn, k);
+    if (view === "page") {
+      const height = sheetHeight(page, profile);
+      sheet.style.top = `${top}px`;
+      sheet.style.height = `${height}px`;
+      top += height + PAGE_GAP_PX;
     }
-    return sheets[k]!;
-  };
-  // sheets and boxes are kept and only moved when they must be, so the box being typed in keeps its focus and caret;
-  // returns the height they take
-  const layOut = (): number => {
-    const fields = port.get();
-    const pages = layoutFrontPages(fields, profile, { printed: false });
-    const placed = new Set<TitlePageField>();
-    let top = 0;
-    pages.forEach((page, k) => {
-      const sheet = sheetAt(k);
-      if (view === "page") {
-        const height = sheetHeight(page, profile);
-        sheet.style.top = `${top}px`;
-        sheet.style.height = `${height}px`;
-        top += height + PAGE_GAP_PX;
-      }
-      drawNumber(sheet, page, profile, view);
-      for (const at of page.fields) {
-        const box = boxOf(at.field);
-        placeBox(box, at, profile, view);
-        box.show(fields[at.field]);
-        if (box.element.parentElement !== sheet) sheet.append(box.element);
-        placed.add(at.field);
-      }
-    });
-    for (const sheet of sheets.splice(pages.length)) sheet.remove();
-    labels = pages.map((page) => page.label);
-    for (const [field, box] of boxes)
-      if (!placed.has(field)) box.element.remove();
-    return top;
-  };
-  // a view below the front pages keeps its place as they come, go or grow, as when they arrive under a script already
-  // open at page 1
-  const draw = (): void => {
-    const scroller = options.scroller();
-    const last = sheets.at(-1);
-    const below =
-      last === undefined ||
-      last.getBoundingClientRect().bottom <=
-        scroller.getBoundingClientRect().top;
-    const before = scaffold.pages.getBoundingClientRect().top;
-    scaffold.setFrontHeight(layOut());
-    if (below)
-      scroller.scrollTop += scaffold.pages.getBoundingClientRect().top - before;
-  };
+    drawNumber(sheet, page, profile, view);
+    for (const at of page.fields) {
+      const box = boxOf(drawn, at.field);
+      placeBox(box, at, profile, view);
+      box.show(fields[at.field]);
+      if (box.element.parentElement !== sheet) sheet.append(box.element);
+      placed.add(at.field);
+    }
+  });
+  for (const sheet of drawn.sheets.splice(pages.length)) sheet.remove();
+  drawn.labels = pages.map((page) => page.label);
+  for (const [field, box] of drawn.boxes)
+    if (!placed.has(field)) box.element.remove();
+  return top;
+}
 
+// A view below the front pages keeps its place as they come, go or grow, as when they arrive under a script already
+// open at page 1.
+function draw(drawn: Drawn): void {
+  const { scaffold } = drawn.options;
+  const scroller = drawn.options.scroller();
+  const last = drawn.sheets.at(-1);
+  const below =
+    last === undefined ||
+    last.getBoundingClientRect().bottom <= scroller.getBoundingClientRect().top;
+  const before = scaffold.pages.getBoundingClientRect().top;
+  scaffold.setFrontHeight(layOut(drawn));
+  if (below)
+    scroller.scrollTop += scaffold.pages.getBoundingClientRect().top - before;
+}
+
+function labelAt(drawn: Drawn, top: number): string | null {
+  const { sheets, labels } = drawn;
+  if (top >= drawn.options.scaffold.pages.getBoundingClientRect().top)
+    return null;
+  // a gap belongs to the sheet above it
+  const k = sheets.findIndex(
+    (_sheet, i) =>
+      i === sheets.length - 1 ||
+      top < sheets[i + 1]!.getBoundingClientRect().top,
+  );
+  return labels[k] ?? null;
+}
+
+/** Draws the front pages in `scaffold.front` from the title page, and tells the scaffold the height they take. */
+export function createFrontPages(options: FrontPagesOptions): FrontPages {
+  const { scaffold, titlePage } = options;
+  const drawn: Drawn = {
+    options,
+    sheets: [],
+    boxes: new Map(),
+    profile: options.profile,
+    labels: [],
+  };
+  const style = scaffold.front.ownerDocument.createElement("style");
+  style.textContent = FRONT_CSS;
   scaffold.front.append(style);
-  draw();
-  const unsubscribe = port.subscribe(draw);
+  draw(drawn);
+  const unsubscribe = titlePage.port.subscribe(() => draw(drawn));
   return {
     setProfile(next) {
-      profile = next;
-      draw();
+      drawn.profile = next;
+      draw(drawn);
     },
     show() {
-      sheets[0]?.scrollIntoView({ block: "start" });
-      boxes.get("title")?.focus();
+      drawn.sheets[0]?.scrollIntoView({ block: "start" });
+      drawn.boxes.get("title")?.focus();
     },
-    printed: () => layoutFrontPages(port.get(), profile, { printed: true }),
-    labelAt(top) {
-      if (top >= scaffold.pages.getBoundingClientRect().top) return null;
-      // a gap belongs to the sheet above it
-      const k = sheets.findIndex(
-        (_sheet, i) =>
-          i === sheets.length - 1 ||
-          top < sheets[i + 1]!.getBoundingClientRect().top,
-      );
-      return labels[k] ?? null;
-    },
+    printed: () =>
+      layoutFrontPages(titlePage.port.get(), drawn.profile, { printed: true }),
+    labelAt: (top) => labelAt(drawn, top),
     destroy() {
       unsubscribe();
       scaffold.front.replaceChildren();

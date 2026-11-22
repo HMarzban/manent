@@ -23,7 +23,8 @@ import { idRegistryPlugin } from "../identity/id-registry.ts";
 import { commandKeymap } from "../keys/command-keymap.ts";
 import { detectPlugin } from "../keys/detect.ts";
 import { elementKeysPlugin } from "../keys/element-keys.ts";
-import type { FrontPages } from "../front-pages/sheets.ts";
+import { loadFrontPages } from "../front-pages/load.ts";
+import type { FrontPagesHandle } from "../front-pages/load.ts";
 import type { ElementContext } from "../keys/element-keys.ts";
 import { historyKeysPlugin } from "../keys/history-keys.ts";
 import type { LayoutView } from "../page/config.ts";
@@ -246,6 +247,30 @@ function actionContext(
   };
 }
 
+/** The pages before page 1, loaded apart; none without pages or a title page. */
+function frontPagesOf(
+  options: ScriptEditorOptions,
+  view: EditorView,
+  scaffold: PageScaffold | null,
+  parts: { profile(): PageProfile | null; ports: ScrollPorts },
+): FrontPagesHandle | null {
+  const { titlePage, binding } = options;
+  if (scaffold === null || titlePage === null) return null;
+  return loadFrontPages({
+    scaffold,
+    titlePage,
+    profile: parts.profile,
+    editable: options.editable,
+    view: options.view,
+    scroller: parts.ports.scroller,
+    keys: {
+      platform: options.platform,
+      history: (redo) =>
+        binding.history[redo ? "redo" : "undo"](view.state, view.dispatch),
+    },
+  });
+}
+
 /** The settings the editor follows, and the undo steps; returns each unsubscribe. */
 function subscribe(
   options: ScriptEditorOptions,
@@ -313,34 +338,12 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
       layoutView: options.view,
       profile,
     });
-  let front: FrontPages | null = null;
-  let destroyed = false;
-  const { titlePage } = options;
-  // loaded apart, as nothing of them is in view when a script opens
-  if (scaffold !== null && titlePage !== null)
-    void import("../front-pages/sheets.ts").then(({ createFrontPages }) => {
-      const now = profile();
-      if (destroyed || now === null) return;
-      front = createFrontPages({
-        scaffold,
-        titlePage,
-        profile: now,
-        editable,
-        view: options.view,
-        scroller: ports.scroller,
-        keys: {
-          platform: options.platform,
-          history: (redo) =>
-            binding.history[redo ? "redo" : "undo"](view.state, view.dispatch),
-        },
-      });
-    });
+  const front = frontPagesOf(options, view, scaffold, { profile, ports });
   const actions = actionContext(context, view, editable);
   const subscriptions = subscribe(options, view, () => {
     layout = readLayoutSettings((key) => script.get(key));
     pages?.repage();
-    const next = profile();
-    if (next !== null) front?.setProfile(next);
+    front?.relayout();
   });
   return {
     view,
@@ -355,7 +358,6 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     frontPages: () => front?.printed() ?? null,
     frontPageAt: (top) => front?.labelAt(top) ?? null,
     destroy() {
-      destroyed = true;
       for (const unsubscribe of subscriptions) unsubscribe();
       front?.destroy();
       pages?.destroy();
