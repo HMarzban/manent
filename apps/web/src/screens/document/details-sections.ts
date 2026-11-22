@@ -2,6 +2,7 @@
 import type { ComponentType } from "react";
 import { ImportSection } from "../../import/import-section.tsx";
 import { LayoutGroup } from "./layout-group.tsx";
+import { SceneSection } from "./scene-section.tsx";
 import { WhoWrote } from "./who-wrote.tsx";
 
 export interface DetailsSection {
@@ -13,5 +14,6 @@ export interface DetailsSection {
 export const DETAILS_SECTIONS: readonly DetailsSection[] = [
   { id: "layout", scope: "selection", Section: LayoutGroup },
   { id: "who_wrote", scope: "selection", Section: WhoWrote },
+  { id: "scene", scope: "scene", Section: SceneSection },
   { id: "import", scope: "script", Section: ImportSection },
 ];

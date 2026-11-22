@@ -18,6 +18,7 @@
     "prosemirror-transform": "catalog:",
     "prosemirror-keymap": "catalog:",
     "prosemirror-commands": "catalog:",
+    "prosemirror-search": "catalog:",
     "@fontsource/courier-prime": "catalog:"
   },
   "devDependencies": {

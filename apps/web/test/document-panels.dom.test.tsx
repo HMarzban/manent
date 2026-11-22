@@ -41,8 +41,11 @@ const scene = (
   patch: Partial<OutlineRow> = {},
 ): OutlineRow => ({
   blockId,
+  kind: "scene",
   number,
   heading,
+  synopsis: "",
+  eighths: null,
   omitted: false,
   current: false,
   ...patch,

@@ -29,7 +29,11 @@ export type StyleMark = (typeof STYLE_MARKS)[number];
 
 /**
  * A colour or highlight of null is None. `align` and `space_before` toggle.
- * In `layout` a field left out is unchanged, and null returns it to the element's own.
+ * In `layout` a field left out is unchanged, and null returns it to the element's own. `find` sets the text the Find
+ * bar looks for; `replace` and `replace_all` write `text` in place of the match the selection holds, or of every match;
+ * `synopsis` writes the one-line summary of the scene whose heading is `blockId`. `go_to` puts the caret at `offset` in
+ * `blockId`, `step_scene` at the next scene's heading (1) or the previous one's (-1), and `go_to_person` at the cursor
+ * of the person present `userId`; each focuses the page.
  */
 export type EditorAction =
   | { kind: "element"; slot: ElementSlot }
@@ -49,7 +53,16 @@ export type EditorAction =
       spaceBefore?: number | null;
     }
   | { kind: "undo" }
-  | { kind: "redo" };
+  | { kind: "redo" }
+  | { kind: "find"; search: string }
+  | { kind: "find_next" }
+  | { kind: "find_previous" }
+  | { kind: "replace"; text: string }
+  | { kind: "replace_all"; text: string }
+  | { kind: "synopsis"; blockId: string; text: string }
+  | { kind: "go_to"; blockId: string; offset: number }
+  | { kind: "step_scene"; direction: 1 | -1 }
+  | { kind: "go_to_person"; userId: string };
 
 export type ActionResult =
   | { ok: true }
