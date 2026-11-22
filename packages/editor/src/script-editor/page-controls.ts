@@ -7,7 +7,7 @@ import { blockNumber } from "../cursors/place.ts";
 import { ZOOM_MAX, ZOOM_MIN } from "../page/config.ts";
 import type { LayoutView } from "../page/config.ts";
 import type { PageScaffold } from "../page/scaffold.ts";
-import { caretPlace } from "../pagination/caret.ts";
+import { caretPlace, pageAtPos } from "../pagination/caret.ts";
 import { paginationKey, setPagination } from "../pagination/plugin.ts";
 import type { ScrollPorts } from "../scroll/stability.ts";
 import { isInView } from "../scroll/typewriter.ts";
@@ -32,21 +32,32 @@ function topOf(view: EditorView, pos: number): number | null {
   return dom instanceof HTMLElement ? dom.getBoundingClientRect().top : null;
 }
 
+/** The position under the page's middle at viewport height `top`; null where there is none. */
+function posAtHeight(view: EditorView, top: number): number | null {
+  const box = view.dom.getBoundingClientRect();
+  return view.posAtCoords({ left: box.left + box.width / 2, top })?.pos ?? null;
+}
+
 /** The block under the page's middle at viewport height `top`: its index, where it starts and its viewport top. */
 function blockAtHeight(
   view: EditorView,
   top: number,
 ): { block: number; pos: number; top: number } | null {
-  const box = view.dom.getBoundingClientRect();
-  const at = view.posAtCoords({ left: box.left + box.width / 2, top });
+  const at = posAtHeight(view, top);
   if (at === null) return null;
-  const $pos = view.state.doc.resolve(at.pos);
+  const $pos = view.state.doc.resolve(at);
   if ($pos.depth < 2) return null;
   const pos = $pos.before(2);
   const blockTop = topOf(view, pos);
   return blockTop === null
     ? null
     : { block: blockNumber(view.state, $pos), pos, top: blockTop };
+}
+
+/** The index of the page under the page's middle at viewport height `top`; null without pages or where there is none. */
+export function pageAtHeight(view: EditorView, top: number): number | null {
+  const at = posAtHeight(view, top);
+  return at === null ? null : pageAtPos(view.state, at);
 }
 
 /** Where block `block` starts, counted in document order; without pages there is no index, so the blocks before it are counted. */

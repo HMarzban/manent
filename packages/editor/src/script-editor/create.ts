@@ -38,7 +38,11 @@ import { scrollPlugin } from "../scroll/stability.ts";
 import type { ScrollPorts } from "../scroll/stability.ts";
 import { sourcePlugin } from "../source/source-plugin.ts";
 import { mountEditor } from "./mount-view.ts";
-import { createPageControls, createScrollPorts } from "./page-controls.ts";
+import {
+  createPageControls,
+  createScrollPorts,
+  pageAtHeight,
+} from "./page-controls.ts";
 import type { Desk, PageControls } from "./page-controls.ts";
 import type {
   DispatchGuardPort,
@@ -80,6 +84,8 @@ export interface ScriptEditor {
   frontPages(): FrontPage[] | null;
   /** The label of the page before page 1 at viewport height `top`, px; null anywhere else. */
   frontPageAt(top: number): string | null;
+  /** The index of the page at viewport height `top`, px; null without pages or where there is no script. */
+  pageAt(top: number): number | null;
   destroy(): void;
 }
 
@@ -357,6 +363,7 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     showTitlePage: () => front?.show(),
     frontPages: () => front?.printed() ?? null,
     frontPageAt: (top) => front?.labelAt(top) ?? null,
+    pageAt: (top) => pageAtHeight(view, top),
     destroy() {
       for (const unsubscribe of subscriptions) unsubscribe();
       front?.destroy();

@@ -1,6 +1,5 @@
 // The label beside the scrollbar thumb while the person scrolls: the page at the top of the view, in the readout's words.
 import type { ScriptEditor, Timers } from "@manent/editor";
-import { engineFor } from "@manent/pagination";
 import { READOUT_WORDS } from "@manent/ui";
 import { productionServicesFor } from "../production/live-services.ts";
 
@@ -16,30 +15,6 @@ const NOTHING_TO_STOP = (): void => {};
 
 const LABEL_CLASS =
   "pointer-events-none fixed z-50 rounded-md bg-foreground text-background whitespace-nowrap opacity-0 motion-safe:transition-opacity motion-safe:duration-(--dur-base)";
-
-// The index of the page at the scroller's top edge; null where the top edge is on no block.
-function pageAtTop(editor: ScriptEditor, scroller: HTMLElement): number | null {
-  const p = editor.pagination();
-  const engine = p === null ? null : engineFor(p.engineVersion);
-  if (p === null || engine === null) return null;
-  const edge = scroller.getBoundingClientRect();
-  const column = editor.view.dom.getBoundingClientRect();
-  const hit = editor.view.posAtCoords({
-    left: (column.left + column.right) / 2,
-    top: edge.top + PROBE_PX,
-  });
-  if (hit === null) return null;
-  const { doc } = editor.view.state;
-  const $pos = doc.resolve(hit.pos);
-  if ($pos.depth < 2) return null;
-  let block = $pos.index(1);
-  for (let s = 0; s < $pos.index(0); s++) block += doc.child(s).childCount;
-  return engine.pageOf(
-    p,
-    Math.min(block, p.blocks.length - 1),
-    $pos.parentOffset,
-  );
-}
 
 /** The readout's sentence for the front page `label`, which the count leaves out. */
 function frontLabelOf(editor: ScriptEditor, label: string): string | null {
@@ -70,11 +45,10 @@ function labelAtTop(
   scroller: HTMLElement,
   docId: string,
 ): string | null {
-  const front = editor.frontPageAt(
-    scroller.getBoundingClientRect().top + PROBE_PX,
-  );
+  const top = scroller.getBoundingClientRect().top + PROBE_PX;
+  const front = editor.frontPageAt(top);
   if (front !== null) return frontLabelOf(editor, front);
-  const index = pageAtTop(editor, scroller);
+  const index = editor.pageAt(top);
   return index === null ? null : labelOf(editor, docId, index);
 }
 
