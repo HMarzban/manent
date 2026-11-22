@@ -103,24 +103,33 @@ function patchAt(value: unknown, path: string): Patch {
   ];
 }
 
-/** The trace in a published file's bytes. Its `name` is empty: the file names nothing, so the caller sets it. */
+/**
+ * The trace in a published file's bytes. Its `name` is empty: the file names nothing, so the caller sets it.
+ * A patch reaching past the end of the text it applies to is refused, so every trace read here replays.
+ */
 export function readTrace(bytes: Uint8Array): Trace {
   const json = parseJson(bytes);
   if (!isRecord(json) || !Array.isArray(json.txns))
     throw new TraceError("a trace must be an object with a txns list");
+  const startContent = textAt(json.startContent, "startContent");
+  const endContent = textAt(json.endContent, "endContent");
+  let length = startContent.length;
   const patches = json.txns.flatMap((txn: unknown, t) => {
     if (!isRecord(txn) || !Array.isArray(txn.patches))
       throw new TraceError(`txns[${t}] must have a patches list`);
-    return txn.patches.map((patch: unknown, p) =>
-      patchAt(patch, `txns[${t}].patches[${p}]`),
-    );
+    return txn.patches.map((value: unknown, p) => {
+      const path = `txns[${t}].patches[${p}]`;
+      const patch = patchAt(value, path);
+      const [at, deleted, inserted] = patch;
+      if (at + deleted > length)
+        throw new TraceError(
+          `${path} reaches past the end of the text, ${length} characters long`,
+        );
+      length += inserted.length - deleted;
+      return patch;
+    });
   });
-  return {
-    name: "",
-    startContent: textAt(json.startContent, "startContent"),
-    endContent: textAt(json.endContent, "endContent"),
-    patches,
-  };
+  return { name: "", startContent, endContent, patches };
 }
 
 type Download = { ok: true; bytes: Uint8Array } | { ok: false; reason: string };

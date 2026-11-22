@@ -114,6 +114,16 @@ test("a trace of the wrong shape is refused with its code", () => {
     gzipJson({ startContent: 1, endContent: "", txns: [] }),
     gzipJson({ startContent: "", endContent: "\u{1F3AC}", txns: [] }),
     gzipSync("not json"),
+    gzipJson({
+      startContent: "",
+      endContent: "",
+      txns: [{ patches: [[5, 0, "a"]] }],
+    }),
+    gzipJson({
+      startContent: "ab",
+      endContent: "",
+      txns: [{ patches: [[1, 2, ""]] }],
+    }),
   ].map((bytes) => {
     try {
       readTrace(bytes);
@@ -123,6 +133,8 @@ test("a trace of the wrong shape is refused with its code", () => {
     }
   });
   expect(refusals).toEqual([
+    "bad_trace",
+    "bad_trace",
     "bad_trace",
     "bad_trace",
     "bad_trace",
@@ -172,16 +184,35 @@ test("any bytes end in a trace or a refusal with a code", () => {
       fc.jsonValue(),
     ),
   });
+  // well shaped, its patches landing on either side of the end of the text
+  const nearEnd = fc.record({
+    startContent: fc.string({ maxLength: 6 }),
+    endContent: fc.string(),
+    txns: fc.array(
+      fc.record({
+        patches: fc.array(
+          fc.tuple(
+            fc.nat({ max: 4 }),
+            fc.nat({ max: 2 }),
+            fc.string({ maxLength: 3 }),
+          ),
+          { maxLength: 4 },
+        ),
+      }),
+      { maxLength: 3 },
+    ),
+  });
   const bytes = fc.oneof(
     fc.uint8Array(),
     nearTrace.map(gzipJson),
+    nearEnd.map(gzipJson),
     fc.jsonValue().map(gzipJson),
   );
   fc.assert(
     fc.property(bytes, (input) => {
       try {
         const trace = readTrace(input);
-        return (
+        const shaped =
           typeof trace.startContent === "string" &&
           trace.patches.every(
             ([at, deleted, inserted]) =>
@@ -190,8 +221,10 @@ test("any bytes end in a trace or a refusal with a code", () => {
               Number.isSafeInteger(deleted) &&
               deleted >= 0 &&
               typeof inserted === "string",
-          )
-        );
+          );
+        // an accepted trace always replays: the reader refuses what the replay would
+        replayTrace(trace, { clientId: 1 });
+        return shaped;
       } catch (error) {
         return error instanceof TraceError && error.code === "bad_trace";
       }
