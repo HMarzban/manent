@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { blocksToText, parseSeedText } from "../src/content/markup.ts";
 import {
   checkGenerated,
+  createUsedLines,
   generateChapter,
   generateScenes,
   SeedBuildError,
@@ -27,7 +28,7 @@ const issues = (text: string) =>
 
 const sceneText = (seed: number) =>
   blocksToText(
-    generateScenes(TINY, TINY.beats[0]!, createRng(seed), new Set()),
+    generateScenes(TINY, TINY.beats[0]!, createRng(seed), createUsedLines()),
   );
 
 // the same five-word action on the first line and on `line`, with three-word actions between
@@ -39,7 +40,8 @@ const withRepeatAt = (line: number) =>
   ).join("\n");
 
 const headingOf = (chapter: number) =>
-  generateChapter(TINY_PROSE, chapter, 10, createRng(1), new Set())[0]!.text;
+  generateChapter(TINY_PROSE, chapter, 10, createRng(1), createUsedLines())[0]!
+    .text;
 
 test("the same seed writes the same scenes", () => {
   expect(sceneText(7)).toBe(sceneText(7));
@@ -48,12 +50,12 @@ test("the same seed writes the same scenes", () => {
 
 test("generated scenes keep to their cast and places and answer every question", () => {
   const beat = TINY.beats[0]!;
-  const blocks = generateScenes(TINY, beat, createRng(3), new Set());
+  const blocks = generateScenes(TINY, beat, createRng(3), createUsedLines());
   expect(checkGenerated(blocks, TINY, 55)).toEqual([]);
   // Orla is in the guide's cast but not in this beat's; a line with a speaker is only ever that speaker's
   const speakerOf = new Map(TINY.dialogue.map((d) => [d.text, d.speaker]));
   const strays = Array.from({ length: 20 }, (_, seed) =>
-    generateScenes(TINY, beat, createRng(seed), new Set()),
+    generateScenes(TINY, beat, createRng(seed), createUsedLines()),
   ).flatMap((scenes) =>
     scenes.filter(
       (b, i) =>
@@ -113,19 +115,28 @@ test("a question answered within the next two speeches, by someone else, is answ
 });
 
 test("a sentence may come back after ten pages, never sooner", () => {
-  expect(issues(withRepeatAt(551))).toEqual([]);
-  expect(issues(withRepeatAt(540))).toEqual([["repeated_sentence", 539]]);
+  // each of these blocks is two estimated lines, and ten pages of 55 lines are 550
+  expect(issues(withRepeatAt(276))).toEqual([]);
+  expect(issues(withRepeatAt(275))).toEqual([["repeated_sentence", 274]]);
 });
 
 test("a guide that runs out of lines stops the build instead of repeating", () => {
   const long = { ...TINY.beats[0]!, pages: [1, 40] as const };
   expect(
-    buildError(() => generateScenes(TINY, long, createRng(1), new Set())),
+    buildError(() =>
+      generateScenes(TINY, long, createRng(1), createUsedLines()),
+    ),
   ).toEqual(["generator_exhausted", "tiny: tiny/script#1"]);
 });
 
 test("a chapter has its heading, its break, its ledger entry and a closing line", () => {
-  const blocks = generateChapter(TINY_PROSE, 3, 900, createRng(5), new Set());
+  const blocks = generateChapter(
+    TINY_PROSE,
+    3,
+    900,
+    createRng(5),
+    createUsedLines(),
+  );
   expect(blocks[0]).toEqual({
     element: "chapter",
     text: "Chapter Three: The Night Freight",
@@ -164,7 +175,7 @@ test("a chapter's number is written in words, hyphenated, each part capitalised"
 });
 
 test("generated text never repeats a line across calls that share their used set", () => {
-  const used = new Set<string>();
+  const used = createUsedLines();
   const lines = [
     ...generateScenes(TINY, TINY.beats[0]!, createRng(11), used),
     ...generateScenes(TINY, TINY.beats[1]!, createRng(12), used),

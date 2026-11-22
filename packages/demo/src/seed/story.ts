@@ -10,7 +10,7 @@ import type { SeedContext } from "./seed.ts";
 export interface Story {
   /** The engine's page meter, which every fit of this story measures with. */
   readonly meter: PageMeter;
-  /** The driver's clock moves to the time `spec` names in the seed's notation. */
+  /** The driver's clock moves to the time `spec` names in the seed's notation; RangeError when that is before the story's last. */
   at(spec: string): Promise<void>;
   session(userId: string, key: string): Promise<SeedSession>;
   /** Inserts `blocks` after the block `after` (null: at the start); returns the new block ids. */
@@ -92,9 +92,18 @@ export function createStory(context: SeedContext, step: string): Story {
   const session = (userId: string, key: string): Promise<SeedSession> =>
     driver.open(userId, docId(key));
   const production = capabilities.has("production") ? driver.production : null;
+  let last: { spec: string; at: number } | null = null;
   return {
     meter,
-    at: (spec) => driver.setTime(time.at(spec)),
+    async at(spec) {
+      const at = time.at(spec);
+      if (last !== null && at < last.at)
+        throw new RangeError(
+          `the story of ${step} cannot go back from ${last.spec} to ${spec}`,
+        );
+      last = { spec, at };
+      await driver.setTime(at);
+    },
     session,
     async write(target, blocks, after, ids) {
       const written = blocks.map(() => ids());
