@@ -62,6 +62,7 @@ function at(
       return { ok: true };
     },
     zoomPercent: () => 100,
+    showTitlePage: () => {},
   });
   return { services, actions, visits };
 }

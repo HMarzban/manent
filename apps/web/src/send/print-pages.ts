@@ -1,7 +1,14 @@
 // The pages as the printer gets them: each page of the engine's layout drawn as a sheet of its paper,
 // every line placed on the page's grid in points.
 import { CELL_PT, STYLE, UNIT_PT, engineFor } from "@manent/pagination";
-import type { Engine, LineRun, Pagination } from "@manent/pagination";
+import type {
+  Engine,
+  FrontPage,
+  LineRun,
+  PageGeometry,
+  Pagination,
+  PositionedLine,
+} from "@manent/pagination";
 import type { Frames } from "@manent/sync-client";
 
 /** The id of the element the printer gets. */
@@ -34,13 +41,12 @@ function runSpan(run: LineRun): HTMLSpanElement {
   return span;
 }
 
-/** Page `index` of `p` as a sheet of its paper, in points, in the script font with ligatures and kerning off. */
-export function drawSheet(
-  engine: Engine,
-  p: Pagination,
-  index: number,
+// `lines` on a sheet of the paper, in points, in the script font with ligatures and kerning off.
+function sheetOf(
+  geometry: PageGeometry,
+  lines: readonly PositionedLine[],
 ): HTMLElement {
-  const { widthPt, heightPt, marginLeftPt, marginTopPt } = p.profile.geometry;
+  const { widthPt, heightPt, marginLeftPt, marginTopPt } = geometry;
   const sheet = document.createElement("div");
   Object.assign(sheet.style, {
     position: "relative",
@@ -54,7 +60,7 @@ export function drawSheet(
     fontVariantLigatures: "none",
     whiteSpace: "pre",
   });
-  for (const line of engine.layoutPage(p, index).lines) {
+  for (const line of lines) {
     const row = document.createElement("div");
     row.style.position = "absolute";
     row.style.left = `${marginLeftPt + line.x * CELL_PT}pt`;
@@ -65,14 +71,27 @@ export function drawSheet(
   return sheet;
 }
 
+/** Page `index` of `p` as a sheet of its paper. */
+export function drawSheet(
+  engine: Engine,
+  p: Pagination,
+  index: number,
+): HTMLElement {
+  return sheetOf(p.profile.geometry, engine.layoutPage(p, index).lines);
+}
+
 /**
- * Builds `#mn-print` at the end of the body, one sheet per page, a batch of pages per frame. Rejects with the
- * signal's reason when it is aborted, and with what was thrown when a page cannot be drawn; either way it removes
- * what it built. A `#mn-print` left from an earlier print is replaced.
+ * Builds `#mn-print` at the end of the body: the `front` pages first, then one sheet per page, a batch of pages per
+ * frame. Rejects with the signal's reason when it is aborted, and with what was thrown when a page cannot be drawn;
+ * either way it removes what it built. A `#mn-print` left from an earlier print is replaced.
  */
 export function printPages(
   p: Pagination,
-  options: { frames: Frames; signal: AbortSignal },
+  options: {
+    frames: Frames;
+    signal: AbortSignal;
+    front?: readonly FrontPage[];
+  },
 ): Promise<HTMLElement> {
   const { frames, signal } = options;
   return new Promise((resolve, reject) => {
@@ -83,6 +102,8 @@ export function printPages(
     root.id = PRINT_ID;
     // the theme's rule for this class prints it on light paper with its colours exact
     root.className = PRINT_ID;
+    for (const page of options.front ?? [])
+      root.append(sheetOf(p.profile.geometry, page.lines));
     document.body.append(root);
     let cancelFrame = NO_FRAME;
     let next = 0;

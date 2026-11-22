@@ -311,6 +311,13 @@ html[data-white-page] .mn-pages {
     var(--p-write-violet-deep),
     var(--p-write-violet-bright)
   );
+  /* Ink source and a game script's branching lines: each role in one of the writer's colours */
+  --page-src-knot: var(--page-text-blue);
+  --page-src-divert: var(--page-text-violet);
+  --page-src-choice: var(--page-text-green);
+  --page-src-logic: var(--page-text-orange);
+  --page-src-tag: var(--page-text-red);
+  --page-src-comment: var(--page-ink-muted);
   --page-hl-yellow: light-dark(rgb(240 190 0 / 0.38), rgb(227 179 65 / 0.18));
   --page-hl-green: light-dark(rgb(40 170 90 / 0.28), rgb(90 200 130 / 0.18));
   --page-hl-pink: light-dark(rgb(230 70 140 / 0.24), rgb(240 110 160 / 0.20));
@@ -880,6 +887,8 @@ html[data-white-page] .mn-pages {
   :is(h1, [data-arrival])[tabindex="-1"],
   .mn-palette-field,
   .mn-page-view[contenteditable="true"],
+  .mn-plain[contenteditable="true"],
+  .mn-front-field[contenteditable="plaintext-only"],
   [data-slot="input-group-control"]
 ) {
   outline: var(--focus-w) solid var(--focus);

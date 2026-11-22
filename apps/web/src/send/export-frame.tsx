@@ -1,7 +1,7 @@
 // The Export form's frame, loaded apart from the entry: a clean PDF of the whole script, written from the pages
 // on screen, or its FDX or Fountain file, written from the open editor's script.
 import type { KeptItem, KeptKind } from "@manent/formats";
-import type { Pagination } from "@manent/pagination";
+import type { FrontPage, Pagination } from "@manent/pagination";
 import type { Choice } from "@manent/settings";
 import {
   EDITOR_WORDS,
@@ -14,6 +14,7 @@ import type { Message } from "@manent/ui";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { scriptForExport } from "../editor-host/export-source.ts";
+import { liveFrontPages } from "../editor-host/live-editor.ts";
 import type { SendFormProps } from "../screens/send/forms.ts";
 import { SendFrame } from "../screens/send/send-frame.tsx";
 import type { SendRow } from "../screens/send/send-frame.tsx";
@@ -105,23 +106,24 @@ async function fetchBytes(url: string): Promise<Uint8Array> {
 }
 
 /**
- * Writes the clean PDF of `pages` and hands it to the browser as a download; nothing is saved once `signal` has
- * aborted. Rejects when the fonts or the writer fail.
+ * Writes the clean PDF of the `front` pages and `pages` and hands it to the browser as a download; nothing is saved
+ * once `signal` has aborted. Rejects when the fonts or the writer fail.
  */
 async function exportPdf(work: {
   pages: Pagination;
+  front: readonly FrontPage[];
   title: string;
   now: () => number;
   signal: AbortSignal;
 }): Promise<void> {
-  const { pages, title, now, signal } = work;
+  const { pages, front, title, now, signal } = work;
   const [fonts, { writePdf }] = await Promise.all([
     loadPdfFonts(fetchBytes),
     import("@manent/formats"),
   ]);
   // a copy over an ArrayBuffer of its own, which a Blob takes
   const bytes = new Uint8Array(
-    await writePdf(pages, { fonts, title, createdAt: now() }),
+    await writePdf(pages, { fonts, front, title, createdAt: now() }),
   );
   if (!signal.aborted) save(bytes, fileName(title, "pdf"), fileType("pdf"));
 }
@@ -207,7 +209,13 @@ export function LiveExport(props: SendFormProps): ReactNode {
     const cancel = frame(() => {
       const written =
         kind === "pdf"
-          ? exportPdf({ pages, title, now, signal })
+          ? exportPdf({
+              pages,
+              front: liveFrontPages(props.docId) ?? [],
+              title,
+              now,
+              signal,
+            })
           : exportScriptFile({ kind, docId: props.docId, title, signal });
       written.then(
         () => {

@@ -193,6 +193,7 @@ function liveRig(): {
     },
     editable: true,
     zoom: () => 1,
+    frontPages: () => null,
   });
   return {
     offer(people) {

@@ -1,10 +1,11 @@
 // The Print form's frame, loaded apart from the entry: the pages on screen, built for the printer a batch at a
 // time.
-import type { Pagination } from "@manent/pagination";
+import type { FrontPage, Pagination } from "@manent/pagination";
 import type { Frames } from "@manent/sync-client";
 import { EDITOR_WORDS } from "@manent/ui";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { liveFrontPages } from "../editor-host/live-editor.ts";
 import type { SendFormProps } from "../screens/send/forms.ts";
 import { SendFrame } from "../screens/send/send-frame.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
@@ -15,17 +16,18 @@ import { PRINT_ID, printCss, printPages } from "./print-pages.ts";
 const WORDS = EDITOR_WORDS.send;
 
 /**
- * Builds `pages` for the printer, telling `onBuilt` how many sheets are built after each frame, and opens the print
- * dialogue; what was built goes once printing ends. Rejects, leaving nothing behind, when the build fails or `signal`
- * aborts.
+ * Builds the `front` pages and `pages` for the printer, telling `onBuilt` how many of `pages` are built after each
+ * frame, and opens the print dialogue; what was built goes once printing ends. Rejects, leaving nothing behind, when
+ * the build fails or `signal` aborts.
  */
 async function printScript(work: {
   pages: Pagination;
+  front: readonly FrontPage[];
   frame: Environment["frame"];
   signal: AbortSignal;
   onBuilt: (built: number) => void;
 }): Promise<void> {
-  const { pages, frame, signal, onBuilt } = work;
+  const { pages, front, frame, signal, onBuilt } = work;
   const style = document.createElement("style");
   style.textContent = printCss(pages);
   document.head.append(style);
@@ -33,12 +35,13 @@ async function printScript(work: {
     request: (fn) =>
       frame(() => {
         fn();
-        onBuilt(document.getElementById(PRINT_ID)?.childElementCount ?? 0);
+        const sheets = document.getElementById(PRINT_ID)?.childElementCount;
+        onBuilt(Math.max(0, (sheets ?? 0) - front.length));
       }),
   };
   let root: HTMLElement;
   try {
-    root = await printPages(pages, { frames: counted, signal });
+    root = await printPages(pages, { frames: counted, signal, front });
   } catch (reason) {
     style.remove();
     throw reason;
@@ -78,6 +81,7 @@ export function LivePrint(props: SendFormProps): ReactNode {
     try {
       await printScript({
         pages,
+        front: liveFrontPages(props.docId) ?? [],
         frame,
         signal: controller.signal,
         onBuilt: setBuilt,

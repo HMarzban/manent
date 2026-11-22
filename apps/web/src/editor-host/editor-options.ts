@@ -12,6 +12,7 @@ import type { Platform } from "@manent/settings";
 import { LIBRARY_WORDS } from "@manent/ui";
 import type { KeyResolver } from "@manent/ui";
 import type { PersonServices } from "../services/ports.ts";
+import { layoutViewActions } from "../state/layout-view.store.ts";
 import { zoomActions } from "../state/zoom.store.ts";
 import type { EditorMount } from "./mount.ts";
 import { createPastedText } from "./pasted-text.ts";
@@ -41,7 +42,11 @@ export interface OpenedScript {
 export function editorOptions(
   options: EditorSources,
   open: OpenedScript,
-  bound: { binding: EditorBinding; editable: boolean },
+  bound: {
+    binding: EditorBinding;
+    editable: boolean;
+    titlePage: ScriptEditorOptions["titlePage"];
+  },
 ): ScriptEditorOptions {
   const { element, docId, facts, outline, settings, guard } = open.ports;
   const { services } = options;
@@ -75,6 +80,8 @@ export function editorOptions(
     },
     keys: options.keys,
     zoom: zoomActions.get(),
+    titlePage: bound.titlePage,
+    view: layoutViewActions.get(),
     desk: open.desk,
     extraPlugins: (host) =>
       EDITOR_PLUGINS.map((make) =>

@@ -3,6 +3,7 @@ import {
   CrdtUpdateError,
   ORIGIN_LOAD,
   ORIGIN_REPLAY,
+  TITLE_PAGE_MAP,
   applyRemote,
   createDoc,
   deletionsOf,
@@ -12,19 +13,20 @@ import {
   readStateVector,
   revisedOverrides,
   scriptBody,
+  titlePage,
   updateMeta,
 } from "@manent/crdt";
 import type { CrdtDoc, SetAside, TypedText } from "@manent/crdt";
-import { blockText, blocksOf } from "@manent/schema";
-import type { DocJSON } from "@manent/schema";
+import { TITLE_PAGE_FIELDS, blockText, blocksOf } from "@manent/schema";
+import type { DocJSON, TitlePageField } from "@manent/schema";
 import type { DocFile } from "@manent/storage";
 import { validatePush } from "../sync/validate.ts";
 
 /** The verified rows of a generation after `seq`, by sequence. */
 type Rows = ReadonlyMap<number, Uint8Array>;
 
-/** The one root map a replay may write: what a person marked or cleared as revised while offline. */
-const REPLAYED_MAP = "revisedOverrides";
+/** The root maps a replay may write: what a person marked or cleared as revised while offline, and the title page. */
+const REPLAYED_MAPS: readonly string[] = ["revisedOverrides", TITLE_PAGE_MAP];
 
 /** Applies the rows after `from` up to `to`; false when one of them does not verify. */
 function applyRows(
@@ -113,7 +115,7 @@ function applyWaiting(
   let refused = false;
   const stop = observeScript(mine, (report) => {
     if (report.origin !== ORIGIN_REPLAY) return;
-    const otherMap = report.maps.some((name) => name !== REPLAYED_MAP);
+    const otherMap = report.maps.some((name) => !REPLAYED_MAPS.includes(name));
     if (otherMap || validatePush(report).length > 0) refused = true;
   });
   const setAside: SetAside[] = [];
@@ -154,6 +156,19 @@ function changedOverrides(
     });
 }
 
+/** Mine's title page fields that differ from base's, in `TITLE_PAGE_FIELDS` order; "" empties one. */
+function changedTitlePage(
+  base: CrdtDoc,
+  mine: CrdtDoc,
+): [TitlePageField, string][] {
+  const before = titlePage(base);
+  const after = titlePage(mine);
+  return TITLE_PAGE_FIELDS.flatMap((field): [TitlePageField, string][] => {
+    const value = after.get(field);
+    return value === before.get(field) ? [] : [[field, value]];
+  });
+}
+
 /**
  * base: the generation at `lastServerSeq` (its newest checkpoint at or before it, then its rows),
  * moved on to the smallest later sequence at which the waiting updates are complete; mine: base with
@@ -161,10 +176,11 @@ function changedOverrides(
  * deletions afresh, so whoever typed it would never be told), then own text the rows base moved on
  * by removed from mine unseen; unseen: own text mine still holds that the generation's later rows
  * removed unseen. typed: by block, mine's text and which of its characters the updates wrote.
- * overrides: mine's revisedOverrides entries that differ from base's. invalid: an update is not
- * one, writes a root map other than revisedOverrides, or leaves a block validation refuses;
- * incomplete: the updates still wait at the generation's last row, or a row they need does not
- * verify. RangeError for a generation that is not closed.
+ * overrides: mine's revisedOverrides entries that differ from base's. titlePage: mine's fields that
+ * differ from base's. invalid: an update is not one, writes a root map other than revisedOverrides
+ * and titlePage, or leaves a block validation refuses; incomplete: the updates still wait at the
+ * generation's last row, or a row they need does not verify. RangeError for a generation that is
+ * not closed.
  */
 export function replayBase(
   file: DocFile,
@@ -182,6 +198,7 @@ export function replayBase(
       unseen: SetAside[];
       typed: Map<string, TypedText>;
       overrides: [string, string | null][];
+      titlePage: [TitlePageField, string][];
     }
   | { ok: false; code: "incomplete" | "invalid" } {
   const frozen = file.generations.get(docId, generation);
@@ -218,6 +235,7 @@ export function replayBase(
       unseen: removedUnseen({ base, mine, mineContent }, rest, own),
       typed: findTyped(mine, sinceOf(updates, base)),
       overrides: changedOverrides(base, mine),
+      titlePage: changedTitlePage(base, mine),
     };
   } finally {
     base.destroy();

@@ -245,6 +245,13 @@ function freezeDeep(value: object): void {
   Object.freeze(value);
 }
 
+/** The profile with its key, the JSON of everything else, deeply frozen. */
+export function keyedProfile(profile: Omit<PageProfile, "key">): PageProfile {
+  const result: PageProfile = { ...profile, key: JSON.stringify(profile) };
+  freezeDeep(result);
+  return result;
+}
+
 /** The deeply frozen profile of a format: null only for "ink", which has no pages; an unknown format lays out as "screenplay". */
 export function profileFor(
   format: string,
@@ -293,11 +300,14 @@ export function profileFor(
     dual: DUAL,
     dualRightOffset: DUAL_RIGHT_OFFSET,
     rules: RULES,
-    furniture: { ...layout.furniture(options), ...FURNITURE_TEXT },
+    furniture: {
+      ...layout.furniture(options),
+      castLists: false,
+      speechesNumbered: false,
+      ...FURNITURE_TEXT,
+    },
   };
-  const result: PageProfile = { ...profile, key: JSON.stringify(profile) };
-  freezeDeep(result);
-  return result;
+  return keyedProfile(profile);
 }
 
 /** The page's size on screen at 100 %, in pixels: points × 4/3. */

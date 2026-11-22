@@ -23,6 +23,7 @@ import { createHandlers } from "../handlers/index.ts";
 import type { Navigation } from "../handlers/index.ts";
 import type { PersonStore } from "../state/person.store.ts";
 import { productionContextActions } from "../state/production-context.store.ts";
+import { layoutViewActions } from "../state/layout-view.store.ts";
 import { rulerActions } from "../state/ruler.store.ts";
 import { zoomActions } from "../state/zoom.store.ts";
 import type { Environment, PersonServices, ShellState } from "./ports.ts";
@@ -69,6 +70,7 @@ function commandContext(
     format:
       docId === null ? null : parts.openScriptStore(docId).get("script.format"),
     rulerShown: rulerActions.get(),
+    layoutView: layoutViewActions.get(),
     spaceBeforeSet,
     zoom: docId === null ? null : zoomActions.get(),
     zoomPercent: docId === null ? null : parts.control.zoomPercent(),
@@ -205,6 +207,7 @@ export function createCommands(
     parts.network.subscribe(service.notify),
     ...SETTINGS.all.map((def) => settings.subscribe(def.key, service.notify)),
     rulerActions.subscribe(service.notify),
+    layoutViewActions.subscribe(service.notify),
     productionContextActions.subscribe(service.notify),
     zoomActions.subscribe(service.notify),
     followFormat(options.shellState, parts.openScriptStore, service.notify),

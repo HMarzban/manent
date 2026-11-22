@@ -158,6 +158,29 @@ p.el.pg-first {
 .el[data-scene]::after {
   left: calc((var(--geo-column) + 2 - var(--el-indent) + var(--el-slack-left)) * var(--geo-cell));
 }
+.el[data-speech] {
+  position: relative;
+}
+.el[data-speech]::before {
+  content: attr(data-speech);
+  position: absolute;
+  top: 0;
+  padding-top: inherit;
+  text-indent: 0;
+  right: calc(100% + (var(--el-indent) - var(--el-slack-left) + 2) * var(--geo-cell));
+}
+.el.dual-r[data-speech]::before {
+  right: auto;
+  left: calc((var(--geo-column) + 2 - var(--el-indent) + var(--el-slack-left)) * var(--geo-cell));
+}
+.mn-cast {
+  display: block;
+  text-indent: 0;
+  user-select: none;
+}
+.mn-cast::before {
+  content: attr(data-text);
+}
 .el.dual-l {
   float: left;
   clear: left;
@@ -195,5 +218,35 @@ mn-offfont {
 }
 .mn-mark::before {
   content: attr(data-text);
+}
+`;
+
+/**
+ * Reflow view, after PAGE_CSS: one paper as wide as the desk in place of the sheets, each element at its indent with no
+ * width of its own but a dual column's, and each page's start a thin rule labelled in interface type.
+ */
+export const REFLOW_CSS = `
+.mn-reflow .mn-pages {
+  width: auto;
+  background: var(--page-paper);
+}
+.mn-reflow .mn-front {
+  position: static;
+  width: auto;
+}
+.mn-reflow p.el:not(.dual-l, .dual-r, .el-group) {
+  width: auto;
+}
+.pb.pb-rule {
+  width: auto;
+  margin: var(--geo-line) calc(-1 * var(--geo-right)) var(--geo-line) calc(-1 * var(--geo-left));
+  padding: 2px var(--geo-right) 0 var(--geo-left);
+  border-top: var(--page-line) solid var(--page-edge);
+  font: var(--type-meta) / 1.5 var(--face-ui);
+  color: var(--page-ink-muted);
+  text-align: right;
+}
+.pb-rule::before {
+  content: attr(data-label);
 }
 `;

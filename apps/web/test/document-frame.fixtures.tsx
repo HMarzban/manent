@@ -135,6 +135,7 @@ function contextFor(
       historyPresent,
       format: null,
       rulerShown: false,
+      layoutView: "page",
       spaceBeforeSet: false,
       zoom: null,
       zoomPercent: null,

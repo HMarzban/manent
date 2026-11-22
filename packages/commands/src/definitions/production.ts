@@ -99,7 +99,11 @@ function productionCommand<const Id extends string>(
     keysFixed: false,
     when: more.need?.holds ?? null,
     whyNot: more.need?.reason ?? null,
-    visible: (ctx) => ctx.production !== null && more.shown(ctx.production),
+    // a script without pages (Ink) has nothing to lock
+    visible: (ctx) =>
+      ctx.format !== "ink" &&
+      ctx.production !== null &&
+      more.shown(ctx.production),
     checked: more.checked ?? null,
     passThrough: null,
     menus: more.menus ?? [],

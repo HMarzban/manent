@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import {
-  ENGINE_VERSION,
   comparePageLabels,
   pageStarts,
   paginate,
@@ -149,12 +148,7 @@ function record(g: Golden) {
 
 for (const g of GOLDENS)
   test(`the pages of ${g.name} have not moved`, async () => {
-    const path = join(
-      import.meta.dir,
-      "golden",
-      `v${ENGINE_VERSION}`,
-      `${g.name}.json`,
-    );
+    const path = join(import.meta.dir, "golden", "v1", `${g.name}.json`);
     const actual = record(g);
     if (!(await Bun.file(path).exists())) {
       if (process.env.UPDATE_GOLDEN !== "1")

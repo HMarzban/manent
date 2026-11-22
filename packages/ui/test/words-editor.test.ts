@@ -81,6 +81,17 @@ test("the editor's words are these, exactly", () => {
     gameGeneralPlaceholder:
       "General — text, or * for a choice and - for a gather",
     picker: "Element",
+    titlePage: {
+      title: "Title",
+      credit: "Credit",
+      authors: "Authors",
+      source: "Source",
+      contact: "Contact",
+      draft: "Draft",
+      cast: "Cast of characters",
+      setting: "Setting",
+      summary: "Summary",
+    },
     elementButton: ["Element: 1", "Element: 2"],
     reasons: {
       needsTwoSpeeches: "needs two speeches",
