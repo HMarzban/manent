@@ -3,20 +3,16 @@
 import type { FormatId } from "@manent/schema";
 import type { Node } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
-import type { Transaction } from "prosemirror-state";
-import { Decoration, DecorationSet } from "prosemirror-view";
-import { classifyLine } from "./classify.ts";
-import type { SourceLine, SourceMode } from "./classify.ts";
+import { DecorationSet } from "prosemirror-view";
+import type { SourceMode } from "./classify.ts";
 
 interface SourceState {
+  /** Null while the format reads no line as source, or the line reader has not loaded. */
   readonly mode: SourceMode | null;
   readonly decorations: DecorationSet;
 }
 
-/** What a line's node decoration carries: the comment state it was read with and the one it leaves. */
-interface LineSpec {
-  readonly source: { readonly openIn: boolean; readonly openOut: boolean };
-}
+type SourceLines = typeof import("./source-lines.ts");
 
 const sourceKey = new PluginKey<SourceState>("source");
 
@@ -31,174 +27,68 @@ const MODES: Readonly<Record<FormatId, SourceMode | null>> = Object.freeze({
   stage_play: null,
 });
 
-const isLineSpec = (spec: unknown): spec is LineSpec =>
-  typeof spec === "object" && spec !== null && "source" in spec;
-
-// Calls `visit` with each block from the one at or after `pos` to the end, while it returns true.
-function walkBlocks(
-  doc: Node,
-  pos: number,
-  visit: (block: Node, at: number) => boolean,
-): void {
-  const $pos = doc.resolve(Math.min(pos, doc.content.size));
-  let s = $pos.index(0);
-  let c = $pos.depth >= 1 ? $pos.index(1) : 0;
-  let at =
-    $pos.depth >= 2
-      ? $pos.before(2)
-      : $pos.depth === 1
-        ? $pos.posAtIndex(c, 1)
-        : $pos.posAtIndex(s, 0) + 1;
-  for (; s < doc.childCount; s++, c = 0, at += 2) {
-    const section = doc.child(s);
-    for (; c < section.childCount; c++) {
-      const block = section.child(c);
-      if (!visit(block, at)) return;
-      at += block.nodeSize;
-    }
-  }
-}
-
-// The decorations of one line: a node decoration naming its kind and depth (in Ink always, to carry the comment
-// state), and one inline decoration per range.
-function lineDecorations(
-  line: SourceLine,
-  at: number,
-  block: Node,
-  openIn: boolean,
-  mode: SourceMode,
-): Decoration[] {
-  const decorations: Decoration[] = [];
-  const attrs: Record<string, string> = {};
-  if (line.kind !== null) {
-    attrs["class"] = `src-${line.kind}`;
-    // a game script's lines keep their place on the page
-    if (mode === "ink" && line.depth > 0)
-      attrs["style"] = `--depth: ${line.depth}`;
-  }
-  if (mode === "ink" || line.kind !== null) {
-    const spec: LineSpec = {
-      source: { openIn, openOut: line.commentOpen },
-    };
-    decorations.push(Decoration.node(at, at + block.nodeSize, attrs, spec));
-  }
-  for (const range of line.ranges)
-    decorations.push(
-      Decoration.inline(at + 1 + range.from, at + 1 + range.to, {
-        class: `src-${range.role}`,
-      }),
-    );
-  return decorations;
-}
-
-const readsAsSource = (block: Node, mode: SourceMode): boolean =>
-  mode === "ink" || block.type.name === "general";
-
-function classify(block: Node, mode: SourceMode, openIn: boolean): SourceLine {
-  return readsAsSource(block, mode)
-    ? classifyLine(block.textContent, mode, openIn)
-    : classifyLine("", mode, false);
-}
-
-function buildAll(doc: Node, mode: SourceMode | null): DecorationSet {
-  if (mode === null) return DecorationSet.empty;
-  const decorations: Decoration[] = [];
-  let open = false;
-  walkBlocks(doc, 0, (block, at) => {
-    const line = classify(block, mode, open);
-    decorations.push(...lineDecorations(line, at, block, open, mode));
-    open = line.commentOpen;
-    return true;
-  });
-  return DecorationSet.create(doc, decorations);
-}
-
-// The span of the new document the transaction's steps replaced.
-function changedSpan(tr: Transaction): { from: number; to: number } | null {
-  let from = Number.POSITIVE_INFINITY;
-  let to = Number.NEGATIVE_INFINITY;
-  tr.mapping.maps.forEach((map, i) => {
-    const rest = tr.mapping.slice(i + 1);
-    map.forEach((_oldFrom, _oldTo, start, end) => {
-      from = Math.min(from, rest.map(start, -1));
-      to = Math.max(to, rest.map(end, 1));
-    });
-  });
-  return from > to ? null : { from, to };
-}
-
-// The line spec of the block at `at`; null when it has none.
-function specAt(set: DecorationSet, at: number): LineSpec | null {
-  const spec: unknown = set
-    .find(at, at, isLineSpec)
-    .find((d) => d.from === at)?.spec;
-  return isLineSpec(spec) ? spec : null;
-}
-
-// The comment state the line before the block at `at` leaves: the line spec that ends last at or before it.
-function openBefore(set: DecorationSet, at: number): boolean {
-  let last: Decoration | null = null;
-  for (const d of set.find(at - 2, at - 2, isLineSpec))
-    if (d.to <= at && (last === null || d.from > last.from)) last = d;
-  const spec: unknown = last?.spec;
-  return isLineSpec(spec) && spec.source.openOut;
-}
-
-// The lines the change touched read again, then those below it while the comment state they are read with differs.
-function update(
-  prev: DecorationSet,
-  tr: Transaction,
-  mode: SourceMode,
-): DecorationSet {
-  const mapped = prev.map(tr.mapping, tr.doc);
-  const span = changedSpan(tr);
-  if (span === null) return mapped;
-  const stale: Decoration[] = [];
-  const fresh: Decoration[] = [];
-  let open = openBefore(mapped, span.from);
-  walkBlocks(tr.doc, span.from, (block, at) => {
-    const end = at + block.nodeSize;
-    if (at > span.to) {
-      const spec = specAt(mapped, at);
-      if (
-        mode === "branching" ||
-        (spec !== null && spec.source.openIn === open)
-      )
-        return false;
-    }
-    stale.push(
-      ...mapped.find(at, end).filter((d) => d.from >= at && d.from < end),
-    );
-    const line = classify(block, mode, open);
-    fresh.push(...lineDecorations(line, at, block, open, mode));
-    open = line.commentOpen;
-    return true;
-  });
-  return mapped.remove(stale).add(tr.doc, fresh);
-}
-
-/** Colours the lines `format` reads as source; built whole when the view starts and when the format's mode changes. */
+/**
+ * Colours the lines `format` reads as source; built whole when the view starts and when the format's mode changes.
+ * The line reader and its styles, which go into `layer`, are loaded the first time a format reads lines as source.
+ */
 export function sourcePlugin(options: {
   format(): FormatId;
+  layer: HTMLElement;
 }): Plugin<SourceState> {
-  const modeNow = (): SourceMode | null => MODES[options.format()];
+  let lines: SourceLines | null = null;
+  let loading = false;
+  const modeNow = (): SourceMode | null =>
+    lines === null ? null : MODES[options.format()];
+  const decorateAll = (doc: Node, mode: SourceMode | null): DecorationSet =>
+    lines === null || mode === null
+      ? DecorationSet.empty
+      : lines.decorateAll(doc, mode);
   return new Plugin<SourceState>({
     key: sourceKey,
     state: {
       init: (_config, state) => ({
         mode: modeNow(),
-        decorations: buildAll(state.doc, modeNow()),
+        decorations: decorateAll(state.doc, modeNow()),
       }),
       apply(tr, value) {
         const mode = modeNow();
         if (mode !== value.mode)
-          return { mode, decorations: buildAll(tr.doc, mode) };
-        if (!tr.docChanged || mode === null) return value;
-        return { mode, decorations: update(value.decorations, tr, mode) };
+          return { mode, decorations: decorateAll(tr.doc, mode) };
+        if (!tr.docChanged || mode === null || lines === null) return value;
+        return {
+          mode,
+          decorations: lines.decorateChange(value.decorations, tr, mode),
+        };
       },
     },
     props: {
       decorations: (state) => sourceKey.getState(state)?.decorations ?? null,
+    },
+    view(view) {
+      let destroyed = false;
+      const load = (): void => {
+        if (loading || MODES[options.format()] === null) return;
+        loading = true;
+        void Promise.all([
+          import("./source-lines.ts"),
+          import("./source-css.ts"),
+        ]).then(([loaded, { SOURCE_CSS }]) => {
+          lines = loaded;
+          const style = options.layer.ownerDocument.createElement("style");
+          style.textContent = SOURCE_CSS;
+          options.layer.append(style);
+          // a step of no change, so the state reads the lines with the reader now loaded
+          if (!destroyed)
+            view.dispatch(view.state.tr.setMeta("addToHistory", false));
+        });
+      };
+      load();
+      return {
+        update: load,
+        destroy() {
+          destroyed = true;
+        },
+      };
     },
   });
 }

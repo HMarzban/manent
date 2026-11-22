@@ -35,7 +35,6 @@ import { PLACEHOLDER_CSS, placeholderPlugin } from "../picker/placeholder.ts";
 import { restorePlace, savedPlaceOf } from "../scroll/saved-place.ts";
 import { scrollPlugin } from "../scroll/stability.ts";
 import type { ScrollPorts } from "../scroll/stability.ts";
-import { SOURCE_CSS } from "../source/source-css.ts";
 import { sourcePlugin } from "../source/source-plugin.ts";
 import { mountEditor } from "./mount-view.ts";
 import { createPageControls, createScrollPorts } from "./page-controls.ts";
@@ -183,7 +182,7 @@ function editorPlugins(
       ? [idRegistryPlugin({ ids, isRemote: binding.isRemote })]
       : []),
     placeholderPlugin({ format, words }),
-    sourcePlugin({ format }),
+    sourcePlugin({ format, layer }),
     cursorsPlugin({ presence: binding.presence, frames, timers }),
     scrollPlugin({
       ...parts.ports,
@@ -204,14 +203,12 @@ function editorPlugins(
   return { before, after };
 }
 
-/** `div.mn-layer`, which holds the popovers and the styles of the placeholders, the remote cursors and source lines. */
+/** `div.mn-layer`, which holds the popovers and the styles of the placeholders and the remote cursors. */
 function createLayer(doc: Document): HTMLElement {
   const layer = doc.createElement("div");
   layer.className = "mn-layer";
   const style = doc.createElement("style");
-  style.textContent = [LAYER_CSS, PLACEHOLDER_CSS, CURSOR_CSS, SOURCE_CSS].join(
-    "\n",
-  );
+  style.textContent = [LAYER_CSS, PLACEHOLDER_CSS, CURSOR_CSS].join("\n");
   layer.append(style);
   return layer;
 }
