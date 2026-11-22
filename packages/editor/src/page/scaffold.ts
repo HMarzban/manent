@@ -9,8 +9,8 @@ import {
   ZOOM_MAX,
   ZOOM_MIN,
 } from "./config.ts";
-import type { BrowserEngine } from "./config.ts";
-import { PAGE_CSS } from "./page-css.ts";
+import type { BrowserEngine, LayoutView } from "./config.ts";
+import { PAGE_CSS, REFLOW_CSS } from "./page-css.ts";
 import { profileCss, screenPagePx } from "./profile-css.ts";
 
 /** The class the EditorView's own element carries. */
@@ -89,7 +89,7 @@ export interface SheetDecor {
 export interface PageScaffold {
   /** `.mn-pages`: the EditorView is mounted here, after the sheets. */
   readonly pages: HTMLElement;
-  /** `.mn-front`, before `.mn-pages` and zoomed with it: where the pages before page 1 are drawn. */
+  /** `.mn-front`, first in `.mn-pages`: where the pages before page 1 are drawn, above page 1. */
   readonly front: HTMLElement;
   /** The height the front pages take above page 1, gaps included, px at 100 %. */
   setFrontHeight(px: number): void;
@@ -175,9 +175,11 @@ function drawSheets(
   );
 }
 
+// In Reflow view the text wraps to the desk, so its sections are never contained: the engine's heights do not hold.
 function createFrame(
   place: HTMLElement,
   engine: BrowserEngine,
+  view: LayoutView,
 ): {
   zoom: HTMLElement;
   profileStyle: HTMLElement;
@@ -186,25 +188,29 @@ function createFrame(
 } {
   const doc = place.ownerDocument;
   const zoom = doc.createElement("div");
-  zoom.className = "mn-zoom";
+  zoom.className = view === "reflow" ? "mn-zoom mn-reflow" : "mn-zoom";
   const pageStyle = doc.createElement("style");
-  pageStyle.textContent = PAGE_CSS;
+  pageStyle.textContent = view === "reflow" ? PAGE_CSS + REFLOW_CSS : PAGE_CSS;
   const profileStyle = doc.createElement("style");
   const pages = doc.createElement("div");
   pages.className = "mn-pages fonts-loading";
-  pages.classList.toggle("no-cv", !CONTAINMENT[engine]);
+  pages.classList.toggle("no-cv", !CONTAINMENT[engine] || view === "reflow");
   const front = doc.createElement("div");
   front.className = "mn-front";
-  zoom.append(pageStyle, profileStyle, front, pages);
+  pages.append(front);
+  zoom.append(pageStyle, profileStyle, pages);
   place.append(zoom);
   return { zoom, profileStyle, front, pages };
 }
 
-/** Sizes the scroll area to the zoomed content and scales the front pages and the pages; returns the scale. */
+/**
+ * Sizes the scroll area to the zoomed content and scales the pages, the front pages above page 1 included; returns
+ * the scale. In Reflow view the frame takes the desk's width and the content's height, scaled by `zoom`.
+ */
 function sizeFrame(
   frame: { zoom: HTMLElement; front: HTMLElement; pages: HTMLElement },
   page: { width: number; height: number },
-  heights: { count: number; frontPx: number },
+  heights: { count: number; frontPx: number; view: LayoutView },
   percent: number,
 ): number {
   const { zoom, front, pages } = frame;
@@ -212,9 +218,13 @@ function sizeFrame(
   const contentHeight =
     frontPx + count * page.height + (count - 1) * PAGE_GAP_PX;
   const box = zoomBox(page.width, contentHeight, percent);
+  if (heights.view === "reflow") {
+    zoom.style.zoom = String(box.scale);
+    return box.scale;
+  }
   zoom.style.width = `${box.widthPx}px`;
   zoom.style.height = `${box.heightPx}px`;
-  front.style.transform = `scale(${box.scale})`;
+  front.style.top = `${-frontPx}px`;
   pages.style.top = `${frontPx * box.scale}px`;
   pages.style.transform = `scale(${box.scale})`;
   return box.scale;
@@ -228,9 +238,12 @@ export function createPageScaffold(options: {
   place: HTMLElement;
   profile: PageProfile;
   engine: BrowserEngine;
+  /** Default "page". */
+  view?: LayoutView;
 }): PageScaffold {
   const { place } = options;
-  const frame = createFrame(place, options.engine);
+  const view = options.view ?? "page";
+  const frame = createFrame(place, options.engine, view);
   const { zoom, profileStyle, front, pages } = frame;
   let profile = options.profile;
   let count = 1;
@@ -242,12 +255,15 @@ export function createPageScaffold(options: {
 
   const redraw = (): void => {
     const page = screenPagePx(profile);
-    const wanted = sheetsInView(place, page, { count, scale, frontPx });
+    const wanted =
+      view === "reflow"
+        ? []
+        : sheetsInView(place, page, { count, scale, frontPx });
     drawSheets(pages, sheets, wanted, decor, profile);
   };
   const layout = (): void => {
     const page = screenPagePx(profile);
-    scale = sizeFrame(frame, page, { count, frontPx }, percent);
+    scale = sizeFrame(frame, page, { count, frontPx, view }, percent);
     redraw();
   };
   const setProfile = (next: PageProfile): void => {

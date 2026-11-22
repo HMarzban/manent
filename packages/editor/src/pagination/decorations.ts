@@ -11,16 +11,18 @@ import type { Dual } from "@manent/schema";
 import type { Node } from "prosemirror-model";
 import { Mapping, StepMap } from "prosemirror-transform";
 import { Decoration, DecorationSet } from "prosemirror-view";
-import type { BreakStyle } from "../page/config.ts";
+import type { BreakStyle, LayoutView } from "../page/config.ts";
 import { blockPos } from "./block-index.ts";
 import type { BlockIndex } from "./block-index.ts";
-import { toBreakSpecs } from "./break-specs.ts";
+import { toBreakSpecs, toRuleSpecs } from "./break-specs.ts";
 import type { BreakSpec } from "./break-specs.ts";
 import type { PaginationState } from "./plugin.ts";
 import { renderBreak, renderCast } from "./widgets.ts";
 
 export interface DecorationOptions {
   readonly style: BreakStyle;
+  /** Reflow view draws each page's start as a rule, in place of the breaks. */
+  readonly view: LayoutView;
   /** The title of text outside the script font. */
   readonly offFontNote: string;
 }
@@ -148,7 +150,11 @@ export function decorationsFor(
   const fromPos = blockPos(index, from);
   const toPos =
     to < index.blocks.length ? blockPos(index, to) : Number.POSITIVE_INFINITY;
-  const decorations = toBreakSpecs(index, p, options.style)
+  const specs =
+    options.view === "reflow"
+      ? toRuleSpecs(index, p)
+      : toBreakSpecs(index, p, options.style);
+  const decorations = specs
     .filter((spec) => spec.pos >= fromPos && spec.pos < toPos)
     .map(widgetOf);
   const context: BlockContext = {

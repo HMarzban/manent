@@ -16,7 +16,7 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorState, PluginView, Transaction } from "prosemirror-state";
 import type { DecorationSet, EditorView } from "prosemirror-view";
 import { MID_BLOCK_BREAKS } from "../page/config.ts";
-import type { BrowserEngine } from "../page/config.ts";
+import type { BrowserEngine, LayoutView } from "../page/config.ts";
 import { toIndex, updateIndex } from "./block-index.ts";
 import type { BlockIndex } from "./block-index.ts";
 import { caretPlace, scrollDelta } from "./caret.ts";
@@ -26,6 +26,8 @@ import type { DecorationOptions } from "./decorations.ts";
 import type { IsRemote } from "./page-view.ts";
 import { ownScroller, readingKeeper } from "./reading-anchor.ts";
 import type { ReadingKeeper } from "./reading-anchor.ts";
+import { assertSameEngine, needsFullRun, withPatch } from "./settings-patch.ts";
+import type { SettingsPatch } from "./settings-patch.ts";
 
 export interface PaginationSettings {
   /** Its `version` is the profile's `engineVersion`. */
@@ -69,17 +71,8 @@ export interface PaginationOptions {
   readonly scroller?: (view: EditorView) => Element;
   /** Called with the page count when the plugin's view starts and whenever the count changes. */
   readonly onPages?: (count: number) => void;
-}
-
-type SettingsPatch = Partial<PaginationSettings> & { repaginate?: true };
-
-/** Throws RangeError when the profile was made by another engine than the one that would paginate it. */
-function assertSameEngine(settings: PaginationSettings): void {
-  const { engine, profile } = settings;
-  if (profile.engineVersion !== engine.version)
-    throw new RangeError(
-      `a profile of engine ${profile.engineVersion} cannot be paginated by engine ${engine.version}`,
-    );
+  /** Default "page". */
+  readonly view?: LayoutView;
 }
 
 function currentEngine(): Engine {
@@ -100,32 +93,6 @@ export function setPagination(
 function patchOf(tr: Transaction): SettingsPatch | null {
   const patch: SettingsPatch | undefined = tr.getMeta(paginationKey);
   return patch ?? null;
-}
-
-function withPatch(
-  settings: PaginationSettings,
-  patch: SettingsPatch,
-): PaginationSettings {
-  const next: PaginationSettings = {
-    engine: patch.engine ?? settings.engine,
-    profile: patch.profile ?? settings.profile,
-    locks: patch.locks ?? settings.locks,
-    layout: patch.layout === undefined ? settings.layout : patch.layout,
-  };
-  assertSameEngine(next);
-  return next;
-}
-
-// What makes every page start open to question again: another engine, another layout, locks, or other patches.
-function needsFullRun(prev: PaginationState, patch: SettingsPatch): boolean {
-  return (
-    (patch.engine !== undefined && patch.engine !== prev.settings.engine) ||
-    (patch.profile !== undefined &&
-      patch.profile.key !== prev.settings.profile.key) ||
-    patch.locks !== undefined ||
-    (patch.layout !== undefined &&
-      (patch.layout?.key ?? null) !== prev.index.layoutKey)
-  );
 }
 
 function decorated(
@@ -366,6 +333,7 @@ export function paginationPlugin(
   const decorations: DecorationOptions = {
     // with no engine named, as for a user agent that names none
     style: MID_BLOCK_BREAKS[options.engine ?? "chromium"],
+    view: options.view ?? "page",
     offFontNote: options.offFontNote,
   };
   const isRemote = options.isRemote ?? (() => false);

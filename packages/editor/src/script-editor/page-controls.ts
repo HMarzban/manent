@@ -5,6 +5,7 @@ import type { Node } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
 import { blockNumber } from "../cursors/place.ts";
 import { ZOOM_MAX, ZOOM_MIN } from "../page/config.ts";
+import type { LayoutView } from "../page/config.ts";
 import type { PageScaffold } from "../page/scaffold.ts";
 import { caretPlace } from "../pagination/caret.ts";
 import { paginationKey, setPagination } from "../pagination/plugin.ts";
@@ -128,21 +129,26 @@ export function createPageControls(options: {
   ports: ScrollPorts;
   desk: Desk;
   zoom: ZoomSetting;
+  /** In Reflow view the text wraps to the window at any zoom, so Fit width is 100 %. */
+  layoutView: LayoutView;
   profile(): PageProfile | null;
 }): PageControls {
   const { view, scaffold, ports, desk } = options;
   let setting = options.zoom;
   let percent = 100;
   const profileNow = () => paginationKey.getState(view.state)!.settings.profile;
+  const percentNow = (): number => {
+    if (setting !== "fit_width")
+      return Math.min(Math.max(setting, ZOOM_MIN), ZOOM_MAX);
+    if (options.layoutView === "reflow") return 100;
+    return fitWidthPercent(
+      desk.widthPx(),
+      pageSizePx(profileNow()).width,
+      desk.paddingPx(),
+    );
+  };
   const fit = (): void => {
-    const next =
-      setting === "fit_width"
-        ? fitWidthPercent(
-            desk.widthPx(),
-            pageSizePx(profileNow()).width,
-            desk.paddingPx(),
-          )
-        : Math.min(Math.max(setting, ZOOM_MIN), ZOOM_MAX);
+    const next = percentNow();
     if (next === percent) return;
     const anchor = zoomAnchor(view, ports);
     percent = next;

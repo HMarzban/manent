@@ -1,26 +1,19 @@
-// The styles of the pages before page 1: sheets as the body's, each field a box on the page's grid in the script face.
-import { CELL_PT, LINE_PT, UNIT_PT } from "@manent/pagination";
+// The styles of the pages before page 1: sheets as the body's, each field a box on the page's grid in the script face;
+// in Reflow view, no sheets, each page after a labelled rule as the body's pages are.
 
 export const FRONT_CSS = `
-.mn-zoom {
-  position: relative;
-}
 .mn-front {
-  --geo-cell: ${CELL_PT}pt;
-  --geo-line: ${LINE_PT}pt;
-  --geo-unit: ${UNIT_PT}pt;
   position: absolute;
-  top: 0;
   left: 0;
   width: var(--geo-page-w);
-  transform-origin: 0 0;
 }
 .mn-front-sheet {
   position: absolute;
   left: 0;
   width: var(--geo-page-w);
   background: var(--page-paper);
-  box-shadow: 0 0 0 1px var(--page-edge);
+  outline: var(--page-edge-w) solid var(--page-edge);
+  box-shadow: var(--elev-page);
   font: 12pt/12pt "Courier Prime", monospace;
   font-synthesis: none;
   text-rendering: geometricPrecision;
@@ -49,5 +42,17 @@ export const FRONT_CSS = `
   font-style: italic;
   color: var(--page-ink-muted);
   pointer-events: none;
+}
+.mn-reflow .mn-front-sheet {
+  position: static;
+  width: auto;
+  padding: 0 var(--geo-right) var(--geo-line) var(--geo-left);
+  background: none;
+  outline: none;
+  box-shadow: none;
+}
+.mn-reflow .mn-front-field {
+  position: static;
+  margin-top: var(--geo-line);
 }
 `;

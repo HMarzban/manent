@@ -26,6 +26,7 @@ import { elementKeysPlugin } from "../keys/element-keys.ts";
 import type { FrontPages } from "../front-pages/sheets.ts";
 import type { ElementContext } from "../keys/element-keys.ts";
 import { historyKeysPlugin } from "../keys/history-keys.ts";
+import type { LayoutView } from "../page/config.ts";
 import type { PageScaffold } from "../page/scaffold.ts";
 import type { PageViewPorts } from "../pagination/page-view.ts";
 import { paginationKey } from "../pagination/plugin.ts";
@@ -111,6 +112,8 @@ export interface ScriptEditorOptions {
   zoom: ZoomSetting;
   /** Null: no front pages are drawn (a static binding). */
   titlePage: TitlePageSource | null;
+  /** The view of the pages to build; a script without pages (Ink) has neither. */
+  view: LayoutView;
   desk: Desk;
   /** The feature plugins, placed after every other. */
   extraPlugins(host: EditorPluginHost): readonly Plugin[];
@@ -304,7 +307,15 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
   const { view, scaffold } = mounted;
   place.append(layer);
   if (scaffold !== null)
-    pages = createPageControls({ view, scaffold, ports, desk, zoom, profile });
+    pages = createPageControls({
+      view,
+      scaffold,
+      ports,
+      desk,
+      zoom,
+      layoutView: options.view,
+      profile,
+    });
   let front: FrontPages | null = null;
   let destroyed = false;
   const { titlePage } = options;
@@ -318,6 +329,7 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
         titlePage,
         profile: now,
         editable,
+        view: options.view,
         scroller: ports.scroller,
         keys: {
           platform: options.platform,

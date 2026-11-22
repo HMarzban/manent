@@ -10,6 +10,7 @@ import {
 import type { FrontField, FrontPage, PageProfile } from "@manent/pagination";
 import type { TitlePageField } from "@manent/schema";
 import { PAGE_GAP_PX } from "../page/config.ts";
+import type { LayoutView } from "../page/config.ts";
 import { screenPagePx } from "../page/profile-css.ts";
 import type { PageScaffold } from "../page/scaffold.ts";
 import type { TitlePageSource } from "../script-editor/ports.ts";
@@ -38,27 +39,40 @@ function sheetHeight(page: FrontPage, profile: PageProfile): number {
   return Math.max(screen.height, screen.top + rows * LINE_PX + screen.bottom);
 }
 
-// The sheet's page number, drawn again each time; null on the title page.
+// The sheet's page number, none on the title page; in Reflow view, the labelled rule every page starts with.
 function drawNumber(
   sheet: HTMLElement,
   page: FrontPage,
   profile: PageProfile,
+  view: LayoutView,
 ): void {
-  sheet.querySelector(".mn-front-number")?.remove();
-  if (page.numberText === null) return;
+  sheet.querySelector(".mn-front-number, .pb-rule")?.remove();
   const number = sheet.ownerDocument.createElement("div");
-  number.className = "mn-front-number";
-  number.style.top = `${profile.geometry.pageNumberTopPt}pt`;
-  number.textContent = page.numberText;
+  if (view === "reflow") {
+    number.className = "pb pb-rule";
+    number.dataset["label"] = page.label;
+    number.setAttribute("aria-hidden", "true");
+  } else if (page.numberText !== null) {
+    number.className = "mn-front-number";
+    number.style.top = `${profile.geometry.pageNumberTopPt}pt`;
+    number.textContent = page.numberText;
+  } else return;
   sheet.prepend(number);
 }
 
-function placeBox(box: FieldBox, at: FrontField, profile: PageProfile): void {
+// The box on its sheet's grid; in Reflow view it keeps only its alignment and wraps to the window.
+function placeBox(
+  box: FieldBox,
+  at: FrontField,
+  profile: PageProfile,
+  view: LayoutView,
+): void {
   const { style } = box.element;
+  style.textAlign = at.align;
+  if (view === "reflow") return;
   style.left = `calc(${profile.geometry.marginLeftPt}pt + ${at.x * CELL_PX}px)`;
   style.top = `${screenPagePx(profile).top + at.y * UNIT_PX}px`;
   style.width = `${at.width * CELL_PX}px`;
-  style.textAlign = at.align;
 }
 
 /** Draws the front pages in `scaffold.front` from the title page, and tells the scaffold the height they take. */
@@ -67,11 +81,12 @@ export function createFrontPages(options: {
   titlePage: TitlePageSource;
   profile: PageProfile;
   editable: boolean;
+  view: LayoutView;
   keys: FieldKeys;
   /** The element the page scrolls in. */
   scroller(): HTMLElement;
 }): FrontPages {
-  const { scaffold, editable, keys } = options;
+  const { scaffold, editable, view, keys } = options;
   const { port, words } = options.titlePage;
   const doc = scaffold.front.ownerDocument;
   const style = doc.createElement("style");
@@ -113,14 +128,16 @@ export function createFrontPages(options: {
     let top = 0;
     pages.forEach((page, k) => {
       const sheet = sheetAt(k);
-      const height = sheetHeight(page, profile);
-      sheet.style.top = `${top}px`;
-      sheet.style.height = `${height}px`;
-      top += height + PAGE_GAP_PX;
-      drawNumber(sheet, page, profile);
+      if (view === "page") {
+        const height = sheetHeight(page, profile);
+        sheet.style.top = `${top}px`;
+        sheet.style.height = `${height}px`;
+        top += height + PAGE_GAP_PX;
+      }
+      drawNumber(sheet, page, profile, view);
       for (const at of page.fields) {
         const box = boxOf(at.field);
-        placeBox(box, at, profile);
+        placeBox(box, at, profile, view);
         box.show(fields[at.field]);
         if (box.element.parentElement !== sheet) sheet.append(box.element);
         placed.add(at.field);

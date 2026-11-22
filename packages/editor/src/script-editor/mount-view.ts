@@ -7,6 +7,7 @@ import type { Plugin, Transaction } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { nextElementFor } from "../keys/element-keys.ts";
 import type { ElementContext } from "../keys/element-keys.ts";
+import type { LayoutView } from "../page/config.ts";
 import type { PageScaffold } from "../page/scaffold.ts";
 import { mountPageView } from "../pagination/page-view.ts";
 import type { PageViewPorts } from "../pagination/page-view.ts";
@@ -31,6 +32,7 @@ interface MountOptions {
   layoutEngine: Engine;
   ports: PageViewPorts;
   words: EditorWords;
+  view: LayoutView;
 }
 
 /** A transaction that changes the document is applied inside the guard and timed. */
@@ -86,5 +88,6 @@ export function mountEditor(
     offFontNote: options.words.offFontNote,
     isRemote: binding.isRemote,
     scroller: parts.ports.scroller,
+    view: options.view,
   });
 }

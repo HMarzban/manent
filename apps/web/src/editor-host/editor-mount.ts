@@ -19,6 +19,7 @@ import { markEnd } from "@manent/perf";
 import { parseDoc } from "@manent/schema";
 import type { FormatId } from "@manent/schema";
 import type { FixedKey } from "../services/ports.ts";
+import { layoutViewActions } from "../state/layout-view.store.ts";
 import { actionOf } from "./command-actions.ts";
 import type { EditorControl } from "./control.ts";
 import { deskOf } from "./desk.ts";
@@ -75,6 +76,7 @@ interface Shown {
   ink: boolean;
   edit: boolean;
   readOnly: boolean;
+  reflow: boolean;
 }
 
 interface Built {
@@ -242,13 +244,16 @@ function buildEditor(
 }
 
 const differs = (a: Shown, b: Shown): boolean =>
-  a.ink !== b.ink || a.edit !== b.edit || a.readOnly !== b.readOnly;
+  a.ink !== b.ink ||
+  a.edit !== b.edit ||
+  a.readOnly !== b.readOnly ||
+  a.reflow !== b.reflow;
 
 /**
  * Opens the document's session and editor, and builds the editor again at the person's place when the format changes to
  * or from Ink, when the access crosses "edit", when read-only content comes or goes (or changes, at most once per 250 ms),
- * and when the document is replaced: then the old page takes no more input at once, and an input method composing is let
- * finish first. Returns the disposer.
+ * when the person changes between Page view and Reflow view, and when the document is replaced: then the old page takes
+ * no more input at once, and an input method composing is let finish first. Returns the disposer.
  */
 function openDocument(
   options: MountOptions,
@@ -265,6 +270,7 @@ function openDocument(
     ink: format() === "ink",
     edit: status.get().access === "edit",
     readOnly: session.readOnly.get() !== null,
+    reflow: layoutViewActions.get() === "reflow",
   });
   const opened = {
     ports,
@@ -292,6 +298,7 @@ function openDocument(
   const stops = [
     script.subscribe("script.format", follow),
     status.subscribe(follow),
+    layoutViewActions.subscribe(follow),
     session.readOnly.subscribe((content) => {
       if (content === null || !built.shown.readOnly) follow();
       else if (pending === noop)

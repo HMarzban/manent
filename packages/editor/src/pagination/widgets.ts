@@ -7,6 +7,7 @@ const ROOT_CLASS: Readonly<Record<BreakKind, string>> = Object.freeze({
   mid: "pb pb-mid",
   col: "pb pb-col",
   last: "pb pb-last",
+  rule: "pb pb-rule",
 });
 
 /** Each child as [class, its text or null], in order, only when it applies. */
@@ -14,6 +15,8 @@ function childrenOf(spec: BreakSpec): [string, string | null][] {
   switch (spec.kind) {
     case "first":
       return [["pb-head", null]];
+    case "rule":
+      return [];
     case "last":
       return [
         ["pb-fill", null],

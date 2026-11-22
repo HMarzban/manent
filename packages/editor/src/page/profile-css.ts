@@ -77,7 +77,7 @@ export function profileCss(profile: PageProfile): string {
     `--geo-cue-indent: ${profile.elements.character.indent}`,
     `--geo-gap: ${PAGE_GAP_PX}px`,
   ];
-  const rules = [`.mn-pages, .mn-front { ${page.join("; ")}; }`];
+  const rules = [`.mn-pages { ${page.join("; ")}; }`];
   // A block's class carries its type, not its kind, so an act break is styled as a new act whatever its kind.
   for (const type of BLOCK_TYPES) {
     rules.push(

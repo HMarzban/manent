@@ -11,6 +11,7 @@ import type { IdSource } from "@manent/schema";
 import type { Platform } from "@manent/settings";
 import type { KeyResolver } from "@manent/ui";
 import type { PersonServices } from "../services/ports.ts";
+import { layoutViewActions } from "../state/layout-view.store.ts";
 import { zoomActions } from "../state/zoom.store.ts";
 import type { EditorMount } from "./mount.ts";
 import { createPastedText } from "./pasted-text.ts";
@@ -74,6 +75,7 @@ export function editorOptions(
     keys: options.keys,
     zoom: zoomActions.get(),
     titlePage: bound.titlePage,
+    view: layoutViewActions.get(),
     desk: open.desk,
     extraPlugins: (host) =>
       EDITOR_PLUGINS.map((make) =>

@@ -255,6 +255,7 @@ function editor(
     keys: { resolve: () => null, run: () => false },
     zoom: options.zoom ?? 100,
     titlePage: null,
+    view: "page",
     desk: {
       widthPx: () => fakes.desk.width,
       paddingPx: () => 64,
