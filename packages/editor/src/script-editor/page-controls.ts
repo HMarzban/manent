@@ -63,7 +63,7 @@ function firstEndingBelow(
   return elements[low] ?? null;
 }
 
-/** The block across viewport height `top`, or the first below it when `top` falls between pages: its index and viewport top. */
+/** The block across viewport height `top`, or the first below it: its index and viewport top. */
 function blockAcross(
   view: EditorView,
   top: number,
@@ -107,7 +107,8 @@ export function createScrollPorts(
     caretTop: (view) => caretPlace(view)?.top ?? null,
     topBlock(view) {
       const edge = scrollerOf(place).getBoundingClientRect().top;
-      const found = blockAcross(view, edge);
+      // between two pages the point lands in no block
+      const found = blockAtHeight(view, edge + 1) ?? blockAcross(view, edge);
       return found === null
         ? null
         : { block: found.block, offsetPx: edge - found.top };
