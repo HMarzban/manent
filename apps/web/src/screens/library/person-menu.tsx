@@ -1,5 +1,5 @@
-// The person menu: the person's initials in an avatar, opening what acts on them.
-import { CommandMenu } from "@manent/ui";
+// The person menu: the person's avatar, opening what acts on them.
+import { Avatar, CommandMenu } from "@manent/ui";
 import type { ReactNode } from "react";
 
 /** The first letter of the first two words of `name`: "Dana Reyes" is "DR". */
@@ -11,6 +11,7 @@ const initialsOf = (name: string): string =>
     .map((word) => Array.from(word)[0]?.toUpperCase() ?? "")
     .join("");
 
+/** Outside a script a person has no colour; the avatar names the menu's button. */
 export function PersonMenu(props: { name: string }): ReactNode {
   const { name } = props;
   return (
@@ -18,9 +19,12 @@ export function PersonMenu(props: { name: string }): ReactNode {
       menu="person"
       label={name}
       trigger={
-        <span className="inline-flex size-avatar items-center justify-center rounded-full bg-control text-micro">
-          {initialsOf(name)}
-        </span>
+        <Avatar
+          name={name}
+          initials={initialsOf(name)}
+          colour={null}
+          size="md"
+        />
       }
     />
   );

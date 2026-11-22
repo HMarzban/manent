@@ -9,6 +9,7 @@ import {
   useSubscribable,
   useTiming,
 } from "@manent/ui";
+import { LoaderCircleIcon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -60,8 +61,8 @@ function Fact(props: { label: string; value: string }): ReactNode {
 
 function Group(props: { heading: string; children: ReactNode }): ReactNode {
   return (
-    <section className="flex flex-col py-2">
-      <h3 className="text-micro uppercase text-fg-muted">{props.heading}</h3>
+    <section className="flex flex-col">
+      <h3 className="mn-group-label px-0!">{props.heading}</h3>
       {props.children}
     </section>
   );
@@ -132,7 +133,7 @@ function StoredHere(): ReactNode {
       </p>
       {kept ? null : (
         <div>
-          <Button variant="outline" size="sm" onClick={ask}>
+          <Button variant="outline" onClick={ask}>
             {PREFERENCES_WORDS.askToKeep}
           </Button>
         </div>
@@ -156,23 +157,6 @@ function ActionRow(props: {
         {props.action}
       </Button>
     </div>
-  );
-}
-
-// the busy button's spinner: the circle the consequence dialog draws, from an icon library this workspace does not depend on
-function Spinner(): ReactNode {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      className="animate-spin"
-    >
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
   );
 }
 
@@ -213,7 +197,9 @@ function BusyButton(props: {
       onClick={props.onClick}
     >
       {busy ? busyLabel : label}
-      {busy && spinning ? <Spinner /> : null}
+      {busy && spinning ? (
+        <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
+      ) : null}
     </Button>
   );
 }
@@ -331,7 +317,7 @@ function About(props: { desktop: DesktopDevice | null }): ReactNode {
         <div>
           <Button
             variant="link"
-            size="sm"
+            className="h-auto p-0"
             aria-expanded={pledgeOpen}
             aria-controls={pledgeId}
             onClick={() => setPledgeOpen((open) => !open)}

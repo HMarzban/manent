@@ -209,7 +209,7 @@ test("avatars are named by their people, and the count by how many more", async 
       nameOf(el),
       el.textContent ?? "",
     ]);
-  expect([named("[data-who]"), named("[data-count='more']")]).toEqual([
+  expect([named("[data-who]"), named("[data-more]")]).toEqual([
     [
       ["Dana Reyes", "DR"],
       ["Sam Okafor", "SO"],

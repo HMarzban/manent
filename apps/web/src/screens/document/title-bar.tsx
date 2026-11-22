@@ -14,6 +14,7 @@ import type { DocumentServices } from "../../services/ports.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { useRenaming } from "../../state/rename.store.ts";
 import { InlineRename } from "./inline-rename.tsx";
+import { MenuFace } from "./menu-face.tsx";
 import { People } from "./people.tsx";
 import { StatusButton } from "./status-button.tsx";
 
@@ -57,13 +58,15 @@ export function TitleBar(props: {
     >
       <Button
         variant="ghost"
+        className="text-fg-muted hover:text-fg"
         onClick={() => void router.navigate({ href: "/" })}
       >
         {DOCUMENT_WORDS.back}
       </Button>
+      {/* the title's band hugs it, and gives way to the status on a narrow bar */}
       <h1
         tabIndex={-1}
-        className="max-w-max min-w-24 flex-1 font-semibold outline-none *:max-w-full"
+        className="max-w-2/5 min-w-24 text-title font-semibold *:max-w-full"
       >
         {renaming ? (
           <InlineRename docId={docId} title={title} />
@@ -72,10 +75,9 @@ export function TitleBar(props: {
             menu="title"
             label={DOCUMENT_WORDS.titleMenu(title)}
             trigger={
-              <span className="flex items-center gap-1" title={title}>
-                <span className="truncate">{title}</span>
-                <span aria-hidden="true">▾</span>
-              </span>
+              <MenuFace size="default" title={title}>
+                {title}
+              </MenuFace>
             }
           />
         )}
