@@ -176,7 +176,7 @@ const frame = (): ReactNode => <DocumentFrame docId={DOC_ID} />;
 // the Sync centre draws in its popover; closed, the popover's root still names its title
 const syncCentre = (doc: DocumentServices): ReactNode => (
   <Popover>
-    <div className="flex flex-col gap-2 p-2.5 text-ui">
+    <div className="flex flex-col gap-2 p-4 text-ui">
       <SyncCentre doc={doc} />
     </div>
   </Popover>
