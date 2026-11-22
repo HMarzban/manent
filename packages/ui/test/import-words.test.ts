@@ -31,6 +31,9 @@ test("the import sentences read as people see them", () => {
   expect(IMPORT_WORDS.notSaved("draft.fdx")).toBe(
     "Couldn't add 'draft.fdx' to the Library. Nothing was imported; try again.",
   );
+  expect(IMPORT_WORDS.fdrNotReadable("draft.fdr")).toBe(
+    "Couldn't open 'draft.fdr': it was saved by Final Draft 7 or earlier. Open it in Final Draft 8 or later, save it as an .fdx file, then import that.",
+  );
   expect([
     IMPORT_WORDS.overflowing(["12", "40", "41"]),
     IMPORT_WORDS.overflowing(["12"]),
