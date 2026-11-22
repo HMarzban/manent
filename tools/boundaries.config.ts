@@ -103,11 +103,11 @@ export const RULES: BoundaryRules = {
     },
     formats: {
       layer: 1,
-      runtime: "browser",
+      runtime: "pure",
       importable: "product",
       internal: ["schema", "pagination", "revisions"],
       typesOnly: [],
-      external: "declared",
+      external: ["pdfkit"],
       forbiddenGlobals: [],
     },
     "sync-client": {
