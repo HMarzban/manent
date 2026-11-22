@@ -30,6 +30,7 @@ import type { EditorMount } from "./mount.ts";
 import { followZoom } from "./page-zoom.ts";
 import { keepPlace } from "./keep-place.ts";
 import { placeholderMount } from "./placeholder-mount.ts";
+import { followThumb } from "./thumb-label.ts";
 import { countSteps } from "./undo-depth.ts";
 
 /** What one person's undo takes back. */
@@ -175,6 +176,15 @@ function buildEditor(
   );
   if (place !== null) editor.restore(place);
   const stopZoom = followZoom({ ...options, editor, element });
+  const stopThumb =
+    editor.scaffold === null
+      ? noop
+      : followThumb({
+          editor,
+          scroller: element,
+          docId,
+          timers: options.timers,
+        });
   const detach = options.control.attach({
     run: (request) => editor.run(actionOf(request)),
     zoomPercent: () => editor.zoomPercent(),
@@ -194,6 +204,7 @@ function buildEditor(
     shown: open.shown,
     destroy() {
       stopZoom();
+      stopThumb();
       detach();
       unregister();
       editor.destroy();
