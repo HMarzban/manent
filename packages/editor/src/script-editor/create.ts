@@ -92,6 +92,8 @@ export interface ScriptEditorOptions {
   pastedText: PastedTextPort;
   /** The undo stack gained a step. */
   onUndoStep(): void;
+  /** The script's title, which names the page; `subscribe` calls back on each change and returns unsubscribe. */
+  title: { get(): string; subscribe(listener: () => void): () => void };
   keys: {
     resolve: (event: KeyboardEvent) => string | null;
     run(id: string): boolean;
@@ -114,10 +116,18 @@ const LAYOUT_KEYS: readonly string[] = Object.freeze([
 
 const READ_ONLY_ATTRIBUTES: Readonly<Record<string, string>> = Object.freeze({
   tabindex: "0",
-  role: "textbox",
-  "aria-multiline": "true",
   "aria-readonly": "true",
 });
+
+/** The page is one multiline textbox named by the script's title; a read-only one is focusable and says so. */
+function pageAttributes(options: ScriptEditorOptions): Record<string, string> {
+  return {
+    role: "textbox",
+    "aria-multiline": "true",
+    "aria-label": options.title.get(),
+    ...(options.editable ? {} : READ_ONLY_ATTRIBUTES),
+  };
+}
 
 /** The layer is the popovers' frame: they are placed in its coordinates. */
 const LAYER_CSS = ".mn-layer { position: relative; }";
@@ -175,9 +185,7 @@ function editorPlugins(
       plainElement: () => plainTextElement(format()),
       formatElements: () => FORMAT_ELEMENTS[format()],
     }),
-    ...(options.editable
-      ? []
-      : [new Plugin({ props: { attributes: READ_ONLY_ATTRIBUTES } })]),
+    new Plugin({ props: { attributes: () => pageAttributes(options) } }),
   ];
   const after = [
     // the registry counts from the pagination plugin's block index
@@ -283,17 +291,19 @@ function actionContext(
   };
 }
 
-/** The settings the editor follows, and the undo steps; returns each unsubscribe. */
+/** The settings and the title the editor follows, and the undo steps; returns each unsubscribe. */
 function subscribe(
   options: ScriptEditorOptions,
   view: EditorView,
   relayout: () => void,
 ): (() => void)[] {
+  // a transaction of no content, so the page's attributes are read again
+  const reread = (): void =>
+    view.dispatch(view.state.tr.setMeta("addToHistory", false));
   return [
     ...LAYOUT_KEYS.map((key) => options.script.subscribe(key, relayout)),
-    options.personal.subscribe("writing.checkSpelling", () =>
-      view.dispatch(view.state.tr.setMeta("addToHistory", false)),
-    ),
+    options.personal.subscribe("writing.checkSpelling", reread),
+    options.title.subscribe(reread),
     options.binding.history.onStep(options.onUndoStep),
   ];
 }

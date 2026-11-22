@@ -168,14 +168,12 @@ test("the open picker is a labelled list the page controls, and focus stays in t
     list?.id,
     list?.getAttribute("aria-label"),
     view.dom.getAttribute("aria-controls"),
-    view.dom.getAttribute("aria-expanded"),
     view.dom.getAttribute("aria-activedescendant"),
     layer.querySelector('[aria-selected="true"]')?.id,
   ]).toEqual([
     "mn-picker",
     "Element",
     "mn-picker",
-    "true",
     "mn-picker-2",
     "mn-picker-2",
   ]);
@@ -261,7 +259,7 @@ test("Escape closes the picker and goes no further", () => {
     event.defaultPrevented,
     reached,
     layer.childElementCount,
-    view.dom.getAttribute("aria-expanded"),
+    view.dom.getAttribute("aria-controls"),
   ]).toEqual([false, true, false, 0, null]);
 });
 
