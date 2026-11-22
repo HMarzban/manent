@@ -29,11 +29,11 @@ function serverShape(facts: StatusFacts): ServerShape {
   if (facts.network === "offline") return "offline";
   switch (facts.server) {
     case "synced":
-      return "synced";
+      return facts.toReview === 0 ? "synced" : "attention";
     case "syncing":
       return "waiting";
+    // like an old app or server, a missing sign-in stops syncing until the person acts; it is not being offline
     case "sign_in":
-      return "offline";
     case "unreachable":
     case "server_old":
     case "app_old":

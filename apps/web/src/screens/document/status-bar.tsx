@@ -120,8 +120,8 @@ export function StatusBar(): ReactNode {
         useOwnWorkShown() ? "h-row-2" : "h-statusbar",
       )}
     >
-      {/* a narrow window keeps Element, the page, View and Commands, each at its own width */}
-      <div className="w-element shrink-0 max-sm:w-auto">
+      {/* a narrow window keeps Element, the page, View and Commands; a long element name gives way first */}
+      <div className="w-element shrink-0 max-sm:w-auto max-sm:min-w-0 max-sm:max-w-28 max-sm:shrink">
         {docId === null ? null : <ElementButton docId={docId} />}
       </div>
       {readout === null ? null : (
