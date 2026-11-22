@@ -1154,6 +1154,9 @@ html[data-white-page] .mn-pages {
 .mn-avatar {
   border: 1px solid var(--line-strong);
   color: var(--fg-muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
 }
 .mn-avatar[data-who] {
   background-color: var(--who);
