@@ -3,16 +3,22 @@ import type { BlockType } from "@manent/schema";
 import type { SeedBlock } from "../../content/markup.ts";
 import * as banks from "../../generate/banks/heavy/index.ts";
 import { sessionsBetween } from "../../generate/drafts.ts";
+import type { PageMeter } from "../../generate/fit.ts";
 import {
+  GENERATED_REPEAT_PAGES,
+  LINES_PER_PAGE,
+  createUsedLines,
   freeAction,
   generateChapter,
   generateScenes,
 } from "../../generate/grammar.ts";
+import type { UsedLines } from "../../generate/grammar.ts";
 import { SeedBuildError } from "../../generate/guide.ts";
 import type { ProseGuide, StyleGuide } from "../../generate/guide.ts";
 import type { SeedDoc } from "../catalogue.ts";
 import type { Rng } from "../rng.ts";
 import type { SeedTime } from "../time.ts";
+import { castAround, textsNear } from "./studio-pages.ts";
 
 // the share of its pages a document is written at: the largest its bank fills without repeating a line
 const SHARES = [1, 0.75, 0.5, 0.35, 0.25, 0.15, 0.1] as const;
@@ -42,13 +48,22 @@ function block(element: BlockType, text: string): SeedBlock {
 /** The long book's guide, whose chapters are written one at a time as the book is fitted to its pages. */
 export const BOOK = banks.KEEPER_PROSE;
 
-export function bookChapter(
-  number: number,
-  words: number,
+/**
+ * A writer of the long book's chapters, one at a time with `rng`: each keeps its sentences clear of their last
+ * use by the generator's rule and by `spare` pages more, which cutting it to length may take out.
+ */
+export function bookChapters(
   rng: Rng,
-  used: Set<string>,
-): SeedBlock[] {
-  return generateChapter(BOOK, number, words, rng, used);
+): (number: number, words: number, spare: number) => SeedBlock[] {
+  const used = createUsedLines();
+  return (number, words, spare) => {
+    const lines = spare * LINES_PER_PAGE.manuscript;
+    const clear: UsedLines = {
+      ...used,
+      has: (text, window) => used.has(text, window + lines),
+    };
+    return generateChapter(BOOK, number, words, rng, clear);
+  };
 }
 
 /** How many of `blocks` each of `sessions` write sessions adds, in document order, as even as they divide. */
@@ -59,14 +74,22 @@ export function writeCounts(
   return sessionsBetween([], blocks, sessions).map((run) => run.length);
 }
 
-/** An action the document's guide holds and `held` does not, naming nobody; null when there is none. */
+/**
+ * An action the document's guide holds for the place `at` of `blocks`, naming nobody but the cast of its scene;
+ * none of the blocks within GENERATED_REPEAT_PAGES pages of it holds the same. Null when there is none.
+ */
 export function revisedAction(
   doc: SeedDoc,
-  held: ReadonlySet<string>,
+  blocks: readonly SeedBlock[],
+  at: number,
   rng: Rng,
 ): SeedBlock | null {
   const guide = guideOf(doc);
-  const text = guide === null ? null : freeAction(guide, [], rng, held);
+  if (guide === null) return null;
+  const window = GENERATED_REPEAT_PAGES * LINES_PER_PAGE[guide.format];
+  const near = textsNear(blocks, at, window);
+  const cues = castAround(guide, blocks, at);
+  const text = freeAction(guide, cues, rng, { has: (t) => near.has(t) });
   return text === null ? null : block("action", text);
 }
 
@@ -101,10 +124,10 @@ function largest<T>(attempt: (share: number) => T): T {
   return attempt(SHARES.at(-1)!);
 }
 
-/** The document's beats, each written at the same share of its pages, the document's lines never repeated. */
+/** The document's beats, each written at the same share of its pages, all drawn through one record of its lines. */
 const scenesOf = (guide: StyleGuide, doc: SeedDoc, rng: Rng): SeedBlock[] =>
   largest((share) => {
-    const used = new Set<string>();
+    const used = createUsedLines();
     return guide.beats.flatMap((beat) => {
       if (!beat.id.startsWith(`${doc.key}#`)) return [];
       const [first, last] = beat.pages;
@@ -115,7 +138,7 @@ const scenesOf = (guide: StyleGuide, doc: SeedDoc, rng: Rng): SeedBlock[] =>
   });
 
 function chaptersOf(guide: ProseGuide, words: number, rng: Rng): SeedBlock[] {
-  const used = new Set<string>();
+  const used = createUsedLines();
   return guide.chapters.flatMap((c) =>
     generateChapter(guide, c.number, words, rng, used),
   );
@@ -220,8 +243,26 @@ const overflow = (day: number, on: string, want: string): HistoryStep => ({
   on,
   want,
 });
-// the locked page H01's A-pages grow from: page 37 of its 124, where the quarter of them its bank fills puts it
-const H01_A_PAGE = "8";
+// H01 is locked at page 37 of its 124, where its A-pages grow
+const H01_LOCKED_PAGE = 37;
+const H01_STATED_PAGES = 124;
+
+/** H01's history in the `pages` it fills: its A-pages grow from page 37 of 124 scaled to them, page 1 at least. */
+function h01(pages: number): readonly HistoryStep[] {
+  const scaled = (H01_LOCKED_PAGE * pages) / H01_STATED_PAGES;
+  const on = `${Math.max(1, Math.round(scaled))}`;
+  return [
+    write(120, 330, 41),
+    lock(40, "priya"),
+    revise(24, 39, 26),
+    overflow(26, on, `${on}A`),
+    issue(25, "priya"),
+    revise(24, 24, 10),
+    issue(9, "priya"),
+    revise(16, 8, 1),
+    overflow(1, `${on}A`, `${on}AA`),
+  ];
+}
 
 // the fourth season: three shot, one at Pink, one at White with Blue in progress, three drafts, two outlines
 function seasonFour(i: number): readonly HistoryStep[] {
@@ -282,40 +323,10 @@ function seasonThree(i: number): readonly HistoryStep[] {
 export const dayAt = (time: SeedTime, day: number, clock: string): number =>
   time.at(`D${day > 0 ? `-${day}` : day < 0 ? `+${-day}` : ""} ${clock}`);
 
-/** The sessions spread over their days, each between 09:00 and 17:30, in time order. */
-export function sessionTimes(
-  time: SeedTime,
-  rng: Rng,
-  step: Sessions,
-): number[] {
-  const { sessions, fromDay: from, toDay: to } = step;
-  return Array.from({ length: sessions }, (_, n) => {
-    const day = Math.round(
-      from - ((from - to) * n) / Math.max(sessions - 1, 1),
-    );
-    const minutes = 540 + 15 * rng.int(0, 34);
-    const clock = [Math.floor(minutes / 60), minutes % 60]
-      .map((part) => String(part).padStart(2, "0"))
-      .join(":");
-    return dayAt(time, day, clock);
-  }).toSorted((a, b) => a - b);
-}
-
 /** The histories of the projects that have one of their own, by the document's place `i` in its project. */
 const HISTORIES: Readonly<
   Record<string, (i: number) => readonly HistoryStep[]>
 > = {
-  H01: () => [
-    write(120, 330, 41),
-    lock(40, "priya"),
-    revise(24, 39, 26),
-    overflow(26, H01_A_PAGE, `${H01_A_PAGE}A`),
-    issue(25, "priya"),
-    revise(24, 24, 10),
-    issue(9, "priya"),
-    revise(16, 8, 1),
-    overflow(1, `${H01_A_PAGE}A`, `${H01_A_PAGE}AA`),
-  ],
   H03: () => [
     write(100, 320, 61),
     name(60, "Writer's First"),
@@ -342,25 +353,34 @@ const HISTORIES: Readonly<
   H24: seasonFour,
   H25: seasonThree,
   H26: (i) => [write(28, 400 - 14 * i, 360 - 14 * i)],
-  H30: (i) => [write(8, Math.max(10 - i, 1), Math.max(9 - i, 0))],
+  H30: (i) => [write(6, Math.max(10 - i, 1), Math.max(9 - i, 0))],
   H31: (i) => {
     const s = Math.max(NEWSCAST_DAYS[i]! + 1, 1);
     return [write(6, s, s - 1)];
   },
   H32: (i) =>
-    i < 58 ? [write(14, 330 - 5 * i, 327 - 5 * i)] : [write(12, 8, 1)],
+    i < 58 ? [write(14, 330 - 5 * i, 325 - 5 * i)] : [write(12, 8, 1)],
   H33: () => [{ op: "book", day: 200 }],
   H34: () => [write(320, 600, 30)],
   H35: () => [write(200, 300, 2)],
 };
 
-/** The document's history: its project's own, or the slate's 3 to 12 sessions over a few weeks. */
-export function historyOf(
+/**
+ * The document's history: its project's own, or the slate's 3 to 12 sessions over a few weeks. H01's follows the
+ * pages its `blocks` fill as `meter` lays them out.
+ */
+export async function historyOf(
   doc: SeedDoc,
   i: number,
   rng: Rng,
-): readonly HistoryStep[] {
-  const own = HISTORIES[codeOf(doc.key)]?.(i);
+  { blocks, meter }: { blocks: readonly SeedBlock[]; meter: PageMeter },
+): Promise<readonly HistoryStep[]> {
+  const code = codeOf(doc.key);
+  if (code === "H01") {
+    const layout = { format: doc.format, settings: {}, anchors: null };
+    return h01((await meter.pages(blocks, layout)).length);
+  }
+  const own = HISTORIES[code]?.(i);
   if (own !== undefined) return own;
   const from = rng.int(40, 320);
   return [write(rng.int(3, 12), from, from - rng.int(5, 30))];

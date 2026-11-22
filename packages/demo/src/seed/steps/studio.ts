@@ -1,6 +1,6 @@
 // Lanternfield Studios: its index, its roles and its forty projects, their histories replayed in one time order.
 import { scriptBody } from "@manent/crdt";
-import { projectHome } from "@manent/sync-protocol";
+import type { PageMeter } from "../../generate/fit.ts";
 import { SeedBuildError } from "../../generate/guide.ts";
 import { GENERATED_MEMBERS } from "../../people/members.ts";
 import { HEAVY_DOCS, HEAVY_PROJECTS } from "../catalogue-heavy.ts";
@@ -8,6 +8,12 @@ import type { SeedDoc, SeedProject } from "../catalogue.ts";
 import { SeedDriverError } from "../driver.ts";
 import type { SeedDriver, SeedProduction, SeedSession } from "../driver.ts";
 import type { SeedContext, SeedEntry, SeedStep } from "../seed.ts";
+import {
+  createProject,
+  projectEntry,
+  sessionTimes,
+  setFormat,
+} from "../story.ts";
 import { HALF_HOUR_MS } from "../time.ts";
 import type { HistoryStep, Sessions } from "./studio-content.ts";
 import { append, overflow, writeBook } from "./studio-pages.ts";
@@ -26,18 +32,20 @@ const PRIYA = {
 } as const;
 // the projects whose drafts Dana names
 const DANA_NAMES = ["H24", "H25"];
+// a day's naming, locking, issuing and writing over a locked page come after its last session
+const EVENT_CLOCK = "22:00";
 
-/** Rewrites one written action with one the script does not hold. */
+/** Rewrites one written action with one that no block near it holds. */
 async function revise({ context, studio, script }: Playback, s: SeedSession) {
   const { rng } = context;
   const { doc, blocks } = script;
   const actions = blocks.flatMap((b, n) =>
     n < script.written && b.element === "action" ? [n] : [],
   );
-  const held = new Set(blocks.map((b) => b.text));
-  const action = studio.revisedAction(doc, held, rng);
-  if (action === null || actions.length === 0) return;
+  if (actions.length === 0) return;
   const at = rng.pick(actions);
+  const action = studio.revisedAction(doc, blocks, at, rng);
+  if (action === null) return;
   const [id, old] = [script.ids[at]!, blocks[at]!.text];
   blocks[at] = action;
   await s.change((d) =>
@@ -63,16 +71,10 @@ async function race(
     throw new SeedBuildError("rules_broken", `${where}: ${by}`);
 }
 
-/** The script's format, set in its first session; a screenplay's is the default, and an Ink story has none. */
-async function setFormat(context: SeedContext, s: SeedSession, doc: SeedDoc) {
-  if (doc.format === "screenplay" || doc.kind === "ink") return;
-  if (!context.driver?.capabilities.has("settings"))
-    return context.skip("settings", `the format of ${doc.title}`);
-  if ((await s.set("script.format", doc.format)) === "refused")
-    throw new SeedDriverError("refused", `the format of ${doc.title}`);
-}
-
-/** One session by `by`, which sets the script's format when nothing is written yet. */
+/**
+ * One session by `by`, which sets the script's format when nothing is written yet; a screenplay's is the
+ * default, and an Ink story has none.
+ */
 const session =
   (
     { context, driver, script }: Playback,
@@ -80,8 +82,11 @@ const session =
     fn: (s: SeedSession) => Promise<void>,
   ): Act =>
   async () => {
-    const opened = await driver.open(by, script.doc.docId);
-    if (script.written === 0) await setFormat(context, opened, script.doc);
+    const { doc } = script;
+    const opened = await driver.open(by, doc.docId);
+    const formatted = doc.format !== "screenplay" && doc.kind !== "ink";
+    if (script.written === 0 && formatted)
+      await setFormat(context, opened, doc.key);
     await fn(opened);
     await opened.close();
   };
@@ -95,9 +100,10 @@ function sessionsOf(
   fn: (s: SeedSession, n: number) => Promise<void>,
 ): void {
   const { time, rng } = p.context;
-  for (const [n, at] of p.studio.sessionTimes(time, rng, step).entries())
+  const times = sessionTimes(step.fromDay, step.toDay, step.sessions);
+  for (const [n, at] of times.entries())
     add(
-      at,
+      time.at(at),
       session(p, rng.pick(writers), (s) => fn(s, n)),
     );
 }
@@ -152,7 +158,7 @@ function plan(
         break;
       case "overflow":
         add(
-          at(step.day, "18:00"),
+          at(step.day, EVENT_CLOCK),
           session(p, context.rng.pick(writers), (s) =>
             overflow(p, s, step, where),
           ),
@@ -165,7 +171,7 @@ function plan(
         );
         break;
       case "name":
-        add(at(step.day, "18:00"), () =>
+        add(at(step.day, EVENT_CLOCK), () =>
           driver.capabilities.has("history")
             ? driver.nameDraft(people.namer, doc.docId, step.draft)
             : context.skip("history", `name ${step.draft}, ${doc.title}`),
@@ -175,7 +181,7 @@ function plan(
       case "issue": {
         const { op, by } = step;
         add(
-          at(step.day, "18:00"),
+          at(step.day, EVENT_CLOCK),
           produce(p, `${op} ${by}`, (pr) =>
             op === "lock"
               ? pr.lock(by, doc.docId)
@@ -197,17 +203,12 @@ function plan(
 
 /** The project's documents in its home and its entry in the index; the long book's author edits it alone. */
 async function create(driver: SeedDriver, project: SeedProject, at: number) {
-  const docs = HEAVY_DOCS.filter((d) => d.projectKey === project.key);
-  const home = projectHome(project.projectId);
   const book = project.key === "heavy/h33";
   const author = GENERATED_MEMBERS.find((m) => book && m.userId === SIGNE);
   if (author)
     await driver.workspace("dana", "heavy", [{ ...author, role: "edit" }]);
-  for (const { docId, kind } of docs)
-    await driver.create("dana", { docId, kind, home, workspaceId: "heavy" });
+  await createProject(driver, { userId: "dana", projectKey: project.key, at });
   if (author) await driver.workspace("dana", "heavy", [author]);
-  const entries = { projects: [project], documents: docs, at };
-  await driver.index("dana", "heavy", entries);
 }
 
 /**
@@ -216,7 +217,7 @@ async function create(driver: SeedDriver, project: SeedProject, at: number) {
  */
 async function replay(
   context: SeedContext,
-  driver: SeedDriver,
+  { driver, meter }: { driver: SeedDriver; meter: PageMeter },
   studio: Studio,
 ) {
   const timeline: { at: number; project: number; act: Act }[] = [];
@@ -232,7 +233,10 @@ async function replay(
       const blocks = studio.blocksOf(doc, i, context.rng);
       const ids = blocks.map(() => context.ids());
       const script: Script = { doc, blocks, ids, written: 0 };
-      const history = studio.historyOf(doc, i, context.rng);
+      const history = await studio.historyOf(doc, i, context.rng, {
+        blocks,
+        meter,
+      });
       const playback = { context, driver, studio, script };
       plan(playback, { history, writers, namer }, add);
     }
@@ -259,15 +263,18 @@ export const STUDIO: SeedStep = {
   workspace: "heavy",
   background: true,
   run: async (context): Promise<SeedEntry[]> => {
-    if (context.driver !== null)
+    const { driver, meter } = context;
+    if (driver !== null) {
+      if (meter === null)
+        throw new RangeError(
+          "the seed step studio replays its histories only with a page meter",
+        );
       await replay(
         context,
-        context.driver,
+        { driver, meter },
         await import("./studio-content.ts"),
       );
-    return HEAVY_PROJECTS.map((project) => ({
-      project: project.title,
-      documents: HEAVY_DOCS.filter((d) => d.projectKey === project.key).length,
-    }));
+    }
+    return HEAVY_PROJECTS.map((project) => projectEntry(project.key));
   },
 };

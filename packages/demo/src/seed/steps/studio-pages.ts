@@ -1,12 +1,14 @@
-// The studio's documents written against the server's pages: the long book fitted to its 2,000, and a locked
-// page written over until its A-page starts.
+// The studio's documents written against the server's pages: the long book fitted to its 2,000, a locked page
+// written over until its A-page starts, and what an action written into a place may repeat or name.
 import { scriptBody } from "@manent/crdt";
-import type { BlockJSON } from "@manent/schema";
 import type { SeedBlock } from "../../content/markup.ts";
+import { estimatedLines } from "../../generate/grammar.ts";
 import { SeedBuildError } from "../../generate/guide.ts";
+import type { StyleGuide } from "../../generate/guide.ts";
 import type { SeedDoc } from "../catalogue.ts";
 import type { SeedDriver, SeedSession } from "../driver.ts";
 import type { SeedContext } from "../seed.ts";
+import { toBlockJSON } from "../story.ts";
 import type * as Content from "./studio-content.ts";
 
 /** One document as the step holds it: all it will hold, and how much of that is written. */
@@ -38,12 +40,6 @@ const CHAPTER_PAGES = 120;
 // two pages of the shortest actions: what a locked page takes at most before the page after it starts
 const OVERFLOW_ACTIONS = 60;
 
-const toJSON = (b: SeedBlock, id: string): BlockJSON => ({
-  type: "block",
-  attrs: { id, type: b.element },
-  ...(b.text === "" ? {} : { content: [{ type: "text", text: b.text }] }),
-});
-
 /** Writes the script's next `count` blocks after what is written. */
 export async function append(
   session: SeedSession,
@@ -54,7 +50,7 @@ export async function append(
   script.written = Math.min(script.blocks.length, from + count);
   const blocks = script.blocks
     .slice(from, script.written)
-    .map((b, n) => toJSON(b, script.ids[from + n]!));
+    .map((b, n) => toBlockJSON(b, script.ids[from + n]!));
   const after = script.ids[from - 1] ?? null;
   if (blocks.length > 0)
     await session.change((doc) =>
@@ -143,11 +139,10 @@ export async function writeBook(
   { context, driver, studio, script }: Playback,
   s: SeedSession,
 ): Promise<void> {
-  const { rng } = context;
   const { chapters } = studio.BOOK;
-  const used = new Set<string>();
-  const chapter = async (number: number, words: number) => {
-    const blocks = studio.bookChapter(number, words, rng, used);
+  const writeChapter = studio.bookChapters(context.rng);
+  const chapter = async (number: number, words: number, spare = 0) => {
+    const blocks = writeChapter(number, words, spare);
     script.blocks.push(...blocks);
     script.ids.push(...blocks.map(() => context.ids()));
     await append(s, script, blocks.length);
@@ -155,8 +150,11 @@ export async function writeBook(
   for (const { number } of chapters.slice(0, -1))
     await chapter(number, CHAPTER_WORDS);
   const read = await bookPages(studio, driver, script);
-  const left = (BOOK_PAGES - read.pages) * perPage(script, read);
-  await chapter(chapters.at(-1)!.number, left * LAST_CHAPTER_SPARE);
+  const pagesLeft = BOOK_PAGES - read.pages;
+  const left = pagesLeft * perPage(script, read);
+  // the cut takes about the spare's pages, and one more for the estimate
+  const spare = Math.ceil(pagesLeft * (LAST_CHAPTER_SPARE - 1)) + 1;
+  await chapter(chapters.at(-1)!.number, left * LAST_CHAPTER_SPARE, spare);
   // each cut takes a paragraph at least, and the last chapter has only so many
   for (;;) {
     const now = await bookPages(studio, driver, script);
@@ -199,6 +197,49 @@ async function startOf(driver: SeedDriver, script: Script, label: string) {
   return lo;
 }
 
+/** The texts of `blocks` that start fewer than `window` estimated lines before or after the place `at`. */
+export function textsNear(
+  blocks: readonly SeedBlock[],
+  at: number,
+  window: number,
+): Set<string> {
+  const near = new Set<string>();
+  let lines = 0;
+  for (let i = at - 1; i >= 0; i -= 1) {
+    lines += estimatedLines(blocks[i]!);
+    if (lines >= window) break;
+    near.add(blocks[i]!.text);
+  }
+  lines = 0;
+  for (let i = at; i < blocks.length && lines < window; i += 1) {
+    near.add(blocks[i]!.text);
+    lines += estimatedLines(blocks[i]!);
+  }
+  return near;
+}
+
+// a scene starts at its heading, which a variety script calls a slug
+const startsScene = (b: SeedBlock): boolean =>
+  b.element === "scene_heading" || b.element === "slug";
+
+const lowerWords = (text: string): string[] =>
+  text.toLowerCase().match(/[\p{L}\p{N}'’]+/gu) ?? [];
+
+/** The cues of the cast that the scene holding the place `at` of `blocks` speaks or names. */
+export function castAround(
+  guide: StyleGuide,
+  blocks: readonly SeedBlock[],
+  at: number,
+): string[] {
+  const from = blocks.findLastIndex((b, i) => i < at && startsScene(b));
+  const next = blocks.findIndex((b, i) => i >= at && startsScene(b));
+  const scene = blocks.slice(Math.max(from, 0), next === -1 ? undefined : next);
+  const words = new Set(scene.flatMap((b) => lowerWords(b.text)));
+  return guide.cast
+    .filter((m) => lowerWords(`${m.cue} ${m.name}`).some((w) => words.has(w)))
+    .map((m) => m.cue);
+}
+
 /**
  * One session's writing onto the locked page `on`, an action at a time after the page's first block (after
  * its speech when that is a cue), until the page `want` starts. SeedBuildError "rules_broken" when `on` is no
@@ -217,8 +258,8 @@ export async function overflow(
   const at = start + (script.blocks[start]!.element === "character" ? 1 : 0);
   for (let n = 0; n <= OVERFLOW_ACTIONS; n += 1) {
     if (await startsIn(driver, script, want, [0, script.written])) return;
-    const held = new Set(script.blocks.map((b) => b.text));
-    const action = studio.revisedAction(script.doc, held, context.rng);
+    const { doc, blocks } = script;
+    const action = studio.revisedAction(doc, blocks, at + 1, context.rng);
     if (action === null) break;
     const [after, id] = [script.ids[at]!, context.ids()];
     script.blocks.splice(at + 1, 0, action);
@@ -226,7 +267,7 @@ export async function overflow(
     script.written += 1;
     await s.change((d) =>
       scriptBody(d).write(
-        (w) => void w.insertBlocks(after, [toJSON(action, id)]),
+        (w) => void w.insertBlocks(after, [toBlockJSON(action, id)]),
       ),
     );
   }
