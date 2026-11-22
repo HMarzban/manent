@@ -123,7 +123,7 @@ function isWritable(ops: readonly BlockOp[]): boolean {
 /** The answer a key keeps: overlaps carry this device's text, and set-aside text comes first from the updates. */
 function storedOf(
   merge: BlockMerge,
-  setAside: readonly ReplaySetAside[],
+  found: Pick<Checked, "setAside" | "unseen">,
   room: Room,
 ): Stored {
   const merged = new Set<string | null>(
@@ -137,9 +137,10 @@ function storedOf(
       blockId: overlap.blockId,
       text: blockText(blockView(overlap.mine)),
     })),
-    // the merge sets aside mine's whole block, which holds what the updates' own set-aside found in it
+    // the merge sets aside mine's whole block, which still holds the unseen text found in it
     setAside: [
-      ...setAside.filter((item) => !merged.has(item.blockId)),
+      ...found.setAside,
+      ...found.unseen.filter((item) => !merged.has(item.blockId)),
       ...merge.setAside,
     ].map(({ blockId, nearBlockId, text }) => ({ blockId, nearBlockId, text })),
   };
@@ -178,7 +179,10 @@ interface Checked {
   mine: DocJSON;
   kind: DocKind;
   frozen: Uint8Array[];
+  /** Own text the updates or the rows base moved on by removed from mine unseen. */
   setAside: ReplaySetAside[];
+  /** Own text mine still holds that the generation's later rows removed unseen. */
+  unseen: ReplaySetAside[];
   /** Mine's revisedOverrides entries that differ from base's; null removes one. */
   overrides: [string, string | null][];
   /** The client ids of the device's updates, in order. An authority writes the replay under the first its document does not hold, so that the device knows the text as its own; a relayed room draws one, as its upstream may hold any. */
@@ -224,7 +228,7 @@ export function createReplay(
     const own = ownClientIds(file, docId, userId);
     const based = replayBase(file, docId, from, lastServerSeq, updates, own);
     if (!based.ok) return based.code;
-    const { base, mine, setAside, overrides } = based;
+    const { base, mine, setAside, unseen, overrides } = based;
     const { kind } = resolved;
     return {
       userId,
@@ -234,6 +238,7 @@ export function createReplay(
       mine,
       frozen,
       setAside,
+      unseen,
       overrides,
       writers: clientIds,
     };
@@ -262,7 +267,7 @@ export function createReplay(
         : undefined;
     const changes = { ops: merge.ops, overrides, writer };
     const update = writeOps(room, changes, ports.ids);
-    const stored = storedOf(merge, checked.setAside, room);
+    const stored = storedOf(merge, checked, room);
     const createdAt = clock.now();
     const version: VersionRow | null =
       update === null

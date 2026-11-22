@@ -116,8 +116,9 @@ function changedOverrides(
 /**
  * base: the generation at `lastServerSeq` (its newest checkpoint at or before it, then its rows),
  * moved on to the smallest later sequence at which the waiting updates are complete; mine: base with
- * the updates applied. setAside: own text the updates or any of the generation's later rows removed
- * unseen. overrides: mine's revisedOverrides entries that differ from base's. invalid: an update is
+ * the updates applied. setAside: own text the updates or the rows base moved on by removed from
+ * mine unseen; unseen: own text mine still holds that the generation's later rows removed unseen.
+ * overrides: mine's revisedOverrides entries that differ from base's. invalid: an update is
  * not one, writes a root map other than revisedOverrides, or leaves a block validation refuses;
  * incomplete: the updates still wait at the generation's last row, or a row they need does not
  * verify. RangeError for a generation that is not closed.
@@ -135,6 +136,7 @@ export function replayBase(
       base: DocJSON;
       mine: DocJSON;
       setAside: SetAside[];
+      unseen: SetAside[];
       overrides: [string, string | null][];
     }
   | { ok: false; code: "incomplete" | "invalid" } {
@@ -158,14 +160,15 @@ export function replayBase(
     const own = ownClientIds;
     const later = catchUp(base, mine, rows, { seq: acked, finalSeq, own });
     if (later === "incomplete") return { ok: false, code: "incomplete" };
-    const unseen = tail.rows
+    const rest = tail.rows
       .filter((row) => row.seq > acked && row.origin !== "heal")
       .map((row) => row.update);
     return {
       ok: true,
       base: scriptBody(base).materialize(),
       mine: scriptBody(mine).materialize(),
-      setAside: [...waiting, ...later, ...removedUnseen(mine, unseen, own)],
+      setAside: [...waiting, ...later],
+      unseen: removedUnseen(mine, rest, own),
       overrides: changedOverrides(base, mine),
     };
   } finally {

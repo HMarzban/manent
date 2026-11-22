@@ -388,6 +388,42 @@ test("edits that rest on what the device saw after its last acknowledgement stil
   expect(world.textOfRoom(B9)).toBe("Fog.");
 });
 
+test("offline text a block's move removed unseen is set aside beside the moved block when that one is set aside too", async () => {
+  const world = replayWorld();
+  const { file, samDoc, danaEdit } = world;
+  const typed = world.samOffline(typeInto(B2, "Night. "));
+  // Dana moves B2 above B1 without seeing Sam's text; Sam receives it, types into the moved block,
+  // and Dana then deletes it
+  danaEdit((w) => {
+    w.deleteBlock(B2);
+    w.insertBlocks(null, [action(B2, B2_TEXT)]);
+  });
+  for (const row of file.log.tail(DOC, 1, 1).rows)
+    samDoc.applyUpdate(row.update, ORIGIN_LOAD);
+  const moved = world.samOffline(typeInto(B2, "Fog. "));
+  danaEdit((w) => w.deleteBlock(B2));
+  world.rebuildNow();
+  expect(
+    await world.replayed(
+      "sam",
+      world.requestOf([...typed, ...moved], { generation: 1, key: KEY }),
+    ),
+  ).toEqual({
+    ok: true,
+    response: {
+      docId: DOC,
+      generation: 2,
+      serverSeq: 1,
+      applied: 0,
+      overlaps: [],
+      setAside: [
+        { blockId: B2, nearBlockId: B1, text: "Night. " },
+        { blockId: B2, nearBlockId: null, text: "Fog. " + B2_TEXT },
+      ],
+    },
+  });
+});
+
 test("past the window the changes are not merged", async () => {
   const world = replayWorld();
   const { clock, file, samOffline, rebuildNow, replayed, requestOf } = world;
