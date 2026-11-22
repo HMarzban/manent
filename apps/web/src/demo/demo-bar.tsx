@@ -19,7 +19,7 @@ export function preloadDemoBarControls(): void {
   controls.preload();
 }
 
-/** Never takes focus; F6 reaches it. One row at every width: on a narrow window its controls keep only their icons. */
+/** Never takes focus; F6 reaches it. One row at every width: short of room, its controls keep only their icons. */
 export function DemoBar(props: {
   person: TabPerson | null;
   onPersonClick: () => void;
@@ -29,9 +29,9 @@ export function DemoBar(props: {
     <section
       data-surface="demo"
       aria-label={DEMO_WORDS.demo}
-      className="flex min-h-demobar items-center gap-2 border-b border-line-strong bg-chrome px-3 text-meta text-fg sm:gap-3"
+      className="mn-bar flex min-h-demobar items-center gap-2 border-b border-line-strong bg-chrome px-3 text-meta text-fg sm:gap-3"
     >
-      <span className="mn-tag" data-fill>
+      <span className="mn-tag shrink-0" data-fill>
         {DEMO_WORDS.demo}
       </span>
       {/* controls whose code cannot load leave the bar, and the tab, as they are */}

@@ -1,5 +1,12 @@
 // The demo bar's controls, start to end: the person, the Connection, the server, and at the far end the Tour.
-import { Avatar, Button, useCommandState, useCommands } from "@manent/ui";
+import {
+  Avatar,
+  Button,
+  CommandButton,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@manent/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PanelRightIcon, PowerIcon } from "lucide-react";
 import { useContext } from "react";
@@ -11,7 +18,7 @@ import { usePanel } from "../state/panels.store.ts";
 import { FactsContext } from "../state/bridge-contexts.ts";
 import { TEXT, serverStatusText } from "../text.ts";
 import { Connection } from "./connection.tsx";
-import { BarButton, BarLabelled } from "./demo-bar-control.tsx";
+import { BarLabelled } from "./demo-bar-control.tsx";
 import { POLL_MS, SERVER_STATUS_QUERY } from "./use-demo.ts";
 import type { DemoControl } from "./use-demo.ts";
 
@@ -52,7 +59,6 @@ function Person(props: {
         size="sm"
         aria-label={personLabel(person)}
         onClick={onClick}
-        className="max-sm:px-0.5"
       >
         <Avatar
           name={person.name}
@@ -61,7 +67,7 @@ function Person(props: {
           size="sm"
           decorative
         />
-        <span className="max-sm:hidden">{person.name}</span>
+        <span data-slot="button-label">{person.name}</span>
       </Button>
     </BarLabelled>
   );
@@ -92,18 +98,35 @@ function ServerControl(props: DemoControl): ReactNode {
         ? "start"
         : null;
 
+  const label = kind === "stop" ? TEXT.stopServer : TEXT.startServer;
+  // the server is not a command, so this is drawn by hand as a command button with an icon is
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 items-center gap-2">
       {kind && (
-        <BarButton
-          label={kind === "stop" ? TEXT.stopServer : TEXT.startServer}
-          icon={<PowerIcon aria-hidden="true" className="size-icon" />}
-          disabled={action.isPending}
-          onClick={() => action.mutate(kind)}
-        />
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={action.isPending}
+                onClick={() => action.mutate(kind)}
+              />
+            }
+          >
+            <PowerIcon aria-hidden="true" className="size-icon" />
+            <span data-slot="button-label">{label}</span>
+          </TooltipTrigger>
+          <TooltipContent>{label}</TooltipContent>
+        </Tooltip>
       )}
-      {/* rendered before the first answer: a live region that appears together with its text is not announced */}
-      <p role="status" className="text-fg-muted max-sm:sr-only">
+      {/* rendered before the first answer: a live region that appears together with its text is not announced; cut
+          short where the bar runs out of room, the whole sentence is still what it says */}
+      <p
+        role="status"
+        data-slot="bar-status"
+        className="min-w-0 truncate text-fg-muted"
+      >
         {state && serverStatusText(state)}
       </p>
     </div>
@@ -112,18 +135,15 @@ function ServerControl(props: DemoControl): ReactNode {
 
 /** Pressed while the side panel shows the Tour. */
 function Tour(): ReactNode {
-  const { service } = useCommands();
-  const { label, visible } = useCommandState("demo.tour");
   const showing = usePanel("side").tab === "tour";
-  if (!visible) return null;
   return (
-    <div className="ms-auto flex">
-      <BarButton
-        label={label}
+    <div className="ms-auto flex shrink-0">
+      <CommandButton
+        id="demo.tour"
+        variant="outline"
+        size="sm"
         icon={<PanelRightIcon aria-hidden="true" className="size-icon" />}
         pressed={showing}
-        tour="demo.tour"
-        onClick={() => service.run("demo.tour", "control")}
       />
     </div>
   );
