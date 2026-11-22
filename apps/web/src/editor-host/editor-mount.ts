@@ -33,6 +33,10 @@ import { placeholderMount } from "./placeholder-mount.ts";
 import { followThumb } from "./thumb-label.ts";
 import { countSteps } from "./undo-depth.ts";
 
+// page-frame.ts loads apart from the editor: importing this selector from it would push the editor's first load
+// over its size budget
+const PAGE_REGION = "[data-region='page']";
+
 /** What one person's undo takes back. */
 export const UNDO_ROOTS: readonly UndoRoot[] = ["script", "revisedOverrides"];
 
@@ -175,6 +179,8 @@ function buildEditor(
     editorOptions(options, open, { binding, editable: bound.editable }),
   );
   if (place !== null) editor.restore(place);
+  // the first zoom holds the caret's line where it lay at 100 %, which would open a page scrolled past the desk above it
+  else element.closest(PAGE_REGION)?.scrollTo({ top: 0 });
   const stopZoom = followZoom({ ...options, editor, element });
   const stopThumb =
     editor.scaffold === null

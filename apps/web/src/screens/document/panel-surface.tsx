@@ -37,7 +37,7 @@ export function panelRenderers(content: {
     empty: content.empty,
     loading: () => null,
     problem: (_state, reload) => (
-      <div className="flex flex-col items-start gap-2 p-3 text-ui">
+      <div className="flex flex-col items-start gap-2 p-4 text-ui">
         <p>{DOCUMENT_WORDS.panelProblem}</p>
         <Button variant="outline" size="sm" onClick={reload}>
           {DOCUMENT_WORDS.reloadPanel}
