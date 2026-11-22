@@ -1,6 +1,5 @@
 import { withDom } from "@manent/testkit/dom";
 import { afterEach, expect, test } from "bun:test";
-import { TOUR } from "@manent/demo";
 import type { TourScenario } from "@manent/demo";
 import type { DemoResponse, SignInChoice } from "@manent/sync-protocol";
 import { useCommandState } from "@manent/ui";
@@ -155,9 +154,10 @@ test("a group with no scenario listed is not drawn", async () => {
     </ServicesProvider>,
   );
   expect(container.querySelector("h2")?.textContent).toBe("Tour");
-  // the shipped Tour has no scenario yet: no group is drawn
-  expect(TOUR.scenarios).toEqual([]);
-  expect(container.textContent).toBe("Tour");
+  // the shipped Tour shows scenarios of two groups so far: no other group is drawn
+  expect(
+    [...container.querySelectorAll("h3")].map((h) => h.textContent),
+  ).toEqual(["Production", "Long documents"]);
   services.dispose();
 });
 
