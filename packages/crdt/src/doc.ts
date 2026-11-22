@@ -11,6 +11,8 @@ export const ORIGIN_REMOTE = "remote";
 export const ORIGIN_REVIEW = "review";
 /** The origin of the transaction that loads a document. */
 export const ORIGIN_LOAD = "load";
+/** The origin of typing in a title page field, tracked so that it joins undo steps as typing on the page does. */
+export const ORIGIN_TITLE_PAGE = "title_page";
 
 export interface DocOptions {
   clientId?: number;

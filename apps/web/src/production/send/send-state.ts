@@ -6,7 +6,12 @@ import type {
   ProductionRefusal,
   ProductionRefusalBody,
 } from "@manent/sync-protocol";
-import { PRODUCTION_WORDS, useCommandState, useSubscribable } from "@manent/ui";
+import {
+  DIALOG_WORDS,
+  PRODUCTION_WORDS,
+  useCommandState,
+  useSubscribable,
+} from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useReducer, useState, useSyncExternalStore } from "react";
 import {
@@ -15,6 +20,7 @@ import {
 } from "../../editor-host/live-editor.ts";
 import { liveProduction } from "../../editor-host/production.ts";
 import type { LiveProduction } from "../../editor-host/production.ts";
+import type { SendAction } from "../../screens/send/send-frame.tsx";
 import { useEnvironment } from "../../services/context.tsx";
 import type { ProductionServices } from "../services.ts";
 
@@ -37,11 +43,11 @@ export function useLiveProduction(
   return { live, countAgain };
 }
 
-/** One request per screen visit: its key is kept for a press after an offline answer, and made again after a refusal. */
+/**
+ * One request per screen visit: its key is kept for a press after an offline answer, and made again after a
+ * refusal, whose line `refused` answers; null leaves the screen with no line.
+ */
 export function useProductionSend(command: CommandId): {
-  busy: boolean;
-  problem: string | null;
-  disabledReason: (waiting: number) => string | null;
   send<T>(
     ask: (key: string) => Promise<RequestOutcome<T>>,
     answers: {
@@ -49,10 +55,15 @@ export function useProductionSend(command: CommandId): {
       refused(
         code: ProductionRefusal,
         body: ProductionRefusalBody | null,
-      ): void;
+      ): string | null;
     },
   ): void;
-  fail(problem: string): void;
+  /** The form's action while this device has `waiting` changes; after a refusal its button reads Try again. */
+  action(
+    labels: { label: string; busyLabel: string },
+    waiting: number,
+    run: (() => void) | null,
+  ): SendAction;
 } {
   const { randomId } = useEnvironment();
   // a request's key is 32 lower-case hex digits
@@ -62,12 +73,6 @@ export function useProductionSend(command: CommandId): {
   const [problem, setProblem] = useState<string | null>(null);
   const offline = useCommandState(command).whyNot === WORDS.connectionReason;
   return {
-    busy,
-    problem,
-    disabledReason: (waiting) => {
-      if (offline) return WORDS.connectionReason;
-      return waiting > 0 ? WORDS.waitingReason(waiting) : null;
-    },
     send(ask, answers) {
       setBusy(true);
       setProblem(null);
@@ -76,11 +81,28 @@ export function useProductionSend(command: CommandId): {
         if (outcome.ok) answers.ok(outcome.value);
         else if (outcome.code !== "offline") {
           setKey(newKey());
-          answers.refused(outcome.code, outcome.body);
+          setProblem(answers.refused(outcome.code, outcome.body));
         }
       });
     },
-    fail: setProblem,
+    action({ label, busyLabel }, waiting, run) {
+      const disabledReason = offline
+        ? WORDS.connectionReason
+        : waiting > 0
+          ? WORDS.waitingReason(waiting)
+          : null;
+      const again = problem !== null && disabledReason === null;
+      return {
+        label: again ? DIALOG_WORDS.tryAgain : label,
+        busyLabel,
+        busy,
+        disabledReason,
+        problem,
+        progress: null,
+        cancel: null,
+        run,
+      };
+    },
   };
 }
 

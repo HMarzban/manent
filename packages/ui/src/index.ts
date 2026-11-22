@@ -6,5 +6,4 @@ export * from "./palette/index.ts";
 export * from "./settings-react/index.ts";
 export * from "./subscribable/index.ts";
 export * from "./surfaces/index.ts";
-export * from "./tokens/index.ts";
 export * from "./words/index.ts";

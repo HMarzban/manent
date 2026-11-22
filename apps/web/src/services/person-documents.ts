@@ -316,6 +316,7 @@ export function createPersonDocuments(
   });
   const source = createSyncDocumentSource({
     sync,
+    signedIn: options.person.token !== null,
     review,
     titles,
     messages,
@@ -350,6 +351,9 @@ export function createPersonDocuments(
     },
     dispose() {
       stopRefusals();
+      // a sync replaced at sign-in, or left for another person, ended without a crash
+      const going = started();
+      if (going !== null) going.trust.unmarkOpen(going.sync);
       review.dispose();
       void sync.then(
         (s) => s.dispose(),

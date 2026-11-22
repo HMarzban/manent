@@ -1,11 +1,14 @@
 // One script editor over one place: the binding, the keys, the popovers, the pages, the scroll rules and the bridge.
 import { profileFromSettings, readLayoutSettings } from "@manent/pagination";
-import type { Engine, PageProfile, Pagination } from "@manent/pagination";
-import { mark } from "@manent/perf";
+import type {
+  Engine,
+  FrontPage,
+  PageProfile,
+  Pagination,
+} from "@manent/pagination";
 import { FORMATS, FORMAT_ELEMENTS } from "@manent/schema";
 import type { FormatId, IdSource } from "@manent/schema";
 import { Plugin } from "prosemirror-state";
-import type { Transaction } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { runAction } from "../actions/run-action.ts";
 import type { ActionContext } from "../actions/run-action.ts";
@@ -15,15 +18,18 @@ import { completePlugin } from "../complete/complete-plugin.ts";
 import { CURSOR_CSS } from "../cursors/cursor-css.ts";
 import { cursorsPlugin } from "../cursors/cursor-plugin.ts";
 import { plainTextElement, slotElement } from "../elements/slots.ts";
+import { findPlugin } from "../find/find-plugin.ts";
 import { clipboardPlugin } from "../identity/clipboard.ts";
 import { idRegistryPlugin } from "../identity/id-registry.ts";
 import { commandKeymap } from "../keys/command-keymap.ts";
 import { detectPlugin } from "../keys/detect.ts";
-import { elementKeysPlugin, nextElementFor } from "../keys/element-keys.ts";
+import { elementKeysPlugin } from "../keys/element-keys.ts";
+import { loadFrontPages } from "../front-pages/load.ts";
+import type { FrontPagesHandle } from "../front-pages/load.ts";
 import type { ElementContext } from "../keys/element-keys.ts";
 import { historyKeysPlugin } from "../keys/history-keys.ts";
+import type { LayoutView } from "../page/config.ts";
 import type { PageScaffold } from "../page/scaffold.ts";
-import { mountPageView } from "../pagination/page-view.ts";
 import type { PageViewPorts } from "../pagination/page-view.ts";
 import { paginationKey } from "../pagination/plugin.ts";
 import { openPicker, pickerPlugin } from "../picker/picker-plugin.ts";
@@ -31,9 +37,14 @@ import { PLACEHOLDER_CSS, placeholderPlugin } from "../picker/placeholder.ts";
 import { restorePlace, savedPlaceOf } from "../scroll/saved-place.ts";
 import { scrollPlugin } from "../scroll/stability.ts";
 import type { ScrollPorts } from "../scroll/stability.ts";
-import { createPageControls, createScrollPorts } from "./page-controls.ts";
+import { sourcePlugin } from "../source/source-plugin.ts";
+import { mountEditor } from "./mount-view.ts";
+import {
+  createPageControls,
+  createScrollPorts,
+  pageAtHeight,
+} from "./page-controls.ts";
 import type { Desk, PageControls } from "./page-controls.ts";
-import { mountPlainView } from "./plain-view.ts";
 import type {
   DispatchGuardPort,
   EditorBinding,
@@ -45,8 +56,8 @@ import type {
   SavedPlace,
   SettingsReader,
   Timers,
+  TitlePageSource,
 } from "./ports.ts";
-import { isSpellingChecked } from "./spelling.ts";
 import type { ZoomSetting } from "./zoom.ts";
 
 /** What a feature plugin may ask of the editor it runs in; given before the view exists. `zoom` is the factor (1 at 100 %). */
@@ -68,6 +79,14 @@ export interface ScriptEditor {
   setZoom(zoom: ZoomSetting): void;
   /** Null without pages (Ink). */
   zoomPercent(): number | null;
+  /** Scrolls to the title page and puts the caret in its title; nothing without front pages. */
+  showTitlePage(): void;
+  /** The pages before page 1 as print and PDF draw them; null without pages or a title page. */
+  frontPages(): FrontPage[] | null;
+  /** The label of the page before page 1 at viewport height `top`, px; null anywhere else. */
+  frontPageAt(top: number): string | null;
+  /** The index of the page at viewport height `top`, px; null without pages or where there is no script. */
+  pageAt(top: number): number | null;
   destroy(): void;
 }
 
@@ -92,12 +111,18 @@ export interface ScriptEditorOptions {
   pastedText: PastedTextPort;
   /** The undo stack gained a step. */
   onUndoStep(): void;
+  /** The script's title, which names the page; `subscribe` calls back on each change and returns unsubscribe. */
+  title: { get(): string; subscribe(listener: () => void): () => void };
   keys: {
     resolve: (event: KeyboardEvent) => string | null;
     run(id: string): boolean;
   };
   /** The zoom to open at. */
   zoom: ZoomSetting;
+  /** Null: no front pages are drawn (a static binding). */
+  titlePage: TitlePageSource | null;
+  /** The view of the pages to build; a script without pages (Ink) has neither. */
+  view: LayoutView;
   desk: Desk;
   /** The feature plugins, placed after every other. */
   extraPlugins(host: EditorPluginHost): readonly Plugin[];
@@ -114,10 +139,18 @@ const LAYOUT_KEYS: readonly string[] = Object.freeze([
 
 const READ_ONLY_ATTRIBUTES: Readonly<Record<string, string>> = Object.freeze({
   tabindex: "0",
-  role: "textbox",
-  "aria-multiline": "true",
   "aria-readonly": "true",
 });
+
+/** The page is one multiline textbox named by the script's title; a read-only one is focusable and says so. */
+function pageAttributes(options: ScriptEditorOptions): Record<string, string> {
+  return {
+    role: "textbox",
+    "aria-multiline": "true",
+    "aria-label": options.title.get(),
+    ...(options.editable ? {} : READ_ONLY_ATTRIBUTES),
+  };
+}
 
 /** The layer is the popovers' frame: they are placed in its coordinates. */
 const LAYER_CSS = ".mn-layer { position: relative; }";
@@ -125,24 +158,6 @@ const LAYER_CSS = ".mn-layer { position: relative; }";
 /** An unknown format lays out as a screenplay, as the engine does. */
 const formatOf = (format: string): FormatId =>
   FORMATS.find((known) => known === format) ?? "screenplay";
-
-/** A transaction that changes the document is applied inside the guard and timed. */
-function guardedDispatch(
-  guard: DispatchGuardPort,
-): (view: EditorView, tr: Transaction) => void {
-  return (view, tr) => {
-    if (!tr.docChanged) {
-      view.updateState(view.state.apply(tr));
-      return;
-    }
-    guard.enter();
-    try {
-      mark("editor.dispatch", () => view.updateState(view.state.apply(tr)));
-    } finally {
-      guard.leave();
-    }
-  };
-}
 
 /** The plugins before the typesetting ones, and those after them. */
 function editorPlugins(
@@ -175,9 +190,7 @@ function editorPlugins(
       plainElement: () => plainTextElement(format()),
       formatElements: () => FORMAT_ELEMENTS[format()],
     }),
-    ...(options.editable
-      ? []
-      : [new Plugin({ props: { attributes: READ_ONLY_ATTRIBUTES } })]),
+    new Plugin({ props: { attributes: () => pageAttributes(options) } }),
   ];
   const after = [
     // the registry counts from the pagination plugin's block index
@@ -185,6 +198,8 @@ function editorPlugins(
       ? [idRegistryPlugin({ ids, isRemote: binding.isRemote })]
       : []),
     placeholderPlugin({ format, words }),
+    sourcePlugin({ format, layer }),
+    findPlugin(),
     cursorsPlugin({ presence: binding.presence, frames, timers }),
     scrollPlugin({
       ...parts.ports,
@@ -233,67 +248,70 @@ function elementContext(
   };
 }
 
-/** The view in `place`: in the page's frame when there is a profile, else a plain view. */
-function mountEditor(
-  options: ScriptEditorOptions,
-  parts: {
-    profile: PageProfile | null;
-    context: ElementContext;
-    plugins: { before: Plugin[]; after: Plugin[] };
-    ports: ScrollPorts;
-  },
-): { view: EditorView; scaffold: PageScaffold | null; destroy(): void } {
-  const { binding, editable, personal } = options;
-  const shared = {
-    place: options.place,
-    doc: binding.doc,
-    before: parts.plugins.before,
-    plugins: parts.plugins.after,
-    ids: options.ids,
-    nextElement: nextElementFor(parts.context),
-    dispatchTransaction: guardedDispatch(options.guard),
-    editable: () => editable,
-    spelling: () => isSpellingChecked(personal),
-  };
-  if (parts.profile === null)
-    return { ...mountPlainView(shared), scaffold: null };
-  return mountPageView({
-    ...shared,
-    profile: parts.profile,
-    layoutEngine: options.layoutEngine,
-    ports: options.ports,
-    offFontNote: options.words.offFontNote,
-    isRemote: binding.isRemote,
-    scroller: parts.ports.scroller,
-  });
-}
+// how far below the view's top a block gone to sits, px at 100 %, so its first line is clear of the bars
+const GO_TO_MARGIN_PX = 48;
 
 /** What the actions read of this editor: the element keys' context, the page's column and whether it is editable. */
 function actionContext(
   context: ElementContext,
   view: EditorView,
-  editable: boolean,
+  parts: { editable: boolean; ports: ScrollPorts },
 ): ActionContext {
   return {
     ...context,
     slotElement,
-    editable: () => editable,
+    editable: () => parts.editable,
+    goTo(blockId, offset) {
+      const at = { blockId, offset };
+      restorePlace(view, parts.ports, {
+        anchor: at,
+        head: at,
+        top: { blockId, offsetPx: -GO_TO_MARGIN_PX },
+      });
+      view.focus();
+    },
     columnCells: () =>
       paginationKey.getState(view.state)?.settings.profile.columnCells ?? null,
   };
 }
 
-/** The settings the editor follows, and the undo steps; returns each unsubscribe. */
+/** The pages before page 1, loaded apart; none without pages or a title page. */
+function frontPagesOf(
+  options: ScriptEditorOptions,
+  view: EditorView,
+  scaffold: PageScaffold | null,
+  parts: { profile(): PageProfile | null; ports: ScrollPorts },
+): FrontPagesHandle | null {
+  const { titlePage, binding } = options;
+  if (scaffold === null || titlePage === null) return null;
+  return loadFrontPages({
+    scaffold,
+    titlePage,
+    profile: parts.profile,
+    editable: options.editable,
+    view: options.view,
+    scroller: parts.ports.scroller,
+    keys: {
+      platform: options.platform,
+      history: (redo) =>
+        binding.history[redo ? "redo" : "undo"](view.state, view.dispatch),
+    },
+  });
+}
+
+/** The settings and the title the editor follows, and the undo steps; returns each unsubscribe. */
 function subscribe(
   options: ScriptEditorOptions,
   view: EditorView,
   relayout: () => void,
 ): (() => void)[] {
+  // a transaction of no content, so the page's attributes are read again
+  const reread = (): void =>
+    view.dispatch(view.state.tr.setMeta("addToHistory", false));
   return [
     ...LAYOUT_KEYS.map((key) => options.script.subscribe(key, relayout)),
-    options.personal.subscribe("writing.checkSpelling", () =>
-      view.dispatch(view.state.tr.setMeta("addToHistory", false)),
-    ),
+    options.personal.subscribe("writing.checkSpelling", reread),
+    options.title.subscribe(reread),
     options.binding.history.onStep(options.onUndoStep),
   ];
 }
@@ -341,11 +359,21 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
   const { view, scaffold } = mounted;
   place.append(layer);
   if (scaffold !== null)
-    pages = createPageControls({ view, scaffold, ports, desk, zoom, profile });
-  const actions = actionContext(context, view, editable);
+    pages = createPageControls({
+      view,
+      scaffold,
+      ports,
+      desk,
+      zoom,
+      layoutView: options.view,
+      profile,
+    });
+  const front = frontPagesOf(options, view, scaffold, { profile, ports });
+  const actions = actionContext(context, view, { editable, ports });
   const subscriptions = subscribe(options, view, () => {
     layout = readLayoutSettings((key) => script.get(key));
     pages?.repage();
+    front?.relayout();
   });
   return {
     view,
@@ -356,8 +384,13 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     restore: (saved) => restorePlace(view, ports, saved),
     setZoom: (setting) => pages?.setZoom(setting),
     zoomPercent: () => pages?.percent ?? null,
+    showTitlePage: () => front?.show(),
+    frontPages: () => front?.printed() ?? null,
+    frontPageAt: (top) => front?.labelAt(top) ?? null,
+    pageAt: (top) => pageAtHeight(view, top),
     destroy() {
       for (const unsubscribe of subscriptions) unsubscribe();
+      front?.destroy();
       pages?.destroy();
       mounted.destroy();
       layer.remove();

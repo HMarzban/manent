@@ -8,6 +8,7 @@ export const LINE_KINDS = [
   "scene_continued_foot",
   "page_number",
   "scene_number",
+  "speech_number",
 ] as const;
 export type LineKind = (typeof LINE_KINDS)[number];
 

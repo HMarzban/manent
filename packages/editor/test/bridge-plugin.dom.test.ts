@@ -245,6 +245,9 @@ test("a composition at the end of a scene never moves the outline's current scen
         heading: "INT. A - DAY",
         omitted: false,
         current: true,
+        kind: "scene",
+        synopsis: "",
+        eighths: 1,
       },
       {
         blockId: bid(2),
@@ -252,6 +255,9 @@ test("a composition at the end of a scene never moves the outline's current scen
         heading: "INT. B - DAY",
         omitted: false,
         current: false,
+        kind: "scene",
+        synopsis: "",
+        eighths: 1,
       },
     ],
   ]);
@@ -259,7 +265,16 @@ test("a composition at the end of a scene never moves the outline's current scen
 
 /** The outline of one scene whose heading reads `heading`, the caret in it. */
 const row = (heading: string): OutlineEntry[] => [
-  { blockId: bid(0), number: "1", heading, omitted: false, current: true },
+  {
+    blockId: bid(0),
+    kind: "scene",
+    number: "1",
+    heading,
+    synopsis: "",
+    eighths: 1,
+    omitted: false,
+    current: true,
+  },
 ];
 
 test("the outline waits 250 ms, publishes the latest, and not while composing", () => {
@@ -322,6 +337,9 @@ test("an omitted scene is listed as omitted", () => {
         heading: "INT. A - DAY",
         omitted: false,
         current: true,
+        kind: "scene",
+        synopsis: "",
+        eighths: 1,
       },
       {
         blockId: bid(2),
@@ -329,6 +347,9 @@ test("an omitted scene is listed as omitted", () => {
         heading: "INT. B - DAY",
         omitted: true,
         current: false,
+        kind: "scene",
+        synopsis: "",
+        eighths: 1,
       },
     ],
   ]);

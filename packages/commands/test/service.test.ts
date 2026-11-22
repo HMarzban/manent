@@ -47,6 +47,7 @@ const ctx =
     historyPresent: false,
     format: null,
     rulerShown: false,
+    layoutView: "page",
     spaceBeforeSet: false,
     zoom: null,
     zoomPercent: null,

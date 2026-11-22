@@ -5,7 +5,8 @@ import { createTempTrees } from "@manent/testkit";
 import fc from "fast-check";
 import { isRecord } from "../budgets.ts";
 import { runSuite } from "../harness.ts";
-import { readResultFile } from "../result.ts";
+import { runEnvironment } from "../env.ts";
+import { readResultFile, writeResultFile } from "../result.ts";
 import type { ResultFile } from "../result.ts";
 
 const trees = createTempTrees("manent-bench-");
@@ -303,4 +304,57 @@ test("any JSON is either a result file or refused, naming the file", async () =>
     }),
     { numRuns: 200 },
   );
+});
+
+test("two result files that start in the same second are both kept", async () => {
+  const outDir = join(await trees.tree({}), "out");
+  const second = { ...EVERY_OUTCOME, startedAt: 1_794_909_600_400 };
+  expect([
+    await writeResultFile(outDir, EVERY_OUTCOME),
+    await writeResultFile(outDir, second),
+    await writeResultFile(outDir, EVERY_OUTCOME),
+  ]).toEqual([
+    join(outDir, "2026-11-17T10-00-00Z.json"),
+    join(outDir, "2026-11-17T10-00-00Z-2.json"),
+    join(outDir, "2026-11-17T10-00-00Z-3.json"),
+  ]);
+  expect(
+    await readResultFile(join(outDir, "2026-11-17T10-00-00Z-2.json")),
+  ).toEqual(second);
+});
+
+test("a tier's container records the limits it sees, the host's command and the commit its image was built from", () => {
+  const run = {
+    tier: "D-small",
+    throttle: 1,
+    mode: "quick",
+    prove: false,
+    corpusVersion: 1,
+  } as const;
+  const limits = { cpus: 1, memoryBytes: 1_073_741_824 };
+  const was = { ...process.env };
+  try {
+    process.env.MANENT_BENCH_COMMIT = "0123abcd";
+    process.env.MANENT_BENCH_DIRTY = "true";
+    expect(
+      runEnvironment(run, {
+        limits,
+        command: "bun bench/run.ts --tier D-small",
+      }),
+    ).toMatchObject({
+      limits,
+      commit: "0123abcd",
+      dirty: true,
+      command: "bun bench/run.ts --tier D-small",
+    });
+    process.env.MANENT_BENCH_DIRTY = "false";
+    expect(runEnvironment(run, null)).toMatchObject({
+      limits: { cpus: null, memoryBytes: null },
+      commit: "0123abcd",
+      dirty: false,
+    });
+  } finally {
+    process.env = was;
+  }
+  expect(runEnvironment(run, null).commit).toBe(git("rev-parse", "HEAD"));
 });

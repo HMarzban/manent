@@ -1,5 +1,5 @@
-// The cloud's HTTP as the node uses it: signing a person in, the demo's seed, and the two routes of a
-// document the node hands over or mirrors.
+// The cloud's HTTP as the node uses it: signing a person in, the demo's seed, the two routes of a
+// document the node hands over or mirrors, and a relayed script's requests sent on.
 import { ConnectError } from "@manent/sync-client";
 import { CAPABILITIES, DOC_ROLES, isDocKind } from "@manent/sync-protocol";
 import type {
@@ -116,6 +116,32 @@ export function httpCloudApi(options: {
       const code = errorCodeOf(answer.body);
       if (code !== null && answer.status < 500) return { ok: false, code };
       throw unreadable();
+    },
+    async forward(token, request) {
+      const { pathname, search } = new URL(request.url);
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+      };
+      const type = request.headers.get("content-type");
+      if (type !== null) headers["Content-Type"] = type;
+      const body =
+        request.method === "GET" ? undefined : await request.arrayBuffer();
+      try {
+        const answer = await fetch(`${baseUrl}${pathname}${search}`, {
+          method: request.method,
+          headers,
+          body,
+        });
+        return new Response(await answer.arrayBuffer(), {
+          status: answer.status,
+          headers: {
+            "Content-Type":
+              answer.headers.get("content-type") ?? "application/json",
+          },
+        });
+      } catch (cause) {
+        throw new ConnectError("unreachable", { cause });
+      }
     },
   };
 }

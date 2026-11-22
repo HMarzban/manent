@@ -121,6 +121,12 @@ export function PreferencesSearch(props: {
         persisted={persisted}
       />
     ));
+  const answers = found.answers.map((answer) => (
+    <p key={answer.label} className="text-ui">
+      {saysOf(answer, where.shell)}
+    </p>
+  ));
+  // the answers follow the preferences, so a word such as "accessibility" finds both
   if (found.preferences.length > 0)
     return (
       <div className="flex flex-col gap-2">
@@ -133,18 +139,11 @@ export function PreferencesSearch(props: {
             key,
           })),
         )}
+        {answers}
       </div>
     );
-  if (found.answers.length > 0)
-    return (
-      <div className="flex flex-col gap-2">
-        {found.answers.map((answer) => (
-          <p key={answer.label} className="text-ui">
-            {saysOf(answer, where.shell)}
-          </p>
-        ))}
-      </div>
-    );
+  if (answers.length > 0)
+    return <div className="flex flex-col gap-2">{answers}</div>;
   return (
     <div className="flex flex-col gap-1">
       <p className="text-ui">{PREFERENCES_WORDS.noMatch(query.trim())}</p>

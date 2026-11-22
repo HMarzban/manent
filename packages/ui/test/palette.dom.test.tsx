@@ -41,6 +41,7 @@ const CTX: CommandContext = {
   historyPresent: false,
   format: null,
   rulerShown: false,
+  layoutView: "page",
   spaceBeforeSet: false,
   zoom: null,
   zoomPercent: null,
@@ -238,10 +239,10 @@ test("empty, it is the menu and the last five commands", async () => {
     "Format",
     "Script",
     "Help",
-    "Keyboard shortcuts⌘/",
-    "Left panel⌘⌥1",
+    "Keyboard shortcutsHelp⌘/",
+    "Left panelView⌘⌥1",
     "Go to⌘G",
-    "Undo⌘Z",
+    "UndoEdit⌘Z",
     "Next regionF6",
   ]);
   const view = [...document.querySelectorAll('[role="option"]')].find(
@@ -251,9 +252,9 @@ test("empty, it is the menu and the last five commands", async () => {
     view?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
   expect(options().slice(0, 3)).toEqual([
-    "Left panel⌘⌥1",
-    "Side panel⌘⌥2",
-    "Ruler",
+    "Left panelView⌘⌥1",
+    "Side panelView⌘⌥2",
+    "Page viewView",
   ]);
 });
 
@@ -323,7 +324,7 @@ test("an unavailable row stays and says why", async () => {
     el.textContent?.startsWith("Left panel"),
   );
   expect([row?.textContent, row?.getAttribute("aria-disabled")]).toEqual([
-    "Left panel — needs a document open⌘⌥1",
+    "Left panel — needs a document openView⌘⌥1",
     "true",
   ]);
   await pressEnter();
@@ -364,7 +365,10 @@ test("focus is in the field at once and every typed character arrives", async ()
   await p.render({});
   expect(document.activeElement).toBe(field());
   await type("prefer");
-  expect([field().value, options()[0]]).toEqual(["prefer", "Preferences⌘,"]);
+  expect([field().value, options()[0]]).toEqual([
+    "prefer",
+    "PreferencesManent⌘,",
+  ]);
 });
 
 test("more than 100 results are drawn as a window of rows", async () => {

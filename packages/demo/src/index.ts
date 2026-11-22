@@ -5,7 +5,8 @@ export {
   parseSeedText,
 } from "./content/markup.ts";
 export type { SeedBlock, SeedPassage } from "./content/markup.ts";
-// from guide.ts, not generate/index.ts: the banks it carries stay out of every bundle that imports the entry
+// from fit.ts and guide.ts, not generate/index.ts: the banks it carries stay out of every bundle that imports the entry
+export type { PageMeter, SeedLayout } from "./generate/fit.ts";
 export { SeedBuildError } from "./generate/guide.ts";
 export type {
   Beat,

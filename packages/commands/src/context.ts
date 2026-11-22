@@ -18,6 +18,8 @@ export interface CommandContext {
   /** The open script's format; null off a document. */
   format: SettingValue<"script.format"> | null;
   rulerShown: boolean;
+  /** Which view the open script's pages are drawn in. */
+  layoutView: "page" | "reflow";
   /** The caret block has its own space before. */
   spaceBeforeSet: boolean;
   /** The page's zoom as the person chose it, a percent or the mode; null off a document. */

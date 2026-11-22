@@ -3,6 +3,7 @@
 import {
   ORIGIN_REVIEW,
   applyBlockOps,
+  applyBlockOpsAsOne,
   blockIds,
   isUndoStep,
   observeScript,
@@ -177,7 +178,10 @@ function putBack(
   };
 }
 
-/** Writes one side's wording of an overlap, or puts it back after its anchor when the block is gone. */
+/**
+ * Writes one side's wording of an overlap, or puts it back after its anchor when the block is gone; a copy the
+ * server kept of the block is deleted in the same write.
+ */
 function useWording(
   review: JsonMapView,
   entry: Listed & { kind: "overlap" },
@@ -195,7 +199,10 @@ function useWording(
     before === null
       ? ({ op: "insert", after: anchorOf(seen, entry), block: wrote } as const)
       : ({ op: "replace", block: wrote } as const);
-  applyBlockOps(doc, [op], ORIGIN_REVIEW);
+  const { copyId } = entry;
+  const copy = copyId === null ? [] : [{ op: "delete", id: copyId } as const];
+  // a copy already gone deletes nothing
+  applyBlockOpsAsOne(doc, [op, ...copy], ORIGIN_REVIEW);
   settleEntries(review, ids, true, before);
   const people = entry.otherUserIds.length;
   const named = side === "theirs" && people > 0 && people < 3;

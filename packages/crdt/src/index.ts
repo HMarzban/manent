@@ -2,10 +2,13 @@ export {
   ORIGIN_LOAD,
   ORIGIN_REMOTE,
   ORIGIN_REVIEW,
+  ORIGIN_TITLE_PAGE,
   createDoc,
   loadDoc,
 } from "./doc.ts";
 export type { CrdtDoc, DocOptions, Unsubscribe } from "./doc.ts";
+export { findCopies, repairCopies } from "./copies.ts";
+export type { CopyPair, RepairedCopy } from "./copies.ts";
 export {
   FRAGMENT_NAME,
   scriptDocFromJSON,
@@ -28,5 +31,6 @@ export * from "./revised-overrides.ts";
 export * from "./script-maps.ts";
 export * from "./set-aside.ts";
 export * from "./settings.ts";
+export * from "./title-page.ts";
 export * from "./undo-scope.ts";
 export * from "./vectors.ts";

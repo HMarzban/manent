@@ -8,7 +8,14 @@ import {
   UNIT_PT,
   engineFor,
 } from "@manent/pagination";
-import type { Engine, FontFaceKey, Pagination } from "@manent/pagination";
+import type {
+  Engine,
+  FontFaceKey,
+  FrontPage,
+  PageGeometry,
+  Pagination,
+  PositionedLine,
+} from "@manent/pagination";
 import PDFDocument from "pdfkit";
 import type { ScriptFontFiles } from "./fonts.ts";
 
@@ -16,6 +23,8 @@ export interface PdfOptions {
   readonly fonts: ScriptFontFiles;
   /** Page indexes to draw, in order; all pages when absent. */
   readonly pages?: readonly number[];
+  /** The pages before page 1, drawn first; none when absent. */
+  readonly front?: readonly FrontPage[];
   /** Milliseconds since the epoch, written as the creation and modification dates; 0 when absent. */
   readonly createdAt?: number;
   readonly title?: string;
@@ -163,6 +172,28 @@ function drawRun(
   return cells;
 }
 
+// The baseline of the row `y` units below the top of the text area, in points.
+const rowY = (geometry: PageGeometry, y: number): number =>
+  geometry.marginTopPt + y * UNIT_PT + BASELINE_PT;
+
+function drawLines(
+  pen: Pen,
+  lines: readonly PositionedLine[],
+  geometry: PageGeometry,
+): void {
+  for (const line of lines) {
+    let cell = line.x;
+    for (const run of line.runs)
+      cell += drawRun(
+        pen,
+        run.text,
+        run.style,
+        geometry.marginLeftPt + cell * CELL_PT,
+        rowY(geometry, line.y),
+      );
+  }
+}
+
 function drawPage(
   pen: Pen,
   p: Pagination,
@@ -171,7 +202,6 @@ function drawPage(
 ): void {
   const { doc, engine } = pen;
   const { geometry, columnCells } = p.profile;
-  const rowY = (y: number) => geometry.marginTopPt + y * UNIT_PT + BASELINE_PT;
   const decor = options.decor?.(pageIndex) ?? null;
   doc.addPage();
   if (decor !== null && decor.tint !== null) {
@@ -183,17 +213,7 @@ function drawPage(
       .fill()
       .restore();
   }
-  for (const line of engine.layoutPage(p, pageIndex).lines) {
-    let cell = line.x;
-    for (const run of line.runs)
-      cell += drawRun(
-        pen,
-        run.text,
-        run.style,
-        geometry.marginLeftPt + cell * CELL_PT,
-        rowY(line.y),
-      );
-  }
+  drawLines(pen, engine.layoutPage(p, pageIndex).lines, geometry);
   if (decor === null) return;
   drawRun(
     pen,
@@ -208,7 +228,7 @@ function drawPage(
       mark.text,
       0,
       geometry.marginLeftPt + (columnCells + MARK_GAP_CELLS) * CELL_PT,
-      rowY(mark.y),
+      rowY(geometry, mark.y),
     );
 }
 
@@ -250,6 +270,10 @@ export async function writePdf(
   });
   for (const key of FONT_FACE_KEYS) doc.registerFont(key, options.fonts[key]);
   const pen = { doc, engine };
+  for (const page of options.front ?? []) {
+    doc.addPage();
+    drawLines(pen, page.lines, p.profile.geometry);
+  }
   for (const pageIndex of options.pages ?? p.pages.map((_, k) => k))
     drawPage(pen, p, pageIndex, options);
   doc.end();

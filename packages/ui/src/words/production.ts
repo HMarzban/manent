@@ -1,5 +1,6 @@
 // The words of production revisions: locking, the Pages tab, omitting scenes, and issuing and recalling revisions.
 
+import { waitingReason } from "@manent/commands";
 import { formatCount, joinNames } from "./format.ts";
 
 const plural = (n: number, one: string, many: string): string =>
@@ -94,7 +95,7 @@ export const PRODUCTION_WORDS = {
     `Issuing ${name} starts ${next}: edits made after this are ${next}.`,
   edit: "Edit",
   packet: (pages: number, name: string): string =>
-    `PACKET · memo + ${pages} pages · ${name}`,
+    `PACKET · memo + ${plural(pages, "page", "pages")} · ${name}`,
   issueButton: (name: string): string => `Issue ${name}`,
   issuingButton: (name: string): string => `Issuing ${name}…`,
   issued: (name: string, n: number): string =>
@@ -106,9 +107,8 @@ export const PRODUCTION_WORDS = {
     next: string,
   ): string =>
     `${byName} issued ${name} at ${time}. Review what changed since, then issue ${next}.`,
-  /** A reason clause, written into a sentence by `DIALOG_WORDS.disabledLine`. */
-  waitingReason: (n: number): string =>
-    `needs this device's ${plural(n, "waiting change", "waiting changes")} synced first`,
+  /** A reason clause, written into a sentence by `DIALOG_WORDS.disabledLine`; the command registry's, so the palette and the Send screen say it alike. */
+  waitingReason,
   /** A reason clause, written into a sentence by `DIALOG_WORDS.disabledLine`. */
   connectionReason: "needs a connection",
   recallButton: (name: string): string => `Recall ${name}`,
@@ -134,4 +134,22 @@ export const PRODUCTION_WORDS = {
   unlockingButton: "Unlocking page numbers…",
   endingButton: "Ending production…",
   changingLayoutButton: (what: string): string => `Changing ${what}…`,
+  /** A refusal's line above the buttons, which then read Try again. */
+  lockRefused: "Couldn't lock page numbers.",
+  unlockRefused: "Couldn't unlock page numbers.",
+  endRefused: "Couldn't end production.",
+  changeLayoutRefused: (what: string): string => `Couldn't change ${what}.`,
+  issueRefused: (name: string): string => `Couldn't issue ${name}.`,
+  recallRefused: (name: string): string => `Couldn't recall ${name}.`,
+  /** Details → Script's group of production. */
+  groupTitle: "Production",
+  /** "Blue · 16 Nov 2026 · *", then "· full draft" for a full draft; `date` is the issue's, or the start's while active. */
+  revisionRow: (
+    name: string,
+    date: string,
+    mark: string,
+    fullDraft: boolean,
+  ): string => `${name} · ${date} · ${mark}${fullDraft ? " · full draft" : ""}`,
+  /** The description of an element a revision marks: "revised, Blue". */
+  revisedDescription: (name: string): string => `revised, ${name}`,
 } as const;
