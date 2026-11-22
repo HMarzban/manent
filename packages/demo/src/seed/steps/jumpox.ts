@@ -16,6 +16,7 @@ import {
   createUsedLines,
   generateChapter,
 } from "../../generate/index.ts";
+import type { UsedLines } from "../../generate/index.ts";
 import type { Rng } from "../rng.ts";
 import type { SeedStep } from "../seed.ts";
 import {
@@ -39,6 +40,8 @@ const LAYOUT: SeedLayout = {
 const BOOK_PAGES = 291;
 const CHAPTERS = 24;
 const CHAPTER_WORDS = 3000;
+/** Estimated lines the last chapter keeps clear by beyond the rule, for the paragraphs its cut takes out before its closing line. */
+const CUT_LINES = 2 * LINES_PER_PAGE.manuscript;
 /** The chapters written before the opening chapters went to Nell. */
 const OPENING_CHAPTERS = 3;
 /** The chapters the second pass revises, one session each but the first, which takes two. */
@@ -147,7 +150,14 @@ async function buildBook(meter: PageMeter, rng: Rng): Promise<Book> {
   const perPage =
     words(generated) / (before - (await meter.pages(first[0]!, LAYOUT)).length);
   const lastWords = Math.round((BOOK_PAGES - before + 1) * perPage);
-  first.push(generateChapter(JUMPOX_GUIDE, CHAPTERS, lastWords, rng, used));
+  // cutting it to length brings its ledger entry and closing line nearer what came before, so it keeps clear by more
+  const clearOfCut: UsedLines = {
+    ...used,
+    has: (text, window) => used.has(text, window + CUT_LINES),
+  };
+  first.push(
+    generateChapter(JUMPOX_GUIDE, CHAPTERS, lastWords, rng, clearOfCut),
+  );
   const passes: SeedBlock[][][] = [];
   let book = first;
   for (const chapters of SECOND_PASS) {
