@@ -1,5 +1,6 @@
 // The demo's seed: its workspaces, built by steps that share one seeded generator.
 import type { IdSource } from "@manent/schema";
+import type { PageMeter } from "../generate/fit.ts";
 import { DEMO_PEOPLE, DEMO_WORKSPACES } from "../people.ts";
 import type { DemoPerson } from "../people.ts";
 import type { SeedCapability, SeedDriver } from "./driver.ts";
@@ -39,6 +40,8 @@ export interface SeedContext {
   skip(capability: SeedCapability, what: string): void;
   /** Progress, for a step that runs in the background; nothing hears it in the foreground. */
   report(done: number, total: number): void;
+  /** Lays blocks out as the engine does; null when only the manifest is built. */
+  meter: PageMeter | null;
 }
 
 export interface SeedStep {
@@ -78,12 +81,13 @@ export interface SeedOptions {
   /** The local offset east of UTC at `seedAt`; default 0. */
   zoneOffsetMs?: number;
   onSkipped?(entry: SkippedAction): void;
+  meter?: PageMeter;
 }
 
 /**
  * Runs the steps of `phase` in order, each adding its entries to its own
  * workspace. Defaults: `DEMO_SEED`, the package's steps, no data directory, no
- * server, no driver, the foreground phase. Rejects with a RangeError naming a
+ * server, no driver, no meter, the foreground phase. Rejects with a RangeError naming a
  * step whose workspace does not exist, before any step runs.
  */
 export async function buildSeed(
@@ -130,6 +134,7 @@ export async function buildSeed(
       skip: (capability, what) =>
         options.onSkipped?.({ step: step.id, capability, what }),
       report: (done, total) => options.onProgress?.(done, total),
+      meter: options.meter ?? null,
     });
     workspace.projects.push(...entries);
   }

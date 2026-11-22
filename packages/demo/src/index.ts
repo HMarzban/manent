@@ -17,6 +17,7 @@ export type {
   StyleRules,
   VarietyStory,
 } from "./generate/guide.ts";
+export type { PageMeter, SeedLayout } from "./generate/fit.ts";
 export { DEMO_PEOPLE, DEMO_USER_IDS, DEMO_WORKSPACES } from "./people.ts";
 export type { DemoPerson, DemoUserId, DemoWorkspace } from "./people.ts";
 export { GENERATED_MEMBERS } from "./people/members.ts";
@@ -54,6 +55,7 @@ export type {
   SeedWorkspace,
   SkippedAction,
 } from "./seed/seed.ts";
+export { toBlockJSON } from "./seed/story.ts";
 export type { Story } from "./seed/story.ts";
 export { SeedTimeError, createSeedTime } from "./seed/time.ts";
 export type { SeedTime } from "./seed/time.ts";
