@@ -16,10 +16,12 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
+import { focusLiveEditor } from "../../editor-host/live-editor.ts";
 import { focusHeading } from "../../focus.ts";
 import { ProductionDialogs } from "../../production/dialogs.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
+import { selectors as paletteSelectors } from "../../state/palette.store.ts";
 import { panelsActions, usePanel } from "../../state/panels.store.ts";
 import { pageTitle } from "../../text.ts";
 import { DocumentStateBar } from "./document-state-bar.tsx";
@@ -167,8 +169,17 @@ function Frame(props: { docId: string; doc: DocumentServices }): ReactNode {
   const overPage = usePanelsOverPage();
   useRemoteSettingMessages(props.doc);
   useTabTitle(docId);
+  const { dom } = useEnvironment();
+  const title = useDocumentTitle(docId);
   useEffect(() => {
-    focusHeading(document);
+    // the page takes focus at the caret, else its region until the page is shown, and the title is read
+    if (
+      !paletteSelectors.isOpen() &&
+      !focusLiveEditor(docId) &&
+      !dom.focusPage()
+    )
+      focusHeading(document);
+    dom.announce(title);
   }, [docId]);
   return (
     <>

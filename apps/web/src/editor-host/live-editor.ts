@@ -35,6 +35,20 @@ export function livePagination(docId: string): Pagination | null {
   return paginationKey.getState(editor.view.state)?.pagination ?? null;
 }
 
+/** Focus goes to the page at the caret; the view focuses itself only while it is editable, so a read-only page is focused as a text box. */
+export function focusCaret(view: EditorView): void {
+  if (view.editable) view.focus();
+  else view.dom.focus({ preventScroll: true });
+}
+
+/** Focus goes to that document's page at the caret; false when none is open or its page cannot take focus yet. */
+export function focusLiveEditor(docId: string): boolean {
+  const editor = liveEditor(docId);
+  if (editor === null) return false;
+  focusCaret(editor.view);
+  return editor.view.dom.ownerDocument.activeElement === editor.view.dom;
+}
+
 /** For the mount only. A second editor of one document replaces the first; the returned function removes this one while it is still registered. */
 export function registerLiveEditor(editor: LiveEditor): () => void {
   editors.set(editor.docId, editor);

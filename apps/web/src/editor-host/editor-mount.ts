@@ -25,7 +25,7 @@ import { editorOptions } from "./editor-options.ts";
 import type { EditorSources, OpenedScript } from "./editor-options.ts";
 import type { EditorSession, EditorSessions } from "./editor-sessions.ts";
 import { editorWords } from "./editor-words.ts";
-import { registerLiveEditor } from "./live-editor.ts";
+import { focusCaret, registerLiveEditor } from "./live-editor.ts";
 import type { EditorMount } from "./mount.ts";
 import { followZoom } from "./page-zoom.ts";
 import { keepPlace } from "./keep-place.ts";
@@ -146,6 +146,28 @@ function bindingFor(
   };
 }
 
+/**
+ * Focus goes to the page at the caret once it is shown, so no keystroke is lost, unless something other than the page's
+ * region holds it by then. A page is hidden until its fonts are ready. Returns the disposer.
+ */
+function takeFocus(editor: ScriptEditor, element: HTMLElement): () => void {
+  const focus = (): void => {
+    const active = element.ownerDocument.activeElement;
+    if (active === null || active.contains(element)) focusCaret(editor.view);
+  };
+  const pages = editor.scaffold?.pages;
+  if (pages === undefined || pages.dataset["fonts"] !== "loading") {
+    focus();
+    return noop;
+  }
+  const shown = new MutationObserver(() => {
+    shown.disconnect();
+    focus();
+  });
+  shown.observe(pages, { attributeFilter: ["data-fonts"] });
+  return () => shown.disconnect();
+}
+
 /** What one build of the document's editor is made from. */
 interface Opened extends OpenedScript {
   session: EditorSession;
@@ -174,6 +196,7 @@ function buildEditor(
     editorOptions(options, open, { binding, editable: bound.editable }),
   );
   if (place !== null) editor.restore(place);
+  const stopFocus = takeFocus(editor, element);
   const stopZoom = followZoom({ ...options, editor, element });
   const detach = options.control.attach({
     run: (request) => editor.run(actionOf(request)),
@@ -193,6 +216,7 @@ function buildEditor(
     editor,
     shown: open.shown,
     destroy() {
+      stopFocus();
       stopZoom();
       detach();
       unregister();

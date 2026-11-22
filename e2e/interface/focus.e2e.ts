@@ -125,7 +125,12 @@ async function arrive(page: Page, at: string): Promise<void> {
     await makeScript(page, DOC_ID);
     await page.goto(DOC);
   }
-  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+  // a script's page takes focus at the caret, any other screen its heading
+  await expect(
+    at === DOC
+      ? page.locator("[data-region='page'] .mn-page-view")
+      : page.getByRole("heading", { level: 1 }),
+  ).toBeFocused();
   if (at === DOC)
     await expect(
       page.locator("[data-region='page'] .mn-page-view"),
@@ -216,6 +221,9 @@ async function expectOpenFocus(
       return;
     case "cancel":
       await expect.poll(described).toMatch(/ button "Cancel"$/);
+      return;
+    case "caret":
+      await expect.poll(() => regionOfFocus(page)).toBe("page");
       return;
     default:
       intent satisfies never;

@@ -14,14 +14,32 @@ import type { SavedPlace } from "../script-editor/ports.ts";
 import { blockTopPx } from "./anchor.ts";
 import type { ScrollPorts } from "./stability.ts";
 
+// A page under a screen cannot be hit-tested, so the caret's block, measured from the view's top, stands in for the top block.
+function caretBlockTop(
+  view: EditorView,
+  ports: ScrollPorts,
+  blockId: string,
+): { block: number; offsetPx: number } | null {
+  const block = blocksOf(view.state, [blockId]).get(blockId);
+  if (block === undefined) return null;
+  const top = ports.blockTop(view, block);
+  if (top === null) return null;
+  return {
+    block,
+    offsetPx: ports.scroller().getBoundingClientRect().top - top,
+  };
+}
+
 /** The selection, and the block at the top of the view with how far its top sits above the view's top at 100 %; null when either is not in a block. */
 export function savedPlaceOf(
   view: EditorView,
   ports: ScrollPorts,
 ): SavedPlace | null {
   const place = placeOf(view.state);
-  const top = ports.topBlock(view);
-  if (place === null || top === null) return null;
+  if (place === null) return null;
+  const top =
+    ports.topBlock(view) ?? caretBlockTop(view, ports, place.head.blockId);
+  if (top === null) return null;
   const blockId = blockIdAt(view.state, top.block);
   if (blockId === null) return null;
   return {
