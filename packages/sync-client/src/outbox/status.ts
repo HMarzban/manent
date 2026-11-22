@@ -107,8 +107,9 @@ function serverStatus(input: StatusInput): DocStatus {
  * Saved only when the node acknowledged every own entry, the store took every
  * write and the node's device is not failing; synced only when saved, the
  * node's step 2 merged, and the upstream, as the node told it after its latest
- * acknowledgement, synced. The link, the offline time, the never-synced state
- * and the Recovered text are the upstream's.
+ * acknowledgement, synced. The link, the offline time and the never-synced
+ * state are the upstream's; the Recovered count is the upstream's and the
+ * window's own together.
  */
 function nodeStatus(input: StatusInput): DocStatus {
   const { neverSynced } = input;
@@ -129,7 +130,7 @@ function nodeStatus(input: StatusInput): DocStatus {
     docSync: synced ? "synced" : live ? "syncing" : "local",
     wentOfflineAt: upstream.wentOfflineAt,
     neverSynced: upstream.neverSynced,
-    recovered: upstream.recovered.length,
+    recovered: upstream.recovered.length + input.recovered,
     side: ordered(side),
   };
 }
