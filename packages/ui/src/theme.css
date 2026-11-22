@@ -856,14 +856,17 @@ html[data-white-page] .mn-pages {
    -------------------------------------------------------------------------- */
 
 /* 1. One focus ring for every focusable thing, stock or ours. A heading or a
-      refusal focused on arrival is where focus starts, not a control: no ring. */
+      refusal focused on arrival is where focus starts, not a control: no ring.
+      Nor has the palette's field, which holds focus while the palette is open
+      and is the palette's own top edge: its caret is the focus. */
 :focus-visible:not(
   [role="dialog"],
   [role="alertdialog"],
   [role="menu"],
   [role="listbox"],
   [role="tooltip"],
-  :is(h1, [data-arrival])[tabindex="-1"]
+  :is(h1, [data-arrival])[tabindex="-1"],
+  .mn-palette-field
 ) {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
