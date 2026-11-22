@@ -5,6 +5,7 @@ import {
   ORIGIN_REPLAY,
   applyRemote,
   createDoc,
+  deletionsOf,
   loadDoc,
   observeScript,
   revisedOverrides,
@@ -53,6 +54,25 @@ function catchUp(
   return setAside;
 }
 
+/**
+ * Own text the later rows removed with a block their writer held without it, found on a copy of
+ * mine. A heal row is left out: its delete set also holds what went with a deleted parent.
+ */
+function removedUnseen(
+  mine: CrdtDoc,
+  later: readonly Uint8Array[],
+  own: ReadonlySet<number>,
+): SetAside[] {
+  const deletions = deletionsOf(later);
+  if (deletions === null) return [];
+  const copy = loadDoc(mine.encodeState());
+  try {
+    return applyRemote(copy, deletions, own, ORIGIN_LOAD);
+  } finally {
+    copy.destroy();
+  }
+}
+
 /** Mine with the updates applied, and the set-aside text; "invalid" when one is not an update, writes another root map, or writes what a push may not. */
 function applyWaiting(
   mine: CrdtDoc,
@@ -96,11 +116,11 @@ function changedOverrides(
 /**
  * base: the generation at `lastServerSeq` (its newest checkpoint at or before it, then its rows),
  * moved on to the smallest later sequence at which the waiting updates are complete; mine: base with
- * the updates applied. setAside: own text the updates or those later rows removed unseen. overrides:
- * mine's revisedOverrides entries that differ from base's. invalid: an update is not one, writes a
- * root map other than revisedOverrides, or leaves a block validation refuses; incomplete: the
- * updates still wait at the generation's last row, or a row they need does not verify. RangeError
- * for a generation that is not closed.
+ * the updates applied. setAside: own text the updates or any of the generation's later rows removed
+ * unseen. overrides: mine's revisedOverrides entries that differ from base's. invalid: an update is
+ * not one, writes a root map other than revisedOverrides, or leaves a block validation refuses;
+ * incomplete: the updates still wait at the generation's last row, or a row they need does not
+ * verify. RangeError for a generation that is not closed.
  */
 export function replayBase(
   file: DocFile,
@@ -138,11 +158,14 @@ export function replayBase(
     const own = ownClientIds;
     const later = catchUp(base, mine, rows, { seq: acked, finalSeq, own });
     if (later === "incomplete") return { ok: false, code: "incomplete" };
+    const unseen = tail.rows
+      .filter((row) => row.seq > acked && row.origin !== "heal")
+      .map((row) => row.update);
     return {
       ok: true,
       base: scriptBody(base).materialize(),
       mine: scriptBody(mine).materialize(),
-      setAside: [...waiting, ...later],
+      setAside: [...waiting, ...later, ...removedUnseen(mine, unseen, own)],
       overrides: changedOverrides(base, mine),
     };
   } finally {

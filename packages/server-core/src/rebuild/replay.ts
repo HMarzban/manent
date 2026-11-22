@@ -5,6 +5,7 @@ import {
   ORIGIN_REPLAY,
   applyBlockOps,
   loadDoc,
+  readStateVector,
   revisedOverrides,
   scriptBody,
   updateMeta,
@@ -82,11 +83,16 @@ function contentOf(state: Uint8Array): DocJSON {
 
 /**
  * The ops and the overrides that differ from the room's as one update, written on a copy and
- * applied to the room's document under ORIGIN_REPLAY; null when they wrote nothing.
+ * applied to the room's document under ORIGIN_REPLAY, under `writer` when given; null when they
+ * wrote nothing.
  */
 function writeOps(
   room: Room,
-  changes: { ops: readonly BlockOp[]; overrides: Checked["overrides"] },
+  changes: {
+    ops: readonly BlockOp[];
+    overrides: Checked["overrides"];
+    writer?: number;
+  },
   ids: () => string,
 ): Uint8Array | null {
   const written = writeOnCopy(
@@ -101,6 +107,7 @@ function writeOps(
       return { ok: true };
     },
     ids,
+    changes.writer,
   );
   return written.ok ? written.update : null;
 }
@@ -119,6 +126,9 @@ function storedOf(
   setAside: readonly ReplaySetAside[],
   room: Room,
 ): Stored {
+  const merged = new Set<string | null>(
+    merge.setAside.map((item) => item.blockId),
+  );
   return {
     docId: room.docId,
     generation: room.row.generation,
@@ -127,9 +137,11 @@ function storedOf(
       blockId: overlap.blockId,
       text: blockText(blockView(overlap.mine)),
     })),
-    setAside: [...setAside, ...merge.setAside].map(
-      ({ blockId, nearBlockId, text }) => ({ blockId, nearBlockId, text }),
-    ),
+    // the merge sets aside mine's whole block, which holds what the updates' own set-aside found in it
+    setAside: [
+      ...setAside.filter((item) => !merged.has(item.blockId)),
+      ...merge.setAside,
+    ].map(({ blockId, nearBlockId, text }) => ({ blockId, nearBlockId, text })),
   };
 }
 
@@ -169,6 +181,8 @@ interface Checked {
   setAside: ReplaySetAside[];
   /** Mine's revisedOverrides entries that differ from base's; null removes one. */
   overrides: [string, string | null][];
+  /** The client ids of the device's updates, in order. An authority writes the replay under the first its document does not hold, so that the device knows the text as its own; a relayed room draws one, as its upstream may hold any. */
+  writers: number[];
 }
 
 /**
@@ -212,7 +226,17 @@ export function createReplay(
     if (!based.ok) return based.code;
     const { base, mine, setAside, overrides } = based;
     const { kind } = resolved;
-    return { userId, request, kind, base, mine, frozen, setAside, overrides };
+    return {
+      userId,
+      request,
+      kind,
+      base,
+      mine,
+      frozen,
+      setAside,
+      overrides,
+      writers: clientIds,
+    };
   }
 
   /** The merge through every generation since, written on the loaded room. */
@@ -231,7 +255,13 @@ export function createReplay(
     const merge = mergeUniqueThrough(checked.base, checked.mine, theirs);
     if (!isWritable(merge.ops)) return refused("invalid");
     const { overrides } = checked;
-    const update = writeOps(room, { ops: merge.ops, overrides }, ports.ids);
+    const held = readStateVector(doc.encodeStateVector());
+    const writer =
+      room.mode === "authority"
+        ? checked.writers.find((clientId) => !held.has(clientId))
+        : undefined;
+    const changes = { ops: merge.ops, overrides, writer };
+    const update = writeOps(room, changes, ports.ids);
     const stored = storedOf(merge, checked.setAside, room);
     const createdAt = clock.now();
     const version: VersionRow | null =
