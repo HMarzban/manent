@@ -21,15 +21,17 @@ export function BarButton(props: {
   label: string;
   icon: LucideIcon;
   tour?: string;
-  unavailable?: string | null;
+  unavailable?: string;
   disabled?: boolean;
   opens?: boolean;
   onClick?: () => void;
 }): ReactNode {
-  const { label, icon: Icon, unavailable = null, opens = false } = props;
+  const { label, icon: Icon, unavailable, opens = false } = props;
   const reasonId = useId();
   const reason =
-    unavailable === null ? null : READOUT_WORDS.unavailable(label, unavailable);
+    unavailable === undefined
+      ? null
+      : READOUT_WORDS.unavailable(label, unavailable);
   const button = (
     <Button
       variant="outline"
