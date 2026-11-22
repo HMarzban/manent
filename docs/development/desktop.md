@@ -1,29 +1,44 @@
 # Desktop app
 
-Manent's desktop app is planned, and this build does not have it. This page says what exists towards it, so nobody mistakes a placeholder for a working build.
+Manent's desktop app shows the same web app in a window of its own, built on Electrobun (2.0.6 is in the catalog). Only `apps/desktop` may import Electrobun; the boundary check enforces that. This page says how to build and run it, and what it does.
 
-## What runs today
+## Run it against the demo
 
-Nothing that produces an app:
-
-```text
-$ make desktop
-The desktop app is not in this build yet.
+```sh
+make demo        # in one terminal
+make desktop     # in another; without make: bun run desktop
 ```
 
-`make desktop` (and `bun run desktop`) prints that line and stops with a non-zero exit status. The scripts `desktop:build`, `desktop:smoke` and `desktop:headless` point at files in `tools/desktop/` that hold no code yet, and `desktop:check` names a TypeScript configuration that does not exist yet.
+`make desktop` needs a running demo: without one it says "Manent is not running. Run make demo first, then make desktop." It makes a development build (no installer, no update check), opens it, and points it at the demo's server. The app keeps its data in `desktop/` inside the demo's data folder (`.manent-demo/desktop/`).
 
-## What exists towards it
+The first build downloads the desktop toolkit: `tools/desktop/devkit.ts` fetches the Hutch launcher, which fetches the Electrobun core and Chromium into `apps/desktop/.hutch/`. Each download is checked against a recorded checksum, and the build stops with "The desktop toolkit download does not match its recorded checksum." when one differs.
 
-| Part                  | State                                                                                                                                                                                                                                                         |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/local-node` | A library with tests: the service the app will run on loopback, with a durable SQLite store, a relay to the server, an outbox, a lock so only one copy runs, and the hand-off of a script's first sync. Nothing outside its tests uses it yet                 |
-| `apps/desktop/src`    | Starting the web server as a child process on a free loopback port (`cloud.ts`), the window's size and place (`window-state.ts`, `frames.ts`), each with tests, and the app's words (`words.ts`). The shell itself (window, menus, dialogs, updater) is empty |
-| `tools/desktop/`      | Empty: the build, the size check, the smoke and headless tests, and the release notes                                                                                                                                                                         |
-| The web app           | The desktop words and status wording ("On this device only") exist; the desktop parts of the web app are empty                                                                                                                                                |
+## Build an installer
 
-The shell will be built on Electrobun (2.0.6 is in the catalog). Only `apps/desktop` may import it; the boundary check enforces that.
+```sh
+bun run desktop:build [--dev] [--open] [--channel stable|canary] [--version <x.y.z>] [--update-url <url>]
+```
 
-## How it is meant to work
+The build stages the web app, the server program, the demo's seed and the third-party notices under `apps/desktop/build/stage/`, then builds this system's installer into `apps/desktop/artifacts/`, named `Manent-<version>-<channel>-<system>-<arch>`: a `.dmg` on macOS, a `-setup.zip` on Windows and a `.tar.gz` on Linux. The installers are unsigned, so each system warns the first time the app opens; `tools/desktop/release-notes.ts` holds what a release says about that.
 
-The desktop app will show the same web app in its own window. A local service inside the app keeps every script in SQLite files on the device and relays changes to the server, which stays the authority for every synced script. A script that was never synced is kept on the device alone. See the [architecture overview](../architecture/overview.md).
+| Script                                        | What it does                                                                                                                           |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `bun run desktop:check`                       | Type-checks the shell against `apps/desktop/tsconfig.shell.json`                                                                       |
+| `bun run desktop:smoke`                       | Launches an installed app on a fresh data folder, checks it through its local node, and writes `results/desktop-smoke-<platform>.json` |
+| `bun run desktop:headless`                    | Runs the local node with no window, serving the web app as the desktop page                                                            |
+| `bun tools/desktop/check-size.ts <installer>` | Prints the installer's size against its budget of 250 MB; fails above 400 MB                                                           |
+
+`.github/workflows/desktop.yml` builds, installs and smoke-tests the app on macOS, Windows and Linux whenever the desktop code changes, and `.github/workflows/release.yml` builds and publishes the installers for a tag that starts with `v`. A release also carries the server on its own, compiled into one `manent-<system>-<arch>` file for macOS, Linux and Windows on Intel and Arm, with the web app it serves in `manent-web.tar.gz`.
+
+## What the app does
+
+- **One window, shown when ready.** The window stays hidden until the page has drawn its first frame, and keeps its size and place between launches.
+- **Native menus.** The menus are drawn from the page's own menu model, and each item runs the page's command.
+- **One running copy.** Opening the app again brings the running window forward.
+- **Its own server.** An installed app starts the demo's server program as a child process on a free loopback port, from the seed it was built with; a seed more than six hours old is seeded again at first launch. With `MANENT_CLOUD_URL` set, as `make desktop` sets it, the app uses that server instead.
+- **A local node.** Every script is kept in SQLite files on the device and relayed to the server, which stays the authority for every synced script. A script that has never synced shows "On this device only". The data folder is `~/Library/Application Support/Manent` on macOS, `%APPDATA%\Manent` on Windows and `~/.local/share/manent` on Linux, or `MANENT_DATA_DIR` when it is set.
+- **History and production revisions.** Versions, locking, issuing and recalling work in the app as in the browser; a script locked or issued on the device keeps its production and its versions when it first syncs.
+- **Open… and files from the system.** **Open…** (Ctrl+O, ⌘O on a Mac) and a file the system hands to the app import `.fdx` and `.fountain` files as a browser import does; any other file, or one larger than 32 MB, is refused with a sentence that says why. See [Import a script](../guide/export-and-print.md#import-a-script).
+- **Updates.** An installed app checks its channel, stable or canary, for a newer build while it runs, and applies one only at the next launch.
+
+See the [architecture overview](../architecture/overview.md) for how the local node fits with the server.
