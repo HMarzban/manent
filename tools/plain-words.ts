@@ -20,7 +20,7 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   needs, never, newer, newscast, next, ninth, no, none, nothing, nov, now, number, oct, off, offered, older, omit,
   once, one, opening, or, other, others, out, outside, overflows, own, paste, pasted, pause, pick, placed, plain, pp,
   prepare, preparing, press, pressing, previously, profiles, put, quit, re-applied, reach, reached, reacts,
-  read-aloud, reading, ready, recalled, recalling, recorded, reduced, region, reload, reloading, removes, reorganised,
+  read-aloud, reading, ready, recalled, recalling, recorded, reduced, region, reload, reloading, removes, reorganised, replace,
   request, resize, rest, restored, right, running, runs, said, same, sat, save, say, says, sc, scripts, search,
   second, see, seeded, sees, selected, sep, seventh, showing, shown, sign, signed, sixth, slow, smarttype, so, some,
   someone, sound, speeches, standard, started, starting, stay, still, stopped, stored, style, summaries, sun, switch,

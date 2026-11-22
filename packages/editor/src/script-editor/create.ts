@@ -15,6 +15,7 @@ import { completePlugin } from "../complete/complete-plugin.ts";
 import { CURSOR_CSS } from "../cursors/cursor-css.ts";
 import { cursorsPlugin } from "../cursors/cursor-plugin.ts";
 import { plainTextElement, slotElement } from "../elements/slots.ts";
+import { findPlugin } from "../find/find-plugin.ts";
 import { clipboardPlugin } from "../identity/clipboard.ts";
 import { idRegistryPlugin } from "../identity/id-registry.ts";
 import { commandKeymap } from "../keys/command-keymap.ts";
@@ -185,6 +186,7 @@ function editorPlugins(
       ? [idRegistryPlugin({ ids, isRemote: binding.isRemote })]
       : []),
     placeholderPlugin({ format, words }),
+    findPlugin(),
     cursorsPlugin({ presence: binding.presence, frames, timers }),
     scrollPlugin({
       ...parts.ports,
@@ -268,16 +270,28 @@ function mountEditor(
   });
 }
 
+// how far below the view's top a block gone to sits, px at 100 %, so its first line is clear of the bars
+const GO_TO_MARGIN_PX = 48;
+
 /** What the actions read of this editor: the element keys' context, the page's column and whether it is editable. */
 function actionContext(
   context: ElementContext,
   view: EditorView,
-  editable: boolean,
+  parts: { editable: boolean; ports: ScrollPorts },
 ): ActionContext {
   return {
     ...context,
     slotElement,
-    editable: () => editable,
+    editable: () => parts.editable,
+    goTo(blockId, offset) {
+      const at = { blockId, offset };
+      restorePlace(view, parts.ports, {
+        anchor: at,
+        head: at,
+        top: { blockId, offsetPx: -GO_TO_MARGIN_PX },
+      });
+      view.focus();
+    },
     columnCells: () =>
       paginationKey.getState(view.state)?.settings.profile.columnCells ?? null,
   };
@@ -342,7 +356,7 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
   place.append(layer);
   if (scaffold !== null)
     pages = createPageControls({ view, scaffold, ports, desk, zoom, profile });
-  const actions = actionContext(context, view, editable);
+  const actions = actionContext(context, view, { editable, ports });
   const subscriptions = subscribe(options, view, () => {
     layout = readLayoutSettings((key) => script.get(key));
     pages?.repage();

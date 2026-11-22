@@ -73,8 +73,11 @@ function fakeClock() {
 
 const row = (blockId: string, heading = `INT. ${blockId}`): OutlineRow => ({
   blockId,
+  kind: "scene",
   number: null,
   heading,
+  synopsis: "",
+  eighths: null,
   omitted: false,
   current: false,
 });

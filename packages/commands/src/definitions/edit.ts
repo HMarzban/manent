@@ -1,4 +1,4 @@
-// Undo and Redo, which leave the page's and a field's own history alone, and the reverse a setting's message offers.
+// Undo and Redo, which leave the page's and a field's own history alone, the reverse a setting's message offers, and Find.
 import type { CommandContext } from "../context.ts";
 import type { CommandDefinition } from "../define.ts";
 
@@ -44,6 +44,25 @@ export const EDIT_COMMANDS = [
     passThrough: ownHistory,
     menus: [{ menu: "edit", group: "undo", order: 20, submenu: null }],
     palette: { keywords: [] },
+    opens: null,
+    reach: "self",
+    setting: null,
+  },
+  {
+    id: "edit.find",
+    label: "Find",
+    group: "edit",
+    home: null,
+    scope: "global",
+    keys: { mac: ["Mod+F"], windows: ["Mod+F"], linux: ["Mod+F"] },
+    keysFixed: false,
+    when: (ctx) => ctx.docOpen,
+    whyNot: () => "needs a document open",
+    visible: null,
+    checked: null,
+    passThrough: null,
+    menus: [{ menu: "edit", group: "find", order: 10, submenu: null }],
+    palette: { keywords: ["replace", "search"] },
     opens: null,
     reach: "self",
     setting: null,

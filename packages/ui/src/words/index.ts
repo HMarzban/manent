@@ -8,6 +8,7 @@ export * from "./history.ts";
 export * from "./import.ts";
 export * from "./library.ts";
 export * from "./messages.ts";
+export * from "./navigation.ts";
 export * from "./offline.ts";
 export * from "./preferences.ts";
 export * from "./production.ts";

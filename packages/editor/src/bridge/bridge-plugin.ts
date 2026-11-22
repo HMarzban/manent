@@ -3,6 +3,7 @@ import type { FormatId } from "@manent/schema";
 import { Plugin } from "prosemirror-state";
 import type { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
+import { findCount } from "../find/find-plugin.ts";
 import { blockAt } from "../pagination/block-index.ts";
 import type { BlockIndex } from "../pagination/block-index.ts";
 import { paginationKey } from "../pagination/plugin.ts";
@@ -30,11 +31,15 @@ const NO_OUTLINE: OutlineIndex = Object.freeze({
 
 /** What the facts depend on; the facts are worked out again only when one of these differs. */
 function trackedOf(state: EditorState, history: HistoryPort): unknown[] {
-  const { $head, empty } = state.selection;
+  const { $head, anchor, empty } = state.selection;
+  const found = findCount(state);
   return [
     $head.parent,
     $head.parentOffset,
+    anchor,
     empty,
+    found.count,
+    found.current,
     paginationKey.getState(state),
     history.canUndo(state),
     history.canRedo(state),
@@ -60,8 +65,11 @@ function changedFacts(
 
 const isSameEntry = (a: OutlineEntry, b: OutlineEntry): boolean =>
   a.blockId === b.blockId &&
+  a.kind === b.kind &&
   a.number === b.number &&
   a.heading === b.heading &&
+  a.synopsis === b.synopsis &&
+  a.eighths === b.eighths &&
   a.omitted === b.omitted &&
   a.current === b.current;
 
@@ -71,8 +79,8 @@ const isSameOutline = (
 ): boolean =>
   a.length === b.length && a.every((entry, k) => isSameEntry(entry, b[k]!));
 
-/** The entries with each heading's own `omitted` attribute, read from its node in one pass over the sections. */
-function withOmitted(
+/** The entries with each heading's own `omitted` and `synopsis` attributes, read from its node in one pass over the sections. */
+function withHeadingAttributes(
   outline: OutlineIndex,
   index: BlockIndex,
 ): readonly OutlineEntry[] {
@@ -80,10 +88,16 @@ function withOmitted(
   return outline.entries.map((entry, k) => {
     const block = outline.headingBlocks[k]!;
     while (index.sectionStart[section + 1]! <= block) section++;
-    const node = index.doc
+    const { omitted, synopsis } = index.doc
       .child(section)
-      .child(block - index.sectionStart[section]!);
-    return node.attrs.omitted === true ? { ...entry, omitted: true } : entry;
+      .child(block - index.sectionStart[section]!).attrs;
+    if (omitted !== true && (typeof synopsis !== "string" || synopsis === ""))
+      return entry;
+    return {
+      ...entry,
+      omitted: omitted === true,
+      synopsis: typeof synopsis === "string" ? synopsis : "",
+    };
   });
 }
 
@@ -175,7 +189,9 @@ function outlinePublisher(
             blockAt(pages.index, view.state.selection.head),
           );
     const next =
-      pages === undefined ? index.entries : withOmitted(index, pages.index);
+      pages === undefined
+        ? index.entries
+        : withHeadingAttributes(index, pages.index);
     if (rows !== null && isSameOutline(rows, next)) return;
     rows = next;
     options.outline.publish(next);
