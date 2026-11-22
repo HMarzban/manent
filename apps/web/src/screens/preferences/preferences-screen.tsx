@@ -6,7 +6,9 @@ import type { SectionId, SettingKey, SettingsStore } from "@manent/settings";
 import {
   Button,
   CommandButton,
-  Input,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
   MessageSlot,
   PREFERENCES_WORDS,
   SEND_WORDS,
@@ -15,6 +17,7 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
+import { SearchIcon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -128,15 +131,15 @@ function PreferencesHeader(props: { from: string }): ReactNode {
   const navigate = useNavigate();
   const placeName = usePlaceName(from);
   return (
-    <header className="flex min-h-row flex-wrap items-center gap-4 px-2">
+    <header className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line px-2">
       <Button
         variant="ghost"
-        className="text-ui"
+        className="text-fg-muted"
         onClick={() => void navigate({ href: from })}
       >
         {SEND_WORDS.back(placeName)}
       </Button>
-      <h1 tabIndex={-1} className="text-title">
+      <h1 tabIndex={-1} className="truncate text-heading outline-none">
         {PREFERENCES_WORDS.title}
       </h1>
     </header>
@@ -157,6 +160,8 @@ function PreferencesColumn(props: {
 }): ReactNode {
   const { search, results, query, onQuery, count, onSetByYou, pane, onPane } =
     props;
+  // focused on arrival, the field shows no ring until it is left and reached again
+  const [arrival, setArrival] = useState(true);
   const onSearchKey = (event: KeyboardEvent<HTMLInputElement>): void => {
     if (event.key === "Escape" && event.currentTarget.value !== "") {
       event.preventDefault();
@@ -170,23 +175,24 @@ function PreferencesColumn(props: {
     }
   };
   return (
-    <div className="flex flex-col gap-2 sm:w-56 sm:shrink-0">
-      <Input
-        ref={search}
-        type="search"
-        aria-label={PREFERENCES_WORDS.search}
-        placeholder={PREFERENCES_WORDS.search}
-        value={query}
-        onChange={(event) => onQuery(event.target.value)}
-        onKeyDown={onSearchKey}
-        className="h-control text-ui"
-      />
+    <div className="flex shrink-0 flex-col gap-2 border-b border-line p-4 sm:w-panel-left sm:border-e sm:border-b-0 sm:px-2">
+      <InputGroup data-arrival={arrival ? "" : undefined} className="h-control">
+        <InputGroupAddon>
+          <SearchIcon aria-hidden="true" />
+        </InputGroupAddon>
+        <InputGroupInput
+          ref={search}
+          type="search"
+          aria-label={PREFERENCES_WORDS.search}
+          placeholder={PREFERENCES_WORDS.search}
+          value={query}
+          onChange={(event) => onQuery(event.target.value)}
+          onKeyDown={onSearchKey}
+          onBlur={() => setArrival(false)}
+        />
+      </InputGroup>
       {count === 0 ? null : (
-        <Button
-          variant="ghost"
-          className="justify-start text-ui"
-          onClick={onSetByYou}
-        >
+        <Button variant="ghost" className="justify-start" onClick={onSetByYou}>
           {PREFERENCES_WORDS.setByYouCount(count)}
         </Button>
       )}
@@ -241,7 +247,7 @@ function PreferencesStatusBar(): ReactNode {
   return (
     <ShellRegion
       region="status_bar"
-      className="flex min-h-row items-center gap-2 px-2"
+      className="flex h-statusbar shrink-0 items-center gap-2 border-t border-line px-2"
     >
       <MessageSlot
         queue={messages}
@@ -289,7 +295,7 @@ export function PreferencesScreen(): ReactNode {
     <SettingsProvider store={visit.store}>
       <div className="flex min-h-0 flex-1 flex-col">
         <PreferencesHeader from={from} />
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4 sm:flex-row">
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto sm:flex-row sm:overflow-hidden">
           <PreferencesColumn
             search={search}
             results={results}
@@ -300,15 +306,17 @@ export function PreferencesScreen(): ReactNode {
             pane={pane}
             onPane={showPane}
           />
-          <div ref={results} className="min-w-0 flex-1">
-            <PreferencesBody
-              query={query}
-              setByYouOpen={setByYouOpen}
-              pane={pane}
-              modified={modified}
-              visit={visit}
-              deviceName={deviceName}
-            />
+          <div ref={results} className="min-w-0 flex-1 p-6 sm:overflow-auto">
+            <div className="max-w-content">
+              <PreferencesBody
+                query={query}
+                setByYouOpen={setByYouOpen}
+                pane={pane}
+                modified={modified}
+                visit={visit}
+                deviceName={deviceName}
+              />
+            </div>
           </div>
         </div>
         <PreferencesStatusBar />

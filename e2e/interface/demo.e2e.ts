@@ -1,3 +1,4 @@
+import { TOUR, isShown } from "@manent/demo";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { pressKeyOf } from "../support/interface.ts";
@@ -20,15 +21,18 @@ test("the Tour opens the first time a person reaches the Library, and the Tour b
   await page.goto("/");
   await page.getByRole("button", { name: /^Sam Okafor/ }).click();
   const library = page.getByRole("heading", { name: "Library" });
-  await expect(tourTab(page).getByRole("heading", { level: 2 })).toHaveText(
-    "Tour",
-  );
-  // the Tour never takes focus
-  await expect(library).toBeFocused();
   const tourButton = page
     .getByRole("region", { name: "Demo" })
     .getByRole("button", { name: "Tour" });
-  await tourButton.click();
+  // a Tour that lists no scenario is not opened on its own
+  if (TOUR.scenarios.some(isShown)) {
+    await expect(tourTab(page).getByRole("heading", { level: 2 })).toHaveText(
+      "Tour",
+    );
+    // the Tour never takes focus
+    await expect(library).toBeFocused();
+    await tourButton.click();
+  } else await expect(library).toBeFocused();
   await expect(tourTab(page)).toHaveCount(0);
   await tourButton.click();
   await expect(tourTab(page)).toBeVisible();
