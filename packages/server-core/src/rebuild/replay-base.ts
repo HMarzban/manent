@@ -15,6 +15,7 @@ import {
   updateMeta,
 } from "@manent/crdt";
 import type { CrdtDoc, SetAside, TypedText } from "@manent/crdt";
+import { blockText, blocksOf } from "@manent/schema";
 import type { DocJSON } from "@manent/schema";
 import type { DocFile } from "@manent/storage";
 import { validatePush } from "../sync/validate.ts";
@@ -57,23 +58,47 @@ function catchUp(
   return setAside;
 }
 
-/**
- * Own text the later rows removed with a block their writer held without it, found on a copy of
- * mine. A heal row is left out: its delete set also holds what went with a deleted parent.
- */
-function removedUnseen(
-  mine: CrdtDoc,
-  later: readonly Uint8Array[],
+/** What applyRemote sets aside when the deletions are applied to a copy of `doc`. */
+function setAsideOn(
+  doc: CrdtDoc,
+  deletions: Uint8Array,
   own: ReadonlySet<number>,
 ): SetAside[] {
-  const deletions = deletionsOf(later);
-  if (deletions === null) return [];
-  const copy = loadDoc(mine.encodeState());
+  const copy = loadDoc(doc.encodeState());
   try {
     return applyRemote(copy, deletions, own, ORIGIN_LOAD);
   } finally {
     copy.destroy();
   }
+}
+
+const isSame = (a: SetAside, b: SetAside): boolean =>
+  a.blockId === b.blockId && a.text === b.text;
+
+/**
+ * Own text the later rows removed with a block their writer held without it: found on a copy of
+ * mine, and on a copy of base where mine holds it in a block of that id, as when mine moved the
+ * block and the rows removed the one base holds. A heal row is left out: its delete set also holds
+ * what went with a deleted parent.
+ */
+function removedUnseen(
+  docs: { base: CrdtDoc; mine: CrdtDoc; mineContent: DocJSON },
+  later: readonly Uint8Array[],
+  own: ReadonlySet<number>,
+): SetAside[] {
+  const deletions = deletionsOf(later);
+  if (deletions === null) return [];
+  const inMine = setAsideOn(docs.mine, deletions, own);
+  const blocks = blocksOf(docs.mineContent);
+  const isHeld = (item: SetAside): boolean =>
+    blocks.some(
+      (block) =>
+        block.attrs.id === item.blockId && blockText(block).includes(item.text),
+    );
+  const inBase = setAsideOn(docs.base, deletions, own).filter(
+    (item) => isHeld(item) && !inMine.some((found) => isSame(found, item)),
+  );
+  return [...inMine, ...inBase];
 }
 
 /** Mine with the updates applied, and the set-aside text; "invalid" when one is not an update, writes another root map, or writes what a push may not. */
@@ -178,12 +203,13 @@ export function replayBase(
     const rest = tail.rows
       .filter((row) => row.seq > acked && row.origin !== "heal")
       .map((row) => row.update);
+    const mineContent = scriptBody(mine).materialize();
     return {
       ok: true,
       base: scriptBody(base).materialize(),
-      mine: scriptBody(mine).materialize(),
+      mine: mineContent,
       setAside: [...waiting, ...later],
-      unseen: removedUnseen(mine, rest, own),
+      unseen: removedUnseen({ base, mine, mineContent }, rest, own),
       typed: findTyped(mine, sinceOf(updates, base)),
       overrides: changedOverrides(base, mine),
     };
