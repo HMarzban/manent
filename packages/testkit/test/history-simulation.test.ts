@@ -164,9 +164,8 @@ test(
   LONG,
 );
 
-// pins today's behaviour: one block id held twice is tolerated until a repair exists
 test(
-  "two people restoring different versions offline keep both copies until a repair exists",
+  "two people restoring different versions offline lose nothing, and the identical copy is removed",
   () =>
     forSeeds(async (w) => {
       const dana = clientOf(w, "dana");
@@ -185,10 +184,8 @@ test(
       await restoreLocally(w, dana, older);
       await restoreLocally(w, sam, newer);
       await allOnline(w);
-      // the block both restores put back, twice, under one id
-      const twice = seeded.toSpliced(3, 0, ...seeded.slice(2, 3));
-      expect(w.serverText()).toEqual(twice);
-      expect(w.clients.map(linesOf)).toEqual(w.clients.map(() => twice));
+      expect(w.serverText()).toEqual(seeded);
+      expect(w.clients.map(linesOf)).toEqual(w.clients.map(() => seeded));
     }),
   LONG,
 );
