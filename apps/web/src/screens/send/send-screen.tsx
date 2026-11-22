@@ -21,7 +21,7 @@ import { safeNext } from "../../session.ts";
 import { SIDE_PANEL_TABS } from "../document/side-tabs.ts";
 import { SEND_FORMS } from "./forms.ts";
 import type { SendForm } from "./forms.ts";
-import { SendPlaceContext } from "./send-frame.tsx";
+import { SendLayout } from "./send-frame.tsx";
 import type { SendPlace } from "./send-frame.tsx";
 import { testSendForm } from "./test-form.tsx";
 
@@ -74,7 +74,7 @@ function SendStatusBar(): ReactNode {
   return (
     <ShellRegion
       region="status_bar"
-      className="flex h-statusbar shrink-0 items-center gap-2 border-t border-line px-3"
+      className="flex h-statusbar shrink-0 items-center gap-2 border-t border-line px-2"
     >
       <MessageSlot
         queue={messages}
@@ -94,18 +94,16 @@ function FormScreen(props: { form: SendForm; docId: string }): ReactNode {
   if (!available) return <BackToDocument docId={docId} />;
   const { Body } = form;
   return (
-    <SendPlaceContext value={place}>
-      {/* positioned, so that WebKit finds the screen, not the scrolled page under it, beneath the pointer */}
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <div className="flex min-h-0 flex-1">
-          <div className="min-w-0 flex-1 overflow-auto">
-            <Body docId={docId} />
-          </div>
-          <SidePosition docId={null} tabs={SIDE_PANEL_TABS} />
-        </div>
-        <SendStatusBar />
-      </div>
-    </SendPlaceContext>
+    // positioned, so that WebKit finds the screen, not the scrolled page under it, beneath the pointer
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <SendLayout
+        place={place}
+        side={<SidePosition docId={null} tabs={SIDE_PANEL_TABS} />}
+      >
+        <Body docId={docId} />
+      </SendLayout>
+      <SendStatusBar />
+    </div>
   );
 }
 

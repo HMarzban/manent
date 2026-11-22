@@ -15,6 +15,7 @@ import {
   useSettingsStore,
   useSubscribable,
 } from "@manent/ui";
+import { ChevronRightIcon } from "lucide-react";
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 import { FrozenRow } from "../../production/frozen-row.tsx";
@@ -101,17 +102,15 @@ export function ScriptSettings(props: { docId: string }): ReactNode {
   if (doc === null) return null;
   return (
     <Collapsible defaultOpen className="flex flex-col gap-2">
-      <CollapsibleTrigger
-        render={
-          <Button
-            variant="ghost"
-            className="justify-start text-ui font-semibold"
-          />
-        }
-      >
+      {/* a quiet row, its chevron where the rows' words begin */}
+      <CollapsibleTrigger className="group/disclosure -mx-2 flex min-h-row items-center gap-1 rounded-control px-1 text-start text-ui font-semibold transition-colors hover:bg-subtle active:bg-control">
+        <ChevronRightIcon
+          aria-hidden="true"
+          className="size-icon shrink-0 text-fg-muted group-data-panel-open/disclosure:rotate-90"
+        />
         {DOCUMENT_WORDS.scriptSettingsHeading}
       </CollapsibleTrigger>
-      <CollapsibleContent className="flex flex-col gap-2 px-2">
+      <CollapsibleContent className="flex flex-col gap-2">
         <p className="text-meta text-fg-muted">
           {DOCUMENT_WORDS.scriptScopeLine(title)}
         </p>
@@ -119,7 +118,9 @@ export function ScriptSettings(props: { docId: string }): ReactNode {
         <SettingsProvider store={store}>
           {GROUPS.map(({ group, keys }) => (
             <section key={group} className="flex flex-col">
-              <h3 className="text-meta font-semibold">{GROUP_WORDS[group]}</h3>
+              <h3 className="pt-2 text-ui font-semibold">
+                {GROUP_WORDS[group]}
+              </h3>
               {keys.map((key) => (
                 <div key={key}>
                   <SettingRow settingKey={key} deviceName={null} persisted />
