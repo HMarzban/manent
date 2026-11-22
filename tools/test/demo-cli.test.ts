@@ -181,30 +181,38 @@ async function demoInfo(port: number): Promise<DemoResponse> {
   ).json()) as DemoResponse;
 }
 
-test("seeding creates the data once; a reset keeps the content and changes the id", async () => {
-  const dir = await trees.tree({});
-  expect(await ensureSeed(dir)).toBe("created");
-  const first = await readSeed(dir);
-  expect(await ensureSeed(dir)).toBe("present");
-  const second = await resetSeed(dir);
-  expect(second.manifest).toEqual(first.manifest);
-  expect(second.fingerprint).toBe(first.fingerprint);
-  expect(second.seedId).not.toBe(first.seedId);
-  expect(await readSeed(dir)).toEqual(second);
-  expect(first.fingerprint).toMatch(/^[0-9a-f]{64}$/);
-});
+test(
+  "seeding creates the data once; a reset keeps the content and changes the id",
+  async () => {
+    const dir = await trees.tree({});
+    expect(await ensureSeed(dir)).toBe("created");
+    const first = await readSeed(dir);
+    expect(await ensureSeed(dir)).toBe("present");
+    const second = await resetSeed(dir);
+    expect(second.manifest).toEqual(first.manifest);
+    expect(second.fingerprint).toBe(first.fingerprint);
+    expect(second.seedId).not.toBe(first.seedId);
+    expect(await readSeed(dir)).toEqual(second);
+    expect(first.fingerprint).toMatch(/^[0-9a-f]{64}$/);
+  },
+  RUN,
+);
 
-test("a seed.json with another fingerprint is reported stale", async () => {
-  const dir = await trees.tree({});
-  await ensureSeed(dir);
-  await writeSeed(dir, {
-    ...(await readSeed(dir)),
-    fingerprint: "0".repeat(64),
-  });
-  expect(await ensureSeed(dir)).toBe("stale");
-  await Bun.write(seedPath(dir), '{"seedId":');
-  expect(await ensureSeed(dir)).toBe("stale");
-});
+test(
+  "a seed.json with another fingerprint is reported stale",
+  async () => {
+    const dir = await trees.tree({});
+    await ensureSeed(dir);
+    await writeSeed(dir, {
+      ...(await readSeed(dir)),
+      fingerprint: "0".repeat(64),
+    });
+    expect(await ensureSeed(dir)).toBe("stale");
+    await Bun.write(seedPath(dir), '{"seedId":');
+    expect(await ensureSeed(dir)).toBe("stale");
+  },
+  RUN,
+);
 
 test(
   "/api/demo carries a seedId that changes on reset",
@@ -438,15 +446,19 @@ test("stop says so when nothing is running", async () => {
   });
 });
 
-test("reset says what it did", async () => {
-  const dir = await trees.tree({});
-  expect(await cli(["reset", "--data-dir", dir])).toEqual({
-    exitCode: 0,
-    stdout: "The demo data was seeded again.\n",
-    stderr: "",
-  });
-  expect(await ensureSeed(dir)).toBe("present");
-});
+test(
+  "reset says what it did",
+  async () => {
+    const dir = await trees.tree({});
+    expect(await cli(["reset", "--data-dir", dir])).toEqual({
+      exitCode: 0,
+      stdout: "The demo data was seeded again.\n",
+      stderr: "",
+    });
+    expect(await ensureSeed(dir)).toBe("present");
+  },
+  RUN,
+);
 
 /** A control listener that answers `/status` as running and `path` with `reply`; run.json in `dir` points at it. */
 async function standIn(

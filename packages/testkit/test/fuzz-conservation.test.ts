@@ -76,7 +76,7 @@ test("a block inserted into a section a peer emptied at the same moment is in it
   ]);
 });
 
-test("two people move the same scene at once: nothing is lost, and both copies stay until a repair exists", async () => {
+test("two people move the same scene at once: nothing is lost, and the identical copy is removed", async () => {
   const world = await createWorld({ seed: 2, users: ["dana", "sam"] });
   const [dana, sam] = world.clients;
   if (dana === undefined || sam === undefined) throw new RangeError("two");
@@ -100,7 +100,7 @@ test("two people move the same scene at once: nothing is lost, and both copies s
   const copies = scene.map(
     (block) => lines.filter((line) => line === textOf(block)).length,
   );
-  expect(copies).toEqual([2, 2, 2]);
+  expect(copies).toEqual([1, 1, 1]);
 });
 
 test("two offline restores of one block, and a paragraph deleted under an editor", async () => {

@@ -118,7 +118,7 @@ test("each side keeps its own order whatever order the facts arrive in", () => {
 });
 
 test("each state-bar fact reads as the design writes it, with its actions", () => {
-  const plain = { chip: null, attention: false };
+  const plain = { chip: null, dismiss: null, attention: false };
   expect([
     line({ kind: "viewing_version", name: "Table read draft", date: "12 Nov" }),
     line({ kind: "viewing_version", name: null, date: "Mon 14:10" }),
@@ -238,19 +238,15 @@ test("each state-bar fact reads as the design writes it, with its actions", () =
     { sentence: "Sam is writing this scene", actions: [], ...plain },
     {
       sentence: "14 changes by Dana and Sam since you last opened",
-      actions: [
-        { label: "Show", commandId: "history.showSinceOpened" },
-        { label: "Dismiss", commandId: "history.dismissSinceOpened" },
-      ],
+      actions: [{ label: "Show", commandId: "history.showSinceOpened" }],
       ...plain,
+      dismiss: "history.dismissSinceOpened",
     },
     {
       sentence: "1 change by Dana since you last opened",
-      actions: [
-        { label: "Show", commandId: "history.showSinceOpened" },
-        { label: "Dismiss", commandId: "history.dismissSinceOpened" },
-      ],
+      actions: [{ label: "Show", commandId: "history.showSinceOpened" }],
       ...plain,
+      dismiss: "history.dismissSinceOpened",
     },
     {
       sentence: "Air 23:35 · Target 42:00 · Under 1:05",
@@ -262,6 +258,7 @@ test("each state-bar fact reads as the design writes it, with its actions", () =
         "In the air window — prompter text changes only when you send it.",
       actions: [],
       chip: null,
+      dismiss: null,
       attention: true,
     },
     {
@@ -273,12 +270,14 @@ test("each state-bar fact reads as the design writes it, with its actions", () =
       sentence: "PINK revision · started 16 Nov 2026 · 14 pages revised",
       actions: [{ label: "Issue Pink…", commandId: "production.issue" }],
       chip: "pink",
+      dismiss: null,
       attention: false,
     },
     {
       sentence: "SECOND BLUE revision · started 16 Nov 2026 · 1 page revised",
       actions: [{ label: "Issue Second Blue…", commandId: "production.issue" }],
       chip: "blue",
+      dismiss: null,
       attention: false,
     },
     {
@@ -327,6 +326,7 @@ test("inside the air window the timing line is joined and marked for attention",
       "Air 23:35 · Target 42:00 · Over 0:48 · In the air window — prompter text changes only when you send it.",
     chip: null,
     actions: [],
+    dismiss: null,
     attention: true,
   });
 });

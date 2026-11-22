@@ -6,7 +6,7 @@ import type { BlockContext, BlockJSON } from "@manent/schema";
 import type { RecoveredItem } from "@manent/sync-client";
 import { isFields } from "./device-memory.ts";
 
-/** Stored with its fields in this order; `nearBlockId`, last of an overlap, was added after the others. */
+/** Stored with its fields in this order; `nearBlockId`, then `copyId`, last of an overlap, were added after the others. */
 export type ReviewEntry =
   | {
       kind: "overlap";
@@ -20,6 +20,8 @@ export type ReviewEntry =
       before: BlockJSON | null;
       /** The block before this one when a tab last saw both: where a gone block goes back; null: the start. */
       nearBlockId: string | null;
+      /** A copy of the block the server found and kept in the script, which choosing a wording deletes; null on any other overlap. */
+      copyId: string | null;
     }
   | {
       kind: "recovered";
@@ -77,11 +79,13 @@ function readCommon(value: Fields): Common | null {
 
 function readOverlap(value: Fields, common: Common): ReviewEntry | null {
   const { blockId, mine, theirs, otherUserIds, before } = value;
-  // an entry written before overlaps kept their anchor has none
+  // an entry written before overlaps kept their anchor, or their copy, has none
   const nearBlockId = value.nearBlockId ?? null;
+  const copyId = value.copyId ?? null;
   if (typeof blockId !== "string" || !isIds(otherUserIds)) return null;
   if (!isBlockOf(mine, blockId) || !isBlockOf(theirs, blockId)) return null;
   if (!isBefore(before, blockId) || !isOptionalId(nearBlockId)) return null;
+  if (!isOptionalId(copyId)) return null;
   const { docId, at, settled } = common;
   return {
     kind: "overlap",
@@ -94,6 +98,7 @@ function readOverlap(value: Fields, common: Common): ReviewEntry | null {
     settled,
     before,
     nearBlockId,
+    copyId,
   };
 }
 
@@ -155,6 +160,7 @@ export function entryOf(
           settled: false,
           before: null,
           nearBlockId,
+          copyId: null,
         })
       : null;
   return (

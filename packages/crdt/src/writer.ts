@@ -212,6 +212,19 @@ function setBlockAttrs(block: StoredElement, attrs: Partial<BlockAttrs>): void {
   }
 }
 
+/** Deletes a block of the body; the last block of a section goes with its section, so that none is left empty. */
+export function deleteBlockElement(
+  fragment: Y.XmlFragment,
+  block: Y.XmlElement,
+): void {
+  const section = block.parent;
+  if (!isElement(section, "section"))
+    throw new RangeError("a block of the body lies in a section");
+  if (elementsNamed(section, "block").length === 1)
+    fragment.delete(fragment.toArray().indexOf(section), 1);
+  else section.delete(section.toArray().indexOf(block), 1);
+}
+
 function createBlockWriter(fragment: Y.XmlFragment): BlockWriter {
   /** Runs `fn` on the block when it exists. */
   const onBlock = (id: string, fn: (place: Place) => void): boolean => {
@@ -227,10 +240,7 @@ function createBlockWriter(fragment: Y.XmlFragment): BlockWriter {
       return true;
     },
     deleteBlock: (id) =>
-      onBlock(id, (place) => {
-        if (place.blockCount === 1) fragment.delete(place.sectionIndex, 1);
-        else place.section.delete(place.childIndex, 1);
-      }),
+      onBlock(id, (place) => deleteBlockElement(fragment, place.block)),
     setBlockAttrs: (id, attrs) =>
       onBlock(id, (place) => setBlockAttrs(place.block, attrs)),
     insertText: (id, offset, text, marks = []) =>

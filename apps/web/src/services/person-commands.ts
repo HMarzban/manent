@@ -160,9 +160,9 @@ function reachedFromShell(
 
 /**
  * The command service over `COMMANDS` and the handlers `fillHandlers` makes, told of every change to the window's state, the
- * person, the bindings, the settings, the open script's format, the Ruler and the zoom; a setting command writes the open
- * document's store, so a script setting reaches its script, and a zoom chosen by a key or in the palette is said. In the
- * desktop app the shell's native menus reach it too, and the person is signed in to sync when the node says so.
+ * person, the bindings, the settings, the open script's format and production, the Ruler and the zoom; a setting command
+ * writes the open document's store, so a script setting reaches its script, and a zoom chosen by a key or in the palette is
+ * said. In the desktop app the shell's native menus reach it too, and the person is signed in to sync when the node says so.
  */
 export function createCommands(
   options: CommandsOptions,
@@ -205,6 +205,7 @@ export function createCommands(
     parts.network.subscribe(service.notify),
     ...SETTINGS.all.map((def) => settings.subscribe(def.key, service.notify)),
     rulerActions.subscribe(service.notify),
+    productionContextActions.subscribe(service.notify),
     zoomActions.subscribe(service.notify),
     followFormat(options.shellState, parts.openScriptStore, service.notify),
   ];

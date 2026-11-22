@@ -3,6 +3,7 @@ import { SECTION_IDS } from "@manent/settings";
 import type { SectionId } from "@manent/settings";
 import {
   PREFERENCES_WORDS,
+  Row,
   Select,
   SelectContent,
   SelectItem,
@@ -49,8 +50,12 @@ export function PaneList(props: {
           {SECTION_IDS.map((id) => (
             <Fragment key={id}>
               {id === AFTER_DIVIDER ? <Separator /> : null}
-              <TabsTrigger value={id} className="text-ui">
-                {labels[id]}
+              {/* the tab keeps its keys and role; the row inside draws it as every list draws its current row */}
+              <TabsTrigger
+                value={id}
+                className="h-auto flex-col items-stretch p-0 text-start font-normal group-data-vertical/tabs:py-0 after:hidden"
+              >
+                <Row current={id === pane}>{labels[id]}</Row>
               </TabsTrigger>
             </Fragment>
           ))}

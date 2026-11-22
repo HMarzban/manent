@@ -5,6 +5,7 @@ import type { Platform, Scope, SectionId } from "@manent/settings";
 import { keyLabel } from "../commands-react/key-labels.ts";
 import { MENU_WORDS, READOUT_WORDS } from "../words/document.ts";
 import { PREFERENCES_WORDS } from "../words/preferences.ts";
+import { MENU_LABELS } from "./menu-labels.ts";
 import { matchesQuery } from "./palette-rank.ts";
 
 /** One row as the palette draws it; every text is evaluated, and `keys` is the platform's label of the first chord. */
@@ -16,7 +17,7 @@ export interface PaletteRow {
   value: string | null;
   /** What a setting applies to ("yours", "this script"); null for a row that is not a setting. */
   scopeWord: string | null;
-  /** Where the feature lives ("Details → Script"). */
+  /** Where the feature lives ("Details → Script", "File"). */
   home: string | null;
   keys: string | null;
   enabled: boolean;
@@ -52,10 +53,21 @@ function paneLabel(pane: string, shell: Shell): string | null {
   return section === undefined ? null : labels[section];
 }
 
-/** The words of a command's home key: Script settings, or a Preferences pane. */
-function homeText(home: string | null, shell: Shell): string | null {
+/** The first menu of `def`'s that the palette has a word for, with its submenu ("View → Zoom"); null when none. */
+function menuHome(def: CommandDefinition): string | null {
+  for (const { menu, submenu } of def.menus) {
+    const label = MENU_LABELS[menu];
+    if (label !== null) return MENU_WORDS.homeMenu(label, submenu);
+  }
+  return null;
+}
+
+/** The words of a command's home: Script settings, a Preferences pane, where revisions start, or else the menu that holds it. */
+function homeText(def: CommandDefinition, shell: Shell): string | null {
+  const { home } = def;
   if (home === "homeScriptSettings") return MENU_WORDS.homeScriptSettings;
-  if (home === null || !home.startsWith(HOME_PREFERENCES)) return null;
+  if (home === "homeBeforeLock") return MENU_WORDS.homeBeforeLock;
+  if (home === null || !home.startsWith(HOME_PREFERENCES)) return menuHome(def);
   const label = paneLabel(home.slice(HOME_PREFERENCES.length), shell);
   return label === null ? null : MENU_WORDS.homePreferences(label);
 }
@@ -82,7 +94,7 @@ function baseRow(
   const [chord] = state.keys;
   return {
     id: def.id,
-    home: homeText(def.home, options.shell),
+    home: homeText(def, options.shell),
     keys: chord === undefined ? null : keyLabel(chord, options.platform),
     enabled: state.enabled,
     whyNot: state.whyNot,

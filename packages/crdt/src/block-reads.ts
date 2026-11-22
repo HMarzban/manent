@@ -6,6 +6,7 @@ import { yDocOf } from "./doc.ts";
 import type { CrdtDoc } from "./doc.ts";
 import {
   elementsNamed,
+  liveItemsOf,
   materializeRawDoc,
   textsOf,
   yXmlFragmentForBinding,
@@ -40,21 +41,6 @@ function canonicalOf(block: Y.XmlElement, runs: RawText[]): BlockJSON {
     attrs: block.getAttributes(),
     content: runs,
   });
-}
-
-/** The text's items from its first live character on; Yjs keeps the head of the list private, and only deleted or format items lie before that one. */
-function* liveItemsOf(
-  store: Y.Doc["store"],
-  text: Y.XmlText,
-): Generator<Y.Item> {
-  const first = Y.createRelativePositionFromTypeIndex(text, 0).item;
-  if (first === null) return;
-  for (
-    let item: Y.Item | null = Y.getItem(store, first);
-    item !== null;
-    item = item.right
-  )
-    if (!item.deleted) yield item;
 }
 
 /** For each character of the block's text, in order: false when client c wrote it at a clock from exclude.get(c). */
@@ -119,6 +105,36 @@ export function readBlocks(
     const id = block.getAttribute("id");
     if (typeof id === "string" && ids.has(id) && !found.has(id))
       found.set(id, canonicalOf(block, runsIn(block)));
+  }
+  return found;
+}
+
+/** A block's live text, and for each of its characters whether the clients asked about wrote it. */
+export interface TypedText {
+  text: string;
+  typed: boolean[];
+}
+
+/**
+ * Each block holding live text that client c wrote at a clock from since.get(c), the first block of
+ * an id only.
+ */
+export function findTyped(
+  doc: CrdtDoc,
+  since: ReadonlyMap<number, number>,
+): Map<string, TypedText> {
+  const { store } = yDocOf(doc);
+  const seen = new Set<string>();
+  const found = new Map<string, TypedText>();
+  for (const block of blocksIn(doc)) {
+    const id = block.getAttribute("id");
+    if (typeof id !== "string" || seen.has(id)) continue;
+    seen.add(id);
+    const typed = keptCharacters(store, block, since).map((kept) => !kept);
+    const text = runsIn(block)
+      .map((run) => run.text)
+      .join("");
+    if (typed.includes(true)) found.set(id, { text, typed });
   }
   return found;
 }

@@ -3,6 +3,7 @@ import fc from "fast-check";
 import {
   ORIGIN_LOAD,
   createDoc,
+  findTyped,
   loadDoc,
   scriptBody,
   scriptSettings,
@@ -412,6 +413,90 @@ test("edits that rest on what the device saw after its last acknowledgement stil
     ),
   ).toMatchObject({ ok: true, response: { applied: 1, setAside: [] } });
   expect(world.textOfRoom(B9)).toBe("Fog.");
+});
+
+test("offline typing a replay writes is the device's own text where it was typed", async () => {
+  const world = replayWorld();
+  const offline = world.samOffline(typeInto(B1, "Rain. "));
+  world.rebuildNow();
+  await world.replayed(
+    "sam",
+    world.requestOf(offline, { generation: 1, key: KEY }),
+  );
+  const doc = createDoc();
+  for (const row of world.file.log.tail(DOC, 2, 0).rows)
+    doc.applyUpdate(row.update, ORIGIN_LOAD);
+  const found = findTyped(doc, new Map([[SAM_CLIENT, 0]])).get(B1);
+  const typed = [...(found?.text ?? "")].filter((_, i) => found?.typed[i]);
+  expect([found?.text, typed.join("")]).toEqual(["Rain. " + B1_TEXT, "Rain. "]);
+});
+
+test("synced text someone removed unseen with a block this device moved offline is set aside", async () => {
+  const world = replayWorld();
+  const { service, clock, file, sam, samDoc } = world;
+  world.danaEdit(typeInto(B2, "Night. "));
+  const tablet = createDoc({ clientId: DANA_TABLET });
+  for (const row of file.log.tail(DOC, 1, 0).rows)
+    tablet.applyUpdate(row.update, ORIGIN_LOAD);
+  const moved = written(tablet, (w) => {
+    w.deleteBlock(B2);
+    w.insertBlocks(null, [action(B2, "Night. " + B2_TEXT)]);
+  });
+  // Sam's copy predates Dana's typing
+  const update = written(samDoc, (w) => w.deleteBlock(B2));
+  service.receive(sam, {
+    type: "PUSH",
+    docId: DOC,
+    generation: 1,
+    clientSeq: 1,
+    update,
+    heal: false,
+  });
+  clock.runDeferred();
+  world.rebuildNow();
+  const outcome = await world.replayed(
+    "dana",
+    world.requestOf([moved], { generation: 1, key: KEY, lastServerSeq: 2 }),
+  );
+  expect(outcome.ok && outcome.response.setAside).toEqual([
+    { blockId: B2, nearBlockId: B1, text: "Night. " },
+  ]);
+});
+
+test("offline text a block's move removed unseen is set aside beside the moved block when that one is set aside too", async () => {
+  const world = replayWorld();
+  const { file, samDoc, danaEdit } = world;
+  const typed = world.samOffline(typeInto(B2, "Night. "));
+  // Dana moves B2 above B1 without seeing Sam's text; Sam receives it, types into the moved block,
+  // and Dana then deletes it
+  danaEdit((w) => {
+    w.deleteBlock(B2);
+    w.insertBlocks(null, [action(B2, B2_TEXT)]);
+  });
+  for (const row of file.log.tail(DOC, 1, 1).rows)
+    samDoc.applyUpdate(row.update, ORIGIN_LOAD);
+  const moved = world.samOffline(typeInto(B2, "Fog. "));
+  danaEdit((w) => w.deleteBlock(B2));
+  world.rebuildNow();
+  expect(
+    await world.replayed(
+      "sam",
+      world.requestOf([...typed, ...moved], { generation: 1, key: KEY }),
+    ),
+  ).toEqual({
+    ok: true,
+    response: {
+      docId: DOC,
+      generation: 2,
+      serverSeq: 1,
+      applied: 0,
+      overlaps: [],
+      setAside: [
+        { blockId: B2, nearBlockId: B1, text: "Night. " },
+        { blockId: B2, nearBlockId: null, text: "Fog. " + B2_TEXT },
+      ],
+    },
+  });
 });
 
 test("past the window the changes are not merged", async () => {

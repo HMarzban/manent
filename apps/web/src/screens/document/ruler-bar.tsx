@@ -1,6 +1,6 @@
 // The Ruler's row between the state bar and the panels: the caret block's indent and right edge over the page's text column.
 import { Ruler, useSubscribable } from "@manent/ui";
-import type { Subscribable } from "@manent/ui";
+import type { StatusFacts, Subscribable } from "@manent/ui";
 import {
   useCallback,
   useEffect,
@@ -51,15 +51,20 @@ function usePageFrame(docId: string, shown: boolean): PageFrame | null {
   );
 }
 
-/** Whether this person may edit `docId`; false until its services are open. */
-export function useCanEdit(docId: string): boolean {
+/** This person's access to `docId`; null until its services are open. */
+export function useAccess(docId: string): StatusFacts["access"] | null {
   const status = useOpenDocument(docId)?.status ?? null;
   // the status may be a new object at each read: only the answer is compared
   const subscribe = useCallback(
     (notify: () => void) => status?.subscribe(notify) ?? (() => {}),
     [status],
   );
-  return useSyncExternalStore(subscribe, () => status?.get().access === "edit");
+  return useSyncExternalStore(subscribe, () => status?.get().access ?? null);
+}
+
+/** Whether this person may edit `docId`; false until its services are open. */
+export function useCanEdit(docId: string): boolean {
+  return useAccess(docId) === "edit";
 }
 
 /**

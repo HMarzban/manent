@@ -9,15 +9,13 @@ import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import {
   PRODUCT_SETTING_RULES,
-  createHistoryService,
-  createProductionService,
   createServer,
   createSignedSessionStore,
   createTicketStore,
+  createWorkflow,
 } from "@manent/server-core";
 import type {
   Clock,
-  HistoryExtras,
   ManentServer,
   SessionStore,
   SyncService,
@@ -25,7 +23,7 @@ import type {
 import { openSqliteStorage } from "@manent/storage";
 import type { Storage } from "@manent/storage";
 import { PROTOCOL_VERSION, docIdV7 } from "@manent/sync-protocol";
-import { createServerRenderPdf, readScriptFonts } from "../production.ts";
+import { readServerRenderPdf } from "../production.ts";
 import { probeSeedCapabilities } from "./capabilities.ts";
 
 /** The host every request to a seed server names. */
@@ -80,7 +78,7 @@ const SEED_LIMITS = Object.freeze({
 
 /** A clock that moves only when it is set; what it schedules runs when `runDue` is asked, in time order. */
 export interface SeedClock extends Clock {
-  /** The first set may move the clock to any time, as a seed's story starts in the past; after it, RangeError for a time before the clock's. */
+  /** Moves the clock to `at`, back as well as forward: each seed step tells its story from its own start. A function still scheduled keeps the delay it had left. */
   set(at: number): void;
   /** Runs every scheduled function whose time has come, those they schedule for now included. */
   runDue(): Promise<void>;
@@ -95,7 +93,6 @@ interface Scheduled {
 /** The clock reads `startAt` until it is first set. */
 export function createSeedClock(startAt: number): SeedClock {
   let now = startAt;
-  let moved = false;
   let order = 0;
   const scheduled = new Set<Scheduled>();
   const firstDue = (): Scheduled | null => {
@@ -118,12 +115,9 @@ export function createSeedClock(startAt: number): SeedClock {
       return () => scheduled.delete(item);
     },
     set(at) {
-      if (moved && at < now)
-        throw new RangeError(
-          `the seed clock cannot go back from ${now} to ${at}`,
-        );
+      const shift = at - now;
+      if (shift < 0) for (const item of scheduled) item.at += shift;
       now = at;
-      moved = true;
     },
     async runDue() {
       for (let due = firstDue(); due !== null; due = firstDue()) {
@@ -167,20 +161,13 @@ export async function createSeedServer(options: {
     secret: rngBytes(rng, SESSION_KEY_BYTES),
     now: clock.now,
   });
-  const renderPdf = createServerRenderPdf(await readScriptFonts());
+  const renderPdf = await readServerRenderPdf();
   const directory = createDemoDirectory();
-  // the history service and the production service take each other through getters
-  const extras: HistoryExtras = {
-    locksAt: (...args) => production.extras.locksAt(...args),
-    authority: (...args) => production.extras.authority(...args),
-  };
   const sync = (): SyncService => server.sync!;
-  const history = createHistoryService({ sync, storage, clock, ids, extras });
-  const production = createProductionService({
+  const { history, production } = createWorkflow({
     storage,
     sync,
-    history,
-    now: clock.now,
+    clock,
     ids,
     names: (userId) => directory.user(userId)?.name ?? userId,
     renderPdf,

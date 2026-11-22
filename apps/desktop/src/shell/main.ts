@@ -10,7 +10,11 @@ import type {
   DesktopNodeStart,
   NodeCore,
 } from "@manent/local-node";
-import { serveWithBun } from "@manent/server-core";
+import {
+  createPacketRenderPdf,
+  readScriptFonts,
+  serveWithBun,
+} from "@manent/server-core";
 import type { Clock, Listener, ManentServer } from "@manent/server-core";
 import type {
   DesktopGlobal,
@@ -29,6 +33,9 @@ import { Electrobun, PATHS, Updater, Utils } from "./sdk.ts";
 import { createRunningUpdates, updateAtLaunch } from "./updater.ts";
 import { hold, openMainWindow } from "./window.ts";
 import type { MainWindow } from "./window.ts";
+
+/** Where the build packs the script font's faces, under the app's resources. */
+const FONT_FILES = "cloud/node_modules/@fontsource/courier-prime/files";
 
 /** After the last move or resize. */
 const WINDOW_STATE_SAVE_MS = 500;
@@ -294,6 +301,11 @@ async function launch(): Promise<void> {
     versions: build.versions,
     build: version,
     platform: process.platform,
+    renderPdf: createPacketRenderPdf(
+      await readScriptFonts((key) =>
+        join(resources, FONT_FILES, `courier-prime-${key}.woff`),
+      ),
+    ),
     boot: () => ({
       global,
       boot: readWindowState(statePath).roles.main?.firstPaint ?? [],

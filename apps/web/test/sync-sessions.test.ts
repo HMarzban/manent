@@ -98,6 +98,7 @@ test("a person who may only view gets a page that follows other people's typing 
   const client = fakeClient(() => handle);
   const clock = createClock();
   const source = createSyncDocumentSource({
+    signedIn: false,
     sync: Promise.resolve(fakeSync(client)),
     review: { openCount: () => createValue(0), follow: () => () => {} },
     opened: () => () => {},

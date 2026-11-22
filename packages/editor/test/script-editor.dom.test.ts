@@ -252,6 +252,7 @@ function editor(
     random: () => "r",
     pastedText: NO_PASTED_TEXT,
     onUndoStep: () => {},
+    title: { get: () => "Low Tide", subscribe: () => () => {} },
     keys: { resolve: () => null, run: () => false },
     zoom: options.zoom ?? 100,
     desk: {
