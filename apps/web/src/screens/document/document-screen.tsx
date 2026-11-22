@@ -135,7 +135,7 @@ function NoAccess(props: {
   });
   return (
     <div
-      className="z-10 flex flex-col items-center justify-center gap-2 bg-desk text-heading"
+      className="z-10 flex flex-col items-start gap-2 bg-desk p-12 text-ui"
       style={PAGE_AREA}
     >
       <p>{DOCUMENT_WORDS.noAccess}</p>

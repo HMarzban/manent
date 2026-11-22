@@ -37,7 +37,7 @@ export function InlineRename(props: {
       value={value}
       onChange={(event) => setValue(event.target.value)}
       onKeyDown={onKeyDown}
-      className="h-control text-ui font-semibold"
+      className="h-control text-title font-semibold"
     />
   );
 }
