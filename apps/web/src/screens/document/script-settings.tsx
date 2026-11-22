@@ -1,5 +1,5 @@
 // Script settings beside the page, loaded apart: shared with everyone on the script, each change said in the message slot.
-import { SCRIPT_GROUPS, SETTINGS } from "@manent/settings";
+import { SCRIPT_GROUPS, SETTINGS, appliesToFormat } from "@manent/settings";
 import type { ScriptGroup, SettingKey } from "@manent/settings";
 import {
   Button,
@@ -116,20 +116,7 @@ export function ScriptSettings(props: { docId: string }): ReactNode {
         </p>
         <ReadOnlyLine doc={doc} />
         <SettingsProvider store={store}>
-          {GROUPS.map(({ group, keys }) => (
-            <section key={group} className="flex flex-col">
-              <h3 className="pt-2 text-ui font-semibold">
-                {GROUP_WORDS[group]}
-              </h3>
-              {keys.map((key) => (
-                <div key={key}>
-                  <SettingRow settingKey={key} deviceName={null} persisted />
-                  <SetBy settingKey={key} doc={doc} />
-                  <FrozenRow settingKey={key} docId={docId} />
-                </div>
-              ))}
-            </section>
-          ))}
+          <Groups doc={doc} docId={docId} />
         </SettingsProvider>
         <Button
           variant="link"
@@ -142,6 +129,28 @@ export function ScriptSettings(props: { docId: string }): ReactNode {
       </CollapsibleContent>
     </Collapsible>
   );
+}
+
+/** The groups and their rows that do something in the script's format. */
+function Groups(props: { doc: DocumentServices; docId: string }): ReactNode {
+  const { doc, docId } = props;
+  const format = useSetting("script.format");
+  return GROUPS.map(({ group, keys }) => {
+    const shown = keys.filter((key) => appliesToFormat(key, format));
+    if (shown.length === 0) return null;
+    return (
+      <section key={group} className="flex flex-col">
+        <h3 className="pt-2 text-ui font-semibold">{GROUP_WORDS[group]}</h3>
+        {shown.map((key) => (
+          <div key={key}>
+            <SettingRow settingKey={key} deviceName={null} persisted />
+            <SetBy settingKey={key} doc={doc} />
+            <FrozenRow settingKey={key} docId={docId} />
+          </div>
+        ))}
+      </section>
+    );
+  });
 }
 
 /** For a person who cannot edit, why every control is read-only. */

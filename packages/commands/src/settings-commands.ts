@@ -1,4 +1,5 @@
 // The commands every setting generates: one per value of a choice, one switch for a boolean.
+import { appliesToFormat } from "@manent/settings";
 import type {
   MenuId,
   SettingDefinition,
@@ -51,8 +52,13 @@ function shared(
     keysFixed: false,
     when: null,
     whyNot: null,
-    // a script setting has no value off a document
-    visible: def.scope === "script" ? (ctx) => ctx.docOpen : null,
+    // a script setting has no value off a document, and none in a format it does nothing for
+    visible:
+      def.scope === "script"
+        ? (ctx) =>
+            ctx.docOpen &&
+            (ctx.format === null || appliesToFormat(def.key, ctx.format))
+        : null,
     passThrough: null,
     palette: def.surfaces.some((s) => s.in === "palette")
       ? { keywords: def.keywords }
