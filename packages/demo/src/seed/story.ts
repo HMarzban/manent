@@ -8,7 +8,7 @@ import type { SeedSession } from "./driver.ts";
 import type { SeedContext } from "./seed.ts";
 
 export interface Story {
-  /** The driver's clock moves to the time `spec` names in the seed's notation. */
+  /** The driver's clock moves to the time `spec` names in the seed's notation; RangeError if it is before this story's last. */
   at(spec: string): Promise<void>;
   session(userId: string, key: string): Promise<SeedSession>;
   /** Inserts `blocks` after the block `after` (null: at the start); returns the new block ids. */
@@ -86,8 +86,17 @@ export function createStory(context: SeedContext, step: string): Story {
   };
   const session = (userId: string, key: string) =>
     driver.open(userId, seedDoc(key).docId);
+  let last = -Infinity;
   return {
-    at: (spec) => driver.setTime(time.at(spec)),
+    at(spec) {
+      const t = time.at(spec);
+      if (t < last)
+        throw new RangeError(
+          `the story of ${step} cannot go back from ${last} to ${t}`,
+        );
+      last = t;
+      return driver.setTime(t);
+    },
     session,
     async write(s, blocks, after, ids) {
       const made = blocks.map(() => ids());
