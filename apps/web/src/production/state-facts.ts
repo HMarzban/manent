@@ -66,10 +66,12 @@ function marksFact(
 ): StateFact | null {
   if (mode === "all" || mode === "none")
     return { kind: "marks_not_collated", mode };
+  // with no full draft issued yet, the marks run from the lock's White set, as the pages draw them
   const set =
     mode === "this_revision"
       ? sets.at(-1)
-      : sets.findLast((held) => held.fullDraft && held.issuedAt !== null);
+      : (sets.findLast((held) => held.fullDraft && held.issuedAt !== null) ??
+        sets[0]);
   const colour = set === undefined ? null : colourOf(set.colour);
   if (set === undefined || colour === null) return null;
   return { kind: "marks_not_collated", mode, colour, name: set.name };

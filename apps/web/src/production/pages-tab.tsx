@@ -254,7 +254,7 @@ function PagesList(props: {
   );
 }
 
-function PagesTab(props: { docId: string | null }): ReactNode {
+export function PagesTab(props: { docId: string | null }): ReactNode {
   const services = useProductionServices(props.docId);
   if (props.docId === null || services === null) return null;
   return <PagesList docId={props.docId} services={services} />;
