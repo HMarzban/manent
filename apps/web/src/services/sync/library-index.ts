@@ -215,7 +215,7 @@ function createDocumentValues(options: {
   };
 }
 
-/** The shelf of a workspace still being seeded: empty, opening no index, and refusing a new project. */
+/** The shelf of a workspace still being seeded: opening no index, and refusing a new project. */
 function seedingShelf(): Shelf {
   const handle = Promise.reject<DocHandle>(
     new Error("The workspace is still being seeded."),
@@ -229,6 +229,70 @@ function seedingShelf(): Shelf {
     handle,
     ready: Promise.resolve(),
     opened: null,
+  };
+}
+
+interface SeedingWatch {
+  workspaces: Subscribable<readonly WorkspaceRef[]>;
+  isSeeding: (ws: string) => boolean;
+}
+
+/**
+ * `seeded` while workspace `ws` is being seeded; once it is not, `pick`'s list, which it switches to once. `pick` is
+ * called only then, since asking for a shelf opens its index.
+ */
+function followSeeding<T>(
+  watch: SeedingWatch,
+  ws: string,
+  seeded: T,
+  pick: () => Subscribable<T>,
+): Subscribable<T> {
+  let adopted: Subscribable<T> | null = null;
+  const source = (): Subscribable<T> | null => {
+    if (adopted === null && !watch.isSeeding(ws)) adopted = pick();
+    return adopted;
+  };
+  // a workspace that is ready opens its index when its list is asked for, as its shelf does
+  source();
+  return {
+    get: () => source()?.get() ?? seeded,
+    subscribe(listener) {
+      let stopList = source()?.subscribe(listener) ?? null;
+      const stopWorkspaces = watch.workspaces.subscribe(() => {
+        const list = source();
+        if (list === null || stopList !== null) return;
+        stopList = list.subscribe(listener);
+        listener(list.get());
+      });
+      return () => {
+        stopWorkspaces();
+        stopList?.();
+      };
+    },
+  };
+}
+
+/** Each workspace's lists, one value per list that a caller may keep, never a fixed one while it is being seeded. */
+function createSeedingLists(
+  watch: SeedingWatch,
+  shelf: (ws: string) => Shelf,
+): Pick<LibraryIndex, "continueList" | "projects" | "loadState"> {
+  const continued = new Map<string, Subscribable<readonly ContinueItem[]>>();
+  const projects = new Map<string, Subscribable<readonly ProjectItem[]>>();
+  const states = new Map<string, Subscribable<"cached" | "problem">>();
+  return {
+    continueList: (ws) =>
+      cached(continued, ws, () =>
+        followSeeding(watch, ws, [], () => shelf(ws).continueList),
+      ),
+    projects: (ws) =>
+      cached(projects, ws, () =>
+        followSeeding(watch, ws, [], () => shelf(ws).projects),
+      ),
+    loadState: (ws) =>
+      cached(states, ws, () =>
+        followSeeding(watch, ws, "cached", () => shelf(ws).loadState),
+      ),
   };
 }
 
@@ -267,14 +331,13 @@ export function createSyncLibrary(options: {
     drawn: values.draw,
   });
   const seeding = seedingShelf();
+  const isSeeding = (ws: string): boolean =>
+    options.workspaces
+      .get()
+      .some((ref) => ref.id === ws && ref.seeding !== null);
   const shelves: Shelves = {
     ...opening,
-    shelf: (ws) =>
-      options.workspaces
-        .get()
-        .some((ref) => ref.id === ws && ref.seeding !== null)
-        ? seeding
-        : opening.shelf(ws),
+    shelf: (ws) => (isSeeding(ws) ? seeding : opening.shelf(ws)),
   };
   options.workspaces.subscribe(() => {
     if (values.asked()) shelves.openKnown();
@@ -296,15 +359,19 @@ export function createSyncLibrary(options: {
     liveMap(found.handle, "documents").delete(docId);
     options.privateIndex.continueMap.delete(docId);
   };
+  const lists = createSeedingLists(
+    { workspaces: options.workspaces, isSeeding },
+    opening.shelf,
+  );
   return {
-    continueList: (ws) => shelves.shelf(ws).continueList,
-    projects: (ws) => shelves.shelf(ws).projects,
+    continueList: lists.continueList,
+    projects: lists.projects,
     async readProjects(ws) {
       const { ready, projects } = shelves.shelf(ws);
       await ready;
       return projects.get();
     },
-    loadState: (ws) => shelves.shelf(ws).loadState,
+    loadState: lists.loadState,
     async createProject(ws, kind) {
       let title = "";
       const made = await addProject(

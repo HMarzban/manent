@@ -32,6 +32,8 @@ import type { Overlay } from "./sync-hooks.ts";
  */
 export interface PersonSync {
   userId: string;
+  /** The person has a session: false for someone who has not signed in. */
+  signedIn: boolean;
   client: SyncClient;
   store: LocalStore;
   link: Subscribable<LinkFacts>;
@@ -342,6 +344,7 @@ export async function createPersonSync(options: {
   if (test !== null) Reflect.set(test.target, "sync", test.hooks);
   return {
     userId: person.userId,
+    signedIn: person.token !== null,
     client,
     store: ports.store,
     link,

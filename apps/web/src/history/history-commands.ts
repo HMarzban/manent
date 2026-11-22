@@ -14,13 +14,14 @@ import type { HandlerDeps } from "../handlers/index.ts";
 import { nameOf } from "../services/sync/index-entries.ts";
 import { historyActions } from "../state/history.store.ts";
 import { panelsActions } from "../state/panels.store.ts";
-import { sinceOpenedBaseline } from "./baseline.ts";
+import { baselineOfRow, sinceOpenedBaseline } from "./baseline.ts";
 import { whatChanged } from "./history-events.ts";
-import { historyView } from "./history-view.ts";
+import { historyView, selectRow } from "./history-view.ts";
 import type { HistoryRow } from "./history-rows.ts";
 import { readLastOpened } from "./last-opened.ts";
 import { createRestoreFlow } from "./restore-flow.ts";
 import { askRestore } from "./restore-question.ts";
+import type { HistorySource } from "./source.ts";
 
 // the live page's changes, which reach the editor, load with it
 const loadChanges = () => import("../editor-host/changes.ts");
@@ -57,6 +58,28 @@ function step(by: 1 | -1): void {
   });
 }
 
+/** The script's newest recovered version once its list has answered; null when it holds none. */
+function newestRecovered(
+  source: HistorySource,
+  docId: string,
+): Promise<HistoryRow | null> {
+  const listed = source.rows(docId);
+  return new Promise((resolve) => {
+    // rows are newest first, the device's before the server has answered
+    const found = (): boolean => {
+      const { rows, state } = listed.get();
+      const row = rows.find((each) => each.item.kind === "recovered") ?? null;
+      if (row === null && state.kind === "loading") return false;
+      resolve(row);
+      return true;
+    };
+    if (found()) return;
+    const stop = listed.subscribe(() => {
+      if (found()) stop();
+    });
+  });
+}
+
 export function createHistoryCommands(
   deps: HandlerDeps,
 ): Readonly<Record<HistoryCommandId, () => void>> {
@@ -84,7 +107,7 @@ export function createHistoryCommands(
     "history.markVersion"() {
       const shown = docId();
       if (shown === null) return;
-      void history.save(shown).then((saved) => {
+      void history.save(shown, "saved").then((saved) => {
         if (saved.ok)
           messages.push(
             historyMessage({ kind: "saved_you" }, "history.saved_you"),
@@ -115,6 +138,13 @@ export function createHistoryCommands(
       openHistory(shown);
       historyActions.setBaseline(sinceOpenedBaseline(at));
       historyActions.setMode("page");
+    },
+    "history.dismissSinceOpened"() {
+      const shown = docId();
+      if (shown === null) return;
+      historyActions.setSinceDismissed(shown);
+      // the ✕ goes with its line
+      dom.focusPage();
     },
     "history.backToWorking"() {
       historyActions.setBaseline(null);
@@ -164,6 +194,17 @@ export function createHistoryCommands(
         date: `${formatDay(carried.at)} ${formatDate(carried.at)}`,
       });
       historyActions.setMode("page");
+    },
+    "doc.openBeside"() {
+      const shown = docId();
+      if (shown === null) return;
+      openHistory(shown);
+      void newestRecovered(history, shown).then((row) => {
+        if (row === null) return;
+        selectRow(row);
+        historyActions.setBaseline(baselineOfRow(row));
+        historyActions.setMode("side");
+      });
     },
     "history.whoWrote"() {
       panelsActions.open("side", "details");

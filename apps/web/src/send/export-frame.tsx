@@ -185,7 +185,7 @@ function exportedMessage(title: string): Message {
  */
 export function LiveExport(props: SendFormProps): ReactNode {
   const { p, title, rows, tiles, back } = useSendPages(props.docId);
-  const { messages } = useServices();
+  const { messages, history } = useServices();
   const { frame, now } = useEnvironment();
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -212,6 +212,7 @@ export function LiveExport(props: SendFormProps): ReactNode {
       written.then(
         () => {
           if (signal.aborted) return;
+          void history.save(props.docId, "export");
           messages.push(exportedMessage(title));
           back();
         },

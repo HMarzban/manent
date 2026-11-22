@@ -52,6 +52,8 @@ export const HISTORY_WORDS = {
   problem: "Couldn't load older versions. Showing what is on this device.",
   /** `name` is "you" when the person made the last change; `when` its time ("14:10"). */
   working: (name: string, when: string): string => `Working — ${name}, ${when}`,
+  /** The Working row while no source says who made the last change, or when. */
+  workingLabel: "Working",
   /** The heading of the versions made on the local day of `at`. */
   dayGroup: (at: number, now: number): string => {
     const daysAgo = dayNumber(now) - dayNumber(at);

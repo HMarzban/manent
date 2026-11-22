@@ -222,6 +222,7 @@ function wordsOf(f: Followed, now: number): StatusWords {
       viewLive: false,
       offlineSinceAt: link.wentOfflineAt,
       toReview: toReviewOf(handle.recovered.get()),
+      signedIn: false,
       now,
     }),
   );

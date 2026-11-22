@@ -87,6 +87,7 @@ const line = (
   sentence,
   chip: null,
   actions,
+  dismiss: null,
   attention: false,
 });
 
@@ -161,15 +162,15 @@ function lineFor(fact: StateFact, facts: readonly StateFact[]): StateLine {
     case "scene_writer":
       return line(`${fact.name} is writing this scene`);
     case "changes_since_opened":
-      return line(
-        fact.count === 1
-          ? `1 change by ${joinNames(fact.names)} since you last opened`
-          : `${formatCount(fact.count)} changes by ${joinNames(fact.names)} since you last opened`,
-        [
-          { label: "Show", commandId: "history.showSinceOpened" },
-          { label: "Dismiss", commandId: "history.dismissSinceOpened" },
-        ],
-      );
+      return {
+        ...line(
+          fact.count === 1
+            ? `1 change by ${joinNames(fact.names)} since you last opened`
+            : `${formatCount(fact.count)} changes by ${joinNames(fact.names)} since you last opened`,
+          [{ label: "Show", commandId: "history.showSinceOpened" }],
+        ),
+        dismiss: "history.dismissSinceOpened",
+      };
     case "air_window": {
       const rundown = facts.find((f) => f.kind === "rundown_timing");
       return {
