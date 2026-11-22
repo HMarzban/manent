@@ -219,18 +219,25 @@ function setByYouLine(
   return PREFERENCES_WORDS.setByYou(formatDate(custom.at), defaultLabel, from);
 }
 
+/** A row's place in its table: the first row of a table draws no line over itself. */
+interface RowPlace {
+  index: number;
+  count: number;
+}
+
 /**
  * One command's row. With `onCapture` the row opens the shortcut editor when activated, and `onShortcuts` keeps what
  * it records; without it the row only shows the keys and resets them.
  */
 export function ShortcutRow(props: {
   view: ShortcutView;
+  place: RowPlace;
   deviceName: string | null;
   capturing: boolean;
   onCapture: ((open: boolean) => void) | null;
   onShortcuts(changes: readonly ShortcutChange[]): void;
 }): ReactNode {
-  const { view, deviceName, capturing, onCapture, onShortcuts } = props;
+  const { view, place, deviceName, capturing, onCapture, onShortcuts } = props;
   const { where } = useEnvironment();
   const row = useRef<HTMLElement>(null);
   const editable = view.fixed === null && onCapture !== null;
@@ -238,39 +245,41 @@ export function ShortcutRow(props: {
     onCapture?.(false);
     row.current?.focus();
   };
-  const meta =
-    view.fixed ??
-    (view.custom === null
-      ? undefined
-      : setByYouLine(view.custom, view.defaults, where, deviceName));
   return (
-    <li className="flex flex-col">
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <Row
-            rowRef={row}
-            meta={meta}
-            trailing={[<KeysText key="keys" keys={view.keys} />]}
-            onActivate={editable ? () => onCapture(true) : undefined}
-          >
-            {view.label}
-          </Row>
+    <li
+      aria-posinset={place.index + 1}
+      aria-setsize={place.count}
+      className="flex flex-col"
+    >
+      <Row
+        rowRef={row}
+        meta={view.fixed ?? undefined}
+        trailing={[<KeysText key="keys" keys={view.keys} />]}
+        onActivate={editable ? () => onCapture(true) : undefined}
+      >
+        {view.label}
+      </Row>
+      {view.custom === null && view.notes.length === 0 ? null : (
+        <div className="flex flex-col gap-1 px-3 pb-2 text-meta text-fg-muted">
+          {view.custom === null ? null : (
+            <p className="flex flex-wrap items-center gap-2">
+              {setByYouLine(view.custom, view.defaults, where, deviceName)}
+              <Button
+                variant="link"
+                className="h-auto p-0 text-meta"
+                onClick={() =>
+                  onShortcuts([{ commandId: view.id, keys: null }])
+                }
+              >
+                {PREFERENCES_WORDS.reset}
+              </Button>
+            </p>
+          )}
+          {view.notes.map((note) => (
+            <p key={note}>{note}</p>
+          ))}
         </div>
-        {view.custom === null ? null : (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onShortcuts([{ commandId: view.id, keys: null }])}
-          >
-            {PREFERENCES_WORDS.reset}
-          </Button>
-        )}
-      </div>
-      {view.notes.map((note) => (
-        <p key={note} className="px-2 text-meta text-fg-muted">
-          {note}
-        </p>
-      ))}
+      )}
       {capturing ? (
         <ShortcutCapture
           commandId={view.id}
@@ -286,10 +295,27 @@ export function ShortcutRow(props: {
   );
 }
 
-function FixedRow(props: { fixed: FixedKey }): ReactNode {
+/** A table card of rows under `heading`, or with no head row when the rows have no heading. */
+export function ShortcutTable(props: {
+  heading: string | null;
+  children: ReactNode;
+}): ReactNode {
+  return (
+    <section className="mn-table flex flex-col">
+      {props.heading === null ? null : (
+        <h3 className="mn-table-head flex items-center px-3">
+          {props.heading}
+        </h3>
+      )}
+      <ul className="flex flex-col">{props.children}</ul>
+    </section>
+  );
+}
+
+function FixedRow(props: { fixed: FixedKey; place: RowPlace }): ReactNode {
   const { where } = useEnvironment();
   return (
-    <li>
+    <li aria-posinset={props.place.index + 1} aria-setsize={props.place.count}>
       <Row meta={FIXED_WORDS[props.fixed.reason]}>
         {keyLabel(props.fixed.chord, where.platform)}
       </Row>
@@ -326,37 +352,30 @@ export function KeyboardPane(props: {
         className="flex flex-col gap-4"
       >
         {groups.map((group) => (
-          <section key={group.menu} className="flex flex-col">
-            {group.label === null ? null : (
-              <h3 className="text-micro uppercase text-fg-muted">
-                {group.label}
-              </h3>
-            )}
-            <ul className="flex flex-col">
-              {group.views.map((view) => (
-                <ShortcutRow
-                  key={view.id}
-                  view={view}
-                  deviceName={deviceName}
-                  capturing={capturing === view.id}
-                  onCapture={(open) => setCapturing(open ? view.id : null)}
-                  onShortcuts={onShortcuts}
-                />
-              ))}
-            </ul>
-          </section>
+          <ShortcutTable key={group.menu} heading={group.label}>
+            {group.views.map((view, index) => (
+              <ShortcutRow
+                key={view.id}
+                view={view}
+                place={{ index, count: group.views.length }}
+                deviceName={deviceName}
+                capturing={capturing === view.id}
+                onCapture={(open) => setCapturing(open ? view.id : null)}
+                onShortcuts={onShortcuts}
+              />
+            ))}
+          </ShortcutTable>
         ))}
         {fixedKeys.length === 0 ? null : (
-          <section className="flex flex-col">
-            <h3 className="text-micro uppercase text-fg-muted">
-              {PREFERENCES_WORDS.writing}
-            </h3>
-            <ul className="flex flex-col">
-              {fixedKeys.map((fixed) => (
-                <FixedRow key={fixed.chord} fixed={fixed} />
-              ))}
-            </ul>
-          </section>
+          <ShortcutTable heading={PREFERENCES_WORDS.writing}>
+            {fixedKeys.map((fixed, index) => (
+              <FixedRow
+                key={fixed.chord}
+                fixed={fixed}
+                place={{ index, count: fixedKeys.length }}
+              />
+            ))}
+          </ShortcutTable>
         )}
       </div>
     </>

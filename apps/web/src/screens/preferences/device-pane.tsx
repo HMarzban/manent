@@ -60,8 +60,8 @@ function Fact(props: { label: string; value: string }): ReactNode {
 
 function Group(props: { heading: string; children: ReactNode }): ReactNode {
   return (
-    <section className="flex flex-col py-2">
-      <h3 className="text-micro uppercase text-fg-muted">{props.heading}</h3>
+    <section className="flex flex-col">
+      <h3 className="mn-group-label px-0!">{props.heading}</h3>
       {props.children}
     </section>
   );
@@ -132,7 +132,7 @@ function StoredHere(): ReactNode {
       </p>
       {kept ? null : (
         <div>
-          <Button variant="outline" size="sm" onClick={ask}>
+          <Button variant="outline" onClick={ask}>
             {PREFERENCES_WORDS.askToKeep}
           </Button>
         </div>
@@ -331,7 +331,7 @@ function About(props: { desktop: DesktopDevice | null }): ReactNode {
         <div>
           <Button
             variant="link"
-            size="sm"
+            className="h-auto p-0"
             aria-expanded={pledgeOpen}
             aria-controls={pledgeId}
             onClick={() => setPledgeOpen((open) => !open)}
