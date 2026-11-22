@@ -1,11 +1,6 @@
 // The demo bar's Connection: this tab's sync online, cut off or slowed, kept for the tab.
-import {
-  DEMO_WORDS,
-  RadioGroup,
-  RadioGroupItem,
-  useSubscribable,
-} from "@manent/ui";
-import { useContext, useEffect, useId, useState } from "react";
+import { DEMO_WORDS, Segmented, useSubscribable } from "@manent/ui";
+import { useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { connectionAtNode } from "../desktop/desktop-sync.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
@@ -16,6 +11,12 @@ import {
 } from "../services/sync/device-memory.ts";
 import { FactsContext } from "../state/bridge-contexts.ts";
 import type { ConnectionControl } from "./connection-transport.ts";
+import { BarLabelled } from "./demo-bar-control.tsx";
+
+const OPTIONS = CONNECTION_MODES.map((mode) => ({
+  value: mode,
+  label: DEMO_WORDS[mode],
+}));
 
 /** Drawn only inside the shell, once the person's sync has started. */
 export function Connection(): ReactNode {
@@ -52,28 +53,17 @@ function PersonConnection(): ReactNode {
 function ConnectionChoice(props: { control: ConnectionControl }): ReactNode {
   const { control } = props;
   const mode = useSubscribable(asUiSubscribable(control.mode));
-  const id = useId();
   return (
-    <div className="flex items-center gap-2">
-      <span id={`${id}-label`}>{DEMO_WORDS.connection}</span>
-      <RadioGroup
-        aria-labelledby={`${id}-label`}
+    <BarLabelled label={DEMO_WORDS.connection}>
+      <Segmented
+        label={DEMO_WORDS.connection}
+        size="sm"
         value={mode}
-        onValueChange={(chosen) => {
+        options={OPTIONS}
+        onChange={(chosen) => {
           if (isConnectionMode(chosen)) control.set(chosen);
         }}
-        className="flex w-auto items-center gap-2"
-      >
-        {CONNECTION_MODES.map((choice) => (
-          <span key={choice} className="flex items-center gap-1">
-            <RadioGroupItem
-              value={choice}
-              aria-labelledby={`${id}-${choice}`}
-            />
-            <span id={`${id}-${choice}`}>{DEMO_WORDS[choice]}</span>
-          </span>
-        ))}
-      </RadioGroup>
-    </div>
+      />
+    </BarLabelled>
   );
 }
