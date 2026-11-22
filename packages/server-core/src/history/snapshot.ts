@@ -98,7 +98,7 @@ function readBlock(value: unknown): BlockJSON | null {
 }
 
 /** Null unless `value` is an array whose every item `read` accepts. */
-function readEach<T>(
+export function readEach<T>(
   value: unknown,
   read: (item: unknown) => T | null,
 ): T[] | null {
@@ -115,7 +115,8 @@ function readEach<T>(
 const isLockSource = (value: unknown): value is LockSource =>
   LOCK_SOURCES.some((source) => source === value);
 
-function readLock(value: unknown): LockAnchorRecord | null {
+/** One anchor of a lock table, each field of the kind the authority writes; null otherwise. */
+export function readLock(value: unknown): LockAnchorRecord | null {
   if (!isFields(value)) return null;
   const { level, order, label, blockId, offset, quote, source } = value;
   const fallbackIds = readEach(value.fallbackIds, (id) =>
@@ -139,29 +140,36 @@ function readAuthors(value: unknown): Record<string, VersionAuthor> | null {
   return Object.fromEntries(authors);
 }
 
-function readManifest(value: unknown): Manifest | null {
+/** Everything of a content but its blocks, each field of the kind this module writes; null otherwise. */
+function readFields(value: unknown): Omit<VersionContent, "blocks"> | null {
   if (!isFields(value) || value.v !== 1 || !isFields(value.settings))
     return null;
   const { schemaVersion, engineVersion } = value;
-  const chunks = readEach(value.chunks, (hash) =>
-    isString(hash) ? hash : null,
-  );
   const locks = value.locks === null ? null : readEach(value.locks, readLock);
   if (locks === null && value.locks !== null) return null;
   const authors = readAuthors(value.authors);
   if (!isCount(schemaVersion)) return null;
   if (engineVersion !== null && !isCount(engineVersion)) return null;
-  if (chunks === null || authors === null) return null;
+  if (authors === null) return null;
   const { settings } = value;
-  return {
-    v: 1,
-    chunks,
-    settings,
-    schemaVersion,
-    engineVersion,
-    locks,
-    authors,
-  };
+  return { v: 1, settings, schemaVersion, engineVersion, locks, authors };
+}
+
+function readManifest(value: unknown): Manifest | null {
+  const fields = readFields(value);
+  if (fields === null || !isFields(value)) return null;
+  const chunks = readEach(value.chunks, (hash) =>
+    isString(hash) ? hash : null,
+  );
+  return chunks === null ? null : { ...fields, chunks };
+}
+
+/** A version's content as it travels, each field of the kind a snapshot holds; null otherwise. */
+export function readContent(value: unknown): VersionContent | null {
+  const fields = readFields(value);
+  if (fields === null || !isFields(value)) return null;
+  const blocks = readEach(value.blocks, readBlock);
+  return blocks === null ? null : { ...fields, blocks };
 }
 
 const readChunkBlocks = (value: unknown): BlockJSON[] | null =>

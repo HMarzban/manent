@@ -91,6 +91,24 @@ export interface VersionContent {
   authors: Record<string, VersionAuthor>;
 }
 
+/** A version a device hands over with its document in POST /api/docs/adopt, kept as its content under its own id. */
+export interface AdoptedVersion {
+  id: string;
+  kind: HistoryVersionKind;
+  name: string | null;
+  createdByUserId: string;
+  createdAt: number;
+  /** The device whose window made it; null for one the device's authority made. */
+  deviceId: string | null;
+  content: VersionContent;
+  /** What it changed since the version before it; null for one recorded without that. */
+  summary: {
+    authorUserIds: string[];
+    blockIds: string[];
+    sceneIds: string[];
+  } | null;
+}
+
 /** The answer to GET /api/versions/content. */
 export interface VersionContentResponse {
   content: VersionContent;

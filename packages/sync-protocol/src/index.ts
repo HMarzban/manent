@@ -113,6 +113,7 @@ export type {
 } from "./http.ts";
 export { VERSION_KINDS, isVersionCursor } from "./history-http.ts";
 export type {
+  AdoptedVersion,
   AuthorsRequest,
   AuthorsResponse,
   HistoryControl,
@@ -146,6 +147,9 @@ export {
   isRequestKey,
 } from "./production.ts";
 export type {
+  AdoptedIssue,
+  AdoptedProduction,
+  AdoptedRevisionSet,
   BlockChange,
   ColourOrderId,
   FileRequest,

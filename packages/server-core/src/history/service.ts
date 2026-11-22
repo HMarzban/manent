@@ -46,7 +46,7 @@ const SESSION_IDLE_MS = 600_000;
 /** The longest draft name, in characters, once trimmed. */
 const NAME_MAX_CHARS = 120;
 /** An uploaded version's id: what a list cursor can carry. */
-const VERSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
+export const VERSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 export type HistoryOutcome<T> =
   { ok: true; value: T } | { ok: false; code: HttpErrorCode };

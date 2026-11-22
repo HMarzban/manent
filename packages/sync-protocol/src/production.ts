@@ -115,6 +115,61 @@ export interface ProductionState {
   issues: IssueView[];
 }
 
+/** A revision as its authority keeps it: `issuedVersionId` and the fields up to `recalledAt` are null until it is issued. */
+export interface AdoptedRevisionSet {
+  setId: string;
+  ordinal: number;
+  name: string;
+  colour: string;
+  mark: string;
+  baselineVersionId: string;
+  issuedVersionId: string | null;
+  issuedAt: number | null;
+  issuedOn: string | null;
+  issuedByUserId: string | null;
+  recalledAt: number | null;
+  fullDraft: boolean;
+  startedAt: number;
+  engineVersion: number;
+  blocks: SetBlockRecord[];
+}
+
+/** An issue as its authority keeps it. */
+export interface AdoptedIssue {
+  issueId: string;
+  setId: string;
+  kind: "issue" | "correction";
+  versionId: string;
+  issuedByUserId: string;
+  issuedAt: number;
+  issuedOn: string;
+  recipientUserIds: string[];
+  pages: string[];
+  memo: string;
+  files: IssueFile[];
+  tint: boolean;
+  what: "changed" | "full";
+}
+
+/** A script's production as a desktop node recorded it, handed over with the script in POST /api/docs/adopt. */
+export interface AdoptedProduction {
+  numbering: NumberingScheme;
+  colourOrder: string[];
+  lockedAt: number;
+  /** The locking device's day, YYYY-MM-DD. */
+  lockedOn: string;
+  lockedByUserId: string;
+  /** Null while the script is in production. */
+  endedAt: number | null;
+  /** The open anchor table. */
+  anchors: LockAnchorRecord[];
+  sceneNumbers: SceneNumberRecord[];
+  /** By ordinal. */
+  sets: AdoptedRevisionSet[];
+  /** Newest first. */
+  issues: AdoptedIssue[];
+}
+
 interface Mutating {
   docId: string;
   /** The idempotency key (`isRequestKey`): a retry under it is answered with the first result. */

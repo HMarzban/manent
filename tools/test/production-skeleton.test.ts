@@ -15,6 +15,7 @@ const ENTRIES: Readonly<Record<string, readonly string[]>> = {
     "sqlite.ts",
   ],
   "packages/server-core/src/production/index.ts": [
+    "adoption.ts",
     "extras.ts",
     "files.ts",
     "hooks.ts",
