@@ -27,8 +27,8 @@ import {
   toPages,
   unlockedLayout,
   usedNear,
-} from "../story.ts";
-import type { Episode, WrittenScript } from "../story.ts";
+} from "./harbour-lights-script.ts";
+import type { Episode, WrittenScript } from "./harbour-lights-script.ts";
 
 const KEY = "medium/harbour-lights/204";
 const GUIDE = HARBOUR_LIGHTS_GUIDE;

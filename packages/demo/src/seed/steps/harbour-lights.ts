@@ -10,20 +10,19 @@ import { intentsOf, unitsIn } from "../../generate/fit.ts";
 import { SeedBuildError } from "../../generate/guide.ts";
 import { SEED_DOCS, seedProject } from "../catalogue.ts";
 import type { SeedStep } from "../seed.ts";
+import { createStory } from "../story.ts";
+import { planFerry } from "./harbour-lights-ferry.ts";
+import { planSalt } from "./harbour-lights-salt.ts";
 import {
   applyBlockChanges,
   assertWritten,
-  createStory,
   generateScript,
-  meterOf,
   planSessions,
   sceneStart,
   toPages,
   unlockedLayout,
-} from "../story.ts";
-import type { Episode, Plan, WrittenScript } from "../story.ts";
-import { planFerry } from "./harbour-lights-ferry.ts";
-import { planSalt } from "./harbour-lights-salt.ts";
+} from "./harbour-lights-script.ts";
+import type { Episode, Plan, WrittenScript } from "./harbour-lights-script.ts";
 
 const STEP = "harbour-lights";
 const PROJECT = "medium/harbour-lights";
@@ -332,7 +331,7 @@ export const HARBOUR_LIGHTS: SeedStep = {
     const rows: { at: number; spec: string; run: () => Promise<void> }[] = [];
     const plan: Plan = (spec, run) =>
       rows.push({ at: context.time.at(spec), spec, run });
-    const episode: Episode = { context, story, meter: meterOf(context), plan };
+    const episode: Episode = { context, story, meter: driver.meter, plan };
     plan(CREATED, async () => {
       // each script takes its roles from the Writers' room's index, which The Long Night's step makes
       const home = projectHome(project.projectId);
