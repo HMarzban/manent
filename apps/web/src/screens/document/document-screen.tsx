@@ -16,7 +16,6 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
-import { focusLiveEditor } from "../../editor-host/live-editor.ts";
 import { focusHeading } from "../../focus.ts";
 import { ProductionDialogs } from "../../production/dialogs.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
@@ -173,13 +172,8 @@ function Frame(props: { docId: string; doc: DocumentServices }): ReactNode {
   const { dom } = useEnvironment();
   const title = useDocumentTitle(docId);
   useEffect(() => {
-    // the page takes focus at the caret, else its region until the page is shown, and the title is read
-    if (
-      !paletteSelectors.isOpen() &&
-      !focusLiveEditor(docId) &&
-      !dom.focusPage()
-    )
-      focusHeading(document);
+    // the page takes focus, else its region until the page is shown, and the title is read
+    if (!paletteSelectors.isOpen() && !dom.focusPage()) focusHeading(document);
     dom.announce(title);
   }, [docId]);
   return (

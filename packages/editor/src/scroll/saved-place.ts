@@ -18,10 +18,8 @@ import type { ScrollPorts } from "./stability.ts";
 function caretBlockTop(
   view: EditorView,
   ports: ScrollPorts,
-  blockId: string,
+  block: number,
 ): { block: number; offsetPx: number } | null {
-  const block = blocksOf(view.state, [blockId]).get(blockId);
-  if (block === undefined) return null;
   const top = ports.blockTop(view, block);
   if (top === null) return null;
   return {
@@ -37,8 +35,7 @@ export function savedPlaceOf(
 ): SavedPlace | null {
   const place = placeOf(view.state);
   if (place === null) return null;
-  const top =
-    ports.topBlock(view) ?? caretBlockTop(view, ports, place.head.blockId);
+  const top = ports.topBlock(view) ?? caretBlockTop(view, ports, place.at);
   if (top === null) return null;
   const blockId = blockIdAt(view.state, top.block);
   if (blockId === null) return null;
