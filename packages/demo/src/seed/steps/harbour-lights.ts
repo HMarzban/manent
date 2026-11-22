@@ -32,17 +32,6 @@ const LAYOUT = unlockedLayout(GUIDE);
 /** When the series' documents are made, before any episode's first line. */
 const CREATED = "D−32 10:00";
 
-/** The Writers' room as this series knows it: Dana owns it, Priya runs its production, Leo reads. */
-const MEMBERS = [
-  { userId: "sam", role: "edit", capabilities: [] },
-  {
-    userId: "priya",
-    role: "edit",
-    capabilities: ["issue_revisions", "lock_page_numbers"],
-  },
-  { userId: "leo", role: "comment", capabilities: [] },
-] as const;
-
 /** `blocks` brought to `pages` pages; `fixed` blocks are kept as they are. */
 function fitted(
   { context, meter }: Episode,
@@ -345,9 +334,7 @@ export const HARBOUR_LIGHTS: SeedStep = {
       rows.push({ at: context.time.at(spec), spec, run });
     const episode: Episode = { context, story, meter: meterOf(context), plan };
     plan(CREATED, async () => {
-      // the room's index, which The Long Night's step makes first: making it again changes nothing, and lets
-      // the series be seeded on its own
-      await driver.workspace("dana", "medium", MEMBERS);
+      // each script takes its roles from the Writers' room's index, which The Long Night's step makes
       const home = projectHome(project.projectId);
       for (const { docId, kind } of documents)
         await driver.create("dana", {
