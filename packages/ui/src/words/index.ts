@@ -6,6 +6,7 @@ export * from "./editor.ts";
 export * from "./format.ts";
 export * from "./history.ts";
 export * from "./import.ts";
+export * from "./key-probe.ts";
 export * from "./library.ts";
 export * from "./messages.ts";
 export * from "./offline.ts";

@@ -348,7 +348,7 @@ export const PENDING_TERMS: readonly string[] = listOf(`
   access, align, all-caps, animation, announce, appearance, author, avatars, bold, canary,
   collated, cont'd, continued, continueds, dark, desk, desktop, docx, driving, editors, elsewhere,
   exported, exporting, fdx, font, fountain, help, highlight, interface, italic, keyboard, kind, light, manuscript,
-  margin, mores, multi-camera, paper, pdf, picker, reconnect, redo, rename, same-speaker, screenplay, setup,
+  margin, mores, multi-camera, paper, pdf, picker, probe, reconnect, redo, rename, same-speaker, screenplay, setup,
   size, spelling, stable, strikethrough, syncing, tabs, underline, undo, variety
 `);
 
