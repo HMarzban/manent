@@ -1,5 +1,12 @@
 // Opening files as new scripts: each read, counted and made in the Library, or the one sentence that says why not.
 import type { ImportedScript } from "@manent/formats";
+import {
+  DEFAULT_LAYOUT_SETTINGS,
+  ENGINE_VERSION,
+  engineFor,
+  profileFromSettings,
+} from "@manent/pagination";
+import { importAnchors, lockedPagination } from "@manent/revisions";
 import { blockText, blocksOf, sectionize } from "@manent/schema";
 import type { IdSource } from "@manent/schema";
 import { paperForRegion } from "@manent/settings";
@@ -81,28 +88,23 @@ const brief = (
 const refusal = (text: string): Message => brief("import_refused", text);
 
 /** The pages Manent gives the script under its paper, locked where the file locked them, and those that hold more than fits. */
-async function pagesOf(
+function pagesOf(
   script: ImportedScript,
   language: string,
-): Promise<{ pages: number; overflowing: readonly string[] }> {
-  const [pagination, revisions] = await Promise.all([
-    import("@manent/pagination"),
-    import("@manent/revisions"),
-  ]);
-  const { ENGINE_VERSION, DEFAULT_LAYOUT_SETTINGS } = pagination;
-  const engine = pagination.engineFor(ENGINE_VERSION);
+): { pages: number; overflowing: readonly string[] } {
+  const engine = engineFor(ENGINE_VERSION);
   if (engine === null)
     throw new RangeError(`no pagination engine ${ENGINE_VERSION}`);
   const paper = script.paper ?? paperForRegion(language);
   const settings = { ...DEFAULT_LAYOUT_SETTINGS, paper };
-  const profile = pagination.profileFromSettings(engine, settings);
+  const profile = profileFromSettings(engine, settings);
   if (profile === null)
     throw new RangeError(`no page profile for ${settings.format}`);
   const flat = blocksOf(sectionize(script.blocks));
   const records =
     script.production === null
       ? []
-      : revisions.importAnchors(
+      : importAnchors(
           flat.flatMap((block) =>
             block.attrs.id === null
               ? []
@@ -110,7 +112,7 @@ async function pagesOf(
           ),
           script.production.anchors,
         );
-  const layout = revisions.lockedPagination(
+  const layout = lockedPagination(
     engine.toLayoutBlocks(flat),
     profile,
     records,
@@ -140,7 +142,7 @@ export function createFileOpener(options: OpenerOptions): FileOpener {
       messages.push(refusal(IMPORT_WORDS.unreadable(name, format)));
       return;
     }
-    const { pages, overflowing } = await pagesOf(script, options.language);
+    const { pages, overflowing } = pagesOf(script, options.language);
     const scenes = script.blocks.filter(
       (block) => block.attrs?.type === "scene_heading",
     ).length;
