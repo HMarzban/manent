@@ -2,7 +2,11 @@
 import type { SettingKey } from "@manent/settings";
 import { Button, PREFERENCES_WORDS, SettingRow } from "@manent/ui";
 import type { ReactNode } from "react";
-import { ShortcutRow, useShortcutViews } from "./keyboard-pane.tsx";
+import {
+  ShortcutRow,
+  ShortcutTable,
+  useShortcutViews,
+} from "./keyboard-pane.tsx";
 import type { ShortcutChange } from "./keyboard-pane.tsx";
 
 function Group(props: {
@@ -12,10 +16,10 @@ function Group(props: {
   children: ReactNode;
 }): ReactNode {
   return (
-    <section className="flex flex-col">
-      <div className="flex items-center justify-between gap-4">
-        <h3 className="text-micro uppercase text-fg-muted">{props.heading}</h3>
-        <Button variant="outline" size="sm" onClick={props.onReset}>
+    <section className="flex flex-col gap-2">
+      <div className="flex items-end justify-between gap-4">
+        <h3 className="mn-group-label px-0!">{props.heading}</h3>
+        <Button variant="outline" onClick={props.onReset}>
           {props.reset}
         </Button>
       </div>
@@ -38,7 +42,7 @@ export function SetByYou(props: {
   if (modified.length === 0 && shortcuts.length === 0)
     return <p className="text-ui">{PREFERENCES_WORDS.allDefault}</p>;
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-8">
       {modified.length === 0 ? null : (
         <Group
           heading={PREFERENCES_WORDS.preferencesGroup}
@@ -61,18 +65,20 @@ export function SetByYou(props: {
           reset={PREFERENCES_WORDS.resetShortcuts}
           onReset={props.onResetShortcuts}
         >
-          <ul className="flex flex-col">
-            {shortcuts.map((view) => (
+          <ShortcutTable heading={null}>
+            {shortcuts.map((view, index) => (
               <ShortcutRow
                 key={view.id}
                 view={view}
+                posinset={index + 1}
+                setsize={shortcuts.length}
                 deviceName={deviceName}
                 capturing={false}
                 onCapture={null}
                 onShortcuts={onShortcuts}
               />
             ))}
-          </ul>
+          </ShortcutTable>
         </Group>
       )}
     </div>
