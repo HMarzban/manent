@@ -1,4 +1,4 @@
-// The production routes: the state, lock, pages, layout, unlock, end, issue, recall and the issued files.
+// The production routes: the state, lock, import lock, pages, layout, unlock, end, issue, recall and the issued files.
 import {
   COLOUR_ORDER_IDS,
   ISSUE_FILES,
@@ -15,6 +15,7 @@ import type {
   PagesRequest,
   RecallRequest,
 } from "@manent/sync-protocol";
+import { isImportLockRequest } from "../../production/import-lock.ts";
 import { refused } from "../../production/outcome.ts";
 import type { ProductionOutcome } from "../../production/outcome.ts";
 import type { ProductionService } from "../../production/service.ts";
@@ -222,6 +223,12 @@ export const productionRoutes: Route[] = [
   ),
   route("/api/production/lock", readLock, async (service, userId, body) =>
     answer(await service.lock(userId, body)),
+  ),
+  route(
+    "/api/production/import",
+    (body) => (isImportLockRequest(body) ? body : null),
+    async (service, userId, body) =>
+      answer(await service.importLock(userId, body)),
   ),
   route("/api/production/pages", readPages, async (service, userId, body) =>
     answer(await service.pages(userId, body)),

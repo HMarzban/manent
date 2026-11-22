@@ -107,8 +107,6 @@ interface Draw {
   beat: Beat;
   rng: Rng;
   used: Set<string>;
-  /** The name words of the guide's cast who are not in the beat. */
-  absent: ReadonlySet<string>;
   lines: number;
   tagged: number;
 }
@@ -118,17 +116,30 @@ interface Line {
   cue: string;
 }
 
-// a fragment names only the beat's cast when none of its capitalised words is a name word of someone absent
-const namesOnlyBeatCast = (draw: Draw, text: string): boolean =>
-  !wordsOf(text).some(
-    (word) => /^\p{Lu}/u.test(word) && draw.absent.has(word.toLowerCase()),
+/**
+ * An unused action fragment of the guide, drawn with `rng`, that names none of its cast but the members cued in
+ * `cues`: none of its capitalised words is a cue or name word of anyone else alone. Null when none is left.
+ */
+export function freeAction(
+  guide: StyleGuide,
+  cues: readonly string[],
+  rng: Rng,
+  used: ReadonlySet<string>,
+): string | null {
+  const present = new Set(
+    castWords(guide.cast.filter((member) => cues.includes(member.cue))),
   );
-
-function freeAction(draw: Draw): string | null {
-  const free = draw.guide.action.filter(
-    (text) => !draw.used.has(text) && namesOnlyBeatCast(draw, text),
+  const absent = new Set(
+    castWords(guide.cast).filter((word) => !present.has(word)),
   );
-  return free.length === 0 ? null : draw.rng.pick(free);
+  const free = guide.action.filter(
+    (text) =>
+      !used.has(text) &&
+      !wordsOf(text).some(
+        (word) => /^\p{Lu}/u.test(word) && absent.has(word.toLowerCase()),
+      ),
+  );
+  return free.length === 0 ? null : rng.pick(free);
 }
 
 // an unused entry of this intent that someone in the beat other than `not` may speak
@@ -176,7 +187,7 @@ function speak(draw: Draw, { entry, cue }: Line): SeedBlock[] {
 const UNIT_WRITERS: Readonly<Record<Unit, (draw: Draw) => SeedBlock[] | null>> =
   {
     action: (draw) => {
-      const text = freeAction(draw);
+      const text = freeAction(draw.guide, draw.beat.cast, draw.rng, draw.used);
       return text === null ? null : [act(draw, text)];
     },
     exchange: (draw) => {
@@ -187,7 +198,7 @@ const UNIT_WRITERS: Readonly<Record<Unit, (draw: Draw) => SeedBlock[] | null>> =
     },
     instruction: (draw) => {
       const line = freeLine(draw, "instruct", null);
-      const text = freeAction(draw);
+      const text = freeAction(draw.guide, draw.beat.cast, draw.rng, draw.used);
       if (line === null || text === null) return null;
       return [...speak(draw, line), act(draw, text)];
     },
@@ -221,13 +232,7 @@ export function generateScenes(
   rng: Rng,
   used: Set<string>,
 ): SeedBlock[] {
-  const present = new Set(
-    castWords(guide.cast.filter((member) => beat.cast.includes(member.cue))),
-  );
-  const absent = new Set(
-    castWords(guide.cast).filter((word) => !present.has(word)),
-  );
-  const draw: Draw = { guide, beat, rng, used, absent, lines: 0, tagged: 0 };
+  const draw: Draw = { guide, beat, rng, used, lines: 0, tagged: 0 };
   const scenes = beat.scenes[1] - beat.scenes[0] + 1;
   const share =
     ((beat.pages[1] - beat.pages[0] + 1) * LINES_PER_PAGE[guide.format]) /

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="5">
+  <Content>
+    <Paragraph Type="Action">
+      <Text>The fog lifts.</Text>
+    </Paragraph>
+  </Content>
+  <PageLayout BackgroundColor="#FFFFFFFFFFFF" BottomMargin="72" TopMargin="72">
+    <PageSize Height="11.69" Width="8.27"/>
+  </PageLayout>
+</FinalDraft>
