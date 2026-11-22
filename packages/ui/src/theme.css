@@ -158,8 +158,9 @@ html[data-white-page] .mn-pages {
   --p-write-violet-bright: #C6A8FF;
 
   /* demo instrumentation: a hue no surface of the product uses */
-  --p-demo-900: #352A56;
-  --p-demo-800: #44386B;
+  --p-demo-900: #29242F;
+  --p-demo-800: #3A3342;
+  --p-demo-700: #4B4257;
   --p-demo-600: #8574B0;
   --p-demo-300: #C9BEDD;
   --p-demo-200: #D5C4FF;
@@ -174,6 +175,8 @@ html[data-white-page] .mn-pages {
   --bg-chrome: light-dark(var(--p-warm-50), var(--p-warm-925));
   --bg-raised: light-dark(var(--p-warm-25), var(--p-warm-900));
   --bg-overlay: light-dark(var(--p-warm-25), var(--p-warm-800));
+  /* a field is a well, darker than the chrome it sits in */
+  --bg-well: light-dark(var(--p-warm-100), var(--p-warm-950));
   --bg-subtle: light-dark(rgb(31 29 26 / 0.06), rgb(239 236 230 / 0.06));
   --bg-control: light-dark(rgb(31 29 26 / 0.10), rgb(239 236 230 / 0.09));
   --bg-selected: light-dark(var(--p-blue-50), var(--p-blue-900));
@@ -362,6 +365,7 @@ html[data-white-page] .mn-pages {
     --bg-chrome: light-dark(var(--p-warm-50), var(--p-warm-1000));
     --bg-raised: light-dark(var(--p-warm-0), var(--p-warm-950));
     --bg-overlay: light-dark(var(--p-warm-0), var(--p-warm-925));
+    --bg-well: light-dark(var(--p-warm-0), var(--p-black));
     --bg-subtle: light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.10));
     --bg-control: light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.12));
     --bg-selected: light-dark(var(--p-blue-50), var(--p-blue-950));
@@ -426,9 +430,10 @@ html[data-white-page] .mn-pages {
   --bg-chrome: var(--p-demo-900);
   --bg-raised: var(--p-demo-800);
   --bg-overlay: var(--p-demo-800);
+  --bg-well: var(--p-demo-900);
   --bg-subtle: rgb(243 238 251 / 0.08);
   --bg-control: rgb(243 238 251 / 0.12);
-  --bg-selected: var(--p-demo-800);
+  --bg-selected: var(--p-demo-700);
   --bg-accent: var(--p-demo-200);
   --bg-scrim: rgb(0 0 0 / 0.5);
   --fg: var(--p-demo-50);
@@ -520,6 +525,18 @@ html[data-white-page] .mn-pages {
   --status-server-w: 17.5rem; /* 280: slot two, the longest status sentence (tested) */
   --avatar: 1.5rem; /* 24: title bar, threads */
   --avatar-sm: 1.25rem; /* 20: in rows; the smallest that holds 11 px initials */
+  --avatar-lg: 2.5rem; /* 40: a person's card */
+  --content-w: 45rem; /* 720: a form's column */
+  --content-w-wide: 55rem; /* 880: a screen's main column at most */
+  --menu-min-w: 14rem; /* 224 */
+  --menu-max-w: 22.5rem; /* 360 */
+  --popover-w: 24rem; /* 384 */
+  --element-w: 8.5rem; /* 136: Element in the status bar */
+  --col-kind: 7.5rem; /* 120 */
+  --col-edited: 10.5rem; /* 168 */
+  --preview-w: 21.25rem; /* 340 */
+  --key-w: 5.25rem; /* 84: a form's key column */
+  --label-w: 3.5rem; /* 56: a short label column */
   --marker: 1.5rem; /* 24: a gutter marker; never scaled by page zoom */
 
   /* desk and page furniture: px. --desk-pad scales with page zoom;
@@ -660,6 +677,7 @@ html[data-white-page] .mn-pages {
   --color-chrome: var(--bg-chrome);
   --color-raised: var(--bg-raised);
   --color-overlay: var(--bg-overlay);
+  --color-well: var(--bg-well);
   --color-subtle: var(--bg-subtle);
   --color-control: var(--bg-control);
   --color-selected: var(--bg-selected);
@@ -773,6 +791,18 @@ html[data-white-page] .mn-pages {
   --spacing-icon-lg: var(--icon-lg);
   --spacing-avatar: var(--avatar);
   --spacing-avatar-sm: var(--avatar-sm);
+  --spacing-avatar-lg: var(--avatar-lg);
+  --spacing-content: var(--content-w);
+  --spacing-content-wide: var(--content-w-wide);
+  --spacing-menu-min: var(--menu-min-w);
+  --spacing-menu-max: var(--menu-max-w);
+  --spacing-popover: var(--popover-w);
+  --spacing-element: var(--element-w);
+  --spacing-col-kind: var(--col-kind);
+  --spacing-col-edited: var(--col-edited);
+  --spacing-preview: var(--preview-w);
+  --spacing-key: var(--key-w);
+  --spacing-label: var(--label-w);
   --spacing-marker: var(--marker);
 }
 
