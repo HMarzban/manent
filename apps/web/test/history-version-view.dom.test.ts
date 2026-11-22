@@ -228,8 +228,11 @@ const layout = () => ({
 });
 
 test("a version of a locked script keeps its page labels and numbered scenes", () => {
-  Reflect.apply(Array.prototype.push, VERSION_LAYOUTS, [layout]);
-  cleanups.push(() => Reflect.apply(Array.prototype.pop, VERSION_LAYOUTS, []));
+  // first, so that its answer wins over production's own
+  Reflect.apply(Array.prototype.unshift, VERSION_LAYOUTS, [layout]);
+  cleanups.push(() =>
+    Reflect.apply(Array.prototype.shift, VERSION_LAYOUTS, []),
+  );
   const place = viewOf({
     ...CONTENT,
     locks: [anchor(0, "12", "blockh01"), anchor(1, "12A", "block006")],
