@@ -351,6 +351,37 @@ test("a block the replay wrote and someone removed before the new document loade
   expect(textOf(h.doc())).toBe("draftx");
 });
 
+test("an overlap a move filed stays when its block overlaps again online", async () => {
+  const { w, h } = await waitingEdits();
+  const { server } = w;
+  server.write(DOC, (writer) => writer.insertText(B1, 0, "first "));
+  server.moved(DOC, 1, 2);
+  await w.settle();
+  server.answerReplay({
+    ok: true,
+    response: { ...NO_CHANGE, overlaps: [{ blockId: B1, text: "draftx" }] },
+  });
+  await w.settle();
+  server.subscribedWithState(DOC, rebuilt(w), { generation: 2, headSeq: 3 });
+  await w.settle();
+  typeIn(h, B1, "!");
+  const update = server.writeAs(DOC, 77, (writer) =>
+    writer.insertText(B1, 0, "z"),
+  );
+  server.syncUpdate(DOC, update);
+  await w.settle();
+  w.frames.fire();
+  await w.settle();
+  expect(
+    h.recovered
+      .get()
+      .map((r) => [r.cause, r.mine && blockText(blockView(r.mine))]),
+  ).toEqual([
+    ["overlap", "draftx"],
+    ["overlap", "first draft!"],
+  ]);
+});
+
 test("an update of the new generation that comes before its step 2 leaves the old document as it was", async () => {
   const { w, h } = await waitingEdits();
   const { server } = w;

@@ -48,6 +48,8 @@ export class OverlapWindow {
   private readonly touched = new Map<string, Touch>();
   /** By block: the overlaps found since the last `take`. */
   private found = new Map<string | null, RecoveredItem>();
+  /** By block: the id of the last overlap this window filed, which a later one replaces. */
+  private readonly filed = new Map<string | null, string>();
   private readonly host: WindowHost;
   private readonly clock: Clock;
 
@@ -104,14 +106,14 @@ export class OverlapWindow {
       const overlap = { blockId, mine: touch.mine, theirs };
       leftovers.push(overlapLeftover(overlap, others));
     }
-    // each takes the id of its block's open overlap, which it replaces
+    // each takes the id of the overlap this window filed for its block and still open, which it
+    // replaces; one a merge filed holds a wording kept nowhere else, and stays
     for (const item of this.host.items(leftovers)) {
-      const open =
-        this.found.get(item.blockId) ??
-        this.host.recovered.find(
-          (r) => r.cause === "overlap" && r.blockId === item.blockId,
-        );
-      this.found.set(item.blockId, { ...item, id: open?.id ?? item.id });
+      const earlier = this.filed.get(item.blockId);
+      const open = this.host.recovered.some((r) => r.id === earlier);
+      const id = earlier !== undefined && open ? earlier : item.id;
+      this.filed.set(item.blockId, id);
+      this.found.set(item.blockId, { ...item, id });
     }
   }
 
