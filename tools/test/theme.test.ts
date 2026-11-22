@@ -291,6 +291,7 @@ test("no tier-2 name starts with a Tailwind namespace, and the demo scope declar
       "--bg-chrome",
       "--bg-raised",
       "--bg-overlay",
+      "--bg-well",
       "--bg-subtle",
       "--bg-control",
       "--bg-selected",

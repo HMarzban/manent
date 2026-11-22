@@ -17,6 +17,7 @@ import {
 } from "@manent/ui";
 import { useMemo } from "react";
 import type { ReactNode } from "react";
+import { FrozenRow } from "../../production/frozen-row.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
 import { useOpenDocument } from "./open-document.ts";
@@ -123,6 +124,7 @@ export function ScriptSettings(props: { docId: string }): ReactNode {
                 <div key={key}>
                   <SettingRow settingKey={key} deviceName={null} persisted />
                   <SetBy settingKey={key} doc={doc} />
+                  <FrozenRow settingKey={key} docId={docId} />
                 </div>
               ))}
             </section>

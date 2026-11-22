@@ -40,7 +40,13 @@ const DEMO_BOUNDARY: Threshold = { standard: 3, more: 3 };
 
 type Ground = readonly [bg: string, over: readonly string[]];
 
-const RESTING = ["--bg-desk", "--bg-chrome", "--bg-raised", "--bg-overlay"];
+const RESTING = [
+  "--bg-desk",
+  "--bg-chrome",
+  "--bg-raised",
+  "--bg-overlay",
+  "--bg-well",
+];
 /** The surfaces controls and chips sit on. */
 const SURFACES = ["--bg-chrome", "--bg-raised", "--bg-overlay"];
 /** Each resting surface, the hover and the pressed fill over each, and the selected fill. */
