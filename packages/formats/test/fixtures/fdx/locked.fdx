@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="5">
+  <Content>
+    <Paragraph Number="1" Type="Scene Heading">
+      <Text>INT. LAMP ROOM - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Number="2" Type="Scene Heading">
+      <Text>EXT. GALLERY - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text RevisionID="0">Wind. </Text>
+      <Text RevisionID="1">The glass hums.</Text>
+    </Paragraph>
+    <Paragraph Type="General">
+      <DualDialogue>
+        <Paragraph Type="Character">
+          <Text>DANA</Text>
+        </Paragraph>
+        <Paragraph Type="Dialogue">
+          <Text>Hold it.</Text>
+        </Paragraph>
+        <Paragraph Type="Character">
+          <Text>SAM</Text>
+        </Paragraph>
+        <Paragraph Type="Dialogue">
+          <Text>I have it now.</Text>
+        </Paragraph>
+      </DualDialogue>
+      <Text></Text>
+    </Paragraph>
+    <Paragraph Number="3" Type="Scene Heading">
+      <Text>INT. STAIRS - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Number="3A" Type="Scene Heading">
+      <Text>INT. STAIRS, LANDING - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text RevisionID="2">Salt on every step.</Text>
+    </Paragraph>
+    <Paragraph Number="4" Type="Scene Heading">
+      <Text>EXT. ROCKS - DAWN</Text>
+    </Paragraph>
+  </Content>
+  <SceneNumberOptions LeftLocation="0.75" NumberScheme="1A" RightLocation="7.38" ShowNumbersOnLeft="Yes" ShowNumbersOnRight="Yes"/>
+  <LockedPages>
+    <LockedPage LevelIndex="1" LockLevel="0" PageNumber="2" Position="23"/>
+    <LockedPage LevelIndex="1" LockLevel="0" PageNumber="4" Position="120"/>
+    <LockedPage LevelIndex="1" LockLevel="0" PageNumber="3" Position="91"/>
+  </LockedPages>
+  <Revisions ActiveSet="2" Location="7.50" RevisionMode="No" ShowAllMarks="No" ShowAllSets="No" ShowPageColor="No">
+    <Revision Color="#C8C8DCDCFFFF" FullRevision="No" ID="1" Mark="*" Name="Blue Rev. (mm/dd/yy)" Style=""/>
+    <Revision FullRevision="No" ID="2" Mark="*" Name="Pink Rev." PageColor="#FAFAD7D7E3E3" Style=""/>
+  </Revisions>
+  <DeletedText>
+    <DeletedTextLocation Offset="59" RevisionID="1"/>
+    <DeletedTextLocation Offset="168" RevisionID="1"/>
+  </DeletedText>
+</FinalDraft>

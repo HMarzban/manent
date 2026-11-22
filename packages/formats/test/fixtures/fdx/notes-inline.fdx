@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="4">
+  <Content>
+    <Paragraph Type="Scene Heading">
+      <Text>INT. LAMP ROOM - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <ScriptNote Author="Priya Nair" Color="#FFFFE9E9A0A0" DateTime="20261112T093000" ID="1" MarkerType="Script Note">
+        <Paragraph>
+          <Text>Keep the salt on the glass</Text>
+        </Paragraph>
+        <Paragraph>
+          <Text>in every shot of the lens.</Text>
+        </Paragraph>
+      </ScriptNote>
+      <Text>Salt crusts the lens.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>DANA</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>It needs a cloth.</Text>
+      <ScriptNote Author="Priya Nair" DateTime="not a time" ID="2">
+        <Paragraph>
+          <Text>Softer here.</Text>
+        </Paragraph>
+      </ScriptNote>
+    </Paragraph>
+  </Content>
+</FinalDraft>

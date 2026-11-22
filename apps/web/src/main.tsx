@@ -1,5 +1,4 @@
 import { markEnd, markStart, readMarks, setMarksEnabled } from "@manent/perf";
-import type { SyncClientOptions } from "@manent/sync-client";
 import type { UpdateState } from "@manent/sync-protocol";
 import { createValue } from "@manent/ui";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -20,16 +19,13 @@ import type {
   PersonServices,
   ShellState,
 } from "./services/ports.ts";
-import type { PersonSync } from "./services/sync/create-sync.ts";
 import { tabStorage } from "./session.ts";
-import type { TabPerson } from "./session.ts";
 import { createShellDom } from "./shell/regions.tsx";
 import { bindGuard, createGuard } from "./state/guard.ts";
 import { createPersonStore } from "./state/person.store.ts";
 
-// the build's defines; absent outside a build
+// the build's define; absent outside a build
 declare const MANENT_FLAVOUR: string | undefined;
-declare const MANENT_VERSION: string | undefined;
 
 const flavour =
   typeof MANENT_FLAVOUR !== "undefined" && MANENT_FLAVOUR === "test"
@@ -71,73 +67,6 @@ const runs: string[] = [];
 if (flavour === "test")
   Reflect.set(window, "__manent", { guard, runs, readMarks });
 
-/** The parts of the person's sync that differ on desktop, where the node is the window's server and store. */
-async function nodeSync(
-  person: TabPerson,
-): Promise<Pick<SyncClientOptions, "via" | "ports">> {
-  const [web, node] = await Promise.all([
-    import("@manent/client-web"),
-    import("./desktop/desktop-sync.ts"),
-  ]);
-  const { via, store, transport } = node.desktopSyncParts({
-    origin: location.origin,
-    userId: person.userId,
-    token: () => person.token,
-  });
-  // the leader, clock, random and frames stay the web's own
-  const leader = web.webLeader({
-    userId: person.userId,
-    tabId: crypto.randomUUID(),
-  });
-  return {
-    via,
-    ports: {
-      store,
-      transport,
-      leader,
-      clock: web.browserClock,
-      random: web.browserRandom,
-      frames: web.browserFrames,
-    },
-  };
-}
-
-// sync, with everything only it needs, stays out of the entry
-async function startSync(
-  desktop: DesktopHost | null,
-  person: TabPerson,
-  deviceId: string,
-): Promise<PersonSync> {
-  const [sync, device, { PROTOCOL_VERSION }, { SCHEMA_VERSION }, engine] =
-    await Promise.all([
-      import("./services/sync/create-sync.ts"),
-      import("./services/sync/device-memory.ts"),
-      import("@manent/sync-protocol"),
-      import("@manent/schema"),
-      import("@manent/pagination"),
-    ]);
-  const versions = {
-    protocol: PROTOCOL_VERSION,
-    schema: SCHEMA_VERSION,
-    engine: engine.ENGINE_VERSION,
-    table: engine.TABLE_VERSION,
-  };
-  return sync.createPersonSync({
-    person,
-    baseUrl: location.origin,
-    deviceId,
-    build: typeof MANENT_VERSION === "undefined" ? "0.0.0" : MANENT_VERSION,
-    versions,
-    // the server that serves this build runs the same versions
-    minServer: versions,
-    memory: device.createDeviceMemory(device.browserStores()),
-    onlineEvents: window,
-    visible: () => document.visibilityState === "visible",
-    now,
-    ...(desktop === null ? {} : await nodeSync(person)),
-  });
-}
-
 /** The world this tab runs in; `desktop` is the desktop app's shell and node, null on the web. */
 function createEnvironment(desktop: DesktopHost | null): Environment {
   const { where, language, userAgent } = readNavigator();
@@ -174,7 +103,14 @@ function createEnvironment(desktop: DesktopHost | null): Environment {
       if (flavour === "test") runs.push(commandId);
     },
     visitUndo: { current: null },
-    startSync: (person, deviceId) => startSync(desktop, person, deviceId),
+    // sync, with everything only it needs, stays out of the entry
+    startSync: async (person, deviceId) =>
+      (await import("./services/sync/browser-sync.ts")).startBrowserSync({
+        desktop,
+        person,
+        deviceId,
+        now,
+      }),
     personServices: createValue<PersonServices | null>(null),
   };
 }

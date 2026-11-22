@@ -19,7 +19,12 @@ import { historyView } from "../../history/history-view.ts";
 import { restoreQuestion } from "../../history/restore-question.ts";
 import { useServices } from "../../services/context.tsx";
 import { historyActions, useHistory } from "../../state/history.store.ts";
-import { HistoryChanges, useWorkingComparison } from "./history-changes.tsx";
+import {
+  HistoryChanges,
+  authoredBlocks,
+  useAuthors,
+  useWorkingComparison,
+} from "./history-changes.tsx";
 import { VersionRows, WorkingAlone } from "./history-version-rows.tsx";
 import { useCanEdit } from "./ruler-bar.tsx";
 import { VersionPane, useBaselineContent } from "./version-pane.tsx";
@@ -79,7 +84,11 @@ function Placeholders(): ReactNode {
 }
 
 /** Keeps what the tab shows for the commands, and starts it afresh on another script. */
-function useShownToCommands(docId: string, rows: readonly HistoryRow[]): void {
+function useShownToCommands(
+  docId: string,
+  rows: readonly HistoryRow[],
+  blockIds: readonly string[] | null,
+): void {
   const storeDoc = useHistory("docId");
   const selected = useHistory("selected");
   const step = useHistory("step");
@@ -94,8 +103,9 @@ function useShownToCommands(docId: string, rows: readonly HistoryRow[]): void {
       selected: rows.find((row) => row.item.id === selected) ?? null,
       step,
       filter,
+      blockIds,
     });
-  }, [docId, rows, selected, step, filter]);
+  }, [docId, rows, selected, step, filter, blockIds]);
   // closing the tab ends what it showed: the version viewed and the changes drawn
   useEffect(
     () => () => {
@@ -117,7 +127,13 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
   const mode = useHistory("mode");
   const content = useBaselineContent(docId);
   const comparison = useWorkingComparison(docId, content);
-  useShownToCommands(docId, listed.rows);
+  const authors = useAuthors(docId, comparison);
+  const { authorUserIds } = useHistory("filter");
+  const blockIds = useMemo(
+    () => authoredBlocks(comparison, authors, authorUserIds),
+    [comparison, authors, authorUserIds],
+  );
+  useShownToCommands(docId, listed.rows, blockIds);
   const state = stateOf(listed.state, listed.rows.length, editable);
   const offline = listed.state.kind === "offline";
   const rows = (): ReactNode => (
@@ -143,6 +159,8 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
         rows={listed.rows}
         content={content}
         all={comparison}
+        authors={authors}
+        blockIds={blockIds}
       />
       <SurfaceState
         surface="side_panel"

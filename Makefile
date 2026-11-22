@@ -5,7 +5,7 @@ NEED_BUN = command -v bun >/dev/null 2>&1 || { echo "Manent needs Bun 1.4.4 or l
 
 help:
 	@echo "  make demo      Start Manent on this machine and open http://localhost:4747  (LAN=1: let a second machine join)"
-	@echo "  make desktop   The desktop app is not in this build yet"
+	@echo "  make desktop   Build and open the desktop app against the running demo"
 	@echo "  make reset     Delete the demo data and seed it again"
 	@echo "  make test      Unit, property and end-to-end tests"
 	@echo "  make bench     Run the benchmark suite"
