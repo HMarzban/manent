@@ -297,8 +297,10 @@ test(
         if (i % 20 !== 19) continue;
         await allOnline(w);
         const text = w.serverText();
+        // a person's row: no client was acknowledged for the server's own repair of copies
         const deletions = rowsOf(w).filter(
           (row) =>
+            row.origin !== "system" &&
             updateMeta(row.update).length === 0 &&
             !sameText(linesWithout(w, row.seq), text),
         );

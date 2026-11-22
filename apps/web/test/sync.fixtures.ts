@@ -403,5 +403,6 @@ export function fakeSync(client: SyncClient): PersonSync {
     hadDatabase: null,
     memory: createDeviceMemory({ local: null, session: null }),
     dispose: async () => {},
+    onControl: () => () => {},
   };
 }

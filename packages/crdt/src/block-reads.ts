@@ -6,6 +6,7 @@ import { yDocOf } from "./doc.ts";
 import type { CrdtDoc } from "./doc.ts";
 import {
   elementsNamed,
+  liveItemsOf,
   materializeRawDoc,
   textsOf,
   yXmlFragmentForBinding,
@@ -40,21 +41,6 @@ function canonicalOf(block: Y.XmlElement, runs: RawText[]): BlockJSON {
     attrs: block.getAttributes(),
     content: runs,
   });
-}
-
-/** The text's items from its first live character on; Yjs keeps the head of the list private, and only deleted or format items lie before that one. */
-function* liveItemsOf(
-  store: Y.Doc["store"],
-  text: Y.XmlText,
-): Generator<Y.Item> {
-  const first = Y.createRelativePositionFromTypeIndex(text, 0).item;
-  if (first === null) return;
-  for (
-    let item: Y.Item | null = Y.getItem(store, first);
-    item !== null;
-    item = item.right
-  )
-    if (!item.deleted) yield item;
 }
 
 /** For each character of the block's text, in order: false when client c wrote it at a clock from exclude.get(c). */

@@ -193,6 +193,24 @@ export interface HistoryControl {
   beforeVersionId: string | null;
 }
 
+/** The data of a `copies_kept` CONTROL frame, as UTF-8 JSON: what the server found twice after the push of `userId`. */
+export interface CopiesKeptControl {
+  userId: string;
+  at: number;
+  /**
+   * Each copy that differs, left in the script: `blockId` names the kept block and `copyId` the copy;
+   * `mine` is the copy's wording under the kept block's ID, `theirs` the kept block's; `otherUserIds`
+   * wrote the kept block, ascending.
+   */
+  copies: {
+    blockId: string;
+    copyId: string;
+    mine: BlockJSON;
+    theirs: BlockJSON;
+    otherUserIds: string[];
+  }[];
+}
+
 const VERSION_CURSOR = /^\d+:[A-Za-z0-9_-]{1,64}$/;
 
 /** A page cursor of GET /api/versions: "<createdAt>:<id>". */
