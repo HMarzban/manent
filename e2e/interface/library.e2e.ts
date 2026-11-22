@@ -13,6 +13,10 @@ const tabKey = (browserName: string): string =>
 
 const focused = (page: Page) => page.locator(":focus");
 
+// a new script left with no text and its first name is taken out of the Library when it is left
+const editable = (page: Page) =>
+  page.locator("[data-region='page'] [contenteditable='true']");
+
 test("as Dana the switcher shows both workspaces, and New script opens an untitled script", async ({
   page,
 }) => {
@@ -33,6 +37,10 @@ test("as Dana the switcher shows both workspaces, and New script opens an untitl
     .click();
   await expect(page).toHaveURL(DOCUMENT_PATH);
   await expect(page).toHaveTitle("Untitled script — Dana Reyes — Manent demo");
+  // New script puts focus on the page at the caret
+  await expect(editable(page)).toBeFocused();
+  await page.keyboard.type("The tide turns.");
+  await expect(editable(page)).toContainText(/the tide turns/i);
   await page.getByRole("button", { name: "‹ Library" }).click();
   await expect(page.getByRole("region", { name: "Continue" })).toContainText(
     "Untitled script",
@@ -48,27 +56,32 @@ test("the Library is reached by keys alone", async ({ page, browserName }) => {
   await expect(
     page.getByRole("button", { name: "Writers' room", exact: true }),
   ).toBeVisible();
-  // a first project, made with keys: New project, then its first card
-  for (let press = 0; press < 3; press++) await page.keyboard.press(tab);
+  // a first project, made with keys: New project, after Import… and New script, then its first card
+  for (let press = 0; press < 4; press++) await page.keyboard.press(tab);
   await expect(focused(page)).toHaveText("New project");
   await page.keyboard.press("Enter");
   await expect(focused(page)).toContainText("Film");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(DOCUMENT_PATH);
-  // the document's screen has replaced the Library
+  // the document's screen has replaced the Library, with focus at the caret
   await expect(heading).toHaveCount(0);
+  await expect(editable(page)).toBeFocused();
+  await page.keyboard.type("The tide turns.");
+  await expect(editable(page)).toContainText(/the tide turns/i);
   await page.goBack();
   await expect(heading).toBeFocused();
   const order: string[] = [];
-  for (let press = 0; press < 5; press++) {
+  for (let press = 0; press < 6; press++) {
     await page.keyboard.press(tab);
     order.push((await focused(page).textContent()) ?? "");
   }
   expect(order).toEqual([
-    "Writers' room▾",
+    "Writers' room",
+    "Import…",
     "New script",
     "New project",
     "LM",
-    "Untitled scriptUntitled film · FilmOnly in this browser",
+    // the row ends with where the script is, which changes as it syncs
+    expect.stringMatching(/^Untitled scriptUntitled film · Film/),
   ]);
 });
