@@ -1,6 +1,7 @@
 // A simulated world whose services keep a history and sequence production: each person's production
-// client reaches them over a line of requests and answers that can be lost, doubled or reordered, as
-// HTTP between a browser and the server can be.
+// client reaches the server's routes over a line of requests and answers that can be lost, doubled or
+// reordered, as HTTP between a browser and the server can be.
+import { createHttpProductionTransport } from "@manent/client-web";
 import { createDoc, scriptBody, scriptSettings } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import { createRng } from "@manent/demo";
@@ -27,24 +28,21 @@ import {
 import type { ProductionService, SyncService } from "@manent/server-core";
 import type { DocFile } from "@manent/storage";
 import type { MemoryStorage } from "@manent/storage/testing";
-import { ConnectError, createProductionClient } from "@manent/sync-client";
-import type {
-  Clock,
-  ProductionClient,
-  ProductionTransport,
-} from "@manent/sync-client";
+import { createProductionClient } from "@manent/sync-client";
+import type { Clock, ProductionClient } from "@manent/sync-client";
 import { createMemoryProductionCache } from "@manent/sync-client/testing";
 import type { ProductionState, VersionSet } from "@manent/sync-protocol";
 import { createWorld } from "../sync/index.ts";
 import type { SimClient, World } from "../sync/index.ts";
 import {
-  answerRequest,
+  LINE_ORIGIN,
+  createWorldServer,
   personName,
   setRoles,
   typeOnPage,
   writeScript,
 } from "./fixtures.ts";
-import type { LineAnswer, LineRequest, WorldServices } from "./fixtures.ts";
+import type { WorldServices } from "./fixtures.ts";
 
 export interface ProductionWorld extends World {
   readonly production: ProductionService;
@@ -75,12 +73,15 @@ const ENGINE_1: VersionSet = Object.freeze({
   engine: 1,
   table: 0,
 });
+const VERSIONS = Object.freeze({ current: ENGINE_1, min: ENGINE_1 });
 /** The line, the typing and the request keys draw their numbers apart from the simulation's own. */
 const LINE_SEED = 0x5eed;
 /** The chance that the line, rather than the frames, moves next while it holds something. */
 const LINE_SHARE = 0.5;
 const MAX_ROUNDS = 1_000;
 const IDLE_ADVANCE_MS = 1_000;
+/** Device n's clock runs this far ahead of the world's for an even n, and behind it for an odd one, as the simulation's devices do. */
+const SKEW_MS = 3 * 86_400_000;
 
 const turn = (): Promise<void> =>
   new Promise((resolve) => setImmediate(resolve));
@@ -97,22 +98,14 @@ class ProductionLine {
 
   constructor(
     private readonly rng: Rng,
-    private readonly serve: (
-      userId: string,
-      request: LineRequest,
-    ) => Promise<LineAnswer>,
+    private readonly serve: (request: Request) => Promise<Response>,
   ) {}
 
-  transport(userId: string, reachable: () => boolean): ProductionTransport {
-    return {
-      post: (path, body) =>
-        this.ask(userId, reachable, {
-          method: "POST",
-          path,
-          body: JSON.stringify(body),
-        }),
-      get: (path) => this.ask(userId, reachable, { method: "GET", path }),
-    };
+  /** The browser's fetch on `userId`'s device: it rejects with a TypeError, as a browser's does, for a server out of reach. */
+  fetchOf(userId: string, reachable: () => boolean): typeof fetch {
+    const ask = (input: string | URL | Request, init?: RequestInit) =>
+      this.ask(userId, reachable, new Request(input, init));
+    return Object.assign(ask, { preconnect: fetch.preconnect });
   }
 
   faults(plan: { duplicate?: number; reorder?: number }): void {
@@ -140,16 +133,16 @@ class ProductionLine {
   private ask(
     userId: string,
     reachable: () => boolean,
-    request: LineRequest,
-  ): Promise<LineAnswer> {
-    if (!reachable()) return Promise.reject(new ConnectError("unreachable"));
-    const { promise, resolve, reject } = Promise.withResolvers<LineAnswer>();
+    request: Request,
+  ): Promise<Response> {
+    if (!reachable()) return Promise.reject(new TypeError("unreachable"));
+    const { promise, resolve, reject } = Promise.withResolvers<Response>();
     // a request delivered twice is served twice; its client takes the first answer to arrive
     const run = (): void => {
-      void this.serve(userId, request).then((answer) => {
+      void this.serve(request.clone()).then((answer) => {
         const lost = this.losing.delete(userId);
         this.waiting.push(() =>
-          lost ? reject(new ConnectError("unreachable")) : resolve(answer),
+          lost ? reject(new TypeError("the answer was lost")) : resolve(answer),
         );
       });
     };
@@ -263,7 +256,7 @@ function activeRevisionOf(file: DocFile, docId: string) {
 /**
  * A world of `people` on the ten-page script, not yet locked, written by the first person's device
  * and synced everywhere, with Priya coordinating and Dana able to issue; each person's production
- * client runs on the world's clock, not on their device's, with its cache in memory.
+ * client runs on their device's clock, with its cache in memory.
  */
 export async function createProductionWorld(options: {
   seed: number;
@@ -273,7 +266,7 @@ export async function createProductionWorld(options: {
   const world = await createWorld({
     seed: options.seed,
     users: options.people,
-    serverVersions: { current: ENGINE_1, min: ENGINE_1 },
+    serverVersions: VERSIONS,
     clientVersions: () => ENGINE_1,
     hooks({ service, storage, clock }) {
       const services = createServices({ service, storage, clock: clock.clock });
@@ -302,24 +295,36 @@ export async function createProductionWorld(options: {
   const settleWorld = world.settle.bind(world);
   await settleWorld();
 
+  const server = createWorldServer({
+    services,
+    storage,
+    clock: clock.clock,
+    versions: VERSIONS,
+    people: options.people,
+  });
   const rng = createRng(options.seed ^ LINE_SEED);
-  const line = new ProductionLine(rng, (userId, request) =>
-    answerRequest(services, userId, request),
-  );
+  const line = new ProductionLine(rng, server.fetch);
   const clocks: { pending(): number }[] = [];
   const productions = new Map<string, ProductionClient>();
   for (const userId of new Set(options.people)) {
     const client = clientOf(userId);
-    const counted = countingClock(clock.clock);
+    const skew = world.clients.indexOf(client) % 2 === 0 ? SKEW_MS : -SKEW_MS;
+    const device = { ...clock.clock, now: () => clock.clock.now() + skew };
+    const counted = countingClock(device);
     clocks.push(counted);
     const reachable = (): boolean =>
       client.handle.status.get().link !== "offline";
     const bytes = (n: number): Uint8Array =>
       Uint8Array.from({ length: n }, () => rng.int(0, 255));
+    const token = server.tokenOf(userId);
     const production = createProductionClient({
       docId,
       handle: client.handle,
-      transport: line.transport(userId, reachable),
+      transport: createHttpProductionTransport({
+        baseUrl: LINE_ORIGIN,
+        token: () => token,
+        fetch: line.fetchOf(userId, reachable),
+      }),
       cache: createMemoryProductionCache(),
       random: { bytes },
       clock: counted.clock,

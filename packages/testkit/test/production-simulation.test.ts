@@ -331,19 +331,20 @@ test(
   "an issue while three people type issues what the screen stated, or is answered changed",
   LONG,
   async () => {
+    const seen = new Set<string>();
     await forSeeds(async (w) => {
       await lockedWorld(w);
       const rng = createRng(w.seed);
       const revised = rng.int(1, SCRIPT_PAGES);
+      // on odd seeds every word lands on the page already revised, which never blocks the issue
+      const revisedOnly = w.seed % 2 === 1;
       w.typeOnPage("sam", revised);
       await w.settle();
       const issuer = rng.pick(COORDINATORS);
       const request = issueRequest(w, issuer);
-      const onRevised: boolean[] = [];
       const typeSomewhere = (userId: string): void => {
-        const page = rng.next() < 0.5 ? revised : rng.int(1, SCRIPT_PAGES);
-        onRevised.push(page === revised);
-        w.typeOnPage(userId, page);
+        const anywhere = !revisedOnly && rng.next() < 0.5;
+        w.typeOnPage(userId, anywhere ? rng.int(1, SCRIPT_PAGES) : revised);
       };
       // some typing reaches the server before the button is pressed, and some races the issue
       for (const userId of PEOPLE) typeSomewhere(userId);
@@ -351,7 +352,8 @@ test(
       const answer = issue(w, issuer, request);
       for (const userId of PEOPLE) typeSomewhere(userId);
       const outcome = await answered(w, answer);
-      if (onRevised.every(Boolean)) expect(outcome.ok).toBe(true);
+      seen.add(outcome.ok ? "issued" : outcome.code);
+      if (revisedOnly) expect(outcome.ok).toBe(true);
       const { issues } = w.serverState();
       if (outcome.ok) {
         expect(issues.map((i) => [i.issueId, i.pages])).toEqual([
@@ -363,5 +365,6 @@ test(
       expect(issues).toEqual([]);
       expect(w.activeRevision().pages).not.toEqual(request.pages);
     });
+    expect([...seen].toSorted()).toEqual(["changed", "issued"]);
   },
 );
