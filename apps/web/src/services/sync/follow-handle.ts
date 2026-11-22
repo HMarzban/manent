@@ -10,7 +10,9 @@ import type {
   StatusFacts,
   Subscribable,
 } from "@manent/ui";
+import { historyEvents } from "../../history/history-events.ts";
 import type { PersonSync } from "./create-sync.ts";
+import { nameOf } from "./index-entries.ts";
 import { toStatusFacts } from "./status-facts.ts";
 import { trustEventsOf } from "./trust-events.ts";
 
@@ -171,6 +173,12 @@ export function followHandle(options: Following, open: Opened): () => void {
       lastSyncedAt: async () =>
         (await sync.store.load(docId))?.meta.lastSyncedAt ?? null,
       push: (event) => options.messages.push(messageFor(event)),
+    }),
+    historyEvents({
+      handle,
+      messages: options.messages,
+      nameOf,
+      viewerUserId: sync.userId,
     }),
     groupWaiting(options, open),
     options.opened(docId, handle),
