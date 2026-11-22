@@ -1491,6 +1491,51 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   outline-offset: -1px;
 }
 
+/* The editor's element picker and completion list: the menu surface, drawn by
+   the editor beside the caret. The option the keys are on is correction 3's. */
+:is(#mn-picker, #mn-complete) {
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem;
+  background-color: var(--bg-overlay);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: var(--shape-surface);
+  box-shadow: var(--elev-overlay);
+  font: 400 var(--type-ui) / var(--lh-ui) var(--face-ui);
+}
+#mn-picker {
+  min-width: var(--menu-min-w);
+}
+#mn-complete {
+  min-width: 10rem;
+}
+:is(#mn-picker, #mn-complete) [role="option"] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--row-h);
+  padding-inline: 0.5rem;
+  border-radius: var(--shape-control);
+  white-space: nowrap;
+  cursor: default;
+}
+:is(#mn-picker, #mn-complete) [role="option"]:hover {
+  background-color: var(--bg-subtle);
+}
+#mn-picker kbd {
+  margin-inline-start: auto;
+  min-width: 1.25rem;
+  padding-inline: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--shape-micro);
+  color: var(--fg-muted);
+  font: 500 var(--type-micro) / var(--lh-micro) var(--face-ui);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
 /* Room view: the projected script shows the driver's caret and nothing else */
 [data-surface="room"]
   :is(.mn-who-sel, .mn-who-tab, .mn-who-caret:not([data-driver]), .mn-marker) {
@@ -1570,7 +1615,10 @@ html[data-switching] *::after {
   [data-slot^="toggle"][aria-pressed="true"],
   .mn-row[aria-current]:not([aria-current="false"]),
   .mn-row[aria-selected="true"],
-  [role="option"][data-highlighted] {
+  [role="option"][data-highlighted],
+  :is(#mn-picker, #mn-complete) [aria-selected="true"],
+  :is([role^="menuitem"], [data-slot="select-item"]):focus-visible,
+  .mn-card[aria-current]:not([aria-current="false"]) {
     forced-color-adjust: none;
     background-color: Highlight;
     color: HighlightText;
