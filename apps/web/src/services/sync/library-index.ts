@@ -188,6 +188,17 @@ export function createSyncLibrary(options: {
   newId: () => string;
 }): SyncLibrary {
   const { userId, now } = options;
+  // a workspace still being seeded is no index's yet: none of its homes may be opened until it is ready
+  const isSeeding = (ws: string): boolean =>
+    options.workspaces
+      .get()
+      .some((ref) => ref.id === ws && ref.seeding !== null);
+  const ready: Subscribable<readonly WorkspaceRef[]> = {
+    get: () => options.workspaces.get().filter((ref) => ref.seeding === null),
+    subscribe: (listener) =>
+      options.workspaces.subscribe(() => listener(ready.get())),
+  };
+  const empty = createValue<readonly never[]>([]);
   const values = createDocumentValues({
     ...options,
     find: (docId) => shelves.find(docId),
@@ -196,17 +207,23 @@ export function createSyncLibrary(options: {
       shelves.show();
     },
   });
-  const shelves = createShelves({ ...options, drawn: values.draw });
+  const shelves = createShelves({
+    ...options,
+    workspaces: ready,
+    drawn: values.draw,
+  });
   options.workspaces.subscribe(() => {
     if (values.asked()) shelves.openKnown();
   });
   return {
-    continueList: (ws) => shelves.shelf(ws).continueList,
-    projects: (ws) => shelves.shelf(ws).projects,
+    continueList: (ws) =>
+      isSeeding(ws) ? empty : shelves.shelf(ws).continueList,
+    projects: (ws) => (isSeeding(ws) ? empty : shelves.shelf(ws).projects),
     async readProjects(ws) {
-      const { ready, projects } = shelves.shelf(ws);
-      await ready;
-      return projects.get();
+      if (isSeeding(ws)) return [];
+      const shelf = shelves.shelf(ws);
+      await shelf.ready;
+      return shelf.projects.get();
     },
     loadState: (ws) => shelves.shelf(ws).loadState,
     createProject: (ws, kind) => addProject({ ...options, shelves }, ws, kind),

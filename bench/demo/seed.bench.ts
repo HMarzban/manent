@@ -1,4 +1,5 @@
-// The foreground seed of `make demo`, Small and Medium, timed from an empty data folder to its seed.json.
+// The seeds of `make demo`: Small and Medium from an empty data folder to its seed.json, then
+// Lanternfield Studios' background seed into the same folder, run to its end.
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -32,20 +33,51 @@ async function timedSeed(dir: string): Promise<number> {
   return ms;
 }
 
+/** How long the background seed takes to run to its end in `dir`, in milliseconds. */
+async function timedStudio(dir: string): Promise<number> {
+  const startedAt = performance.now();
+  const child = Bun.spawn(
+    [
+      process.execPath,
+      "apps/server/src/main.ts",
+      "seed",
+      "--phase",
+      "background",
+      "--data-dir",
+      dir,
+    ],
+    {
+      cwd: ROOT,
+      stdin: "ignore",
+      stdout: "ignore",
+      stderr: "inherit",
+      ipc() {},
+    },
+  );
+  const exitCode = await child.exited;
+  if (exitCode !== 0) throw new Error(`the background seed exited ${exitCode}`);
+  return performance.now() - startedAt;
+}
+
 export default {
   id: "demo.seed",
   workload: null,
   processes: 1,
   async run(): Promise<Measurement[]> {
-    const samples: number[] = [];
+    const foreground: number[] = [];
+    const studio: number[] = [];
     for (let i = 0; i < RUNS; i++) {
       const dir = await mkdtemp(join(tmpdir(), "manent-seed-bench-"));
       try {
-        samples.push(await timedSeed(dir));
+        foreground.push(await timedSeed(dir));
+        studio.push(await timedStudio(dir));
       } finally {
         await rm(dir, { recursive: true, force: true });
       }
     }
-    return [{ metric: "foreground_ms", unit: "ms", samples }];
+    return [
+      { metric: "foreground_ms", unit: "ms", samples: foreground },
+      { metric: "studio_ms", unit: "ms", samples: studio },
+    ];
   },
 } satisfies Scenario;

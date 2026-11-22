@@ -666,6 +666,13 @@
       "stat": "max",
       "budget": 30000,
       "hardFail": 60000
+    },
+    {
+      "scenario": "demo.seed",
+      "metric": "studio_ms",
+      "stat": "max",
+      "budget": 600000,
+      "hardFail": 1200000
     }
   ]
 }

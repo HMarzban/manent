@@ -109,9 +109,19 @@ async function readSteps(path: string): Promise<SeedStep[]> {
 const zoneOffsetAt = (at: number): number =>
   -new Date(at).getTimezoneOffset() * 60_000;
 
-/** Small and Medium through a seed server on `<dataDir>/data`; resolves with what the build could not do. */
-async function seedForeground(
+const PHASES = ["foreground", "background"] as const;
+type Phase = (typeof PHASES)[number];
+
+/** Where each phase's seed server writes, under the data folder: Lanternfield Studios into its staging. */
+const PHASE_DIRS: Readonly<Record<Phase, readonly string[]>> = {
+  foreground: ["data"],
+  background: ["data", "staging", "heavy"],
+};
+
+/** The phase's steps through a seed server on its folder; resolves with what the build could not do. */
+async function seedPhase(
   options: {
+    phase: Phase;
     dataDir: string;
     seedAt: number;
     /** Null: the package's own steps. */
@@ -119,13 +129,10 @@ async function seedForeground(
   },
   seen: (docId: string) => void,
 ): Promise<SkippedAction[]> {
-  const { dataDir, seedAt } = options;
+  const { phase, seedAt } = options;
+  const dataDir = join(options.dataDir, ...PHASE_DIRS[phase]);
   const rng = createRng(DEMO_SEED);
-  const server = await createSeedServer({
-    dataDir: join(dataDir, "data"),
-    seedAt,
-    rng,
-  });
+  const server = await createSeedServer({ dataDir, seedAt, rng });
   const skipped: SkippedAction[] = [];
   try {
     const driver = createSeedDriver({
@@ -133,12 +140,14 @@ async function seedForeground(
       random: () => rng.next(),
     });
     await buildSeed({
-      phase: "foreground",
+      phase,
       driver: watchDocuments(driver, seen),
       seedAt,
       zoneOffsetMs: zoneOffsetAt(seedAt),
       onSkipped: (entry) => skipped.push(entry),
-      dataDir: join(dataDir, "data"),
+      onProgress: (done, total) =>
+        process.send?.({ t: "progress", done, total }),
+      dataDir,
       ...(options.steps === null ? {} : { steps: options.steps }),
     });
   } finally {
@@ -148,9 +157,10 @@ async function seedForeground(
 }
 
 /**
- * Seeds as `argv` says, starting with "seed"; resolves with the process's exit code. Its one line on
- * stdout is `{"seedAt":…,"skipped":[…]}` or `{"failed":"<reason>"}`; the detail of a failure goes to
- * stderr. Without `--seed-at` the seed runs at the moment it starts.
+ * Seeds as `argv` says, starting with "seed"; resolves with the process's exit code. The foreground's
+ * one line on stdout is `{"seedAt":…,"skipped":[…]}` or `{"failed":"<reason>"}`; the background tells
+ * its parent `progress`, then `done` or `failed`, over IPC. The detail of a failure goes to stderr.
+ * Without `--seed-at` the seed runs at the moment it starts.
  */
 export async function runSeedCommand(argv: readonly string[]): Promise<number> {
   let lastDocId: string | null = null;
@@ -165,9 +175,10 @@ export async function runSeedCommand(argv: readonly string[]): Promise<number> {
       },
     });
     const dataDir = values["data-dir"];
-    if (values.phase !== "foreground" || dataDir === undefined)
+    const phase = PHASES.find((p) => p === values.phase);
+    if (phase === undefined || dataDir === undefined)
       throw new TypeError(
-        `seed needs --phase foreground and --data-dir, not ${argv.join(" ")}`,
+        `seed needs --phase foreground|background and --data-dir, not ${argv.join(" ")}`,
       );
     const seedAt =
       values["seed-at"] === undefined ? Date.now() : Number(values["seed-at"]);
@@ -177,16 +188,19 @@ export async function runSeedCommand(argv: readonly string[]): Promise<number> {
       );
     const steps =
       values.steps === undefined ? null : await readSteps(values.steps);
-    const skipped = await seedForeground(
-      { dataDir, seedAt, steps },
+    const skipped = await seedPhase(
+      { phase, dataDir, seedAt, steps },
       (docId) => {
         lastDocId = docId;
       },
     );
-    console.log(JSON.stringify({ seedAt, skipped }));
+    if (phase === "background") process.send?.({ t: "done" });
+    else console.log(JSON.stringify({ seedAt, skipped }));
     return 0;
   } catch (error) {
-    console.log(JSON.stringify({ failed: reasonOf(error, lastDocId) }));
+    const reason = reasonOf(error, lastDocId);
+    process.send?.({ t: "failed", reason });
+    console.log(JSON.stringify({ failed: reason }));
     const where = error instanceof SeedBuildError ? ` in ${error.where}` : "";
     const code =
       isFields(error) && typeof error.code === "string" ? error.code : "error";
