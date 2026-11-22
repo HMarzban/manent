@@ -72,7 +72,7 @@ export function startBackgroundSeed(options: {
     {
       stdin: "ignore",
       stdout: "ignore",
-      stderr: "inherit",
+      stderr: "ignore",
       ipc(raw) {
         const message = readMessage(raw);
         if (message?.t === "progress")

@@ -6,12 +6,18 @@ import { projectHome } from "@manent/sync-protocol";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import { LIBRARY_WORDS, createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
-import type { CreateResult, LibraryIndex, ProjectKind } from "../ports.ts";
+import type {
+  ContinueItem,
+  CreateResult,
+  LibraryIndex,
+  ProjectItem,
+  ProjectKind,
+} from "../ports.ts";
 import { cached } from "./cached.ts";
 import type { PersonSync } from "./create-sync.ts";
 import { startScript } from "./create-script.ts";
 import { createShelves } from "./index-shelves.ts";
-import type { Found, Shelves } from "./index-shelves.ts";
+import type { Found, Shelf, Shelves } from "./index-shelves.ts";
 import { liveMap } from "./private-index.ts";
 import type { PrivateIndex } from "./private-index.ts";
 
@@ -173,6 +179,23 @@ function createDocumentValues(options: {
   };
 }
 
+/** The shelf of a workspace still being seeded: empty, opening no index, and refusing a new project. */
+function seedingShelf(): Shelf {
+  const handle = Promise.reject<DocHandle>(
+    new Error("The workspace is still being seeded."),
+  );
+  // only a new project asks for the index, and it is told the refusal
+  handle.catch(() => {});
+  return {
+    projects: createValue<readonly ProjectItem[]>([]),
+    continueList: createValue<readonly ContinueItem[]>([]),
+    loadState: createValue<"cached" | "problem">("cached"),
+    handle,
+    ready: Promise.resolve(),
+    opened: null,
+  };
+}
+
 /**
  * Each workspace's index opens, from the device first, when its lists are first asked for, and stays open while the
  * services live. Rows say where each document is from what the device's store holds.
@@ -189,16 +212,11 @@ export function createSyncLibrary(options: {
 }): SyncLibrary {
   const { userId, now } = options;
   // a workspace still being seeded is no index's yet: none of its homes may be opened until it is ready
-  const isSeeding = (ws: string): boolean =>
-    options.workspaces
-      .get()
-      .some((ref) => ref.id === ws && ref.seeding !== null);
-  const ready: Subscribable<readonly WorkspaceRef[]> = {
+  const seeded: Subscribable<readonly WorkspaceRef[]> = {
     get: () => options.workspaces.get().filter((ref) => ref.seeding === null),
     subscribe: (listener) =>
-      options.workspaces.subscribe(() => listener(ready.get())),
+      options.workspaces.subscribe(() => listener(seeded.get())),
   };
-  const empty = createValue<readonly never[]>([]);
   const values = createDocumentValues({
     ...options,
     find: (docId) => shelves.find(docId),
@@ -207,23 +225,31 @@ export function createSyncLibrary(options: {
       shelves.show();
     },
   });
-  const shelves = createShelves({
+  const opening = createShelves({
     ...options,
-    workspaces: ready,
+    workspaces: seeded,
     drawn: values.draw,
   });
+  const seeding = seedingShelf();
+  const shelves: Shelves = {
+    ...opening,
+    shelf: (ws) =>
+      options.workspaces
+        .get()
+        .some((ref) => ref.id === ws && ref.seeding !== null)
+        ? seeding
+        : opening.shelf(ws),
+  };
   options.workspaces.subscribe(() => {
     if (values.asked()) shelves.openKnown();
   });
   return {
-    continueList: (ws) =>
-      isSeeding(ws) ? empty : shelves.shelf(ws).continueList,
-    projects: (ws) => (isSeeding(ws) ? empty : shelves.shelf(ws).projects),
+    continueList: (ws) => shelves.shelf(ws).continueList,
+    projects: (ws) => shelves.shelf(ws).projects,
     async readProjects(ws) {
-      if (isSeeding(ws)) return [];
-      const shelf = shelves.shelf(ws);
-      await shelf.ready;
-      return shelf.projects.get();
+      const { ready, projects } = shelves.shelf(ws);
+      await ready;
+      return projects.get();
     },
     loadState: (ws) => shelves.shelf(ws).loadState,
     createProject: (ws, kind) => addProject({ ...options, shelves }, ws, kind),
