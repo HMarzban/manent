@@ -360,6 +360,8 @@ class DocSession implements Session {
     this.kept.stop();
     this.indexWait.drop();
     this.subscription.close();
+    // the client routes a document's answers to its viewer while one is open, so the next open's would never reach it
+    this.subscription.readOnly.get()?.close();
     this.copy.dispose();
     this.handshake.close();
     this.options.closed();

@@ -6,6 +6,7 @@ import type { DocRef, Message } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
 import type { PeerState, Rebuilder } from "../rebuild/rebuilder.ts";
 import type { Access, DocumentAccess } from "./access.ts";
+import { isWriterRole } from "./admission.ts";
 import type { AwarenessHub } from "./awareness.ts";
 import type { Deletions } from "./deletions.ts";
 import { syncError } from "./errors.ts";
@@ -65,7 +66,7 @@ export function checkSubscribe(
     return refuse(syncError("prompter_unavailable", doc), room);
   const { role } = resolved.access;
   if (mode === "edit") {
-    if (role === "comment" || role === "view")
+    if (!isWriterRole(role) && resolved.kind !== "index")
       return refuse(syncError("read_only_role", doc), room);
     const gate = gateDocument(peer.versions, {
       minSchemaVersion: row.schemaVersion,

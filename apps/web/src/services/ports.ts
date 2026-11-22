@@ -44,11 +44,18 @@ import type { PersonReview } from "./sync/later-index.ts";
 /** The kinds New project offers, in its order. */
 export type ProjectKind = (typeof NEW_PROJECT_CARDS)[number]["kind"];
 
+/**
+ * `not_on_device`: nothing here opens: the device holds none of it while the link is down, or the project holds no
+ * document. `fetching`: the device holds none of it yet and is fetching it. `on_server`: a fetch ended without the
+ * device holding it, as for a reader's script, which is read from the server.
+ */
 export type RowPlace =
   | { kind: "synced" }
   | { kind: "waiting"; count: number }
   | { kind: "not_on_device" }
-  | { kind: "never_synced" };
+  | { kind: "never_synced" }
+  | { kind: "fetching" }
+  | { kind: "on_server" };
 
 export interface ContinueItem {
   docId: string;
