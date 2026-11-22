@@ -6,7 +6,9 @@ import type { SectionId, SettingKey, SettingsStore } from "@manent/settings";
 import {
   Button,
   CommandButton,
-  Input,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
   MessageSlot,
   PREFERENCES_WORDS,
   SEND_WORDS,
@@ -15,6 +17,7 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
+import { SearchIcon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -157,6 +160,8 @@ function PreferencesColumn(props: {
 }): ReactNode {
   const { search, results, query, onQuery, count, onSetByYou, pane, onPane } =
     props;
+  // focused on arrival, the field shows no ring until it is left and reached again
+  const [arrival, setArrival] = useState(true);
   const onSearchKey = (event: KeyboardEvent<HTMLInputElement>): void => {
     if (event.key === "Escape" && event.currentTarget.value !== "") {
       event.preventDefault();
@@ -171,16 +176,21 @@ function PreferencesColumn(props: {
   };
   return (
     <div className="flex shrink-0 flex-col gap-2 border-b border-line p-4 sm:w-panel-left sm:border-e sm:border-b-0 sm:px-2">
-      <Input
-        ref={search}
-        type="search"
-        aria-label={PREFERENCES_WORDS.search}
-        placeholder={PREFERENCES_WORDS.search}
-        value={query}
-        onChange={(event) => onQuery(event.target.value)}
-        onKeyDown={onSearchKey}
-        className="h-control"
-      />
+      <InputGroup data-arrival={arrival ? "" : undefined} className="h-control">
+        <InputGroupAddon>
+          <SearchIcon aria-hidden="true" />
+        </InputGroupAddon>
+        <InputGroupInput
+          ref={search}
+          type="search"
+          aria-label={PREFERENCES_WORDS.search}
+          placeholder={PREFERENCES_WORDS.search}
+          value={query}
+          onChange={(event) => onQuery(event.target.value)}
+          onKeyDown={onSearchKey}
+          onBlur={() => setArrival(false)}
+        />
+      </InputGroup>
       {count === 0 ? null : (
         <Button variant="ghost" className="justify-start" onClick={onSetByYou}>
           {PREFERENCES_WORDS.setByYouCount(count)}

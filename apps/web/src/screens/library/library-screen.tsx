@@ -1,4 +1,5 @@
 // The Library: the workspace switcher, Continue, the projects, New script and New project, the person menu and the status bar.
+import { TOUR, isShown } from "@manent/demo";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   CommandButton,
@@ -43,6 +44,8 @@ const NO_ITEMS: Subscribable<readonly never[]> = createValue([]);
 const CACHED: Subscribable<"cached" | "problem"> = createValue("cached");
 // the placeholder rows drawn while the workspace is not known
 const PLACEHOLDER_ROWS = 6;
+// a Tour that lists no scenario is not opened on its own
+const TOUR_EMPTY = !TOUR.scenarios.some(isShown);
 
 /**
  * The workspace shown: the one in the address, else the person's first, else the person's own desk; null while the
@@ -130,12 +133,15 @@ function Places(props: { projects: readonly ProjectItem[] }): ReactNode {
   );
 }
 
-/** Opens the Tour in the side position the first time this person reaches the Library in demo mode. */
+/**
+ * Opens the Tour in the side position the first time this person reaches the Library in demo mode, once the Tour lists
+ * a scenario.
+ */
 function useTourOnFirstVisit(): void {
   const { flags, ready } = useServices();
   const demo = useCommandState("demo.tour").visible;
   useEffect(() => {
-    if (!demo) return;
+    if (!demo || TOUR_EMPTY) return;
     let shown = true;
     // the flags are known once the private index has been read
     void ready.then(() => {

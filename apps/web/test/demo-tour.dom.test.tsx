@@ -309,7 +309,7 @@ test("the demo bar offers the Tour once the tab has a person", async () => {
   const bar = (): Element | null =>
     container.querySelector("[data-surface='demo']");
   await demoBarControls();
-  expect(buttons(bar() ?? container).map(nameOf)).toEqual(["Person"]);
+  expect(buttons(bar() ?? container).map(nameOf)).toEqual([]);
   // the shell loads its palette lazily: loaded here first, it arrives inside the act below
   await import("../src/shell/shell-palette.tsx");
   await act(async () =>

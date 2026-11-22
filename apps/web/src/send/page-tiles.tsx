@@ -49,7 +49,7 @@ function Tile(props: { p: Pagination; index: number }): ReactNode {
   return (
     <li className="flex flex-col items-center gap-1">
       <div aria-hidden="true" className="overflow-hidden" style={frame}>
-        <div ref={sheet} style={SHEET_SCALE} />
+        <div ref={sheet} className="mn-tile" style={SHEET_SCALE} />
       </div>
       <p className="text-meta text-fg-muted tabular-nums">
         {p.pages[index]?.label}

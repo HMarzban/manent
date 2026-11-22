@@ -445,7 +445,8 @@ html[data-white-page] .mn-pages {
   --fg-attention: var(--p-amber-300);
   --fg-danger: var(--p-red-300);
   --fg-on-danger: var(--p-warm-950);
-  --line: var(--p-demo-800);
+  /* a bordered button's only edge, so 3.69:1 on the bar's ground */
+  --line: var(--p-demo-600);
   --line-strong: var(--p-demo-600);
   --focus: var(--p-demo-200);
   --chip-line: transparent;
@@ -521,7 +522,6 @@ html[data-white-page] .mn-pages {
   --dialog-w-wide: 35rem; /* 560 */
   --palette-w: 40rem; /* 640 */
   --palette-max-h: 26.25rem; /* 420 */
-  --status-device-w: 4.5rem; /* 72: slot one, "Saved" */
   --status-server-w: 17.5rem; /* 280: slot two, the longest status sentence (tested) */
   --avatar: 1.5rem; /* 24: title bar, threads */
   --avatar-sm: 1.25rem; /* 20: in rows; the smallest that holds 11 px initials */
@@ -860,7 +860,8 @@ html[data-white-page] .mn-pages {
       Nor has the palette's field, which holds focus while the palette is open
       and is the palette's own top edge: its caret is the focus, as it is on a
       page being written. A field inside an input group rings the whole
-      group, as a plain field rings itself. */
+      group, as a plain field rings itself, unless the group is marked
+      data-arrival: its field was focused on arrival and not yet left. */
 :focus-visible:not(
   [role="dialog"],
   [role="alertdialog"],
@@ -876,7 +877,9 @@ html[data-white-page] .mn-pages {
   outline-offset: var(--focus-gap);
   --tw-ring-color: transparent; /* retire the stock halo: one ring, not two */
 }
-[data-slot="input-group"]:has([data-slot="input-group-control"]:focus-visible),
+[data-slot="input-group"]:not([data-arrival]):has(
+    [data-slot="input-group-control"]:focus-visible
+  ),
 [data-slot="slider-thumb"]:has(:focus-visible) {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
@@ -1266,6 +1269,13 @@ button:not(:disabled):hover > .mn-row {
   outline: var(--page-edge-w) solid var(--page-edge);
   box-shadow: var(--elev-page);
   border-radius: var(--shape-none);
+}
+/* A page drawn small beside a Send form is white paper in every theme, as
+   the printer gets it. Its own values, because the page tokens are resolved
+   on the root. */
+.mn-tile {
+  --page-paper: var(--p-warm-0);
+  --page-ink: var(--p-ink);
 }
 .mn-sheet[data-rev]::before {
   /* the band: a strip of the revision's own paper */
