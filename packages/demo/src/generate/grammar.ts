@@ -13,16 +13,18 @@ import type {
 
 // the line slots of the engine's page profile on Letter: a manuscript's 54 slots hold 27 double-spaced lines,
 // and Ink, which has no page profile, is estimated as the screen page
-const LINES_PER_PAGE: Readonly<Record<FormatId, number>> = Object.freeze({
-  screenplay: 54,
-  multicam: 54,
-  animation: 54,
-  variety: 54,
-  game: 54,
-  ink: 54,
-  manuscript: 27,
-  stage_play: 54,
-});
+export const LINES_PER_PAGE: Readonly<Record<FormatId, number>> = Object.freeze(
+  {
+    screenplay: 54,
+    multicam: 54,
+    animation: 54,
+    variety: 54,
+    game: 54,
+    ink: 54,
+    manuscript: 27,
+    stage_play: 54,
+  },
+);
 // characters to a printed line, for estimating the lines a block takes
 const DIALOGUE_WIDTH = 35;
 const ACTION_WIDTH = 60;
