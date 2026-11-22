@@ -878,6 +878,7 @@ html[data-white-page] .mn-pages {
   :is(h1, [data-arrival])[tabindex="-1"],
   .mn-palette-field,
   .mn-page-view[contenteditable="true"],
+  .mn-plain[contenteditable="true"],
   .mn-front-field[contenteditable="plaintext-only"],
   [data-slot="input-group-control"]
 ) {
