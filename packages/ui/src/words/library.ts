@@ -61,7 +61,11 @@ export const LIBRARY_WORDS = {
   newScript: "New script",
   newProject: "New project",
   untitledScript: "Untitled script",
-  untitledProject: (kind: Kind): string => UNTITLED_PROJECT[kind],
+  /** A new project's name: the kind's, then `n` from the second one in a workspace on. */
+  untitledProject: (kind: Kind, n = 1): string =>
+    n === 1
+      ? UNTITLED_PROJECT[kind]
+      : `${UNTITLED_PROJECT[kind]} ${formatCount(n)}`,
   /** The Last edited cell: who, then `when` from formatWhen. */
   edited: (name: string, when: string): string => `${name}, ${when}`,
   synced: "Synced",
