@@ -1,9 +1,10 @@
 // The Send screen's Recall form: the pages a correction replaces, sent to the same people as the issue, with its
 // memo; one request, which the authority applies once.
 import { recallMemo } from "@manent/revisions";
+import type { RevisionSource } from "@manent/revisions";
 import { PRODUCTION_WORDS, useSubscribable } from "@manent/ui";
 import type { Message } from "@manent/ui";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { SendForm, SendFormProps } from "../../screens/send/forms.ts";
 import { SendFrame } from "../../screens/send/send-frame.tsx";
@@ -33,6 +34,28 @@ function sentCorrectedMessage(name: string, people: number): Message {
   };
 }
 
+/**
+ * The revisions a correction's pages are headed and marked by: the recalled one last, as corrected on `day`, with
+ * the marks made since its issue; the active revision goes out under it.
+ */
+function correctionSources(
+  sources: readonly RevisionSource[],
+  day: string,
+): readonly RevisionSource[] {
+  const active = sources.at(-1);
+  const recalled = sources.at(-2);
+  if (active === undefined || recalled === undefined) return sources;
+  return [
+    ...sources.slice(0, -2),
+    {
+      ...recalled,
+      name: WORDS.corrected(recalled.name),
+      day,
+      marks: new Map([...recalled.marks, ...active.marks]),
+    },
+  ];
+}
+
 function Recall(props: {
   docId: string;
   services: ProductionServices;
@@ -44,6 +67,11 @@ function Recall(props: {
   const state = useSubscribable(services.client.current())?.state ?? null;
   const waiting = useSubscribable(services.client.waiting());
   const { live } = useLiveProduction(docId, services);
+  const today = deviceDay(now());
+  const sources = useMemo(
+    () => (live === null ? [] : correctionSources(live.sources, today)),
+    [live, today],
+  );
   const request = useProductionSend("production.recall");
   const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set());
   const [memo, setMemo] = useState<string | null>(null);
@@ -58,7 +86,6 @@ function Recall(props: {
   const changed = live?.revisedPages ?? [];
   // in page order, whatever order they were ticked in
   const pages = changed.filter((label) => ticked.has(label));
-  const today = deviceDay(now());
   const shownMemo = memo ?? recallMemo(name, today, pages, issue.issuedOn);
   const tick = (label: string, on: boolean): void => {
     const next = new Set(ticked);
@@ -119,7 +146,7 @@ function Recall(props: {
             p={p}
             labels={pages}
             name={WORDS.corrected(name)}
-            sources={live.sources}
+            sources={sources}
           />
         )
       }
