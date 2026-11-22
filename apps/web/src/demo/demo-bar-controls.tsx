@@ -40,18 +40,16 @@ export function DemoBarControls(props: {
   );
 }
 
-/** Opens Choose who you are; its name is the label and the person together ("Person: Dana Reyes"). */
+/**
+ * Opens Choose who you are; its name is the label and the person together ("Person: Dana Reyes"). Not drawn before a
+ * person is chosen, when the tab is on that screen and has no person to show.
+ */
 function Person(props: {
   person: TabPerson | null;
   onClick: () => void;
 }): ReactNode {
   const { person, onClick } = props;
-  if (person === null)
-    return (
-      <Button variant="ghost" size="sm" onClick={onClick}>
-        {TEXT.person}
-      </Button>
-    );
+  if (person === null) return null;
   return (
     <BarLabelled label={TEXT.person}>
       <Button

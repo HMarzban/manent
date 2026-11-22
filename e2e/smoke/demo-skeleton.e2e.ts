@@ -273,9 +273,8 @@ test("a session the server no longer accepts lands on the chooser", async ({
   // /api/me answers 401
   await page.goto("/");
   await expect(page).toHaveURL(/\/choose\?next=%2F$/);
-  await expect(
-    page.getByRole("button", { name: "Person", exact: true }),
-  ).toBeVisible();
+  // the demo bar draws no person
+  await expect(page.getByRole("button", { name: /^Person/ })).toHaveCount(0);
 });
 
 test("the status line appears empty, then speaks", async ({ page }) => {
