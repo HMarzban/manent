@@ -54,6 +54,11 @@ export function formatWhen(at: number, now: number): string {
   return formatDate(at);
 }
 
+/** Where one item stands among `n`, as a stepper writes it: "3 of 17". */
+export function formatPosition(i: number, n: number): string {
+  return `${formatCount(i)} of ${formatCount(n)}`;
+}
+
 /** "Dana", "Dana and Sam", "Dana, Sam and Priya". */
 export function joinNames(names: readonly string[]): string {
   if (names.length < 2) return names.join("");

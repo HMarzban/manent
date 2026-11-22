@@ -2,6 +2,7 @@
 // format; a row goes to its place in the page.
 import {
   DOCUMENT_WORDS,
+  HISTORY_WORDS,
   Input,
   Row,
   SCENES_WORDS,
@@ -205,8 +206,8 @@ function ScenesList(props: { docId: string }): ReactNode {
             <div className="p-2">
               <Input
                 type="search"
-                aria-label={SCENES_WORDS.filter}
-                placeholder={SCENES_WORDS.filter}
+                aria-label={HISTORY_WORDS.filter}
+                placeholder={HISTORY_WORDS.filter}
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
                 onKeyDown={(event) => {
