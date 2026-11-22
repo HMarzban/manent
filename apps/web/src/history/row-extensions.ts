@@ -1,6 +1,7 @@
 // What another feature adds to a version's row.
 import type { CommandId } from "@manent/commands";
 import type { VersionItem } from "@manent/sync-protocol";
+import { productionHistoryRow } from "../production/history-row.ts";
 
 export interface RowExtension {
   /** The row's second line in place of the summary; the first non-null wins. */
@@ -9,4 +10,4 @@ export interface RowExtension {
   menu(docId: string, item: VersionItem): readonly CommandId[];
 }
 
-export const ROW_EXTENSIONS: readonly RowExtension[] = [];
+export const ROW_EXTENSIONS: readonly RowExtension[] = [productionHistoryRow];
