@@ -47,7 +47,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root {
     --m-elev-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 12px rgb(0 0 0 / 0.3);
     --m-elev-2: 0 1px 2px rgb(0 0 0 / 0.45), 0 14px 32px rgb(0 0 0 / 0.45);
     --m-bar-shadow: 0 1px 0 var(--line), 0 8px 24px rgb(0 0 0 / 0.35);
@@ -55,15 +55,6 @@
     --m-light-a: rgb(141 174 255 / 0.08);
     --m-light-b: rgb(227 179 65 / 0.06);
   }
-}
-
-:root[data-theme="dark"] {
-  --m-elev-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 12px rgb(0 0 0 / 0.3);
-  --m-elev-2: 0 1px 2px rgb(0 0 0 / 0.45), 0 14px 32px rgb(0 0 0 / 0.45);
-  --m-bar-shadow: 0 1px 0 var(--line), 0 8px 24px rgb(0 0 0 / 0.35);
-  --m-grain-opacity: 0.05;
-  --m-light-a: rgb(141 174 255 / 0.08);
-  --m-light-b: rgb(227 179 65 / 0.06);
 }
 
 /* ---------- icons ---------- */
@@ -109,11 +100,6 @@
 
 .m-btn:active {
   filter: brightness(0.96);
-}
-
-.m-btn:focus-visible {
-  outline: var(--m-ring);
-  outline-offset: var(--m-ring-offset);
 }
 
 .m-btn[aria-disabled="true"] {
@@ -344,19 +330,6 @@
   background-size: 100% 1px;
 }
 
-/* links inside prose keep their underline; it thickens and darkens on hover */
-.m-link-inline {
-  text-decoration-line: underline;
-  text-decoration-thickness: 0.06em;
-  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
-  text-underline-offset: 0.18em;
-}
-
-.m-link-inline:hover {
-  text-decoration-thickness: 0.12em;
-  text-decoration-color: currentColor;
-}
-
 /* ---------- top bar: data-topbar on the header; motion.js sets data-scrolled ---------- */
 
 /* once scrolled, the bar turns frosted at once and its shadow fades in underneath; the row keeps its height */
@@ -502,35 +475,32 @@
 
 /* ---------- note popover for table cells: details.m-note > summary + .m-note-card ---------- */
 
+/* the summary is the value itself: a dotted underline says it opens, and it is tinted while hovered or open */
 .m-note {
   position: relative;
   display: inline-block;
 }
 
 .m-note > summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
+  display: inline-block;
   list-style: none;
   cursor: pointer;
-  border-radius: 4px;
-  font-family: var(--sans);
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--accent);
+  padding: 0.25rem 0.5rem;
+  margin: -0.25rem -0.5rem;
+  border-radius: 6px;
+  text-decoration: underline dotted var(--line-strong);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.3em;
 }
 
 .m-note > summary::-webkit-details-marker {
   display: none;
 }
 
-.m-note > summary .m-icon {
-  width: 1em;
-  height: 1em;
-}
-
-.m-note[open] > summary .m-icon-turn {
-  rotate: 180deg;
+.m-note > summary:hover,
+.m-note[open] > summary {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  text-decoration-color: currentColor;
 }
 
 .m-note-card {
@@ -540,25 +510,20 @@
   border-radius: 8px;
   background: var(--paper);
   color: var(--fg);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   line-height: 1.5;
 }
 
-/* where there is room, the note floats over the table instead of pushing the row open */
+/* where there is room, the note floats over the table instead of pushing the row open; under the bars */
 @media (min-width: 60.0625rem) {
   .m-note-card {
     position: absolute;
-    z-index: 15;
+    z-index: 3;
     left: 0;
     top: 100%;
     width: max-content;
     max-width: 20rem;
     box-shadow: var(--m-elev-2);
-  }
-
-  .m-note[data-align="end"] .m-note-card {
-    left: auto;
-    right: 0;
   }
 }
 
@@ -582,13 +547,9 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .m-paper::before {
+  .m-paper::before {
     filter: invert(1);
   }
-}
-
-:root[data-theme="dark"] .m-paper::before {
-  filter: invert(1);
 }
 
 .m-light {
@@ -807,8 +768,8 @@
       transition: transform var(--m-dur-base) var(--m-ease-move);
     }
 
-    /* a strip of tabs too wide for its screen slides to the chosen one */
-    [role="tablist"] {
+    /* a strip too wide for its screen slides to the chosen item */
+    [data-strip] {
       scroll-behavior: smooth;
     }
 
@@ -857,10 +818,6 @@
 
     .m-note[open] > .m-note-card {
       animation: m-fade-up var(--m-dur-base) var(--m-ease-settle);
-    }
-
-    .m-note > summary .m-icon-turn {
-      transition: rotate var(--m-dur-base) var(--m-ease-move);
     }
 
     /* loops: they run only until the visitor pauses them */

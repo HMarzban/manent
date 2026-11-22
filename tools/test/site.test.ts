@@ -150,7 +150,9 @@ test("every file each page loads is in the site folder", async () => {
           : []),
       ];
     }),
-  ).filter((path) => path !== "" && !path.startsWith("data:"));
+  )
+    .filter((path) => path !== "" && !path.startsWith("data:"))
+    .map((path) => path.replace(/^\/manent\//, ""));
   const missing: string[] = [];
   for (const path of new Set(local))
     if (/^[a-z]+:/.test(path) || !(await Bun.file(join(site, path)).exists()))

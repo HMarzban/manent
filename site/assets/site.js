@@ -1,5 +1,6 @@
-// Without this script the page still reads in full; it points Download at the visitor's system, switches the
-// audience tabs, opens the recording in a dialog and lets a phone send the page on.
+// Without this script the page still reads in full; it points Download at the visitor's system, opens the
+// recording in a dialog, lets a phone send the page on, marks the part of a long page in view and switches the
+// audience tabs. Each part acts only on the pages that have its elements.
 (() => {
   // ---------- Download: the file for the visitor's system ----------
   // Each release publishes one file per system under these names. A system without a file, or a visitor whose
@@ -34,18 +35,22 @@
     ? undefined
     : SYSTEMS.find(({ pattern }) => pattern.test(platform));
   const all = (selector) => document.querySelectorAll(selector);
+  // the landing page's Download section, as the bar's Download names it from this page
+  const downloads = document
+    .querySelector(".masthead [data-get]")
+    .getAttribute("href");
 
   for (const button of all("[data-get]")) {
     const label = button.querySelector("[data-get-label]");
     const system = button.querySelector("[data-system]");
     if (handheld) {
-      button.href = "#download";
+      button.href = downloads;
       if (label) label.textContent = label.dataset.handheld;
       if (system) system.textContent = system.dataset.handheld;
     } else if (found) {
       button.href = fileFor(found);
       if (system) system.textContent = `for ${found.name}`;
-    } else button.href = "#download";
+    } else button.href = downloads;
   }
 
   for (const link of all("[data-download]")) {
@@ -129,8 +134,61 @@
     });
   }
 
+  // ---------- a strip that scrolls sideways on a phone ----------
+  // data-more names the edges with items past them; reach brings an item into the strip's view, only sideways,
+  // so the page itself does not move
+  const edges = (strip) => {
+    const end = strip.scrollWidth - strip.clientWidth;
+    const more = [];
+    if (strip.scrollLeft > 1) more.push("start");
+    if (strip.scrollLeft < end - 1) more.push("end");
+    if (more.length) strip.dataset.more = more.join(" ");
+    else delete strip.dataset.more;
+  };
+  for (const strip of all("[data-strip]")) {
+    strip.addEventListener("scroll", () => edges(strip), { passive: true });
+    new ResizeObserver(() => edges(strip)).observe(strip);
+  }
+
+  const reach = (item) => {
+    const strip = item.closest("[data-strip]");
+    if (!strip || strip.scrollWidth <= strip.clientWidth) return;
+    strip.scrollTo({
+      left: item.offsetLeft - (strip.clientWidth - item.offsetWidth) / 2,
+    });
+  };
+
+  // ---------- a long page's contents: the link to the part in view is marked current ----------
+  // a part is in view while it crosses a band just above the middle of the screen; above or below them all, none is
+  for (const nav of all("[data-spy]")) {
+    const links = new Map(
+      [...nav.querySelectorAll('a[href^="#"]')]
+        .map((link) => [document.getElementById(link.hash.slice(1)), link])
+        .filter(([part]) => part),
+    );
+    const crossing = new Set();
+    let current;
+    const spy = new IntersectionObserver(
+      (entries) => {
+        for (const { target, isIntersecting } of entries)
+          if (isIntersecting) crossing.add(target);
+          else crossing.delete(target);
+        const part = [...links.keys()].find((key) => crossing.has(key));
+        if (part === current) return;
+        links.get(current)?.removeAttribute("aria-current");
+        current = part;
+        if (!part) return;
+        links.get(part).setAttribute("aria-current", "true");
+        reach(links.get(part));
+      },
+      { rootMargin: "-40% 0px -55% 0px" },
+    );
+    for (const part of links.keys()) spy.observe(part);
+  }
+
   // ---------- who it's for: one panel at a time ----------
   const tabs = document.querySelector("[data-tabs]");
+  if (!tabs) return;
   const strip = tabs.querySelector('[role="tablist"]');
   const list = [...strip.querySelectorAll('[role="tab"]')];
   const panels = list.map((tab) =>
@@ -143,26 +201,6 @@
     panel.setAttribute("aria-labelledby", list[i].id);
     panel.tabIndex = 0;
   });
-
-  // on a phone the strip scrolls sideways: data-more names the edges with tabs past them, and the chosen tab is
-  // brought into the strip's view (only sideways, so the page itself does not move)
-  const edges = () => {
-    const end = strip.scrollWidth - strip.clientWidth;
-    const more = [];
-    if (strip.scrollLeft > 1) more.push("start");
-    if (strip.scrollLeft < end - 1) more.push("end");
-    if (more.length) strip.dataset.more = more.join(" ");
-    else delete strip.dataset.more;
-  };
-  strip.addEventListener("scroll", edges, { passive: true });
-  new ResizeObserver(edges).observe(strip);
-
-  const reach = (tab) => {
-    if (strip.scrollWidth <= strip.clientWidth) return;
-    strip.scrollTo({
-      left: tab.offsetLeft - (strip.clientWidth - tab.offsetWidth) / 2,
-    });
-  };
 
   const select = (index, focus) => {
     list.forEach((tab, i) => {
