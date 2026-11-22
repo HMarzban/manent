@@ -1,8 +1,10 @@
 // Operations on a simulated world as fast-check draws them: each names a device and an edit of the
-// script, a change of connection, or frames to deliver. Indices are taken modulo what exists.
+// script, a change of connection, or frames to deliver; a literal run may also rebuild or let a
+// quiet moment pass. Indices are taken modulo what exists.
 import { scriptBody } from "@manent/crdt";
 import { formatFrom } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
+import { DEFAULT_LIMITS } from "@manent/server-core";
 import fc from "fast-check";
 import type { SimClient, World } from "../src/index.ts";
 
@@ -18,6 +20,8 @@ export type Op = { device: number } & (
   | { kind: "offline" }
   | { kind: "online" }
   | { kind: "deliver"; frames: number }
+  | { kind: "rebuild" }
+  | { kind: "quiet" }
 );
 
 export interface Run {
@@ -134,7 +138,10 @@ const blockJSON = (
   content: text === "" ? [] : [{ type: "text", text }],
 });
 
-type Edit = Exclude<Op, { kind: "offline" | "online" | "deliver" }>;
+type Edit = Exclude<
+  Op,
+  { kind: "offline" | "online" | "deliver" | "rebuild" | "quiet" }
+>;
 
 /** One edit of `device`'s script; an edit of a block that is not there writes nothing. */
 function edit(world: World, device: SimClient, op: Edit): void {
@@ -214,5 +221,8 @@ export function applyOp(world: World, op: Op): void {
     for (let i = 0; i < op.frames; i++) world.network.step();
     return;
   }
+  if (op.kind === "rebuild") return world.requestRebuild();
+  if (op.kind === "quiet")
+    return world.clock.advance(DEFAULT_LIMITS.rebuildQuietMs);
   edit(world, device, op);
 }
