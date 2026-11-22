@@ -30,10 +30,10 @@ export function ContinueList(props: {
   return (
     <section
       aria-label={LIBRARY_WORDS.continueHeading}
-      className="@container flex shrink-0 flex-col"
+      className="@container flex max-h-1/3 shrink-0 flex-col"
     >
       <h2 className="mn-group-label">{LIBRARY_WORDS.continueHeading}</h2>
-      <div className={cn("mn-table min-h-0", PLACE_COLUMN)}>
+      <div className={cn("mn-table min-h-0 flex-1", PLACE_COLUMN)}>
         <VirtualRows
           count={items.length}
           rowHeight="two"

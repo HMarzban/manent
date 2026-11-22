@@ -35,7 +35,7 @@ import { LibraryStatusBar } from "./library-status-bar.tsx";
 import { NewProjectPopover } from "./new-project-popover.tsx";
 import { PersonMenu } from "./person-menu.tsx";
 import { KindIcon } from "./project-kind.tsx";
-import { ProjectList } from "./project-list.tsx";
+import { NoProjects, ProjectList } from "./project-list.tsx";
 import { WorkspaceSwitcher } from "./workspace-switcher.tsx";
 
 // what the lists read while the workspace shown is not known yet
@@ -168,7 +168,10 @@ function useWorkspaceLists(workspaceId: string | null): {
   };
 }
 
-/** The main column: Continue, then the projects; the problem line above them when the list could not be loaded. */
+/**
+ * The main column: Continue, then the projects; the problem line above them when the list could not be loaded. The
+ * column does not scroll: Continue keeps to a third of it and the projects take the rest, each scrolling in its card.
+ */
 function Lists(props: {
   workspaceId: string | null;
   continueList: readonly ContinueItem[];
@@ -181,20 +184,21 @@ function Lists(props: {
   const [arrivedAt] = useState(() => now());
   const open = (docId: string) => void navigate({ href: `/s/${docId}` });
   const problem = <p className="text-ui">{LIBRARY_WORDS.problem}</p>;
-  const lists = (
-    <>
-      {props.problem ? problem : null}
-      {projects.length === 0 ? null : (
+  const lists =
+    projects.length === 0 ? (
+      <NoProjects problem={props.problem ? problem : null} />
+    ) : (
+      <>
+        {props.problem ? problem : null}
         <ContinueList items={continueList} shell={where.shell} open={open} />
-      )}
-      <ProjectList
-        projects={projects}
-        shell={where.shell}
-        now={now()}
-        open={open}
-      />
-    </>
-  );
+        <ProjectList
+          projects={projects}
+          shell={where.shell}
+          now={now()}
+          open={open}
+        />
+      </>
+    );
   const render: SurfaceRenderers = {
     ready: () => lists,
     empty: () => lists,
@@ -252,7 +256,7 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
       </ShellRegion>
       <div className="@container flex min-h-0 flex-1">
         <Places projects={projects} />
-        <div className="flex min-w-0 flex-1 flex-col gap-8 overflow-y-auto px-6 pt-6 pb-8 *:w-full *:max-w-content-wide">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 px-6 pt-6 pb-8 *:w-full *:max-w-content-wide">
           <Lists
             workspaceId={workspaceId}
             continueList={continueList}
