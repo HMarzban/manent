@@ -261,7 +261,10 @@ function mountEditor(
     spelling: () => isSpellingChecked(personal),
   };
   if (parts.profile === null)
-    return { ...mountPlainView(shared), scaffold: null };
+    return {
+      ...mountPlainView({ ...shared, ports: options.ports }),
+      scaffold: null,
+    };
   return mountPageView({
     ...shared,
     profile: parts.profile,
