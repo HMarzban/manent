@@ -351,7 +351,7 @@ test("a block the replay wrote and someone removed before the new document loade
   expect(textOf(h.doc())).toBe("draftx");
 });
 
-test("an overlap a move filed stays when its block overlaps again online", async () => {
+test("an overlap a move filed stays the one listed when its block overlaps again online", async () => {
   const { w, h } = await waitingEdits();
   const { server } = w;
   server.write(DOC, (writer) => writer.insertText(B1, 0, "first "));
@@ -376,10 +376,7 @@ test("an overlap a move filed stays when its block overlaps again online", async
     h.recovered
       .get()
       .map((r) => [r.cause, r.mine && blockText(blockView(r.mine))]),
-  ).toEqual([
-    ["overlap", "draftx"],
-    ["overlap", "first draft!"],
-  ]);
+  ).toEqual([["overlap", "draftx"]]);
 });
 
 test("an update of the new generation that comes before its step 2 leaves the old document as it was", async () => {

@@ -100,14 +100,14 @@ export class OverlapWindow {
       const first = touch?.changes.find((change) => isRecent(change, now));
       if (blockId === null || touch === undefined || first === undefined)
         continue;
+      if (this.isHeldElsewhere(blockId)) continue;
       const exclude = new Map([[doc.clientId, first.fromClock]]);
       const theirs = readBlockExcluding(doc, blockId, exclude);
       if (theirs === null || isSameBlock(theirs, touch.mine)) continue;
       const overlap = { blockId, mine: touch.mine, theirs };
       leftovers.push(overlapLeftover(overlap, others));
     }
-    // each takes the id of the overlap this window filed for its block and still open, which it
-    // replaces; one a merge filed holds a wording kept nowhere else, and stays
+    // each takes the id of the overlap this window filed for its block and still open, which it replaces
     for (const item of this.host.items(leftovers)) {
       const earlier = this.filed.get(item.blockId);
       const open = this.host.recovered.some((r) => r.id === earlier);
@@ -122,6 +122,17 @@ export class OverlapWindow {
     const found = [...this.found.values()];
     this.found = new Map();
     return found;
+  }
+
+  /**
+   * Whether the block has an open overlap this window did not file: a reconnect's or a rebuilt
+   * script's, holding a wording kept nowhere else, which stays the one To review lists.
+   */
+  private isHeldElsewhere(blockId: string): boolean {
+    const filed = this.filed.get(blockId);
+    return this.host.recovered.some(
+      (r) => r.cause === "overlap" && r.blockId === blockId && r.id !== filed,
+    );
   }
 
   private forget(now: number): void {
