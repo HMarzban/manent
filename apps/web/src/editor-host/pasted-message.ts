@@ -10,6 +10,6 @@ export function sayPastedAs(messages: MessageQueue, count: number): void {
     text: IMPORT_WORDS.pastedAs(count),
     actions: [{ label: "Undo", commandId: "edit.undo" }],
     lifetime: "brief",
-    ownWork: true,
+    ownWork: false,
   });
 }
