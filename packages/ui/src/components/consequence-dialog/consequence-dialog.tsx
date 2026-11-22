@@ -1,14 +1,10 @@
 // The one dialog frame for an action other people will see and Manent cannot quietly reverse.
 import { TriangleExclamationPointIcon } from "lucide-react";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
-import {
-  SPINNER_AFTER_MS,
-  STILL_WORKING_MS,
-  useTiming,
-} from "../../surfaces/timing.ts";
+import { STILL_WORKING_MS } from "../../surfaces/timing.ts";
 import { DIALOG_WORDS } from "../../words/dialog.ts";
-import { BusyButton } from "../busy-button/busy-button.tsx";
+import { BusyButton, useHeldFor } from "../busy-button/busy-button.tsx";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -37,8 +33,6 @@ export interface ConsequenceDialogProps {
   wide?: boolean;
   children?: ReactNode;
 }
-
-type BusyPhase = "idle" | "waiting" | "spinning" | "still_working";
 
 // the stock dialog's scrim
 const SCRIM_SELECTOR = "[data-slot='alert-dialog-overlay']";
@@ -74,23 +68,6 @@ function useInertScrim(open: boolean): void {
     globalThis.addEventListener("mousedown", keepFocus, true);
     return () => globalThis.removeEventListener("mousedown", keepFocus, true);
   }, [open]);
-}
-
-function useBusyPhase(busy: boolean): BusyPhase {
-  const { schedule } = useTiming();
-  const [phase, setPhase] = useState<BusyPhase>("idle");
-  useLayoutEffect(() => {
-    setPhase(busy ? "waiting" : "idle");
-    if (!busy) return undefined;
-    const cancels = [
-      schedule(() => setPhase("spinning"), SPINNER_AFTER_MS),
-      schedule(() => setPhase("still_working"), STILL_WORKING_MS),
-    ];
-    return () => {
-      for (const cancel of cancels) cancel();
-    };
-  }, [busy, schedule]);
-  return phase;
 }
 
 interface LineProps {
@@ -177,11 +154,10 @@ export function ConsequenceDialog({
 }: ConsequenceDialogProps): ReactNode {
   if (titledBy === "question") assertQuestionTitle(title, action);
   const busy = busyLabel !== null;
-  const phase = useBusyPhase(busy);
+  const stillWorking = useHeldFor(busy, STILL_WORKING_MS);
   useInertScrim(open);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const lineId = useId();
-  const stillWorking = phase === "still_working";
   const disabledLine =
     disabledReason === undefined || busy
       ? null
@@ -220,7 +196,6 @@ export function ConsequenceDialog({
           <BusyButton
             label={refusal === null ? action : DIALOG_WORDS.tryAgain}
             busyLabel={busyLabel}
-            spinning={phase === "spinning" || phase === "still_working"}
             variant={destructive ? "destructive" : "default"}
             disabled={disabledLine !== null}
             aria-describedby={describing ? lineId : undefined}

@@ -6,7 +6,6 @@ import {
   DIALOG_WORDS,
   PROGRESS_AFTER_MS,
   SEND_WORDS,
-  SPINNER_AFTER_MS,
   STILL_WORKING_MS,
   useTiming,
 } from "@manent/ui";
@@ -113,9 +112,8 @@ export function SendLayout(props: {
   );
 }
 
-// each one shows once the work has been busy for that long: the spinner, the progress, Still working…, then Cancel
+// each one shows once the work has been busy for that long: the progress, Still working…, then Cancel
 const BUSY_STEPS = [
-  SPINNER_AFTER_MS,
   PROGRESS_AFTER_MS,
   STILL_WORKING_MS,
   CANCEL_AFTER_MS,
@@ -206,15 +204,15 @@ function BusyAside(props: { action: SendAction; step: number }): ReactNode {
   if (!action.busy) return null;
   return (
     <>
-      {progress !== null && step >= 2 ? (
+      {progress !== null && step >= 1 ? (
         <span className="text-ui text-fg-muted">{progress}</span>
       ) : null}
-      {step >= 3 ? (
+      {step >= 2 ? (
         <span className="text-ui text-fg-muted">
           {DIALOG_WORDS.stillWorking}
         </span>
       ) : null}
-      {cancel !== null && step >= 4 ? (
+      {cancel !== null && step >= 3 ? (
         <Button variant="outline" size="lg" onClick={cancel}>
           {DIALOG_WORDS.cancel}
         </Button>
@@ -286,7 +284,6 @@ export function SendFrame(props: {
                   size="lg"
                   label={action.label}
                   busyLabel={action.busy ? action.busyLabel : null}
-                  spinning={step >= 1}
                   disabled={
                     action.disabledReason !== null || action.run === null
                   }

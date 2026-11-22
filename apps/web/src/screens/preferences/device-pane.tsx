@@ -5,16 +5,13 @@ import {
   Button,
   DESKTOP_WORDS,
   PREFERENCES_WORDS,
-  SPINNER_AFTER_MS,
   SettingRow,
   useSubscribable,
-  useTiming,
 } from "@manent/ui";
 import {
   useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -160,17 +157,6 @@ function ActionRow(props: {
   );
 }
 
-/** True once `busy` has held for the spinner's wait; false again as soon as it ends. */
-function useSpinnerDue(busy: boolean): boolean {
-  const { schedule } = useTiming();
-  const [due, setDue] = useState(false);
-  useLayoutEffect(() => {
-    setDue(false);
-    return busy ? schedule(() => setDue(true), SPINNER_AFTER_MS) : undefined;
-  }, [busy, schedule]);
-  return due;
-}
-
 interface DesktopDevice {
   rows: DesktopDeviceRows;
   showLibrary(): void;
@@ -243,7 +229,6 @@ function DesktopStoredHere(props: { device: DesktopDevice }): ReactNode {
 /** The version, its channel and Check for updates, with the check's outcome under it. */
 function DesktopVersion(props: { device: DesktopDevice }): ReactNode {
   const { rows, checkForUpdates } = props.device;
-  const spinning = useSpinnerDue(rows.update.busy);
   return (
     <>
       <p className="text-ui">{rows.version}</p>
@@ -256,7 +241,6 @@ function DesktopVersion(props: { device: DesktopDevice }): ReactNode {
           busyLabel={
             rows.update.busy ? PREFERENCES_WORDS.checkingForUpdates : null
           }
-          spinning={spinning}
           onClick={checkForUpdates}
         />
       </div>
