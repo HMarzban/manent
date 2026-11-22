@@ -24,6 +24,7 @@ const ENTRIES: Readonly<Record<string, readonly string[]>> = {
     "layout.ts",
     "lock.ts",
     "outcome.ts",
+    "packet.ts",
     "pages.ts",
     "ports.ts",
     "recall.ts",
