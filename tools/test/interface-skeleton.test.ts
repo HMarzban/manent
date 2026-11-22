@@ -62,7 +62,6 @@ test("the ui entry lists its folders, and every folder entry names only modules 
       "./settings-react",
       "./subscribable",
       "./surfaces",
-      "./tokens",
       "./words",
     ].map((f) => `export * from "${f}/index.ts";`),
   );

@@ -94,7 +94,6 @@ export const HISTORY_WORDS = {
   stepName: (i: number, n: number): string =>
     `Change ${formatCount(i)} of ${formatCount(n)}`,
   draftsOnly: "Drafts only",
-  rowMenu: ["Restore", "Restore this scene", "Name this draft…"],
   /** `ref` is `versionRef`'s. */
   restoreTitle: (ref: string): string => `Restore ${ref}?`,
   restoreBody: "The script as it is now is kept as 'Before restore'.",

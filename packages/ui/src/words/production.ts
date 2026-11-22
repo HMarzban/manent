@@ -1,5 +1,6 @@
 // The words of production revisions: locking, the Pages tab, omitting scenes, and issuing and recalling revisions.
 
+import { waitingReason } from "@manent/commands";
 import { formatCount, joinNames } from "./format.ts";
 
 const plural = (n: number, one: string, many: string): string =>
@@ -106,9 +107,8 @@ export const PRODUCTION_WORDS = {
     next: string,
   ): string =>
     `${byName} issued ${name} at ${time}. Review what changed since, then issue ${next}.`,
-  /** A reason clause, written into a sentence by `DIALOG_WORDS.disabledLine`. */
-  waitingReason: (n: number): string =>
-    `needs this device's ${plural(n, "waiting change", "waiting changes")} synced first`,
+  /** A reason clause, written into a sentence by `DIALOG_WORDS.disabledLine`; the command registry's, so the palette and the Send screen say it alike. */
+  waitingReason,
   /** A reason clause, written into a sentence by `DIALOG_WORDS.disabledLine`. */
   connectionReason: "needs a connection",
   recallButton: (name: string): string => `Recall ${name}`,
