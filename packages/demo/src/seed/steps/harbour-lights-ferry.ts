@@ -99,7 +99,7 @@ async function studioDraft({
       meter,
       guide: GUIDE,
       rng,
-      used: usedNear(joined, before.length, PAGES),
+      used: usedNear(GUIDE, joined, before.length, PAGES),
       totals: [{ layout: LAYOUT, pages: PAGES }],
     },
   );
@@ -135,7 +135,7 @@ function addedActions(script: WrittenScript, rng: Rng): SeedBlock[] {
         actionAt(doc, place, {
           guide: GUIDE,
           rng,
-          used: usedNear(doc, place, PAGES),
+          used: usedNear(GUIDE, doc, place, PAGES),
         }),
       );
   }

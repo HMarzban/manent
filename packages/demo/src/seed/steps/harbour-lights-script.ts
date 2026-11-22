@@ -6,7 +6,7 @@ import type { SeedBlock, SeedPassage } from "../../content/markup.ts";
 import { deriveDrafts } from "../../generate/drafts.ts";
 import type { BlockChange } from "../../generate/drafts.ts";
 import type { PageMeter, SeedLayout } from "../../generate/fit.ts";
-import { generateScenes } from "../../generate/grammar.ts";
+import { generateScenes, withTag } from "../../generate/grammar.ts";
 import { SeedBuildError } from "../../generate/guide.ts";
 import type { StyleGuide } from "../../generate/guide.ts";
 import { seedDoc } from "../catalogue.ts";
@@ -21,41 +21,67 @@ export function unlockedLayout(guide: StyleGuide): SeedLayout {
   return { format: guide.format, settings: {}, anchors: null };
 }
 
-/** No generated line comes back within this many pages of where it was last used. */
+/** No generated action comes back within this many pages of where it was last used; a speech never comes back. */
 const REPEAT_PAGES = 10;
 
 /**
- * The scenes of every beat of the document `key`, in order (see generateScenes). A beat draws no
- * line that a beat within REPEAT_PAGES pages before it drew, by the pages the beats give.
+ * The scenes of every beat of the document `key`, in order (see generateScenes). A beat speaks no
+ * line an earlier beat spoke, and draws no action a beat within REPEAT_PAGES pages before it drew, by
+ * the pages the beats give.
  */
 export function generateScript(
   guide: StyleGuide,
   key: string,
   rng: Rng,
 ): SeedBlock[] {
-  const drawn: { last: number; lines: Set<string>; blocks: SeedBlock[] }[] = [];
+  const lines = new Set(guide.dialogue.map((entry) => entry.text));
+  const spoken = new Set<string>();
+  const drawn: { last: number; actions: Set<string>; blocks: SeedBlock[] }[] =
+    [];
   for (const beat of guide.beats) {
     if (!beat.id.startsWith(`${key}#`)) continue;
-    const near = drawn.filter((d) => d.last > beat.pages[0] - REPEAT_PAGES);
-    const before = new Set(near.flatMap((d) => [...d.lines]));
-    const used = new Set(before);
+    const near = new Set(
+      drawn
+        .filter((d) => d.last > beat.pages[0] - REPEAT_PAGES)
+        .flatMap((d) => [...d.actions]),
+    );
+    const used = new Set([...spoken, ...near]);
     const blocks = generateScenes(guide, beat, rng, used);
-    const lines = new Set([...used].filter((line) => !before.has(line)));
-    drawn.push({ last: beat.pages[1], lines, blocks });
+    const actions = new Set<string>();
+    for (const text of used) {
+      if (spoken.has(text) || near.has(text)) continue;
+      if (lines.has(text)) spoken.add(text);
+      else actions.add(text);
+    }
+    drawn.push({ last: beat.pages[1], actions, blocks });
   }
   return drawn.flatMap((d) => d.blocks);
 }
 
-/** The text of every block within REPEAT_PAGES pages of block `at` in a script of `pages` pages: what a line drawn there must not repeat. */
+/**
+ * What a line drawn at block `at` of a script of `pages` pages must not repeat: the dialogue entry of
+ * every speech in `blocks`, with or without one joined tag, and the text of every other block within
+ * REPEAT_PAGES pages of `at`.
+ */
 export function usedNear(
+  guide: StyleGuide,
   blocks: readonly SeedBlock[],
   at: number,
   pages: number,
 ): Set<string> {
+  const entries = new Map<string, string>();
+  for (const { text } of guide.dialogue) {
+    entries.set(text, text);
+    for (const tag of guide.tags) entries.set(withTag(text, tag), text);
+  }
   const reach = Math.ceil((REPEAT_PAGES * blocks.length) / Math.max(pages, 1));
-  return new Set(
-    blocks.slice(Math.max(at - reach, 0), at + reach).map((b) => b.text),
-  );
+  const near = blocks
+    .slice(Math.max(at - reach, 0), at + reach)
+    .filter((b) => b.element !== "dialogue");
+  const spoken = blocks
+    .filter((b) => b.element === "dialogue")
+    .map((b) => entries.get(b.text) ?? b.text);
+  return new Set([...spoken, ...near.map((b) => b.text)]);
 }
 
 /**
