@@ -2,7 +2,8 @@
 // and memory storage, moved only by its clock, the service's deferred work and network steps.
 import { createRng, seededIdSource } from "@manent/demo";
 import type { Rng } from "@manent/demo";
-import type { SyncLimits } from "@manent/server-core";
+import { materializeVersion } from "@manent/server-core";
+import type { SyncHooks, SyncLimits, SyncService } from "@manent/server-core";
 import { createMemoryStorage } from "@manent/storage/testing";
 import type { MemoryStorage } from "@manent/storage/testing";
 import { createSyncClient, soloLeader } from "@manent/sync-client";
@@ -26,13 +27,15 @@ import type { Books, SimClient } from "./device.ts";
 import { firstBroken, isSettled, rebuild, storeFault } from "./invariants.ts";
 import { createSimServer } from "./network.ts";
 import type { SimServer } from "./network.ts";
-import { actOn, seedScript } from "./script.ts";
+import { HOME, actOn, seedScript } from "./script.ts";
 import type { Tools } from "./script.ts";
 
 export type { SimClient } from "./device.ts";
 
 export interface World {
   readonly seed: number;
+  /** The world's one document. */
+  readonly docId: string;
   readonly clock: FakeClock;
   readonly network: MemoryNetwork;
   readonly storage: MemoryStorage;
@@ -51,6 +54,8 @@ export interface World {
   rebuilds(): number;
   /** The lines of the document's current generation rebuilt from the log alone. */
   serverText(): string[];
+  /** Markers a person removed, and those a Before restore version keeps, as the last settle found them. */
+  removed(): ReadonlySet<string>;
   /** The invariants; throws an Error naming the seed and the first one broken. */
   check(): void;
 }
@@ -81,6 +86,7 @@ function randomOf(rng: Rng): Random {
 }
 
 class SimWorld implements World {
+  readonly docId = DOC;
   readonly clock: FakeClock;
   readonly network: MemoryNetwork;
   readonly storage: MemoryStorage;
@@ -189,6 +195,10 @@ class SimWorld implements World {
     return rebuild(this.storage).lines;
   }
 
+  removed(): ReadonlySet<string> {
+    return this.books.removed;
+  }
+
   check(): void {
     const broken = firstBroken({
       storage: this.storage,
@@ -211,14 +221,35 @@ class SimWorld implements World {
           if (books.typist.has(marker)) books.acked.add(marker);
     }
     this.storeFault = null;
+    const beforeRestore = serverBeforeRestore(this.storage);
     for (const device of this.clients) {
       this.storeFault ??= await storeFault(device);
       const versions = await device.store.versions(DOC);
       const recovered = versions.filter((v) => v.kind === "recovered");
       const lines = recovered.flatMap((v) => linesOfContent(v.content));
       books.recoveredVersions.set(device, lines.join("\n"));
+      for (const v of versions)
+        if (v.label === "before_restore")
+          beforeRestore.push(...linesOfContent(v.content));
     }
+    // a restore takes text out of the script by the restorer's choice, and keeps it as Before restore
+    for (const marker of markersIn(beforeRestore)) books.removed.add(marker);
   }
+}
+
+/** The lines of every Before restore version the server keeps. */
+function serverBeforeRestore(storage: MemoryStorage): string[] {
+  const file = storage.open(HOME);
+  return file.versions
+    .list(DOC)
+    .filter((version) => version.kind === "pre_restore")
+    .flatMap((version) => {
+      const blocks = materializeVersion(file, version)?.blocks ?? [];
+      return linesOfContent({
+        type: "doc",
+        content: [{ type: "section", content: blocks }],
+      });
+    });
 }
 
 /** The transport, with every replay key it sends kept in the books. */
@@ -245,6 +276,12 @@ export async function createWorld(options: {
   serverVersions?: ServerVersions;
   clientVersions?: (device: string) => VersionSet;
   limits?: Partial<SyncLimits>;
+  /** Called once; every service the world starts gets the list, and `service()` answers the one running now. */
+  hooks?: (world: {
+    service: () => SyncService;
+    storage: MemoryStorage;
+    clock: FakeClock;
+  }) => readonly SyncHooks[];
 }): Promise<World> {
   const rng = createRng(options.seed);
   const clock = createFakeClock(START_AT);
@@ -254,6 +291,8 @@ export async function createWorld(options: {
   const versions = options.serverVersions ?? { current: V1, min: V1 };
   const random = rng.next;
   const { limits } = options;
+  const service = (): SyncService => server.service();
+  const hooks = options.hooks?.({ service, storage, clock });
   const server = createSimServer({
     network,
     storage,
@@ -261,6 +300,7 @@ export async function createWorld(options: {
     versions,
     random,
     limits,
+    hooks,
   });
   const ids = seededIdSource(rng);
   seedScript(storage, options.users, versions, ids);
