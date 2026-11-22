@@ -193,7 +193,7 @@ async function bundle(entry: string, out: string): Promise<void> {
 
 /**
  * The server as one file, beside its checkpoint worker under the name the server opens it by, and
- * the script font it reads at start, where the bundled server's lookup finds it.
+ * the script font's package, whose faces the desktop's node draws issued files in.
  */
 async function stageCloud(root: string, entry: string): Promise<void> {
   const server = join(root, "apps/server");

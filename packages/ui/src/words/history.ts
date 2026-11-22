@@ -1,7 +1,14 @@
 // The words of version history: the versions list, Changes since, restoring, and who wrote what.
 
 import type { Message } from "../components/message-slot/message.ts";
-import { formatCount, formatDate, formatDay, formatTime } from "./format.ts";
+import {
+  dayNumber,
+  formatCount,
+  formatDate,
+  formatDay,
+  formatPosition,
+  formatTime,
+} from "./format.ts";
 
 /** The fields of the sync protocol's `VersionItem` a version's name is made from; this package does not import the protocol. */
 interface VersionItem {
@@ -34,17 +41,9 @@ const BEFORE_RECONNECT = "Before reconnect — this device";
 const RECOVERED = "Recovered — this device";
 const KEPT = "The script as it was is kept as 'Before restore'.";
 
-const DAY_MS = 86_400_000;
-
 const quoted = (text: string): string => `'${text}'`;
 const plural = (n: number, one: string, many: string): string =>
   n === 1 ? `1 ${one}` : `${formatCount(n)} ${many}`;
-
-/** The local calendar day of `at`, as a number that is one apart for consecutive days. */
-const dayNumber = (at: number): number => {
-  const date = new Date(at);
-  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / DAY_MS;
-};
 
 export const HISTORY_WORDS = {
   /** `keys` is the label of Name this draft's key ("⌘⇧S", "Ctrl+Shift+S"). */
@@ -53,6 +52,8 @@ export const HISTORY_WORDS = {
   problem: "Couldn't load older versions. Showing what is on this device.",
   /** `name` is "you" when the person made the last change; `when` its time ("14:10"). */
   working: (name: string, when: string): string => `Working — ${name}, ${when}`,
+  /** The Working row while no source says who made the last change, or when. */
+  workingLabel: "Working",
   /** The heading of the versions made on the local day of `at`. */
   dayGroup: (at: number, now: number): string => {
     const daysAgo = dayNumber(now) - dayNumber(at);
@@ -82,19 +83,12 @@ export const HISTORY_WORDS = {
     "Changes are shown by text and element only: these were laid out by different layout engines, so page breaks may differ.",
   filter: "Filter",
   allScenes: "All scenes",
-  sceneItem: (number: string, heading: string): string =>
-    `Sc. ${number} · ${heading}`,
   allPeople: "All people",
   previousChange: "Previous change",
   nextChange: "Next change",
-  /** Shown between the stepper's buttons. */
-  step: (i: number, n: number): string =>
-    `${formatCount(i)} of ${formatCount(n)}`,
-  /** The step's accessible name. */
-  stepName: (i: number, n: number): string =>
-    `Change ${formatCount(i)} of ${formatCount(n)}`,
+  /** The accessible name of the stepper's position, which `formatPosition` writes. */
+  stepName: (i: number, n: number): string => `Change ${formatPosition(i, n)}`,
   draftsOnly: "Drafts only",
-  rowMenu: ["Restore", "Restore this scene", "Name this draft…"],
   /** `ref` is `versionRef`'s. */
   restoreTitle: (ref: string): string => `Restore ${ref}?`,
   restoreBody: "The script as it is now is kept as 'Before restore'.",

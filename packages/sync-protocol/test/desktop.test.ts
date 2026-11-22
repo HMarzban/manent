@@ -275,7 +275,7 @@ test("the shell channel's messages are pinned", () => {
       "help",
     ],
     ["cut", "copy", "paste", "selectAll"],
-    [".fdx", ".fountain", ".pdf", ".docx", ".ink"],
+    [".fdx", ".fountain", ".pdf", ".docx", ".ink", ".fdr"],
   ]);
   const menus: PageMessage = {
     v: 1,

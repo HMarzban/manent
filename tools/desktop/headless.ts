@@ -7,7 +7,11 @@ import { parseArgs } from "node:util";
 import { createDemoDirectory, createDemoSignIn } from "@manent/demo";
 import { createDesktopNode } from "@manent/local-node";
 import type { NodeCore } from "@manent/local-node";
-import { serveWithBun } from "@manent/server-core";
+import {
+  createPacketRenderPdf,
+  readScriptFonts,
+  serveWithBun,
+} from "@manent/server-core";
 import type { DesktopGlobal } from "@manent/sync-protocol";
 import { VERSIONS } from "./build.ts";
 
@@ -54,6 +58,14 @@ if (import.meta.main) {
     versions: { current: VERSIONS, min: VERSIONS },
     build: "headless",
     platform: process.platform,
+    renderPdf: createPacketRenderPdf(
+      await readScriptFonts((key) =>
+        Bun.resolveSync(
+          `@fontsource/courier-prime/files/courier-prime-${key}.woff`,
+          import.meta.dir,
+        ),
+      ),
+    ),
     boot: () => ({ global, boot: [] }),
   });
   if (!start.ok) {

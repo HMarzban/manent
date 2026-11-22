@@ -242,3 +242,17 @@ export function deletionsOf(updates: readonly Update[]): Update | null {
   const deletions = Y.diffUpdate(merged, Y.encodeStateVector(to));
   return Y.decodeUpdate(deletions).ds.clients.size === 0 ? null : deletions;
 }
+
+/**
+ * Whether the document holds something written under one of `ownClientIds` that is deleted. A
+ * document loaded whole cannot tell who removed it, or whether they had seen it.
+ */
+export function hasDeletedOwn(
+  doc: CrdtDoc,
+  ownClientIds: ReadonlySet<number>,
+): boolean {
+  const { clients } = yDocOf(doc).store;
+  return [...ownClientIds].some((client) =>
+    (clients.get(client) ?? []).some((struct) => struct.deleted),
+  );
+}

@@ -14,10 +14,13 @@ import type { Root } from "react-dom/client";
 import { mountVersionView } from "../src/editor-host/version-view.ts";
 import { VERSION_LAYOUTS } from "../src/history/version-layouts.ts";
 import { VersionPane } from "../src/screens/document/version-pane.tsx";
-import { ServicesProvider } from "../src/services/context.tsx";
+import {
+  EnvironmentProvider,
+  ServicesProvider,
+} from "../src/services/context.tsx";
 import { bindGuard, createGuard } from "../src/state/guard.ts";
 import { historyActions } from "../src/state/history.store.ts";
-import { testServices } from "./services.fixtures.ts";
+import { testEnvironment, testServices } from "./services.fixtures.ts";
 
 withDom();
 bindGuard(createGuard({ flavour: "test" }));
@@ -175,7 +178,11 @@ test("a version is paginated by its own engine", async () => {
 
   const grid = placeIn();
   placeIn(grid).dataset["region"] = "page";
-  const services = { ...testServices({ userId: "sam" }), pagePorts: PORTS };
+  const environment = testEnvironment();
+  const services = {
+    ...testServices({ userId: "sam", environment }),
+    pagePorts: PORTS,
+  };
   const doc = sectionize([...BLOCKS]);
   historyActions.reset(DOC);
   historyActions.setBaseline({
@@ -188,20 +195,23 @@ test("a version is paginated by its own engine", async () => {
   cleanups.push(() => act(() => root.unmount()));
   await act(async () =>
     root.render(
-      createElement(ServicesProvider, {
-        services,
-        children: createElement(VersionPane, {
-          docId: DOC,
-          position: "beside",
-          content: { ...CONTENT, engineVersion: 3 },
-          comparison: compareDocs(doc, doc),
+      createElement(EnvironmentProvider, {
+        environment,
+        children: createElement(ServicesProvider, {
+          services,
+          children: createElement(VersionPane, {
+            docId: DOC,
+            position: "beside",
+            content: { ...CONTENT, engineVersion: 3 },
+            comparison: compareDocs(doc, doc),
+          }),
         }),
       }),
     ),
   );
   const pane = grid.querySelector<HTMLElement>("[data-version-pane]");
   expect(pane?.querySelector("header")?.textContent).toBe(
-    `Studio draft, Mon 16 Nov${HISTORY_WORDS.compareNewer}`,
+    `Studio draft, Mon 16 NovSaved · Only in this browser — not backed up${HISTORY_WORDS.compareNewer}`,
   );
   expect(labelsIn(pane!)).toEqual(["1", "2", "3", "3"]);
   expect(document.activeElement?.closest("[data-version-pane]")).toBe(pane);

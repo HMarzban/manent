@@ -21,7 +21,7 @@ import { registerLiveEditor } from "../src/editor-host/live-editor.ts";
 import type { LiveEditor } from "../src/editor-host/live-editor.ts";
 import { RootLayout } from "../src/root-layout.tsx";
 import { SendScreen } from "../src/screens/send/send-screen.tsx";
-import { outsideFontRow } from "../src/send/output-checks.tsx";
+import { outsideFontSentence } from "../src/send/output-checks.tsx";
 import { loadPdfFonts } from "../src/send/pdf-fonts.ts";
 import * as printing from "../src/send/print-pages.ts";
 import { EnvironmentProvider, useServices } from "../src/services/context.tsx";
@@ -81,6 +81,7 @@ const liveOf = (docId: string, p: Pagination): LiveEditor => ({
   },
   editable: false,
   zoom: () => 1,
+  frontPages: () => null,
 });
 
 /** Frames that pass only when fired by hand. */
@@ -314,7 +315,7 @@ test("Export names one file, a clean PDF of the whole script, and the first page
     "Export 1 file",
     [
       ["What", "Whole script"],
-      ["As", "Clean PDF"],
+      ["As", "Clean PDFFDXFountain"],
     ],
     ["1", "2", "3", "4", "5", "6", "7", "8"],
     "… 22 more",
@@ -330,7 +331,7 @@ const withOutside = (): Pagination =>
   );
 const OUTSIDE_ROW = [
   "Checks",
-  "! 日 is outside the script font and prints as a box",
+  "日 is outside the script font and prints as a box",
 ];
 
 test("while the script's editor is still opening, Export and Print show their rows, and their checks and pages join when it opens", async () => {
@@ -364,7 +365,7 @@ test("while the script's editor is still opening, Export and Print show their ro
         "H1",
         [
           ["What", "Whole script"],
-          ["As", "Clean PDF"],
+          ["As", "Clean PDFFDXFountain"],
         ],
         0,
         "Export 1 file",
@@ -372,7 +373,7 @@ test("while the script's editor is still opening, Export and Print show their ro
       [
         "Export 1 file",
         "H1",
-        [OUTSIDE_ROW, ["What", "Whole script"], ["As", "Clean PDF"]],
+        [OUTSIDE_ROW, ["What", "Whole script"], ["As", "Clean PDFFDXFountain"]],
         8,
         "Export 1 file",
       ],
@@ -569,15 +570,15 @@ test("characters outside the font are listed before anything leaves", async () =
   ]);
   expect([
     rowsOf(container)[0],
-    outsideFontRow(pagesOf(["日"]))?.content ?? null,
-    outsideFontRow(numbered(2))?.content ?? null,
-    outsideFontRow(many)?.content ?? null,
+    outsideFontSentence(pagesOf(["日"])),
+    outsideFontSentence(numbered(2)),
+    outsideFontSentence(many),
     formats.findUnsupportedCharacters(many).flatMap((b) => b.characters),
   ]).toEqual([
-    ["Checks", "! 日 and س are outside the script font and print as boxes"],
-    "! 日 is outside the script font and prints as a box",
+    ["Checks", "日 and س are outside the script font and print as boxes"],
+    "日 is outside the script font and prints as a box",
     null,
-    "! 日, س, 👨‍👩‍👧, e\u0301, 本, 中, 文, 字, 漢, 語, 한 and 글 are outside the script font and print as boxes",
+    "日, س, 👨‍👩‍👧, e\u0301, 本, 中, 文, 字, 漢, 語, 한 and 글 are outside the script font and print as boxes",
     [
       "日",
       "س",

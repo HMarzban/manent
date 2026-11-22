@@ -1,5 +1,6 @@
 // The Script settings of this release, shared by everyone on a script and guarded once page numbers are locked.
 import { setting } from "../define.ts";
+import type { SettingValue } from "../store.ts";
 import { t } from "../types.ts";
 
 export const SCRIPT_SETTINGS = Object.freeze([
@@ -175,4 +176,12 @@ const REGION =
 export function paperForRegion(language: string): "letter" | "a4" {
   const region = REGION.exec(language)?.[1]?.toUpperCase();
   return region !== undefined && LETTER_REGIONS.has(region) ? "letter" : "a4";
+}
+
+/** Whether a script setting does something in `format`: a script without pages (Ink) has its format and nothing else. */
+export function appliesToFormat(
+  key: string,
+  format: SettingValue<"script.format">,
+): boolean {
+  return format !== "ink" || key === "script.format";
 }

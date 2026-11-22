@@ -132,6 +132,10 @@ export function createFileOpener(options: OpenerOptions): FileOpener {
   /** Reads, counts and makes the file a new script; says what came in, or why nothing did. */
   const importFile = async ({ file, reader, sha }: Opening): Promise<void> => {
     const { name } = file;
+    if ("refuse" in reader) {
+      messages.push(refusal(reader.refuse(name)));
+      return;
+    }
     const formats = await import("@manent/formats");
     let script: ImportedScript;
     try {

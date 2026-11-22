@@ -60,6 +60,7 @@ function markerOf(
   marker.className = "mn-marker mn-marker-lock";
   marker.setAttribute("role", "img");
   marker.setAttribute("aria-label", options.name);
+  marker.setAttribute("data-tour", "page_lock");
   const sentence = options.tooltip(spot.next);
   marker.setAttribute("aria-description", sentence);
   marker.title = sentence;

@@ -201,7 +201,12 @@ html[data-white-page] .mn-pages {
   --elev-dialog:
     0 4px 12px light-dark(rgb(31 29 26 / 0.10), rgb(0 0 0 / 0.50)),
     0 16px 48px light-dark(rgb(31 29 26 / 0.16), rgb(0 0 0 / 0.50));
+}
 
+/* Drawn inside the page too, so declared again on the white page's pages
+   for the reason the page tokens below give. */
+:root,
+html[data-white-page] .mn-pages {
   /* a revision is a strip of its paper: the fill is the paper's own colour in
      every theme; the edge gives it 3:1 where the fill alone does not */
   --rev-white-fill: var(--p-warm-0);
@@ -255,12 +260,14 @@ html[data-white-page] .mn-pages {
 }
 
 /* --------------------------------------------------------------------------
-   TIER 2 — SEMANTIC: PAGE. The same pairs, resolved by the sheet's own
-   color-scheme, so a white sheet can sit in dark chrome. Marks are
-   translucent: they keep their contrast on any revision paper without
-   knowing which paper is under them.
+   TIER 2 — SEMANTIC: PAGE. The same pairs, declared again on the white
+   page's pages: the bundler turns light-dark() into variables that resolve
+   where a token is declared, so a white sheet in dark chrome needs its own
+   declaration. Marks are translucent: they keep their contrast on any
+   revision paper without knowing which paper is under them.
    -------------------------------------------------------------------------- */
-:root {
+:root,
+html[data-white-page] .mn-pages {
   --page-paper: light-dark(var(--p-warm-0), var(--p-warm-825));
   --page-ink: light-dark(var(--p-ink), var(--p-warm-100));
   --page-ink-muted: light-dark(var(--p-warm-700), var(--p-warm-350));
@@ -304,6 +311,13 @@ html[data-white-page] .mn-pages {
     var(--p-write-violet-deep),
     var(--p-write-violet-bright)
   );
+  /* Ink source and a game script's branching lines: each role in one of the writer's colours */
+  --page-src-knot: var(--page-text-blue);
+  --page-src-divert: var(--page-text-violet);
+  --page-src-choice: var(--page-text-green);
+  --page-src-logic: var(--page-text-orange);
+  --page-src-tag: var(--page-text-red);
+  --page-src-comment: var(--page-ink-muted);
   --page-hl-yellow: light-dark(rgb(240 190 0 / 0.38), rgb(227 179 65 / 0.18));
   --page-hl-green: light-dark(rgb(40 170 90 / 0.28), rgb(90 200 130 / 0.18));
   --page-hl-pink: light-dark(rgb(230 70 140 / 0.24), rgb(240 110 160 / 0.20));
@@ -386,7 +400,9 @@ html[data-white-page] .mn-pages {
     --chip-line: light-dark(var(--p-black), var(--p-warm-0));
     --elev-overlay: 0 0 0 1px light-dark(var(--p-warm-900), var(--p-warm-100));
     --elev-dialog: 0 0 0 2px light-dark(var(--p-warm-900), var(--p-warm-100));
-
+  }
+  :root,
+  html[data-white-page] .mn-pages {
     --page-paper: light-dark(var(--p-warm-0), var(--p-black));
     --page-ink: light-dark(var(--p-black), var(--p-warm-0));
     --page-ink-muted: light-dark(var(--p-warm-800), var(--p-warm-300));
@@ -871,6 +887,8 @@ html[data-white-page] .mn-pages {
   :is(h1, [data-arrival])[tabindex="-1"],
   .mn-palette-field,
   .mn-page-view[contenteditable="true"],
+  .mn-plain[contenteditable="true"],
+  .mn-front-field[contenteditable="plaintext-only"],
   [data-slot="input-group-control"]
 ) {
   outline: var(--focus-w) solid var(--focus);
@@ -1657,7 +1675,8 @@ html[data-switching] *::after {
    here is an outline, a border or a system highlight.
    -------------------------------------------------------------------------- */
 @media (forced-colors: active) {
-  :root:root {
+  :root:root,
+  html[data-white-page] .mn-pages {
     --focus: Highlight;
     --line: CanvasText;
     --line-strong: CanvasText;

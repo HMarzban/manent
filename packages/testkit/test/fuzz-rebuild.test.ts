@@ -9,6 +9,9 @@ import { applyBlockOpsToJSON } from "@manent/revisions";
 import { canonicalBlock } from "@manent/schema";
 import type { BlockJSON, BlockOp, DocJSON, MarkJSON } from "@manent/schema";
 import fc from "fast-check";
+import { createWorld } from "../src/index.ts";
+import { applyOp, arbRun } from "./fuzz-ops.ts";
+import type { Op } from "./fuzz-ops.ts";
 
 const TEXTS = ["a", "bc", "🎬", "م "] as const;
 const MARKS: readonly MarkJSON[][] = [
@@ -117,4 +120,66 @@ test("block operations give the same blocks on a document and on its JSON", () =
     }),
     { numRuns: 1_000 },
   );
+});
+
+test("every character typed is in the script, in Recovered text or in a recovered version, across rebuilds", async () => {
+  await fc.assert(
+    fc.asyncProperty(arbRun, async (run) => {
+      const world = await createWorld({
+        seed: run.seed,
+        users: run.users,
+        devicesPerUser: run.devices,
+        faults: run.faults,
+        limits: { checkpointEvery: 1 },
+      });
+      for (const op of run.ops) applyOp(world, op);
+      await world.settle();
+      world.check();
+    }),
+    { numRuns: Number(process.env.MANENT_FUZZ_RUNS ?? 100) },
+  );
+}, 300_000);
+
+/**
+ * Found with seed 1740975719: a moved device whose first SUBSCRIBE timed out took that SUBSCRIBE's
+ * step 2, and missed what was committed while the second was on its way.
+ */
+const SUBSCRIBED_AGAIN_WHILE_LOADING: Op[] = [
+  { device: 0, kind: "rebuild" },
+  { device: 0, kind: "quiet" },
+  { device: 5, kind: "delete", block: 0 },
+  { device: 0, kind: "deliver", frames: 6 },
+  { device: 0, kind: "type", block: 0, at: 0 },
+  { device: 0, kind: "element", block: 0, element: 0 },
+  { device: 0, kind: "online" },
+  { device: 0, kind: "insert", block: 0 },
+  { device: 0, kind: "restore", block: 0, at: 0 },
+  { device: 0, kind: "type", block: 0, at: 0 },
+  { device: 0, kind: "type", block: 0, at: 0 },
+  { device: 0, kind: "delete", block: 0 },
+  { device: 3, kind: "restore", block: 0, at: 0 },
+  { device: 0, kind: "restore", block: 0, at: 0 },
+  { device: 0, kind: "insert", block: 0 },
+  { device: 0, kind: "offline" },
+  { device: 0, kind: "move", block: 0, length: 2, target: 0 },
+  { device: 0, kind: "online" },
+  { device: 0, kind: "online" },
+  { device: 5, kind: "delete", block: 0 },
+  { device: 0, kind: "quiet" },
+  { device: 0, kind: "element", block: 0, element: 0 },
+  { device: 0, kind: "offline" },
+  { device: 0, kind: "join", block: 0 },
+];
+
+test("a device that subscribes again while it loads a rebuilt script misses nothing committed meanwhile", async () => {
+  const world = await createWorld({
+    seed: 1_740_975_719,
+    users: ["dana", "sam"],
+    devicesPerUser: 2,
+    faults: { duplicate: 0 },
+    limits: { checkpointEvery: 1 },
+  });
+  for (const op of SUBSCRIBED_AGAIN_WHILE_LOADING) applyOp(world, op);
+  await world.settle();
+  world.check();
 });

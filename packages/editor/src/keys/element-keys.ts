@@ -8,7 +8,7 @@ import type { EditorView } from "prosemirror-view";
 import { detectOnEnter, flowRow, shiftTabTarget } from "../elements/index.ts";
 import type { ElementRef, FlowPrefs, FlowTarget } from "../elements/index.ts";
 import type { HistoryPort } from "../script-editor/ports.ts";
-import { sectionEnter } from "../sections/commands.ts";
+import { sameElement, sectionEnter } from "../sections/commands.ts";
 import type { NextElement } from "../sections/commands.ts";
 
 /** What the element keys need; each member is read when a key runs, never when the plugin is made. */
@@ -92,18 +92,17 @@ export function convertElement(
 /** The element Enter gives the new block: the row's Enter target, or at the block's start the block's own element. */
 export function nextElementFor(context: ElementContext): NextElement {
   return (current, place) => {
-    if (place === "start") return current.type;
+    if (place === "start") return sameElement(current, place);
     const { to } = flowRow(
       context.format(),
       elementOf(current.type, current.kind),
       context.prefs(),
     ).enter;
-    return typeof to === "object" ? to.type : current.type;
+    return typeof to === "object" ? to : sameElement(current, place);
   };
 }
 
-// An act break Enter makes has no kind, which flows and lays out as a new act, the one kind the table leads to.
-function enterWith(context: ElementContext, element: string): Command {
+function enterWith(context: ElementContext, element: ElementRef): Command {
   return sectionEnter({ ids: context.ids, nextElement: () => element });
 }
 
@@ -163,7 +162,7 @@ function headingPart(
   const dash = text.indexOf(" - ");
   if (dash >= 0) {
     if (text.slice(dash + 3).trim() !== "" && typeof enter.to === "object")
-      enterWith(context, enter.to.type)(view.state, view.dispatch);
+      enterWith(context, enter.to)(view.state, view.dispatch);
     return;
   }
   const space = text.indexOf(" ");
@@ -183,7 +182,7 @@ function tabKey(view: EditorView, context: ElementContext): boolean {
   if (to === "heading_part")
     headingPart(view, context, caret.block.textContent, row.enter);
   else if (typeof to === "object") {
-    const set = caret.blank ? setElement(to) : enterWith(context, to.type);
+    const set = caret.blank ? setElement(to) : enterWith(context, to);
     set(view.state, view.dispatch);
   }
   return true;

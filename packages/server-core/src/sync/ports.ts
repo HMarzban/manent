@@ -240,6 +240,8 @@ export interface WritePath {
   holdError(file: DocFile): StorageError | null;
   /** What the document's held items append, in arrival order: in its room, and in no log yet. */
   heldUpdates(docId: string): readonly Uint8Array[];
+  /** What of the document's held items its windows were sent, in arrival order: all but what waits for its commit. */
+  heldShownUpdates(docId: string): readonly Uint8Array[];
   /** Commits what is queued, now. */
   flush(): void;
   /** What is queued or held: written to no log yet. */

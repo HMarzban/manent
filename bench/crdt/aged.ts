@@ -143,6 +143,38 @@ function assertCount(name: string, value: number, least: number): void {
     );
 }
 
+/** A source of draws in [0, 1) as the generator the writes choose from, drawing as createRng's does. */
+function rngOf(random: () => number): Rng {
+  const int = (min: number, maxInclusive: number): number =>
+    min + Math.floor(random() * (maxInclusive - min + 1));
+  return {
+    next: random,
+    int,
+    pick: <T>(items: readonly T[]): T => items[int(0, items.length - 1)]!,
+  };
+}
+
+/** The blocks of `doc`'s script and the draws that choose each write from `rng`. */
+function editingOf(doc: CrdtDoc, rng: Rng): Editing {
+  return {
+    blocks: keptOf(scriptBody(doc).materialize()),
+    rng,
+    newId: seededIdSource(rng),
+  };
+}
+
+/** A load of doc's state under `clientId`, then `edits` writes of the mix; `doc` is left as it was. */
+function runSession(
+  doc: CrdtDoc,
+  clientId: number,
+  edits: number,
+  editing: Editing,
+): CrdtDoc {
+  const next = loadDoc(doc.encodeState(), { clientId });
+  for (let n = 0; n < edits; n++) edit(next, editing);
+  return next;
+}
+
 /**
  * A script of `pages` × 25 blocks of the seeded screenplay corpus, written by client 1, then
  * `sessions` sessions, each a load of the state so far under the next client id that makes
@@ -167,14 +199,33 @@ export function ageScript(options: {
   const editing = { blocks: keptOf(script), rng, newId: seededIdSource(rng) };
   let doc = scriptDocFromJSON(script, { clientId: GENERATOR_CLIENT_ID });
   for (let session = 1; session <= sessions; session++) {
-    const next = loadDoc(doc.encodeState(), {
-      clientId: GENERATOR_CLIENT_ID + session,
-    });
+    const next = runSession(
+      doc,
+      GENERATOR_CLIENT_ID + session,
+      editsPerSession,
+      editing,
+    );
     doc.destroy();
     doc = next;
-    for (let n = 0; n < editsPerSession; n++) edit(doc, editing);
   }
   return doc;
+}
+
+/**
+ * One session: loadDoc of doc's state under clientId, then `edits` block writes in ageScript's mix; returns the session's document.
+ * `doc` is left as it was, and its script's text must carry no mark. RangeError for `edits` that is not a positive integer.
+ */
+export function ageSession(
+  doc: CrdtDoc,
+  options: { clientId: number; edits: number; random: () => number },
+): CrdtDoc {
+  assertCount("edits", options.edits, 1);
+  return runSession(
+    doc,
+    options.clientId,
+    options.edits,
+    editingOf(doc, rngOf(options.random)),
+  );
 }
 
 /**
@@ -187,9 +238,7 @@ export function editOffline(
   options: { edits: number; seed: number },
 ): void {
   assertCount("edits", options.edits, 1);
-  const rng = createRng(options.seed);
-  const blocks = keptOf(scriptBody(doc).materialize());
-  const editing = { blocks, rng, newId: seededIdSource(rng) };
+  const editing = editingOf(doc, createRng(options.seed));
   for (let n = 0; n < options.edits; n++) edit(doc, editing);
 }
 

@@ -23,11 +23,10 @@ export function createCompletePopover(options: {
   let shown: readonly string[] | null = null;
   return {
     attributes(open, active): Record<string, string> {
-      if (!open)
-        return { "aria-autocomplete": "list", "aria-expanded": "false" };
+      // a textbox takes no aria-expanded: the list it controls says it is open
+      if (!open) return { "aria-autocomplete": "list" };
       return {
         "aria-autocomplete": "list",
-        "aria-expanded": "true",
         "aria-controls": LIST_ID,
         "aria-activedescendant": optionId(active),
       };

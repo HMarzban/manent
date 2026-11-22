@@ -86,6 +86,8 @@ const fixtureApi = (options: {
   removedDoc: async () => null,
   docClients: async () => ({ clients: [] }),
   prepareTour: NEVER,
+  writers: NEVER,
+  rebuild: NEVER,
 });
 
 interface Row {
@@ -211,8 +213,11 @@ const outlineOf = (
 const SCENES: readonly OutlineRow[] = DEMO_WORKSPACES.map(
   (workspace, index) => ({
     blockId: workspace.id,
+    kind: "scene",
     number: String(index + 1),
     heading: workspace.name.toUpperCase(),
+    synopsis: "",
+    eighths: null,
     omitted: false,
     current: index === 0,
   }),

@@ -20,6 +20,7 @@ import { createEditorHandlers } from "./editor.ts";
 import { historyHandlers } from "./history.ts";
 import { importHandlers } from "./import.ts";
 import { libraryHandlers } from "./library.ts";
+import { navigationHandlers } from "./navigation.ts";
 import { preferencesHandlers } from "./preferences.ts";
 import { syncHandlers } from "./sync.ts";
 
@@ -76,6 +77,7 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
       docId,
       navigate: (path) => deps.router.navigate(path),
     }),
+    ...navigationHandlers(deps),
     ...libraryHandlers(deps),
     ...importHandlers(deps),
     ...demoHandlers(),

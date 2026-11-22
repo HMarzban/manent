@@ -10,10 +10,10 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-  Separator,
   Tabs,
   TabsList,
   TabsTrigger,
+  cn,
 } from "@manent/ui";
 import { Fragment } from "react";
 import type { ReactNode } from "react";
@@ -48,16 +48,19 @@ export function PaneList(props: {
           className="w-full items-stretch"
         >
           {SECTION_IDS.map((id) => (
-            <Fragment key={id}>
-              {id === AFTER_DIVIDER ? <Separator /> : null}
-              {/* the tab keeps its keys and role; the row inside draws it as every list draws its current row */}
-              <TabsTrigger
-                value={id}
-                className="h-auto flex-col items-stretch p-0 text-start font-normal group-data-vertical/tabs:py-0 after:hidden"
-              >
-                <Row current={id === pane}>{labels[id]}</Row>
-              </TabsTrigger>
-            </Fragment>
+            // the tab keeps its keys and role; the row inside draws it as every list draws its current row. A tab
+            // list holds only tabs, so the divider is drawn by the tab after it
+            <TabsTrigger
+              key={id}
+              value={id}
+              className={cn(
+                "h-auto flex-col items-stretch p-0 text-start font-normal group-data-vertical/tabs:py-0 after:hidden",
+                id === AFTER_DIVIDER &&
+                  "mt-2 before:absolute before:inset-x-0 before:-top-1 before:h-px before:bg-border",
+              )}
+            >
+              <Row current={id === pane}>{labels[id]}</Row>
+            </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>

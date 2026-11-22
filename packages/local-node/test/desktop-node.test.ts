@@ -84,6 +84,7 @@ function options(root: string, cloudUrl = cloud.url): DesktopNodeOptions {
     versions: { current: V, min: V },
     build: "test",
     platform: process.platform,
+    renderPdf: async () => new Uint8Array(),
     boot: () => ({ global: GLOBAL, boot: BOOT }),
   };
 }

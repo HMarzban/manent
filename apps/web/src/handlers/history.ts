@@ -8,6 +8,7 @@ export type HistoryCommandId =
   | "history.changesSince"
   | "history.hideChanges"
   | "history.showSinceOpened"
+  | "history.dismissSinceOpened"
   | "history.backToWorking"
   | "history.nextChange"
   | "history.previousChange"
@@ -15,6 +16,7 @@ export type HistoryCommandId =
   | "history.restoreScene"
   | "history.restoreBefore"
   | "history.seeWhatChanged"
+  | "doc.openBeside"
   | "history.whoWrote";
 
 export function historyHandlers(
@@ -34,6 +36,7 @@ export function historyHandlers(
     "history.changesSince": run("history.changesSince"),
     "history.hideChanges": run("history.hideChanges"),
     "history.showSinceOpened": run("history.showSinceOpened"),
+    "history.dismissSinceOpened": run("history.dismissSinceOpened"),
     "history.backToWorking": run("history.backToWorking"),
     "history.nextChange": run("history.nextChange"),
     "history.previousChange": run("history.previousChange"),
@@ -41,6 +44,7 @@ export function historyHandlers(
     "history.restoreScene": run("history.restoreScene"),
     "history.restoreBefore": run("history.restoreBefore"),
     "history.seeWhatChanged": run("history.seeWhatChanged"),
+    "doc.openBeside": run("doc.openBeside"),
     "history.whoWrote": run("history.whoWrote"),
   };
 }

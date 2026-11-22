@@ -20,10 +20,18 @@ export interface DialogRequest {
   busy: boolean;
   /** The command's reason clause, or the connection's once an answer came back offline. */
   disabledReason: string | undefined;
-  /** `refused` is told every refusal but offline, which disables the action instead. */
+  /** What the last answer refused, until the next press or the dialog closes. */
+  refusal: string | null;
+  /**
+   * `refused` is told every refusal but offline, which disables the action instead, and answers the dialog's
+   * refusal line; null keeps the dialog as it is, with no line.
+   */
   send<T>(
     ask: () => Promise<RequestOutcome<T>>,
-    answers: { ok(value: T): void; refused(code: ProductionRefusal): void },
+    answers: {
+      ok(value: T): void;
+      refused(code: ProductionRefusal): string | null;
+    },
   ): void;
 }
 
@@ -35,21 +43,26 @@ export function useDialogRequest(
   const { whyNot } = useCommandState(command);
   const [busy, setBusy] = useState(false);
   const [offline, setOffline] = useState(false);
-  // the connection is asked again each time the dialog opens
+  const [refusal, setRefusal] = useState<string | null>(null);
+  // the connection is asked again, and nothing is refused, each time the dialog opens
   useEffect(() => {
-    if (!open) setOffline(false);
+    if (open) return;
+    setOffline(false);
+    setRefusal(null);
   }, [open]);
   return {
     busy,
     disabledReason:
       whyNot ?? (offline ? PRODUCTION_WORDS.connectionReason : undefined),
+    refusal,
     send(ask, answers) {
       setBusy(true);
+      setRefusal(null);
       void ask().then((outcome) => {
         setBusy(false);
         if (outcome.ok) answers.ok(outcome.value);
         else if (outcome.code === "offline") setOffline(true);
-        else answers.refused(outcome.code);
+        else setRefusal(answers.refused(outcome.code));
       });
     },
   };
