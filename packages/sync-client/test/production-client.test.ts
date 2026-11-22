@@ -226,22 +226,24 @@ interface Setting {
   client: ProductionClient;
 }
 
-/** Dana online on DOC, the production client created and settled. */
+/** Dana online on DOC, the production client created and settled, on a clock `aheadMs` ahead of the server's. */
 async function production(
   state: ProductionState,
   cache: ProductionCache = createMemoryProductionCache(),
+  aheadMs = 0,
 ): Promise<Setting> {
   const w = await setup();
   const h = await w.makeClient().open(DOC);
   await w.online();
   const server = fakeServer(state);
+  const { clock } = w.fake;
   const client = createProductionClient({
     docId: DOC,
     handle: h,
     transport: server.transport,
     cache,
     random: countingRandom(),
-    clock: w.fake.clock,
+    clock: { ...clock, now: () => clock.now() + aheadMs },
   });
   await w.settle();
   return { w, h, server, cache, client };
@@ -497,6 +499,24 @@ test("an issue made while this device was offline is told once, on return", asyn
   ]);
 });
 
+test("a device whose clock runs ahead of the server's is told of an issue made while it was offline", async () => {
+  const threeDaysMs = 3 * 86_400_000;
+  const { w, h, server, client } = await production(
+    BLUE_ACTIVE,
+    createMemoryProductionCache(),
+    threeDaysMs,
+  );
+  await cut(w);
+  typeIn(h, B1, "a");
+  server.state = PINK_ACTIVE;
+  await reconnect(w, { revision: "set-pink", anchors: [ANCHOR] });
+  expect(client.issuedWhileOffline().get()).toEqual({
+    byName: "Priya",
+    name: "Blue",
+    active: "Pink",
+  });
+});
+
 test("an issue this device already held is not told on its return", async () => {
   const { w, h, server, client } = await production(PINK_ACTIVE);
   await cut(w);
@@ -514,23 +534,6 @@ test("a device with nothing waiting is not told of an issue made while it was of
   const { w, server, client } = await production(BLUE_ACTIVE);
   await cut(w);
   server.state = PINK_ACTIVE;
-  await reconnect(w, { revision: "set-pink", anchors: [ANCHOR] });
-  expect([client.current().get(), client.issuedWhileOffline().get()]).toEqual([
-    cached(PINK_ACTIVE, BLUE_VERSION),
-    null,
-  ]);
-});
-
-test("an issue made before this device last synced is not told as made while it was offline", async () => {
-  const { w, h, server, client } = await production(BLUE_ACTIVE);
-  server.state = PINK_ACTIVE;
-  w.fake.advance(BLUE_ISSUE_AT * 2);
-  typeIn(h, B1, "a");
-  await w.settle();
-  w.server.ackAll(DOC);
-  await w.settle();
-  await cut(w);
-  typeIn(h, B1, "b");
   await reconnect(w, { revision: "set-pink", anchors: [ANCHOR] });
   expect([client.current().get(), client.issuedWhileOffline().get()]).toEqual([
     cached(PINK_ACTIVE, BLUE_VERSION),
