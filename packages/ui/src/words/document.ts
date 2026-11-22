@@ -90,6 +90,9 @@ export const MENU_WORDS = {
   window: "Window",
   help: "Help",
   homeScriptSettings: "Details → Script",
+  /** A command's home in the palette: the menu that holds it, and the submenu inside it. */
+  homeMenu: (menu: string, submenu: string | null): string =>
+    submenu === null ? menu : `${menu} → ${submenu}`,
   /** A preference's home in the palette, by its pane's label. */
   homePreferences: (pane: string): string => `Preferences → ${pane}`,
   /** Lock for production's home in the palette, before page numbers are locked. */

@@ -6,6 +6,7 @@ import type { ReactNode, RefObject } from "react";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { STATE_FACT_SOURCES } from "./state-facts.ts";
 import { useCommandActions } from "./status-bar.tsx";
+import { useWhereAmI } from "./where-am-i.ts";
 
 const PAGE_REGION = "[data-region='page']";
 
@@ -33,6 +34,7 @@ export function DocumentStateBar(props: {
   // a fixed list of hooks, called in the same order every render
   const added = STATE_FACT_SOURCES.flatMap((source) => source(props.docId));
   const { left, right } = stateBarLines([...own, ...added]);
+  useWhereAmI(props.docId, right?.sentence ?? null);
   const { run, registered } = useCommandActions();
   const bar = useRef<HTMLDivElement>(null);
   useKeepPageStill(bar);

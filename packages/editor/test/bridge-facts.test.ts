@@ -124,6 +124,9 @@ test("the facts of a place in the script", () => {
     canUndo: false,
     canRedo: false,
     selectionEmpty: true,
+    selectedText: "",
+    findCount: 0,
+    findCurrent: null,
   });
 });
 
@@ -170,6 +173,9 @@ test("the outline lists headings with their numbers and the caret's scene", () =
         heading: "INT. A - DAY",
         omitted: false,
         current: false,
+        kind: "scene",
+        synopsis: "",
+        eighths: 1,
       },
       {
         blockId: bid(2),
@@ -177,6 +183,9 @@ test("the outline lists headings with their numbers and the caret's scene", () =
         heading: "EXT. B - NIGHT",
         omitted: false,
         current: true,
+        kind: "scene",
+        synopsis: "",
+        eighths: 1,
       },
     ],
     [0, 2],
@@ -211,9 +220,12 @@ test("the outline numbers each scene as the pages do, and lists chapters unnumbe
     const headings = p.blocks.flatMap((block, i) =>
       isScene(block) || block.type === "chapter" ? [i] : [],
     );
+    const scenes = o.entries.flatMap((entry, k) =>
+      entry.kind === "scene" ? [k] : [],
+    );
     expect([
-      [...o.headingBlocks],
-      o.entries.map((entry) => entry.number),
+      scenes.map((k) => o.headingBlocks[k]),
+      scenes.map((k) => o.entries[k]!.number),
     ]).toEqual([headings, headings.map((i) => engine.sceneNumber(p, i))]);
   }
   expect(
@@ -273,6 +285,9 @@ test("without pages the block's own facts are still read", () => {
     canUndo: false,
     canRedo: false,
     selectionEmpty: true,
+    selectedText: "",
+    findCount: 0,
+    findCurrent: null,
   });
 });
 
@@ -305,5 +320,8 @@ test("with everything selected no block is the caret's", () => {
     canUndo: true,
     canRedo: false,
     selectionEmpty: false,
+    selectedText: "",
+    findCount: 0,
+    findCurrent: null,
   });
 });

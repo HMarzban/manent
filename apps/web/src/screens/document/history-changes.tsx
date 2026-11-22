@@ -12,9 +12,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   HISTORY_WORDS,
+  PLACE_WORDS,
   RadioGroup,
   RadioGroupItem,
   Toggle,
+  formatPosition,
 } from "@manent/ui";
 import { useEffect, useId, useLayoutEffect, useState } from "react";
 import type { ReactNode } from "react";
@@ -295,7 +297,7 @@ function ChangesFilter(props: {
         </DropdownMenuItem>
         {props.all.scenes.map((sceneId) => (
           <DropdownMenuItem key={sceneId} onClick={scenes([sceneId])}>
-            {HISTORY_WORDS.sceneItem(
+            {PLACE_WORDS.scene(
               (doc === null ? null : sceneOf(doc, sceneId)) ?? "",
               headingOf(sceneId),
             )}
@@ -332,7 +334,7 @@ function Stepper(props: { count: number }): ReactNode {
         {HISTORY_WORDS.previousChange}
       </Button>
       <span aria-label={HISTORY_WORDS.stepName(step, props.count)}>
-        {HISTORY_WORDS.step(step, props.count)}
+        {formatPosition(step, props.count)}
       </span>
       <Button
         variant="outline"

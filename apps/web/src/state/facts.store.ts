@@ -28,6 +28,11 @@ export interface EditorFacts {
   canUndo: boolean;
   canRedo: boolean;
   selectionEmpty: boolean;
+  /** The selected text when the selection lies inside one element; "" otherwise. */
+  selectedText: string;
+  /** How many matches the Find bar's text has, and which of them the selection holds, from 1; null when none. */
+  findCount: number;
+  findCurrent: number | null;
 }
 
 export interface FactsWriter {
@@ -67,6 +72,9 @@ const INITIAL_FACTS: EditorFacts & Readonly<Record<FactKey, FactValue>> =
     canUndo: false,
     canRedo: false,
     selectionEmpty: false,
+    selectedText: "",
+    findCount: 0,
+    findCurrent: null,
   });
 
 const isFactKey = (key: string): key is FactKey =>
