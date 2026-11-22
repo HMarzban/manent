@@ -22,7 +22,7 @@ export interface NodeWorkflow {
   readonly production: ProductionService;
   /** Both services' hooks, told and asked only for a room in authority mode. */
   readonly hooks: readonly SyncHooks[];
-  /** A history or production request for a relayed script, answered by the cloud; null for any other request. */
+  /** A history or production request for a relayed script, answered by the cloud; null for any other request, and for one from nobody chosen here. */
   forward(request: Request): Promise<Response | null>;
 }
 

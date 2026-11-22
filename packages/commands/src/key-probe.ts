@@ -13,6 +13,20 @@ export interface ProbedKey {
   arrived: boolean;
 }
 
+const OFF_MAC_CANDIDATES: readonly Chord[] = Object.freeze([
+  "Mod+F",
+  "Control+Shift+1",
+  "Control+Shift+2",
+  "Control+Shift+M",
+  "Mod+Shift+A",
+  "Alt+PageDown",
+  "Alt+PageUp",
+  "Alt+ArrowUp",
+  "Alt+ArrowDown",
+  "Mod+Shift+]",
+  "Mod+Shift+[",
+]);
+
 /**
  * The shortcut table's keys that no command carries as a default on that system: the candidates off macOS, and the keys
  * of commands not built yet.
@@ -31,32 +45,8 @@ const KEY_CANDIDATES: Readonly<Record<Platform, readonly Chord[]>> =
       "Mod+Shift+]",
       "Mod+Shift+[",
     ],
-    windows: [
-      "Mod+F",
-      "Control+Shift+1",
-      "Control+Shift+2",
-      "Control+Shift+M",
-      "Mod+Shift+A",
-      "Alt+PageDown",
-      "Alt+PageUp",
-      "Alt+ArrowUp",
-      "Alt+ArrowDown",
-      "Mod+Shift+]",
-      "Mod+Shift+[",
-    ],
-    linux: [
-      "Mod+F",
-      "Control+Shift+1",
-      "Control+Shift+2",
-      "Control+Shift+M",
-      "Mod+Shift+A",
-      "Alt+PageDown",
-      "Alt+PageUp",
-      "Alt+ArrowUp",
-      "Alt+ArrowDown",
-      "Mod+Shift+]",
-      "Mod+Shift+[",
-    ],
+    windows: OFF_MAC_CANDIDATES,
+    linux: OFF_MAC_CANDIDATES,
   });
 
 /** Every default of every command on `platform`, then every candidate, each press once, as the commands write it. */
