@@ -77,6 +77,7 @@ export function ProjectList(props: {
         <div className="flex flex-col items-start gap-2 px-2 py-4">
           <p className="text-ui">{LIBRARY_WORDS.empty}</p>
           <div className="flex gap-2">
+            <CommandButton id="file.import" variant="outline" />
             <CommandButton id="library.newScript" variant="outline" />
             <CommandButton id="library.newProject" variant="outline" />
           </div>

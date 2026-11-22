@@ -63,6 +63,7 @@ const numbered = (count: number): Pagination =>
 /** An editor of `docId` showing `p`: livePagination reads the state of the editor's pagination plugin, kept under its key. */
 const liveOf = (docId: string, p: Pagination): LiveEditor => ({
   docId,
+  doc: {} as LiveEditor["doc"],
   view: {
     state: new Proxy(
       {},
