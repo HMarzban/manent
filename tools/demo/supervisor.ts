@@ -275,6 +275,8 @@ export async function startSupervisor(
   const listener = Bun.serve({
     hostname: "127.0.0.1",
     port: options.controlPort,
+    // POST /reset answers only after a whole re-seed, which outlasts Bun's ten-second default
+    idleTimeout: 0,
     fetch: (request) => answer(request, options, server, actions),
   });
 
