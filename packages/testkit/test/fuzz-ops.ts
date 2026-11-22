@@ -1,6 +1,6 @@
 // Operations on a simulated world as fast-check draws them: each names a device and an edit of the
-// script, a change of connection, or frames to deliver; a literal run may also rebuild or let a
-// quiet moment pass. Indices are taken modulo what exists.
+// script, a change of connection, frames to deliver, a rebuild or a quiet moment. Indices are taken
+// modulo what exists.
 import { scriptBody } from "@manent/crdt";
 import { formatFrom } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
@@ -61,6 +61,8 @@ export const arbOp: fc.Arbitrary<Op> = fc
         kind: fc.constant("deliver"),
         frames: fc.integer({ min: 1, max: 40 }),
       }),
+      fc.record({ kind: fc.constant("rebuild") }),
+      fc.record({ kind: fc.constant("quiet") }),
     ),
   )
   .map(([device, op]): Op => ({ device, ...op }));

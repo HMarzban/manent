@@ -10,7 +10,7 @@ import { canonicalBlock } from "@manent/schema";
 import type { BlockJSON, BlockOp, DocJSON, MarkJSON } from "@manent/schema";
 import fc from "fast-check";
 import { createWorld } from "../src/index.ts";
-import { applyOp } from "./fuzz-ops.ts";
+import { applyOp, arbRun } from "./fuzz-ops.ts";
 import type { Op } from "./fuzz-ops.ts";
 
 const TEXTS = ["a", "bc", "🎬", "م "] as const;
@@ -121,6 +121,24 @@ test("block operations give the same blocks on a document and on its JSON", () =
     { numRuns: 1_000 },
   );
 });
+
+test("every character typed is in the script, in Recovered text or in a recovered version, across rebuilds", async () => {
+  await fc.assert(
+    fc.asyncProperty(arbRun, async (run) => {
+      const world = await createWorld({
+        seed: run.seed,
+        users: run.users,
+        devicesPerUser: run.devices,
+        faults: run.faults,
+        limits: { checkpointEvery: 1 },
+      });
+      for (const op of run.ops) applyOp(world, op);
+      await world.settle();
+      world.check();
+    }),
+    { numRuns: Number(process.env.MANENT_FUZZ_RUNS ?? 100) },
+  );
+}, 300_000);
 
 /**
  * Found with seed 1740975719: a moved device whose first SUBSCRIBE timed out took that SUBSCRIBE's
