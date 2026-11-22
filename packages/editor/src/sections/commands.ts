@@ -17,11 +17,24 @@ import { deleteRangeKeepingSections } from "./delete-range.ts";
 export const ENTER_PLACES = ["start", "end", "middle", "empty"] as const;
 export type EnterPlace = (typeof ENTER_PLACES)[number];
 
+/** An element as a block holds it: `kind` is set on an act break only. */
+type ElementAttrs = Pick<BlockAttrs, "type" | "kind">;
+
 /** The element of the block Enter creates, from the block the caret is in and where in it the caret is. */
-export type NextElement = (current: BlockAttrs, place: EnterPlace) => string;
+export type NextElement = (
+  current: BlockAttrs,
+  place: EnterPlace,
+) => ElementAttrs;
 
 /** The new block has the element of the block Enter was pressed in. */
-export const sameElement: NextElement = (current) => current.type;
+export const sameElement: NextElement = (current) => ({
+  type: current.type,
+  kind: current.kind,
+});
+
+function newBlockAttrs(element: ElementAttrs, id: string): BlockAttrs {
+  return { ...attrsForNewBlock(element.type, id), kind: element.kind };
+}
 
 export interface SectionOptions {
   readonly ids?: IdSource;
@@ -68,7 +81,7 @@ function enter(tr: Transaction, ids: IdSource, next: NextElement): Transaction {
   const place = placeOf($caret);
   if (place === "start") {
     const block = schema.nodes.block.create(
-      attrsForNewBlock(next(current, place), ids()),
+      newBlockAttrs(next(current, place), ids()),
     );
     tr.insert($caret.before(2), block);
     return tr.setSelection(
@@ -77,8 +90,12 @@ function enter(tr: Transaction, ids: IdSource, next: NextElement): Transaction {
   }
   if (place === "middle") {
     const id = ids();
+    const element = next(current, place);
     const tail = schema.nodes.block.create(
-      attrsForSplitTail(current, next(current, place), id, ids().slice(0, 6)),
+      {
+        ...attrsForSplitTail(current, element.type, id, ids().slice(0, 6)),
+        kind: element.kind,
+      },
       $caret.parent.content.cut($caret.parentOffset),
     );
     tr.delete($caret.pos, $caret.end());
@@ -88,7 +105,7 @@ function enter(tr: Transaction, ids: IdSource, next: NextElement): Transaction {
   const at = insertAfter(
     tr,
     $caret,
-    schema.nodes.block.create(attrsForNewBlock(next(current, place), ids())),
+    schema.nodes.block.create(newBlockAttrs(next(current, place), ids())),
   );
   return tr.setSelection(TextSelection.create(tr.doc, at));
 }

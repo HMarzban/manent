@@ -81,6 +81,17 @@ test("the editor's words are these, exactly", () => {
     gameGeneralPlaceholder:
       "General — text, or * for a choice and - for a gather",
     picker: "Element",
+    titlePage: {
+      title: "Title",
+      credit: "Credit",
+      authors: "Authors",
+      source: "Source",
+      contact: "Contact",
+      draft: "Draft",
+      cast: "Cast of characters",
+      setting: "Setting",
+      summary: "Summary",
+    },
     elementButton: ["Element: 1", "Element: 2"],
     reasons: {
       needsTwoSpeeches: "needs two speeches",
@@ -119,8 +130,8 @@ test("the editor's words are these, exactly", () => {
       cleanPdf: "Clean PDF",
       morePages: ["… 1 more", "… 2 more"],
       outsideFont: [
-        "! 12 is outside the script font and prints as a box",
-        "! 12 are outside the script font and print as boxes",
+        "12 is outside the script font and prints as a box",
+        "12 are outside the script font and print as boxes",
       ],
       exportFailed: [
         "Couldn't export '1'. Try again.",
@@ -137,8 +148,6 @@ test("the editor's words are these, exactly", () => {
       fitWidth: "Fit width",
       percent: ["1\u00a0%", "2\u00a0%"],
       announce: ["Zoom: 1", "Zoom: 2"],
-      notAbove: ["isn't available at 1", "isn't available at 2"],
-      notBelow: ["isn't available at 1", "isn't available at 2"],
     },
   });
 });

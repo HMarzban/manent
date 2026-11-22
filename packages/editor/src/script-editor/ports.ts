@@ -1,7 +1,13 @@
 // Everything the script editor is given by the composition root; no CRDT, React or registry type.
 import type { Node } from "prosemirror-model";
 import type { EditorState, Plugin, Transaction } from "prosemirror-state";
-import type { Alignment, BlockJSON, FormatId } from "@manent/schema";
+import type {
+  Alignment,
+  BlockJSON,
+  FormatId,
+  TitlePageField,
+  TitlePageFields,
+} from "@manent/schema";
 
 /** An animation frame; it may never fire. Returns its cancel. */
 export interface Frames {
@@ -152,6 +158,20 @@ export interface EditorWords {
   ): string | null;
   readonly picker: string;
   readonly offFontNote: string;
+}
+
+/** The script's title page, read and written in the shared document; a write is one undo step's worth of typing. */
+export interface TitlePagePort {
+  get(): TitlePageFields;
+  set(field: TitlePageField, value: string): void;
+  /** Told after any field changes, by anyone; returns unsubscribe. */
+  subscribe(listener: () => void): () => void;
+}
+
+/** Where the title page is kept, and each field's name: its box's accessible name and its placeholder. */
+export interface TitlePageSource {
+  readonly port: TitlePagePort;
+  readonly words: Readonly<Record<TitlePageField, string>>;
 }
 
 /** The clipboard's reader of text from outside Manent. */

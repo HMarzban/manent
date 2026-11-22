@@ -16,6 +16,7 @@ import {
   trackOrder,
 } from "./review-actions.ts";
 import type { Acting, SeenOrder } from "./review-actions.ts";
+import { createReviewCopies } from "./review-copies.ts";
 import { listOpen, readAll } from "./review-entries.ts";
 import type { Listed, ReviewEntry } from "./review-entries.ts";
 import { createReviewMoves, quietly } from "./review-moves.ts";
@@ -158,6 +159,7 @@ function createAnnouncing(options: {
         viewRole: null,
         viewLive: false,
         offlineSinceAt: sync.offlineSince.get(),
+        signedIn: sync.signedIn,
         toReview: options.countOf(docId).get(),
         now: options.now(),
       }),
@@ -262,14 +264,13 @@ export function createReviewStore(options: {
   });
   const lists = createLists({ privateIndex, sync, followed });
   const announce = createAnnouncing({ ...options, followed, ...lists });
-  const moves = createReviewMoves({
-    ...options,
-    moved(docId) {
-      const open = followed.get(docId);
-      if (open !== undefined) open.unannounced += 1;
-      announce(docId);
-    },
-  });
+  const moved = (docId: string): void => {
+    const open = followed.get(docId);
+    if (open !== undefined) open.unannounced += 1;
+    announce(docId);
+  };
+  const moves = createReviewMoves({ ...options, moved });
+  const stopCopies = createReviewCopies({ privateIndex, sync, moved });
   quietly(moves.moveAll());
   const stopMoving = sync.link.subscribe(() => quietly(moves.moveAll()));
   return {
@@ -309,6 +310,7 @@ export function createReviewStore(options: {
     dispose() {
       lists.dispose();
       stopMoving();
+      stopCopies();
     },
   };
 }

@@ -23,6 +23,7 @@ import { createHandlers } from "../handlers/index.ts";
 import type { Navigation } from "../handlers/index.ts";
 import type { PersonStore } from "../state/person.store.ts";
 import { productionContextActions } from "../state/production-context.store.ts";
+import { layoutViewActions } from "../state/layout-view.store.ts";
 import { rulerActions } from "../state/ruler.store.ts";
 import { zoomActions } from "../state/zoom.store.ts";
 import type { Environment, PersonServices, ShellState } from "./ports.ts";
@@ -69,6 +70,7 @@ function commandContext(
     format:
       docId === null ? null : parts.openScriptStore(docId).get("script.format"),
     rulerShown: rulerActions.get(),
+    layoutView: layoutViewActions.get(),
     spaceBeforeSet,
     zoom: docId === null ? null : zoomActions.get(),
     zoomPercent: docId === null ? null : parts.control.zoomPercent(),
@@ -160,9 +162,9 @@ function reachedFromShell(
 
 /**
  * The command service over `COMMANDS` and the handlers `fillHandlers` makes, told of every change to the window's state, the
- * person, the bindings, the settings, the open script's format, the Ruler and the zoom; a setting command writes the open
- * document's store, so a script setting reaches its script, and a zoom chosen by a key or in the palette is said. In the
- * desktop app the shell's native menus reach it too, and the person is signed in to sync when the node says so.
+ * person, the bindings, the settings, the open script's format and production, the Ruler and the zoom; a setting command
+ * writes the open document's store, so a script setting reaches its script, and a zoom chosen by a key or in the palette is
+ * said. In the desktop app the shell's native menus reach it too, and the person is signed in to sync when the node says so.
  */
 export function createCommands(
   options: CommandsOptions,
@@ -205,6 +207,8 @@ export function createCommands(
     parts.network.subscribe(service.notify),
     ...SETTINGS.all.map((def) => settings.subscribe(def.key, service.notify)),
     rulerActions.subscribe(service.notify),
+    layoutViewActions.subscribe(service.notify),
+    productionContextActions.subscribe(service.notify),
     zoomActions.subscribe(service.notify),
     followFormat(options.shellState, parts.openScriptStore, service.notify),
   ];

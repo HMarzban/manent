@@ -11,8 +11,15 @@ export const PLACEHOLDER_CSS = `
 .mn-empty::before {
   content: attr(data-placeholder);
   font-style: italic;
+  text-transform: none;
   color: var(--page-ink-muted);
   pointer-events: none;
+}
+.mn-empty.el[data-open]::before {
+  content: attr(data-open) attr(data-placeholder) attr(data-close);
+}
+.mn-empty.el[data-close]::after {
+  content: none;
 }
 `;
 

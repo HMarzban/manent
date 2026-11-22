@@ -248,7 +248,7 @@ test("in Chromium that edit's frame does its work within the remote edit's hard 
   );
   test.fixme(
     true,
-    "in Chromium this edit takes about 90 ms to show, much of it the pages measuring the reader's block again after the change",
+    "in Chromium, which draws every section, this edit takes about 100 ms to show: it moves every page break after it, and styling and laying out the pages again takes about 75 ms of that",
   );
   test.setTimeout(300_000);
   const { dispatched } = await editFarAbove(page);

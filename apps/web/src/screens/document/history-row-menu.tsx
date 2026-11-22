@@ -8,6 +8,7 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
+  DOCUMENT_WORDS,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -156,7 +157,11 @@ export function HistoryRowMenu(props: {
       <DropdownMenu onOpenChange={opened}>
         <DropdownMenuTrigger
           render={
-            <Button variant="ghost" size="icon-sm" aria-label={row.title} />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={DOCUMENT_WORDS.rowMenuName(row.title)}
+            />
           }
         >
           <span aria-hidden="true">⋯</span>

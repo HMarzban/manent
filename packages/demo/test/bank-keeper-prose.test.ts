@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { generateChapter, KEEPER_PROSE } from "../src/generate/index.ts";
+import {
+  createUsedLines,
+  generateChapter,
+  KEEPER_PROSE,
+} from "../src/generate/index.ts";
 import { createRng, DEMO_SEED } from "../src/index.ts";
 import { checkBank, othersThan } from "./support/bank-rules.ts";
 
@@ -22,7 +26,7 @@ const chapterOf = (chapter: number) =>
     chapter,
     CHAPTER_WORDS,
     createRng(DEMO_SEED),
-    new Set(),
+    createUsedLines(),
   );
 
 test("the long book's bank holds its names, its sentences and its 96 chapters", () => {

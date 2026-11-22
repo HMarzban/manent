@@ -25,7 +25,7 @@ import {
   state,
 } from "./docs.ts";
 
-const options = { style: "inline", offFontNote: "note" } as const;
+const options = { style: "inline", view: "page", offFontNote: "note" } as const;
 const scenes = (s: EditorState) =>
   blockDecorations(s).map((a) => a?.["data-scene"] ?? null);
 

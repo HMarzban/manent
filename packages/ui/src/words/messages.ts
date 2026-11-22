@@ -195,7 +195,10 @@ function wordsFor(event: TrustEvent): Words {
           };
     case "crash_recovered":
       return {
-        text: `Your last ${formatCount(event.count)} changes were already saved.`,
+        text:
+          event.count === 1
+            ? "Your last 1 change was already saved."
+            : `Your last ${formatCount(event.count)} changes were already saved.`,
         actions: [],
         ...OWN_WORK,
       };

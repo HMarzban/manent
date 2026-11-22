@@ -91,7 +91,8 @@ function defaultLine(
   )
     return PREFERENCES_WORDS.defaultIs(defaultLabel);
   const { on } = provenance;
-  const from = on === null || on === deviceName ? null : on;
+  // "" is a device that never said its name
+  const from = on === null || on === "" || on === deviceName ? null : on;
   return PREFERENCES_WORDS.setByYou(
     formatDate(provenance.at),
     defaultLabel,

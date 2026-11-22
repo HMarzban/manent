@@ -1,13 +1,19 @@
 // The demo bar's controls, start to end: the person, the Connection, Add writers, the server, Timings, Reorganise,
 // Reset, and at the far end the Tour.
-import { Avatar, Button, CommandButton, useSubscribable } from "@manent/ui";
+import {
+  Avatar,
+  Button,
+  CommandButton,
+  DEMO_WORDS,
+  useSubscribable,
+} from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PanelRightIcon, PowerIcon } from "lucide-react";
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import type { ReactNode } from "react";
 import { initialsOf } from "../initials.ts";
-import { personLabel } from "../session.ts";
+import { useAnnouncer } from "../shell/announcer-region.tsx";
 import type { TabPerson } from "../session.ts";
 import { useEnvironment } from "../services/context.tsx";
 import type { ConnectionMode } from "../services/sync/device-memory.ts";
@@ -92,7 +98,7 @@ function Person(props: {
       <Button
         variant="ghost"
         size="sm"
-        aria-label={personLabel(person)}
+        aria-label={DEMO_WORDS.person(person.name)}
         onClick={onClick}
       >
         <Avatar
@@ -126,6 +132,10 @@ function ServerControl(props: DemoControl): ReactNode {
   });
 
   const state = status.data;
+  const announcer = useAnnouncer();
+  useEffect(() => {
+    if (state !== undefined) announcer.announce(serverStatusText(state));
+  }, [announcer, state]);
   const kind =
     state === "running"
       ? "stop"
@@ -143,13 +153,8 @@ function ServerControl(props: DemoControl): ReactNode {
           onClick={() => action.mutate(kind)}
         />
       )}
-      {/* rendered before the first answer: a live region that appears together with its text is not announced; cut
-          short where the bar runs out of room, the whole sentence is still what it says */}
-      <p
-        role="status"
-        data-slot="bar-status"
-        className="min-w-0 truncate text-fg-muted"
-      >
+      {/* cut short where the bar runs out of room; the shell's announcer says the whole sentence */}
+      <p data-slot="bar-status" className="min-w-0 truncate text-fg-muted">
         {state && serverStatusText(state)}
       </p>
     </div>

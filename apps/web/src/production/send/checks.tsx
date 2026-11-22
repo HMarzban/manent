@@ -3,6 +3,7 @@
 import type { ProductionCheck } from "@manent/revisions";
 import { Button, PRODUCTION_WORDS, joinNames } from "@manent/ui";
 import type { ReactNode } from "react";
+import { CheckMark } from "../../send/check-mark.tsx";
 
 const WORDS = PRODUCTION_WORDS;
 
@@ -74,8 +75,8 @@ export function Checks(props: {
       {props.checks.map((check, index) => {
         const action = actionOf(check, props.actions);
         return (
-          <li key={index} className="flex flex-wrap items-center gap-2">
-            <span aria-hidden="true">{check.ok ? "✓" : "!"}</span>
+          <li key={index} className="flex flex-wrap items-start gap-2">
+            <CheckMark ok={check.ok} />
             <span>{sentenceOf(check)}</span>
             {action === null ? null : (
               <Button variant="link" size="sm" onClick={action.run}>

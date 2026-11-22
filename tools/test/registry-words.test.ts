@@ -27,6 +27,7 @@ const CTX: CommandContext = {
   historyPresent: false,
   format: null,
   rulerShown: false,
+  layoutView: "page",
   spaceBeforeSet: false,
   zoom: null,
   zoomPercent: null,
@@ -34,7 +35,9 @@ const CTX: CommandContext = {
 };
 
 const labelOf = (c: CommandDefinition, ctx: CommandContext): string =>
-  typeof c.label === "function" ? c.label(ctx) : c.label;
+  typeof c.label === "function"
+    ? c.label(ctx, { get: () => undefined })
+    : c.label;
 const reasonsOf = (c: CommandDefinition): string[] =>
   c.whyNot === null ? [] : [c.whyNot(CTX)];
 const noop = (): void => {};

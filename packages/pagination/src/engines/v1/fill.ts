@@ -1,8 +1,14 @@
 // The page filler: one page from where it opens to the break that ends it. Units are half-lines.
 import type { LayoutBlock } from "../../layout-block.ts";
-import type { PageProfile, SpecKey } from "../../page-profile.ts";
+import type { PageProfile } from "../../page-profile.ts";
 import type { BlockMetrics, Page } from "../../pages.ts";
 import { UNITS_PER_LINE } from "../../units.ts";
+import {
+  castListOf,
+  isSceneBoundary,
+  isSceneHeading,
+  speakerName,
+} from "./cast.ts";
 import { upperCase } from "./cells.ts";
 import { columnHeight, isInRun, lastCutRow, resumeAt } from "./dual.ts";
 import type { ColumnPiece, Point } from "./dual.ts";
@@ -67,24 +73,6 @@ interface Break {
   readonly more: boolean;
   readonly contd: string | null;
   readonly contdRight: string | null;
-}
-
-/** The element starts a scene that its number counts and that a page can be continued in. */
-export function isSceneHeading(key: SpecKey): boolean {
-  return key === "scene_heading" || key === "slug";
-}
-
-/** The element ends the scene before it: a scene heading, slug, chapter or act break. */
-export function isSceneBoundary(key: SpecKey): boolean {
-  return (
-    isSceneHeading(key) || key === "chapter" || key.startsWith("act_break.")
-  );
-}
-
-// The name a cue speaks under: its text before the first "(", in capitals, trimmed.
-function speakerName(text: string): string {
-  const open = text.indexOf("(");
-  return upperCase(open < 0 ? text : text.slice(0, open)).trim();
 }
 
 /**
@@ -355,19 +343,35 @@ export function fillPage(
 }
 
 /**
- * Block i measured as the page shows it: with the same-speaker suffix when it takes one, and a line
- * starting at each forced offset.
+ * What block i is drawn with after its text, and the offsets where that starts a line: a cue's same-speaker
+ * suffix, or a scene heading's cast list on lines of its own.
  */
+export function suffixOf(
+  blocks: readonly LayoutBlock[],
+  profile: PageProfile,
+  i: number,
+): { readonly text: string; readonly forced: readonly number[] } {
+  if (hasSpeakerSuffix(blocks, profile, i))
+    return { text: profile.furniture.contdText, forced: [] };
+  const cast = castListOf(blocks, profile, i);
+  return cast === null
+    ? { text: "", forced: [] }
+    : { text: cast, forced: [blocks[i]!.text.length] };
+}
+
+/** Block i measured as the page shows it: with its suffix, and a line starting at each forced offset and each the suffix asks for. */
 export function measureAt(
   blocks: readonly LayoutBlock[],
   profile: PageProfile,
   i: number,
   forced: readonly number[],
 ): BlockMetrics {
+  const suffix = suffixOf(blocks, profile, i);
   return measure(blocks[i]!, profile, {
-    suffix: hasSpeakerSuffix(blocks, profile, i)
-      ? profile.furniture.contdText
-      : "",
-    forced,
+    suffix: suffix.text,
+    forced:
+      suffix.forced.length === 0
+        ? forced
+        : [...new Set([...forced, ...suffix.forced])].toSorted((a, b) => a - b),
   });
 }

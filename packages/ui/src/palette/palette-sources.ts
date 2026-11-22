@@ -62,10 +62,11 @@ function menuHome(def: CommandDefinition): string | null {
   return null;
 }
 
-/** The words of a command's home: Script settings, a Preferences pane, or else the menu that holds it. */
+/** The words of a command's home: Script settings, a Preferences pane, where revisions start, or else the menu that holds it. */
 function homeText(def: CommandDefinition, shell: Shell): string | null {
   const { home } = def;
   if (home === "homeScriptSettings") return MENU_WORDS.homeScriptSettings;
+  if (home === "homeBeforeLock") return MENU_WORDS.homeBeforeLock;
   if (home === null || !home.startsWith(HOME_PREFERENCES)) return menuHome(def);
   const label = paneLabel(home.slice(HOME_PREFERENCES.length), shell);
   return label === null ? null : MENU_WORDS.homePreferences(label);

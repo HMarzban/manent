@@ -36,6 +36,7 @@ const CTX: CommandContext = {
   historyPresent: false,
   format: null,
   rulerShown: false,
+  layoutView: "page",
   spaceBeforeSet: false,
   zoom: null,
   zoomPercent: null,
@@ -48,7 +49,9 @@ const ctx = (over: Partial<CommandContext>): CommandContext => ({
 });
 
 const labelOf = (c: CommandDefinition, context: CommandContext): string =>
-  typeof c.label === "function" ? c.label(context) : c.label;
+  typeof c.label === "function"
+    ? c.label(context, { get: () => undefined })
+    : c.label;
 
 const memorySettings = (initial: Record<string, unknown>): SettingWriter => {
   const values = new Map(Object.entries(initial));
@@ -68,8 +71,14 @@ const byId = (id: string): CommandDefinition => {
 };
 
 const pick = (id: string) => {
-  const { label, home, menus, palette, setting: value } = byId(id);
-  return { label, home, menus, palette, setting: value };
+  const { home, menus, palette, setting: value } = byId(id);
+  return {
+    label: labelOf(byId(id), CTX),
+    home,
+    menus,
+    palette,
+    setting: value,
+  };
 };
 
 const noop = (): void => {};
@@ -87,6 +96,7 @@ test("the Stage 1 commands are these, with these words and keys", () => {
     ["app.goTo", "Go to", ["Mod+G"], ["Mod+G"]],
     ["app.preferences", "Preferences", ["Mod+,"], ["Mod+,"]],
     ["app.shortcuts", "Keyboard shortcuts", ["Mod+/"], ["Mod+/"]],
+    ["app.aiPledge", "AI pledge", [], []],
     ["app.nextRegion", "Next region", ["F6"], ["F6"]],
     ["app.previousRegion", "Previous region", ["Shift+F6"], ["Shift+F6"]],
     ["app.library", "Library", [], []],
@@ -140,7 +150,10 @@ test("the Stage 1 commands are these, with these words and keys", () => {
     ["format.highlight.pink", "Highlight: Pink", [], []],
     ["format.highlight.orange", "Highlight: Orange", [], []],
     ["format.highlight.violet", "Highlight: Violet", [], []],
+    ["view.pageView", "Page view", [], []],
+    ["view.reflow", "Reflow view", [], []],
     ["view.ruler", "Ruler", [], []],
+    ["format.titlePage", "Title page", [], []],
     ["doc.export", "Export…", [], []],
     ["doc.print", "Print…", ["Mod+P"], ["Mod+P"]],
     ["view.zoomIn", "Zoom in", ["Mod+="], ["Mod+="]],
@@ -170,6 +183,7 @@ test("the Stage 1 commands are these, with these words and keys", () => {
     ["history.changesSince", "Changes since", [], []],
     ["history.hideChanges", "Hide", [], []],
     ["history.showSinceOpened", "Show", [], []],
+    ["history.dismissSinceOpened", "Dismiss", [], []],
     ["history.backToWorking", "Back to Working", [], []],
     ["history.nextChange", "Next change", [], []],
     ["history.previousChange", "Previous change", [], []],
@@ -177,12 +191,23 @@ test("the Stage 1 commands are these, with these words and keys", () => {
     ["history.restoreScene", "Restore this scene", [], []],
     ["history.restoreBefore", "Restore 'Before restore'", [], []],
     ["history.seeWhatChanged", "See what changed", [], []],
+    ["doc.openBeside", "Open beside", [], []],
     ["history.whoWrote", "Who wrote this?", [], []],
     ["production.lock", "Lock for production…", [], []],
     ["production.issue", "Issue…", [], []],
     ["production.recall", "Recall…", [], []],
-    ["production.markRevised", "Mark revised", [], []],
-    ["production.clearRevised", "Clear revised", [], []],
+    [
+      "production.markRevised",
+      "Mark revised",
+      ["Mod+Shift+]"],
+      ["Mod+Shift+]"],
+    ],
+    [
+      "production.clearRevised",
+      "Clear revised",
+      ["Mod+Shift+["],
+      ["Mod+Shift+["],
+    ],
     ["production.lockPages", "Lock or unlock page numbers", [], []],
     ["production.lockAPages", "Lock A-pages", [], []],
     ["production.renumber", "Renumber", [], []],
@@ -255,9 +280,30 @@ test("the editor's commands sit in these menus and answer to these palette words
       null,
     ]),
     [
+      "view.pageView",
+      "view",
+      [{ menu: "view", group: "page", order: 1, submenu: null }],
+      { keywords: [] },
+      null,
+    ],
+    [
+      "view.reflow",
+      "view",
+      [{ menu: "view", group: "page", order: 2, submenu: null }],
+      { keywords: [] },
+      null,
+    ],
+    [
       "view.ruler",
       "view",
       [{ menu: "view", group: "page", order: 10, submenu: null }],
+      { keywords: [] },
+      null,
+    ],
+    [
+      "format.titlePage",
+      "format",
+      [{ menu: "format", group: "script_settings", order: 20, submenu: null }],
       { keywords: [] },
       null,
     ],
@@ -341,7 +387,10 @@ test("the editor's commands belong to the page and appear only to people who can
   expect(
     EDITOR_COMMANDS.filter((c) => c.scope !== "editor").map((c) => c.id),
   ).toEqual([
+    "view.pageView",
+    "view.reflow",
     "view.ruler",
+    "format.titlePage",
     "doc.export",
     "doc.print",
     "view.zoomIn",
@@ -473,8 +522,8 @@ test("no two defaults clash in overlapping scopes on any platform", () => {
 });
 
 test("a setting generates its commands, named as the palette names them", () => {
-  const labels = COMMANDS.filter((c) => c.id.startsWith("setting.")).map(
-    (c) => c.label,
+  const labels = COMMANDS.filter((c) => c.id.startsWith("setting.")).map((c) =>
+    labelOf(c, CTX),
   );
   expect(labels).toEqual(
     expect.arrayContaining([
@@ -636,14 +685,25 @@ test("a setting command is checked while its value holds, and running it sets th
       "setting.appearance.theme.dark",
       "setting.writing.typewriterScrolling",
     ].map((id) => service.state(id).checked);
-  expect(checked()).toEqual([false, true, false]);
+  const switchLabel = (): string =>
+    service.state("setting.writing.typewriterScrolling").label;
+  expect([checked(), switchLabel()]).toEqual([
+    [false, true, false],
+    "Typewriter scrolling: turn on",
+  ]);
   service.run("setting.appearance.theme.light", "palette");
   service.run("setting.writing.typewriterScrolling", "menu");
   expect([
     settings.get("appearance.theme"),
     settings.get("writing.typewriterScrolling"),
     checked(),
-  ]).toEqual(["light", true, [true, false, true]]);
+    switchLabel(),
+  ]).toEqual([
+    "light",
+    true,
+    [true, false, true],
+    "Typewriter scrolling: turn off",
+  ]);
 });
 
 test("a script setting lives in Script settings and is absent off a document", () => {
@@ -708,6 +768,7 @@ test("the handler table names every command but the generated ones", () => {
     "app.goTo": noop,
     "app.preferences": noop,
     "app.shortcuts": noop,
+    "app.aiPledge": noop,
     "app.nextRegion": noop,
     "app.previousRegion": noop,
     "app.library": noop,
@@ -761,7 +822,10 @@ test("the handler table names every command but the generated ones", () => {
     "format.highlight.pink": noop,
     "format.highlight.orange": noop,
     "format.highlight.violet": noop,
+    "view.pageView": noop,
+    "view.reflow": noop,
     "view.ruler": noop,
+    "format.titlePage": noop,
     "doc.export": noop,
     "doc.print": noop,
     "view.zoomIn": noop,
@@ -791,6 +855,7 @@ test("the handler table names every command but the generated ones", () => {
     "history.changesSince": noop,
     "history.hideChanges": noop,
     "history.showSinceOpened": noop,
+    "history.dismissSinceOpened": noop,
     "history.backToWorking": noop,
     "history.nextChange": noop,
     "history.previousChange": noop,
@@ -798,6 +863,7 @@ test("the handler table names every command but the generated ones", () => {
     "history.restoreScene": noop,
     "history.restoreBefore": noop,
     "history.seeWhatChanged": noop,
+    "doc.openBeside": noop,
     "history.whoWrote": noop,
     "production.lock": noop,
     "production.issue": noop,

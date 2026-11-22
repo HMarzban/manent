@@ -59,3 +59,5 @@ export type { BlockView, FlatBlock, TextRun } from "./block-view.ts";
 export type { BlockOp } from "./block-ops.ts";
 export { NOTE_CONTEXT_UNITS, isScriptNote, noteAnchorAt } from "./notes.ts";
 export type { NoteAnchor, ScriptNote } from "./notes.ts";
+export { TITLE_PAGE_FIELDS } from "./title-page.ts";
+export type { TitlePageField, TitlePageFields } from "./title-page.ts";

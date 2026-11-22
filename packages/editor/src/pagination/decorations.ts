@@ -1,5 +1,5 @@
 // Page breaks, furniture and what each block shows of the pages as decorations, built again only where the pages changed.
-import { engineFor } from "@manent/pagination";
+import { engineFor, isSceneBoundary, specKey } from "@manent/pagination";
 import type {
   ChangeHint,
   ElementSpec,
@@ -11,16 +11,18 @@ import type { Dual } from "@manent/schema";
 import type { Node } from "prosemirror-model";
 import { Mapping, StepMap } from "prosemirror-transform";
 import { Decoration, DecorationSet } from "prosemirror-view";
-import type { BreakStyle } from "../page/config.ts";
+import type { BreakStyle, LayoutView } from "../page/config.ts";
 import { blockPos } from "./block-index.ts";
 import type { BlockIndex } from "./block-index.ts";
-import { toBreakSpecs } from "./break-specs.ts";
+import { toBreakSpecs, toRuleSpecs } from "./break-specs.ts";
 import type { BreakSpec } from "./break-specs.ts";
 import type { PaginationState } from "./plugin.ts";
-import { renderBreak } from "./widgets.ts";
+import { renderBreak, renderCast } from "./widgets.ts";
 
 export interface DecorationOptions {
   readonly style: BreakStyle;
+  /** Reflow view draws each page's start as a rule, in place of the breaks. */
+  readonly view: LayoutView;
   /** The title of text outside the script font. */
   readonly offFontNote: string;
 }
@@ -97,6 +99,8 @@ function blockAttrs(
   const scene = furniture.scenesNumbered ? engine.sceneNumber(p, i) : null;
   if (scene !== null) attrs["data-scene"] = scene;
   if (engine.contdSuffix(p, i)) attrs["data-contd"] = furniture.contdText;
+  const speech = engine.speechNumber(p, i);
+  if (speech !== null) attrs["data-speech"] = String(speech);
   if (spec.enclosure !== null) {
     attrs["data-open"] = spec.enclosure[0];
     attrs["data-close"] = spec.enclosure[1];
@@ -146,7 +150,11 @@ export function decorationsFor(
   const fromPos = blockPos(index, from);
   const toPos =
     to < index.blocks.length ? blockPos(index, to) : Number.POSITIVE_INFINITY;
-  const decorations = toBreakSpecs(index, p, options.style)
+  const specs =
+    options.view === "reflow"
+      ? toRuleSpecs(index, p)
+      : toBreakSpecs(index, p, options.style);
+  const decorations = specs
     .filter((spec) => spec.pos >= fromPos && spec.pos < toPos)
     .map(widgetOf);
   const context: BlockContext = {
@@ -159,6 +167,15 @@ export function decorationsFor(
     const attrs = blockAttrs(context, i);
     if (attrs !== null)
       decorations.push(Decoration.node(pos, pos + node.nodeSize, attrs));
+    const cast = engine.castList(p, i);
+    if (cast !== null)
+      decorations.push(
+        Decoration.widget(pos + node.nodeSize - 1, () => renderCast(cast), {
+          key: `cast:${cast}`,
+          side: 1,
+          ignoreSelection: true,
+        }),
+      );
     const runs = engine.offFontRanges(node.textContent);
     for (let r = 0; r + 1 < runs.length; r += 2)
       decorations.push(
@@ -232,23 +249,29 @@ function isDrawnAsBefore(
   );
 }
 
-function sceneCount(
-  p: Pagination,
-  engine: Engine,
+// The blocks in [from, to) that `numberOf` numbers.
+function numberedCount(
   from: number,
   to: number,
+  numberOf: (i: number) => unknown,
 ): number {
   let count = 0;
-  for (let i = from; i < to; i++)
-    if (engine.sceneNumber(p, i) !== null) count++;
+  for (let i = from; i < to; i++) if (numberOf(i) !== null) count++;
   return count;
+}
+
+// The block that starts the scene holding block `before`; -1 at the script's start.
+function sceneStartOf(blocks: readonly LayoutBlock[], before: number): number {
+  for (let j = before; j >= 0; j--)
+    if (isSceneBoundary(specKey(blocks[j]!.type, blocks[j]!.kind))) return j;
+  return -1;
 }
 
 /**
  * The blocks whose decorations can differ: the changed blocks and the one after them; the blocks of every page that is not drawn as
  * before, from the first page that is not the old object to the first page from which every page is drawn as
- * before; the next cue's suffix and the dual run after the change; and, when a scene was added or removed
- * with scenes numbered, every block after.
+ * before; the next cue's suffix and the dual run after the change; the scene heading above the change when its
+ * cast list changed; and, when a numbered scene or speech was added or removed, every block after.
  */
 function affectedBlocks(
   old: Pagination,
@@ -306,10 +329,21 @@ function affectedBlocks(
     // the cues after the next one read nothing before it
     if (p.blocks[i]!.type === "character" && p.blocks[i]!.dual === null) break;
   }
+  const { furniture } = p.profile;
+  if (furniture.castLists) {
+    const heading = sceneStartOf(p.blocks, change.first - 1);
+    if (
+      heading >= 0 &&
+      engine.castList(p, heading) !== engine.castList(old, heading)
+    )
+      cover(heading);
+  }
+  const counted = (numberOf: (q: Pagination, i: number) => unknown) =>
+    numberedCount(change.first, change.newEnd, (i) => numberOf(p, i)) !==
+    numberedCount(change.first, change.oldEnd, (i) => numberOf(old, i));
   if (
-    p.profile.furniture.scenesNumbered &&
-    sceneCount(p, engine, change.first, change.newEnd) !==
-      sceneCount(old, engine, change.first, change.oldEnd)
+    (furniture.scenesNumbered && counted(engine.sceneNumber)) ||
+    (furniture.speechesNumbered && counted(engine.speechNumber))
   )
     to = n;
   return { from: Math.min(from, n), to: Math.min(to, n) };

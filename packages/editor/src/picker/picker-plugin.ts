@@ -218,7 +218,6 @@ export function pickerPlugin(options: PickerOptions): Plugin {
         if (slot === undefined) return {};
         return {
           "aria-controls": LIST_ID,
-          "aria-expanded": "true",
           "aria-activedescendant": optionId(slot),
         };
       },

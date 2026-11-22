@@ -1,5 +1,5 @@
-// The caret and the reader's place: a line carried to the next page stays put, a remote change above moves
-// nothing, a composition beside a split speech, and zoom.
+// The caret and the reader's place: a line carried to the next page stays put, a composition beside a split speech,
+// and zoom. The editor, not the page view alone, keeps what the reader reads still under a remote change.
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { serveHarness } from "./harness/serve.ts";
@@ -67,55 +67,6 @@ for (const zoom of [100, 150]) {
     expect(moved!).toBeLessThanOrEqual((16 * zoom) / 100);
   });
 }
-
-test("a remote change above the reader does not move what they read", async ({
-  page,
-}) => {
-  await open(page, "script=corpus:750");
-  const firstLine = () =>
-    page.evaluate(() => {
-      const place = document.getElementById("place")!;
-      const top = place.getBoundingClientRect().top;
-      const blocks = [...document.querySelectorAll<HTMLElement>("p.el")];
-      const shown = blocks.find(
-        (b) => b.textContent !== "" && b.getBoundingClientRect().top >= top,
-      )!;
-      return [shown.textContent, shown.getBoundingClientRect().top] as const;
-    });
-  await page.evaluate(() => {
-    document.getElementById("place")!.scrollTop = 4 * (1056 + 24) + 300;
-  });
-  const before = await firstLine();
-  await page.evaluate(() => {
-    const { view } = window["__mn"];
-    const { doc } = view.state;
-    const first = doc.child(0);
-    const model = first.child(0);
-    // thirty one-line actions at the top; every other node is the same object
-    const added = Array.from({ length: 30 }, (_, i) =>
-      model.type.create(
-        {
-          ...model.attrs,
-          id: `remote_${String(i).padStart(4, "0")}`,
-          type: "action",
-        },
-        view.state.schema.text("Rain."),
-      ),
-    );
-    const children: (typeof model)[] = [];
-    first.forEach((node) => children.push(node));
-    const section = first.type.create(first.attrs, [...added, ...children]);
-    const tr = view.state.tr.replaceWith(
-      0,
-      doc.content.size,
-      doc.content.replaceChild(0, section),
-    );
-    view.dispatch(tr.setMeta("remote", true));
-  });
-  const after = await firstLine();
-  expect(after[0]).toBe(before[0]);
-  expect(Math.abs(after[1] - before[1])).toBeLessThanOrEqual(1);
-});
 
 test("a composition beside a split speech", async ({ page, browserName }) => {
   test.skip(

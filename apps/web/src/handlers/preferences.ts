@@ -24,6 +24,7 @@ export function preferencesHandlers(
   CommandHandlers,
   | "app.preferences"
   | "app.shortcuts"
+  | "app.aiPledge"
   | "edit.undo"
   | "edit.redo"
   | "settings.undo"
@@ -42,6 +43,9 @@ export function preferencesHandlers(
     },
     "app.shortcuts": () =>
       router.navigate(preferencesHref("keyboard", returnPlace(router.here()))),
+    // the pledge is read under This device's About
+    "app.aiPledge": () =>
+      router.navigate(preferencesHref("device", returnPlace(router.here()))),
     // the page's and a field's own undo take the key before this runs; an undo with nothing to undo says nothing
     "edit.undo"() {
       if (onPreferences()) visitUndo.current?.undo();

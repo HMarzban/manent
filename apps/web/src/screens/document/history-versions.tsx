@@ -25,7 +25,11 @@ import {
   useAuthors,
   useWorkingComparison,
 } from "./history-changes.tsx";
-import { VersionRows, WorkingAlone } from "./history-version-rows.tsx";
+import {
+  VersionRows,
+  WorkingRow,
+  useDraftNaming,
+} from "./history-version-rows.tsx";
 import { useCanEdit } from "./ruler-bar.tsx";
 import { VersionPane, useBaselineContent } from "./version-pane.tsx";
 
@@ -133,6 +137,8 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
     () => authoredBlocks(comparison, authors, authorUserIds),
     [comparison, authors, authorUserIds],
   );
+  const draftsOnly = useHistory("draftsOnly");
+  const draft = useDraftNaming(docId);
   useShownToCommands(docId, listed.rows, blockIds);
   const state = stateOf(listed.state, listed.rows.length, editable);
   const offline = listed.state.kind === "offline";
@@ -141,9 +147,19 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
       docId={docId}
       rows={listed.rows}
       offline={offline}
+      draft={draft}
       onNearEnd={() => history.more(docId)}
     />
   );
+  // Working heads the list, and ends it with Drafts only
+  const working =
+    state.kind === "problem" || state.kind === "no_access" ? null : (
+      <WorkingRow
+        rows={listed.rows}
+        answered={listed.state.kind !== "loading"}
+        draft={draft}
+      />
+    );
   const pane =
     baseline === null
       ? null
@@ -166,6 +182,7 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
         authors={authors}
         blockIds={blockIds}
       />
+      {draftsOnly ? null : working}
       <SurfaceState
         surface="side_panel"
         state={state}
@@ -173,18 +190,8 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
           ready: rows,
           read_only: rows,
           offline: rows,
-          empty: () => (
-            <>
-              <WorkingAlone docId={docId} />
-              <EmptyLine />
-            </>
-          ),
-          loading: () => (
-            <>
-              <WorkingAlone docId={docId} />
-              <Placeholders />
-            </>
-          ),
+          empty: () => <EmptyLine />,
+          loading: () => <Placeholders />,
           problem: () => (
             <>
               <p className="px-2 py-2 text-ui text-fg-muted">
@@ -196,6 +203,7 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
           no_access: () => null,
         }}
       />
+      {draftsOnly ? working : null}
       <RestoreDialog />
       {pane === null ? null : (
         <VersionPane

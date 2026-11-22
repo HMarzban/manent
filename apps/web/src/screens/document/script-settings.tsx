@@ -1,5 +1,5 @@
 // Script settings beside the page, loaded apart: shared with everyone on the script, each change said in the message slot.
-import { SCRIPT_GROUPS, SETTINGS } from "@manent/settings";
+import { SCRIPT_GROUPS, SETTINGS, appliesToFormat } from "@manent/settings";
 import type { ScriptGroup, SettingKey } from "@manent/settings";
 import {
   Button,
@@ -21,6 +21,7 @@ import type { ReactNode } from "react";
 import { FrozenRow } from "../../production/frozen-row.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
+import { SCRIPT_SETTINGS_PART } from "./script-settings-part.ts";
 import { useOpenDocument } from "./open-document.ts";
 import { announcing, nameOf, valueLabel } from "./setting-messages.ts";
 
@@ -101,7 +102,11 @@ export function ScriptSettings(props: { docId: string }): ReactNode {
   );
   if (doc === null) return null;
   return (
-    <Collapsible defaultOpen className="flex flex-col gap-2">
+    <Collapsible
+      defaultOpen
+      {...{ [SCRIPT_SETTINGS_PART]: "" }}
+      className="flex flex-col gap-2"
+    >
       {/* a quiet row, its chevron where the rows' words begin */}
       <CollapsibleTrigger className="group/disclosure -mx-2 flex min-h-row items-center gap-1 rounded-control px-1 text-start text-ui font-semibold transition-colors hover:bg-subtle active:bg-control">
         <ChevronRightIcon
@@ -116,20 +121,7 @@ export function ScriptSettings(props: { docId: string }): ReactNode {
         </p>
         <ReadOnlyLine doc={doc} />
         <SettingsProvider store={store}>
-          {GROUPS.map(({ group, keys }) => (
-            <section key={group} className="flex flex-col">
-              <h3 className="pt-2 text-ui font-semibold">
-                {GROUP_WORDS[group]}
-              </h3>
-              {keys.map((key) => (
-                <div key={key}>
-                  <SettingRow settingKey={key} deviceName={null} persisted />
-                  <SetBy settingKey={key} doc={doc} />
-                  <FrozenRow settingKey={key} docId={docId} />
-                </div>
-              ))}
-            </section>
-          ))}
+          <Groups doc={doc} docId={docId} />
         </SettingsProvider>
         <Button
           variant="link"
@@ -142,6 +134,28 @@ export function ScriptSettings(props: { docId: string }): ReactNode {
       </CollapsibleContent>
     </Collapsible>
   );
+}
+
+/** The groups and their rows that do something in the script's format. */
+function Groups(props: { doc: DocumentServices; docId: string }): ReactNode {
+  const { doc, docId } = props;
+  const format = useSetting("script.format");
+  return GROUPS.map(({ group, keys }) => {
+    const shown = keys.filter((key) => appliesToFormat(key, format));
+    if (shown.length === 0) return null;
+    return (
+      <section key={group} className="flex flex-col">
+        <h3 className="pt-2 text-ui font-semibold">{GROUP_WORDS[group]}</h3>
+        {shown.map((key) => (
+          <div key={key}>
+            <SettingRow settingKey={key} deviceName={null} persisted />
+            <SetBy settingKey={key} doc={doc} />
+            <FrozenRow settingKey={key} docId={docId} />
+          </div>
+        ))}
+      </section>
+    );
+  });
 }
 
 /** For a person who cannot edit, why every control is read-only. */
