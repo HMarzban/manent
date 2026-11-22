@@ -4,10 +4,10 @@ How to run Manent on your own machine and find your way around the demo.
 
 ## What you need
 
-- [Bun](https://bun.com) 1.4.4 or later. `make demo` checks the version first and tells you how to install Bun if it is missing.
+- [Bun](https://bun.com) 1.4.4, the version CI uses; `make demo` accepts later ones. It checks the version first and tells you how to install Bun if it is missing.
 - Git, to get the code.
 - macOS, Linux or Windows. CI is set up to test all three; it does not pass on every one yet, and Windows has not been tried by hand.
-- A current Chromium-based browser, Firefox or Safari. The end-to-end tests run in Chromium, Firefox and WebKit.
+- Chrome 123, Safari 17.5 or Firefox 120, or a later version. The end-to-end tests run in Chromium, Firefox and WebKit.
 - `make` is optional. Every `make` target runs a `bun run` script of the same name, so `bun run demo` does the same as `make demo`.
 
 ## Start the demo
@@ -50,9 +50,10 @@ Each browser tab is its own person, so two tabs can be two people. A new tab ask
 
 ## The demo bar
 
-A purple bar labelled **Demo** sits at the top of every screen. It shows who you are (click to switch) and whether the server is running, and has these buttons:
+A purple bar labelled **Demo** sits at the top of every screen. It shows who you are (click to switch) and whether the server is running, and has these controls:
 
-- **Stop the server** and **Start the server.** Stopping the server is the quickest way to see Manent work without a connection. See [Saving and syncing](saving-and-syncing.md).
+- **Connection: Online, Offline, Slow.** Cuts this tab's connection, or slows it, so you can see Manent work without one. See [Saving and syncing](saving-and-syncing.md#working-without-a-connection).
+- **Stop the server** and **Start the server**, for every tab at once.
 - **Tour**, once you have chosen a person, opens the Tour panel.
 
 ## The Library
@@ -60,14 +61,14 @@ A purple bar labelled **Demo** sits at the top of every screen. It shows who you
 The Library lists the projects of one workspace. Choose the workspace from the menu at the top left. Each demo person belongs to one or more workspaces, such as a personal desk, a writers' room or a studio.
 
 - **New script** makes a film project with one empty script and opens it.
+- **Import…** makes a script from a Final Draft or Fountain file; see [Import a script](export-and-print.md#import-a-script).
 - **New project** offers Film, Series, Show, News, Podcast, Book, Game and Stage play. In this build every kind starts with one Screenplay script; change its format in **Details → Script**, under Script settings.
 
-> [!NOTE]
-> In this build the Library list lives in the tab's memory. After a reload it starts empty again. Your scripts are not lost: they are kept on the device and on the server, and the address `/s/<id>` opens one again.
+The Library is kept like a script, on the device and on the server, so it is still there after a reload and in another browser you sign in from. A script that is not on this device yet says "Not on this device".
 
 ## The Tour
 
-The Tour panel opens the first time you reach the Library. It is meant to be a guided walk through the demo, in eight groups: Write, Work together, Go offline, History, Production, Long documents, Rundown and prompter, and Desktop. In this build the groups are headings only: no scenario is written yet.
+**Tour** in the demo bar opens the Tour panel. It is meant to be a guided walk through the demo; in this build it shows no scenarios yet.
 
 ## What to try
 

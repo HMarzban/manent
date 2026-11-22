@@ -6,18 +6,37 @@ Several people can be in one script at once. Each change reaches the others as i
 
 - **Live changes.** Every change is sent to the server and passed on to everyone else who has the script open.
 - **Cursors.** Other people's cursors and selections are drawn on the page, each with a tab that shows the person's name. **Preferences → Writing → Show other people's cursors** turns them off.
+- **Who is here.** The title bar shows the people in the script: up to three avatars, then how many more.
 - **Arrivals and departures.** With **Preferences → Writing → Announce while writing** set to "Element changes, page starts and people arriving or leaving", a screen reader hears "… arrived" and "… left".
 - **Undo is yours.** Undo takes back your own changes and leaves other people's in place.
 - **Merging after time apart.** Changes made without a connection are merged when they reach the server. See [Saving and syncing](saving-and-syncing.md#when-two-copies-changed).
 - **One person, many tabs.** Two tabs of the same person share one connection to the server. If the tab holding it closes, another takes over.
+- **Versions.** Who changed what, and restoring an earlier version, are in the History tab; see [Versions](saving-and-syncing.md#versions).
 
 ## Try it in the demo
 
 In this build a script opens only for the person who made it, so the demo shows live changes between two tabs of one person: step 5 of [What to try](getting-started.md#what-to-try) sets them up.
 
+## Production revisions
+
+When a script goes into production, its page and scene numbers are locked, so that a page handed out keeps its number, and changes are marked as revisions in a sequence of colours. Locking takes someone with production permissions, such as the script's owner, and a connection to the server.
+
+1. Choose **Lock for production…** from **Title ▾** or the command palette. The dialog says what locking means ("Page numbers and scene numbers stop moving for everyone on …") and which colour comes first.
+2. Keep writing. Changed lines are marked as revised, and the state bar above the page names the active revision: "BLUE revision · started 22 Nov 2026 · 1 page revised".
+3. **Issue Blue…**, named for the active revision, sends it out from the Send screen; see [Issue a revision](export-and-print.md#issue-a-revision).
+
+While a script is locked:
+
+- The **Pages** tab of the left panel lists every page with its lock and revision. Choose pages there to lock or unlock their numbers, lock A-pages or renumber.
+- **Mark revised** and **Clear revised** mark or clear the selected text by hand, and **Omit scene** and **Bring back scene** take a scene out or put it back while keeping its number.
+- **View ▾ → Revision marks** chooses which revisions the page shows, and **Colour revised pages** tints them.
+- The rows of Script settings that would move pages are frozen. **Change layout…** changes them anyway, after saying how many pages gain A-pages or end early.
+- **Unlock…** and **End production…** each open a dialog that states the consequence first.
+
+These commands appear in the command palette, and on the desktop in the Production menu, only once page numbers are locked.
+
 ## Not in this build
 
-- **Opening another person's script.** The Library does not yet share its list across people, and a script made by one person shows "You no longer have access" to another. Live editing between different people is covered by the end-to-end tests, which join a second writer to a script directly.
-- **The people in the title bar.** The avatars of who is in the script are not drawn yet.
+- **Opening another person's script.** A script made by one person shows "You no longer have access" to another, and a shared workspace's list does not load for its other members yet. Live editing between different people is covered by the end-to-end tests, which join a second writer to a script directly.
 - **Comments.** The side panel has History, Details and Tour; comments are planned.
 - **Roles in practice.** The demo people have roles (editor, reader and commenter, production permissions) and the server checks them, but no screen yet lets you share a script or change a role.
