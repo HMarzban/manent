@@ -15,7 +15,7 @@ Several people can be in one script at once. Each change reaches the others as i
 
 ## Try it in the demo
 
-In this build a script opens only for the person who made it, so the demo shows live changes between two tabs of one person: step 5 of [What to try](getting-started.md#what-to-try) sets them up.
+Dana, Sam, Priya, Leo and Ana share the Writers' room, and a script one of them makes there opens for the others with the role the workspace gives them. Choose Dana in one tab and click **New script** in the Writers' room; choose Priya in a second tab, open the same script from the Library, and type in either. Two tabs of one person work as well: step 5 of [What to try](getting-started.md#what-to-try) sets them up.
 
 ## Production revisions
 
@@ -37,6 +37,5 @@ These commands appear in the command palette, and on the desktop in the Producti
 
 ## Not in this build
 
-- **Opening another person's script.** A script made by one person shows "You no longer have access" to another, and a shared workspace's list does not load for its other members yet. Live editing between different people is covered by the end-to-end tests, which join a second writer to a script directly.
 - **Comments.** The side panel has History, Details and Tour; comments are planned.
 - **Roles in practice.** The demo people have roles (editor, reader and commenter, production permissions) and the server checks them, but no screen yet lets you share a script or change a role.

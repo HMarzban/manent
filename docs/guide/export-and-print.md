@@ -24,6 +24,8 @@ Choose **Import…** in the Library or from the command palette, or drop a file 
 - **Details → Import** says which file the script came from, when, and what came in but is not shown.
 - **The same file again** opens the script it made before ("Opened '<title>', imported on …"), with **Import again as a new script** beside it.
 
+In the desktop app, **Open…** (Ctrl+O, ⌘O on a Mac) and a file opened from the system import the same way.
+
 Fountain or Final Draft text pasted into a script also becomes elements; see [Writing a script](writing.md#paste).
 
 ## Issue a revision

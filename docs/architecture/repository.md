@@ -89,9 +89,10 @@ apps/
 
 ```text
 bench/
-├── harness.ts, stats.ts, budgets.ts, run.ts   the harness: fresh processes, percentiles with intervals
-├── budgets.json                                budgets and hard limits for the reference tier
-├── client/  crdt/  server/  corpus/            scenarios, *.bench.ts
+├── harness.ts, budgets.ts, measure.ts, run.ts  the harness: fresh processes, percentiles with intervals, quiet checks
+├── env.ts, tiers/                              the run's tier, slowdown and mode, and the tier that judges each area
+├── budgets.json                                budgets and hard limits, judged on each area's reference tier
+├── client/  crdt/  server/  corpus/  demo/     scenarios, *.bench.ts
 └── results/                                    one JSON file per run (not tracked)
 
 e2e/

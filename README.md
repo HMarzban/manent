@@ -12,22 +12,22 @@ The repository is a Bun monorepo: React 19 and plain ProseMirror for the editor,
 
 ### Status
 
-| Capability                                                                                                                                 | Status                                                                                                                        |
-| ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Writing in eight formats, with the Tab and Enter flow, the element picker, name completion, Find and replace, and Go to                    | Works                                                                                                                         |
-| Exact pages: one layout engine for the screen, print and PDF; (MORE) and (CONT'D); Letter and A4                                           | Works                                                                                                                         |
-| Saving on the device first, syncing to the server, working without a connection; a Library and preferences that follow you to every device | Works                                                                                                                         |
-| Version history: versions and named drafts, compare, restore a script or one scene, who wrote what                                         | Works                                                                                                                         |
-| Production revisions: locked pages, revision colours, asterisks, issuing and recalling a revision                                          | Works                                                                                                                         |
-| Export to PDF, Final Draft (FDX) and Fountain, and print                                                                                   | Works                                                                                                                         |
-| Import from Final Draft (FDX) and Fountain files, and pasted script text                                                                   | Works; in progress: a refusal of Final Draft's older `.fdr` files that says why                                               |
-| Command palette, rebindable shortcuts, preferences, themes, keyboard and screen-reader support                                             | Works; screen-reader support is checked by axe, not yet tested with screen-reader users                                       |
-| Several people in one script: live changes, cursors, merging                                                                               | In progress: works between the tabs and devices of one person; a second person cannot yet open someone else's script          |
-| The demo's seeded projects and its guided Tour                                                                                             | In progress: the people and workspaces exist; the seeded projects and the Tour's walkthroughs are not finished                |
-| Desktop app                                                                                                                                | In progress: builds unsigned installers for macOS, Windows and Linux and runs against the demo; Open… does not open files yet |
-| Benchmark report                                                                                                                           | In progress: `make bench` runs the suite; the report of its results is not published yet                                      |
-| Comments                                                                                                                                   | Planned                                                                                                                       |
-| A hosted service with real accounts                                                                                                        | Planned                                                                                                                       |
+| Capability                                                                                                                                 | Status                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Writing in eight formats, with the Tab and Enter flow, the element picker, name completion, Find and replace, and Go to                    | Works                                                                                                                                                  |
+| Exact pages: one layout engine for the screen, print and PDF; (MORE) and (CONT'D); Letter and A4                                           | Works                                                                                                                                                  |
+| Saving on the device first, syncing to the server, working without a connection; a Library and preferences that follow you to every device | Works                                                                                                                                                  |
+| Version history: versions and named drafts, compare, restore a script or one scene, who wrote what                                         | Works                                                                                                                                                  |
+| Production revisions: locked pages, revision colours, asterisks, issuing and recalling a revision                                          | Works                                                                                                                                                  |
+| Export to PDF, Final Draft (FDX) and Fountain, and print                                                                                   | Works                                                                                                                                                  |
+| Import from Final Draft (FDX) and Fountain files, and pasted script text                                                                   | Works; in progress: a refusal of Final Draft's older `.fdr` files that says why                                                                        |
+| Command palette, rebindable shortcuts, preferences, themes, keyboard and screen-reader support                                             | Works; screen-reader support is checked by axe, not yet tested with screen-reader users                                                                |
+| Several people in one script: live changes, cursors, merging                                                                               | Works in a shared workspace, such as the demo's Writers' room; no screen yet shares a script or changes a role                                         |
+| The demo's seeded projects and its guided Tour                                                                                             | In progress: the Writers' room lists its first seeded projects, whose scripts do not open from the Library yet, and the Tour shows no walkthroughs yet |
+| Desktop app                                                                                                                                | Works: unsigned installers for macOS, Windows and Linux, with history, production revisions and Open… for Final Draft and Fountain files               |
+| Benchmark report                                                                                                                           | In progress: `make bench` runs the suite; the report of its results is not published yet                                                               |
+| Comments                                                                                                                                   | Planned                                                                                                                                                |
+| A hosted service with real accounts                                                                                                        | Planned                                                                                                                                                |
 
 The [architecture overview](docs/architecture/overview.md) gives the status of every package and how it was judged.
 
@@ -44,7 +44,7 @@ make demo        # without make: bun run demo
 It opens `http://localhost:4747`, where you will see:
 
 1. **Choose who you are.** Six demo people, each with a role; one click, no password. Pick anyone but **You**: You is a new person who is not signed in, so nothing syncs.
-2. **The Library**, empty. Click **New script**.
+2. **The Library.** Sam opens on his own desk, which starts empty; the others open on the Writers' room, which all five share. Click **New script**.
 3. **A script page.** Click the page, type `INT. LIGHTHOUSE - NIGHT`, press Escape to close the list of headings, then Enter, and keep writing: Tab and Enter choose the next element for you.
 
 [What to try](docs/guide/getting-started.md#what-to-try) goes on from there: working offline, two tabs, and export. Stop the demo with Ctrl+C or `make stop`.
@@ -55,12 +55,11 @@ Start with [Getting started](docs/guide/getting-started.md) to use Manent, [Set 
 
 ## Project status and roadmap
 
-Manent is early and has made no release. Writing, pages, offline saving and sync, version history, production revisions, import, export and print work in the demo; the table above says what does not yet. Next, in rough order:
+Manent is early and has made no release. Writing, pages, offline saving and sync, working together in a shared workspace, version history, production revisions, import, export and print work in the demo and in the desktop app; the table above says what does not yet. Next, in rough order:
 
-1. Opening and editing a script together as different people.
-2. The demo's seeded projects and the guided Tour.
-3. Opening files in the desktop app, and the refusal of `.fdr` files.
-4. The benchmark report.
+1. The demo's seeded projects and the guided Tour.
+2. The refusal of Final Draft's older `.fdr` files.
+3. The benchmark report.
 
 Comments and a hosted service are planned after that. The order may change. [CHANGELOG.md](CHANGELOG.md) records what has changed, newest first.
 

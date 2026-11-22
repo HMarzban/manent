@@ -58,13 +58,13 @@ In the demo, the demo bar's **Connection** is the quickest way to try this. **Of
 
 Changes made in two places, by two tabs, two devices or two people, are merged; neither copy overwrites the other. After a reconnection a short message says what happened, for example "4 changes synced · 1 passage overlaps — review". If the server refuses changes outright, Manent reloads the script and merges your waiting changes back in block by block. Text that cannot be placed anywhere is not dropped: it is kept in "Recovered text".
 
-Each passage that two wordings compete for is listed under **To review** at the top of the History tab ("Sc. 12 · you and Dana Reyes both changed this"), and a bar in the margin marks it on the page. Choose **Keep as merged**, **Use mine** or the other person's wording; Undo takes the choice back. Recovered text is listed there too, and can be put back into the script.
+Each passage that two wordings compete for is listed under **To review** at the top of the History tab ("Sc. 12 · you and Dana Reyes both changed this"), and a bar in the margin marks it on the page. Choose **Keep as merged**, **Use mine** or the other person's wording; Undo takes the choice back. When a passage reached the server twice, as two copies, it is listed the same way: choosing a wording keeps one copy, with that wording, where the earlier copy stood, and **Keep as merged** keeps both. Recovered text is listed there too, and can be put back into the script.
 
 ## Versions
 
 Manent keeps versions of a script as you work, on the device and on the server. **Mark a version** (Ctrl+S, ⌘S on a Mac) keeps one now and says "Saved by you."; **Name this draft…** (Ctrl+Shift+S) keeps one under a name, such as "Second draft".
 
-The **History** tab of the side panel (Ctrl+Shift+H) lists them, newest first, with the ones kept only on this device marked "On this device"; **Drafts only** shows just the named ones. Choose a version to see it:
+An export or a print also keeps a version. The **History** tab of the side panel (Ctrl+Shift+H) lists them, newest first, under the script as it is now (**Working**), with the ones kept only on this device marked "On this device"; **Drafts only** shows just the named ones. It also lists each change to a script setting, with who made it, when and the value it replaced. Choose a version to see it:
 
 - **Changes since** shows what changed since that version, **On the page**, **Side by side**, as **Asterisks only** or **As it was**, without touching the script. **Next change** and **Previous change** step through it, and the filter narrows it to one scene or one person.
 - **Restore** puts the whole script back as that version held it, and **Restore this scene** only the scene you are in. The script as it was is kept first as the version "Before restore", so a restore can itself be undone. When someone else restores a version, Manent says so.

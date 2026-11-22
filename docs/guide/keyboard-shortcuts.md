@@ -18,32 +18,34 @@ The default keys. "Ctrl" is ⌘ on a Mac unless a row says otherwise. Every comm
 
 ## In a script
 
-| Command          | Key                            |
-| ---------------- | ------------------------------ |
-| Find             | Ctrl+F                         |
-| Element picker   | Alt+Enter (⌥↵)                 |
-| Scene Heading    | Ctrl+1                         |
-| Action           | Ctrl+2                         |
-| Character        | Ctrl+3                         |
-| Parenthetical    | Ctrl+4                         |
-| Dialogue         | Ctrl+5                         |
-| Transition       | Ctrl+6                         |
-| Shot             | Ctrl+7                         |
-| Section          | Ctrl+8                         |
-| New Act          | Ctrl+9                         |
-| Bold             | Ctrl+B                         |
-| Italic           | Ctrl+I                         |
-| Underline        | Ctrl+U                         |
-| Dual dialogue    | Ctrl+D                         |
-| Page break       | Ctrl+Enter                     |
-| Mark a version   | Ctrl+S                         |
-| Name this draft… | Ctrl+Shift+S                   |
-| History          | Ctrl+Shift+H                   |
-| Print…           | Ctrl+P                         |
-| Next scene       | ⌘⌥↓ on a Mac; no key elsewhere |
-| Previous scene   | ⌘⌥↑ on a Mac; no key elsewhere |
-| Left panel       | ⌘⌥1 on a Mac; no key elsewhere |
-| Side panel       | ⌘⌥2 on a Mac; no key elsewhere |
+| Command          | Key                                   |
+| ---------------- | ------------------------------------- |
+| Find             | Ctrl+F                                |
+| Element picker   | Alt+Enter (⌥↵)                        |
+| Scene Heading    | Ctrl+1                                |
+| Action           | Ctrl+2                                |
+| Character        | Ctrl+3                                |
+| Parenthetical    | Ctrl+4                                |
+| Dialogue         | Ctrl+5                                |
+| Transition       | Ctrl+6                                |
+| Shot             | Ctrl+7                                |
+| Section          | Ctrl+8                                |
+| New Act          | Ctrl+9                                |
+| Bold             | Ctrl+B                                |
+| Italic           | Ctrl+I                                |
+| Underline        | Ctrl+U                                |
+| Dual dialogue    | Ctrl+D                                |
+| Page break       | Ctrl+Enter                            |
+| Mark a version   | Ctrl+S                                |
+| Name this draft… | Ctrl+Shift+S                          |
+| History          | Ctrl+Shift+H                          |
+| Mark revised     | Ctrl+Shift+], in the desktop app only |
+| Clear revised    | Ctrl+Shift+[, in the desktop app only |
+| Print…           | Ctrl+P                                |
+| Next scene       | ⌘⌥↓ on a Mac; no key elsewhere        |
+| Previous scene   | ⌘⌥↑ on a Mac; no key elsewhere        |
+| Left panel       | ⌘⌥1 on a Mac; no key elsewhere        |
+| Side panel       | ⌘⌥2 on a Mac; no key elsewhere        |
 
 Enter, Tab and Shift+Tab move between elements as [Writing a script](writing.md#tab-and-enter) describes. That flow, the keys inside the element picker and the clipboard keys are fixed and the same for everyone.
 
@@ -57,4 +59,4 @@ Enter, Tab and Shift+Tab move between elements as [Writing a script](writing.md#
 
 ## Commands with no key
 
-General, End of Act, Emote, Camera, Engine Direction, Strikethrough, All-caps, the text colours and highlights, the alignments, Space before, Ruler, the other zoom commands, Where am I?, Script settings, Rename, Export…, Import…, New script, New project, Library, Sync centre, Switch person, Tour, the version history commands (Changes since, Restore, Restore this scene, Who wrote this? and the rest) and the production commands. Find them in the palette, or give them a key in Preferences → Keyboard.
+General, End of Act, Emote, Camera, Engine Direction, Strikethrough, All-caps, the text colours and highlights, the alignments, Space before, Ruler, the other zoom commands, Where am I?, Script settings, Rename, Export…, Import…, New script, New project, Library, Sync centre, Switch person, Tour, the version history commands (Changes since, Restore, Restore this scene, Who wrote this? and the rest) and the other production commands. Find them in the palette, or give them a key in Preferences → Keyboard.

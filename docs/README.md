@@ -17,7 +17,7 @@ Start with the part that matches what you want to do. Each page says what works 
 - [Set up a development copy](development/setup.md): requirements, the commands, the server's settings and the gate.
 - [Testing](development/testing.md): unit, DOM and property tests, end-to-end tests in three engines, and long runs.
 - [Benchmarks](development/benchmarks.md): the suite, its scenarios and how budgets apply.
-- [Desktop app](development/desktop.md): building it, running it against the demo, and what it does not do yet.
+- [Desktop app](development/desktop.md): building it, running it against the demo, and what it does.
 - [Coding standards](development/standards.md): the rules a reviewer checks.
 - [Contributing](../CONTRIBUTING.md): how to propose a change and how it is reviewed.
 
