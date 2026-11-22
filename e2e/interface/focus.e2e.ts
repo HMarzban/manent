@@ -125,7 +125,12 @@ async function arrive(page: Page, at: string): Promise<void> {
     await makeScript(page, DOC_ID);
     await page.goto(DOC);
   }
-  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+  // a script's page takes focus once it is drawn; every other screen keeps it on its heading
+  await expect(
+    at === DOC
+      ? page.locator("[data-region='page'] .mn-page-view")
+      : page.getByRole("heading", { level: 1 }),
+  ).toBeFocused();
   if (at === DOC)
     await expect(
       page.locator("[data-region='page'] .mn-page-view"),

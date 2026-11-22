@@ -858,8 +858,9 @@ html[data-white-page] .mn-pages {
 /* 1. One focus ring for every focusable thing, stock or ours. A heading or a
       refusal focused on arrival is where focus starts, not a control: no ring.
       Nor has the palette's field, which holds focus while the palette is open
-      and is the palette's own top edge: its caret is the focus. A field inside
-      an input group rings the whole group, as a plain field rings itself. */
+      and is the palette's own top edge: its caret is the focus, as it is on a
+      page being written. A field inside an input group rings the whole
+      group, as a plain field rings itself. */
 :focus-visible:not(
   [role="dialog"],
   [role="alertdialog"],
@@ -868,6 +869,7 @@ html[data-white-page] .mn-pages {
   [role="tooltip"],
   :is(h1, [data-arrival])[tabindex="-1"],
   .mn-palette-field,
+  .mn-page-view[contenteditable="true"],
   [data-slot="input-group-control"]
 ) {
   outline: var(--focus-w) solid var(--focus);
