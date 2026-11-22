@@ -5,10 +5,11 @@ import type {
   HandoffRefusal,
   UpstreamStatus,
 } from "@manent/sync-client";
-import { createValue } from "@manent/ui";
+import { IMPORT_WORDS, createValue } from "@manent/ui";
 import { watchRefusedFiles } from "../src/desktop/file-messages.ts";
 import { watchHandoffRefusals } from "../src/desktop/handoff-message.ts";
 import { answerShell } from "../src/desktop/shell-channel.ts";
+import { IMPORTABLE_EXTENSIONS } from "../src/import/readers.ts";
 import { fakeHost, recordingQueue } from "./desktop.fixtures.ts";
 import { testEnvironment, testServices } from "./services.fixtures.ts";
 import {
@@ -158,7 +159,7 @@ test("a file Manent cannot open is named with the reason", () => {
   expect(queue.items()).toEqual([
     {
       id: expect.any(String),
-      text: "Couldn't open 'notes.txt': Manent opens .fdx, .fountain, .pdf, .docx and .ink files.",
+      text: IMPORT_WORDS.notImportable("notes.txt", IMPORTABLE_EXTENSIONS),
       actions: [],
       lifetime: "brief",
       ownWork: false,
@@ -190,7 +191,7 @@ test("a file refused while nobody is chosen is said to the next person", async (
   services.dispose();
   await turn();
   expect(text).toBe(
-    "Couldn't open 'notes.txt': Manent opens .fdx, .fountain, .pdf, .docx and .ink files.",
+    IMPORT_WORDS.notImportable("notes.txt", IMPORTABLE_EXTENSIONS),
   );
 });
 
