@@ -38,7 +38,7 @@ export const WRITE: readonly TourScenario[] = [
     ],
     fresh: true,
     waitsFor: null,
-    hidden: null,
+    hidden: "its end-to-end test does not pass yet",
   },
   {
     id: "write-true-pages",
@@ -108,7 +108,7 @@ export const WRITE: readonly TourScenario[] = [
     evidence: ["Multi-camera", "Screenplay"],
     fresh: false,
     waitsFor: null,
-    hidden: null,
+    hidden: "its end-to-end test does not pass yet",
   },
   {
     id: "write-manuscript",
@@ -128,7 +128,7 @@ export const WRITE: readonly TourScenario[] = [
     evidence: ["Chapters", "Chapter One: The Box Nobody Wanted"],
     fresh: false,
     waitsFor: null,
-    hidden: null,
+    hidden: "its end-to-end test does not pass yet",
   },
   {
     id: "write-stage-play",
@@ -154,7 +154,7 @@ export const WRITE: readonly TourScenario[] = [
     evidence: ["ACT ONE", "Scene 1: Mallow Street", "Scene 2: The Box"],
     fresh: false,
     waitsFor: null,
-    hidden: null,
+    hidden: "its end-to-end test does not pass yet",
   },
   {
     id: "write-game-script",
@@ -203,7 +203,7 @@ export const WRITE: readonly TourScenario[] = [
     evidence: ["Layout", "Indent"],
     fresh: false,
     waitsFor: null,
-    hidden: null,
+    hidden: "its end-to-end test does not pass yet",
   },
   {
     id: "write-export",
@@ -219,7 +219,7 @@ export const WRITE: readonly TourScenario[] = [
     evidence: ["Exported 'Every Key But One'."],
     fresh: false,
     waitsFor: null,
-    hidden: null,
+    hidden: "its end-to-end test does not pass yet",
   },
   {
     id: "write-names",

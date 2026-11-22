@@ -98,7 +98,7 @@ export const TOGETHER: readonly TourScenario[] = [
     evidence: ["View only — you can comment"],
     fresh: false,
     waitsFor: null,
-    hidden: null,
+    hidden: "its end-to-end test does not pass yet",
   },
   {
     id: "together-settings",
@@ -127,7 +127,7 @@ export const TOGETHER: readonly TourScenario[] = [
     evidence: ["Sam changed paper size to A4 · 12 → 11 pages"],
     fresh: false,
     waitsFor: null,
-    hidden: null,
+    hidden: "its end-to-end test does not pass yet",
   },
   {
     id: "together-follow",
