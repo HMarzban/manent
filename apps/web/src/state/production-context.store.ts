@@ -23,6 +23,7 @@ export function useProductionContext(docId: string): Production {
 export const productionContextActions: {
   set(docId: string, value: Production): void;
   get(docId: string): Production;
+  subscribe(listener: () => void): () => void;
 } = Object.freeze({
   set(docId: string, value: Production) {
     guardWrite("production_context");
@@ -36,4 +37,5 @@ export const productionContextActions: {
     });
   },
   get: read,
+  subscribe: (listener: () => void) => store.subscribe(() => listener()),
 });
