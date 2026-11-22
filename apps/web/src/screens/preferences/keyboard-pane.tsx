@@ -219,25 +219,28 @@ function setByYouLine(
   return PREFERENCES_WORDS.setByYou(formatDate(custom.at), defaultLabel, from);
 }
 
-/** A row's place in its table: the first row of a table draws no line over itself. */
-interface RowPlace {
-  index: number;
-  count: number;
-}
-
 /**
  * One command's row. With `onCapture` the row opens the shortcut editor when activated, and `onShortcuts` keeps what
- * it records; without it the row only shows the keys and resets them.
+ * it records; without it the row only shows the keys and resets them. `posinset` counts from 1 within `setsize` rows.
  */
 export function ShortcutRow(props: {
   view: ShortcutView;
-  place: RowPlace;
+  posinset: number;
+  setsize: number;
   deviceName: string | null;
   capturing: boolean;
   onCapture: ((open: boolean) => void) | null;
   onShortcuts(changes: readonly ShortcutChange[]): void;
 }): ReactNode {
-  const { view, place, deviceName, capturing, onCapture, onShortcuts } = props;
+  const {
+    view,
+    posinset,
+    setsize,
+    deviceName,
+    capturing,
+    onCapture,
+    onShortcuts,
+  } = props;
   const { where } = useEnvironment();
   const row = useRef<HTMLElement>(null);
   const editable = view.fixed === null && onCapture !== null;
@@ -247,8 +250,8 @@ export function ShortcutRow(props: {
   };
   return (
     <li
-      aria-posinset={place.index + 1}
-      aria-setsize={place.count}
+      aria-posinset={posinset}
+      aria-setsize={setsize}
       className="flex flex-col"
     >
       <Row
@@ -266,7 +269,7 @@ export function ShortcutRow(props: {
               {setByYouLine(view.custom, view.defaults, where, deviceName)}
               <Button
                 variant="link"
-                className="h-auto p-0 text-meta"
+                className="h-auto p-0"
                 onClick={() =>
                   onShortcuts([{ commandId: view.id, keys: null }])
                 }
@@ -312,10 +315,14 @@ export function ShortcutTable(props: {
   );
 }
 
-function FixedRow(props: { fixed: FixedKey; place: RowPlace }): ReactNode {
+function FixedRow(props: {
+  fixed: FixedKey;
+  posinset: number;
+  setsize: number;
+}): ReactNode {
   const { where } = useEnvironment();
   return (
-    <li aria-posinset={props.place.index + 1} aria-setsize={props.place.count}>
+    <li aria-posinset={props.posinset} aria-setsize={props.setsize}>
       <Row meta={FIXED_WORDS[props.fixed.reason]}>
         {keyLabel(props.fixed.chord, where.platform)}
       </Row>
@@ -357,7 +364,8 @@ export function KeyboardPane(props: {
               <ShortcutRow
                 key={view.id}
                 view={view}
-                place={{ index, count: group.views.length }}
+                posinset={index + 1}
+                setsize={group.views.length}
                 deviceName={deviceName}
                 capturing={capturing === view.id}
                 onCapture={(open) => setCapturing(open ? view.id : null)}
@@ -372,7 +380,8 @@ export function KeyboardPane(props: {
               <FixedRow
                 key={fixed.chord}
                 fixed={fixed}
-                place={{ index, count: fixedKeys.length }}
+                posinset={index + 1}
+                setsize={fixedKeys.length}
               />
             ))}
           </ShortcutTable>

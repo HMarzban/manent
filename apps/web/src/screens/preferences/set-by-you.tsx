@@ -70,7 +70,8 @@ export function SetByYou(props: {
               <ShortcutRow
                 key={view.id}
                 view={view}
-                place={{ index, count: shortcuts.length }}
+                posinset={index + 1}
+                setsize={shortcuts.length}
                 deviceName={deviceName}
                 capturing={false}
                 onCapture={null}
