@@ -10,9 +10,16 @@ import {
 import type { PaletteRow } from "@manent/ui";
 import { QueryClientContext } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
-import { useCallback, useContext, useMemo, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
-import { livePagination } from "../editor-host/live-editor.ts";
+import type { livePagination } from "../editor-host/live-editor.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import {
   FactsContext,
@@ -66,7 +73,16 @@ export function ShellPalette(props: {
   const workspaces = useWorkspaceIds(services.userId);
   const filter = usePaletteOpen();
   const [recent, setRecent] = useState<readonly string[]>([]);
-  const pagination = () => (docId === null ? null : livePagination(docId));
+  // the editor's registry loads apart, so the palette opens before the editor's code arrives; until then no editor is
+  // open, and there are no pages
+  const live = useRef<typeof livePagination | null>(null);
+  useEffect(() => {
+    void import("../editor-host/live-editor.ts").then((registry) => {
+      live.current = registry.livePagination;
+    });
+  }, []);
+  const pagination = () =>
+    docId === null ? null : (live.current?.(docId) ?? null);
   const sources = useMemo(() => {
     const base = {
       commands: COMMANDS,
@@ -88,7 +104,7 @@ export function ShellPalette(props: {
         : [
             createPlaceSource({
               outline,
-              pagination: () => livePagination(docId),
+              pagination: () => live.current?.(docId) ?? null,
             }),
           ]),
       createDocumentSource({
