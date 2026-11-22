@@ -44,22 +44,18 @@ export function formatTime(at: number): string {
   return `${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}`;
 }
 
-const isSameDay = (a: Date, b: Date): boolean =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
+/** The local calendar day of `at`, as a number that is one apart for consecutive days. */
+export function dayNumber(at: number): number {
+  const date = new Date(at);
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / DAY_MS;
+}
 
 /** A time in this week, in local time: "Today 14:10", "Yesterday 14:10", else the day of the week: "Mon 14:10". */
 export function formatDayTime(at: number, now: number): string {
-  const day = new Date(at);
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const word = isSameDay(day, new Date(now))
-    ? "Today"
-    : isSameDay(day, yesterday)
-      ? "Yesterday"
-      : formatDay(at);
-  return `${word} ${formatTime(at)}`;
+  const daysAgo = dayNumber(now) - dayNumber(at);
+  const day =
+    daysAgo === 0 ? "Today" : daysAgo === 1 ? "Yesterday" : formatDay(at);
+  return `${day} ${formatTime(at)}`;
 }
 
 /** How long ago `at` was, for the Library's Last edited column: "just now", "14 min ago", "1 hr ago", "Mon", then "12 Nov". */
