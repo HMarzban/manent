@@ -36,7 +36,7 @@ import type { DemoControls, WorkspaceRef } from "@manent/sync-protocol";
 import { createDemoServices } from "./demo/services.ts";
 import { readServerEnv } from "./env.ts";
 import type { ServerEnv } from "./env.ts";
-import { createServerRenderPdf, readScriptFonts } from "./production.ts";
+import { readServerRenderPdf } from "./production.ts";
 import { adoptStaging, resumeStaging } from "./seed/adopt.ts";
 import { stagingDirOf, startBackgroundSeed } from "./seed/background.ts";
 import { runSeedCommand } from "./seed/command.ts";
@@ -264,7 +264,7 @@ function createHeavyState(waiting: boolean, dataDir: string, live: Storage) {
  */
 export async function startServer(env: ServerEnv): Promise<RunningServer> {
   const secret = await loadSessionSecret(env.dataDir);
-  const renderPdf = createServerRenderPdf(await readScriptFonts());
+  const renderPdf = await readServerRenderPdf();
   const waiting = await isHeavyWaiting(env.dataDir);
   let built: ManentServer | null = null;
   // the listeners bind and the server is built in one synchronous run, so no event comes first

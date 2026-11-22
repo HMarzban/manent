@@ -25,7 +25,7 @@ import type {
 import { openSqliteStorage } from "@manent/storage";
 import type { Storage } from "@manent/storage";
 import { PROTOCOL_VERSION, docIdV7 } from "@manent/sync-protocol";
-import { createServerRenderPdf, readScriptFonts } from "../production.ts";
+import { readServerRenderPdf } from "../production.ts";
 import { probeSeedCapabilities } from "./capabilities.ts";
 
 /** The host every request to a seed server names. */
@@ -167,7 +167,7 @@ export async function createSeedServer(options: {
     secret: rngBytes(rng, SESSION_KEY_BYTES),
     now: clock.now,
   });
-  const renderPdf = createServerRenderPdf(await readScriptFonts());
+  const renderPdf = await readServerRenderPdf();
   const directory = createDemoDirectory();
   // the history service and the production service take each other through getters
   const extras: HistoryExtras = {

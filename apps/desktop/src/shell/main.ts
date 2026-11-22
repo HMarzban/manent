@@ -10,7 +10,11 @@ import type {
   DesktopNodeStart,
   NodeCore,
 } from "@manent/local-node";
-import { serveWithBun } from "@manent/server-core";
+import {
+  createPacketRenderPdf,
+  readScriptFonts,
+  serveWithBun,
+} from "@manent/server-core";
 import type { Clock, Listener, ManentServer } from "@manent/server-core";
 import type {
   DesktopGlobal,
@@ -294,6 +298,12 @@ async function launch(): Promise<void> {
     versions: build.versions,
     build: version,
     platform: process.platform,
+    // the script font the build packs for the cloud
+    renderPdf: createPacketRenderPdf(
+      await readScriptFonts(
+        join(resources, "cloud/node_modules/@fontsource/courier-prime/files"),
+      ),
+    ),
     boot: () => ({
       global,
       boot: readWindowState(statePath).roles.main?.firstPaint ?? [],
