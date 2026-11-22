@@ -187,10 +187,6 @@ test("in the dark theme the sheet is dark by default, and white page makes it pa
   await expect(page.locator(".mn-page-view")).toBeVisible();
   const dark = await sheetColours(page);
   expect(dark.paper).toBeLessThan(luminance(dark.ink));
-  test.fixme(
-    true,
-    "White page in dark theme leaves the sheet dark: the built stylesheet fixes the page's colours once for the whole window, so the pages' own light scheme does not reach them",
-  );
   await runFromPalette(page, WHITE_PAGE);
   await expect(page.locator("html")).toHaveAttribute("data-white-page", "");
   const white = await sheetColours(page);
