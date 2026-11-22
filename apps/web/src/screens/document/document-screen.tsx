@@ -36,8 +36,9 @@ const route = getRouteApi("/s/$docId");
 
 // drawn over the page, which stays mounted under it
 const PAGE_AREA = Object.freeze({ gridArea: "page" });
-// the sheet at 100 % zoom and its desk padding
-const PAGE_PX = 816 + 2 * 32;
+// the sheet at 100 % zoom and 16 px of desk either side, so that a 1440 px window holds the page and both panels;
+// Fit width scales the sheet to the room left
+const PAGE_PX = 816 + 2 * 16;
 const PAGE_REGION = "[data-region='page']";
 
 function subscribeToResize(listener: () => void): () => void {
