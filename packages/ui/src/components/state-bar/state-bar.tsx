@@ -80,6 +80,7 @@ export function StateBar({
     <div
       role="status"
       aria-live="polite"
+      data-tour="state_bar"
       className="flex h-statebar items-center justify-between gap-4 border-b border-line bg-chrome px-3 text-ui"
     >
       <StateSide line={left} run={run} registered={registered} />

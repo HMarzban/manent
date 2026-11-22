@@ -31,6 +31,7 @@ import { openSqliteStorage } from "@manent/storage";
 import type { Storage } from "@manent/storage";
 import { PROTOCOL_VERSION, indexDocId } from "@manent/sync-protocol";
 import type { DemoControls, WorkspaceRef } from "@manent/sync-protocol";
+import { inProcessServer } from "./demo/in-process.ts";
 import { createDemoServices } from "./demo/services.ts";
 import { readServerEnv } from "./env.ts";
 import type { ServerEnv } from "./env.ts";
@@ -321,7 +322,7 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
   built = serving;
   const services = createDemoServices({
     live: {
-      server: serving,
+      server: inProcessServer(serving, urlHost("127.0.0.1", port)),
       sessions: config.auth.sessions,
       storage,
       sync: serving.sync!,
@@ -330,6 +331,10 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
     time: () => seedTimeAt(Date.now()),
     random: Math.random,
   });
+  // Lanternfield Studios' co-editing groups start once it is adopted: now, or when its seed is done
+  const startPresence = () =>
+    void services.startPresence().catch(console.error);
+  startPresence();
   const background = waiting
     ? startBackgroundSeed({
         command: Bun.isStandaloneExecutable
@@ -338,7 +343,7 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
         dataDir: env.dataDir,
         seedAt: Date.now(),
         onProgress: heavy.progress,
-        onDone: heavy.adopted,
+        onDone: () => heavy.adopted().then(startPresence),
         onFailed(reason) {
           console.error(reason);
           heavy.failed();

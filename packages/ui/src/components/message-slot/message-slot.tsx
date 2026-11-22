@@ -28,6 +28,7 @@ export function MessageSlot({
     <div
       role="status"
       aria-live="polite"
+      data-tour="message_slot"
       className="flex min-w-0 flex-1 items-center text-ui"
     >
       {message === null ? null : (

@@ -1,13 +1,13 @@
-// The demo bar's controls, start to end: the person, the Connection, the server, and at the far end the Tour.
+// The demo bar's controls, start to end: the person, the Connection, Add writers, the server, Timings, Reorganise,
+// Reset, and at the far end the Tour.
 import {
   Avatar,
   Button,
   CommandButton,
   DEMO_WORDS,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
+  useSubscribable,
 } from "@manent/ui";
+import type { Subscribable } from "@manent/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PanelRightIcon, PowerIcon } from "lucide-react";
 import { useContext, useEffect } from "react";
@@ -15,28 +15,70 @@ import type { ReactNode } from "react";
 import { initialsOf } from "../initials.ts";
 import { useAnnouncer } from "../shell/announcer-region.tsx";
 import type { TabPerson } from "../session.ts";
+import { useEnvironment } from "../services/context.tsx";
+import type { ConnectionMode } from "../services/sync/device-memory.ts";
+import { asUiSubscribable } from "../services/sync/subscribable.ts";
 import { usePanel } from "../state/panels.store.ts";
 import { FactsContext } from "../state/bridge-contexts.ts";
 import { TEXT, serverStatusText } from "../text.ts";
-import { Connection } from "./connection.tsx";
+import { BarButton } from "./bar-button.tsx";
+import { ConnectionChoice, useConnectionControl } from "./connection.tsx";
 import { BarLabelled } from "./demo-bar-control.tsx";
+import { ReorganiseControl } from "./reorganise-control.tsx";
+import { ResetControl } from "./reset-control.tsx";
+import { Timings } from "./timings.tsx";
 import { POLL_MS, SERVER_STATUS_QUERY } from "./use-demo.ts";
 import type { DemoControl } from "./use-demo.ts";
+import { WritersControl } from "./writers-control.tsx";
 
-/** The Connection and the Tour are drawn only inside the shell, which exists once the tab has a person. */
+/**
+ * Before a person is chosen the bar holds only the server: every other control acts on the person's sync, or needs the
+ * shell, which exists once the tab has a person.
+ */
 export function DemoBarControls(props: {
   person: TabPerson | null;
   onPersonClick: () => void;
   control: DemoControl | null;
 }): ReactNode {
-  // the shell provides the commands together with the bridge's contexts
+  // the shell provides the services and the commands together with the bridge's contexts
   const inShell = useContext(FactsContext) !== null;
+  const { control } = props;
+  // one row while they fit; in the narrowest bar, where it drops the server's words, a second row
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 @max-[40rem]/mn-bar:flex-wrap @max-[40rem]/mn-bar:py-1">
+      <Person person={props.person} onClick={props.onPersonClick} />
+      {inShell ? (
+        <ShellControls control={control} />
+      ) : (
+        control && <ServerControl {...control} />
+      )}
+    </div>
+  );
+}
+
+/** Before the Connection is known the tab is online, as its sync starts. */
+const ONLINE: Subscribable<ConnectionMode> = Object.freeze({
+  get: () => "online",
+  subscribe: () => () => {},
+});
+
+function ShellControls(props: { control: DemoControl | null }): ReactNode {
+  const { control } = props;
+  const connection = useConnectionControl();
+  const mode = useSubscribable(
+    connection === null ? ONLINE : asUiSubscribable(connection.mode),
+  );
+  const offline = mode === "offline";
+  const { docId } = useSubscribable(useEnvironment().shellState);
   return (
     <>
-      <Person person={props.person} onClick={props.onPersonClick} />
-      <Connection />
-      {props.control && <ServerControl {...props.control} />}
-      {inShell && <Tour />}
+      {connection && <ConnectionChoice control={connection} />}
+      <WritersControl docId={docId} offline={offline} />
+      {control && <ServerControl {...control} />}
+      <Timings docId={docId} offline={offline} />
+      <ReorganiseControl docId={docId} offline={offline} />
+      {control && <ResetControl {...control} />}
+      <Tour />
     </>
   );
 }
@@ -52,7 +94,7 @@ function Person(props: {
   const { person, onClick } = props;
   if (person === null) return null;
   return (
-    <BarLabelled label={TEXT.person}>
+    <BarLabelled label={TEXT.person} tour="demo:person">
       <Button
         variant="ghost"
         size="sm"
@@ -101,27 +143,15 @@ function ServerControl(props: DemoControl): ReactNode {
         ? "start"
         : null;
 
-  const label = kind === "stop" ? TEXT.stopServer : TEXT.startServer;
-  // the server is not a command, so this is drawn by hand as a command button with an icon is
   return (
-    <div className="flex min-w-0 items-center gap-2">
+    <div data-tour="demo:server" className="flex min-w-0 items-center gap-2">
       {kind && (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={action.isPending}
-                onClick={() => action.mutate(kind)}
-              />
-            }
-          >
-            <PowerIcon aria-hidden="true" className="size-icon" />
-            <span data-slot="button-label">{label}</span>
-          </TooltipTrigger>
-          <TooltipContent>{label}</TooltipContent>
-        </Tooltip>
+        <BarButton
+          label={kind === "stop" ? TEXT.stopServer : TEXT.startServer}
+          icon={PowerIcon}
+          disabled={action.isPending}
+          onClick={() => action.mutate(kind)}
+        />
       )}
       {/* cut short where the bar runs out of room; the shell's announcer says the whole sentence */}
       <p data-slot="bar-status" className="min-w-0 truncate text-fg-muted">
