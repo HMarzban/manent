@@ -8,7 +8,7 @@ import { DemoBar } from "./demo/demo-bar.tsx";
 import { useDemo } from "./demo/use-demo.ts";
 import type { Navigation } from "./handlers/index.ts";
 import { ServicesProvider, usePersonServices } from "./services/context.tsx";
-import { chooseUrl, personLabel } from "./session.ts";
+import { chooseUrl } from "./session.ts";
 import { AppShell, ScreenArea } from "./shell/app-shell.tsx";
 import { ShellRegion } from "./shell/regions.tsx";
 import type { PersonStore } from "./state/person.store.ts";
@@ -53,11 +53,7 @@ export function RootLayout(props: {
     navigation.navigate(chooseUrl(location.href));
   };
   const demoBar = demo !== null && (
-    <DemoBar
-      personLabel={personLabel(person)}
-      onPersonClick={openChooser}
-      control={control}
-    />
+    <DemoBar person={person} onPersonClick={openChooser} control={control} />
   );
 
   if (services === null)
