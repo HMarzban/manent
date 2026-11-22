@@ -251,7 +251,8 @@ test("text the node set aside is the window's Recovered text", async () => {
   expect([h.recovered.get(), h.status.get().recovered]).toEqual([[ITEM], 1]);
 });
 
-test("seed 9: text the window filed itself is its Recovered text beside the node's", async () => {
+/** A window holding the node's Recovered text, whose push into a block the server deleted is refused for good, so that it files its own. */
+async function windowFilesBesideNode(): Promise<DocHandle> {
   const { w, h } = await windowOnNode();
   await upstream(w, { ...UP, recovered: [ITEM] });
   typeIn(h, B2, "kept");
@@ -268,10 +269,20 @@ test("seed 9: text the window filed itself is its Recovered text beside the node
   await w.settle();
   w.server.subscribedWithState(DOC, w.server.doc(DOC).encodeState());
   await w.settle();
+  return h;
+}
+
+test("seed 9: text the window filed itself is its Recovered text beside the node's", async () => {
+  const h = await windowFilesBesideNode();
   expect(h.recovered.get().map((item) => [item.text, item.cause])).toEqual([
     [ITEM.text, ITEM.cause],
     ["kept", "rejected"],
   ]);
+});
+
+test("seed 9: the window's status counts the Recovered text it filed itself beside the node's", async () => {
+  const h = await windowFilesBesideNode();
+  expect(h.status.get().recovered).toBe(2);
 });
 
 test("a setting the cloud refused upstream drops the overlay", async () => {
