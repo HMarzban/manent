@@ -7,9 +7,6 @@ import { IMPORTABLE_EXTENSIONS, importReaders } from "../import/readers.ts";
 import type { HandlerDeps } from "./index.ts";
 import { shownWorkspace } from "./shown-workspace.ts";
 
-// Open… asks the desktop app's shell for files, which the page cannot do yet
-const nothingYet = (): void => {};
-
 /** Makes the person's opener, loaded apart from the first load, and registers it once it is made. */
 async function createOpener(deps: HandlerDeps): Promise<FileOpener> {
   // schema's values hold ProseMirror's model, which the first load does without
@@ -53,7 +50,8 @@ export function importHandlers(
         await (await opener).open(files);
       })();
     },
-    "file.open": nothingYet,
+    // the shell answers with files_opened, which the shell channel hands to the opener
+    "file.open": () => deps.desktop?.openFiles(),
     "file.importAgain"() {
       void import("../import/open-files.ts").then(({ fileOpener }) =>
         fileOpener()?.importAgain(),
