@@ -411,6 +411,8 @@ test("at 200 % in 1,280 × 800 nothing scrolls sideways, and every target is at 
   const page = await youAt(browser, "200", {
     viewport: { width: 1280, height: 800 },
   });
+  // a page opens only a script its device keeps
+  await makeScript(page, DOC_ID);
   const found: Record<string, unknown> = {};
   for (const path of ["/", `/s/${DOC_ID}`]) {
     await page.goto(path);

@@ -34,8 +34,9 @@ function asPerson(open: string, userId: string): string {
 /**
  * Opens `open` (default `/`) with `?person=<userId>` added and waits until the app drops `?person=`, which it does once
  * the tab is that person, so a next navigation or action cannot overtake the sign-in. You's first visit to the Library
- * opens the blank script of a first launch; its Library is then opened again, holding it, and every later visit waits
- * until Continue lists that script, so that no first launch overtakes the test.
+ * opens the blank script of a first launch, which is given a line, as a script left untouched is taken out of the Library;
+ * its Library is then opened again, holding it, and every later visit waits until Continue lists that script, so that no
+ * first launch overtakes the test.
  */
 export async function signedInAs(
   page: Page,
@@ -56,6 +57,11 @@ export async function signedInAs(
     LIBRARY_WORDS.continueHeading,
   );
   if ((await opened.jsonValue()) !== "first") return;
+  const editable = page.locator(
+    "[data-region='page'] [contenteditable='true']",
+  );
+  await editable.pressSequentially("the tide turns");
+  await expect(editable).toContainText(/the tide turns/i);
   // back inside the app, which has the new script in its index already; by key, as a click would leave the next focus
   // drawn as a pointer's in Firefox and WebKit
   await page.getByRole("button", { name: "‹ Library" }).press("Enter");
@@ -108,8 +114,15 @@ export async function reseedDemo(request: APIRequestContext): Promise<void> {
   expect(await reset.json()).toEqual({ server: "running" });
 }
 
-/** Closes the Tour that a person's first visit to the Library opens, once it has opened, so the next screen shows no panel. */
+// the Library opens the Tour by itself only when the Tour lists a scenario
+const TOUR_OPENS = TOUR.scenarios.some(isShown);
+
+/**
+ * Closes the Tour that a person's first visit to the Library opens, once it has opened, so the next screen shows no
+ * panel; a Tour that lists no scenario is never opened, and there is nothing to close.
+ */
 export async function closeFirstTour(page: Page): Promise<void> {
+  if (!TOUR_OPENS) return;
   const close = page
     .locator("[data-region='side_panel']")
     .getByRole("button", { name: DOCUMENT_WORDS.closeSidePanel });

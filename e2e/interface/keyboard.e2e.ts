@@ -12,9 +12,11 @@ import {
   pressKeyOf,
   runs,
 } from "../support/interface.ts";
+import { makeScript } from "../support/made-script.ts";
 import { signedInAs } from "../support/tour.ts";
 
-const DOC = "/s/6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+const DOC = `/s/${DOC_ID}`;
 const STAND_IN = "/__stand-in";
 
 /** Where a key is pressed from, and the context the commands see there, written out by hand. */
@@ -99,6 +101,9 @@ test("every default shortcut runs its command once, from the page, a panel and a
 }) => {
   test.setTimeout(240_000);
   const platform = await platformOf(page);
+  // a page opens only a script its device keeps
+  await signedInAs(page, "you");
+  await makeScript(page, DOC_ID);
   const { effective } = resolveBindings({
     commands: COMMANDS,
     custom: [],

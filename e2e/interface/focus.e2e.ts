@@ -25,6 +25,7 @@ const POPUP = "[role='dialog'][data-open]";
 const PALETTE = "div:has(> [role='combobox'][aria-label='Commands'])";
 const RENAME = "[data-region='title_bar'] input[aria-label='Rename']";
 const SEND = `section[aria-label='${SEND_WORDS.pagesRegion}']`;
+const CONSEQUENCE = "[role='alertdialog']";
 const WAYS = ["key", "palette", "control"] as const;
 
 /**
@@ -71,6 +72,13 @@ const PLACES: Partial<Record<SurfaceId, Place>> = {
     name: null,
   },
   send: { at: DOC, drawn: SEND, first: SEND, close: null, name: null },
+  consequence_dialog: {
+    at: DOC,
+    drawn: CONSEQUENCE,
+    first: CONSEQUENCE,
+    close: null,
+    name: null,
+  },
 };
 
 // the openers drawn as a control on the page their surface is used from; every other opener has none there
