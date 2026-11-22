@@ -149,7 +149,13 @@ test("each setting's help, values, places and effect are fixed", () => {
       noun: null,
       surfaces: [
         { in: "preferences", section: "writing", order: 20 },
-        { in: "menu", menu: "view", group: "writing", order: 10 },
+        {
+          in: "menu",
+          menu: "view",
+          group: "writing",
+          order: 10,
+          submenu: null,
+        },
         palette,
       ],
       apply: { how: "editor", effect: "behaviour" },
@@ -165,7 +171,13 @@ test("each setting's help, values, places and effect are fixed", () => {
       noun: null,
       surfaces: [
         { in: "preferences", section: "writing", order: 30 },
-        { in: "menu", menu: "edit", group: "spelling", order: 10 },
+        {
+          in: "menu",
+          menu: "edit",
+          group: "spelling",
+          order: 10,
+          submenu: null,
+        },
         palette,
       ],
       apply: { how: "editor", effect: "decorations" },
@@ -181,7 +193,7 @@ test("each setting's help, values, places and effect are fixed", () => {
       noun: null,
       surfaces: [
         { in: "preferences", section: "writing", order: 40 },
-        { in: "menu", menu: "view", group: "people", order: 10 },
+        { in: "menu", menu: "view", group: "people", order: 10, submenu: null },
         palette,
       ],
       apply: {
@@ -209,7 +221,7 @@ test("each setting's help, values, places and effect are fixed", () => {
       surfaces: [{ in: "preferences", section: "writing", order: 50 }, palette],
       apply: { how: "read" },
       guard: null,
-      keywords: [],
+      keywords: ["accessibility"],
     },
     {
       key: "appearance.theme",
@@ -223,7 +235,13 @@ test("each setting's help, values, places and effect are fixed", () => {
       noun: null,
       surfaces: [
         { in: "preferences", section: "appearance", order: 10 },
-        { in: "menu", menu: "view", group: "theme", order: 10 },
+        {
+          in: "menu",
+          menu: "view",
+          group: "theme",
+          order: 10,
+          submenu: "Theme",
+        },
         palette,
       ],
       apply: {
@@ -242,7 +260,13 @@ test("each setting's help, values, places and effect are fixed", () => {
       noun: null,
       surfaces: [
         { in: "preferences", section: "appearance", order: 20 },
-        { in: "menu", menu: "view", group: "theme", order: 20 },
+        {
+          in: "menu",
+          menu: "view",
+          group: "theme",
+          order: 20,
+          submenu: "Theme",
+        },
         palette,
       ],
       apply: {
@@ -267,7 +291,13 @@ test("each setting's help, values, places and effect are fixed", () => {
       noun: null,
       surfaces: [
         { in: "preferences", section: "device", order: 10 },
-        { in: "menu", menu: "view", group: "size", order: 10 },
+        {
+          in: "menu",
+          menu: "view",
+          group: "size",
+          order: 10,
+          submenu: "Interface size",
+        },
         palette,
       ],
       apply: {
@@ -484,12 +514,12 @@ test("a search never ends in nothing: one signpost and an answer for each defaul
       null,
     ],
     [
-      ["reduce motion", "motion", "animation"],
+      ["reduce motion", "motion", "animation", "accessibility"],
       "Nothing to set. Manent follows your system: turn on reduced motion there.",
       null,
     ],
     [
-      ["contrast", "high contrast"],
+      ["contrast", "high contrast", "accessibility"],
       "Nothing to set. Manent follows your system: turn on more contrast there.",
       null,
     ],

@@ -34,7 +34,7 @@ export const WRITING_SETTINGS = Object.freeze([
     noun: null,
     surfaces: [
       { in: "preferences", section: "writing", order: 20 },
-      { in: "menu", menu: "view", group: "writing", order: 10 },
+      { in: "menu", menu: "view", group: "writing", order: 10, submenu: null },
       { in: "palette" },
     ],
     apply: { how: "editor", effect: "behaviour" },
@@ -53,7 +53,7 @@ export const WRITING_SETTINGS = Object.freeze([
     noun: null,
     surfaces: [
       { in: "preferences", section: "writing", order: 30 },
-      { in: "menu", menu: "edit", group: "spelling", order: 10 },
+      { in: "menu", menu: "edit", group: "spelling", order: 10, submenu: null },
       { in: "palette" },
     ],
     apply: { how: "editor", effect: "decorations" },
@@ -72,7 +72,7 @@ export const WRITING_SETTINGS = Object.freeze([
     noun: null,
     surfaces: [
       { in: "preferences", section: "writing", order: 40 },
-      { in: "menu", menu: "view", group: "people", order: 10 },
+      { in: "menu", menu: "view", group: "people", order: 10, submenu: null },
       { in: "palette" },
     ],
     apply: {
@@ -107,6 +107,6 @@ export const WRITING_SETTINGS = Object.freeze([
     apply: { how: "read" },
     boot: false,
     guard: null,
-    keywords: [],
+    keywords: ["accessibility"],
   }),
 ] as const);

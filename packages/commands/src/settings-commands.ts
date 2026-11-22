@@ -31,13 +31,15 @@ function groupOf(def: SettingDefinition): MenuId {
   return def.scope === "script" ? "format" : "view";
 }
 
-function menusOf(
-  def: SettingDefinition,
-  submenu: string | null,
-): readonly MenuPlacement[] {
+function menusOf(def: SettingDefinition): readonly MenuPlacement[] {
   return def.surfaces
     .filter(isMenuSurface)
-    .map(({ menu, group, order }) => ({ menu, group, order, submenu }));
+    .map(({ menu, group, order, submenu }) => ({
+      menu,
+      group,
+      order,
+      submenu,
+    }));
 }
 
 function shared(
@@ -69,9 +71,10 @@ function commandsOf(def: SettingDefinition): readonly SettingCommand[] {
       {
         ...shared(def),
         id: `setting.${key}`,
-        label: `${label}: turn on`,
+        label: (_ctx, read) =>
+          `${label}: ${read.get(key) === true ? "turn off" : "turn on"}`,
         checked: (_ctx, read) => read.get(key) === true,
-        menus: menusOf(def, null),
+        menus: menusOf(def),
         setting: { key, value: null },
       },
     ];
@@ -80,14 +83,14 @@ function commandsOf(def: SettingDefinition): readonly SettingCommand[] {
     id: `setting.${key}.${choice.value}`,
     label: `${label}: ${choice.label}`,
     checked: (_ctx, read) => read.get(key) === choice.value,
-    menus: menusOf(def, label),
+    menus: menusOf(def),
     setting: { key, value: choice.value },
   }));
 }
 
 /**
- * The commands `registry` generates, in its order: `setting.<key>` turns a boolean over, `setting.<key>.<value>` sets one
- * choice. A choice's menu placements are drawn under a submenu named by the setting's label ("Theme" › "Dark").
+ * The commands `registry` generates, in its order: `setting.<key>` turns a boolean over, and its label says which way
+ * ("Typewriter scrolling: turn off" while it is on); `setting.<key>.<value>` sets one choice ("Theme: Dark").
  */
 export function settingCommands(
   registry: SettingsRegistry<readonly SettingDefinition[]>,

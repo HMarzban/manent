@@ -48,7 +48,9 @@ const ctx = (over: Partial<CommandContext>): CommandContext => ({
 });
 
 const labelOf = (c: CommandDefinition, context: CommandContext): string =>
-  typeof c.label === "function" ? c.label(context) : c.label;
+  typeof c.label === "function"
+    ? c.label(context, { get: () => undefined })
+    : c.label;
 
 const memorySettings = (initial: Record<string, unknown>): SettingWriter => {
   const values = new Map(Object.entries(initial));
@@ -68,8 +70,14 @@ const byId = (id: string): CommandDefinition => {
 };
 
 const pick = (id: string) => {
-  const { label, home, menus, palette, setting: value } = byId(id);
-  return { label, home, menus, palette, setting: value };
+  const { home, menus, palette, setting: value } = byId(id);
+  return {
+    label: labelOf(byId(id), CTX),
+    home,
+    menus,
+    palette,
+    setting: value,
+  };
 };
 
 const noop = (): void => {};
@@ -87,6 +95,7 @@ test("the Stage 1 commands are these, with these words and keys", () => {
     ["app.goTo", "Go to", ["Mod+G"], ["Mod+G"]],
     ["app.preferences", "Preferences", ["Mod+,"], ["Mod+,"]],
     ["app.shortcuts", "Keyboard shortcuts", ["Mod+/"], ["Mod+/"]],
+    ["app.aiPledge", "AI pledge", [], []],
     ["app.nextRegion", "Next region", ["F6"], ["F6"]],
     ["app.previousRegion", "Previous region", ["Shift+F6"], ["Shift+F6"]],
     ["app.library", "Library", [], []],
@@ -469,8 +478,8 @@ test("no two defaults clash in overlapping scopes on any platform", () => {
 });
 
 test("a setting generates its commands, named as the palette names them", () => {
-  const labels = COMMANDS.filter((c) => c.id.startsWith("setting.")).map(
-    (c) => c.label,
+  const labels = COMMANDS.filter((c) => c.id.startsWith("setting.")).map((c) =>
+    labelOf(c, CTX),
   );
   expect(labels).toEqual(
     expect.arrayContaining([
@@ -632,14 +641,25 @@ test("a setting command is checked while its value holds, and running it sets th
       "setting.appearance.theme.dark",
       "setting.writing.typewriterScrolling",
     ].map((id) => service.state(id).checked);
-  expect(checked()).toEqual([false, true, false]);
+  const switchLabel = (): string =>
+    service.state("setting.writing.typewriterScrolling").label;
+  expect([checked(), switchLabel()]).toEqual([
+    [false, true, false],
+    "Typewriter scrolling: turn on",
+  ]);
   service.run("setting.appearance.theme.light", "palette");
   service.run("setting.writing.typewriterScrolling", "menu");
   expect([
     settings.get("appearance.theme"),
     settings.get("writing.typewriterScrolling"),
     checked(),
-  ]).toEqual(["light", true, [true, false, true]]);
+    switchLabel(),
+  ]).toEqual([
+    "light",
+    true,
+    [true, false, true],
+    "Typewriter scrolling: turn off",
+  ]);
 });
 
 test("a script setting lives in Script settings and is absent off a document", () => {
@@ -704,6 +724,7 @@ test("the handler table names every command but the generated ones", () => {
     "app.goTo": noop,
     "app.preferences": noop,
     "app.shortcuts": noop,
+    "app.aiPledge": noop,
     "app.nextRegion": noop,
     "app.previousRegion": noop,
     "app.library": noop,

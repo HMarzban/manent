@@ -58,7 +58,14 @@ export const t: {
 export type Surface =
   | { in: "preferences"; section: SectionId; order: number }
   | { in: "scriptSettings"; group: ScriptGroup; order: number }
-  | { in: "menu"; menu: MenuId; group: string; order: number }
+  /** `submenu` is the label of the submenu the item is drawn under ("Theme"), or null. */
+  | {
+      in: "menu";
+      menu: MenuId;
+      group: string;
+      order: number;
+      submenu: string | null;
+    }
   | { in: "palette" };
 
 /** How a value takes effect: a root attribute (each value mapped to the attribute's value, null to remove it), the editor, or read where it is used. */

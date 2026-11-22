@@ -19,7 +19,13 @@ export const DEVICE_SETTINGS = Object.freeze([
     noun: null,
     surfaces: [
       { in: "preferences", section: "device", order: 10 },
-      { in: "menu", menu: "view", group: "size", order: 10 },
+      {
+        in: "menu",
+        menu: "view",
+        group: "size",
+        order: 10,
+        submenu: "Interface size",
+      },
       { in: "palette" },
     ],
     apply: {
