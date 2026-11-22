@@ -133,6 +133,7 @@ export function createShelves(options: {
   const show = (): void => {
     const facts: RowFacts = {
       userId,
+      signedIn: sync.signedIn,
       summaries,
       continued: readContinueMap(privateIndex.continueMap),
       nameOf,
