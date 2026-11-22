@@ -142,7 +142,7 @@ export function createHistoryCommands(
     "history.dismissSinceOpened"() {
       const shown = docId();
       if (shown === null) return;
-      historyActions.dismissSinceOpened(shown);
+      historyActions.setSinceDismissed(shown);
       // the ✕ goes with its line
       dom.focusPage();
     },

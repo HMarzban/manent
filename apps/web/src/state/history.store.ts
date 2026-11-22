@@ -29,7 +29,7 @@ export interface HistoryState {
   step: number | null;
   draftsOnly: boolean;
   naming: boolean;
-  /** The script whose "since you last opened" line in the state bar was dismissed; kept across `reset`. */
+  /** The script whose "since you last opened" line in the state bar was dismissed, until that line is fetched again; kept across `reset`. */
   sinceDismissed: string | null;
 }
 
@@ -71,7 +71,7 @@ export const historyActions: {
   setStep(i: number | null): void;
   setDraftsOnly(v: boolean): void;
   setNaming(v: boolean): void;
-  dismissSinceOpened(docId: string): void;
+  setSinceDismissed(docId: string | null): void;
   reset(docId: string | null): void;
 } = Object.freeze({
   select: (selected: string | null) => write({ selected }),
@@ -81,7 +81,8 @@ export const historyActions: {
   setStep: (step: number | null) => write({ step }),
   setDraftsOnly: (draftsOnly: boolean) => write({ draftsOnly }),
   setNaming: (naming: boolean) => write({ naming }),
-  dismissSinceOpened: (sinceDismissed: string) => write({ sinceDismissed }),
+  setSinceDismissed: (sinceDismissed: string | null) =>
+    write({ sinceDismissed }),
   reset: (docId: string | null) =>
     write({
       docId,
