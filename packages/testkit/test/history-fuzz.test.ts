@@ -1,6 +1,7 @@
 import { test } from "bun:test";
 import { isSceneHeading } from "@manent/revisions";
 import fc from "fast-check";
+import { blocksOfDoc } from "../src/index.ts";
 import { applyOp, arbRun } from "./fuzz-ops.ts";
 import type { Op, Run } from "./fuzz-ops.ts";
 import {
@@ -86,8 +87,7 @@ async function restore(w: HistoryWorld, op: RestoreOp): Promise<void> {
     await restoreLocally(w, device, content);
     return;
   }
-  const blocks = content.content?.[0]?.content ?? [];
-  const headings = blocks.filter(isSceneHeading);
+  const headings = blocksOfDoc(content).filter(isSceneHeading);
   const headingId = headings[op.scene % headings.length]?.attrs?.id;
   if (typeof headingId !== "string") return;
   await restoreAs(w, userId, version.id, { kind: "scene", headingId });

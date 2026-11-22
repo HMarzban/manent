@@ -104,25 +104,31 @@ function blockAt(c: SimClient, index: number): Block {
   return block;
 }
 
+/** Sixty actions, a draft named, then forty more with the second device offline and the draft restored. */
+async function restoreMeetingOfflineWriter(w: HistoryWorld): Promise<void> {
+  for (let i = 0; i < 60; i++) w.act();
+  await w.settle();
+  const v = await nameDraft(w, "dana", "Table read draft");
+  const [, sam] = w.clients;
+  if (sam === undefined) throw new RangeError("a world of three");
+  sam.online(false);
+  for (let i = 0; i < 40; i++) w.act();
+  await restoreAs(w, "dana", v, { kind: "script" });
+  sam.online(true);
+  await w.settle();
+  w.check();
+  expect(lostCharacters(w)).toBe(0);
+}
+
 test(
   "a restore meeting an offline writer conserves every character",
-  () =>
-    forSeeds(async (w) => {
-      for (let i = 0; i < 60; i++) w.act();
-      await w.settle();
-      const v = await nameDraft(w, "dana", "Table read draft");
-      const [, sam] = w.clients;
-      if (sam === undefined) throw new RangeError("a world of three");
-      sam.online(false);
-      for (let i = 0; i < 40; i++) w.act();
-      await restoreAs(w, "dana", v, { kind: "script" });
-      sam.online(true);
-      await w.settle();
-      w.check();
-      expect(lostCharacters(w)).toBe(0);
-    }),
+  () => forSeeds(restoreMeetingOfflineWriter),
   LONG,
 );
+
+// seed 7's draft holds one block twice, the copies with different text
+test("a restore of a version holding a block twice conserves both copies", async () =>
+  restoreMeetingOfflineWriter(await historyWorld(7)));
 
 test(
   "a scene restore and a whole-script restore at the same moment converge, and both reverses exist",

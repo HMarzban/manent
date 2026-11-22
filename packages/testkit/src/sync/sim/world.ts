@@ -204,12 +204,7 @@ class SimWorld implements World {
   }
 
   noteRestore(before: DocJSON, target: DocJSON, scope: RestoreScope): void {
-    // a restore writes a block whose id is held twice as one copy, until a repair exists
-    const twice = heldTwice([before, target]);
-    const restored = blocksWithin(target, scope).filter(
-      (b) => !twice.has(idOf(b)),
-    );
-    const kept = markersIn(linesOfBlocks(restored));
+    const kept = markersIn(linesOfBlocks(blocksWithin(target, scope)));
     for (const marker of markersIn(linesOfBlocks(blocksWithin(before, scope))))
       if (!kept.has(marker)) this.books.removed.add(marker);
   }
@@ -248,14 +243,18 @@ class SimWorld implements World {
 
 const idOf = (block: BlockJSON): string => String(block.attrs?.id);
 
-const blocksOfDoc = (doc: DocJSON): BlockJSON[] =>
+/** Every block of `doc`, in order, whatever its section. */
+export const blocksOfDoc = (doc: DocJSON): BlockJSON[] =>
   (doc.content ?? []).flatMap((section) => section.content ?? []);
 
+/** A document of one section holding `blocks`. */
+export const docOfBlocks = (blocks: readonly BlockJSON[]): DocJSON => ({
+  type: "doc",
+  content: [{ type: "section", content: [...blocks] }],
+});
+
 const linesOfBlocks = (blocks: BlockJSON[]): string[] =>
-  linesOfContent({
-    type: "doc",
-    content: [{ type: "section", content: blocks }],
-  });
+  linesOfContent(docOfBlocks(blocks));
 
 /** The blocks of `doc` that `scope` covers, in order. */
 function blocksWithin(doc: DocJSON, scope: RestoreScope): BlockJSON[] {
@@ -263,19 +262,6 @@ function blocksWithin(doc: DocJSON, scope: RestoreScope): BlockJSON[] {
   if (scope.kind === "script") return blocks;
   const ids = new Set(sceneBlocks(doc, scope.headingId));
   return blocks.filter((block) => ids.has(idOf(block)));
-}
-
-/** The ids that one of `docs` holds more than once. */
-function heldTwice(docs: readonly DocJSON[]): Set<string> {
-  const twice = new Set<string>();
-  for (const doc of docs) {
-    const seen = new Set<string>();
-    for (const id of blocksOfDoc(doc).map(idOf)) {
-      if (seen.has(id)) twice.add(id);
-      seen.add(id);
-    }
-  }
-  return twice;
 }
 
 /** The transport, with every replay key it sends kept in the books. */

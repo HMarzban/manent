@@ -5,7 +5,7 @@ import type { RestoreScope } from "@manent/revisions";
 import { createHistoryService } from "@manent/server-core";
 import type { HistoryOutcome, HistoryService } from "@manent/server-core";
 import type { DocJSON } from "@manent/schema";
-import { createWorld } from "../src/index.ts";
+import { createWorld, docOfBlocks } from "../src/index.ts";
 import type { SimClient, World } from "../src/index.ts";
 
 export interface HistoryWorld extends World {
@@ -130,10 +130,7 @@ export async function contentOf(
 ): Promise<DocJSON> {
   const read = await w.history.content(userId, w.docId, { versionId });
   if (!read.ok) throw new RangeError(`seed ${w.seed}: ${read.code}`);
-  return {
-    type: "doc",
-    content: [{ type: "section", content: read.value.content.blocks }],
-  };
+  return docOfBlocks(read.value.content.blocks);
 }
 
 /** `content` restored over the whole script on `c`'s device, and what that took out noted in the world. */
