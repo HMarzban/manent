@@ -282,6 +282,7 @@ test("leaving a script the device cannot save asks first, and the browser asks w
   await act(() => until(() => services.closing.guard.failing() !== null));
 
   await go(router, "/");
+  await act(() => until(() => question() !== null));
   expect(question()).toEqual({
     title: "Export a copy before closing?",
     body: "Manent can't save on this device, so changes since 14:10 are only in this window.",

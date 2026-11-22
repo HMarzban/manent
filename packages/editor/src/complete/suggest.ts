@@ -40,8 +40,12 @@ function offer(
   next: Suggestions["next"] = "close",
 ): Suggestions | null {
   const prefix = typed.toUpperCase();
+  // the text already typed in full is never offered, so Enter goes on to the next element
   const items = candidates
-    .filter((item) => item.toUpperCase().startsWith(prefix))
+    .filter((item) => {
+      const upper = item.toUpperCase();
+      return upper !== prefix && upper.startsWith(prefix);
+    })
     .slice(0, MAX_SUGGESTIONS);
   return items.length === 0 ? null : { from, to, items, next };
 }
@@ -60,11 +64,7 @@ function cue(
   const known = [...names.characters]
     .toSorted((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
     .map(([name]) => name);
-  const typed = text.toUpperCase();
-  const candidates = [...new Set([...recent, ...known])].filter(
-    (name) => name.toUpperCase() !== typed,
-  );
-  return offer(candidates, text, 0, text.length);
+  return offer([...new Set([...recent, ...known])], text, 0, text.length);
 }
 
 function heading(text: string, names: Names): Suggestions | null {

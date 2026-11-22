@@ -1,6 +1,6 @@
 // What this device knows the server holds of a document: the synced base the store gave, with
 // every server update received since and every own update the server acknowledged.
-import { createDoc, loadDoc } from "@manent/crdt";
+import { createDoc, loadDoc, scriptBody } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { DocJSON } from "@manent/schema";
 import type { StoredUpdate } from "../ports/ports.ts";
@@ -34,6 +34,11 @@ export class SyncedBase {
   /** The base it started from, the store's or the last whole state a recovery or a move loaded, without what it took since. */
   startState(): Uint8Array | null {
     return this.start;
+  }
+
+  /** The script the base holds; an empty one when nothing was ever synced. */
+  content(): DocJSON {
+    return scriptBody(this.loaded()).materialize();
   }
 
   /** The base's state vector; null when nothing was ever synced. */

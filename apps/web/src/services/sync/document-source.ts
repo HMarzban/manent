@@ -12,16 +12,16 @@ export type { ReviewPort } from "./follow-handle.ts";
 
 const noop = (): void => {};
 
-/** The status while the document opens: an editor's, saved, never synced. */
-const opening = (now: number): StatusFacts => ({
+/** The status while the document opens: an editor's, saved; syncing for a person with a session, else never synced. */
+const opening = (now: number, signedIn: boolean): StatusFacts => ({
   access: "edit",
   device: "ok",
   network: "online",
-  server: "synced",
+  server: signedIn ? "syncing" : "synced",
   waiting: 0,
   notSent: 0,
   offlineSinceAt: null,
-  neverSynced: true,
+  neverSynced: !signedIn,
   shell: "web",
   toReview: 0,
   now,
@@ -29,6 +29,8 @@ const opening = (now: number): StatusFacts => ({
 
 interface Options extends Following {
   sync: Promise<PersonSync>;
+  /** The person has a session. */
+  signedIn: boolean;
 }
 
 /** What only an open handle needs, loaded apart from the entry. */
@@ -90,7 +92,7 @@ export function createSyncDocumentSource(options: Options): DocumentSource {
   const open = new Map<string, { services: DocumentServices; close(): void }>();
   const openDocument = (docId: string) => {
     const shown: Shown = {
-      status: createValue(opening(options.now())),
+      status: createValue(opening(options.now(), options.signedIn)),
       waitingByScene: createValue<readonly SceneWaiting[]>([]),
       stateFacts: createValue<readonly StateFact[]>([]),
     };
@@ -128,7 +130,10 @@ export function createSyncDocumentSource(options: Options): DocumentSource {
       };
     })().catch(() => {
       // a sync that cannot start, or a document it cannot open, is never said to be saved on this device
-      shown.status.set({ ...opening(options.now()), device: "failing" });
+      shown.status.set({
+        ...opening(options.now(), options.signedIn),
+        device: "failing",
+      });
     });
     return {
       services: {

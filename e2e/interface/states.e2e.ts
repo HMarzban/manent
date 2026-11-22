@@ -20,7 +20,7 @@ import type { Platform } from "@manent/settings";
 import { expect, test } from "@playwright/test";
 import type { Browser, BrowserContextOptions, Page } from "@playwright/test";
 import { labelOf, platformOf } from "../support/interface.ts";
-import { signedInAs } from "../support/tour.ts";
+import { closeFirstTour, signedInAs } from "../support/tour.ts";
 
 const RULES = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
 // the gallery's Send form takes its title and its button from the address
@@ -309,15 +309,18 @@ test("every state's words are the design's", async ({ page }) => {
     for (const [name, words] of Object.entries(gallery.sections)) {
       const section = sectionNamed(page, name);
       if (words === LOADING) {
-        // six placeholder rows of the final size, hidden and holding no text
+        // six placeholder rows of the final size, hidden, or inside what is hidden, and holding no text
         const placeholders = await section
           .locator("[data-placeholder]")
           .evaluateAll((elements) =>
-            elements.map((e) => [e.getAttribute("aria-hidden"), e.textContent]),
+            elements.map((e) => [
+              e.closest("[aria-hidden='true']") !== null,
+              e.textContent,
+            ]),
           );
         expect([name, placeholders]).toEqual([
           name,
-          Array.from({ length: 6 }, () => ["true", ""]),
+          Array.from({ length: 6 }, () => [true, ""]),
         ]);
         continue;
       }
@@ -357,10 +360,8 @@ test("a new script as You shows at most eight controls outside the page, and no 
   page,
 }) => {
   await signedInAs(page, "you");
-  // the Tour opens on a first visit in demo mode; it is the demo's, not the script's
-  await page
-    .getByRole("button", { name: DOCUMENT_WORDS.closeSidePanel })
-    .click();
+  // the Tour that You's first launch opens is the demo's, not the script's
+  await closeFirstTour(page);
   await page
     .locator('[data-region="title_bar"]')
     .getByRole("button", { name: LIBRARY_WORDS.newScript, exact: true })

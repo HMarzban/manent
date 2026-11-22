@@ -50,7 +50,8 @@ import { refused } from "./outcome.ts";
 import type { ProductionRefused } from "./outcome.ts";
 import type { Mutation, ProductionOptions } from "./requests.ts";
 
-const ISSUE_WHATS = ["changed", "full"] as const;
+/** What an issue holds: the pages changed, or the full script. */
+export const ISSUE_WHATS = ["changed", "full"] as const;
 
 /** `value` as a member of `list`; a RangeError for a stored value this service never writes. */
 export function memberOf<T extends string>(

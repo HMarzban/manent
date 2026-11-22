@@ -84,6 +84,8 @@ export type {
   DescribeResponse,
   DocClientsRequest,
   DocClientsResponse,
+  DocPeopleRequest,
+  DocPeopleResponse,
   ErrorResponse,
   HealthResponse,
   HttpErrorCode,
@@ -113,8 +115,10 @@ export type {
 } from "./http.ts";
 export { VERSION_KINDS, isVersionCursor } from "./history-http.ts";
 export type {
+  AdoptedVersion,
   AuthorsRequest,
   AuthorsResponse,
+  CopiesKeptControl,
   HistoryControl,
   HistoryVersionKind,
   NameRequest,
@@ -146,6 +150,9 @@ export {
   isRequestKey,
 } from "./production.ts";
 export type {
+  AdoptedIssue,
+  AdoptedProduction,
+  AdoptedRevisionSet,
   BlockChange,
   ColourOrderId,
   FileRequest,
@@ -175,6 +182,7 @@ export {
   NATIVE_MENU_IDS,
   NATIVE_ROLES,
   OPENED_FILE_EXTENSIONS,
+  OPENED_FILE_LIMIT_BYTES,
   UPDATE_STATES,
   parseDesktopGlobal,
   parsePageMessage,

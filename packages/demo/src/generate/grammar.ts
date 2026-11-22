@@ -13,21 +13,24 @@ import type {
 
 // the line slots of the engine's page profile on Letter: a manuscript's 54 slots hold 27 double-spaced lines,
 // and Ink, which has no page profile, is estimated as the screen page
-const LINES_PER_PAGE: Readonly<Record<FormatId, number>> = Object.freeze({
-  screenplay: 54,
-  multicam: 54,
-  animation: 54,
-  variety: 54,
-  game: 54,
-  ink: 54,
-  manuscript: 27,
-  stage_play: 54,
-});
+export const LINES_PER_PAGE: Readonly<Record<FormatId, number>> = Object.freeze(
+  {
+    screenplay: 54,
+    multicam: 54,
+    animation: 54,
+    variety: 54,
+    game: 54,
+    ink: 54,
+    manuscript: 27,
+    stage_play: 54,
+  },
+);
 // characters to a printed line, for estimating the lines a block takes
 const DIALOGUE_WIDTH = 35;
 const ACTION_WIDTH = 60;
-// a sentence placed this many pages back may be drawn again
-const GENERATED_REPEAT_PAGES = 10;
+
+/** No generated sentence or action comes back within this many pages; a dialogue line never does. */
+export const GENERATED_REPEAT_PAGES = 10;
 
 const UNITS = ["action", "exchange", "instruction", "statement"] as const;
 type Unit = (typeof UNITS)[number];
@@ -79,37 +82,60 @@ const block = (element: BlockType, text: string): SeedBlock => ({
   kind: null,
 });
 
-/**
- * Takes out of `used` each text that, with the texts placed after it, measures at least `window` by `size`; a
- * text in `kept` stays whatever its age.
- */
-function slide(
-  used: Set<string>,
-  window: number,
-  size: (text: string) => number,
-  kept: ReadonlySet<string>,
-): void {
-  let measured = 0;
-  for (const text of [...used].toReversed()) {
-    measured += size(text);
-    if (measured >= window && !kept.has(text)) used.delete(text);
-  }
-}
-
-// every text drawn for a scene is one block or more, so counting texts never runs ahead of the blocks
-const ONE_BLOCK = (): number => 1;
-// a sentence's share of its paragraph's printed lines
-const sentenceLines = (text: string): number => text.length / ACTION_WIDTH;
-const NONE: ReadonlySet<string> = new Set();
-
 const wordCount = (text: string): number =>
   text.split(/\s+/).filter((word) => word !== "").length;
 
-// a heading, cue or action takes a blank line before it; a speech runs on under its cue
-const estimatedLines = (b: SeedBlock): number =>
-  b.element === "dialogue"
+/** The printed lines `b` is estimated to take: a heading, cue or action has a blank line before it, a speech runs on under its cue. */
+export function estimatedLines(b: SeedBlock): number {
+  return b.element === "dialogue"
     ? Math.ceil(b.text.length / DIALOGUE_WIDTH)
     : 1 + Math.ceil(b.text.length / ACTION_WIDTH);
+}
+
+/** The estimated lines of `format`'s pages within which a drawn sentence or action may not come back. */
+const repeatWindow = (format: FormatId): number =>
+  GENERATED_REPEAT_PAGES * LINES_PER_PAGE[format];
+
+/**
+ * What one document's generator calls have drawn, and where: a step makes one per document and passes it to every
+ * call that writes into that document. Lines are estimated, counted over every block passed.
+ */
+export interface UsedLines {
+  /** Whether `text` may not be drawn: a dialogue entry once spoken, or a sentence or action placed fewer than `window` lines back. */
+  has(text: string, window: number): boolean;
+  /** Records a sentence or action fragment drawn at the current line. */
+  add(text: string): void;
+  /** Records a dialogue entry, which is never drawn again in the document. */
+  addDialogue(text: string): void;
+  /** Moves the current line past `block`. */
+  pass(block: SeedBlock): void;
+}
+
+/** A new document's record: nothing drawn yet, at its first line. */
+export function createUsedLines(): UsedLines {
+  const placedAt = new Map<string, number>();
+  const spoken = new Set<string>();
+  let line = 0;
+  return {
+    has: (text, window) =>
+      spoken.has(text) || line - (placedAt.get(text) ?? -Infinity) < window,
+    add(text) {
+      placedAt.set(text, line);
+    },
+    addDialogue(text) {
+      spoken.add(text);
+    },
+    pass(b) {
+      line += estimatedLines(b);
+    },
+  };
+}
+
+/** A record for a document a later cut shortens, so no distance holds: nothing drawn comes back in it. */
+export function createUsedOnce(): UsedLines {
+  const lines = createUsedLines();
+  return { ...lines, has: (text) => lines.has(text, Infinity) };
+}
 
 const WORD = new RegExp("[\\p{L}\\p{N}'’.-]+", "gu");
 const WORD_EDGES = new RegExp("^[.'’-]+|[.'’-]+$", "g");
@@ -131,7 +157,7 @@ interface Draw {
   guide: StyleGuide;
   beat: Beat;
   rng: Rng;
-  used: Set<string>;
+  used: UsedLines;
   lines: number;
   tagged: number;
 }
@@ -142,15 +168,17 @@ interface Line {
 }
 
 /**
- * An unused action fragment of the guide, drawn with `rng`, that names none of its cast but the members cued in
- * `cues`: none of its capitalised words is a cue or name word of anyone else alone. Null when none is left.
+ * An action fragment of the guide not placed within the last GENERATED_REPEAT_PAGES pages, drawn with `rng`, that
+ * names none of its cast but the members cued in `cues`: none of its capitalised words is a cue or name word of
+ * anyone else alone. Null when none is free.
  */
 export function freeAction(
   guide: StyleGuide,
   cues: readonly string[],
   rng: Rng,
-  used: ReadonlySet<string>,
+  used: Pick<UsedLines, "has">,
 ): string | null {
+  const window = repeatWindow(guide.format);
   const present = new Set(
     castWords(guide.cast.filter((member) => cues.includes(member.cue))),
   );
@@ -159,7 +187,7 @@ export function freeAction(
   );
   const free = guide.action.filter(
     (text) =>
-      !used.has(text) &&
+      !used.has(text, window) &&
       !wordsOf(text).some(
         (word) => /^\p{Lu}/u.test(word) && absent.has(word.toLowerCase()),
       ),
@@ -167,7 +195,7 @@ export function freeAction(
   return free.length === 0 ? null : rng.pick(free);
 }
 
-// an unused entry of this intent that someone in the beat other than `not` may speak
+// an entry of this intent never spoken in the document that someone in the beat other than `not` may speak
 function freeLine(
   draw: Draw,
   intent: LineIntent,
@@ -180,7 +208,7 @@ function freeLine(
   const free = draw.guide.dialogue.filter(
     (entry) =>
       entry.intent === intent &&
-      !draw.used.has(entry.text) &&
+      !draw.used.has(entry.text, repeatWindow(draw.guide.format)) &&
       speakers(entry).length > 0,
   );
   if (free.length === 0) return null;
@@ -188,14 +216,9 @@ function freeLine(
   return { entry, cue: draw.rng.pick(speakers(entry)) };
 }
 
-function act(draw: Draw, text: string): SeedBlock {
-  draw.used.add(text);
-  return block("action", text);
-}
-
 // at most one line in three carries a tag, and only a line that ends in a full stop
 function speak(draw: Draw, { entry, cue }: Line): SeedBlock[] {
-  draw.used.add(entry.text);
+  draw.used.addDialogue(entry.text);
   draw.lines += 1;
   const tagged =
     entry.text.endsWith(".") &&
@@ -213,7 +236,7 @@ const UNIT_WRITERS: Readonly<Record<Unit, (draw: Draw) => SeedBlock[] | null>> =
   {
     action: (draw) => {
       const text = freeAction(draw.guide, draw.beat.cast, draw.rng, draw.used);
-      return text === null ? null : [act(draw, text)];
+      return text === null ? null : [block("action", text)];
     },
     exchange: (draw) => {
       const ask = freeLine(draw, "ask", null);
@@ -225,7 +248,7 @@ const UNIT_WRITERS: Readonly<Record<Unit, (draw: Draw) => SeedBlock[] | null>> =
       const line = freeLine(draw, "instruct", null);
       const text = freeAction(draw.guide, draw.beat.cast, draw.rng, draw.used);
       if (line === null || text === null) return null;
-      return [...speak(draw, line), act(draw, text)];
+      return [...speak(draw, line), block("action", text)];
     },
     statement: (draw) => {
       const line = freeLine(draw, "state", null);
@@ -247,36 +270,35 @@ function writeUnit(draw: Draw): SeedBlock[] {
 }
 
 /**
- * Writes the beat's scenes, each a heading and enough units for its share of the beat's pages (an estimate).
- * Every line used is added to `used` and never used again; an action stays in it until GENERATED_REPEAT_PAGES
- * pages of blocks (checkGenerated's measure) follow it, and may then be drawn again. Throws SeedBuildError
- * "generator_exhausted" when no unused line fits.
+ * Writes the beat's scenes, each a heading and enough units for its share of the beat's pages (an estimate), and
+ * passes every block written through `used`: a dialogue line is never spoken again in the document, an action
+ * not within GENERATED_REPEAT_PAGES pages. Throws SeedBuildError "generator_exhausted" when nothing free fits.
  */
 export function generateScenes(
   guide: StyleGuide,
   beat: Beat,
   rng: Rng,
-  used: Set<string>,
+  used: UsedLines,
 ): SeedBlock[] {
   const draw: Draw = { guide, beat, rng, used, lines: 0, tagged: 0 };
   const scenes = beat.scenes[1] - beat.scenes[0] + 1;
   const share =
     ((beat.pages[1] - beat.pages[0] + 1) * LINES_PER_PAGE[guide.format]) /
     scenes;
-  // a speech is never spoken twice; an action may come back GENERATED_REPEAT_PAGES pages of blocks later
-  const spoken = new Set(guide.dialogue.map((entry) => entry.text));
-  const window = GENERATED_REPEAT_PAGES * LINES_PER_PAGE[guide.format];
   const blocks: SeedBlock[] = [];
   for (let scene = 0; scene < scenes; scene += 1) {
     const place = beat.places[scene % beat.places.length]!;
     const heading = block("scene_heading", `${place} - ${beat.timeOfDay}`);
     blocks.push(heading);
+    used.pass(heading);
     let lines = estimatedLines(heading);
     while (lines < share)
       for (const written of writeUnit(draw)) {
+        // an action is recorded at its own line, which in an instruction is past the speech before it
+        if (written.element === "action") used.add(written.text);
         blocks.push(written);
+        used.pass(written);
         lines += estimatedLines(written);
-        slide(used, window, ONE_BLOCK, spoken);
       }
   }
   return blocks;
@@ -293,61 +315,61 @@ function numberInWords(n: number): string {
 }
 
 /**
- * Writes one chapter of about `words` words: its heading, paragraphs of unused sentences that share a tag with
- * the chapter, a break halfway, the chapter's ledger entry as a quote, and a one-sentence closing paragraph.
- * `used` keeps the sentences of the last GENERATED_REPEAT_PAGES pages of estimated printed lines only, across
- * the calls that share it.
- * Throws a RangeError for a chapter the guide lacks, and SeedBuildError "generator_exhausted" when no unused
- * sentence fits.
+ * Writes one chapter of about `words` words: its heading, paragraphs of sentences free in `used`, a break halfway,
+ * the chapter's ledger entry as a quote, and a one-sentence closing paragraph. Sentences that share a tag with the
+ * chapter come first; when none is free, any free sentence of the guide. A sentence is free when it was not
+ * placed within the last GENERATED_REPEAT_PAGES manuscript pages. Throws a RangeError for a chapter the guide
+ * lacks, and SeedBuildError "generator_exhausted" when no sentence is free.
  */
 export function generateChapter(
   guide: ProseGuide,
   chapter: number,
   words: number,
   rng: Rng,
-  used: Set<string>,
+  used: UsedLines,
 ): SeedBlock[] {
   const outline = guide.chapters.find((c) => c.number === chapter);
   if (outline === undefined)
     throw new RangeError(`${guide.project} has no chapter ${chapter}`);
   const tags = new Set(outline.tags);
+  const window = repeatWindow("manuscript");
   const take = (count: number): string => {
-    const free = guide.sentences
-      .filter((s) => !used.has(s.text) && s.tags.some((tag) => tags.has(tag)))
-      .map((s) => s.text);
-    if (free.length === 0)
+    const free = guide.sentences.filter((s) => !used.has(s.text, window));
+    const tagged = free.filter((s) => s.tags.some((tag) => tags.has(tag)));
+    const pool = (tagged.length > 0 ? tagged : free).map((s) => s.text);
+    if (pool.length === 0)
       throw new SeedBuildError(
         "generator_exhausted",
         `${guide.project}: chapter ${chapter}`,
       );
     const taken: string[] = [];
-    while (taken.length < count && free.length > 0) {
-      const text = free.splice(rng.int(0, free.length - 1), 1)[0]!;
+    while (taken.length < count && pool.length > 0) {
+      const text = pool.splice(rng.int(0, pool.length - 1), 1)[0]!;
       used.add(text);
       taken.push(text);
     }
-    slide(
-      used,
-      GENERATED_REPEAT_PAGES * LINES_PER_PAGE.manuscript,
-      sentenceLines,
-      NONE,
-    );
     return taken.join(" ");
   };
-  const blocks = [
+  const blocks: SeedBlock[] = [];
+  const place = (b: SeedBlock): void => {
+    blocks.push(b);
+    used.pass(b);
+  };
+  place(
     block("chapter", `Chapter ${numberInWords(chapter)}: ${outline.title}`),
-  ];
+  );
   let written = 0;
   const fill = (target: number): void => {
     while (written < target) {
       const paragraph = take(rng.int(1, 5));
       written += wordCount(paragraph);
-      blocks.push(block("body", paragraph));
+      place(block("body", paragraph));
     }
   };
   fill(words / 2);
-  blocks.push(block("break", "*"));
+  place(block("break", "*"));
   fill(words);
-  blocks.push(block("quote", outline.ledger), block("body", take(1)));
+  place(block("quote", outline.ledger));
+  place(block("body", take(1)));
   return blocks;
 }
