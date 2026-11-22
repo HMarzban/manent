@@ -4,7 +4,11 @@ import { SETTINGS } from "@manent/settings";
 import type { Api } from "../api.ts";
 import type { DesktopHost } from "../desktop/host.ts";
 import type { NodeCloud } from "../desktop/node-cloud.ts";
-import type { PersonServices, ShellState } from "../services/ports.ts";
+import type {
+  Environment,
+  PersonServices,
+  ShellState,
+} from "../services/ports.ts";
 import { productionHandlers } from "../production/handlers.ts";
 import type { ShellDom } from "../shell/regions.tsx";
 import type { PersonStore } from "../state/person.store.ts";
@@ -32,7 +36,10 @@ export interface Navigation {
   here(): RoutePlace;
 }
 
-export interface HandlerDeps {
+export interface HandlerDeps extends Pick<
+  Environment,
+  "language" | "now" | "storage"
+> {
   services: PersonServices;
   api: Api;
   usePerson: PersonStore;
