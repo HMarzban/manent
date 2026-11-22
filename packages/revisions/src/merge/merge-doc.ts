@@ -11,7 +11,10 @@ export interface Overlap {
   theirs: BlockJSON;
 }
 
-/** The text of a block mine changed and theirs no longer holds. */
+/**
+ * The text of a block mine changed and theirs no longer holds, or of a later
+ * block of mine under an ID an earlier one holds.
+ */
 export interface SetAsideBlock {
   blockId: string;
   /** The nearest earlier block of mine that the result holds; null when none. */
@@ -37,6 +40,7 @@ type Outcome =
   | { kind: "overlap"; theirs: BlockJSON };
 
 const NOTHING: Outcome = Object.freeze({ kind: "nothing" });
+const SET_ASIDE: Outcome = Object.freeze({ kind: "set_aside" });
 
 function blocksIn(doc: DocJSON): BlockJSON[] {
   return (doc.content ?? []).flatMap((section) => section.content ?? []);
@@ -61,10 +65,12 @@ function byId(doc: DocJSON): Map<string, BlockJSON> {
   return found;
 }
 
+function spelling(block: BlockJSON): string {
+  return JSON.stringify(canonicalBlock(block));
+}
+
 function isSame(a: BlockJSON, b: BlockJSON): boolean {
-  return (
-    JSON.stringify(canonicalBlock(a)) === JSON.stringify(canonicalBlock(b))
-  );
+  return spelling(a) === spelling(b);
 }
 
 /** What becomes of one block of mine, given its base and theirs (null: not held). */
@@ -78,7 +84,7 @@ function outcomeOf(
     return isSame(mine, theirs) ? NOTHING : { kind: "replace", block: mine };
   }
   if (isSame(mine, base)) return NOTHING;
-  if (theirs === null) return { kind: "set_aside" };
+  if (theirs === null) return SET_ASIDE;
   if (isSame(theirs, base)) return { kind: "replace", block: mine };
   if (isSame(mine, theirs)) return NOTHING;
   const merged = mergeBlock(base, mine, theirs);
@@ -92,11 +98,49 @@ function writtenId(op: BlockOp): string | null {
   return op.op === "delete" ? op.id : idOf(op.block);
 }
 
+/** What a merge has found so far. */
+type Found = Pick<BlockMerge, "ops" | "overlaps" | "setAside">;
+
+/** One block's outcome added to what the merge has found; `anchor` is the block it follows. */
+function record(
+  found: Found,
+  outcome: Outcome,
+  block: BlockJSON,
+  blockId: string,
+  anchor: string | null,
+): void {
+  switch (outcome.kind) {
+    case "nothing":
+      break;
+    case "insert":
+      found.ops.push({ op: "insert", after: anchor, block });
+      break;
+    case "replace":
+      found.ops.push({ op: "replace", block: outcome.block });
+      break;
+    case "set_aside":
+      found.setAside.push({
+        blockId,
+        nearBlockId: anchor,
+        text: textOf(block),
+      });
+      break;
+    case "overlap":
+      found.overlaps.push({ blockId, mine: block, theirs: outcome.theirs });
+      break;
+    default:
+      outcome satisfies never;
+  }
+}
+
 /**
  * Mine's changes against base, applied to theirs block by block (matched by
  * ID, compared in canonical form). Positions follow theirs: a block mine only
  * moved is not moved. A block of base that mine no longer holds is deleted
- * only when theirs holds it unchanged.
+ * only when theirs holds it unchanged. Only mine's first block of an ID is
+ * matched, as two devices splitting one block at once may leave an ID twice:
+ * a later one is never written, and its text is set aside unless base or
+ * theirs holds that block as it is.
  */
 export function mergeByBlock(
   base: DocJSON,
@@ -104,57 +148,40 @@ export function mergeByBlock(
   theirs: DocJSON,
 ): BlockMerge {
   const [baseById, theirsById] = [byId(base), byId(theirs)];
-  const ops: BlockOp[] = [];
-  const overlaps: Overlap[] = [];
-  const setAside: SetAsideBlock[] = [];
-  const mineIds = new Set(blocksIn(mine).map(idOf));
+  const found: Found = { ops: [], overlaps: [], setAside: [] };
+  const mineIds = new Set<string>();
+  let held: Set<string> | null = null;
   let anchor: string | null = null;
   for (const block of blocksIn(mine)) {
     const id = idOf(block);
     if (id === null) {
-      ops.push({ op: "insert", after: anchor, block });
+      found.ops.push({ op: "insert", after: anchor, block });
       continue;
     }
+    if (mineIds.has(id)) {
+      held ??= new Set([...blocksIn(base), ...blocksIn(theirs)].map(spelling));
+      if (!held.has(spelling(block)))
+        record(found, SET_ASIDE, block, id, anchor);
+      continue;
+    }
+    mineIds.add(id);
     const outcome = outcomeOf(
       baseById.get(id) ?? null,
       block,
       theirsById.get(id) ?? null,
     );
-    switch (outcome.kind) {
-      case "nothing":
-        break;
-      case "insert":
-        ops.push({ op: "insert", after: anchor, block });
-        break;
-      case "replace":
-        ops.push({ op: "replace", block: outcome.block });
-        break;
-      case "set_aside":
-        setAside.push({
-          blockId: id,
-          nearBlockId: anchor,
-          text: textOf(block),
-        });
-        break;
-      case "overlap":
-        overlaps.push({ blockId: id, mine: block, theirs: outcome.theirs });
-        break;
-      default:
-        outcome satisfies never;
-    }
+    record(found, outcome, block, id, anchor);
     if (outcome.kind === "insert" || theirsById.has(id)) anchor = id;
   }
   for (const [id, block] of baseById) {
     const kept = theirsById.get(id);
     if (!mineIds.has(id) && kept !== undefined && isSame(kept, block))
-      ops.push({ op: "delete", id });
+      found.ops.push({ op: "delete", id });
   }
   return {
-    ops,
-    overlaps,
-    setAside,
-    applied: new Set(ops.map(writtenId)).size,
-    result: applyBlockOpsToJSON(theirs, ops),
+    ...found,
+    applied: new Set(found.ops.map(writtenId)).size,
+    result: applyBlockOpsToJSON(theirs, found.ops),
   };
 }
 

@@ -518,10 +518,11 @@ test("a second demo whose server cannot start is not said to be running", async 
   }
 });
 
-test("desktop says it is not in this build", async () => {
-  expect(await cli(["desktop"])).toEqual({
+test("desktop needs a running demo and says so", async () => {
+  const dataDir = await trees.tree({});
+  expect(await cli(["desktop", "--data-dir", dataDir])).toEqual({
     exitCode: 1,
     stdout: "",
-    stderr: "The desktop app is not in this build yet.\n",
+    stderr: "Manent is not running. Run make demo first, then make desktop.\n",
   });
 });

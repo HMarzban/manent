@@ -20,6 +20,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { createHandlers } from "../src/handlers/index.ts";
+import type { PersonReview } from "../src/services/sync/later-index.ts";
 import { DocumentFrame } from "../src/screens/document/document-screen.tsx";
 import {
   EnvironmentProvider,
@@ -45,15 +46,18 @@ import type { PersonPresent } from "../src/state/people.store.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
 import { renameActions } from "../src/state/rename.store.ts";
 import {
+  MemoryStorage,
   createClock,
   createNavigation,
   fakeApi,
   testEnvironment,
   testServices,
 } from "./services.fixtures.ts";
+import { until } from "./sync.fixtures.ts";
 
-// the shell's one document on the stand-in route
-export const DOC_ID = "00000000-0000-4000-8000-000000000000";
+const DEVICE_ID = "5d0c9a7e-2b4f-4c1a-9e3d-7a6b5c4d3e2f";
+// You's document on the stand-in route on this device: the device id's start, then the hex of "you"
+export const DOC_ID = "5d0c9a7e-2b4f-4c1a-9e3d-000000796f75";
 
 /** A document that has never synced, as a new script of You's. */
 export const NEW_SCRIPT: StatusFacts = Object.freeze({
@@ -157,7 +161,11 @@ const scriptStoreOver = (scriptBag: DocumentServices["scriptBag"]) =>
 function servicesFor(
   environment: Environment,
   doc: TestDocument,
-  options: { role: CommandContext["role"]; kind: ProjectKind | null },
+  options: {
+    role: CommandContext["role"];
+    kind: ProjectKind | null;
+    review: PersonReview | null;
+  },
 ): PersonServices {
   const usePerson = createPersonStore(null);
   const router = createNavigation({
@@ -181,13 +189,18 @@ function servicesFor(
     onDisabled: () => {},
   });
   environment.shellState.subscribe(commands.notify);
+  // the stand-in's document is in no index: its title is the fixture's own
+  const title = createValue<string | null>(null);
   const services: PersonServices = {
     ...base,
     library: {
       ...base.library,
+      documentTitle: () => title,
       documentKind: () => createValue(options.kind),
+      renameDocument: (_docId, named) => title.set(named),
     },
     documents: { open: () => doc, close: () => {} },
+    review: options.review ?? base.review,
     openScriptStore: () => scriptStore,
     commands,
   };
@@ -200,6 +213,7 @@ function servicesFor(
       usePerson,
       router,
       shellState: environment.shellState.get,
+      nodeCloud: null,
     }),
   );
   return services;
@@ -279,6 +293,7 @@ export async function renderFrame(
     viewportWidthPx?: number;
     startAt?: number;
     brokenOutline?: boolean;
+    review?: PersonReview;
   } = {},
 ): Promise<Frame> {
   const viewport: unknown = Reflect.get(window, "happyDOM");
@@ -292,7 +307,10 @@ export async function renderFrame(
     { width: options.viewportWidthPx ?? 1600, height: 900 },
   ]);
   const clock = createClock(options.startAt);
+  const storage = new MemoryStorage();
+  storage.setItem("manent.device.id", DEVICE_ID);
   const environment = testEnvironment({
+    storage,
     dom: createShellDom(document),
     now: clock.now,
     schedule: clock.schedule,
@@ -313,6 +331,7 @@ export async function renderFrame(
   const services = servicesFor(environment, doc, {
     role: options.role ?? "editor",
     kind: options.kind ?? null,
+    review: options.review ?? null,
   });
   if (options.title !== undefined)
     services.library.renameDocument(DOC_ID, options.title);
@@ -322,6 +341,8 @@ export async function renderFrame(
     services,
     outlineOf(outline, options.brokenOutline ?? false),
   );
+  // the shell shows the stand-in's document once it is made
+  await act(() => until(() => environment.shellState.get().docId === DOC_ID));
   // the stand-in publishes its facts at the next frame
   act(() => clock.advance(16));
   return { ...doc, container, services, clock, outline };

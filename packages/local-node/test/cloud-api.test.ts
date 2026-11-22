@@ -44,7 +44,7 @@ function cloudServer(host: string): ManentServer {
         now: () => 1_700_000_000_000,
       }),
     },
-    demo: { seedId: () => "seed-1", control: null },
+    demo: { seedId: () => "seed-1", control: null, controls: null },
     socket: {
       tickets: createTicketStore({ now: () => 0 }),
       versions: { current: V, min: V },

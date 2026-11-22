@@ -10,6 +10,7 @@ import {
   pressKeyOf,
   runFromPalette,
 } from "../support/interface.ts";
+import { makeScript, openMadeScript } from "../support/made-script.ts";
 import { signedInAs } from "../support/tour.ts";
 
 const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
@@ -181,7 +182,7 @@ test("in the dark theme the sheet is dark by default, and white page makes it pa
 }) => {
   const context = await browser.newContext({ colorScheme: "dark" });
   const page = await context.newPage();
-  await signedInAs(page, "you", `/s/${DOC_ID}`);
+  await openMadeScript(page, "you", DOC_ID);
   // the editor's sheet, once the editor has replaced its placeholder
   await expect(page.locator(".mn-page-view")).toBeVisible();
   const dark = await sheetColours(page);
@@ -394,6 +395,7 @@ test("in forced colours every state has an outline or a system colour", async ({
   await page.keyboard.press("Enter");
   const item = await outlineOf("[role='menuitem']:focus");
   await page.keyboard.press("Escape");
+  await makeScript(page, DOC_ID);
   await page.goto(`/s/${DOC_ID}`);
   // the editor's sheet, once the editor has replaced its placeholder
   await expect(page.locator(".mn-page-view")).toBeVisible();
@@ -431,7 +433,12 @@ test("at 200 % in 1,280 × 800 nothing scrolls sideways, and every target is at 
           "button, a[href], input, select, [role='tab'], [role='menuitem']",
         ),
       ]
-        .filter((element) => element.checkVisibility())
+        // a radio's hidden input belongs to the form, not to the pointer: the radio drawn beside it is the target
+        .filter(
+          (element) =>
+            element.checkVisibility() &&
+            element.getAttribute("aria-hidden") !== "true",
+        )
         .filter((element) => {
           const box = element.getBoundingClientRect();
           return box.width < 24 || box.height < 24;

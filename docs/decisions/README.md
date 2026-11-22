@@ -79,3 +79,4 @@ The evidence or event that would reopen this.
 - [0031. The interface does not render on editor transactions](0031-interface-off-the-keystroke-path.md)
 - [0032. Tool and interface text never says "error" or "failed"](0032-one-vocabulary.md)
 - [0033. A browser tab is one person](0033-a-tab-is-one-person.md)
+- [0034. Final Draft 7 files are read only for interoperability, and until their structure is known Manent asks for an .fdx](0034-reading-final-draft-7-files.md)

@@ -1,5 +1,5 @@
 // The one dialog frame for an action other people will see and Manent cannot quietly reverse.
-import { LoaderCircleIcon } from "lucide-react";
+import { LoaderCircleIcon, TriangleExclamationPointIcon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -99,7 +99,16 @@ function LineAboveButtons({
   }, [refusal]);
   if (refusal !== null) {
     return (
-      <p ref={refusalRef} tabIndex={-1} className="text-ui text-danger">
+      <p
+        ref={refusalRef}
+        tabIndex={-1}
+        data-arrival
+        className="flex items-start gap-2 text-ui"
+      >
+        <TriangleExclamationPointIcon
+          aria-hidden="true"
+          className="mt-0.5 shrink-0 text-attention"
+        />
         {refusal}
       </p>
     );

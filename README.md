@@ -1,51 +1,77 @@
 # Manent
 
-A collaborative, offline-capable script-writing app being built for film, series, shows, news, podcasts and books. What it aims at: true script pages, version history, production revisions, and offline work that is never silently lost.
+An open-source app for writing scripts — screenplays, multi-camera and animation scripts, stage plays, manuscripts, variety scripts, game scripts and Ink — on pages laid out as they print, online or off, and built for several people at once.
 
-**Status, 2026-11-18: early.** The foundation is in the repository. The editor is not. This page says exactly what runs.
+![A screenplay open in Manent: a scene heading, action, two speeches and a transition on a script page, with "Saved · Synced" beside the title](docs/images/editor.png)
 
-## Run it
+## What it is
 
-You need [Bun](https://bun.com) 1.4.4 or later.
+Manent is a script editor that runs in the browser and keeps every change on your device before it goes to the server. Its pages are laid out as they print: the screen, print and the PDF share one layout. It is built so that several people can work in one script, their changes merging instead of overwriting each other; the table below says how much of that works today.
+
+The repository is a Bun monorepo: React 19 and plain ProseMirror for the editor, a CRDT (Yjs, behind Manent's own interface) for merging, a sync server of its own on Bun and SQLite, and end-to-end tests in Chromium, Firefox and WebKit. Today you run it on your own machine as a demo with six made-up people.
+
+### Status
+
+| Capability                                                                                       | Status                                                                                               |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| Writing in eight formats, with the Tab and Enter flow, the element picker and name completion    | Works                                                                                                |
+| Exact pages: one layout engine for the screen, print and PDF; (MORE) and (CONT'D); Letter and A4 | Works                                                                                                |
+| Saving on the device first, syncing to the server, working without a connection                  | Works                                                                                                |
+| Export to PDF, and print                                                                         | Works                                                                                                |
+| Command palette, rebindable shortcuts, preferences, themes, keyboard and screen-reader support   | Works; screen-reader support is checked by axe, not yet tested with screen-reader users              |
+| Several people in one script: live changes, cursors, merging                                     | In progress: works between tabs of one person; a second person cannot yet open someone else's script |
+| The Library of projects and scripts                                                              | In progress: the list is kept per tab and is empty again after a reload                              |
+| The demo's content and its guided Tour                                                           | In progress: people and workspaces exist; no seeded scripts, and the Tour's groups are empty         |
+| Version history: versions, compare, restore                                                      | In progress: the server side is written and tested but not connected; nothing in the app yet         |
+| Production revisions: locked pages, revision colours, asterisks, revised pages                   | Planned: the page model and the packet writer exist as libraries                                     |
+| Comments                                                                                         | Planned                                                                                              |
+| Import from and export to other script formats                                                   | Planned                                                                                              |
+| Desktop app                                                                                      | Planned: its local service exists as a tested library                                                |
+| A hosted service with real accounts                                                              | Planned                                                                                              |
+
+The [architecture overview](docs/architecture/overview.md) gives the status of every package and how it was judged.
+
+## Quick start
+
+You need [Bun](https://bun.com) 1.4.4 or later and Git. Manent is built for macOS, Linux and Windows; CI runs on all three, and does not pass on every one yet.
 
 ```sh
+git clone https://github.com/HMarzban/manent.git
+cd manent
 make demo        # without make: bun run demo
 ```
 
-It installs the dependencies, builds the web app, seeds the demo data, starts the server on your machine under a small supervisor and opens `http://localhost:4747`. `make demo LAN=1` lets a second machine on your private network join. To stop: Ctrl+C, or `make stop`. `make reset` seeds the demo data again.
+It opens `http://localhost:4747`, where you will see:
 
-## What opens
+1. **Choose who you are.** Six demo people, each with a role; one click, no password. Pick anyone but **You**: You is a new person who is not signed in, so nothing syncs.
+2. **The Library**, empty. Click **New script**.
+3. **A script page.** Click the page, type `INT. LIGHTHOUSE - NIGHT`, press Escape to close the list of headings, then Enter, and keep writing: Tab and Enter choose the next element for you.
 
-1. **Choose who you are.** Six demo people, each with a title; one click, no password. Each browser tab is its own person, so two tabs can be two people.
-2. **Library**, which is empty: "No scripts yet". The demo stops here.
+[What to try](docs/guide/getting-started.md#what-to-try) goes on from there: working offline, two tabs, and export. Stop the demo with Ctrl+C or `make stop`.
 
-A bar labelled "Demo" lets you switch person and stop or start the server, and a Tour panel lists eight groups, each still marked "Not in this build yet". The server listens on your machine only, and with `LAN=1` on one private address as well; it refuses a public address, because the demo has no passwords.
+## Documentation
 
-## What exists and what does not
+Start with [Getting started](docs/guide/getting-started.md) to use Manent, [Set up a development copy](docs/development/setup.md) to work on it, or the [architecture overview](docs/architecture/overview.md) to see how it is built. The [documentation index](docs/README.md) lists every page.
 
-| Built                                                                                                              | Planned                                                           |
-| ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| Repository structure in six layers, with the imports between packages checked                                      | Page engine and paginated editor                                  |
-| Quality gate: `bun run verify` (format, types, lint, tracked files, boundaries, project records, Tour, unit tests) | Storage, the server's write path, the client outbox, offline work |
-| Document schema: sections, one block node, stable block IDs, validation, one canonical form                        | Version history and production revisions                          |
-| Binary sync protocol, and a server socket that answers its handshake                                               | Rooms: the socket refuses every document until they exist         |
-| CRDT package: documents, writes addressed to a block, all-or-nothing updates                                       | The editor's binding to it                                        |
-| Server: HTTP, demo sign-in, sessions, static web app                                                               | Desktop app                                                       |
-| `make demo`: launcher, supervisor, the demo people and empty workspaces                                            | Seeded scripts and Tour scenarios                                 |
-| Web app: person chooser, empty Library, demo bar                                                                   |                                                                   |
-| End-to-end tests in three browser engines, a fresh-clone test, a continuous-integration workflow for three systems |                                                                   |
-| Benchmark harness (no scenarios yet)                                                                               | Benchmark scenarios and the published report                      |
-| Project records: changelog, decision records, lessons                                                              |                                                                   |
+## Project status and roadmap
 
-## Read next
+Manent is early and has made no release. Writing, pages, offline saving and sync, export and print work in the demo; the table above says what does not yet. Next, in rough order:
 
-- [Architecture overview](docs/architecture/overview.md): how the system is put together and why, with the status of every part
-- [Layers and dependency rules](docs/architecture/layers.md): which package may import which, and how that is checked
-- [Repository outline](docs/architecture/repository.md): every folder, and the commands a contributor uses
-- [Decisions](docs/decisions/README.md): what was decided, what else was considered, and what each choice costs
-- [Lessons](docs/memory/lessons.md): mistakes and near-misses, and the rule each one produced
-- [Changelog](CHANGELOG.md): what changed, newest first
-- [AGENTS.md](AGENTS.md): the rules for anyone who changes this repository
+1. Opening and editing a script together as different people, and a Library that is kept.
+2. Version history in the app: versions, compare and restore.
+3. Production revisions: locked pages, revision colours and revised pages.
+4. The demo's scripts and the guided Tour.
+5. The desktop app.
+
+The order may change. [CHANGELOG.md](CHANGELOG.md) records what has changed, newest first.
+
+## Contributing
+
+Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) says how to propose a change and how it is reviewed, and [AGENTS.md](AGENTS.md) holds the rules every change follows. Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
+
+## Security
+
+Please report a vulnerability privately through GitHub's **Report a vulnerability** form in the repository's Security tab, not in a public issue. [SECURITY.md](SECURITY.md) has the details, and what the password-less demo does and does not protect.
 
 ## Acknowledgement
 
@@ -57,6 +83,6 @@ Thank you to the Scripto team.
 
 ## Licence
 
-Manent is licensed under the PolyForm Strict License 1.0.0, with one additional permission: anyone may run the unmodified software to evaluate it. Commercial use, distribution, and making changes or new works based on it are not permitted. The [LICENSE](LICENSE) file is the authority; this paragraph only points to it.
+Manent is licensed under the Apache License 2.0. The [LICENSE](LICENSE) file is the authority; this paragraph only points to it.
 
-If you like the project, or want to use it in a way the licence does not cover, get in touch: https://github.com/HMarzban or marzban98@gmail.com
+If you like the project, get in touch: https://github.com/HMarzban or marzban98@gmail.com

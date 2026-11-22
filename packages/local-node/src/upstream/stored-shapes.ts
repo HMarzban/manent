@@ -81,6 +81,8 @@ const readVersionLabel = oneOf<DeviceVersion["label"]>(
     manual: true,
     rejected: true,
     past_window: true,
+    named: true,
+    before_restore: true,
   }),
 );
 const readCause = oneOf<RecoveredItem["cause"]>(
@@ -214,11 +216,13 @@ export const readVersion = (text: string, uploaded: boolean): DeviceVersion =>
     text,
     (value): DeviceVersion => {
       const fields = readFields(value);
+      const { name } = fields;
       return {
         id: readString(fields.id),
         docId: readString(fields.docId),
         kind: readVersionKind(fields.kind),
         label: readVersionLabel(fields.label),
+        name: name === undefined ? null : orNull(readString)(name),
         createdAt: readNumber(fields.createdAt),
         content: readDoc(fields.content),
         uploaded,

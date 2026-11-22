@@ -26,11 +26,11 @@ const facts = (patch: Partial<StatusFacts>): StatusFacts => ({
   ...patch,
 });
 
-/** A writer over two fresh text nodes in a fresh root; `text` reads the two slots as the status shows them. */
+/** A writer over two fresh text nodes in a fresh root; `text` reads the two slots as the status shows them, and `nodes` are the two. */
 function writer(
   clock: ReturnType<typeof createClock>,
   source: Subscribable<StatusFacts>,
-): { text(): string; root: HTMLElement } {
+): { text(): string; root: HTMLElement; nodes: readonly Text[] } {
   const device = document.createTextNode("");
   const server = document.createTextNode("");
   const root = document.createElement("span");
@@ -42,7 +42,11 @@ function writer(
     now: clock.now,
     schedule: clock.schedule,
   });
-  return { text: () => `${device.data} · ${server.data}`, root };
+  return {
+    text: () => `${device.data} · ${server.data}`,
+    root,
+    nodes: [device, server],
+  };
 }
 
 test("Synced is shown only after two seconds with nothing waiting, and Syncing at once", () => {
@@ -86,4 +90,17 @@ test("the status is a live region only in the alert state", () => {
     [null, "normal", false],
     [null, "quiet", false],
   ]);
+});
+
+test("a change of facts that keeps the words writes nothing into the page", () => {
+  const clock = createClock();
+  const src = createValue(facts({ server: "syncing", waiting: 1 }));
+  const { text, root, nodes } = writer(clock, src);
+  const observer = new MutationObserver(() => {});
+  for (const node of nodes) observer.observe(node, { characterData: true });
+  observer.observe(root, { attributes: true });
+  src.set(facts({ server: "syncing", waiting: 2 }));
+  expect(observer.takeRecords().map((record) => record.type)).toEqual([]);
+  src.set(facts({ network: "offline", waiting: 2 }));
+  expect(text()).toBe("Saved · Offline, 2 waiting");
 });

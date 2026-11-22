@@ -29,6 +29,7 @@ const VERSION: DeviceVersion = {
   docId: DOC,
   kind: "device",
   label: "session_end",
+  name: null,
   createdAt: 1,
   content: { type: "doc", content: [] },
   uploaded: false,

@@ -23,8 +23,7 @@ import type {
 } from "@manent/sync-protocol";
 import type { Directory } from "../auth/directory.ts";
 import { peerOf } from "../sync/peer.ts";
-import type { Clock, Peer, SyncLimits } from "../sync/ports.ts";
-import type { SyncService } from "../sync/service.ts";
+import type { Clock, Peer, SyncLimits, SyncService } from "../sync/ports.ts";
 import { connectionBrand } from "./connection.ts";
 import type {
   Connection,

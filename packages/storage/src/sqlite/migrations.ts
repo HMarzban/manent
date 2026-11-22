@@ -1,5 +1,6 @@
 // Every migration appends one entry to each of the three lists ([] where that kind of file does not change) and never edits an earlier one;
 // each list's length is STORAGE_SCHEMA_VERSION.
+import { PRODUCTION_MIGRATION } from "../production/migration.ts";
 
 /** Per kind of file, each migration's statements, in order: entry n takes a file from user_version n - 1 to n. */
 export const MIGRATIONS: {
@@ -21,6 +22,8 @@ export const MIGRATIONS: {
       ) STRICT, WITHOUT ROWID`,
       `CREATE TABLE tombstones (doc_id TEXT PRIMARY KEY, deleted_by_user_id TEXT NOT NULL, deleted_at INTEGER NOT NULL) STRICT`,
     ],
+    [],
+    [],
     [],
     [],
   ],
@@ -83,6 +86,15 @@ export const MIGRATIONS: {
       `CREATE TABLE doc_adoptions (doc_id TEXT PRIMARY KEY, key TEXT NOT NULL, user_id TEXT NOT NULL, seq INTEGER NOT NULL,
         adopted_at INTEGER NOT NULL) STRICT, WITHOUT ROWID`,
     ],
+    [
+      `CREATE TABLE version_chunks (hash BLOB PRIMARY KEY, body BLOB NOT NULL) STRICT, WITHOUT ROWID`,
+      `CREATE TABLE version_summaries (version_id TEXT PRIMARY KEY, author_ids TEXT NOT NULL,
+        block_ids TEXT NOT NULL, scene_ids TEXT NOT NULL) STRICT, WITHOUT ROWID`,
+      `CREATE TABLE history_requests (doc_id TEXT NOT NULL, request_key TEXT NOT NULL, user_id TEXT NOT NULL,
+        result TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (doc_id, request_key)) STRICT, WITHOUT ROWID`,
+      `CREATE INDEX doc_versions_page ON doc_versions (doc_id, created_at DESC, id DESC)`,
+    ],
+    [...PRODUCTION_MIGRATION],
   ],
   checkpoints: [
     [
@@ -97,6 +109,11 @@ export const MIGRATIONS: {
         doc_id TEXT NOT NULL, generation INTEGER NOT NULL, seq INTEGER NOT NULL,
         live_bytes INTEGER NOT NULL, plain_bytes INTEGER NOT NULL, client_ids INTEGER NOT NULL, largest_section INTEGER NOT NULL,
         PRIMARY KEY (doc_id, generation)) STRICT, WITHOUT ROWID`,
+    ],
+    [],
+    [
+      `CREATE TABLE checkpoint_pins (version_id TEXT PRIMARY KEY, doc_id TEXT NOT NULL, generation INTEGER NOT NULL,
+        seq INTEGER NOT NULL) STRICT, WITHOUT ROWID`,
     ],
     [],
   ],

@@ -24,6 +24,7 @@ import type { Handshake, HandshakeHost } from "./handshake.ts";
 import { needsHeal } from "./heal.ts";
 import type { Journal } from "./journal.ts";
 import type { LocalCopy } from "./local-copy.ts";
+import { Receipt } from "./receipt.ts";
 import type { Ending } from "./refusals.ts";
 
 /**
@@ -74,7 +75,7 @@ class DocSubscription implements Subscription {
   private stopped = false;
   private createdAgain = false;
   private headSeq = 0;
-  private receipt: { sent: number; setAside: number } | null = null;
+  private readonly receipt = new Receipt();
   private readonly base: SyncedBase;
   private readonly recovery: PushRecovery;
   private move: Move | null = null;
@@ -299,10 +300,12 @@ class DocSubscription implements Subscription {
       waiting > 0 && !journal.meta.neverSynced
         ? copy.recordVersion("device", "before_reconnect").content
         : null;
-    if (waiting > 0)
-      this.receipt = { sent: waiting, setAside: copy.recovered.length };
+    const setAside = copy.recovered.length;
     const { clientIds } = journal.meta;
     copy.merge(update, this.base.stepTwo(update, mine, clientIds));
+    // a first sync is told only when it files something: before it, the server held nothing of this device's to overlap
+    if (waiting > 0 && (mine !== null || copy.recovered.length > setAside))
+      this.receipt.owe(waiting, setAside);
   }
 
   /** A permanently rejected push; the heal push when its `clientSeq` is the heal push's. */
@@ -315,7 +318,7 @@ class DocSubscription implements Subscription {
 
   /** GENERATION_MOVED for the edit subscription: no receipt is shown for the reconnect it ended. */
   private beginMove(to: number): void {
-    this.receipt = null;
+    this.receipt.drop();
     const from = this.options.journal.meta.generation;
     const moving = { from, to, key: null, throughLocalSeq: 0 };
     this.move = new Move(this.moveHost(), moving);
@@ -377,17 +380,10 @@ class DocSubscription implements Subscription {
     this.options.changed();
   }
 
-  /** After an acknowledgement or a refusal: the receipt goes once nothing waits, counting the items filed since the reconnect by cause. */
+  /** After an acknowledgement or a refusal: the receipt goes once nothing waits. */
   private settled(): void {
     this.options.changed();
-    if (this.receipt === null || this.hasWaiting()) return;
-    const { sent, setAside } = this.receipt;
-    this.receipt = null;
-    const { copy } = this.options;
-    const filed = copy.recovered.slice(setAside);
-    const overlaps = filed.filter((item) => item.cause === "overlap").length;
-    const unplaced = filed.length - overlaps;
-    copy.emit({ type: "receipt", sent, setAside: unplaced, overlaps });
+    if (!this.hasWaiting()) this.receipt.tell(this.options.copy);
   }
 
   private hasWaiting(): boolean {

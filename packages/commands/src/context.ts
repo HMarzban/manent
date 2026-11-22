@@ -36,5 +36,9 @@ export interface CommandContext {
     /** The revision Recall would withdraw ("Blue"), or null when there is none. */
     recallName: string | null;
     selection: "text" | "scene" | "omitted_scene" | "pages" | null;
+    /** The revision marks shown (MARK_MODES of @manent/revisions). */
+    mode: "collated" | "this_revision" | "all" | "since_full_draft" | "none";
+    /** Colour revised pages is on. */
+    tint: boolean;
   } | null;
 }

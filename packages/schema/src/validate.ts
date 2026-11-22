@@ -30,7 +30,8 @@ export type IssueCode =
   | "duplicate_id"
   | "empty_section"
   | "empty_doc"
-  | "not_index";
+  | "not_index"
+  | "num_locked";
 
 /**
  * `reject`: structurally invalid, a push that produces it is refused.
@@ -63,6 +64,7 @@ const SEVERITY: Record<IssueCode, Severity> = {
   empty_section: "repair",
   empty_doc: "repair",
   not_index: "reject",
+  num_locked: "reject",
 };
 
 /** A mark this build knows, well formed. */

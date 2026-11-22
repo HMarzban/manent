@@ -71,6 +71,7 @@ const LESSONS = "docs/memory/lessons.md";
 const README = "README.md";
 const OVERVIEW = "docs/architecture/overview.md";
 const LICENSE = "LICENSE";
+const NOTICE = "NOTICE";
 
 const words = (n: number) => Array.from({ length: n }, () => "word").join(" ");
 const ROW_ONE =
@@ -179,18 +180,17 @@ const GOOD: Record<string, string> = {
     "",
     "## Licence", // 11
     "",
-    "PolyForm Strict License 1.0.0; the [LICENSE](LICENSE) file rules.", // 13
+    "Apache License 2.0; the [LICENSE](LICENSE) file rules.", // 13
     "",
     "Get in touch: https://github.com/someone or someone@example.org", // 15
   ),
   [LICENSE]: lines(
-    "Manent", // 1
-    "Copyright (c) 2026 A. Holder",
+    "Apache License", // 1
+    "Version 2.0",
     "",
-    "-".repeat(80), // 4
-    "",
-    "The terms.", // 6
+    "The terms.", // 4
   ),
+  [NOTICE]: lines("Manent", "Copyright 2026 A. Holder"),
   [OVERVIEW]: lines(
     "# Architecture overview", // 1
     "",
@@ -218,13 +218,13 @@ const GOOD: Record<string, string> = {
 const good = (file: string): string => GOOD[file] ?? "";
 const sha256 = (text: string) =>
   new Bun.CryptoHasher("sha256").update(text).digest("hex");
-/** The fixture's recorded texts: its licence terms and its README's two fixed sections. */
+/** The fixture's recorded texts: its licence and its README's two fixed sections. */
 const SUMS: RecordedSums = {
-  license: sha256("\nThe terms."),
+  license: sha256("Apache License\nVersion 2.0\n\nThe terms."),
   sections: {
     Acknowledgement: sha256("Thanks to the Quokka project."),
     Licence: sha256(
-      "PolyForm Strict License 1.0.0; the [LICENSE](LICENSE) file rules.\n\nGet in touch: https://github.com/someone or someone@example.org",
+      "Apache License 2.0; the [LICENSE](LICENSE) file rules.\n\nGet in touch: https://github.com/someone or someone@example.org",
     ),
   },
 };
@@ -601,7 +601,8 @@ test("what this machine keeps private stays out of every tracked file", async ()
   const files = {
     [source]: '// a zebra\nexport const kept = "docs/drafts";\n',
     "packages/one/logo.bin": "zebra\0zebra\n",
-    ...edit(LICENSE, { 2: "Copyright (c) 2026 Z. Zebra" }),
+    ...edit(NOTICE, { 2: "Copyright 2026 Z. Zebra" }),
+    ...edit(LICENSE, { 4: "The zebra terms." }),
   };
   const local = (listed: boolean): LocalRules => ({
     paths: ["docs/drafts"],
@@ -611,13 +612,15 @@ test("what this machine keeps private stays out of every tracked file", async ()
       ? new Set([...Object.keys(GOOD), source, "packages/one/logo.bin"])
       : null,
   });
-  // source is read; the licence, which names its holder, and binary files are not
+  // source is read; the licence, pinned by its checksum, the notice, which names its holder,
+  // and binary files are not
   expect(await check(files, local(true))).toEqual([
+    "LICENSE:1 license",
     `${source}:1 private-term`,
     `${source}:2 private-path`,
   ]);
   // outside a git checkout only the public documents are known
-  expect(await check(files, local(false))).toEqual([]);
+  expect(await check(files, local(false))).toEqual(["LICENSE:1 license"]);
 });
 
 test("a link must lead to a file git tracks or would track", async () => {
@@ -635,6 +638,55 @@ test("a link must lead to a file git tracks or would track", async () => {
   ).toEqual([]);
 });
 
+test("the guides, the contributor documents and the docs index are read as records", async () => {
+  const broken = "See [it](gone.md).";
+  expect(
+    await check({
+      "docs/guide/writing.md": lines("# Writing", "", broken),
+      "docs/development/testing.md": lines("# Testing", "", broken),
+      "docs/README.md": lines("# Documentation", "", broken),
+      "CONTRIBUTING.md": lines(
+        "# Contributing",
+        "",
+        "Write to sam@example.org.",
+      ),
+      "SECURITY.md": lines("# Security", "", "As the design says."),
+      "CODE_OF_CONDUCT.md": lines(
+        "# Code of conduct",
+        "",
+        "It is in /Users/sam/notes.",
+      ),
+    }),
+  ).toEqual([
+    "CODE_OF_CONDUCT.md:3 home-path",
+    "CONTRIBUTING.md:3 email",
+    "SECURITY.md:3 note-ref",
+    "docs/README.md:3 link",
+    "docs/development/testing.md:3 link",
+    "docs/guide/writing.md:3 link",
+  ]);
+});
+
+test("the issue and pull-request templates are read as records", async () => {
+  expect(
+    await check({
+      ".github/ISSUE_TEMPLATE/bug_report.md": lines(
+        "## What happened",
+        "",
+        "Write to sam@example.org.",
+      ),
+      ".github/pull_request_template.md": lines(
+        "## Why",
+        "",
+        "It is in /Users/sam/notes.",
+      ),
+    }),
+  ).toEqual([
+    ".github/ISSUE_TEMPLATE/bug_report.md:3 email",
+    ".github/pull_request_template.md:3 home-path",
+  ]);
+});
+
 test("link syntax inside code is not a link", async () => {
   expect(
     await check(edit(LESSONS, { 9: "Write `[title](gone.md)` to link." })),
@@ -646,18 +698,16 @@ test("link syntax inside code is not a link", async () => {
 
 test("the licence text is the one whose checksum was recorded", async () => {
   expect(licenseSum(good(LICENSE))).toBe(SUMS.license);
-  expect(licenseSum("No separator here.\n")).toBeNull();
-  expect(await check(edit(LICENSE, { 6: "Other terms." }))).toEqual([
-    "LICENSE:5 license",
+  // trailing white space is not part of the text
+  expect(await check({ [LICENSE]: `${good(LICENSE)}\n \n` })).toEqual([]);
+  // a changed word anywhere is reported, the first line included
+  expect(await check(edit(LICENSE, { 1: "Apache Licence" }))).toEqual([
+    "LICENSE:1 license",
   ]);
-  expect(await check(edit(LICENSE, { 6: "The terms.\n\nAnd more." }))).toEqual([
-    "LICENSE:5 license",
+  expect(await check(edit(LICENSE, { 4: "Other terms." }))).toEqual([
+    "LICENSE:1 license",
   ]);
-  // what stands above the separator is not part of the text
-  expect(
-    await check(edit(LICENSE, { 2: "Copyright (c) 2027 A. Holder" })),
-  ).toEqual([]);
-  expect(await check(edit(LICENSE, { 4: null }))).toEqual([
+  expect(await check(edit(LICENSE, { 4: "The terms.\n\nAnd more." }))).toEqual([
     "LICENSE:1 license",
   ]);
   expect(await check({ [LICENSE]: null })).toEqual([
@@ -676,22 +726,25 @@ test("the README points to the licence, and nothing else restates it", async () 
   expect(
     await check(edit(README, { 13: "See the [LICENSE](LICENSE) file." })),
   ).toEqual(["README.md:11 readme"]);
-  expect(
-    await check(edit(README, { 13: "PolyForm Strict License 1.0.0." })),
-  ).toEqual(["README.md:11 readme"]);
+  expect(await check(edit(README, { 13: "Apache License 2.0." }))).toEqual([
+    "README.md:11 readme",
+  ]);
   expect(
     await check(
-      edit(AGENTS, { 3: "Run `bun run verify`. The licence is PolyForm." }),
+      edit(AGENTS, { 3: "Run `bun run verify`. The licence is Apache-2.0." }),
     ),
   ).toEqual(["AGENTS.md:3 license"]);
   expect(
     await check({
-      "docs/architecture/layers.md": "# Layers\n\nUnder the Polyform terms.\n",
+      "docs/architecture/layers.md":
+        "# Layers\n\nUnder the apache license terms.\n",
     }),
   ).toEqual(["docs/architecture/layers.md:3 license"]);
   expect(
     await check(
-      edit(CHANGELOG, { 7: "- 2026-11-18 — The PolyForm licence was chosen." }),
+      edit(CHANGELOG, {
+        7: "- 2026-11-18 — The Apache License 2.0 was chosen.",
+      }),
     ),
   ).toEqual([]);
 });

@@ -1,6 +1,10 @@
 import { afterAll, expect, test } from "bun:test";
 import { join } from "node:path";
-import { crc32, openSqliteStorage } from "../src/index.ts";
+import {
+  crc32,
+  openSqliteStorage,
+  STORAGE_SCHEMA_VERSION,
+} from "../src/index.ts";
 // the entry does not export the migrations: no other workspace reads them
 import { MIGRATIONS } from "../src/sqlite/migrations.ts";
 import {
@@ -72,5 +76,9 @@ test("a file written by the first schema opens, keeps its rows and gains the new
     generations: [],
     measure: null,
   });
-  expect(Object.values(files).map(userVersion)).toEqual([3, 3, 3]);
+  expect(Object.values(files).map(userVersion)).toEqual([
+    STORAGE_SCHEMA_VERSION,
+    STORAGE_SCHEMA_VERSION,
+    STORAGE_SCHEMA_VERSION,
+  ]);
 });

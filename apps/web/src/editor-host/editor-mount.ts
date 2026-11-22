@@ -3,7 +3,6 @@ import type { UndoRoot } from "@manent/crdt";
 import { bindDocument } from "@manent/crdt-binding";
 import type { BoundDocument } from "@manent/crdt-binding";
 import {
-  DRIFT,
   ELEMENT_SLOTS,
   STRUCTURAL_KEYS,
   createScriptEditor,
@@ -11,63 +10,36 @@ import {
 } from "@manent/editor";
 import type {
   EditorBinding,
-  Frames,
-  HistoryPort,
-  PageViewPorts,
   SavedPlace,
   ScriptEditor,
-  ScriptEditorOptions,
   Timers,
 } from "@manent/editor";
-import { ENGINE_VERSION, engineFor } from "@manent/pagination";
+import { markEnd } from "@manent/perf";
 import { parseDoc } from "@manent/schema";
-import type { FormatId, IdSource } from "@manent/schema";
-import type { Platform } from "@manent/settings";
-import type { KeyResolver } from "@manent/ui";
-import type { FixedKey, PersonServices } from "../services/ports.ts";
-import { zoomActions } from "../state/zoom.store.ts";
+import type { FormatId } from "@manent/schema";
+import type { FixedKey } from "../services/ports.ts";
 import { actionOf } from "./command-actions.ts";
 import type { EditorControl } from "./control.ts";
+import { deskOf } from "./desk.ts";
+import { editorOptions } from "./editor-options.ts";
+import type { EditorSources, OpenedScript } from "./editor-options.ts";
 import type { EditorSession, EditorSessions } from "./editor-sessions.ts";
 import { editorWords } from "./editor-words.ts";
 import { registerLiveEditor } from "./live-editor.ts";
 import type { EditorMount } from "./mount.ts";
 import { followZoom } from "./page-zoom.ts";
 import { keepPlace } from "./keep-place.ts";
-import { EDITOR_PLUGINS } from "./plugins.ts";
+import { placeholderMount } from "./placeholder-mount.ts";
+import { countSteps } from "./undo-depth.ts";
 
 /** What one person's undo takes back. */
-export const UNDO_ROOTS: readonly UndoRoot[] = ["script"];
+export const UNDO_ROOTS: readonly UndoRoot[] = ["script", "revisedOverrides"];
 
 /** The structural keys as "flow", then the picker's keys as "picker". */
 export const EDITOR_FIXED_KEYS: readonly FixedKey[] = Object.freeze([
   ...STRUCTURAL_KEYS.map((chord) => ({ chord, reason: "flow" as const })),
   ...ELEMENT_SLOTS.map((chord) => ({ chord, reason: "picker" as const })),
 ]);
-
-/** The pages' ports in this browser, whose engine `userAgent` names; the fonts are read when the editor first draws a page. */
-export function browserPagePorts(userAgent: string): PageViewPorts {
-  return {
-    get fonts() {
-      return document.fonts;
-    },
-    makeFace: (d) =>
-      new FontFace(d.family, `url(${d.source}) format("woff2")`, {
-        weight: d.weight,
-        style: d.style,
-        unicodeRange: d.unicodeRange,
-        display: d.display,
-      }),
-    wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    defer: (run) => queueMicrotask(run),
-    // a timer where the browser has no idle callback
-    whenIdle: (run) => {
-      if ("requestIdleCallback" in window) requestIdleCallback(() => run());
-      else setTimeout(run, DRIFT.idleMs);
-    },
-    userAgent,
-  };
-}
 
 /** A content change of read-only content rebuilds at most this often. */
 const READ_ONLY_REBUILD_MS = 250;
@@ -79,17 +51,9 @@ export interface OpenEditor {
   undoDepth(): number;
 }
 
-interface MountOptions {
+interface MountOptions extends EditorSources {
   sessions: EditorSessions;
-  services: () => PersonServices;
   control: EditorControl;
-  keys: { resolve: KeyResolver; run(id: string): boolean };
-  ports: PageViewPorts;
-  frames: Frames;
-  timers: Timers;
-  platform: Platform;
-  ids: IdSource;
-  random: () => string;
   /** Told of each editor the mount opens, and null once it has none; only the test build listens. */
   observe?: (open: OpenEditor | null) => void;
 }
@@ -110,51 +74,6 @@ interface Built {
 }
 
 const noop = (): void => {};
-
-/** The element's inner width and horizontal padding, px, and its resizes. */
-function deskOf(element: HTMLElement): ScriptEditorOptions["desk"] {
-  const padding = (): number => {
-    const style = getComputedStyle(element);
-    // a padding the page never set reads as no length at all
-    return (
-      (Number.parseFloat(style.paddingLeft) || 0) +
-      (Number.parseFloat(style.paddingRight) || 0)
-    );
-  };
-  return {
-    widthPx: () => element.clientWidth - padding(),
-    paddingPx: padding,
-    observe(listener) {
-      const observer = new ResizeObserver(() => listener());
-      observer.observe(element);
-      return () => observer.disconnect();
-    },
-  };
-}
-
-/** The history with a count of the steps it can undo: each step added counts one, each undo it runs takes one away. */
-function countSteps(history: HistoryPort): {
-  history: HistoryPort;
-  depth(): number;
-  stop(): void;
-} {
-  let depth = 0;
-  const stop = history.onStep(() => {
-    depth++;
-  });
-  return {
-    history: {
-      ...history,
-      undo(state, dispatch) {
-        const done = history.undo(state, dispatch);
-        if (done && dispatch !== undefined) depth--;
-        return done;
-      },
-    },
-    depth: () => depth,
-    stop,
-  };
-}
 
 /** The session as the binding sees it, counting the binding's holds; `whenReleased` runs once none is left, after the release returns, unless cancelled first. */
 function trackHolds(
@@ -228,51 +147,10 @@ function bindingFor(
 }
 
 /** What one build of the document's editor is made from. */
-interface Opened {
-  ports: MountPorts;
+interface Opened extends OpenedScript {
   session: EditorSession;
   document: BoundDocument;
-  script: ScriptEditorOptions["script"];
-  words: ScriptEditorOptions["words"];
-  desk: ScriptEditorOptions["desk"];
   shown: Shown;
-}
-
-/** The script editor's options for one build over `bound`'s binding, at the person's zoom. */
-function editorOptions(
-  options: MountOptions,
-  open: Opened,
-  bound: { binding: EditorBinding; editable: boolean },
-): ScriptEditorOptions {
-  const { element, docId, facts, outline, settings, guard } = open.ports;
-  const { services } = options;
-  return {
-    place: element,
-    binding: bound.binding,
-    editable: bound.editable,
-    personal: settings,
-    script: open.script,
-    // every script is laid out by the first engine until a script stores its own
-    layoutEngine: engineFor(ENGINE_VERSION)!,
-    facts,
-    outline,
-    guard,
-    words: open.words,
-    frames: options.frames,
-    timers: options.timers,
-    ports: options.ports,
-    platform: options.platform,
-    ids: options.ids,
-    random: options.random,
-    onUndoStep: () => services().messages.withdrawUndo(),
-    keys: options.keys,
-    zoom: zoomActions.get(),
-    desk: open.desk,
-    extraPlugins: (host) =>
-      EDITOR_PLUGINS.map((make) =>
-        make({ ...host, docId, services: services(), facts }),
-      ),
-  };
 }
 
 /** One editor of the document over its session, at `place` when it is given, attached to the control and registered as live. */
@@ -333,13 +211,16 @@ const differs = (a: Shown, b: Shown): boolean =>
  * and when the document is replaced: then the old page takes no more input at once, and an input method composing is let
  * finish first. Returns the disposer.
  */
-function openDocument(options: MountOptions, ports: MountPorts): () => void {
+function openDocument(
+  options: MountOptions,
+  ports: MountPorts,
+  session: EditorSession,
+): () => void {
   const { docId } = ports;
   const person = options.services();
   const script = person.openScriptStore(docId);
   const { status } = person.documents.open(docId);
   const format = (): FormatId => script.get("script.format");
-  const session = options.sessions.open(docId, format());
   const holds = trackHolds(session, options.timers);
   const shownNow = (): Shown => ({
     ink: format() === "ink",
@@ -355,6 +236,8 @@ function openDocument(options: MountOptions, ports: MountPorts): () => void {
     desk: deskOf(ports.element),
   };
   let built = buildEditor(options, { ...opened, shown: shownNow() }, null);
+  // token 0 is navigation start, the origin of performance.now(); a rebuild records nothing
+  markEnd("open.editable", 0);
   const kept = keepPlace(person.place, docId, () => built.editor);
   let pending = noop;
   const rebuild = (): void => {
@@ -392,7 +275,33 @@ function openDocument(options: MountOptions, ports: MountPorts): () => void {
   };
 }
 
+/**
+ * Draws the placeholder until the session's document is kept on this device, then opens its editor, so no keystroke
+ * reaches a document that is never stored. Returns the disposer.
+ */
+function openWhenKept(options: MountOptions, ports: MountPorts): () => void {
+  const { docId } = ports;
+  const script = options.services().openScriptStore(docId);
+  const session = options.sessions.open(docId, script.get("script.format"));
+  if (session.kept.get()) return openDocument(options, ports, session);
+  const placeholder = placeholderMount.mount(ports);
+  let dispose = (): void => {
+    placeholder();
+    session.close();
+  };
+  const stop = session.kept.subscribe((kept) => {
+    if (!kept) return;
+    stop();
+    placeholder();
+    dispose = openDocument(options, ports, session);
+  });
+  return () => {
+    stop();
+    dispose();
+  };
+}
+
 /** The mount of the page's editor; `services` is read at each mount, so the person's services are always the current ones. */
 export function createEditorMount(options: MountOptions): EditorMount {
-  return { mount: (ports) => openDocument(options, ports) };
+  return { mount: (ports) => openWhenKept(options, ports) };
 }

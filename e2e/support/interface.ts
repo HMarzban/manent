@@ -19,8 +19,8 @@ export function commandOf(id: string): CommandDefinition {
 }
 
 /**
- * What the commands see for You on the test script, written out by hand: never synced, in the demo, with no History
- * section and no production state.
+ * What the commands see for You on the test script, written out by hand: never synced, in the demo, with no
+ * production state. The History tab is listed on every document, so `history.open` is always offered.
  */
 export const ON_A_SCRIPT = {
   docOpen: true,
@@ -29,7 +29,7 @@ export const ON_A_SCRIPT = {
   shell: "web",
   demo: true,
   signedIn: false,
-  historyPresent: false,
+  historyPresent: true,
   format: null,
   rulerShown: false,
   spaceBeforeSet: false,

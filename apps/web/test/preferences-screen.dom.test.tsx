@@ -80,18 +80,6 @@ async function renderPreferences(options: {
   systemPrefersNothing();
   const clock = createClock(NOV_12);
   const storage = options.storage ?? new MemoryStorage();
-  if (options.shortcuts !== undefined && !(storage instanceof RefusingStorage))
-    storage.setItem(
-      `manent.keys.${LEO}`,
-      JSON.stringify(
-        Object.fromEntries(
-          Object.entries(options.shortcuts).map(([id, keys]) => [
-            entryKey(id, "another-device"),
-            shortcut(keys),
-          ]),
-        ),
-      ),
-    );
   const environment = testEnvironment({
     dom: createShellDom(document),
     now: clock.now,
@@ -110,6 +98,8 @@ async function renderPreferences(options: {
       search: { from: "/" },
     }).navigation,
   });
+  for (const [id, keys] of Object.entries(options.shortcuts ?? {}))
+    built.keys.set(entryKey(id, "another-device"), shortcut(keys));
   const services: PersonServices = {
     ...built,
     fixedKeys: createValue(options.fixedKeys ?? []),

@@ -90,6 +90,8 @@ test("each setting keeps its label, its default and whether it applies before th
     ["script.moresAtBreaks", "(MORE) and (CONT'D) at page breaks", true, false],
     ["script.sameSpeakerContd", "Same-speaker (CONT'D)", true, false],
     ["script.sceneContinued", "Scene CONTINUED", false, false],
+    ["script.numbering", "Numbering scheme", "suffix", false],
+    ["script.colourOrder", "Colour order", "standard", false],
   ]);
   expect(SETTINGS.get("writing.announce").type.choices).toEqual([
     { value: "elements", label: "Element changes" },
@@ -349,6 +351,48 @@ test("each setting's help, values, places and effect are fixed", () => {
       guard: "layout",
       keywords: [],
     },
+    {
+      key: "script.numbering",
+      scope: "script",
+      choices: [
+        { value: "suffix", label: "12A" },
+        { value: "prefix", label: "A12" },
+      ],
+      description: null,
+      noun: "numbering scheme",
+      surfaces: [
+        { in: "scriptSettings", group: "scene_numbers", order: 10 },
+        palette,
+      ],
+      apply: { how: "editor", effect: "layout" },
+      guard: "layout",
+      keywords: [],
+    },
+    {
+      key: "script.colourOrder",
+      scope: "script",
+      choices: [
+        {
+          value: "standard",
+          label:
+            "White → Blue → Pink → Yellow → Green → Goldenrod → Buff → Salmon → Cherry",
+        },
+        {
+          value: "extended",
+          label:
+            "White → Blue → Pink → Yellow → Green → Goldenrod → Buff → Salmon → Cherry → Tan",
+        },
+      ],
+      description: null,
+      noun: "colour order",
+      surfaces: [
+        { in: "scriptSettings", group: "revisions", order: 10 },
+        palette,
+      ],
+      apply: { how: "editor", effect: "layout" },
+      guard: "layout",
+      keywords: [],
+    },
   ]);
   expect(RETIRED_KEYS).toEqual([]);
 });
@@ -488,6 +532,8 @@ test("script settings carry the nouns their messages use", () => {
     ["script.moresAtBreaks", "(MORE) and (CONT'D) at page breaks"],
     ["script.sameSpeakerContd", "same-speaker (CONT'D)"],
     ["script.sceneContinued", "scene CONTINUED"],
+    ["script.numbering", "numbering scheme"],
+    ["script.colourOrder", "colour order"],
   ]);
 });
 

@@ -101,6 +101,55 @@ export const SCRIPT_SETTINGS = Object.freeze([
     guard: "layout",
     keywords: [],
   }),
+  setting({
+    key: "script.numbering",
+    scope: "script",
+    type: t.choice([
+      { value: "suffix", label: "12A" },
+      { value: "prefix", label: "A12" },
+    ]),
+    default: "suffix" as const,
+    label: "Numbering scheme",
+    description: null,
+    noun: "numbering scheme",
+    surfaces: [
+      { in: "scriptSettings", group: "scene_numbers", order: 10 },
+      { in: "palette" },
+    ],
+    apply: { how: "editor", effect: "layout" },
+    boot: false,
+    guard: "layout",
+    keywords: [],
+  }),
+  setting({
+    key: "script.colourOrder",
+    scope: "script",
+    // the revision colours' names, written out because this package imports nothing
+    type: t.choice([
+      {
+        value: "standard",
+        label:
+          "White → Blue → Pink → Yellow → Green → Goldenrod → Buff → Salmon → Cherry",
+      },
+      {
+        value: "extended",
+        label:
+          "White → Blue → Pink → Yellow → Green → Goldenrod → Buff → Salmon → Cherry → Tan",
+      },
+    ]),
+    default: "standard" as const,
+    label: "Colour order",
+    description: null,
+    noun: "colour order",
+    surfaces: [
+      { in: "scriptSettings", group: "revisions", order: 10 },
+      { in: "palette" },
+    ],
+    apply: { how: "editor", effect: "layout" },
+    boot: false,
+    guard: "layout",
+    keywords: [],
+  }),
 ] as const);
 
 const LETTER_REGIONS: ReadonlySet<string> = new Set([

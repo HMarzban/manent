@@ -11,7 +11,8 @@ export const HELD_RETRY_MS = 5000;
 const appends = (item: QueuedItem): boolean =>
   item.kind === "append" ||
   item.kind === "ingest" ||
-  (item.kind === "replay" && item.write.update !== null);
+  (item.kind === "replay" && item.write.update !== null) ||
+  (item.kind === "authority" && item.append !== null);
 
 export interface HeldQueue {
   /** What a commit could not write because the disk is full, in arrival order; each is given the sequence its commit will give it. */
