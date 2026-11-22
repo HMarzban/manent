@@ -29,6 +29,8 @@ export interface HistoryState {
   step: number | null;
   draftsOnly: boolean;
   naming: boolean;
+  /** The script whose "since you last opened" line in the state bar was dismissed, until that line is fetched again; kept across `reset`. */
+  sinceDismissed: string | null;
 }
 
 const UNFILTERED: HistoryState["filter"] = Object.freeze({
@@ -45,6 +47,7 @@ const store = createStore<HistoryState>()(() => ({
   step: null,
   draftsOnly: false,
   naming: false,
+  sinceDismissed: null,
 }));
 
 function write(patch: Partial<HistoryState>): void {
@@ -68,6 +71,7 @@ export const historyActions: {
   setStep(i: number | null): void;
   setDraftsOnly(v: boolean): void;
   setNaming(v: boolean): void;
+  setSinceDismissed(docId: string | null): void;
   reset(docId: string | null): void;
 } = Object.freeze({
   select: (selected: string | null) => write({ selected }),
@@ -77,6 +81,8 @@ export const historyActions: {
   setStep: (step: number | null) => write({ step }),
   setDraftsOnly: (draftsOnly: boolean) => write({ draftsOnly }),
   setNaming: (naming: boolean) => write({ naming }),
+  setSinceDismissed: (sinceDismissed: string | null) =>
+    write({ sinceDismissed }),
   reset: (docId: string | null) =>
     write({
       docId,

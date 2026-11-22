@@ -1,8 +1,12 @@
-// The first sync of a document made on this device: its whole state handed to the cloud once,
-// under one key, after which the node relays it like any synced document.
+// The first sync of a document made on this device: its whole state, its versions and its production
+// handed to the cloud once, under one key, after which the node relays it like any synced document.
 import { updateMeta } from "@manent/crdt";
-import { INDEX_KINDS, SYNCABLE_KINDS } from "@manent/server-core";
-import type { SyncService } from "@manent/server-core";
+import {
+  INDEX_KINDS,
+  SYNCABLE_KINDS,
+  adoptedWorkflowOf,
+} from "@manent/server-core";
+import type { AdoptedWorkflow, SyncService } from "@manent/server-core";
 import type { Storage } from "@manent/storage";
 import { ConnectError, HANDOFF_REFUSALS } from "@manent/sync-client";
 import type { Clock, HandoffRefusal, Random } from "@manent/sync-client";
@@ -164,6 +168,13 @@ export function createHandover(options: {
     for (const listener of listeners) listener(docId);
   }
 
+  /** What the node recorded as the document's authority; nothing changes it once the hand-off has started. */
+  function workflowOf(docId: string): AdoptedWorkflow {
+    const place = storage.directory.placeOf(docId);
+    if (place === null) throw new RangeError(`the node holds no ${docId}`);
+    return adoptedWorkflowOf(storage.open(place.home), docId);
+  }
+
   /** A workspace's script waits until its workspace's index has reached the cloud. */
   function waitsForIndex(workspaceId: string | null): boolean {
     if (workspaceId === null) return false;
@@ -187,6 +198,7 @@ export function createHandover(options: {
       home,
       workspaceId,
       state: snapshot.toBase64(),
+      ...workflowOf(docId),
     };
     let answer;
     try {

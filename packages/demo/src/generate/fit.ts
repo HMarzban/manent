@@ -4,6 +4,7 @@ import type { ProductionState } from "@manent/sync-protocol";
 import type { SeedBlock } from "../content/markup.ts";
 import type { Rng } from "../seed/rng.ts";
 import { freeAction, withTag } from "./grammar.ts";
+import type { UsedLines } from "./grammar.ts";
 import { SeedBuildError } from "./guide.ts";
 import type { LineIntent, StyleGuide } from "./guide.ts";
 
@@ -113,13 +114,17 @@ export function unitsIn(
 }
 
 /**
- * An unused action fragment, marked used, for a block added at `at`: it names only the cast cued in the scene of
- * the block before it. SeedBuildError "generator_exhausted" when none is left.
+ * A free action fragment, marked used, for a block added at `at`: it names only the cast cued in the scene of
+ * the block before it. SeedBuildError "generator_exhausted" when none is free.
  */
 export function actionAt(
   doc: readonly SeedBlock[],
   at: number,
-  options: { guide: StyleGuide; rng: Rng; used: Set<string> },
+  options: {
+    guide: StyleGuide;
+    rng: Rng;
+    used: Pick<UsedLines, "has" | "add">;
+  },
 ): SeedBlock {
   const { guide, rng, used } = options;
   const heading = doc.findLastIndex(
@@ -143,13 +148,13 @@ interface Fitting {
   intentOf: (text: string) => LineIntent;
   guide: StyleGuide;
   rng: Rng;
-  used: Set<string>;
+  used: Pick<UsedLines, "has" | "add">;
 }
 
 /** What a span needs to fit: an action more, its last unit less, nothing, or what no length can give. */
 type Verdict = "fits" | "grow" | "shrink" | "never";
 
-// grows [from, end) by one unused action at its end, or takes out its last movable unit, until `judge` says it
+// grows [from, end) by one free action at its end, or takes out its last movable unit, until `judge` says it
 // fits; returns the new end
 async function fitSpan(
   fitting: Fitting,
@@ -193,7 +198,7 @@ function placement(
 
 /**
  * Fits each range in turn, in `totals[0].layout`, so its `mustStart` block starts the page of that label: one
- * unused action is added at the range's end while the block starts too early, the range's last unit is taken out
+ * free action is added at the range's end while the block starts too early, the range's last unit is taken out
  * while it starts too late. Then the document is made exactly `pages` long in every layout of `totals`, one unit
  * at a time, at the end of the last range when nothing must start after it and at the document's end otherwise.
  * Blocks outside the ranges are never touched. Throws a RangeError when `totals` is empty, and SeedBuildError
@@ -206,7 +211,7 @@ export async function fitToPages(
     meter: PageMeter;
     guide: StyleGuide;
     rng: Rng;
-    used: Set<string>;
+    used: Pick<UsedLines, "has" | "add">;
     totals: readonly { layout: SeedLayout; pages: number }[];
   },
 ): Promise<SeedBlock[]> {
@@ -264,7 +269,7 @@ export async function fitToPages(
 }
 
 /**
- * Pads a locked run so it fills exactly its pages: while it fills fewer, one unused action is appended at the
+ * Pads a locked run so it fills exactly its pages: while it fills fewer, one free action is appended at the
  * run's end; while it fills more, the last unit of the run's last scene that holds no `fixed` block is taken out.
  * Throws SeedBuildError "unfit" when the fixed blocks alone fill more pages than `labels`, when the pages the
  * engine labels differ from `labels`, or when FIT_ATTEMPTS changes are spent.
@@ -277,7 +282,7 @@ export async function fitAPages(
     layout: SeedLayout;
     guide: StyleGuide;
     rng: Rng;
-    used: Set<string>;
+    used: Pick<UsedLines, "has" | "add">;
     fixed: ReadonlySet<number>;
   },
 ): Promise<SeedBlock[]> {

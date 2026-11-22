@@ -1,4 +1,4 @@
-// Block-level changes, by block ID, each written through the block writer as one write.
+// Block-level changes, by block ID, written through the block writer: one write each, or all as one.
 import { canonicalBlock } from "@manent/schema";
 import type { BlockJSON, BlockOp, DocJSON, MarkJSON } from "@manent/schema";
 import type { CrdtDoc } from "./doc.ts";
@@ -145,4 +145,17 @@ export function applyBlockOps(
       if (writeOp(w, op, byId)) wrote++;
     }, origin);
   return wrote;
+}
+
+/** Writes every operation in one BlockWriter write under `origin`: one transaction, so one step of undo. */
+export function applyBlockOpsAsOne(
+  doc: CrdtDoc,
+  ops: readonly BlockOp[],
+  origin: unknown,
+): void {
+  const body = scriptBody(doc);
+  const byId = blocksById(body.materialize());
+  body.write((w) => {
+    for (const op of ops) writeOp(w, op, byId);
+  }, origin);
 }

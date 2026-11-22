@@ -3,6 +3,7 @@ import { DOCUMENT_WORDS } from "@manent/ui";
 import { Suspense, lazy, useEffect } from "react";
 import type { ReactNode } from "react";
 import type { PanelTab } from "../../shell/panel-tab.ts";
+import { panelsActions } from "../../state/panels.store.ts";
 import { DETAILS_SECTIONS } from "./details-sections.ts";
 import type { DetailsSection } from "./details-sections.ts";
 
@@ -28,7 +29,7 @@ function DetailsPanel(props: { docId: string }): ReactNode {
     );
     if (scope !== "script" && sections.length === 0) return null;
     return (
-      <section key={scope} className="flex flex-col pb-2">
+      <section key={scope} data-scope={scope} className="flex flex-col pb-2">
         <h2 className="mn-group-label">{heading}</h2>
         <div className="flex flex-col gap-2 px-3">
           {scope === "script" ? (
@@ -43,6 +44,19 @@ function DetailsPanel(props: { docId: string }): ReactNode {
       </section>
     );
   });
+}
+
+/** Opens Details with `scope` at the top of the tab once it is drawn; focus stays where it is. */
+export function openDetailsAt(
+  scope: DetailsSection["scope"],
+  frame: (fn: () => void) => () => void,
+): void {
+  panelsActions.open("side", "details");
+  frame(() =>
+    document
+      .querySelector(`[data-scope="${scope}"]`)
+      ?.scrollIntoView({ block: "start" }),
+  );
 }
 
 function DetailsTab(props: { docId: string | null }): ReactNode {

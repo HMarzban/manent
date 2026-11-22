@@ -7,6 +7,7 @@ import type { DeviceVersion, DocHandle } from "@manent/sync-client";
 import type {
   AuthorsRequest,
   AuthorsResponse,
+  SaveRequest,
   SinceResponse,
   VersionContent,
   VersionPosition,
@@ -49,7 +50,11 @@ export interface HistorySource {
     name: string,
     fromVersionId: string | null,
   ): Promise<{ ok: true } | { ok: false }>;
-  save(docId: string): Promise<{ ok: true } | { ok: false }>;
+  /** `saved` (Cmd/Ctrl+S): on the server when it can be sent, else on the device. `export`: on the server only. */
+  save(
+    docId: string,
+    kind: SaveRequest["kind"],
+  ): Promise<{ ok: true } | { ok: false }>;
   /**
    * On the server when the request can be sent, else on the device. A request sent whose answer was lost is sent
    * again whenever the link is next online, and the restore is then never made on the device; so is one the server
@@ -328,13 +333,13 @@ export function createHistorySource(options: {
         if (named) lists.refresh(docId);
         return named ? DONE : NOT_DONE;
       }),
-    save: (docId) =>
+    save: (docId, kind) =>
       withView(docId, async (handle) => {
         const saved = isSent(handle)
-          ? await sendKeyed(`save ${docId}`, (key) =>
-              http.post("/api/versions/save", { docId, key, kind: "saved" }),
+          ? await sendKeyed(`${kind} ${docId}`, (key) =>
+              http.post("/api/versions/save", { docId, key, kind }),
             )
-          : await isKept(handle.saveVersion("manual"));
+          : kind === "saved" && (await isKept(handle.saveVersion("manual")));
         if (saved) lists.refresh(docId);
         return saved ? DONE : NOT_DONE;
       }),
