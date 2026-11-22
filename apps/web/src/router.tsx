@@ -181,15 +181,6 @@ const PreferencesScreen = lazyRouteComponent(
   }),
   "PreferencesScreen",
 );
-
-const StatesScreen = lazyRouteComponent(
-  loadScreen(() => import("./screens/states/states-screen.tsx")),
-  "StatesScreen",
-);
-const StandInScreen = lazyRouteComponent(
-  loadScreen(() => import("./screens/states/stand-in-screen.tsx")),
-  "StandInScreen",
-);
 // apart from the entry, whose size budget its stock button would break
 const ScreenProblem = lazyRouteComponent(
   () => import("./shell/screen-problem.tsx"),
@@ -337,19 +328,30 @@ export function createAppRouter(deps: {
     errorComponent: ScreenProblem,
   });
 
-  const statesRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/__states",
-    component: StatesScreen,
-    errorComponent: ScreenProblem,
-  });
-
-  const standInRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/__stand-in",
-    component: StandInScreen,
-    errorComponent: ScreenProblem,
-  });
+  // the test build serves the development screens; any other build holds none of their code
+  const developmentRoutes =
+    typeof MANENT_FLAVOUR !== "undefined" && MANENT_FLAVOUR === "test"
+      ? [
+          createRoute({
+            getParentRoute: () => rootRoute,
+            path: "/__states",
+            component: lazyRouteComponent(
+              loadScreen(() => import("./screens/states/states-screen.tsx")),
+              "StatesScreen",
+            ),
+            errorComponent: ScreenProblem,
+          }),
+          createRoute({
+            getParentRoute: () => rootRoute,
+            path: "/__stand-in",
+            component: lazyRouteComponent(
+              loadScreen(() => import("./screens/states/stand-in-screen.tsx")),
+              "StandInScreen",
+            ),
+            errorComponent: ScreenProblem,
+          }),
+        ]
+      : [];
 
   const router = createRouter({
     routeTree: rootRoute.addChildren([
@@ -359,10 +361,7 @@ export function createAppRouter(deps: {
       preferencesRoute,
       paneRoute,
       chooseRoute,
-      // the test build serves the development screens
-      ...(typeof MANENT_FLAVOUR !== "undefined" && MANENT_FLAVOUR === "test"
-        ? [statesRoute, standInRoute]
-        : []),
+      ...developmentRoutes,
     ]),
     defaultPendingMs: 150,
     defaultPendingMinMs: 300,
