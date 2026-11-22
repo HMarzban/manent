@@ -1,5 +1,6 @@
 // The demo's seed: its workspaces, built by steps that share one seeded generator.
 import type { IdSource } from "@manent/schema";
+import type { PageMeter } from "../generate/fit.ts";
 import { DEMO_PEOPLE, DEMO_WORKSPACES } from "../people.ts";
 import type { DemoPerson } from "../people.ts";
 import type { SeedCapability, SeedDriver } from "./driver.ts";
@@ -34,6 +35,8 @@ export interface SeedContext {
   serverUrl: string | null;
   /** Null when only the manifest is built: the step then returns its entries and writes nothing. */
   driver: SeedDriver | null;
+  /** The engine's page meter; null when the seed is built without a driver. */
+  meter: PageMeter | null;
   time: SeedTime;
   /** Records an action left out because the server lacks `capability`; `what` says it in a few words. */
   skip(capability: SeedCapability, what: string): void;
@@ -73,6 +76,7 @@ export interface SeedOptions {
   phase?: "foreground" | "background" | "all";
   onProgress?(done: number, total: number): void;
   driver?: SeedDriver;
+  meter?: PageMeter;
   /** The moment the seed runs, epoch ms; default 0. */
   seedAt?: number;
   /** The local offset east of UTC at `seedAt`; default 0. */
@@ -83,8 +87,8 @@ export interface SeedOptions {
 /**
  * Runs the steps of `phase` in order, each adding its entries to its own
  * workspace. Defaults: `DEMO_SEED`, the package's steps, no data directory, no
- * server, no driver, the foreground phase. Rejects with a RangeError naming a
- * step whose workspace does not exist, before any step runs.
+ * server, no driver, no meter, the foreground phase. Rejects with a RangeError
+ * naming a step whose workspace does not exist, before any step runs.
  */
 export async function buildSeed(
   options: SeedOptions = {},
@@ -126,6 +130,7 @@ export async function buildSeed(
       dataDir: options.dataDir ?? null,
       serverUrl: options.serverUrl ?? null,
       driver: options.driver ?? null,
+      meter: options.meter ?? null,
       time,
       skip: (capability, what) =>
         options.onSkipped?.({ step: step.id, capability, what }),
