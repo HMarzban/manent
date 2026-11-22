@@ -81,6 +81,7 @@ const liveOf = (docId: string, p: Pagination): LiveEditor => ({
   },
   editable: false,
   zoom: () => 1,
+  frontPages: () => null,
 });
 
 /** Frames that pass only when fired by hand. */

@@ -98,6 +98,7 @@ export function createEditorHandlers(deps: {
   return {
     ...pages,
     "view.ruler": () => rulerActions.toggle(),
+    "format.titlePage": () => control.showTitlePage(),
     "doc.export": send("export"),
     "doc.print": send("print"),
     "view.zoomIn": zoomBy("in"),

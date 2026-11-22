@@ -40,7 +40,11 @@ export interface OpenedScript {
 export function editorOptions(
   options: EditorSources,
   open: OpenedScript,
-  bound: { binding: EditorBinding; editable: boolean },
+  bound: {
+    binding: EditorBinding;
+    editable: boolean;
+    titlePage: ScriptEditorOptions["titlePage"];
+  },
 ): ScriptEditorOptions {
   const { element, docId, facts, outline, settings, guard } = open.ports;
   const { services } = options;
@@ -69,6 +73,7 @@ export function editorOptions(
     onUndoStep: () => services().messages.withdrawUndo(),
     keys: options.keys,
     zoom: zoomActions.get(),
+    titlePage: bound.titlePage,
     desk: open.desk,
     extraPlugins: (host) =>
       EDITOR_PLUGINS.map((make) =>

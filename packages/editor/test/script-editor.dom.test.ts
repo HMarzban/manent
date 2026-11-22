@@ -254,6 +254,7 @@ function editor(
     onUndoStep: () => {},
     keys: { resolve: () => null, run: () => false },
     zoom: options.zoom ?? 100,
+    titlePage: null,
     desk: {
       widthPx: () => fakes.desk.width,
       paddingPx: () => 64,

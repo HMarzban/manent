@@ -89,6 +89,10 @@ export interface SheetDecor {
 export interface PageScaffold {
   /** `.mn-pages`: the EditorView is mounted here, after the sheets. */
   readonly pages: HTMLElement;
+  /** `.mn-front`, before `.mn-pages` and zoomed with it: where the pages before page 1 are drawn. */
+  readonly front: HTMLElement;
+  /** The height the front pages take above page 1, gaps included, px at 100 %. */
+  setFrontHeight(px: number): void;
   setProfile(profile: PageProfile): void;
   /** Sizes the scroll area and draws the sheets. */
   setPageCount(count: number): void;
@@ -134,20 +138,20 @@ function drawSheet(
   );
 }
 
+// The scroll offset counts from the frame's top, and the front pages sit above page 1.
 function sheetsInView(
   place: HTMLElement,
   page: { width: number; height: number },
-  count: number,
-  scale: number,
+  frame: { count: number; scale: number; frontPx: number },
 ): { index: number; top: number }[] {
   const { scrollTop, clientHeight } = place;
   return visibleSheets(
-    count,
+    frame.count,
     page.height,
     PAGE_GAP_PX,
-    scrollTop,
+    scrollTop - frame.frontPx * frame.scale,
     clientHeight,
-    scale,
+    frame.scale,
   );
 }
 
@@ -174,7 +178,12 @@ function drawSheets(
 function createFrame(
   place: HTMLElement,
   engine: BrowserEngine,
-): { zoom: HTMLElement; profileStyle: HTMLElement; pages: HTMLElement } {
+): {
+  zoom: HTMLElement;
+  profileStyle: HTMLElement;
+  front: HTMLElement;
+  pages: HTMLElement;
+} {
   const doc = place.ownerDocument;
   const zoom = doc.createElement("div");
   zoom.className = "mn-zoom";
@@ -184,23 +193,29 @@ function createFrame(
   const pages = doc.createElement("div");
   pages.className = "mn-pages fonts-loading";
   pages.classList.toggle("no-cv", !CONTAINMENT[engine]);
-  zoom.append(pageStyle, profileStyle, pages);
+  const front = doc.createElement("div");
+  front.className = "mn-front";
+  zoom.append(pageStyle, profileStyle, front, pages);
   place.append(zoom);
-  return { zoom, profileStyle, pages };
+  return { zoom, profileStyle, front, pages };
 }
 
-/** Sizes the scroll area to the zoomed content and scales the pages; returns the scale. */
+/** Sizes the scroll area to the zoomed content and scales the front pages and the pages; returns the scale. */
 function sizeFrame(
-  zoom: HTMLElement,
-  pages: HTMLElement,
+  frame: { zoom: HTMLElement; front: HTMLElement; pages: HTMLElement },
   page: { width: number; height: number },
-  count: number,
+  heights: { count: number; frontPx: number },
   percent: number,
 ): number {
-  const contentHeight = count * page.height + (count - 1) * PAGE_GAP_PX;
+  const { zoom, front, pages } = frame;
+  const { count, frontPx } = heights;
+  const contentHeight =
+    frontPx + count * page.height + (count - 1) * PAGE_GAP_PX;
   const box = zoomBox(page.width, contentHeight, percent);
   zoom.style.width = `${box.widthPx}px`;
   zoom.style.height = `${box.heightPx}px`;
+  front.style.transform = `scale(${box.scale})`;
+  pages.style.top = `${frontPx * box.scale}px`;
   pages.style.transform = `scale(${box.scale})`;
   return box.scale;
 }
@@ -215,20 +230,24 @@ export function createPageScaffold(options: {
   engine: BrowserEngine;
 }): PageScaffold {
   const { place } = options;
-  const { zoom, profileStyle, pages } = createFrame(place, options.engine);
+  const frame = createFrame(place, options.engine);
+  const { zoom, profileStyle, front, pages } = frame;
   let profile = options.profile;
   let count = 1;
+  let frontPx = 0;
   let percent = 100;
   let scale = 1;
   let decor: SheetDecor | null = null;
   const sheets: HTMLElement[] = [];
 
   const redraw = (): void => {
-    const wanted = sheetsInView(place, screenPagePx(profile), count, scale);
+    const page = screenPagePx(profile);
+    const wanted = sheetsInView(place, page, { count, scale, frontPx });
     drawSheets(pages, sheets, wanted, decor, profile);
   };
   const layout = (): void => {
-    scale = sizeFrame(zoom, pages, screenPagePx(profile), count, percent);
+    const page = screenPagePx(profile);
+    scale = sizeFrame(frame, page, { count, frontPx }, percent);
     redraw();
   };
   const setProfile = (next: PageProfile): void => {
@@ -241,7 +260,13 @@ export function createPageScaffold(options: {
   setProfile(profile);
   return {
     pages,
+    front,
     setProfile,
+    setFrontHeight(px) {
+      if (px === frontPx) return;
+      frontPx = px;
+      layout();
+    },
     setPageCount(next) {
       count = next;
       layout();

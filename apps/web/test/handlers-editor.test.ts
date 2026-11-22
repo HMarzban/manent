@@ -81,7 +81,11 @@ function slotAfter(
   const slot = queue();
   const control = createEditorControl();
   if (answer !== null)
-    control.attach({ run: () => answer, zoomPercent: () => 100 });
+    control.attach({
+      run: () => answer,
+      zoomPercent: () => 100,
+      showTitlePage: () => {},
+    });
   createEditorHandlers({
     control,
     messages: slot,
@@ -129,6 +133,7 @@ test("each editor command asks the page for its own action", () => {
       return { ok: true };
     },
     zoomPercent: () => 100,
+    showTitlePage: () => {},
   });
   const handlers = createEditorHandlers({
     control,

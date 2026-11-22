@@ -140,6 +140,7 @@ test("the Stage 1 commands are these, with these words and keys", () => {
     ["format.highlight.orange", "Highlight: Orange", [], []],
     ["format.highlight.violet", "Highlight: Violet", [], []],
     ["view.ruler", "Ruler", [], []],
+    ["format.titlePage", "Title page", [], []],
     ["doc.export", "Export…", [], []],
     ["doc.print", "Print…", ["Mod+P"], ["Mod+P"]],
     ["view.zoomIn", "Zoom in", ["Mod+="], ["Mod+="]],
@@ -258,6 +259,13 @@ test("the editor's commands sit in these menus and answer to these palette words
       null,
     ],
     [
+      "format.titlePage",
+      "format",
+      [{ menu: "format", group: "script_settings", order: 20, submenu: null }],
+      { keywords: [] },
+      null,
+    ],
+    [
       "doc.export",
       "file",
       [
@@ -338,6 +346,7 @@ test("the editor's commands belong to the page and appear only to people who can
     EDITOR_COMMANDS.filter((c) => c.scope !== "editor").map((c) => c.id),
   ).toEqual([
     "view.ruler",
+    "format.titlePage",
     "doc.export",
     "doc.print",
     "view.zoomIn",
@@ -757,6 +766,7 @@ test("the handler table names every command but the generated ones", () => {
     "format.highlight.orange": noop,
     "format.highlight.violet": noop,
     "view.ruler": noop,
+    "format.titlePage": noop,
     "doc.export": noop,
     "doc.print": noop,
     "view.zoomIn": noop,

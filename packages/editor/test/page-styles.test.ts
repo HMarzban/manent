@@ -152,7 +152,7 @@ test("each element's box is its cells plus the slack, and space before is paddin
     ["--el-slack-left: 0.5", "text-align: right"],
     ["--el-slack-left: 0.25", "text-align: center"],
   ]);
-  expect(rule(css, ".mn-pages")).toEqual([
+  expect(rule(css, ".mn-pages, .mn-front")).toEqual([
     "--geo-page-w: 612pt",
     "--geo-page-h: 1056px",
     "--geo-left: 108pt",

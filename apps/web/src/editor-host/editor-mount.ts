@@ -13,6 +13,7 @@ import type {
   SavedPlace,
   ScriptEditor,
   Timers,
+  TitlePageSource,
 } from "@manent/editor";
 import { markEnd } from "@manent/perf";
 import { parseDoc } from "@manent/schema";
@@ -30,7 +31,7 @@ import type { EditorMount } from "./mount.ts";
 import { followZoom } from "./page-zoom.ts";
 import { keepPlace } from "./keep-place.ts";
 import { placeholderMount } from "./placeholder-mount.ts";
-import { followThumb } from "./thumb-label.ts";
+import { titlePageSource } from "./title-page-port.ts";
 import { countSteps } from "./undo-depth.ts";
 
 // page-frame.ts loads apart from the editor: importing this selector from it would push the editor's first load
@@ -131,15 +132,21 @@ function trackHolds(
 const shownOnly = (binding: EditorBinding) => ({
   binding,
   editable: false,
+  titlePage: null,
   destroy: noop,
 });
 
-/** The binding the editor gets, and whether it may edit: read-only content and newer content are shown, never bound. */
+/** The binding the editor gets, whether it may edit, and the title page it may show: read-only content and newer content are shown, never bound. */
 function bindingFor(
   session: EditorSession,
   document: BoundDocument,
   options: { timers: Timers; edit: boolean },
-): { binding: EditorBinding; editable: boolean; destroy(): void } {
+): {
+  binding: EditorBinding;
+  editable: boolean;
+  titlePage: TitlePageSource | null;
+  destroy(): void;
+} {
   const content = session.readOnly.get();
   if (content !== null) return shownOnly(staticBinding(parseDoc(content)));
   const bound = bindDocument({
@@ -151,6 +158,7 @@ function bindingFor(
   return {
     binding: bound.binding,
     editable: options.edit,
+    titlePage: titlePageSource(document.doc()),
     destroy: bound.destroy,
   };
 }
@@ -179,25 +187,32 @@ function buildEditor(
     counted === null
       ? bound.binding
       : { ...bound.binding, history: counted.history };
+  const { editable, titlePage } = bound;
   const editor = createScriptEditor(
-    editorOptions(options, open, { binding, editable: bound.editable }),
+    editorOptions(options, open, { binding, editable, titlePage }),
   );
+  const region = element.closest<HTMLElement>(PAGE_REGION);
   if (place !== null) editor.restore(place);
   // the first zoom holds the caret's line where it lay at 100 %, which would open a page scrolled past the desk above it
-  else element.closest(PAGE_REGION)?.scrollTo({ top: 0 });
+  else region?.scrollTo({ top: 0 });
   const stopZoom = followZoom({ ...options, editor, element });
-  const stopThumb =
-    editor.scaffold === null
-      ? noop
-      : followThumb({
-          editor,
-          scroller: element,
-          docId,
-          timers: options.timers,
-        });
+  let stopThumb = noop;
+  let built = true;
+  // loaded apart: it shows only once the person scrolls
+  if (editor.scaffold !== null && region !== null)
+    void import("./thumb-label.ts").then(({ followThumb }) => {
+      if (!built) return;
+      stopThumb = followThumb({
+        editor,
+        scroller: region,
+        docId,
+        timers: options.timers,
+      });
+    });
   const detach = options.control.attach({
     run: (request) => editor.run(actionOf(request)),
     zoomPercent: () => editor.zoomPercent(),
+    showTitlePage: () => editor.showTitlePage(),
   });
   const unregister = registerLiveEditor({
     docId,
@@ -207,12 +222,14 @@ function buildEditor(
     presence: binding.presence,
     editable: bound.editable,
     zoom: () => (editor.zoomPercent() ?? 100) / 100,
+    frontPages: () => editor.frontPages(),
   });
   options.observe?.({ docId, editor, undoDepth: () => counted?.depth() ?? 0 });
   return {
     editor,
     shown: open.shown,
     destroy() {
+      built = false;
       stopZoom();
       stopThumb();
       detach();

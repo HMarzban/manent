@@ -142,6 +142,7 @@ function rig(
     },
     run: (id) => inner.run(id),
     zoomPercent: () => inner.zoomPercent(),
+    showTitlePage: () => inner.showTitlePage(),
   };
   let ids = 0;
   const nextId = () => `block-${String(++ids).padStart(4, "0")}`;
@@ -277,9 +278,9 @@ test("someone who cannot edit gets a read-only page, and gains the caret when th
 
 test("changing the format to Ink rebuilds once; the disposer leaves the host empty", () => {
   const r = rig();
-  const paged = r.element.querySelector(".mn-sheet") !== null;
+  const paged = r.element.querySelector(".mn-pages") !== null;
   r.services.openScriptStore(DOC).set("script.format", "ink");
-  const ink = [r.attached.length, r.element.querySelector(".mn-sheet")];
+  const ink = [r.attached.length, r.element.querySelector(".mn-pages")];
   r.dispose();
   expect([paged, ink, r.element.childNodes.length, liveEditor(DOC)]).toEqual([
     true,

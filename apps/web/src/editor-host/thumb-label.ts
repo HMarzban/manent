@@ -41,6 +41,12 @@ function pageAtTop(editor: ScriptEditor, scroller: HTMLElement): number | null {
   );
 }
 
+/** The readout's sentence for the front page `label`, which the count leaves out. */
+function frontLabelOf(editor: ScriptEditor, label: string): string | null {
+  const p = editor.pagination();
+  return p === null ? null : READOUT_WORDS.page(label, p.pages.length);
+}
+
 /** The readout's sentence for page `index`, with its revision when the document's Pages name one. */
 function labelOf(
   editor: ScriptEditor,
@@ -56,6 +62,20 @@ function labelOf(
   return revision === null
     ? READOUT_WORDS.page(page.label, count)
     : READOUT_WORDS.pageWithRevision(page.label, revision, index + 1, count);
+}
+
+/** The sentence for the page at the scroller's top edge, a front page included; null where it is on none. */
+function labelAtTop(
+  editor: ScriptEditor,
+  scroller: HTMLElement,
+  docId: string,
+): string | null {
+  const front = editor.frontPageAt(
+    scroller.getBoundingClientRect().top + PROBE_PX,
+  );
+  if (front !== null) return frontLabelOf(editor, front);
+  const index = pageAtTop(editor, scroller);
+  return index === null ? null : labelOf(editor, docId, index);
 }
 
 /**
@@ -76,8 +96,7 @@ export function followThumb(options: {
   scroller.ownerDocument.body.append(label);
   let hide = NOTHING_TO_STOP;
   const onScroll = (): void => {
-    const index = pageAtTop(editor, scroller);
-    const text = index === null ? null : labelOf(editor, docId, index);
+    const text = labelAtTop(editor, scroller, docId);
     if (text !== null) label.textContent = text;
     if (label.textContent === "") return;
     const edge = scroller.getBoundingClientRect();
