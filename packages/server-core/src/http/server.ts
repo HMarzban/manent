@@ -1,21 +1,25 @@
 // The server: the host check, the routes, then the web app's files; and the socket's connections.
 import type {
   ControlEndpoint,
+  DemoControls,
   Identity,
   ServerVersions,
 } from "@manent/sync-protocol";
 import type { Directory } from "../auth/directory.ts";
 import type { SessionStore } from "../auth/sessions.ts";
 import type { SignInProvider } from "../auth/sign-in.ts";
+import type { HistoryService } from "../history/service.ts";
+import type { ProductionService } from "../production/service.ts";
 import type {
   ConnectionData,
   ConnectionHandler,
 } from "../socket/connection.ts";
 import { createConnectionHandler } from "../socket/handler.ts";
 import type { TicketStore } from "../socket/tickets.ts";
+import { syncError } from "../sync/errors.ts";
 import { DEFAULT_LIMITS } from "../sync/ports.ts";
 import { createSyncService } from "../sync/service.ts";
-import type { SyncService, SyncSettings } from "../sync/service.ts";
+import type { SyncService, SyncSettings } from "../sync/ports.ts";
 import { failure } from "./respond.ts";
 import { hearRemovals } from "./routes/docs.ts";
 import { hearReplays } from "./routes/replay.ts";
@@ -47,6 +51,10 @@ export interface ServerConfig {
   demo: {
     seedId(): string | null;
     control: ControlEndpoint | null;
+    /** What the demo's control routes ask of the server; null: they answer not_found. */
+    controls: DemoControls | null;
+    /** False for a home whose documents are still being seeded; absent, every home is ready. */
+    isHomeReady?: (home: string) => boolean;
   } | null;
   socket: {
     tickets: TicketStore;
@@ -56,6 +64,10 @@ export interface ServerConfig {
   };
   /** Null: every document frame is answered 4403, and the document routes answer not_found. */
   sync: SyncSettings | null;
+  /** Absent: every history route answers not_found. */
+  history?: HistoryService;
+  /** Absent: every production route answers not_found. */
+  production?: ProductionService;
 }
 
 /** What an app hands to its listener; this package never listens itself. */
@@ -69,10 +81,36 @@ export interface ManentServer {
 
 const BEARER = /^Bearer +(\S+)$/i;
 
+/** How long a client waits before it asks again for a document whose home is being seeded. */
+const SEEDING_RETRY_MS = 5000;
+
 function userOf(request: Request, auth: ServerConfig["auth"]): Identity | null {
   const token = BEARER.exec(request.headers.get("authorization") ?? "")?.[1];
   const session = token === undefined ? null : auth.sessions.resolve(token);
   return session === null ? null : auth.directory.user(session.userId);
+}
+
+/** `service` as the socket reaches it: a SUBSCRIBE for a document in a home that is not ready is answered busy. */
+function guardHomes(
+  config: ServerConfig,
+  settings: SyncSettings,
+  service: SyncService,
+): SyncService {
+  const isReady = (docId: string): boolean => {
+    const place = settings.storage.directory.placeOf(docId);
+    if (place === null) return true;
+    const { kind, id } = place.home;
+    return config.demo?.isHomeReady?.(`${kind}:${id}`) !== false;
+  };
+  return {
+    ...service,
+    receive(peer, message) {
+      if (message.type !== "SUBSCRIBE" || isReady(message.docId))
+        return service.receive(peer, message);
+      const doc = { docId: message.docId, generation: message.generation };
+      peer.send(syncError("busy", doc, { retryAfterMs: SEEDING_RETRY_MS }));
+    },
+  };
 }
 
 export function createServer(config: ServerConfig): ManentServer {
@@ -88,6 +126,10 @@ export function createServer(config: ServerConfig): ManentServer {
           clock: settings.clock,
           limits: { ...DEFAULT_LIMITS, ...settings.limits },
         };
+  const socketSync =
+    settings === null || sync === null
+      ? null
+      : { ...sync, service: guardHomes(config, settings, sync.service) };
   if (sync !== null) hearRemovals(config, sync.service);
   if (sync !== null) hearReplays(config, sync.service);
 
@@ -97,7 +139,7 @@ export function createServer(config: ServerConfig): ManentServer {
       tickets: config.socket.tickets,
       directory: config.auth.directory,
       versions,
-      sync,
+      sync: socketSync,
     }),
     async fetch(request, peer) {
       const url = new URL(request.url);

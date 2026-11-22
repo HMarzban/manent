@@ -6,7 +6,10 @@ import type { DeviceVersion, LocalStore } from "../ports/ports.ts";
 /** The document's content now, in the canonical form, as a version not yet uploaded. */
 export function deviceVersion(
   doc: CrdtDoc,
-  version: Pick<DeviceVersion, "id" | "docId" | "kind" | "label" | "createdAt">,
+  version: Pick<
+    DeviceVersion,
+    "id" | "docId" | "kind" | "label" | "name" | "createdAt"
+  >,
 ): DeviceVersion {
   return {
     ...version,

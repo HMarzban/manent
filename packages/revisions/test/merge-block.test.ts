@@ -133,3 +133,16 @@ test("nothing either side typed is lost when a block merges", () => {
     { numRuns: 1_000 },
   );
 });
+
+test("seed 1: text both sides typed is taken once, wherever the diff of each side places it", () => {
+  expect(
+    mergeBlock(
+      b(A, "[window:71][window:78]"),
+      b(A, "[window:99][window:71][window:78][window:92]"),
+      b(A, "[window:71][window:78][window:92]"),
+    ),
+  ).toEqual({
+    ok: true,
+    block: b(A, "[window:99][window:71][window:78][window:92]"),
+  });
+});

@@ -1,10 +1,13 @@
 // One choice of a few, drawn side by side: a single-choice toggle group.
 import type { Choice } from "@manent/settings";
+import { cn } from "cn";
 import type { KeyboardEvent, ReactNode } from "react";
 import { ToggleGroup, ToggleGroupItem } from "../stock/toggle-group.tsx";
 
 interface SegmentedProps {
   label: string;
+  /** "sm" is 24 high, for the demo bar; otherwise 28. */
+  size?: "default" | "sm";
   value: string;
   options: readonly Choice<string>[];
   onChange(value: string): void;
@@ -23,6 +26,7 @@ export function Segmented({
   value,
   options,
   onChange,
+  size = "default",
 }: SegmentedProps): ReactNode {
   const onKeyDown = (event: KeyboardEvent): void => {
     const step = ARROW_STEPS[event.key];
@@ -47,7 +51,10 @@ export function Segmented({
         <ToggleGroupItem
           key={option.value}
           value={option.value}
-          className="h-control text-ui"
+          className={cn(
+            "text-ui text-fg-muted",
+            size === "sm" ? "h-control-sm" : "h-control",
+          )}
         >
           {option.label}
         </ToggleGroupItem>

@@ -5,12 +5,11 @@ import { createKeyResolver } from "@manent/ui";
 import type { MessageQueue, StatusFacts, Subscribable } from "@manent/ui";
 import {
   EDITOR_FIXED_KEYS,
-  browserPagePorts,
   createEditorMount,
 } from "../editor-host/editor-mount.ts";
 import type { OpenEditor } from "../editor-host/editor-mount.ts";
-import { createLocalSessions } from "../editor-host/editor-sessions.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
+import { createSyncSessions } from "../editor-host/sync-sessions.ts";
 import { createEditorKeyRun } from "../handlers/editor-key-run.ts";
 import type { EditorParts, Environment } from "./ports.ts";
 
@@ -45,11 +44,7 @@ export async function loadEditor(
       ? await import("../editor-host/test-hooks.ts")
       : null;
   parts.fixedKeys.set(EDITOR_FIXED_KEYS);
-  const sessions = createLocalSessions({
-    frames,
-    clock: timers,
-    ids: randomBlockId,
-  });
+  const sessions = createSyncSessions({ client: parts.client });
   const access = new Map<string, StatusFacts["access"]>();
   let current: OpenEditor | null = null;
   const target: unknown = Reflect.get(globalThis, "__manent");
@@ -69,7 +64,7 @@ export async function loadEditor(
         : () => hooks.withRecordedAccess(parts.services(), access),
     control: parts.control,
     keys: editorKeys(parts.commands, parts.messages, parts.resolved),
-    ports: browserPagePorts(environment.userAgent),
+    ports: parts.services().pagePorts,
     frames,
     timers,
     platform: environment.where.platform,

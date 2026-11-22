@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="5">
+  <Content>
+    <Paragraph Type="New Act">
+      <Text>ACT ONE</Text>
+    </Paragraph>
+    <Paragraph Number="1" Type="Scene Heading">
+      <Text>INT. LAMP ROOM - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>The lens turns. </Text>
+      <Text Style="Bold+Italic+Underline+Strikeout+AllCaps">Salt</Text>
+      <Text Font="Courier Final Draft" Size="12"> on the glass.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>DANA</Text>
+    </Paragraph>
+    <Paragraph Type="Parenthetical">
+      <Text>(quietly)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text Color="#CCCC00000000">Red</Text>
+      <Text Background="#FFFFFFFFFFFF" Color="#000000000000"> light, then </Text>
+      <Text Background="#FFFFFFFF0000">fog</Text>
+      <Text>.</Text>
+    </Paragraph>
+    <Paragraph Type="Transition">
+      <Text>CUT TO:</Text>
+    </Paragraph>
+    <Paragraph SpaceBefore="12" Type="Shot">
+      <Text>ON THE LENS</Text>
+    </Paragraph>
+    <Paragraph Alignment="Center" Type="General">
+      <Text>The keeper's log</Text>
+    </Paragraph>
+    <Paragraph Alignment="Right" StartsNewPage="Yes" Type="Action">
+      <Text Font="Courier Prime" Style="Bold+SmallCaps">Dawn</Text>
+      <Text>, and the gulls.</Text>
+    </Paragraph>
+    <Paragraph Alignment="Full" SpaceBefore="6" Type="Action">
+      <Text>One line
+and the next.</Text>
+      <Text></Text>
+    </Paragraph>
+    <Paragraph Type="Cast List">
+      <Text>DANA REYES, the keeper</Text>
+    </Paragraph>
+    <Paragraph>
+      <Text>The lamp goes dark.</Text>
+    </Paragraph>
+    <Paragraph Type="End of Act">
+      <Text>END OF ACT ONE</Text>
+    </Paragraph>
+  </Content>
+</FinalDraft>

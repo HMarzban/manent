@@ -1,6 +1,14 @@
 // The handle an app holds for one open document, and the events it hears on it.
 import type { CrdtDoc } from "@manent/crdt";
-import type { DocStatus, RecoveredItem, Subscribable } from "../ports/ports.ts";
+import type { RestoreScope } from "@manent/revisions";
+import type { DocJSON } from "@manent/schema";
+import type { ControlKind, LockAnchorRecord } from "@manent/sync-protocol";
+import type {
+  DeviceVersion,
+  DocStatus,
+  RecoveredItem,
+  Subscribable,
+} from "../ports/ports.ts";
 import type { UpstreamStatus } from "../upstream/status.ts";
 import type { ViewHandle } from "../view/view.ts";
 
@@ -13,7 +21,9 @@ import type { ViewHandle } from "../view/view.ts";
  * `applied` blocks of this device's were written into the new document, and
  * `overlaps` and `setAside` items filed as Recovered text.
  * `past_window`: the edits made against the old document are kept as the
- * device version `versionId`, never merged.
+ * device version `versionId`, never merged. `control`: a CONTROL frame for the
+ * document, as it came. `subscribed`: a SUBSCRIBED for it, whose lock anchors
+ * read as null when they came as a hash.
  */
 export type DocEvent =
   | { type: "replaced"; reason: "rejected" | "generation" }
@@ -22,7 +32,14 @@ export type DocEvent =
   | { type: "setting_refused"; key: string; message: string }
   | { type: "receipt"; sent: number; setAside: number; overlaps: number }
   | { type: "rebuilt"; applied: number; overlaps: number; setAside: number }
-  | { type: "past_window"; versionId: string };
+  | { type: "past_window"; versionId: string }
+  | { type: "control"; kind: ControlKind; data: Uint8Array }
+  | {
+      type: "subscribed";
+      lockLevel: number;
+      lockAnchors: LockAnchorRecord[] | null;
+      revision: { setId: string; baselineVersionId: string } | null;
+    };
 
 export interface DocHandle {
   readonly docId: string;
@@ -47,6 +64,20 @@ export interface DocHandle {
   sendAwareness(update: Uint8Array): void;
   onAwareness(listener: (update: Uint8Array) => void): () => void;
   saveVersion(label: "session_end" | "manual"): Promise<void>;
+  /** Keeps the document as it is now as the device version of a draft, labelled `named`. */
+  nameVersion(name: string): Promise<DeviceVersion>;
+  /**
+   * Keeps the document as it is now as the device version `before_restore`,
+   * then writes the target's blocks of the scope as this device's own changes,
+   * on no undo stack; `applied` counts the blocks written.
+   */
+  restoreLocally(
+    target: DocJSON,
+    scope: RestoreScope,
+  ): Promise<{ beforeVersionId: string; applied: number }>;
+  deviceVersions(): Promise<DeviceVersion[]>;
+  /** The synced head this device has seen. */
+  lastServerSeq(): number;
   /**
    * The IDs not yet held join this document's own client IDs and are stored,
    * so that the heal counts them as this client's; a subscribed document

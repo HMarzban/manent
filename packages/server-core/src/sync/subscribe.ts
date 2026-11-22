@@ -15,11 +15,10 @@ import type { AwarenessHub } from "./awareness.ts";
 import type { Deletions } from "./deletions.ts";
 import { syncError } from "./errors.ts";
 import type { Healing } from "./heal.ts";
-import type { Peer, SyncLimits } from "./ports.ts";
+import type { Peer, SubscribedExtras, SyncLimits, WritePath } from "./ports.ts";
 import type { Room, Rooms, Subscription } from "./rooms.ts";
 import { isStorageError } from "./storage-error.ts";
 import { validateRoomPush } from "./validate.ts";
-import type { WritePath } from "./write-path.ts";
 
 export type SubscribeMessage = Extract<Message, { type: "SUBSCRIBE" }>;
 
@@ -110,13 +109,22 @@ export function registerEditor(
     room.colors.set(user, color);
 }
 
-/** The answer to a SUBSCRIBE that passed, reporting `headSeq` as the document's head. */
+/** What SUBSCRIBED says of locks and revisions when no feature says otherwise. */
+const PLAIN_EXTRAS: SubscribedExtras = Object.freeze({
+  lockLevel: 0,
+  lockAnchors: null,
+  revision: null,
+});
+
+/** The answer to a SUBSCRIBE that passed, reporting `headSeq` as the document's head; null `extras` are the plain values. */
 export function subscribedOf(
   room: Room,
   access: Access,
   headSeq: number,
+  extras: SubscribedExtras | null,
 ): Message {
   const { row } = room;
+  const { lockLevel, lockAnchors, revision } = extras ?? PLAIN_EXTRAS;
   return {
     type: "SUBSCRIBED",
     docId: room.docId,
@@ -126,9 +134,9 @@ export function subscribedOf(
     headSeq,
     minSchemaVersion: row.schemaVersion,
     engineVersion: row.engineVersion ?? 0,
-    lockLevel: 0,
-    lockAnchors: null,
-    revision: null,
+    lockLevel,
+    lockAnchors: lockAnchors === null ? null : { table: lockAnchors },
+    revision,
     airWindow: null,
   };
 }
@@ -150,6 +158,10 @@ export interface SubscribePorts {
   snapshotOf(room: Room): Message;
   tell(peer: Peer, message: Message): void;
   end(peer: Peer, docId: string): void;
+  /** An edit subscription ended: the peer is no longer among the room's editors. */
+  editorLeft(room: Room, userId: string): void;
+  /** SUBSCRIBED's lock and revision fields; null: the plain values. */
+  extras(docId: string): SubscribedExtras | null;
 }
 
 /** A SUBSCRIBE: refused with the first check that fails, otherwise held, answered SUBSCRIBED, then step 1 or a snapshot. */
@@ -187,9 +199,11 @@ export function subscribe(
       syncError("storage_failed", docOf(room), { retryAfterMs }),
     );
   }
+  const wasEditor = room.editors.has(peer);
   if (mode === "view") presence.left(room, peer);
   room.editors.delete(peer);
   room.viewers.delete(peer);
+  if (wasEditor && mode === "view") ports.editorLeft(room, peer.userId);
   const { access: granted } = check;
   const subscription: Subscription = {
     peer,
@@ -202,7 +216,8 @@ export function subscribe(
   const { lastServerSeq } = message;
   state.held.set(docId, { room, subscription, lastServerSeq });
   (mode === "edit" ? room.editors : room.viewers).set(peer, subscription);
-  tell(peer, subscribedOf(room, granted, heal.headOf(room)));
+  const extras = ports.extras(docId);
+  tell(peer, subscribedOf(room, granted, heal.headOf(room), extras));
   const vector = room.doc?.encodeStateVector();
   if (mode === "edit" && vector !== undefined) {
     rebuilder.touched(room);

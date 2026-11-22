@@ -138,6 +138,33 @@ test("every block mine changed ends merged, to review, or set aside", () => {
   );
 });
 
+test("seed 44: a block mine holds a second time under one ID is never written over the first, and its text is set aside unless base or theirs holds it", () => {
+  const base = doc(b(A, "one"), b(B, "two"), b(B, "two, again"));
+  const theirs = doc(b(A, "One"), b(B, "two"), b(B, "two, again"));
+  expect(
+    mergeByBlock(
+      base,
+      doc(
+        b(A, "one"),
+        b(B, "two!"),
+        b(B, "two, again"),
+        b(C, "three"),
+        b(A, "a stray copy"),
+      ),
+      theirs,
+    ),
+  ).toEqual({
+    ops: [
+      { op: "replace", block: b(B, "two!") },
+      { op: "insert", after: B, block: b(C, "three") },
+    ],
+    overlaps: [],
+    setAside: [{ blockId: A, nearBlockId: C, text: "a stray copy" }],
+    applied: 2,
+    result: doc(b(A, "One"), b(B, "two!"), b(C, "three"), b(B, "two, again")),
+  });
+});
+
 test("applying operations to JSON gives the blocks the table says", () => {
   const given: DocJSON = {
     type: "doc",

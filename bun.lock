@@ -247,6 +247,7 @@
       "devDependencies": {
         "@fontsource/courier-prime": "catalog:",
         "@types/pdfkit": "catalog:",
+        "fast-check": "catalog:",
         "pdfjs-dist": "catalog:",
       },
     },

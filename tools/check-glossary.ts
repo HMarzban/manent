@@ -8,10 +8,10 @@ import {
   NAMES,
   NOT_SENT_EXCEPTION,
   PENDING_TERMS,
-  PLAIN_WORDS,
   TERMS,
 } from "./glossary.ts";
 import type { Feature } from "./glossary.ts";
+import { PLAIN_WORDS } from "./plain-words.ts";
 import { findImports, mask } from "./source-scan.ts";
 
 /** One interface string; a template literal's values read `{}`. `scope` says whether it speaks of the person's own choices, of a script everyone shares, or of neither. */

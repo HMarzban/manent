@@ -5,12 +5,10 @@ import {
   ORIGIN_REPLAY,
   applyBlockOps,
   loadDoc,
-  mergeUpdates,
-  readStateVector,
+  revisedOverrides,
   scriptBody,
   updateMeta,
 } from "@manent/crdt";
-import type { CrdtDoc } from "@manent/crdt";
 import type { BlockMerge } from "@manent/revisions";
 import { blockText, blockView, validateBlocks } from "@manent/schema";
 import type { BlockOp, DocJSON } from "@manent/schema";
@@ -23,10 +21,9 @@ import type {
   ReplaySetAside,
 } from "@manent/sync-protocol";
 import type { DocumentAccess } from "../sync/access.ts";
-import { writerClientId } from "../sync/client-ids.ts";
-import type { Clock, SyncLimits } from "../sync/ports.ts";
+import { writeOnCopy } from "../sync/authority-write.ts";
+import type { Clock, SyncLimits, WritePath } from "../sync/ports.ts";
 import type { Room, Rooms } from "../sync/rooms.ts";
-import type { WritePath } from "../sync/write-path.ts";
 import { replayBase } from "./replay-base.ts";
 import { readRequest, storedResponse } from "./replay-request.ts";
 import { mergeUniqueThrough } from "./unique-merge.ts";
@@ -84,30 +81,28 @@ function contentOf(state: Uint8Array): DocJSON {
 }
 
 /**
- * The ops as one update, applied to the room's document under ORIGIN_REPLAY; null when they wrote nothing. They are
- * written under a client id that neither the ledger nor the document holds, which the commit registers to this person.
+ * The ops and the overrides that differ from the room's as one update, written on a copy and
+ * applied to the room's document under ORIGIN_REPLAY; null when they wrote nothing.
  */
 function writeOps(
   room: Room,
-  doc: CrdtDoc,
-  ops: readonly BlockOp[],
+  changes: { ops: readonly BlockOp[]; overrides: Checked["overrides"] },
   ids: () => string,
 ): Uint8Array | null {
-  const written = readStateVector(doc.encodeStateVector()).set(doc.clientId, 0);
-  const ledger = room.file.log.ledger(room.docId);
-  const clientId = writerClientId(room.mode, ids, [ledger, written]);
-  const copy = loadDoc(doc.encodeState(), { clientId });
-  const made: Uint8Array[] = [];
-  copy.subscribe((update) => made.push(update));
-  try {
-    applyBlockOps(copy, ops, ORIGIN_REPLAY);
-  } finally {
-    copy.destroy();
-  }
-  if (made.length === 0) return null;
-  const update = mergeUpdates(made);
-  doc.applyUpdate(update, ORIGIN_REPLAY);
-  return update;
+  const written = writeOnCopy(
+    room,
+    ORIGIN_REPLAY,
+    (copy) => {
+      applyBlockOps(copy, changes.ops, ORIGIN_REPLAY);
+      const overrides = revisedOverrides(copy);
+      for (const [key, value] of changes.overrides)
+        if (overrides.get(key) !== value)
+          overrides.set(key, value, ORIGIN_REPLAY);
+      return { ok: true };
+    },
+    ids,
+  );
+  return written.ok ? written.update : null;
 }
 
 /** Every block the ops write passes validation without a reject or newer issue. */
@@ -172,6 +167,8 @@ interface Checked {
   kind: DocKind;
   frozen: Uint8Array[];
   setAside: ReplaySetAside[];
+  /** Mine's revisedOverrides entries that differ from base's; null removes one. */
+  overrides: [string, string | null][];
 }
 
 /**
@@ -213,9 +210,9 @@ export function createReplay(
     const own = ownClientIds(file, docId, userId);
     const based = replayBase(file, docId, from, lastServerSeq, updates, own);
     if (!based.ok) return based.code;
-    const { base, mine, setAside } = based;
+    const { base, mine, setAside, overrides } = based;
     const { kind } = resolved;
-    return { userId, request, kind, base, mine, frozen, setAside };
+    return { userId, request, kind, base, mine, frozen, setAside, overrides };
   }
 
   /** The merge through every generation since, written on the loaded room. */
@@ -233,7 +230,8 @@ export function createReplay(
     const theirs = [...checked.frozen.map(contentOf), current];
     const merge = mergeUniqueThrough(checked.base, checked.mine, theirs);
     if (!isWritable(merge.ops)) return refused("invalid");
-    const update = writeOps(room, doc, merge.ops, ports.ids);
+    const { overrides } = checked;
+    const update = writeOps(room, { ops: merge.ops, overrides }, ports.ids);
     const stored = storedOf(merge, checked.setAside, room);
     const createdAt = clock.now();
     const version: VersionRow | null =

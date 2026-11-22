@@ -2,7 +2,14 @@
 import type { CommandHandlers } from "@manent/commands";
 import { SETTINGS } from "@manent/settings";
 import type { Api } from "../api.ts";
-import type { PersonServices, ShellState } from "../services/ports.ts";
+import type { DesktopHost } from "../desktop/host.ts";
+import type { NodeCloud } from "../desktop/node-cloud.ts";
+import type {
+  Environment,
+  PersonServices,
+  ShellState,
+} from "../services/ports.ts";
+import { productionHandlers } from "../production/handlers.ts";
 import type { ShellDom } from "../shell/regions.tsx";
 import type { PersonStore } from "../state/person.store.ts";
 import { appHandlers } from "./app.ts";
@@ -10,6 +17,8 @@ import { demoHandlers } from "./demo.ts";
 import { createDesktopHandlers } from "./desktop.ts";
 import { documentHandlers } from "./document.ts";
 import { createEditorHandlers } from "./editor.ts";
+import { historyHandlers } from "./history.ts";
+import { importHandlers } from "./import.ts";
 import { libraryHandlers } from "./library.ts";
 import { preferencesHandlers } from "./preferences.ts";
 import { syncHandlers } from "./sync.ts";
@@ -27,7 +36,10 @@ export interface Navigation {
   here(): RoutePlace;
 }
 
-export interface HandlerDeps {
+export interface HandlerDeps extends Pick<
+  Environment,
+  "language" | "now" | "storage"
+> {
   services: PersonServices;
   api: Api;
   usePerson: PersonStore;
@@ -37,6 +49,10 @@ export interface HandlerDeps {
   frame: (fn: () => void) => () => void;
   /** The undo list of the Preferences screen while it is shown; it sets `current` itself. */
   visitUndo: { current: { undo(): boolean } | null };
+  /** The desktop app's shell and node; null on the web. */
+  desktop: DesktopHost | null;
+  /** The person at the desktop app's node; null on the web. */
+  nodeCloud: NodeCloud | null;
 }
 
 export function createHandlers(deps: HandlerDeps): CommandHandlers {
@@ -61,8 +77,11 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
       navigate: (path) => deps.router.navigate(path),
     }),
     ...libraryHandlers(deps),
+    ...importHandlers(deps),
     ...demoHandlers(),
-    ...syncHandlers(),
+    ...syncHandlers(deps),
     ...createDesktopHandlers(deps),
+    ...historyHandlers(deps),
+    ...productionHandlers(deps),
   };
 }

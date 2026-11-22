@@ -35,6 +35,9 @@ test("Space before is checked while the caret block has its own, as the fact cha
   const { AppShell } = await import("../src/shell/app-shell.tsx");
   const { EnvironmentProvider, ServicesProvider } =
     await import("../src/services/context.tsx");
+  // the shell loads the stand-in's module apart before it mounts the page, and a load from disk can outlast the render's
+  // act, so the test would publish before the page is there: loaded here first, it comes from the module registry
+  await import("../src/shell/stand-in-script.ts");
   const clock = createClock();
   const environment = testEnvironment({
     now: clock.now,

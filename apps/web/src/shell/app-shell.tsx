@@ -12,9 +12,11 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { EditorHost } from "../editor-host/editor-host.tsx";
 import { standInMount } from "../editor-host/stand-in-mount.ts";
+import { useFileDrop } from "../import/file-drop.ts";
 import { loadApart } from "../load-apart.ts";
 import { historyTab } from "../screens/document/history-tab.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
+import { readDeviceId } from "../services/device-id.ts";
 import {
   FactsContext,
   OutlineContext,
@@ -33,8 +35,6 @@ import { ShellRegion } from "./regions.tsx";
 
 const DOCUMENT_ROUTE = "/s/$docId";
 const STAND_IN_ROUTE = "/__stand-in";
-// the stand-in editor's one document, in the test build only
-const STAND_IN_DOC_ID = "00000000-0000-4000-8000-000000000000";
 const SCREENS: Readonly<Record<string, ScreenId>> = Object.freeze({
   "/": "library",
   [DOCUMENT_ROUTE]: "document",
@@ -62,7 +62,7 @@ const SCREEN_AREA: CSSProperties = Object.freeze({
   gridColumn: "1 / -1",
 });
 
-/** Which screen the route shows, the document under it, and whether a screen covers the page. */
+/** Which screen the route shows, the document under it (the stand-in's is made apart), and whether a screen covers the page. */
 function useShellRoute(): {
   screen: ScreenId;
   docId: string | null;
@@ -81,10 +81,38 @@ function useShellRoute(): {
   const standIn = flavour === "test" && routeId === STAND_IN_ROUTE;
   return {
     screen: (routeId === null ? undefined : SCREENS[routeId]) ?? "library",
-    docId: standIn ? STAND_IN_DOC_ID : routeDocId,
+    docId: standIn ? null : routeDocId,
     covered: routeId !== DOCUMENT_ROUTE && !standIn,
     standIn,
   };
+}
+
+/** The test build's stand-in document of this person on this device, once it is made; null until then and off its route. */
+function useStandInDocId(standIn: boolean): string | null {
+  const { userId } = useServices();
+  const { storage, randomId, schedule } = useEnvironment();
+  const [made, setMade] = useState<{ userId: string; docId: string } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!standIn) return;
+    let stop: (() => void) | null = null;
+    let live = true;
+    void import("./stand-in-script.ts").then(({ makeStandInScript }) => {
+      if (!live) return;
+      stop = makeStandInScript({
+        userId,
+        deviceId: readDeviceId(storage, randomId),
+        schedule,
+        made: (docId) => setMade({ userId, docId }),
+      });
+    });
+    return () => {
+      live = false;
+      stop?.();
+    };
+  }, [standIn, userId, storage, randomId, schedule]);
+  return standIn && made?.userId === userId ? made.docId : null;
 }
 
 /** Where the route's screen draws: over the frame while it is not a document; a document draws its parts in their own areas. */
@@ -200,7 +228,10 @@ function usePublishShellState(
 export function AppShell(props: { children: ReactNode }): ReactNode {
   const services = useServices();
   const { where, now, schedule, dom } = useEnvironment();
-  const { screen, docId, covered, standIn } = useShellRoute();
+  const route = useShellRoute();
+  const { screen, covered, standIn } = route;
+  const standInDocId = useStandInDocId(standIn);
+  const docId = standIn ? standInDocId : route.docId;
   const { facts, outline, people } = useBridgeStores();
   const timing = useMemo(() => ({ now, schedule }), [now, schedule]);
   const writers = useMemo(
@@ -214,6 +245,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
   };
   usePublishShellState(screen, docId, facts.selectors);
   useEscapeHandler({ dom, paletteOpen, closePalette });
+  const drop = useFileDrop();
   return (
     <SettingsProvider store={services.settings}>
       <CommandsProvider
@@ -225,7 +257,11 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
           <FactsContext value={facts.selectors}>
             <OutlineContext value={outline.selectors}>
               <PeopleContext value={people.selectors}>
-                <div className="grid h-screen bg-chrome text-fg" style={GRID}>
+                <div
+                  className="grid h-screen bg-chrome text-fg"
+                  style={GRID}
+                  {...drop}
+                >
                   <ShellPage
                     docId={docId}
                     covered={covered}

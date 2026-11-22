@@ -15,7 +15,7 @@ export type PanelId = (typeof PANEL_IDS)[number];
 export const SIDE_TABS = ["history", "details", "tour"] as const;
 export type SideTab = (typeof SIDE_TABS)[number];
 
-export const LEFT_TABS = ["scenes"] as const;
+export const LEFT_TABS = ["scenes", "pages"] as const;
 export type LeftTab = (typeof LEFT_TABS)[number];
 
 export const SURFACE_IDS = [
@@ -36,5 +36,8 @@ export const SURFACE_IDS = [
   "inline_rename",
   "shortcut_capture",
   "send",
+  "version_view",
+  "name_field",
+  "file_picker",
 ] as const;
 export type SurfaceId = (typeof SURFACE_IDS)[number];

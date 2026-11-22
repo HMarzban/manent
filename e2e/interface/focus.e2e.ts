@@ -15,9 +15,11 @@ import {
   pressKeyOf,
   runs,
 } from "../support/interface.ts";
-import { signedInAs } from "../support/tour.ts";
+import { makeScript } from "../support/made-script.ts";
+import { closeFirstTour, signedInAs } from "../support/tour.ts";
 
-const DOC = "/s/6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+const DOC = `/s/${DOC_ID}`;
 // a popover is drawn at the end of the page; only one is open at a time
 const POPUP = "[role='dialog'][data-open]";
 const PALETTE = "div:has(> [role='combobox'][aria-label='Commands'])";
@@ -116,7 +118,13 @@ const placeOf = (id: SurfaceId): Place => {
  * its editor to be drawn, so the page reads the same before and after a surface is used.
  */
 async function arrive(page: Page, at: string): Promise<void> {
-  await signedInAs(page, "you", at);
+  await signedInAs(page, "you", at === DOC ? "/" : at);
+  if (at === DOC) {
+    // the Tour that You's first launch opens is the demo's; the script is opened without it
+    await closeFirstTour(page);
+    await makeScript(page, DOC_ID);
+    await page.goto(DOC);
+  }
   await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
   if (at === DOC)
     await expect(
@@ -214,7 +222,8 @@ async function expectOpenFocus(
   }
 }
 
-for (const entry of SURFACES)
+// the file picker is the system's own, drawn by no page
+for (const entry of SURFACES.filter((s) => s.id !== "file_picker"))
   for (const opener of entry.openedBy)
     for (const by of WAYS) {
       test(`${entry.id} opened by ${opener} through ${by} puts focus where the catalogue says, and gives it back`, async ({
@@ -229,6 +238,14 @@ for (const entry of SURFACES)
         test.fixme(
           entry.id === "send",
           "the Export and Print forms are not drawn yet, so the Send screen goes straight back to the document",
+        );
+        test.fixme(
+          entry.id === "name_field",
+          "Name this draft does nothing yet: the History tab's naming field is not drawn",
+        );
+        test.fixme(
+          entry.id === "side_panel" && opener === "history.open",
+          "History opens on an empty tab: the History tab's versions list is not drawn",
         );
         const place = placeOf(entry.id);
         const command = commandOf(opener);

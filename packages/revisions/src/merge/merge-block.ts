@@ -205,17 +205,51 @@ function isSameHunk(a: Hunk, b: Hunk): boolean {
 }
 
 /**
+ * The hunk moved right while it makes the same text, short of `limit`. A diff
+ * may place one edit at several positions ("ab" inserted before an "a" makes
+ * what "ba" inserted after it makes); this is the one spelling they share.
+ */
+function rightmost(base: Int32Array, hunk: Hunk, limit: number): Hunk {
+  const { from, to, insert } = hunk;
+  const made = (i: number): number =>
+    i < insert.length ? insert[i]! : base[to + i - insert.length]!;
+  let shift = 0;
+  while (to + shift < limit && made(shift) === base[from + shift]) shift++;
+  return {
+    from: from + shift,
+    to: to + shift,
+    insert: Int32Array.from({ length: insert.length }, (_, i) =>
+      made(shift + i),
+    ),
+  };
+}
+
+/** Each hunk's rightmost spelling, kept short of the side's next hunk. */
+function spellings(base: Int32Array, side: readonly Hunk[]): Hunk[] {
+  return side.map((hunk, i) =>
+    rightmost(base, hunk, side[i + 1]?.from ?? base.length),
+  );
+}
+
+/**
  * Both sides' hunks applied to base, or null when a hunk of one side touches
- * one of the other (shares a position, even end to end) without being the same.
+ * one of the other (shares a position, even end to end) without being the
+ * same. A hunk of mine that spells the same edit as one of theirs is theirs.
  */
 function mergeTokens(
   base: Int32Array,
   mine: Int32Array,
   theirs: Int32Array,
 ): number[] | null {
-  const all = [...hunks(base, mine), ...hunks(base, theirs)].toSorted(
-    (a, b) => a.from - b.from || a.to - b.to,
-  );
+  const [ours, other] = [hunks(base, mine), hunks(base, theirs)];
+  const theirSpellings = spellings(base, other);
+  const ourSpellings = spellings(base, ours);
+  const all = [
+    ...ours.filter(
+      (_, i) => !theirSpellings.some((t) => isSameHunk(t, ourSpellings[i]!)),
+    ),
+    ...other,
+  ].toSorted((a, b) => a.from - b.from || a.to - b.to);
   const merged: number[] = [];
   let at = 0;
   let last: Hunk | null = null;

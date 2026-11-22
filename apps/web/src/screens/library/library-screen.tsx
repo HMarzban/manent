@@ -125,13 +125,21 @@ function Places(props: { projects: readonly ProjectItem[] }): ReactNode {
 
 /** Opens the Tour in the side position the first time this person reaches the Library in demo mode. */
 function useTourOnFirstVisit(): void {
-  const { flags } = useServices();
+  const { flags, ready } = useServices();
   const demo = useCommandState("demo.tour").visible;
   useEffect(() => {
-    if (!demo || flags.has("tour_seen")) return;
-    flags.set("tour_seen");
-    panelsActions.open("side", "tour");
-  }, [demo, flags]);
+    if (!demo) return;
+    let shown = true;
+    // the flags are known once the private index has been read
+    void ready.then(() => {
+      if (!shown || flags.has("tour_seen")) return;
+      flags.set("tour_seen");
+      panelsActions.open("side", "tour");
+    });
+    return () => {
+      shown = false;
+    };
+  }, [demo, flags, ready]);
 }
 
 /** What the index holds for the workspace shown; nothing while it is not known. */
@@ -231,6 +239,7 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
           <WorkspaceSwitcher current={workspaceId} workspaces={workspaces} />
         ) : null}
         <span className="flex-1" />
+        <CommandButton id="file.import" variant="outline" />
         <CommandButton id="library.newScript" variant="outline" />
         <NewProjectPopover workspaceId={workspaceId} />
         <PersonMenu name={person.name} />

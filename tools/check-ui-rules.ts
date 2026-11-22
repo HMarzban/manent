@@ -45,6 +45,8 @@ const STORAGE_MODULES: readonly string[] = [
   "apps/web/src/session.ts",
   "apps/web/src/services/flags.ts",
   "apps/web/src/services/sync/device-memory.ts",
+  "apps/web/src/history/last-opened.ts",
+  "apps/web/src/import/reopen.ts",
 ];
 const PLATFORM_MODULE = "apps/web/src/platform.ts";
 const EDITOR_HOST_DIR = "apps/web/src/editor-host/";

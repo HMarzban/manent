@@ -2,7 +2,9 @@
 import { SURFACES, escapeAction } from "@manent/ui";
 import type { EscapeSnapshot } from "@manent/ui";
 import { useEffect, useRef } from "react";
+import { useServices } from "../services/context.tsx";
 import { useOpenDialog } from "../state/dialog.store.ts";
+import { useHistory } from "../state/history.store.ts";
 import { renameActions, useRenaming } from "../state/rename.store.ts";
 import type { ShellDom } from "./regions.tsx";
 
@@ -29,10 +31,14 @@ export function useEscapeHandler(options: {
   paletteOpen: boolean;
   closePalette(): void;
 }): void {
+  const baseline = useHistory("baseline");
+  const mode = useHistory("mode");
   const state = {
     ...options,
     dialogId: useOpenDialog(),
     renaming: useRenaming(),
+    commands: useServices().commands,
+    viewingVersion: baseline !== null && mode === "as_it_was",
   };
   // the listener reads the latest render's state; it is added once
   const latest = useRef(state);
@@ -41,8 +47,15 @@ export function useEscapeHandler(options: {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key !== "Escape") return;
-      const { dom, paletteOpen, closePalette, dialogId, renaming } =
-        latest.current;
+      const {
+        dom,
+        paletteOpen,
+        closePalette,
+        dialogId,
+        renaming,
+        commands,
+        viewingVersion,
+      } = latest.current;
       const held = kindOf(dialogId);
       const snapshot: EscapeSnapshot = {
         composing: event.isComposing,
@@ -57,6 +70,7 @@ export function useEscapeHandler(options: {
         focus: dom.pageFocused() ? "page" : "frame",
         // no panel overlays the page yet
         overlayPanelOpen: false,
+        viewingVersion,
       };
       const action = escapeAction(snapshot);
       switch (action) {
@@ -69,6 +83,9 @@ export function useEscapeHandler(options: {
         case "focus_page":
           // false while a screen covers the page: Escape never leaves a screen
           dom.focusPage();
+          break;
+        case "back_to_working":
+          commands.run("history.backToWorking", "key");
           break;
         case "ignore":
         case "cancel_dialog":

@@ -8,11 +8,13 @@ import type { Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import {
   CUT_MARKER_ATTR,
+  NO_PASTED_TEXT,
   blockPos,
   clipboardPlugin,
   idRegistryPlugin,
   paginationPlugin,
   sectionEditingPlugin,
+  staticBinding,
   toIndex,
 } from "../src/index.ts";
 import { bid, counter, docOf, ids, sp, texts } from "./docs.ts";
@@ -50,6 +52,8 @@ function viewWithClipboard(
             options.formatElements ?? (() => FORMAT_ELEMENTS.screenplay),
           random: () => `m${++cuts}`,
           isUndoRedo,
+          history: staticBinding(doc).history,
+          pastedText: NO_PASTED_TEXT,
         }),
         sectionEditingPlugin({ ids: counter("e") }),
         paginationPlugin({

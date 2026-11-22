@@ -69,6 +69,14 @@ const ROWS: Readonly<Record<SurfaceId, Row>> = {
     focusOnClose: "opener",
   },
   send: screen("heading"),
+  version_view: { kind: "screen", focusOnOpen: "first", focusOnClose: "caret" },
+  name_field: {
+    kind: "bar_field",
+    focusOnOpen: "item",
+    focusOnClose: "previous_place",
+  },
+  // the system's own file picker, drawn by no page
+  file_picker: { kind: "dialog", focusOnOpen: "stay", focusOnClose: "opener" },
 };
 
 const openersOf = (id: SurfaceId): readonly CommandId[] =>

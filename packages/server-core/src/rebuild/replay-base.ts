@@ -8,6 +8,7 @@ import {
   loadDoc,
   observeScript,
   readStateVector,
+  revisedOverrides,
   scriptBody,
 } from "@manent/crdt";
 import type { CrdtDoc, SetAside } from "@manent/crdt";
@@ -17,6 +18,9 @@ import { validatePush } from "../sync/validate.ts";
 
 /** The verified rows of a generation after `seq`, by sequence. */
 type Rows = ReadonlyMap<number, Uint8Array>;
+
+/** The one root map a replay may write: what a person marked or cleared as revised while offline. */
+const REPLAYED_MAP = "revisedOverrides";
 
 /** Applies the rows after `from` up to `to`; false when one of them does not verify. */
 function applyRows(
@@ -52,7 +56,7 @@ function catchUp(
 
 /**
  * Mine with the updates applied, and the text of `writers` they removed unseen; "invalid" when one
- * is not an update or writes what a push may not.
+ * is not an update, writes another root map, or writes what a push may not.
  */
 function applyWaiting(
   mine: CrdtDoc,
@@ -62,8 +66,8 @@ function applyWaiting(
   let refused = false;
   const stop = observeScript(mine, (report) => {
     if (report.origin !== ORIGIN_REPLAY) return;
-    if (report.maps.length > 0 || validatePush(report).length > 0)
-      refused = true;
+    const otherMap = report.maps.some((name) => name !== REPLAYED_MAP);
+    if (otherMap || validatePush(report).length > 0) refused = true;
   });
   const setAside: SetAside[] = [];
   try {
@@ -78,12 +82,28 @@ function applyWaiting(
   return refused ? "invalid" : setAside;
 }
 
+/** Mine's overrides that differ from base's, keys ascending; a null value removes the key. */
+function changedOverrides(
+  base: CrdtDoc,
+  mine: CrdtDoc,
+): [string, string | null][] {
+  const before = new Map(revisedOverrides(base).entries());
+  const after = new Map(revisedOverrides(mine).entries());
+  return [...new Set([...before.keys(), ...after.keys()])]
+    .toSorted()
+    .flatMap((key): [string, string | null][] => {
+      const value = after.get(key) ?? null;
+      return value === (before.get(key) ?? null) ? [] : [[key, value]];
+    });
+}
+
 /**
  * base: the generation at `lastServerSeq` (its newest checkpoint at or before it, then its rows),
  * moved on to the smallest later sequence at which the waiting updates are complete; mine: base with
  * the updates applied. setAside: anyone's text the updates removed unseen (the replay writes those
  * deletions afresh, so whoever typed it would never be told), then own text those later rows
- * removed unseen. invalid: an update is not one, writes a root map, or leaves a block validation
+ * removed unseen. overrides: mine's revisedOverrides entries that differ from base's. invalid: an
+ * update is not one, writes a root map other than revisedOverrides, or leaves a block validation
  * refuses; incomplete: the updates still wait at the generation's last row, or a row they need does
  * not verify. RangeError for a generation that is not closed.
  */
@@ -95,7 +115,13 @@ export function replayBase(
   updates: readonly Uint8Array[],
   ownClientIds: ReadonlySet<number>,
 ):
-  | { ok: true; base: DocJSON; mine: DocJSON; setAside: SetAside[] }
+  | {
+      ok: true;
+      base: DocJSON;
+      mine: DocJSON;
+      setAside: SetAside[];
+      overrides: [string, string | null][];
+    }
   | { ok: false; code: "incomplete" | "invalid" } {
   const frozen = file.generations.get(docId, generation);
   if (frozen === null)
@@ -124,6 +150,7 @@ export function replayBase(
       base: scriptBody(base).materialize(),
       mine: scriptBody(mine).materialize(),
       setAside: [...waiting, ...later],
+      overrides: changedOverrides(base, mine),
     };
   } finally {
     base.destroy();
