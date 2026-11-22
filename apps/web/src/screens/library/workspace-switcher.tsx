@@ -91,8 +91,11 @@ export function WorkspaceSwitcher(props: {
     void navigate({ href: `/?w=${encodeURIComponent(id)}` });
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" />}>
-        <span className="font-semibold">{name}</span>
+      {/* a narrow title bar shortens the name before it loses a control */}
+      <DropdownMenuTrigger
+        render={<Button variant="ghost" className="min-w-0 shrink" />}
+      >
+        <span className="truncate font-semibold">{name}</span>
         <ChevronDownIcon aria-hidden="true" className="text-fg-muted" />
       </DropdownMenuTrigger>
       <DropdownMenuContent>
