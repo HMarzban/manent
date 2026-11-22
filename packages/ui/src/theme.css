@@ -855,13 +855,15 @@ html[data-white-page] .mn-pages {
    of a stock component. Adding one needs a design-system review.
    -------------------------------------------------------------------------- */
 
-/* 1. One focus ring for every focusable thing, stock or ours. */
+/* 1. One focus ring for every focusable thing, stock or ours. A heading or a
+      refusal focused on arrival is where focus starts, not a control: no ring. */
 :focus-visible:not(
   [role="dialog"],
   [role="alertdialog"],
   [role="menu"],
   [role="listbox"],
-  [role="tooltip"]
+  [role="tooltip"],
+  :is(h1, [data-arrival])[tabindex="-1"]
 ) {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
@@ -886,16 +888,24 @@ html[data-white-page] .mn-pages {
 [role="grid"],
 [role="tree"],
 [role="tablist"],
+[role="tabpanel"],
 [data-ring="inset"] {
   --focus-gap: calc(var(--focus-w) * -1);
 }
 
-/* 3. Where focus stays in a field and the list is driven from it (the palette,
-      autocomplete, a combobox), the active option is where Enter will act:
-      it gets the ring, because its fill alone is 1.1:1. */
-[role="listbox"]:not(:focus-within) [role="option"][data-highlighted] {
+/* 3. The option the keys are on, in every menu and list: the pressed fill and
+      the inset ring, because a fill alone is 1.1:1. Where focus stays in a
+      field and the list is driven from it (the palette, a combobox, the
+      editor's picker and completion list), the active option is that option.
+      A pointer alone gives the hover fill and no ring. */
+[role="listbox"]:not(:focus-within) [role="option"][data-highlighted],
+:is(#mn-picker, #mn-complete) [aria-selected="true"] {
+  background-color: var(--bg-control);
   outline: var(--focus-w) solid var(--focus);
   outline-offset: calc(var(--focus-w) * -1);
+}
+:is([role^="menuitem"], [data-slot="select-item"]):focus-visible:not(:hover) {
+  background-color: var(--bg-control);
 }
 
 /* 4. The scrim is a token, and nothing blurs. */
@@ -910,7 +920,9 @@ html[data-white-page] .mn-pages {
   --tw-shadow: var(--elev-dialog);
 }
 
-/* 6. Nothing is smaller than the micro size; group labels are one style. */
+/* 6. Nothing is smaller than the micro size; group labels are one style, the
+      same in menus, panels, places, forms and table heads. A keyboard hint
+      has an edge and no fill. */
 [data-slot="kbd"],
 [data-slot$="-shortcut"],
 [data-slot="badge"] {
@@ -918,14 +930,23 @@ html[data-white-page] .mn-pages {
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
 }
+[data-slot="kbd"]:not([data-slot="tooltip-content"] *) {
+  background-color: transparent;
+  color: var(--fg-muted);
+  border: 1px solid var(--line);
+  border-radius: var(--shape-micro);
+}
 [data-slot$="menu-label"],
 [data-slot="select-label"],
-[data-slot="menubar-label"] {
+[data-slot="menubar-label"],
+.mn-group-label,
+.mn-table-head {
   font-size: var(--type-micro);
   line-height: var(--lh-micro);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  color: var(--fg-muted);
 }
 
 /* 7. Loading placeholders hold still. */
@@ -948,6 +969,72 @@ html[data-white-page] .mn-pages {
 /* 9. One hover strength: the outline button hovers like every other control. */
 [data-slot="button"][class~="hover:bg-input/50"]:hover {
   background-color: var(--bg-subtle);
+}
+
+/* 10. A field is a well with a strong edge, its text the interface size; an
+       invalid field keeps its edge (the sentence under it says why). */
+[data-slot="input"],
+[data-slot="textarea"],
+[data-slot="select-trigger"],
+[data-slot="input-group"] {
+  background-color: var(--bg-well);
+  border-color: var(--line-strong);
+  font-size: var(--type-ui);
+  line-height: var(--lh-ui);
+  --tw-ring-color: transparent;
+}
+
+/* 11. The selected tab's bar is blue; a tab at rest is muted text. */
+[data-slot="tabs-trigger"] {
+  color: var(--fg-muted);
+}
+[data-slot="tabs-trigger"]:is([data-active], :hover) {
+  color: var(--fg);
+}
+[data-slot="tabs-trigger"]::after {
+  background-color: var(--bg-accent);
+}
+
+/* 12. One menu surface: its edge is a hairline, it is as wide as its longest
+       item between two limits, and an item stays on one line. A caller that
+       sets its own width or padding keeps it. */
+:is(
+  [data-slot$="menu-content"],
+  [data-slot$="menu-sub-content"],
+  [data-slot="select-content"],
+  [data-slot="popover-content"]
+) {
+  --tw-ring-color: var(--line);
+}
+:is(
+  [data-slot$="menu-content"],
+  [data-slot$="menu-sub-content"],
+  [data-slot="select-content"]
+)[class~="min-w-32"] {
+  min-width: var(--menu-min-w);
+}
+:is(
+  [data-slot$="menu-content"],
+  [data-slot$="menu-sub-content"],
+  [data-slot="select-content"]
+):is([class~="w-(--anchor-width)"], [class~="w-auto"]) {
+  width: max-content;
+  max-width: var(--menu-max-w);
+}
+:is([role^="menuitem"], [data-slot="select-item"]) {
+  white-space: nowrap;
+}
+[data-slot="popover-content"][class~="p-2.5"] {
+  padding: 1rem;
+}
+
+/* 13. A tooltip is small and close: 4/8 padding, 12/500. */
+[data-slot="tooltip-content"] {
+  padding: 0.25rem 0.5rem;
+  font-size: var(--type-meta);
+  line-height: var(--lh-meta);
+  font-weight: 500;
+  max-width: 16.25rem;
 }
 
 /* --------------------------------------------------------------------------
