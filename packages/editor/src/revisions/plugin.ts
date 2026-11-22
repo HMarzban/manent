@@ -267,7 +267,13 @@ export function revisionPlugins(options: RevisionPluginOptions): Plugin {
             state,
             was === undefined
               ? descriptionsOf(tr.doc, kept)
-              : nextDescriptions(was, tr, kept),
+              : nextDescriptions(
+                  was,
+                  tr,
+                  kept,
+                  pagesOf(old).index,
+                  pagesOf(state),
+                ),
           );
         return next;
       },

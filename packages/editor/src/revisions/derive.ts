@@ -54,6 +54,8 @@ export interface RevisionKept {
   /** The records `locked` was laid out under; null before the first. */
   readonly records: readonly LockAnchorRecord[] | null;
   readonly pagination: Pagination | null;
+  /** The blocks whose own marks the update that made `marks` worked out again, by id; null: every block's. */
+  readonly remarked: ReadonlySet<string> | null;
 }
 
 interface Tracked extends RevisionState {
@@ -82,6 +84,7 @@ export function outOfProduction(port: ProductionPort): RevisionKept {
     locked: null,
     records: null,
     pagination: null,
+    remarked: null,
   };
 }
 
@@ -291,6 +294,7 @@ export function withView(
     moved,
     marks: joined(own, removedAt),
     layout,
+    remarked: null,
   };
 }
 
@@ -310,7 +314,8 @@ export function withOverrides(
   if (nodes.length === 0) return kept;
   const own = new Map(kept.own);
   for (const node of nodes) remark(own, node, kept);
-  return { ...kept, own, marks: joined(own, kept.removedAt) };
+  const marks = joined(own, kept.removedAt);
+  return { ...kept, own, marks, remarked: ids };
 }
 
 // A removal marked at a block's end moves with that block's length.
@@ -390,5 +395,6 @@ export function withEdit(
     moved,
     marks: joined(own, removedAt),
     layout,
+    remarked: new Set(targets.flatMap((node) => idOf(node) ?? [])),
   };
 }
