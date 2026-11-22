@@ -13,7 +13,8 @@ import {
   unitsIn,
 } from "../../generate/fit.ts";
 import type { SeedLayout } from "../../generate/fit.ts";
-import { generateScenes } from "../../generate/grammar.ts";
+import { createUsedLines, generateScenes } from "../../generate/grammar.ts";
+import type { UsedLines } from "../../generate/grammar.ts";
 import type { StyleGuide } from "../../generate/guide.ts";
 import type { SeedSession } from "../driver.ts";
 import type { SeedStep } from "../seed.ts";
@@ -149,7 +150,7 @@ export async function withinPages(
 async function workingScript(
   telling: Telling,
   passage: SeedPassage,
-  used: Set<string>,
+  used: UsedLines,
 ): Promise<SeedBlock[]> {
   const { rng } = telling.context;
   const guide = LAMP_ROOM_GUIDE;
@@ -192,7 +193,7 @@ async function workingScript(
 function beforeLastSession(
   telling: Telling,
   working: readonly SeedBlock[],
-  options: { fixed: ReadonlySet<SeedBlock>; used: Set<string> },
+  options: { fixed: ReadonlySet<SeedBlock>; used: UsedLines },
 ): SeedBlock[] {
   const draft = [...working];
   const headings = working.flatMap((b, i) =>
@@ -248,7 +249,7 @@ async function lampRoomDrafts(
   before: SeedBlock[];
   working: SeedBlock[];
 }> {
-  const used = new Set<string>();
+  const used = createUsedLines();
   const working = await workingScript(telling, passage, used);
   // the First draft was named before Dana switched Scene CONTINUED on
   const [firstDraft] = await deriveDrafts(

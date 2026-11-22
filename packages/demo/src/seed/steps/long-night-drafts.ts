@@ -4,7 +4,8 @@ import { LONG_NIGHT_GUIDE as GUIDE } from "../../generate/banks/medium/the-long-
 import { deriveDrafts } from "../../generate/drafts.ts";
 import { fitToPages, intentsOf, unitsIn } from "../../generate/fit.ts";
 import type { FitRange } from "../../generate/fit.ts";
-import { generateScenes } from "../../generate/grammar.ts";
+import { createUsedLines, generateScenes } from "../../generate/grammar.ts";
+import type { UsedLines } from "../../generate/grammar.ts";
 import { SeedBuildError } from "../../generate/guide.ts";
 import type { Beat } from "../../generate/guide.ts";
 import {
@@ -22,8 +23,6 @@ const DRAFTS = [
   { name: "Table read draft", pages: 113 },
   { name: "Shooting draft", pages: 112 },
 ] as const;
-/** A line drawn more than this many pages earlier may be drawn again. */
-const REPEAT_PAGES = 10;
 /** The pages the fixed opening fills before the first generated scene. */
 const OPENING_PAGES = 5;
 /** Actions the beats never draw, kept for the fits and the earlier drafts to add. */
@@ -65,10 +64,24 @@ function chunksOf(beat: Beat): Beat[] {
   }));
 }
 
-/** Every beat's scenes, each run drawing only lines unused in the REPEAT_PAGES pages before it. */
+/**
+ * Every beat's scenes, drawn into one record of the document's lines that never draws the reserve; every text
+ * drawn is also kept in the telling's used set, which the fits draw clear of.
+ */
 function generated(t: Telling): SeedBlock[] {
-  const reserve = GUIDE.action.filter(isNameless).slice(-RESERVE);
-  const drawn: { lastPage: number; texts: readonly string[] }[] = [];
+  const reserve = new Set(GUIDE.action.filter(isNameless).slice(-RESERVE));
+  const lines = createUsedLines();
+  const placed = (text: string): void => {
+    lines.add(text);
+    t.used.add(text);
+  };
+  const used: UsedLines = {
+    ...lines,
+    has: (text, window) => reserve.has(text) || lines.has(text, window),
+    add: placed,
+    // the bank holds too few speeches for 106 pages of new ones: a speech comes back ten pages on, as an action does
+    addDialogue: placed,
+  };
   const beats = GUIDE.beats.filter((b) => b.id.startsWith(`${KEY}#`));
   // a page two beats share is drawn for once, by the first; the opening fills the first five
   let last = OPENING_PAGES;
@@ -77,19 +90,9 @@ function generated(t: Telling): SeedBlock[] {
     last = beat.pages[1];
     return { ...beat, pages: [first, beat.pages[1]] };
   });
-  const blocks = owned.flatMap(chunksOf).flatMap((chunk) => {
-    const recent = drawn.filter(
-      (d) => d.lastPage > chunk.pages[0] - REPEAT_PAGES,
-    );
-    const used = new Set([...reserve, ...recent.flatMap((d) => d.texts)]);
-    const before = new Set(used);
-    const scenes = generateScenes(GUIDE, chunk, t.context.rng, used);
-    const texts = [...used].filter((x) => !before.has(x));
-    drawn.push({ lastPage: chunk.pages[1], texts });
-    return scenes;
-  });
-  for (const { texts } of drawn) for (const text of texts) t.used.add(text);
-  return blocks;
+  return owned
+    .flatMap(chunksOf)
+    .flatMap((chunk) => generateScenes(GUIDE, chunk, t.context.rng, used));
 }
 
 /** Each scene's blocks, from its heading to the next. */

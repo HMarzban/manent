@@ -8,7 +8,7 @@ import {
 import { TWELVE_ON_FOOT_GUIDE } from "../../generate/banks/medium/twelve-on-foot.ts";
 import { sessionsBetween } from "../../generate/drafts.ts";
 import { fitToPages } from "../../generate/fit.ts";
-import { generateScenes } from "../../generate/grammar.ts";
+import { createUsedLines, generateScenes } from "../../generate/grammar.ts";
 import type { SeedSession } from "../driver.ts";
 import type { SeedStep } from "../seed.ts";
 import { createStory } from "../story.ts";
@@ -87,7 +87,7 @@ async function firstPass(
 ): Promise<SeedBlock[]> {
   const { rng } = telling.context;
   const guide = TWELVE_ON_FOOT_GUIDE;
-  const used = new Set<string>();
+  const used = createUsedLines();
   const written: SeedBlock[] = [];
   for (const beat of guide.beats.filter((b) =>
     b.id.startsWith(`${CHAPTER_KEY}#`),
