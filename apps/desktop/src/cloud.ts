@@ -1,11 +1,17 @@
 // The installed demo's own server: the web server's entry run as a child process on a free loopback port.
-import { cp, rename, rm } from "node:fs/promises";
+import { cp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 /** Each start takes a newly chosen free port. */
 const CLOUD_START_ATTEMPTS = 3;
 const HEALTH_POLL_MS = 100;
 const CLOUD_START_LIMIT_MS = 30_000;
+/** A packaged seed older than this is seeded again at first launch: its day would be days ago. */
+const PACKAGED_SEED_MAX_AGE_MS = 21_600_000;
+/** A seed still running this long is killed and counts as failed. */
+const SEED_CHILD_TIMEOUT_MS = 120_000;
+const TIMED_OUT = "the server did not answer in time";
+const UNEXPECTED = "something unexpected stopped it";
 
 export interface CloudProcess {
   /** `http://127.0.0.1:<port>`. */
@@ -28,6 +34,8 @@ interface EmbeddedCloudOptions {
   /** A port free a moment ago; another process may take it before the server binds it. */
   freePort(): Promise<number>;
   fetch: typeof fetch;
+  /** The clock a packaged seed's age is read with; absent, the system's. */
+  now?: () => number;
 }
 
 /** The app's environment without its `MANENT_*` keys: the embedded cloud is configured by its four alone. */
@@ -113,18 +121,114 @@ async function copySeed(seedDir: string, dataDir: string): Promise<void> {
   await rename(partial, dataDir);
 }
 
+const isFields = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+/** The seed.json of a seed folder; null when there is none or it is not an object. */
+async function readSeedFile(
+  dir: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const parsed: unknown = JSON.parse(
+      await readFile(join(dir, "data", "seed.json"), "utf8"),
+    );
+    return isFields(parsed) ? parsed : null;
+  } catch {
+    // no packaged seed.json, or a garbled one: there is no age to read
+    return null;
+  }
+}
+
+/** The seed command's answer line: what it seeded at, or the reason it stopped. */
+function readSeedAnswer(stdout: string): Record<string, unknown> {
+  try {
+    const answer: unknown = JSON.parse(
+      stdout.trimEnd().split("\n").at(-1) ?? "",
+    );
+    return isFields(answer) ? answer : { failed: UNEXPECTED };
+  } catch {
+    // a child that printed no answer stopped before it could give one
+    return { failed: UNEXPECTED };
+  }
+}
+
 /**
- * Copies `seedDir` into `dataDir` when `dataDir` has no `data/seed.json`, then runs the server
- * there and resolves once `/health` answers. A server that exits before it answers (its port
+ * The embedded server's own foreground seed into `dataDir`, its data folder deleted first; then the
+ * packaged seed.json with a new seed id and this seed's moment, renamed into place last. A seed that
+ * does not finish leaves no data and rejects with the sentence the terminal shows.
+ */
+async function seedAgain(
+  options: EmbeddedCloudOptions,
+  packaged: Record<string, unknown>,
+): Promise<void> {
+  const data = join(options.dataDir, "data");
+  await rm(data, { recursive: true, force: true });
+  const child = Bun.spawn(
+    [
+      ...cloudCommand(options.execPath, options.entry),
+      "seed",
+      "--phase",
+      "foreground",
+      "--data-dir",
+      options.dataDir,
+    ],
+    { env: systemEnv(), stdin: "ignore", stdout: "pipe", stderr: "ignore" },
+  );
+  const timer = setTimeout(() => child.kill("SIGKILL"), SEED_CHILD_TIMEOUT_MS);
+  const stdout = await new Response(child.stdout).text();
+  const code = await child.exited;
+  clearTimeout(timer);
+  const answer =
+    child.signalCode === "SIGKILL"
+      ? { failed: TIMED_OUT }
+      : readSeedAnswer(stdout);
+  if (
+    code !== 0 ||
+    typeof answer.failed === "string" ||
+    !Number.isSafeInteger(answer.seedAt)
+  ) {
+    await rm(data, { recursive: true, force: true });
+    const reason =
+      typeof answer.failed === "string" ? answer.failed : UNEXPECTED;
+    throw new Error(
+      `Couldn't create the demo data: ${reason}. Run make reset to try again.`,
+    );
+  }
+  const seed = {
+    ...packaged,
+    seedId: crypto.randomUUID(),
+    seedAt: answer.seedAt,
+    skipped: Array.isArray(answer.skipped) ? answer.skipped : [],
+  };
+  const path = join(data, "seed.json");
+  await writeFile(`${path}.tmp`, JSON.stringify(seed, null, 2) + "\n");
+  await rename(`${path}.tmp`, path);
+}
+
+/** A first launch: the packaged seed copied in, or seeded again when it is older than PACKAGED_SEED_MAX_AGE_MS. */
+async function firstSeed(options: EmbeddedCloudOptions): Promise<void> {
+  const packaged = await readSeedFile(options.seedDir);
+  const seedAt = packaged?.seedAt;
+  const now = options.now ?? Date.now;
+  const old =
+    typeof seedAt === "number" && now() - seedAt > PACKAGED_SEED_MAX_AGE_MS;
+  if (old && packaged !== null) await seedAgain(options, packaged);
+  else await copySeed(options.seedDir, options.dataDir);
+}
+
+/**
+ * Copies `seedDir` into `dataDir` when `dataDir` has no `data/seed.json` (or, when the packaged seed
+ * is older than six hours, seeds `dataDir` again with the server's own seed command), then runs the
+ * server there and resolves once `/health` answers. A server that exits before it answers (its port
  * was taken in between) is started again on another port, up to three times; the rejection
- * names the last exit code. Rejects as well when nothing answers within 30 seconds.
+ * names the last exit code. Rejects as well when nothing answers within 30 seconds, and with the
+ * seed's own sentence when a seed again does not finish.
  */
 export async function startEmbeddedCloud(
   options: EmbeddedCloudOptions,
 ): Promise<CloudProcess> {
-  const { dataDir, seedDir } = options;
-  if (!(await Bun.file(join(dataDir, "data", "seed.json")).exists()))
-    await copySeed(seedDir, dataDir);
+  if (!(await Bun.file(join(options.dataDir, "data", "seed.json")).exists()))
+    await firstSeed(options);
   const deadlineAt = Date.now() + CLOUD_START_LIMIT_MS;
   let code = 0;
   for (let tried = 0; tried < CLOUD_START_ATTEMPTS; tried += 1) {
