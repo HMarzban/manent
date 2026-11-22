@@ -8,10 +8,13 @@ import { cached } from "../corpus/cache.ts";
 import { reuseDaily } from "../corpus/daily.ts";
 import { documentOfPages } from "../corpus/documents.ts";
 import { CORPUS_VERSION } from "../corpus/version.ts";
-import { ageScript, ageSession } from "../crdt/aged.ts";
+import { ageScript, ageSession, editOffline } from "../crdt/aged.ts";
 
 const trees = createTempTrees("manent-corpus-cache-");
 afterAll(() => trees.removeAll());
+
+const agedScript = (): CrdtDoc =>
+  ageScript({ pages: 2, sessions: 3, editsPerSession: 4, seed: 3 });
 
 test("a reused daily document keeps growing while its text stays one day long", () => {
   const d10 = measureDoc(
@@ -65,7 +68,7 @@ test("a cached document loads back byte for byte, and a new corpus version build
   let builds = 0;
   const build = (): CrdtDoc => {
     builds += 1;
-    return ageScript({ pages: 2, sessions: 3, editsPerSession: 4, seed: 3 });
+    return agedScript();
   };
   const built = cached("aged-2", build, dir);
   const loaded = cached("aged-2", build, dir);
@@ -80,6 +83,18 @@ test("a cached document loads back byte for byte, and a new corpus version build
     built.encodeState(),
   );
   expect(builds).toBe(2);
+});
+
+test("a cache miss and a cache hit give the same document, so one write adds one client id to either", async () => {
+  const dir = await trees.tree({});
+  const written = [
+    cached("aged-2", agedScript, dir),
+    cached("aged-2", agedScript, dir),
+  ].map((doc) => {
+    editOffline(doc, { edits: 1, seed: 1 });
+    return measureDoc(doc).clientIds;
+  });
+  expect(written).toEqual([1 + 3 + 1, 1 + 3 + 1]); // the generator, each session, and the write
 });
 
 test("a cache key that is not a plain file name is refused", async () => {

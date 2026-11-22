@@ -16,10 +16,11 @@ import { CORPUS_VERSION } from "./version.ts";
 const KEY = /^[a-z0-9][a-z0-9._-]*$/i;
 
 /**
- * The document cached under `key` for this corpus version, else what `build` returns, written to the
+ * The document cached under `key` for this corpus version, else the one `build` returns, written to the
  * cache first. The file is `<key>-v<CORPUS_VERSION>.bin` in `dir` and holds the document's
- * encodeState(); a loaded document takes a random client id. RangeError for a key that is not a
- * file-name stem of letters, digits, `.`, `_` and `-`.
+ * encodeState(). Either way the document returned is that state loaded under a random client id
+ * that is not in it, so a caller that writes loads it under its own client id first. RangeError
+ * for a key that is not a file-name stem of letters, digits, `.`, `_` and `-`.
  */
 export function cached(
   key: string,
@@ -30,11 +31,13 @@ export function cached(
     throw new RangeError(`a cache key must be a plain file name, not "${key}"`);
   const file = join(dir, `${key}-v${CORPUS_VERSION}.bin`);
   if (existsSync(file)) return loadDoc(readFileSync(file));
-  const doc = build();
+  const built = build();
+  const state = built.encodeState();
+  built.destroy();
   mkdirSync(dir, { recursive: true });
   // written whole, then renamed, so that a run stopped mid-write never leaves a partial document
   const partial = `${file}.partial`;
-  writeFileSync(partial, doc.encodeState());
+  writeFileSync(partial, state);
   renameSync(partial, file);
-  return doc;
+  return loadDoc(state);
 }
