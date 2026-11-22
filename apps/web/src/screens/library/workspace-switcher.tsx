@@ -12,6 +12,7 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
+import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 
@@ -42,13 +43,13 @@ function WorkspaceItem(props: {
       aria-current={current ? "true" : undefined}
       onClick={onChoose}
     >
-      <span aria-hidden="true" className="w-4 shrink-0">
-        {current ? "✓" : null}
-      </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate">{name}</span>
+        <span className="truncate font-medium">{name}</span>
         <span className="truncate text-meta text-fg-muted">{line}</span>
       </span>
+      {current ? (
+        <CheckIcon aria-hidden="true" className="text-fg-accent" />
+      ) : null}
     </DropdownMenuItem>
   );
 }
@@ -91,10 +92,10 @@ export function WorkspaceSwitcher(props: {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="ghost" />}>
-        {name}
-        <span aria-hidden="true">▾</span>
+        <span className="font-semibold">{name}</span>
+        <ChevronDownIcon aria-hidden="true" className="text-fg-muted" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-auto min-w-64">
+      <DropdownMenuContent>
         {workspaces === null ? (
           <>
             <WorkspaceItem
