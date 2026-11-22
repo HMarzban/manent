@@ -7,6 +7,13 @@ import type { Subscribable } from "@manent/ui";
 export const TIMINGS_WINDOW = 200;
 /** How often the open popover reads the marks again. */
 export const TIMINGS_REFRESH_MS = 1_000;
+/** How often it encodes the document again for Document size: an encoding of a long script costs frames. */
+export const DOC_SIZE_REFRESH_MS = 10_000;
+
+/** What Document size is read from: the length of the document's encoded state. */
+export interface DocSize {
+  liveBytes: number;
+}
 
 export interface TimingsRow {
   label: string;
@@ -40,7 +47,7 @@ function statsOf(records: readonly MarkRecord[], name: string): string {
 
 function rowsOf(
   records: readonly MarkRecord[],
-  doc: { liveBytes: number; plainBytes: number } | null,
+  doc: DocSize | null,
 ): TimingsRow[] {
   return [
     { label: KEYSTROKE, stats: statsOf(records, "editor.keystroke") },
@@ -61,23 +68,29 @@ const isSameRows = (a: readonly TimingsRow[], b: readonly TimingsRow[]) =>
   a.every((row, i) => row.label === b[i]?.label && row.stats === b[i]?.stats);
 
 /**
- * The four rows, read again when at least TIMINGS_REFRESH_MS has passed by `now` since they were last read; between
- * reads, and while they read the same, the same array, so a component may read it on every render. It tells nobody:
- * whoever draws it draws it again every TIMINGS_REFRESH_MS.
+ * The four rows, read again when at least TIMINGS_REFRESH_MS has passed by `now` since they were last read, and the
+ * document's size when DOC_SIZE_REFRESH_MS has; between reads, and while they read the same, the same array, so a
+ * component may read it on every render. It tells nobody: whoever draws it draws it again every TIMINGS_REFRESH_MS.
  */
 export function createTimingsSource(options: {
   read: () => readonly MarkRecord[];
-  doc: () => { liveBytes: number; plainBytes: number } | null;
+  doc: () => DocSize | null;
   now: () => number;
 }): Subscribable<TimingsRow[]> {
-  const read = () => rowsOf(options.read(), options.doc());
-  let rows = read();
   let readAt = options.now();
+  let doc = options.doc();
+  let docReadAt = readAt;
+  let rows = rowsOf(options.read(), doc);
   return {
     get() {
-      if (options.now() - readAt < TIMINGS_REFRESH_MS) return rows;
-      readAt = options.now();
-      const next = read();
+      const now = options.now();
+      if (now - readAt < TIMINGS_REFRESH_MS) return rows;
+      readAt = now;
+      if (now - docReadAt >= DOC_SIZE_REFRESH_MS) {
+        docReadAt = now;
+        doc = options.doc();
+      }
+      const next = rowsOf(options.read(), doc);
       if (!isSameRows(next, rows)) rows = next;
       return rows;
     },

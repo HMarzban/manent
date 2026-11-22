@@ -1,5 +1,4 @@
 // Timings: this window's typing, pagination and sync measured live, with the open script's size.
-import { measureDoc } from "@manent/crdt";
 import { marksEnabled, readMarks, setMarksEnabled } from "@manent/perf";
 import type { DocHandle } from "@manent/sync-client";
 import {
@@ -83,7 +82,10 @@ function TimingRows(props: { docId: string | null }): ReactNode {
       createTimingsSource({
         read: readMarks,
         // read through the handle each time: a reorganised script is another document
-        doc: () => (handle === null ? null : measureDoc(handle.doc())),
+        doc: () =>
+          handle === null
+            ? null
+            : { liveBytes: handle.doc().encodeState().byteLength },
         // the marks' own clock
         now: () => performance.now(),
       }),
