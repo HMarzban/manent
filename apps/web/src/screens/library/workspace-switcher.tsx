@@ -2,6 +2,7 @@
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   Button,
+  DEMO_WORDS,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -14,16 +15,15 @@ import { useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 
-/** "6 projects · The Long Night", or how far a workspace being seeded has got. */
+/** "6 projects · The Long Night", how far a workspace being seeded has got, or that its seed stopped. */
 function useWorkspaceLine(workspace: WorkspaceRef): string {
   const { library } = useServices();
   const projects = useSubscribable(library.projects(workspace.id));
   const continueList = useSubscribable(library.continueList(workspace.id));
-  if (workspace.seeding !== null)
-    return LIBRARY_WORDS.seeding(
-      workspace.seeding.done,
-      workspace.seeding.total,
-    );
+  const { seeding } = workspace;
+  if (seeding?.failed) return DEMO_WORDS.seedingFailed;
+  if (seeding !== null)
+    return LIBRARY_WORDS.seeding(seeding.done, seeding.total);
   return LIBRARY_WORDS.workspaceLine(
     projects.length,
     continueList[0]?.title ?? null,
