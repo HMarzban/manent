@@ -154,7 +154,8 @@ export interface PageControls {
 
 /**
  * A paged editor's profile and zoom. A new profile is a meta-only transaction; a zoom scales the page around its
- * anchor and scrolls in the same frame so the anchor stays where it was, and dispatches nothing.
+ * anchor and scrolls in the same frame so the anchor stays where it was, with room added above the first page when
+ * the view cannot scroll back far enough, and dispatches nothing.
  */
 export function createPageControls(options: {
   view: EditorView;
@@ -168,6 +169,17 @@ export function createPageControls(options: {
   let setting = options.zoom;
   let percent = 100;
   const profileNow = () => paginationKey.getState(view.state)!.settings.profile;
+  // room added above the first page, px, where keeping the anchor still needed scroll the view did not have
+  let room = 0;
+  const scrollBy = (shiftPx: number): void => {
+    const scroller = ports.scroller();
+    // the room gives way before the view scrolls down
+    const given = Math.min(room, Math.max(shiftPx, 0));
+    const scrollTop = scroller.scrollTop + shiftPx - given;
+    room += Math.max(-scrollTop, 0) - given;
+    scaffold.setRoomAbove(room);
+    scroller.scrollTop = Math.max(scrollTop, 0);
+  };
   const fit = (): void => {
     const next =
       setting === "fit_width"
@@ -182,8 +194,7 @@ export function createPageControls(options: {
     percent = next;
     scaffold.applyZoom(next);
     const top = anchor?.read() ?? null;
-    if (anchor !== null && top !== null)
-      ports.scroller().scrollTop += top - anchor.top;
+    if (anchor !== null && top !== null) scrollBy(top - anchor.top);
   };
   const unobserve = desk.observe(fit);
   fit();
