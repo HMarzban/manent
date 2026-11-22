@@ -350,6 +350,17 @@ export function createAppRouter(deps: {
             ),
             errorComponent: ScreenProblem,
           }),
+          createRoute({
+            getParentRoute: () => rootRoute,
+            path: "/__keys",
+            component: lazyRouteComponent(
+              loadScreen(
+                () => import("./screens/key-probe/key-probe-screen.tsx"),
+              ),
+              "KeyProbeScreen",
+            ),
+            errorComponent: ScreenProblem,
+          }),
         ]
       : [];
 

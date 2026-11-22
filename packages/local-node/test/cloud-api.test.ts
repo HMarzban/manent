@@ -94,6 +94,8 @@ const ADOPT: AdoptRequest = {
   home: HOME,
   workspaceId: null,
   state: scene(),
+  versions: [],
+  production: null,
 };
 
 test("the cloud's answers come back typed, and a refusal as its code", async () => {
