@@ -11,6 +11,7 @@ const unsubscribe = (): (() => void) => () => {};
 // an Ink editor: no scaffold, so no pagination, and the view is never read
 const fake = (docId: string): LiveEditor => ({
   docId,
+  doc: {} as LiveEditor["doc"],
   view: {} as LiveEditor["view"],
   scaffold: null,
   presence: {

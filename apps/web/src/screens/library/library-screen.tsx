@@ -239,6 +239,7 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
           <WorkspaceSwitcher current={workspaceId} workspaces={workspaces} />
         ) : null}
         <span className="flex-1" />
+        <CommandButton id="file.import" variant="outline" />
         <CommandButton id="library.newScript" variant="outline" />
         <NewProjectPopover workspaceId={workspaceId} />
         <PersonMenu name={person.name} />
