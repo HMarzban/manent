@@ -222,6 +222,8 @@ class DocSubscription implements Subscription {
   }
 
   update(update: Uint8Array): void {
+    // the old document must not take the new generation's updates; the step 2 a move loads holds them
+    if (this.move !== null) return;
     this.options.copy.update(update);
     this.base.take(update);
   }
