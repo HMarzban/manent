@@ -105,9 +105,14 @@ export function revisionStateOf(kept: RevisionKept): RevisionState {
   return tracked;
 }
 
+/** What `own` was brought up to date from; null for a state this plugin did not make. */
+export function keptOfRevision(own: RevisionState): RevisionKept | null {
+  return isTracked(own) ? own.kept : null;
+}
+
 export function keptOf(state: EditorState): RevisionKept | null {
   const own = revisionKey.getState(state);
-  return own !== undefined && isTracked(own) ? own.kept : null;
+  return own === undefined ? null : keptOfRevision(own);
 }
 
 /** The script's production and the port it came through; null outside production or without the plugin. */

@@ -12,6 +12,7 @@ import type {
 } from "@manent/revisions";
 import { Plugin } from "prosemirror-state";
 import type { EditorState, PluginView, Transaction } from "prosemirror-state";
+import { DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import type { PageScaffold } from "../page/scaffold.ts";
 import { paginationKey, setPagination } from "../pagination/plugin.ts";
@@ -22,6 +23,7 @@ import type {
 import type { FactsSink } from "../script-editor/ports.ts";
 import {
   keptOf,
+  keptOfRevision,
   outOfProduction,
   productionOf,
   revisionKey,
@@ -31,6 +33,8 @@ import {
   withView,
 } from "./derive.ts";
 import type { RevisionKept, RevisionState } from "./derive.ts";
+import { descriptionsOf, nextDescriptions } from "./descriptions.ts";
+import type { Descriptions } from "./descriptions.ts";
 import { lockMarkersPlugin } from "./markers.ts";
 import { clearedNumbers, productionEngine, withPages } from "./numbers.ts";
 import { pagesFeedPlugin } from "./pages-feed.ts";
@@ -64,6 +68,8 @@ export interface ProductionView {
   readonly words: {
     lockTooltip(next: string): string;
     colourName(c: RevisionColour): string;
+    /** The description of an element `name` marks. */
+    revisedDescription(name: string): string;
   };
 }
 
@@ -227,10 +233,12 @@ function oneView(views: readonly PluginView[]): PluginView {
 
 /**
  * The revision state of the script in production: its marks, its numbers and omitted scenes, drawn on its sheets,
- * with the locks beside locked page numbers and the Pages feed, as one plugin.
+ * with the locks beside locked page numbers, the Pages feed and each revised element's description, as one plugin.
  */
 export function revisionPlugins(options: RevisionPluginOptions): Plugin {
   const { port } = options;
+  // each state's descriptions, made beside its revision state from the state before it
+  const described = new WeakMap<EditorState, Descriptions>();
   const parts = [
     pagesFeedPlugin({ sink: options.pages, facts: options.facts }),
     lockMarkersPlugin({
@@ -245,15 +253,27 @@ export function revisionPlugins(options: RevisionPluginOptions): Plugin {
   return new Plugin<RevisionState>({
     key: revisionKey,
     state: {
-      init: (_, state) =>
-        revisionStateOf(
-          withView(
-            outOfProduction(options.port),
-            options.port.view(),
-            state.doc,
-          ),
-        ),
-      apply: applyRevisions,
+      init: (_, state) => {
+        const kept = withView(outOfProduction(port), port.view(), state.doc);
+        described.set(state, descriptionsOf(state.doc, kept));
+        return revisionStateOf(kept);
+      },
+      apply(tr, prev, old, state) {
+        const next = applyRevisions(tr, prev, old, state);
+        const was = described.get(old);
+        const kept = keptOfRevision(next);
+        if (kept !== null)
+          described.set(
+            state,
+            was === undefined
+              ? descriptionsOf(tr.doc, kept)
+              : nextDescriptions(was, tr, kept),
+          );
+        return next;
+      },
+    },
+    props: {
+      decorations: (state) => described.get(state)?.set ?? DecorationSet.empty,
     },
     appendTransaction(trs, _old, state) {
       const production = productionOf(state);

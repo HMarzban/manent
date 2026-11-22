@@ -1,5 +1,5 @@
-// What one person shows of a script's production on this device, and what they last issued it as: view state,
-// never shared with anyone else on the script.
+// What one person shows of a script's production on this device, what they last issued it as and what they may do
+// in it: view state, never shared with anyone else on the script.
 import { MARK_MODES } from "@manent/revisions";
 import type { MarkMode } from "@manent/revisions";
 import { ISSUE_FILES } from "@manent/sync-protocol";
@@ -14,6 +14,12 @@ export interface IssueChoices {
   recipientUserIds: string[];
 }
 
+/** What the person may do in production, as the server last said. */
+export interface ProductionAccess {
+  canLock: boolean;
+  canIssue: boolean;
+}
+
 export interface ProductionViewState {
   mode(): MarkMode;
   setMode(mode: MarkMode): void;
@@ -23,6 +29,9 @@ export interface ProductionViewState {
   /** Null before the person's first issue of the script on this device. */
   lastIssue(): IssueChoices | null;
   setLastIssue(choices: IssueChoices): void;
+  /** As the server last said on this device, which offline is all there is; null before it first has. */
+  access(): ProductionAccess | null;
+  setAccess(access: ProductionAccess): void;
   subscribe(listener: () => void): () => void;
   dispose(): void;
 }
@@ -49,6 +58,16 @@ function readChoices(value: unknown): IssueChoices | null {
   return { files, tint, recipientUserIds: recipients };
 }
 
+/** Null for anything stored that is not both capabilities. */
+function readAccess(value: unknown): ProductionAccess | null {
+  if (typeof value !== "object" || value === null) return null;
+  const canLock: unknown = Reflect.get(value, "canLock");
+  const canIssue: unknown = Reflect.get(value, "canIssue");
+  return typeof canLock === "boolean" && typeof canIssue === "boolean"
+    ? { canLock, canIssue }
+    : null;
+}
+
 /** `docId`'s view state in `manent.view.production.<userId>`, shared by the person's tabs. */
 export function createProductionViewState(options: {
   storage: Storage | null;
@@ -73,6 +92,8 @@ export function createProductionViewState(options: {
     setTint: (on) => map.set(keyOf("tint"), on),
     lastIssue: () => readChoices(map.get(keyOf("lastIssue"))),
     setLastIssue: (choices) => map.set(keyOf("lastIssue"), choices),
+    access: () => readAccess(map.get(keyOf("access"))),
+    setAccess: (access) => map.set(keyOf("access"), access),
     subscribe(listener) {
       return map.subscribe((keys) => {
         if (keys.some((key) => key.startsWith(`${docId}.`))) listener();

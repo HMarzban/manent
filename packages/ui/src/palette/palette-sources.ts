@@ -52,9 +52,10 @@ function paneLabel(pane: string, shell: Shell): string | null {
   return section === undefined ? null : labels[section];
 }
 
-/** The words of a command's home key: Script settings, or a Preferences pane. */
+/** The words of a command's home key: Script settings, a Preferences pane, or where revisions start. */
 function homeText(home: string | null, shell: Shell): string | null {
   if (home === "homeScriptSettings") return MENU_WORDS.homeScriptSettings;
+  if (home === "homeBeforeLock") return MENU_WORDS.homeBeforeLock;
   if (home === null || !home.startsWith(HOME_PREFERENCES)) return null;
   const label = paneLabel(home.slice(HOME_PREFERENCES.length), shell);
   return label === null ? null : MENU_WORDS.homePreferences(label);
