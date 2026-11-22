@@ -24,7 +24,7 @@ import { isQuiet, measurement, waitForQuiet } from "./measure.ts";
 import { UNITS, WORKLOADS, writeResultFile } from "./result.ts";
 import type { MetricSummary, Quiet, ScenarioResult } from "./result.ts";
 import { AREAS } from "./tiers/tiers.ts";
-import type { Area, TierId } from "./tiers/tiers.ts";
+import type { Area, ContainerLimits, TierId } from "./tiers/tiers.ts";
 
 export { UNITS, WORKLOADS };
 
@@ -328,7 +328,8 @@ function suiteRun(
  * Runs every scenario under `root` of `areas` (default: all) whose path contains `filter`, and
  * writes the result file. `now` is in milliseconds since the epoch; `tier` and `throttle` default
  * to the environment's. A proof runs only scenarios with a row to prove; `cannotRun` records every
- * chosen scenario as not measured, for that reason, and runs none.
+ * chosen scenario as not measured, for that reason, and runs none; `container` is what a tier's
+ * container records in place of this process's limits and command line.
  */
 export async function runSuite(options: {
   root: string;
@@ -343,6 +344,7 @@ export async function runSuite(options: {
   quiet?: () => Quiet;
   waitMs?: (ms: number) => Promise<void>;
   cannotRun?: string;
+  container?: { limits: ContainerLimits; command: string };
 }): Promise<SuiteRun> {
   const { filter, cannotRun, prove = false, now = Date.now } = options;
   const startedAt = now();
@@ -386,7 +388,10 @@ export async function runSuite(options: {
     formatVersion: 2,
     startedAt,
     finishedAt: now(),
-    environment: runEnvironment({ ...judging, corpusVersion: CORPUS_VERSION }),
+    environment: runEnvironment(
+      { ...judging, corpusVersion: CORPUS_VERSION },
+      options.container ?? null,
+    ),
     scenarios,
     unmatched,
     unproved,
