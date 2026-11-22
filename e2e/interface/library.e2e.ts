@@ -37,7 +37,8 @@ test("as Dana the switcher shows both workspaces, and New script opens an untitl
     .click();
   await expect(page).toHaveURL(DOCUMENT_PATH);
   await expect(page).toHaveTitle("Untitled script — Dana Reyes — Manent demo");
-  await editable(page).click();
+  // New script puts focus on the page at the caret
+  await expect(editable(page)).toBeFocused();
   await page.keyboard.type("The tide turns.");
   await expect(editable(page)).toContainText(/the tide turns/i);
   await page.getByRole("button", { name: "‹ Library" }).click();

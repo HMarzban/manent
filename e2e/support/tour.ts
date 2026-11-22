@@ -60,6 +60,8 @@ export async function signedInAs(
   const editable = page.locator(
     "[data-region='page'] [contenteditable='true']",
   );
+  // the page stays hidden until its faces have loaded, and a hidden page takes no keys
+  await expect(editable).toBeVisible();
   await editable.pressSequentially("the tide turns");
   await expect(editable).toContainText(/the tide turns/i);
   // back inside the app, which has the new script in its index already; by key, as a click would leave the next focus
