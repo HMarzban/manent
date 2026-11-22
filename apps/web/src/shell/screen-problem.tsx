@@ -6,7 +6,7 @@ import { TEXT } from "../text.ts";
 /** The route error component of every screen whose code loads on its first visit. */
 export function ScreenProblem(): ReactNode {
   return (
-    <div className="flex flex-col items-start gap-2 p-3 text-ui">
+    <div className="flex flex-col items-start gap-2 p-6 text-ui">
       <p>{TEXT.screenProblem}</p>
       <Button
         variant="outline"

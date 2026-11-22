@@ -1,5 +1,6 @@
 // Each workspace's index as the Library holds it: opened from the device first when it is first asked for, read, and
 // drawn into that workspace's lists.
+import { StoreError } from "@manent/sync-client";
 import type { DocHandle, DocSummary } from "@manent/sync-client";
 import { indexDocId, workspaceHome } from "@manent/sync-protocol";
 import type { WorkspaceRef } from "@manent/sync-protocol";
@@ -118,6 +119,12 @@ function openShelf(
   return shelf;
 }
 
+/** A store closed under a reading, as when the tab's person changes, leaves the rows as last read; anything else is thrown. */
+function keepRowsOnClose(error: unknown): void {
+  if (!(error instanceof StoreError && error.code === "unavailable"))
+    throw error;
+}
+
 /** Rows say where each document is from what the device's store holds, read again as the indexes and the link change. */
 export function createShelves(options: {
   sync: PersonSync;
@@ -149,19 +156,22 @@ export function createShelves(options: {
   const refresh = (): Promise<void> => {
     again = reading !== null;
     reading ??= (async () => {
-      do {
-        again = false;
-        const listed = await sync.client.documents();
-        summaries = new Map(listed.map((s) => [s.docId, s]));
-      } while (again);
-      reading = null;
+      try {
+        do {
+          again = false;
+          const listed = await sync.client.documents();
+          summaries = new Map(listed.map((s) => [s.docId, s]));
+        } while (again);
+      } finally {
+        reading = null;
+      }
       show();
     })();
     return reading;
   };
   const read = (): void => {
     show();
-    void refresh();
+    void refresh().catch(keepRowsOnClose);
   };
   const shelf = (ws: string): Shelf => {
     const known = shelves.get(ws);
@@ -170,7 +180,7 @@ export function createShelves(options: {
     shelves.set(ws, opened);
     return opened;
   };
-  const changed = (): void => void refresh();
+  const changed = (): void => void refresh().catch(keepRowsOnClose);
   privateIndex.continueMap.subscribe(show);
   privateIndex.onDevice.subscribe(changed);
   sync.link.subscribe(changed);
