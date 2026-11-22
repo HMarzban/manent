@@ -188,7 +188,7 @@ interface Checked {
   mine: DocJSON;
   kind: DocKind;
   frozen: Uint8Array[];
-  /** Own text the updates or the rows base moved on by removed from mine unseen. */
+  /** Anyone's text the updates removed unseen, then own text the rows base moved on by removed from mine unseen. */
   setAside: ReplaySetAside[];
   /** Own text mine still holds that the generation's later rows removed unseen. */
   unseen: ReplaySetAside[];

@@ -18,9 +18,12 @@ import { writeOnCopy } from "./authority-write.ts";
 import type { AuthorityItem } from "./authority-write.ts";
 import {
   answer,
+  answerFailed,
+  appendedBy,
   commitFile,
-  committedOf,
+  isAuthorityWrite,
   settle,
+  shownWhileHeld,
   upstreamOf,
 } from "./commit.ts";
 import { copiesRepair } from "./copies.ts";
@@ -114,29 +117,6 @@ type PeerItem = {
 /** An entry of the write path's queue: what a commit writes, then answers. */
 export type QueuedItem = PeerItem | ReplayItem | IngestItem | AuthorityItem;
 
-/** The update the item appends once committed; null for one that appends none. */
-function appendedBy(item: QueuedItem): Uint8Array | null {
-  if (item.kind === "append" || item.kind === "ingest")
-    return item.append.update;
-  if (item.kind === "authority") return item.append?.update ?? null;
-  return item.kind === "replay" ? item.write.update : null;
-}
-
-/** A replay or an authority write that will never commit is answered as failed. */
-function answerFailed(item: QueuedItem): void {
-  if (item.kind === "replay") item.done({ ok: false });
-  if (item.kind === "authority")
-    item.done({ ok: false, code: "commit_failed" });
-}
-
-/**
- * A setting the authority wrote into the room's document. Shown before it commits, it would leave
- * a window holding structs under the authority's client id, which a crash can take from the log
- * and no window may push back.
- */
-const isAuthorityWrite = (item: QueuedItem): boolean =>
-  item.kind === "append" && item.setting;
-
 export function createWritePath(ports: WritePathPorts): WritePath {
   const { rooms } = ports;
   let queue: QueuedItem[] = [];
@@ -144,12 +124,17 @@ export function createWritePath(ports: WritePathPorts): WritePath {
   const heldFiles = new Map<DocFile, StorageError>();
   /** By document: what its held items append, in arrival order. */
   const heldUpdates = new Map<string, Uint8Array[]>();
+  /** By document: what of its held items its windows were sent, in arrival order. */
+  const heldShownUpdates = new Map<string, Uint8Array[]>();
 
   const keepHeld = (item: QueuedItem): void => {
     const update = appendedBy(item);
     if (update === null) return;
     const { docId } = item.room;
     heldUpdates.set(docId, [...(heldUpdates.get(docId) ?? []), update]);
+    if (shownWhileHeld(item) === null) return;
+    const shown = heldShownUpdates.get(docId) ?? [];
+    heldShownUpdates.set(docId, [...shown, update]);
   };
 
   const enqueue = (item: QueuedItem): void => {
@@ -252,8 +237,8 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       }
       // a held item is shown now, but for what the authority wrote, and acknowledged once it commits;
       // a replay and an authority write answer whole then
-      const committed = isAuthorityWrite(item) ? null : committedOf(item);
-      if (committed !== null) ports.publish(committed);
+      const shown = shownWhileHeld(item);
+      if (shown !== null) ports.publish(shown);
     }
   }
 
@@ -373,6 +358,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       heldFiles.delete(file);
       for (const item of items) {
         heldUpdates.delete(item.room.docId);
+        heldShownUpdates.delete(item.room.docId);
         // published when they were held, but for what the authority wrote
         if (isAuthorityWrite(item)) answer(item, ports);
         else settle(item, ports);
@@ -381,6 +367,7 @@ export function createWritePath(ports: WritePathPorts): WritePath {
     },
     holdError: (file) => heldFiles.get(file) ?? null,
     heldUpdates: (docId) => heldUpdates.get(docId) ?? [],
+    heldShownUpdates: (docId) => heldShownUpdates.get(docId) ?? [],
     flush,
     queued: () => queue.length + ports.held.size(),
   };

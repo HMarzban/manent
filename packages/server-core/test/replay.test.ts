@@ -13,7 +13,7 @@ import type { BlockWriter, CrdtDoc } from "@manent/crdt";
 import { blockText, blocksOf } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
 import { REPLAY_REFUSALS, encodeReplayUpdates } from "@manent/sync-protocol";
-import type { Message, ReplayRequest } from "@manent/sync-protocol";
+import type { ReplayRequest } from "@manent/sync-protocol";
 import type { SyncLimits } from "../src/index.ts";
 import type { FakePeer } from "../src/testing/index.ts";
 import { DOC, DOC2, HOME, PROJECT, rawEdit } from "./seed.ts";
@@ -24,6 +24,7 @@ import {
   SAM_CLIENT,
   clientOf,
   createServiceWorld,
+  stepTwoOf,
 } from "./service-world.ts";
 
 const B1 = "b000000000000001";
@@ -64,14 +65,6 @@ function capture(doc: CrdtDoc, change: () => void): Uint8Array {
 
 const written = (doc: CrdtDoc, write: Write): Uint8Array =>
   capture(doc, () => scriptBody(doc).write(write));
-
-function stepTwoOf(messages: readonly Message[]): Uint8Array {
-  const found = messages.find(
-    (message) => message.type === "SYNC" && message.step === "step2",
-  );
-  if (found?.type !== "SYNC") throw new RangeError("no step 2 was sent");
-  return found.data;
-}
 
 /** An image element inside B2, which validation refuses, written on `doc`. */
 const imageEdit = (doc: CrdtDoc): Uint8Array =>
@@ -303,6 +296,39 @@ test("an edit in a block deleted since is set aside with the block before it", a
       applied: 0,
       overlaps: [],
       setAside: [{ blockId: B2, nearBlockId: B1, text: "Night. " + B2_TEXT }],
+    },
+  });
+  expect(world.textOfRoom(B2)).toBe("");
+});
+
+test("seed 9: text a collaborator typed into a block the device had deleted is set aside, not deleted with it", async () => {
+  const world = replayWorld();
+  const { file, samDoc } = world;
+  const offline = world.samOffline((w) => w.deleteBlock(B2));
+  world.danaEdit(typeInto(B2, "Dawn. "));
+  // Sam's copy takes Dana's typing, into the block it has deleted, so it is acknowledged at her row
+  const seen = file.log.get(DOC)?.headSeq ?? 0;
+  for (const row of file.log.tail(DOC, 1, seen - 1).rows)
+    samDoc.applyUpdate(row.update, ORIGIN_LOAD);
+  world.rebuildNow();
+  expect(
+    await world.replayed(
+      "sam",
+      world.requestOf(offline, {
+        generation: 1,
+        key: KEY,
+        lastServerSeq: seen,
+      }),
+    ),
+  ).toEqual({
+    ok: true,
+    response: {
+      docId: DOC,
+      generation: 2,
+      serverSeq: 2,
+      applied: 1,
+      overlaps: [],
+      setAside: [{ blockId: B2, nearBlockId: B1, text: "Dawn. " }],
     },
   });
   expect(world.textOfRoom(B2)).toBe("");
