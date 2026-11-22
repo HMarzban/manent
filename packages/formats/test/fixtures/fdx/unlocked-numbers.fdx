@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="5">
+  <Content>
+    <Paragraph Number="1" Type="Scene Heading">
+      <Text>INT. LAMP ROOM - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>The lamp turns.</Text>
+    </Paragraph>
+    <Paragraph Number="2" Type="Scene Heading">
+      <Text>EXT. GALLERY - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Number="5" Type="Scene Heading">
+      <Text>EXT. ROCKS - DAWN</Text>
+    </Paragraph>
+  </Content>
+</FinalDraft>

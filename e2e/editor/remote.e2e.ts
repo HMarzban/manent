@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { editorHook } from "../support/editor-hooks.ts";
 import { pressKeyOf } from "../support/interface.ts";
-import { signedInAs } from "../support/tour.ts";
+import { committedOnDevice, signedInAs } from "../support/tour.ts";
 import {
   DANA,
   PAGE_VIEW,
@@ -35,6 +35,8 @@ async function preference(
   const control = page.getByRole("switch", { name: label, exact: true });
   await control.setChecked(on);
   await expect(control).toBeChecked({ checked: on });
+  // the next page reads the preference from the device
+  await committedOnDevice(page, "you");
 }
 
 /** Waits until block `index` holds `text`. */

@@ -1,7 +1,7 @@
 // Everything the script editor is given by the composition root; no CRDT, React or registry type.
 import type { Node } from "prosemirror-model";
 import type { EditorState, Plugin, Transaction } from "prosemirror-state";
-import type { Alignment, FormatId } from "@manent/schema";
+import type { Alignment, BlockJSON, FormatId } from "@manent/schema";
 
 /** An animation frame; it may never fire. Returns its cancel. */
 export interface Frames {
@@ -142,6 +142,24 @@ export interface EditorWords {
   readonly picker: string;
   readonly offFontNote: string;
 }
+
+/** The clipboard's reader of text from outside Manent. */
+export interface PastedTextPort {
+  /** Null: paste as plain text. Blocks: the elements the text is converted to in a second undo step. */
+  read(
+    text: string,
+    elements: readonly string[],
+    plainElement: string,
+  ): readonly BlockJSON[] | null;
+  /** After the conversion: how many elements it made. */
+  converted(count: number): void;
+}
+
+/** The reader of an editor given none: every paste stays plain text. */
+export const NO_PASTED_TEXT: PastedTextPort = Object.freeze({
+  read: () => null,
+  converted: () => {},
+});
 
 /** Where a person left a script: restored when it opens again. */
 export interface SavedPlace {

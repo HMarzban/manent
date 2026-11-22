@@ -13,6 +13,71 @@ export const TOUR_GROUPS = [
 
 export type TourGroup = (typeof TOUR_GROUPS)[number];
 
+/** Features a scenario may wait for: placed after this stage, or still to be worded. */
+export const TOUR_FEATURES = [
+  "names_and_facts",
+  "variety_timing",
+  "outline_to_script",
+  "alternates_and_cuts",
+  "game_lines",
+  "ink_player",
+  "start_from",
+  "follow",
+  "comments",
+  "reader_drafts",
+  "suggesting",
+  "present",
+  "private_writing",
+  "rounds",
+  "sign_out_guard",
+  "send_draft",
+  "sides",
+  "find_bar",
+  "search",
+  "rundowns",
+  "prompter",
+  "imports",
+  "prompter_files",
+  "go_to_page",
+  "copy_script",
+] as const;
+
+export type TourFeature = (typeof TOUR_FEATURES)[number];
+
+/** The places a step may point at that are not commands, each drawn with `data-tour="<target>"`. */
+export const TOUR_TARGETS = [
+  "page",
+  "status:page",
+  "status:device",
+  "status:server",
+  "readout:element",
+  "message_slot",
+  "state_bar",
+  "tab:scenes",
+  "tab:history",
+  "tab:details",
+  "history_list",
+  "to_review",
+  "workspace_switcher",
+  "demo:person",
+  "demo:connection",
+  "demo:writers",
+  "demo:server",
+  "demo:timings",
+  "demo:reorganise",
+  "demo:reset",
+  "ruler",
+  "page_lock",
+  "lock:confirm",
+  "send:checks",
+  "send:confirm",
+  "setting:appearance.theme",
+  "setting:script.paper",
+  "setting:script.format",
+] as const;
+
+export type TourTarget = (typeof TOUR_TARGETS)[number];
+
 /** A window the scenario opens: a user's ID and an app path starting "/". */
 export interface TourWindow {
   userId: string;
@@ -25,15 +90,29 @@ export interface TourScenario {
   group: TourGroup;
   /** One sentence. */
   promise: string;
-  setup: TourWindow & { secondWindow: TourWindow | null };
-  /** Two to four; `highlight` is the control's data-tour value. */
-  steps: { text: string; highlight: string }[];
+  setup: TourWindow & {
+    /** Up to two more windows, each opened with its side panel closed. */
+    extraWindows: readonly TourWindow[];
+    /** A TOUR_PREPARATIONS id, run on the server before the windows open; null for none. */
+    prepare: string | null;
+    shell: "any" | "desktop";
+  };
+  /** Two to four; `highlight` is a command's id or a TourTarget. */
+  steps: readonly { text: string; highlight: string }[];
   /** The observable proof, in the product's exact words. */
   check: string;
+  /** One to four exact strings the product shows, each found in `check`. */
+  evidence: readonly string[];
+  /** Its test starts from a new seed. */
+  fresh: boolean;
+  /** Set: not shown, and it has no test. */
+  waitsFor: TourFeature | null;
+  /** Set: built, but not shown in this run; the reason, one clause. */
+  hidden: string | null;
 }
 
 export interface TourFile {
-  formatVersion: 1;
+  formatVersion: 2;
   groups: readonly TourGroup[];
   scenarios: readonly TourScenario[];
 }
@@ -53,6 +132,11 @@ export const TOUR_ISSUE_CODES = [
   "bad_window",
   "unknown_user",
   "bad_path",
+  "bad_evidence",
+  "bad_feature",
+  "bad_prepare",
+  "bad_shell",
+  "bad_hidden",
 ] as const;
 
 export type TourIssueCode = (typeof TOUR_ISSUE_CODES)[number];
@@ -68,6 +152,8 @@ export interface TourIssue {
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const MIN_STEPS = 2;
 const MAX_STEPS = 4;
+const MAX_EXTRA_WINDOWS = 2;
+const MAX_EVIDENCE = 4;
 
 type Fields = Record<string, unknown>;
 
@@ -79,8 +165,9 @@ function isFilled(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
 }
 
-function isTourGroup(value: unknown): value is TourGroup {
-  return TOUR_GROUPS.some((group) => group === value);
+/** Whether the Tour lists a scenario and its test runs: nothing waits for it and nothing hides it. */
+export function isShown(scenario: TourScenario): boolean {
+  return scenario.waitsFor === null && scenario.hidden === null;
 }
 
 /** A value as a message names it: a string in quotes, a number, boolean or null as written, anything else by its kind. */
@@ -95,63 +182,117 @@ function issue(path: string, code: TourIssueCode, message: string): TourIssue {
   return { path, code, severity: "reject", message };
 }
 
+/** No issue when `held`; otherwise the one issue. */
+function unless(
+  held: boolean,
+  path: string,
+  code: TourIssueCode,
+  message: string,
+): TourIssue[] {
+  return held ? [] : [issue(path, code, message)];
+}
+
 function checkWindow(
   tourWindow: Fields,
   path: string,
   userIds: readonly string[],
 ): TourIssue[] {
-  const issues: TourIssue[] = [];
   const { userId, open } = tourWindow;
-  if (typeof userId !== "string" || !userIds.includes(userId))
-    issues.push(
-      issue(
-        `${path}.userId`,
-        "unknown_user",
-        `the user ${named(userId)} is not one of ${userIds.join(", ")}`,
-      ),
-    );
-  if (typeof open !== "string" || !open.startsWith("/"))
-    issues.push(
-      issue(
-        `${path}.open`,
-        "bad_path",
-        `an app path must start with "/", not ${named(open)}`,
-      ),
-    );
-  return issues;
+  return [
+    ...unless(
+      typeof userId === "string" && userIds.includes(userId),
+      `${path}.userId`,
+      "unknown_user",
+      `the user ${named(userId)} is not one of ${userIds.join(", ")}`,
+    ),
+    ...unless(
+      typeof open === "string" && open.startsWith("/"),
+      `${path}.open`,
+      "bad_path",
+      `an app path must start with "/", not ${named(open)}`,
+    ),
+  ];
 }
 
-function checkSetup(
-  setup: unknown,
-  path: string,
-  userIds: readonly string[],
-): TourIssue[] {
+/** The ids a scenario's windows and set-up may name. */
+interface Known {
+  userIds: readonly string[];
+  prepareIds: readonly string[];
+}
+
+function checkSetup(setup: unknown, path: string, known: Known): TourIssue[] {
   if (!isObject(setup))
     return [issue(path, "bad_setup", "the setup must be an object")];
-  const issues = checkWindow(setup, path, userIds);
-  const { secondWindow } = setup;
-  if (secondWindow === null) return issues;
-  if (!isObject(secondWindow))
-    return [
-      ...issues,
-      issue(
-        `${path}.secondWindow`,
-        "bad_window",
-        `a second window must be a window or null, not ${named(secondWindow)}`,
-      ),
-    ];
+  const { extraWindows, prepare, shell } = setup;
+  const windows =
+    Array.isArray(extraWindows) &&
+    extraWindows.length <= MAX_EXTRA_WINDOWS &&
+    extraWindows.every(isObject)
+      ? extraWindows
+      : null;
   return [
-    ...issues,
-    ...checkWindow(secondWindow, `${path}.secondWindow`, userIds),
+    ...checkWindow(setup, path, known.userIds),
+    ...unless(
+      windows !== null,
+      `${path}.extraWindows`,
+      "bad_window",
+      `the extra windows must be a list of 0 to ${MAX_EXTRA_WINDOWS} windows, not ${named(extraWindows)}`,
+    ),
+    ...(windows ?? []).flatMap((extra, i) =>
+      checkWindow(extra, `${path}.extraWindows[${i}]`, known.userIds),
+    ),
+    ...unless(
+      prepare === null ||
+        (typeof prepare === "string" && known.prepareIds.includes(prepare)),
+      `${path}.prepare`,
+      "bad_prepare",
+      `a preparation must be null or one of ${known.prepareIds.join(", ")}, not ${named(prepare)}`,
+    ),
+    ...unless(
+      shell === "any" || shell === "desktop",
+      `${path}.shell`,
+      "bad_shell",
+      `a shell must be "any" or "desktop", not ${named(shell)}`,
+    ),
+  ];
+}
+
+/** The evidence, and what keeps a scenario out of the Tour. */
+function checkProof(scenario: Fields, path: string): TourIssue[] {
+  const { check, evidence, waitsFor, hidden } = scenario;
+  const found = (text: unknown): boolean =>
+    isFilled(text) && typeof check === "string" && check.includes(text);
+  return [
+    ...unless(
+      Array.isArray(evidence) &&
+        evidence.length >= 1 &&
+        evidence.length <= MAX_EVIDENCE &&
+        evidence.every(found),
+      `${path}.evidence`,
+      "bad_evidence",
+      `the evidence must be 1 to ${MAX_EVIDENCE} strings, each found in the check`,
+    ),
+    ...unless(
+      waitsFor === null || TOUR_FEATURES.some((f) => f === waitsFor),
+      `${path}.waitsFor`,
+      "bad_feature",
+      `a scenario waits for null or one of the Tour's features, not ${named(waitsFor)}`,
+    ),
+    ...unless(
+      hidden === null || isFilled(hidden),
+      `${path}.hidden`,
+      "bad_hidden",
+      `the reason a scenario is hidden must be null or a clause, not ${named(hidden)}`,
+    ),
   ];
 }
 
 function checkSteps(steps: unknown, path: string): TourIssue[] {
-  if (
-    !Array.isArray(steps) ||
-    steps.length < MIN_STEPS ||
-    steps.length > MAX_STEPS
-  )
+  const counted =
+    Array.isArray(steps) &&
+    steps.length >= MIN_STEPS &&
+    steps.length <= MAX_STEPS;
+  if (!counted)
     return [
       issue(
         path,
@@ -161,15 +302,14 @@ function checkSteps(steps: unknown, path: string): TourIssue[] {
     ];
   return steps.flatMap((step: unknown, i) => {
     const fields = isObject(step) ? step : {};
-    return (["text", "highlight"] as const)
-      .filter((field) => !isFilled(fields[field]))
-      .map((field) =>
-        issue(
-          `${path}[${i}].${field}`,
-          "empty_text",
-          `the step's ${field} is empty`,
-        ),
-      );
+    return (["text", "highlight"] as const).flatMap((field) =>
+      unless(
+        isFilled(fields[field]),
+        `${path}[${i}].${field}`,
+        "empty_text",
+        `the step's ${field} is empty`,
+      ),
+    );
   });
 }
 
@@ -178,92 +318,81 @@ function checkScenario(
   scenario: unknown,
   path: string,
   earlier: readonly unknown[],
-  userIds: readonly string[],
+  known: Known,
 ): TourIssue[] {
   if (!isObject(scenario))
     return [issue(path, "bad_scenario", "a scenario must be an object")];
-  const issues: TourIssue[] = [];
-  const { id, group, promise, check } = scenario;
-  if (typeof id !== "string" || !KEBAB.test(id))
-    issues.push(
-      issue(
-        `${path}.id`,
-        "bad_id",
-        `an id must be kebab-case, not ${named(id)}`,
-      ),
-    );
-  else if (earlier.some((other) => isObject(other) && other.id === id))
-    issues.push(
-      issue(`${path}.id`, "duplicate_id", `the id ${id} is already used`),
-    );
-  if (!isTourGroup(group))
-    issues.push(
-      issue(
-        `${path}.group`,
-        "bad_group",
-        `a group must be one of the ${TOUR_GROUPS.length} Tour groups, not ${named(group)}`,
-      ),
-    );
-  for (const [field, value] of [
-    ["promise", promise],
-    ["check", check],
-  ] as const)
-    if (!isFilled(value))
-      issues.push(
-        issue(`${path}.${field}`, "empty_text", `the ${field} is empty`),
-      );
+  const { id, group } = scenario;
+  const kebab = typeof id === "string" && KEBAB.test(id);
+  const reused =
+    kebab && earlier.some((other) => isObject(other) && other.id === id);
   return [
-    ...issues,
+    ...unless(
+      kebab,
+      `${path}.id`,
+      "bad_id",
+      `an id must be kebab-case, not ${named(id)}`,
+    ),
+    ...unless(
+      !reused,
+      `${path}.id`,
+      "duplicate_id",
+      `the id ${String(id)} is already used`,
+    ),
+    ...unless(
+      TOUR_GROUPS.some((g) => g === group),
+      `${path}.group`,
+      "bad_group",
+      `a group must be one of the ${TOUR_GROUPS.length} Tour groups, not ${named(group)}`,
+    ),
+    ...(["promise", "check"] as const).flatMap((field) =>
+      unless(
+        isFilled(scenario[field]),
+        `${path}.${field}`,
+        "empty_text",
+        `the ${field} is empty`,
+      ),
+    ),
+    ...checkProof(scenario, path),
     ...checkSteps(scenario.steps, `${path}.steps`),
-    ...checkSetup(scenario.setup, `${path}.setup`, userIds),
+    ...checkSetup(scenario.setup, `${path}.setup`, known),
   ];
 }
 
-/** Every way `file` falls short of a Tour file whose windows name `userIds`; empty when it is a valid one. Never throws. */
+/** Every way `file` falls short of a Tour file naming the people `userIds` and preparations `prepareIds`. Never throws. */
 export function validateTour(
   file: unknown,
   userIds: readonly string[],
+  prepareIds: readonly string[],
 ): TourIssue[] {
   if (!isObject(file))
     return [issue("", "not_an_object", "a Tour file must be a JSON object")];
-  const issues: TourIssue[] = [];
   const { formatVersion, groups, scenarios } = file;
-
-  if (formatVersion !== 1)
-    issues.push(
-      issue(
-        "formatVersion",
-        "bad_format_version",
-        `the format version must be 1, not ${named(formatVersion)}`,
-      ),
-    );
-  if (
-    !Array.isArray(groups) ||
-    groups.length !== TOUR_GROUPS.length ||
-    groups.some((group, i) => group !== TOUR_GROUPS[i])
-  )
-    issues.push(
-      issue(
-        "groups",
-        "bad_groups",
-        `the groups must be exactly ${TOUR_GROUPS.join(", ")}, in that order`,
-      ),
-    );
-  if (!Array.isArray(scenarios))
-    return [
-      ...issues,
-      issue("scenarios", "bad_scenarios", "the scenarios must be a list"),
-    ];
-
+  const list: readonly unknown[] = Array.isArray(scenarios) ? scenarios : [];
+  const known = { userIds, prepareIds };
   return [
-    ...issues,
-    ...scenarios.flatMap((scenario: unknown, i) =>
-      checkScenario(
-        scenario,
-        `scenarios[${i}]`,
-        scenarios.slice(0, i),
-        userIds,
-      ),
+    ...unless(
+      formatVersion === 2,
+      "formatVersion",
+      "bad_format_version",
+      `the format version must be 2, not ${named(formatVersion)}`,
+    ),
+    ...unless(
+      Array.isArray(groups) &&
+        groups.length === TOUR_GROUPS.length &&
+        groups.every((group, i) => group === TOUR_GROUPS[i]),
+      "groups",
+      "bad_groups",
+      `the groups must be exactly ${TOUR_GROUPS.join(", ")}, in that order`,
+    ),
+    ...unless(
+      Array.isArray(scenarios),
+      "scenarios",
+      "bad_scenarios",
+      "the scenarios must be a list",
+    ),
+    ...list.flatMap((scenario, i) =>
+      checkScenario(scenario, `scenarios[${i}]`, list.slice(0, i), known),
     ),
   ];
 }

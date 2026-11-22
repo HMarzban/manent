@@ -36,6 +36,10 @@ async function budgets(): Promise<Budget[]> {
 test("every server scenario is found and has its budget rows", async () => {
   const found = await scenarioIds(join(repoRoot, "bench/server"));
   expect(found).toEqual([
+    "history.list.first_page",
+    "history.restore.120",
+    "history.restore.2000",
+    "history.version.2000",
     "server.durability",
     "server.fanout",
     "server.join-storm",
@@ -45,8 +49,8 @@ test("every server scenario is found and has its budget rows", async () => {
     "server.room-memory",
     "server.soak",
   ]);
-  const rows = (await budgets()).filter((b) =>
-    b.scenario.startsWith("server."),
+  const rows = (await budgets()).filter(
+    (b) => b.scenario.startsWith("server.") || found.includes(b.scenario),
   );
   // every row has its scenario, and every scenario a row
   expect(new Set(rows.map((b) => b.scenario))).toEqual(new Set(found));

@@ -154,7 +154,51 @@ test("the Stage 1 commands are these, with these words and keys", () => {
     ["view.zoom300", "Zoom: 300\u00a0%", [], []],
     ["library.newScript", "New script", [], []],
     ["library.newProject", "New project", [], []],
+    ["file.import", "Import…", [], []],
+    ["file.open", "Open…", ["Mod+O"], ["Mod+O"]],
+    ["file.importAgain", "Import again as a new script", [], []],
+    ["history.review", "Review", [], []],
+    ["review.undo", "Undo", [], []],
     ["demo.tour", "Tour", [], []],
+    ["app.openInBrowser", "Open in browser", [], []],
+    ["history.markVersion", "Mark a version", ["Mod+S"], ["Mod+S"]],
+    ["history.nameDraft", "Name this draft…", ["Mod+Shift+S"], ["Mod+Shift+S"]],
+    ["history.changesSince", "Changes since", [], []],
+    ["history.hideChanges", "Hide", [], []],
+    ["history.showSinceOpened", "Show", [], []],
+    ["history.backToWorking", "Back to Working", [], []],
+    ["history.nextChange", "Next change", [], []],
+    ["history.previousChange", "Previous change", [], []],
+    ["history.restore", "Restore", [], []],
+    ["history.restoreScene", "Restore this scene", [], []],
+    ["history.restoreBefore", "Restore 'Before restore'", [], []],
+    ["history.seeWhatChanged", "See what changed", [], []],
+    ["history.whoWrote", "Who wrote this?", [], []],
+    ["production.lock", "Lock for production…", [], []],
+    ["production.issue", "Issue…", [], []],
+    ["production.recall", "Recall…", [], []],
+    ["production.markRevised", "Mark revised", [], []],
+    ["production.clearRevised", "Clear revised", [], []],
+    ["production.lockPages", "Lock or unlock page numbers", [], []],
+    ["production.lockAPages", "Lock A-pages", [], []],
+    ["production.renumber", "Renumber", [], []],
+    ["production.omitScene", "Omit scene", [], []],
+    ["production.bringBackScene", "Bring back scene", [], []],
+    ["production.changeLayout", "Change layout…", [], []],
+    ["production.unlock", "Unlock…", [], []],
+    ["production.end", "End production…", [], []],
+    ["view.pages", "Pages", [], []],
+    ["view.marks.collated", "Revision marks: Collated", [], []],
+    ["view.marks.this_revision", "Revision marks: This revision only", [], []],
+    ["view.marks.all", "Revision marks: All revisions", [], []],
+    [
+      "view.marks.since_full_draft",
+      "Revision marks: Since the last full draft",
+      [],
+      [],
+    ],
+    ["view.marks.none", "Revision marks: None", [], []],
+    ["view.colourRevised", "Colour revised pages", [], []],
   ]);
 });
 
@@ -253,6 +297,33 @@ test("the editor's commands sit in these menus and answer to these palette words
       { keywords: [] },
       null,
     ]),
+  ]);
+});
+
+test("Open in browser sits in File and is offered only in the desktop app's demo", () => {
+  const open = byId("app.openInBrowser");
+  expect([
+    pick("app.openInBrowser"),
+    open.scope,
+    open.reach,
+    open.opens,
+    [
+      ctx({ shell: "desktop", demo: true }),
+      ctx({ shell: "desktop", demo: false }),
+      ctx({ shell: "web", demo: true }),
+    ].map((context) => open.visible?.(context)),
+  ]).toEqual([
+    {
+      label: "Open in browser",
+      home: null,
+      menus: [{ menu: "file", group: "browser", order: 80, submenu: null }],
+      palette: { keywords: [] },
+      setting: null,
+    },
+    "global",
+    "self",
+    null,
+    [true, false, false],
   ]);
 });
 
@@ -513,6 +584,10 @@ test("every setting command has a fixed id, so a stored shortcut keeps finding i
     "setting.script.moresAtBreaks",
     "setting.script.sameSpeakerContd",
     "setting.script.sceneContinued",
+    "setting.script.numbering.suffix",
+    "setting.script.numbering.prefix",
+    "setting.script.colourOrder.standard",
+    "setting.script.colourOrder.extended",
   ]);
 });
 
@@ -577,9 +652,10 @@ test("a script setting lives in Script settings and is absent off a document", (
   ]).toEqual(["homeScriptSettings", "homeScriptSettings", true, false]);
 });
 
-test("only Script settings and the preferences have a home in the palette", () => {
+test("only Script settings, the preferences and Lock for production have a home in the palette", () => {
   const homes = new Set(COMMANDS.map((c) => c.home));
   expect([...homes].toSorted()).toEqual([
+    "homeBeforeLock",
     "homePreferences:appearance",
     "homePreferences:device",
     "homePreferences:writing",
@@ -590,7 +666,7 @@ test("only Script settings and the preferences have a home in the palette", () =
     COMMANDS.filter((c) => c.home !== null && !c.id.startsWith("setting.")).map(
       (c) => c.id,
     ),
-  ).toEqual(["doc.scriptSettings"]);
+  ).toEqual(["doc.scriptSettings", "production.lock"]);
 });
 
 test("a setting that is not offered in the palette generates commands hidden from it", () => {
@@ -695,7 +771,46 @@ test("the handler table names every command but the generated ones", () => {
     "view.zoom300": noop,
     "library.newScript": noop,
     "library.newProject": noop,
+    "file.import": noop,
+    "file.open": noop,
+    "file.importAgain": noop,
+    "history.review": noop,
+    "review.undo": noop,
     "demo.tour": noop,
+    "app.openInBrowser": noop,
+    "history.markVersion": noop,
+    "history.nameDraft": noop,
+    "history.changesSince": noop,
+    "history.hideChanges": noop,
+    "history.showSinceOpened": noop,
+    "history.backToWorking": noop,
+    "history.nextChange": noop,
+    "history.previousChange": noop,
+    "history.restore": noop,
+    "history.restoreScene": noop,
+    "history.restoreBefore": noop,
+    "history.seeWhatChanged": noop,
+    "history.whoWrote": noop,
+    "production.lock": noop,
+    "production.issue": noop,
+    "production.recall": noop,
+    "production.markRevised": noop,
+    "production.clearRevised": noop,
+    "production.lockPages": noop,
+    "production.lockAPages": noop,
+    "production.renumber": noop,
+    "production.omitScene": noop,
+    "production.bringBackScene": noop,
+    "production.changeLayout": noop,
+    "production.unlock": noop,
+    "production.end": noop,
+    "view.pages": noop,
+    "view.marks.collated": noop,
+    "view.marks.this_revision": noop,
+    "view.marks.all": noop,
+    "view.marks.since_full_draft": noop,
+    "view.marks.none": noop,
+    "view.colourRevised": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))

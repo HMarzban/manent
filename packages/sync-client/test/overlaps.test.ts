@@ -57,6 +57,20 @@ async function typedOffline(typed: (h: DocHandle) => void) {
   return { w, h, events };
 }
 
+/** Typed offline into a script this device has never synced, then back online. */
+async function typedBeforeFirstSync(typed: (h: DocHandle) => void) {
+  const w = await setup();
+  await w.store.patchMeta(DOC, { neverSynced: true });
+  const client = w.makeClient();
+  const h = await client.open(DOC);
+  client.setOnline(false);
+  const events = listen(h);
+  typed(h);
+  await w.settle();
+  client.setOnline(true);
+  return { w, h, events };
+}
+
 test("a block both sides changed differently is an overlap; one changed alike, or on one side, is not", () => {
   const base = doc(b(A, "one"), b(B, "two"), b(C, "three"), b(D, "four"));
   expect(
@@ -253,6 +267,37 @@ test("text typed offline into a block someone deleted is Recovered text, not an 
     setAside: 1,
     overlaps: 0,
   });
+});
+
+test("work typed before a script first synced is told by no receipt", async () => {
+  const { w, h, events } = await typedBeforeFirstSync((typing) =>
+    typeIn(typing, B1, "mine"),
+  );
+  await reconnectWithServerChange(w, (writer) =>
+    writer.insertText(B2, 0, "Dana's"),
+  );
+  w.server.ackAll(DOC);
+  await w.settle();
+  expect([h.status.get().waiting, h.recovered.get(), events]).toEqual([
+    0,
+    [],
+    [],
+  ]);
+});
+
+test("a script's first sync that sets typed text aside still tells it in a receipt", async () => {
+  const { w, h, events } = await typedBeforeFirstSync((typing) =>
+    typeIn(typing, B1, "mine"),
+  );
+  await reconnectWithServerChange(w, (writer) => writer.deleteBlock(B1));
+  w.server.ackAll(DOC);
+  await w.settle();
+  expect(h.recovered.get()).toMatchObject([
+    { cause: "merge", text: "mine", mine: null, theirs: null },
+  ]);
+  expect(events.filter((event) => event.type === "receipt")).toEqual([
+    { type: "receipt", sent: 1, setAside: 1, overlaps: 0 },
+  ]);
 });
 
 test("a recovered item stored before overlaps carried wordings reads with none", async () => {

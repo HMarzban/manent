@@ -316,7 +316,7 @@ class Cloud {
           now: this.clock.clock.now,
         }),
       },
-      demo: { seedId: () => this.seedId, control: null },
+      demo: { seedId: () => this.seedId, control: null, controls: null },
       socket: {
         tickets: createTicketStore({ now: this.clock.clock.now }),
         versions: VERSIONS,

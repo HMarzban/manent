@@ -23,7 +23,6 @@ import {
   useServices,
 } from "../../services/context.tsx";
 import { createLocalDocumentSource } from "../../services/local-document-source.ts";
-import { createMemoryLibrary } from "../../services/memory-library.ts";
 import type {
   DocumentServices,
   DocumentSource,
@@ -48,6 +47,7 @@ import { LibraryScreen } from "../library/library-screen.tsx";
 import { Pane } from "../preferences/pane.tsx";
 import { SendPlaceContext } from "../send/send-frame.tsx";
 import { testSendForm } from "../send/test-form.tsx";
+import { createFixtureLibrary } from "./fixture-library.ts";
 
 type StateKind = SurfaceStateValue["kind"];
 type Waiting = readonly { scene: string; count: number }[];
@@ -83,6 +83,9 @@ const fixtureApi = (options: {
   me: options.me ?? NEVER,
   signIn: NEVER,
   demo: async () => null,
+  removedDoc: async () => null,
+  docClients: async () => ({ clients: [] }),
+  prepareTour: NEVER,
 });
 
 interface Row {
@@ -119,7 +122,7 @@ const row = (
 function FixtureSection(props: { row: Row }): ReactNode {
   const { surface, state, draw, facts, waiting, projects } = props.row;
   const services = useServices();
-  const { now, where, randomId, language } = useEnvironment();
+  const { now, where, randomId } = useEnvironment();
   const [fixture] = useState(() => {
     const local = createLocalDocumentSource({ now, shell: where.shell }).open(
       DOC_ID,
@@ -130,9 +133,7 @@ function FixtureSection(props: { row: Row }): ReactNode {
       waitingByScene: createValue(waiting),
     };
     const documents: DocumentSource = { open: () => doc, close: noop };
-    const library = createMemoryLibrary({ ids: randomId, documents, language });
-    for (let n = 0; n < projects; n++)
-      void library.createProject(SIGNED_OUT.userId, "film");
+    const library = createFixtureLibrary({ count: projects, ids: randomId });
     const queries = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });

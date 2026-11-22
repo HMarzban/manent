@@ -1,9 +1,10 @@
-import { DEMO_PEOPLE, TOUR_GROUPS } from "@manent/demo";
+import { DEMO_PEOPLE, TOUR, TOUR_GROUPS, isShown } from "@manent/demo";
 import type { DemoResponse } from "@manent/sync-protocol";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { openMadeScript } from "../support/made-script.ts";
 import { E2E_CONTROL_PORT } from "../support/ports.ts";
-import { signedInAs } from "../support/tour.ts";
+import { reseedDemo, signedInAs } from "../support/tour.ts";
 
 const leo = () => /^Leo Marsh/;
 const tourTab = (page: Page) =>
@@ -22,7 +23,10 @@ test.use({ serviceWorkers: "block" });
 test("a tester chooses a person and reaches the Library", async ({
   page,
   browserName,
+  request,
 }) => {
+  // a first visit is once per person on this server, and earlier tests have had Leo's
+  await reseedDemo(request);
   // `/` with no person redirects to the chooser
   await page.goto("/");
   await expect(page).toHaveURL(/\/choose\?next=%2F$/);
@@ -63,12 +67,14 @@ test("a tester chooses a person and reaches the Library", async ({
   await expect(serverLine(page)).toHaveText("Server running");
   // open on the first visit to the Library
   const tour = tourTab(page);
-  // "History" among them
+  await expect(tour.getByRole("heading", { level: 2 })).toHaveText("Tour");
+  // a group is drawn only when it lists a scenario
   for (const group of TOUR_GROUPS)
     await expect(
       tour.getByRole("heading", { name: group, exact: true }),
-    ).toBeVisible();
-  // a group with no scenario is its heading alone
+    ).toHaveCount(
+      TOUR.scenarios.some((s) => s.group === group && isShown(s)) ? 1 : 0,
+    );
   await expect(tour.getByText("Not in this build yet")).toHaveCount(0);
 });
 
@@ -178,6 +184,35 @@ test("choosing You signs nobody in", async ({ page }) => {
   expect(
     await page.evaluate(() => sessionStorage.getItem("manent.demo.session")),
   ).toBe('{"token":null,"userId":"you","name":"You"}');
+});
+
+test("a script's address opened in a new tab asks who you are, then opens the script, and a reload keeps each", async ({
+  page,
+  browser,
+}) => {
+  const docId = crypto.randomUUID();
+  const address = `/s/${docId}`;
+  await openMadeScript(page, "dana", docId);
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  try {
+    const tab = await context.newPage();
+    await tab.goto(address);
+    const chooser = `/choose?next=${encodeURIComponent(address)}`;
+    await expect(tab).toHaveURL(chooser);
+    const heading = tab.getByRole("heading", { name: "Choose who you are" });
+    await expect(heading).toBeFocused();
+    await tab.reload();
+    await expect(tab).toHaveURL(chooser);
+    await expect(heading).toBeFocused();
+    await tab.getByRole("button", { name: /^Dana Reyes/ }).click();
+    await expect(tab).toHaveURL(address);
+    const title = "Untitled script — Dana Reyes — Manent demo";
+    await expect(tab).toHaveTitle(title);
+    await tab.reload();
+    await expect(tab).toHaveTitle(title);
+  } finally {
+    await context.close();
+  }
 });
 
 test("?person= signs a tab in and leaves the address as it was", async ({

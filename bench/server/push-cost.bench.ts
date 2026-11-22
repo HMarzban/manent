@@ -2,6 +2,7 @@
 import { fakeClock } from "@manent/server-core/testing";
 import { createMemoryStorage } from "@manent/storage/testing";
 import type { Measurement, Scenario } from "../harness.ts";
+import { sampleMs } from "../measure.ts";
 import {
   HOME,
   OWNER,
@@ -21,7 +22,7 @@ const KEYSTROKES = 200;
 const BETWEEN_KEYSTROKES_MS = 250;
 const TYPIST_CLIENT = 1001;
 
-function pushTimes(pages: number): number[] {
+async function pushTimes(pages: number): Promise<number[]> {
   const clock = fakeClock(1_000);
   const storage = createMemoryStorage({ now: clock.clock.now });
   const service = createBenchService({
@@ -39,31 +40,32 @@ function pushTimes(pages: number): number[] {
     clientId: TYPIST_CLIENT,
     blockId: firstBlockOf(script),
   });
-  const answers: { at: number; refused: string | null }[] = [];
+  const answers: { refused: string | null }[] = [];
   const peer = createBenchPeer(OWNER, (message) => {
-    if (message.type === "ACK")
-      answers.push({ at: performance.now(), refused: null });
-    if (message.type === "ERROR")
-      answers.push({ at: performance.now(), refused: message.message });
+    if (message.type === "ACK") answers.push({ refused: null });
+    if (message.type === "ERROR") answers.push({ refused: message.message });
   });
   joinAsEditor(service, peer, {
     docId,
     clientId: TYPIST_CLIENT,
     vector: keystrokes.vector,
   });
-  return Array.from({ length: KEYSTROKES }, (_, n) => {
+  const times: number[] = [];
+  for (let n = 0; n < KEYSTROKES; n++) {
     const push = keystrokes.next();
-    const sentAt = performance.now();
-    service.receive(peer, push);
-    clock.runDeferred();
+    const ms = await sampleMs(() => {
+      service.receive(peer, push);
+      clock.runDeferred();
+    });
     const answer = answers.at(n);
     if (answer === undefined || answer.refused !== null)
       throw new Error(
         `keystroke ${n + 1} at ${pages} pages was answered ${answer?.refused ?? "nothing"}`,
       );
     clock.advance(BETWEEN_KEYSTROKES_MS);
-    return answer.at - sentAt;
-  });
+    times.push(ms);
+  }
+  return times;
 }
 
 const scenario: Scenario = {
@@ -72,8 +74,8 @@ const scenario: Scenario = {
   processes: 5,
   async run(): Promise<Measurement[]> {
     return [
-      { metric: "push_ms_120", unit: "ms", samples: pushTimes(120) },
-      { metric: "push_ms_2000", unit: "ms", samples: pushTimes(2000) },
+      { metric: "push_ms_120", unit: "ms", samples: await pushTimes(120) },
+      { metric: "push_ms_2000", unit: "ms", samples: await pushTimes(2000) },
     ];
   },
 };

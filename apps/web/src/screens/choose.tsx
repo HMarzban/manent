@@ -3,12 +3,15 @@ import type { SurfaceRenderers, SurfaceStateValue } from "@manent/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { SignInChoice } from "@manent/sync-protocol";
-import { useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode, RefObject } from "react";
 import type { Api } from "../api.ts";
 import { focusHeading } from "../focus.ts";
-import { useEnvironment } from "../services/context.tsx";
+import { useEnvironment, useServices } from "../services/context.tsx";
+import type { CloseGuard } from "../services/sync/close-guard.ts";
+import { CloseQuestion } from "../services/sync/close-question.tsx";
 import { choosePerson } from "../session.ts";
+import { FactsContext } from "../state/bridge-contexts.ts";
 import type { TabPerson } from "../session.ts";
 import { TEXT, pageTitle } from "../text.ts";
 
@@ -89,13 +92,44 @@ function Back(props: { next: string }): ReactNode {
   );
 }
 
-/** The people to choose from, and choosing one: on success the tab has that person and goes on to `next`. */
+/** Inside the shell, where a person's documents may be open, a switch first asks their close guard. */
+function SwitchGuard(props: { into: RefObject<CloseGuard | null> }): ReactNode {
+  // the shell provides the services together with the bridge's contexts
+  const inShell = useContext(FactsContext) !== null;
+  return inShell ? <PersonSwitchGuard {...props} /> : null;
+}
+
+function PersonSwitchGuard(props: {
+  into: RefObject<CloseGuard | null>;
+}): ReactNode {
+  const { guard } = useServices().closing;
+  const { into } = props;
+  useEffect(() => {
+    into.current = guard;
+    return () => {
+      into.current = null;
+    };
+  }, [guard, into]);
+  return <CloseQuestion />;
+}
+
+/** Goes on unless a document this device cannot save is open and the person keeps it. */
+async function mayLeave(guard: CloseGuard | null): Promise<boolean> {
+  return guard === null || (await guard.ask()) === "leave";
+}
+
+/**
+ * The people to choose from, and choosing one: on success the tab has that person and goes on to `next`. In the desktop
+ * app every person, You included, signs in at the node, which keeps the person's work and keeps You off the cloud.
+ */
 function useChooser(
   api: Api,
   setPerson: (person: TabPerson) => void,
   next: string,
+  guard: RefObject<CloseGuard | null>,
 ) {
   const navigate = useNavigate();
+  const { where } = useEnvironment();
   const [unreachable, setUnreachable] = useState(false);
 
   const choices = useQuery({
@@ -106,13 +140,17 @@ function useChooser(
   });
 
   const choose = useMutation({
-    mutationFn: (choice: SignInChoice) => choosePerson(choice, api),
+    mutationFn: (choice: SignInChoice) =>
+      where.shell === "desktop"
+        ? api.signIn(choice.userId)
+        : choosePerson(choice, api),
     onSuccess: async (result) => {
       setUnreachable(!result.ok && result.reason === "unreachable");
       if (!result.ok) {
         if (result.reason === "unknown_user") await choices.refetch();
         return;
       }
+      if (!(await mayLeave(guard.current))) return;
       setPerson(result.person);
       await navigate({ href: next });
     },
@@ -132,7 +170,13 @@ export function ChooseScreen(props: {
   // before a person is chosen the chooser is drawn outside the shell, which times every other surface
   const timing = useMemo(() => ({ now, schedule }), [now, schedule]);
   const [loadingSince] = useState(now);
-  const { choices, choose, unreachable } = useChooser(api, setPerson, next);
+  const guard = useRef<CloseGuard | null>(null);
+  const { choices, choose, unreachable } = useChooser(
+    api,
+    setPerson,
+    next,
+    guard,
+  );
 
   useEffect(() => {
     document.title = pageTitle(TEXT.chooseTitle, null);
@@ -175,6 +219,7 @@ export function ChooseScreen(props: {
         <SurfaceState surface="choose" state={state} render={render} />
       </TimingProvider>
       {person && <Back next={next} />}
+      {person && <SwitchGuard into={guard} />}
     </div>
   );
 }

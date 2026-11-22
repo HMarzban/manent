@@ -236,6 +236,7 @@ test("empty, it is the menu and the last five commands", async () => {
     "Edit",
     "View",
     "Format",
+    "Script",
     "Help",
     "Keyboard shortcuts⌘/",
     "Left panel⌘⌥1",

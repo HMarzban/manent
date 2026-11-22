@@ -1,4 +1,5 @@
 // What the public documents must look like. Read by tools/check-records.ts.
+import { TRACKED_FILES, TRACKED_ROOTS } from "./check-tracked.ts";
 import { UCD_DIR, UCD_SHA256 } from "./unicode/generate-tables.ts";
 
 export const CHANGELOG = "CHANGELOG.md";
@@ -7,13 +8,14 @@ export const README = "README.md";
 export const DECISIONS_DIR = "docs/decisions";
 export const DECISIONS_INDEX = "docs/decisions/README.md";
 export const LESSONS = "docs/memory/lessons.md";
-export const MEMORY_DIR = "docs/memory";
 export const ARCHITECTURE_DIR = "docs/architecture";
-export const BENCHMARK_DIR = "docs/benchmark";
 export const OVERVIEW = "docs/architecture/overview.md";
 
-/** Public documents at the root; each is read when it exists. */
-export const PUBLIC_FILES = [AGENTS, CHANGELOG, README] as const;
+/** Public documents outside the folders below: every tracked Markdown file named in the allow-list, and the pull-request template; each is read when it exists. */
+export const PUBLIC_FILES: readonly string[] = [
+  ...TRACKED_FILES.filter((file) => file.endsWith(".md")),
+  ".github/pull_request_template.md",
+];
 
 /** A finding when one is absent. */
 export const REQUIRED_FILES = [
@@ -25,13 +27,13 @@ export const REQUIRED_FILES = [
   OVERVIEW,
 ] as const;
 
-/** Every Markdown file in these folders is a public document; a folder that does not exist holds none. */
-export const PUBLIC_DIRS = [
-  ARCHITECTURE_DIR,
-  BENCHMARK_DIR,
-  DECISIONS_DIR,
-  MEMORY_DIR,
-] as const;
+/** Every Markdown file in these folders is a public document: the tracked folders under docs/, and the issue templates. A folder that does not exist holds none. */
+export const PUBLIC_DIRS: readonly string[] = [
+  ...TRACKED_ROOTS.filter((dir) => dir.startsWith("docs/")).map((dir) =>
+    dir.slice(0, -1),
+  ),
+  ".github/ISSUE_TEMPLATE",
+];
 
 /** Keep a Changelog's groups. */
 export const CHANGE_GROUPS = [
@@ -70,14 +72,17 @@ export const AGENTS_MAX_WORDS = 600;
 export const AGENTS_GATE = "bun run verify";
 export const AGENTS_LINKS = [CHANGELOG, DECISIONS_INDEX, LESSONS] as const;
 
-/** The licence: LICENSE holds the terms, and only the README points to them. */
+/** The licence: LICENSE holds the terms, NOTICE the copyright line, and only the README points to them. */
 export const LICENSE_FILE = "LICENSE";
-export const LICENSE_SEPARATOR = new RegExp("^-{10,}$");
-/** SHA-256 of the licence text: the lines below the separator, joined by "\n", trailing space trimmed. */
+export const NOTICE_FILE = "NOTICE";
+/** SHA-256 of the licence: the whole file, its lines joined by "\n", trailing space trimmed. */
 export const LICENSE_SHA256 =
-  "5b8bbac2cb04539b6da6170ff5bc23381f75b1681568efed8e563dcbf64987af";
-/** A document other than the README that holds this word restates the licence. */
-export const LICENSE_WORD = new RegExp("polyform", "i");
+  "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd";
+/** A document other than the README that names the licence restates it. */
+export const LICENSE_WORD = new RegExp(
+  String.raw`apache license|apache-2\.0`,
+  "i",
+);
 
 /**
  * The README's two fixed sections. Their text is recorded, so only there may a word of the local
@@ -89,7 +94,7 @@ export type ReadmeSection = (typeof README_SECTIONS)[number];
 export const README_SECTION_SHA256: Readonly<Record<ReadmeSection, string>> = {
   Acknowledgement:
     "3f1e989d21663c947be512837e383e274e0c42c88ad3b525435bd95f5a149de8",
-  Licence: "73315af565f8383ae65781781053df8f868eb9e24ea2f70d9df74c66262f359a",
+  Licence: "6827c8aba9665b0d0ffe837364ce02f3c431173d2beed31898f1777c77e42db4",
 };
 
 /** The package table in the overview: a row per workspace, ending in one of these. */
@@ -126,11 +131,13 @@ export const LOCAL_TERMS_FILE = "info/records-private-terms";
 /** How a violation names that list. */
 export const LOCAL_TERMS_NAME = ".git/info/records-private-terms";
 /**
- * Tracked files whose words are not scanned: the licence names its holder, the lockfile is
- * generated, and the Unicode data is vendored unmodified and pinned by its SHA-256.
+ * Tracked files whose words are not scanned: the licence is pinned by its SHA-256, the notice
+ * names its holder, the lockfile is generated, and the Unicode data is vendored unmodified and
+ * pinned by its SHA-256.
  */
 export const UNSCANNED: readonly string[] = [
   LICENSE_FILE,
+  NOTICE_FILE,
   "bun.lock",
   ...Object.keys(UCD_SHA256).map((name) => `${UCD_DIR}/${name}`),
 ];

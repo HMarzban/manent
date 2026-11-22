@@ -1,9 +1,11 @@
 // The document frame in a browser: the status, the title bar on a narrow window, and signing in from the Sync centre.
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
-import { signedInAs } from "../support/tour.ts";
+import { makeScript } from "../support/made-script.ts";
+import { closeFirstTour, signedInAs } from "../support/tour.ts";
 
-const DOC = "/s/6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+const DOC = `/s/${DOC_ID}`;
 const NEW_SCRIPT = "Saved · Only in this browser — not backed up";
 
 /** Lays `facts` over the open document's status, through the test build's hook. */
@@ -44,8 +46,9 @@ test("the status never moves while its words change", async ({ page }) => {
   // the device slot, the middle dot, then the server slot
   const server = status.locator("span").nth(2);
   const boxes: ({ x: number; y: number; width: number } | null)[] = [];
+  // You has no session, so under the new script's words the source says Sign in to sync
   for (const [facts, words] of [
-    [{ neverSynced: false }, "Saved · Synced"],
+    [{ neverSynced: false, server: "synced" }, "Saved · Synced"],
     [{ server: "syncing", waiting: 3 }, "Saved · Syncing…"],
     [{ network: "offline", waiting: 12 }, "Saved · Offline, 12 waiting"],
     [
@@ -75,7 +78,12 @@ test("the title truncates before the status, which never loses a word", async ({
       JSON.stringify({ "device.interfaceSize": "200" }),
     ),
   );
-  await signedInAs(page, "you", DOC);
+  // a script the Library makes, which its index holds and so can rename
+  await signedInAs(page, "you");
+  await page
+    .locator('[data-region="title_bar"]')
+    .getByRole("button", { name: "New script", exact: true })
+    .click();
   await expect(page.locator("html")).toHaveAttribute("data-ui-size", "200");
   const title = "The Lamp Room, ".repeat(8).slice(0, 120);
   await page.getByRole("button", { name: "Untitled script" }).click();
@@ -124,14 +132,19 @@ test("Sign in to sync gives You a session and the status follows the source", as
     )
     .toBe("string");
   await expect(status).toHaveAccessibleName(NEW_SCRIPT);
+  // the sync this tab started before the session keeps saying Sign in to sync under the new script's words
   await setStatus(page, { neverSynced: false });
-  await expect(status).toHaveAccessibleName("Saved · Synced");
+  await expect(status).toHaveAccessibleName("Saved · Sign in to sync");
 });
 
 test("opening a panel never moves the page's lines up or down", async ({
   page,
 }) => {
-  await signedInAs(page, "you", DOC);
+  await signedInAs(page, "you");
+  // the Tour that You's first launch opens is the demo's; the script is opened without it
+  await closeFirstTour(page);
+  await makeScript(page, DOC_ID);
+  await page.goto(DOC);
   // the page's first line; Fit width scales the page as a panel takes room, and keeps the line where it was
   const line = page.locator("[data-editor-host] .mn-page-view p").first();
   const top = async (): Promise<number | undefined> =>

@@ -28,9 +28,26 @@ function prepare(db: Database) {
       `INSERT INTO doc_checkpoints (doc_id, generation, seq, state, sha256, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
        ON CONFLICT (doc_id, generation, seq) DO UPDATE SET state = excluded.state, sha256 = excluded.sha256, created_at = excluded.created_at`,
     ),
+    // a pin keeps the newest checkpoint at or before its seq; a pin with none keeps nothing, and NULL never reaches NOT IN
     trim: db.query<never, [string, number, number]>(
       `DELETE FROM doc_checkpoints WHERE doc_id = ?1 AND generation = ?2 AND seq NOT IN
-       (SELECT seq FROM doc_checkpoints WHERE doc_id = ?1 AND generation = ?2 ORDER BY seq DESC LIMIT ?3)`,
+       (SELECT seq FROM doc_checkpoints WHERE doc_id = ?1 AND generation = ?2 ORDER BY seq DESC LIMIT ?3)
+       AND seq NOT IN (SELECT kept FROM (SELECT (SELECT max(c.seq) FROM doc_checkpoints c
+         WHERE c.doc_id = ?1 AND c.generation = ?2 AND c.seq <= p.seq) AS kept
+         FROM checkpoint_pins p WHERE p.doc_id = ?1 AND p.generation = ?2) WHERE kept IS NOT NULL)`,
+    ),
+    pin: db.query<never, [string, string, number, number]>(
+      `INSERT INTO checkpoint_pins (version_id, doc_id, generation, seq) VALUES (?1, ?2, ?3, ?4)
+       ON CONFLICT (version_id) DO UPDATE SET doc_id = excluded.doc_id, generation = excluded.generation, seq = excluded.seq`,
+    ),
+    unpin: db.query<never, [string]>(
+      "DELETE FROM checkpoint_pins WHERE version_id = ?1",
+    ),
+    purgeCheckpoints: db.query<never, [string, number]>(
+      "DELETE FROM doc_checkpoints WHERE doc_id = ?1 AND generation = ?2",
+    ),
+    purgePins: db.query<never, [string, number]>(
+      "DELETE FROM checkpoint_pins WHERE doc_id = ?1 AND generation = ?2",
     ),
     newestFirst: db.query<StoredCheckpoint, [string, number, number]>(
       "SELECT seq, state, sha256 AS sha FROM doc_checkpoints WHERE doc_id = ?1 AND generation = ?2 AND seq <= ?3 ORDER BY seq DESC",
@@ -66,6 +83,20 @@ function createCheckpoints(
         transact(open(), () => sql().drop.run(docId, generation, seq));
       }
       return null;
+    },
+    pin(versionId, docId, generation, seq) {
+      transact(open(), () => sql().pin.run(versionId, docId, generation, seq));
+    },
+    unpin(versionIds) {
+      transact(open(), () => {
+        for (const versionId of versionIds) sql().unpin.run(versionId);
+      });
+    },
+    purge(docId, generation) {
+      transact(open(), () => {
+        sql().purgeCheckpoints.run(docId, generation);
+        sql().purgePins.run(docId, generation);
+      });
     },
   };
   return checkpoints;

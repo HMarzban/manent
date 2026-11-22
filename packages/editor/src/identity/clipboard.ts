@@ -1,12 +1,20 @@
 // What a cut, a paste and plain text become: ids kept through one cut and paste, and every block an element of the format.
 import { sanitizeText } from "@manent/pagination";
 import { schema } from "@manent/schema";
-import type { ActBreakKind, BlockType, IdSource } from "@manent/schema";
+import type {
+  ActBreakKind,
+  BlockJSON,
+  BlockType,
+  IdSource,
+} from "@manent/schema";
 import { DOMSerializer, Fragment, Slice } from "prosemirror-model";
 import type { Node } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
-import type { Transaction } from "prosemirror-state";
+import type { EditorState, Transaction } from "prosemirror-state";
+import { Mapping } from "prosemirror-transform";
 import type { EditorView } from "prosemirror-view";
+import type { HistoryPort, PastedTextPort } from "../script-editor/ports.ts";
+import { insertBlocks } from "../sections/insert-blocks.ts";
 import { pasteSlice } from "../sections/paste.ts";
 
 /** The attribute a cut puts on the clipboard HTML's outer element; its value is the cut's marker. */
@@ -77,6 +85,8 @@ interface ClipboardOptions {
   formatElements(): readonly string[];
   random: () => string;
   isUndoRedo(tr: Transaction): boolean;
+  history: HistoryPort;
+  pastedText: PastedTextPort;
 }
 
 /** A block whose element is not in the format's list, as the format's plain element. */
@@ -107,20 +117,54 @@ function cutHandler(
   };
 }
 
-/** Every paste in one transaction: ids kept for HTML carrying the recorded marker, new ones otherwise. */
+/**
+ * The paste `pasted` made from `before`, replaced in one transaction by `blocks`, put in at `before`'s selection with
+ * new ids as a paste of blocks is.
+ */
+function convertPaste(
+  state: EditorState,
+  before: EditorState,
+  pasted: Transaction,
+  blocks: readonly BlockJSON[],
+  ids: IdSource,
+): Transaction {
+  const tr = state.tr;
+  for (let i = pasted.steps.length - 1; i >= 0; i--)
+    tr.step(pasted.steps[i]!.invert(pasted.docs[i]!));
+  // with the paste taken back the document is before's again, so its selection holds as it is
+  tr.setSelection(before.selection.map(tr.doc, new Mapping()));
+  return insertBlocks(tr, blocks, ids).scrollIntoView();
+}
+
+/** Every paste in one transaction, then a conversion: ids kept for HTML carrying the recorded marker, new ones otherwise. */
 function pasteHandler(
   options: ClipboardOptions,
 ): (view: EditorView, event: ClipboardEvent, slice: Slice) => boolean {
   return (view, event, slice) => {
-    const record = clipboardKey.getState(view.state)!;
+    const before = view.state;
+    const record = clipboardKey.getState(before)!;
     const html = event.clipboardData?.getData("text/html") ?? "";
+    const text = sanitizeText(event.clipboardData?.getData("text/plain") ?? "");
     const keepIds =
       record !== null && html.includes(`${CUT_MARKER_ATTR}="${record}"`);
-    view.dispatch(
-      pasteSlice(view.state, slice, options.ids, { keepIds })
-        .setMeta(clipboardKey, null)
-        .scrollIntoView(),
+    const pasted = pasteSlice(before, slice, options.ids, { keepIds })
+      .setMeta(clipboardKey, null)
+      .scrollIntoView();
+    view.dispatch(pasted);
+    // Manent's own clipboard HTML marks every block with its element
+    if (html.includes("data-type=") || text === "") return true;
+    options.history.closeStep(view.state);
+    const blocks = options.pastedText.read(
+      text,
+      options.formatElements(),
+      options.plainElement().type,
     );
+    if (blocks === null) return true;
+    view.dispatch(
+      convertPaste(view.state, before, pasted, blocks, options.ids),
+    );
+    options.history.closeStep(view.state);
+    options.pastedText.converted(blocks.length);
     return true;
   };
 }
@@ -142,7 +186,8 @@ function textParser(options: ClipboardOptions): (text: string) => Slice {
  * Ids, elements and text on the clipboard. A cut marks the clipboard HTML with a marker from `random`; the first
  * paste of HTML carrying it keeps the blocks' ids, and any other paste gives new ones from `ids`. A paste or an
  * undo or redo forgets the cut. Plain text is one `plainElement()` per line; a pasted block whose element is not
- * in `formatElements()` becomes `plainElement()`. Placed before section editing, whose cut still writes the clipboard.
+ * in `formatElements()` becomes `plainElement()`. Text from outside Manent that `pastedText` reads as elements is
+ * pasted plain, then converted in an undo step of its own. Placed before section editing, whose cut still writes the clipboard.
  */
 export function clipboardPlugin(options: ClipboardOptions): Plugin {
   // the marker of the cut being written to the clipboard now

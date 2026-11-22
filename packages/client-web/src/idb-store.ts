@@ -7,6 +7,7 @@ import type {
   LoadedDocument,
   LocalStore,
   RecoveredItem,
+  StoredDeviceVersion,
   StoredEntry,
   StoredRecoveredItem,
 } from "@manent/sync-client";
@@ -305,8 +306,9 @@ class IdbStore implements LocalStore {
     });
   }
 
-  versions(docId: string): Promise<DeviceVersion[]> {
-    return this.readAll("versions", docId);
+  async versions(docId: string): Promise<DeviceVersion[]> {
+    const stored = await this.readAll<StoredDeviceVersion>("versions", docId);
+    return stored.map((version) => ({ name: null, ...version }));
   }
 
   markUploaded(versionId: string): Promise<void> {
