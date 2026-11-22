@@ -7,6 +7,7 @@ import type {
   ProductionState,
 } from "@manent/sync-protocol";
 import type { SeedPassage } from "../content/markup.ts";
+import type { PageMeter } from "../generate/fit.ts";
 import type { SeedDoc, SeedProject, SeedWorkspaceId } from "./catalogue.ts";
 
 /** What a seed server can do; an action whose capability is missing is skipped and reported. */
@@ -75,6 +76,8 @@ export interface SeedProduction {
     blockId: string,
     value: "marked" | "cleared",
   ): Promise<void>;
+  /** The pages the active revision would issue now, in page order: those issue() sends. */
+  revisedPages(docId: string): Promise<readonly string[]>;
 }
 
 export interface SeedDriver {
@@ -137,6 +140,8 @@ export interface SeedDriver {
     passage: SeedPassage,
     firstBlockId: string,
   ): Promise<readonly string[]>;
+  /** Counts pages as the server's engine does; a step fits its generated text with it. */
+  readonly meter: PageMeter;
 }
 
 /** The server refused an action, cannot do it, or did not answer. */
