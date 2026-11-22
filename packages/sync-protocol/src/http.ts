@@ -178,6 +178,16 @@ export interface DocClientsResponse {
   clients: { clientId: number; userId: string; name: string }[];
 }
 
+/** The body of POST /api/docs/people. */
+export interface DocPeopleRequest {
+  docId: string;
+}
+
+/** The answer to POST /api/docs/people: everyone with a role on the document, ascending by `userId`. */
+export interface DocPeopleResponse {
+  people: { userId: string; name: string }[];
+}
+
 /** The body of POST /api/docs/removed. */
 export interface RemovedDocRequest {
   docId: string;
