@@ -19,7 +19,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 /** In the order the frame draws them, whatever order a form gives them in. */
 export const SEND_ROW_IDS = [
@@ -96,25 +96,21 @@ function useBusyStep(busy: boolean): number {
   return step;
 }
 
-// the labels in the first column take their own width; the content takes the rest and never pushes past it
-const ROWS_GRID: CSSProperties = Object.freeze({
-  gridTemplateColumns: "max-content minmax(0, 1fr)",
-});
-
 function Rows(props: { rows: readonly SendRow[] }): ReactNode {
   const { rows } = props;
   const given = SEND_ROW_IDS.flatMap((id) =>
     rows.filter((row) => row.id === id),
   );
   return (
-    <dl
-      className="grid min-w-0 grow basis-md gap-x-6 gap-y-3"
-      style={ROWS_GRID}
-    >
+    <dl className="flex flex-col divide-y divide-line">
       {given.map((row) => (
-        <div key={row.id} className="col-span-2 grid grid-cols-subgrid">
-          <dt className="text-ui text-fg-muted">{SEND_WORDS[row.id]}</dt>
-          <dd className="min-w-0 text-ui break-words">{row.content}</dd>
+        <div key={row.id} className="flex gap-4">
+          <dt className="mn-group-label w-key shrink-0 px-0!">
+            {SEND_WORDS[row.id]}
+          </dt>
+          <dd className="min-w-0 flex-1 py-4 text-ui break-words">
+            {row.content}
+          </dd>
         </div>
       ))}
     </dl>
@@ -136,7 +132,12 @@ function ActionLine(props: {
   }, [problem]);
   if (problem !== null)
     return (
-      <p ref={problemRef} tabIndex={-1} className="text-ui text-danger">
+      <p
+        ref={problemRef}
+        tabIndex={-1}
+        data-arrival
+        className="text-ui outline-none"
+      >
         {problem}
       </p>
     );
@@ -164,6 +165,10 @@ function Spinner(): ReactNode {
     </svg>
   );
 }
+
+// the form and its pages side by side, centred, once the screen holds both (1,100 px); the pages under the form before then
+const PAIR =
+  "mx-auto flex w-fit max-w-full flex-col gap-8 p-6 @min-[68.75rem]:flex-row @min-[68.75rem]:items-start";
 
 /** The one primary button; while busy it keeps the width it had with `label`. */
 function ActionButton(props: {
@@ -244,40 +249,48 @@ export function SendFrame(props: {
       : DIALOG_WORDS.disabledLine(action.label, action.disabledReason);
   const describing = action.problem === null && disabledLine !== null;
   return (
-    <div className="flex min-w-0 flex-col gap-6 p-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button variant="ghost" onClick={place.back}>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <header className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line px-2">
+        <Button variant="ghost" className="text-fg-muted" onClick={place.back}>
           {SEND_WORDS.back(place.name)}
         </Button>
-        <h1 ref={headingRef} tabIndex={-1} className="text-title">
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          className="truncate text-heading outline-none"
+        >
           {title}
         </h1>
         {aside === null ? null : (
-          <p className="ms-auto text-meta text-fg-muted">{aside}</p>
+          <p className="ms-auto truncate text-meta text-fg-muted">{aside}</p>
         )}
-      </div>
-      <div className="flex flex-wrap items-start gap-8">
-        <Rows rows={rows} />
-        <section
-          aria-label={SEND_WORDS.pagesRegion}
-          className="min-w-0 grow basis-sm"
-        >
-          {pages}
-        </section>
-      </div>
-      <div className="flex flex-col items-end gap-3 border-t border-line pt-4">
-        <ActionLine
-          problem={action.problem}
-          disabledLine={disabledLine}
-          lineId={lineId}
-        />
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          <BusyAside action={action} step={step} />
-          <ActionButton
-            action={action}
-            step={step}
-            describedBy={describing ? lineId : undefined}
-          />
+      </header>
+      <div className="@container min-h-0 flex-1 overflow-auto">
+        <div className={PAIR}>
+          <div className="flex w-content max-w-full min-w-0 flex-col">
+            <Rows rows={rows} />
+            <div className="flex flex-col items-end gap-3 border-t border-line pt-4">
+              <ActionLine
+                problem={action.problem}
+                disabledLine={disabledLine}
+                lineId={lineId}
+              />
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <BusyAside action={action} step={step} />
+                <ActionButton
+                  action={action}
+                  step={step}
+                  describedBy={describing ? lineId : undefined}
+                />
+              </div>
+            </div>
+          </div>
+          <section
+            aria-label={SEND_WORDS.pagesRegion}
+            className="w-preview max-w-full shrink-0 rounded-surface border border-line bg-desk p-4"
+          >
+            {pages}
+          </section>
         </div>
       </div>
     </div>

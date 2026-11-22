@@ -74,7 +74,7 @@ function SendStatusBar(): ReactNode {
   return (
     <ShellRegion
       region="status_bar"
-      className="flex h-statusbar shrink-0 items-center gap-2 border-t border-line px-3"
+      className="flex h-statusbar shrink-0 items-center gap-2 border-t border-line px-2"
     >
       <MessageSlot
         queue={messages}
@@ -98,7 +98,7 @@ function FormScreen(props: { form: SendForm; docId: string }): ReactNode {
       {/* positioned, so that WebKit finds the screen, not the scrolled page under it, beneath the pointer */}
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div className="flex min-h-0 flex-1">
-          <div className="min-w-0 flex-1 overflow-auto">
+          <div className="flex min-w-0 flex-1 flex-col">
             <Body docId={docId} />
           </div>
           <SidePosition docId={null} tabs={SIDE_PANEL_TABS} />
