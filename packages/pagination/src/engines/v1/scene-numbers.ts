@@ -1,6 +1,6 @@
 // Scene numbers: stored, or counted among the script's scene headings and slugs.
 import type { Pagination } from "../../pages.ts";
-import { isSceneHeading } from "./fill.ts";
+import { isSceneHeading } from "./cast.ts";
 import { specKey } from "./profile.ts";
 
 const LETTER_COUNT = 26;

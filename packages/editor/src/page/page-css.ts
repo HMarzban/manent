@@ -155,6 +155,29 @@ p.el.pg-first {
 .el[data-scene]::after {
   left: calc((var(--geo-column) + 2 - var(--el-indent) + var(--el-slack-left)) * var(--geo-cell));
 }
+.el[data-speech] {
+  position: relative;
+}
+.el[data-speech]::before {
+  content: attr(data-speech);
+  position: absolute;
+  top: 0;
+  padding-top: inherit;
+  text-indent: 0;
+  right: calc(100% + (var(--el-indent) - var(--el-slack-left) + 2) * var(--geo-cell));
+}
+.el.dual-r[data-speech]::before {
+  right: auto;
+  left: calc((var(--geo-column) + 2 - var(--el-indent) + var(--el-slack-left)) * var(--geo-cell));
+}
+.mn-cast {
+  display: block;
+  text-indent: 0;
+  user-select: none;
+}
+.mn-cast::before {
+  content: attr(data-text);
+}
 .el.dual-l {
   float: left;
   clear: left;

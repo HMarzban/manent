@@ -10,6 +10,7 @@ export * from "./blocks.ts";
 export * from "./measure.ts";
 export * from "./sentences.ts";
 export * from "./paginate.ts";
+export * from "./cast.ts";
 export * from "./furniture.ts";
 export * from "./scene-numbers.ts";
 export * from "./labels.ts";
