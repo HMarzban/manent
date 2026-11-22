@@ -35,6 +35,7 @@ import { seedCapabilities } from "./capabilities.ts";
 import { isFields, openSeamLink } from "./link.ts";
 import type { SeamLink } from "./link.ts";
 import { checkPassage, readServerScript } from "./page-meter.ts";
+import { createPageMeter } from "./page-meter.ts";
 import { callRoute } from "./server.ts";
 import type { SeedClock, SeedServer } from "./server.ts";
 
@@ -394,5 +395,6 @@ export function createSeedDriver(options: {
       const script = readServerScript(target.storage, docId);
       return checkPassage(script, passage, firstBlockId);
     },
+    meter: createPageMeter(),
   };
 }
