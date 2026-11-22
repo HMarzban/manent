@@ -68,6 +68,16 @@ const deviceDay = (page: Page): Promise<string> =>
       .join("-");
   });
 
+/** How many interface stores were written inside an editor transaction, by the test build's guard. */
+const violationsOf = (page: Page): Promise<unknown> =>
+  page.evaluate(() => {
+    const guard: unknown = Reflect.get(
+      Object(Reflect.get(window, "__manent")),
+      "guard",
+    );
+    return Reflect.apply(Reflect.get(Object(guard), "violations"), guard, []);
+  });
+
 const demoBar = (page: Page) => page.locator('[data-region="demo_bar"]');
 
 test("a coordinator locks, edits a page into an A-page, issues Blue and recalls it", async ({
@@ -114,6 +124,7 @@ test("a coordinator locks, edits a page into an A-page, issues Blue and recalls 
   await expect
     .poll(async () => (await pagesOf(page)).map((p) => p.label).slice(10, 16))
     .toEqual(["11", "12", "12A", "12B", "13", "14"]);
+  expect(await violationsOf(page)).toBe(0);
   await page.getByRole("button", { name: "View", exact: true }).click();
   await page.getByRole("menuitem", { name: /^Pages/ }).click();
   await expect(
