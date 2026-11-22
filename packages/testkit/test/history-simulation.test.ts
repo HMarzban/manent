@@ -9,6 +9,7 @@ import {
   nameDraft,
   requestRestore,
   restoreAs,
+  restoreLocally,
 } from "./history-world.ts";
 import type { HistoryWorld } from "./history-world.ts";
 
@@ -175,8 +176,8 @@ test(
       const newer = await contentOf(w, "sam", v2);
       dana.online(false);
       sam.online(false);
-      await dana.handle.restoreLocally(older, { kind: "script" });
-      await sam.handle.restoreLocally(newer, { kind: "script" });
+      await restoreLocally(w, dana, older);
+      await restoreLocally(w, sam, newer);
       await allOnline(w);
       // the block both restores put back, twice, under one id
       const twice = seeded.toSpliced(3, 0, ...seeded.slice(2, 3));

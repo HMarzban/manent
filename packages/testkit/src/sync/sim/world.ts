@@ -2,7 +2,9 @@
 // and memory storage, moved only by its clock, the service's deferred work and network steps.
 import { createRng, seededIdSource } from "@manent/demo";
 import type { Rng } from "@manent/demo";
-import { materializeVersion } from "@manent/server-core";
+import { sceneBlocks } from "@manent/revisions";
+import type { RestoreScope } from "@manent/revisions";
+import type { BlockJSON, DocJSON } from "@manent/schema";
 import type { SyncHooks, SyncLimits, SyncService } from "@manent/server-core";
 import { createMemoryStorage } from "@manent/storage/testing";
 import type { MemoryStorage } from "@manent/storage/testing";
@@ -27,7 +29,7 @@ import type { Books, SimClient } from "./device.ts";
 import { firstBroken, isSettled, rebuild, storeFault } from "./invariants.ts";
 import { createSimServer } from "./network.ts";
 import type { SimServer } from "./network.ts";
-import { HOME, actOn, seedScript } from "./script.ts";
+import { actOn, seedScript } from "./script.ts";
 import type { Tools } from "./script.ts";
 
 export type { SimClient } from "./device.ts";
@@ -54,8 +56,10 @@ export interface World {
   rebuilds(): number;
   /** The lines of the document's current generation rebuilt from the log alone. */
   serverText(): string[];
-  /** Markers a person removed, and those a Before restore version keeps, as the last settle found them. */
+  /** Markers a person removed: deleted where they were held, kept only in a cleared browser, or taken out by a restore. */
   removed(): ReadonlySet<string>;
+  /** A restore of `target` over `before`: the markers `before` holds within `scope` and `target` lacks there are removed by the restorer's choice. */
+  noteRestore(before: DocJSON, target: DocJSON, scope: RestoreScope): void;
   /** The invariants; throws an Error naming the seed and the first one broken. */
   check(): void;
 }
@@ -199,6 +203,17 @@ class SimWorld implements World {
     return this.books.removed;
   }
 
+  noteRestore(before: DocJSON, target: DocJSON, scope: RestoreScope): void {
+    // a restore writes a block whose id is held twice as one copy, until a repair exists
+    const twice = heldTwice([before, target]);
+    const restored = blocksWithin(target, scope).filter(
+      (b) => !twice.has(idOf(b)),
+    );
+    const kept = markersIn(linesOfBlocks(restored));
+    for (const marker of markersIn(linesOfBlocks(blocksWithin(before, scope))))
+      if (!kept.has(marker)) this.books.removed.add(marker);
+  }
+
   check(): void {
     const broken = firstBroken({
       storage: this.storage,
@@ -221,35 +236,46 @@ class SimWorld implements World {
           if (books.typist.has(marker)) books.acked.add(marker);
     }
     this.storeFault = null;
-    const beforeRestore = serverBeforeRestore(this.storage);
     for (const device of this.clients) {
       this.storeFault ??= await storeFault(device);
       const versions = await device.store.versions(DOC);
       const recovered = versions.filter((v) => v.kind === "recovered");
       const lines = recovered.flatMap((v) => linesOfContent(v.content));
       books.recoveredVersions.set(device, lines.join("\n"));
-      for (const v of versions)
-        if (v.label === "before_restore")
-          beforeRestore.push(...linesOfContent(v.content));
     }
-    // a restore takes text out of the script by the restorer's choice, and keeps it as Before restore
-    for (const marker of markersIn(beforeRestore)) books.removed.add(marker);
   }
 }
 
-/** The lines of every Before restore version the server keeps. */
-function serverBeforeRestore(storage: MemoryStorage): string[] {
-  const file = storage.open(HOME);
-  return file.versions
-    .list(DOC)
-    .filter((version) => version.kind === "pre_restore")
-    .flatMap((version) => {
-      const blocks = materializeVersion(file, version)?.blocks ?? [];
-      return linesOfContent({
-        type: "doc",
-        content: [{ type: "section", content: blocks }],
-      });
-    });
+const idOf = (block: BlockJSON): string => String(block.attrs?.id);
+
+const blocksOfDoc = (doc: DocJSON): BlockJSON[] =>
+  (doc.content ?? []).flatMap((section) => section.content ?? []);
+
+const linesOfBlocks = (blocks: BlockJSON[]): string[] =>
+  linesOfContent({
+    type: "doc",
+    content: [{ type: "section", content: blocks }],
+  });
+
+/** The blocks of `doc` that `scope` covers, in order. */
+function blocksWithin(doc: DocJSON, scope: RestoreScope): BlockJSON[] {
+  const blocks = blocksOfDoc(doc);
+  if (scope.kind === "script") return blocks;
+  const ids = new Set(sceneBlocks(doc, scope.headingId));
+  return blocks.filter((block) => ids.has(idOf(block)));
+}
+
+/** The ids that one of `docs` holds more than once. */
+function heldTwice(docs: readonly DocJSON[]): Set<string> {
+  const twice = new Set<string>();
+  for (const doc of docs) {
+    const seen = new Set<string>();
+    for (const id of blocksOfDoc(doc).map(idOf)) {
+      if (seen.has(id)) twice.add(id);
+      seen.add(id);
+    }
+  }
+  return twice;
 }
 
 /** The transport, with every replay key it sends kept in the books. */

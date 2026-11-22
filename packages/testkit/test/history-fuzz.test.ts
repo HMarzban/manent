@@ -9,6 +9,7 @@ import {
   historyWorld,
   nameDraft,
   restoreAs,
+  restoreLocally,
 } from "./history-world.ts";
 import type { HistoryWorld } from "./history-world.ts";
 
@@ -42,7 +43,7 @@ const arbRestoreOp: fc.Arbitrary<RestoreOp> = fc.oneof(
   }),
 );
 
-/** 08's runs with up to eight restores put in among their ops. */
+/** The runs of fuzz-ops.ts with up to eight restores put in among their ops. */
 const arbRunWithRestores: fc.Arbitrary<HistoryRun> = fc
   .tuple(arbRun, fc.array(fc.tuple(index, arbRestoreOp), { maxLength: 8 }))
   .map(([run, restores]) => {
@@ -82,7 +83,7 @@ async function restore(w: HistoryWorld, op: RestoreOp): Promise<void> {
   const content = await contentOf(w, userId, version.id);
   if (op.kind === "restore_offline") {
     device.online(false);
-    await device.handle.restoreLocally(content, { kind: "script" });
+    await restoreLocally(w, device, content);
     return;
   }
   const blocks = content.content?.[0]?.content ?? [];
