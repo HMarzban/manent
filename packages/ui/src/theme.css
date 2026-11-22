@@ -859,7 +859,8 @@ html[data-white-page] .mn-pages {
       Nor has the palette's field, which holds focus while the palette is open
       and is the palette's own top edge: its caret is the focus, as it is on a
       page being written. A field inside an input group rings the whole
-      group, as a plain field rings itself. */
+      group, as a plain field rings itself, unless the group is marked
+      data-arrival: its field was focused on arrival and not yet left. */
 :focus-visible:not(
   [role="dialog"],
   [role="alertdialog"],
@@ -875,7 +876,9 @@ html[data-white-page] .mn-pages {
   outline-offset: var(--focus-gap);
   --tw-ring-color: transparent; /* retire the stock halo: one ring, not two */
 }
-[data-slot="input-group"]:has([data-slot="input-group-control"]:focus-visible),
+[data-slot="input-group"]:not([data-arrival]):has(
+    [data-slot="input-group-control"]:focus-visible
+  ),
 [data-slot="slider-thumb"]:has(:focus-visible) {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
