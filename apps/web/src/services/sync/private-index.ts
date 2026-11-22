@@ -1,4 +1,4 @@
-// The person's private index: their preferences, keys, flags, Continue, To review and what each device holds.
+// The person's private index: their preferences, keys, flags, Continue, To review, what each device holds and their Tour.
 import { jsonMap } from "@manent/crdt";
 import type { JsonMapView } from "@manent/crdt";
 import type { KeyValueMap } from "@manent/settings";
@@ -14,6 +14,7 @@ export interface PrivateIndex {
   continueMap: JsonMapView;
   review: JsonMapView;
   onDevice: JsonMapView;
+  tour: JsonMapView;
   handle: DocHandle;
   close(): Promise<void>;
 }
@@ -80,6 +81,7 @@ export async function openPrivateIndex(options: {
     continueMap: map("continue"),
     review: map("review"),
     onDevice: map("on_device"),
+    tour: map("tour"),
     handle,
     close: () => handle.close(),
   };

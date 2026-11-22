@@ -50,7 +50,12 @@ export interface PersonDocuments {
   library: SyncLibrary;
   review: PersonReview;
   /** The private index's maps, holding what is written until it opens. */
-  maps: { prefs: KeyValueMap; keys: KeyValueMap; flags: KeyValueMap };
+  maps: {
+    prefs: KeyValueMap;
+    keys: KeyValueMap;
+    flags: KeyValueMap;
+    tour: KeyValueMap;
+  };
   /** Settles once the private index has opened and its maps are attached, or the sync could not start. */
   ready: Promise<void>;
   /**
@@ -200,19 +205,21 @@ function continuedSource(
 
 /** The private index's maps, each holding what is written until the index opens; `ready` settles once they are attached. */
 function laterMaps(indexes: Promise<Indexes | null>): {
-  maps: { prefs: LaterMap; keys: LaterMap; flags: LaterMap };
+  maps: { prefs: LaterMap; keys: LaterMap; flags: LaterMap; tour: LaterMap };
   ready: Promise<void>;
 } {
   const maps = {
     prefs: createLaterMap(),
     keys: createLaterMap(),
     flags: createLaterMap(),
+    tour: createLaterMap(),
   };
   const ready = indexes.then((opened) => {
     if (opened === null) return;
     maps.prefs.attach(opened.privateIndex.prefs);
     maps.keys.attach(opened.privateIndex.keys);
     maps.flags.attach(opened.privateIndex.flags);
+    maps.tour.attach(opened.privateIndex.tour);
   });
   return { maps, ready };
 }
