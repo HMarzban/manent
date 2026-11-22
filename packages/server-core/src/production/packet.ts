@@ -1,15 +1,15 @@
-// The issued files drawn by the packet writer, in the script font read from the folder of its faces.
+// The issued files drawn by the packet writer, in the script font read from its files.
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { writePacket } from "@manent/formats";
 import type { ScriptFontFiles } from "@manent/formats";
 import type { FontFaceKey } from "@manent/pagination";
 import type { RenderPdf } from "./ports.ts";
 
-/** The script font's eight `.woff` faces, as the PDF embeds them, from `dir`: the `files` folder of `@fontsource/courier-prime`. */
-export async function readScriptFonts(dir: string): Promise<ScriptFontFiles> {
-  const face = (key: FontFaceKey): Promise<Uint8Array> =>
-    readFile(join(dir, `courier-prime-${key}.woff`));
+/** The script font's eight `.woff` faces, as the PDF embeds them, each read from the file `pathOf` names. */
+export async function readScriptFonts(
+  pathOf: (key: FontFaceKey) => string,
+): Promise<ScriptFontFiles> {
+  const face = (key: FontFaceKey): Promise<Uint8Array> => readFile(pathOf(key));
   const [
     latin400Normal,
     latin400Italic,

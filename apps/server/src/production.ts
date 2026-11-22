@@ -1,15 +1,28 @@
-// The issued files this server draws, in the script font read from its package.
-import { dirname, join } from "node:path";
+// The issued files this server draws, in the script font's faces, which the bundler copies beside the
+// server and a compiled binary carries inside it.
+import latin400Italic from "@fontsource/courier-prime/files/courier-prime-latin-400-italic.woff";
+import latin400Normal from "@fontsource/courier-prime/files/courier-prime-latin-400-normal.woff";
+import latin700Italic from "@fontsource/courier-prime/files/courier-prime-latin-700-italic.woff";
+import latin700Normal from "@fontsource/courier-prime/files/courier-prime-latin-700-normal.woff";
+import latinExt400Italic from "@fontsource/courier-prime/files/courier-prime-latin-ext-400-italic.woff";
+import latinExt400Normal from "@fontsource/courier-prime/files/courier-prime-latin-ext-400-normal.woff";
+import latinExt700Italic from "@fontsource/courier-prime/files/courier-prime-latin-ext-700-italic.woff";
+import latinExt700Normal from "@fontsource/courier-prime/files/courier-prime-latin-ext-700-normal.woff";
+import type { FontFaceKey } from "@manent/pagination";
 import { createPacketRenderPdf, readScriptFonts } from "@manent/server-core";
 import type { RenderPdf } from "@manent/server-core";
 
-/** Issued files drawn in the script font, found beside this server: in the workspace, or where the bundled server's lookup finds it. */
+const FACES: Readonly<Record<FontFaceKey, string>> = Object.freeze({
+  "latin-400-normal": latin400Normal,
+  "latin-400-italic": latin400Italic,
+  "latin-700-normal": latin700Normal,
+  "latin-700-italic": latin700Italic,
+  "latin-ext-400-normal": latinExt400Normal,
+  "latin-ext-400-italic": latinExt400Italic,
+  "latin-ext-700-normal": latinExt700Normal,
+  "latin-ext-700-italic": latinExt700Italic,
+});
+
 export async function readServerRenderPdf(): Promise<RenderPdf> {
-  const font = Bun.resolveSync(
-    "@fontsource/courier-prime/package.json",
-    import.meta.dir,
-  );
-  return createPacketRenderPdf(
-    await readScriptFonts(join(dirname(font), "files")),
-  );
+  return createPacketRenderPdf(await readScriptFonts((key) => FACES[key]));
 }

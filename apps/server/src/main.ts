@@ -347,8 +347,9 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
   });
   const background = waiting
     ? startBackgroundSeed({
-        execPath: process.execPath,
-        entry: import.meta.path,
+        command: Bun.isStandaloneExecutable
+          ? [process.execPath]
+          : [process.execPath, "--no-orphans", import.meta.path],
         dataDir: env.dataDir,
         seedAt: Date.now(),
         onProgress: heavy.progress,

@@ -37,6 +37,31 @@ jobs:
           name: release-${{ matrix.os }}
           path: apps/desktop/artifacts/
 
+  server:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - name: Compile the server for six targets
+        run: |
+          for target in bun-darwin-arm64 bun-darwin-x64 bun-linux-x64 bun-linux-arm64 bun-windows-x64 bun-windows-arm64; do
+            bun build --compile --minify --bytecode --format=esm --target="$target" \
+              apps/server/src/main.ts apps/server/src/checkpoint-worker.ts \
+              --outfile "server/manent-${target#bun-}"
+          done
+      - name: Build the web app it serves
+        run: MANENT_WEB_DIR=server/web bun apps/web/build.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server
+          path: server/
+
   publish:
     needs: build
     runs-on: ubuntu-24.04

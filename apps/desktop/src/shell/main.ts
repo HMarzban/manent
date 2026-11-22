@@ -34,6 +34,9 @@ import { createRunningUpdates, updateAtLaunch } from "./updater.ts";
 import { hold, openMainWindow } from "./window.ts";
 import type { MainWindow } from "./window.ts";
 
+/** Where the build packs the script font's faces, under the app's resources. */
+const FONT_FILES = "cloud/node_modules/@fontsource/courier-prime/files";
+
 /** After the last move or resize. */
 const WINDOW_STATE_SAVE_MS = 500;
 
@@ -298,10 +301,9 @@ async function launch(): Promise<void> {
     versions: build.versions,
     build: version,
     platform: process.platform,
-    // the script font the build packs for the cloud
     renderPdf: createPacketRenderPdf(
-      await readScriptFonts(
-        join(resources, "cloud/node_modules/@fontsource/courier-prime/files"),
+      await readScriptFonts((key) =>
+        join(resources, FONT_FILES, `courier-prime-${key}.woff`),
       ),
     ),
     boot: () => ({

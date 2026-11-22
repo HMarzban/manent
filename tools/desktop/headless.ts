@@ -2,7 +2,7 @@
 // the web app as the desktop page. Prints one JSON line { "nodeUrl", "launchToken" } and runs until SIGTERM.
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { createDemoDirectory, createDemoSignIn } from "@manent/demo";
 import { createDesktopNode } from "@manent/local-node";
@@ -59,15 +59,10 @@ if (import.meta.main) {
     build: "headless",
     platform: process.platform,
     renderPdf: createPacketRenderPdf(
-      await readScriptFonts(
-        join(
-          dirname(
-            Bun.resolveSync(
-              "@fontsource/courier-prime/package.json",
-              import.meta.dir,
-            ),
-          ),
-          "files",
+      await readScriptFonts((key) =>
+        Bun.resolveSync(
+          `@fontsource/courier-prime/files/courier-prime-${key}.woff`,
+          import.meta.dir,
         ),
       ),
     ),
