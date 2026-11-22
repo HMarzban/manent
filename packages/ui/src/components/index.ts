@@ -1,6 +1,7 @@
 // One line per feature folder, sorted. Each folder has one index.ts.
 // A line is added only by the task that lays out a piece of work, never by a task that fills it in.
 export * from "./avatar/index.ts";
+export * from "./busy-button/index.ts";
 export * from "./consequence-dialog/index.ts";
 export * from "./message-slot/index.ts";
 export * from "./panel-tabs/index.ts";

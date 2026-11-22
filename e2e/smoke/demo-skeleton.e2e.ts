@@ -11,9 +11,11 @@ const tourTab = (page: Page) =>
   page
     .locator("[data-region='side_panel']")
     .getByRole("tabpanel", { name: "Tour" });
-// the demo bar's line about the server; the message slot is a status too
+// the demo bar's line about the server
 const serverLine = (page: Page) =>
-  page.getByRole("region", { name: "Demo" }).getByRole("status");
+  page
+    .getByRole("region", { name: "Demo" })
+    .locator("[data-slot='bar-status']");
 const storedPerson = (person: object) =>
   `sessionStorage.setItem("manent.demo.session", ${JSON.stringify(JSON.stringify(person))})`;
 

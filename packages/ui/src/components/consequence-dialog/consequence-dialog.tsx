@@ -1,13 +1,6 @@
 // The one dialog frame for an action other people will see and Manent cannot quietly reverse.
-import { LoaderCircleIcon, TriangleExclamationPointIcon } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { TriangleExclamationPointIcon } from "lucide-react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   SPINNER_AFTER_MS,
@@ -15,6 +8,7 @@ import {
   useTiming,
 } from "../../surfaces/timing.ts";
 import { DIALOG_WORDS } from "../../words/dialog.ts";
+import { BusyButton } from "../busy-button/busy-button.tsx";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -46,6 +40,9 @@ export interface ConsequenceDialogProps {
 
 type BusyPhase = "idle" | "waiting" | "spinning" | "still_working";
 
+// the stock dialog's scrim
+const SCRIM_SELECTOR = "[data-slot='alert-dialog-overlay']";
+
 const assertQuestionTitle = (title: string, action: string): void => {
   if (!title.endsWith("?")) {
     throw new RangeError(
@@ -61,6 +58,23 @@ const assertQuestionTitle = (title: string, action: string): void => {
     );
   }
 };
+
+/** While `open`, a press on the scrim does nothing, so focus stays on the dialog's control instead of going to the body. */
+function useInertScrim(open: boolean): void {
+  useEffect(() => {
+    if (!open) return undefined;
+    const keepFocus = (event: MouseEvent): void => {
+      if (
+        event.target instanceof Element &&
+        event.target.matches(SCRIM_SELECTOR)
+      )
+        event.preventDefault();
+    };
+    // capturing, before the dialog's own handlers see the press
+    globalThis.addEventListener("mousedown", keepFocus, true);
+    return () => globalThis.removeEventListener("mousedown", keepFocus, true);
+  }, [open]);
+}
 
 function useBusyPhase(busy: boolean): BusyPhase {
   const { schedule } = useTiming();
@@ -123,55 +137,6 @@ function LineAboveButtons({
   );
 }
 
-interface ActionButtonProps {
-  label: string;
-  busyLabel: string | null;
-  phase: BusyPhase;
-  destructive: boolean;
-  disabled: boolean;
-  describedBy: string | undefined;
-  onAction(): void;
-}
-
-function ActionButton({
-  label,
-  busyLabel,
-  phase,
-  destructive,
-  disabled,
-  describedBy,
-  onAction,
-}: ActionButtonProps): ReactNode {
-  const [idleWidth, setIdleWidth] = useState<number | null>(null);
-  // measured when the button is drawn and whenever its idle label changes; kept while the busy label shows
-  const measure = useCallback(
-    (node: HTMLButtonElement | null) => {
-      if (node !== null && busyLabel === null) setIdleWidth(node.offsetWidth);
-    },
-    [busyLabel, label],
-  );
-  return (
-    <Button
-      ref={measure}
-      variant={destructive ? "destructive" : "default"}
-      disabled={disabled || busyLabel !== null}
-      focusableWhenDisabled
-      aria-describedby={describedBy}
-      style={
-        busyLabel !== null && idleWidth !== null
-          ? { width: `${idleWidth}px` }
-          : undefined
-      }
-      onClick={onAction}
-    >
-      {busyLabel ?? label}
-      {phase === "spinning" || phase === "still_working" ? (
-        <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
-      ) : null}
-    </Button>
-  );
-}
-
 // the close question's middle button; disabled while the action runs
 function AlternativeButton({
   alternative,
@@ -213,6 +178,7 @@ export function ConsequenceDialog({
   if (titledBy === "question") assertQuestionTitle(title, action);
   const busy = busyLabel !== null;
   const phase = useBusyPhase(busy);
+  useInertScrim(open);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const lineId = useId();
   const stillWorking = phase === "still_working";
@@ -251,14 +217,14 @@ export function ConsequenceDialog({
             {DIALOG_WORDS.cancel}
           </Button>
           <AlternativeButton alternative={alternative} busy={busy} />
-          <ActionButton
+          <BusyButton
             label={refusal === null ? action : DIALOG_WORDS.tryAgain}
             busyLabel={busyLabel}
-            phase={phase}
-            destructive={destructive}
+            spinning={phase === "spinning" || phase === "still_working"}
+            variant={destructive ? "destructive" : "default"}
             disabled={disabledLine !== null}
-            describedBy={describing ? lineId : undefined}
-            onAction={onAction}
+            aria-describedby={describing ? lineId : undefined}
+            onClick={onAction}
           />
         </div>
       </AlertDialogContent>

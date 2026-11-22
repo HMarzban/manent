@@ -1,5 +1,6 @@
 // The one frame every Send form draws: the way back, the title, the rows, the pages and the action that sends them.
 import {
+  BusyButton,
   Button,
   CANCEL_AFTER_MS,
   DIALOG_WORDS,
@@ -9,10 +10,9 @@ import {
   STILL_WORKING_MS,
   useTiming,
 } from "@manent/ui";
-import { LoaderCircleIcon, TriangleExclamationPointIcon } from "lucide-react";
+import { TriangleExclamationPointIcon } from "lucide-react";
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useId,
@@ -199,39 +199,6 @@ function ActionLine(props: {
 const PAIR =
   "mx-auto flex w-fit max-w-full flex-col gap-8 p-6 @min-[68.75rem]:flex-row @min-[68.75rem]:items-start";
 
-/** The one primary button; while busy it keeps the width it had with `label`. */
-function ActionButton(props: {
-  action: SendAction;
-  step: number;
-  describedBy: string | undefined;
-}): ReactNode {
-  const { action, step, describedBy } = props;
-  const { label, busy } = action;
-  const [idleWidthPx, setIdleWidthPx] = useState<number | null>(null);
-  const measure = useCallback(
-    (node: HTMLButtonElement | null) => {
-      if (node !== null && !busy) setIdleWidthPx(node.offsetWidth);
-    },
-    [busy, label],
-  );
-  return (
-    <Button
-      ref={measure}
-      size="lg"
-      disabled={busy || action.disabledReason !== null || action.run === null}
-      focusableWhenDisabled
-      aria-describedby={describedBy}
-      style={busy && idleWidthPx !== null ? { width: idleWidthPx } : undefined}
-      onClick={() => action.run?.()}
-    >
-      {busy ? action.busyLabel : label}
-      {busy && step >= 1 ? (
-        <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
-      ) : null}
-    </Button>
-  );
-}
-
 /** What long work shows beside its busy button: its progress, Still working…, and Cancel when it can be cancelled. */
 function BusyAside(props: { action: SendAction; step: number }): ReactNode {
   const { action, step } = props;
@@ -315,10 +282,16 @@ export function SendFrame(props: {
               />
               <div className="flex flex-wrap items-center justify-end gap-3">
                 <BusyAside action={action} step={step} />
-                <ActionButton
-                  action={action}
-                  step={step}
-                  describedBy={describing ? lineId : undefined}
+                <BusyButton
+                  size="lg"
+                  label={action.label}
+                  busyLabel={action.busy ? action.busyLabel : null}
+                  spinning={step >= 1}
+                  disabled={
+                    action.disabledReason !== null || action.run === null
+                  }
+                  aria-describedby={describing ? lineId : undefined}
+                  onClick={() => action.run?.()}
                 />
               </div>
             </div>

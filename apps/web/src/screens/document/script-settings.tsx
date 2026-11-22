@@ -21,6 +21,7 @@ import type { ReactNode } from "react";
 import { FrozenRow } from "../../production/frozen-row.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
+import { SCRIPT_SETTINGS_PART } from "./script-settings-part.ts";
 import { useOpenDocument } from "./open-document.ts";
 import { announcing, nameOf, valueLabel } from "./setting-messages.ts";
 
@@ -101,7 +102,11 @@ export function ScriptSettings(props: { docId: string }): ReactNode {
   );
   if (doc === null) return null;
   return (
-    <Collapsible defaultOpen className="flex flex-col gap-2">
+    <Collapsible
+      defaultOpen
+      {...{ [SCRIPT_SETTINGS_PART]: "" }}
+      className="flex flex-col gap-2"
+    >
       {/* a quiet row, its chevron where the rows' words begin */}
       <CollapsibleTrigger className="group/disclosure -mx-2 flex min-h-row items-center gap-1 rounded-control px-1 text-start text-ui font-semibold transition-colors hover:bg-subtle active:bg-control">
         <ChevronRightIcon

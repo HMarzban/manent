@@ -1,6 +1,7 @@
 // Preferences → This device (This browser on the web): Interface size, what comes from the system, what is stored here, and About.
 import { ENGINE_VERSION } from "@manent/pagination";
 import {
+  BusyButton,
   Button,
   DESKTOP_WORDS,
   PREFERENCES_WORDS,
@@ -9,7 +10,6 @@ import {
   useSubscribable,
   useTiming,
 } from "@manent/ui";
-import { LoaderCircleIcon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -160,48 +160,15 @@ function ActionRow(props: {
   );
 }
 
-/** While `busy`, the button reads `busyLabel`, is disabled and keeps the width it had; its spinner shows after a while. */
-function BusyButton(props: {
-  label: string;
-  busyLabel: string;
-  busy: boolean;
-  onClick(): void;
-}): ReactNode {
-  const { label, busyLabel, busy } = props;
+/** True once `busy` has held for the spinner's wait; false again as soon as it ends. */
+function useSpinnerDue(busy: boolean): boolean {
   const { schedule } = useTiming();
-  const [spinning, setSpinning] = useState(false);
-  const [idleWidth, setIdleWidth] = useState<number | null>(null);
+  const [due, setDue] = useState(false);
   useLayoutEffect(() => {
-    setSpinning(false);
-    return busy
-      ? schedule(() => setSpinning(true), SPINNER_AFTER_MS)
-      : undefined;
+    setDue(false);
+    return busy ? schedule(() => setDue(true), SPINNER_AFTER_MS) : undefined;
   }, [busy, schedule]);
-  // measured while idle; kept while the busy label shows
-  const measure = useCallback(
-    (node: HTMLButtonElement | null) => {
-      if (node !== null && !busy) setIdleWidth(node.offsetWidth);
-    },
-    [busy],
-  );
-  return (
-    <Button
-      ref={measure}
-      variant="outline"
-      size="sm"
-      disabled={busy}
-      focusableWhenDisabled
-      style={
-        busy && idleWidth !== null ? { width: `${idleWidth}px` } : undefined
-      }
-      onClick={props.onClick}
-    >
-      {busy ? busyLabel : label}
-      {busy && spinning ? (
-        <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
-      ) : null}
-    </Button>
-  );
+  return due;
 }
 
 interface DesktopDevice {
@@ -276,15 +243,20 @@ function DesktopStoredHere(props: { device: DesktopDevice }): ReactNode {
 /** The version, its channel and Check for updates, with the check's outcome under it. */
 function DesktopVersion(props: { device: DesktopDevice }): ReactNode {
   const { rows, checkForUpdates } = props.device;
+  const spinning = useSpinnerDue(rows.update.busy);
   return (
     <>
       <p className="text-ui">{rows.version}</p>
       <Fact label={DESKTOP_WORDS.channelRow} value={rows.channel} />
       <div>
         <BusyButton
+          variant="outline"
+          size="sm"
           label={PREFERENCES_WORDS.checkForUpdates}
-          busyLabel={PREFERENCES_WORDS.checkingForUpdates}
-          busy={rows.update.busy}
+          busyLabel={
+            rows.update.busy ? PREFERENCES_WORDS.checkingForUpdates : null
+          }
+          spinning={spinning}
           onClick={checkForUpdates}
         />
       </div>
