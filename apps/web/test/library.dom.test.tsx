@@ -1,4 +1,5 @@
 import { withDom } from "@manent/testkit/dom";
+import { TOUR, isShown } from "@manent/demo";
 import { afterEach, expect, test } from "bun:test";
 import type { LocalStore } from "@manent/sync-client";
 import { createFaultyStoreSpace } from "@manent/sync-client/testing";
@@ -579,7 +580,9 @@ test("in demo mode the Tour opens the first time a person reaches the Library, a
   act(() => panelsActions.close("side"));
   act(() => mounted?.unmount());
   const second = await tabOnceRead((await draw()).services);
-  expect([first, second]).toEqual(["tour", null]);
+  // a Tour that lists no scenario is not opened on its own
+  const opened = TOUR.scenarios.some(isShown) ? "tour" : null;
+  expect([first, second]).toEqual([opened, null]);
   act(() => probeRoot.unmount());
 });
 
