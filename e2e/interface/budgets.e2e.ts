@@ -106,9 +106,7 @@ test("menus, popovers and the palette open within 100 ms, panels and dialogs wit
   );
   await page.keyboard.press("Escape");
   await signedInAs(page, "you", `/s/${DOC_ID}`);
-  await expect(
-    page.locator("[data-region='page'] .mn-page-view"),
-  ).toBeFocused();
+  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
   popovers.title_menu = await openingMs(
     page,
     {

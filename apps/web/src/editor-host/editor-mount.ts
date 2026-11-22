@@ -29,6 +29,7 @@ import { registerLiveEditor } from "./live-editor.ts";
 import type { EditorMount } from "./mount.ts";
 import { followZoom } from "./page-zoom.ts";
 import { keepPlace } from "./keep-place.ts";
+import { PAGE_REGION } from "./page-frame.ts";
 import { placeholderMount } from "./placeholder-mount.ts";
 import { countSteps } from "./undo-depth.ts";
 
@@ -174,6 +175,8 @@ function buildEditor(
     editorOptions(options, open, { binding, editable: bound.editable }),
   );
   if (place !== null) editor.restore(place);
+  // the first zoom holds the caret's line where it lay at 100 %, which would open a page scrolled past the desk above it
+  else element.closest(PAGE_REGION)?.scrollTo({ top: 0 });
   const stopZoom = followZoom({ ...options, editor, element });
   const detach = options.control.attach({
     run: (request) => editor.run(actionOf(request)),

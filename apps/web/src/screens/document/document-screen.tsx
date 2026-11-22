@@ -16,7 +16,6 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
-import { liveEditor } from "../../editor-host/live-editor.ts";
 import { focusHeading } from "../../focus.ts";
 import { ProductionDialogs } from "../../production/dialogs.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
@@ -151,31 +150,6 @@ function NoAccess(props: {
   );
 }
 
-/**
- * The heading takes focus on arrival; once the page's editor is drawn and shown (its pages wait for the script font),
- * focus still on the heading moves to the page, so the first keystroke lands there.
- */
-function useFocusOnOpen(docId: string): void {
-  const { dom } = useEnvironment();
-  useEffect(() => {
-    focusHeading(document);
-    const heading = document.querySelector("h1");
-    const page = document.querySelector(PAGE_REGION);
-    if (heading === null || page === null) return;
-    const observer = new MutationObserver(() => {
-      if (document.activeElement !== heading) observer.disconnect();
-      else if (liveEditor(docId) !== null && dom.focusPage())
-        observer.disconnect();
-    });
-    observer.observe(page, {
-      subtree: true,
-      childList: true,
-      attributeFilter: ["class"],
-    });
-    return () => observer.disconnect();
-  }, [docId, dom]);
-}
-
 /** The tab's title: the document's title, and the person. */
 function useTabTitle(docId: string): void {
   const { userId } = useServices();
@@ -193,7 +167,9 @@ function Frame(props: { docId: string; doc: DocumentServices }): ReactNode {
   const overPage = usePanelsOverPage();
   useRemoteSettingMessages(props.doc);
   useTabTitle(docId);
-  useFocusOnOpen(docId);
+  useEffect(() => {
+    focusHeading(document);
+  }, [docId]);
   return (
     <>
       <TitleBar docId={docId} doc={doc} />

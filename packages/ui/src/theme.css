@@ -881,6 +881,10 @@ html[data-white-page] .mn-pages {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
 }
+/* nor the browser's own ring, which it draws on a heading focused by script */
+:is(h1, [data-arrival])[tabindex="-1"]:focus-visible {
+  outline: none;
+}
 /* after any key use the item under the pointer also matches :focus-visible */
 [role^="menuitem"]:hover,
 [role="option"]:hover {
