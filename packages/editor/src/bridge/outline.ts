@@ -12,6 +12,7 @@ export interface OutlineIndex {
 /**
  * One pass over the pagination's blocks; run at most every 250 ms. A scene heading or slug shows its stored number,
  * else its count among them (in letters where the profile letters scenes), as the pages do; a chapter has none.
+ * A heading with no text has no entry, but is still counted, as the pages count it.
  * `omitted` is false: the blocks do not carry the attribute, which the bridge reads from the heading's node.
  * `current` marks the entry at or before `caretBlock`.
  */
@@ -29,6 +30,7 @@ export function outlineOf(p: Pagination, caretBlock: number): OutlineIndex {
       scenes++;
       number = num ?? (scenesLettered ? letters(scenes) : String(scenes));
     }
+    if (text.trim() === "") continue;
     entries.push({
       blockId: id,
       number,
