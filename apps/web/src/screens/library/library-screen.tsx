@@ -4,6 +4,7 @@ import {
   CommandButton,
   LIBRARY_WORDS,
   Row,
+  Skeleton,
   SurfaceState,
   VirtualRows,
   createValue,
@@ -33,6 +34,7 @@ import { ContinueList } from "./continue-list.tsx";
 import { LibraryStatusBar } from "./library-status-bar.tsx";
 import { NewProjectPopover } from "./new-project-popover.tsx";
 import { PersonMenu } from "./person-menu.tsx";
+import { KindIcon } from "./project-kind.tsx";
 import { ProjectList } from "./project-list.tsx";
 import { WorkspaceSwitcher } from "./workspace-switcher.tsx";
 
@@ -89,34 +91,39 @@ function listWorkspaces(api: Api): () => Promise<readonly WorkspaceRef[]> {
 }
 
 function Placeholders(): ReactNode {
-  return Array.from({ length: PLACEHOLDER_ROWS }, (_, index) => (
-    <div
-      key={index}
-      aria-hidden="true"
-      data-placeholder
-      className="min-h-row-2"
-    />
-  ));
+  return (
+    <div aria-hidden="true" className="flex flex-col gap-1">
+      {Array.from({ length: PLACEHOLDER_ROWS }, (_, index) => (
+        <Skeleton key={index} data-placeholder className="h-row-2" />
+      ))}
+    </div>
+  );
 }
 
-/** The projects' names, under Continue, the place the main column shows. */
+const placeRow = (project: ProjectItem | undefined): ReactNode =>
+  project === undefined ? null : (
+    <Row leading={<KindIcon kind={project.kind} />}>{project.title}</Row>
+  );
+
+/**
+ * The projects' names, under Continue, the place the main column shows. A window too narrow for it and the main
+ * column side by side has no room for it.
+ */
 function Places(props: { projects: readonly ProjectItem[] }): ReactNode {
   const { projects } = props;
   return (
     <ShellRegion
       region="left_panel"
-      className="flex w-panel-left shrink-0 flex-col border-e border-line py-1"
+      className="hidden w-panel-left shrink-0 flex-col border-e border-line pt-2 @3xl:flex"
     >
       <Row current>{LIBRARY_WORDS.continueHeading}</Row>
-      <h2 className="px-2 pt-2 text-micro text-fg-muted uppercase">
-        {LIBRARY_WORDS.projectsHeading}
-      </h2>
+      <h2 className="mn-group-label">{LIBRARY_WORDS.projectsHeading}</h2>
       <div className="min-h-0 flex-1">
         <VirtualRows
           count={projects.length}
           rowHeight="one"
           label={LIBRARY_WORDS.projectsHeading}
-          renderRow={(index) => <Row>{projects[index]?.title}</Row>}
+          renderRow={(index) => placeRow(projects[index])}
         />
       </div>
     </ShellRegion>
@@ -173,7 +180,7 @@ function Lists(props: {
   const navigate = useNavigate();
   const [arrivedAt] = useState(() => now());
   const open = (docId: string) => void navigate({ href: `/s/${docId}` });
-  const problem = <p className="px-2 py-1 text-ui">{LIBRARY_WORDS.problem}</p>;
+  const problem = <p className="text-ui">{LIBRARY_WORDS.problem}</p>;
   const lists = (
     <>
       {props.problem ? problem : null}
@@ -243,9 +250,9 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
         <NewProjectPopover workspaceId={workspaceId} />
         <PersonMenu name={person.name} />
       </ShellRegion>
-      <div className="flex min-h-0 flex-1">
+      <div className="@container flex min-h-0 flex-1">
         <Places projects={projects} />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col gap-8 overflow-y-auto px-6 pt-6 pb-8 *:w-full *:max-w-content-wide">
           <Lists
             workspaceId={workspaceId}
             continueList={continueList}
