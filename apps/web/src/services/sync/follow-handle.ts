@@ -1,5 +1,5 @@
 // What keeps an open document's status, facts, waiting changes and messages to its handle, loaded once a handle has opened.
-import { sceneOf } from "@manent/crdt";
+import { scenesOf } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { DocHandle, StoredEntry, ViewHandle } from "@manent/sync-client";
 import type { RemovedDocResponse } from "@manent/sync-protocol";
@@ -90,10 +90,10 @@ function groupWaiting(options: Following, open: Opened): () => void {
   const group = async (): Promise<void> => {
     const loaded = await sync.store.load(docId);
     const scenes = new Map<string, number>();
-    for (const id of waitingElements(loaded?.entries ?? [])) {
-      const scene = sceneOf(handle.doc(), id);
+    const waiting = waitingElements(loaded?.entries ?? []);
+    // one pass over the document: a script just opened waits on every one of its elements
+    for (const scene of scenesOf(handle.doc(), waiting).values())
       if (scene !== null) scenes.set(scene, (scenes.get(scene) ?? 0) + 1);
-    }
     shown.waitingByScene.set(
       [...scenes]
         .map(([scene, n]) => ({ scene, count: n }))

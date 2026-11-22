@@ -165,16 +165,32 @@ export function readBlockExcluding(
  * them from 1. Null before the first heading, or when the block is gone.
  */
 export function sceneOf(doc: CrdtDoc, blockId: string): string | null {
+  return scenesOf(doc, new Set([blockId])).get(blockId) ?? null;
+}
+
+/**
+ * The scene of each of `blockIds` the document holds, as sceneOf gives it,
+ * in one pass over the blocks and in their order; a block that is gone is
+ * left out.
+ */
+export function scenesOf(
+  doc: CrdtDoc,
+  blockIds: ReadonlySet<string>,
+): Map<string, string | null> {
+  const scenes = new Map<string, string | null>();
   let count = 0;
   let scene: string | null = null;
   for (const block of blocksIn(doc)) {
+    if (scenes.size === blockIds.size) break;
     const type = block.getAttribute("type");
     if (type === "scene_heading" || type === "slug") {
       count++;
       const num = block.getAttribute("num");
       scene = typeof num === "string" ? num : String(count);
     }
-    if (block.getAttribute("id") === blockId) return scene;
+    const id = block.getAttribute("id");
+    if (typeof id === "string" && blockIds.has(id) && !scenes.has(id))
+      scenes.set(id, scene);
   }
-  return null;
+  return scenes;
 }

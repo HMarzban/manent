@@ -8,6 +8,7 @@ import {
   readBlocks,
   readStateVector,
   sceneOf,
+  scenesOf,
   scriptBody,
   scriptDocFromJSON,
 } from "../src/index.ts";
@@ -93,6 +94,31 @@ test("a block's scene is its heading's number, or the heading's place", () => {
     sceneOf(doc, FIRST_HEADING),
     sceneOf(doc, "missing"),
   ]).toEqual(["1", "4A", "1", null]);
+});
+
+test("scenes are read by id in one pass", () => {
+  const [first, ...rest] = SAMPLE.content ?? [];
+  const opening = scriptDocFromJSON({
+    type: "doc",
+    content: [
+      {
+        type: "section",
+        content: [block(idOf(0), "FADE IN:"), ...(first?.content ?? [])],
+      },
+      ...rest,
+    ],
+  });
+  expect([
+    ...scenesOf(
+      opening,
+      new Set([DIALOGUE, idOf(0), ACTION, FIRST_HEADING, "missing"]),
+    ),
+  ]).toEqual([
+    [idOf(0), null],
+    [FIRST_HEADING, "1"],
+    [ACTION, "1"],
+    [DIALOGUE, "4A"],
+  ]);
 });
 
 test("a block before the first scene heading is in no scene", () => {
