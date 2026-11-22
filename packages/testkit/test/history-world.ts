@@ -1,11 +1,12 @@
 // A simulated world whose services keep a history: drafts named and versions restored through it,
 // each answered while the world runs.
+import { scriptBody } from "@manent/crdt";
 import type { RestoreScope } from "@manent/revisions";
 import { createHistoryService } from "@manent/server-core";
 import type { HistoryOutcome, HistoryService } from "@manent/server-core";
 import type { DocJSON } from "@manent/schema";
-import { createWorld } from "../src/index.ts";
-import type { World } from "../src/index.ts";
+import { createWorld, docOfBlocks } from "../src/index.ts";
+import type { SimClient, World } from "../src/index.ts";
 
 export interface HistoryWorld extends World {
   readonly history: HistoryService;
@@ -91,7 +92,10 @@ export async function nameDraft(
   return version.id;
 }
 
-/** The request of a restore by `userId`, answered with its Before restore version's id; the world is not run. */
+/**
+ * The request of a restore by `userId`, answered with its Before restore version's id, and what it
+ * took out noted in the world; the world is not run.
+ */
 export async function requestRestore(
   w: HistoryWorld,
   userId: string,
@@ -100,9 +104,11 @@ export async function requestRestore(
 ): Promise<HistoryOutcome<string>> {
   const body = { docId: w.docId, key: freshKey(), versionId, scope };
   const outcome = await w.history.restore(userId, body);
-  return outcome.ok
-    ? { ok: true, value: outcome.value.beforeVersionId }
-    : outcome;
+  if (!outcome.ok) return outcome;
+  const { beforeVersionId } = outcome.value;
+  const before = await contentOf(w, userId, beforeVersionId);
+  w.noteRestore(before, await contentOf(w, userId, versionId), scope);
+  return { ok: true, value: beforeVersionId };
 }
 
 /** A restore by `userId` on the server once every write sent before it has arrived; its Before restore version's id. */
@@ -116,16 +122,24 @@ export async function restoreAs(
   return answered(w, requestRestore(w, userId, versionId, scope));
 }
 
-/** The version's blocks as a document, read by `userId`. */
+/** The version's blocks as a document, read by `userId` from storage without running the world. */
 export async function contentOf(
   w: HistoryWorld,
   userId: string,
   versionId: string,
 ): Promise<DocJSON> {
-  const read = w.history.content(userId, w.docId, { versionId });
-  const { content } = await answered(w, read);
-  return {
-    type: "doc",
-    content: [{ type: "section", content: content.blocks }],
-  };
+  const read = await w.history.content(userId, w.docId, { versionId });
+  if (!read.ok) throw new RangeError(`seed ${w.seed}: ${read.code}`);
+  return docOfBlocks(read.value.content.blocks);
+}
+
+/** `content` restored over the whole script on `c`'s device, and what that took out noted in the world. */
+export async function restoreLocally(
+  w: World,
+  c: SimClient,
+  content: DocJSON,
+): Promise<void> {
+  const before = scriptBody(c.handle.doc()).materialize();
+  await c.handle.restoreLocally(content, { kind: "script" });
+  w.noteRestore(before, content, { kind: "script" });
 }

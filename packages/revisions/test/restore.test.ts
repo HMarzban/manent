@@ -240,6 +240,26 @@ test("a scene restore copies, under a new id, a block the script now holds in an
   ]);
 });
 
+test("a version holding a block twice restores both copies, the later under a new id", () => {
+  const current = doc(b(A, "a"), b(X, "x now"));
+  const target = doc(b(X, "first copy"), b(A, "a"), b(X, "second copy"));
+  const plan = planRestore(current, target, { kind: "script" }, OPTS);
+  // blocksOf refuses "n1", which is not a valid block id, so the blocks are read from the JSON
+  const blocks = blockJSONs(plan.result);
+  expect(
+    blocks.map((x) => [
+      x.attrs!.id,
+      x.content!.map((run) => run.text).join(""),
+    ]),
+  ).toEqual([
+    [X, "first copy"],
+    [A, "a"],
+    ["n1", "second copy"],
+  ]);
+  const ids = blocks.map((x) => x.attrs!.id);
+  expect(new Set(ids).size).toBe(ids.length);
+});
+
 test("restoring the version that is already current plans nothing", () => {
   const current = doc(...scene(H1, b(A, "a")), ...scene(H2, b(B, "b")));
   expect(planRestore(current, current, { kind: "script" }, OPTS)).toEqual({

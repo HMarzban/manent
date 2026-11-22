@@ -9,6 +9,7 @@ import {
   nameDraft,
   requestRestore,
   restoreAs,
+  restoreLocally,
 } from "./history-world.ts";
 import type { HistoryWorld } from "./history-world.ts";
 
@@ -103,25 +104,31 @@ function blockAt(c: SimClient, index: number): Block {
   return block;
 }
 
+/** Sixty actions, a draft named, then forty more with the second device offline and the draft restored. */
+async function restoreMeetingOfflineWriter(w: HistoryWorld): Promise<void> {
+  for (let i = 0; i < 60; i++) w.act();
+  await w.settle();
+  const v = await nameDraft(w, "dana", "Table read draft");
+  const [, sam] = w.clients;
+  if (sam === undefined) throw new RangeError("a world of three");
+  sam.online(false);
+  for (let i = 0; i < 40; i++) w.act();
+  await restoreAs(w, "dana", v, { kind: "script" });
+  sam.online(true);
+  await w.settle();
+  w.check();
+  expect(lostCharacters(w)).toBe(0);
+}
+
 test(
   "a restore meeting an offline writer conserves every character",
-  () =>
-    forSeeds(async (w) => {
-      for (let i = 0; i < 60; i++) w.act();
-      await w.settle();
-      const v = await nameDraft(w, "dana", "Table read draft");
-      const [, sam] = w.clients;
-      if (sam === undefined) throw new RangeError("a world of three");
-      sam.online(false);
-      for (let i = 0; i < 40; i++) w.act();
-      await restoreAs(w, "dana", v, { kind: "script" });
-      sam.online(true);
-      await w.settle();
-      w.check();
-      expect(lostCharacters(w)).toBe(0);
-    }),
+  () => forSeeds(restoreMeetingOfflineWriter),
   LONG,
 );
+
+// seed 7's draft holds one block twice, the copies with different text
+test("a restore of a version holding a block twice conserves both copies", async () =>
+  restoreMeetingOfflineWriter(await historyWorld(7)));
 
 test(
   "a scene restore and a whole-script restore at the same moment converge, and both reverses exist",
@@ -157,9 +164,8 @@ test(
   LONG,
 );
 
-// pins today's behaviour: one block id held twice is tolerated until a repair exists
 test(
-  "two people restoring different versions offline keep both copies until a repair exists",
+  "two people restoring different versions offline lose nothing, and the identical copy is removed",
   () =>
     forSeeds(async (w) => {
       const dana = clientOf(w, "dana");
@@ -175,13 +181,11 @@ test(
       const newer = await contentOf(w, "sam", v2);
       dana.online(false);
       sam.online(false);
-      await dana.handle.restoreLocally(older, { kind: "script" });
-      await sam.handle.restoreLocally(newer, { kind: "script" });
+      await restoreLocally(w, dana, older);
+      await restoreLocally(w, sam, newer);
       await allOnline(w);
-      // the block both restores put back, twice, under one id
-      const twice = seeded.toSpliced(3, 0, ...seeded.slice(2, 3));
-      expect(w.serverText()).toEqual(twice);
-      expect(w.clients.map(linesOf)).toEqual(w.clients.map(() => twice));
+      expect(w.serverText()).toEqual(seeded);
+      expect(w.clients.map(linesOf)).toEqual(w.clients.map(() => seeded));
     }),
   LONG,
 );
