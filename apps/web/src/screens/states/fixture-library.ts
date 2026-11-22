@@ -12,7 +12,7 @@ const PLACE = Object.freeze({ kind: "never_synced" } as const);
 
 /**
  * `count` untitled films, each with one untitled script that has never synced, newest first in Projects and Continue.
- * It makes nothing: a new project never settles, and a rename changes nothing.
+ * It makes nothing: a new or imported project never settles, and a rename changes nothing.
  */
 export function createFixtureLibrary(options: {
   count: number;
@@ -57,6 +57,7 @@ export function createFixtureLibrary(options: {
     readProjects: async () => projects.get(),
     loadState: () => cached,
     createProject: () => new Promise(() => {}),
+    importProject: () => new Promise(() => {}),
     documentTitle: (docId) => titles.get(docId) ?? none,
     documentKind: (docId) => kinds.get(docId) ?? none,
     renameDocument() {},

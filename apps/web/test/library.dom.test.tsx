@@ -145,6 +145,7 @@ function seededIndex(seed: {
         finish = () => resolve({ projectId: "new", docId: NEW_DOC });
       });
     },
+    importProject: () => new Promise<CreateResult>(() => {}),
     documentTitle: () => createValue(null),
     documentKind: () => createValue(null),
     renameDocument: () => {},
@@ -309,10 +310,14 @@ test("an empty workspace teaches by doing", async () => {
   await renderLibrary({ person: YOU, library: seededIndex({}) });
   const projects = region("Projects");
   expect(projects.textContent).toContain("No scripts yet");
-  expect(buttonNames(projects)).toEqual(["New script", "New project"]);
+  expect(buttonNames(projects)).toEqual([
+    "Import…",
+    "New script",
+    "New project",
+  ]);
   expect(
     buttonNames(document).filter((name) => name.includes("Import")),
-  ).toEqual([]);
+  ).toEqual(["Import…", "Import…"]);
   const heading = document.querySelector("h1");
   expect([heading?.textContent, document.activeElement]).toEqual([
     "Library",

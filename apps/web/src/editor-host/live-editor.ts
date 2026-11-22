@@ -1,10 +1,13 @@
 // The open editor of each document, for code outside the mount.
+import type { CrdtDoc } from "@manent/crdt";
 import { paginationKey } from "@manent/editor";
 import type { EditorView, PageScaffold, PresencePort } from "@manent/editor";
 import type { Pagination } from "@manent/pagination";
 
 export interface LiveEditor {
   readonly docId: string;
+  /** The document the editor shows, for what reads the script's maps (Details → Script → Import, Export). */
+  readonly doc: CrdtDoc;
   readonly view: EditorView;
   /** Null: Ink, which has no pages. */
   readonly scaffold: PageScaffold | null;

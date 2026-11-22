@@ -181,6 +181,7 @@ function buildEditor(
   });
   const unregister = registerLiveEditor({
     docId,
+    doc: open.document.doc(),
     view: editor.view,
     scaffold: editor.scaffold,
     presence: binding.presence,
