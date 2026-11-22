@@ -180,9 +180,9 @@ export function keepViewState(
   schedule: (fn: () => void, delayMs: number) => () => void,
 ): () => void {
   stopCurrentKeeper();
-  // before the panels, so a left panel put back open counts as chosen
-  panelsActions.setLeftChosen(store.leftChosen());
   restorePanels(store.panels() ?? FIRST_PANELS);
+  // after the panels, whose writes are not this person's choice; a script with scenes leaves an open left panel alone
+  panelsActions.setLeftChosen(store.leftChosen());
   if (rulerActions.get() !== store.ruler()) rulerActions.set(store.ruler());
   const keptZoom = store.zoom() ?? "fit_width";
   if (zoomActions.get() !== keptZoom) zoomActions.set(keptZoom);
