@@ -163,6 +163,32 @@ function bindingFor(
   };
 }
 
+/**
+ * Focus goes to the page at the caret once it is shown, so no keystroke is lost, unless something other than the page's
+ * region holds it by then. A page is hidden until its fonts are ready. Returns the disposer.
+ */
+function takeFocus(editor: ScriptEditor, element: HTMLElement): () => void {
+  const { view } = editor;
+  const focus = (): void => {
+    const active = element.ownerDocument.activeElement;
+    if (active !== null && !active.contains(element)) return;
+    // the view focuses itself only while it is editable, so a read-only page is focused as a text box
+    if (view.editable) view.focus();
+    else view.dom.focus({ preventScroll: true });
+  };
+  const pages = editor.scaffold?.pages;
+  if (pages === undefined || pages.dataset["fonts"] !== "loading") {
+    focus();
+    return noop;
+  }
+  const shown = new MutationObserver(() => {
+    shown.disconnect();
+    focus();
+  });
+  shown.observe(pages, { attributeFilter: ["data-fonts"] });
+  return () => shown.disconnect();
+}
+
 /** What one build of the document's editor is made from. */
 interface Opened extends OpenedScript {
   session: EditorSession;
@@ -193,6 +219,7 @@ function buildEditor(
   if (place !== null) editor.restore(place);
   // the first zoom holds the caret's line where it lay at 100 %, which would open a page scrolled past the desk above it
   else element.closest(PAGE_REGION)?.scrollTo({ top: 0 });
+  const stopFocus = takeFocus(editor, element);
   const stopZoom = followZoom({ ...options, editor, element });
   const detach = options.control.attach({
     run: (request) => editor.run(actionOf(request)),
@@ -212,6 +239,7 @@ function buildEditor(
     editor,
     shown: open.shown,
     destroy() {
+      stopFocus();
       stopZoom();
       detach();
       unregister();

@@ -441,11 +441,13 @@ test("a mount gone between the composition's release and the rebuild builds no e
 });
 
 test("the live editor and the feature plugins come with the mount", () => {
-  // the one plugin with no key and no state, its attributes a fixed object, taken from a read-only page, stands in for a feature's
+  // the one plugin with attributes and no state, the page's own, taken from a read-only page, stands in for a feature's
   const lender = rig({ access: "comment" });
   const plugin = lender
     .view()
-    .state.plugins.find((p) => typeof p.props.attributes === "object");
+    .state.plugins.find(
+      (p) => p.props.attributes !== undefined && p.spec.state === undefined,
+    );
   lender.dispose();
   if (plugin === undefined) throw new TypeError("no plugin to lend");
   const contexts: EditorPluginContext[] = [];

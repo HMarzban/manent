@@ -34,7 +34,8 @@ const eighthsOf = (lines: number, linesPerPage: number): number =>
 /**
  * One pass over the pagination's blocks; run at most every 250 ms. A scene heading or slug shows its stored number,
  * else its count among them (in letters where the profile letters scenes), as the pages do; a chapter, an act and a
- * section have none. A scene's length runs to the next scene or act; a section does not end it.
+ * section have none. A scene heading, slug or chapter with no text has no entry, though a scene heading or slug is
+ * still counted, as the pages count it. A scene's length runs to the next scene or act; a section does not end it.
  * `omitted` and `synopsis` are unset: the blocks do not carry them, and the bridge reads them from the heading's node.
  * `current` marks the scene at or before `caretBlock`.
  */
@@ -57,8 +58,9 @@ export function outlineOf(p: Pagination, caretBlock: number): OutlineIndex {
   for (let i = 0; i < p.blocks.length; i++) {
     const block = p.blocks[i]!;
     const kind = kindOf(block);
+    const untitled = kind === "scene" && block.text.trim() === "";
     if (kind === "scene" || kind === "act") close();
-    if (kind === "scene") {
+    if (kind === "scene" && !untitled) {
       scene = entries.length;
       lines = 0;
     }
@@ -69,6 +71,7 @@ export function outlineOf(p: Pagination, caretBlock: number): OutlineIndex {
       scenes++;
       number = block.num ?? (scenesLettered ? letters(scenes) : String(scenes));
     }
+    if (untitled) continue;
     entries.push({
       blockId: block.id,
       kind,
