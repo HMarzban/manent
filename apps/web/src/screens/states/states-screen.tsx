@@ -45,7 +45,7 @@ import { SIDE_PANEL_TABS } from "../document/side-tabs.ts";
 import { SyncCentre } from "../document/sync-centre.tsx";
 import { LibraryScreen } from "../library/library-screen.tsx";
 import { Pane } from "../preferences/pane.tsx";
-import { SendPlaceContext } from "../send/send-frame.tsx";
+import { SendLayout } from "../send/send-frame.tsx";
 import { testSendForm } from "../send/test-form.tsx";
 import { createFixtureLibrary } from "./fixture-library.ts";
 
@@ -176,7 +176,7 @@ const frame = (): ReactNode => <DocumentFrame docId={DOC_ID} />;
 // the Sync centre draws in its popover; closed, the popover's root still names its title
 const syncCentre = (doc: DocumentServices): ReactNode => (
   <Popover>
-    <div className="flex flex-col gap-2 p-2.5 text-ui">
+    <div className="flex flex-col gap-2 p-4 text-ui">
       <SyncCentre doc={doc} />
     </div>
   </Popover>
@@ -190,9 +190,9 @@ const pane = (persisted: boolean) => (): ReactNode => (
   />
 );
 const send = (): ReactNode => (
-  <SendPlaceContext value={{ name: LIBRARY_WORDS.title, back: noop }}>
+  <SendLayout place={{ name: LIBRARY_WORDS.title, back: noop }} side={null}>
     <testSendForm.Body docId={DOC_ID} />
-  </SendPlaceContext>
+  </SendLayout>
 );
 const sidePanel = (): ReactNode => <SidePanel docId={DOC_ID} overlay={false} />;
 const outlined = (outline: OutlineSelectors) => (): ReactNode => (

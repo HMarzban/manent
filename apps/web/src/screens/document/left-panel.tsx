@@ -48,7 +48,8 @@ function ResizeEdge(props: { widthPx: number }): ReactNode {
       aria-valuemin={MIN_WIDTH_PX}
       aria-valuemax={MAX_WIDTH_PX}
       tabIndex={0}
-      className="w-1 shrink-0 cursor-col-resize bg-line"
+      // a hairline, with a wider band to take hold of it
+      className="relative w-px shrink-0 cursor-col-resize bg-line transition-colors after:absolute after:inset-y-0 after:-inset-x-1 hover:bg-line-strong"
       onKeyDown={onKeyDown}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

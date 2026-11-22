@@ -123,36 +123,32 @@ async function tab(session: MemoryStorage): Promise<HTMLElement> {
     );
   });
   await act(() =>
-    until(() => container.querySelector("[role='radiogroup']") !== null),
+    until(() => container.querySelector("[role='group']") !== null),
   );
   return container;
 }
 
-/** What names `element`, through its aria-labelledby. */
-const named = (element: Element | null | undefined): string | null =>
-  document.getElementById(element?.getAttribute("aria-labelledby") ?? "")
-    ?.textContent ?? null;
-
-/** The Connection's name, and each of its choices with whether it is the one chosen. */
+/** The Connection's name, and each of its choices with whether it is the one pressed. */
 function connectionOf(container: ParentNode) {
-  const group = container.querySelector("[role='radiogroup']");
+  const group = container.querySelector("[role='group']");
   return {
-    name: named(group),
-    choices: [...(group?.querySelectorAll("[role='radio']") ?? [])].map(
-      (radio) => [named(radio), radio.getAttribute("aria-checked")],
-    ),
+    name: group?.getAttribute("aria-label") ?? null,
+    choices: [...(group?.querySelectorAll("button") ?? [])].map((choice) => [
+      choice.textContent,
+      choice.getAttribute("aria-pressed"),
+    ]),
   };
 }
 
 async function choose(container: ParentNode, name: string): Promise<void> {
-  const radio = [...container.querySelectorAll("[role='radio']")].find(
-    (r) => named(r) === name,
+  const choice = [...container.querySelectorAll("[role='group'] button")].find(
+    (b) => b.textContent === name,
   );
-  if (!(radio instanceof HTMLElement)) throw new RangeError(`no ${name}`);
-  await act(async () => radio.click());
+  if (!(choice instanceof HTMLElement)) throw new RangeError(`no ${name}`);
+  await act(async () => choice.click());
 }
 
-test("the demo bar's Connection is a radio group of Online, Offline and Slow, kept per tab", async () => {
+test("the demo bar's Connection is one choice of Online, Offline and Slow, kept per tab", async () => {
   const session = new MemoryStorage();
   const first = await tab(session);
   const before = connectionOf(first);
