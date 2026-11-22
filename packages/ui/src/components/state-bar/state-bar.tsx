@@ -2,6 +2,8 @@
 import { cn } from "cn";
 import { TriangleExclamationPointIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { DOCUMENT_WORDS } from "../../words/document.ts";
+import { CloseButton } from "../panel-tabs/close-button.tsx";
 import { Button } from "../stock/button.tsx";
 import type { StateLine } from "./state-line.ts";
 
@@ -29,6 +31,7 @@ function StateSide({ line, run, registered }: SideProps): ReactNode {
       `a side of the state bar holds at most two actions, not ${line.actions.length}`,
     );
   }
+  const { dismiss } = line;
   return (
     <div
       className={cn(
@@ -55,6 +58,12 @@ function StateSide({ line, run, registered }: SideProps): ReactNode {
             {action.label}
           </Button>
         ))}
+      {dismiss !== null && registered(dismiss) ? (
+        <CloseButton
+          label={DOCUMENT_WORDS.dismiss}
+          onClick={() => run(dismiss)}
+        />
+      ) : null}
     </div>
   );
 }

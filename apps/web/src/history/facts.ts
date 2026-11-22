@@ -51,10 +51,14 @@ function useHistoryState(): HistoryState {
     step: useHistory("step"),
     draftsOnly: useHistory("draftsOnly"),
     naming: useHistory("naming"),
+    sinceDismissed: useHistory("sinceDismissed"),
   };
 }
 
-/** The state bar's history facts for the open script, whose versions stay listed while it is shown. */
+/**
+ * The state bar's history facts for the open script, whose versions stay listed while it is shown; "since you last
+ * opened" says nothing once it is dismissed.
+ */
 export function useHistoryFacts(docId: string): readonly StateFact[] {
   const { history } = useServices();
   const state = useHistoryState();
@@ -72,5 +76,9 @@ export function useHistoryFacts(docId: string): readonly StateFact[] {
   }, [history, docId]);
   // a baseline chosen in another script says nothing of this one
   const own = state.docId === docId ? state : { ...state, baseline: null };
-  return historyFacts(own, since, personName);
+  return historyFacts(
+    own,
+    state.sinceDismissed === docId ? null : since,
+    personName,
+  );
 }

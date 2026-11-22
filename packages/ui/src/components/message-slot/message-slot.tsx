@@ -1,8 +1,8 @@
 // The one place that says what just happened, in the status bar of every screen.
 import { cn } from "cn";
-import { XIcon } from "lucide-react";
 import { useCallback, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
+import { CloseButton } from "../panel-tabs/close-button.tsx";
 import { Button } from "../stock/button.tsx";
 import type { MessageQueue } from "./message.ts";
 
@@ -59,14 +59,10 @@ export function MessageSlot({
               </Button>
             ))}
           {message.lifetime === "until_dismissed" ? (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={DISMISS}
+            <CloseButton
+              label={DISMISS}
               onClick={() => queue.dismiss(message.id)}
-            >
-              <XIcon aria-hidden="true" />
-            </Button>
+            />
           ) : null}
         </div>
       )}

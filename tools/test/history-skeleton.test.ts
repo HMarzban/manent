@@ -417,6 +417,7 @@ test("the history commands sit in these menus, answer these palette words and ap
     ],
     ["history.hideChanges", [], { keywords: [] }, null],
     ["history.showSinceOpened", [], { hidden: "the state bar's action" }, null],
+    ["history.dismissSinceOpened", [], { hidden: "the state bar's ✕" }, null],
     ["history.backToWorking", [], { keywords: [] }, null],
     ["history.nextChange", [], { keywords: [] }, null],
     ["history.previousChange", [], { keywords: [] }, null],

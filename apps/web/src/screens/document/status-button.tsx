@@ -12,7 +12,7 @@ import { SyncCentre } from "./sync-centre.tsx";
 const SYNC_CENTRE = "sync_centre";
 
 /** Keeps the status of `source` written into the two slots for as long as they are drawn. */
-function useStatusSlots(source: Subscribable<StatusFacts>) {
+export function useStatusSlots(source: Subscribable<StatusFacts>) {
   const { now, schedule } = useEnvironment();
   const root = useRef<HTMLSpanElement>(null);
   const deviceSlot = useRef<HTMLSpanElement>(null);
