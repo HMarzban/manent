@@ -108,14 +108,14 @@ export function Pane(props: {
     device: () => <DevicePane deviceName={deviceName} persisted={persisted} />,
   };
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-1">
-      <h2 id={headingId} className="text-micro uppercase text-fg-muted">
+    <section aria-labelledby={headingId} className="flex flex-col">
+      <h2 id={headingId} className="text-title">
         {paneLabels(where.shell)[pane]}
       </h2>
-      <p className="pb-2 text-meta text-fg-muted">
+      <p className="text-ui text-fg-muted">
         {scopeLine(pane, where.shell, deviceName)}
       </p>
-      {body[pane]()}
+      <div className="flex flex-col gap-2 pt-6">{body[pane]()}</div>
     </section>
   );
 }
