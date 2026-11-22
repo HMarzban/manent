@@ -15,7 +15,7 @@ import type { Rng } from "./rng.ts";
 import type { SeedContext } from "./seed.ts";
 
 export interface Story {
-  /** The driver's clock moves to the time `spec` names in the seed's notation. */
+  /** The driver's clock moves to the time `spec` names in the seed's notation; RangeError if it is before this story's last. */
   at(spec: string): Promise<void>;
   session(userId: string, key: string): Promise<SeedSession>;
   /** Inserts `blocks` after the block `after` (null: at the start); returns the new block ids. */
@@ -58,11 +58,7 @@ function runsOf(block: SeedBlock): TextJSON[] {
     const marks = block.marks
       .filter((m) => m.from <= from && m.to >= to)
       .map((m) => ({ type: m.mark }));
-    return [
-      marks.length === 0
-        ? { type: "text", text }
-        : { type: "text", text, marks },
-    ];
+    return [{ type: "text", text, ...(marks.length === 0 ? {} : { marks }) }];
   });
 }
 
@@ -74,9 +70,7 @@ export function toBlockJSON(block: SeedBlock, id: string): BlockJSON {
     ...(block.kind === null ? {} : { kind: block.kind }),
   };
   const content = runsOf(block);
-  return content.length === 0
-    ? { type: "block", attrs }
-    : { type: "block", attrs, content };
+  return { type: "block", attrs, ...(content.length === 0 ? {} : { content }) };
 }
 
 const docIdOf = (key: string): string => seedDoc(key).docId;
@@ -330,9 +324,16 @@ export function createStory(context: SeedContext, step: string): Story {
   };
   const session = (userId: string, key: string): Promise<SeedSession> =>
     driverOf().open(userId, docIdOf(key));
+  let last = -Infinity;
   return {
     async at(spec) {
-      await driverOf().setTime(context.time.at(spec));
+      const t = context.time.at(spec);
+      if (t < last)
+        throw new RangeError(
+          `the story of ${step} cannot go back from ${last} to ${t}`,
+        );
+      last = t;
+      await driverOf().setTime(t);
     },
     session,
     async write(target, blocks, after, ids) {

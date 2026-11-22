@@ -79,7 +79,7 @@ export interface SeedProduction {
 
 export interface SeedDriver {
   readonly capabilities: ReadonlySet<SeedCapability>;
-  /** The server's clock moves to `at` and its due timers run; RangeError if it would go back. */
+  /** The server's clock moves to `at`, back as well as forward, and its due timers run. */
   setTime(at: number): Promise<void>;
   /** POST /api/docs as the owner for the workspace's index in its home, then each role on that index. */
   workspace(
