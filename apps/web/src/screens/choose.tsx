@@ -78,11 +78,8 @@ function People(props: {
               disabled={props.disabled}
               onClick={() => props.onChoose(choice)}
               aria-current={chosen ? "true" : undefined}
-              className={
-                choice.registered
-                  ? "mn-card flex w-full items-start gap-3 p-4 text-start"
-                  : "flex w-full items-start gap-3 rounded-surface border border-dashed border-line-strong p-4 text-start hover:bg-subtle aria-[current=true]:bg-selected"
-              }
+              data-new={choice.registered ? undefined : ""}
+              className="mn-card flex w-full items-start gap-3 p-4 text-start"
             >
               <Avatar
                 name={choice.name}

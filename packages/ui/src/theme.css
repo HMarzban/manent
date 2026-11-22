@@ -1173,11 +1173,17 @@ button:not(:disabled):hover > .mn-row {
 }
 
 /* A card to choose (a person, a kind of project): raised, its edge strong
-   under the pointer, the chosen one selected. */
+   under the pointer, the chosen one selected. A new one ("You") is open: no
+   fill, a dashed strong edge. */
 .mn-card {
   background-color: var(--bg-raised);
   border: 1px solid var(--line);
   border-radius: var(--shape-surface);
+}
+.mn-card[data-new] {
+  background-color: transparent;
+  border-style: dashed;
+  border-color: var(--line-strong);
 }
 .mn-card:hover:not(:disabled) {
   border-color: var(--line-strong);
