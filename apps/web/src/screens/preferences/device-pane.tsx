@@ -9,6 +9,7 @@ import {
   useSubscribable,
   useTiming,
 } from "@manent/ui";
+import { LoaderCircleIcon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -159,23 +160,6 @@ function ActionRow(props: {
   );
 }
 
-// the busy button's spinner: the circle the consequence dialog draws, from an icon library this workspace does not depend on
-function Spinner(): ReactNode {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      className="animate-spin"
-    >
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
-  );
-}
-
 /** While `busy`, the button reads `busyLabel`, is disabled and keeps the width it had; its spinner shows after a while. */
 function BusyButton(props: {
   label: string;
@@ -213,7 +197,9 @@ function BusyButton(props: {
       onClick={props.onClick}
     >
       {busy ? busyLabel : label}
-      {busy && spinning ? <Spinner /> : null}
+      {busy && spinning ? (
+        <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
+      ) : null}
     </Button>
   );
 }

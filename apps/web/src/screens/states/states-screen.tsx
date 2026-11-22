@@ -45,7 +45,7 @@ import { SIDE_PANEL_TABS } from "../document/side-tabs.ts";
 import { SyncCentre } from "../document/sync-centre.tsx";
 import { LibraryScreen } from "../library/library-screen.tsx";
 import { Pane } from "../preferences/pane.tsx";
-import { SendPlaceContext } from "../send/send-frame.tsx";
+import { SendLayout } from "../send/send-frame.tsx";
 import { testSendForm } from "../send/test-form.tsx";
 import { createFixtureLibrary } from "./fixture-library.ts";
 
@@ -190,9 +190,9 @@ const pane = (persisted: boolean) => (): ReactNode => (
   />
 );
 const send = (): ReactNode => (
-  <SendPlaceContext value={{ name: LIBRARY_WORDS.title, back: noop }}>
+  <SendLayout place={{ name: LIBRARY_WORDS.title, back: noop }} side={null}>
     <testSendForm.Body docId={DOC_ID} />
-  </SendPlaceContext>
+  </SendLayout>
 );
 const sidePanel = (): ReactNode => <SidePanel docId={DOC_ID} overlay={false} />;
 const outlined = (outline: OutlineSelectors) => (): ReactNode => (

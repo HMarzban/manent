@@ -9,6 +9,7 @@ import {
   STILL_WORKING_MS,
   useTiming,
 } from "@manent/ui";
+import { LoaderCircleIcon, TriangleExclamationPointIcon } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -16,10 +17,12 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 /** In the order the frame draws them, whatever order a form gives them in. */
 export const SEND_ROW_IDS = [
@@ -61,14 +64,53 @@ export interface SendPlace {
   back(): void;
 }
 
-export const SendPlaceContext = createContext<SendPlace | null>(null);
+/** Where a frame draws: the place its Back names, and the title bar across the screen that it fills. */
+interface SendHost {
+  readonly place: SendPlace;
+  readonly titleBar: HTMLElement;
+}
 
-/** Throws a TypeError outside a SendPlaceContext. */
-function useSendPlace(): SendPlace {
-  const place = useContext(SendPlaceContext);
-  if (place === null)
+const SendHostContext = createContext<SendHost | null>(null);
+
+/** Throws a TypeError outside a SendLayout. */
+function useSendHost(): SendHost {
+  const host = useContext(SendHostContext);
+  if (host === null)
     throw new TypeError("a Send frame was drawn outside the Send screen");
-  return place;
+  return host;
+}
+
+/**
+ * The Send screen's layout: the title bar across its full width, which the frame inside `children` fills, over the
+ * frame and `side`, as the document screen draws its title bar over its panels.
+ */
+export function SendLayout(props: {
+  place: SendPlace;
+  side: ReactNode;
+  children: ReactNode;
+}): ReactNode {
+  const { place, side, children } = props;
+  const [titleBar, setTitleBar] = useState<HTMLElement | null>(null);
+  const host = useMemo(
+    () => (titleBar === null ? null : { place, titleBar }),
+    [place, titleBar],
+  );
+  return (
+    <>
+      <header
+        ref={setTitleBar}
+        className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line px-2"
+      />
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
+          {host === null ? null : (
+            <SendHostContext value={host}>{children}</SendHostContext>
+          )}
+        </div>
+        {side}
+      </div>
+    </>
+  );
 }
 
 // each one shows once the work has been busy for that long: the spinner, the progress, Still working…, then Cancel
@@ -136,8 +178,12 @@ function ActionLine(props: {
         ref={problemRef}
         tabIndex={-1}
         data-arrival
-        className="text-ui outline-none"
+        className="flex items-start gap-2 text-ui outline-none"
       >
+        <TriangleExclamationPointIcon
+          aria-hidden="true"
+          className="mt-0.5 shrink-0 text-attention"
+        />
         {problem}
       </p>
     );
@@ -146,23 +192,6 @@ function ActionLine(props: {
     <p id={lineId} className="text-ui text-fg-muted">
       {disabledLine}
     </p>
-  );
-}
-
-// the busy button's spinner: the circle the consequence dialog draws, from an icon library this workspace does not depend on
-function Spinner(): ReactNode {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      className="animate-spin"
-    >
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
   );
 }
 
@@ -196,7 +225,9 @@ function ActionButton(props: {
       onClick={() => action.run?.()}
     >
       {busy ? action.busyLabel : label}
-      {busy && step >= 1 ? <Spinner /> : null}
+      {busy && step >= 1 ? (
+        <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
+      ) : null}
     </Button>
   );
 }
@@ -226,9 +257,9 @@ function BusyAside(props: { action: SendAction; step: number }): ReactNode {
 }
 
 /**
- * The Send screen's frame: Back to the place it was opened from, the title (focused on arrival) and `aside`; the rows in
- * the order of SEND_ROW_IDS beside the pages, which stack below them when the frame is narrower than both; then the line
- * above the button and the button. Throws a TypeError outside the Send screen.
+ * The Send screen's frame: in the layout's title bar, Back to the place it was opened from, the title (focused on arrival)
+ * and `aside`; under it, the rows in the order of SEND_ROW_IDS beside the pages, which stack below them when the frame is
+ * narrower than both; then the line above the button and the button. Throws a TypeError outside a SendLayout.
  */
 export function SendFrame(props: {
   title: string;
@@ -238,7 +269,7 @@ export function SendFrame(props: {
   action: SendAction;
 }): ReactNode {
   const { title, aside, rows, pages, action } = props;
-  const place = useSendPlace();
+  const { place, titleBar } = useSendHost();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const lineId = useId();
   const step = useBusyStep(action.busy);
@@ -249,22 +280,29 @@ export function SendFrame(props: {
       : DIALOG_WORDS.disabledLine(action.label, action.disabledReason);
   const describing = action.problem === null && disabledLine !== null;
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <header className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line px-2">
-        <Button variant="ghost" className="text-fg-muted" onClick={place.back}>
-          {SEND_WORDS.back(place.name)}
-        </Button>
-        <h1
-          ref={headingRef}
-          tabIndex={-1}
-          className="truncate text-heading outline-none"
-        >
-          {title}
-        </h1>
-        {aside === null ? null : (
-          <p className="ms-auto truncate text-meta text-fg-muted">{aside}</p>
-        )}
-      </header>
+    <>
+      {createPortal(
+        <>
+          <Button
+            variant="ghost"
+            className="text-fg-muted"
+            onClick={place.back}
+          >
+            {SEND_WORDS.back(place.name)}
+          </Button>
+          <h1
+            ref={headingRef}
+            tabIndex={-1}
+            className="truncate text-heading outline-none"
+          >
+            {title}
+          </h1>
+          {aside === null ? null : (
+            <p className="ms-auto truncate text-meta text-fg-muted">{aside}</p>
+          )}
+        </>,
+        titleBar,
+      )}
       <div className="@container min-h-0 flex-1 overflow-auto">
         <div className={PAIR}>
           <div className="flex w-content max-w-full min-w-0 flex-col">
@@ -293,6 +331,6 @@ export function SendFrame(props: {
           </section>
         </div>
       </div>
-    </div>
+    </>
   );
 }
