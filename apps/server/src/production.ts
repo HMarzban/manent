@@ -8,6 +8,7 @@ import latinExt400Italic from "@fontsource/courier-prime/files/courier-prime-lat
 import latinExt400Normal from "@fontsource/courier-prime/files/courier-prime-latin-ext-400-normal.woff";
 import latinExt700Italic from "@fontsource/courier-prime/files/courier-prime-latin-ext-700-italic.woff";
 import latinExt700Normal from "@fontsource/courier-prime/files/courier-prime-latin-ext-700-normal.woff";
+import { resolve } from "node:path";
 import type { FontFaceKey } from "@manent/pagination";
 import { createPacketRenderPdf, readScriptFonts } from "@manent/server-core";
 import type { RenderPdf } from "@manent/server-core";
@@ -24,5 +25,8 @@ const FACES: Readonly<Record<FontFaceKey, string>> = Object.freeze({
 });
 
 export async function readServerRenderPdf(): Promise<RenderPdf> {
-  return createPacketRenderPdf(await readScriptFonts((key) => FACES[key]));
+  // a bundle names each face relative to itself, not to the directory the server was started in
+  return createPacketRenderPdf(
+    await readScriptFonts((key) => resolve(import.meta.dir, FACES[key])),
+  );
 }
