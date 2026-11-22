@@ -29,9 +29,12 @@ import { registerLiveEditor } from "./live-editor.ts";
 import type { EditorMount } from "./mount.ts";
 import { followZoom } from "./page-zoom.ts";
 import { keepPlace } from "./keep-place.ts";
-import { PAGE_REGION } from "./page-frame.ts";
 import { placeholderMount } from "./placeholder-mount.ts";
 import { countSteps } from "./undo-depth.ts";
+
+// page-frame.ts loads apart from the editor: importing this selector from it would push the editor's first load
+// over its size budget
+const PAGE_REGION = "[data-region='page']";
 
 /** What one person's undo takes back. */
 export const UNDO_ROOTS: readonly UndoRoot[] = ["script", "revisedOverrides"];

@@ -15,7 +15,7 @@ export interface PageFrame {
   readonly cellPx: number;
 }
 
-export const PAGE_REGION = "[data-region='page']";
+const PAGE_REGION = "[data-region='page']";
 const PX_PER_PT = CELL_PX / CELL_PT;
 
 const sameFrame = (a: PageFrame | null, b: PageFrame | null): boolean =>
