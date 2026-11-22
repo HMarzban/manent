@@ -47,7 +47,11 @@ function bluePort(doc: Node, tint: boolean): ProductionPort {
     },
     mode: "collated",
     tint,
-    words: { lockTooltip: (next) => next, colourName: (colour) => colour },
+    words: {
+      lockTooltip: (next) => next,
+      colourName: (colour) => colour,
+      revisedDescription: (name) => `revised, ${name}`,
+    },
   };
   return {
     view: () => view,

@@ -1,7 +1,8 @@
-// The routes that tell a client about a document: who its client ids are, and who deleted it.
+// The routes that tell a client about a document: who its client ids are, who has a role on it, and who deleted it.
 import { isDocId } from "@manent/sync-protocol";
 import type {
   DocClientsResponse,
+  DocPeopleResponse,
   RemovedDocResponse,
 } from "@manent/sync-protocol";
 import { failure, json } from "../respond.ts";
@@ -55,6 +56,27 @@ export const DOCS_INFO_ROUTES: readonly Route[] = [
           name: nameOf(context, entry.userId),
         }));
       return json<DocClientsResponse>({ clients });
+    },
+  },
+  {
+    method: "POST",
+    path: "/api/docs/people",
+    async handle(context) {
+      const read = await readRequest(context);
+      if (!read.ok) return read.response;
+      const { body, storage, userId } = read;
+      if (!isObject(body) || !isDocId(body.docId))
+        return failure("bad_request", 400);
+      const { docId } = body;
+      if (storage.directory.placeOf(docId) === null)
+        return failure("not_found", 404);
+      if (storage.directory.roleOf(docId, userId) === null)
+        return failure("forbidden", 403);
+      const people = storage.directory.rolesOf(docId).map((held) => ({
+        userId: held.userId,
+        name: nameOf(context, held.userId),
+      }));
+      return json<DocPeopleResponse>({ people });
     },
   },
   {

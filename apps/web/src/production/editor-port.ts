@@ -18,6 +18,7 @@ import { colourOf } from "./state-facts.ts";
 const WORDS: ProductionView["words"] = Object.freeze({
   lockTooltip: PRODUCTION_WORDS.lockTooltip,
   colourName: (colour) => COLOUR_NAMES[colour],
+  revisedDescription: PRODUCTION_WORDS.revisedDescription,
 });
 
 /** The blocks of the document as they are now, by id. */

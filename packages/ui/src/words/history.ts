@@ -2,6 +2,7 @@
 
 import type { Message } from "../components/message-slot/message.ts";
 import {
+  dayNumber,
   formatCount,
   formatDate,
   formatDay,
@@ -40,17 +41,9 @@ const BEFORE_RECONNECT = "Before reconnect — this device";
 const RECOVERED = "Recovered — this device";
 const KEPT = "The script as it was is kept as 'Before restore'.";
 
-const DAY_MS = 86_400_000;
-
 const quoted = (text: string): string => `'${text}'`;
 const plural = (n: number, one: string, many: string): string =>
   n === 1 ? `1 ${one}` : `${formatCount(n)} ${many}`;
-
-/** The local calendar day of `at`, as a number that is one apart for consecutive days. */
-const dayNumber = (at: number): number => {
-  const date = new Date(at);
-  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / DAY_MS;
-};
 
 export const HISTORY_WORDS = {
   /** `keys` is the label of Name this draft's key ("⌘⇧S", "Ctrl+Shift+S"). */

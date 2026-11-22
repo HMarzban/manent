@@ -84,6 +84,8 @@ export type {
   DescribeResponse,
   DocClientsRequest,
   DocClientsResponse,
+  DocPeopleRequest,
+  DocPeopleResponse,
   ErrorResponse,
   HealthResponse,
   HttpErrorCode,
