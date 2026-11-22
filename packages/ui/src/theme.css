@@ -201,7 +201,12 @@ html[data-white-page] .mn-pages {
   --elev-dialog:
     0 4px 12px light-dark(rgb(31 29 26 / 0.10), rgb(0 0 0 / 0.50)),
     0 16px 48px light-dark(rgb(31 29 26 / 0.16), rgb(0 0 0 / 0.50));
+}
 
+/* Drawn inside the page too, so declared again on the white page's pages
+   for the reason the page tokens below give. */
+:root,
+html[data-white-page] .mn-pages {
   /* a revision is a strip of its paper: the fill is the paper's own colour in
      every theme; the edge gives it 3:1 where the fill alone does not */
   --rev-white-fill: var(--p-warm-0);
