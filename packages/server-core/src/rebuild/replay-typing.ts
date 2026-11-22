@@ -3,11 +3,8 @@
 // the device's client id, and part of what was there under it.
 import { applyBlockOps, scriptBody } from "@manent/crdt";
 import type { BlockWriter, CrdtDoc, TypedText } from "@manent/crdt";
-import { canonicalBlock } from "@manent/schema";
+import { blockText, blockView, canonicalBlock } from "@manent/schema";
 import type { BlockJSON, BlockOp } from "@manent/schema";
-
-const textOf = (block: BlockJSON): string =>
-  (block.content ?? []).map((run) => run.text).join("");
 
 /** The block without its typed characters; a run left empty is dropped. */
 function untyped(block: BlockJSON, typed: readonly boolean[]): BlockJSON {
@@ -63,7 +60,8 @@ export function writeTyping(
     const id = block.attrs?.id;
     if (typeof id !== "string") continue;
     const found = typed.get(id);
-    if (found === undefined || found.text !== textOf(block)) continue;
+    if (found === undefined || found.text !== blockText(blockView(block)))
+      continue;
     const without: BlockOp = {
       op: "replace",
       block: untyped(block, found.typed),
