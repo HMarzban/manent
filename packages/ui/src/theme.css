@@ -521,7 +521,6 @@ html[data-white-page] .mn-pages {
   --dialog-w-wide: 35rem; /* 560 */
   --palette-w: 40rem; /* 640 */
   --palette-max-h: 26.25rem; /* 420 */
-  --status-device-w: 4.5rem; /* 72: slot one, "Saved" */
   --status-server-w: 17.5rem; /* 280: slot two, the longest status sentence (tested) */
   --avatar: 1.5rem; /* 24: title bar, threads */
   --avatar-sm: 1.25rem; /* 20: in rows; the smallest that holds 11 px initials */
