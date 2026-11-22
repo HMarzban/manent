@@ -40,7 +40,7 @@ function step(by: 1 | -1): void {
     if (comparison === null) return;
     const changes = filterComparison(comparison, {
       sceneIds: view.filter.sceneIds,
-      blockIds: null,
+      blockIds: view.blockIds,
     }).entries.filter((entry) => entry.kind !== "unchanged" || entry.moved);
     if (changes.length === 0) return;
     // the first step goes to the first change, or back from the end to the last

@@ -2,6 +2,7 @@
 import { isVersionContent } from "@manent/sync-client";
 import { VERSION_KINDS } from "@manent/sync-protocol";
 import type {
+  AuthorsResponse,
   RestoreResponse,
   SinceResponse,
   VersionContentResponse,
@@ -78,3 +79,8 @@ export const isWhoWrote = (value: unknown): value is WhoWroteResponse =>
 
 export const isSince = (value: unknown): value is SinceResponse =>
   isRecord(value) && isCount(value.changes) && isTexts(value.authorUserIds);
+
+export const isAuthors = (value: unknown): value is AuthorsResponse =>
+  isRecord(value) &&
+  isRecord(value.authors) &&
+  Object.values(value.authors).every(isText);

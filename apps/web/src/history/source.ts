@@ -5,6 +5,8 @@ import { SCHEMA_VERSION } from "@manent/schema";
 import { uploadRequestOf } from "@manent/sync-client";
 import type { DeviceVersion, DocHandle } from "@manent/sync-client";
 import type {
+  AuthorsRequest,
+  AuthorsResponse,
   SinceResponse,
   VersionContent,
   VersionPosition,
@@ -12,6 +14,7 @@ import type {
 } from "@manent/sync-protocol";
 import type { Subscribable, SurfaceStateValue } from "@manent/ui";
 import {
+  isAuthors,
   isContentAnswer,
   isRestoreAnswer,
   isSince,
@@ -66,6 +69,12 @@ export interface HistorySource {
   whoWrote(docId: string, blockId: string): Promise<WhoWroteResponse | null>;
   /** Null when the person has not opened the script on this device before, or the server cannot tell. */
   sinceOpened(docId: string): Promise<SinceResponse | null>;
+  /** Of each of `blockIds`, the person of its last change after `since`; null when the server cannot tell. */
+  authors(
+    docId: string,
+    since: AuthorsRequest["since"],
+    blockIds: readonly string[],
+  ): Promise<AuthorsResponse | null>;
 }
 
 const DONE = Object.freeze({ ok: true } as const);
@@ -363,6 +372,20 @@ export function createHistorySource(options: {
         return (await readBody(response, isSince))?.value ?? null;
       } catch {
         // the server cannot be reached: nothing is said about others' changes
+        return null;
+      }
+    },
+    async authors(docId, since, blockIds) {
+      try {
+        const response = await http.post("/api/versions/authors", {
+          docId,
+          since,
+          blockIds,
+        });
+        if (!response.ok) return null;
+        return (await readBody(response, isAuthors))?.value ?? null;
+      } catch {
+        // the server cannot be reached: the changes are not told apart by person
         return null;
       }
     },

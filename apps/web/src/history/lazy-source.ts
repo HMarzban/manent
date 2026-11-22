@@ -66,5 +66,7 @@ export function createLazySource(options: {
     whoWrote: async (docId, blockId) =>
       (await source()).whoWrote(docId, blockId),
     sinceOpened: async (docId) => (await source()).sinceOpened(docId),
+    authors: async (docId, since, blockIds) =>
+      (await source()).authors(docId, since, blockIds),
   };
 }
