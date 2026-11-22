@@ -8,6 +8,7 @@ import {
   formatCount,
   useSubscribable,
 } from "@manent/ui";
+import { TriangleExclamationPointIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
@@ -70,14 +71,30 @@ function EntryRow(props: {
       ? [entry.text]
       : [textOf(entry.mine), textOf(entry.theirs)];
   return (
-    <div data-review-block={entry.blockId ?? entry.id} className="pb-2">
-      <Row>{labelOf(entry, sceneWords(doc, entry.blockId))}</Row>
+    <div
+      data-review-block={entry.blockId ?? entry.id}
+      className="flex flex-col gap-2 border-b border-line pb-3"
+    >
+      <Row
+        leading={
+          <TriangleExclamationPointIcon
+            aria-hidden="true"
+            className="size-icon text-attention"
+          />
+        }
+      >
+        {labelOf(entry, sceneWords(doc, entry.blockId))}
+      </Row>
       {wordings.map((text, index) => (
-        <p key={index} className="px-2 text-ui whitespace-pre-wrap">
+        // each wording quoted behind a rule, as a comment quotes its text
+        <p
+          key={index}
+          className="mx-3 border-s-2 border-line ps-2 text-ui whitespace-pre-wrap"
+        >
           {text}
         </p>
       ))}
-      <div className="flex flex-wrap gap-1 px-2 pt-1">
+      <div className="flex flex-wrap gap-1 px-3">
         {choicesOf(entry, doc, review).map((choice) => (
           <Button
             key={choice.label}
@@ -123,8 +140,8 @@ export function ToReviewList(props: {
   }, [entries, dom, focusPending]);
   if (doc === null || entries.length === 0) return null;
   return (
-    <section aria-label={REVIEW_WORDS.heading} className="py-1">
-      <h3 className="px-2 pt-2 text-micro text-fg-muted uppercase">
+    <section aria-label={REVIEW_WORDS.heading} data-tour="to_review">
+      <h3 className="mn-group-label">
         {[REVIEW_WORDS.heading, formatCount(entries.length)].join(" · ")}
       </h3>
       <div ref={list}>

@@ -1,0 +1,52 @@
+name: bench
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun x playwright install --with-deps chromium
+      - run: bun run bench --tier ci-shared --quick
+      - run: bun run bench compare bench/baseline.json "$(ls -t bench/results/*.json | head -1)"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results-linux
+          path: bench/results/
+
+  works:
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, macos-26]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun x playwright install --with-deps chromium
+      - run: bun run bench --tier ci-shared --quick
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results-${{ matrix.os }}
+          path: bench/results/

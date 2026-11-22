@@ -108,10 +108,10 @@ export function readWorkspace(maps: {
 export const readContinueMap = (map: JsonMapView): Map<string, ContinueEntry> =>
   entriesOf(map, readContinue);
 
-/** Where a document is, from what the device's store holds of it; absent: not on this device. */
-function placeOf(summary: DocSummary | undefined): RowPlace {
+/** Where a document is, from what the device's store holds of it; absent: not on this device. Only someone without a session is told it was never synced. */
+function placeOf(summary: DocSummary | undefined, signedIn: boolean): RowPlace {
   if (summary === undefined) return { kind: "not_on_device" };
-  if (summary.neverSynced) return { kind: "never_synced" };
+  if (summary.neverSynced && !signedIn) return { kind: "never_synced" };
   if (summary.waiting > 0) return { kind: "waiting", count: summary.waiting };
   return { kind: "synced" };
 }
@@ -119,6 +119,8 @@ function placeOf(summary: DocSummary | undefined): RowPlace {
 /** What the rows are read with besides the index. */
 export interface RowFacts {
   userId: string;
+  /** The person has a session. */
+  signedIn: boolean;
   summaries: ReadonlyMap<string, DocSummary>;
   continued: ReadonlyMap<string, ContinueEntry>;
   nameOf: (userId: string) => string;
@@ -177,7 +179,7 @@ export function projectItems(
         place:
           firstDocId === null
             ? { kind: "not_on_device" }
-            : placeOf(facts.summaries.get(firstDocId)),
+            : placeOf(facts.summaries.get(firstDocId), facts.signedIn),
       };
     });
 }
@@ -204,7 +206,7 @@ export function continueItems(
           title: document.title,
           projectTitle: project.title,
           kind: project.kind,
-          place: placeOf(facts.summaries.get(docId)),
+          place: placeOf(facts.summaries.get(docId), facts.signedIn),
         },
       ];
     })

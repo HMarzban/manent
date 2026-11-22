@@ -48,7 +48,7 @@ export const VIEW_COMMANDS = [
   {
     id: "history.open",
     label: "History",
-    group: "view",
+    group: "file",
     home: null,
     scope: "global",
     keys: {
@@ -62,7 +62,7 @@ export const VIEW_COMMANDS = [
     visible: (ctx) => ctx.docOpen && ctx.historyPresent,
     checked: null,
     passThrough: null,
-    menus: [{ menu: "view", group: "panels", order: 30, submenu: null }],
+    menus: [{ menu: "file", group: "history", order: 40, submenu: null }],
     palette: { keywords: ["version history", "timeline"] },
     opens: { surface: "side_panel", focus: "first" },
     reach: "self",

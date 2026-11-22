@@ -5,7 +5,7 @@ import {
   createDoc,
   updateMeta,
 } from "@manent/crdt";
-import { validateBlocks } from "@manent/schema";
+import { rejects, validateBlocks } from "@manent/schema";
 import type { DocFile, Home, Storage } from "@manent/storage";
 import { decodeReplayUpdates, isDocId, isDocKind } from "@manent/sync-protocol";
 import type {
@@ -13,6 +13,11 @@ import type {
   AdoptResponse,
   DescribeResponse,
 } from "@manent/sync-protocol";
+import {
+  keepAdoptedWorkflow,
+  readAdoptedWorkflow,
+} from "../../production/adoption.ts";
+import type { AdoptedWorkflow } from "../../production/adoption.ts";
 import { createDocumentAccess } from "../../sync/access.ts";
 import type { CreateResult, DocumentAccess } from "../../sync/access.ts";
 import { DEFAULT_LIMITS } from "../../sync/ports.ts";
@@ -73,8 +78,16 @@ function adoptionOf(body: unknown): AdoptRequest | null {
     return null;
   if (!isText(state) || !(workspaceId === null || isText(workspaceId)))
     return null;
-  return { key, docId, kind, home, workspaceId, state };
+  const workflow = readAdoptedWorkflow(body);
+  if (workflow === null) return null;
+  return { key, docId, kind, home, workspaceId, state, ...workflow };
 }
+
+/** True when a version's blocks hold what the editor never writes. */
+const holdsInvalid = ({ versions }: AdoptedWorkflow): boolean =>
+  versions.some(({ content }) =>
+    rejects(validateBlocks(content.blocks, { isIdTaken: () => false })),
+  );
 
 /** A client id's clock range in an update, `toClock` exclusive. */
 interface Meta {
@@ -148,11 +161,15 @@ function recorded(
   };
 }
 
-/** Rule 3, in one transaction: the state's client ids are the adopter's, the state is a row of the log, and the key is kept. */
+/**
+ * Rule 3, in one transaction: the state's client ids are the adopter's, the state is a row of the
+ * log, the versions and production come with it, and the key is kept.
+ */
 function adoptInto(
   file: DocFile,
   write: { docId: string; key: string; userId: string; at: number },
   state: { update: Uint8Array; metas: readonly Meta[] },
+  workflow: AdoptedWorkflow,
   generation: number,
 ): number {
   const { docId, key, userId, at } = write;
@@ -163,6 +180,7 @@ function adoptInto(
     file.log.registerClients(docId, userId, ids);
     const append = { docId, generation, update, userId, clocks };
     const seq = file.log.append({ ...append, origin: "import" });
+    keepAdoptedWorkflow(file, docId, workflow, { generation, seq });
     file.adoptions.put({ docId, key, userId, seq, adoptedAt: at });
     return seq;
   });
@@ -187,6 +205,7 @@ async function adopt(context: RouteContext): Promise<Response> {
   const documentBytes = limits?.documentBytes ?? DEFAULT_LIMITS.documentBytes;
   const checked = checkState(adoption.state, documentBytes);
   if (!checked.ok) return refuse(checked.code);
+  if (holdsInvalid(adoption)) return refuse("invalid");
   const { docId, kind, home, workspaceId, key } = adoption;
   const { userId } = identity;
   const asked = {
@@ -202,9 +221,12 @@ async function adopt(context: RouteContext): Promise<Response> {
   // a document someone has written to is not a device's to hand over
   if (place === null || row === null || row.headSeq > 0)
     return refuse("exists_elsewhere");
-  const write = { docId, key, userId, at: clock.now() };
   const file = storage.open(place.home);
-  const adoptedSeq = adoptInto(file, write, checked, row.generation);
+  // a version id is the file's: one another document holds is not this device's to give
+  if (adoption.versions.some(({ id }) => file.history.get(id) !== null))
+    return refuse("bad_request");
+  const write = { docId, key, userId, at: clock.now() };
+  const adoptedSeq = adoptInto(file, write, checked, adoption, row.generation);
   const { document } = created;
   return json<AdoptResponse>({
     ...document,

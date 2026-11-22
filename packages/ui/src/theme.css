@@ -201,7 +201,12 @@ html[data-white-page] .mn-pages {
   --elev-dialog:
     0 4px 12px light-dark(rgb(31 29 26 / 0.10), rgb(0 0 0 / 0.50)),
     0 16px 48px light-dark(rgb(31 29 26 / 0.16), rgb(0 0 0 / 0.50));
+}
 
+/* Drawn inside the page too, so declared again on the white page's pages
+   for the reason the page tokens below give. */
+:root,
+html[data-white-page] .mn-pages {
   /* a revision is a strip of its paper: the fill is the paper's own colour in
      every theme; the edge gives it 3:1 where the fill alone does not */
   --rev-white-fill: var(--p-warm-0);
@@ -255,12 +260,14 @@ html[data-white-page] .mn-pages {
 }
 
 /* --------------------------------------------------------------------------
-   TIER 2 — SEMANTIC: PAGE. The same pairs, resolved by the sheet's own
-   color-scheme, so a white sheet can sit in dark chrome. Marks are
-   translucent: they keep their contrast on any revision paper without
-   knowing which paper is under them.
+   TIER 2 — SEMANTIC: PAGE. The same pairs, declared again on the white
+   page's pages: the bundler turns light-dark() into variables that resolve
+   where a token is declared, so a white sheet in dark chrome needs its own
+   declaration. Marks are translucent: they keep their contrast on any
+   revision paper without knowing which paper is under them.
    -------------------------------------------------------------------------- */
-:root {
+:root,
+html[data-white-page] .mn-pages {
   --page-paper: light-dark(var(--p-warm-0), var(--p-warm-825));
   --page-ink: light-dark(var(--p-ink), var(--p-warm-100));
   --page-ink-muted: light-dark(var(--p-warm-700), var(--p-warm-350));
@@ -304,6 +311,13 @@ html[data-white-page] .mn-pages {
     var(--p-write-violet-deep),
     var(--p-write-violet-bright)
   );
+  /* Ink source and a game script's branching lines: each role in one of the writer's colours */
+  --page-src-knot: var(--page-text-blue);
+  --page-src-divert: var(--page-text-violet);
+  --page-src-choice: var(--page-text-green);
+  --page-src-logic: var(--page-text-orange);
+  --page-src-tag: var(--page-text-red);
+  --page-src-comment: var(--page-ink-muted);
   --page-hl-yellow: light-dark(rgb(240 190 0 / 0.38), rgb(227 179 65 / 0.18));
   --page-hl-green: light-dark(rgb(40 170 90 / 0.28), rgb(90 200 130 / 0.18));
   --page-hl-pink: light-dark(rgb(230 70 140 / 0.24), rgb(240 110 160 / 0.20));
@@ -386,7 +400,9 @@ html[data-white-page] .mn-pages {
     --chip-line: light-dark(var(--p-black), var(--p-warm-0));
     --elev-overlay: 0 0 0 1px light-dark(var(--p-warm-900), var(--p-warm-100));
     --elev-dialog: 0 0 0 2px light-dark(var(--p-warm-900), var(--p-warm-100));
-
+  }
+  :root,
+  html[data-white-page] .mn-pages {
     --page-paper: light-dark(var(--p-warm-0), var(--p-black));
     --page-ink: light-dark(var(--p-black), var(--p-warm-0));
     --page-ink-muted: light-dark(var(--p-warm-800), var(--p-warm-300));
@@ -445,7 +461,8 @@ html[data-white-page] .mn-pages {
   --fg-attention: var(--p-amber-300);
   --fg-danger: var(--p-red-300);
   --fg-on-danger: var(--p-warm-950);
-  --line: var(--p-demo-800);
+  /* a bordered button's only edge, so 3.69:1 on the bar's ground */
+  --line: var(--p-demo-600);
   --line-strong: var(--p-demo-600);
   --focus: var(--p-demo-200);
   --chip-line: transparent;
@@ -521,7 +538,6 @@ html[data-white-page] .mn-pages {
   --dialog-w-wide: 35rem; /* 560 */
   --palette-w: 40rem; /* 640 */
   --palette-max-h: 26.25rem; /* 420 */
-  --status-device-w: 4.5rem; /* 72: slot one, "Saved" */
   --status-server-w: 17.5rem; /* 280: slot two, the longest status sentence (tested) */
   --avatar: 1.5rem; /* 24: title bar, threads */
   --avatar-sm: 1.25rem; /* 20: in rows; the smallest that holds 11 px initials */
@@ -858,8 +874,10 @@ html[data-white-page] .mn-pages {
 /* 1. One focus ring for every focusable thing, stock or ours. A heading or a
       refusal focused on arrival is where focus starts, not a control: no ring.
       Nor has the palette's field, which holds focus while the palette is open
-      and is the palette's own top edge: its caret is the focus. A field inside
-      an input group rings the whole group, as a plain field rings itself. */
+      and is the palette's own top edge: its caret is the focus, as it is on a
+      page being written. A field inside an input group rings the whole
+      group, as a plain field rings itself, unless the group is marked
+      data-arrival: its field was focused on arrival and not yet left. */
 :focus-visible:not(
   [role="dialog"],
   [role="alertdialog"],
@@ -868,16 +886,25 @@ html[data-white-page] .mn-pages {
   [role="tooltip"],
   :is(h1, [data-arrival])[tabindex="-1"],
   .mn-palette-field,
+  .mn-page-view[contenteditable="true"],
+  .mn-plain[contenteditable="true"],
+  .mn-front-field[contenteditable="plaintext-only"],
   [data-slot="input-group-control"]
 ) {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
   --tw-ring-color: transparent; /* retire the stock halo: one ring, not two */
 }
-[data-slot="input-group"]:has([data-slot="input-group-control"]:focus-visible),
+[data-slot="input-group"]:not([data-arrival]):has(
+    [data-slot="input-group-control"]:focus-visible
+  ),
 [data-slot="slider-thumb"]:has(:focus-visible) {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
+}
+/* nor the browser's own ring, which it draws on a heading focused by script */
+:is(h1, [data-arrival])[tabindex="-1"]:focus-visible {
+  outline: none;
 }
 /* after any key use the item under the pointer also matches :focus-visible */
 [role^="menuitem"]:hover,
@@ -957,14 +984,17 @@ html[data-white-page] .mn-pages {
   animation: none;
 }
 
-/* 8. A toggle that is on takes the selected role and an edge, not the hover fill. */
-[data-slot^="toggle"][aria-pressed="true"] {
+/* 8. A toggle that is on, or a button pressed as one, takes the selected role
+      and an edge, not the hover fill. */
+[data-slot^="toggle"][aria-pressed="true"],
+[data-slot="button"][aria-pressed="true"] {
   background-color: var(--bg-selected);
   color: var(--fg);
   outline: 1px solid var(--line-strong);
   outline-offset: -1px;
 }
-[data-slot^="toggle"][aria-pressed="true"]:focus-visible {
+[data-slot^="toggle"][aria-pressed="true"]:focus-visible,
+[data-slot="button"][aria-pressed="true"]:focus-visible {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
 }
@@ -1141,6 +1171,37 @@ button:not(:disabled):hover > .mn-row {
   text-transform: uppercase;
 }
 
+/* A bar of controls on one row, which never wraps or scrolls sideways. Short
+   of room, its buttons keep only their icons, their words staying their
+   names, and its labels go; narrower still, so do its status words. */
+.mn-bar {
+  container: mn-bar / inline-size;
+}
+@container mn-bar (width < 72rem) {
+  .mn-bar :is([data-slot="button-label"], [data-slot="bar-label"]) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .mn-bar [data-slot="button"]:has(> [data-slot="button-label"]) {
+    width: var(--control-h-sm);
+    padding-inline: 0;
+  }
+}
+@container mn-bar (width < 40rem) {
+  .mn-bar [data-slot="bar-status"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 /* A revision's chip: a small square of its paper, always beside its name. */
 .mn-rev-chip {
   display: inline-block;
@@ -1173,11 +1234,17 @@ button:not(:disabled):hover > .mn-row {
 }
 
 /* A card to choose (a person, a kind of project): raised, its edge strong
-   under the pointer, the chosen one selected. */
+   under the pointer, the chosen one selected. A new one ("You") is open: no
+   fill, a dashed strong edge. */
 .mn-card {
   background-color: var(--bg-raised);
   border: 1px solid var(--line);
   border-radius: var(--shape-surface);
+}
+.mn-card[data-new] {
+  background-color: transparent;
+  border-style: dashed;
+  border-color: var(--line-strong);
 }
 .mn-card:hover:not(:disabled) {
   border-color: var(--line-strong);
@@ -1220,6 +1287,13 @@ button:not(:disabled):hover > .mn-row {
   outline: var(--page-edge-w) solid var(--page-edge);
   box-shadow: var(--elev-page);
   border-radius: var(--shape-none);
+}
+/* A page drawn small beside a Send form is white paper in every theme, as
+   the printer gets it. Its own values, because the page tokens are resolved
+   on the root. */
+.mn-tile {
+  --page-paper: var(--p-warm-0);
+  --page-ink: var(--p-ink);
 }
 .mn-sheet[data-rev]::before {
   /* the band: a strip of the revision's own paper */
@@ -1601,7 +1675,8 @@ html[data-switching] *::after {
    here is an outline, a border or a system highlight.
    -------------------------------------------------------------------------- */
 @media (forced-colors: active) {
-  :root:root {
+  :root:root,
+  html[data-white-page] .mn-pages {
     --focus: Highlight;
     --line: CanvasText;
     --line-strong: CanvasText;
@@ -1621,6 +1696,7 @@ html[data-switching] *::after {
     border-inline-end: 4px double CanvasText;
   }
   [data-slot^="toggle"][aria-pressed="true"],
+  [data-slot="button"][aria-pressed="true"],
   .mn-row[aria-current]:not([aria-current="false"]),
   .mn-row[aria-selected="true"],
   [role="option"][data-highlighted],

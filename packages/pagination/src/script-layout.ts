@@ -8,7 +8,7 @@ export interface ScriptLayoutSettings {
   readonly moresAtBreaks: boolean;
   readonly sameSpeakerContd: boolean;
   readonly sceneContinued: boolean;
-  /** Never a setting: true while the script is in production. */
+  /** Never a setting: true while the script is in production. False leaves the format's own default, so a multi-camera script letters its scenes before production. */
   readonly scenesNumbered: boolean;
 }
 
@@ -56,6 +56,6 @@ export function profileFromSettings(
     speechContinued: s.moresAtBreaks,
     speakerContinued: s.sameSpeakerContd,
     sceneContinued: s.sceneContinued,
-    scenesNumbered: s.scenesNumbered,
+    scenesNumbered: s.scenesNumbered ? true : undefined,
   });
 }

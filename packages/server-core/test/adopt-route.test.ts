@@ -6,12 +6,20 @@ import {
   scriptSettings,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import type { Home } from "@manent/storage";
+import type { DocFile, Home } from "@manent/storage";
 import { createMemoryStorage } from "@manent/storage/testing";
 import { indexDocId, workspaceHome } from "@manent/sync-protocol";
-import { OWNER_CAPABILITIES, createServer } from "../src/index.ts";
+import type { IssueRequest } from "@manent/sync-protocol";
+import {
+  OWNER_CAPABILITIES,
+  adoptedWorkflowOf,
+  createServer,
+  itemOf,
+  productionState,
+} from "../src/index.ts";
 import { createFakeDirectory } from "../src/testing/index.ts";
 import { makeConfig } from "./config.ts";
+import { productionWorld, valueOf } from "./production-world.ts";
 import { rawEdit } from "./seed.ts";
 import type { ElementNode } from "./seed.ts";
 
@@ -26,7 +34,7 @@ const B1 = "b000000000000001";
 const YOU_CLIENT = 6006;
 const ADOPT_BODY_LIMIT_BYTES = 96 * 1024 * 1024;
 
-const people = ["you", "sam", "dana", "leo"].map((userId) => ({
+const people = ["you", "sam", "dana", "leo", "priya"].map((userId) => ({
   user: { userId, name: userId },
   workspaces: [],
 }));
@@ -348,4 +356,47 @@ test("without sync configured the two routes answer not_found", async () => {
       { error: "not_found" },
     ]);
   }
+});
+
+/** What a script's people see of its production and versions, wherever its log stands. */
+function workflowSeen(file: DocFile) {
+  const production = productionState(file, DOC, (userId) => userId);
+  const versions = file.history
+    .page(DOC, null, 500)
+    .map((row) => ({ ...itemOf(file, row), position: null }));
+  return {
+    production: { ...production, headSeq: null },
+    versions,
+    workflow: adoptedWorkflowOf(file, DOC),
+  };
+}
+
+test("a script locked and issued on a device keeps its production and versions once adopted", async () => {
+  const device = productionWorld();
+  await device.lock();
+  await device.editPage(12, 60);
+  const issue: IssueRequest = {
+    docId: DOC,
+    key: "0".repeat(31) + "b",
+    expectedOrdinal: 1,
+    what: "changed",
+    pages: ["12", "12A"],
+    files: ["pdf_marked"],
+    tint: false,
+    recipientUserIds: ["sam"],
+    memo: "Blue revisions: pp. 12, 12A",
+    issuedOn: "2026-11-16",
+  };
+  valueOf(await device.run(device.service.issue("priya", issue)));
+  const { storage, post, tokenOf } = adopting();
+  const body = {
+    ...ok,
+    state: base64(device.replica().encodeState()),
+    ...adoptedWorkflowOf(device.file, DOC),
+  };
+  const response = await post("/api/docs/adopt", body, tokenOf("priya"));
+  expect(response.status).toBe(200);
+  expect(workflowSeen(storage.open(HOME_OBJ))).toEqual(
+    workflowSeen(device.file),
+  );
 });

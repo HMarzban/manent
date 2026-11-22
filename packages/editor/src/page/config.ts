@@ -1,5 +1,8 @@
 export const BROWSER_ENGINES = ["chromium", "firefox", "webkit"] as const;
 export type BrowserEngine = (typeof BROWSER_ENGINES)[number];
+/** Page view draws the sheets; Reflow view wraps the text to the window, each page's start a thin labelled rule. */
+export const LAYOUT_VIEWS = ["page", "reflow"] as const;
+export type LayoutView = (typeof LAYOUT_VIEWS)[number];
 export const BREAK_STYLES = ["inline", "before_block"] as const;
 export type BreakStyle = (typeof BREAK_STYLES)[number];
 /** Whether sections are given `content-visibility: auto`, per browser engine; off keeps the section and drops the rule. */

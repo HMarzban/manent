@@ -1,7 +1,9 @@
 // What the server's HTTP routes and the demo's server control answer, and what a client sends them.
 import { fromBase64, toBase64 } from "lib0/buffer";
 import type { DocKind } from "./doc-id.ts";
+import type { AdoptedVersion } from "./history-http.ts";
 import type { Capability, DocRole } from "./messages.ts";
+import type { AdoptedProduction } from "./production.ts";
 
 export const HTTP_ERROR_CODES = [
   "bad_request",
@@ -114,8 +116,8 @@ export interface CreateDocumentResponse {
 }
 
 /**
- * The body of POST /api/docs/adopt: a document made on a device, handed to the server with its whole state. A retry
- * under the same `key` changes nothing.
+ * The body of POST /api/docs/adopt: a document made on a device, handed to the server with its whole state, its
+ * versions and its production. A retry under the same `key` changes nothing.
  */
 export interface AdoptRequest {
   /** A canonical lower-case UUID (`isDocId`), made once per hand-off. */
@@ -128,6 +130,10 @@ export interface AdoptRequest {
   workspaceId: string | null;
   /** Base64 of one Yjs update. */
   state: string;
+  /** The device's versions, newest first. */
+  versions: AdoptedVersion[];
+  /** Null for a script its device never locked. */
+  production: AdoptedProduction | null;
 }
 
 /** The answer to POST /api/docs/adopt. */
@@ -176,6 +182,16 @@ export interface DocClientsRequest {
 /** The answer to POST /api/docs/clients: only the ids the server has registered, in ascending `clientId`. */
 export interface DocClientsResponse {
   clients: { clientId: number; userId: string; name: string }[];
+}
+
+/** The body of POST /api/docs/people. */
+export interface DocPeopleRequest {
+  docId: string;
+}
+
+/** The answer to POST /api/docs/people: everyone with a role on the document, ascending by `userId`. */
+export interface DocPeopleResponse {
+  people: { userId: string; name: string }[];
 }
 
 /** The body of POST /api/docs/removed. */

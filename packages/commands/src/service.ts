@@ -83,7 +83,7 @@ export function createCommandService(options: {
         return "passed";
       const reason = whyNotHere(def, ctx);
       if (reason !== null) {
-        onDisabled(labelOf(def, ctx), reason);
+        onDisabled(labelOf(def, ctx, settings), reason);
         return "disabled";
       }
       perform(def);
@@ -99,7 +99,7 @@ export function createCommandService(options: {
         enabled: whyNot === null,
         visible: def.visible === null || def.visible(ctx),
         checked: def.checked === null ? null : def.checked(ctx, settings),
-        label: labelOf(def, ctx),
+        label: labelOf(def, ctx, settings),
         keys: bindings().get(id) ?? NO_KEYS,
         whyNot,
       };

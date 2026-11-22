@@ -57,6 +57,7 @@ export const overlap = (
   settled: false,
   before: null,
   nearBlockId: null,
+  copyId: null,
 });
 
 /** To review over `entries`, set by the test; each choice settles its entry, and is kept in `asked`. */

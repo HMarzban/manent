@@ -65,6 +65,7 @@ async function drawBar(access: StatusFacts["access"] = "edit") {
       return { ok: true };
     },
     zoomPercent: () => 100,
+    showTitlePage: () => {},
   });
   const facts = createFactsStore({
     guard: environment.guard,

@@ -54,6 +54,10 @@ export interface FurnitureSettings {
   readonly sceneContinued: boolean;
   readonly scenesNumbered: boolean;
   readonly scenesLettered: boolean;
+  /** Under each scene heading, the names that speak in its scene. */
+  readonly castLists: boolean;
+  /** Each speech's cue numbered in the left margin. */
+  readonly speechesNumbered: boolean;
   readonly moreText: string;
   readonly contdText: string;
   readonly continuedTopText: string;

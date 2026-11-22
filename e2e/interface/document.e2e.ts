@@ -43,8 +43,8 @@ test("the status never moves while its words change", async ({ page }) => {
   await signedInAs(page, "you", DOC);
   const status = statusButton(page);
   await expect(status).toHaveAccessibleName(NEW_SCRIPT);
-  // the device slot, the middle dot, then the server slot
-  const server = status.locator("span").nth(2);
+  // the slots' row, the device slot's holder and the slot, the middle dot, then the server slot's holder
+  const server = status.locator("span").nth(4);
   const boxes: ({ x: number; y: number; width: number } | null)[] = [];
   // You has no session, so under the new script's words the source says Sign in to sync
   for (const [facts, words] of [

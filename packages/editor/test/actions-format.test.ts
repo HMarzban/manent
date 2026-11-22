@@ -134,6 +134,7 @@ function contextFor(
     history: options.history ?? countingHistory(),
     ids: counter("a"),
     openPicker: () => {},
+    goTo: () => {},
     editable: () => options.editable ?? true,
     columnCells: () => profileFor(format)?.columnCells ?? null,
   };

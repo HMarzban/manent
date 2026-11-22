@@ -34,6 +34,9 @@ function depsAt(place: RoutePlace): {
       visitUndo: environment.visitUndo,
       desktop: null,
       nodeCloud: null,
+      language: environment.language,
+      now: environment.now,
+      storage: environment.storage,
     },
     visited: route.visited,
   };

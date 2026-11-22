@@ -1,25 +1,27 @@
 // The one frame every Send form draws: the way back, the title, the rows, the pages and the action that sends them.
 import {
+  BusyButton,
   Button,
   CANCEL_AFTER_MS,
   DIALOG_WORDS,
   PROGRESS_AFTER_MS,
   SEND_WORDS,
-  SPINNER_AFTER_MS,
   STILL_WORKING_MS,
   useTiming,
 } from "@manent/ui";
+import { TriangleExclamationPointIcon } from "lucide-react";
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 /** In the order the frame draws them, whatever order a form gives them in. */
 export const SEND_ROW_IDS = [
@@ -61,19 +63,57 @@ export interface SendPlace {
   back(): void;
 }
 
-export const SendPlaceContext = createContext<SendPlace | null>(null);
-
-/** Throws a TypeError outside a SendPlaceContext. */
-function useSendPlace(): SendPlace {
-  const place = useContext(SendPlaceContext);
-  if (place === null)
-    throw new TypeError("a Send frame was drawn outside the Send screen");
-  return place;
+/** Where a frame draws: the place its Back names, and the title bar across the screen that it fills. */
+interface SendHost {
+  readonly place: SendPlace;
+  readonly titleBar: HTMLElement;
 }
 
-// each one shows once the work has been busy for that long: the spinner, the progress, Still working…, then Cancel
+const SendHostContext = createContext<SendHost | null>(null);
+
+/** Throws a TypeError outside a SendLayout. */
+function useSendHost(): SendHost {
+  const host = useContext(SendHostContext);
+  if (host === null)
+    throw new TypeError("a Send frame was drawn outside the Send screen");
+  return host;
+}
+
+/**
+ * The Send screen's layout: the title bar across its full width, which the frame inside `children` fills, over the
+ * frame and `side`, as the document screen draws its title bar over its panels.
+ */
+export function SendLayout(props: {
+  place: SendPlace;
+  side: ReactNode;
+  children: ReactNode;
+}): ReactNode {
+  const { place, side, children } = props;
+  const [titleBar, setTitleBar] = useState<HTMLElement | null>(null);
+  const host = useMemo(
+    () => (titleBar === null ? null : { place, titleBar }),
+    [place, titleBar],
+  );
+  return (
+    <>
+      <header
+        ref={setTitleBar}
+        className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line px-2"
+      />
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
+          {host === null ? null : (
+            <SendHostContext value={host}>{children}</SendHostContext>
+          )}
+        </div>
+        {side}
+      </div>
+    </>
+  );
+}
+
+// each one shows once the work has been busy for that long: the progress, Still working…, then Cancel
 const BUSY_STEPS = [
-  SPINNER_AFTER_MS,
   PROGRESS_AFTER_MS,
   STILL_WORKING_MS,
   CANCEL_AFTER_MS,
@@ -96,25 +136,26 @@ function useBusyStep(busy: boolean): number {
   return step;
 }
 
-// the labels in the first column take their own width; the content takes the rest and never pushes past it
-const ROWS_GRID: CSSProperties = Object.freeze({
-  gridTemplateColumns: "max-content minmax(0, 1fr)",
-});
-
 function Rows(props: { rows: readonly SendRow[] }): ReactNode {
   const { rows } = props;
   const given = SEND_ROW_IDS.flatMap((id) =>
     rows.filter((row) => row.id === id),
   );
   return (
-    <dl
-      className="grid min-w-0 grow basis-md gap-x-6 gap-y-3"
-      style={ROWS_GRID}
-    >
+    <dl className="flex flex-col divide-y divide-line">
       {given.map((row) => (
-        <div key={row.id} className="col-span-2 grid grid-cols-subgrid">
-          <dt className="text-ui text-fg-muted">{SEND_WORDS[row.id]}</dt>
-          <dd className="min-w-0 text-ui break-words">{row.content}</dd>
+        <div
+          key={row.id}
+          // the Tour points at the checks, and at no other row
+          data-tour={row.id === "checks" ? "send:checks" : undefined}
+          className="flex gap-4"
+        >
+          <dt className="mn-group-label w-key shrink-0 px-0!">
+            {SEND_WORDS[row.id]}
+          </dt>
+          <dd className="min-w-0 flex-1 py-4 text-ui break-words">
+            {row.content}
+          </dd>
         </div>
       ))}
     </dl>
@@ -136,7 +177,16 @@ function ActionLine(props: {
   }, [problem]);
   if (problem !== null)
     return (
-      <p ref={problemRef} tabIndex={-1} className="text-ui text-danger">
+      <p
+        ref={problemRef}
+        tabIndex={-1}
+        data-arrival
+        className="flex items-start gap-2 text-ui outline-none"
+      >
+        <TriangleExclamationPointIcon
+          aria-hidden="true"
+          className="mt-0.5 shrink-0 text-attention"
+        />
         {problem}
       </p>
     );
@@ -148,53 +198,9 @@ function ActionLine(props: {
   );
 }
 
-// the busy button's spinner: the circle the consequence dialog draws, from an icon library this workspace does not depend on
-function Spinner(): ReactNode {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      className="animate-spin"
-    >
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
-  );
-}
-
-/** The one primary button; while busy it keeps the width it had with `label`. */
-function ActionButton(props: {
-  action: SendAction;
-  step: number;
-  describedBy: string | undefined;
-}): ReactNode {
-  const { action, step, describedBy } = props;
-  const { label, busy } = action;
-  const [idleWidthPx, setIdleWidthPx] = useState<number | null>(null);
-  const measure = useCallback(
-    (node: HTMLButtonElement | null) => {
-      if (node !== null && !busy) setIdleWidthPx(node.offsetWidth);
-    },
-    [busy, label],
-  );
-  return (
-    <Button
-      ref={measure}
-      size="lg"
-      disabled={busy || action.disabledReason !== null || action.run === null}
-      focusableWhenDisabled
-      aria-describedby={describedBy}
-      style={busy && idleWidthPx !== null ? { width: idleWidthPx } : undefined}
-      onClick={() => action.run?.()}
-    >
-      {busy ? action.busyLabel : label}
-      {busy && step >= 1 ? <Spinner /> : null}
-    </Button>
-  );
-}
+// the form and its pages side by side, centred, once the screen holds both (1,100 px); the pages under the form before then
+const PAIR =
+  "mx-auto flex w-fit max-w-full flex-col gap-8 p-6 @min-[68.75rem]:flex-row @min-[68.75rem]:items-start";
 
 /** What long work shows beside its busy button: its progress, Still working…, and Cancel when it can be cancelled. */
 function BusyAside(props: { action: SendAction; step: number }): ReactNode {
@@ -203,15 +209,15 @@ function BusyAside(props: { action: SendAction; step: number }): ReactNode {
   if (!action.busy) return null;
   return (
     <>
-      {progress !== null && step >= 2 ? (
+      {progress !== null && step >= 1 ? (
         <span className="text-ui text-fg-muted">{progress}</span>
       ) : null}
-      {step >= 3 ? (
+      {step >= 2 ? (
         <span className="text-ui text-fg-muted">
           {DIALOG_WORDS.stillWorking}
         </span>
       ) : null}
-      {cancel !== null && step >= 4 ? (
+      {cancel !== null && step >= 3 ? (
         <Button variant="outline" size="lg" onClick={cancel}>
           {DIALOG_WORDS.cancel}
         </Button>
@@ -221,9 +227,9 @@ function BusyAside(props: { action: SendAction; step: number }): ReactNode {
 }
 
 /**
- * The Send screen's frame: Back to the place it was opened from, the title (focused on arrival) and `aside`; the rows in
- * the order of SEND_ROW_IDS beside the pages, which stack below them when the frame is narrower than both; then the line
- * above the button and the button. Throws a TypeError outside the Send screen.
+ * The Send screen's frame: in the layout's title bar, Back to the place it was opened from, the title (focused on arrival)
+ * and `aside`; under it, the rows in the order of SEND_ROW_IDS beside the pages, which stack below them when the frame is
+ * narrower than both; then the line above the button and the button. Throws a TypeError outside a SendLayout.
  */
 export function SendFrame(props: {
   title: string;
@@ -233,7 +239,7 @@ export function SendFrame(props: {
   action: SendAction;
 }): ReactNode {
   const { title, aside, rows, pages, action } = props;
-  const place = useSendPlace();
+  const { place, titleBar } = useSendHost();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const lineId = useId();
   const step = useBusyStep(action.busy);
@@ -244,42 +250,63 @@ export function SendFrame(props: {
       : DIALOG_WORDS.disabledLine(action.label, action.disabledReason);
   const describing = action.problem === null && disabledLine !== null;
   return (
-    <div className="flex min-w-0 flex-col gap-6 p-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button variant="ghost" onClick={place.back}>
-          {SEND_WORDS.back(place.name)}
-        </Button>
-        <h1 ref={headingRef} tabIndex={-1} className="text-title">
-          {title}
-        </h1>
-        {aside === null ? null : (
-          <p className="ms-auto text-meta text-fg-muted">{aside}</p>
-        )}
-      </div>
-      <div className="flex flex-wrap items-start gap-8">
-        <Rows rows={rows} />
-        <section
-          aria-label={SEND_WORDS.pagesRegion}
-          className="min-w-0 grow basis-sm"
-        >
-          {pages}
-        </section>
-      </div>
-      <div className="flex flex-col items-end gap-3 border-t border-line pt-4">
-        <ActionLine
-          problem={action.problem}
-          disabledLine={disabledLine}
-          lineId={lineId}
-        />
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          <BusyAside action={action} step={step} />
-          <ActionButton
-            action={action}
-            step={step}
-            describedBy={describing ? lineId : undefined}
-          />
+    <>
+      {createPortal(
+        <>
+          <Button
+            variant="ghost"
+            className="text-fg-muted"
+            onClick={place.back}
+          >
+            {SEND_WORDS.back(place.name)}
+          </Button>
+          <h1
+            ref={headingRef}
+            tabIndex={-1}
+            className="truncate text-heading outline-none"
+          >
+            {title}
+          </h1>
+          {aside === null ? null : (
+            <p className="ms-auto truncate text-meta text-fg-muted">{aside}</p>
+          )}
+        </>,
+        titleBar,
+      )}
+      <div className="@container min-h-0 flex-1 overflow-auto">
+        <div className={PAIR}>
+          <div className="flex w-content max-w-full min-w-0 flex-col">
+            <Rows rows={rows} />
+            <div className="flex flex-col items-end gap-3 border-t border-line pt-4">
+              <ActionLine
+                problem={action.problem}
+                disabledLine={disabledLine}
+                lineId={lineId}
+              />
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <BusyAside action={action} step={step} />
+                <BusyButton
+                  size="lg"
+                  label={action.label}
+                  busyLabel={action.busy ? action.busyLabel : null}
+                  disabled={
+                    action.disabledReason !== null || action.run === null
+                  }
+                  aria-describedby={describing ? lineId : undefined}
+                  data-tour="send:confirm"
+                  onClick={() => action.run?.()}
+                />
+              </div>
+            </div>
+          </div>
+          <section
+            aria-label={SEND_WORDS.pagesRegion}
+            className="w-preview max-w-full shrink-0 rounded-surface border border-line bg-desk p-4"
+          >
+            {pages}
+          </section>
         </div>
       </div>
-    </div>
+    </>
   );
 }

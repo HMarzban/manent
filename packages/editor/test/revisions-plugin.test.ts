@@ -109,6 +109,7 @@ function lockedView(
     words: {
       lockTooltip: (next) => `Extra text goes to ${next}.`,
       colourName: (colour) => colour,
+      revisedDescription: (name) => `revised, ${name}`,
     },
     ...extra,
   };
