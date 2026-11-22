@@ -13,17 +13,15 @@ import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import {
   PRODUCT_SETTING_RULES,
-  createHistoryService,
-  createProductionService,
   createServer,
   createSignedSessionStore,
   createTicketStore,
   createWorkerCheckpointer,
+  createWorkflow,
   serveWithBun,
 } from "@manent/server-core";
 import type {
   Clock,
-  HistoryExtras,
   Listener,
   ManentServer,
   ServerConfig,
@@ -291,23 +289,10 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
   const { storage, ids } = sync;
   const config = buildServerConfig(env, secret, port);
   const heavy = createHeavyState(waiting, env.dataDir, storage);
-  // the history service and the production service take each other through getters
-  const extras: HistoryExtras = {
-    locksAt: (...args) => production.extras.locksAt(...args),
-    authority: (...args) => production.extras.authority(...args),
-  };
-  const history = createHistoryService({
-    sync: () => serving.sync!,
+  const { history, production } = createWorkflow({
     storage,
+    sync: () => serving.sync!,
     clock,
-    ids,
-    extras,
-  });
-  const production = createProductionService({
-    storage,
-    sync: () => serving.sync!,
-    history,
-    now: clock.now,
     ids,
     names: (userId) => config.auth.directory.user(userId)?.name ?? userId,
     renderPdf,

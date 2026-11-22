@@ -1,11 +1,7 @@
 // History and production on the node: served here for a script it is the authority of, and sent on to
 // the cloud as the person for a script it relays, whose versions and production the cloud sequences.
-import {
-  createHistoryService,
-  createProductionService,
-} from "@manent/server-core";
+import { createWorkflow } from "@manent/server-core";
 import type {
-  HistoryExtras,
   HistoryService,
   ProductionService,
   SessionStore,
@@ -83,17 +79,10 @@ export function createNodeWorkflow(
   const { storage, records, cloud, clock, ids, sync } = options;
   const isAuthority = (docId: string): boolean =>
     records.docState(docId) === null;
-  // the history service and the production service take each other through getters
-  const extras: HistoryExtras = {
-    locksAt: (...args) => production.extras.locksAt(...args),
-    authority: (...args) => production.extras.authority(...args),
-  };
-  const history = createHistoryService({ sync, storage, clock, ids, extras });
-  const production = createProductionService({
+  const { history, production } = createWorkflow({
     storage,
     sync,
-    history,
-    now: clock.now,
+    clock,
     ids,
     names: (userId) => options.directory.user(userId)?.name ?? userId,
     renderPdf: options.renderPdf,
