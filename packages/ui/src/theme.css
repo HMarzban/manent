@@ -445,7 +445,8 @@ html[data-white-page] .mn-pages {
   --fg-attention: var(--p-amber-300);
   --fg-danger: var(--p-red-300);
   --fg-on-danger: var(--p-warm-950);
-  --line: var(--p-demo-800);
+  /* a bordered button's only edge, so 3.69:1 on the bar's ground */
+  --line: var(--p-demo-600);
   --line-strong: var(--p-demo-600);
   --focus: var(--p-demo-200);
   --chip-line: transparent;
