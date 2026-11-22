@@ -14,6 +14,7 @@ import {
 } from "../../generate/fit.ts";
 import type { SeedLayout } from "../../generate/fit.ts";
 import { generateScenes } from "../../generate/grammar.ts";
+import type { StyleGuide } from "../../generate/guide.ts";
 import type { SeedSession } from "../driver.ts";
 import type { SeedStep } from "../seed.ts";
 import { createStory } from "../story.ts";
@@ -112,10 +113,15 @@ const layoutOf = (paper: string, continued: boolean): SeedLayout => ({
  * The generator writes more than a beat's pages hold: each scene keeps the first of its generated units in the
  * share `pages` allows of what `blocks` measure, so a fit is left only a few units to add or take out.
  */
-async function withinPages(
+export async function withinPages(
   telling: Telling,
   blocks: readonly SeedBlock[],
-  options: { fixed: ReadonlySet<SeedBlock>; pages: number; layout: SeedLayout },
+  options: {
+    guide: StyleGuide;
+    fixed: ReadonlySet<SeedBlock>;
+    pages: number;
+    layout: SeedLayout;
+  },
 ): Promise<SeedBlock[]> {
   const measured = (await telling.driver.meter.pages(blocks, options.layout))
     .length;
@@ -125,7 +131,7 @@ async function withinPages(
     b.element === "scene_heading" ? [i] : [],
   );
   const unit = {
-    intentOf: intentsOf(LAMP_ROOM_GUIDE),
+    intentOf: intentsOf(options.guide),
     movable: (i: number) => !options.fixed.has(blocks[i]!),
   };
   const dropped = new Set<number>();
@@ -156,6 +162,7 @@ async function workingScript(
   const continued = LAMP_ROOM_SCENE_CONTINUED;
   const letter = layoutOf("letter", continued);
   const blocks = await withinPages(telling, written, {
+    guide,
     fixed: new Set(passage.blocks),
     pages: LETTER_PAGES,
     layout: letter,

@@ -12,7 +12,7 @@ import { generateScenes } from "../../generate/grammar.ts";
 import type { SeedSession } from "../driver.ts";
 import type { SeedStep } from "../seed.ts";
 import { createStory } from "../story.ts";
-import { applyChanges } from "./the-lamp-room.ts";
+import { applyChanges, withinPages } from "./the-lamp-room.ts";
 import {
   append,
   block,
@@ -88,19 +88,23 @@ async function firstPass(
   const { rng } = telling.context;
   const guide = TWELVE_ON_FOOT_GUIDE;
   const used = new Set<string>();
-  const blocks: SeedBlock[] = [];
-  let fixedAt = 0;
+  const written: SeedBlock[] = [];
   for (const beat of guide.beats.filter((b) =>
     b.id.startsWith(`${CHAPTER_KEY}#`),
-  )) {
-    if (beat.scenes[0] !== FOG_BELL_SCENE) {
-      blocks.push(...generateScenes(guide, beat, rng, used));
-      continue;
-    }
-    fixedAt = blocks.length;
-    blocks.push(...scene);
-  }
+  ))
+    written.push(
+      ...(beat.scenes[0] === FOG_BELL_SCENE
+        ? scene
+        : generateScenes(guide, beat, rng, used)),
+    );
   const layout = { format: guide.format, settings: {}, anchors: null };
+  const blocks = await withinPages(telling, written, {
+    guide,
+    fixed: new Set(scene),
+    pages: CHAPTER_PAGES,
+    layout,
+  });
+  const fixedAt = blocks.indexOf(scene[0]!);
   return fitToPages(
     blocks,
     [
