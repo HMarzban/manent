@@ -140,7 +140,7 @@ export function ToReviewList(props: {
   }, [entries, dom, focusPending]);
   if (doc === null || entries.length === 0) return null;
   return (
-    <section aria-label={REVIEW_WORDS.heading}>
+    <section aria-label={REVIEW_WORDS.heading} data-tour="to_review">
       <h3 className="mn-group-label">
         {[REVIEW_WORDS.heading, formatCount(entries.length)].join(" · ")}
       </h3>

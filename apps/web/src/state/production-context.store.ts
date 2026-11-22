@@ -19,7 +19,7 @@ export function useProductionContext(docId: string): Production {
   return useSyncExternalStore(store.subscribe, get, get);
 }
 
-/** `set` with null forgets the document. */
+/** `set` with null forgets the document; `listener` hears every `set`. */
 export const productionContextActions: {
   set(docId: string, value: Production): void;
   get(docId: string): Production;

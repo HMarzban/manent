@@ -1,0 +1,22 @@
+[
+  {
+    "name": "seph-blog1",
+    "sha256": "43b5d326ca8c9094cd94e28ab66cd2f3073ce2893db959a0388c53f0aed8156d"
+  },
+  {
+    "name": "rustcode",
+    "sha256": "a13d472b5641dcad18d52882eff8c2d68ecbc27aa0f1e5a17eeb42f0f3130f38"
+  },
+  {
+    "name": "sveltecomponent",
+    "sha256": "0393353a1ff0281f4a2adad080b0843bffa7988f9a4869ed04faf0984f78a234"
+  },
+  {
+    "name": "json-crdt-patch",
+    "sha256": "c7e60bdeacd8fd3a560f34f3d306ec88d4976e6a3cc6820ecb88f5c1017dca5a"
+  },
+  {
+    "name": "json-crdt-blog-post",
+    "sha256": "30d0c2f2f4c37cb61a27c940eda73fe2767405092da270185c5ddd9c409e716d"
+  }
+]

@@ -11,7 +11,7 @@ import type {
   SyncClientPorts,
   Transport,
 } from "@manent/sync-client";
-import type { VersionSet } from "@manent/sync-protocol";
+import type { ControlKind, VersionSet } from "@manent/sync-protocol";
 import {
   SLOW_DELAY_MS,
   connectionTransport,
@@ -32,6 +32,8 @@ import type { Overlay } from "./sync-hooks.ts";
  */
 export interface PersonSync {
   userId: string;
+  /** The person has a session: false for someone who has not signed in. */
+  signedIn: boolean;
   client: SyncClient;
   store: LocalStore;
   link: Subscribable<LinkFacts>;
@@ -49,7 +51,15 @@ export interface PersonSync {
   /** What sync keeps in this browser's storage beside the store. */
   memory: DeviceMemory;
   dispose(): Promise<void>;
+  /** Each CONTROL frame of a document this tab holds open; the returned function stops. */
+  onControl(listener: ControlListener): () => void;
 }
+
+type ControlListener = (
+  docId: string,
+  kind: ControlKind,
+  data: Uint8Array,
+) => void;
 
 /** One open of a document: the client's handle, with its own `close`. */
 function handleView(
@@ -85,27 +95,36 @@ function handleView(
 
 /**
  * The client, with each open of a document its own handle: the client's handle closes once every one of them is
- * closed, so the page, the editor and the drain each close only their own.
+ * closed, so the page, the editor and the drain each close only their own. While it is open, its CONTROL frames go
+ * to `controls`.
  */
 function shareHandles(
   client: SyncClient,
   overlay: Overlay,
   link: Subscribable<LinkFacts>,
+  controls: ReadonlySet<ControlListener>,
 ): SyncClient {
-  const held = new Map<string, { opens: number; handle: Promise<DocHandle> }>();
+  const held = new Map<
+    string,
+    { opens: number; handle: Promise<DocHandle>; stop: (() => void) | null }
+  >();
   const closing = new Map<string, Promise<void>>();
   const hold = async (
     docId: string,
     open: () => Promise<DocHandle>,
   ): Promise<DocHandle> => {
     await closing.get(docId);
-    const entry = held.get(docId) ?? { opens: 0, handle: open() };
+    const entry = held.get(docId) ?? { opens: 0, handle: open(), stop: null };
     held.set(docId, entry);
     entry.opens += 1;
     // an open that failed is asked of the client again next time
     const forget = () => held.get(docId) === entry && held.delete(docId);
     void entry.handle.catch(forget);
     const handle = await entry.handle;
+    entry.stop ??= handle.on((event) => {
+      if (event.type !== "control") return;
+      for (const listener of controls) listener(docId, event.kind, event.data);
+    });
     let closed = false;
     return handleView(handle, overlay, async () => {
       if (closed) return;
@@ -113,6 +132,7 @@ function shareHandles(
       entry.opens -= 1;
       if (entry.opens > 0 || held.get(docId) !== entry) return;
       held.delete(docId);
+      entry.stop?.();
       const done = handle.close();
       closing.set(docId, done);
       await done;
@@ -304,7 +324,8 @@ export async function createPersonSync(options: {
     via: options.via,
   });
   const link = overlay.link(raw.link);
-  const client = shareHandles(raw, overlay, link);
+  const controls = new Set<ControlListener>();
+  const client = shareHandles(raw, overlay, link, controls);
   // undefined outside a browser, which is never offline
   const browser = createSubscribable(navigator.onLine !== false);
   const { connection, network } = followConnection({
@@ -323,6 +344,7 @@ export async function createPersonSync(options: {
   if (test !== null) Reflect.set(test.target, "sync", test.hooks);
   return {
     userId: person.userId,
+    signedIn: person.token !== null,
     client,
     store: ports.store,
     link,
@@ -340,6 +362,10 @@ export async function createPersonSync(options: {
         Reflect.deleteProperty(test.target, "sync");
       await raw.close();
       await ports.store.close();
+    },
+    onControl(listener) {
+      controls.add(listener);
+      return () => controls.delete(listener);
     },
   };
 }

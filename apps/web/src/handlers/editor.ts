@@ -9,6 +9,7 @@ import type { PageCommandId } from "../editor-host/command-actions.ts";
 import type { EditorControl } from "../editor-host/control.ts";
 import { zoomStep } from "../editor-host/zoom.ts";
 import { sendPath } from "../screens/send/form-ids.ts";
+import { layoutViewActions } from "../state/layout-view.store.ts";
 import { rulerActions } from "../state/ruler.store.ts";
 import { zoomActions } from "../state/zoom.store.ts";
 
@@ -97,7 +98,10 @@ export function createEditorHandlers(deps: {
     throw new RangeError("a page command has no handler");
   return {
     ...pages,
+    "view.pageView": () => layoutViewActions.set("page"),
+    "view.reflow": () => layoutViewActions.set("reflow"),
     "view.ruler": () => rulerActions.toggle(),
+    "format.titlePage": () => control.showTitlePage(),
     "doc.export": send("export"),
     "doc.print": send("print"),
     "view.zoomIn": zoomBy("in"),

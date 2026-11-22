@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { scriptBody } from "@manent/crdt";
+import { createRng } from "@manent/demo";
 import { DEFAULT_LIMITS } from "@manent/server-core";
 import type { DocFile } from "@manent/storage";
 import { createWorld } from "../src/index.ts";
@@ -11,12 +12,16 @@ const QUIET_MS = DEFAULT_LIMITS.rebuildQuietMs;
 /** Past the window in which a closed generation's final state is kept. */
 const PAST_WINDOW_MS = 7_776_000_001;
 
-const forSeeds = async (run: (world: World) => Promise<void>) => {
+const forSeeds = async (
+  run: (world: World) => Promise<void>,
+  faults = { duplicate: 0 },
+) => {
   for (let seed = 1; seed <= SEEDS; seed++) {
     const world = await createWorld({
       seed,
       users: ["dana", "sam", "priya"],
       limits: { checkpointEvery: 1 },
+      faults,
     });
     await run(world);
     await world.settle();
@@ -378,5 +383,24 @@ test(
         expect(generationOf(w)).toBe(moved);
       }
     }),
+  LONG,
+);
+
+test(
+  "random editing with rebuilds at random quiet moments converges and loses nothing",
+  () =>
+    forSeeds(
+      async (w) => {
+        const rng = createRng(w.seed);
+        for (let i = 0; i < 300; i++) {
+          const roll = rng.next();
+          if (roll < 0.02) w.requestRebuild();
+          else if (roll < 0.04) w.clock.advance(QUIET_MS);
+          else w.act();
+          if (i % 7 === 0) await w.settle();
+        }
+      },
+      { duplicate: 0.05 },
+    ),
   LONG,
 );

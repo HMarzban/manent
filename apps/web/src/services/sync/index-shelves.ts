@@ -8,6 +8,7 @@ import { createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import type { ContinueItem, ProjectItem, ProjectKind } from "../ports.ts";
 import type { PersonSync } from "./create-sync.ts";
+import { DRAIN_PARALLEL, createFetcher } from "./drain.ts";
 import {
   continueItems,
   nameOf,
@@ -125,7 +126,10 @@ function keepRowsOnClose(error: unknown): void {
     throw error;
 }
 
-/** Rows say where each document is from what the device's store holds, read again as the indexes and the link change. */
+/**
+ * Rows say where each document is from what the device's store holds, read again as the indexes and the link change.
+ * While the link is online, a row's document the device does not hold is fetched.
+ */
 export function createShelves(options: {
   sync: PersonSync;
   privateIndex: PrivateIndex;
@@ -137,18 +141,36 @@ export function createShelves(options: {
   const { sync, privateIndex, userId } = options;
   const shelves = new Map<string, Shelf>();
   let summaries: ReadonlyMap<string, DocSummary> = new Map();
+  const fetcher = createFetcher({
+    client: sync.client,
+    parallel: DRAIN_PARALLEL,
+    ended: () => void refresh().catch(keepRowsOnClose),
+  });
   const show = (): void => {
     const facts: RowFacts = {
       userId,
+      signedIn: sync.signedIn,
+      online: sync.link.get().state === "online",
       summaries,
+      fetched: fetcher.fetched,
+      refused: fetcher.refused,
       continued: readContinueMap(privateIndex.continueMap),
       nameOf,
     };
+    const fetching: string[] = [];
     for (const [ws, { opened, projects, continueList }] of shelves) {
       if (opened === null) continue;
-      projects.set(projectItems(opened.index, facts));
-      continueList.set(continueItems(ws, opened.index, facts));
+      const rows = projectItems(opened.index, facts);
+      const continued = continueItems(ws, opened.index, facts);
+      projects.set(rows);
+      continueList.set(continued);
+      for (const { firstDocId, place } of rows)
+        if (place.kind === "fetching" && firstDocId !== null)
+          fetching.push(firstDocId);
+      for (const { docId, place } of continued)
+        if (place.kind === "fetching") fetching.push(docId);
     }
+    fetcher.fetch(fetching);
     options.drawn();
   };
   let reading: Promise<void> | null = null;

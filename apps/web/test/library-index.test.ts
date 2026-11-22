@@ -43,26 +43,22 @@ async function typeInto(person: TabServices, docId: string, text: string) {
   await handle.close();
 }
 
-test("a script Dana makes in the Writers' room appears in Sam's Library, with its place, and Sam can open it", async () => {
+test("a script Dana makes in the Writers' room is fetched to Sam's device while he is online, and his row reads Synced", async () => {
   const { dana, sam, settleAll, serverHomeOf } = await writersRoom();
   sam.library.projects(MEDIUM);
   const made = await dana.library.createProject(MEDIUM, "film");
   await settleAll();
   expect(serverHomeOf(made.docId)).toBe(projectHome(made.projectId));
-  expect(sam.library.projects(MEDIUM).get()).toMatchObject([
+  const rows = sam.library.projects(MEDIUM);
+  await until(() => rows.get()[0]?.place.kind === "synced");
+  expect(rows.get()).toMatchObject([
     {
       title: "Untitled film",
       kind: "film",
       firstDocId: made.docId,
-      place: { kind: "not_on_device" },
+      place: { kind: "synced" },
     },
   ]);
-  sam.documents.open(made.docId);
-  await settleAll();
-  // the row reads the device's store again once the script has synced here
-  const rows = sam.library.projects(MEDIUM);
-  await until(() => rows.get()[0]?.place.kind === "synced");
-  expect(rows.get()[0]?.place).toEqual({ kind: "synced" });
 });
 
 test("a project made offline is in the Library at once and on the server after the next connection", async () => {
@@ -75,7 +71,7 @@ test("a project made offline is in the Library at once and on the server after t
     {
       title: "Untitled series",
       kind: "series",
-      place: { kind: "never_synced" },
+      place: { kind: "waiting", count: 3 },
     },
   ]);
   await settleAll();
@@ -214,7 +210,11 @@ test("the Library lists every project entry whose shape it reads, passes over th
         });
         const listed = projectItems(index, {
           userId: "sam",
+          signedIn: true,
+          online: false,
           summaries: new Map(),
+          fetched: new Set(),
+          refused: new Set(),
           continued: new Map(),
           nameOf: (userId) => userId,
         }).map((item) => item.projectId);
@@ -280,7 +280,11 @@ test("every document entry the Library reads is listed in Continue and dates its
         );
         const facts = {
           userId: "sam",
+          signedIn: true,
+          online: false,
           summaries: new Map(),
+          fetched: new Set<string>(),
+          refused: new Set<string>(),
           continued: new Map(
             stored.map(([key]) => [
               key,
@@ -349,7 +353,11 @@ test("every Continue entry the Library reads of a workspace is listed, newest fi
           readWorkspace({ projects, documents }),
           {
             userId: "sam",
+            signedIn: true,
+            online: false,
             summaries: new Map(),
+            fetched: new Set(),
+            refused: new Set(),
             continued: readContinueMap(map),
             nameOf: (userId) => userId,
           },

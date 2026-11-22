@@ -1,6 +1,7 @@
-// Keys a system or a browser keeps for itself, seeded with only what their documentation says.
+// Keys a system or a browser keeps for itself: what their documentation says, and what the key probe measured.
 import type { Platform } from "@manent/settings";
 import type { Chord } from "./chord.ts";
+import { KEY_PROBE_RESULTS } from "./key-probe.ts";
 
 /** `effect` is the clause shown after the key in a warning ("usually opens a new tab"); `leavesScript` when pressing it takes the person away from the script. */
 export interface ReservedKey {
@@ -9,7 +10,7 @@ export interface ReservedKey {
   host: "os" | "chromium" | "firefox" | "safari" | "desktop";
   effect: string;
   leavesScript: boolean;
-  evidence: "documented" | "assumed";
+  evidence: "documented" | "assumed" | "measured";
 }
 
 const PLATFORMS: readonly Platform[] = ["mac", "windows", "linux"];
@@ -47,5 +48,16 @@ export const RESERVED_KEYS: readonly ReservedKey[] = Object.freeze([
       leavesScript: false,
       evidence: "documented",
     }),
+  ),
+  ...KEY_PROBE_RESULTS.filter((probed) => !probed.arrived).map(
+    ({ chord, platform, host }): ReservedKey =>
+      Object.freeze({
+        chord,
+        platform,
+        host,
+        effect: "never reached Manent",
+        leavesScript: false,
+        evidence: "measured",
+      }),
   ),
 ]);

@@ -30,6 +30,12 @@ export const BROWSER_ZOOM_KEYS: readonly Chord[] = Object.freeze([
   "Mod+0",
 ]);
 
+// the browser's next and previous tab: never bound on the web either
+const BROWSER_TAB_KEYS: readonly Chord[] = Object.freeze([
+  "Mod+Shift+]",
+  "Mod+Shift+[",
+]);
+
 /** Two scopes overlap when one press could reach both: a global scope meets every scope, any other only itself. */
 export function scopesOverlap(a: CommandScope, b: CommandScope): boolean {
   return a === "global" || b === "global" || a === b;
@@ -54,9 +60,13 @@ export function resolveBindings(options: {
   const { commands, custom, platform, shell, findings } = options;
   const byId = new Map(commands.map((def) => [def.id, def]));
   const press = (chord: Chord): Chord => canonicalChord(chord, platform);
-  const zoom = new Set(shell === "web" ? BROWSER_ZOOM_KEYS.map(press) : []);
+  const browser = new Set(
+    shell === "web"
+      ? [...BROWSER_ZOOM_KEYS, ...BROWSER_TAB_KEYS].map(press)
+      : [],
+  );
   const refused = new Set([...findings.failsHere].map(press));
-  const isBrowserZoom = (chord: Chord): boolean => zoom.has(press(chord));
+  const isBrowserKey = (chord: Chord): boolean => browser.has(press(chord));
   // keyed by the press, so two spellings of one press have one holder
   const holders = new Map<Chord, CommandDefinition[]>();
   const held = new Map<string, Chord[]>(commands.map((def) => [def.id, []]));
@@ -79,7 +89,7 @@ export function resolveBindings(options: {
     const def = byId.get(entry.commandId);
     if (def === undefined || decided.has(def.id)) continue;
     const usable = entry.keys.filter(
-      (chord) => !refused.has(press(chord)) && !isBrowserZoom(chord),
+      (chord) => !refused.has(press(chord)) && !isBrowserKey(chord),
     );
     // an entry with nothing usable here leaves the command to an older entry or its default
     if (entry.keys.length > 0 && usable.length === 0) continue;
@@ -89,7 +99,7 @@ export function resolveBindings(options: {
   for (const def of commands.toSorted((a, b) => compare(a.id, b.id))) {
     if (decided.has(def.id)) continue;
     for (const chord of def.keys[platform])
-      if (!isBrowserZoom(chord)) claim(def, chord);
+      if (!isBrowserKey(chord)) claim(def, chord);
   }
 
   return {

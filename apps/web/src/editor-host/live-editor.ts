@@ -2,7 +2,7 @@
 import type { CrdtDoc } from "@manent/crdt";
 import { paginationKey } from "@manent/editor";
 import type { EditorView, PageScaffold, PresencePort } from "@manent/editor";
-import type { Pagination } from "@manent/pagination";
+import type { FrontPage, Pagination } from "@manent/pagination";
 
 export interface LiveEditor {
   readonly docId: string;
@@ -15,6 +15,8 @@ export interface LiveEditor {
   readonly editable: boolean;
   /** The page's factor, 1 at 100 %. */
   zoom(): number;
+  /** The pages before page 1 as print and PDF draw them; null without pages or a title page. */
+  frontPages(): FrontPage[] | null;
 }
 
 const editors = new Map<string, LiveEditor>();
@@ -33,6 +35,11 @@ export function livePagination(docId: string): Pagination | null {
   const editor = liveEditor(docId);
   if (editor === null || editor.scaffold === null) return null;
   return paginationKey.getState(editor.view.state)?.pagination ?? null;
+}
+
+/** The pages before page 1 of that document's editor, as print and PDF draw them; null when it has none or none is open. */
+export function liveFrontPages(docId: string): FrontPage[] | null {
+  return liveEditor(docId)?.frontPages() ?? null;
 }
 
 /** For the mount only. A second editor of one document replaces the first; the returned function removes this one while it is still registered. */

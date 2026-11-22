@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { useServices } from "../../services/context.tsx";
 import type { ProjectItem } from "../../services/ports.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
+import { ON_DEVICE } from "./row-place.tsx";
 
 const isRegistered = (id: string): id is CommandId =>
   COMMANDS.some((command) => command.id === id);
@@ -16,7 +17,7 @@ export function LibraryStatusBar(props: {
   const { projects } = props;
   const { messages, commands } = useServices();
   const here = projects.filter(
-    (project) => project.place.kind !== "not_on_device",
+    (project) => ON_DEVICE[project.place.kind],
   ).length;
   return (
     <ShellRegion

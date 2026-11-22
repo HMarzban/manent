@@ -8,6 +8,7 @@ import { createRebuilder, createSubscriptions } from "../rebuild/rebuilder.ts";
 import type { PeerState } from "../rebuild/rebuilder.ts";
 import { createReplay } from "../rebuild/replay.ts";
 import { createDocumentAccess } from "./access.ts";
+import { isWriterRole } from "./admission.ts";
 import { createAwarenessHub } from "./awareness.ts";
 import { createInlineCheckpointer } from "./checkpointer.ts";
 import { countingCommits } from "./counted-storage.ts";
@@ -131,6 +132,21 @@ export function createSyncService(
       endAll(room, syncError("storage_failed", docOf(room), { retryAfterMs }));
   };
 
+  const broadcast: SyncService["broadcast"] = (docId, kind, data) => {
+    const room = rooms.find(docId);
+    if (room === null || room.doc === null) return;
+    const seq = room.row.headSeq;
+    const control = prepareMessage({
+      type: "CONTROL",
+      ...docOf(room),
+      seq,
+      kind,
+      data,
+    });
+    for (const peer of [...room.editors.keys(), ...room.viewers.keys()])
+      peer.send(control);
+  };
+
   const writePath = createWritePath({
     limits,
     now: clock.now,
@@ -193,6 +209,12 @@ export function createSyncService(
     schemaFloor: options.schemaFloor ?? null,
     checkPush: hooks.checkPush,
     ids: options.ids,
+    copiesKept: (room, control) =>
+      broadcast(
+        room.docId,
+        "copies_kept",
+        new TextEncoder().encode(JSON.stringify(control)),
+      ),
   });
   const rebuilder = createRebuilder({
     ...options,
@@ -297,9 +319,11 @@ export function createSyncService(
         const held = state.held.get(docId);
         if (held === undefined || peer.userId !== userId) continue;
         const resolved = access.resolve(userId, docId);
-        const role = resolved.ok ? resolved.access.role : null;
-        const readOnly = role === "comment" || role === "view";
-        if (resolved.ok && !(held.subscription.mode === "edit" && readOnly)) {
+        const reader =
+          resolved.ok &&
+          !isWriterRole(resolved.access.role) &&
+          held.room.kind !== "index";
+        if (resolved.ok && !(held.subscription.mode === "edit" && reader)) {
           held.subscription.access = resolved.access;
           continue;
         }
@@ -327,20 +351,7 @@ export function createSyncService(
         rooms.left(room);
       }
     },
-    broadcast(docId, kind, data) {
-      const room = rooms.find(docId);
-      if (room === null || room.doc === null) return;
-      const seq = room.row.headSeq;
-      const control = prepareMessage({
-        type: "CONTROL",
-        ...docOf(room),
-        seq,
-        kind,
-        data,
-      });
-      for (const peer of [...room.editors.keys(), ...room.viewers.keys()])
-        peer.send(control);
-    },
+    broadcast,
     ingest: intake.ingest,
     modeChanged(docId) {
       const room = rooms.find(docId);

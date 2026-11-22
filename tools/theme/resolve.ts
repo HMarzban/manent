@@ -32,7 +32,7 @@ const WHITE_PAGE = "html[data-white-page] .mn-pages";
 const VAR = /var\(\s*(--[\w-]+)\s*\)/g;
 const LIGHT_DARK = "light-dark(";
 
-/** The declarations of every rule with exactly this selector and these enclosing at-rules, in order. */
+/** The declarations of every rule whose selector list holds exactly this selector, under these enclosing at-rules, in order. */
 const declarationsOf = (
   rules: readonly CssRule[],
   selector: string,
@@ -41,7 +41,9 @@ const declarationsOf = (
   rules
     .filter(
       (rule) =>
-        rule.selector === selector &&
+        (rule.selector ?? "")
+          .split(",")
+          .some((listed) => listed.trim() === selector) &&
         rule.atRules.join("\n") === atRules.join("\n"),
     )
     .flatMap((rule) => rule.declarations);

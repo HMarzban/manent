@@ -1,4 +1,5 @@
-// The padlock of a locked page number, as SVG data: the Pages tab draws it with React and the page's marker as DOM.
+// The padlock of a locked page number in the page's gutter, which is drawn outside React: Lucide's Lock, as SVG data,
+// carrying Lucide's class so it is drawn at the icon size and stroke every other icon has.
 
 interface Shape {
   readonly tag: "rect" | "path";
@@ -10,12 +11,10 @@ export const LOCK_ICON: {
   readonly shapes: readonly Shape[];
 } = Object.freeze({
   svg: Object.freeze({
+    class: "lucide lucide-lock",
     viewBox: "0 0 24 24",
-    width: "12",
-    height: "12",
     fill: "none",
     stroke: "currentColor",
-    "stroke-width": "2",
     "stroke-linecap": "round",
     "stroke-linejoin": "round",
     "aria-hidden": "true",

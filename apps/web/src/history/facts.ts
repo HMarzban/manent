@@ -4,7 +4,7 @@ import type { StateFact } from "@manent/ui";
 import { useEffect, useState } from "react";
 import { useServices } from "../services/context.tsx";
 import { nameOf as personName } from "../services/sync/index-entries.ts";
-import { useHistory } from "../state/history.store.ts";
+import { historyActions, useHistory } from "../state/history.store.ts";
 import type { HistoryState } from "../state/history.store.ts";
 
 /**
@@ -51,10 +51,14 @@ function useHistoryState(): HistoryState {
     step: useHistory("step"),
     draftsOnly: useHistory("draftsOnly"),
     naming: useHistory("naming"),
+    sinceDismissed: useHistory("sinceDismissed"),
   };
 }
 
-/** The state bar's history facts for the open script, whose versions stay listed while it is shown. */
+/**
+ * The state bar's history facts for the open script, whose versions stay listed while it is shown; "since you last
+ * opened" says nothing once it is dismissed, until the script is opened again.
+ */
 export function useHistoryFacts(docId: string): readonly StateFact[] {
   const { history } = useServices();
   const state = useHistoryState();
@@ -63,6 +67,8 @@ export function useHistoryFacts(docId: string): readonly StateFact[] {
   useEffect(() => {
     let shown = true;
     setSince(null);
+    // a dismissal ends with the answer it dismissed
+    historyActions.setSinceDismissed(null);
     void history.sinceOpened(docId).then((answer) => {
       if (shown) setSince(answer);
     });
@@ -72,5 +78,9 @@ export function useHistoryFacts(docId: string): readonly StateFact[] {
   }, [history, docId]);
   // a baseline chosen in another script says nothing of this one
   const own = state.docId === docId ? state : { ...state, baseline: null };
-  return historyFacts(own, since, personName);
+  return historyFacts(
+    own,
+    state.sinceDismissed === docId ? null : since,
+    personName,
+  );
 }

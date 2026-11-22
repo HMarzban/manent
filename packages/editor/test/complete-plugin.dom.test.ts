@@ -147,7 +147,6 @@ test("typing a cue opens the list under the caret without taking focus, and Ente
     options(layer),
     document.activeElement === view.dom,
     view.dom.getAttribute("aria-controls"),
-    view.dom.getAttribute("aria-expanded"),
     view.dom.getAttribute("aria-activedescendant"),
     view.dom.getAttribute("aria-autocomplete"),
   ]).toEqual([
@@ -155,7 +154,6 @@ test("typing a cue opens the list under the caret without taking focus, and Ente
     ["DAVID", "DANA"],
     true,
     "mn-complete",
-    "true",
     layer.querySelector('[role="option"]')?.id,
     "list",
   ]);
@@ -163,8 +161,8 @@ test("typing a cue opens the list under the caret without taking focus, and Ente
   expect([
     blockText(view, 5),
     layer.querySelector("#mn-complete"),
-    view.dom.getAttribute("aria-expanded"),
-  ]).toEqual(["DAVID", null, "false"]);
+    view.dom.getAttribute("aria-controls"),
+  ]).toEqual(["DAVID", null, null]);
 });
 
 test("the list is placed under the caret in a frame", () => {

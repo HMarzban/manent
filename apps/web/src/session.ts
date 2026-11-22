@@ -2,7 +2,6 @@
 
 import type { SignInChoice } from "@manent/sync-protocol";
 import type { Api, MeResult, SignInResult } from "./api.ts";
-import { TEXT } from "./text.ts";
 
 export const SESSION_KEY = "manent.demo.session";
 
@@ -91,10 +90,6 @@ export async function choosePerson(
     ok: true,
     person: { token: null, userId: choice.userId, name: choice.name },
   };
-}
-
-export function personLabel(person: TabPerson | null): string {
-  return person ? `${TEXT.person}: ${person.name}` : TEXT.person;
 }
 
 export function chooseUrl(currentPath: string): string {

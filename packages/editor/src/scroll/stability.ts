@@ -228,7 +228,8 @@ function scrollView(view: EditorView, options: ScrollOptions): PluginView {
         // set, not added to: a rule ahead of this one may already have scrolled for the same change
         if (owed.by !== 0) scroller.scrollTop = owed.from + owed.by;
         owed = null;
-        record();
+        // the pages already placed the anchor's block where it was read, so only a lost or measured one is read again
+        if (anchor?.kind !== "pages") record();
       } else if (now.local !== was.local) {
         // typing over a selection leaves a caret where there was none, so the anchor is read afresh
         if (!prev.selection.empty && view.state.selection.empty) record();

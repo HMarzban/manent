@@ -5,7 +5,14 @@ import type { BreakStyle } from "../page/config.ts";
 import { blockPos } from "./block-index.ts";
 import type { BlockIndex } from "./block-index.ts";
 
-export const BREAK_KINDS = ["first", "page", "mid", "col", "last"] as const;
+export const BREAK_KINDS = [
+  "first",
+  "page",
+  "mid",
+  "col",
+  "last",
+  "rule",
+] as const;
 export type BreakKind = (typeof BREAK_KINDS)[number];
 
 /** One page break as drawn; each text is null when its child is not drawn. */
@@ -141,4 +148,17 @@ export function toBreakSpecs(
     1,
   );
   return [first, ...between, closing].toSorted((a, b) => a.pos - b.pos);
+}
+
+/** Reflow view's breaks: a rule labelled with each page's label before the block the page starts in, page 1 included. */
+export function toRuleSpecs(index: BlockIndex, p: Pagination): BreakSpec[] {
+  return p.pages.map((page) =>
+    createSpec({
+      ...NO_TEXT,
+      kind: "rule",
+      pos: blockPos(index, page.block),
+      label: page.label,
+      fillUnits: 0,
+    }),
+  );
 }

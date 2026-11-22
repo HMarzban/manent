@@ -129,6 +129,13 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
     removedDoc: async () => null,
     docClients: async () => ({ clients: [] }),
     prepareTour: async () => ({ ok: false, reason: "unknown" }),
+    writers: async (request) => ({
+      asked: request.count,
+      count: 0,
+      names: [],
+      endsAt: null,
+    }),
+    rebuild: async () => {},
     ...overrides,
   };
 }

@@ -13,17 +13,15 @@ import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import {
   PRODUCT_SETTING_RULES,
-  createHistoryService,
-  createProductionService,
   createServer,
   createSignedSessionStore,
   createTicketStore,
   createWorkerCheckpointer,
+  createWorkflow,
   serveWithBun,
 } from "@manent/server-core";
 import type {
   Clock,
-  HistoryExtras,
   Listener,
   ManentServer,
   ServerConfig,
@@ -33,10 +31,11 @@ import { openSqliteStorage } from "@manent/storage";
 import type { Storage } from "@manent/storage";
 import { PROTOCOL_VERSION, indexDocId } from "@manent/sync-protocol";
 import type { DemoControls, WorkspaceRef } from "@manent/sync-protocol";
+import { inProcessServer } from "./demo/in-process.ts";
 import { createDemoServices } from "./demo/services.ts";
 import { readServerEnv } from "./env.ts";
 import type { ServerEnv } from "./env.ts";
-import { createServerRenderPdf, readScriptFonts } from "./production.ts";
+import { readServerRenderPdf } from "./production.ts";
 import { adoptStaging, resumeStaging } from "./seed/adopt.ts";
 import { stagingDirOf, startBackgroundSeed } from "./seed/background.ts";
 import { runSeedCommand } from "./seed/command.ts";
@@ -264,7 +263,7 @@ function createHeavyState(waiting: boolean, dataDir: string, live: Storage) {
  */
 export async function startServer(env: ServerEnv): Promise<RunningServer> {
   const secret = await loadSessionSecret(env.dataDir);
-  const renderPdf = createServerRenderPdf(await readScriptFonts());
+  const renderPdf = await readServerRenderPdf();
   const waiting = await isHeavyWaiting(env.dataDir);
   let built: ManentServer | null = null;
   // the listeners bind and the server is built in one synchronous run, so no event comes first
@@ -291,23 +290,10 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
   const { storage, ids } = sync;
   const config = buildServerConfig(env, secret, port);
   const heavy = createHeavyState(waiting, env.dataDir, storage);
-  // the history service and the production service take each other through getters
-  const extras: HistoryExtras = {
-    locksAt: (...args) => production.extras.locksAt(...args),
-    authority: (...args) => production.extras.authority(...args),
-  };
-  const history = createHistoryService({
-    sync: () => serving.sync!,
+  const { history, production } = createWorkflow({
     storage,
+    sync: () => serving.sync!,
     clock,
-    ids,
-    extras,
-  });
-  const production = createProductionService({
-    storage,
-    sync: () => serving.sync!,
-    history,
-    now: clock.now,
     ids,
     names: (userId) => config.auth.directory.user(userId)?.name ?? userId,
     renderPdf,
@@ -336,7 +322,7 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
   built = serving;
   const services = createDemoServices({
     live: {
-      server: serving,
+      server: inProcessServer(serving, urlHost("127.0.0.1", port)),
       sessions: config.auth.sessions,
       storage,
       sync: serving.sync!,
@@ -345,14 +331,19 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
     time: () => seedTimeAt(Date.now()),
     random: Math.random,
   });
+  // Lanternfield Studios' co-editing groups start once it is adopted: now, or when its seed is done
+  const startPresence = () =>
+    void services.startPresence().catch(console.error);
+  startPresence();
   const background = waiting
     ? startBackgroundSeed({
-        execPath: process.execPath,
-        entry: import.meta.path,
+        command: Bun.isStandaloneExecutable
+          ? [process.execPath]
+          : [process.execPath, "--no-orphans", import.meta.path],
         dataDir: env.dataDir,
         seedAt: Date.now(),
         onProgress: heavy.progress,
-        onDone: heavy.adopted,
+        onDone: () => heavy.adopted().then(startPresence),
         onFailed(reason) {
           console.error(reason);
           heavy.failed();

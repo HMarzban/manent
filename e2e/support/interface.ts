@@ -32,6 +32,7 @@ export const ON_A_SCRIPT = {
   historyPresent: true,
   format: null,
   rulerShown: false,
+  layoutView: "page",
   spaceBeforeSet: false,
   zoom: null,
   zoomPercent: null,

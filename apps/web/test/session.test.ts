@@ -5,7 +5,6 @@ import {
   chooseUrl,
   choosePerson,
   confirmPerson,
-  personLabel,
   readPerson,
   safeNext,
   writePerson,
@@ -110,6 +109,8 @@ test("a person without an account is chosen without asking the server", async ()
     removedDoc: () => Promise.reject(new Error("not asked")),
     docClients: () => Promise.reject(new Error("not asked")),
     prepareTour: () => Promise.reject(new Error("not asked")),
+    writers: () => Promise.reject(new Error("not asked")),
+    rebuild: () => Promise.reject(new Error("not asked")),
     signIn(userId): Promise<SignInResult> {
       asked.push(userId);
       return Promise.resolve({ ok: true, person: LEO });
@@ -129,11 +130,6 @@ test("a person without an account is chosen without asking the server", async ()
     ),
   ).toEqual({ ok: true, person: LEO });
   expect(asked).toEqual(["leo"]);
-});
-
-test("the person button names the tab's person", () => {
-  expect(personLabel(LEO)).toBe("Person: Leo Marsh");
-  expect(personLabel(null)).toBe("Person");
 });
 
 test("next is only ever a path inside the app", () => {

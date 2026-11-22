@@ -68,6 +68,7 @@ function productionOf(
       lockTooltip: (next) =>
         `Page numbers are locked. You can still edit; extra text goes to ${next}.`,
       colourName: (colour) => colour,
+      revisedDescription: (name) => `revised, ${name}`,
     },
     ...extra,
   };

@@ -7,6 +7,7 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
+  DOCUMENT_WORDS,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -66,7 +67,11 @@ export function PageRowMenu(props: {
       <DropdownMenu onOpenChange={opened}>
         <DropdownMenuTrigger
           render={
-            <Button variant="ghost" size="icon-sm" aria-label={props.label} />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={DOCUMENT_WORDS.rowMenuName(props.label)}
+            />
           }
         >
           <span aria-hidden="true">⋯</span>

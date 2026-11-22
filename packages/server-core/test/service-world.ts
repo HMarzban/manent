@@ -106,6 +106,15 @@ export const subscribe = (
   lastServerSeq: extra.lastServerSeq ?? 0,
 });
 
+/** The data of the step 2 among the messages; RangeError when none was sent. */
+export function stepTwoOf(messages: readonly Message[]): Uint8Array {
+  const found = messages.find(
+    (message) => message.type === "SYNC" && message.step === "step2",
+  );
+  if (found?.type !== "SYNC") throw new RangeError("no step 2 was sent");
+  return found.data;
+}
+
 export const step1 = (docId: string, data: Uint8Array): Message => ({
   type: "SYNC",
   docId,

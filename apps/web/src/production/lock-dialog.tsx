@@ -16,11 +16,9 @@ import { useEnvironment, useServices } from "../services/context.tsx";
 import { Choices } from "./choices.tsx";
 import { useDialogRequest, useDialogServices } from "./dialog-context.ts";
 import { lockedMessage } from "./messages.ts";
-import { colourOrderStart, deviceDay } from "./state-facts.ts";
+import { defaultsLine, deviceDay } from "./state-facts.ts";
 
 const WORDS = PRODUCTION_WORDS;
-// the defaults line names the first three colours of the order
-const DEFAULTS_COLOURS = 3;
 
 const NUMBERING_CHOICES = NUMBERING_SCHEMES.map((value) => ({
   value,
@@ -64,12 +62,7 @@ function LockChoices(props: { choices: LockChoiceState }): ReactNode {
   return (
     <div className="flex flex-col gap-3 text-ui">
       <p className="flex flex-wrap items-center gap-2">
-        <span>
-          {WORDS.lockDefaults(
-            WORDS.numberingChoices[choices.numbering],
-            colourOrderStart(order, DEFAULTS_COLOURS),
-          )}
-        </span>
+        <span>{defaultsLine(choices.numbering, order)}</span>
         {changing ? null : (
           <Button variant="link" size="sm" onClick={() => setChanging(true)}>
             {WORDS.change}
@@ -122,8 +115,7 @@ export function LockDialog(props: {
           messages.push(lockedMessage(next));
           onClose();
         },
-        // the state the server answered with says what happened, and the dialog has no words for it
-        refused: onClose,
+        refused: () => WORDS.lockRefused,
       },
     );
   return (
@@ -135,9 +127,10 @@ export function LockDialog(props: {
       body={WORDS.lockBody(title, next)}
       action={WORDS.lockButton}
       busyLabel={request.busy ? WORDS.lockingButton : null}
-      refusal={null}
+      refusal={request.refusal}
       disabledReason={request.disabledReason}
       destructive={false}
+      actionTour="lock:confirm"
       onAction={lock}
       onCancel={onClose}
     >

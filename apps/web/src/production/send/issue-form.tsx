@@ -1,13 +1,16 @@
 // The Send screen's Issue form: what changed, how and to whom it goes, its colour and memo, and the pages as they
 // will go; one request, which the authority applies once.
-import { DEMO_PEOPLE } from "@manent/demo";
 import {
   formatMemoDate,
   memoText,
   productionChecks,
   revisionName,
 } from "@manent/revisions";
-import type { IssueFile, RevisionSetView } from "@manent/sync-protocol";
+import type {
+  DocPeopleResponse,
+  IssueFile,
+  ProductionState,
+} from "@manent/sync-protocol";
 import {
   PRODUCTION_WORDS,
   SEND_WORDS,
@@ -16,7 +19,7 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import type { Message } from "@manent/ui";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { showPage, showScene } from "../../editor-host/production.ts";
 import type { SendForm, SendFormProps } from "../../screens/send/forms.ts";
@@ -29,7 +32,7 @@ import { useProductionServices } from "../live-services.ts";
 import type { ProductionServices } from "../services.ts";
 import { colourOf, colourOrderStart, deviceDay } from "../state-facts.ts";
 import { Checks } from "./checks.tsx";
-import { MemoRow } from "./memo-row.tsx";
+import { MemoRow, memoOf } from "./memo-row.tsx";
 import { Packet } from "./packet.tsx";
 import {
   useBackToPage,
@@ -49,10 +52,12 @@ const FILE_CHOICES: readonly { value: IssueFile; label: string }[] =
     { value: "pdf_clean", label: WORDS.pdfClean },
   ]);
 
-/** "last issued: BLUE, Mon 16 Nov"; null for a revision with no day of issue. */
-function lastIssuedLine(set: RevisionSetView): string | null {
-  if (set.issuedAt === null || set.issuedOn === null) return null;
-  const when = `${formatDay(set.issuedAt)} ${formatMemoDate(set.issuedOn)}`;
+/** "last issued: BLUE, Mon 16 Nov"; null before the first issue. */
+function lastIssuedLine(state: ProductionState): string | null {
+  const [issue] = state.issues;
+  const set = state.sets.find((held) => held.setId === issue?.setId);
+  if (issue === undefined || set === undefined) return null;
+  const when = `${formatDay(issue.issuedAt)} ${formatMemoDate(issue.issuedOn)}`;
   return WORDS.lastIssued(set.name.toUpperCase(), when);
 }
 
@@ -66,12 +71,36 @@ function issuedMessage(name: string, people: number): Message {
   };
 }
 
+/**
+ * The people with a role on the script, as the server lists them; the person's last choice is kept for those who
+ * still have one.
+ */
+function useScriptPeople(
+  services: ProductionServices,
+  keep: (people: DocPeopleResponse["people"]) => void,
+): DocPeopleResponse["people"] {
+  const [people, setPeople] = useState<DocPeopleResponse["people"]>([]);
+  useEffect(() => {
+    let shown = true;
+    void services.people().then((known) => {
+      if (!shown || known === null) return;
+      setPeople(known);
+      keep(known);
+    });
+    return () => {
+      shown = false;
+    };
+  }, [services]);
+  return people;
+}
+
 /** The people with a role on the script, each a switch, none on the first time. */
 function Recipients(props: {
+  people: DocPeopleResponse["people"];
   chosen: ReadonlySet<string>;
   onChange(chosen: ReadonlySet<string>): void;
 }): ReactNode {
-  const { chosen, onChange } = props;
+  const { people, chosen, onChange } = props;
   const toggle = (userId: string, on: boolean): void => {
     const next = new Set(chosen);
     if (on) next.add(userId);
@@ -81,7 +110,7 @@ function Recipients(props: {
   return (
     <div className="flex flex-col gap-2">
       <ul className="flex flex-wrap gap-x-4 gap-y-2">
-        {DEMO_PEOPLE.map((person) => (
+        {people.map((person) => (
           <li key={person.userId}>
             <Tick
               label={person.name}
@@ -117,6 +146,16 @@ function Issue(props: {
   const [recipients, setRecipients] = useState<ReadonlySet<string>>(
     () => new Set(last?.recipientUserIds ?? []),
   );
+  const people = useScriptPeople(services, (known) =>
+    setRecipients(
+      (chosen) =>
+        new Set(
+          known.flatMap((held) =>
+            chosen.has(held.userId) ? [held.userId] : [],
+          ),
+        ),
+    ),
+  );
   const [memo, setMemo] = useState<string | null>(null);
   const checks = useMemo(
     () =>
@@ -147,10 +186,9 @@ function Issue(props: {
     live !== null && revised.length === 0 ? (issued?.name ?? name) : null;
   const order = state.colourOrder.flatMap((colour) => colourOf(colour) ?? []);
   const today = deviceDay(now());
-  // a memo names at least one page: with nothing revised there is nothing to say
-  const shownMemo =
-    memo ?? (pages.length === 0 ? "" : memoText(name, today, pages));
-  const disabledReason = request.disabledReason(waiting);
+  const shownMemo = memoOf(memo, pages, (labels) =>
+    memoText(name, today, labels),
+  );
   const rows: SendRow[] = [
     {
       id: "checks",
@@ -206,7 +244,13 @@ function Issue(props: {
     },
     {
       id: "to",
-      content: <Recipients chosen={recipients} onChange={setRecipients} />,
+      content: (
+        <Recipients
+          people={people}
+          chosen={recipients}
+          onChange={setRecipients}
+        />
+      ),
     },
     {
       id: "colour",
@@ -224,14 +268,15 @@ function Issue(props: {
         </div>
       ),
     },
-    {
+  ];
+  if (shownMemo !== null)
+    rows.push({
       id: "memo",
       content: (
         <MemoRow memo={shownMemo} edited={memo !== null} onEdit={setMemo} />
       ),
-    },
-  ];
-  const issue = (): void =>
+    });
+  const issue = (sentMemo: string): void =>
     request.send(
       (key) =>
         services.client.issue({
@@ -242,7 +287,7 @@ function Issue(props: {
           files: [file],
           tint,
           recipientUserIds: [...recipients],
-          memo: shownMemo,
+          memo: sentMemo,
           issuedOn: today,
         }),
       {
@@ -258,40 +303,43 @@ function Issue(props: {
           back();
         },
         refused: (code, body) => {
-          if (code === "changed") countAgain();
+          // a changed answer restates the counts, and the person decides again
+          if (code === "changed") {
+            countAgain();
+            return null;
+          }
           const first = body?.issued ?? null;
-          if (code === "already_issued" && first !== null)
-            request.fail(
-              WORDS.alreadyIssued(
+          return code === "already_issued" && first !== null
+            ? WORDS.alreadyIssued(
                 first.byName,
                 first.name,
                 formatTime(first.issuedAt),
                 first.nextName,
-              ),
-            );
+              )
+            : WORDS.issueRefused(name);
         },
       },
     );
   return (
     <SendFrame
       title={WORDS.issueTitle(name)}
-      aside={issued === undefined ? null : lastIssuedLine(issued)}
+      aside={lastIssuedLine(state)}
       rows={rows}
       pages={
         p === null || live === null ? null : (
           <Packet p={p} labels={pages} name={name} sources={live.sources} />
         )
       }
-      action={{
-        label: WORDS.issueButton(name),
-        busyLabel: WORDS.issuingButton(name),
-        busy: request.busy,
-        disabledReason,
-        problem: request.problem,
-        progress: null,
-        cancel: null,
-        run: live === null || since !== null ? null : issue,
-      }}
+      action={request.action(
+        {
+          label: WORDS.issueButton(name),
+          busyLabel: WORDS.issuingButton(name),
+        },
+        waiting,
+        live === null || since !== null || shownMemo === null
+          ? null
+          : () => issue(shownMemo),
+      )}
     />
   );
 }

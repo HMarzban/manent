@@ -296,6 +296,7 @@ test("each union is one list, and the generators draw from it", () => {
     "sent_to_prompter",
     "upstream_status",
     "upstream_refused",
+    "copies_kept",
   ]);
 });
 
@@ -531,7 +532,7 @@ test("each union member travels as its fixed index", () => {
       LOCK_SOURCES,
       CONTROL_KINDS,
     ].map((list) => list.length),
-  ).toEqual([4, 5, 3, 3, 3, 11]);
+  ).toEqual([4, 5, 3, 3, 3, 12]);
 });
 
 test("the codes, the frame numbers and the protocol version are fixed; a changed vector means a new version", () => {

@@ -20,6 +20,8 @@ interface RowProps {
   selected?: boolean;
   /** The word that says why the row cannot be opened; the row is drawn muted and never activates. */
   unavailable?: string;
+  /** What the row opens is still loading: the row is drawn muted and busy, and still activates. */
+  busy?: boolean;
   /** A 14 px icon, a 20 px avatar or a number: muted, and accent on the current row. */
   leading?: ReactNode;
   children: ReactNode;
@@ -37,6 +39,7 @@ export function Row({
   currentLabel,
   selected,
   unavailable,
+  busy,
   leading,
   children,
   meta,
@@ -61,8 +64,9 @@ export function Row({
       className={cn(
         "mn-row flex items-center gap-2 px-3 text-ui",
         meta === undefined ? "min-h-row" : "min-h-row-2",
-        unavailable !== undefined && "text-fg-muted",
+        (unavailable !== undefined || busy) && "text-fg-muted",
       )}
+      aria-busy={busy ? "true" : undefined}
       aria-current={current ? "true" : undefined}
       aria-selected={selected ? "true" : undefined}
       aria-disabled={

@@ -2,6 +2,7 @@
 import type { Engine, Pagination } from "@manent/pagination";
 import { EDITOR_WORDS, joinNames } from "@manent/ui";
 import type { SendRow } from "../screens/send/send-frame.tsx";
+import { CheckMark } from "./check-mark.tsx";
 import { engineOf } from "./print-pages.ts";
 
 const SHOWN_CHARACTERS = 12;
@@ -27,8 +28,8 @@ function addOffFont(
   }
 }
 
-/** Null when the script font draws every character; else each such cluster once, in document order, the first 12 named. */
-export function outsideFontRow(p: Pagination): SendRow | null {
+/** Null when the script font draws every character; else the sentence naming each such cluster once, in document order, the first 12. */
+export function outsideFontSentence(p: Pagination): string | null {
   const engine = engineOf(p);
   const found = new Set<string>();
   for (const { text } of p.blocks) {
@@ -37,8 +38,20 @@ export function outsideFontRow(p: Pagination): SendRow | null {
   }
   if (found.size === 0) return null;
   const shown = [...found].slice(0, SHOWN_CHARACTERS);
+  return EDITOR_WORDS.send.outsideFont(found.size, joinNames(shown));
+}
+
+/** The Checks row, with its mark before the sentence; null when the script font draws every character. */
+export function outsideFontRow(p: Pagination): SendRow | null {
+  const sentence = outsideFontSentence(p);
+  if (sentence === null) return null;
   return {
     id: "checks",
-    content: EDITOR_WORDS.send.outsideFont(found.size, joinNames(shown)),
+    content: (
+      <span className="flex items-start gap-2">
+        <CheckMark ok={false} />
+        {sentence}
+      </span>
+    ),
   };
 }
