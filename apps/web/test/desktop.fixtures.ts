@@ -50,6 +50,7 @@ export function recordingQueue(): MessageQueue & { items(): Message[] } {
     },
     current: () => items.at(-1) ?? null,
     dismiss() {},
+    withdraw() {},
     withdrawUndo() {},
     receipts: () => items.filter((message) => message.ownWork),
     subscribe(listener) {
