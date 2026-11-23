@@ -1,7 +1,7 @@
 // The directory in control.sqlite: where each document lives, who holds which role, and what is deleted.
 import type { Database } from "bun:sqlite";
 import { homeKey, parseHome, wellFormedKey } from "../home.ts";
-import type { DocDirectory, Home } from "../ports/index.ts";
+import type { DocDirectory, Home, ShareLinkStore } from "../ports/index.ts";
 import { StorageError } from "../ports/index.ts";
 import { transact } from "./files.ts";
 
@@ -126,5 +126,49 @@ export function createSqliteDirectory(options: {
     tombstone: (docId, deletedByUserId) =>
       write(() => sql.tombstone.run(docId, deletedByUserId, now())),
     tombstoneOf: (docId) => sql.tombstoneOf.get(docId),
+  };
+}
+
+/** The grants' reads and writes of `doc_roles`: where each role came from and when its holder was last active. */
+export function createSqliteGrants(options: {
+  db: Database;
+  now: () => number;
+}): Pick<
+  ShareLinkStore,
+  "grant" | "ungrant" | "grantsOf" | "markActive" | "lastActiveOf"
+> {
+  const { db, now } = options;
+  const sql = {
+    grant: db.query<never, [string, string, string, string]>(
+      "INSERT INTO doc_roles (doc_id, user_id, role, source) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (doc_id, user_id) DO UPDATE SET role = excluded.role, source = excluded.source",
+    ),
+    ungrant: db.query<never, [string, string, string]>(
+      "DELETE FROM doc_roles WHERE doc_id = ?1 AND user_id = ?2 AND source = ?3",
+    ),
+    grantsOf: db.query<
+      { userId: string; role: string; source: string },
+      [string]
+    >(
+      "SELECT user_id AS userId, role, source FROM doc_roles WHERE doc_id = ?1 ORDER BY user_id",
+    ),
+    markActive: db.query<never, [string, string, number]>(
+      "UPDATE doc_roles SET last_active_at = ?3 WHERE doc_id = ?1 AND user_id = ?2",
+    ),
+    lastActiveOf: db.query<
+      { userId: string; lastActiveAt: number | null },
+      [string]
+    >(
+      "SELECT user_id AS userId, last_active_at AS lastActiveAt FROM doc_roles WHERE doc_id = ?1 ORDER BY user_id",
+    ),
+  };
+  return {
+    grant: (docId, userId, role, source) =>
+      transact(db, () => sql.grant.run(docId, userId, role, source)),
+    ungrant: (docId, userId, source) =>
+      transact(db, () => sql.ungrant.run(docId, userId, source)),
+    grantsOf: (docId) => sql.grantsOf.all(docId),
+    markActive: (docId, userId) =>
+      transact(db, () => sql.markActive.run(docId, userId, now())),
+    lastActiveOf: (docId) => sql.lastActiveOf.all(docId),
   };
 }
