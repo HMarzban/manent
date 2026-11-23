@@ -103,11 +103,13 @@ function handleKey(
   event: KeyboardEvent,
   format: FormatId,
 ): boolean {
-  const { active } = pickerKey.getState(view.state) ?? CLOSED;
+  const { active, opener } = pickerKey.getState(view.state) ?? CLOSED;
   const offered = offeredSlots(format);
   if (event.key === "Escape") {
     event.stopPropagation();
     send(view, CLOSE);
+    // a person who opened it from a control is put back where they were
+    opener?.focus();
     return true;
   }
   if (event.key === "ArrowDown" || event.key === "ArrowUp") {
