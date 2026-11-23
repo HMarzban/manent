@@ -80,6 +80,18 @@ function tokensOf(doc: Node, from: number, to: number): string[] {
   return out;
 }
 
+const HIGH_SURROGATES = Object.freeze([0xd800, 0xdbff] as const);
+const LOW_SURROGATES = Object.freeze([0xdc00, 0xdfff] as const);
+
+/** True when a token's first UTF-16 unit lies in `range`, inclusive. */
+const isUnitIn = (
+  token: string,
+  [low, high]: readonly [number, number],
+): boolean => {
+  const unit = token.charCodeAt(0);
+  return unit >= low && unit <= high;
+};
+
 /** What the edit took out and put in, trimmed to where the two documents differ, in each one's positions. */
 function differenceOf(
   old: Node,
@@ -97,12 +109,16 @@ function differenceOf(
     was[prefix] === now[prefix]
   )
     prefix++;
+  // a cut between the halves of a surrogate pair would store each half alone, so it moves before the pair
+  if (prefix > 0 && isUnitIn(was[prefix - 1]!, HIGH_SURROGATES)) prefix--;
   let suffix = 0;
   while (
     suffix < Math.min(was.length, now.length) - prefix &&
     was[was.length - 1 - suffix] === now[now.length - 1 - suffix]
   )
     suffix++;
+  if (suffix > 0 && isUnitIn(was[was.length - suffix]!, LOW_SURROGATES))
+    suffix--;
   return {
     from: from + prefix,
     oldTo: oldEnd - suffix,
