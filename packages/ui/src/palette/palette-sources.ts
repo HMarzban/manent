@@ -20,6 +20,8 @@ export interface PaletteRow {
   /** Where the feature lives ("Details → Script", "File"). */
   home: string | null;
   keys: string | null;
+  /** True on a choice or a command that is current, false on one that is not; null where neither applies. */
+  checked: boolean | null;
   enabled: boolean;
   whyNot: string | null;
 }
@@ -89,13 +91,14 @@ function listed(
 function baseRow(
   def: CommandDefinition,
   options: SourceOptions,
-): Pick<PaletteRow, "id" | "home" | "keys" | "enabled" | "whyNot"> {
+): Pick<PaletteRow, "id" | "home" | "keys" | "checked" | "enabled" | "whyNot"> {
   const state = options.service.state(def.id);
   const [chord] = state.keys;
   return {
     id: def.id,
     home: homeText(def, options.shell),
     keys: chord === undefined ? null : keyLabel(chord, options.platform),
+    checked: state.checked,
     enabled: state.enabled,
     whyNot: state.whyNot,
   };
@@ -141,7 +144,8 @@ export function createSettingSource(
         if (target === null || setting === undefined) return [];
         const commandLabel = options.service.state(def.id).label;
         const isSwitch = target.value === null;
-        const on = options.settings.get(target.key) === true;
+        const current = options.settings.get(target.key);
+        const on = current === true;
         const value = on ? READOUT_WORDS.valueOn : READOUT_WORDS.valueOff;
         const row: PaletteRow = {
           ...baseRow(def, options),
@@ -149,6 +153,8 @@ export function createSettingSource(
           label: isSwitch ? setting.label : commandLabel,
           value: isSwitch ? value : null,
           scopeWord: options.scopeWords[setting.scope],
+          // read from the store the value is read from, which is the open script's; a switch says its value in words
+          checked: isSwitch ? null : current === target.value,
         };
         const texts = [row.label, commandLabel, row.value ?? "", ...keywords];
         return matchesQuery(query, texts) ? [row] : [];

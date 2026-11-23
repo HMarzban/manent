@@ -1,38 +1,30 @@
 // The command palette: the way to every command, setting and place, and the menu when it is empty.
 import { Autocomplete } from "@base-ui/react/autocomplete";
-import { COMMANDS, menuModel } from "@manent/commands";
-import type { CommandService } from "@manent/commands";
-import { markEnd, markStart, mark } from "@manent/perf";
-import { MENU_IDS } from "@manent/settings";
+import { markEnd, markStart } from "@manent/perf";
 import type { MenuId } from "@manent/settings";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { SearchIcon } from "lucide-react";
-import { useLayoutEffect, useRef, useState } from "react";
-import type { ReactNode, RefObject } from "react";
-import { useCommands } from "../commands-react/commands-context.tsx";
-import { Kbd } from "../components/stock/kbd.tsx";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { Button } from "../components/stock/button.tsx";
 import { READOUT_WORDS } from "../words/document.ts";
+import { PALETTE_WORDS } from "../words/palette.ts";
 import { MENU_LABELS } from "./menu-labels.ts";
-import { matchedRuns, rankRows } from "./palette-rank.ts";
+import {
+  entriesOf,
+  keyOf,
+  textOf,
+  usePaletteSections,
+} from "./palette-entries.ts";
+import type { Entry, PaletteFilter } from "./palette-entries.ts";
+import { PaletteFooter } from "./palette-footer.tsx";
+import { EntryList, VIRTUAL_ABOVE } from "./palette-list.tsx";
 import type { PaletteRow, PaletteSource } from "./palette-sources.ts";
-
-const RECENT_LIMIT = 5;
-const VIRTUAL_ABOVE = 100;
-// the row token at Interface size 100 %, until a row is measured
-const ROW_PX = 28;
-
-const sizeOf = (element: Element): number =>
-  element.getBoundingClientRect().height || ROW_PX;
-
-type Entry =
-  | { type: "menu"; menu: MenuId; label: string }
-  | { type: "row"; row: PaletteRow };
 
 interface PaletteProps {
   open: boolean;
-  filter: "all" | "places" | "beside";
+  filter: PaletteFilter;
   sources: readonly PaletteSource[];
-  /** The field's placeholder; none when not given. */
+  /** The field's placeholder outside a menu; none when not given. */
   placeholder?: string;
   onRun(row: PaletteRow): void;
   onClose(): void;
@@ -40,226 +32,75 @@ interface PaletteProps {
   recent: readonly string[];
 }
 
-const keyOf = (entry: Entry): string =>
-  entry.type === "menu" ? `menu:${entry.menu}` : entry.row.id;
-
-const textOf = (entry: Entry): string =>
-  entry.type === "menu" ? entry.label : entry.row.label;
-
-/** The menus that hold a command available now, each under its menu word. */
-function menuEntries(service: CommandService): Entry[] {
-  return MENU_IDS.flatMap((menu): Entry[] => {
-    const label = MENU_LABELS[menu];
-    const held = menuModel(menu, COMMANDS, service).groups.some((group) =>
-      group.some((item) => item.enabled),
-    );
-    return label !== null && held ? [{ type: "menu", menu, label }] : [];
-  });
-}
-
-/** `rows` in the order shown before for the same query, with rows that arrived since drawn below them. */
-function keepShownOrder(
-  shown: { query: string; ids: readonly string[] },
+/** The sentence said in place of the list when `query` finds nothing. */
+function noMatch(
+  filter: PaletteFilter,
+  menu: string | null,
   query: string,
-  rows: readonly PaletteRow[],
-): readonly PaletteRow[] {
-  if (shown.query !== query) return rows;
-  const place = new Map(shown.ids.map((id, index) => [id, index]));
-  const before = rows
-    .filter((row) => place.has(row.id))
-    .toSorted((a, b) => (place.get(a.id) ?? 0) - (place.get(b.id) ?? 0));
-  return [...before, ...rows.filter((row) => !place.has(row.id))];
+): string {
+  if (filter === "places") return PALETTE_WORDS.noPlace(query);
+  return menu === null
+    ? PALETTE_WORDS.noMatch(query)
+    : PALETTE_WORDS.noMatchIn(menu, query);
 }
 
-function RowContent(props: { row: PaletteRow; query: string }): ReactNode {
-  const { row, query } = props;
-  const label =
-    row.enabled || row.whyNot === null
-      ? row.label
-      : READOUT_WORDS.unavailable(row.label, row.whyNot);
-  return (
-    <>
-      <span className="min-w-0 flex-1 truncate">
-        {matchedRuns(query, label).map((run, index) =>
-          run.matched ? (
-            <span key={index} className="font-semibold">
-              {run.text}
-            </span>
-          ) : (
-            run.text
-          ),
-        )}
-        {row.value === null ? null : `: ${row.value}`}
-        {row.scopeWord === null ? null : ` · ${row.scopeWord}`}
-      </span>
-      {row.home === null ? null : (
-        <span className="text-meta text-fg-muted">{row.home}</span>
-      )}
-      {row.keys === null ? null : <Kbd>{row.keys}</Kbd>}
-    </>
-  );
-}
-
-function EntryItem(props: {
-  entry: Entry;
-  query: string;
-  index: number;
-  activate(entry: Entry): void;
-}): ReactNode {
-  const { entry, query, index, activate } = props;
-  return (
-    <Autocomplete.Item
-      value={entry}
-      index={index}
-      disabled={entry.type === "row" && !entry.row.enabled}
-      onClick={() => activate(entry)}
-      className="mn-row flex min-h-row items-center gap-2 px-2 text-ui"
-    >
-      {entry.type === "menu" ? (
-        entry.label
-      ) : (
-        <RowContent row={entry.row} query={query} />
-      )}
-    </Autocomplete.Item>
-  );
-}
-
-function VirtualEntries(props: {
-  entries: readonly Entry[];
-  query: string;
-  activate(entry: Entry): void;
-  /** The list that scrolls; the window is drawn for its height and offset. */
-  scroller: RefObject<HTMLDivElement | null>;
-}): ReactNode {
-  const { entries, query, activate, scroller } = props;
-  const virtual = useVirtualizer({
-    count: entries.length,
-    getScrollElement: () => scroller.current,
-    estimateSize: () => ROW_PX,
-    measureElement: sizeOf,
-  });
-  return (
-    <div className="relative" style={{ height: virtual.getTotalSize() }}>
-      {virtual.getVirtualItems().map((item) => {
-        const entry = entries[item.index];
-        return entry === undefined ? null : (
-          <div
-            key={keyOf(entry)}
-            ref={virtual.measureElement}
-            data-index={item.index}
-            className="absolute inset-x-0"
-            style={{ transform: `translateY(${item.start}px)` }}
-          >
-            <EntryItem
-              entry={entry}
-              query={query}
-              index={item.index}
-              activate={activate}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/** The one scrolling list of entries: plain rows up to 100, a window of rows above. */
-function EntryList(props: {
-  entries: readonly Entry[];
-  query: string;
-  activate(entry: Entry): void;
-}): ReactNode {
-  const { entries, query, activate } = props;
-  const scroller = useRef<HTMLDivElement>(null);
-  return (
-    <Autocomplete.List ref={scroller} className="overflow-auto p-1">
-      {entries.length > VIRTUAL_ABOVE ? (
-        <VirtualEntries
-          entries={entries}
-          query={query}
-          activate={activate}
-          scroller={scroller}
-        />
-      ) : (
-        entries.map((entry, index) => (
-          <EntryItem
-            key={keyOf(entry)}
-            entry={entry}
-            query={query}
-            index={index}
-            activate={activate}
-          />
-        ))
-      )}
-    </Autocomplete.List>
-  );
-}
-
-/** What the palette lists: a menu's commands, the menus and recent commands while empty, or the rows for a query. */
-function usePaletteEntries(options: {
-  filter: PaletteProps["filter"];
-  sources: readonly PaletteSource[];
-  recent: readonly string[];
-  query: string;
-  menu: MenuId | null;
-}): readonly Entry[] {
-  const { filter, sources, recent, query, menu } = options;
-  const { service } = useCommands();
-  const shown = useRef<{ query: string; ids: readonly string[] }>({
-    query: "",
-    ids: [],
-  });
-  const active =
-    filter === "places" ? sources.filter((s) => s.kind === "place") : sources;
-  const rowsIn = (ids: readonly string[]): Entry[] => {
-    const byId = new Map(
-      active.flatMap((s) => s.rows("")).map((row) => [row.id, row]),
-    );
-    return ids.flatMap((id): Entry[] => {
-      const row = byId.get(id);
-      return row === undefined ? [] : [{ type: "row", row }];
-    });
-  };
-
-  if (query === "" && filter === "all" && menu !== null)
-    return rowsIn(
-      menuModel(menu, COMMANDS, service)
-        .groups.flat()
-        .map((item) => item.id),
-    );
-  if (query === "" && filter === "all")
-    return [...menuEntries(service), ...rowsIn(recent.slice(0, RECENT_LIMIT))];
-  const rows = mark("ui.search.palette", () =>
-    keepShownOrder(
-      shown.current,
-      query,
-      rankRows(
-        query,
-        active.flatMap((s) => s.rows(query)),
-      ),
-    ),
-  );
-  shown.current = { query, ids: rows.map((row) => row.id) };
-  return rows.map((row): Entry => ({ type: "row", row }));
+/** Calls `close` on a press outside `surface`, as on any popover. */
+function useOutsidePress(
+  surface: { current: HTMLElement | null },
+  close: () => void,
+): void {
+  const latest = useRef(close);
+  latest.current = close;
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent): void => {
+      const target = event.target;
+      if (target instanceof Node && surface.current?.contains(target)) return;
+      latest.current();
+    };
+    document.addEventListener("pointerdown", onPointerDown, { capture: true });
+    return () =>
+      document.removeEventListener("pointerdown", onPointerDown, {
+        capture: true,
+      });
+  }, [surface]);
 }
 
 function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
   const { filter, sources, onRun, onClose, recent, placeholder } = props;
   const [query, setQuery] = useState("");
   const [menu, setMenu] = useState<MenuId | null>(null);
+  // by key: the entries are made afresh on each render, and the same entry must not set the state again
+  const [keyed, setKeyed] = useState<string | null>(null);
   const [openedAt] = useState(markStart);
+  // a setting's rows read the store when drawn, so a change made here is drawn again at once
+  const [, setChanges] = useState(0);
   useLayoutEffect(() => markEnd("ui.open.palette", openedAt), [openedAt]);
-  const entries = usePaletteEntries({ filter, sources, recent, query, menu });
+  const surface = useRef<HTMLDivElement>(null);
+  useOutsidePress(surface, onClose);
+  const sections = usePaletteSections({
+    filter,
+    sources,
+    recent,
+    query,
+    menu,
+  });
+  const entries = entriesOf(sections);
+  const menuLabel = menu === null ? null : MENU_LABELS[menu];
 
+  const toMenu = (next: MenuId | null): void => {
+    setMenu(next);
+    setQuery("");
+  };
   const activate = (entry: Entry): void => {
     if (entry.type === "menu") {
-      setMenu(entry.menu);
+      toMenu(entry.menu);
       return;
     }
     if (!entry.row.enabled) return;
     // a setting changes in place, so the person sees the result and can choose again
     if (entry.row.kind === "setting") {
       onRun(entry.row);
+      setChanges((count) => count + 1);
       return;
     }
     // closing first gives focus back, so the command runs from where the person was
@@ -269,6 +110,8 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
 
   return (
     <Autocomplete.Root
+      // a new list starts with the keys on its first row, and the field focused
+      key={menu ?? ""}
       inline
       open
       mode="none"
@@ -278,38 +121,77 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
         // pressing an item writes its text into the field; the query stays what was typed
         if (details.reason === "item-press") return;
         setQuery(value);
-        setMenu(null);
       }}
+      onItemHighlighted={(value: Entry | undefined) =>
+        setKeyed(value === undefined ? null : keyOf(value))
+      }
       itemToStringValue={textOf}
       autoHighlight="always"
+      // the pointer never moves what Enter runs; a row under it takes the hover fill
+      highlightItemOnHover={false}
       virtualized={entries.length > VIRTUAL_ABOVE}
     >
       <div
-        className="fixed inset-x-0 mx-auto flex flex-col overflow-hidden rounded-surface border border-line bg-overlay shadow-dialog"
+        ref={surface}
+        className="@container fixed inset-x-0 mx-auto flex flex-col overflow-hidden rounded-surface border border-line bg-overlay shadow-dialog"
         style={{
+          zIndex: "var(--z-overlay)",
           top: "12vh",
-          width: "var(--palette-w)",
-          maxHeight: "var(--palette-max-h)",
+          width: "min(var(--palette-w), 100% - 2rem)",
+          maxHeight: "min(var(--palette-max-h), 100dvh - 12vh - 1rem)",
         }}
       >
-        <div className="flex h-findbar shrink-0 items-center gap-2 border-b border-line px-4">
+        <div className="flex h-findbar shrink-0 items-center gap-2 border-b border-line px-3">
           <SearchIcon
             aria-hidden="true"
-            className="size-icon-lg text-fg-muted"
+            className="size-icon-lg shrink-0 text-fg-muted"
           />
+          {menu === null ? null : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-fg-muted hover:text-fg"
+              onClick={() => toMenu(null)}
+            >
+              {PALETTE_WORDS.back}
+            </Button>
+          )}
           <Autocomplete.Input
             autoFocus
             onKeyDown={(event) => {
               // while an input method composes, Enter, Escape and the arrows are its own
-              if (event.nativeEvent.isComposing || event.keyCode === 229)
+              if (event.nativeEvent.isComposing || event.keyCode === 229) {
                 event.preventBaseUIHandler();
+                return;
+              }
+              if (event.key === "Backspace" && query === "" && menu !== null) {
+                event.preventBaseUIHandler();
+                toMenu(null);
+              }
             }}
             aria-label={READOUT_WORDS.commandsHint}
-            placeholder={placeholder}
-            className="mn-palette-field h-full min-w-0 flex-1 bg-transparent text-ui outline-none"
+            placeholder={
+              menuLabel === null
+                ? placeholder
+                : PALETTE_WORDS.placeholderIn(menuLabel)
+            }
+            className="mn-palette-field h-full min-w-0 flex-1 bg-transparent text-ui outline-none placeholder:text-fg-muted"
           />
         </div>
-        <EntryList entries={entries} query={query} activate={activate} />
+        <Autocomplete.Empty className="px-3 py-3 text-ui text-fg-muted empty:p-0">
+          {entries.length === 0 && query !== ""
+            ? noMatch(filter, menuLabel, query)
+            : null}
+        </Autocomplete.Empty>
+        <EntryList
+          sections={sections}
+          label={menuLabel ?? READOUT_WORDS.commandsHint}
+          drawing={{ query, home: menu === null, activate }}
+        />
+        <PaletteFooter
+          keyed={entries.find((entry) => keyOf(entry) === keyed) ?? null}
+          inMenu={menu !== null}
+        />
       </div>
     </Autocomplete.Root>
   );

@@ -43,13 +43,30 @@ function scoreOf(query: string, row: PaletteRow): number {
   return matchesQuery(query, [row.label]) ? 1 : 2;
 }
 
-/** Orders rows a source already matched: by how well the label matches, and in source order where they match alike. */
+// the palette's sections, in the order they are shown: each holds the rows of one kind
+const SECTION_KINDS: readonly PaletteRow["kind"][] = Object.freeze([
+  "command",
+  "setting",
+  "place",
+  "document",
+  "person",
+  "help",
+]);
+
+/** Orders rows a source already matched: by section, then by how well the label matches, and in the order given where they match alike. */
 export function rankRows(
   query: string,
   rows: readonly PaletteRow[],
 ): readonly PaletteRow[] {
   return rows
-    .map((row, index) => ({ row, index, score: scoreOf(query, row) }))
-    .toSorted((a, b) => a.score - b.score || a.index - b.index)
+    .map((row, index) => ({
+      row,
+      index,
+      section: SECTION_KINDS.indexOf(row.kind),
+      score: scoreOf(query, row),
+    }))
+    .toSorted(
+      (a, b) => a.section - b.section || a.score - b.score || a.index - b.index,
+    )
     .map(({ row }) => row);
 }

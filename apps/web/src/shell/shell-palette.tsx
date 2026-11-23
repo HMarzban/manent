@@ -1,10 +1,10 @@
 // The shell's palette over commands, settings, places, scripts and the people present, loaded apart from the entry.
 import { COMMANDS } from "@manent/commands";
-import type { Scope } from "@manent/settings";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   BESIDE_WORDS,
   CommandPalette,
+  PALETTE_WORDS,
   createCommandSource,
   createSettingSource,
 } from "@manent/ui";
@@ -29,6 +29,7 @@ import {
   PeopleContext,
 } from "../state/bridge-contexts.ts";
 import { usePaletteOpen } from "../state/palette.store.ts";
+import type { PaletteFilter } from "../state/palette.store.ts";
 import {
   createDocumentSource,
   createPersonSource,
@@ -36,14 +37,11 @@ import {
   runPlaceRow,
 } from "./palette-places.ts";
 
-/** The palette's words for what a setting applies to. */
-const scopeWords = (
-  shell: "web" | "desktop",
-): Readonly<Record<Scope, string>> => ({
-  personal: "yours",
-  device: shell === "desktop" ? "this device" : "this browser",
-  script: "this script",
-  project: "this project",
+/** The palette's placeholder for each filter. */
+const PLACEHOLDERS: Readonly<Record<PaletteFilter, string>> = Object.freeze({
+  all: PALETTE_WORDS.placeholder,
+  places: PALETTE_WORDS.placeholderPlaces,
+  beside: BESIDE_WORDS.choose,
 });
 
 /** The workspaces the person's scripts are in: those the server listed for the Library, if it was asked, and the person's own desk. */
@@ -110,7 +108,10 @@ export function ShellPalette(props: {
         ...base,
         settings:
           docId === null ? services.settings : services.openScriptStore(docId),
-        scopeWords: scopeWords(where.shell),
+        scopeWords: {
+          ...PALETTE_WORDS.scope,
+          device: PALETTE_WORDS.scope.device(where.shell === "desktop"),
+        },
       }),
       ...(docId === null || outline === null
         ? []
@@ -149,7 +150,7 @@ export function ShellPalette(props: {
       open={filter !== null}
       filter={filter ?? "all"}
       sources={sources}
-      placeholder={filter === "beside" ? BESIDE_WORDS.choose : undefined}
+      placeholder={PLACEHOLDERS[filter ?? "all"]}
       onRun={run}
       onClose={close}
       recent={recent}
