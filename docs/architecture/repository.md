@@ -57,7 +57,7 @@ packages/
 ├── commands/        the command registry and its definitions (src/definitions/)
 ├── ui/              components/, palette/, surfaces/, theme.css and words/: every word the interface shows
 ├── demo/            people, workspaces, sign-in, the Tour (tour/), the seed (seed/), its content and phrase banks (content/, generate/), simulated writers (writers/)
-└── testkit/         temporary trees, DOM setup, a test server, bots and the sync simulation (sync/); production/ is a placeholder
+└── testkit/         temporary trees, DOM setup, a test server, bots, the sync simulation (sync/) and the production simulation (production/)
 ```
 
 ## apps/

@@ -83,6 +83,7 @@ test("a version kept in production carries its lock table, and a restored scene 
       key: key(5),
       versionId: white.id,
       scope: { kind: "scene", headingId: headingId(4) },
+      clientId: null,
     }),
   );
   const heading = w.blocks().find((b) => b.attrs.id === headingId(4));
