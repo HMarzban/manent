@@ -11,11 +11,13 @@
     "@manent/schema": "workspace:*",
     "@manent/pagination": "workspace:*",
     "@manent/revisions": "workspace:*",
-    "pdfkit": "catalog:"
+    "pdfkit": "catalog:",
+    "inkjs": "catalog:",
+    "pdfjs-dist": "catalog:",
+    "fflate": "catalog:"
   },
   "devDependencies": {
     "@types/pdfkit": "catalog:",
-    "pdfjs-dist": "catalog:",
     "@fontsource/courier-prime": "catalog:",
     "fast-check": "catalog:"
   }
