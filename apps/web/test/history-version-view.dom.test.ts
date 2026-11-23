@@ -209,12 +209,12 @@ test("a version is paginated by its own engine", async () => {
       }),
     ),
   );
-  const pane = grid.querySelector<HTMLElement>("[data-version-pane]");
+  const pane = grid.querySelector<HTMLElement>("[data-beside='version']");
   expect(pane?.querySelector("header")?.textContent).toBe(
     `Studio draft, Mon 16 NovSaved · Only in this browser — not backed up${HISTORY_WORDS.compareNewer}`,
   );
   expect(labelsIn(pane!)).toEqual(["1", "2", "3", "3"]);
-  expect(document.activeElement?.closest("[data-version-pane]")).toBe(pane);
+  expect(document.activeElement?.closest("[data-beside='version']")).toBe(pane);
 });
 
 /** A level-1 anchor of page `label` at the start of `blockId`. */
