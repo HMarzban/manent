@@ -534,6 +534,7 @@ test("the screens' words are the design's", () => {
     needsScript: "needs a script open",
     needsConnection: "needs a connection",
     needsEdit: "needs edit access",
+    needsSyncedScript: "needs a synced script",
     stopServerHint:
       "Stops the server at once. Nothing synced is lost, and each window connects again by itself.",
     timings: "Timings",
@@ -562,6 +563,9 @@ test("the screens' words are the design's", () => {
       "Every workspace goes back to its seeded state, for everyone using this demo.",
     resetTitle: "Reset the demo?",
     resetAction: "Reset the demo",
+    resetting: "Resetting the demo…",
+    resettingBody:
+      "Every workspace goes back to its seeded state. This tab reloads once the demo is ready.",
     resetBody:
       "Every workspace goes back to its seeded state for everyone using this demo. Changes made since it was seeded are not kept. Each browser and the desktop app clear their copies when they next connect.",
     seedingFailed: "Couldn't get ready. Reset the demo to try again.",

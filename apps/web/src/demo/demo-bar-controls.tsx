@@ -5,10 +5,11 @@ import {
   Button,
   CommandButton,
   DEMO_WORDS,
+  useCommandState,
   useSubscribable,
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PanelRightIcon, PowerIcon } from "lucide-react";
 import { useContext, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
@@ -27,7 +28,7 @@ import { BarLabelled } from "./demo-bar-control.tsx";
 import { ReorganiseControl } from "./reorganise-control.tsx";
 import { ResetControl } from "./reset-control.tsx";
 import { Timings } from "./timings.tsx";
-import { POLL_MS, SERVER_STATUS_QUERY } from "./use-demo.ts";
+import { SERVER_STATUS_QUERY, useServerState } from "./use-demo.ts";
 import type { DemoControl } from "./use-demo.ts";
 import { WritersControl } from "./writers-control.tsx";
 
@@ -39,6 +40,7 @@ export function DemoBarControls(props: {
   person: TabPerson | null;
   onPersonClick: () => void;
   control: DemoControl | null;
+  resetting: boolean;
 }): ReactNode {
   // the shell provides the services and the commands together with the bridge's contexts
   const inShell = useContext(FactsContext) !== null;
@@ -50,7 +52,7 @@ export function DemoBarControls(props: {
       {inShell ? (
         <ShellControls control={control} />
       ) : (
-        control && <ServerControl {...control} />
+        control && <ServerControl {...control} resetting={props.resetting} />
       )}
     </div>
   );
@@ -70,13 +72,16 @@ function ShellControls(props: { control: DemoControl | null }): ReactNode {
   );
   const offline = mode === "offline";
   const { docId } = useSubscribable(useEnvironment().shellState);
+  // Sign in to sync is offered until the person is signed in
+  const signedIn = !useCommandState("app.signInToSync").visible;
   return (
     <>
       {connection && <ConnectionChoice control={connection} />}
-      <WritersControl docId={docId} offline={offline} />
-      {control && <ServerControl {...control} />}
+      <WritersControl docId={docId} signedIn={signedIn} offline={offline} />
+      {/* the shell is not drawn while the demo resets */}
+      {control && <ServerControl {...control} resetting={false} />}
       <Timings docId={docId} offline={offline} />
-      <ReorganiseControl docId={docId} offline={offline} />
+      <ReorganiseControl docId={docId} signedIn={signedIn} offline={offline} />
       {control && <ResetControl {...control} />}
       <Tour />
     </>
@@ -114,31 +119,26 @@ function Person(props: {
   );
 }
 
-function ServerControl(props: DemoControl): ReactNode {
+function ServerControl(props: DemoControl & { resetting: boolean }): ReactNode {
   const { client } = props;
   const queryClient = useQueryClient();
   const queryKey = [SERVER_STATUS_QUERY, props.id];
-
-  const status = useQuery({
-    queryKey,
-    queryFn: client.status,
-    refetchInterval: POLL_MS,
-    refetchOnWindowFocus: true,
-  });
+  const answered = useServerState(props);
+  // an answer to a question asked before the reset began says it is still running
+  const state = props.resetting ? "resetting" : answered;
   const action = useMutation({
     mutationFn: (kind: "stop" | "start") =>
       kind === "stop" ? client.stop() : client.start(),
     onSettled: () => queryClient.invalidateQueries({ queryKey }),
   });
 
-  const state = status.data;
   const announcer = useAnnouncer();
   // the bar shows the first answer; only a change is said, so a page that opens does not say the server is running
   const known = useRef(state);
   useEffect(() => {
     const before = known.current;
     known.current = state;
-    if (before !== undefined && state !== undefined && state !== before)
+    if (before !== null && state !== null && state !== before)
       announcer.announce(serverStatusText(state));
   }, [announcer, state]);
   const kind =

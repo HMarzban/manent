@@ -1,5 +1,6 @@
 // Every sentence the web app shows, in one place.
 
+import { DEMO_WORDS } from "@manent/ui";
 import type { ControlState } from "./api.ts";
 
 export const TEXT = {
@@ -29,6 +30,7 @@ const STATUS_TEXT: Record<ControlState, string> = {
   starting: TEXT.serverStarting,
   failed: TEXT.serverFailed,
   unreachable: TEXT.demoUnreachable,
+  resetting: DEMO_WORDS.resetting,
 };
 
 export function serverStatusText(state: ControlState): string {

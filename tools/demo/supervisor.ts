@@ -113,32 +113,21 @@ class ServerProcess {
   }
 
   start(): Promise<void> {
-    if (this.closed)
-      return Promise.reject(new Error("the supervisor has shut down"));
-    if (this.state === "running") return Promise.resolve();
-    this.starting ??= this.launch().finally(() => {
-      this.starting = null;
-    });
-    return this.starting;
+    return this.begin("starting");
   }
 
   async stop(): Promise<void> {
-    if (this.restart !== null) {
-      clearTimeout(this.restart);
-      this.restart = null;
-    }
-    const running = this.child;
-    if (running !== null) {
-      running.stopping = true;
-      running.process.kill("SIGKILL");
-    }
-    await Promise.allSettled([running?.process.exited, this.starting]);
+    await this.kill();
     this.state = "stopped";
   }
 
-  /** Stops the server, re-seeds and starts it. A re-seed that rejects leaves it `failed` and unstarted, since its data may be half written. */
+  /**
+   * Stops the server, re-seeds and starts it, reading `resetting` from the start until it runs. A re-seed that rejects
+   * leaves it `failed` and unstarted, since its data may be half written.
+   */
   async reset(): Promise<void> {
-    await this.stop();
+    this.state = "resetting";
+    await this.kill();
     try {
       await this.options.onReset();
     } catch {
@@ -146,7 +135,7 @@ class ServerProcess {
       this.state = "failed";
       return;
     }
-    await this.start();
+    await this.begin("resetting");
   }
 
   /** Stops the server; nothing starts it again. False when it was already closed. */
@@ -157,8 +146,33 @@ class ServerProcess {
     return first;
   }
 
-  private async launch(): Promise<void> {
-    this.state = "starting";
+  /** `shown` is the state read until the server answers. */
+  private begin(shown: "starting" | "resetting"): Promise<void> {
+    if (this.closed)
+      return Promise.reject(new Error("the supervisor has shut down"));
+    if (this.state === "running") return Promise.resolve();
+    this.starting ??= this.launch(shown).finally(() => {
+      this.starting = null;
+    });
+    return this.starting;
+  }
+
+  /** Kills the server and cancels a restart, leaving the state to the caller. */
+  private async kill(): Promise<void> {
+    if (this.restart !== null) {
+      clearTimeout(this.restart);
+      this.restart = null;
+    }
+    const running = this.child;
+    if (running !== null) {
+      running.stopping = true;
+      running.process.kill("SIGKILL");
+    }
+    await Promise.allSettled([running?.process.exited, this.starting]);
+  }
+
+  private async launch(shown: "starting" | "resetting"): Promise<void> {
+    this.state = shown;
     let spawned: Child;
     try {
       spawned = {

@@ -37,6 +37,7 @@ test("the server's state is said in words", () => {
   expect(serverStatusText("unreachable")).toBe(
     "The demo is not running. Run make demo again.",
   );
+  expect(serverStatusText("resetting")).toBe("Resetting the demo…");
 });
 
 test("each tab is titled with its screen and person", () => {
