@@ -1,11 +1,6 @@
 // One open document as its client drives it: its journal in the store, its local copy and its
 // subscription to the server, and the status it shows.
-import {
-  ORIGIN_LOAD,
-  ORIGIN_REMOTE,
-  createDoc,
-  observeScript,
-} from "@manent/crdt";
+import { createDoc } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import { CODE } from "@manent/sync-protocol";
 import type { DocumentMessage, Message } from "@manent/sync-protocol";
@@ -23,7 +18,6 @@ import type {
 } from "../ports/ports.ts";
 import { UpstreamWindow } from "../upstream/window.ts";
 import type { DocHandle } from "./doc-handle.ts";
-import { elementsOf } from "./edits.ts";
 import type { UnsavedEdit } from "./edits.ts";
 import { toDocEvent } from "./frame-events.ts";
 import type { Handshake } from "./handshake.ts";
@@ -37,6 +31,7 @@ import { PushMarks } from "./push-marks.ts";
 import type { SessionLink, SessionOptions } from "./session-options.ts";
 import { createSubscription } from "./subscription.ts";
 import type { Subscription } from "./subscription.ts";
+import { watchEdits } from "./watch-edits.ts";
 
 export type { SessionLink } from "./session-options.ts";
 
@@ -74,23 +69,6 @@ const LINK_SIDE: Readonly<Record<LinkIssue, SideState | null>> = Object.freeze({
   too_old: null,
   server_old: "server_old",
 });
-
-/** The own edits made in `doc` from now until the returned function is called, which stops watching and gives them. */
-function watchEdits(doc: CrdtDoc | null): () => UnsavedEdit[] {
-  const made: UnsavedEdit[] = [];
-  const unobserve =
-    doc === null
-      ? () => {}
-      : observeScript(doc, (report) => {
-          if (report.origin === ORIGIN_LOAD || report.origin === ORIGIN_REMOTE)
-            return;
-          made.push({ update: report.update, elements: elementsOf(report) });
-        });
-  return () => {
-    unobserve();
-    return made;
-  };
-}
 
 /** Loads the document before anything is sent: from the store, or in memory when the store cannot be read. */
 export async function openSession(options: SessionOptions): Promise<Session> {
