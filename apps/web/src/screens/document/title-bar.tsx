@@ -1,13 +1,20 @@
-// The bar above the page: back to the Library, the title and its menu, the status, and the people present.
+// The bar above the page: back to the Library, the title and its menu, the status, the people present, and Share.
 import {
   Button,
   CommandMenu,
   DOCUMENT_WORDS,
   LIBRARY_WORDS,
+  READOUT_WORDS,
+  SELECTION_WORDS,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  useCommandState,
+  useCommands,
   useSubscribable,
 } from "@manent/ui";
 import { useRouter } from "@tanstack/react-router";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useId, useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
@@ -36,6 +43,46 @@ export function useDocumentTitle(docId: string): string {
     [library, docId],
   );
   return useSubscribable(titleSource) ?? LIBRARY_WORDS.untitledScript;
+}
+
+/**
+ * Share runs `share.open`. While the command cannot run it stays in the bar, focusable, and says why in its tooltip and
+ * description, as a command's button does; a press then gives the reason.
+ */
+function ShareButton(): ReactNode {
+  const { service } = useCommands();
+  const state = useCommandState("share.open");
+  const reasonId = useId();
+  const reason =
+    state.whyNot === null
+      ? null
+      : READOUT_WORDS.unavailable(SELECTION_WORDS.share, state.whyNot);
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="outline"
+              data-tour="share"
+              aria-disabled={reason === null ? undefined : true}
+              aria-describedby={reason === null ? undefined : reasonId}
+              className="aria-disabled:text-fg-muted"
+              onClick={() => service.run("share.open", "control")}
+            />
+          }
+        >
+          {SELECTION_WORDS.share}
+        </TooltipTrigger>
+        <TooltipContent>{reason ?? SELECTION_WORDS.share}</TooltipContent>
+      </Tooltip>
+      {reason === null ? null : (
+        <span id={reasonId} className="sr-only">
+          {reason}
+        </span>
+      )}
+    </>
+  );
 }
 
 /**
@@ -83,7 +130,10 @@ export function TitleBar(props: {
         )}
       </h1>
       <StatusButton doc={doc} />
-      <People people={doc.people} />
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <People docId={docId} people={doc.people} />
+        <ShareButton />
+      </div>
     </ShellRegion>
   );
 }
