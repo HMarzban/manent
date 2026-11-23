@@ -3,7 +3,8 @@
 /**
  * `pagePx` is the sheet at 100 % zoom with its desk padding; a panel's width is null while it is closed. "both": every
  * open panel fits beside the page; "one": one does, so opening one panel closes the other; "overlay": not even one
- * does, so the panel is drawn over the page and closes when focus returns to it.
+ * does, so the panel is drawn over the page and closes when the person clicks or types in the page or focus returns
+ * to it.
  */
 export function fitPanels(options: {
   frameWidthPx: number;
