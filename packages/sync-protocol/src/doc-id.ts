@@ -68,12 +68,21 @@ function hashId(text: string): string {
 }
 
 /**
- * The id of a person's private index (`scope` "user", `id` their userId) or of a
- * workspace's index (`scope` "workspace"): the same on every device. A version 8
- * UUID of the FNV-1a 128 hash of the UTF-8 bytes of `manent:<scope>:<id>`.
+ * The id of a person's private index (`scope` "user", `id` their userId), of a
+ * workspace's index (`scope` "workspace") or of a project's index (`scope`
+ * "project", `id` the project's id): the same on every device. A version 8 UUID
+ * of the FNV-1a 128 hash of the UTF-8 bytes of `manent:<scope>:<id>`.
  */
-export function indexDocId(scope: "user" | "workspace", id: string): string {
+export function indexDocId(
+  scope: "user" | "workspace" | "project",
+  id: string,
+): string {
   return hashId(`manent:${scope}:${id}`);
+}
+
+/** The id of a script's comments document, the same on every device: hashed as indexDocId hashes. */
+export function commentsDocId(scriptId: string): string {
+  return hashId(`manent:comments:${scriptId}`);
 }
 
 const SEED_KEY = /^[a-z0-9][a-z0-9/:-]{0,199}$/;

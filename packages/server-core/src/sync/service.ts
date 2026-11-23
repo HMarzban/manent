@@ -285,10 +285,11 @@ export function createSyncService(
     },
     detach,
     accessChanged: subscribed.accessChanged,
-    membershipChanged(docId, userId, role) {
-      // only the person's own subscriptions learn whose role changed and to what, before any of them ends
+    membershipChanged(docId, userId, role, byUserId) {
+      // only the person's own subscriptions learn whose role changed, to what and by whom, before any of them ends
       const kind = "membership_changed";
-      const theirs = { kind, data: encodeJson({ userId, role }) } as const;
+      const data = encodeJson({ userId, role, byUserId });
+      const theirs = { kind, data } as const;
       sendControl(docId, theirs, (peer) => peer.userId === userId);
       const others = { kind, data: encodeJson({}) } as const;
       sendControl(docId, others, (peer) => peer.userId !== userId);

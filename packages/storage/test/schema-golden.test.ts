@@ -45,9 +45,9 @@ afterEach(() => s.close());
 afterAll(() => trees.removeAll());
 
 test("the storage schema is exactly these tables", () => {
-  expect(STORAGE_SCHEMA_VERSION).toBe(5);
-  expect(userVersion(join(dir, "control.sqlite"))).toBe(5);
-  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(5);
+  expect(STORAGE_SCHEMA_VERSION).toBe(9);
+  expect(userVersion(join(dir, "control.sqlite"))).toBe(9);
+  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(9);
   expect(tableColumns(join(dir, "control.sqlite"))).toEqual({
     doc_directory: [
       "doc_id TEXT",
@@ -61,11 +61,66 @@ test("the storage schema is exactly these tables", () => {
       "user_id TEXT",
       "role TEXT",
       "capabilities TEXT",
+      "source TEXT",
+      "last_active_at INTEGER",
     ],
     tombstones: [
       "doc_id TEXT",
       "deleted_by_user_id TEXT",
       "deleted_at INTEGER",
+    ],
+    share_links: [
+      "id TEXT",
+      "doc_id TEXT",
+      "token_hash BLOB",
+      "role TEXT",
+      "expires_at INTEGER",
+      "revoked_at INTEGER",
+      "created_by_user_id TEXT",
+      "created_at INTEGER",
+    ],
+    draft_links: [
+      "id TEXT",
+      "send_id TEXT",
+      "token_hash BLOB",
+      "sign_in INTEGER",
+      "expires_at INTEGER",
+      "created_at INTEGER",
+    ],
+    group_grants: ["doc_id TEXT", "group_id TEXT", "role TEXT"],
+    trash: [
+      "doc_id TEXT",
+      "workspace_id TEXT",
+      "home TEXT",
+      "deleted_by_user_id TEXT",
+      "deleted_at INTEGER",
+      "purge_after INTEGER",
+    ],
+    workspace_settings: [
+      "workspace_id TEXT",
+      "key TEXT",
+      "value TEXT",
+      "updated_by_user_id TEXT",
+      "updated_at INTEGER",
+    ],
+    api_keys: [
+      "id TEXT",
+      "workspace_id TEXT",
+      "name TEXT",
+      "key_hash BLOB",
+      "created_by_user_id TEXT",
+      "created_at INTEGER",
+      "last_used_at INTEGER",
+      "revoked_at INTEGER",
+    ],
+    notification_outbox: [
+      "id INTEGER",
+      "workspace_id TEXT",
+      "adapter TEXT",
+      "payload TEXT",
+      "attempts INTEGER",
+      "next_try_at INTEGER",
+      "delivered_at INTEGER",
     ],
   });
   expect(tableColumns(join(dir, `project-${PROJECT}.sqlite`))).toEqual({
@@ -263,6 +318,62 @@ test("the storage schema is exactly these tables", () => {
       "result TEXT",
       "created_at INTEGER",
     ],
+    draft_sends: [
+      "id TEXT",
+      "doc_id TEXT",
+      "version_id TEXT",
+      "name TEXT",
+      "group_ids TEXT",
+      "recipient_user_ids TEXT",
+      "watermarked_user_ids TEXT",
+      "files TEXT",
+      "what TEXT",
+      "against_version_id TEXT",
+      "sent_by_user_id TEXT",
+      "sent_at INTEGER",
+    ],
+    draft_opens: ["send_id TEXT", "user_id TEXT", "opened_at INTEGER"],
+    reader_reads: [
+      "doc_id TEXT",
+      "user_id TEXT",
+      "version_id TEXT",
+      "read_at INTEGER",
+    ],
+    private_copies: [
+      "private_doc_id TEXT",
+      "source_doc_id TEXT",
+      "owner_user_id TEXT",
+      "base_generation INTEGER",
+      "base_seq INTEGER",
+      "base_json TEXT",
+      "created_at INTEGER",
+      "handed_in_at INTEGER",
+    ],
+    handins: [
+      "key TEXT",
+      "private_doc_id TEXT",
+      "user_id TEXT",
+      "before_version_id TEXT",
+      "answer TEXT",
+      "at INTEGER",
+    ],
+    prompter_sends: [
+      "doc_id TEXT",
+      "row_id TEXT",
+      "story_doc_id TEXT",
+      "version_id TEXT",
+      "generation INTEGER",
+      "seq INTEGER",
+      "sent_by_user_id TEXT",
+      "sent_at INTEGER",
+    ],
+    prompter_requests: [
+      "doc_id TEXT",
+      "request_key TEXT",
+      "user_id TEXT",
+      "result TEXT",
+      "created_at INTEGER",
+    ],
   });
 });
 
@@ -434,7 +545,7 @@ test("a file written at version 3 is carried to 4 and keeps its rows", async () 
     snapshot: null,
     checkpoint: { seq: 1, state: new Uint8Array([5]) },
   });
-  expect(Object.values(files).map(userVersion)).toEqual([5, 5, 5]);
+  expect(Object.values(files).map(userVersion)).toEqual([9, 9, 9]);
   expect(
     rawRows(
       files.documents,

@@ -52,6 +52,7 @@ export { gateConnection, gateDocument } from "./gating.ts";
 export type { ConnectionGate } from "./gating.ts";
 export {
   DOC_KINDS,
+  commentsDocId,
   docIdV7,
   indexDocId,
   isDocId,
@@ -198,6 +199,15 @@ export type {
   NativeRole,
   OpenedFile,
   PageMessage,
+  PrompterFilesStatus,
   ShellMessage,
   UpdateState,
 } from "./desktop.ts";
+export type {
+  PrompterFeed,
+  PrompterPatch,
+  PrompterRow,
+  PrompterSendRequest,
+  PrompterSendResponse,
+  PrompterStory,
+} from "./prompter.ts";

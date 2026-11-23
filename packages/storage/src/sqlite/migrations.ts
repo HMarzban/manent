@@ -1,6 +1,10 @@
 // Every migration appends one entry to each of the three lists ([] where that kind of file does not change) and never edits an earlier one;
 // each list's length is STORAGE_SCHEMA_VERSION.
+import { ADMIN_MIGRATION } from "../admin/migration.ts";
+import { PRIVATE_COPY_MIGRATION } from "../private-copy/migration.ts";
 import { PRODUCTION_MIGRATION } from "../production/migration.ts";
+import { PROMPTER_MIGRATION } from "../prompter/migration.ts";
+import { SHARING_MIGRATION } from "../sharing/migration.ts";
 
 /** Per kind of file, each migration's statements, in order: entry n takes a file from user_version n - 1 to n. */
 export const MIGRATIONS: {
@@ -26,6 +30,10 @@ export const MIGRATIONS: {
     [],
     [],
     [],
+    [...SHARING_MIGRATION.control],
+    [...PRIVATE_COPY_MIGRATION.control],
+    [...PROMPTER_MIGRATION.control],
+    [...ADMIN_MIGRATION.control],
   ],
   documents: [
     [
@@ -95,6 +103,10 @@ export const MIGRATIONS: {
       `CREATE INDEX doc_versions_page ON doc_versions (doc_id, created_at DESC, id DESC)`,
     ],
     [...PRODUCTION_MIGRATION],
+    [...SHARING_MIGRATION.documents],
+    [...PRIVATE_COPY_MIGRATION.documents],
+    [...PROMPTER_MIGRATION.documents],
+    [...ADMIN_MIGRATION.documents],
   ],
   checkpoints: [
     [
@@ -116,5 +128,9 @@ export const MIGRATIONS: {
         seq INTEGER NOT NULL) STRICT, WITHOUT ROWID`,
     ],
     [],
+    [...SHARING_MIGRATION.checkpoints],
+    [...PRIVATE_COPY_MIGRATION.checkpoints],
+    [...PROMPTER_MIGRATION.checkpoints],
+    [...ADMIN_MIGRATION.checkpoints],
   ],
 });

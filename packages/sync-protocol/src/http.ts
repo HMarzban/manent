@@ -32,6 +32,17 @@ export const HTTP_ERROR_CODES = [
   "not_locked",
   "recall_closed",
   "unknown_label",
+  "link_expired",
+  "link_revoked",
+  "not_member",
+  "not_sent",
+  "driver_taken",
+  "not_driver",
+  "already_handed_in",
+  "no_private_copy",
+  "not_in_rundown",
+  "cannot_send",
+  "rate_limited",
 ] as const;
 
 export type HttpErrorCode = (typeof HTTP_ERROR_CODES)[number];
@@ -103,6 +114,8 @@ export interface CreateDocumentRequest {
   home: string;
   /** The workspace whose index's roles a new script takes: 1 to 64 of A-Z, a-z, 0-9, _ and -. A reader that does not know it ignores it. */
   workspaceId?: string;
+  /** For `kind` "comments" only, and then required: the script the document belongs to, with `docId` equal to `commentsDocId(scriptDocId)`. */
+  scriptDocId?: string;
 }
 
 /** The answer to POST /api/docs. */

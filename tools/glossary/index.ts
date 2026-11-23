@@ -72,6 +72,7 @@ export const NAMES: readonly string[] = Object.freeze([
   "A12",
   "Courier Prime",
   "Final Draft",
+  "Word",
 ]);
 
 /** Words of the interface that name a part of Manent and are not yet listed terms; allowed until they are listed. */

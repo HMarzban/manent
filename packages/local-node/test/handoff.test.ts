@@ -176,10 +176,10 @@ test("a hand-off waits for its workspace's index to reach the cloud", async () =
 test("documents of a kind the cloud does not take stay on the device", async () => {
   const w = handoffWorld();
   const home = { kind: "project" as const, id: HOME.slice("project:".length) };
-  w.nodeStorage.directory.place(DOC, home, "rundown", "you");
+  w.nodeStorage.directory.place(DOC, home, "draft", "you");
   w.nodeStorage.open(home).log.create({
     id: DOC,
-    kind: "rundown",
+    kind: "draft",
     ownerUserId: null,
     schemaVersion: 1,
     engineVersion: null,

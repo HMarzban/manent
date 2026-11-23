@@ -288,13 +288,18 @@ export interface SyncService {
   /** A role was changed: resolves it again, and ends what is no longer allowed. */
   accessChanged(docId: string, userId: string): void;
   /**
-   * The person's role on the document is now `role` (null: removed). First the room hears CONTROL
-   * `membership_changed`: the person's own subscriptions with `{ userId, role }`, every other one
-   * with `{}`. Then a removal ends every one of their subscriptions to it `forbidden`; otherwise
-   * their access is resolved again and an edit subscription it no longer allows ends
-   * `read_only_role`.
+   * The person's role on the document is now `role` (null: removed), changed by `byUserId`. First
+   * the room hears CONTROL `membership_changed`: the person's own subscriptions with
+   * `{ userId, role, byUserId }`, every other one with `{}`. Then a removal ends every one of their
+   * subscriptions to it `forbidden`; otherwise their access is resolved again and an edit
+   * subscription it no longer allows ends `read_only_role`.
    */
-  membershipChanged(docId: string, userId: string, role: DocRole | null): void;
+  membershipChanged(
+    docId: string,
+    userId: string,
+    role: DocRole | null,
+    byUserId: string,
+  ): void;
   /** A document was deleted: tells and unsubscribes everyone. */
   removed(docId: string): void;
   /** A backup was put back: every placed document is flagged `restore` at its head. */

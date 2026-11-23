@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   DOC_KINDS,
+  commentsDocId,
   docIdV7,
   indexDocId,
   isDocId,
@@ -52,11 +53,15 @@ test("an index document's id is the same on every device, for every member", () 
     indexDocId("user", "dana"),
     indexDocId("workspace", "medium"),
     indexDocId("workspace", "you"),
+    indexDocId("project", DOC2),
+    commentsDocId(DOC2),
   ]).toEqual([
     "594055ab-661c-8041-8229-a532ce8218a4",
     "042c4e29-1825-809b-a93e-454537eec30b",
     "4f8c5e58-d646-800f-ae0a-c01b1fa4fe4c",
     "ae50a05b-fac9-8e8b-8374-fdf6e0cd2c92",
+    "a850c3c1-b3df-87fd-9cb7-aa4a58141258",
+    "837d8f7e-f8c4-831c-bf1a-6f9cd99e943d",
   ]);
   expect(isDocId(indexDocId("workspace", "Studio é"))).toBe(true);
   expect([workspaceHome("medium"), projectHome(DOC2)]).toEqual([

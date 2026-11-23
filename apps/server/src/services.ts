@@ -26,7 +26,26 @@ export interface ServiceDeps {
 export interface ComposedService {
   /** Told and asked by the sync service after the hooks of the services before it in the list. */
   readonly hooks: readonly SyncHooks[];
-  readonly config: Partial<Pick<ServerConfig, "history" | "production">>;
+  readonly config: Partial<
+    Pick<
+      ServerConfig,
+      | "history"
+      | "production"
+      | "comments"
+      | "sharing"
+      | "drafts"
+      | "privateCopy"
+      | "driver"
+      | "project"
+      | "rundown"
+      | "prompter"
+      | "trash"
+      | "search"
+      | "workspace"
+      | "notify"
+      | "publicApi"
+    >
+  >;
   /** Whether a document is on air now; the first given is the sync service's, which is never on air without one. */
   readonly airWindow?: (docId: string, now: number) => boolean;
 }

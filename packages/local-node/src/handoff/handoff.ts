@@ -3,7 +3,7 @@
 import { updateMeta } from "@manent/crdt";
 import {
   INDEX_KINDS,
-  SYNCABLE_KINDS,
+  SYNCED_KINDS,
   adoptedWorkflowOf,
 } from "@manent/server-core";
 import type { AdoptedWorkflow, SyncService } from "@manent/server-core";
@@ -22,7 +22,7 @@ const HANDOFF_RETRY_CAP_MS = 60_000;
 
 /** The message every setting request held during a refused hand-off is answered with. */
 const REFUSED_MESSAGE = "handoff_refused";
-const HANDED_KINDS: readonly string[] = [...SYNCABLE_KINDS, ...INDEX_KINDS];
+const HANDED_KINDS: readonly string[] = [...SYNCED_KINDS, ...INDEX_KINDS];
 
 export interface Handover {
   /** Hands over, one at a time and oldest first, every document of that person that is still the node's own. */

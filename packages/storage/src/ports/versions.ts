@@ -11,7 +11,9 @@ export type VersionKind =
   | "pre_heal"
   | "recovered"
   | "revision_baseline"
-  | "revision_issue";
+  | "revision_issue"
+  | "prompter"
+  | "pre_hand_in";
 
 export interface VersionRow {
   id: string;
