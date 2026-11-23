@@ -100,6 +100,9 @@ export const IMPORT_WORDS = {
     fountain: "Fountain",
     fdr: "Final Draft",
     text: "text",
+    pdf: "PDF",
+    docx: "Word",
+    ink: "Ink",
   },
   groupTitle: "Import",
   /** `day` as `formatDate` writes it. */

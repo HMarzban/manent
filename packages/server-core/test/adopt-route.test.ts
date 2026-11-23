@@ -193,7 +193,7 @@ test("each way an adoption can be wrong has its status and code", async () => {
       400,
       "bad_request",
     ],
-    [{ ...whole, kind: "rundown" }, YOU_TOKEN, 400, "unsupported_kind"],
+    [{ ...whole, kind: "draft" }, YOU_TOKEN, 400, "unsupported_kind"],
     [{ ...whole, state: base64(imageInABlock()) }, YOU_TOKEN, 422, "invalid"],
   ];
   for (const [body, token, status, code] of cases) {

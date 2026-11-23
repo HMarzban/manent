@@ -275,7 +275,7 @@ test("the shell channel's messages are pinned", () => {
       "help",
     ],
     ["cut", "copy", "paste", "selectAll"],
-    [".fdx", ".fountain", ".pdf", ".docx", ".ink", ".fdr"],
+    [".fdx", ".fountain", ".pdf", ".docx", ".ink", ".fdr", ".txt"],
   ]);
   const menus: PageMessage = {
     v: 1,
@@ -340,6 +340,20 @@ test("the shell channel's messages are pinned", () => {
     { v: 1, t: "show_folder" },
     { v: 1, t: "check_for_updates" },
     { v: 1, t: "close_answer", close: false },
+    {
+      v: 1,
+      t: "open_window",
+      role: "room",
+      docId: "018f0000-0000-7abc-af01-020304050607",
+      userId: "dana",
+    },
+    {
+      v: 1,
+      t: "open_window",
+      role: "prompter",
+      docId: "018f0000-0000-7abc-af01-020304050607",
+    },
+    { v: 1, t: "choose_directory" },
   ];
   for (const m of pages) expect(parsePageMessage(m)).toEqual(m);
   const shells: ShellMessage[] = [
@@ -357,6 +371,20 @@ test("the shell channel's messages are pinned", () => {
       files: [{ name: "pilot.fdx", bytes: "PD94bWw=" }],
       refused: [],
     },
+    { v: 1, t: "directory_chosen", path: "/home/sam/prompter" },
+    { v: 1, t: "directory_chosen", path: null },
+    {
+      v: 1,
+      t: "prompter_files",
+      status: {
+        rundownId: "018f0000-0000-7abc-af01-020304050607",
+        path: "/home/sam/prompter",
+        encoding: "windows-1252",
+        replaced: 2,
+        failure: null,
+      },
+    },
+    { v: 1, t: "prompter_files", status: null },
   ];
   for (const m of shells) expect(parseShellMessage(m)).toEqual(m);
 });

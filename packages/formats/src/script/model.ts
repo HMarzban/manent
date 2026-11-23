@@ -9,7 +9,15 @@ import type { BlockJSON, FormatId, ScriptNote } from "@manent/schema";
 import type { XmlNode } from "../xml/node.ts";
 import type { ImportRecord } from "./record.ts";
 
-export const SOURCE_FORMATS = ["fdx", "fountain", "fdr", "text"] as const;
+export const SOURCE_FORMATS = [
+  "fdx",
+  "fountain",
+  "fdr",
+  "text",
+  "pdf",
+  "docx",
+  "ink",
+] as const;
 export type SourceFormat = (typeof SOURCE_FORMATS)[number];
 
 export const FORMAT_ERROR_CODES = [

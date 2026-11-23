@@ -4,8 +4,13 @@ import { homeKey, parseHome, wellFormedKey } from "../home.ts";
 import type { DocFile, Home, MeasureRow, Storage } from "../ports/index.ts";
 import { CHECKPOINTS_KEPT, StorageError } from "../ports/index.ts";
 import type { Write } from "./memory-log.ts";
-import type { FileParts } from "./memory-stores.ts";
-import { copyParts, createFileStores } from "./memory-stores.ts";
+import type { ControlTables, FileParts } from "./memory-stores.ts";
+import {
+  copyParts,
+  createControlStores,
+  createControlTables,
+  createFileStores,
+} from "./memory-stores.ts";
 import {
   copied,
   corruptRow,
@@ -58,6 +63,7 @@ interface MemoryState {
     { docId: string; userId: string; role: string; capabilities: string[] }
   >;
   tombstones: Map<string, { deletedByUserId: string; deletedAt: number }>;
+  control: ControlTables;
 }
 
 interface Context {
@@ -285,6 +291,7 @@ export function createMemoryStorage(options: {
     places: new Map(),
     roles: new Map(),
     tombstones: new Map(),
+    control: createControlTables(),
   };
   let failNext: "commit_failed" | "disk_full" | null = null;
   let crash: "before" | "after" | null = null;
@@ -308,8 +315,15 @@ export function createMemoryStorage(options: {
   };
   const files = new Map<string, DocFile>();
   const snapshots = new WeakMap<object, MemoryState>();
+  const directory = createDirectory(ctx);
   return {
-    directory: createDirectory(ctx),
+    directory,
+    ...createControlStores({
+      now: ctx.now,
+      read: () => state.control,
+      commit: ctx.commit,
+      directory,
+    }),
     open(home) {
       const key = wellFormedKey(home);
       const opened = files.get(key) ?? openFile(ctx, home, key);

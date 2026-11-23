@@ -30,6 +30,8 @@ export interface ProductionOptions {
   rules: SettingRules;
   /** Told of each issue after its commit; absent, nobody is. */
   draftEvents?: DraftEvents;
+  /** The settings of the project that holds the document, null for none; absent, no document has any. */
+  projectSettings?: (docId: string) => Readonly<Record<string, unknown>> | null;
 }
 
 /** Where an authority write lands: `before` the head before it, `seq` its update's (null: it wrote nothing). */

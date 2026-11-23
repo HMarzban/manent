@@ -11,7 +11,7 @@ interface TextJSON {
   text: string;
   marks?: MarkJSON[];
 }
-interface BlockJSON {
+export interface BlockJSON {
   type: "block";
   attrs?: Record<string, unknown>;
   content?: TextJSON[];
@@ -34,6 +34,8 @@ export const VERSION_KINDS = [
   "recovered",
   "revision_baseline",
   "revision_issue",
+  "prompter",
+  "pre_hand_in",
 ] as const;
 
 export type HistoryVersionKind = (typeof VERSION_KINDS)[number];

@@ -22,6 +22,8 @@ test("the version kinds and the new error code are pinned in their order", () =>
     "recovered",
     "revision_baseline",
     "revision_issue",
+    "prompter",
+    "pre_hand_in",
   ]);
   expect(HTTP_ERROR_CODES[18]).toBe("not_restorable");
   expect(

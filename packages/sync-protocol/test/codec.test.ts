@@ -297,6 +297,12 @@ test("each union is one list, and the generators draw from it", () => {
     "upstream_status",
     "upstream_refused",
     "copies_kept",
+    "draft_sent",
+    "draft_opened",
+    "driver_changed",
+    "handed_in",
+    "trashed",
+    "untrashed",
   ]);
 });
 
@@ -503,6 +509,13 @@ test("each union member travels as its fixed index", () => {
       sent_to_prompter: 8,
       upstream_status: 9,
       upstream_refused: 10,
+      copies_kept: 11,
+      draft_sent: 12,
+      draft_opened: 13,
+      driver_changed: 14,
+      handed_in: 15,
+      trashed: 16,
+      untrashed: 17,
     },
   } as const;
   const subscribed = { ...SUBSCRIBED_SAMPLE, capabilities: [] };
@@ -532,7 +545,7 @@ test("each union member travels as its fixed index", () => {
       LOCK_SOURCES,
       CONTROL_KINDS,
     ].map((list) => list.length),
-  ).toEqual([4, 5, 3, 3, 3, 12]);
+  ).toEqual([4, 5, 3, 3, 3, 18]);
 });
 
 test("the codes, the frame numbers and the protocol version are fixed; a changed vector means a new version", () => {

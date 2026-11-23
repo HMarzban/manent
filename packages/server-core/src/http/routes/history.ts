@@ -57,6 +57,17 @@ const STATUS: Readonly<Record<HttpErrorCode, number>> = {
   not_locked: 409,
   recall_closed: 409,
   unknown_label: 422,
+  link_expired: 410,
+  link_revoked: 410,
+  not_member: 403,
+  not_sent: 404,
+  driver_taken: 409,
+  not_driver: 409,
+  already_handed_in: 409,
+  no_private_copy: 404,
+  not_in_rundown: 404,
+  cannot_send: 409,
+  rate_limited: 429,
 };
 
 const refused = (code: HttpErrorCode) => ({ ok: false, code }) as const;

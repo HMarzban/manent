@@ -35,6 +35,9 @@ const CLAUSES: Readonly<Record<ImportRecord["from"], readonly string[]>> =
     fdr: [IMPORT_WORDS.finalDraftClause],
     fountain: [],
     text: [],
+    pdf: [],
+    docx: [],
+    ink: [],
   });
 
 /** The summary of what came in, with the clauses of the file's format; the same in the message and in Details. */
