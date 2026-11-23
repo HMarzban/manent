@@ -94,6 +94,47 @@ test("when the leader tab closes, a follower takes over with nothing lost", asyn
   ).toBe(true);
 });
 
+test("text typed while a follower takes the lead and reads the store is saved and sent", async () => {
+  const { w, tabs } = await tabWorld();
+  const store = w.space.store("dana");
+  let reading: Promise<void> | null = null;
+  // the store's reads wait while `reading` is set, as a slow browser store does
+  const slow = new Proxy(store, {
+    get(target, key) {
+      const held = reading;
+      if (key === "load" && held !== null)
+        return async (docId: string) => {
+          await held;
+          return target.load(docId);
+        };
+      const value: unknown = Reflect.get(target, key);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+  const a = w.makeClient({ leader: tabs.port("a"), frames: fakeFrames() });
+  const b = w.makeClient({
+    leader: tabs.port("b"),
+    frames: fakeFrames(),
+    store: slow,
+  });
+  await a.open(DOC);
+  const hb = await b.open(DOC);
+  await w.online();
+  const held = Promise.withResolvers<void>();
+  reading = held.promise;
+  tabs.closeTab("a");
+  await w.turn();
+  expect(b.link.get().leader).toBe(true);
+  type(hb, "typed as the lead changed");
+  held.resolve();
+  await w.settle();
+  await w.online();
+  expect([
+    hb.status.get().saved,
+    pushedText(w).some((text) => text.includes("typed as the lead changed")),
+  ]).toEqual([true, true]);
+});
+
 test("a hidden leader still shows a follower the server's updates within 50 ms", async () => {
   const { w, tab } = await tabWorld();
   const [a, b] = [tab("a"), tab("b")];
