@@ -884,6 +884,7 @@ test("the handler table names every command but the generated ones", () => {
     "doc.openBeside": noop,
     "doc.duplicate": noop,
     "doc.duplicateVersion": noop,
+    "copy.openCopyBeside": noop,
     "history.whoWrote": noop,
     "production.lock": noop,
     "production.issue": noop,

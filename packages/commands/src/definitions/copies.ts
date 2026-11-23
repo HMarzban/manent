@@ -1,4 +1,5 @@
-// Duplicate: the open script, or the version chosen in History, becomes a separate script.
+// Duplicate: the open script, or the version chosen in History, becomes a separate script; and opening the last copy
+// made beside the page.
 import { defineCommands } from "../define.ts";
 
 export const COPIES_COMMANDS = defineCommands([
@@ -41,6 +42,28 @@ export const COPIES_COMMANDS = defineCommands([
     passThrough: null,
     menus: [],
     palette: { hidden: "an item of a version's row in History" },
+    opens: null,
+    reach: "self",
+    setting: null,
+  },
+  {
+    id: "copy.openCopyBeside",
+    label: "Open beside",
+    group: "file",
+    home: null,
+    scope: "global",
+    keys: { mac: [], windows: [], linux: [] },
+    keysFixed: false,
+    when: null,
+    whyNot: null,
+    visible: null,
+    checked: null,
+    passThrough: null,
+    menus: [],
+    palette: {
+      hidden:
+        "the action of the message that says a copy's page numbers were locked",
+    },
     opens: null,
     reach: "self",
     setting: null,

@@ -7,6 +7,7 @@ import type { PersonServices, ProjectKind } from "../services/ports.ts";
 import { readWorkspace } from "../services/sync/index-entries.ts";
 import { copyDocument } from "./copy-document.ts";
 import type { CopySource } from "./copy-document.ts";
+import { lastCopy } from "./last-copy.ts";
 
 interface Place {
   workspaceId: string;
@@ -44,8 +45,8 @@ async function placeOf(
 }
 
 /**
- * Copies `source` into the project that holds it, titled "{title} — copy". `not_saved` also when no index of the
- * person's lists the script. Rejects when the person's sync could not start.
+ * Copies `source` into the project that holds it, titled "{title} — copy", and keeps the copy as this tab's last.
+ * `not_saved` also when no index of the person's lists the script. Rejects when the person's sync could not start.
  */
 export async function duplicate(
   services: PersonServices,
@@ -72,7 +73,7 @@ export async function duplicate(
     open: (docId) => services.openHandle(docId),
     ids: randomBlockId,
   });
-  return made.ok
-    ? { ok: true, docId: made.docId, title }
-    : { ok: false, reason: made.reason, title };
+  if (!made.ok) return { ok: false, reason: made.reason, title };
+  lastCopy.set(made.docId);
+  return { ok: true, docId: made.docId, title };
 }

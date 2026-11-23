@@ -1,7 +1,10 @@
-// Duplicate, from Title ▾, File and the palette (the script as it is now) and from a version's row (that version).
+// Duplicate, from Title ▾, File and the palette (the script as it is now) and from a version's row (that version); and
+// opening the last copy beside the page.
 import type { CommandHandlers } from "@manent/commands";
-import { COPIES_WORDS } from "@manent/ui";
+import { openBeside } from "../beside/open-beside.ts";
 import type { CopySource } from "../copies/copy-document.ts";
+import { lastCopy } from "../copies/last-copy.ts";
+import { copyRefusedMessage } from "../copies/messages.ts";
 import { historyView } from "../history/history-view.ts";
 import type { HandlerDeps } from "./index.ts";
 
@@ -13,19 +16,16 @@ function duplicateAndOpen(deps: HandlerDeps, source: CopySource): void {
     .then((made) => {
       if (made.ok) deps.router.navigate(`/s/${made.docId}`);
       else if (made.reason === "not_saved")
-        services.messages.push({
-          id: "copy_refused",
-          text: COPIES_WORDS.notSaved(made.title),
-          actions: [],
-          lifetime: "brief",
-          ownWork: false,
-        });
+        services.messages.push(copyRefusedMessage(made.title));
     });
 }
 
 export function copiesHandlers(
   deps: HandlerDeps,
-): Pick<CommandHandlers, "doc.duplicate" | "doc.duplicateVersion"> {
+): Pick<
+  CommandHandlers,
+  "doc.duplicate" | "doc.duplicateVersion" | "copy.openCopyBeside"
+> {
   return {
     "doc.duplicate"() {
       const { docId } = deps.shellState();
@@ -39,6 +39,10 @@ export function copiesHandlers(
         docId: view.docId,
         versionId: view.selected.item.id,
       });
+    },
+    "copy.openCopyBeside"() {
+      const docId = lastCopy.get();
+      if (docId !== null) openBeside(docId, "script", null);
     },
   };
 }
