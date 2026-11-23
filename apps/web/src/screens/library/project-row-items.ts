@@ -1,5 +1,6 @@
 // What a project's row menu holds in the Library; a feature adds its items with one line.
 import type { ComponentType } from "react";
+import { ExportProjectItem } from "../../archive/export-project-item.tsx";
 import { OpenSettingsItem } from "../project-settings/open-settings-item.tsx";
 
 export interface ProjectRowItem {
@@ -19,5 +20,10 @@ export interface ProjectRowItem {
 
 /** With no item a row has no menu. */
 export const PROJECT_ROW_ITEMS: readonly ProjectRowItem[] = [
+  {
+    id: "export_project",
+    targets: ["project", "folder"],
+    Item: ExportProjectItem,
+  },
   { id: "project_settings", targets: ["project"], Item: OpenSettingsItem },
 ];

@@ -11,6 +11,7 @@ import { varietyTwoColumnFileType } from "./file-types/variety-two-column.ts";
 import { prompterTextFileType } from "./file-types/prompter-text.ts";
 import { bracketsListFileType } from "./file-types/brackets-list.ts";
 import { rundownJsonFileType } from "./file-types/rundown-json.ts";
+import { archiveFileType } from "./file-types/archive.ts";
 import type { ExportFileType } from "./script-file.ts";
 
 export const EXPORT_FILE_TYPES: readonly ExportFileType[] = [
@@ -23,6 +24,7 @@ export const EXPORT_FILE_TYPES: readonly ExportFileType[] = [
   prompterTextFileType,
   bracketsListFileType,
   rundownJsonFileType,
+  archiveFileType,
 ];
 
 /** What decides which types a document is offered. */
