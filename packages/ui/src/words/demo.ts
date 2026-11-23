@@ -62,5 +62,5 @@ export const DEMO_WORDS = {
   resetBody:
     "Every workspace goes back to its seeded state for everyone using this demo. Changes made since it was seeded are not kept. Each browser and the desktop app clear their copies when they next connect.",
   /** The workspace switcher's second line for a workspace whose seed stopped. */
-  seedingFailed: "Couldn't get ready. Run make reset to try again.",
+  seedingFailed: "Couldn't get ready. Reset the demo to try again.",
 } as const;

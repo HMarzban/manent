@@ -564,12 +564,13 @@ test("the screens' words are the design's", () => {
     resetAction: "Reset the demo",
     resetBody:
       "Every workspace goes back to its seeded state for everyone using this demo. Changes made since it was seeded are not kept. Each browser and the desktop app clear their copies when they next connect.",
-    seedingFailed: "Couldn't get ready. Run make reset to try again.",
+    seedingFailed: "Couldn't get ready. Reset the demo to try again.",
   });
 
   expect({
     ...TOUR_WORDS,
     setupSeeding: TOUR_WORDS.setupSeeding("Lanternfield Studios", 12, 40),
+    setupSeedingFailed: TOUR_WORDS.setupSeedingFailed("Lanternfield Studios"),
     nowPerson: TOUR_WORDS.nowPerson("Sam Okafor"),
   }).toEqual({
     setItUp: "Set it up",
@@ -584,6 +585,8 @@ test("the screens' words are the design's", () => {
       "This has already been done in this demo. Reset the demo to do it again.",
     setupSeeding:
       "Lanternfield Studios is getting ready, 12 of 40 projects. This opens when it is ready.",
+    setupSeedingFailed:
+      "Lanternfield Studios couldn't get ready. Reset the demo to try again.",
     desktopOnly:
       "This one needs the desktop app. Run make desktop, then open the Tour there.",
   });
