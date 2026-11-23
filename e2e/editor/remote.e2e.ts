@@ -253,6 +253,50 @@ test("in Chromium that edit's frame does its work within the remote edit's hard 
   expect(longest).toBeLessThan(16);
 });
 
+/** An action that reads "The tide turns, line `n`." */
+const tideLine = (n: number) =>
+  corpusLine("action", `The tide turns, line ${n}.`);
+
+/** Scrolls the page until block `blockId` starts `px` below its scroller's top: its bottom then, and that top, px. */
+const scrollBlockTo = (
+  page: Page,
+  blockId: string,
+  px: number,
+): Promise<{ bottom: number; top: number }> =>
+  page.locator("[data-region='page']").evaluate(
+    (scroller, [id, below]) => {
+      const block = scroller.querySelector(`[data-id="${id}"]`);
+      if (block === null) throw new Error(`block ${id} is not drawn`);
+      const { top } = scroller.getBoundingClientRect();
+      scroller.scrollTop += block.getBoundingClientRect().top - top - below;
+      return { bottom: block.getBoundingClientRect().bottom, top };
+    },
+    [blockId, px] as const,
+  );
+
+test("a remote edit never scrolls back to the caret just out of view", async ({
+  page,
+}) => {
+  const lines = Array.from({ length: 120 }, (_, n) => tideLine(n + 1));
+  await openScript(page, "screenplay", corpusDoc(lines));
+  await groupHook(page, "remote", "join", DANA);
+  const ids = (await blocks(page)).map((b) => b.id);
+  await caretAt(page, ids[40]!, "end");
+  // the caret's line under the bars above the page, still inside the window
+  const hidden = await scrollBlockTo(page, ids[40]!, -60);
+  await settled(page);
+  const before = await firstVisible(page);
+  await groupHook(page, "remote", "type", 44, 0, "Dusk. ");
+  await holds(page, 44, "Dusk. The tide turns, line 45.");
+  await settled(page);
+  const after = await firstVisible(page);
+  expect({
+    inWindow: hidden.bottom > 0 && hidden.bottom < hidden.top,
+    sameLine: after.id,
+    lineStays: Math.abs(after.top - before.top) <= 1,
+  }).toEqual({ inWindow: true, sameLine: before.id, lineStays: true });
+});
+
 /** The viewport bottom of the block that holds the caret, px. */
 const caretLineBottom = (page: Page): Promise<number> =>
   page.evaluate(() => {
