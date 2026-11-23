@@ -8,7 +8,6 @@ import { LayoutGroup } from "./layout-group.tsx";
 import { SceneSection } from "./scene-section.tsx";
 import { WhoWrote } from "./who-wrote.tsx";
 import { SelectionTime } from "../../timing/selection-time.tsx";
-import { RundownDetails } from "../../rundown/details-rundown.tsx";
 
 /** Where a Details section belongs: the selection, the caret's scene, the whole script, or a rundown. */
 export type DetailsScope = "selection" | "scene" | "script" | "rundown";
@@ -27,6 +26,5 @@ export const DETAILS_SECTIONS: readonly DetailsSection[] = [
   { id: "production", scope: "script", Section: ProductionGroup },
   { id: "checks", scope: "script", Section: ChecksSection },
   { id: "timing", scope: "selection", Section: SelectionTime },
-  { id: "rundown", scope: "rundown", Section: RundownDetails },
   { id: "import", scope: "script", Section: ImportSection },
 ];
