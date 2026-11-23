@@ -4,6 +4,7 @@ import { projectHome, seedDocId, workspaceHome } from "@manent/sync-protocol";
 import type { FormatId } from "@manent/schema";
 import type { DemoWorkspace } from "../people.ts";
 import { HEAVY_DOCS, HEAVY_PROJECTS } from "./catalogue-heavy.ts";
+import { HEAVY_RUNDOWNS } from "./catalogue-heavy-rundowns.ts";
 
 export type SeedWorkspaceId = DemoWorkspace["id"];
 
@@ -236,6 +237,38 @@ export const SEED_DOCS: readonly SeedDoc[] = Object.freeze([
     hero: true,
   }),
   ...HEAVY_DOCS,
+  doc("medium/the-late-desk", "rundowns/day", "The Late Desk", "variety", {
+    kind: "rundown",
+  }),
+  doc(
+    "medium/the-late-desk",
+    "rundowns/day-minus-1",
+    "The Late Desk",
+    "variety",
+    { kind: "rundown" },
+  ),
+  doc(
+    "medium/the-late-desk",
+    "rundowns/day-plus-1",
+    "The Late Desk",
+    "variety",
+    { kind: "rundown" },
+  ),
+  doc(
+    "medium/lannick-one-news",
+    "rundowns/day",
+    "Lannick One News",
+    "variety",
+    { kind: "rundown" },
+  ),
+  doc(
+    "medium/lannick-one-news",
+    "rundowns/day-plus-7",
+    "Lannick One News",
+    "variety",
+    { kind: "rundown" },
+  ),
+  ...HEAVY_RUNDOWNS,
 ]);
 
 /** The document `key` names; throws RangeError for a key the catalogue lacks. */

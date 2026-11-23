@@ -15,6 +15,8 @@ import { draftsService } from "./drafts.ts";
 import { privateCopyService } from "./private-copy.ts";
 import { driverService } from "./driver.ts";
 import { projectService } from "./project.ts";
+import { rundownService } from "./rundown.ts";
+import { prompterService } from "./prompter.ts";
 
 /** What each service is given. `sync` answers once the server has been built. */
 export interface ServiceDeps {
@@ -68,6 +70,8 @@ export const SERVER_SERVICES: readonly ServerService[] = [
   privateCopyService,
   driverService,
   projectService,
+  rundownService,
+  prompterService,
 ];
 
 /** Every service of the list made: their hooks in list order, the first `airWindow` given (null: none), and their parts of the configuration. */

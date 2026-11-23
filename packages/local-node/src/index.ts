@@ -4,6 +4,7 @@ export * from "./http/index.ts";
 export * from "./lock/index.ts";
 export * from "./node/index.ts";
 export * from "./paths/index.ts";
+export * from "./prompter-files/index.ts";
 export * from "./records/index.ts";
 export * from "./relay/index.ts";
 export * from "./store/index.ts";
