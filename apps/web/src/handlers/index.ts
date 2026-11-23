@@ -43,6 +43,9 @@ import { copiesHandlers } from "./copies.ts";
 import { readerHandlers } from "./reader.ts";
 import { besideHandlers } from "./beside.ts";
 import { archiveHandlers } from "./archive.ts";
+import { timingHandlers } from "./timing.ts";
+import { rundownHandlers } from "./rundown.ts";
+import { prompterHandlers } from "./prompter.ts";
 
 /** Where the window is: its route's id, its path with the search, and the search as read. */
 export interface RoutePlace {
@@ -125,5 +128,8 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     ...readerHandlers(deps),
     ...besideHandlers(deps),
     ...archiveHandlers(deps),
+    ...timingHandlers(deps),
+    ...rundownHandlers(deps),
+    ...prompterHandlers(deps),
   };
 }

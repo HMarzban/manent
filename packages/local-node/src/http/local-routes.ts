@@ -4,6 +4,7 @@ import type { ErrorResponse, HttpErrorCode } from "@manent/sync-protocol";
 import { readPerson } from "../auth/people.ts";
 import type { NodeRecords } from "../records/ports.ts";
 import type { ShellChannel } from "./shell-channel.ts";
+import { prompterFilesRoutes } from "../prompter-files/routes.ts";
 
 const CONNECTION_MODES = ["online", "offline", "slow"] as const;
 type ConnectionMode = (typeof CONNECTION_MODES)[number];
@@ -99,6 +100,7 @@ export const LOCAL_ROUTES: readonly ((
   focusRoutes,
   storageRoutes,
   connectionRoutes,
+  prompterFilesRoutes,
 ];
 
 /**

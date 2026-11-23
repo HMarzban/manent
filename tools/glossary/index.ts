@@ -110,6 +110,7 @@ export const BANNED_WORD_EXCEPTION: readonly string[] = Object.freeze([
   "Page numbers came in locked: pages start where Final Draft started them, not where Manent would.",
   "Cast list",
   "Paragraph settings",
+  "To pick up an item, press Space or Enter. Use the arrow keys to move it, Space or Enter to drop it, and Esc to put it back.",
 ]);
 
 /** The four sentences allowed to say "not sent", for changes that will never reach the server; `{…}` is any value. */

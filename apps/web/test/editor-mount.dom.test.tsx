@@ -554,7 +554,7 @@ test("a person's page draws the editor their environment loads, built for that p
       async loadEditor(_environment, parts) {
         await Promise.resolve();
         built.push(parts.services().userId);
-        return editor;
+        return { mount: editor, besideMount: () => editor };
       },
     }),
   });

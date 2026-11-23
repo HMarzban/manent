@@ -22,7 +22,19 @@ const SCRIPT_BODY: SendKindBody = {
 };
 
 /** A kind with no line gets the script's body. */
-export const SEND_KIND_BODIES: readonly SendKindBody[] = [SCRIPT_BODY];
+export const SEND_KIND_BODIES: readonly SendKindBody[] = [
+  SCRIPT_BODY,
+  {
+    kind: "rundown",
+    Export: lazy(async () => ({
+      default: (await import("../rundown/send/rundown-export.tsx"))
+        .RundownExport,
+    })),
+    Print: lazy(async () => ({
+      default: (await import("../rundown/send/rundown-print.tsx")).RundownPrint,
+    })),
+  },
+];
 
 /** The body of a document of `kind`. */
 export function sendBodyOf(kind: DocKind): SendKindBody {

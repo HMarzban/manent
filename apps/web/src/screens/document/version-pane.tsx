@@ -1,20 +1,15 @@
-// Where a version is drawn: over the page As it was, or beside it Side by side under its header row of title, status
-// and ✕. The live editor stays mounted, keeps its caret, scroll and undo, and keeps receiving remote edits.
+// Where a version is drawn: over the page As it was, or beside it Side by side in the frame of what is beside the page.
+// The live editor stays mounted, keeps its caret, scroll and undo, and keeps receiving remote edits.
 import { ENGINE_VERSION, engineFor } from "@manent/pagination";
 import { compareModeOf } from "@manent/revisions";
 import type { CompareNote, Comparison } from "@manent/revisions";
 import { SCHEMA_VERSION } from "@manent/schema";
 import type { VersionContent } from "@manent/sync-protocol";
-import {
-  CloseButton,
-  DOCUMENT_WORDS,
-  EDITOR_WORDS,
-  HISTORY_WORDS,
-} from "@manent/ui";
-import type { StatusFacts, Subscribable } from "@manent/ui";
+import { EDITOR_WORDS, HISTORY_WORDS } from "@manent/ui";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { BesideFrame } from "../../beside/beside-frame.tsx";
 import { livePagination } from "../../editor-host/live-editor.ts";
 import { mountVersionView } from "../../editor-host/version-view.ts";
 import type { VersionView } from "../../editor-host/version-view.ts";
@@ -22,7 +17,6 @@ import { baselineAt } from "../../history/baseline.ts";
 import { useServices } from "../../services/context.tsx";
 import { useHistory } from "../../state/history.store.ts";
 import { useOpenDocument } from "./open-document.ts";
-import { useStatusSlots } from "./status-button.tsx";
 
 const PAGE_REGION = "[data-region='page']";
 
@@ -86,7 +80,7 @@ function blockAtTop(scroller: Element): string | null {
 
 /**
  * Side by side scrolls in step: scrolling either side scrolls the other to the block at its top, and a scroll one
- * side makes for the other is not followed back. The live page moves aside, out from under the version.
+ * side makes for the other is not followed back.
  */
 function sideBySide(
   live: HTMLElement,
@@ -117,29 +111,12 @@ function sideBySide(
       block.getBoundingClientRect().top - live.getBoundingClientRect().top;
     made.set(live, live.scrollTop);
   };
-  live.style.paddingRight = "50%";
   live.addEventListener("scroll", fromLive, { passive: true });
   older.addEventListener("scroll", fromOlder, { passive: true });
   return () => {
     live.removeEventListener("scroll", fromLive);
     older.removeEventListener("scroll", fromOlder);
-    live.style.paddingRight = "";
   };
-}
-
-/** The script's status in the header's two slots, as the title bar says it. */
-function BesideStatus(props: { source: Subscribable<StatusFacts> }): ReactNode {
-  const { root, deviceSlot, serverSlot } = useStatusSlots(props.source);
-  return (
-    <span
-      ref={root}
-      className="group flex shrink-0 tabular-nums data-[tone=alert]:text-danger data-[tone=attention]:text-attention data-[tone=quiet]:text-fg-muted"
-    >
-      <span ref={deviceSlot} className="group-data-spans:hidden" />
-      <span className="whitespace-pre group-data-spans:hidden">{" · "}</span>
-      <span ref={serverSlot} />
-    </span>
-  );
 }
 
 /**
@@ -188,45 +165,47 @@ export function VersionPane(props: {
     };
   }, [content, beside, comparison, scope, pagePorts, page]);
 
-  const grid = page?.parentElement ?? null;
-  if (grid === null || baseline === null) return null;
+  if (baseline === null) return null;
   const title =
     baseline.date === null
       ? baseline.title
       : `${baseline.title}, ${baseline.date}`;
-  const note = beside && content !== null ? noteOf(content, docId) : null;
+  const body = (
+    <div
+      ref={place}
+      tabIndex={0}
+      aria-label={title}
+      className="min-h-0 flex-1 overflow-auto"
+    />
+  );
+  if (beside) {
+    const note = content === null ? null : noteOf(content, docId);
+    return (
+      <BesideFrame
+        kind="version"
+        title={title}
+        status={status}
+        onClose={() => commands.run("history.backToWorking", "control")}
+        lines={
+          note === null ? null : (
+            <p className="text-meta text-fg-muted">{note}</p>
+          )
+        }
+      >
+        {body}
+      </BesideFrame>
+    );
+  }
+  const grid = page?.parentElement ?? null;
+  if (grid === null) return null;
   return createPortal(
     <div
       data-version-pane
       data-region="page"
-      className={
-        position === "page"
-          ? "z-10 flex min-h-0 flex-col bg-desk"
-          : "z-10 flex min-h-0 w-1/2 flex-col justify-self-end border-l border-line bg-desk"
-      }
+      className="z-10 flex min-h-0 flex-col bg-desk"
       style={{ gridArea: "page" }}
     >
-      {beside ? (
-        <header className="flex flex-col gap-1 px-3 py-2 text-ui">
-          <div className="flex items-center gap-2">
-            <span className="min-w-0 flex-1 truncate">{title}</span>
-            {status === null ? null : <BesideStatus source={status} />}
-            <CloseButton
-              label={DOCUMENT_WORDS.closeBeside(title)}
-              onClick={() => commands.run("history.backToWorking", "control")}
-            />
-          </div>
-          {note === null ? null : (
-            <p className="text-meta text-fg-muted">{note}</p>
-          )}
-        </header>
-      ) : null}
-      <div
-        ref={place}
-        tabIndex={0}
-        aria-label={title}
-        className="min-h-0 flex-1 overflow-auto"
-      />
+      {body}
     </div>,
     grid,
   );

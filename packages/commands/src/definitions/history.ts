@@ -93,7 +93,7 @@ export const HISTORY_COMMANDS = defineCommands([
   }),
   historyCommand("history.seeWhatChanged", "See what changed"),
   // the recovered version, side by side with Working
-  historyCommand("doc.openBeside", "Open beside", {
+  historyCommand("history.openRecoveredBeside", "Open beside", {
     palette: { hidden: "the action of a message about recovered work" },
   }),
   {
