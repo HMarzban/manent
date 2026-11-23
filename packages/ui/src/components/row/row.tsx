@@ -1,6 +1,8 @@
 // One list row for every list: its states are the `.mn-row` rules of the theme.
 import { cn } from "cn";
+import { useContext } from "react";
 import type { KeyboardEvent, ReactNode, Ref } from "react";
+import { RowTabStop } from "./tab-stop.ts";
 
 const TRAILING_LIMIT = 3;
 
@@ -52,6 +54,7 @@ export function Row({
       `a row holds at most three trailing items, not ${trailing.length}`,
     );
   }
+  const stop = useContext(RowTabStop);
   const activate = unavailable === undefined ? onActivate : undefined;
   const onKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== "Enter" || activate === undefined) return;
@@ -74,7 +77,7 @@ export function Row({
           ? "true"
           : undefined
       }
-      tabIndex={onActivate === undefined ? undefined : 0}
+      tabIndex={onActivate === undefined ? undefined : stop === false ? -1 : 0}
       onClick={activate}
       onKeyDown={onKeyDown}
     >
