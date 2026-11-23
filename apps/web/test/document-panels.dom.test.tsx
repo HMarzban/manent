@@ -224,8 +224,8 @@ test("the Scenes list says how to start, and marks the caret's scene", async () 
     ["Scenes"],
     "Scenes appear here as you write. Type INT. or EXT. on a new line.",
     [
-      ["1 INT. KITCHEN", null],
-      ["2 EXT. PIER", "true"],
+      ["1 INT. KITCHEN ⋯", null],
+      ["2 EXT. PIER ⋯", "true"],
     ],
   ]);
 });
@@ -339,7 +339,7 @@ test("Details and Scenes draw what later plans register", async () => {
   expect([scopes, listRows(leftPanel(frame)).map(rowText)]).toEqual([
     ["Selection", "Script"],
     [
-      ["1 INT. KITCHEN *", "1 INT. KITCHEN, revised"],
+      ["1 INT. KITCHEN * ⋯", "1 INT. KITCHEN, revised"],
       ["4  OMITTED", "4  OMITTED"],
     ],
   ]);
