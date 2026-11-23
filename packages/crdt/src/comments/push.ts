@@ -30,11 +30,38 @@ interface Touch {
   inside: boolean;
 }
 
-/** The map and key of the entry `item` is, or sits inside the value of, and which; null outside every entry. */
+/** Where a struct sits: the map and key of its entry, and whether it is inside the entry's value. */
+interface Place {
+  map: CommentsMap;
+  key: string;
+  inside: boolean;
+}
+
+/** The entry of `maps` whose value is `top`, a type held by a map; found once per type, then kept in `holders`. */
+function holderOf(
+  top: Y.AbstractType<unknown>,
+  maps: Maps,
+  holders: Map<unknown, Place | null>,
+): Place | null {
+  const known = holders.get(top);
+  if (known !== undefined) return known;
+  let place: Place | null = null;
+  for (const [map, ymap] of maps) {
+    if (top.parent !== ymap) continue;
+    // only a change that put a type into an entry, which is never JSON, makes this walk over the map
+    const held = [...ymap.entries()].find(([, value]) => value === top);
+    if (held !== undefined) place = { map, key: held[0], inside: true };
+  }
+  holders.set(top, place);
+  return place;
+}
+
+/** The place of `item`; null outside every entry. */
 function placeOf(
   item: Y.Item,
   maps: Maps,
-): { map: CommentsMap; key: string; inside: boolean } | null {
+  holders: Map<unknown, Place | null>,
+): Place | null {
   const { parent } = item;
   if (!(parent instanceof Y.AbstractType)) return null;
   for (const [map, ymap] of maps)
@@ -44,13 +71,7 @@ function placeOf(
         : { map, key: item.parentSub, inside: false };
   let top = parent;
   while (top.parent !== null && top.parent.parent !== null) top = top.parent;
-  for (const [map, ymap] of maps) {
-    if (top.parent !== ymap) continue;
-    // only a change that put a type into an entry, which is never JSON, makes this walk over the map
-    for (const [key, value] of ymap.entries())
-      if (value === top) return { map, key, inside: true };
-  }
-  return null;
+  return holderOf(top, maps, holders);
 }
 
 /** Calls `visit` with each of `client`'s structs that overlaps the clocks from `from` up to, not including, `to`. */
@@ -117,9 +138,10 @@ export function readCommentsPush(
         id.clock < range.toClock,
     );
   const touched = new Map<CommentsMap, Map<string, Touch>>();
+  const holders = new Map<unknown, Place | null>();
   const touch = (struct: Y.Item | Y.GC): void => {
     if (!(struct instanceof Y.Item)) return;
-    const place = placeOf(struct, maps);
+    const place = placeOf(struct, maps, holders);
     if (place === null) return;
     const keys = touched.get(place.map) ?? new Map<string, Touch>();
     touched.set(place.map, keys);
