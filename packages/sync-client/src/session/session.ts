@@ -16,6 +16,7 @@ import type {
   LoadedDocument,
   SideState,
 } from "../ports/ports.ts";
+import { storedBase } from "../recovery/synced-base.ts";
 import { UpstreamWindow } from "../upstream/window.ts";
 import type { DocHandle } from "./doc-handle.ts";
 import type { UnsavedEdit } from "./edits.ts";
@@ -169,7 +170,7 @@ class DocSession implements Session {
       ports,
       journal,
       copy: this.copy,
-      syncedBase: loaded?.syncedBase ?? null,
+      syncedBase: storedBase(loaded),
       view: options.view,
       changed: () => this.refresh(),
       replaceConnection: options.replaceConnection,

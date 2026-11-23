@@ -346,11 +346,11 @@ test("Continue comes first, then the projects with their kind, last edit and pla
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   expect(rowsOf(continueList).map(rowWords)).toEqual([
-    ["The Long Night", "The Long Night · Film", "Synced"],
+    ["The Long Night", "Film", "Synced"],
   ]);
   const [night, game] = rowsOf(projects);
   expect([night, game].map((row) => (row ? rowWords(row) : []))).toEqual([
-    ["The Long Night", "Film", "Priya, 14 min ago", "Synced"],
+    ["The Long Night", "Film", "Priya, 14 min ago", "⋯", "Synced"],
     ["Game samples", "Game", "Dana, Mon", "Not on this device"],
   ]);
   expect(game?.getAttribute("aria-disabled")).toBe("true");
@@ -388,6 +388,12 @@ test("the switcher lists the person's workspaces and says which is getting ready
     router.state.location.pathname,
     router.state.location.search,
   ]).toEqual(["/", { w: "heavy" }]);
+  // a workspace getting ready says so in place of its lists, never that it is empty
+  const lines = [...document.querySelectorAll("p")].map((p) => p.textContent);
+  expect(lines).toContain(
+    "Lanternfield Studios is getting ready, 12 of 40 projects.",
+  );
+  expect(lines).not.toContain("No scripts yet");
 });
 
 test("a person with no session has one workspace, on this device only, and can sign in from it", async () => {
@@ -512,7 +518,7 @@ test("a list that cannot be loaded says so and shows what is on this device", as
     ]).toEqual([
       LIBRARY_PROBLEM,
       true,
-      [["The Long Night", "Film", "Priya, 14 min ago", "Synced"]],
+      [["The Long Night", "Film", "Priya, 14 min ago", "⋯", "Synced"]],
     ]);
     act(() => mounted?.unmount());
     mounted = null;
@@ -547,7 +553,7 @@ test("when the server cannot be reached, the Library keeps the workspaces it las
     0,
     LIBRARY_PROBLEM,
     "Writers' room",
-    [["The Long Night", "Film", "Priya, 14 min ago", "Synced"]],
+    [["The Long Night", "Film", "Priya, 14 min ago", "⋯", "Synced"]],
   ]);
 });
 

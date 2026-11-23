@@ -8,7 +8,7 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   anyone, anyway, anywhere, apart, apostrophes, app, appear, applied, applies, apr, around, arrived, arriving, ask,
   at, aug, automatically, available, away, be, beat, because, been, being, between, boneyard, both, box, breakdown,
   bring, build, came, can't, cancel, cancels, cannot, capitals, caret, changing, checking, clean, cleared, close, closing,
-  comfortably, computer, connect, contact, controls, copies, copy, corrected, correctly, could, couldn't, count,
+  comfortably, computer, connect, contact, controls, copies, copy, copying, corrected, correctly, could, couldn't, count,
   created, creates, credit, data, date, day, dec, decline, deleted, differ, different, dismiss, display, do, doesn't,
   down, each, earlier, early, editable, edited, eighth, else, empty, ending, english, every, everything, example,
   exceptions, existed, ext, extra, features, feb, fifth, first, flow, folder, footer, fourth, fragments, fri, gain,
@@ -18,7 +18,7 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   length, letters, linux, list, listed, load, locking, long, longer, look, macros, made, make, mar, marked, markup, match,
   matches, may, mb, measured, mentions, min, miss, missed, misspellings, mon, more, move, moving, ms, music, name, named,
   near, nearest, nearly, need, needs, never, newer, newscast, next, ninth, no, none, nothing, nov, now, number, oct,
-  off, offered, older, omit, once, one, opening, or, other, others, out, outside, overflows, own, paste, pasted,
+  off, offered, older, omit, once, one, opening, or, original, other, others, out, outside, overflows, own, paste, pasted,
   pause, pick, place, placed, plain, pp, prepare, preparing, press, pressing, previously, profiles, put, quit, re-applied,
   reach, reached, reacts, read-aloud, reading, ready, recalled, recalling, recorded, reduced, region, reload,
   reloading, remove, removes, reorganised, replace, request, resize, rest, restored, right, running, runs, said, same, sat,
@@ -29,5 +29,10 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   untitled, usage, used, using, voiceover, voices, was, way, web, wed, were, whatever, when, where, which, while, whole,
   with, without, work, works, would, write, written, wrote, yesterday, yet, your,
   arrow, drop, dropped, moved, picked, position,
-  compared, copied
+  compared, copied,
+  suggested,
+  offers, straight, through, whose,
+  active, expired, expires, guests, producers, role, sender, sharing, turned,
+  pitched, speech, swapped, swaps,
+  becomes, describe
 `);

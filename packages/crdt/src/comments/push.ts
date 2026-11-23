@@ -11,12 +11,14 @@ export type CommentsMap = (typeof COMMENTS_DOC_MAPS)[number];
 
 /**
  * One entry a change wrote. `value` is what the map holds at `key` after it, null when the entry is gone;
+ * `previous` is the plain entry the key held before it, null when it held nothing or a type;
  * `replaced` is true when the key held an entry before the change, or the change wrote inside the entry's value.
  */
 export interface CommentsWrite {
   map: CommentsMap;
   key: string;
   value: unknown;
+  previous: unknown;
   replaced: boolean;
 }
 
@@ -98,6 +100,7 @@ function writeAt(
   map: CommentsMap,
   key: string,
   touch: Touch,
+  report: TransactionReport,
 ): CommentsWrite | null {
   const written = [...touch.written];
   const holds = ymap.has(key);
@@ -111,7 +114,13 @@ function writeAt(
     written.some((item) => item.left !== null && !touch.written.has(item.left));
   // what it wrote at a new key, it also removed
   if (!holds && !replaced) return null;
-  return { map, key, value: holds ? ymap.get(key) : null, replaced };
+  return {
+    map,
+    key,
+    value: holds ? ymap.get(key) : null,
+    previous: report.before(map, key) ?? null,
+    replaced,
+  };
 }
 
 /**
@@ -164,7 +173,9 @@ export function readCommentsPush(
     const keys = touched.get(map) ?? new Map<string, Touch>();
     return [...keys.keys()].toSorted().flatMap((key) => {
       const at = keys.get(key);
-      return (at === undefined ? null : writeAt(ymap, map, key, at)) ?? [];
+      return (
+        (at === undefined ? null : writeAt(ymap, map, key, at, report)) ?? []
+      );
     });
   });
 }

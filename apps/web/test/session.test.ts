@@ -107,6 +107,7 @@ test("a person without an account is chosen without asking the server", async ()
     me: () => Promise.reject(new Error("not asked")),
     demo: () => Promise.reject(new Error("not asked")),
     removedDoc: () => Promise.reject(new Error("not asked")),
+    role: () => Promise.reject(new Error("not asked")),
     docClients: () => Promise.reject(new Error("not asked")),
     prepareTour: () => Promise.reject(new Error("not asked")),
     writers: () => Promise.reject(new Error("not asked")),
