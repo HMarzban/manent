@@ -2,7 +2,15 @@
 import type { JsonMapView } from "@manent/crdt";
 import { PROJECT_NAME_KINDS } from "@manent/revisions";
 import type { ProjectNameKind } from "@manent/revisions";
-import { Button, DropdownMenuItem, Input, NAMES_WORDS, Row } from "@manent/ui";
+import {
+  Button,
+  DropdownMenuItem,
+  Input,
+  NAMES_WORDS,
+  Row,
+  useSubscribable,
+} from "@manent/ui";
+import type { Subscribable } from "@manent/ui";
 import {
   useCallback,
   useEffect,
@@ -20,16 +28,23 @@ import type { NamesEntry } from "./names-entries.ts";
 const byName = (a: NamesEntry, b: NamesEntry): number =>
   a.name.localeCompare(b.name);
 
-/** The project's `names` map, once its index has opened; null until then, and when it cannot open. */
-function useNamesMap(projectId: string): JsonMapView | null {
+/** The project's index as the lists use it: its `names` map, and whether the person may only read it. */
+interface OpenNames {
+  map: JsonMapView;
+  /** Not null once the server has said the person may only read the index. */
+  readOnly: Subscribable<unknown>;
+}
+
+/** The project's names, once its index has opened; null until then, and when it cannot open. */
+function useNamesMap(projectId: string): OpenNames | null {
   const { projectIndex } = useServices();
-  const [map, setMap] = useState<JsonMapView | null>(null);
+  const [map, setMap] = useState<OpenNames | null>(null);
   useEffect(() => {
     const index = projectIndex(projectId);
     let open = true;
-    index.map("names").then(
-      (names) => {
-        if (open) setMap(names);
+    Promise.all([index.map("names"), index.handle()]).then(
+      ([names, handle]) => {
+        if (open) setMap({ map: names, readOnly: handle.readOnly });
       },
       // the person's sync could not start: the lists are not drawn
       () => {},
@@ -101,8 +116,12 @@ function NameField(props: {
   );
 }
 
-function NameRow(props: { entry: NamesEntry; map: JsonMapView }): ReactNode {
-  const { entry, map } = props;
+function NameRow(props: {
+  entry: NamesEntry;
+  map: JsonMapView;
+  editable: boolean;
+}): ReactNode {
+  const { entry, map, editable } = props;
   const [renaming, setRenaming] = useState(false);
   if (renaming)
     return (
@@ -116,6 +135,12 @@ function NameRow(props: { entry: NamesEntry; map: JsonMapView }): ReactNode {
             map.set(entry.id, { kind: entry.kind, name });
         }}
       />
+    );
+  if (!editable)
+    return (
+      <Row>
+        <span className="truncate">{entry.name}</span>
+      </Row>
     );
   return (
     <Row
@@ -140,8 +165,9 @@ function NamesList(props: {
   kind: ProjectNameKind;
   entries: readonly NamesEntry[];
   map: JsonMapView;
+  editable: boolean;
 }): ReactNode {
-  const { kind, entries, map } = props;
+  const { kind, entries, map, editable } = props;
   const words = NAMES_WORDS.kinds[kind];
   const { randomId } = useEnvironment();
   const [adding, setAdding] = useState(false);
@@ -149,38 +175,44 @@ function NamesList(props: {
     <section aria-label={words.heading} className="flex flex-col">
       <h3 className="mn-group-label px-0!">{words.heading}</h3>
       {entries.toSorted(byName).map((entry) => (
-        <NameRow key={entry.id} entry={entry} map={map} />
+        <NameRow key={entry.id} entry={entry} map={map} editable={editable} />
       ))}
-      <div className="pt-1">
-        {adding ? (
-          <NameField
-            label={words.add}
-            placeholder={words.placeholder}
-            initial=""
-            onDone={(name) => {
-              if (name === null) setAdding(false);
-              else if (name !== "") map.set(randomId(), { kind, name });
-            }}
-          />
-        ) : (
-          <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
-            {words.add}
-          </Button>
-        )}
-      </div>
+      {editable ? (
+        <div className="pt-1">
+          {adding ? (
+            <NameField
+              label={words.add}
+              placeholder={words.placeholder}
+              initial=""
+              onDone={(name) => {
+                if (name === null) setAdding(false);
+                else if (name !== "") map.set(randomId(), { kind, name });
+              }}
+            />
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+              {words.add}
+            </Button>
+          )}
+        </div>
+      ) : null}
     </section>
   );
 }
 
-/** The three lists of the project `projectId`, with one line saying what they are for while all are empty. */
+/**
+ * The three lists of the project `projectId`, with one line saying what they are for while all are empty; read only,
+ * without their adds, renames and removes, once the server has said the person may only read them.
+ */
 export function NamesLists(props: { projectId: string }): ReactNode {
-  const map = useNamesMap(props.projectId);
-  return map === null ? null : <OpenLists map={map} />;
+  const open = useNamesMap(props.projectId);
+  return open === null ? null : <OpenLists open={open} />;
 }
 
-function OpenLists(props: { map: JsonMapView }): ReactNode {
-  const { map } = props;
+function OpenLists(props: { open: OpenNames }): ReactNode {
+  const { map, readOnly } = props.open;
   const entries = useEntries(map);
+  const editable = useSubscribable(readOnly) === null;
   return (
     <div className="flex flex-col gap-2">
       {entries.length === 0 ? (
@@ -192,6 +224,7 @@ function OpenLists(props: { map: JsonMapView }): ReactNode {
           kind={kind}
           entries={entries.filter((entry) => entry.kind === kind)}
           map={map}
+          editable={editable}
         />
       ))}
     </div>

@@ -199,13 +199,28 @@ function namesView(
   options: ProjectNamesOptions,
   shared: Shared,
 ): PluginView {
-  const layer = options.layer();
-  const popover = layer === null ? null : createCompletePopover({ layer });
-  shared.popover = popover;
+  let layer: HTMLElement | null = null;
   let shown: Offer | null = null;
+  const press = (event: MouseEvent) => {
+    const index = optionPressed(event);
+    if (shown === null || index === null) return;
+    // the page keeps focus
+    event.preventDefault();
+    shown.choose(view, index);
+  };
+  // the layer may come after the view, so the list is made the first time there is one
+  const popoverOf = (): CompletePopover | null => {
+    if (shared.popover !== null) return shared.popover;
+    layer = options.layer();
+    if (layer === null) return null;
+    layer.addEventListener("mousedown", press);
+    shared.popover = createCompletePopover({ layer });
+    return shared.popover;
+  };
   const draw = () => {
     shared.editable = view.editable;
     shown = offerOf(view.state, view.editable);
+    const popover = popoverOf();
     if (popover === null || layer === null) return;
     if (shown === null || view.composing) {
       popover.hide();
@@ -216,14 +231,6 @@ function namesView(
     const box = layer.getBoundingClientRect();
     popover.place(caret.left - box.left, caret.bottom - box.top);
   };
-  const press = (event: MouseEvent) => {
-    const index = optionPressed(event);
-    if (shown === null || index === null) return;
-    // the page keeps focus
-    event.preventDefault();
-    shown.choose(view, index);
-  };
-  layer?.addEventListener("mousedown", press);
   const stop = options.subscribe(() =>
     view.dispatch(view.state.tr.setMeta(namesKey, READ)),
   );
@@ -233,7 +240,7 @@ function namesView(
     destroy() {
       stop();
       layer?.removeEventListener("mousedown", press);
-      popover?.hide();
+      shared.popover?.hide();
       shared.popover = null;
     },
   };

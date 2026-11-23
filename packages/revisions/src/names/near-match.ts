@@ -122,6 +122,7 @@ function distance(a: string, b: string, limit: number): number {
 function nearness(run: string, listed: Listed): number | null {
   const key = keyOf(run);
   if (key === listed.key) return 0;
+  if (key === `${listed.key}s` || key === `${listed.key}es`) return null;
   if (listed.allowed === 0 || key[0] !== listed.key[0]) return null;
   const d = distance(key, listed.key, listed.allowed);
   return d <= listed.allowed ? d : null;
@@ -163,7 +164,8 @@ function nearestTo(
  * of 8 or more two letters apart (a letter added, removed or changed, or two side by side swapped), with the same
  * first letter; a name under 5 letters matches only in case and spacing. A run written as a listed name (as listed,
  * in capitals, or, for a name listed in capitals, with each word capitalised) is never a near match, nor is any run
- * holding one of its words. A possessive "'s" is left outside the run. Where runs overlap, the earliest is kept,
+ * holding one of its words, nor is its plural (the name and "s" or "es"). A possessive "'s" is left outside
+ * the run. Where runs overlap, the earliest is kept,
  * then the nearest, then the longest.
  */
 export function findNearMatches(

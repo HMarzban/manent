@@ -31,24 +31,26 @@ export function namesHandlers(
     },
     "name.addToProject"() {
       const docId = deps.shellState().docId;
-      const names = docId === null ? null : documentNames(services, docId);
       const asked =
         docId !== null &&
-        names !== null &&
-        names.known &&
         askNameKindIn(docId, (word, kind) => {
-          names.add(word, kind).then(
-            () =>
-              services.messages.push({
-                id: "name_added",
-                text: NAMES_WORDS.added(word, kind),
-                actions: [],
-                lifetime: "brief",
-                ownWork: false,
-              }),
-            // the person's sync could not start, so the index never opened: nothing was added
-            () => {},
-          );
+          documentNames(services, docId)
+            .add(word, kind)
+            .then(
+              (added) => {
+                // false: the project of the document is not known yet, so nothing was added
+                if (added)
+                  services.messages.push({
+                    id: "name_added",
+                    text: NAMES_WORDS.added(word, kind),
+                    actions: [],
+                    lifetime: "brief",
+                    ownWork: false,
+                  });
+              },
+              // the person's sync could not start, so the index never opened: nothing was added
+              () => {},
+            );
         });
       if (!asked) refuse("name.addToProject", NAMES_WORDS.reasons.addToProject);
     },
