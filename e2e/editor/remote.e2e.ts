@@ -297,6 +297,29 @@ test("a remote edit never scrolls back to the caret just out of view", async ({
   }).toEqual({ inWindow: true, sameLine: before.id, lineStays: true });
 });
 
+test("another writer's caret at the end of a line moves no line", async ({
+  page,
+}) => {
+  await openScript(
+    page,
+    "screenplay",
+    corpusDoc([
+      corpusLine("scene_heading", "INT. LAMP ROOM - NIGHT"),
+      corpusLine("action", "The keeper climbs the stair."),
+      corpusLine("action", "Wind at the glass."),
+    ]),
+  );
+  await groupHook(page, "remote", "join", DANA);
+  const [, climbs, wind] = await blocks(page);
+  const before = await lineTop(page, wind!.id);
+  await groupHook(page, "remote", "select", 1, climbs!.text.length);
+  await expect(bar(page)).toBeVisible();
+  await settled(page);
+  expect(
+    Math.abs((await lineTop(page, wind!.id)) - before),
+  ).toBeLessThanOrEqual(1);
+});
+
 /** The viewport bottom of the block that holds the caret, px. */
 const caretLineBottom = (page: Page): Promise<number> =>
   page.evaluate(() => {
