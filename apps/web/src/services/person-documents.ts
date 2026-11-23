@@ -1,9 +1,11 @@
 // The person's sync and what it opens: their private index, the Library read from index documents, and their documents.
 import type { KeyValueMap } from "@manent/settings";
 import type { DocHandle, SyncClient } from "@manent/sync-client";
+import type { WorkspaceRef } from "@manent/sync-protocol";
 import { LIBRARY_WORDS, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import type { ConnectionControl } from "../demo/connection-transport.ts";
+import { POLL_MS } from "../demo/use-demo.ts";
 import { watchHandoffRefusals } from "../desktop/handoff-message.ts";
 import type { TabPerson } from "../session.ts";
 import type { CommandsOptions } from "./person-commands.ts";
@@ -37,6 +39,8 @@ interface Indexes {
   onOwnChange: typeof onOwnChange;
   keepOnDevice: typeof keepOnDevice;
   checkCleared: typeof checkCleared;
+  /** Stops asking the server for the person's workspaces. */
+  stopAsking: () => void;
 }
 
 /** What the services keep of the person's sync. */
@@ -67,6 +71,31 @@ export interface PersonDocuments {
   dispose(): void;
 }
 
+/**
+ * Asks the server for the person's workspaces, and again every POLL_MS while one is getting ready, so its lists follow
+ * its seed; the returned function stops asking.
+ */
+function askWorkspaces(
+  options: Options,
+  heard: (workspaces: readonly WorkspaceRef[]) => void,
+): () => void {
+  let stopped = false;
+  let cancel: (() => void) | null = null;
+  const ask = (): void => {
+    void options.api.me().then((answer) => {
+      if (stopped || !answer.ok) return;
+      heard(answer.me.workspaces);
+      if (answer.me.workspaces.some((w) => w.seeding?.failed === false))
+        cancel = options.schedule(ask, POLL_MS);
+    });
+  };
+  ask();
+  return () => {
+    stopped = true;
+    cancel?.();
+  };
+}
+
 /** The person's private index and Library over `sync`, each loaded apart from the entry. */
 async function openIndexes(
   sync: PersonSync,
@@ -89,12 +118,13 @@ async function openIndexes(
     memory: sync.memory,
   });
   const workspaces = createValue(sync.memory.workspaces(userId) ?? []);
-  if (person.token !== null)
-    void options.api.me().then((answer) => {
-      if (!answer.ok) return;
-      sync.memory.setWorkspaces(userId, answer.me.workspaces);
-      workspaces.set(answer.me.workspaces);
-    });
+  const stopAsking =
+    person.token === null
+      ? () => {}
+      : askWorkspaces(options, (heard) => {
+          sync.memory.setWorkspaces(userId, heard);
+          workspaces.set(heard);
+        });
   const library = libraryParts.createSyncLibrary({
     sync,
     privateIndex,
@@ -126,6 +156,7 @@ async function openIndexes(
     onOwnChange: libraryParts.onOwnChange,
     keepOnDevice: onDevice.keepOnDevice,
     checkCleared: onDevice.checkCleared,
+    stopAsking,
   };
 }
 
@@ -355,6 +386,7 @@ export function createPersonDocuments(
       const going = started();
       if (going !== null) going.trust.unmarkOpen(going.sync);
       review.dispose();
+      void indexes.then((opened) => opened?.stopAsking());
       void sync.then(
         (s) => s.dispose(),
         () => {
