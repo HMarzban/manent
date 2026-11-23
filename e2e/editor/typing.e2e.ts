@@ -192,8 +192,8 @@ test("nothing animates on a keystroke", async ({ page }) => {
   const action = await scriptAt(page, "action");
   await groupHook(page, "remote", "join", DANA);
   await groupHook(page, "remote", "select", 5, 2);
-  // the name tab leaves three seconds after the move: typing starts once it has
-  await expect(page.locator(`${PAGE_VIEW} .mn-cursor-tab`)).toHaveCount(0, {
+  // the name gives way to the initials three seconds after the move: typing starts once it has
+  await expect(page.locator(`${PAGE_VIEW} .mn-cursor-tab`)).toHaveText("DR", {
     timeout: 6000,
   });
   await caretInView(page, action.id, Math.floor(action.text.length / 2));
