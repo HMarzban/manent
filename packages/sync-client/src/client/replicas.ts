@@ -126,22 +126,12 @@ class TabReplicas implements Replicas {
 
   deposed(): void {
     this.leaderKnown = false;
-    const { tabId } = this.options.ports.leader;
     for (const [docId, replica] of this.replicas) {
       const session = this.sessions.get(docId);
       if (session === undefined) continue;
       replica.unwire();
       this.sessions.delete(docId);
-      const { doc, unsaved } = session.detach();
-      // the other tabs open what they hold again with the next leader
-      const held = replica.holders.has(tabId);
-      replica.holders.clear();
-      if (!held) {
-        this.forget(docId);
-        continue;
-      }
-      replica.holders.add(tabId);
-      this.follow(docId, replica, doc, unsaved);
+      this.leave(docId, replica, session);
     }
   }
 
@@ -221,6 +211,21 @@ class TabReplicas implements Replicas {
     replica.ready.resolve(replica.relay);
   }
 
+  /** The tab no longer leads: the session is left, and the document is followed with what it held when this tab's app holds it. */
+  private leave(docId: string, replica: Replica, session: Session): void {
+    const { tabId } = this.options.ports.leader;
+    const { doc, unsaved } = session.detach();
+    // the other tabs open what they hold again with the next leader
+    const held = replica.holders.has(tabId);
+    replica.holders.clear();
+    if (!held) {
+      this.forget(docId);
+      return;
+    }
+    replica.holders.add(tabId);
+    this.follow(docId, replica, doc, unsaved);
+  }
+
   private forget(docId: string): void {
     this.replicas.delete(docId);
     this.sessions.delete(docId);
@@ -288,6 +293,11 @@ class TabReplicas implements Replicas {
       closed: () => this.forget(docId),
     }).then((session) => {
       this.opening.delete(docId);
+      // the lead went while the document was opening: the store refuses this tab's writes
+      if (!this.options.leading()) {
+        this.leave(docId, replica, session);
+        return session;
+      }
       this.sessions.set(docId, session);
       replica.unwire = this.wire(docId, replica, session);
       this.show(docId, replica, session.handle);
@@ -342,8 +352,9 @@ class TabReplicas implements Replicas {
     if (m.t !== "edit") replica.clients.set(m.from, m.clientId);
     replica.queue = replica.queue.then(async () => {
       await replica.ready.promise;
-      const session =
-        this.sessions.get(m.docId) ?? (await this.opening.get(m.docId));
+      // a session left because the lead went while it was opening is not in `sessions`
+      await this.opening.get(m.docId);
+      const session = this.sessions.get(m.docId);
       if (session === undefined) return;
       if (m.t === "opened") {
         session.addClient(m.clientId);

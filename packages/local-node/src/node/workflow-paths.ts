@@ -10,4 +10,9 @@ export const WORKFLOW_PATHS: readonly WorkflowPath[] = [
   { match: "exact", path: "/api/versions" },
   { match: "prefix", path: "/api/versions/" },
   { match: "prefix", path: "/api/production/" },
+  { match: "prefix", path: "/api/drafts/" },
+  { match: "prefix", path: "/api/private/" },
+  { match: "prefix", path: "/api/share/" },
+  { match: "prefix", path: "/api/driver/" },
+  { match: "prefix", path: "/api/prompter/" },
 ];

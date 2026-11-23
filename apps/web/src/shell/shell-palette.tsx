@@ -3,6 +3,7 @@ import { COMMANDS } from "@manent/commands";
 import type { Scope } from "@manent/settings";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
+  BESIDE_WORDS,
   CommandPalette,
   createCommandSource,
   createSettingSource,
@@ -19,6 +20,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
+import { createBesideSource, runBesideRow } from "../beside/beside-source.ts";
 import type { livePagination } from "../editor-host/live-editor.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import {
@@ -41,6 +43,7 @@ const scopeWords = (
   personal: "yours",
   device: shell === "desktop" ? "this device" : "this browser",
   script: "this script",
+  project: "this project",
 });
 
 /** The workspaces the person's scripts are in: those the server listed for the Library, if it was asked, and the person's own desk. */
@@ -57,7 +60,8 @@ function useWorkspaceIds(userId: string): () => readonly string[] {
 
 /**
  * The palette over commands, settings, the open script's places, the person's scripts and the people present; a
- * setting reads the open document's store, so its script settings show.
+ * setting reads the open document's store, so its script settings show. Filtered to Beside, it lists only what can
+ * open beside the open script.
  */
 export function ShellPalette(props: {
   docId: string | null;
@@ -84,6 +88,15 @@ export function ShellPalette(props: {
   const pagination = () =>
     docId === null ? null : (live.current?.(docId) ?? null);
   const sources = useMemo(() => {
+    if (filter === "beside")
+      return [
+        createBesideSource({
+          here: () =>
+            docId === null
+              ? null
+              : { docId, services, workspaceIds: workspaces() },
+        }),
+      ];
     const base = {
       commands: COMMANDS,
       service: services.commands,
@@ -116,8 +129,9 @@ export function ShellPalette(props: {
         ? []
         : [createPersonSource({ people: () => people.get() })]),
     ];
-  }, [services, where, docId, outline, people, workspaces]);
+  }, [filter, services, where, docId, outline, people, workspaces]);
   const run = (row: PaletteRow): void => {
+    if (runBesideRow(row.id)) return;
     if (row.kind !== "command" && row.kind !== "setting") {
       runPlaceRow(row.id, {
         editor: services.editor,
@@ -135,6 +149,7 @@ export function ShellPalette(props: {
       open={filter !== null}
       filter={filter ?? "all"}
       sources={sources}
+      placeholder={filter === "beside" ? BESIDE_WORDS.choose : undefined}
       onRun={run}
       onClose={close}
       recent={recent}

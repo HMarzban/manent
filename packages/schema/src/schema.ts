@@ -6,7 +6,8 @@ import { MARK_SPECS } from "./marks.ts";
 import type { MarkName } from "./marks.ts";
 import { isString } from "./shape.ts";
 
-export const SCHEMA_VERSION = 1;
+/** 2: a General element may carry `tags` and `linkTo`; a block holding either needs a reader of schema 2. */
+export const SCHEMA_VERSION = 2;
 
 /** The number of blocks a section holds when a script is cut into sections. */
 export const SECTION_TARGET_BLOCKS = 100;

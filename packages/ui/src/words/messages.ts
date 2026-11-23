@@ -54,7 +54,7 @@ const SEE_WHAT_CHANGED = {
 } as const;
 const OPEN_BESIDE = {
   label: "Open beside",
-  commandId: "doc.openBeside",
+  commandId: "history.openRecoveredBeside",
 } as const;
 const OPEN_THEM = { label: "Open them", commandId: "doc.openLocal" } as const;
 const EXPORT = { label: "Export", commandId: "doc.export" } as const;

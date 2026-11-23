@@ -4,6 +4,8 @@ export * from "./break-specs.ts";
 export * from "./widgets.ts";
 export * from "./decorations.ts";
 export * from "./section-view.ts";
+export * from "./section-height.ts";
+export { drawRequest } from "./behind.ts";
 export * from "./caret.ts";
 export * from "./drift.ts";
 export * from "./page-view.ts";

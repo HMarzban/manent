@@ -21,12 +21,26 @@ import type { EditorControl } from "../editor-host/control.ts";
 import { zoomAnnouncement } from "../editor-host/zoom.ts";
 import { createHandlers } from "../handlers/index.ts";
 import type { Navigation } from "../handlers/index.ts";
+import { focusModeActions } from "../state/focus-mode.store.ts";
+import { layoutViewActions } from "../state/layout-view.store.ts";
+import { materialActions } from "../state/material.store.ts";
+import { outlineStartActions } from "../state/outline-start.store.ts";
 import type { PersonStore } from "../state/person.store.ts";
 import { productionContextActions } from "../state/production-context.store.ts";
-import { layoutViewActions } from "../state/layout-view.store.ts";
+import { prompterActions } from "../state/prompter.store.ts";
+import { readAloudActions } from "../state/read-aloud.store.ts";
 import { rulerActions } from "../state/ruler.store.ts";
+import { rundownActions } from "../state/rundown.store.ts";
+import { sprintActions } from "../state/sprint.store.ts";
+import { trashActions } from "../state/trash.store.ts";
+import { writingActions } from "../state/writing.store.ts";
 import { zoomActions } from "../state/zoom.store.ts";
-import type { Environment, PersonServices, ShellState } from "./ports.ts";
+import type {
+  Environment,
+  LibraryIndex,
+  PersonServices,
+  ShellState,
+} from "./ports.ts";
 
 export type CommandsOptions = Environment & {
   demo: Subscribable<boolean>;
@@ -44,6 +58,48 @@ interface CommandsParts {
   control: Pick<EditorControl, "zoomPercent">;
   /** The person's sync can reach the network: the browser is online and the tab's Connection is not Offline. */
   network: Subscribable<boolean>;
+  /** The kinds of the open document and of its project. */
+  library: Pick<LibraryIndex, "documentKind" | "docKindOf">;
+}
+
+/** What a command may know of the open document beyond its format, zoom and production; each null or false off one. */
+function documentContext(
+  docId: string | null,
+  library: CommandsParts["library"],
+): Pick<
+  CommandContext,
+  | "docKind"
+  | "projectKind"
+  | "outlineStart"
+  | "writing"
+  | "material"
+  | "rundown"
+  | "prompter"
+  | "inTrash"
+  | "canDelete"
+> {
+  if (docId === null)
+    return {
+      docKind: null,
+      projectKind: null,
+      outlineStart: false,
+      writing: null,
+      material: null,
+      rundown: null,
+      prompter: null,
+      inTrash: false,
+      canDelete: false,
+    };
+  return {
+    docKind: library.docKindOf(docId).get(),
+    projectKind: library.documentKind(docId).get(),
+    outlineStart: outlineStartActions.get(docId),
+    writing: writingActions.get(docId),
+    material: materialActions.get(docId),
+    rundown: rundownActions.context(docId),
+    prompter: prompterActions.get(docId),
+    ...trashActions.get(docId),
+  };
 }
 
 /** What a command may know: the window's state from the shell, the focus and connection read now, and the person's. */
@@ -75,6 +131,10 @@ function commandContext(
     zoom: docId === null ? null : zoomActions.get(),
     zoomPercent: docId === null ? null : parts.control.zoomPercent(),
     production: docId === null ? null : productionContextActions.get(docId),
+    ...documentContext(docId, parts.library),
+    focusMode: focusModeActions.get(),
+    readingAloud: readAloudActions.get(),
+    sprintRunning: sprintActions.get(),
   };
 }
 
@@ -84,27 +144,59 @@ const isSaidZoom = (id: string, from: RunSource): boolean =>
 
 const noop = (): void => {};
 
-/** Calls `notify` whenever the format of the script the shell shows changes, following the shell from script to script. */
-function followFormat(
+/**
+ * Follows what `pick` gives for the document the shell shows, from document to document: `follow` is called for each
+ * new value, and what it returned stops it when another comes; nothing is followed off a document.
+ */
+function followShown<T>(
   shellState: Subscribable<ShellState>,
-  openScriptStore: (docId: string) => SettingsStore,
-  notify: () => void,
+  pick: (docId: string) => T,
+  follow: (picked: T) => () => void,
 ): () => void {
-  let followed: SettingsStore | null = null;
+  let followed: T | null = null;
   let stop = noop;
-  const follow = (): void => {
+  const update = (): void => {
     const { docId } = shellState.get();
-    const store = docId === null ? null : openScriptStore(docId);
-    if (store === followed) return;
+    const picked = docId === null ? null : pick(docId);
+    if (picked === followed) return;
     stop();
-    followed = store;
-    stop = store === null ? noop : store.subscribe("script.format", notify);
+    followed = picked;
+    stop = picked === null ? noop : follow(picked);
   };
-  follow();
-  const unsubscribe = shellState.subscribe(follow);
+  update();
+  const unsubscribe = shellState.subscribe(update);
   return () => {
     unsubscribe();
     stop();
+  };
+}
+
+/** Calls `notify` whenever the open script's format, or the kind of the open document or its project, changes. */
+function followDocument(
+  shellState: Subscribable<ShellState>,
+  parts: CommandsParts,
+  notify: () => void,
+): () => void {
+  const stopFormat = followShown(shellState, parts.openScriptStore, (store) =>
+    store.subscribe("script.format", notify),
+  );
+  const stopKinds = followShown(
+    shellState,
+    (docId) => docId,
+    (docId) => {
+      const stopDocKind = parts.library.docKindOf(docId).subscribe(notify);
+      const stopProjectKind = parts.library
+        .documentKind(docId)
+        .subscribe(notify);
+      return () => {
+        stopDocKind();
+        stopProjectKind();
+      };
+    },
+  );
+  return () => {
+    stopFormat();
+    stopKinds();
   };
 }
 
@@ -162,7 +254,8 @@ function reachedFromShell(
 
 /**
  * The command service over `COMMANDS` and the handlers `fillHandlers` makes, told of every change to the window's state, the
- * person, the bindings, the settings, the open script's format and production, the Ruler and the zoom; a setting command
+ * person, the bindings, the settings, the open script's format and production, the Ruler, the zoom, the kinds of the open
+ * document and its project, and every store a command's context reads; a setting command
  * writes the open document's store, so a script setting reaches its script, and a zoom chosen by a key or in the palette is
  * said. In the desktop app the shell's native menus reach it too, and the person is signed in to sync when the node says so.
  */
@@ -210,7 +303,16 @@ export function createCommands(
     layoutViewActions.subscribe(service.notify),
     productionContextActions.subscribe(service.notify),
     zoomActions.subscribe(service.notify),
-    followFormat(options.shellState, parts.openScriptStore, service.notify),
+    outlineStartActions.subscribe(service.notify),
+    writingActions.subscribe(service.notify),
+    materialActions.subscribe(service.notify),
+    rundownActions.subscribe(service.notify),
+    prompterActions.subscribe(service.notify),
+    trashActions.subscribe(service.notify),
+    focusModeActions.subscribe(service.notify),
+    readAloudActions.subscribe(service.notify),
+    sprintActions.subscribe(service.notify),
+    followDocument(options.shellState, parts, service.notify),
   ];
   if (nodeCloud !== null)
     unsubscribers.push(nodeCloud.signedIn.subscribe(service.notify));

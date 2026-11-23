@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import { createStore } from "zustand";
 import { guardWrite } from "./guard.ts";
 
-export type PaletteFilter = "all" | "places";
+export type PaletteFilter = "all" | "places" | "beside";
 
 const store = createStore<{ filter: PaletteFilter | null }>()(() => ({
   filter: null,

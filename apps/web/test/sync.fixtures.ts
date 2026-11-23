@@ -374,7 +374,9 @@ export function fakeView(
 }
 
 const refused = (): never => {
-  throw new RangeError("the fake client neither creates nor views");
+  throw new RangeError(
+    "the fake client neither creates, views nor opens a prompter, private copy or driver",
+  );
 };
 
 /** A client that opens `handles`, and lists `documents` as the store holds them; `opened` is every open asked. */
@@ -395,6 +397,9 @@ export function fakeClient(
     setOnline() {},
     retryNow() {},
     view: () => refused(),
+    prompter: () => refused(),
+    privateCopy: () => refused(),
+    driver: () => refused(),
     close: async () => {},
   };
 }

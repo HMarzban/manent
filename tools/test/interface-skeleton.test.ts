@@ -78,7 +78,13 @@ test("the routes are the screens of this release", () => {
     "/preferences",
     "/preferences/$pane",
     "/s/$docId",
+    "/s/$docId/changes/$a/$b",
+    "/s/$docId/present",
+    "/s/$docId/prompter",
     "/s/$docId/send/$form",
+    "/s/$docId/v/$versionId",
+    "/w/$workspaceId/settings",
+    "/w/$workspaceId/settings/$group",
   ]);
 });
 
@@ -94,7 +100,13 @@ test("the test build adds the development screens", () => {
       "/preferences",
       "/preferences/$pane",
       "/s/$docId",
+      "/s/$docId/changes/$a/$b",
+      "/s/$docId/present",
+      "/s/$docId/prompter",
       "/s/$docId/send/$form",
+      "/s/$docId/v/$versionId",
+      "/w/$workspaceId/settings",
+      "/w/$workspaceId/settings/$group",
     ]);
   } finally {
     Reflect.deleteProperty(globalThis, "MANENT_FLAVOUR");
@@ -112,7 +124,11 @@ test("a screen that reads the route is that route's own lazily loaded component"
   expect(lazy).toEqual([
     "/preferences/$pane",
     "/s/$docId",
+    "/s/$docId/changes/$a/$b",
+    "/s/$docId/present",
+    "/s/$docId/prompter",
     "/s/$docId/send/$form",
+    "/s/$docId/v/$versionId",
   ]);
 });
 
@@ -123,7 +139,7 @@ test("the Send screen's forms are a registration list that starts empty", () => 
     sendPath("d1", "print"),
   ]).toEqual([
     ["export", "print", "send_draft", "issue", "recall"],
-    ["export", "print", "issue", "recall"],
+    ["export", "print", "send_draft", "issue", "recall"],
     "/s/d1/send/print",
   ]);
 });

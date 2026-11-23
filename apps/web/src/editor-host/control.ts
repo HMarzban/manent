@@ -10,7 +10,10 @@ interface ControlledEditor {
 }
 
 export interface EditorControl {
-  /** Returns its own detach; a second attach replaces the first. */
+  /**
+   * Returns its own detach. The editor attached last is the one reached; its detach removes only it, so the one
+   * attached before it is reached again.
+   */
   attach(editor: ControlledEditor): () => void;
   /** Null: no editor is open. */
   run(request: PageRequest): ActionResult | null;
@@ -21,16 +24,20 @@ export interface EditorControl {
 }
 
 export function createEditorControl(): EditorControl {
-  let attached: ControlledEditor | null = null;
+  // in attach order; each attach is its own entry, so a detach called twice removes nothing the second time
+  const attached: { editor: ControlledEditor }[] = [];
+  const last = (): ControlledEditor | null => attached.at(-1)?.editor ?? null;
   return {
     attach(editor) {
-      attached = editor;
+      const entry = { editor };
+      attached.push(entry);
       return () => {
-        if (attached === editor) attached = null;
+        const at = attached.indexOf(entry);
+        if (at !== -1) attached.splice(at, 1);
       };
     },
-    run: (request) => attached?.run(request) ?? null,
-    zoomPercent: () => attached?.zoomPercent() ?? null,
-    showTitlePage: () => attached?.showTitlePage(),
+    run: (request) => last()?.run(request) ?? null,
+    zoomPercent: () => last()?.zoomPercent() ?? null,
+    showTitlePage: () => last()?.showTitlePage(),
   };
 }

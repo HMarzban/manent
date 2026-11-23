@@ -471,7 +471,15 @@ test("the live editor and the feature plugins come with the mount", () => {
     liveEditor(DOC),
   ]).toEqual([
     1,
-    ["docId", "facts", "layer", "services", "setScenesNumbered", "zoom"],
+    [
+      "docId",
+      "facts",
+      "layer",
+      "presence",
+      "services",
+      "setScenesNumbered",
+      "zoom",
+    ],
     DOC,
     true,
     true,
@@ -546,7 +554,7 @@ test("a person's page draws the editor their environment loads, built for that p
       async loadEditor(_environment, parts) {
         await Promise.resolve();
         built.push(parts.services().userId);
-        return editor;
+        return { mount: editor, besideMount: () => editor };
       },
     }),
   });

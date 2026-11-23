@@ -14,8 +14,13 @@ import type {
   SectionId,
   SettingsStore,
 } from "@manent/settings";
-import type { DocHandle, SyncClient } from "@manent/sync-client";
-import type { UpdateState } from "@manent/sync-protocol";
+import type { BlockJSON } from "@manent/schema";
+import type {
+  DocHandle,
+  PrompterHandle,
+  SyncClient,
+} from "@manent/sync-client";
+import type { DocKind, UpdateState } from "@manent/sync-protocol";
 import type {
   ConsequenceDialogProps,
   MessageQueue,
@@ -32,14 +37,19 @@ import type { MaterialSnapshot } from "../send/what-options.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
 import type { PlaceStore } from "../editor-host/place.ts";
 import type { HistorySource } from "../history/source.ts";
+import type { Trash } from "../library/trash-api.ts";
 import type { Where } from "../platform.ts";
+import type { ProjectIndex } from "../project/project-index.ts";
 import type { TabPerson, TabStorage } from "../session.ts";
 import type { ShellDom } from "../shell/regions.tsx";
 import type { Guard } from "../state/guard.ts";
 import type { PersonPresent } from "../state/people.store.ts";
+import type { WritingPosition } from "../state/writing.store.ts";
 import type { StorageEvents } from "./local-map.ts";
 import type { CloseGuard } from "./sync/close-guard.ts";
 import type { PersonSync } from "./sync/create-sync.ts";
+import type { Favourites } from "./sync/favourites.ts";
+import type { Folders } from "./sync/folders.ts";
 import type { PersonReview } from "./sync/later-index.ts";
 
 /** The kinds New project offers, in its order. */
@@ -105,15 +115,44 @@ export interface LibraryIndex {
   ): Promise<CreateResult>;
   /** Null for a document the index does not hold. */
   documentTitle(docId: string): Subscribable<string | null>;
+  /** The kind of the project that holds `docId`; null for a document the index does not hold. */
   documentKind(docId: string): Subscribable<ProjectKind | null>;
+  /** The kind of `docId` itself; null for a document the index does not hold. */
+  docKindOf(docId: string): Subscribable<DocKind | null>;
   /** An index write, like `createProject`. */
   renameDocument(docId: string, title: string): void;
+  /**
+   * A document titled `title` added to the project `projectId`, or to a new project of `kind` with that title when
+   * `projectId` is null, made on the device like `createProject`; a copy is never removed as untouched.
+   */
+  addCopy(
+    workspaceId: string,
+    projectId: string | null,
+    kind: ProjectKind,
+    title: string,
+    start: DocumentStart,
+  ): Promise<CreateResult>;
+}
+
+/** What a new document is made as, the fields of its index entry, and how it is begun once made. */
+export interface DocumentStart {
+  docKind: DocKind;
+  /** A rundown's local date of broadcast, `YYYY-MM-DD`; null for any other document. */
+  airDate: string | null;
+  /** The rundown a story belongs to; null for any other document. */
+  rundownId: string | null;
+  start(handle: DocHandle): void;
 }
 
 /** The script's writers' material. */
 export interface MaterialServices {
   /** What the material roots of `docId` hold now; empty while no feature writes them. */
   materialSnapshotOf(docId: string): MaterialSnapshot;
+  /** Moves the scene whose heading is `headingId` after `afterBlockId`, or to the script's start when it is null. */
+  moveScene(
+    docId: string,
+    move: { headingId: string; afterBlockId: string | null },
+  ): { ok: true } | { ok: false; reason: "not_found" | "no_change" };
 }
 
 export interface DocumentServices {
@@ -182,10 +221,33 @@ export interface PersonServices {
   editor: EditorControl;
   /** Draws this person's editor of a document into the page. */
   mount: EditorMount;
+  /** Draws this person's editor of a second document beside the page, reached through `control`. */
+  besideMount(control: EditorControl): EditorMount;
   /** The versions of each script, their content, and naming, saving and restoring them. */
   history: HistorySource;
-  /** The person's handle of a script over their sync; rejects when their sync could not start. */
+  /** The person's handle of a script over their sync, of the document `writing` opens for it; rejects when their sync could not start. */
   openHandle(docId: string): Promise<DocHandle>;
+  /** Where the person's typing in each document goes, and which document their editor of it opens. */
+  writing: {
+    writingPositionOf(docId: string): Subscribable<WritingPosition>;
+    openTarget(docId: string): string;
+  };
+  /** The prompter feed of a rundown; rejects when the person's sync could not start. */
+  prompter(rundownId: string): Promise<PrompterHandle>;
+  /** Those of `docIds` this device holds; rejects when the person's sync could not start. */
+  onDevice(docIds: readonly string[]): Promise<ReadonlySet<string>>;
+  /** The index of the project `projectId`. */
+  projectIndex(projectId: string): ProjectIndex;
+  folders: Folders;
+  favourites: Favourites;
+  trash: Trash;
+  /** The blocks of a document this device holds; null when it does not hold it. */
+  documentBlocks(docId: string): Promise<readonly BlockJSON[] | null>;
+  /** A game project holding one Ink document of `input.blocks`, made on the device like `LibraryIndex.createProject`. */
+  createInkProject(
+    workspaceId: string,
+    input: { readonly title: string; readonly blocks: readonly BlockJSON[] },
+  ): Promise<CreateResult>;
   /** The ports of every page this person's editor and version view draw. */
   pagePorts: PageViewPorts;
   /** Settles once the person's preferences, keys and flags have been read from the device, or their sync could not start. */
@@ -260,11 +322,11 @@ export interface Environment {
   lastKeyAt: () => number | null;
   guard: Guard;
   flavour: "production" | "test";
-  /** Builds one person's editor; the page shows the placeholder until it settles. */
+  /** Builds one person's editor of the page and of what is beside it; the page shows the placeholder until it settles. */
   loadEditor(
     environment: Environment,
     parts: EditorParts,
-  ): Promise<EditorMount>;
+  ): Promise<Pick<PersonServices, "mount" | "besideMount">>;
   shellState: Subscribable<ShellState> & { set(value: ShellState): void };
   dom: ShellDom;
   online: () => boolean;

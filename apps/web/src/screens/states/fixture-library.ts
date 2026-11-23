@@ -1,4 +1,5 @@
 // The gallery's Library: a fixed number of new films, listed alike in every workspace.
+import type { DocKind } from "@manent/sync-protocol";
 import { LIBRARY_WORDS, createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import type {
@@ -12,7 +13,7 @@ const PLACE = Object.freeze({ kind: "never_synced" } as const);
 
 /**
  * `count` untitled films, each with one untitled script that has never synced, newest first in Projects and Continue.
- * It makes nothing: a new or imported project never settles, and a rename changes nothing.
+ * It makes nothing: a new, imported or copied project never settles, and a rename changes nothing.
  */
 export function createFixtureLibrary(options: {
   count: number;
@@ -60,6 +61,9 @@ export function createFixtureLibrary(options: {
     importProject: () => new Promise(() => {}),
     documentTitle: (docId) => titles.get(docId) ?? none,
     documentKind: (docId) => kinds.get(docId) ?? none,
+    docKindOf: (docId) =>
+      kinds.has(docId) ? createValue<DocKind | null>("script") : none,
     renameDocument() {},
+    addCopy: () => new Promise(() => {}),
   };
 }

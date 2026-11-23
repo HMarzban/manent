@@ -12,6 +12,10 @@ import { LANNICK_ONE_NEWS } from "./lannick-one-news.ts";
 import { GAME_SAMPLES } from "./game-samples.ts";
 import { THE_LAMP_ROOM } from "./the-lamp-room.ts";
 import { STUDIO } from "./studio.ts";
+import { THE_LATE_DESK_RUNDOWNS } from "./the-late-desk-rundowns.ts";
+import { LANNICK_ONE_NEWS_RUNDOWNS } from "./lannick-one-news-rundowns.ts";
+import { HANDED_IN_TIMING } from "./handed-in-timing.ts";
+import { HEAVY_RUNDOWNS_STEP } from "./heavy-rundowns.ts";
 
 export const SEED_STEPS: readonly SeedStep[] = [
   MEMBERS_STEP,
@@ -26,4 +30,8 @@ export const SEED_STEPS: readonly SeedStep[] = [
   GAME_SAMPLES,
   THE_LAMP_ROOM,
   STUDIO,
+  THE_LATE_DESK_RUNDOWNS,
+  LANNICK_ONE_NEWS_RUNDOWNS,
+  HANDED_IN_TIMING,
+  HEAVY_RUNDOWNS_STEP,
 ];

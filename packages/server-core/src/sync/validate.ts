@@ -3,6 +3,8 @@ import type { TransactionReport } from "@manent/crdt";
 import { validateBlocks } from "@manent/schema";
 import type { Issue } from "@manent/schema";
 import type { DocKind } from "@manent/sync-protocol";
+import { validateCommentsPush } from "../comments/validate.ts";
+import { validateRundownPush } from "../rundown/validate.ts";
 import { validateIndexPush } from "./index-docs.ts";
 import type { Room, Subscription } from "./rooms.ts";
 
@@ -45,7 +47,10 @@ export type PushValidator = (push: Push) => Issue[];
 export const PUSH_VALIDATORS: Readonly<
   Partial<Record<DocKind, PushValidator>>
 > = Object.freeze({
-  index: ({ report, room }) => validateIndexPush(report, room),
+  index: ({ report, room, subscription }) =>
+    validateIndexPush(report, room, subscription.access),
+  comments: validateCommentsPush,
+  rundown: validateRundownPush,
 });
 
 /** A push judged as its room's kind is. */

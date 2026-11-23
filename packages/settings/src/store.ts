@@ -103,7 +103,7 @@ interface KeyState {
 
 interface StoreOptions<R extends AnyRegistry> {
   registry: R;
-  bags: { personal: Bag; device: Bag; script: Bag | null };
+  bags: { personal: Bag; device: Bag; script: Bag | null; project: Bag | null };
   beforeWrite: (key: string) => void;
   deferRemote: (apply: () => void) => void;
   locked: (key: string) => boolean;
@@ -164,7 +164,12 @@ class BagStore<R extends AnyRegistry> implements SettingsStore<R> {
         return [def.key, state];
       }),
     );
-    for (const bag of new Set([bags.personal, bags.device, bags.script]))
+    for (const bag of new Set([
+      bags.personal,
+      bags.device,
+      bags.script,
+      bags.project,
+    ]))
       bag?.subscribe((keys, origin) => this.changed(bag, keys, origin));
   }
 

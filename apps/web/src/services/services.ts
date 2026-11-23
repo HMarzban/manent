@@ -16,8 +16,12 @@ import {
 } from "../editor-host/place.ts";
 import type { PlaceStore } from "../editor-host/place.ts";
 import { createLazySource } from "../history/lazy-source.ts";
+import { createTrash } from "../library/trash-api.ts";
 import type { Where } from "../platform.ts";
+import { openProjectIndex } from "../project/project-index.ts";
+import { projectSettingsBag } from "../project/settings-bag.ts";
 import type { TabPerson } from "../session.ts";
+import { writingActions } from "../state/writing.store.ts";
 import { createDeviceBag } from "./device-bag.ts";
 import { readDeviceId } from "./device-id.ts";
 import { createFlags } from "./flags.ts";
@@ -28,6 +32,10 @@ import type { FixedKey, PersonServices, Reverses } from "./ports.ts";
 import { createPersonDocuments } from "./person-documents.ts";
 import { createStores } from "./settings-stores.ts";
 import { createCloseGuard, createCloseQuestion } from "./sync/close-guard.ts";
+import { documentBlocks } from "./sync/document-blocks.ts";
+import { createFavourites } from "./sync/favourites.ts";
+import { createFolders } from "./sync/folders.ts";
+import { createInkProject } from "./sync/ink-project.ts";
 
 type Options = CommandsOptions & { person: TabPerson };
 
@@ -142,7 +150,16 @@ export function createPersonServices(options: Options): PersonServices {
   });
   const { settings, scripts } = createStores(
     options,
-    { ...kept, prefs: sync.maps.prefs },
+    {
+      ...kept,
+      prefs: sync.maps.prefs,
+      projectBag: (docId) =>
+        projectSettingsBag({
+          docId,
+          client: sync.client,
+          library: sync.library,
+        }),
+    },
     guard,
   );
   const resolved = createResolved(sync.maps.keys, options.where);
@@ -155,6 +172,7 @@ export function createPersonServices(options: Options): PersonServices {
     resolved,
     control,
     network: sync.network,
+    library: sync.library,
   });
   const place = placeStoreOf(options);
   const stopKeeping = keepViewState(place, options.schedule);
@@ -167,7 +185,7 @@ export function createPersonServices(options: Options): PersonServices {
   globalThis.addEventListener("beforeunload", askBeforeClosing);
   const fixedKeys = createValue<readonly FixedKey[]>([]);
   const openHandle = async (docId: string): Promise<DocHandle> =>
-    (await sync.client).open(docId);
+    (await sync.client).open(writingActions.openTarget(docId));
   // history's requests and pages load apart from the entry
   const history = createLazySource({
     now: options.now,
@@ -182,6 +200,23 @@ export function createPersonServices(options: Options): PersonServices {
         ids: () => options.randomId().replaceAll("-", ""),
       }),
   });
+  // the editor reads the person's preferences as it mounts, so it waits for their private index; it is built once
+  let editorLoad: Promise<
+    Pick<PersonServices, "mount" | "besideMount">
+  > | null = null;
+  const loadedEditor = () =>
+    (editorLoad ??= sync.ready.then(() =>
+      options.loadEditor(options, {
+        services: () => services,
+        control,
+        commands,
+        messages,
+        resolved,
+        fixedKeys,
+        navigate: (path) => options.router.navigate(path),
+        client: sync.client,
+      }),
+    ));
   const services: PersonServices = {
     userId: options.person.userId,
     settings,
@@ -204,22 +239,29 @@ export function createPersonServices(options: Options): PersonServices {
     fixedKeys,
     reverses: createReverses(messages),
     editor: control,
-    // the editor reads the person's preferences as it mounts, so it waits for their private index
-    mount: createLazyMount(async () => {
-      await sync.ready;
-      return options.loadEditor(options, {
-        services: () => services,
-        control,
-        commands,
-        messages,
-        resolved,
-        fixedKeys,
-        navigate: (path) => options.router.navigate(path),
-        client: sync.client,
-      });
-    }),
+    mount: createLazyMount(async () => (await loadedEditor()).mount),
+    besideMount: (besideControl) =>
+      createLazyMount(async () =>
+        (await loadedEditor()).besideMount(besideControl),
+      ),
     history,
     openHandle,
+    writing: writingActions,
+    prompter: async (rundownId) => (await sync.client).prompter(rundownId),
+    async onDevice(docIds) {
+      const held = new Set(
+        (await (await sync.client).documents()).map((doc) => doc.docId),
+      );
+      return new Set(docIds.filter((docId) => held.has(docId)));
+    },
+    projectIndex: (projectId) =>
+      openProjectIndex({ client: sync.client, projectId }),
+    folders: createFolders({ client: sync.client }),
+    favourites: createFavourites({ client: sync.client }),
+    trash: createTrash({ api: options.api }),
+    documentBlocks: (docId) => documentBlocks(sync.client, docId),
+    createInkProject: (workspaceId, input) =>
+      createInkProject(sync.library, workspaceId, input),
     pagePorts: browserPagePorts(options.userAgent),
     ready: sync.ready,
     closing: { guard, question },

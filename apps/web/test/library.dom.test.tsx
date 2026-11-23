@@ -149,7 +149,9 @@ function seededIndex(seed: {
     importProject: () => new Promise<CreateResult>(() => {}),
     documentTitle: () => createValue(null),
     documentKind: () => createValue(null),
+    docKindOf: () => createValue(null),
     renameDocument: () => {},
+    addCopy: () => new Promise<CreateResult>(() => {}),
   };
 }
 

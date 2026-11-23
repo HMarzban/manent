@@ -6,7 +6,11 @@ export type Dual = (typeof DUALS)[number];
 export const ALIGNMENTS = ["left", "center", "right"] as const;
 export type Alignment = (typeof ALIGNMENTS)[number];
 
-/** A block's attributes. Every value is a scalar. */
+/** What a General element may link to: an outline's beat or a script's scene heading. */
+export const LINK_KINDS = ["beat", "scene"] as const;
+export type LinkKind = (typeof LINK_KINDS)[number];
+
+/** A block's attributes. Every value is a scalar but `tags` and `linkTo`, which only schema 2 writes. */
 export interface BlockAttrs {
   /** Null only until the client assigns one. */
   id: string | null;
@@ -38,6 +42,10 @@ export interface BlockAttrs {
   suggestAuthorUserId: string | null;
   /** Milliseconds since the epoch. */
   suggestAt: number | null;
+  /** On general only: each tag a non-empty string. */
+  tags: readonly string[];
+  /** On general only: the beat or scene heading the line is about. */
+  linkTo: { kind: LinkKind; blockId: string } | null;
 }
 
 /** The defaults, in the order the block node declares its attributes. */
@@ -61,6 +69,8 @@ export const DEFAULT_BLOCK_ATTRS: BlockAttrs = Object.freeze({
   suggestId: null,
   suggestAuthorUserId: null,
   suggestAt: null,
+  tags: Object.freeze([]),
+  linkTo: null,
 });
 
 function isBlockAttrName(key: string): key is keyof BlockAttrs {

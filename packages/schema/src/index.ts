@@ -57,7 +57,28 @@ export type { RawDoc, RawElement, RawMark, RawText } from "./raw.ts";
 export { blockText, blockView, blocksOf } from "./block-view.ts";
 export type { BlockView, FlatBlock, TextRun } from "./block-view.ts";
 export type { BlockOp } from "./block-ops.ts";
-export { NOTE_CONTEXT_UNITS, isScriptNote, noteAnchorAt } from "./notes.ts";
-export type { NoteAnchor, ScriptNote } from "./notes.ts";
+export { ANCHOR_CONTEXT_UNITS, isTextAnchor, textAnchorAt } from "./anchors.ts";
+export type { TextAnchor } from "./anchors.ts";
+export { isScriptNote } from "./notes.ts";
+export type { ScriptNote } from "./notes.ts";
 export { TITLE_PAGE_FIELDS } from "./title-page.ts";
 export type { TitlePageField, TitlePageFields } from "./title-page.ts";
+export { formatPrompterStory, prompterBlocks } from "./prompter.ts";
+export {
+  NEWS_COLUMNS,
+  ROW_KINDS,
+  RUNDOWN_COLUMNS_ROOT,
+  RUNDOWN_COLUMN_IDS,
+  RUNDOWN_FIELDS_ROOT,
+  RUNDOWN_ROWS_ROOT,
+  SHOW_COLUMNS,
+} from "./rundown.ts";
+export type {
+  PrompterStateJSON,
+  RowKind,
+  RundownCellJSON,
+  RundownColumnId,
+  RundownFieldsJSON,
+  RundownJSON,
+  RundownRowJSON,
+} from "./rundown.ts";

@@ -15,6 +15,29 @@ import { NAVIGATION_COMMANDS } from "./navigation.ts";
 import { PRODUCTION_COMMANDS } from "./production.ts";
 import { SYNC_COMMANDS } from "./sync.ts";
 import { VIEW_COMMANDS } from "./view.ts";
+import { COMMENTS_COMMANDS } from "./comments.ts";
+import { WRITING_COMMANDS } from "./writing.ts";
+import { ASSIGNMENT_COMMANDS } from "./assignment.ts";
+import { MATERIAL_COMMANDS } from "./material.ts";
+import { SCENES_COMMANDS } from "./scenes.ts";
+import { ROOM_COMMANDS } from "./room.ts";
+import { SHARE_COMMANDS } from "./share.ts";
+import { DRAFTS_COMMANDS } from "./drafts.ts";
+import { LINKS_COMMANDS } from "./links.ts";
+import { PROJECT_COMMANDS } from "./project.ts";
+import { SERIES_COMMANDS } from "./series.ts";
+import { NAMES_COMMANDS } from "./names.ts";
+import { CHECKS_COMMANDS } from "./checks.ts";
+import { BOARD_COMMANDS } from "./board.ts";
+import { OUTLINE_COMMANDS } from "./outline.ts";
+import { ROOM_LOG_COMMANDS } from "./room-log.ts";
+import { COPIES_COMMANDS } from "./copies.ts";
+import { READER_COMMANDS } from "./reader.ts";
+import { BESIDE_COMMANDS } from "./beside.ts";
+import { ARCHIVE_COMMANDS } from "./archive.ts";
+import { TIMING_COMMANDS } from "./timing.ts";
+import { RUNDOWN_COMMANDS } from "./rundown.ts";
+import { PROMPTER_COMMANDS } from "./prompter.ts";
 
 export const COMMANDS = defineCommands([
   ...APP_COMMANDS,
@@ -30,6 +53,29 @@ export const COMMANDS = defineCommands([
   ...DESKTOP_COMMANDS,
   ...HISTORY_COMMANDS,
   ...PRODUCTION_COMMANDS,
+  ...COMMENTS_COMMANDS,
+  ...WRITING_COMMANDS,
+  ...ASSIGNMENT_COMMANDS,
+  ...MATERIAL_COMMANDS,
+  ...SCENES_COMMANDS,
+  ...ROOM_COMMANDS,
+  ...SHARE_COMMANDS,
+  ...DRAFTS_COMMANDS,
+  ...LINKS_COMMANDS,
+  ...PROJECT_COMMANDS,
+  ...SERIES_COMMANDS,
+  ...NAMES_COMMANDS,
+  ...CHECKS_COMMANDS,
+  ...BOARD_COMMANDS,
+  ...OUTLINE_COMMANDS,
+  ...ROOM_LOG_COMMANDS,
+  ...COPIES_COMMANDS,
+  ...READER_COMMANDS,
+  ...BESIDE_COMMANDS,
+  ...ARCHIVE_COMMANDS,
+  ...TIMING_COMMANDS,
+  ...RUNDOWN_COMMANDS,
+  ...PROMPTER_COMMANDS,
   ...settingCommands(SETTINGS),
 ]);
 export type CommandId = (typeof COMMANDS)[number]["id"];

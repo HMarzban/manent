@@ -8,6 +8,14 @@ import type {
 } from "@manent/sync-protocol";
 import type { SeedPassage } from "../content/markup.ts";
 import type { PageMeter } from "../generate/fit.ts";
+import type { SeedComments } from "./capabilities/comments.ts";
+import type { SeedPrivateCopies } from "./capabilities/private-copies.ts";
+import type { SeedPrompter } from "./capabilities/prompter.ts";
+import type { SeedRundowns } from "./capabilities/rundowns.ts";
+import type { SeedSeries } from "./capabilities/series.ts";
+import type { SeedSharing } from "./capabilities/sharing.ts";
+import type { SeedStartFrom } from "./capabilities/start-from.ts";
+import type { SeedWritersMaterial } from "./capabilities/writers-material.ts";
 import type { SeedDoc, SeedProject, SeedWorkspaceId } from "./catalogue.ts";
 
 /** What a seed server can do; an action whose capability is missing is skipped and reported. */
@@ -20,6 +28,14 @@ export const SEED_CAPABILITIES = [
   "production",
   "rebuild",
   "title_page",
+  "comments",
+  "writers_material",
+  "sharing",
+  "series",
+  "private_copies",
+  "start_from",
+  "rundowns",
+  "prompter",
 ] as const;
 
 export type SeedCapability = (typeof SEED_CAPABILITIES)[number];
@@ -142,6 +158,17 @@ export interface SeedDriver {
   ): Promise<readonly string[]>;
   /** Counts pages as the server's engine does; a step fits its generated text with it. */
   readonly meter: PageMeter;
+  /** Each null while its capability is off. */
+  comments: SeedComments | null;
+  writersMaterial: SeedWritersMaterial | null;
+  sharing: SeedSharing | null;
+  series: SeedSeries | null;
+  privateCopies: SeedPrivateCopies | null;
+  startFrom: SeedStartFrom | null;
+  rundowns: SeedRundowns | null;
+  prompter: SeedPrompter | null;
+  /** Puts `docId` in Trash as `userId` at `at`, in milliseconds since the epoch. */
+  trash(userId: string, docId: string, at: number): Promise<void>;
 }
 
 /** The server refused an action, cannot do it, or did not answer. */

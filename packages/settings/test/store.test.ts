@@ -69,6 +69,7 @@ function store(
       personal: options.personal ?? memory(),
       device: options.device ?? memory(),
       script: options.script === undefined ? memory() : options.script,
+      project: null,
     },
     beforeWrite: options.beforeWrite ?? (() => {}),
     deferRemote: options.deferRemote ?? ((apply) => apply()),

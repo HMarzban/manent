@@ -474,7 +474,7 @@ test("the Library writes each value of the indexes with its fields in their stor
     stored(own, "on_device", onDevice),
   ]).toEqual([
     `{"title":"Untitled film","kind":"film","createdAt":${at},"createdByUserId":"dana"}`,
-    `{"projectId":"${made.projectId}","title":"Untitled script","kind":"script","createdAt":${at},"editedAt":null,"editedByUserId":null}`,
+    `{"projectId":"${made.projectId}","title":"Untitled script","kind":"script","createdAt":${at},"editedAt":null,"editedByUserId":null,"airDate":null,"rundownId":null}`,
     `{"workspaceId":"medium","openedAt":${at}}`,
     `{"title":"Untitled script","synced":false,"at":${at}}`,
   ]);
