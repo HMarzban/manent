@@ -18,7 +18,8 @@ import type { ReplayOutcome } from "../rebuild/replay.ts";
 import type { DocumentAccess } from "./access.ts";
 import type { IngestItem } from "./ingest.ts";
 import type { Room, Subscription } from "./rooms.ts";
-import type { Committed, QueuedItem } from "./write-path.ts";
+import type { QueuedItem } from "./write-path.ts";
+import type { Committed } from "./write-path-ports.ts";
 
 /** The returned function cancels what `schedule` set. */
 export interface Clock {

@@ -7,8 +7,8 @@ import type {
   VersionKind,
   VersionRow,
   Versions,
-} from "../ports.ts";
-import { StorageError } from "../ports.ts";
+} from "../ports/index.ts";
+import { StorageError } from "../ports/index.ts";
 import { readStrings } from "./directory.ts";
 import { transact } from "./files.ts";
 

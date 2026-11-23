@@ -1,5 +1,5 @@
 // A document's home, the file it lives in, and the one way it is written.
-import type { Home } from "./ports.ts";
+import type { Home } from "./ports/index.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const USER_ID = /^[A-Za-z0-9_-]{1,64}$/;

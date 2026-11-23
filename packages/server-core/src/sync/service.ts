@@ -5,12 +5,11 @@ import { createTokenBucket } from "../limits/bucket.ts";
 import type { TokenBucket } from "../limits/bucket.ts";
 import { createConnectionCaps } from "../limits/caps.ts";
 import { createRebuilder, createSubscriptions } from "../rebuild/rebuilder.ts";
-import type { PeerState } from "../rebuild/rebuilder.ts";
 import { createReplay } from "../rebuild/replay.ts";
 import { createDocumentAccess } from "./access.ts";
-import { isWriterRole } from "./admission.ts";
 import { createAwarenessHub } from "./awareness.ts";
 import { createInlineCheckpointer } from "./checkpointer.ts";
+import { combineHooks } from "./combine-hooks.ts";
 import { countingCommits } from "./counted-storage.ts";
 import { createDeletions } from "./deletions.ts";
 import { refusalError, syncError } from "./errors.ts";
@@ -18,43 +17,14 @@ import { createRelayIntake } from "./follow.ts";
 import { createHealing } from "./heal.ts";
 import { HELD_RETRY_MS, createHeldQueue } from "./held.ts";
 import { DEFAULT_LIMITS, NO_SETTINGS } from "./ports.ts";
-import type {
-  Peer,
-  SyncHooks,
-  SyncLimits,
-  SyncService,
-  SyncSettings,
-} from "./ports.ts";
+import type { Peer, SyncLimits, SyncService, SyncSettings } from "./ports.ts";
 import { createRooms } from "./rooms.ts";
 import type { Room } from "./rooms.ts";
-import { answerStepOne, docOf, subscribe } from "./subscribe.ts";
+import { docOf } from "./subscribe.ts";
 import type { SubscribePorts } from "./subscribe.ts";
+import { createSubscribedPeers } from "./subscribed-peers.ts";
 import { createSnapshotAnswers, viewPatchOf } from "./viewers.ts";
 import { createWritePath } from "./write-path.ts";
-
-/** The hooks as one: each member asks every hook in list order; `subscribed` answers the first non-null. */
-function combineHooks(hooks: readonly SyncHooks[]): Required<SyncHooks> {
-  return {
-    committed(committed) {
-      for (const hook of hooks) hook.committed?.(committed);
-    },
-    editorLeft(room, userId) {
-      for (const hook of hooks) hook.editorLeft?.(room, userId);
-    },
-    forgotten(room) {
-      for (const hook of hooks) hook.forgotten?.(room);
-    },
-    subscribed(docId) {
-      for (const hook of hooks) {
-        const extras = hook.subscribed?.(docId) ?? null;
-        if (extras !== null) return extras;
-      }
-      return null;
-    },
-    checkPush: (room, report) =>
-      hooks.flatMap((hook) => hook.checkPush?.(room, report) ?? []),
-  };
-}
 
 export function createSyncService(
   options: SyncSettings & { versions: ServerVersions },
@@ -247,6 +217,16 @@ export function createSyncService(
     editorLeft: hooks.editorLeft,
     extras: hooks.subscribed,
   };
+  const subscribed = createSubscribedPeers({
+    peers,
+    subscribe: subscribePorts,
+    deletions,
+    writePath,
+    presence,
+    awarenessDropped(count) {
+      counted.awarenessDropped += count;
+    },
+  });
 
   /** The room of a placed document; RangeError for one this node has not placed. */
   function placedRoom(docId: string): Room {
@@ -254,36 +234,6 @@ export function createSyncService(
     if (place === null || !isDocKind(place.kind))
       throw new RangeError(`no script ${docId} is placed here`);
     return rooms.room(docId, place.home, place.kind);
-  }
-
-  /** Anything else a client sends for a document is ignored. */
-  function receiveDocument(
-    peer: Peer,
-    state: PeerState,
-    message: Extract<Message, { docId: string }>,
-  ): void {
-    const { type, docId } = message;
-    if (type === "SUBSCRIBE")
-      return subscribe(subscribePorts, peer, state, message);
-    if (type === "UNSUBSCRIBE") return end(peer, docId);
-    if (!["PUSH", "SET", "SYNC", "AWARENESS"].includes(type)) return;
-    const held = state.held.get(docId);
-    const notSubscribed = () =>
-      tell(
-        peer,
-        syncError("not_subscribed", { docId, generation: message.generation }),
-      );
-    if (held === undefined) return notSubscribed();
-    const { room, subscription, lastServerSeq } = held;
-    if (type === "PUSH") return writePath.push(room, subscription, message);
-    if (type === "SET") return writePath.set(room, subscription, message);
-    if (subscription.mode !== "edit") return notSubscribed();
-    if (type === "AWARENESS")
-      counted.awarenessDropped += presence.accept(room, peer, message.update);
-    if (type !== "SYNC" || message.step !== "step1") return;
-    const step = { vector: message.data, lastServerSeq };
-    for (const m of answerStepOne({ rooms, deletions, writePath }, room, step))
-      tell(peer, m);
   }
 
   function detach(peer: Peer): void {
@@ -307,30 +257,14 @@ export function createSyncService(
     receive(peer, message) {
       const state = peers.get(peer);
       if (state !== undefined && "docId" in message)
-        receiveDocument(peer, state, message);
+        subscribed.receive(peer, state, message);
     },
     skipped(peer, doc) {
       counted.skipped += 1;
       tell(peer, syncError("unknown_frame", doc));
     },
     detach,
-    accessChanged(docId, userId) {
-      for (const [peer, state] of peers) {
-        const held = state.held.get(docId);
-        if (held === undefined || peer.userId !== userId) continue;
-        const resolved = access.resolve(userId, docId);
-        const reader =
-          resolved.ok &&
-          !isWriterRole(resolved.access.role) &&
-          held.room.kind !== "index";
-        if (resolved.ok && !(held.subscription.mode === "edit" && reader)) {
-          held.subscription.access = resolved.access;
-          continue;
-        }
-        tell(peer, syncError("forbidden", docOf(held.room)));
-        end(peer, docId);
-      }
-    },
+    accessChanged: subscribed.accessChanged,
     removed(docId) {
       const room = rooms.find(docId);
       if (room === null) return;

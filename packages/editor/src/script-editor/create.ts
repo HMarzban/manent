@@ -1,43 +1,36 @@
 // One script editor over one place: the binding, the keys, the popovers, the pages, the scroll rules and the bridge.
-import { profileFromSettings, readLayoutSettings } from "@manent/pagination";
+import {
+  LAYOUT_SETTING_KEYS,
+  profileFromSettings,
+  readLayoutSettings,
+} from "@manent/pagination";
 import type {
   Engine,
   FrontPage,
   PageProfile,
   Pagination,
 } from "@manent/pagination";
-import { FORMATS, FORMAT_ELEMENTS } from "@manent/schema";
+import { FORMATS } from "@manent/schema";
 import type { FormatId, IdSource } from "@manent/schema";
-import { Plugin } from "prosemirror-state";
+import type { Plugin } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { runAction } from "../actions/run-action.ts";
 import type { ActionContext } from "../actions/run-action.ts";
 import type { ActionResult, EditorAction } from "../actions/action-types.ts";
-import { bridgePlugin } from "../bridge/bridge-plugin.ts";
-import { completePlugin } from "../complete/complete-plugin.ts";
 import { CURSOR_CSS } from "../cursors/cursor-css.ts";
-import { cursorsPlugin } from "../cursors/cursor-plugin.ts";
-import { plainTextElement, slotElement } from "../elements/slots.ts";
-import { findPlugin } from "../find/find-plugin.ts";
-import { clipboardPlugin } from "../identity/clipboard.ts";
-import { idRegistryPlugin } from "../identity/id-registry.ts";
-import { commandKeymap } from "../keys/command-keymap.ts";
-import { detectPlugin } from "../keys/detect.ts";
-import { elementKeysPlugin } from "../keys/element-keys.ts";
+import { slotElement } from "../elements/slots.ts";
 import { loadFrontPages } from "../front-pages/load.ts";
 import type { FrontPagesHandle } from "../front-pages/load.ts";
 import type { ElementContext } from "../keys/element-keys.ts";
-import { historyKeysPlugin } from "../keys/history-keys.ts";
 import type { LayoutView } from "../page/config.ts";
 import type { PageScaffold } from "../page/scaffold.ts";
 import type { PageViewPorts } from "../pagination/page-view.ts";
 import { paginationKey } from "../pagination/plugin.ts";
-import { openPicker, pickerPlugin } from "../picker/picker-plugin.ts";
-import { PLACEHOLDER_CSS, placeholderPlugin } from "../picker/placeholder.ts";
+import { openPicker } from "../picker/picker-plugin.ts";
+import { PLACEHOLDER_CSS } from "../picker/placeholder.ts";
 import { restorePlace, savedPlaceOf } from "../scroll/saved-place.ts";
-import { scrollPlugin } from "../scroll/stability.ts";
 import type { ScrollPorts } from "../scroll/stability.ts";
-import { sourcePlugin } from "../source/source-plugin.ts";
+import { editorPlugins } from "./editor-plugins.ts";
 import { mountEditor } from "./mount-view.ts";
 import {
   createPageControls,
@@ -128,97 +121,12 @@ export interface ScriptEditorOptions {
   extraPlugins(host: EditorPluginHost): readonly Plugin[];
 }
 
-/** The script settings the page profile is made from. */
-const LAYOUT_KEYS: readonly string[] = Object.freeze([
-  "script.format",
-  "script.paper",
-  "script.moresAtBreaks",
-  "script.sameSpeakerContd",
-  "script.sceneContinued",
-]);
-
-const READ_ONLY_ATTRIBUTES: Readonly<Record<string, string>> = Object.freeze({
-  tabindex: "0",
-  "aria-readonly": "true",
-});
-
-/** The page is one multiline textbox named by the script's title; a read-only one is focusable and says so. */
-function pageAttributes(options: ScriptEditorOptions): Record<string, string> {
-  return {
-    role: "textbox",
-    "aria-multiline": "true",
-    "aria-label": options.title.get(),
-    ...(options.editable ? {} : READ_ONLY_ATTRIBUTES),
-  };
-}
-
 /** The layer is the popovers' frame: they are placed in its coordinates. */
 const LAYER_CSS = ".mn-layer { position: relative; }";
 
 /** An unknown format lays out as a screenplay, as the engine does. */
 const formatOf = (format: string): FormatId =>
   FORMATS.find((known) => known === format) ?? "screenplay";
-
-/** The plugins before the typesetting ones, and those after them. */
-function editorPlugins(
-  options: ScriptEditorOptions,
-  parts: {
-    layer: HTMLElement;
-    format(): FormatId;
-    context: ElementContext;
-    ports: ScrollPorts;
-    paged: boolean;
-    extra: readonly Plugin[];
-  },
-): { before: Plugin[]; after: Plugin[] } {
-  const { binding, words, frames, timers, ids, personal } = options;
-  const { layer, format, context } = parts;
-  const before = [
-    ...binding.plugins,
-    pickerPlugin({ format, words, layer, frames }),
-    completePlugin({ layer, frames, timers }),
-    commandKeymap(options.keys),
-    historyKeysPlugin({ history: binding.history, platform: options.platform }),
-    elementKeysPlugin(context),
-    detectPlugin(context),
-    clipboardPlugin({
-      ids,
-      random: options.random,
-      isUndoRedo: binding.isUndoRedo,
-      history: binding.history,
-      pastedText: options.pastedText,
-      plainElement: () => plainTextElement(format()),
-      formatElements: () => FORMAT_ELEMENTS[format()],
-    }),
-    new Plugin({ props: { attributes: () => pageAttributes(options) } }),
-  ];
-  const after = [
-    // the registry counts from the pagination plugin's block index
-    ...(parts.paged
-      ? [idRegistryPlugin({ ids, isRemote: binding.isRemote })]
-      : []),
-    placeholderPlugin({ format, words }),
-    sourcePlugin({ format, layer }),
-    findPlugin(),
-    cursorsPlugin({ presence: binding.presence, frames, timers }),
-    scrollPlugin({
-      ...parts.ports,
-      isRemote: binding.isRemote,
-      typewriter: () => personal.get("writing.typewriterScrolling") === true,
-    }),
-    bridgePlugin({
-      facts: options.facts,
-      outline: options.outline,
-      history: binding.history,
-      words,
-      format,
-      frames,
-      timers,
-    }),
-    ...parts.extra,
-  ];
-  return { before, after };
-}
 
 /** `div.mn-layer`, which holds the popovers and the styles of the placeholders and the remote cursors. */
 function createLayer(doc: Document): HTMLElement {
@@ -309,7 +217,9 @@ function subscribe(
   const reread = (): void =>
     view.dispatch(view.state.tr.setMeta("addToHistory", false));
   return [
-    ...LAYOUT_KEYS.map((key) => options.script.subscribe(key, relayout)),
+    ...LAYOUT_SETTING_KEYS.map((key) =>
+      options.script.subscribe(key, relayout),
+    ),
     options.personal.subscribe("writing.checkSpelling", reread),
     options.title.subscribe(reread),
     options.binding.history.onStep(options.onUndoStep),

@@ -1,6 +1,6 @@
 // The production tables of one document file: the store over its connection, and the checks on what it reads back.
 import type { Database } from "bun:sqlite";
-import { StorageError } from "../ports.ts";
+import { StorageError } from "../ports/index.ts";
 import { readStrings } from "../sqlite/directory.ts";
 import { transact } from "../sqlite/files.ts";
 import type {

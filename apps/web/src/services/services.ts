@@ -1,14 +1,8 @@
 // One person's services in this tab, composed once: each port's implementation is picked on one line, until sync and the editor supply their own.
 import { COMMANDS, isChord, resolveBindings } from "@manent/commands";
 import type { CustomBinding, Keys, Resolved } from "@manent/commands";
-import {
-  SECTION_IDS,
-  SETTINGS,
-  createPersonalBag,
-  createSettingsStore,
-  latestEntries,
-} from "@manent/settings";
-import type { Bag, KeyValueMap, SettingsStore } from "@manent/settings";
+import { SECTION_IDS, latestEntries } from "@manent/settings";
+import type { KeyValueMap } from "@manent/settings";
 import type { DocHandle } from "@manent/sync-client";
 import { createMessageQueue, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
@@ -22,24 +16,17 @@ import {
 } from "../editor-host/place.ts";
 import type { PlaceStore } from "../editor-host/place.ts";
 import { createLazySource } from "../history/lazy-source.ts";
-import { deviceName } from "../platform.ts";
 import type { Where } from "../platform.ts";
 import type { TabPerson } from "../session.ts";
-import { productionContextActions } from "../state/production-context.store.ts";
 import { createDeviceBag } from "./device-bag.ts";
 import { readDeviceId } from "./device-id.ts";
 import { createFlags } from "./flags.ts";
 import { createLocalMap, createLocalText } from "./local-map.ts";
 import { createCommands } from "./person-commands.ts";
 import type { CommandsOptions } from "./person-commands.ts";
-import type {
-  DocumentSource,
-  FixedKey,
-  PersonServices,
-  Reverses,
-} from "./ports.ts";
+import type { FixedKey, PersonServices, Reverses } from "./ports.ts";
 import { createPersonDocuments } from "./person-documents.ts";
-import { createRemoteDeferral } from "./remote-deferral.ts";
+import { createStores } from "./settings-stores.ts";
 import { createCloseGuard, createCloseQuestion } from "./sync/close-guard.ts";
 
 type Options = CommandsOptions & { person: TabPerson };
@@ -98,78 +85,6 @@ function createReverses(messages: MessageQueue): Reverses {
   };
 }
 
-/** Views of bags that outlive their store; `release` ends every subscription made through them, so a dropped store stops hearing them. */
-function createBagViews(): { view(bag: Bag): Bag; release(): void } {
-  const unsubscribers: (() => void)[] = [];
-  return {
-    view: (bag) => ({
-      read: () => bag.read(),
-      provenance: (key) => bag.provenance(key),
-      write: (patch) => bag.write(patch),
-      subscribe(listener) {
-        const unsubscribe = bag.subscribe(listener);
-        unsubscribers.push(unsubscribe);
-        return unsubscribe;
-      },
-      canWrite: (key) => bag.canWrite(key),
-    }),
-    release() {
-      for (const unsubscribe of unsubscribers.splice(0)) unsubscribe();
-    },
-  };
-}
-
-interface ScriptStore {
-  store: SettingsStore;
-  release(): void;
-}
-
-interface ScriptStores {
-  documents: DocumentSource;
-  openScriptStore(docId: string): SettingsStore;
-  clear(): void;
-}
-
-/** The open documents, counted, and one settings store per open document, released when its last opener closes it. */
-function createScriptStores(options: {
-  source: DocumentSource;
-  store: (scriptBag: Bag, docId: string) => ScriptStore;
-}): ScriptStores {
-  const { source } = options;
-  const opens = new Map<string, number>();
-  const stores = new Map<string, ScriptStore>();
-  return {
-    documents: {
-      open(docId) {
-        opens.set(docId, (opens.get(docId) ?? 0) + 1);
-        return source.open(docId);
-      },
-      close(docId) {
-        const left = (opens.get(docId) ?? 1) - 1;
-        if (left > 0) {
-          opens.set(docId, left);
-          return;
-        }
-        opens.delete(docId);
-        stores.get(docId)?.release();
-        stores.delete(docId);
-        source.close(docId);
-      },
-    },
-    openScriptStore(docId) {
-      const existing = stores.get(docId);
-      if (existing !== undefined) return existing.store;
-      const created = options.store(source.open(docId).scriptBag, docId);
-      stores.set(docId, created);
-      return created.store;
-    },
-    clear() {
-      for (const { release } of stores.values()) release();
-      stores.clear();
-    },
-  };
-}
-
 /** What the person keeps in this origin's storage, for this device alone; `dispose` stops the bag listening to other tabs. */
 function createKept(options: Options) {
   const { storage, storageEvents: events } = options;
@@ -187,55 +102,6 @@ function createKept(options: Options) {
       set: lastPane.set,
     },
     dispose: device.dispose,
-  };
-}
-
-/** The person's settings store, and one store per open document of `source` with its script settings. */
-function createStores(
-  options: Options,
-  kept: { prefs: KeyValueMap; device: Bag; deviceId: string },
-  source: DocumentSource,
-): { settings: SettingsStore; scripts: ScriptStores } {
-  const { now, schedule, where } = options;
-  const personal = createPersonalBag({
-    map: kept.prefs,
-    deviceId: kept.deviceId,
-    deviceName: deviceName(where) ?? "",
-    now,
-  });
-  const deferRemote = createRemoteDeferral({
-    now,
-    schedule,
-    lastKeyAt: options.lastKeyAt,
-  });
-  const storeOver = (
-    view: (bag: Bag) => Bag,
-    script: Bag | null,
-    locked: () => boolean,
-  ) =>
-    createSettingsStore({
-      registry: SETTINGS,
-      bags: { personal: view(personal), device: view(kept.device), script },
-      beforeWrite: () => options.guard.check("settings"),
-      deferRemote,
-      locked,
-    });
-  return {
-    // the person's own store lives as long as the bags it reads
-    settings: storeOver(
-      (bag) => bag,
-      null,
-      () => false,
-    ),
-    scripts: createScriptStores({
-      source,
-      store(scriptBag, docId) {
-        const { view, release } = createBagViews();
-        const locked = () =>
-          productionContextActions.get(docId)?.locked === true;
-        return { store: storeOver(view, view(scriptBag), locked), release };
-      },
-    }),
   };
 }
 

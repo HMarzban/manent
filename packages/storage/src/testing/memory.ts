@@ -1,8 +1,8 @@
 // The in-memory storage driver: plain maps, copied on write, with the faults a test can arm.
 import { sha256 } from "../checksum.ts";
 import { homeKey, parseHome, wellFormedKey } from "../home.ts";
-import type { DocFile, Home, MeasureRow, Storage } from "../ports.ts";
-import { CHECKPOINTS_KEPT, StorageError } from "../ports.ts";
+import type { DocFile, Home, MeasureRow, Storage } from "../ports/index.ts";
+import { CHECKPOINTS_KEPT, StorageError } from "../ports/index.ts";
 import type { ProductionTables } from "../production/memory.ts";
 import {
   copyProductionTables,

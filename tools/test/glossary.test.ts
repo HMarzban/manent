@@ -1,4 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { createTempTrees } from "@manent/testkit";
 import {
@@ -12,7 +13,7 @@ import {
   FEATURES,
   NOT_SENT_EXCEPTION,
   TERMS,
-} from "../glossary.ts";
+} from "../glossary/index.ts";
 
 const repoRoot = join(import.meta.dir, "..", "..");
 
@@ -266,7 +267,9 @@ test("a scoped file that is missing stops the check", async () => {
 });
 
 test("the vocabulary file holds words only", async () => {
-  for (const file of ["tools/glossary.ts", "tools/plain-words.ts"]) {
+  const areas = await readdir(join(repoRoot, "tools/glossary"));
+  const files = areas.map((name) => `tools/glossary/${name}`);
+  for (const file of [...files, "tools/plain-words.ts"]) {
     const text = await Bun.file(join(repoRoot, file)).text();
     expect(text).not.toMatch(/\b\d+\.\d+\b|design|glossary\.md|superpowers/); // no section number, no citation of a private document
   }

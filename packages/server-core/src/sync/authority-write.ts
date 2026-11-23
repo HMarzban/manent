@@ -12,7 +12,7 @@ import type { AppendItem, DocFile } from "@manent/storage";
 import { writerClientId } from "./client-ids.ts";
 import type { AuthorityWrite, AuthorityWriteResult } from "./ports.ts";
 import type { Room } from "./rooms.ts";
-import type { WritePathPorts } from "./write-path.ts";
+import type { WritePathPorts } from "./write-path-ports.ts";
 
 /** An authority write as the write path queues it, its edit already in the room's document. */
 export interface AuthorityItem {
