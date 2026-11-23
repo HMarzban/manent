@@ -11,7 +11,7 @@ import { isFields } from "./link.ts";
 /** The empty file the seed writes once the staging seed is whole: adoption may start, and start again. */
 export const STAGING_DONE = "done";
 /** The seed's record, rewritten whole as it goes. */
-const STAGING_RUN = "run.json";
+export const STAGING_RUN = "run.json";
 
 /** What a background seed records in its staging folder, so that a server started after it can follow it. */
 export interface SeedRun {
@@ -24,6 +24,12 @@ export interface SeedRun {
   progress: { done: number; total: number } | null;
   /** The clause its failure is told with; null while it runs. */
   failed: string | null;
+  /**
+   * The process whose exit ends the seed: the demo's supervisor, which may stop and start the server
+   * that started it, so that the server it starts next follows the seed; otherwise that server, which
+   * no other server follows. Null for a seed started by hand.
+   */
+  owner: number | null;
 }
 
 const isCount = (value: unknown): value is number =>
@@ -39,14 +45,16 @@ export function readSeedRun(stagingDir: string): SeedRun | null {
     return null;
   }
   if (!isFields(value)) return null;
-  const { pid, startedAt, beatAt, progress, failed } = value;
+  const { pid, startedAt, beatAt, progress, failed, owner } = value;
   if (!isCount(pid) || !isCount(startedAt) || !isCount(beatAt)) return null;
   if (failed !== null && typeof failed !== "string") return null;
-  if (progress === null) return { pid, startedAt, beatAt, progress, failed };
+  if (owner !== null && !isCount(owner)) return null;
+  const run = { pid, startedAt, beatAt, failed, owner };
+  if (progress === null) return { ...run, progress };
   if (!isFields(progress)) return null;
   const { done, total } = progress;
   return isCount(done) && isCount(total)
-    ? { pid, startedAt, beatAt, progress: { done, total }, failed }
+    ? { ...run, progress: { done, total } }
     : null;
 }
 

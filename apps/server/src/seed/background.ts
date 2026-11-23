@@ -1,8 +1,13 @@
 // Lanternfield Studios seeded in a child process after the app opens, into a staging directory.
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { rename, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { STAGING_DONE, isSeedRunning, readSeedRun } from "./adopt.ts";
+import {
+  STAGING_DONE,
+  isSeedRunning,
+  readSeedRun,
+  writeSeedRun,
+} from "./adopt.ts";
 import { isFields } from "./link.ts";
 
 /** How often the server reads the seed's record. */
@@ -20,8 +25,8 @@ export const stagingDirOf = (dataDir: string): string =>
 
 /**
  * Stops a seed this server did not start without signalling any process: its staging folder is
- * moved off its path, which the seed exits on at its next beat, and is removed once the record
- * there no longer shows a running seed.
+ * moved off its path, which the seed's watch ends it on, and is removed once the record there no
+ * longer shows a running seed.
  */
 async function retire(stagingDir: string): Promise<void> {
   const aside = `${stagingDir}-stopped-${Date.now()}`;
@@ -48,16 +53,19 @@ interface Seed {
 }
 
 /**
- * Starts the seed in a staging folder emptied of what a stopped one left: it writes its record
- * there, and stops by itself once the process that started this server has exited.
+ * Starts the seed in a staging folder emptied of what a stopped one left, under a record that
+ * claims the folder for it before it runs: a seed finding its folder claimed for another exits.
  */
 function spawnSeed(options: {
   command: readonly string[];
   dataDir: string;
   seedAt: number;
+  owner: number;
 }): Seed {
-  rmSync(stagingDirOf(options.dataDir), { recursive: true, force: true });
-  // Bun's --no-orphans reaches every child through this variable, and would end the seed with a server killed without warning
+  const stagingDir = stagingDirOf(options.dataDir);
+  rmSync(stagingDir, { recursive: true, force: true });
+  mkdirSync(stagingDir, { recursive: true });
+  // Bun's --no-orphans reaches a child through this variable and would end the seed with this server: its owner does
   const { BUN_FEATURE_FLAG_NO_ORPHANS: _, ...env } = process.env;
   const child = Bun.spawn(
     [
@@ -70,17 +78,27 @@ function spawnSeed(options: {
       "--seed-at",
       String(options.seedAt),
       "--owner",
-      String(process.ppid),
+      String(options.owner),
     ],
     { env, stdin: "ignore", stdout: "ignore", stderr: "ignore" },
   );
-  return { startedAt: Date.now(), child };
+  const startedAt = Date.now();
+  writeSeedRun(stagingDir, {
+    pid: child.pid,
+    startedAt,
+    beatAt: startedAt,
+    progress: null,
+    failed: null,
+    owner: options.owner,
+  });
+  return { startedAt, child };
 }
 
 /**
  * Follows the background seed in the staging folder, and starts one when none runs there: a seed
- * a server killed without stopping keeps running, so the server started after it follows it from
- * where it is, for as long as its record beats. `onProgress` hears each project it writes; once
+ * runs until its `owner` exits, so when that is the demo's supervisor a seed outlives a server it
+ * killed, and the server it starts next follows the seed from where it is, for as long as its
+ * record beats; a seed owned by its server ends with it. `onProgress` hears each project it writes; once
  * the seed has marked the staging whole, `onDone` adopts it. A failure, a seed that ends without
  * its mark, or one still running SEED_RUN_LIMIT_MS after it started removes the staging folder and
  * is told `onFailed`. `stop` ends the seed and removes what it wrote; an adoption under way is
@@ -91,6 +109,8 @@ export function startBackgroundSeed(options: {
   command: readonly string[];
   dataDir: string;
   seedAt: number;
+  /** The process whose exit ends the seed: this server's own, or the demo's supervisor (SeedRun's `owner`). */
+  owner: number;
   onProgress(done: number, total: number): void;
   onDone(): Promise<void>;
   onFailed(reason: string): void;
@@ -98,7 +118,9 @@ export function startBackgroundSeed(options: {
   const stagingDir = stagingDirOf(options.dataDir);
   const found = readSeedRun(stagingDir);
   const { startedAt, child }: Seed =
-    found !== null && isSeedRunning(found, Date.now())
+    found !== null &&
+    found.owner === options.owner &&
+    isSeedRunning(found, Date.now())
       ? { startedAt: found.startedAt, child: null }
       : spawnSeed(options);
   let exited = false;

@@ -24,12 +24,14 @@ test("stopping a seed this server did not start never signals the process its re
     beatAt: now - 299_000,
     progress: { done: 3, total: 40 },
     failed: null,
+    owner: process.pid,
   });
   const heard: number[][] = [];
   const seed = startBackgroundSeed({
     command: ["false"],
     dataDir,
     seedAt: now,
+    owner: process.pid,
     onProgress: (done, total) => heard.push([done, total]),
     onDone: async () => {},
     onFailed: () => {},

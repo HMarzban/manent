@@ -1,5 +1,5 @@
 // The seed command: `seed --phase foreground|background --data-dir <dir> --seed-at <epoch ms> [--owner <pid>]`, run
-// as a child process.
+// as a child process, which ends once its owner has.
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -14,7 +14,12 @@ import {
   seedProject,
 } from "@manent/demo";
 import type { SeedDriver, SeedStep, SkippedAction } from "@manent/demo";
-import { STAGING_DONE, isAlive, readSeedRun, writeSeedRun } from "./adopt.ts";
+import {
+  STAGING_DONE,
+  STAGING_RUN,
+  readSeedRun,
+  writeSeedRun,
+} from "./adopt.ts";
 import type { SeedRun } from "./adopt.ts";
 import { stagingDirOf } from "./background.ts";
 import { createSeedDriver } from "./driver.ts";
@@ -118,8 +123,47 @@ const zoneOffsetAt = (at: number): number =>
 const PHASES = ["foreground", "background"] as const;
 type Phase = (typeof PHASES)[number];
 
-/** How often the background seed looks for the process that started its server, and for its own record. */
-const OWNER_POLL_MS = 1_000;
+/** How often the background seed rewrites its record, as its work leaves it free to. */
+const BEAT_EVERY_MS = 1_000;
+/** How often the background seed's watch looks for its owner and its record. */
+const WATCH_EVERY_MS = 100;
+
+/**
+ * Ends this process, from a thread of its own, once `owner` has exited or the record at `stagingDir`
+ * is no longer its own (its folder moved away, removed, or claimed for another): building a project
+ * can hold the seed's own thread for minutes, and Bun's --no-orphans waits for it too. A worker from
+ * a file would need that file beside a compiled binary, so its few lines are given as text, which
+ * holds `owner` as the safe integer or null it is.
+ */
+function watchSeed(owner: number | null, stagingDir: string): void {
+  const watch = `import { readFileSync } from "node:fs";
+const OWNER = ${JSON.stringify(owner)};
+const isGone = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return false;
+  } catch (error) {
+    // EPERM: it exists, run by another user; ESRCH: it has exited
+    return error.code === "ESRCH";
+  }
+};
+const isOwnRecord = () => {
+  try {
+    return JSON.parse(readFileSync(${JSON.stringify(join(stagingDir, STAGING_RUN))}, "utf8")).pid === process.pid;
+  } catch {
+    // no record there: the folder was moved away or removed
+    return false;
+  }
+};
+setInterval(() => {
+  if ((OWNER !== null && isGone(OWNER)) || !isOwnRecord()) process.kill(process.pid, "SIGKILL");
+}, ${WATCH_EVERY_MS});`;
+  void new Worker(
+    URL.createObjectURL(new Blob([watch], { type: "text/javascript" })),
+    // the seed exits once its work is done, whatever the watch is doing
+    { ref: false },
+  );
+}
 
 /** The phase's steps through a seed server writing in `dir`; resolves with what the build could not do. */
 async function seedPhase(
@@ -162,15 +206,16 @@ async function seedPhase(
 
 /**
  * Rewrites the background seed's record with `change` and a new beat; once the record at its staging
- * path is no longer its own (removed, moved away, or a new seed's) or its owner has exited, it records
- * that it ended, where its folder still stands, and exits.
+ * path is no longer its own, the seed exits.
  */
 type Tell = (change: Partial<Pick<SeedRun, "progress" | "failed">>) => void;
 
 /**
- * The background seed's record, begun in its staging folder, which it works inside from now on: a
- * folder removed under it (a reset) is never written again, even once a new one stands at the same
- * path. It beats every OWNER_POLL_MS its work leaves it free to, and at each project it writes.
+ * The background seed's record in its staging folder, which it works inside from now on: a folder
+ * removed under it (a reset) is never written again, even once a new one stands at the same path.
+ * The server that started it claimed the folder for it in the record there; a seed started by hand
+ * begins one, and one finding the folder claimed for another exits. It beats every BEAT_EVERY_MS its
+ * work leaves it free to, and at each project; its watch ends it as `watchSeed` says.
  */
 async function enterStaging(
   dataDir: string,
@@ -180,34 +225,36 @@ async function enterStaging(
   await mkdir(stagingDir, { recursive: true });
   process.chdir(stagingDir);
   const startedAt = Date.now();
-  let run: SeedRun = {
+  const claimed = readSeedRun(".");
+  if (claimed !== null && claimed.pid !== process.pid) process.exit(1);
+  let run: SeedRun = claimed ?? {
     pid: process.pid,
     startedAt,
     beatAt: startedAt,
     progress: null,
     failed: null,
+    owner,
   };
-  const write = (change: Parameters<Tell>[0]) => {
-    run = { ...run, ...change, beatAt: Date.now() };
+  const write = (base: SeedRun, change: Parameters<Tell>[0]) => {
+    run = { ...base, ...change, beatAt: Date.now() };
     writeSeedRun(".", run);
   };
-  write({});
+  write(run, {});
+  watchSeed(owner, stagingDir);
   const tell: Tell = (change) => {
     const atPath = readSeedRun(stagingDir);
-    const own = atPath?.pid === run.pid && atPath.startedAt === startedAt;
     try {
-      if (own && (owner === null || isAlive(owner))) {
-        write(change);
+      // the server's claim may land after the seed's own first record: what stands there is the seed's to keep
+      if (atPath?.pid === process.pid) {
+        write(atPath, change);
         return;
       }
-      // whoever moved its folder away waits for the record to say it ended
-      write({ failed: UNEXPECTED });
     } catch {
       // its folder was removed under it: nobody is left to tell
     }
     process.exit(1);
   };
-  setInterval(() => tell({}), OWNER_POLL_MS).unref();
+  setInterval(() => tell({}), BEAT_EVERY_MS).unref();
   return tell;
 }
 
@@ -215,7 +262,8 @@ async function enterStaging(
  * Seeds as `argv` says, starting with "seed"; resolves with the process's exit code. The foreground's
  * one line on stdout is `{"seedAt":…,"skipped":[…]}` or `{"failed":"<reason>"}`; the background keeps
  * its progress, then its failure, in its record and marks its staging whole once it is. The detail of a
- * failure goes to stderr. Without `--seed-at` the seed runs at the moment it starts.
+ * failure goes to stderr. Without `--seed-at` the seed runs at the moment it starts; with `--owner` it
+ * ends once that process has.
  */
 export async function runSeedCommand(argv: readonly string[]): Promise<number> {
   let lastDocId: string | null = null;

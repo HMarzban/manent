@@ -346,6 +346,8 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
           : [process.execPath, import.meta.path],
         dataDir: env.dataDir,
         seedAt: Date.now(),
+        // the demo's supervisor, which may stop and start this server, keeps the seed until it ends
+        owner: env.control === null ? process.pid : process.ppid,
         onProgress: heavy.progress,
         onDone: () => heavy.adopted().then(startPresence),
         onFailed(reason) {
