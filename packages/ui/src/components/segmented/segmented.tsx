@@ -52,7 +52,8 @@ export function Segmented({
           key={option.value}
           value={option.value}
           className={cn(
-            "text-ui text-fg-muted",
+            // pressed: the selected fill and the full-strength word, never hover's fill
+            "text-ui text-fg-muted aria-pressed:bg-selected aria-pressed:text-fg",
             size === "sm" ? "h-control-sm" : "h-control",
           )}
         >

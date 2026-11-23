@@ -519,12 +519,20 @@ test("the screens' words are the design's", () => {
     offline: "Offline",
     slow: "Slow",
     addWriters: "Add writers",
+    addWritersHint:
+      "Demo writers type in this script, each in a scene of its own.",
+    writersChoice: "Writers typing in other scenes",
     stopWriters: "Stop writers",
     writersTyping: ["1 writer typing", "5 writers typing"],
     writersShort: "3 of 5 writers typing — each needs a scene of its own",
     needsScript: "needs a script open",
     needsConnection: "needs a connection",
+    needsEdit: "needs edit access",
+    stopServerHint:
+      "Stops the server at once. Nothing synced is lost, and each window connects again by itself.",
     timings: "Timings",
+    timingsHint:
+      "This window's typing, pagination and sync times, measured live.",
     timingRows: [
       "Keystroke to frame",
       "Pagination time",
@@ -539,7 +547,13 @@ test("the screens' words are the design's", () => {
     nothingMeasured: "—",
     timingsNote: "Measured in this window while Timings is open.",
     reorganise: "Reorganise",
+    reorganiseHint:
+      "Asks the server to reorganise how this script is stored, as it does when a script gets long.",
+    reorganiseWaiting: "Waiting to reorganise…",
+    reorganiseWaitingHint: "Starts once no one is typing in this script.",
     reset: "Reset",
+    resetHint:
+      "Every workspace goes back to its seeded state, for everyone using this demo.",
     resetTitle: "Reset the demo?",
     resetAction: "Reset the demo",
     resetBody:
