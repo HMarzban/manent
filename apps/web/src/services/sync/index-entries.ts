@@ -187,8 +187,12 @@ const byCreation = (
   b: [string, { createdAt: number }],
 ): number => a[1].createdAt - b[1].createdAt || a[0].localeCompare(b[0]);
 
-/** The latest edit of `documents`, or that someone else changed one since this person opened it. */
+/**
+ * The latest edit of the project's `documents`, its creation while nobody has edited one, or that someone else changed
+ * one since this person opened it.
+ */
 function lastEditedOf(
+  project: ProjectEntry,
   documents: readonly [string, DocumentEntry][],
   facts: RowFacts,
 ): ProjectItem["lastEdited"] {
@@ -208,10 +212,11 @@ function lastEditedOf(
         ? []
         : [{ at: d.editedAt, by: d.editedByUserId }],
     )
-    .toSorted((a, b) => b.at - a.at)[0];
-  return latest === undefined
-    ? null
-    : { byName: facts.nameOf(latest.by), at: latest.at };
+    .toSorted((a, b) => b.at - a.at)[0] ?? {
+    at: project.createdAt,
+    by: project.createdByUserId,
+  };
+  return { byName: facts.nameOf(latest.by), at: latest.at };
 }
 
 /** The workspace's projects, newest first, each with its oldest document; one whose document the server refused is left out. */
@@ -237,7 +242,7 @@ export function projectItems(
           title: project.title,
           kind: project.kind,
           firstDocId,
-          lastEdited: lastEditedOf(own, facts),
+          lastEdited: lastEditedOf(project, own, facts),
           place,
         },
       ];

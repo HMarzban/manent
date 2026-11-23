@@ -71,10 +71,7 @@ export interface PersonDocuments {
   dispose(): void;
 }
 
-/**
- * Asks the server for the person's workspaces, and again every POLL_MS while one is getting ready, so its lists follow
- * its seed; the returned function stops asking.
- */
+/** Asks for the person's workspaces, again every POLL_MS until answered and while one is getting ready; returns the stop. */
 function askWorkspaces(
   options: Options,
   heard: (workspaces: readonly WorkspaceRef[]) => void,
@@ -82,12 +79,17 @@ function askWorkspaces(
   let stopped = false;
   let cancel: (() => void) | null = null;
   const ask = (): void => {
-    void options.api.me().then((answer) => {
-      if (stopped || !answer.ok) return;
-      heard(answer.me.workspaces);
-      if (answer.me.workspaces.some((w) => w.seeding?.failed === false))
-        cancel = options.schedule(ask, POLL_MS);
-    });
+    void options.api
+      .me()
+      .catch(() => ({ ok: false, reason: "unreachable" }) as const)
+      .then((answer) => {
+        if (stopped) return;
+        if (answer.ok) heard(answer.me.workspaces);
+        const again = answer.ok
+          ? answer.me.workspaces.some((w) => w.seeding?.failed === false)
+          : answer.reason === "unreachable";
+        if (again) cancel = options.schedule(ask, POLL_MS);
+      });
   };
   ask();
   return () => {

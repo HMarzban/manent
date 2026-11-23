@@ -173,6 +173,7 @@ export function createPersonServices(options: Options): PersonServices {
     control,
     network: sync.network,
     library: sync.library,
+    documents: scripts.documents,
   });
   const place = placeStoreOf(options);
   const stopKeeping = keepViewState(place, options.schedule);

@@ -1,5 +1,5 @@
 // The simulated writers Add writers starts, each in a scene of its own, and the members who type in Lanternfield Studios.
-import { createRng, createSimulatedPerson } from "@manent/demo";
+import { createRng, createSimulatedPerson, writerLines } from "@manent/demo";
 import type { WritingProfile } from "@manent/demo";
 import type { FlatBlock } from "@manent/schema";
 import {
@@ -28,6 +28,12 @@ export interface Writer {
 
 const NO_FRAMES = { request: () => () => {} };
 const UINT32 = 4_294_967_296;
+
+/** `lines` from the one at `from` round to the one before it. */
+const linesFrom = (lines: readonly string[], from: number): string[] => [
+  ...lines.slice(from),
+  ...lines.slice(0, from),
+];
 
 const randomOf = (next: () => number): Random => ({
   next,
@@ -104,14 +110,21 @@ export async function startWriter(
   });
   try {
     const handle = await client.open(docId);
+    const lines = await writerLines(docId);
+    const rng = createRng(options.seed);
     const person = createSimulatedPerson({
       handle,
       client,
       profile: options.profile,
       clock: live.clock,
-      random: randomOf(createRng(options.seed).next),
+      random: randomOf(rng.next),
       region: scene,
       markers: false,
+      // each writer starts at a line drawn from its seed, so that a group does not all type the same line;
+      // a document no bank writes gets the person's own seeded words
+      ...(lines === null
+        ? {}
+        : { lines: linesFrom(lines, rng.int(0, lines.length - 1)) }),
     });
     person.start();
     return {

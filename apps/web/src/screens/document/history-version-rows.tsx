@@ -1,15 +1,21 @@
 // The rows of the History tab: Working; the versions and the changes to script settings under their days, or with
 // Drafts only the drafts oldest first; the name field of Name this draft…, and a draft named and not yet answered.
+import { DEMO_PEOPLE } from "@manent/demo";
 import { SETTINGS } from "@manent/settings";
 import {
+  Avatar,
   Button,
   DOCUMENT_WORDS,
   HISTORY_WORDS,
   Row,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   VirtualRows,
   formatTime,
   joinNames,
 } from "@manent/ui";
+import { StarIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode, RefObject } from "react";
 import { baselineOfRow } from "../../history/baseline.ts";
@@ -19,6 +25,7 @@ import { selectRow } from "../../history/history-view.ts";
 import { ROW_EXTENSIONS } from "../../history/row-extensions.ts";
 import { useSettingChanges } from "../../history/setting-changes.ts";
 import type { SettingChange } from "../../history/setting-changes.ts";
+import { initialsOf } from "../../initials.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { nameOf } from "../../services/sync/index-entries.ts";
 import { historyActions, useHistory } from "../../state/history.store.ts";
@@ -42,14 +49,8 @@ interface Pending {
   failed: boolean;
 }
 
-/** The first letter of the first two words of `name`: "Dana Reyes" is "DR". */
-const initialsOf = (name: string): string =>
-  name
-    .split(/\s+/)
-    .filter((word) => word !== "")
-    .slice(0, 2)
-    .map((word) => Array.from(word)[0]?.toUpperCase() ?? "")
-    .join("");
+// a named draft's mark, before its name
+const STAR = <StarIcon aria-hidden="true" className="size-icon" />;
 
 /** Each day's versions and setting changes under its day, newest first; with Drafts only the drafts oldest first. */
 function itemsOf(
@@ -85,21 +86,38 @@ function itemsOf(
   return items;
 }
 
-/** The avatars of the people whose changes the version holds, named together for a screen reader. */
+/**
+ * The avatars of the people whose changes the version holds, named together for a screen reader; each names its
+ * person on hover. Drawn without colour: the script's colour for each person is not known here.
+ */
 function Avatars(props: { userIds: readonly string[] }): ReactNode {
-  const names = props.userIds.map(nameOf);
-  if (names.length === 0) return null;
+  const { userIds } = props;
+  if (userIds.length === 0) return null;
   return (
-    <span role="img" aria-label={joinNames(names)} className="flex gap-0.5">
-      {names.map((name, index) => (
-        <span
-          key={props.userIds[index]}
-          aria-hidden="true"
-          className="rounded-full bg-surface-2 px-1 text-micro"
-        >
-          {initialsOf(name)}
-        </span>
-      ))}
+    <span
+      role="img"
+      aria-label={joinNames(userIds.map(nameOf))}
+      className="flex gap-1"
+    >
+      {userIds.map((userId) => {
+        const name =
+          DEMO_PEOPLE.find((person) => person.userId === userId)?.name ??
+          userId;
+        return (
+          <Tooltip key={userId}>
+            <TooltipTrigger render={<span className="flex" />}>
+              <Avatar
+                name={name}
+                initials={initialsOf(name)}
+                colour={null}
+                size="sm"
+                decorative
+              />
+            </TooltipTrigger>
+            <TooltipContent>{name}</TooltipContent>
+          </Tooltip>
+        );
+      })}
     </span>
   );
 }
@@ -126,13 +144,15 @@ function VersionRow(props: {
   naming: string | null;
   onName(): void;
   name(name: string): void;
+  /** A click: the version's changes, shown the way Show says. */
+  onShow(): void;
 }): ReactNode {
   const { docId, row } = props;
   const meta = metaOf(docId, row);
   const authors = row.item.summary?.authorUserIds ?? [];
   const selected = useHistory("selected") === row.item.id;
   const named = row.item.kind === "named";
-  // Enter opens the version as it was; a click only selects it
+  // Enter opens the version as it was; a click shows its changes the way Show says
   const onKeyDownCapture = (event: KeyboardEvent): void => {
     if (
       event.key !== "Enter" ||
@@ -156,7 +176,7 @@ function VersionRow(props: {
         <div onKeyDownCapture={onKeyDownCapture}>
           <Row
             selected={selected}
-            leading={named ? <span aria-hidden="true">★</span> : undefined}
+            leading={named ? STAR : undefined}
             meta={meta === null ? undefined : meta}
             trailing={[
               ...(authors.length === 0
@@ -165,7 +185,7 @@ function VersionRow(props: {
               ...(row.local === null ? [] : [HISTORY_WORDS.onDevice]),
               ...(handle === null ? [] : [handle]),
             ]}
-            onActivate={() => selectRow(row)}
+            onActivate={props.onShow}
           >
             {row.item.name ?? (isTitledByTime(row) ? row.time : row.title)}
           </Row>
@@ -256,7 +276,7 @@ export function WorkingRow(props: {
       {pending === null ? null : (
         <div>
           <Row
-            leading={<span aria-hidden="true">★</span>}
+            leading={STAR}
             trailing={
               pending.failed
                 ? []
@@ -311,6 +331,7 @@ export function VersionRows(props: {
   offline: boolean;
   draft: DraftNaming;
   onNearEnd(): void;
+  onShow(row: HistoryRow): void;
 }): ReactNode {
   const { docId, rows, draft } = props;
   const { now } = useEnvironment();
@@ -344,6 +365,7 @@ export function VersionRows(props: {
         }
         onName={() => draft.nameVersion(item.row.item.id)}
         name={(name) => draft.name(name, item.row.item.id)}
+        onShow={() => props.onShow(item.row)}
       />
     );
   };

@@ -7,6 +7,7 @@ import type {
   SyncHooks,
   SyncService,
 } from "@manent/server-core";
+import { createSuggestionHooks } from "@manent/server-core";
 import type { Storage } from "@manent/storage";
 import { workflowService } from "./workflow.ts";
 import { commentsService } from "./comments.ts";
@@ -17,6 +18,11 @@ import { driverService } from "./driver.ts";
 import { projectService } from "./project.ts";
 import { rundownService } from "./rundown.ts";
 import { prompterService } from "./prompter.ts";
+import { trashService } from "./trash.ts";
+import { searchService } from "./search.ts";
+import { workspaceService } from "./workspace.ts";
+import { notificationsService } from "./notifications.ts";
+import { publicApiService } from "./public-api.ts";
 
 /** What each service is given. `sync` answers once the server has been built. */
 export interface ServiceDeps {
@@ -72,6 +78,12 @@ export const SERVER_SERVICES: readonly ServerService[] = [
   projectService,
   rundownService,
   prompterService,
+  trashService,
+  searchService,
+  workspaceService,
+  notificationsService,
+  publicApiService,
+  { create: () => ({ hooks: [createSuggestionHooks({})], config: {} }) },
 ];
 
 /** Every service of the list made: their hooks in list order, the first `airWindow` given (null: none), and their parts of the configuration. */
