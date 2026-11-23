@@ -32,16 +32,14 @@ import { createPeopleStore } from "../state/people.store.ts";
 import { AnnouncerRegion } from "./announcer-region.tsx";
 import { useEscapeHandler } from "./escape-handler.ts";
 import { ShellRegion } from "./regions.tsx";
+import { SHELL_SCREENS } from "./shell-screens.ts";
+import type { ShellScreen } from "./shell-screens.ts";
 
-const DOCUMENT_ROUTE = "/s/$docId";
 const STAND_IN_ROUTE = "/__stand-in";
-const SCREENS: Readonly<Record<string, ScreenId>> = Object.freeze({
-  "/": "library",
-  [DOCUMENT_ROUTE]: "document",
-  "/s/$docId/send/$form": "send",
-  "/preferences/$pane": "preferences",
-  "/choose": "choose",
-  [STAND_IN_ROUTE]: "document",
+const UNLISTED: ShellScreen = Object.freeze({
+  routeId: "",
+  screen: "library",
+  page: "covered",
 });
 
 const GRID: CSSProperties = Object.freeze({
@@ -63,17 +61,23 @@ const SCREEN_AREA: CSSProperties = Object.freeze({
   gridColumn: "1 / -1",
 });
 
-/** Which screen the route shows, the document under it (the stand-in's is made apart), and whether a screen covers the page. */
-function useShellRoute(): {
-  screen: ScreenId;
-  docId: string | null;
-  covered: boolean;
-  standIn: boolean;
-} {
-  const { flavour } = useEnvironment();
+/** The row of SHELL_SCREENS for the route shown; a route with none shows the Library's screen id, covered. */
+export function useShellScreen(): ShellScreen {
   const routeId = useRouterState({
     select: (state): string | null => state.matches.at(-1)?.routeId ?? null,
   });
+  return SHELL_SCREENS.find((row) => row.routeId === routeId) ?? UNLISTED;
+}
+
+/** Which screen the route shows, the document under it (the stand-in's is made apart), and what it does with the page. */
+function useShellRoute(): {
+  screen: ScreenId;
+  docId: string | null;
+  page: ShellScreen["page"];
+  standIn: boolean;
+} {
+  const { flavour } = useEnvironment();
+  const { routeId, screen, page } = useShellScreen();
   // the Send screen keeps its document under it, covered
   const routeDocId = useRouterState({
     select: (state): string | null =>
@@ -81,9 +85,10 @@ function useShellRoute(): {
   });
   const standIn = flavour === "test" && routeId === STAND_IN_ROUTE;
   return {
-    screen: (routeId === null ? undefined : SCREENS[routeId]) ?? "library",
+    screen,
     docId: standIn ? null : routeDocId,
-    covered: routeId !== DOCUMENT_ROUTE && !standIn,
+    // the stand-in's row is the test build's only
+    page: routeId === STAND_IN_ROUTE && !standIn ? "covered" : page,
     standIn,
   };
 }
@@ -118,8 +123,8 @@ function useStandInDocId(standIn: boolean): string | null {
 
 /** Where the route's screen draws: over the frame while it is not a document; a document draws its parts in their own areas. */
 export function ScreenArea(props: { children: ReactNode }): ReactNode {
-  const { covered } = useShellRoute();
-  if (!covered) return props.children;
+  const { page } = useShellRoute();
+  if (page !== "covered") return props.children;
   return (
     <div className="flex min-h-0 flex-col overflow-auto" style={SCREEN_AREA}>
       {props.children}
@@ -230,7 +235,8 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
   const services = useServices();
   const { where, now, schedule, dom } = useEnvironment();
   const route = useShellRoute();
-  const { screen, covered, standIn } = route;
+  const { screen, page, standIn } = route;
+  const covered = page === "covered";
   const standInDocId = useStandInDocId(standIn);
   const docId = standIn ? standInDocId : route.docId;
   const { facts, outline, people } = useBridgeStores();
@@ -272,13 +278,17 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
                   {props.children}
                   <AnnouncerRegion />
                 </div>
-                {/* a palette whose code cannot load leaves the shell as it is */}
-                <SurfaceBoundary fallback={() => null}>
-                  <Suspense fallback={null}>
-                    <ShellPalette docId={docId} close={closePalette} />
-                  </Suspense>
-                </SurfaceBoundary>
-                <GlobalKeys />
+                {page === "bare" ? null : (
+                  <>
+                    {/* a palette whose code cannot load leaves the shell as it is */}
+                    <SurfaceBoundary fallback={() => null}>
+                      <Suspense fallback={null}>
+                        <ShellPalette docId={docId} close={closePalette} />
+                      </Suspense>
+                    </SurfaceBoundary>
+                    <GlobalKeys />
+                  </>
+                )}
               </PeopleContext>
             </OutlineContext>
           </FactsContext>
