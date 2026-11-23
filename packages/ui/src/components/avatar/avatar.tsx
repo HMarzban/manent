@@ -1,5 +1,5 @@
 // A person as a circle of their initials, in their colour inside a script and a ring everywhere else; and the
-// people on a document as a row of them.
+// people on a document as a row of them. The one motion that repeats is an avatar's while its person types.
 import { cn } from "cn";
 import { PlusIcon } from "lucide-react";
 import type { ReactNode } from "react";
@@ -15,6 +15,9 @@ const SIZES: Readonly<Record<AvatarSize, string>> = Object.freeze({
   lg: "size-avatar-lg text-title",
 });
 const SHOWN = 3;
+// up and down while the person types; under reduced motion the theme stills it, and the initials are underlined
+const MOVING =
+  "animate-bounce motion-reduce:underline motion-reduce:underline-offset-2";
 
 interface AvatarProps {
   name: string;
@@ -25,6 +28,8 @@ interface AvatarProps {
   size: AvatarSize;
   /** Inside a control already named by the person, the avatar is hidden from assistive technology. */
   decorative?: boolean;
+  /** The person is typing: shown, never said, so that nothing is announced at each key. */
+  moving?: boolean;
 }
 
 /** Named by `name` as an image, unless `decorative`. */
@@ -34,6 +39,7 @@ export function Avatar({
   colour,
   size,
   decorative = false,
+  moving = false,
 }: AvatarProps): ReactNode {
   return (
     <span
@@ -41,7 +47,7 @@ export function Avatar({
       aria-label={decorative ? undefined : name}
       aria-hidden={decorative ? "true" : undefined}
       data-who={colour ?? undefined}
-      className={cn(CIRCLE, SIZES[size])}
+      className={cn(CIRCLE, SIZES[size], moving && MOVING)}
     >
       {initials ?? <PlusIcon aria-hidden="true" />}
     </span>
@@ -60,9 +66,12 @@ interface StackPerson {
 export function AvatarStack({
   people,
   size,
+  moving,
 }: {
   people: readonly StackPerson[];
   size: AvatarSize;
+  /** The userIds of the people typing. */
+  moving?: ReadonlySet<string>;
 }): ReactNode {
   if (people.length === 0) return null;
   const more = people.length - SHOWN;
@@ -75,6 +84,7 @@ export function AvatarStack({
           initials={person.initials}
           colour={person.colour}
           size={size}
+          moving={moving?.has(person.userId) ?? false}
         />
       ))}
       {more <= 0 ? null : (

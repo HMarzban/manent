@@ -15,7 +15,7 @@ import { liveEditor } from "../editor-host/live-editor.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { createLocalMap } from "../services/local-map.ts";
 import type { OutlineRow } from "../state/outline.store.ts";
-import { SceneTitle } from "./marks.tsx";
+import { ScenePeople, SceneTitle } from "./marks.tsx";
 import type { SceneParts } from "./marks.tsx";
 import { rowLabel, scriptBlocks, useSceneMoves } from "./moves.ts";
 import { SceneRowMenu } from "./row-menu.tsx";
@@ -86,7 +86,10 @@ export function ScenesSwitch(props: {
   );
 }
 
-/** A scene's card: its number and menu, heading and marks, synopsis and length. It goes to the scene, as a row does. */
+/**
+ * A scene's card: its number and menu, heading and marks, synopsis, the people in it and its length. It goes to the
+ * scene, as a row does.
+ */
 function SceneCard(props: { row: OutlineRow; parts: SceneParts }): ReactNode {
   const { row, parts } = props;
   const { editor } = useServices();
@@ -131,7 +134,8 @@ function SceneCard(props: { row: OutlineRow; parts: SceneParts }): ReactNode {
           {row.synopsis === "" ? null : (
             <span className="line-clamp-3 text-fg-muted">{row.synopsis}</span>
           )}
-          <span className="text-meta text-fg-muted tabular-nums">
+          <span className="flex items-center gap-2 text-meta text-fg-muted tabular-nums">
+            <ScenePeople marks={marks} />
             {parts.extras.length(row) ?? SCENE_MOVE_WORDS.noPages}
           </span>
         </div>

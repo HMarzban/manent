@@ -8,6 +8,7 @@ import type {
   EditorView,
   Plugin,
   RemoteCursor,
+  ScenePerson,
   ShownCursors,
 } from "@manent/editor";
 import type { SettingsStore } from "@manent/settings";
@@ -25,12 +26,13 @@ export function remoteCursorsOf(view: EditorView): readonly RemoteCursor[] {
   return cursorsKey.getState(view.state)?.cursors ?? [];
 }
 
-const personMark = (cursor: RemoteCursor): SceneMark => ({
+const personMark = ({ cursor, moving }: ScenePerson): SceneMark => ({
   kind: "person",
   userId: cursor.userId,
   initials: cursor.initials,
   colour: cursor.colour,
   name: cursor.name,
+  moving,
 });
 
 function shownIn(settings: SettingsStore, docId: string): ShownCursors {

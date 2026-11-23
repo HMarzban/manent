@@ -30,7 +30,12 @@ import {
   useScenesView,
 } from "../../scenes/cards.tsx";
 import type { ScenesView } from "../../scenes/cards.tsx";
-import { SceneTitle, useSceneExtras } from "../../scenes/marks.tsx";
+import {
+  ScenePeople,
+  SceneTitle,
+  isPersonMark,
+  useSceneExtras,
+} from "../../scenes/marks.tsx";
 import type { SceneParts } from "../../scenes/marks.tsx";
 import { useSceneMoves } from "../../scenes/moves.ts";
 import { SceneRowMenu, rowItemsFor } from "../../scenes/row-menu.tsx";
@@ -64,7 +69,10 @@ function useFormat(docId: string | null): string {
   return useSyncExternalStore(subscribe, () => store.get("script.format"));
 }
 
-/** A scene's row: its number, heading, synopsis and marks, then whether it is revised, its length and its menu. */
+/**
+ * A scene's row: its number, heading, synopsis and marks, then whether it is revised, the people in it, its length and
+ * its menu.
+ */
 function SceneLine(props: {
   row: OutlineRow;
   parts: SceneParts;
@@ -91,11 +99,15 @@ function SceneLine(props: {
           </span>,
         ]
       : []),
-    ...(length === null
+    // the people in the scene stand just before its length, in the same trailing item
+    ...(length === null && !marks.some(isPersonMark)
       ? []
       : [
-          <span key="length" className="tabular-nums">
-            {length}
+          <span key="length" className="flex items-center gap-2">
+            <ScenePeople marks={marks} />
+            {length === null ? null : (
+              <span className="tabular-nums">{length}</span>
+            )}
           </span>,
         ]),
     ...(handle === null ? [] : [handle]),

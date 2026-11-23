@@ -16,6 +16,8 @@ import { placeOf, positionOf } from "./place.ts";
 
 /** How long a caret's tab shows its person's name after they last moved, ms; then it shows their initials. */
 export const NAME_TAB_MS = 3000;
+/** How long a person counts as typing after their caret last moved, ms: a longer pause stops their typing mark. */
+const MOVING_MS = 1500;
 /** The most blocks one person's selection is drawn over, counted from its head. */
 export const MAX_SELECTION_BLOCKS = 200;
 
@@ -29,14 +31,14 @@ interface CursorsState {
   /** Every cursor last received, drawn or not. */
   readonly cursors: readonly RemoteCursor[];
   readonly shown: ShownCursors;
-  /** The time the tabs were last judged by, ms. */
+  /** The time the tabs, and who is moving, were last judged by, ms. */
   readonly now: number;
   readonly decorations: DecorationSet;
 }
 
 export const cursorsKey: PluginKey<CursorsState> = new PluginKey("cursors");
 
-// The meta of a draw (the cursors received and the time their tabs are judged by), or of a new filter.
+// The meta of a draw (the cursors received and the time they are judged by), or of a new filter.
 type Meta =
   | {
       readonly type: "draw";
@@ -47,6 +49,11 @@ type Meta =
 
 const isNameShown = (cursor: RemoteCursor, now: number): boolean =>
   now - cursor.movedAt < NAME_TAB_MS;
+
+/** Whether `cursor` moved within MOVING_MS before `now`, ms: its person is typing. */
+export function isMoving(cursor: RemoteCursor, now: number): boolean {
+  return now - cursor.movedAt < MOVING_MS;
+}
 
 const isSameShown = (a: ShownCursors, b: ShownCursors): boolean =>
   a === b ||
@@ -141,14 +148,17 @@ function decorationsOf(
   return DecorationSet.create(state.doc, decorations);
 }
 
-// The time until the first name drawn at `now` gives way to initials; null when none is drawn.
-function nextNameEnd(
+// The time until the first person moving at `now` stops, or the first name drawn gives way to initials; null when
+// nothing judged at `now` changes later.
+function nextChange(
   cursors: readonly RemoteCursor[],
   now: number,
 ): number | null {
   const ends = cursors
-    .filter((cursor) => isNameShown(cursor, now))
-    .map((cursor) => cursor.movedAt + NAME_TAB_MS - now);
+    .flatMap((cursor) =>
+      [MOVING_MS, NAME_TAB_MS].map((ms) => cursor.movedAt + ms - now),
+    )
+    .filter((end) => end > 0);
   return ends.length === 0 ? null : Math.min(...ends);
 }
 
@@ -178,7 +188,7 @@ function cursorsView(view: EditorView, options: CursorsOptions): PluginView {
       view.state.tr.setMeta(cursorsKey, meta).setMeta("addToHistory", false),
     );
     cancelTimer?.();
-    const end = nextNameEnd(received, now);
+    const end = nextChange(received, now);
     cancelTimer = end === null ? null : timers.schedule(request, end);
   };
   const request = () => {

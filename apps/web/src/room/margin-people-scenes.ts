@@ -1,4 +1,4 @@
-// A dot on a Scenes row for each person whose caret is in that scene, as the margin-people plugin tells them.
+// An avatar on a Scenes row for each person whose caret is in that scene, as the margin-people plugin tells them.
 import { createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import type { SceneMark } from "../screens/document/scene-marks.ts";
