@@ -49,10 +49,10 @@ function useNamesMap(projectId: string): OpenNames | null {
       // the person's sync could not start: the lists are not drawn
       () => {},
     );
+    // the index stays open: the page of a document in the project holds the same session, which a close would end
     return () => {
       open = false;
       setMap(null);
-      void index.close();
     };
   }, [projectIndex, projectId]);
   return map;
