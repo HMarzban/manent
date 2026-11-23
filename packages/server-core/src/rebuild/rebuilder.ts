@@ -204,7 +204,7 @@ export function createRebuilder(ports: {
     const reason = requests.has(docId) ? "requested" : budgetOf(room);
     if (reason === null) return skip("under_budget");
     const clientId = freeClientId(file.log.ledger(docId));
-    const built = rebuildDoc(doc, { clientId });
+    const built = rebuildDoc(doc, { clientId, kind: room.kind });
     if (!built.ok) return skip(built.code);
     move(room, { doc, built: built.doc, reason, clientId });
   }

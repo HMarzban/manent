@@ -159,9 +159,14 @@ test("an index push may write only its kind's maps and never a script body", () 
       jsonMap(d, "continue").set(DOC, { workspaceId: "medium", openedAt: 1 }),
     ),
   );
-  expect(validateIndexPush(ok, { kind: "user", id: "sam" })).toEqual([]);
+  const own = {
+    docId: indexDocId("user", "sam"),
+    home: { kind: "user", id: "sam" } as const,
+  };
+  const workspace = { docId: WS, home: { kind: "project", id: WS } as const };
+  expect(validateIndexPush(ok, own)).toEqual([]);
   const projects = inspect(capture((d) => jsonMap(d, "projects").set("p", {})));
-  expect(validateIndexPush(projects, { kind: "user", id: "sam" })).toEqual([
+  expect(validateIndexPush(projects, own)).toEqual([
     {
       path: "maps.projects",
       code: "not_index",
@@ -170,11 +175,11 @@ test("an index push may write only its kind's maps and never a script body", () 
     },
   ]);
   expect(
-    validateIndexPush(inspect(aScriptBlock()), { kind: "project", id: WS }).map(
+    validateIndexPush(inspect(aScriptBlock()), workspace).map(
       (issue) => issue.path,
     ),
   ).toEqual(["body"]);
-  expect(validateIndexPush(projects, { kind: "project", id: WS })).toEqual([]);
+  expect(validateIndexPush(projects, workspace)).toEqual([]);
 });
 
 test("a push of the wrong kind to an index is refused for good", () => {

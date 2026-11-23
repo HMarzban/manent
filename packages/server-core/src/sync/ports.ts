@@ -7,6 +7,7 @@ import type { DocFile, Home, Storage, StorageError } from "@manent/storage";
 import type {
   ControlKind,
   DocRef,
+  DocRole,
   LockAnchorRecord,
   Message,
   PreparedMessage,
@@ -101,8 +102,15 @@ export interface SyncHooks {
   forgotten?(room: Room): void;
   /** Null leaves SUBSCRIBED to the next hook, and after the last to its plain values. */
   subscribed?(docId: string): SubscribedExtras | null;
-  /** Step 5 of the write path adds these to validatePush's issues, any of which refuses the push. */
-  checkPush?(room: Room, report: TransactionReport): Issue[];
+  /**
+   * Step 5 of the write path adds these to validatePush's issues, any of which refuses the push.
+   * `pusher` is the subscription it came through; the write path always gives it.
+   */
+  checkPush?(
+    room: Room,
+    report: TransactionReport,
+    pusher?: Subscription,
+  ): Issue[];
 }
 
 /** A write the authority makes into a loaded room, at its turn in the write path's queue. */
@@ -279,6 +287,14 @@ export interface SyncService {
   readonly access: DocumentAccess;
   /** A role was changed: resolves it again, and ends what is no longer allowed. */
   accessChanged(docId: string, userId: string): void;
+  /**
+   * The person's role on the document is now `role` (null: removed). First the room hears CONTROL
+   * `membership_changed`: the person's own subscriptions with `{ userId, role }`, every other one
+   * with `{}`. Then a removal ends every one of their subscriptions to it `forbidden`; otherwise
+   * their access is resolved again and an edit subscription it no longer allows ends
+   * `read_only_role`.
+   */
+  membershipChanged(docId: string, userId: string, role: DocRole | null): void;
   /** A document was deleted: tells and unsubscribes everyone. */
   removed(docId: string): void;
   /** A backup was put back: every placed document is flagged `restore` at its head. */
@@ -322,7 +338,7 @@ export interface SyncService {
 
 /**
  * Defaults: "authority", DEFAULT_LIMITS, an inline checkpointer, no upstream, NO_SETTINGS, no schema floor, never
- * inside an air window, no hooks.
+ * inside an air window and none told at SUBSCRIBED, no hooks.
  */
 export interface SyncSettings {
   storage: Storage;
@@ -342,6 +358,8 @@ export interface SyncSettings {
   registry?: SettingRules;
   schemaFloor?: (touched: readonly unknown[]) => number;
   airWindow?: (docId: string, now: number) => boolean;
+  /** SUBSCRIBED's air window: the document's next or current one; null: none. */
+  airWindowOf?: (docId: string) => { startsAt: number; endsAt: number } | null;
   /** Each is told and asked in list order. */
   hooks?: readonly SyncHooks[];
 }

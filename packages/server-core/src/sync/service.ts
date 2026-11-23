@@ -1,6 +1,10 @@
 // The sync service: who is connected, what they hold open, and every document message they send.
 import { CODE, isDocKind, prepareMessage } from "@manent/sync-protocol";
-import type { Message, ServerVersions } from "@manent/sync-protocol";
+import type {
+  ControlKind,
+  Message,
+  ServerVersions,
+} from "@manent/sync-protocol";
 import { createTokenBucket } from "../limits/bucket.ts";
 import type { TokenBucket } from "../limits/bucket.ts";
 import { createConnectionCaps } from "../limits/caps.ts";
@@ -18,6 +22,7 @@ import { createHealing } from "./heal.ts";
 import { HELD_RETRY_MS, createHeldQueue } from "./held.ts";
 import { DEFAULT_LIMITS, NO_SETTINGS } from "./ports.ts";
 import type { Peer, SyncLimits, SyncService, SyncSettings } from "./ports.ts";
+import { createPrompterSubscribers } from "./prompter-subscribers.ts";
 import { createRooms } from "./rooms.ts";
 import type { Room } from "./rooms.ts";
 import { docOf } from "./subscribe.ts";
@@ -25,6 +30,9 @@ import type { SubscribePorts } from "./subscribe.ts";
 import { createSubscribedPeers } from "./subscribed-peers.ts";
 import { createSnapshotAnswers, viewPatchOf } from "./viewers.ts";
 import { createWritePath } from "./write-path.ts";
+
+const encodeJson = (value: unknown): Uint8Array =>
+  new TextEncoder().encode(JSON.stringify(value));
 
 export function createSyncService(
   options: SyncSettings & { versions: ServerVersions },
@@ -102,7 +110,12 @@ export function createSyncService(
       endAll(room, syncError("storage_failed", docOf(room), { retryAfterMs }));
   };
 
-  const broadcast: SyncService["broadcast"] = (docId, kind, data) => {
+  /** CONTROL { seq: the room's head, kind, data } to each editor and viewer of the loaded room that `to` names; nothing when it is not loaded. */
+  function sendControl(
+    docId: string,
+    message: { kind: ControlKind; data: Uint8Array },
+    to: (peer: Peer) => boolean,
+  ): void {
     const room = rooms.find(docId);
     if (room === null || room.doc === null) return;
     const seq = room.row.headSeq;
@@ -110,12 +123,14 @@ export function createSyncService(
       type: "CONTROL",
       ...docOf(room),
       seq,
-      kind,
-      data,
+      ...message,
     });
     for (const peer of [...room.editors.keys(), ...room.viewers.keys()])
-      peer.send(control);
-  };
+      if (to(peer)) peer.send(control);
+  }
+
+  const broadcast: SyncService["broadcast"] = (docId, kind, data) =>
+    sendControl(docId, { kind, data }, () => true);
 
   const writePath = createWritePath({
     limits,
@@ -203,6 +218,7 @@ export function createSyncService(
     held: heldQueue,
     endAll,
   });
+  const prompters = createPrompterSubscribers();
   const subscribePorts: SubscribePorts = {
     access,
     rooms,
@@ -216,6 +232,9 @@ export function createSyncService(
     end,
     editorLeft: hooks.editorLeft,
     extras: hooks.subscribed,
+    airWindowOf: options.airWindowOf ?? (() => null),
+    prompters,
+    clock,
   };
   const subscribed = createSubscribedPeers({
     peers,
@@ -240,6 +259,7 @@ export function createSyncService(
     const state = peers.get(peer);
     if (state === undefined) return;
     for (const docId of state.held.keys()) end(peer, docId);
+    prompters.removePeer(peer);
     peers.delete(peer);
     caps.release(peer);
   }
@@ -265,6 +285,15 @@ export function createSyncService(
     },
     detach,
     accessChanged: subscribed.accessChanged,
+    membershipChanged(docId, userId, role) {
+      // only the person's own subscriptions learn whose role changed and to what, before any of them ends
+      const kind = "membership_changed";
+      const theirs = { kind, data: encodeJson({ userId, role }) } as const;
+      sendControl(docId, theirs, (peer) => peer.userId === userId);
+      const others = { kind, data: encodeJson({}) } as const;
+      sendControl(docId, others, (peer) => peer.userId !== userId);
+      subscribed.membershipChanged(docId, userId, role);
+    },
     removed(docId) {
       const room = rooms.find(docId);
       if (room === null) return;

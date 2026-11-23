@@ -20,13 +20,27 @@ import type { CrdtDoc, SetAside, TypedText } from "@manent/crdt";
 import { TITLE_PAGE_FIELDS, blockText, blocksOf } from "@manent/schema";
 import type { DocJSON, TitlePageField } from "@manent/schema";
 import type { DocFile } from "@manent/storage";
+import { isDocKind } from "@manent/sync-protocol";
+import type { DocKind } from "@manent/sync-protocol";
 import { validatePush } from "../sync/validate.ts";
 
 /** The verified rows of a generation after `seq`, by sequence. */
 type Rows = ReadonlyMap<number, Uint8Array>;
 
-/** The root maps a replay may write: what a person marked or cleared as revised while offline, and the title page. */
-const REPLAYED_MAPS: readonly string[] = ["revisedOverrides", TITLE_PAGE_MAP];
+/** What a person marked or cleared as revised while offline, and the title page. */
+const SCRIPT_MAPS: readonly string[] = ["revisedOverrides", TITLE_PAGE_MAP];
+
+/** The root maps a replay may write, by document kind; a kind without a line writes a script's. */
+const REPLAYED_MAPS: Readonly<Partial<Record<DocKind, readonly string[]>>> =
+  Object.freeze({
+    script: SCRIPT_MAPS,
+  });
+
+/** The maps a replay into the document may write, by the kind its log holds. */
+function replayedMapsOf(file: DocFile, docId: string): readonly string[] {
+  const kind = file.log.get(docId)?.kind;
+  return (isDocKind(kind) ? REPLAYED_MAPS[kind] : undefined) ?? SCRIPT_MAPS;
+}
 
 /** Applies the rows after `from` up to `to`; false when one of them does not verify. */
 function applyRows(
@@ -105,17 +119,18 @@ function removedUnseen(
 
 /**
  * Mine with the updates applied, and the text of `writers` they removed unseen; "invalid" when one
- * is not an update, writes another root map, or writes what a push may not.
+ * is not an update, writes a root map other than `maps`, or writes what a push may not.
  */
 function applyWaiting(
   mine: CrdtDoc,
   updates: readonly Uint8Array[],
-  writers: ReadonlySet<number>,
+  replay: { writers: ReadonlySet<number>; maps: readonly string[] },
 ): SetAside[] | "invalid" {
+  const { writers, maps } = replay;
   let refused = false;
   const stop = observeScript(mine, (report) => {
     if (report.origin !== ORIGIN_REPLAY) return;
-    const otherMap = report.maps.some((name) => !REPLAYED_MAPS.includes(name));
+    const otherMap = report.maps.some((name) => !maps.includes(name));
     if (otherMap || validatePush(report).length > 0) refused = true;
   });
   const setAside: SetAside[] = [];
@@ -218,7 +233,8 @@ export function replayBase(
     mine.applyUpdate(base.encodeState(), ORIGIN_LOAD);
     const writers = new Set(readStateVector(base.encodeStateVector()).keys());
     for (const clientId of ownClientIds) writers.add(clientId);
-    const waiting = applyWaiting(mine, updates, writers);
+    const maps = replayedMapsOf(file, docId);
+    const waiting = applyWaiting(mine, updates, { writers, maps });
     if (waiting === "invalid") return { ok: false, code: "invalid" };
     const own = ownClientIds;
     const later = catchUp(base, mine, rows, { seq: acked, finalSeq, own });

@@ -1,8 +1,14 @@
 // The checks a SUBSCRIBE passes, in order (the first that fails is the answer), and what passing gives.
 import { CrdtUpdateError, ORIGIN_LOAD, readStateVector } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import { gateDocument } from "@manent/sync-protocol";
-import type { DocRef, Message } from "@manent/sync-protocol";
+import { DOC_ROLES, gateDocument } from "@manent/sync-protocol";
+import type {
+  DocKind,
+  DocRef,
+  DocRole,
+  Message,
+  SubscribeMode,
+} from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
 import type { PeerState, Rebuilder } from "../rebuild/rebuilder.ts";
 import type { Access, DocumentAccess } from "./access.ts";
@@ -11,7 +17,14 @@ import type { AwarenessHub } from "./awareness.ts";
 import type { Deletions } from "./deletions.ts";
 import { syncError } from "./errors.ts";
 import type { Healing } from "./heal.ts";
-import type { Peer, SubscribedExtras, SyncLimits, WritePath } from "./ports.ts";
+import type {
+  Clock,
+  Peer,
+  SubscribedExtras,
+  SyncLimits,
+  WritePath,
+} from "./ports.ts";
+import type { PrompterSubscribers } from "./prompter-subscribers.ts";
 import type { Room, Rooms, Subscription } from "./rooms.ts";
 import { isStorageError } from "./storage-error.ts";
 
@@ -19,8 +32,40 @@ export type SubscribeMessage = Extract<Message, { type: "SUBSCRIBE" }>;
 
 /** On a refusal, `room` is the room the checks reached, for the caller to release; null before one. */
 export type SubscribeCheck =
-  | { ok: true; room: Room; access: Access; mode: "edit" | "view" }
+  | { ok: true; room: Room; access: Access; mode: SubscribeMode }
   | { ok: false; answer: Message; room: Room | null };
+
+/** The modes a feature serves; edit and view are the service's own. */
+type HandledMode = Exclude<SubscribeMode, "edit" | "view">;
+
+/** A SUBSCRIBE in a handled mode that passed the document's checks. Its room is released: it never gets the room's snapshot or patches. */
+export interface HandledSubscribe {
+  peer: Peer;
+  message: SubscribeMessage;
+  access: Access;
+  /** The handler adds the peer; the service removes it on UNSUBSCRIBE and on disconnect. */
+  prompters: PrompterSubscribers;
+  clock: Clock;
+  tell(message: Message): void;
+}
+
+/** Answers a SUBSCRIBE in its mode. */
+export type SubscribeHandler = (subscribe: HandledSubscribe) => void;
+
+/** A handled mode without a line is refused `prompter_unavailable`; append a handler on its own line. */
+export const SUBSCRIBE_HANDLERS: Readonly<
+  Partial<Record<HandledMode, SubscribeHandler>>
+> = Object.freeze({});
+
+/** The roles that may hold an edit subscription, by kind; a kind without a line admits owners and editors only. */
+const EDIT_ROLES: Readonly<Partial<Record<DocKind, readonly DocRole[]>>> =
+  Object.freeze({
+    index: DOC_ROLES,
+  });
+
+/** Whether `role` may hold an edit subscription to a document of `kind`. */
+export const mayEdit = (kind: DocKind, role: DocRole): boolean =>
+  EDIT_ROLES[kind]?.includes(role) ?? isWriterRole(role);
 
 const RETRY_MS = 1000;
 
@@ -63,10 +108,12 @@ export function checkSubscribe(
       room,
     );
   if (mode === "prompter")
-    return refuse(syncError("prompter_unavailable", doc), room);
+    return SUBSCRIBE_HANDLERS[mode] === undefined
+      ? refuse(syncError("prompter_unavailable", doc), room)
+      : { ok: true, room, access: resolved.access, mode };
   const { role } = resolved.access;
   if (mode === "edit") {
-    if (!isWriterRole(role) && resolved.kind !== "index")
+    if (!mayEdit(resolved.kind, role))
       return refuse(syncError("read_only_role", doc), room);
     const gate = gateDocument(peer.versions, {
       minSchemaVersion: row.schemaVersion,
@@ -117,6 +164,7 @@ export function subscribedOf(
   access: Access,
   headSeq: number,
   extras: SubscribedExtras | null,
+  airWindow: { startsAt: number; endsAt: number } | null,
 ): Message {
   const { row } = room;
   const { lockLevel, lockAnchors, revision } = extras ?? PLAIN_EXTRAS;
@@ -132,7 +180,7 @@ export function subscribedOf(
     lockLevel,
     lockAnchors: lockAnchors === null ? null : { table: lockAnchors },
     revision,
-    airWindow: null,
+    airWindow,
   };
 }
 
@@ -157,6 +205,10 @@ export interface SubscribePorts {
   editorLeft(room: Room, userId: string): void;
   /** SUBSCRIBED's lock and revision fields; null: the plain values. */
   extras(docId: string): SubscribedExtras | null;
+  /** SUBSCRIBED's air window; null: none. */
+  airWindowOf(docId: string): { startsAt: number; endsAt: number } | null;
+  prompters: PrompterSubscribers;
+  clock: Clock;
 }
 
 /** A SUBSCRIBE: refused with the first check that fails, otherwise held, answered SUBSCRIBED, then step 1 or a snapshot. */
@@ -180,6 +232,18 @@ export function subscribe(
     return tell(peer, check.answer);
   }
   const { room, mode } = check;
+  if (mode === "prompter") {
+    end(peer, docId);
+    rooms.left(room);
+    return SUBSCRIBE_HANDLERS[mode]?.({
+      peer,
+      message,
+      access: check.access,
+      prompters: ports.prompters,
+      clock: ports.clock,
+      tell: (answer) => tell(peer, answer),
+    });
+  }
   try {
     heal.subscribed(room, message.lastServerSeq);
     if (mode === "edit") registerEditor(room, peer.userId, message.clientIds);
@@ -212,7 +276,8 @@ export function subscribe(
   state.held.set(docId, { room, subscription, lastServerSeq });
   (mode === "edit" ? room.editors : room.viewers).set(peer, subscription);
   const extras = ports.extras(docId);
-  tell(peer, subscribedOf(room, granted, heal.headOf(room), extras));
+  const airWindow = ports.airWindowOf(docId);
+  tell(peer, subscribedOf(room, granted, heal.headOf(room), extras, airWindow));
   const vector = room.doc?.encodeStateVector();
   if (mode === "edit" && vector !== undefined) {
     rebuilder.touched(room);

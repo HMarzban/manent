@@ -8,10 +8,27 @@ import type { DocKind } from "@manent/sync-protocol";
 /** The kinds that hold maps and never a script body. */
 export const INDEX_KINDS: readonly DocKind[] = Object.freeze(["index"]);
 
-const MAPS_OF: Readonly<Record<Home["kind"], readonly string[]>> = {
-  user: PRIVATE_INDEX_MAPS,
-  project: WORKSPACE_INDEX_MAPS,
-};
+/** Whose maps an index holds: a person's or a workspace's. */
+type IndexScope = "user" | "workspace";
+
+/** Maps an index of `scope` may hold. */
+export interface IndexKeyRule {
+  scope: IndexScope;
+  maps: readonly string[];
+}
+
+/** An index holds the maps of every rule of its scope; append a rule on its own line. */
+export const INDEX_KEY_RULES: readonly IndexKeyRule[] = Object.freeze([
+  { scope: "user", maps: PRIVATE_INDEX_MAPS },
+  { scope: "workspace", maps: WORKSPACE_INDEX_MAPS },
+]);
+
+/** A person's index is the one in their own file; a workspace's is the project home of its own id. Null: neither. */
+function scopeOf(index: { docId: string; home: Home }): IndexScope | null {
+  const { docId, home } = index;
+  if (home.kind === "user") return "user";
+  return home.id === docId ? "workspace" : null;
+}
 
 const notIndex = (path: string, message: string): Issue => ({
   path,
@@ -21,15 +38,17 @@ const notIndex = (path: string, message: string): Issue => ({
 });
 
 /**
- * One `not_index` issue for each map the push wrote that an index in `home` does not hold (a
- * person's maps in a `user` home, a workspace's in a `project` home), then one for a script body
- * it touched. An empty list accepts the push.
+ * One `not_index` issue for each map the push wrote that no rule of the index's scope holds, then
+ * one for a script body it touched. An empty list accepts the push.
  */
 export function validateIndexPush(
   report: TransactionReport,
-  home: Home,
+  index: { docId: string; home: Home },
 ): Issue[] {
-  const held = MAPS_OF[home.kind];
+  const scope = scopeOf(index);
+  const held = INDEX_KEY_RULES.filter((rule) => rule.scope === scope).flatMap(
+    (rule) => rule.maps,
+  );
   const issues = report.maps
     .filter((name) => !held.includes(name))
     .map((name) =>

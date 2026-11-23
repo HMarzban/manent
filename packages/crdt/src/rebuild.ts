@@ -8,8 +8,8 @@ import { IMPORT_MAP, NOTES_MAP, TITLE_PAGE_MAP } from "./script-maps.ts";
 import { ORIGIN_SYSTEM } from "./settings.ts";
 import { scriptBody } from "./writer.ts";
 
-/** The settings maps, the overrides map, the notes, the import record and the title page, copied entry by entry. */
-const COPIED_MAPS = [
+/** A script's settings maps, overrides map, notes, import record and title page, copied entry by entry. */
+const SCRIPT_MAPS = [
   "settings",
   "settingsMeta",
   "revisedOverrides",
@@ -18,8 +18,13 @@ const COPIED_MAPS = [
   TITLE_PAGE_MAP,
 ] as const;
 
-/** The roots a rebuild knows how to copy. */
-export const ROOT_TYPE_NAMES = [FRAGMENT_NAME, ...COPIED_MAPS] as const;
+/** The maps a rebuild copies, by document kind; a kind without a line copies a script's. */
+const COPIED_MAPS: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  script: SCRIPT_MAPS,
+});
+
+/** The roots a rebuild of a script knows how to copy. */
+export const ROOT_TYPE_NAMES = [FRAGMENT_NAME, ...SCRIPT_MAPS] as const;
 
 export type RebuildResult =
   | { ok: true; doc: CrdtDoc }
@@ -62,12 +67,16 @@ function evenSections(blocks: readonly BlockJSON[]): SectionJSON[] {
   return sections;
 }
 
-/** Sets every entry of the source's copied maps in `built`, keys in ascending order, in one transaction. */
-function copyMaps(source: CrdtDoc, built: CrdtDoc): void {
+/** Sets every entry of the source's `maps` in `built`, keys in ascending order, in one transaction. */
+function copyMaps(
+  source: CrdtDoc,
+  built: CrdtDoc,
+  maps: readonly string[],
+): void {
   const from = yDocOf(source);
   const to = yDocOf(built);
   to.transact(() => {
-    for (const name of COPIED_MAPS) {
+    for (const name of maps) {
       const entries: Record<string, unknown> = from.getMap(name).toJSON();
       const target = to.getMap<unknown>(name);
       for (const key of Object.keys(entries).toSorted())
@@ -78,14 +87,17 @@ function copyMaps(source: CrdtDoc, built: CrdtDoc): void {
 
 /**
  * A fresh document holding the source's blocks (IDs, attributes known and unknown, text and marks) redistributed with
- * sectionize into even sections, and the settings, settingsMeta, revisedOverrides, notes, imported and titlePage maps; every
- * struct is the given client's.
+ * sectionize into even sections, and the maps its kind copies (absent: a script's, the settings, settingsMeta,
+ * revisedOverrides, notes, imported and titlePage maps); every struct is the given client's.
  */
 export function rebuildDoc(
   source: CrdtDoc,
-  options: { clientId: number },
+  options: { clientId: number; kind?: string },
 ): RebuildResult {
-  const known: readonly string[] = ROOT_TYPE_NAMES;
+  const { kind } = options;
+  const listed = kind !== undefined && Object.hasOwn(COPIED_MAPS, kind);
+  const maps = (listed ? COPIED_MAPS[kind] : undefined) ?? SCRIPT_MAPS;
+  const known: readonly string[] = [FRAGMENT_NAME, ...maps];
   if ([...yDocOf(source).share.keys()].some((name) => !known.includes(name)))
     return { ok: false, code: "unknown_root" };
   const body = scriptBody(source);
@@ -99,6 +111,6 @@ export function rebuildDoc(
     { type: "doc", content: evenSections(blocks) },
     { clientId: options.clientId },
   );
-  copyMaps(source, built);
+  copyMaps(source, built, maps);
   return { ok: true, doc: built };
 }

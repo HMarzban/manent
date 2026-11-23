@@ -29,6 +29,7 @@ import { createAttribution } from "./attribution.ts";
 import type { Attribution } from "./attribution.ts";
 import { contentAt, openVersion, uploadedContent } from "./content.ts";
 import type { LocksAt } from "./content.ts";
+import type { DraftEvents } from "./draft-events.ts";
 import { createMaintenance } from "./maintenance.ts";
 import { createKeep } from "./keep.ts";
 import { createNamedVersions } from "./named-version.ts";
@@ -98,6 +99,8 @@ export function createHistoryService(options: {
   clock: Clock;
   ids(): string;
   extras?: HistoryExtras;
+  /** Told of each named draft after its commit; absent, nobody is. */
+  draftEvents?: DraftEvents;
 }): HistoryService {
   const { storage, clock, extras } = options;
   const locksAt: LocksAt = (file, docId, at) =>
