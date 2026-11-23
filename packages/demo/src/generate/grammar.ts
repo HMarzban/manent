@@ -165,9 +165,26 @@ export function freeAction(
   return free.length === 0 ? null : rng.pick(free);
 }
 
-/** Whether the scene's last speaker may speak next: only once half a page of action has passed since their speech. */
+// the pages of action after which the scene's last speaker may speak again: half a page while someone else in the
+// beat has a line left; when nobody has, as in a scene with one person in it, a tenth, so speech and action alternate
+const TURN_PAGES = { shared: 1 / 2, alone: 1 / 10 } as const;
+
+// whether someone in the beat other than the scene's last speaker has a line never spoken in the document
+const hasOthers = (draw: Draw): boolean =>
+  draw.guide.dialogue.some(
+    (entry) =>
+      draw.beat.cast.some(
+        (cue) =>
+          cue !== draw.speaker &&
+          (entry.speaker === null || entry.speaker === cue),
+      ) && !draw.used.has(entry.text, repeatWindow(draw.guide.format)),
+  );
+
+/** Whether the scene's last speaker may speak next: only once TURN_PAGES of action have passed since their speech. */
 const mayGoOn = (draw: Draw): boolean =>
-  draw.quiet >= LINES_PER_PAGE[draw.guide.format] / 2;
+  draw.quiet >=
+  LINES_PER_PAGE[draw.guide.format] *
+    TURN_PAGES[hasOthers(draw) ? "shared" : "alone"];
 
 // an entry of this intent never spoken in the document that someone in the beat other than `not` may speak
 function freeLine(
@@ -262,9 +279,9 @@ function writeUnit(draw: Draw): SeedBlock[] {
  * Writes the beat's scenes, each a heading and enough units for its share of the beat's pages (an estimate), and
  * passes every block written through `used`: a dialogue line is never spoken again in the document, an action
  * not within GENERATED_REPEAT_PAGES pages. Speakers take turns: the scene's last speaker speaks again only past
- * half a page of action, or when nobody else has a line left. `after` is the cue of the last speech of the text a
- * caller puts between the first heading and the units written under it. Throws SeedBuildError
- * "generator_exhausted" when nothing free fits.
+ * half a page of action, or, when nobody else in the beat has a line left, past a tenth. `after` is the cue of the
+ * last speech of the text a caller puts between the first heading and the units written under it. Throws
+ * SeedBuildError "generator_exhausted" when nothing free fits.
  */
 export function generateScenes(
   guide: StyleGuide,
