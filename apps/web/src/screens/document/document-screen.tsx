@@ -1,5 +1,7 @@
-// The document screen: its frame drawn in the shell's areas around the page, which the shell keeps mounted.
+// The document screen: the body of the document's kind drawn in the shell's areas around the page, which the shell
+// keeps mounted.
 import { DEMO_PEOPLE } from "@manent/demo";
+import type { DocKind } from "@manent/sync-protocol";
 import {
   DOCUMENT_WORDS,
   createValue,
@@ -15,7 +17,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { focusHeading } from "../../focus.ts";
 import { ProductionDialogs } from "../../production/dialogs.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
@@ -32,6 +34,7 @@ import { RulerBar } from "./ruler-bar.tsx";
 import { useRemoteSettingMessages } from "./setting-messages.ts";
 import { SidePanel } from "./side-panel.tsx";
 import { CommandAction, StatusBar } from "./status-bar.tsx";
+import { STATUS_READOUTS } from "./status-readouts.ts";
 import { TitleBar, useDocumentTitle } from "./title-bar.tsx";
 
 const route = getRouteApi("/s/$docId");
@@ -163,7 +166,27 @@ function useTabTitle(docId: string): void {
   }, [userId, title]);
 }
 
-function Frame(props: { docId: string; doc: DocumentServices }): ReactNode {
+/** What a document of `kind` draws around the page. */
+export interface DocumentBody {
+  readonly kind: DocKind;
+  readonly Body: ComponentType<{
+    docId: string;
+    kind: DocKind;
+    doc: DocumentServices;
+  }>;
+}
+
+/** The kind of the document `docId`: every document the shell opens is a script while no other kind has a screen. */
+export function useDocKind(_docId: string | null): DocKind {
+  return "script";
+}
+
+/** A script's body: its title, state, find and ruler bars, its panels and its status bar. */
+function Frame(props: {
+  docId: string;
+  kind: DocKind;
+  doc: DocumentServices;
+}): ReactNode {
   const { docId } = props;
   const status = useTestStatus(props.doc.status);
   const doc = { ...props.doc, status };
@@ -186,16 +209,32 @@ function Frame(props: { docId: string; doc: DocumentServices }): ReactNode {
       <LeftPanel docId={docId} overlay={overPage} />
       <NoAccess docId={docId} status={status} />
       <SidePanel docId={docId} overlay={overPage} />
-      <StatusBar />
+      <StatusBar
+        readouts={STATUS_READOUTS.flatMap(({ id, kinds, Readout }) =>
+          kinds.includes(props.kind)
+            ? [<Readout key={id} docId={docId} />]
+            : [],
+        )}
+      />
       <ProductionDialogs docId={docId} />
     </>
   );
 }
 
-/** The frame of `docId`; the stand-in screen of the test build draws it around the stand-in editor. */
+const SCRIPT_BODY: DocumentBody = { kind: "script", Body: Frame };
+
+/** A kind with no line gets the script's body. */
+export const DOCUMENT_BODIES: readonly DocumentBody[] = [SCRIPT_BODY];
+
+/** The body of `docId`'s kind; the stand-in screen of the test build draws it around the stand-in editor. */
 export function DocumentFrame(props: { docId: string }): ReactNode {
   const doc = useOpenDocument(props.docId);
-  return doc === null ? null : <Frame docId={props.docId} doc={doc} />;
+  const kind = useDocKind(props.docId);
+  const { Body } =
+    DOCUMENT_BODIES.find((body) => body.kind === kind) ?? SCRIPT_BODY;
+  return doc === null ? null : (
+    <Body docId={props.docId} kind={kind} doc={doc} />
+  );
 }
 
 export function DocumentScreen(): ReactNode {

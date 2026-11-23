@@ -322,7 +322,9 @@ test("Details and Scenes draw what later plans register", async () => {
     ],
   }));
   mock.module(MARKS, () => ({
-    SCENE_MARK_SOURCES: [() => createValue(new Set(["a"]))],
+    SCENE_MARK_SOURCES: [
+      () => createValue(new Map([["a", [{ kind: "revised" }]]])),
+    ],
   }));
   const frame = await renderFrame();
   await run(frame, "view.sidePanel");
