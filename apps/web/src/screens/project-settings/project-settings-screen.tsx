@@ -7,7 +7,6 @@ import { SETTINGS } from "@manent/settings";
 import type { ProjectGroup, SettingKey } from "@manent/settings";
 import {
   Button,
-  CommandButton,
   MessageSlot,
   PROJECT_WORDS,
   SEND_WORDS,
@@ -22,6 +21,7 @@ import type { ReactNode } from "react";
 import { createProjectSettingsBag } from "../../project/settings-bag.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { ProjectItem } from "../../services/ports.ts";
+import { CommandsButton } from "../../shell/commands-button.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { focusHeading } from "../../focus.ts";
 import { TEXT, pageTitle } from "../../text.ts";
@@ -156,7 +156,7 @@ function StatusBar(): ReactNode {
         }}
         registered={isCommandId}
       />
-      <CommandButton id="app.palette" size="sm" />
+      <CommandsButton />
     </ShellRegion>
   );
 }
