@@ -1,10 +1,11 @@
 // The Library's status bar: the message slot, how many projects are on this device when some are not, and Commands.
 import { COMMANDS } from "@manent/commands";
 import type { CommandId } from "@manent/commands";
-import { CommandButton, LIBRARY_WORDS, MessageSlot } from "@manent/ui";
+import { LIBRARY_WORDS, MessageSlot } from "@manent/ui";
 import type { ReactNode } from "react";
 import { useServices } from "../../services/context.tsx";
 import type { ProjectItem } from "../../services/ports.ts";
+import { CommandsButton } from "../../shell/commands-button.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { ON_DEVICE } from "./row-place.tsx";
 
@@ -36,7 +37,7 @@ export function LibraryStatusBar(props: {
           {LIBRARY_WORDS.onDevice(here, projects.length)}
         </span>
       ) : null}
-      <CommandButton id="app.palette" size="sm" />
+      <CommandsButton />
     </ShellRegion>
   );
 }

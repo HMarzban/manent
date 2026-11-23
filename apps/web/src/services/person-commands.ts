@@ -33,6 +33,7 @@ import { rulerActions } from "../state/ruler.store.ts";
 import { rundownActions } from "../state/rundown.store.ts";
 import { sprintActions } from "../state/sprint.store.ts";
 import { trashActions } from "../state/trash.store.ts";
+import { workspaceActions } from "../state/workspace.store.ts";
 import { writingActions } from "../state/writing.store.ts";
 import { zoomActions } from "../state/zoom.store.ts";
 import type {
@@ -131,6 +132,7 @@ function commandContext(
     shell: options.where.shell,
     demo: options.demo.get(),
     signedIn,
+    workspace: workspaceActions.get(),
     panelOpen: { left: panels.left !== null, side: panels.side !== null },
     historyPresent,
     format:
@@ -368,6 +370,7 @@ export function createCommands(
     rundownActions.subscribe(service.notify),
     prompterActions.subscribe(service.notify),
     trashActions.subscribe(service.notify),
+    workspaceActions.subscribe(service.notify),
     focusModeActions.subscribe(service.notify),
     readAloudActions.subscribe(service.notify),
     sprintActions.subscribe(service.notify),

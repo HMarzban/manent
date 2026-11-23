@@ -346,7 +346,7 @@ test("Continue comes first, then the projects with their kind, last edit and pla
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   expect(rowsOf(continueList).map(rowWords)).toEqual([
-    ["The Long Night", "The Long Night · Film", "Synced"],
+    ["The Long Night", "Film", "Synced"],
   ]);
   const [night, game] = rowsOf(projects);
   expect([night, game].map((row) => (row ? rowWords(row) : []))).toEqual([
@@ -388,6 +388,12 @@ test("the switcher lists the person's workspaces and says which is getting ready
     router.state.location.pathname,
     router.state.location.search,
   ]).toEqual(["/", { w: "heavy" }]);
+  // a workspace getting ready says so in place of its lists, never that it is empty
+  const lines = [...document.querySelectorAll("p")].map((p) => p.textContent);
+  expect(lines).toContain(
+    "Lanternfield Studios is getting ready, 12 of 40 projects.",
+  );
+  expect(lines).not.toContain("No scripts yet");
 });
 
 test("a person with no session has one workspace, on this device only, and can sign in from it", async () => {
