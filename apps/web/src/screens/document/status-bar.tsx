@@ -5,12 +5,10 @@ import {
   CommandMenu,
   DOCUMENT_WORDS,
   MessageSlot,
-  cn,
   READOUT_WORDS,
   useSubscribable,
 } from "@manent/ui";
 import type { LucideIcon } from "lucide-react";
-import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { CommandsButton } from "../../shell/commands-button.tsx";
@@ -134,15 +132,6 @@ export function SceneReadout(): ReactNode {
   );
 }
 
-/** Whether the message shown is about the person's own work, which takes two lines until it is dismissed. */
-function useOwnWorkShown(): boolean {
-  const { messages } = useServices();
-  return useSyncExternalStore(
-    messages.subscribe,
-    () => messages.current()?.ownWork ?? false,
-  );
-}
-
 /** `readouts` lead the bar. */
 export function StatusBar(props: { readouts: ReactNode }): ReactNode {
   const { messages } = useServices();
@@ -153,10 +142,7 @@ export function StatusBar(props: { readouts: ReactNode }): ReactNode {
     <ShellRegion
       region="status_bar"
       // on a window too narrow for every control the bar scrolls, never the window
-      className={cn(
-        "flex items-center gap-1 overflow-x-auto border-t border-line bg-chrome px-2 text-ui",
-        useOwnWorkShown() ? "h-row-2" : "h-statusbar",
-      )}
+      className="flex h-statusbar items-center gap-1 overflow-x-auto border-t border-line bg-chrome px-2 text-ui"
     >
       {props.readouts}
       <MessageSlot queue={messages} run={run} registered={registered} />
