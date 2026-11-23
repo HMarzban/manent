@@ -91,6 +91,7 @@ interface SessionParts extends Pick<
   readOnly: Subscribable<ViewHandle | null>;
   sendAwareness(update: Uint8Array): void;
   adoptClientIds(ids: readonly number[]): void;
+  reserveClientId(): Promise<number>;
   close(): Promise<void>;
 }
 

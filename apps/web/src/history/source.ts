@@ -7,6 +7,7 @@ import type { DeviceVersion, DocHandle } from "@manent/sync-client";
 import type {
   AuthorsRequest,
   AuthorsResponse,
+  RestoreRequest,
   SaveRequest,
   SinceResponse,
   VersionContent,
@@ -269,12 +270,7 @@ export function createHistorySource(options: {
   }
 
   async function restoreOnServer(
-    request: {
-      docId: string;
-      key: string;
-      versionId: string;
-      scope: RestoreScope;
-    },
+    request: RestoreRequest,
     handle: DocHandle,
   ): ReturnType<HistorySource["restore"]> {
     const response = await http
@@ -344,14 +340,15 @@ export function createHistorySource(options: {
         return saved ? DONE : NOT_DONE;
       }),
     restore: (docId, versionId, scope) =>
-      withView(docId, (handle) =>
-        isSent(handle)
-          ? restoreOnServer(
-              { docId, key: options.ids(), versionId, scope },
-              handle,
-            )
-          : restoreOnDevice(docId, handle, versionId, scope),
-      ),
+      withView(docId, async (handle) => {
+        if (!isSent(handle))
+          return restoreOnDevice(docId, handle, versionId, scope);
+        // what the server writes is this device's, set aside here if someone removes it unseen
+        const clientId = await handle.reserveClientId();
+        const key = options.ids();
+        const request = { docId, key, versionId, scope, clientId };
+        return restoreOnServer(request, handle);
+      }),
     async whoWrote(docId, blockId) {
       const response = await http.get("/api/versions/who", { docId, blockId });
       if (response.status === 404) return null;

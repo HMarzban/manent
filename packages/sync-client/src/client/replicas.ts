@@ -321,7 +321,13 @@ class TabReplicas implements Replicas {
       this.letGo(m.docId, m.from);
       return;
     }
-    if (m.t !== "open" && m.t !== "edit" && m.t !== "opened") return;
+    if (
+      m.t !== "open" &&
+      m.t !== "edit" &&
+      m.t !== "opened" &&
+      m.t !== "reserve"
+    )
+      return;
     const replica = this.replica(m.docId, m.t === "open" ? m.create : null);
     if (m.t === "open") replica.holders.add(m.from);
     replica.queue = replica.queue.then(async () => {
@@ -329,6 +335,10 @@ class TabReplicas implements Replicas {
       const session =
         this.sessions.get(m.docId) ?? (await this.opening.get(m.docId));
       if (session === undefined) return;
+      if (m.t === "reserve") {
+        void session.addReservedClient(m.clientId);
+        return;
+      }
       if (m.t === "opened") {
         session.addClient(m.clientId);
         session.released(m.from);

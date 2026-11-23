@@ -40,6 +40,8 @@ export interface Session {
   readonly handle: DocHandle;
   /** A following tab's client ID: listed from now on, subscribing again when it is new. */
   addClient(clientId: number): void;
+  /** A client ID reserved for the server to write under: listed and stored, with no new SUBSCRIBE, as the server registers it when it writes. */
+  addReservedClient(clientId: number): Promise<void>;
   /**
    * A following tab's edit, made in `generation`: applied and stored as an own
    * entry, or, made in the document a move left, carried from it; resolves
@@ -186,6 +188,11 @@ class DocSession implements Session {
       readOnly: this.subscription.readOnly,
       sendAwareness: (update) => this.handshake.sendAwareness(update),
       adoptClientIds: (ids) => this.adoptClientIds(ids),
+      reserveClientId: async () => {
+        const clientId = journal.freshClientId(null, ports.random);
+        await this.addReservedClient(clientId);
+        return clientId;
+      },
       close: () => this.close(),
       nameVersion: async (name) => {
         const { stored, ...version } = this.copy.recordVersion(
@@ -221,6 +228,13 @@ class DocSession implements Session {
 
   addClient(clientId: number): void {
     this.adoptClientIds([clientId]);
+  }
+
+  async addReservedClient(clientId: number): Promise<void> {
+    const { clientIds } = this.journal.meta;
+    if (!clientIds.includes(clientId))
+      this.journal.patch({ clientIds: [...clientIds, clientId] });
+    await this.journal.written();
   }
 
   edit(edit: UnsavedEdit, generation: number): Promise<boolean> {
