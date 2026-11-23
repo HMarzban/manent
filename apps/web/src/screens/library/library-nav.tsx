@@ -46,9 +46,12 @@ export function LibraryNav(props: {
       region="left_panel"
       className="hidden w-panel-left shrink-0 flex-col border-e border-line pt-2 @3xl:flex"
     >
-      <Row current={continueShown} onActivate={showContinue}>
-        {LIBRARY_WORDS.continueHeading}
-      </Row>
+      {/* the window's edge would cut a ring drawn outside the row, so it is drawn inside, as the projects' rows are */}
+      <div data-ring="inset">
+        <Row current={continueShown} onActivate={showContinue}>
+          {LIBRARY_WORDS.continueHeading}
+        </Row>
+      </div>
       <h2 className="mn-group-label">{LIBRARY_WORDS.projectsHeading}</h2>
       <div className="min-h-0 flex-1">
         <VirtualRows
