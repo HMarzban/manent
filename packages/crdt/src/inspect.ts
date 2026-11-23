@@ -4,6 +4,7 @@ import type { BlockJSON, RawElement, RawText } from "@manent/schema";
 import * as Y from "yjs";
 import { ORIGIN_REMOTE, throwAll, yDocOf } from "./doc.ts";
 import type { CrdtDoc, Unsubscribe } from "./doc.ts";
+import { noteBefore, parentOf, rootName } from "./held-before.ts";
 import {
   FRAGMENT_NAME,
   elementsNamed,
@@ -77,19 +78,6 @@ function emptyGathered(fragment: Y.XmlFragment): Gathered {
     before: new Map(),
     updates: [],
   };
-}
-
-/** The type holding this one; null for a root. */
-function parentOf(type: unknown): unknown {
-  return type instanceof Y.AbstractType && type.parent instanceof Y.AbstractType
-    ? type.parent
-    : null;
-}
-
-function rootName(fragment: Y.XmlFragment, root: unknown): string | null {
-  for (const [name, type] of fragment.doc?.share ?? [])
-    if (type === root) return name;
-  return null;
 }
 
 function other(node: unknown): Slot | null {
@@ -173,38 +161,6 @@ function idsIn(section: Y.XmlElement): string[] {
   );
 }
 
-const isAdded = (tr: Y.Transaction, item: Y.Item): boolean =>
-  item.id.clock >= (tr.beforeState.get(item.id.client) ?? 0);
-
-/**
- * Keeps, copied, the plain value that the key of `item`, an entry `tr` wrote or deleted in a root map, held when
- * `tr` began, unless an earlier transaction already kept one; undefined when it held nothing or a type.
- */
-function noteBefore(into: Gathered, tr: Y.Transaction, item: Y.Item): void {
-  const { parent, parentSub } = item;
-  if (parentSub === null || parentOf(parent) !== null) return;
-  const name =
-    parent === into.fragment ? null : rootName(into.fragment, parent);
-  if (name === null) return;
-  const kept = into.before.get(name) ?? new Map<string, unknown>();
-  into.before.set(name, kept);
-  if (kept.has(parentSub)) return;
-  // a key's entries are chained oldest first: it held the newest one the transaction did not write, if still there
-  let held: Y.Item | null = item;
-  for (let next = item.right; next !== null; next = next.right) held = next;
-  while (held !== null && isAdded(tr, held)) held = held.left;
-  const content =
-    held === null || (held.deleted && !Y.isDeleted(tr.deleteSet, held.id))
-      ? null
-      : held.content;
-  kept.set(
-    parentSub,
-    content instanceof Y.ContentAny || content instanceof Y.ContentJSON
-      ? structuredClone(content.getContent().at(-1))
-      : undefined,
-  );
-}
-
 /** Runs during afterTransaction, before Yjs collects deleted content. */
 function gather(into: Gathered, tr: Y.Transaction): void {
   // Yjs lists no type made in this transaction as changed, and drops every type it deleted
@@ -216,7 +172,7 @@ function gather(into: Gathered, tr: Y.Transaction): void {
     for (let i = Y.findIndexSS(structs, before); i < structs.length; i++) {
       const struct = structs[i];
       if (!(struct instanceof Y.Item)) continue;
-      noteBefore(into, tr, struct);
+      noteBefore(into.fragment, into.before, tr, struct);
       if (struct.content instanceof Y.ContentType)
         note(into, struct.content.type, true);
     }
@@ -224,7 +180,7 @@ function gather(into: Gathered, tr: Y.Transaction): void {
   const end = Y.createSnapshot(Y.createDeleteSet(), tr.afterState);
   Y.iterateDeletedStructs(tr, tr.deleteSet, (struct) => {
     if (!(struct instanceof Y.Item)) return;
-    noteBefore(into, tr, struct);
+    noteBefore(into.fragment, into.before, tr, struct);
     if (struct.content instanceof Y.ContentType)
       noteDeleted(into, struct.content.type, end);
   });
