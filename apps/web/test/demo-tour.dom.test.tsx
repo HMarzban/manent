@@ -39,6 +39,7 @@ import { AnnouncerRegion } from "../src/shell/announcer-region.tsx";
 import { createShellDom } from "../src/shell/regions.tsx";
 import { bindGuard } from "../src/state/guard.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
+import { tourActions } from "../src/state/tour.store.ts";
 import {
   createClock,
   fakeApi,
@@ -54,6 +55,8 @@ let mounted: Root | null = null;
 afterEach(() => {
   act(() => mounted?.unmount());
   mounted = null;
+  // a scenario a test opened stays open in the tab's store
+  tourActions.close();
   document.body.replaceChildren();
 });
 
@@ -252,7 +255,7 @@ test("a scenario shows its promise, one primary Set it up, numbered steps and it
   expect(setUp?.className.split(" ").includes("bg-primary")).toBe(true);
   expect(
     [...container.querySelectorAll("ol > li")].map((li) => li.textContent),
-  ).toEqual(["Open the commands.", "Choose New script."]);
+  ).toEqual(["1Open the commands.", "2Choose New script."]);
   expect(container.querySelector("dl")?.textContent).toBe(
     "What to checkSaved · Synced",
   );
@@ -260,24 +263,50 @@ test("a scenario shows its promise, one primary Set it up, numbered steps and it
   expect(setUps).toEqual(["a-first-page"]);
 });
 
-test("a step marks its control with the Tour ring, which is not focus", async () => {
-  const control = document.createElement("button");
-  control.setAttribute("data-tour", "app.palette");
+/** The `data-tour` of every control the Tour ring marks. */
+const ringed = (): string[] =>
+  [...document.querySelectorAll("[data-tour-ring]")].map(
+    (control) => control.getAttribute("data-tour") ?? "",
+  );
+
+test("only the step the person is on rings its control, and pressing it moves them on", async () => {
+  const palette = document.createElement("button");
+  palette.setAttribute("data-tour", "app.palette");
+  const newScript = document.createElement("button");
+  newScript.setAttribute("data-tour", "library.newScript");
   const field = document.createElement("input");
-  document.body.append(control, field);
+  document.body.append(palette, newScript, field);
   field.focus();
-  await render(
+  const container = await render(
     <TourScenarioRow
       scenario={SCENARIO}
       {...ROW}
       setUp={async () => ({ ok: true })}
     />,
   );
-  expect(control.getAttribute("data-tour-ring")).toBe("");
+  const current = (): (string | null)[] =>
+    [...container.querySelectorAll("ol [aria-current='true']")].map(
+      (step) => step.textContent,
+    );
+  // a scenario the person has not opened rings nothing
+  expect(ringed()).toEqual([]);
+  await act(async () => buttons(container)[0]?.click());
+  expect(ringed()).toEqual(["app.palette"]);
+  expect(current()).toEqual(["1Open the commands."]);
+  // the Tour ring is not focus
   expect(document.activeElement).toBe(field);
+  act(() => palette.click());
+  expect(ringed()).toEqual(["library.newScript"]);
+  expect(current()).toEqual(["2Choose New script."]);
+  act(() => newScript.click());
+  expect(ringed()).toEqual([]);
+  expect(current()).toEqual([]);
+  // choosing a step makes it the one the person is on
+  act(() => container.querySelector<HTMLElement>("ol li div")?.click());
+  expect(ringed()).toEqual(["app.palette"]);
   act(() => mounted?.unmount());
   mounted = null;
-  expect(control.hasAttribute("data-tour-ring")).toBe(false);
+  expect(ringed()).toEqual([]);
 });
 
 test("the demo bar is its own colour scope and says Demo", async () => {

@@ -215,11 +215,15 @@ async function freshDemo(
   }).toPass();
 }
 
-/** Shows the Tour in the side panel when it is not showing, with the demo bar's Tour button. */
-async function openTour(page: Page): Promise<void> {
-  const tour = page
+/** The Tour's tab of the side panel. */
+const tourPanel = (page: Page): Locator =>
+  page
     .locator("[data-region='side_panel']")
     .getByRole("tabpanel", { name: DOCUMENT_WORDS.tourTab });
+
+/** Shows the Tour in the side panel when it is not showing, with the demo bar's Tour button. */
+async function openTour(page: Page): Promise<void> {
+  const tour = tourPanel(page);
   const button = page
     .getByRole("region", { name: DEMO_WORDS.demo })
     .getByRole("button", { name: DEMO_WORDS.tour });
@@ -251,8 +255,9 @@ function windowOfStep(text: string, userIds: readonly string[]): number {
 }
 
 /**
- * Step `index`'s target in the window it names. In the first window, where the Tour is open, it must carry the Tour
- * ring; an extra window has no Tour, so there the target need only be visible.
+ * Step `index`'s target in the window it names. In the first window, where the Tour is open, the person is on that
+ * step, as pressing the last step's control or choosing the step in the Tour puts them, and its target must carry the
+ * Tour ring; an extra window has no Tour, so there the target need only be visible.
  */
 async function stepTarget(
   windows: readonly Page[],
@@ -270,8 +275,18 @@ async function stepTarget(
   const target = windows[at]!.locator(`[data-tour="${step.highlight}"]`)
     .filter({ visible: true })
     .first();
-  if (at === 0) await expect(target).toHaveAttribute("data-tour-ring", "");
-  else await expect(target).toBeVisible();
+  if (at !== 0) {
+    await expect(target).toBeVisible();
+    return target;
+  }
+  const row = tourPanel(windows[0]!)
+    .getByRole("listitem")
+    .filter({ hasText: scenario.promise })
+    .locator("ol > li > div")
+    .nth(index);
+  if ((await row.getAttribute("aria-current")) !== "true") await row.click();
+  await expect(row).toHaveAttribute("aria-current", "true");
+  await expect(target).toHaveAttribute("data-tour-ring", "");
   return target;
 }
 
