@@ -904,6 +904,8 @@ test("the handler table names every command but the generated ones", () => {
     "view.marks.none": noop,
     "view.colourRevised": noop,
     "share.open": noop,
+    "doc.copyLink": noop,
+    "history.copyLink": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))

@@ -95,10 +95,11 @@ test("Title ▾ holds Script settings and Rename for an editor, and not Rename f
       "Rename",
       "Export…",
       "Print…⌘P",
+      "Copy link",
       "Name this draft…⌘⇧S",
       "Open beside",
     ],
-    ["Script settings", "Export…", "Print…⌘P", "Open beside"],
+    ["Script settings", "Export…", "Print…⌘P", "Copy link", "Open beside"],
   ]);
 });
 
