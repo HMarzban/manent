@@ -100,18 +100,21 @@ export function speechOf(
     : [{ element: ACTION_ELEMENTS[format], text: `${cue}: ${text}` }];
 }
 
-/** The first of each of `lists`, then the second of each, and so on until every one is used. */
-const inTurn = <T>(lists: readonly (readonly T[])[]): T[] =>
-  Array.from({ length: Math.max(0, ...lists.map((l) => l.length)) }, (_, i) =>
-    lists.flatMap((list) => list.slice(i, i + 1)),
-  ).flat();
+/** Every item of `lists`, each list spread evenly through the whole: the i-th of n at (i + 0.5) / n, ties in list order (the sort is stable). */
+const spread = <T>(lists: readonly (readonly T[])[]): T[] =>
+  lists
+    .flatMap((list) =>
+      list.map((item, i) => ({ item, at: (i + 0.5) / list.length })),
+    )
+    .toSorted((a, b) => a.at - b.at)
+    .map(({ item }) => item);
 
 /**
  * The hand-written lines of the first of `guides` that writes the document, else of the first that writes
- * another document of its project, as the document's format writes them: an action, then a speech of each
- * speaker in turn, and again, so that a writer's lines read as a scene. A speech any of the cast may say
- * goes to the cast of the guide's beats in turn, those in the room before a voice from elsewhere
- * ("GIL (V.O.)"). Null when no guide writes the project.
+ * another document of its project, as the document's format writes them: the actions and each speaker's
+ * speeches spread evenly through one another, so that a writer's lines read as a scene wherever they start.
+ * A speech any of the cast may say goes to the cast of the guide's beats in turn, those in the room before a
+ * voice from elsewhere ("GIL (V.O.)"). Null when no guide writes the project.
  */
 export function guideLines(
   guides: readonly StyleGuide[],
@@ -130,7 +133,7 @@ export function guideLines(
     return cue === undefined ? [] : [{ cue, text: entry.text }];
   });
   const speakers = [...new Set(said.map((speech) => speech.cue))];
-  return inTurn<WriterLine>([
+  return spread<WriterLine>([
     guide.action.map((text) => [{ element, text }]),
     ...speakers.map((cue) =>
       said
