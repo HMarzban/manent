@@ -9,7 +9,7 @@ import type { Where } from "../../platform.ts";
 import type { CommandsOptions } from "../person-commands.ts";
 import type { PersonSync } from "./create-sync.ts";
 import type { LaterMap } from "./later-index.ts";
-import type { checkCleared } from "./on-device.ts";
+import type { checkCleared, keepOnDevice } from "./on-device.ts";
 import type { PrivateIndex } from "./private-index.ts";
 
 /**
@@ -77,28 +77,34 @@ export function askPersistenceOnce(where: Where): () => void {
   };
 }
 
+interface ClearedIndexes {
+  privateIndex: PrivateIndex;
+  checkCleared: typeof checkCleared;
+  keepOnDevice: typeof keepOnDevice;
+}
+
 /**
- * Once the private index has synced, tells what came back to a browser that cleared Manent's data. Settles once the
- * check has run, and never rejects: this device's entries are written only after it, so the check reads those earlier
- * sessions left, and a new browser, which left none, is told nothing. A browser that kept its store has nothing to be
- * told, so it settles at once and its entries are written even while the index cannot sync.
+ * Once the private index has synced, tells what came back to a browser that cleared Manent's data. Returns `indexes`,
+ * whose `keepOnDevice` in such a browser writes this device's entries only after that check: the check then reads those
+ * earlier sessions left, and a new browser, which left none, is told nothing. A browser that kept its store has nothing
+ * to be told, and writes them at once, even while the index cannot sync.
  */
-export async function tellCleared(
+export function tellCleared<T extends ClearedIndexes>(
   sync: PersonSync,
-  indexes: { privateIndex: PrivateIndex; checkCleared: typeof checkCleared },
+  indexes: T,
   open: { deviceId: string; messages: MessageQueue },
-): Promise<void> {
-  if (sync.hadDatabase !== false) return;
-  const { handle } = indexes.privateIndex;
-  if (!handle.status.get().synced)
-    await new Promise<void>((resolve) => {
-      const stop = handle.status.subscribe((status) => {
-        if (!status.synced) return;
-        stop();
-        resolve();
+): T {
+  if (sync.hadDatabase !== false) return indexes;
+  const checked = (async (): Promise<void> => {
+    const { handle } = indexes.privateIndex;
+    if (!handle.status.get().synced)
+      await new Promise<void>((resolve) => {
+        const stop = handle.status.subscribe((status) => {
+          if (!status.synced) return;
+          stop();
+          resolve();
+        });
       });
-    });
-  try {
     const event = await indexes.checkCleared({
       hadDatabase: sync.hadDatabase,
       privateIndex: indexes.privateIndex,
@@ -106,9 +112,23 @@ export async function tellCleared(
       documents: () => sync.client.documents(),
     });
     if (event !== null) open.messages.push(messageFor(event));
-  } catch {
+  })().catch(() => {
     // the server's list could not be read, so nothing can be told; this device's entries are written as before
-  }
+  });
+  return {
+    ...indexes,
+    keepOnDevice: (keep) => {
+      let stop: (() => void) | null = null;
+      let stopped = false;
+      void checked.then(() => {
+        if (!stopped) stop = indexes.keepOnDevice(keep);
+      });
+      return () => {
+        stopped = true;
+        stop?.();
+      };
+    },
+  };
 }
 
 /** Settles once the demo's seed has been followed: never when this device's data is cleared and the page reloaded. */

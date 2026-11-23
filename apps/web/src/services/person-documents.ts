@@ -41,8 +41,6 @@ interface Indexes {
   checkCleared: typeof checkCleared;
   /** Stops asking the server for the person's workspaces. */
   stopAsking: () => void;
-  /** Settles once a cleared browser has been told what came back; this device's entries are written only after it. */
-  told: Promise<void>;
 }
 
 /** What the services keep of the person's sync. */
@@ -105,7 +103,7 @@ async function openIndexes(
   sync: PersonSync,
   options: Options,
   messages: MessageQueue,
-): Promise<Omit<Indexes, "told">> {
+): Promise<Indexes> {
   const { person } = options;
   const [privateParts, libraryParts, onDevice, reviewParts] = await Promise.all(
     [
@@ -200,20 +198,17 @@ function openedHook(hook: {
       // the indexes open only over a started sync
       const current = hook.started();
       if (stopped || opened === null || current === null) return;
-      stops.push(opened.onOwnChange(handle, current.askPersistence));
-      void opened.told.then(() => {
-        if (stopped) return;
-        stops.push(
-          opened.keepOnDevice({
-            privateIndex: opened.privateIndex,
-            title: opened.library.documentTitle(docId),
-            docId,
-            handle,
-            deviceId,
-            now,
-          }),
-        );
-      });
+      stops.push(
+        opened.keepOnDevice({
+          privateIndex: opened.privateIndex,
+          title: opened.library.documentTitle(docId),
+          docId,
+          handle,
+          deviceId,
+          now,
+        }),
+        opened.onOwnChange(handle, current.askPersistence),
+      );
     });
     return () => {
       stopped = true;
@@ -306,10 +301,7 @@ function startPersonSync(
         openIndexes(s, options, messages),
         trust,
       ]);
-      return {
-        ...opened,
-        told: t.trust.tellCleared(s, opened, { deviceId, messages }),
-      };
+      return t.trust.tellCleared(s, opened, { deviceId, messages });
     })
     .catch(() => {
       // the maps hold what is written for this session, and the Library stays empty
