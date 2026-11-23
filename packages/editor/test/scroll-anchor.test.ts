@@ -208,3 +208,16 @@ test("a deletion that moves the page break above the reader moves the reader by 
     blockTopPx(after, engine, 0, 189) - blockTopPx(before, engine, 0, 192),
   );
 });
+
+test("a line added on a page with room at its foot leaves the block that opens the next page where it is", () => {
+  const blocks = [
+    ...Array.from({ length: 10 }, (_, i) => line(i + 1)),
+    block("page_break", "", { id: "break" }),
+    ...Array.from({ length: 60 }, (_, i) => line(i + 11)),
+  ];
+  const before = engine.paginate(blocks, sp);
+  const edit = applyEdit(blocks, { kind: "insert", at: 3, lines: 1 });
+  const after = engine.repaginate(before, edit.blocks, edit.change);
+  expect([before.pages[1]!.block, after.pages[1]!.block]).toEqual([11, 12]);
+  expect(anchorShiftPx(before, after, engine, edit.change, 12)).toBe(0);
+});

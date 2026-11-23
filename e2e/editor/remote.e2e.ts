@@ -372,6 +372,99 @@ test("in Chromium that edit's frame does its work within the remote edit's hard 
   expect(longest).toBeLessThan(16);
 });
 
+/** An action that reads "The tide turns, line `n`." */
+const tideLine = (n: number) =>
+  corpusLine("action", `The tide turns, line ${n}.`);
+
+/** Scrolls the page until block `blockId` starts `px` below its scroller's top: its bottom then, and that top, px. */
+const scrollBlockTo = (
+  page: Page,
+  blockId: string,
+  px: number,
+): Promise<{ bottom: number; top: number }> =>
+  page.locator("[data-region='page']").evaluate(
+    (scroller, [id, below]) => {
+      const block = scroller.querySelector(`[data-id="${id}"]`);
+      if (block === null) throw new Error(`block ${id} is not drawn`);
+      const { top } = scroller.getBoundingClientRect();
+      scroller.scrollTop += block.getBoundingClientRect().top - top - below;
+      return { bottom: block.getBoundingClientRect().bottom, top };
+    },
+    [blockId, px] as const,
+  );
+
+test("a remote edit never scrolls back to the caret just out of view", async ({
+  page,
+}) => {
+  const lines = Array.from({ length: 120 }, (_, n) => tideLine(n + 1));
+  await openScript(page, "screenplay", corpusDoc(lines));
+  await groupHook(page, "remote", "join", DANA);
+  const ids = (await blocks(page)).map((b) => b.id);
+  await caretAt(page, ids[40]!, "end");
+  // the caret's line under the bars above the page, still inside the window
+  const hidden = await scrollBlockTo(page, ids[40]!, -60);
+  await settled(page);
+  const before = await firstVisible(page);
+  await groupHook(page, "remote", "type", 44, 0, "Dusk. ");
+  await holds(page, 44, "Dusk. The tide turns, line 45.");
+  await settled(page);
+  const after = await firstVisible(page);
+  expect({
+    inWindow: hidden.bottom > 0 && hidden.bottom < hidden.top,
+    sameLine: after.id,
+    lineStays: Math.abs(after.top - before.top) <= 1,
+  }).toEqual({ inWindow: true, sameLine: before.id, lineStays: true });
+});
+
+test("a remote edit on a page with room at its foot leaves the next page where it is", async ({
+  page,
+}) => {
+  const first = Array.from({ length: 10 }, (_, n) => tideLine(n + 1));
+  const rest = Array.from({ length: 60 }, (_, n) => tideLine(n + 11));
+  await openScript(
+    page,
+    "screenplay",
+    corpusDoc([...first, corpusLine("page_break", ""), ...rest]),
+  );
+  await groupHook(page, "remote", "join", DANA);
+  // the top of the view on the desk above the page that block 11 opens
+  await scrollBlockTo(page, (await blocks(page))[11]!.id, 60);
+  await settled(page);
+  const before = await firstVisible(page);
+  const added = "The keeper climbs the stair and lights the lamp at the top. ";
+  await groupHook(page, "remote", "type", 3, 0, added);
+  await holds(page, 3, `${added}The tide turns, line 4.`);
+  await settled(page);
+  const after = await firstVisible(page);
+  expect({
+    sameLine: after.id,
+    lineStays: Math.abs(after.top - before.top) <= 1,
+  }).toEqual({ sameLine: before.id, lineStays: true });
+});
+
+test("another writer's caret at the end of a line moves no line", async ({
+  page,
+}) => {
+  await openScript(
+    page,
+    "screenplay",
+    corpusDoc([
+      corpusLine("scene_heading", "INT. LAMP ROOM - NIGHT"),
+      corpusLine("action", "The keeper climbs the stair."),
+      corpusLine("action", "Wind at the glass."),
+    ]),
+  );
+  await groupHook(page, "remote", "join", DANA);
+  const [, climbs, wind] = await blocks(page);
+  const before = await lineTop(page, wind!.id);
+  await groupHook(page, "remote", "select", 1, climbs!.text.length);
+  await expect(bar(page)).toBeVisible();
+  await settled(page);
+  expect(
+    Math.abs((await lineTop(page, wind!.id)) - before),
+  ).toBeLessThanOrEqual(1);
+});
+
 /** The viewport bottom of the block that holds the caret, px. */
 const caretLineBottom = (page: Page): Promise<number> =>
   page.evaluate(() => {
