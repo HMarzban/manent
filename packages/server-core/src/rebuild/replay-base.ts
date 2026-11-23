@@ -15,6 +15,7 @@ import {
   scriptBody,
   titlePage,
   updateMeta,
+  withoutRemovedUnseen,
 } from "@manent/crdt";
 import type { CrdtDoc, SetAside, TypedText } from "@manent/crdt";
 import { TITLE_PAGE_FIELDS, blockText, blocksOf } from "@manent/schema";
@@ -141,6 +142,20 @@ function sinceOf(
   return new Map(clients.map((c) => [c, held.get(c) ?? 0]));
 }
 
+/** Base as the updates were made against it: without the text they removed unseen, with a parent they deleted. */
+function seenContent(
+  base: CrdtDoc,
+  mine: CrdtDoc,
+  updates: readonly Uint8Array[],
+): DocJSON {
+  const seen = withoutRemovedUnseen(base, mine, updates);
+  try {
+    return scriptBody(seen).materialize();
+  } finally {
+    seen.destroy();
+  }
+}
+
 /** Mine's overrides that differ from base's, keys ascending; a null value removes the key. */
 function changedOverrides(
   base: CrdtDoc,
@@ -171,16 +186,17 @@ function changedTitlePage(
 
 /**
  * base: the generation at `lastServerSeq` (its newest checkpoint at or before it, then its rows),
- * moved on to the smallest later sequence at which the waiting updates are complete; mine: base with
- * the updates applied. setAside: anyone's text the updates removed unseen (the replay writes those
- * deletions afresh, so whoever typed it would never be told), then own text the rows base moved on
- * by removed from mine unseen; unseen: own text mine still holds that the generation's later rows
- * removed unseen. typed: by block, mine's text and which of its characters the updates wrote.
- * overrides: mine's revisedOverrides entries that differ from base's. titlePage: mine's fields that
- * differ from base's. invalid: an update is not one, writes a root map other than revisedOverrides
- * and titlePage, or leaves a block validation refuses; incomplete: the updates still wait at the
- * generation's last row, or a row they need does not verify. RangeError for a generation that is
- * not closed.
+ * moved on to the smallest later sequence at which the waiting updates are complete, without the
+ * text that mine lacks and the updates never held (so that the merge keeps it where theirs holds
+ * it); mine: base with the updates applied. setAside: anyone's text the updates removed unseen
+ * (the replay would write those deletions afresh, so whoever typed it would never be told), then
+ * own text the rows base moved on by removed from mine unseen; unseen: own text mine still holds
+ * that the generation's later rows removed unseen. typed: by block, mine's text and which of its
+ * characters the updates wrote. overrides: mine's revisedOverrides entries that differ from base's.
+ * titlePage: mine's fields that differ from base's. invalid: an update is not one, writes a root
+ * map other than revisedOverrides and titlePage, or leaves a block validation refuses; incomplete:
+ * the updates still wait at the generation's last row, or a row they need does not verify.
+ * RangeError for a generation that is not closed.
  */
 export function replayBase(
   file: DocFile,
@@ -229,7 +245,7 @@ export function replayBase(
     const mineContent = scriptBody(mine).materialize();
     return {
       ok: true,
-      base: scriptBody(base).materialize(),
+      base: seenContent(base, mine, updates),
       mine: mineContent,
       setAside: [...waiting, ...later],
       unseen: removedUnseen({ base, mine, mineContent }, rest, own),

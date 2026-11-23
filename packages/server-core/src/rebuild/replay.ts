@@ -13,7 +13,7 @@ import {
 } from "@manent/crdt";
 import type { TypedText } from "@manent/crdt";
 import type { BlockMerge } from "@manent/revisions";
-import { blockText, blockView, validateBlocks } from "@manent/schema";
+import { blockText, blockView, blocksOf, validateBlocks } from "@manent/schema";
 import type { BlockOp, DocJSON, TitlePageField } from "@manent/schema";
 import type { DocFile, Home, Storage, VersionRow } from "@manent/storage";
 import type {
@@ -138,6 +138,13 @@ function storedOf(
   const merged = new Set<string | null>(
     merge.setAside.map((item) => item.blockId),
   );
+  const result = new Map(
+    blocksOf(merge.result).map((block) => [block.attrs.id, blockText(block)]),
+  );
+  // the merge's base lacks the text the updates removed unseen, so the merge keeps it where theirs holds it
+  const isKept = (item: ReplaySetAside): boolean =>
+    item.blockId !== null &&
+    (result.get(item.blockId)?.includes(item.text) ?? false);
   return {
     docId: room.docId,
     generation: room.row.generation,
@@ -148,7 +155,7 @@ function storedOf(
     })),
     // the merge sets aside mine's whole block, which still holds the unseen text found in it
     setAside: [
-      ...found.setAside,
+      ...found.setAside.filter((item) => !isKept(item)),
       ...found.unseen.filter((item) => !merged.has(item.blockId)),
       ...merge.setAside,
     ].map(({ blockId, nearBlockId, text }) => ({ blockId, nearBlockId, text })),

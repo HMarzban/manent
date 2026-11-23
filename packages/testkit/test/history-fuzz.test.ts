@@ -98,14 +98,141 @@ async function applyHistoryOp(w: HistoryWorld, op: HistoryOp): Promise<void> {
   applyOp(w, op);
 }
 
+/** The run's ops in its world, then the invariants once the world has settled. */
+async function play(run: HistoryRun): Promise<void> {
+  const w = await worldOf(run);
+  for (const op of run.ops) await applyHistoryOp(w, op);
+  await w.settle();
+  w.check();
+}
+
 test("every character typed is in the script or in Recovered text, with restores in the mix", async () => {
-  await fc.assert(
-    fc.asyncProperty(arbRunWithRestores, async (run) => {
-      const w = await worldOf(run);
-      for (const op of run.ops) await applyHistoryOp(w, op);
-      await w.settle();
-      w.check();
-    }),
-    { numRuns: Number(process.env.MANENT_FUZZ_RUNS ?? 100) },
-  );
+  await fc.assert(fc.asyncProperty(arbRunWithRestores, play), {
+    numRuns: Number(process.env.MANENT_FUZZ_RUNS ?? 100),
+  });
 }, 300_000);
+
+/**
+ * Found with seed 890587692: a device moved a block offline before it held what someone else then
+ * typed into it, and the rebuilt script took the move as a deletion of that text.
+ */
+const MOVED_BEFORE_TYPING_ARRIVED: HistoryRun = {
+  seed: 890_587_692,
+  users: ["dana", "sam"],
+  devices: 2,
+  faults: { duplicate: 0 },
+  ops: [
+    { device: 0, kind: "restore", block: 0, at: 0 },
+    { device: 0, kind: "type", block: 0, at: 0 },
+    { device: 0, kind: "split", block: 0, at: 0 },
+    { device: 0, kind: "split", block: 0, at: 0 },
+    { device: 0, kind: "element", block: 0, element: 0 },
+    { device: 0, kind: "element", block: 0, element: 0 },
+    { device: 0, kind: "deliver", frames: 1 },
+    { device: 5, kind: "type", block: 7, at: 0 },
+    { device: 3, kind: "split", block: 6, at: 0 },
+    { device: 0, kind: "rebuild" },
+    { device: 3, kind: "join", block: 0 },
+    { device: 0, kind: "quiet" },
+    { device: 0, kind: "delete", block: 0 },
+    { device: 0, kind: "restore", block: 0, at: 0 },
+    { device: 0, kind: "delete", block: 0 },
+    { device: 0, kind: "insert", block: 0 },
+    { device: 0, kind: "rebuild" },
+    { device: 0, kind: "deliver", frames: 10 },
+    { device: 0, kind: "offline" },
+    { device: 0, kind: "join", block: 0 },
+    { device: 0, kind: "delete", block: 0 },
+    { device: 0, kind: "split", block: 0, at: 0 },
+    { device: 0, kind: "quiet" },
+    { device: 0, kind: "offline" },
+    { device: 3, kind: "move", block: 0, length: 2, target: 0 },
+    { device: 0, kind: "online" },
+    { device: 0, kind: "split", block: 0, at: 0 },
+    { device: 0, kind: "offline" },
+    { device: 0, kind: "split", block: 0, at: 0 },
+  ],
+};
+
+/**
+ * Found with seeds 1040187384 and 405958027: a server update the device had not yet applied when
+ * the script was rebuilt was taken, once applied, for typing on the device meanwhile, and written
+ * over what others had typed since.
+ */
+const UPDATE_APPLIED_WHILE_MOVING: readonly HistoryRun[] = [
+  {
+    seed: 1_040_187_384,
+    users: ["dana", "sam", "priya"],
+    devices: 2,
+    faults: { duplicate: 0 },
+    ops: [
+      { device: 0, kind: "join", block: 0 },
+      { device: 1, kind: "insert", block: 0 },
+      { device: 0, kind: "element", block: 0, element: 0 },
+      { device: 0, kind: "element", block: 0, element: 0 },
+      { device: 0, kind: "type", block: 0, at: 0 },
+      { device: 0, kind: "delete", block: 0 },
+      { device: 0, kind: "insert", block: 0 },
+      { device: 0, kind: "delete", block: 0 },
+      { device: 0, kind: "join", block: 0 },
+      { device: 0, kind: "type", block: 0, at: 0 },
+      { device: 0, kind: "rebuild" },
+      { device: 0, kind: "deliver", frames: 32 },
+      { device: 0, kind: "move", block: 22, length: 2, target: 0 },
+      { device: 0, kind: "online" },
+      { device: 0, kind: "quiet" },
+      { device: 0, kind: "rebuild" },
+      { device: 1, kind: "offline" },
+      { device: 0, kind: "restore", block: 0, at: 0 },
+      { device: 0, kind: "quiet" },
+      { device: 0, kind: "join", block: 0 },
+      { device: 2, kind: "type", block: 0, at: 0 },
+      { device: 0, kind: "split", block: 0, at: 0 },
+      { device: 0, kind: "insert", block: 0 },
+      { device: 0, kind: "online" },
+      { device: 0, kind: "element", block: 0, element: 0 },
+      { device: 0, kind: "element", block: 0, element: 0 },
+      { device: 0, kind: "online" },
+      { device: 0, kind: "insert", block: 0 },
+      { device: 0, kind: "join", block: 0 },
+    ],
+  },
+  {
+    seed: 405_958_027,
+    users: ["dana", "sam"],
+    devices: 2,
+    faults: { duplicate: 0 },
+    ops: [
+      { kind: "restore_offline", device: 3, version: 0 },
+      { device: 0, kind: "insert", block: 3 },
+      { device: 2, kind: "join", block: 0 },
+      { device: 0, kind: "quiet" },
+      { device: 0, kind: "delete", block: 0 },
+      { device: 0, kind: "split", block: 0, at: 0 },
+      { device: 0, kind: "type", block: 0, at: 0 },
+      { device: 0, kind: "join", block: 0 },
+      { device: 0, kind: "deliver", frames: 4 },
+      { device: 0, kind: "delete", block: 0 },
+      { device: 0, kind: "rebuild" },
+      { device: 0, kind: "element", block: 0, element: 0 },
+      { device: 1, kind: "element", block: 0, element: 0 },
+      { device: 0, kind: "move", block: 0, length: 2, target: 0 },
+      { device: 1, kind: "restore", block: 0, at: 0 },
+      { device: 0, kind: "quiet" },
+      { device: 5, kind: "type", block: 46, at: 0 },
+      { kind: "restore_offline", device: 0, version: 0 },
+      { device: 0, kind: "rebuild" },
+      { device: 0, kind: "offline" },
+      { device: 0, kind: "quiet" },
+      { device: 0, kind: "insert", block: 0 },
+    ],
+  },
+];
+
+test("text someone typed into a block a device moved offline, unseen, stays in the script across a rebuild", async () => {
+  await play(MOVED_BEFORE_TYPING_ARRIVED);
+});
+
+test("text that reaches a device while its edits are carried into a rebuilt script is never undone as its typing", async () => {
+  for (const run of UPDATE_APPLIED_WHILE_MOVING) await play(run);
+});
