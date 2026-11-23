@@ -23,8 +23,8 @@ const SHOW_AFTER_MS = 150;
 const PAGE_REGION = "[data-region='page']";
 // the bar and its More menu, which is drawn outside it
 const TOOLBAR = "[data-selection-toolbar]";
-// with less window than this above the selection, px, the bar stands under it
-const ROOM_ABOVE_PX = 48;
+// the bar's height and its gap, rem: with less of the page than this above the selection, the bar stands under it
+const BAR_ROOM_REM = 2.5;
 
 type Side = "above" | "below";
 
@@ -40,7 +40,10 @@ const SHIFT: Readonly<Record<Side, string>> = Object.freeze({
   below: "translate(-50%, 0.5rem)",
 });
 
-/** Where the bar stands over the window's selection; null while it is collapsed or outside the page. */
+/**
+ * Where the bar stands over the window's selection, inside the page's region; null while the selection is collapsed,
+ * outside the page, or scrolled out of the region's sight.
+ */
 function placeOfSelection(): Place | null {
   const selection = document.getSelection();
   if (selection === null || selection.rangeCount === 0 || selection.isCollapsed)
@@ -48,10 +51,16 @@ function placeOfSelection(): Place | null {
   const range = selection.getRangeAt(0);
   const node = range.commonAncestorContainer;
   const element = node instanceof Element ? node : node.parentElement;
-  if (element === null || element.closest(PAGE_REGION) === null) return null;
+  const region = element?.closest(PAGE_REGION) ?? null;
+  if (region === null) return null;
+  const page = region.getBoundingClientRect();
   const rect = range.getBoundingClientRect();
+  if (rect.bottom <= page.top || rect.top >= page.bottom) return null;
+  const rootPx = parseFloat(
+    getComputedStyle(document.documentElement).fontSize,
+  );
   const x = rect.left + rect.width / 2;
-  return rect.top >= ROOM_ABOVE_PX
+  return rect.top - page.top >= BAR_ROOM_REM * rootPx
     ? { x, y: rect.top, side: "above" }
     : { x, y: rect.bottom, side: "below" };
 }
@@ -60,7 +69,7 @@ const isWithin = (target: EventTarget | null, selector: string): boolean =>
   target instanceof Element && target.closest(selector) !== null;
 
 /**
- * The place of a selection the pointer made in the page, from 150 ms after the press that made it ends, until a key
+ * The place of a selection the primary pointer made in the page, from 150 ms after the press that made it ends, until a key
  * is pressed in the page, the pointer presses the page again, or the selection changes some other way. A change that
  * follows a press on the bar (a style redraws the selected text) moves the bar with the selection instead.
  */
@@ -81,7 +90,8 @@ function usePointerSelection(docId: string): Place | null {
     const onPointerDown = (event: PointerEvent): void => {
       fromBar = isWithin(event.target, TOOLBAR);
       if (fromBar || !isWithin(event.target, PAGE_REGION)) return;
-      pressing = true;
+      // a secondary press keeps the browser's own menu, with nothing of ours beside it
+      pressing = event.button === 0;
       hide();
     };
     const onPointerUp = (): void => {
