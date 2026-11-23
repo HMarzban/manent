@@ -1,17 +1,19 @@
-// One Tour scenario: whether it is done, its promise, its set-up control, its steps with the controls they ring, and what to check.
+// One Tour scenario: whether it is done, its promise, its set-up control, its steps with the one ringed control, and what to check.
 import type { TourScenario } from "@manent/demo";
-import { Button, TOUR_WORDS } from "@manent/ui";
+import { Button, Row, TOUR_WORDS } from "@manent/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useCallback,
   useId,
   useLayoutEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
 import type { ControlState } from "../api.ts";
 import { useAnnouncer } from "../shell/announcer-region.tsx";
+import { tourActions, useTourStep } from "../state/tour.store.ts";
 import type { SetupOutcome } from "./tour-setup.ts";
 import { SERVER_STATUS_QUERY } from "./use-demo.ts";
 
@@ -71,14 +73,17 @@ function useServerState(): ControlState | null {
 }
 
 /**
- * Marks every control a step points at with the Tour ring while the scenario is drawn, a control drawn later (its screen
- * or menu opened) as it arrives; only what arrives is looked at, never the whole page again.
+ * Marks the control of step `at` with the Tour ring, a control drawn later (its screen or menu opened) as it arrives;
+ * only what arrives is looked at, never the whole page again. Pressing the ringed control never moves the person on:
+ * most steps are not done by one press (typing on the page, choosing in a menu), so they choose the next step in the
+ * Tour. `at` null: nothing is ringed.
  */
-function useTourRing(steps: TourScenario["steps"]): void {
+function useTourRing(steps: TourScenario["steps"], at: number | null): void {
   useLayoutEffect(() => {
-    const selector = steps
-      .map((step) => `[data-tour="${CSS.escape(step.highlight)}"]`)
-      .join(", ");
+    if (at === null) return;
+    const step = steps[at];
+    if (step === undefined) return;
+    const selector = `[data-tour="${CSS.escape(step.highlight)}"]`;
     const ring = (root: Element | Document): void => {
       if (root instanceof Element && root.matches(selector))
         root.setAttribute("data-tour-ring", "");
@@ -101,11 +106,11 @@ function useTourRing(steps: TourScenario["steps"]): void {
     });
     return () => {
       arrivals.disconnect();
-      // the scenarios are drawn and removed with the Tour, together, so one scenario's removal never unrings another's control
+      // one step is ringed at a time, in one scenario, so this never unrings another step's control
       for (const control of document.querySelectorAll(selector))
         control.removeAttribute("data-tour-ring");
     };
-  }, [steps]);
+  }, [steps, at]);
 }
 
 /**
@@ -126,7 +131,13 @@ export function TourScenarioRow(props: {
   const promiseId = useId();
   const [refusal, setRefusal] = useState<Refusal | null>(null);
   const [running, setRunning] = useState(false);
-  useTourRing(scenario.steps);
+  const at = useTourStep(scenario.id);
+  useTourRing(scenario.steps, at);
+  const currentStep = useRef<HTMLElement | null>(null);
+  // the step the person is on stays in view, whichever screen drew the Tour again
+  useLayoutEffect(() => {
+    currentStep.current?.scrollIntoView({ block: "center" });
+  }, [at]);
 
   const run = async (): Promise<void> => {
     setRunning(true);
@@ -138,6 +149,7 @@ export function TourScenarioRow(props: {
     setRunning(false);
     const next = outcome.ok ? null : outcome.reason;
     setRefusal(next);
+    if (outcome.ok) tourActions.open(scenario.id, 0);
     if (next !== null) announcer.announce(REFUSALS[next].line);
   };
 
@@ -149,7 +161,11 @@ export function TourScenarioRow(props: {
           type="checkbox"
           aria-labelledby={promiseId}
           checked={done}
-          onChange={(event) => onDone(event.currentTarget.checked)}
+          onChange={(event) => {
+            const ticked = event.currentTarget.checked;
+            onDone(ticked);
+            if (ticked && at !== null) tourActions.close();
+          }}
           className="mt-0.5 size-4 shrink-0 accent-primary"
         />
         <p id={promiseId}>{scenario.promise}</p>
@@ -163,9 +179,19 @@ export function TourScenarioRow(props: {
           {button === "again" ? TOUR_WORDS.setItUpAgain : TOUR_WORDS.setItUp}
         </Button>
       )}
-      <ol className="list-decimal ps-5">
+      <ol className="flex flex-col self-stretch">
         {scenario.steps.map((step, index) => (
-          <li key={index}>{step.text}</li>
+          <li key={index}>
+            <Row
+              current={index === at}
+              leading={<span className="w-6 tabular-nums">{index + 1}</span>}
+              onActivate={() => tourActions.open(scenario.id, index)}
+              rowRef={index === at ? currentStep : undefined}
+            >
+              {/* a step is read whole, never cut short */}
+              <span className="whitespace-normal">{step.text}</span>
+            </Row>
+          </li>
         ))}
       </ol>
       <dl>

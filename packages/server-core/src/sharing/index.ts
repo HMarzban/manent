@@ -1,1 +1,1 @@
-export {};
+export { createSharingService } from "./service.ts";

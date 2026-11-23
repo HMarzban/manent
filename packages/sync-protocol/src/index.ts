@@ -211,3 +211,12 @@ export type {
   PrompterSendResponse,
   PrompterStory,
 } from "./prompter.ts";
+export type {
+  HandInOverlap,
+  HandInRequest,
+  HandInResponse,
+  HandedInControl,
+  PrivateCopyEntry,
+  PrivateCreateRequest,
+  PrivateCreateResponse,
+} from "./private-copy.ts";

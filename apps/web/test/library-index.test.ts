@@ -306,9 +306,10 @@ test("every document entry the Library reads is listed in Continue and dates its
           documents.keys(),
         ]).toEqual([
           readable.map(({ key }) => key).toSorted(),
-          edits.length === 0
-            ? null
-            : { byName: "dana", at: Math.max(...edits) },
+          {
+            byName: "dana",
+            at: edits.length === 0 ? P1.createdAt : Math.max(...edits),
+          },
           stored.map(([key]) => key).toSorted(),
         ]);
       },
