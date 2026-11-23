@@ -39,13 +39,19 @@ const fits = async (locator: Locator): Promise<boolean> =>
 const statusButton = (page: Page): Locator =>
   page.getByRole("button", { name: /^Saved/ });
 
-test("the status never moves while its words change", async ({ page }) => {
+test("the status never moves while its words change, and its button fits them", async ({
+  page,
+}) => {
   await signedInAs(page, "you", DOC);
   const status = statusButton(page);
   await expect(status).toHaveAccessibleName(NEW_SCRIPT);
+  // the band the button sits in
+  const band = status.locator("xpath=..");
   // the slots' row, the device slot's holder and the slot, the middle dot, then the server slot's holder
   const server = status.locator("span").nth(4);
   const boxes: ({ x: number; y: number; width: number } | null)[] = [];
+  // from the end of the server slot's words to the end of the button: its padding and its edge alone
+  const trails: number[] = [];
   // You has no session, so under the new script's words the source says Sign in to sync
   for (const [facts, words] of [
     [{ neverSynced: false, server: "synced" }, "Saved · Synced"],
@@ -59,12 +65,25 @@ test("the status never moves while its words change", async ({ page }) => {
   ] as const) {
     await setStatus(page, facts);
     await expect(status).toHaveAccessibleName(words);
-    boxes.push(await server.boundingBox());
+    boxes.push(await band.boundingBox());
+    const [button, slot] = [
+      await status.boundingBox(),
+      await server.boundingBox(),
+    ];
+    trails.push(
+      Math.round(
+        (button?.x ?? 0) +
+          (button?.width ?? 0) -
+          (slot?.x ?? 0) -
+          (slot?.width ?? 0),
+      ),
+    );
   }
-  // the server slot is 280 px wide at Interface size 100 %, whatever it says
-  expect([Math.round(boxes[0]?.width ?? 0), boxes]).toEqual([
-    280,
+  // the band is 368 px wide at Interface size 100 %, whatever the status says
+  expect([Math.round(boxes[0]?.width ?? 0), boxes, trails]).toEqual([
+    368,
     boxes.map(() => boxes[0]),
+    trails.map(() => 9),
   ]);
 });
 

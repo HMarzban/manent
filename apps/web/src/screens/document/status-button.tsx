@@ -1,4 +1,4 @@
-// The status beside the title: two slots of fixed width, written without React, that open the Sync centre.
+// The status beside the title: two slots written without React, in a band of reserved width, that open the Sync centre.
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@manent/ui";
 import type { StatusFacts, Subscribable } from "@manent/ui";
 import {
@@ -106,8 +106,8 @@ const focusOnOpen =
       : true;
 
 /**
- * Its name is the whole status sentence. The slots keep their widths while the words change, so the status never moves;
- * a sentence across both slots and the device alert release them.
+ * Its name is the whole status sentence. The button fits its words, inside a band kept as wide as the longest of them,
+ * so nothing beside the status moves while its words change.
  */
 export function StatusButton(props: { doc: DocumentServices }): ReactNode {
   const { doc } = props;
@@ -134,7 +134,7 @@ export function StatusButton(props: { doc: DocumentServices }): ReactNode {
     <Popover open={open} onOpenChange={onOpenChange}>
       <span
         ref={root}
-        className="group flex max-w-full shrink-0 data-[tone=alert]:text-danger data-[tone=attention]:text-attention data-[tone=quiet]:text-fg-muted"
+        className="group flex max-w-full min-w-[min(var(--status-w),100%)] shrink-0 data-[tone=alert]:text-danger data-[tone=attention]:text-attention data-[tone=quiet]:text-fg-muted"
       >
         <PopoverTrigger
           render={
@@ -158,7 +158,7 @@ export function StatusButton(props: { doc: DocumentServices }): ReactNode {
             </span>
             <span
               data-tour="status:server"
-              className="flex max-w-full items-center gap-1 w-(--status-server-w) group-data-spans:w-auto group-data-[tone=alert]:w-auto"
+              className="flex max-w-full items-center gap-1"
             >
               <SlotIcons icons={Object.values(SERVER_ICONS)} />
               <span ref={serverSlot} className="min-w-0" />
