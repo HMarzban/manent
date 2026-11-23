@@ -14,23 +14,28 @@ export function ReorganiseControl(props: {
   offline: boolean;
 }): ReactNode {
   const { docId, offline } = props;
-  if (docId === null || offline)
-    return (
-      <BarButton
-        label={DEMO_WORDS.reorganise}
-        icon={LayersIcon}
-        unavailable={
-          docId === null ? DEMO_WORDS.needsScript : DEMO_WORDS.needsConnection
-        }
-        tour={TOUR}
-      />
-    );
-  return <ScriptReorganise docId={docId} />;
+  if (docId === null) return <Unavailable reason={DEMO_WORDS.needsScript} />;
+  return <ScriptReorganise docId={docId} offline={offline} />;
 }
 
-function ScriptReorganise(props: { docId: string }): ReactNode {
+function Unavailable(props: { reason: string }): ReactNode {
+  return (
+    <BarButton
+      label={DEMO_WORDS.reorganise}
+      icon={LayersIcon}
+      unavailable={props.reason}
+      tour={TOUR}
+    />
+  );
+}
+
+function ScriptReorganise(props: {
+  docId: string;
+  offline: boolean;
+}): ReactNode {
   const { api } = useServices();
   if (!useCanEdit(props.docId)) return null;
+  if (props.offline) return <Unavailable reason={DEMO_WORDS.needsConnection} />;
   return (
     <BarButton
       label={DEMO_WORDS.reorganise}

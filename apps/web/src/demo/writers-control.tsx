@@ -46,36 +46,40 @@ export function WritersControl(props: {
     if (endsAt === null) return undefined;
     return schedule(() => setRunning(null), Math.max(0, endsAt - now()));
   }, [endsAt, now, schedule]);
-  if (docId === null || offline)
-    return (
-      <BarButton
-        label={DEMO_WORDS.addWriters}
-        icon={UsersIcon}
-        tour={TOUR}
-        unavailable={
-          docId === null ? DEMO_WORDS.needsScript : DEMO_WORDS.needsConnection
-        }
-      />
-    );
+  if (docId === null) return <Unavailable reason={DEMO_WORDS.needsScript} />;
   return (
     <ScriptWriters
       docId={docId}
+      offline={offline}
       running={running?.docId === docId ? running : null}
       onAnswer={setRunning}
     />
   );
 }
 
+function Unavailable(props: { reason: string }): ReactNode {
+  return (
+    <BarButton
+      label={DEMO_WORDS.addWriters}
+      icon={UsersIcon}
+      tour={TOUR}
+      unavailable={props.reason}
+    />
+  );
+}
+
 function ScriptWriters(props: {
   docId: string;
+  offline: boolean;
   running: Running;
   onAnswer(running: Running): void;
 }): ReactNode {
-  const { docId, running, onAnswer } = props;
+  const { docId, offline, running, onAnswer } = props;
   const { api } = useServices();
   const caret = useEditorFact("blockId");
   const [open, setOpen] = useState(false);
   if (!useCanEdit(docId)) return null;
+  if (offline) return <Unavailable reason={DEMO_WORDS.needsConnection} />;
   const ask = (count: WritersRequest["count"]): void => {
     setOpen(false);
     const afterBlockId = count === 0 ? null : caret;
