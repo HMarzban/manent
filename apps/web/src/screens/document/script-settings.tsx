@@ -18,9 +18,9 @@ import {
 import { ChevronRightIcon } from "lucide-react";
 import { useMemo } from "react";
 import type { ReactNode } from "react";
-import { FrozenRow } from "../../production/frozen-row.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
+import { SCRIPT_SETTING_ROWS } from "./script-setting-rows.ts";
 import { SCRIPT_SETTINGS_PART } from "./script-settings-part.ts";
 import { useOpenDocument } from "./open-document.ts";
 import { announcing, nameOf, valueLabel } from "./setting-messages.ts";
@@ -49,6 +49,15 @@ const GROUPS: readonly { group: ScriptGroup; keys: readonly SettingKey[] }[] =
         .map(({ key }) => key),
     })).filter(({ keys }) => keys.length > 0),
   );
+
+/** The row drawn for `settingKey`: a feature's own, else the plain setting row. */
+function Row(props: { settingKey: SettingKey; docId: string }): ReactNode {
+  const { settingKey, docId } = props;
+  for (const row of SCRIPT_SETTING_ROWS)
+    if (row.kind === "custom" && row.settingKey === settingKey)
+      return <row.Row settingKey={settingKey} docId={docId} />;
+  return <SettingRow settingKey={settingKey} deviceName={null} persisted />;
+}
 
 /** Who last set a row's value, when another person did; the Paper row's origin while no one is named. */
 function SetBy(props: {
@@ -148,9 +157,13 @@ function Groups(props: { doc: DocumentServices; docId: string }): ReactNode {
         <h3 className="pt-2 text-ui font-semibold">{GROUP_WORDS[group]}</h3>
         {shown.map((key) => (
           <div key={key}>
-            <SettingRow settingKey={key} deviceName={null} persisted />
+            <Row settingKey={key} docId={docId} />
             <SetBy settingKey={key} doc={doc} />
-            <FrozenRow settingKey={key} docId={docId} />
+            {SCRIPT_SETTING_ROWS.map((row) =>
+              row.kind === "state" ? (
+                <row.State key={row.id} settingKey={key} docId={docId} />
+              ) : null,
+            )}
           </div>
         ))}
       </section>

@@ -1,6 +1,7 @@
 // The documents of this tab until sync supplies them: each held in memory, never synced, and editable by everyone.
 import { createMemoryBag } from "@manent/settings";
 import { createValue } from "@manent/ui";
+import { EMPTY_MATERIAL } from "../send/what-options.ts";
 import type { DocumentServices, DocumentSource } from "./ports.ts";
 
 /** Every person is an editor of every document here, until sync supplies roles; a document's script settings last for this session. */
@@ -27,6 +28,7 @@ export function createLocalDocumentSource(options: {
     stateFacts: createValue([]),
     scriptBag: createMemoryBag({ initial: {}, writable: () => true }),
     people: createValue([]),
+    material: { materialSnapshotOf: () => EMPTY_MATERIAL },
   });
   return {
     open(docId) {

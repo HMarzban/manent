@@ -1,0 +1,54 @@
+// The choices of a Send form's What row: what of the document it sends; a feature adds its option with one line.
+import type { DocJSON } from "@manent/schema";
+import { EDITOR_WORDS } from "@manent/ui";
+import type { SendFormId } from "../screens/send/form-ids.ts";
+
+/** The JSON of the script's writers' material roots, by entry id, which a What option's transform reads. */
+export interface MaterialSnapshot {
+  readonly alternates: Readonly<Record<string, unknown>>;
+  readonly cuts: Readonly<Record<string, unknown>>;
+}
+
+/** A script with no writers' material. */
+export const EMPTY_MATERIAL: MaterialSnapshot = Object.freeze({
+  alternates: Object.freeze({}),
+  cuts: Object.freeze({}),
+});
+
+export interface SendWhatOption {
+  readonly id: string;
+  readonly label: string;
+  readonly appliesTo: readonly SendFormId[];
+  /** The document whose pages are sent, made from the open editor's; null sends the open editor's own pages. */
+  readonly transform:
+    ((doc: DocJSON, material: MaterialSnapshot) => DocJSON) | null;
+  /** The ids of the file types Export's As row offers it with; absent offers it with every type. */
+  readonly fileTypes?: readonly string[];
+  /** Offered only while page numbers are locked; absent is false. */
+  readonly lockedOnly?: boolean;
+}
+
+/** The first that a form offers is chosen when the form opens. */
+export const SEND_WHAT_OPTIONS: readonly SendWhatOption[] = [
+  {
+    id: "whole_script",
+    label: EDITOR_WORDS.send.wholeScript,
+    appliesTo: ["export", "print"],
+    transform: null,
+  },
+];
+
+/** The options `form` offers with the file type `fileTypeId` (null: none chosen), in list order. */
+export function whatOffered(
+  form: SendFormId,
+  fileTypeId: string | null,
+  locked: boolean,
+): SendWhatOption[] {
+  return SEND_WHAT_OPTIONS.filter(
+    (option) =>
+      option.appliesTo.includes(form) &&
+      (option.fileTypes === undefined ||
+        (fileTypeId !== null && option.fileTypes.includes(fileTypeId))) &&
+      (option.lockedOnly !== true || locked),
+  );
+}

@@ -9,7 +9,7 @@ import { useDemo } from "./demo/use-demo.ts";
 import type { Navigation } from "./handlers/index.ts";
 import { ServicesProvider, usePersonServices } from "./services/context.tsx";
 import { chooseUrl } from "./session.ts";
-import { AppShell, ScreenArea } from "./shell/app-shell.tsx";
+import { AppShell, ScreenArea, useShellScreen } from "./shell/app-shell.tsx";
 import { ShellRegion } from "./shell/regions.tsx";
 import type { PersonStore } from "./state/person.store.ts";
 
@@ -24,6 +24,7 @@ export function RootLayout(props: {
   const router = useRouter();
   const location = useRouterState({ select: (s) => s.location });
   const { demo, control } = useDemo({ api, fetch: props.fetch });
+  const bare = useShellScreen().page === "bare";
   const navigation = useMemo(
     (): Navigation => ({
       navigate(href) {
@@ -52,7 +53,7 @@ export function RootLayout(props: {
     if (location.pathname === "/choose") return;
     navigation.navigate(chooseUrl(location.href));
   };
-  const demoBar = demo !== null && (
+  const demoBar = demo !== null && !bare && (
     <DemoBar person={person} onPersonClick={openChooser} control={control} />
   );
 
