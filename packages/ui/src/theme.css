@@ -1440,6 +1440,8 @@ button:not(:disabled):hover > .mn-row {
 }
 .mn-find[data-current] {
   outline-width: calc(2 * var(--page-line));
+  /* brought into view with the lines around it, never against the view's edge */
+  scroll-margin-block: 25vh;
 }
 .mn-note {
   background-color: var(--page-note-bg);

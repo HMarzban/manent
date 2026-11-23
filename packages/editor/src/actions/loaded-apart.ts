@@ -28,12 +28,16 @@ type Loaded<K extends LoadedApart["kind"]> = ActionEntry<
   Extract<LoadedApart, { kind: K }>
 >;
 
+// one load for every action, so that actions asked for while it loads run in the order they were asked for
+let apart: Promise<typeof import("./apart-actions.ts")> | null = null;
+
 function runLoaded(
   view: EditorView,
   action: LoadedApart,
   context: ActionContext,
 ): ActionResult {
-  void import("./apart-actions.ts").then(({ runApart }) => {
+  apart ??= import("./apart-actions.ts");
+  void apart.then(({ runApart }) => {
     if (!view.isDestroyed) runApart(view, action, context.goTo);
   });
   return { ok: true };
