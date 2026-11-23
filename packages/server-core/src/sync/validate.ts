@@ -46,7 +46,8 @@ export type PushValidator = (push: Push) => Issue[];
 export const PUSH_VALIDATORS: Readonly<
   Partial<Record<DocKind, PushValidator>>
 > = Object.freeze({
-  index: ({ report, room }) => validateIndexPush(report, room),
+  index: ({ report, room, subscription }) =>
+    validateIndexPush(report, room, subscription.access),
   comments: validateCommentsPush,
 });
 
