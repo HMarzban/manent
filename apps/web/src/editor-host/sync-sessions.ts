@@ -12,6 +12,7 @@ import type { BlockJSON, DocJSON, FormatId } from "@manent/schema";
 import type { DocHandle, SyncClient, ViewHandle } from "@manent/sync-client";
 import { createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
+import { writingActions } from "../state/writing.store.ts";
 import type { LocalSession } from "./editor-sessions.ts";
 import { firstBlock } from "./first-block.ts";
 
@@ -63,6 +64,22 @@ interface Showing {
   hear(update: Uint8Array): void;
 }
 
+/** Calls `then` with `handle`'s document once it holds a block; the returned function stops waiting. */
+function whenHeld(handle: DocHandle, then: (doc: CrdtDoc) => void): () => void {
+  const doc = handle.doc();
+  const body = yXmlFragmentForBinding(doc);
+  if (body.length > 0) {
+    then(doc);
+    return noop;
+  }
+  const stop = doc.subscribe(() => {
+    if (body.length === 0) return;
+    stop();
+    then(doc);
+  });
+  return stop;
+}
+
 /**
  * Shows `handle`'s document once it holds a block, and `scratch` until then; the scratch is never written into the
  * document. The returned function stops waiting for the first block.
@@ -72,18 +89,12 @@ function showOwn(
   scratch: CrdtDoc,
   show: (doc: CrdtDoc) => void,
 ): () => void {
-  const doc = handle.doc();
-  const body = yXmlFragmentForBinding(doc);
-  if (body.length > 0) {
-    show(doc);
-    return noop;
-  }
-  show(scratch);
-  const stop = doc.subscribe(() => {
-    if (body.length === 0) return;
-    stop();
+  let held = false;
+  const stop = whenHeld(handle, (doc) => {
+    held = true;
     show(doc);
   });
+  if (!held) show(scratch);
   return stop;
 }
 
@@ -194,13 +205,50 @@ function createSession(
   let handle: DocHandle | null = null;
   let ended = false;
   let detach = noop;
+  let stopTarget = noop;
+  let stopWaiting = noop;
+  // the handle before closes only once the next is shown: its close flushes its outbox, so nothing typed is lost
+  const attach = (opened: DocHandle): void => {
+    const previous = handle;
+    const detachPrevious = detach;
+    handle = opened;
+    remote.attach(opened);
+    detach = attachHandle(opened, shown);
+    detachPrevious();
+    if (previous !== null) void previous.close();
+  };
+  // another target is shown once it holds a block, so the page never falls back to the scratch
+  const swapTo = (c: SyncClient, target: string, wanted: () => boolean) =>
+    c.open(target).then((opened) => {
+      if (!wanted()) return opened.close();
+      stopWaiting();
+      let waiting = true;
+      const stop = whenHeld(opened, () => {
+        waiting = false;
+        if (wanted()) attach(opened);
+        else void opened.close();
+      });
+      stopWaiting = () => {
+        stop();
+        if (waiting) void opened.close();
+        waiting = false;
+      };
+    });
   client
     .then(async (c) => {
-      const opened = await c.open(docId);
+      const target = writingActions.openTarget(docId);
+      const opened = await c.open(target);
       if (ended) return opened.close();
-      handle = opened;
-      remote.attach(opened);
-      detach = attachHandle(opened, shown);
+      attach(opened);
+      stopTarget = writingActions.followTarget(
+        docId,
+        target,
+        (next, wanted) => {
+          swapTo(c, next, wanted).catch(() => {
+            // a target that cannot open leaves the page on the open handle, which goes on saving what is typed
+          });
+        },
+      );
     })
     .catch(() => {
       // the document's status says this device is not saving it, so typing goes on in what the page shows
@@ -220,6 +268,8 @@ function createSession(
     receiveAwareness: shown.hear,
     close() {
       ended = true;
+      stopTarget();
+      stopWaiting();
       detach();
       replaced.clear();
       awareness.clear();

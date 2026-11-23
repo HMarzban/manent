@@ -45,6 +45,36 @@ function positionOf(docId: string): WritingPosition {
   return kept ?? WRITING_POSITIONS[0];
 }
 
+/** The document the person's editor of `docId` opens. */
+const targetOf = (docId: string): string =>
+  positionOf(docId) === "private" ? (copyOf(docId) ?? docId) : docId;
+
+/**
+ * Calls `open` each time `docId`'s target is another document than the one last asked for, starting from `opened`;
+ * `wanted` says, once that target has opened, whether it is still the one to show. The returned function stops.
+ */
+function followTarget(
+  docId: string,
+  opened: string,
+  open: (target: string, wanted: () => boolean) => void,
+): () => void {
+  let asked = opened;
+  let stopped = false;
+  const check = (): void => {
+    const target = targetOf(docId);
+    if (stopped || target === asked) return;
+    asked = target;
+    open(target, () => !stopped && asked === target);
+  };
+  const stop = followPosition(docId).subscribe(check);
+  // the target may have moved while `opened` was opening
+  check();
+  return () => {
+    stopped = true;
+    stop();
+  };
+}
+
 function followPosition(docId: string): Subscribable<WritingPosition> {
   const held = followed.get(docId);
   if (held !== undefined) return held;
@@ -95,13 +125,18 @@ function bindIndex(services: Bindable): void {
 
 /**
  * `writingPositionOf`: where the person's typing in a document goes. `openTarget`: the document the person's editor
- * of a document opens: their private copy while they write it privately, else the document itself. `get` is what a
- * command's context reads, and `subscribe`'s listener hears every change. Until `bind` has read the person's private
- * index, every document reads as written for everyone.
+ * of a document opens: their private copy while they write it privately, else the document itself; `followTarget`
+ * hears it move. `get` is what a command's context reads, and `subscribe`'s listener hears every change. Until `bind`
+ * has read the person's private index, every document reads as written for everyone.
  */
 export const writingActions: {
   writingPositionOf(docId: string): Subscribable<WritingPosition>;
   openTarget(docId: string): string;
+  followTarget(
+    docId: string,
+    opened: string,
+    open: (target: string, wanted: () => boolean) => void,
+  ): () => void;
   get(docId: string): { position: WritingPosition; othersHaveAccess: boolean };
   subscribe(listener: () => void): () => void;
   /** Reads the private index of the person of `services` from now on; the same services again change nothing. */
@@ -126,8 +161,8 @@ export const writingActions: {
   access(docId: string): boolean | null;
 } = Object.freeze({
   writingPositionOf: followPosition,
-  openTarget: (docId: string) =>
-    positionOf(docId) === "private" ? (copyOf(docId) ?? docId) : docId,
+  openTarget: targetOf,
+  followTarget,
   get: (docId: string) => ({
     position: positionOf(docId),
     othersHaveAccess: access.get(docId) ?? false,

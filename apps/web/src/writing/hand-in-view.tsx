@@ -111,6 +111,12 @@ function HandIn(props: { docId: string }): ReactNode {
   const changes = useCopyChanges(docId);
   const [asking, setAsking] = useState(false);
   const headingId = useId();
+  const heading = useRef<HTMLHeadingElement>(null);
+  // the view is drawn below the version list, so Hand in… brings it into sight and to the keyboard
+  useEffect(() => {
+    heading.current?.scrollIntoView({ block: "start" });
+    heading.current?.focus();
+  }, []);
   const scenes = changes?.scenes ?? [];
   const nothing = changes !== null && scenes.length === 0;
   const press = (): void => {
@@ -126,7 +132,12 @@ function HandIn(props: { docId: string }): ReactNode {
   };
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-2 p-2">
-      <h2 id={headingId} className="mn-group-label">
+      <h2
+        id={headingId}
+        ref={heading}
+        tabIndex={-1}
+        className="mn-group-label outline-none"
+      >
         {WRITING_WORDS.handInHeading}
       </h2>
       {changes === null ? null : (
