@@ -41,6 +41,23 @@ const seeding = (done: number, total: number): string =>
 export const LIBRARY_WORDS = {
   title: "Library",
   continueHeading: "Continue",
+  favouritesHeading: "Favourites",
+  privateHeading: "Private",
+  trashHeading: "Trash",
+  /** What the Favourites, Private and Trash views say while each holds nothing: why, then where to go instead. */
+  favouritesEmpty:
+    "Scripts can't be marked as favourites yet, so nothing is listed here. Continue lists the scripts you opened last.",
+  privateEmpty:
+    "Scripts can't be kept in your Private folder yet, so nothing is listed here. Your scripts are under Projects.",
+  trashEmpty:
+    "Scripts can't be moved to the Trash yet, so nothing is listed here. Every script stays in its project, under Projects.",
+  search: "Search this workspace",
+  searchPlaceholder: "Search this workspace…",
+  /** The heading of what a search for `query` found. */
+  searchHeading: (query: string): string => `Matches for '${query}'`,
+  /** What a search for `query` says when no project's name holds it. */
+  searchNone: (query: string): string =>
+    `No project in this workspace has '${query}' in its name. Check the spelling, or clear the search to see every project.`,
   projectsHeading: "Projects",
   projectsRegion: "Projects",
   kindColumn: "Kind",

@@ -1,6 +1,6 @@
-// What a scene's row or card draws of other features: its marks in their fixed order, and the text in place of its
-// length; and the heading they are drawn after.
-import { Avatar, DOCUMENT_WORDS, SCENES_WORDS } from "@manent/ui";
+// What a scene's row or card draws of other features: its marks in their fixed order, the people in it, and the text
+// in place of its length; and the heading the marks are drawn after.
+import { AvatarStack, DOCUMENT_WORDS, SCENES_WORDS } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import { useEffect, useMemo, useReducer } from "react";
 import type { ReactNode } from "react";
@@ -69,10 +69,17 @@ export function useSceneExtras(docId: string): SceneExtras {
   };
 }
 
-/** A mark other than revised, drawn after the heading. */
-function Mark(props: {
-  mark: Exclude<SceneMark, { kind: "revised" }>;
-}): ReactNode {
+type PersonMark = Extract<SceneMark, { kind: "person" }>;
+type TitleMark = Exclude<SceneMark, { kind: "revised" | "person" }>;
+
+export const isPersonMark = (mark: SceneMark): mark is PersonMark =>
+  mark.kind === "person";
+
+const isTitleMark = (mark: SceneMark): mark is TitleMark =>
+  mark.kind !== "revised" && mark.kind !== "person";
+
+/** A mark drawn after the heading. */
+function Mark(props: { mark: TitleMark }): ReactNode {
   const { mark } = props;
   switch (mark.kind) {
     case "count":
@@ -81,29 +88,30 @@ function Mark(props: {
           {mark.label} {mark.count}
         </span>
       );
-    case "person":
-      return (
-        <Avatar
-          name={mark.name}
-          initials={mark.initials}
-          colour={mark.colour}
-          size="sm"
-        />
-      );
     case "text":
       return <span className="text-meta text-fg-muted">{mark.label}</span>;
   }
 }
 
-/** A scene's heading, read as revised when it is marked so, then its other marks. */
+/**
+ * The people in a scene, at the end of its row or card before its length, where a long heading never hides them: a
+ * stack of their avatars, each moving while its person types; nothing when no one is in it.
+ */
+export function ScenePeople(props: { marks: readonly SceneMark[] }): ReactNode {
+  const people = props.marks.filter(isPersonMark);
+  const moving = new Set(people.flatMap((p) => (p.moving ? [p.userId] : [])));
+  return <AvatarStack people={people} size="sm" moving={moving} />;
+}
+
+/** A scene's heading, read as revised when it is marked so, then its marks other than the people in it. */
 export function SceneTitle(props: {
   heading: string;
   marks: readonly SceneMark[];
 }): ReactNode {
   const { heading, marks } = props;
-  const after = marks.flatMap((mark, index) =>
-    mark.kind === "revised" ? [] : [<Mark key={index} mark={mark} />],
-  );
+  const after = marks
+    .filter(isTitleMark)
+    .map((mark, index) => <Mark key={index} mark={mark} />);
   return (
     <>
       {marks.some((mark) => mark.kind === "revised") ? (

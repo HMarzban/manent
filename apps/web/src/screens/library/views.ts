@@ -2,6 +2,7 @@
 import type { ComponentType } from "react";
 import type { ContinueItem, ProjectItem } from "../../services/ports.ts";
 import { ContinueView } from "./continue-list.tsx";
+import { CONTINUE_VIEW_ID } from "./library-address.ts";
 import { FavouritesView } from "./favourites-view.tsx";
 import { PrivateView } from "./private-view.tsx";
 import { FolderView } from "./folder-tree.tsx";
@@ -27,8 +28,15 @@ export interface LibraryView {
   readonly View: ComponentType<LibraryViewProps>;
 }
 
+/** The view an address that names none shows. */
+export const CONTINUE_VIEW: LibraryView = {
+  id: CONTINUE_VIEW_ID,
+  chosenBy: "view",
+  View: ContinueView,
+};
+
 export const LIBRARY_VIEWS: readonly LibraryView[] = [
-  { id: "continue", chosenBy: "view", View: ContinueView },
+  CONTINUE_VIEW,
   { id: "favourites", chosenBy: "view", View: FavouritesView },
   { id: "private", chosenBy: "view", View: PrivateView },
   { id: "folder", chosenBy: "view", View: FolderView },

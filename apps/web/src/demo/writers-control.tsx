@@ -1,4 +1,5 @@
-// Add writers: people the demo's server simulates, typing in the open script, each in a scene of its own.
+// Add writers: people the demo's server simulates, typing in the open script, each in a scene of its own or all in
+// the caret's scene.
 import {
   Button,
   DEMO_WORDS,
@@ -7,9 +8,14 @@ import {
   Segmented,
 } from "@manent/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { WritersRequest, WritersResponse } from "@manent/sync-protocol";
+import { WRITER_PLACEMENTS } from "@manent/sync-protocol";
+import type {
+  WriterPlacement,
+  WritersRequest,
+  WritersResponse,
+} from "@manent/sync-protocol";
 import { UsersIcon } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
 import { useCanEdit } from "../screens/document/ruler-bar.tsx";
 import { useServices } from "../services/context.tsx";
@@ -21,6 +27,12 @@ const TOUR = "demo:writers";
 const CHOICES = [1, 5, 20].map((n) => ({ value: String(n), label: String(n) }));
 /** The first element of the running writers query's key. */
 const WRITERS_QUERY = "demo-writers";
+/** The line over each placement's choice of how many. */
+const PLACEMENT_LINES: Readonly<Record<WriterPlacement, string>> =
+  Object.freeze({
+    own_scenes: DEMO_WORDS.writersChoice,
+    caret_scene: DEMO_WORDS.writersHereChoice,
+  });
 
 /** The writers typing in the script, as the server last told; null when none is. */
 type Running = WritersResponse | null;
@@ -36,13 +48,18 @@ function labelOf(running: Running): string {
 const isCount = (value: number): value is WritersRequest["count"] =>
   value === 0 || value === 1 || value === 5 || value === 20;
 
-/** Unavailable without a script or a connection, and for a person who cannot edit the script. */
+/**
+ * Unavailable without a script or a connection, for a person who has not signed in (the server holds none of their
+ * scripts), and for a person who cannot edit the script.
+ */
 export function WritersControl(props: {
   docId: string | null;
+  signedIn: boolean;
   offline: boolean;
 }): ReactNode {
-  const { docId, offline } = props;
+  const { docId, signedIn, offline } = props;
   if (docId === null) return <Unavailable reason={DEMO_WORDS.needsScript} />;
+  if (!signedIn) return <Unavailable reason={DEMO_WORDS.needsSyncedScript} />;
   return <ScriptWriters docId={docId} offline={offline} />;
 }
 
@@ -78,10 +95,13 @@ function ScriptWriters(props: { docId: string; offline: boolean }): ReactNode {
   if (offline) return <Unavailable reason={DEMO_WORDS.needsConnection} />;
   const running: Running =
     answer === undefined || answer.asked === 0 ? null : answer;
-  const ask = (count: WritersRequest["count"]): void => {
+  const ask = (
+    count: WritersRequest["count"],
+    placement: WriterPlacement,
+  ): void => {
     setOpen(false);
     const afterBlockId = count === 0 ? null : caret;
-    api.writers({ docId, count, afterBlockId }).then(
+    api.writers({ docId, count, afterBlockId, placement }).then(
       // an answer to a question asked before this change would undo it on the bar
       async (next) => {
         await queryClient.cancelQueries({ queryKey });
@@ -108,21 +128,32 @@ function ScriptWriters(props: { docId: string; offline: boolean }): ReactNode {
         align="start"
         className="w-auto gap-2"
       >
-        <p aria-hidden="true" className="text-ui text-fg-muted">
-          {DEMO_WORDS.writersChoice}
-        </p>
-        <Segmented
-          label={DEMO_WORDS.writersChoice}
-          size="sm"
-          value={running === null ? "" : String(running.asked)}
-          options={CHOICES}
-          onChange={(value) => {
-            const count = Number(value);
-            if (isCount(count)) ask(count);
-          }}
-        />
+        {WRITER_PLACEMENTS.map((placement) => (
+          <Fragment key={placement}>
+            <p aria-hidden="true" className="text-ui text-fg-muted">
+              {PLACEMENT_LINES[placement]}
+            </p>
+            <Segmented
+              label={PLACEMENT_LINES[placement]}
+              size="sm"
+              value={
+                running?.placement === placement ? String(running.asked) : ""
+              }
+              options={CHOICES}
+              onChange={(value) => {
+                const count = Number(value);
+                if (isCount(count)) ask(count, placement);
+              }}
+            />
+          </Fragment>
+        ))}
         {running === null || running.count === 0 ? null : (
-          <Button variant="outline" size="sm" onClick={() => ask(0)}>
+          <Button
+            variant="outline"
+            size="sm"
+            // stopping seats no one, whatever the placement
+            onClick={() => ask(0, "own_scenes")}
+          >
             {DEMO_WORDS.stopWriters}
           </Button>
         )}

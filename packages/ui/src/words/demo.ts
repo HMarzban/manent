@@ -12,11 +12,15 @@ export const DEMO_WORDS = {
   online: "Online",
   offline: "Offline",
   slow: "Slow",
-  /** The control: a popover holding the choice of 1, 5 or 20 under its line and, while writers run, Stop writers. */
+  /**
+   * The control: a popover holding two choices of 1, 5 or 20, in other scenes and in the caret's scene, each under
+   * its line, and, while writers run, Stop writers.
+   */
   addWriters: "Add writers",
   addWritersHint:
-    "Demo writers type in this script, each in a scene of its own.",
+    "Demo writers type in this script, each in a scene of its own or all in the scene you are in.",
   writersChoice: "Writers typing in other scenes",
+  writersHereChoice: "Writers typing in this scene",
   stopWriters: "Stop writers",
   /** The control's label while they run. */
   writersTyping: (n: number): string =>
@@ -27,6 +31,8 @@ export const DEMO_WORDS = {
   needsScript: "needs a script open",
   needsConnection: "needs a connection",
   needsEdit: "needs edit access",
+  /** For a person who has not signed in, whose scripts are only on their device. */
+  needsSyncedScript: "needs a synced script",
   /** The button's label is the web app's own. */
   stopServerHint:
     "Stops the server at once. Nothing synced is lost, and each window connects again by itself.",
@@ -59,6 +65,10 @@ export const DEMO_WORDS = {
     "Every workspace goes back to its seeded state, for everyone using this demo.",
   resetTitle: "Reset the demo?",
   resetAction: "Reset the demo",
+  /** The server line, and the heading of what stands in for the screen, from the press until the demo is back. */
+  resetting: "Resetting the demo…",
+  resettingBody:
+    "Every workspace goes back to its seeded state. This tab reloads once the demo is ready.",
   resetBody:
     "Every workspace goes back to its seeded state for everyone using this demo. Changes made since it was seeded are not kept. Each browser and the desktop app clear their copies when they next connect.",
   /** The workspace switcher's second line for a workspace whose seed stopped. */

@@ -526,14 +526,16 @@ test("the screens' words are the design's", () => {
     slow: "Slow",
     addWriters: "Add writers",
     addWritersHint:
-      "Demo writers type in this script, each in a scene of its own.",
+      "Demo writers type in this script, each in a scene of its own or all in the scene you are in.",
     writersChoice: "Writers typing in other scenes",
+    writersHereChoice: "Writers typing in this scene",
     stopWriters: "Stop writers",
     writersTyping: ["1 writer typing", "5 writers typing"],
     writersShort: "3 of 5 writers typing — each needs a scene of its own",
     needsScript: "needs a script open",
     needsConnection: "needs a connection",
     needsEdit: "needs edit access",
+    needsSyncedScript: "needs a synced script",
     stopServerHint:
       "Stops the server at once. Nothing synced is lost, and each window connects again by itself.",
     timings: "Timings",
@@ -562,6 +564,9 @@ test("the screens' words are the design's", () => {
       "Every workspace goes back to its seeded state, for everyone using this demo.",
     resetTitle: "Reset the demo?",
     resetAction: "Reset the demo",
+    resetting: "Resetting the demo…",
+    resettingBody:
+      "Every workspace goes back to its seeded state. This tab reloads once the demo is ready.",
     resetBody:
       "Every workspace goes back to its seeded state for everyone using this demo. Changes made since it was seeded are not kept. Each browser and the desktop app clear their copies when they next connect.",
     seedingFailed: "Couldn't get ready. Reset the demo to try again.",

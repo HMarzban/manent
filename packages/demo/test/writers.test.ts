@@ -330,25 +330,74 @@ test("markers tell each burst apart", () => {
   );
 });
 
-test("presence shows the end of the typed text, with the block's place as its hint", () => {
+/** The head of the caret an awareness update sends; null when it sends none. */
+const headOf = (update: Uint8Array): unknown => {
+  const state = decodeAwareness(update)[0]?.state ?? null;
+  const cursor: unknown = state === null ? null : state["cursor"];
+  return cursor === null ? null : Reflect.get(Object(cursor), "head");
+};
+
+test("presence shows the caret from the moment the person starts, with the block's place as its hint", () => {
   const w = world(PROFILES.realistic, { region: REGION });
   w.person.start();
-  advanceUntil(w.fake, () => w.sent.length > 0, 250, 60_000);
-  const blockId = typedIn(w.person).at(-1)!.blockId!;
+  const blockId = String(Reflect.get(Object(headOf(w.sent[0]!)), "blockId"));
   const caret = { blockId, offset: textOf(w.doc, blockId)!.length };
-  expect(decodeAwareness(w.sent[0]!)).toEqual([
-    {
-      clientId: CLIENT_ID,
-      clock: 1,
-      state: {
-        cursor: {
-          anchor: caret,
-          head: caret,
-          at: blockIds(w.doc).indexOf(blockId),
+  advanceUntil(w.fake, () => typedIn(w.person).length > 0, 50, 10_000);
+  expect([decodeAwareness(w.sent[0]!), typedIn(w.person)[0]?.blockId]).toEqual([
+    [
+      {
+        clientId: CLIENT_ID,
+        clock: 1,
+        state: {
+          cursor: {
+            anchor: caret,
+            head: caret,
+            at: blockIds(w.doc).indexOf(blockId),
+          },
         },
       },
-    },
+    ],
+    blockId,
   ]);
+});
+
+test("presence follows the caret while the person types", () => {
+  const w = world(PROFILES.realistic, { region: REGION });
+  const misplaced: number[] = [];
+  w.person.start();
+  for (let step = 0; step < 2_400; step++) {
+    w.fake.advance(50);
+    const now = w.fake.clock.now();
+    const last = typedIn(w.person).at(-1);
+    // 200 ms after a key, and before the next, the caret sent is where that key left it
+    if (last?.blockId == null || now - last.at < 200 || now - last.at >= 250)
+      continue;
+    const end = {
+      blockId: last.blockId,
+      offset: textOf(w.doc, last.blockId)!.length,
+    };
+    if (JSON.stringify(headOf(w.sent.at(-1)!)) !== JSON.stringify(end))
+      misplaced.push(now);
+  }
+  expect({
+    misplaced,
+    checked: typedIn(w.person).length > 100,
+  }).toEqual({ misplaced: [], checked: true });
+});
+
+test("a person who pauses sends their caret again every 15 seconds, so that the server keeps them", () => {
+  const w = world(
+    { ...PROFILES.demo, pauseMs: [40_000, 40_000] },
+    { region: REGION },
+  );
+  const sentAt: number[] = [];
+  w.person.start();
+  for (let step = 0; step < 2_400; step++) {
+    w.fake.advance(50);
+    while (sentAt.length < w.sent.length) sentAt.push(w.fake.clock.now());
+  }
+  const gaps = sentAt.slice(1).map((at, i) => at - sentAt[i]!);
+  expect(Math.max(...gaps)).toBe(15_000);
 });
 
 test("a person who stops sends no more and leaves presence", async () => {

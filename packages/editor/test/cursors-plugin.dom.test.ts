@@ -189,14 +189,12 @@ test("a cursor whose block is gone is not drawn", () => {
   expect(carets(view)).toEqual([]);
 });
 
-test("a cursor is found again after the script around it is replaced", () => {
+test("a cursor stays drawn while the script around it is replaced, without waiting for a frame", () => {
   const f = fakes();
   const { view } = mount(docOf([["one", "two"]]), f);
   f.emit([dana(at(1, 2), 0)]);
   f.fire();
   view.dispatch(replaceWholeDoc(view.state, 0, "first"));
-  expect(widgets(view)).toEqual([]);
-  f.fire();
   expect(widgets(view)).toEqual([[11, "cursor:7:3:false"]]);
 });
 

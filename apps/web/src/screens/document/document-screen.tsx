@@ -54,11 +54,28 @@ function subscribeToResize(listener: () => void): () => void {
   return () => window.removeEventListener("resize", listener);
 }
 
+/** Whether `target` lies in the page. */
+function isInPage(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(PAGE_REGION) !== null;
+}
+
+/** A key that writes, as against a chord, a caret move or a key that moves focus. */
+function isTyping(event: KeyboardEvent): boolean {
+  if (event.ctrlKey || event.metaKey || event.altKey) return false;
+  return (
+    event.key.length === 1 ||
+    event.key === "Enter" ||
+    event.key === "Backspace" ||
+    event.key === "Delete"
+  );
+}
+
 /**
- * True while an open panel does not fit beside the page: it is then drawn over the page and closes when focus returns
- * to the page; a window narrowed under open panels while focus is in the page closes them, so they never cover the line
- * being written. Opening one panel closes the other when both do not fit, except that Scenes a script opened close
- * themselves, and a panel that closes with focus lost to the body sends focus to the page.
+ * True while an open panel does not fit beside the page: it is then drawn over the page and closes when the person
+ * clicks or types in the page or focus returns to it; a window narrowed under open panels while focus is in the page
+ * closes them, so they never cover the line being written. Opening one panel closes the other when both do not fit,
+ * except that Scenes a script opened close themselves, and a panel that closes with focus lost to the body sends focus
+ * to the page.
  */
 function usePanelsOverPage(): boolean {
   const { dom } = useEnvironment();
@@ -99,14 +116,23 @@ function usePanelsOverPage(): boolean {
   }, [dom, fit, over, left.tab, side.tab]);
   useEffect(() => {
     if (!over) return;
-    const onFocusIn = (event: FocusEvent): void => {
-      if (!(event.target instanceof Element)) return;
-      if (event.target.closest(PAGE_REGION) === null) return;
+    // focus may already be in the page, so a press or a key there closes the panel too
+    const onPage = (event: Event): void => {
+      if (!isInPage(event.target)) return;
       panelsActions.close("left");
       panelsActions.close("side");
     };
-    document.addEventListener("focusin", onFocusIn);
-    return () => document.removeEventListener("focusin", onFocusIn);
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (isTyping(event)) onPage(event);
+    };
+    document.addEventListener("focusin", onPage);
+    document.addEventListener("pointerdown", onPage);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("focusin", onPage);
+      document.removeEventListener("pointerdown", onPage);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [over]);
   return over;
 }

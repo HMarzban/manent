@@ -1,17 +1,14 @@
 // A simulated person: types, pastes, moves scenes and goes offline at a profile's rates,
 // writing through a sync client's document one keystroke at a time.
-import {
-  blockIds,
-  encodeAwareness,
-  readBlocks,
-  scriptBody,
-} from "@manent/crdt";
+import { blockIds, readBlocks, scriptBody } from "@manent/crdt";
 import type { BlockWriter } from "@manent/crdt";
 import { attrsForNewBlock, formatFrom } from "@manent/schema";
 import type { BlockJSON, IdSource } from "@manent/schema";
 import type { Clock, DocHandle, Random, SyncClient } from "@manent/sync-client";
 import { createRng, seededIdSource } from "../seed/rng.ts";
 import type { Rng } from "../seed/rng.ts";
+import { createWriterPresence } from "./presence.ts";
+import type { Caret, WriterPresence } from "./presence.ts";
 import { lineEndFrom, regionOf } from "./region.ts";
 import type { Region, WriterLine } from "./region.ts";
 import type { WritingProfile } from "./profiles.ts";
@@ -25,7 +22,7 @@ export interface SimulatedPersonEvent {
   marker: string | null;
 }
 
-/** `stop()` ends every timer, comes back online when offline, and leaves presence. */
+/** `stop()` types the rest of the burst at once, ends every timer, comes back online when offline, and leaves presence. */
 export interface SimulatedPerson {
   start(): void;
   stop(): Promise<void>;
@@ -56,11 +53,6 @@ type Key =
   | { type: "text"; text: string; marker: string | null }
   | { type: "enter"; element: string };
 
-interface Caret {
-  blockId: string;
-  offset: number;
-}
-
 /** The block the person writes in, and its element. */
 interface Place {
   blockId: string;
@@ -71,19 +63,12 @@ interface Burst {
   keys: readonly Key[];
   next: number;
   caret: Caret;
-  /** The caret after the last text typed. */
-  end: Caret | null;
 }
 
 type Timer = "key" | "move" | "paste" | "offline";
 
-function textKeys(text: string): Key[] {
-  return Array.from(text, (char) => ({
-    type: "text",
-    text: char,
-    marker: null,
-  }));
-}
+const textKeys = (text: string): Key[] =>
+  Array.from(text, (char) => ({ type: "text", text: char, marker: null }));
 
 /** An empty block when `text` is null. */
 function newBlock(element: string, id: string, text: string | null): BlockJSON {
@@ -109,9 +94,12 @@ class Person implements SimulatedPerson {
   private started = false;
   private offline = false;
   private place: Place | null = null;
+  private burst: Burst | null = null;
+  /** The region, whose last block becomes each block typed after it, so that a scene grows with its writing. */
+  private region: Region | null;
   private keystrokes = 0;
   private bursts = 0;
-  private presenceClock = 0;
+  private readonly presence: WriterPresence | null;
 
   constructor(options: PersonOptions) {
     if (options.lines?.length === 0 || options.lines?.some((l) => !l.length))
@@ -120,6 +108,10 @@ class Person implements SimulatedPerson {
     this.rng = createRng(Math.floor(options.random.next() * 4_294_967_296));
     this.ids = seededIdSource(this.rng);
     this.keyMs = 1000 / options.profile.keysPerSecond;
+    this.region = options.region;
+    this.presence = options.profile.presence
+      ? createWriterPresence(options)
+      : null;
   }
 
   start(): void {
@@ -135,8 +127,12 @@ class Person implements SimulatedPerson {
   stop(): Promise<void> {
     for (const cancel of this.cancels.values()) cancel();
     this.cancels.clear();
+    // the line being typed is finished at once, so that a person who stops leaves no half-typed line
+    const keys = this.burst?.keys ?? [];
+    while (this.burst !== null && this.burst.next < keys.length)
+      if (!this.type(this.burst, keys[this.burst.next]!)) break;
     if (this.offline) this.comeBack();
-    if (this.options.profile.presence) this.sendPresence(null);
+    this.presence?.leave();
     return Promise.resolve();
   }
 
@@ -153,11 +149,8 @@ class Person implements SimulatedPerson {
   /** Runs `fn` after a wait drawn from an exponential distribution with `perHour` as its rate; never when it is 0. */
   private atRate(timer: Timer, perHour: number, fn: () => void): void {
     if (perHour <= 0) return;
-    this.schedule(
-      timer,
-      (-Math.log(1 - this.rng.next()) / perHour) * HOUR_MS,
-      fn,
-    );
+    const waitMs = (-Math.log(1 - this.rng.next()) / perHour) * HOUR_MS;
+    this.schedule(timer, waitMs, fn);
   }
 
   private record(
@@ -185,12 +178,11 @@ class Person implements SimulatedPerson {
     return this.rng.pick(region.length > 1 ? region.slice(0, -1) : region);
   }
 
-  /** Where the next line goes (lineEndFrom): from the person's block while it is in the region, otherwise from one drawn as pickBlock draws. */
+  /** Where the next line goes (lineEndFrom): from the person's block while it is in the region, otherwise from one drawn from it. */
   private pickLineEnd(region: readonly string[]): string | null {
     if (region.length === 0) return null;
     const held = region.indexOf(this.place?.blockId ?? "");
-    const from =
-      held === -1 ? this.rng.int(0, Math.max(region.length - 2, 0)) : held;
+    const from = held === -1 ? this.rng.int(0, region.length - 1) : held;
     return lineEndFrom(this.options.handle.doc(), region, from);
   }
 
@@ -218,7 +210,7 @@ class Person implements SimulatedPerson {
 
   private beginBurst(): void {
     const doc = this.options.handle.doc();
-    const region = regionOf(blockIds(doc), this.options.region);
+    const region = regionOf(blockIds(doc), this.region);
     const blockId =
       this.options.lines === undefined
         ? this.pickBlock(region)
@@ -232,12 +224,13 @@ class Person implements SimulatedPerson {
     const element = block.attrs?.type ?? "action";
     const offset = lengthOf(block);
     this.place = { blockId, element };
+    this.presence?.moved({ blockId, offset });
     const burst: Burst = {
       keys: this.keysFor(this.place, offset),
       next: 0,
       caret: { blockId, offset },
-      end: null,
     };
+    this.burst = burst;
     this.schedule("key", this.keyMs, () => this.press(burst));
   }
 
@@ -262,7 +255,7 @@ class Person implements SimulatedPerson {
       this.pause();
     } else if (burst.next < burst.keys.length)
       this.schedule("key", this.keyMs, () => this.press(burst));
-    else this.endBurst(burst);
+    else this.pause();
   }
 
   private backspace(burst: Burst, text: string): boolean {
@@ -272,7 +265,7 @@ class Person implements SimulatedPerson {
       return false;
     burst.next -= 1;
     burst.caret = { blockId, offset: at };
-    burst.end = burst.caret;
+    this.presence?.moved(burst.caret);
     this.record("typed", blockId);
     return true;
   }
@@ -284,7 +277,10 @@ class Person implements SimulatedPerson {
       const id = this.ids();
       const block = newBlock(key.element, id, null);
       if (!this.write((w) => w.insertBlocks(blockId, [block]))) return false;
+      if (this.region?.lastBlockId === blockId)
+        this.region = { ...this.region, lastBlockId: id };
       burst.caret = { blockId: id, offset: 0 };
+      this.presence?.moved(burst.caret);
       this.place = { blockId: id, element: key.element };
       this.record("typed", id);
       return true;
@@ -292,32 +288,15 @@ class Person implements SimulatedPerson {
     if (!this.write((w) => w.insertText(blockId, offset, key.text)))
       return false;
     burst.caret = { blockId, offset: offset + key.text.length };
-    burst.end = burst.caret;
+    this.presence?.moved(burst.caret);
     this.record("typed", blockId, key.marker);
     return true;
-  }
-
-  private endBurst({ end }: Burst): void {
-    if (this.options.profile.presence && end !== null) {
-      const at = blockIds(this.options.handle.doc()).indexOf(end.blockId);
-      this.sendPresence({ cursor: { anchor: end, head: end, at } });
-    }
-    this.pause();
-  }
-
-  private sendPresence(state: Record<string, unknown> | null): void {
-    this.presenceClock += 1;
-    const { handle } = this.options;
-    const { clientId } = handle.doc();
-    handle.sendAwareness(
-      encodeAwareness([{ clientId, clock: this.presenceClock, state }]),
-    );
   }
 
   /** 5 to 25 blocks strictly inside the region, deleted and inserted again after another of its blocks. */
   private move(): void {
     const doc = this.options.handle.doc();
-    const region = regionOf(blockIds(doc), this.options.region);
+    const region = regionOf(blockIds(doc), this.region);
     const inner = region.slice(1, -1);
     const count = Math.min(this.rng.int(...MOVE_BLOCKS), inner.length - 1);
     if (count >= MOVE_BLOCKS[0]) {
@@ -354,10 +333,8 @@ class Person implements SimulatedPerson {
     const place = this.place;
     if (place !== null) {
       const pages = this.rng.int(...profile.pastePages);
-      const ids = Array.from(
-        { length: pages * PASTE_BLOCKS_PER_PAGE },
-        this.ids,
-      );
+      const count = pages * PASTE_BLOCKS_PER_PAGE;
+      const ids = Array.from({ length: count }, this.ids);
       const blocks = ids.map((id) => {
         const length = this.rng.int(...profile.burstChars);
         return newBlock(place.element, id, wordsOf(this.rng, length, false));

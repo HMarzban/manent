@@ -96,10 +96,30 @@ export function usedNear(
   return used;
 }
 
+// the texts of the `fixed` blocks other than speeches that start within `window` estimated lines after block `at` starts
+function fixedAhead(
+  blocks: readonly SeedBlock[],
+  at: number,
+  window: number,
+  fixed: ReadonlySet<SeedBlock>,
+): Set<string> {
+  const ahead = new Set<string>();
+  let line = 0;
+  for (let i = at; i < blocks.length && line < window; i += 1) {
+    const block = blocks[i]!;
+    if (i > at && fixed.has(block) && block.element !== "dialogue")
+      ahead.add(block.text);
+    line += estimatedLines(block);
+  }
+  return ahead;
+}
+
 /**
  * `blocks` with each action that comes back fewer than GENERATED_REPEAT_PAGES pages after a block of the same text,
  * by estimated lines as checkGenerated measures them, replaced by an action free where it stands; a block in
- * `fixed` is kept. Moving scenes and putting fixed text in place of generated text bring copies closer.
+ * `fixed` is kept. Moving scenes and putting fixed text in place of generated text bring copies closer. A
+ * replacement is drawn clear of the blocks behind it and of the fixed ones ahead: a later copy that is not fixed
+ * is replaced in its turn, and a window on both sides can hold more actions than the bank has.
  */
 export function withoutRepeats(
   blocks: readonly SeedBlock[],
@@ -110,12 +130,21 @@ export function withoutRepeats(
   const doc = [...blocks];
   const lastAt = new Map<string, number>();
   let line = 0;
+  const behind = (text: string): boolean =>
+    line - (lastAt.get(text) ?? -Infinity) < window;
+  const replace = (at: number): SeedBlock => {
+    const ahead = fixedAhead(doc, at, window, fixed);
+    const used = {
+      has: (text: string) => behind(text) || ahead.has(text),
+      add: () => {},
+    };
+    return actionAt(doc, at, { guide, rng, used });
+  };
   for (const [i, block] of doc.entries()) {
-    const near = line - (lastAt.get(block.text) ?? -Infinity) < window;
     const kept =
-      block.element !== "action" || fixed.has(block) || !near
+      block.element !== "action" || fixed.has(block) || !behind(block.text)
         ? block
-        : actionAt(doc, i, { guide, rng, used: usedNear(guide, doc, i) });
+        : replace(i);
     doc[i] = kept;
     if (kept.element !== "dialogue") lastAt.set(kept.text, line);
     line += estimatedLines(kept);

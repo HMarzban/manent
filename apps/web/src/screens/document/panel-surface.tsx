@@ -9,6 +9,10 @@ const OVER_PAGE: Readonly<Record<"start" | "end", CSSProperties>> =
     start: { gridArea: "page", justifySelf: "start", zIndex: 10 },
     end: { gridArea: "page", justifySelf: "end", zIndex: 10 },
   });
+// lying on the page, it has an overlay's elevation and an edge on the side facing the text, as a menu has
+const OVER_PAGE_EDGE: Readonly<Record<"start" | "end", string>> = Object.freeze(
+  { start: "border-e", end: "border-s" },
+);
 
 /** Beside the page, the panel takes its own grid area; `over` draws it over the page instead, at that edge. */
 export function PanelPlace(props: {
@@ -19,7 +23,7 @@ export function PanelPlace(props: {
   return (
     <div
       data-overlay=""
-      className="flex min-h-0 shadow-overlay"
+      className={`flex min-h-0 border-line shadow-overlay ${OVER_PAGE_EDGE[props.over]}`}
       style={OVER_PAGE[props.over]}
     >
       {props.children}

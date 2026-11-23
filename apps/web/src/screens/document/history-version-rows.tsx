@@ -1,6 +1,5 @@
 // The rows of the History tab: Working; the versions and the changes to script settings under their days, or with
 // Drafts only the drafts oldest first; the name field of Name this draft…, and a draft named and not yet answered.
-import { DEMO_PEOPLE } from "@manent/demo";
 import { SETTINGS } from "@manent/settings";
 import {
   Avatar,
@@ -27,7 +26,7 @@ import { useSettingChanges } from "../../history/setting-changes.ts";
 import type { SettingChange } from "../../history/setting-changes.ts";
 import { initialsOf } from "../../initials.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
-import { nameOf } from "../../services/sync/index-entries.ts";
+import { fullNameOf, nameOf } from "../../services/sync/index-entries.ts";
 import { historyActions, useHistory } from "../../state/history.store.ts";
 import { NameField, nextDraftName } from "./draft-name.tsx";
 import { HistoryRowMenu } from "./history-row-menu.tsx";
@@ -100,9 +99,7 @@ function Avatars(props: { userIds: readonly string[] }): ReactNode {
       className="flex gap-1"
     >
       {userIds.map((userId) => {
-        const name =
-          DEMO_PEOPLE.find((person) => person.userId === userId)?.name ??
-          userId;
+        const name = fullNameOf(userId);
         return (
           <Tooltip key={userId}>
             <TooltipTrigger render={<span className="flex" />}>
