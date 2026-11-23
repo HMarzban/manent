@@ -49,7 +49,7 @@ const throwaway = setting({
   keywords: [],
 });
 
-// Frozen, and compared only on these keys, so a setting added later never breaks the pins below.
+// Frozen, and the two value snapshots below compare only these keys, so a setting added later never breaks them.
 const STAGE_1_SETTING_KEYS: readonly string[] = [
   "writing.enterAfterDialogue",
   "writing.typewriterScrolling",
@@ -461,9 +461,9 @@ test("only appearance writes attributes, and they are the four the root element 
 });
 
 test("no preference reaches the layout, and every script setting is guarded", () => {
-  for (const d of stage1(SETTINGS.byScope("personal")))
+  for (const d of SETTINGS.byScope("personal"))
     expect(d.apply).not.toEqual({ how: "editor", effect: "layout" });
-  for (const d of stage1(SETTINGS.byScope("script")))
+  for (const d of SETTINGS.byScope("script"))
     expect([d.guard, d.apply]).toEqual([
       "layout",
       { how: "editor", effect: "layout" },
