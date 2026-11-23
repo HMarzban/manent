@@ -1,5 +1,9 @@
 // One script editor over one place: the binding, the keys, the popovers, the pages, the scroll rules and the bridge.
-import { profileFromSettings, readLayoutSettings } from "@manent/pagination";
+import {
+  LAYOUT_SETTING_KEYS,
+  profileFromSettings,
+  readLayoutSettings,
+} from "@manent/pagination";
 import type {
   Engine,
   FrontPage,
@@ -127,15 +131,6 @@ export interface ScriptEditorOptions {
   /** The feature plugins, placed after every other. */
   extraPlugins(host: EditorPluginHost): readonly Plugin[];
 }
-
-/** The script settings the page profile is made from. */
-const LAYOUT_KEYS: readonly string[] = Object.freeze([
-  "script.format",
-  "script.paper",
-  "script.moresAtBreaks",
-  "script.sameSpeakerContd",
-  "script.sceneContinued",
-]);
 
 const READ_ONLY_ATTRIBUTES: Readonly<Record<string, string>> = Object.freeze({
   tabindex: "0",
@@ -309,7 +304,9 @@ function subscribe(
   const reread = (): void =>
     view.dispatch(view.state.tr.setMeta("addToHistory", false));
   return [
-    ...LAYOUT_KEYS.map((key) => options.script.subscribe(key, relayout)),
+    ...LAYOUT_SETTING_KEYS.map((key) =>
+      options.script.subscribe(key, relayout),
+    ),
     options.personal.subscribe("writing.checkSpelling", reread),
     options.title.subscribe(reread),
     options.binding.history.onStep(options.onUndoStep),
