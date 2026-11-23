@@ -17,7 +17,7 @@ export interface SubscribedPeers {
     message: Extract<Message, { docId: string }>,
   ): void;
   accessChanged: SyncService["accessChanged"];
-  /** As `accessChanged`, but an edit subscription the new role may not hold ends `read_only_role`, and a removal `forbidden`. */
+  /** As `accessChanged`, but an edit subscription the new role may not hold ends `read_only_role`; a removal ends every one `forbidden`. */
   membershipChanged(docId: string, userId: string, role: DocRole | null): void;
 }
 
@@ -92,9 +92,17 @@ export function createSubscribedPeers(ports: {
         tell(peer, m);
     },
     accessChanged: (docId, userId) => reread(docId, userId, () => "forbidden"),
-    membershipChanged: (docId, userId, role) =>
-      reread(docId, userId, (resolved) =>
-        resolved.ok && role !== null ? "read_only_role" : "forbidden",
-      ),
+    membershipChanged(docId, userId, role) {
+      if (role !== null)
+        return reread(docId, userId, (resolved) =>
+          resolved.ok ? "read_only_role" : "forbidden",
+        );
+      for (const [peer, state] of peers) {
+        const held = state.held.get(docId);
+        if (held === undefined || peer.userId !== userId) continue;
+        tell(peer, syncError("forbidden", docOf(held.room)));
+        end(peer, docId);
+      }
+    },
   };
 }

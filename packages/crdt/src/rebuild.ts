@@ -19,9 +19,9 @@ const SCRIPT_MAPS = [
 ] as const;
 
 /** The maps a rebuild copies, by document kind; a kind without a line copies a script's. */
-const COPIED_MAPS: ReadonlyMap<string, readonly string[]> = new Map([
-  ["script", SCRIPT_MAPS],
-]);
+const COPIED_MAPS: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  script: SCRIPT_MAPS,
+});
 
 /** The roots a rebuild of a script knows how to copy. */
 export const ROOT_TYPE_NAMES = [FRAGMENT_NAME, ...SCRIPT_MAPS] as const;
@@ -94,7 +94,9 @@ export function rebuildDoc(
   source: CrdtDoc,
   options: { clientId: number; kind?: string },
 ): RebuildResult {
-  const maps = COPIED_MAPS.get(options.kind ?? "script") ?? SCRIPT_MAPS;
+  const { kind } = options;
+  const listed = kind !== undefined && Object.hasOwn(COPIED_MAPS, kind);
+  const maps = (listed ? COPIED_MAPS[kind] : undefined) ?? SCRIPT_MAPS;
   const known: readonly string[] = [FRAGMENT_NAME, ...maps];
   if ([...yDocOf(source).share.keys()].some((name) => !known.includes(name)))
     return { ok: false, code: "unknown_root" };

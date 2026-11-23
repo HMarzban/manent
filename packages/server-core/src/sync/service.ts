@@ -1,6 +1,10 @@
 // The sync service: who is connected, what they hold open, and every document message they send.
 import { CODE, isDocKind, prepareMessage } from "@manent/sync-protocol";
-import type { Message, ServerVersions } from "@manent/sync-protocol";
+import type {
+  ControlKind,
+  Message,
+  ServerVersions,
+} from "@manent/sync-protocol";
 import { createTokenBucket } from "../limits/bucket.ts";
 import type { TokenBucket } from "../limits/bucket.ts";
 import { createConnectionCaps } from "../limits/caps.ts";
@@ -26,6 +30,9 @@ import type { SubscribePorts } from "./subscribe.ts";
 import { createSubscribedPeers } from "./subscribed-peers.ts";
 import { createSnapshotAnswers, viewPatchOf } from "./viewers.ts";
 import { createWritePath } from "./write-path.ts";
+
+const encodeJson = (value: unknown): Uint8Array =>
+  new TextEncoder().encode(JSON.stringify(value));
 
 export function createSyncService(
   options: SyncSettings & { versions: ServerVersions },
@@ -103,7 +110,12 @@ export function createSyncService(
       endAll(room, syncError("storage_failed", docOf(room), { retryAfterMs }));
   };
 
-  const broadcast: SyncService["broadcast"] = (docId, kind, data) => {
+  /** CONTROL { seq: the room's head, kind, data } to each editor and viewer of the loaded room that `to` names; nothing when it is not loaded. */
+  function sendControl(
+    docId: string,
+    message: { kind: ControlKind; data: Uint8Array },
+    to: (peer: Peer) => boolean,
+  ): void {
     const room = rooms.find(docId);
     if (room === null || room.doc === null) return;
     const seq = room.row.headSeq;
@@ -111,12 +123,14 @@ export function createSyncService(
       type: "CONTROL",
       ...docOf(room),
       seq,
-      kind,
-      data,
+      ...message,
     });
     for (const peer of [...room.editors.keys(), ...room.viewers.keys()])
-      peer.send(control);
-  };
+      if (to(peer)) peer.send(control);
+  }
+
+  const broadcast: SyncService["broadcast"] = (docId, kind, data) =>
+    sendControl(docId, { kind, data }, () => true);
 
   const writePath = createWritePath({
     limits,
@@ -272,9 +286,13 @@ export function createSyncService(
     detach,
     accessChanged: subscribed.accessChanged,
     membershipChanged(docId, userId, role) {
+      // only the person's own subscriptions learn whose role changed and to what, before any of them ends
+      const kind = "membership_changed";
+      const theirs = { kind, data: encodeJson({ userId, role }) } as const;
+      sendControl(docId, theirs, (peer) => peer.userId === userId);
+      const others = { kind, data: encodeJson({}) } as const;
+      sendControl(docId, others, (peer) => peer.userId !== userId);
       subscribed.membershipChanged(docId, userId, role);
-      const data = new TextEncoder().encode(JSON.stringify({ userId, role }));
-      broadcast(docId, "membership_changed", data);
     },
     removed(docId) {
       const room = rooms.find(docId);
