@@ -155,6 +155,8 @@ export function createApi(options: {
     },
 
     async me() {
+      // the server knows nobody without a session, so it is not asked
+      if (getToken() === null) return { ok: false, reason: "unauthenticated" };
       const response = await attempt("/api/me");
       if (response === null) return UNREACHABLE;
       if (!response.ok)

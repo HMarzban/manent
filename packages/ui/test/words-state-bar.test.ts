@@ -106,7 +106,7 @@ test("each side keeps its own order whatever order the facts arrive in", () => {
   ]);
   expect(winners(left, "left")).toEqual([
     "Studio draft, Mon 16 Nov",
-    "View only — you can comment",
+    "View only",
     "Showing all revisions",
     "PINK revision · started 16 Nov 2026 · 14 pages revised",
     "Blue issued Mon 22:41 to 131 people",
@@ -300,7 +300,7 @@ test("each state-bar fact reads as the design writes it, with its actions", () =
       actions: [{ label: "Show collated", commandId: "view.marks.collated" }],
       ...plain,
     },
-    { sentence: "View only — you can comment", actions: [], ...plain },
+    { sentence: "View only", actions: [], ...plain },
     {
       sentence: "Studio draft, Mon 16 Nov",
       actions: [

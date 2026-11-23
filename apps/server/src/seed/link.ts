@@ -8,6 +8,7 @@ import type {
   ManentServer,
   SessionStore,
 } from "@manent/server-core";
+import type { Storage } from "@manent/storage";
 import { ConnectError } from "@manent/sync-client";
 import type { Transport } from "@manent/sync-client";
 import {
@@ -25,10 +26,11 @@ import {
   callRoute,
 } from "./server.ts";
 
-/** What a person reaches a server through: its routes, its sockets and its sessions. */
+/** What a person reaches a server through: its routes, its sockets, its sessions and its storage. */
 export interface SeamTarget {
   server: ManentServer;
   sessions: SessionStore;
+  storage: Storage;
 }
 
 export const isFields = (value: unknown): value is Record<string, unknown> =>
@@ -87,7 +89,6 @@ type EntryAnswer =
 
 interface Subscribed {
   generation: number;
-  clientSeq: number;
   pending: Map<number, Settle<EntryAnswer>>;
   hear: (update: Uint8Array) => void;
 }
@@ -104,18 +105,22 @@ export interface SeamLink extends HeadlessLink {
 /** One person's socket: every frame the server sends is read as it is sent, and answers settle what waits for them. */
 class Seam implements SeamLink {
   readonly userId: string;
-  private readonly server: ManentServer;
+  private readonly deviceId: string;
+  private readonly target: SeamTarget;
   private readonly connection: Connection;
   private readonly encoder = createFrameEncoder({ ids: createMessageIds() });
   private readonly decoder = createFrameDecoder({ from: "server" });
   private readonly docs = new Map<string, Subscribed>();
+  /** The last clientSeq sent on each document, kept across subscriptions: the server drops a SET at or below the last it stored. */
+  private readonly sequences = new Map<string, number>();
   /** What waits for one message: WELCOME under "", a SUBSCRIBED or a step 2 under its document. */
   private readonly waiting = new Map<string, Settle<Message>>();
   private closed: SeedDriverError | null = null;
 
-  constructor(server: ManentServer, userId: string, data: ConnectionData) {
-    this.server = server;
+  constructor(target: SeamTarget, userId: string, data: ConnectionData) {
+    this.target = target;
     this.userId = userId;
+    this.deviceId = `seed-${userId}`;
     this.connection = {
       data,
       bufferedBytes: 0,
@@ -130,10 +135,10 @@ class Seam implements SeamLink {
   }
 
   async hello(): Promise<void> {
-    this.server.connections.open(this.connection);
+    this.target.server.connections.open(this.connection);
     const welcome = this.next("", "WELCOME");
     const versions = BUILD_VERSIONS;
-    const deviceId = `seed-${this.userId}`;
+    const { deviceId } = this;
     this.send({ type: "HELLO", versions, build: "seed", deviceId });
     await welcome;
   }
@@ -151,12 +156,9 @@ class Seam implements SeamLink {
     if (reply.type !== "SUBSCRIBED")
       throw new SeedDriverError("refused", `${docId} moved generation`);
     const { generation, role, headSeq } = reply;
-    this.docs.set(docId, {
-      generation,
-      clientSeq: 0,
-      pending: new Map(),
-      hear,
-    });
+    this.docs.set(docId, { generation, pending: new Map(), hear });
+    const sent = this.sequences.get(docId) ?? 0;
+    this.sequences.set(docId, Math.max(sent, this.lastStoredSet(docId)));
     const stepTwo = this.next(docId, `${docId} SYNC step 2`);
     const empty = createDoc();
     const data = empty.encodeStateVector();
@@ -207,13 +209,21 @@ class Seam implements SeamLink {
     this.fail(
       new SeedDriverError("refused", `${this.userId}'s link is closed`),
     );
-    this.server.connections.close(this.connection);
+    this.target.server.connections.close(this.connection);
   }
 
   private send(message: Message): void {
     if (this.closed !== null) throw this.closed;
     for (const frame of this.encoder.encode(message))
-      this.server.connections.message(this.connection, frame);
+      this.target.server.connections.message(this.connection, frame);
+  }
+
+  /** The highest SET clientSeq the server stored from this person and device on `docId`; 0 when none. */
+  private lastStoredSet(docId: string): number {
+    const { storage } = this.target;
+    const place = storage.directory.placeOf(docId);
+    const log = place === null ? null : storage.open(place.home).log;
+    return log?.lastSetRequest(docId, this.userId, this.deviceId) ?? 0;
   }
 
   private next(key: string, what: string): Promise<Message> {
@@ -228,7 +238,8 @@ class Seam implements SeamLink {
     message: (generation: number, clientSeq: number) => Message,
   ): Promise<EntryAnswer> {
     const doc = this.subscribed(docId);
-    const clientSeq = ++doc.clientSeq;
+    const clientSeq = (this.sequences.get(docId) ?? 0) + 1;
+    this.sequences.set(docId, clientSeq);
     const answered = awaitAnswer<EntryAnswer>(
       `${docId} entry ${clientSeq}`,
       (settle) => doc.pending.set(clientSeq, settle),
@@ -307,7 +318,7 @@ export async function openSeamLink(
   const data = await upgrade(target, target.sessions.issue(userId));
   if (data === null)
     throw new SeedDriverError("refused", `${userId} could not open a socket`);
-  const seam = new Seam(target.server, userId, data);
+  const seam = new Seam(target, userId, data);
   await seam.hello();
   return seam;
 }

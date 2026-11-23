@@ -1,7 +1,8 @@
 // A list of rows that reports its true size, and is virtual once it is long.
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useLayoutEffect, useReducer, useRef } from "react";
-import type { KeyboardEvent, ReactNode, RefObject } from "react";
+import { useLayoutEffect, useReducer, useRef, useState } from "react";
+import type { FocusEvent, KeyboardEvent, ReactNode, RefObject } from "react";
+import { RowTabStop } from "./tab-stop.ts";
 
 const PLAIN_LIMIT = 100;
 // the row tokens at Interface size 100 %, until a row is measured
@@ -32,6 +33,12 @@ const STEPS: Readonly<
 const sizeOf = (element: Element | null, rowHeight: RowHeight): number =>
   element?.getBoundingClientRect().height || ROW_PX[rowHeight];
 
+const itemOf = (target: EventTarget | null): Element | null =>
+  target instanceof Element ? target.closest('[role="listitem"]') : null;
+
+const indexOf = (item: Element | null): number | null =>
+  item === null ? null : Number(item.getAttribute("aria-posinset")) - 1;
+
 // the index a key moves to, counted from the focused row's place in the list, never from the DOM's order
 const keyTarget = (
   event: KeyboardEvent<HTMLElement>,
@@ -41,9 +48,8 @@ const keyTarget = (
   const step = STEPS[event.key];
   if (step === undefined || count === 0 || !(event.target instanceof Element))
     return null;
-  const item = event.target.closest('[role="listitem"]');
-  const from =
-    item === null ? -1 : Number(item.getAttribute("aria-posinset")) - 1;
+  const item = itemOf(event.target);
+  const from = indexOf(item) ?? -1;
   const page = Math.max(
     1,
     Math.floor(event.currentTarget.clientHeight / sizeOf(item, rowHeight)),
@@ -82,9 +88,39 @@ function useFocusLater(
   };
 }
 
+interface TabStop {
+  /** The index of the list's one Tab stop; null until a drawn row is activatable. */
+  stop: number | null;
+  onFocus(event: FocusEvent<HTMLElement>): void;
+}
+
+// the row focused last is the stop; when it is not drawn, the current row is, else the first activatable one
+function useTabStop(listRef: RefObject<HTMLElement | null>): TabStop {
+  const [stop, setStop] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (list === null || list.querySelector('.mn-row[tabindex="0"]') !== null)
+      return;
+    const row =
+      list.querySelector('.mn-row[tabindex][aria-current="true"]') ??
+      list.querySelector(".mn-row[tabindex]");
+    const index = indexOf(itemOf(row));
+    if (index !== null) setStop(index);
+  });
+  return {
+    stop,
+    onFocus(event) {
+      const index = indexOf(itemOf(event.target));
+      if (index !== null) setStop(index);
+    },
+  };
+}
+
 interface ListItemProps {
   index: number;
   count: number;
+  /** Whether this item's row is the list's one Tab stop. */
+  stop: boolean;
   /** The row's offset in px inside a virtual list; null in a plain one. */
   start: number | null;
   measure: (element: Element | null) => void;
@@ -94,6 +130,7 @@ interface ListItemProps {
 function ListItem({
   index,
   count,
+  stop,
   start,
   measure,
   children,
@@ -117,12 +154,15 @@ function ListItem({
             }
       }
     >
-      {children}
+      <RowTabStop.Provider value={stop}>{children}</RowTabStop.Provider>
     </div>
   );
 }
 
-/** Plain rows up to 100, virtual above; keys move by index, so End reaches the last row that is not drawn yet. */
+/**
+ * Plain rows up to 100, virtual above; keys move by index, so End reaches the last row that is not drawn yet.
+ * Tab enters the list once: only the row last focused, or else the current or first drawn one, is a Tab stop.
+ */
 export function VirtualRows({
   count,
   rowHeight,
@@ -132,6 +172,7 @@ export function VirtualRows({
 }: VirtualRowsProps): ReactNode {
   const listRef = useRef<HTMLDivElement>(null);
   const focusLater = useFocusLater(listRef);
+  const { stop, onFocus } = useTabStop(listRef);
   const virtual = count > PLAIN_LIMIT;
   const virtualizer = useVirtualizer({
     count,
@@ -155,6 +196,7 @@ export function VirtualRows({
       key={index}
       index={index}
       count={count}
+      stop={index === stop}
       start={start}
       measure={virtualizer.measureElement}
     >
@@ -171,6 +213,7 @@ export function VirtualRows({
       data-ring="inset"
       className="h-full overflow-auto"
       onKeyDown={onKeyDown}
+      onFocus={onFocus}
     >
       {virtual ? (
         <div

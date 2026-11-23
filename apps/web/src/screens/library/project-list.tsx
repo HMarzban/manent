@@ -25,7 +25,6 @@ const EDITED_CELL =
   "truncate tabular-nums @max-lg:text-meta @max-lg:text-fg-muted @lg:w-col-edited";
 
 function lastEdited(edited: ProjectItem["lastEdited"], now: number): string {
-  if (edited === null) return "";
   if ("changedSinceOpened" in edited) return LIBRARY_WORDS.changedSinceOpened;
   return LIBRARY_WORDS.edited(edited.byName, formatWhen(edited.at, now));
 }
