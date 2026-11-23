@@ -3,10 +3,11 @@
 import { formatCount } from "./format.ts";
 
 export const TOUR_WORDS = {
-  title: "Tour",
   setItUp: "Set it up",
   setItUpAgain: "Set it up again",
   whatToCheck: "What to check",
+  nowPerson: (name: string): string =>
+    `This tab is now ${name}, the person this scenario is played as.`,
   setupFailed: "Couldn't set this up.",
   setupUnreachable:
     "Couldn't reach Manent. Start the server, then set it up again.",

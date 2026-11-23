@@ -550,11 +550,13 @@ test("the screens' words are the design's", () => {
   expect({
     ...TOUR_WORDS,
     setupSeeding: TOUR_WORDS.setupSeeding("Lanternfield Studios", 12, 40),
+    nowPerson: TOUR_WORDS.nowPerson("Sam Okafor"),
   }).toEqual({
-    title: "Tour",
     setItUp: "Set it up",
     setItUpAgain: "Set it up again",
     whatToCheck: "What to check",
+    nowPerson:
+      "This tab is now Sam Okafor, the person this scenario is played as.",
     setupFailed: "Couldn't set this up.",
     setupUnreachable:
       "Couldn't reach Manent. Start the server, then set it up again.",

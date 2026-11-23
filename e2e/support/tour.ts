@@ -7,12 +7,7 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { localDatabaseName } from "@manent/client-web";
 import { DEMO_PEOPLE, TOUR, isShown } from "@manent/demo";
-import {
-  DEMO_WORDS,
-  DOCUMENT_WORDS,
-  LIBRARY_WORDS,
-  TOUR_WORDS,
-} from "@manent/ui";
+import { DEMO_WORDS, DOCUMENT_WORDS, LIBRARY_WORDS } from "@manent/ui";
 import type { TourFile, TourScenario } from "@manent/demo";
 import { expect, test } from "@playwright/test";
 import type {
@@ -228,9 +223,6 @@ async function openTour(page: Page): Promise<void> {
     if (!(await tour.isVisible())) await button.click();
     await expect(tour).toBeVisible({ timeout: 1000 });
   }).toPass();
-  await expect(tour.getByRole("heading", { level: 2 })).toHaveText(
-    TOUR_WORDS.title,
-  );
 }
 
 const STEP_WINDOW = new RegExp("^In (\\p{Lu}\\p{Ll}*)'s window", "u");
