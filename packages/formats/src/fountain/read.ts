@@ -1,10 +1,10 @@
 // Reading a Fountain script: its title page, its elements and notes, and what Manent keeps of the rest.
-import { canonicalBlock, noteAnchorAt } from "@manent/schema";
+import { canonicalBlock, textAnchorAt } from "@manent/schema";
 import type {
   BlockJSON,
   BlockType,
   IdSource,
-  NoteAnchor,
+  TextAnchor,
 } from "@manent/schema";
 import { FormatError } from "../script/model.ts";
 import type { ImportedScript, KeptItem } from "../script/model.ts";
@@ -268,13 +268,13 @@ class Body {
 /** The blocks, and the anchor of each note a block holds, by the note's index. */
 function blocksOf(drafts: readonly Draft[]): {
   blocks: BlockJSON[];
-  anchors: Map<number, NoteAnchor>;
+  anchors: Map<number, TextAnchor>;
 } {
-  const anchors = new Map<number, NoteAnchor>();
+  const anchors = new Map<number, TextAnchor>();
   const blocks = drafts.map(({ id, type, attrs, text }) => {
     const runs = emphasisRuns(text);
     for (const { at, note } of runs.notes)
-      anchors.set(note, noteAnchorAt({ id, text: runs.text }, at, at));
+      anchors.set(note, textAnchorAt({ id, text: runs.text }, at, at));
     return canonicalBlock({
       type: "block",
       attrs: { ...attrs, id, type },

@@ -1,5 +1,5 @@
 // What each Fountain fixture reads to, written out by hand.
-import type { BlockJSON, NoteAnchor, TextJSON } from "@manent/schema";
+import type { BlockJSON, TextAnchor, TextJSON } from "@manent/schema";
 import type { ImportedScript, KeptItem } from "../src/index.ts";
 
 const id = (n: number): string => `blk_${String(n).padStart(12, "0")}`;
@@ -37,7 +37,7 @@ function block(
   };
 }
 
-const note = (n: number, value: string, anchor: NoteAnchor) => ({
+const note = (n: number, value: string, anchor: TextAnchor) => ({
   id: `n${n}`,
   note: { v: 1 as const, anchor, text: value, writerName: null, at: null },
 });
