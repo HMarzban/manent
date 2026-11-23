@@ -1,5 +1,5 @@
 // The live editor's feature plugins, one line per feature; each plugin follows the bridge.
-import { changesPlugin } from "@manent/editor";
+import { changeMarksPlugin, changesPlugin } from "@manent/editor";
 import type {
   EditorPluginHost,
   FactsSink,
@@ -30,6 +30,7 @@ export const EDITOR_PLUGINS: readonly ((
 ) => Plugin)[] = [
   reviewBarPlugin,
   () => changesPlugin(),
+  () => changeMarksPlugin(),
   productionEditorPlugin,
   (context) => annotationsPlugin(context),
   (context) => suggestPlugin(context),
