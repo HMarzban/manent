@@ -229,7 +229,11 @@ export function testEnvironment(
     guard: createGuard({ flavour: "test" }),
     flavour: "test",
     // the editor is tested over its own mount
-    loadEditor: () => Promise.resolve(placeholderMount),
+    loadEditor: () =>
+      Promise.resolve({
+        mount: placeholderMount,
+        besideMount: () => placeholderMount,
+      }),
     shellState: createValue<ShellState>(INITIAL_SHELL_STATE),
     dom: QUIET_DOM,
     online: () => true,

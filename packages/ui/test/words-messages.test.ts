@@ -136,13 +136,17 @@ test("each trust moment reads as the design writes it", () => {
     {
       id: "old_offline_work",
       text: "Your changes made offline since 12 Aug could not be merged automatically. They are saved as 'Recovered — this device, 12 Aug'.",
-      actions: [{ label: "Open beside", commandId: "doc.openBeside" }],
+      actions: [
+        { label: "Open beside", commandId: "history.openRecoveredBeside" },
+      ],
       ...OWN,
     },
     {
       id: "old_offline_work",
       text: "Your changes made offline could not be merged automatically. They are saved as 'Recovered — this device'.",
-      actions: [{ label: "Open beside", commandId: "doc.openBeside" }],
+      actions: [
+        { label: "Open beside", commandId: "history.openRecoveredBeside" },
+      ],
       ...OWN,
     },
     {
@@ -255,7 +259,9 @@ test("a rebuild and a refusal with nothing re-applied have their own sentences",
   });
   expect(messageFor({ kind: "changes_refused", reapplied: 0 })).toMatchObject({
     text: "Manent could not accept this device's changes. They are saved as 'Recovered — this device'.",
-    actions: [{ label: "Open beside", commandId: "doc.openBeside" }],
+    actions: [
+      { label: "Open beside", commandId: "history.openRecoveredBeside" },
+    ],
   });
   expect(
     messageFor({ kind: "access_removed", title: "Low Tide", notSent: 5 })

@@ -196,7 +196,7 @@ const STAGE_1_COMMANDS: [string, string, string[], string[]][] = [
   ["history.restoreScene", "Restore this scene", [], []],
   ["history.restoreBefore", "Restore 'Before restore'", [], []],
   ["history.seeWhatChanged", "See what changed", [], []],
-  ["doc.openBeside", "Open beside", [], []],
+  ["history.openRecoveredBeside", "Open beside", [], []],
   ["history.whoWrote", "Who wrote this?", [], []],
   ["production.lock", "Lock for production…", [], []],
   ["production.issue", "Issue…", [], []],
@@ -880,6 +880,7 @@ test("the handler table names every command but the generated ones", () => {
     "history.restoreScene": noop,
     "history.restoreBefore": noop,
     "history.seeWhatChanged": noop,
+    "history.openRecoveredBeside": noop,
     "doc.openBeside": noop,
     "history.whoWrote": noop,
     "production.lock": noop,
@@ -903,6 +904,10 @@ test("the handler table names every command but the generated ones", () => {
     "view.marks.none": noop,
     "view.colourRevised": noop,
     "share.open": noop,
+    "doc.copyLink": noop,
+    "history.copyLink": noop,
+    "name.useListed": noop,
+    "name.addToProject": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))

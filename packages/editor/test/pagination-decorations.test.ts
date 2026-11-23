@@ -9,6 +9,7 @@ import {
   blockPos,
   decorationsFor,
   deleteRangeKeepingSections,
+  drawRequest,
   paginationKey,
   setPagination,
   toBreakSpecs,
@@ -60,9 +61,11 @@ test("an edit that moves no break changes no widget", () => {
   expect(widgets(s.apply(s.tr.insertText("x", 350)))).toEqual(widgets(s));
 });
 
-// The plugin's decorations, and those a fresh build of its pages gives.
+// The plugin's decorations once the sections it left behind are drawn, and those a fresh build of its pages gives.
 function setAndFresh(s: EditorState): [string[], string[]] {
-  const st = paginationKey.getState(s)!;
+  const { behind } = paginationKey.getState(s)!;
+  const drawn = s.apply(drawRequest(s.tr, { shown: [], idle: behind }));
+  const st = paginationKey.getState(drawn)!;
   const fresh = decorationsFor(
     st.index,
     st.pagination,
@@ -73,7 +76,7 @@ function setAndFresh(s: EditorState): [string[], string[]] {
   return [keysOf(st.decorations), keysOf(DecorationSet.create(s.doc, fresh))];
 }
 
-test("the set is what a fresh build would be, after anything", () => {
+test("the set is what a fresh build would be, after anything, once the sections left behind are drawn", () => {
   const start = state(script());
   fc.assert(
     fc.property(arbTransactions, (apply) => {
@@ -84,7 +87,7 @@ test("the set is what a fresh build would be, after anything", () => {
   );
 });
 
-test("an edit before a composition's pages catch up leaves the set a fresh build would be", () => {
+test("an edit before a composition's pages catch up leaves the set a fresh build would be, once the sections left behind are drawn", () => {
   const s = state(script(400));
   const typing = s.apply(s.tr.insertText("kan", 300).setMeta("composition", 1));
   const ended = [
