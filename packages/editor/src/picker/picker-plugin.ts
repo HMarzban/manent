@@ -1,4 +1,4 @@
-// The element picker: a list of the format's elements under the caret's line or beside the control that opened it,
+// The element picker: a list of the format's elements under the caret's line or beside the control that names it,
 // chosen by its keys while focus stays in the page.
 import type { FormatId } from "@manent/schema";
 import { Plugin, PluginKey } from "prosemirror-state";
@@ -7,6 +7,7 @@ import type { EditorView } from "prosemirror-view";
 import { ELEMENT_SLOTS, elementSlot, slotElement } from "../elements/index.ts";
 import type { ElementSlot } from "../elements/index.ts";
 import { elementOf, setElement } from "../keys/element-keys.ts";
+import type { PickerAnchor } from "../keys/element-keys.ts";
 import type { EditorWords, Frames } from "../script-editor/ports.ts";
 
 /** `layer` lies outside the zoomed container, so the list keeps its own size at any zoom. */
@@ -21,12 +22,12 @@ interface PickerState {
   open: boolean;
   /** The active option's place among the options the format offers. */
   active: number;
-  /** The control that opened it, which the list is placed beside; null: under the caret's line. */
-  opener: HTMLElement | null;
+  /** The control the list is placed beside, which Escape gives focus back to; null: under the caret's line. */
+  control: HTMLElement | null;
 }
 
 type PickerMeta =
-  | { readonly type: "open"; readonly opener: HTMLElement | null }
+  | { readonly type: "open"; readonly control: HTMLElement | null }
   | { readonly type: "close" }
   | { readonly type: "move"; readonly active: number };
 
@@ -35,7 +36,7 @@ export const pickerKey: PluginKey<PickerState> = new PluginKey("picker");
 const CLOSED: PickerState = Object.freeze({
   open: false,
   active: 0,
-  opener: null,
+  control: null,
 });
 const LIST_ID = "mn-picker";
 
@@ -68,12 +69,24 @@ function send(view: EditorView, meta: PickerMeta): void {
   view.dispatch(view.state.tr.setMeta(pickerKey, meta));
 }
 
+/** The control on the page's document that names the picker's list as what it controls; null while none is drawn. */
+function namingControl(view: EditorView): HTMLElement | null {
+  const control = view.dom.ownerDocument.querySelector(
+    `[aria-controls="${LIST_ID}"]`,
+  );
+  return control instanceof HTMLElement ? control : null;
+}
+
 /**
- * Opens the element picker beside `opener`, the control that opened it, or under the caret's line when null; it does
- * nothing in an editor without the picker. Its keys reach it while focus is in the page.
+ * Opens the element picker at `anchor`: under the caret's line, or beside the control that names its list, and under the
+ * caret's line while none is drawn. It does nothing in an editor without the picker; its keys reach it while focus is in
+ * the page.
  */
-export function openPicker(view: EditorView, opener: HTMLElement | null): void {
-  send(view, { type: "open", opener });
+export function openPicker(view: EditorView, anchor: PickerAnchor): void {
+  send(view, {
+    type: "open",
+    control: anchor === "control" ? namingControl(view) : null,
+  });
 }
 
 function choose(view: EditorView, format: FormatId, slot: ElementSlot): void {
@@ -103,13 +116,13 @@ function handleKey(
   event: KeyboardEvent,
   format: FormatId,
 ): boolean {
-  const { active, opener } = pickerKey.getState(view.state) ?? CLOSED;
+  const { active, control } = pickerKey.getState(view.state) ?? CLOSED;
   const offered = offeredSlots(format);
   if (event.key === "Escape") {
     event.stopPropagation();
     send(view, CLOSE);
-    // a person who opened it from a control is put back where they were
-    opener?.focus();
+    // the list beside a control closes back onto that control
+    control?.focus();
     return true;
   }
   if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -173,16 +186,16 @@ function drawList(
 }
 
 /**
- * Puts the list below the caret's line, in the layer's own coordinates; or, opened by a control, fixed to the window
+ * Puts the list below the caret's line, in the layer's own coordinates; or, beside a control, fixed to the window
  * below it, or above it where the window has no room below, so the page's edges never clip it.
  */
 function placeList(
   view: EditorView,
   list: HTMLElement,
-  options: { layer: HTMLElement; opener: HTMLElement | null },
+  options: { layer: HTMLElement; control: HTMLElement | null },
 ): void {
-  const { opener } = options;
-  if (opener === null) {
+  const { control } = options;
+  if (control === null) {
     const caret = view.coordsAtPos(view.state.selection.head);
     const origin = options.layer.getBoundingClientRect();
     list.style.position = "absolute";
@@ -190,8 +203,8 @@ function placeList(
     list.style.top = `${caret.bottom - origin.top}px`;
     return;
   }
-  const box = opener.getBoundingClientRect();
-  const room = opener.ownerDocument.documentElement.clientHeight - box.bottom;
+  const box = control.getBoundingClientRect();
+  const room = control.ownerDocument.documentElement.clientHeight - box.bottom;
   list.style.position = "fixed";
   list.style.left = `${box.left}px`;
   list.style.top = `${list.offsetHeight <= room ? box.bottom : box.top - list.offsetHeight}px`;
@@ -221,7 +234,7 @@ export function pickerPlugin(options: PickerOptions): Plugin {
             return {
               open: true,
               active: currentOption(state, options.format()),
-              opener: meta.opener,
+              control: meta.control,
             };
           case "close":
             return CLOSED;
@@ -275,9 +288,9 @@ export function pickerPlugin(options: PickerOptions): Plugin {
             const drawn = drawList(view, options, options.format());
             list = drawn;
             options.layer.append(drawn);
-            const { opener } = now;
+            const { control } = now;
             cancelPlace = options.frames.request(() =>
-              placeList(view, drawn, { layer: options.layer, opener }),
+              placeList(view, drawn, { layer: options.layer, control }),
             );
           }
           markActive(list, now.active);

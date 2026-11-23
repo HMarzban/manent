@@ -8,7 +8,7 @@ import { useAccess } from "./ruler-bar.tsx";
 
 /** Absent while the caret is in no element; plain words on a page this person cannot edit. */
 export function ElementButton(props: { docId: string }): ReactNode {
-  const { editor } = useServices();
+  const { commands } = useServices();
   const { dom } = useEnvironment();
   const element = useEditorFact("element");
   const access = useAccess(props.docId);
@@ -25,12 +25,14 @@ export function ElementButton(props: { docId: string }): ReactNode {
       size="sm"
       data-tour="readout:element"
       aria-haspopup="listbox"
+      // the picker's list, which the page draws beside the control that names it
+      aria-controls="mn-picker"
       aria-label={EDITOR_WORDS.elementButton(element)}
       className="max-w-full text-ui"
-      onClick={(event) => {
-        // the picker's keys, Escape among them, are heard in the page
-        dom.focusPage();
-        editor.run({ kind: "picker", opener: event.currentTarget });
+      onClick={() => {
+        // the picker's keys, Escape among them, are heard in the page; it opens first, so it is placed beside this button
+        if (commands.run("format.element", "control") === "ran")
+          dom.focusPage();
       }}
     >
       <span className="truncate">{element}</span>

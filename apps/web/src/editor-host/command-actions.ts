@@ -14,7 +14,7 @@ export type HistoryCommandId = "edit.undo" | "edit.redo";
 export const EDITOR_COMMAND_ACTIONS: Readonly<
   Record<PageCommandId, EditorAction>
 > = Object.freeze({
-  "format.element": { kind: "picker", opener: null },
+  "format.element": { kind: "picker" },
   "element.sceneHeading": { kind: "element", slot: "1" },
   "element.action": { kind: "element", slot: "2" },
   "element.character": { kind: "element", slot: "3" },

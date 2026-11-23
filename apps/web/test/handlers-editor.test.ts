@@ -158,7 +158,7 @@ test("each editor command asks the page for its own action", () => {
   });
   for (const c of EDITOR_COMMANDS) if (c.scope === "editor") handlers[c.id]();
   expect(asked).toEqual([
-    { kind: "picker", opener: null },
+    { kind: "picker" },
     ...[
       "1",
       "2",

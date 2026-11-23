@@ -14,14 +14,11 @@ export const elementEntry: ActionEntry<{ kind: "element"; slot: ElementSlot }> =
     },
   };
 
-/** `opener` is the control that opened the picker, which its list is placed beside; null: under the caret's line. */
-export const pickerEntry: ActionEntry<{
-  kind: "picker";
-  opener: HTMLElement | null;
-}> = {
+export const pickerEntry: ActionEntry<{ kind: "picker" }> = {
   readOnly: false,
-  run: (view, action, context) => {
-    context.openPicker(view, action.opener);
+  run: (view, _, context) => {
+    // run from the page, by its key, the list opens at the caret; from anywhere else, beside the control that names it
+    context.openPicker(view, view.hasFocus() ? "caret" : "control");
     return { ok: true };
   },
 };
