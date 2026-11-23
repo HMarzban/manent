@@ -156,18 +156,22 @@ function layOut(drawn: Drawn): number {
   return top;
 }
 
-// A view below the front pages keeps its place as they come, go or grow, as when they arrive under a script already
-// open at page 1.
+// A view below the front pages keeps its place as they come, go or grow. When they first arrive under a script open
+// at its start, the last of them ends at the view's top edge, so page 1 opens with only the gap above it.
 function draw(drawn: Drawn): void {
   const { scaffold } = drawn.options;
   const scroller = drawn.options.scroller();
   const last = drawn.sheets.at(-1);
+  const atStart = last === undefined && scroller.scrollTop === 0;
   const below =
     last === undefined ||
     last.getBoundingClientRect().bottom <= scroller.getBoundingClientRect().top;
   const before = scaffold.pages.getBoundingClientRect().top;
   scaffold.setFrontHeight(layOut(drawn));
-  if (below)
+  const end = drawn.sheets.at(-1)?.getBoundingClientRect().bottom;
+  if (atStart && end !== undefined)
+    scroller.scrollTop += end - scroller.getBoundingClientRect().top;
+  else if (below)
     scroller.scrollTop += scaffold.pages.getBoundingClientRect().top - before;
 }
 
