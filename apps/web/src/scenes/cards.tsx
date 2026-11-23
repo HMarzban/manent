@@ -116,6 +116,9 @@ function SceneCard(props: { row: OutlineRow; parts: SceneParts }): ReactNode {
         >
           <span className="flex min-h-control-sm items-center gap-2 text-meta text-fg-muted tabular-nums">
             {row.number}
+            {marks.some((mark) => mark.kind === "revised") ? (
+              <span aria-hidden="true">*</span>
+            ) : null}
             <span className="ms-auto">{handle}</span>
           </span>
           <span className="line-clamp-2 font-semibold">

@@ -228,15 +228,17 @@ function OutlineRows(props: {
   return props.canEdit ? (
     <MovableRows docId={props.parts.docId} rows={rows} renderRow={renderRow} />
   ) : (
-    <VirtualRows
-      count={rows.length}
-      rowHeight="one"
-      label={props.label}
-      renderRow={(index) => {
-        const row = rows[index];
-        return row === undefined ? null : renderRow(row);
-      }}
-    />
+    <div className="min-h-0 flex-1">
+      <VirtualRows
+        count={rows.length}
+        rowHeight="one"
+        label={props.label}
+        renderRow={(index) => {
+          const row = rows[index];
+          return row === undefined ? null : renderRow(row);
+        }}
+      />
+    </div>
   );
 }
 
@@ -264,7 +266,7 @@ function ScenesList(props: { docId: string }): ReactNode {
       state={count === 0 ? EMPTY : READY}
       render={panelRenderers({
         ready: () => (
-          <div className="flex min-h-0 flex-col">
+          <div className="flex h-full min-h-0 flex-col">
             <div className="flex items-center gap-2 p-2">
               {viewSwitch}
               <Input
@@ -291,7 +293,7 @@ function ScenesList(props: { docId: string }): ReactNode {
           </div>
         ),
         empty: () => (
-          <div className="flex min-h-0 flex-col">
+          <div className="flex h-full min-h-0 flex-col">
             <div className="p-2">{viewSwitch}</div>
             {view === "cards" && canEdit ? (
               <div className="p-2">
