@@ -30,5 +30,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   with, without, work, works, would, write, written, wrote, yesterday, yet, your,
   arrow, drop, dropped, moved, picked, position,
   compared, copied,
-  suggested
+  suggested,
+  offers, straight, through, whose
 `);
