@@ -20,7 +20,7 @@ import type { RowPlace } from "../../services/ports.ts";
 export const PLACE_COLUMN =
   "[&_.mn-row>span:last-child]:w-col-kind [&_.mn-row>span:last-child]:shrink-0 @lg:[&_.mn-row>span:last-child]:w-col-edited";
 
-/** The head's cell over the status column, which has no word of its own. */
+/** The head's cell over the status column. */
 export const PLACE_HEAD = "w-col-kind shrink-0 @lg:w-col-edited";
 
 /** A row's place in words with its icon; null when it has no word of its own. */

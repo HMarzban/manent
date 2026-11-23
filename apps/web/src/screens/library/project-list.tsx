@@ -135,7 +135,7 @@ export function ProjectList(props: {
           <span className={EDITED_COLUMN}>
             {LIBRARY_WORDS.lastEditedColumn}
           </span>
-          <span aria-hidden="true" className={PLACE_HEAD} />
+          <span className={PLACE_HEAD}>{LIBRARY_WORDS.statusColumn}</span>
         </div>
         <div className={cn("min-h-0 flex-1", PLACE_COLUMN)}>
           <VirtualRows

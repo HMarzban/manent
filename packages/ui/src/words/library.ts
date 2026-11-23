@@ -42,6 +42,7 @@ export const LIBRARY_WORDS = {
   projectsRegion: "Projects",
   kindColumn: "Kind",
   lastEditedColumn: "Last edited",
+  statusColumn: "Status",
   empty: "No scripts yet",
   problem: "Couldn't load the list. Showing what is on this device.",
   notOnDevice: "Not on this device",
