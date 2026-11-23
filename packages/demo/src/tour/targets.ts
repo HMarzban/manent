@@ -28,6 +28,17 @@ export const TOUR_TARGETS = [
   "setting:appearance.theme",
   "setting:script.paper",
   "setting:script.format",
+  "tab:comments",
+  "tab:cuts",
+  "people_list",
+  "writing_switch",
+  "share",
+  "comment_popover",
+  "alternates",
+  "cards_switch",
+  "episode_table",
+  "send:to",
+  "present_window",
 ] as const;
 
 export type TourTarget = (typeof TOUR_TARGETS)[number];

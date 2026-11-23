@@ -20,6 +20,7 @@ import {
 import type { ComponentType, ReactNode } from "react";
 import { focusHeading } from "../../focus.ts";
 import { ProductionDialogs } from "../../production/dialogs.tsx";
+import { SelectionToolbar } from "../../selection/selection-toolbar.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
 import { selectors as paletteSelectors } from "../../state/palette.store.ts";
@@ -206,6 +207,7 @@ function Frame(props: {
       <DocumentStateBar docId={docId} facts={doc.stateFacts} />
       <FindBarRow docId={docId} />
       <RulerBar docId={docId} />
+      <SelectionToolbar docId={docId} />
       <LeftPanel docId={docId} overlay={overPage} />
       <NoAccess docId={docId} status={status} />
       <SidePanel docId={docId} overlay={overPage} />

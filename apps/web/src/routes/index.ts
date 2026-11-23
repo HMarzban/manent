@@ -6,6 +6,12 @@ import { developmentRoutes } from "./development.ts";
 import { documentRoutes } from "./document.ts";
 import { libraryRoutes } from "./library.ts";
 import { preferencesRoutes } from "./preferences.ts";
+import { presentRoutes } from "./present.ts";
+import { versionLinksRoutes } from "./version-links.ts";
+import { joinRoutes } from "./join.ts";
+import { readerRoutes } from "./reader.ts";
+import { projectRoutes } from "./project.ts";
+import { boardRoutes } from "./board.ts";
 
 export interface AppRouterDeps {
   api: Api;
@@ -22,4 +28,10 @@ export const ROUTE_GROUPS: readonly ((
   documentRoutes,
   preferencesRoutes,
   developmentRoutes,
+  presentRoutes,
+  versionLinksRoutes,
+  joinRoutes,
+  readerRoutes,
+  projectRoutes,
+  boardRoutes,
 ];

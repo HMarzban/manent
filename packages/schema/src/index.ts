@@ -57,6 +57,8 @@ export type { RawDoc, RawElement, RawMark, RawText } from "./raw.ts";
 export { blockText, blockView, blocksOf } from "./block-view.ts";
 export type { BlockView, FlatBlock, TextRun } from "./block-view.ts";
 export type { BlockOp } from "./block-ops.ts";
+export { ANCHOR_CONTEXT_UNITS, isTextAnchor, textAnchorAt } from "./anchors.ts";
+export type { TextAnchor } from "./anchors.ts";
 export { NOTE_CONTEXT_UNITS, isScriptNote, noteAnchorAt } from "./notes.ts";
 export type { NoteAnchor, ScriptNote } from "./notes.ts";
 export { TITLE_PAGE_FIELDS } from "./title-page.ts";
