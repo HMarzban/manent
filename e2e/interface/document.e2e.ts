@@ -110,8 +110,13 @@ test("the title truncates before the status, which never loses a word", async ({
 test("Sign in to sync gives You a session and the status follows the source", async ({
   page,
 }) => {
-  await signedInAs(page, "you", DOC);
+  // a script the device keeps, as the Library makes one, so the first sync hands it over
+  await signedInAs(page, "you");
+  await closeFirstTour(page);
+  await makeScript(page, DOC_ID);
+  await page.goto(DOC);
   const status = statusButton(page);
+  await expect(status).toHaveAccessibleName(NEW_SCRIPT);
   await status.click();
   const signIn = page.waitForResponse(
     (response) =>
@@ -131,10 +136,7 @@ test("Sign in to sync gives You a session and the status follows the source", as
       }),
     )
     .toBe("string");
-  await expect(status).toHaveAccessibleName(NEW_SCRIPT);
-  // the sync this tab started before the session keeps saying Sign in to sync under the new script's words
-  await setStatus(page, { neverSynced: false });
-  await expect(status).toHaveAccessibleName("Saved · Sign in to sync");
+  await expect(status).toHaveAccessibleName("Saved · Synced");
 });
 
 test("opening a panel never moves the page's lines up or down", async ({
