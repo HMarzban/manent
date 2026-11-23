@@ -100,7 +100,15 @@ function HandInDialog(props: {
   const [refusal, setRefusal] = useState<string | null>(null);
   const key = useRef<string | null>(null);
   const release = useRef<(() => void) | null>(null);
-  useEffect(() => () => release.current?.(), []);
+  // Cancel stays open while the dialog is busy: once it has closed, nothing is handed in
+  const shown = useRef(true);
+  useEffect(() => {
+    shown.current = true;
+    return () => {
+      shown.current = false;
+      release.current?.();
+    };
+  }, []);
   const handIn = async (): Promise<void> => {
     // a key is 32 lower-case hex digits
     key.current ??= randomId().replaceAll("-", "");
@@ -109,7 +117,9 @@ function HandInDialog(props: {
     release.current?.();
     const letGo = writingActions.holdInput(docId);
     release.current = letGo;
-    const outcome = (await isDelivered(services, docId))
+    const delivered = await isDelivered(services, docId);
+    if (!shown.current) return;
+    const outcome = delivered
       ? await handInPrivateCopy(services.userId, { docId, key: key.current })
       : ({ ok: false, code: "failed" } as const);
     setBusy(false);

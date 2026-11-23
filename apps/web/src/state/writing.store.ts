@@ -128,10 +128,12 @@ function followTarget(
     void open(target, wanted).then((outcome) => {
       if (!wanted()) return;
       binding.opening = null;
-      if (outcome === "bound") binding.bound = target;
-      else if (outcome !== "moved") rollBack(docId);
       settle(docId, target, outcome);
-      tell();
+      // a target given up is asked again on the next change, never at once: it would fail again the same way
+      if (outcome === "bound") {
+        binding.bound = target;
+        tell();
+      } else if (outcome !== "moved") rollBack(docId);
     });
   };
   bindings.set(docId, binding);
