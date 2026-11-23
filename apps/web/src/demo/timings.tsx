@@ -27,6 +27,7 @@ export function Timings(props: {
       <BarButton
         label={DEMO_WORDS.timings}
         icon={GaugeIcon}
+        drops="first"
         tour={TOUR}
         unavailable={DEMO_WORDS.needsConnection}
       />
@@ -36,6 +37,7 @@ export function Timings(props: {
       <BarButton
         label={DEMO_WORDS.timings}
         icon={GaugeIcon}
+        drops="first"
         tour={TOUR}
         hint={DEMO_WORDS.timingsHint}
         opens

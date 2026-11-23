@@ -24,6 +24,7 @@ function Unavailable(props: { reason: string }): ReactNode {
     <BarButton
       label={DEMO_WORDS.reorganise}
       icon={LayersIcon}
+      drops="first"
       unavailable={props.reason}
       tour={TOUR}
     />
@@ -72,6 +73,7 @@ function ScriptReorganise(props: {
     <BarButton
       label={DEMO_WORDS.reorganise}
       icon={LayersIcon}
+      drops="first"
       tour={TOUR}
       hint={
         waiting ? DEMO_WORDS.reorganiseWaitingHint : DEMO_WORDS.reorganiseHint

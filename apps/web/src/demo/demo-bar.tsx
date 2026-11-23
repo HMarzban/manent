@@ -21,7 +21,8 @@ export function preloadDemoBarControls(): void {
 
 /**
  * Never takes focus; F6 reaches it. One row while its controls fit: short of room the labels before them and the
- * server's words go, and then they take a second row rather than widen the window, each button keeping its words.
+ * server's words go, then some buttons keep only their icons, and in the narrowest bar they take a second row rather
+ * than widen the window.
  */
 export function DemoBar(props: {
   person: TabPerson | null;

@@ -62,6 +62,7 @@ function Unavailable(props: { reason: string }): ReactNode {
     <BarButton
       label={DEMO_WORDS.addWriters}
       icon={UsersIcon}
+      drops="later"
       tour={TOUR}
       unavailable={props.reason}
     />
@@ -96,6 +97,8 @@ function ScriptWriters(props: {
       <BarButton
         label={labelOf(running)}
         icon={UsersIcon}
+        // while writers run its words say how many, so it keeps them
+        drops={running === null ? "later" : undefined}
         tour={TOUR}
         hint={DEMO_WORDS.addWritersHint}
         opens

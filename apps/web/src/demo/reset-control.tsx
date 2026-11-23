@@ -31,6 +31,7 @@ export function ResetControl(props: DemoControl): ReactNode {
       <BarButton
         label={DEMO_WORDS.reset}
         icon={RotateCcwIcon}
+        drops="first"
         tour="demo:reset"
         hint={DEMO_WORDS.resetHint}
         onClick={() => setOpen(true)}
