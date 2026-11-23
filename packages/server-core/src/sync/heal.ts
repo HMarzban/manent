@@ -3,7 +3,7 @@
 import type { DocumentRow, HealingRow, Storage } from "@manent/storage";
 import type { WriteMode } from "./ports.ts";
 import type { Room } from "./rooms.ts";
-import type { WritePathPorts } from "./write-path.ts";
+import type { WritePathPorts } from "./write-path-ports.ts";
 
 /** SUBSCRIBED.headSeq: the head, or what precedes the first quarantined row while that is unhealed. */
 export function verifiedHead(
