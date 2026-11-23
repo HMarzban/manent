@@ -1,4 +1,5 @@
-// One setting's row, generated from its definition: the control, its help, its default and who set it.
+// One setting's row, generated from its definition: the control, its help, its default and who set it. A value with no
+// plain control (an element style, header slots, labels, fields) is drawn by a row of its own.
 import { SETTINGS } from "@manent/settings";
 import type {
   Choice,
@@ -8,10 +9,11 @@ import type {
   SettingsStore,
 } from "@manent/settings";
 import { cn } from "cn";
-import { useId, useSyncExternalStore } from "react";
-import type { ReactNode } from "react";
+import { useId, useState, useSyncExternalStore } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { Segmented } from "../components/segmented/segmented.tsx";
 import { Button } from "../components/stock/button.tsx";
+import { Input } from "../components/stock/input.tsx";
 import {
   RadioGroup,
   RadioGroupItem,
@@ -25,7 +27,7 @@ import {
 } from "../components/stock/select.tsx";
 import { Switch } from "../components/stock/switch.tsx";
 import { READOUT_WORDS } from "../words/document.ts";
-import { formatDate } from "../words/format.ts";
+import { formatCount, formatDate } from "../words/format.ts";
 import { PREFERENCES_WORDS } from "../words/preferences.ts";
 import { useSettingsStore } from "./settings-context.tsx";
 import { useSetting } from "./use-setting.ts";
@@ -62,10 +64,33 @@ function choiceLabel(
   return choices.find((choice) => choice.value === value)?.label ?? "";
 }
 
-function valueLabel(key: SettingKey, value: unknown): string {
-  const { choices } = SETTINGS.get(key).type;
+/** How a number setting with a unit names its value, and its null. */
+interface NumberWords {
+  none: string;
+  count(n: number): string;
+}
+
+const NUMBER_WORDS: Readonly<Record<string, NumberWords>> = Object.freeze({
+  "project.targetPages": {
+    none: "No target",
+    count: (n: number) => `${formatCount(n)} pages`,
+  },
+});
+
+/**
+ * How a setting's value is named in a row: a choice by its label, a switch "On" or "Off", a number by its digits and
+ * unit, a text as typed; "" for a value only its own row names.
+ */
+export function formatSettingValue(key: SettingKey, value: unknown): string {
+  const { kind, choices } = SETTINGS.get(key).type;
   if (choices !== null) return choiceLabel(choices, value);
-  return value === true ? READOUT_WORDS.valueOn : READOUT_WORDS.valueOff;
+  if (kind === "boolean")
+    return value === true ? READOUT_WORDS.valueOn : READOUT_WORDS.valueOff;
+  const words = NUMBER_WORDS[key];
+  if (kind === "number" && words !== undefined)
+    return typeof value === "number" ? words.count(value) : words.none;
+  if (typeof value === "number") return formatCount(value);
+  return typeof value === "string" ? value : "";
 }
 
 /** Writes what a control reports, once the setting's own type accepts it. */
@@ -80,7 +105,7 @@ function defaultLine(
   explained: Explained<SettingValue<SettingKey>>,
   deviceName: string | null,
 ): string {
-  const defaultLabel = valueLabel(key, SETTINGS.get(key).default);
+  const defaultLabel = formatSettingValue(key, SETTINGS.get(key).default);
   const { modified, provenance } = explained;
   // a value set by someone else is never said to be yours, and the row has no way to name them
   if (
@@ -200,15 +225,84 @@ function SegmentedControl({ settingKey, value }: ControlProps): ReactNode {
   );
 }
 
-function controlFor(key: SettingKey): (props: ControlProps) => ReactNode {
-  const { choices } = SETTINGS.get(key).type;
-  if (choices === null) return SwitchControl;
+/** How a field shows its value and reads what was typed; the setting's own type then accepts it or not. */
+interface Field {
+  type: "text" | "number";
+  inputMode: "text" | "decimal";
+  className: string;
+  read(typed: string): unknown;
+}
+
+const TEXT_FIELD: Field = Object.freeze({
+  type: "text",
+  inputMode: "text",
+  className: "w-48",
+  read: (typed: string) => typed,
+});
+
+// an empty number field is no value, which a setting that takes none accepts
+const NUMBER_FIELD: Field = Object.freeze({
+  type: "number",
+  inputMode: "decimal",
+  className: "w-20 tabular-nums",
+  read: (typed: string) => (typed.trim() === "" ? null : Number(typed)),
+});
+
+/** A field that writes what was typed once it is left or Enter is pressed; Escape, or a value the setting refuses, puts the value back. */
+function FieldControl(props: ControlProps & { field: Field }): ReactNode {
+  const { settingKey, value, labelId, describedBy, disabled, field } = props;
+  const store = useSettingsStore();
+  // null while the field shows the stored value
+  const [typed, setTyped] = useState<string | null>(null);
+  const commit = (): void => {
+    if (typed !== null) setFrom(store, settingKey, field.read(typed));
+    setTyped(null);
+  };
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === "Enter") commit();
+    if (event.key === "Escape") setTyped(null);
+  };
+  return (
+    <Input
+      type={field.type}
+      inputMode={field.inputMode}
+      className={field.className}
+      value={typed ?? (value === null ? "" : String(value))}
+      // an empty number field is the setting's null, named as its row names it
+      placeholder={NUMBER_WORDS[settingKey]?.none}
+      onChange={(event) => setTyped(event.target.value)}
+      onBlur={commit}
+      onKeyDown={onKeyDown}
+      aria-labelledby={labelId}
+      aria-describedby={describedBy}
+      disabled={disabled}
+    />
+  );
+}
+
+const TextControl = (props: ControlProps): ReactNode => (
+  <FieldControl {...props} field={TEXT_FIELD} />
+);
+const NumberControl = (props: ControlProps): ReactNode => (
+  <FieldControl {...props} field={NUMBER_FIELD} />
+);
+
+/** Null for a value no plain control can set. */
+function controlFor(
+  key: SettingKey,
+): ((props: ControlProps) => ReactNode) | null {
+  const { kind, choices } = SETTINGS.get(key).type;
+  if (kind === "boolean") return SwitchControl;
+  if (kind === "text") return TextControl;
+  if (kind === "number") return NumberControl;
+  if (choices === null) return null;
   if (SEGMENTED_KEYS.has(key)) return SegmentedControl;
   return choices.length > RADIO_LIMIT ? SelectControl : RadioControl;
 }
 
 /**
- * The one control of a setting, named by its label and described by its help text and its default line.
+ * The one control of a setting, named by its label and described by its help text and its default line; nothing for
+ * a value no plain control can set.
  * `deviceName` is this device's name: a value set on any other device names where it was set.
  * `persisted` false says the device cannot keep the value beyond this session.
  */
@@ -228,6 +322,7 @@ export function SettingRow(props: {
   const describedBy =
     def.description === null ? ids.line : `${ids.help} ${ids.line}`;
   const Control = controlFor(settingKey);
+  if (Control === null) return null;
   // a radio group lists its choices under its label; every other control sits at the row's end
   const stacked = Control === RadioControl;
   return (

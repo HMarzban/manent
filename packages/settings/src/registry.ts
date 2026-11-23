@@ -47,7 +47,8 @@ export class RegistryError extends Error {
   }
 }
 
-const KEY_PATTERN = /^(writing|appearance|device|script)\.[a-z][a-zA-Z]*$/;
+const KEY_PATTERN =
+  /^(writing|appearance|device|script|project)\.[a-z][a-zA-Z]*$/;
 
 const MESSAGES: Readonly<Record<RegistryErrorCode, string>> = Object.freeze({
   duplicate_key: "a setting key is declared once",
@@ -57,13 +58,17 @@ const MESSAGES: Readonly<Record<RegistryErrorCode, string>> = Object.freeze({
   boot_not_attribute:
     "a setting applied at boot must be applied as an attribute",
   preference_on_layout: "a preference never changes the layout",
-  preference_off_preferences: "a preference is never shown in Script settings",
-  shared_on_preferences: "a script setting is never shown in Preferences",
+  preference_off_preferences:
+    "a preference is never shown in Script or Project settings",
+  shared_on_preferences:
+    "a script or project setting is never shown in Preferences",
   bad_key: `a setting key must match ${KEY_PATTERN.source}`,
 });
 
 const isPreference = (def: SettingDefinition): boolean =>
   def.scope === "personal" || def.scope === "device";
+const isShared = (def: SettingDefinition): boolean =>
+  def.scope === "script" || def.scope === "project";
 const isShownIn = (def: SettingDefinition, place: Surface["in"]): boolean =>
   def.surfaces.some((surface) => surface.in === place);
 
@@ -84,11 +89,13 @@ const REFUSALS: readonly (readonly [
   ],
   [
     "preference_off_preferences",
-    (def) => isPreference(def) && isShownIn(def, "scriptSettings"),
+    (def) =>
+      isPreference(def) &&
+      (isShownIn(def, "scriptSettings") || isShownIn(def, "projectSettings")),
   ],
   [
     "shared_on_preferences",
-    (def) => def.scope === "script" && isShownIn(def, "preferences"),
+    (def) => isShared(def) && isShownIn(def, "preferences"),
   ],
 ];
 
