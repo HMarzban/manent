@@ -14,10 +14,14 @@ export const elementEntry: ActionEntry<{ kind: "element"; slot: ElementSlot }> =
     },
   };
 
-export const pickerEntry: ActionEntry<{ kind: "picker" }> = {
+/** `opener` is the control that opened the picker, which its list is placed beside; null: under the caret's line. */
+export const pickerEntry: ActionEntry<{
+  kind: "picker";
+  opener: HTMLElement | null;
+}> = {
   readOnly: false,
-  run: (view, _, context) => {
-    context.openPicker(view);
+  run: (view, action, context) => {
+    context.openPicker(view, action.opener);
     return { ok: true };
   },
 };

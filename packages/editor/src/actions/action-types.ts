@@ -43,7 +43,8 @@ export interface ActionContext {
   slotElement(format: FormatId, slot: ElementSlot): ElementRef | null;
   history: HistoryPort;
   ids: IdSource;
-  openPicker(view: EditorView): void;
+  /** Opens the element picker beside `opener`, or under the caret's line when null. */
+  openPicker(view: EditorView, opener: HTMLElement | null): void;
   /** Puts the caret at `offset` in `blockId` near the view's top and focuses the page. */
   goTo(blockId: string, offset: number): void;
   editable(): boolean;

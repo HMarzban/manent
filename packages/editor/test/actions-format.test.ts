@@ -364,7 +364,7 @@ test("a read-only page refuses every change but undo", () => {
   const readOnly = contextFor("screenplay", { editable: false, history });
   const changes: EditorAction[] = [
     { kind: "element", slot: "2" },
-    { kind: "picker" },
+    { kind: "picker", opener: null },
     { kind: "dual_dialogue" },
     { kind: "page_break" },
     { kind: "style", mark: "bold" },

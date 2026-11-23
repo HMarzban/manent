@@ -17,8 +17,8 @@ export interface ElementContext {
   prefs(): FlowPrefs;
   history: HistoryPort;
   ids: IdSource;
-  /** Opens the element picker at the caret. */
-  openPicker(view: EditorView): void;
+  /** Opens the element picker beside `opener`, or under the caret's line when null. */
+  openPicker(view: EditorView, opener: HTMLElement | null): void;
 }
 
 /** The keys Preferences → Keyboard shows as fixed: the flow between elements and the caret's own moves. */
@@ -125,7 +125,7 @@ function enterKey(view: EditorView, context: ElementContext): boolean {
   if (caret.blank) {
     const { to } = flowRow(format, caret.element, context.prefs()).enterEmpty;
     if (to === "picker") {
-      context.openPicker(view);
+      context.openPicker(view, null);
       return true;
     }
     // a line already of its target element is left to the section plugin, which starts a new line
