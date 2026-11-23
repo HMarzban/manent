@@ -72,6 +72,13 @@ const PLACES: Partial<Record<SurfaceId, Place>> = {
     name: null,
   },
   send: { at: DOC, drawn: SEND, first: SEND, close: null, name: null },
+  share_dialog: {
+    at: DOC,
+    drawn: POPUP,
+    first: POPUP,
+    close: null,
+    name: null,
+  },
   consequence_dialog: {
     at: DOC,
     drawn: CONSEQUENCE,
@@ -271,6 +278,12 @@ for (const entry of SURFACES.filter((s) => s.id !== "file_picker"))
         const place = placeOf(entry.id, opener);
         const command = commandOf(opener);
         const platform = await platformOf(page);
+        test.fixme(
+          entry.id === "share_dialog" &&
+            command.when !== null &&
+            !command.when(contextAt(place.at, platform)),
+          "Share does nothing yet: the Share dialog is not drawn",
+        );
         test.skip(
           by === "key" && command.keys[platform].length === 0,
           `${opener} has no key on ${platform}`,

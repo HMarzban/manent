@@ -9,10 +9,10 @@ export const SHARE_COMMANDS = defineCommands([
     scope: "global",
     keys: { mac: [], windows: [], linux: [] },
     keysFixed: false,
-    // no Share dialog answers it yet
-    when: () => false,
+    when: (ctx) => ctx.online,
     whyNot: () => "needs a connection",
-    visible: null,
+    // the Share dialog is drawn on a document's screen
+    visible: (ctx) => ctx.screen === "document",
     checked: null,
     passThrough: null,
     menus: [{ menu: "file", group: "share", order: 10, submenu: null }],

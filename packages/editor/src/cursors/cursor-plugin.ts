@@ -14,7 +14,7 @@ import type {
 } from "../script-editor/ports.ts";
 import { placeOf, positionOf } from "./place.ts";
 
-/** How long a name tab shows after its person last moved, ms. */
+/** How long a caret's tab shows its person's name after they last moved, ms; then it shows their initials. */
 export const NAME_TAB_MS = 3000;
 /** The most blocks one person's selection is drawn over, counted from its head. */
 export const MAX_SELECTION_BLOCKS = 200;
@@ -26,14 +26,14 @@ interface CursorsState {
   /** Every cursor last received, drawn or not. */
   readonly cursors: readonly RemoteCursor[];
   readonly shown: ShownCursors;
-  /** The time the name tabs were last judged by, ms. */
+  /** The time the tabs were last judged by, ms. */
   readonly now: number;
   readonly decorations: DecorationSet;
 }
 
 export const cursorsKey: PluginKey<CursorsState> = new PluginKey("cursors");
 
-// The meta of a draw (the cursors received and the time their name tabs are judged by), or of a new filter.
+// The meta of a draw (the cursors received and the time their tabs are judged by), or of a new filter.
 type Meta =
   | {
       readonly type: "draw";
@@ -42,7 +42,7 @@ type Meta =
     }
   | { readonly type: "shown"; readonly shown: ShownCursors };
 
-const isTabShown = (cursor: RemoteCursor, now: number): boolean =>
+const isNameShown = (cursor: RemoteCursor, now: number): boolean =>
   now - cursor.movedAt < NAME_TAB_MS;
 
 const isSameShown = (a: ShownCursors, b: ShownCursors): boolean =>
@@ -54,7 +54,7 @@ const isSameShown = (a: ShownCursors, b: ShownCursors): boolean =>
 
 function caretOf(
   cursor: RemoteCursor,
-  tab: boolean,
+  named: boolean,
   listed: boolean,
 ): (view: EditorView) => HTMLElement {
   return (view) => {
@@ -68,11 +68,9 @@ function caretOf(
     caret.dataset["collab"] = String(cursor.colour);
     const bar = caret.appendChild(doc.createElement("span"));
     bar.className = "mn-cursor-bar";
-    if (tab) {
-      const name = caret.appendChild(doc.createElement("span"));
-      name.className = "mn-cursor-tab";
-      name.textContent = cursor.name;
-    }
+    const tab = caret.appendChild(doc.createElement("span"));
+    tab.className = "mn-cursor-tab";
+    tab.textContent = named ? cursor.name : cursor.initials;
     return caret;
   };
 }
@@ -124,10 +122,10 @@ function decorationsOf(
     if (listed && !shown.includes(cursor.userId)) continue;
     const head = positionOf(state, cursor.place.head, cursor.place.at);
     if (head === null) continue;
-    const tab = isTabShown(cursor, now);
+    const named = isNameShown(cursor, now);
     decorations.push(
-      Decoration.widget(head, caretOf(cursor, tab, listed), {
-        key: `cursor:${cursor.key}:${cursor.colour}:${tab}${listed ? ":listed" : ""}`,
+      Decoration.widget(head, caretOf(cursor, named, listed), {
+        key: `cursor:${cursor.key}:${cursor.colour}:${named}${listed ? ":listed" : ""}`,
       }),
       ...selectionOf(state, cursor, head),
     );
@@ -135,13 +133,13 @@ function decorationsOf(
   return DecorationSet.create(state.doc, decorations);
 }
 
-// The time until the first name tab drawn at `now` goes; null when none is drawn.
-function nextTabEnd(
+// The time until the first name drawn at `now` gives way to initials; null when none is drawn.
+function nextNameEnd(
   cursors: readonly RemoteCursor[],
   now: number,
 ): number | null {
   const ends = cursors
-    .filter((cursor) => isTabShown(cursor, now))
+    .filter((cursor) => isNameShown(cursor, now))
     .map((cursor) => cursor.movedAt + NAME_TAB_MS - now);
   return ends.length === 0 ? null : Math.min(...ends);
 }
@@ -172,7 +170,7 @@ function cursorsView(view: EditorView, options: CursorsOptions): PluginView {
       view.state.tr.setMeta(cursorsKey, meta).setMeta("addToHistory", false),
     );
     cancelTimer?.();
-    const end = nextTabEnd(received, now);
+    const end = nextNameEnd(received, now);
     cancelTimer = end === null ? null : timers.schedule(request, end);
   };
   const request = () => {

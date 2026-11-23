@@ -1,13 +1,15 @@
 // Changes since a version, drawn on the live page. The comparison is kept current as the script changes: a
 // transaction re-compares only the blocks it replaced, and the document itself is never touched.
 import {
+  addedEntry,
   canonicalBlocksOf,
-  compareBlock,
   createComparisonBuilder,
+  entryIdsOf,
+  heldEntry,
   idOf,
   isSceneHeading,
   longestIncreasingSubsequence,
-  textOf,
+  removedEntry,
 } from "@manent/revisions";
 import type { BlockEntry, CompareMode, Comparison } from "@manent/revisions";
 import type { ChangeHint } from "@manent/pagination";
@@ -90,32 +92,23 @@ const HIDDEN: Tracked = Object.freeze({
   removed: new Map(),
 });
 
-const NO_CHANGE = Object.freeze({
-  moved: false,
-  attrs: Object.freeze([]),
-  inline: Object.freeze([]),
-  splitFrom: null,
-  joinedInto: null,
-  after: null,
-});
-
 type Baseline = Pick<Tracked, "order" | "olderAt" | "mode"> & {
   readonly older: ReadonlyMap<string, BlockJSON>;
 };
 
-// A block without an id, or with one an earlier block holds, is known by its place, as the comparison names it.
 function readBaseline(doc: DocJSON, mode: CompareMode): Baseline {
+  const blocks = canonicalBlocksOf(doc);
+  const order = entryIdsOf(blocks, "older");
   const older = new Map<string, BlockJSON>();
   const olderAt = new Map<string, OlderPlace>();
   let heading: string | null = null;
-  canonicalBlocksOf(doc).forEach((block, i) => {
-    const own = idOf(block);
-    const id = own !== null && !older.has(own) ? own : `#older:${i}`;
+  order.forEach((id, i) => {
+    const block = blocks[i]!;
     if (isSceneHeading(block)) heading = id;
     older.set(id, block);
     olderAt.set(id, { index: i, scene: heading });
   });
-  return { older, order: [...older.keys()], olderAt, mode };
+  return { older, order, olderAt, mode };
 }
 
 /** A block of the live document, canonical, with the id it is compared under. */
@@ -146,21 +139,14 @@ function splitOf(
 
 /** One live block against the baseline; its scene, split and move are left for the walk to set. */
 function liveEntry({ id, block }: LiveBlock, b: Baseline): BlockEntry {
-  const older = b.older.get(id) ?? null;
-  const changes =
-    older === null || JSON.stringify(older) === JSON.stringify(block)
-      ? null
-      : compareBlock(older, block, b.mode);
-  return Object.freeze({
-    ...NO_CHANGE,
-    ...changes,
-    id,
-    kind: older === null ? "added" : changes === null ? "unchanged" : "changed",
-    older,
-    newer: block,
-    sceneId: null,
-    olderIndex: b.olderAt.get(id)?.index ?? null,
-  });
+  const older = b.older.get(id);
+  if (older === undefined)
+    return addedEntry({ id, newer: block, splitFrom: null, sceneId: null });
+  const olderIndex = b.olderAt.get(id)!.index;
+  return heldEntry(
+    { id, moved: false, older, newer: block, sceneId: null, olderIndex },
+    b.mode,
+  );
 }
 
 /**
@@ -195,30 +181,22 @@ function groupRemoved(
 }
 
 /** A removed block after the live block `after`, whose JSON is `at`; `prev` stays while its place and join hold. */
-function removedEntry(
+function removedBlock(
   b: Baseline,
   id: string,
   after: string | null,
   at: BlockJSON | null,
   prev: BlockEntry | null,
 ): BlockEntry {
+  const { scene, index } = b.olderAt.get(id)!;
   const older = b.older.get(id)!;
-  const text = textOf(older);
-  const joined =
-    at !== null && text !== "" && textOf(at).endsWith(text) ? after : null;
-  if (prev?.after === after && prev.joinedInto === joined) return prev;
-  const place = b.olderAt.get(id)!;
-  return Object.freeze({
-    ...NO_CHANGE,
-    id,
-    kind: "removed",
-    older,
-    newer: null,
-    joinedInto: joined,
-    sceneId: place.scene,
-    after,
-    olderIndex: place.index,
-  });
+  const entry = removedEntry(
+    { id, older, sceneId: scene, after, olderIndex: index },
+    at,
+  );
+  return prev?.after === after && prev.joinedInto === entry.joinedInto
+    ? prev
+    : entry;
 }
 
 /**
@@ -249,7 +227,7 @@ function assemble(
       const k = after === null ? -1 : liveAt.get(after)!;
       const prev = was.get(id) ?? null;
       const at = k < 0 ? null : entries[k]!.newer;
-      const entry = removedEntry(b, id, after, at, prev);
+      const entry = removedBlock(b, id, after, at, prev);
       removed.set(id, entry);
       builder.add(entry);
       if (entry !== prev || near(k)) placed.push({ entry, after: k });

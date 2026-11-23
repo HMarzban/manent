@@ -1,23 +1,39 @@
 // The Library's own navigation, beside the main column: Continue, then the workspace's projects.
 import { LIBRARY_WORDS, Row, VirtualRows } from "@manent/ui";
+import { useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import type { ProjectItem } from "../../services/ports.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { KindIcon } from "./project-kind.tsx";
 
-const placeRow = (project: ProjectItem | undefined): ReactNode =>
-  project === undefined ? null : (
-    <Row leading={<KindIcon kind={project.kind} />}>{project.title}</Row>
+// a project opens on its first document, as its row in the main column does; one not on this device does not open
+const placeRow = (
+  project: ProjectItem | undefined,
+  open: (docId: string) => void,
+): ReactNode => {
+  if (project === undefined) return null;
+  const { firstDocId } = project;
+  const opens = firstDocId !== null && project.place.kind !== "not_on_device";
+  return (
+    <Row
+      leading={<KindIcon kind={project.kind} />}
+      onActivate={opens ? () => open(firstDocId) : undefined}
+    >
+      {project.title}
+    </Row>
   );
+};
 
 /**
- * The projects' names, under Continue, the place the main column shows. A window too narrow for it and the main
- * column side by side has no room for it.
+ * The projects' names, under Continue, the place the main column shows; each opens its project. A window too narrow
+ * for it and the main column side by side has no room for it.
  */
 export function LibraryNav(props: {
   projects: readonly ProjectItem[];
 }): ReactNode {
   const { projects } = props;
+  const navigate = useNavigate();
+  const open = (docId: string) => void navigate({ href: `/s/${docId}` });
   return (
     <ShellRegion
       region="left_panel"
@@ -30,7 +46,7 @@ export function LibraryNav(props: {
           count={projects.length}
           rowHeight="one"
           label={LIBRARY_WORDS.projectsHeading}
-          renderRow={(index) => placeRow(projects[index])}
+          renderRow={(index) => placeRow(projects[index], open)}
         />
       </div>
     </ShellRegion>

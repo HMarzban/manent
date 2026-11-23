@@ -116,20 +116,20 @@ export async function offlineFor(
 }
 
 /**
- * Sam offline rewrites the speech Dana rewrites online, then comes back; resolves to Sam's page once the status counts
- * the passage and the Sync centre's Review has opened To review.
+ * Sam offline rewrites the speech `other` rewrites online on a device of their own, then comes back; resolves to Sam's
+ * page once the status counts the passage and the Sync centre's Review has opened To review.
  */
-export async function overlapped(browser: Browser): Promise<Page> {
-  const [dana, sam] = [
-    await asPerson(browser, "dana"),
+async function overlapping(browser: Browser, other: string): Promise<Page> {
+  const [them, sam] = [
+    await asPerson(browser, other),
     await asPerson(browser, "sam"),
   ];
-  await sharedScript(dana, sam);
+  await sharedScript(them, sam);
   await setConnection(sam, "offline");
   await typeIn(sam, SPEECH, " and the tide");
   await expect.poll(() => readStatus(sam)).toBe("Saved · Offline, 1 waiting");
-  await typeIn(dana, SPEECH, " before the storm");
-  await expect.poll(() => readStatus(dana)).toBe("Saved · Synced");
+  await typeIn(them, SPEECH, " before the storm");
+  await expect.poll(() => readStatus(them)).toBe("Saved · Synced");
   await setConnection(sam, "online");
   await expect.poll(() => readStatus(sam)).toBe("Saved · Synced, 1 to review");
   // the receipt stays until it is dismissed, and the next message waits behind it
@@ -143,6 +143,14 @@ export async function overlapped(browser: Browser): Promise<Page> {
     .click();
   return sam;
 }
+
+/** The passage Sam rewrote offline, rewritten online by Dana. */
+export const overlapped = (browser: Browser): Promise<Page> =>
+  overlapping(browser, "dana");
+
+/** The passage Sam rewrote offline, rewritten online by Sam himself on his other device. */
+export const overlappedOnHisOtherDevice = (browser: Browser): Promise<Page> =>
+  overlapping(browser, "sam");
 
 /** Sam offline types into the scene Dana deletes, then comes back; resolves once To review lists the Recovered text. */
 export async function recovered(browser: Browser): Promise<Page> {

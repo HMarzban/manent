@@ -80,8 +80,8 @@ test("another writer's cursor and name are drawn, and hidden by the preference",
   await groupHook(page, "remote", "select", 5, 2);
   await expect(bar(page)).toBeVisible();
   await expect(cursor(page).locator(".mn-cursor-tab")).toHaveText("Dana Reyes");
-  // the name goes after three seconds without a move, and the caret stays
-  await expect(cursor(page).locator(".mn-cursor-tab")).toHaveCount(0, {
+  // the name gives way to the initials after three seconds without a move, and the caret stays
+  await expect(cursor(page).locator(".mn-cursor-tab")).toHaveText("DR", {
     timeout: 6000,
   });
   await expect(bar(page)).toBeVisible();
@@ -245,10 +245,6 @@ test("in Chromium that edit's frame does its work within the remote edit's hard 
   test.skip(
     browserName !== "chromium",
     "the frame's work is held to its budget in Chromium",
-  );
-  test.fixme(
-    true,
-    "in Chromium, which draws every section, this edit takes about 100 ms to show: it moves every page break after it, and styling and laying out the pages again takes about 75 ms of that",
   );
   test.setTimeout(300_000);
   const { dispatched } = await editFarAbove(page);

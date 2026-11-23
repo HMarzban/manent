@@ -76,6 +76,19 @@ function targetOf(file: DocFile, version: VersionRow): VersionContent | null {
   }
 }
 
+/** True when the restore of `userId` may be written under `clientId`: nobody else's, and nothing written under it yet. */
+function isFreeFor(
+  file: DocFile,
+  { docId, clientId }: RestoreRequest,
+  userId: string,
+): boolean {
+  if (clientId === null) return true;
+  const held = file.log.ledger(docId).get(clientId);
+  return (
+    held === undefined || (held.userId === userId && held.ackedClock === 0)
+  );
+}
+
 /** True when this build holds every block the plan writes as it is: nothing refused, nothing newer. */
 function isHoldable(plan: RestorePlan): boolean {
   const written = plan.ops.flatMap((op) =>
@@ -187,6 +200,7 @@ export function createRestorer(options: {
     const written = await options.sync().authorityWrite(docId, {
       userId,
       origin: "restore",
+      writer: body.clientId ?? undefined,
       edit: (doc) => planInto(file, doc, body, target, state),
       inTransaction(_file, at) {
         const { before, plan } = state;
@@ -240,6 +254,8 @@ export function createRestorer(options: {
         sceneBlocks(target, scope.headingId).length === 0
       )
         return { ok: false, code: "not_restorable" };
+      if (!isFreeFor(file, body, userId))
+        return { ok: false, code: "bad_request" };
       const outcome = await write(file, userId, body, target);
       if (!outcome.ok) return outcome;
       const { answer, scene } = outcome.value;

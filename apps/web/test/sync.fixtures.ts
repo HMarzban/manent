@@ -346,6 +346,7 @@ export function fakeHandle(docId: string, initial: CrdtDoc): FakeHandle {
     deviceVersions: async () => [],
     lastServerSeq: () => 0,
     adoptClientIds() {},
+    reserveClientId: async () => 7,
     async close() {
       closes += 1;
     },

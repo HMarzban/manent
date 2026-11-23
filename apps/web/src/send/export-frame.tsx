@@ -10,12 +10,8 @@ import type { SendFormProps } from "../screens/send/forms.ts";
 import { SendFrame } from "../screens/send/send-frame.tsx";
 import type { SendRow } from "../screens/send/send-frame.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
-import {
-  pagesFor,
-  useOfferedTo,
-  useSearchChoice,
-  useWhatRow,
-} from "./export-form.tsx";
+import type { Environment } from "../services/ports.ts";
+import { useOfferedTo, useSearchChoice, useWhatRow } from "./export-form.tsx";
 import { typesOffered } from "./file-types.ts";
 import { useSendPages } from "./page-tiles.tsx";
 import { save } from "./script-file.ts";
@@ -59,6 +55,36 @@ function useChecksRow(
   return leftOut === null ? checks : said;
 }
 
+/**
+ * Writes `pages` as a file of `file`'s type, one frame on so that the busy label paints first, and saves it. Rejects,
+ * saving nothing, when the file cannot be written or `signal` aborts.
+ */
+async function exportScript(work: {
+  file: ExportFileType;
+  docId: string;
+  title: string;
+  pages: Pagination;
+  now: Environment["now"];
+  frame: Environment["frame"];
+  signal: AbortSignal;
+}): Promise<void> {
+  const { file, docId, title, pages, now, frame, signal } = work;
+  await new Promise<void>((resolve, reject) => {
+    const cancel = frame(resolve);
+    signal.addEventListener(
+      "abort",
+      () => {
+        cancel();
+        reject(signal.reason);
+      },
+      { once: true },
+    );
+  });
+  const written = await file.write({ docId, title, pages, now });
+  signal.throwIfAborted();
+  save(written.bytes, written.name, file.mime);
+}
+
 function exportedMessage(title: string): Message {
   return {
     id: "exported",
@@ -69,33 +95,20 @@ function exportedMessage(title: string): Message {
   };
 }
 
-/**
- * The Export form: its rows from the first frame; the checks, the pages and the export itself once the document's
- * editor is open. The address's `as` (a file type's id) and `what` (a What option's id) are chosen when it opens, when
- * they are offered.
- */
-export function LiveExport(props: SendFormProps): ReactNode {
-  const { docId } = props;
-  const { p, title, tiles, back } = useSendPages(docId);
-  const { messages, history, documents } = useServices();
+/** The Export action's state, and its `run`, which writes and saves a file of `file`'s type, then goes `back`. */
+interface ExportAction {
+  busy: boolean;
+  problem: string | null;
+  run: (file: ExportFileType, pages: Pagination) => Promise<void>;
+}
+
+function useExportAction(
+  docId: string,
+  title: string,
+  back: () => void,
+): ExportAction {
+  const { messages, history } = useServices();
   const { frame, now } = useEnvironment();
-  const to = useOfferedTo(docId);
-  const types = typesOffered("export", to);
-  const askedType = useSearchChoice("as");
-  const [chosenId, choose] = useState(askedType);
-  const type = types.find((entry) => entry.id === chosenId) ?? types[0] ?? null;
-  const what = useWhatRow("export", type?.id ?? null, to.locked);
-  const option = what?.option ?? null;
-  const pages = useMemo(
-    () =>
-      p === null || option === null
-        ? null
-        : pagesFor(option, docId, p, () =>
-            documents.open(docId).material.materialSnapshotOf(docId),
-          ),
-    [p, option, docId, documents],
-  );
-  const checks = useChecksRow(docId, title, type, p);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   // the form's lifetime: work still under way when it leaves stops where it is
@@ -106,31 +119,69 @@ export function LiveExport(props: SendFormProps): ReactNode {
     return () => controller.abort();
   }, []);
 
-  const run = (file: ExportFileType, sent: Pagination): void => {
+  const run = async (
+    file: ExportFileType,
+    pages: Pagination,
+  ): Promise<void> => {
     const { signal } = left.current;
     setBusy(true);
     setProblem(null);
-    // one frame first, so that the busy label paints before the file is written
-    const cancel = frame(() => {
-      file.write({ docId, title, pages: sent, now }).then(
-        (written) => {
-          if (signal.aborted) return;
-          save(written.bytes, written.name, file.mime);
-          void history.save(docId, "export");
-          messages.push(exportedMessage(title));
-          back();
-        },
-        () => {
-          // the person is told the file was not written and may try again; nothing was saved
-          if (signal.aborted) return;
-          setProblem(WORDS.exportFailed(title));
-          setBusy(false);
-        },
-      );
-    });
-    signal.addEventListener("abort", cancel, { once: true });
+    try {
+      await exportScript({ file, docId, title, pages, now, frame, signal });
+    } catch {
+      // a form that has left ends quietly; otherwise the person is told the file was not written and may try again
+      if (signal.aborted) return;
+      setProblem(WORDS.exportFailed(title));
+      setBusy(false);
+      return;
+    }
+    void history.save(docId, "export");
+    messages.push(exportedMessage(title));
+    back();
   };
+  return { busy, problem, run };
+}
 
+/** The As row: the file type chosen among those offered. */
+function asRow(
+  type: ExportFileType,
+  types: readonly ExportFileType[],
+  choose: (id: string) => void,
+): SendRow {
+  return {
+    id: "as",
+    content: (
+      <div data-tour="send:as">
+        <Segmented
+          label={SEND_WORDS.as}
+          value={type.id}
+          options={types.map(({ id, label }) => ({ value: id, label }))}
+          onChange={choose}
+        />
+      </div>
+    ),
+  };
+}
+
+/**
+ * The Export form: its rows from the first frame; the checks, the pages and the export itself once the document's
+ * editor is open. The address's `as` (a file type's id) and `what` (a What option's id) are chosen when it opens, when
+ * they are offered.
+ */
+export function LiveExport(props: SendFormProps): ReactNode {
+  const { docId } = props;
+  const to = useOfferedTo(docId);
+  const types = typesOffered("export", to);
+  const askedType = useSearchChoice("as");
+  const [chosenId, choose] = useState(askedType);
+  const type = types.find((entry) => entry.id === chosenId) ?? types[0] ?? null;
+  const what = useWhatRow("export", type?.id ?? null, to.locked);
+  const { p, pages, title, tiles, back } = useSendPages(
+    docId,
+    what?.option ?? null,
+  );
+  const checks = useChecksRow(docId, title, type, p);
+  const { busy, problem, run } = useExportAction(docId, title, back);
   return (
     <SendFrame
       title={WORDS.exportTitle(1)}
@@ -138,26 +189,7 @@ export function LiveExport(props: SendFormProps): ReactNode {
       rows={[
         ...(checks === null ? [] : [checks]),
         ...(what === null ? [] : [what.row]),
-        ...(type === null
-          ? []
-          : [
-              {
-                id: "as" as const,
-                content: (
-                  <div data-tour="send:as">
-                    <Segmented
-                      label={SEND_WORDS.as}
-                      value={type.id}
-                      options={types.map(({ id, label }) => ({
-                        value: id,
-                        label,
-                      }))}
-                      onChange={choose}
-                    />
-                  </div>
-                ),
-              },
-            ]),
+        ...(type === null ? [] : [asRow(type, types, choose)]),
       ]}
       pages={tiles}
       action={{
@@ -169,7 +201,8 @@ export function LiveExport(props: SendFormProps): ReactNode {
         cancel: null,
         disabledReason: null,
         problem,
-        run: pages === null || type === null ? null : () => run(type, pages),
+        run:
+          pages === null || type === null ? null : () => void run(type, pages),
       }}
     />
   );

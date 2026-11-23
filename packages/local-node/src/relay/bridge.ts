@@ -3,7 +3,6 @@
 import { ORIGIN_REMOTE } from "@manent/crdt";
 import type { SyncService, Upstream } from "@manent/server-core";
 import type { Storage } from "@manent/storage";
-import { encodeUpstreamRefused } from "@manent/sync-client";
 import type {
   Clock,
   DocEvent,
@@ -16,6 +15,7 @@ import type { UpstreamFactory } from "../node/ports.ts";
 import type { NodeRecords } from "../records/ports.ts";
 import { ORIGIN_RELAY, clientIdsOf, createFollowing } from "./follow.ts";
 import type { Line, SetItem } from "./follow.ts";
+import { createSettingRequests } from "./setting-requests.ts";
 import {
   createSlowLink,
   createStatusThrottle,
@@ -48,6 +48,12 @@ export interface RelayBridge extends Upstream {
   resendStatus(docId: string): void;
   /** The document's first sync was refused: every setting request held for it is answered with `message`. */
   refuseHeld(docId: string, message: string): void;
+  /**
+   * A new client ID stored on that person's upstream document, for the cloud to write under on their
+   * behalf: what someone later removes there without having seen it is set aside as their Recovered
+   * text, as a window's own typing is. Null while the document is not relayed yet.
+   */
+  reserveClientId(userId: string, docId: string): Promise<number | null>;
   close(): Promise<void>;
 }
 
@@ -71,16 +77,6 @@ interface Person {
 
 /** Requests remembered per document for recognising a re-send; the oldest is forgotten past this. */
 const SEEN_KEPT = 1024;
-const UTF8 = new TextDecoder("utf-8", { fatal: true });
-
-function readValue(bytes: Uint8Array): { value: unknown } | null {
-  try {
-    return { value: JSON.parse(UTF8.decode(bytes)) };
-  } catch {
-    // a value that is not UTF-8 JSON is refused as the cloud would refuse it
-    return null;
-  }
-}
 
 const isParked = (handle: DocHandle): boolean =>
   handle.status
@@ -184,18 +180,7 @@ export function createRelayBridge(options: {
     },
   });
 
-  function send(line: Line, item: SetItem): void {
-    if (line.handle === null || !line.ready) return void line.queued.push(item);
-    const read = readValue(item.value);
-    if (read === null) return refuse(line.docId, item, "bad_value");
-    line.handle.setSetting(item.key, read.value);
-    line.asked.push(item);
-  }
-
-  function refuse(docId: string, item: SetItem, message: string): void {
-    const data = encodeUpstreamRefused(item.clientSeq, message);
-    options.onRefused(docId, item.userId, data);
-  }
+  const { send, refuse } = createSettingRequests(options);
 
   function bindDoc(line: Line, handle: DocHandle): void {
     line.stopDoc = handle.doc().subscribe((_update, origin) => {
@@ -386,6 +371,14 @@ export function createRelayBridge(options: {
       for (const item of docOf(docId).held.splice(0))
         refuse(docId, item, message);
       changed(docId);
+    },
+    async reserveClientId(userId, docId) {
+      // a hand-off writes the person's upstream store itself until it has finished
+      if (records.docState(docId)?.state !== "synced") return null;
+      lineOf(userId, docId);
+      // the line's own handle: a person's client holds one per document
+      const handle = await personOf(userId).client.open(docId);
+      return handle.reserveClientId();
     },
     async close() {
       throttle.close();

@@ -11,6 +11,9 @@ export const SEND_FORM_IDS = [
 ] as const;
 export type SendFormId = (typeof SEND_FORM_IDS)[number];
 
+/** The test build's own form, which draws the Send frame from its address; no release offers it. */
+export const TEST_SEND_FORM_ID = "test_form";
+
 export function sendPath(docId: string, form: SendFormId): string {
   return `/s/${docId}/send/${form}`;
 }

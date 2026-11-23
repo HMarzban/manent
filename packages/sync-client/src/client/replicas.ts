@@ -3,24 +3,18 @@
 // about them.
 import { createDoc } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import type {
-  DeviceVersion,
-  DocMeta,
-  SyncClientPorts,
-} from "../ports/ports.ts";
-import type { DocEvent, DocHandle } from "../session/doc-handle.ts";
+import type { DocMeta } from "../ports/ports.ts";
+import type { DocHandle } from "../session/doc-handle.ts";
 import type { UnsavedEdit } from "../session/edits.ts";
 import { openSession } from "../session/session.ts";
 import type { Session } from "../session/session.ts";
 import { readTabMessage, tabMessage } from "../tabs/messages.ts";
 import type { TabBody, TabMessage } from "../tabs/messages.ts";
-import type { Via } from "../upstream/window.ts";
-import type { ViewHandle } from "../view/view.ts";
 import { createFollower } from "./follower.ts";
-import type { Follower } from "./follower.ts";
-import type { LinkDriver } from "./link-driver.ts";
 import { createRelayHandle } from "./relay.ts";
 import type { RelayHandle } from "./relay.ts";
+import { eventBody } from "./replica.ts";
+import type { Replica, ReplicasOptions } from "./replica.ts";
 
 /** `sessions` holds a session per document this tab leads; `opening`, those being opened, which a connect waits for. */
 export interface Replicas {
@@ -36,46 +30,6 @@ export interface Replicas {
   heard(value: unknown): void;
   /** No tab of this client holds any document any more; settles once each is closed. */
   close(): Promise<unknown>;
-}
-
-interface ReplicasOptions {
-  ports: SyncClientPorts;
-  via: Via;
-  link: LinkDriver;
-  uploadVersion: ((version: DeviceVersion) => Promise<boolean>) | null;
-  leading(): boolean;
-  /** A reader of the document, for when it may not be edited. */
-  view(docId: string): ViewHandle;
-  /** A store write was refused because another tab leads. */
-  lostLead(): void;
-}
-
-/**
- * One open document of this tab: the handle the app holds, and what is behind
- * it, a session while this tab leads and a follower while another does.
- * `holders`: the tabs that hold it open, this tab's app under its own tab ID;
- * it is closed once none does. `queue` runs a following tab's requests for it
- * one after the other.
- */
-interface Replica {
-  create: DocMeta["create"];
-  readonly holders: Set<string>;
-  relay: RelayHandle | null;
-  follower: Follower | null;
-  ready: { promise: Promise<RelayHandle>; resolve(relay: RelayHandle): void };
-  unwire: () => void;
-  queue: Promise<void>;
-}
-
-/** What a leader posts for a session's event: a replacement carries the new state and its generation, Recovered text its items. */
-function eventBody(docId: string, event: DocEvent, session: Session): TabBody {
-  if (event.type === "replaced") {
-    const { state, meta } = session.state();
-    return { t: "replace", docId, generation: meta.generation, state };
-  }
-  if (event.type === "recovered")
-    return { t: "recovered", docId, items: event.items };
-  return { t: "event", docId, event };
 }
 
 class TabReplicas implements Replicas {
@@ -121,22 +75,12 @@ class TabReplicas implements Replicas {
 
   deposed(): void {
     this.leaderKnown = false;
-    const { tabId } = this.options.ports.leader;
     for (const [docId, replica] of this.replicas) {
       const session = this.sessions.get(docId);
       if (session === undefined) continue;
       replica.unwire();
       this.sessions.delete(docId);
-      const { doc, unsaved } = session.detach();
-      // the other tabs open what they hold again with the next leader
-      const held = replica.holders.has(tabId);
-      replica.holders.clear();
-      if (!held) {
-        this.forget(docId);
-        continue;
-      }
-      replica.holders.add(tabId);
-      this.follow(docId, replica, doc, unsaved);
+      this.leave(docId, replica, session);
     }
   }
 
@@ -181,6 +125,8 @@ class TabReplicas implements Replicas {
     const replica: Replica = {
       create,
       holders: new Set(),
+      clients: new Map(),
+      replaced: new Map(),
       relay: null,
       follower: null,
       ready: Promise.withResolvers<RelayHandle>(),
@@ -212,6 +158,21 @@ class TabReplicas implements Replicas {
       });
     else replica.relay.attach(backend);
     replica.ready.resolve(replica.relay);
+  }
+
+  /** The tab no longer leads: the session is left, and the document is followed with what it held when this tab's app holds it. */
+  private leave(docId: string, replica: Replica, session: Session): void {
+    const { tabId } = this.options.ports.leader;
+    const { doc, unsaved } = session.detach();
+    // the other tabs open what they hold again with the next leader
+    const held = replica.holders.has(tabId);
+    replica.holders.clear();
+    if (!held) {
+      this.forget(docId);
+      return;
+    }
+    replica.holders.add(tabId);
+    this.follow(docId, replica, doc, unsaved);
   }
 
   private forget(docId: string): void {
@@ -281,8 +242,13 @@ class TabReplicas implements Replicas {
       closed: () => this.forget(docId),
     }).then((session) => {
       this.opening.delete(docId);
+      // the lead went while the document was opening: the store refuses this tab's writes
+      if (!this.options.leading()) {
+        this.leave(docId, replica, session);
+        return session;
+      }
       this.sessions.set(docId, session);
-      replica.unwire = this.wire(docId, session);
+      replica.unwire = this.wire(docId, replica, session);
       this.show(docId, replica, session.handle);
       session.link(link.sessionLink());
       if (link.sessionLink().state === "online")
@@ -293,11 +259,19 @@ class TabReplicas implements Replicas {
     void opening.catch(() => this.opening.delete(docId));
   }
 
-  private wire(docId: string, session: Session): () => void {
+  private wire(docId: string, replica: Replica, session: Session): () => void {
     const h = session.handle;
     const offs = [
       h.status.subscribe((status) => this.post({ t: "status", docId, status })),
-      h.on((event) => this.post(eventBody(docId, event, session))),
+      h.on((event) => {
+        const body = eventBody(docId, event, session);
+        const recovery =
+          event.type === "replaced" && event.reason === "rejected";
+        if (recovery && body.t === "replace")
+          for (const clientId of replica.clients.values())
+            replica.replaced.set(clientId, body.generation);
+        this.post(body);
+      }),
       h.onAwareness((update) => this.post({ t: "aw", docId, update })),
     ];
     this.post({ t: "status", docId, status: h.status.get() });
@@ -321,14 +295,27 @@ class TabReplicas implements Replicas {
       this.letGo(m.docId, m.from);
       return;
     }
-    if (m.t !== "open" && m.t !== "edit" && m.t !== "opened") return;
+    if (
+      m.t !== "open" &&
+      m.t !== "edit" &&
+      m.t !== "opened" &&
+      m.t !== "reserve"
+    )
+      return;
     const replica = this.replica(m.docId, m.t === "open" ? m.create : null);
     if (m.t === "open") replica.holders.add(m.from);
+    if (m.t === "open" || m.t === "opened")
+      replica.clients.set(m.from, m.clientId);
     replica.queue = replica.queue.then(async () => {
       await replica.ready.promise;
-      const session =
-        this.sessions.get(m.docId) ?? (await this.opening.get(m.docId));
+      // a session left because the lead went while it was opening is not in `sessions`
+      await this.opening.get(m.docId);
+      const session = this.sessions.get(m.docId);
       if (session === undefined) return;
+      if (m.t === "reserve") {
+        void session.addReservedClient(m.clientId);
+        return;
+      }
       if (m.t === "opened") {
         session.addClient(m.clientId);
         session.released(m.from);
@@ -344,6 +331,8 @@ class TabReplicas implements Replicas {
         });
         return;
       }
+      // made in a document a recovery replaced, in the generation it kept: the tab filed it as Recovered text on loading the replacement
+      if (replica.replaced.get(m.clientId) === m.generation) return;
       const saved = (refused: boolean): void =>
         this.post({ t: "saved", to: m.from, docId: m.docId, n: m.n, refused });
       const key = `${m.from}:${m.docId}`;
@@ -367,6 +356,7 @@ class TabReplicas implements Replicas {
     const replica = this.replicas.get(docId);
     if (replica === undefined) return;
     replica.holders.delete(tabId);
+    replica.clients.delete(tabId);
     replica.queue = replica.queue.then(async () => {
       await replica.ready.promise;
       this.sessions.get(docId)?.released(tabId);

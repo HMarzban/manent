@@ -143,6 +143,7 @@ class StoreJournal implements Journal {
   private nextLocalSeq: number;
   /** Own entries and settings whose store write has not settled: nothing after the first is sent. */
   private readonly unsettled = new Set<number>();
+  private leadLost = false;
   private readonly pending = new Set<Promise<void>>();
   private sinceCheckpoint = 0;
   private readonly docId: string;
@@ -357,7 +358,7 @@ class StoreJournal implements Journal {
     const waits = entry.kind === "set" || entry.own;
     if (waits) this.unsettled.add(entry.localSeq);
     const settled = this.persist(() => this.options.append(entry)).then(() => {
-      if (!waits) return;
+      if (!waits || this.leadLost) return;
       this.unsettled.delete(entry.localSeq);
       this.options.sendable();
     });
@@ -383,13 +384,11 @@ class StoreJournal implements Journal {
     return done;
   }
 
-  /** A refused write: work goes on in memory, and the status says it is not saved. `lost_lead`: another tab leads. */
+  /** A refused write: work goes on in memory, and the status says it is not saved. `lost_lead`: another tab leads, and from then on no entry settles, so that each is given back when this tab follows. */
   private failed(error: unknown): void {
     if (!(error instanceof StoreError)) throw error;
-    if (error.code === "lost_lead") {
-      this.options.lostLead();
-      return;
-    }
+    this.leadLost ||= error.code === "lost_lead";
+    if (this.leadLost) return this.options.lostLead();
     this.storeRefusing = true;
     this.options.changed();
   }

@@ -43,6 +43,7 @@ function handleView(
     deviceVersions: () => handle.deviceVersions(),
     lastServerSeq: () => handle.lastServerSeq(),
     adoptClientIds: (ids) => handle.adoptClientIds(ids),
+    reserveClientId: () => handle.reserveClientId(),
     close,
   };
 }
