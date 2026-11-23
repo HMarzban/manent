@@ -42,6 +42,7 @@ export * from "./material/cuts.ts";
 export * from "./scene-move.ts";
 export * from "./scene-progress.ts";
 export * from "./project/project-index.ts";
+export { ladderLabelOf } from "./project/ladder-match.ts";
 export {
   initRundown,
   insertRows,

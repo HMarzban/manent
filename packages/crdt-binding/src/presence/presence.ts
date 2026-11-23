@@ -212,7 +212,8 @@ function createPeers(options: { clientId: number; timers: Timers }): {
  * block at once, at most every PRESENCE_MIN_INTERVAL_MS; a move inside one
  * block after PRESENCE_IDLE_MS of stillness; the last state again every
  * PRESENCE_RENEW_MS. Reads everyone else's entries through `createPeers`.
- * `destroy` sends a null state once and stops every timer.
+ * `destroy` sends a null state once and stops every timer; a later `publish`
+ * does nothing.
  */
 export function createPresence(options: {
   clientId: number;
@@ -249,6 +250,7 @@ export function createPresence(options: {
 
   return {
     publish: (place) => {
+      if (destroyed) return;
       cancelSend?.();
       cancelSend = null;
       if (sent !== null && samePlace(place, sent.place)) return;

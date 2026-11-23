@@ -179,7 +179,7 @@ function markActive(list: HTMLElement, active: number): void {
   );
 }
 
-/** The element picker; it opens through openPicker, and while open its keys are the slots, the arrows, Enter, Tab and Escape. Any other key, which then reaches the page, or a caret move closes it. */
+/** The element picker; it opens through openPicker, and while open its keys are the slots, the arrows, Enter, Tab and Escape. Any other key, which then reaches the page, a caret move or focus leaving the page closes it. */
 export function pickerPlugin(options: PickerOptions): Plugin {
   return new Plugin<PickerState>({
     key: pickerKey,
@@ -211,6 +211,12 @@ export function pickerPlugin(options: PickerOptions): Plugin {
         !event.isComposing &&
         (pickerKey.getState(view.state)?.open ?? false) &&
         handleKey(view, event, options.format()),
+      handleDOMEvents: {
+        blur: (view) => {
+          if (pickerKey.getState(view.state)?.open ?? false) send(view, CLOSE);
+          return false;
+        },
+      },
       attributes: (state): Record<string, string> => {
         const picker = pickerKey.getState(state) ?? CLOSED;
         if (!picker.open) return {};

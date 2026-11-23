@@ -9,6 +9,7 @@ import {
 import type { AnyRoute } from "@tanstack/react-router";
 import { Fragment, createElement, useEffect } from "react";
 import { firstRunPath, loadScreen } from "../router.tsx";
+import { LIBRARY_VIEWS } from "../screens/library/views.ts";
 import { useServices } from "../services/context.tsx";
 import type { PersonServices } from "../services/ports.ts";
 import { chooseUrl, confirmPerson, safeNext } from "../session.ts";
@@ -54,14 +55,30 @@ export function libraryRoutes(
   const libraryRoute = createRoute({
     getParentRoute: () => root,
     path: "/",
-    // the workspace shown; null is the person's first
+    // the workspace shown, null for the person's first; the view named, Continue when the address names none of the
+    // list's `view` entries; the folder shown; the search, which chooses its own view
     validateSearch: (
       search: Record<string, unknown>,
-    ): { w: string | null } => ({
+    ): {
+      w: string | null;
+      view: string;
+      folder: string | null;
+      q: string | null;
+    } => ({
       w: typeof search.w === "string" ? search.w : null,
+      view:
+        LIBRARY_VIEWS.find(
+          (entry) => entry.chosenBy === "view" && entry.id === search.view,
+        )?.id ?? "continue",
+      folder: typeof search.folder === "string" ? search.folder : null,
+      q: typeof search.q === "string" ? search.q : null,
     }),
-    // so an address never says w=null
-    search: { middlewares: [stripSearchParams({ w: null })] },
+    // so an address never says w=null, view=continue, folder=null or q=null
+    search: {
+      middlewares: [
+        stripSearchParams({ w: null, view: "continue", folder: null, q: null }),
+      ],
+    },
     beforeLoad: async ({ location }) => {
       const { person, setPerson } = usePerson.getState();
       if ((await confirmPerson(person, api.me)) !== null) return;
