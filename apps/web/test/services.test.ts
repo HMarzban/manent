@@ -163,7 +163,7 @@ test("New script makes an untitled film whose script, once opened, is first in C
       title: "Untitled film",
       kind: "film",
       firstDocId: docId,
-      lastEdited: null,
+      lastEdited: { byName: "Leo", at: 0 },
       place: { kind: "never_synced" },
     },
   ]);
