@@ -47,7 +47,8 @@ export interface SharePeopleRequest {
 
 /**
  * The answer to POST /api/share/people, and to every route that changes who has access: the role holders ascending
- * by `userId`, the groups given access ascending by `groupId`, and the links not turned off, oldest first.
+ * by `userId`, the groups given access ascending by `groupId`, and the links not turned off, oldest first, which only
+ * the owner is given ([] for anyone else).
  */
 export interface SharePeopleResponse {
   people: SharePerson[];
@@ -72,6 +73,14 @@ export interface ShareRemoveRequest {
 export interface ShareGroupRequest {
   docId: string;
   groupId: string;
+}
+
+/**
+ * The answer to POST /api/share/grant-group: who has access now, and the members the group lists who were not given
+ * its role, since a share to them would be refused `not_member`.
+ */
+export interface ShareGrantGroupResponse extends SharePeopleResponse {
+  skipped: string[];
 }
 
 /** The body of POST /api/share/link: makes a link that gives `role`. Owner only. */

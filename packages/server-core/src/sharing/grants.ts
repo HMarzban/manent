@@ -91,16 +91,25 @@ function bestGroup(
   );
 }
 
+/** What a group's expansion asks and tells: whether a member passes the gate a share to them passes, and each change made. */
+export interface ExpansionGate {
+  isMember(userId: string): boolean;
+  /** Told right after the change is stored, so a change made before a failed write is still told. */
+  changed(change: RoleChange): void;
+}
+
 /**
- * Derives every role the document's group grants give from the project's groups, and returns each person whose role
- * changed. A role given to the person, and the owner's, is never touched; a member whose groups no longer give a role
+ * Derives every role the document's group grants give from the project's groups, telling each person whose role
+ * changed, and returns the members a granted group lists who fail the gate, never granted. A role given to the
+ * person, and the owner's, is never touched; a member whose groups no longer give a role, or who fails the gate,
  * loses the one they took from a group.
  */
 export function expandGroupGrants(
   store: ShareLinkStore,
   docId: string,
   groups: ReadonlyMap<string, GroupEntry>,
-): RoleChange[] {
+  gate: ExpansionGate,
+): string[] {
   reconcileGroupGrants(store, docId, groups);
   const granted = store
     .groupGrantsOf(docId)
@@ -118,20 +127,23 @@ export function expandGroupGrants(
       ({ groupId }) => groups.get(groupId)?.memberUserIds ?? [],
     ),
   ]);
-  const changes: RoleChange[] = [];
+  const skipped: string[] = [];
   for (const userId of [...affected].toSorted()) {
     const row = rows.get(userId) ?? null;
     const fromGroup = row === null ? null : groupOfSource(row.source);
     if (row !== null && fromGroup === null) continue;
     const before = row !== null && isDocRole(row.role) ? row.role : null;
-    const best = bestGroup(userId, granted, groups, fromGroup);
+    const listed = bestGroup(userId, granted, groups, fromGroup);
+    const member = listed === null || gate.isMember(userId);
+    if (!member) skipped.push(userId);
+    const best = member ? listed : null;
     if (best === null) {
       if (row !== null) store.ungrant(docId, userId, row.source);
     } else if (best.role !== before || best.groupId !== fromGroup) {
       store.grant(docId, userId, best.role, groupSource(best.groupId));
     }
     const after = best?.role ?? null;
-    if (after !== before) changes.push({ userId, role: after });
+    if (after !== before) gate.changed({ userId, role: after });
   }
-  return changes;
+  return skipped;
 }

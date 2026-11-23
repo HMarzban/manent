@@ -1,5 +1,4 @@
 // The sharing routes: who holds a role on a document, the groups given access to it, its share links, and joining by one.
-import type { Storage } from "@manent/storage";
 import { isDocId } from "@manent/sync-protocol";
 import { groupOfSource, isShareRole } from "../../sharing/grants.ts";
 import type { ShareRole } from "../../sharing/grants.ts";
@@ -14,7 +13,7 @@ import { failure, json } from "../respond.ts";
 import type { Route, RouteContext } from "../route.ts";
 import { isObject, readRequest } from "./docs.ts";
 
-const STATUS: Readonly<Record<SharingRefusal | "not_member", number>> = {
+const STATUS: Readonly<Record<SharingRefusal, number>> = {
   bad_request: 400,
   not_found: 404,
   forbidden: 403,
@@ -61,22 +60,9 @@ function peopleView(context: RouteContext, state: ShareState) {
   };
 }
 
-/** Whether the person is listed by the directory and shares a workspace with the caller; asked only of a person given a first role. */
-function isMember(
-  context: RouteContext,
-  userId: string,
-  target: string,
-): boolean {
-  const { directory } = context.config.auth;
-  if (directory.user(target) === null) return false;
-  const theirs = new Set(directory.workspacesOf(target).map((w) => w.id));
-  return directory.workspacesOf(userId).some((w) => theirs.has(w.id));
-}
-
 interface ShareCall<T> {
   context: RouteContext;
   sharing: SharingService;
-  storage: Storage;
   userId: string;
   input: T;
 }
@@ -100,8 +86,7 @@ function shareRoute<T>(
       if (sharing === undefined) return failure("not_found", 404);
       const input = isObject(request.body) ? read(request.body) : null;
       if (input === null) return failure("bad_request", 400);
-      const { storage, userId } = request;
-      return handle({ context, sharing, storage, userId, input });
+      return handle({ context, sharing, userId: request.userId, input });
     },
   };
 }
@@ -175,12 +160,8 @@ export const SHARE_ROUTES: readonly Route[] = [
   shareRoute(
     "/api/share/grant",
     readGrant,
-    ({ context, sharing, storage, userId, input }) => {
+    ({ context, sharing, userId, input }) => {
       const { docId, target, role } = input;
-      // a person who already holds a role, as one who joined by a link may, can have it changed
-      const isNew = storage.directory.roleOf(docId, target) === null;
-      if (isNew && !isMember(context, userId, target))
-        return failure("not_member", STATUS.not_member);
       return answerPeople(context, sharing.grant(userId, docId, target, role));
     },
   ),
@@ -194,9 +175,9 @@ export const SHARE_ROUTES: readonly Route[] = [
     "/api/share/grant-group",
     readGroup,
     ({ context, sharing, userId, input }) =>
-      answerPeople(
-        context,
+      answer(
         sharing.grantGroup(userId, input.docId, input.groupId),
+        ({ state, skipped }) => ({ ...peopleView(context, state), skipped }),
       ),
   ),
   shareRoute(
