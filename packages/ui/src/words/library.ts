@@ -75,6 +75,8 @@ export const LIBRARY_WORDS = {
   /** The Last edited cell: who, then `when` from formatWhen. */
   edited: (name: string, when: string): string => `${name}, ${when}`,
   synced: "Synced",
+  /** A row whose document is read from the server, as a reader's is, and not kept on this device. */
+  onServer: "On the server",
   waiting: (n: number): string => `${formatCount(n)} waiting`,
   /** A row never synced: on desktop, and in a browser. */
   neverSynced: (desktop: boolean): string =>

@@ -8,7 +8,12 @@ import {
   DropdownMenuTrigger,
   LIBRARY_WORDS,
 } from "@manent/ui";
-import { CloudCheckIcon, CloudUploadIcon, MonitorDotIcon } from "lucide-react";
+import {
+  CloudCheckIcon,
+  CloudIcon,
+  CloudUploadIcon,
+  MonitorDotIcon,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode, SyntheticEvent } from "react";
 import type { RowPlace } from "../../services/ports.ts";
@@ -41,9 +46,10 @@ function placeOf(
         word: LIBRARY_WORDS.neverSynced(shell === "desktop"),
         Icon: MonitorDotIcon,
       };
+    case "on_server":
+      return { word: LIBRARY_WORDS.onServer, Icon: CloudIcon };
     case "not_on_device":
     case "fetching":
-    case "on_server":
       return null;
   }
 }
@@ -61,7 +67,7 @@ export const ON_DEVICE: Readonly<Record<RowPlace["kind"], boolean>> =
 
 /**
  * A row's place, drawn at its end: the place word; the unavailable word that keeps the row from opening; or, for a
- * document read from the server, an empty cell, muted and busy while it is fetched.
+ * document being fetched, an empty cell, muted and busy.
  */
 export function placeProps(
   place: RowPlace,
