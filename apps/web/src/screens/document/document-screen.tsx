@@ -72,9 +72,10 @@ function isTyping(event: KeyboardEvent): boolean {
 
 /**
  * True while an open panel does not fit beside the page: it is then drawn over the page and closes when the person
- * clicks or types in the page or focus returns to it; a window narrowed under open panels while focus is in the page closes them, so they never cover the line
- * being written. Opening one panel closes the other when both do not fit, except that Scenes a script opened close
- * themselves, and a panel that closes with focus lost to the body sends focus to the page.
+ * clicks or types in the page or focus returns to it; a window narrowed under open panels while focus is in the page
+ * closes them, so they never cover the line being written. Opening one panel closes the other when both do not fit,
+ * except that Scenes a script opened close themselves, and a panel that closes with focus lost to the body sends focus
+ * to the page.
  */
 function usePanelsOverPage(): boolean {
   const { dom } = useEnvironment();
