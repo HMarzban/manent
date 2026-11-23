@@ -68,6 +68,7 @@ const ENTRIES: Readonly<Record<string, readonly string[]>> = {
   "packages/editor/src/changes/index.ts": [
     "decorations.ts",
     "layer.ts",
+    "marks-plugin.ts",
     "plugin.ts",
   ],
 };

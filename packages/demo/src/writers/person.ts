@@ -12,6 +12,8 @@ import type { BlockJSON, IdSource } from "@manent/schema";
 import type { Clock, DocHandle, Random, SyncClient } from "@manent/sync-client";
 import { createRng, seededIdSource } from "../seed/rng.ts";
 import type { Rng } from "../seed/rng.ts";
+import { lineEndFrom, regionOf } from "./region.ts";
+import type { Region, WriterLine } from "./region.ts";
 import type { WritingProfile } from "./profiles.ts";
 import { wordsOf } from "./words.ts";
 
@@ -36,9 +38,9 @@ interface PersonOptions {
   profile: WritingProfile;
   clock: Clock;
   random: Random;
-  region: { firstBlockId: string; lastBlockId: string } | null;
+  region: Region | null;
   markers: boolean;
-  lines?: readonly string[];
+  lines?: readonly WriterLine[];
 }
 
 const HOUR_MS = 3_600_000;
@@ -51,7 +53,8 @@ const MOVE_BLOCKS = [5, 25] as const;
 const PASTE_BLOCKS_PER_PAGE = 25;
 
 type Key =
-  { type: "text"; text: string; marker: string | null } | { type: "enter" };
+  | { type: "text"; text: string; marker: string | null }
+  | { type: "enter"; element: string };
 
 interface Caret {
   blockId: string;
@@ -67,7 +70,6 @@ interface Place {
 interface Burst {
   keys: readonly Key[];
   next: number;
-  element: string;
   caret: Caret;
   /** The caret after the last text typed. */
   end: Caret | null;
@@ -81,17 +83,6 @@ function textKeys(text: string): Key[] {
     text: char,
     marker: null,
   }));
-}
-
-/** The ids from the region's first block to its last, in document order; [] when either is gone. */
-function regionOf(
-  order: readonly string[],
-  region: PersonOptions["region"],
-): readonly string[] {
-  if (region === null) return order;
-  const first = order.indexOf(region.firstBlockId);
-  const last = order.indexOf(region.lastBlockId);
-  return first === -1 || last < first ? [] : order.slice(first, last + 1);
 }
 
 /** An empty block when `text` is null. */
@@ -123,8 +114,8 @@ class Person implements SimulatedPerson {
   private presenceClock = 0;
 
   constructor(options: PersonOptions) {
-    if (options.lines?.length === 0)
-      throw new RangeError("a person given lines needs at least one");
+    if (options.lines?.length === 0 || options.lines?.some((l) => !l.length))
+      throw new RangeError("a person needs at least one line, each of a block");
     this.options = options;
     this.rng = createRng(Math.floor(options.random.next() * 4_294_967_296));
     this.ids = seededIdSource(this.rng);
@@ -194,32 +185,44 @@ class Person implements SimulatedPerson {
     return this.rng.pick(region.length > 1 ? region.slice(0, -1) : region);
   }
 
-  private keysFor(offset: number): Key[] {
+  /** Where the next line goes (lineEndFrom): from the person's block while it is in the region, otherwise from one drawn as pickBlock draws. */
+  private pickLineEnd(region: readonly string[]): string | null {
+    if (region.length === 0) return null;
+    const held = region.indexOf(this.place?.blockId ?? "");
+    const from =
+      held === -1 ? this.rng.int(0, Math.max(region.length - 2, 0)) : held;
+    return lineEndFrom(this.options.handle.doc(), region, from);
+  }
+
+  private keysFor(place: Place, offset: number): Key[] {
     const { profile, lines, markers, handle } = this.options;
     this.bursts += 1;
     const marker = markers ? `⟦${handle.doc().clientId}:${this.bursts}⟧` : null;
     const opening: Key[] =
       marker === null ? [] : [{ type: "text", text: marker, marker }];
     if (lines !== undefined)
-      return [
-        { type: "enter" },
-        ...opening,
-        ...textKeys(lines[(this.bursts - 1) % lines.length]!),
-      ];
+      return lines[(this.bursts - 1) % lines.length]!.flatMap((block, i) => [
+        { type: "enter", element: block.element },
+        ...(i === 0 ? opening : []),
+        ...textKeys(block.text),
+      ]);
     const length = this.rng.int(...profile.burstChars);
+    const enter: Key = { type: "enter", element: place.element };
     return [
       ...textKeys(offset > 0 ? " " : ""),
       ...opening,
       ...textKeys(wordsOf(this.rng, length, marker !== null)),
-      ...(this.bursts % ENTER_EVERY === 0 ? [{ type: "enter" } as const] : []),
+      ...(this.bursts % ENTER_EVERY === 0 ? [enter] : []),
     ];
   }
 
   private beginBurst(): void {
     const doc = this.options.handle.doc();
-    const blockId = this.pickBlock(
-      regionOf(blockIds(doc), this.options.region),
-    );
+    const region = regionOf(blockIds(doc), this.options.region);
+    const blockId =
+      this.options.lines === undefined
+        ? this.pickBlock(region)
+        : this.pickLineEnd(region);
     if (blockId === null) {
       this.place = null;
       this.pause();
@@ -230,9 +233,8 @@ class Person implements SimulatedPerson {
     const offset = lengthOf(block);
     this.place = { blockId, element };
     const burst: Burst = {
-      keys: this.keysFor(offset),
+      keys: this.keysFor(this.place, offset),
       next: 0,
-      element,
       caret: { blockId, offset },
       end: null,
     };
@@ -280,10 +282,10 @@ class Person implements SimulatedPerson {
     burst.next += 1;
     if (key.type === "enter") {
       const id = this.ids();
-      const block = newBlock(burst.element, id, null);
+      const block = newBlock(key.element, id, null);
       if (!this.write((w) => w.insertBlocks(blockId, [block]))) return false;
       burst.caret = { blockId: id, offset: 0 };
-      this.place = { blockId: id, element: burst.element };
+      this.place = { blockId: id, element: key.element };
       this.record("typed", id);
       return true;
     }
@@ -387,10 +389,11 @@ class Person implements SimulatedPerson {
 /**
  * A person who writes at `profile`'s rates once started: bursts of keystrokes
  * at `keysPerSecond`, one transaction a key, in the block they are in. A burst
- * is the next of `lines` in a new block when lines are given, otherwise
- * seeded words. With `markers`, a burst opens with `⟦<client id>:<n>⟧`, typed
- * as one key. Every timer goes through `clock` and every draw through
- * `random`, so one seed gives one run. RangeError for an empty `lines`.
+ * is the next of `lines`, each of its blocks new, after a block where it does
+ * not cut a speech in two, when lines are given; otherwise seeded words. With
+ * `markers`, a burst opens with `⟦<client id>:<n>⟧`, typed as one key. Every
+ * timer goes through `clock` and every draw through `random`, so one seed
+ * gives one run. RangeError for an empty `lines` or an empty line.
  */
 export function createSimulatedPerson(options: PersonOptions): SimulatedPerson {
   return new Person(options);

@@ -254,6 +254,7 @@ function buildEditor(
       stopThumb = followThumb({
         editor,
         scroller: region,
+        host: element,
         docId,
         timers: options.timers,
       });

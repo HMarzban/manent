@@ -136,6 +136,12 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
       names: [],
       endsAt: null,
     }),
+    runningWriters: async () => ({
+      asked: 0,
+      count: 0,
+      names: [],
+      endsAt: null,
+    }),
     rebuild: async () => {},
     ...overrides,
   };

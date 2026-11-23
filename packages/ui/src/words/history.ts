@@ -93,6 +93,8 @@ export const HISTORY_WORDS = {
   allPeople: "All people",
   previousChange: "Previous change",
   nextChange: "Next change",
+  /** In place of the stepper when Working has no change since the baseline, `name` as Changes since ▾ shows it. */
+  noChangesSince: (name: string): string => `No changes since ${name}.`,
   /** The accessible name of the stepper's position, which `formatPosition` writes. */
   stepName: (i: number, n: number): string => `Change ${formatPosition(i, n)}`,
   draftsOnly: "Drafts only",
