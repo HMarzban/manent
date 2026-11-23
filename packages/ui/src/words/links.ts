@@ -3,9 +3,9 @@ export const LINKS_WORDS = Object.freeze({
   copiedScript: (title: string): string => `Copied a link to '${title}'.`,
   /** `ref` is the version inside a sentence, as `versionRef` writes it. */
   copiedVersion: (ref: string): string => `Copied a link to ${ref}.`,
-  /** `ref` is the version open as it was, as `versionRef` writes it. */
-  comparedEarlier: (ref: string): string =>
-    `This link compared two earlier versions, so ${ref} is open as it was.`,
+  /** `name` is the name of the version open as it was. */
+  comparedEarlier: (name: string): string =>
+    `This link compared two earlier versions, so '${name}' is open as it was.`,
   notInHistory:
     "Couldn't open this link: that version is not in this script's history.",
 });

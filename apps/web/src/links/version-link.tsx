@@ -1,11 +1,6 @@
 // What a link into a script's history opens: the History tab on the script, with the version as it was or the changes
 // since one; a version the script's history does not hold is said in place of the page.
-import {
-  HISTORY_WORDS,
-  LINKS_WORDS,
-  useSubscribable,
-  versionRef,
-} from "@manent/ui";
+import { HISTORY_WORDS, LINKS_WORDS, useSubscribable } from "@manent/ui";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -13,7 +8,6 @@ import { baselineOfRow } from "../history/baseline.ts";
 import type { HistoryRow } from "../history/history-rows.ts";
 import { selectRow } from "../history/history-view.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
-import { nameOf } from "../services/sync/index-entries.ts";
 import { historyActions } from "../state/history.store.ts";
 import { panelsActions } from "../state/panels.store.ts";
 
@@ -148,7 +142,7 @@ export function VersionLink(): ReactNode {
 
 /**
  * `/s/$docId/changes/$a/$b`: the changes since `$a` on the page; when `$b` is neither Working nor the newest version,
- * `$b` as it was, and a message saying so.
+ * `$b` as it was, and a message saying so when `$b` is named.
  */
 export function ChangesLink(): ReactNode {
   const params: { docId: string; a: string; b: string } = useParams({
@@ -162,11 +156,13 @@ export function ChangesLink(): ReactNode {
       return { kind: "open", row: since, mode: "page", said: null };
     const until = rowOf(rows, params.b);
     if (until === null) return missing(params.b);
+    const { name } = until.item;
     return {
       kind: "open",
       row: until,
       mode: "as_it_was",
-      said: LINKS_WORDS.comparedEarlier(versionRef(until.item, nameOf)),
+      // the message has words for a named version only
+      said: name === null ? null : LINKS_WORDS.comparedEarlier(name),
     };
   });
   return <NotInHistory shown={shown} />;
