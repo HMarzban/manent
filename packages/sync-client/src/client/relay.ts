@@ -142,6 +142,10 @@ class Relay implements RelayHandle {
     this.backend.adoptClientIds(ids);
   }
 
+  reserveClientId(): Promise<number> {
+    return this.backend.reserveClientId();
+  }
+
   close(): Promise<void> {
     for (const unlink of this.links) unlink();
     return this.release();

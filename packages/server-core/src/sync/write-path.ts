@@ -84,8 +84,8 @@ export function createWritePath(ports: WritePathPorts): WritePath {
   };
 
   const authority: WritePath["authority"] = (room, write, done) => {
-    const { userId, origin, inTransaction } = write;
-    const written = writeOnCopy(room, origin, write.edit, ports.ids);
+    const { userId, origin, writer, inTransaction } = write;
+    const written = writeOnCopy(room, origin, write.edit, ports.ids, writer);
     if (!written.ok)
       return done({ ok: false, code: "refused", reason: written.reason });
     const { update, report } = written;

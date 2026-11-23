@@ -234,6 +234,7 @@ async function restoreTimes(
             key: keyOf(n),
             versionId,
             scope: { kind: "script" },
+            clientId: null,
           }),
         );
       }),

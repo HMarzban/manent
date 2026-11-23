@@ -117,6 +117,8 @@ export interface SyncHooks {
 export interface AuthorityWrite {
   userId: string;
   origin: "restore" | "system";
+  /** The client id to write under: one of `userId`'s that the document does not hold; else one nobody holds. */
+  writer?: number;
   /** Runs after every push queued before it; its updates are merged into one. ok false: nothing is written. */
   edit(doc: CrdtDoc): { ok: true } | { ok: false; reason: string };
   /**
