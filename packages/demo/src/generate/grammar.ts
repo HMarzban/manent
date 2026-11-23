@@ -152,7 +152,7 @@ const castWords = (cast: StyleGuide["cast"]): string[] =>
     wordsOf(`${member.cue} ${member.name}`).map((word) => word.toLowerCase()),
   );
 
-/** One beat's draw: what it may use, and how many of its lines carry a tag. */
+/** One beat's draw: what it may use, how many of its lines carry a tag, and who spoke last in the scene. */
 interface Draw {
   guide: StyleGuide;
   beat: Beat;
@@ -160,6 +160,10 @@ interface Draw {
   used: UsedLines;
   lines: number;
   tagged: number;
+  /** The cue of the scene's last speech; null before the scene's first. */
+  speaker: string | null;
+  /** The estimated lines of action written since that speech. */
+  quiet: number;
 }
 
 interface Line {
@@ -195,6 +199,10 @@ export function freeAction(
   return free.length === 0 ? null : rng.pick(free);
 }
 
+/** Whether the scene's last speaker may speak next: only once half a page of action has passed since their speech. */
+const mayGoOn = (draw: Draw): boolean =>
+  draw.quiet >= LINES_PER_PAGE[draw.guide.format] / 2;
+
 // an entry of this intent never spoken in the document that someone in the beat other than `not` may speak
 function freeLine(
   draw: Draw,
@@ -203,7 +211,10 @@ function freeLine(
 ): Line | null {
   const speakers = (entry: DialogueEntry): readonly string[] =>
     draw.beat.cast.filter(
-      (cue) => cue !== not && (entry.speaker === null || entry.speaker === cue),
+      (cue) =>
+        cue !== not &&
+        (entry.speaker === null || entry.speaker === cue) &&
+        (cue !== draw.speaker || mayGoOn(draw)),
     );
   const free = draw.guide.dialogue.filter(
     (entry) =>
@@ -257,11 +268,23 @@ const UNIT_WRITERS: Readonly<Record<Unit, (draw: Draw) => SeedBlock[] | null>> =
   };
 
 // the units are tried from a random one onwards, so a kind that has run out gives way to the others
-function writeUnit(draw: Draw): SeedBlock[] {
+function firstUnit(draw: Draw): SeedBlock[] | null {
   const start = draw.rng.int(0, UNITS.length - 1);
   for (let i = 0; i < UNITS.length; i += 1) {
     const written = UNIT_WRITERS[UNITS[(start + i) % UNITS.length]!](draw);
     if (written !== null) return written;
+  }
+  return null;
+}
+
+// when nothing but the scene's last speaker going on is left to write, they go on
+function writeUnit(draw: Draw): SeedBlock[] {
+  const written = firstUnit(draw);
+  if (written !== null) return written;
+  if (draw.speaker !== null) {
+    draw.speaker = null;
+    const goingOn = firstUnit(draw);
+    if (goingOn !== null) return goingOn;
   }
   throw new SeedBuildError(
     "generator_exhausted",
@@ -272,15 +295,28 @@ function writeUnit(draw: Draw): SeedBlock[] {
 /**
  * Writes the beat's scenes, each a heading and enough units for its share of the beat's pages (an estimate), and
  * passes every block written through `used`: a dialogue line is never spoken again in the document, an action
- * not within GENERATED_REPEAT_PAGES pages. Throws SeedBuildError "generator_exhausted" when nothing free fits.
+ * not within GENERATED_REPEAT_PAGES pages. Speakers take turns: the scene's last speaker speaks again only past
+ * half a page of action, or when nobody else has a line left. `after` is the cue of the last speech of the text a
+ * caller puts between the first heading and the units written under it. Throws SeedBuildError
+ * "generator_exhausted" when nothing free fits.
  */
 export function generateScenes(
   guide: StyleGuide,
   beat: Beat,
   rng: Rng,
   used: UsedLines,
+  after?: string,
 ): SeedBlock[] {
-  const draw: Draw = { guide, beat, rng, used, lines: 0, tagged: 0 };
+  const draw: Draw = {
+    guide,
+    beat,
+    rng,
+    used,
+    lines: 0,
+    tagged: 0,
+    speaker: null,
+    quiet: 0,
+  };
   const scenes = beat.scenes[1] - beat.scenes[0] + 1;
   const share =
     ((beat.pages[1] - beat.pages[0] + 1) * LINES_PER_PAGE[guide.format]) /
@@ -291,11 +327,18 @@ export function generateScenes(
     const heading = block("scene_heading", `${place} - ${beat.timeOfDay}`);
     blocks.push(heading);
     used.pass(heading);
+    draw.speaker = scene === 0 ? (after ?? null) : null;
     let lines = estimatedLines(heading);
     while (lines < share)
       for (const written of writeUnit(draw)) {
         // an action is recorded at its own line, which in an instruction is past the speech before it
-        if (written.element === "action") used.add(written.text);
+        if (written.element === "action") {
+          used.add(written.text);
+          draw.quiet += estimatedLines(written);
+        } else if (written.element === "character") {
+          draw.speaker = written.text;
+          draw.quiet = 0;
+        }
         blocks.push(written);
         used.pass(written);
         lines += estimatedLines(written);
