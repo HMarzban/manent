@@ -44,28 +44,25 @@ function ScriptReorganise(props: {
   const [waiting, setWaiting] = useState(false);
   useEffect(() => {
     if (!waiting) return undefined;
-    let stop: (() => void) | null = null;
+    let unlisten: (() => void) | null = null;
     let current = true;
     const done = (): void => {
       if (current) setWaiting(false);
     };
+    // the handle is the one the open script holds, shared in this tab: only the listener is removed, never the handle closed
     openHandle(docId).then(
       (handle) => {
-        const unlisten = handle.on((event) => {
+        if (!current) return;
+        unlisten = handle.on((event) => {
           if (event.type === "rebuilt") done();
         });
-        stop = () => {
-          unlisten();
-          void handle.close();
-        };
-        if (!current) stop();
       },
       // a script this person's sync cannot open is never told it was reorganised
       done,
     );
     return () => {
       current = false;
-      stop?.();
+      unlisten?.();
     };
   }, [waiting, docId, openHandle]);
   // checked before the connection, so that the reason does not change when the connection does
