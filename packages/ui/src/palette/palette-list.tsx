@@ -79,7 +79,10 @@ function EntryItem(props: {
     <Autocomplete.Item
       value={entry}
       index={index}
-      disabled={entry.type === "row" && !entry.row.enabled}
+      // not `disabled`, which would leave a press and Enter unheard: an unavailable row says why it cannot run
+      aria-disabled={
+        entry.type === "row" && !entry.row.enabled ? true : undefined
+      }
       onClick={() => drawing.activate(entry)}
       className="mn-row flex min-h-row items-center gap-2 px-2 text-ui"
     >

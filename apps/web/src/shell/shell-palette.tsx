@@ -141,7 +141,8 @@ export function ShellPalette(props: {
       });
       return;
     }
-    services.commands.run(row.id, "palette");
+    // only a command that ran is one of those run last; a refused one has said why
+    if (services.commands.run(row.id, "palette") !== "ran") return;
     setRecent((before) => [row.id, ...before.filter((id) => id !== row.id)]);
   };
   return (

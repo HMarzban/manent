@@ -499,7 +499,7 @@ test("an unavailable row stays and says why", async () => {
     "↑↓MoveEscClose",
   ]);
   await pressEnter();
-  expect(p.closed).toEqual([]);
+  expect(p.calls).toEqual(["run view.leftPanel"]);
 });
 
 test("results shown for a query never move when a slower source answers", async () => {

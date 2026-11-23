@@ -937,8 +937,9 @@ html[data-white-page] .mn-pages {
       current (the accent bar). Where focus stays in a field and the list is
       driven from it (the palette, a combobox, the editor's picker and
       completion list), the active option is that option. A pointer alone
-      gives the hover fill; an option that cannot act now is muted text. In
-      forced colours the system's highlight and the ring stand in for both. */
+      gives the hover fill; an option that cannot act now is dimmed, keyed
+      or not, as a button or a menu item that cannot act is. In forced
+      colours the system's highlight and the ring stand in for both. */
 @media (forced-colors: none) {
   [role="listbox"]:not(:focus-within) [role="option"][data-highlighted],
   :is(#mn-picker, #mn-complete) [aria-selected="true"],
@@ -964,7 +965,7 @@ html[data-white-page] .mn-pages {
   background-color: var(--bg-subtle);
 }
 [role="listbox"] [role="option"][aria-disabled="true"] {
-  color: var(--fg-muted);
+  opacity: 0.5;
 }
 
 /* 4. The scrim is a token, and nothing blurs. */

@@ -172,7 +172,10 @@ function PaletteFrame(props: {
   );
 }
 
-/** What choosing an entry does: a menu opens, a setting changes in place, any other row closes the palette and runs. */
+/**
+ * What choosing an entry does: a menu opens, a setting changes in place, an unavailable row runs with the palette
+ * open, so that it is refused and says why, and any other row closes the palette and runs.
+ */
 function useActivate(options: {
   onRun(row: PaletteRow): void;
   onClose(): void;
@@ -186,7 +189,11 @@ function useActivate(options: {
       toMenu(entry.menu);
       return;
     }
-    if (!entry.row.enabled) return;
+    // an unavailable row keeps the palette open, and its refused run says why in the message slot
+    if (!entry.row.enabled) {
+      onRun(entry.row);
+      return;
+    }
     // a setting changes in place, so the person sees the result and can choose again
     if (entry.row.kind === "setting") {
       onRun(entry.row);
@@ -261,7 +268,8 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
  * The palette, drawn while `open`, with focus in its field from the first frame. Sources are asked in the
  * order given (commands, settings, places, scripts, people, help); `filter: "places"` asks only places, and
  * `filter: "beside"` lists the rows of the sources given, which are then Beside's alone, with no menus.
- * A row closes the palette through `onClose`, then runs through `onRun`; a setting row runs and changes in place.
+ * A row closes the palette through `onClose`, then runs through `onRun`; a setting row runs and changes in place, and
+ * an unavailable row runs with the palette open, for the command service to say why it cannot.
  */
 export function CommandPalette(props: PaletteProps): ReactNode {
   const { open, onClose, ...rest } = props;
