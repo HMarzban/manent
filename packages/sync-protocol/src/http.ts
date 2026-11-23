@@ -238,7 +238,11 @@ export interface WritersRequest {
   afterBlockId: string | null;
 }
 
-/** `count` writers started, at most `asked`; `endsAt` is when they stop by themselves, null when none runs. */
+/**
+ * The answer of POST /api/demo/writers, and of POST /api/demo/writers/running (body `{ docId }`), which tells
+ * what runs in the script now: `count` writers started, at most `asked`; `endsAt` is when they stop by
+ * themselves, null when none runs.
+ */
 export interface WritersResponse {
   asked: number;
   count: number;
@@ -266,6 +270,7 @@ export interface RebuildResponse {
 /** What the demo's control routes ask of the running server, as the signed-in person `userId`. */
 export interface DemoControls {
   writers(userId: string, request: WritersRequest): Promise<WritersResponse>;
+  runningWriters(userId: string, docId: string): Promise<WritersResponse>;
   prepare(
     userId: string,
     request: TourPrepareRequest,

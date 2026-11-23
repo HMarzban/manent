@@ -302,6 +302,7 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
   // the demo's services need the server these controls are given to, so the controls call them once they exist
   const controls: DemoControls = {
     writers: (...args) => services.writers(...args),
+    runningWriters: (...args) => services.runningWriters(...args),
     prepare: (...args) => services.prepare(...args),
     rebuild: (...args) => services.rebuild(...args),
   };
