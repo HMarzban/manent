@@ -1,4 +1,6 @@
 // The Tour's file format, and the checker every Tour file passes.
+import { TOUR_FEATURES } from "./features.ts";
+import type { TourFeature } from "./features.ts";
 
 export const TOUR_GROUPS = [
   "Write",
@@ -12,71 +14,6 @@ export const TOUR_GROUPS = [
 ] as const;
 
 export type TourGroup = (typeof TOUR_GROUPS)[number];
-
-/** Features a scenario may wait for: placed after this stage, or still to be worded. */
-export const TOUR_FEATURES = [
-  "names_and_facts",
-  "variety_timing",
-  "outline_to_script",
-  "alternates_and_cuts",
-  "game_lines",
-  "ink_player",
-  "start_from",
-  "follow",
-  "comments",
-  "reader_drafts",
-  "suggesting",
-  "present",
-  "private_writing",
-  "rounds",
-  "sign_out_guard",
-  "send_draft",
-  "sides",
-  "find_bar",
-  "search",
-  "rundowns",
-  "prompter",
-  "imports",
-  "prompter_files",
-  "go_to_page",
-  "copy_script",
-] as const;
-
-export type TourFeature = (typeof TOUR_FEATURES)[number];
-
-/** The places a step may point at that are not commands, each drawn with `data-tour="<target>"`. */
-export const TOUR_TARGETS = [
-  "page",
-  "status:page",
-  "status:device",
-  "status:server",
-  "readout:element",
-  "message_slot",
-  "state_bar",
-  "tab:scenes",
-  "tab:history",
-  "tab:details",
-  "history_list",
-  "to_review",
-  "workspace_switcher",
-  "demo:person",
-  "demo:connection",
-  "demo:writers",
-  "demo:server",
-  "demo:timings",
-  "demo:reorganise",
-  "demo:reset",
-  "ruler",
-  "page_lock",
-  "lock:confirm",
-  "send:checks",
-  "send:confirm",
-  "setting:appearance.theme",
-  "setting:script.paper",
-  "setting:script.format",
-] as const;
-
-export type TourTarget = (typeof TOUR_TARGETS)[number];
 
 /** A window the scenario opens: a user's ID and an app path starting "/". */
 export interface TourWindow {

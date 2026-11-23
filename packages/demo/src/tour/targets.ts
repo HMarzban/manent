@@ -1,0 +1,33 @@
+/** The places a step may point at that are not commands, each drawn with `data-tour="<target>"`. */
+export const TOUR_TARGETS = [
+  "page",
+  "status:page",
+  "status:device",
+  "status:server",
+  "readout:element",
+  "message_slot",
+  "state_bar",
+  "tab:scenes",
+  "tab:history",
+  "tab:details",
+  "history_list",
+  "to_review",
+  "workspace_switcher",
+  "demo:person",
+  "demo:connection",
+  "demo:writers",
+  "demo:server",
+  "demo:timings",
+  "demo:reorganise",
+  "demo:reset",
+  "ruler",
+  "page_lock",
+  "lock:confirm",
+  "send:checks",
+  "send:confirm",
+  "setting:appearance.theme",
+  "setting:script.paper",
+  "setting:script.format",
+] as const;
+
+export type TourTarget = (typeof TOUR_TARGETS)[number];
