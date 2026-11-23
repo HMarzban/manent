@@ -1,7 +1,7 @@
 // What a setting is: its scope, its value type, where it is shown and how it takes effect.
 import type { MenuId, ScriptGroup, SectionId } from "./ids.ts";
 
-export type Scope = "personal" | "device" | "script";
+export type Scope = "personal" | "device" | "script" | "project";
 export type Platform = "mac" | "windows" | "linux";
 export type ParseResult<T> =
   { ok: true; value: T } | { ok: false; reason: string };

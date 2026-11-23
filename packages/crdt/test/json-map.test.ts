@@ -45,8 +45,23 @@ test("a listener hears local and remote changes as such", () => {
 
 test("the map names of the two index kinds are fixed", () => {
   expect([PRIVATE_INDEX_MAPS, WORKSPACE_INDEX_MAPS]).toEqual([
-    ["prefs", "keys", "flags", "continue", "review", "on_device", "tour"],
-    ["projects", "documents"],
+    [
+      "prefs",
+      "keys",
+      "flags",
+      "continue",
+      "review",
+      "on_device",
+      "tour",
+      "writing",
+      "private_copies",
+      "last_read",
+      "rundown_columns",
+      "favourites",
+      "private_folder",
+      "goals",
+    ],
+    ["projects", "documents", "folders"],
   ]);
 });
 

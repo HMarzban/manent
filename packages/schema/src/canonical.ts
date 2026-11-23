@@ -79,19 +79,23 @@ function canonicalRuns(runs: readonly TextJSON[]): TextJSON[] {
   return joined;
 }
 
+/** A known attribute holding an empty list is spelled as absent, as one holding null is. */
+const isSpelled = ([, value]: [string, unknown]): boolean =>
+  value !== null && !(Array.isArray(value) && value.length === 0);
+
 /**
  * One block in canonical form: every known attribute in declared order with
- * its default filled, then every unknown attribute by name, each holding null
- * left out; runs without text dropped and neighbours with equal marks joined.
+ * its default filled, each holding null or an empty list left out, then every
+ * unknown attribute by name, each holding null left out; runs without text
+ * dropped and neighbours with equal marks joined.
  */
 export function canonicalBlock(block: BlockJSON): BlockJSON {
   const given = block.attrs ?? {};
   const filled: Record<string, unknown> = fillBlockAttrs(given);
-  const attrs: Record<string, unknown> = Object.fromEntries(
-    [...Object.entries(filled), ...unknownEntries(given, filled)].filter(
-      ([, value]) => value !== null,
-    ),
-  );
+  const attrs: Record<string, unknown> = Object.fromEntries([
+    ...Object.entries(filled).filter(isSpelled),
+    ...unknownEntries(given, filled).filter(([, value]) => value !== null),
+  ]);
   const content = canonicalRuns(block.content ?? []);
   return content.length === 0
     ? { type: "block", attrs }

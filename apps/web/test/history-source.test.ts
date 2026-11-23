@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { createDoc } from "@manent/crdt";
+import { SCHEMA_VERSION } from "@manent/schema";
 import type { BlockJSON, DocJSON } from "@manent/schema";
 import type { DeviceVersion, DocStatus } from "@manent/sync-client";
 import type {
@@ -551,7 +552,7 @@ test("a device version is uploaded once the server takes it or will never take i
         name: null,
         deviceId: "dev",
         content: DOC_JSON,
-        schemaVersion: 1,
+        schemaVersion: SCHEMA_VERSION,
       },
     },
     authorization: "Bearer tok",

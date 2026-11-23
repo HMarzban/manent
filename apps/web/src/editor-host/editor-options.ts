@@ -85,7 +85,13 @@ export function editorOptions(
     desk: open.desk,
     extraPlugins: (host) =>
       EDITOR_PLUGINS.map((make) =>
-        make({ ...host, docId, services: services(), facts }),
+        make({
+          ...host,
+          docId,
+          services: services(),
+          facts,
+          presence: bound.binding.presence,
+        }),
       ),
   };
 }

@@ -86,7 +86,13 @@ function createScriptStores(options: {
 /** The person's settings store, and one store per open document of `source` with its script settings. */
 export function createStores(
   options: CommandsOptions,
-  kept: { prefs: KeyValueMap; device: Bag; deviceId: string },
+  kept: {
+    prefs: KeyValueMap;
+    device: Bag;
+    deviceId: string;
+    /** The project settings of a script; null for one with none. */
+    projectBag(docId: string): Bag | null;
+  },
   source: DocumentSource,
 ): { settings: SettingsStore; scripts: ScriptStores } {
   const { now, schedule, where } = options;
@@ -103,12 +109,17 @@ export function createStores(
   });
   const storeOver = (
     view: (bag: Bag) => Bag,
-    script: Bag | null,
+    document: { script: Bag; project: Bag | null } | null,
     locked: () => boolean,
   ) =>
     createSettingsStore({
       registry: SETTINGS,
-      bags: { personal: view(personal), device: view(kept.device), script },
+      bags: {
+        personal: view(personal),
+        device: view(kept.device),
+        script: document?.script ?? null,
+        project: document?.project ?? null,
+      },
       beforeWrite: () => options.guard.check("settings"),
       deferRemote,
       locked,
@@ -126,7 +137,12 @@ export function createStores(
         const { view, release } = createBagViews();
         const locked = () =>
           productionContextActions.get(docId)?.locked === true;
-        return { store: storeOver(view, view(scriptBag), locked), release };
+        const project = kept.projectBag(docId);
+        const bags = {
+          script: view(scriptBag),
+          project: project === null ? null : view(project),
+        };
+        return { store: storeOver(view, bags, locked), release };
       },
     }),
   };

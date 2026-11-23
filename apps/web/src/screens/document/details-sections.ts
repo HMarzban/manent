@@ -6,9 +6,12 @@ import { LayoutGroup } from "./layout-group.tsx";
 import { SceneSection } from "./scene-section.tsx";
 import { WhoWrote } from "./who-wrote.tsx";
 
+/** Where a Details section belongs: the selection, the caret's scene, the whole script, or a rundown. */
+export type DetailsScope = "selection" | "scene" | "script" | "rundown";
+
 export interface DetailsSection {
   readonly id: string;
-  readonly scope: "selection" | "scene" | "script";
+  readonly scope: DetailsScope;
   readonly Section: ComponentType<{ docId: string }>;
 }
 

@@ -43,7 +43,8 @@ export type StateFact =
     }
   | { kind: "marks_not_collated"; mode: "all" | "none" }
   | { kind: "role_comment" }
-  | { kind: "reader_draft"; name: string; date: string };
+  | { kind: "reader_draft"; name: string; date: string }
+  | { kind: "prompter_send" };
 
 type Kind = StateFact["kind"];
 
@@ -69,6 +70,7 @@ const LEFT_ORDER: readonly Kind[] = [
   "marks_not_collated",
   "role_comment",
   "reader_draft",
+  "prompter_send",
 ];
 
 const AIR_WINDOW =
@@ -208,6 +210,10 @@ function lineFor(fact: StateFact, facts: readonly StateFact[]): StateLine {
           commandId: "history.sinceLastRead",
         },
         { label: "Read aloud", commandId: "readAloud.start" },
+      ]);
+    case "prompter_send":
+      return line("", [
+        { label: "Send to prompter", commandId: "prompter.send" },
       ]);
   }
 }

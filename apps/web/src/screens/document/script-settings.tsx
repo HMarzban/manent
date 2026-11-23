@@ -30,6 +30,8 @@ const GROUP_WORDS: Readonly<Record<ScriptGroup, string>> = Object.freeze({
   mores: DOCUMENT_WORDS.mores,
   scene_numbers: DOCUMENT_WORDS.sceneNumbersGroup,
   revisions: DOCUMENT_WORDS.revisionsGroup,
+  header_footer: DOCUMENT_WORDS.headerFooterGroup,
+  layout_engine: DOCUMENT_WORDS.layoutEngineGroup,
 });
 
 /** Each group of `SCRIPT_GROUPS` that has a row, with its settings in their order. */

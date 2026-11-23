@@ -128,6 +128,8 @@ test("the closed lists are fixed", () => {
     "mores",
     "scene_numbers",
     "revisions",
+    "header_footer",
+    "layout_engine",
   ]);
   expect(REGISTRY_ERROR_CODES).toEqual([
     "duplicate_key",

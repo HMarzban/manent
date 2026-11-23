@@ -47,6 +47,10 @@ export const UNDO_ROOTS: readonly UndoRoot[] = [
   "script",
   "revisedOverrides",
   "titlePage",
+  "notes",
+  "alternates",
+  "cuts",
+  "sceneProgress",
 ];
 
 /** The structural keys as "flow", then the picker's keys as "picker". */

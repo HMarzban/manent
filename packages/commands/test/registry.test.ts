@@ -41,6 +41,18 @@ const CTX: CommandContext = {
   zoom: null,
   zoomPercent: null,
   production: null,
+  docKind: null,
+  projectKind: null,
+  outlineStart: false,
+  writing: null,
+  material: null,
+  rundown: null,
+  prompter: null,
+  inTrash: false,
+  canDelete: false,
+  focusMode: false,
+  readingAloud: false,
+  sprintRunning: false,
 };
 
 const ctx = (over: Partial<CommandContext>): CommandContext => ({

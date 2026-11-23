@@ -3,17 +3,22 @@ import { ORIGIN_LOAD, ORIGIN_REMOTE } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { DocHandle } from "@manent/sync-client";
 import { projectHome } from "@manent/sync-protocol";
-import type { DocKind, WorkspaceRef } from "@manent/sync-protocol";
-import { LIBRARY_WORDS, createValue } from "@manent/ui";
+import type { WorkspaceRef } from "@manent/sync-protocol";
+import { LIBRARY_WORDS } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
-import type { CreateResult, LibraryIndex, ProjectKind } from "../ports.ts";
-import { cached } from "./cached.ts";
+import type {
+  CreateResult,
+  DocumentStart,
+  LibraryIndex,
+  ProjectKind,
+} from "../ports.ts";
 import type { PersonSync } from "./create-sync.ts";
 import {
   PROJECT_KIND_FORMATS,
   projectStartOf,
   startImported,
 } from "./create-script.ts";
+import { createDocumentValues } from "./document-values.ts";
 import { readWorkspace } from "./index-entries.ts";
 import type { WorkspaceEntries } from "./index-entries.ts";
 import { createShelves } from "./index-shelves.ts";
@@ -46,13 +51,14 @@ export const PROJECT_CREATED: readonly ProjectCreated[] = [];
 /** At most one `editedAt` write per person and document this often. */
 const LAST_EDITED_EVERY_MS = 600_000;
 
-type Value<T> = Subscribable<T> & { set(value: T): void };
-
 /** The Library, and what it does while a document is open in this tab. */
 export interface SyncLibrary extends LibraryIndex {
   /** Writes Continue for a document opened here once an index holds it; the returned function stops waiting for one. */
   markOpened(docId: string): () => void;
-  /** Writes `editedAt` on the person's own changes; the returned function stops, and removes the project if it was made here and left untouched. */
+  /**
+   * Writes `editedAt` on the person's own changes; the returned function stops, and removes the project if it was made
+   * here, left untouched and neither it nor the document is a favourite.
+   */
   follow(docId: string, handle: DocHandle): () => void;
 }
 
@@ -99,8 +105,9 @@ function freeName(index: DocHandle, kind: ProjectKind): string {
 }
 
 /**
- * Lists a new project of `kind` in the index of `workspaceId`, with its one document of `docKind`, made on the device
- * first and begun by `start`, and what PROJECT_CREATED makes with it.
+ * Lists a new document of `opening.docKind` in the index of `workspaceId`, made on the device first and begun by
+ * `opening.start`: in the project `projectId`, or in a new project of `kind` listed with it and made with what
+ * PROJECT_CREATED makes when `projectId` is null.
  */
 async function addProject(
   options: {
@@ -111,36 +118,39 @@ async function addProject(
     now: () => number;
     newId: () => string;
   },
-  workspaceId: string,
-  kind: ProjectKind,
+  target: { workspaceId: string; projectId: string | null; kind: ProjectKind },
   titles: (index: DocHandle) => { project: string; script: string },
-  opening: { docKind: DocKind; start(handle: DocHandle): void },
+  opening: DocumentStart,
 ): Promise<CreateResult> {
   const { sync, shelves } = options;
+  const { workspaceId, kind } = target;
   const index = await shelves.shelf(workspaceId).handle;
-  const projectId = options.newId();
+  const projectId = target.projectId ?? options.newId();
   const handle = await sync.client.create({
     kind: opening.docKind,
     home: projectHome(projectId),
     workspaceId,
   });
   opening.start(handle);
-  for (const created of PROJECT_CREATED)
-    await created.made({
-      sync,
-      workspaceId,
-      projectId,
-      kind,
-      docId: handle.docId,
-    });
+  const isNew = target.projectId === null;
+  if (isNew)
+    for (const created of PROJECT_CREATED)
+      await created.made({
+        sync,
+        workspaceId,
+        projectId,
+        kind,
+        docId: handle.docId,
+      });
   const { project, script } = titles(index);
   const at = options.now();
-  liveMap(index, "projects").set(projectId, {
-    title: project,
-    kind,
-    createdAt: at,
-    createdByUserId: options.userId,
-  });
+  if (isNew)
+    liveMap(index, "projects").set(projectId, {
+      title: project,
+      kind,
+      createdAt: at,
+      createdByUserId: options.userId,
+    });
   liveMap(index, "documents").set(handle.docId, {
     projectId,
     title: script,
@@ -148,6 +158,8 @@ async function addProject(
     createdAt: at,
     editedAt: null,
     editedByUserId: null,
+    airDate: opening.airDate,
+    rundownId: opening.rundownId,
   });
   await handle.close();
   // the new row says where its script is before it is returned
@@ -173,64 +185,6 @@ function markEdited(
     editedAt: at,
     editedByUserId: userId,
   });
-}
-
-interface DocumentValues {
-  title(docId: string): Value<string | null>;
-  kind(docId: string): Value<ProjectKind | null>;
-  /** Writes Continue for `docId` once an index holds it; the returned function stops waiting. */
-  continueOnce(docId: string): () => void;
-  /** True once any document has been asked about. */
-  asked(): boolean;
-  /** Sets each value from the indexes, and writes the Continue entries an index now holds. */
-  draw(): void;
-}
-
-/** Each document's title and kind, and its Continue entry, from whichever opened index holds it; `wanted` opens them. */
-function createDocumentValues(options: {
-  find: (docId: string) => Found | null;
-  privateIndex: PrivateIndex;
-  now: () => number;
-  wanted: () => void;
-}): DocumentValues {
-  const { find } = options;
-  const titles = new Map<string, Value<string | null>>();
-  const kinds = new Map<string, Value<ProjectKind | null>>();
-  // the documents opened here whose Continue entry waits for an index that holds them
-  const continuing = new Set<string>();
-  const valueOf = <T>(
-    values: Map<string, Value<T | null>>,
-    docId: string,
-  ): Value<T | null> => {
-    const known = values.has(docId);
-    const value = cached(values, docId, () => createValue<T | null>(null));
-    if (!known) options.wanted();
-    return value;
-  };
-  return {
-    title: (docId) => valueOf(titles, docId),
-    kind: (docId) => valueOf(kinds, docId),
-    continueOnce(docId) {
-      continuing.add(docId);
-      options.wanted();
-      return () => {
-        continuing.delete(docId);
-      };
-    },
-    asked: () => titles.size + kinds.size + continuing.size > 0,
-    draw() {
-      for (const docId of continuing) {
-        const workspaceId = find(docId)?.workspaceId;
-        if (workspaceId === undefined) continue;
-        continuing.delete(docId);
-        const openedAt = options.now();
-        options.privateIndex.continueMap.set(docId, { workspaceId, openedAt });
-      }
-      for (const [docId, title] of titles)
-        title.set(find(docId)?.entry.title ?? null);
-      for (const [docId, kind] of kinds) kind.set(find(docId)?.kind ?? null);
-    },
-  };
 }
 
 /**
@@ -295,6 +249,9 @@ export function createSyncLibrary(options: {
     const found = shelves.find(docId);
     if (made === undefined || found === null || !made.isUntouched(handle))
       return;
+    const favourites = liveMap(options.privateIndex.handle, "favourites");
+    if ([made.projectId, docId].some((key) => favourites.get(key) !== null))
+      return;
     const renamed =
       found.entry.title !== LIBRARY_WORDS.untitledScript ||
       entriesOf(found.handle).projects.get(made.projectId)?.title !==
@@ -333,14 +290,15 @@ export function createSyncLibrary(options: {
       const start = projectStartOf(kind);
       const made = await addProject(
         { ...options, shelves },
-        ws,
-        kind,
+        { workspaceId: ws, projectId: null, kind },
         (index) => {
           title = freeName(index, kind);
           return { project: title, script: LIBRARY_WORDS.untitledScript };
         },
         {
           docKind: start.docKind,
+          airDate: null,
+          rundownId: null,
           start: (handle) => start.start(handle, kind, options.language),
         },
       );
@@ -355,11 +313,12 @@ export function createSyncLibrary(options: {
     importProject: (ws, imported) =>
       addProject(
         { ...options, shelves },
-        ws,
-        "film",
+        { workspaceId: ws, projectId: null, kind: "film" },
         () => ({ project: imported.title, script: imported.title }),
         {
           docKind: "script",
+          airDate: null,
+          rundownId: null,
           start: (handle) =>
             startImported(
               handle,
@@ -371,11 +330,19 @@ export function createSyncLibrary(options: {
       ),
     documentTitle: values.title,
     documentKind: values.kind,
+    docKindOf: values.docKind,
     renameDocument(docId, title) {
       const found = shelves.find(docId);
       if (found === null) return;
       liveMap(found.handle, "documents").set(docId, { ...found.entry, title });
     },
+    addCopy: (ws, projectId, kind, title, start) =>
+      addProject(
+        { ...options, shelves },
+        { workspaceId: ws, projectId, kind },
+        () => ({ project: title, script: title }),
+        start,
+      ),
     markOpened: values.continueOnce,
     follow(docId, handle) {
       const stop = onOwnChange(handle, () => {
