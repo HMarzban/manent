@@ -1,6 +1,7 @@
 import { DEMO_WORKSPACES } from "@manent/demo";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { pressKeyOf } from "../support/interface.ts";
 import { signedInAs } from "../support/tour.ts";
 
 const DOCUMENT_PATH = new RegExp(
@@ -45,6 +46,35 @@ test("as Dana the switcher shows both workspaces, and New script opens an untitl
   await expect(page.getByRole("region", { name: "Continue" })).toContainText(
     "Untitled script",
   );
+});
+
+test("focus moved elsewhere as the switcher closes stays there, and the field takes what is typed", async ({
+  page,
+}) => {
+  await signedInAs(page, "dana");
+  const switcher = page.getByRole("button", {
+    name: "Writers' room",
+    exact: true,
+  });
+  await switcher.click();
+  await expect(page.getByRole("menuitem")).toHaveCount(2);
+  // a press outside closes the menu, and the palette opens while the menu is still fading out
+  await page.mouse.click(8, 400);
+  await pressKeyOf(page, "app.palette");
+  const field = page.getByRole("combobox");
+  await expect(field).toBeFocused();
+  // the palette takes focus straight back, so the switcher counts each time focus reaches it
+  await switcher.evaluate((button) => {
+    button.dataset["reached"] = "0";
+    button.addEventListener("focus", () => {
+      button.dataset["reached"] = String(Number(button.dataset["reached"]) + 1);
+    });
+  });
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await page.keyboard.type("tide");
+  await expect(field).toHaveValue("tide");
+  await expect(field).toBeFocused();
+  await expect(switcher).toHaveAttribute("data-reached", "0");
 });
 
 test("the Library is reached by keys alone", async ({ page, browserName }) => {
