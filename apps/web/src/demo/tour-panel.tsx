@@ -77,10 +77,12 @@ function holdOf(
 ): SetupHold | null {
   if (scenario.setup.shell === "desktop" && shell !== "desktop")
     return { kind: "desktop_only" };
-  if (heavy?.seeding == null || heavy.seeding.failed) return null;
-  if (!HEAVY_LISTED.includes(scenario.id)) return null;
-  const { done, total } = heavy.seeding;
-  return { kind: "seeding", workspace: heavy.name, done, total };
+  if (heavy?.seeding == null || !HEAVY_LISTED.includes(scenario.id))
+    return null;
+  const { done, total, failed } = heavy.seeding;
+  return failed
+    ? { kind: "seeding_failed", workspace: heavy.name }
+    : { kind: "seeding", workspace: heavy.name, done, total };
 }
 
 /**

@@ -76,6 +76,13 @@ export function createMessageQueue(options: Timing): MessageQueue {
       const entry = waiting.find(({ message }) => message.id === id);
       if (entry !== undefined) remove(entry.key);
     },
+    withdraw(id) {
+      if (!waiting.some(({ message }) => message.id === id)) return;
+      const shown = waiting[0]?.message.id === id;
+      waiting = waiting.filter(({ message }) => message.id !== id);
+      if (shown) show();
+      notify();
+    },
     withdrawUndo() {
       waiting = waiting.map(({ key, message }) => ({
         key,
