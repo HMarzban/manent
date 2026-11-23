@@ -20,4 +20,14 @@ export const SHELL_SCREENS: readonly ShellScreen[] = [
   { routeId: "/preferences/$pane", screen: "preferences", page: "covered" },
   { routeId: "/choose", screen: "choose", page: "covered" },
   { routeId: "/__stand-in", screen: "document", page: "shown" },
+  {
+    routeId: "/w/$workspaceId/settings",
+    screen: "workspace_settings",
+    page: "covered",
+  },
+  {
+    routeId: "/w/$workspaceId/settings/$group",
+    screen: "workspace_settings",
+    page: "covered",
+  },
 ];

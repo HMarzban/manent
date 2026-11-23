@@ -79,6 +79,8 @@ test("the routes are the screens of this release", () => {
     "/preferences/$pane",
     "/s/$docId",
     "/s/$docId/send/$form",
+    "/w/$workspaceId/settings",
+    "/w/$workspaceId/settings/$group",
   ]);
 });
 
@@ -95,6 +97,8 @@ test("the test build adds the development screens", () => {
       "/preferences/$pane",
       "/s/$docId",
       "/s/$docId/send/$form",
+      "/w/$workspaceId/settings",
+      "/w/$workspaceId/settings/$group",
     ]);
   } finally {
     Reflect.deleteProperty(globalThis, "MANENT_FLAVOUR");
