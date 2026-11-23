@@ -1,6 +1,6 @@
-// The left panel's Scenes tab: the acts, sections and scenes of the outline, with a filter, named for the script's
-// format; a row goes to its place in the page, moves by drag or key for a person who can edit, and draws what other
-// features say of its scene.
+// The left panel's Scenes tab: the acts, sections and scenes of the outline as a list or as cards, with a filter, named
+// for the script's format; a row goes to its place in the page, moves by drag or key for a person who can edit, and
+// draws what other features say of its scene.
 import {
   DOCUMENT_WORDS,
   HISTORY_WORDS,
@@ -23,12 +23,18 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
+import {
+  BlankCard,
+  SceneCards,
+  ScenesSwitch,
+  useScenesView,
+} from "../../scenes/cards.tsx";
+import type { ScenesView } from "../../scenes/cards.tsx";
 import { SceneTitle, useSceneExtras } from "../../scenes/marks.tsx";
-import type { SceneExtras } from "../../scenes/marks.tsx";
+import type { SceneParts } from "../../scenes/marks.tsx";
 import { useSceneMoves } from "../../scenes/moves.ts";
 import { SceneRowMenu, rowItemsFor } from "../../scenes/row-menu.tsx";
 import { SCENE_ROW_ITEMS } from "../../scenes/row-items.ts";
-import type { SceneRowItem } from "../../scenes/row-items.ts";
 import { useServices } from "../../services/context.tsx";
 import type { PanelTab } from "../../shell/panel-tab.ts";
 import { OutlineContext } from "../../state/bridge-contexts.ts";
@@ -56,13 +62,6 @@ function useFormat(docId: string | null): string {
     [store],
   );
   return useSyncExternalStore(subscribe, () => store.get("script.format"));
-}
-
-/** What a scene's row or card draws of it, beside its heading, and the menu it opens. */
-interface SceneParts {
-  docId: string;
-  extras: SceneExtras;
-  items: readonly SceneRowItem[];
 }
 
 /** A scene's row: its number, heading, synopsis and marks, then whether it is revised, its length and its menu. */
@@ -210,14 +209,19 @@ function MovableRows(props: {
   );
 }
 
-/** The listed rows: movable for a person who can edit, else a plain list. Read here, so the panel catches a failed read. */
+/** The listed rows as the view shows them: movable for a person who can edit. Read here, so the panel catches a failed read. */
 function OutlineRows(props: {
+  view: ScenesView;
   filter: string;
   label: string;
   canEdit: boolean;
   parts: SceneParts;
 }): ReactNode {
   const rows = useListedRows(props.filter);
+  if (props.view === "cards")
+    return (
+      <SceneCards rows={rows} canEdit={props.canEdit} parts={props.parts} />
+    );
   const renderRow = (row: OutlineRow): ReactNode => (
     <OutlineLine row={row} parts={props.parts} />
   );
@@ -252,6 +256,8 @@ function ScenesList(props: { docId: string }): ReactNode {
   const items = useMemo(() => rowItemsFor(SCENE_ROW_ITEMS, canEdit), [canEdit]);
   const parts: SceneParts = { docId, extras, items };
   const [filter, setFilter] = useState("");
+  const { view, setView } = useScenesView();
+  const viewSwitch = <ScenesSwitch view={view} onChange={setView} />;
   return (
     <SurfaceState
       surface="left_panel"
@@ -259,7 +265,8 @@ function ScenesList(props: { docId: string }): ReactNode {
       render={panelRenderers({
         ready: () => (
           <div className="flex min-h-0 flex-col">
-            <div className="p-2">
+            <div className="flex items-center gap-2 p-2">
+              {viewSwitch}
               <Input
                 type="search"
                 aria-label={HISTORY_WORDS.filter}
@@ -271,10 +278,11 @@ function ScenesList(props: { docId: string }): ReactNode {
                   event.preventDefault();
                   setFilter("");
                 }}
-                className="h-control text-ui"
+                className="h-control min-w-0 flex-1 text-ui"
               />
             </div>
             <OutlineRows
+              view={view}
               filter={filter}
               label={DOCUMENT_WORDS.leftTab(format)}
               canEdit={canEdit}
@@ -283,13 +291,22 @@ function ScenesList(props: { docId: string }): ReactNode {
           </div>
         ),
         empty: () => (
-          <p className="p-4 text-ui text-fg-muted">
-            {DOCUMENT_WORDS.scenesEmpty(
-              format,
-              kind,
-              keyLabel(PICKER_CHORD, platform),
+          <div className="flex min-h-0 flex-col">
+            <div className="p-2">{viewSwitch}</div>
+            {view === "cards" && canEdit ? (
+              <div className="p-2">
+                <BlankCard docId={docId} />
+              </div>
+            ) : (
+              <p className="p-4 text-ui text-fg-muted">
+                {DOCUMENT_WORDS.scenesEmpty(
+                  format,
+                  kind,
+                  keyLabel(PICKER_CHORD, platform),
+                )}
+              </p>
             )}
-          </p>
+          </div>
         ),
       })}
     />

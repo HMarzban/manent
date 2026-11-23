@@ -1,4 +1,5 @@
-// What the Scenes tab says as a scene is moved, and the name a moved scene is read by.
+// What the Scenes tab says as a scene is moved, the name a scene is read by, and the words of its List / Cards switch
+// and its cards.
 
 export const SCENE_MOVE_WORDS = Object.freeze({
   move: "Move",
@@ -13,4 +14,12 @@ export const SCENE_MOVE_WORDS = Object.freeze({
   scene: (number: string): string => `Scene ${number}`,
   /** A scene's accessible name: its place ("Sc. 8 · INT. FERRY - NIGHT"), then its length in pages ("2 1/8"). */
   named: (place: string, length: string): string => `${place}, ${length} pages`,
+  /** The List / Cards switch's accessible name. */
+  showAs: "Show scenes as",
+  list: "List",
+  cards: "Cards",
+  /** Where a card's length goes when its scene has no pages. */
+  noPages: "No pages yet",
+  /** The blank card after the last card; the whole grid when there are no scenes. */
+  describe: "Describe a scene. It becomes a scene heading when you write it.",
 });

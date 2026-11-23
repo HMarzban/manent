@@ -41,7 +41,8 @@ const UNDO = Object.freeze({ label: "Undo", commandId: "edit.undo" });
 // letters before or after a locked page's label, as either numbering scheme writes an A-page's
 const LETTERS = /^[A-Z]+|[A-Z]+$/g;
 
-function scriptBlocks(doc: CrdtDoc): BlockJSON[] {
+/** Every block of the script, in document order. */
+export function scriptBlocks(doc: CrdtDoc): BlockJSON[] {
   return (scriptBody(doc).materialize().content ?? []).flatMap(
     (section) => section.content ?? [],
   );

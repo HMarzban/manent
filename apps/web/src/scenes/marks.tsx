@@ -8,6 +8,7 @@ import { SCENE_LENGTH_SOURCES } from "../screens/document/scene-lengths.ts";
 import { SCENE_MARK_SOURCES } from "../screens/document/scene-marks.ts";
 import type { SceneMark } from "../screens/document/scene-marks.ts";
 import type { OutlineRow } from "../state/outline.store.ts";
+import type { SceneRowItem } from "./row-items.ts";
 
 /** The value of each of `sources` for `docId`, read again when one changes. */
 function useSources<T>(
@@ -41,6 +42,13 @@ export interface SceneExtras {
   marks(blockId: string): readonly SceneMark[];
   /** The text a source gives in place of the scene's length, else its length in pages; null when it has neither. */
   length(row: OutlineRow): string | null;
+}
+
+/** What a scene's row or card draws of it beside its heading, and the menu it opens. */
+export interface SceneParts {
+  docId: string;
+  extras: SceneExtras;
+  items: readonly SceneRowItem[];
 }
 
 export function useSceneExtras(docId: string): SceneExtras {
