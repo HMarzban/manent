@@ -1,7 +1,12 @@
 // The top of the History tab: Changes since a baseline, how its changes are shown, which of them, the stepper
 // through them, and Drafts only. The changes are drawn on the live page while this is drawn.
 import { sceneOf } from "@manent/crdt";
-import { changeCount, filterComparison, textOf } from "@manent/revisions";
+import {
+  changeCount,
+  filterComparison,
+  isChange,
+  textOf,
+} from "@manent/revisions";
 import type { Comparison } from "@manent/revisions";
 import type { SinceResponse, VersionContent } from "@manent/sync-protocol";
 import {
@@ -51,9 +56,6 @@ const isMode = (value: unknown): value is ChangesMode =>
 
 /** By block id, the person of its last change since the baseline. */
 type Authors = Readonly<Record<string, string>>;
-
-const isChange = (entry: Comparison["entries"][number]): boolean =>
-  entry.kind !== "unchanged" || entry.moved;
 
 /** Of each change of `all`, who made it last since the baseline; null until the server has said, or when it cannot. */
 export function useAuthors(
