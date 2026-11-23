@@ -3,15 +3,11 @@ import { sha256 } from "../checksum.ts";
 import { homeKey, parseHome, wellFormedKey } from "../home.ts";
 import type { DocFile, Home, MeasureRow, Storage } from "../ports/index.ts";
 import { CHECKPOINTS_KEPT, StorageError } from "../ports/index.ts";
-import type { ProductionTables } from "../production/memory.ts";
-import {
-  copyProductionTables,
-  createMemoryProduction,
-} from "../production/memory.ts";
-import type { Logged, Write } from "./memory-log.ts";
+import type { Write } from "./memory-log.ts";
+import type { FileParts } from "./memory-stores.ts";
+import { copyParts, createFileStores } from "./memory-stores.ts";
 import {
   copied,
-  copyLogged,
   corruptRow,
   createAdoptions,
   createGenerations,
@@ -50,9 +46,8 @@ type StoredCheckpoint = { generation: number; seq: number; sha: string } & {
 };
 
 interface MemoryState {
-  logs: Map<string, Logged>;
-  /** By file, as `logs`. */
-  production: Map<string, ProductionTables>;
+  /** By file. */
+  files: Map<string, FileParts>;
   checkpoints: Map<string, StoredCheckpoint[]>;
   /** By version id. */
   pins: Map<string, { docId: string; generation: number; seq: number }>;
@@ -145,30 +140,28 @@ function createMeasures(memory: () => MemoryState): DocFile["measures"] {
   };
 }
 
-// The file's contents as committed, each part made empty on first use.
-function storedParts(ctx: Context, key: string) {
-  const { logs, production } = ctx.state();
-  const log = logs.get(key) ?? copyLogged(undefined);
-  const tables = production.get(key) ?? copyProductionTables(undefined);
-  logs.set(key, log);
-  production.set(key, tables);
-  return { log, production: tables };
+// The file's contents as committed, made empty on first use.
+function storedParts(ctx: Context, key: string): FileParts {
+  const { files } = ctx.state();
+  const parts = files.get(key) ?? copyParts();
+  files.set(key, parts);
+  return parts;
 }
 
 function openFile(ctx: Context, home: Home, key: string): DocFile {
-  let work: { log: Logged; production: ProductionTables } | null = null;
-  const read = () => work?.log ?? storedParts(ctx, key).log;
-  const readProduction = () =>
-    work?.production ?? storedParts(ctx, key).production;
+  let work: FileParts | null = null;
+  const parts = () => work ?? storedParts(ctx, key);
+  const read = () => parts().log;
   // a lone write is a transaction of one
   const write: Write = (op) => transaction(() => op(read()));
+  const partOf = <K extends keyof FileParts>(part: K) => ({
+    read: () => parts()[part],
+    write: <T>(op: (tables: FileParts[K]) => T): T =>
+      transaction(() => op(parts()[part])),
+  });
   function transaction<T>(fn: () => T): T {
     if (work !== null) return fn();
-    const stored = storedParts(ctx, key);
-    const copy = {
-      log: copyLogged(stored.log),
-      production: copyProductionTables(stored.production),
-    };
+    const copy = copyParts(storedParts(ctx, key));
     work = copy;
     let result: T;
     try {
@@ -179,10 +172,7 @@ function openFile(ctx: Context, home: Home, key: string): DocFile {
     } finally {
       work = null;
     }
-    ctx.commit(() => {
-      ctx.state().logs.set(key, copy.log);
-      ctx.state().production.set(key, copy.production);
-    });
+    ctx.commit(() => ctx.state().files.set(key, copy));
     return result;
   }
   const versions: DocFile["versions"] = {
@@ -205,9 +195,8 @@ function openFile(ctx: Context, home: Home, key: string): DocFile {
     replays: createReplays(read, write),
     measures: createMeasures(ctx.state),
     adoptions: createAdoptions(read, write),
-    production: createMemoryProduction({
-      read: readProduction,
-      write: (op) => transaction(() => op(readProduction())),
+    ...createFileStores({
+      partOf,
       setLocked: (docId, locked) =>
         write((l) => {
           const doc = l.docs.get(docId);
@@ -289,8 +278,7 @@ export function createMemoryStorage(options: {
   now: () => number;
 }): MemoryStorage {
   let state: MemoryState = {
-    logs: new Map(),
-    production: new Map(),
+    files: new Map(),
     checkpoints: new Map(),
     pins: new Map(),
     measures: new Map(),
@@ -338,7 +326,12 @@ export function createMemoryStorage(options: {
     crashOnCommit(when) {
       crash = when;
     },
-    corruptRow: (docId, seq) => corruptRow(state.logs.values(), docId, seq),
+    corruptRow: (docId, seq) =>
+      corruptRow(
+        [...state.files.values()].map((parts) => parts.log),
+        docId,
+        seq,
+      ),
     corruptCheckpoint: (docId) => corruptCheckpoint(state, docId),
     snapshot() {
       const handle = Object.freeze({});
