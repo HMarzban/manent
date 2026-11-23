@@ -9,8 +9,8 @@ import {
   NOT_SENT_EXCEPTION,
   PENDING_TERMS,
   TERMS,
-} from "./glossary.ts";
-import type { Feature } from "./glossary.ts";
+} from "./glossary/index.ts";
+import type { Feature } from "./glossary/index.ts";
 import { PLAIN_WORDS } from "./plain-words.ts";
 import { findImports, mask } from "./source-scan.ts";
 
@@ -214,7 +214,7 @@ export function checkReverse(
       );
     })
     .map((term) => ({
-      file: "tools/glossary.ts",
+      file: "tools/glossary/index.ts",
       line: 0,
       rule: "unused-term",
       message: `"${term.term}" (${term.feature}) is used by no interface string`,

@@ -27,11 +27,8 @@ function readConnection(
   return { mode: known, delayMs };
 }
 
-/**
- * The routes the node answers itself, after the launch guard; null for any other request. The person routes
- * take the node token as `Authorization: Bearer`; a person is `signed_in` once they chose to sync with the cloud.
- */
-export function localRoutes(options: {
+/** What each entry of `LOCAL_ROUTES` is given. */
+export interface LocalRouteContext {
   records: NodeRecords;
   shell: ShellChannel;
   sessions: SessionStore;
@@ -41,40 +38,80 @@ export function localRoutes(options: {
   onFocus(): void;
   storeUsage(): { scripts: number; bytes: number };
   setConnection(mode: "online" | "offline" | "slow", delayMs: number): void;
-}): (request: Request) => Promise<Response | null> {
-  const routes: Record<
-    string,
-    (request: Request) => Promise<Response> | Response
-  > = {
-    "GET /api/local/person"(request) {
-      const person = readPerson(request, options);
-      if (person === null) return failure("unauthenticated", 401);
-      return Response.json({
-        userId: person.userId,
-        name: person.name,
-        cloud: person.wantsCloud ? "signed_in" : "not_signed_in",
-      });
-    },
-    async "POST /api/local/sign-in-to-sync"(request) {
-      const person = readPerson(request, options);
-      if (person === null) return failure("unauthenticated", 401);
-      const signedIn = await options.signInToSync(person.userId);
-      if (!signedIn.ok) return failure(signedIn.code, 503);
-      return Response.json({ cloud: "signed_in" });
-    },
-    "POST /api/local/focus"() {
-      options.onFocus();
-      return noContent();
-    },
-    "GET /api/local/storage": () => Response.json(options.storeUsage()),
-    async "POST /api/local/connection"(request) {
-      // A body that is not JSON reads as null, which no connection matches.
-      const connection = readConnection(await request.json().catch(() => null));
-      if (connection === null) return failure("bad_request", 400);
-      options.setConnection(connection.mode, connection.delayMs);
-      return noContent();
-    },
-  };
+}
+
+export type LocalRoute = (request: Request) => Promise<Response> | Response;
+
+/** Who is here, and Sign in to sync. */
+const personRoutes = (
+  context: LocalRouteContext,
+): Record<string, LocalRoute> => ({
+  "GET /api/local/person"(request) {
+    const person = readPerson(request, context);
+    if (person === null) return failure("unauthenticated", 401);
+    return Response.json({
+      userId: person.userId,
+      name: person.name,
+      cloud: person.wantsCloud ? "signed_in" : "not_signed_in",
+    });
+  },
+  async "POST /api/local/sign-in-to-sync"(request) {
+    const person = readPerson(request, context);
+    if (person === null) return failure("unauthenticated", 401);
+    const signedIn = await context.signInToSync(person.userId);
+    if (!signedIn.ok) return failure(signedIn.code, 503);
+    return Response.json({ cloud: "signed_in" });
+  },
+});
+
+const focusRoutes = (
+  context: LocalRouteContext,
+): Record<string, LocalRoute> => ({
+  "POST /api/local/focus"() {
+    context.onFocus();
+    return noContent();
+  },
+});
+
+const storageRoutes = (
+  context: LocalRouteContext,
+): Record<string, LocalRoute> => ({
+  "GET /api/local/storage": () => Response.json(context.storeUsage()),
+});
+
+const connectionRoutes = (
+  context: LocalRouteContext,
+): Record<string, LocalRoute> => ({
+  async "POST /api/local/connection"(request) {
+    // A body that is not JSON reads as null, which no connection matches.
+    const connection = readConnection(await request.json().catch(() => null));
+    if (connection === null) return failure("bad_request", 400);
+    context.setConnection(connection.mode, connection.delayMs);
+    return noContent();
+  },
+});
+
+/** The node's own routes, one entry per feature, each keyed `<METHOD> <path>`. */
+export const LOCAL_ROUTES: readonly ((
+  context: LocalRouteContext,
+) => Record<string, LocalRoute>)[] = [
+  personRoutes,
+  focusRoutes,
+  storageRoutes,
+  connectionRoutes,
+];
+
+/**
+ * The routes the node answers itself, after the launch guard; null for any other request. The person routes
+ * take the node token as `Authorization: Bearer`; a person is `signed_in` once they chose to sync with the cloud.
+ */
+export function localRoutes(
+  options: LocalRouteContext,
+): (request: Request) => Promise<Response | null> {
+  const routes = LOCAL_ROUTES.reduce<Record<string, LocalRoute>>(
+    (all, entry) => ({ ...all, ...entry(options) }),
+    {},
+  );
   return async (request) => {
     const route = routes[`${request.method} ${new URL(request.url).pathname}`];
     if (route !== undefined) return route(request);

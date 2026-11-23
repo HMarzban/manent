@@ -17,7 +17,6 @@ import {
   createSignedSessionStore,
   createTicketStore,
   createWorkerCheckpointer,
-  createWorkflow,
   serveWithBun,
 } from "@manent/server-core";
 import type {
@@ -40,6 +39,7 @@ import { adoptStaging, resumeStaging } from "./seed/adopt.ts";
 import { stagingDirOf, startBackgroundSeed } from "./seed/background.ts";
 import { runSeedCommand } from "./seed/command.ts";
 import { onServeError } from "./serve-error.ts";
+import { composeServices } from "./services.ts";
 
 const SESSION_KEY_BYTES = 32;
 
@@ -290,7 +290,7 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
   const { storage, ids } = sync;
   const config = buildServerConfig(env, secret, port);
   const heavy = createHeavyState(waiting, env.dataDir, storage);
-  const { history, production } = createWorkflow({
+  const composed = composeServices({
     storage,
     sync: () => serving.sync!,
     clock,
@@ -315,9 +315,12 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
       config.demo === null
         ? null
         : { ...config.demo, controls, isHomeReady: heavy.isHomeReady },
-    sync: { ...sync, hooks: [history, production.hooks] },
-    history,
-    production,
+    sync: {
+      ...sync,
+      hooks: composed.hooks,
+      ...(composed.airWindow === null ? {} : { airWindow: composed.airWindow }),
+    },
+    ...composed.config,
   });
   built = serving;
   const services = createDemoServices({
