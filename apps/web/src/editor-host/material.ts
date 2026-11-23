@@ -128,7 +128,11 @@ export function materialPlugin(context: EditorPluginContext): Plugin {
           writer: nameOf(alternate.authorUserId),
           pitched: alternate.pitched,
         })),
-        place: { left: place.left, top: place.bottom + GAP_PX },
+        place: {
+          left: place.left,
+          top: place.bottom + GAP_PX,
+          above: place.top - GAP_PX,
+        },
         focus: shown.focus,
         onUse: (alternateId) => swap({ type: "alternate", alternateId }),
         onType: (text) => swap({ type: "text", text }),
