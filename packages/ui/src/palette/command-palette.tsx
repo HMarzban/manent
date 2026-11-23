@@ -46,6 +46,15 @@ const keyOf = (entry: Entry): string =>
 const textOf = (entry: Entry): string =>
   entry.type === "menu" ? entry.label : entry.row.label;
 
+const isAvailable = (entry: Entry | undefined): boolean =>
+  entry !== undefined && (entry.type === "menu" || entry.row.enabled);
+
+/** `rows` with those that can run now first, each part in the order given. */
+const availableFirst = (rows: readonly PaletteRow[]): PaletteRow[] => [
+  ...rows.filter((row) => row.enabled),
+  ...rows.filter((row) => !row.enabled),
+];
+
 /** The menus that hold a command available now, each under its menu word. */
 function menuEntries(service: CommandService): Entry[] {
   return MENU_IDS.flatMap((menu): Entry[] => {
@@ -113,7 +122,8 @@ function EntryItem(props: {
       index={index}
       disabled={entry.type === "row" && !entry.row.enabled}
       onClick={() => activate(entry)}
-      className="mn-row flex min-h-row items-center gap-2 px-2 text-ui"
+      // a row that cannot run now reads as unavailable: its words say why
+      className="mn-row flex min-h-row items-center gap-2 px-2 text-ui data-disabled:cursor-not-allowed data-disabled:text-fg-muted"
     >
       {entry.type === "menu" ? (
         entry.label
@@ -233,9 +243,11 @@ function usePaletteEntries(options: {
     keepShownOrder(
       shown.current,
       query,
-      rankRows(
-        query,
-        active.flatMap((s) => s.rows(query)),
+      availableFirst(
+        rankRows(
+          query,
+          active.flatMap((s) => s.rows(query)),
+        ),
       ),
     ),
   );
@@ -281,7 +293,8 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
         setMenu(null);
       }}
       itemToStringValue={textOf}
-      autoHighlight="always"
+      // Enter runs the highlighted entry, so a list that opens on one that cannot run highlights none
+      autoHighlight={isAvailable(entries[0]) ? "always" : false}
       virtualized={entries.length > VIRTUAL_ABOVE}
     >
       <div
