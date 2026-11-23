@@ -82,9 +82,8 @@ export interface ProjectItem {
   kind: ProjectKind;
   /** Null for a project that holds no document yet. */
   firstDocId: string | null;
-  /** `at` in milliseconds since the epoch; null while nobody has edited it. */
-  lastEdited:
-    { byName: string; at: number } | { changedSinceOpened: true } | null;
+  /** `at` in milliseconds since the epoch: the latest edit of its documents, or its creation while nobody has edited one. */
+  lastEdited: { byName: string; at: number } | { changedSinceOpened: true };
   place: RowPlace;
 }
 
@@ -221,6 +220,8 @@ export interface PersonServices {
   editor: EditorControl;
   /** Draws this person's editor of a document into the page. */
   mount: EditorMount;
+  /** Draws this person's editor of a second document beside the page, reached through `control`. */
+  besideMount(control: EditorControl): EditorMount;
   /** The versions of each script, their content, and naming, saving and restoring them. */
   history: HistorySource;
   /** The person's handle of a script over their sync, of the document `writing` opens for it; rejects when their sync could not start. */
@@ -320,11 +321,11 @@ export interface Environment {
   lastKeyAt: () => number | null;
   guard: Guard;
   flavour: "production" | "test";
-  /** Builds one person's editor; the page shows the placeholder until it settles. */
+  /** Builds one person's editor of the page and of what is beside it; the page shows the placeholder until it settles. */
   loadEditor(
     environment: Environment,
     parts: EditorParts,
-  ): Promise<EditorMount>;
+  ): Promise<Pick<PersonServices, "mount" | "besideMount">>;
   shellState: Subscribable<ShellState> & { set(value: ShellState): void };
   dom: ShellDom;
   online: () => boolean;

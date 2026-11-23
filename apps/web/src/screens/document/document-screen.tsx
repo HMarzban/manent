@@ -37,6 +37,7 @@ import { SidePanel } from "./side-panel.tsx";
 import { CommandAction, StatusBar } from "./status-bar.tsx";
 import { STATUS_READOUTS } from "./status-readouts.ts";
 import { TitleBar, useDocumentTitle } from "./title-bar.tsx";
+import { RundownScreen } from "../../rundown/screen.tsx";
 
 const route = getRouteApi("/s/$docId");
 
@@ -110,9 +111,11 @@ function useTestStatus(
   const laid = useRef<Partial<StatusFacts>>({});
   useEffect(() => {
     if (status === null) return;
-    const stop = source.subscribe((facts) =>
-      status.set({ ...facts, ...laid.current }),
-    );
+    const follow = (facts: StatusFacts): void =>
+      status.set({ ...facts, ...laid.current });
+    // a source given since, as signing in gives one, is followed from its facts now
+    follow(source.get());
+    const stop = source.subscribe(follow);
     const hook: unknown = Reflect.get(window, "__manent");
     if (typeof hook !== "object" || hook === null) return stop;
     Reflect.set(hook, "setStatus", (patch: Partial<StatusFacts>) => {
@@ -226,7 +229,10 @@ function Frame(props: {
 const SCRIPT_BODY: DocumentBody = { kind: "script", Body: Frame };
 
 /** A kind with no line gets the script's body. */
-export const DOCUMENT_BODIES: readonly DocumentBody[] = [SCRIPT_BODY];
+export const DOCUMENT_BODIES: readonly DocumentBody[] = [
+  SCRIPT_BODY,
+  { kind: "rundown", Body: RundownScreen },
+];
 
 /** The body of `docId`'s kind; the stand-in screen of the test build draws it around the stand-in editor. */
 export function DocumentFrame(props: { docId: string }): ReactNode {

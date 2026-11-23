@@ -12,6 +12,7 @@ import { joinRoutes } from "./join.ts";
 import { readerRoutes } from "./reader.ts";
 import { projectRoutes } from "./project.ts";
 import { boardRoutes } from "./board.ts";
+import { workspaceSettingsRoutes } from "./workspace-settings.ts";
 
 export interface AppRouterDeps {
   api: Api;
@@ -34,4 +35,5 @@ export const ROUTE_GROUPS: readonly ((
   readerRoutes,
   projectRoutes,
   boardRoutes,
+  workspaceSettingsRoutes,
 ];

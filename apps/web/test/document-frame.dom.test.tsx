@@ -42,11 +42,11 @@ test("a new script as You shows eight controls and no state bar", async () => {
   const controls = ["title_bar", "status_bar"].flatMap((name) =>
     [...region(container, name).querySelectorAll("button")].map(nameOf),
   );
-  // Share, the last of the eight, comes with its own feature
   expect(controls).toEqual([
     "‹ Library",
     "Untitled script",
     "Saved · Only in this browser — not backed up",
+    "Share",
     "Element: scene_heading",
     "Page 1 of 1",
     "View",
@@ -70,7 +70,7 @@ test("a commenter's state bar says so", async () => {
   expect(
     region(frame.container, "state_bar").querySelector("[role='status']")
       ?.textContent,
-  ).toBe("View only — you can comment");
+  ).toBe("View only");
 });
 
 test("the state bar's region is hidden while it has no line, so F6 passes it by", async () => {
@@ -90,8 +90,16 @@ test("Title ▾ holds Script settings and Rename for an editor, and not Rename f
   const reader = await renderFrame({ title, role: "viewer" });
   await click(buttonNamed(region(reader.container, "title_bar"), title));
   expect([editorItems, menuItems()]).toEqual([
-    ["Script settings", "Rename", "Export…", "Print…⌘P", "Name this draft…⌘⇧S"],
-    ["Script settings", "Export…", "Print…⌘P"],
+    [
+      "Script settings",
+      "Rename",
+      "Export…",
+      "Print…⌘P",
+      "Copy link",
+      "Name this draft…⌘⇧S",
+      "Open beside",
+    ],
+    ["Script settings", "Export…", "Print…⌘P", "Copy link", "Open beside"],
   ]);
 });
 

@@ -580,7 +580,9 @@ test("a search never ends in nothing: one signpost and an answer for each defaul
 });
 
 test("script settings carry the nouns their messages use", () => {
-  expect(SETTINGS.byScope("script").map((d) => [d.key, d.noun])).toEqual([
+  expect(
+    stage1(SETTINGS.byScope("script")).map((d) => [d.key, d.noun]),
+  ).toEqual([
     ["script.format", "format"],
     ["script.paper", "paper size"],
     ["script.moresAtBreaks", "(MORE) and (CONT'D) at page breaks"],

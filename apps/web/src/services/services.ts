@@ -173,6 +173,7 @@ export function createPersonServices(options: Options): PersonServices {
     control,
     network: sync.network,
     library: sync.library,
+    documents: scripts.documents,
   });
   const place = placeStoreOf(options);
   const stopKeeping = keepViewState(place, options.schedule);
@@ -200,6 +201,23 @@ export function createPersonServices(options: Options): PersonServices {
         ids: () => options.randomId().replaceAll("-", ""),
       }),
   });
+  // the editor reads the person's preferences as it mounts, so it waits for their private index; it is built once
+  let editorLoad: Promise<
+    Pick<PersonServices, "mount" | "besideMount">
+  > | null = null;
+  const loadedEditor = () =>
+    (editorLoad ??= sync.ready.then(() =>
+      options.loadEditor(options, {
+        services: () => services,
+        control,
+        commands,
+        messages,
+        resolved,
+        fixedKeys,
+        navigate: (path) => options.router.navigate(path),
+        client: sync.client,
+      }),
+    ));
   const services: PersonServices = {
     userId: options.person.userId,
     settings,
@@ -222,20 +240,11 @@ export function createPersonServices(options: Options): PersonServices {
     fixedKeys,
     reverses: createReverses(messages),
     editor: control,
-    // the editor reads the person's preferences as it mounts, so it waits for their private index
-    mount: createLazyMount(async () => {
-      await sync.ready;
-      return options.loadEditor(options, {
-        services: () => services,
-        control,
-        commands,
-        messages,
-        resolved,
-        fixedKeys,
-        navigate: (path) => options.router.navigate(path),
-        client: sync.client,
-      });
-    }),
+    mount: createLazyMount(async () => (await loadedEditor()).mount),
+    besideMount: (besideControl) =>
+      createLazyMount(async () =>
+        (await loadedEditor()).besideMount(besideControl),
+      ),
     history,
     openHandle,
     writing: writingActions,

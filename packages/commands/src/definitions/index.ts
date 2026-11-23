@@ -35,6 +35,9 @@ import { COPIES_COMMANDS } from "./copies.ts";
 import { READER_COMMANDS } from "./reader.ts";
 import { BESIDE_COMMANDS } from "./beside.ts";
 import { ARCHIVE_COMMANDS } from "./archive.ts";
+import { TIMING_COMMANDS } from "./timing.ts";
+import { RUNDOWN_COMMANDS } from "./rundown.ts";
+import { PROMPTER_COMMANDS } from "./prompter.ts";
 
 export const COMMANDS = defineCommands([
   ...APP_COMMANDS,
@@ -70,6 +73,9 @@ export const COMMANDS = defineCommands([
   ...READER_COMMANDS,
   ...BESIDE_COMMANDS,
   ...ARCHIVE_COMMANDS,
+  ...TIMING_COMMANDS,
+  ...RUNDOWN_COMMANDS,
+  ...PROMPTER_COMMANDS,
   ...settingCommands(SETTINGS),
 ]);
 export type CommandId = (typeof COMMANDS)[number]["id"];

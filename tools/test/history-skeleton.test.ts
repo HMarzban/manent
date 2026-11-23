@@ -204,8 +204,12 @@ const CTX: CommandContext = {
   sprintRunning: false,
   production: null,
 };
-// History and Review are declared with the View and sync commands
-const DECLARED_ELSEWHERE = new Set(["history.open", "history.review"]);
+// History and Review are declared with the View and sync commands, Copy link with the links commands
+const DECLARED_ELSEWHERE = new Set([
+  "history.open",
+  "history.review",
+  "history.copyLink",
+]);
 const historyCommands = COMMANDS.filter(
   (c) => c.id.startsWith("history.") && !DECLARED_ELSEWHERE.has(c.id),
 );
@@ -438,6 +442,12 @@ test("the history commands sit in these menus, answer these palette words and ap
     ["history.restoreScene", [], { keywords: [] }, null],
     ["history.restoreBefore", [], { keywords: [] }, null],
     ["history.seeWhatChanged", [], { keywords: [] }, null],
+    [
+      "history.openRecoveredBeside",
+      [],
+      { hidden: "the action of a message about recovered work" },
+      null,
+    ],
     [
       "history.whoWrote",
       [{ menu: "script", group: "who", order: 10, submenu: null }],

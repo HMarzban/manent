@@ -42,3 +42,23 @@ export * from "./material/cuts.ts";
 export * from "./scene-move.ts";
 export * from "./scene-progress.ts";
 export * from "./project/project-index.ts";
+export { ladderLabelOf } from "./project/ladder-match.ts";
+export {
+  initRundown,
+  insertRows,
+  moveRows,
+  observeRundown,
+  readRundown,
+  removeRows,
+  restoreCell,
+  setCell,
+  setRundownFields,
+  writeDurations,
+  writePrompterState,
+} from "./rundown/rundown-doc.ts";
+export type { NewRow } from "./rundown/rundown-doc.ts";
+export { orderBetween } from "./rundown/rundown-order.ts";
+export { readRundownWrites } from "./rundown/rundown-writes.ts";
+export type { RundownWrites } from "./rundown/rundown-writes.ts";
+export { createRundownUndo } from "./rundown/rundown-undo.ts";
+export type { RundownUndo } from "./rundown/rundown-undo.ts";

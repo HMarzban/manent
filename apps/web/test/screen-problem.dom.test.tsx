@@ -98,7 +98,19 @@ test("every screen whose code loads on first visit has the same problem in its o
     ...new Set(screens.map((route) => route.options.errorComponent)),
   ];
   expect([screens.map((route) => route.id), problems.length]).toEqual([
-    ["/", "/choose", "/s/$docId", "/s/$docId/send/$form", "/preferences/$pane"],
+    [
+      "/",
+      "/choose",
+      "/s/$docId",
+      "/s/$docId/send/$form",
+      "/preferences/$pane",
+      "/s/$docId/present",
+      "/s/$docId/prompter",
+      "/s/$docId/v/$versionId",
+      "/s/$docId/changes/$a/$b",
+      "/w/$workspaceId/settings",
+      "/w/$workspaceId/settings/$group",
+    ],
     1,
   ]);
   const Problem = problems[0];

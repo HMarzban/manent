@@ -27,4 +27,5 @@ export const ANNOTATION_TERMS: readonly Term[] = Object.freeze([
   ...row("production", ["Consolidate"], []),
   ...row("writing", ["Merge"], []),
   ...row("series", ["Tag"], ["label"]),
+  ...row("series", ["Set", "Term"], ["glossary entry"]),
 ]);
