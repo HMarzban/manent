@@ -108,19 +108,18 @@ export function newlyRemoved(
 }
 
 /**
- * The places once `change` replaced blocks [first, oldEnd) with blocks [first, newEnd) of `index`, and the ids
- * whose text it removed. Only a place in a replaced block is resolved again, around its block or, when that is
- * gone, around where it was; a removed one is tried again when a block with its id comes back.
+ * The places once `change` replaced blocks [first, oldEnd) with blocks [first, newEnd) of `index`. Only a place
+ * in a replaced block is resolved again, around its block or, when that is gone, around where it was; a removed
+ * one is tried again when a block with its id comes back.
  */
 export function followChange(
   places: readonly Place[],
   index: BlockIndex,
   change: ChangeHint,
-): { places: Place[]; removed: string[] } {
+): Place[] {
   const { first, oldEnd, newEnd } = change;
   const entering = blocksById(index, first, newEnd);
-  const removed: string[] = [];
-  const next = places.map((place) => {
+  return places.map((place) => {
     const { annotation, anchor, block } = place;
     if (block === null) {
       const back = entering.get(anchor.blockId);
@@ -134,14 +133,11 @@ export function followChange(
       Math.max(first, Math.min(block, newEnd - 1)),
       index.blocks.length - 1,
     );
-    const now = placed(
+    return placed(
       annotation,
       anchor,
       index,
       entering.get(anchor.blockId) ?? near,
     );
-    if (now.block === null) removed.push(annotation.id);
-    return now;
   });
-  return { places: next, removed };
 }

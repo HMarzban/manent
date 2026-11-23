@@ -18,8 +18,6 @@ interface AnnotationsState {
   readonly list: readonly Annotation[];
   readonly index: BlockIndex;
   readonly places: readonly Place[];
-  /** The ids whose text the transaction that made this state removed. */
-  readonly removed: readonly string[];
   /** The block whose marker the pointer is over. */
   readonly hovered: string | null;
   readonly decorations: DecorationSet;
@@ -72,7 +70,6 @@ function initial(
     list,
     index,
     places,
-    removed: newlyRemoved([], places),
     hovered: null,
     decorations: underlinesOf(index, places, null),
   };
@@ -93,21 +90,17 @@ function applied(
     !tr.docChanged &&
     index === prev.index
   )
-    return prev.removed.length === 0 ? prev : { ...prev, removed: [] };
+    return prev;
   const moved =
-    change === null
-      ? { places: prev.places, removed: [] }
-      : followChange(prev.places, index, change);
+    change === null ? prev.places : followChange(prev.places, index, change);
   const list = meta?.type === "list" ? options.annotations() : prev.list;
-  const places =
-    list === prev.list ? moved.places : placeList(list, moved.places, index);
+  const places = list === prev.list ? moved : placeList(list, moved, index);
   const hovered = meta?.type === "hover" ? meta.blockId : prev.hovered;
   const same = places === prev.places && hovered === prev.hovered;
   return {
     list,
     index,
     places,
-    removed: [...moved.removed, ...newlyRemoved(moved.places, places)],
     hovered,
     // while a composition is under way the index waits, and the underlines follow the steps
     decorations:
@@ -148,8 +141,8 @@ export function annotationsPlugin(options: AnnotationsOptions): Plugin {
         onActivate: (id, at) => options.onActivate(id, at),
         hover: (blockId) => dispatchMeta({ type: "hover", blockId }),
       });
-      const first = stateOf(view.state);
-      if (first.removed.length > 0) options.onRemoved(first.removed);
+      const removedAtStart = newlyRemoved([], stateOf(view.state).places);
+      if (removedAtStart.length > 0) options.onRemoved(removedAtStart);
       gutter.draw();
       // a change of the list reaches the plugin's state through a transaction of its own, and only a change does
       const stop = options.subscribe(() => {
@@ -158,16 +151,16 @@ export function annotationsPlugin(options: AnnotationsOptions): Plugin {
       });
       return {
         update(_view, prevState) {
-          const now = stateOf(view.state);
-          const was = stateOf(prevState);
-          if (now === was) return;
-          if (now.removed.length > 0) options.onRemoved(now.removed);
-          if (
-            now.places !== was.places ||
+          const now = stateOf(view.state).places;
+          const was = stateOf(prevState).places;
+          const repaged =
             paginationKey.getState(view.state)?.pagination !==
-              paginationKey.getState(prevState)?.pagination
-          )
-            gutter.draw();
+            paginationKey.getState(prevState)?.pagination;
+          if (now === was && !repaged) return;
+          // from the states either side of the update, so a removal in a transaction followed by others is said
+          const removed = newlyRemoved(was, now);
+          if (removed.length > 0) options.onRemoved(removed);
+          gutter.draw();
         },
         destroy() {
           stop();
