@@ -4,16 +4,16 @@ import type { CrdtDoc } from "@manent/crdt";
 import type { DocHandle } from "@manent/sync-client";
 import { projectHome } from "@manent/sync-protocol";
 import type { DocKind, WorkspaceRef } from "@manent/sync-protocol";
-import { LIBRARY_WORDS, createValue } from "@manent/ui";
+import { LIBRARY_WORDS } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import type { CreateResult, LibraryIndex, ProjectKind } from "../ports.ts";
-import { cached } from "./cached.ts";
 import type { PersonSync } from "./create-sync.ts";
 import {
   PROJECT_KIND_FORMATS,
   projectStartOf,
   startImported,
 } from "./create-script.ts";
+import { createDocumentValues } from "./document-values.ts";
 import { readWorkspace } from "./index-entries.ts";
 import type { WorkspaceEntries } from "./index-entries.ts";
 import { createShelves } from "./index-shelves.ts";
@@ -45,8 +45,6 @@ export const PROJECT_CREATED: readonly ProjectCreated[] = [];
 
 /** At most one `editedAt` write per person and document this often. */
 const LAST_EDITED_EVERY_MS = 600_000;
-
-type Value<T> = Subscribable<T> & { set(value: T): void };
 
 /** The Library, and what it does while a document is open in this tab. */
 export interface SyncLibrary extends LibraryIndex {
@@ -173,64 +171,6 @@ function markEdited(
     editedAt: at,
     editedByUserId: userId,
   });
-}
-
-interface DocumentValues {
-  title(docId: string): Value<string | null>;
-  kind(docId: string): Value<ProjectKind | null>;
-  /** Writes Continue for `docId` once an index holds it; the returned function stops waiting. */
-  continueOnce(docId: string): () => void;
-  /** True once any document has been asked about. */
-  asked(): boolean;
-  /** Sets each value from the indexes, and writes the Continue entries an index now holds. */
-  draw(): void;
-}
-
-/** Each document's title and kind, and its Continue entry, from whichever opened index holds it; `wanted` opens them. */
-function createDocumentValues(options: {
-  find: (docId: string) => Found | null;
-  privateIndex: PrivateIndex;
-  now: () => number;
-  wanted: () => void;
-}): DocumentValues {
-  const { find } = options;
-  const titles = new Map<string, Value<string | null>>();
-  const kinds = new Map<string, Value<ProjectKind | null>>();
-  // the documents opened here whose Continue entry waits for an index that holds them
-  const continuing = new Set<string>();
-  const valueOf = <T>(
-    values: Map<string, Value<T | null>>,
-    docId: string,
-  ): Value<T | null> => {
-    const known = values.has(docId);
-    const value = cached(values, docId, () => createValue<T | null>(null));
-    if (!known) options.wanted();
-    return value;
-  };
-  return {
-    title: (docId) => valueOf(titles, docId),
-    kind: (docId) => valueOf(kinds, docId),
-    continueOnce(docId) {
-      continuing.add(docId);
-      options.wanted();
-      return () => {
-        continuing.delete(docId);
-      };
-    },
-    asked: () => titles.size + kinds.size + continuing.size > 0,
-    draw() {
-      for (const docId of continuing) {
-        const workspaceId = find(docId)?.workspaceId;
-        if (workspaceId === undefined) continue;
-        continuing.delete(docId);
-        const openedAt = options.now();
-        options.privateIndex.continueMap.set(docId, { workspaceId, openedAt });
-      }
-      for (const [docId, title] of titles)
-        title.set(find(docId)?.entry.title ?? null);
-      for (const [docId, kind] of kinds) kind.set(find(docId)?.kind ?? null);
-    },
-  };
 }
 
 /**
