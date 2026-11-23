@@ -1,6 +1,6 @@
 // The entries of the index documents' maps as the Library reads them: each value's shape checked, and the rows built from them.
 import type { JsonMapView } from "@manent/crdt";
-import { DEMO_PEOPLE } from "@manent/demo";
+import { demoPersonName } from "@manent/demo";
 import type { DocSummary } from "@manent/sync-client";
 import { isDocKind } from "@manent/sync-protocol";
 import type { DocKind } from "@manent/sync-protocol";
@@ -13,10 +13,14 @@ import type {
   RowPlace,
 } from "../ports.ts";
 
-/** What a sentence calls a person: the first of the demo's names for them ("Dana"); their id for one it does not know. */
+/** A person's full name, as an avatar names them ("Dana Reyes"); their id for one the demo does not know. */
+export function fullNameOf(userId: string): string {
+  return demoPersonName(userId) ?? userId;
+}
+
+/** What a sentence calls a person: the first of their names ("Dana"); their id for one the demo does not know. */
 export function nameOf(userId: string): string {
-  const name = DEMO_PEOPLE.find((person) => person.userId === userId)?.name;
-  return name?.split(" ")[0] ?? userId;
+  return fullNameOf(userId).split(" ")[0] ?? userId;
 }
 
 /** At most this many entries are shown in Continue. */
