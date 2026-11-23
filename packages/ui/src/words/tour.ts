@@ -1,6 +1,6 @@
 // The Tour panel's words.
 
-import { formatCount } from "./format.ts";
+import { LIBRARY_WORDS } from "./library.ts";
 
 export const TOUR_WORDS = {
   title: "Tour",
@@ -13,7 +13,7 @@ export const TOUR_WORDS = {
   setupUsed:
     "This has already been done in this demo. Reset the demo to do it again.",
   setupSeeding: (workspace: string, done: number, total: number): string =>
-    `${workspace} is getting ready, ${formatCount(done)} of ${formatCount(total)} projects. This opens when it is ready.`,
+    `${LIBRARY_WORDS.gettingReady(workspace, done, total)} This opens when it is ready.`,
   desktopOnly:
     "This one needs the desktop app. Run make desktop, then open the Tour there.",
 } as const;

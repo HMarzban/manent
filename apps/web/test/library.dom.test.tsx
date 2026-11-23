@@ -388,6 +388,12 @@ test("the switcher lists the person's workspaces and says which is getting ready
     router.state.location.pathname,
     router.state.location.search,
   ]).toEqual(["/", { w: "heavy" }]);
+  // a workspace getting ready says so in place of its lists, never that it is empty
+  const lines = [...document.querySelectorAll("p")].map((p) => p.textContent);
+  expect(lines).toContain(
+    "Lanternfield Studios is getting ready, 12 of 40 projects.",
+  );
+  expect(lines).not.toContain("No scripts yet");
 });
 
 test("a person with no session has one workspace, on this device only, and can sign in from it", async () => {

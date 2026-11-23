@@ -4,21 +4,21 @@ import { TOUR, isShown } from "@manent/demo";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   CommandButton,
+  DEMO_WORDS,
   LIBRARY_WORDS,
   createValue,
   useCommandState,
   useSubscribable,
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
-import { useQuery } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
 import type { ComponentType, ReactNode } from "react";
 import type { Api } from "../../api.ts";
-import { POLL_MS } from "../../demo/use-demo.ts";
 import { focusHeading } from "../../focus.ts";
 import { useServices } from "../../services/context.tsx";
 import type { ContinueItem, ProjectItem } from "../../services/ports.ts";
+import { useWorkspaces } from "../../services/use-workspaces.ts";
 import type { TabPerson } from "../../session.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { SidePosition } from "../../shell/side-position.tsx";
@@ -59,16 +59,7 @@ function useShownWorkspace(
   });
   const signedIn = person.token !== null;
   // a person with no session has no workspaces to ask the server about
-  const me = useQuery({
-    queryKey: ["me", person.userId],
-    queryFn: listWorkspaces(api),
-    enabled: signedIn,
-    // asked again while a workspace is getting ready, so the switcher follows its seed
-    refetchInterval: (query) =>
-      query.state.data?.some((ref) => ref.seeding?.failed === false)
-        ? POLL_MS
-        : false,
-  });
+  const me = useWorkspaces(api, person.userId, signedIn);
   const known = signedIn ? (me.data ?? null) : null;
   const answered = !signedIn || me.data !== undefined || me.isError;
   const fallback = answered ? (known?.[0]?.id ?? person.userId) : null;
@@ -76,19 +67,6 @@ function useShownWorkspace(
     workspaceId: typeof w === "string" ? w : fallback,
     workspaces: known,
     serverProblem: signedIn && me.isError,
-  };
-}
-
-/** The person's workspaces; a server that cannot list them throws, so the query keeps the last list it heard. */
-function listWorkspaces(api: Api): () => Promise<readonly WorkspaceRef[]> {
-  return async () => {
-    const answer = await api.me();
-    if (!answer.ok) {
-      throw new Error(
-        `the server did not list the workspaces: ${answer.reason}`,
-      );
-    }
-    return answer.me.workspaces;
   };
 }
 
@@ -149,6 +127,24 @@ function useWorkspaceLists(workspaceId: string | null): {
   };
 }
 
+/**
+ * What the main column says in place of the lists of a workspace that is being seeded, which hold nothing until it is
+ * ready, or whose seed stopped.
+ */
+function GettingReady(props: {
+  name: string;
+  seeding: NonNullable<WorkspaceRef["seeding"]>;
+}): ReactNode {
+  const { name, seeding } = props;
+  return (
+    <p className="pt-6 text-ui">
+      {seeding.failed
+        ? DEMO_WORDS.seedingFailed
+        : LIBRARY_WORDS.gettingReady(name, seeding.done, seeding.total)}
+    </p>
+  );
+}
+
 function Library(props: { api: Api; person: TabPerson }): ReactNode {
   const { api, person } = props;
   const { workspaceId, workspaces, serverProblem } = useShownWorkspace(
@@ -156,6 +152,7 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
     person,
   );
   const { continueList, projects, problem } = useWorkspaceLists(workspaceId);
+  const shown = workspaces?.find((ref) => ref.id === workspaceId) ?? null;
   const View = useChosenView();
   // a signed-in person's switcher waits for the server to say which workspaces they have
   const switcher =
@@ -190,12 +187,16 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
       <div className="@container flex min-h-0 flex-1">
         <LibraryNav projects={projects} />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 px-6 pt-6 pb-8 *:w-full *:max-w-content-wide">
-          <View
-            workspaceId={workspaceId}
-            continueList={continueList}
-            projects={projects}
-            problem={problem || serverProblem}
-          />
+          {shown?.seeding == null ? (
+            <View
+              workspaceId={workspaceId}
+              continueList={continueList}
+              projects={projects}
+              problem={problem || serverProblem}
+            />
+          ) : (
+            <GettingReady name={shown.name} seeding={shown.seeding} />
+          )}
         </div>
         <SidePosition docId={null} tabs={SIDE_PANEL_TABS} />
       </div>

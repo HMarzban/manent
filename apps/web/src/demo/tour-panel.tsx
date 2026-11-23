@@ -10,21 +10,18 @@ import type { TourScenario } from "@manent/demo";
 import { projectHome } from "@manent/sync-protocol";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import { TOUR_WORDS } from "@manent/ui";
-import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import type { Api } from "../api.ts";
 import type { Where } from "../platform.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
+import { useWorkspaces } from "../services/use-workspaces.ts";
 import { createTourProgress } from "./tour-progress.ts";
 import { TourScenarioRow } from "./tour-scenario.tsx";
 import type { SetupHold } from "./tour-scenario.tsx";
 import { runSetup } from "./tour-setup.ts";
 import type { SetupOutcome } from "./tour-setup.ts";
-import { POLL_MS } from "./use-demo.ts";
-
-const HEAVY_SEEDING_QUERY = "tour-heavy-seeding";
 
 const SET_UP_FAILED: SetupOutcome = Object.freeze({
   ok: false,
@@ -60,30 +57,14 @@ const HEAVY_LISTED: readonly string[] = (() => {
   );
 })();
 
-/**
- * Lanternfield Studios as `/api/me` lists it while `enabled`, asked again every `POLL_MS` while it is getting ready;
- * null for a person with no session, whom the server does not answer.
- */
+/** Lanternfield Studios as the person's workspaces list it while `enabled`; null until they are known. */
 function useHeavyWorkspace(
   api: Api,
   userId: string,
   enabled: boolean,
 ): WorkspaceRef | null {
-  return (
-    useQuery({
-      queryKey: [HEAVY_SEEDING_QUERY, userId],
-      queryFn: async () => {
-        const answer = await api.me();
-        if (!answer.ok) return null;
-        return answer.me.workspaces.find((w) => w.id === "heavy") ?? null;
-      },
-      enabled,
-      refetchInterval: (query) => {
-        const seeding = query.state.data?.seeding ?? null;
-        return seeding !== null && !seeding.failed ? POLL_MS : false;
-      },
-    }).data ?? null
-  );
+  const { data } = useWorkspaces(api, userId, enabled);
+  return data?.find((w) => w.id === "heavy") ?? null;
 }
 
 /** What keeps the scenario from being set up in `shell` while Lanternfield Studios is as `heavy` says; null when nothing does. */

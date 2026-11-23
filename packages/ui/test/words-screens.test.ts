@@ -32,6 +32,7 @@ test("the screens' words are the design's", () => {
     changedSinceOpened: L.changedSinceOpened,
     onDevice: L.onDevice(12, 40),
     seeding: L.seeding(12, 40),
+    gettingReady: L.gettingReady("Lanternfield Studios", 12, 40),
     workspaceLine: [
       L.workspaceLine(14, "The Long Night"),
       L.workspaceLine(1, "Harbour Lights"),
@@ -64,6 +65,7 @@ test("the screens' words are the design's", () => {
     changedSinceOpened: "Changed since you opened",
     onDevice: "12 of 40 projects are on this device",
     seeding: "getting ready, 12 of 40 projects",
+    gettingReady: "Lanternfield Studios is getting ready, 12 of 40 projects.",
     workspaceLine: [
       "14 projects · The Long Night",
       "1 project · Harbour Lights",

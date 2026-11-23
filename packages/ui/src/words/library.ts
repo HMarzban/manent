@@ -35,6 +35,9 @@ const UNTITLED_PROJECT: Readonly<Record<Kind, string>> = {
   stage_play: "Untitled stage play",
 };
 
+const seeding = (done: number, total: number): string =>
+  `getting ready, ${formatCount(done)} of ${formatCount(total)} projects`;
+
 export const LIBRARY_WORDS = {
   title: "Library",
   continueHeading: "Continue",
@@ -49,8 +52,10 @@ export const LIBRARY_WORDS = {
   changedSinceOpened: "Changed since you opened",
   onDevice: (n: number, m: number): string =>
     `${formatCount(n)} of ${formatCount(m)} projects are on this device`,
-  seeding: (done: number, total: number): string =>
-    `getting ready, ${formatCount(done)} of ${formatCount(total)} projects`,
+  seeding,
+  /** What the Library says in place of a workspace's lists while it is being seeded. */
+  gettingReady: (workspace: string, done: number, total: number): string =>
+    `${workspace} is ${seeding(done, total)}.`,
   /** A workspace's second line in the switcher; `lastTitle` is null while its Continue is empty. */
   workspaceLine: (count: number, lastTitle: string | null): string => {
     const projects =
