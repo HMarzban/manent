@@ -36,6 +36,7 @@ const CTX: CommandContext = {
   shell: "web",
   demo: false,
   signedIn: true,
+  workspace: "writable",
   panelOpen: { left: false, side: false },
   historyPresent: false,
   format: null,

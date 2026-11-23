@@ -3,7 +3,9 @@
 import type {
   ControlEndpoint,
   DemoResponse,
+  DescribeResponse,
   DocClientsResponse,
+  DocRole,
   HttpErrorCode,
   MeResponse,
   RemovedDocResponse,
@@ -36,6 +38,8 @@ export interface Api {
   demo(): Promise<DemoResponse | null>;
   /** Who deleted the document and when; null when the server holds no record of it; throws when it cannot tell. */
   removedDoc(docId: string): Promise<RemovedDocResponse | null>;
+  /** The person's role on the document; null without a session, and when the server cannot be reached or gives them none. */
+  role(docId: string): Promise<DocRole | null>;
   /** Who wrote under each of the document's client ids the server knows; throws when it cannot tell. */
   docClients(
     docId: string,
@@ -176,6 +180,13 @@ export function createApi(options: {
       const response = await request("/api/docs/removed", jsonPost({ docId }));
       if (response.status === 404) return null;
       return readOk<RemovedDocResponse>(response, "POST /api/docs/removed");
+    },
+
+    async role(docId) {
+      if (getToken() === null) return null;
+      const response = await attempt("/api/docs/describe", jsonPost({ docId }));
+      if (response === null || !response.ok) return null;
+      return (await readAs<DescribeResponse>(response)).role;
     },
 
     async docClients(docId, clientIds) {

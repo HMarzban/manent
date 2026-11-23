@@ -173,6 +173,7 @@ export function TourScenarioRow(props: {
       {line === null ? null : <p className="text-fg-muted">{line}</p>}
       {button === null ? null : (
         <Button
+          variant="outline"
           disabled={button === "disabled" || running}
           onClick={() => void run()}
         >

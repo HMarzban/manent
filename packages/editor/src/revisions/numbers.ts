@@ -10,6 +10,7 @@ import {
   baseEngine,
   deriveNumbers,
   elasticEngine,
+  findCollisions,
   lockedPagination,
   productionLayout,
 } from "@manent/revisions";
@@ -19,8 +20,6 @@ import type { EditorState, Transaction } from "prosemirror-state";
 import type { PaginationState } from "../pagination/plugin.ts";
 import type { RevisionKept } from "./derive.ts";
 import type { ProductionView } from "./plugin.ts";
-
-const LEADING_LETTERS = /^[A-Z]+/;
 
 /** A heading that carries a scene number: a scene heading or a slug. */
 export function isNumberedHeading(type: unknown): boolean {
@@ -70,48 +69,6 @@ function lockedOf(
   );
 }
 
-function prefixAndRest(label: string): readonly [string, string] {
-  const rest = label.replace(LEADING_LETTERS, "");
-  return [label.slice(0, label.length - rest.length), rest];
-}
-
-// `label` is `locked` with letters put in front: the label the engine gives a page when no letter is left before it.
-function isPrefixedOf(label: string, locked: string): boolean {
-  const [prefix, rest] = prefixAndRest(label);
-  const [lockedPrefix, lockedRest] = prefixAndRest(locked);
-  return (
-    rest === lockedRest &&
-    prefix.length > lockedPrefix.length &&
-    prefix.startsWith(lockedPrefix)
-  );
-}
-
-/** Whether a page from `from` on is prefixed onto the next locked page, which a level-1 issue anchor starts. */
-function collidesFrom(
-  p: Pagination,
-  records: readonly LockAnchorRecord[],
-  from: number,
-): boolean {
-  const absorbing = new Set(
-    records
-      .filter((record) => record.source === "issue" && record.level === 1)
-      .map((record) => record.label),
-  );
-  if (absorbing.size === 0) return false;
-  let next: string | null = null;
-  for (let i = p.pages.length - 1; i >= from; i--) {
-    const page = p.pages[i]!;
-    if (page.locked) next = page.label;
-    else if (
-      next !== null &&
-      absorbing.has(next) &&
-      isPrefixedOf(page.label, next)
-    )
-      return true;
-  }
-  return false;
-}
-
 /**
  * Whether a set-aside anchor may hold again after a change to pages `from` to `to`: the change reached the pages
  * from the locked page before its label to the label's page, which alone decide whether the parent still
@@ -150,7 +107,7 @@ function needsRelock(
   const from = pageAt(change.first);
   const to = pageAt(Math.max(change.first, change.newEnd - 1));
   if (reachesSetAside(p, locked.dropped, from, to)) return true;
-  return collidesFrom(p, records, from);
+  return findCollisions(p, records, from).length > 0;
 }
 
 const sameLabels = (a: readonly string[], b: readonly string[]): boolean =>

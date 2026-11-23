@@ -2,6 +2,7 @@
 import fc from "fast-check";
 import { canonicalBlock, canonicalDoc } from "@manent/schema";
 import type { BlockJSON, DocJSON, MarkJSON } from "@manent/schema";
+import { textOf } from "../src/index.ts";
 
 export const A = "a".repeat(16);
 export const B = "b".repeat(16);
@@ -36,10 +37,6 @@ export function doc(...blocks: BlockJSON[]): DocJSON {
     type: "doc",
     content: [{ type: "section", content: blocks }],
   });
-}
-
-function textOf(block: BlockJSON): string {
-  return (block.content ?? []).map((run) => run.text).join("");
 }
 
 function blocksIn(json: DocJSON): BlockJSON[] {

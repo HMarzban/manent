@@ -15,6 +15,7 @@ import type { HistoryOutcome, HistoryService } from "../../history/service.ts";
 import { failure, json } from "../respond.ts";
 import type { Route, RouteContext } from "../route.ts";
 import type { ServerConfig } from "../server.ts";
+import { isClientId } from "./docs-info.ts";
 import { isObject } from "./docs.ts";
 
 /** The largest upload or restore body, in bytes. */
@@ -262,16 +263,17 @@ function readRestore(body: unknown): HistoryOutcome<RestoreRequest> {
     return refused("bad_request");
   const { docId, key, versionId } = body;
   const { kind, headingId } = body.scope;
+  // a build from before the field sends none: no device asked to keep what the restore writes
+  const clientId = body.clientId ?? null;
   if (typeof key !== "string" || typeof versionId !== "string")
     return refused("bad_request");
+  if (clientId !== null && !isClientId(clientId)) return refused("bad_request");
+  const request = { docId, key, versionId, clientId };
   if (kind === "script")
-    return { ok: true, value: { docId, key, versionId, scope: { kind } } };
+    return { ok: true, value: { ...request, scope: { kind } } };
   if (kind !== "scene" || typeof headingId !== "string")
     return refused("bad_request");
-  return {
-    ok: true,
-    value: { docId, key, versionId, scope: { kind, headingId } },
-  };
+  return { ok: true, value: { ...request, scope: { kind, headingId } } };
 }
 
 function readAuthors(body: unknown): HistoryOutcome<AuthorsRequest> {

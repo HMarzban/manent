@@ -1,5 +1,6 @@
 // The Tour tab: the scenarios this build can show, in their groups, each with its progress and its set-up.
 import {
+  DEMO_PEOPLE,
   SEED_DOCS,
   TOUR,
   heavyHomes,
@@ -10,21 +11,19 @@ import type { TourScenario } from "@manent/demo";
 import { projectHome } from "@manent/sync-protocol";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import { TOUR_WORDS } from "@manent/ui";
-import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import type { Api } from "../api.ts";
 import type { Where } from "../platform.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
+import { useWorkspaces } from "../services/use-workspaces.ts";
+import { panelsActions } from "../state/panels.store.ts";
 import { createTourProgress } from "./tour-progress.ts";
 import { TourScenarioRow } from "./tour-scenario.tsx";
 import type { SetupHold } from "./tour-scenario.tsx";
 import { runSetup } from "./tour-setup.ts";
 import type { SetupOutcome } from "./tour-setup.ts";
-import { POLL_MS } from "./use-demo.ts";
-
-const HEAVY_SEEDING_QUERY = "tour-heavy-seeding";
 
 const SET_UP_FAILED: SetupOutcome = Object.freeze({
   ok: false,
@@ -60,30 +59,14 @@ const HEAVY_LISTED: readonly string[] = (() => {
   );
 })();
 
-/**
- * Lanternfield Studios as `/api/me` lists it while `enabled`, asked again every `POLL_MS` while it is getting ready;
- * null for a person with no session, whom the server does not answer.
- */
+/** Lanternfield Studios as the person's workspaces list it while `enabled`; null until they are known. */
 function useHeavyWorkspace(
   api: Api,
   userId: string,
   enabled: boolean,
 ): WorkspaceRef | null {
-  return (
-    useQuery({
-      queryKey: [HEAVY_SEEDING_QUERY, userId],
-      queryFn: async () => {
-        const answer = await api.me();
-        if (!answer.ok) return null;
-        return answer.me.workspaces.find((w) => w.id === "heavy") ?? null;
-      },
-      enabled,
-      refetchInterval: (query) => {
-        const seeding = query.state.data?.seeding ?? null;
-        return seeding !== null && !seeding.failed ? POLL_MS : false;
-      },
-    }).data ?? null
-  );
+  const { data } = useWorkspaces(api, userId, enabled);
+  return data?.find((w) => w.id === "heavy") ?? null;
 }
 
 /** What keeps the scenario from being set up in `shell` while Lanternfield Studios is as `heavy` says; null when nothing does. */
@@ -100,12 +83,17 @@ function holdOf(
   return { kind: "seeding", workspace: heavy.name, done, total };
 }
 
-/** Set it up for this tab: the set-up's work done with the tab's services and router. */
+/**
+ * Set it up for this tab: the set-up's work done with the tab's services and router. Once it is set up the Tour shows
+ * again, since the panels put back for the person the tab became may not show it, and a tab that became another person
+ * says so in the message slot.
+ */
 function useScenarioSetUp(): (scenario: TourScenario) => Promise<SetupOutcome> {
   const services = useServices();
+  const { personServices } = useEnvironment();
   const router = useRouter();
-  return (scenario) =>
-    runSetup(scenario, {
+  return async (scenario) => {
+    const outcome = await runSetup(scenario, {
       prepare: (id) => services.api.prepareTour(id),
       async switchPerson(userId) {
         if (userId === services.userId) return;
@@ -121,6 +109,24 @@ function useScenarioSetUp(): (scenario: TourScenario) => Promise<SetupOutcome> {
       // a window the browser refused: the scenario says it could not be set up
       () => SET_UP_FAILED,
     );
+    if (!outcome.ok) return outcome;
+    panelsActions.open("side", "tour");
+    const person = DEMO_PEOPLE.find((p) => p.userId === scenario.setup.userId);
+    const drawn = personServices.get();
+    if (
+      person !== undefined &&
+      person.userId !== services.userId &&
+      drawn?.userId === person.userId
+    )
+      drawn.messages.push({
+        id: "tour_person",
+        text: TOUR_WORDS.nowPerson(person.name),
+        actions: [],
+        lifetime: "brief",
+        ownWork: false,
+      });
+    return outcome;
+  };
 }
 
 /** Lists only the scenarios `isShown` passes, and draws no group that lists none. Never takes focus. */
@@ -143,15 +149,14 @@ export function TourPanel(): ReactNode {
 
   return (
     <div className="flex flex-col gap-4 p-3">
-      <h2 className="text-title">{TOUR_WORDS.title}</h2>
       {TOUR.groups.map((group) => {
         const scenarios = LISTED.filter((s) => s.group === group);
         if (scenarios.length === 0) return null;
         return (
           <section key={group} className="flex flex-col gap-2">
-            <h3 className="text-micro font-semibold tracking-wide text-fg-muted uppercase">
+            <h2 className="text-micro font-semibold tracking-wide text-fg-muted uppercase">
               {group}
-            </h3>
+            </h2>
             <ul className="flex flex-col gap-4">
               {scenarios.map((scenario) => (
                 <TourScenarioRow

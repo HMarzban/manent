@@ -1,6 +1,7 @@
 // The choices of a Send form's What row: what of the document it sends; a feature adds its option with one line.
 import type { DocJSON } from "@manent/schema";
-import { EDITOR_WORDS } from "@manent/ui";
+import { EDITOR_WORDS, MATERIAL_WORDS } from "@manent/ui";
+import { withAlternates } from "../material/alternates/with-alternates.ts";
 import type { SendFormId } from "../screens/send/form-ids.ts";
 
 /** The JSON of the script's writers' material roots, by entry id, which a What option's transform reads. */
@@ -35,6 +36,12 @@ export const SEND_WHAT_OPTIONS: readonly SendWhatOption[] = [
     label: EDITOR_WORDS.send.wholeScript,
     appliesTo: ["export", "print"],
     transform: null,
+  },
+  {
+    id: "with_alternates",
+    label: MATERIAL_WORDS.printWithAlternates,
+    appliesTo: ["print", "export"],
+    transform: withAlternates,
   },
 ];
 

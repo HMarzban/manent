@@ -23,14 +23,21 @@ import { PLACE_COLUMN, RowMenu, placeProps } from "./row-place.tsx";
 // the placeholder rows drawn while the workspace is not known
 const PLACEHOLDER_ROWS = 6;
 
-/** The second line of `item`'s row: the first of DOCUMENT_ROW_LINES that has one, else its project and kind. */
+/**
+ * The second line of `item`'s row: the first of DOCUMENT_ROW_LINES that has one, else its project and kind; a project
+ * named as the document is not named twice.
+ */
 function useSecondLine(item: ContinueItem): string {
   let line: string | null = null;
   for (const source of DOCUMENT_ROW_LINES) {
     const said = source.useLine(item.docId);
     line ??= said;
   }
-  return line ?? [item.projectTitle, kindLabel(item.kind)].join(" · ");
+  if (line !== null) return line;
+  const kind = kindLabel(item.kind);
+  return item.projectTitle === item.title
+    ? kind
+    : [item.projectTitle, kind].join(" · ");
 }
 
 function ContinueRow(props: {

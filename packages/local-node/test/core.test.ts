@@ -1,8 +1,30 @@
 import { expect, test } from "bun:test";
+import { scriptBody } from "@manent/crdt";
+import type { BlockJSON } from "@manent/schema";
 import { indexDocId, workspaceHome } from "@manent/sync-protocol";
 import { DOC, nodeWorld } from "./relay-world.ts";
 
 const WORKSPACE = "lamp-room";
+const key = (n: number): string => n.toString(16).padStart(32, "0");
+const block = (id: string, type: string, text: string): BlockJSON => ({
+  type: "block",
+  attrs: { id, type },
+  content: [{ type: "text", text }],
+});
+
+/** The ID of the version a POST /api/versions/name answer names. */
+function versionIdOf(answer: unknown): string {
+  const version =
+    typeof answer === "object" && answer !== null && "version" in answer
+      ? answer.version
+      : null;
+  const id =
+    typeof version === "object" && version !== null && "id" in version
+      ? version.id
+      : null;
+  if (typeof id !== "string") throw new Error("no version was named");
+  return id;
+}
 
 test("the window signs in at the node, opens a script and is answered by the node alone", async () => {
   const w = nodeWorld();
@@ -157,4 +179,61 @@ test("a window that re-sends an edit whose acknowledgement it lost says synced o
     synced: true,
     waiting: 0,
   });
+});
+
+test("text a restore sent on to the cloud wrote, which an offline writer removes unseen, is kept as the window's Recovered text", async () => {
+  const w = nodeWorld();
+  const window = await w.openSynced("sam", DOC);
+  scriptBody(window.doc()).write((writer) => {
+    writer.insertBlocks(null, [
+      block("lamp-heading", "scene_heading", "INT. LAMP ROOM - NIGHT"),
+      block("lamp-action", "action", "The lamp burns."),
+    ]);
+    writer.insertBlocks("lamp-action", [
+      block("yard-heading", "scene_heading", "EXT. YARD - DAY"),
+      block("yard-action", "action", "Rain."),
+    ]);
+  });
+  await w.settle();
+  const token = w.tokens.get("sam") ?? null;
+  const named = await w.drive(
+    w.request("POST", "/api/versions/name", {
+      token,
+      body: {
+        docId: DOC,
+        key: key(1),
+        name: "Table read",
+        fromVersionId: null,
+      },
+    }),
+  );
+  const versionId = versionIdOf(await named.json());
+  scriptBody(window.doc()).write((writer) => writer.deleteBlock("lamp-action"));
+  await w.settle();
+  const dana = await w.browserHandle("dana", DOC);
+  w.browserOnline("dana", false);
+  const clientId = await w.drive(window.reserveClientId());
+  const body = {
+    docId: DOC,
+    key: key(2),
+    versionId,
+    scope: { kind: "script" },
+    clientId,
+  };
+  const restored = await w.drive(
+    w.request("POST", "/api/versions/restore", { token, body }),
+  );
+  await w.settle();
+  expect([restored.status, w.cloudText(DOC)]).toEqual([
+    200,
+    ["INT. LAMP ROOM - NIGHT", "The lamp burns.", "EXT. YARD - DAY", "Rain."],
+  ]);
+  // Dana's scene was its heading alone: deleting it takes its section, and the line restored there
+  scriptBody(dana.doc()).write((writer) => writer.deleteBlock("lamp-heading"));
+  w.browserOnline("dana", true);
+  await w.settle();
+  expect(w.cloudText(DOC)).toEqual(["EXT. YARD - DAY", "Rain."]);
+  expect(window.recovered.get().map((item) => item.text)).toEqual([
+    "The lamp burns.",
+  ]);
 });

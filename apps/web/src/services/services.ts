@@ -2,7 +2,7 @@
 import { COMMANDS, isChord, resolveBindings } from "@manent/commands";
 import type { CustomBinding, Keys, Resolved } from "@manent/commands";
 import { SECTION_IDS, latestEntries } from "@manent/settings";
-import type { KeyValueMap } from "@manent/settings";
+import type { Bag, KeyValueMap } from "@manent/settings";
 import type { DocHandle } from "@manent/sync-client";
 import { createMessageQueue, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
@@ -16,6 +16,7 @@ import {
 } from "../editor-host/place.ts";
 import type { PlaceStore } from "../editor-host/place.ts";
 import { createLazySource } from "../history/lazy-source.ts";
+import type { HistorySource } from "../history/source.ts";
 import { createTrash } from "../library/trash-api.ts";
 import type { Where } from "../platform.ts";
 import { openProjectIndex } from "../project/project-index.ts";
@@ -28,10 +29,17 @@ import { createFlags } from "./flags.ts";
 import { createLocalMap, createLocalText } from "./local-map.ts";
 import { createCommands } from "./person-commands.ts";
 import type { CommandsOptions } from "./person-commands.ts";
-import type { FixedKey, PersonServices, Reverses } from "./ports.ts";
+import type {
+  EditorParts,
+  FixedKey,
+  PersonServices,
+  Reverses,
+} from "./ports.ts";
 import { createPersonDocuments } from "./person-documents.ts";
+import type { PersonDocuments } from "./person-documents.ts";
 import { createStores } from "./settings-stores.ts";
 import { createCloseGuard, createCloseQuestion } from "./sync/close-guard.ts";
+import type { CloseGuard } from "./sync/close-guard.ts";
 import { documentBlocks } from "./sync/document-blocks.ts";
 import { createFavourites } from "./sync/favourites.ts";
 import { createFolders } from "./sync/folders.ts";
@@ -130,11 +138,14 @@ function placeStoreOf(options: Options): PlaceStore {
   return store;
 }
 
-/**
- * `person`'s services over `storage` and the person's sync, started here; `dispose` stops listening to other tabs,
- * drops every open document's store and disposes the sync.
- */
-export function createPersonServices(options: Options): PersonServices {
+/** The settings bag of each script's project over the person's sync; null for a script with none. */
+function projectBagOf(sync: PersonDocuments): (docId: string) => Bag | null {
+  return (docId) =>
+    projectSettingsBag({ docId, client: sync.client, library: sync.library });
+}
+
+/** The person's sync, stores, bindings, editor control, command service and view state, wired to one another; `stop` stops keeping the view state and the commands' listening. */
+function wirePerson(options: Options) {
   const kept = createKept(options);
   const messages = createMessageQueue({
     now: options.now,
@@ -150,16 +161,7 @@ export function createPersonServices(options: Options): PersonServices {
   });
   const { settings, scripts } = createStores(
     options,
-    {
-      ...kept,
-      prefs: sync.maps.prefs,
-      projectBag: (docId) =>
-        projectSettingsBag({
-          docId,
-          client: sync.client,
-          library: sync.library,
-        }),
-    },
+    { ...kept, prefs: sync.maps.prefs, projectBag: projectBagOf(sync) },
     guard,
   );
   const resolved = createResolved(sync.maps.keys, options.where);
@@ -177,77 +179,103 @@ export function createPersonServices(options: Options): PersonServices {
   });
   const place = placeStoreOf(options);
   const stopKeeping = keepViewState(place, options.schedule);
-  const leave = (): void => sync.leave();
+  return {
+    kept,
+    messages,
+    sync,
+    settings,
+    scripts,
+    resolved,
+    flags,
+    control,
+    commands,
+    fillHandlers,
+    place,
+    stop() {
+      stopKeeping();
+      stop();
+    },
+    closing: { guard, question },
+  };
+}
+
+/** Leaves the person's documents when the page is hidden, and has the browser ask before the tab closes while `guard` finds a document this device cannot save. Returns the stop. */
+function listenToPage(leave: () => void, guard: CloseGuard): () => void {
   // the browser asks with its own words, which cannot carry Manent's
   const askBeforeClosing = (event: Event): void => {
     if (guard.failing() !== null) event.preventDefault();
   };
   globalThis.addEventListener("pagehide", leave);
   globalThis.addEventListener("beforeunload", askBeforeClosing);
-  const fixedKeys = createValue<readonly FixedKey[]>([]);
-  const openHandle = async (docId: string): Promise<DocHandle> =>
-    (await sync.client).open(writingActions.openTarget(docId));
-  // history's requests and pages load apart from the entry
-  const history = createLazySource({
+  return () => {
+    globalThis.removeEventListener("pagehide", leave);
+    globalThis.removeEventListener("beforeunload", askBeforeClosing);
+  };
+}
+
+/** The person's versions over `open`; history's requests and pages load apart from the entry. */
+function createPersonHistory(
+  options: Options,
+  open: (docId: string) => Promise<DocHandle>,
+): HistorySource {
+  return createLazySource({
     now: options.now,
     load: async () =>
       (await import("../history/source.ts")).createHistorySource({
         fetch,
         token: () => options.person.token,
-        open: openHandle,
+        open,
         userId: options.person.userId,
         now: options.now,
         // a request's key is 32 lower-case hex digits
         ids: () => options.randomId().replaceAll("-", ""),
       }),
   });
+}
+
+/** The person's editor mounts of the page and of what is beside it, over one editor build made on the first mount. */
+function createPersonMounts(
+  options: Options,
+  ready: Promise<void>,
+  parts: EditorParts,
+): Pick<PersonServices, "mount" | "besideMount"> {
   // the editor reads the person's preferences as it mounts, so it waits for their private index; it is built once
   let editorLoad: Promise<
     Pick<PersonServices, "mount" | "besideMount">
   > | null = null;
   const loadedEditor = () =>
-    (editorLoad ??= sync.ready.then(() =>
-      options.loadEditor(options, {
-        services: () => services,
-        control,
-        commands,
-        messages,
-        resolved,
-        fixedKeys,
-        navigate: (path) => options.router.navigate(path),
-        client: sync.client,
-      }),
-    ));
-  const services: PersonServices = {
-    userId: options.person.userId,
-    settings,
-    commands,
-    resolved,
-    library: sync.library,
-    documents: scripts.documents,
-    review: sync.review,
-    openScriptStore: scripts.openScriptStore,
-    messages,
-    flags,
-    keys: sync.maps.keys,
-    tour: sync.maps.tour,
-    api: options.api,
-    lastPane: kept.lastPane,
-    place,
-    get persisted() {
-      return kept.device.persisted;
-    },
-    fixedKeys,
-    reverses: createReverses(messages),
-    editor: control,
+    (editorLoad ??= ready.then(() => options.loadEditor(options, parts)));
+  return {
     mount: createLazyMount(async () => (await loadedEditor()).mount),
     besideMount: (besideControl) =>
       createLazyMount(async () =>
         (await loadedEditor()).besideMount(besideControl),
       ),
-    history,
+  };
+}
+
+/** What the person reads and keeps through their sync client and the server's API, beside the open documents. */
+function createSyncedParts(
+  options: Options,
+  sync: PersonDocuments,
+): Pick<
+  PersonServices,
+  | "history"
+  | "openHandle"
+  | "prompter"
+  | "onDevice"
+  | "projectIndex"
+  | "folders"
+  | "favourites"
+  | "trash"
+  | "documentBlocks"
+  | "createInkProject"
+> {
+  const openHandle = async (docId: string): Promise<DocHandle> =>
+    (await sync.client).open(writingActions.openTarget(docId));
+  return {
+    history: createPersonHistory(options, openHandle),
     openHandle,
-    writing: writingActions,
     prompter: async (rundownId) => (await sync.client).prompter(rundownId),
     async onDevice(docIds) {
       const held = new Set(
@@ -263,17 +291,61 @@ export function createPersonServices(options: Options): PersonServices {
     documentBlocks: (docId) => documentBlocks(sync.client, docId),
     createInkProject: (workspaceId, input) =>
       createInkProject(sync.library, workspaceId, input),
+  };
+}
+
+/**
+ * `person`'s services over `storage` and the person's sync, started here; `dispose` stops listening to other tabs,
+ * drops every open document's store and disposes the sync.
+ */
+export function createPersonServices(options: Options): PersonServices {
+  const wired = wirePerson(options);
+  const { kept, sync, commands, messages, resolved, control } = wired;
+  const stopListening = listenToPage(() => sync.leave(), wired.closing.guard);
+  const fixedKeys = createValue<readonly FixedKey[]>([]);
+  const services: PersonServices = {
+    userId: options.person.userId,
+    settings: wired.settings,
+    commands,
+    resolved,
+    library: sync.library,
+    documents: wired.scripts.documents,
+    review: sync.review,
+    openScriptStore: wired.scripts.openScriptStore,
+    messages,
+    flags: wired.flags,
+    keys: sync.maps.keys,
+    tour: sync.maps.tour,
+    api: options.api,
+    lastPane: kept.lastPane,
+    place: wired.place,
+    get persisted() {
+      return kept.device.persisted;
+    },
+    fixedKeys,
+    reverses: createReverses(messages),
+    editor: control,
+    ...createPersonMounts(options, sync.ready, {
+      services: () => services,
+      control,
+      commands,
+      messages,
+      resolved,
+      fixedKeys,
+      navigate: (path) => options.router.navigate(path),
+      client: sync.client,
+    }),
+    ...createSyncedParts(options, sync),
+    writing: writingActions,
     pagePorts: browserPagePorts(options.userAgent),
     ready: sync.ready,
-    closing: { guard, question },
+    closing: wired.closing,
     connection: sync.connection,
     dispose() {
-      globalThis.removeEventListener("pagehide", leave);
-      globalThis.removeEventListener("beforeunload", askBeforeClosing);
-      stopKeeping();
-      stop();
+      stopListening();
+      wired.stop();
       kept.dispose();
-      scripts.clear();
+      wired.scripts.clear();
       // production's services load with the editor, and so does what disposes them
       void import("../production/live-services.ts").then((loaded) =>
         loaded.disposeProductionServices(options.person.userId),
@@ -281,6 +353,6 @@ export function createPersonServices(options: Options): PersonServices {
       sync.dispose();
     },
   };
-  fillHandlers(services);
+  wired.fillHandlers(services);
   return services;
 }
