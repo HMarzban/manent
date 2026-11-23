@@ -127,6 +127,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     sessions,
     ids,
     sync: () => serviceOf(server),
+    reserveClientId: (userId, docId) => relay.reserveClientId(userId, docId),
   });
 
   const sync: NonNullable<ServerConfig["sync"]> = {

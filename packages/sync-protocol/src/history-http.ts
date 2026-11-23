@@ -157,6 +157,12 @@ export interface RestoreRequest {
   key: string;
   versionId: string;
   scope: RestoreScopeBody;
+  /**
+   * The Yjs client ID the restore is written under: one the asking device holds as its own and
+   * has written nothing under, so that the device sets aside, as for its own typing, the restored
+   * text a later change removes without having seen it. Null when no device asked to keep it.
+   */
+  clientId: number | null;
 }
 
 /** The answer to POST /api/versions/name, /save and /upload. */
