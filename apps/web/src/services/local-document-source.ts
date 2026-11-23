@@ -1,6 +1,7 @@
 // The documents of this tab until sync supplies them: each held in memory, never synced, and editable by everyone.
 import { createMemoryBag } from "@manent/settings";
 import { createValue } from "@manent/ui";
+import { peoplePresent } from "../room/people-present.ts";
 import { materialActions } from "../state/material.store.ts";
 import type { DocumentServices, DocumentSource } from "./ports.ts";
 
@@ -10,7 +11,7 @@ export function createLocalDocumentSource(options: {
   shell: "web" | "desktop";
 }): DocumentSource {
   const documents = new Map<string, DocumentServices>();
-  const create = (): DocumentServices => ({
+  const create = (docId: string): DocumentServices => ({
     status: createValue({
       access: "edit",
       device: "ok",
@@ -27,14 +28,14 @@ export function createLocalDocumentSource(options: {
     waitingByScene: createValue([]),
     stateFacts: createValue([]),
     scriptBag: createMemoryBag({ initial: {}, writable: () => true }),
-    people: createValue([]),
+    people: peoplePresent(docId),
     material: materialActions,
   });
   return {
     open(docId) {
       const existing = documents.get(docId);
       if (existing !== undefined) return existing;
-      const opened = create();
+      const opened = create(docId);
       documents.set(docId, opened);
       return opened;
     },
