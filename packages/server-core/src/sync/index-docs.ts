@@ -1,15 +1,16 @@
-// Index documents: the kinds that hold a person's or a workspace's maps, and what a push to one may write.
+// Index documents: the kinds that hold a person's, a workspace's or a project's maps, and what a push to one may write.
 import { PRIVATE_INDEX_MAPS, WORKSPACE_INDEX_MAPS } from "@manent/crdt";
 import type { TransactionReport } from "@manent/crdt";
 import type { Issue } from "@manent/schema";
 import type { Home } from "@manent/storage";
+import { indexDocId } from "@manent/sync-protocol";
 import type { DocKind } from "@manent/sync-protocol";
 
 /** The kinds that hold maps and never a script body. */
 export const INDEX_KINDS: readonly DocKind[] = Object.freeze(["index"]);
 
-/** Whose maps an index holds: a person's or a workspace's. */
-type IndexScope = "user" | "workspace";
+/** Whose maps an index holds: a person's, a workspace's or a project's. */
+type IndexScope = "user" | "workspace" | "project";
 
 /** Maps an index of `scope` may hold. */
 export interface IndexKeyRule {
@@ -23,10 +24,14 @@ export const INDEX_KEY_RULES: readonly IndexKeyRule[] = Object.freeze([
   { scope: "workspace", maps: WORKSPACE_INDEX_MAPS },
 ]);
 
-/** A person's index is the one in their own file; a workspace's is the project home of its own id. Null: neither. */
+/**
+ * A person's index is the one in their own file; a workspace's is the project home of its own id; a project's is
+ * the one whose id is the project's index id, in that project's home. Null: none of these.
+ */
 function scopeOf(index: { docId: string; home: Home }): IndexScope | null {
   const { docId, home } = index;
   if (home.kind === "user") return "user";
+  if (docId === indexDocId("project", home.id)) return "project";
   return home.id === docId ? "workspace" : null;
 }
 

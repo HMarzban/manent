@@ -109,6 +109,9 @@ test("the import group's fixed words read as people see them", () => {
     fountain: "Fountain",
     fdr: "Final Draft",
     text: "text",
+    pdf: "PDF",
+    docx: "Word",
+    ink: "Ink",
   });
 });
 

@@ -26,6 +26,8 @@ const VERSION_KINDS = {
   recovered: true,
   revision_baseline: true,
   revision_issue: true,
+  prompter: true,
+  pre_hand_in: true,
 } satisfies Record<VersionKind, true>;
 
 type StoredVersion = Omit<VersionRow, "kind"> & { kind: string };

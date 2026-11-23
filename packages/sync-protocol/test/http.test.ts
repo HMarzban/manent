@@ -131,6 +131,17 @@ test("the error codes are pinned in their order", () => {
     "not_locked",
     "recall_closed",
     "unknown_label",
+    "link_expired",
+    "link_revoked",
+    "not_member",
+    "not_sent",
+    "driver_taken",
+    "not_driver",
+    "already_handed_in",
+    "no_private_copy",
+    "not_in_rundown",
+    "cannot_send",
+    "rate_limited",
   ]);
   expect(REPLAY_REFUSALS).toEqual([
     "bad_request",

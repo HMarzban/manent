@@ -1,8 +1,14 @@
-// The SQLite driver: the directory in control.sqlite, and one file per home beside it, each opened on first use.
+// The SQLite driver: the directory and the other control stores in control.sqlite, and one file per home beside it,
+// each opened on first use.
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { createSqliteApiKeys } from "../api-keys/sqlite.ts";
 import { wellFormedKey } from "../home.ts";
+import { createSqliteOutbox } from "../outbox/sqlite.ts";
 import type { Storage } from "../ports/index.ts";
+import { createSqliteShareLinks } from "../sharing/sqlite.ts";
+import { createSqliteTrash } from "../trash/sqlite.ts";
+import { createSqliteWorkspaceSettings } from "../workspace/sqlite.ts";
 import { createSqliteDirectory } from "./directory.ts";
 import type { SqliteDocFile } from "./doc-file.ts";
 import { openDocFile } from "./doc-file.ts";
@@ -26,8 +32,14 @@ export function openSqliteStorage(options: {
     throw error;
   }
   const files = new Map<string, SqliteDocFile>();
+  const controlFile = { db: control, now };
   return {
-    directory: createSqliteDirectory({ db: control, now }),
+    directory: createSqliteDirectory(controlFile),
+    trash: createSqliteTrash(controlFile),
+    workspace: createSqliteWorkspaceSettings(controlFile),
+    apiKeys: createSqliteApiKeys(controlFile),
+    outbox: createSqliteOutbox(controlFile),
+    shareLinks: createSqliteShareLinks(controlFile),
     open(home) {
       const key = wellFormedKey(home);
       const file = files.get(key) ?? openDocFile({ dir, home, now });
