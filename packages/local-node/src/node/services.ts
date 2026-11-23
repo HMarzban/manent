@@ -6,6 +6,7 @@ import type {
   SyncHooks,
   SyncService,
 } from "@manent/server-core";
+import type { RelayBridge } from "../relay/bridge.ts";
 import type { NodeCoreOptions } from "./ports.ts";
 import { workflowService } from "./services/workflow.ts";
 import { commentsService } from "./services/comments.ts";
@@ -17,6 +18,7 @@ export interface NodeServiceDeps extends NodeCoreOptions {
   sessions: SessionStore;
   ids(): string;
   sync: () => SyncService;
+  reserveClientId: RelayBridge["reserveClientId"];
 }
 
 /** What a service adds to the node. */

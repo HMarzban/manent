@@ -48,6 +48,12 @@ export interface RelayBridge extends Upstream {
   resendStatus(docId: string): void;
   /** The document's first sync was refused: every setting request held for it is answered with `message`. */
   refuseHeld(docId: string, message: string): void;
+  /**
+   * A new client ID stored on that person's upstream document, for the cloud to write under on their
+   * behalf: what someone later removes there without having seen it is set aside as their Recovered
+   * text, as a window's own typing is. Null while the document is not relayed yet.
+   */
+  reserveClientId(userId: string, docId: string): Promise<number | null>;
   close(): Promise<void>;
 }
 
@@ -365,6 +371,14 @@ export function createRelayBridge(options: {
       for (const item of docOf(docId).held.splice(0))
         refuse(docId, item, message);
       changed(docId);
+    },
+    async reserveClientId(userId, docId) {
+      // a hand-off writes the person's upstream store itself until it has finished
+      if (records.docState(docId)?.state !== "synced") return null;
+      lineOf(userId, docId);
+      // the line's own handle: a person's client holds one per document
+      const handle = await personOf(userId).client.open(docId);
+      return handle.reserveClientId();
     },
     async close() {
       throttle.close();
