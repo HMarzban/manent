@@ -81,6 +81,8 @@ export const HISTORY_WORDS = {
   beforeReconnect: BEFORE_RECONNECT,
   recovered: RECOVERED,
   changesSince: "Changes since",
+  /** Changes since ▾ while it offers no baseline. */
+  chooseBaseline: "Choose a version",
   show: "Show",
   /** In the order of the History store's modes: page, side, asterisks, as it was. */
   modes: ["On the page", "Side by side", "Asterisks only", "As it was"],

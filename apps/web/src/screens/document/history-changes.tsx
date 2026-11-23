@@ -120,9 +120,11 @@ function useShownChanges(
 ): Comparison | null {
   const mode = useHistory("mode");
   const { sceneIds } = useHistory("filter");
+  // the stepper starts again on other changes, and keeps its change when only Show changes
   useLayoutEffect(() => {
-    // the stepper starts again on other changes
     historyActions.setStep(null);
+  }, [docId, content, all, sceneIds, blockIds]);
+  useLayoutEffect(() => {
     if (content === null || all === null) {
       showChanges(docId, null);
       return undefined;
@@ -157,7 +159,13 @@ function BaselineMenu(props: {
           data-changes-since=""
           render={<Button variant="outline" size="sm" />}
         >
-          {props.offered?.title ?? null}
+          {props.offered === null ? (
+            <span className="text-fg-muted">
+              {HISTORY_WORDS.chooseBaseline}
+            </span>
+          ) : (
+            props.offered.title
+          )}
           {CHEVRON}
         </DropdownMenuTrigger>
         <DropdownMenuContent className="max-h-80 overflow-auto">
