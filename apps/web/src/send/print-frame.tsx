@@ -1,17 +1,21 @@
-// The Print form's frame, loaded apart from the entry: the pages on screen, built for the printer a batch at a
-// time.
+// The Print form's frame for a script, loaded apart from the entry: the pages of what its What row chose, built for
+// the printer a batch at a time.
 import type { FrontPage, Pagination } from "@manent/pagination";
 import type { Frames } from "@manent/sync-client";
 import { EDITOR_WORDS } from "@manent/ui";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { checksRow } from "../checks/send-row.tsx";
 import { liveFrontPages } from "../editor-host/live-editor.ts";
 import type { SendFormProps } from "../screens/send/forms.ts";
 import { SendFrame } from "../screens/send/send-frame.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import type { Environment } from "../services/ports.ts";
+import { useOfferedTo, useWhatRow } from "./export-form.tsx";
+import { typesPrinted } from "./file-types.ts";
 import { useSendPages } from "./page-tiles.tsx";
 import { PRINT_ID, printCss, printPages } from "./print-pages.ts";
+import { pagesFor } from "./what-options.ts";
 
 const WORDS = EDITOR_WORDS.send;
 
@@ -62,9 +66,27 @@ async function printScript(work: {
  * itself once the document's editor is open.
  */
 export function LivePrint(props: SendFormProps): ReactNode {
-  const { p, title, rows, tiles, back } = useSendPages(props.docId);
+  const { docId } = props;
+  const { p, title, tiles, back } = useSendPages(docId);
   const { frame } = useEnvironment();
-  const { history } = useServices();
+  const { history, documents } = useServices();
+  const to = useOfferedTo(docId);
+  const [printed] = typesPrinted(to);
+  const what = useWhatRow("print", printed?.id ?? null, to.locked);
+  const option = what?.option ?? null;
+  const pages = useMemo(
+    () =>
+      p === null || option === null
+        ? null
+        : pagesFor(option, docId, p, () =>
+            documents.open(docId).material.materialSnapshotOf(docId),
+          ),
+    [p, option, docId, documents],
+  );
+  const checks = useMemo(
+    () => (p === null ? null : checksRow(docId)),
+    [docId, p],
+  );
   const [busy, setBusy] = useState(false);
   const [built, setBuilt] = useState(0);
   const [problem, setProblem] = useState<string | null>(null);
@@ -72,7 +94,7 @@ export function LivePrint(props: SendFormProps): ReactNode {
   // Back aborts a build under way
   useEffect(() => () => building.current?.abort(), []);
 
-  const run = async (pages: Pagination): Promise<void> => {
+  const run = async (sent: Pagination): Promise<void> => {
     const controller = new AbortController();
     building.current = controller;
     setBusy(true);
@@ -80,8 +102,8 @@ export function LivePrint(props: SendFormProps): ReactNode {
     setBuilt(0);
     try {
       await printScript({
-        pages,
-        front: liveFrontPages(props.docId) ?? [],
+        pages: sent,
+        front: liveFrontPages(docId) ?? [],
         frame,
         signal: controller.signal,
         onBuilt: setBuilt,
@@ -94,17 +116,20 @@ export function LivePrint(props: SendFormProps): ReactNode {
       return;
     }
     building.current = null;
-    void history.save(props.docId, "export");
+    void history.save(docId, "export");
     back();
   };
 
-  const count = p === null ? null : p.pages.length;
+  const count = pages === null ? null : pages.pages.length;
   const heading = count === null ? WORDS.print : WORDS.printTitle(count);
   return (
     <SendFrame
       title={heading}
       aside={null}
-      rows={rows}
+      rows={[
+        ...(checks === null ? [] : [checks]),
+        ...(what === null ? [] : [what.row]),
+      ]}
       pages={tiles}
       action={{
         label: heading,
@@ -115,7 +140,7 @@ export function LivePrint(props: SendFormProps): ReactNode {
         cancel: busy ? () => building.current?.abort() : null,
         disabledReason: null,
         problem,
-        run: p === null ? null : () => void run(p),
+        run: pages === null ? null : () => void run(pages),
       }}
     />
   );
