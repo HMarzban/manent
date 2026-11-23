@@ -112,11 +112,14 @@ function HandIn(props: { docId: string }): ReactNode {
   const [asking, setAsking] = useState(false);
   const headingId = useId();
   const heading = useRef<HTMLHeadingElement>(null);
-  // the view is drawn below the version list, so Hand in… brings it into sight and to the keyboard
+  // the view is drawn below the version list, so Hand in… brings it to the keyboard, and into sight again once its
+  // changes have been read and drawn below the heading
   useEffect(() => {
-    heading.current?.scrollIntoView({ block: "start" });
     heading.current?.focus();
   }, []);
+  useEffect(() => {
+    heading.current?.scrollIntoView({ block: "start" });
+  }, [changes]);
   const scenes = changes?.scenes ?? [];
   const nothing = changes !== null && scenes.length === 0;
   const press = (): void => {
