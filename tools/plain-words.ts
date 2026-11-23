@@ -1,6 +1,6 @@
 // The words of the interface that are not terms, as data.
 // It holds words only; what a word means is not written here.
-import { listOf } from "./glossary.ts";
+import { listOf } from "./glossary/index.ts";
 
 /** Words that name no part, state or action of Manent: verbs, adjectives, function words and ordinary nouns. A word joins only in a reviewed change that says why it is not a term. */
 export const PLAIN_WORDS: readonly string[] = listOf(`

@@ -11,7 +11,7 @@ import type { SearchPointer, SettingDefinition } from "@manent/settings";
 import { DIALOG_WORDS, MENU_WORDS, PREFERENCES_WORDS } from "@manent/ui";
 import { checkStrings } from "../check-glossary.ts";
 import type { StringSource } from "../check-glossary.ts";
-import { NAMES, TERMS } from "../glossary.ts";
+import { NAMES, TERMS } from "../glossary/index.ts";
 
 const CTX: CommandContext = {
   screen: "document",
