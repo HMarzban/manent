@@ -57,6 +57,9 @@ function shownOf(facts: StatusFacts): Shown {
   };
 }
 
+/** How often an offline status is written again, so it names the day it went offline once a day has passed. */
+const OFFLINE_REWRITE_MS = 60_000;
+
 const isBusy = (facts: StatusFacts): boolean =>
   facts.server === "syncing" || facts.waiting > 0;
 
@@ -120,10 +123,13 @@ export function createStatusWriter(options: {
       syncedAt = now() + SYNCED_AFTER_MS;
     }
     const held = facts.server === "synced" && now() < syncedAt;
-    const shown = shownOf(held ? { ...facts, server: "syncing" } : facts);
+    const at = { ...facts, now: now() };
+    const shown = shownOf(held ? { ...at, server: "syncing" } : at);
     paint(shown, painted, options);
     painted = shown;
     if (held) cancel = schedule(() => write(source.get()), syncedAt - now());
+    else if (facts.offlineSinceAt !== null)
+      cancel = schedule(() => write(source.get()), OFFLINE_REWRITE_MS);
   };
 
   write(source.get());
