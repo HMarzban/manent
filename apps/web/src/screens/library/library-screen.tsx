@@ -1,4 +1,5 @@
-// The Library: the workspace switcher, Continue, the projects, New script and New project, the person menu and the status bar.
+// The Library: the workspace switcher, its navigation and the view the address chooses, New script and New project, the
+// person menu and the status bar.
 import { TOUR, isShown } from "@manent/demo";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
