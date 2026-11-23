@@ -1,4 +1,5 @@
-// The region named Projects: the workspace's projects as a table of kind, last edit and place, or what to do when it holds none.
+// The region named Projects: the workspace's projects as a table of kind, last edit and place, each drawn by its kind's
+// view, or what to do when it holds none.
 import {
   CommandButton,
   LIBRARY_WORDS,
@@ -10,7 +11,9 @@ import {
 import type { ReactNode } from "react";
 import type { ProjectItem } from "../../services/ports.ts";
 import { KindIcon, kindLabel } from "./project-kind.tsx";
-import { PLACE_COLUMN, PLACE_HEAD, placeProps } from "./row-place.tsx";
+import { PROJECT_ROW_ITEMS } from "./project-row-items.ts";
+import { PROJECT_VIEWS } from "./project-views.ts";
+import { PLACE_COLUMN, PLACE_HEAD, RowMenu, placeProps } from "./row-place.tsx";
 
 // the Kind and Last edited columns, the same width in the head and in every row; a narrow table has no columns, and
 // draws Last edited as the title's second line, which makes the row two lines high
@@ -27,7 +30,12 @@ function lastEdited(edited: ProjectItem["lastEdited"], now: number): string {
   return LIBRARY_WORDS.edited(edited.byName, formatWhen(edited.at, now));
 }
 
-function ProjectRow(props: {
+const ROW_ITEMS = PROJECT_ROW_ITEMS.filter((item) =>
+  item.targets.includes("project"),
+);
+
+/** A project's row, which opens its first document: the view of a kind PROJECT_VIEWS has no line for. */
+export function ProjectRow(props: {
   project: ProjectItem;
   shell: "web" | "desktop";
   now: number;
@@ -35,11 +43,24 @@ function ProjectRow(props: {
 }): ReactNode {
   const { project, shell, now, open } = props;
   const { firstDocId } = project;
+  const { trailing, ...place } = placeProps(project.place, shell);
+  // a row that cannot be opened has no menu
+  const menu =
+    ROW_ITEMS.length === 0 || place.unavailable !== undefined
+      ? []
+      : [
+          <RowMenu title={project.title}>
+            {ROW_ITEMS.map(({ id, Item }) => (
+              <Item key={id} target="project" id={project.projectId} />
+            ))}
+          </RowMenu>,
+        ];
   return (
     <Row
       leading={<KindIcon kind={project.kind} />}
       onActivate={firstDocId === null ? undefined : () => open(firstDocId)}
-      {...placeProps(project.place, shell)}
+      trailing={[...menu, ...trailing]}
+      {...place}
     >
       <span className={ROW_CELLS}>
         <span className="truncate font-semibold">{project.title}</span>
@@ -92,7 +113,10 @@ export function ProjectList(props: {
   const renderRow = (index: number): ReactNode => {
     const project = projects[index];
     if (project === undefined) return null;
-    return <ProjectRow project={project} shell={shell} now={now} open={open} />;
+    const View =
+      PROJECT_VIEWS.find((view) => view.kind === project.kind)?.View ??
+      ProjectRow;
+    return <View project={project} shell={shell} now={now} open={open} />;
   };
   return (
     <section

@@ -4,27 +4,19 @@ import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   CommandButton,
   LIBRARY_WORDS,
-  Row,
-  Skeleton,
-  SurfaceState,
-  VirtualRows,
   createValue,
   useCommandState,
   useSubscribable,
 } from "@manent/ui";
-import type {
-  Subscribable,
-  SurfaceRenderers,
-  SurfaceStateValue,
-} from "@manent/ui";
+import type { Subscribable } from "@manent/ui";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
+import { useRouterState } from "@tanstack/react-router";
+import { useEffect } from "react";
+import type { ComponentType, ReactNode } from "react";
 import type { Api } from "../../api.ts";
 import { POLL_MS } from "../../demo/use-demo.ts";
 import { focusHeading } from "../../focus.ts";
-import { useEnvironment, useServices } from "../../services/context.tsx";
+import { useServices } from "../../services/context.tsx";
 import type { ContinueItem, ProjectItem } from "../../services/ports.ts";
 import type { TabPerson } from "../../session.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
@@ -32,19 +24,19 @@ import { SidePosition } from "../../shell/side-position.tsx";
 import { panelsActions } from "../../state/panels.store.ts";
 import { pageTitle } from "../../text.ts";
 import { SIDE_PANEL_TABS } from "../document/side-tabs.ts";
-import { ContinueList } from "./continue-list.tsx";
+import { ContinueView } from "./continue-list.tsx";
+import { LibraryNav } from "./library-nav.tsx";
 import { LibraryStatusBar } from "./library-status-bar.tsx";
 import { NewProjectPopover } from "./new-project-popover.tsx";
 import { PersonMenu } from "./person-menu.tsx";
-import { KindIcon } from "./project-kind.tsx";
-import { NoProjects, ProjectList } from "./project-list.tsx";
+import { SearchField } from "./search-field.tsx";
+import { LIBRARY_VIEWS } from "./views.ts";
+import type { LibraryViewProps } from "./views.ts";
 import { WorkspaceSwitcher } from "./workspace-switcher.tsx";
 
 // what the lists read while the workspace shown is not known yet
 const NO_ITEMS: Subscribable<readonly never[]> = createValue([]);
 const CACHED: Subscribable<"cached" | "problem"> = createValue("cached");
-// the placeholder rows drawn while the workspace is not known
-const PLACEHOLDER_ROWS = 6;
 // a Tour that lists no scenario is not opened on its own
 const TOUR_EMPTY = !TOUR.scenarios.some(isShown);
 
@@ -99,44 +91,20 @@ function listWorkspaces(api: Api): () => Promise<readonly WorkspaceRef[]> {
   };
 }
 
-function Placeholders(): ReactNode {
-  return (
-    <div aria-hidden="true" className="flex flex-col gap-1">
-      {Array.from({ length: PLACEHOLDER_ROWS }, (_, index) => (
-        <Skeleton key={index} data-placeholder className="h-row-2" />
-      ))}
-    </div>
+/** The view the address chooses: the search's while it holds one, else the one its `view` names, else Continue. */
+function useChosenView(): ComponentType<LibraryViewProps> {
+  const view = useRouterState({
+    select: (state): unknown => state.location.search.view,
+  });
+  const q = useRouterState({
+    select: (state): unknown => state.location.search.q,
+  });
+  const searching = typeof q === "string" && q !== "";
+  const named = typeof view === "string" ? view : null;
+  const chosen = LIBRARY_VIEWS.find((entry) =>
+    entry.chosenBy === "q" ? searching : !searching && entry.id === named,
   );
-}
-
-const placeRow = (project: ProjectItem | undefined): ReactNode =>
-  project === undefined ? null : (
-    <Row leading={<KindIcon kind={project.kind} />}>{project.title}</Row>
-  );
-
-/**
- * The projects' names, under Continue, the place the main column shows. A window too narrow for it and the main
- * column side by side has no room for it.
- */
-function Places(props: { projects: readonly ProjectItem[] }): ReactNode {
-  const { projects } = props;
-  return (
-    <ShellRegion
-      region="left_panel"
-      className="hidden w-panel-left shrink-0 flex-col border-e border-line pt-2 @3xl:flex"
-    >
-      <Row current>{LIBRARY_WORDS.continueHeading}</Row>
-      <h2 className="mn-group-label">{LIBRARY_WORDS.projectsHeading}</h2>
-      <div className="min-h-0 flex-1">
-        <VirtualRows
-          count={projects.length}
-          rowHeight="one"
-          label={LIBRARY_WORDS.projectsHeading}
-          renderRow={(index) => placeRow(projects[index])}
-        />
-      </div>
-    </ShellRegion>
-  );
+  return chosen?.View ?? ContinueView;
 }
 
 /**
@@ -180,57 +148,6 @@ function useWorkspaceLists(workspaceId: string | null): {
   };
 }
 
-/**
- * The main column: Continue, then the projects; the problem line above them when the list could not be loaded. The
- * column does not scroll: Continue keeps to a third of it and the projects take the rest, each scrolling in its card.
- */
-function Lists(props: {
-  workspaceId: string | null;
-  continueList: readonly ContinueItem[];
-  projects: readonly ProjectItem[];
-  problem: boolean;
-}): ReactNode {
-  const { workspaceId, continueList, projects } = props;
-  const { where, now } = useEnvironment();
-  const navigate = useNavigate();
-  const [arrivedAt] = useState(() => now());
-  const open = (docId: string) => void navigate({ href: `/s/${docId}` });
-  const problem = <p className="text-ui">{LIBRARY_WORDS.problem}</p>;
-  const lists =
-    projects.length === 0 ? (
-      <NoProjects problem={props.problem ? problem : null} />
-    ) : (
-      <>
-        {props.problem ? problem : null}
-        <ContinueList items={continueList} shell={where.shell} open={open} />
-        <ProjectList
-          projects={projects}
-          shell={where.shell}
-          now={now()}
-          open={open}
-        />
-      </>
-    );
-  const render: SurfaceRenderers = {
-    ready: () => lists,
-    empty: () => lists,
-    loading: () => <Placeholders />,
-    // only a list that throws while it is drawn ends here
-    problem: () => problem,
-    // the Library has none of these: each row says where its document is, and the index lists only what the person may open
-    offline: () => lists,
-    read_only: () => lists,
-    no_access: () => lists,
-  };
-  const state: SurfaceStateValue =
-    workspaceId === null
-      ? { kind: "loading", sinceMs: arrivedAt }
-      : projects.length === 0
-        ? { kind: "empty" }
-        : { kind: "ready" };
-  return <SurfaceState surface="library" state={state} render={render} />;
-}
-
 function Library(props: { api: Api; person: TabPerson }): ReactNode {
   const { api, person } = props;
   const { workspaceId, workspaces, serverProblem } = useShownWorkspace(
@@ -238,6 +155,7 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
     person,
   );
   const { continueList, projects, problem } = useWorkspaceLists(workspaceId);
+  const View = useChosenView();
   // a signed-in person's switcher waits for the server to say which workspaces they have
   const switcher =
     workspaceId !== null && (person.token === null || workspaces !== null);
@@ -261,6 +179,7 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
         {switcher ? (
           <WorkspaceSwitcher current={workspaceId} workspaces={workspaces} />
         ) : null}
+        <SearchField />
         <span className="flex-1" />
         <CommandButton id="file.import" variant="outline" />
         <CommandButton id="library.newScript" variant="outline" />
@@ -268,9 +187,9 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
         <PersonMenu name={person.name} />
       </ShellRegion>
       <div className="@container flex min-h-0 flex-1">
-        <Places projects={projects} />
+        <LibraryNav projects={projects} />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 px-6 pt-6 pb-8 *:w-full *:max-w-content-wide">
-          <Lists
+          <View
             workspaceId={workspaceId}
             continueList={continueList}
             projects={projects}

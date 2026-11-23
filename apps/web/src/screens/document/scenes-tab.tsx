@@ -2,11 +2,7 @@
 // format; a row goes to its place in the page, and draws what other features say of its scene.
 import {
   Avatar,
-  Button,
   DOCUMENT_WORDS,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
   HISTORY_WORDS,
   Input,
   Row,
@@ -36,6 +32,7 @@ import type { PanelTab } from "../../shell/panel-tab.ts";
 import { OutlineContext } from "../../state/bridge-contexts.ts";
 import { useOutlineCount, useOutlineRow } from "../../state/outline.store.ts";
 import type { OutlineRow } from "../../state/outline.store.ts";
+import { RowMenu } from "../library/row-place.tsx";
 import { panelRenderers } from "./panel-surface.tsx";
 import { SCENE_LENGTH_SOURCES } from "./scene-lengths.ts";
 import { SCENE_MARK_SOURCES } from "./scene-marks.ts";
@@ -136,40 +133,6 @@ function Mark(props: {
   }
 }
 
-/** The handle of a scene's row menu, holding each item of SCENE_ROW_ITEMS. */
-function SceneRowMenu(props: {
-  docId: string;
-  headingId: string;
-  heading: string;
-}): ReactNode {
-  return (
-    // the handle's own click and keys open the menu, never the row
-    <span
-      onClick={(event) => event.stopPropagation()}
-      onKeyDown={(event) => event.stopPropagation()}
-    >
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={DOCUMENT_WORDS.rowMenuName(props.heading)}
-            />
-          }
-        >
-          <span aria-hidden="true">⋯</span>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          {SCENE_ROW_ITEMS.map(({ id, Item }) => (
-            <Item key={id} docId={props.docId} headingId={props.headingId} />
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </span>
-  );
-}
-
 /** A scene's row: its number, heading, synopsis and marks, then whether it is revised, its length and its menu. */
 function SceneLine(props: {
   docId: string;
@@ -211,12 +174,11 @@ function SceneLine(props: {
     ...(SCENE_ROW_ITEMS.length === 0
       ? []
       : [
-          <SceneRowMenu
-            key="menu"
-            docId={docId}
-            headingId={row.blockId}
-            heading={row.heading}
-          />,
+          <RowMenu key="menu" title={row.heading}>
+            {SCENE_ROW_ITEMS.map(({ id, Item }) => (
+              <Item key={id} docId={docId} headingId={row.blockId} />
+            ))}
+          </RowMenu>,
         ]),
   ];
   const after = marks.flatMap((mark, index) =>
