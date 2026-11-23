@@ -314,6 +314,7 @@ test("Export names one file, a clean PDF of the whole script, and the first page
     "Export 1 file",
     "Export 1 file",
     [
+      ["Checks", "Nothing needs a look before you send."],
       ["What", "Whole script"],
       ["As", "Clean PDFFDXFountain"],
     ],
