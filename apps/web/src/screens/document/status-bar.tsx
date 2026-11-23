@@ -1,4 +1,4 @@
-// The bar under the page: the Element button, the page and scene readouts, the message slot, View ▾ and Commands.
+// The bar under the page: the readouts, the message slot, View ▾ and Commands; the Element, page and scene readouts.
 import { COMMANDS } from "@manent/commands";
 import {
   Button,
@@ -88,13 +88,54 @@ export function pageReadoutOf(
   );
 }
 
-function usePageReadout(): string | null {
-  return pageReadoutOf({
+/** The caret's element, in a column of its own width. */
+export function ElementReadout(props: { docId: string }): ReactNode {
+  return (
+    // a narrow window keeps Element, the page, View and Commands; a long element name gives way first
+    <div className="w-element shrink-0 max-sm:w-auto max-sm:min-w-0 max-sm:max-w-28 max-sm:shrink">
+      <ElementButton docId={props.docId} />
+    </div>
+  );
+}
+
+/** The caret's page, which opens Details at the script. */
+export function PageReadout(): ReactNode {
+  const { frame } = useEnvironment();
+  const readout = pageReadoutOf({
     page: useEditorFact("page"),
     pageCount: useEditorFact("pageCount"),
     pageRevision: useEditorFact("pageRevision"),
     pageOrdinal: useEditorFact("pageOrdinal"),
   });
+  if (readout === null) return null;
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      data-tour="status:page"
+      className="shrink-0 text-meta font-normal text-fg-muted tabular-nums"
+      onClick={() => openDetailsAt("script", frame)}
+    >
+      {readout}
+    </Button>
+  );
+}
+
+/** The caret's scene, which opens Details at the scene. */
+export function SceneReadout(): ReactNode {
+  const { frame } = useEnvironment();
+  const scene = useEditorFact("scene");
+  if (scene === null) return null;
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="shrink-0 text-meta font-normal text-fg-muted tabular-nums max-sm:hidden"
+      onClick={() => openDetailsAt("scene", frame)}
+    >
+      {READOUT_WORDS.scene(scene)}
+    </Button>
+  );
 }
 
 /** The palette's button, with its key shown beside it on a window wide enough. */
@@ -122,12 +163,11 @@ function useOwnWorkShown(): boolean {
   );
 }
 
-export function StatusBar(): ReactNode {
+/** `readouts` lead the bar. */
+export function StatusBar(props: { readouts: ReactNode }): ReactNode {
   const { messages } = useServices();
   const { run, registered } = useCommandActions();
-  const readout = usePageReadout();
-  const scene = useEditorFact("scene");
-  const { shellState, frame } = useEnvironment();
+  const { shellState } = useEnvironment();
   const { docId } = useSubscribable(shellState);
   return (
     <ShellRegion
@@ -138,31 +178,7 @@ export function StatusBar(): ReactNode {
         useOwnWorkShown() ? "h-row-2" : "h-statusbar",
       )}
     >
-      {/* a narrow window keeps Element, the page, View and Commands; a long element name gives way first */}
-      <div className="w-element shrink-0 max-sm:w-auto max-sm:min-w-0 max-sm:max-w-28 max-sm:shrink">
-        {docId === null ? null : <ElementButton docId={docId} />}
-      </div>
-      {readout === null ? null : (
-        <Button
-          variant="ghost"
-          size="sm"
-          data-tour="status:page"
-          className="shrink-0 text-meta font-normal text-fg-muted tabular-nums"
-          onClick={() => openDetailsAt("script", frame)}
-        >
-          {readout}
-        </Button>
-      )}
-      {scene === null ? null : (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="shrink-0 text-meta font-normal text-fg-muted tabular-nums max-sm:hidden"
-          onClick={() => openDetailsAt("scene", frame)}
-        >
-          {READOUT_WORDS.scene(scene)}
-        </Button>
-      )}
+      {props.readouts}
       <MessageSlot queue={messages} run={run} registered={registered} />
       <CommandMenu
         menu="view"

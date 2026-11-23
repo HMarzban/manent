@@ -28,6 +28,7 @@ import type { Api } from "../api.ts";
 import type { ConnectionControl } from "../demo/connection-transport.ts";
 import type { DesktopHost } from "../desktop/host.ts";
 import type { EditorControl } from "../editor-host/control.ts";
+import type { MaterialSnapshot } from "../send/what-options.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
 import type { PlaceStore } from "../editor-host/place.ts";
 import type { HistorySource } from "../history/source.ts";
@@ -109,12 +110,19 @@ export interface LibraryIndex {
   renameDocument(docId: string, title: string): void;
 }
 
+/** The script's writers' material. */
+export interface MaterialServices {
+  /** What the material roots of `docId` hold now; empty while no feature writes them. */
+  materialSnapshotOf(docId: string): MaterialSnapshot;
+}
+
 export interface DocumentServices {
   status: Subscribable<StatusFacts>;
   waitingByScene: Subscribable<readonly { scene: string; count: number }[]>;
   stateFacts: Subscribable<readonly StateFact[]>;
   scriptBag: Bag;
   people: Subscribable<readonly PersonPresent[]>;
+  material: MaterialServices;
 }
 
 /** Each `open` of a document is matched by one `close`. */

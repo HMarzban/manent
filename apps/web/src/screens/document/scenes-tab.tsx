@@ -1,6 +1,7 @@
 // The left panel's Scenes tab: the acts, sections and scenes of the outline, with a filter, named for the script's
-// format; a row goes to its place in the page.
+// format; a row goes to its place in the page, and draws what other features say of its scene.
 import {
+  Avatar,
   DOCUMENT_WORDS,
   HISTORY_WORDS,
   Input,
@@ -13,6 +14,7 @@ import {
   useCommands,
   useSubscribable,
 } from "@manent/ui";
+import type { Subscribable } from "@manent/ui";
 import {
   useCallback,
   useContext,
@@ -24,13 +26,17 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
+import { SCENE_ROW_ITEMS } from "../../scenes/row-items.ts";
 import { useServices } from "../../services/context.tsx";
 import type { PanelTab } from "../../shell/panel-tab.ts";
 import { OutlineContext } from "../../state/bridge-contexts.ts";
 import { useOutlineCount, useOutlineRow } from "../../state/outline.store.ts";
 import type { OutlineRow } from "../../state/outline.store.ts";
+import { RowMenu } from "../library/row-place.tsx";
 import { panelRenderers } from "./panel-surface.tsx";
+import { SCENE_LENGTH_SOURCES } from "./scene-lengths.ts";
 import { SCENE_MARK_SOURCES } from "./scene-marks.ts";
+import type { SceneMark } from "./scene-marks.ts";
 
 // the element picker's key, which the editor binds
 const PICKER_CHORD = "Alt+Enter";
@@ -49,29 +55,92 @@ function useFormat(docId: string | null): string {
   return useSyncExternalStore(subscribe, () => store.get("script.format"));
 }
 
-/** Whether a scene heading is in a set of any source of scene marks, read again when a set changes. */
-function useSceneMarks(docId: string): (blockId: string) => boolean {
-  const sources = useMemo(
-    () => SCENE_MARK_SOURCES.map((source) => source(docId)),
-    [docId],
+/** The value of each of `sources` for `docId`, read again when one changes. */
+function useSources<T>(
+  sources: readonly ((docId: string) => Subscribable<T>)[],
+  docId: string,
+): readonly Subscribable<T>[] {
+  const opened = useMemo(
+    () => sources.map((source) => source(docId)),
+    [sources, docId],
   );
   const [, changed] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
-    const stops = sources.map((source) => source.subscribe(changed));
+    const stops = opened.map((source) => source.subscribe(changed));
     return () => {
       for (const stop of stops) stop();
     };
-  }, [sources]);
-  return (blockId) => sources.some((source) => source.get().has(blockId));
+  }, [opened]);
+  return opened;
 }
 
-/** A scene's row: its number, heading and synopsis, then whether it is revised and its length. */
+// the order a row draws its marks in, whichever source gives them
+const MARK_ORDER: Readonly<Record<SceneMark["kind"], number>> = Object.freeze({
+  revised: 0,
+  count: 1,
+  person: 2,
+  text: 3,
+});
+
+/** What a scene's row draws besides its heading: its marks in their order, and the text in place of its length. */
+interface SceneExtras {
+  marks(blockId: string): readonly SceneMark[];
+  /** Null: the row shows its length in eighths. */
+  length(blockId: string): string | null;
+}
+
+function useSceneExtras(docId: string): SceneExtras {
+  const marks = useSources(SCENE_MARK_SOURCES, docId);
+  const lengths = useSources(SCENE_LENGTH_SOURCES, docId);
+  return {
+    marks: (blockId) =>
+      marks
+        .flatMap((source) => source.get().get(blockId) ?? [])
+        .toSorted((a, b) => MARK_ORDER[a.kind] - MARK_ORDER[b.kind]),
+    length(blockId) {
+      for (const source of lengths) {
+        const text = source.get().get(blockId);
+        if (text !== undefined) return text;
+      }
+      return null;
+    },
+  };
+}
+
+/** A mark other than revised, drawn after the heading. */
+function Mark(props: {
+  mark: Exclude<SceneMark, { kind: "revised" }>;
+}): ReactNode {
+  const { mark } = props;
+  switch (mark.kind) {
+    case "count":
+      return (
+        <span className="text-meta text-fg-muted tabular-nums">
+          {mark.label} {mark.count}
+        </span>
+      );
+    case "person":
+      return (
+        <Avatar
+          name={mark.name}
+          initials={mark.initials}
+          colour={mark.colour}
+          size="sm"
+        />
+      );
+    case "text":
+      return <span className="text-meta text-fg-muted">{mark.label}</span>;
+  }
+}
+
+/** A scene's row: its number, heading, synopsis and marks, then whether it is revised, its length and its menu. */
 function SceneLine(props: {
+  docId: string;
   row: OutlineRow;
-  marked: boolean;
+  extras: SceneExtras;
   goTo: () => void;
 }): ReactNode {
-  const { row, marked, goTo } = props;
+  const { docId, row, extras, goTo } = props;
   if (row.omitted)
     return (
       <Row current={row.current} onActivate={goTo}>
@@ -82,6 +151,11 @@ function SceneLine(props: {
         </span>
       </Row>
     );
+  const marks = extras.marks(row.blockId);
+  const marked = marks.some((mark) => mark.kind === "revised");
+  const length =
+    extras.length(row.blockId) ??
+    (row.eighths === null ? null : SCENES_WORDS.length(row.eighths));
   const trailing = [
     ...(marked
       ? [
@@ -90,14 +164,26 @@ function SceneLine(props: {
           </span>,
         ]
       : []),
-    ...(row.eighths === null
+    ...(length === null
       ? []
       : [
           <span key="length" className="tabular-nums">
-            {SCENES_WORDS.length(row.eighths)}
+            {length}
           </span>,
         ]),
+    ...(SCENE_ROW_ITEMS.length === 0
+      ? []
+      : [
+          <RowMenu key="menu" title={row.heading}>
+            {SCENE_ROW_ITEMS.map(({ id, Item }) => (
+              <Item key={id} docId={docId} headingId={row.blockId} />
+            ))}
+          </RowMenu>,
+        ]),
   ];
+  const after = marks.flatMap((mark, index) =>
+    mark.kind === "revised" ? [] : [<Mark key={index} mark={mark} />],
+  );
   return (
     <Row
       current={row.current}
@@ -120,14 +206,18 @@ function SceneLine(props: {
       ) : (
         row.heading
       )}
+      {after.length === 0 ? null : (
+        <span className="ms-2 inline-flex gap-1 align-middle">{after}</span>
+      )}
     </Row>
   );
 }
 
 /** An act heads the scenes after it; a section groups them and is never printed. */
 function OutlineLine(props: {
+  docId: string;
   index: number;
-  isMarked: (blockId: string) => boolean;
+  extras: SceneExtras;
 }): ReactNode {
   const { editor } = useServices();
   const row = useOutlineRow(props.index);
@@ -136,7 +226,12 @@ function OutlineLine(props: {
     void editor.run({ kind: "go_to", blockId: row.blockId, offset: 0 });
   if (row.kind === "scene")
     return (
-      <SceneLine row={row} marked={props.isMarked(row.blockId)} goTo={goTo} />
+      <SceneLine
+        docId={props.docId}
+        row={row}
+        extras={props.extras}
+        goTo={goTo}
+      />
     );
   return (
     <Row onActivate={goTo}>
@@ -193,7 +288,7 @@ function ScenesList(props: { docId: string }): ReactNode {
   );
   const kind = useSubscribable(kindSource);
   const count = useOutlineCount();
-  const isMarked = useSceneMarks(docId);
+  const extras = useSceneExtras(docId);
   const [filter, setFilter] = useState("");
   const shown = useShownRows(filter);
   return (
@@ -224,8 +319,9 @@ function ScenesList(props: { docId: string }): ReactNode {
               label={DOCUMENT_WORDS.leftTab(format)}
               renderRow={(index) => (
                 <OutlineLine
+                  docId={docId}
                   index={shown?.[index] ?? index}
-                  isMarked={isMarked}
+                  extras={extras}
                 />
               )}
             />

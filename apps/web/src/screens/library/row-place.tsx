@@ -1,8 +1,16 @@
-// Where a Library row's document is, drawn as the row's last cell: an icon of its shape and the place word.
-import { LIBRARY_WORDS } from "@manent/ui";
+// Where a Library row's document is, drawn as the row's last cell: an icon of its shape and the place word; and the
+// handle of a row's menu, which goes before it.
+import {
+  Button,
+  DOCUMENT_WORDS,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  LIBRARY_WORDS,
+} from "@manent/ui";
 import { CloudCheckIcon, CloudUploadIcon, MonitorDotIcon } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ReactNode, SyntheticEvent } from "react";
 import type { RowPlace } from "../../services/ports.ts";
 
 /**
@@ -74,4 +82,31 @@ export function placeProps(
       </span>,
     ],
   };
+}
+
+const keepFromRow = (event: SyntheticEvent): void => event.stopPropagation();
+
+/** The handle of the menu of the row titled `title`, holding `children`; its own click and keys open the menu, never the row. */
+export function RowMenu(props: {
+  title: string;
+  children: ReactNode;
+}): ReactNode {
+  return (
+    <span onClick={keepFromRow} onKeyDown={keepFromRow}>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={DOCUMENT_WORDS.rowMenuName(props.title)}
+            />
+          }
+        >
+          <span aria-hidden="true">⋯</span>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>{props.children}</DropdownMenuContent>
+      </DropdownMenu>
+    </span>
+  );
 }

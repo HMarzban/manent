@@ -43,6 +43,7 @@ import type {
 } from "../src/state/outline.store.ts";
 import { panelsActions } from "../src/state/panels.store.ts";
 import type { PersonPresent } from "../src/state/people.store.ts";
+import { EMPTY_MATERIAL } from "../src/send/what-options.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
 import { renameActions } from "../src/state/rename.store.ts";
 import {
@@ -328,6 +329,7 @@ export async function renderFrame(
     scriptBag:
       options.scriptBag ??
       createMemoryBag({ initial: {}, writable: () => true }),
+    material: { materialSnapshotOf: () => EMPTY_MATERIAL },
   };
   const services = servicesFor(environment, doc, {
     role: options.role ?? "editor",
