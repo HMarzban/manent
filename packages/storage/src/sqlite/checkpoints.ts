@@ -1,8 +1,8 @@
 // A home's checkpoints and measures, in a file of their own beside its document file, so writing one never holds the log's writer.
 import type { Database } from "bun:sqlite";
 import { sha256 } from "../checksum.ts";
-import type { Checkpoints, Measures } from "../ports.ts";
-import { CHECKPOINTS_KEPT } from "../ports.ts";
+import type { Checkpoints, Measures } from "../ports/index.ts";
+import { CHECKPOINTS_KEPT } from "../ports/index.ts";
 import { migrate, openDatabase, transact } from "./files.ts";
 import { createSqliteMeasures } from "./measures.ts";
 

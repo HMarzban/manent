@@ -2,8 +2,8 @@
 import { Database, SQLiteError } from "bun:sqlite";
 import { join } from "node:path";
 import { wellFormedKey } from "../home.ts";
-import type { Home } from "../ports.ts";
-import { STORAGE_SCHEMA_VERSION, StorageError } from "../ports.ts";
+import type { Home } from "../ports/index.ts";
+import { STORAGE_SCHEMA_VERSION, StorageError } from "../ports/index.ts";
 import { MIGRATIONS } from "./migrations.ts";
 
 export const CONTROL_FILE = "control.sqlite";

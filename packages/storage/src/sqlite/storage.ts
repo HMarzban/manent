@@ -2,7 +2,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { wellFormedKey } from "../home.ts";
-import type { Storage } from "../ports.ts";
+import type { Storage } from "../ports/index.ts";
 import { createSqliteDirectory } from "./directory.ts";
 import type { SqliteDocFile } from "./doc-file.ts";
 import { openDocFile } from "./doc-file.ts";

@@ -6,7 +6,8 @@ import { answerAuthority, commitAuthority } from "./authority-write.ts";
 import type { UpstreamItem } from "./ports.ts";
 import type { Room } from "./rooms.ts";
 import { isStorageError } from "./storage-error.ts";
-import type { Committed, QueuedItem, WritePathPorts } from "./write-path.ts";
+import type { Committed, WritePathPorts } from "./write-path-ports.ts";
+import type { QueuedItem } from "./write-path.ts";
 
 type AnswerPorts = Pick<
   WritePathPorts,
