@@ -73,7 +73,7 @@ export interface SeedProduction {
   state(userId: string, docId: string): Promise<ProductionState>;
   /** Numbering "suffix", colour order "standard", locked on the seed's local day. */
   lock(userId: string, docId: string): Promise<void>;
-  /** Issues the active set: what "changed", files ["pdf_marked"], no tint, no recipients. */
+  /** Issues the active set to everyone else with a role on the script: what "changed", files ["pdf_marked"], no tint. */
   issue(
     userId: string,
     docId: string,
