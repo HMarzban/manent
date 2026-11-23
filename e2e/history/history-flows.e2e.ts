@@ -1,7 +1,7 @@
 // Naming, viewing, comparing and restoring versions of a script as a person does, through the History tab.
-import { formatDate, formatDay } from "@manent/ui";
+import { formatDate, formatDay, formatTime } from "@manent/ui";
 import { expect, test } from "@playwright/test";
-import type { Locator, Page } from "@playwright/test";
+import type { BrowserContext, Locator, Page } from "@playwright/test";
 import {
   EDITABLE,
   blocks,
@@ -9,15 +9,18 @@ import {
   settled,
   typeLine,
 } from "../editor/support.ts";
-import { keepEveryHooks } from "../support/editor-hooks.ts";
-import { pressKeyOf } from "../support/interface.ts";
+import { editorHook, keepEveryHooks } from "../support/editor-hooks.ts";
+import { labelOf, pressKeyOf } from "../support/interface.ts";
 import { openMadeScript } from "../support/made-script.ts";
+import { signedInAs } from "../support/tour.ts";
 import { openHarness, until } from "../sync/support.ts";
 
 const HEADING = "INT. LAMP ROOM - NIGHT";
 const ACTION = "The lamp turns.";
 const LATER = " The keeper sleeps.";
 const MORE = " Again.";
+const HALL = "INT. HALL - DAY";
+const DOOR = "The door is shut.";
 
 const historyTab = (page: Page): Locator =>
   page.locator("[data-region='side_panel']").getByRole("region", {
@@ -85,14 +88,99 @@ async function leave(page: Page): Promise<void> {
   await page.goto("/preferences/writing");
 }
 
-/** LATER typed at the end of the script's line of action, and drawn, so the status no longer says Synced until it is. */
-async function typeLater(page: Page): Promise<void> {
-  const [, action] = await blocks(page);
-  if (action === undefined) throw new Error("the script has no action");
-  await caretAt(page, action.id, "end");
-  await typeLine(page, LATER);
-  await expect.poll(() => lines(page)).toEqual([HEADING, `${ACTION}${LATER}`]);
+/** `text` typed at the end of the script's line `at`, and drawn, so the status no longer says Synced until it is. */
+async function typeAtEnd(page: Page, at: number, text: string): Promise<void> {
+  const line = (await blocks(page))[at];
+  if (line === undefined) throw new Error(`the script has no line ${at}`);
+  await caretAt(page, line.id, "end");
+  await typeLine(page, text);
+  await expect
+    .poll(async () => (await lines(page))[at])
+    .toBe(`${line.text}${text}`);
   await settled(page);
+}
+
+/** LATER typed at the end of the script's line of action, and drawn. */
+async function typeLater(page: Page): Promise<void> {
+  await typeAtEnd(page, 1, LATER);
+  expect(await lines(page)).toEqual([HEADING, `${ACTION}${LATER}`]);
+}
+
+/**
+ * A new script of Dana's, made with the Library's New script in her first workspace, the Writers' room, so that its
+ * other members hold roles on it too: two scenes of a heading and a line of action each, synced and named "First
+ * draft"; resolves to its id.
+ */
+async function danasScript(page: Page): Promise<string> {
+  await keepEveryHooks(page);
+  await signedInAs(page, "dana");
+  await page
+    .getByRole("button", { name: labelOf("library.newScript") })
+    .first()
+    .click();
+  await page.waitForURL((at) => at.pathname.startsWith("/s/"));
+  await expect(page.locator(EDITABLE)).toBeVisible();
+  await page.locator("[data-editor-host] [data-id]").first().click();
+  for (const [at, line] of [HEADING, ACTION, HALL, DOOR].entries()) {
+    if (at > 0) await page.keyboard.press("Enter");
+    await typeLine(page, line);
+  }
+  await expect.poll(() => lines(page)).toEqual([HEADING, ACTION, HALL, DOOR]);
+  await expect(statusOf(page, "Synced")).toBeVisible();
+  await nameFirstDraft(page);
+  return new URL(page.url()).pathname.slice("/s/".length);
+}
+
+/**
+ * Sam's window in `context` on the script `docId`, once its page shows `shown`. He signs in away from the script, as
+ * a first visit to it in a new browser would hold a message about this browser's data ahead of the one about a restore.
+ */
+async function samsWindow(
+  context: BrowserContext,
+  docId: string,
+  shown: readonly string[],
+): Promise<Page> {
+  const sam = await context.newPage();
+  await keepEveryHooks(sam);
+  await signedInAs(sam, "sam", "/preferences/writing");
+  await sam
+    .getByRole("region", { name: "Demo" })
+    .getByRole("button", { name: "Tour" })
+    .waitFor();
+  await sam.goto(`/s/${docId}`);
+  await expect(sam.locator(EDITABLE)).toBeVisible();
+  await expect.poll(() => lines(sam)).toEqual(shown);
+  return sam;
+}
+
+/** Confirms the consequence dialog `title`, which a restore on a script someone else can open asks first. */
+async function confirm(
+  page: Page,
+  title: string,
+  body: string,
+  button: string,
+): Promise<void> {
+  const dialog = page.getByRole("alertdialog", { name: title });
+  await expect(dialog).toContainText(body);
+  await dialog.getByRole("button", { name: button, exact: true }).click();
+}
+
+/**
+ * Waits until `page` says `said` of a restore made from `from` on: its time is the minute the server made it, which
+ * is the minute of `from` or of now.
+ */
+async function expectRestoredBy(
+  page: Page,
+  said: (time: string) => string,
+  from: number,
+): Promise<void> {
+  const message = page.getByText("Your later changes are kept.", {
+    exact: false,
+  });
+  await expect(message).toBeVisible();
+  expect([said(formatTime(from)), said(formatTime(Date.now()))]).toContain(
+    await message.textContent(),
+  );
 }
 
 async function rowMenu(page: Page, text: string, item: string): Promise<void> {
@@ -181,9 +269,93 @@ test("restore a scene and undo it with its reverse", async ({ page }) => {
   await expect.poll(() => lines(page)).toEqual([HEADING, `${ACTION}${LATER}`]);
 });
 
-// these two need two people holding roles on one script, which only the demo's seed gives, and it gives none yet
-test.fixme("someone else's restore while you type keeps your later changes", () => {});
-test.fixme("undo after someone else's restore skips what is gone", () => {});
+test("someone else's restore while you type keeps your later changes", async ({
+  page,
+  browser,
+}) => {
+  const docId = await danasScript(page);
+  await typeAtEnd(page, 1, LATER);
+  await expect(statusOf(page, "Synced")).toBeVisible();
+  const sam = await samsWindow(await browser.newContext(), docId, [
+    HEADING,
+    `${ACTION}${LATER}`,
+    HALL,
+    DOOR,
+  ]);
+  // Sam's caret is in scene 2, where he is writing, when Dana restores the script
+  const [, , , door] = await blocks(sam);
+  if (door === undefined) throw new Error("the script has no second scene");
+  await caretAt(sam, door.id, "end");
+  const from = Date.now();
+  await rowMenu(page, "First draft", "Restore");
+  await confirm(
+    page,
+    "Restore 'First draft'?",
+    "The script as it is now is kept as 'Before restore'.",
+    "Restore 'First draft'",
+  );
+  await expectRestoredBy(
+    sam,
+    (time) =>
+      `Dana restored 'First draft' at ${time}. Your later changes are kept.`,
+    from,
+  );
+  await expect.poll(() => lines(sam)).toEqual([HEADING, ACTION, HALL, DOOR]);
+  // what he types next goes on at his caret, and stays on both pages
+  await typeLine(sam, MORE);
+  const kept = [HEADING, ACTION, HALL, `${DOOR}${MORE}`];
+  await expect.poll(() => lines(sam)).toEqual(kept);
+  await expect(statusOf(sam, "Synced")).toBeVisible();
+  await expect.poll(() => lines(page)).toEqual(kept);
+  await sam.context().close();
+});
+
+test("undo after someone else's restore skips what is gone", async ({
+  page,
+  browser,
+}) => {
+  const docId = await danasScript(page);
+  const context = await browser.newContext();
+  // Sam's clock is moved on between his two edits, so that each is an undo step of its own
+  await context.clock.install();
+  const sam = await samsWindow(context, docId, [HEADING, ACTION, HALL, DOOR]);
+  await typeAtEnd(sam, 3, MORE);
+  await sam.clock.fastForward(1000);
+  await typeAtEnd(sam, 1, LATER);
+  expect(await editorHook(sam, "undoDepth")).toBe(2);
+  await expect(statusOf(sam, "Synced")).toBeVisible();
+  await expect
+    .poll(() => lines(page))
+    .toEqual([HEADING, `${ACTION}${LATER}`, HALL, `${DOOR}${MORE}`]);
+  // Dana restores scene 1, which holds Sam's last edit and not his first
+  const [, action] = await blocks(page);
+  if (action === undefined) throw new Error("the script has no action");
+  await caretAt(page, action.id, "end");
+  const from = Date.now();
+  await rowMenu(page, "First draft", "Restore this scene");
+  await confirm(
+    page,
+    "Restore scene 1 from 'First draft'?",
+    "Scene 1 as it is now is kept in 'Before restore'. The rest of the script is unchanged.",
+    "Restore scene 1",
+  );
+  await expectRestoredBy(
+    sam,
+    (time) =>
+      `Dana restored scene 1 from 'First draft' at ${time}. Your later changes are kept.`,
+    from,
+  );
+  await expect
+    .poll(() => lines(sam))
+    .toEqual([HEADING, ACTION, HALL, `${DOOR}${MORE}`]);
+  // one Undo passes over the edit the restore took out and takes back the one before it
+  await pressKeyOf(sam, "edit.undo");
+  const undone = [HEADING, ACTION, HALL, DOOR];
+  await expect.poll(() => lines(sam)).toEqual(undone);
+  await expect(statusOf(sam, "Synced")).toBeVisible();
+  await expect.poll(() => lines(page)).toEqual(undone);
+  await context.close();
+});
 
 test("offline, History still restores from a version on this device", async ({
   page,
