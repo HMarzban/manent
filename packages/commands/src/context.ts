@@ -12,6 +12,11 @@ export interface CommandContext {
   shell: "web" | "desktop";
   demo: boolean;
   signedIn: boolean;
+  /**
+   * Whether the person can add to the workspace the Library shows: `read_only` once its index answered that their role
+   * only reads it, `getting_ready` while it is being seeded; `writable` off the Library and while neither is known.
+   */
+  workspace: "writable" | "read_only" | "getting_ready";
   panelOpen: Readonly<Record<PanelId, boolean>>;
   /** The History tab is present; the document screen writes it as it writes `panelOpen`. */
   historyPresent: boolean;

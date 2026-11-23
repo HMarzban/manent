@@ -1,6 +1,7 @@
 // The Library: the workspace switcher, its navigation and the view the address chooses, New script and New project, the
 // person menu and the status bar.
 import { TOUR, isShown } from "@manent/demo";
+import { indexDocId } from "@manent/sync-protocol";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   CommandButton,
@@ -11,6 +12,7 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
+import { useQuery } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
 import type { ComponentType, ReactNode } from "react";
@@ -23,6 +25,7 @@ import type { TabPerson } from "../../session.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { SidePosition } from "../../shell/side-position.tsx";
 import { panelsActions } from "../../state/panels.store.ts";
+import { workspaceActions } from "../../state/workspace.store.ts";
 import { pageTitle } from "../../text.ts";
 import { SIDE_PANEL_TABS } from "../document/side-tabs.ts";
 import { ContinueView } from "./continue-list.tsx";
@@ -128,6 +131,35 @@ function useWorkspaceLists(workspaceId: string | null): {
 }
 
 /**
+ * Tells the commands, while the Library is drawn, whether the person can add to the workspace shown: not while it is
+ * being seeded, nor while their role on its index only reads it.
+ */
+function usePublishWorkspace(shown: {
+  api: Api;
+  userId: string;
+  workspaceId: string | null;
+  seeding: boolean;
+}): void {
+  const { api, userId, workspaceId, seeding } = shown;
+  const index =
+    workspaceId === null ? null : indexDocId("workspace", workspaceId);
+  const role = useQuery({
+    queryKey: ["role", userId, index],
+    queryFn: () => (index === null ? null : api.role(index)),
+    enabled: index !== null && !seeding,
+  }).data;
+  const workspace = seeding
+    ? "getting_ready"
+    : role === "comment" || role === "view"
+      ? "read_only"
+      : "writable";
+  useEffect(() => {
+    workspaceActions.set(workspace);
+  }, [workspace]);
+  useEffect(() => () => workspaceActions.set("writable"), []);
+}
+
+/**
  * What the main column says in place of the lists of a workspace that is being seeded, which hold nothing until it is
  * ready, or whose seed stopped.
  */
@@ -153,6 +185,12 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
   );
   const { continueList, projects, problem } = useWorkspaceLists(workspaceId);
   const shown = workspaces?.find((ref) => ref.id === workspaceId) ?? null;
+  usePublishWorkspace({
+    api,
+    userId: person.userId,
+    workspaceId,
+    seeding: shown?.seeding != null,
+  });
   const View = useChosenView();
   // a signed-in person's switcher waits for the server to say which workspaces they have
   const switcher =
