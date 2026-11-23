@@ -2,7 +2,8 @@
 import type { EditorView } from "prosemirror-view";
 import { runFind } from "../find/find-commands.ts";
 import type { FindAction } from "../find/find-commands.ts";
-import type { ActionResult, EditorAction } from "./action-types.ts";
+import type { ActionResult } from "./action-types.ts";
+import type { EditorAction } from "./registry.ts";
 import { runGoTo } from "./go-to.ts";
 import type { GoToAction } from "./go-to.ts";
 import { setSynopsis } from "./synopsis.ts";
