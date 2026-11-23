@@ -30,7 +30,7 @@ const NO_FRAMES = { request: () => () => {} };
 const UINT32 = 4_294_967_296;
 
 /** `lines` from the one at `from` round to the one before it. */
-const linesFrom = (lines: readonly string[], from: number): string[] => [
+const linesFrom = <T>(lines: readonly T[], from: number): T[] => [
   ...lines.slice(from),
   ...lines.slice(0, from),
 ];

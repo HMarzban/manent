@@ -1,6 +1,8 @@
 // The shape of a project's style guide and phrase bank, what a document takes from one, and the error a seed
 // build stops with.
-import type { FormatId } from "@manent/schema";
+import { FORMAT_ELEMENTS } from "@manent/schema";
+import type { BlockType, FormatId } from "@manent/schema";
+import type { WriterLine } from "../writers/region.ts";
 
 export type LineIntent = "ask" | "answer" | "instruct" | "state";
 
@@ -72,19 +74,57 @@ export function isGuideOf(guide: StyleGuide, key: string): boolean {
   );
 }
 
+/** The element each format writes a guide's action in. */
+const ACTION_ELEMENTS: Readonly<Record<FormatId, BlockType>> = {
+  screenplay: "action",
+  multicam: "action",
+  animation: "action",
+  variety: "general",
+  game: "action",
+  ink: "ink_line",
+  manuscript: "body",
+  stage_play: "action",
+};
+
+/** `text` said by `cue` as `format` writes it: under the cue, or as `CUE: text` in a format that has no cues. */
+export function speechOf(
+  format: FormatId,
+  cue: string,
+  text: string,
+): WriterLine {
+  return FORMAT_ELEMENTS[format].includes("character")
+    ? [
+        { element: "character", text: cue },
+        { element: "dialogue", text },
+      ]
+    : [{ element: ACTION_ELEMENTS[format], text: `${cue}: ${text}` }];
+}
+
 /**
  * The hand-written lines, action then dialogue, of the first of `guides` that writes the document, else of
- * the first that writes another document of its project; null when none does.
+ * the first that writes another document of its project, as the document's format writes them; a speech any
+ * of the cast may say goes to the cast of the guide's beats in turn, those in the room before a voice from
+ * elsewhere ("GIL (V.O.)"). Null when no guide writes the project.
  */
 export function guideLines(
   guides: readonly StyleGuide[],
-  doc: { key: string; projectKey: string },
-): string[] | null {
+  doc: { key: string; projectKey: string; format: FormatId },
+): WriterLine[] | null {
   const guide =
     guides.find((g) => isGuideOf(g, doc.key)) ??
     guides.find((g) => isGuideOf(g, doc.projectKey));
   if (guide === undefined) return null;
-  return [...guide.action, ...guide.dialogue.map((entry) => entry.text)];
+  const cast = [...new Set(guide.beats.flatMap((beat) => beat.cast))];
+  const inRoom = cast.filter((cue) => !cue.includes("("));
+  const cues = inRoom.length > 0 ? inRoom : cast;
+  const element = ACTION_ELEMENTS[doc.format];
+  return [
+    ...guide.action.map((text) => [{ element, text }]),
+    ...guide.dialogue.flatMap((entry, i) => {
+      const cue = entry.speaker ?? cues[i % cues.length];
+      return cue === undefined ? [] : [speechOf(doc.format, cue, entry.text)];
+    }),
+  ];
 }
 
 export interface ProseGuide {
