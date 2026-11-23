@@ -8,62 +8,71 @@ import {
   TooltipTrigger,
 } from "@manent/ui";
 import type { LucideIcon } from "lucide-react";
+import { LoaderCircleIcon } from "lucide-react";
 import { useId } from "react";
 import type { ReactNode } from "react";
 
 /**
- * Its icon, then its label, which a bar short of room hides from sight while it stays the button's name; the tooltip
- * says the label. While `unavailable` holds a reason it is disabled and still focusable (`aria-disabled`), and
- * "{label} — {reason}" is its tooltip and its accessible description. With `opens`, it is the trigger of the popover
- * around it.
+ * Its icon, then its label. Its tooltip, also its accessible description, says what its label does not: while
+ * `unavailable` holds a reason, "{label} — {reason}", when it is disabled and still focusable (`aria-disabled`);
+ * otherwise its `hint`, and without one it has no tooltip. While `busy` holds the work's progressive label it reads
+ * that beside a spinner and cannot be pressed. With `opens`, it is the trigger of the popover around it.
  */
 export function BarButton(props: {
   label: string;
   icon: LucideIcon;
   tour?: string;
+  hint?: string;
   unavailable?: string;
+  busy?: string;
   disabled?: boolean;
   opens?: boolean;
   onClick?: () => void;
 }): ReactNode {
-  const { label, icon: Icon, unavailable, opens = false } = props;
-  const reasonId = useId();
+  const { label, unavailable, busy, opens = false } = props;
+  const describedId = useId();
   const reason =
     unavailable === undefined
       ? null
       : READOUT_WORDS.unavailable(label, unavailable);
+  const description = reason ?? props.hint ?? null;
+  const acts = reason === null && busy === undefined;
+  const Icon = busy === undefined ? props.icon : LoaderCircleIcon;
   const button = (
     <Button
       variant="outline"
       size="sm"
       data-tour={props.tour}
       disabled={props.disabled}
-      aria-disabled={reason === null ? undefined : true}
-      aria-describedby={reason === null ? undefined : reasonId}
-      onClick={reason === null ? props.onClick : undefined}
+      aria-disabled={acts ? undefined : true}
+      aria-busy={busy === undefined ? undefined : true}
+      aria-describedby={description === null ? undefined : describedId}
+      onClick={acts ? props.onClick : undefined}
     />
   );
-  // the reason sits beside the button, not in it, so that it describes the button without joining its name
+  // the description sits beside the button, not in it, so that it describes the button without joining its name
   return (
     <>
-      <Tooltip>
+      <Tooltip disabled={description === null}>
         <TooltipTrigger
-          render={
-            opens && reason === null ? (
-              <PopoverTrigger render={button} />
-            ) : (
-              button
-            )
-          }
+          render={opens && acts ? <PopoverTrigger render={button} /> : button}
         >
-          <Icon aria-hidden="true" className="size-icon" />
-          <span data-slot="button-label">{label}</span>
+          <Icon
+            aria-hidden="true"
+            className={
+              busy === undefined ? "size-icon" : "size-icon animate-spin"
+            }
+          />
+          {busy ?? label}
         </TooltipTrigger>
-        <TooltipContent>{reason ?? label}</TooltipContent>
+        {/* gone at once when focus or the pointer moves on, so the next control's tooltip is never drawn over it */}
+        <TooltipContent className="data-closed:hidden">
+          {description}
+        </TooltipContent>
       </Tooltip>
-      {reason === null ? null : (
-        <span id={reasonId} className="sr-only">
-          {reason}
+      {description === null ? null : (
+        <span id={describedId} className="sr-only">
+          {description}
         </span>
       )}
     </>

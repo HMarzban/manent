@@ -43,9 +43,9 @@ export function DemoBarControls(props: {
   // the shell provides the services and the commands together with the bridge's contexts
   const inShell = useContext(FactsContext) !== null;
   const { control } = props;
-  // one row while they fit; in the narrowest bar, where it drops the server's words, a second row
+  // one row while they fit, and a second row rather than buttons cut down to bare icons
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 @max-[40rem]/mn-bar:flex-wrap @max-[40rem]/mn-bar:py-1">
+    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 py-1 sm:gap-x-3">
       <Person person={props.person} onClick={props.onPersonClick} />
       {inShell ? (
         <ShellControls control={control} />
@@ -108,7 +108,7 @@ function Person(props: {
           size="sm"
           decorative
         />
-        <span data-slot="button-label">{person.name}</span>
+        {person.name}
       </Button>
     </BarLabelled>
   );
@@ -154,11 +154,12 @@ function ServerControl(props: DemoControl): ReactNode {
         <BarButton
           label={kind === "stop" ? TEXT.stopServer : TEXT.startServer}
           icon={PowerIcon}
+          hint={kind === "stop" ? DEMO_WORDS.stopServerHint : undefined}
           disabled={action.isPending}
           onClick={() => action.mutate(kind)}
         />
       )}
-      {/* cut short where the bar runs out of room; the shell's announcer says the whole sentence */}
+      {/* cut short, then hidden, where the bar runs out of room; the shell's announcer says the whole sentence */}
       <p data-slot="bar-status" className="min-w-0 truncate text-fg-muted">
         {state && serverStatusText(state)}
       </p>

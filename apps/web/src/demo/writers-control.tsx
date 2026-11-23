@@ -32,7 +32,7 @@ function labelOf(running: Running): string {
 const isCount = (value: number): value is WritersRequest["count"] =>
   value === 0 || value === 1 || value === 5 || value === 20;
 
-/** Disabled without a script or a connection; absent for a person who cannot edit the script. */
+/** Unavailable without a script or a connection, and for a person who cannot edit the script. */
 export function WritersControl(props: {
   docId: string | null;
   offline: boolean;
@@ -75,7 +75,15 @@ function ScriptWriters(props: {
   const { api } = useServices();
   const caret = useEditorFact("blockId");
   const [open, setOpen] = useState(false);
-  if (!useCanEdit(docId)) return null;
+  if (!useCanEdit(docId))
+    return (
+      <BarButton
+        label={DEMO_WORDS.addWriters}
+        icon={UsersIcon}
+        tour={TOUR}
+        unavailable={DEMO_WORDS.needsEdit}
+      />
+    );
   const ask = (count: WritersRequest["count"]): void => {
     setOpen(false);
     const afterBlockId = count === 0 ? null : caret;
@@ -88,10 +96,23 @@ function ScriptWriters(props: {
   };
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <BarButton label={labelOf(running)} icon={UsersIcon} tour={TOUR} opens />
-      <PopoverContent data-surface="demo" align="start" className="w-auto">
+      <BarButton
+        label={labelOf(running)}
+        icon={UsersIcon}
+        tour={TOUR}
+        hint={DEMO_WORDS.addWritersHint}
+        opens
+      />
+      <PopoverContent
+        data-surface="demo"
+        align="start"
+        className="w-auto gap-2"
+      >
+        <p aria-hidden="true" className="text-ui text-fg-muted">
+          {DEMO_WORDS.writersChoice}
+        </p>
         <Segmented
-          label={DEMO_WORDS.addWriters}
+          label={DEMO_WORDS.writersChoice}
           size="sm"
           value={running === null ? "" : String(running.asked)}
           options={CHOICES}

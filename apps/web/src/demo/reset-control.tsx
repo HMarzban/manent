@@ -32,6 +32,7 @@ export function ResetControl(props: DemoControl): ReactNode {
         label={DEMO_WORDS.reset}
         icon={RotateCcwIcon}
         tour="demo:reset"
+        hint={DEMO_WORDS.resetHint}
         onClick={() => setOpen(true)}
       />
       <ConsequenceDialog

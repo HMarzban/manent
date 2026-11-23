@@ -1,4 +1,5 @@
-// The demo bar's words. The server's words and "Chosen" are the web app's own.
+// The demo bar's words. The server's words and "Chosen" are the web app's own. A `…Hint` is a control's tooltip
+// while it can act: what it does, which its label does not say.
 import { formatCount } from "./format.ts";
 
 export const DEMO_WORDS = {
@@ -11,8 +12,11 @@ export const DEMO_WORDS = {
   online: "Online",
   offline: "Offline",
   slow: "Slow",
-  /** The control: a popover holding the choice of 1, 5 or 20 and, while writers run, Stop writers. */
+  /** The control: a popover holding the choice of 1, 5 or 20 under its line and, while writers run, Stop writers. */
   addWriters: "Add writers",
+  addWritersHint:
+    "Simulated writers type in this script, each in a scene of its own.",
+  writersChoice: "Writers typing in other scenes",
   stopWriters: "Stop writers",
   /** The control's label while they run. */
   writersTyping: (n: number): string =>
@@ -22,7 +26,13 @@ export const DEMO_WORDS = {
   /** Reason clauses, for READOUT_WORDS.unavailable. */
   needsScript: "needs a script open",
   needsConnection: "needs a connection",
+  needsEdit: "needs edit access",
+  /** The button's label is the web app's own. */
+  stopServerHint:
+    "Stops the server without warning. Nothing synced is lost, and each window reconnects by itself.",
   timings: "Timings",
+  timingsHint:
+    "This window's typing, pagination and sync times, measured live.",
   timingRows: [
     "Keystroke to frame",
     "Pagination time",
@@ -38,8 +48,14 @@ export const DEMO_WORDS = {
   nothingMeasured: "—",
   timingsNote: "Measured in this window while Timings is open.",
   reorganise: "Reorganise",
-  /** The control; its consequence dialog's title, its confirming button (drawn destructive) and its body. */
+  reorganiseHint:
+    "Has the server reorganise how this script is stored now, as it does when a script grows long.",
+  /** The control's label and tooltip from the press until the script's message says it is done. */
+  reorganising: "Reorganising…",
+  reorganisingHint: "Starts once no one is typing in this script.",
+  /** The control and its tooltip; its consequence dialog's title, its confirming button (drawn destructive) and its body. */
   reset: "Reset",
+  resetHint: "Seeds every workspace again, for everyone using this demo.",
   resetTitle: "Reset the demo?",
   resetAction: "Reset the demo",
   resetBody:

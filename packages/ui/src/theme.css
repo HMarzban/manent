@@ -1177,28 +1177,14 @@ button:not(:disabled):hover > .mn-row {
   text-transform: uppercase;
 }
 
-/* A bar of controls on one row, which never wraps or scrolls sideways. Short
-   of room, its buttons keep only their icons, their words staying their
-   names, and its labels go; narrower still, so do its status words. */
+/* A bar of controls, which never scrolls sideways. Its buttons keep their
+   words at every width, so none is a bare icon. Short of room, the labels
+   before its controls and its status words go, staying for a screen reader. */
 .mn-bar {
   container: mn-bar / inline-size;
 }
 @container mn-bar (width < 72rem) {
-  .mn-bar :is([data-slot="button-label"], [data-slot="bar-label"]) {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-  .mn-bar [data-slot="button"]:has(> [data-slot="button-label"]) {
-    width: var(--control-h-sm);
-    padding-inline: 0;
-  }
-}
-@container mn-bar (width < 40rem) {
-  .mn-bar [data-slot="bar-status"] {
+  .mn-bar :is([data-slot="bar-label"], [data-slot="bar-status"]) {
     position: absolute;
     width: 1px;
     height: 1px;
