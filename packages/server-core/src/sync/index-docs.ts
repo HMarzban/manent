@@ -1,10 +1,16 @@
 // Index documents: the kinds that hold a person's, a workspace's or a project's maps, and what a push to one may write.
-import { PRIVATE_INDEX_MAPS, WORKSPACE_INDEX_MAPS } from "@manent/crdt";
+import {
+  PRIVATE_INDEX_MAPS,
+  PROJECT_INDEX_MAPS,
+  WORKSPACE_INDEX_MAPS,
+} from "@manent/crdt";
 import type { TransactionReport } from "@manent/crdt";
 import type { Issue } from "@manent/schema";
 import type { Home } from "@manent/storage";
 import { indexDocId } from "@manent/sync-protocol";
 import type { DocKind } from "@manent/sync-protocol";
+import { validateProjectIndexWrites } from "../project/validate.ts";
+import type { Access } from "./access.ts";
 
 /** The kinds that hold maps and never a script body. */
 export const INDEX_KINDS: readonly DocKind[] = Object.freeze(["index"]);
@@ -22,6 +28,7 @@ export interface IndexKeyRule {
 export const INDEX_KEY_RULES: readonly IndexKeyRule[] = Object.freeze([
   { scope: "user", maps: PRIVATE_INDEX_MAPS },
   { scope: "workspace", maps: WORKSPACE_INDEX_MAPS },
+  { scope: "project", maps: PROJECT_INDEX_MAPS },
 ]);
 
 /**
@@ -44,11 +51,13 @@ const notIndex = (path: string, message: string): Issue => ({
 
 /**
  * One `not_index` issue for each map the push wrote that no rule of the index's scope holds, then
- * one for a script body it touched. An empty list accepts the push.
+ * one for a script body it touched, then, on a project's index, one for each map the pusher's
+ * `access` may not write. An empty list accepts the push.
  */
 export function validateIndexPush(
   report: TransactionReport,
   index: { docId: string; home: Home },
+  access: Access,
 ): Issue[] {
   const scope = scopeOf(index);
   const held = INDEX_KEY_RULES.filter((rule) => rule.scope === scope).flatMap(
@@ -69,5 +78,7 @@ export function validateIndexPush(
     report.touched().length > 0;
   if (body)
     issues.push(notIndex("body", "a push wrote a script body into an index"));
+  if (scope === "project")
+    issues.push(...validateProjectIndexWrites(report, access));
   return issues;
 }
