@@ -78,6 +78,8 @@ test("the routes are the screens of this release", () => {
     "/preferences",
     "/preferences/$pane",
     "/s/$docId",
+    "/s/$docId/present",
+    "/s/$docId/prompter",
     "/s/$docId/send/$form",
   ]);
 });
@@ -94,6 +96,8 @@ test("the test build adds the development screens", () => {
       "/preferences",
       "/preferences/$pane",
       "/s/$docId",
+      "/s/$docId/present",
+      "/s/$docId/prompter",
       "/s/$docId/send/$form",
     ]);
   } finally {
@@ -112,6 +116,8 @@ test("a screen that reads the route is that route's own lazily loaded component"
   expect(lazy).toEqual([
     "/preferences/$pane",
     "/s/$docId",
+    "/s/$docId/present",
+    "/s/$docId/prompter",
     "/s/$docId/send/$form",
   ]);
 });
