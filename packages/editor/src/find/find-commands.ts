@@ -7,7 +7,8 @@ import type { EditorState, Transaction } from "prosemirror-state";
 import { Mapping, StepMap } from "prosemirror-transform";
 import type { EditorView } from "prosemirror-view";
 import { Decoration, DecorationSet } from "prosemirror-view";
-import type { ActionResult, EditorAction } from "../actions/action-types.ts";
+import type { ActionResult } from "../actions/action-types.ts";
+import type { EditorAction } from "../actions/registry.ts";
 import { findKey } from "./find-plugin.ts";
 import type { FindState, Match } from "./find-plugin.ts";
 

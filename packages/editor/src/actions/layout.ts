@@ -10,7 +10,7 @@ import type {
   PaginationSettings,
   PaginationState,
 } from "../pagination/plugin.ts";
-import type { ActionResult, EditorAction } from "./action-types.ts";
+import type { ActionEntry, ActionResult } from "./action-types.ts";
 
 /** The most blank lines a block's own space before may ask for, as the engine clamps it; for a script without pages. */
 const MAX_SPACE_BEFORE = 10;
@@ -75,7 +75,14 @@ export function toggleSpaceBefore(
 
 const LAYOUT_FIELDS = ["indent", "width", "spaceBefore"] as const;
 type LayoutField = (typeof LAYOUT_FIELDS)[number];
-type LayoutAction = Extract<EditorAction, { kind: "layout" }>;
+/** A field left out is unchanged, and null returns it to the element's own. */
+type LayoutAction = {
+  kind: "layout";
+  indent?: number | null;
+  width?: number | null;
+  align?: Alignment | null;
+  spaceBefore?: number | null;
+};
 
 /** Without a page there is no column, so only space before has a ceiling. */
 const INK_BOUNDS: Readonly<Record<LayoutField, readonly [number, number]>> = {
@@ -156,3 +163,20 @@ export function setLayout(
     ? { ok: true }
     : { ok: false, reason: "nothing_to_do" };
 }
+
+/** Toggles. */
+export const alignEntry: ActionEntry<{ kind: "align"; value: Alignment }> = {
+  readOnly: false,
+  run: (view, action) => toggleAlign(view.state, action.value, view.dispatch),
+};
+
+/** Toggles. */
+export const spaceBeforeEntry: ActionEntry<{ kind: "space_before" }> = {
+  readOnly: false,
+  run: (view) => toggleSpaceBefore(view.state, view.dispatch),
+};
+
+export const layoutEntry: ActionEntry<LayoutAction> = {
+  readOnly: false,
+  run: (view, action) => setLayout(view.state, action, view.dispatch),
+};
