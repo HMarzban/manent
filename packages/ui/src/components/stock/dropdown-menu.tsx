@@ -15,29 +15,6 @@ function DropdownMenuTrigger({ ...props }: MenuPrimitive.Trigger.Props) {
   return <MenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props} />;
 }
 
-// an item whose press closes the menu: not one that opens a submenu
-const CLOSING_ITEM = '[role="menuitem"]:not([aria-haspopup])';
-
-/**
- * A pointer choosing an item gives focus back to the menu's trigger itself, without a ring: the menu's own return of
- * focus would draw one whenever a key was used before the pointer. Focus the choice has already moved elsewhere stays.
- */
-const returnFocusOnPointerChoice = (
-  event: React.MouseEvent<HTMLElement>,
-): void => {
-  const popup = event.currentTarget;
-  const item =
-    event.target instanceof Element ? event.target.closest(CLOSING_ITEM) : null;
-  const active = document.activeElement;
-  if (event.detail === 0 || item === null) return;
-  if (active !== document.body && !popup.contains(active)) return;
-  const trigger = document.querySelector(
-    `[aria-controls="${CSS.escape(popup.id)}"]`,
-  );
-  if (trigger instanceof HTMLElement)
-    trigger.focus({ focusVisible: false, preventScroll: true });
-};
-
 function DropdownMenuContent({
   align = "start",
   alignOffset = 0,
@@ -60,12 +37,6 @@ function DropdownMenuContent({
         sideOffset={sideOffset}
       >
         <MenuPrimitive.Popup
-          // a menu told where focus goes as it closes keeps that
-          onClick={
-            props.finalFocus === undefined
-              ? returnFocusOnPointerChoice
-              : undefined
-          }
           data-slot="dropdown-menu-content"
           className={cn(
             "z-50 max-h-(--available-height) w-(--anchor-width) min-w-32 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 outline-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:overflow-hidden data-closed:fade-out-0 data-closed:zoom-out-95",
