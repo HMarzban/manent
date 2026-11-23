@@ -80,4 +80,10 @@ export const WRITING_COMMANDS = defineCommands([
   writingCommand("writing.handIn", "Hand in…", {
     visible: (ctx) => isAt(ctx, "private"),
   }),
+  writingCommand("writing.restoreBeforeHandIn", "Restore 'Before hand-in'", {
+    palette: { hidden: "the action of the message after Hand in" },
+  }),
+  writingCommand("writing.seeHandedIn", "See what changed", {
+    palette: { hidden: "the action of the message after someone hands in" },
+  }),
 ]);

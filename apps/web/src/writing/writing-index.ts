@@ -1,5 +1,8 @@
-// What the person's private index says of their writing: the position kept per script and their private copies.
+// What the person's private index says of their writing: the position kept per script, their private copies, and
+// whether an episode they open is theirs to write.
+import { readEpisodes } from "@manent/crdt";
 import type { JsonMapView } from "@manent/crdt";
+import type { DocHandle } from "@manent/sync-client";
 import { indexDocId } from "@manent/sync-protocol";
 import type { PersonServices } from "../services/ports.ts";
 import { liveMap } from "../services/sync/private-index.ts";
@@ -17,6 +20,8 @@ export interface WritingIndex {
   writing: JsonMapView;
   /** By the room script's docId: the person's private copy, written by the server only. */
   copies: JsonMapView;
+  /** By docId: the workspace the person last opened it in. */
+  continued: JsonMapView;
   close(): void;
 }
 
@@ -33,6 +38,7 @@ export async function openWritingIndex(
   return {
     writing: liveMap(handle, "writing"),
     copies: liveMap(handle, "private_copies"),
+    continued: liveMap(handle, "continue"),
     close() {
       void handle.close().catch(() => {
         // a handle of a sync disposed already holds nothing more to release
@@ -62,4 +68,53 @@ export function copyEntryOf(
     privateDocId: entry.privateDocId,
     handedIn: entry.handedInAt !== null,
   };
+}
+
+/** Closes `handle` once `read` has read what it needs of its document. */
+async function readThenClose<T>(
+  handle: Promise<DocHandle>,
+  read: (held: DocHandle) => T,
+): Promise<T> {
+  const held = await handle;
+  try {
+    return read(held);
+  } finally {
+    void held.close();
+  }
+}
+
+/** The project of `docId`, as the workspace the person last opened it in lists it; null while that is not known here. */
+export async function projectOf(
+  services: Pick<PersonServices, "openHandle">,
+  index: WritingIndex,
+  docId: string,
+): Promise<string | null> {
+  const continued = index.continued.get(docId);
+  const workspaceId = isFields(continued) ? continued.workspaceId : null;
+  if (typeof workspaceId !== "string") return null;
+  const entry = await readThenClose(
+    services.openHandle(indexDocId("workspace", workspaceId)),
+    (handle) => liveMap(handle, "documents").get(docId),
+  );
+  const projectId = isFields(entry) ? entry.projectId : null;
+  return typeof projectId === "string" ? projectId : null;
+}
+
+/** Whether the project `projectId` names `userId` the writer of the episode whose script is `docId`. */
+export async function isWriterOf(
+  services: Pick<PersonServices, "userId" | "projectIndex">,
+  projectId: string,
+  docId: string,
+): Promise<boolean> {
+  const project = services.projectIndex(projectId);
+  try {
+    const episodes = readEpisodes((await project.handle()).doc());
+    return [...episodes.values()].some(
+      (episode) =>
+        episode.docIds.script === docId &&
+        episode.writerUserId === services.userId,
+    );
+  } finally {
+    void project.close();
+  }
 }

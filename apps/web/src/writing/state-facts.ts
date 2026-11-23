@@ -17,7 +17,10 @@ const FACTS: Readonly<Record<WritingPosition, readonly StateFact[]>> =
 
 export function useWritingFacts(docId: string): readonly StateFact[] {
   const services = useServices();
-  const { now } = useEnvironment();
-  useEffect(() => followScript(services, docId, now), [services, docId, now]);
+  const { now, online } = useEnvironment();
+  useEffect(
+    () => followScript(services, { docId, now, online }),
+    [services, docId, now, online],
+  );
   return FACTS[useSubscribable(writingActions.writingPositionOf(docId))];
 }

@@ -1,7 +1,7 @@
 import type { CommandHandlers } from "@manent/commands";
 import { panelsActions } from "../state/panels.store.ts";
 import { writingActions } from "../state/writing.store.ts";
-import { writePrivately } from "../writing/choose.ts";
+import { writePrivately, writePublicly } from "../writing/choose.ts";
 import { handInShown } from "../writing/hand-in.ts";
 import type { HandlerDeps } from "./index.ts";
 
@@ -10,7 +10,12 @@ type WritingCommandId =
   | "writing.asSuggestions"
   | "writing.privately"
   | "writing.stopSuggestions"
-  | "writing.handIn";
+  | "writing.handIn"
+  | "writing.restoreBeforeHandIn"
+  | "writing.seeHandedIn";
+
+// what the messages after a hand-in reach loads apart from the entry, with History's
+const loadActions = () => import("../writing/hand-in-actions.ts");
 
 export function writingHandlers(
   deps: HandlerDeps,
@@ -19,8 +24,7 @@ export function writingHandlers(
   const shown = (): string | null => deps.shellState().docId;
   const write = (position: "everyone" | "suggestions") => (): void => {
     const docId = shown();
-    if (docId !== null)
-      writingActions.keep(docId, { position, at: now(), privateDocId: null });
+    if (docId !== null) writePublicly(services, docId, { position, at: now() });
   };
   return {
     "writing.forEveryone": write("everyone"),
@@ -37,6 +41,18 @@ export function writingHandlers(
       if (docId === null) return;
       panelsActions.open("side", "history");
       handInShown.set(docId);
+    },
+    "writing.restoreBeforeHandIn"() {
+      const docId = shown();
+      if (docId !== null)
+        void loadActions().then((actions) =>
+          actions.restoreBeforeHandIn(services, docId),
+        );
+    },
+    "writing.seeHandedIn"() {
+      const docId = shown();
+      if (docId !== null)
+        void loadActions().then((actions) => actions.showHandedIn(docId));
     },
   };
 }
