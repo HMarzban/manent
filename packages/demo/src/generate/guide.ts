@@ -1,4 +1,5 @@
-// The shape of a project's style guide and phrase bank, and the error a seed build stops with.
+// The shape of a project's style guide and phrase bank, what a document takes from one, and the error a seed
+// build stops with.
 import type { FormatId } from "@manent/schema";
 
 export type LineIntent = "ask" | "answer" | "instruct" | "state";
@@ -62,6 +63,28 @@ export interface VarietyStory {
   lines: readonly DialogueEntry[];
   /** Each written `T=m:ss <what>`; its seconds count toward the story's running time. */
   brackets: readonly string[];
+}
+
+/** Whether `guide`'s beats write the document whose catalogue key is `key`, or a document under it. */
+export function isGuideOf(guide: StyleGuide, key: string): boolean {
+  return guide.beats.some(
+    (beat) => beat.id.startsWith(`${key}#`) || beat.id.startsWith(`${key}/`),
+  );
+}
+
+/**
+ * The hand-written lines, action then dialogue, of the first of `guides` that writes the document, else of
+ * the first that writes another document of its project; null when none does.
+ */
+export function guideLines(
+  guides: readonly StyleGuide[],
+  doc: { key: string; projectKey: string },
+): string[] | null {
+  const guide =
+    guides.find((g) => isGuideOf(g, doc.key)) ??
+    guides.find((g) => isGuideOf(g, doc.projectKey));
+  if (guide === undefined) return null;
+  return [...guide.action, ...guide.dialogue.map((entry) => entry.text)];
 }
 
 export interface ProseGuide {
