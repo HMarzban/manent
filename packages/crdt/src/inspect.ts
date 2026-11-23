@@ -2,7 +2,7 @@
 import { canonicalBlock } from "@manent/schema";
 import type { BlockJSON, RawElement, RawText } from "@manent/schema";
 import * as Y from "yjs";
-import { ORIGIN_REMOTE, yDocOf } from "./doc.ts";
+import { ORIGIN_REMOTE, throwAll, yDocOf } from "./doc.ts";
 import type { CrdtDoc, Unsubscribe } from "./doc.ts";
 import {
   FRAGMENT_NAME,
@@ -155,11 +155,6 @@ function guarded(thrown: unknown[], fn: () => void): void {
   } catch (error) {
     thrown.push(error);
   }
-}
-
-function throwAll(errors: readonly unknown[]): void {
-  if (errors.length === 1) throw errors[0];
-  if (errors.length > 1) throw new AggregateError(errors, "listeners threw");
 }
 
 function liveId(block: Y.XmlElement): string | null {

@@ -204,8 +204,12 @@ const CTX: CommandContext = {
   sprintRunning: false,
   production: null,
 };
-// History and Review are declared with the View and sync commands
-const DECLARED_ELSEWHERE = new Set(["history.open", "history.review"]);
+// History and Review are declared with the View and sync commands, Copy link with the links commands
+const DECLARED_ELSEWHERE = new Set([
+  "history.open",
+  "history.review",
+  "history.copyLink",
+]);
 const historyCommands = COMMANDS.filter(
   (c) => c.id.startsWith("history.") && !DECLARED_ELSEWHERE.has(c.id),
 );

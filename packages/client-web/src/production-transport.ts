@@ -16,7 +16,10 @@ async function readBody(response: Response): Promise<unknown> {
   }
 }
 
-/** A thrown fetch is ConnectError("unreachable"); a refused session, ConnectError("sign_in"). */
+/**
+ * A thrown fetch is ConnectError("unreachable"); a refused session, ConnectError("sign_in"), as is a request without one,
+ * which is never sent.
+ */
 export function createHttpProductionTransport(options: {
   baseUrl: string;
   token: () => string | null;
@@ -29,10 +32,8 @@ export function createHttpProductionTransport(options: {
     init: { method: string; headers: Record<string, string>; body?: string },
   ): Promise<Answer> {
     const session = token();
-    const headers =
-      session === null
-        ? init.headers
-        : { ...init.headers, Authorization: `Bearer ${session}` };
+    if (session === null) throw new ConnectError("sign_in");
+    const headers = { ...init.headers, Authorization: `Bearer ${session}` };
     let response: Response;
     try {
       response = await send(new URL(path, baseUrl), {

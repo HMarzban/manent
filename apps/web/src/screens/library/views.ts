@@ -2,6 +2,11 @@
 import type { ComponentType } from "react";
 import type { ContinueItem, ProjectItem } from "../../services/ports.ts";
 import { ContinueView } from "./continue-list.tsx";
+import { FavouritesView } from "./favourites-view.tsx";
+import { PrivateView } from "./private-view.tsx";
+import { FolderView } from "./folder-tree.tsx";
+import { TrashView } from "./trash-view.tsx";
+import { SearchResults } from "./search-results.tsx";
 
 /** What the Library has read of the workspace shown; `workspaceId` is null while it is not known. */
 export interface LibraryViewProps {
@@ -24,4 +29,9 @@ export interface LibraryView {
 
 export const LIBRARY_VIEWS: readonly LibraryView[] = [
   { id: "continue", chosenBy: "view", View: ContinueView },
+  { id: "favourites", chosenBy: "view", View: FavouritesView },
+  { id: "private", chosenBy: "view", View: PrivateView },
+  { id: "folder", chosenBy: "view", View: FolderView },
+  { id: "trash", chosenBy: "view", View: TrashView },
+  { id: "search", chosenBy: "q", View: SearchResults },
 ];

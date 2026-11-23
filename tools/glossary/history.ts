@@ -20,5 +20,10 @@ export const HISTORY_TERMS: readonly Term[] = Object.freeze([
   ...row("history", ["Restore"], ["revert", "roll back"]),
   ...row("history", ["Before restore"], []),
   ...row("history", ["Duplicate"], ["make a copy"]),
+  ...row(
+    "series",
+    ["Studio", "Network", "Table", "Record", "Animatic", "Conformed"],
+    [],
+  ),
   ...row("history", ["Before hand-in"], []),
 ]);
