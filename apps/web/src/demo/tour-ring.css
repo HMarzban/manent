@@ -3,3 +3,12 @@
   outline: 2px solid var(--tour-ring);
   outline-offset: 2px;
 }
+/* The page is ringed where it is seen, inside the edge of its scrolling area: round the desk, the ring would be
+   clipped at the sides and scrolled away above and below. */
+[data-tour="page"][data-tour-ring] {
+  outline: none;
+}
+[data-region="page"]:has(> [data-tour="page"][data-tour-ring]) {
+  outline: 2px solid var(--tour-ring);
+  outline-offset: -2px;
+}
