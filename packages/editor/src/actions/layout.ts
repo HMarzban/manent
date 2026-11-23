@@ -76,13 +76,13 @@ export function toggleSpaceBefore(
 const LAYOUT_FIELDS = ["indent", "width", "spaceBefore"] as const;
 type LayoutField = (typeof LAYOUT_FIELDS)[number];
 /** A field left out is unchanged, and null returns it to the element's own. */
-type LayoutAction = {
+interface LayoutAction {
   kind: "layout";
   indent?: number | null;
   width?: number | null;
   align?: Alignment | null;
   spaceBefore?: number | null;
-};
+}
 
 /** Without a page there is no column, so only space before has a ceiling. */
 const INK_BOUNDS: Readonly<Record<LayoutField, readonly [number, number]>> = {

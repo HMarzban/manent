@@ -202,9 +202,9 @@ function completeView(
 }
 
 /**
- * The list of what the completion sources offer at the caret, drawn in `layer` and placed in a frame under the caret; focus
- * stays on the page. Names are collected when the view starts and then at most every 250 ms after a change, by a
- * timer that waits while an input method composes. Placed before the element keys.
+ * The list of what the completion sources offer at the caret, drawn in `layer` and placed in a frame under the
+ * caret; focus stays on the page. Names are collected when the view starts and then at most every 250 ms after a
+ * change, by a timer that waits while an input method composes. Placed before the element keys.
  */
 export function completePlugin(options: CompleteOptions): Plugin {
   const popover = createCompletePopover({ layer: options.layer });

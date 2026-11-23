@@ -53,6 +53,7 @@ export interface ActionContext {
 
 /** One kind of editor action, `A`: what running it does, and whether a page that is not editable still runs it. */
 export interface ActionEntry<A extends { kind: string }> {
+  /** True: a page that is not editable runs it too. */
   readonly readOnly: boolean;
   run(view: EditorView, action: A, context: ActionContext): ActionResult;
 }
