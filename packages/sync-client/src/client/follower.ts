@@ -51,7 +51,7 @@ const OFFLINE: DocStatus = Object.freeze({
   side: [],
 });
 
-type Unsaved = UnsavedEdit & { generation: number };
+type Unsaved = UnsavedEdit & { generation: number; clientId: number };
 
 /** What only the tab that leads can answer, as it holds the store and the subscription. */
 const BY_LEADER = Object.freeze({
@@ -79,7 +79,7 @@ class TabFollower implements Follower {
   private doc: CrdtDoc;
   /** The generation of the document this tab holds, as the leader names it. */
   private generation = 0;
-  /** Each unsaved edit under its `n`, with the generation of the document it was made in. */
+  /** Each unsaved edit under its `n`, with the generation and the client ID of the document it was made in. */
   private readonly unsaved = new Map<number, Unsaved>();
   private refused = false;
   private leaderStatus: DocStatus = OFFLINE;
@@ -99,8 +99,13 @@ class TabFollower implements Follower {
     this.options = options;
     this.doc = options.doc;
     this.recovered = new TabRecovered(options);
+    const { clientId } = this.doc;
     for (const edit of options.unsaved)
-      this.unsaved.set(options.nextEdit(), { ...edit, generation: 0 });
+      this.unsaved.set(options.nextEdit(), {
+        ...edit,
+        generation: 0,
+        clientId,
+      });
     this.loaded = new Promise((resolve) => {
       this.markLoaded = resolve;
     });
@@ -163,6 +168,7 @@ class TabFollower implements Follower {
       case "close":
       case "edit":
       case "opened":
+      case "reserve":
         return;
       default:
         body satisfies never;
@@ -203,10 +209,14 @@ class TabFollower implements Follower {
 
   private edited(edit: UnsavedEdit): void {
     const n = this.options.nextEdit();
-    const { generation } = this;
-    this.unsaved.set(n, { ...edit, generation });
+    const made = {
+      ...edit,
+      generation: this.generation,
+      clientId: this.doc.clientId,
+    };
+    this.unsaved.set(n, made);
     const { docId } = this.options;
-    this.options.post({ t: "edit", docId, n, generation, ...edit });
+    this.options.post({ t: "edit", docId, n, ...made });
     this.show();
   }
 
@@ -239,14 +249,20 @@ class TabFollower implements Follower {
 
   /** The leader's document, bound in place of this tab's under a client ID of its own; returns the one it replaced. */
   private load(state: Uint8Array): CrdtDoc {
-    let clientId = this.options.ports.random.clientId();
-    while (clientId === this.doc.clientId)
-      clientId = this.options.ports.random.clientId();
+    const clientId = this.freshClientId();
     this.coalescer.dispose();
     const previous = this.doc;
     this.doc = loadDoc(state, { clientId });
     this.coalescer = this.bind(this.doc);
     return previous;
+  }
+
+  /** A client ID other than the one this tab writes under. */
+  private freshClientId(): number {
+    const { random } = this.options.ports;
+    let clientId = random.clientId();
+    while (clientId === this.doc.clientId) clientId = random.clientId();
+    return clientId;
   }
 
   /** The leader's facts, saved only once the leader saved every edit made here. */
@@ -306,6 +322,11 @@ class TabFollower implements Follower {
         throw new RangeError(
           "client IDs are adopted by the tab that leads, which holds the store",
         );
+      },
+      reserveClientId: () => {
+        const clientId = this.freshClientId();
+        post({ t: "reserve", docId, clientId });
+        return Promise.resolve(clientId);
       },
       close: async () => {
         post({ t: "close", docId });
