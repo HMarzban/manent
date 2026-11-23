@@ -22,3 +22,4 @@ export * from "./script-editor/index.ts";
 export * from "./scroll/index.ts";
 export * from "./sections/index.ts";
 export * from "./suggest/index.ts";
+export * from "./timing/index.ts";

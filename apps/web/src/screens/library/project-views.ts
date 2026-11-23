@@ -2,6 +2,7 @@
 import type { ComponentType } from "react";
 import type { ProjectItem, ProjectKind } from "../../services/ports.ts";
 import { SeriesView } from "./series/series-view.tsx";
+import { RundownsView } from "../../rundown/library-rundowns.tsx";
 
 export interface ProjectViewProps {
   readonly project: ProjectItem;
@@ -18,4 +19,6 @@ export interface ProjectView {
 
 export const PROJECT_VIEWS: readonly ProjectView[] = [
   { kind: "series", View: SeriesView },
+  { kind: "show", View: RundownsView },
+  { kind: "news", View: RundownsView },
 ];
