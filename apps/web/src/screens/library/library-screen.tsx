@@ -185,7 +185,11 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
         <PersonMenu name={person.name} />
       </ShellRegion>
       <div className="@container flex min-h-0 flex-1">
-        <LibraryNav projects={projects} />
+        <LibraryNav
+          workspaceId={workspaceId}
+          continueShown={View === ContinueView}
+          projects={projects}
+        />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 px-6 pt-6 pb-8 *:w-full *:max-w-content-wide">
           {shown?.seeding == null ? (
             <View

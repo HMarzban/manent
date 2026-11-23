@@ -25,21 +25,30 @@ const placeRow = (
 };
 
 /**
- * The projects' names, under Continue, the place the main column shows; each opens its project. A window too narrow
- * for it and the main column side by side has no room for it.
+ * Continue, which shows the Continue view of `workspaceId` and is current while it is shown, then the projects' names,
+ * each opening its project. A window too narrow for it and the main column side by side has no room for it.
  */
 export function LibraryNav(props: {
+  workspaceId: string | null;
+  continueShown: boolean;
   projects: readonly ProjectItem[];
 }): ReactNode {
-  const { projects } = props;
+  const { workspaceId, continueShown, projects } = props;
   const navigate = useNavigate();
   const open = (docId: string) => void navigate({ href: `/s/${docId}` });
+  const showContinue = () =>
+    void navigate({
+      href:
+        workspaceId === null ? "/" : `/?w=${encodeURIComponent(workspaceId)}`,
+    });
   return (
     <ShellRegion
       region="left_panel"
       className="hidden w-panel-left shrink-0 flex-col border-e border-line pt-2 @3xl:flex"
     >
-      <Row current>{LIBRARY_WORDS.continueHeading}</Row>
+      <Row current={continueShown} onActivate={showContinue}>
+        {LIBRARY_WORDS.continueHeading}
+      </Row>
       <h2 className="mn-group-label">{LIBRARY_WORDS.projectsHeading}</h2>
       <div className="min-h-0 flex-1">
         <VirtualRows

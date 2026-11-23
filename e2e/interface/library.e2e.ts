@@ -101,21 +101,19 @@ test("the Library is reached by keys alone", async ({ page, browserName }) => {
   await expect(editable(page)).toContainText(/the tide turns/i);
   await page.goBack();
   await expect(heading).toBeFocused();
-  // the side list's projects each open, so each takes a stop of its own before the main column
-  const sideRows = await page
-    .locator("[data-region='left_panel'] .mn-row[tabindex]")
-    .count();
+  // the side list: Continue, then its projects, a list that is one stop, entered at its first project
   const order: string[] = [];
-  for (let press = 0; press < 6 + sideRows; press++) {
+  for (let press = 0; press < 8; press++) {
     await page.keyboard.press(tab);
     order.push((await focused(page).textContent()) ?? "");
   }
-  expect([...order.slice(0, 6), ...order.slice(5 + sideRows)]).toEqual([
+  expect(order).toEqual([
     "Writers' room",
     "Import…",
     "New script",
     "New project",
     "PN",
+    "Continue",
     // the project is numbered after the film projects the workspace holds already
     expect.stringMatching(/^Untitled film( \d+)?$/),
     // the row ends with where the script is, which changes as it syncs
