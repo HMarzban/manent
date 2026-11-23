@@ -10,6 +10,7 @@ import type {
   SubscribeMode,
 } from "@manent/sync-protocol";
 import type { TokenBucket } from "../limits/bucket.ts";
+import { subscribePrompter } from "../prompter/subscribe.ts";
 import type { PeerState, Rebuilder } from "../rebuild/rebuilder.ts";
 import type { Access, DocumentAccess } from "./access.ts";
 import { isWriterRole } from "./admission.ts";
@@ -55,7 +56,9 @@ export type SubscribeHandler = (subscribe: HandledSubscribe) => void;
 /** A handled mode without a line is refused `prompter_unavailable`; append a handler on its own line. */
 export const SUBSCRIBE_HANDLERS: Readonly<
   Partial<Record<HandledMode, SubscribeHandler>>
-> = Object.freeze({});
+> = Object.freeze({
+  prompter: subscribePrompter,
+});
 
 /** The roles that may hold an edit subscription, by kind; a kind without a line admits owners and editors only. */
 const EDIT_ROLES: Readonly<Partial<Record<DocKind, readonly DocRole[]>>> =
