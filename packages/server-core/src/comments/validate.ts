@@ -9,7 +9,7 @@ import type {
   ThreadState,
 } from "@manent/crdt";
 import { isTextAnchor } from "@manent/schema";
-import type { Issue } from "@manent/schema";
+import type { Issue, TextAnchor } from "@manent/schema";
 import { isWriterRole } from "../sync/admission.ts";
 import type { PushValidator } from "../sync/validate.ts";
 
@@ -85,23 +85,89 @@ interface Pusher {
   editor: boolean;
 }
 
-/** Why a thread write is refused; null allows it. A resolve names its resolver, and only an editor or the author records an outcome or reason. */
-function threadRefusal(
-  { key, value, replaced }: CommentsWrite,
+/** Why a resolve to `state` is refused; null allows it. It names its resolver, and only an editor or the thread's author records an outcome or reason. */
+function resolveRefusal(
+  key: string,
+  state: Extract<ThreadState, { kind: "resolved" }>,
+  authorUserId: string,
   pusher: Pusher,
 ): string | null {
-  if (value === null) return `a push deleted the thread ${key}`;
-  if (!isThread(value)) return `the thread ${key} is not a thread`;
-  const { authorUserId, state } = value;
-  if (!replaced && authorUserId !== pusher.userId)
-    return `the new thread ${key} names ${authorUserId} as its author, not the pusher`;
-  if (state.kind === "open") return null;
   if (state.byUserId !== pusher.userId)
     return `the thread ${key} names ${state.byUserId} as its resolver, not the pusher`;
   const settled = state.outcome !== null || state.reason !== null;
   return settled && !pusher.editor && authorUserId !== pusher.userId
     ? `only an editor or its author records an outcome or reason on the thread ${key}`
     : null;
+}
+
+const isSameAnchor = (a: TextAnchor | null, b: TextAnchor | null): boolean =>
+  a === null || b === null
+    ? a === b
+    : a.blockId === b.blockId &&
+      a.start === b.start &&
+      a.end === b.end &&
+      a.quote === b.quote &&
+      a.prefix === b.prefix &&
+      a.suffix === b.suffix;
+
+const isSameState = (a: ThreadState, b: ThreadState): boolean =>
+  a.kind === "open" || b.kind === "open"
+    ? a.kind === b.kind
+    : a.byUserId === b.byUserId &&
+      a.at === b.at &&
+      a.outcome === b.outcome &&
+      a.reason === b.reason;
+
+/**
+ * Why a change to the stored thread is refused; null allows it. Its author and time never change; only an editor
+ * moves it to another anchor or round; a resolve or reopen is judged only when the state changes, and a reopen is
+ * for an editor, the thread's author or whoever resolved it.
+ */
+function changeRefusal(
+  key: string,
+  stored: CommentThread,
+  pushed: CommentThread,
+  pusher: Pusher,
+): string | null {
+  if (
+    pushed.authorUserId !== stored.authorUserId ||
+    pushed.createdAt !== stored.createdAt
+  )
+    return `a push changed the author or the time of the thread ${key}`;
+  const moved =
+    pushed.roundId !== stored.roundId ||
+    !isSameAnchor(pushed.anchor, stored.anchor);
+  if (moved && !pusher.editor)
+    return `only an editor moves the thread ${key} to another anchor or round`;
+  if (isSameState(pushed.state, stored.state)) return null;
+  if (pushed.state.kind === "resolved")
+    return resolveRefusal(key, pushed.state, stored.authorUserId, pusher);
+  const reopener =
+    pusher.editor ||
+    stored.authorUserId === pusher.userId ||
+    (stored.state.kind === "resolved" &&
+      stored.state.byUserId === pusher.userId);
+  return reopener
+    ? null
+    : `only an editor, its author or its resolver reopens the thread ${key}`;
+}
+
+/** Why a thread write is refused; null allows it. A new thread is the pusher's; a replaced one is judged against the thread stored before the push. */
+function threadRefusal(
+  { key, value, previous, replaced }: CommentsWrite,
+  pusher: Pusher,
+): string | null {
+  if (value === null) return `a push deleted the thread ${key}`;
+  if (!isThread(value)) return `the thread ${key} is not a thread`;
+  if (replaced || previous !== null)
+    return isThread(previous)
+      ? changeRefusal(key, previous, value, pusher)
+      : `the thread ${key} replaced an entry that is not a thread`;
+  if (value.authorUserId !== pusher.userId)
+    return `the new thread ${key} names ${value.authorUserId} as its author, not the pusher`;
+  return value.state.kind === "open"
+    ? null
+    : resolveRefusal(key, value.state, value.authorUserId, pusher);
 }
 
 /** Why an item write is refused; null allows it. An item is written once, by its author. */
@@ -116,15 +182,21 @@ function itemRefusal(
     : `the new item ${key} names ${value.authorUserId} as its author, not the pusher`;
 }
 
-/** Why a round write is refused; null allows it. Only the authority starts a round; an editor renames one. */
+/** Why a round write is refused; null allows it. Only the authority starts a round; an editor renames one, and changes nothing else. */
 function roundRefusal(
-  { key, value, replaced }: CommentsWrite,
+  { key, value, previous, replaced }: CommentsWrite,
   pusher: Pusher,
 ): string | null {
-  if (!replaced)
+  if (!replaced && previous === null)
     return `a push started the round ${key}, which only the authority starts`;
   if (!isRound(value)) return `the round ${key} is not a round`;
-  return pusher.editor ? null : `only an editor renames the round ${key}`;
+  if (!isRound(previous))
+    return `the round ${key} replaced an entry that is not a round`;
+  if (!pusher.editor) return `only an editor renames the round ${key}`;
+  return value.versionId === previous.versionId &&
+    value.createdAt === previous.createdAt
+    ? null
+    : `a push changed more than the name of the round ${key}`;
 }
 
 /** Why a flag write is refused; null allows it. An editor writes or deletes a flag. */

@@ -39,6 +39,8 @@ export interface TransactionReport {
    * is. Its length depends on the change, never on the script.
    */
   touched(): (RawElement | RawText)[];
+  /** The plain value the root map `map` held at `key` before the change; undefined when it held nothing, held a type, or the change left the key alone. */
+  before(map: string, key: string): unknown;
 }
 
 /** Where a type sits in the document, as far as a report cares. */
@@ -59,6 +61,8 @@ interface Gathered {
   others: Set<Y.XmlElement | Y.XmlText>;
   removed: string[];
   maps: Set<string>;
+  /** Root map name, then key: what the key held before the first transaction that changed it. */
+  before: Map<string, Map<string, unknown>>;
   updates: Update[];
 }
 
@@ -70,6 +74,7 @@ function emptyGathered(fragment: Y.XmlFragment): Gathered {
     others: new Set(),
     removed: [],
     maps: new Set(),
+    before: new Map(),
     updates: [],
   };
 }
@@ -173,6 +178,38 @@ function idsIn(section: Y.XmlElement): string[] {
   );
 }
 
+const isAdded = (tr: Y.Transaction, item: Y.Item): boolean =>
+  item.id.clock >= (tr.beforeState.get(item.id.client) ?? 0);
+
+/**
+ * Keeps, copied, the plain value that the key of `item`, an entry `tr` wrote or deleted in a root map, held when
+ * `tr` began, unless an earlier transaction already kept one; undefined when it held nothing or a type.
+ */
+function noteBefore(into: Gathered, tr: Y.Transaction, item: Y.Item): void {
+  const { parent, parentSub } = item;
+  if (parentSub === null || parentOf(parent) !== null) return;
+  const name =
+    parent === into.fragment ? null : rootName(into.fragment, parent);
+  if (name === null) return;
+  const kept = into.before.get(name) ?? new Map<string, unknown>();
+  into.before.set(name, kept);
+  if (kept.has(parentSub)) return;
+  // a key's entries are chained oldest first: it held the newest one the transaction did not write, if still there
+  let held: Y.Item | null = item;
+  for (let next = item.right; next !== null; next = next.right) held = next;
+  while (held !== null && isAdded(tr, held)) held = held.left;
+  const content =
+    held === null || (held.deleted && !Y.isDeleted(tr.deleteSet, held.id))
+      ? null
+      : held.content;
+  kept.set(
+    parentSub,
+    content instanceof Y.ContentAny || content instanceof Y.ContentJSON
+      ? structuredClone(content.getContent().at(-1))
+      : undefined,
+  );
+}
+
 /** Runs during afterTransaction, before Yjs collects deleted content. */
 function gather(into: Gathered, tr: Y.Transaction): void {
   // Yjs lists no type made in this transaction as changed, and drops every type it deleted
@@ -183,13 +220,17 @@ function gather(into: Gathered, tr: Y.Transaction): void {
     if (after === before || structs === undefined) continue;
     for (let i = Y.findIndexSS(structs, before); i < structs.length; i++) {
       const struct = structs[i];
-      if (struct instanceof Y.Item && struct.content instanceof Y.ContentType)
+      if (!(struct instanceof Y.Item)) continue;
+      noteBefore(into, tr, struct);
+      if (struct.content instanceof Y.ContentType)
         note(into, struct.content.type, true);
     }
   }
   const end = Y.createSnapshot(Y.createDeleteSet(), tr.afterState);
   Y.iterateDeletedStructs(tr, tr.deleteSet, (struct) => {
-    if (struct instanceof Y.Item && struct.content instanceof Y.ContentType)
+    if (!(struct instanceof Y.Item)) return;
+    noteBefore(into, tr, struct);
+    if (struct.content instanceof Y.ContentType)
       noteDeleted(into, struct.content.type, end);
   });
 }
@@ -305,6 +346,7 @@ function reportOf(
     changed: changed.map(canonicalOf),
     removed: [...gathered.removed],
     maps: [...gathered.maps].toSorted(),
+    before: (map, key) => gathered.before.get(map)?.get(key),
     touched: () => [
       ...[...created, ...changed].map(rawBlock),
       ...others.flatMap((node) => otherEntries(gathered.fragment, node)),
