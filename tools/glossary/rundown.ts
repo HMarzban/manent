@@ -19,4 +19,5 @@ export const RUNDOWN_TERMS: readonly Term[] = Object.freeze([
   ...row("pages", ["Print"], []),
   ...row("history", ["The pages as they will go"], ["proof"]),
   ...row("files", ["Import"], ["open"]),
+  ...row("files", ["Project archive"], ["backup", "zip"]),
 ]);

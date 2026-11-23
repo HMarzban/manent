@@ -14,7 +14,8 @@ import type {
  * What one tab tells another. `who` asks who leads; `leader` answers it, and is
  * posted on election. A follower opens and closes a document through the leader
  * (`clientId` is its Yjs client ID) and posts its `n`-th local update of a
- * document, counting from 1, with the generation of the document it typed in;
+ * document, counting from 1, with the generation and the client ID of the
+ * document it typed in (a recovery's replacement is loaded under a new one);
  * `saved` says every edit of that tab up to `n` is in the local store, or that
  * the store refused it. `to` is the one tab a message is for; `remote` is an
  * update already stored; `aw` is awareness, passed through. `replace` carries
@@ -39,6 +40,7 @@ export type TabBody =
       docId: string;
       n: number;
       generation: number;
+      clientId: number;
       update: Uint8Array;
       elements: string[];
     }
@@ -302,6 +304,7 @@ const BODIES = Object.freeze<Bodies>({
     docId: readString(f.docId),
     n: readNumber(f.n),
     generation: readNumber(f.generation),
+    clientId: readNumber(f.clientId),
     update: readBytes(f.update),
     elements: listOf(readString)(f.elements),
   }),

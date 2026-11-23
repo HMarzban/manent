@@ -4,7 +4,7 @@ import { markEnd, markStart } from "@manent/perf";
 import type { MenuId } from "@manent/settings";
 import { SearchIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import { Button } from "../components/stock/button.tsx";
 import { READOUT_WORDS } from "../words/document.ts";
 import { PALETTE_WORDS } from "../words/palette.ts";
@@ -15,7 +15,7 @@ import {
   textOf,
   usePaletteSections,
 } from "./palette-entries.ts";
-import type { Entry, PaletteFilter } from "./palette-entries.ts";
+import type { Entry, PaletteFilter, Section } from "./palette-entries.ts";
 import { PaletteFooter } from "./palette-footer.tsx";
 import { EntryList, VIRTUAL_ABOVE } from "./palette-list.tsx";
 import type { PaletteRow, PaletteSource } from "./palette-sources.ts";
@@ -65,33 +65,115 @@ function useOutsidePress(
   }, [surface]);
 }
 
-function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
-  const { filter, sources, onRun, onClose, recent, placeholder } = props;
-  const [query, setQuery] = useState("");
-  const [menu, setMenu] = useState<MenuId | null>(null);
-  // by key: the entries are made afresh on each render, and the same entry must not set the state again
-  const [keyed, setKeyed] = useState<string | null>(null);
-  const [openedAt] = useState(markStart);
+/** The search row: the field, with the way back while a menu is open. */
+function PaletteField(props: {
+  query: string;
+  /** The open menu's name; null at the top level. */
+  menuLabel: string | null;
+  placeholder?: string;
+  leaveMenu(): void;
+}): ReactNode {
+  const { query, menuLabel, placeholder, leaveMenu } = props;
+  return (
+    <div className="flex h-findbar shrink-0 items-center gap-2 border-b border-line px-3">
+      <SearchIcon
+        aria-hidden="true"
+        className="size-icon-lg shrink-0 text-fg-muted"
+      />
+      {menuLabel === null ? null : (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-fg-muted hover:text-fg"
+          onClick={leaveMenu}
+        >
+          {PALETTE_WORDS.back}
+        </Button>
+      )}
+      <Autocomplete.Input
+        autoFocus
+        onKeyDown={(event) => {
+          // while an input method composes, Enter, Escape and the arrows are its own
+          if (event.nativeEvent.isComposing || event.keyCode === 229) {
+            event.preventBaseUIHandler();
+            return;
+          }
+          if (event.key === "Backspace" && query === "" && menuLabel !== null) {
+            event.preventBaseUIHandler();
+            leaveMenu();
+          }
+        }}
+        aria-label={READOUT_WORDS.commandsHint}
+        placeholder={
+          menuLabel === null
+            ? placeholder
+            : PALETTE_WORDS.placeholderIn(menuLabel)
+        }
+        className="mn-palette-field h-full min-w-0 flex-1 bg-transparent text-ui outline-none placeholder:text-fg-muted"
+      />
+    </div>
+  );
+}
+
+/** The palette's box: the search field over the list of entries, the footer below. */
+function PaletteFrame(props: {
+  surface: RefObject<HTMLDivElement | null>;
+  filter: PaletteFilter;
+  sections: readonly Section[];
+  entries: readonly Entry[];
+  query: string;
+  menu: MenuId | null;
+  placeholder?: string;
+  /** The entry the keys are on; null when none is. */
+  keyed: Entry | null;
+  activate(entry: Entry): void;
+  leaveMenu(): void;
+}): ReactNode {
+  const { surface, filter, sections, entries, query, menu, keyed } = props;
+  const { placeholder, activate, leaveMenu } = props;
+  const menuLabel = menu === null ? null : MENU_LABELS[menu];
+  return (
+    <div
+      ref={surface}
+      className="@container fixed inset-x-0 mx-auto flex flex-col overflow-hidden rounded-surface border border-line bg-overlay shadow-dialog"
+      style={{
+        zIndex: "var(--z-overlay)",
+        top: "12vh",
+        width: "min(var(--palette-w), 100% - 2rem)",
+        maxHeight: "min(var(--palette-max-h), 100dvh - 12vh - 1rem)",
+      }}
+    >
+      <PaletteField
+        query={query}
+        menuLabel={menuLabel}
+        placeholder={placeholder}
+        leaveMenu={leaveMenu}
+      />
+      <Autocomplete.Empty className="px-3 py-3 text-ui text-fg-muted empty:p-0">
+        {entries.length === 0 && query !== ""
+          ? noMatch(filter, menuLabel, query)
+          : null}
+      </Autocomplete.Empty>
+      <EntryList
+        sections={sections}
+        label={menuLabel ?? READOUT_WORDS.commandsHint}
+        drawing={{ query, home: menu === null, activate }}
+      />
+      <PaletteFooter keyed={keyed} inMenu={menu !== null} />
+    </div>
+  );
+}
+
+/** What choosing an entry does: a menu opens, a setting changes in place, any other row closes the palette and runs. */
+function useActivate(options: {
+  onRun(row: PaletteRow): void;
+  onClose(): void;
+  toMenu(menu: MenuId): void;
+}): (entry: Entry) => void {
+  const { onRun, onClose, toMenu } = options;
   // a setting's rows read the store when drawn, so a change made here is drawn again at once
   const [, setChanges] = useState(0);
-  useLayoutEffect(() => markEnd("ui.open.palette", openedAt), [openedAt]);
-  const surface = useRef<HTMLDivElement>(null);
-  useOutsidePress(surface, onClose);
-  const sections = usePaletteSections({
-    filter,
-    sources,
-    recent,
-    query,
-    menu,
-  });
-  const entries = entriesOf(sections);
-  const menuLabel = menu === null ? null : MENU_LABELS[menu];
-
-  const toMenu = (next: MenuId | null): void => {
-    setMenu(next);
-    setQuery("");
-  };
-  const activate = (entry: Entry): void => {
+  return (entry) => {
     if (entry.type === "menu") {
       toMenu(entry.menu);
       return;
@@ -107,6 +189,26 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
     onClose();
     onRun(entry.row);
   };
+}
+
+function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
+  const { filter, sources, onRun, onClose, recent, placeholder } = props;
+  const [query, setQuery] = useState("");
+  const [menu, setMenu] = useState<MenuId | null>(null);
+  // by key: the entries are made afresh on each render, and the same entry must not set the state again
+  const [keyed, setKeyed] = useState<string | null>(null);
+  const [openedAt] = useState(markStart);
+  useLayoutEffect(() => markEnd("ui.open.palette", openedAt), [openedAt]);
+  const surface = useRef<HTMLDivElement>(null);
+  useOutsidePress(surface, onClose);
+  const sections = usePaletteSections({ filter, sources, recent, query, menu });
+  const entries = entriesOf(sections);
+
+  const toMenu = (next: MenuId | null): void => {
+    setMenu(next);
+    setQuery("");
+  };
+  const activate = useActivate({ onRun, onClose, toMenu });
 
   return (
     <Autocomplete.Root
@@ -131,68 +233,18 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
       highlightItemOnHover={false}
       virtualized={entries.length > VIRTUAL_ABOVE}
     >
-      <div
-        ref={surface}
-        className="@container fixed inset-x-0 mx-auto flex flex-col overflow-hidden rounded-surface border border-line bg-overlay shadow-dialog"
-        style={{
-          zIndex: "var(--z-overlay)",
-          top: "12vh",
-          width: "min(var(--palette-w), 100% - 2rem)",
-          maxHeight: "min(var(--palette-max-h), 100dvh - 12vh - 1rem)",
-        }}
-      >
-        <div className="flex h-findbar shrink-0 items-center gap-2 border-b border-line px-3">
-          <SearchIcon
-            aria-hidden="true"
-            className="size-icon-lg shrink-0 text-fg-muted"
-          />
-          {menu === null ? null : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-fg-muted hover:text-fg"
-              onClick={() => toMenu(null)}
-            >
-              {PALETTE_WORDS.back}
-            </Button>
-          )}
-          <Autocomplete.Input
-            autoFocus
-            onKeyDown={(event) => {
-              // while an input method composes, Enter, Escape and the arrows are its own
-              if (event.nativeEvent.isComposing || event.keyCode === 229) {
-                event.preventBaseUIHandler();
-                return;
-              }
-              if (event.key === "Backspace" && query === "" && menu !== null) {
-                event.preventBaseUIHandler();
-                toMenu(null);
-              }
-            }}
-            aria-label={READOUT_WORDS.commandsHint}
-            placeholder={
-              menuLabel === null
-                ? placeholder
-                : PALETTE_WORDS.placeholderIn(menuLabel)
-            }
-            className="mn-palette-field h-full min-w-0 flex-1 bg-transparent text-ui outline-none placeholder:text-fg-muted"
-          />
-        </div>
-        <Autocomplete.Empty className="px-3 py-3 text-ui text-fg-muted empty:p-0">
-          {entries.length === 0 && query !== ""
-            ? noMatch(filter, menuLabel, query)
-            : null}
-        </Autocomplete.Empty>
-        <EntryList
-          sections={sections}
-          label={menuLabel ?? READOUT_WORDS.commandsHint}
-          drawing={{ query, home: menu === null, activate }}
-        />
-        <PaletteFooter
-          keyed={entries.find((entry) => keyOf(entry) === keyed) ?? null}
-          inMenu={menu !== null}
-        />
-      </div>
+      <PaletteFrame
+        surface={surface}
+        filter={filter}
+        sections={sections}
+        entries={entries}
+        query={query}
+        menu={menu}
+        placeholder={placeholder}
+        keyed={entries.find((entry) => keyOf(entry) === keyed) ?? null}
+        activate={activate}
+        leaveMenu={() => toMenu(null)}
+      />
     </Autocomplete.Root>
   );
 }

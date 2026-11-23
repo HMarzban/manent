@@ -67,6 +67,6 @@ test("the shell keeps its regions and its screen when the palette's code cannot 
   unmountFrame();
   expect([regions, title]).toEqual([
     ["page", "title_bar", "state_bar", "status_bar"],
-    "‹ LibraryHarbour LightsSaved · Only in this browser — not backed upShareShare — needs a connection",
+    "‹ LibraryHarbour LightsSaved · Only in this browser — not backed upShare",
   ]);
 });

@@ -30,11 +30,16 @@ export interface ReplicasOptions {
  * it, a session while this tab leads and a follower while another does.
  * `holders`: the tabs that hold it open, this tab's app under its own tab ID;
  * it is closed once none does. `queue` runs a following tab's requests for it
- * one after the other.
+ * one after the other. `clients`: the client ID of each following tab's
+ * document, as its last `open` or `opened` named it; `replaced`: each one a
+ * recovery replaced, which the tab loads anew (a move's are carried over),
+ * with the replacement's generation.
  */
 export interface Replica {
   create: DocMeta["create"];
   readonly holders: Set<string>;
+  readonly clients: Map<string, number>;
+  readonly replaced: Map<number, number>;
   relay: RelayHandle | null;
   follower: Follower | null;
   ready: { promise: Promise<RelayHandle>; resolve(relay: RelayHandle): void };

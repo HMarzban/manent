@@ -882,6 +882,10 @@ test("the handler table names every command but the generated ones", () => {
     "history.seeWhatChanged": noop,
     "history.openRecoveredBeside": noop,
     "doc.openBeside": noop,
+    "doc.duplicate": noop,
+    "doc.duplicateVersion": noop,
+    "copy.openCopyBeside": noop,
+    "library.exportProject": noop,
     "history.whoWrote": noop,
     "production.lock": noop,
     "production.issue": noop,
@@ -903,11 +907,17 @@ test("the handler table names every command but the generated ones", () => {
     "view.marks.since_full_draft": noop,
     "view.marks.none": noop,
     "view.colourRevised": noop,
+    "room.follow": noop,
+    "room.stopFollowing": noop,
     "share.open": noop,
+    "alternate.show": noop,
+    "alternate.add": noop,
     "doc.copyLink": noop,
     "history.copyLink": noop,
     "name.useListed": noop,
     "name.addToProject": noop,
+    "scene.moveUp": noop,
+    "scene.moveDown": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))

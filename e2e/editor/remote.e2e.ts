@@ -80,8 +80,8 @@ test("another writer's cursor and name are drawn, and hidden by the preference",
   await groupHook(page, "remote", "select", 5, 2);
   await expect(bar(page)).toBeVisible();
   await expect(cursor(page).locator(".mn-cursor-tab")).toHaveText("Dana Reyes");
-  // the name goes after three seconds without a move, and the caret stays
-  await expect(cursor(page).locator(".mn-cursor-tab")).toHaveCount(0, {
+  // the name gives way to the initials after three seconds without a move, and the caret stays
+  await expect(cursor(page).locator(".mn-cursor-tab")).toHaveText("DR", {
     timeout: 6000,
   });
   await expect(bar(page)).toBeVisible();

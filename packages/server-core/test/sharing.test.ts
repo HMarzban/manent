@@ -109,6 +109,7 @@ test("a failed reconciliation is retried before access is decided", () => {
     removed: [],
     maps: ["groups"],
     touched: () => [],
+    before: () => undefined,
   };
   const file = world.storage.open(HOME);
   const indexRoom: Room = {

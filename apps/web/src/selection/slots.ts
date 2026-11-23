@@ -37,4 +37,5 @@ export const SELECTION_SLOTS: readonly SelectionSlot[] = [
   { command: "format.spaceBefore", place: "more", rank: 0 },
   { command: "production.markRevised", place: "state", rank: 1 },
   { command: "production.clearRevised", place: "state", rank: 1 },
+  { command: "alternate.add", place: "state", rank: 2 },
 ];
