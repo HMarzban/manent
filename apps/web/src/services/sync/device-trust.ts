@@ -77,14 +77,26 @@ export function askPersistenceOnce(where: Where): () => void {
   };
 }
 
-/** Once the private index has synced, tells what came back to a browser that cleared Manent's data. */
-export function tellCleared(
+/**
+ * Once the private index has synced, tells what came back to a browser that cleared Manent's data. Settles once the
+ * check has run, and never rejects: this device's entries are written only after it, so the check reads those earlier
+ * sessions left, and a new browser, which left none, is told nothing.
+ */
+export async function tellCleared(
   sync: PersonSync,
   indexes: { privateIndex: PrivateIndex; checkCleared: typeof checkCleared },
   open: { deviceId: string; messages: MessageQueue },
-): void {
+): Promise<void> {
   const { handle } = indexes.privateIndex;
-  const check = async (): Promise<void> => {
+  if (!handle.status.get().synced)
+    await new Promise<void>((resolve) => {
+      const stop = handle.status.subscribe((status) => {
+        if (!status.synced) return;
+        stop();
+        resolve();
+      });
+    });
+  try {
     const event = await indexes.checkCleared({
       hadDatabase: sync.hadDatabase,
       privateIndex: indexes.privateIndex,
@@ -92,13 +104,9 @@ export function tellCleared(
       documents: () => sync.client.documents(),
     });
     if (event !== null) open.messages.push(messageFor(event));
-  };
-  if (handle.status.get().synced) return void check();
-  const stop = handle.status.subscribe((status) => {
-    if (!status.synced) return;
-    stop();
-    void check();
-  });
+  } catch {
+    // the server's list could not be read, so nothing can be told; this device's entries are written as before
+  }
 }
 
 /** Settles once the demo's seed has been followed: never when this device's data is cleared and the page reloaded. */
