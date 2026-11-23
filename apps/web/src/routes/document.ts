@@ -1,25 +1,39 @@
 // A document and its Send screen: `/s/$docId` (`?at=<block id>` puts the caret there) and `/s/$docId/send/$form`.
 import {
   createRoute,
+  getRouteApi,
   lazyRouteComponent,
   redirect,
   stripSearchParams,
 } from "@tanstack/react-router";
 import type { AnyRoute } from "@tanstack/react-router";
-import { Fragment, createElement } from "react";
+import { Fragment, Suspense, createElement, lazy } from "react";
 import type { ReactNode } from "react";
 import { CloseBlocker, loadScreen } from "../router.tsx";
 import { SEND_FORM_IDS } from "../screens/send/form-ids.ts";
 import { ScreenProblem } from "./screen-problem.ts";
 
+const documentApi = getRouteApi("/s/$docId");
+
+// it pulls in the editor's code, so it loads apart and never holds back the screen's first draw
+const GoToAt = lazy(async () => ({
+  default: (await import("../editor-host/go-to-at.tsx")).GoToAt,
+}));
+
+/** Follows `at` once the address names a block; draws nothing. */
+function FollowAt(): ReactNode {
+  const { at } = documentApi.useSearch();
+  return typeof at === "string"
+    ? createElement(Suspense, { fallback: null }, createElement(GoToAt))
+    : null;
+}
+
 const DocumentScreen = lazyRouteComponent(
   loadScreen(async () => {
-    const [{ DocumentScreen: Screen }, { CloseQuestion }, { GoToAt }] =
-      await Promise.all([
-        import("../screens/document/document-screen.tsx"),
-        import("../services/sync/close-question.tsx"),
-        import("../editor-host/go-to-at.tsx"),
-      ]);
+    const [{ DocumentScreen: Screen }, { CloseQuestion }] = await Promise.all([
+      import("../screens/document/document-screen.tsx"),
+      import("../services/sync/close-question.tsx"),
+    ]);
     return {
       DocumentScreen: (): ReactNode =>
         createElement(
@@ -28,7 +42,7 @@ const DocumentScreen = lazyRouteComponent(
           createElement(Screen),
           createElement(CloseBlocker),
           createElement(CloseQuestion),
-          createElement(GoToAt),
+          createElement(FollowAt),
         ),
     };
   }),
