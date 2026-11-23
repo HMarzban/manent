@@ -5,6 +5,10 @@ export { t } from "./types.ts";
 export type {
   Apply,
   Choice,
+  ElementStyle,
+  ElementStyles,
+  HeaderSlot,
+  HeaderSlots,
   ParseResult,
   Platform,
   Scope,

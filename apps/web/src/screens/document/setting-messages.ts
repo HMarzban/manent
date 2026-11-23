@@ -1,7 +1,7 @@
 // What the message slot says of a script setting's change: made here, with its Undo, or arriving from another person.
 import { SETTINGS } from "@manent/settings";
 import type { SettingKey, SettingValue, SettingsStore } from "@manent/settings";
-import { DOCUMENT_WORDS, READOUT_WORDS, messageFor } from "@manent/ui";
+import { DOCUMENT_WORDS, formatSettingValue, messageFor } from "@manent/ui";
 import { useEffect } from "react";
 import { useServices } from "../../services/context.tsx";
 import type { DocumentServices, PersonServices } from "../../services/ports.ts";
@@ -12,23 +12,31 @@ const SCRIPT_KEYS: ReadonlySet<string> = new Set(
 );
 const isScriptKey = (key: string): key is SettingKey => SCRIPT_KEYS.has(key);
 
+// an element style, header slots, labels or fields are said by the feature whose row sets them
+const isSaidHere = (key: SettingKey): boolean => {
+  const { kind } = SETTINGS.get(key).type;
+  return (
+    kind === "boolean" ||
+    kind === "choice" ||
+    kind === "number" ||
+    kind === "text"
+  );
+};
+
 const nounOf = (key: SettingKey): string => {
   const def = SETTINGS.get(key);
   return def.noun ?? def.label;
 };
 
-/** How a value is named: a choice by its label; a switch "On" or "Off" in a row, "on" or "off" in a message. */
+/** How a value is named: as its row names it, but a switch "on" or "off" in a message. */
 export function valueLabel(
   key: SettingKey,
   value: unknown,
   inMessage: "row" | "message",
 ): string {
-  const { choices } = SETTINGS.get(key).type;
-  if (choices !== null)
-    return choices.find((choice) => choice.value === value)?.label ?? "";
-  if (inMessage === "message")
+  if (inMessage === "message" && SETTINGS.get(key).type.kind === "boolean")
     return value === true ? DOCUMENT_WORDS.switchOn : DOCUMENT_WORDS.switchOff;
-  return value === true ? READOUT_WORDS.valueOn : READOUT_WORDS.valueOff;
+  return formatSettingValue(key, value);
 }
 
 /** The name of `userId` among the people present; null for anyone else. */
@@ -48,7 +56,7 @@ export function announcing(
     before: SettingValue<SettingKey>,
   ): void => {
     const after = store.get(key);
-    if (Object.is(after, before)) return;
+    if (Object.is(after, before) || !isSaidHere(key)) return;
     const message = messageFor({
       kind: "setting_changed",
       byName: null,
@@ -91,7 +99,7 @@ export function useRemoteSettingMessages(doc: DocumentServices): void {
     () =>
       doc.scriptBag.subscribe((keys, origin) => {
         if (origin !== "remote") return;
-        for (const key of keys.filter(isScriptKey)) {
+        for (const key of keys.filter(isScriptKey).filter(isSaidHere)) {
           const by = doc.scriptBag.provenance(key)?.byUserId ?? null;
           const byName = by === userId ? null : nameOf(doc.people.get(), by);
           const parsed = SETTINGS.get(key).type.parse(

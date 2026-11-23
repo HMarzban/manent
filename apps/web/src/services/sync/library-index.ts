@@ -7,6 +7,7 @@ import type { WorkspaceRef } from "@manent/sync-protocol";
 import { LIBRARY_WORDS } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import { projectIndexCreated } from "../../project/project-index.ts";
+import { projectTemplateCreated } from "../../project/settings-bag.ts";
 import type {
   CreateResult,
   DocumentStart,
@@ -47,7 +48,10 @@ export interface ProjectCreated {
 }
 
 /** Each is made in list order. */
-export const PROJECT_CREATED: readonly ProjectCreated[] = [projectIndexCreated];
+export const PROJECT_CREATED: readonly ProjectCreated[] = [
+  projectIndexCreated,
+  projectTemplateCreated,
+];
 
 /** At most one `editedAt` write per person and document this often. */
 const LAST_EDITED_EVERY_MS = 600_000;
