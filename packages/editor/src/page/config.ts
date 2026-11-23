@@ -17,6 +17,8 @@ export const MID_BLOCK_BREAKS: Readonly<Record<BrowserEngine, BreakStyle>> = {
   firefox: "inline",
   webkit: "inline",
 };
+/** The most blocks an edit left behind that one idle pass draws. */
+export const BEHIND_BLOCKS_PER_PASS = 500;
 /** Sections kept rendered on each side of the one holding the selection. */
 export const KEEP_NEIGHBOURS = 1;
 /** Spellcheck is off in a script with more blocks than this. */

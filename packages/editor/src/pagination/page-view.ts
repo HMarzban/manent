@@ -41,7 +41,7 @@ export interface PageViewPorts {
 }
 
 export interface TypesettingOptions
-  extends Omit<PaginationOptions, "defer">, SectionOptions {
+  extends Omit<PaginationOptions, "defer" | "whenIdle">, SectionOptions {
   readonly ports: PageViewPorts;
   readonly onDrift?: (report: DriftReport) => void;
 }
@@ -54,7 +54,11 @@ export function typesettingPlugins(options: TypesettingOptions): Plugin[] {
   return [
     sectionEditingPlugin(options),
     edgeKeysPlugin(),
-    paginationPlugin({ ...options, defer: options.ports.defer }),
+    paginationPlugin({
+      ...options,
+      defer: options.ports.defer,
+      whenIdle: options.ports.whenIdle,
+    }),
     keepPlugin(),
     ...(options.view === "reflow"
       ? []
