@@ -1,5 +1,5 @@
 // What the page draws of suggestions besides their marks: a bar in the margin beside each block that holds one, and
-// an added or removed block's text underlined or struck as the browser draws an ins or a del.
+// a removed block's text struck as the browser draws a del.
 import type { Node } from "prosemirror-model";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { blockEnd, blockStart, blocksIn } from "./touched.ts";
@@ -64,11 +64,10 @@ function decorationsIn(
         stopEvent: () => true,
       }),
     );
-    const { suggest } = node.attrs;
-    if ((suggest === "added" || suggest === "removed") && node.content.size > 0)
+    if (node.attrs.suggest === "removed" && node.content.size > 0)
       found.push(
         Decoration.inline(pos + 1, pos + node.nodeSize - 1, {
-          nodeName: suggest === "added" ? "ins" : "del",
+          nodeName: "del",
         }),
       );
   }
