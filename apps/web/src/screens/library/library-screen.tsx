@@ -13,9 +13,8 @@ import {
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import { useQuery } from "@tanstack/react-query";
-import { useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
-import type { ComponentType, ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { Api } from "../../api.ts";
 import { focusHeading } from "../../focus.ts";
 import { useServices } from "../../services/context.tsx";
@@ -28,14 +27,14 @@ import { panelsActions } from "../../state/panels.store.ts";
 import { workspaceActions } from "../../state/workspace.store.ts";
 import { pageTitle } from "../../text.ts";
 import { SIDE_PANEL_TABS } from "../document/side-tabs.ts";
-import { ContinueView } from "./continue-list.tsx";
+import { useLibraryAddress } from "./library-address.ts";
 import { LibraryNav } from "./library-nav.tsx";
 import { LibraryStatusBar } from "./library-status-bar.tsx";
 import { NewProjectPopover } from "./new-project-popover.tsx";
 import { PersonMenu } from "./person-menu.tsx";
 import { SearchField } from "./search-field.tsx";
-import { LIBRARY_VIEWS } from "./views.ts";
-import type { LibraryViewProps } from "./views.ts";
+import { CONTINUE_VIEW, LIBRARY_VIEWS } from "./views.ts";
+import type { LibraryView } from "./views.ts";
 import { WorkspaceSwitcher } from "./workspace-switcher.tsx";
 
 // what the lists read while the workspace shown is not known yet
@@ -57,9 +56,7 @@ function useShownWorkspace(
   workspaces: readonly WorkspaceRef[] | null;
   serverProblem: boolean;
 } {
-  const w = useRouterState({
-    select: (state): unknown => state.location.search.w,
-  });
+  const w = useLibraryAddress().workspaceId;
   const signedIn = person.token !== null;
   // a person with no session has no workspaces to ask the server about
   const me = useWorkspaces(api, person.userId, signedIn);
@@ -67,26 +64,19 @@ function useShownWorkspace(
   const answered = !signedIn || me.data !== undefined || me.isError;
   const fallback = answered ? (known?.[0]?.id ?? person.userId) : null;
   return {
-    workspaceId: typeof w === "string" ? w : fallback,
+    workspaceId: w ?? fallback,
     workspaces: known,
     serverProblem: signedIn && me.isError,
   };
 }
 
 /** The view the address chooses: the search's while it holds one, else the one its `view` names, else Continue. */
-function useChosenView(): ComponentType<LibraryViewProps> {
-  const view = useRouterState({
-    select: (state): unknown => state.location.search.view,
-  });
-  const q = useRouterState({
-    select: (state): unknown => state.location.search.q,
-  });
-  const searching = typeof q === "string" && q !== "";
-  const named = typeof view === "string" ? view : null;
+function useChosenView(): LibraryView {
+  const { view, q } = useLibraryAddress();
   const chosen = LIBRARY_VIEWS.find((entry) =>
-    entry.chosenBy === "q" ? searching : !searching && entry.id === named,
+    entry.chosenBy === "q" ? q !== null : q === null && entry.id === view,
   );
-  return chosen?.View ?? ContinueView;
+  return chosen ?? CONTINUE_VIEW;
 }
 
 /**
@@ -191,7 +181,7 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
     workspaceId,
     seeding: shown?.seeding != null,
   });
-  const View = useChosenView();
+  const { id: viewId, View } = useChosenView();
   // a signed-in person's switcher waits for the server to say which workspaces they have
   const switcher =
     workspaceId !== null && (person.token === null || workspaces !== null);
@@ -225,7 +215,7 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
       <div className="@container flex min-h-0 flex-1">
         <LibraryNav
           workspaceId={workspaceId}
-          continueShown={View === ContinueView}
+          current={viewId}
           projects={projects}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 px-6 pt-6 pb-8 *:w-full *:max-w-content-wide">
