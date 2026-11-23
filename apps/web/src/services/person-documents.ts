@@ -238,8 +238,7 @@ function startPersonSync(
         openIndexes(s, options, messages),
         trust,
       ]);
-      t.trust.tellCleared(s, opened, { deviceId, messages });
-      return opened;
+      return t.trust.tellCleared(s, opened, { deviceId, messages });
     })
     .catch(() => {
       // the maps hold what is written for this session, and the Library stays empty

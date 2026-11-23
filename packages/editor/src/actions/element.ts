@@ -17,7 +17,8 @@ export const elementEntry: ActionEntry<{ kind: "element"; slot: ElementSlot }> =
 export const pickerEntry: ActionEntry<{ kind: "picker" }> = {
   readOnly: false,
   run: (view, _, context) => {
-    context.openPicker(view);
+    // run from the page, by its key, the list opens at the caret; from anywhere else, beside the control that names it
+    context.openPicker(view, view.hasFocus() ? "caret" : "control");
     return { ok: true };
   },
 };
