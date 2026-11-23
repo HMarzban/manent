@@ -47,6 +47,9 @@ It opens `http://localhost:4747`, where you will see:
 2. **The Library.** Sam opens on his own desk, which starts empty; the others open on the Writers' room, which all five share. Click **New script**.
 3. **A script page.** Click the page, type `INT. LIGHTHOUSE - NIGHT`, press Escape to close the list of headings, then Enter, and keep writing: Tab and Enter choose the next element for you.
 
+Three seeded workspaces: Sam's desk, Writers' room and Lanternfield Studios. As You, an empty Your desk.
+The Tour, in the side panel, walks through each feature.
+
 [What to try](docs/guide/getting-started.md#what-to-try) goes on from there: working offline, two tabs, and export. Stop the demo with Ctrl+C or `make stop`.
 
 ## Documentation
