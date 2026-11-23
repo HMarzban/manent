@@ -3,7 +3,7 @@ import { UNSET } from "@manent/settings";
 import type { Bag } from "@manent/settings";
 import { createValue } from "@manent/ui";
 import type { StateFact, StatusFacts } from "@manent/ui";
-import type { PersonPresent } from "../../state/people.store.ts";
+import { peoplePresent } from "../../room/people-present.ts";
 import { materialActions } from "../../state/material.store.ts";
 import type { DocumentServices, DocumentSource } from "../ports.ts";
 import type { PersonSync } from "./create-sync.ts";
@@ -140,7 +140,7 @@ export function createSyncDocumentSource(options: Options): DocumentSource {
       services: {
         ...shown,
         scriptBag,
-        people: createValue<readonly PersonPresent[]>([]),
+        people: peoplePresent(docId),
         material: materialActions,
       },
       close() {

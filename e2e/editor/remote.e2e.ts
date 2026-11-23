@@ -1,8 +1,9 @@
-// Another writer in the same script: their words survive my undo, their caret is drawn by name, and their edits above
-// the line being read never move it.
+// Another writer in the same script: their words survive my undo, their caret is drawn by name and stays drawn while
+// their changes arrive, they show in the title bar and in their scene's row, and their edits above the line being read
+// never move it.
 import { corpusDoc, generateBlocks } from "@manent/pagination/testing";
 import { expect, test } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { editorHook } from "../support/editor-hooks.ts";
 import { pressKeyOf } from "../support/interface.ts";
 import { committedOnDevice, signedInAs } from "../support/tour.ts";
@@ -17,6 +18,7 @@ import {
   openScript,
   settled,
   typeLine,
+  viewItem,
 } from "./support.ts";
 
 /** About `lines` lines of action, at 60 characters to the line. */
@@ -91,6 +93,123 @@ test("another writer's cursor and name are drawn, and hidden by the preference",
   await groupHook(page, "remote", "select", 5, 2);
   await expect(cursor(page)).toHaveCount(1);
   await expect(bar(page)).toBeHidden();
+});
+
+test("another writer's caret stays drawn while their changes arrive", async ({
+  page,
+}) => {
+  await openScript(
+    page,
+    "screenplay",
+    corpusDoc(generateBlocks("screenplay", 12, 1)),
+  );
+  await groupHook(page, "remote", "join", DANA);
+  await groupHook(page, "remote", "select", 5, 0);
+  await expect(bar(page)).toBeVisible();
+  // the carets are counted after every change to the page, so one dropped until the next frame is seen
+  await page.evaluate((selector) => {
+    const view = document.querySelector(selector);
+    if (view === null) throw new Error("the page has no view");
+    const counted: number[] = [];
+    Reflect.set(window, "__caretsCounted", counted);
+    new MutationObserver(() =>
+      counted.push(view.querySelectorAll(".mn-cursor").length),
+    ).observe(view, { childList: true, subtree: true, characterData: true });
+  }, PAGE_VIEW);
+  for (const text of ["The ", "rain ", "keeps ", "on. "]) {
+    await groupHook(page, "remote", "type", 5, 0, text);
+    await settled(page);
+  }
+  const counted: unknown = await page.evaluate(() =>
+    Reflect.get(window, "__caretsCounted"),
+  );
+  const counts = Array.isArray(counted) ? counted.map(Number) : [];
+  expect({ fewest: Math.min(...counts), checked: counts.length > 0 }).toEqual({
+    fewest: 1,
+    checked: true,
+  });
+});
+
+/**
+ * Sam's script of two scenes, synced so that the people in it show, the second with a heading too long for its row,
+ * with Dana's caret in that scene.
+ */
+async function danaInSecondScene(page: Page): Promise<Locator> {
+  await openScript(
+    page,
+    "screenplay",
+    corpusDoc([
+      corpusLine("scene_heading", "INT. LAMP ROOM - NIGHT"),
+      corpusLine("action", "The keeper climbs the stair."),
+      corpusLine(
+        "scene_heading",
+        "EXT. GALLERY ROUND THE LAMP, HIGH OVER THE BAY - CONTINUOUS",
+      ),
+      corpusLine("action", "Wind at the glass."),
+    ]),
+    "sam",
+  );
+  await viewItem(page, /^Left panel/);
+  await groupHook(page, "remote", "join", DANA);
+  await groupHook(page, "remote", "select", 3, 2);
+  return page
+    .locator("[data-region='left_panel'] .mn-row")
+    .filter({ hasText: "EXT. GALLERY" });
+}
+
+test("another writer shows in the title bar and at the end of their scene's row, moving while their caret moves", async ({
+  page,
+}) => {
+  const row = await danaInSecondScene(page);
+  const avatar = row.getByRole("img", { name: DANA.name });
+  await expect(
+    page.locator("[data-region='title_bar']").getByRole("img", {
+      name: DANA.name,
+    }),
+  ).toBeVisible();
+  await expect(avatar).toHaveClass(/animate-bounce/);
+  const [heading, face, length] = await Promise.all(
+    [
+      row.locator(".truncate").first(),
+      avatar,
+      row.locator("[data-trailing] .tabular-nums"),
+    ].map((part) => part.boundingBox()),
+  );
+  const cut = await row
+    .locator(".truncate")
+    .first()
+    .evaluate((element) => element.scrollWidth > element.clientWidth);
+  expect({
+    cut,
+    beforeAvatar: heading!.x + heading!.width <= face!.x,
+    beforeLength: face!.x + face!.width <= length!.x,
+  }).toEqual({ cut: true, beforeAvatar: true, beforeLength: true });
+  // still for longer than a pause between phrases, the avatar stands still; a move sets it going again
+  await expect(avatar).not.toHaveClass(/animate-bounce/);
+  await groupHook(page, "remote", "select", 3, 6);
+  await expect(avatar).toHaveClass(/animate-bounce/);
+  await expect(
+    page
+      .locator("[data-region='left_panel'] .mn-row")
+      .filter({ hasText: "INT. LAMP ROOM" })
+      .getByRole("img"),
+  ).toHaveCount(0);
+});
+
+test("under reduced motion a typing writer's avatar stands still, and its initials are underlined", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const avatar = (await danaInSecondScene(page)).getByRole("img", {
+    name: DANA.name,
+  });
+  await expect(avatar).toHaveClass(/animate-bounce/);
+  expect(
+    await avatar.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return [style.animationName, style.textDecorationLine];
+    }),
+  ).toEqual(["none", "underline"]);
 });
 
 /** The viewport top of block `blockId`'s first character, px. */

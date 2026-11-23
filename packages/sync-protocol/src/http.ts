@@ -231,23 +231,29 @@ export interface DemoResponse {
   control: ControlEndpoint | null;
 }
 
+/** Where Add writers seats its writers: each in a scene of its own after the caret's, or all in the caret's scene. */
+export const WRITER_PLACEMENTS = ["own_scenes", "caret_scene"] as const;
+export type WriterPlacement = (typeof WRITER_PLACEMENTS)[number];
+
 /** The body of POST /api/demo/writers: 0 stops them; `afterBlockId` is the caller's caret block. */
 export interface WritersRequest {
   docId: string;
   count: 0 | 1 | 5 | 20;
   afterBlockId: string | null;
+  placement: WriterPlacement;
 }
 
 /**
  * The answer of POST /api/demo/writers, and of POST /api/demo/writers/running (body `{ docId }`), which tells
- * what runs in the script now: `count` writers started, at most `asked`; `endsAt` is when they stop by
- * themselves, null when none runs.
+ * what runs in the script now: `count` writers started, at most `asked`, seated by `placement`; `endsAt` is when
+ * they stop by themselves. `placement` and `endsAt` are null when none runs.
  */
 export interface WritersResponse {
   asked: number;
   count: number;
   names: string[];
   endsAt: number | null;
+  placement: WriterPlacement | null;
 }
 
 /** The body of POST /api/demo/tour/prepare. */

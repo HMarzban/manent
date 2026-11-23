@@ -19,7 +19,7 @@ import { indexDocId } from "@manent/sync-protocol";
 import type { LiveTarget } from "../seed/driver.ts";
 import { readServerScript } from "../seed/page-meter.ts";
 import { createPreparations } from "./prepare.ts";
-import { freeScenes, startWriter } from "./writers.ts";
+import { caretScene, freeScenes, startWriter } from "./writers.ts";
 import type { Scene, Writer } from "./writers.ts";
 
 /** A group of writers stops by itself this long after it starts. */
@@ -42,6 +42,7 @@ const NONE: WritersResponse = Object.freeze({
   count: 0,
   names: [],
   endsAt: null,
+  placement: null,
 });
 
 interface Running {
@@ -91,6 +92,18 @@ function scenesFor(
   return freeScenes(flat, afterBlockId, held);
 }
 
+/** The scene each of `count` writers types in: a free scene each, or the caret's scene for all, held or not. */
+function seatScenes(
+  state: Live,
+  { docId, count, afterBlockId, placement }: WritersRequest,
+): (Scene | null)[] {
+  if (placement === "own_scenes")
+    return scenesFor(state, docId, afterBlockId).slice(0, count);
+  const { flat } = readServerScript(state.live.storage, docId);
+  const scene = caretScene(flat, afterBlockId);
+  return Array.from({ length: count }, () => scene);
+}
+
 /**
  * Each seat's person typing in its scene; the n-th draws from DEMO_SEED, n and the moment they
  * start. When one cannot open, the ones that did are stopped before the failure is passed on.
@@ -133,16 +146,17 @@ async function stopGroup(state: Live, docId: string): Promise<void> {
   await Promise.all(group.writers.map((w) => w.stop()));
 }
 
-/** Replaces the document's group with `count` writers, the first free members of the pool, one a scene. */
+/** Replaces the document's group with `count` writers, the first free members of the pool, seated by its placement. */
 async function addWriters(
   state: Live,
-  { docId, count, afterBlockId }: WritersRequest,
+  request: WritersRequest,
   stopLater: () => void,
 ): Promise<WritersResponse> {
+  const { docId, count, placement } = request;
   await stopGroup(state, docId);
   if (count === 0) return NONE;
   const busy = new Set(runningOn(state, docId).map((w) => w.userId));
-  const scenes = scenesFor(state, docId, afterBlockId).slice(0, count);
+  const scenes = seatScenes(state, request);
   const seats = WRITER_POOL.filter((m) => !busy.has(m.userId))
     .slice(0, scenes.length)
     .map(({ userId, name }, i) => ({ userId, name, scene: scenes[i]! }));
@@ -153,6 +167,7 @@ async function addWriters(
     count: writers.length,
     names: seats.map((s) => s.name),
     endsAt: state.live.clock.now() + WRITERS_RUN_MS,
+    placement,
   };
   state.groups.set(docId, { docId, writers, answer, cancel });
   return answer;

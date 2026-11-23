@@ -12,11 +12,15 @@ export const DEMO_WORDS = {
   online: "Online",
   offline: "Offline",
   slow: "Slow",
-  /** The control: a popover holding the choice of 1, 5 or 20 under its line and, while writers run, Stop writers. */
+  /**
+   * The control: a popover holding two choices of 1, 5 or 20, in other scenes and in the caret's scene, each under
+   * its line, and, while writers run, Stop writers.
+   */
   addWriters: "Add writers",
   addWritersHint:
-    "Demo writers type in this script, each in a scene of its own.",
+    "Demo writers type in this script, each in a scene of its own or all in the scene you are in.",
   writersChoice: "Writers typing in other scenes",
+  writersHereChoice: "Writers typing in this scene",
   stopWriters: "Stop writers",
   /** The control's label while they run. */
   writersTyping: (n: number): string =>

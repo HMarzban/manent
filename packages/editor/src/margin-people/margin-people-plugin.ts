@@ -1,12 +1,16 @@
 // Other people's initials in the desk gutter beside the sheet, level with the first line of the element holding
-// their caret, the scenes they are in, and whose cursors the page draws. Placed from the engine's pages on the
+// their caret, the scenes they are in and who there is typing, and whose cursors the page draws. Placed from the
 // sheets in view, never measured.
 import type { LayoutBlock } from "@manent/pagination";
 import { Plugin } from "prosemirror-state";
 import type { PluginView } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { markPosition } from "../changes/layer.ts";
-import { setShownCursors } from "../cursors/cursor-plugin.ts";
+import {
+  cursorsKey,
+  isMoving,
+  setShownCursors,
+} from "../cursors/cursor-plugin.ts";
 import type { ShownCursors } from "../cursors/cursor-plugin.ts";
 import { blockNear, currentIndex } from "../cursors/place.ts";
 import type { BlockIndex } from "../pagination/block-index.ts";
@@ -21,10 +25,19 @@ export interface MarginPeopleOptions {
   name(names: readonly string[]): string;
   /** The page's factor, 1 at 100 %. */
   zoom(): number;
-  /** Told the people in each scene, by the block id of its heading, whenever that changes; an empty map once the page goes. */
-  onScenes(scenes: ReadonlyMap<string, readonly RemoteCursor[]>): void;
+  /**
+   * Told the people in each scene, by the block id of its heading and then by name, whenever who is in which scene
+   * or who of them is moving changes; an empty map once the page goes.
+   */
+  onScenes(scenes: ReadonlyMap<string, readonly ScenePerson[]>): void;
   /** Whose cursors the page draws, set again at each presence report and whenever `subscribe` says it changed. */
   shown: { get(): ShownCursors; subscribe(listener: () => void): () => void };
+}
+
+/** A person in a scene, and whether they are typing: their caret moved within MOVING_MS. */
+export interface ScenePerson {
+  readonly cursor: RemoteCursor;
+  readonly moving: boolean;
 }
 
 /** One person and the index of the block holding the head of their caret. */
@@ -118,19 +131,26 @@ function sceneOf(blocks: readonly LayoutBlock[], block: number): string | null {
   return null;
 }
 
+const byName = (a: ScenePerson, b: ScenePerson): number =>
+  a.cursor.name.localeCompare(b.cursor.name) ||
+  a.cursor.userId.localeCompare(b.cursor.userId);
+
+/** The people in each scene, by name, moving as of `now`, ms. */
 function scenesOf(
   index: BlockIndex,
   placed: readonly Placed[],
-): Map<string, RemoteCursor[]> {
-  const scenes = new Map<string, RemoteCursor[]>();
+  now: number,
+): Map<string, ScenePerson[]> {
+  const scenes = new Map<string, ScenePerson[]>();
   for (const { cursor, block } of placed) {
     const heading = sceneOf(index.blocks, block);
     if (heading === null) continue;
-    const people = scenes.get(heading);
-    if (people === undefined) scenes.set(heading, [cursor]);
-    else people.push(cursor);
+    const person = { cursor, moving: isMoving(cursor, now) };
+    scenes.set(heading, [...(scenes.get(heading) ?? []), person]);
   }
-  return scenes;
+  return new Map(
+    [...scenes].map(([heading, people]) => [heading, people.toSorted(byName)]),
+  );
 }
 
 /** A person's initials in their colour, or how many people share the line; a picture named by their names, never a control. */
@@ -168,12 +188,18 @@ function markerOf(
   return marker;
 }
 
-// who is in which scene, whatever the place of each caret inside it
-const scenesKeyOf = (scenes: ReadonlyMap<string, readonly RemoteCursor[]>) =>
+// who is in which scene and moving, whatever the place of each caret inside it
+const scenesKeyOf = (scenes: ReadonlyMap<string, readonly ScenePerson[]>) =>
   JSON.stringify(
     [...scenes].map(([id, people]) => [
       id,
-      people.map((p) => [p.userId, p.name, p.initials, p.colour]),
+      people.map(({ cursor: p, moving }) => [
+        p.userId,
+        p.name,
+        p.initials,
+        p.colour,
+        moving,
+      ]),
     ]),
   );
 
@@ -185,18 +211,23 @@ function marginPeopleView(
   let drawn: HTMLElement[] = [];
   let markersKey = "";
   let scenesKey = scenesKeyOf(new Map());
-  const tellScenes = (scenes: ReadonlyMap<string, readonly RemoteCursor[]>) => {
+  const tellScenes = (scenes: ReadonlyMap<string, readonly ScenePerson[]>) => {
     const next = scenesKeyOf(scenes);
     if (next === scenesKey) return;
     scenesKey = next;
     options.onScenes(scenes);
   };
+  // moving as the carets were last judged
+  const scenesIn = (index: BlockIndex | null, placed: readonly Placed[]) =>
+    index === null
+      ? new Map()
+      : scenesOf(index, placed, cursorsKey.getState(view.state)?.now ?? 0);
   const draw = () => {
     const frame = view.dom.parentElement;
     const pages = paginationKey.getState(view.state);
     const index = currentIndex(view.state);
     const placed = index === null ? [] : placedOf(index, people);
-    tellScenes(index === null ? new Map() : scenesOf(index, placed));
+    tellScenes(scenesIn(index, placed));
     const spots =
       frame === null || pages === undefined
         ? []
@@ -233,6 +264,15 @@ function marginPeopleView(
         paginationKey.getState(view.state)?.pagination
       )
         draw();
+      // the carets were judged again: a person may have stopped moving
+      else if (
+        cursorsKey.getState(prev)?.now !== cursorsKey.getState(view.state)?.now
+      ) {
+        const index = currentIndex(view.state);
+        tellScenes(
+          scenesIn(index, index === null ? [] : placedOf(index, people)),
+        );
+      }
     },
     destroy() {
       stop();

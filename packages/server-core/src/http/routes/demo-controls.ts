@@ -1,5 +1,5 @@
 // The demo bar's controls on the server: simulated writers, the Tour's preparations and Reorganise.
-import { isDocId } from "@manent/sync-protocol";
+import { WRITER_PLACEMENTS, isDocId } from "@manent/sync-protocol";
 import type {
   DemoControls,
   RebuildResponse,
@@ -55,10 +55,11 @@ function refuseEditing(
 function readWriters(body: unknown): WritersRequest | null {
   if (!isObject(body) || !isDocId(body.docId)) return null;
   const count = WRITER_COUNTS.find((n) => n === body.count);
+  const placement = WRITER_PLACEMENTS.find((p) => p === body.placement);
   const after = body.afterBlockId;
-  if (count === undefined || (after !== null && typeof after !== "string"))
-    return null;
-  return { docId: body.docId, count, afterBlockId: after };
+  if (count === undefined || placement === undefined) return null;
+  if (after !== null && typeof after !== "string") return null;
+  return { docId: body.docId, count, afterBlockId: after, placement };
 }
 
 export const DEMO_CONTROL_ROUTES: Route[] = [

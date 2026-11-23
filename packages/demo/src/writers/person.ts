@@ -1,17 +1,14 @@
 // A simulated person: types, pastes, moves scenes and goes offline at a profile's rates,
 // writing through a sync client's document one keystroke at a time.
-import {
-  blockIds,
-  encodeAwareness,
-  readBlocks,
-  scriptBody,
-} from "@manent/crdt";
+import { blockIds, readBlocks, scriptBody } from "@manent/crdt";
 import type { BlockWriter } from "@manent/crdt";
 import { attrsForNewBlock, formatFrom } from "@manent/schema";
 import type { BlockJSON, IdSource } from "@manent/schema";
 import type { Clock, DocHandle, Random, SyncClient } from "@manent/sync-client";
 import { createRng, seededIdSource } from "../seed/rng.ts";
 import type { Rng } from "../seed/rng.ts";
+import { createWriterPresence } from "./presence.ts";
+import type { Caret, WriterPresence } from "./presence.ts";
 import { lineEndFrom, regionOf } from "./region.ts";
 import type { Region, WriterLine } from "./region.ts";
 import type { WritingProfile } from "./profiles.ts";
@@ -56,11 +53,6 @@ type Key =
   | { type: "text"; text: string; marker: string | null }
   | { type: "enter"; element: string };
 
-interface Caret {
-  blockId: string;
-  offset: number;
-}
-
 /** The block the person writes in, and its element. */
 interface Place {
   blockId: string;
@@ -71,8 +63,6 @@ interface Burst {
   keys: readonly Key[];
   next: number;
   caret: Caret;
-  /** The caret after the last text typed. */
-  end: Caret | null;
 }
 
 type Timer = "key" | "move" | "paste" | "offline";
@@ -109,7 +99,7 @@ class Person implements SimulatedPerson {
   private region: Region | null;
   private keystrokes = 0;
   private bursts = 0;
-  private presenceClock = 0;
+  private readonly presence: WriterPresence | null;
 
   constructor(options: PersonOptions) {
     if (options.lines?.length === 0 || options.lines?.some((l) => !l.length))
@@ -119,6 +109,9 @@ class Person implements SimulatedPerson {
     this.ids = seededIdSource(this.rng);
     this.keyMs = 1000 / options.profile.keysPerSecond;
     this.region = options.region;
+    this.presence = options.profile.presence
+      ? createWriterPresence(options)
+      : null;
   }
 
   start(): void {
@@ -139,7 +132,7 @@ class Person implements SimulatedPerson {
     while (this.burst !== null && this.burst.next < keys.length)
       if (!this.type(this.burst, keys[this.burst.next]!)) break;
     if (this.offline) this.comeBack();
-    if (this.options.profile.presence) this.sendPresence(null);
+    this.presence?.leave();
     return Promise.resolve();
   }
 
@@ -231,11 +224,11 @@ class Person implements SimulatedPerson {
     const element = block.attrs?.type ?? "action";
     const offset = lengthOf(block);
     this.place = { blockId, element };
+    this.presence?.moved({ blockId, offset });
     const burst: Burst = {
       keys: this.keysFor(this.place, offset),
       next: 0,
       caret: { blockId, offset },
-      end: null,
     };
     this.burst = burst;
     this.schedule("key", this.keyMs, () => this.press(burst));
@@ -262,7 +255,7 @@ class Person implements SimulatedPerson {
       this.pause();
     } else if (burst.next < burst.keys.length)
       this.schedule("key", this.keyMs, () => this.press(burst));
-    else this.endBurst(burst);
+    else this.pause();
   }
 
   private backspace(burst: Burst, text: string): boolean {
@@ -272,7 +265,7 @@ class Person implements SimulatedPerson {
       return false;
     burst.next -= 1;
     burst.caret = { blockId, offset: at };
-    burst.end = burst.caret;
+    this.presence?.moved(burst.caret);
     this.record("typed", blockId);
     return true;
   }
@@ -287,6 +280,7 @@ class Person implements SimulatedPerson {
       if (this.region?.lastBlockId === blockId)
         this.region = { ...this.region, lastBlockId: id };
       burst.caret = { blockId: id, offset: 0 };
+      this.presence?.moved(burst.caret);
       this.place = { blockId: id, element: key.element };
       this.record("typed", id);
       return true;
@@ -294,26 +288,9 @@ class Person implements SimulatedPerson {
     if (!this.write((w) => w.insertText(blockId, offset, key.text)))
       return false;
     burst.caret = { blockId, offset: offset + key.text.length };
-    burst.end = burst.caret;
+    this.presence?.moved(burst.caret);
     this.record("typed", blockId, key.marker);
     return true;
-  }
-
-  private endBurst({ end }: Burst): void {
-    if (this.options.profile.presence && end !== null) {
-      const at = blockIds(this.options.handle.doc()).indexOf(end.blockId);
-      this.sendPresence({ cursor: { anchor: end, head: end, at } });
-    }
-    this.pause();
-  }
-
-  private sendPresence(state: Record<string, unknown> | null): void {
-    this.presenceClock += 1;
-    const { handle } = this.options;
-    const { clientId } = handle.doc();
-    handle.sendAwareness(
-      encodeAwareness([{ clientId, clock: this.presenceClock, state }]),
-    );
   }
 
   /** 5 to 25 blocks strictly inside the region, deleted and inserted again after another of its blocks. */

@@ -1,4 +1,5 @@
-// The simulated writers Add writers starts, each in a scene of its own, and the members who type in Lanternfield Studios.
+// The simulated writers Add writers starts, each in a scene of its own or all in one, and the members who type in
+// Lanternfield Studios.
 import { createRng, createSimulatedPerson, writerLines } from "@manent/demo";
 import type { WritingProfile } from "@manent/demo";
 import type { FlatBlock } from "@manent/schema";
@@ -71,36 +72,55 @@ function settled(handle: DocHandle, clock: Clock): Promise<void> {
 }
 
 /**
+ * The scenes of `blocks` in document order, each ending before the next heading or act break, and the index of the
+ * last one starting at or before `afterBlockId`: -1 when it is absent, null, or before the first heading, where
+ * blocks belong to no scene.
+ */
+function scenesAround(
+  blocks: readonly FlatBlock[],
+  afterBlockId: string | null,
+): { scenes: Scene[]; own: number } {
+  const ends = blocks.flatMap((b, i) =>
+    SCENE_ENDS.has(b.attrs.type) ? [i] : [],
+  );
+  const idAt = (i: number): string => blocks[i]?.attrs.id ?? "";
+  const starts = ends.flatMap((from, k) =>
+    blocks[from]?.attrs.type === "scene_heading" ? [{ from, k }] : [],
+  );
+  const scenes = starts.map(({ from, k }) => ({
+    firstBlockId: idAt(from),
+    lastBlockId: idAt((ends[k + 1] ?? blocks.length) - 1),
+  }));
+  const caret = blocks.findIndex((b) => b.attrs.id === afterBlockId);
+  const own =
+    caret < 0 ? -1 : starts.findLastIndex(({ from }) => from <= caret);
+  return { scenes, own };
+}
+
+/**
  * The scenes after the one holding `afterBlockId`, in document order and then from the start,
- * without that scene and without those whose heading is in `held`. A scene ends before the next heading
- * or act break; blocks before the first heading belong to no scene, and an `afterBlockId` there, absent
- * or null, starts from the first scene.
+ * without that scene and without those whose heading is in `held`; from the first scene when
+ * `afterBlockId` is in no scene.
  */
 export function freeScenes(
   blocks: readonly FlatBlock[],
   afterBlockId: string | null,
   held: ReadonlySet<string>,
 ): Scene[] {
-  const ends = blocks.flatMap((b, i) =>
-    SCENE_ENDS.has(b.attrs.type) ? [i] : [],
-  );
-  const idAt = (i: number): string => blocks[i]?.attrs.id ?? "";
-  const scenes = ends.flatMap((from, k) =>
-    blocks[from]?.attrs.type === "scene_heading"
-      ? [
-          {
-            from,
-            firstBlockId: idAt(from),
-            lastBlockId: idAt((ends[k + 1] ?? blocks.length) - 1),
-          },
-        ]
-      : [],
-  );
-  const caret = blocks.findIndex((b) => b.attrs.id === afterBlockId);
-  const own = caret < 0 ? -1 : scenes.findLastIndex((s) => s.from <= caret);
-  return [...scenes.slice(own + 1), ...scenes.slice(0, Math.max(own, 0))]
-    .filter((s) => !held.has(s.firstBlockId))
-    .map(({ firstBlockId, lastBlockId }) => ({ firstBlockId, lastBlockId }));
+  const { scenes, own } = scenesAround(blocks, afterBlockId);
+  return [
+    ...scenes.slice(own + 1),
+    ...scenes.slice(0, Math.max(own, 0)),
+  ].filter((s) => !held.has(s.firstBlockId));
+}
+
+/** The scene holding `afterBlockId`, or the first scene when it is in none; null for a script without scenes. */
+export function caretScene(
+  blocks: readonly FlatBlock[],
+  afterBlockId: string | null,
+): Scene | null {
+  const { scenes, own } = scenesAround(blocks, afterBlockId);
+  return scenes[Math.max(own, 0)] ?? null;
 }
 
 /**
