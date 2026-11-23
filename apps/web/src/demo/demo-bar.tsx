@@ -28,6 +28,8 @@ export function DemoBar(props: {
   person: TabPerson | null;
   onPersonClick: () => void;
   control: DemoControl | null;
+  /** The server line reads resetting whatever the server last answered. */
+  resetting: boolean;
 }): ReactNode {
   return (
     <section

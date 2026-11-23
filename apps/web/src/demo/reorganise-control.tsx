@@ -9,13 +9,18 @@ import { BarButton } from "./bar-button.tsx";
 
 const TOUR = "demo:reorganise";
 
-/** Unavailable without a script or a connection, and for a person who cannot edit the script. */
+/**
+ * Unavailable without a script or a connection, for a person who has not signed in (the server holds none of their
+ * scripts), and for a person who cannot edit the script.
+ */
 export function ReorganiseControl(props: {
   docId: string | null;
+  signedIn: boolean;
   offline: boolean;
 }): ReactNode {
-  const { docId, offline } = props;
+  const { docId, signedIn, offline } = props;
   if (docId === null) return <Unavailable reason={DEMO_WORDS.needsScript} />;
+  if (!signedIn) return <Unavailable reason={DEMO_WORDS.needsSyncedScript} />;
   return <ScriptReorganise key={docId} docId={docId} offline={offline} />;
 }
 

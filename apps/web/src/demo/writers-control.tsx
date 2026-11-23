@@ -36,13 +36,18 @@ function labelOf(running: Running): string {
 const isCount = (value: number): value is WritersRequest["count"] =>
   value === 0 || value === 1 || value === 5 || value === 20;
 
-/** Unavailable without a script or a connection, and for a person who cannot edit the script. */
+/**
+ * Unavailable without a script or a connection, for a person who has not signed in (the server holds none of their
+ * scripts), and for a person who cannot edit the script.
+ */
 export function WritersControl(props: {
   docId: string | null;
+  signedIn: boolean;
   offline: boolean;
 }): ReactNode {
-  const { docId, offline } = props;
+  const { docId, signedIn, offline } = props;
   if (docId === null) return <Unavailable reason={DEMO_WORDS.needsScript} />;
+  if (!signedIn) return <Unavailable reason={DEMO_WORDS.needsSyncedScript} />;
   return <ScriptWriters docId={docId} offline={offline} />;
 }
 

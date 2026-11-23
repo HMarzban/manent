@@ -42,6 +42,7 @@ test("the demo bar keeps its place and its name when its controls' code cannot l
             person={{ token: null, userId: "leo", name: "Leo Marsh" }}
             onPersonClick={() => {}}
             control={null}
+            resetting={false}
           />
           <main>Screen</main>
         </>,

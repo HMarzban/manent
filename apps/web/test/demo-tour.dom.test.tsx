@@ -349,6 +349,7 @@ test("the demo bar is its own colour scope and says Demo", async () => {
       person={{ token: null, userId: "dana", name: "Dana Reyes" }}
       onPersonClick={() => {}}
       control={null}
+      resetting={false}
     />,
   );
   const bar = container.querySelector("section");
