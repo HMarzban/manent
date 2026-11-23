@@ -9,9 +9,14 @@ import {
   createDocumentAccess,
   validateIndexPush,
 } from "../src/index.ts";
-import type { DocumentAccess } from "../src/index.ts";
+import type { Access, DocumentAccess } from "../src/index.ts";
 import { BLOCK, createTypist } from "./seed.ts";
-import { ALICE_CLIENT, createWorld, pushOf } from "./write-world.ts";
+import {
+  ALICE_CLIENT,
+  BOB_CLIENT,
+  createWorld,
+  pushOf,
+} from "./write-world.ts";
 
 const DOC = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
 const DOC2 = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7ce";
@@ -58,6 +63,21 @@ const inspect = (update: Uint8Array): TransactionReport => {
   const report = applyInspecting(indexDoc(), update);
   if (report === null) throw new RangeError("the update changed nothing");
   return report;
+};
+
+/** A push of `clientId` that writes who belongs to which group and who may also do what. */
+const regroup = (clientId: number): Uint8Array => {
+  const doc = createDoc({ clientId });
+  const before = doc.encodeStateVector();
+  jsonMap(doc, "groups").set("room", {
+    id: "room",
+    name: "Room",
+    role: "edit",
+    memberUserIds: ["sam"],
+    watermark: false,
+  });
+  jsonMap(doc, "can_also").set("sam", ["issue_revisions"]);
+  return doc.diff(before);
 };
 
 test("a person's private index is theirs alone, and a workspace index lives in its own home", () => {
@@ -164,9 +184,10 @@ test("an index push may write only its kind's maps and never a script body", () 
     home: { kind: "user", id: "sam" } as const,
   };
   const workspace = { docId: WS, home: { kind: "project", id: WS } as const };
-  expect(validateIndexPush(ok, own)).toEqual([]);
+  const editor: Access = { role: "edit", capabilities: [] };
+  expect(validateIndexPush(ok, own, editor)).toEqual([]);
   const projects = inspect(capture((d) => jsonMap(d, "projects").set("p", {})));
-  expect(validateIndexPush(projects, own)).toEqual([
+  expect(validateIndexPush(projects, own, editor)).toEqual([
     {
       path: "maps.projects",
       code: "not_index",
@@ -175,11 +196,60 @@ test("an index push may write only its kind's maps and never a script body", () 
     },
   ]);
   expect(
-    validateIndexPush(inspect(aScriptBlock()), workspace).map(
+    validateIndexPush(inspect(aScriptBlock()), workspace, editor).map(
       (issue) => issue.path,
     ),
   ).toEqual(["body"]);
-  expect(validateIndexPush(projects, workspace)).toEqual([]);
+  expect(validateIndexPush(projects, workspace, editor)).toEqual([]);
+});
+
+test("on a project's index, an editor's push to groups and can_also is refused and an owner's is taken", () => {
+  const world = createWorld();
+  const documents = createDocumentAccess({
+    storage: world.storage,
+    versions: V1,
+  });
+  documents.create("dana", {
+    docId: WS,
+    kind: "index",
+    home: workspaceHome("medium"),
+  });
+  world.storage.directory.setRole(WS, "sam", "edit", []);
+  const docId = indexDocId("project", PROJECT);
+  expect(
+    documents.create("dana", {
+      docId,
+      kind: "index",
+      home: projectHome(PROJECT),
+      workspaceId: "medium",
+    }),
+  ).toMatchObject({ ok: true });
+  const home = { kind: "project" as const, id: PROJECT };
+  const file = world.storage.open(home);
+  file.log.registerClients(docId, "sam", [ALICE_CLIENT]);
+  file.log.registerClients(docId, "dana", [BOB_CLIENT]);
+  const room = world.rooms.room(docId, home, "index");
+  world.rooms.load(room);
+  for (const sub of [world.subA, world.subB]) {
+    const resolved = documents.resolve(sub.peer.userId, docId);
+    if (!resolved.ok) throw new RangeError("the pusher holds no role");
+    sub.access = resolved.access;
+    room.editors.set(sub.peer, sub);
+  }
+  world.path.push(room, world.subA, pushOf(1, regroup(ALICE_CLIENT)));
+  world.path.push(room, world.subB, pushOf(2, regroup(BOB_CLIENT)));
+  world.clock.runDeferred();
+  expect(world.refusals).toEqual([
+    {
+      code: 4422,
+      message: "invalid",
+      permanent: true,
+      retryAfterMs: null,
+      clientSeq: 1,
+    },
+  ]);
+  expect([world.subA.stalled, world.subB.stalled]).toEqual([true, false]);
+  expect(file.log.get(docId)!.headSeq).toBe(1);
 });
 
 test("a push of the wrong kind to an index is refused for good", () => {
