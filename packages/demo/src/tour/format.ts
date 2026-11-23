@@ -1,6 +1,7 @@
 // The Tour's file format, and the checker every Tour file passes.
 import { TOUR_FEATURES } from "./features.ts";
 import type { TourFeature } from "./features.ts";
+import { TOUR_RELEASED } from "./released.ts";
 
 export const TOUR_GROUPS = [
   "Write",
@@ -210,10 +211,12 @@ function checkProof(scenario: Fields, path: string): TourIssue[] {
       `the evidence must be 1 to ${MAX_EVIDENCE} strings, each found in the check`,
     ),
     ...unless(
-      waitsFor === null || TOUR_FEATURES.some((f) => f === waitsFor),
+      waitsFor === null ||
+        (TOUR_FEATURES.some((f) => f === waitsFor) &&
+          !TOUR_RELEASED.some((f) => f === waitsFor)),
       `${path}.waitsFor`,
       "bad_feature",
-      `a scenario waits for null or one of the Tour's features, not ${named(waitsFor)}`,
+      `a scenario waits for null or one of the Tour's features not yet released, not ${named(waitsFor)}`,
     ),
     ...unless(
       hidden === null || isFilled(hidden),

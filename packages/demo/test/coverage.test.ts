@@ -6,6 +6,7 @@ import {
   SEED_DOCS,
   TOUR,
   TOUR_FEATURES,
+  TOUR_RELEASED,
   docPath,
   seedProject,
 } from "../src/index.ts";
@@ -86,7 +87,9 @@ test("every fixed passage is read by a scenario or a seed check", () => {
 
 test("every feature the Tour waits for has a waiting scenario", () => {
   const awaited = new Set(TOUR.scenarios.map((s) => s.waitsFor));
-  expect(TOUR_FEATURES.filter((f) => !awaited.has(f))).toEqual([]);
+  expect(
+    TOUR_FEATURES.filter((f) => !awaited.has(f) && !TOUR_RELEASED.includes(f)),
+  ).toEqual([]);
 });
 
 test("a scenario is hidden only for a stated reason", () => {

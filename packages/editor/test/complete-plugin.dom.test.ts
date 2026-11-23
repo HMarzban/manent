@@ -80,7 +80,7 @@ function mount(doc: Node): {
     state: EditorState.create({
       doc,
       plugins: [
-        completePlugin({ layer, frames, timers }),
+        completePlugin({ layer, frames, timers, projectNames: [] }),
         paginationPlugin({
           profile: sp,
           defer: (work) => work(),

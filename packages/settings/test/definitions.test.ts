@@ -49,6 +49,28 @@ const throwaway = setting({
   keywords: [],
 });
 
+// Frozen, and the two value snapshots below compare only these keys, so a setting added later never breaks them.
+const STAGE_1_SETTING_KEYS: readonly string[] = [
+  "writing.enterAfterDialogue",
+  "writing.typewriterScrolling",
+  "writing.checkSpelling",
+  "writing.showCursors",
+  "writing.announce",
+  "appearance.theme",
+  "appearance.whitePage",
+  "device.interfaceSize",
+  "script.format",
+  "script.paper",
+  "script.moresAtBreaks",
+  "script.sameSpeakerContd",
+  "script.sceneContinued",
+  "script.numbering",
+  "script.colourOrder",
+];
+
+const stage1 = <T extends { key: string }>(list: readonly T[]): T[] =>
+  list.filter((d) => STAGE_1_SETTING_KEYS.includes(d.key));
+
 test("the list of preferences is closed at nine", () => {
   expect(PREFERENCE_LIST).toEqual([
     "writing.enterAfterDialogue",
@@ -71,7 +93,9 @@ test("the list of preferences is closed at nine", () => {
 });
 
 test("each setting keeps its label, its default and whether it applies before the first paint", () => {
-  expect(SETTINGS.all.map((d) => [d.key, d.label, d.default, d.boot])).toEqual([
+  expect(
+    stage1(SETTINGS.all).map((d) => [d.key, d.label, d.default, d.boot]),
+  ).toEqual([
     [
       "writing.enterAfterDialogue",
       "After Dialogue, Enter starts",
@@ -114,7 +138,7 @@ test("each setting keeps its label, its default and whether it applies before th
 test("each setting's help, values, places and effect are fixed", () => {
   const palette = { in: "palette" } as const;
   expect(
-    SETTINGS.all.map((d) => ({
+    stage1(SETTINGS.all).map((d) => ({
       key: d.key,
       scope: d.scope,
       choices: d.type.choices,

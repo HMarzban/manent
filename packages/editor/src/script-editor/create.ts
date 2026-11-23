@@ -15,8 +15,8 @@ import type { FormatId, IdSource } from "@manent/schema";
 import type { Plugin } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { runAction } from "../actions/run-action.ts";
-import type { ActionContext } from "../actions/run-action.ts";
-import type { ActionResult, EditorAction } from "../actions/action-types.ts";
+import type { ActionContext, ActionResult } from "../actions/action-types.ts";
+import type { EditorAction } from "../actions/registry.ts";
 import { CURSOR_CSS } from "../cursors/cursor-css.ts";
 import { slotElement } from "../elements/slots.ts";
 import { loadFrontPages } from "../front-pages/load.ts";
@@ -119,6 +119,8 @@ export interface ScriptEditorOptions {
   desk: Desk;
   /** The feature plugins, placed after every other. */
   extraPlugins(host: EditorPluginHost): readonly Plugin[];
+  /** The host's names, which autocomplete offers beside the script's; none when absent. */
+  projectNames?: readonly string[];
 }
 
 /** The layer is the popovers' frame: they are placed in its coordinates. */

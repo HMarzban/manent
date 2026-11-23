@@ -6,7 +6,8 @@ import { headingAt, outlineOf } from "../bridge/outline.ts";
 import { cursorsKey } from "../cursors/cursor-plugin.ts";
 import { blockAt } from "../pagination/block-index.ts";
 import { paginationKey } from "../pagination/plugin.ts";
-import type { ActionResult, EditorAction } from "./action-types.ts";
+import type { ActionResult } from "./action-types.ts";
+import type { EditorAction } from "./registry.ts";
 
 /** The actions this module runs. */
 export type GoToAction = Extract<

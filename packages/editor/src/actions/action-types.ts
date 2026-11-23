@@ -1,6 +1,8 @@
-// What a command, the Ruler or the Layout group asks the editor to do, and what it answers.
-import type { Alignment } from "@manent/schema";
-import type { ElementSlot } from "../elements/index.ts";
+// What an editor action is given, what it answers, and what one kind of action is.
+import type { FormatId, IdSource } from "@manent/schema";
+import type { EditorView } from "prosemirror-view";
+import type { ElementRef, ElementSlot } from "../elements/slots.ts";
+import type { HistoryPort } from "../script-editor/ports.ts";
 
 export const TEXT_COLOURS = [
   "red",
@@ -27,43 +29,6 @@ export const STYLE_MARKS = [
 ] as const;
 export type StyleMark = (typeof STYLE_MARKS)[number];
 
-/**
- * A colour or highlight of null is None. `align` and `space_before` toggle.
- * In `layout` a field left out is unchanged, and null returns it to the element's own. `find` sets the text the Find
- * bar looks for; `replace` and `replace_all` write `text` in place of the match the selection holds, or of every match;
- * `synopsis` writes the one-line summary of the scene whose heading is `blockId`. `go_to` puts the caret at `offset` in
- * `blockId`, `step_scene` at the next scene's heading (1) or the previous one's (-1), and `go_to_person` at the cursor
- * of the person present `userId`; each focuses the page.
- */
-export type EditorAction =
-  | { kind: "element"; slot: ElementSlot }
-  | { kind: "picker" }
-  | { kind: "dual_dialogue" }
-  | { kind: "page_break" }
-  | { kind: "style"; mark: StyleMark }
-  | { kind: "colour"; value: TextColour | null }
-  | { kind: "highlight"; value: HighlightColour | null }
-  | { kind: "align"; value: Alignment }
-  | { kind: "space_before" }
-  | {
-      kind: "layout";
-      indent?: number | null;
-      width?: number | null;
-      align?: Alignment | null;
-      spaceBefore?: number | null;
-    }
-  | { kind: "undo" }
-  | { kind: "redo" }
-  | { kind: "find"; search: string }
-  | { kind: "find_next" }
-  | { kind: "find_previous" }
-  | { kind: "replace"; text: string }
-  | { kind: "replace_all"; text: string }
-  | { kind: "synopsis"; blockId: string; text: string }
-  | { kind: "go_to"; blockId: string; offset: number }
-  | { kind: "step_scene"; direction: 1 | -1 }
-  | { kind: "go_to_person"; userId: string };
-
 export type ActionResult =
   | { ok: true }
   | {
@@ -71,3 +36,24 @@ export type ActionResult =
       reason:
         "needs_two_speeches" | "not_in_format" | "read_only" | "nothing_to_do";
     };
+
+export interface ActionContext {
+  format(): FormatId;
+  /** The element a picker key gives in `format`; null when the format has none there. */
+  slotElement(format: FormatId, slot: ElementSlot): ElementRef | null;
+  history: HistoryPort;
+  ids: IdSource;
+  openPicker(view: EditorView): void;
+  /** Puts the caret at `offset` in `blockId` near the view's top and focuses the page. */
+  goTo(blockId: string, offset: number): void;
+  editable(): boolean;
+  /** The profile's text column, in cells; null without pages (Ink), where a layout clamps nothing but space before. */
+  columnCells(): number | null;
+}
+
+/** One kind of editor action, `A`: what running it does, and whether a page that is not editable still runs it. */
+export interface ActionEntry<A extends { kind: string }> {
+  /** True: a page that is not editable runs it too. */
+  readonly readOnly: boolean;
+  run(view: EditorView, action: A, context: ActionContext): ActionResult;
+}

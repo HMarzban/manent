@@ -67,6 +67,7 @@ export {
   TOUR_GROUPS,
   TOUR_ISSUE_CODES,
   TOUR_PREPARATIONS,
+  TOUR_RELEASED,
   TOUR_TARGETS,
   isShown,
   validateTour,
