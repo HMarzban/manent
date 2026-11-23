@@ -11,6 +11,7 @@ import { ConnectError } from "@manent/sync-client";
 import type { ErrorResponse } from "@manent/sync-protocol";
 import { readPerson } from "../auth/people.ts";
 import type { NodeCoreOptions } from "./ports.ts";
+import { WORKFLOW_PATHS } from "./workflow-paths.ts";
 
 export interface NodeWorkflow {
   readonly history: HistoryService;
@@ -20,9 +21,9 @@ export interface NodeWorkflow {
 }
 
 const isWorkflowPath = (path: string): boolean =>
-  path === "/api/versions" ||
-  path.startsWith("/api/versions/") ||
-  path.startsWith("/api/production/");
+  WORKFLOW_PATHS.some((entry) =>
+    entry.match === "exact" ? path === entry.path : path.startsWith(entry.path),
+  );
 
 /** The script a workflow request names: in the query of a GET, in the body of a POST; null for none. */
 async function docIdOf(request: Request): Promise<string | null> {
