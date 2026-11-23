@@ -164,12 +164,8 @@ function followConnection(options: {
   return { connection, network };
 }
 
-/**
- * The person's sync client over `ports` (the browser's drivers unless given), draining what waits each time it connects;
- * `via` also says where the demo's Connection acts. Where the page has the test build's `__manent`, it sets
- * `__manent.sync` to the hooks and removes them in `dispose`.
- */
-export async function createPersonSync(options: {
+/** What the person's sync is made of; `ports` are the browser's drivers unless given. */
+interface PersonSyncOptions {
   person: TabPerson;
   baseUrl: string;
   deviceId: string;
@@ -182,8 +178,13 @@ export async function createPersonSync(options: {
   onlineEvents: EventTarget | null;
   visible: () => boolean;
   now: () => number;
-}): Promise<PersonSync> {
-  const { person, onlineEvents, visible } = options;
+}
+
+/** The ports the sync is given, or the browser's for `person`, and whether this browser held their store before. */
+async function portsOf(
+  options: PersonSyncOptions,
+): Promise<{ given: SyncClientPorts; hadDatabase: boolean | null }> {
+  const { person } = options;
   // looked for before the browser's store is opened, which makes it
   const hadDatabase =
     options.ports === undefined
@@ -196,19 +197,31 @@ export async function createPersonSync(options: {
       session: () => person.token,
       userId: person.userId,
     }));
-  const mode = createSubscribable(options.memory.connection() ?? "online");
-  const current = (): ConnectionMode => mode.get();
-  const place = CONNECTION_PLACES[options.via ?? "server"];
-  const transport = place.transport(given, current);
+  return { given, hadDatabase };
+}
+
+/** The sync client over `given`, through the test build's hooks where the page has them, with its handles shared. */
+function startClient(
+  options: PersonSyncOptions,
+  given: SyncClientPorts,
+): {
+  raw: SyncClient;
+  client: SyncClient;
+  link: Subscribable<LinkFacts>;
+  ports: SyncClientPorts;
+  controls: Set<ControlListener>;
+  test: ReturnType<typeof createTestHooks>;
+} {
+  const { person } = options;
   // the hooks make a script as the Library does, each in a project of its own
-  const test = createTestHooks({ ...given, transport }, async (docId) =>
+  const test = createTestHooks(given, async (docId) =>
     (await import("./create-script.ts")).createScript(client, {
       docId,
       projectId: docId,
       language: navigator.language,
     }),
   );
-  const ports = test?.ports ?? { ...given, transport };
+  const ports = test?.ports ?? given;
   const overlay = test?.overlay ?? NO_OVERLAY;
   const raw = createSyncClient({
     userId: person.userId,
@@ -227,6 +240,27 @@ export async function createPersonSync(options: {
   const link = overlay.link(raw.link);
   const controls = new Set<ControlListener>();
   const client = shareHandles(raw, overlay, link, controls);
+  return { raw, client, link, ports, controls, test };
+}
+
+/**
+ * The person's sync client over `ports` (the browser's drivers unless given), draining what waits each time it connects;
+ * `via` also says where the demo's Connection acts. Where the page has the test build's `__manent`, it sets
+ * `__manent.sync` to the hooks and removes them in `dispose`.
+ */
+export async function createPersonSync(
+  options: PersonSyncOptions,
+): Promise<PersonSync> {
+  const { person, onlineEvents, visible } = options;
+  const { given, hadDatabase } = await portsOf(options);
+  const mode = createSubscribable(options.memory.connection() ?? "online");
+  const current = (): ConnectionMode => mode.get();
+  const place = CONNECTION_PLACES[options.via ?? "server"];
+  const transport = place.transport(given, current);
+  const { raw, client, link, ports, controls, test } = startClient(options, {
+    ...given,
+    transport,
+  });
   // undefined outside a browser, which is never offline
   const browser = createSubscribable(navigator.onLine !== false);
   const { connection, network } = followConnection({

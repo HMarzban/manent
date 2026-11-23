@@ -42,17 +42,23 @@ function isPrefixedOf(label: string, locked: string): boolean {
 const isAbsorbing = (record: LockAnchorRecord) =>
   record.source === "issue" && record.level === 1;
 
-// The labels, in page order, of absorbing anchors whose page a page before it is prefixed onto.
-function collisions(
+/**
+ * The labels, in page order, of the pages a level-1 issue anchor starts that a page from `from` on is
+ * prefixed onto: the collisions that set such an anchor aside, so the screen and the issued file agree.
+ */
+export function findCollisions(
   p: Pagination,
   records: readonly LockAnchorRecord[],
+  from: number,
 ): string[] {
   const absorbing = new Set(
     records.filter(isAbsorbing).map((record) => record.label),
   );
+  if (absorbing.size === 0) return [];
   const found = new Set<string>();
   let next: string | null = null;
-  for (const page of p.pages.toReversed()) {
+  for (let i = p.pages.length - 1; i >= from; i--) {
+    const page = p.pages[i]!;
     if (page.locked) next = page.label;
     else if (
       next !== null &&
@@ -81,7 +87,7 @@ export function lockedPagination(
   for (;;) {
     const locks = toLockTable(kept);
     const pagination = engine.paginate(blocks, profile, locks);
-    const colliding = new Set(collisions(pagination, kept));
+    const colliding = new Set(findCollisions(pagination, kept, 0));
     if (colliding.size === 0) {
       const elastic = elasticPages(pagination);
       return Object.freeze({

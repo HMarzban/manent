@@ -255,6 +255,42 @@ function usePaletteEntries(options: {
   return rows.map((row): Entry => ({ type: "row", row }));
 }
 
+/** The palette's box: the search field over the list of entries. */
+function PaletteFrame(props: {
+  entries: readonly Entry[];
+  query: string;
+  placeholder?: string;
+  activate(entry: Entry): void;
+}): ReactNode {
+  const { entries, query, placeholder, activate } = props;
+  return (
+    <div
+      className="fixed inset-x-0 mx-auto flex flex-col overflow-hidden rounded-surface border border-line bg-overlay shadow-dialog"
+      style={{
+        top: "12vh",
+        width: "var(--palette-w)",
+        maxHeight: "var(--palette-max-h)",
+      }}
+    >
+      <div className="flex h-findbar shrink-0 items-center gap-2 border-b border-line px-4">
+        <SearchIcon aria-hidden="true" className="size-icon-lg text-fg-muted" />
+        <Autocomplete.Input
+          autoFocus
+          onKeyDown={(event) => {
+            // while an input method composes, Enter, Escape and the arrows are its own
+            if (event.nativeEvent.isComposing || event.keyCode === 229)
+              event.preventBaseUIHandler();
+          }}
+          aria-label={READOUT_WORDS.commandsHint}
+          placeholder={placeholder}
+          className="mn-palette-field h-full min-w-0 flex-1 bg-transparent text-ui outline-none"
+        />
+      </div>
+      <EntryList entries={entries} query={query} activate={activate} />
+    </div>
+  );
+}
+
 function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
   const { filter, sources, onRun, onClose, recent, placeholder } = props;
   const [query, setQuery] = useState("");
@@ -297,33 +333,12 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
       autoHighlight={isAvailable(entries[0]) ? "always" : false}
       virtualized={entries.length > VIRTUAL_ABOVE}
     >
-      <div
-        className="fixed inset-x-0 mx-auto flex flex-col overflow-hidden rounded-surface border border-line bg-overlay shadow-dialog"
-        style={{
-          top: "12vh",
-          width: "var(--palette-w)",
-          maxHeight: "var(--palette-max-h)",
-        }}
-      >
-        <div className="flex h-findbar shrink-0 items-center gap-2 border-b border-line px-4">
-          <SearchIcon
-            aria-hidden="true"
-            className="size-icon-lg text-fg-muted"
-          />
-          <Autocomplete.Input
-            autoFocus
-            onKeyDown={(event) => {
-              // while an input method composes, Enter, Escape and the arrows are its own
-              if (event.nativeEvent.isComposing || event.keyCode === 229)
-                event.preventBaseUIHandler();
-            }}
-            aria-label={READOUT_WORDS.commandsHint}
-            placeholder={placeholder}
-            className="mn-palette-field h-full min-w-0 flex-1 bg-transparent text-ui outline-none"
-          />
-        </div>
-        <EntryList entries={entries} query={query} activate={activate} />
-      </div>
+      <PaletteFrame
+        entries={entries}
+        query={query}
+        placeholder={placeholder}
+        activate={activate}
+      />
     </Autocomplete.Root>
   );
 }
