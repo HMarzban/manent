@@ -19,6 +19,14 @@ import { firstBlock } from "./first-block.ts";
 
 const noop = (): void => {};
 
+/** How long the page waits for a private copy to arrive, after which the move to it is given up. */
+const PRIVATE_OPEN_WAIT_MS = 15_000;
+
+type Schedule = (fn: () => void, delayMs: number) => () => void;
+
+/** Gives up nothing: the room's own script is waited for as long as it takes. */
+const NO_LIMIT = (): (() => void) => noop;
+
 /** `blocks` as one section. */
 const docOf = (blocks: readonly BlockJSON[]): DocJSON => ({
   type: "doc",
@@ -86,29 +94,42 @@ function givenUp(handle: DocHandle): "offline" | "refused" | null {
 }
 
 /**
- * Settles as `bound`, once `handle`'s document holds a block, or as `givenUp` says first; `wanted` is asked as it
- * settles. The returned function settles it as `moved`.
+ * Settles as `bound`, with the opened handle, once its document holds a block; or, first, as `givenUp` says, or as
+ * `refused` when `opening` rejects or `limit` gives up. `wanted` is asked as it settles; a handle not bound is closed.
+ * The returned function settles it as `moved`.
  */
 function settleOpen(
-  handle: DocHandle,
+  opening: Promise<DocHandle>,
   wanted: () => boolean,
-  settled: (outcome: TargetOutcome) => void,
+  limit: (giveUp: () => void) => () => void,
+  settled: (outcome: TargetOutcome, bound: DocHandle | null) => void,
 ): () => void {
   let done = false;
+  let opened: DocHandle | null = null;
   const stops: (() => void)[] = [];
   const end = (outcome: TargetOutcome): void => {
     if (done) return;
     done = true;
     for (const stop of stops) stop();
-    settled(outcome === "bound" && !wanted() ? "moved" : outcome);
+    const final = outcome === "bound" && !wanted() ? "moved" : outcome;
+    if (final !== "bound") void opened?.close();
+    settled(final, final === "bound" ? opened : null);
   };
-  const check = (): void => {
-    const reason = givenUp(handle);
-    if (reason !== null) end(reason);
-  };
-  stops.push(whenHeld(handle, () => end("bound")));
-  if (!done) stops.push(handle.status.subscribe(check));
-  check();
+  stops.push(limit(() => end("refused")));
+  opening.then(
+    (handle) => {
+      if (done) return void handle.close();
+      opened = handle;
+      const check = (): void => {
+        const reason = givenUp(handle);
+        if (reason !== null) end(reason);
+      };
+      stops.push(whenHeld(handle, () => end("bound")));
+      if (!done) stops.push(handle.status.subscribe(check));
+      check();
+    },
+    () => end("refused"),
+  );
   return () => end("moved");
 }
 
@@ -211,9 +232,10 @@ function heldRemote(doc: () => CrdtDoc): {
 function createSession(
   docId: string,
   format: FormatId,
-  client: Promise<SyncClient>,
+  options: { client: Promise<SyncClient>; schedule: Schedule },
   closed: () => void,
 ): LocalSession {
+  const { client, schedule } = options;
   const replaced = new Set<() => void>();
   const awareness = new Set<(update: Uint8Array) => void>();
   const scratch = scriptDocFromJSON(docOf([firstBlock(format)]));
@@ -225,6 +247,8 @@ function createSession(
     show(next) {
       if (next === doc) return;
       doc = next;
+      // before the listeners: an editor told of it while the page takes no keys binds it read-only
+      hold();
       for (const listener of replaced) listener();
       // after the listeners: an editor bound when this turns true is not then told to bind again
       kept.set(next !== scratch);
@@ -261,25 +285,30 @@ function createSession(
     detachPrevious();
     if (previous !== null) void previous.close();
   };
+  // a private copy that neither arrives nor is given up in time is given up, so the page is never held for good
+  const limitOf = (target: string) =>
+    target === docId
+      ? NO_LIMIT
+      : (giveUp: () => void) => schedule(giveUp, PRIVATE_OPEN_WAIT_MS);
   // another target is shown once it holds a block, so the page never falls back to the scratch
   const swapTo = (
     c: SyncClient,
     target: string,
     wanted: () => boolean,
   ): Promise<TargetOutcome> =>
-    c.open(target).then(
-      (opened) =>
-        new Promise<TargetOutcome>((settled) => {
-          stopWaiting();
-          stopWaiting = settleOpen(opened, wanted, (outcome) => {
-            stopWaiting = noop;
-            if (outcome === "bound") attach(opened);
-            else void opened.close();
-            settled(outcome);
-          });
-        }),
-      () => "refused",
-    );
+    new Promise<TargetOutcome>((settled) => {
+      stopWaiting();
+      stopWaiting = settleOpen(
+        c.open(target),
+        wanted,
+        limitOf(target),
+        (outcome, opened) => {
+          stopWaiting = noop;
+          if (opened !== null) attach(opened);
+          settled(outcome);
+        },
+      );
+    });
   const start = async (c: SyncClient): Promise<void> => {
     const target = writingActions.openTarget(docId);
     const opened = await c.open(target);
@@ -335,7 +364,10 @@ function createSession(
  * it, and each closes its own. Who may type is the document's status; its `readOnly` holds the page while the
  * person's typing moves to another document.
  */
-export function createSyncSessions(options: { client: Promise<SyncClient> }): {
+export function createSyncSessions(options: {
+  client: Promise<SyncClient>;
+  schedule: Schedule;
+}): {
   open(docId: string, format: FormatId): LocalSession;
 } {
   const open = new Map<string, LocalSession>();
@@ -343,7 +375,7 @@ export function createSyncSessions(options: { client: Promise<SyncClient> }): {
     open(docId, format) {
       const known =
         open.get(docId) ??
-        createSession(docId, format, options.client, () => open.delete(docId));
+        createSession(docId, format, options, () => open.delete(docId));
       open.set(docId, known);
       return known;
     },

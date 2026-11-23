@@ -20,6 +20,8 @@ type Bindable = Pick<PersonServices, "userId" | "openHandle">;
  */
 export type TargetOutcome = "bound" | "offline" | "refused" | "moved";
 
+type GivenUp = Extract<TargetOutcome, "offline" | "refused">;
+
 /** What a script's editor session shows: the target it has bound, and the one it is opening, null while none is. */
 interface Binding {
   bound: string;
@@ -30,7 +32,7 @@ interface Binding {
 let bound: Bindable | null = null;
 let index: WritingIndex | null = null;
 let stopIndex = (): void => {};
-// the bound index has been read, or cannot be: until then no document's target is known
+// the server has answered for the bound index, or cannot: until then no document's target is known
 let known = false;
 const knowing = new Set<() => void>();
 // by room docId: a private copy made in this tab, opened before the index holds its entry
@@ -50,6 +52,8 @@ const settling = new Map<
 const before = new Map<string, { at: number; entry: unknown }>();
 // by room docId: the hand-ins that hold the editor read-only
 const holds = new Map<string, number>();
+// by room docId: those told when its session gives up a target this tab did not move to
+const givingUp = new Map<string, Set<(outcome: GivenUp) => void>>();
 
 const tell = (): void => {
   for (const listener of listeners) listener();
@@ -67,16 +71,20 @@ const settle = (
   }
 };
 
-/** Puts back the position kept before this tab's move of `docId` to private, unless another has been kept since. */
-function rollBack(docId: string): void {
+/**
+ * Puts back the position kept before this tab's move of `docId` to private, unless another has been kept since; false
+ * when there was no such move to put back.
+ */
+function rollBack(docId: string): boolean {
   const prior = before.get(docId);
   before.delete(docId);
-  if (prior === undefined || index === null) return;
+  if (prior === undefined || index === null) return false;
   const entry = index.writing.get(docId);
-  if (!isFields(entry) || entry.at !== prior.at) return;
+  if (!isFields(entry) || entry.at !== prior.at) return false;
   made.delete(docId);
   if (prior.entry === null) index.writing.delete(docId);
   else index.writing.set(docId, prior.entry);
+  return true;
 }
 
 /** The private copy `docId` opens while the person writes it privately; null while none is open. */
@@ -103,8 +111,8 @@ const targetOf = (docId: string): string =>
 /**
  * Publishes `opened` as what `docId`'s editor session shows, then calls `open` each time `docId`'s target is another
  * document than the one shown or being opened; `wanted` says whether that target is still the one to open. A target is
- * shown once `open` settles as `bound`; given up, this tab's move to it is rolled back, and the next change asks again.
- * The returned function stops.
+ * shown once `open` settles as `bound`; given up, this tab's move to it is rolled back, or, when this tab did not move
+ * it, those `onGivenUp` names are told, and the next change asks again. The returned function stops.
  */
 function followTarget(
   docId: string,
@@ -133,7 +141,8 @@ function followTarget(
       if (outcome === "bound") {
         binding.bound = target;
         tell();
-      } else if (outcome !== "moved") rollBack(docId);
+      } else if (outcome !== "moved" && !rollBack(docId))
+        for (const listener of givingUp.get(docId) ?? []) listener(outcome);
     });
   };
   bindings.set(docId, binding);
@@ -225,15 +234,16 @@ function bindIndex(services: Bindable): void {
     (opened) => {
       if (stopped) return opened.close();
       index = opened;
+      // a device that has not received the index yet would open for everyone a script written privately elsewhere
       const stops = [
         opened.writing.subscribe(tell),
         opened.copies.subscribe(tell),
+        opened.whenAnswered(learn),
       ];
       stopIndex = () => {
         for (const stop of stops) stop();
         opened.close();
       };
-      learn();
     },
     () => {
       // a sync that could not start holds no private index: every document reads as written for everyone
@@ -247,7 +257,7 @@ function bindIndex(services: Bindable): void {
  * of a document opens: their private copy while they write it privately, else the document itself; `followTarget`
  * hears it move, and `boundTarget` is the one the editor session shows. `get` is what a command's context reads, and
  * `subscribe`'s listener hears every change. Until `bind` has read the person's private index, every document reads as
- * written for everyone, and no target is known.
+ * written for everyone; until the server has answered for it, no target is known.
  */
 export const writingActions: {
   writingPositionOf(docId: string): Subscribable<WritingPosition>;
@@ -262,6 +272,8 @@ export const writingActions: {
   whenBound(docId: string, target: string): Promise<TargetOutcome>;
   isWritable(docId: string): boolean;
   whenKnown(then: () => void): () => void;
+  /** Tells `listener` why `docId`'s session gave up a target this tab did not move to, until the returned function stops. */
+  onGivenUp(docId: string, listener: (outcome: GivenUp) => void): () => void;
   /** Holds `docId`'s editor read-only while a hand-in delivers its changes, until the returned function lets go. */
   holdInput(docId: string): () => void;
   get(docId: string): { position: WritingPosition; othersHaveAccess: boolean };
@@ -303,6 +315,16 @@ export const writingActions: {
   whenBound,
   isWritable,
   whenKnown,
+  onGivenUp(docId: string, listener: (outcome: GivenUp) => void) {
+    const heard = givingUp.get(docId) ?? new Set();
+    givingUp.set(docId, heard);
+    heard.add(listener);
+    return () => {
+      heard.delete(listener);
+      if (heard.size === 0 && givingUp.get(docId) === heard)
+        givingUp.delete(docId);
+    };
+  },
   holdInput(docId: string) {
     holds.set(docId, (holds.get(docId) ?? 0) + 1);
     tell();

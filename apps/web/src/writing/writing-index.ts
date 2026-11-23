@@ -2,7 +2,7 @@
 // whether an episode they open is theirs to write.
 import { readEpisodes } from "@manent/crdt";
 import type { JsonMapView } from "@manent/crdt";
-import type { DocHandle } from "@manent/sync-client";
+import type { DocHandle, DocStatus } from "@manent/sync-client";
 import { indexDocId } from "@manent/sync-protocol";
 import type { PersonServices } from "../services/ports.ts";
 import { liveMap } from "../services/sync/private-index.ts";
@@ -22,6 +22,12 @@ export interface WritingIndex {
   copies: JsonMapView;
   /** By docId: the workspace the person last opened it in. */
   continued: JsonMapView;
+  /**
+   * Calls `then` once the server has answered for the index, or cannot: `syncedOf` its status is not null. An index
+   * the server holds no document for is answered too: made and then synced, when the device asked to create it, or
+   * refused as `forbidden`, which the handle shows as a side state. The returned function stops waiting.
+   */
+  whenAnswered(then: () => void): () => void;
   close(): void;
 }
 
@@ -31,6 +37,15 @@ export const isFields = (
 ): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+/**
+ * Whether the server holds everything of a document this device holds: true once it is synced; false once the link
+ * has gone, or the server has refused the document, first; null while neither.
+ */
+export function syncedOf(status: DocStatus): boolean | null {
+  if (status.synced && status.waiting === 0) return true;
+  return status.link === "offline" || status.side.length > 0 ? false : null;
+}
+
 export async function openWritingIndex(
   services: Pick<PersonServices, "userId" | "openHandle">,
 ): Promise<WritingIndex> {
@@ -39,6 +54,18 @@ export async function openWritingIndex(
     writing: liveMap(handle, "writing"),
     copies: liveMap(handle, "private_copies"),
     continued: liveMap(handle, "continue"),
+    whenAnswered(then) {
+      if (syncedOf(handle.status.get()) !== null) {
+        then();
+        return () => {};
+      }
+      const stop = handle.status.subscribe((status) => {
+        if (syncedOf(status) === null) return;
+        stop();
+        then();
+      });
+      return stop;
+    },
     close() {
       void handle.close().catch(() => {
         // a handle of a sync disposed already holds nothing more to release

@@ -4,7 +4,7 @@ import type { PersonServices } from "../services/ports.ts";
 import { nameOf } from "../services/sync/index-entries.ts";
 import { productionContextActions } from "../state/production-context.store.ts";
 import { writingActions } from "../state/writing.store.ts";
-import { startPrivately } from "./choose.ts";
+import { sayNotStarted, startPrivately } from "./choose.ts";
 import type { ChoiceServices } from "./choose.ts";
 import { othersHandIns } from "./hand-in.ts";
 import { LOCKED_BACK, handedInByMessage } from "./messages.ts";
@@ -185,6 +185,10 @@ export function followScript(
     }),
     followLock(services, docId, followed.now),
     followOwnEpisode(services, followed),
+    // a copy chosen on another device or tab that this one cannot open is said, as one chosen here is
+    writingActions.onGivenUp(docId, (outcome) =>
+      sayNotStarted(services, outcome),
+    ),
   ];
   return () => {
     for (const stop of stops) stop();

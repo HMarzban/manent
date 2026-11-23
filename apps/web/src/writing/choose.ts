@@ -68,6 +68,19 @@ export async function startPrivately(
   return outcome === "bound" ? { ok: true } : { ok: false, reason: outcome };
 }
 
+/** Says in the message slot why Privately did not start, where the sheet gives a sentence for it. */
+export function sayNotStarted(
+  services: Pick<ChoiceServices, "messages" | "commands">,
+  why: NotStarted,
+): void {
+  const reason = WHY_NOT[why];
+  if (reason === null) return;
+  const { label } = services.commands.state("writing.privately");
+  services.messages.push(
+    messageFor({ kind: "command_unavailable", label, reason }),
+  );
+}
+
 /** Chooses Privately for `docId`; the message slot says why it cannot start on a script never synced, or offline. */
 export async function writePrivately(
   services: ChoiceServices,
@@ -75,11 +88,5 @@ export async function writePrivately(
   now: () => number,
 ): Promise<void> {
   const started = await startPrivately(services, docId, now);
-  if (started.ok) return;
-  const reason = WHY_NOT[started.reason];
-  if (reason === null) return;
-  const { label } = services.commands.state("writing.privately");
-  services.messages.push(
-    messageFor({ kind: "command_unavailable", label, reason }),
-  );
+  if (!started.ok) sayNotStarted(services, started.reason);
 }

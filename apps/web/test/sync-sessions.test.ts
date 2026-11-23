@@ -14,6 +14,8 @@ import { createSyncDocumentSource } from "../src/services/sync/document-source.t
 import type { PersonSync } from "../src/services/sync/create-sync.ts";
 import { asUiSubscribable } from "../src/services/sync/subscribable.ts";
 import { writingActions } from "../src/state/writing.store.ts";
+import { startHandIn } from "../src/writing/hand-in-flow.ts";
+import type { HandInOutcome } from "../src/writing/requests.ts";
 import {
   createClock,
   testEnvironment,
@@ -30,16 +32,23 @@ import {
   turn,
   until,
 } from "./sync.fixtures.ts";
-import type { SyncWorld } from "./sync.fixtures.ts";
+import type { FakeHandle, SyncWorld } from "./sync.fixtures.ts";
 
 withDom();
 
 const DOC = "0b9f6c2e-3c1a-4c55-9a43-5d8f1e2a7b10";
 const COPY = "5d2e8a41-7b3c-4f19-8e06-a9c4b7d3e2f1";
+// scripts no other test's session follows
+const OWN_DOC = "7c41e9d2-5b8a-4f36-a1c0-e2d94b6f3a85";
+const OWN_COPY = "2a9f5c13-8e47-4b62-9d0e-c5b1a7f4e396";
 
 // a session opens once the person's private index says where their typing goes
 const INDEX = fakeHandle(indexDocId("user", "dana"), createDoc());
-writingActions.bind({ userId: "dana", openHandle: async () => INDEX });
+const DANA = { userId: "dana", openHandle: async () => INDEX };
+writingActions.bind(DANA);
+
+// the clock of sessions whose waits no test reaches
+const IDLE = createClock();
 
 const block = (id: string, text: string): BlockJSON => ({
   type: "block",
@@ -63,6 +72,7 @@ test("an editor session is the sync client's document, and a replaced document r
   const handle = fakeHandle(DOC, written());
   const sessions = createSyncSessions({
     client: Promise.resolve(fakeClient(() => handle)),
+    schedule: IDLE.schedule,
   });
   const session = sessions.open(DOC, "screenplay");
   let replaced = 0;
@@ -83,6 +93,7 @@ test("another writer's change waits while the page holds remote changes, and com
   const handle = fakeHandle(DOC, written());
   const session = createSyncSessions({
     client: Promise.resolve(fakeClient(() => handle)),
+    schedule: IDLE.schedule,
   }).open(DOC, "screenplay");
   await turn();
   const other = createDoc();
@@ -100,20 +111,26 @@ test("another writer's change waits while the page holds remote changes, and com
   ]);
 });
 
-test("typing after choosing Privately never reaches the shared script while the copy opens, and a copy that cannot open puts the position back", async () => {
+test("typing after choosing Privately never reaches the shared script while the copy opens, and a copy that cannot open, or never arrives, puts the position back", async () => {
   const room = fakeHandle(DOC, written());
   const opening: ((reason: Error) => void)[] = [];
+  // the copy's handle, once its open has stopped being refused: it never holds a block
+  let late: FakeHandle | null = null;
   const client: SyncClient = {
     ...fakeClient(() => room),
     open: (docId) =>
       docId === DOC
         ? Promise.resolve(room)
-        : new Promise<DocHandle>((_, reject) => {
-            opening.push(reject);
-          }),
+        : late === null
+          ? new Promise<DocHandle>((_, reject) => {
+              opening.push(reject);
+            })
+          : Promise.resolve(late),
   };
+  const clock = createClock();
   const session = createSyncSessions({
     client: Promise.resolve(client),
+    schedule: clock.schedule,
   }).open(DOC, "screenplay");
   await until(() => session.doc() === room.doc());
   const shared = room.doc().encodeState();
@@ -131,11 +148,170 @@ test("typing after choosing Privately never reaches the shared script while the 
     scriptBody(room.doc()).materialize(),
     true,
   ]);
-  expect([
+  const putBack = [
     writingActions.writingPositionOf(DOC).get(),
     writingActions.index()?.writing.get(DOC),
+  ];
+
+  late = fakeHandle(COPY, createDoc());
+  late.status.set({
+    ...SYNCED_STATUS,
+    synced: false,
+    link: "connecting",
+    docSync: "local",
+  });
+  writingActions.keep(DOC, { position: "private", at: 2, privateDocId: COPY });
+  await turn();
+  const whileArriving = session.readOnly.get();
+  clock.advance(60_000);
+  await until(() => session.readOnly.get() === null);
+  expect([
+    putBack,
+    whileArriving,
+    writingActions.writingPositionOf(DOC).get(),
+    writingActions.index()?.writing.get(DOC),
+    late.closes(),
     room.doc().encodeState(),
-  ]).toEqual(["everyone", null, shared]);
+  ]).toEqual([
+    ["everyone", null],
+    scriptBody(room.doc()).materialize(),
+    "everyone",
+    null,
+    1,
+    shared,
+  ]);
+});
+
+test("a private copy chosen on another device that this one cannot reach offline is said, and the position kept", async () => {
+  const room = fakeHandle(OWN_DOC, written());
+  const copy = fakeHandle(OWN_COPY, createDoc());
+  copy.status.set({ ...SYNCED_STATUS, synced: false, link: "offline" });
+  const client = fakeClient((docId) => (docId === OWN_COPY ? copy : room));
+  const session = createSyncSessions({
+    client: Promise.resolve(client),
+    schedule: IDLE.schedule,
+  }).open(OWN_DOC, "screenplay");
+  await until(() => session.doc() === room.doc());
+  const heard: string[] = [];
+  const stop = writingActions.onGivenUp(OWN_DOC, (outcome) =>
+    heard.push(outcome),
+  );
+  const index = writingActions.index();
+  const chosen = { position: "private", at: 3 };
+  index?.copies.set(OWN_DOC, { privateDocId: OWN_COPY, handedInAt: null });
+  index?.writing.set(OWN_DOC, chosen);
+  await until(() => heard.length > 0);
+  expect([
+    heard,
+    index?.writing.get(OWN_DOC),
+    session.readOnly.get(),
+    session.doc() === room.doc(),
+  ]).toEqual([["offline"], chosen, scriptBody(room.doc()).materialize(), true]);
+  stop();
+  session.close();
+  index?.writing.delete(OWN_DOC);
+  index?.copies.delete(OWN_DOC);
+});
+
+test("a device that has not received the person's private index takes no keys, and opens their private copy once it has", async () => {
+  const index = fakeHandle(indexDocId("user", "sam"), createDoc());
+  index.status.set({
+    ...SYNCED_STATUS,
+    synced: false,
+    docSync: "syncing",
+    neverSynced: true,
+  });
+  const room = fakeHandle(OWN_DOC, written());
+  const copy = fakeHandle(OWN_COPY, written());
+  const client = fakeClient((docId) => (docId === OWN_COPY ? copy : room));
+  writingActions.bind({ userId: "sam", openHandle: async () => index });
+  try {
+    const session = createSyncSessions({
+      client: Promise.resolve(client),
+      schedule: IDLE.schedule,
+    }).open(OWN_DOC, "screenplay");
+    await until(() => writingActions.index() !== null);
+    await turn();
+    const whileSyncing = [[...client.opened], session.kept.get()];
+    // what the server holds of the index arrives
+    writingActions
+      .index()
+      ?.writing.set(OWN_DOC, { position: "private", at: 4 });
+    writingActions
+      .index()
+      ?.copies.set(OWN_DOC, { privateDocId: OWN_COPY, handedInAt: null });
+    index.status.set(SYNCED_STATUS);
+    await until(() => session.doc() === copy.doc());
+    expect([whileSyncing, client.opened, session.readOnly.get()]).toEqual([
+      [[], false],
+      [OWN_COPY],
+      null,
+    ]);
+    session.close();
+  } finally {
+    writingActions.bind(DANA);
+  }
+});
+
+test("a hand-in closed once its request has gone takes no keys until its answer, then shows the room's script and says so", async () => {
+  const room = fakeHandle(OWN_DOC, written());
+  const copy = fakeHandle(OWN_COPY, written());
+  const client = fakeClient((docId) => (docId === OWN_COPY ? copy : room));
+  const clock = createClock();
+  const messages = createMessageQueue({
+    now: clock.now,
+    schedule: clock.schedule,
+  });
+  await until(() => writingActions.index() !== null);
+  writingActions.keep(OWN_DOC, {
+    position: "private",
+    at: 5,
+    privateDocId: OWN_COPY,
+  });
+  const session = createSyncSessions({
+    client: Promise.resolve(client),
+    schedule: IDLE.schedule,
+  }).open(OWN_DOC, "screenplay");
+  await until(() => session.doc() === copy.doc());
+  const asked: { docId: string; key: string }[] = [];
+  const answers: ((outcome: HandInOutcome) => void)[] = [];
+  const handIn = startHandIn(
+    {
+      openHandle: (docId) => client.open(writingActions.openTarget(docId)),
+      messages,
+    },
+    OWN_DOC,
+    {
+      key: "0123456789abcdef0123456789abcdef",
+      now: clock.now,
+      request(request) {
+        asked.push(request);
+        return new Promise((resolve) => {
+          answers.push(resolve);
+        });
+      },
+    },
+  );
+  await until(() => asked.length === 1);
+  handIn.cancel();
+  const afterCancel = session.readOnly.get();
+  for (const answer of answers)
+    answer({ ok: true, handedIn: { versionId: "v1", scenes: 1, overlaps: 0 } });
+  await handIn.outcome;
+  await until(() => session.doc() === room.doc());
+  expect([
+    afterCancel,
+    writingActions.writingPositionOf(OWN_DOC).get(),
+    session.readOnly.get(),
+    messages.current()?.text,
+  ]).toEqual([
+    scriptBody(copy.doc()).materialize(),
+    "everyone",
+    null,
+    "Handed in 1 scene. The script as it was is kept as 'Before hand-in'.",
+  ]);
+  session.close();
+  writingActions.index()?.writing.delete(OWN_DOC);
 });
 
 test("a person who may only view gets a page that follows other people's typing and takes no keys", async () => {
@@ -156,6 +332,7 @@ test("a person who may only view gets a page that follows other people's typing 
   const { status } = source.open(DOC);
   const session = createSyncSessions({
     client: Promise.resolve(client),
+    schedule: IDLE.schedule,
   }).open(DOC, "screenplay");
   await until(() => !status.get().neverSynced);
   let replaced = 0;
@@ -209,6 +386,7 @@ test("a page may take keys only once it shows the device's document holding a bl
   const sessionOf = (opened: typeof handle) =>
     createSyncSessions({
       client: Promise.resolve(fakeClient(() => opened)),
+      schedule: IDLE.schedule,
     }).open(DOC, "screenplay");
   const [own, view] = [sessionOf(handle), sessionOf(viewed)];
   const heard: boolean[] = [];
@@ -231,7 +409,10 @@ test("a page may take keys only once it shows the device's document holding a bl
 
 /** A session of a script the device does not hold yet, with "INT. HARBOUR" typed into its first block while it opens. */
 function typedWhileOpening(client: Promise<SyncClient>) {
-  const session = createSyncSessions({ client }).open(DOC, "screenplay");
+  const session = createSyncSessions({ client, schedule: IDLE.schedule }).open(
+    DOC,
+    "screenplay",
+  );
   const [first] = blocksOf(scriptBody(session.doc()).materialize());
   scriptBody(session.doc()).write((w) =>
     w.insertText(first?.attrs.id ?? "", 0, "INT. HARBOUR"),
@@ -253,6 +434,7 @@ test("a script the server holds gains nothing from a device that opens it for th
   const sync = await world.personSync();
   const session = createSyncSessions({
     client: Promise.resolve(sync.client),
+    schedule: IDLE.schedule,
   }).open(DOC, "screenplay");
   await settle(world.network);
   expect([textOf(world.server.doc(DOC)), textOf(session.doc())]).toEqual([
