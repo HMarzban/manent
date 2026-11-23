@@ -130,6 +130,10 @@ test(
 test("a restore of a version holding a block twice conserves both copies", async () =>
   restoreMeetingOfflineWriter(await historyWorld(7)));
 
+// seed 95's restore copies a block into a section the offline writer deletes before seeing the copy
+test("an offline writer's copy of a block held twice survives a restore", async () =>
+  restoreMeetingOfflineWriter(await historyWorld(95)));
+
 test(
   "a scene restore and a whole-script restore at the same moment converge, and both reverses exist",
   () =>
