@@ -12,7 +12,7 @@ import type { Message } from "@manent/sync-protocol";
 import { encodeView, viewPatch, viewSnapshot } from "../view/view.ts";
 import type { ViewSnapshot } from "../view/view.ts";
 import type { Room } from "./rooms.ts";
-import type { Committed } from "./write-path.ts";
+import type { Committed } from "./write-path-ports.ts";
 
 /** How many snapshot answers are kept, by document and head sequence. */
 const CACHED_ANSWERS = 16;

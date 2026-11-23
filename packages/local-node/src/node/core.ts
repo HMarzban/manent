@@ -1,5 +1,5 @@
 // The node core: the server-core write path for the node's own config, behind the launch guard and
-// the node's own routes, with history and production, the relay, the mirror, the hand-off and the
+// the node's own routes, with the services of its list, the relay, the mirror, the hand-off and the
 // window's upstream status.
 import {
   createInlineCheckpointer,
@@ -31,7 +31,7 @@ import { createMirror, guardSubscribe } from "../relay/mirror.ts";
 import type { Editor } from "../relay/mirror.ts";
 import { createWakeWatch } from "../relay/wake.ts";
 import type { NodeCoreOptions, UpstreamFactory } from "./ports.ts";
-import { createNodeWorkflow } from "./workflow.ts";
+import { composeNodeServices } from "./services.ts";
 
 const SSE_HEARTBEAT_MS = 30_000;
 const WAKE_TICK_MS = 5_000;
@@ -122,7 +122,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
   });
   relay.onStatus(sendStatus);
   const ids = (): string => random.bytes(16).toHex();
-  const workflow = createNodeWorkflow({
+  const composed = composeNodeServices({
     ...options,
     sessions,
     ids,
@@ -150,7 +150,8 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     upstream: relay,
     checkpointer: createInlineCheckpointer({ storage, defer }),
     registry: options.registry,
-    hooks: workflow.hooks,
+    hooks: composed.hooks,
+    ...(composed.airWindow === null ? {} : { airWindow: composed.airWindow }),
   };
 
   const server = createServer({
@@ -177,8 +178,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
       allowedOrigins: [url.origin],
     },
     sync,
-    history: workflow.history,
-    production: workflow.production,
+    ...composed.config,
   });
   const service = serviceOf(server);
   relay.attach(service);
@@ -332,7 +332,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     connections: guarded.connections,
     async fetch(request, context) {
       const handled =
-        (await routes(request)) ?? (await workflow.forward(request));
+        (await routes(request)) ?? (await composed.forward(request));
       if (handled !== null) return handled;
       const named = await workspaceNamed(request);
       const answer = await server.fetch(request, context);

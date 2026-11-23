@@ -11,8 +11,8 @@ import type {
   Home,
   UpdateOrigin,
   UpdateRow,
-} from "../ports.ts";
-import { COLOR_COUNT, StorageError } from "../ports.ts";
+} from "../ports/index.ts";
+import { COLOR_COUNT, StorageError } from "../ports/index.ts";
 import { createSqliteProduction } from "../production/sqlite.ts";
 import { createSqliteAdoptions } from "./adoptions.ts";
 import { createCheckpointsFile } from "./checkpoints.ts";

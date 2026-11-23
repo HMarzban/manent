@@ -1,8 +1,8 @@
 // The directory in control.sqlite: where each document lives, who holds which role, and what is deleted.
 import type { Database } from "bun:sqlite";
 import { homeKey, parseHome, wellFormedKey } from "../home.ts";
-import type { DocDirectory, Home } from "../ports.ts";
-import { StorageError } from "../ports.ts";
+import type { DocDirectory, Home } from "../ports/index.ts";
+import { StorageError } from "../ports/index.ts";
 import { transact } from "./files.ts";
 
 interface PlaceRow {

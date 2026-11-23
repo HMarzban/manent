@@ -5,27 +5,25 @@ import type {
   HistoryService,
   ProductionService,
   SessionStore,
-  SyncHooks,
   SyncService,
 } from "@manent/server-core";
 import { ConnectError } from "@manent/sync-client";
 import type { ErrorResponse } from "@manent/sync-protocol";
 import { readPerson } from "../auth/people.ts";
 import type { NodeCoreOptions } from "./ports.ts";
+import { WORKFLOW_PATHS } from "./workflow-paths.ts";
 
 export interface NodeWorkflow {
   readonly history: HistoryService;
   readonly production: ProductionService;
-  /** Both services' hooks, told and asked only for a room in authority mode. */
-  readonly hooks: readonly SyncHooks[];
   /** A history or production request for a relayed script, answered by the cloud; null for any other request, and for one from nobody chosen here. */
   forward(request: Request): Promise<Response | null>;
 }
 
 const isWorkflowPath = (path: string): boolean =>
-  path === "/api/versions" ||
-  path.startsWith("/api/versions/") ||
-  path.startsWith("/api/production/");
+  WORKFLOW_PATHS.some((entry) =>
+    entry.match === "exact" ? path === entry.path : path.startsWith(entry.path),
+  );
 
 /** The script a workflow request names: in the query of a GET, in the body of a POST; null for none. */
 async function docIdOf(request: Request): Promise<string | null> {
@@ -40,28 +38,6 @@ async function docIdOf(request: Request): Promise<string | null> {
   if (typeof body !== "object" || body === null || !("docId" in body))
     return null;
   return typeof body.docId === "string" ? body.docId : null;
-}
-
-/** `hook` as the node's sync service tells it: a relayed room's workflow events are the cloud's. */
-function authorityOnly(
-  hook: SyncHooks,
-  isAuthority: (docId: string) => boolean,
-): SyncHooks {
-  return {
-    committed(committed) {
-      if (committed.room.mode === "authority") hook.committed?.(committed);
-    },
-    editorLeft(room, userId) {
-      if (room.mode === "authority") hook.editorLeft?.(room, userId);
-    },
-    forgotten(room) {
-      if (room.mode === "authority") hook.forgotten?.(room);
-    },
-    subscribed: (docId) =>
-      isAuthority(docId) ? (hook.subscribed?.(docId) ?? null) : null,
-    checkPush: (room, report) =>
-      room.mode === "authority" ? (hook.checkPush?.(room, report) ?? []) : [],
-  };
 }
 
 export function createNodeWorkflow(
@@ -91,9 +67,6 @@ export function createNodeWorkflow(
   return {
     history,
     production,
-    hooks: [history, production.hooks].map((hook) =>
-      authorityOnly(hook, isAuthority),
-    ),
     async forward(request) {
       const docId = await docIdOf(request);
       if (docId === null || isAuthority(docId)) return null;

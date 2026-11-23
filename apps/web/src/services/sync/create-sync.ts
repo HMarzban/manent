@@ -2,7 +2,6 @@
 import { browserPorts, hasLocalDatabase } from "@manent/client-web";
 import { createSubscribable, createSyncClient } from "@manent/sync-client";
 import type {
-  DocHandle,
   LinkFacts,
   LocalStore,
   Subscribable,
@@ -11,7 +10,7 @@ import type {
   SyncClientPorts,
   Transport,
 } from "@manent/sync-client";
-import type { ControlKind, VersionSet } from "@manent/sync-protocol";
+import type { VersionSet } from "@manent/sync-protocol";
 import {
   SLOW_DELAY_MS,
   connectionTransport,
@@ -23,8 +22,9 @@ import type { TabPerson } from "../../session.ts";
 import { browserStores } from "./device-memory.ts";
 import type { ConnectionMode, DeviceMemory } from "./device-memory.ts";
 import { DRAIN_PARALLEL, startDrain } from "./drain.ts";
-import { NO_OVERLAY, both, createTestHooks } from "./sync-hooks.ts";
-import type { Overlay } from "./sync-hooks.ts";
+import { shareHandles } from "./shared-handles.ts";
+import type { ControlListener } from "./shared-handles.ts";
+import { NO_OVERLAY, createTestHooks } from "./sync-hooks.ts";
 
 /**
  * `network`: the browser says it is online and the tab's Connection is not Offline. `offlineSince`: when this person's
@@ -53,105 +53,6 @@ export interface PersonSync {
   dispose(): Promise<void>;
   /** Each CONTROL frame of a document this tab holds open; the returned function stops. */
   onControl(listener: ControlListener): () => void;
-}
-
-type ControlListener = (
-  docId: string,
-  kind: ControlKind,
-  data: Uint8Array,
-) => void;
-
-/** One open of a document: the client's handle, with its own `close`. */
-function handleView(
-  handle: DocHandle,
-  overlay: Overlay,
-  close: () => Promise<void>,
-): DocHandle {
-  return {
-    docId: handle.docId,
-    doc: () => handle.doc(),
-    status: overlay.status(handle.docId, handle.status),
-    recovered: handle.recovered,
-    settings: handle.settings,
-    writeSchema: handle.writeSchema,
-    readOnly: handle.readOnly,
-    upstream: handle.upstream,
-    on: (listener) =>
-      both(handle.on(listener), overlay.on(handle.docId, listener)),
-    setSetting: (key, value) => handle.setSetting(key, value),
-    holdRemote: () => handle.holdRemote(),
-    releaseRemote: () => handle.releaseRemote(),
-    sendAwareness: (update) => handle.sendAwareness(update),
-    onAwareness: (listener) => handle.onAwareness(listener),
-    saveVersion: (label) => handle.saveVersion(label),
-    nameVersion: (name) => handle.nameVersion(name),
-    restoreLocally: (target, scope) => handle.restoreLocally(target, scope),
-    deviceVersions: () => handle.deviceVersions(),
-    lastServerSeq: () => handle.lastServerSeq(),
-    adoptClientIds: (ids) => handle.adoptClientIds(ids),
-    close,
-  };
-}
-
-/**
- * The client, with each open of a document its own handle: the client's handle closes once every one of them is
- * closed, so the page, the editor and the drain each close only their own. While it is open, its CONTROL frames go
- * to `controls`.
- */
-function shareHandles(
-  client: SyncClient,
-  overlay: Overlay,
-  link: Subscribable<LinkFacts>,
-  controls: ReadonlySet<ControlListener>,
-): SyncClient {
-  const held = new Map<
-    string,
-    { opens: number; handle: Promise<DocHandle>; stop: (() => void) | null }
-  >();
-  const closing = new Map<string, Promise<void>>();
-  const hold = async (
-    docId: string,
-    open: () => Promise<DocHandle>,
-  ): Promise<DocHandle> => {
-    await closing.get(docId);
-    const entry = held.get(docId) ?? { opens: 0, handle: open(), stop: null };
-    held.set(docId, entry);
-    entry.opens += 1;
-    // an open that failed is asked of the client again next time
-    const forget = () => held.get(docId) === entry && held.delete(docId);
-    void entry.handle.catch(forget);
-    const handle = await entry.handle;
-    entry.stop ??= handle.on((event) => {
-      if (event.type !== "control") return;
-      for (const listener of controls) listener(docId, event.kind, event.data);
-    });
-    let closed = false;
-    return handleView(handle, overlay, async () => {
-      if (closed) return;
-      closed = true;
-      entry.opens -= 1;
-      if (entry.opens > 0 || held.get(docId) !== entry) return;
-      held.delete(docId);
-      entry.stop?.();
-      const done = handle.close();
-      closing.set(docId, done);
-      await done;
-      if (closing.get(docId) === done) closing.delete(docId);
-    });
-  };
-  return {
-    link,
-    open: (docId, options) => hold(docId, () => client.open(docId, options)),
-    async create(request) {
-      const handle = await client.create(request);
-      return hold(handle.docId, async () => handle);
-    },
-    documents: () => client.documents(),
-    setOnline: (wanted) => client.setOnline(wanted),
-    retryNow: () => client.retryNow(),
-    view: (docId) => client.view(docId),
-    close: () => client.close(),
-  };
 }
 
 /** Kept per person in `memory`: set when the link is first lost while none is kept, cleared once it is online. */

@@ -12,6 +12,15 @@ export interface ScriptLayoutSettings {
   readonly scenesNumbered: boolean;
 }
 
+/** The script settings the page profile is made from. */
+export const LAYOUT_SETTING_KEYS: readonly string[] = Object.freeze([
+  "script.format",
+  "script.paper",
+  "script.moresAtBreaks",
+  "script.sameSpeakerContd",
+  "script.sceneContinued",
+]);
+
 /** The defaults of the five `script.*` layout settings, and scenes not numbered. */
 export const DEFAULT_LAYOUT_SETTINGS: ScriptLayoutSettings = Object.freeze({
   format: "screenplay",

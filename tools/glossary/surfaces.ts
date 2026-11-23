@@ -1,0 +1,57 @@
+// Surfaces and modes.
+import type { Term } from "./index.ts";
+import { row } from "./row.ts";
+
+export const SURFACE_TERMS: readonly Term[] = Object.freeze([
+  ...row(
+    "writing",
+    ["Screen", "Panel", "Bar", "Dialog", "Popover"],
+    [
+      "view",
+      "drawer",
+      "rail",
+      "pill",
+      "banner",
+      "strip",
+      "frame",
+      "toast",
+      "modal",
+      "popup",
+    ],
+  ),
+  ...row("writing", ["Left panel", "Side panel"], ["sidebar", "right panel"]),
+  ...row("formats", ["Beside"], ["split editor"]),
+  ...row("writing", ["Details"], ["inspector"], ["statistics"]),
+  ...row("writing", ["Numbers"], ["stats"]),
+  ...row("writing", ["Reports"], []),
+  ...row(
+    "writing",
+    ["Title bar", "State bar", "Status bar", "Find bar", "Ruler", "Demo bar"],
+    ["revision bar", "toolbar"],
+  ),
+  ...row("writing", ["State"], []),
+  ...row("writing", ["Message slot"], ["status line", "notification"]),
+  ...row("writing", ["Selection toolbar"], []),
+  ...row(
+    "writing",
+    ["Layout", "Alignment", "Indent", "Width", "Space before"],
+    [],
+  ),
+  ...row("writing", ["Row menu"], ["context menu"]),
+  ...row("writing", ["Commands"], ["compact menu"]),
+  ...row("writing", ["Title ▾", "View ▾", "person menu"], ["avatar menu"]),
+  ...row("series", ["Present"], ["room view", "prompter view"]),
+  ...row(
+    "saving",
+    ["Writing", "For everyone", "As suggestions", "Privately"],
+    ["suggesting toggle", "private pass"],
+    ["my draft", "suggest"],
+  ),
+  ...row("series", ["Hand in"], ["submit"]),
+  ...row("pages", ["Page view", "Reflow view"], ["pageless"]),
+  ...row("writing", ["Zoom", "Fit width"], ["magnification"]),
+  ...row("writing", ["Focus mode", "Typewriter scrolling"], ["zen"]),
+  ...row("history", ["Viewing a version"], ["preview"]),
+  ...row("writing", ["Read aloud"], ["listen"]),
+  ...row("writing", ["Goal", "Sprint"], ["streak"]),
+]);

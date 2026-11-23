@@ -8,7 +8,7 @@ import {
 import type { DocRole } from "@manent/sync-protocol";
 import type { Refusal } from "./errors.ts";
 import type { Room, Subscription } from "./rooms.ts";
-import type { WritePathPorts } from "./write-path.ts";
+import type { WritePathPorts } from "./write-path-ports.ts";
 
 /**
  * Owners and editors write. A commenter or a viewer reads a script through a viewer; an index, which a viewer cannot

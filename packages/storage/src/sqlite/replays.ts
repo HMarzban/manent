@@ -1,6 +1,6 @@
 // The answers of replays already applied, one per document and idempotency key.
 import type { Database } from "bun:sqlite";
-import type { ReplayRow, Replays } from "../ports.ts";
+import type { ReplayRow, Replays } from "../ports/index.ts";
 import { transact } from "./files.ts";
 
 function prepare(db: Database) {

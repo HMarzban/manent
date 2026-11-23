@@ -8,7 +8,7 @@ import { blocksOf } from "@manent/schema";
 import type { AnchorRow, DocFile } from "@manent/storage";
 import { SYSTEM_USER_ID } from "../rebuild/rebuilder.ts";
 import type { Room } from "../sync/rooms.ts";
-import type { Committed } from "../sync/write-path.ts";
+import type { Committed } from "../sync/write-path-ports.ts";
 import type { ProductionOptions } from "./requests.ts";
 import { recordsOf } from "./state.ts";
 
