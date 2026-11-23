@@ -80,13 +80,15 @@ export function askPersistenceOnce(where: Where): () => void {
 /**
  * Once the private index has synced, tells what came back to a browser that cleared Manent's data. Settles once the
  * check has run, and never rejects: this device's entries are written only after it, so the check reads those earlier
- * sessions left, and a new browser, which left none, is told nothing.
+ * sessions left, and a new browser, which left none, is told nothing. A browser that kept its store has nothing to be
+ * told, so it settles at once and its entries are written even while the index cannot sync.
  */
 export async function tellCleared(
   sync: PersonSync,
   indexes: { privateIndex: PrivateIndex; checkCleared: typeof checkCleared },
   open: { deviceId: string; messages: MessageQueue },
 ): Promise<void> {
+  if (sync.hadDatabase !== false) return;
   const { handle } = indexes.privateIndex;
   if (!handle.status.get().synced)
     await new Promise<void>((resolve) => {
