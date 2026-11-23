@@ -883,9 +883,11 @@ html[data-white-page] .mn-pages {
       refusal focused on arrival is where focus starts, not a control: no ring.
       Nor has the palette's field, which holds focus while the palette is open
       and is the palette's own top edge: its caret is the focus, as it is on a
-      page being written. A field inside an input group rings the whole
-      group, as a plain field rings itself, unless the group is marked
-      data-arrival: its field was focused on arrival and not yet left. */
+      page being written. Nor has the page, written or only read: a ring round
+      the whole sheet reads as a stray box. A field inside an input group
+      rings the whole group, as a plain field rings itself, unless the group
+      is marked data-arrival: its field was focused on arrival and not yet
+      left. */
 :focus-visible:not(
   [role="dialog"],
   [role="alertdialog"],
@@ -894,7 +896,7 @@ html[data-white-page] .mn-pages {
   [role="tooltip"],
   :is(h1, [data-arrival])[tabindex="-1"],
   .mn-palette-field,
-  .mn-page-view[contenteditable="true"],
+  .mn-page-view,
   .mn-plain[contenteditable="true"],
   .mn-front-field[contenteditable="plaintext-only"],
   [data-slot="input-group-control"]
@@ -1464,12 +1466,7 @@ button:not(:disabled, [aria-disabled="true"]):hover > .mn-row {
 }
 .mn-page-view:focus-visible {
   outline: none;
-} /* while editing, the caret is the focus */
-.mn-page-view[contenteditable="false"]:focus-visible {
-  /* read-only has no caret, so it has the ring */
-  outline: var(--focus-w) solid var(--focus);
-  outline-offset: var(--focus-gap);
-}
+} /* nor the browser's own ring: the page never rings itself (rule 1) */
 .mn-page-view ::selection {
   background: var(--page-selection);
   color: var(--page-selection-fg);

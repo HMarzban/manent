@@ -1,5 +1,5 @@
-// What the page draws of a comparison: added text underlined as an ins, deleted text and removed blocks struck
-// through as a del beside the text, and each added or changed block marked by its node.
+// What the page draws of a comparison: added text and added blocks underlined as an ins, deleted text and removed
+// blocks struck through as a del beside the text, and each added or changed block marked by its node.
 import type { ChangeHint } from "@manent/pagination";
 import { textOf } from "@manent/revisions";
 import type { BlockEntry } from "@manent/revisions";
@@ -49,8 +49,18 @@ function blockDecorations(
     { "data-changes": entry.kind },
     { blockId: entry.id, changes: entry.kind },
   );
-  if (entry.kind === "added") return [node];
   const text = from + 1;
+  // a block added since the baseline is added text throughout
+  if (entry.kind === "added")
+    return [
+      Decoration.inline(
+        text,
+        to - 1,
+        { nodeName: "ins", class: "mn-added" },
+        { blockId: entry.id },
+      ),
+      node,
+    ];
   const marks = entry.inline.map((change) =>
     change.kind === "deleted"
       ? Decoration.widget(
