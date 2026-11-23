@@ -1006,6 +1006,23 @@ html[data-white-page] .mn-pages {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
 }
+/* On the demo bar it is drawn inverted, its edge the fill: the bar's edge is
+   the Tour ring's hue, which marks a Tour step and nothing else. */
+@media (forced-colors: none) {
+  [data-surface="demo"]
+    :is([data-slot^="toggle"], [class~="group/button"])[aria-pressed="true"] {
+    background-color: var(--fg);
+    color: var(--bg-chrome);
+    border-color: var(--fg);
+  }
+  [data-surface="demo"]
+    :is(
+      [data-slot^="toggle"],
+      [class~="group/button"]
+    )[aria-pressed="true"]:not(:focus-visible) {
+    outline-color: var(--fg);
+  }
+}
 
 /* 9. One hover strength: the outline button hovers like every other control. */
 [class~="group/button"][class~="hover:bg-input/50"]:hover {
