@@ -23,6 +23,7 @@ import { ProductionDialogs } from "../../production/dialogs.tsx";
 import { SelectionToolbar } from "../../selection/selection-toolbar.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
+import { ShareDialog } from "../../sharing/share-dialog.tsx";
 import { selectors as paletteSelectors } from "../../state/palette.store.ts";
 import { panelsActions, usePanel } from "../../state/panels.store.ts";
 import { pageTitle } from "../../text.ts";
@@ -222,6 +223,7 @@ function Frame(props: {
         )}
       />
       <ProductionDialogs docId={docId} />
+      <ShareDialog docId={docId} doc={doc} />
     </>
   );
 }

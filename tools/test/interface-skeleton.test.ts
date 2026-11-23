@@ -75,6 +75,7 @@ test("the routes are the screens of this release", () => {
   expect(routePaths()).toEqual([
     "/",
     "/choose",
+    "/join/$token",
     "/p/$projectId/settings",
     "/preferences",
     "/preferences/$pane",
@@ -98,6 +99,7 @@ test("the test build adds the development screens", () => {
       "/__stand-in",
       "/__states",
       "/choose",
+      "/join/$token",
       "/p/$projectId/settings",
       "/preferences",
       "/preferences/$pane",
