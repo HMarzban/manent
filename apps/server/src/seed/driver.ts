@@ -4,18 +4,11 @@ import {
   createDoc,
   jsonMap,
   mergeUpdates,
-  revisedOverrides,
   scriptBody,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import { SeedDriverError, createSeedTime, seedProject } from "@manent/demo";
-import type {
-  SeedCapability,
-  SeedDriver,
-  SeedProduction,
-  SeedSession,
-} from "@manent/demo";
-import { contentHash, overrideKey } from "@manent/revisions";
+import { SeedDriverError, seedProject } from "@manent/demo";
+import type { SeedDriver, SeedSession } from "@manent/demo";
 import { SCHEMA_VERSION, canonicalDoc } from "@manent/schema";
 import type { DocJSON } from "@manent/schema";
 import type {
@@ -25,23 +18,17 @@ import type {
   SyncService,
 } from "@manent/server-core";
 import type { Storage } from "@manent/storage";
-import {
-  docIdV7,
-  indexDocId,
-  isProductionState,
-  workspaceHome,
-} from "@manent/sync-protocol";
-import { seedCapabilities } from "./capabilities.ts";
-import { isFields, openSeamLink } from "./link.ts";
-import type { SeamLink } from "./link.ts";
+import { docIdV7, indexDocId, workspaceHome } from "@manent/sync-protocol";
+import { createDriving, isSeedClock } from "./driving.ts";
+import type { Driving } from "./driving.ts";
+import { isFields } from "./link.ts";
 import {
   checkPassage,
   createPageMeter,
   readServerScript,
-  revisedPagesOf,
 } from "./page-meter.ts";
-import { callRoute } from "./server.ts";
-import type { SeedClock, SeedServer } from "./server.ts";
+import { createProduction } from "./production-driver.ts";
+import type { SeedServer } from "./server.ts";
 
 /** The running server, for the Tour's preparations and the simulated writers. */
 export interface LiveTarget {
@@ -52,72 +39,9 @@ export interface LiveTarget {
   clock: Clock;
 }
 
-type Route = { method: "GET" | "POST"; path: string; body?: unknown };
 type VersionRow = { id: string; kind: string; name: string | null };
 
-/** What every action of the driver reaches the server with. */
-interface Driving {
-  readonly target: SeedServer | LiveTarget;
-  readonly capabilities: ReadonlySet<SeedCapability>;
-  /** A route as `userId`: the body of its 200 answer; any other answer is refused. */
-  call(userId: string, route: Route): Promise<unknown>;
-  /** The person's one socket, opened on first use. */
-  link(userId: string): Promise<SeamLink>;
-  bytes(count: number): Uint8Array;
-  /** A Yjs client id: an unsigned 32-bit integer above 0. */
-  clientId(): number;
-  /** A request key: 32 lower-case hex characters. */
-  key(): string;
-  /** Runs the seed clock's due timers; nothing on the live server, whose timers run by themselves. */
-  runDue(): Promise<void>;
-}
-
-const KEY_BYTES = 16;
 const V7_RANDOM_BYTES = 10;
-const UINT32 = 4_294_967_296;
-
-const isSeedClock = (clock: Clock): clock is SeedClock =>
-  "set" in clock && "runDue" in clock;
-
-const hex = (byte: number): string => byte.toString(16).padStart(2, "0");
-
-function createDriving(
-  target: SeedServer | LiveTarget,
-  random: () => number,
-): Driving {
-  const tokens = new Map<string, string>();
-  const links = new Map<string, Promise<SeamLink>>();
-  const bytes = (count: number) =>
-    Uint8Array.from({ length: count }, () => Math.floor(random() * 256));
-  const tokenOf = (userId: string): string => {
-    const token = tokens.get(userId) ?? target.sessions.issue(userId);
-    tokens.set(userId, token);
-    return token;
-  };
-  return {
-    target,
-    capabilities: seedCapabilities(target),
-    async call(userId, route) {
-      const answer = await callRoute(target.server, tokenOf(userId), route);
-      const body: unknown = await answer.json().catch(() => null);
-      if (answer.status === 200) return body;
-      const code = isFields(body) ? String(body.error) : "no code";
-      const what = `${route.method} ${route.path} as ${userId}`;
-      throw new SeedDriverError("refused", `${what}: ${answer.status} ${code}`);
-    },
-    link(userId) {
-      const link = links.get(userId) ?? openSeamLink(target, userId);
-      links.set(userId, link);
-      return link;
-    },
-    bytes,
-    clientId: () => Math.floor(random() * (UINT32 - 1)) + 1,
-    key: () => Array.from(bytes(KEY_BYTES), hex).join(""),
-    async runDue() {
-      if (isSeedClock(target.clock)) await target.clock.runDue();
-    },
-  };
-}
 
 /** The updates `fn` makes in `doc`, merged into one; null when it changes nothing. */
 function changesOf(
@@ -230,86 +154,6 @@ async function listVersions(
     cursor = typeof body.next === "string" ? body.next : null;
   } while (cursor !== null);
   return found;
-}
-
-/** The local calendar day of `at`, in this machine's zone at that moment. */
-const localDay = (at: number): string =>
-  createSeedTime({
-    seedAt: at,
-    zoneOffsetMs: -new Date(at).getTimezoneOffset() * 60_000,
-  }).day(at);
-
-/** What an issue and a correction send besides their pages: the marked PDF, no tint. */
-const SENT = Object.freeze({ files: ["pdf_marked"], tint: false });
-
-/** The production routes; a request that changes something reads the state first, for the active set. */
-function createProduction(d: Driving): SeedProduction {
-  const post = (userId: string, path: string, body: object) =>
-    d.call(userId, { method: "POST", path: `/api/production/${path}`, body });
-  const state = async (userId: string, docId: string) => {
-    const answer = await post(userId, "state", { docId });
-    if (!isProductionState(answer))
-      throw new SeedDriverError("unavailable", `${docId} has no state`);
-    return answer;
-  };
-  const today = () => localDay(d.target.clock.now());
-  return {
-    state,
-    async lock(userId, docId) {
-      const lockedOn = today();
-      const body = { docId, key: d.key(), numbering: "suffix", lockedOn };
-      await post(userId, "lock", { ...body, colourOrder: "standard" });
-    },
-    async issue(userId, docId, memo) {
-      // the revision being worked on is the last of the script's sets
-      const active = (await state(userId, docId)).sets.at(-1);
-      if (active === undefined)
-        throw new SeedDriverError("refused", `${docId} is not locked`);
-      const request = { docId, key: d.key(), expectedOrdinal: active.ordinal };
-      const answer = await post(userId, "issue", {
-        ...request,
-        ...SENT,
-        what: "changed",
-        pages: revisedPagesOf(d.target.storage, docId),
-        recipientUserIds: [],
-        memo,
-        issuedOn: today(),
-      });
-      const issue = isFields(answer) ? answer.issue : null;
-      const after = isFields(answer) ? answer.state : null;
-      const setId = isFields(issue) ? issue.setId : null;
-      const set = isProductionState(after)
-        ? after.sets.find((s) => s.setId === setId)
-        : undefined;
-      if (set === undefined)
-        throw new SeedDriverError("unavailable", `${docId}'s issue has no set`);
-      return { colour: set.colour };
-    },
-    async recall(userId, docId, pages, memo) {
-      const issued = (await state(userId, docId)).sets.findLast(
-        (s) => s.issuedAt !== null,
-      );
-      if (issued === undefined)
-        throw new SeedDriverError("refused", `${docId} has issued nothing`);
-      const { setId } = issued;
-      const body = { docId, key: d.key(), setId, pages, memo, ...SENT };
-      await post(userId, "recall", { ...body, issuedOn: today() });
-    },
-    async setOverride(session, setId, blockId, value) {
-      await session.change((doc) => {
-        const sections = scriptBody(doc).materialize().content ?? [];
-        const block = sections
-          .flatMap((section) => section.content ?? [])
-          .find((b) => b.attrs?.id === blockId);
-        if (block === undefined)
-          throw new RangeError(`the script holds no block ${blockId}`);
-        const stored =
-          value === "marked" ? "marked" : `cleared@${contentHash(block)}`;
-        revisedOverrides(doc).set(overrideKey(setId, blockId), stored, null);
-      });
-    },
-    revisedPages: async (docId) => revisedPagesOf(d.target.storage, docId),
-  };
 }
 
 /**
