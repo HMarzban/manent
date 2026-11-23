@@ -32,6 +32,9 @@ export interface PaletteSource {
   rows(query: string): readonly PaletteRow[];
 }
 
+/** Which sources the palette asks: all of them, places alone, or Beside's alone, with no menus. */
+export type PaletteFilter = "all" | "places" | "beside";
+
 type Shell = "web" | "desktop";
 
 interface SourceOptions {

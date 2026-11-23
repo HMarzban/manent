@@ -15,10 +15,14 @@ import {
   textOf,
   usePaletteSections,
 } from "./palette-entries.ts";
-import type { Entry, PaletteFilter, Section } from "./palette-entries.ts";
+import type { Entry, Section } from "./palette-entries.ts";
 import { PaletteFooter } from "./palette-footer.tsx";
 import { EntryList, VIRTUAL_ABOVE } from "./palette-list.tsx";
-import type { PaletteRow, PaletteSource } from "./palette-sources.ts";
+import type {
+  PaletteFilter,
+  PaletteRow,
+  PaletteSource,
+} from "./palette-sources.ts";
 
 interface PaletteProps {
   open: boolean;

@@ -9,7 +9,11 @@ import { useCommands } from "../commands-react/commands-context.tsx";
 import { PALETTE_WORDS } from "../words/palette.ts";
 import { MENU_LABELS } from "./menu-labels.ts";
 import { rankRows } from "./palette-rank.ts";
-import type { PaletteRow, PaletteSource } from "./palette-sources.ts";
+import type {
+  PaletteFilter,
+  PaletteRow,
+  PaletteSource,
+} from "./palette-sources.ts";
 
 const RECENT_LIMIT = 5;
 
@@ -23,8 +27,6 @@ export interface Section {
   label: string | null;
   groups: readonly (readonly Entry[])[];
 }
-
-export type PaletteFilter = "all" | "places" | "beside";
 
 const SECTION_LABELS: Readonly<Record<PaletteRow["kind"], string | null>> =
   Object.freeze({
