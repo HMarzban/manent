@@ -1,5 +1,6 @@
 // Suggestions as one source of To review: its entries, which load apart from the entry, and how many there are.
 import type { CrdtDoc } from "@manent/crdt";
+import { isDocId } from "@manent/sync-protocol";
 import { lazy, useEffect, useState } from "react";
 import type { ReviewSource } from "../../screens/document/to-review.tsx";
 import { useServices } from "../../services/context.tsx";
@@ -17,11 +18,13 @@ export interface Followed {
   suggestions: readonly Suggestion[];
 }
 
-/** A hook: the open suggestions of `docId`, followed once its handle has opened; null until then. */
+/** A hook: the open suggestions of `docId` once its handle has opened; null until then, or when it is not a doc id. */
 export function useSuggestions(docId: string): Followed | null {
   const { openHandle } = useServices();
   const [followed, setFollowed] = useState<Followed | null>(null);
   useEffect(() => {
+    // off a document the history tab asks with no doc id, and no script is opened for it
+    if (!isDocId(docId)) return;
     let current = true;
     let stop = (): void => {};
     Promise.all([openHandle(docId), import("./suggestion-index.ts")]).then(
