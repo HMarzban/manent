@@ -95,20 +95,36 @@ interface Side {
   readonly scenes: (string | null)[];
 }
 
+/**
+ * The id each block is compared under, by the rule BlockEntry states: its
+ * own, or "#<side>:<index>" when it holds none or an earlier block holds it.
+ */
+export function entryIdsOf(
+  blocks: readonly BlockJSON[],
+  side: "older" | "newer",
+): string[] {
+  const owned = new Set<string>();
+  return blocks.map((block, i) => {
+    const own = idOf(block);
+    if (own === null || owned.has(own)) return `#${side}:${i}`;
+    owned.add(own);
+    return own;
+  });
+}
+
 function sideOf(doc: DocJSON, name: "older" | "newer"): Side {
+  const blocks = blocksIn(doc);
   const side: Side = {
-    blocks: blocksIn(doc),
-    ids: [],
+    blocks,
+    ids: entryIdsOf(blocks, name),
     at: new Map(),
     scenes: [],
   };
   let heading: string | null = null;
-  side.blocks.forEach((block, i) => {
-    const own = idOf(block);
-    const id = own !== null && !side.at.has(own) ? own : `#${name}:${i}`;
-    if (id === own) side.at.set(id, i);
+  side.ids.forEach((id, i) => {
+    const block = blocks[i]!;
+    if (id === idOf(block)) side.at.set(id, i);
     if (isSceneHeading(block)) heading = id;
-    side.ids.push(id);
     side.scenes.push(heading);
   });
   return side;
@@ -122,6 +138,78 @@ const NO_CHANGE = Object.freeze({
   joinedInto: null,
   after: null,
 });
+
+/** A block both sides hold, `older` and `newer` canonical: unchanged, or changed with what differs in `mode`. */
+export function heldEntry(
+  fields: Pick<BlockEntry, "id" | "moved" | "sceneId"> & {
+    readonly older: BlockJSON;
+    readonly newer: BlockJSON;
+    readonly olderIndex: number;
+  },
+  mode: CompareMode,
+): BlockEntry {
+  const { older, newer } = fields;
+  const changes =
+    JSON.stringify(older) === JSON.stringify(newer)
+      ? null
+      : compareBlock(older, newer, mode);
+  return Object.freeze({
+    ...NO_CHANGE,
+    ...changes,
+    id: fields.id,
+    kind: changes === null ? "unchanged" : "changed",
+    moved: fields.moved,
+    older,
+    newer,
+    sceneId: fields.sceneId,
+    olderIndex: fields.olderIndex,
+  });
+}
+
+/** A block only the newer side holds, `newer` canonical. */
+export function addedEntry(
+  fields: Pick<BlockEntry, "id" | "splitFrom" | "sceneId"> & {
+    readonly newer: BlockJSON;
+  },
+): BlockEntry {
+  return Object.freeze({
+    ...NO_CHANGE,
+    id: fields.id,
+    kind: "added",
+    older: null,
+    newer: fields.newer,
+    splitFrom: fields.splitFrom,
+    sceneId: fields.sceneId,
+    olderIndex: null,
+  });
+}
+
+/**
+ * A block only the older side holds, `older` canonical; `at` is the newer
+ * side's block `fields.after`, null when that is null. It is joined into
+ * `after` when its text is not empty and `at`'s text ends with it.
+ */
+export function removedEntry(
+  fields: Pick<BlockEntry, "id" | "sceneId" | "after"> & {
+    readonly older: BlockJSON;
+    readonly olderIndex: number;
+  },
+  at: BlockJSON | null,
+): BlockEntry {
+  const text = textOf(fields.older);
+  const joined = at !== null && text !== "" && textOf(at).endsWith(text);
+  return Object.freeze({
+    ...NO_CHANGE,
+    id: fields.id,
+    kind: "removed",
+    older: fields.older,
+    newer: null,
+    joinedInto: joined ? fields.after : null,
+    sceneId: fields.sceneId,
+    after: fields.after,
+    olderIndex: fields.olderIndex,
+  });
+}
 
 interface Removal {
   readonly index: number;
@@ -169,65 +257,36 @@ function align(olderDoc: DocJSON, newerDoc: DocJSON): Alignment {
 
 function held(a: Alignment, j: number, mode: CompareMode): BlockEntry {
   const id = a.newer.ids[j]!;
-  const block = canonicalBlock(a.newer.blocks[j]!);
+  const newer = canonicalBlock(a.newer.blocks[j]!);
   const sceneId = a.newer.scenes[j]!;
   const i = a.older.at.get(id);
   if (i === undefined) {
-    const from = block.attrs?.from;
+    const from = newer.attrs?.from;
     const origin =
       parseFrom(typeof from === "string" ? from : null)?.originId ?? null;
     const splitFrom =
       origin !== null && a.older.at.has(origin) && a.newer.at.has(origin)
         ? origin
         : null;
-    return Object.freeze({
-      ...NO_CHANGE,
-      id,
-      kind: "added",
-      older: null,
-      newer: block,
-      splitFrom,
-      sceneId,
-      olderIndex: null,
-    });
+    return addedEntry({ id, newer, splitFrom, sceneId });
   }
   const older = canonicalBlock(a.older.blocks[i]!);
-  const changes =
-    JSON.stringify(older) === JSON.stringify(block)
-      ? null
-      : compareBlock(older, block, mode);
-  return Object.freeze({
-    ...NO_CHANGE,
-    ...changes,
-    id,
-    kind: changes === null ? "unchanged" : "changed",
-    moved: !a.staying.has(i),
-    older,
-    newer: block,
-    sceneId,
-    olderIndex: i,
-  });
+  const moved = !a.staying.has(i);
+  return heldEntry({ id, moved, older, newer, sceneId, olderIndex: i }, mode);
 }
 
 function removed(a: Alignment, { index, after }: Removal): BlockEntry {
-  const older = canonicalBlock(a.older.blocks[index]!);
-  const text = textOf(older);
   const into = after === null ? undefined : a.newer.at.get(after);
-  const joined =
-    into !== undefined &&
-    text !== "" &&
-    textOf(a.newer.blocks[into]!).endsWith(text);
-  return Object.freeze({
-    ...NO_CHANGE,
-    id: a.older.ids[index]!,
-    kind: "removed",
-    older,
-    newer: null,
-    joinedInto: joined ? after : null,
-    sceneId: a.older.scenes[index]!,
-    after,
-    olderIndex: index,
-  });
+  return removedEntry(
+    {
+      id: a.older.ids[index]!,
+      older: canonicalBlock(a.older.blocks[index]!),
+      sceneId: a.older.scenes[index]!,
+      after,
+      olderIndex: index,
+    },
+    into === undefined ? null : a.newer.blocks[into]!,
+  );
 }
 
 /**
