@@ -104,8 +104,8 @@ function readingOf(handle: DocHandle): Reading {
     if (live) return { kind: "view", blocks: view.blocks.get() };
     return { kind: link === "offline" ? "unreadable" : "waiting" };
   }
-  // the reader is set after the side that calls for it
-  if (status.side.length > 0) return { kind: "waiting" };
+  // a reader side with no reader: a tab that follows another tab's session is never given one
+  if (status.side.length > 0) return { kind: "unreadable" };
   if (status.docSync === "synced") return { kind: "doc" };
   if (status.link !== "offline") return { kind: "waiting" };
   // a record never synced with nothing waiting holds none of the script: it was never fetched to this device
@@ -114,14 +114,19 @@ function readingOf(handle: DocHandle): Reading {
   };
 }
 
-/** Settles once `handle`'s script can be read whole, or cannot be. */
+/**
+ * Settles once `handle`'s script can be read whole, or cannot be. Each change is read a microtask later, because the
+ * session sets a reader in the same task as the side that calls for it, just after it.
+ */
 function settledReading(
   handle: DocHandle,
 ): Promise<Exclude<Reading, { kind: "waiting" }>> {
   return new Promise((resolve) => {
     const stops: (() => void)[] = [];
     let watched: ViewHandle | null = null;
-    const check = (): void => {
+    let settled = false;
+    const read = (): void => {
+      if (settled) return;
       const view = handle.readOnly.get();
       if (view !== null && view !== watched) {
         watched = view;
@@ -129,9 +134,11 @@ function settledReading(
       }
       const reading = readingOf(handle);
       if (reading.kind === "waiting") return;
+      settled = true;
       for (const stop of stops.splice(0)) stop();
       resolve(reading);
     };
+    const check = (): void => queueMicrotask(read);
     stops.push(
       handle.status.subscribe(check),
       handle.readOnly.subscribe(check),
