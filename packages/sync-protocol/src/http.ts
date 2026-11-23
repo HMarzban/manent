@@ -278,11 +278,13 @@ export interface DemoControls {
   rebuild(userId: string, docId: string): Promise<void>;
 }
 
+/** `resetting`: from a reset's start until the server runs again on the new seed, or the seed fails. */
 export const SERVER_STATES = [
   "running",
   "stopped",
   "starting",
   "failed",
+  "resetting",
 ] as const;
 
 export type ServerState = (typeof SERVER_STATES)[number];

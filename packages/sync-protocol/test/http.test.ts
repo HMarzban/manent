@@ -25,7 +25,13 @@ const DOC = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd";
 const DOC2 = "01a1e81d-c6f2-7301-a0f6-5c345eb6c7ce";
 
 test("the server states are a fixed list, and each list's guard refuses what is not on it", () => {
-  expect(SERVER_STATES).toEqual(["running", "stopped", "starting", "failed"]);
+  expect(SERVER_STATES).toEqual([
+    "running",
+    "stopped",
+    "starting",
+    "failed",
+    "resetting",
+  ]);
   expect(["not_found", "nope", 7, null].map(isHttpErrorCode)).toEqual([
     true,
     false,
