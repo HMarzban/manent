@@ -83,7 +83,7 @@ export interface SharingService extends SyncHooks {
     docId: string,
     linkId: string,
   ): SharingOutcome<ShareState>;
-  /** Gives the caller the link's role as their own, unless they hold that role or a higher one. */
+  /** Gives the caller the link's role as their own, unless they hold a higher one. */
   join(
     userId: string,
     token: string,
@@ -258,25 +258,30 @@ export function createSharingService(options: {
       if (directory.placeOf(docId) === null) return refused("not_found");
       if (directory.tombstoneOf(docId) !== null) return refused("deleted");
       const held = heldRole(store.grantsOf(docId), userId);
-      if (held !== null && !outranks(role, held))
+      if (held !== null && outranks(held, role))
         return { ok: true, value: { docId, role: held, joined: false } };
+      // the same role taken from a group becomes the person's own, so it outlasts the group's grant
       store.grant(docId, userId, role, "own");
-      tell(docId, [{ userId, role }], userId);
-      return { ok: true, value: { docId, role, joined: true } };
+      const joined = held !== role;
+      if (joined) tell(docId, [{ userId, role }], userId);
+      return { ok: true, value: { docId, role, joined } };
     },
     committed({ room, sender, report }) {
       if (report === null) return;
       const byUserId = sender?.userId ?? SYSTEM_USER_ID;
+      const isGroups =
+        report.maps.includes("groups") &&
+        projectIndexOf(room.home) === room.docId;
       try {
-        if (byUserId !== SYSTEM_USER_ID) store.markActive(room.docId, byUserId);
-        if (
-          report.maps.includes("groups") &&
-          projectIndexOf(room.home) === room.docId
-        )
-          groupsChanged(room, byUserId);
+        if (isGroups) groupsChanged(room, byUserId);
       } catch {
         // a hook never throws: a write refused here leaves the roles as they were, and the next change to the
         // project's groups gives them again
+      }
+      try {
+        if (byUserId !== SYSTEM_USER_ID) store.markActive(room.docId, byUserId);
+      } catch {
+        // a hook never throws: a refused write leaves the last-active time older, and the next push writes it again
       }
     },
   };

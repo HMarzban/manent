@@ -1,4 +1,5 @@
 // The sharing routes: who holds a role on a document, the groups given access to it, its share links, and joining by one.
+import type { Storage } from "@manent/storage";
 import { isDocId } from "@manent/sync-protocol";
 import { groupOfSource, isShareRole } from "../../sharing/grants.ts";
 import type { ShareRole } from "../../sharing/grants.ts";
@@ -60,7 +61,7 @@ function peopleView(context: RouteContext, state: ShareState) {
   };
 }
 
-/** Whether the person is listed by the directory and shares a workspace with the caller. */
+/** Whether the person is listed by the directory and shares a workspace with the caller; asked only of a person given a first role. */
 function isMember(
   context: RouteContext,
   userId: string,
@@ -75,6 +76,7 @@ function isMember(
 interface ShareCall<T> {
   context: RouteContext;
   sharing: SharingService;
+  storage: Storage;
   userId: string;
   input: T;
 }
@@ -98,7 +100,8 @@ function shareRoute<T>(
       if (sharing === undefined) return failure("not_found", 404);
       const input = isObject(request.body) ? read(request.body) : null;
       if (input === null) return failure("bad_request", 400);
-      return handle({ context, sharing, userId: request.userId, input });
+      const { storage, userId } = request;
+      return handle({ context, sharing, storage, userId, input });
     },
   };
 }
@@ -172,9 +175,11 @@ export const SHARE_ROUTES: readonly Route[] = [
   shareRoute(
     "/api/share/grant",
     readGrant,
-    ({ context, sharing, userId, input }) => {
+    ({ context, sharing, storage, userId, input }) => {
       const { docId, target, role } = input;
-      if (!isMember(context, userId, target))
+      // a person who already holds a role, as one who joined by a link may, can have it changed
+      const isNew = storage.directory.roleOf(docId, target) === null;
+      if (isNew && !isMember(context, userId, target))
         return failure("not_member", STATUS.not_member);
       return answerPeople(context, sharing.grant(userId, docId, target, role));
     },
