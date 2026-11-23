@@ -55,6 +55,7 @@ const naming = (name: string): CommandContext => ({
   shell: "web",
   demo: true,
   signedIn: true,
+  workspace: "writable",
   panelOpen: { left: false, side: false },
   historyPresent: true,
   format: "screenplay",

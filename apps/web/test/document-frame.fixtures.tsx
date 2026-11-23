@@ -132,6 +132,7 @@ function contextFor(
       shell: "web",
       demo: false,
       signedIn: signedIn(),
+      workspace: "writable",
       panelOpen: { left: panels.left !== null, side: panels.side !== null },
       historyPresent,
       format: null,

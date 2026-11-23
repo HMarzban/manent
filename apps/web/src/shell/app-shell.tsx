@@ -31,6 +31,7 @@ import { usePanel } from "../state/panels.store.ts";
 import { createPeopleStore } from "../state/people.store.ts";
 import { AnnouncerRegion } from "./announcer-region.tsx";
 import { useEscapeHandler } from "./escape-handler.ts";
+import { useMenuChoiceFocus } from "./menu-focus.ts";
 import { ShellRegion } from "./regions.tsx";
 import { SHELL_SCREENS } from "./shell-screens.ts";
 import type { ShellScreen } from "./shell-screens.ts";
@@ -252,6 +253,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
   };
   usePublishShellState(screen, docId, facts.selectors);
   useEscapeHandler({ dom, paletteOpen, closePalette });
+  useMenuChoiceFocus();
   const drop = useFileDrop();
   return (
     <SettingsProvider store={services.settings}>

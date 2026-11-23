@@ -11,7 +11,6 @@ import {
   PREFERENCES_WORDS,
   SEND_WORDS,
   SYNC_CENTRE_WORDS,
-  TOUR_WORDS,
   keyLabel,
   statusText,
 } from "@manent/ui";
@@ -155,7 +154,7 @@ function galleries(platform: Platform): readonly Gallery[] {
     },
     {
       search: { surface: "tour" },
-      sections: { "side_panel · ready": [TOUR_WORDS.title] },
+      sections: { "side_panel · ready": [DOCUMENT_WORDS.tourTab] },
     },
     PALETTE,
     dialog("plain"),
