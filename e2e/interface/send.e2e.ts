@@ -5,8 +5,8 @@ import { makeScript } from "../support/made-script.ts";
 import { signedInAs } from "../support/tour.ts";
 
 /** The test form's address: its title, its button and its rows are read from it. */
-const sendDraft = (docId: string, search: Record<string, string>): string =>
-  `/s/${docId}/send/send_draft?${new URLSearchParams(search).toString()}`;
+const testForm = (docId: string, search: Record<string, string>): string =>
+  `/s/${docId}/send/test_form?${new URLSearchParams(search).toString()}`;
 
 /** Where the caret was kept: its text node, found again still in the page, with its text and offset; and how far the page is scrolled. */
 const caretAndScroll = (page: Page, remember: boolean) =>
@@ -70,7 +70,7 @@ test("Back from Send returns to the document with its caret and scroll as they w
   // the app moves to the address itself, as a command that opens Send does
   await page.evaluate(
     (href) => window.history.pushState(null, "", href),
-    sendDraft(standInDocId, {
+    testForm(standInDocId, {
       title: "Send draft",
       button: "Send draft",
       from: "/__stand-in",
@@ -96,7 +96,7 @@ test("the Send screen passes the accessibility rules and works by keys alone", a
   await signedInAs(page, "leo");
   await makeScript(page, docId);
   await page.goto(
-    sendDraft(docId, {
+    testForm(docId, {
       title: "Send draft",
       button: "Send draft",
       what: "Whole script",

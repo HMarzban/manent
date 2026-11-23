@@ -10,8 +10,11 @@ import type { AnyRoute } from "@tanstack/react-router";
 import { Fragment, Suspense, createElement, lazy } from "react";
 import type { ReactNode } from "react";
 import { CloseBlocker, loadScreen } from "../router.tsx";
-import { SEND_FORM_IDS } from "../screens/send/form-ids.ts";
+import { SEND_FORM_IDS, TEST_SEND_FORM_ID } from "../screens/send/form-ids.ts";
 import { ScreenProblem } from "./screen-problem.ts";
+
+// the build's define; absent outside a build
+declare const MANENT_FLAVOUR: string | undefined;
 
 const documentApi = getRouteApi("/s/$docId");
 
@@ -54,6 +57,11 @@ const SendScreen = lazyRouteComponent(
 );
 
 export function documentRoutes(root: AnyRoute): readonly AnyRoute[] {
+  // the test build also answers its own form's address
+  const sendFormIds: readonly string[] =
+    typeof MANENT_FLAVOUR !== "undefined" && MANENT_FLAVOUR === "test"
+      ? [...SEND_FORM_IDS, TEST_SEND_FORM_ID]
+      : SEND_FORM_IDS;
   const documentRoute = createRoute({
     getParentRoute: () => root,
     path: "/s/$docId",
@@ -73,7 +81,7 @@ export function documentRoutes(root: AnyRoute): readonly AnyRoute[] {
     getParentRoute: () => root,
     path: "/s/$docId/send/$form",
     beforeLoad: ({ params }) => {
-      if (SEND_FORM_IDS.some((id) => id === params.form)) return;
+      if (sendFormIds.includes(params.form)) return;
       throw redirect({
         to: "/s/$docId",
         params: { docId: params.docId },

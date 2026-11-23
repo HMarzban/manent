@@ -5,7 +5,7 @@ import { recallForm } from "../../production/send/recall-form.tsx";
 import { exportForm } from "../../send/export-form.tsx";
 import { printForm } from "../../send/print-form.tsx";
 import { sendDraftForm } from "../../send-draft/send-draft-form.tsx";
-import type { SendFormId } from "./form-ids.ts";
+import type { SendFormId, TEST_SEND_FORM_ID } from "./form-ids.ts";
 
 // the ids and their addresses live apart, so that the entry, which needs them, does not load the forms
 export { SEND_FORM_IDS, sendPath } from "./form-ids.ts";
@@ -15,7 +15,7 @@ export interface SendFormProps {
 }
 
 export interface SendForm {
-  readonly id: SendFormId;
+  readonly id: SendFormId | typeof TEST_SEND_FORM_ID;
   /** A hook; false means the form is absent here (role, state), and the route goes back to the document. */
   useAvailable(docId: string): boolean;
   /** Renders one SendFrame. */
