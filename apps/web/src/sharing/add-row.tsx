@@ -59,6 +59,8 @@ export function AddRow(props: {
   const { actions } = props;
   const [chosen, setChosen] = useState<string | null>(null);
   const [role, setRole] = useState<ShareRole | null>(null);
+  // a refusal is said while the one refused is still chosen
+  const [tried, setTried] = useState<string | null>(null);
   const reasonId = useId();
   const items = targetsOf(props.access, props.choices);
   const target = items.find((item) => item.value === chosen)?.target ?? null;
@@ -66,6 +68,7 @@ export function AddRow(props: {
 
   const add = async (): Promise<void> => {
     if (target === null) return;
+    setTried(chosen);
     const added =
       target.kind === "group"
         ? await actions.addGroup(target.groupId, groupName(target.groupId))
@@ -115,7 +118,9 @@ export function AddRow(props: {
           {DIALOG_WORDS.disabledLine(WORDS.add, WORDS.needsRole)}
         </p>
       ) : null}
-      {props.refusal === null ? null : <RowRefusal sentence={props.refusal} />}
+      {props.refusal === null || tried !== chosen ? null : (
+        <RowRefusal sentence={props.refusal} />
+      )}
     </div>
   );
 }
