@@ -309,15 +309,17 @@ function createSession(
         },
       );
     });
+  // the script itself opens first, and a private copy is moved to as any other target is, so one that never arrives
+  // is given up in time
   const start = async (c: SyncClient): Promise<void> => {
-    const target = writingActions.openTarget(docId);
-    const opened = await c.open(target);
+    const opened = await c.open(docId);
     if (ended) return opened.close();
-    attach(opened);
-    stopTarget = writingActions.followTarget(docId, target, (next, wanted) => {
+    // followed before the script is shown, so the page never takes keys in it while the copy opens
+    stopTarget = writingActions.followTarget(docId, docId, (next, wanted) => {
       hold();
       return swapTo(c, next, wanted);
     });
+    attach(opened);
   };
   const failed = (): void => {
     // the document's status says this device is not saving it, so typing goes on in what the page shows
@@ -326,7 +328,7 @@ function createSession(
   // until the person's private index says where their typing in it goes, the page shows the placeholder
   client
     .then((c) => {
-      stopKnown = writingActions.whenKnown(() => {
+      stopKnown = writingActions.whenKnown(c.link, () => {
         if (!ended) start(c).catch(failed);
       });
     })

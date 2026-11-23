@@ -14,27 +14,40 @@ const sent = new Map<string, Promise<HandInOutcome>>();
 
 /**
  * Whether the person's open private copy of `docId` holds no change the server has not acknowledged: true once it holds
- * none; false once the link goes, or the server refuses the copy, first.
+ * none; false once the link goes, or the server refuses the copy, first, or once `stop` ends the wait. The copy's
+ * handle is let go as the wait ends.
  */
-async function isDelivered(
+function watchDelivery(
   services: HandInServices,
   docId: string,
-): Promise<boolean> {
-  const handle = await services.openHandle(docId);
-  try {
-    return await new Promise<boolean>((resolve) => {
-      const check = (): void => {
-        const delivered = syncedOf(handle.status.get());
-        if (delivered === null) return;
-        stop();
-        resolve(delivered);
-      };
-      const stop = handle.status.subscribe(check);
-      check();
-    });
-  } finally {
-    void handle.close();
-  }
+): { delivered: Promise<boolean>; stop(): void } {
+  let stopped = false;
+  let stop = (): void => {
+    stopped = true;
+  };
+  const delivered = services.openHandle(docId).then(
+    (handle) =>
+      new Promise<boolean>((resolve) => {
+        let done = false;
+        let unsubscribe: (() => void) | null = null;
+        const end = (answer: boolean): void => {
+          if (done) return;
+          done = true;
+          unsubscribe?.();
+          void handle.close();
+          resolve(answer);
+        };
+        const check = (): void => {
+          const answer = syncedOf(handle.status.get());
+          if (answer !== null) end(answer);
+        };
+        stop = () => end(false);
+        if (stopped) return end(false);
+        unsubscribe = handle.status.subscribe(check);
+        check();
+      }),
+  );
+  return { delivered, stop: () => stop() };
 }
 
 /**
@@ -56,11 +69,12 @@ export function startHandIn(
   const going = sent.get(docId);
   if (going !== undefined) return { outcome: going, cancel: () => {} };
   const letGo = writingActions.holdInput(docId);
+  const delivery = watchDelivery(services, docId);
   let requested = false;
   let cancelled = false;
   const ask = async (): Promise<HandInOutcome | null> => {
     // a copy this device cannot open is refused as a hand-in that did not go
-    const delivered = await isDelivered(services, docId).catch(() => false);
+    const delivered = await delivery.delivered.catch(() => false);
     if (cancelled) return null;
     if (!delivered) {
       letGo();
@@ -93,6 +107,7 @@ export function startHandIn(
     cancel() {
       if (requested) return;
       cancelled = true;
+      delivery.stop();
       letGo();
     },
   };

@@ -4,7 +4,12 @@ import { createDoc, scriptBody } from "@manent/crdt";
 import { blockText, blocksOf } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
 import { StoreError, createSubscribable } from "@manent/sync-client";
-import type { DocHandle, SyncClient } from "@manent/sync-client";
+import type {
+  DocHandle,
+  DocStatus,
+  LinkFacts,
+  SyncClient,
+} from "@manent/sync-client";
 import { indexDocId } from "@manent/sync-protocol";
 import { createMessageQueue, createValue, useSubscribable } from "@manent/ui";
 import { act, createElement } from "react";
@@ -22,6 +27,7 @@ import {
   testServices,
 } from "./services.fixtures.ts";
 import {
+  ONLINE_LINK,
   SYNCED_STATUS,
   createSyncWorld,
   fakeClient,
@@ -244,13 +250,139 @@ test("a device that has not received the person's private index takes no keys, a
     await until(() => session.doc() === copy.doc());
     expect([whileSyncing, client.opened, session.readOnly.get()]).toEqual([
       [[], false],
-      [OWN_COPY],
+      [OWN_DOC, OWN_COPY],
       null,
     ]);
     session.close();
   } finally {
     writingActions.bind(DANA);
   }
+});
+
+/** What a session of `OWN_DOC` opens while the person's index shows `status` and this tab's link reads `link`. */
+async function openedWhile(
+  status: DocStatus,
+  link: LinkFacts,
+): Promise<string[]> {
+  const index = fakeHandle(indexDocId("user", "sam"), createDoc());
+  index.status.set(status);
+  const client = {
+    ...fakeClient(() => fakeHandle(OWN_DOC, written())),
+    link: createValue(link),
+  };
+  writingActions.bind({ userId: "sam", openHandle: async () => index });
+  try {
+    const session = createSyncSessions({
+      client: Promise.resolve(client),
+      schedule: IDLE.schedule,
+    }).open(OWN_DOC, "screenplay");
+    await until(() => writingActions.index() !== null);
+    await turn();
+    session.close();
+    return [...client.opened];
+  } finally {
+    writingActions.bind(DANA);
+  }
+}
+
+test("a page opens only once the server has answered for the person's index, or the tab that leads is offline", async () => {
+  // what a following tab shows of the index until the leading tab tells it the index's status
+  const told = { ...SYNCED_STATUS, synced: false, link: "offline" as const };
+  const following = {
+    ...ONLINE_LINK,
+    state: "offline" as const,
+    leader: false,
+  };
+  const refused = {
+    ...SYNCED_STATUS,
+    saved: false,
+    synced: false,
+    docSync: "syncing" as const,
+    side: ["not_saved" as const],
+  };
+  const leading = { ...ONLINE_LINK, state: "offline" as const };
+  expect([
+    await openedWhile(told, following),
+    await openedWhile(refused, ONLINE_LINK),
+    await openedWhile(told, leading),
+  ]).toEqual([[], [], [OWN_DOC]]);
+});
+
+test("a script opened while written privately, whose copy never arrives on this device, shows the script for everyone in time", async () => {
+  const room = fakeHandle(OWN_DOC, written());
+  const copy = fakeHandle(OWN_COPY, createDoc());
+  copy.status.set({
+    ...SYNCED_STATUS,
+    synced: false,
+    link: "connecting",
+    docSync: "local",
+  });
+  const client = fakeClient((docId) => (docId === OWN_COPY ? copy : room));
+  const clock = createClock();
+  await until(() => writingActions.index() !== null);
+  writingActions.keep(OWN_DOC, {
+    position: "private",
+    at: 6,
+    privateDocId: OWN_COPY,
+  });
+  const session = createSyncSessions({
+    client: Promise.resolve(client),
+    schedule: clock.schedule,
+  }).open(OWN_DOC, "screenplay");
+  await until(() => client.opened.length === 2);
+  const whileArriving = [session.doc() === room.doc(), session.readOnly.get()];
+  clock.advance(60_000);
+  await until(() => session.readOnly.get() === null);
+  expect([
+    whileArriving,
+    writingActions.writingPositionOf(OWN_DOC).get(),
+    writingActions.index()?.writing.get(OWN_DOC),
+    session.doc() === room.doc(),
+    copy.closes(),
+  ]).toEqual([
+    [true, scriptBody(room.doc()).materialize()],
+    "everyone",
+    null,
+    true,
+    1,
+  ]);
+  session.close();
+});
+
+test("choosing For everyone while the script cannot be reached offline says nothing of Privately", async () => {
+  const room = fakeHandle(OWN_DOC, createDoc());
+  room.status.set({ ...SYNCED_STATUS, synced: false, link: "offline" });
+  const copy = fakeHandle(OWN_COPY, written());
+  const client = fakeClient((docId) => (docId === OWN_COPY ? copy : room));
+  await until(() => writingActions.index() !== null);
+  writingActions.keep(OWN_DOC, {
+    position: "private",
+    at: 7,
+    privateDocId: OWN_COPY,
+  });
+  const session = createSyncSessions({
+    client: Promise.resolve(client),
+    schedule: IDLE.schedule,
+  }).open(OWN_DOC, "screenplay");
+  await until(() => session.doc() === copy.doc());
+  const heard: string[] = [];
+  const stop = writingActions.onGivenUp(OWN_DOC, (outcome) =>
+    heard.push(outcome),
+  );
+  writingActions.keep(OWN_DOC, {
+    position: "everyone",
+    at: 8,
+    privateDocId: null,
+  });
+  const outcome = await writingActions.whenBound(OWN_DOC, OWN_DOC);
+  expect([outcome, heard, session.doc() === copy.doc()]).toEqual([
+    "offline",
+    [],
+    true,
+  ]);
+  stop();
+  session.close();
+  writingActions.index()?.writing.delete(OWN_DOC);
 });
 
 test("a hand-in closed once its request has gone takes no keys until its answer, then shows the room's script and says so", async () => {

@@ -2,7 +2,7 @@
 // whether an episode they open is theirs to write.
 import { readEpisodes } from "@manent/crdt";
 import type { JsonMapView } from "@manent/crdt";
-import type { DocHandle, DocStatus } from "@manent/sync-client";
+import type { DocHandle, DocStatus, SideState } from "@manent/sync-client";
 import { indexDocId } from "@manent/sync-protocol";
 import type { PersonServices } from "../services/ports.ts";
 import { liveMap } from "../services/sync/private-index.ts";
@@ -23,9 +23,9 @@ export interface WritingIndex {
   /** By docId: the workspace the person last opened it in. */
   continued: JsonMapView;
   /**
-   * Calls `then` once the server has answered for the index, or cannot: `syncedOf` its status is not null. An index
-   * the server holds no document for is answered too: made and then synced, when the device asked to create it, or
-   * refused as `forbidden`, which the handle shows as a side state. The returned function stops waiting.
+   * Calls `then` once the server has answered for the index: synced with nothing waiting, or a side state the server
+   * raises. An index the server holds no document for is answered too: made and then synced, when the device asked to
+   * create it, or refused as `forbidden`, which the handle shows as a side state. The returned function stops waiting.
    */
   whenAnswered(then: () => void): () => void;
   close(): void;
@@ -46,6 +46,27 @@ export function syncedOf(status: DocStatus): boolean | null {
   return status.link === "offline" || status.side.length > 0 ? false : null;
 }
 
+/** Whether each side state is the server's answer; `not_saved` is this device's store refusing a write. */
+const SERVER_ANSWERS: Readonly<Record<SideState, boolean>> = Object.freeze({
+  access_removed: true,
+  deleted: true,
+  read_only: true,
+  rejected: true,
+  not_saved: false,
+  sign_in: true,
+  server_old: true,
+  view_only: true,
+});
+
+/**
+ * Whether the server has answered for the person's index. A status that only says the link is offline is not an
+ * answer: a following tab shows that until the leading tab first tells it the index's status.
+ */
+function isAnswered(status: DocStatus): boolean {
+  if (status.synced && status.waiting === 0) return true;
+  return status.side.some((side) => SERVER_ANSWERS[side]);
+}
+
 export async function openWritingIndex(
   services: Pick<PersonServices, "userId" | "openHandle">,
 ): Promise<WritingIndex> {
@@ -55,12 +76,12 @@ export async function openWritingIndex(
     copies: liveMap(handle, "private_copies"),
     continued: liveMap(handle, "continue"),
     whenAnswered(then) {
-      if (syncedOf(handle.status.get()) !== null) {
+      if (isAnswered(handle.status.get())) {
         then();
         return () => {};
       }
       const stop = handle.status.subscribe((status) => {
-        if (syncedOf(status) === null) return;
+        if (!isAnswered(status)) return;
         stop();
         then();
       });
