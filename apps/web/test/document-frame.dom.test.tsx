@@ -90,8 +90,15 @@ test("Title ▾ holds Script settings and Rename for an editor, and not Rename f
   const reader = await renderFrame({ title, role: "viewer" });
   await click(buttonNamed(region(reader.container, "title_bar"), title));
   expect([editorItems, menuItems()]).toEqual([
-    ["Script settings", "Rename", "Export…", "Print…⌘P", "Name this draft…⌘⇧S"],
-    ["Script settings", "Export…", "Print…⌘P"],
+    [
+      "Script settings",
+      "Rename",
+      "Export…",
+      "Print…⌘P",
+      "Copy link",
+      "Name this draft…⌘⇧S",
+    ],
+    ["Script settings", "Export…", "Print…⌘P", "Copy link"],
   ]);
 });
 
