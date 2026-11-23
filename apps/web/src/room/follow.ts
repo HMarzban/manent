@@ -13,7 +13,7 @@ import {
   scrollToPerson,
 } from "../editor-host/margin-people.ts";
 import type { PersonServices } from "../services/ports.ts";
-import { whileLive } from "../state/people.store.ts";
+import { whileLive } from "./margin-people-live.ts";
 import { followed, takeChosen } from "./follow-state.ts";
 import type { Followed } from "./follow-state.ts";
 

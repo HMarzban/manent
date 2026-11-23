@@ -13,9 +13,9 @@ import type {
 import type { SettingsStore } from "@manent/settings";
 import { joinNames } from "@manent/ui";
 import { followed } from "../room/follow-state.ts";
+import { whileLive } from "../room/margin-people-live.ts";
 import { showPeopleInScenes } from "../room/margin-people-scenes.ts";
 import type { SceneMark } from "../screens/document/scene-marks.ts";
-import { whileLive } from "../state/people.store.ts";
 import type { EditorPluginContext } from "./plugins.ts";
 
 export { scrollToPerson } from "@manent/editor";
