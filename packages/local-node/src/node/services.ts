@@ -6,6 +6,7 @@ import type {
   SyncHooks,
   SyncService,
 } from "@manent/server-core";
+import { createSuggestionHooks } from "@manent/server-core";
 import type { NodeCoreOptions } from "./ports.ts";
 import { workflowService } from "./services/workflow.ts";
 import { commentsService } from "./services/comments.ts";
@@ -45,6 +46,7 @@ export const NODE_SERVICES: readonly NodeService[] = [
   rundownService,
   prompterService,
   prompterFilesService,
+  { create: () => ({ hooks: [createSuggestionHooks({})], config: {} }) },
 ];
 
 /** `hook` as the node's sync service tells it: a relayed room's events are the cloud's. */

@@ -7,6 +7,7 @@ import type {
   SyncHooks,
   SyncService,
 } from "@manent/server-core";
+import { createSuggestionHooks } from "@manent/server-core";
 import type { Storage } from "@manent/storage";
 import { workflowService } from "./workflow.ts";
 import { commentsService } from "./comments.ts";
@@ -72,6 +73,7 @@ export const SERVER_SERVICES: readonly ServerService[] = [
   projectService,
   rundownService,
   prompterService,
+  { create: () => ({ hooks: [createSuggestionHooks({})], config: {} }) },
 ];
 
 /** Every service of the list made: their hooks in list order, the first `airWindow` given (null: none), and their parts of the configuration. */
