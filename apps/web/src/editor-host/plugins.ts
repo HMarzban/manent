@@ -15,6 +15,7 @@ import { materialPlugin } from "./material.ts";
 import { marginPeoplePlugin } from "./margin-people.ts";
 import { projectNamesPlugin } from "./project-names.ts";
 import { roomLogPlugin } from "./room-log.ts";
+import { timingEditorPlugin } from "./timing.ts";
 
 export interface EditorPluginContext extends EditorPluginHost {
   readonly docId: string;
@@ -36,4 +37,5 @@ export const EDITOR_PLUGINS: readonly ((
   (context) => marginPeoplePlugin(context),
   (context) => projectNamesPlugin(context),
   (context) => roomLogPlugin(context),
+  timingEditorPlugin,
 ];

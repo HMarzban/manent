@@ -39,6 +39,16 @@ export const TOUR_TARGETS = [
   "episode_table",
   "send:to",
   "present_window",
+  "rundown:grid",
+  "rundown:cell",
+  "rundown:prompter_column",
+  "rundown:air",
+  "prompter:window",
+  "prompter:feed",
+  "readout:timing",
+  "library:rundowns",
+  "send:as",
+  "prompter_files:place",
 ] as const;
 
 export type TourTarget = (typeof TOUR_TARGETS)[number];

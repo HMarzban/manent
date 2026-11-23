@@ -7,6 +7,9 @@ import { useAssignmentFacts } from "../../assignment/state-facts.ts";
 import { useFollowFacts } from "../../room/follow-facts.ts";
 import { useDriverFacts } from "../../room/driver-facts.ts";
 import { useOutlineStartFacts } from "../../outline-doc/start-fact.ts";
+import { useRundownFacts } from "../../rundown/state-facts.ts";
+import { usePrompterSendFacts } from "../../prompter/state-fact.ts";
+import { usePrompterFilesFacts } from "../../prompter-files/state-facts.ts";
 
 export const STATE_FACT_SOURCES: readonly ((
   docId: string,
@@ -18,4 +21,7 @@ export const STATE_FACT_SOURCES: readonly ((
   useFollowFacts,
   useDriverFacts,
   useOutlineStartFacts,
+  useRundownFacts,
+  usePrompterSendFacts,
+  usePrompterFilesFacts,
 ];
