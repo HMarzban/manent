@@ -13,7 +13,7 @@ const GAP_PX = 4;
 const NOTHING_TO_STOP = (): void => {};
 
 // The tooltip's surface (theme rule 13); the fade is left out under reduced motion. Drawn in the editor's host, without
-// a layer of its own, so a panel laid over the page covers it as it covers the scrollbar.
+// a layer of its own, so a menu or a dialog over the page covers it.
 const LABEL_CLASS =
   "pointer-events-none fixed rounded-md bg-foreground text-background whitespace-nowrap opacity-0 motion-safe:transition-opacity motion-safe:duration-(--dur-base)";
 
@@ -55,6 +55,20 @@ function sentenceOf(
 }
 
 /**
+ * Where the visible page ends at height `y`: the scroller's right edge, or the left edge of a region laid over it there,
+ * as the side panel is in a narrow window.
+ */
+function visibleRight(scroller: HTMLElement, y: number): number {
+  const right = scroller.getBoundingClientRect().left + scroller.clientWidth;
+  const cover = scroller.ownerDocument
+    .elementFromPoint(right - 1, y)
+    ?.closest<HTMLElement>("[data-region]");
+  return cover == null || cover.contains(scroller)
+    ? right
+    : Math.min(right, cover.getBoundingClientRect().left);
+}
+
+/**
  * Shows the label beside the thumb of `scroller`, inside `host`, while the person scrolls it with the wheel, a touch
  * or its scrollbar and for SHOWN_AFTER_MS after, level with the thumb's centre; a scroll the page makes itself
  * (opening, going to a place, following the caret) shows nothing. Hidden from assistive technology: the status bar's
@@ -91,12 +105,12 @@ export function followThumb(options: {
     const text = last === null ? null : sentenceOf(editor, docId, last);
     if (text === null) return;
     label.textContent = text;
-    const edge = scroller.getBoundingClientRect();
-    const { scrollTop, clientHeight, scrollHeight, clientWidth } = scroller;
+    const { scrollTop, clientHeight, scrollHeight } = scroller;
     const thumb =
+      scroller.getBoundingClientRect().top +
       ((scrollTop + clientHeight / 2) / scrollHeight) * clientHeight;
-    label.style.top = `${edge.top + thumb - label.offsetHeight / 2}px`;
-    label.style.right = `${scroller.ownerDocument.documentElement.clientWidth - (edge.left + clientWidth) + GAP_PX}px`;
+    label.style.top = `${thumb - label.offsetHeight / 2}px`;
+    label.style.right = `${scroller.ownerDocument.documentElement.clientWidth - visibleRight(scroller, thumb) + GAP_PX}px`;
     label.style.opacity = "1";
   };
   // a press on the scrollbar lands on the scroller itself; one on the page lands on what it holds
