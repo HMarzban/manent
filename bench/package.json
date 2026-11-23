@@ -26,6 +26,12 @@
   },
   "devDependencies": {
     "@playwright/test": "catalog:",
-    "fast-check": "catalog:"
+    "fast-check": "catalog:",
+    "prosemirror-collab": "catalog:",
+    "loro-crdt": "catalog:",
+    "@automerge/automerge": "catalog:",
+    "prosemirror-model": "catalog:",
+    "prosemirror-state": "catalog:",
+    "prosemirror-transform": "catalog:"
   }
 }
