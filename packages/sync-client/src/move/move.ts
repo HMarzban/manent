@@ -150,7 +150,10 @@ type Phase = "begin" | "replay" | "load";
  */
 export class Move {
   private phase: Phase = "begin";
-  /** The content the replay was made from, against which typing meanwhile is found. */
+  /**
+   * The content the replay was made from, against which typing meanwhile is found; server updates
+   * still buffered are applied first, so that they never count as typing.
+   */
   private sent: DocJSON;
   private response: ReplayResponse | null = null;
   private clientId: number | null = null;
@@ -164,7 +167,7 @@ export class Move {
     private readonly host: MoveHost,
     private moving: Moving,
   ) {
-    this.sent = scriptBody(host.copy.doc).materialize();
+    this.sent = host.copy.mine();
   }
 
   get active(): boolean {

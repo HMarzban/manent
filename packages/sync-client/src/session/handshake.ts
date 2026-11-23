@@ -285,9 +285,9 @@ class Exchange implements Handshake {
       return;
     }
     if (m.step === "update" || this.phase === "live") {
-      // a step 2 while live answers a later SUBSCRIBE, and holds what came while the first was replaced
-      if (m.step === "update" || m.generation === this.generation)
-        this.host.update(m.data);
+      // a step 2 while live answers a later SUBSCRIBE, and is merged as one, apart from the updates before it
+      if (m.step === "update") this.host.update(m.data);
+      else if (m.generation === this.generation) this.host.stepTwo(m.data);
       return;
     }
     if (this.phase !== "handshake") return;

@@ -1,6 +1,6 @@
 // Text this device typed that a remote update removes without its sender having seen it.
 import * as Y from "yjs";
-import { ORIGIN_REMOTE, yDocOf } from "./doc.ts";
+import { ORIGIN_REMOTE, loadDoc, yDocOf } from "./doc.ts";
 import type { CrdtDoc } from "./doc.ts";
 import { elementsNamed, isElement } from "./mapping.ts";
 import { withWholeUpdate } from "./updates.ts";
@@ -255,4 +255,63 @@ export function hasDeletedOwn(
   return [...ownClientIds].some((client) =>
     (clients.get(client) ?? []).some((struct) => struct.deleted),
   );
+}
+
+/** The pieces of text `base` holds and `removed` covers, apart from what `explicit` covers. */
+function textRemovedUnseen(
+  base: Y.Doc,
+  removed: DeleteSet,
+  explicit: DeleteSet,
+): { client: number; clock: number; length: number }[] {
+  const pieces: { client: number; clock: number; length: number }[] = [];
+  for (const [client, structs] of base.store.clients)
+    for (const struct of structs) {
+      if (!(struct instanceof Y.Item) || struct.deleted) continue;
+      if (!(struct.content instanceof Y.ContentString)) continue;
+      if (!(struct.parent instanceof Y.XmlText)) continue;
+      for (
+        let clock = struct.id.clock;
+        clock < struct.id.clock + struct.length;
+        clock++
+      ) {
+        const id = Y.createID(client, clock);
+        if (!Y.isDeleted(removed, id) || Y.isDeleted(explicit, id)) continue;
+        const last = pieces.at(-1);
+        if (last?.client === client && last.clock + last.length === clock)
+          last.length += 1;
+        else pieces.push({ client, clock, length: 1 });
+      }
+    }
+  return pieces;
+}
+
+/**
+ * A copy of `base` without the text that `mine` no longer holds and `updates` did not delete
+ * themselves: what went with a parent they deleted, which their sender never held, as a block it
+ * deleted or moved before someone typed into it. `mine` is `base` with `updates` applied, and any
+ * rows since applied to both; the copy is what those updates were made against.
+ */
+export function withoutRemovedUnseen(
+  base: CrdtDoc,
+  mine: CrdtDoc,
+  updates: readonly Update[],
+): CrdtDoc {
+  const explicit = Y.decodeUpdate(Y.mergeUpdates([...updates])).ds;
+  const removed = Y.createDeleteSetFromStructStore(yDocOf(mine).store);
+  const copy = loadDoc(base.encodeState());
+  const ydoc = yDocOf(copy);
+  const pieces = textRemovedUnseen(ydoc, removed, explicit);
+  Y.transact(ydoc, (tr) => {
+    for (const { client, clock, length } of pieces) {
+      Y.getItemCleanStart(tr, Y.createID(client, clock));
+      Y.getItemCleanEnd(tr, ydoc.store, Y.createID(client, clock + length - 1));
+      let at = clock;
+      while (at < clock + length) {
+        const item = Y.getItem(ydoc.store, Y.createID(client, at));
+        if (item instanceof Y.Item) item.delete(tr);
+        at += item.length;
+      }
+    }
+  });
+  return copy;
 }
