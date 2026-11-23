@@ -1186,9 +1186,11 @@ html[data-white-page] .mn-pages {
   border-radius: var(--shape-control);
 }
 /* only a row that does something looks like it does: its own keys, or the
-   control around it */
-.mn-row[tabindex]:not([aria-disabled="true"]):hover,
-button:not(:disabled, [aria-disabled="true"]):hover > .mn-row {
+   control around it. A selected row keeps its fill under the pointer: the
+   fill is all that marks it. */
+.mn-row[tabindex]:not([aria-disabled="true"], [aria-selected="true"]):hover,
+button:not(:disabled, [aria-disabled="true"]):hover
+  > .mn-row:not([aria-selected="true"]) {
   background-color: var(--bg-subtle);
 }
 .mn-row[aria-current]:not([aria-current="false"]),
@@ -1205,14 +1207,6 @@ button:not(:disabled, [aria-disabled="true"]):hover > .mn-row {
   inset-block: 4px;
   inset-inline-start: 0;
   border-inline-start: 2px solid var(--bg-accent);
-}
-.mn-row[aria-selected="true"] {
-  outline: 1px solid var(--focus);
-  outline-offset: -1px;
-} /* the edge: what is selected */
-.mn-row[aria-selected="true"]:focus-visible {
-  outline-width: var(--focus-w);
-  outline-offset: calc(var(--focus-w) * -1);
 }
 .mn-row[aria-current]:not([aria-current="false"]) [data-leading] {
   color: var(--fg-accent);
