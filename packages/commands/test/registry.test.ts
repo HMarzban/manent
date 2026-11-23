@@ -84,12 +84,7 @@ const pick = (id: string) => {
 const noop = (): void => {};
 
 // Frozen, and checked as a subset in order, so a command added later never breaks the pin.
-const STAGE_1_COMMANDS: readonly (readonly [
-  string,
-  string,
-  readonly string[],
-  readonly string[],
-])[] = [
+const STAGE_1_COMMANDS: [string, string, string[], string[]][] = [
   ["app.palette", "Commands", ["Mod+K"], ["Mod+K"]],
   ["app.goTo", "Go to", ["Mod+G"], ["Mod+G"]],
   ["app.preferences", "Preferences", ["Mod+,"], ["Mod+,"]],
@@ -223,9 +218,7 @@ const STAGE_1_COMMANDS: readonly (readonly [
   ["view.colourRevised", "Colour revised pages", [], []],
 ];
 
-const STAGE_1_COMMAND_IDS: readonly string[] = STAGE_1_COMMANDS.map(
-  ([id]) => id,
-);
+const STAGE_1_COMMAND_IDS: string[] = STAGE_1_COMMANDS.map(([id]) => id);
 
 test("the Stage 1 commands are these, with these words and keys", () => {
   expect(
@@ -612,7 +605,7 @@ test("a command added with one definition and one handler appears in the palette
 });
 
 // Frozen, and checked as a subset in order, so a setting added later never breaks the pin.
-const STAGE_1_SETTING_COMMAND_IDS: readonly string[] = [
+const STAGE_1_SETTING_COMMAND_IDS: string[] = [
   "setting.writing.enterAfterDialogue.action",
   "setting.writing.enterAfterDialogue.character",
   "setting.writing.typewriterScrolling",
@@ -651,7 +644,7 @@ const STAGE_1_SETTING_COMMAND_IDS: readonly string[] = [
 test("every setting command has a fixed id, so a stored shortcut keeps finding it", () => {
   expect(
     COMMANDS.filter((c) => STAGE_1_SETTING_COMMAND_IDS.includes(c.id)).map(
-      (c) => c.id,
+      (c): string => c.id,
     ),
   ).toEqual(STAGE_1_SETTING_COMMAND_IDS);
 });
