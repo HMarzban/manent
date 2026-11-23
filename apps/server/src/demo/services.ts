@@ -49,8 +49,9 @@ interface Running {
   writers: readonly Writer[];
 }
 
-/** An Add writers group: its writers and the timer that stops it. */
+/** An Add writers group: its writers, what the server answered when it started and the timer that stops it. */
 interface Group extends Running {
+  answer: WritersResponse;
   cancel(): void;
 }
 
@@ -147,13 +148,14 @@ async function addWriters(
     .map(({ userId, name }, i) => ({ userId, name, scene: scenes[i]! }));
   const writers = await seat(state, docId, seats, PROFILES.demo);
   const cancel = state.live.clock.schedule(stopLater, WRITERS_RUN_MS);
-  state.groups.set(docId, { docId, writers, cancel });
-  return {
+  const answer = {
     asked: count,
     count: writers.length,
     names: seats.map((s) => s.name),
     endsAt: state.live.clock.now() + WRITERS_RUN_MS,
   };
+  state.groups.set(docId, { docId, writers, answer, cancel });
+  return answer;
 }
 
 /** Lanternfield Studios' co-editing groups, on each of their documents that is placed. */
@@ -208,6 +210,8 @@ export function createDemoServices(options: {
           serial(() => stopGroup(state, request.docId)).catch(() => {});
         }),
       ),
+    runningWriters: async (_userId, docId) =>
+      state.groups.get(docId)?.answer ?? NONE,
     async prepare(_userId, { scenarioId }) {
       const scenario = TOUR.scenarios.find((s) => s.id === scenarioId);
       if (scenario === undefined) return { ok: false, reason: "unknown" };

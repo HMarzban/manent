@@ -77,6 +77,20 @@ export const DEMO_CONTROL_ROUTES: Route[] = [
   },
   {
     method: "POST",
+    path: "/api/demo/writers/running",
+    async handle(context) {
+      const call = await readCall(context);
+      if (!call.ok) return call.response;
+      const { body } = call;
+      if (!isObject(body) || !isDocId(body.docId))
+        return failure("bad_request", 400);
+      const refused = refuseEditing(context, call.userId, body.docId);
+      if (refused !== null) return refused;
+      return json(await call.controls.runningWriters(call.userId, body.docId));
+    },
+  },
+  {
+    method: "POST",
     path: "/api/demo/tour/prepare",
     async handle(context) {
       const call = await readCall(context);

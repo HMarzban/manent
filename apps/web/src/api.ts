@@ -49,6 +49,8 @@ export interface Api {
   prepareTour(scenarioId: string): Promise<TourPrepareResponse>;
   /** Starts or stops the demo's simulated writers in a script; throws for any other answer than 200. */
   writers(request: WritersRequest): Promise<WritersResponse>;
+  /** The demo's simulated writers typing in a script now, whichever tab started them; throws for any other answer than 200. */
+  runningWriters(docId: string): Promise<WritersResponse>;
   /** Asks the demo's server to reorganise how a script is stored; throws for any other answer than 200. */
   rebuild(docId: string): Promise<void>;
 }
@@ -209,6 +211,12 @@ export function createApi(options: {
     async writers(body) {
       const path = "/api/demo/writers";
       const response = await request(path, jsonPost(body));
+      return readOk<WritersResponse>(response, `POST ${path}`);
+    },
+
+    async runningWriters(docId) {
+      const path = "/api/demo/writers/running";
+      const response = await request(path, jsonPost({ docId }));
       return readOk<WritersResponse>(response, `POST ${path}`);
     },
 

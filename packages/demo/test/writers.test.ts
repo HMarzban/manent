@@ -16,6 +16,7 @@ import type {
   ProfileId,
   SimulatedPerson,
   SimulatedPersonEvent,
+  WriterLine,
   WritingProfile,
 } from "../src/index.ts";
 
@@ -113,7 +114,7 @@ function world(
     seed?: number;
     region?: { firstBlockId: string; lastBlockId: string };
     markers?: boolean;
-    lines?: readonly string[];
+    lines?: readonly WriterLine[];
   } = {},
 ): World {
   const doc = scriptDocFromJSON(SCRIPT, { clientId: CLIENT_ID });
@@ -176,8 +177,14 @@ test("the profiles are these", () => {
   expect(PROFILES).toEqual(PROFILE_TABLE);
 });
 
-test("a person given lines types only those lines", () => {
-  const lines = ["The tide is out.", "Mind the rope."];
+test("a person given lines types only those lines, each block in its own element", () => {
+  const lines: WriterLine[] = [
+    [{ element: "action", text: "The tide is out." }],
+    [
+      { element: "character", text: "ESME" },
+      { element: "dialogue", text: "Mind the rope." },
+    ],
+  ];
   const w = world(PROFILES.demo, { lines });
   w.person.start();
   w.fake.advance(60_000);
@@ -189,11 +196,15 @@ test("a person given lines types only those lines", () => {
     60_000,
   );
   const typed = new Set(typedIn(w.person).map((event) => event.blockId));
-  const texts = blockIds(w.doc)
-    .filter((id) => typed.has(id))
-    .map((id) => textOf(w.doc, id));
-  expect(texts.length).toBeGreaterThan(2);
-  expect(texts).toEqual(texts.map((_, i) => lines[i % 2]!));
+  const blocks = blocksOf(scriptBody(w.doc).materialize())
+    .filter((flat) => typed.has(flat.attrs.id))
+    .map((flat) => ({
+      element: flat.attrs.type,
+      text: flat.runs.map((run) => run.text).join(""),
+    }));
+  const sequence = lines.flat();
+  expect(blocks.length).toBeGreaterThan(3);
+  expect(blocks).toEqual(blocks.map((_, i) => sequence[i % sequence.length]!));
 });
 
 test("a realistic writer types at four keystrokes a second in bursts, in their own scenes", () => {

@@ -6,20 +6,24 @@ import {
   PopoverContent,
   Segmented,
 } from "@manent/ui";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { WritersRequest, WritersResponse } from "@manent/sync-protocol";
 import { UsersIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { useCanEdit } from "../screens/document/ruler-bar.tsx";
-import { useEnvironment, useServices } from "../services/context.tsx";
+import { useServices } from "../services/context.tsx";
 import { useEditorFact } from "../state/facts.store.ts";
 import { BarButton } from "./bar-button.tsx";
+import { POLL_MS } from "./use-demo.ts";
 
 const TOUR = "demo:writers";
 const CHOICES = [1, 5, 20].map((n) => ({ value: String(n), label: String(n) }));
+/** The first element of the running writers query's key. */
+const WRITERS_QUERY = "demo-writers";
 
-/** What the server answered for the writers last asked for, and in which script; null after Stop writers or `endsAt`. */
-type Running = (WritersResponse & { docId: string }) | null;
+/** The writers typing in the script, as the server last told; null when none is. */
+type Running = WritersResponse | null;
 
 function labelOf(running: Running): string {
   if (running === null) return DEMO_WORDS.addWriters;
@@ -38,23 +42,8 @@ export function WritersControl(props: {
   offline: boolean;
 }): ReactNode {
   const { docId, offline } = props;
-  // kept while the person is away from the script: the writers go on typing in it
-  const [running, setRunning] = useState<Running>(null);
-  const { now, schedule } = useEnvironment();
-  const endsAt = running?.endsAt ?? null;
-  useEffect(() => {
-    if (endsAt === null) return undefined;
-    return schedule(() => setRunning(null), Math.max(0, endsAt - now()));
-  }, [endsAt, now, schedule]);
   if (docId === null) return <Unavailable reason={DEMO_WORDS.needsScript} />;
-  return (
-    <ScriptWriters
-      docId={docId}
-      offline={offline}
-      running={running?.docId === docId ? running : null}
-      onAnswer={setRunning}
-    />
-  );
+  return <ScriptWriters docId={docId} offline={offline} />;
 }
 
 function Unavailable(props: { reason: string }): ReactNode {
@@ -69,24 +58,35 @@ function Unavailable(props: { reason: string }): ReactNode {
   );
 }
 
-function ScriptWriters(props: {
-  docId: string;
-  offline: boolean;
-  running: Running;
-  onAnswer(running: Running): void;
-}): ReactNode {
-  const { docId, offline, running, onAnswer } = props;
+/** The writers are asked of the server again every POLL_MS, so that every tab shows them, whichever started them. */
+function ScriptWriters(props: { docId: string; offline: boolean }): ReactNode {
+  const { docId, offline } = props;
   const { api } = useServices();
+  const queryClient = useQueryClient();
   const caret = useEditorFact("blockId");
   const [open, setOpen] = useState(false);
+  const canEdit = useCanEdit(docId);
+  const queryKey = [WRITERS_QUERY, docId];
+  const answer = useQuery({
+    queryKey,
+    queryFn: () => api.runningWriters(docId),
+    enabled: canEdit && !offline,
+    refetchInterval: POLL_MS,
+  }).data;
   // checked before the connection, so that the reason does not change when the connection does
-  if (!useCanEdit(docId)) return <Unavailable reason={DEMO_WORDS.needsEdit} />;
+  if (!canEdit) return <Unavailable reason={DEMO_WORDS.needsEdit} />;
   if (offline) return <Unavailable reason={DEMO_WORDS.needsConnection} />;
+  const running: Running =
+    answer === undefined || answer.asked === 0 ? null : answer;
   const ask = (count: WritersRequest["count"]): void => {
     setOpen(false);
     const afterBlockId = count === 0 ? null : caret;
     api.writers({ docId, count, afterBlockId }).then(
-      (answer) => onAnswer(answer.asked === 0 ? null : { ...answer, docId }),
+      // an answer to a question asked before this change would undo it on the bar
+      async (next) => {
+        await queryClient.cancelQueries({ queryKey });
+        queryClient.setQueryData(queryKey, next);
+      },
       () => {
         // a request the server refused or never heard leaves the writers as they were
       },

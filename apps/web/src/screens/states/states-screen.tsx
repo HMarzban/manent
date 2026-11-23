@@ -88,6 +88,7 @@ const fixtureApi = (options: {
   docClients: async () => ({ clients: [] }),
   prepareTour: NEVER,
   writers: NEVER,
+  runningWriters: NEVER,
   rebuild: NEVER,
 });
 
