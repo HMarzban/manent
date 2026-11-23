@@ -16,12 +16,21 @@ import { BarButton } from "./bar-button.tsx";
 
 const TOUR = "demo:timings";
 
-/** Offline it still measures this window; only the sync round trip has nothing to measure. */
+/** Disabled without a connection. */
 export function Timings(props: {
   docId: string | null;
   offline: boolean;
 }): ReactNode {
   const [open, setOpen] = useState(false);
+  if (props.offline)
+    return (
+      <BarButton
+        label={DEMO_WORDS.timings}
+        icon={GaugeIcon}
+        tour={TOUR}
+        unavailable={DEMO_WORDS.needsConnection}
+      />
+    );
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <BarButton
@@ -32,7 +41,7 @@ export function Timings(props: {
         opens
       />
       <PopoverContent data-surface="demo" align="end" className="w-auto">
-        <TimingRows docId={props.docId} offline={props.offline} />
+        <TimingRows docId={props.docId} />
       </PopoverContent>
     </Popover>
   );
@@ -61,11 +70,7 @@ function useOpenHandle(docId: string | null): DocHandle | null {
 }
 
 /** Drawn while the popover is open: the product's marks are on for as long, and read again every TIMINGS_REFRESH_MS. */
-function TimingRows(props: {
-  docId: string | null;
-  offline: boolean;
-}): ReactNode {
-  const { offline } = props;
+function TimingRows(props: { docId: string | null }): ReactNode {
   const { schedule } = useEnvironment();
   const handle = useOpenHandle(props.docId);
   useEffect(() => {
@@ -82,11 +87,10 @@ function TimingRows(props: {
           handle === null
             ? null
             : { liveBytes: handle.doc().encodeState().byteLength },
-        connected: !offline,
         // the marks' own clock
         now: () => performance.now(),
       }),
-    [handle, offline],
+    [handle],
   );
   const [, redraw] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {

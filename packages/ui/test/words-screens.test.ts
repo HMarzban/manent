@@ -520,7 +520,7 @@ test("the screens' words are the design's", () => {
     slow: "Slow",
     addWriters: "Add writers",
     addWritersHint:
-      "Simulated writers type in this script, each in a scene of its own.",
+      "Demo writers type in this script, each in a scene of its own.",
     writersChoice: "Writers typing in other scenes",
     stopWriters: "Stop writers",
     writersTyping: ["1 writer typing", "5 writers typing"],
@@ -529,7 +529,7 @@ test("the screens' words are the design's", () => {
     needsConnection: "needs a connection",
     needsEdit: "needs edit access",
     stopServerHint:
-      "Stops the server without warning. Nothing synced is lost, and each window reconnects by itself.",
+      "Stops the server at once. Nothing synced is lost, and each window connects again by itself.",
     timings: "Timings",
     timingsHint:
       "This window's typing, pagination and sync times, measured live.",
@@ -548,11 +548,12 @@ test("the screens' words are the design's", () => {
     timingsNote: "Measured in this window while Timings is open.",
     reorganise: "Reorganise",
     reorganiseHint:
-      "Has the server reorganise how this script is stored now, as it does when a script grows long.",
-    reorganising: "Reorganising…",
-    reorganisingHint: "Starts once no one is typing in this script.",
+      "Asks the server to reorganise how this script is stored, as it does when a script gets long.",
+    reorganiseWaiting: "Waiting to reorganise…",
+    reorganiseWaitingHint: "Starts once no one is typing in this script.",
     reset: "Reset",
-    resetHint: "Seeds every workspace again, for everyone using this demo.",
+    resetHint:
+      "Every workspace goes back to its seeded state, for everyone using this demo.",
     resetTitle: "Reset the demo?",
     resetAction: "Reset the demo",
     resetBody:

@@ -48,17 +48,11 @@ function statsOf(records: readonly MarkRecord[], name: string): string {
 function rowsOf(
   records: readonly MarkRecord[],
   doc: DocSize | null,
-  connected: boolean,
 ): TimingsRow[] {
   return [
     { label: KEYSTROKE, stats: statsOf(records, "editor.keystroke") },
     { label: PAGINATION, stats: statsOf(records, "pagination.engine") },
-    {
-      label: ROUND_TRIP,
-      stats: connected
-        ? statsOf(records, "sync.ack")
-        : DEMO_WORDS.nothingMeasured,
-    },
+    { label: ROUND_TRIP, stats: statsOf(records, "sync.ack") },
     {
       label: SIZE,
       stats:
@@ -77,19 +71,16 @@ const isSameRows = (a: readonly TimingsRow[], b: readonly TimingsRow[]) =>
  * The four rows, read again when at least TIMINGS_REFRESH_MS has passed by `now` since they were last read, and the
  * document's size when DOC_SIZE_REFRESH_MS has; between reads, and while they read the same, the same array, so a
  * component may read it on every render. It tells nobody: whoever draws it draws it again every TIMINGS_REFRESH_MS.
- * Without a connection, Sync round trip reads as nothing measured.
  */
 export function createTimingsSource(options: {
   read: () => readonly MarkRecord[];
   doc: () => DocSize | null;
-  connected: boolean;
   now: () => number;
 }): Subscribable<TimingsRow[]> {
-  const { connected } = options;
   let readAt = options.now();
   let doc = options.doc();
   let docReadAt = readAt;
-  let rows = rowsOf(options.read(), doc, connected);
+  let rows = rowsOf(options.read(), doc);
   return {
     get() {
       const now = options.now();
@@ -99,7 +90,7 @@ export function createTimingsSource(options: {
         docReadAt = now;
         doc = options.doc();
       }
-      const next = rowsOf(options.read(), doc, connected);
+      const next = rowsOf(options.read(), doc);
       if (!isSameRows(next, rows)) rows = next;
       return rows;
     },

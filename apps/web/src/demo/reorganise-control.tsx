@@ -73,8 +73,10 @@ function ScriptReorganise(props: {
       label={DEMO_WORDS.reorganise}
       icon={LayersIcon}
       tour={TOUR}
-      hint={waiting ? DEMO_WORDS.reorganisingHint : DEMO_WORDS.reorganiseHint}
-      busy={waiting ? DEMO_WORDS.reorganising : undefined}
+      hint={
+        waiting ? DEMO_WORDS.reorganiseWaitingHint : DEMO_WORDS.reorganiseHint
+      }
+      busy={waiting ? DEMO_WORDS.reorganiseWaiting : undefined}
       onClick={() => {
         setWaiting(true);
         api.rebuild(docId).catch(() => setWaiting(false));
