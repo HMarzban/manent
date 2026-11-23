@@ -9,6 +9,12 @@ import type {
 } from "@manent/server-core";
 import type { Storage } from "@manent/storage";
 import { workflowService } from "./workflow.ts";
+import { commentsService } from "./comments.ts";
+import { sharingService } from "./sharing.ts";
+import { draftsService } from "./drafts.ts";
+import { privateCopyService } from "./private-copy.ts";
+import { driverService } from "./driver.ts";
+import { projectService } from "./project.ts";
 
 /** What each service is given. `sync` answers once the server has been built. */
 export interface ServiceDeps {
@@ -54,7 +60,15 @@ export interface ServerService {
   create(deps: ServiceDeps): ComposedService;
 }
 
-export const SERVER_SERVICES: readonly ServerService[] = [workflowService];
+export const SERVER_SERVICES: readonly ServerService[] = [
+  workflowService,
+  commentsService,
+  sharingService,
+  draftsService,
+  privateCopyService,
+  driverService,
+  projectService,
+];
 
 /** Every service of the list made: their hooks in list order, the first `airWindow` given (null: none), and their parts of the configuration. */
 export function composeServices(deps: ServiceDeps): {

@@ -8,6 +8,9 @@ import type {
 } from "@manent/server-core";
 import type { NodeCoreOptions } from "./ports.ts";
 import { workflowService } from "./services/workflow.ts";
+import { commentsService } from "./services/comments.ts";
+import { projectService } from "./services/project.ts";
+import { driverService } from "./services/driver.ts";
 
 /** What each service is given. `sync` answers once the server has been built. */
 export interface NodeServiceDeps extends NodeCoreOptions {
@@ -31,7 +34,12 @@ export interface NodeService {
   create(deps: NodeServiceDeps): ComposedNodeService;
 }
 
-export const NODE_SERVICES: readonly NodeService[] = [workflowService];
+export const NODE_SERVICES: readonly NodeService[] = [
+  workflowService,
+  commentsService,
+  projectService,
+  driverService,
+];
 
 /** `hook` as the node's sync service tells it: a relayed room's events are the cloud's. */
 function authorityOnly(
