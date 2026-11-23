@@ -22,6 +22,7 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { Api } from "../../api.ts";
+import { POLL_MS } from "../../demo/use-demo.ts";
 import { focusHeading } from "../../focus.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { ContinueItem, ProjectItem } from "../../services/ports.ts";
@@ -69,6 +70,11 @@ function useShownWorkspace(
     queryKey: ["me", person.userId],
     queryFn: listWorkspaces(api),
     enabled: signedIn,
+    // asked again while a workspace is getting ready, so the switcher follows its seed
+    refetchInterval: (query) =>
+      query.state.data?.some((ref) => ref.seeding?.failed === false)
+        ? POLL_MS
+        : false,
   });
   const known = signedIn ? (me.data ?? null) : null;
   const answered = !signedIn || me.data !== undefined || me.isError;
