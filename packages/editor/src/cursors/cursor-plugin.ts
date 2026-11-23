@@ -19,6 +19,9 @@ export const NAME_TAB_MS = 3000;
 /** The most blocks one person's selection is drawn over, counted from its head. */
 export const MAX_SELECTION_BLOCKS = 200;
 
+// the key of every caret's widget starts with this
+const CARET_KEY = "cursor:";
+
 /** Whose cursors are drawn: everyone's, or only those of the listed userIds. */
 export type ShownCursors = "everyone" | readonly string[];
 
@@ -51,6 +54,11 @@ const isSameShown = (a: ShownCursors, b: ShownCursors): boolean =>
     b !== "everyone" &&
     a.length === b.length &&
     a.every((userId, i) => userId === b[i]));
+
+const caretCount = (set: DecorationSet): number =>
+  set.find(undefined, undefined, (spec: { key?: unknown }) =>
+    String(spec.key).startsWith(CARET_KEY),
+  ).length;
 
 function caretOf(
   cursor: RemoteCursor,
@@ -125,7 +133,7 @@ function decorationsOf(
     const named = isNameShown(cursor, now);
     decorations.push(
       Decoration.widget(head, caretOf(cursor, named, listed), {
-        key: `cursor:${cursor.key}:${cursor.colour}:${named}${listed ? ":listed" : ""}`,
+        key: `${CARET_KEY}${cursor.key}:${cursor.colour}:${named}${listed ? ":listed" : ""}`,
       }),
       ...selectionOf(state, cursor, head),
     );
@@ -244,9 +252,15 @@ export function cursorsPlugin(options: CursorsOptions): Plugin {
         const meta: Meta | undefined = tr.getMeta(cursorsKey);
         if (meta !== undefined) return afterMeta(state, prev, meta);
         if (!tr.docChanged) return prev;
+        const mapped = prev.decorations.map(tr.mapping, tr.doc);
+        // a remote change replaces the whole script, and a mapping drops every caret in a replaced range: the carets
+        // are found again from their places in the same transaction, so that no frame is drawn without them
         return {
           ...prev,
-          decorations: prev.decorations.map(tr.mapping, tr.doc),
+          decorations:
+            caretCount(mapped) === caretCount(prev.decorations)
+              ? mapped
+              : decorationsOf(state, prev),
         };
       },
     },
