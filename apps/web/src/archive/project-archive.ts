@@ -7,6 +7,7 @@ import {
   jsonMap,
   scriptBody,
 } from "@manent/crdt";
+import type { CrdtDoc } from "@manent/crdt";
 import { parseImportRecord, writeArchive } from "@manent/formats";
 import type {
   ArchiveDocument,
@@ -14,7 +15,8 @@ import type {
   ScriptForExport,
 } from "@manent/formats";
 import { FORMATS, isScriptNote } from "@manent/schema";
-import type { DocHandle, DocStatus } from "@manent/sync-client";
+import type { BlockJSON } from "@manent/schema";
+import type { DocHandle, SideState, ViewHandle } from "@manent/sync-client";
 import { indexDocId } from "@manent/sync-protocol";
 import { LIBRARY_WORDS } from "@manent/ui";
 import type { HistoryRow } from "../history/history-rows.ts";
@@ -24,6 +26,11 @@ import type { WrittenFile } from "../send/script-file.ts";
 import type { PersonServices } from "../services/ports.ts";
 import { readWorkspace } from "../services/sync/index-entries.ts";
 
+/** What the archive is read with: the person's indexes and scripts, and history's drafts. */
+type ArchiveServices = Pick<PersonServices, "api" | "userId" | "openHandle"> & {
+  history: Pick<HistorySource, "rows" | "content">;
+};
+
 /** A project as its workspace's index lists it: its title and its scripts, oldest first. */
 interface ListedProject {
   title: string;
@@ -32,7 +39,7 @@ interface ListedProject {
 
 /** The project whose index entry lists `docId`, among the person's workspaces and their own desk; null when none does. */
 async function projectOf(
-  services: PersonServices,
+  services: ArchiveServices,
   docId: string,
 ): Promise<ListedProject | null> {
   const me = await services.api.me();
@@ -74,51 +81,103 @@ async function projectOf(
   return null;
 }
 
-/** The handle has caught up with the server, or cannot now: the link is offline, or the server refused the document. */
-const isCaughtUp = (status: DocStatus): boolean =>
-  status.docSync === "synced" ||
-  status.link === "offline" ||
-  status.side.length > 0;
+/**
+ * Where a script can be read whole from: its document, once caught up with the server or kept on the device while
+ * offline; its reader's blocks, for a person who may only read it; not yet; or nowhere.
+ */
+type Reading =
+  | { kind: "doc" }
+  | { kind: "view"; blocks: readonly BlockJSON[] }
+  | { kind: "waiting" }
+  | { kind: "unreadable" };
 
-/** Settles once `handle` has caught up, so that a script the device was still fetching is written whole. */
-function caughtUp(handle: DocHandle): Promise<void> {
+/** The sides whose script is read through the handle's reader. */
+const READER_SIDES: readonly SideState[] = ["read_only", "view_only"];
+
+function readingOf(handle: DocHandle): Reading {
+  const status = handle.status.get();
+  if (status.side.some((side) => !READER_SIDES.includes(side)))
+    return { kind: "unreadable" };
+  const view = handle.readOnly.get();
+  if (view !== null) {
+    const { live, link } = view.status.get();
+    if (live) return { kind: "view", blocks: view.blocks.get() };
+    return { kind: link === "offline" ? "unreadable" : "waiting" };
+  }
+  // the reader is set after the side that calls for it
+  if (status.side.length > 0) return { kind: "waiting" };
+  if (status.docSync === "synced") return { kind: "doc" };
+  if (status.link !== "offline") return { kind: "waiting" };
+  // a record never synced with nothing waiting holds none of the script: it was never fetched to this device
+  return {
+    kind: status.neverSynced && status.waiting === 0 ? "unreadable" : "doc",
+  };
+}
+
+/** Settles once `handle`'s script can be read whole, or cannot be. */
+function settledReading(
+  handle: DocHandle,
+): Promise<Exclude<Reading, { kind: "waiting" }>> {
   return new Promise((resolve) => {
-    if (isCaughtUp(handle.status.get())) {
-      resolve();
-      return;
-    }
-    const stop = handle.status.subscribe((status) => {
-      if (!isCaughtUp(status)) return;
-      stop();
-      resolve();
-    });
+    const stops: (() => void)[] = [];
+    let watched: ViewHandle | null = null;
+    const check = (): void => {
+      const view = handle.readOnly.get();
+      if (view !== null && view !== watched) {
+        watched = view;
+        stops.push(view.status.subscribe(check));
+      }
+      const reading = readingOf(handle);
+      if (reading.kind === "waiting") return;
+      for (const stop of stops.splice(0)) stop();
+      resolve(reading);
+    };
+    stops.push(
+      handle.status.subscribe(check),
+      handle.readOnly.subscribe(check),
+    );
+    check();
   });
 }
 
-/** The script `docId` as it is now, as the device holds it once caught up: its blocks, notes and import record, out of production. */
+/** A script's document as it stands: its blocks, notes and import record. */
+function contentOf(
+  doc: CrdtDoc,
+): Pick<ScriptForExport, "blocks" | "notes" | "record"> {
+  return {
+    blocks: (scriptBody(doc).materialize().content ?? []).flatMap(
+      (section) => section.content ?? [],
+    ),
+    notes: Object.entries(jsonMap(doc, NOTES_MAP).entries()).flatMap(
+      ([id, note]) => (isScriptNote(note) ? [{ id, note }] : []),
+    ),
+    record: parseImportRecord(jsonMap(doc, IMPORT_MAP).get(IMPORT_RECORD_KEY)),
+  };
+}
+
+/**
+ * The script `docId` as it is now, read whole: its blocks, notes and import record, out of production. A reader holds
+ * blocks only, so a script the person may only read has no notes and no import record. Rejects when the device
+ * cannot read it whole: never fetched while offline, or refused by the server.
+ */
 async function scriptOf(
-  services: PersonServices,
+  services: ArchiveServices,
   docId: string,
   title: string,
 ): Promise<ScriptForExport> {
   const handle = await services.openHandle(docId);
   try {
-    await caughtUp(handle);
-    const doc = handle.doc();
+    const reading = await settledReading(handle);
+    if (reading.kind === "unreadable")
+      throw new Error(`${docId} cannot be read whole on this device`);
     const stored = handle.settings.get()["script.format"];
     return {
       title,
       // with no format of its own a script is a screenplay, the setting's default and the first format
       format: FORMATS.find((id) => id === stored) ?? FORMATS[0],
-      blocks: (scriptBody(doc).materialize().content ?? []).flatMap(
-        (section) => section.content ?? [],
-      ),
-      notes: Object.entries(jsonMap(doc, NOTES_MAP).entries()).flatMap(
-        ([id, note]) => (isScriptNote(note) ? [{ id, note }] : []),
-      ),
-      record: parseImportRecord(
-        jsonMap(doc, IMPORT_MAP).get(IMPORT_RECORD_KEY),
-      ),
+      ...(reading.kind === "view"
+        ? { blocks: [...reading.blocks], notes: [], record: null }
+        : contentOf(handle.doc())),
       production: null,
     };
   } finally {
@@ -128,7 +187,7 @@ async function scriptOf(
 
 /** History's rows of `docId` once they are no longer loading: the device's, and the server's while it can be reached. */
 function listedRows(
-  history: HistorySource,
+  history: ArchiveServices["history"],
   docId: string,
 ): Promise<readonly HistoryRow[]> {
   const listed = history.rows(docId);
@@ -153,7 +212,7 @@ function listedRows(
 
 /** Each named draft of `docId` whose content this tab, the device or a reachable server holds; the others are left out. */
 async function draftsOf(
-  history: HistorySource,
+  history: ArchiveServices["history"],
   docId: string,
 ): Promise<ArchiveDraft[]> {
   const drafts: ArchiveDraft[] = [];
@@ -172,10 +231,11 @@ async function draftsOf(
 
 /**
  * The archive of the project holding `docId`, named `{project title}.zip`, read one script at a time. Rejects when no
- * index of the person's lists the document, or a script cannot be opened.
+ * index of the person's lists the document, or a script cannot be opened or read whole: an archive never holds a
+ * script as an empty file.
  */
 export async function writeProjectArchive(
-  services: PersonServices,
+  services: ArchiveServices,
   docId: string,
   now: () => number,
 ): Promise<WrittenFile> {
