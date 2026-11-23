@@ -151,6 +151,8 @@ export function LockDialog(props: {
       onCancel={onClose}
       alternative={{
         label: COPIES_WORDS.tryOnCopy,
+        disabled: request.disabledReason !== undefined,
+        tour: "lock:copy",
         // offline the dialog's line already says the connection's reason, and nothing is copied
         onAction: () => {
           if (request.disabledReason === undefined) onCopy.start(choice());
