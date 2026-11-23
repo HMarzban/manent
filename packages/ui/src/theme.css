@@ -959,16 +959,12 @@ html[data-white-page] .mn-pages {
     border-inline-start: 2px solid var(--fg-muted);
   }
 }
-[role="listbox"] [role="option"] {
-  cursor: pointer;
-}
 [role="listbox"]
   [role="option"]:not([aria-disabled="true"]):not([data-highlighted]):hover {
   background-color: var(--bg-subtle);
 }
 [role="listbox"] [role="option"][aria-disabled="true"] {
   color: var(--fg-muted);
-  cursor: not-allowed;
 }
 
 /* 4. The scrim is a token, and nothing blurs. */

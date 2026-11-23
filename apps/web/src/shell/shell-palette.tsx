@@ -8,7 +8,7 @@ import {
   createCommandSource,
   createSettingSource,
 } from "@manent/ui";
-import type { PaletteRow } from "@manent/ui";
+import type { PaletteFilter, PaletteRow } from "@manent/ui";
 import { QueryClientContext } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import {
@@ -29,7 +29,6 @@ import {
   PeopleContext,
 } from "../state/bridge-contexts.ts";
 import { usePaletteOpen } from "../state/palette.store.ts";
-import type { PaletteFilter } from "../state/palette.store.ts";
 import {
   createDocumentSource,
   createPersonSource,
