@@ -9,6 +9,7 @@ export * from "./panel-tabs/index.ts";
 export * from "./row/index.ts";
 export * from "./ruler/index.ts";
 export * from "./segmented/index.ts";
+export * from "./sortable/index.ts";
 export * from "./state-bar/index.ts";
 export * from "./stock/index.ts";
 export * from "./surface-state/index.ts";

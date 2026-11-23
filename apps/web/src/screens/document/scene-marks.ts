@@ -1,6 +1,9 @@
 // The marks a Scenes row draws after its heading, by scene-heading block id; a feature adds its source with one line.
 import type { Subscribable } from "@manent/ui";
 import { revisedSceneIds } from "../../production/scene-marks.ts";
+import { assignmentSceneMarks } from "../../assignment/scene-marks.ts";
+import { marginPeopleScenes } from "../../room/margin-people-scenes.ts";
+import { commentSceneCounts } from "../../comments/scene-counts.ts";
 
 /** `revised` ends the row with " *"; the others are drawn after the heading, in the row's fixed order. */
 export type SceneMark =
@@ -40,4 +43,7 @@ export const SCENE_MARK_SOURCES: readonly ((
   docId: string,
 ) => Subscribable<ReadonlyMap<string, readonly SceneMark[]>>)[] = [
   revisedSceneMarks,
+  assignmentSceneMarks,
+  marginPeopleScenes,
+  commentSceneCounts,
 ];

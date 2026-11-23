@@ -4,6 +4,7 @@ import { issueForm } from "../../production/send/issue-form.tsx";
 import { recallForm } from "../../production/send/recall-form.tsx";
 import { exportForm } from "../../send/export-form.tsx";
 import { printForm } from "../../send/print-form.tsx";
+import { sendDraftForm } from "../../send-draft/send-draft-form.tsx";
 import type { SendFormId } from "./form-ids.ts";
 
 // the ids and their addresses live apart, so that the entry, which needs them, does not load the forms
@@ -24,7 +25,7 @@ export interface SendForm {
 export const SEND_FORMS: readonly SendForm[] = [
   exportForm,
   printForm,
-  // send_draft arrives later
+  sendDraftForm,
   issueForm,
   recallForm,
 ];

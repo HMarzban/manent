@@ -123,7 +123,7 @@ test("the Send screen's forms are a registration list that starts empty", () => 
     sendPath("d1", "print"),
   ]).toEqual([
     ["export", "print", "send_draft", "issue", "recall"],
-    ["export", "print", "issue", "recall"],
+    ["export", "print", "send_draft", "issue", "recall"],
     "/s/d1/send/print",
   ]);
 });

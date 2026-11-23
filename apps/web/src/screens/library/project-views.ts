@@ -1,6 +1,7 @@
 // A project of a kind as the Library draws it; a kind with no line is drawn as a row that opens its first document.
 import type { ComponentType } from "react";
 import type { ProjectItem, ProjectKind } from "../../services/ports.ts";
+import { SeriesView } from "./series/series-view.tsx";
 
 export interface ProjectViewProps {
   readonly project: ProjectItem;
@@ -15,4 +16,6 @@ export interface ProjectView {
   readonly View: ComponentType<ProjectViewProps>;
 }
 
-export const PROJECT_VIEWS: readonly ProjectView[] = [];
+export const PROJECT_VIEWS: readonly ProjectView[] = [
+  { kind: "series", View: SeriesView },
+];
