@@ -297,6 +297,32 @@ test("a remote edit never scrolls back to the caret just out of view", async ({
   }).toEqual({ inWindow: true, sameLine: before.id, lineStays: true });
 });
 
+test("a remote edit on a page with room at its foot leaves the next page where it is", async ({
+  page,
+}) => {
+  const first = Array.from({ length: 10 }, (_, n) => tideLine(n + 1));
+  const rest = Array.from({ length: 60 }, (_, n) => tideLine(n + 11));
+  await openScript(
+    page,
+    "screenplay",
+    corpusDoc([...first, corpusLine("page_break", ""), ...rest]),
+  );
+  await groupHook(page, "remote", "join", DANA);
+  // the top of the view on the desk above the page that block 11 opens
+  await scrollBlockTo(page, (await blocks(page))[11]!.id, 60);
+  await settled(page);
+  const before = await firstVisible(page);
+  const added = "The keeper climbs the stair and lights the lamp at the top. ";
+  await groupHook(page, "remote", "type", 3, 0, added);
+  await holds(page, 3, `${added}The tide turns, line 4.`);
+  await settled(page);
+  const after = await firstVisible(page);
+  expect({
+    sameLine: after.id,
+    lineStays: Math.abs(after.top - before.top) <= 1,
+  }).toEqual({ sameLine: before.id, lineStays: true });
+});
+
 test("another writer's caret at the end of a line moves no line", async ({
   page,
 }) => {
