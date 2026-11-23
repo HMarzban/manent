@@ -1,5 +1,6 @@
 // The demo's people and the workspaces they belong to.
 import type { SignInChoice } from "@manent/sync-protocol";
+import { GENERATED_MEMBERS } from "./people/members.ts";
 
 export const DEMO_USER_IDS = [
   "dana",
@@ -55,6 +56,14 @@ export const DEMO_PEOPLE: readonly DemoPerson[] = Object.freeze([
     registered: false,
   },
 ]);
+
+/** The full name of a demo person or of a member the seed adds ("Amara Nwosu"); null for anyone else. */
+export function demoPersonName(userId: string): string | null {
+  const person =
+    DEMO_PEOPLE.find((p) => p.userId === userId) ??
+    GENERATED_MEMBERS.find((m) => m.userId === userId);
+  return person?.name ?? null;
+}
 
 export interface DemoWorkspace {
   id: "small" | "medium" | "heavy" | "you";

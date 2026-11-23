@@ -18,7 +18,12 @@ export type {
   StyleRules,
   VarietyStory,
 } from "./generate/guide.ts";
-export { DEMO_PEOPLE, DEMO_USER_IDS, DEMO_WORKSPACES } from "./people.ts";
+export {
+  DEMO_PEOPLE,
+  DEMO_USER_IDS,
+  DEMO_WORKSPACES,
+  demoPersonName,
+} from "./people.ts";
 export type { DemoPerson, DemoUserId, DemoWorkspace } from "./people.ts";
 export { GENERATED_MEMBERS } from "./people/members.ts";
 export type { GeneratedMember } from "./people/members.ts";
