@@ -24,7 +24,7 @@ export interface WritingIndex {
   continued: JsonMapView;
   /**
    * Calls `then` once the server has answered for the index: synced with nothing waiting, or a side state the server
-   * raises. An index the server holds no document for is answered too: made and then synced, when the device asked to
+   * raises; or once the device's link has dropped. An index the server holds no document for is answered too: made and then synced, when the device asked to
    * create it, or refused as `forbidden`, which the handle shows as a side state. The returned function stops waiting.
    */
   whenAnswered(then: () => void): () => void;
@@ -59,11 +59,12 @@ const SERVER_ANSWERS: Readonly<Record<SideState, boolean>> = Object.freeze({
 });
 
 /**
- * Whether the server has answered for the person's index. A status that only says the link is offline is not an
- * answer: a following tab shows that until the leading tab first tells it the index's status.
+ * Whether the server has answered for the person's index, or the device's link has dropped. An offline link with no
+ * drop recorded is not enough: a following tab shows that until the leading tab first tells it the index's status.
  */
 function isAnswered(status: DocStatus): boolean {
   if (status.synced && status.waiting === 0) return true;
+  if (status.link === "offline" && status.wentOfflineAt !== null) return true;
   return status.side.some((side) => SERVER_ANSWERS[side]);
 }
 
