@@ -1,5 +1,6 @@
 // Moving the person's writing in a script from one position to another.
 import { WRITING_WORDS, messageFor } from "@manent/ui";
+import { whenHeld } from "../editor-host/sync-sessions.ts";
 import type { PersonServices } from "../services/ports.ts";
 import { writingActions } from "../state/writing.store.ts";
 import { compareCopy } from "./compare-copy.ts";
@@ -30,9 +31,9 @@ export function writePublicly(
 }
 
 /**
- * Writes `docId` in the person's private copy, which the server makes when they have none open, from the moment it
- * answers. `not_synced`: the server has never held the script; `refused`: the server made no copy, or the private
- * index, where the position is kept, has not been read yet.
+ * Writes `docId` in the person's private copy, which the server makes when they have none open, from the moment the
+ * copy is on this device. `not_synced`: the server has never held the script; `refused`: the server made no copy, or
+ * the private index, where the position is kept, has not been read yet.
  */
 export async function startPrivately(
   services: ChoiceServices,
@@ -46,6 +47,13 @@ export async function startPrivately(
   if (!synced) return { ok: false, reason: "not_synced" };
   const privateDocId = await createPrivateCopy(services.userId, docId);
   if (privateDocId === null) return { ok: false, reason: "refused" };
+  // the position moves once the copy is on this device, so the page shows it at once and nothing typed under the
+  // privacy line reaches the script
+  const copy = await services.openHandle(privateDocId);
+  await new Promise<void>((resolve) => {
+    whenHeld(copy, () => resolve());
+  });
+  await copy.close();
   writingActions.keep(docId, {
     position: "private",
     at: now(),

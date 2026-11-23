@@ -65,7 +65,10 @@ interface Showing {
 }
 
 /** Calls `then` with `handle`'s document once it holds a block; the returned function stops waiting. */
-function whenHeld(handle: DocHandle, then: (doc: CrdtDoc) => void): () => void {
+export function whenHeld(
+  handle: DocHandle,
+  then: (doc: CrdtDoc) => void,
+): () => void {
   const doc = handle.doc();
   const body = yXmlFragmentForBinding(doc);
   if (body.length > 0) {
