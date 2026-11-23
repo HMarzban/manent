@@ -13,7 +13,8 @@ import {
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { useRef } from "react";
+import type { ReactNode, RefObject } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 
 /** "6 projects · The Long Night", how far a workspace being seeded has got, or that its seed stopped. */
@@ -71,6 +72,18 @@ function SeededWorkspace(props: {
 }
 
 /**
+ * Where focus goes as the menu closes: back to `trigger`, with its ring only when the menu was closed from the keys, as a
+ * trigger focused by keys before a pointer chose would otherwise draw it again.
+ */
+const returnFocusTo =
+  (trigger: RefObject<HTMLButtonElement | null>) =>
+  (closeType: string): boolean => {
+    if (closeType === "keyboard" || closeType === "") return true;
+    trigger.current?.focus({ focusVisible: false });
+    return false;
+  };
+
+/**
  * `workspaces` null is a person with no session, whose one workspace is Your desk, on this device only, with
  * Sign in to sync after it. Nothing is drawn when `current` is not one of `workspaces`.
  */
@@ -82,6 +95,7 @@ export function WorkspaceSwitcher(props: {
   const { commands } = useServices();
   const { where } = useEnvironment();
   const navigate = useNavigate();
+  const trigger = useRef<HTMLButtonElement>(null);
   const name =
     workspaces === null
       ? LIBRARY_WORDS.yourDesk
@@ -94,12 +108,14 @@ export function WorkspaceSwitcher(props: {
       {/* a narrow title bar shortens the name before it loses a control */}
       <DropdownMenuTrigger
         data-tour="workspace_switcher"
-        render={<Button variant="ghost" className="min-w-0 shrink" />}
+        render={
+          <Button ref={trigger} variant="ghost" className="min-w-0 shrink" />
+        }
       >
         <span className="truncate font-semibold">{name}</span>
         <ChevronDownIcon aria-hidden="true" className="text-fg-muted" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent>
+      <DropdownMenuContent finalFocus={returnFocusTo(trigger)}>
         {workspaces === null ? (
           <>
             <WorkspaceItem
