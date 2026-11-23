@@ -903,6 +903,8 @@ test("the handler table names every command but the generated ones", () => {
     "view.marks.since_full_draft": noop,
     "view.marks.none": noop,
     "view.colourRevised": noop,
+    "room.follow": noop,
+    "room.stopFollowing": noop,
     "share.open": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(

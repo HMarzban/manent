@@ -1,10 +1,13 @@
 // Other people's initials in the desk gutter beside the sheet, level with the first line of the element holding
-// their caret, and the scenes they are in. Placed from the engine's pages on the sheets in view, never measured.
+// their caret, the scenes they are in, and whose cursors the page draws. Placed from the engine's pages on the
+// sheets in view, never measured.
 import type { LayoutBlock } from "@manent/pagination";
 import { Plugin } from "prosemirror-state";
 import type { PluginView } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { markPosition } from "../changes/layer.ts";
+import { setShownCursors } from "../cursors/cursor-plugin.ts";
+import type { ShownCursors } from "../cursors/cursor-plugin.ts";
 import { blockNear, currentIndex } from "../cursors/place.ts";
 import type { BlockIndex } from "../pagination/block-index.ts";
 import { paginationKey } from "../pagination/plugin.ts";
@@ -20,6 +23,8 @@ export interface MarginPeopleOptions {
   zoom(): number;
   /** Told the people in each scene, by the block id of its heading, whenever that changes; an empty map once the page goes. */
   onScenes(scenes: ReadonlyMap<string, readonly RemoteCursor[]>): void;
+  /** Whose cursors the page draws, set again at each presence report and whenever `subscribe` says it changed. */
+  shown: { get(): ShownCursors; subscribe(listener: () => void): () => void };
 }
 
 /** One person and the index of the block holding the head of their caret. */
@@ -206,8 +211,12 @@ function marginPeopleView(
         : spots.map((spot) => markerOf(frame.ownerDocument, spot, options));
     frame?.append(...drawn);
   };
+  // the filter is a transaction, so it is set when a report or a change arrives, never while the view is made
+  const show = () => setShownCursors(view, options.shown.get());
+  const stopShown = options.shown.subscribe(show);
   const stop = options.subscribe((cursors) => {
     people = latestByPerson(cursors);
+    show();
     draw();
   });
   // the page scaffold names each sheet it draws, on scroll and zoom as well as when the pages change
@@ -227,6 +236,7 @@ function marginPeopleView(
     },
     destroy() {
       stop();
+      stopShown();
       sheets.disconnect();
       for (const marker of drawn) marker.remove();
       tellScenes(new Map());
@@ -237,7 +247,7 @@ function marginPeopleView(
 /**
  * Draws one marker per line holding the head of someone's caret, in the desk gutter beside the sheets in view: the
  * person's initials in their collaborator colour, or how many people share the line. A view without pages (Ink)
- * has no gutter and draws none, and tells no scenes.
+ * has no gutter and draws none, and tells no scenes. Whose cursors are drawn is `options.shown`'s.
  */
 export function marginPeoplePlugin(options: MarginPeopleOptions): Plugin {
   return new Plugin({ view: (view) => marginPeopleView(view, options) });
