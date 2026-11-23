@@ -56,7 +56,8 @@ function subscribeToResize(listener: () => void): () => void {
 
 /**
  * True while an open panel does not fit beside the page: it is then drawn over the page and closes when focus returns
- * to the page. Opening one panel closes the other when both do not fit, except that Scenes a script opened close
+ * to the page; a window narrowed under open panels while focus is in the page closes them, so they never cover the line
+ * being written. Opening one panel closes the other when both do not fit, except that Scenes a script opened close
  * themselves, and a panel that closes with focus lost to the body sends focus to the page.
  */
 function usePanelsOverPage(): boolean {
@@ -73,21 +74,29 @@ function usePanelsOverPage(): boolean {
     leftPx: left.tab === null ? null : left.widthPx,
     sidePx: side.tab === null ? null : side.widthPx,
   });
-  const before = useRef({ left: left.tab, side: side.tab });
+  const over = fit === "overlay";
+  const before = useRef({ left: left.tab, side: side.tab, over });
   useLayoutEffect(() => {
     const was = before.current;
-    before.current = { left: left.tab, side: side.tab };
+    before.current = { left: left.tab, side: side.tab, over };
     const closed =
       (was.left !== null && left.tab === null) ||
       (was.side !== null && side.tab === null);
     if (closed && document.activeElement === document.body) dom.focusPage();
+    // a window narrowed under open panels while the person writes: they would cover the line being written
+    const narrowed =
+      over && !was.over && was.left === left.tab && was.side === side.tab;
+    if (narrowed && dom.pageFocused()) {
+      panelsActions.close("left");
+      panelsActions.close("side");
+      return;
+    }
     // the panel open before gives way to the one just opened; Scenes a script opened give way to the person's panel
     if (fit !== "both" && left.tab !== null && side.tab !== null)
       panelsActions.close(
         was.left === null && !panelsActions.scenesUnchosen() ? "side" : "left",
       );
-  }, [dom, fit, left.tab, side.tab]);
-  const over = fit === "overlay";
+  }, [dom, fit, over, left.tab, side.tab]);
   useEffect(() => {
     if (!over) return;
     const onFocusIn = (event: FocusEvent): void => {
