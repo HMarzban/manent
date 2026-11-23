@@ -255,9 +255,9 @@ function windowOfStep(text: string, userIds: readonly string[]): number {
 }
 
 /**
- * Step `index`'s target in the window it names. In the first window, where the Tour is open, the person is on that
- * step, as pressing the last step's control or choosing the step in the Tour puts them, and its target must carry the
- * Tour ring; an extra window has no Tour, so there the target need only be visible.
+ * Step `index`'s target in the window it names. In the first window, where the Tour is open, the person chooses that
+ * step in the Tour unless Set it up put them on it, and its target must carry the Tour ring; an extra window has no
+ * Tour, so there the target need only be visible.
  */
 async function stepTarget(
   windows: readonly Page[],

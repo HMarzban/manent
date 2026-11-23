@@ -74,14 +74,11 @@ function useServerState(): ControlState | null {
 
 /**
  * Marks the control of step `at` with the Tour ring, a control drawn later (its screen or menu opened) as it arrives;
- * only what arrives is looked at, never the whole page again. Pressing the ringed control moves the person on to the
- * next step. `at` null, or past the last step: nothing is ringed.
+ * only what arrives is looked at, never the whole page again. Pressing the ringed control never moves the person on:
+ * most steps are not done by one press (typing on the page, choosing in a menu), so they choose the next step in the
+ * Tour. `at` null: nothing is ringed.
  */
-function useTourRing(
-  scenarioId: string,
-  steps: TourScenario["steps"],
-  at: number | null,
-): void {
+function useTourRing(steps: TourScenario["steps"], at: number | null): void {
   useLayoutEffect(() => {
     if (at === null) return;
     const step = steps[at];
@@ -107,23 +104,13 @@ function useTourRing(
       subtree: true,
       attributeFilter: ["data-tour"],
     });
-    // in the capture phase, so a control that stops its click from spreading still moves the person on
-    const press = (event: MouseEvent): void => {
-      if (
-        event.target instanceof Element &&
-        event.target.closest(selector) !== null
-      )
-        tourActions.open(scenarioId, at + 1);
-    };
-    document.addEventListener("click", press, true);
     return () => {
       arrivals.disconnect();
-      document.removeEventListener("click", press, true);
       // one step is ringed at a time, in one scenario, so this never unrings another step's control
       for (const control of document.querySelectorAll(selector))
         control.removeAttribute("data-tour-ring");
     };
-  }, [scenarioId, steps, at]);
+  }, [steps, at]);
 }
 
 /**
@@ -145,7 +132,7 @@ export function TourScenarioRow(props: {
   const [refusal, setRefusal] = useState<Refusal | null>(null);
   const [running, setRunning] = useState(false);
   const at = useTourStep(scenario.id);
-  useTourRing(scenario.id, scenario.steps, at);
+  useTourRing(scenario.steps, at);
   const currentStep = useRef<HTMLElement | null>(null);
   // the step the person is on stays in view, whichever screen drew the Tour again
   useLayoutEffect(() => {

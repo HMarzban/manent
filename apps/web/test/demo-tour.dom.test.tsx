@@ -269,7 +269,18 @@ const ringed = (): string[] =>
     (control) => control.getAttribute("data-tour") ?? "",
   );
 
-test("only the step the person is on rings its control, and pressing it moves them on", async () => {
+/** The words of the step the person is on, as the Tour shows it: none while no step is current. */
+const currentStep = (container: HTMLElement): (string | null)[] =>
+  [...container.querySelectorAll("ol [aria-current='true']")].map(
+    (step) => step.textContent,
+  );
+
+/** The Tour's numbered step rows, in order. */
+const stepRows = (container: HTMLElement): HTMLElement[] => [
+  ...container.querySelectorAll<HTMLElement>("ol > li > div"),
+];
+
+test("only the step the person is on rings its control, and choosing a step in the Tour moves them there", async () => {
   const palette = document.createElement("button");
   palette.setAttribute("data-tour", "app.palette");
   const newScript = document.createElement("button");
@@ -284,29 +295,53 @@ test("only the step the person is on rings its control, and pressing it moves th
       setUp={async () => ({ ok: true })}
     />,
   );
-  const current = (): (string | null)[] =>
-    [...container.querySelectorAll("ol [aria-current='true']")].map(
-      (step) => step.textContent,
-    );
   // a scenario the person has not opened rings nothing
   expect(ringed()).toEqual([]);
   await act(async () => buttons(container)[0]?.click());
   expect(ringed()).toEqual(["app.palette"]);
-  expect(current()).toEqual(["1Open the commands."]);
+  expect(currentStep(container)).toEqual(["1Open the commands."]);
   // the Tour ring is not focus
   expect(document.activeElement).toBe(field);
+  // pressing the ringed control leaves the person on the step
   act(() => palette.click());
+  expect(ringed()).toEqual(["app.palette"]);
+  expect(currentStep(container)).toEqual(["1Open the commands."]);
+  act(() => stepRows(container)[1]?.click());
   expect(ringed()).toEqual(["library.newScript"]);
-  expect(current()).toEqual(["2Choose New script."]);
-  act(() => newScript.click());
-  expect(ringed()).toEqual([]);
-  expect(current()).toEqual([]);
-  // choosing a step makes it the one the person is on
-  act(() => container.querySelector<HTMLElement>("ol li div")?.click());
+  expect(currentStep(container)).toEqual(["2Choose New script."]);
+  act(() => stepRows(container)[0]?.click());
   expect(ringed()).toEqual(["app.palette"]);
   act(() => mounted?.unmount());
   mounted = null;
   expect(ringed()).toEqual([]);
+});
+
+test("clicking into the ringed page to write does not move the person on to the next step", async () => {
+  const page = document.createElement("div");
+  page.setAttribute("data-tour", "page");
+  const line = document.createElement("p");
+  page.append(line);
+  document.body.append(page);
+  const container = await render(
+    <TourScenarioRow
+      scenario={{
+        ...SCENARIO,
+        steps: [
+          { text: "Type a scene heading.", highlight: "page" },
+          { text: "Type an action line under it.", highlight: "page" },
+        ],
+      }}
+      {...ROW}
+      setUp={async () => ({ ok: true })}
+    />,
+  );
+  await act(async () => buttons(container)[0]?.click());
+  act(() => {
+    page.click();
+    line.click();
+  });
+  expect(currentStep(container)).toEqual(["1Type a scene heading."]);
+  expect(ringed()).toEqual(["page"]);
 });
 
 test("the demo bar is its own colour scope and says Demo", async () => {

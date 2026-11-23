@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import { createStore } from "zustand";
 import { guardWrite } from "./guard.ts";
 
-/** `step` is an index into the scenario's steps; one past the last means every step is behind the person. */
+/** `step` is an index into the scenario's steps. */
 interface TourAt {
   scenarioId: string | null;
   step: number;
