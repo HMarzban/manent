@@ -556,7 +556,7 @@ test("the screens' words are the design's", () => {
     setItUpAgain: "Set it up again",
     whatToCheck: "What to check",
     nowPerson:
-      "This tab is now Sam Okafor, the person this scenario is played as.",
+      "This tab is now Sam Okafor, the person this part of the Tour is for.",
     setupFailed: "Couldn't set this up.",
     setupUnreachable:
       "Couldn't reach Manent. Start the server, then set it up again.",

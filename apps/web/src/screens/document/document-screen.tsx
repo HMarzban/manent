@@ -55,8 +55,8 @@ function subscribeToResize(listener: () => void): () => void {
 
 /**
  * True while an open panel does not fit beside the page: it is then drawn over the page and closes when focus returns
- * to the page. Opening one panel closes the other when both do not fit, and a panel that closes with focus lost to the
- * body sends focus to the page.
+ * to the page. Opening one panel closes the other when both do not fit, except that Scenes a script opened close
+ * themselves, and a panel that closes with focus lost to the body sends focus to the page.
  */
 function usePanelsOverPage(): boolean {
   const { dom } = useEnvironment();
@@ -80,9 +80,11 @@ function usePanelsOverPage(): boolean {
       (was.left !== null && left.tab === null) ||
       (was.side !== null && side.tab === null);
     if (closed && document.activeElement === document.body) dom.focusPage();
-    // the panel open before gives way to the one just opened
+    // the panel open before gives way to the one just opened; Scenes a script opened give way to the person's panel
     if (fit !== "both" && left.tab !== null && side.tab !== null)
-      panelsActions.close(was.left === null ? "side" : "left");
+      panelsActions.close(
+        was.left === null && !panelsActions.scenesUnchosen() ? "side" : "left",
+      );
   }, [dom, fit, left.tab, side.tab]);
   const over = fit === "overlay";
   useEffect(() => {

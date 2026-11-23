@@ -7,7 +7,7 @@ export const TOUR_WORDS = {
   setItUpAgain: "Set it up again",
   whatToCheck: "What to check",
   nowPerson: (name: string): string =>
-    `This tab is now ${name}, the person this scenario is played as.`,
+    `This tab is now ${name}, the person this part of the Tour is for.`,
   setupFailed: "Couldn't set this up.",
   setupUnreachable:
     "Couldn't reach Manent. Start the server, then set it up again.",
