@@ -315,7 +315,7 @@ test("Export names one file, a clean PDF of the whole script, and the first page
     "Export 1 file",
     [
       ["Checks", "Nothing needs a look before you send."],
-      ["What", "Whole script"],
+      ["What", "Whole scriptPrint with alternates"],
       ["As", "Clean PDFFDXFountain"],
     ],
     ["1", "2", "3", "4", "5", "6", "7", "8"],
@@ -365,7 +365,7 @@ test("while the script's editor is still opening, Export and Print show their ro
         "Export 1 file",
         "H1",
         [
-          ["What", "Whole script"],
+          ["What", "Whole scriptPrint with alternates"],
           ["As", "Clean PDFFDXFountain"],
         ],
         0,
@@ -374,7 +374,11 @@ test("while the script's editor is still opening, Export and Print show their ro
       [
         "Export 1 file",
         "H1",
-        [OUTSIDE_ROW, ["What", "Whole script"], ["As", "Clean PDFFDXFountain"]],
+        [
+          OUTSIDE_ROW,
+          ["What", "Whole scriptPrint with alternates"],
+          ["As", "Clean PDFFDXFountain"],
+        ],
         8,
         "Export 1 file",
       ],
@@ -384,14 +388,14 @@ test("while the script's editor is still opening, Export and Print show their ro
         "‹ The Long Night",
         "Print",
         "H1",
-        [["What", "Whole script"]],
+        [["What", "Whole scriptPrint with alternates"]],
         0,
         "Print",
       ],
       [
         "Print 30 pages",
         "H1",
-        [OUTSIDE_ROW, ["What", "Whole script"]],
+        [OUTSIDE_ROW, ["What", "Whole scriptPrint with alternates"]],
         8,
         "Print 30 pages",
       ],
