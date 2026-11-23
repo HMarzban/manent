@@ -111,6 +111,7 @@ export const BANNED_WORD_EXCEPTION: readonly string[] = Object.freeze([
   "Cast list",
   "Paragraph settings",
   "To pick up an item, press Space or Enter. Use the arrow keys to move it, Space or Enter to drop it, and Esc to put it back.",
+  "No acts: scenes run straight through.",
 ]);
 
 /** The four sentences allowed to say "not sent", for changes that will never reach the server; `{…}` is any value. */

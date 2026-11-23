@@ -22,4 +22,9 @@ export const SHELL_SCREENS: readonly ShellScreen[] = [
   { routeId: "/__stand-in", screen: "document", page: "shown" },
   { routeId: "/s/$docId/present", screen: "present", page: "bare" },
   { routeId: "/s/$docId/prompter", screen: "present", page: "bare" },
+  {
+    routeId: "/p/$projectId/settings",
+    screen: "project_settings",
+    page: "covered",
+  },
 ];

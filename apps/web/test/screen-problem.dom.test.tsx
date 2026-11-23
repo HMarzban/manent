@@ -106,6 +106,7 @@ test("every screen whose code loads on first visit has the same problem in its o
       "/preferences/$pane",
       "/s/$docId/present",
       "/s/$docId/prompter",
+      "/p/$projectId/settings",
     ],
     1,
   ]);
