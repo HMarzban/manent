@@ -105,7 +105,9 @@ export function createSyncDocumentSource(options: Options): DocumentSource {
     let stopTarget = noop;
     (async () => {
       const sync = await options.sync;
-      const target = writingActions.openTarget(docId);
+      // what the editor session shows, so status, settings and content describe one document
+      const bound = writingActions.boundTarget(docId);
+      let target = bound.get() ?? writingActions.openTarget(docId);
       const [handle, parts] = await Promise.all([
         sync.client.open(target),
         loadParts(),
@@ -139,22 +141,23 @@ export function createSyncDocumentSource(options: Options): DocumentSource {
       }
       stop = follow(handle, stopBag);
       // the handle before closes only once the next is followed: its close flushes its outbox
-      const swapTo = async (next: string, wanted: () => boolean) => {
+      const swapTo = async (next: string) => {
         const opened = await sync.client.open(next);
-        if (!wanted()) return opened.close();
+        if (closed || target !== next) return opened.close();
         const previous = stop;
         stop = follow(opened, attachBag(opened));
         previous();
       };
-      stopTarget = writingActions.followTarget(
-        docId,
-        target,
-        (next, wanted) => {
-          swapTo(next, wanted).catch(() => {
-            // a target that cannot open leaves the document on the open handle, which goes on saving what is typed
-          });
-        },
-      );
+      const check = (next: string | null): void => {
+        if (next === null || next === target) return;
+        target = next;
+        swapTo(next).catch(() => {
+          // a target the session has just shown and this cannot open leaves the document on the open handle
+        });
+      };
+      stopTarget = bound.subscribe(check);
+      // the session may have shown another target while this one opened
+      check(bound.get());
     })().catch(() => {
       // a sync that cannot start, or a document it cannot open, is never said to be saved on this device
       shown.status.set({

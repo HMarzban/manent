@@ -3,6 +3,7 @@
 import {
   ORIGIN_REMOTE,
   applyBlockOps,
+  scriptBody,
   scriptDocFromJSON,
   yXmlFragmentForBinding,
 } from "@manent/crdt";
@@ -11,15 +12,12 @@ import { mergeByBlock } from "@manent/revisions";
 import type { BlockJSON, DocJSON, FormatId } from "@manent/schema";
 import type { DocHandle, SyncClient, ViewHandle } from "@manent/sync-client";
 import { createValue } from "@manent/ui";
-import type { Subscribable } from "@manent/ui";
 import { writingActions } from "../state/writing.store.ts";
+import type { TargetOutcome } from "../state/writing.store.ts";
 import type { LocalSession } from "./editor-sessions.ts";
 import { firstBlock } from "./first-block.ts";
 
 const noop = (): void => {};
-
-// who may type is the document's status, so no session shows static content
-const NEVER_READ_ONLY: Subscribable<DocJSON | null> = createValue(null);
 
 /** `blocks` as one section. */
 const docOf = (blocks: readonly BlockJSON[]): DocJSON => ({
@@ -65,10 +63,7 @@ interface Showing {
 }
 
 /** Calls `then` with `handle`'s document once it holds a block; the returned function stops waiting. */
-export function whenHeld(
-  handle: DocHandle,
-  then: (doc: CrdtDoc) => void,
-): () => void {
+function whenHeld(handle: DocHandle, then: (doc: CrdtDoc) => void): () => void {
   const doc = handle.doc();
   const body = yXmlFragmentForBinding(doc);
   if (body.length > 0) {
@@ -81,6 +76,40 @@ export function whenHeld(
     then(doc);
   });
   return stop;
+}
+
+/** Why `handle`'s open is given up before its document holds a block: the link is gone, or the server refused it. */
+function givenUp(handle: DocHandle): "offline" | "refused" | null {
+  const status = handle.status.get();
+  if (status.link === "offline") return "offline";
+  return status.side.length > 0 ? "refused" : null;
+}
+
+/**
+ * Settles as `bound`, once `handle`'s document holds a block, or as `givenUp` says first; `wanted` is asked as it
+ * settles. The returned function settles it as `moved`.
+ */
+function settleOpen(
+  handle: DocHandle,
+  wanted: () => boolean,
+  settled: (outcome: TargetOutcome) => void,
+): () => void {
+  let done = false;
+  const stops: (() => void)[] = [];
+  const end = (outcome: TargetOutcome): void => {
+    if (done) return;
+    done = true;
+    for (const stop of stops) stop();
+    settled(outcome === "bound" && !wanted() ? "moved" : outcome);
+  };
+  const check = (): void => {
+    const reason = givenUp(handle);
+    if (reason !== null) end(reason);
+  };
+  stops.push(whenHeld(handle, () => end("bound")));
+  if (!done) stops.push(handle.status.subscribe(check));
+  check();
+  return () => end("moved");
 }
 
 /**
@@ -205,11 +234,23 @@ function createSession(
     },
   };
   const remote = heldRemote(() => doc);
+  // not null while the person's typing goes to another document than the one shown, or a hand-in holds it: the
+  // page shows what it holds read-only, so no keystroke reaches the document it leaves
+  const readOnly = createValue<DocJSON | null>(null);
+  const hold = (): void => {
+    if (writingActions.isWritable(docId)) {
+      stopWaiting();
+      readOnly.set(null);
+    } else if (readOnly.get() === null && doc !== scratch)
+      readOnly.set(scriptBody(doc).materialize());
+  };
   let handle: DocHandle | null = null;
   let ended = false;
   let detach = noop;
   let stopTarget = noop;
   let stopWaiting = noop;
+  let stopKnown = noop;
+  const stopHold = writingActions.subscribe(hold);
   // the handle before closes only once the next is shown: its close flushes its outbox, so nothing typed is lost
   const attach = (opened: DocHandle): void => {
     const previous = handle;
@@ -221,42 +262,46 @@ function createSession(
     if (previous !== null) void previous.close();
   };
   // another target is shown once it holds a block, so the page never falls back to the scratch
-  const swapTo = (c: SyncClient, target: string, wanted: () => boolean) =>
-    c.open(target).then((opened) => {
-      if (!wanted()) return opened.close();
-      stopWaiting();
-      let waiting = true;
-      const stop = whenHeld(opened, () => {
-        waiting = false;
-        if (wanted()) attach(opened);
-        else void opened.close();
-      });
-      stopWaiting = () => {
-        stop();
-        if (waiting) void opened.close();
-        waiting = false;
-      };
-    });
-  client
-    .then(async (c) => {
-      const target = writingActions.openTarget(docId);
-      const opened = await c.open(target);
-      if (ended) return opened.close();
-      attach(opened);
-      stopTarget = writingActions.followTarget(
-        docId,
-        target,
-        (next, wanted) => {
-          swapTo(c, next, wanted).catch(() => {
-            // a target that cannot open leaves the page on the open handle, which goes on saving what is typed
+  const swapTo = (
+    c: SyncClient,
+    target: string,
+    wanted: () => boolean,
+  ): Promise<TargetOutcome> =>
+    c.open(target).then(
+      (opened) =>
+        new Promise<TargetOutcome>((settled) => {
+          stopWaiting();
+          stopWaiting = settleOpen(opened, wanted, (outcome) => {
+            stopWaiting = noop;
+            if (outcome === "bound") attach(opened);
+            else void opened.close();
+            settled(outcome);
           });
-        },
-      );
-    })
-    .catch(() => {
-      // the document's status says this device is not saving it, so typing goes on in what the page shows
-      kept.set(true);
+        }),
+      () => "refused",
+    );
+  const start = async (c: SyncClient): Promise<void> => {
+    const target = writingActions.openTarget(docId);
+    const opened = await c.open(target);
+    if (ended) return opened.close();
+    attach(opened);
+    stopTarget = writingActions.followTarget(docId, target, (next, wanted) => {
+      hold();
+      return swapTo(c, next, wanted);
     });
+  };
+  const failed = (): void => {
+    // the document's status says this device is not saving it, so typing goes on in what the page shows
+    kept.set(true);
+  };
+  // until the person's private index says where their typing in it goes, the page shows the placeholder
+  client
+    .then((c) => {
+      stopKnown = writingActions.whenKnown(() => {
+        if (!ended) start(c).catch(failed);
+      });
+    })
+    .catch(failed);
   return {
     docId,
     doc: () => doc,
@@ -265,12 +310,14 @@ function createSession(
     sendAwareness: (update) => handle?.sendAwareness(update),
     onAwareness: (listener) => listen(awareness, listener),
     onReplaced: (listener) => listen(replaced, listener),
-    readOnly: NEVER_READ_ONLY,
+    readOnly,
     kept,
     receive: remote.receive,
     receiveAwareness: shown.hear,
     close() {
       ended = true;
+      stopKnown();
+      stopHold();
       stopTarget();
       stopWaiting();
       detach();
@@ -285,7 +332,8 @@ function createSession(
 
 /**
  * The same session for the same document while it is open, over `client.open`'s handle: the page and the editor share
- * it, and each closes its own. Its `readOnly` is always null: who may type is the document's status.
+ * it, and each closes its own. Who may type is the document's status; its `readOnly` holds the page while the
+ * person's typing moves to another document.
  */
 export function createSyncSessions(options: { client: Promise<SyncClient> }): {
   open(docId: string, format: FormatId): LocalSession;

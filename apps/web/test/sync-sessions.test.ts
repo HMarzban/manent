@@ -4,7 +4,8 @@ import { createDoc, scriptBody } from "@manent/crdt";
 import { blockText, blocksOf } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
 import { StoreError, createSubscribable } from "@manent/sync-client";
-import type { SyncClient } from "@manent/sync-client";
+import type { DocHandle, SyncClient } from "@manent/sync-client";
+import { indexDocId } from "@manent/sync-protocol";
 import { createMessageQueue, createValue, useSubscribable } from "@manent/ui";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
@@ -12,6 +13,7 @@ import { createSyncSessions } from "../src/editor-host/sync-sessions.ts";
 import { createSyncDocumentSource } from "../src/services/sync/document-source.ts";
 import type { PersonSync } from "../src/services/sync/create-sync.ts";
 import { asUiSubscribable } from "../src/services/sync/subscribable.ts";
+import { writingActions } from "../src/state/writing.store.ts";
 import {
   createClock,
   testEnvironment,
@@ -33,6 +35,11 @@ import type { SyncWorld } from "./sync.fixtures.ts";
 withDom();
 
 const DOC = "0b9f6c2e-3c1a-4c55-9a43-5d8f1e2a7b10";
+const COPY = "5d2e8a41-7b3c-4f19-8e06-a9c4b7d3e2f1";
+
+// a session opens once the person's private index says where their typing goes
+const INDEX = fakeHandle(indexDocId("user", "dana"), createDoc());
+writingActions.bind({ userId: "dana", openHandle: async () => INDEX });
 
 const block = (id: string, text: string): BlockJSON => ({
   type: "block",
@@ -91,6 +98,44 @@ test("another writer's change waits while the page holds remote changes, and com
     ["Dawn."],
     ["Dusk.", "Dawn."],
   ]);
+});
+
+test("typing after choosing Privately never reaches the shared script while the copy opens, and a copy that cannot open puts the position back", async () => {
+  const room = fakeHandle(DOC, written());
+  const opening: ((reason: Error) => void)[] = [];
+  const client: SyncClient = {
+    ...fakeClient(() => room),
+    open: (docId) =>
+      docId === DOC
+        ? Promise.resolve(room)
+        : new Promise<DocHandle>((_, reject) => {
+            opening.push(reject);
+          }),
+  };
+  const session = createSyncSessions({
+    client: Promise.resolve(client),
+  }).open(DOC, "screenplay");
+  await until(() => session.doc() === room.doc());
+  const shared = room.doc().encodeState();
+
+  writingActions.keep(DOC, { position: "private", at: 1, privateDocId: COPY });
+  const whileOpening = [
+    writingActions.writingPositionOf(DOC).get(),
+    session.readOnly.get(),
+    session.doc() === room.doc(),
+  ];
+  for (const refuse of opening) refuse(new StoreError("unavailable"));
+  await until(() => session.readOnly.get() === null);
+  expect(whileOpening).toEqual([
+    "private",
+    scriptBody(room.doc()).materialize(),
+    true,
+  ]);
+  expect([
+    writingActions.writingPositionOf(DOC).get(),
+    writingActions.index()?.writing.get(DOC),
+    room.doc().encodeState(),
+  ]).toEqual(["everyone", null, shared]);
 });
 
 test("a person who may only view gets a page that follows other people's typing and takes no keys", async () => {

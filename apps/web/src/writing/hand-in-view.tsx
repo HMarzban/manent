@@ -11,6 +11,7 @@ import {
 } from "@manent/ui";
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import type { PersonServices } from "../services/ports.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { writingActions } from "../state/writing.store.ts";
 import { compareCopy } from "./compare-copy.ts";
@@ -50,7 +51,42 @@ function useCopyChanges(docId: string): CopyChanges | null {
   return changes;
 }
 
-/** Hand in's consequence dialog: the request goes once per press, and a retry carries the same key. */
+/**
+ * Whether the person's open private copy of `docId` holds no change the server has not acknowledged: true once it holds
+ * none; false once the link goes, or the server refuses the copy, first.
+ */
+async function isDelivered(
+  services: Pick<PersonServices, "openHandle">,
+  docId: string,
+): Promise<boolean> {
+  const handle = await services.openHandle(docId);
+  try {
+    return await new Promise<boolean>((resolve) => {
+      const check = (): void => {
+        const status = handle.status.get();
+        const delivered =
+          status.synced && status.waiting === 0
+            ? true
+            : status.link === "offline" || status.side.length > 0
+              ? false
+              : null;
+        if (delivered === null) return;
+        stop();
+        resolve(delivered);
+      };
+      const stop = handle.status.subscribe(check);
+      check();
+    });
+  } finally {
+    void handle.close();
+  }
+}
+
+/**
+ * Hand in's consequence dialog: the request goes once per press, and a retry carries the same key. From the press until
+ * the page shows the room's script, or the hand-in is refused, the page takes no keys, and the request waits until the
+ * copy holds no change the server has not acknowledged, so nothing typed in it is left behind.
+ */
 function HandInDialog(props: {
   docId: string;
   scenes: number;
@@ -63,26 +99,33 @@ function HandInDialog(props: {
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const key = useRef<string | null>(null);
+  const release = useRef<(() => void) | null>(null);
+  useEffect(() => () => release.current?.(), []);
   const handIn = async (): Promise<void> => {
     // a key is 32 lower-case hex digits
     key.current ??= randomId().replaceAll("-", "");
     setBusy(true);
     setRefusal(null);
-    const outcome = await handInPrivateCopy(services.userId, {
-      docId,
-      key: key.current,
-    });
+    release.current?.();
+    const letGo = writingActions.holdInput(docId);
+    release.current = letGo;
+    const outcome = (await isDelivered(services, docId))
+      ? await handInPrivateCopy(services.userId, { docId, key: key.current })
+      : ({ ok: false, code: "failed" } as const);
     setBusy(false);
     if (!outcome.ok) {
+      letGo();
       setRefusal(WRITING_WORDS.handInRefusals[outcome.code]);
       return;
     }
     const { versionId, overlaps } = outcome.handedIn;
+    // kept before the hold lets go, so the page stays read-only until it shows the room's script
     writingActions.keep(docId, {
       position: "everyone",
       at: now(),
       privateDocId: null,
     });
+    letGo();
     handedInVersions.set(docId, versionId);
     handInShown.set(null);
     services.messages.push(handedInMessage(outcome.handedIn.scenes, overlaps));

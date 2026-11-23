@@ -22,6 +22,8 @@ export const WRITING_WORDS = Object.freeze({
   switchLabel: (position: string): string => `Writing: ${position} ▾`,
   /** The reason Privately cannot start on a script the server has never held. */
   needsSynced: "needs this script synced first",
+  /** The reason Privately cannot start offline. */
+  needsConnection: "needs a connection",
   lockedBack:
     "Page numbers were locked, so you are writing for everyone again. Open suggestions stay in To review.",
   leftPrivately: (n: number): string =>
