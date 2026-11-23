@@ -29,5 +29,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   untitled, usage, used, using, voiceover, voices, was, way, web, wed, were, whatever, when, where, which, while, whole,
   with, without, work, works, would, write, written, wrote, yesterday, yet, your,
   arrow, drop, dropped, moved, picked, position,
-  compared, copied
+  compared, copied,
+  suggested
 `);
