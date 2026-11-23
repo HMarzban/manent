@@ -2,6 +2,7 @@
 import type { FormatId, IdSource } from "@manent/schema";
 import type { EditorView } from "prosemirror-view";
 import type { ElementRef, ElementSlot } from "../elements/slots.ts";
+import type { PickerAnchor } from "../keys/element-keys.ts";
 import type { HistoryPort } from "../script-editor/ports.ts";
 
 export const TEXT_COLOURS = [
@@ -43,7 +44,7 @@ export interface ActionContext {
   slotElement(format: FormatId, slot: ElementSlot): ElementRef | null;
   history: HistoryPort;
   ids: IdSource;
-  openPicker(view: EditorView): void;
+  openPicker(view: EditorView, anchor: PickerAnchor): void;
   /** Puts the caret at `offset` in `blockId` near the view's top and focuses the page. */
   goTo(blockId: string, offset: number): void;
   editable(): boolean;

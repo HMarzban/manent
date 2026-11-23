@@ -29,17 +29,18 @@ export function MessageSlot({
       role="status"
       aria-live="polite"
       data-tour="message_slot"
-      className="flex min-w-0 flex-1 items-center text-ui"
+      className="flex min-w-0 flex-1 items-center text-meta"
     >
       {message === null ? null : (
         <div
           key={message.id}
           className="flex min-w-0 items-center gap-2 duration-150 animate-in fade-in"
         >
+          {/* own work wraps to two lines inside the bar's one-line height, so a message never moves the page */}
           <p
             className={cn(
               "min-w-0",
-              message.ownWork ? "line-clamp-2" : "truncate",
+              message.ownWork ? "line-clamp-2 leading-[1.125]" : "truncate",
             )}
           >
             {message.text}
