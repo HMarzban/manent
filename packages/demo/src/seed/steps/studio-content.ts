@@ -13,7 +13,7 @@ import {
   generateScenes,
 } from "../../generate/grammar.ts";
 import type { UsedLines } from "../../generate/grammar.ts";
-import { SeedBuildError } from "../../generate/guide.ts";
+import { SeedBuildError, guideLines, isGuideOf } from "../../generate/guide.ts";
 import type { ProseGuide, StyleGuide } from "../../generate/guide.ts";
 import type { SeedDoc } from "../catalogue.ts";
 import type { Rng } from "../rng.ts";
@@ -93,22 +93,29 @@ export function revisedAction(
   return text === null ? null : block("action", text);
 }
 
+// each project's own screen guide before the development slate's
+const GUIDES: readonly StyleGuide[] = Object.freeze([
+  banks.NED_ASHBY_GUIDE,
+  banks.EMBER_FLEET_GUIDE,
+  banks.KEEPER_GUIDE,
+  banks.WARD_NINE_GUIDE,
+  banks.LARCH_ROAD_GUIDE,
+  banks.MOSS_AND_PEBBLE_GUIDE,
+  banks.DOWN_THE_TOLLE_GUIDE,
+  ...banks.SLATE_GUIDES,
+]);
+
 /** The screen guide whose beats the document is written from; null for one written otherwise. */
 export function guideOf(doc: SeedDoc): StyleGuide | null {
-  const hasBeats = (g: StyleGuide) =>
-    g.beats.some((beat) => beat.id.startsWith(`${doc.key}#`));
-  // each project's own screen guide before the development slate's
-  const guides = [
-    banks.NED_ASHBY_GUIDE,
-    banks.EMBER_FLEET_GUIDE,
-    banks.KEEPER_GUIDE,
-    banks.WARD_NINE_GUIDE,
-    banks.LARCH_ROAD_GUIDE,
-    banks.MOSS_AND_PEBBLE_GUIDE,
-    banks.DOWN_THE_TOLLE_GUIDE,
-    ...banks.SLATE_GUIDES,
-  ];
-  return guides.find(hasBeats) ?? null;
+  return GUIDES.find((g) => isGuideOf(g, doc.key)) ?? null;
+}
+
+/** What a writer types in the document: a live show's news, else its screen guide's lines (guideLines). */
+export function linesOf(doc: SeedDoc): readonly string[] | null {
+  const code = codeOf(doc.key);
+  if (code === "H30" || code === "H31")
+    return banks.LIVE_GUIDE.sentences.map((s) => s.text);
+  return guideLines(GUIDES, doc);
 }
 
 /** What `attempt` writes at the largest share its bank fills; the smallest share's error when none does. */

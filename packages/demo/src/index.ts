@@ -59,6 +59,7 @@ export { toBlockJSON } from "./seed/story.ts";
 export type { Story } from "./seed/story.ts";
 export { SeedTimeError, createSeedTime } from "./seed/time.ts";
 export type { SeedTime } from "./seed/time.ts";
+export { writerLines } from "./seed/writer-lines.ts";
 export { createDemoDirectory, createDemoSignIn } from "./sign-in.ts";
 export { bindRefusal } from "./terminal.ts";
 export {
