@@ -73,7 +73,7 @@ interface NumberWords {
 const NUMBER_WORDS: Readonly<Record<string, NumberWords>> = Object.freeze({
   "project.targetPages": {
     none: "No target",
-    count: (n: number) => (n === 1 ? "1 page" : `${formatCount(n)} pages`),
+    count: (n: number) => `${formatCount(n)} pages`,
   },
 });
 
