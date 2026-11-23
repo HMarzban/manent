@@ -1,4 +1,5 @@
 // The sources autocomplete asks at the caret, one per line, in the order their offers are listed.
+import { projectNamesSource } from "./project-names.ts";
 import { MAX_SUGGESTIONS, scriptNamesSource } from "./suggest.ts";
 import type {
   CompletionInput,
@@ -8,6 +9,7 @@ import type {
 
 export const COMPLETION_SOURCES: readonly CompletionSource[] = Object.freeze([
   scriptNamesSource,
+  projectNamesSource,
 ]);
 
 /**
