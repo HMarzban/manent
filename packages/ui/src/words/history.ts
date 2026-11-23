@@ -40,6 +40,13 @@ const BEFORE_RESTORE = "Before restore";
 const BEFORE_RECONNECT = "Before reconnect — this device";
 const RECOVERED = "Recovered — this device";
 const KEPT = "The script as it was is kept as 'Before restore'.";
+const SERIES_LADDER = [
+  "Writer's First",
+  "Studio",
+  "Network",
+  "Table",
+  "White",
+] as const;
 
 const quoted = (text: string): string => `'${text}'`;
 const plural = (n: number, one: string, many: string): string =>
@@ -142,6 +149,10 @@ export const HISTORY_WORDS = {
     "Tenth draft",
   ],
   draftNumber: (n: number): string => `Draft ${formatCount(n)}`,
+  /** The draft ladder of the Drama, Single-camera, Multi-camera and Custom templates, in order. */
+  seriesLadder: SERIES_LADDER,
+  /** The draft ladder of the Animation template: the series ladder, then three more. */
+  animationLadder: [...SERIES_LADDER, "Record", "Animatic", "Conformed"],
 } as const;
 
 /** A label that names a version by what made it, null for a version named by its time. */
@@ -149,6 +160,7 @@ function labelOf(item: VersionItem): string | null {
   if (item.kind === "pre_restore") return BEFORE_RESTORE;
   if (item.kind === "pre_merge" && item.onDevice) return BEFORE_RECONNECT;
   if (item.kind === "recovered") return RECOVERED;
+  if (item.kind === "pre_hand_in") return "Before hand-in";
   return null;
 }
 

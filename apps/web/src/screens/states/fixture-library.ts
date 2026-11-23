@@ -18,6 +18,8 @@ const PLACE = Object.freeze({ kind: "never_synced" } as const);
 export function createFixtureLibrary(options: {
   count: number;
   ids: () => string;
+  /** Who made the films, and when, in milliseconds since the epoch. */
+  made: { byName: string; at: number };
 }): LibraryIndex {
   const made = Array.from({ length: options.count }, () => ({
     projectId: options.ids(),
@@ -31,7 +33,7 @@ export function createFixtureLibrary(options: {
       title: projectTitle,
       kind: "film",
       firstDocId: docId,
-      lastEdited: null,
+      lastEdited: options.made,
       place: PLACE,
     })),
   );

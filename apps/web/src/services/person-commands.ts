@@ -11,7 +11,7 @@ import { SETTINGS } from "@manent/settings";
 import type { SettingsStore } from "@manent/settings";
 import type { Clock } from "@manent/sync-client";
 import { messageFor } from "@manent/ui";
-import type { MessageQueue, Subscribable } from "@manent/ui";
+import type { MessageQueue, StatusFacts, Subscribable } from "@manent/ui";
 import type { Api } from "../api.ts";
 import { dedupedService } from "../desktop/deduped-service.ts";
 import type { DesktopHost } from "../desktop/host.ts";
@@ -36,6 +36,7 @@ import { trashActions } from "../state/trash.store.ts";
 import { writingActions } from "../state/writing.store.ts";
 import { zoomActions } from "../state/zoom.store.ts";
 import type {
+  DocumentSource,
   Environment,
   LibraryIndex,
   PersonServices,
@@ -60,7 +61,16 @@ interface CommandsParts {
   network: Subscribable<boolean>;
   /** The kinds of the open document and of its project. */
   library: Pick<LibraryIndex, "documentKind" | "docKindOf">;
+  /** The open document's status, whose access sets the person's role in it. */
+  documents: DocumentSource;
 }
+
+type Access = StatusFacts["access"];
+
+// an app too old for the script leaves the person's commands in place, and each says the page is read-only
+const ROLE_OF: Readonly<Record<Access, CommandContext["role"]>> = Object.freeze(
+  { edit: "editor", comment: "commenter", view: "viewer", too_old: "editor" },
+);
 
 /** What a command may know of the open document beyond its format, zoom and production; each null or false off one. */
 function documentContext(
@@ -107,6 +117,7 @@ function commandContext(
   options: CommandsOptions,
   parts: CommandsParts,
   signedIn: boolean,
+  accessOf: (docId: string) => Access,
 ): CommandContext {
   const { docId, screen, panels, historyPresent, spaceBeforeSet } =
     options.shellState.get();
@@ -114,8 +125,7 @@ function commandContext(
     screen,
     focus: options.dom.focusKind(),
     docOpen: docId !== null,
-    // every person edits every document until sync supplies roles
-    role: docId === null ? null : "editor",
+    role: docId === null ? null : ROLE_OF[accessOf(docId)],
     online: parts.network.get(),
     platform: options.where.platform,
     shell: options.where.shell,
@@ -200,6 +210,44 @@ function followDocument(
   };
 }
 
+/**
+ * Holds the document the shell shows open and calls `notify` when its access changes; `accessOf` is an editor's for any
+ * other document, as the status of a document still opening is.
+ */
+function followAccess(
+  shellState: Subscribable<ShellState>,
+  documents: DocumentSource,
+  notify: () => void,
+): { accessOf(docId: string): Access; stop(): void } {
+  let shown: { docId: string; status: Subscribable<StatusFacts> } | null = null;
+  const stop = followShown(
+    shellState,
+    (docId) => docId,
+    (docId) => {
+      const { status } = documents.open(docId);
+      shown = { docId, status };
+      let access = status.get().access;
+      const stopStatus = status.subscribe((facts) => {
+        if (facts.access === access) return;
+        access = facts.access;
+        notify();
+      });
+      // the context read as the shell moved here was read before the document was held
+      notify();
+      return () => {
+        stopStatus();
+        shown = null;
+        documents.close(docId);
+      };
+    },
+  );
+  return {
+    accessOf: (docId) =>
+      shown?.docId === docId ? shown.status.get().access : "edit",
+    stop,
+  };
+}
+
 const tokenOf = (options: CommandsOptions): string | null =>
   options.usePerson.getState().person?.token ?? null;
 
@@ -255,7 +303,7 @@ function reachedFromShell(
 /**
  * The command service over `COMMANDS` and the handlers `fillHandlers` makes, told of every change to the window's state, the
  * person, the bindings, the settings, the open script's format and production, the Ruler, the zoom, the kinds of the open
- * document and its project, and every store a command's context reads; a setting command
+ * document and its project, the person's access to it, and every store a command's context reads; a setting command
  * writes the open document's store, so a script setting reaches its script, and a zoom chosen by a key or in the palette is
  * said. In the desktop app the shell's native menus reach it too, and the person is signed in to sync when the node says so.
  */
@@ -283,7 +331,13 @@ export function createCommands(
     commands: COMMANDS,
     handlers,
     context: () =>
-      commandContext(options, parts, isSignedIn(options, nodeCloud)),
+      commandContext(
+        options,
+        parts,
+        isSignedIn(options, nodeCloud),
+        // read only once the service is made, after which access is set
+        (docId) => access.accessOf(docId),
+      ),
     settings: {
       get: (key) => settingsHere().get(key),
       set: (key, value) => settingsHere().set(key, value),
@@ -292,6 +346,11 @@ export function createCommands(
     onDisabled: (label, reason) =>
       messages.push(messageFor({ kind: "command_unavailable", label, reason })),
   });
+  const access = followAccess(
+    options.shellState,
+    parts.documents,
+    service.notify,
+  );
   const unsubscribers = [
     options.shellState.subscribe(service.notify),
     options.usePerson.subscribe(service.notify),
@@ -313,6 +372,7 @@ export function createCommands(
     readAloudActions.subscribe(service.notify),
     sprintActions.subscribe(service.notify),
     followDocument(options.shellState, parts, service.notify),
+    access.stop,
   ];
   if (nodeCloud !== null)
     unsubscribers.push(nodeCloud.signedIn.subscribe(service.notify));

@@ -1,8 +1,5 @@
 // The Send screen's Export form, loaded with the screen; the body of the document's kind loads apart from it. Also
 // what both forms read of a document: the file types and What options it is offered.
-import type { Pagination } from "@manent/pagination";
-import { blocksOf } from "@manent/schema";
-import type { DocJSON } from "@manent/schema";
 import { SEND_WORDS, Segmented } from "@manent/ui";
 import { useRouterState } from "@tanstack/react-router";
 import {
@@ -13,7 +10,6 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
-import { liveEditor } from "../editor-host/live-editor.ts";
 import { useDocKind } from "../screens/document/document-screen.tsx";
 import type { SendFormId } from "../screens/send/form-ids.ts";
 import type { SendForm, SendFormProps } from "../screens/send/forms.ts";
@@ -23,9 +19,8 @@ import { useProductionContext } from "../state/production-context.store.ts";
 import { typesOffered } from "./file-types.ts";
 import type { OfferedTo } from "./file-types.ts";
 import { sendBodyOf } from "./kind-bodies.ts";
-import { engineOf } from "./print-pages.ts";
 import { whatOffered } from "./what-options.ts";
-import type { MaterialSnapshot, SendWhatOption } from "./what-options.ts";
+import type { SendWhatOption } from "./what-options.ts";
 
 /** A hook: what decides the file types and What options `docId` is offered. */
 export function useOfferedTo(docId: string): OfferedTo {
@@ -83,27 +78,6 @@ export function useWhatRow(
       </div>
     );
   return { option, row: { id: "what", content } };
-}
-
-/**
- * The pages `option` sends of `docId`: the open editor's `pages`, or the document its transform makes from the open
- * editor's, paginated apart in the same engine, page profile and locks.
- */
-export function pagesFor(
-  option: SendWhatOption,
-  docId: string,
-  pages: Pagination,
-  material: () => MaterialSnapshot,
-): Pagination {
-  const editor = liveEditor(docId);
-  if (option.transform === null || editor === null) return pages;
-  const doc: DocJSON = editor.view.state.doc.toJSON();
-  const engine = engineOf(pages);
-  return engine.paginate(
-    engine.toLayoutBlocks(blocksOf(option.transform(doc, material()))),
-    pages.profile,
-    pages.locks,
-  );
 }
 
 function useOffersExport(docId: string): boolean {

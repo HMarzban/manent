@@ -39,6 +39,7 @@ import { AnnouncerRegion } from "../src/shell/announcer-region.tsx";
 import { createShellDom } from "../src/shell/regions.tsx";
 import { bindGuard } from "../src/state/guard.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
+import { tourActions } from "../src/state/tour.store.ts";
 import {
   createClock,
   fakeApi,
@@ -54,6 +55,8 @@ let mounted: Root | null = null;
 afterEach(() => {
   act(() => mounted?.unmount());
   mounted = null;
+  // a scenario a test opened stays open in the tab's store
+  tourActions.close();
   document.body.replaceChildren();
 });
 
@@ -251,7 +254,7 @@ test("a scenario shows its promise, one bordered Set it up, numbered steps and i
   expect(setUp?.className.split(" ").includes("border-border")).toBe(true);
   expect(
     [...container.querySelectorAll("ol > li")].map((li) => li.textContent),
-  ).toEqual(["Open the commands.", "Choose New script."]);
+  ).toEqual(["1Open the commands.", "2Choose New script."]);
   expect(container.querySelector("dl")?.textContent).toBe(
     "What to checkSaved · Synced",
   );
@@ -259,24 +262,85 @@ test("a scenario shows its promise, one bordered Set it up, numbered steps and i
   expect(setUps).toEqual(["a-first-page"]);
 });
 
-test("a step marks its control with the Tour ring, which is not focus", async () => {
-  const control = document.createElement("button");
-  control.setAttribute("data-tour", "app.palette");
+/** The `data-tour` of every control the Tour ring marks. */
+const ringed = (): string[] =>
+  [...document.querySelectorAll("[data-tour-ring]")].map(
+    (control) => control.getAttribute("data-tour") ?? "",
+  );
+
+/** The words of the step the person is on, as the Tour shows it: none while no step is current. */
+const currentStep = (container: HTMLElement): (string | null)[] =>
+  [...container.querySelectorAll("ol [aria-current='true']")].map(
+    (step) => step.textContent,
+  );
+
+/** The Tour's numbered step rows, in order. */
+const stepRows = (container: HTMLElement): HTMLElement[] => [
+  ...container.querySelectorAll<HTMLElement>("ol > li > div"),
+];
+
+test("only the step the person is on rings its control, and choosing a step in the Tour moves them there", async () => {
+  const palette = document.createElement("button");
+  palette.setAttribute("data-tour", "app.palette");
+  const newScript = document.createElement("button");
+  newScript.setAttribute("data-tour", "library.newScript");
   const field = document.createElement("input");
-  document.body.append(control, field);
+  document.body.append(palette, newScript, field);
   field.focus();
-  await render(
+  const container = await render(
     <TourScenarioRow
       scenario={SCENARIO}
       {...ROW}
       setUp={async () => ({ ok: true })}
     />,
   );
-  expect(control.getAttribute("data-tour-ring")).toBe("");
+  // a scenario the person has not opened rings nothing
+  expect(ringed()).toEqual([]);
+  await act(async () => buttons(container)[0]?.click());
+  expect(ringed()).toEqual(["app.palette"]);
+  expect(currentStep(container)).toEqual(["1Open the commands."]);
+  // the Tour ring is not focus
   expect(document.activeElement).toBe(field);
+  // pressing the ringed control leaves the person on the step
+  act(() => palette.click());
+  expect(ringed()).toEqual(["app.palette"]);
+  expect(currentStep(container)).toEqual(["1Open the commands."]);
+  act(() => stepRows(container)[1]?.click());
+  expect(ringed()).toEqual(["library.newScript"]);
+  expect(currentStep(container)).toEqual(["2Choose New script."]);
+  act(() => stepRows(container)[0]?.click());
+  expect(ringed()).toEqual(["app.palette"]);
   act(() => mounted?.unmount());
   mounted = null;
-  expect(control.hasAttribute("data-tour-ring")).toBe(false);
+  expect(ringed()).toEqual([]);
+});
+
+test("clicking into the ringed page to write does not move the person on to the next step", async () => {
+  const page = document.createElement("div");
+  page.setAttribute("data-tour", "page");
+  const line = document.createElement("p");
+  page.append(line);
+  document.body.append(page);
+  const container = await render(
+    <TourScenarioRow
+      scenario={{
+        ...SCENARIO,
+        steps: [
+          { text: "Type a scene heading.", highlight: "page" },
+          { text: "Type an action line under it.", highlight: "page" },
+        ],
+      }}
+      {...ROW}
+      setUp={async () => ({ ok: true })}
+    />,
+  );
+  await act(async () => buttons(container)[0]?.click());
+  act(() => {
+    page.click();
+    line.click();
+  });
+  expect(currentStep(container)).toEqual(["1Type a scene heading."]);
+  expect(ringed()).toEqual(["page"]);
 });
 
 test("the demo bar is its own colour scope and says Demo", async () => {
