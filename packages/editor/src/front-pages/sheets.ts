@@ -157,18 +157,20 @@ function layOut(drawn: Drawn): number {
 }
 
 // A view below the front pages keeps its place as they come, go or grow, as when they arrive under a script already
-// open at page 1.
+// open at page 1; the room above page 1 then shows the gap, never the foot of the sheet before it.
 function draw(drawn: Drawn): void {
   const { scaffold } = drawn.options;
   const scroller = drawn.options.scroller();
+  const top = (): number => scroller.getBoundingClientRect().top;
   const last = drawn.sheets.at(-1);
   const below =
-    last === undefined ||
-    last.getBoundingClientRect().bottom <= scroller.getBoundingClientRect().top;
+    last === undefined || last.getBoundingClientRect().bottom <= top();
   const before = scaffold.pages.getBoundingClientRect().top;
   scaffold.setFrontHeight(layOut(drawn));
-  if (below)
-    scroller.scrollTop += scaffold.pages.getBoundingClientRect().top - before;
+  if (!below) return;
+  scroller.scrollTop += scaffold.pages.getBoundingClientRect().top - before;
+  const foot = drawn.sheets.at(-1)?.getBoundingClientRect().bottom;
+  if (foot !== undefined && foot > top()) scroller.scrollTop += foot - top();
 }
 
 function labelAt(drawn: Drawn, top: number): string | null {
