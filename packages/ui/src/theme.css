@@ -934,18 +934,40 @@ html[data-white-page] .mn-pages {
 }
 
 /* 3. The option the keys are on, in every menu and list: the pressed fill and
-      the inset ring, because a fill alone is 1.1:1. Where focus stays in a
-      field and the list is driven from it (the palette, a combobox, the
-      editor's picker and completion list), the active option is that option.
-      A pointer alone gives the hover fill and no ring. */
-[role="listbox"]:not(:focus-within) [role="option"][data-highlighted],
-:is(#mn-picker, #mn-complete) [aria-selected="true"] {
-  background-color: var(--bg-control);
-  outline: var(--focus-w) solid var(--focus);
-  outline-offset: calc(var(--focus-w) * -1);
+      a neutral bar at its start, because a fill alone is 1.2:1 and the bar
+      is 5:1. Never a ring, so it reads neither as focus nor as what is
+      current (the accent bar). Where focus stays in a field and the list is
+      driven from it (the palette, a combobox, the editor's picker and
+      completion list), the active option is that option. A pointer alone
+      gives the hover fill; an option that cannot act now is dimmed, keyed
+      or not, as a button or a menu item that cannot act is. In forced
+      colours the system's highlight and the ring stand in for both. */
+@media (forced-colors: none) {
+  [role="listbox"]:not(:focus-within) [role="option"][data-highlighted],
+  :is(#mn-picker, #mn-complete) [aria-selected="true"],
+  :is([role^="menuitem"], [data-slot="select-item"]):focus-visible:not(:hover) {
+    position: relative;
+    background-color: var(--bg-control);
+    outline: none;
+  }
+  [role="listbox"]:not(:focus-within) [role="option"][data-highlighted]::before,
+  :is(#mn-picker, #mn-complete) [aria-selected="true"]::before,
+  :is([role^="menuitem"], [data-slot="select-item"]):focus-visible:not(
+      :hover
+    )::before {
+    content: "";
+    position: absolute;
+    inset-block: 4px;
+    inset-inline-start: 0;
+    border-inline-start: 2px solid var(--fg-muted);
+  }
 }
-:is([role^="menuitem"], [data-slot="select-item"]):focus-visible:not(:hover) {
-  background-color: var(--bg-control);
+[role="listbox"]
+  [role="option"]:not([aria-disabled="true"]):not([data-highlighted]):hover {
+  background-color: var(--bg-subtle);
+}
+[role="listbox"] [role="option"][aria-disabled="true"] {
+  opacity: 0.5;
 }
 
 /* 4. The scrim is a token, and nothing blurs. */

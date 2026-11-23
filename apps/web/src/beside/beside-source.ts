@@ -25,6 +25,7 @@ export function createBesideSource(options: {
           scopeWord: null,
           home: null,
           keys: null,
+          checked: null,
           enabled: true,
           whyNot: null,
         })),

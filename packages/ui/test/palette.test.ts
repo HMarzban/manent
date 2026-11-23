@@ -96,6 +96,7 @@ const placeRow = (n: number): PaletteRow => ({
   scopeWord: null,
   home: null,
   keys: null,
+  checked: null,
   enabled: true,
   whyNot: null,
 });
@@ -139,11 +140,12 @@ const row = (
   scopeWord: null,
   home: null,
   keys: null,
+  checked: null,
   enabled: true,
   whyNot: null,
 });
 
-test("rows are ranked stably, sources in their fixed order", () => {
+test("rows are ranked within their section, and sections keep a fixed order", () => {
   const rows = [
     row("a", "Side panel"),
     row("b", "Paper: A4", "setting"),
@@ -152,16 +154,16 @@ test("rows are ranked stably, sources in their fixed order", () => {
     row("e", "Pa", "place"),
   ];
   expect(rankRows("pa", rows).map((r) => r.id)).toEqual([
-    "b",
     "c",
+    "a",
+    "b",
     "d",
     "e",
-    "a",
   ]);
   expect(rankRows("", rows).map((r) => r.id)).toEqual([
     "a",
-    "b",
     "c",
+    "b",
     "d",
     "e",
   ]);
@@ -213,6 +215,7 @@ test("a setting row carries its value, its scope and where it lives", () => {
       scopeWord: "this script",
       home: "Details → Script",
       keys: null,
+      checked: null,
       enabled: true,
       whyNot: null,
     },

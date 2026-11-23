@@ -32,6 +32,7 @@ const row = (
   scopeWord: null,
   home,
   keys: null,
+  checked: null,
   enabled: true,
   whyNot: null,
 });
