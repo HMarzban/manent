@@ -439,6 +439,12 @@ test("the history commands sit in these menus, answer these palette words and ap
     ["history.restoreBefore", [], { keywords: [] }, null],
     ["history.seeWhatChanged", [], { keywords: [] }, null],
     [
+      "history.openRecoveredBeside",
+      [],
+      { hidden: "the action of a message about recovered work" },
+      null,
+    ],
+    [
       "history.whoWrote",
       [{ menu: "script", group: "who", order: 10, submenu: null }],
       { keywords: [] },

@@ -30,8 +30,10 @@ type Entry =
 
 interface PaletteProps {
   open: boolean;
-  filter: "all" | "places";
+  filter: "all" | "places" | "beside";
   sources: readonly PaletteSource[];
+  /** The field's placeholder; none when not given. */
+  placeholder?: string;
   onRun(row: PaletteRow): void;
   onClose(): void;
   /** Ids of the commands run last, most recent first. */
@@ -242,7 +244,7 @@ function usePaletteEntries(options: {
 }
 
 function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
-  const { filter, sources, onRun, onClose, recent } = props;
+  const { filter, sources, onRun, onClose, recent, placeholder } = props;
   const [query, setQuery] = useState("");
   const [menu, setMenu] = useState<MenuId | null>(null);
   const [openedAt] = useState(markStart);
@@ -303,6 +305,7 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
                 event.preventBaseUIHandler();
             }}
             aria-label={READOUT_WORDS.commandsHint}
+            placeholder={placeholder}
             className="mn-palette-field h-full min-w-0 flex-1 bg-transparent text-ui outline-none"
           />
         </div>
@@ -314,7 +317,8 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
 
 /**
  * The palette, drawn while `open`, with focus in its field from the first frame. Sources are asked in the
- * order given (commands, settings, places, scripts, people, help); `filter: "places"` asks only places.
+ * order given (commands, settings, places, scripts, people, help); `filter: "places"` asks only places, and
+ * `filter: "beside"` lists the rows of the sources given, which are then Beside's alone, with no menus.
  * A row closes the palette through `onClose`, then runs through `onRun`; a setting row runs and changes in place.
  */
 export function CommandPalette(props: PaletteProps): ReactNode {
