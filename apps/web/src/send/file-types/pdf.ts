@@ -2,8 +2,12 @@
 import { EDITOR_WORDS } from "@manent/ui";
 import { liveFrontPages } from "../../editor-host/live-editor.ts";
 import { loadPdfFonts } from "../pdf-fonts.ts";
-import { PAGED_FORMATS } from "../script-file.ts";
-import type { ExportFileType, ExportWork } from "../script-file.ts";
+import { PAGED_FORMATS, fileName } from "../script-file.ts";
+import type {
+  ExportFileType,
+  ExportWork,
+  WrittenFile,
+} from "../script-file.ts";
 
 async function fetchBytes(url: string): Promise<Uint8Array> {
   const response = await fetch(url);
@@ -12,10 +16,8 @@ async function fetchBytes(url: string): Promise<Uint8Array> {
   return new Uint8Array(await response.arrayBuffer());
 }
 
-/** Rejects when the fonts or the writer fail. */
-async function writeCleanPdf(
-  work: ExportWork,
-): Promise<Uint8Array<ArrayBuffer>> {
+/** Named for the script's title; rejects when the fonts or the writer fail. */
+async function writeCleanPdf(work: ExportWork): Promise<WrittenFile> {
   const { docId, pages, title, now } = work;
   const front = liveFrontPages(docId) ?? [];
   const [fonts, { writePdf }] = await Promise.all([
@@ -23,15 +25,15 @@ async function writeCleanPdf(
     import("@manent/formats"),
   ]);
   // a copy over an ArrayBuffer of its own, which a Blob takes
-  return new Uint8Array(
+  const bytes = new Uint8Array(
     await writePdf(pages, { fonts, front, title, createdAt: now() }),
   );
+  return { bytes, name: fileName(title, ".pdf") };
 }
 
 export const pdfFileType: ExportFileType = {
   id: "pdf",
   label: EDITOR_WORDS.send.cleanPdf,
-  extension: ".pdf",
   mime: "application/pdf",
   docKinds: ["script"],
   formats: PAGED_FORMATS,

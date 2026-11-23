@@ -5,8 +5,15 @@ export interface ProjectRowItem {
   readonly id: string;
   /** The rows the item is offered on. */
   readonly targets: readonly ("project" | "folder")[];
-  /** Draws its menu items for the project or folder `id`. */
-  readonly Item: ComponentType<{ target: "project" | "folder"; id: string }>;
+  /**
+   * Draws its entries (`DropdownMenuItem`, `DropdownMenuSub`) inside the row's dropdown menu, for the project or folder
+   * `id`; `firstDocId` is the project's first document, null for a folder or a project that holds none.
+   */
+  readonly Item: ComponentType<{
+    target: "project" | "folder";
+    id: string;
+    firstDocId: string | null;
+  }>;
 }
 
 /** With no item a row has no menu. */

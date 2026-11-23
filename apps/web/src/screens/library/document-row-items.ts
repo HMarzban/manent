@@ -3,7 +3,7 @@ import type { ComponentType } from "react";
 
 export interface DocumentRowItem {
   readonly id: string;
-  /** Draws its menu items for the document `docId`. */
+  /** Draws its entries (`DropdownMenuItem`, `DropdownMenuSub`) inside the row's dropdown menu, for the document `docId`. */
   readonly Item: ComponentType<{ docId: string }>;
 }
 

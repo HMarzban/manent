@@ -17,13 +17,17 @@ export interface ExportWork {
   readonly now: () => number;
 }
 
+/** A file as it is saved: its bytes and its name, with its extension. */
+export interface WrittenFile {
+  readonly bytes: Uint8Array<ArrayBuffer>;
+  readonly name: string;
+}
+
 /** A kind of file the Send forms offer; its own module, `file-types/<id in kebab-case>.ts`, makes it. */
 export interface ExportFileType {
   readonly id: string;
   /** Its choice in the As row. */
   readonly label: string;
-  /** With its dot (".pdf"). */
-  readonly extension: string;
   /** The MIME type it is saved with. */
   readonly mime: string;
   /** The kinds of document it serves. */
@@ -38,8 +42,8 @@ export interface ExportFileType {
   readonly lockedOnly: boolean;
   /** The indices of the pages its file holds, for the pages shown; null holds every page. */
   readonly pagesOf: ((pages: Pagination) => readonly number[]) | null;
-  /** The file's bytes; rejects when they cannot be written. */
-  write(work: ExportWork): Promise<Uint8Array<ArrayBuffer>>;
+  /** The file; rejects when it cannot be written. */
+  write(work: ExportWork): Promise<WrittenFile>;
   /**
    * Null for a file drawn in the script font, whose Checks row is the script's checks. Otherwise the Checks row's
    * sentence, saying what the file leaves out, or null when it leaves out nothing; rejects when it cannot be worked out.
@@ -157,18 +161,19 @@ function leftOutSentence(
 async function scriptFile(
   kind: "fdx" | "fountain",
   work: { docId: string; title: string },
-): Promise<{ bytes: Uint8Array; leftOut: readonly KeptItem[] }> {
+): Promise<{ bytes: Uint8Array; name: string; leftOut: readonly KeptItem[] }> {
   const script = await scriptForExport(work.docId, work.title);
   if (script === null) throw new Error(`no open editor holds ${work.docId}`);
   return fileFor(kind, script);
 }
 
-/** The bytes of the script's file in `kind`. */
-export async function scriptFileBytes(
+/** The script's file in `kind`, named for `work`'s title. */
+export async function writeScriptFile(
   kind: "fdx" | "fountain",
   work: { docId: string; title: string },
-): Promise<Uint8Array<ArrayBuffer>> {
-  return new Uint8Array((await scriptFile(kind, work)).bytes);
+): Promise<WrittenFile> {
+  const { bytes, name } = await scriptFile(kind, work);
+  return { bytes: new Uint8Array(bytes), name };
 }
 
 /** What the script's file in `kind` leaves out, as the Checks row says it; null when nothing. */

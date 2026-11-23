@@ -51,7 +51,12 @@ export function ProjectRow(props: {
       : [
           <RowMenu title={project.title}>
             {ROW_ITEMS.map(({ id, Item }) => (
-              <Item key={id} target="project" id={project.projectId} />
+              <Item
+                key={id}
+                target="project"
+                id={project.projectId}
+                firstDocId={firstDocId}
+              />
             ))}
           </RowMenu>,
         ];

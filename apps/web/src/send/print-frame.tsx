@@ -11,11 +11,10 @@ import type { SendFormProps } from "../screens/send/forms.ts";
 import { SendFrame } from "../screens/send/send-frame.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import type { Environment } from "../services/ports.ts";
-import { useOfferedTo, useWhatRow } from "./export-form.tsx";
+import { pagesFor, useOfferedTo, useWhatRow } from "./export-form.tsx";
 import { typesPrinted } from "./file-types.ts";
 import { useSendPages } from "./page-tiles.tsx";
 import { PRINT_ID, printCss, printPages } from "./print-pages.ts";
-import { pagesFor } from "./what-options.ts";
 
 const WORDS = EDITOR_WORDS.send;
 

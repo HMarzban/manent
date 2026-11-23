@@ -10,12 +10,16 @@ import type { SendFormProps } from "../screens/send/forms.ts";
 import { SendFrame } from "../screens/send/send-frame.tsx";
 import type { SendRow } from "../screens/send/send-frame.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
-import { useOfferedTo, useSearchChoice, useWhatRow } from "./export-form.tsx";
+import {
+  pagesFor,
+  useOfferedTo,
+  useSearchChoice,
+  useWhatRow,
+} from "./export-form.tsx";
 import { typesOffered } from "./file-types.ts";
 import { useSendPages } from "./page-tiles.tsx";
-import { fileName, save } from "./script-file.ts";
+import { save } from "./script-file.ts";
 import type { ExportFileType } from "./script-file.ts";
-import { pagesFor } from "./what-options.ts";
 
 const WORDS = EDITOR_WORDS.send;
 
@@ -109,9 +113,9 @@ export function LiveExport(props: SendFormProps): ReactNode {
     // one frame first, so that the busy label paints before the file is written
     const cancel = frame(() => {
       file.write({ docId, title, pages: sent, now }).then(
-        (bytes) => {
+        (written) => {
           if (signal.aborted) return;
-          save(bytes, fileName(title, file.extension), file.mime);
+          save(written.bytes, written.name, file.mime);
           void history.save(docId, "export");
           messages.push(exportedMessage(title));
           back();

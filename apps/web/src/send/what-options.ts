@@ -1,11 +1,7 @@
 // The choices of a Send form's What row: what of the document it sends; a feature adds its option with one line.
-import type { Pagination } from "@manent/pagination";
-import { blocksOf } from "@manent/schema";
 import type { DocJSON } from "@manent/schema";
 import { EDITOR_WORDS } from "@manent/ui";
-import { liveEditor } from "../editor-host/live-editor.ts";
 import type { SendFormId } from "../screens/send/form-ids.ts";
-import { engineOf } from "./print-pages.ts";
 
 /** The JSON of the script's writers' material roots, by entry id, which a What option's transform reads. */
 export interface MaterialSnapshot {
@@ -54,26 +50,5 @@ export function whatOffered(
       (option.fileTypes === undefined ||
         (fileTypeId !== null && option.fileTypes.includes(fileTypeId))) &&
       (option.lockedOnly !== true || locked),
-  );
-}
-
-/**
- * The pages `option` sends of `docId`: the open editor's `pages`, or the document its transform makes from the open
- * editor's, paginated apart in the same engine, page profile and locks.
- */
-export function pagesFor(
-  option: SendWhatOption,
-  docId: string,
-  pages: Pagination,
-  material: () => MaterialSnapshot,
-): Pagination {
-  const editor = liveEditor(docId);
-  if (option.transform === null || editor === null) return pages;
-  const doc: DocJSON = editor.view.state.doc.toJSON();
-  const engine = engineOf(pages);
-  return engine.paginate(
-    engine.toLayoutBlocks(blocksOf(option.transform(doc, material()))),
-    pages.profile,
-    pages.locks,
   );
 }

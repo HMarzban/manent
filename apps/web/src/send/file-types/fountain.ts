@@ -3,7 +3,7 @@ import { IMPORT_WORDS } from "@manent/ui";
 import {
   PAGED_FORMATS,
   SCRIPT_FILES,
-  scriptFileBytes,
+  writeScriptFile,
   scriptFileLeftOut,
 } from "../script-file.ts";
 import type { ExportFileType } from "../script-file.ts";
@@ -11,13 +11,13 @@ import type { ExportFileType } from "../script-file.ts";
 export const fountainFileType: ExportFileType = {
   id: "fountain",
   label: IMPORT_WORDS.asFountain,
-  ...SCRIPT_FILES.fountain,
+  mime: SCRIPT_FILES.fountain.mime,
   docKinds: ["script"],
   formats: PAGED_FORMATS,
   forms: ["export"],
   print: { offered: false, reason: null },
   lockedOnly: false,
   pagesOf: null,
-  write: (work) => scriptFileBytes("fountain", work),
+  write: (work) => writeScriptFile("fountain", work),
   leftOut: (work) => scriptFileLeftOut("fountain", work),
 };

@@ -22,12 +22,13 @@ import { liveMap } from "./private-index.ts";
 import type { PrivateIndex } from "./private-index.ts";
 import { createSeedingLists, seedingShelf } from "./seeding-lists.ts";
 
-/** A project just made on this device. */
+/** A project just made on this device, and its first document. */
 export interface NewProject {
   readonly sync: PersonSync;
   readonly workspaceId: string;
   readonly projectId: string;
   readonly kind: ProjectKind;
+  readonly docId: string;
 }
 
 /** What is made with every new project, and removed with one made here and left untouched. */
@@ -125,7 +126,13 @@ async function addProject(
   });
   opening.start(handle);
   for (const created of PROJECT_CREATED)
-    await created.made({ sync, workspaceId, projectId, kind });
+    await created.made({
+      sync,
+      workspaceId,
+      projectId,
+      kind,
+      docId: handle.docId,
+    });
   const { project, script } = titles(index);
   const at = options.now();
   liveMap(index, "projects").set(projectId, {
@@ -300,7 +307,13 @@ export function createSyncLibrary(options: {
     const { projectId, kind } = made;
     const { workspaceId } = found;
     for (const created of PROJECT_CREATED)
-      created.removed({ sync: options.sync, workspaceId, projectId, kind });
+      created.removed({
+        sync: options.sync,
+        workspaceId,
+        projectId,
+        kind,
+        docId,
+      });
   };
   const lists = createSeedingLists(
     { workspaces: options.workspaces, isSeeding },
