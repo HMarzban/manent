@@ -1,6 +1,5 @@
 // The page's frame: a zoomed container over one sheet per page in view, beneath the editable document.
 
-import { CELL_PX, UNIT_PX } from "@manent/pagination";
 import type { PageProfile } from "@manent/pagination";
 import {
   CONTAINMENT,
@@ -10,16 +9,16 @@ import {
   ZOOM_MIN,
 } from "./config.ts";
 import type { BrowserEngine, LayoutView } from "./config.ts";
+import type {
+  PageFurnitureInput,
+  SheetRevision,
+} from "./furniture/page-furniture.ts";
+import { PAGE_FURNITURE } from "./furniture/registry.ts";
 import { PAGE_CSS, REFLOW_CSS } from "./page-css.ts";
 import { profileCss, screenPagePx } from "./profile-css.ts";
 
 /** The class the EditorView's own element carries. */
 export const PAGE_VIEW_CLASS = "mn-page-view";
-
-/** CSS pixels in a point. */
-const PX_PER_PT = 4 / 3;
-/** Cells past the column's right edge where a revision mark is drawn. */
-const MARK_GAP_CELLS = 7;
 
 /** A user agent naming no engine this build knows is read as Chromium. */
 export function detectEngine(userAgent: string): BrowserEngine {
@@ -73,12 +72,6 @@ export function visibleSheets(
   return sheets;
 }
 
-interface SheetRevision {
-  rev: string;
-  head: string;
-  marks: readonly { y: number; text: string }[];
-}
-
 /** What a sheet shows of a revision. `key` changes whenever any sheet would. */
 export interface SheetDecor {
   readonly key: string;
@@ -107,37 +100,34 @@ export interface PageScaffold {
   destroy(): void;
 }
 
+/** Places the sheet and draws its furniture afresh, each entry of `PAGE_FURNITURE` in turn. */
 function drawSheet(
   sheet: HTMLElement,
   at: { index: number; top: number },
-  shown: SheetRevision | null,
+  frame: { count: number; decor: SheetDecor | null },
   profile: PageProfile,
 ): void {
   sheet.dataset["page"] = String(at.index);
   sheet.style.top = `${at.top}px`;
-  if (shown === null) {
-    delete sheet.dataset["rev"];
-    delete sheet.dataset["revHead"];
-    sheet.replaceChildren();
-    return;
-  }
-  sheet.dataset["rev"] = shown.rev;
-  sheet.dataset["revHead"] = shown.head;
-  const g = profile.geometry;
-  const left =
-    g.marginLeftPt * PX_PER_PT +
-    (profile.columnCells + MARK_GAP_CELLS) * CELL_PX;
-  const { top } = screenPagePx(profile);
-  sheet.replaceChildren(
-    ...shown.marks.map((m) => {
-      const mark = sheet.ownerDocument.createElement("span");
-      mark.className = "mn-mark";
-      mark.dataset["text"] = m.text;
-      mark.style.top = `${top + m.y * UNIT_PX}px`;
-      mark.style.left = `${left}px`;
-      return mark;
-    }),
-  );
+  for (const key of Object.keys(sheet.dataset))
+    if (key !== "page") delete sheet.dataset[key];
+  sheet.replaceChildren();
+  const input: PageFurnitureInput = {
+    pageIndex: at.index,
+    pageCount: frame.count,
+    pageLabel: null,
+    profile,
+    title: null,
+    revision: frame.decor?.sheet(at.index) ?? null,
+    watermark: null,
+    header: null,
+    footer: null,
+    dateFormat: null,
+    section: null,
+    revisionLabel: null,
+    day: null,
+  };
+  for (const entry of PAGE_FURNITURE) entry.draw(sheet, input);
 }
 
 // The scroll offset counts from the frame's top, and the front pages sit above page 1.
@@ -162,7 +152,7 @@ function drawSheets(
   pages: HTMLElement,
   sheets: HTMLElement[],
   wanted: readonly { index: number; top: number }[],
-  decor: SheetDecor | null,
+  frame: { count: number; decor: SheetDecor | null },
   profile: PageProfile,
 ): void {
   while (sheets.length > wanted.length) sheets.pop()?.remove();
@@ -172,9 +162,7 @@ function drawSheets(
     pages.prepend(sheet);
     sheets.push(sheet);
   }
-  wanted.forEach((at, i) =>
-    drawSheet(sheets[i]!, at, decor?.sheet(at.index) ?? null, profile),
-  );
+  wanted.forEach((at, i) => drawSheet(sheets[i]!, at, frame, profile));
 }
 
 // In Reflow view the text wraps to the desk, so its sections are never contained: the engine's heights do not hold.
@@ -261,7 +249,7 @@ export function createPageScaffold(options: {
       view === "reflow"
         ? []
         : sheetsInView(place, page, { count, scale, frontPx });
-    drawSheets(pages, sheets, wanted, decor, profile);
+    drawSheets(pages, sheets, wanted, { count, decor }, profile);
   };
   const layout = (): void => {
     const page = screenPagePx(profile);
