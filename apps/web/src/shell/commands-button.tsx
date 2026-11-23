@@ -1,4 +1,4 @@
-// The status bar's way to the palette: Commands, with the palette's key beside it on a window wide enough.
+// Commands, at the end of every screen's status bar: the palette's button, with its key beside it.
 import {
   CommandButton,
   Kbd,
@@ -8,6 +8,7 @@ import {
 } from "@manent/ui";
 import type { ReactNode } from "react";
 
+/** The palette's button, with its key shown beside it on a window wide enough. */
 export function CommandsButton(): ReactNode {
   const { platform } = useCommands();
   const [chord] = useCommandState("app.palette").keys;

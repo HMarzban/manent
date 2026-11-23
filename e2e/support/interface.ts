@@ -29,6 +29,7 @@ export const ON_A_SCRIPT = {
   shell: "web",
   demo: true,
   signedIn: false,
+  workspace: "writable",
   historyPresent: true,
   format: null,
   rulerShown: false,
