@@ -1,12 +1,12 @@
 // The documents each peer holds open: every message it sends for one, and its access read again when that changes.
-import type { Message } from "@manent/sync-protocol";
+import type { DocRole, Message } from "@manent/sync-protocol";
 import type { PeerState } from "../rebuild/rebuilder.ts";
-import { isWriterRole } from "./admission.ts";
+import type { ResolveResult } from "./access.ts";
 import type { AwarenessHub } from "./awareness.ts";
 import type { Deletions } from "./deletions.ts";
 import { syncError } from "./errors.ts";
 import type { Peer, SyncService, WritePath } from "./ports.ts";
-import { answerStepOne, docOf, subscribe } from "./subscribe.ts";
+import { answerStepOne, docOf, mayEdit, subscribe } from "./subscribe.ts";
 import type { SubscribePorts } from "./subscribe.ts";
 
 export interface SubscribedPeers {
@@ -17,6 +17,8 @@ export interface SubscribedPeers {
     message: Extract<Message, { docId: string }>,
   ): void;
   accessChanged: SyncService["accessChanged"];
+  /** As `accessChanged`, but an edit subscription the new role may not hold ends `read_only_role`, and a removal `forbidden`. */
+  membershipChanged(docId: string, userId: string, role: DocRole | null): void;
 }
 
 export function createSubscribedPeers(ports: {
@@ -29,13 +31,40 @@ export function createSubscribedPeers(ports: {
   awarenessDropped(count: number): void;
 }): SubscribedPeers {
   const { peers, deletions, writePath, presence } = ports;
-  const { access, rooms, tell, end } = ports.subscribe;
+  const { access, rooms, tell, end, prompters } = ports.subscribe;
+
+  /** Each of the person's subscriptions to the document takes their access read again; one it no longer allows ends with `refusal`. */
+  function reread(
+    docId: string,
+    userId: string,
+    refusal: (resolved: ResolveResult) => "forbidden" | "read_only_role",
+  ): void {
+    for (const [peer, state] of peers) {
+      const held = state.held.get(docId);
+      if (held === undefined || peer.userId !== userId) continue;
+      const resolved = access.resolve(userId, docId);
+      const { mode } = held.subscription;
+      if (
+        resolved.ok &&
+        (mode !== "edit" || mayEdit(held.room.kind, resolved.access.role))
+      ) {
+        held.subscription.access = resolved.access;
+        continue;
+      }
+      tell(peer, syncError(refusal(resolved), docOf(held.room)));
+      end(peer, docId);
+    }
+  }
+
   return {
     receive(peer, state, message) {
       const { type, docId } = message;
       if (type === "SUBSCRIBE")
         return subscribe(ports.subscribe, peer, state, message);
-      if (type === "UNSUBSCRIBE") return end(peer, docId);
+      if (type === "UNSUBSCRIBE") {
+        prompters.remove(docId, peer);
+        return end(peer, docId);
+      }
       if (!["PUSH", "SET", "SYNC", "AWARENESS"].includes(type)) return;
       const held = state.held.get(docId);
       const notSubscribed = () =>
@@ -62,22 +91,10 @@ export function createSubscribedPeers(ports: {
       ))
         tell(peer, m);
     },
-    accessChanged(docId, userId) {
-      for (const [peer, state] of peers) {
-        const held = state.held.get(docId);
-        if (held === undefined || peer.userId !== userId) continue;
-        const resolved = access.resolve(userId, docId);
-        const reader =
-          resolved.ok &&
-          !isWriterRole(resolved.access.role) &&
-          held.room.kind !== "index";
-        if (resolved.ok && !(held.subscription.mode === "edit" && reader)) {
-          held.subscription.access = resolved.access;
-          continue;
-        }
-        tell(peer, syncError("forbidden", docOf(held.room)));
-        end(peer, docId);
-      }
-    },
+    accessChanged: (docId, userId) => reread(docId, userId, () => "forbidden"),
+    membershipChanged: (docId, userId, role) =>
+      reread(docId, userId, (resolved) =>
+        resolved.ok && role !== null ? "read_only_role" : "forbidden",
+      ),
   };
 }

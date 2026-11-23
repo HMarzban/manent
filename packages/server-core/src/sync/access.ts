@@ -14,6 +14,8 @@ import type {
   DocRole,
   ServerVersions,
 } from "@manent/sync-protocol";
+import { grantedCapabilities } from "../permissions/capabilities.ts";
+import type { CapabilityGrant } from "../permissions/capabilities.ts";
 import { INDEX_KINDS } from "./index-docs.ts";
 
 /** Every capability, in CAPABILITIES' order: what the person who makes a document holds. */
@@ -56,6 +58,8 @@ export type RemoveResult =
 
 export interface DocumentAccess {
   resolve(userId: string, docId: string): ResolveResult;
+  /** What the person may do with the document, as `resolve` gives it; null: no access. */
+  capabilitiesOf(userId: string, docId: string): Capability[] | null;
   /** `request` is a route's JSON body, not yet checked. */
   create(userId: string, request: unknown): CreateResult;
   remove(userId: string, request: unknown): RemoveResult;
@@ -85,8 +89,21 @@ function workspaceIndexOf(
 
 const isDocRole = (value: string): value is DocRole =>
   DOC_ROLES.some((role) => role === value);
-const isCapability = (value: string): value is Capability =>
-  CAPABILITIES.some((capability) => capability === value);
+
+/** Reads the role row a person's access to a document is taken from; null: they hold none. */
+type RoleRow = (
+  storage: Storage,
+  docId: string,
+  userId: string,
+) => CapabilityGrant["stored"] | null;
+
+const ownRole: RoleRow = (storage, docId, userId) =>
+  storage.directory.roleOf(docId, userId);
+
+/** The kinds whose access is read from another document's row; a kind without a line reads its own. */
+const ROLE_ROWS: Readonly<Partial<Record<DocKind, RoleRow>>> = Object.freeze(
+  {},
+);
 
 const keyOf = (home: Home): string => `${home.kind}:${home.id}`;
 
@@ -158,21 +175,31 @@ export function createDocumentAccess(options: {
     if (directory.tombstoneOf(docId) !== null)
       return { ok: false, code: "deleted" };
     const place = directory.placeOf(docId);
-    const stored = directory.roleOf(docId, userId);
-    if (place === null || stored === null)
-      return { ok: false, code: "forbidden" };
+    if (place === null) return { ok: false, code: "forbidden" };
     const { home, kind } = place;
-    if (!isDocKind(kind) || !isDocRole(stored.role))
+    if (!isDocKind(kind)) return { ok: false, code: "forbidden" };
+    const stored = (ROLE_ROWS[kind] ?? ownRole)(storage, docId, userId);
+    if (stored === null || !isDocRole(stored.role))
       return { ok: false, code: "forbidden" };
     if (kind === "private" && keyOf(home) !== `user:${userId}`)
       return { ok: false, code: "forbidden" };
-    const capabilities = stored.capabilities.filter(isCapability);
+    const capabilities = grantedCapabilities({
+      storage,
+      userId,
+      docId,
+      stored,
+    });
     return {
       ok: true,
       access: { role: stored.role, capabilities },
       home,
       kind,
     };
+  }
+
+  function capabilitiesOf(userId: string, docId: string): Capability[] | null {
+    const resolved = resolve(userId, docId);
+    return resolved.ok ? resolved.access.capabilities : null;
   }
 
   /** Each other user's role on `index`, an owner's as `edit`, then the creator as owner. */
@@ -243,11 +270,12 @@ export function createDocumentAccess(options: {
     const stored = directory.roleOf(docId, userId);
     const allowed =
       stored !== null &&
-      (stored.role === "owner" || stored.capabilities.includes("delete"));
+      (stored.role === "owner" ||
+        (capabilitiesOf(userId, docId)?.includes("delete") ?? false));
     if (!allowed) return { ok: false, code: "forbidden" };
     directory.tombstone(docId, userId);
     return { ok: true };
   }
 
-  return { resolve, create, remove };
+  return { resolve, capabilitiesOf, create, remove };
 }

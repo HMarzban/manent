@@ -5,6 +5,7 @@ import type { HttpErrorCode } from "@manent/sync-protocol";
 import type { Clock } from "../sync/ports.ts";
 import { openVersion } from "./content.ts";
 import type { LocksAt } from "./content.ts";
+import type { DraftEvents } from "./draft-events.ts";
 import { failed } from "./requests.ts";
 import type { HistoryRequests } from "./requests.ts";
 import type { HistoryService } from "./service.ts";
@@ -19,6 +20,7 @@ export function createNamedVersions(options: {
   recorder: Recorder;
   locksAt: LocksAt;
   requested: HistoryRequests["requested"];
+  draftEvents?: DraftEvents;
   /** The placed document's file, if `userId` may edit it. */
   authorize(
     userId: string,
@@ -67,16 +69,20 @@ export function createNamedVersions(options: {
         createdByUserId: userId,
       } as const;
       const how = { carry: true, snapshot: true, key, onlyWhenNew: false };
-      return options.requested(file, userId, request, () =>
-        fromVersionId === null
-          ? recorder.atHead(file, made, how)
-          : nameListed(file, file.history.get(fromVersionId), {
-              docId,
-              userId,
-              name,
-              key,
-            }),
-      );
+      return options.requested(file, userId, request, async () => {
+        const recorded =
+          fromVersionId === null
+            ? await recorder.atHead(file, made, how)
+            : nameListed(file, file.history.get(fromVersionId), {
+                docId,
+                userId,
+                name,
+                key,
+              });
+        if (recorded.ok && recorded.item !== null)
+          options.draftEvents?.named(docId, recorded.item.id, userId);
+        return recorded;
+      });
     },
   };
 }

@@ -219,8 +219,8 @@ export function createWritePath(ports: WritePathPorts): WritePath {
       if (doc.hasPendingStructs())
         return reloadAnd(CODE.BAD_FRAME, "incomplete");
       if (report === null) return enqueue({ kind: "ack", ...base });
-      const issues = validateRoomPush(report, room);
-      issues.push(...ports.checkPush(room, report));
+      const issues = validateRoomPush({ report, room, subscription });
+      issues.push(...ports.checkPush(room, report, subscription));
       if (issues.length > 0)
         return reloadAnd(CODE.VALIDATION_FAILED, "invalid");
       const floor =

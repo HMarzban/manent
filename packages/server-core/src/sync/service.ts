@@ -18,6 +18,7 @@ import { createHealing } from "./heal.ts";
 import { HELD_RETRY_MS, createHeldQueue } from "./held.ts";
 import { DEFAULT_LIMITS, NO_SETTINGS } from "./ports.ts";
 import type { Peer, SyncLimits, SyncService, SyncSettings } from "./ports.ts";
+import { createPrompterSubscribers } from "./prompter-subscribers.ts";
 import { createRooms } from "./rooms.ts";
 import type { Room } from "./rooms.ts";
 import { docOf } from "./subscribe.ts";
@@ -203,6 +204,7 @@ export function createSyncService(
     held: heldQueue,
     endAll,
   });
+  const prompters = createPrompterSubscribers();
   const subscribePorts: SubscribePorts = {
     access,
     rooms,
@@ -216,6 +218,9 @@ export function createSyncService(
     end,
     editorLeft: hooks.editorLeft,
     extras: hooks.subscribed,
+    airWindowOf: options.airWindowOf ?? (() => null),
+    prompters,
+    clock,
   };
   const subscribed = createSubscribedPeers({
     peers,
@@ -240,6 +245,7 @@ export function createSyncService(
     const state = peers.get(peer);
     if (state === undefined) return;
     for (const docId of state.held.keys()) end(peer, docId);
+    prompters.removePeer(peer);
     peers.delete(peer);
     caps.release(peer);
   }
@@ -265,6 +271,11 @@ export function createSyncService(
     },
     detach,
     accessChanged: subscribed.accessChanged,
+    membershipChanged(docId, userId, role) {
+      subscribed.membershipChanged(docId, userId, role);
+      const data = new TextEncoder().encode(JSON.stringify({ userId, role }));
+      broadcast(docId, "membership_changed", data);
+    },
     removed(docId) {
       const room = rooms.find(docId);
       if (room === null) return;

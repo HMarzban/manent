@@ -20,7 +20,7 @@ export function combineHooks(hooks: readonly SyncHooks[]): Required<SyncHooks> {
       }
       return null;
     },
-    checkPush: (room, report) =>
-      hooks.flatMap((hook) => hook.checkPush?.(room, report) ?? []),
+    checkPush: (room, report, pusher) =>
+      hooks.flatMap((hook) => hook.checkPush?.(room, report, pusher) ?? []),
   };
 }

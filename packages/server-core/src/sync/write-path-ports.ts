@@ -6,7 +6,7 @@ import type { TokenBucket } from "../limits/bucket.ts";
 import type { Refusal } from "./errors.ts";
 import type { HeldQueue } from "./held.ts";
 import type { Peer, SettingRules, SyncLimits, Upstream } from "./ports.ts";
-import type { Room, Rooms } from "./rooms.ts";
+import type { Room, Rooms, Subscription } from "./rooms.ts";
 
 export interface Committed {
   room: Room;
@@ -50,8 +50,12 @@ export interface WritePathPorts {
   held: HeldQueue;
   registry: SettingRules;
   schemaFloor: ((touched: readonly unknown[]) => number) | null;
-  /** Step 5: issues joined to validatePush's, any of which refuses the push. */
-  checkPush(room: Room, report: TransactionReport): Issue[];
+  /** Step 5: issues joined to validatePush's, any of which refuses the push; `pusher` is the subscription it came through. */
+  checkPush(
+    room: Room,
+    report: TransactionReport,
+    pusher: Subscription,
+  ): Issue[];
   /** Drawn from for the client id an authority write is made under in a relayed room, and for the ID a copy is given. */
   ids(): string;
   /** Step 6 left copies that differ in the room's script, which the person whose push made them reviews. */
