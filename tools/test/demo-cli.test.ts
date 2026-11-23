@@ -1,5 +1,5 @@
-import { afterAll, afterEach, expect, test } from "bun:test";
-import { stat } from "node:fs/promises";
+import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
+import { cp, stat } from "node:fs/promises";
 import { networkInterfaces } from "node:os";
 import { join } from "node:path";
 import { bindRefusal } from "@manent/demo";
@@ -17,6 +17,9 @@ afterAll(() => trees.removeAll());
 // each demo builds the web app here, never into apps/web/dist, which an e2e server may be serving
 const webDir = await trees.tree({});
 const demoEnv = { ...process.env, MANENT_WEB_DIR: webDir };
+// seeded once for the file and copied into each demo's folder, so that only the tests about seeding seed
+const seeded = await trees.tree({});
+beforeAll(() => ensureSeed(seeded), RUN);
 
 function freePort(): number {
   const probe = Bun.serve({
@@ -101,9 +104,12 @@ interface Place {
   controlPort: number;
 }
 
+/** A folder holding a copy of the file's seeded data, and two free ports. */
 async function place(): Promise<Place> {
+  const dir = await trees.tree({});
+  await cp(join(seeded, "data"), join(dir, "data"), { recursive: true });
   return {
-    dir: await trees.tree({}),
+    dir,
     port: freePort(),
     controlPort: freePort(),
   };

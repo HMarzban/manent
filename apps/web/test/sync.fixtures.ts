@@ -173,12 +173,18 @@ export const turn = (): Promise<void> =>
 // within the test runner's five seconds, and as long as loading a module takes on a busy machine
 const UNTIL_MS = 4_000;
 
-/** Turns until `done` holds, for as long as loading a module may take; throws after that. */
-export async function until(done: () => boolean): Promise<void> {
+/**
+ * Passes turns (each one `pass`, a plain turn unless given) until `done` holds, for as long as loading a
+ * module may take; throws after that.
+ */
+export async function until(
+  done: () => boolean,
+  pass: () => Promise<void> = turn,
+): Promise<void> {
   const deadline = performance.now() + UNTIL_MS;
   do {
     if (done()) return;
-    await turn();
+    await pass();
   } while (performance.now() < deadline);
   if (!done()) throw new RangeError("it never came about");
 }
