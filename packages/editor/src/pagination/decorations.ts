@@ -2,16 +2,16 @@
 import { engineFor, isSceneBoundary, specKey } from "@manent/pagination";
 import type {
   ChangeHint,
-  ElementSpec,
   Engine,
   LayoutBlock,
   Pagination,
 } from "@manent/pagination";
-import type { Dual } from "@manent/schema";
 import type { Node } from "prosemirror-model";
 import { Mapping, StepMap } from "prosemirror-transform";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { BreakStyle, LayoutView } from "../page/config.ts";
+import { blockAttrs, columnOf, firstsOnPages } from "./block-attrs.ts";
+import type { BlockContext } from "./block-attrs.ts";
 import { blockPos } from "./block-index.ts";
 import type { BlockIndex } from "./block-index.ts";
 import { toBreakSpecs, toRuleSpecs } from "./break-specs.ts";
@@ -42,73 +42,6 @@ function widgetOf(spec: BreakSpec): Decoration {
     stopEvent: () => true,
     ignoreSelection: true,
   });
-}
-
-// A block's dual column, in a run only: a right column counts after a left one.
-function columnOf(blocks: readonly LayoutBlock[], i: number): Dual | null {
-  const side = blocks[i]!.dual;
-  if (side !== "right") return side;
-  let at = i;
-  while (blocks[at]?.dual === "right") at--;
-  return blocks[at]?.dual === "left" ? "right" : null;
-}
-
-// The first block of each column on each page, so its space above is the drop a page's first block takes.
-function firstsOnPages(p: Pagination): Set<number> {
-  const firsts = new Set<number>();
-  for (const page of p.pages) {
-    if (page.line === 0) firsts.add(page.block);
-    if (page.right !== null && page.right.line === 0)
-      firsts.add(page.right.block);
-    if (page.line > 0 || page.right !== null) continue;
-    let split = page.block;
-    while (p.blocks[split]?.dual === "left") split++;
-    if (split > page.block && p.blocks[split]?.dual === "right")
-      firsts.add(split);
-  }
-  return firsts;
-}
-
-function overrideStyle(spec: ElementSpec): string {
-  return `--el-indent: ${spec.indent}; --el-width: ${spec.width}; --el-before: ${spec.spaceBefore}; text-align: ${spec.align}`;
-}
-
-interface BlockContext {
-  readonly p: Pagination;
-  readonly engine: Engine;
-  readonly firsts: ReadonlySet<number>;
-  /** The profile's own element specs: a block laid out by another has overrides. */
-  readonly rows: ReadonlySet<ElementSpec>;
-}
-
-function blockAttrs(
-  context: BlockContext,
-  i: number,
-): Record<string, string> | null {
-  const { p, engine } = context;
-  const { furniture } = p.profile;
-  const block = p.blocks[i]!;
-  const { spec } = p.metrics[i]!;
-  const column = columnOf(p.blocks, i);
-  const classes = [
-    ...(context.firsts.has(i) ? ["pg-first"] : []),
-    ...(column === null ? [] : [column === "left" ? "dual-l" : "dual-r"]),
-  ];
-  const attrs: Record<string, string> = {};
-  if (classes.length > 0) attrs["class"] = classes.join(" ");
-  const scene = furniture.scenesNumbered ? engine.sceneNumber(p, i) : null;
-  if (scene !== null) attrs["data-scene"] = scene;
-  if (engine.contdSuffix(p, i)) attrs["data-contd"] = furniture.contdText;
-  const speech = engine.speechNumber(p, i);
-  if (speech !== null) attrs["data-speech"] = String(speech);
-  if (spec.enclosure !== null) {
-    attrs["data-open"] = spec.enclosure[0];
-    attrs["data-close"] = spec.enclosure[1];
-  }
-  if (block.type === "break" && block.text === "")
-    attrs["data-mark"] = furniture.breakMark;
-  if (!context.rows.has(spec)) attrs["style"] = overrideStyle(spec);
-  return Object.keys(attrs).length > 0 ? attrs : null;
 }
 
 /** Calls `visit` with each block in [from, to), the position before it and its node. */
