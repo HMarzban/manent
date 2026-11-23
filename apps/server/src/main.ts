@@ -214,14 +214,15 @@ const adoptionOf = (dataDir: string, live: Storage) => ({
 
 /**
  * Lanternfield Studios before the server listens: an adoption under way is finished, a stopped
- * seed cleared, through storage opened and closed here. True when its seed has yet to run.
+ * seed cleared, through storage opened and closed here. True when its seed has yet to run or still
+ * runs.
  */
 async function isHeavyWaiting(dataDir: string): Promise<boolean> {
   const live = openSqliteStorage({ dir: join(dataDir, "data"), now: Date.now });
   try {
     if (live.directory.placeOf(indexDocId("workspace", "heavy")) !== null)
       return false;
-    return (await resumeStaging(adoptionOf(dataDir, live))) === "cleared";
+    return (await resumeStaging(adoptionOf(dataDir, live))) !== "adopted";
   } finally {
     live.close();
   }
@@ -342,7 +343,7 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
     ? startBackgroundSeed({
         command: Bun.isStandaloneExecutable
           ? [process.execPath]
-          : [process.execPath, "--no-orphans", import.meta.path],
+          : [process.execPath, import.meta.path],
         dataDir: env.dataDir,
         seedAt: Date.now(),
         onProgress: heavy.progress,

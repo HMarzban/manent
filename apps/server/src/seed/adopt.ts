@@ -1,13 +1,81 @@
-// The staging directory of a background seed moved into the live data directory, in an order a crash cannot break.
-import { existsSync } from "node:fs";
+// The staging directory of a background seed: the record of the seed writing it, and its move into the live data
+// directory, in an order a crash cannot break.
+import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { rename, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { openSqliteStorage, parseHome } from "@manent/storage";
 import type { DocDirectory, Home, Storage } from "@manent/storage";
 import { indexDocId } from "@manent/sync-protocol";
+import { isFields } from "./link.ts";
 
-/** The empty file the parent writes once the staging seed is whole: adoption may start, and start again. */
+/** The empty file the seed writes once the staging seed is whole: adoption may start, and start again. */
 export const STAGING_DONE = "done";
+/** The seed's record, rewritten whole as it goes. */
+const STAGING_RUN = "run.json";
+
+/** What a background seed records in its staging folder, so that a server started after it can follow it. */
+export interface SeedRun {
+  pid: number;
+  startedAt: number;
+  /** Projects written, of how many; null until the first is. */
+  progress: { done: number; total: number } | null;
+  /** The clause its failure is told with; null while it runs. */
+  failed: string | null;
+}
+
+const isCount = (value: unknown): value is number =>
+  Number.isSafeInteger(value) && Number(value) >= 0;
+
+/** The record in `stagingDir`; null when there is none or it is not one. */
+export function readSeedRun(stagingDir: string): SeedRun | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(readFileSync(join(stagingDir, STAGING_RUN), "utf8"));
+  } catch {
+    // no seed has started writing here yet; the record is only ever replaced whole
+    return null;
+  }
+  if (!isFields(value)) return null;
+  const { pid, startedAt, progress, failed } = value;
+  if (!isCount(pid) || !isCount(startedAt)) return null;
+  if (failed !== null && typeof failed !== "string") return null;
+  if (progress === null) return { pid, startedAt, progress, failed };
+  if (!isFields(progress)) return null;
+  const { done, total } = progress;
+  return isCount(done) && isCount(total)
+    ? { pid, startedAt, progress: { done, total }, failed }
+    : null;
+}
+
+/** Replaces the record in `stagingDir` whole, so that a reader never sees half of it. */
+export function writeSeedRun(stagingDir: string, run: SeedRun): void {
+  const path = join(stagingDir, STAGING_RUN);
+  writeFileSync(`${path}.tmp`, JSON.stringify(run));
+  renameSync(`${path}.tmp`, path);
+}
+
+/** True while the process `pid` exists. */
+export function isAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    // ESRCH: it has exited
+    return false;
+  }
+}
+
+/** A background seed still running this long after it started is stopped and counts as failed. */
+export const SEED_RUN_LIMIT_MS = 1_200_000;
+
+/**
+ * True while the seed the record names still runs at `now`: it has not failed, is within its time,
+ * and its process exists; past its time the process id may name another process since.
+ */
+export const isSeedRunning = (run: SeedRun, now: number): boolean =>
+  run.failed === null &&
+  now - run.startedAt < SEED_RUN_LIMIT_MS &&
+  isAlive(run.pid);
 
 interface AdoptOptions {
   live: Storage;
@@ -74,15 +142,19 @@ export async function adoptStaging(options: AdoptOptions): Promise<void> {
 
 /**
  * The start-up rule for a staging directory a stopped server left: a whole seed is adopted, from
- * its first step again; anything else is removed with the staging folder.
+ * its first step again; a seed still running is left to run, for the server to follow; anything
+ * else is removed with the staging folder.
  */
 export async function resumeStaging(
   options: AdoptOptions,
-): Promise<"adopted" | "cleared"> {
-  if (existsSync(join(options.stagingDir, STAGING_DONE))) {
+): Promise<"adopted" | "running" | "cleared"> {
+  const { stagingDir } = options;
+  if (existsSync(join(stagingDir, STAGING_DONE))) {
     await adoptStaging(options);
     return "adopted";
   }
-  await rm(dirname(options.stagingDir), { recursive: true, force: true });
+  const run = readSeedRun(stagingDir);
+  if (run !== null && isSeedRunning(run, Date.now())) return "running";
+  await rm(dirname(stagingDir), { recursive: true, force: true });
   return "cleared";
 }
