@@ -85,5 +85,12 @@ export interface DocHandle {
    * that does not lead.
    */
   adoptClientIds(ids: readonly number[]): void;
+  /**
+   * A new client ID for the server to write under on this device's behalf, made one of this
+   * document's own and stored: what is written under it and later removed by someone who never
+   * saw it is set aside here as Recovered text, as this device's typing is. A tab that does not
+   * lead hands it to the tab that does, and resolves before that tab has stored it.
+   */
+  reserveClientId(): Promise<number>;
   close(): Promise<void>;
 }
