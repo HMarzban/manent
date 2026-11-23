@@ -71,7 +71,7 @@ function placedOf(
 }
 
 /** The pages whose sheets are drawn in `frame`. */
-function drawnPages(frame: HTMLElement, count: number): number[] {
+export function drawnPages(frame: HTMLElement, count: number): number[] {
   const pages = [...frame.querySelectorAll<HTMLElement>(".mn-sheet[data-page]")]
     .map((sheet) => Number(sheet.dataset["page"]))
     .filter((k) => Number.isInteger(k) && k >= 0 && k < count);
