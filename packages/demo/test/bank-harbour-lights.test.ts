@@ -14,7 +14,7 @@ const beatsOf = (episode: string): Beat[] =>
 
 test("the bank holds its counts of each list", () => {
   expect(HARBOUR_LIGHTS_GUIDE.cast.length).toBe(8);
-  expect(HARBOUR_LIGHTS_GUIDE.places.length).toBe(16);
+  expect(HARBOUR_LIGHTS_GUIDE.places.length).toBe(17);
   expect(HARBOUR_LIGHTS_GUIDE.names.length).toBe(9);
   expect(HARBOUR_LIGHTS_GUIDE.vocabulary.length).toBe(14);
   expect(HARBOUR_LIGHTS_GUIDE.beats.length).toBe(110);

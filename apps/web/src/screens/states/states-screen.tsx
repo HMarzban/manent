@@ -135,7 +135,11 @@ function FixtureSection(props: { row: Row }): ReactNode {
       waitingByScene: createValue(waiting),
     };
     const documents: DocumentSource = { open: () => doc, close: noop };
-    const library = createFixtureLibrary({ count: projects, ids: randomId });
+    const library = createFixtureLibrary({
+      count: projects,
+      ids: randomId,
+      made: { byName: NAME, at: now() },
+    });
     const queries = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });

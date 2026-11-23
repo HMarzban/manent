@@ -77,8 +77,10 @@ test("requests carry the tab's session as a bearer token", async () => {
     status: 401,
     body: { error: "unauthenticated" },
   });
-  await createApi({ fetch: anonymous.fetch, getToken: () => null }).me();
-  expect(anonymous.calls[0]?.authorization).toBeNull();
+  expect(
+    await createApi({ fetch: anonymous.fetch, getToken: () => null }).me(),
+  ).toEqual({ ok: false, reason: "unauthenticated" });
+  expect(anonymous.calls).toEqual([]);
 });
 
 test("me() tells unauthenticated from unreachable", async () => {
@@ -140,7 +142,7 @@ test("a 200 that is not the contract's is thrown, not called unreachable", async
   await expect(
     createApi({
       fetch: fakeFetch({ status: 200, text: "<html>" }).fetch,
-      getToken: () => null,
+      getToken: () => "tok",
     }).me(),
   ).rejects.toThrow();
 });

@@ -15,9 +15,9 @@ import {
   PLACE_WORDS,
   RadioGroup,
   RadioGroupItem,
-  Toggle,
   formatPosition,
 } from "@manent/ui";
+import { ChevronDownIcon } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -45,6 +45,11 @@ const MODES: readonly ChangesMode[] = [
   "asterisks",
   "as_it_was",
 ];
+
+// a menu button's mark, after its words
+const CHEVRON = (
+  <ChevronDownIcon aria-hidden="true" className="size-icon text-fg-muted" />
+);
 
 const isMode = (value: unknown): value is ChangesMode =>
   MODES.some((mode) => mode === value);
@@ -199,7 +204,7 @@ function BaselineMenu(props: {
           render={<Button variant="outline" size="sm" />}
         >
           {props.offered?.title ?? null}
-          <span aria-hidden="true">▾</span>
+          {CHEVRON}
         </DropdownMenuTrigger>
         <DropdownMenuContent className="max-h-80 overflow-auto">
           {sinceOpened === null ? null : (
@@ -229,7 +234,7 @@ function ShowModes(props: { offered: HistoryState["baseline"] }): ReactNode {
   const mode = useHistory("mode");
   const baseline = useHistory("baseline");
   return (
-    <div className="flex flex-col gap-1 text-ui">
+    <div className="flex flex-col gap-2 text-ui">
       <span id={`${id}-label`}>{HISTORY_WORDS.show}</span>
       <RadioGroup
         aria-labelledby={`${id}-label`}
@@ -239,7 +244,6 @@ function ShowModes(props: { offered: HistoryState["baseline"] }): ReactNode {
           historyActions.setMode(chosen);
           if (baseline === null) historyActions.setBaseline(props.offered);
         }}
-        className="flex flex-col gap-1"
       >
         {MODES.map((choice, index) => (
           <span key={choice} className="flex items-center gap-2">
@@ -289,7 +293,7 @@ function ChangesFilter(props: {
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
         {HISTORY_WORDS.filter}
-        <span aria-hidden="true">▾</span>
+        {CHEVRON}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="max-h-80 overflow-auto">
         <DropdownMenuItem onClick={scenes(null)}>
@@ -375,15 +379,15 @@ export function HistoryChanges(props: {
           <Stepper count={changeCount(shown)} />
         </div>
       )}
-      <Toggle
+      <Button
         variant="outline"
         size="sm"
-        pressed={draftsOnly}
-        onPressedChange={(pressed) => historyActions.setDraftsOnly(pressed)}
-        className="self-start text-ui"
+        aria-pressed={draftsOnly}
+        onClick={() => historyActions.setDraftsOnly(!draftsOnly)}
+        className="self-start"
       >
         {HISTORY_WORDS.draftsOnly}
-      </Toggle>
+      </Button>
     </div>
   );
 }

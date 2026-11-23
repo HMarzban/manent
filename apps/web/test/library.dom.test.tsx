@@ -354,7 +354,7 @@ test("Continue comes first, then the projects with their kind, last edit and pla
     ["Game samples", "Game", "Dana, Mon", "Not on this device"],
   ]);
   expect(game?.getAttribute("aria-disabled")).toBe("true");
-  expect(game?.tabIndex).toBe(0);
+  expect([night?.tabIndex, game?.tabIndex]).toEqual([0, -1]);
   await act(async () => game?.click());
   expect(router.state.location.pathname).toBe("/");
   const statusBar = document.querySelector('[data-region="status_bar"]');

@@ -82,9 +82,8 @@ export interface ProjectItem {
   kind: ProjectKind;
   /** Null for a project that holds no document yet. */
   firstDocId: string | null;
-  /** `at` in milliseconds since the epoch; null while nobody has edited it. */
-  lastEdited:
-    { byName: string; at: number } | { changedSinceOpened: true } | null;
+  /** `at` in milliseconds since the epoch: the latest edit of its documents, or its creation while nobody has edited one. */
+  lastEdited: { byName: string; at: number } | { changedSinceOpened: true };
   place: RowPlace;
 }
 

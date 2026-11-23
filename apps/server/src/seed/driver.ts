@@ -7,8 +7,8 @@ import {
   scriptBody,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import { SeedDriverError, seedProject } from "@manent/demo";
-import type { SeedDriver, SeedSession } from "@manent/demo";
+import { SEED_DOCS, SeedDriverError, seedProject } from "@manent/demo";
+import type { SeedDriver, SeedSession, SeedWorkspaceId } from "@manent/demo";
 import { SCHEMA_VERSION, canonicalDoc } from "@manent/schema";
 import type { DocJSON } from "@manent/schema";
 import type {
@@ -89,7 +89,43 @@ async function uploadBefore(
   });
 }
 
-/** A replica subscribed for editing; while offline it holds its changes and what it hears. */
+/** The workspace whose index lists the seeded document `docId`; null for any other document, such as an index. */
+function workspaceOf(docId: string): SeedWorkspaceId | null {
+  const found = SEED_DOCS.find((d) => d.docId === docId);
+  return found === undefined ? null : seedProject(found.projectKey).workspaceId;
+}
+
+/**
+ * Writes in its workspace's index that `userId` edited `docId` at `at`, as the app writes a person's own changes,
+ * unless the index holds a later edit; nothing for a document no index lists yet.
+ */
+async function markEdited(
+  d: Driving,
+  userId: string,
+  docId: string,
+  at: number,
+): Promise<void> {
+  const workspaceId = workspaceOf(docId);
+  if (workspaceId === null) return;
+  const index = await openSession(
+    d,
+    userId,
+    indexDocId("workspace", workspaceId),
+  );
+  await index.change((doc) => {
+    const documents = jsonMap(doc, "documents");
+    const entry = documents.get(docId);
+    if (!isFields(entry)) return;
+    if (typeof entry.editedAt === "number" && entry.editedAt >= at) return;
+    documents.set(docId, { ...entry, editedAt: at, editedByUserId: userId });
+  });
+  await index.close();
+}
+
+/**
+ * A replica subscribed for editing; while offline it holds its changes and what it hears. Closing it writes the time
+ * of its last change in the workspace's index.
+ */
 async function openSession(
   d: Driving,
   userId: string,
@@ -100,6 +136,7 @@ async function openSession(
   let held: Uint8Array[] | null = null;
   let heard: Uint8Array[] = [];
   let before: DocJSON | null = null;
+  let editedAt: number | null = null;
   const { state } = await link.subscribe(docId, doc.clientId, (update) => {
     if (held === null) doc.applyUpdate(update, ORIGIN_REMOTE);
     else heard.push(update);
@@ -110,6 +147,7 @@ async function openSession(
     async change(fn) {
       const update = changesOf(doc, fn);
       if (update === null) return;
+      editedAt = d.target.clock.now();
       if (held === null) await link.push(docId, update);
       else held.push(update);
     },
@@ -133,6 +171,7 @@ async function openSession(
       await link.unsubscribe(docId);
       doc.destroy();
       await d.runDue();
+      if (editedAt !== null) await markEdited(d, userId, docId, editedAt);
     },
   };
 }

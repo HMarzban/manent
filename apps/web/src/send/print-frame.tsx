@@ -11,7 +11,7 @@ import type { SendFormProps } from "../screens/send/forms.ts";
 import { SendFrame } from "../screens/send/send-frame.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import type { Environment } from "../services/ports.ts";
-import { pagesFor, useOfferedTo, useWhatRow } from "./export-form.tsx";
+import { useOfferedTo, useWhatRow } from "./export-form.tsx";
 import { typesPrinted } from "./file-types.ts";
 import { useSendPages } from "./page-tiles.tsx";
 import { PRINT_ID, printCss, printPages } from "./print-pages.ts";
@@ -61,31 +61,24 @@ async function printScript(work: {
 }
 
 /**
- * The Print form: its rows from the first frame, titled Print; the checks, the pages, the page count and the print
- * itself once the document's editor is open.
+ * The Print action's state: `built` counts the pages built so far; `run` builds and prints its pages, then goes `back`;
+ * `cancel` aborts a build under way.
  */
-export function LivePrint(props: SendFormProps): ReactNode {
-  const { docId } = props;
-  const { p, title, tiles, back } = useSendPages(docId);
+interface PrintAction {
+  busy: boolean;
+  built: number;
+  problem: string | null;
+  run: (pages: Pagination) => Promise<void>;
+  cancel: () => void;
+}
+
+function usePrintAction(
+  docId: string,
+  title: string,
+  back: () => void,
+): PrintAction {
   const { frame } = useEnvironment();
-  const { history, documents } = useServices();
-  const to = useOfferedTo(docId);
-  const [printed] = typesPrinted(to);
-  const what = useWhatRow("print", printed?.id ?? null, to.locked);
-  const option = what?.option ?? null;
-  const pages = useMemo(
-    () =>
-      p === null || option === null
-        ? null
-        : pagesFor(option, docId, p, () =>
-            documents.open(docId).material.materialSnapshotOf(docId),
-          ),
-    [p, option, docId, documents],
-  );
-  const checks = useMemo(
-    () => (p === null ? null : checksRow(docId)),
-    [docId, p],
-  );
+  const { history } = useServices();
   const [busy, setBusy] = useState(false);
   const [built, setBuilt] = useState(0);
   const [problem, setProblem] = useState<string | null>(null);
@@ -93,7 +86,7 @@ export function LivePrint(props: SendFormProps): ReactNode {
   // Back aborts a build under way
   useEffect(() => () => building.current?.abort(), []);
 
-  const run = async (sent: Pagination): Promise<void> => {
+  const run = async (pages: Pagination): Promise<void> => {
     const controller = new AbortController();
     building.current = controller;
     setBusy(true);
@@ -101,7 +94,7 @@ export function LivePrint(props: SendFormProps): ReactNode {
     setBuilt(0);
     try {
       await printScript({
-        pages: sent,
+        pages,
         front: liveFrontPages(docId) ?? [],
         frame,
         signal: controller.signal,
@@ -118,7 +111,31 @@ export function LivePrint(props: SendFormProps): ReactNode {
     void history.save(docId, "export");
     back();
   };
+  return { busy, built, problem, run, cancel: () => building.current?.abort() };
+}
 
+/**
+ * The Print form: its rows from the first frame, titled Print; the checks, the pages, the page count and the print
+ * itself once the document's editor is open.
+ */
+export function LivePrint(props: SendFormProps): ReactNode {
+  const { docId } = props;
+  const to = useOfferedTo(docId);
+  const [printed] = typesPrinted(to);
+  const what = useWhatRow("print", printed?.id ?? null, to.locked);
+  const { p, pages, title, tiles, back } = useSendPages(
+    docId,
+    what?.option ?? null,
+  );
+  const checks = useMemo(
+    () => (p === null ? null : checksRow(docId)),
+    [docId, p],
+  );
+  const { busy, built, problem, run, cancel } = usePrintAction(
+    docId,
+    title,
+    back,
+  );
   const count = pages === null ? null : pages.pages.length;
   const heading = count === null ? WORDS.print : WORDS.printTitle(count);
   return (
@@ -136,7 +153,7 @@ export function LivePrint(props: SendFormProps): ReactNode {
         busyLabel: count === null ? heading : WORDS.preparing(count),
         busy,
         progress: busy && count !== null ? WORDS.progress(built, count) : null,
-        cancel: busy ? () => building.current?.abort() : null,
+        cancel: busy ? cancel : null,
         disabledReason: null,
         problem,
         run: pages === null ? null : () => void run(pages),
