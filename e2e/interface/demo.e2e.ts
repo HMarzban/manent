@@ -16,6 +16,8 @@ test("the Tour opens the first time a person reaches the Library, and the Tour b
   page,
   request,
 }) => {
+  // a reset re-seeds every workspace through the real write path, which takes the demo some 20 s
+  test.setTimeout(90_000);
   // a first visit is once per person on this server, and earlier tests have had Sam's
   await reseedDemo(request);
   await page.goto("/");

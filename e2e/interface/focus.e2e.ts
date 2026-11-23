@@ -114,11 +114,16 @@ function contextAt(at: string, platform: Platform): CommandContext {
   );
 }
 
-const placeOf = (id: SurfaceId): Place => {
+// an opener that uses a part of its surface's shown tab: Script settings lies below the Selection group in Details
+const PARTS: Partial<Record<CommandId, string>> = {
+  "doc.scriptSettings": "[data-region='side_panel'] [data-script-settings]",
+};
+
+const placeOf = (id: SurfaceId, opener: CommandId): Place => {
   const place = PLACES[id];
   if (place === undefined)
     throw new RangeError(`the focus tests do not know where ${id} is shown`);
-  return place;
+  return { ...place, first: PARTS[opener] ?? place.first };
 };
 
 /**
@@ -263,7 +268,7 @@ for (const entry of SURFACES.filter((s) => s.id !== "file_picker"))
           entry.id === "side_panel" && opener === "history.open",
           "History opens on an empty tab: the History tab's versions list is not drawn",
         );
-        const place = placeOf(entry.id);
+        const place = placeOf(entry.id, opener);
         const command = commandOf(opener);
         const platform = await platformOf(page);
         test.skip(

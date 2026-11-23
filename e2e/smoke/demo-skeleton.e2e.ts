@@ -33,6 +33,8 @@ test("a tester chooses a person and reaches the Library", async ({
   browserName,
   request,
 }) => {
+  // a reset re-seeds every workspace through the real write path, which takes the demo some 20 s
+  test.setTimeout(90_000);
   // a first visit is once per person on this server, and earlier tests have had Leo's
   await reseedDemo(request);
   // `/` with no person redirects to the chooser
@@ -366,6 +368,8 @@ test("a reset drops what the tab had cached from the old seed", async ({
   page,
   request,
 }) => {
+  // a reset re-seeds every workspace through the real write path, which takes the demo some 20 s
+  test.setTimeout(90_000);
   await page.goto("/choose");
   await expect(page.getByRole("button", { name: /^Dana Reyes/ })).toBeVisible();
   const { control } = (await (

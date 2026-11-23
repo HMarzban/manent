@@ -10,7 +10,7 @@ import {
 import type { Subscribable } from "@manent/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PanelRightIcon, PowerIcon } from "lucide-react";
-import { useContext, useEffect } from "react";
+import { useContext, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { initialsOf } from "../initials.ts";
 import { useAnnouncer } from "../shell/announcer-region.tsx";
@@ -133,8 +133,13 @@ function ServerControl(props: DemoControl): ReactNode {
 
   const state = status.data;
   const announcer = useAnnouncer();
+  // the bar shows the first answer; only a change is said, so a page that opens does not say the server is running
+  const known = useRef(state);
   useEffect(() => {
-    if (state !== undefined) announcer.announce(serverStatusText(state));
+    const before = known.current;
+    known.current = state;
+    if (before !== undefined && state !== undefined && state !== before)
+      announcer.announce(serverStatusText(state));
   }, [announcer, state]);
   const kind =
     state === "running"
