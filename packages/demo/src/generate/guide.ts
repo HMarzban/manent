@@ -100,11 +100,18 @@ export function speechOf(
     : [{ element: ACTION_ELEMENTS[format], text: `${cue}: ${text}` }];
 }
 
+/** The first of each of `lists`, then the second of each, and so on until every one is used. */
+const inTurn = <T>(lists: readonly (readonly T[])[]): T[] =>
+  Array.from({ length: Math.max(0, ...lists.map((l) => l.length)) }, (_, i) =>
+    lists.flatMap((list) => list.slice(i, i + 1)),
+  ).flat();
+
 /**
- * The hand-written lines, action then dialogue, of the first of `guides` that writes the document, else of
- * the first that writes another document of its project, as the document's format writes them; a speech any
- * of the cast may say goes to the cast of the guide's beats in turn, those in the room before a voice from
- * elsewhere ("GIL (V.O.)"). Null when no guide writes the project.
+ * The hand-written lines of the first of `guides` that writes the document, else of the first that writes
+ * another document of its project, as the document's format writes them: an action, then a speech of each
+ * speaker in turn, and again, so that a writer's lines read as a scene. A speech any of the cast may say
+ * goes to the cast of the guide's beats in turn, those in the room before a voice from elsewhere
+ * ("GIL (V.O.)"). Null when no guide writes the project.
  */
 export function guideLines(
   guides: readonly StyleGuide[],
@@ -118,13 +125,19 @@ export function guideLines(
   const inRoom = cast.filter((cue) => !cue.includes("("));
   const cues = inRoom.length > 0 ? inRoom : cast;
   const element = ACTION_ELEMENTS[doc.format];
-  return [
-    ...guide.action.map((text) => [{ element, text }]),
-    ...guide.dialogue.flatMap((entry, i) => {
-      const cue = entry.speaker ?? cues[i % cues.length];
-      return cue === undefined ? [] : [speechOf(doc.format, cue, entry.text)];
-    }),
-  ];
+  const said = guide.dialogue.flatMap((entry, i) => {
+    const cue = entry.speaker ?? cues[i % cues.length];
+    return cue === undefined ? [] : [{ cue, text: entry.text }];
+  });
+  const speakers = [...new Set(said.map((speech) => speech.cue))];
+  return inTurn<WriterLine>([
+    guide.action.map((text) => [{ element, text }]),
+    ...speakers.map((cue) =>
+      said
+        .filter((speech) => speech.cue === cue)
+        .map(({ text }) => speechOf(doc.format, cue, text)),
+    ),
+  ]);
 }
 
 export interface ProseGuide {
