@@ -109,9 +109,11 @@ function useTestStatus(
   const laid = useRef<Partial<StatusFacts>>({});
   useEffect(() => {
     if (status === null) return;
-    const stop = source.subscribe((facts) =>
-      status.set({ ...facts, ...laid.current }),
-    );
+    const follow = (facts: StatusFacts): void =>
+      status.set({ ...facts, ...laid.current });
+    // a source given since, as signing in gives one, is followed from its facts now
+    follow(source.get());
+    const stop = source.subscribe(follow);
     const hook: unknown = Reflect.get(window, "__manent");
     if (typeof hook !== "object" || hook === null) return stop;
     Reflect.set(hook, "setStatus", (patch: Partial<StatusFacts>) => {
