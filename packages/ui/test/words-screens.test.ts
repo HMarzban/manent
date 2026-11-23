@@ -526,8 +526,9 @@ test("the screens' words are the design's", () => {
     slow: "Slow",
     addWriters: "Add writers",
     addWritersHint:
-      "Demo writers type in this script, each in a scene of its own.",
+      "Demo writers type in this script, each in a scene of its own or all in the scene you are in.",
     writersChoice: "Writers typing in other scenes",
+    writersHereChoice: "Writers typing in this scene",
     stopWriters: "Stop writers",
     writersTyping: ["1 writer typing", "5 writers typing"],
     writersShort: "3 of 5 writers typing — each needs a scene of its own",
