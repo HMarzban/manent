@@ -5,7 +5,12 @@ import { parseSeedText } from "../../content/markup.ts";
 import type { SeedBlock, SeedPassage } from "../../content/markup.ts";
 import { HARBOUR_LIGHTS_GUIDE } from "../../generate/banks/medium/harbour-lights.ts";
 import { sessionsBetween } from "../../generate/drafts.ts";
-import { fitAPages, intentsOf, unitsIn } from "../../generate/fit.ts";
+import {
+  fitAPages,
+  fitToPages,
+  intentsOf,
+  unitsIn,
+} from "../../generate/fit.ts";
 import type { Unit } from "../../generate/fit.ts";
 import { SeedBuildError } from "../../generate/guide.ts";
 import { seedDoc } from "../catalogue.ts";
@@ -20,6 +25,7 @@ import {
   toPages,
   unlockedLayout,
   usedNear,
+  withoutRepeats,
 } from "./harbour-lights-script.ts";
 import type { Episode, WrittenScript } from "./harbour-lights-script.ts";
 
@@ -28,6 +34,76 @@ const GUIDE = HARBOUR_LIGHTS_GUIDE;
 const WHERE = `${GUIDE.project}: 202`;
 const PAGES = 56;
 const LAYOUT = unlockedLayout(GUIDE);
+/**
+ * The scenes that open a page of the White draft, so that each passage the Blue pages write falls in a scene it
+ * belongs to: the café on 11, running through 12 until scene 13 opens 13; the bank on 27; the café again on 31.
+ */
+const SCENE_PAGES = [
+  { scene: 12, page: 11 },
+  { scene: 13, page: 13 },
+  { scene: 28, page: 27 },
+  { scene: 31, page: 31 },
+] as const;
+
+// the White draft, PAGES long, each scene of SCENE_PAGES opening its page; the text before each of them, and from
+// the last, is first brought to its pages on its own, measured with the heading after it so that the heading
+// lands on its page or past it: the fit then mostly takes text out, of which there is plenty, rather than drawing
+// actions, few of which are free near the page
+async function whiteDraft({ context, meter }: Episode): Promise<SeedBlock[]> {
+  const { rng } = context;
+  const generated = generateScript(GUIDE, KEY, rng);
+  const starts = SCENE_PAGES.map(({ scene }) => sceneStart(generated, scene));
+  const headings = starts.map((i) => generated[i]!);
+  const cuts = [0, ...starts, generated.length];
+  const firsts = [1, ...SCENE_PAGES.map(({ page }) => page), PAGES + 1];
+  const options = {
+    fixed: new Set<SeedBlock>(),
+    guide: GUIDE,
+    rng,
+    meter,
+    layout: LAYOUT,
+  };
+  const parts: SeedBlock[][] = [];
+  for (const [i, from] of cuts.slice(0, -1).entries()) {
+    const part = generated.slice(from, cuts[i + 1]);
+    const pages = firsts[i + 1]! - firsts[i]!;
+    const next = headings[i];
+    parts.push(
+      next === undefined
+        ? await toPages(part, pages, options)
+        : (await toPages([...part, next], pages + 1, options)).slice(0, -1),
+    );
+  }
+  let doc = withoutRepeats(parts.flat(), {
+    guide: GUIDE,
+    rng,
+    fixed: new Set(),
+  });
+  // one heading at a time, so each fit draws through what is near its own page; the last part keeps the length
+  for (const [i, heading] of headings.entries()) {
+    const at = doc.indexOf(heading);
+    const from = i === 0 ? 0 : doc.indexOf(headings[i - 1]!);
+    const last = doc.indexOf(headings.at(-1)!);
+    doc = await fitToPages(
+      doc,
+      [
+        {
+          generated: [from, at],
+          mustStart: { page: String(SCENE_PAGES[i]!.page), blockIndex: at },
+        },
+        { generated: [last, doc.length], mustStart: null },
+      ],
+      {
+        meter,
+        guide: GUIDE,
+        rng,
+        used: usedNear(GUIDE, doc, at),
+        totals: [{ layout: LAYOUT, pages: PAGES }],
+      },
+    );
+  }
+  return doc;
+}
 
 // the units of a page's run, wherever they start
 function unitsOn(page: readonly SeedBlock[]): Unit[] {
@@ -205,14 +281,7 @@ const BLUE_PARTS: readonly {
  */
 export async function planSalt(episode: Episode): Promise<void> {
   const { context, story, plan } = episode;
-  const generated = generateScript(GUIDE, KEY, context.rng);
-  const white = await toPages(generated, PAGES, {
-    fixed: new Set(),
-    guide: GUIDE,
-    rng: context.rng,
-    meter: episode.meter,
-    layout: LAYOUT,
-  });
+  const white = await whiteDraft(episode);
   const script: WrittenScript = { blocks: [], ids: [] };
   const writing = sessionsBetween([], white, 3);
   planSessions(

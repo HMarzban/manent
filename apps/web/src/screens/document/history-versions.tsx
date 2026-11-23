@@ -1,5 +1,6 @@
 // The versions section of the History tab: Changes since, then Working and the versions by day, each with its row
 // menu; the restore question, and the version viewed as it was or beside the page.
+import type { Comparison } from "@manent/revisions";
 import {
   ConsequenceDialog,
   DOCUMENT_WORDS,
@@ -12,10 +13,11 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import type { SurfaceStateValue } from "@manent/ui";
-import { useEffect, useLayoutEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { baselineOfRow } from "../../history/baseline.ts";
 import type { HistoryRow } from "../../history/history-rows.ts";
-import { historyView } from "../../history/history-view.ts";
+import { historyView, selectRow } from "../../history/history-view.ts";
 import { restoreQuestion } from "../../history/restore-question.ts";
 import { useServices } from "../../services/context.tsx";
 import { historyActions, useHistory } from "../../state/history.store.ts";
@@ -120,6 +122,29 @@ function useShownToCommands(
   );
 }
 
+/**
+ * A version clicked in the list: selected, its changes shown the way Show says, and the page brought to the first
+ * of them once they are compared.
+ */
+function useShowRow(comparison: Comparison | null): (row: HistoryRow) => void {
+  const { commands } = useServices();
+  const baseline = useHistory("baseline");
+  const step = useHistory("step");
+  const [shown, setShown] = useState<string | null>(null);
+  // the stepper starts again on new changes: the first step waits for it
+  useEffect(() => {
+    if (shown === null || comparison === null || step !== null) return;
+    if (baseline?.versionId !== shown) return;
+    setShown(null);
+    commands.run("history.nextChange", "control");
+  }, [commands, shown, comparison, baseline, step]);
+  return (row) => {
+    selectRow(row);
+    historyActions.setBaseline(baselineOfRow(row));
+    setShown(row.item.id);
+  };
+}
+
 export function HistoryVersions(props: { docId: string }): ReactNode {
   const { docId } = props;
   const { history } = useServices();
@@ -139,6 +164,7 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
   );
   const draftsOnly = useHistory("draftsOnly");
   const draft = useDraftNaming(docId);
+  const showRow = useShowRow(comparison);
   useShownToCommands(docId, listed.rows, blockIds);
   const state = stateOf(listed.state, listed.rows.length, editable);
   const offline = listed.state.kind === "offline";
@@ -149,6 +175,7 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
       offline={offline}
       draft={draft}
       onNearEnd={() => history.more(docId)}
+      onShow={showRow}
     />
   );
   // Working heads the list, and ends it with Drafts only
@@ -172,7 +199,7 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
     <section
       aria-label={DOCUMENT_WORDS.historyTab}
       data-tour="history_list"
-      className="flex flex-col"
+      className="flex flex-col px-1"
     >
       <HistoryChanges
         docId={docId}

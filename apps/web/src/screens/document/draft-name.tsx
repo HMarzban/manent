@@ -3,11 +3,17 @@ import { HISTORY_WORDS, Input } from "@manent/ui";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { HistoryRow } from "../../history/history-rows.ts";
+import { proposeDraftName } from "../../project/ladder.ts";
 
-/** The name Name this draft… offers: First draft … Tenth draft, then Draft 11, Draft 12 …, after the script's drafts. */
-export function nextDraftName(rows: readonly HistoryRow[]): string {
-  const n = rows.filter((row) => row.item.kind === "named").length + 1;
-  return HISTORY_WORDS.ordinals[n - 1] ?? HISTORY_WORDS.draftNumber(n);
+/** The name Name this draft… offers after the script's drafts among `rows`, on the draft ladder `ladder` (none unless given). */
+export function nextDraftName(
+  rows: readonly HistoryRow[],
+  ladder: readonly string[] = [],
+): string {
+  const names = rows.flatMap(({ item }) =>
+    item.kind === "named" && item.name !== null ? [item.name] : [],
+  );
+  return proposeDraftName(names, ladder);
 }
 
 /** Enter names, Escape cancels; the field keeps every other key from the list around it. */

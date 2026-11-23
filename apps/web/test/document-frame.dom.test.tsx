@@ -69,7 +69,7 @@ test("a commenter's state bar says so", async () => {
   expect(
     region(frame.container, "state_bar").querySelector("[role='status']")
       ?.textContent,
-  ).toBe("View only — you can comment");
+  ).toBe("View only");
 });
 
 test("the state bar's region is hidden while it has no line, so F6 passes it by", async () => {
@@ -94,10 +94,11 @@ test("Title ▾ holds Script settings and Rename for an editor, and not Rename f
       "Rename",
       "Export…",
       "Print…⌘P",
+      "Copy link",
       "Name this draft…⌘⇧S",
       "Open beside",
     ],
-    ["Script settings", "Export…", "Print…⌘P", "Open beside"],
+    ["Script settings", "Export…", "Print…⌘P", "Copy link", "Open beside"],
   ]);
 });
 

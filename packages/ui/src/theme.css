@@ -874,7 +874,9 @@ html[data-white-page] .mn-pages {
 /* --------------------------------------------------------------------------
    STOCK CORRECTIONS. Unlayered, so they beat utility classes. These are the
    only rules outside packages/ui/src/components that name a role or a slot
-   of a stock component. Adding one needs a design-system review.
+   of a stock component. Adding one needs a design-system review. The
+   shared Button is matched by its own class, group/button, because a trigger
+   that renders it (a tooltip's, a popover's) replaces its data-slot.
    -------------------------------------------------------------------------- */
 
 /* 1. One focus ring for every focusable thing, stock or ours. A heading or a
@@ -993,20 +995,20 @@ html[data-white-page] .mn-pages {
 /* 8. A toggle that is on, or a button pressed as one, takes the selected role
       and an edge, not the hover fill. */
 [data-slot^="toggle"][aria-pressed="true"],
-[data-slot="button"][aria-pressed="true"] {
+[class~="group/button"][aria-pressed="true"] {
   background-color: var(--bg-selected);
   color: var(--fg);
   outline: 1px solid var(--line-strong);
   outline-offset: -1px;
 }
 [data-slot^="toggle"][aria-pressed="true"]:focus-visible,
-[data-slot="button"][aria-pressed="true"]:focus-visible {
+[class~="group/button"][aria-pressed="true"]:focus-visible {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
 }
 
 /* 9. One hover strength: the outline button hovers like every other control. */
-[data-slot="button"][class~="hover:bg-input/50"]:hover {
+[class~="group/button"][class~="hover:bg-input/50"]:hover {
   background-color: var(--bg-subtle);
 }
 
@@ -1076,6 +1078,63 @@ html[data-white-page] .mn-pages {
   max-width: 16.25rem;
 }
 
+/* 14. What can be pressed, opened or chosen shows the pointer; text that does
+       nothing keeps the arrow. A control that cannot act now is dimmed, shows
+       the not-allowed cursor and no hover fill, and still takes the pointer
+       and focus, so that its tooltip or its own word says why. */
+:where(
+  button,
+  a[href],
+  summary,
+  [role="button"],
+  [role="link"],
+  [role="tab"],
+  [role^="menuitem"],
+  [role="option"],
+  [role="radio"],
+  [role="checkbox"],
+  [role="switch"],
+  [data-slot="select-trigger"],
+  .mn-row[tabindex]
+) {
+  cursor: pointer;
+}
+:where(
+  button,
+  [role="button"],
+  [role="tab"],
+  [role^="menuitem"],
+  [role="option"],
+  [role="radio"],
+  [role="checkbox"],
+  [role="switch"],
+  [data-slot="select-trigger"],
+  .mn-row[tabindex]
+):is(:disabled, [aria-disabled="true"], [data-disabled]) {
+  cursor: not-allowed;
+  pointer-events: auto;
+}
+[class~="group/button"]:is([aria-disabled="true"], [data-disabled]) {
+  opacity: 0.5;
+}
+[class~="group/button"]:is(
+    :disabled,
+    [aria-disabled="true"],
+    [data-disabled]
+  ):is([class~="hover:bg-muted"], [class~="hover:bg-input/50"]):hover {
+  background-color: transparent;
+}
+[class~="group/button"]:is(
+    :disabled,
+    [aria-disabled="true"],
+    [data-disabled]
+  )[class~="hover:bg-primary/80"]:hover {
+  background-color: var(--primary);
+}
+[data-slot="select-trigger"]:not(:disabled, [data-disabled]):hover {
+  background-image: linear-gradient(var(--bg-subtle), var(--bg-subtle));
+}
+
 /* --------------------------------------------------------------------------
    ROWS. Manent's own list row, used by Scenes, Pages, the Library tree,
    versions, threads, the Tour and the rundown. Layout is utilities; the
@@ -1088,7 +1147,7 @@ html[data-white-page] .mn-pages {
 /* only a row that does something looks like it does: its own keys, or the
    control around it */
 .mn-row[tabindex]:not([aria-disabled="true"]):hover,
-button:not(:disabled):hover > .mn-row {
+button:not(:disabled, [aria-disabled="true"]):hover > .mn-row {
   background-color: var(--bg-subtle);
 }
 .mn-row[aria-current]:not([aria-current="false"]),
@@ -1192,7 +1251,7 @@ button:not(:disabled):hover > .mn-row {
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  .mn-bar [data-slot="button"]:has(> [data-slot="button-label"]) {
+  .mn-bar [class~="group/button"]:has(> [data-slot="button-label"]) {
     width: var(--control-h-sm);
     padding-inline: 0;
   }
@@ -1616,7 +1675,6 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   padding-inline: 0.5rem;
   border-radius: var(--shape-control);
   white-space: nowrap;
-  cursor: default;
 }
 :is(#mn-picker, #mn-complete) [role="option"]:hover {
   background-color: var(--bg-subtle);
@@ -1685,7 +1743,7 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   .animate-bounce {
     animation: none !important;
   }
-  [data-slot="button"]:active {
+  [class~="group/button"]:active {
     translate: none !important;
   }
 }
@@ -1725,7 +1783,7 @@ html[data-switching] *::after {
     border-inline-end: 4px double CanvasText;
   }
   [data-slot^="toggle"][aria-pressed="true"],
-  [data-slot="button"][aria-pressed="true"],
+  [class~="group/button"][aria-pressed="true"],
   .mn-row[aria-current]:not([aria-current="false"]),
   .mn-row[aria-selected="true"],
   [role="option"][data-highlighted],

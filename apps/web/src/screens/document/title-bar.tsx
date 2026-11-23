@@ -68,7 +68,6 @@ function ShareButton(): ReactNode {
               data-tour="share"
               aria-disabled={reason === null ? undefined : true}
               aria-describedby={reason === null ? undefined : reasonId}
-              className="aria-disabled:text-fg-muted"
               onClick={() => service.run("share.open", "control")}
             />
           }

@@ -305,6 +305,16 @@ test("moving the caret closes the picker", () => {
   ]).toEqual([false, 0]);
 });
 
+test("focus leaving the page closes the picker", () => {
+  const { view, layer } = viewWith(blockOf("action", ""), "screenplay");
+  openPicker(view, null);
+  view.dom.dispatchEvent(new FocusEvent("blur"));
+  expect([
+    pickerKey.getState(view.state)!.open,
+    layer.childElementCount,
+  ]).toEqual([false, 0]);
+});
+
 test("a change from another writer leaves the picker open", () => {
   const doc = schema.node(
     "doc",

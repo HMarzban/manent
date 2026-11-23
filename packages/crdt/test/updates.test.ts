@@ -154,6 +154,23 @@ test("a listener that throws while an update is applied is not reported as bad b
   expect(scriptBody(b).materialize()).toEqual(scriptBody(a).materialize());
 });
 
+test("after a listener throws, later edits and applied updates still reach every listener", () => {
+  const { state } = editedDoc();
+  const doc = createDoc();
+  const seen: unknown[] = [];
+  doc.subscribe((_update, origin) => {
+    seen.push(origin);
+    if (origin === "first" || origin === ORIGIN_REMOTE)
+      throw new RangeError(String(origin));
+  });
+  expect(() => doc.applyUpdate(state)).toThrow(new RangeError(ORIGIN_REMOTE));
+  expect(() =>
+    scriptBody(doc).write((w) => w.insertText(FIRST_ID, 0, "a"), "first"),
+  ).toThrow(new RangeError("first"));
+  scriptBody(doc).write((w) => w.insertText(FIRST_ID, 0, "b"), "second");
+  expect(seen).toEqual([ORIGIN_REMOTE, "first", "second"]);
+});
+
 test("any prefix of a real update applies or changes nothing", () => {
   fc.assert(
     fc.property(arbRealUpdate, fc.nat(), (update, cut) => {

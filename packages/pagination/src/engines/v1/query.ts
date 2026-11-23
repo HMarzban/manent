@@ -59,11 +59,17 @@ export function fillUnits(p: Pagination, pageIndex: number): number {
   );
 }
 
-// The index of the first page whose first block is at or after `block`; the page count for none.
+// The index of the first page whose first block is at or after `block`; the page count for none. Found by halving:
+// the pages start in block order.
 function firstPageFrom(p: Pagination, block: number): number {
-  let k = 0;
-  while (k < p.pages.length && p.pages[k]!.block < block) k++;
-  return k;
+  let lo = 0;
+  let hi = p.pages.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (p.pages[mid]!.block < block) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
 }
 
 /** The pages after the first whose first block is in [from, to). */

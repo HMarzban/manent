@@ -2,7 +2,8 @@ import { expect, test } from "bun:test";
 import { loadDoc, scriptBody } from "@manent/crdt";
 import { memoryTabs } from "../src/testing/index.ts";
 import type { MemoryTabs } from "../src/testing/index.ts";
-import type { SyncClient } from "../src/index.ts";
+import { StoreError } from "../src/index.ts";
+import type { LocalStore, SyncClient } from "../src/index.ts";
 import {
   B1,
   B2,
@@ -52,6 +53,31 @@ function occurrences(text: string, part: string): number {
 const pushedText = (w: World): string[] =>
   w.server.got("PUSH").map((p) => textAfter([p.update]));
 
+/**
+ * `store` as one tab sees it: its reads wait while `gates.reading` is set, as
+ * a slow browser store's do, and its entry writes are refused once
+ * `gates.fenced`, as the store refuses a tab that no longer leads.
+ */
+function gatedStore(
+  store: LocalStore,
+  gates: { reading: Promise<void> | null; fenced: boolean },
+): LocalStore {
+  return new Proxy(store, {
+    get(target, key) {
+      const held = gates.reading;
+      if (key === "load" && held !== null)
+        return async (docId: string) => {
+          await held;
+          return target.load(docId);
+        };
+      if (key === "append" && gates.fenced)
+        return () => Promise.reject(new StoreError("lost_lead"));
+      const value: unknown = Reflect.get(target, key);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
 test("two tabs on one script share one connection and never duplicate or lose an edit", async () => {
   const { w, tab, ackAll } = await tabWorld();
   const [a, b] = [tab("a"), tab("b")];
@@ -96,32 +122,18 @@ test("when the leader tab closes, a follower takes over with nothing lost", asyn
 
 test("text typed while a follower takes the lead and reads the store is saved and sent", async () => {
   const { w, tabs } = await tabWorld();
-  const store = w.space.store("dana");
-  let reading: Promise<void> | null = null;
-  // the store's reads wait while `reading` is set, as a slow browser store does
-  const slow = new Proxy(store, {
-    get(target, key) {
-      const held = reading;
-      if (key === "load" && held !== null)
-        return async (docId: string) => {
-          await held;
-          return target.load(docId);
-        };
-      const value: unknown = Reflect.get(target, key);
-      return typeof value === "function" ? value.bind(target) : value;
-    },
-  });
+  const gates = { reading: null as Promise<void> | null, fenced: false };
   const a = w.makeClient({ leader: tabs.port("a"), frames: fakeFrames() });
   const b = w.makeClient({
     leader: tabs.port("b"),
     frames: fakeFrames(),
-    store: slow,
+    store: gatedStore(w.store, gates),
   });
   await a.open(DOC);
   const hb = await b.open(DOC);
   await w.online();
   const held = Promise.withResolvers<void>();
-  reading = held.promise;
+  gates.reading = held.promise;
   tabs.closeTab("a");
   await w.turn();
   expect(b.link.get().leader).toBe(true);
@@ -133,6 +145,38 @@ test("text typed while a follower takes the lead and reads the store is saved an
     hb.status.get().saved,
     pushedText(w).some((text) => text.includes("typed as the lead changed")),
   ]).toEqual([true, true]);
+});
+
+test("a tab that loses the lead while a script is opening follows it, and what it types is saved and sent", async () => {
+  const { w, tabs, tab } = await tabWorld();
+  const gates = { reading: null as Promise<void> | null, fenced: false };
+  const a = w.makeClient({
+    leader: tabs.port("a"),
+    frames: fakeFrames(),
+    store: gatedStore(w.store, gates),
+  });
+  const b = tab("b");
+  await w.online();
+  const held = Promise.withResolvers<void>();
+  gates.reading = held.promise;
+  const opening = a.open(DOC);
+  await w.turn();
+  gates.fenced = true;
+  tabs.depose();
+  await w.online();
+  held.resolve();
+  const ha = await opening;
+  await w.online();
+  type(ha, "typed after the lead went");
+  await w.settle();
+  w.fake.advance(50);
+  await w.online();
+  expect([
+    a.link.get().leader,
+    b.link.get().leader,
+    ha.status.get().saved,
+    pushedText(w).some((text) => text.includes("typed after the lead went")),
+  ]).toEqual([false, true, true, true]);
 });
 
 test("a hidden leader still shows a follower the server's updates within 50 ms", async () => {
