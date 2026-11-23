@@ -23,6 +23,8 @@ const REMOVED: AnchorResolution = Object.freeze({
 });
 
 function matchesIn(block: AnchorBlock, quote: string): Match[] {
+  // An empty quote matches everywhere, and indexOf would stop at the text's end and never move past it.
+  if (quote === "") return [];
   const matches: Match[] = [];
   for (
     let at = block.text.indexOf(quote);
