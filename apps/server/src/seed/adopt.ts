@@ -15,8 +15,11 @@ const STAGING_RUN = "run.json";
 
 /** What a background seed records in its staging folder, so that a server started after it can follow it. */
 export interface SeedRun {
+  /** Which seed wrote it, with `startedAt`; never signalled, as another process may hold it since. */
   pid: number;
   startedAt: number;
+  /** When it last rewrote its record, which it does every second it is free to while it runs. */
+  beatAt: number;
   /** Projects written, of how many; null until the first is. */
   progress: { done: number; total: number } | null;
   /** The clause its failure is told with; null while it runs. */
@@ -36,14 +39,14 @@ export function readSeedRun(stagingDir: string): SeedRun | null {
     return null;
   }
   if (!isFields(value)) return null;
-  const { pid, startedAt, progress, failed } = value;
-  if (!isCount(pid) || !isCount(startedAt)) return null;
+  const { pid, startedAt, beatAt, progress, failed } = value;
+  if (!isCount(pid) || !isCount(startedAt) || !isCount(beatAt)) return null;
   if (failed !== null && typeof failed !== "string") return null;
-  if (progress === null) return { pid, startedAt, progress, failed };
+  if (progress === null) return { pid, startedAt, beatAt, progress, failed };
   if (!isFields(progress)) return null;
   const { done, total } = progress;
   return isCount(done) && isCount(total)
-    ? { pid, startedAt, progress: { done, total }, failed }
+    ? { pid, startedAt, beatAt, progress: { done, total }, failed }
     : null;
 }
 
@@ -54,28 +57,37 @@ export function writeSeedRun(stagingDir: string, run: SeedRun): void {
   renameSync(`${path}.tmp`, path);
 }
 
-/** True while the process `pid` exists. */
+/** True while the process `pid` exists, whoever runs it. */
 export function isAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
-  } catch {
-    // ESRCH: it has exited
-    return false;
+  } catch (error) {
+    // EPERM: it exists, run by another user; ESRCH: it has exited
+    return isFields(error) && error.code === "EPERM";
   }
 }
 
-/** A background seed still running this long after it started is stopped and counts as failed. */
-export const SEED_RUN_LIMIT_MS = 1_200_000;
+/**
+ * A record not rewritten for this long is a seed that has stopped, however it ended. The seed
+ * beats every second, but building a project can hold it for most of a minute.
+ */
+const BEAT_LIMIT_MS = 300_000;
 
 /**
- * True while the seed the record names still runs at `now`: it has not failed, is within its time,
- * and its process exists; past its time the process id may name another process since.
+ * True while the seed the record names may still run at `now`: it has not failed, has rewritten its
+ * record lately, and its process id has not exited. The id alone never proves the seed runs, since
+ * another process may hold it since; a beat after `now` (a clock set back) is not a recent one.
  */
-export const isSeedRunning = (run: SeedRun, now: number): boolean =>
-  run.failed === null &&
-  now - run.startedAt < SEED_RUN_LIMIT_MS &&
-  isAlive(run.pid);
+export function isSeedRunning(run: SeedRun, now: number): boolean {
+  const since = now - run.beatAt;
+  return (
+    run.failed === null &&
+    since >= 0 &&
+    since < BEAT_LIMIT_MS &&
+    isAlive(run.pid)
+  );
+}
 
 interface AdoptOptions {
   live: Storage;

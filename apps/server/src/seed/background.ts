@@ -1,19 +1,16 @@
 // Lanternfield Studios seeded in a child process after the app opens, into a staging directory.
 import { existsSync, rmSync } from "node:fs";
-import { rm } from "node:fs/promises";
+import { rename, rm } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  SEED_RUN_LIMIT_MS,
-  STAGING_DONE,
-  isAlive,
-  isSeedRunning,
-  readSeedRun,
-} from "./adopt.ts";
+import { STAGING_DONE, isSeedRunning, readSeedRun } from "./adopt.ts";
+import { isFields } from "./link.ts";
 
 /** How often the server reads the seed's record. */
 const FOLLOW_EVERY_MS = 1_000;
-/** How often a stopped seed is looked for until it is gone. */
+/** How often a stopped seed's record is read until it no longer shows it running. */
 const GONE_POLL_MS = 20;
+/** A background seed still running this long after it started is stopped and counts as failed. */
+const SEED_RUN_LIMIT_MS = 1_200_000;
 const TIMED_OUT = "the server did not answer in time";
 const UNEXPECTED = "something unexpected stopped it";
 
@@ -21,14 +18,31 @@ const UNEXPECTED = "something unexpected stopped it";
 export const stagingDirOf = (dataDir: string): string =>
   join(dataDir, "data", "staging", "heavy");
 
-/** Resolves once the process `pid` has exited. */
-async function goneOf(pid: number): Promise<void> {
-  while (isAlive(pid)) await Bun.sleep(GONE_POLL_MS);
+/**
+ * Stops a seed this server did not start without signalling any process: its staging folder is
+ * moved off its path, which the seed exits on at its next beat, and is removed once the record
+ * there no longer shows a running seed.
+ */
+async function retire(stagingDir: string): Promise<void> {
+  const aside = `${stagingDir}-stopped-${Date.now()}`;
+  try {
+    await rename(stagingDir, aside);
+  } catch (error) {
+    // ENOENT: the folder is gone already, and a seed exits once its folder is
+    if (isFields(error) && error.code === "ENOENT") return;
+    throw error;
+  }
+  for (
+    let run = readSeedRun(aside);
+    run !== null && isSeedRunning(run, Date.now());
+    run = readSeedRun(aside)
+  )
+    await Bun.sleep(GONE_POLL_MS);
+  await rm(aside, { recursive: true, force: true });
 }
 
-/** A seed's process: its child, when this server started it, else null. */
+/** A seed's start, and its child process when this server started it, else null. */
 interface Seed {
-  pid: number;
   startedAt: number;
   child: Bun.Subprocess | null;
 }
@@ -60,16 +74,17 @@ function spawnSeed(options: {
     ],
     { env, stdin: "ignore", stdout: "ignore", stderr: "ignore" },
   );
-  return { pid: child.pid, startedAt: Date.now(), child };
+  return { startedAt: Date.now(), child };
 }
 
 /**
  * Follows the background seed in the staging folder, and starts one when none runs there: a seed
  * a server killed without stopping keeps running, so the server started after it follows it from
- * where it is. `onProgress` hears each project it writes; once the seed has marked the staging
- * whole, `onDone` adopts it. A failure, a seed that exits without its mark, or one still running
- * SEED_RUN_LIMIT_MS after it started removes the staging folder and is told `onFailed`.
- * `stop` ends the seed and removes what it wrote; an adoption under way is finished first.
+ * where it is, for as long as its record beats. `onProgress` hears each project it writes; once
+ * the seed has marked the staging whole, `onDone` adopts it. A failure, a seed that ends without
+ * its mark, or one still running SEED_RUN_LIMIT_MS after it started removes the staging folder and
+ * is told `onFailed`. `stop` ends the seed and removes what it wrote; an adoption under way is
+ * finished first. Only a seed this server started is ever signalled.
  */
 export function startBackgroundSeed(options: {
   /** What starts this server: a compiled binary alone, or Bun and the entry file. */
@@ -82,24 +97,23 @@ export function startBackgroundSeed(options: {
 }): { stop(): Promise<void> } {
   const stagingDir = stagingDirOf(options.dataDir);
   const found = readSeedRun(stagingDir);
-  const { pid, startedAt, child }: Seed =
+  const { startedAt, child }: Seed =
     found !== null && isSeedRunning(found, Date.now())
-      ? { pid: found.pid, startedAt: found.startedAt, child: null }
+      ? { startedAt: found.startedAt, child: null }
       : spawnSeed(options);
   let exited = false;
   void child?.exited.then(() => {
     exited = true;
   });
-  const isGone = () => (child === null ? !isAlive(pid) : exited);
-  // never a process id the seed no longer holds
-  const kill = () => {
-    if (isGone()) return;
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch {
-      // ESRCH: it exited since it was looked for
-    }
-  };
+  // a failure and a stop may both end the seed: the second waits for the first
+  let halting: Promise<void> | null = null;
+  const halt = (): Promise<void> =>
+    (halting ??= (async () => {
+      if (child === null) return retire(stagingDir);
+      child.kill("SIGKILL");
+      await child.exited;
+      await rm(stagingDir, { recursive: true, force: true });
+    })());
   let adopting: Promise<void> | null = null;
   let ended = false;
   const end = () => {
@@ -108,8 +122,7 @@ export function startBackgroundSeed(options: {
   };
   const fail = async (reason: string) => {
     end();
-    kill();
-    await rm(stagingDir, { recursive: true, force: true });
+    await halt();
     options.onFailed(reason);
   };
   const follow = () => {
@@ -125,8 +138,10 @@ export function startBackgroundSeed(options: {
     const run = readSeedRun(stagingDir);
     if (run !== null && run.progress !== null)
       options.onProgress(run.progress.done, run.progress.total);
+    const isGone =
+      child === null ? run === null || !isSeedRunning(run, Date.now()) : exited;
     if (run !== null && run.failed !== null) void fail(run.failed);
-    else if (isGone()) void fail(UNEXPECTED);
+    else if (isGone) void fail(UNEXPECTED);
     else if (Date.now() - startedAt >= SEED_RUN_LIMIT_MS) void fail(TIMED_OUT);
   };
   const timer = setInterval(follow, FOLLOW_EVERY_MS);
@@ -135,9 +150,7 @@ export function startBackgroundSeed(options: {
     async stop() {
       if (adopting !== null) return adopting;
       end();
-      kill();
-      await (child?.exited ?? goneOf(pid));
-      await rm(stagingDir, { recursive: true, force: true });
+      await halt();
     },
   };
 }

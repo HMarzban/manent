@@ -161,29 +161,54 @@ async function seedPhase(
 }
 
 /**
+ * Rewrites the background seed's record with `change` and a new beat; once the record at its staging
+ * path is no longer its own (removed, moved away, or a new seed's) or its owner has exited, it records
+ * that it ended, where its folder still stands, and exits.
+ */
+type Tell = (change: Partial<Pick<SeedRun, "progress" | "failed">>) => void;
+
+/**
  * The background seed's record, begun in its staging folder, which it works inside from now on: a
  * folder removed under it (a reset) is never written again, even once a new one stands at the same
- * path. It exits once `owner` has, or once its record is gone.
+ * path. It beats every OWNER_POLL_MS its work leaves it free to, and at each project it writes.
  */
 async function enterStaging(
   dataDir: string,
   owner: number | null,
-): Promise<SeedRun> {
-  const stagingDir = stagingDirOf(dataDir);
+): Promise<Tell> {
+  const stagingDir = resolve(stagingDirOf(dataDir));
   await mkdir(stagingDir, { recursive: true });
   process.chdir(stagingDir);
-  const run: SeedRun = {
+  const startedAt = Date.now();
+  let run: SeedRun = {
     pid: process.pid,
-    startedAt: Date.now(),
+    startedAt,
+    beatAt: startedAt,
     progress: null,
     failed: null,
   };
-  writeSeedRun(".", run);
-  setInterval(() => {
-    if ((owner !== null && !isAlive(owner)) || readSeedRun(".") === null)
-      process.exit(1);
-  }, OWNER_POLL_MS).unref();
-  return run;
+  const write = (change: Parameters<Tell>[0]) => {
+    run = { ...run, ...change, beatAt: Date.now() };
+    writeSeedRun(".", run);
+  };
+  write({});
+  const tell: Tell = (change) => {
+    const atPath = readSeedRun(stagingDir);
+    const own = atPath?.pid === run.pid && atPath.startedAt === startedAt;
+    try {
+      if (own && (owner === null || isAlive(owner))) {
+        write(change);
+        return;
+      }
+      // whoever moved its folder away waits for the record to say it ended
+      write({ failed: UNEXPECTED });
+    } catch {
+      // its folder was removed under it: nobody is left to tell
+    }
+    process.exit(1);
+  };
+  setInterval(() => tell({}), OWNER_POLL_MS).unref();
+  return tell;
 }
 
 /**
@@ -194,7 +219,7 @@ async function enterStaging(
  */
 export async function runSeedCommand(argv: readonly string[]): Promise<number> {
   let lastDocId: string | null = null;
-  let run: SeedRun | null = null;
+  let tell: Tell | null = null;
   try {
     const { values } = parseArgs({
       args: argv.slice(1),
@@ -223,8 +248,8 @@ export async function runSeedCommand(argv: readonly string[]): Promise<number> {
       throw new TypeError(`--owner must be a process id, not ${values.owner}`);
     const steps =
       values.steps === undefined ? null : await readSteps(values.steps);
-    if (phase === "background") run = await enterStaging(dataDir, owner);
-    const staged = run;
+    if (phase === "background") tell = await enterStaging(dataDir, owner);
+    const staged = tell;
     const skipped = await seedPhase(
       {
         phase,
@@ -237,8 +262,7 @@ export async function runSeedCommand(argv: readonly string[]): Promise<number> {
       },
       (done, total) => {
         // nothing hears the foreground's progress
-        if (staged !== null)
-          writeSeedRun(".", { ...staged, progress: { done, total } });
+        if (staged !== null) staged({ progress: { done, total } });
       },
     );
     if (staged !== null) await writeFile(STAGING_DONE, "");
@@ -246,12 +270,7 @@ export async function runSeedCommand(argv: readonly string[]): Promise<number> {
     return 0;
   } catch (error) {
     const reason = reasonOf(error, lastDocId);
-    if (run !== null)
-      try {
-        writeSeedRun(".", { ...(readSeedRun(".") ?? run), failed: reason });
-      } catch {
-        // its staging was removed under it: nobody is left to tell
-      }
+    tell?.({ failed: reason });
     console.log(JSON.stringify({ failed: reason }));
     const where = error instanceof SeedBuildError ? ` in ${error.where}` : "";
     const code =
