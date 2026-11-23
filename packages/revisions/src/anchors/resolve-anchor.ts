@@ -23,8 +23,6 @@ const REMOVED: AnchorResolution = Object.freeze({
 });
 
 function matchesIn(block: AnchorBlock, quote: string): Match[] {
-  // An empty quote matches everywhere, and indexOf would stop at the text's end and never move past it.
-  if (quote === "") return [];
   const matches: Match[] = [];
   for (
     let at = block.text.indexOf(quote);
@@ -60,7 +58,8 @@ function bestOf(
  * Finds the anchor's range in `around`: the anchor's block with up to two blocks on each side, in their
  * order in the script (when that block is gone, the five blocks around where the anchor last resolved).
  * An empty range resolves to its own block, its offset kept inside the block's text, or is removed; it
- * is never searched for. Otherwise the quote is taken at `start` in its block, then elsewhere in that
+ * is never searched for. A non-empty range with an empty quote cannot be its range's text, so it is
+ * removed. Otherwise the quote is taken at `start` in its block, then elsewhere in that
  * block, then in the other blocks; within each step the match whose prefix and suffix agree wins, else
  * the first. Reads nothing but `around`.
  */
@@ -74,6 +73,7 @@ export function resolveAnchor(
     const at = Math.min(anchor.start, own.text.length);
     return { ok: true, blockId: own.id, start: at, end: at };
   }
+  if (anchor.quote === "") return REMOVED;
   if (own !== undefined) {
     if (own.text.startsWith(anchor.quote, anchor.start))
       return {
