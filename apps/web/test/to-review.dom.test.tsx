@@ -22,7 +22,7 @@ import {
   overlap,
   sceneEightDoc,
 } from "./review-dom.fixtures.ts";
-import { until } from "./sync.fixtures.ts";
+import { turn, until } from "./sync.fixtures.ts";
 
 withDom();
 
@@ -48,6 +48,13 @@ async function run(frame: Frame, commandId: string): Promise<void> {
     frame.clock.advance(16);
   });
 }
+
+/**
+ * Waits until `done` holds, a turn at a time, each in its own act: React draws what a lazily loaded part
+ * brings only once the act it arrives in ends, so a wait held inside one act would never see it.
+ */
+const drawnWhen = (done: () => boolean): Promise<void> =>
+  until(done, () => act(turn));
 
 const sidePanel = (frame: Frame): HTMLElement =>
   region(frame.container, "side_panel");
@@ -76,7 +83,7 @@ test("To review shows both wordings, named, with the three choices", async () =>
   const frame = await renderFrame({ review });
   await run(frame, "history.open");
   // the rows load apart from the entry
-  await act(() => until(() => drawn(frame).length > 0));
+  await drawnWhen(() => drawn(frame).length > 0);
   expect(drawn(frame)).toEqual([
     "To review · 1",
     "Sc. 8 · you and Sam both changed this",
@@ -95,7 +102,7 @@ test("the History tab is there while something is to review", async () => {
   const without = tabs(frame);
   act(() => review.entriesOf.set([overlap("item-1", DOC_ID, B1, [])]));
   await run(frame, "history.open");
-  await act(() => until(() => drawn(frame).length > 0));
+  await drawnWhen(() => drawn(frame).length > 0);
   const withOne = [tabs(frame), drawn(frame).slice(0, 2)];
   await click(buttonNamed(sidePanel(frame), "Keep as merged"));
   await act(async () => {
@@ -130,8 +137,8 @@ test("Review in the message and in the Sync centre opens To review with focus on
   ]);
   const frame = await renderFrame({ review });
   await run(frame, "history.review");
-  await act(() =>
-    until(() => document.activeElement?.closest("[data-review-block]") != null),
+  await drawnWhen(
+    () => document.activeElement?.closest("[data-review-block]") != null,
   );
   const focused = nameOf(document.activeElement ?? document.body);
   const row = document.activeElement?.closest("[data-review-block]");
