@@ -164,6 +164,8 @@ test("a script past the comfort limit says so once", async ({ page }) => {
   await openScript(page, "dana");
   await pasteLines(page, lines);
   await expect(notice).toBeVisible();
+  // the paste is read back from the device, so its write ends before the page goes
+  await committedOnDevice(page, "dana");
   await page.reload();
   await expect(page.locator(PAGE_VIEW)).toBeVisible();
   // the script kept on this device is the one that went past the limit
