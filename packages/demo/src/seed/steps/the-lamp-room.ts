@@ -155,9 +155,11 @@ async function workingScript(
   const { rng } = telling.context;
   const guide = LAMP_ROOM_GUIDE;
   const written: SeedBlock[] = [];
+  const lastCue = passage.blocks.findLast((b) => b.element === "character");
   for (const beat of guide.beats.filter((b) => b.id.startsWith(`${KEY}#`))) {
-    const [heading, ...rest] = generateScenes(guide, beat, rng, used);
     const fixed = beat.scenes[0] === OPENING_SCENE ? passage.blocks : [];
+    const after = fixed.length === 0 ? undefined : lastCue?.text;
+    const [heading, ...rest] = generateScenes(guide, beat, rng, used, after);
     written.push(heading!, ...fixed, ...rest);
   }
   const continued = LAMP_ROOM_SCENE_CONTINUED;
