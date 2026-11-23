@@ -81,6 +81,8 @@ test("the routes are the screens of this release", () => {
     "/s/$docId/present",
     "/s/$docId/prompter",
     "/s/$docId/send/$form",
+    "/w/$workspaceId/settings",
+    "/w/$workspaceId/settings/$group",
   ]);
 });
 
@@ -99,6 +101,8 @@ test("the test build adds the development screens", () => {
       "/s/$docId/present",
       "/s/$docId/prompter",
       "/s/$docId/send/$form",
+      "/w/$workspaceId/settings",
+      "/w/$workspaceId/settings/$group",
     ]);
   } finally {
     Reflect.deleteProperty(globalThis, "MANENT_FLAVOUR");
