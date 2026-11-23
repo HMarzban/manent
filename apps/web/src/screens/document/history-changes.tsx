@@ -1,12 +1,7 @@
 // The top of the History tab: Changes since a baseline, how its changes are shown, which of them, the stepper
 // through them, and Drafts only. The changes are drawn on the live page while this is drawn.
 import { sceneOf } from "@manent/crdt";
-import {
-  changeCount,
-  filterComparison,
-  isChange,
-  textOf,
-} from "@manent/revisions";
+import { changeCount, filterComparison, textOf } from "@manent/revisions";
 import type { Comparison } from "@manent/revisions";
 import type { SinceResponse, VersionContent } from "@manent/sync-protocol";
 import {
@@ -30,7 +25,6 @@ import {
   sliceWorkingComparison,
 } from "../../editor-host/changes.ts";
 import {
-  baselineAt,
   baselineOfRow,
   defaultBaseline,
   sinceOpenedBaseline,
@@ -41,6 +35,8 @@ import { useServices } from "../../services/context.tsx";
 import { nameOf } from "../../services/sync/index-entries.ts";
 import { historyActions, useHistory } from "../../state/history.store.ts";
 import type { ChangesMode, HistoryState } from "../../state/history.store.ts";
+import { peopleOf } from "./change-authors.ts";
+import type { Authors } from "./change-authors.ts";
 import { noteOf } from "./version-pane.tsx";
 
 /** In the order of HISTORY_WORDS.modes. */
@@ -58,50 +54,6 @@ const CHEVRON = (
 
 const isMode = (value: unknown): value is ChangesMode =>
   MODES.some((mode) => mode === value);
-
-/** By block id, the person of its last change since the baseline. */
-type Authors = Readonly<Record<string, string>>;
-
-/** Of each change of `all`, who made it last since the baseline; null until the server has said, or when it cannot. */
-export function useAuthors(
-  docId: string,
-  all: Comparison | null,
-): Authors | null {
-  const { history } = useServices();
-  const baseline = useHistory("baseline");
-  const [told, setTold] = useState<{
-    all: Comparison;
-    authors: Authors;
-  } | null>(null);
-  useEffect(() => {
-    const since = baselineAt(baseline);
-    if (all === null || since === null) return undefined;
-    const changed = all.entries.filter(isChange).map((entry) => entry.id);
-    let shown = true;
-    void history.authors(docId, since, changed).then((answer) => {
-      if (shown && answer !== null) setTold({ all, authors: answer.authors });
-    });
-    return () => {
-      shown = false;
-    };
-  }, [history, docId, baseline, all]);
-  return told?.all === all ? told.authors : null;
-}
-
-/** The changes of `all` made last by one of `people`; null narrows nothing, as while who made them is not known. */
-export function authoredBlocks(
-  all: Comparison | null,
-  authors: Authors | null,
-  people: readonly string[] | null,
-): readonly string[] | null {
-  if (all === null || authors === null || people === null) return null;
-  return all.entries
-    .filter((entry) => {
-      const by = authors[entry.id];
-      return by !== undefined && people.includes(by);
-    })
-    .map((entry) => entry.id);
-}
 
 /** The baseline Changes since offers until one is chosen: since you last opened when others edited, else the newest draft. */
 function useOffered(
@@ -260,16 +212,6 @@ function ShowModes(props: { offered: HistoryState["baseline"] }): ReactNode {
     </div>
   );
 }
-
-/** The people of `authors`, each once, in the order of their first change in `all`. */
-const peopleOf = (all: Comparison, authors: Authors): string[] => [
-  ...new Set(
-    all.entries.flatMap((entry) => {
-      const by = authors[entry.id];
-      return by === undefined ? [] : [by];
-    }),
-  ),
-];
 
 /** Filter ▾: every scene with a change, by its number and heading; then everyone who made one, by name. */
 function ChangesFilter(props: {
