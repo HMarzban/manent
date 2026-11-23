@@ -53,7 +53,12 @@ export function editorPlugins(
   const before = [
     ...binding.plugins,
     pickerPlugin({ format, words, layer, frames }),
-    completePlugin({ layer, frames, timers }),
+    completePlugin({
+      layer,
+      frames,
+      timers,
+      projectNames: options.projectNames ?? [],
+    }),
     commandKeymap(options.keys),
     historyKeysPlugin({ history: binding.history, platform: options.platform }),
     elementKeysPlugin(context),

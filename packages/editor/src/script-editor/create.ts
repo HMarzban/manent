@@ -119,6 +119,8 @@ export interface ScriptEditorOptions {
   desk: Desk;
   /** The feature plugins, placed after every other. */
   extraPlugins(host: EditorPluginHost): readonly Plugin[];
+  /** The host's names, which autocomplete offers beside the script's; none when absent. */
+  projectNames?: readonly string[];
 }
 
 /** The layer is the popovers' frame: they are placed in its coordinates. */

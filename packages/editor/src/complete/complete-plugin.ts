@@ -10,7 +10,7 @@ import { collectNames, recentCues } from "./names.ts";
 import type { Names } from "./names.ts";
 import { createCompletePopover } from "./popover.ts";
 import type { CompletePopover } from "./popover.ts";
-import { suggest } from "./suggest.ts";
+import { suggestFromSources } from "./sources.ts";
 import type { Suggestions } from "./suggest.ts";
 
 interface CompleteState {
@@ -29,8 +29,14 @@ const CLOSE: CompleteMeta = Object.freeze({ kind: "close" });
 /** How often at most the names are collected again after a change. */
 const NAMES_EVERY_MS = 250;
 
+/** The names the sources are given: the script's, and the host's beside them. */
+interface Given {
+  readonly names: Names;
+  readonly projectNames: readonly string[];
+}
+
 /** What to offer at the caret: only for a caret in a block, never while the pages wait for a composition. */
-function offered(state: EditorState, names: Names): Suggestions | null {
+function offered(state: EditorState, given: Given): Suggestions | null {
   const pagination = paginationKey.getState(state);
   const { selection } = state;
   if (!selection.empty || pagination === undefined || pagination.frozen)
@@ -39,20 +45,26 @@ function offered(state: EditorState, names: Names): Suggestions | null {
   const block = blockAt(pagination.index, selection.head);
   const { type, text } = blocks[block]!;
   const recent = type === "character" ? recentCues(blocks, block) : [];
-  return suggest(type, text, selection.$head.parentOffset, names, recent);
+  return suggestFromSources({
+    element: type,
+    text,
+    offset: selection.$head.parentOffset,
+    recent,
+    ...given,
+  });
 }
 
 /**
  * The state after the caret moved, its suggestions worked out when first read: by then the pagination plugin,
  * which comes after this one, has its state for `state` too.
  */
-function moved(state: EditorState, names: Names): CompleteState {
+function moved(state: EditorState, given: Given): CompleteState {
   let open: Suggestions | null = null;
   let known = false;
   return {
     get open() {
       if (!known) {
-        open = mark("editor.complete", () => offered(state, names));
+        open = mark("editor.complete", () => offered(state, given));
         known = true;
       }
       return open;
@@ -61,13 +73,13 @@ function moved(state: EditorState, names: Names): CompleteState {
   };
 }
 
-/** The state after `tr`: a meta moves or closes the list; a caret that moved offers again, from `names`. */
+/** The state after `tr`: a meta moves or closes the list; a caret that moved offers again, from `given`. */
 function applied(
   tr: Transaction,
   prev: CompleteState,
   old: EditorState,
   state: EditorState,
-  names: Names,
+  given: Given,
 ): CompleteState {
   const meta: CompleteMeta | undefined = tr.getMeta(completeKey);
   if (meta?.kind === "move") return { ...prev, active: meta.active };
@@ -79,7 +91,7 @@ function applied(
     before.$head.parentOffset === after.$head.parentOffset
   )
     return prev;
-  return moved(state, names);
+  return moved(state, given);
 }
 
 function accept(view: EditorView, open: Suggestions, active: number): void {
@@ -132,6 +144,8 @@ interface CompleteOptions {
   layer: HTMLElement;
   frames: Frames;
   timers: Timers;
+  /** The host's names, offered beside the script's. */
+  projectNames: readonly string[];
 }
 
 /** Collects the names when it starts and after a change, and shows, places and hides the list as the state says. */
@@ -188,24 +202,27 @@ function completeView(
 }
 
 /**
- * The list of what `suggest` offers at the caret, drawn in `layer` and placed in a frame under the caret; focus
+ * The list of what the completion sources offer at the caret, drawn in `layer` and placed in a frame under the caret; focus
  * stays on the page. Names are collected when the view starts and then at most every 250 ms after a change, by a
  * timer that waits while an input method composes. Placed before the element keys.
  */
 export function completePlugin(options: CompleteOptions): Plugin {
   const popover = createCompletePopover({ layer: options.layer });
-  let names: Names = {
-    characters: new Map(),
-    locations: new Map(),
-    times: new Map(),
-    transitions: new Map(),
-    slugs: new Map(),
+  let given: Given = {
+    names: {
+      characters: new Map(),
+      locations: new Map(),
+      times: new Map(),
+      transitions: new Map(),
+      slugs: new Map(),
+    },
+    projectNames: options.projectNames,
   };
   return new Plugin<CompleteState>({
     key: completeKey,
     state: {
       init: () => CLOSED,
-      apply: (tr, prev, old, state) => applied(tr, prev, old, state, names),
+      apply: (tr, prev, old, state) => applied(tr, prev, old, state, given),
     },
     props: {
       attributes: (state) => {
@@ -221,8 +238,8 @@ export function completePlugin(options: CompleteOptions): Plugin {
       completeView(view, {
         popover,
         options,
-        setNames: (next) => {
-          names = next;
+        setNames: (names) => {
+          given = { ...given, names };
         },
       }),
   });
