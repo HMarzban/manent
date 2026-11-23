@@ -1,5 +1,9 @@
 // Index documents: the kinds that hold a person's, a workspace's or a project's maps, and what a push to one may write.
-import { PRIVATE_INDEX_MAPS, WORKSPACE_INDEX_MAPS } from "@manent/crdt";
+import {
+  PRIVATE_INDEX_MAPS,
+  PROJECT_INDEX_MAPS,
+  WORKSPACE_INDEX_MAPS,
+} from "@manent/crdt";
 import type { TransactionReport } from "@manent/crdt";
 import type { Issue } from "@manent/schema";
 import type { Home } from "@manent/storage";
@@ -22,6 +26,7 @@ export interface IndexKeyRule {
 export const INDEX_KEY_RULES: readonly IndexKeyRule[] = Object.freeze([
   { scope: "user", maps: PRIVATE_INDEX_MAPS },
   { scope: "workspace", maps: WORKSPACE_INDEX_MAPS },
+  { scope: "project", maps: PROJECT_INDEX_MAPS },
 ]);
 
 /**
