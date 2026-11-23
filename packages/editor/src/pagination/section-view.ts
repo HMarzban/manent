@@ -9,8 +9,7 @@ import { drawnHeightPx } from "./section-height.ts";
  * `div.section` as plain DOM, its own content. Where the engine has containment it carries
  * `contain-intrinsic-size: <height>px` from drawnHeightPx, set when it is made and on every update,
  * which ProseMirror makes only when the section's node or decorations change: a section left behind keeps the
- * height it is drawn at, which the margin after its run makes up. It has no `auto`, with which WebKit draws a
- * section it skips at the size it last drew, not at the height its pages now give it.
+ * height it is drawn at, which the margin after its run makes up.
  */
 export function sectionNodeView(engine: BrowserEngine): NodeViewConstructor {
   return (node, view, getPos) => {
