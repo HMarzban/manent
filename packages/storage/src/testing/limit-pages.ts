@@ -1,5 +1,5 @@
 // A cap on the pages of one SQLite document file, so that SQLite answers SQLITE_FULL as a full disk would.
-import type { Home, Storage } from "../ports.ts";
+import type { Home, Storage } from "../ports/index.ts";
 import { connectionOf } from "../sqlite/doc-file.ts";
 
 /**

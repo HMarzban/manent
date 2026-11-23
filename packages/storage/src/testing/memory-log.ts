@@ -14,8 +14,8 @@ import type {
   VersionCursor,
   VersionRow,
   VersionSummary,
-} from "../ports.ts";
-import { COLOR_COUNT } from "../ports.ts";
+} from "../ports/index.ts";
+import { COLOR_COUNT } from "../ports/index.ts";
 
 type StoredUpdate = UpdateRow & { generation: number; crc: number };
 
