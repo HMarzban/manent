@@ -11,7 +11,10 @@ export function readImportFiles(files: Iterable<File>): Promise<ImportFile[]> {
   );
 }
 
-/** The files chosen, read whole; an empty list when the picker is closed without a choice. */
+/**
+ * The files chosen, read whole. A picker closed without a choice never settles, so nothing is opened: a `cancel` is
+ * not taken as the end, because Firefox fires one before the `change` that carries the files when a test answers it.
+ */
 export function pickFiles(options: {
   accept: readonly string[];
 }): Promise<ImportFile[]> {
@@ -20,7 +23,6 @@ export function pickFiles(options: {
   input.multiple = true;
   input.accept = options.accept.join(",");
   return new Promise((resolve, reject) => {
-    input.addEventListener("cancel", () => resolve([]));
     input.addEventListener("change", () =>
       readImportFiles(input.files ?? []).then(resolve, reject),
     );
