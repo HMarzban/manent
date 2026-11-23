@@ -29,7 +29,7 @@ function writingCommand<const Id extends string>(
   more: Partial<
     Pick<
       CommandDefinition,
-      "when" | "whyNot" | "visible" | "checked" | "menus" | "palette"
+      "when" | "whyNot" | "visible" | "checked" | "menus" | "palette" | "opens"
     >
   >,
 ): CommandDefinition<Id> & { readonly label: string } {
@@ -48,7 +48,7 @@ function writingCommand<const Id extends string>(
     passThrough: null,
     menus: more.menus ?? [],
     palette: more.palette ?? { keywords: [] },
-    opens: null,
+    opens: more.opens ?? null,
     reach: "self",
     setting: null,
   };
@@ -79,6 +79,7 @@ export const WRITING_COMMANDS = defineCommands([
   }),
   writingCommand("writing.handIn", "Hand in…", {
     visible: (ctx) => isAt(ctx, "private"),
+    opens: { surface: "side_panel", focus: "item" },
   }),
   writingCommand("writing.restoreBeforeHandIn", "Restore 'Before hand-in'", {
     palette: { hidden: "the action of the message after Hand in" },

@@ -35,4 +35,5 @@ export const DOCUMENT_TERMS: readonly Term[] = Object.freeze([
   ...row("games", ["Gather"], []),
   ...row("games", ["Knot", "Stitch"], []),
   ...row("games", ["Variables"], ["state"]),
+  ...row("writing", ["Hand in", "Handed in", "Handing in"], []),
 ]);
