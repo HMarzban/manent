@@ -2,22 +2,18 @@
 import { COMMANDS } from "@manent/commands";
 import {
   Button,
-  CommandButton,
   CommandMenu,
   DOCUMENT_WORDS,
-  Kbd,
   MessageSlot,
   cn,
   READOUT_WORDS,
-  keyLabel,
-  useCommandState,
-  useCommands,
   useSubscribable,
 } from "@manent/ui";
 import type { LucideIcon } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
+import { CommandsButton } from "../../shell/commands-button.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { useEditorFact } from "../../state/facts.store.ts";
 import type { EditorFacts } from "../../state/facts.store.ts";
@@ -135,22 +131,6 @@ export function SceneReadout(): ReactNode {
     >
       {READOUT_WORDS.scene(scene)}
     </Button>
-  );
-}
-
-/** The palette's button, with its key shown beside it on a window wide enough. */
-function CommandsButton(): ReactNode {
-  const { platform } = useCommands();
-  const [chord] = useCommandState("app.palette").keys;
-  return (
-    <span className="flex shrink-0 items-center gap-1">
-      <CommandButton id="app.palette" size="sm" />
-      {chord === undefined ? null : (
-        <Kbd aria-hidden="true" className="max-sm:hidden">
-          {keyLabel(chord, platform)}
-        </Kbd>
-      )}
-    </span>
   );
 }
 
