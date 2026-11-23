@@ -110,6 +110,7 @@ const SAMPLES: Record<TabBody["t"], TabBody> = {
   },
   aw: { t: "aw", docId: DOC, update: new Uint8Array([6]) },
   opened: { t: "opened", docId: DOC, generation: 2, clientId: 11 },
+  reserve: { t: "reserve", docId: DOC, clientId: 13 },
 };
 
 test("the channel's messages are pinned at version 1", () => {
@@ -146,6 +147,7 @@ test("the channel's messages are pinned at version 1", () => {
     "recovered",
     "remote",
     "replace",
+    "reserve",
     "saved",
     "state",
     "status",
@@ -508,6 +510,7 @@ const body: fc.Arbitrary<TabBody> = fc.oneof(
     generation: int,
     clientId: int,
   }),
+  fc.record({ t: fc.constant("reserve" as const), docId: text, clientId: int }),
 );
 
 test("a message another tab posted reads back unchanged, whatever its fields hold", () => {

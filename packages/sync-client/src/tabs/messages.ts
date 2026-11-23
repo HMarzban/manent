@@ -21,6 +21,8 @@ import type {
  * update already stored; `aw` is awareness, passed through. `replace` carries
  * the document that replaced the old one, and its generation; after a move a
  * follower answers `opened`, having loaded it under the client ID it names.
+ * `reserve` hands the leader a client ID a follower reserved for the server to
+ * write under.
  */
 export type TabBody =
   | { t: "who" }
@@ -49,7 +51,8 @@ export type TabBody =
   | { t: "recovered"; docId: string; items: RecoveredItem[] }
   | { t: "replace"; docId: string; generation: number; state: Uint8Array }
   | { t: "aw"; docId: string; update: Uint8Array }
-  | { t: "opened"; docId: string; generation: number; clientId: number };
+  | { t: "opened"; docId: string; generation: number; clientId: number }
+  | { t: "reserve"; docId: string; clientId: number };
 
 /** `from` is the sending tab's ID. */
 export type TabMessage = TabBody & { v: 1; from: string };
@@ -343,6 +346,11 @@ const BODIES = Object.freeze<Bodies>({
     t: "opened",
     docId: readString(f.docId),
     generation: readNumber(f.generation),
+    clientId: readNumber(f.clientId),
+  }),
+  reserve: (f) => ({
+    t: "reserve",
+    docId: readString(f.docId),
     clientId: readNumber(f.clientId),
   }),
 });

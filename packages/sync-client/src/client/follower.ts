@@ -168,6 +168,7 @@ class TabFollower implements Follower {
       case "close":
       case "edit":
       case "opened":
+      case "reserve":
         return;
       default:
         body satisfies never;
@@ -248,14 +249,20 @@ class TabFollower implements Follower {
 
   /** The leader's document, bound in place of this tab's under a client ID of its own; returns the one it replaced. */
   private load(state: Uint8Array): CrdtDoc {
-    let clientId = this.options.ports.random.clientId();
-    while (clientId === this.doc.clientId)
-      clientId = this.options.ports.random.clientId();
+    const clientId = this.freshClientId();
     this.coalescer.dispose();
     const previous = this.doc;
     this.doc = loadDoc(state, { clientId });
     this.coalescer = this.bind(this.doc);
     return previous;
+  }
+
+  /** A client ID other than the one this tab writes under. */
+  private freshClientId(): number {
+    const { random } = this.options.ports;
+    let clientId = random.clientId();
+    while (clientId === this.doc.clientId) clientId = random.clientId();
+    return clientId;
   }
 
   /** The leader's facts, saved only once the leader saved every edit made here. */
@@ -315,6 +322,11 @@ class TabFollower implements Follower {
         throw new RangeError(
           "client IDs are adopted by the tab that leads, which holds the store",
         );
+      },
+      reserveClientId: () => {
+        const clientId = this.freshClientId();
+        post({ t: "reserve", docId, clientId });
+        return Promise.resolve(clientId);
       },
       close: async () => {
         post({ t: "close", docId });
