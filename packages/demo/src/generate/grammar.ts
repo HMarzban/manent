@@ -3,6 +3,7 @@ import type { BlockType, FormatId } from "@manent/schema";
 import type { SeedBlock } from "../content/markup.ts";
 import type { Rng } from "../seed/rng.ts";
 import { SeedBuildError } from "./guide.ts";
+import { numberInWords } from "./number-words.ts";
 import type {
   Beat,
   DialogueEntry,
@@ -34,41 +35,6 @@ export const GENERATED_REPEAT_PAGES = 10;
 
 const UNITS = ["action", "exchange", "instruction", "statement"] as const;
 type Unit = (typeof UNITS)[number];
-
-const ONES = [
-  "",
-  "One",
-  "Two",
-  "Three",
-  "Four",
-  "Five",
-  "Six",
-  "Seven",
-  "Eight",
-  "Nine",
-  "Ten",
-  "Eleven",
-  "Twelve",
-  "Thirteen",
-  "Fourteen",
-  "Fifteen",
-  "Sixteen",
-  "Seventeen",
-  "Eighteen",
-  "Nineteen",
-] as const;
-const TENS = [
-  "",
-  "",
-  "Twenty",
-  "Thirty",
-  "Forty",
-  "Fifty",
-  "Sixty",
-  "Seventy",
-  "Eighty",
-  "Ninety",
-] as const;
 
 /** A line ending in a tag: the entry's text without its full stop, a comma, the tag, and the full stop. */
 export function withTag(text: string, tag: string): string {
@@ -345,16 +311,6 @@ export function generateScenes(
       }
   }
   return blocks;
-}
-
-function numberInWords(n: number): string {
-  if (!Number.isInteger(n) || n < 1 || n > 99)
-    throw new RangeError(
-      `a chapter number must be an integer from 1 to 99, not ${n}`,
-    );
-  if (n < 20) return ONES[n]!;
-  const tens = TENS[Math.floor(n / 10)]!;
-  return n % 10 === 0 ? tens : `${tens}-${ONES[n % 10]!}`;
 }
 
 /**
