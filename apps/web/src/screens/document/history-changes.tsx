@@ -373,7 +373,13 @@ export function HistoryChanges(props: {
       <BaselineMenu docId={docId} rows={rows} offered={offered} />
       {note === null ? null : <p className="text-meta text-fg-muted">{note}</p>}
       <ShowModes offered={offered} />
-      {all === null || shown === null ? null : (
+      {all === null || shown === null ? null : changeCount(all) === 0 &&
+        offered !== null ? (
+        // the baseline is Working as it is now: nothing to filter or step through
+        <p className="text-ui text-fg-muted">
+          {HISTORY_WORDS.noChangesSince(offered.title)}
+        </p>
+      ) : (
         <div className="flex flex-wrap items-center gap-2">
           <ChangesFilter docId={docId} all={all} authors={props.authors} />
           <Stepper count={changeCount(shown)} />
