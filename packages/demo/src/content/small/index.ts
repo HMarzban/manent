@@ -13,5 +13,6 @@ export { HANDED_IN_EP1_OPENING } from "./handed-in.ts";
 export {
   DOWN_THE_BACK_FRONT,
   DOWN_THE_BACK_HEADINGS,
+  DOWN_THE_BACK_LINES,
   DOWN_THE_BACK_SCENES_1_2,
 } from "./down-the-back.ts";

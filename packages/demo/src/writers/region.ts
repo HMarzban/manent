@@ -31,24 +31,37 @@ export function regionOf(
 }
 
 /**
- * The first block of `region` from the one at `from`, within LINE_SEARCH of it and never the region's last
- * (unless it is the only one), that neither leads on to the block after it nor is followed by one going on
- * from it, so that a line after it cuts no speech in two; null when there is none there.
+ * The first block of `region` from the one at `from`, within LINE_SEARCH of it, that neither leads on to the
+ * block after it nor is followed by one going on from it, so that a line after it cuts no speech in two; null
+ * when there is none there.
  */
 export function lineEndFrom(
   doc: CrdtDoc,
   region: readonly string[],
   from: number,
 ): string | null {
-  const last = Math.max(region.length - 2, 0);
-  const ids = region.slice(from, from + LINE_SEARCH + 1);
+  // one block past the last looked at, to see what follows it
+  const ids = region.slice(from, from + LINE_SEARCH + 2);
   const read = readBlocks(doc, new Set(ids));
   const elements = ids.map((id) => read.get(id)?.attrs?.type ?? "action");
   const at = elements.findIndex(
     (element, i) =>
-      from + i <= last &&
+      i <= LINE_SEARCH &&
       !LEADS_ON.has(element) &&
       !GOES_ON.has(elements[i + 1] ?? ""),
   );
   return at === -1 ? null : ids[at]!;
+}
+
+/** `blocks` as lines: a block joins the line before when that line leads on to it or it goes on from that line. */
+export function linesOfBlocks(blocks: WriterLine): WriterLine[] {
+  const lines: WriterLine[number][][] = [];
+  blocks.forEach((block, i) => {
+    const before = blocks[i - 1]?.element ?? "";
+    const joins = LEADS_ON.has(before) || GOES_ON.has(block.element);
+    const line = lines.at(-1);
+    if (joins && line !== undefined) line.push(block);
+    else lines.push([block]);
+  });
+  return lines;
 }

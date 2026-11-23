@@ -7,12 +7,12 @@ import {
   createSyncClient,
   soloLeader,
 } from "@manent/sync-client";
-import type { Random } from "@manent/sync-client";
+import type { Clock, DocHandle, Random } from "@manent/sync-client";
 import type { LiveTarget } from "../seed/driver.ts";
 import { inProcessTransport } from "../seed/link.ts";
 import { BUILD_VERSIONS } from "../seed/server.ts";
 
-/** A scene heading and the last block before the next one. */
+/** A scene heading and the last block before the next scene heading or act break. */
 export interface Scene {
   firstBlockId: string;
   lastBlockId: string;
@@ -22,12 +22,24 @@ export interface Scene {
 export interface Writer {
   userId: string;
   scene: Scene | null;
-  /** Ends the typing and the client, so the server records the person's session; a guest role is removed. */
+  /**
+   * Finishes the line being typed, ends the typing and, once the server has the last changes, the client, so the
+   * server records the person's session; a guest role is removed.
+   */
   stop(): Promise<void>;
 }
 
 const NO_FRAMES = { request: () => () => {} };
+/** The elements that end the scene before them: a writer's lines stay in its own act. */
+const SCENE_ENDS: ReadonlySet<string> = new Set(["scene_heading", "act_break"]);
 const UINT32 = 4_294_967_296;
+/**
+ * Lines between the starts of two writers seated one after the other, whose seeds follow one another: a prime
+ * above any bank's length, so that a group's writers start at distinct lines.
+ */
+const LINE_STRIDE = 1_009;
+/** How long a writer who stops waits for the server to take its last changes before it closes. */
+const SETTLE_MS = 5_000;
 
 /** `lines` from the one at `from` round to the one before it. */
 const linesFrom = <T>(lines: readonly T[], from: number): T[] => [
@@ -42,25 +54,48 @@ const randomOf = (next: () => number): Random => ({
     Uint8Array.from({ length }, () => Math.floor(next() * 256)),
 });
 
+/** Resolves once the server has every change made through `handle`, or after SETTLE_MS. */
+function settled(handle: DocHandle, clock: Clock): Promise<void> {
+  return new Promise((resolve) => {
+    const done = (): void => {
+      unsubscribe();
+      cancel();
+      resolve();
+    };
+    const unsubscribe = handle.status.subscribe((s) => {
+      if (s.waiting === 0) done();
+    });
+    const cancel = clock.schedule(done, SETTLE_MS);
+    if (handle.status.get().waiting === 0) done();
+  });
+}
+
 /**
  * The scenes after the one holding `afterBlockId`, in document order and then from the start,
- * without that scene and without those whose heading is in `held`. Blocks before the first heading
- * belong to no scene; an `afterBlockId` there, absent or null, starts from the first scene.
+ * without that scene and without those whose heading is in `held`. A scene ends before the next heading
+ * or act break; blocks before the first heading belong to no scene, and an `afterBlockId` there, absent
+ * or null, starts from the first scene.
  */
 export function freeScenes(
   blocks: readonly FlatBlock[],
   afterBlockId: string | null,
   held: ReadonlySet<string>,
 ): Scene[] {
-  const starts = blocks.flatMap((b, i) =>
-    b.attrs.type === "scene_heading" ? [i] : [],
+  const ends = blocks.flatMap((b, i) =>
+    SCENE_ENDS.has(b.attrs.type) ? [i] : [],
   );
   const idAt = (i: number): string => blocks[i]?.attrs.id ?? "";
-  const scenes = starts.map((from, n) => ({
-    from,
-    firstBlockId: idAt(from),
-    lastBlockId: idAt((starts[n + 1] ?? blocks.length) - 1),
-  }));
+  const scenes = ends.flatMap((from, k) =>
+    blocks[from]?.attrs.type === "scene_heading"
+      ? [
+          {
+            from,
+            firstBlockId: idAt(from),
+            lastBlockId: idAt((ends[k + 1] ?? blocks.length) - 1),
+          },
+        ]
+      : [],
+  );
   const caret = blocks.findIndex((b) => b.attrs.id === afterBlockId);
   const own = caret < 0 ? -1 : scenes.findLastIndex((s) => s.from <= caret);
   return [...scenes.slice(own + 1), ...scenes.slice(0, Math.max(own, 0))]
@@ -120,11 +155,11 @@ export async function startWriter(
       random: randomOf(rng.next),
       region: scene,
       markers: false,
-      // each writer starts at a line drawn from its seed, so that a group does not all type the same line;
-      // a document no bank writes gets the person's own seeded words
-      ...(lines === null
-        ? {}
-        : { lines: linesFrom(lines, rng.int(0, lines.length - 1)) }),
+      // a group's writers start LINE_STRIDE lines apart, so that no two of its scenes open alike
+      lines: linesFrom(
+        lines,
+        ((options.seed % lines.length) * LINE_STRIDE) % lines.length,
+      ),
     });
     person.start();
     return {
@@ -132,6 +167,7 @@ export async function startWriter(
       scene,
       async stop() {
         await person.stop();
+        await settled(handle, live.clock);
         await client.close();
         leaveGuestRole();
       },
