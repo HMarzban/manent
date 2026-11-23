@@ -48,7 +48,10 @@ function noMatch(
     : PALETTE_WORDS.noMatchIn(menu, query);
 }
 
-/** Calls `close` on a press outside `surface`, as on any popover. */
+// the control of the palette's own command closes the palette when pressed, so a press on it is left to that command
+const OPENER = '[data-tour="app.palette"]';
+
+/** Calls `close` on a press outside `surface`, as on any popover, but not on the palette's own control. */
 function useOutsidePress(
   surface: { current: HTMLElement | null },
   close: () => void,
@@ -58,6 +61,7 @@ function useOutsidePress(
   useEffect(() => {
     const onPointerDown = (event: PointerEvent): void => {
       const target = event.target;
+      if (target instanceof Element && target.closest(OPENER) !== null) return;
       if (target instanceof Node && surface.current?.contains(target)) return;
       latest.current();
     };

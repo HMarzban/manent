@@ -2,7 +2,10 @@
 import type { CommandHandlers } from "@manent/commands";
 import { chooseUrl } from "../session.ts";
 import { dialogActions } from "../state/dialog.store.ts";
-import { paletteActions } from "../state/palette.store.ts";
+import {
+  paletteActions,
+  selectors as paletteSelectors,
+} from "../state/palette.store.ts";
 import type { HandlerDeps } from "./index.ts";
 
 export function appHandlers(
@@ -21,6 +24,12 @@ export function appHandlers(
   const { services, api, usePerson, router, dom, nodeCloud } = deps;
   return {
     "app.palette"() {
+      // pressed while the palette is open, Commands or its key closes it
+      if (paletteSelectors.isOpen()) {
+        paletteActions.close();
+        dom.restoreFocus();
+        return;
+      }
       dom.rememberFocus();
       paletteActions.open("all");
     },
