@@ -905,6 +905,8 @@ test("the handler table names every command but the generated ones", () => {
     "view.marks.none": noop,
     "view.colourRevised": noop,
     "share.open": noop,
+    "alternate.show": noop,
+    "alternate.add": noop,
     "doc.copyLink": noop,
     "history.copyLink": noop,
     "name.useListed": noop,

@@ -32,5 +32,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   compared, copied,
   suggested,
   offers, straight, through, whose,
-  active, expired, expires, guests, producers, role, sender, sharing, turned
+  active, expired, expires, guests, producers, role, sender, sharing, turned,
+  pitched, speech, swapped, swaps
 `);
