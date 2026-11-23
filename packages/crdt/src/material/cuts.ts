@@ -72,7 +72,8 @@ function lastIdBefore(
 /**
  * Moves the blocks `blockIds` to a new cut by `authorUserId`, in document order, in one transaction of origin
  * ORIGIN_MATERIAL; the cut's id comes from `ids`. Its origin is the block before the first of them and that block's
- * scene. `not_found`, writing nothing, when one of the IDs is not in the script, or none is given.
+ * scene. `not_found`, writing nothing, when one of the IDs is not in the script, or none is given. jsonMap's TypeError
+ * for blocks it cannot store passes through, having written nothing.
  */
 export function moveToCuts(
   doc: CrdtDoc,
@@ -102,7 +103,9 @@ export function moveToCuts(
     authorUserId: options.authorUserId,
     createdAt: options.now(),
   };
+  // the entry first: blocks jsonMap refuses then stay in the script
   yDocOf(doc).transact(() => {
+    jsonMap(doc, CUTS_MAP).set(cutId, entry);
     applyBlockOpsAsOne(
       doc,
       cut.map((block): BlockOp => ({
@@ -111,7 +114,6 @@ export function moveToCuts(
       })),
       ORIGIN_MATERIAL,
     );
-    jsonMap(doc, CUTS_MAP).set(cutId, entry);
   }, ORIGIN_MATERIAL);
   return { ok: true, cutId };
 }

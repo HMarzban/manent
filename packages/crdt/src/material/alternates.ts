@@ -47,6 +47,7 @@ function speechBlock(doc: CrdtDoc, blockId: string): BlockJSON | null {
 /**
  * Adds `text` as an alternate of the dialogue block `blockId`, by `authorUserId`, in one transaction of origin
  * ORIGIN_MATERIAL; the alternate's id comes from `ids`. `not_found` when the script holds no such dialogue block.
+ * jsonMap's TypeError for a text it cannot store passes through, having written nothing.
  */
 export function addAlternate(
   doc: CrdtDoc,
@@ -82,7 +83,7 @@ export function addAlternate(
  * Makes a text the line of the dialogue block `blockId`, plain, in one transaction of origin ORIGIN_MATERIAL: the
  * alternate `alternateId`, whose entry goes, or `text` typed for it. The line it replaces, unless empty, becomes a new
  * alternate by `authorUserId`. `not_found` when the script holds no such dialogue block, or the block has no alternate
- * `alternateId`.
+ * `alternateId`. jsonMap's TypeError for a line it cannot store passes through, having written nothing.
  */
 export function swapAlternate(
   doc: CrdtDoc,
@@ -108,7 +109,20 @@ export function swapAlternate(
     text = chosen.text;
   } else text = swapIn.text;
   const line = textOf(block);
+  // the map first: a line jsonMap refuses then leaves the script and its alternates as they were
   yDocOf(doc).transact(() => {
+    if (line !== "") {
+      const replaced: Alternate = {
+        v: 1,
+        blockId,
+        text: line,
+        authorUserId: options.authorUserId,
+        createdAt: options.now(),
+        pitched: false,
+      };
+      alternates.set(options.ids(), replaced);
+    }
+    if (swapIn.type === "alternate") alternates.delete(swapIn.alternateId);
     applyBlockOpsAsOne(
       doc,
       [
@@ -119,17 +133,6 @@ export function swapAlternate(
       ],
       ORIGIN_MATERIAL,
     );
-    if (swapIn.type === "alternate") alternates.delete(swapIn.alternateId);
-    if (line === "") return;
-    const replaced: Alternate = {
-      v: 1,
-      blockId,
-      text: line,
-      authorUserId: options.authorUserId,
-      createdAt: options.now(),
-      pitched: false,
-    };
-    alternates.set(options.ids(), replaced);
   }, ORIGIN_MATERIAL);
   return { ok: true };
 }
