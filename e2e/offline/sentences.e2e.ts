@@ -10,6 +10,7 @@ import {
   inject,
   offlineFor,
   overlapped,
+  overlappedOnHisOtherDevice,
   rebuiltAway,
   recovered,
   reorganise,
@@ -309,6 +310,11 @@ const TRUST_ROWS: readonly TrustRow[] = [
     sentence: "Kept the merged wording in Sc. 1.",
     undone: true,
     reach: choose(overlapped, "Keep as merged"),
+  },
+  {
+    sentence: "Used the other wording in Sc. 1.",
+    undone: true,
+    reach: choose(overlappedOnHisOtherDevice, "Use the other wording"),
   },
   {
     sentence: "Put the recovered text back in Sc. 1.",
