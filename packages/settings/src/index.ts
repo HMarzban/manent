@@ -1,6 +1,6 @@
 // The typed settings registry: definitions, validation, resolution and the store.
-export { MENU_IDS, SCRIPT_GROUPS, SECTION_IDS } from "./ids.ts";
-export type { MenuId, ScriptGroup, SectionId } from "./ids.ts";
+export { MENU_IDS, PROJECT_GROUPS, SCRIPT_GROUPS, SECTION_IDS } from "./ids.ts";
+export type { MenuId, ProjectGroup, ScriptGroup, SectionId } from "./ids.ts";
 export { t } from "./types.ts";
 export type {
   Apply,

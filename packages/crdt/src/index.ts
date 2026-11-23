@@ -1,5 +1,6 @@
 export {
   ORIGIN_LOAD,
+  ORIGIN_MATERIAL,
   ORIGIN_REMOTE,
   ORIGIN_REVIEW,
   ORIGIN_TITLE_PAGE,
@@ -26,6 +27,7 @@ export * from "./index-maps.ts";
 export * from "./inspect.ts";
 export * from "./json-map.ts";
 export * from "./measure.ts";
+export * from "./order-key.ts";
 export * from "./rebuild.ts";
 export * from "./revised-overrides.ts";
 export * from "./script-maps.ts";

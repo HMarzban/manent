@@ -1,4 +1,5 @@
-// Each document's title and kind, and its Continue entry, read from whichever opened index holds it.
+// Each document's title and kinds, and its Continue entry, read from whichever opened index holds it.
+import type { DocKind } from "@manent/sync-protocol";
 import { createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import type { ProjectKind } from "../ports.ts";
@@ -11,6 +12,7 @@ type Value<T> = Subscribable<T> & { set(value: T): void };
 export interface DocumentValues {
   title(docId: string): Value<string | null>;
   kind(docId: string): Value<ProjectKind | null>;
+  docKind(docId: string): Value<DocKind | null>;
   /** Writes Continue for `docId` once an index holds it; the returned function stops waiting. */
   continueOnce(docId: string): () => void;
   /** True once any document has been asked about. */
@@ -19,7 +21,7 @@ export interface DocumentValues {
   draw(): void;
 }
 
-/** Each document's title and kind, and its Continue entry, from whichever opened index holds it; `wanted` opens them. */
+/** Each document's title, its project's kind and its own, and its Continue entry, from whichever opened index holds it; `wanted` opens them. */
 export function createDocumentValues(options: {
   find: (docId: string) => Found | null;
   privateIndex: PrivateIndex;
@@ -29,6 +31,7 @@ export function createDocumentValues(options: {
   const { find } = options;
   const titles = new Map<string, Value<string | null>>();
   const kinds = new Map<string, Value<ProjectKind | null>>();
+  const docKinds = new Map<string, Value<DocKind | null>>();
   // the documents opened here whose Continue entry waits for an index that holds them
   const continuing = new Set<string>();
   const valueOf = <T>(
@@ -43,6 +46,7 @@ export function createDocumentValues(options: {
   return {
     title: (docId) => valueOf(titles, docId),
     kind: (docId) => valueOf(kinds, docId),
+    docKind: (docId) => valueOf(docKinds, docId),
     continueOnce(docId) {
       continuing.add(docId);
       options.wanted();
@@ -50,7 +54,7 @@ export function createDocumentValues(options: {
         continuing.delete(docId);
       };
     },
-    asked: () => titles.size + kinds.size + continuing.size > 0,
+    asked: () => titles.size + kinds.size + docKinds.size + continuing.size > 0,
     draw() {
       for (const docId of continuing) {
         const workspaceId = find(docId)?.workspaceId;
@@ -62,6 +66,8 @@ export function createDocumentValues(options: {
       for (const [docId, title] of titles)
         title.set(find(docId)?.entry.title ?? null);
       for (const [docId, kind] of kinds) kind.set(find(docId)?.kind ?? null);
+      for (const [docId, kind] of docKinds)
+        kind.set(find(docId)?.entry.kind ?? null);
     },
   };
 }

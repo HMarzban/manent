@@ -60,6 +60,7 @@ const createStore = (
       personal: bags.personal ?? memoryBag(),
       device: memoryBag(),
       script: bags.script ?? memoryBag(),
+      project: null,
     },
     beforeWrite: noop,
     deferRemote: (apply) => apply(),

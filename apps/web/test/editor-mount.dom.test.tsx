@@ -471,7 +471,15 @@ test("the live editor and the feature plugins come with the mount", () => {
     liveEditor(DOC),
   ]).toEqual([
     1,
-    ["docId", "facts", "layer", "services", "setScenesNumbered", "zoom"],
+    [
+      "docId",
+      "facts",
+      "layer",
+      "presence",
+      "services",
+      "setScenesNumbered",
+      "zoom",
+    ],
     DOC,
     true,
     true,

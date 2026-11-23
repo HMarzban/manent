@@ -500,6 +500,7 @@ test("a block added to a long script is found without reading the script", () =>
         synopsis: "",
         noContd: false,
         noTiming: false,
+        tags: [],
       },
       content: [{ type: "text", text: "added", marks: [] }],
     },

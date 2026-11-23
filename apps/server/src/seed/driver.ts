@@ -27,7 +27,16 @@ import {
   createPageMeter,
   readServerScript,
 } from "./page-meter.ts";
+import { createCommentsDriver } from "./comments-driver.ts";
+import { trashDocument } from "./folders.ts";
+import { createPrivateCopiesDriver } from "./private-copies-driver.ts";
 import { createProduction } from "./production-driver.ts";
+import { createPrompterDriver } from "./prompter-driver.ts";
+import { createRundownsDriver } from "./rundown-driver.ts";
+import { createSeriesDriver } from "./series-driver.ts";
+import { createSharingDriver } from "./sharing-driver.ts";
+import { createStartFromDriver } from "./start-from-driver.ts";
+import { createWritersMaterialDriver } from "./writers-material-driver.ts";
 import type { SeedServer } from "./server.ts";
 
 /** The running server, for the Tour's preparations and the simulated writers. */
@@ -205,6 +214,8 @@ export function createSeedDriver(options: {
             createdAt: at,
             editedAt: null,
             editedByUserId: null,
+            airDate: null,
+            rundownId: null,
           });
       });
       await session.close();
@@ -240,5 +251,20 @@ export function createSeedDriver(options: {
       return checkPassage(script, passage, firstBlockId);
     },
     meter: createPageMeter(),
+    comments: d.capabilities.has("comments") ? createCommentsDriver(d) : null,
+    writersMaterial: d.capabilities.has("writers_material")
+      ? createWritersMaterialDriver(d)
+      : null,
+    sharing: d.capabilities.has("sharing") ? createSharingDriver(d) : null,
+    series: d.capabilities.has("series") ? createSeriesDriver(d) : null,
+    privateCopies: d.capabilities.has("private_copies")
+      ? createPrivateCopiesDriver(d)
+      : null,
+    startFrom: d.capabilities.has("start_from")
+      ? createStartFromDriver(d)
+      : null,
+    rundowns: d.capabilities.has("rundowns") ? createRundownsDriver(d) : null,
+    prompter: d.capabilities.has("prompter") ? createPrompterDriver(d) : null,
+    trash: (userId, docId, at) => trashDocument(d, userId, docId, at),
   };
 }

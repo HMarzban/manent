@@ -41,6 +41,7 @@ const scopeWords = (
   personal: "yours",
   device: shell === "desktop" ? "this device" : "this browser",
   script: "this script",
+  project: "this project",
 });
 
 /** The workspaces the person's scripts are in: those the server listed for the Library, if it was asked, and the person's own desk. */

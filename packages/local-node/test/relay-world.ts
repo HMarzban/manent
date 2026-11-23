@@ -10,7 +10,7 @@ import {
   updateMeta,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import { blockText, blocksOf } from "@manent/schema";
+import { SCHEMA_VERSION, blockText, blocksOf } from "@manent/schema";
 import {
   DEFAULT_LIMITS,
   PRODUCT_SETTING_RULES,
@@ -89,7 +89,12 @@ export const DOC2 = "0193b1f4-2c1e-7a00-8000-00000000000b";
 export const PROJECT = "3b8e5d27-91c4-4f0a-a6d2-7e15c09b4f38";
 export const HOME = `project:${PROJECT}`;
 const START_AT = 1_767_225_600_000;
-const V1 = Object.freeze({ protocol: 1, schema: 1, engine: 0, table: 0 });
+const V1 = Object.freeze({
+  protocol: 1,
+  schema: SCHEMA_VERSION,
+  engine: 0,
+  table: 0,
+});
 const VERSIONS = Object.freeze({ current: V1, min: V1 });
 const MIN_SERVER = Object.freeze({ ...V1, schema: 0 });
 const NAMES: Readonly<Record<string, string>> = Object.freeze({

@@ -1,11 +1,11 @@
-// The side panel's Details tab: its scopes Selection, Scene and Script, each drawn while it has a section.
+// The side panel's Details tab: its scopes Selection, Scene, Script and Rundown, each drawn while it has a section.
 import { DOCUMENT_WORDS } from "@manent/ui";
 import { Suspense, lazy, useEffect } from "react";
 import type { ReactNode } from "react";
 import type { PanelTab } from "../../shell/panel-tab.ts";
 import { panelsActions } from "../../state/panels.store.ts";
 import { DETAILS_SECTIONS } from "./details-sections.ts";
-import type { DetailsSection } from "./details-sections.ts";
+import type { DetailsScope } from "./details-sections.ts";
 
 // its controls would push the document screen's chunk over its size budget
 const loadScriptSettings = () => import("./script-settings.tsx");
@@ -13,11 +13,12 @@ const ScriptSettings = lazy(async () => ({
   default: (await loadScriptSettings()).ScriptSettings,
 }));
 
-const SCOPES: readonly { scope: DetailsSection["scope"]; heading: string }[] =
+const SCOPES: readonly { scope: DetailsScope; heading: string }[] =
   Object.freeze([
     { scope: "selection", heading: DOCUMENT_WORDS.selectionScope },
     { scope: "scene", heading: DOCUMENT_WORDS.sceneScope },
     { scope: "script", heading: DOCUMENT_WORDS.scriptScope },
+    { scope: "rundown", heading: DOCUMENT_WORDS.rundownScope },
   ]);
 
 /** The Script scope is always drawn, its own Script settings first, then the sections later features register. */
@@ -48,7 +49,7 @@ function DetailsPanel(props: { docId: string }): ReactNode {
 
 /** Opens Details with `scope` at the top of the tab once it is drawn; focus stays where it is. */
 export function openDetailsAt(
-  scope: DetailsSection["scope"],
+  scope: DetailsScope,
   frame: (fn: () => void) => () => void,
 ): void {
   panelsActions.open("side", "details");

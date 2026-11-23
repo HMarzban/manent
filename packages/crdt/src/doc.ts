@@ -13,6 +13,8 @@ export const ORIGIN_REVIEW = "review";
 export const ORIGIN_LOAD = "load";
 /** The origin of typing in a title page field, tracked so that it joins undo steps as typing on the page does. */
 export const ORIGIN_TITLE_PAGE = "title_page";
+/** The origin of a writer's-material write or a scene move, tracked so that each is one undo step. */
+export const ORIGIN_MATERIAL = "material";
 
 export interface DocOptions {
   clientId?: number;

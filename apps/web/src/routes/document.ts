@@ -1,8 +1,9 @@
-// A document and its Send screen: `/s/$docId` and `/s/$docId/send/$form`.
+// A document and its Send screen: `/s/$docId` (`?at=<block id>` puts the caret there) and `/s/$docId/send/$form`.
 import {
   createRoute,
   lazyRouteComponent,
   redirect,
+  stripSearchParams,
 } from "@tanstack/react-router";
 import type { AnyRoute } from "@tanstack/react-router";
 import { Fragment, createElement } from "react";
@@ -13,10 +14,12 @@ import { ScreenProblem } from "./screen-problem.ts";
 
 const DocumentScreen = lazyRouteComponent(
   loadScreen(async () => {
-    const [{ DocumentScreen: Screen }, { CloseQuestion }] = await Promise.all([
-      import("../screens/document/document-screen.tsx"),
-      import("../services/sync/close-question.tsx"),
-    ]);
+    const [{ DocumentScreen: Screen }, { CloseQuestion }, { GoToAt }] =
+      await Promise.all([
+        import("../screens/document/document-screen.tsx"),
+        import("../services/sync/close-question.tsx"),
+        import("../editor-host/go-to-at.tsx"),
+      ]);
     return {
       DocumentScreen: (): ReactNode =>
         createElement(
@@ -25,6 +28,7 @@ const DocumentScreen = lazyRouteComponent(
           createElement(Screen),
           createElement(CloseBlocker),
           createElement(CloseQuestion),
+          createElement(GoToAt),
         ),
     };
   }),
@@ -39,6 +43,14 @@ export function documentRoutes(root: AnyRoute): readonly AnyRoute[] {
   const documentRoute = createRoute({
     getParentRoute: () => root,
     path: "/s/$docId",
+    // the block the caret goes to once the editor is open; null when the address names none
+    validateSearch: (
+      search: Record<string, unknown>,
+    ): { at: string | null } => ({
+      at: typeof search.at === "string" ? search.at : null,
+    }),
+    // so an address never says at=null
+    search: { middlewares: [stripSearchParams({ at: null })] },
     component: DocumentScreen,
     errorComponent: ScreenProblem,
   });

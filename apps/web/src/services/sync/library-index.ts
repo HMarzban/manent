@@ -3,10 +3,15 @@ import { ORIGIN_LOAD, ORIGIN_REMOTE } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { DocHandle } from "@manent/sync-client";
 import { projectHome } from "@manent/sync-protocol";
-import type { DocKind, WorkspaceRef } from "@manent/sync-protocol";
+import type { WorkspaceRef } from "@manent/sync-protocol";
 import { LIBRARY_WORDS } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
-import type { CreateResult, LibraryIndex, ProjectKind } from "../ports.ts";
+import type {
+  CreateResult,
+  DocumentStart,
+  LibraryIndex,
+  ProjectKind,
+} from "../ports.ts";
 import type { PersonSync } from "./create-sync.ts";
 import {
   PROJECT_KIND_FORMATS,
@@ -50,7 +55,10 @@ const LAST_EDITED_EVERY_MS = 600_000;
 export interface SyncLibrary extends LibraryIndex {
   /** Writes Continue for a document opened here once an index holds it; the returned function stops waiting for one. */
   markOpened(docId: string): () => void;
-  /** Writes `editedAt` on the person's own changes; the returned function stops, and removes the project if it was made here and left untouched. */
+  /**
+   * Writes `editedAt` on the person's own changes; the returned function stops, and removes the project if it was made
+   * here, left untouched and neither it nor the document is a favourite.
+   */
   follow(docId: string, handle: DocHandle): () => void;
 }
 
@@ -97,8 +105,9 @@ function freeName(index: DocHandle, kind: ProjectKind): string {
 }
 
 /**
- * Lists a new project of `kind` in the index of `workspaceId`, with its one document of `docKind`, made on the device
- * first and begun by `start`, and what PROJECT_CREATED makes with it.
+ * Lists a new document of `opening.docKind` in the index of `workspaceId`, made on the device first and begun by
+ * `opening.start`: in the project `projectId`, or in a new project of `kind` listed with it and made with what
+ * PROJECT_CREATED makes when `projectId` is null.
  */
 async function addProject(
   options: {
@@ -109,36 +118,39 @@ async function addProject(
     now: () => number;
     newId: () => string;
   },
-  workspaceId: string,
-  kind: ProjectKind,
+  target: { workspaceId: string; projectId: string | null; kind: ProjectKind },
   titles: (index: DocHandle) => { project: string; script: string },
-  opening: { docKind: DocKind; start(handle: DocHandle): void },
+  opening: DocumentStart,
 ): Promise<CreateResult> {
   const { sync, shelves } = options;
+  const { workspaceId, kind } = target;
   const index = await shelves.shelf(workspaceId).handle;
-  const projectId = options.newId();
+  const projectId = target.projectId ?? options.newId();
   const handle = await sync.client.create({
     kind: opening.docKind,
     home: projectHome(projectId),
     workspaceId,
   });
   opening.start(handle);
-  for (const created of PROJECT_CREATED)
-    await created.made({
-      sync,
-      workspaceId,
-      projectId,
-      kind,
-      docId: handle.docId,
-    });
+  const isNew = target.projectId === null;
+  if (isNew)
+    for (const created of PROJECT_CREATED)
+      await created.made({
+        sync,
+        workspaceId,
+        projectId,
+        kind,
+        docId: handle.docId,
+      });
   const { project, script } = titles(index);
   const at = options.now();
-  liveMap(index, "projects").set(projectId, {
-    title: project,
-    kind,
-    createdAt: at,
-    createdByUserId: options.userId,
-  });
+  if (isNew)
+    liveMap(index, "projects").set(projectId, {
+      title: project,
+      kind,
+      createdAt: at,
+      createdByUserId: options.userId,
+    });
   liveMap(index, "documents").set(handle.docId, {
     projectId,
     title: script,
@@ -146,6 +158,8 @@ async function addProject(
     createdAt: at,
     editedAt: null,
     editedByUserId: null,
+    airDate: opening.airDate,
+    rundownId: opening.rundownId,
   });
   await handle.close();
   // the new row says where its script is before it is returned
@@ -235,6 +249,9 @@ export function createSyncLibrary(options: {
     const found = shelves.find(docId);
     if (made === undefined || found === null || !made.isUntouched(handle))
       return;
+    const favourites = liveMap(options.privateIndex.handle, "favourites");
+    if ([made.projectId, docId].some((key) => favourites.get(key) !== null))
+      return;
     const renamed =
       found.entry.title !== LIBRARY_WORDS.untitledScript ||
       entriesOf(found.handle).projects.get(made.projectId)?.title !==
@@ -273,14 +290,15 @@ export function createSyncLibrary(options: {
       const start = projectStartOf(kind);
       const made = await addProject(
         { ...options, shelves },
-        ws,
-        kind,
+        { workspaceId: ws, projectId: null, kind },
         (index) => {
           title = freeName(index, kind);
           return { project: title, script: LIBRARY_WORDS.untitledScript };
         },
         {
           docKind: start.docKind,
+          airDate: null,
+          rundownId: null,
           start: (handle) => start.start(handle, kind, options.language),
         },
       );
@@ -295,11 +313,12 @@ export function createSyncLibrary(options: {
     importProject: (ws, imported) =>
       addProject(
         { ...options, shelves },
-        ws,
-        "film",
+        { workspaceId: ws, projectId: null, kind: "film" },
         () => ({ project: imported.title, script: imported.title }),
         {
           docKind: "script",
+          airDate: null,
+          rundownId: null,
           start: (handle) =>
             startImported(
               handle,
@@ -311,11 +330,19 @@ export function createSyncLibrary(options: {
       ),
     documentTitle: values.title,
     documentKind: values.kind,
+    docKindOf: values.docKind,
     renameDocument(docId, title) {
       const found = shelves.find(docId);
       if (found === null) return;
       liveMap(found.handle, "documents").set(docId, { ...found.entry, title });
     },
+    addCopy: (ws, projectId, kind, title, start) =>
+      addProject(
+        { ...options, shelves },
+        { workspaceId: ws, projectId, kind },
+        () => ({ project: title, script: title }),
+        start,
+      ),
     markOpened: values.continueOnce,
     follow(docId, handle) {
       const stop = onOwnChange(handle, () => {

@@ -287,6 +287,12 @@ html[data-white-page] .mn-pages {
   --page-review: light-dark(var(--p-amber-700), var(--p-amber-300));
   --page-note-bg: light-dark(rgb(74 70 64 / 0.10), rgb(169 164 155 / 0.08));
   --page-link: light-dark(var(--p-blue-700), var(--p-blue-300));
+  /* a suggestion is drawn as a change, a comment's marker as its line, an
+     Ink problem as a warning */
+  --mark-suggest-insert: var(--page-added-line);
+  --mark-suggest-delete: var(--page-removed-line);
+  --comment-marker: var(--page-comment-line);
+  --ink-problem: var(--page-review);
   --page-who-alpha: 14%;
   --page-band-w: 8px;
 
@@ -1409,7 +1415,13 @@ button:not(:disabled):hover > .mn-row {
   text-decoration: line-through double var(--page-removed-line) var(--page-line);
   background-color: var(--page-removed-bg);
 }
-.mn-outside-font {
+.mn-outside-font,
+.mn-name-match {
+  text-decoration: underline dotted var(--page-review)
+    calc(2 * var(--page-line));
+  text-underline-offset: 3px;
+}
+.mn-timing-unread {
   text-decoration: underline dotted var(--page-review)
     calc(2 * var(--page-line));
   text-underline-offset: 3px;
@@ -1418,8 +1430,8 @@ button:not(:disabled):hover > .mn-row {
    a change beats a comment, and a comment beats a warning */
 :is(.mn-added, .mn-removed) .mn-comment,
 .mn-comment:has(.mn-added, .mn-removed),
-.mn-comment .mn-outside-font,
-.mn-outside-font:has(.mn-comment) {
+.mn-comment :is(.mn-outside-font, .mn-name-match),
+:is(.mn-outside-font, .mn-name-match):has(.mn-comment) {
   text-decoration-line: none;
 }
 .mn-find {
@@ -1555,18 +1567,19 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   display: none;
 }
 
-/* gutter markers: positioned from the page, sized by the interface */
-.mn-marker {
+/* gutter markers: positioned from the page, sized by the interface; a room
+   log line's tags and link are markers too */
+:is(.mn-marker, .mn-room-tag, .mn-room-link) {
   width: var(--marker);
   height: var(--marker);
   color: var(--fg-muted);
   border-radius: var(--shape-control);
 }
-.mn-marker:hover {
+:is(.mn-marker, .mn-room-tag, .mn-room-link):hover {
   background-color: var(--bg-subtle);
   color: var(--fg);
 }
-.mn-marker[aria-pressed="true"] {
+:is(.mn-marker, .mn-room-tag, .mn-room-link)[aria-pressed="true"] {
   background-color: var(--bg-selected);
   color: var(--fg);
   outline: 1px solid var(--line-strong);
@@ -1620,11 +1633,25 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
 
 /* Room view: the projected script shows the driver's caret and nothing else */
 [data-surface="room"]
-  :is(.mn-who-sel, .mn-who-tab, .mn-who-caret:not([data-driver]), .mn-marker) {
+  :is(
+    .mn-who-sel,
+    .mn-who-tab,
+    .mn-who-caret:not([data-driver]),
+    .mn-marker,
+    .mn-room-tag,
+    .mn-room-link
+  ) {
   display: none;
 }
 [data-surface="room"]
-  :is(.mn-comment, .mn-added, .mn-removed, .mn-find, .mn-outside-font) {
+  :is(
+    .mn-comment,
+    .mn-added,
+    .mn-removed,
+    .mn-find,
+    .mn-outside-font,
+    .mn-name-match
+  ) {
   text-decoration-line: none;
   background-color: transparent;
   outline: none;

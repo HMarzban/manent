@@ -54,6 +54,8 @@ const DEFAULT_ATTRS: BlockAttrs = Object.freeze({
   suggestId: null,
   suggestAuthorUserId: null,
   suggestAt: null,
+  tags: Object.freeze([]),
+  linkTo: null,
 });
 
 /** Text of `lines` lines of `width` cells, each ending a sentence. */

@@ -104,6 +104,9 @@ export function shareHandles(
     setOnline: (wanted) => client.setOnline(wanted),
     retryNow: () => client.retryNow(),
     view: (docId) => client.view(docId),
+    prompter: (rundownId) => client.prompter(rundownId),
+    privateCopy: (docId) => client.privateCopy(docId),
+    driver: (docId) => client.driver(docId),
     close: () => client.close(),
   };
 }

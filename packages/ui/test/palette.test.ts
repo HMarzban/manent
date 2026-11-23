@@ -32,6 +32,18 @@ const CTX: CommandContext = {
   spaceBeforeSet: false,
   zoom: null,
   zoomPercent: null,
+  docKind: null,
+  projectKind: null,
+  outlineStart: false,
+  writing: null,
+  material: null,
+  rundown: null,
+  prompter: null,
+  inTrash: false,
+  canDelete: false,
+  focusMode: false,
+  readingAloud: false,
+  sprintRunning: false,
   production: null,
 };
 
@@ -39,12 +51,13 @@ const SCOPE_WORDS = {
   personal: "yours",
   device: "this browser",
   script: "this script",
+  project: "this project",
 } as const;
 
 const bag = () => createMemoryBag({ initial: {}, writable: () => true });
 const settings = createSettingsStore({
   registry: SETTINGS,
-  bags: { personal: bag(), device: bag(), script: bag() },
+  bags: { personal: bag(), device: bag(), script: bag(), project: null },
   beforeWrite: () => {},
   deferRemote: (apply) => apply(),
   locked: () => false,

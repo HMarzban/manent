@@ -650,7 +650,12 @@ test("a preference added with one definition is found everywhere it should be", 
 test("a store over every setting answers each key with its own value type", () => {
   const store: SettingsStore = createSettingsStore({
     registry: SETTINGS,
-    bags: { personal: emptyBag(), device: emptyBag(), script: emptyBag() },
+    bags: {
+      personal: emptyBag(),
+      device: emptyBag(),
+      script: emptyBag(),
+      project: null,
+    },
     beforeWrite: () => {},
     deferRemote: (apply) => apply(),
     locked: () => false,

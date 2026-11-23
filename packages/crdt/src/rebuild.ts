@@ -1,30 +1,73 @@
 // A fresh document built from another's content: the same blocks in even sections, every struct one client's.
-import { rejects, sectionize, validateDoc } from "@manent/schema";
+import {
+  RUNDOWN_COLUMNS_ROOT,
+  RUNDOWN_FIELDS_ROOT,
+  RUNDOWN_ROWS_ROOT,
+  rejects,
+  sectionize,
+  validateDoc,
+} from "@manent/schema";
 import type { BlockJSON, SectionJSON } from "@manent/schema";
+import * as Y from "yjs";
 import { yDocOf } from "./doc.ts";
 import type { CrdtDoc } from "./doc.ts";
+import { COMMENTS_DOC_MAPS } from "./index-maps.ts";
 import { FRAGMENT_NAME, scriptDocFromJSON } from "./mapping.ts";
-import { IMPORT_MAP, NOTES_MAP, TITLE_PAGE_MAP } from "./script-maps.ts";
+import {
+  ALTERNATES_MAP,
+  CUTS_MAP,
+  IMPORT_MAP,
+  NOTES_MAP,
+  SCENE_PROGRESS_MAP,
+  TITLE_PAGE_MAP,
+} from "./script-maps.ts";
 import { ORIGIN_SYSTEM } from "./settings.ts";
 import { scriptBody } from "./writer.ts";
 
-/** A script's settings maps, overrides map, notes, import record and title page, copied entry by entry. */
-const SCRIPT_MAPS = [
-  "settings",
-  "settingsMeta",
-  "revisedOverrides",
-  NOTES_MAP,
-  IMPORT_MAP,
-  TITLE_PAGE_MAP,
-] as const;
+/** How a root holds its entries: a map by key, an array in order. */
+type RootShape = "map" | "array";
 
-/** The maps a rebuild copies, by document kind; a kind without a line copies a script's. */
-const COPIED_MAPS: Readonly<Record<string, readonly string[]>> = Object.freeze({
-  script: SCRIPT_MAPS,
+/** A script's settings maps, overrides map, notes, import record, title page, writers' material and scene progress. */
+const SCRIPT_ROOTS: Readonly<Record<string, RootShape>> = Object.freeze({
+  settings: "map",
+  settingsMeta: "map",
+  revisedOverrides: "map",
+  [NOTES_MAP]: "map",
+  [IMPORT_MAP]: "map",
+  [TITLE_PAGE_MAP]: "map",
+  [ALTERNATES_MAP]: "map",
+  [CUTS_MAP]: "map",
+  [SCENE_PROGRESS_MAP]: "map",
+});
+
+/** A rundown's fields, its columns and its rows, each row a map of its own. */
+const RUNDOWN_ROOTS: Readonly<Record<string, RootShape>> = Object.freeze({
+  [RUNDOWN_FIELDS_ROOT]: "map",
+  [RUNDOWN_COLUMNS_ROOT]: "array",
+  [RUNDOWN_ROWS_ROOT]: "map",
+});
+
+/** A comments document's maps. */
+const COMMENTS_ROOTS: Readonly<Record<string, RootShape>> = Object.freeze(
+  Object.fromEntries(
+    COMMENTS_DOC_MAPS.map((name): [string, RootShape] => [name, "map"]),
+  ),
+);
+
+/** The roots a rebuild copies beside the body, by document kind; a kind without a line copies a script's. */
+const COPIED_ROOTS: Readonly<
+  Record<string, Readonly<Record<string, RootShape>>>
+> = Object.freeze({
+  script: SCRIPT_ROOTS,
+  comments: COMMENTS_ROOTS,
+  rundown: RUNDOWN_ROOTS,
 });
 
 /** The roots a rebuild of a script knows how to copy. */
-export const ROOT_TYPE_NAMES = [FRAGMENT_NAME, ...SCRIPT_MAPS] as const;
+export const ROOT_TYPE_NAMES: readonly string[] = Object.freeze([
+  FRAGMENT_NAME,
+  ...Object.keys(SCRIPT_ROOTS),
+]);
 
 export type RebuildResult =
   | { ok: true; doc: CrdtDoc }
@@ -67,37 +110,47 @@ function evenSections(blocks: readonly BlockJSON[]): SectionJSON[] {
   return sections;
 }
 
-/** Sets every entry of the source's `maps` in `built`, keys in ascending order, in one transaction. */
-function copyMaps(
+/** A value as `built` may hold it: a nested map or array is copied whole, anything else is the stored JSON. */
+const copyOf = (value: unknown): unknown =>
+  value instanceof Y.AbstractType ? value.clone() : value;
+
+/** Copies every root of `roots` into `built` in one transaction: a map's entries by ascending key, an array's items in order. */
+function copyRoots(
   source: CrdtDoc,
   built: CrdtDoc,
-  maps: readonly string[],
+  roots: Readonly<Record<string, RootShape>>,
 ): void {
   const from = yDocOf(source);
   const to = yDocOf(built);
   to.transact(() => {
-    for (const name of maps) {
-      const entries: Record<string, unknown> = from.getMap(name).toJSON();
+    for (const [name, shape] of Object.entries(roots)) {
+      if (shape === "array") {
+        const items = from.getArray<unknown>(name).toArray().map(copyOf);
+        to.getArray<unknown>(name).insert(0, items);
+        continue;
+      }
+      const entries = from.getMap<unknown>(name);
       const target = to.getMap<unknown>(name);
-      for (const key of Object.keys(entries).toSorted())
-        target.set(key, entries[key]);
+      for (const key of [...entries.keys()].toSorted())
+        target.set(key, copyOf(entries.get(key)));
     }
   }, ORIGIN_SYSTEM);
 }
 
 /**
  * A fresh document holding the source's blocks (IDs, attributes known and unknown, text and marks) redistributed with
- * sectionize into even sections, and the maps its kind copies (absent: a script's, the settings, settingsMeta,
- * revisedOverrides, notes, imported and titlePage maps); every struct is the given client's.
+ * sectionize into even sections, and the roots its kind copies (absent: a script's, the settings, settingsMeta,
+ * revisedOverrides, notes, imported, titlePage, alternates, cuts and sceneProgress maps); every struct is the given
+ * client's.
  */
 export function rebuildDoc(
   source: CrdtDoc,
   options: { clientId: number; kind?: string },
 ): RebuildResult {
   const { kind } = options;
-  const listed = kind !== undefined && Object.hasOwn(COPIED_MAPS, kind);
-  const maps = (listed ? COPIED_MAPS[kind] : undefined) ?? SCRIPT_MAPS;
-  const known: readonly string[] = [FRAGMENT_NAME, ...maps];
+  const listed = kind !== undefined && Object.hasOwn(COPIED_ROOTS, kind);
+  const roots = (listed ? COPIED_ROOTS[kind] : undefined) ?? SCRIPT_ROOTS;
+  const known: readonly string[] = [FRAGMENT_NAME, ...Object.keys(roots)];
   if ([...yDocOf(source).share.keys()].some((name) => !known.includes(name)))
     return { ok: false, code: "unknown_root" };
   const body = scriptBody(source);
@@ -111,6 +164,6 @@ export function rebuildDoc(
     { type: "doc", content: evenSections(blocks) },
     { clientId: options.clientId },
   );
-  copyMaps(source, built, maps);
+  copyRoots(source, built, roots);
   return { ok: true, doc: built };
 }

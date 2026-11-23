@@ -35,6 +35,14 @@ export type {
   SeedProject,
   SeedWorkspaceId,
 } from "./seed/catalogue.ts";
+export type { SeedComments } from "./seed/capabilities/comments.ts";
+export type { SeedPrivateCopies } from "./seed/capabilities/private-copies.ts";
+export type { SeedPrompter } from "./seed/capabilities/prompter.ts";
+export type { SeedRundowns } from "./seed/capabilities/rundowns.ts";
+export type { SeedSeries } from "./seed/capabilities/series.ts";
+export type { SeedSharing } from "./seed/capabilities/sharing.ts";
+export type { SeedStartFrom } from "./seed/capabilities/start-from.ts";
+export type { SeedWritersMaterial } from "./seed/capabilities/writers-material.ts";
 export { SEED_CAPABILITIES, SeedDriverError } from "./seed/driver.ts";
 export type {
   HeadlessLink,

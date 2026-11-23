@@ -57,6 +57,7 @@ export const DOCUMENT_WORDS = {
   scriptScope: "Script",
   selectionScope: "Selection",
   sceneScope: "Scene",
+  rundownScope: "Rundown",
   scriptSettingsHeading: "Script settings",
   scriptScopeLine: (title: string): string =>
     `Shared. Everyone on ${title} sees these. Changing them can move page breaks.`,
@@ -64,6 +65,8 @@ export const DOCUMENT_WORDS = {
   mores: "Mores and Continueds",
   sceneNumbersGroup: "Scene numbers",
   revisionsGroup: "Revisions",
+  headerFooterGroup: "Header and footer",
+  layoutEngineGroup: "Layout engine",
   paperFromRegion: "From the region, when this script was created.",
   historyTab: "History",
   omitted: "OMITTED",

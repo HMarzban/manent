@@ -43,7 +43,7 @@ import type {
 } from "../src/state/outline.store.ts";
 import { panelsActions } from "../src/state/panels.store.ts";
 import type { PersonPresent } from "../src/state/people.store.ts";
-import { EMPTY_MATERIAL } from "../src/send/what-options.ts";
+import { materialActions } from "../src/state/material.store.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
 import { renameActions } from "../src/state/rename.store.ts";
 import {
@@ -140,6 +140,18 @@ function contextFor(
       spaceBeforeSet: false,
       zoom: null,
       zoomPercent: null,
+      docKind: null,
+      projectKind: null,
+      outlineStart: false,
+      writing: null,
+      material: null,
+      rundown: null,
+      prompter: null,
+      inTrash: false,
+      canDelete: false,
+      focusMode: false,
+      readingAloud: false,
+      sprintRunning: false,
       production: null,
     };
   };
@@ -153,6 +165,7 @@ const scriptStoreOver = (scriptBag: DocumentServices["scriptBag"]) =>
       personal: createMemoryBag({ initial: {}, writable: () => true }),
       device: createMemoryBag({ initial: {}, writable: () => true }),
       script: scriptBag,
+      project: null,
     },
     beforeWrite: () => {},
     deferRemote: (apply) => apply(),
@@ -329,7 +342,7 @@ export async function renderFrame(
     scriptBag:
       options.scriptBag ??
       createMemoryBag({ initial: {}, writable: () => true }),
-    material: { materialSnapshotOf: () => EMPTY_MATERIAL },
+    material: materialActions,
   };
   const services = servicesFor(environment, doc, {
     role: options.role ?? "editor",

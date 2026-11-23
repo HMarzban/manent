@@ -27,6 +27,8 @@ export interface ProjectEntry {
   kind: ProjectKind;
   createdAt: number;
   createdByUserId: string;
+  /** The folder the project is in; null at the workspace's top. */
+  folderId: string | null;
 }
 
 export interface DocumentEntry {
@@ -36,6 +38,13 @@ export interface DocumentEntry {
   createdAt: number;
   editedAt: number | null;
   editedByUserId: string | null;
+  /** A rundown's local date of broadcast, `YYYY-MM-DD`; null for any other document. */
+  airDate: string | null;
+  /** The rundown a story belongs to; null for any other document. */
+  rundownId: string | null;
+  /** When the document was put in Trash; null while it is not there. */
+  trashedAt: number | null;
+  trashedByUserId: string | null;
 }
 
 export interface ContinueEntry {
@@ -49,12 +58,25 @@ const isProjectKind = (value: unknown): value is ProjectKind =>
 const isInstant = (value: unknown): value is number =>
   typeof value === "number" && Number.isSafeInteger(value);
 
+const isText = (value: unknown): value is string => typeof value === "string";
+
+/** A field an older entry lacks: absent reads as null; "refused" when it holds anything `is` does not accept. */
+function optional<T>(
+  value: unknown,
+  is: (value: unknown) => value is T,
+): T | null | "refused" {
+  if (value === undefined || value === null) return null;
+  return is(value) ? value : "refused";
+}
+
 function readProject(value: unknown): ProjectEntry | null {
   if (!isFields(value)) return null;
   const { title, kind, createdAt, createdByUserId } = value;
   if (typeof title !== "string" || !isProjectKind(kind)) return null;
   if (!isInstant(createdAt) || typeof createdByUserId !== "string") return null;
-  return { title, kind, createdAt, createdByUserId };
+  const folderId = optional(value.folderId, isText);
+  if (folderId === "refused") return null;
+  return { title, kind, createdAt, createdByUserId, folderId };
 }
 
 function readDocument(value: unknown): DocumentEntry | null {
@@ -65,7 +87,24 @@ function readDocument(value: unknown): DocumentEntry | null {
   if (editedAt !== null && !isInstant(editedAt)) return null;
   if (editedByUserId !== null && typeof editedByUserId !== "string")
     return null;
-  return { projectId, title, kind, createdAt, editedAt, editedByUserId };
+  const airDate = optional(value.airDate, isText);
+  const rundownId = optional(value.rundownId, isText);
+  const trashedAt = optional(value.trashedAt, isInstant);
+  const trashedByUserId = optional(value.trashedByUserId, isText);
+  if (airDate === "refused" || rundownId === "refused") return null;
+  if (trashedAt === "refused" || trashedByUserId === "refused") return null;
+  return {
+    projectId,
+    title,
+    kind,
+    createdAt,
+    editedAt,
+    editedByUserId,
+    airDate,
+    rundownId,
+    trashedAt,
+    trashedByUserId,
+  };
 }
 
 function readContinue(value: unknown): ContinueEntry | null {
