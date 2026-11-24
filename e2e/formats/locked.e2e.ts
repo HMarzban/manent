@@ -15,6 +15,8 @@ import {
 test("a locked FDX opens in production with Final Draft's page numbers, and an edited page gains its A-page", async ({
   page,
 }) => {
+  // wide enough for the Scenes the script opens and the Tour a first visit opens; in a narrower window the Scenes give way
+  await page.setViewportSize({ width: 1440, height: 900 });
   await onLibrary(page, "priya");
   await dropFiles(page, [{ name: "Locked.fdx", bytes: lockedOver(3) }]);
   await openedScript(page);
@@ -24,7 +26,7 @@ test("a locked FDX opens in production with Final Draft's page numbers, and an e
     ),
   ).toBeVisible();
 
-  // the Pages tab is there once the authority has locked the script
+  // the Pages tab joins the Scenes once the authority has locked the script
   await page.getByRole("tab", { name: PRODUCTION_WORDS.pagesTab }).click();
   const rows = page
     .getByRole("tabpanel", { name: PRODUCTION_WORDS.pagesTab })
