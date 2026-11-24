@@ -26,4 +26,5 @@ export const PREFERENCE_TERMS: readonly Term[] = Object.freeze([
   ...row("formats", ["Act structure"], ["act template"]),
   ...row("formats", ["Drama", "Single-camera", "Custom"], []),
   ...row("formats", ["17 Nov 2026", "Nov 17, 2026", "2026-11-17"], []),
+  ...row("rundown", ["Read rate"], ["speed"]),
 ]);
