@@ -128,16 +128,28 @@ function movedOnPages(
   anchor: PagesAnchor,
   zoom: number,
 ): Moved | null {
+  const prevPages = paginationKey.getState(prev);
+  const nextPages = paginationKey.getState(state);
   const before = pagesOf(prev);
   const after = pagesOf(state);
   if (before === null || after === null) return null;
   const from = blockNear(before.index, anchor.blockId, anchor.block);
   if (from === null) return null;
-  const { change } = updateIndex(
-    before.index,
-    state.doc,
-    after.settings.layout,
-  );
+  const samePluginState =
+    prevPages !== undefined &&
+    nextPages !== undefined &&
+    before === prevPages &&
+    after === nextPages &&
+    !prevPages.frozen &&
+    !nextPages.frozen;
+  const change =
+    samePluginState && nextPages.engineRuns === prevPages.engineRuns
+      ? null
+      : samePluginState &&
+          nextPages.engineRuns === prevPages.engineRuns + 1 &&
+          nextPages.change !== null
+        ? nextPages.change
+        : updateIndex(before.index, state.doc, after.settings.layout).change;
   if (change === null) return { anchor: { ...anchor, block: from }, shift: 0 };
   // a block after what the change replaced moves by the blocks it added; one inside it or before it keeps its index
   const hint =

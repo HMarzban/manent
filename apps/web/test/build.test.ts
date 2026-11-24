@@ -13,6 +13,7 @@ interface Chunk {
   name: string;
   path: string;
   entry: boolean;
+  entryPoint: string | null;
   /** The chunks this one imports statically, by output name. */
   imports: readonly string[];
   /** The source files in it, as the metafile names them. */
@@ -28,11 +29,30 @@ function chunksOf(built: Built, outDir: string): Chunk[] {
       name,
       path: join(outDir, name),
       entry: output.entryPoint?.endsWith("index.html") === true,
+      entryPoint: output.entryPoint ?? null,
       imports: output.imports
         .filter((i) => i.kind === "import-statement")
         .map((i) => i.path),
       inputs: Object.keys(output.inputs),
     }));
+}
+
+/** Every chunk reached by static imports from `start`. */
+function staticReachOf(chunks: readonly Chunk[], start: Chunk): Chunk[] {
+  const byName = new Map(chunks.map((chunk) => [chunk.name, chunk]));
+  const reached: Chunk[] = [];
+  const seen = new Set<string>();
+  const queue = [start];
+  for (const chunk of queue) {
+    if (seen.has(chunk.name)) continue;
+    seen.add(chunk.name);
+    reached.push(chunk);
+    for (const next of chunk.imports) {
+      const target = byName.get(next);
+      if (target !== undefined) queue.push(target);
+    }
+  }
+  return reached;
 }
 
 const productionBuild = async (): Promise<{ outDir: string; built: Built }> => {
@@ -117,21 +137,9 @@ test("the entry and its static chunks hold none of the editor's code", async () 
   const outDir = await trees.tree({});
   const built = await buildWeb({ outDir, flavour: "test" });
   const chunks = chunksOf(built, outDir);
-  const byName = new Map(chunks.map((chunk) => [chunk.name, chunk]));
   const entry = chunks.find((chunk) => chunk.entry);
   if (entry === undefined) throw new TypeError("no entry chunk");
-  const reached: Chunk[] = [];
-  const seen = new Set<string>();
-  const queue = [entry];
-  for (const chunk of queue) {
-    if (seen.has(chunk.name)) continue;
-    seen.add(chunk.name);
-    reached.push(chunk);
-    for (const next of chunk.imports) {
-      const target = byName.get(next);
-      if (target !== undefined) queue.push(target);
-    }
-  }
+  const reached = staticReachOf(chunks, entry);
   const editorInputs = reached.flatMap((chunk) =>
     chunk.inputs.filter(
       (input) =>
@@ -148,4 +156,35 @@ test("the entry and its static chunks hold none of the editor's code", async () 
       text.includes("Adding different instances of a keyed plugin"),
     ),
   ]).toEqual([[], false]);
+}, 30_000);
+
+test("the document screen and palette chunks hold none of the editor's code", async () => {
+  const outDir = await trees.tree({});
+  const built = await buildWeb({ outDir, flavour: "test" });
+  const chunks = chunksOf(built, outDir);
+  for (const suffix of [
+    "screens/document/document-screen.tsx",
+    "shell/shell-palette.tsx",
+  ]) {
+    const start = chunks.find((chunk) => chunk.entryPoint?.endsWith(suffix));
+    if (start === undefined) throw new TypeError(`no chunk for ${suffix}`);
+    const reached = staticReachOf(chunks, start);
+    const editorInputs = reached.flatMap((chunk) =>
+      chunk.inputs.filter(
+        (input) =>
+          input.includes("packages/editor/") ||
+          input.includes("prosemirror-state"),
+      ),
+    );
+    const texts = await Promise.all(
+      reached.map((chunk) => Bun.file(chunk.path).text()),
+    );
+    expect([
+      suffix,
+      editorInputs,
+      texts.some((text) =>
+        text.includes("Adding different instances of a keyed plugin"),
+      ),
+    ]).toEqual([suffix, [], false]);
+  }
 }, 30_000);

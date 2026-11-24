@@ -4,6 +4,7 @@ import type { Platform } from "@manent/settings";
 import {
   DOCUMENT_WORDS,
   MATERIAL_WORDS,
+  PROJECT_WORDS,
   REGIONS,
   SEND_WORDS,
   SURFACES,
@@ -104,6 +105,23 @@ async function chooseOther(page: Page): Promise<void> {
   await page.keyboard.press("Enter");
 }
 
+/** Opens a new script from the Library and types a line so its project stays when navigating to Project settings. */
+async function openProjectScript(page: Page): Promise<void> {
+  await page.goto("/");
+  await page
+    .locator("[data-region='title_bar']")
+    .getByRole("button", { name: "New script", exact: true })
+    .click();
+  await expect(editorOf(page)).toBeFocused();
+  await expect(
+    page
+      .locator("[data-region='title_bar']")
+      .getByRole("heading", { level: 1 }),
+  ).toHaveText(OTHER_TITLE);
+  await page.keyboard.type("The tide turns.");
+  await expect(editorOf(page)).toContainText("The tide turns.");
+}
+
 const PLACES: Partial<Record<SurfaceId, Place>> = {
   left_panel: {
     at: DOC,
@@ -182,6 +200,14 @@ const PLACES: Partial<Record<SurfaceId, Place>> = {
     close: null,
     name: null,
     ready: writeSpeech,
+  },
+  project_settings: {
+    at: DOC,
+    drawn: `div:has(> header > h1:text-is("${PROJECT_WORDS.heading}"))`,
+    first: `div:has(> header > h1:text-is("${PROJECT_WORDS.heading}"))`,
+    close: SEND_WORDS.back(OTHER_TITLE),
+    name: null,
+    ready: openProjectScript,
   },
 };
 
@@ -417,22 +443,20 @@ for (const entry of SURFACES.filter((s) => s.id !== "file_picker"))
         );
         await expectOpenFocus(page, intent, place, before);
         const expectGivenBack = async (): Promise<void> => {
-          const described = await focusedDescription(page);
-          expect(described).not.toBe("body");
-          expect(described).toBe(
-            entry.focusOnClose === "caret" ? caret : before,
-          );
+          await expect
+            .poll(() => focusedDescription(page))
+            .toBe(entry.focusOnClose === "caret" ? caret : before);
           expect(await page.evaluate(() => window.scrollY)).toBe(scrollY);
         };
 
         if (intent === "stay" && place.name !== null && before === caret)
           expect(await politeText(page)).toBe(place.name);
         await page.keyboard.press("Escape");
-        // Escape never closes a panel: it returns focus to the page
+        // Escape never closes a panel or leaves a screen: it returns focus to the page from a panel
         await expect(page.locator(place.drawn)).toHaveCount(
-          entry.kind === "panel" ? 1 : 0,
+          entry.kind === "panel" || entry.kind === "screen" ? 1 : 0,
         );
-        await expectGivenBack();
+        if (entry.kind !== "screen") await expectGivenBack();
         if (place.close === null) return;
         const close = page.getByRole("button", { name: place.close });
         await close.focus();
