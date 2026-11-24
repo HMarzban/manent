@@ -52,6 +52,7 @@ export {
   removeRows,
   restoreCell,
   setCell,
+  setRowUnnumbered,
   setRundownFields,
   writeDurations,
   writePrompterState,
