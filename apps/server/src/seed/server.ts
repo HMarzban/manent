@@ -189,11 +189,7 @@ export async function createSeedServer(options: {
       ids,
       registry: PRODUCT_SETTING_RULES,
       limits: SEED_LIMITS,
-      hooks: composed.hooks,
-      ...(composed.airWindow === null ? {} : { airWindow: composed.airWindow }),
-      ...(composed.airWindowOf === null
-        ? {}
-        : { airWindowOf: composed.airWindowOf }),
+      ...composed.sync,
     },
     ...composed.config,
   });
@@ -205,6 +201,7 @@ export async function createSeedServer(options: {
     sync: sync(),
     clock,
     async close() {
+      composed.config.prompter?.stop();
       await server.sync?.shutdown();
       storage.close();
     },

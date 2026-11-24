@@ -166,11 +166,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     upstream: relay,
     checkpointer: createInlineCheckpointer({ storage, defer }),
     registry: options.registry,
-    hooks: composed.hooks,
-    ...(composed.airWindow === null ? {} : { airWindow: composed.airWindow }),
-    ...(composed.airWindowOf === null
-      ? {}
-      : { airWindowOf: composed.airWindowOf }),
+    ...composed.sync,
   };
 
   const server = createServer({
@@ -376,6 +372,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     },
     async close() {
       stopWake();
+      composed.config.prompter?.stop();
       await service.shutdown();
       await relay.close();
     },
