@@ -9,25 +9,41 @@ const OVER_PAGE: Readonly<Record<"start" | "end", CSSProperties>> =
     start: { gridArea: "page", justifySelf: "start", zIndex: 10 },
     end: { gridArea: "page", justifySelf: "end", zIndex: 10 },
   });
+// the scrim dims the page under a panel lying on it, so the page's lines read as running under the panel rather than
+// cut off; a press passes through it to the page, which closes the panel
+const PAGE_SCRIM: CSSProperties = Object.freeze({
+  gridArea: "page",
+  zIndex: 10,
+});
 // lying on the page, it has an overlay's elevation and an edge on the side facing the text, as a menu has
 const OVER_PAGE_EDGE: Readonly<Record<"start" | "end", string>> = Object.freeze(
   { start: "border-e", end: "border-s" },
 );
 
-/** Beside the page, the panel takes its own grid area; `over` draws it over the page instead, at that edge. */
+/**
+ * Beside the page, the panel takes its own grid area; `over` draws it over the page instead, at that edge, and dims the
+ * page.
+ */
 export function PanelPlace(props: {
   over: "start" | "end" | null;
   children: ReactNode;
 }): ReactNode {
   if (props.over === null) return props.children;
   return (
-    <div
-      data-overlay=""
-      className={`flex min-h-0 border-line shadow-overlay ${OVER_PAGE_EDGE[props.over]}`}
-      style={OVER_PAGE[props.over]}
-    >
-      {props.children}
-    </div>
+    <>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none animate-in bg-scrim duration-100 fade-in-0"
+        style={PAGE_SCRIM}
+      />
+      <div
+        data-overlay=""
+        className={`flex min-h-0 border-line shadow-overlay ${OVER_PAGE_EDGE[props.over]}`}
+        style={OVER_PAGE[props.over]}
+      >
+        {props.children}
+      </div>
+    </>
   );
 }
 
