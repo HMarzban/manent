@@ -47,7 +47,10 @@ export async function loadEditor(
       ? await import("../editor-host/test-hooks.ts")
       : null;
   parts.fixedKeys.set(EDITOR_FIXED_KEYS);
-  const sessions = createSyncSessions({ client: parts.client });
+  const sessions = createSyncSessions({
+    client: parts.client,
+    schedule: environment.schedule,
+  });
   const access = new Map<string, StatusFacts["access"]>();
   let current: OpenEditor | null = null;
   const target: unknown = Reflect.get(globalThis, "__manent");
