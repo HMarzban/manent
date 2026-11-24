@@ -23,9 +23,11 @@ export interface Scene {
 export interface Writer {
   userId: string;
   scene: Scene | null;
+  /** When the person last typed in the script; null before their first keystroke. */
+  editedAt(): number | null;
   /**
-   * Finishes the line being typed, ends the typing and, once the server has the last changes, the client, so the
-   * server records the person's session; a guest role is removed.
+   * Takes back the lines typed, ends the typing and, once the server has the last changes, the client, so the server
+   * records the person's session; a guest role is removed.
    */
   stop(): Promise<void>;
 }
@@ -125,7 +127,8 @@ export function caretScene(
 
 /**
  * `userId` typing in `scene` of `docId` at `profile`'s rates, its draws seeded by `seed`, over its
- * own client on the live server. A person with no role on the document is given `edit` as a guest.
+ * own client on the live server, keeping at most the blocks `keepBlocks` gives of its own lines in the script.
+ * A person with no role on the document is given `edit` as a guest.
  */
 export async function startWriter(
   live: LiveTarget,
@@ -136,6 +139,7 @@ export async function startWriter(
     profile: WritingProfile;
     seed: number;
     random: () => number;
+    keepBlocks: () => number;
   },
 ): Promise<Writer> {
   const { docId, userId, scene } = options;
@@ -175,6 +179,7 @@ export async function startWriter(
       random: randomOf(rng.next),
       region: scene,
       markers: false,
+      keepBlocks: options.keepBlocks,
       // a group's writers start LINE_STRIDE lines apart, so that no two of its scenes open alike
       lines: linesFrom(
         lines,
@@ -185,6 +190,8 @@ export async function startWriter(
     return {
       userId,
       scene,
+      editedAt: () =>
+        person.events.findLast((e) => e.type === "typed")?.at ?? null,
       async stop() {
         await person.stop();
         await settled(handle, live.clock);

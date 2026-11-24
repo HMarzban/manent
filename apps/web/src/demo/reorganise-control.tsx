@@ -10,18 +10,20 @@ import { BarButton } from "./bar-button.tsx";
 const TOUR = "demo:reorganise";
 
 /**
- * Unavailable without a script or a connection, for a person who has not signed in (the server holds none of their
- * scripts), and for a person who cannot edit the script.
+ * Unavailable without a script, for a person who has not signed in (the server holds none of their scripts), for a
+ * person who cannot edit the script, and while `unreachable` says why the server cannot be asked.
  */
 export function ReorganiseControl(props: {
   docId: string | null;
   signedIn: boolean;
-  offline: boolean;
+  unreachable: string | null;
 }): ReactNode {
-  const { docId, signedIn, offline } = props;
+  const { docId, signedIn, unreachable } = props;
   if (docId === null) return <Unavailable reason={DEMO_WORDS.needsScript} />;
   if (!signedIn) return <Unavailable reason={DEMO_WORDS.needsSyncedScript} />;
-  return <ScriptReorganise key={docId} docId={docId} offline={offline} />;
+  return (
+    <ScriptReorganise key={docId} docId={docId} unreachable={unreachable} />
+  );
 }
 
 function Unavailable(props: { reason: string }): ReactNode {
@@ -43,9 +45,9 @@ function Unavailable(props: { reason: string }): ReactNode {
  */
 function ScriptReorganise(props: {
   docId: string;
-  offline: boolean;
+  unreachable: string | null;
 }): ReactNode {
-  const { docId, offline } = props;
+  const { docId, unreachable } = props;
   const { api, openHandle } = useServices();
   const [waiting, setWaiting] = useState(false);
   useEffect(() => {
@@ -71,9 +73,9 @@ function ScriptReorganise(props: {
       unlisten?.();
     };
   }, [waiting, docId, openHandle]);
-  // checked before the connection, so that the reason does not change when the connection does
+  // checked before the server, so that the reason does not change when the connection or the server does
   if (!useCanEdit(docId)) return <Unavailable reason={DEMO_WORDS.needsEdit} />;
-  if (offline) return <Unavailable reason={DEMO_WORDS.needsConnection} />;
+  if (unreachable !== null) return <Unavailable reason={unreachable} />;
   return (
     <BarButton
       label={DEMO_WORDS.reorganise}

@@ -49,18 +49,18 @@ const isCount = (value: number): value is WritersRequest["count"] =>
   value === 0 || value === 1 || value === 5 || value === 20;
 
 /**
- * Unavailable without a script or a connection, for a person who has not signed in (the server holds none of their
- * scripts), and for a person who cannot edit the script.
+ * Unavailable without a script, for a person who has not signed in (the server holds none of their scripts), for a
+ * person who cannot edit the script, and while `unreachable` says why the server cannot be asked.
  */
 export function WritersControl(props: {
   docId: string | null;
   signedIn: boolean;
-  offline: boolean;
+  unreachable: string | null;
 }): ReactNode {
-  const { docId, signedIn, offline } = props;
+  const { docId, signedIn, unreachable } = props;
   if (docId === null) return <Unavailable reason={DEMO_WORDS.needsScript} />;
   if (!signedIn) return <Unavailable reason={DEMO_WORDS.needsSyncedScript} />;
-  return <ScriptWriters docId={docId} offline={offline} />;
+  return <ScriptWriters docId={docId} unreachable={unreachable} />;
 }
 
 function Unavailable(props: { reason: string }): ReactNode {
@@ -76,8 +76,11 @@ function Unavailable(props: { reason: string }): ReactNode {
 }
 
 /** The writers are asked of the server again every POLL_MS, so that every tab shows them, whichever started them. */
-function ScriptWriters(props: { docId: string; offline: boolean }): ReactNode {
-  const { docId, offline } = props;
+function ScriptWriters(props: {
+  docId: string;
+  unreachable: string | null;
+}): ReactNode {
+  const { docId, unreachable } = props;
   const { api } = useServices();
   const queryClient = useQueryClient();
   const caret = useEditorFact("blockId");
@@ -87,12 +90,12 @@ function ScriptWriters(props: { docId: string; offline: boolean }): ReactNode {
   const answer = useQuery({
     queryKey,
     queryFn: () => api.runningWriters(docId),
-    enabled: canEdit && !offline,
+    enabled: canEdit && unreachable === null,
     refetchInterval: POLL_MS,
   }).data;
-  // checked before the connection, so that the reason does not change when the connection does
+  // checked before the server, so that the reason does not change when the connection or the server does
   if (!canEdit) return <Unavailable reason={DEMO_WORDS.needsEdit} />;
-  if (offline) return <Unavailable reason={DEMO_WORDS.needsConnection} />;
+  if (unreachable !== null) return <Unavailable reason={unreachable} />;
   const running: Running =
     answer === undefined || answer.asked === 0 ? null : answer;
   const ask = (

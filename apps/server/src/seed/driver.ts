@@ -6,7 +6,7 @@ import {
   mergeUpdates,
   scriptBody,
 } from "@manent/crdt";
-import type { CrdtDoc } from "@manent/crdt";
+import type { CrdtDoc, JsonMapView } from "@manent/crdt";
 import { SEED_DOCS, SeedDriverError, seedProject } from "@manent/demo";
 import type { SeedDriver, SeedSession, SeedWorkspaceId } from "@manent/demo";
 import { SCHEMA_VERSION, canonicalDoc } from "@manent/schema";
@@ -96,13 +96,26 @@ function workspaceOf(docId: string): SeedWorkspaceId | null {
 }
 
 /** Who last changed a document, and when. */
-interface Edit {
+export interface Edit {
   userId: string;
   at: number;
 }
 
 /** Tells the driver that `userId` changed `docId` at `at`, as a session closes. */
 type Edited = (userId: string, docId: string, at: number) => Promise<void>;
+
+/** Sets the entry of `docId` in an index's `documents` to say `userId` edited it at `at`; false when it is missing or holds a later edit. */
+export function setEdited(
+  documents: JsonMapView,
+  docId: string,
+  { userId, at }: Edit,
+): boolean {
+  const entry = documents.get(docId);
+  if (!isFields(entry)) return false;
+  if (typeof entry.editedAt === "number" && entry.editedAt >= at) return false;
+  documents.set(docId, { ...entry, editedAt: at, editedByUserId: userId });
+  return true;
+}
 
 /**
  * Writes in the workspace's index who last edited each of `edits`' documents and when, as the app writes a person's
@@ -121,12 +134,7 @@ async function markEdited(
   const index = await openSession(d, owner, indexId, async () => {});
   await index.change((doc) => {
     const documents = jsonMap(doc, "documents");
-    for (const [docId, { userId: by, at }] of edits) {
-      const entry = documents.get(docId);
-      if (!isFields(entry)) continue;
-      if (typeof entry.editedAt === "number" && entry.editedAt >= at) continue;
-      documents.set(docId, { ...entry, editedAt: at, editedByUserId: by });
-    }
+    for (const [docId, edit] of edits) setEdited(documents, docId, edit);
   });
   await index.close();
 }

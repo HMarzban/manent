@@ -71,17 +71,32 @@ function ShellControls(props: { control: DemoControl | null }): ReactNode {
     connection === null ? ONLINE : asUiSubscribable(connection.mode),
   );
   const offline = mode === "offline";
+  // before its first answer, and without a control, the server is taken to be running
+  const server = useServerState(control);
+  const unreachable = offline
+    ? DEMO_WORDS.needsConnection
+    : server === null || server === "running"
+      ? null
+      : DEMO_WORDS.needsServer;
   const { docId } = useSubscribable(useEnvironment().shellState);
   // Sign in to sync is offered until the person is signed in
   const signedIn = !useCommandState("app.signInToSync").visible;
   return (
     <>
       {connection && <ConnectionChoice control={connection} />}
-      <WritersControl docId={docId} signedIn={signedIn} offline={offline} />
+      <WritersControl
+        docId={docId}
+        signedIn={signedIn}
+        unreachable={unreachable}
+      />
       {/* the shell is not drawn while the demo resets */}
       {control && <ServerControl {...control} resetting={false} />}
       <Timings docId={docId} offline={offline} />
-      <ReorganiseControl docId={docId} signedIn={signedIn} offline={offline} />
+      <ReorganiseControl
+        docId={docId}
+        signedIn={signedIn}
+        unreachable={unreachable}
+      />
       {control && <ResetControl {...control} />}
       <Tour />
     </>

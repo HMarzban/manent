@@ -534,6 +534,7 @@ test("the screens' words are the design's", () => {
     writersShort: "3 of 5 writers typing — each needs a scene of its own",
     needsScript: "needs a script open",
     needsConnection: "needs a connection",
+    needsServer: "needs the server running",
     needsEdit: "needs edit access",
     needsSyncedScript: "needs a synced script",
     stopServerHint:
@@ -553,7 +554,7 @@ test("the screens' words are the design's", () => {
     ],
     bytes: ["50 KB", "9.3 KB"],
     nothingMeasured: "—",
-    timingsNote: "Measured in this window while Timings is open.",
+    timingsNote: "Measured in this window since it opened.",
     reorganise: "Reorganise",
     reorganiseHint:
       "Asks the server to reorganise how this script is stored, as it does when a script gets long.",

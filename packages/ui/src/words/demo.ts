@@ -30,6 +30,7 @@ export const DEMO_WORDS = {
   /** Reason clauses, for READOUT_WORDS.unavailable. */
   needsScript: "needs a script open",
   needsConnection: "needs a connection",
+  needsServer: "needs the server running",
   needsEdit: "needs edit access",
   /** For a person who has not signed in, whose scripts are only on their device. */
   needsSyncedScript: "needs a synced script",
@@ -52,7 +53,7 @@ export const DEMO_WORDS = {
   bytes: (kb: number): string =>
     `${kb < 10 ? kb.toFixed(1) : formatCount(Math.round(kb))} KB`,
   nothingMeasured: "—",
-  timingsNote: "Measured in this window while Timings is open.",
+  timingsNote: "Measured in this window since it opened.",
   reorganise: "Reorganise",
   reorganiseHint:
     "Asks the server to reorganise how this script is stored, as it does when a script gets long.",
