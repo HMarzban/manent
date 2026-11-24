@@ -114,6 +114,29 @@ function updateSingleSection(
   return { sections: [summarizeSection(newSecNode, blocks)], patch };
 }
 
+function refreshReusedDecorations(
+  patch: DecorationPatch,
+  decorations: DecorationSet,
+  section: SectionTiming,
+  secPos: number,
+  words: UnreadTimeWords,
+): void {
+  if (section.unread.length === 0) return;
+  let bPos = secPos + 1;
+  for (const block of section.blocks) {
+    if (block.unread.length > 0)
+      collectBlockDecorations(
+        patch,
+        decorations,
+        block.node,
+        block.unread,
+        bPos,
+        words,
+      );
+    bPos += block.node.nodeSize;
+  }
+}
+
 function updateManySections(
   prev: TimingState,
   doc: Node,
@@ -141,6 +164,13 @@ function updateManySections(
     const reused = oldSectionByNode.get(secNode);
     if (reused !== undefined) {
       sections.push(reused);
+      refreshReusedDecorations(
+        patch,
+        decorations,
+        reused,
+        sectionPos[s]!,
+        words,
+      );
       continue;
     }
     const blocks: BlockTiming[] = [];
@@ -193,7 +223,10 @@ function nextSectionPositions(
 ): Int32Array {
   const nextPos = new Int32Array(doc.childCount);
   for (let s = 0; s < head; s++) nextPos[s] = prev.sectionPos[s]!;
-  let pos = head === 0 ? 0 : prev.sectionPos[head]!;
+  let pos =
+    head === 0
+      ? 0
+      : prev.sectionPos[head - 1]! + prev.doc.child(head - 1).nodeSize;
   for (let s = head; s < newSecEnd; s++) {
     nextPos[s] = pos;
     pos += doc.child(s).nodeSize;
