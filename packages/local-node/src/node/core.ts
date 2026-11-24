@@ -160,6 +160,9 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     registry: options.registry,
     hooks: composed.hooks,
     ...(composed.airWindow === null ? {} : { airWindow: composed.airWindow }),
+    ...(composed.airWindowOf === null
+      ? {}
+      : { airWindowOf: composed.airWindowOf }),
   };
 
   const server = createServer({

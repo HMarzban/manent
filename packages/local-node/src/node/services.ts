@@ -33,6 +33,10 @@ export interface ComposedNodeService {
   readonly config: Partial<Pick<ServerConfig, "history" | "production">>;
   /** Whether a document is on air now; the first given is the sync service's, which is never on air without one. */
   readonly airWindow?: (docId: string, now: number) => boolean;
+  /** SUBSCRIBED's air window; the first given is the sync service's, which sends null without one. */
+  readonly airWindowOf?: (
+    docId: string,
+  ) => { startsAt: number; endsAt: number } | null;
   /** A request it answers before server-core does; null for any other. */
   readonly forward?: (request: Request) => Promise<Response | null>;
 }
@@ -77,11 +81,13 @@ function authorityOnly(
 
 /**
  * Every service of the list made: their hooks in list order, each told only of a room in authority mode; the first
- * `airWindow` given (null: none); their parts of the configuration; and their requests, each asked in list order.
+ * `airWindow` and `airWindowOf` given (null: none); their parts of the configuration; and their requests, each asked in list order.
  */
 export function composeNodeServices(deps: NodeServiceDeps): {
   hooks: readonly SyncHooks[];
   airWindow: ((docId: string, now: number) => boolean) | null;
+  airWindowOf:
+    ((docId: string) => { startsAt: number; endsAt: number } | null) | null;
   config: ComposedNodeService["config"];
   forward(request: Request): Promise<Response | null>;
 } {
@@ -94,6 +100,8 @@ export function composeNodeServices(deps: NodeServiceDeps): {
     ),
     airWindow:
       composed.find((c) => c.airWindow !== undefined)?.airWindow ?? null,
+    airWindowOf:
+      composed.find((c) => c.airWindowOf !== undefined)?.airWindowOf ?? null,
     config: composed.reduce<ComposedNodeService["config"]>(
       (all, c) => ({ ...all, ...c.config }),
       {},

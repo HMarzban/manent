@@ -321,6 +321,9 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
       ...sync,
       hooks: composed.hooks,
       ...(composed.airWindow === null ? {} : { airWindow: composed.airWindow }),
+      ...(composed.airWindowOf === null
+        ? {}
+        : { airWindowOf: composed.airWindowOf }),
     },
     ...composed.config,
   });

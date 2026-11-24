@@ -191,6 +191,9 @@ export async function createSeedServer(options: {
       limits: SEED_LIMITS,
       hooks: composed.hooks,
       ...(composed.airWindow === null ? {} : { airWindow: composed.airWindow }),
+      ...(composed.airWindowOf === null
+        ? {}
+        : { airWindowOf: composed.airWindowOf }),
     },
     ...composed.config,
   });
