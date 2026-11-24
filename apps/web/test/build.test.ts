@@ -112,3 +112,40 @@ test("the build writes a service worker holding the whole shell, fonts included"
   ))
     expect(await Bun.file(join(outDir, file)).text()).not.toContain("Serwist");
 }, 60_000);
+
+test("the entry and its static chunks hold none of the editor's code", async () => {
+  const outDir = await trees.tree({});
+  const built = await buildWeb({ outDir, flavour: "test" });
+  const chunks = chunksOf(built, outDir);
+  const byName = new Map(chunks.map((chunk) => [chunk.name, chunk]));
+  const entry = chunks.find((chunk) => chunk.entry);
+  if (entry === undefined) throw new TypeError("no entry chunk");
+  const reached: Chunk[] = [];
+  const seen = new Set<string>();
+  const queue = [entry];
+  for (const chunk of queue) {
+    if (seen.has(chunk.name)) continue;
+    seen.add(chunk.name);
+    reached.push(chunk);
+    for (const next of chunk.imports) {
+      const target = byName.get(next);
+      if (target !== undefined) queue.push(target);
+    }
+  }
+  const editorInputs = reached.flatMap((chunk) =>
+    chunk.inputs.filter(
+      (input) =>
+        input.includes("packages/editor/") ||
+        input.includes("prosemirror-state"),
+    ),
+  );
+  const texts = await Promise.all(
+    reached.map((chunk) => Bun.file(chunk.path).text()),
+  );
+  expect([
+    editorInputs,
+    texts.some((text) =>
+      text.includes("Adding different instances of a keyed plugin"),
+    ),
+  ]).toEqual([[], false]);
+}, 30_000);

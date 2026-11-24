@@ -149,3 +149,38 @@ test("Project settings navigates to the open script's project settings with retu
     "/p/proj-7/settings?from=%2Fs%2Fdoc-1%3Fview%3Dpage",
   ]);
 });
+
+test("name commands say why when no document or word is open, and alternate handlers wait safely", async () => {
+  const { deps } = depsAt({ routeId: "/", href: "/", search: {} });
+  const handlers = createHandlers(deps);
+  handlers["name.useListed"]();
+  await Promise.resolve();
+  expect(deps.services.messages.current()?.text).toBe(
+    "Use the project's spelling needs the caret on an underlined name.",
+  );
+  deps.services.messages.dismiss("command_unavailable");
+
+  const docDeps: HandlerDeps = {
+    ...deps,
+    shellState: () => ({ ...deps.shellState(), docId: "missing" }),
+  };
+  const docHandlers = createHandlers(docDeps);
+  const pushed = new Promise<void>((resolve) => {
+    const stop = docDeps.services.messages.subscribe(() => {
+      stop();
+      resolve();
+    });
+  });
+  docHandlers["name.addToProject"]();
+  await pushed;
+  expect(docDeps.services.messages.current()?.text).toBe(
+    "Add to names needs the caret on a word.",
+  );
+  docDeps.services.messages.dismiss("command_unavailable");
+  await import("../src/editor-host/material.ts");
+  docHandlers["alternate.show"]();
+  docHandlers["alternate.add"]();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(docDeps.services.messages.current()).toBeNull();
+});

@@ -1,6 +1,6 @@
-// The open editor of each document, for code outside the mount.
+// The open editor of each document, for code outside the mount: it holds none of the editor's code, so the entry and the
+// document's screen name an editor before that code arrives.
 import type { CrdtDoc } from "@manent/crdt";
-import { paginationKey } from "@manent/editor";
 import type { EditorView, PageScaffold, PresencePort } from "@manent/editor";
 import { contentPageCount } from "@manent/pagination";
 import type { FrontPage, Pagination } from "@manent/pagination";
@@ -15,6 +15,8 @@ export interface LiveEditor {
   readonly presence: PresencePort;
   readonly editable: boolean;
   setEditable?(editable: boolean): void;
+  /** Its pages now; null: Ink. */
+  pagination(): Pagination | null;
   /** The page's factor, 1 at 100 %. */
   zoom(): number;
   /** The pages before page 1 as print and PDF draw them; null without pages or a title page. */
@@ -34,9 +36,7 @@ export function liveEditor(docId: string): LiveEditor | null {
 
 /** The pages of that document's editor; null for Ink, or when none is open. */
 export function livePagination(docId: string): Pagination | null {
-  const editor = liveEditor(docId);
-  if (editor === null || editor.scaffold === null) return null;
-  return paginationKey.getState(editor.view.state)?.pagination ?? null;
+  return liveEditor(docId)?.pagination() ?? null;
 }
 
 /** How many pages that document's editor has without the lettered ones locked page numbers add; null for Ink, or when none is open. */
