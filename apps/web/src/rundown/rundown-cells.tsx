@@ -6,7 +6,7 @@ import type {
   RundownRowJSON,
 } from "@manent/schema";
 import { RUNDOWN_WORDS, formatClockTime, formatDuration } from "@manent/ui";
-import type { GridCell, GridColumn, GridRow } from "@manent/ui";
+import type { GridCell, GridCellCoord, GridColumn, GridRow } from "@manent/ui";
 import { ChevronRightIcon } from "lucide-react";
 import { PrompterCell } from "../prompter/prompter-cell.tsx";
 import {
@@ -17,10 +17,9 @@ import {
 } from "./columns.tsx";
 import type { RundownColumnPrefs } from "./columns.tsx";
 import { rowTitleOf } from "./dur-format.ts";
-import { ROW_MENU_ITEMS } from "./rows.tsx";
+import { ROW_MENU_ITEMS, RowMenu } from "./rows.tsx";
 import type { RundownPerson } from "./rundown-access.ts";
 import {
-  RowMenuHandle,
   buildDurCell,
   cornerMarkOf,
   presenceBadges,
@@ -89,8 +88,9 @@ function buildItemCells(options: {
   readonly liveDuration: (rowId: string) => number | null;
   readonly cellPresence: (rowId: string, columnId: string) => readonly string[];
   readonly cornerMark: (rowId: string, columnId: string) => boolean;
+  readonly tourCell: GridCellCoord | null;
   readonly onOpenBeside: (rowId: string) => void;
-  readonly onOpenPrevious: () => void;
+  readonly onOpenPrevious: (rowId: string, columnId: RundownColumnId) => void;
 }): Record<string, GridCell> {
   const {
     docId,
@@ -102,6 +102,7 @@ function buildItemCells(options: {
     liveDuration,
     cellPresence,
     cornerMark,
+    tourCell,
     onOpenBeside,
     onOpenPrevious,
   } = options;
@@ -112,11 +113,15 @@ function buildItemCells(options: {
       cellPresence(row.id, colId),
       "cell",
     );
-    const mark = cornerMarkOf(
-      stored,
-      cornerMark(row.id, colId),
-      onOpenPrevious,
+    const mark = cornerMarkOf(stored, cornerMark(row.id, colId), () =>
+      onOpenPrevious(row.id, colId),
     );
+    const tourTarget =
+      tourCell !== null &&
+      tourCell.rowId === row.id &&
+      tourCell.columnId === colId
+        ? "rundown:cell"
+        : undefined;
     switch (colId) {
       case "number":
         cells[colId] = {
@@ -165,6 +170,7 @@ function buildItemCells(options: {
           tooltip: text !== "" ? text : undefined,
           presence,
           cornerMark: mark,
+          tourTarget,
         };
         break;
       }
@@ -177,18 +183,22 @@ function buildItemCells(options: {
           tooltip: text !== "" ? text : undefined,
           presence: cellPresenceNode,
           cornerMark: mark,
+          tourTarget,
         };
         break;
       }
       case "dur":
-        cells[colId] = buildDurCell({
-          row,
-          timing,
-          offlineMissing,
-          liveMs: liveDuration(row.id),
-          presence: cellPresenceNode,
-          cornerMark: mark,
-        });
+        cells[colId] = {
+          ...buildDurCell({
+            row,
+            timing,
+            offlineMissing,
+            liveMs: liveDuration(row.id),
+            presence: cellPresenceNode,
+            cornerMark: mark,
+          }),
+          tourTarget,
+        };
         break;
       case "cume":
         cells[colId] = {
@@ -245,8 +255,11 @@ export function buildGridRows(options: {
   readonly liveDuration: (rowId: string) => number | null;
   readonly cellPresence: (rowId: string, columnId: string) => readonly string[];
   readonly cornerMark: (rowId: string, columnId: string) => boolean;
+  readonly activeCell: GridCellCoord | null;
+  readonly tourCell: GridCellCoord | null;
+  readonly onBeforeMenuOpen: (rowId: string) => void;
   readonly onOpenBeside: (rowId: string) => void;
-  readonly onOpenPrevious: () => void;
+  readonly onOpenPrevious: (rowId: string, columnId: RundownColumnId) => void;
 }): readonly GridRow[] {
   const {
     rundown,
@@ -255,6 +268,9 @@ export function buildGridRows(options: {
     online,
     onDevice,
     cornerMark,
+    activeCell,
+    tourCell,
+    onBeforeMenuOpen,
     onOpenPrevious,
   } = options;
   const timingById = new Map(clock.rows.map((entry) => [entry.id, entry]));
@@ -275,9 +291,14 @@ export function buildGridRows(options: {
         : RUNDOWN_WORDS.rowFallback(timing.number ?? index + 1);
     const menu =
       ROW_MENU_ITEMS.length > 0 ? (
-        <RowMenuHandle
+        <RowMenu
+          row={row}
+          rowIndex={index}
+          rowCount={rundown.rows.length}
           label={RUNDOWN_WORDS.rowHandle(label)}
-          items={ROW_MENU_ITEMS}
+          activeCell={activeCell}
+          onBeforeOpen={onBeforeMenuOpen}
+          onOpenPrevious={onOpenPrevious}
         />
       ) : undefined;
 
@@ -293,8 +314,12 @@ export function buildGridRows(options: {
         headerCornerMark: cornerMarkOf(
           storedCell,
           cornerMark(row.id, titleColumn),
-          onOpenPrevious,
+          () => onOpenPrevious(row.id, titleColumn),
         ),
+        headerTourTarget:
+          tourCell !== null && tourCell.rowId === row.id
+            ? "rundown:cell"
+            : undefined,
         menu,
       };
     }
