@@ -142,9 +142,10 @@ function drawSheet(
     header: furniture.header ?? null,
     footer: furniture.footer ?? null,
     dateFormat: furniture.dateFormat ?? null,
-    section: furniture.section ?? null,
+    section: furniture.sections?.[at.index] ?? furniture.section ?? null,
     revisionLabel: furniture.revisionLabel ?? null,
     day: furniture.day ?? null,
+    durationMs: furniture.durationMs ?? null,
   };
   if (isSameFurniture(drawn.get(sheet), input)) return;
   drawn.set(sheet, input);

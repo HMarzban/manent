@@ -3,6 +3,7 @@
 import type { SettingKey } from "@manent/settings";
 import type { ComponentType } from "react";
 import { FrozenRow } from "../../production/frozen-row.tsx";
+import { HeaderFooterRow } from "./header-footer-row.tsx";
 
 export interface ScriptSettingRowProps {
   readonly settingKey: SettingKey;
@@ -27,4 +28,6 @@ export type ScriptSettingRow =
 
 export const SCRIPT_SETTING_ROWS: readonly ScriptSettingRow[] = [
   { kind: "state", id: "frozen", State: FrozenRow },
+  { kind: "custom", settingKey: "script.header", Row: HeaderFooterRow },
+  { kind: "custom", settingKey: "script.footer", Row: HeaderFooterRow },
 ];

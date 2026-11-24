@@ -2,8 +2,8 @@
 import { fontRanges, sanitizeText } from "@manent/pagination";
 import { Fragment, Slice } from "prosemirror-model";
 import type { Node } from "prosemirror-model";
-import { EditorState } from "prosemirror-state";
-import type { Plugin, Transaction } from "prosemirror-state";
+import { EditorState, Plugin } from "prosemirror-state";
+import type { Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { faceDescriptors, loadScriptFonts } from "../page/fonts.ts";
 import type { FaceDescriptor, FontSet, LoadableFace } from "../page/fonts.ts";
@@ -133,12 +133,36 @@ export function mountPageView(
       options.onPages?.(count);
     },
   });
+  const labelSyncPlugin = new Plugin({
+    view(editorView) {
+      let lastPagination = paginationKey.getState(editorView.state)?.pagination;
+      if (lastPagination !== undefined)
+        scaffold.setPageLabels(lastPagination.pages.map((page) => page.label));
+      return {
+        update(nextView) {
+          const nextPagination = paginationKey.getState(
+            nextView.state,
+          )?.pagination;
+          if (
+            nextPagination !== undefined &&
+            nextPagination !== lastPagination
+          ) {
+            lastPagination = nextPagination;
+            scaffold.setPageLabels(
+              nextPagination.pages.map((page) => page.label),
+            );
+          }
+        },
+      };
+    },
+  });
   const view = new EditorView(scaffold.pages, {
     state: EditorState.create({
       doc: options.doc,
       plugins: [
         ...(options.before ?? []),
         ...plugins,
+        labelSyncPlugin,
         ...(options.plugins ?? []),
       ],
     }),

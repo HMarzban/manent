@@ -23,6 +23,7 @@ import { loadFrontPages } from "../front-pages/load.ts";
 import type { FrontPagesHandle } from "../front-pages/load.ts";
 import type { ElementContext } from "../keys/element-keys.ts";
 import type { LayoutView } from "../page/config.ts";
+import type { PageFurnitureOptions } from "../page/furniture/page-furniture.ts";
 import type { PageScaffold } from "../page/scaffold.ts";
 import type { PageViewPorts } from "../pagination/page-view.ts";
 import { paginationKey } from "../pagination/plugin.ts";
@@ -31,6 +32,7 @@ import { PLACEHOLDER_CSS } from "../picker/placeholder.ts";
 import { restorePlace, savedPlaceOf } from "../scroll/saved-place.ts";
 import type { ScrollPorts } from "../scroll/stability.ts";
 import { editorPlugins } from "./editor-plugins.ts";
+import { createFurnitureSync } from "./furniture.ts";
 import { mountEditor } from "./mount-view.ts";
 import {
   createPageControls,
@@ -82,6 +84,7 @@ export interface ScriptEditor {
   frontPageAt(top: number): string | null;
   /** The index of the page at viewport height `top`, px; null without pages or where there is no script. */
   pageAt(top: number): number | null;
+  furniture(): PageFurnitureOptions;
   destroy(): void;
 }
 
@@ -216,16 +219,24 @@ function subscribe(
   options: ScriptEditorOptions,
   view: EditorView,
   relayout: () => void,
+  onFurniture: () => void,
 ): (() => void)[] {
   // a transaction of no content, so the page's attributes are read again
   const reread = (): void =>
     view.dispatch(view.state.tr.setMeta("addToHistory", false));
+  const refreshTitle = (): void => {
+    reread();
+    onFurniture();
+  };
   return [
     ...LAYOUT_SETTING_KEYS.map((key) =>
       options.script.subscribe(key, relayout),
     ),
+    options.script.subscribe("script.header", onFurniture),
+    options.script.subscribe("script.footer", onFurniture),
+    options.script.subscribe("script.dateFormat", onFurniture),
     options.personal.subscribe("writing.checkSpelling", reread),
-    options.title.subscribe(reread),
+    options.title.subscribe(refreshTitle),
     options.binding.history.onStep(options.onUndoStep),
   ];
 }
@@ -256,6 +267,14 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     },
     frames: options.frames,
   });
+  let activeScaffold: PageScaffold | null = null;
+  const furnitureSync = createFurnitureSync({
+    script,
+    title: options.title,
+    timers: options.timers,
+    format,
+    scaffold: () => activeScaffold,
+  });
   const first = profile();
   const context = elementContext(options, format);
   const plugins = editorPlugins(options, {
@@ -267,6 +286,7 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     paged: first !== null,
     isEditable: () => editableNow,
   });
+  plugins.after.unshift(furnitureSync.plugin());
   const mounted = mountEditor(options, {
     profile: first,
     context,
@@ -274,6 +294,7 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     ports,
   });
   const { view, scaffold } = mounted;
+  activeScaffold = scaffold;
   if (!editableNow) view.setProps({ editable: () => false });
   place.append(layer);
   if (scaffold !== null)
@@ -286,16 +307,23 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
       layoutView: options.view,
       profile,
     });
+  furnitureSync.sync(view.state);
   const front = frontPagesOf(options, view, scaffold, { profile, ports });
   const actions = actionContext(context, view, {
     editable: () => editableNow,
     ports,
   });
-  const subscriptions = subscribe(options, view, () => {
-    layout = readLayoutSettings((key) => script.get(key));
-    pages?.repage();
-    front?.relayout();
-  });
+  const subscriptions = subscribe(
+    options,
+    view,
+    () => {
+      layout = readLayoutSettings((key) => script.get(key));
+      pages?.repage();
+      front?.relayout();
+      furnitureSync.sync(view.state);
+    },
+    () => furnitureSync.sync(view.state),
+  );
   return {
     view,
     scaffold,
@@ -315,6 +343,7 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     frontPages: () => front?.printed() ?? null,
     frontPageAt: (top) => front?.labelAt(top) ?? null,
     pageAt: (top) => pageAtHeight(view, top),
+    furniture: () => furnitureSync.read(view.state),
     destroy() {
       for (const unsubscribe of subscriptions) unsubscribe();
       front?.destroy();

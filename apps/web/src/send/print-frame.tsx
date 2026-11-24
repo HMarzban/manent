@@ -6,7 +6,8 @@ import { EDITOR_WORDS } from "@manent/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { checksRow } from "../checks/send-row.tsx";
-import { liveFrontPages } from "../editor-host/live-editor.ts";
+import { liveFrontPages, liveFurniture } from "../editor-host/live-editor.ts";
+import type { PageFurnitureOptions } from "../editor-host/live-editor.ts";
 import type { SendFormProps } from "../screens/send/forms.ts";
 import { SendFrame } from "../screens/send/send-frame.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
@@ -18,6 +19,14 @@ import { PRINT_ID, printCss, printPages } from "./print-pages.ts";
 
 const WORDS = EDITOR_WORDS.send;
 
+function isoDay(at: number): string {
+  const date = new Date(at);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 /**
  * Builds the `front` pages and `pages` for the printer, telling `onBuilt` how many of `pages` are built after each
  * frame, and opens the print dialogue; what was built goes once printing ends. Rejects, leaving nothing behind, when
@@ -26,11 +35,12 @@ const WORDS = EDITOR_WORDS.send;
 async function printScript(work: {
   pages: Pagination;
   front: readonly FrontPage[];
+  furniture: PageFurnitureOptions;
   frame: Environment["frame"];
   signal: AbortSignal;
   onBuilt: (built: number) => void;
 }): Promise<void> {
-  const { pages, front, frame, signal, onBuilt } = work;
+  const { pages, front, furniture, frame, signal, onBuilt } = work;
   const style = document.createElement("style");
   style.textContent = printCss(pages);
   document.head.append(style);
@@ -44,7 +54,12 @@ async function printScript(work: {
   };
   let root: HTMLElement;
   try {
-    root = await printPages(pages, { frames: counted, signal, front });
+    root = await printPages(pages, {
+      frames: counted,
+      signal,
+      front,
+      furniture,
+    });
   } catch (reason) {
     style.remove();
     throw reason;
@@ -77,7 +92,7 @@ function usePrintAction(
   title: string,
   back: () => void,
 ): PrintAction {
-  const { frame } = useEnvironment();
+  const { frame, now } = useEnvironment();
   const { history } = useServices();
   const [busy, setBusy] = useState(false);
   const [built, setBuilt] = useState(0);
@@ -92,10 +107,17 @@ function usePrintAction(
     setBusy(true);
     setProblem(null);
     setBuilt(0);
+    const live = liveFurniture(docId);
+    const furniture: PageFurnitureOptions = {
+      ...live,
+      sections: undefined,
+      day: live.day ?? isoDay(now()),
+    };
     try {
       await printScript({
         pages,
         front: liveFrontPages(docId) ?? [],
+        furniture,
         frame,
         signal: controller.signal,
         onBuilt: setBuilt,
