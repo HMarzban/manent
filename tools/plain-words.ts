@@ -38,5 +38,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   becomes, describe, apply, ep,
   presenting, took,
   rule, thin, too, total,
-  gone
+  gone,
+  against, counted, email, nobody, sending, watermarked
 `);
