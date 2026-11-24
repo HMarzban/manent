@@ -53,11 +53,10 @@ const OFFLINE: DocStatus = Object.freeze({
 
 type Unsaved = UnsavedEdit & { generation: number; clientId: number };
 
-/** What only the tab that leads can answer, as it holds the store and the subscription. */
+/** What only the tab that leads can answer, as it holds the store. */
 const BY_LEADER = Object.freeze({
   versions:
     "a device version is kept by the tab that leads, which holds the store",
-  head: "the synced head is known to the tab that leads, which holds the subscription",
 });
 
 interface FollowerOptions {
@@ -315,9 +314,7 @@ class TabFollower implements Follower {
       nameVersion: () => Promise.reject(new RangeError(BY_LEADER.versions)),
       restoreLocally: () => Promise.reject(new RangeError(BY_LEADER.versions)),
       deviceVersions: () => Promise.reject(new RangeError(BY_LEADER.versions)),
-      lastServerSeq: () => {
-        throw new RangeError(BY_LEADER.head);
-      },
+      lastServerSeq: () => null,
       adoptClientIds: () => {
         throw new RangeError(
           "client IDs are adopted by the tab that leads, which holds the store",

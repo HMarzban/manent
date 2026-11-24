@@ -264,7 +264,10 @@ export function createVersionLists(options: {
     );
   }
 
-  /** Keeps where the person is in the script, once its head is known; the view's handle, null when it never opened. */
+  /**
+   * Keeps where the person is in the script, once its head is known: the synced head this device has seen, or in a
+   * tab that does not lead, the head the list last read. The view's handle, null when it never opened.
+   */
   async function keep(
     docId: string,
     head: VersionPosition | null,
@@ -274,7 +277,7 @@ export function createVersionLists(options: {
     if (handle !== null && head !== null)
       writeLastOpened(userId, docId, {
         generation: head.generation,
-        seq: handle.lastServerSeq(),
+        seq: handle.lastServerSeq() ?? head.seq,
       });
     return handle;
   }

@@ -530,6 +530,20 @@ test("the last-opened position uses its fixed key", async () => {
   expect(handle.closes()).toBe(1);
 });
 
+test("a tab that does not lead keeps the head the list read as where the person was, and closes its view", async () => {
+  const handle = Object.assign(handleWith(), { lastServerSeq: () => null });
+  const { source } = sourceOver(handle, () =>
+    json(list([], { head: { generation: 1, seq: 41 } })),
+  );
+  const rows = source.rows(DOC);
+  const stop = rows.subscribe(() => {});
+  await until(() => rows.get().state.kind === "empty");
+  stop();
+  await turn();
+  expect(readLastOpened("sam", DOC)).toEqual({ generation: 1, seq: 41 });
+  expect(handle.closes()).toBe(1);
+});
+
 test("a device version is uploaded once the server takes it or will never take it", async () => {
   const statuses = [200, 422, 500];
   const { fetch, calls } = fakeFetch(() =>

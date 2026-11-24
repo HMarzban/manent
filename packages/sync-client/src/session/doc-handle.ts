@@ -76,8 +76,8 @@ export interface DocHandle {
     scope: RestoreScope,
   ): Promise<{ beforeVersionId: string; applied: number }>;
   deviceVersions(): Promise<DeviceVersion[]>;
-  /** The synced head this device has seen. */
-  lastServerSeq(): number;
+  /** The synced head this device has seen; null in a tab that does not lead, which holds no subscription. */
+  lastServerSeq(): number | null;
   /**
    * The IDs not yet held join this document's own client IDs and are stored,
    * so that the heal counts them as this client's; a subscribed document
