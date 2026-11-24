@@ -16,6 +16,7 @@ import type { PersonServices } from "../services/ports.ts";
 import { whileLive } from "./margin-people-live.ts";
 import { followed, takeChosen } from "./follow-state.ts";
 import type { Followed } from "./follow-state.ts";
+import { peoplePresent } from "./people-present.ts";
 
 const PAGE_REGION = "[data-region='page']";
 /** The follower's own ways of moving the page: a key, a press (on its scrollbar too), a wheel, a touch. */
@@ -74,7 +75,8 @@ function track(
   end: (end: End) => void,
 ): () => void {
   const { view, presence } = live;
-  const { status } = options.services.documents.open(who.docId);
+  const { documents } = options.services;
+  const { status } = documents.open(who.docId);
   let place = placeOf(remoteCursorsOf(view), who.userId);
   let cancelFrame: (() => void) | null = null;
   const scroll = (): void => {
@@ -112,6 +114,7 @@ function track(
     cancelFrame?.();
     stopCursors();
     stopPeople();
+    documents.close(who.docId);
     for (const type of OWN_MOVES)
       region.removeEventListener(type, onMove, { capture: true });
   };
@@ -127,9 +130,8 @@ export function startFollowing(options: FollowOptions): void {
   if (target === null || target.userId === options.services.userId) return;
   const live = liveEditor(target.docId);
   if (live === null) return;
-  const person = options.services.documents
-    .open(target.docId)
-    .people.get()
+  const person = peoplePresent(target.docId)
+    .get()
     .find((p) => p.userId === target.userId);
   if (person === undefined) return;
   ending?.("left");

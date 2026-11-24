@@ -132,9 +132,11 @@ export function useSendPages(
     () =>
       p === null || option === null
         ? null
-        : pagesFor(option, docId, p, () =>
-            documents.open(docId).material.materialSnapshotOf(docId),
-          ),
+        : pagesFor(option, docId, p, () => {
+            const { material } = documents.open(docId);
+            documents.close(docId);
+            return material.materialSnapshotOf(docId);
+          }),
     [p, option, docId, documents],
   );
   return {
