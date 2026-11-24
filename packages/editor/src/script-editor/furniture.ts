@@ -117,6 +117,22 @@ function durationOfDoc(doc: Node, format: FormatId): number | null {
   return durationMs([total], DEFAULT_READ_RATE);
 }
 
+function hasDurationSlot(slots: HeaderSlots | null): boolean {
+  return (
+    slots !== null &&
+    (slots.left.kind === "duration" ||
+      slots.center.kind === "duration" ||
+      slots.right.kind === "duration")
+  );
+}
+
+function usesDuration(
+  header: HeaderSlots | null,
+  footer: HeaderSlots | null,
+): boolean {
+  return hasDurationSlot(header) || hasDurationSlot(footer);
+}
+
 export interface FurnitureSync {
   read(state: EditorState): PageFurnitureOptions;
   sync(state: EditorState): void;
@@ -137,34 +153,52 @@ export function createFurnitureSync(options: {
   let lastDuration: number | null = null;
   let lastSnapshotKey = "";
 
-  const read = (state: EditorState): PageFurnitureOptions => {
-    const pagination = paginationKey.getState(state)?.pagination;
-    if (pagination !== undefined && pagination !== lastPagination) {
-      lastPagination = pagination;
-      lastSections = sectionsOf(pagination);
-    }
+  const durationFor = (state: EditorState): number | null => {
     const fmt = options.format();
     if (state.doc !== lastDoc || fmt !== lastFormat) {
       lastDoc = state.doc;
       lastFormat = fmt;
       lastDuration = durationOfDoc(state.doc, fmt);
     }
+    return lastDuration;
+  };
+
+  const snapshot = (
+    state: EditorState,
+    durationMsValue: number | null,
+    header: HeaderSlots | null,
+    footer: HeaderSlots | null,
+  ): PageFurnitureOptions => {
+    const pagination = paginationKey.getState(state)?.pagination;
+    if (pagination !== undefined && pagination !== lastPagination) {
+      lastPagination = pagination;
+      lastSections = sectionsOf(pagination);
+    }
     return {
       title: options.title.get(),
-      header: parseSlots(options.script.get("script.header")),
-      footer: parseSlots(options.script.get("script.footer")),
+      header,
+      footer,
       dateFormat: parseDateFormat(options.script.get("script.dateFormat")),
       sections: lastSections,
       revisionLabel: productionOf(state)?.view.active.name ?? null,
       day: isoDay(options.timers.now()),
-      durationMs: lastDuration,
+      durationMs: durationMsValue,
     };
+  };
+
+  const read = (state: EditorState): PageFurnitureOptions => {
+    const header = parseSlots(options.script.get("script.header"));
+    const footer = parseSlots(options.script.get("script.footer"));
+    return snapshot(state, durationFor(state), header, footer);
   };
 
   const sync = (state: EditorState): void => {
     const frame = options.scaffold();
     if (frame === null) return;
-    const next = read(state);
+    const header = parseSlots(options.script.get("script.header"));
+    const footer = parseSlots(options.script.get("script.footer"));
+    const duration = usesDuration(header, footer) ? durationFor(state) : null;
+    const next = snapshot(state, duration, header, footer);
     const key = JSON.stringify(next);
     if (key === lastSnapshotKey) return;
     lastSnapshotKey = key;

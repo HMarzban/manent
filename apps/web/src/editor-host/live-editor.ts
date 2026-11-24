@@ -10,6 +10,8 @@ import type {
 import { contentPageCount } from "@manent/pagination";
 import type { FrontPage, Pagination } from "@manent/pagination";
 
+export type { PageFurnitureOptions };
+
 export interface LiveEditor {
   readonly docId: string;
   /** The document the editor shows, for what reads the script's maps (Details → Script → Import, Export). */

@@ -1,6 +1,5 @@
 // The Print form's frame for a script, loaded apart from the entry: the pages of what its What row chose, built for
 // the printer a batch at a time.
-import type { PageFurnitureOptions } from "@manent/editor";
 import type { FrontPage, Pagination } from "@manent/pagination";
 import type { Frames } from "@manent/sync-client";
 import { EDITOR_WORDS } from "@manent/ui";
@@ -8,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { checksRow } from "../checks/send-row.tsx";
 import { liveFrontPages, liveFurniture } from "../editor-host/live-editor.ts";
+import type { PageFurnitureOptions } from "../editor-host/live-editor.ts";
 import type { SendFormProps } from "../screens/send/forms.ts";
 import { SendFrame } from "../screens/send/send-frame.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";

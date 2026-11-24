@@ -34,8 +34,8 @@ export const HEADER_PRESET_SLOTS: Readonly<
 > = Object.freeze({
   page_number: { left: NONE, center: NONE, right: { kind: "page_number" } },
   title_and_page_number: {
-    left: NONE,
-    center: { kind: "title" },
+    left: { kind: "title" },
+    center: NONE,
     right: { kind: "page_number" },
   },
   none: { left: NONE, center: NONE, right: NONE },

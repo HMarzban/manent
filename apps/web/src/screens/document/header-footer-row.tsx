@@ -292,7 +292,7 @@ function HeaderFooterRowBody(props: {
                 {slot.kind === "custom" ? (
                   <SlotTextField
                     value={slot.text}
-                    label={slotLabel}
+                    label={HEADER_FOOTER_WORDS.slotTextField}
                     placeholder={HEADER_FOOTER_WORDS.slotTextField}
                     disabled={!writable}
                     onCommit={(text) => handleSlotText(pos, text)}
