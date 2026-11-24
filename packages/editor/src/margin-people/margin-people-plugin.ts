@@ -104,11 +104,11 @@ function spotsOf(
     const last = pagination.pages[k + 1]?.block ?? pagination.blocks.length - 1;
     const here = placed.filter((p) => p.block >= first && p.block <= last);
     if (here.length === 0) continue;
-    const { lines } = settings.engine.layoutPage(pagination, k);
+    const lines = settings.engine.linePlacesOf(pagination, k);
     for (const { cursor, block } of here) {
       const blockId = pagination.blocks[block]?.id;
       const line = lines.find(
-        (l) => l.kind === "text" && l.blockLine === 0 && l.blockId === blockId,
+        (l) => l.blockLine === 0 && l.blockId === blockId,
       );
       if (line === undefined) continue;
       const at = markPosition(pagination.profile, k, line.y);

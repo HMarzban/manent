@@ -215,6 +215,7 @@ export function productionEditorPlugin(context: EditorPluginContext): Plugin {
     scenesNumbered: (on) => context.setScenesNumbered(on),
     lockIcon,
     lockMarkerName: PRODUCTION_WORDS.lockMarkerName,
+    frames: context.frames,
   });
 }
 

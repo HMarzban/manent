@@ -100,18 +100,45 @@ export interface PageScaffold {
   destroy(): void;
 }
 
-/** Places the sheet and draws its furniture afresh, each entry of `PAGE_FURNITURE` in turn. */
+const isSameRevision = (
+  a: SheetRevision | null,
+  b: SheetRevision | null,
+): boolean =>
+  a === b ||
+  (a !== null &&
+    b !== null &&
+    a.rev === b.rev &&
+    a.head === b.head &&
+    a.marks.length === b.marks.length &&
+    a.marks.every(
+      (m, i) => m.y === b.marks[i]!.y && m.text === b.marks[i]!.text,
+    ));
+
+// The fields a sheet is drawn from; every other field of its input is null.
+const isSameFurniture = (
+  a: PageFurnitureInput | undefined,
+  b: PageFurnitureInput,
+): boolean =>
+  a !== undefined &&
+  a.pageIndex === b.pageIndex &&
+  a.pageCount === b.pageCount &&
+  a.profile === b.profile &&
+  isSameRevision(a.revision, b.revision);
+
+/**
+ * Places the sheet, and draws its furniture afresh, each entry of `PAGE_FURNITURE` in turn, only when it would show
+ * something other than what `drawn` says it was last drawn with: another person's typing redraws only the sheets it
+ * changed.
+ */
 function drawSheet(
   sheet: HTMLElement,
   at: { index: number; top: number },
   frame: { count: number; decor: SheetDecor | null },
   profile: PageProfile,
+  drawn: WeakMap<HTMLElement, PageFurnitureInput>,
 ): void {
   sheet.dataset["page"] = String(at.index);
   sheet.style.top = `${at.top}px`;
-  for (const key of Object.keys(sheet.dataset))
-    if (key !== "page") delete sheet.dataset[key];
-  sheet.replaceChildren();
   const input: PageFurnitureInput = {
     pageIndex: at.index,
     pageCount: frame.count,
@@ -127,6 +154,11 @@ function drawSheet(
     revisionLabel: null,
     day: null,
   };
+  if (isSameFurniture(drawn.get(sheet), input)) return;
+  drawn.set(sheet, input);
+  for (const key of Object.keys(sheet.dataset))
+    if (key !== "page") delete sheet.dataset[key];
+  sheet.replaceChildren();
   for (const entry of PAGE_FURNITURE) entry.draw(sheet, input);
 }
 
@@ -154,6 +186,7 @@ function drawSheets(
   wanted: readonly { index: number; top: number }[],
   frame: { count: number; decor: SheetDecor | null },
   profile: PageProfile,
+  drawn: WeakMap<HTMLElement, PageFurnitureInput>,
 ): void {
   while (sheets.length > wanted.length) sheets.pop()?.remove();
   while (sheets.length < wanted.length) {
@@ -162,7 +195,7 @@ function drawSheets(
     pages.prepend(sheet);
     sheets.push(sheet);
   }
-  wanted.forEach((at, i) => drawSheet(sheets[i]!, at, frame, profile));
+  wanted.forEach((at, i) => drawSheet(sheets[i]!, at, frame, profile, drawn));
 }
 
 // In Reflow view the text wraps to the desk, so its sections are never contained: the engine's heights do not hold.
@@ -242,6 +275,7 @@ export function createPageScaffold(options: {
   let scale = 1;
   let decor: SheetDecor | null = null;
   const sheets: HTMLElement[] = [];
+  const drawn = new WeakMap<HTMLElement, PageFurnitureInput>();
 
   const redraw = (): void => {
     const page = screenPagePx(profile);
@@ -249,7 +283,7 @@ export function createPageScaffold(options: {
       view === "reflow"
         ? []
         : sheetsInView(place, page, { count, scale, frontPx });
-    drawSheets(pages, sheets, wanted, { count, decor }, profile);
+    drawSheets(pages, sheets, wanted, { count, decor }, profile, drawn);
   };
   const layout = (): void => {
     const page = screenPagePx(profile);
