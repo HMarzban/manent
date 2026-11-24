@@ -225,8 +225,10 @@ export async function takeDriver(
       const taken = parseDriverTaken(body);
       if (taken === null) return null;
       setEntry(services.userId, docId, { known: true, driver: taken.driver });
-      if (options?.announceLoss === true)
+      if (options?.announceLoss === true) {
+        services.messages.withdraw("driver_took_keys");
         services.messages.push(takeLostMessage(taken.driver.name));
+      }
       return taken.driver;
     }
     return null;

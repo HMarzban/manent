@@ -12,6 +12,7 @@ import {
   setShownCursors,
 } from "../editor-host/margin-people.ts";
 import type { PersonServices } from "../services/ports.ts";
+import { writingActions } from "../state/writing.store.ts";
 import {
   currentDriver,
   releaseDriver,
@@ -40,6 +41,7 @@ export function startRoomFollow(options: {
   frame: (fn: () => void) => () => void;
 }): () => void {
   const { docId, services, frame } = options;
+  writingActions.bind(services);
   let lastPlace: CursorPlace | null = null;
   let lastDriverUserId: string | null = null;
   let cancelFrame: (() => void) | null = null;
