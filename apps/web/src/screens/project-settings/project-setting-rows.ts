@@ -2,6 +2,7 @@
 import type { SettingKey } from "@manent/settings";
 import type { ComponentType } from "react";
 import { ElementStyleRow } from "../../project/style-editor.tsx";
+import { ReadRateRow } from "../../timing/read-rate-row.tsx";
 import { HeaderFooterRow } from "../document/header-footer-row.tsx";
 import { ActsRow, LadderRow } from "./label-list-row.tsx";
 import { TitlePageRow } from "./title-page-row.tsx";
@@ -23,4 +24,5 @@ export const PROJECT_SETTING_ROWS: readonly ProjectSettingRow[] = [
   { settingKey: "project.ladder", Row: LadderRow },
   { settingKey: "project.header", Row: HeaderFooterRow },
   { settingKey: "project.footer", Row: HeaderFooterRow },
+  { settingKey: "project.readRate", Row: ReadRateRow },
 ];
