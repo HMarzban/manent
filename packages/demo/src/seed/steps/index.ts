@@ -23,6 +23,7 @@ import { LAMP_ROOM_COMMENTS } from "./lamp-room-comments.ts";
 import { HARBOUR_LIGHTS_SERIES } from "./harbour-lights-series.ts";
 import { HARBOUR_LIGHTS_ROOM } from "./harbour-lights-room.ts";
 import { HEAVY_SERIES } from "./heavy-series.ts";
+import { ROW_FIVE_COMMENT } from "./row-five-comment.ts";
 
 export const SEED_STEPS: readonly SeedStep[] = [
   MEMBERS_STEP,
@@ -48,4 +49,5 @@ export const SEED_STEPS: readonly SeedStep[] = [
   HARBOUR_LIGHTS_SERIES,
   HARBOUR_LIGHTS_ROOM,
   HEAVY_SERIES,
+  ROW_FIVE_COMMENT,
 ];
