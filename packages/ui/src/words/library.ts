@@ -44,13 +44,13 @@ export const LIBRARY_WORDS = {
   favouritesHeading: "Favourites",
   privateHeading: "Private",
   trashHeading: "Trash",
-  /** What the Favourites, Private and Trash views say while each holds nothing: why, then where to go instead. */
+  /** What the Favourites, Private and Trash views say while each holds nothing: what the view lists. */
   favouritesEmpty:
-    "Scripts can't be marked as favourites yet, so nothing is listed here. Continue lists the scripts you opened last.",
+    "Scripts you mark as favourites appear here, and only you see them. Continue lists the scripts you opened last.",
   privateEmpty:
-    "Scripts can't be kept in your Private folder yet, so nothing is listed here. Your scripts are under Projects.",
+    "Scripts you keep in your Private folder appear here, where only you can see them. The workspace's scripts are under Projects.",
   trashEmpty:
-    "Scripts can't be moved to the Trash yet, so nothing is listed here. Every script stays in its project, under Projects.",
+    "Scripts moved to the Trash appear here for 30 days, and can be put back in that time.",
   search: "Search this workspace",
   searchPlaceholder: "Search this workspace…",
   /** The heading of what a search for `query` found. */
