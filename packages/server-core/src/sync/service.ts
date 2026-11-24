@@ -253,6 +253,7 @@ export function createSyncService(
     airWindowOf: options.airWindowOf ?? (() => null),
     prompters,
     clock,
+    prompterSubscribe: options.prompterSubscribe,
   };
   const subscribed = createSubscribedPeers({
     peers,

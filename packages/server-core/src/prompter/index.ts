@@ -7,9 +7,5 @@ export type {
   PrompterService,
   PrompterServiceOptions,
 } from "./service.ts";
-export {
-  bindPrompterFeed,
-  createPrompterFeedHub,
-  subscribePrompter,
-} from "./subscribe.ts";
+export { createPrompterFeedHub, subscribePrompter } from "./subscribe.ts";
 export type { PrompterFeedHub, UpstreamPrompterFeed } from "./subscribe.ts";

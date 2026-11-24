@@ -12,7 +12,6 @@ import type { AirWindows } from "../rundown/air-window.ts";
 import type { Clock, SyncService } from "../sync/ports.ts";
 import {
   isRowChanged,
-  isValidStoryInHome,
   readSendBlocks,
   readStoryHeadBlocks,
   slugBlocksOf,
@@ -21,11 +20,13 @@ import {
   announcePrompterSent,
   announcePrompterVersion,
   authorizePrompterRequest,
+  checkSendableRow,
   createRundownChain,
   createSendTrail,
   mapWriteRefusal,
   nextSentAt,
   replayStoredRequest,
+  storePrompterSend,
 } from "./send-trail.ts";
 import type {
   PreviousStep,
@@ -77,12 +78,20 @@ export function createPrompterSender(options: {
   return {
     inChain,
     async send(userId, request) {
-      const auth = authorizePrompterRequest(storage, sync(), userId, request);
-      if (!auth.ok) return auth;
+      const preAuth = authorizePrompterRequest(
+        storage,
+        sync(),
+        userId,
+        request,
+      );
+      if (!preAuth.ok) return preAuth;
       const { docId, rowId, key } = request;
-      const { home, file } = auth;
+      const storageKey = `send:${key}`;
       return inChain(docId, async () => {
-        const replayed = replayStoredRequest(file, docId, key, userId);
+        const auth = authorizePrompterRequest(storage, sync(), userId, request);
+        if (!auth.ok) return auth;
+        const { home, file } = auth;
+        const replayed = replayStoredRequest(file, docId, storageKey, userId);
         if (replayed !== null) return replayed;
         const planned: {
           storyId: string;
@@ -94,19 +103,19 @@ export function createPrompterSender(options: {
           userId,
           origin: "system",
           edit(doc) {
-            const row = readRundown(doc).rows.find((r) => r.id === rowId);
-            if (row === undefined)
-              return { ok: false, reason: "not_in_rundown" };
-            if (row.kind !== "script" || row.docId === null)
-              return { ok: false, reason: "cannot_send" };
-            if (
-              !isValidStoryInHome(storage, home, row.docId) ||
-              file.log.get(row.docId) === null
-            )
-              return { ok: false, reason: "cannot_send" };
+            const checked = checkSendableRow(
+              storage,
+              sync(),
+              doc,
+              home,
+              file,
+              userId,
+              rowId,
+            );
+            if (!checked.ok) return checked;
             const sentAt = nextSentAt(file, docId, rowId, clock.now());
             const versionId = ids();
-            planned.push({ storyId: row.docId, versionId, sentAt });
+            planned.push({ storyId: checked.storyId, versionId, sentAt });
             writePrompterState(doc, rowId, {
               state: "on",
               versionId,
@@ -142,20 +151,9 @@ export function createPrompterSender(options: {
               senderUserId: userId,
               sentAt,
             };
-            inFile.prompter.record(sendRow);
-            const response: PrompterSendResponse = {
-              rowId,
-              storyId,
-              versionId,
-              sentAt,
-              senderUserId: userId,
-            };
-            inFile.prompter.putRequest({
-              docId,
-              key,
+            const response = storePrompterSend(inFile, sendRow, {
+              key: storageKey,
               userId,
-              result: JSON.stringify(response),
-              createdAt: sentAt,
             });
             committed.push({ sendRow, response });
           },
@@ -186,12 +184,20 @@ export function createPrompterSender(options: {
       });
     },
     async sendPrevious(userId, request) {
-      const auth = authorizePrompterRequest(storage, sync(), userId, request);
-      if (!auth.ok) return auth;
+      const preAuth = authorizePrompterRequest(
+        storage,
+        sync(),
+        userId,
+        request,
+      );
+      if (!preAuth.ok) return preAuth;
       const { docId, rowId, key } = request;
-      const { home, file } = auth;
+      const storageKey = `prev:${key}`;
       return inChain(docId, async () => {
-        const replayed = replayStoredRequest(file, docId, key, userId);
+        const auth = authorizePrompterRequest(storage, sync(), userId, request);
+        if (!auth.ok) return auth;
+        const { home, file } = auth;
+        const replayed = replayStoredRequest(file, docId, storageKey, userId);
         if (replayed !== null) return replayed;
         const planned: { step: PreviousStep; sentAt: number }[] = [];
         const committed: PrompterSendResponse[] = [];
@@ -199,15 +205,24 @@ export function createPrompterSender(options: {
           userId,
           origin: "system",
           edit(doc) {
-            const row = readRundown(doc).rows.find((r) => r.id === rowId);
-            if (row === undefined)
-              return { ok: false, reason: "not_in_rundown" };
-            if (row.kind !== "script" || row.docId === null)
-              return { ok: false, reason: "cannot_send" };
-            if (!isValidStoryInHome(storage, home, row.docId))
-              return { ok: false, reason: "cannot_send" };
+            const checked = checkSendableRow(
+              storage,
+              sync(),
+              doc,
+              home,
+              file,
+              userId,
+              rowId,
+            );
+            if (!checked.ok) return checked;
+            const { row, storyId } = checked;
             const step = trail.peekPrevious(file, docId, rowId);
             if (step === null) return { ok: false, reason: "cannot_send" };
+            if (
+              step.target.storyId !== storyId &&
+              !sync().access.resolve(userId, step.target.storyId).ok
+            )
+              return { ok: false, reason: "forbidden" };
             const targetBlocks = readSendBlocks(
               storage,
               home,
@@ -219,11 +234,11 @@ export function createPrompterSender(options: {
             const headBlocks = readStoryHeadBlocks(
               storage,
               home,
-              row.docId,
+              storyId,
               null,
             );
             const sameAsHead =
-              step.target.storyId === row.docId &&
+              step.target.storyId === storyId &&
               headBlocks !== null &&
               JSON.stringify(slugBlocksOf(headBlocks, row.blockId)) ===
                 JSON.stringify(slugBlocksOf(targetBlocks, row.blockId));
@@ -241,8 +256,7 @@ export function createPrompterSender(options: {
             const [item] = planned;
             if (item === undefined) return;
             const { target } = item.step;
-            const { sentAt } = item;
-            inFile.prompter.record({
+            const sendRow: PrompterSendRow = {
               rundownId: docId,
               rowId,
               storyId: target.storyId,
@@ -250,23 +264,11 @@ export function createPrompterSender(options: {
               generation: target.generation,
               seq: target.seq,
               senderUserId: userId,
-              sentAt,
-            });
-            const response: PrompterSendResponse = {
-              rowId,
-              storyId: target.storyId,
-              versionId: target.versionId,
-              sentAt,
-              senderUserId: userId,
+              sentAt: item.sentAt,
             };
-            inFile.prompter.putRequest({
-              docId,
-              key,
-              userId,
-              result: JSON.stringify(response),
-              createdAt: sentAt,
-            });
-            committed.push(response);
+            committed.push(
+              storePrompterSend(inFile, sendRow, { key: storageKey, userId }),
+            );
           },
         });
         if (!written.ok)

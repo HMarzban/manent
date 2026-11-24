@@ -215,6 +215,7 @@ export interface SubscribePorts {
   airWindowOf(docId: string): { startsAt: number; endsAt: number } | null;
   prompters: PrompterSubscribers;
   clock: Clock;
+  prompterSubscribe?: SubscribeHandler;
 }
 
 /** A SUBSCRIBE: refused with the first check that fails, otherwise held, answered SUBSCRIBED, then step 1 or a snapshot. */
@@ -241,7 +242,10 @@ export function subscribe(
   if (mode === "prompter") {
     end(peer, docId);
     rooms.left(room);
-    return SUBSCRIBE_HANDLERS[mode]?.({
+    const handler =
+      (mode === "prompter" ? ports.prompterSubscribe : undefined) ??
+      SUBSCRIBE_HANDLERS[mode];
+    return handler?.({
       peer,
       message,
       access: check.access,

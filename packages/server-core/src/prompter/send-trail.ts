@@ -1,4 +1,7 @@
 // Prompter request helpers: per-rundown serialization, send trail, authorization and broadcasts.
+import { readRundown } from "@manent/crdt";
+import type { CrdtDoc } from "@manent/crdt";
+import type { RundownRowJSON } from "@manent/schema";
 import type { DocFile, Home, PrompterSendRow, Storage } from "@manent/storage";
 import { isDocId, isRequestKey } from "@manent/sync-protocol";
 import type {
@@ -7,6 +10,11 @@ import type {
   PrompterSendResponse,
 } from "@manent/sync-protocol";
 import type { SyncService } from "../sync/ports.ts";
+import { isValidStoryInHome } from "./projection.ts";
+
+export type RowCheck =
+  | { ok: true; row: RundownRowJSON; storyId: string }
+  | { ok: false; reason: "not_in_rundown" | "cannot_send" | "forbidden" };
 
 export type PrompterRefusal =
   | "bad_request"
@@ -79,7 +87,31 @@ export function nextSentAt(
   return latest === null ? now : Math.max(now, latest.sentAt + 1);
 }
 
+export function checkSendableRow(
+  storage: Storage,
+  sync: SyncService,
+  doc: CrdtDoc,
+  home: Home,
+  file: DocFile,
+  userId: string,
+  rowId: string,
+): RowCheck {
+  const row = readRundown(doc).rows.find((r) => r.id === rowId);
+  if (row === undefined) return { ok: false, reason: "not_in_rundown" };
+  if (row.kind !== "script" || row.docId === null)
+    return { ok: false, reason: "cannot_send" };
+  if (
+    !isValidStoryInHome(storage, home, row.docId) ||
+    file.log.get(row.docId) === null
+  )
+    return { ok: false, reason: "cannot_send" };
+  if (!sync.access.resolve(userId, row.docId).ok)
+    return { ok: false, reason: "forbidden" };
+  return { ok: true, row, storyId: row.docId };
+}
+
 export function mapWriteRefusal(reason: string): PrompterRefusal {
+  if (reason === "forbidden") return "forbidden";
   if (reason === "not_in_rundown") return "not_in_rundown";
   if (reason === "cannot_send") return "cannot_send";
   return "busy";
@@ -127,6 +159,30 @@ export function authorizePrompterRequest(
   if (place === null || place.kind !== "rundown")
     return { ok: false, code: "not_in_rundown" };
   return { ok: true, home: place.home, file: storage.open(place.home) };
+}
+
+/** Records a send row and its idempotent request response in one file transaction. */
+export function storePrompterSend(
+  file: DocFile,
+  sendRow: PrompterSendRow,
+  request: { key: string; userId: string },
+): PrompterSendResponse {
+  file.prompter.record(sendRow);
+  const response: PrompterSendResponse = {
+    rowId: sendRow.rowId,
+    storyId: sendRow.storyId,
+    versionId: sendRow.versionId,
+    sentAt: sendRow.sentAt,
+    senderUserId: sendRow.senderUserId,
+  };
+  file.prompter.putRequest({
+    docId: sendRow.rundownId,
+    key: request.key,
+    userId: request.userId,
+    result: JSON.stringify(response),
+    createdAt: sendRow.sentAt,
+  });
+  return response;
 }
 
 export function announcePrompterVersion(

@@ -63,32 +63,14 @@ interface DocFeedState {
   cancelUpstream: (() => void) | null;
 }
 
-const boundHubs = new WeakMap<Clock, PrompterFeedHub>();
-
-/** Binds `hub` as the prompter subscribe handler for sync services using `clock`. */
-export function bindPrompterFeed(
-  clock: Clock,
-  hub: PrompterFeedHub,
-): () => void {
-  boundHubs.set(clock, hub);
-  return () => {
-    if (boundHubs.get(clock) === hub) boundHubs.delete(clock);
-    hub.stop();
-  };
-}
-
-/** Handles a SUBSCRIBE in prompter mode via the hub bound to the service's clock. */
-export const subscribePrompter: SubscribeHandler = (sub) => {
-  const hub = boundHubs.get(sub.clock);
-  if (hub === undefined)
-    return sub.tell(
-      syncError("prompter_unavailable", {
-        docId: sub.message.docId,
-        generation: sub.message.generation,
-      }),
-    );
-  hub.subscribe(sub);
-};
+/** Safe fallback when a sync service has no `prompterSubscribe` configured: refuses every prompter. */
+export const subscribePrompter: SubscribeHandler = ({ message, tell }) =>
+  tell(
+    syncError("prompter_unavailable", {
+      docId: message.docId,
+      generation: message.generation,
+    }),
+  );
 
 function applyPatchToFeed(
   feed: PrompterFeed,

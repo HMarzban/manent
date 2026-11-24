@@ -8,10 +8,11 @@ import type { HistoryService } from "../history/service.ts";
 import { createAirWindows } from "../rundown/air-window.ts";
 import type { AirWindows } from "../rundown/air-window.ts";
 import type { Clock, SyncHooks, SyncService } from "../sync/ports.ts";
+import type { SubscribeHandler } from "../sync/subscribe.ts";
 import { createAutoSender } from "./auto-send.ts";
 import { createPrompterSender } from "./send.ts";
 import type { PrompterOutcome, PrompterRefusal } from "./send.ts";
-import { bindPrompterFeed, createPrompterFeedHub } from "./subscribe.ts";
+import { createPrompterFeedHub } from "./subscribe.ts";
 import type { UpstreamPrompterFeed } from "./subscribe.ts";
 
 export type { PrompterOutcome, PrompterRefusal };
@@ -30,6 +31,8 @@ export interface PrompterServiceOptions {
 
 export interface PrompterService {
   readonly hooks: SyncHooks;
+  /** Per-service handler for `SUBSCRIBE` in prompter mode, passed into `SyncSettings.prompterSubscribe`. */
+  readonly subscribePrompter: SubscribeHandler;
   /** Sends a rundown row's current story head to the prompter and keeps a `prompter` History version. */
   send(
     userId: string,
@@ -40,13 +43,14 @@ export interface PrompterService {
     userId: string,
     request: PrompterSendRequest,
   ): Promise<PrompterOutcome<PrompterSendResponse>>;
-  /** Releases all prompter feed bindings and timers held by this service. */
+  /** Releases all prompter feed timers and automatic-send timers held by this service. */
   stop(): void;
 }
 
 /**
- * Creates the prompter service and binds the prompter subscribe handler for `options.clock`.
- * The caller attaches `service.hooks` to the sync service and places `service` on `ServerConfig.prompter`.
+ * Creates the prompter service with its own isolated feed hub.
+ * The caller attaches `service.hooks` and `service.subscribePrompter` to the sync service
+ * and places `service` on `ServerConfig.prompter`.
  */
 export function createPrompterService(
   options: PrompterServiceOptions,
@@ -64,7 +68,6 @@ export function createPrompterService(
     airWindows,
     upstreamFeed,
   });
-  const unbindFeed = bindPrompterFeed(clock, feed);
 
   const autoSender = createAutoSender({
     storage,
@@ -105,11 +108,12 @@ export function createPrompterService(
 
   return {
     hooks,
+    subscribePrompter: (sub) => feed.subscribe(sub),
     send: sender.send,
     sendPrevious: sender.sendPrevious,
     stop() {
       autoSender.stop();
-      unbindFeed();
+      feed.stop();
     },
   };
 }
