@@ -1,10 +1,5 @@
 // The Import group's body: the record's lines, kept current, drawn as sentences, a title and rows.
-import {
-  IMPORT_MAP,
-  IMPORT_RECORD_KEY,
-  NOTES_MAP,
-  jsonMap,
-} from "@manent/crdt";
+import { IMPORT_MAP, IMPORT_RECORD_KEY, jsonMap } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import { IMPORT_WORDS, Row } from "@manent/ui";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -25,13 +20,12 @@ function useLiveDoc(docId: string): CrdtDoc | null {
   );
 }
 
-/** The group's lines for the document's record, kept current as the record and the notes change; none without a record. */
+/** The group's lines for the document's record, kept current as the record changes; none without a record. */
 function useImportRows(doc: CrdtDoc | null): readonly string[] {
   const [rows, setRows] = useState(NO_ROWS);
   useEffect(() => {
     if (doc === null) return undefined;
     const imported = jsonMap(doc, IMPORT_MAP);
-    const notes = jsonMap(doc, NOTES_MAP);
     let shown = true;
     const read = (): void => {
       if (imported.get(IMPORT_RECORD_KEY) === null) {
@@ -42,16 +36,14 @@ function useImportRows(doc: CrdtDoc | null): readonly string[] {
       void import("@manent/formats").then(({ parseImportRecord }) => {
         if (!shown) return;
         const record = parseImportRecord(imported.get(IMPORT_RECORD_KEY));
-        setRows(
-          record === null ? NO_ROWS : importRows(record, notes.keys().length),
-        );
+        setRows(record === null ? NO_ROWS : importRows(record));
       });
     };
     read();
-    const stops = [imported.subscribe(read), notes.subscribe(read)];
+    const stop = imported.subscribe(read);
     return () => {
       shown = false;
-      for (const stop of stops) stop();
+      stop();
       setRows(NO_ROWS);
     };
   }, [doc]);
