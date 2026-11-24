@@ -19,6 +19,7 @@ import type {
   DocHandle,
   PrompterHandle,
   SyncClient,
+  ViewHandle,
 } from "@manent/sync-client";
 import type { DocKind, UpdateState } from "@manent/sync-protocol";
 import type {
@@ -230,6 +231,10 @@ export interface PersonServices {
   history: HistorySource;
   /** The person's handle of a script over their sync, of the document `writing` opens for it; rejects when their sync could not start. */
   openHandle(docId: string): Promise<DocHandle>;
+  /** The person's handle of `docId`'s comments document, creating it in `home` when given; never used by a viewer. */
+  openComments(docId: string, home: string | null): Promise<DocHandle>;
+  /** Read-only view of `docId`'s comments document for a viewer role; rejects when their sync could not start. */
+  viewComments(docId: string): Promise<ViewHandle>;
   /** Where the person's typing in each document goes, and which document their editor of it opens. */
   writing: {
     writingPositionOf(docId: string): Subscribable<WritingPosition>;

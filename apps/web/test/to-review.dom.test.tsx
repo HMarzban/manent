@@ -117,9 +117,9 @@ test("the History tab is there while something is to review", async () => {
       ?.closest("[data-region]")
       ?.getAttribute("data-region"),
   ]).toEqual([
-    ["Details"],
+    ["Comments", "Details"],
     [
-      ["History", "Details"],
+      ["Comments", "History", "Details"],
       ["To review · 1", "Sc. 8 · changed here and elsewhere"],
     ],
     // the panel closes with the tab it showed
