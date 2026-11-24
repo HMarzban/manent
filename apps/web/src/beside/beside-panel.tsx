@@ -12,7 +12,7 @@ import type { DocumentServices } from "../services/ports.ts";
 import { BesideFrame } from "./beside-frame.tsx";
 import { BESIDE_KINDS } from "./kinds.ts";
 import type { BesideKind } from "./kinds.ts";
-import { closeBeside } from "./open-beside.ts";
+import { BESIDE_BODY, closeBeside } from "./open-beside.ts";
 import type { BesideOpen } from "./open-beside.ts";
 
 // Beside displays the document's state sentence without exposing action buttons that would target the main page's document.
@@ -41,7 +41,9 @@ function BesideContent(props: {
           registered={NO_ACTION}
         />
       ) : null}
-      <Body docId={open.docId} at={open.at} />
+      <div {...{ [BESIDE_BODY]: "" }} className="contents">
+        <Body docId={open.docId} at={open.at} />
+      </div>
     </>
   );
 }

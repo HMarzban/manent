@@ -4,6 +4,9 @@ import { guardWrite } from "../state/guard.ts";
 import { panelsActions } from "../state/panels.store.ts";
 import type { BesideKindId } from "./kinds.ts";
 
+/** The attribute on the body of what is beside the page, below its header row and its state bar. */
+export const BESIDE_BODY = "data-beside-body";
+
 export interface BesideOpen {
   docId: string;
   kind: BesideKindId;

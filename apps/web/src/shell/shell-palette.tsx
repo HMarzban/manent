@@ -21,6 +21,7 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { createBesideSource, runBesideRow } from "../beside/beside-source.ts";
+import { BESIDE_BODY } from "../beside/open-beside.ts";
 import type { livePagination } from "../editor-host/live-editor.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import {
@@ -66,7 +67,7 @@ export function ShellPalette(props: {
 }): ReactNode {
   const { docId, close } = props;
   const services = useServices();
-  const { where } = useEnvironment();
+  const { where, dom, frame } = useEnvironment();
   const router = useRouter();
   const outline = useContext(OutlineContext);
   const people = useContext(PeopleContext);
@@ -131,7 +132,11 @@ export function ShellPalette(props: {
     ];
   }, [filter, services, where, docId, outline, people, workspaces]);
   const run = (row: PaletteRow): void => {
-    if (runBesideRow(row.id)) return;
+    if (runBesideRow(row.id)) {
+      // what is beside the page is opened to be used, so focus moves into it once it is drawn
+      frame(() => dom.focusSidePanel(`[${BESIDE_BODY}]`));
+      return;
+    }
     if (row.kind !== "command" && row.kind !== "setting") {
       runPlaceRow(row.id, {
         editor: services.editor,
