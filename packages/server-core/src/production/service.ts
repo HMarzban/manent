@@ -135,6 +135,7 @@ export function createWorkflow(
     clock,
     ids,
     extras: PRODUCTION_EXTRAS,
+    draftEvents: rest.draftEvents,
   });
   const production = createProductionService({
     ...rest,

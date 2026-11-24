@@ -3,8 +3,10 @@ import { NO_ROUND_COUNTS, createRoundCountHooks } from "@manent/server-core";
 import type { ServerService } from "./services.ts";
 
 export const commentsService: ServerService = {
-  create: () => ({
-    hooks: [createRoundCountHooks({ roundCounts: NO_ROUND_COUNTS })],
+  create: ({ roundCounts }) => ({
+    hooks: [
+      createRoundCountHooks({ roundCounts: roundCounts ?? NO_ROUND_COUNTS }),
+    ],
     config: {},
   }),
 };

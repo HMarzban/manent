@@ -31,7 +31,7 @@ const loadDraftFonts = () =>
   readScriptFonts((key) => resolve(import.meta.dir, FACES[key]));
 
 export const draftsService: ServerService = {
-  create({ storage, sync, clock, ids, names }) {
+  create({ storage, sync, clock, ids, names, draftEvents }) {
     const drafts = createDraftsService({
       storage,
       sync,
@@ -41,6 +41,7 @@ export const draftsService: ServerService = {
       names,
       fonts: loadDraftFonts,
       users: createDemoDirectory(),
+      draftEvents,
       log: console.error,
     });
     return { hooks: [], config: { drafts } };
