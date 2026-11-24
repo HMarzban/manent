@@ -1,8 +1,10 @@
 import type { CommandHandlers } from "@manent/commands";
+import { bindChecksServices } from "../checks/checks-context.ts";
 import type { HandlerDeps } from "./index.ts";
 
 export function checksHandlers(
-  _deps: HandlerDeps,
+  deps: HandlerDeps,
 ): Pick<CommandHandlers, never> {
+  bindChecksServices(deps.services);
   return {};
 }
