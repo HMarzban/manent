@@ -47,5 +47,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   pinned,
   licence,
   wasn't,
-  exclude, include, timing
+  exclude, include, timing,
+  unnumbered, value
 `);
