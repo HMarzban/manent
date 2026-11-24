@@ -704,7 +704,7 @@ test("an Ink script offers neither", async () => {
   ]);
 });
 
-test("send_draft offers whole_script, pdf and fdx", () => {
+test("send_draft offers whole_script, pages, scenes, pdf and fdx", () => {
   const offeredTo = {
     docKind: "script" as const,
     format: "screenplay" as const,
@@ -713,5 +713,8 @@ test("send_draft offers whole_script, pdf and fdx", () => {
   expect([
     whatOffered("send_draft", "pdf", false).map((option) => option.id),
     typesOffered("send_draft", offeredTo).map((type) => type.id),
-  ]).toEqual([["whole_script"], ["pdf", "fdx"]]);
+  ]).toEqual([
+    ["whole_script", "pages", "scenes"],
+    ["pdf", "fdx"],
+  ]);
 });
