@@ -306,8 +306,8 @@ test("History is present only while a section has something, and shows its secti
     ].map(nameOf),
     nameOf(document.activeElement ?? document.body),
   ]).toEqual([
-    ["Details"],
-    ["History", "Details"],
+    ["Comments", "Details"],
+    ["Comments", "History", "Details"],
     "History",
     ["Versions fake"],
     "Versions fake",
