@@ -284,12 +284,36 @@ test("a script whose production has ended is refused a second lock, on the SQLit
   w.storage.close();
 });
 
-test("locking honours projectSettings when script settings omit a layout setting", async () => {
+test("locking resolves and freezes followed project settings when script settings omit them", async () => {
+  const style = {
+    dialogue: {
+      capitalized: null,
+      underlined: null,
+      bold: null,
+      colour: null,
+      spaceBefore: 2,
+      indent: null,
+      width: null,
+    },
+  };
   const w = productionWorld(undefined, {
-    projectSettings: () => ({ "script.paper": "a4" }),
+    projectSettings: () => ({
+      "project.dateFormat": "iso",
+      "project.style": style,
+    }),
   });
   const outcome = await w.run(w.service.lock("priya", lockRequest(KEY1)));
+  const settings = w.settings();
   expect(
-    outcome.ok && [outcome.value.locked, w.settings()["script.paper"]],
-  ).toEqual([true, "a4"]);
+    outcome.ok && [
+      outcome.value.locked,
+      settings["script.dateFormat"],
+      settings["script.style"],
+      settings["script.numbering"],
+      settings["script.colourOrder"],
+      Object.hasOwn(settings, "script.header"),
+      Object.hasOwn(settings, "script.footer"),
+    ],
+  ).toEqual([true, "iso", style, "suffix", "standard", true, true]);
+  w.storage.close();
 });

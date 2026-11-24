@@ -5,6 +5,7 @@ import {
   createSettingsStore,
 } from "@manent/settings";
 import type { Bag, KeyValueMap, SettingsStore } from "@manent/settings";
+import { followedScriptBag } from "../editor-host/settings-resolve.ts";
 import { deviceName } from "../platform.ts";
 import { productionContextActions } from "../state/production-context.store.ts";
 import type { CommandsOptions } from "./person-commands.ts";
@@ -138,9 +139,18 @@ export function createStores(
         const locked = () =>
           productionContextActions.get(docId)?.locked === true;
         const project = kept.projectBag(docId);
+        const projectView = project === null ? null : view(project);
+        const scriptView = view(
+          followedScriptBag({
+            script: view(scriptBag),
+            project: projectView,
+            locked,
+            onLockChange: productionContextActions.subscribe,
+          }),
+        );
         const bags = {
-          script: view(scriptBag),
-          project: project === null ? null : view(project),
+          script: scriptView,
+          project: projectView,
         };
         return { store: storeOver(view, bags, locked), release };
       },
