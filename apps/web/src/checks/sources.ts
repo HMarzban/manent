@@ -1,6 +1,7 @@
 // What the script's checks look at before it is sent, one source per line; each source lives in its feature's folder.
 import { livePagination } from "../editor-host/live-editor.ts";
 import { outsideFontSentence } from "../send/output-checks.tsx";
+import { STAGE_2_CHECK_SOURCES } from "./script-sources.ts";
 
 /** What can be done about a check from where it is listed. */
 export interface CheckAction {
@@ -35,4 +36,7 @@ const outsideFont: CheckSource = {
   },
 };
 
-export const CHECK_SOURCES: readonly CheckSource[] = [outsideFont];
+export const CHECK_SOURCES: readonly CheckSource[] = [
+  outsideFont,
+  ...STAGE_2_CHECK_SOURCES,
+];
