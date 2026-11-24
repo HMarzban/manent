@@ -12,6 +12,7 @@ import {
 import type { CrdtDoc } from "@manent/crdt";
 import { NEWS_COLUMNS, SHOW_COLUMNS } from "@manent/schema";
 import type { DocHandle, DocStatus } from "@manent/sync-client";
+import { indexDocId } from "@manent/sync-protocol";
 import {
   CommandsProvider,
   RUNDOWN_WORDS,
@@ -40,6 +41,7 @@ import { INITIAL_SHELL_STATE } from "../src/services/ports.ts";
 import { FactsContext } from "../src/state/bridge-contexts.ts";
 import { createFactsStore } from "../src/state/facts.store.ts";
 import { bindGuard } from "../src/state/guard.ts";
+import { panelsActions } from "../src/state/panels.store.ts";
 import { rundownActions } from "../src/state/rundown.store.ts";
 import { typeInto } from "./document-frame.fixtures.tsx";
 import {
@@ -62,7 +64,10 @@ let mounted: Root | null = null;
 const originalFetch = globalThis.fetch;
 
 afterEach(() => {
-  act(() => mounted?.unmount());
+  act(() => {
+    panelsActions.close("side");
+    mounted?.unmount();
+  });
   mounted = null;
   globalThis.fetch = originalFetch;
 });
@@ -138,6 +143,7 @@ function mockDescribe(
 async function mountRundown(options: {
   rundownDoc: CrdtDoc;
   privateDoc?: CrdtDoc;
+  workspaceIndexDoc?: CrdtDoc;
   projectKind?: ProjectKind;
   projectTitle?: string;
   status?: Partial<StatusFacts>;
@@ -146,6 +152,7 @@ async function mountRundown(options: {
 }) {
   const nowMs = options.nowMs ?? new Date(2026, 10, 17, 23, 0, 0).getTime();
   const privateDoc = options.privateDoc ?? createDoc();
+  const workspaceIndexId = indexDocId("workspace", "dana");
   const statusSub = createValue(makeStatus({ now: nowMs, ...options.status }));
   const docServices: DocumentServices = {
     status: statusSub,
@@ -198,7 +205,9 @@ async function mountRundown(options: {
     openHandle: async (id: string) =>
       id === DOC_ID
         ? fakeHandle(DOC_ID, options.rundownDoc)
-        : fakeHandle(id, privateDoc),
+        : id === workspaceIndexId && options.workspaceIndexDoc !== undefined
+          ? fakeHandle(id, options.workspaceIndexDoc)
+          : fakeHandle(id, privateDoc),
     onDevice: async () => options.onDevice ?? new Set<string>(),
     library: {
       ...baseServices.library,
@@ -553,4 +562,233 @@ test("empty rundown displays empty state with Add row", async () => {
   await until(() => host.textContent?.includes(RUNDOWN_WORDS.empty) ?? false);
   expect(host.textContent).toContain(RUNDOWN_WORDS.empty);
   expect(host.textContent).toContain(RUNDOWN_WORDS.addRow);
+});
+
+function fieldByLabel(root: ParentNode, labelText: string): HTMLElement {
+  const label = [...root.querySelectorAll("label")].find(
+    (el) => el.textContent === labelText,
+  );
+  const forId = label?.getAttribute("for");
+  const control = forId ? document.getElementById(forId) : null;
+  if (control === null) throw new Error(`no field labelled ${labelText}`);
+  return control;
+}
+
+async function enterFieldValue(
+  input: HTMLInputElement,
+  value: string,
+): Promise<void> {
+  await act(async () => {
+    input.focus();
+  });
+  typeInto(input, value);
+  await act(async () => {
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+  });
+}
+
+test("Details → Rundown edits Date, Air, Target and Air window starts, refuses invalid and taken entries, and undoes each change in one step", async () => {
+  mockDescribe("owner", ["edit_rundowns"]);
+  const rundownDoc = createSampleShowDoc();
+  const wsDoc = createDoc();
+  const OTHER_RUNDOWN = "55555555-5555-4555-8555-555555555555";
+  jsonMap(wsDoc, "projects").set(PROJECT_ID, {
+    title: "The Late Desk",
+    kind: "show",
+    createdAt: 1,
+    createdByUserId: "dana",
+  });
+  jsonMap(wsDoc, "documents").set(DOC_ID, {
+    projectId: PROJECT_ID,
+    title: "Tue 17 Nov",
+    kind: "rundown",
+    createdAt: 1,
+    editedAt: null,
+    editedByUserId: null,
+    airDate: "2026-11-17",
+    rundownId: null,
+  });
+  jsonMap(wsDoc, "documents").set(OTHER_RUNDOWN, {
+    projectId: PROJECT_ID,
+    title: "Tue 24 Nov",
+    kind: "rundown",
+    createdAt: 2,
+    editedAt: null,
+    editedByUserId: null,
+    airDate: "2026-11-24",
+    rundownId: null,
+  });
+
+  const { host } = await mountRundown({
+    rundownDoc,
+    workspaceIndexDoc: wsDoc,
+    nowMs: new Date(2026, 10, 17, 23, 0, 0).getTime(),
+  });
+  await until(() => host.querySelector('[role="grid"]') !== null);
+
+  await act(async () => {
+    panelsActions.open("side", "details");
+  });
+  await until(() => host.querySelector('[data-tour="rundown:air"]') !== null);
+
+  // Only the Rundown scope is shown in Details on a rundown
+  const sidePanel = host.querySelector('[data-region="side_panel"]')!;
+  expect(
+    [...sidePanel.querySelectorAll("h2")].map((el) => el.textContent),
+  ).toEqual(["Rundown"]);
+
+  const dateButton = fieldByLabel(sidePanel, "Date") as HTMLButtonElement;
+  const airInput = fieldByLabel(sidePanel, "Air") as HTMLInputElement;
+  const targetInput = fieldByLabel(sidePanel, "Target") as HTMLInputElement;
+  const windowInput = fieldByLabel(
+    sidePanel,
+    "Air window starts",
+  ) as HTMLInputElement;
+
+  expect(airInput.getAttribute("data-tour")).toBe("rundown:air");
+  expect([
+    dateButton.textContent,
+    airInput.value,
+    targetInput.value,
+    windowInput.value,
+  ]).toEqual(["Tue 17 Nov", "23:35", "10:00", "60"]);
+
+  // Invalid & empty Air keeps old value and shows S3-RG-67 / S3-RG-70
+  await enterFieldValue(airInput, "25:10");
+  expect(sidePanel.textContent).toContain(
+    RUNDOWN_WORDS.invalidAirTime("25:10"),
+  );
+  expect(airInput.value).toBe("23:35");
+
+  await enterFieldValue(airInput, "");
+  expect(sidePanel.textContent).toContain(RUNDOWN_WORDS.airTimeRequired);
+  expect(airInput.value).toBe("23:35");
+
+  // Valid Air updates CRDT, state bar and row Start/Back, and undoes in one step
+  await enterFieldValue(airInput, "23:40");
+  expect(readRundown(rundownDoc).rundown.airAt).toBe(
+    new Date(2026, 10, 17, 23, 40, 0).getTime(),
+  );
+  expect(
+    host.querySelector('[data-region="state_bar"]')?.textContent,
+  ).toContain("Air 23:40 · Target 10:00 · Over 0:48");
+  expect(
+    host.querySelector(`[data-row-id="${ROW_1}"][data-col-id="start"]`)
+      ?.textContent,
+  ).toBe("23:40:00");
+
+  await act(async () => {
+    rundownActions.slot("rows")?.undo?.();
+  });
+  expect(readRundown(rundownDoc).rundown.airAt).toBe(
+    new Date(2026, 10, 17, 23, 35, 0).getTime(),
+  );
+
+  // Invalid & empty Target keeps old value; valid Target moves Over/Under
+  await enterFieldValue(targetInput, "42.00");
+  expect(sidePanel.textContent).toContain(RUNDOWN_WORDS.invalidTarget("42.00"));
+  await enterFieldValue(targetInput, "");
+  expect(sidePanel.textContent).toContain(RUNDOWN_WORDS.targetRequired);
+
+  await enterFieldValue(targetInput, "12:00");
+  expect(readRundown(rundownDoc).rundown.targetMs).toBe(12 * 60 * 1000);
+  expect(
+    host.querySelector('[data-region="state_bar"]')?.textContent,
+  ).toContain("Air 23:35 · Target 12:00 · Under 1:12");
+
+  // Invalid Air window starts keeps old value; valid 15 leaves the air window at 23:00
+  await enterFieldValue(windowInput, "-5");
+  expect(sidePanel.textContent).toContain(RUNDOWN_WORDS.invalidAirWindow("-5"));
+  await enterFieldValue(windowInput, "15");
+  expect(readRundown(rundownDoc).rundown.windowLeadMs).toBe(15 * 60 * 1000);
+  expect(
+    host.querySelector('[data-region="state_bar"]')?.textContent,
+  ).not.toContain(RUNDOWN_WORDS.airWindow);
+
+  // Date picker refuses a date already taken in this project (S3-RG-71) and accepts a free date
+  await act(async () => {
+    dateButton.click();
+  });
+  await until(
+    () => document.querySelector('[data-date="2026-11-24"]') !== null,
+  );
+  await act(async () => {
+    (
+      document.querySelector('[data-date="2026-11-24"]') as HTMLButtonElement
+    ).click();
+  });
+  expect(sidePanel.textContent).toContain(
+    RUNDOWN_WORDS.dateAlreadyHasRundown("Tue 24 Nov"),
+  );
+  expect(readRundown(rundownDoc).rundown.airDate).toBe("2026-11-17");
+
+  await act(async () => {
+    dateButton.click();
+  });
+  await until(
+    () => document.querySelector('[data-date="2026-11-19"]') !== null,
+  );
+  await act(async () => {
+    (
+      document.querySelector('[data-date="2026-11-19"]') as HTMLButtonElement
+    ).click();
+  });
+  expect(readRundown(rundownDoc).rundown.airDate).toBe("2026-11-19");
+  expect(host.querySelector("h1")?.textContent).toContain(
+    "The Late Desk · Thu 19 Nov",
+  );
+  expect(
+    (jsonMap(wsDoc, "documents").get(DOC_ID) as { airDate?: string } | null)
+      ?.airDate,
+  ).toBe("2026-11-19");
+
+  // Undoing the Date change restores both CRDT airDate and workspace index airDate in one step
+  await act(async () => {
+    rundownActions.slot("rows")?.undo?.();
+  });
+  expect(readRundown(rundownDoc).rundown.airDate).toBe("2026-11-17");
+  expect(
+    (jsonMap(wsDoc, "documents").get(DOC_ID) as { airDate?: string } | null)
+      ?.airDate,
+  ).toBe("2026-11-17");
+});
+
+test("Details → Rundown is read-only under S3-RG-34 for Can edit without edit_rundowns", async () => {
+  mockDescribe("edit", []);
+  const rundownDoc = createSampleShowDoc();
+  const { host } = await mountRundown({ rundownDoc });
+  await until(
+    () =>
+      host
+        .querySelector('[data-region="title_bar"]')
+        ?.textContent?.includes("View only") ?? false,
+  );
+  await act(async () => {
+    panelsActions.open("side", "details");
+  });
+  await until(() => host.querySelector('[data-tour="rundown:air"]') !== null);
+
+  const sidePanel = host.querySelector('[data-region="side_panel"]')!;
+  expect(sidePanel.textContent).toContain(RUNDOWN_WORDS.needsEditRundowns);
+  const dateButton = fieldByLabel(sidePanel, "Date") as HTMLButtonElement;
+  const airInput = fieldByLabel(sidePanel, "Air") as HTMLInputElement;
+  const targetInput = fieldByLabel(sidePanel, "Target") as HTMLInputElement;
+  const windowInput = fieldByLabel(
+    sidePanel,
+    "Air window starts",
+  ) as HTMLInputElement;
+
+  expect(dateButton.getAttribute("aria-disabled")).toBe("true");
+  expect([
+    airInput.readOnly,
+    targetInput.readOnly,
+    windowInput.readOnly,
+  ]).toEqual([true, true, true]);
+
+  await act(async () => {
+    dateButton.click();
+  });
+  expect(document.querySelector('[data-date="2026-11-19"]')).toBeNull();
 });
