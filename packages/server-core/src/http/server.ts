@@ -161,7 +161,11 @@ export function createServer(config: ServerConfig): ManentServer {
     settings === null
       ? null
       : {
-          service: createSyncService({ ...settings, versions }),
+          service: createSyncService({
+            ...settings,
+            versions,
+            draftReaders: settings.draftReaders ?? config.drafts,
+          }),
           clock: settings.clock,
           limits: { ...DEFAULT_LIMITS, ...settings.limits },
         };

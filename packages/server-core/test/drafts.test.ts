@@ -660,3 +660,175 @@ test("draft send and open controls reach editors and never viewers or commenters
   expect(controlKindsOf(priya)).toEqual([]);
   expect(controlKindsOf(ana)).toEqual([]);
 });
+
+test("createServer wires config.drafts into sync access for draft-reader comments subscriptions", async () => {
+  const clock = fakeClock(T0);
+  const storage = createMemoryStorage({ now: clock.clock.now });
+  let seqId = 0;
+  let seqToken = 0;
+  const ids = (): string => `srv-${String(++seqId).padStart(5, "0")}`;
+  const tokens = (): string => `tok_${String(++seqToken).padStart(39, "0")}`;
+  const sessions = createSignedSessionStore({
+    secret: new Uint8Array(32).fill(9),
+    now: clock.clock.now,
+  });
+  let serverSync: SyncService | null = null;
+  const syncRef = (): SyncService => {
+    if (serverSync === null) throw new RangeError("server sync not ready");
+    return serverSync;
+  };
+  const history = createHistoryService({
+    sync: syncRef,
+    storage,
+    clock: clock.clock,
+    ids,
+  });
+  const drafts = createDraftsService({
+    storage,
+    sync: syncRef,
+    clock: clock.clock,
+    ids,
+    tokens,
+    names: (userId) => USERS.user(userId)?.name ?? userId,
+    fonts: () => fontsPromise,
+    users: USERS,
+  });
+  const server = createServer({
+    http: {
+      allowedHosts: ["localhost:4747"],
+      openUrl: "http://localhost:4747",
+      webDir: null,
+    },
+    auth: {
+      signIn: {
+        describe: () => ({ choices: [] }),
+        authenticate: async () => ({ ok: false, reason: "unknown_user" }),
+      },
+      directory: USERS,
+      sessions,
+    },
+    demo: null,
+    socket: {
+      tickets: createTicketStore({ now: clock.clock.now }),
+      versions: { current: V1, min: V1 },
+      allowedOrigins: ["http://localhost:4747"],
+    },
+    // Intentionally omit `draftReaders`: createServer must fall back to `config.drafts`.
+    sync: {
+      storage,
+      clock: clock.clock,
+      defer: clock.defer,
+      ids,
+      registry: PRODUCT_SETTING_RULES,
+      hooks: [history],
+    },
+    history,
+    drafts,
+  });
+  serverSync = server.sync;
+  if (serverSync === null) throw new Error("expected server.sync");
+
+  const projectIndexId = indexDocId("project", PROJECT);
+  serverSync.access.create("dana", {
+    docId: projectIndexId,
+    kind: "index",
+    home: `project:${PROJECT}`,
+  });
+  const idx = scriptDocFromJSON({ type: "doc", content: [] }, { clientId: 1 });
+  writeGroup(idx, {
+    id: "network",
+    name: "Network",
+    role: null,
+    memberUserIds: ["leo"],
+    watermark: true,
+  });
+  storage.open({ kind: "project", id: PROJECT }).log.append({
+    docId: projectIndexId,
+    generation: 1,
+    userId: "dana",
+    origin: "edit",
+    update: idx.encodeState(),
+    clocks: [],
+  });
+  serverSync.access.create("dana", {
+    docId: DOC,
+    kind: "script",
+    home: `project:${PROJECT}`,
+  });
+  appendAll(
+    storage,
+    [
+      scriptDocFromJSON(
+        {
+          type: "doc",
+          content: [
+            {
+              type: "section",
+              content: [
+                {
+                  type: "block",
+                  attrs: { id: "scene0000001", type: "scene_heading" },
+                  content: [{ type: "text", text: "INT. PIER - NIGHT" }],
+                },
+              ],
+            },
+          ],
+        },
+        { clientId: 2 },
+      ).encodeState(),
+    ],
+    { userId: "dana" },
+  );
+
+  const req = new Request("http://localhost:4747/api/drafts/send", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${sessions.issue("dana")}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      docId: DOC,
+      key: keyOf(99),
+      name: "Studio",
+      what: "whole_script",
+      againstVersionId: null,
+      files: ["pdf"],
+      groupIds: ["network"],
+      recipientUserIds: [],
+      watermark: false,
+      link: null,
+    }),
+  });
+  const sendPromise = server.fetch(req, {
+    remoteAddress: "127.0.0.1",
+    upgrade: () => false,
+  });
+  for (let i = 0; i < 40; i++) {
+    clock.runDeferred();
+    await Promise.resolve();
+  }
+  const sendRes = await sendPromise;
+  expect(sendRes?.status).toBe(200);
+
+  // Leo subscribes over WS: admitted to comments doc in edit mode as comment role, refused on live script
+  const leoPeer = fakePeer({
+    userId: "leo",
+    name: "Leo Marsh",
+    versions: V1,
+  });
+  serverSync.attach(leoPeer);
+  const cId = commentsDocId(DOC);
+  serverSync.receive(leoPeer, subscribe(cId, "edit", [201]));
+  const cMessages = leoPeer.take();
+  expect(
+    cMessages.some((m) => m.type === "SUBSCRIBED" && m.docId === cId),
+  ).toBe(true);
+  serverSync.receive(leoPeer, subscribe(DOC, "edit", [202]));
+  const sMessages = leoPeer.take();
+  expect(
+    sMessages.some(
+      (m) =>
+        m.type === "ERROR" && m.doc?.docId === DOC && m.message === "forbidden",
+    ),
+  ).toBe(true);
+});

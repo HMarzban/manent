@@ -45,5 +45,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   prose,
   future, joke, landed, linked, showrunner, tagged,
   pinned,
-  licence
+  licence,
+  wasn't
 `);

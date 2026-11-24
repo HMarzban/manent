@@ -456,6 +456,7 @@ test("the history commands sit in these menus, answer these palette words and ap
       { keywords: [] },
       null,
     ],
+    ["history.sinceLastRead", [], { hidden: "reader frame only" }, null],
   ]);
   expect(
     historyCommands.map((c) => [
@@ -466,6 +467,7 @@ test("the history commands sit in these menus, answer these palette words and ap
     ]),
   ).toEqual(
     historyCommands.map((c) => {
+      if (c.id === "history.sinceLastRead") return [c.id, false, false, false];
       const edits = [
         "history.markVersion",
         "history.nameDraft",

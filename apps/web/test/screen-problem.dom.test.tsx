@@ -109,6 +109,7 @@ test("every screen whose code loads on first visit has the same problem in its o
       "/s/$docId/v/$versionId",
       "/s/$docId/changes/$a/$b",
       "/join/$token",
+      "/r/$token",
       "/p/$projectId/settings",
       "/p/$projectId/board",
       "/w/$workspaceId/settings",
