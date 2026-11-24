@@ -73,6 +73,7 @@ function isDraftSinceResponse(value: unknown): value is DraftSinceResponse {
   return (
     isRecord(value) &&
     isString(value.versionId) &&
+    (value.name === undefined || isString(value.name)) &&
     isVersionContent(value.content)
   );
 }

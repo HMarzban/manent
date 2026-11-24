@@ -83,6 +83,8 @@ export interface SeedSharing {
       recipientUserIds: readonly string[];
       watermark: boolean;
       link: SendDraftLinkInput | null;
+      /** Deterministic recipient token for demo seed links; omitted draws from the seed PRNG. */
+      recipientToken?: string;
     },
   ): Promise<SeedDraftSendResult>;
   /** Opens a draft link through POST /api/drafts/open, recording the open and updating last-read. */

@@ -2,7 +2,12 @@
 // whether an episode they open is theirs to write.
 import { readEpisodes } from "@manent/crdt";
 import type { JsonMapView } from "@manent/crdt";
-import type { DocHandle, DocStatus, SideState } from "@manent/sync-client";
+import type {
+  DocHandle,
+  DocStatus,
+  SideState,
+  UpstreamStatus,
+} from "@manent/sync-client";
 import { indexDocId } from "@manent/sync-protocol";
 import type { PersonServices } from "../services/ports.ts";
 import { liveMap } from "../services/sync/private-index.ts";
@@ -61,9 +66,13 @@ const SERVER_ANSWERS: Readonly<Record<SideState, boolean>> = Object.freeze({
 /**
  * Whether the server has answered for the person's index, or the device's link is offline.
  */
-function isAnswered(status: DocStatus): boolean {
+function isAnswered(
+  status: DocStatus,
+  upstream: UpstreamStatus | null,
+): boolean {
   if (status.synced && status.waiting === 0) return true;
   if (status.link === "offline") return true;
+  if (upstream?.handoffRefused != null) return true;
   return status.side.some((side) => SERVER_ANSWERS[side]);
 }
 
@@ -76,15 +85,23 @@ export async function openWritingIndex(
     copies: liveMap(handle, "private_copies"),
     continued: liveMap(handle, "continue"),
     whenAnswered(then) {
-      if (isAnswered(handle.status.get())) {
+      const answered = (): boolean =>
+        isAnswered(handle.status.get(), handle.upstream.get());
+      if (answered()) {
         then();
         return () => {};
       }
-      const stop = handle.status.subscribe((status) => {
-        if (!isAnswered(status)) return;
+      const check = (): void => {
+        if (!answered()) return;
         stop();
         then();
-      });
+      };
+      const stopStatus = handle.status.subscribe(check);
+      const stopUpstream = handle.upstream.subscribe(check);
+      const stop = (): void => {
+        stopStatus();
+        stopUpstream();
+      };
       return stop;
     },
     close() {

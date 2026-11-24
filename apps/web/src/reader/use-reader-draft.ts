@@ -1,9 +1,11 @@
 // Loads a sent draft over REST, falls back to a reader-scoped offline cache, and runs Changes since you last read.
+import type { Comparison } from "@manent/revisions";
+import type { DocJSON } from "@manent/schema";
 import type { DraftOpenResponse } from "@manent/sync-protocol";
 import { READER_WORDS, formatDate, formatDay } from "@manent/ui";
 import type { MessageQueue } from "@manent/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { changedPageLabels } from "./reader-compare.ts";
+import { compareDrafts } from "./reader-compare.ts";
 import { registerReaderSinceLastRead } from "./reader-controller.ts";
 import { createReaderRequests } from "./reader-requests.ts";
 import {
@@ -46,6 +48,12 @@ export function readerRefusalText(reason: ReaderRefusal): string {
   }
 }
 
+export interface ActiveReaderComparison {
+  readonly baseline: DocJSON;
+  readonly comparison: Comparison;
+  readonly baselineName: string;
+}
+
 export function useReaderDraft(options: {
   token: string;
   fetch: typeof fetch;
@@ -57,7 +65,9 @@ export function useReaderDraft(options: {
   signedIn: boolean;
 }): {
   readonly state: ReaderLoadState;
+  readonly comparison: ActiveReaderComparison | null;
   readonly runSinceLastRead: () => void;
+  readonly hideComparison: () => void;
 } {
   const {
     token,
@@ -70,6 +80,9 @@ export function useReaderDraft(options: {
     signedIn,
   } = options;
   const [state, setState] = useState<ReaderLoadState>({ kind: "loading" });
+  const [comparison, setComparison] = useState<ActiveReaderComparison | null>(
+    null,
+  );
 
   const requests = useMemo(
     () =>
@@ -83,6 +96,7 @@ export function useReaderDraft(options: {
   useEffect(() => {
     let active = true;
     setState({ kind: "loading" });
+    setComparison(null);
 
     void requests.open(token).then((answer) => {
       if (!active) return;
@@ -176,13 +190,19 @@ export function useReaderDraft(options: {
         });
         return;
       }
-      const pages = changedPageLabels(answer.value.content, currentContent);
+      const compared = compareDrafts(answer.value.content, currentContent);
+      if (compared !== null)
+        setComparison({
+          baseline: compared.baseline,
+          comparison: compared.comparison,
+          baselineName: answer.value.name ?? "",
+        });
       messageQueue.push({
         id: "reader.sinceLastRead.result",
         text:
-          pages === null
+          compared === null
             ? READER_WORDS.noChangesSinceLastRead
-            : READER_WORDS.pagesChangedSinceLastRead(pages),
+            : READER_WORDS.pagesChangedSinceLastRead(compared.pages),
         actions: [],
         lifetime: "brief",
         ownWork: false,
@@ -190,10 +210,14 @@ export function useReaderDraft(options: {
     });
   }, [state, token, requests, messageQueue]);
 
+  const hideComparison = useCallback((): void => {
+    setComparison(null);
+  }, []);
+
   useEffect(
     () => registerReaderSinceLastRead(runSinceLastRead),
     [runSinceLastRead],
   );
 
-  return { state, runSinceLastRead };
+  return { state, comparison, runSinceLastRead, hideComparison };
 }

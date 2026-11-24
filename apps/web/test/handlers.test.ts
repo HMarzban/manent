@@ -185,3 +185,89 @@ test("name commands say why when no document or word is open, and alternate hand
   await Promise.resolve();
   expect(docDeps.services.messages.current()).toBeNull();
 });
+
+test("history.copyLink copies a comparison link above Changes since and a version link from a row menu", async () => {
+  const { historyView, markRowLink } =
+    await import("../src/history/history-view.ts");
+  const { deps } = depsAt({
+    routeId: "/s/$docId",
+    href: "/s/doc-1",
+    search: {},
+  });
+  const copied: string[] = [];
+  const priorNavigator = globalThis.navigator;
+  const priorLocation = globalThis.location;
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: {
+      clipboard: {
+        writeText: async (text: string) => {
+          copied.push(text);
+        },
+      },
+    },
+  });
+  Object.defineProperty(globalThis, "location", {
+    configurable: true,
+    value: { origin: "http://manent.test" },
+  });
+  const row = {
+    item: {
+      id: "ver-1",
+      kind: "named" as const,
+      name: "Studio draft",
+      createdByUserId: "dana",
+      createdAt: Date.UTC(2026, 10, 16, 14, 10),
+      position: { generation: 1, seq: 1 },
+      engineVersion: 1,
+      onDevice: true,
+      summary: { changes: 4, scenes: 1, authorUserIds: ["dana"] },
+    },
+    title: "Studio draft",
+    day: "Mon 16 Nov",
+    time: "14:10",
+    local: null,
+  };
+  historyView.set({
+    docId: "doc-1",
+    rows: [row],
+    selected: row,
+    baseline: row,
+    mode: "page",
+    step: null,
+    filter: { sceneIds: null, authorUserIds: null },
+    blockIds: null,
+  });
+  try {
+    const handlers = createHandlers(deps);
+    handlers["history.copyLink"]();
+    await Promise.resolve();
+    expect(copied).toEqual([
+      "http://manent.test/s/doc-1/changes/ver-1/working",
+    ]);
+    expect(deps.services.messages.current()?.text).toBe(
+      "Copied a link to the changes since 'Studio draft'.",
+    );
+
+    markRowLink();
+    handlers["history.copyLink"]();
+    await Promise.resolve();
+    expect(copied).toEqual([
+      "http://manent.test/s/doc-1/changes/ver-1/working",
+      "http://manent.test/s/doc-1/v/ver-1",
+    ]);
+    expect(deps.services.messages.current()?.text).toBe(
+      "Copied a link to 'Studio draft'.",
+    );
+  } finally {
+    historyView.set(null);
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: priorNavigator,
+    });
+    Object.defineProperty(globalThis, "location", {
+      configurable: true,
+      value: priorLocation,
+    });
+  }
+});

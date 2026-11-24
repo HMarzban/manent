@@ -97,6 +97,11 @@ export async function committedOnDevice(
   );
 }
 
+/** Timeout for a full Stage 2 demo reseed request. */
+const RESEED_TIMEOUT_MS = 120_000;
+/** Timeout for a `fresh: true` scenario test, covering a full reseed plus the scenario steps. */
+const FRESH_SCENARIO_TIMEOUT_MS = 180_000;
+
 /** Re-seeds the demo: each person's first visit to the Library, which the server keeps with them, is to come again. */
 export async function reseedDemo(request: APIRequestContext): Promise<void> {
   const answer: unknown = await (await request.get("/api/demo")).json();
@@ -107,6 +112,7 @@ export async function reseedDemo(request: APIRequestContext): Promise<void> {
     throw new Error("the demo names no control to reset it with");
   const reset = await request.post(`${url}/reset`, {
     headers: { Authorization: `Bearer ${token}` },
+    timeout: RESEED_TIMEOUT_MS,
   });
   expect(await reset.json()).toEqual({ server: "running" });
 }
@@ -188,6 +194,18 @@ const tourTest = test.extend<object, { desktopNode: DesktopNode }>({
   ],
 });
 
+/** Signs `userId` in through the demo route and returns their bearer token. */
+async function signInToken(
+  request: APIRequestContext,
+  userId: string,
+): Promise<string> {
+  const signIn = await request.post("/api/sign-in", { data: { userId } });
+  const token: unknown = Reflect.get(Object(await signIn.json()), "token");
+  if (typeof token !== "string")
+    throw new Error(`the demo did not sign ${userId} in`);
+  return token;
+}
+
 /** Starts the demo again from a new seed, then waits until it answers, and answers `userId` when they have a session. */
 async function freshDemo(
   request: APIRequestContext,
@@ -199,10 +217,7 @@ async function freshDemo(
     .toBe(200);
   if (DEMO_PEOPLE.find((p) => p.userId === userId)?.registered !== true) return;
   await expect(async () => {
-    const signIn = await request.post("/api/sign-in", { data: { userId } });
-    const token: unknown = Reflect.get(Object(await signIn.json()), "token");
-    if (typeof token !== "string")
-      throw new Error(`the demo did not sign ${userId} in`);
+    const token = await signInToken(request, userId);
     const me = await request.get("/api/me", {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -246,6 +261,21 @@ function windowOfStep(text: string, userIds: readonly string[]): number {
   return at;
 }
 
+/** Selects step `index` in the Tour before opening a menu or popover whose blur would otherwise dismiss it. */
+export async function selectTourStep(
+  page: Page,
+  promise: string,
+  index: number,
+): Promise<void> {
+  const row = tourPanel(page)
+    .getByRole("listitem")
+    .filter({ hasText: promise })
+    .locator("ol > li > div")
+    .nth(index);
+  if ((await row.getAttribute("aria-current")) !== "true") await row.click();
+  await expect(row).toHaveAttribute("aria-current", "true");
+}
+
 /**
  * Step `index`'s target in the window it names. In the first window, where the Tour is open, the person chooses that
  * step in the Tour unless Set it up put them on it, and its target must carry the Tour ring; an extra window has no
@@ -271,13 +301,7 @@ async function stepTarget(
     await expect(target).toBeVisible();
     return target;
   }
-  const row = tourPanel(windows[0]!)
-    .getByRole("listitem")
-    .filter({ hasText: scenario.promise })
-    .locator("ol > li > div")
-    .nth(index);
-  if ((await row.getAttribute("aria-current")) !== "true") await row.click();
-  await expect(row).toHaveAttribute("aria-current", "true");
+  await selectTourStep(windows[0]!, scenario.promise, index);
   await expect(target).toHaveAttribute("data-tour-ring", "");
   return target;
 }
@@ -305,7 +329,9 @@ async function setUpScenario(
   if (scenario.fresh) await freshDemo(request, setup.userId);
   if (setup.prepare !== null) {
     // a preparation acts as the scenario's person, whoever asks
+    const token = await signInToken(request, setup.userId);
     const answer = await request.post("/api/demo/tour/prepare", {
+      headers: { Authorization: `Bearer ${token}` },
       data: { scenarioId: scenario.id },
     });
     expect(await answer.json()).toEqual({ ok: true });
@@ -350,6 +376,7 @@ export function tourScenario(id: string, body: TourBody): void {
     fixtures: TourFixtures,
     node: DesktopNode | null,
   ): Promise<void> => {
+    if (scenario.fresh) test.setTimeout(FRESH_SCENARIO_TIMEOUT_MS);
     const { windows, contexts } = await setUpScenario(scenario, fixtures, node);
     try {
       await body({

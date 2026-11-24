@@ -6,6 +6,7 @@ import type { Comparison } from "@manent/revisions";
 import type { SinceResponse, VersionContent } from "@manent/sync-protocol";
 import {
   Button,
+  CommandButton,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -30,6 +31,7 @@ import {
   sinceOpenedBaseline,
 } from "../../history/baseline.ts";
 import type { HistoryRow } from "../../history/history-rows.ts";
+import { setBaselineRow } from "../../history/history-view.ts";
 import { readLastOpened } from "../../history/last-opened.ts";
 import { useServices } from "../../services/context.tsx";
 import { nameOf } from "../../services/sync/index-entries.ts";
@@ -187,6 +189,9 @@ function BaselineMenu(props: {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+      {props.offered?.versionId != null ? (
+        <CommandButton id="history.copyLink" variant="outline" size="sm" />
+      ) : null}
     </div>
   );
 }
@@ -320,6 +325,12 @@ export function HistoryChanges(props: {
   const draftsOnly = useHistory("draftsOnly");
   const shown = useShownChanges(docId, content, all, props.blockIds);
   const note = content === null ? null : noteOf(content, docId);
+  useLayoutEffect(() => {
+    const id = offered?.versionId ?? null;
+    setBaselineRow(
+      id === null ? null : (rows.find((row) => row.item.id === id) ?? null),
+    );
+  }, [offered, rows]);
   return (
     <div className="flex flex-col gap-2 px-2 py-2">
       <BaselineMenu docId={docId} rows={rows} offered={offered} />

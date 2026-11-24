@@ -93,21 +93,29 @@ function useShownToCommands(
 ): void {
   const storeDoc = useHistory("docId");
   const selected = useHistory("selected");
+  const baseline = useHistory("baseline");
+  const mode = useHistory("mode");
   const step = useHistory("step");
   const filter = useHistory("filter");
   useLayoutEffect(() => {
     if (storeDoc !== docId) historyActions.reset(docId);
   }, [storeDoc, docId]);
   useLayoutEffect(() => {
+    const baselineId = baseline?.versionId ?? null;
     historyView.set({
       docId,
       rows,
       selected: rows.find((row) => row.item.id === selected) ?? null,
+      baseline:
+        baselineId === null
+          ? null
+          : (rows.find((row) => row.item.id === baselineId) ?? null),
+      mode,
       step,
       filter,
       blockIds,
     });
-  }, [docId, rows, selected, step, filter, blockIds]);
+  }, [docId, rows, selected, baseline, mode, step, filter, blockIds]);
   // closing the tab ends what it showed: the version viewed and the changes drawn
   useEffect(
     () => () => {

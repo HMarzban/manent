@@ -15,10 +15,17 @@ import {
   compareModeOf,
   markedLines,
 } from "@manent/revisions";
+import type { Comparison } from "@manent/revisions";
 import { SCHEMA_VERSION, blocksOf } from "@manent/schema";
-import type { BlockJSON } from "@manent/schema";
+import type { BlockJSON, DocJSON } from "@manent/schema";
 import type { VersionContent } from "@manent/sync-protocol";
 import { docOfContent } from "../history/content-doc.ts";
+
+export interface ReaderComparison {
+  readonly baseline: DocJSON;
+  readonly comparison: Comparison;
+  readonly pages: readonly string[];
+}
 
 const EMPTY_AUTHORS: ReadonlyMap<string, string> = new Map();
 
@@ -55,13 +62,13 @@ export function draftPageWidthPx(content: VersionContent): number | null {
 }
 
 /**
- * The ordered, deduplicated page labels of `current` that changed relative to `earlier`.
+ * Compares `earlier` against `current` and lists the ordered, deduplicated page labels of `current` that changed.
  * Null when either version's blocks fail schema validation or no layout engine is available.
  */
-export function changedPageLabels(
+export function compareDrafts(
   earlier: VersionContent,
   current: VersionContent,
-): string[] | null {
+): ReaderComparison | null {
   const olderDoc = docOfContent(earlier);
   const newerDoc = docOfContent(current);
   if (olderDoc === null || newerDoc === null) return null;
@@ -91,7 +98,19 @@ export function changedPageLabels(
       labels.push(label);
     }
   }
-  return labels;
+  return { baseline: olderDoc, comparison, pages: labels };
+}
+
+/**
+ * The ordered, deduplicated page labels of `current` that changed relative to `earlier`.
+ * Null when either version's blocks fail schema validation or no layout engine is available.
+ */
+export function changedPageLabels(
+  earlier: VersionContent,
+  current: VersionContent,
+): string[] | null {
+  const result = compareDrafts(earlier, current);
+  return result === null ? null : [...result.pages];
 }
 
 function textOfBlock(block: BlockJSON): string {

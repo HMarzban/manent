@@ -249,7 +249,9 @@ async function sendExistingVersion(
     file.transaction(() => file.sharing.addSend(sendRow));
   }
   const hasRecipients = groups.length > 0 || recipientUserIds.length > 0;
-  const recipientToken = hasRecipients ? nextToken(d) : null;
+  const recipientToken = hasRecipients
+    ? (request.recipientToken ?? nextToken(d))
+    : null;
   const linkToken = request.link !== null ? nextToken(d) : null;
   if (recipientToken !== null)
     storage.shareLinks.addDraftLink({

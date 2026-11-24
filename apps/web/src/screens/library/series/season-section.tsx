@@ -139,7 +139,10 @@ export function SeasonSection(props: {
           </Button>
         </div>
       ) : (
-        <div className={cn("mn-table flex flex-col", SERIES_PLACE_COLUMN)}>
+        <div
+          data-tour="episode_table"
+          className={cn("mn-table flex flex-col", SERIES_PLACE_COLUMN)}
+        >
           <div className="mn-table-head flex shrink-0 items-center gap-2 px-3">
             <span className={COL_EP}>{SERIES_WORDS.columns.ep}</span>
             <span className={COL_TITLE}>{SERIES_WORDS.columns.title}</span>

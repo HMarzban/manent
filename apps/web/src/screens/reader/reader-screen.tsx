@@ -1,5 +1,6 @@
 // The reader frame (`/r/$token`): whole window, true pages, watermark, phone scaling, Changes since you last read and tap-to-comment.
 import { COMMANDS } from "@manent/commands";
+import type { SideTab } from "@manent/commands";
 import { textAnchorAt } from "@manent/schema";
 import {
   MessageSlot,
@@ -20,6 +21,7 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import type { Api } from "../../api.ts";
+import { tourTab } from "../../demo/tour-tab.tsx";
 import { browserPagePorts } from "../../editor-host/page-ports.ts";
 import { focusHeading } from "../../focus.ts";
 import { createReaderCommentsSession } from "../../reader/reader-comments.ts";
@@ -31,6 +33,8 @@ import {
   useReaderDraft,
 } from "../../reader/use-reader-draft.ts";
 import { useEnvironment } from "../../services/context.tsx";
+import type { PanelTab } from "../../shell/panel-tab.ts";
+import { SidePosition } from "../../shell/side-position.tsx";
 import type { PersonStore } from "../../state/person.store.ts";
 import { TEXT, pageTitle } from "../../text.ts";
 import { ReaderChooser } from "./reader-chooser.tsx";
@@ -39,7 +43,7 @@ import type { ReaderPopoverMode } from "./reader-comment-popover.tsx";
 import { ReaderPage } from "./reader-page.tsx";
 import type { TappedLine } from "./reader-page.tsx";
 
-const FRAME_STYLE = Object.freeze({ gridColumn: "1 / -1", gridRow: "1 / -1" });
+const READER_SIDE_TABS: readonly PanelTab<SideTab>[] = [tourTab];
 
 const isRegistered = (commandId: string): boolean =>
   COMMANDS.some((command) => command.id === commandId);
@@ -93,16 +97,17 @@ export function ReaderScreen(props: {
     [services, environment.userAgent],
   );
 
-  const { state, runSinceLastRead } = useReaderDraft({
-    token,
-    fetch: fetchFn,
-    usePerson,
-    environment,
-    messageQueue,
-    userId,
-    bearerToken,
-    signedIn,
-  });
+  const { state, comparison, runSinceLastRead, hideComparison } =
+    useReaderDraft({
+      token,
+      fetch: fetchFn,
+      usePerson,
+      environment,
+      messageQueue,
+      userId,
+      bearerToken,
+      signedIn,
+    });
 
   useEffect(() => {
     setPopover(null);
@@ -175,9 +180,13 @@ export function ReaderScreen(props: {
         else runSinceLastRead();
         return;
       }
+      if (commandId === "history.hideChanges") {
+        hideComparison();
+        return;
+      }
       services?.commands.run(commandId, "control");
     },
-    [services, runSinceLastRead],
+    [services, runSinceLastRead, hideComparison],
   );
 
   const handleTapLine = useCallback(
@@ -226,11 +235,19 @@ export function ReaderScreen(props: {
     );
   }
 
+  const frameClass =
+    services === null
+      ? "z-10 flex h-screen min-h-0 flex-col bg-desk text-fg"
+      : "z-10 flex min-h-0 flex-1 flex-col bg-desk text-fg";
+
   if (state.kind === "refused") {
     return (
       <div
-        className="z-10 flex h-screen flex-col items-start gap-2 bg-chrome p-6 text-fg"
-        style={FRAME_STYLE}
+        className={
+          services === null
+            ? "z-10 flex h-screen flex-col items-start gap-2 bg-chrome p-6 text-fg"
+            : "z-10 flex min-h-0 flex-1 flex-col items-start gap-2 bg-chrome p-6 text-fg"
+        }
       >
         <h1
           tabIndex={-1}
@@ -244,25 +261,30 @@ export function ReaderScreen(props: {
   }
 
   if (state.kind === "loading") {
-    return (
-      <div
-        className="z-10 flex h-screen min-h-0 flex-col bg-desk text-fg"
-        style={FRAME_STYLE}
-      />
-    );
+    return <div className={frameClass} />;
   }
 
   const { draft, offlineOpenedAt } = state;
-  const leftLine = stateBarLines([
+  const bar = stateBarLines([
     {
       kind: "reader_draft",
       name: draft.name,
       date: formatReaderDayDate(draft.sentAt),
     },
-  ]).left;
+    ...(comparison !== null && comparison.baselineName !== ""
+      ? [
+          {
+            kind: "showing_changes" as const,
+            name: comparison.baselineName,
+            date: null,
+          },
+        ]
+      : []),
+  ]);
+  const leftLine = bar.left;
 
-  let rightLine: StateLine | null = null;
-  if (offlineOpenedAt !== null) {
+  let rightLine: StateLine | null = bar.right;
+  if (rightLine === null && offlineOpenedAt !== null) {
     rightLine = {
       sentence: READER_WORDS.offlineCopy(formatReaderDayDate(offlineOpenedAt)),
       chip: null,
@@ -270,7 +292,7 @@ export function ReaderScreen(props: {
       dismiss: null,
       attention: false,
     };
-  } else if (signedIn && draft.canComment) {
+  } else if (rightLine === null && signedIn && draft.canComment) {
     rightLine = {
       sentence: READER_WORDS.canComment,
       chip: null,
@@ -283,40 +305,44 @@ export function ReaderScreen(props: {
   const tappable = offlineOpenedAt === null && (!signedIn || draft.canComment);
 
   return (
-    <div
-      data-reader-frame=""
-      className="z-10 flex h-screen min-h-0 flex-col bg-desk text-fg"
-      style={FRAME_STYLE}
-    >
+    <div data-reader-frame="" className={frameClass}>
       <h1 tabIndex={-1} className="sr-only">
         {draft.name}
       </h1>
-      <StateBar
-        left={leftLine}
-        right={rightLine}
-        run={runCommand}
-        registered={isRegistered}
-      />
-      <ReaderPage
-        content={draft.content}
-        watermark={draft.watermark}
-        ports={pagePorts}
-        title={draft.name}
-        tappable={tappable}
-        onTapLine={handleTapLine}
-      />
-      <div
-        className={
-          hasMessage
-            ? "flex h-statusbar items-center border-t border-line bg-chrome px-3 text-ui"
-            : "sr-only"
-        }
-      >
-        <MessageSlot
-          queue={messageQueue}
-          run={runCommand}
-          registered={isRegistered}
-        />
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <StateBar
+            left={leftLine}
+            right={rightLine}
+            run={runCommand}
+            registered={isRegistered}
+          />
+          <ReaderPage
+            content={draft.content}
+            watermark={draft.watermark}
+            comparison={comparison}
+            ports={pagePorts}
+            title={draft.name}
+            tappable={tappable}
+            onTapLine={handleTapLine}
+          />
+          <div
+            className={
+              hasMessage
+                ? "flex h-statusbar items-center border-t border-line bg-chrome px-3 text-ui"
+                : "sr-only"
+            }
+          >
+            <MessageSlot
+              queue={messageQueue}
+              run={runCommand}
+              registered={isRegistered}
+            />
+          </div>
+        </div>
+        {services !== null ? (
+          <SidePosition docId={null} tabs={READER_SIDE_TABS} />
+        ) : null}
       </div>
       {popover !== null && commentsSession !== null && userId !== null ? (
         <ReaderCommentPopover

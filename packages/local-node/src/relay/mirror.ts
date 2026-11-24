@@ -149,6 +149,41 @@ function busy(
 }
 
 /**
+ * Before a window's POST /api/docs creates an unplaced document locally, checks whether the cloud already
+ * holds it (such as a person's private index) and mirrors it instead, avoiding a duplicate local copy.
+ */
+export async function mirrorBeforeCreate(options: {
+  request: Request;
+  storage: Storage;
+  mirror: Mirror;
+  resolveUser(token: string): string | null;
+  ensureCloudToken(userId: string): Promise<string | null>;
+}): Promise<void> {
+  const { request, storage, mirror } = options;
+  if (
+    request.method !== "POST" ||
+    new URL(request.url).pathname !== "/api/docs"
+  )
+    return;
+  const auth = request.headers.get("authorization");
+  if (auth === null || !auth.startsWith("Bearer ")) return;
+  const userId = options.resolveUser(auth.slice("Bearer ".length));
+  if (userId === null) return;
+  const body: unknown = await request
+    .clone()
+    .json()
+    .catch(() => null);
+  const docId =
+    typeof body === "object" && body !== null && "docId" in body
+      ? body.docId
+      : null;
+  if (typeof docId !== "string" || storage.directory.placeOf(docId) !== null)
+    return;
+  if ((await options.ensureCloudToken(userId)) === null) return;
+  await mirror.ensure(userId, docId);
+}
+
+/**
  * The windows' connections in front of the server's: a SUBSCRIBE of a document the node has never
  * placed waits for the mirror (and what the window sends for that document after it waits too), and
  * is answered 4429 `busy` while the cloud cannot be reached. Every connection is watched for the
@@ -160,6 +195,7 @@ export function guardSubscribe(options: {
   storage: Storage;
   mirror: Mirror;
   tokenOf: (userId: string) => string | null;
+  waitToken?: (userId: string) => Promise<string | null>;
   clock: Clock;
   subscribed(editor: Editor, docId: string): void;
   acked(docId: string): void;
@@ -224,7 +260,10 @@ export function guardSubscribe(options: {
     userId: string | null,
     docId: string,
   ): Promise<boolean> {
-    if (userId === null || options.tokenOf(userId) === null) return true;
+    if (userId === null) return true;
+    const token =
+      options.tokenOf(userId) ?? (await options.waitToken?.(userId)) ?? null;
+    if (token === null) return true;
     const ensured = await options.mirror.ensure(userId, docId);
     return ensured.ok || ensured.code !== "unreachable";
   }

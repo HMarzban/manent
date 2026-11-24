@@ -31,8 +31,10 @@ export {
   SEED_DOCS,
   SEED_PROJECTS,
   docPath,
+  draftLinkPath,
   heavyHomes,
   seedDoc,
+  seedDraftToken,
   seedProject,
 } from "./seed/catalogue.ts";
 export type {

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { scriptBody } from "@manent/crdt";
+import { jsonMap, scriptBody } from "@manent/crdt";
 import type { BlockJSON } from "@manent/schema";
 import { indexDocId, workspaceHome } from "@manent/sync-protocol";
 import { DOC, nodeWorld } from "./relay-world.ts";
@@ -262,4 +262,43 @@ test("relayControl delivers relayed cloud CONTROL kinds (12-17) to subscribed do
   );
   await w.settle();
   expect(controls.some((c) => c.kind === "driver_changed")).toBe(true);
+});
+
+test("opening a cloud-seeded private index through the local node mirrors and syncs it instead of creating a duplicate copy", async () => {
+  const w = nodeWorld();
+  const userIdx = indexDocId("user", "sam");
+  w.cloud.service.access.create("sam", {
+    docId: userIdx,
+    kind: "index",
+    home: "user",
+  });
+  const seeded = await w.browserHandle("sam", userIdx);
+  jsonMap(seeded.doc(), "writing").set(DOC, { position: "private", at: 100 });
+  await w.settle();
+
+  const token = await w.chooses("sam");
+  const created = await w.drive(
+    w.request("POST", "/api/docs", {
+      token,
+      body: { docId: userIdx, kind: "index", home: "user" },
+    }),
+  );
+  expect(created.status).toBe(200);
+  const handle = await w.open("sam", userIdx);
+  await w.settle();
+  expect(w.records.docState(userIdx)).toEqual({
+    userId: "sam",
+    state: "synced",
+    generation: 1,
+  });
+  expect(handle.status.get()).toMatchObject({
+    saved: true,
+    synced: true,
+    waiting: 0,
+    link: "online",
+  });
+  expect(jsonMap(handle.doc(), "writing").get(DOC)).toEqual({
+    position: "private",
+    at: 100,
+  });
 });

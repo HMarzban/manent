@@ -86,7 +86,9 @@ export function createRelayBridge(options: RelayBridgeOptions): RelayBridge {
       const userId = authorityUserId(docId);
       const client =
         userId === null ? null : (persons.get(userId)?.client ?? null);
-      const link = client?.link.get().state ?? "offline";
+      const link =
+        client?.link.get().state ??
+        (relaying && online ? "connecting" : "offline");
       return ownStatus({
         link,
         device,
