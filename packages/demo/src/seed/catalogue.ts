@@ -269,6 +269,20 @@ export const SEED_DOCS: readonly SeedDoc[] = Object.freeze([
     { kind: "rundown" },
   ),
   ...HEAVY_RUNDOWNS,
+  doc(
+    "medium/harbour-lights",
+    "206-outline",
+    "206 The Bar — Outline",
+    "screenplay",
+    { kind: "outline", hero: true },
+  ),
+  doc(
+    "medium/harbour-lights",
+    "205-room-log",
+    "205 Slack Water — Room log",
+    "screenplay",
+    { kind: "room_log" },
+  ),
 ]);
 
 /** The document `key` names; throws RangeError for a key the catalogue lacks. */
