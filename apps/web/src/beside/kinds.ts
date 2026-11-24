@@ -2,6 +2,7 @@
 import type { ComponentType } from "react";
 import { useDocumentTitle } from "../screens/document/title-bar.tsx";
 import type { PersonServices } from "../services/ports.ts";
+import { ROOM_LOG_BESIDE_KIND } from "../room-log/beside-kind.ts";
 import { ScriptBeside } from "./script-beside.tsx";
 
 export type BesideKindId =
@@ -69,4 +70,5 @@ export const BESIDE_KINDS: readonly BesideKind[] = [
     Body: ScriptBeside,
     choices: otherScripts,
   },
+  ROOM_LOG_BESIDE_KIND,
 ];

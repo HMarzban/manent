@@ -37,5 +37,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   pitched, speech, swapped, swaps,
   becomes, describe, apply, ep,
   presenting, took,
-  rule, thin, too, total
+  rule, thin, too, total,
+  future, joke, landed, linked, showrunner, tagged
 `);

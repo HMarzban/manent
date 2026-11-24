@@ -76,6 +76,7 @@ test("beside-source handles omitted choices and create-on-first-open choices", a
   // verify BesideKind allows optional choices and open() resolves row selection
   expect(customKinds.map((k) => typeof k.choices)).toEqual([
     "function",
+    "function",
     "undefined",
     "function",
   ]);
@@ -104,7 +105,7 @@ test("beside-source handles omitted choices and create-on-first-open choices", a
   expect(Array.isArray(source.rows(""))).toBe(true);
   // directly invoke an open() choice via a BesideKind test entry
   let openedDoc: string | null = null;
-  const openChoice = customKinds[2]?.choices?.({
+  const openChoice = customKinds.at(-1)?.choices?.({
     docId: "s1",
     services,
     workspaceIds: ["you"],
