@@ -1,7 +1,8 @@
 // The side panel's Details tab: its scopes Selection, Scene, Script and Rundown, each drawn while it has a section.
-import { DOCUMENT_WORDS } from "@manent/ui";
-import { Suspense, lazy, useEffect } from "react";
+import { DOCUMENT_WORDS, useSubscribable } from "@manent/ui";
+import { Suspense, lazy, useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
+import { useServices } from "../../services/context.tsx";
 import type { PanelTab } from "../../shell/panel-tab.ts";
 import { panelsActions } from "../../state/panels.store.ts";
 import { DETAILS_SECTIONS } from "./details-sections.ts";
@@ -21,10 +22,17 @@ const SCOPES: readonly { scope: DetailsScope; heading: string }[] =
     { scope: "rundown", heading: DOCUMENT_WORDS.rundownScope },
   ]);
 
-/** The Script scope is always drawn, its own Script settings first, then the sections later features register. */
+/** The Script scope is always drawn on a non-rundown; a rundown draws its Rundown scope alone. */
 function DetailsPanel(props: { docId: string }): ReactNode {
   const { docId } = props;
+  const services = useServices();
+  const docKindSource = useMemo(
+    () => services.library.docKindOf(docId),
+    [services.library, docId],
+  );
+  const isRundown = useSubscribable(docKindSource) === "rundown";
   return SCOPES.map(({ scope, heading }) => {
+    if (isRundown ? scope !== "rundown" : scope === "rundown") return null;
     const sections = DETAILS_SECTIONS.filter(
       (section) => section.scope === scope,
     );
