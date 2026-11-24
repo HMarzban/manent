@@ -12,12 +12,18 @@ import {
   useCommands,
 } from "@manent/ui";
 import { ChevronDownIcon } from "lucide-react";
-import { useEffect, useReducer, useState } from "react";
+import { useContext, useEffect, useReducer, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
-import { useEnvironment } from "../services/context.tsx";
+import { useEnvironment, useServices } from "../services/context.tsx";
+import { FactsContext } from "../state/bridge-contexts.ts";
 import { useEditorFact } from "../state/facts.store.ts";
 import { SELECTION_SLOTS } from "./slots.ts";
-import type { SelectionSlot } from "./slots.ts";
+import type {
+  SelectionActionContext,
+  SelectionActionSlot,
+  SelectionCommandSlot,
+  SelectionSlot,
+} from "./slots.ts";
 
 const SHOW_AFTER_MS = 150;
 const PAGE_REGION = "[data-region='page']";
@@ -132,43 +138,65 @@ function usePointerSelection(docId: string): Place | null {
   return place;
 }
 
+interface MoreItem {
+  readonly key: string;
+  readonly label: string;
+  readonly run: () => void;
+}
+
 interface Items {
   main: readonly CommandId[];
   /** How many of `main` come before More ▾: it stands where the list's first `more` entry stands. */
   moreAt: number;
-  more: readonly CommandId[];
+  more: readonly SelectionSlot[];
   state: CommandId | null;
 }
 
-/** The bar's items from `slots`, keeping only the entries `isAvailable` accepts. */
+const isCommandSlot = (slot: SelectionSlot): slot is SelectionCommandSlot =>
+  "command" in slot;
+
+const isActionSlot = (slot: SelectionSlot): slot is SelectionActionSlot =>
+  !isCommandSlot(slot);
+
+/** The bar's items from `slots`, keeping only the entries `isAvailable` or `actionContext` accepts. */
 function itemsOf(
   slots: readonly SelectionSlot[],
   isAvailable: (id: CommandId) => boolean,
+  actionContext: SelectionActionContext | null,
 ): Items {
-  const shown = slots.filter((slot) => isAvailable(slot.command));
-  const idsIn = (place: SelectionSlot["place"]): CommandId[] =>
-    shown.flatMap((slot) => (slot.place === place ? [slot.command] : []));
+  const keeps = (slot: SelectionSlot): boolean =>
+    isCommandSlot(slot)
+      ? isAvailable(slot.command)
+      : actionContext !== null && slot.available(actionContext);
+  const shown = slots.filter(keeps);
+  const commandIdsIn = (place: SelectionCommandSlot["place"]): CommandId[] =>
+    shown.flatMap((slot) =>
+      isCommandSlot(slot) && slot.place === place ? [slot.command] : [],
+    );
   const firstMore = slots.findIndex((slot) => slot.place === "more");
   const beforeMore = firstMore === -1 ? slots : slots.slice(0, firstMore);
   // a stable sort keeps the list's order among equal ranks
   const [state] = shown
-    .filter((slot) => slot.place === "state")
+    .filter(
+      (slot): slot is SelectionCommandSlot =>
+        isCommandSlot(slot) && slot.place === "state",
+    )
     .toSorted((a, b) => a.rank - b.rank);
   return {
-    main: idsIn("main"),
+    main: commandIdsIn("main"),
     moreAt: beforeMore.filter(
-      (slot) => slot.place === "main" && isAvailable(slot.command),
+      (slot) =>
+        isCommandSlot(slot) &&
+        slot.place === "main" &&
+        isAvailable(slot.command),
     ).length,
-    more: idsIn("more"),
+    more: shown.filter((slot) => slot.place === "more"),
     state: state?.command ?? null,
   };
 }
 
-/** Its items run their commands as a menu's do; closed, it gives focus back to the page and its selection. */
-function MoreMenu(props: {
-  items: readonly { id: CommandId; label: string }[];
-}): ReactNode {
-  const { service } = useCommands();
+/** Its items run their commands or actions as a menu's do; closed, it gives focus back to the page and its selection. */
+function MoreMenu(props: { items: readonly MoreItem[] }): ReactNode {
   const { dom } = useEnvironment();
   return (
     <DropdownMenu
@@ -181,8 +209,8 @@ function MoreMenu(props: {
         <ChevronDownIcon aria-hidden="true" />
       </DropdownMenuTrigger>
       <DropdownMenuContent data-selection-toolbar="" finalFocus={false}>
-        {props.items.map(({ id, label }) => (
-          <DropdownMenuItem key={id} onClick={() => service.run(id, "menu")}>
+        {props.items.map(({ key, label, run }) => (
+          <DropdownMenuItem key={key} onClick={run}>
             {label}
           </DropdownMenuItem>
         ))}
@@ -198,16 +226,63 @@ const button = (id: CommandId): ReactNode => (
   <CommandButton key={id} id={id} size="sm" />
 );
 
-function Bar(props: { place: Place }): ReactNode {
-  const { place } = props;
-  const { service } = useCommands();
-  const [, changed] = useReducer((n: number) => n + 1, 0);
-  useEffect(() => service.subscribe(changed), [service]);
-  const { main, moreAt, more, state } = itemsOf(SELECTION_SLOTS, (id) => {
-    const { visible, enabled } = service.state(id);
-    return visible && enabled;
+function toMoreItems(
+  more: readonly SelectionSlot[],
+  service: ReturnType<typeof useCommands>["service"],
+  actionContext: SelectionActionContext | null,
+): MoreItem[] {
+  return more.flatMap((slot) => {
+    if (isCommandSlot(slot))
+      return [
+        {
+          key: slot.command,
+          label: service.state(slot.command).label,
+          run: () => service.run(slot.command, "menu"),
+        },
+      ];
+    if (isActionSlot(slot) && actionContext !== null)
+      return [
+        {
+          key: slot.id,
+          label: slot.label,
+          run: () => slot.run(actionContext),
+        },
+      ];
+    return [];
   });
+}
+
+function Bar(props: { docId: string; place: Place }): ReactNode {
+  const { docId, place } = props;
+  const { service } = useCommands();
+  const services = useServices();
+  const environment = useEnvironment();
+  const facts = useContext(FactsContext);
+  const [, changed] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    const stops = [service.subscribe(changed)];
+    if (facts !== null) {
+      stops.push(
+        facts.subscribe("selectedText", changed),
+        facts.subscribe("blockId", changed),
+      );
+    }
+    return () => {
+      for (const stop of stops) stop();
+    };
+  }, [service, facts]);
+  const actionContext: SelectionActionContext | null =
+    facts === null ? null : { docId, services, environment, facts };
+  const { main, moreAt, more, state } = itemsOf(
+    SELECTION_SLOTS,
+    (id) => {
+      const { visible, enabled } = service.state(id);
+      return visible && enabled;
+    },
+    actionContext,
+  );
   if (main.length === 0 && more.length === 0 && state === null) return null;
+  const moreItems = toMoreItems(more, service, actionContext);
   return (
     <div
       role="toolbar"
@@ -218,11 +293,7 @@ function Bar(props: { place: Place }): ReactNode {
       onMouseDown={keepPageFocus}
     >
       {main.slice(0, moreAt).map(button)}
-      {more.length === 0 ? null : (
-        <MoreMenu
-          items={more.map((id) => ({ id, label: service.state(id).label }))}
-        />
-      )}
+      {moreItems.length === 0 ? null : <MoreMenu items={moreItems} />}
       {main.slice(moreAt).map(button)}
       {state === null ? null : button(state)}
     </div>
@@ -233,5 +304,7 @@ function Bar(props: { place: Place }): ReactNode {
 export function SelectionToolbar(props: { docId: string }): ReactNode {
   const place = usePointerSelection(props.docId);
   const selectionEmpty = useEditorFact("selectionEmpty");
-  return place === null || selectionEmpty ? null : <Bar place={place} />;
+  return place === null || selectionEmpty ? null : (
+    <Bar docId={props.docId} place={place} />
+  );
 }

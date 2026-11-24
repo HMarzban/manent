@@ -43,5 +43,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   addressed, declined, flagged, mention, reason, renamed, reopen, reopened, reply, resolve, select, why,
   brought, footnotes, pictures, unpacks,
   prose,
-  future, joke, landed, linked, showrunner, tagged
+  future, joke, landed, linked, showrunner, tagged,
+  pinned
 `);
