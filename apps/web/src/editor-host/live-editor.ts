@@ -2,6 +2,7 @@
 import type { CrdtDoc } from "@manent/crdt";
 import { paginationKey } from "@manent/editor";
 import type { EditorView, PageScaffold, PresencePort } from "@manent/editor";
+import { contentPageCount } from "@manent/pagination";
 import type { FrontPage, Pagination } from "@manent/pagination";
 
 export interface LiveEditor {
@@ -35,6 +36,14 @@ export function livePagination(docId: string): Pagination | null {
   const editor = liveEditor(docId);
   if (editor === null || editor.scaffold === null) return null;
   return paginationKey.getState(editor.view.state)?.pagination ?? null;
+}
+
+/** How many pages that document's editor has without the lettered ones locked page numbers add; null for Ink, or when none is open. */
+export function liveContentPageCount(docId: string): number | null {
+  const pagination = livePagination(docId);
+  return pagination === null
+    ? null
+    : contentPageCount(pagination.pages.map((page) => page.label));
 }
 
 /** The pages before page 1 of that document's editor, as print and PDF draw them; null when it has none or none is open. */
