@@ -1,13 +1,17 @@
 // What the server composes beside its sync service, one entry per line: a feature adds its own module and one line.
 import type {
+  AirWindows,
   Clock,
   DraftEvents,
+  HistoryService,
+  PrompterService,
   RenderPdf,
   RoundCounts,
   ServerConfig,
   SettingRules,
   SyncHooks,
   SyncService,
+  SyncSettings,
 } from "@manent/server-core";
 import { createSuggestionHooks } from "@manent/server-core";
 import type { Storage } from "@manent/storage";
@@ -42,6 +46,10 @@ export interface ServiceDeps {
   draftEvents?: DraftEvents;
   /** Told of each comments document's round open counts; composed from `project.ts` when absent. */
   roundCounts?: RoundCounts;
+  /** History service from an earlier entry in the list, for services that keep versions inside a commit. */
+  history?: Pick<HistoryService, "keep">;
+  /** Air windows from an earlier entry in the list, shared with services that read them. */
+  airWindows?: Pick<AirWindows, "windowOf" | "isInside">;
 }
 
 /** What a service adds to the server. */
@@ -74,6 +82,8 @@ export interface ComposedService {
   readonly airWindowOf?: (
     docId: string,
   ) => { startsAt: number; endsAt: number } | null;
+  /** Per-service handler for SUBSCRIBE in prompter mode; the first given is the sync service's. */
+  readonly prompterSubscribe?: PrompterService["subscribePrompter"];
 }
 
 export interface ServerService {
@@ -98,12 +108,17 @@ export const SERVER_SERVICES: readonly ServerService[] = [
   { create: () => ({ hooks: [createSuggestionHooks({})], config: {} }) },
 ];
 
-/** Every service of the list made: their hooks in list order, the first `airWindow` and `airWindowOf` given (null: none), and their parts of the configuration. */
+/** Every service of the list made: their hooks in list order, the first `airWindow`, `airWindowOf` and `prompterSubscribe` given (null: none), and their parts of the configuration. */
 export function composeServices(deps: ServiceDeps): {
   hooks: readonly SyncHooks[];
   airWindow: ((docId: string, now: number) => boolean) | null;
   airWindowOf:
     ((docId: string) => { startsAt: number; endsAt: number } | null) | null;
+  prompterSubscribe: PrompterService["subscribePrompter"] | null;
+  sync: Pick<
+    SyncSettings,
+    "hooks" | "airWindow" | "airWindowOf" | "prompterSubscribe"
+  >;
   config: ComposedService["config"];
 } {
   const project = createProjectWiring(deps);
@@ -112,13 +127,41 @@ export function composeServices(deps: ServiceDeps): {
     draftEvents: deps.draftEvents ?? project.draftEvents,
     roundCounts: deps.roundCounts ?? project.roundCounts,
   };
-  const composed = SERVER_SERVICES.map((service) => service.create(wired));
+  const composed: ComposedService[] = [];
+  let history: Pick<HistoryService, "keep"> | undefined = wired.history;
+  let airWindow: ((docId: string, now: number) => boolean) | null =
+    wired.airWindows?.isInside ?? null;
+  let airWindowOf:
+    ((docId: string) => { startsAt: number; endsAt: number } | null) | null =
+    wired.airWindows?.windowOf ?? null;
+  for (const service of SERVER_SERVICES) {
+    const built = service.create({
+      ...wired,
+      ...(history === undefined ? {} : { history }),
+      ...(airWindow !== null && airWindowOf !== null
+        ? { airWindows: { isInside: airWindow, windowOf: airWindowOf } }
+        : {}),
+    });
+    composed.push(built);
+    history ??= built.config.history;
+    airWindow ??= built.airWindow ?? null;
+    airWindowOf ??= built.airWindowOf ?? null;
+  }
+  const hooks = [...composed.flatMap((c) => c.hooks), project.hooks];
+  const prompterSubscribe =
+    composed.find((c) => c.prompterSubscribe !== undefined)
+      ?.prompterSubscribe ?? null;
   return {
-    hooks: [...composed.flatMap((c) => c.hooks), project.hooks],
-    airWindow:
-      composed.find((c) => c.airWindow !== undefined)?.airWindow ?? null,
-    airWindowOf:
-      composed.find((c) => c.airWindowOf !== undefined)?.airWindowOf ?? null,
+    hooks,
+    airWindow,
+    airWindowOf,
+    prompterSubscribe,
+    sync: {
+      hooks,
+      ...(airWindow === null ? {} : { airWindow }),
+      ...(airWindowOf === null ? {} : { airWindowOf }),
+      ...(prompterSubscribe === null ? {} : { prompterSubscribe }),
+    },
     config: composed.reduce<ComposedService["config"]>(
       (all, c) => ({ ...all, ...c.config }),
       {},

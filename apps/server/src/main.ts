@@ -317,14 +317,7 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
       config.demo === null
         ? null
         : { ...config.demo, controls, isHomeReady: heavy.isHomeReady },
-    sync: {
-      ...sync,
-      hooks: composed.hooks,
-      ...(composed.airWindow === null ? {} : { airWindow: composed.airWindow }),
-      ...(composed.airWindowOf === null
-        ? {}
-        : { airWindowOf: composed.airWindowOf }),
-    },
+    sync: { ...sync, ...composed.sync },
     ...composed.config,
   });
   built = serving;
@@ -365,6 +358,7 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
     stopped ??= (async () => {
       await background.stop();
       await services.close();
+      composed.config.prompter?.stop();
       await serving.sync?.shutdown();
       await stopListening();
       sync.close();
