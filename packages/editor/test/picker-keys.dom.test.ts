@@ -141,7 +141,7 @@ function types(state: EditorState): string[] {
 
 test("the picker lists the format's elements with their keys and marks the current one", () => {
   const { view, layer } = viewWith(blockOf("dialogue", ""), "screenplay");
-  openPicker(view);
+  openPicker(view, "caret");
   expect(options(layer)).toEqual([
     ["Scene Heading", "1"],
     ["Action", "2"],
@@ -162,7 +162,7 @@ test("the picker lists the format's elements with their keys and marks the curre
 
 test("the open picker is a labelled list the page controls, and focus stays in the page", () => {
   const { view, layer } = viewWith(blockOf("action", ""), "screenplay");
-  openPicker(view);
+  openPicker(view, "caret");
   const list = layer.querySelector('[role="listbox"]');
   expect([
     list?.id,
@@ -181,7 +181,7 @@ test("the open picker is a labelled list the page controls, and focus stays in t
 
 test("a key chooses by its place on the keyboard first", () => {
   const { view } = viewWith(blockOf("action", ""), "screenplay");
-  openPicker(view);
+  openPicker(view, "caret");
   press(view, { code: "Digit3", key: '"' }); // AZERTY: the key that types " sits where 3 does
   expect([types(view.state), pickerKey.getState(view.state)!.open]).toEqual([
     ["character"],
@@ -191,10 +191,10 @@ test("a key chooses by its place on the keyboard first", () => {
 
 test("a key chooses by the character it types only when its place offers nothing", () => {
   const game = viewWith(blockOf("action", ""), "game").view;
-  openPicker(game);
+  openPicker(game, "caret");
   press(game, { code: "Semicolon", key: "m" });
   const screenplay = viewWith(blockOf("action", ""), "screenplay").view;
-  openPicker(screenplay);
+  openPicker(screenplay, "caret");
   press(screenplay, { code: "Digit3", key: "e" });
   expect([types(game.state), types(screenplay.state)]).toEqual([
     ["emote"],
@@ -204,7 +204,7 @@ test("a key chooses by the character it types only when its place offers nothing
 
 test("in a stage play the picker says Scene and Stage direction and offers no transition", () => {
   const { view, layer } = viewWith(blockOf("action", ""), "stage_play");
-  openPicker(view);
+  openPicker(view, "caret");
   expect(options(layer).slice(0, 2)).toEqual([
     ["Scene", "1"],
     ["Stage direction", "2"],
@@ -219,7 +219,7 @@ test("in a stage play the picker says Scene and Stage direction and offers no tr
 
 test("the arrows move through the list and Enter chooses", () => {
   const { view, layer } = viewWith(blockOf("action", ""), "screenplay");
-  openPicker(view);
+  openPicker(view, "caret");
   press(view, { code: "ArrowDown", key: "ArrowDown" });
   press(view, { code: "ArrowDown", key: "ArrowDown" });
   press(view, { code: "ArrowUp", key: "ArrowUp" });
@@ -234,7 +234,7 @@ test("the arrows move through the list and Enter chooses", () => {
 
 test("a press on an option chooses it", () => {
   const { view, layer } = viewWith(blockOf("action", ""), "screenplay");
-  openPicker(view);
+  openPicker(view, "caret");
   layer
     .querySelector("#mn-picker-5")
     ?.dispatchEvent(
@@ -248,7 +248,7 @@ test("a press on an option chooses it", () => {
 
 test("Escape closes the picker and goes no further", () => {
   const { view, layer } = viewWith(blockOf("action", ""), "screenplay");
-  openPicker(view);
+  openPicker(view, "caret");
   let reached = false;
   document.body.addEventListener("keydown", () => {
     reached = true;
@@ -265,7 +265,7 @@ test("Escape closes the picker and goes no further", () => {
 
 test("while the picker is open, Tab and Shift+Tab stay on the page and change nothing", () => {
   const { view } = viewWith(blockOf("action", ""), "screenplay");
-  openPicker(view);
+  openPicker(view, "caret");
   press(view, { code: "ShiftLeft", key: "Shift", shiftKey: true });
   const back = press(view, { code: "Tab", key: "Tab", shiftKey: true });
   const forward = press(view, { code: "Tab", key: "Tab" });
@@ -280,7 +280,7 @@ test("while the picker is open, Tab and Shift+Tab stay on the page and change no
 
 test("a key the picker does not name closes it and still reaches the page", () => {
   const { view, layer } = viewWith(blockOf("action", ""), "screenplay");
-  openPicker(view);
+  openPicker(view, "caret");
   const event = press(view, { code: "KeyX", key: "x" });
   expect([
     types(view.state),
@@ -295,7 +295,7 @@ test("moving the caret closes the picker", () => {
     blockOf("action", "Rain falls"),
     "screenplay",
   );
-  openPicker(view);
+  openPicker(view, "caret");
   view.dispatch(
     view.state.tr.setSelection(TextSelection.create(view.state.doc, 2)),
   );
@@ -307,7 +307,7 @@ test("moving the caret closes the picker", () => {
 
 test("focus leaving the page closes the picker", () => {
   const { view, layer } = viewWith(blockOf("action", ""), "screenplay");
-  openPicker(view);
+  openPicker(view, "caret");
   view.dom.dispatchEvent(new FocusEvent("blur"));
   expect([
     pickerKey.getState(view.state)!.open,
@@ -332,7 +332,7 @@ test("a change from another writer leaves the picker open", () => {
     EditorState.create({ doc, selection: TextSelection.atEnd(doc) }),
     "screenplay",
   );
-  openPicker(view);
+  openPicker(view, "caret");
   // a binding's remote change edits another block, then puts the caret back where it maps to
   const tr = view.state.tr.insertText(" hard", 12);
   tr.setSelection(

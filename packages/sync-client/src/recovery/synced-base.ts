@@ -1,9 +1,9 @@
 // What this device knows the server holds of a document: the synced base the store gave, with
 // every server update received since and every own update the server acknowledged.
-import { createDoc, loadDoc, scriptBody } from "@manent/crdt";
+import { createDoc, loadDoc, mergeUpdates, scriptBody } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { DocJSON } from "@manent/schema";
-import type { StoredUpdate } from "../ports/ports.ts";
+import type { LoadedDocument, StoredUpdate } from "../ports/ports.ts";
 import { reconnectOverlaps } from "../review/overlaps.ts";
 import type { Leftover } from "./recover.ts";
 
@@ -11,6 +11,24 @@ import type { Leftover } from "./recover.ts";
 interface Heal {
   clientSeq: number;
   update: Uint8Array;
+}
+
+/**
+ * What the store holds of the server's document: its synced base, if a
+ * checkpoint has made one, with every update stored since that the server
+ * holds, which a checkpoint takes into the synced base only while nothing
+ * waits. Null when it holds none, or when its only checkpoint was made while
+ * changes waited.
+ */
+export function storedBase(loaded: LoadedDocument | null): Uint8Array | null {
+  if (loaded === null) return null;
+  const { syncedBase, checkpoint, entries } = loaded;
+  if (syncedBase === null && checkpoint !== null) return null;
+  const held = entries.flatMap((e) =>
+    e.kind === "update" && e.acked ? [e.update] : [],
+  );
+  const parts = syncedBase === null ? held : [syncedBase, ...held];
+  return parts.length === 0 ? null : mergeUpdates(parts);
 }
 
 /**

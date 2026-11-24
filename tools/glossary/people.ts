@@ -18,12 +18,18 @@ export const PEOPLE_TERMS: readonly Term[] = Object.freeze([
     ["deep link", "reader link", "invitation"],
   ),
   ...row("sharing", ["Reader"], ["viewer"]),
+  ...row("sharing", ["Viewers"], []),
   ...row(
     "sharing",
     ["Watermark", "Sent and opened"],
     ["send log", "access log"],
   ),
   ...row("series", ["Writer"], ["scene owner"]),
+  ...row(
+    "series",
+    ["Progress", "Not started", "Drafting", "Handed in"],
+    ["status", "state"],
+  ),
   ...row("series", ["Driver", "Take keys"], ["presenter"]),
   ...row("saving", ["Follow", "Following"], []),
   ...row("saving", ["Cursor"], ["remote caret", "pointer", "name flag"]),

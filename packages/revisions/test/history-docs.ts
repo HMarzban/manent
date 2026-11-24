@@ -3,6 +3,7 @@ import fc from "fast-check";
 import { canonicalBlock, canonicalDoc } from "@manent/schema";
 import type { BlockJSON, DocJSON, MarkJSON } from "@manent/schema";
 import { corpusDoc, generateBlocks } from "@manent/pagination/testing";
+import { textOf } from "../src/index.ts";
 import { A, B, C, D, E, N, doc } from "./arbitraries.ts";
 
 export { A, B, C, D, E, N, doc };
@@ -51,10 +52,6 @@ export function blockJSONs(json: DocJSON): BlockJSON[] {
   return (json.content ?? [])
     .flatMap((section) => section.content ?? [])
     .map(canonicalBlock);
-}
-
-function textOf(block: BlockJSON): string {
-  return (block.content ?? []).map((run) => run.text).join("");
 }
 
 /** A screenplay of `blocks` blocks, and the same with `edits` of them retyped at even spacing. */

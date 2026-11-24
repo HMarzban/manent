@@ -2,22 +2,16 @@
 import { COMMANDS } from "@manent/commands";
 import {
   Button,
-  CommandButton,
   CommandMenu,
   DOCUMENT_WORDS,
-  Kbd,
   MessageSlot,
-  cn,
   READOUT_WORDS,
-  keyLabel,
-  useCommandState,
-  useCommands,
   useSubscribable,
 } from "@manent/ui";
 import type { LucideIcon } from "lucide-react";
-import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
+import { CommandsButton } from "../../shell/commands-button.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { useEditorFact } from "../../state/facts.store.ts";
 import type { EditorFacts } from "../../state/facts.store.ts";
@@ -138,31 +132,6 @@ export function SceneReadout(): ReactNode {
   );
 }
 
-/** The palette's button, with its key shown beside it on a window wide enough. */
-function CommandsButton(): ReactNode {
-  const { platform } = useCommands();
-  const [chord] = useCommandState("app.palette").keys;
-  return (
-    <span className="flex shrink-0 items-center gap-1">
-      <CommandButton id="app.palette" size="sm" />
-      {chord === undefined ? null : (
-        <Kbd aria-hidden="true" className="max-sm:hidden">
-          {keyLabel(chord, platform)}
-        </Kbd>
-      )}
-    </span>
-  );
-}
-
-/** Whether the message shown is about the person's own work, which takes two lines until it is dismissed. */
-function useOwnWorkShown(): boolean {
-  const { messages } = useServices();
-  return useSyncExternalStore(
-    messages.subscribe,
-    () => messages.current()?.ownWork ?? false,
-  );
-}
-
 /** `readouts` lead the bar. */
 export function StatusBar(props: { readouts: ReactNode }): ReactNode {
   const { messages } = useServices();
@@ -173,10 +142,7 @@ export function StatusBar(props: { readouts: ReactNode }): ReactNode {
     <ShellRegion
       region="status_bar"
       // on a window too narrow for every control the bar scrolls, never the window
-      className={cn(
-        "flex items-center gap-1 overflow-x-auto border-t border-line bg-chrome px-2 text-ui",
-        useOwnWorkShown() ? "h-row-2" : "h-statusbar",
-      )}
+      className="flex h-statusbar items-center gap-1 overflow-x-auto border-t border-line bg-chrome px-2 text-ui"
     >
       {props.readouts}
       <MessageSlot queue={messages} run={run} registered={registered} />

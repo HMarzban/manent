@@ -15,6 +15,7 @@ export const PLACE_TERMS: readonly Term[] = Object.freeze([
   ...row("series", ["Due"], ["deadline"]),
   ...row("workspaces", ["Folder"], ["private area"]),
   ...row("workspaces", ["Favourite"], ["bookmark"]),
+  ...row("workspaces", ["Private"], []),
   ...row("workspaces", ["Continue"], ["recents"]),
   ...row("workspaces", ["Trash"], ["bin", "archive"]),
   ...row("sharing", ["People"], ["members", "team"]),

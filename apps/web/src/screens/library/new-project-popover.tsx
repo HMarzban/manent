@@ -1,11 +1,13 @@
 // New project: one card per kind, in two rows of four; choosing one creates the project and opens its first document.
 import {
   Button,
+  CommandButton,
   LIBRARY_WORDS,
   NEW_PROJECT_CARDS,
   Popover,
   PopoverContent,
   PopoverTrigger,
+  useCommandState,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { useId, useState } from "react";
@@ -39,7 +41,8 @@ const moveBetweenCards = (event: KeyboardEvent<HTMLElement>): void => {
 
 /**
  * The header's New project button and its popover, which is open while the dialog store holds `new_project`, however
- * it was opened. The cards are disabled while `workspaceId` is null, until the workspace shown is known.
+ * it was opened. The cards are disabled while `workspaceId` is null, until the workspace shown is known. While the
+ * command cannot run, the button is the command's own, which says why.
  */
 export function NewProjectPopover(props: {
   workspaceId: string | null;
@@ -51,6 +54,7 @@ export function NewProjectPopover(props: {
   const id = useId();
   const open = useOpenDialog() === SURFACE;
   const [creating, setCreating] = useState(false);
+  const unavailable = useCommandState("library.newProject").whyNot !== null;
 
   const onOpenChange = (next: boolean): void => {
     if (next) {
@@ -68,6 +72,8 @@ export function NewProjectPopover(props: {
     void navigate({ href: `/s/${docId}` });
   };
 
+  if (unavailable)
+    return <CommandButton id="library.newProject" variant="outline" />;
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger

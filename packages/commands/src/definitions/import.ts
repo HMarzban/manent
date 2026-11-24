@@ -1,5 +1,6 @@
 // The commands that bring a Final Draft or Fountain file in: Import… everywhere, Open… on the desktop, and Import again.
 import type { CommandDefinition } from "../define.ts";
+import { isWorkspaceWritable, workspaceReason } from "./library.ts";
 
 export const IMPORT_COMMANDS = [
   {
@@ -10,8 +11,8 @@ export const IMPORT_COMMANDS = [
     scope: "global",
     keys: { mac: [], windows: [], linux: [] },
     keysFixed: false,
-    when: null,
-    whyNot: null,
+    when: isWorkspaceWritable,
+    whyNot: workspaceReason,
     visible: (ctx) => ctx.screen === "library" || ctx.screen === "document",
     checked: null,
     passThrough: null,

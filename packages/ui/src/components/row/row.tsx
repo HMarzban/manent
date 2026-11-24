@@ -1,6 +1,8 @@
 // One list row for every list: its states are the `.mn-row` rules of the theme.
 import { cn } from "cn";
+import { useContext } from "react";
 import type { KeyboardEvent, ReactNode, Ref } from "react";
+import { RowTabStop } from "./tab-stop.ts";
 
 const TRAILING_LIMIT = 3;
 
@@ -29,6 +31,11 @@ interface RowProps {
   meta?: ReactNode;
   /** At most three items at the end of the row. */
   trailing?: readonly ReactNode[];
+  /**
+   * The row's menu handle, an `icon-sm` button: drawn over room the row keeps at its end, after its trailing items, as a
+   * control of its own beside the row's, never inside it, so a row that is a button holds no button.
+   */
+  menu?: ReactNode;
   onActivate?: () => void;
   rowRef?: Ref<HTMLElement>;
 }
@@ -44,6 +51,7 @@ export function Row({
   children,
   meta,
   trailing = [],
+  menu,
   onActivate,
   rowRef,
 }: RowProps): ReactNode {
@@ -52,13 +60,14 @@ export function Row({
       `a row holds at most three trailing items, not ${trailing.length}`,
     );
   }
+  const stop = useContext(RowTabStop);
   const activate = unavailable === undefined ? onActivate : undefined;
   const onKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== "Enter" || activate === undefined) return;
     event.preventDefault();
     activate();
   };
-  return (
+  const row = (
     <div
       ref={(node) => attach(rowRef, node)}
       className={cn(
@@ -74,7 +83,7 @@ export function Row({
           ? "true"
           : undefined
       }
-      tabIndex={onActivate === undefined ? undefined : 0}
+      tabIndex={onActivate === undefined ? undefined : stop === false ? -1 : 0}
       onClick={activate}
       onKeyDown={onKeyDown}
     >
@@ -100,6 +109,16 @@ export function Row({
           {item}
         </span>
       ))}
+      {menu === undefined ? null : (
+        <span aria-hidden="true" className="size-6 shrink-0" />
+      )}
+    </div>
+  );
+  if (menu === undefined) return row;
+  return (
+    <div data-row-menu className="relative">
+      {row}
+      <span className="absolute inset-y-0 end-3 flex items-center">{menu}</span>
     </div>
   );
 }

@@ -25,7 +25,6 @@ import {
   sliceWorkingComparison,
 } from "../../editor-host/changes.ts";
 import {
-  baselineAt,
   baselineOfRow,
   defaultBaseline,
   sinceOpenedBaseline,
@@ -36,6 +35,8 @@ import { useServices } from "../../services/context.tsx";
 import { nameOf } from "../../services/sync/index-entries.ts";
 import { historyActions, useHistory } from "../../state/history.store.ts";
 import type { ChangesMode, HistoryState } from "../../state/history.store.ts";
+import { peopleOf } from "./change-authors.ts";
+import type { Authors } from "./change-authors.ts";
 import { noteOf } from "./version-pane.tsx";
 
 /** In the order of HISTORY_WORDS.modes. */
@@ -53,53 +54,6 @@ const CHEVRON = (
 
 const isMode = (value: unknown): value is ChangesMode =>
   MODES.some((mode) => mode === value);
-
-/** By block id, the person of its last change since the baseline. */
-type Authors = Readonly<Record<string, string>>;
-
-const isChange = (entry: Comparison["entries"][number]): boolean =>
-  entry.kind !== "unchanged" || entry.moved;
-
-/** Of each change of `all`, who made it last since the baseline; null until the server has said, or when it cannot. */
-export function useAuthors(
-  docId: string,
-  all: Comparison | null,
-): Authors | null {
-  const { history } = useServices();
-  const baseline = useHistory("baseline");
-  const [told, setTold] = useState<{
-    all: Comparison;
-    authors: Authors;
-  } | null>(null);
-  useEffect(() => {
-    const since = baselineAt(baseline);
-    if (all === null || since === null) return undefined;
-    const changed = all.entries.filter(isChange).map((entry) => entry.id);
-    let shown = true;
-    void history.authors(docId, since, changed).then((answer) => {
-      if (shown && answer !== null) setTold({ all, authors: answer.authors });
-    });
-    return () => {
-      shown = false;
-    };
-  }, [history, docId, baseline, all]);
-  return told?.all === all ? told.authors : null;
-}
-
-/** The changes of `all` made last by one of `people`; null narrows nothing, as while who made them is not known. */
-export function authoredBlocks(
-  all: Comparison | null,
-  authors: Authors | null,
-  people: readonly string[] | null,
-): readonly string[] | null {
-  if (all === null || authors === null || people === null) return null;
-  return all.entries
-    .filter((entry) => {
-      const by = authors[entry.id];
-      return by !== undefined && people.includes(by);
-    })
-    .map((entry) => entry.id);
-}
 
 /** The baseline Changes since offers until one is chosen: since you last opened when others edited, else the newest draft. */
 function useOffered(
@@ -166,9 +120,11 @@ function useShownChanges(
 ): Comparison | null {
   const mode = useHistory("mode");
   const { sceneIds } = useHistory("filter");
+  // the stepper starts again on other changes, and keeps its change when only Show changes
   useLayoutEffect(() => {
-    // the stepper starts again on other changes
     historyActions.setStep(null);
+  }, [docId, content, all, sceneIds, blockIds]);
+  useLayoutEffect(() => {
     if (content === null || all === null) {
       showChanges(docId, null);
       return undefined;
@@ -203,7 +159,13 @@ function BaselineMenu(props: {
           data-changes-since=""
           render={<Button variant="outline" size="sm" />}
         >
-          {props.offered?.title ?? null}
+          {props.offered === null ? (
+            <span className="text-fg-muted">
+              {HISTORY_WORDS.chooseBaseline}
+            </span>
+          ) : (
+            props.offered.title
+          )}
           {CHEVRON}
         </DropdownMenuTrigger>
         <DropdownMenuContent className="max-h-80 overflow-auto">
@@ -258,16 +220,6 @@ function ShowModes(props: { offered: HistoryState["baseline"] }): ReactNode {
     </div>
   );
 }
-
-/** The people of `authors`, each once, in the order of their first change in `all`. */
-const peopleOf = (all: Comparison, authors: Authors): string[] => [
-  ...new Set(
-    all.entries.flatMap((entry) => {
-      const by = authors[entry.id];
-      return by === undefined ? [] : [by];
-    }),
-  ),
-];
 
 /** Filter ▾: every scene with a change, by its number and heading; then everyone who made one, by name. */
 function ChangesFilter(props: {
@@ -373,7 +325,13 @@ export function HistoryChanges(props: {
       <BaselineMenu docId={docId} rows={rows} offered={offered} />
       {note === null ? null : <p className="text-meta text-fg-muted">{note}</p>}
       <ShowModes offered={offered} />
-      {all === null || shown === null ? null : (
+      {all === null || shown === null ? null : changeCount(all) === 0 &&
+        offered !== null ? (
+        // the baseline is Working as it is now: nothing to filter or step through
+        <p className="text-ui text-fg-muted">
+          {HISTORY_WORDS.noChangesSince(offered.title)}
+        </p>
+      ) : (
         <div className="flex flex-wrap items-center gap-2">
           <ChangesFilter docId={docId} all={all} authors={props.authors} />
           <Stepper count={changeCount(shown)} />

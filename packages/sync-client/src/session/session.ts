@@ -1,11 +1,6 @@
 // One open document as its client drives it: its journal in the store, its local copy and its
 // subscription to the server, and the status it shows.
-import {
-  ORIGIN_LOAD,
-  ORIGIN_REMOTE,
-  createDoc,
-  observeScript,
-} from "@manent/crdt";
+import { createDoc } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import { CODE } from "@manent/sync-protocol";
 import type { DocumentMessage, Message } from "@manent/sync-protocol";
@@ -21,9 +16,9 @@ import type {
   LoadedDocument,
   SideState,
 } from "../ports/ports.ts";
+import { storedBase } from "../recovery/synced-base.ts";
 import { UpstreamWindow } from "../upstream/window.ts";
 import type { DocHandle } from "./doc-handle.ts";
-import { elementsOf } from "./edits.ts";
 import type { UnsavedEdit } from "./edits.ts";
 import { toDocEvent } from "./frame-events.ts";
 import type { Handshake } from "./handshake.ts";
@@ -37,6 +32,8 @@ import { PushMarks } from "./push-marks.ts";
 import type { SessionLink, SessionOptions } from "./session-options.ts";
 import { createSubscription } from "./subscription.ts";
 import type { Subscription } from "./subscription.ts";
+import { createViewerCount } from "./viewer-count.ts";
+import { watchEdits } from "./watch-edits.ts";
 
 export type { SessionLink } from "./session-options.ts";
 
@@ -45,6 +42,8 @@ export interface Session {
   readonly handle: DocHandle;
   /** A following tab's client ID: listed from now on, subscribing again when it is new. */
   addClient(clientId: number): void;
+  /** A client ID reserved for the server to write under: listed and stored, with no new SUBSCRIBE, as the server registers it when it writes. */
+  addReservedClient(clientId: number): Promise<void>;
   /**
    * A following tab's edit, made in `generation`: applied and stored as an own
    * entry, or, made in the document a move left, carried from it; resolves
@@ -74,23 +73,6 @@ const LINK_SIDE: Readonly<Record<LinkIssue, SideState | null>> = Object.freeze({
   too_old: null,
   server_old: "server_old",
 });
-
-/** The own edits made in `doc` from now until the returned function is called, which stops watching and gives them. */
-function watchEdits(doc: CrdtDoc | null): () => UnsavedEdit[] {
-  const made: UnsavedEdit[] = [];
-  const unobserve =
-    doc === null
-      ? () => {}
-      : observeScript(doc, (report) => {
-          if (report.origin === ORIGIN_LOAD || report.origin === ORIGIN_REMOTE)
-            return;
-          made.push({ update: report.update, elements: elementsOf(report) });
-        });
-  return () => {
-    unobserve();
-    return made;
-  };
-}
 
 /** Loads the document before anything is sent: from the store, or in memory when the store cannot be read. */
 export async function openSession(options: SessionOptions): Promise<Session> {
@@ -123,6 +105,7 @@ class DocSession implements Session {
   private readonly status: ReturnType<typeof createSubscribable<DocStatus>>;
   private readonly indexWait: IndexWait;
   private readonly pushes = new PushMarks();
+  private readonly viewers = createViewerCount();
   /** The node acknowledged an entry after the upstream status it last sent: Synced waits for the next. */
   private upstreamOutdated = false;
   /** The connection the device versions were last offered on. */
@@ -189,7 +172,7 @@ class DocSession implements Session {
       ports,
       journal,
       copy: this.copy,
-      syncedBase: loaded?.syncedBase ?? null,
+      syncedBase: storedBase(loaded),
       view: options.view,
       changed: () => this.refresh(),
       replaceConnection: options.replaceConnection,
@@ -206,8 +189,14 @@ class DocSession implements Session {
     this.handle = this.copy.handleOf({
       status: this.status,
       readOnly: this.subscription.readOnly,
+      viewers: this.viewers.value,
       sendAwareness: (update) => this.handshake.sendAwareness(update),
       adoptClientIds: (ids) => this.adoptClientIds(ids),
+      reserveClientId: async () => {
+        const clientId = journal.freshClientId(null, ports.random);
+        await this.addReservedClient(clientId);
+        return clientId;
+      },
       close: () => this.close(),
       nameVersion: async (name) => {
         const { stored, ...version } = this.copy.recordVersion(
@@ -243,6 +232,13 @@ class DocSession implements Session {
 
   addClient(clientId: number): void {
     this.adoptClientIds([clientId]);
+  }
+
+  async addReservedClient(clientId: number): Promise<void> {
+    const { clientIds } = this.journal.meta;
+    if (!clientIds.includes(clientId))
+      this.journal.patch({ clientIds: [...clientIds, clientId] });
+    await this.journal.written();
   }
 
   edit(edit: UnsavedEdit, generation: number): Promise<boolean> {
@@ -296,12 +292,14 @@ class DocSession implements Session {
   disconnected(): void {
     this.pushes.dropped();
     this.indexWait.drop();
+    this.viewers.ended();
     this.subscription.disconnected();
   }
 
   receive(message: DocumentMessage): void {
     this.pushes.answered(message);
     this.route(message);
+    if (message.type === "CONTROL") this.viewers.control(message);
     const event = toDocEvent(message);
     if (event !== null) this.copy.emit(event);
   }
@@ -312,6 +310,7 @@ class DocSession implements Session {
     if (old && this.subscription.moving) return;
     this.pushes.ended(message);
     this.handshake.error(message);
+    if (!this.handshake.subscribed()) this.viewers.ended();
   }
 
   skipped(): void {

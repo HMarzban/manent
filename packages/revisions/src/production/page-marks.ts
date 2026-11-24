@@ -1,6 +1,6 @@
 // The lines a revision's marks fall on, and the colour, header and marks each page takes from them.
 import { engineFor } from "@manent/pagination";
-import type { Engine, LaidOutPage, Page, Pagination } from "@manent/pagination";
+import type { Engine, LinePlace, Page, Pagination } from "@manent/pagination";
 import type { RevisionColour } from "./colours.ts";
 import { revisionHeader } from "./header.ts";
 import type { BlockMark, RevisionSource } from "./marks.ts";
@@ -60,18 +60,18 @@ function blocksOn(p: Pagination, page: Page): Map<string, number> {
   return indexes;
 }
 
-/** The heights of the text lines of `page` that `marks` marks, top first. */
+/** The heights of the text lines of page `pageIndex`, placed at `places`, that `marks` marks, in the order of `places`. */
 function markedHeights(
   p: Pagination,
-  page: LaidOutPage,
+  pageIndex: number,
+  places: readonly LinePlace[],
   marks: ReadonlyMap<string, BlockMark>,
 ): number[] {
-  // laid out, so its index is one of the pagination's pages
-  const indexes = blocksOn(p, p.pages[page.index]!);
+  // placed, so its index is one of the pagination's pages
+  const indexes = blocksOn(p, p.pages[pageIndex]!);
   const linesOf = new Map<string, readonly number[]>();
   const heights: number[] = [];
-  for (const line of page.lines) {
-    if (line.kind !== "text" || line.blockId === null) continue;
+  for (const line of places) {
     const mark = marks.get(line.blockId);
     const index = indexes.get(line.blockId);
     if (mark === undefined || index === undefined) continue;
@@ -128,9 +128,9 @@ export function pageRevision(
   const rule = MODE_RULES[mode];
   const admitted = rule.admit(sources);
   if (admitted.length === 0) return null;
-  const page = engineOf(p).layoutPage(p, pageIndex);
+  const places = engineOf(p).linePlacesOf(p, pageIndex);
   const heights = admitted.map((source) =>
-    markedHeights(p, page, source.marks),
+    markedHeights(p, pageIndex, places, source.marks),
   );
   const latest = heights.findLastIndex((ys) => ys.length > 0);
   const source = admitted[latest];
@@ -159,7 +159,8 @@ export function revisedPages(
   return p.pages
     .filter(
       (page) =>
-        markedHeights(p, engine.layoutPage(p, page.index), marks).length > 0,
+        markedHeights(p, page.index, engine.linePlacesOf(p, page.index), marks)
+          .length > 0,
     )
     .map((page) => page.label);
 }

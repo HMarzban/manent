@@ -1,10 +1,10 @@
 // The demo's seed and server control, read once for the whole app.
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DemoResponse } from "@manent/sync-protocol";
 import { useEffect, useMemo, useRef } from "react";
 import { createServerControl } from "../api.ts";
-import type { Api, ServerControl } from "../api.ts";
+import type { Api, ControlState, ServerControl } from "../api.ts";
 import type { DeviceMemory } from "../services/sync/device-memory.ts";
 
 export const POLL_MS = 2000;
@@ -66,6 +66,20 @@ export function useDemo(deps: { api: Api; fetch: typeof fetch }): {
   );
 
   return { demo: demo ?? null, control };
+}
+
+/** The server's state as its control last answered, asked every POLL_MS; null without a control and before the first answer. */
+export function useServerState(
+  control: DemoControl | null,
+): ControlState | null {
+  return (
+    useQuery({
+      queryKey: [SERVER_STATUS_QUERY, control?.id ?? null],
+      queryFn: control === null ? skipToken : control.client.status,
+      refetchInterval: POLL_MS,
+      refetchOnWindowFocus: true,
+    }).data ?? null
+  );
 }
 
 /**

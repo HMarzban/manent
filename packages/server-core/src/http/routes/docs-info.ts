@@ -12,7 +12,7 @@ import { isObject, readRequest } from "./docs.ts";
 const CLIENT_IDS_LIMIT = 64;
 
 /** An unsigned 32-bit integer, as a Yjs client id is. */
-const isClientId = (value: unknown): value is number =>
+export const isClientId = (value: unknown): value is number =>
   typeof value === "number" &&
   Number.isInteger(value) &&
   value >= 0 &&

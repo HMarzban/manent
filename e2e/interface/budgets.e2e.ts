@@ -153,7 +153,7 @@ test("menus, popovers and the palette open within 100 ms, panels and dialogs wit
   popovers.palette = await longestMark(page, "ui.open.palette");
   await page.keyboard.press("Escape");
   const screens: Record<string, number> = {};
-  await signedInAs(page, "you", `/s/${DOC_ID}/send/send_draft`);
+  await signedInAs(page, "you", `/s/${DOC_ID}/send/test_form`);
   await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
   screens.send = await longestMark(page, "ui.open.screen");
   await signedInAs(page, "you", "/preferences/writing");

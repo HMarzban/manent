@@ -3,6 +3,7 @@ import { DOCUMENT_WORDS } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { BrowserContext, Page } from "@playwright/test";
 import { openMadeScript } from "../support/made-script.ts";
+import { viewItem } from "./support.ts";
 
 const PAGE_VIEW = "[data-editor-host] .mn-page-view";
 // 2,400 paragraphs of action, each two lines long and a blank line before it: past 120 pages
@@ -38,13 +39,6 @@ async function pasteLines(page: Page, lines: readonly string[]): Promise<void> {
   await expect(page.locator(`${PAGE_VIEW} [data-id]`)).toHaveCount(
     lines.length,
   );
-}
-
-/** Opens View ▾, clicks its item named `name`, and closes the menu. */
-async function viewItem(page: Page, name: RegExp): Promise<void> {
-  await page.getByRole("button", { name: "View" }).click();
-  await page.getByRole("menuitemcheckbox", { name }).click();
-  await page.keyboard.press("Escape");
 }
 
 /** Whether View ▾'s item named `name` is checked; the menu is closed again. */

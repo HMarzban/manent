@@ -81,6 +81,8 @@ export const HISTORY_WORDS = {
   beforeReconnect: BEFORE_RECONNECT,
   recovered: RECOVERED,
   changesSince: "Changes since",
+  /** Changes since ▾ while it offers no baseline. */
+  chooseBaseline: "Choose a version",
   show: "Show",
   /** In the order of the History store's modes: page, side, asterisks, as it was. */
   modes: ["On the page", "Side by side", "Asterisks only", "As it was"],
@@ -93,6 +95,8 @@ export const HISTORY_WORDS = {
   allPeople: "All people",
   previousChange: "Previous change",
   nextChange: "Next change",
+  /** In place of the stepper when Working has no change since the baseline, `name` as Changes since ▾ shows it. */
+  noChangesSince: (name: string): string => `No changes since ${name}.`,
   /** The accessible name of the stepper's position, which `formatPosition` writes. */
   stepName: (i: number, n: number): string => `Change ${formatPosition(i, n)}`,
   draftsOnly: "Drafts only",

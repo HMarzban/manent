@@ -190,6 +190,34 @@ interface Opened extends OpenedScript {
   shown: Shown;
 }
 
+/** Attaches `built.editor` to the control and registers it as its document's live editor; returns the stop of both. */
+function connectEditor(
+  options: MountOptions,
+  open: Opened,
+  built: { editor: ScriptEditor; binding: EditorBinding; editable: boolean },
+): () => void {
+  const { editor } = built;
+  const detach = options.control.attach({
+    run: (request) => editor.run(actionOf(request)),
+    zoomPercent: () => editor.zoomPercent(),
+    showTitlePage: () => editor.showTitlePage(),
+  });
+  const unregister = registerLiveEditor({
+    docId: open.ports.docId,
+    doc: open.document.doc(),
+    view: editor.view,
+    scaffold: editor.scaffold,
+    presence: built.binding.presence,
+    editable: built.editable,
+    zoom: () => (editor.zoomPercent() ?? 100) / 100,
+    frontPages: () => editor.frontPages(),
+  });
+  return () => {
+    detach();
+    unregister();
+  };
+}
+
 /** One editor of the document over its session, at `place` when it is given, attached to the control and registered as live. */
 function buildEditor(
   options: MountOptions,
@@ -226,24 +254,15 @@ function buildEditor(
       stopThumb = followThumb({
         editor,
         scroller: region,
+        host: element,
         docId,
         timers: options.timers,
       });
     });
-  const detach = options.control.attach({
-    run: (request) => editor.run(actionOf(request)),
-    zoomPercent: () => editor.zoomPercent(),
-    showTitlePage: () => editor.showTitlePage(),
-  });
-  const unregister = registerLiveEditor({
-    docId,
-    doc: open.document.doc(),
-    view: editor.view,
-    scaffold: editor.scaffold,
-    presence: binding.presence,
-    editable: bound.editable,
-    zoom: () => (editor.zoomPercent() ?? 100) / 100,
-    frontPages: () => editor.frontPages(),
+  const disconnect = connectEditor(options, open, {
+    editor,
+    binding,
+    editable,
   });
   options.observe?.({ docId, editor, undoDepth: () => counted?.depth() ?? 0 });
   return {
@@ -254,8 +273,7 @@ function buildEditor(
       stopFocus();
       stopZoom();
       stopThumb();
-      detach();
-      unregister();
+      disconnect();
       editor.destroy();
       bound.destroy();
       counted?.stop();

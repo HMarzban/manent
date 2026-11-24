@@ -22,6 +22,10 @@ const C = "block-C-0000000";
 const D = "block-D-0000000";
 /** The Yjs client ID of Dana's device. */
 const DANA = 77;
+/** The Yjs client ID of this person's other device. */
+const OTHER_DEVICE = 78;
+/** A Yjs client ID another tab of this device brings. */
+const OTHER_TAB = 79;
 
 const b = block;
 
@@ -32,12 +36,13 @@ function doc(...blocks: BlockJSON[]): DocJSON {
 const textOf = (wording: BlockJSON | null): string =>
   wording === null ? "" : blockText(blockView(wording));
 
-/** Back online, with Dana's change to the server's copy made while this device was away. */
+/** Back online, with a change to the server's copy made while this device was away, on the device whose client ID is `by` (Dana's unless given). */
 async function reconnectWithServerChange(
   w: World,
   change: (writer: BlockWriter) => void,
+  by = DANA,
 ): Promise<void> {
-  w.server.writeAs(DOC, DANA, change);
+  w.server.writeAs(DOC, by, change);
   w.fake.advance(30_000);
   await w.settle();
 }
@@ -154,6 +159,73 @@ test("changes that land in different blocks overlap nothing", async () => {
     setAside: 0,
     overlaps: 0,
   });
+});
+
+test("a receipt still owed when another tab subscribes again before the push is acknowledged counts the overlap", async () => {
+  const { w, h, events } = await typedOffline((typing) =>
+    typeIn(typing, B1, " — mine"),
+  );
+  await reconnectWithServerChange(w, (writer) =>
+    writer.insertText(B1, 0, " — Dana's"),
+  );
+  h.adoptClientIds([OTHER_TAB]);
+  await w.settle();
+  w.server.ackAll(DOC);
+  await w.settle();
+  expect(h.recovered.get()).toMatchObject([
+    { cause: "overlap", blockId: B1, otherClientIds: [DANA] },
+  ]);
+  expect(events.filter((event) => event.type === "receipt")).toEqual([
+    { type: "receipt", sent: 1, setAside: 0, overlaps: 1 },
+  ]);
+});
+
+test("a speech the person's other device wrote, seen on an earlier visit, is an overlap when both devices then rewrite it apart", async () => {
+  // a store whose synced base predates the visit, and one that first holds the script on that visit
+  for (const synced of [true, false]) {
+    const w = await setup();
+    const store = synced ? w.store : createMemoryStore("dana");
+    const earlier = w.makeClient({ store });
+    await earlier.open(DOC);
+    await w.settle();
+    const written = w.server.writeAs(DOC, OTHER_DEVICE, (writer) =>
+      writer.insertBlocks(B2, [b(A, "The boats are in")]),
+    );
+    w.server.syncUpdate(DOC, written);
+    await w.settle();
+    w.frames.fire();
+    await w.settle();
+    await earlier.close();
+    const client = w.makeClient({ store });
+    const h = await client.open(DOC);
+    await w.settle();
+    const events = listen(h);
+    client.setOnline(false);
+    typeIn(h, A, " and the tide");
+    client.setOnline(true);
+    await reconnectWithServerChange(
+      w,
+      (writer) => writer.insertText(A, 16, " before the storm"),
+      OTHER_DEVICE,
+    );
+    w.server.ackAll(DOC);
+    await w.settle();
+    const [item] = h.recovered.get();
+    expect([
+      synced,
+      item?.cause,
+      textOf(item?.mine ?? null),
+      textOf(item?.theirs ?? null),
+    ]).toEqual([
+      synced,
+      "overlap",
+      "The boats are in and the tide",
+      "The boats are in before the storm",
+    ]);
+    expect(events.filter((event) => event.type === "receipt")).toEqual([
+      { type: "receipt", sent: 1, setAside: 0, overlaps: 1 },
+    ]);
+  }
 });
 
 test("a block only this device changed since the last synced state overlaps nothing", async () => {

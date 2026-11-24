@@ -19,10 +19,14 @@ import { SERVER_STATUS_QUERY } from "./use-demo.ts";
 
 type Refusal = Extract<SetupOutcome, { ok: false }>["reason"];
 
-/** What stands in Set it up's place whatever the last set-up answered: the desktop app is needed, or the workspace is getting ready. */
+/**
+ * What stands in Set it up's place whatever the last set-up answered: the desktop app is needed, the workspace is
+ * getting ready, or it could not get ready.
+ */
 export type SetupHold =
   | { kind: "desktop_only" }
-  | { kind: "seeding"; workspace: string; done: number; total: number };
+  | { kind: "seeding"; workspace: string; done: number; total: number }
+  | { kind: "seeding_failed"; workspace: string };
 
 /** `again`: the line is followed by Set it up again; otherwise by no button. */
 const REFUSALS: Readonly<Record<Refusal, { line: string; again: boolean }>> =
@@ -48,6 +52,11 @@ function setupControl(
   if (hold?.kind === "seeding")
     return {
       line: TOUR_WORDS.setupSeeding(hold.workspace, hold.done, hold.total),
+      button: "disabled",
+    };
+  if (hold?.kind === "seeding_failed")
+    return {
+      line: TOUR_WORDS.setupSeedingFailed(hold.workspace),
       button: "disabled",
     };
   if (refusal === null) return { line: null, button: "set_up" };
@@ -173,6 +182,7 @@ export function TourScenarioRow(props: {
       {line === null ? null : <p className="text-fg-muted">{line}</p>}
       {button === null ? null : (
         <Button
+          variant="outline"
           disabled={button === "disabled" || running}
           onClick={() => void run()}
         >

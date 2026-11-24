@@ -28,8 +28,9 @@ function isFocusIntoPopup(event: Event): boolean {
 /**
  * Drawn only while the command is visible. While disabled it stays focusable (`aria-disabled`), and its tooltip,
  * "{Label} — {reason}", is also its accessible description; a press then answers with the reason, as the key does.
- * With an `icon`, the label follows it in a `button-label` slot, which a `.mn-bar` short of room hides from sight
- * while it stays the button's name. `pressed` draws a command whose on state the registry does not carry as a toggle.
+ * While it can run, its tooltip is its label with its key, and it has none without a key, as it would only repeat the
+ * label. With an `icon`, the label follows it. `pressed` draws a command whose on state the registry does not carry as
+ * a toggle.
  */
 export function CommandButton(props: {
   id: CommandId;
@@ -53,6 +54,7 @@ export function CommandButton(props: {
   return (
     <>
       <Tooltip
+        disabled={reason === null && chord === undefined}
         onOpenChange={(open, details) => {
           // a tooltip shown on the focus a popup places would take the popup's next Escape
           if (
@@ -76,14 +78,8 @@ export function CommandButton(props: {
             />
           }
         >
-          {icon === undefined ? (
-            state.label
-          ) : (
-            <>
-              {icon}
-              <span data-slot="button-label">{state.label}</span>
-            </>
-          )}
+          {icon}
+          {state.label}
         </TooltipTrigger>
         <TooltipContent>
           {reason ?? state.label}

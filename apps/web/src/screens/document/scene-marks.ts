@@ -1,11 +1,14 @@
-// The marks a Scenes row draws after its heading, by scene-heading block id; a feature adds its source with one line.
+// The marks a Scenes row draws beside its heading, by scene-heading block id; a feature adds its source with one line.
 import type { Subscribable } from "@manent/ui";
 import { revisedSceneIds } from "../../production/scene-marks.ts";
 import { assignmentSceneMarks } from "../../assignment/scene-marks.ts";
 import { marginPeopleScenes } from "../../room/margin-people-scenes.ts";
 import { commentSceneCounts } from "../../comments/scene-counts.ts";
 
-/** `revised` ends the row with " *"; the others are drawn after the heading, in the row's fixed order. */
+/**
+ * `revised` ends the row with " *" and `person` stands before its length; the others follow the heading, in the row's
+ * fixed order.
+ */
 export type SceneMark =
   | { kind: "revised" }
   | { kind: "count"; label: string; count: number }
@@ -15,6 +18,8 @@ export type SceneMark =
       initials: string;
       colour: number;
       name: string;
+      /** Their caret moved in the last few seconds: they are typing. */
+      moving: boolean;
     }
   | { kind: "text"; label: string };
 

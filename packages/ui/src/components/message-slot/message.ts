@@ -16,6 +16,8 @@ export interface MessageQueue {
   push(message: Message): void;
   current(): Message | null;
   dismiss(id: string): void;
+  /** Takes away every message with `id`, shown or waiting. */
+  withdraw(id: string): void;
   withdrawUndo(): void;
   receipts(): readonly Message[];
   subscribe(listener: () => void): () => void;

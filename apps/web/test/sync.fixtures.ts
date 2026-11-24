@@ -328,6 +328,7 @@ export function fakeHandle(docId: string, initial: CrdtDoc): FakeHandle {
     writeSchema: createValue(1),
     readOnly: createValue<ViewHandle | null>(null),
     upstream: createValue(null),
+    viewers: createValue(0),
     on(listener) {
       listeners.add(listener);
       return () => {
@@ -346,6 +347,7 @@ export function fakeHandle(docId: string, initial: CrdtDoc): FakeHandle {
     deviceVersions: async () => [],
     lastServerSeq: () => 0,
     adoptClientIds() {},
+    reserveClientId: async () => 7,
     async close() {
       closes += 1;
     },
@@ -369,6 +371,7 @@ export function fakeView(
     docId,
     blocks: createValue(blocks),
     status: createValue({ link: "online" as const, live: true, role }),
+    viewers: createValue(0),
     close() {},
   };
 }

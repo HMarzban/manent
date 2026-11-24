@@ -18,12 +18,20 @@ import type {
 import { indexDocId } from "@manent/sync-protocol";
 import type { LiveTarget } from "../seed/driver.ts";
 import { readServerScript } from "../seed/page-meter.ts";
+import { markEdited } from "./last-edited.ts";
 import { createPreparations } from "./prepare.ts";
-import { freeScenes, startWriter } from "./writers.ts";
+import { caretScene, freeScenes, startWriter } from "./writers.ts";
 import type { Scene, Writer } from "./writers.ts";
 
 /** A group of writers stops by itself this long after it starts. */
 const WRITERS_RUN_MS = 600_000;
+/**
+ * The blocks of their own lines a group's writers keep in the script between them, shared out evenly: under two
+ * pages of text, so that a script grows by little while they type; they take every line back when they stop.
+ */
+const GROUP_KEEP_BLOCKS = 40;
+/** How often a group's latest edit is written as the script's Last edited. */
+const EDITS_EVERY_MS = 20_000;
 
 /** Lanternfield Studios' members typing now, slowly: the document and who types in it, one scene each. */
 const PRESENCE_GROUPS: readonly (readonly [string, readonly string[]])[] = [
@@ -37,11 +45,16 @@ const PRESENCE_PROFILE = Object.freeze({ ...PROFILES.demo, keysPerSecond: 1 });
 
 const WRITER_POOL = GENERATED_MEMBERS.filter((m) => m.writerPool);
 
+/** The blocks each of a group of `writers` keeps. */
+const shareOf = (writers: number): number =>
+  Math.max(1, Math.floor(GROUP_KEEP_BLOCKS / writers));
+
 const NONE: WritersResponse = Object.freeze({
   asked: 0,
   count: 0,
   names: [],
   endsAt: null,
+  placement: null,
 });
 
 interface Running {
@@ -49,9 +62,14 @@ interface Running {
   writers: readonly Writer[];
 }
 
-/** An Add writers group: its writers and the timer that stops it. */
+/**
+ * An Add writers group: its writers, what the server answered when it started, `cancel` for the timers that stop it
+ * and write its edits, and `markLast` writing its latest edit.
+ */
 interface Group extends Running {
+  answer: WritersResponse;
   cancel(): void;
+  markLast(): Promise<void>;
 }
 
 /** What the services keep while the server runs. */
@@ -90,6 +108,44 @@ function scenesFor(
   return freeScenes(flat, afterBlockId, held);
 }
 
+/** The scene each of `count` more writers types in: a free scene each, or the caret's scene for all, held or not. */
+function seatScenes(
+  state: Live,
+  { docId, afterBlockId, placement }: WritersRequest,
+  count: number,
+): (Scene | null)[] {
+  if (placement === "own_scenes")
+    return scenesFor(state, docId, afterBlockId).slice(0, count);
+  const { flat } = readServerScript(state.live.storage, docId);
+  const caret = caretScene(flat, afterBlockId);
+  const present = new Set(flat.map((b) => b.attrs.id));
+  // a running writer's scene as it was seated: the block that ends it now may be a line that writer takes back
+  const held = runningOn(state, docId)
+    .flatMap((w) => w.scene ?? [])
+    .find(
+      (s) =>
+        s.firstBlockId === caret?.firstBlockId && present.has(s.lastBlockId),
+    );
+  const scene = held ?? caret;
+  return Array.from({ length: count }, () => scene);
+}
+
+/**
+ * The writers of the document's group that `request` leaves typing, in their order and at most its count: those of a
+ * group seated the same way, in the same scene when they share the caret's.
+ */
+function keptWriters(state: Live, request: WritersRequest): Writer[] {
+  const { docId, afterBlockId, placement, count } = request;
+  const group = state.groups.get(docId);
+  if (group === undefined || group.answer.placement !== placement) return [];
+  if (placement === "caret_scene") {
+    const { flat } = readServerScript(state.live.storage, docId);
+    const scene = caretScene(flat, afterBlockId)?.firstBlockId;
+    if (group.writers.some((w) => w.scene?.firstBlockId !== scene)) return [];
+  }
+  return group.writers.slice(0, count);
+}
+
 /**
  * Each seat's person typing in its scene; the n-th draws from DEMO_SEED, n and the moment they
  * start. When one cannot open, the ones that did are stopped before the failure is passed on.
@@ -99,6 +155,7 @@ async function seat(
   docId: string,
   seats: readonly { userId: string; scene: Scene | null }[],
   profile: WritingProfile,
+  keepBlocks: () => number,
 ): Promise<Writer[]> {
   const startedAt = state.live.clock.now();
   const opened = await Promise.allSettled(
@@ -110,6 +167,7 @@ async function seat(
         profile,
         seed: DEMO_SEED + i + startedAt,
         random: state.random,
+        keepBlocks,
       }),
     ),
   );
@@ -124,36 +182,108 @@ async function seat(
   throw failed.reason;
 }
 
-async function stopGroup(state: Live, docId: string): Promise<void> {
+/** Stops the document's group and its timer, but for the writers in `kept`, which stay in it typing. */
+async function stopGroup(
+  state: Live,
+  docId: string,
+  kept: readonly Writer[],
+): Promise<void> {
   const group = state.groups.get(docId);
   if (group === undefined) return;
-  state.groups.delete(docId);
   group.cancel();
-  await Promise.all(group.writers.map((w) => w.stop()));
+  if (kept.length === 0) state.groups.delete(docId);
+  else state.groups.set(docId, { ...group, writers: kept });
+  const leaving = group.writers.filter((w) => !kept.includes(w));
+  // a writer has typed its last when stop() returns: only the server taking it back is waited for
+  await Promise.all([...leaving.map((w) => w.stop()), group.markLast()]);
 }
 
-/** Replaces the document's group with `count` writers, the first free members of the pool, one a scene. */
+/**
+ * Writes the latest edit of `writers` as the script's Last edited every EDITS_EVERY_MS, once it is later than the one
+ * written; returns the timer's cancel and the write itself.
+ */
+function editMarks(
+  state: Live,
+  docId: string,
+  writers: readonly Writer[],
+): { cancel: () => void; markLast: () => Promise<void> } {
+  let markedAt = -Infinity;
+  const markLast = async (): Promise<void> => {
+    const latest = writers
+      .flatMap((w) => {
+        const at = w.editedAt();
+        return at === null ? [] : [{ userId: w.userId, at }];
+      })
+      .toSorted((a, b) => b.at - a.at)[0];
+    if (latest === undefined || latest.at <= markedAt) return;
+    await markEdited(state.live, docId, latest);
+    markedAt = latest.at;
+  };
+  const { clock } = state.live;
+  let cancel = clock.schedule(function tick() {
+    markLast().catch(() => {
+      // the next tick writes it again: an edit only ever moves Last edited later
+    });
+    cancel = clock.schedule(tick, EDITS_EVERY_MS);
+  }, EDITS_EVERY_MS);
+  return { cancel: () => cancel(), markLast };
+}
+
+/**
+ * Makes the document's group `count` writers seated by its placement: the writers already typing that way go on, so
+ * that their carets never leave, and the first free members of the pool join them.
+ */
 async function addWriters(
   state: Live,
-  { docId, count, afterBlockId }: WritersRequest,
+  request: WritersRequest,
   stopLater: () => void,
 ): Promise<WritersResponse> {
-  await stopGroup(state, docId);
+  const { docId, count, placement } = request;
+  const kept = keptWriters(state, request);
+  const keptNames = state.groups.get(docId)?.answer.names ?? [];
+  const endGroup = async (error: unknown): Promise<never> => {
+    await stopGroup(state, docId, []);
+    throw error;
+  };
+  await stopGroup(state, docId, kept).catch(endGroup);
   if (count === 0) return NONE;
   const busy = new Set(runningOn(state, docId).map((w) => w.userId));
-  const scenes = scenesFor(state, docId, afterBlockId).slice(0, count);
+  const scenes = seatScenes(state, request, count - kept.length);
   const seats = WRITER_POOL.filter((m) => !busy.has(m.userId))
     .slice(0, scenes.length)
     .map(({ userId, name }, i) => ({ userId, name, scene: scenes[i]! }));
-  const writers = await seat(state, docId, seats, PROFILES.demo);
-  const cancel = state.live.clock.schedule(stopLater, WRITERS_RUN_MS);
-  state.groups.set(docId, { docId, writers, cancel });
-  return {
+  // asked as they type: the writers who go on keep fewer lines once others join them, and more once some leave
+  const keepBlocks = (): number =>
+    shareOf(state.groups.get(docId)?.writers.length ?? seats.length);
+  const added = await seat(
+    state,
+    docId,
+    seats,
+    PROFILES.demo,
+    keepBlocks,
+  ).catch(endGroup);
+  const writers = [...kept, ...added];
+  const stopping = state.live.clock.schedule(stopLater, WRITERS_RUN_MS);
+  const edits = editMarks(state, docId, writers);
+  const cancel = (): void => {
+    stopping();
+    edits.cancel();
+  };
+  const answer = {
     asked: count,
     count: writers.length,
-    names: seats.map((s) => s.name),
+    names: [...keptNames.slice(0, kept.length), ...seats.map((s) => s.name)],
     endsAt: state.live.clock.now() + WRITERS_RUN_MS,
+    placement,
   };
+  state.groups.set(docId, {
+    docId,
+    writers,
+    answer,
+    cancel,
+    markLast: edits.markLast,
+  });
+  return answer;
 }
 
 /** Lanternfield Studios' co-editing groups, on each of their documents that is placed. */
@@ -166,7 +296,9 @@ async function startPresenceGroups(state: Live): Promise<void> {
       userId: memberNamed(name),
       scene: scenes[i] ?? null,
     }));
-    const writers = await seat(state, docId, seats, PRESENCE_PROFILE);
+    const writers = await seat(state, docId, seats, PRESENCE_PROFILE, () =>
+      shareOf(seats.length),
+    );
     state.presence.push({ docId, writers });
   }
 }
@@ -205,9 +337,11 @@ export function createDemoServices(options: {
       serial(() =>
         addWriters(state, request, () => {
           // a group whose writers cannot all stop has nothing more to stop
-          serial(() => stopGroup(state, request.docId)).catch(() => {});
+          serial(() => stopGroup(state, request.docId, [])).catch(() => {});
         }),
       ),
+    runningWriters: async (_userId, docId) =>
+      state.groups.get(docId)?.answer ?? NONE,
     async prepare(_userId, { scenarioId }) {
       const scenario = TOUR.scenarios.find((s) => s.id === scenarioId);
       if (scenario === undefined) return { ok: false, reason: "unknown" };
@@ -227,7 +361,7 @@ export function createDemoServices(options: {
     close: () =>
       serial(async () => {
         const groups = [...state.groups.keys()].map((docId) =>
-          stopGroup(state, docId),
+          stopGroup(state, docId, []),
         );
         const writers = state.presence.splice(0).flatMap((r) => r.writers);
         await Promise.all([...groups, ...writers.map((w) => w.stop())]);

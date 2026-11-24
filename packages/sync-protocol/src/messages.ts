@@ -34,6 +34,7 @@ export const CONTROL_KINDS = [
   "handed_in",
   "trashed",
   "untrashed",
+  "viewers_counted",
 ] as const;
 export const SYNC_STEPS = ["step1", "step2", "update"] as const;
 export const VERSION_FIELDS = [

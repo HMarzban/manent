@@ -110,6 +110,8 @@ class Exchange implements Handshake {
   private sentThrough = 0;
   /** The server's step 1 on this subscription. */
   private serverVector: Uint8Array | null = null;
+  /** The last presence asked to be sent: sent again whenever the subscription goes live, so a page opened before is seen. */
+  private presence: Uint8Array | null = null;
   private cancel: (() => void) | null = null;
   private readonly docId: string;
   private readonly clock: Clock;
@@ -250,13 +252,10 @@ class Exchange implements Handshake {
   }
 
   sendAwareness(update: Uint8Array): void {
+    this.presence = update;
+    const { docId, generation } = this;
     if (this.phase === "live")
-      this.send?.({
-        type: "AWARENESS",
-        docId: this.docId,
-        generation: this.generation,
-        update,
-      });
+      this.send?.({ type: "AWARENESS", docId, generation, update });
   }
 
   close(): void {
@@ -307,6 +306,7 @@ class Exchange implements Handshake {
       });
     this.host.stepTwo(m.data);
     this.pump();
+    if (this.presence !== null) this.sendAwareness(this.presence);
   }
 
   /** Sends a push or a setting, and waits for its answer. */

@@ -21,6 +21,9 @@ tourScenario("together-cursors", async ({ page, windows, scenario, step }) => {
   });
   await sams.locator(`[data-id="${speechId}"]`).click();
   const danas = await step(1);
-  await expect(danas.locator(".mn-cursor")).toBeAttached();
+  // Sam's tab shows his name while he moves, then his initials, on the speech he clicked into
+  await expect(
+    danas.locator(`[data-id="${speechId}"] .mn-cursor-tab`),
+  ).toHaveText("SO", { timeout: 6000 });
   await expectEvidence([page], scenario);
 });

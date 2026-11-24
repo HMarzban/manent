@@ -29,10 +29,13 @@ export interface ScrollPorts {
   blockTop(view: EditorView, block: number): number | null;
 }
 
-// Document changes so far, by whom: an update made by someone else is one in which `remote` moved.
+// Document changes so far, by whom: an update made by someone else is one in which `remote` moved. Requests to scroll
+// to the selection are counted the same way.
 interface Changes {
   readonly remote: number;
   readonly local: number;
+  readonly remoteScrolls: number;
+  readonly localScrolls: number;
 }
 
 const changesKey = new PluginKey<Changes>("scroll");
@@ -187,7 +190,12 @@ type ScrollOptions = ScrollPorts & {
   typewriter(): boolean;
 };
 
-function scrollView(view: EditorView, options: ScrollOptions): PluginView {
+/** `remoteOnly` gains the view when only remote changes asked for the scroll to the selection after its update. */
+function scrollView(
+  view: EditorView,
+  options: ScrollOptions,
+  remoteOnly: WeakSet<EditorView>,
+): PluginView {
   const scroller = options.scroller();
   const anchoring = scroller.style.getPropertyValue("overflow-anchor");
   // the browser's own scroll anchoring would correct a remote change a second time
@@ -213,6 +221,12 @@ function scrollView(view: EditorView, options: ScrollOptions): PluginView {
     update(_, prev: EditorState) {
       const was = changesKey.getState(prev)!;
       const now = changesKey.getState(view.state)!;
+      if (
+        now.remoteScrolls !== was.remoteScrolls &&
+        now.localScrolls === was.localScrolls
+      )
+        remoteOnly.add(view);
+      else remoteOnly.delete(view);
       if (now.remote !== was.remote) {
         const moved =
           anchor === null ? null : movedBy(view, prev, anchor, options);
@@ -251,20 +265,37 @@ function scrollView(view: EditorView, options: ScrollOptions): PluginView {
 
 /**
  * Keeps the line being read still when a remote change lands above it and, while `typewriter()` holds, the line
- * being written at one height. It comes after the typesetting plugins, so the caret has its own rule applied first.
+ * being written at one height; a scroll to the caret that only remote changes asked for is not made. It comes after
+ * the typesetting plugins, so the caret has its own rule applied first.
  */
 export function scrollPlugin(options: ScrollOptions): Plugin {
+  const remoteOnly = new WeakSet<EditorView>();
   return new Plugin<Changes>({
     key: changesKey,
     state: {
-      init: () => ({ remote: 0, local: 0 }),
+      init: () => ({ remote: 0, local: 0, remoteScrolls: 0, localScrolls: 0 }),
       apply: (tr, prev) => {
-        if (!tr.docChanged) return prev;
+        if (!tr.docChanged && !tr.scrolledIntoView) return prev;
+        const changed = tr.docChanged ? 1 : 0;
+        const scrolled = tr.scrolledIntoView ? 1 : 0;
         return options.isRemote(tr)
-          ? { ...prev, remote: prev.remote + 1 }
-          : { ...prev, local: prev.local + 1 };
+          ? {
+              ...prev,
+              remote: prev.remote + changed,
+              remoteScrolls: prev.remoteScrolls + scrolled,
+            }
+          : {
+              ...prev,
+              local: prev.local + changed,
+              localScrolls: prev.localScrolls + scrolled,
+            };
       },
     },
-    view: (view) => scrollView(view, options),
+    view: (view) => scrollView(view, options, remoteOnly),
+    props: {
+      // the binding asks after a remote change whenever the caret is anywhere in the window, even under the bars above
+      // the page, and would pull the page back under a person scrolling away from their caret
+      handleScrollToSelection: (view) => remoteOnly.delete(view),
+    },
   });
 }

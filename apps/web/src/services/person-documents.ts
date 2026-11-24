@@ -1,14 +1,12 @@
 // The person's sync and what it opens: their private index, the Library read from index documents, and their documents.
 import type { KeyValueMap } from "@manent/settings";
 import type { DocHandle, SyncClient } from "@manent/sync-client";
-import type { WorkspaceRef } from "@manent/sync-protocol";
 import { LIBRARY_WORDS, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import type { ConnectionControl } from "../demo/connection-transport.ts";
-import { POLL_MS } from "../demo/use-demo.ts";
 import { watchHandoffRefusals } from "../desktop/handoff-message.ts";
-import type { TabPerson } from "../session.ts";
-import type { CommandsOptions } from "./person-commands.ts";
+import { openIndexes } from "./person-indexes.ts";
+import type { Indexes, PersonOptions } from "./person-indexes.ts";
 import type { DocumentSource } from "./ports.ts";
 import type { PersonSync } from "./sync/create-sync.ts";
 import { createSyncDocumentSource } from "./sync/document-source.ts";
@@ -18,29 +16,13 @@ import {
   createLaterReview,
 } from "./sync/later-index.ts";
 import type { LaterMap, PersonReview } from "./sync/later-index.ts";
-import type { SyncLibrary, onOwnChange } from "./sync/library-index.ts";
-import type { checkCleared, keepOnDevice } from "./sync/on-device.ts";
-import type { PrivateIndex } from "./sync/private-index.ts";
-import type { ReviewStore } from "./sync/review.ts";
-
-type Options = CommandsOptions & { person: TabPerson };
+import type { SyncLibrary } from "./sync/library-index.ts";
 
 /** The person's sync once it has started, with what lets them trust this device; `askPersistence` asks once a session. */
 interface Started {
   sync: PersonSync;
   trust: typeof import("./sync/device-trust.ts");
   askPersistence: () => void;
-}
-
-interface Indexes {
-  privateIndex: PrivateIndex;
-  library: SyncLibrary;
-  review: ReviewStore;
-  onOwnChange: typeof onOwnChange;
-  keepOnDevice: typeof keepOnDevice;
-  checkCleared: typeof checkCleared;
-  /** Stops asking the server for the person's workspaces. */
-  stopAsking: () => void;
 }
 
 /** What the services keep of the person's sync. */
@@ -69,97 +51,6 @@ export interface PersonDocuments {
    */
   leave(): void;
   dispose(): void;
-}
-
-/** Asks for the person's workspaces, again every POLL_MS until answered and while one is getting ready; returns the stop. */
-function askWorkspaces(
-  options: Options,
-  heard: (workspaces: readonly WorkspaceRef[]) => void,
-): () => void {
-  let stopped = false;
-  let cancel: (() => void) | null = null;
-  const ask = (): void => {
-    void options.api
-      .me()
-      .catch(() => ({ ok: false, reason: "unreachable" }) as const)
-      .then((answer) => {
-        if (stopped) return;
-        if (answer.ok) heard(answer.me.workspaces);
-        const again = answer.ok
-          ? answer.me.workspaces.some((w) => w.seeding?.failed === false)
-          : answer.reason === "unreachable";
-        if (again) cancel = options.schedule(ask, POLL_MS);
-      });
-  };
-  ask();
-  return () => {
-    stopped = true;
-    cancel?.();
-  };
-}
-
-/** The person's private index and Library over `sync`, each loaded apart from the entry. */
-async function openIndexes(
-  sync: PersonSync,
-  options: Options,
-  messages: MessageQueue,
-): Promise<Indexes> {
-  const { person } = options;
-  const [privateParts, libraryParts, onDevice, reviewParts] = await Promise.all(
-    [
-      import("./sync/private-index.ts"),
-      import("./sync/library-index.ts"),
-      import("./sync/on-device.ts"),
-      import("./sync/review.ts"),
-    ],
-  );
-  const { userId } = person;
-  const privateIndex = await privateParts.openPrivateIndex({
-    sync,
-    userId,
-    memory: sync.memory,
-  });
-  const workspaces = createValue(sync.memory.workspaces(userId) ?? []);
-  const stopAsking =
-    person.token === null
-      ? () => {}
-      : askWorkspaces(options, (heard) => {
-          sync.memory.setWorkspaces(userId, heard);
-          workspaces.set(heard);
-        });
-  const library = libraryParts.createSyncLibrary({
-    sync,
-    privateIndex,
-    userId,
-    workspaces,
-    localWorkspaceId: person.token === null ? userId : null,
-    language: options.language,
-    now: options.now,
-    newId: options.randomId,
-  });
-  const review = reviewParts.createReviewStore({
-    privateIndex,
-    sync,
-    // the server answers for at most 64 ids at once
-    names: async (docId, clientIds) => {
-      const asked = await sync.throughConnection(() =>
-        options.api.docClients(docId, clientIds.slice(0, 64)),
-      );
-      return asked.clients.map((client) => client.userId);
-    },
-    messages,
-    announce: (text) => options.dom.announce(text),
-    now: options.now,
-  });
-  return {
-    privateIndex,
-    library,
-    review,
-    onOwnChange: libraryParts.onOwnChange,
-    keepOnDevice: onDevice.keepOnDevice,
-    checkCleared: onDevice.checkCleared,
-    stopAsking,
-  };
 }
 
 /**
@@ -236,6 +127,52 @@ function continuedSource(
   };
 }
 
+/**
+ * The documents the person opens over `sync`, each in `handles` while it is open; `stopRefusals` stops telling of the
+ * handoffs the desktop app's node refuses.
+ */
+function openDocuments(
+  options: PersonOptions,
+  parts: {
+    sync: Promise<PersonSync>;
+    started: () => Started | null;
+    indexes: Promise<Indexes | null>;
+    library: SyncLibrary;
+    review: PersonReview;
+    deviceId: string;
+    messages: MessageQueue;
+  },
+): {
+  documents: DocumentSource;
+  handles: Subscribable<readonly DocHandle[]>;
+  stopRefusals: () => void;
+} {
+  const { sync, library, messages } = parts;
+  const handles = createValue<readonly DocHandle[]>([]);
+  const titles = (docId: string): string =>
+    library.documentTitle(docId).get() ?? LIBRARY_WORDS.untitledScript;
+  // only the desktop app's node sends an upstream status: on the web this says nothing
+  const stopRefusals = watchHandoffRefusals({
+    handles: handles.get,
+    handlesChanged: handles.subscribe,
+    title: titles,
+    queue: messages,
+  });
+  const source = createSyncDocumentSource({
+    sync,
+    signedIn: options.person.token !== null,
+    review: parts.review,
+    titles,
+    messages,
+    now: options.now,
+    schedule: options.schedule,
+    removedInfo: async (docId) =>
+      (await sync).throughConnection(() => options.api.removedDoc(docId)),
+    opened: openedHook({ ...parts, handles, now: options.now }),
+  });
+  return { documents: continuedSource(source, library), handles, stopRefusals };
+}
+
 /** The private index's maps, each holding what is written until the index opens; `ready` settles once they are attached. */
 function laterMaps(indexes: Promise<Indexes | null>): {
   maps: { prefs: LaterMap; keys: LaterMap; flags: LaterMap; tour: LaterMap };
@@ -259,7 +196,7 @@ function laterMaps(indexes: Promise<Indexes | null>): {
 
 /** The person's sync, started once the demo's seed has been followed, and their indexes opened over it. */
 function startPersonSync(
-  options: Options,
+  options: PersonOptions,
   deviceId: string,
   messages: MessageQueue,
 ): {
@@ -301,8 +238,7 @@ function startPersonSync(
         openIndexes(s, options, messages),
         trust,
       ]);
-      t.trust.tellCleared(s, opened, { deviceId, messages });
-      return opened;
+      return t.trust.tellCleared(s, opened, { deviceId, messages });
     })
     .catch(() => {
       // the maps hold what is written for this session, and the Library stays empty
@@ -323,7 +259,7 @@ function startPersonSync(
  * documents it opens; and the Library. `dispose` disposes the sync.
  */
 export function createPersonDocuments(
-  options: Options,
+  options: PersonOptions,
   deviceId: string,
   messages: MessageQueue,
 ): PersonDocuments {
@@ -337,37 +273,15 @@ export function createPersonDocuments(
   const review = createLaterReview({
     store: indexes.then((opened) => opened?.review ?? null),
   });
-  const handles = createValue<readonly DocHandle[]>([]);
-  const titles = (docId: string): string =>
-    library.documentTitle(docId).get() ?? LIBRARY_WORDS.untitledScript;
-  // only the desktop app's node sends an upstream status: on the web this says nothing
-  const stopRefusals = watchHandoffRefusals({
-    handles: handles.get,
-    handlesChanged: handles.subscribe,
-    title: titles,
-    queue: messages,
-  });
-  const source = createSyncDocumentSource({
+  const { documents, handles, stopRefusals } = openDocuments(options, {
     sync,
-    signedIn: options.person.token !== null,
+    started,
+    indexes,
+    library,
     review,
-    titles,
+    deviceId,
     messages,
-    now: options.now,
-    schedule: options.schedule,
-    removedInfo: async (docId) =>
-      (await sync).throughConnection(() => options.api.removedDoc(docId)),
-    opened: openedHook({
-      library,
-      indexes,
-      started,
-      handles,
-      deviceId,
-      messages,
-      now: options.now,
-    }),
   });
-  const documents = continuedSource(source, library);
   return {
     client,
     connection,

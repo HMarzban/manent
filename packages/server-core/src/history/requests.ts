@@ -1,14 +1,69 @@
 // History requests: run one at a time per document, and a keyed one answered once.
 import type { DocFile } from "@manent/storage";
+import { VERSION_KINDS } from "@manent/sync-protocol";
 import type {
   HistoryControl,
   HttpErrorCode,
   VersionItem,
+  VersionPosition,
   VersionResponse,
 } from "@manent/sync-protocol";
 import type { HistoryOutcome } from "./service.ts";
-import { readStoredResponse } from "./summaries.ts";
 import type { Recorded } from "./summaries.ts";
+
+type Fields = Record<string, unknown>;
+
+const isFields = (value: unknown): value is Fields =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isCount = (value: unknown): value is number =>
+  Number.isSafeInteger(value) && Number(value) >= 0;
+
+function readPosition(value: unknown): VersionPosition | null {
+  if (!isFields(value)) return null;
+  const { generation, seq } = value;
+  return isCount(generation) && isCount(seq) ? { generation, seq } : null;
+}
+
+function readSummary(value: unknown): VersionItem["summary"] | null {
+  if (!isFields(value)) return null;
+  const { authorUserIds, changes, scenes } = value;
+  if (!Array.isArray(authorUserIds) || !isCount(changes) || !isCount(scenes))
+    return null;
+  const ids = authorUserIds.filter((id) => typeof id === "string");
+  return ids.length === authorUserIds.length
+    ? { authorUserIds: ids, changes, scenes }
+    : null;
+}
+
+/** A stored request's answer read back; null for text this service did not write. */
+function readStoredResponse(text: string): VersionResponse | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    // stored text that is not JSON is no answer: the caller refuses the retry like a damaged one
+    return null;
+  }
+  const item = isFields(parsed) ? parsed.version : null;
+  if (!isFields(item)) return null;
+  const { id, kind, name, createdByUserId, createdAt, onDevice } = item;
+  const known = VERSION_KINDS.find((member) => member === kind);
+  if (typeof id !== "string" || known === undefined) return null;
+  if (name !== null && typeof name !== "string") return null;
+  if (typeof createdByUserId !== "string" || !isCount(createdAt)) return null;
+  if (typeof onDevice !== "boolean") return null;
+  const position = item.position === null ? null : readPosition(item.position);
+  const summary = item.summary === null ? null : readSummary(item.summary);
+  const { engineVersion } = item;
+  if (engineVersion !== null && !isCount(engineVersion)) return null;
+  if ((position === null) !== (item.position === null)) return null;
+  if ((summary === null) !== (item.summary === null)) return null;
+  const version = { id, kind: known, name, createdByUserId, createdAt };
+  return {
+    version: { ...version, onDevice, position, engineVersion, summary },
+  };
+}
 
 /** What the room is told of a version made. */
 export const controlOf = (

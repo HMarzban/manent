@@ -66,6 +66,7 @@ export {
   HTTP_ERROR_CODES,
   REPLAY_REFUSALS,
   SERVER_STATES,
+  WRITER_PLACEMENTS,
   decodeReplayUpdates,
   encodeReplayUpdates,
   isHttpErrorCode,
@@ -110,6 +111,7 @@ export type {
   TourPrepareRequest,
   TourPrepareResponse,
   WorkspaceRef,
+  WriterPlacement,
   WritersRequest,
   WritersResponse,
   WsTicketResponse,
@@ -220,3 +222,4 @@ export type {
   PrivateCreateRequest,
   PrivateCreateResponse,
 } from "./private-copy.ts";
+export { encodeViewerCount, parseViewerCount } from "./viewer-count.ts";

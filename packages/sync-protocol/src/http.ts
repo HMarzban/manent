@@ -231,19 +231,29 @@ export interface DemoResponse {
   control: ControlEndpoint | null;
 }
 
+/** Where Add writers seats its writers: each in a scene of its own after the caret's, or all in the caret's scene. */
+export const WRITER_PLACEMENTS = ["own_scenes", "caret_scene"] as const;
+export type WriterPlacement = (typeof WRITER_PLACEMENTS)[number];
+
 /** The body of POST /api/demo/writers: 0 stops them; `afterBlockId` is the caller's caret block. */
 export interface WritersRequest {
   docId: string;
   count: 0 | 1 | 5 | 20;
   afterBlockId: string | null;
+  placement: WriterPlacement;
 }
 
-/** `count` writers started, at most `asked`; `endsAt` is when they stop by themselves, null when none runs. */
+/**
+ * The answer of POST /api/demo/writers, and of POST /api/demo/writers/running (body `{ docId }`), which tells
+ * what runs in the script now: `count` writers started, at most `asked`, seated by `placement`; `endsAt` is when
+ * they stop by themselves. `placement` and `endsAt` are null when none runs.
+ */
 export interface WritersResponse {
   asked: number;
   count: number;
   names: string[];
   endsAt: number | null;
+  placement: WriterPlacement | null;
 }
 
 /** The body of POST /api/demo/tour/prepare. */
@@ -266,6 +276,7 @@ export interface RebuildResponse {
 /** What the demo's control routes ask of the running server, as the signed-in person `userId`. */
 export interface DemoControls {
   writers(userId: string, request: WritersRequest): Promise<WritersResponse>;
+  runningWriters(userId: string, docId: string): Promise<WritersResponse>;
   prepare(
     userId: string,
     request: TourPrepareRequest,
@@ -273,11 +284,13 @@ export interface DemoControls {
   rebuild(userId: string, docId: string): Promise<void>;
 }
 
+/** `resetting`: from a reset's start until the server runs again on the new seed, or the seed fails. */
 export const SERVER_STATES = [
   "running",
   "stopped",
   "starting",
   "failed",
+  "resetting",
 ] as const;
 
 export type ServerState = (typeof SERVER_STATES)[number];

@@ -47,7 +47,9 @@ export function createProduction(d: Driving): SeedProduction {
         ...SENT,
         what: "changed",
         pages: revisedPagesOf(d.target.storage, docId),
-        recipientUserIds: [],
+        recipientUserIds: d.target.storage.directory
+          .rolesOf(docId)
+          .flatMap((role) => (role.userId === userId ? [] : [role.userId])),
         memo,
         issuedOn: today(),
       });

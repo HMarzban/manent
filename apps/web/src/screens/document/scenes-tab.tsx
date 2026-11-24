@@ -1,12 +1,12 @@
-// The left panel's Scenes tab: the acts, sections and scenes of the outline, with a filter, named for the script's
-// format; a row goes to its place in the page, and draws what other features say of its scene.
+// The left panel's Scenes tab: the acts, sections and scenes of the outline as a list or as cards, with a filter, named
+// for the script's format; a row goes to its place in the page, moves by drag or key for a person who can edit, and
+// draws what other features say of its scene.
 import {
-  Avatar,
   DOCUMENT_WORDS,
   HISTORY_WORDS,
   Input,
   Row,
-  SCENES_WORDS,
+  SortableList,
   SurfaceState,
   VirtualRows,
   keyLabel,
@@ -14,34 +14,48 @@ import {
   useCommands,
   useSubscribable,
 } from "@manent/ui";
-import type { Subscribable } from "@manent/ui";
 import {
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useReducer,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
+import {
+  BlankCard,
+  SceneCards,
+  ScenesSwitch,
+  useScenesView,
+} from "../../scenes/cards.tsx";
+import type { ScenesView } from "../../scenes/cards.tsx";
+import {
+  ScenePeople,
+  SceneTitle,
+  isPersonMark,
+  useSceneExtras,
+} from "../../scenes/marks.tsx";
+import type { SceneParts } from "../../scenes/marks.tsx";
+import { useSceneMoves } from "../../scenes/moves.ts";
+import { SceneRowMenu, rowItemsFor } from "../../scenes/row-menu.tsx";
 import { SCENE_ROW_ITEMS } from "../../scenes/row-items.ts";
 import { useServices } from "../../services/context.tsx";
 import type { PanelTab } from "../../shell/panel-tab.ts";
 import { OutlineContext } from "../../state/bridge-contexts.ts";
-import { useOutlineCount, useOutlineRow } from "../../state/outline.store.ts";
-import type { OutlineRow } from "../../state/outline.store.ts";
-import { RowMenu } from "../library/row-place.tsx";
+import { useOutlineCount } from "../../state/outline.store.ts";
+import type {
+  OutlineRow,
+  OutlineSelectors,
+} from "../../state/outline.store.ts";
 import { panelRenderers } from "./panel-surface.tsx";
-import { SCENE_LENGTH_SOURCES } from "./scene-lengths.ts";
-import { SCENE_MARK_SOURCES } from "./scene-marks.ts";
-import type { SceneMark } from "./scene-marks.ts";
+import { useCanEdit } from "./ruler-bar.tsx";
 
 // the element picker's key, which the editor binds
 const PICKER_CHORD = "Alt+Enter";
 const READY = Object.freeze({ kind: "ready" });
 const EMPTY = Object.freeze({ kind: "empty" });
+const NO_ROWS: readonly OutlineRow[] = Object.freeze([]);
 
 /** The format of `docId`'s script; the default format while no document is open. */
 function useFormat(docId: string | null): string {
@@ -55,92 +69,16 @@ function useFormat(docId: string | null): string {
   return useSyncExternalStore(subscribe, () => store.get("script.format"));
 }
 
-/** The value of each of `sources` for `docId`, read again when one changes. */
-function useSources<T>(
-  sources: readonly ((docId: string) => Subscribable<T>)[],
-  docId: string,
-): readonly Subscribable<T>[] {
-  const opened = useMemo(
-    () => sources.map((source) => source(docId)),
-    [sources, docId],
-  );
-  const [, changed] = useReducer((n: number) => n + 1, 0);
-  useEffect(() => {
-    const stops = opened.map((source) => source.subscribe(changed));
-    return () => {
-      for (const stop of stops) stop();
-    };
-  }, [opened]);
-  return opened;
-}
-
-// the order a row draws its marks in, whichever source gives them
-const MARK_ORDER: Readonly<Record<SceneMark["kind"], number>> = Object.freeze({
-  revised: 0,
-  count: 1,
-  person: 2,
-  text: 3,
-});
-
-/** What a scene's row draws besides its heading: its marks in their order, and the text in place of its length. */
-interface SceneExtras {
-  marks(blockId: string): readonly SceneMark[];
-  /** Null: the row shows its length in eighths. */
-  length(blockId: string): string | null;
-}
-
-function useSceneExtras(docId: string): SceneExtras {
-  const marks = useSources(SCENE_MARK_SOURCES, docId);
-  const lengths = useSources(SCENE_LENGTH_SOURCES, docId);
-  return {
-    marks: (blockId) =>
-      marks
-        .flatMap((source) => source.get().get(blockId) ?? [])
-        .toSorted((a, b) => MARK_ORDER[a.kind] - MARK_ORDER[b.kind]),
-    length(blockId) {
-      for (const source of lengths) {
-        const text = source.get().get(blockId);
-        if (text !== undefined) return text;
-      }
-      return null;
-    },
-  };
-}
-
-/** A mark other than revised, drawn after the heading. */
-function Mark(props: {
-  mark: Exclude<SceneMark, { kind: "revised" }>;
-}): ReactNode {
-  const { mark } = props;
-  switch (mark.kind) {
-    case "count":
-      return (
-        <span className="text-meta text-fg-muted tabular-nums">
-          {mark.label} {mark.count}
-        </span>
-      );
-    case "person":
-      return (
-        <Avatar
-          name={mark.name}
-          initials={mark.initials}
-          colour={mark.colour}
-          size="sm"
-        />
-      );
-    case "text":
-      return <span className="text-meta text-fg-muted">{mark.label}</span>;
-  }
-}
-
-/** A scene's row: its number, heading, synopsis and marks, then whether it is revised, its length and its menu. */
+/**
+ * A scene's row: its number, heading, synopsis and marks, then whether it is revised, the people in it, its length and
+ * its menu.
+ */
 function SceneLine(props: {
-  docId: string;
   row: OutlineRow;
-  extras: SceneExtras;
+  parts: SceneParts;
   goTo: () => void;
 }): ReactNode {
-  const { docId, row, extras, goTo } = props;
+  const { row, parts, goTo } = props;
   if (row.omitted)
     return (
       <Row current={row.current} onActivate={goTo}>
@@ -151,88 +89,63 @@ function SceneLine(props: {
         </span>
       </Row>
     );
-  const marks = extras.marks(row.blockId);
-  const marked = marks.some((mark) => mark.kind === "revised");
-  const length =
-    extras.length(row.blockId) ??
-    (row.eighths === null ? null : SCENES_WORDS.length(row.eighths));
-  const trailing = [
-    ...(marked
+  const marks = parts.extras.marks(row.blockId);
+  const length = parts.extras.length(row);
+  const trailing: ReactNode[] = [
+    ...(marks.some((mark) => mark.kind === "revised")
       ? [
           <span key="revised" aria-hidden="true">
             *
           </span>,
         ]
       : []),
-    ...(length === null
+    // the people in the scene stand just before its length, in the same trailing item
+    ...(length === null && !marks.some(isPersonMark)
       ? []
       : [
-          <span key="length" className="tabular-nums">
-            {length}
+          <span key="length" className="flex items-center gap-2">
+            <ScenePeople marks={marks} />
+            {length === null ? null : (
+              <span className="tabular-nums">{length}</span>
+            )}
           </span>,
         ]),
-    ...(SCENE_ROW_ITEMS.length === 0
-      ? []
-      : [
-          <RowMenu key="menu" title={row.heading}>
-            {SCENE_ROW_ITEMS.map(({ id, Item }) => (
-              <Item key={id} docId={docId} headingId={row.blockId} />
-            ))}
-          </RowMenu>,
-        ]),
   ];
-  const after = marks.flatMap((mark, index) =>
-    mark.kind === "revised" ? [] : [<Mark key={index} mark={mark} />],
-  );
   return (
-    <Row
-      current={row.current}
-      onActivate={goTo}
-      leading={
-        row.number === null ? undefined : (
-          <span className="w-6 text-end tabular-nums">{row.number}</span>
-        )
-      }
-      meta={row.synopsis === "" ? undefined : row.synopsis}
-      trailing={trailing}
+    <SceneRowMenu
+      docId={parts.docId}
+      headingId={row.blockId}
+      title={row.heading}
+      items={parts.items}
     >
-      {marked ? (
-        <>
-          <span aria-hidden="true">{row.heading}</span>
-          <span className="sr-only">
-            {DOCUMENT_WORDS.revisedName(row.heading)}
-          </span>
-        </>
-      ) : (
-        row.heading
+      {(handle) => (
+        <Row
+          current={row.current}
+          onActivate={goTo}
+          leading={
+            row.number === null ? undefined : (
+              <span className="w-6 text-end tabular-nums">{row.number}</span>
+            )
+          }
+          meta={row.synopsis === "" ? undefined : row.synopsis}
+          trailing={trailing}
+          menu={handle ?? undefined}
+        >
+          <SceneTitle heading={row.heading} marks={marks} />
+        </Row>
       )}
-      {after.length === 0 ? null : (
-        <span className="ms-2 inline-flex gap-1 align-middle">{after}</span>
-      )}
-    </Row>
+    </SceneRowMenu>
   );
 }
 
 /** An act heads the scenes after it; a section groups them and is never printed. */
-function OutlineLine(props: {
-  docId: string;
-  index: number;
-  extras: SceneExtras;
-}): ReactNode {
+function OutlineLine(props: { row: OutlineRow; parts: SceneParts }): ReactNode {
+  const { row } = props;
   const { editor } = useServices();
-  const row = useOutlineRow(props.index);
-  if (row === null) return null;
   const goTo = () =>
     void editor.run({ kind: "go_to", blockId: row.blockId, offset: 0 });
   if (row.kind === "scene")
-    return (
-      <SceneLine
-        docId={props.docId}
-        row={row}
-        extras={props.extras}
-        goTo={goTo}
-      />
-    );
+    return <SceneLine row={row} parts={props.parts} goTo={goTo} />;
   return (
     <Row onActivate={goTo}>
       <span
@@ -246,35 +159,99 @@ function OutlineLine(props: {
   );
 }
 
-/** The outline's indices of the scenes whose heading or synopsis matches `filter`; every row while it is empty. */
-function useShownRows(filter: string): readonly number[] | null {
+/** The rows of `outline` shown under `filter`: the scenes whose heading or synopsis matches it; every row while it is empty. */
+function listedRows(
+  outline: OutlineSelectors | null,
+  filter: string,
+): readonly OutlineRow[] {
+  if (outline === null) return NO_ROWS;
+  const rows: OutlineRow[] = [];
+  for (let index = 0; index < outline.count(); index++) {
+    const row = outline.row(index);
+    if (
+      row !== null &&
+      (filter === "" ||
+        (row.kind === "scene" &&
+          matchesQuery(filter, [row.heading, row.synopsis])))
+    )
+      rows.push(row);
+  }
+  return rows;
+}
+
+/** `listedRows`, read in render; the same list while no row of it changed, so the store sees no change. */
+function useListedRows(filter: string): readonly OutlineRow[] {
   const outline = useContext(OutlineContext);
   const subscribe = useCallback(
     (listener: () => void) => outline?.subscribe(listener) ?? (() => {}),
     [outline],
   );
-  const shown = useRef<readonly number[]>([]);
-  const read = (): readonly number[] | null => {
-    if (filter === "" || outline === null) return null;
-    const indices: number[] = [];
-    for (let index = 0; index < outline.count(); index++) {
-      const row = outline.row(index);
-      if (
-        row?.kind === "scene" &&
-        matchesQuery(filter, [row.heading, row.synopsis])
-      )
-        indices.push(index);
-    }
-    // the same list while it is unchanged, so the store sees no change
-    const before = shown.current;
+  const listed = useRef<readonly OutlineRow[]>(NO_ROWS);
+  const read = (): readonly OutlineRow[] => {
+    const rows = listedRows(outline, filter);
+    const before = listed.current;
     if (
-      before.length !== indices.length ||
-      before.some((index, at) => index !== indices[at])
+      before.length !== rows.length ||
+      before.some((row, at) => row !== rows[at])
     )
-      shown.current = indices;
-    return shown.current;
+      listed.current = rows;
+    return listed.current;
   };
   return useSyncExternalStore(subscribe, read, read);
+}
+
+/** The rows of a person who can edit: a scene moves by drag, by its menu's Move, and by the move commands. */
+function MovableRows(props: {
+  docId: string;
+  rows: readonly OutlineRow[];
+  renderRow(row: OutlineRow): ReactNode;
+}): ReactNode {
+  const moves = useSceneMoves({ docId: props.docId, rows: props.rows });
+  return (
+    <div {...moves.area} className="min-h-0 flex-1">
+      <SortableList
+        {...moves.sortable}
+        orientation="vertical"
+        renderItem={(id) => {
+          const row = moves.rowOf(id);
+          return row === null ? null : props.renderRow(row);
+        }}
+      />
+    </div>
+  );
+}
+
+/** The listed rows as the view shows them: movable for a person who can edit. Read here, so the panel catches a failed read. */
+function OutlineRows(props: {
+  view: ScenesView;
+  filter: string;
+  label: string;
+  canEdit: boolean;
+  parts: SceneParts;
+}): ReactNode {
+  const rows = useListedRows(props.filter);
+  if (props.view === "cards")
+    return (
+      <SceneCards rows={rows} canEdit={props.canEdit} parts={props.parts} />
+    );
+  const renderRow = (row: OutlineRow): ReactNode => (
+    <OutlineLine row={row} parts={props.parts} />
+  );
+  return props.canEdit ? (
+    <MovableRows docId={props.parts.docId} rows={rows} renderRow={renderRow} />
+  ) : (
+    <div className="min-h-0 flex-1">
+      <VirtualRows
+        count={rows.length}
+        rowHeight="one"
+        label={props.label}
+        renderRow={(index) => {
+          const row = rows[index];
+          return row === undefined ? null : renderRow(row);
+        }}
+      />
+    </div>
+  );
 }
 
 function ScenesList(props: { docId: string }): ReactNode {
@@ -289,16 +266,21 @@ function ScenesList(props: { docId: string }): ReactNode {
   const kind = useSubscribable(kindSource);
   const count = useOutlineCount();
   const extras = useSceneExtras(docId);
+  const canEdit = useCanEdit(docId);
+  const items = useMemo(() => rowItemsFor(SCENE_ROW_ITEMS, canEdit), [canEdit]);
+  const parts: SceneParts = { docId, extras, items };
   const [filter, setFilter] = useState("");
-  const shown = useShownRows(filter);
+  const { view, setView } = useScenesView();
+  const viewSwitch = <ScenesSwitch view={view} onChange={setView} />;
   return (
     <SurfaceState
       surface="left_panel"
       state={count === 0 ? EMPTY : READY}
       render={panelRenderers({
         ready: () => (
-          <div className="flex min-h-0 flex-col">
-            <div className="p-2">
+          <div className="@container flex h-full min-h-0 flex-col">
+            <div className="flex items-center gap-2 p-2">
+              {viewSwitch}
               <Input
                 type="search"
                 aria-label={HISTORY_WORDS.filter}
@@ -310,31 +292,35 @@ function ScenesList(props: { docId: string }): ReactNode {
                   event.preventDefault();
                   setFilter("");
                 }}
-                className="h-control text-ui"
+                className="h-control min-w-0 flex-1 text-ui"
               />
             </div>
-            <VirtualRows
-              count={shown === null ? count : shown.length}
-              rowHeight="one"
+            <OutlineRows
+              view={view}
+              filter={filter}
               label={DOCUMENT_WORDS.leftTab(format)}
-              renderRow={(index) => (
-                <OutlineLine
-                  docId={docId}
-                  index={shown?.[index] ?? index}
-                  extras={extras}
-                />
-              )}
+              canEdit={canEdit}
+              parts={parts}
             />
           </div>
         ),
         empty: () => (
-          <p className="p-4 text-ui text-fg-muted">
-            {DOCUMENT_WORDS.scenesEmpty(
-              format,
-              kind,
-              keyLabel(PICKER_CHORD, platform),
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="p-2">{viewSwitch}</div>
+            {view === "cards" && canEdit ? (
+              <div className="p-2">
+                <BlankCard docId={docId} />
+              </div>
+            ) : (
+              <p className="p-4 text-ui text-fg-muted">
+                {DOCUMENT_WORDS.scenesEmpty(
+                  format,
+                  kind,
+                  keyLabel(PICKER_CHORD, platform),
+                )}
+              </p>
             )}
-          </p>
+          </div>
         ),
       })}
     />

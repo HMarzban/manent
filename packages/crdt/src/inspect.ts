@@ -4,6 +4,7 @@ import type { BlockJSON, RawElement, RawText } from "@manent/schema";
 import * as Y from "yjs";
 import { ORIGIN_REMOTE, throwAll, yDocOf } from "./doc.ts";
 import type { CrdtDoc, Unsubscribe } from "./doc.ts";
+import { noteBefore, parentOf, rootName } from "./held-before.ts";
 import {
   FRAGMENT_NAME,
   elementsNamed,
@@ -39,6 +40,8 @@ export interface TransactionReport {
    * is. Its length depends on the change, never on the script.
    */
   touched(): (RawElement | RawText)[];
+  /** The plain value the root map `map` held at `key` before the change; undefined when it held nothing, held a type, or the change left the key alone. */
+  before(map: string, key: string): unknown;
 }
 
 /** Where a type sits in the document, as far as a report cares. */
@@ -59,6 +62,8 @@ interface Gathered {
   others: Set<Y.XmlElement | Y.XmlText>;
   removed: string[];
   maps: Set<string>;
+  /** Root map name, then key: what the key held before the first transaction that changed it. */
+  before: Map<string, Map<string, unknown>>;
   updates: Update[];
 }
 
@@ -70,21 +75,9 @@ function emptyGathered(fragment: Y.XmlFragment): Gathered {
     others: new Set(),
     removed: [],
     maps: new Set(),
+    before: new Map(),
     updates: [],
   };
-}
-
-/** The type holding this one; null for a root. */
-function parentOf(type: unknown): unknown {
-  return type instanceof Y.AbstractType && type.parent instanceof Y.AbstractType
-    ? type.parent
-    : null;
-}
-
-function rootName(fragment: Y.XmlFragment, root: unknown): string | null {
-  for (const [name, type] of fragment.doc?.share ?? [])
-    if (type === root) return name;
-  return null;
 }
 
 function other(node: unknown): Slot | null {
@@ -178,13 +171,17 @@ function gather(into: Gathered, tr: Y.Transaction): void {
     if (after === before || structs === undefined) continue;
     for (let i = Y.findIndexSS(structs, before); i < structs.length; i++) {
       const struct = structs[i];
-      if (struct instanceof Y.Item && struct.content instanceof Y.ContentType)
+      if (!(struct instanceof Y.Item)) continue;
+      noteBefore(into.fragment, into.before, tr, struct);
+      if (struct.content instanceof Y.ContentType)
         note(into, struct.content.type, true);
     }
   }
   const end = Y.createSnapshot(Y.createDeleteSet(), tr.afterState);
   Y.iterateDeletedStructs(tr, tr.deleteSet, (struct) => {
-    if (struct instanceof Y.Item && struct.content instanceof Y.ContentType)
+    if (!(struct instanceof Y.Item)) return;
+    noteBefore(into.fragment, into.before, tr, struct);
+    if (struct.content instanceof Y.ContentType)
       noteDeleted(into, struct.content.type, end);
   });
 }
@@ -300,6 +297,7 @@ function reportOf(
     changed: changed.map(canonicalOf),
     removed: [...gathered.removed],
     maps: [...gathered.maps].toSorted(),
+    before: (map, key) => gathered.before.get(map)?.get(key),
     touched: () => [
       ...[...created, ...changed].map(rawBlock),
       ...others.flatMap((node) => otherEntries(gathered.fragment, node)),

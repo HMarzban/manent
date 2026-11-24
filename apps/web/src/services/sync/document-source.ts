@@ -4,7 +4,7 @@ import type { Bag } from "@manent/settings";
 import type { DocHandle } from "@manent/sync-client";
 import { createValue } from "@manent/ui";
 import type { StateFact, StatusFacts } from "@manent/ui";
-import type { PersonPresent } from "../../state/people.store.ts";
+import { peoplePresent } from "../../room/people-present.ts";
 import { materialActions } from "../../state/material.store.ts";
 import { writingActions } from "../../state/writing.store.ts";
 import type { DocumentServices, DocumentSource } from "../ports.ts";
@@ -98,6 +98,7 @@ export function createSyncDocumentSource(options: Options): DocumentSource {
       status: createValue(opening(options.now(), options.signedIn)),
       waitingByScene: createValue<readonly SceneWaiting[]>([]),
       stateFacts: createValue<readonly StateFact[]>([]),
+      viewers: createValue(0),
     };
     const scriptBag = createLaterBag();
     let closed = false;
@@ -169,7 +170,7 @@ export function createSyncDocumentSource(options: Options): DocumentSource {
       services: {
         ...shown,
         scriptBag,
-        people: createValue<readonly PersonPresent[]>([]),
+        people: peoplePresent(docId),
         material: materialActions,
       },
       close() {

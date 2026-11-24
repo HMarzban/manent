@@ -252,6 +252,12 @@ test("a refused command says its label and its reason, and nothing else", () => 
   ).toBe("Print — isn't part of the Ink format");
 });
 
+test("one change re-applied after a rebuild is said in the singular", () => {
+  expect(messageFor({ kind: "rebuilt", reapplied: 1 }).text).toBe(
+    "Manent reorganised how this script is stored while you were away. Your 1 change was re-applied. Undo history for this script starts again from now.",
+  );
+});
+
 test("a rebuild and a refusal with nothing re-applied have their own sentences", () => {
   expect(messageFor({ kind: "rebuilt", reapplied: 0 })).toMatchObject({
     text: "Manent reorganised how this script is stored. Undo history for this script starts again from now.",

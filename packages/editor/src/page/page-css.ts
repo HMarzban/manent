@@ -9,6 +9,8 @@ import {
   WRAP_MODE,
 } from "@manent/pagination";
 
+// the image ProseMirror adds after a widget that ends a line, such as another person's caret, is inline as in
+// ProseMirror's own styles, since the reset makes images blocks and one would put an empty line under that line;
 // geometricPrecision turns subpixel positioning on, without which Chromium on Linux rounds each advance to a whole pixel
 export const PAGE_CSS = `
 .mn-pages {
@@ -138,6 +140,9 @@ p.el.pg-first {
 }
 .el[data-close] > br.ProseMirror-trailingBreak {
   display: none;
+}
+img.ProseMirror-separator {
+  display: inline;
 }
 .el[data-mark]::before {
   content: attr(data-mark);

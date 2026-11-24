@@ -21,12 +21,8 @@ import { historyView, selectRow } from "../../history/history-view.ts";
 import { restoreQuestion } from "../../history/restore-question.ts";
 import { useServices } from "../../services/context.tsx";
 import { historyActions, useHistory } from "../../state/history.store.ts";
-import {
-  HistoryChanges,
-  authoredBlocks,
-  useAuthors,
-  useWorkingComparison,
-} from "./history-changes.tsx";
+import { authoredBlocks, useAuthors } from "./change-authors.ts";
+import { HistoryChanges, useWorkingComparison } from "./history-changes.tsx";
 import {
   VersionRows,
   WorkingRow,

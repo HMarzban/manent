@@ -3,92 +3,130 @@ import type { ScriptEditor, Timers } from "@manent/editor";
 import { READOUT_WORDS } from "@manent/ui";
 import { productionServicesFor } from "../production/live-services.ts";
 
-/** How long the label stays after the last scroll. */
+/** How long the label stays after the last scroll, and how long a wheel, a touch or a press on the scrollbar waits for one. */
 const SHOWN_AFTER_MS = 1000;
 /** How far inside the scroller's top edge the page is read. */
 const PROBE_PX = 4;
 /** Between the label and the scrollbar. */
 const GAP_PX = 4;
 
-// The tooltip's surface (theme rule 13); the fade is left out under reduced motion.
 const NOTHING_TO_STOP = (): void => {};
 
+// The tooltip's surface (theme rule 13); the fade is left out under reduced motion. Drawn in the editor's host, without
+// a layer of its own, so a menu or a dialog over the page covers it.
 const LABEL_CLASS =
-  "pointer-events-none fixed z-50 rounded-md bg-foreground text-background whitespace-nowrap opacity-0 motion-safe:transition-opacity motion-safe:duration-(--dur-base)";
+  "pointer-events-none fixed rounded-md bg-foreground text-background whitespace-nowrap opacity-0 motion-safe:transition-opacity motion-safe:duration-(--dur-base)";
 
-/** The readout's sentence for the front page `label`, which the count leaves out. */
-function frontLabelOf(editor: ScriptEditor, label: string): string | null {
-  const p = editor.pagination();
-  return p === null ? null : READOUT_WORDS.page(label, p.pages.length);
-}
+/** The page at the top of the view: a front page by its label, or a page of the script by its index. */
+type TopPage = { front: string } | { index: number };
 
-/** The readout's sentence for page `index`, with its revision when the document's Pages name one. */
-function labelOf(
-  editor: ScriptEditor,
-  docId: string,
-  index: number,
-): string | null {
-  const p = editor.pagination();
-  const page = p?.pages[index];
-  if (p === null || page === undefined) return null;
-  const count = p.pages.length;
-  const revision =
-    productionServicesFor(docId)?.pages.row(index)?.revisionName ?? null;
-  return revision === null
-    ? READOUT_WORDS.page(page.label, count)
-    : READOUT_WORDS.pageWithRevision(page.label, revision, index + 1, count);
-}
-
-/** The sentence for the page at the scroller's top edge, a front page included; null where it is on none. */
-function labelAtTop(
+/** The page at the scroller's top edge, a front page included; null where it is on none. */
+function pageAtTop(
   editor: ScriptEditor,
   scroller: HTMLElement,
-  docId: string,
-): string | null {
+): TopPage | null {
   const top = scroller.getBoundingClientRect().top + PROBE_PX;
   const front = editor.frontPageAt(top);
-  if (front !== null) return frontLabelOf(editor, front);
+  if (front !== null) return { front };
   const index = editor.pageAt(top);
-  return index === null ? null : labelOf(editor, docId, index);
+  return index === null ? null : { index };
 }
 
 /**
- * Shows the label beside the thumb of `scroller` while it scrolls and for SHOWN_AFTER_MS after, level with the
- * thumb's centre. Hidden from assistive technology: the status bar's readout says the page. Returns the disposer.
+ * The readout's sentence for `at`, counted from the pages as they are now; a page of the script carries its revision
+ * when the document's Pages name one. Null once the page is gone.
+ */
+function sentenceOf(
+  editor: ScriptEditor,
+  docId: string,
+  at: TopPage,
+): string | null {
+  const p = editor.pagination();
+  if (p === null) return null;
+  const count = p.pages.length;
+  if ("front" in at) return READOUT_WORDS.page(at.front, count);
+  const page = p.pages[at.index];
+  if (page === undefined) return null;
+  const revision =
+    productionServicesFor(docId)?.pages.row(at.index)?.revisionName ?? null;
+  return revision === null
+    ? READOUT_WORDS.page(page.label, count)
+    : READOUT_WORDS.pageWithRevision(page.label, revision, at.index + 1, count);
+}
+
+/**
+ * Where the visible page ends at height `y`: the scroller's right edge, or the left edge of a region laid over it there,
+ * as the side panel is in a narrow window.
+ */
+function visibleRight(scroller: HTMLElement, y: number): number {
+  const right = scroller.getBoundingClientRect().left + scroller.clientWidth;
+  const cover = scroller.ownerDocument
+    .elementFromPoint(right - 1, y)
+    ?.closest<HTMLElement>("[data-region]");
+  return cover == null || cover.contains(scroller)
+    ? right
+    : Math.min(right, cover.getBoundingClientRect().left);
+}
+
+/**
+ * Shows the label beside the thumb of `scroller`, inside `host`, while the person scrolls it with the wheel, a touch
+ * or its scrollbar and for SHOWN_AFTER_MS after, level with the thumb's centre; a scroll the page makes itself
+ * (opening, going to a place, following the caret) shows nothing. Hidden from assistive technology: the status bar's
+ * readout says the page. Returns the disposer.
  */
 export function followThumb(options: {
   editor: ScriptEditor;
   scroller: HTMLElement;
+  host: HTMLElement;
   docId: string;
   timers: Timers;
 }): () => void {
-  const { editor, scroller, docId, timers } = options;
-  const label = scroller.ownerDocument.createElement("div");
+  const { editor, scroller, host, docId, timers } = options;
+  const label = host.ownerDocument.createElement("div");
   label.className = LABEL_CLASS;
   label.dataset["slot"] = "tooltip-content";
   label.setAttribute("aria-hidden", "true");
-  scroller.ownerDocument.body.append(label);
-  let hide = NOTHING_TO_STOP;
-  const onScroll = (): void => {
-    const text = labelAtTop(editor, scroller, docId);
-    if (text !== null) label.textContent = text;
-    if (label.textContent === "") return;
-    const edge = scroller.getBoundingClientRect();
-    const { scrollTop, clientHeight, scrollHeight, clientWidth } = scroller;
-    const thumb =
-      ((scrollTop + clientHeight / 2) / scrollHeight) * clientHeight;
-    label.style.top = `${edge.top + thumb - label.offsetHeight / 2}px`;
-    label.style.right = `${scroller.ownerDocument.documentElement.clientWidth - (edge.left + clientWidth) + GAP_PX}px`;
-    label.style.opacity = "1";
-    hide();
-    hide = timers.schedule(() => {
+  host.append(label);
+  let moving = false;
+  let last: TopPage | null = null;
+  let settle = NOTHING_TO_STOP;
+  const hold = (): void => {
+    moving = true;
+    settle();
+    settle = timers.schedule(() => {
+      moving = false;
       label.style.opacity = "0";
     }, SHOWN_AFTER_MS);
   };
+  const onScroll = (): void => {
+    if (!moving) return;
+    hold();
+    last = pageAtTop(editor, scroller) ?? last;
+    const text = last === null ? null : sentenceOf(editor, docId, last);
+    if (text === null) return;
+    label.textContent = text;
+    const { scrollTop, clientHeight, scrollHeight } = scroller;
+    const thumb =
+      scroller.getBoundingClientRect().top +
+      ((scrollTop + clientHeight / 2) / scrollHeight) * clientHeight;
+    label.style.top = `${thumb - label.offsetHeight / 2}px`;
+    label.style.right = `${scroller.ownerDocument.documentElement.clientWidth - visibleRight(scroller, thumb) + GAP_PX}px`;
+    label.style.opacity = "1";
+  };
+  // a press on the scrollbar lands on the scroller itself; one on the page lands on what it holds
+  const onPress = (event: PointerEvent): void => {
+    if (event.target === scroller) hold();
+  };
+  scroller.addEventListener("wheel", hold, { passive: true });
+  scroller.addEventListener("touchmove", hold, { passive: true });
+  scroller.addEventListener("pointerdown", onPress);
   scroller.addEventListener("scroll", onScroll, { passive: true });
   return () => {
+    scroller.removeEventListener("wheel", hold);
+    scroller.removeEventListener("touchmove", hold);
+    scroller.removeEventListener("pointerdown", onPress);
     scroller.removeEventListener("scroll", onScroll);
-    hide();
+    settle();
     label.remove();
   };
 }

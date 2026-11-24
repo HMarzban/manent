@@ -43,9 +43,10 @@ test("the status never moves while its words change", async ({ page }) => {
   await signedInAs(page, "you", DOC);
   const status = statusButton(page);
   await expect(status).toHaveAccessibleName(NEW_SCRIPT);
-  // the slots' row, the device slot's holder and the slot, the middle dot, then the server slot's holder
-  const server = status.locator("span").nth(4);
+  // the status's place, which holds the server slot's width while the button hugs its words
+  const place = status.locator("..");
   const boxes: ({ x: number; y: number; width: number } | null)[] = [];
+  const buttonWidths: number[] = [];
   // You has no session, so under the new script's words the source says Sign in to sync
   for (const [facts, words] of [
     [{ neverSynced: false, server: "synced" }, "Saved · Synced"],
@@ -59,13 +60,16 @@ test("the status never moves while its words change", async ({ page }) => {
   ] as const) {
     await setStatus(page, facts);
     await expect(status).toHaveAccessibleName(words);
-    boxes.push(await server.boundingBox());
+    boxes.push(await place.boundingBox());
+    buttonWidths.push((await status.boundingBox())?.width ?? 0);
   }
-  // the server slot is 280 px wide at Interface size 100 %, whatever it says
-  expect([Math.round(boxes[0]?.width ?? 0), boxes]).toEqual([
-    280,
-    boxes.map(() => boxes[0]),
-  ]);
+  // the place keeps one box whatever the words say, and the button inside it hugs them
+  const placeWidth = boxes[0]?.width ?? 0;
+  expect([
+    boxes,
+    buttonWidths.every((width) => width < placeWidth),
+    Math.max(...buttonWidths) - Math.min(...buttonWidths) > 0,
+  ]).toEqual([boxes.map(() => boxes[0]), true, true]);
 });
 
 test("the title truncates before the status, which never loses a word", async ({
@@ -102,8 +106,8 @@ test("the title truncates before the status, which never loses a word", async ({
   expect([
     truncated,
     await fits(status),
-    await fits(status.locator("span").nth(0)),
-    await fits(status.locator("span").nth(2)),
+    await fits(status.locator("span").nth(1)),
+    await fits(status.locator("span").nth(4)),
   ]).toEqual([true, true, true, true]);
 });
 

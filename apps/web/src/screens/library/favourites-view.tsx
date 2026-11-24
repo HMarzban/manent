@@ -1,6 +1,13 @@
+import { LIBRARY_WORDS } from "@manent/ui";
 import type { ReactNode } from "react";
+import { LibraryViewSection } from "./view-section.tsx";
 import type { LibraryViewProps } from "./views.ts";
 
 export function FavouritesView(_props: LibraryViewProps): ReactNode {
-  return null;
+  return (
+    <LibraryViewSection
+      heading={LIBRARY_WORDS.favouritesHeading}
+      sentence={LIBRARY_WORDS.favouritesEmpty}
+    />
+  );
 }

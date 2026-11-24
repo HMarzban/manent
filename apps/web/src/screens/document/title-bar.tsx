@@ -46,13 +46,14 @@ export function useDocumentTitle(docId: string): string {
 }
 
 /**
- * Share runs `share.open`. While the command cannot run it stays in the bar, focusable, and says why in its tooltip and
- * description, as a command's button does; a press then gives the reason.
+ * Share runs `share.open`, and is drawn while the command is visible. While it cannot run it stays in the bar,
+ * focusable, and says why in its tooltip and description, as a command's button does; a press then gives the reason.
  */
 function ShareButton(): ReactNode {
   const { service } = useCommands();
   const state = useCommandState("share.open");
   const reasonId = useId();
+  if (!state.visible) return null;
   const reason =
     state.whyNot === null
       ? null
@@ -130,7 +131,7 @@ export function TitleBar(props: {
       </h1>
       <StatusButton doc={doc} />
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <People docId={docId} people={doc.people} />
+        <People docId={docId} people={doc.people} viewers={doc.viewers} />
         <ShareButton />
       </div>
     </ShellRegion>

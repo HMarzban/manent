@@ -1,6 +1,5 @@
 // The rows of the History tab: Working; the versions and the changes to script settings under their days, or with
 // Drafts only the drafts oldest first; the name field of Name this draft…, and a draft named and not yet answered.
-import { DEMO_PEOPLE } from "@manent/demo";
 import { SETTINGS } from "@manent/settings";
 import {
   Avatar,
@@ -27,7 +26,7 @@ import { useSettingChanges } from "../../history/setting-changes.ts";
 import type { SettingChange } from "../../history/setting-changes.ts";
 import { initialsOf } from "../../initials.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
-import { nameOf } from "../../services/sync/index-entries.ts";
+import { fullNameOf, nameOf } from "../../services/sync/index-entries.ts";
 import { historyActions, useHistory } from "../../state/history.store.ts";
 import { NameField, nextDraftName } from "./draft-name.tsx";
 import { HistoryRowMenu } from "./history-row-menu.tsx";
@@ -100,9 +99,7 @@ function Avatars(props: { userIds: readonly string[] }): ReactNode {
       className="flex gap-1"
     >
       {userIds.map((userId) => {
-        const name =
-          DEMO_PEOPLE.find((person) => person.userId === userId)?.name ??
-          userId;
+        const name = fullNameOf(userId);
         return (
           <Tooltip key={userId}>
             <TooltipTrigger render={<span className="flex" />}>
@@ -122,7 +119,10 @@ function Avatars(props: { userIds: readonly string[] }): ReactNode {
   );
 }
 
-/** The row's second line: another feature's, else the draft's namer or the changes it holds. */
+/**
+ * The row's second line: another feature's, else the draft's namer or the changes it holds; none for a version that
+ * changed nothing.
+ */
 function metaOf(docId: string, row: HistoryRow): string | null {
   for (const extension of ROW_EXTENSIONS) {
     const line = extension.line(docId, row.item);
@@ -131,7 +131,7 @@ function metaOf(docId: string, row: HistoryRow): string | null {
   const { item } = row;
   if (item.kind === "named")
     return HISTORY_WORDS.namedBy(nameOf(item.createdByUserId), row.time);
-  return item.summary === null
+  return item.summary === null || item.summary.changes === 0
     ? null
     : HISTORY_WORDS.summary(item.summary.changes, item.summary.scenes);
 }

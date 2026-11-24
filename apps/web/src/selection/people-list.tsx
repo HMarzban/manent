@@ -1,6 +1,7 @@
 // The people list: who is in the document now, under what heads it, each person's row opening the actions on them.
 import {
   Avatar,
+  DOCUMENT_WORDS,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -45,12 +46,16 @@ function PersonRow(props: { docId: string; person: PersonPresent }): ReactNode {
   );
 }
 
-/** The open list, inside the menu its trigger opens: one row per person present, or the sentence that there is no one. */
+/**
+ * The open list, inside the menu its trigger opens: one row per person present, then how many have the script open to
+ * read only, or the sentence that there is no one.
+ */
 export function PeopleList(props: {
   docId: string;
   people: readonly PersonPresent[];
+  viewers: number;
 }): ReactNode {
-  const { docId, people } = props;
+  const { docId, people, viewers } = props;
   return (
     <DropdownMenuContent
       align="end"
@@ -69,14 +74,15 @@ export function PeopleList(props: {
       )}
       <DropdownMenuGroup>
         <DropdownMenuLabel>{SELECTION_WORDS.hereNow}</DropdownMenuLabel>
-        {people.length === 0 ? (
+        {people.map((person) => (
+          <PersonRow key={person.userId} docId={docId} person={person} />
+        ))}
+        {people.length > 0 && viewers === 0 ? null : (
           <p className="px-2 py-1 text-ui text-fg-muted">
-            {SELECTION_WORDS.noOneElse}
+            {viewers === 0
+              ? SELECTION_WORDS.noOneElse
+              : DOCUMENT_WORDS.moreViewersName(viewers)}
           </p>
-        ) : (
-          people.map((person) => (
-            <PersonRow key={person.userId} docId={docId} person={person} />
-          ))
         )}
       </DropdownMenuGroup>
     </DropdownMenuContent>

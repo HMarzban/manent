@@ -4,6 +4,7 @@ import { Suspense, lazy } from "react";
 import type { ComponentType, ReactNode } from "react";
 import { useServices } from "../../services/context.tsx";
 import type { ShellDom } from "../../shell/regions.tsx";
+import { SUGGESTIONS_REVIEW_SOURCE } from "../../writing/suggestions/review-source.ts";
 
 // the rows read the script, which loads apart from the entry
 const ToReviewList = lazy(async () => ({
@@ -52,6 +53,7 @@ function useOpenCount(docId: string): number {
 
 export const REVIEW_SOURCES: readonly ReviewSource[] = [
   { id: "passages", List: ToReviewList, useCount: useOpenCount },
+  SUGGESTIONS_REVIEW_SOURCE,
 ];
 
 export function ToReview(props: { docId: string }): ReactNode {

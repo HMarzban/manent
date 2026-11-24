@@ -8,7 +8,7 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   anyone, anyway, anywhere, apart, apostrophes, app, appear, applied, applies, apr, around, arrived, arriving, ask,
   at, aug, automatically, available, away, be, beat, because, been, being, between, boneyard, both, box, breakdown,
   bring, build, came, can't, cancel, cancels, cannot, capitals, caret, changing, checking, clean, cleared, close, closing,
-  comfortably, computer, connect, contact, controls, copies, copy, corrected, correctly, could, couldn't, count,
+  comfortably, computer, connect, contact, controls, copies, copy, copying, corrected, correctly, could, couldn't, count,
   created, creates, credit, data, date, day, dec, decline, deleted, differ, different, dismiss, display, do, doesn't,
   down, each, earlier, early, editable, edited, eighth, else, empty, ending, english, every, everything, example,
   exceptions, existed, ext, extra, features, feb, fifth, first, flow, folder, footer, fourth, fragments, fri, gain,
@@ -18,11 +18,11 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   length, letters, linux, list, listed, load, locking, long, longer, look, macros, made, make, mar, marked, markup, match,
   matches, may, mb, measured, mentions, min, miss, missed, misspellings, mon, more, move, moving, ms, music, name, named,
   near, nearest, nearly, need, needs, never, newer, newscast, next, ninth, no, none, nothing, nov, now, number, oct,
-  off, offered, older, omit, once, one, opening, or, other, others, out, outside, overflows, own, paste, pasted,
+  off, offered, older, omit, once, one, opening, or, original, other, others, out, outside, overflows, own, paste, pasted,
   pause, pick, place, placed, plain, pp, prepare, preparing, press, pressing, previously, profiles, put, quit, re-applied,
   reach, reached, reacts, read-aloud, reading, ready, recalled, recalling, recorded, reduced, region, reload,
-  reloading, remove, removes, reorganised, replace, request, resize, rest, restored, right, running, runs, said, same, sat,
-  save, say, says, sc, scripts, search, second, see, seeded, sees, selected, sep, seventh, showing, shown, sign,
+  reloading, remove, removes, reorganised, replace, request, resetting, resize, rest, restored, right, running, runs,
+  said, same, sat, save, say, says, sc, scripts, search, second, see, seeded, sees, selected, sep, seventh, showing, shown, sign,
   signed, sixth, slow, smarttype, so, some, someone, sound, source, speeches, spell, standard, started, starting, stay,
   still, stopped, stored, style, summaries, summary, sun, switch, tenth, terminal, than, that, their, them, then,
   there, these, third, thu, today, train, try, tue, turn, two, typing, unaffected, unchanged, underlined, underlines, unlocking,
@@ -30,5 +30,11 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   with, without, work, works, would, write, written, wrote, yesterday, yet, your,
   arrow, drop, dropped, moved, picked, position,
   compared, copied,
-  join, private, until
+  join, private, until,
+  suggested,
+  offers, straight, through, whose,
+  active, expired, expires, guests, producers, role, sender, sharing, turned,
+  pitched, speech, swapped, swaps,
+  becomes, describe
+>>>>>>> main
 `);

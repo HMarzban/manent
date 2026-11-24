@@ -16,7 +16,10 @@ tourScenario("together-add-writers", async ({ page, scenario, step }) => {
   await ownScene.click();
   await settled(page);
   await (await step(0)).click();
-  await page.getByRole("button", { name: "5", exact: true }).click();
+  await page
+    .getByRole("group", { name: DEMO_WORDS.writersChoice })
+    .getByRole("button", { name: "5", exact: true })
+    .click();
   await step(1);
   await ownScene.click();
   await settled(page);

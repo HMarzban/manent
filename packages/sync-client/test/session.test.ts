@@ -463,7 +463,7 @@ test("a reconnect that had something waiting ends in one receipt, counted in ele
   ]);
 });
 
-test("awareness passes through while the document is live", async () => {
+test("awareness asked for before the document is live is sent once it is, and passes through after", async () => {
   const w = await setup();
   const client = w.makeClient();
   const h = await client.open(DOC);
@@ -480,6 +480,7 @@ test("awareness passes through while the document is live", async () => {
   });
   await w.settle();
   expect(w.server.got("AWARENESS").map((m) => m.update)).toEqual([
+    utf8("before"),
     utf8("mine"),
   ]);
   expect(heard).toEqual([utf8("theirs")]);

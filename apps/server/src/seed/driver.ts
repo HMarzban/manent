@@ -6,7 +6,7 @@ import {
   mergeUpdates,
   scriptBody,
 } from "@manent/crdt";
-import type { CrdtDoc } from "@manent/crdt";
+import type { CrdtDoc, JsonMapView } from "@manent/crdt";
 import { SEED_DOCS, SeedDriverError, seedProject } from "@manent/demo";
 import type { SeedDriver, SeedSession, SeedWorkspaceId } from "@manent/demo";
 import { SCHEMA_VERSION, canonicalDoc } from "@manent/schema";
@@ -95,41 +95,72 @@ function workspaceOf(docId: string): SeedWorkspaceId | null {
   return found === undefined ? null : seedProject(found.projectKey).workspaceId;
 }
 
+/** Who last changed a document, and when. */
+export interface Edit {
+  userId: string;
+  at: number;
+}
+
+/** Tells the driver that `userId` changed `docId` at `at`, as a session closes. */
+type Edited = (userId: string, docId: string, at: number) => Promise<void>;
+
+/** Sets the entry of `docId` in an index's `documents` to say `userId` edited it at `at`; false when it is missing or holds a later edit. */
+export function setEdited(
+  documents: JsonMapView,
+  docId: string,
+  { userId, at }: Edit,
+): boolean {
+  const entry = documents.get(docId);
+  if (!isFields(entry)) return false;
+  if (typeof entry.editedAt === "number" && entry.editedAt >= at) return false;
+  documents.set(docId, { ...entry, editedAt: at, editedByUserId: userId });
+  return true;
+}
+
 /**
- * Writes in its workspace's index that `userId` edited `docId` at `at`, as the app writes a person's own changes,
- * unless the index holds a later edit; nothing for a document no index lists yet.
+ * Writes in the workspace's index who last edited each of `edits`' documents and when, as the app writes a person's
+ * own changes, in one session as the index's owner; an entry holding a later edit, or missing, is left as it is.
  */
 async function markEdited(
   d: Driving,
-  userId: string,
-  docId: string,
-  at: number,
+  workspaceId: SeedWorkspaceId,
+  edits: ReadonlyMap<string, Edit>,
 ): Promise<void> {
-  const workspaceId = workspaceOf(docId);
-  if (workspaceId === null) return;
-  const index = await openSession(
-    d,
-    userId,
-    indexDocId("workspace", workspaceId),
-  );
+  const indexId = indexDocId("workspace", workspaceId);
+  const roles = d.target.storage.directory.rolesOf(indexId);
+  const owner = roles.find((r) => r.role === "owner")?.userId;
+  if (owner === undefined) return;
+  // an index's own changes are no document's edit
+  const index = await openSession(d, owner, indexId, async () => {});
   await index.change((doc) => {
     const documents = jsonMap(doc, "documents");
-    const entry = documents.get(docId);
-    if (!isFields(entry)) return;
-    if (typeof entry.editedAt === "number" && entry.editedAt >= at) return;
-    documents.set(docId, { ...entry, editedAt: at, editedByUserId: userId });
+    for (const [docId, edit] of edits) setEdited(documents, docId, edit);
   });
   await index.close();
 }
 
-/**
- * A replica subscribed for editing; while offline it holds its changes and what it hears. Closing it writes the time
- * of its last change in the workspace's index.
- */
+/** Each workspace's index told of the edits in `edits` of its own documents; documents no index lists are left out. */
+async function writeEdits(
+  d: Driving,
+  edits: ReadonlyMap<string, Edit>,
+): Promise<void> {
+  const byWorkspace = new Map<SeedWorkspaceId, Map<string, Edit>>();
+  for (const [docId, edit] of edits) {
+    const workspaceId = workspaceOf(docId);
+    if (workspaceId === null) continue;
+    const own = byWorkspace.get(workspaceId) ?? new Map<string, Edit>();
+    byWorkspace.set(workspaceId, own.set(docId, edit));
+  }
+  for (const [workspaceId, own] of byWorkspace)
+    await markEdited(d, workspaceId, own);
+}
+
+/** A replica subscribed for editing; while offline it holds its changes and what it hears. Closing it tells `edited` of its last change. */
 async function openSession(
   d: Driving,
   userId: string,
   docId: string,
+  edited: Edited,
 ): Promise<SeedSession> {
   const link = await d.link(userId);
   const doc = createDoc({ clientId: d.clientId() });
@@ -171,7 +202,7 @@ async function openSession(
       await link.unsubscribe(docId);
       doc.destroy();
       await d.runDue();
-      if (editedAt !== null) await markEdited(d, userId, docId, editedAt);
+      if (editedAt !== null) await edited(userId, docId, editedAt);
     },
   };
 }
@@ -207,16 +238,31 @@ async function listVersions(
 /**
  * A driver whose people act on `target` one answer at a time: every edit a push on their own
  * socket, every request a call to the server's routes. Ids, keys and client ids come from `random`.
- * Throws RangeError for a server whose capabilities were never probed.
+ * On the live server each session's last edit is written in its workspace's index as it closes; on
+ * a seed server, whose indexes nobody reads before the seed is whole, it is held until `writeEdits`,
+ * so that the indexes do not gain a version for every session. Throws RangeError for a server whose
+ * capabilities were never probed.
  */
 export function createSeedDriver(options: {
   target: SeedServer | LiveTarget;
   random: () => number;
-}): SeedDriver {
+}): SeedDriver & { writeEdits(): Promise<void> } {
   const { target } = options;
   const d = createDriving(target, options.random);
-  const open = (userId: string, docId: string) => openSession(d, userId, docId);
+  const held = new Map<string, Edit>();
+  const edited: Edited = isSeedClock(target.clock)
+    ? async (userId, docId, at) => {
+        if ((held.get(docId)?.at ?? -Infinity) < at)
+          held.set(docId, { userId, at });
+      }
+    : (userId, docId, at) => writeEdits(d, new Map([[docId, { userId, at }]]));
+  const open = (userId: string, docId: string) =>
+    openSession(d, userId, docId, edited);
   return {
+    async writeEdits() {
+      await writeEdits(d, held);
+      held.clear();
+    },
     capabilities: d.capabilities,
     async setTime(at) {
       if (!isSeedClock(target.clock))

@@ -84,9 +84,11 @@ const fixtureApi = (options: {
   signIn: NEVER,
   demo: async () => null,
   removedDoc: async () => null,
+  role: async () => null,
   docClients: async () => ({ clients: [] }),
   prepareTour: NEVER,
   writers: NEVER,
+  runningWriters: NEVER,
   rebuild: NEVER,
 });
 

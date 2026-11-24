@@ -28,6 +28,7 @@ import type { Room } from "./rooms.ts";
 import { docOf } from "./subscribe.ts";
 import type { SubscribePorts } from "./subscribe.ts";
 import { createSubscribedPeers } from "./subscribed-peers.ts";
+import { createViewerCounts } from "./viewer-counts.ts";
 import { createSnapshotAnswers, viewPatchOf } from "./viewers.ts";
 import { createWritePath } from "./write-path.ts";
 
@@ -73,6 +74,7 @@ export function createSyncService(
   });
   const caps = createConnectionCaps(limits);
   const presence = createAwarenessHub({ clock, limits });
+  const viewerCounts = createViewerCounts({ clock, limits });
   const snapshotOf = createSnapshotAnswers(options.storage);
   const heal = createHealing({ ...options, modeOf, now: clock.now });
   let closing = false;
@@ -99,6 +101,7 @@ export function createSyncService(
   const { peers, end, endAll, stateOf } = createSubscriptions({
     rooms,
     presence,
+    viewerCounts,
     tell,
     editorLeft: hooks.editorLeft,
   });
@@ -225,6 +228,7 @@ export function createSyncService(
     limits,
     heal,
     presence,
+    viewerCounts,
     writePath,
     rebuilder,
     snapshotOf,

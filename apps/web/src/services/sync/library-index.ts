@@ -21,6 +21,7 @@ import {
   startImported,
 } from "./create-script.ts";
 import { createDocumentValues } from "./document-values.ts";
+import type { DocumentValues } from "./document-values.ts";
 import { readWorkspace } from "./index-entries.ts";
 import type { WorkspaceEntries } from "./index-entries.ts";
 import { createShelves } from "./index-shelves.ts";
@@ -192,11 +193,8 @@ function markEdited(
   });
 }
 
-/**
- * Each workspace's index opens, from the device first, when its lists are first asked for, and stays open while the
- * services live. Rows say where each document is from what the device's store holds.
- */
-export function createSyncLibrary(options: {
+/** What the Library is made over. */
+interface LibraryOptions {
   sync: PersonSync;
   privateIndex: PrivateIndex;
   userId: string;
@@ -205,9 +203,17 @@ export function createSyncLibrary(options: {
   language: string;
   now: () => number;
   newId: () => string;
-}): SyncLibrary {
-  const { userId, now } = options;
-  // a workspace still being seeded is no index's yet: none of its homes may be opened until it is ready
+}
+
+/**
+ * Each workspace's shelf, with each document's values drawn from them. A workspace still being seeded is no index's
+ * yet: none of its homes may be opened until it is ready.
+ */
+function libraryShelves(options: LibraryOptions): {
+  shelves: Shelves;
+  values: DocumentValues;
+  lists: Pick<LibraryIndex, "continueList" | "projects" | "loadState">;
+} {
   const seeded: Subscribable<readonly WorkspaceRef[]> = {
     get: () => options.workspaces.get().filter((ref) => ref.seeding === null),
     subscribe: (listener) =>
@@ -238,63 +244,67 @@ export function createSyncLibrary(options: {
   options.workspaces.subscribe(() => {
     if (values.asked()) shelves.openKnown();
   });
-  // the projects made here, by their first document, that no one has changed yet: one left so is removed, never trashed
-  const untouched = new Map<
-    string,
-    {
-      projectId: string;
-      kind: ProjectKind;
-      title: string;
-      isUntouched(handle: DocHandle): boolean;
-    }
-  >();
-  const leave = (docId: string, handle: DocHandle) => {
-    const made = untouched.get(docId);
-    untouched.delete(docId);
-    const found = shelves.find(docId);
-    if (made === undefined || found === null || !made.isUntouched(handle))
-      return;
-    const favourites = liveMap(options.privateIndex.handle, "favourites");
-    if ([made.projectId, docId].some((key) => favourites.get(key) !== null))
-      return;
-    const renamed =
-      found.entry.title !== LIBRARY_WORDS.untitledScript ||
-      entriesOf(found.handle).projects.get(made.projectId)?.title !==
-        made.title;
-    if (renamed) return;
-    // undone in the index that listed it, so made and removed offline, it never shows in the server's index
-    liveMap(found.handle, "projects").delete(made.projectId);
-    liveMap(found.handle, "documents").delete(docId);
-    options.privateIndex.continueMap.delete(docId);
-    const { projectId, kind } = made;
-    const { workspaceId } = found;
-    for (const created of PROJECT_CREATED)
-      created.removed({
-        sync: options.sync,
-        workspaceId,
-        projectId,
-        kind,
-        docId,
-      });
-  };
   const lists = createSeedingLists(
     { workspaces: options.workspaces, isSeeding },
     opening.shelf,
   );
+  return { shelves, values, lists };
+}
+
+/** A project made here, by its first document, that no one has changed yet. */
+interface UntouchedProject {
+  projectId: string;
+  kind: ProjectKind;
+  title: string;
+  isUntouched(handle: DocHandle): boolean;
+}
+
+/**
+ * Removes the project `made` with `docId` when `handle` and both names are still as made and neither the project nor
+ * the document is a favourite: never trashed.
+ */
+function removeUntouched(
+  options: { sync: PersonSync; privateIndex: PrivateIndex; shelves: Shelves },
+  docId: string,
+  made: UntouchedProject,
+  handle: DocHandle,
+): void {
+  const found = options.shelves.find(docId);
+  if (found === null || !made.isUntouched(handle)) return;
+  const favourites = liveMap(options.privateIndex.handle, "favourites");
+  if ([made.projectId, docId].some((key) => favourites.get(key) !== null))
+    return;
+  const renamed =
+    found.entry.title !== LIBRARY_WORDS.untitledScript ||
+    entriesOf(found.handle).projects.get(made.projectId)?.title !== made.title;
+  if (renamed) return;
+  // undone in the index that listed it, so made and removed offline, it never shows in the server's index
+  liveMap(found.handle, "projects").delete(made.projectId);
+  liveMap(found.handle, "documents").delete(docId);
+  options.privateIndex.continueMap.delete(docId);
+  const { projectId, kind } = made;
+  const { workspaceId } = found;
+  for (const created of PROJECT_CREATED)
+    created.removed({
+      sync: options.sync,
+      workspaceId,
+      projectId,
+      kind,
+      docId,
+    });
+}
+
+/** New, imported and copied documents, each listed in its workspace's index; each new project goes in `untouched`. */
+function projectMaking(
+  options: LibraryOptions & { shelves: Shelves },
+  untouched: Map<string, UntouchedProject>,
+): Pick<LibraryIndex, "createProject" | "importProject" | "addCopy"> {
   return {
-    continueList: lists.continueList,
-    projects: lists.projects,
-    async readProjects(ws) {
-      const { ready, projects } = shelves.shelf(ws);
-      await ready;
-      return projects.get();
-    },
-    loadState: lists.loadState,
     async createProject(ws, kind) {
       let title = "";
       const start = projectStartOf(kind);
-      const made = await addProject(
-        { ...options, shelves },
+      const added = await addProject(
+        options,
         { workspaceId: ws, projectId: null, kind },
         (index) => {
           title = freeName(index, kind);
@@ -307,17 +317,17 @@ export function createSyncLibrary(options: {
           start: (handle) => start.start(handle, kind, options.language),
         },
       );
-      untouched.set(made.docId, {
-        projectId: made.projectId,
+      untouched.set(added.docId, {
+        projectId: added.projectId,
         kind,
         title,
         isUntouched: start.isUntouched,
       });
-      return made;
+      return added;
     },
     importProject: (ws, imported) =>
       addProject(
-        { ...options, shelves },
+        options,
         { workspaceId: ws, projectId: null, kind: "film" },
         () => ({ project: imported.title, script: imported.title }),
         {
@@ -333,6 +343,35 @@ export function createSyncLibrary(options: {
             ),
         },
       ),
+    addCopy: (ws, projectId, kind, title, start) =>
+      addProject(
+        options,
+        { workspaceId: ws, projectId, kind },
+        () => ({ project: title, script: title }),
+        start,
+      ),
+  };
+}
+
+/**
+ * Each workspace's index opens, from the device first, when its lists are first asked for, and stays open while the
+ * services live. Rows say where each document is from what the device's store holds.
+ */
+export function createSyncLibrary(options: LibraryOptions): SyncLibrary {
+  const { userId, now } = options;
+  const { shelves, values, lists } = libraryShelves(options);
+  // by each project's first document
+  const untouched = new Map<string, UntouchedProject>();
+  return {
+    continueList: lists.continueList,
+    projects: lists.projects,
+    async readProjects(ws) {
+      const { ready, projects } = shelves.shelf(ws);
+      await ready;
+      return projects.get();
+    },
+    loadState: lists.loadState,
+    ...projectMaking({ ...options, shelves }, untouched),
     documentTitle: values.title,
     documentKind: values.kind,
     docKindOf: values.docKind,
@@ -341,13 +380,6 @@ export function createSyncLibrary(options: {
       if (found === null) return;
       liveMap(found.handle, "documents").set(docId, { ...found.entry, title });
     },
-    addCopy: (ws, projectId, kind, title, start) =>
-      addProject(
-        { ...options, shelves },
-        { workspaceId: ws, projectId, kind },
-        () => ({ project: title, script: title }),
-        start,
-      ),
     markOpened: values.continueOnce,
     follow(docId, handle) {
       const stop = onOwnChange(handle, () => {
@@ -357,7 +389,10 @@ export function createSyncLibrary(options: {
       });
       return () => {
         stop();
-        leave(docId, handle);
+        const made = untouched.get(docId);
+        untouched.delete(docId);
+        if (made !== undefined)
+          removeUntouched({ ...options, shelves }, docId, made, handle);
       };
     },
   };

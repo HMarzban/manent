@@ -85,7 +85,7 @@ test("a tester chooses a person and reaches the Library", async ({
     await expect(tour).toHaveCount(0);
     return;
   }
-  await expect(tour.getByRole("heading", { level: 2 })).toHaveText("Tour");
+  await expect(tour).toBeVisible();
   // a group is drawn only when it lists a scenario
   for (const group of TOUR_GROUPS)
     await expect(

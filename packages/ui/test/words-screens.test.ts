@@ -25,12 +25,14 @@ test("the screens' words are the design's", () => {
     projectsRegion: L.projectsRegion,
     kindColumn: L.kindColumn,
     lastEditedColumn: L.lastEditedColumn,
+    statusColumn: L.statusColumn,
     empty: L.empty,
     problem: L.problem,
     notOnDevice: L.notOnDevice,
     changedSinceOpened: L.changedSinceOpened,
     onDevice: L.onDevice(12, 40),
     seeding: L.seeding(12, 40),
+    gettingReady: L.gettingReady("Lanternfield Studios", 12, 40),
     workspaceLine: [
       L.workspaceLine(14, "The Long Night"),
       L.workspaceLine(1, "Harbour Lights"),
@@ -46,6 +48,7 @@ test("the screens' words are the design's", () => {
     ),
     edited: L.edited("Dana", "14 min ago"),
     synced: L.synced,
+    onServer: L.onServer,
     waiting: L.waiting(1212),
     neverSynced: [L.neverSynced(true), L.neverSynced(false)],
     signIn: L.signIn,
@@ -56,12 +59,14 @@ test("the screens' words are the design's", () => {
     projectsRegion: "Projects",
     kindColumn: "Kind",
     lastEditedColumn: "Last edited",
+    statusColumn: "Status",
     empty: "No scripts yet",
     problem: "Couldn't load the list. Showing what is on this device.",
     notOnDevice: "Not on this device",
     changedSinceOpened: "Changed since you opened",
     onDevice: "12 of 40 projects are on this device",
     seeding: "getting ready, 12 of 40 projects",
+    gettingReady: "Lanternfield Studios is getting ready, 12 of 40 projects.",
     workspaceLine: [
       "14 projects · The Long Night",
       "1 project · Harbour Lights",
@@ -84,6 +89,7 @@ test("the screens' words are the design's", () => {
     ],
     edited: "Dana, 14 min ago",
     synced: "Synced",
+    onServer: "On the server",
     waiting: "1,212 waiting",
     neverSynced: ["On this device only", "Only in this browser"],
     signIn: "Sign in to sync",
@@ -164,6 +170,8 @@ test("the screens' words are the design's", () => {
     ownPreferences: D.ownPreferences,
     moreAvatars: D.moreAvatars(2),
     moreAvatarsName: [D.moreAvatarsName(2), D.moreAvatarsName(1)],
+    moreViewers: [D.moreViewers(2), D.moreViewers(1)],
+    moreViewersName: [D.moreViewersName(2), D.moreViewersName(1)],
     switchOn: D.switchOn,
     switchOff: D.switchOff,
   }).toEqual({
@@ -213,6 +221,8 @@ test("the screens' words are the design's", () => {
     ownPreferences: "Your own preferences",
     moreAvatars: "+2",
     moreAvatarsName: ["2 more people", "1 more person"],
+    moreViewers: ["+2 viewers", "+1 viewer"],
+    moreViewersName: ["2 viewers", "1 viewer"],
     switchOn: "on",
     switchOff: "off",
   });
@@ -519,12 +529,23 @@ test("the screens' words are the design's", () => {
     offline: "Offline",
     slow: "Slow",
     addWriters: "Add writers",
+    addWritersHint:
+      "Demo writers type in this script, each in a scene of its own or all in the scene you are in.",
+    writersChoice: "Writers typing in other scenes",
+    writersHereChoice: "Writers typing in this scene",
     stopWriters: "Stop writers",
     writersTyping: ["1 writer typing", "5 writers typing"],
     writersShort: "3 of 5 writers typing — each needs a scene of its own",
     needsScript: "needs a script open",
     needsConnection: "needs a connection",
+    needsServer: "needs the server running",
+    needsEdit: "needs edit access",
+    needsSyncedScript: "needs a synced script",
+    stopServerHint:
+      "Stops the server at once. Nothing synced is lost, and each window connects again by itself.",
     timings: "Timings",
+    timingsHint:
+      "This window's typing, pagination and sync times, measured live.",
     timingRows: [
       "Keystroke to frame",
       "Pagination time",
@@ -537,24 +558,36 @@ test("the screens' words are the design's", () => {
     ],
     bytes: ["50 KB", "9.3 KB"],
     nothingMeasured: "—",
-    timingsNote: "Measured in this window while Timings is open.",
+    timingsNote: "Measured in this window since it opened.",
     reorganise: "Reorganise",
+    reorganiseHint:
+      "Asks the server to reorganise how this script is stored, as it does when a script gets long.",
+    reorganiseWaiting: "Waiting to reorganise…",
+    reorganiseWaitingHint: "Starts once no one is typing in this script.",
     reset: "Reset",
+    resetHint:
+      "Every workspace goes back to its seeded state, for everyone using this demo.",
     resetTitle: "Reset the demo?",
     resetAction: "Reset the demo",
+    resetting: "Resetting the demo…",
+    resettingBody:
+      "Every workspace goes back to its seeded state. This tab reloads once the demo is ready.",
     resetBody:
       "Every workspace goes back to its seeded state for everyone using this demo. Changes made since it was seeded are not kept. Each browser and the desktop app clear their copies when they next connect.",
-    seedingFailed: "Couldn't get ready. Run make reset to try again.",
+    seedingFailed: "Couldn't get ready. Reset the demo to try again.",
   });
 
   expect({
     ...TOUR_WORDS,
     setupSeeding: TOUR_WORDS.setupSeeding("Lanternfield Studios", 12, 40),
+    setupSeedingFailed: TOUR_WORDS.setupSeedingFailed("Lanternfield Studios"),
+    nowPerson: TOUR_WORDS.nowPerson("Sam Okafor"),
   }).toEqual({
-    title: "Tour",
     setItUp: "Set it up",
     setItUpAgain: "Set it up again",
     whatToCheck: "What to check",
+    nowPerson:
+      "This tab is now Sam Okafor, the person this part of the Tour is for.",
     setupFailed: "Couldn't set this up.",
     setupUnreachable:
       "Couldn't reach Manent. Start the server, then set it up again.",
@@ -562,6 +595,8 @@ test("the screens' words are the design's", () => {
       "This has already been done in this demo. Reset the demo to do it again.",
     setupSeeding:
       "Lanternfield Studios is getting ready, 12 of 40 projects. This opens when it is ready.",
+    setupSeedingFailed:
+      "Lanternfield Studios couldn't get ready. Reset the demo to try again.",
     desktopOnly:
       "This one needs the desktop app. Run make desktop, then open the Tour there.",
   });

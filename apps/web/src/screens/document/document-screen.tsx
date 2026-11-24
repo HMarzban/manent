@@ -23,6 +23,7 @@ import { ProductionDialogs } from "../../production/dialogs.tsx";
 import { SelectionToolbar } from "../../selection/selection-toolbar.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
+import { ShareDialog } from "../../sharing/share-dialog.tsx";
 import { selectors as paletteSelectors } from "../../state/palette.store.ts";
 import { panelsActions, usePanel } from "../../state/panels.store.ts";
 import { pageTitle } from "../../text.ts";
@@ -53,10 +54,28 @@ function subscribeToResize(listener: () => void): () => void {
   return () => window.removeEventListener("resize", listener);
 }
 
+/** Whether `target` lies in the page. */
+function isInPage(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(PAGE_REGION) !== null;
+}
+
+/** A key that writes, as against a chord, a caret move or a key that moves focus. */
+function isTyping(event: KeyboardEvent): boolean {
+  if (event.ctrlKey || event.metaKey || event.altKey) return false;
+  return (
+    event.key.length === 1 ||
+    event.key === "Enter" ||
+    event.key === "Backspace" ||
+    event.key === "Delete"
+  );
+}
+
 /**
- * True while an open panel does not fit beside the page: it is then drawn over the page and closes when focus returns
- * to the page. Opening one panel closes the other when both do not fit, and a panel that closes with focus lost to the
- * body sends focus to the page.
+ * True while an open panel does not fit beside the page: it is then drawn over the page and closes when the person
+ * clicks or types in the page or focus returns to it; a window narrowed under open panels while focus is in the page
+ * closes them, so they never cover the line being written. Opening one panel closes the other when both do not fit,
+ * except that Scenes a script opened close themselves, and a panel that closes with focus lost to the body sends focus
+ * to the page.
  */
 function usePanelsOverPage(): boolean {
   const { dom } = useEnvironment();
@@ -72,29 +91,48 @@ function usePanelsOverPage(): boolean {
     leftPx: left.tab === null ? null : left.widthPx,
     sidePx: side.tab === null ? null : side.widthPx,
   });
-  const before = useRef({ left: left.tab, side: side.tab });
+  const over = fit === "overlay";
+  const before = useRef({ left: left.tab, side: side.tab, over });
   useLayoutEffect(() => {
     const was = before.current;
-    before.current = { left: left.tab, side: side.tab };
+    before.current = { left: left.tab, side: side.tab, over };
     const closed =
       (was.left !== null && left.tab === null) ||
       (was.side !== null && side.tab === null);
     if (closed && document.activeElement === document.body) dom.focusPage();
-    // the panel open before gives way to the one just opened
+    // a window narrowed under open panels while the person writes: they would cover the line being written
+    const narrowed =
+      over && !was.over && was.left === left.tab && was.side === side.tab;
+    if (narrowed && dom.pageFocused()) {
+      panelsActions.close("left");
+      panelsActions.close("side");
+      return;
+    }
+    // the panel open before gives way to the one just opened; Scenes a script opened give way to the person's panel
     if (fit !== "both" && left.tab !== null && side.tab !== null)
-      panelsActions.close(was.left === null ? "side" : "left");
-  }, [dom, fit, left.tab, side.tab]);
-  const over = fit === "overlay";
+      panelsActions.close(
+        was.left === null && !panelsActions.scenesUnchosen() ? "side" : "left",
+      );
+  }, [dom, fit, over, left.tab, side.tab]);
   useEffect(() => {
     if (!over) return;
-    const onFocusIn = (event: FocusEvent): void => {
-      if (!(event.target instanceof Element)) return;
-      if (event.target.closest(PAGE_REGION) === null) return;
+    // focus may already be in the page, so a press or a key there closes the panel too
+    const onPage = (event: Event): void => {
+      if (!isInPage(event.target)) return;
       panelsActions.close("left");
       panelsActions.close("side");
     };
-    document.addEventListener("focusin", onFocusIn);
-    return () => document.removeEventListener("focusin", onFocusIn);
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (isTyping(event)) onPage(event);
+    };
+    document.addEventListener("focusin", onPage);
+    document.addEventListener("pointerdown", onPage);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("focusin", onPage);
+      document.removeEventListener("pointerdown", onPage);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [over]);
   return over;
 }
@@ -222,6 +260,7 @@ function Frame(props: {
         )}
       />
       <ProductionDialogs docId={docId} />
+      <ShareDialog docId={docId} doc={doc} />
     </>
   );
 }

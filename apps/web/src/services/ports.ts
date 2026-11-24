@@ -160,6 +160,8 @@ export interface DocumentServices {
   stateFacts: Subscribable<readonly StateFact[]>;
   scriptBag: Bag;
   people: Subscribable<readonly PersonPresent[]>;
+  /** How many other people have it open to read only; who they are is never told. */
+  viewers: Subscribable<number>;
   material: MaterialServices;
 }
 

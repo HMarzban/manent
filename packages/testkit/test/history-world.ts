@@ -93,8 +93,9 @@ export async function nameDraft(
 }
 
 /**
- * The request of a restore by `userId`, answered with its Before restore version's id, and what it
- * took out noted in the world; the world is not run.
+ * The request of a restore by `userId` from their first device, which keeps what it writes,
+ * answered with its Before restore version's id, and what it took out noted in the world; the
+ * world is not run.
  */
 export async function requestRestore(
   w: HistoryWorld,
@@ -102,7 +103,10 @@ export async function requestRestore(
   versionId: string,
   scope: RestoreScope,
 ): Promise<HistoryOutcome<string>> {
-  const body = { docId: w.docId, key: freshKey(), versionId, scope };
+  const device = w.clients.find((c) => c.userId === userId);
+  if (device === undefined) throw new RangeError(`no device of ${userId}`);
+  const clientId = await device.handle.reserveClientId();
+  const body = { docId: w.docId, key: freshKey(), versionId, scope, clientId };
   const outcome = await w.history.restore(userId, body);
   if (!outcome.ok) return outcome;
   const { beforeVersionId } = outcome.value;

@@ -157,14 +157,13 @@ test("a group with no scenario listed is not drawn", async () => {
       <TourPanel />
     </ServicesProvider>,
   );
-  expect(container.querySelector("h2")?.textContent).toBe("Tour");
   // the groups drawn are exactly those that list a shown scenario, in the Tour's order
   const listed = TOUR.groups.filter((group) =>
     TOUR.scenarios.some((s) => s.group === group && isShown(s)),
   );
   expect(listed.length).toBeLessThan(TOUR.groups.length);
   expect(
-    [...container.querySelectorAll("h3")].map((h) => h.textContent),
+    [...container.querySelectorAll("h2")].map((h) => h.textContent),
   ).toEqual(listed);
   services.dispose();
 });
@@ -234,7 +233,7 @@ test("a set-up that did not work says why, with Set it up again", async () => {
   expect(setUps).toEqual([]);
 });
 
-test("a scenario shows its promise, one primary Set it up, numbered steps and its check", async () => {
+test("a scenario shows its promise, one bordered Set it up, numbered steps and its check", async () => {
   const setUps: string[] = [];
   const container = await render(
     <TourScenarioRow
@@ -252,7 +251,7 @@ test("a scenario shows its promise, one primary Set it up, numbered steps and it
   const [setUp, ...others] = buttons(container);
   expect(others).toEqual([]);
   expect(setUp?.textContent).toBe("Set it up");
-  expect(setUp?.className.split(" ").includes("bg-primary")).toBe(true);
+  expect(setUp?.className.split(" ").includes("border-border")).toBe(true);
   expect(
     [...container.querySelectorAll("ol > li")].map((li) => li.textContent),
   ).toEqual(["1Open the commands.", "2Choose New script."]);
@@ -350,6 +349,7 @@ test("the demo bar is its own colour scope and says Demo", async () => {
       person={{ token: null, userId: "dana", name: "Dana Reyes" }}
       onPersonClick={() => {}}
       control={null}
+      resetting={false}
     />,
   );
   const bar = container.querySelector("section");

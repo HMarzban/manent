@@ -1,6 +1,2 @@
-import { Plugin } from "prosemirror-state";
-import type { EditorPluginHost } from "../script-editor/create.ts";
-
-export function materialPlugin(_host: EditorPluginHost): Plugin {
-  return new Plugin({});
-}
+export { materialPlugin, speechPlace } from "./material-plugin.ts";
+export type { MaterialOptions } from "./material-plugin.ts";

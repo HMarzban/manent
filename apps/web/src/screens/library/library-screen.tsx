@@ -1,9 +1,11 @@
 // The Library: the workspace switcher, its navigation and the view the address chooses, New script and New project, the
 // person menu and the status bar.
 import { TOUR, isShown } from "@manent/demo";
+import { indexDocId } from "@manent/sync-protocol";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   CommandButton,
+  DEMO_WORDS,
   LIBRARY_WORDS,
   createValue,
   useCommandState,
@@ -11,28 +13,28 @@ import {
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import { useQuery } from "@tanstack/react-query";
-import { useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
-import type { ComponentType, ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { Api } from "../../api.ts";
-import { POLL_MS } from "../../demo/use-demo.ts";
 import { focusHeading } from "../../focus.ts";
 import { useServices } from "../../services/context.tsx";
 import type { ContinueItem, ProjectItem } from "../../services/ports.ts";
+import { useWorkspaces } from "../../services/use-workspaces.ts";
 import type { TabPerson } from "../../session.ts";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { SidePosition } from "../../shell/side-position.tsx";
 import { panelsActions } from "../../state/panels.store.ts";
+import { workspaceActions } from "../../state/workspace.store.ts";
 import { pageTitle } from "../../text.ts";
 import { SIDE_PANEL_TABS } from "../document/side-tabs.ts";
-import { ContinueView } from "./continue-list.tsx";
+import { useLibraryAddress } from "./library-address.ts";
 import { LibraryNav } from "./library-nav.tsx";
 import { LibraryStatusBar } from "./library-status-bar.tsx";
 import { NewProjectPopover } from "./new-project-popover.tsx";
 import { PersonMenu } from "./person-menu.tsx";
 import { SearchField } from "./search-field.tsx";
-import { LIBRARY_VIEWS } from "./views.ts";
-import type { LibraryViewProps } from "./views.ts";
+import { CONTINUE_VIEW, LIBRARY_VIEWS } from "./views.ts";
+import type { LibraryView } from "./views.ts";
 import { WorkspaceSwitcher } from "./workspace-switcher.tsx";
 
 // what the lists read while the workspace shown is not known yet
@@ -54,58 +56,27 @@ function useShownWorkspace(
   workspaces: readonly WorkspaceRef[] | null;
   serverProblem: boolean;
 } {
-  const w = useRouterState({
-    select: (state): unknown => state.location.search.w,
-  });
+  const w = useLibraryAddress().workspaceId;
   const signedIn = person.token !== null;
   // a person with no session has no workspaces to ask the server about
-  const me = useQuery({
-    queryKey: ["me", person.userId],
-    queryFn: listWorkspaces(api),
-    enabled: signedIn,
-    // asked again while a workspace is getting ready, so the switcher follows its seed
-    refetchInterval: (query) =>
-      query.state.data?.some((ref) => ref.seeding?.failed === false)
-        ? POLL_MS
-        : false,
-  });
+  const me = useWorkspaces(api, person.userId, signedIn);
   const known = signedIn ? (me.data ?? null) : null;
   const answered = !signedIn || me.data !== undefined || me.isError;
   const fallback = answered ? (known?.[0]?.id ?? person.userId) : null;
   return {
-    workspaceId: typeof w === "string" ? w : fallback,
+    workspaceId: w ?? fallback,
     workspaces: known,
     serverProblem: signedIn && me.isError,
   };
 }
 
-/** The person's workspaces; a server that cannot list them throws, so the query keeps the last list it heard. */
-function listWorkspaces(api: Api): () => Promise<readonly WorkspaceRef[]> {
-  return async () => {
-    const answer = await api.me();
-    if (!answer.ok) {
-      throw new Error(
-        `the server did not list the workspaces: ${answer.reason}`,
-      );
-    }
-    return answer.me.workspaces;
-  };
-}
-
 /** The view the address chooses: the search's while it holds one, else the one its `view` names, else Continue. */
-function useChosenView(): ComponentType<LibraryViewProps> {
-  const view = useRouterState({
-    select: (state): unknown => state.location.search.view,
-  });
-  const q = useRouterState({
-    select: (state): unknown => state.location.search.q,
-  });
-  const searching = typeof q === "string" && q !== "";
-  const named = typeof view === "string" ? view : null;
+function useChosenView(): LibraryView {
+  const { view, q } = useLibraryAddress();
   const chosen = LIBRARY_VIEWS.find((entry) =>
-    entry.chosenBy === "q" ? searching : !searching && entry.id === named,
+    entry.chosenBy === "q" ? q !== null : q === null && entry.id === view,
   );
-  return chosen?.View ?? ContinueView;
+  return chosen ?? CONTINUE_VIEW;
 }
 
 /**
@@ -149,6 +120,53 @@ function useWorkspaceLists(workspaceId: string | null): {
   };
 }
 
+/**
+ * Tells the commands, while the Library is drawn, whether the person can add to the workspace shown: not while it is
+ * being seeded, nor while their role on its index only reads it.
+ */
+function usePublishWorkspace(shown: {
+  api: Api;
+  userId: string;
+  workspaceId: string | null;
+  seeding: boolean;
+}): void {
+  const { api, userId, workspaceId, seeding } = shown;
+  const index =
+    workspaceId === null ? null : indexDocId("workspace", workspaceId);
+  const role = useQuery({
+    queryKey: ["role", userId, index],
+    queryFn: () => (index === null ? null : api.role(index)),
+    enabled: index !== null && !seeding,
+  }).data;
+  const workspace = seeding
+    ? "getting_ready"
+    : role === "comment" || role === "view"
+      ? "read_only"
+      : "writable";
+  useEffect(() => {
+    workspaceActions.set(workspace);
+  }, [workspace]);
+  useEffect(() => () => workspaceActions.set("writable"), []);
+}
+
+/**
+ * What the main column says in place of the lists of a workspace that is being seeded, which hold nothing until it is
+ * ready, or whose seed stopped.
+ */
+function GettingReady(props: {
+  name: string;
+  seeding: NonNullable<WorkspaceRef["seeding"]>;
+}): ReactNode {
+  const { name, seeding } = props;
+  return (
+    <p className="pt-6 text-ui">
+      {seeding.failed
+        ? DEMO_WORDS.seedingFailed
+        : LIBRARY_WORDS.gettingReady(name, seeding.done, seeding.total)}
+    </p>
+  );
+}
+
 function Library(props: { api: Api; person: TabPerson }): ReactNode {
   const { api, person } = props;
   const { workspaceId, workspaces, serverProblem } = useShownWorkspace(
@@ -156,7 +174,14 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
     person,
   );
   const { continueList, projects, problem } = useWorkspaceLists(workspaceId);
-  const View = useChosenView();
+  const shown = workspaces?.find((ref) => ref.id === workspaceId) ?? null;
+  usePublishWorkspace({
+    api,
+    userId: person.userId,
+    workspaceId,
+    seeding: shown?.seeding != null,
+  });
+  const { id: viewId, View } = useChosenView();
   // a signed-in person's switcher waits for the server to say which workspaces they have
   const switcher =
     workspaceId !== null && (person.token === null || workspaces !== null);
@@ -188,14 +213,22 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
         <PersonMenu name={person.name} />
       </ShellRegion>
       <div className="@container flex min-h-0 flex-1">
-        <LibraryNav projects={projects} />
+        <LibraryNav
+          workspaceId={workspaceId}
+          current={viewId}
+          projects={projects}
+        />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 px-6 pt-6 pb-8 *:w-full *:max-w-content-wide">
-          <View
-            workspaceId={workspaceId}
-            continueList={continueList}
-            projects={projects}
-            problem={problem || serverProblem}
-          />
+          {shown?.seeding == null ? (
+            <View
+              workspaceId={workspaceId}
+              continueList={continueList}
+              projects={projects}
+              problem={problem || serverProblem}
+            />
+          ) : (
+            <GettingReady name={shown.name} seeding={shown.seeding} />
+          )}
         </div>
         <SidePosition docId={null} tabs={SIDE_PANEL_TABS} />
       </div>

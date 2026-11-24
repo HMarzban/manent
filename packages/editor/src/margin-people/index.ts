@@ -1,6 +1,3 @@
-import { Plugin } from "prosemirror-state";
-import type { EditorPluginHost } from "../script-editor/create.ts";
-
-export function marginPeoplePlugin(_host: EditorPluginHost): Plugin {
-  return new Plugin({});
-}
+export { marginPeoplePlugin } from "./margin-people-plugin.ts";
+export type { ScenePerson } from "./margin-people-plugin.ts";
+export { scrollToPerson } from "./scroll-to-person.ts";

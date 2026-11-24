@@ -1,3 +1,50 @@
+// The commands of a speech's alternates: both open the alternates popover under the speech the caret is in.
+import type { CommandContext } from "../context.ts";
 import { defineCommands } from "../define.ts";
+import type { CommandDefinition } from "../define.ts";
 
-export const MATERIAL_COMMANDS = defineCommands([]);
+// writers' material is for those who write the script
+const canWrite = (ctx: CommandContext): boolean =>
+  ctx.material !== null && (ctx.role === "owner" || ctx.role === "editor");
+
+function alternatesCommand<const Id extends string>(
+  id: Id,
+  label: string,
+  more: Pick<CommandDefinition, "keys" | "menus" | "opens">,
+): CommandDefinition<Id> {
+  return {
+    id,
+    label,
+    group: "script",
+    home: null,
+    scope: "editor",
+    keysFixed: false,
+    when: (ctx) => ctx.material?.caretInSpeech === true,
+    whyNot: () => "needs the caret in a speech",
+    visible: canWrite,
+    checked: null,
+    passThrough: null,
+    palette: { keywords: [] },
+    reach: "self",
+    setting: null,
+    ...more,
+  };
+}
+
+export const MATERIAL_COMMANDS = defineCommands([
+  alternatesCommand("alternate.show", "Alternates", {
+    keys: {
+      mac: ["Mod+Shift+A"],
+      windows: ["Mod+Shift+A"],
+      linux: ["Mod+Shift+A"],
+    },
+    menus: [{ menu: "script", group: "material", order: 10, submenu: null }],
+    opens: { surface: "alternates_popover", focus: "first" },
+  }),
+  // the selection toolbar's item in a speech: the popover opens with its field focused
+  alternatesCommand("alternate.add", "Add alternate", {
+    keys: { mac: [], windows: [], linux: [] },
+    menus: [],
+    opens: { surface: "alternates_popover", focus: "item" },
+  }),
+]);
