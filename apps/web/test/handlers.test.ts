@@ -180,6 +180,7 @@ test("name commands say why when no document or word is open, and alternate hand
   await import("../src/editor-host/material.ts");
   docHandlers["alternate.show"]();
   docHandlers["alternate.add"]();
+  docHandlers["material.moveToCuts"]();
   await Promise.resolve();
   await Promise.resolve();
   expect(docDeps.services.messages.current()).toBeNull();

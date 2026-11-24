@@ -5,6 +5,7 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorState, Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
+import { selectedBlockIds } from "./cuts.ts";
 
 export interface MaterialOptions {
   /**
@@ -20,6 +21,8 @@ export interface MaterialOptions {
   onOpen(blockId: string): void;
   /** The dialogue block the caret is in, null outside one; told from the view's update, each time it changes. */
   onCaretSpeech(blockId: string | null): void;
+  /** Whether the selection covers at least one block; told from the view's update, each time it changes. */
+  onSelection?(selected: boolean): void;
 }
 
 const markersKey = new PluginKey<DecorationSet>("material_markers");
@@ -178,7 +181,9 @@ export function materialPlugin(options: MaterialOptions): Plugin {
     },
     view(view) {
       let speech = caretSpeech(view.state);
+      let selected = selectedBlockIds(view.state).length > 0;
       options.onCaretSpeech(speech);
+      options.onSelection?.(selected);
       const stop = options.follow(view, () =>
         view.dispatch(
           view.state.tr
@@ -189,9 +194,15 @@ export function materialPlugin(options: MaterialOptions): Plugin {
       return {
         update() {
           const next = caretSpeech(view.state);
-          if (next === speech) return;
-          speech = next;
-          options.onCaretSpeech(next);
+          if (next !== speech) {
+            speech = next;
+            options.onCaretSpeech(next);
+          }
+          const nextSelected = selectedBlockIds(view.state).length > 0;
+          if (nextSelected !== selected) {
+            selected = nextSelected;
+            options.onSelection?.(nextSelected);
+          }
         },
         destroy: stop,
       };
