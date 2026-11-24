@@ -3,6 +3,7 @@
 import type { CommandHandlers } from "@manent/commands";
 import type { SectionId } from "@manent/settings";
 import { safeNext } from "../session.ts";
+import { rundownActions } from "../state/rundown.store.ts";
 import type { HandlerDeps, RoutePlace } from "./index.ts";
 
 const PREFERENCES_ROUTE = "/preferences/$pane";
@@ -34,6 +35,14 @@ export function preferencesHandlers(
     router.here().routeId === PREFERENCES_ROUTE;
   // a screen that hides the page never touches the script
   const showsPage = (): boolean => router.here().routeId === DOCUMENT_ROUTE;
+  const onRundown = (): boolean => {
+    const { docId } = deps.shellState();
+    return (
+      docId !== null &&
+      (rundownActions.context(docId) !== null ||
+        services.library.docKindOf(docId).get() === "rundown")
+    );
+  };
   return {
     "app.preferences"() {
       const from = returnPlace(router.here());
@@ -49,10 +58,13 @@ export function preferencesHandlers(
     // the page's and a field's own undo take the key before this runs; an undo with nothing to undo says nothing
     "edit.undo"() {
       if (onPreferences()) visitUndo.current?.undo();
+      else if (showsPage() && onRundown())
+        rundownActions.slot("rows")?.undo?.();
       else if (showsPage()) services.editor.run("edit.undo");
     },
     "edit.redo"() {
-      if (showsPage()) services.editor.run("edit.redo");
+      if (showsPage() && onRundown()) rundownActions.slot("rows")?.redo?.();
+      else if (showsPage()) services.editor.run("edit.redo");
     },
     "settings.undo"() {
       const shown = services.messages.current();
