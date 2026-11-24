@@ -278,7 +278,7 @@ function ScenesList(props: { docId: string }): ReactNode {
       state={count === 0 ? EMPTY : READY}
       render={panelRenderers({
         ready: () => (
-          <div className="flex h-full min-h-0 flex-col">
+          <div className="@container flex h-full min-h-0 flex-col">
             <div className="flex items-center gap-2 p-2">
               {viewSwitch}
               <Input
