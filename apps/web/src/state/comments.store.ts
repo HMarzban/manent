@@ -40,6 +40,7 @@ export type {
 
 const entries = new Map<string, CommentsEntry>();
 const fallbackStates = new Map<string, ScriptCommentsState>();
+const pendingListeners = new Map<string, Set<() => void>>();
 
 function snapshotOf(docId: string | null): ScriptCommentsState {
   if (docId === null) return emptyCommentsState("");
@@ -107,8 +108,16 @@ export function useRetainComments(
 
 export const commentsActions = {
   retain(docId: string, services: PersonServices): () => void {
-    const entry = entries.get(docId) ?? createCommentsEntry(docId, services);
-    entries.set(docId, entry);
+    let entry = entries.get(docId);
+    if (entry === undefined) {
+      entry = createCommentsEntry(docId, services);
+      const waiting = pendingListeners.get(docId);
+      if (waiting !== undefined) {
+        for (const listener of waiting) entry.listeners.add(listener);
+        pendingListeners.delete(docId);
+      }
+      entries.set(docId, entry);
+    }
     entry.refs += 1;
     let released = false;
     return () => {
@@ -126,10 +135,19 @@ export const commentsActions = {
   get: (docId: string): ScriptCommentsState => snapshotOf(docId),
   subscribe(docId: string, listener: () => void): () => void {
     const entry = entries.get(docId);
-    if (entry === undefined) return noop;
-    entry.listeners.add(listener);
+    if (entry !== undefined) {
+      entry.listeners.add(listener);
+      return () => {
+        entry.listeners.delete(listener);
+      };
+    }
+    const set = pendingListeners.get(docId) ?? new Set();
+    set.add(listener);
+    pendingListeners.set(docId, set);
     return () => {
-      entry.listeners.delete(listener);
+      set.delete(listener);
+      if (set.size === 0) pendingListeners.delete(docId);
+      entries.get(docId)?.listeners.delete(listener);
     };
   },
   setFilter(docId: string, filter: string): void {

@@ -1,12 +1,137 @@
+// The right panel's Comments tab: exclusive filters (Open, Mine, Writers only, rounds), thread rows and empty states.
+import type { Choice, SettingValue } from "@manent/settings";
+import { COMMENTS_WORDS, HISTORY_WORDS, Segmented } from "@manent/ui";
+import { useCallback, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
+import { useEnvironment, useServices } from "../services/context.tsx";
 import type { PanelTab } from "../shell/panel-tab.ts";
+import {
+  commentsActions,
+  useComments,
+  useCommentsUi,
+  useRetainComments,
+} from "../state/comments.store.ts";
+import { filteredThreads, sortedRounds } from "./comments-filter.ts";
+import { RoundRow } from "./round-row.tsx";
+import { NoteRow, ThreadRow } from "./thread-rows.tsx";
 
-function CommentsTab(): ReactNode {
-  return null;
+function useScriptFormat(docId: string | null): SettingValue<"script.format"> {
+  const { settings, openScriptStore } = useServices();
+  const store = docId === null ? settings : openScriptStore(docId);
+  const subscribe = useCallback(
+    (listener: () => void) => store.subscribe("script.format", listener),
+    [store],
+  );
+  return useSyncExternalStore(subscribe, () => store.get("script.format"));
+}
+
+function CommentsTab(props: { docId: string | null }): ReactNode {
+  const { docId } = props;
+  const services = useServices();
+  const { where, now } = useEnvironment();
+  const state = useComments(docId);
+  const ui = useCommentsUi(docId);
+  const format = useScriptFormat(docId);
+
+  if (docId === null) return null;
+
+  const filterChoices: Choice<string>[] = [
+    { value: "open", label: COMMENTS_WORDS.filterOpen },
+    { value: "mine", label: COMMENTS_WORDS.filterMine },
+    ...(state.canEdit
+      ? [{ value: "writers", label: COMMENTS_WORDS.writersOnly }]
+      : []),
+  ];
+  const rounds = sortedRounds(state.rounds);
+  const threads = filteredThreads(state, ui.filter, services.userId);
+  const notes = state.canEdit && ui.filter === "writers" ? state.notes : [];
+  const currentNow = now();
+  const isEmpty =
+    ui.filter === "writers" ? notes.length === 0 : threads.length === 0;
+  const emptyText =
+    format === "variety"
+      ? COMMENTS_WORDS.emptyVariety
+      : where.platform === "mac"
+        ? COMMENTS_WORDS.emptyMac
+        : COMMENTS_WORDS.emptyOther;
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex flex-col gap-2 border-b border-line p-3">
+        <Segmented
+          label={HISTORY_WORDS.filter}
+          size="sm"
+          value={ui.filter.startsWith("round:") ? "" : ui.filter}
+          options={filterChoices}
+          onChange={(next) => commentsActions.setFilter(docId, next)}
+        />
+        {rounds.length === 0 ? null : (
+          <div className="flex flex-col gap-0.5">
+            {rounds.map(({ id, round }) => (
+              <RoundRow
+                key={id}
+                docId={docId}
+                roundId={id}
+                round={round}
+                selected={ui.filter === `round:${id}`}
+                canEdit={state.canEdit}
+                onSelect={() => commentsActions.setFilter(docId, `round:${id}`)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+      {isEmpty ? (
+        <div className="flex flex-1 items-center justify-center p-6 text-center">
+          <p className="max-w-xs text-ui text-fg-muted">{emptyText}</p>
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 divide-y divide-line overflow-y-auto">
+          {ui.filter === "writers"
+            ? notes.map((entry) => (
+                <NoteRow
+                  key={entry.id}
+                  entry={entry}
+                  removed={
+                    entry.note.anchor !== null && state.removedIds.has(entry.id)
+                  }
+                  active={ui.activeId === entry.id}
+                  now={currentNow}
+                  onOpen={() =>
+                    commentsActions.openPopover(docId, {
+                      kind: "open_id",
+                      id: entry.id,
+                    })
+                  }
+                />
+              ))
+            : threads.map((entry) => (
+                <ThreadRow
+                  key={entry.id}
+                  entry={entry}
+                  state={state}
+                  active={ui.activeId === entry.id}
+                  now={currentNow}
+                  onOpen={() =>
+                    commentsActions.openPopover(docId, {
+                      kind: "open_id",
+                      id: entry.id,
+                    })
+                  }
+                />
+              ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export const commentsTab: PanelTab<"comments"> = {
   id: "comments",
-  useTab: () => ({ present: false, label: "" }),
+  useTab(docId) {
+    const services = useServices();
+    useRetainComments(docId, services);
+    return { present: docId !== null, label: COMMENTS_WORDS.tab };
+  },
   Tab: CommentsTab,
 };
