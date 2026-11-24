@@ -4,6 +4,7 @@ import { join } from "node:path";
 import * as CONTENT from "../src/content/index.ts";
 import {
   SEED_DOCS,
+  SEED_PROJECTS,
   TOUR,
   TOUR_FEATURES,
   TOUR_RELEASED,
@@ -13,6 +14,9 @@ import {
 import type { SeedWorkspaceId, TourScenario } from "../src/index.ts";
 
 const DOC_AT = new Map(SEED_DOCS.map((d) => [docPath(d.key), d]));
+const PROJECT_BOARDS = new Map(
+  SEED_PROJECTS.map((p) => [`/p/${p.projectId}/board`, p]),
+);
 
 const STEPS_DIR = join(import.meta.dir, "../src/seed/steps");
 
@@ -41,15 +45,22 @@ function windowsOf(scenario: TourScenario) {
 /** The workspace a window opens: the Library counts only for Your desk, opened as you. */
 function workspaceOpened(userId: string, open: string): SeedWorkspaceId | null {
   if (open === "/") return userId === "you" ? "you" : null;
+  const board = PROJECT_BOARDS.get(open);
+  if (board !== undefined) return board.workspaceId;
   const doc = DOC_AT.get(open);
   return doc === undefined ? null : seedProject(doc.projectKey).workspaceId;
 }
 
-test("every scenario opens a seeded document or the Library", () => {
+test("every scenario opens a seeded document, project board, or the Library", () => {
   expect(
     TOUR.scenarios.flatMap((s) =>
       windowsOf(s)
-        .filter((w) => w.open !== "/" && !DOC_AT.has(w.open))
+        .filter(
+          (w) =>
+            w.open !== "/" &&
+            !DOC_AT.has(w.open) &&
+            !PROJECT_BOARDS.has(w.open),
+        )
         .map((w) => `${s.id}: ${w.open}`),
     ),
   ).toEqual([]);
@@ -73,13 +84,14 @@ test("every fixed passage is read by a scenario or a seed check", () => {
     ),
   );
   expect(Object.keys(CONTENT).filter((name) => !named.has(name))).toEqual([]);
-  const evidence = new Set(TOUR.scenarios.flatMap((s) => s.evidence));
+  const evidence = TOUR.scenarios.flatMap((s) => s.evidence);
   const passages: Readonly<Record<string, string>> = CONTENT;
   expect(
     Object.entries(READ_BY_THE_TOUR)
       .filter(
         ([name, read]) =>
-          !evidence.has(read) || !(passages[name] ?? "").includes(read),
+          !evidence.some((item) => item.includes(read)) ||
+          !(passages[name] ?? "").includes(read),
       )
       .map(([name]) => name),
   ).toEqual([]);

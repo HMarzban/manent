@@ -6,24 +6,32 @@ export const WRITE_NAMES: TourScenario = {
   id: "write-names",
   group: "Write",
   promise: "Names you use are checked as you type.",
-  setup: setupOf({
-    userId: "sam",
-    open: docPath("medium/harbour-lights/205"),
-  }),
+  setup: setupOf(
+    {
+      userId: "sam",
+      open: docPath("medium/harbour-lights/205"),
+    },
+    [],
+    "write-names-ready",
+  ),
   steps: [
     {
-      text: "Go to scene 4, where the action names Marguerita.",
+      text: 'Go to scene 4: "Marguerita" has a dotted underline.',
       highlight: "page",
     },
     {
-      text: "Hold the pointer over the dotted underline.",
+      text: "Put the caret in it: the project's spelling is offered.",
+      highlight: "page",
+    },
+    {
+      text: "Press Enter to use it.",
       highlight: "page",
     },
   ],
   check:
-    '"Marguerita" is underlined with dots, and the underline offers "Marguerite".',
-  evidence: ["Marguerite"],
+    'The offer reads "Marguerite" with "In the project\'s names", and Enter writes it in place of "Marguerita".',
+  evidence: ["In the project's names", "Marguerite"],
   fresh: false,
-  waitsFor: "names_and_facts",
-  hidden: null,
+  waitsFor: null,
+  hidden: "its end-to-end test does not pass yet",
 };

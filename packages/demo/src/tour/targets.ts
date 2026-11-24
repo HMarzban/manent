@@ -49,6 +49,13 @@ export const TOUR_TARGETS = [
   "library:rundowns",
   "send:as",
   "prompter_files:place",
+  "board",
+  "setting:script.header",
+  "setting:project.style",
+  "beside",
+  "hand_in:confirm",
+  "lock:copy",
+  "send:what",
 ] as const;
 
 export type TourTarget = (typeof TOUR_TARGETS)[number];

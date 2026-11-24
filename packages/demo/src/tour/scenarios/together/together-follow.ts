@@ -6,23 +6,27 @@ export const TOGETHER_FOLLOW: TourScenario = {
   id: "together-follow",
   group: "Work together",
   promise: "Follow another writer through the script.",
-  setup: setupOf({ userId: "dana", open: FERRY }, [
-    { userId: "sam", open: FERRY },
+  setup: setupOf({ userId: "sam", open: FERRY }, [
+    { userId: "dana", open: FERRY },
   ]),
   steps: [
     {
-      text: "In Sam's window, choose Dana's name tab to follow her.",
+      text: "Open the people list from Dana's avatar and choose Follow.",
+      highlight: "people_list",
+    },
+    {
+      text: "In Dana's window, go to scene 11 and type.",
       highlight: "page",
     },
     {
-      text: "In Dana's window, move to another scene.",
+      text: "In Sam's window, type a letter.",
       highlight: "page",
     },
   ],
   check:
-    'Sam\'s state bar reads "Following Dana · Stop", and his page moves with hers.',
-  evidence: ["Following Dana"],
+    'Sam\'s state bar reads "Following Dana" while his page keeps up with hers; his typing ends it with "Stopped following Dana."',
+  evidence: ["Following Dana", "Stopped following Dana."],
   fresh: false,
-  waitsFor: "follow",
-  hidden: null,
+  waitsFor: null,
+  hidden: "its end-to-end test does not pass yet",
 };
