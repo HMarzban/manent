@@ -62,7 +62,7 @@ export function PitchPopover(props: PitchPopoverProps): ReactNode {
   };
 
   const onFieldKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
-    if (event.key !== "Enter") return;
+    if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
     event.preventDefault();
     const value = fieldRef.current?.value ?? "";
     if (value.trim().length === 0) return;
@@ -85,7 +85,6 @@ export function PitchPopover(props: PitchPopoverProps): ReactNode {
         aria-label={ROOM_WORDS.pitchFieldLabel}
         placeholder={ROOM_WORDS.pitchFieldPlaceholder}
         onKeyDown={onFieldKeyDown}
-        className="h-8 border-line-strong bg-well text-ui text-fg placeholder:text-fg-quiet"
       />
     </div>
   );

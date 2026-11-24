@@ -23,7 +23,7 @@
     .mn-asterisk,
     .mn-review-bar
   ) {
-  display: none;
+  display: none !important;
 }
 
 .mn-room
