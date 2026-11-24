@@ -6,6 +6,8 @@ import type { DocRole, DocumentMessage, Message } from "@manent/sync-protocol";
 import { createSubscribable } from "../outbox/subscribable.ts";
 import { HANDSHAKE_TIMEOUT_MS } from "../ports/defaults.ts";
 import type { Clock, LinkState, Subscribable } from "../ports/ports.ts";
+import { createViewerCount } from "../session/viewer-count.ts";
+import { createReaders } from "./readers.ts";
 
 /** The script body, flattened, in order; a reader ignores a key it does not know. */
 export interface ViewSnapshot {
@@ -21,7 +23,10 @@ export interface ViewPatch {
   update: BlockJSON[];
 }
 
-/** `live`: the snapshot came and patches follow; `role`: the one SUBSCRIBED named, null before. */
+/**
+ * `live`: the snapshot came and patches follow; `role`: the one SUBSCRIBED named, null before. Once the last listener
+ * of `blocks` and `status` has gone, it is not subscribed, and so not counted among the viewers, until the next comes.
+ */
 export interface ViewHandle {
   readonly docId: string;
   readonly blocks: Subscribable<readonly BlockJSON[]>;
@@ -30,6 +35,8 @@ export interface ViewHandle {
     live: boolean;
     role: DocRole | null;
   }>;
+  /** How many other people have it open to read only; 0 while it is not live. */
+  readonly viewers: Subscribable<number>;
   close(): void;
 }
 
@@ -151,6 +158,7 @@ export interface Viewer {
  * patches; nothing is stored. A SUBSCRIBED that does not come in time, a
  * payload that does not read, and an ERROR that may be retried each subscribe
  * again, from a snapshot; GENERATION_MOVED subscribes to the new generation.
+ * While nobody reads it any more it is unsubscribed.
  */
 class DocViewer implements Viewer {
   readonly handle: ViewHandle;
@@ -160,19 +168,27 @@ class DocViewer implements Viewer {
     live: boolean;
     role: DocRole | null;
   }>({ link: "offline", live: false, role: null });
+  private readonly viewers = createViewerCount();
   private send: ((message: Message) => void) | null = null;
   /** 0 until a move names one: the server answers with the current generation. */
   private generation = 0;
   private stopped = false;
+  /** Read, then left by its last reader. */
+  private left = false;
+  private cancelLeaving: (() => void) | null = null;
   private cancel: (() => void) | null = null;
   private readonly options: { docId: string; clock: Clock; closed(): void };
 
   constructor(options: { docId: string; clock: Clock; closed(): void }) {
     this.options = options;
+    const readers = createReaders((reading) =>
+      reading ? this.read() : this.leaveSoon(),
+    );
     this.handle = {
       docId: options.docId,
-      blocks: this.blocks,
-      status: this.status,
+      blocks: readers.counted(this.blocks),
+      status: readers.counted(this.status),
+      viewers: this.viewers.value,
       close: () => this.close(),
     };
   }
@@ -189,14 +205,17 @@ class DocViewer implements Viewer {
   disconnected(): void {
     this.send = null;
     this.wait(null);
+    this.viewers.ended();
     this.status.set({ ...this.status.get(), live: false });
   }
 
   receive(m: DocumentMessage): void {
+    if (this.left) return;
     if (m.type === "SUBSCRIBED") {
       this.wait(null);
       this.status.set({ ...this.status.get(), role: m.role });
-    } else if (m.type === "VIEW_SNAPSHOT")
+    } else if (m.type === "CONTROL") this.viewers.control(m);
+    else if (m.type === "VIEW_SNAPSHOT")
       this.show(readViewSnapshot(m.content)?.blocks ?? null);
     else if (m.type === "VIEW_PATCH" && this.status.get().live) {
       const patch = readViewPatch(m.patch);
@@ -220,6 +239,7 @@ class DocViewer implements Viewer {
   }
 
   error(m: Extract<Message, { type: "ERROR" }>): void {
+    this.viewers.ended();
     this.status.set({ ...this.status.get(), live: false });
     const final =
       m.permanent ||
@@ -230,7 +250,7 @@ class DocViewer implements Viewer {
   }
 
   private subscribe(): void {
-    if (this.send === null || this.stopped) return;
+    if (this.send === null || this.stopped || this.left) return;
     const { docId } = this.options;
     this.status.set({ ...this.status.get(), live: false });
     this.send({
@@ -253,12 +273,37 @@ class DocViewer implements Viewer {
         : this.options.clock.schedule(() => this.subscribe(), delayMs);
   }
 
-  private close(): void {
+  private read(): void {
+    this.cancelLeaving?.();
+    this.cancelLeaving = null;
+    if (!this.left) return;
+    this.left = false;
+    this.subscribe();
+  }
+
+  /** In a later task, so that a page drawn again in this one, which stops listening and starts again, is not left. */
+  private leaveSoon(): void {
+    if (this.stopped) return;
+    this.cancelLeaving = this.options.clock.schedule(() => {
+      this.cancelLeaving = null;
+      this.left = true;
+      this.end();
+      this.viewers.ended();
+      this.status.set({ ...this.status.get(), live: false });
+    }, 0);
+  }
+
+  private end(): void {
     const { docId } = this.options;
     const { generation } = this;
     this.send?.({ type: "UNSUBSCRIBE", docId, generation });
-    this.stopped = true;
     this.wait(null);
+  }
+
+  private close(): void {
+    if (!this.left) this.end();
+    this.cancelLeaving?.();
+    this.stopped = true;
     this.options.closed();
   }
 }

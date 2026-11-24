@@ -29,6 +29,7 @@ export function createLocalDocumentSource(options: {
     stateFacts: createValue([]),
     scriptBag: createMemoryBag({ initial: {}, writable: () => true }),
     people: peoplePresent(docId),
+    viewers: createValue(0),
     material: materialActions,
   });
   return {

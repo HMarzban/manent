@@ -125,7 +125,9 @@ test("presence is batched every 100 ms and stamped by the server", () => {
 test("an entry over 4 KB, for someone else's client id, or from a viewer is dropped", () => {
   const { service, sam, dana, leo, clock } = editing();
   service.receive(leo, subscribe(DOC, "view", []));
-  leo.take();
+  // the editors are told of one more viewer
+  clock.advance(100);
+  for (const peer of [dana, leo]) peer.take();
   service.receive(
     sam,
     awareness(DOC, [

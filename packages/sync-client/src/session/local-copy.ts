@@ -85,7 +85,11 @@ export interface LocalCopy {
 /** The parts of a handle its session keeps. */
 interface SessionParts extends Pick<
   DocHandle,
-  "nameVersion" | "restoreLocally" | "deviceVersions" | "lastServerSeq"
+  | "nameVersion"
+  | "restoreLocally"
+  | "deviceVersions"
+  | "lastServerSeq"
+  | "viewers"
 > {
   status: Subscribable<DocStatus>;
   readOnly: Subscribable<ViewHandle | null>;

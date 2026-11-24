@@ -131,7 +131,7 @@ export function TitleBar(props: {
       </h1>
       <StatusButton doc={doc} />
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <People docId={docId} people={doc.people} />
+        <People docId={docId} people={doc.people} viewers={doc.viewers} />
         <ShareButton />
       </div>
     </ShellRegion>

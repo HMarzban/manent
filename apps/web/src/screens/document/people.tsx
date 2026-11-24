@@ -1,10 +1,12 @@
-// The people in the document, at the end of the title bar: at most three avatars, then how many more, opening the people list.
+// The people in the document, at the end of the title bar: at most three avatars, then how many more, then how many
+// have it open to read only, opening the people list.
 import {
   AvatarStack,
   Button,
   DOCUMENT_WORDS,
   DropdownMenu,
   DropdownMenuTrigger,
+  ViewerCount,
   useSubscribable,
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
@@ -20,10 +22,12 @@ import type { PersonPresent } from "../../state/people.store.ts";
 export function People(props: {
   docId: string;
   people: Subscribable<readonly PersonPresent[]>;
+  viewers: Subscribable<number>;
 }): ReactNode {
   const people = useSubscribable(props.people);
+  const viewers = useSubscribable(props.viewers);
   const [open, setOpen] = useState(false);
-  if (people.length === 0 && !open) return null;
+  if (people.length === 0 && viewers === 0 && !open) return null;
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
@@ -44,8 +48,9 @@ export function People(props: {
             </span>
           </>
         )}
+        <ViewerCount viewers={viewers} />
       </DropdownMenuTrigger>
-      <PeopleList docId={props.docId} people={people} />
+      <PeopleList docId={props.docId} people={people} viewers={viewers} />
     </DropdownMenu>
   );
 }
