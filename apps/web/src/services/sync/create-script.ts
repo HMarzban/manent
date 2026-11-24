@@ -15,6 +15,7 @@ import { projectHome } from "@manent/sync-protocol";
 import type { DocKind } from "@manent/sync-protocol";
 import { NEW_PROJECT_CARDS } from "@manent/ui";
 import { firstBlock } from "../../editor-host/first-block.ts";
+import { SERIES_START } from "../../series/series-start.ts";
 import type { ImportedProject, ProjectKind } from "../ports.ts";
 
 /** A script to make: its id, its project's id, and the language whose region gives its paper. */
@@ -104,7 +105,10 @@ const SCRIPT_START: ProjectStart = {
 };
 
 /** A later line takes its kinds over from an earlier one. */
-export const PROJECT_STARTS: readonly ProjectStart[] = [SCRIPT_START];
+export const PROJECT_STARTS: readonly ProjectStart[] = [
+  SCRIPT_START,
+  SERIES_START,
+];
 
 /** The start of a new project of `kind`: the last line of PROJECT_STARTS that names it. */
 export function projectStartOf(kind: ProjectKind): ProjectStart {
