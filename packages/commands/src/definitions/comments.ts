@@ -6,12 +6,12 @@ const canComment = (ctx: CommandContext): boolean =>
   ctx.role === "owner" || ctx.role === "editor" || ctx.role === "commenter";
 
 const canWriteNote = (ctx: CommandContext): boolean =>
-  (ctx.role === "owner" || ctx.role === "editor") && ctx.format !== "variety";
+  ctx.role === "owner" || ctx.role === "editor";
 
 export const COMMENTS_COMMANDS = defineCommands([
   {
     id: "comment.add",
-    label: "Add a comment…",
+    label: "Comment",
     group: "script",
     home: null,
     scope: "editor",
@@ -30,7 +30,7 @@ export const COMMENTS_COMMANDS = defineCommands([
   },
   {
     id: "comment.onScene",
-    label: "Comment on this scene…",
+    label: "Comment on this scene",
     group: "script",
     home: null,
     scope: "global",
@@ -49,7 +49,7 @@ export const COMMENTS_COMMANDS = defineCommands([
   },
   {
     id: "comment.onScript",
-    label: "Comment on the script…",
+    label: "Comment on the script",
     group: "script",
     home: null,
     scope: "global",
@@ -75,10 +75,7 @@ export const COMMENTS_COMMANDS = defineCommands([
     keys: { mac: ["Mod+Alt+N"], windows: [], linux: [] },
     keysFixed: false,
     when: (ctx) => ctx.docOpen && canWriteNote(ctx),
-    whyNot: (ctx) =>
-      ctx.format === "variety"
-        ? "is not available in Variety"
-        : "needs a document open",
+    whyNot: () => "needs a document open",
     visible: (ctx) => ctx.docOpen && canWriteNote(ctx),
     checked: null,
     passThrough: null,

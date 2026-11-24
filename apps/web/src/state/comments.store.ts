@@ -250,10 +250,17 @@ export const commentsActions = {
     now: () => number,
   ): boolean =>
     writeResolve(targetOf(docId), () => targetOf(docId), services, input, now),
-  reopen: (docId: string, threadId: string): boolean =>
-    writeReopen(targetOf(docId), threadId),
-  renameRound: (docId: string, roundId: string, name: string): boolean =>
-    writeRenameRound(targetOf(docId), roundId, name),
+  reopen: (
+    docId: string,
+    services: PersonServices,
+    threadId: string,
+  ): boolean => writeReopen(targetOf(docId), services, threadId),
+  renameRound: (
+    docId: string,
+    services: PersonServices,
+    roundId: string,
+    name: string,
+  ): boolean => writeRenameRound(targetOf(docId), services, roundId, name),
   addNote: (
     docId: string,
     writerName: string,

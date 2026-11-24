@@ -18,7 +18,9 @@ export type CommentsRole = "editor" | "commenter" | "viewer";
 
 export interface SceneBlockInfo {
   readonly sceneBlockId: string;
+  readonly sceneNumber: string | null;
   readonly heading: string;
+  readonly pageLabel: string | null;
 }
 
 export interface ScriptCommentsState {

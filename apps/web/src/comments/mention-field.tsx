@@ -170,8 +170,8 @@ export function MentionField(props: {
                 }}
                 className={
                   index === Math.min(selectedIndex, filtered.length - 1)
-                    ? "flex w-full items-center rounded bg-selected px-2 py-1 text-left text-fg"
-                    : "flex w-full items-center rounded px-2 py-1 text-left text-fg hover:bg-subtle"
+                    ? "flex w-full cursor-pointer items-center rounded border-l-2 border-accent-solid bg-control px-2 py-1 text-left text-fg"
+                    : "flex w-full cursor-pointer items-center rounded px-2 py-1 text-left text-fg hover:bg-subtle"
                 }
               >
                 {person.name}

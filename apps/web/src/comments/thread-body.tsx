@@ -19,7 +19,7 @@ import { commentsActions } from "../state/comments.store.ts";
 import {
   anchorPlaceLabel,
   dayTimeLabel,
-  firstNameFor,
+  flaggedLabel,
   fullNameFor,
   resolvedLineLabel,
   splitBodyMentions,
@@ -75,12 +75,17 @@ export function ThreadBody(props: {
   const currentNow = now();
   const items = threadItemsOf(threadId, state.items);
   const [first, ...replies] = items;
-  const flagged = Object.values(state.flags).some(
+  const threadFlags = Object.values(state.flags).filter(
     (flag) => flag.threadId === threadId,
+  );
+  const flagText = flaggedLabel(
+    threadFlags,
+    thread.authorUserId,
+    services.userId,
+    state.people,
   );
   const removed = thread.anchor !== null && state.removedIds.has(threadId);
   const authorFull = fullNameFor(thread.authorUserId, state.people);
-  const authorFirst = firstNameFor(thread.authorUserId, state.people);
   const place = anchorPlaceLabel(thread.anchor, state.blockScenes);
   const inRoundOutcome =
     thread.roundId !== null &&
@@ -115,7 +120,7 @@ export function ThreadBody(props: {
           />
           <span className="truncate text-meta text-fg-muted">
             {COMMENTS_WORDS.threadHeader(
-              authorFirst,
+              authorFull,
               dayTimeLabel(thread.createdAt, currentNow),
               place,
             )}
@@ -130,11 +135,11 @@ export function ThreadBody(props: {
           <XIcon aria-hidden="true" />
         </Button>
       </div>
-      {flagged ? (
+      {flagText === null ? null : (
         <div>
-          <span className="mn-tag">{COMMENTS_WORDS.flagged}</span>
+          <span className="mn-tag">{flagText}</span>
         </div>
-      ) : null}
+      )}
       {removed ? (
         <p className="text-meta text-fg-muted">{COMMENTS_WORDS.textRemoved}</p>
       ) : null}
@@ -159,7 +164,7 @@ export function ThreadBody(props: {
             >
               <span className="text-meta text-fg-muted">
                 {COMMENTS_WORDS.authorMeta(
-                  firstNameFor(reply.authorUserId, state.people),
+                  fullNameFor(reply.authorUserId, state.people),
                   dayTimeLabel(reply.createdAt, currentNow),
                 )}
               </span>
@@ -185,7 +190,9 @@ export function ThreadBody(props: {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => commentsActions.reopen(docId, threadId)}
+                onClick={() =>
+                  commentsActions.reopen(docId, services, threadId)
+                }
               >
                 {COMMENTS_WORDS.reopen}
               </Button>
@@ -224,12 +231,17 @@ export function ThreadBody(props: {
                     setOutcome(next);
                 }}
               />
-              <Input
-                value={reason}
-                placeholder={COMMENTS_WORDS.reason}
-                aria-label={COMMENTS_WORDS.reason}
-                onChange={(event) => setReason(event.target.value)}
-              />
+              <label className="flex flex-col gap-1">
+                <span className="text-meta text-fg-muted">
+                  {COMMENTS_WORDS.reason}
+                </span>
+                <Input
+                  value={reason}
+                  placeholder={COMMENTS_WORDS.reasonPlaceholder}
+                  aria-label={COMMENTS_WORDS.reason}
+                  onChange={(event) => setReason(event.target.value)}
+                />
+              </label>
               <div className="flex justify-end gap-2">
                 <Button
                   variant="ghost"

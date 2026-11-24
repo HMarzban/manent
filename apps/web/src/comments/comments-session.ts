@@ -60,11 +60,21 @@ export const emptyCommentsState = (docId: string): ScriptCommentsState => ({
   blockScenes: EMPTY_SCENES,
 });
 
+const isAccessLost = (server: StatusFacts["server"]): boolean =>
+  server === "access_removed" || server === "deleted";
+
 function roleOf(
   access: StatusFacts["access"],
   readOnly: boolean,
+  server: StatusFacts["server"],
 ): CommentsRole {
-  if (access === "view" || access === "too_old" || readOnly) return "viewer";
+  if (
+    access === "view" ||
+    access === "too_old" ||
+    readOnly ||
+    isAccessLost(server)
+  )
+    return "viewer";
   if (access === "comment") return "commenter";
   return "editor";
 }
@@ -164,7 +174,7 @@ function syncNotes(entry: CommentsEntry): void {
 function applyAccess(entry: CommentsEntry, status: StatusFacts): void {
   const handleReadOnly =
     entry.handle !== null && entry.handle.readOnly.get() !== null;
-  const role = roleOf(status.access, handleReadOnly);
+  const role = roleOf(status.access, handleReadOnly, status.server);
   const canComment = role === "editor" || role === "commenter";
   const canEdit = role === "editor";
   if (
@@ -269,6 +279,10 @@ function startEdit(entry: CommentsEntry, home: string | null): void {
 
 function ensureOpen(entry: CommentsEntry, status: StatusFacts): void {
   if (entry.closed) return;
+  if (isAccessLost(status.server)) {
+    closeHandles(entry);
+    return;
+  }
   if (status.access === "view" || status.access === "too_old") {
     startView(entry);
     return;
@@ -276,11 +290,10 @@ function ensureOpen(entry: CommentsEntry, status: StatusFacts): void {
   if (entry.openingMode === "edit") return;
   const projectId = entry.services.library.documentProject(entry.docId).get();
   const home = projectId === null ? null : projectHome(projectId);
-  const settled =
-    status.network === "offline" ||
-    status.neverSynced ||
-    status.server !== "syncing";
-  if (settled) {
+  const offlineOrLocal = status.network === "offline" || status.neverSynced;
+  const settled = offlineOrLocal || status.server !== "syncing";
+  // Never create fresh local meta without `home` while online: wait for the index's projectId so POST /api/docs receives `create`.
+  if (settled && (home !== null || offlineOrLocal)) {
     startEdit(entry, home);
     return;
   }
@@ -291,7 +304,19 @@ function ensureOpen(entry: CommentsEntry, status: StatusFacts): void {
     .then((held) => {
       entry.checkingDevice = false;
       if (entry.closed || entry.openingMode !== "none") return;
-      if (held.has(commentsDocId(entry.docId))) startEdit(entry, home);
+      const latest = entry.docServices.status.get();
+      if (
+        isAccessLost(latest.server) ||
+        latest.access === "view" ||
+        latest.access === "too_old"
+      )
+        return;
+      const latestProject = entry.services.library
+        .documentProject(entry.docId)
+        .get();
+      const latestHome =
+        latestProject === null ? null : projectHome(latestProject);
+      if (held.has(commentsDocId(entry.docId))) startEdit(entry, latestHome);
     })
     .catch(() => {
       entry.checkingDevice = false;
@@ -304,7 +329,7 @@ export function createCommentsEntry(
 ): CommentsEntry {
   const docServices = services.documents.open(docId);
   const initial = docServices.status.get();
-  const role = roleOf(initial.access, false);
+  const role = roleOf(initial.access, false, initial.server);
   const entry: CommentsEntry = {
     docId,
     services,

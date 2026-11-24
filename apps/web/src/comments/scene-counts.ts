@@ -12,7 +12,7 @@ function countsOf(
   for (const thread of Object.values(state.threads)) {
     if (thread.state.kind !== "open" || thread.anchor === null) continue;
     const scene = state.blockScenes.get(thread.anchor.blockId);
-    if (scene === undefined) continue;
+    if (scene === undefined || scene.sceneBlockId === "") continue;
     byScene.set(scene.sceneBlockId, (byScene.get(scene.sceneBlockId) ?? 0) + 1);
   }
   const marks = new Map<string, readonly SceneMark[]>();

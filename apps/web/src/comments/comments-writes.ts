@@ -13,6 +13,7 @@ import type { ScriptNote, TextAnchor } from "@manent/schema";
 import { COMMENTS_WORDS } from "@manent/ui";
 import { liveEditor } from "../editor-host/live-editor.ts";
 import type { PersonServices } from "../services/ports.ts";
+import { firstNameFor } from "./comments-format.ts";
 import type { ScriptCommentsState } from "./comments-types.ts";
 
 export interface CommentsWriteTarget {
@@ -117,9 +118,13 @@ export function writeResolve(
       return;
     reopenThread(latest.doc, input.threadId);
   });
+  const authorFirst =
+    thread.authorUserId === services.userId
+      ? null
+      : firstNameFor(thread.authorUserId, target.state.people);
   services.messages.push({
     id: "comment_resolved",
-    text: COMMENTS_WORDS.resolvedMessage,
+    text: COMMENTS_WORDS.resolvedMessage(authorFirst, outcome),
     actions: [{ label: COMMENTS_WORDS.undo, commandId: "settings.undo" }],
     lifetime: "reverse",
     ownWork: false,
@@ -129,16 +134,30 @@ export function writeResolve(
 
 export function writeReopen(
   target: CommentsWriteTarget,
+  services: PersonServices,
   threadId: string,
 ): boolean {
   if (!target.state.canComment || target.doc === null) return false;
-  if (target.state.threads[threadId] === undefined) return false;
+  const thread = target.state.threads[threadId];
+  if (thread === undefined) return false;
   reopenThread(target.doc, threadId);
+  const authorFirst =
+    thread.authorUserId === services.userId
+      ? null
+      : firstNameFor(thread.authorUserId, target.state.people);
+  services.messages.push({
+    id: "comment_reopened",
+    text: COMMENTS_WORDS.reopenedMessage(authorFirst),
+    actions: [],
+    lifetime: "brief",
+    ownWork: false,
+  });
   return true;
 }
 
 export function writeRenameRound(
   target: CommentsWriteTarget,
+  services: PersonServices,
   roundId: string,
   name: string,
 ): boolean {
@@ -147,6 +166,13 @@ export function writeRenameRound(
   if (trimmed === "" || target.state.rounds[roundId] === undefined)
     return false;
   renameCrdtRound(target.doc, roundId, trimmed);
+  services.messages.push({
+    id: "round_renamed",
+    text: COMMENTS_WORDS.roundRenamedMessage(trimmed),
+    actions: [],
+    lifetime: "brief",
+    ownWork: false,
+  });
   return true;
 }
 

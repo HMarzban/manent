@@ -97,7 +97,7 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
         ) : null}
         <MentionField
           placeholder={COMMENTS_WORDS.composerPlaceholder}
-          submitLabel={COMMENTS_WORDS.post}
+          submitLabel={COMMENTS_WORDS.commentLabel}
           autoFocus
           mentions
           people={state.people}
@@ -149,7 +149,7 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
         ) : null}
         <MentionField
           placeholder={COMMENTS_WORDS.notePlaceholder}
-          submitLabel={COMMENTS_WORDS.saveNote}
+          submitLabel={COMMENTS_WORDS.noteLabel}
           autoFocus
           mentions={false}
           people={state.people}
@@ -206,7 +206,7 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
           {note.note.writerName !== null && note.note.at !== null ? (
             <p className="text-meta text-fg-muted">
               {COMMENTS_WORDS.authorMeta(
-                note.note.writerName.split(" ")[0] ?? note.note.writerName,
+                note.note.writerName,
                 dayTimeLabel(note.note.at, now()),
               )}
             </p>

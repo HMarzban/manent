@@ -11,7 +11,7 @@ export interface ThreadEntry {
   readonly id: string;
   readonly thread: CommentThread;
   readonly items: readonly CommentItem[];
-  readonly flagged: boolean;
+  readonly flags: readonly CommentFlag[];
 }
 
 export interface RoundEntry {
@@ -80,7 +80,7 @@ export function filteredThreads(
       if (thread.state.kind === "resolved" && thread.roundId !== null) continue;
       if (!isMineThread(thread, items, flags, userId)) continue;
     }
-    list.push({ id, thread, items, flagged: flags.length > 0 });
+    list.push({ id, thread, items, flags });
   }
   return list.toSorted((a, b) => b.thread.createdAt - a.thread.createdAt);
 }

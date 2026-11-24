@@ -4,6 +4,7 @@ import { COMMENTS_WORDS, DropdownMenuItem, Input } from "@manent/ui";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { RowMenu } from "../screens/library/row-place.tsx";
+import type { PersonServices } from "../services/ports.ts";
 import { commentsActions } from "../state/comments.store.ts";
 import { roundTitleLabel } from "./comments-format.ts";
 
@@ -13,9 +14,11 @@ export function RoundRow(props: {
   round: CommentRound;
   selected: boolean;
   canEdit: boolean;
+  services: PersonServices;
   onSelect(): void;
 }): ReactNode {
-  const { docId, roundId, round, selected, canEdit, onSelect } = props;
+  const { docId, roundId, round, selected, canEdit, services, onSelect } =
+    props;
   const [renaming, setRenaming] = useState(false);
   const [value, setValue] = useState(round.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -30,7 +33,7 @@ export function RoundRow(props: {
   const commit = (): void => {
     const trimmed = value.trim();
     if (trimmed !== "" && trimmed !== round.name) {
-      commentsActions.renameRound(docId, roundId, trimmed);
+      commentsActions.renameRound(docId, services, roundId, trimmed);
     }
     setRenaming(false);
   };
@@ -51,7 +54,7 @@ export function RoundRow(props: {
       <div className="px-3 py-1">
         <Input
           ref={inputRef}
-          aria-label={COMMENTS_WORDS.rename}
+          aria-label={COMMENTS_WORDS.roundNameField}
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={onKeyDown}
@@ -74,7 +77,7 @@ export function RoundRow(props: {
         type="button"
         aria-pressed={selected}
         onClick={onSelect}
-        className="min-w-0 flex-1 truncate text-left"
+        className="min-w-0 flex-1 cursor-pointer truncate text-left"
       >
         {title}
       </button>

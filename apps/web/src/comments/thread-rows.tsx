@@ -5,7 +5,7 @@ import { initialsOf } from "../initials.ts";
 import {
   anchorPlaceLabel,
   dayTimeLabel,
-  firstNameFor,
+  flaggedLabel,
   fullNameFor,
   resolvedLineLabel,
 } from "./comments-format.ts";
@@ -16,16 +16,17 @@ import { BodyText } from "./thread-body.tsx";
 export function ThreadRow(props: {
   entry: ThreadEntry;
   state: ScriptCommentsState;
+  currentUserId: string;
   active: boolean;
   now: number;
   onOpen(): void;
 }): ReactNode {
-  const { entry, state, active, now, onOpen } = props;
-  const { id, thread, items, flagged } = entry;
+  const { entry, state, currentUserId, active, now, onOpen } = props;
+  const { id, thread, items, flags } = entry;
   const removed = thread.anchor !== null && state.removedIds.has(id);
   const baseClass = active
-    ? "w-full bg-selected px-3 py-3 text-left transition-colors"
-    : "w-full px-3 py-3 text-left transition-colors hover:bg-subtle";
+    ? "w-full cursor-pointer bg-selected px-3 py-3 text-left transition-colors"
+    : "w-full cursor-pointer px-3 py-3 text-left transition-colors hover:bg-subtle";
 
   if (thread.state.kind === "resolved") {
     return (
@@ -47,8 +48,13 @@ export function ThreadRow(props: {
 
   const [first, ...replies] = items;
   const authorFull = fullNameFor(thread.authorUserId, state.people);
-  const authorFirst = firstNameFor(thread.authorUserId, state.people);
   const place = anchorPlaceLabel(thread.anchor, state.blockScenes);
+  const flagText = flaggedLabel(
+    flags,
+    thread.authorUserId,
+    currentUserId,
+    state.people,
+  );
 
   return (
     <button
@@ -67,29 +73,29 @@ export function ThreadRow(props: {
         />
         <span className="min-w-0 truncate text-meta text-fg-muted">
           {COMMENTS_WORDS.threadHeader(
-            authorFirst,
+            authorFull,
             dayTimeLabel(thread.createdAt, now),
             place,
           )}
         </span>
       </div>
-      {flagged ? (
-        <div className="mt-1.5">
-          <span className="mn-tag">{COMMENTS_WORDS.flagged}</span>
+      {flagText === null ? null : (
+        <div className="mt-2">
+          <span className="mn-tag">{flagText}</span>
         </div>
-      ) : null}
+      )}
       {removed ? (
-        <p className="mt-1.5 text-meta text-fg-muted">
+        <p className="mt-2 text-meta text-fg-muted">
           {COMMENTS_WORDS.textRemoved}
         </p>
       ) : null}
       {thread.anchor !== null && thread.anchor.quote !== "" ? (
-        <blockquote className="mt-1.5 border-l-2 border-line-strong pl-2 text-meta text-fg-muted">
+        <blockquote className="mt-2 border-l-2 border-line-strong pl-2 text-meta text-fg-muted">
           {thread.anchor.quote}
         </blockquote>
       ) : null}
       {first === undefined ? null : (
-        <div className="mt-1.5">
+        <div className="mt-2">
           <BodyText
             body={first.body}
             mentionedUserIds={first.mentionedUserIds}
@@ -98,12 +104,12 @@ export function ThreadRow(props: {
         </div>
       )}
       {replies.length === 0 ? null : (
-        <ul className="mt-2 flex flex-col gap-1.5 border-t border-line pt-2">
+        <ul className="mt-2 flex flex-col gap-2 border-t border-line pt-2">
           {replies.map((reply) => (
             <li key={reply.createdAt + reply.authorUserId}>
               <span className="text-meta text-fg-muted">
                 {COMMENTS_WORDS.authorMeta(
-                  firstNameFor(reply.authorUserId, state.people),
+                  fullNameFor(reply.authorUserId, state.people),
                   dayTimeLabel(reply.createdAt, now),
                 )}
               </span>
@@ -136,8 +142,8 @@ export function NoteRow(props: {
       onClick={onOpen}
       className={
         active
-          ? "w-full bg-selected px-3 py-3 text-left transition-colors"
-          : "w-full px-3 py-3 text-left transition-colors hover:bg-subtle"
+          ? "w-full cursor-pointer bg-selected px-3 py-3 text-left transition-colors"
+          : "w-full cursor-pointer px-3 py-3 text-left transition-colors hover:bg-subtle"
       }
     >
       <div className="flex items-center gap-2">
@@ -145,23 +151,23 @@ export function NoteRow(props: {
         {note.writerName !== null && note.at !== null ? (
           <span className="min-w-0 truncate text-meta text-fg-muted">
             {COMMENTS_WORDS.authorMeta(
-              note.writerName.split(" ")[0] ?? note.writerName,
+              note.writerName,
               dayTimeLabel(note.at, now),
             )}
           </span>
         ) : null}
       </div>
       {removed ? (
-        <p className="mt-1.5 text-meta text-fg-muted">
+        <p className="mt-2 text-meta text-fg-muted">
           {COMMENTS_WORDS.textRemoved}
         </p>
       ) : null}
       {note.anchor !== null && note.anchor.quote !== "" ? (
-        <blockquote className="mt-1.5 border-l-2 border-line-strong pl-2 text-meta text-fg-muted">
+        <blockquote className="mt-2 border-l-2 border-line-strong pl-2 text-meta text-fg-muted">
           {note.anchor.quote}
         </blockquote>
       ) : null}
-      <p className="mt-1.5 whitespace-pre-wrap break-words text-ui text-fg">
+      <p className="mt-2 whitespace-pre-wrap break-words text-ui text-fg">
         {note.text}
       </p>
     </button>

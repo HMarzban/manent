@@ -50,7 +50,9 @@ function CommentsTab(props: { docId: string | null }): ReactNode {
     ui.filter === "writers" ? notes.length === 0 : threads.length === 0;
   const emptyText =
     format === "variety"
-      ? COMMENTS_WORDS.emptyVariety
+      ? where.platform === "mac"
+        ? COMMENTS_WORDS.emptyVarietyMac
+        : COMMENTS_WORDS.emptyVarietyOther
       : where.platform === "mac"
         ? COMMENTS_WORDS.emptyMac
         : COMMENTS_WORDS.emptyOther;
@@ -75,6 +77,7 @@ function CommentsTab(props: { docId: string | null }): ReactNode {
                 round={round}
                 selected={ui.filter === `round:${id}`}
                 canEdit={state.canEdit}
+                services={services}
                 onSelect={() => commentsActions.setFilter(docId, `round:${id}`)}
               />
             ))}
@@ -82,8 +85,8 @@ function CommentsTab(props: { docId: string | null }): ReactNode {
         )}
       </div>
       {isEmpty ? (
-        <div className="flex flex-1 items-center justify-center p-6 text-center">
-          <p className="max-w-xs text-ui text-fg-muted">{emptyText}</p>
+        <div className="p-4">
+          <p className="text-ui text-fg-muted">{emptyText}</p>
         </div>
       ) : (
         <div className="min-h-0 flex-1 divide-y divide-line overflow-y-auto">
@@ -110,6 +113,7 @@ function CommentsTab(props: { docId: string | null }): ReactNode {
                   key={entry.id}
                   entry={entry}
                   state={state}
+                  currentUserId={services.userId}
                   active={ui.activeId === entry.id}
                   now={currentNow}
                   onOpen={() =>

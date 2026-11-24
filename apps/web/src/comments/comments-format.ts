@@ -1,7 +1,7 @@
 // Formatting and projection helpers for comment threads, replies, notes and rounds.
 import type {
+  CommentFlag,
   CommentItem,
-  CommentOutcome,
   CommentRound,
   CommentThread,
 } from "@manent/crdt";
@@ -39,22 +39,27 @@ export function firstNameFor(
 export function anchorPlaceLabel(
   anchor: TextAnchor | null,
   blockScenes: ReadonlyMap<string, SceneBlockInfo>,
-): string {
+): string | null {
   if (anchor === null) return COMMENTS_WORDS.wholeScript;
-  const scene = blockScenes.get(anchor.blockId);
-  if (scene !== undefined && scene.heading !== "") return scene.heading;
-  return COMMENTS_WORDS.wholeScript;
+  const info = blockScenes.get(anchor.blockId);
+  if (info === undefined) return null;
+  if (
+    anchor.start === 0 &&
+    anchor.end === 0 &&
+    anchor.blockId === info.sceneBlockId &&
+    info.sceneNumber !== null
+  ) {
+    return COMMENTS_WORDS.scenePlace(info.sceneNumber);
+  }
+  if (info.pageLabel !== null) return COMMENTS_WORDS.pagePlace(info.pageLabel);
+  if (info.sceneNumber !== null)
+    return COMMENTS_WORDS.scenePlace(info.sceneNumber);
+  return null;
 }
 
 export function roundTitleLabel(round: CommentRound): string {
   const dayDate = `${formatDay(round.createdAt)} ${formatDate(round.createdAt)}`;
   return COMMENTS_WORDS.roundTitle(round.name, dayDate);
-}
-
-export function resolvedOutcomeLabel(outcome: CommentOutcome | null): string {
-  if (outcome === "addressed") return COMMENTS_WORDS.addressed;
-  if (outcome === "declined") return COMMENTS_WORDS.declined;
-  return COMMENTS_WORDS.resolvedOutcome;
 }
 
 export function resolvedLineLabel(
@@ -64,9 +69,28 @@ export function resolvedLineLabel(
 ): string {
   if (thread.state.kind !== "resolved") return "";
   return COMMENTS_WORDS.resolvedLine(
-    firstNameFor(thread.state.byUserId, people),
-    resolvedOutcomeLabel(thread.state.outcome),
+    thread.state.outcome,
+    fullNameFor(thread.state.byUserId, people),
     formatDayTime(thread.state.at, now),
+  );
+}
+
+export function flaggedLabel(
+  flags: readonly CommentFlag[],
+  authorUserId: string,
+  currentUserId: string,
+  people: readonly CommentPerson[],
+): string | null {
+  if (flags.length === 0) return null;
+  const own = flags.find((f) => f.flaggedUserId === currentUserId);
+  const chosen = own ?? flags[0]!;
+  const byFirst = firstNameFor(authorUserId, people);
+  if (chosen.flaggedUserId === currentUserId) {
+    return COMMENTS_WORDS.flaggedForYou(byFirst);
+  }
+  return COMMENTS_WORDS.flaggedForOther(
+    firstNameFor(chosen.flaggedUserId, people),
+    byFirst,
   );
 }
 
