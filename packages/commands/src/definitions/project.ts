@@ -19,7 +19,7 @@ export const PROJECT_COMMANDS = defineCommands([
       { menu: "format", group: "script_settings", order: 30, submenu: null },
     ],
     palette: { keywords: ["project", "settings"] },
-    opens: { surface: "project_settings", focus: "first" },
+    opens: { surface: "project_settings", focus: "heading" },
     reach: "self",
     setting: null,
   },

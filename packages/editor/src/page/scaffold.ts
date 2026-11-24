@@ -155,22 +155,6 @@ function drawSheet(
 }
 
 // The scroll offset counts from the frame's top, and the front pages sit above page 1.
-function sheetsInView(
-  place: HTMLElement,
-  page: { width: number; height: number },
-  frame: { count: number; scale: number; frontPx: number },
-): { index: number; top: number }[] {
-  const { scrollTop, clientHeight } = place;
-  return visibleSheets(
-    frame.count,
-    page.height,
-    PAGE_GAP_PX,
-    scrollTop - frame.frontPx * frame.scale,
-    clientHeight,
-    frame.scale,
-  );
-}
-
 /** Draws the wanted sheets with the elements already drawn, adding or removing only the difference. */
 function drawSheets(
   pages: HTMLElement,
@@ -276,12 +260,19 @@ export function createPageScaffold(options: {
   const sheets: HTMLElement[] = [];
   const drawn = new WeakMap<HTMLElement, PageFurnitureInput>();
 
-  const redraw = (): void => {
+  const redrawAt = (scrollTop: number, clientHeight: number): void => {
     const page = screenPagePx(profile);
     const wanted =
       view === "reflow"
         ? []
-        : sheetsInView(place, page, { count, scale, frontPx });
+        : visibleSheets(
+            count,
+            page.height,
+            PAGE_GAP_PX,
+            scrollTop - frontPx * scale,
+            clientHeight,
+            scale,
+          );
     drawSheets(
       pages,
       sheets,
@@ -291,10 +282,12 @@ export function createPageScaffold(options: {
       drawn,
     );
   };
+  const redraw = (): void => redrawAt(place.scrollTop, place.clientHeight);
   const layout = (): void => {
+    const { scrollTop, clientHeight } = place;
     const page = screenPagePx(profile);
     scale = sizeFrame(frame, page, { count, frontPx, view }, percent);
-    redraw();
+    redrawAt(scrollTop, clientHeight);
   };
   const setProfile = (next: PageProfile): void => {
     profile = next;

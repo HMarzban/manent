@@ -95,7 +95,9 @@ function followed(
   return top === null ? null : { ...anchor, ...at, top };
 }
 
-type Pages = Pick<PaginationState, "settings" | "index" | "pagination">;
+type Pages = Pick<PaginationState, "settings" | "index" | "pagination"> & {
+  readonly change?: PaginationState["change"];
+};
 
 /** The pages of the state's own document: while a composition is under way the plugin holds those of the one before it. */
 function pagesOf(state: EditorState): Pages | null {
@@ -133,11 +135,13 @@ function movedOnPages(
   if (before === null || after === null) return null;
   const from = blockNear(before.index, anchor.blockId, anchor.block);
   if (from === null) return null;
-  const { change } = updateIndex(
-    before.index,
-    state.doc,
-    after.settings.layout,
-  );
+  const reused =
+    before === paginationKey.getState(prev) &&
+    after === paginationKey.getState(state) &&
+    after.change !== undefined;
+  const change = reused
+    ? after.change
+    : updateIndex(before.index, state.doc, after.settings.layout).change;
   if (change === null) return { anchor: { ...anchor, block: from }, shift: 0 };
   // a block after what the change replaced moves by the blocks it added; one inside it or before it keeps its index
   const hint =
