@@ -600,3 +600,63 @@ test("sign-in link refuses non-recipients with not_sent, logs opens, protects se
   expect(revokedRes.status).toBe(410);
   expect(await revokedRes.json()).toEqual({ error: "link_revoked" });
 });
+
+const controlKindsOf = (peer: ReturnType<typeof fakePeer>): string[] =>
+  peer
+    .take()
+    .filter((message) => message.type === "CONTROL")
+    .map((message) => message.kind);
+
+test("draft send and open controls reach editors and never viewers or commenters", async () => {
+  const h = createDraftsHarness();
+  h.storage.directory.setRole(DOC, "priya", "comment", []);
+  h.storage.directory.setRole(DOC, "ana", "view", []);
+  const sam = fakePeer({
+    userId: "sam",
+    name: "Sam Okafor",
+    versions: V1,
+  });
+  const priya = fakePeer({
+    userId: "priya",
+    name: "Priya Nair",
+    versions: V1,
+  });
+  const ana = fakePeer({
+    userId: "ana",
+    name: "Ana Costa",
+    versions: V1,
+  });
+  for (const peer of [sam, priya, ana]) h.sync.attach(peer);
+  h.sync.receive(sam, subscribe(DOC, "edit", [101]));
+  h.sync.receive(priya, subscribe(DOC, "view", []));
+  h.sync.receive(ana, subscribe(DOC, "view", []));
+  expect(sam.take().some((m) => m.type === "SUBSCRIBED")).toBe(true);
+  expect(priya.take().some((m) => m.type === "SUBSCRIBED")).toBe(true);
+  expect(ana.take().some((m) => m.type === "SUBSCRIBED")).toBe(true);
+  h.danaPeer.take();
+
+  const sentRes = await h.call("POST", "/api/drafts/send", "dana", {
+    docId: DOC,
+    key: keyOf(90),
+    name: "Network",
+    what: "whole",
+    againstVersionId: null,
+    files: ["pdf_clean"],
+    groupIds: [],
+    recipientUserIds: ["leo"],
+    watermark: false,
+    link: null,
+  });
+  expect(sentRes.status).toBe(200);
+  const sent = (await sentRes.json()) as SendDraftResponse;
+
+  const openRes = await h.call("POST", "/api/drafts/open", "leo", {
+    token: sent.recipientToken,
+  });
+  expect(openRes.status).toBe(200);
+
+  expect(controlKindsOf(h.danaPeer)).toEqual(["draft_sent", "draft_opened"]);
+  expect(controlKindsOf(sam)).toEqual(["draft_sent", "draft_opened"]);
+  expect(controlKindsOf(priya)).toEqual([]);
+  expect(controlKindsOf(ana)).toEqual([]);
+});

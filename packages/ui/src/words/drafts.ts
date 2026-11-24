@@ -1,9 +1,40 @@
 // The words of Send draft, draft links and sent drafts in History.
 
-import { formatCount } from "./format.ts";
+import { formatCount, joinNames } from "./format.ts";
+
+interface SentDraftGroupCount {
+  readonly name: string;
+  readonly count: number;
+}
 
 const countPeople = (n: number): string =>
   n === 1 ? "1 person" : `${formatCount(n)} people`;
+
+const countTimes = (n: number): string =>
+  n === 1 ? "1 time" : `${formatCount(n)} times`;
+
+function formatSentRecipients(
+  groups: readonly SentDraftGroupCount[],
+  recipientCount: number,
+  hasLink: boolean,
+): string {
+  const groupLabels = groups.map(
+    (group) => `${group.name} (${formatCount(group.count)})`,
+  );
+  const groupSum = groups.reduce((sum, group) => sum + group.count, 0);
+  const extraPeople = Math.max(0, recipientCount - groupSum);
+  if (groupLabels.length === 0) {
+    const people = countPeople(recipientCount);
+    return hasLink ? `${people} and by link` : people;
+  }
+  const joinedGroups = groupLabels.join(", ");
+  if (extraPeople === 0)
+    return hasLink ? `${joinedGroups} and by link` : joinedGroups;
+  const extra = countPeople(extraPeople);
+  return hasLink
+    ? `${joinedGroups}, ${extra} and by link`
+    : `${joinedGroups} and ${extra}`;
+}
 
 export const DRAFTS_WORDS = Object.freeze({
   copiedDraftLink: (name: string): string =>
@@ -67,4 +98,24 @@ export const DRAFTS_WORDS = Object.freeze({
     `Sent '${name}' to ${countPeople(people)} and by link.`,
   sentAsFile: (name: string): string => `Sent '${name}' as a file.`,
   copyDraftLink: "Copy draft link",
+
+  sentHistoryRow: (input: {
+    readonly groups: readonly SentDraftGroupCount[];
+    readonly recipientCount: number;
+    readonly openedCount: number;
+    readonly totalOpens: number;
+    readonly hasLink: boolean;
+  }): string => {
+    const { groups, recipientCount, openedCount, totalOpens, hasLink } = input;
+    if (groups.length === 0 && recipientCount === 0) {
+      return hasLink
+        ? `Sent by link · opened ${countTimes(totalOpens)}`
+        : "Sent as a file";
+    }
+    const target = formatSentRecipients(groups, recipientCount, hasLink);
+    return `Sent to ${target} · opened by ${formatCount(openedCount)} of ${formatCount(recipientCount)}`;
+  },
+  sentHistoryOpenedBy: (names: readonly string[]): string =>
+    `Opened by ${joinNames(names)}`,
+  sentHistoryNotOpenedYet: "Not opened yet",
 });

@@ -21,7 +21,11 @@ import { baselineOfRow } from "../../history/baseline.ts";
 import { isTitledByTime } from "../../history/history-rows.ts";
 import type { HistoryRow } from "../../history/history-rows.ts";
 import { selectRow } from "../../history/history-view.ts";
-import { ROW_EXTENSIONS } from "../../history/row-extensions.ts";
+import {
+  useRowExtensionLine,
+  useRowExtensionList,
+} from "../../history/row-extensions.ts";
+import type { RowLine } from "../../history/row-extensions.ts";
 import { useSettingChanges } from "../../history/setting-changes.ts";
 import type { SettingChange } from "../../history/setting-changes.ts";
 import { initialsOf } from "../../initials.ts";
@@ -119,15 +123,26 @@ function Avatars(props: { userIds: readonly string[] }): ReactNode {
   );
 }
 
-/**
- * The row's second line: another feature's, else the draft's namer or the changes it holds; none for a version that
- * changed nothing.
- */
-function metaOf(docId: string, row: HistoryRow): string | null {
-  for (const extension of ROW_EXTENSIONS) {
-    const line = extension.line(docId, row.item);
-    if (line !== null) return line;
-  }
+function renderRowLine(line: RowLine): ReactNode {
+  if (line.tooltip === null) return line.text;
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span className="inline-block max-w-full truncate align-bottom" />
+        }
+      >
+        {line.text}
+      </TooltipTrigger>
+      <TooltipContent>{line.tooltip}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** The row's second line: another feature's, else the draft's namer or the changes it holds; none for an empty version. */
+function useRowMeta(docId: string, row: HistoryRow): ReactNode {
+  const chosen = useRowExtensionLine(docId, row.item);
+  if (chosen !== null) return renderRowLine(chosen);
   const { item } = row;
   if (item.kind === "named" || item.kind === "sent")
     return HISTORY_WORDS.namedBy(nameOf(item.createdByUserId), row.time);
@@ -148,7 +163,7 @@ function VersionRow(props: {
   onShow(): void;
 }): ReactNode {
   const { docId, row } = props;
-  const meta = metaOf(docId, row);
+  const meta = useRowMeta(docId, row);
   const authors = row.item.summary?.authorUserIds ?? [];
   const selected = useHistory("selected") === row.item.id;
   const named = row.item.kind === "named" || row.item.kind === "sent";
@@ -336,6 +351,7 @@ export function VersionRows(props: {
   onShow(row: HistoryRow): void;
 }): ReactNode {
   const { docId, rows, draft } = props;
+  useRowExtensionList(docId);
   const ladder = useDraftLadder(docId);
   const { now } = useEnvironment();
   const draftsOnly = useHistory("draftsOnly");

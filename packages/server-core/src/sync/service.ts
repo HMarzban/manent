@@ -35,6 +35,11 @@ import { createWritePath } from "./write-path.ts";
 const encodeJson = (value: unknown): Uint8Array =>
   new TextEncoder().encode(JSON.stringify(value));
 
+const EDITOR_ONLY_CONTROLS: ReadonlySet<ControlKind> = new Set([
+  "draft_sent",
+  "draft_opened",
+]);
+
 export function createSyncService(
   options: SyncSettings & { versions: ServerVersions },
 ): SyncService {
@@ -114,7 +119,7 @@ export function createSyncService(
       endAll(room, syncError("storage_failed", docOf(room), { retryAfterMs }));
   };
 
-  /** CONTROL { seq: the room's head, kind, data } to each editor and viewer of the loaded room that `to` names; nothing when it is not loaded. */
+  /** CONTROL { seq: the room's head, kind, data } to each editor (and viewer, unless editor-only) of the loaded room that `to` names; nothing when it is not loaded. */
   function sendControl(
     docId: string,
     message: { kind: ControlKind; data: Uint8Array },
@@ -129,6 +134,14 @@ export function createSyncService(
       seq,
       ...message,
     });
+    if (EDITOR_ONLY_CONTROLS.has(message.kind)) {
+      for (const [peer, sub] of room.editors) {
+        const { role } = sub.access;
+        if ((role === "owner" || role === "edit") && to(peer))
+          peer.send(control);
+      }
+      return;
+    }
     for (const peer of [...room.editors.keys(), ...room.viewers.keys()])
       if (to(peer)) peer.send(control);
   }
