@@ -12,7 +12,6 @@ import {
   createServer,
   createSignedSessionStore,
   createTicketStore,
-  createWorkflow,
 } from "@manent/server-core";
 import type {
   Clock,
@@ -24,6 +23,7 @@ import { openSqliteStorage } from "@manent/storage";
 import type { Storage } from "@manent/storage";
 import { PROTOCOL_VERSION, docIdV7 } from "@manent/sync-protocol";
 import { readServerRenderPdf } from "../production.ts";
+import { composeServices } from "../services.ts";
 import { probeSeedCapabilities } from "./capabilities.ts";
 
 /** The host every request to a seed server names. */
@@ -164,7 +164,7 @@ export async function createSeedServer(options: {
   const renderPdf = await readServerRenderPdf();
   const directory = createDemoDirectory();
   const sync = (): SyncService => server.sync!;
-  const { history, production } = createWorkflow({
+  const composed = composeServices({
     storage,
     sync,
     clock,
@@ -189,10 +189,10 @@ export async function createSeedServer(options: {
       ids,
       registry: PRODUCT_SETTING_RULES,
       limits: SEED_LIMITS,
-      hooks: [history, production.hooks],
+      hooks: composed.hooks,
+      ...(composed.airWindow === null ? {} : { airWindow: composed.airWindow }),
     },
-    history,
-    production,
+    ...composed.config,
   });
   await probeSeedCapabilities({ server }, SEED_ORIGIN);
   return {

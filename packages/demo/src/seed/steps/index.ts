@@ -16,6 +16,7 @@ import { THE_LATE_DESK_RUNDOWNS } from "./the-late-desk-rundowns.ts";
 import { LANNICK_ONE_NEWS_RUNDOWNS } from "./lannick-one-news-rundowns.ts";
 import { HANDED_IN_TIMING } from "./handed-in-timing.ts";
 import { HEAVY_RUNDOWNS_STEP } from "./heavy-rundowns.ts";
+import { SAMS_DESK_TOGETHER } from "./sams-desk-together.ts";
 
 export const SEED_STEPS: readonly SeedStep[] = [
   MEMBERS_STEP,
@@ -34,4 +35,5 @@ export const SEED_STEPS: readonly SeedStep[] = [
   LANNICK_ONE_NEWS_RUNDOWNS,
   HANDED_IN_TIMING,
   HEAVY_RUNDOWNS_STEP,
+  SAMS_DESK_TOGETHER,
 ];
