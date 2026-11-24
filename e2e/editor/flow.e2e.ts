@@ -240,7 +240,9 @@ test("every editor shortcut runs its command once from an editable page", async 
 }) => {
   const platform = await platformOf(page);
   await openScript(page, "screenplay", corpusDoc(SPEECHES));
-  const speech = (await blocks(page))[4]!.id;
+  const allBlocks = await blocks(page);
+  const speech = allBlocks[4]!.id;
+  const other = allBlocks[8]!.id;
   // the web leaves the browser's own keys to the browser, so a command whose every key is one of them has none here
   const { effective } = resolveBindings({
     commands: COMMANDS,
@@ -255,7 +257,12 @@ test("every editor shortcut runs its command once from an editable page", async 
       (effective.get(command.id) ?? []).length === 0
     )
       continue;
-    await caretAt(page, speech, "end");
+    // element.* changes the block's kind, so it runs on `other` while `speech` stays a dialogue line for dual dialogue and alternates
+    await caretAt(
+      page,
+      command.id.startsWith("element.") ? other : speech,
+      "end",
+    );
     const ran = (await runs(page)).length;
     await pressKeyOf(page, command.id);
     // every key is reported, not only the first that differs
@@ -264,6 +271,8 @@ test("every editor shortcut runs its command once from an editable page", async 
       .toEqual({ command: command.id, ran: [command.id] });
     if (await page.locator(PICKER).isVisible())
       await page.keyboard.press("Escape");
+    const popover = page.locator("[role='dialog']:visible");
+    if ((await popover.count()) > 0) await page.keyboard.press("Escape");
   }
 });
 

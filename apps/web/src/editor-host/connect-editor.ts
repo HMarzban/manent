@@ -1,6 +1,5 @@
 // What lets the rest of the app reach a built editor: the control, and the registry of live editors.
 import type { CrdtDoc } from "@manent/crdt";
-import { paginationKey } from "@manent/editor";
 import type { PresencePort, ScriptEditor } from "@manent/editor";
 import { actionOf } from "./command-actions.ts";
 import type { EditorControl } from "./control.ts";
@@ -28,10 +27,7 @@ export function connectEditor(options: {
     scaffold: editor.scaffold,
     presence: options.presence,
     editable: options.editable,
-    pagination: () =>
-      editor.scaffold === null
-        ? null
-        : (paginationKey.getState(editor.view.state)?.pagination ?? null),
+    pagination: () => editor.pagination(),
     zoom: () => (editor.zoomPercent() ?? 100) / 100,
     frontPages: () => editor.frontPages(),
   });
