@@ -20,6 +20,7 @@ import type { ReplayOutcome } from "../rebuild/replay.ts";
 import type { DocumentAccess } from "./access.ts";
 import type { IngestItem } from "./ingest.ts";
 import type { Room, Subscription } from "./rooms.ts";
+import type { SubscribeHandler } from "./subscribe.ts";
 import type { QueuedItem } from "./write-path.ts";
 import type { Committed } from "./write-path-ports.ts";
 
@@ -372,4 +373,6 @@ export interface SyncSettings {
   hooks?: readonly SyncHooks[];
   /** Signed-in readers sent a draft of a script, granted `comment` on its comments document. */
   draftReaders?: DraftReaders;
+  /** Per-service handler for SUBSCRIBE in prompter mode; absent falls back to `SUBSCRIBE_HANDLERS.prompter`. */
+  prompterSubscribe?: SubscribeHandler;
 }
