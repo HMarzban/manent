@@ -41,3 +41,25 @@ export const NAMES_WORDS = Object.freeze({
   added: (name: string, kind: keyof typeof KINDS): string =>
     `Added "${name}" to the project's ${KINDS[kind].list}.`,
 });
+
+/** The words of project facts: Pin to project facts, its brief message, and the facts list in Names and facts. */
+export const FACTS_WORDS = Object.freeze({
+  heading: "Facts",
+  pin: "Pin to project facts",
+  pinned: "Pinned to project facts.",
+  projectSettings: "Project settings",
+  empty: "Select a line and choose Pin to project facts to keep it here.",
+  remove: "Remove",
+  textRemoved: "Text removed",
+  /** `{205} · sc. {4}`, outside a series `Sc. {4}`, with no scene `{205}`, or null when neither is known. */
+  place: (
+    episodeNumber: number | null,
+    sceneLabel: string | null,
+  ): string | null => {
+    if (episodeNumber !== null && sceneLabel !== null)
+      return `${episodeNumber} · sc. ${sceneLabel}`;
+    if (episodeNumber !== null) return `${episodeNumber}`;
+    if (sceneLabel !== null) return `Sc. ${sceneLabel}`;
+    return null;
+  },
+});
