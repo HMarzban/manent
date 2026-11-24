@@ -17,6 +17,10 @@ import type {
 } from "@manent/pagination";
 import PDFDocument from "pdfkit";
 import type { ScriptFontFiles } from "./fonts.ts";
+import {
+  durationOfParts,
+  sectionsOfPagination,
+} from "./furniture/header-footer.ts";
 import type {
   FurnitureLine,
   PdfDateFormat,
@@ -41,8 +45,10 @@ export interface PdfOptions {
   readonly footer?: PdfHeaderSlots | null;
   readonly dateFormat?: PdfDateFormat | null;
   readonly section?: string | null;
+  readonly sections?: readonly (string | null)[];
   readonly revisionLabel?: string | null;
   readonly day?: string | null;
+  readonly durationMs?: number | null;
 }
 
 const FONT_SIZE_PT = 12;
@@ -205,12 +211,13 @@ interface PartPage {
   readonly pen: Pen;
   readonly p: Pagination;
   readonly pageIndex: number;
+  readonly section: string | null;
 }
 
 /** The engine's lines, but those an entry draws in its place, with every furniture entry's paper under them and its lines over them. */
 function drawPage(
-  { pen, p, pageIndex }: PartPage,
-  at: { documentIndex: number; pageCount: number },
+  { pen, p, pageIndex, section }: PartPage,
+  at: { documentIndex: number; pageCount: number; durationMs: number | null },
   options: PdfOptions,
 ): void {
   const { doc, engine } = pen;
@@ -230,9 +237,11 @@ function drawPage(
       header: options.header ?? null,
       footer: options.footer ?? null,
       dateFormat: options.dateFormat ?? null,
-      section: options.section ?? null,
+      section:
+        options.sections?.[at.documentIndex] ?? options.section ?? section,
       revisionLabel: options.revisionLabel ?? null,
       day: options.day ?? null,
+      durationMs: at.durationMs,
     }),
   );
   const replaced = new Set(PDF_FURNITURE.flatMap((entry) => entry.replaces));
@@ -252,7 +261,28 @@ function drawPage(
     laid.lines.filter((line) => !replaced.has(line.kind)),
     geometry,
   );
-  for (const { lines } of drawings) drawLines(pen, lines, geometry);
+  for (const [index, { lines, rules }] of drawings.entries()) {
+    if (PDF_FURNITURE[index]!.replaces.length === 0) continue;
+    drawLines(pen, lines, geometry);
+    for (const lineRule of rules ?? [])
+      rule(
+        doc,
+        geometry.marginLeftPt + lineRule.x * CELL_PT,
+        geometry.marginTopPt + lineRule.y * UNIT_PT,
+        lineRule.cells,
+      );
+  }
+  for (const [index, { lines, rules }] of drawings.entries()) {
+    if (PDF_FURNITURE[index]!.replaces.length > 0) continue;
+    drawLines(pen, lines, geometry);
+    for (const lineRule of rules ?? [])
+      rule(
+        doc,
+        geometry.marginLeftPt + lineRule.x * CELL_PT,
+        geometry.marginTopPt + lineRule.y * UNIT_PT,
+        lineRule.cells,
+      );
+  }
 }
 
 function engineOf(p: Pagination): Engine {
@@ -294,9 +324,19 @@ export async function writePdfParts(
   };
   Reflect.set(settings, "font", null);
   const doc = new PDFDocument(settings);
+  const computedDuration =
+    options.durationMs !== undefined
+      ? options.durationMs
+      : durationOfParts(parts);
   const pages: PartPage[] = parts.flatMap((p, k) => {
     const pen = { doc, engine: engines[k]! };
-    return p.pages.map((_, pageIndex) => ({ pen, p, pageIndex }));
+    const sections = sectionsOfPagination(p);
+    return p.pages.map((_, pageIndex) => ({
+      pen,
+      p,
+      pageIndex,
+      section: sections[pageIndex] ?? null,
+    }));
   });
   const chunks: Uint8Array<ArrayBuffer>[] = [];
   const written = new Promise<Uint8Array>((resolve, reject) => {
@@ -315,7 +355,15 @@ export async function writePdfParts(
       throw new RangeError(
         `a page index must be below ${pages.length}, not ${documentIndex}`,
       );
-    drawPage(page, { documentIndex, pageCount: pages.length }, options);
+    drawPage(
+      page,
+      {
+        documentIndex,
+        pageCount: pages.length,
+        durationMs: computedDuration,
+      },
+      options,
+    );
   }
   doc.end();
   return await written;

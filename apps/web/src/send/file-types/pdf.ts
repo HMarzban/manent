@@ -1,6 +1,9 @@
 // The clean PDF: the pages on screen, in the script font, with the pages before page 1.
 import { EDITOR_WORDS } from "@manent/ui";
-import { liveFrontPages } from "../../editor-host/live-editor.ts";
+import {
+  liveFrontPages,
+  liveFurniture,
+} from "../../editor-host/live-editor.ts";
 import { loadPdfFonts } from "../pdf-fonts.ts";
 import { PAGED_FORMATS, fileName } from "../script-file.ts";
 import type {
@@ -16,17 +19,38 @@ async function fetchBytes(url: string): Promise<Uint8Array> {
   return new Uint8Array(await response.arrayBuffer());
 }
 
+function isoDay(at: number): string {
+  const date = new Date(at);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 /** Named for the script's title; rejects when the fonts or the writer fail. */
 async function writeCleanPdf(work: ExportWork): Promise<WrittenFile> {
   const { docId, pages, title, now } = work;
   const front = liveFrontPages(docId) ?? [];
+  const furniture = liveFurniture(docId);
+  const created = now();
   const [fonts, { writePdf }] = await Promise.all([
     loadPdfFonts(fetchBytes),
     import("@manent/formats"),
   ]);
   // a copy over an ArrayBuffer of its own, which a Blob takes
   const bytes = new Uint8Array(
-    await writePdf(pages, { fonts, front, title, createdAt: now() }),
+    await writePdf(pages, {
+      fonts,
+      front,
+      title,
+      createdAt: created,
+      header: furniture.header ?? null,
+      footer: furniture.footer ?? null,
+      dateFormat: furniture.dateFormat ?? null,
+      revisionLabel: furniture.revisionLabel ?? null,
+      day: furniture.day ?? isoDay(created),
+      durationMs: furniture.durationMs,
+    }),
   );
   return { bytes, name: fileName(title, ".pdf") };
 }

@@ -50,15 +50,24 @@ export interface PdfFurnitureInput {
   readonly section: string | null;
   readonly revisionLabel: string | null;
   readonly day: string | null;
+  readonly durationMs: number | null;
 }
 
 /** A line placed as the engine places its lines: cells from the text edge, units from the top of the text area. */
 export type FurnitureLine = Pick<PositionedLine, "x" | "y" | "runs">;
 
-/** What an entry draws on one page: a paper colour filled under the text (null: none), and lines over it. */
+/** A horizontal hairline rule on the grid: `x` in cells from the text edge, `y` in units from the text top, `cells` wide. */
+export interface FurnitureRule {
+  readonly x: number;
+  readonly y: number;
+  readonly cells: number;
+}
+
+/** What an entry draws on one page: a paper colour filled under the text (null: none), and lines and rules over it. */
 export interface PdfFurnitureDrawing {
   readonly paper: readonly [number, number, number] | null;
   readonly lines: readonly FurnitureLine[];
+  readonly rules?: readonly FurnitureRule[];
 }
 
 export interface PdfFurniture {

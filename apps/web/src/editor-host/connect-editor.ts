@@ -31,6 +31,7 @@ export function connectEditor(options: {
     pagination: () => editor.pagination(),
     zoom: () => (editor.zoomPercent() ?? 100) / 100,
     frontPages: () => editor.frontPages(),
+    furniture: () => editor.furniture(),
   });
   return () => {
     detach();

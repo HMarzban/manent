@@ -1,7 +1,12 @@
 // The open editor of each document, for code outside the mount: it holds none of the editor's code, so the entry and the
 // document's screen name an editor before that code arrives.
 import type { CrdtDoc } from "@manent/crdt";
-import type { EditorView, PageScaffold, PresencePort } from "@manent/editor";
+import type {
+  EditorView,
+  PageFurnitureOptions,
+  PageScaffold,
+  PresencePort,
+} from "@manent/editor";
 import { contentPageCount } from "@manent/pagination";
 import type { FrontPage, Pagination } from "@manent/pagination";
 
@@ -21,6 +26,8 @@ export interface LiveEditor {
   zoom(): number;
   /** The pages before page 1 as print and PDF draw them; null without pages or a title page. */
   frontPages(): FrontPage[] | null;
+  /** The furniture options of the open editor (header, footer, dateFormat, revisionLabel, day, durationMs). */
+  furniture?(): PageFurnitureOptions;
 }
 
 const editors = new Map<string, LiveEditor>();
@@ -50,6 +57,11 @@ export function liveContentPageCount(docId: string): number | null {
 /** The pages before page 1 of that document's editor, as print and PDF draw them; null when it has none or none is open. */
 export function liveFrontPages(docId: string): FrontPage[] | null {
   return liveEditor(docId)?.frontPages() ?? null;
+}
+
+/** The furniture options of that document's editor, or empty options when none is open. */
+export function liveFurniture(docId: string): PageFurnitureOptions {
+  return liveEditor(docId)?.furniture?.() ?? {};
 }
 
 /** For the mount only. A second editor of one document replaces the first; the returned function removes this one while it is still registered. */
