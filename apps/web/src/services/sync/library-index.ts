@@ -8,6 +8,7 @@ import { LIBRARY_WORDS } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import { projectIndexCreated } from "../../project/project-index.ts";
 import { projectTemplateCreated } from "../../project/settings-bag.ts";
+import { seriesCreated } from "../../series/series-start.ts";
 import type {
   CreateResult,
   DocumentStart,
@@ -52,6 +53,7 @@ export interface ProjectCreated {
 export const PROJECT_CREATED: readonly ProjectCreated[] = [
   projectIndexCreated,
   projectTemplateCreated,
+  seriesCreated,
 ];
 
 /** At most one `editedAt` write per person and document this often. */
@@ -116,14 +118,7 @@ function freeName(index: DocHandle, kind: ProjectKind): string {
  * PROJECT_CREATED makes when `projectId` is null.
  */
 async function addProject(
-  options: {
-    sync: PersonSync;
-    shelves: Shelves;
-    userId: string;
-    language: string;
-    now: () => number;
-    newId: () => string;
-  },
+  options: LibraryOptions & { shelves: Shelves },
   target: { workspaceId: string; projectId: string | null; kind: ProjectKind },
   titles: (index: DocHandle) => { project: string; script: string },
   opening: DocumentStart,
