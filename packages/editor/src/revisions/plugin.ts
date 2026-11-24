@@ -20,7 +20,7 @@ import type {
   PaginationSettings,
   PaginationState,
 } from "../pagination/plugin.ts";
-import type { FactsSink } from "../script-editor/ports.ts";
+import type { FactsSink, Frames } from "../script-editor/ports.ts";
 import {
   keptOf,
   keptOfRevision,
@@ -86,6 +86,7 @@ export interface RevisionPluginOptions {
   lockIcon: () => Element;
   /** The accessible name of the lock beside a locked page's number. */
   lockMarkerName: string;
+  frames: Frames;
 }
 
 type RevisionMeta =
@@ -248,6 +249,7 @@ export function revisionPlugins(options: RevisionPluginOptions): Plugin {
       tooltip: (next) => port.view()?.words.lockTooltip(next) ?? "",
       zoom: options.zoom,
       icon: options.lockIcon,
+      frames: options.frames,
     }),
   ];
   return new Plugin<RevisionState>({

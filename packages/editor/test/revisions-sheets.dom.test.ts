@@ -91,6 +91,7 @@ function mount(tint: boolean): { view: EditorView; scaffold: PageScaffold } {
           scenesNumbered() {},
           lockIcon: () => document.createElement("span"),
           lockMarkerName: "Page number locked",
+          frames: { request: () => () => {} },
         }),
       ],
     }),

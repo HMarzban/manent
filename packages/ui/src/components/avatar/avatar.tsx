@@ -14,7 +14,14 @@ const SIZES: Readonly<Record<AvatarSize, string>> = Object.freeze({
   md: "size-avatar text-micro",
   lg: "size-avatar-lg text-title",
 });
-const SHOWN = 3;
+/** `apart`: at most three avatars 4 px apart; `overlapping`: at most two, the second under the edge of the first. */
+type StackLayout = "apart" | "overlapping";
+const LAYOUTS: Readonly<
+  Record<StackLayout, { shown: number; className: string }>
+> = Object.freeze({
+  apart: { shown: 3, className: "gap-1" },
+  overlapping: { shown: 2, className: "mn-avatar-overlap" },
+});
 // up and down while the person types; under reduced motion the theme stills it, and the initials are underlined
 const MOVING =
   "animate-bounce motion-reduce:underline motion-reduce:underline-offset-2";
@@ -62,22 +69,25 @@ interface StackPerson {
   colour: number | null;
 }
 
-/** At most three avatars 4 px apart, then a circle counting the rest; nothing for no one. */
+/** The avatars `layout` shows, then a circle counting the rest; nothing for no one. */
 export function AvatarStack({
   people,
   size,
   moving,
+  layout = "apart",
 }: {
   people: readonly StackPerson[];
   size: AvatarSize;
   /** The userIds of the people typing. */
   moving?: ReadonlySet<string>;
+  layout?: StackLayout;
 }): ReactNode {
   if (people.length === 0) return null;
-  const more = people.length - SHOWN;
+  const { shown, className } = LAYOUTS[layout];
+  const more = people.length - shown;
   return (
-    <span className="inline-flex items-center gap-1">
-      {people.slice(0, SHOWN).map((person) => (
+    <span className={cn("inline-flex items-center", className)}>
+      {people.slice(0, shown).map((person) => (
         <Avatar
           key={person.userId}
           name={person.name}

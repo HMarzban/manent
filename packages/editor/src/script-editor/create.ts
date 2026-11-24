@@ -58,6 +58,7 @@ export interface EditorPluginHost {
   layer(): HTMLElement | null;
   zoom(): number;
   setScenesNumbered(on: boolean): void;
+  readonly frames: Frames;
 }
 
 export interface ScriptEditor {
@@ -251,6 +252,7 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
       scenesNumbered = on;
       pages?.repage();
     },
+    frames: options.frames,
   });
   const first = profile();
   const context = elementContext(options, format);

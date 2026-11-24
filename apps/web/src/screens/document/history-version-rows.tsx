@@ -119,7 +119,10 @@ function Avatars(props: { userIds: readonly string[] }): ReactNode {
   );
 }
 
-/** The row's second line: another feature's, else the draft's namer or the changes it holds. */
+/**
+ * The row's second line: another feature's, else the draft's namer or the changes it holds; none for a version that
+ * changed nothing.
+ */
 function metaOf(docId: string, row: HistoryRow): string | null {
   for (const extension of ROW_EXTENSIONS) {
     const line = extension.line(docId, row.item);
@@ -128,7 +131,7 @@ function metaOf(docId: string, row: HistoryRow): string | null {
   const { item } = row;
   if (item.kind === "named")
     return HISTORY_WORDS.namedBy(nameOf(item.createdByUserId), row.time);
-  return item.summary === null
+  return item.summary === null || item.summary.changes === 0
     ? null
     : HISTORY_WORDS.summary(item.summary.changes, item.summary.scenes);
 }

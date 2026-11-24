@@ -91,7 +91,7 @@ function SceneLine(props: {
     );
   const marks = parts.extras.marks(row.blockId);
   const length = parts.extras.length(row);
-  const trailing = (handle: ReactNode): ReactNode[] => [
+  const trailing: ReactNode[] = [
     ...(marks.some((mark) => mark.kind === "revised")
       ? [
           <span key="revised" aria-hidden="true">
@@ -110,7 +110,6 @@ function SceneLine(props: {
             )}
           </span>,
         ]),
-    ...(handle === null ? [] : [handle]),
   ];
   return (
     <SceneRowMenu
@@ -129,7 +128,8 @@ function SceneLine(props: {
             )
           }
           meta={row.synopsis === "" ? undefined : row.synopsis}
-          trailing={trailing(handle)}
+          trailing={trailing}
+          menu={handle ?? undefined}
         >
           <SceneTitle heading={row.heading} marks={marks} />
         </Row>
@@ -278,7 +278,7 @@ function ScenesList(props: { docId: string }): ReactNode {
       state={count === 0 ? EMPTY : READY}
       render={panelRenderers({
         ready: () => (
-          <div className="flex h-full min-h-0 flex-col">
+          <div className="@container flex h-full min-h-0 flex-col">
             <div className="flex items-center gap-2 p-2">
               {viewSwitch}
               <Input

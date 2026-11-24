@@ -95,12 +95,33 @@ function Mark(props: { mark: TitleMark }): ReactNode {
 
 /**
  * The people in a scene, at the end of its row or card before its length, where a long heading never hides them: a
- * stack of their avatars, each moving while its person types; nothing when no one is in it.
+ * stack of their avatars overlapping, each moving while its person types, so that the heading keeps its room; in a
+ * narrow panel, how many they are. Nothing when no one is in it.
  */
 export function ScenePeople(props: { marks: readonly SceneMark[] }): ReactNode {
   const people = props.marks.filter(isPersonMark);
+  if (people.length === 0) return null;
   const moving = new Set(people.flatMap((p) => (p.moving ? [p.userId] : [])));
-  return <AvatarStack people={people} size="sm" moving={moving} />;
+  return (
+    <>
+      {/* the Scenes panel's container query */}
+      <span className="flex @max-3xs:hidden">
+        <AvatarStack
+          people={people}
+          size="sm"
+          moving={moving}
+          layout="overlapping"
+        />
+      </span>
+      <span
+        role="img"
+        aria-label={DOCUMENT_WORDS.moreAvatarsName(people.length)}
+        className="hidden @max-3xs:inline"
+      >
+        {DOCUMENT_WORDS.moreAvatars(people.length)}
+      </span>
+    </>
+  );
 }
 
 /** A scene's heading, read as revised when it is marked so, then its marks other than the people in it. */

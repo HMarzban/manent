@@ -12,6 +12,7 @@ import {
   graphemeEnd,
   labelsBetween,
   layoutPage,
+  linePlacesOf,
   lineStartsOf,
   offFontRanges,
   pageNumberText,
@@ -36,6 +37,7 @@ export interface Engine {
   readonly paginate: typeof paginate;
   readonly repaginate: typeof repaginate;
   readonly layoutPage: typeof layoutPage;
+  readonly linePlacesOf: typeof linePlacesOf;
   readonly pageStarts: typeof pageStarts;
   readonly pageOf: typeof pageOf;
   readonly lineStartsOf: typeof lineStartsOf;
@@ -63,6 +65,7 @@ const V1: Engine = Object.freeze({
   paginate,
   repaginate,
   layoutPage,
+  linePlacesOf,
   pageStarts,
   pageOf,
   lineStartsOf,

@@ -104,16 +104,33 @@ function scenesFor(
   return freeScenes(flat, afterBlockId, held);
 }
 
-/** The scene each of `count` writers types in: a free scene each, or the caret's scene for all, held or not. */
+/** The scene each of `count` more writers types in: a free scene each, or the caret's scene for all, held or not. */
 function seatScenes(
   state: Live,
-  { docId, count, afterBlockId, placement }: WritersRequest,
+  { docId, afterBlockId, placement }: WritersRequest,
+  count: number,
 ): (Scene | null)[] {
   if (placement === "own_scenes")
     return scenesFor(state, docId, afterBlockId).slice(0, count);
   const { flat } = readServerScript(state.live.storage, docId);
   const scene = caretScene(flat, afterBlockId);
   return Array.from({ length: count }, () => scene);
+}
+
+/**
+ * The writers of the document's group that `request` leaves typing, in their order and at most its count: those of a
+ * group seated the same way, in the same scene when they share the caret's.
+ */
+function keptWriters(state: Live, request: WritersRequest): Writer[] {
+  const { docId, afterBlockId, placement, count } = request;
+  const group = state.groups.get(docId);
+  if (group === undefined || group.answer.placement !== placement) return [];
+  if (placement === "caret_scene") {
+    const { flat } = readServerScript(state.live.storage, docId);
+    const scene = caretScene(flat, afterBlockId)?.firstBlockId;
+    if (group.writers.some((w) => w.scene?.firstBlockId !== scene)) return [];
+  }
+  return group.writers.slice(0, count);
 }
 
 /**
@@ -151,13 +168,20 @@ async function seat(
   throw failed.reason;
 }
 
-async function stopGroup(state: Live, docId: string): Promise<void> {
+/** Stops the document's group and its timer, but for the writers in `kept`, which stay in it typing. */
+async function stopGroup(
+  state: Live,
+  docId: string,
+  kept: readonly Writer[],
+): Promise<void> {
   const group = state.groups.get(docId);
   if (group === undefined) return;
-  state.groups.delete(docId);
   group.cancel();
-  await Promise.all(group.writers.map((w) => w.stop()));
-  await group.markLast();
+  if (kept.length === 0) state.groups.delete(docId);
+  else state.groups.set(docId, { ...group, writers: kept });
+  const leaving = group.writers.filter((w) => !kept.includes(w));
+  // a writer has typed its last when stop() returns: only the server taking it back is waited for
+  await Promise.all([...leaving.map((w) => w.stop()), group.markLast()]);
 }
 
 /**
@@ -191,21 +215,31 @@ function editMarks(
   return { cancel: () => cancel(), markLast };
 }
 
-/** Replaces the document's group with `count` writers, the first free members of the pool, seated by its placement. */
+/**
+ * Makes the document's group `count` writers seated by its placement: the writers already typing that way go on, so
+ * that their carets never leave, and the first free members of the pool join them.
+ */
 async function addWriters(
   state: Live,
   request: WritersRequest,
   stopLater: () => void,
 ): Promise<WritersResponse> {
   const { docId, count, placement } = request;
-  await stopGroup(state, docId);
+  const kept = keptWriters(state, request);
+  const keptNames = state.groups.get(docId)?.answer.names ?? [];
+  const endGroup = async (error: unknown): Promise<never> => {
+    await stopGroup(state, docId, []);
+    throw error;
+  };
+  await stopGroup(state, docId, kept).catch(endGroup);
   if (count === 0) return NONE;
   const busy = new Set(runningOn(state, docId).map((w) => w.userId));
-  const scenes = seatScenes(state, request);
+  const scenes = seatScenes(state, request, count - kept.length);
   const seats = WRITER_POOL.filter((m) => !busy.has(m.userId))
     .slice(0, scenes.length)
     .map(({ userId, name }, i) => ({ userId, name, scene: scenes[i]! }));
-  const writers = await seat(state, docId, seats, PROFILES.demo);
+  const added = await seat(state, docId, seats, PROFILES.demo).catch(endGroup);
+  const writers = [...kept, ...added];
   const stopping = state.live.clock.schedule(stopLater, WRITERS_RUN_MS);
   const edits = editMarks(state, docId, writers);
   const cancel = (): void => {
@@ -215,7 +249,7 @@ async function addWriters(
   const answer = {
     asked: count,
     count: writers.length,
-    names: seats.map((s) => s.name),
+    names: [...keptNames.slice(0, kept.length), ...seats.map((s) => s.name)],
     endsAt: state.live.clock.now() + WRITERS_RUN_MS,
     placement,
   };
@@ -278,7 +312,7 @@ export function createDemoServices(options: {
       serial(() =>
         addWriters(state, request, () => {
           // a group whose writers cannot all stop has nothing more to stop
-          serial(() => stopGroup(state, request.docId)).catch(() => {});
+          serial(() => stopGroup(state, request.docId, [])).catch(() => {});
         }),
       ),
     runningWriters: async (_userId, docId) =>
@@ -302,7 +336,7 @@ export function createDemoServices(options: {
     close: () =>
       serial(async () => {
         const groups = [...state.groups.keys()].map((docId) =>
-          stopGroup(state, docId),
+          stopGroup(state, docId, []),
         );
         const writers = state.presence.splice(0).flatMap((r) => r.writers);
         await Promise.all([...groups, ...writers.map((w) => w.stop())]);

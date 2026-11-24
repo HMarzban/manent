@@ -7,6 +7,7 @@ import type { EditorState, PluginView } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import type {
+  CursorPlace,
   Frames,
   PresencePort,
   RemoteCursor,
@@ -33,6 +34,11 @@ interface CursorsState {
   readonly shown: ShownCursors;
   /** The time the tabs, and who is moving, were last judged by, ms. */
   readonly now: number;
+  /**
+   * Where each cursor drawn was last found, by its key: a caret stays there while its place is in a block this page
+   * does not hold yet, since a person's caret may arrive before the line they typed it in.
+   */
+  readonly found: ReadonlyMap<string, CursorPlace>;
   readonly decorations: DecorationSet;
 }
 
@@ -126,17 +132,37 @@ function selectionOf(
     .map(([start, end]) => Decoration.inline(start, end, attrs));
 }
 
+// `cursor` at its place, or at the place it was last found while its own is not in this document; null when neither is.
+function foundOf(
+  state: EditorState,
+  cursor: RemoteCursor,
+  found: CursorsState["found"],
+): { cursor: RemoteCursor; head: number } | null {
+  for (const place of [cursor.place, found.get(cursor.key) ?? null]) {
+    const head =
+      place === null ? null : positionOf(state, place.head, place.at);
+    if (place !== null && head !== null)
+      return { cursor: { ...cursor, place }, head };
+  }
+  return null;
+}
+
+/** The cursors of `drawn` on `state`: their decorations and where each was found. */
 function decorationsOf(
   state: EditorState,
-  drawn: Omit<CursorsState, "decorations">,
-): DecorationSet {
+  drawn: Omit<CursorsState, "decorations" | "found">,
+  before: CursorsState["found"],
+): Pick<CursorsState, "decorations" | "found"> {
   const { cursors, shown, now } = drawn;
   const listed = shown !== "everyone";
   const decorations: Decoration[] = [];
-  for (const cursor of cursors) {
-    if (listed && !shown.includes(cursor.userId)) continue;
-    const head = positionOf(state, cursor.place.head, cursor.place.at);
-    if (head === null) continue;
+  const found = new Map<string, CursorPlace>();
+  for (const each of cursors) {
+    if (listed && !shown.includes(each.userId)) continue;
+    const at = foundOf(state, each, before);
+    if (at === null) continue;
+    const { cursor, head } = at;
+    found.set(cursor.key, cursor.place);
     const named = isNameShown(cursor, now);
     decorations.push(
       Decoration.widget(head, caretOf(cursor, named, listed), {
@@ -145,7 +171,7 @@ function decorationsOf(
       ...selectionOf(state, cursor, head),
     );
   }
-  return DecorationSet.create(state.doc, decorations);
+  return { decorations: DecorationSet.create(state.doc, decorations), found };
 }
 
 // The time until the first person moving at `now` stops, or the first name drawn gives way to initials; null when
@@ -204,6 +230,8 @@ function cursorsView(view: EditorView, options: CursorsOptions): PluginView {
     request();
   });
   view.dom.addEventListener("compositionend", resume);
+  // the others see this person as soon as the page opens, before the caret first moves
+  presence.publish(placeOf(view.state));
   return {
     update(_: EditorView, prev: EditorState) {
       const { state } = view;
@@ -241,12 +269,12 @@ function afterMeta(
     meta.type === "draw"
       ? { cursors: meta.cursors, shown: prev.shown, now: meta.now }
       : { cursors: prev.cursors, shown: meta.shown, now: prev.now };
-  return { ...drawn, decorations: decorationsOf(state, drawn) };
+  return { ...drawn, ...decorationsOf(state, drawn, prev.found) };
 }
 
 /**
  * Draws the cursors `presence` reports that the shown filter names (everyone's until `setShownCursors` says
- * otherwise), and publishes the local caret after each update that moves it or the text.
+ * otherwise), and publishes the local caret when the page opens and after each update that moves it or the text.
  */
 export function cursorsPlugin(options: CursorsOptions): Plugin {
   return new Plugin<CursorsState>({
@@ -256,6 +284,7 @@ export function cursorsPlugin(options: CursorsOptions): Plugin {
         cursors: [],
         shown: "everyone",
         now: 0,
+        found: new Map(),
         decorations: DecorationSet.empty,
       }),
       apply: (tr, prev, _old, state) => {
@@ -265,13 +294,9 @@ export function cursorsPlugin(options: CursorsOptions): Plugin {
         const mapped = prev.decorations.map(tr.mapping, tr.doc);
         // a remote change replaces the whole script, and a mapping drops every caret in a replaced range: the carets
         // are found again from their places in the same transaction, so that no frame is drawn without them
-        return {
-          ...prev,
-          decorations:
-            caretCount(mapped) === caretCount(prev.decorations)
-              ? mapped
-              : decorationsOf(state, prev),
-        };
+        return caretCount(mapped) === caretCount(prev.decorations)
+          ? { ...prev, decorations: mapped }
+          : { ...prev, ...decorationsOf(state, prev, prev.found) };
       },
     },
     view: (view) => cursorsView(view, options),

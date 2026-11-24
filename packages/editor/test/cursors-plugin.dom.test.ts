@@ -266,7 +266,7 @@ test("a selection is drawn in its own element, block by block, and capped", () =
   );
 });
 
-test("the local caret is published whenever it or the text moves", () => {
+test("the local caret is published when the page opens and whenever it or the text moves", () => {
   const f = fakes();
   const { view } = mount(docOf([["one", "two"]]), f);
   view.dispatch(
@@ -275,7 +275,7 @@ test("the local caret is published whenever it or the text moves", () => {
   view.dispatch(view.state.tr.insertText("x", 2));
   f.emit([dana(at(0, 1), 0)]);
   f.fire();
-  expect(f.published).toEqual([at(1, 0), at(1, 0)]);
+  expect(f.published).toEqual([at(0, 0), at(1, 0), at(1, 0)]);
 });
 
 /** Each rule of the cursors' styles as its selector and its declarations, trimmed. */

@@ -8,7 +8,13 @@ import type {
 } from "../../pages.ts";
 import { runAt } from "./dual.ts";
 import { castListOf, isSceneBoundary, isSceneHeading } from "./cast.ts";
-import { fillPage, firstStart, hasSpeakerSuffix, measureAt } from "./fill.ts";
+import {
+  fillPage,
+  firstStart,
+  hasSpeakerSuffix,
+  measureAt,
+  suffixOf,
+} from "./fill.ts";
 import type { FilledPage, PageStart } from "./fill.ts";
 import { createFlow, keyAt } from "./keep.ts";
 import type { Flow } from "./keep.ts";
@@ -147,6 +153,36 @@ function reachOf(
   };
 }
 
+/**
+ * The metrics of the edit's blocks that are the last pass's own objects and would be measured as they were: with
+ * the same suffix and no forced offset, then or now. Edits merged into one change span every block between the
+ * places they changed, and these are most of them.
+ */
+function keptMetrics(
+  prev: Pagination,
+  blocks: readonly LayoutBlock[],
+  change: ChangeHint,
+  was: ReadonlyMap<number, readonly number[]>,
+  now: ReadonlyMap<number, readonly number[]>,
+): Map<number, BlockMetrics> {
+  const { profile } = prev;
+  const at = new Map<LayoutBlock, number>();
+  for (let j = change.first; j < change.oldEnd; j++) at.set(prev.blocks[j]!, j);
+  const kept = new Map<number, BlockMetrics>();
+  for (let i = change.first; i < change.newEnd; i++) {
+    const j = at.get(blocks[i]!);
+    if (j === undefined || was.has(j) || now.has(i)) continue;
+    const then = suffixOf(prev.blocks, profile, j);
+    const suffix = suffixOf(blocks, profile, i);
+    if (
+      suffix.text === then.text &&
+      suffix.forced.join() === then.forced.join()
+    )
+      kept.set(i, prev.metrics[j]!);
+  }
+  return kept;
+}
+
 const startOf = (page: Page): PageStart => ({
   block: page.block,
   line: page.line,
@@ -275,14 +311,15 @@ export function repaginate(
     end = Math.max(end, block + 1);
   }
   const forced = forcedOffsets(plan.starts);
+  const unchanged = keptMetrics(prev, own, edit, forcedOffsets(before), forced);
   const metrics: readonly BlockMetrics[] = Object.freeze(
-    own.map((_, i) =>
-      (i >= edit.first && i < edit.newEnd) ||
-      reach.resuffixed.has(i) ||
-      moved.has(i)
-        ? measureAt(own, profile, i, forced.get(i) ?? [])
-        : prev.metrics[i < edit.first ? i : i - shift]!,
-    ),
+    own.map((_, i) => {
+      const measured = () => measureAt(own, profile, i, forced.get(i) ?? []);
+      if (reach.resuffixed.has(i) || moved.has(i)) return measured();
+      if (i < edit.first) return prev.metrics[i]!;
+      if (i >= edit.newEnd) return prev.metrics[i - shift]!;
+      return unchanged.get(i) ?? measured();
+    }),
   );
   const flow = createFlow(
     own,
