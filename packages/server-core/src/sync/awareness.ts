@@ -67,8 +67,9 @@ export function createAwarenessHub(ports: {
     presence.sending = true;
     clock.schedule(() => {
       presence.sending = false;
-      const frame = frameOf(room, [...presence.batch.values()]);
+      const entries = [...presence.batch.values()];
       presence.batch.clear();
+      const frame = frameOf(room, entries);
       for (const peer of room.editors.keys()) peer.send(frame);
       if (presence.present.size === 0) rooms.delete(room);
     }, limits.awarenessBatchMs);
@@ -90,7 +91,14 @@ export function createAwarenessHub(ports: {
     peer: Peer,
     entry: AwarenessEntry,
   ): AwarenessEntry | null => {
+    if (!room.editors.has(peer)) return null;
     if (room.owners.get(entry.clientId) !== peer.userId) return null;
+    if (
+      !Number.isSafeInteger(entry.clock) ||
+      entry.clock < 0 ||
+      entry.clock >= Number.MAX_SAFE_INTEGER
+    )
+      return null;
     const json = encoder.encode(JSON.stringify(entry.state));
     if (json.byteLength > limits.awarenessStateBytes) return null;
     if (entry.state === null) return entry;
@@ -133,6 +141,7 @@ export function createAwarenessHub(ports: {
       return dropped;
     },
     joined(room, peer) {
+      if (!room.editors.has(peer)) return;
       const present = [...(rooms.get(room)?.present.values() ?? [])];
       if (present.length > 0)
         peer.send(

@@ -1,9 +1,18 @@
 import { expect, test } from "bun:test";
+import {
+  ALTERNATES_MAP,
+  CUTS_MAP,
+  NOTES_MAP,
+  createDoc,
+  jsonMap,
+} from "@manent/crdt";
+import type { Storage } from "@manent/storage";
 import { createMemoryStorage } from "@manent/storage/testing";
 import type { Message } from "@manent/sync-protocol";
 import {
   createInlineCheckpointer,
   createRooms,
+  createSnapshotAnswers,
   DEFAULT_LIMITS,
   materializeForView,
   viewSnapshot,
@@ -21,6 +30,8 @@ import {
 
 const text = (bytes: Uint8Array): string => new TextDecoder().decode(bytes);
 const BLOCK2 = "b000000000000002";
+const docIdOf = (n: number): string =>
+  `00000000-0000-7000-8000-${n.toString(16).padStart(12, "0")}`;
 
 /** Sam edits DOC, which holds one block of his. */
 function seeded() {
@@ -172,4 +183,107 @@ test("a script nobody is editing is read from its checkpoint and tail for one an
     viewSeq: 30,
   });
   expect(room.doc).toBeNull();
+});
+
+test("the snapshot cache keeps the latest answer for 512 documents and evicts the least recently used", () => {
+  const clock = fakeClock(1_000);
+  const backing = createMemoryStorage({ now: clock.clock.now });
+  let reads = 0;
+  const counted: Storage = {
+    ...backing,
+    open(home) {
+      const file = backing.open(home);
+      return {
+        ...file,
+        log: {
+          ...file.log,
+          tail(docId, generation, afterSeq, options) {
+            reads += 1;
+            return file.log.tail(docId, generation, afterSeq, options);
+          },
+        },
+      };
+    },
+  };
+  const rooms = createRooms({
+    storage: backing,
+    clock: clock.clock,
+    limits: DEFAULT_LIMITS,
+    checkpointer: createInlineCheckpointer({
+      storage: backing,
+      defer: clock.defer,
+    }),
+  });
+  const list = Array.from({ length: 513 }, (_, index) => {
+    const id = docIdOf(index + 1);
+    backing.open(HOME).log.create({
+      id,
+      kind: "script",
+      ownerUserId: null,
+      schemaVersion: 1,
+      engineVersion: 0,
+    });
+    return rooms.room(id, HOME, "script");
+  });
+  const answers = createSnapshotAnswers(counted);
+  for (let i = 0; i < 512; i++) answers(list[i]!);
+  expect(reads).toBe(512);
+  // repeated head advances on one document replace its own entry instead of evicting other documents
+  const first = list[0]!;
+  for (let seq = 1; seq <= 5; seq++) {
+    first.row = { ...first.row, headSeq: seq };
+    answers(first);
+  }
+  expect(reads).toBe(517);
+  for (let i = 1; i < 512; i++) answers(list[i]!);
+  expect(reads).toBe(517);
+  // touching the first document makes the second least recently used
+  answers(first);
+  expect(reads).toBe(517);
+  answers(list[512]!);
+  expect(reads).toBe(518);
+  answers(first);
+  expect(reads).toBe(518);
+  answers(list[1]!);
+  expect(reads).toBe(519);
+});
+
+test("writers-only material never reaches a viewer and a revoked viewer gets no further patches", () => {
+  const { service, sam, leo, ana, clock, storage, typist } = seeded();
+  storage.directory.setRole(DOC, "ana", "view", []);
+  service.receive(leo, subscribe(DOC, "view", []));
+  leo.take();
+  const writerDoc = createDoc({ clientId: SAM_CLIENT });
+  jsonMap(writerDoc, NOTES_MAP).set("n1", { body: "private note" });
+  jsonMap(writerDoc, ALTERNATES_MAP).set("a1", { body: "private alternate" });
+  jsonMap(writerDoc, CUTS_MAP).set("c1", { body: "private cut" });
+  service.receive(sam, push(DOC, 2, writerDoc.encodeState()));
+  clock.runDeferred();
+  expect(leo.take()).toEqual([]);
+  service.receive(ana, subscribe(DOC, "view", []));
+  const snapshot = ana
+    .take()
+    .find(
+      (message): message is Extract<Message, { type: "VIEW_SNAPSHOT" }> =>
+        message.type === "VIEW_SNAPSHOT",
+    );
+  expect(snapshot?.type).toBe("VIEW_SNAPSHOT");
+  const snapshotText = text(snapshot!.content);
+  expect(snapshotText.includes("private note")).toBe(false);
+  expect(snapshotText.includes("private alternate")).toBe(false);
+  expect(snapshotText.includes("private cut")).toBe(false);
+  storage.directory.removeRole(DOC, "leo");
+  service.membershipChanged(DOC, "leo", null, "sam");
+  expect(leo.take()).toContainEqual(
+    expect.objectContaining({
+      type: "ERROR",
+      code: 4403,
+      message: "forbidden",
+    }),
+  );
+  ana.take();
+  service.receive(sam, push(DOC, 3, typist.type(BLOCK, "!")));
+  clock.runDeferred();
+  expect(leo.take()).toEqual([]);
+  expect(ana.take().map((message) => message.type)).toEqual(["VIEW_PATCH"]);
 });
