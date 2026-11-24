@@ -910,6 +910,8 @@ test("the handler table names every command but the generated ones", () => {
     "view.colourRevised": noop,
     "room.follow": noop,
     "room.stopFollowing": noop,
+    "room.takeKeys": noop,
+    "view.presentToRoom": noop,
     "share.open": noop,
     "writing.forEveryone": noop,
     "writing.asSuggestions": noop,
