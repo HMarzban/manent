@@ -1,7 +1,9 @@
 // The script's writers' material: what each open script's alternates and cuts hold, moving a scene, and what the
 // material commands know.
 import type { CommandContext } from "@manent/commands";
+import { useSyncExternalStore } from "react";
 import { createStore } from "zustand";
+import type { KeptCut } from "../material/cuts/script-cuts.ts";
 import { EMPTY_MATERIAL } from "../send/what-options.ts";
 import type { MaterialServices } from "../services/ports.ts";
 import { guardWrite } from "./guard.ts";
@@ -13,7 +15,15 @@ interface Followed {
   alternates: number;
   /** The JSON of the script's alternates map now, by alternate id. */
   alternatesOf(): Readonly<Record<string, unknown>>;
+  /** The selection covers at least one block. */
+  selection: boolean;
+  /** Valid cuts in the script's cuts map, newest first. */
+  cuts: readonly KeptCut[];
+  /** The JSON of the script's cuts map now, by cut id. */
+  cutsOf(): Readonly<Record<string, unknown>>;
 }
+
+const NO_CUTS: readonly KeptCut[] = Object.freeze([]);
 
 const store = createStore<{ docs: Readonly<Record<string, Followed>> }>()(
   () => ({ docs: {} }),
@@ -21,6 +31,18 @@ const store = createStore<{ docs: Readonly<Record<string, Followed>> }>()(
 
 const followed = (docId: string): Followed | null =>
   store.getState().docs[docId] ?? null;
+
+/** The cuts of `docId`, newest first; empty when no editable script editor is open. */
+export function useMaterialCuts(docId: string | null): readonly KeptCut[] {
+  const read = (): readonly KeptCut[] =>
+    docId === null ? NO_CUTS : (followed(docId)?.cuts ?? NO_CUTS);
+  return useSyncExternalStore(store.subscribe, read, read);
+}
+
+/** How many cuts `docId` currently holds. */
+export function useMaterialCutCount(docId: string | null): number {
+  return useMaterialCuts(docId).length;
+}
 
 /**
  * A script reads as having no material until its editor follows it, and no scene is found to move. `get` is what a
@@ -38,7 +60,7 @@ export const materialActions: MaterialServices & {
     const material = followed(docId);
     return material === null
       ? EMPTY_MATERIAL
-      : { alternates: material.alternatesOf(), cuts: EMPTY_MATERIAL.cuts };
+      : { alternates: material.alternatesOf(), cuts: material.cutsOf() };
   },
   moveScene: () => ({ ok: false as const, reason: "not_found" as const }),
   get(docId: string) {
@@ -46,8 +68,8 @@ export const materialActions: MaterialServices & {
     return {
       caretInSpeech: material?.caretInSpeech ?? false,
       alternates: material?.alternates ?? 0,
-      selection: false,
-      cuts: 0,
+      selection: material?.selection ?? false,
+      cuts: material?.cuts.length ?? 0,
     };
   },
   subscribe: (listener: () => void) => store.subscribe(() => listener()),
@@ -56,7 +78,10 @@ export const materialActions: MaterialServices & {
     if (
       before?.caretInSpeech === material.caretInSpeech &&
       before?.alternates === material.alternates &&
-      before?.alternatesOf === material.alternatesOf
+      before?.alternatesOf === material.alternatesOf &&
+      before?.selection === material.selection &&
+      before?.cuts === material.cuts &&
+      before?.cutsOf === material.cutsOf
     )
       return;
     guardWrite("material");

@@ -923,6 +923,7 @@ test("the handler table names every command but the generated ones", () => {
     "writing.seeHandedIn": noop,
     "alternate.show": noop,
     "alternate.add": noop,
+    "material.moveToCuts": noop,
     "doc.copyLink": noop,
     "history.copyLink": noop,
     "name.useListed": noop,

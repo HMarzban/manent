@@ -1,6 +1,7 @@
 // What a scene's row menu holds; a feature adds its items with one line.
 import type { ComponentType } from "react";
 import { AssignmentRowItems } from "../assignment/scene-row-items.tsx";
+import { CutSceneItem } from "../material/cuts/scene-row-items.tsx";
 import { MoveItem } from "./row-menu.tsx";
 
 export interface SceneRowItem {
@@ -13,4 +14,5 @@ export interface SceneRowItem {
 export const SCENE_ROW_ITEMS: readonly SceneRowItem[] = [
   { id: "assignment", Item: AssignmentRowItems },
   { id: "move", Item: MoveItem },
+  { id: "cuts", Item: CutSceneItem },
 ];

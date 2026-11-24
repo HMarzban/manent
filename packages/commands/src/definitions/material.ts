@@ -1,4 +1,4 @@
-// The commands of a speech's alternates: both open the alternates popover under the speech the caret is in.
+// The commands of writers' material: a speech's alternates and moving a selection to cuts.
 import type { CommandContext } from "../context.ts";
 import { defineCommands } from "../define.ts";
 import type { CommandDefinition } from "../define.ts";
@@ -47,4 +47,23 @@ export const MATERIAL_COMMANDS = defineCommands([
     menus: [],
     opens: { surface: "alternates_popover", focus: "item" },
   }),
+  {
+    id: "material.moveToCuts",
+    label: "Move to cuts",
+    group: "script",
+    home: null,
+    scope: "editor",
+    keys: { mac: [], windows: [], linux: [] },
+    keysFixed: false,
+    when: (ctx) => ctx.material?.selection === true,
+    whyNot: () => "needs a selection",
+    visible: canWrite,
+    checked: null,
+    passThrough: null,
+    menus: [{ menu: "script", group: "material", order: 20, submenu: null }],
+    palette: { keywords: ["cut", "cuts"] },
+    opens: null,
+    reach: "self",
+    setting: null,
+  },
 ]);
