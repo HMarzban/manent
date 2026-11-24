@@ -118,6 +118,7 @@ const UNDRAWN: LiveEditor = {
     subscribePeople: () => () => {},
   },
   editable: true,
+  pagination: () => null,
   zoom: () => 1,
   frontPages: () => null,
 };
@@ -137,19 +138,12 @@ async function pages(
   labels: readonly string[],
 ): Promise<void> {
   leaveLive();
-  // livePagination reads the state of the editor's pagination plugin, kept under its key
-  const pagination = { pages: labels.map((label) => ({ label })) };
-  const state = new Proxy(
-    {},
-    {
-      get: (_, key) =>
-        String(key).startsWith("pagination$") ? { pagination } : undefined,
-    },
-  );
+  const pagination = {
+    pages: labels.map((label) => ({ label })),
+  } as unknown as ReturnType<LiveEditor["pagination"]>;
   leaveLive = registerLiveEditor({
     ...UNDRAWN,
-    view: { state } as unknown as LiveEditor["view"],
-    scaffold: {} as LiveEditor["scaffold"],
+    pagination: () => pagination,
   });
   facts.publish({ pageCount: labels.length });
   await act(() => import("../src/editor-host/live-editor.ts"));

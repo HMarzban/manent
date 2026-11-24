@@ -60,19 +60,11 @@ const numbered = (count: number): Pagination =>
     ),
   );
 
-/** An editor of `docId` showing `p`: livePagination reads the state of the editor's pagination plugin, kept under its key. */
+/** An editor of `docId` showing `p`; its view is read by no test. */
 const liveOf = (docId: string, p: Pagination): LiveEditor => ({
   docId,
   doc: {} as LiveEditor["doc"],
-  view: {
-    state: new Proxy(
-      {},
-      {
-        get: (_, key) =>
-          String(key).startsWith("pagination$") ? { pagination: p } : undefined,
-      },
-    ),
-  } as unknown as LiveEditor["view"],
+  view: {} as LiveEditor["view"],
   scaffold: {} as NonNullable<LiveEditor["scaffold"]>,
   presence: {
     publish: noop,
@@ -80,6 +72,7 @@ const liveOf = (docId: string, p: Pagination): LiveEditor => ({
     subscribePeople: () => noop,
   },
   editable: false,
+  pagination: () => p,
   zoom: () => 1,
   frontPages: () => null,
 });

@@ -8,7 +8,7 @@ import type { LiveEditor } from "../src/editor-host/live-editor.ts";
 
 const unsubscribe = (): (() => void) => () => {};
 
-// an Ink editor: no scaffold, so no pagination, and the view is never read
+// an Ink editor, without pages; the view is never read
 const fake = (docId: string): LiveEditor => ({
   docId,
   doc: {} as LiveEditor["doc"],
@@ -20,6 +20,7 @@ const fake = (docId: string): LiveEditor => ({
     subscribePeople: unsubscribe,
   },
   editable: true,
+  pagination: () => null,
   zoom: () => 1,
   frontPages: () => null,
 });

@@ -22,14 +22,13 @@ import type { FormatId } from "@manent/schema";
 import type { FixedKey } from "../services/ports.ts";
 import { layoutViewActions } from "../state/layout-view.store.ts";
 import { panelsActions } from "../state/panels.store.ts";
-import { actionOf } from "./command-actions.ts";
+import { connectEditor } from "./connect-editor.ts";
 import type { EditorControl } from "./control.ts";
 import { deskOf } from "./desk.ts";
 import { editorOptions } from "./editor-options.ts";
 import type { EditorSources, OpenedScript } from "./editor-options.ts";
 import type { EditorSession, EditorSessions } from "./editor-sessions.ts";
 import { editorWords } from "./editor-words.ts";
-import { registerLiveEditor } from "./live-editor.ts";
 import type { EditorMount } from "./mount.ts";
 import { followZoom } from "./page-zoom.ts";
 import { keepPlace } from "./keep-place.ts";
@@ -190,34 +189,6 @@ interface Opened extends OpenedScript {
   shown: Shown;
 }
 
-/** Attaches `built.editor` to the control and registers it as its document's live editor; returns the stop of both. */
-function connectEditor(
-  options: MountOptions,
-  open: Opened,
-  built: { editor: ScriptEditor; binding: EditorBinding; editable: boolean },
-): () => void {
-  const { editor } = built;
-  const detach = options.control.attach({
-    run: (request) => editor.run(actionOf(request)),
-    zoomPercent: () => editor.zoomPercent(),
-    showTitlePage: () => editor.showTitlePage(),
-  });
-  const unregister = registerLiveEditor({
-    docId: open.ports.docId,
-    doc: open.document.doc(),
-    view: editor.view,
-    scaffold: editor.scaffold,
-    presence: built.binding.presence,
-    editable: built.editable,
-    zoom: () => (editor.zoomPercent() ?? 100) / 100,
-    frontPages: () => editor.frontPages(),
-  });
-  return () => {
-    detach();
-    unregister();
-  };
-}
-
 /** One editor of the document over its session, at `place` when it is given, attached to the control and registered as live. */
 function buildEditor(
   options: MountOptions,
@@ -259,9 +230,12 @@ function buildEditor(
         timers: options.timers,
       });
     });
-  const disconnect = connectEditor(options, open, {
+  const disconnect = connectEditor({
+    control: options.control,
+    docId,
+    doc: open.document.doc(),
     editor,
-    binding,
+    presence: binding.presence,
     editable,
   });
   options.observe?.({ docId, editor, undoDepth: () => counted?.depth() ?? 0 });

@@ -6,7 +6,6 @@ import { FORMATS } from "@manent/schema";
 import type { FormatId } from "@manent/schema";
 import type { DocKind } from "@manent/sync-protocol";
 import { IMPORT_WORDS, joinNames } from "@manent/ui";
-import { scriptForExport } from "../editor-host/export-source.ts";
 import type { SendFormId } from "../screens/send/form-ids.ts";
 
 /** What a file type writes from: the document, its title, and the pages the frame shows. */
@@ -162,6 +161,8 @@ async function scriptFile(
   kind: "fdx" | "fountain",
   work: { docId: string; title: string },
 ): Promise<{ bytes: Uint8Array; name: string; leftOut: readonly KeptItem[] }> {
+  // loaded apart, as the commands know the file types before the editor's code arrives
+  const { scriptForExport } = await import("../editor-host/export-source.ts");
   const script = await scriptForExport(work.docId, work.title);
   if (script === null) throw new Error(`no open editor holds ${work.docId}`);
   return fileFor(kind, script);
