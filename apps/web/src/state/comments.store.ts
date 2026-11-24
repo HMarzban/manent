@@ -1,7 +1,7 @@
 // The comments, rounds, flags and writer notes of the open script, opened alongside it and kept offline-first.
 import type { CommentOutcome } from "@manent/crdt";
 import type { TextAnchor } from "@manent/schema";
-import { useEffect, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import {
   DEFAULT_UI,
   createCommentsEntry,
@@ -41,6 +41,7 @@ export type {
 const entries = new Map<string, CommentsEntry>();
 const fallbackStates = new Map<string, ScriptCommentsState>();
 const pendingListeners = new Map<string, Set<() => void>>();
+const pendingUiListeners = new Map<string, Set<() => void>>();
 
 function snapshotOf(docId: string | null): ScriptCommentsState {
   if (docId === null) return emptyCommentsState("");
@@ -64,32 +65,26 @@ const targetOf = (docId: string): CommentsWriteTarget => {
 };
 
 export function useComments(docId: string | null): ScriptCommentsState {
+  const subscribe = useCallback(
+    (listener: () => void) =>
+      docId === null ? noop : commentsActions.subscribe(docId, listener),
+    [docId],
+  );
   return useSyncExternalStore(
-    (listener) => {
-      if (docId === null) return noop;
-      const entry = entries.get(docId);
-      if (entry === undefined) return noop;
-      entry.listeners.add(listener);
-      return () => {
-        entry.listeners.delete(listener);
-      };
-    },
+    subscribe,
     () => snapshotOf(docId),
     () => snapshotOf(docId),
   );
 }
 
 export function useCommentsUi(docId: string | null): CommentsUiState {
+  const subscribe = useCallback(
+    (listener: () => void) =>
+      docId === null ? noop : commentsActions.subscribeUi(docId, listener),
+    [docId],
+  );
   return useSyncExternalStore(
-    (listener) => {
-      if (docId === null) return noop;
-      const entry = entries.get(docId);
-      if (entry === undefined) return noop;
-      entry.uiListeners.add(listener);
-      return () => {
-        entry.uiListeners.delete(listener);
-      };
-    },
+    subscribe,
     () =>
       docId === null ? DEFAULT_UI : (entries.get(docId)?.ui ?? DEFAULT_UI),
     () => DEFAULT_UI,
@@ -116,7 +111,14 @@ export const commentsActions = {
         for (const listener of waiting) entry.listeners.add(listener);
         pendingListeners.delete(docId);
       }
+      const waitingUi = pendingUiListeners.get(docId);
+      if (waitingUi !== undefined) {
+        for (const listener of waitingUi) entry.uiListeners.add(listener);
+        pendingUiListeners.delete(docId);
+      }
       entries.set(docId, entry);
+      if (waiting !== undefined) emitComments(entry);
+      if (waitingUi !== undefined) emitCommentsUi(entry);
     }
     entry.refs += 1;
     let released = false;
@@ -148,6 +150,23 @@ export const commentsActions = {
       set.delete(listener);
       if (set.size === 0) pendingListeners.delete(docId);
       entries.get(docId)?.listeners.delete(listener);
+    };
+  },
+  subscribeUi(docId: string, listener: () => void): () => void {
+    const entry = entries.get(docId);
+    if (entry !== undefined) {
+      entry.uiListeners.add(listener);
+      return () => {
+        entry.uiListeners.delete(listener);
+      };
+    }
+    const set = pendingUiListeners.get(docId) ?? new Set();
+    set.add(listener);
+    pendingUiListeners.set(docId, set);
+    return () => {
+      set.delete(listener);
+      if (set.size === 0) pendingUiListeners.delete(docId);
+      entries.get(docId)?.uiListeners.delete(listener);
     };
   },
   setFilter(docId: string, filter: string): void {
