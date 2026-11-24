@@ -24,6 +24,8 @@ const CAPABILITY_ROUTES: readonly (readonly [SeedCapability, string | null])[] =
     ["series", null],
     ["private_copies", "/api/private/create"],
     ["start_from", null],
+    ["rundowns", null],
+    ["prompter", "/api/prompter/send"],
   ];
 
 const probed = new WeakMap<ManentServer, ReadonlySet<SeedCapability>>();
