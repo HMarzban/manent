@@ -2,8 +2,14 @@ import { expect, test } from "bun:test";
 import {
   ORIGIN_LOAD,
   createDoc,
+  jsonMap,
+  readCommentRounds,
+  readCommentThreads,
+  resolveThread,
   scriptBody,
   scriptSettings,
+  startRound,
+  startThread,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { DocFile, Home } from "@manent/storage";
@@ -442,5 +448,205 @@ test("adopting a comments document requires and forwards scriptDocId", async () 
   expect(storage.directory.placeOf(cId)).toEqual({
     home: HOME_OBJ,
     kind: "comments",
+  });
+});
+
+function forgedCommentsState(authorUserId: string): Uint8Array {
+  const doc = createDoc({ clientId: YOU_CLIENT });
+  startThread(
+    doc,
+    {
+      threadId: "t1",
+      itemId: "i1",
+      anchor: null,
+      roundId: "r1",
+      authorUserId,
+      body: "Forged comment",
+      mentionedUserIds: [],
+    },
+    () => 1_000,
+  );
+  startRound(
+    doc,
+    { roundId: "r1", name: "Round 1", versionId: "v1" },
+    () => 1_000,
+  );
+  return doc.encodeState();
+}
+
+test("a non-owner cannot adopt a script's comments document", async () => {
+  const { storage, post, tokenOf } = adopting();
+  const sam = tokenOf("sam");
+  expect(
+    (await post("/api/docs/adopt", { ...ok, state: base64(state()) }, sam))
+      .status,
+  ).toBe(200);
+  storage.directory.setRole(DOC, "leo", "view", []);
+  storage.directory.setRole(DOC, "dana", "comment", []);
+  storage.directory.setRole(DOC, "priya", "edit", []);
+
+  const cId = commentsDocId(DOC);
+  const body = {
+    key: KEY2,
+    docId: cId,
+    kind: "comments",
+    home: HOME,
+    workspaceId: null,
+    scriptDocId: DOC,
+    state: base64(forgedCommentsState("sam")),
+  };
+  for (const userId of ["leo", "dana", "priya", "you"]) {
+    const r = await post("/api/docs/adopt", body, tokenOf(userId));
+    expect([r.status, await r.json()]).toEqual([403, { error: "forbidden" }]);
+  }
+  expect(storage.directory.placeOf(cId)).toBeNull();
+
+  // After the owner lazily creates the comments document with headSeq === 0, non-owners are still forbidden.
+  const created = await post(
+    "/api/docs",
+    { docId: cId, kind: "comments", home: HOME, scriptDocId: DOC },
+    sam,
+  );
+  expect(created.status).toBe(200);
+  for (const userId of ["leo", "dana"]) {
+    const r = await post("/api/docs/adopt", body, tokenOf(userId));
+    expect([r.status, await r.json()]).toEqual([403, { error: "forbidden" }]);
+  }
+  const ownerAdopt = await post("/api/docs/adopt", body, sam);
+  expect(ownerAdopt.status).toBe(200);
+});
+
+test("a non-owner cannot adopt a pre-created empty script", async () => {
+  const { storage, post, tokenOf } = adopting();
+  const sam = tokenOf("sam");
+  expect(
+    (await post("/api/docs", { docId: DOC2, kind: "script", home: HOME }, sam))
+      .status,
+  ).toBe(200);
+  storage.directory.setRole(DOC2, "leo", "view", []);
+  storage.directory.setRole(DOC2, "dana", "comment", []);
+  for (const userId of ["leo", "dana"]) {
+    const r = await post(
+      "/api/docs/adopt",
+      { ...ok, docId: DOC2, state: base64(state()) },
+      tokenOf(userId),
+    );
+    expect([r.status, await r.json()]).toEqual([403, { error: "forbidden" }]);
+  }
+  expect(storage.open(HOME_OBJ).log.get(DOC2)?.headSeq).toBe(0);
+});
+
+test("invalid or impersonated comments state is refused on adoption", async () => {
+  const { post, tokenOf } = adopting();
+  const sam = tokenOf("sam");
+  expect(
+    (await post("/api/docs/adopt", { ...ok, state: base64(state()) }, sam))
+      .status,
+  ).toBe(200);
+  const cId = commentsDocId(DOC);
+
+  const unknownMapDoc = createDoc({ clientId: YOU_CLIENT });
+  jsonMap(unknownMapDoc, "settings").set("x", 1);
+
+  const badThreadDoc = createDoc({ clientId: YOU_CLIENT });
+  jsonMap(badThreadDoc, "threads").set("t1", { bad: true });
+
+  const resolvedImpersonatorDoc = createDoc({ clientId: YOU_CLIENT });
+  startThread(
+    resolvedImpersonatorDoc,
+    {
+      threadId: "t1",
+      itemId: "i1",
+      anchor: null,
+      roundId: null,
+      authorUserId: "sam",
+      body: "Note",
+      mentionedUserIds: [],
+    },
+    () => 1_000,
+  );
+  resolveThread(
+    resolvedImpersonatorDoc,
+    { threadId: "t1", byUserId: "leo", outcome: null, reason: null },
+    () => 1_001,
+  );
+
+  const cases: Uint8Array[] = [
+    state(),
+    unknownMapDoc.encodeState(),
+    badThreadDoc.encodeState(),
+    forgedCommentsState("leo"),
+    resolvedImpersonatorDoc.encodeState(),
+  ];
+  for (const bytes of cases) {
+    const r = await post(
+      "/api/docs/adopt",
+      {
+        key: KEY2,
+        docId: cId,
+        kind: "comments",
+        home: HOME,
+        workspaceId: null,
+        scriptDocId: DOC,
+        state: base64(bytes),
+      },
+      sam,
+    );
+    expect([r.status, await r.json()]).toEqual([422, { error: "invalid" }]);
+  }
+});
+
+test("an owner adopts a comments document with local threads and rounds", async () => {
+  const { storage, post, tokenOf } = adopting();
+  const sam = tokenOf("sam");
+  expect(
+    (await post("/api/docs/adopt", { ...ok, state: base64(state()) }, sam))
+      .status,
+  ).toBe(200);
+  const cId = commentsDocId(DOC);
+  const r = await post(
+    "/api/docs/adopt",
+    {
+      key: KEY2,
+      docId: cId,
+      kind: "comments",
+      home: HOME,
+      workspaceId: null,
+      scriptDocId: DOC,
+      state: base64(forgedCommentsState("sam")),
+    },
+    sam,
+  );
+  expect([r.status, await r.json()]).toEqual([
+    200,
+    {
+      docId: cId,
+      kind: "comments",
+      home: HOME,
+      generation: 1,
+      adoptedSeq: 1,
+      created: true,
+    },
+  ]);
+  const loaded = createDoc();
+  for (const { update } of storage.open(HOME_OBJ).log.tail(cId, 1, 0).rows)
+    loaded.applyUpdate(update, ORIGIN_LOAD);
+  expect(readCommentThreads(loaded)).toEqual({
+    t1: {
+      v: 1,
+      anchor: null,
+      roundId: "r1",
+      authorUserId: "sam",
+      createdAt: 1_000,
+      state: { kind: "open" },
+    },
+  });
+  expect(readCommentRounds(loaded)).toEqual({
+    r1: {
+      v: 1,
+      name: "Round 1",
+      versionId: "v1",
+      createdAt: 1_000,
+    },
   });
 });

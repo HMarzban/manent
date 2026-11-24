@@ -6,7 +6,9 @@ import type {
   CommentRound,
   CommentThread,
   CommentsWrite,
+  CrdtDoc,
   ThreadState,
+  TransactionReport,
 } from "@manent/crdt";
 import { isTextAnchor } from "@manent/schema";
 import type { Issue, TextAnchor } from "@manent/schema";
@@ -228,18 +230,7 @@ const refused = (path: string, message: string): Issue => ({
   message,
 });
 
-/**
- * One issue for each root the push wrote outside the four comments maps, one for a script body, and one for each
- * entry the pusher may not write; a pusher who can only view is refused whatever the push wrote.
- */
-export const validateCommentsPush: PushValidator = ({
-  report,
-  room,
-  subscription,
-}) => {
-  const { peer, access } = subscription;
-  if (access.role === "view")
-    return [refused("", `${peer.userId} can only view ${room.docId}`)];
+function reportStructureIssues(report: TransactionReport): Issue[] {
   const issues = report.maps
     .filter((name) => !COMMENTS_DOC_MAPS.some((held) => held === name))
     .map((name) =>
@@ -257,22 +248,50 @@ export const validateCommentsPush: PushValidator = ({
     issues.push(
       refused("body", "a push wrote a script body into a comments document"),
     );
+  return issues;
+}
+
+function structuralIssues(
+  doc: CrdtDoc,
+  report: TransactionReport,
+): { issues: Issue[]; writes: CommentsWrite[] } {
+  const issues = reportStructureIssues(report);
+  try {
+    return { issues, writes: readCommentsPush(doc, report) };
+  } catch (error) {
+    return {
+      issues: [
+        ...issues,
+        refused(
+          "",
+          error instanceof Error ? error.message : "invalid comments write",
+        ),
+      ],
+      writes: [],
+    };
+  }
+}
+
+/**
+ * One issue for each root the push wrote outside the four comments maps, one for a script body, and one for each
+ * entry the pusher may not write; a pusher who can only view is refused whatever the push wrote.
+ */
+export const validateCommentsPush: PushValidator = ({
+  report,
+  room,
+  subscription,
+}) => {
+  const { peer, access } = subscription;
+  if (access.role === "view")
+    return [refused("", `${peer.userId} can only view ${room.docId}`)];
   // the write path applies a push to the room's document first: a room without one is refused, never judged empty
   if (room.doc === null)
-    return [...issues, refused("", `the room of ${room.docId} is not loaded`)];
-  const pusher = { userId: peer.userId, editor: isWriterRole(access.role) };
-  let writes: ReturnType<typeof readCommentsPush>;
-  try {
-    writes = readCommentsPush(room.doc, report);
-  } catch (error) {
     return [
-      ...issues,
-      refused(
-        "",
-        error instanceof Error ? error.message : "invalid comments write",
-      ),
+      ...reportStructureIssues(report),
+      refused("", `the room of ${room.docId} is not loaded`),
     ];
-  }
+  const pusher = { userId: peer.userId, editor: isWriterRole(access.role) };
+  const { issues, writes } = structuralIssues(room.doc, report);
   for (const write of writes) {
     const message = REFUSALS[write.map](write, pusher);
     if (message !== null)
@@ -280,3 +299,56 @@ export const validateCommentsPush: PushValidator = ({
   }
   return issues;
 };
+
+type StateRefusal = (write: CommentsWrite, userId: string) => string | null;
+
+function stateThreadRefusal(
+  { key, value }: CommentsWrite,
+  userId: string,
+): string | null {
+  if (!isThread(value)) return `the thread ${key} is not a thread`;
+  if (value.authorUserId !== userId)
+    return `the thread ${key} names ${value.authorUserId} as its author, not the adopter`;
+  if (value.state.kind !== "open" && value.state.byUserId !== userId)
+    return `the thread ${key} names ${value.state.byUserId} as its resolver, not the adopter`;
+  return null;
+}
+
+function stateItemRefusal(
+  { key, value }: CommentsWrite,
+  userId: string,
+): string | null {
+  if (!isItem(value)) return `the item ${key} is not an item`;
+  return value.authorUserId === userId
+    ? null
+    : `the item ${key} names ${value.authorUserId} as its author, not the adopter`;
+}
+
+const STATE_REFUSALS: Readonly<Record<CommentsWrite["map"], StateRefusal>> =
+  Object.freeze({
+    threads: stateThreadRefusal,
+    items: stateItemRefusal,
+    rounds: ({ key, value }) =>
+      isRound(value) ? null : `the round ${key} is not a round`,
+    flags: ({ key, value }) =>
+      isFlag(value) ? null : `the flag ${key} is not a flag`,
+  });
+
+/**
+ * Validates an adopted comments document's state: only the four comments maps, no script body,
+ * well-formed entries, and threads/items authored or resolved only by `userId` (local rounds allowed).
+ */
+export function validateCommentsState(
+  doc: CrdtDoc,
+  report: TransactionReport | null,
+  userId: string,
+): Issue[] {
+  if (report === null) return [];
+  const { issues, writes } = structuralIssues(doc, report);
+  for (const write of writes) {
+    const message = STATE_REFUSALS[write.map](write, userId);
+    if (message !== null)
+      issues.push(refused(`${write.map}.${write.key}`, message));
+  }
+  return issues;
+}

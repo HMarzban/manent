@@ -15,27 +15,21 @@ import { isBlockId } from "@manent/schema";
 const MAX_KEY_LENGTH = 128;
 const hasOwn = Object.prototype.hasOwnProperty;
 
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 function sameJson(a: unknown, b: unknown): boolean {
   if (Object.is(a, b)) return true;
-  if (
-    typeof a !== "object" ||
-    typeof b !== "object" ||
-    a === null ||
-    b === null
-  )
-    return false;
-  if (Array.isArray(a) || Array.isArray(b)) {
-    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length)
-      return false;
-    return a.every((item, index) => sameJson(item, b[index]));
-  }
+  if (Array.isArray(a) && Array.isArray(b))
+    return (
+      a.length === b.length &&
+      a.every((item, index) => sameJson(item, b[index]))
+    );
+  if (!isRecord(a) || !isRecord(b)) return false;
   const keysA = Object.keys(a);
-  const keysB = Object.keys(b);
-  if (keysA.length !== keysB.length) return false;
-  const recA = a as Record<string, unknown>;
-  const recB = b as Record<string, unknown>;
-  return keysA.every(
-    (key) => hasOwn.call(recB, key) && sameJson(recA[key], recB[key]),
+  return (
+    keysA.length === Object.keys(b).length &&
+    keysA.every((key) => hasOwn.call(b, key) && sameJson(a[key], b[key]))
   );
 }
 

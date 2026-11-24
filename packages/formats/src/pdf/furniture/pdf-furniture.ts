@@ -16,8 +16,8 @@ export type PdfHeaderSlotKind =
   | "date"
   | "title"
   | "section"
-  | "running_time"
-  | "draft_name";
+  | "duration"
+  | "revision_label";
 
 export type PdfHeaderSlot =
   | { readonly kind: PdfHeaderSlotKind }

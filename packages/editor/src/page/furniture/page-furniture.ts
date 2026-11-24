@@ -1,6 +1,6 @@
 // What a page furniture entry is given for a sheet, and how it draws there.
 import type { LineKind, PageProfile } from "@manent/pagination";
-import type { HeaderSlots } from "@manent/settings";
+import type { HeaderSlot, HeaderSlots } from "@manent/settings";
 
 export type DateFormat = "day_month_year" | "month_day_year" | "iso";
 
@@ -62,8 +62,20 @@ const isSameRevision = (
       (m, i) => m.y === b.marks[i]!.y && m.text === b.marks[i]!.text,
     ));
 
+const isSameSlot = (a: HeaderSlot, b: HeaderSlot): boolean => {
+  if (a.kind !== b.kind) return false;
+  return a.kind === "custom" && b.kind === "custom" ? a.text === b.text : true;
+};
+
 const isSameSlots = (a: HeaderSlots | null, b: HeaderSlots | null): boolean =>
-  a === b || JSON.stringify(a) === JSON.stringify(b);
+  a === b ||
+  (a !== null &&
+    b !== null &&
+    a.firstPage === b.firstPage &&
+    a.rule === b.rule &&
+    isSameSlot(a.left, b.left) &&
+    isSameSlot(a.center, b.center) &&
+    isSameSlot(a.right, b.right));
 
 export const isSameFurniture = (
   a: PageFurnitureInput | undefined,
