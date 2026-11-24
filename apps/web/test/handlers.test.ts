@@ -73,6 +73,8 @@ test("every command but the generated ones has a handler, and only the productio
       "view.colourRevised",
       "timing.exclude",
       "timing.include",
+      "prompter.send",
+      "prompter.sendPrevious",
     ],
   );
 });

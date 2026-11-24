@@ -971,6 +971,11 @@ test("the handler table names every command but the generated ones", () => {
     "rundown.new": noop,
     "rundown.leaveUnnumbered": noop,
     "rundown.numberRow": noop,
+    "prompter.send": noop,
+    "prompter.sendPrevious": noop,
+    "view.presentOnPrompter": noop,
+    "prompter.files": noop,
+    "prompter.stopFiles": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))
