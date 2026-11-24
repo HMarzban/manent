@@ -96,7 +96,7 @@ function readBlock(value: unknown): BlockJSON | null {
   return block;
 }
 
-function readBlocks(value: unknown): BlockJSON[] | null {
+export function readBlocks(value: unknown): BlockJSON[] | null {
   if (!Array.isArray(value)) return null;
   const blocks = value.map(readBlock);
   return blocks.some((block) => block === null)
