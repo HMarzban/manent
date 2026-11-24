@@ -37,4 +37,9 @@ export const SHELL_SCREENS: readonly ShellScreen[] = [
     screen: "workspace_settings",
     page: "covered",
   },
+  {
+    routeId: "/p/$projectId/board",
+    screen: "board",
+    page: "covered",
+  },
 ];
