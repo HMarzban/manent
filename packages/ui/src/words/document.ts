@@ -81,6 +81,11 @@ export const DOCUMENT_WORDS = {
   moreAvatars: (n: number): string => `+${formatCount(n)}`,
   moreAvatarsName: (n: number): string =>
     n === 1 ? "1 more person" : `${formatCount(n)} more people`,
+  /** The people who have the script open to read only, after the avatars; and their accessible name. */
+  moreViewers: (n: number): string =>
+    n === 1 ? "+1 viewer" : `+${formatCount(n)} viewers`,
+  moreViewersName: (n: number): string =>
+    n === 1 ? "1 viewer" : `${formatCount(n)} viewers`,
   switchOn: "on",
   switchOff: "off",
 } as const;

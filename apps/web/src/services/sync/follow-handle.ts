@@ -47,6 +47,7 @@ export interface Shown {
   status: Value<StatusFacts>;
   waitingByScene: Value<readonly SceneWaiting[]>;
   stateFacts: Value<readonly StateFact[]>;
+  viewers: Value<number>;
 }
 
 /** An open document and the person's sync it is open in. */
@@ -144,17 +145,27 @@ export function followHandle(options: Following, open: Opened): () => void {
     if (!isSameStatus(shown.status.get(), facts)) shown.status.set(facts);
     shown.stateFacts.set(role === "comment" ? ROLE_COMMENT : NO_FACTS);
   };
+  const showViewers = (): void =>
+    shown.viewers.set((view ?? handle).viewers.get());
   let stopView: (() => void) | null = null;
   const viewing = (next: ViewHandle | null): void => {
     stopView?.();
     view = next;
-    stopView = next?.status.subscribe(show) ?? null;
+    const stops = [
+      next?.status.subscribe(show),
+      next?.viewers.subscribe(showViewers),
+    ];
+    stopView = () => {
+      for (const stop of stops) stop?.();
+    };
     show();
+    showViewers();
   };
   let unfollow = options.review.follow(docId, handle.doc());
   viewing(handle.readOnly.get());
   const stops = [
     handle.readOnly.subscribe(viewing),
+    handle.viewers.subscribe(showViewers),
     ...[
       handle.status,
       sync.link,

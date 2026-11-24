@@ -30,6 +30,7 @@ function handleView(
     writeSchema: handle.writeSchema,
     readOnly: handle.readOnly,
     upstream: handle.upstream,
+    viewers: handle.viewers,
     on: (listener) =>
       both(handle.on(listener), overlay.on(handle.docId, listener)),
     setSetting: (key, value) => handle.setSetting(key, value),

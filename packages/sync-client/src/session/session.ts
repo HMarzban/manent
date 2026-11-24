@@ -32,6 +32,7 @@ import { PushMarks } from "./push-marks.ts";
 import type { SessionLink, SessionOptions } from "./session-options.ts";
 import { createSubscription } from "./subscription.ts";
 import type { Subscription } from "./subscription.ts";
+import { createViewerCount } from "./viewer-count.ts";
 import { watchEdits } from "./watch-edits.ts";
 
 export type { SessionLink } from "./session-options.ts";
@@ -104,6 +105,7 @@ class DocSession implements Session {
   private readonly status: ReturnType<typeof createSubscribable<DocStatus>>;
   private readonly indexWait: IndexWait;
   private readonly pushes = new PushMarks();
+  private readonly viewers = createViewerCount();
   /** The node acknowledged an entry after the upstream status it last sent: Synced waits for the next. */
   private upstreamOutdated = false;
   /** The connection the device versions were last offered on. */
@@ -187,6 +189,7 @@ class DocSession implements Session {
     this.handle = this.copy.handleOf({
       status: this.status,
       readOnly: this.subscription.readOnly,
+      viewers: this.viewers.value,
       sendAwareness: (update) => this.handshake.sendAwareness(update),
       adoptClientIds: (ids) => this.adoptClientIds(ids),
       reserveClientId: async () => {
@@ -289,12 +292,14 @@ class DocSession implements Session {
   disconnected(): void {
     this.pushes.dropped();
     this.indexWait.drop();
+    this.viewers.ended();
     this.subscription.disconnected();
   }
 
   receive(message: DocumentMessage): void {
     this.pushes.answered(message);
     this.route(message);
+    if (message.type === "CONTROL") this.viewers.control(message);
     const event = toDocEvent(message);
     if (event !== null) this.copy.emit(event);
   }
@@ -305,6 +310,7 @@ class DocSession implements Session {
     if (old && this.subscription.moving) return;
     this.pushes.ended(message);
     this.handshake.error(message);
+    if (!this.handshake.subscribed()) this.viewers.ended();
   }
 
   skipped(): void {

@@ -18,6 +18,7 @@ export const PEOPLE_TERMS: readonly Term[] = Object.freeze([
     ["deep link", "reader link", "invitation"],
   ),
   ...row("sharing", ["Reader"], ["viewer"]),
+  ...row("sharing", ["Viewers"], []),
   ...row(
     "sharing",
     ["Watermark", "Sent and opened"],

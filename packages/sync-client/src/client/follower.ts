@@ -20,6 +20,7 @@ import type {
 import type { DocEvent, DocHandle } from "../session/doc-handle.ts";
 import { elementsOf } from "../session/edits.ts";
 import type { UnsavedEdit } from "../session/edits.ts";
+import { createViewerCount } from "../session/viewer-count.ts";
 import type { TabBody } from "../tabs/messages.ts";
 import { readEvent } from "../upstream/events.ts";
 import type { UpstreamStatus } from "../upstream/status.ts";
@@ -87,6 +88,7 @@ class TabFollower implements Follower {
   private readonly settings = createSubscribable<
     Readonly<Record<string, unknown>>
   >({});
+  private readonly viewers = createViewerCount();
   private readonly listeners = new Set<(event: DocEvent) => void>();
   private readonly awarenessListeners = new Set<(update: Uint8Array) => void>();
   private coalescer: Coalescer;
@@ -144,10 +146,12 @@ class TabFollower implements Follower {
         return;
       case "status":
         this.leaderStatus = body.status;
+        if (body.status.docSync === "local") this.viewers.ended();
         this.show();
         return;
       case "event": {
         const event = readEvent(body.event);
+        if (event?.type === "control") this.viewers.control(event);
         if (event !== null) this.emit(event);
         return;
       }
@@ -294,6 +298,7 @@ class TabFollower implements Follower {
       writeSchema: createSubscribable(writeSchema),
       readOnly: createSubscribable<ViewHandle | null>(null),
       upstream: createSubscribable<UpstreamStatus | null>(null),
+      viewers: this.viewers.value,
       on: (listener) => {
         this.listeners.add(listener);
         return () => this.listeners.delete(listener);

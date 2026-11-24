@@ -55,6 +55,8 @@ export interface DocHandle {
   readonly readOnly: Subscribable<ViewHandle | null>;
   /** The latest upstream status the local node sent; always null unless the client runs with `via` "local_node". */
   readonly upstream: Subscribable<UpstreamStatus | null>;
+  /** How many other people have it open to read only; 0 while it is not subscribed for editing. */
+  readonly viewers: Subscribable<number>;
   on(listener: (event: DocEvent) => void): () => void;
   /** A request: shown at once, sent as SET, dropped if refused. TypeError for a value JSON cannot hold. */
   setSetting(key: string, value: unknown): void;

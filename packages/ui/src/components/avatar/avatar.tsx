@@ -110,3 +110,18 @@ export function AvatarStack({
     </span>
   );
 }
+
+/** How many people have the script open to read only, drawn as the count that ends a stack; nothing for no one. */
+export function ViewerCount({ viewers }: { viewers: number }): ReactNode {
+  if (viewers === 0) return null;
+  return (
+    <span
+      role="img"
+      aria-label={DOCUMENT_WORDS.moreViewersName(viewers)}
+      data-more
+      className={cn(CIRCLE, "h-avatar px-2 text-micro whitespace-nowrap")}
+    >
+      {DOCUMENT_WORDS.moreViewers(viewers)}
+    </span>
+  );
+}

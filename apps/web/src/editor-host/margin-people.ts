@@ -53,11 +53,11 @@ function shownIn(settings: SettingsStore, docId: string): ShownCursors {
 
 export function marginPeoplePlugin(context: EditorPluginContext): Plugin {
   const { docId, services, presence } = context;
-  const { settings } = services;
-  const { status } = services.documents.open(docId);
+  const { documents, settings } = services;
   return editorMarginPeoplePlugin({
     // the people present are told for as long as the page's cursors are
     subscribe(listener) {
+      const { status } = documents.open(docId);
       const stopPeople = whileLive(
         presence.subscribePeople,
         status,
@@ -67,6 +67,7 @@ export function marginPeoplePlugin(context: EditorPluginContext): Plugin {
         stopCursors();
         stopPeople();
         showPeoplePresent(docId, []);
+        documents.close(docId);
       };
     },
     name: joinNames,

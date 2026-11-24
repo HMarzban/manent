@@ -86,6 +86,7 @@ interface TestDocument extends DocumentServices {
   waitingByScene: Value<readonly { scene: string; count: number }[]>;
   stateFacts: Value<readonly StateFact[]>;
   people: Value<readonly PersonPresent[]>;
+  viewers: Value<number>;
   scriptBag: MemoryBag;
 }
 
@@ -340,6 +341,7 @@ export async function renderFrame(
     ),
     stateFacts: createValue<readonly StateFact[]>([]),
     people: createValue<readonly PersonPresent[]>([]),
+    viewers: createValue(0),
     scriptBag:
       options.scriptBag ??
       createMemoryBag({ initial: {}, writable: () => true }),

@@ -170,6 +170,8 @@ test("the screens' words are the design's", () => {
     ownPreferences: D.ownPreferences,
     moreAvatars: D.moreAvatars(2),
     moreAvatarsName: [D.moreAvatarsName(2), D.moreAvatarsName(1)],
+    moreViewers: [D.moreViewers(2), D.moreViewers(1)],
+    moreViewersName: [D.moreViewersName(2), D.moreViewersName(1)],
     switchOn: D.switchOn,
     switchOff: D.switchOff,
   }).toEqual({
@@ -219,6 +221,8 @@ test("the screens' words are the design's", () => {
     ownPreferences: "Your own preferences",
     moreAvatars: "+2",
     moreAvatarsName: ["2 more people", "1 more person"],
+    moreViewers: ["+2 viewers", "+1 viewer"],
+    moreViewersName: ["2 viewers", "1 viewer"],
     switchOn: "on",
     switchOff: "off",
   });

@@ -96,6 +96,7 @@ export function createSyncDocumentSource(options: Options): DocumentSource {
       status: createValue(opening(options.now(), options.signedIn)),
       waitingByScene: createValue<readonly SceneWaiting[]>([]),
       stateFacts: createValue<readonly StateFact[]>([]),
+      viewers: createValue(0),
     };
     const scriptBag = createLaterBag();
     let closed = false;

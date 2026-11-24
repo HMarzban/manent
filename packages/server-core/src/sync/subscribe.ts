@@ -28,6 +28,7 @@ import type {
 import type { PrompterSubscribers } from "./prompter-subscribers.ts";
 import type { Room, Rooms, Subscription } from "./rooms.ts";
 import { isStorageError } from "./storage-error.ts";
+import type { ViewerCounts } from "./viewer-counts.ts";
 
 export type SubscribeMessage = Extract<Message, { type: "SUBSCRIBE" }>;
 
@@ -199,6 +200,7 @@ export interface SubscribePorts {
   limits: SyncLimits;
   heal: Pick<Healing, "headOf" | "subscribed">;
   presence: Pick<AwarenessHub, "joined" | "left">;
+  viewerCounts: ViewerCounts;
   writePath: { queued(): number; flush(): void };
   rebuilder: Pick<Rebuilder, "touched">;
   snapshotOf(room: Room): Message;
@@ -281,6 +283,8 @@ export function subscribe(
   const extras = ports.extras(docId);
   const airWindow = ports.airWindowOf(docId);
   tell(peer, subscribedOf(room, granted, heal.headOf(room), extras, airWindow));
+  ports.viewerCounts.joined(room, peer);
+  ports.viewerCounts.changed(room);
   const vector = room.doc?.encodeStateVector();
   if (mode === "edit" && vector !== undefined) {
     rebuilder.touched(room);

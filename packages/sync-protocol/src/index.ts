@@ -222,3 +222,4 @@ export type {
   PrivateCreateRequest,
   PrivateCreateResponse,
 } from "./private-copy.ts";
+export { encodeViewerCount, parseViewerCount } from "./viewer-count.ts";
