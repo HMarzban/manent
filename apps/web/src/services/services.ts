@@ -3,7 +3,8 @@ import { COMMANDS, isChord, resolveBindings } from "@manent/commands";
 import type { CustomBinding, Keys, Resolved } from "@manent/commands";
 import { SECTION_IDS, latestEntries } from "@manent/settings";
 import type { Bag, KeyValueMap } from "@manent/settings";
-import type { DocHandle } from "@manent/sync-client";
+import type { DocHandle, DocMeta, ViewHandle } from "@manent/sync-client";
+import { commentsDocId } from "@manent/sync-protocol";
 import { createMessageQueue, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import { createEditorControl } from "../editor-host/control.ts";
@@ -262,6 +263,8 @@ function createSyncedParts(
   PersonServices,
   | "history"
   | "openHandle"
+  | "openComments"
+  | "viewComments"
   | "prompter"
   | "onDevice"
   | "projectIndex"
@@ -273,9 +276,27 @@ function createSyncedParts(
 > {
   const openHandle = async (docId: string): Promise<DocHandle> =>
     (await sync.client).open(writingActions.openTarget(docId));
+  const openComments = async (
+    docId: string,
+    home: string | null,
+  ): Promise<DocHandle> => {
+    const client = await sync.client;
+    if (home === null) return client.open(commentsDocId(docId));
+    const create: NonNullable<DocMeta["create"]> & { scriptDocId: string } = {
+      kind: "comments",
+      home,
+      workspaceId: null,
+      scriptDocId: docId,
+    };
+    return client.open(commentsDocId(docId), { create });
+  };
+  const viewComments = async (docId: string): Promise<ViewHandle> =>
+    (await sync.client).view(commentsDocId(docId));
   return {
     history: createPersonHistory(options, openHandle),
     openHandle,
+    openComments,
+    viewComments,
     prompter: async (rundownId) => (await sync.client).prompter(rundownId),
     async onDevice(docIds) {
       const held = new Set(
