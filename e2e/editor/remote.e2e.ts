@@ -91,8 +91,14 @@ test("another writer's cursor and name are drawn, and hidden by the preference",
   await openScript(page, "screenplay", script);
   await groupHook(page, "remote", "join", DANA);
   await groupHook(page, "remote", "select", 5, 2);
-  await expect(cursor(page)).toHaveCount(1);
-  await expect(bar(page)).toBeHidden();
+  await settled(page);
+  // with the preference off and nobody followed, no cursor is drawn on the page
+  await expect(cursor(page)).toHaveCount(0);
+  // turning it back on draws the cursor that had been held back, and turning it off hides it again
+  await viewItem(page, /^Show other people's cursors/);
+  await expect(bar(page)).toBeVisible();
+  await viewItem(page, /^Show other people's cursors/);
+  await expect(cursor(page)).toHaveCount(0);
 });
 
 test("another writer's caret stays drawn while their changes arrive", async ({
@@ -346,9 +352,7 @@ async function editFarAbove(
   };
 }
 
-test("the same in a 2,000-page script, where the sections above are not rendered", async ({
-  page,
-}) => {
+test("the same in a 2,000-page script", async ({ page }) => {
   test.setTimeout(300_000);
   const { before, after } = await editFarAbove(page);
   expect({
