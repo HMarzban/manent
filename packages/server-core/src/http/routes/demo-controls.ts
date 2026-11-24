@@ -1,7 +1,8 @@
 // The demo bar's controls on the server: simulated writers, the Tour's preparations and Reorganise.
-import { WRITER_PLACEMENTS, isDocId } from "@manent/sync-protocol";
+import { DOC_ROLES, WRITER_PLACEMENTS, isDocId } from "@manent/sync-protocol";
 import type {
   DemoControls,
+  DocRole,
   RebuildResponse,
   WritersRequest,
 } from "@manent/sync-protocol";
@@ -12,6 +13,8 @@ import type { Route, RouteContext } from "../route.ts";
 import { isObject, readRequest } from "./docs.ts";
 
 const WRITER_COUNTS: readonly WritersRequest["count"][] = [0, 1, 5, 20];
+/** The roles that may change what runs in a script. */
+const EDITING: readonly DocRole[] = ["owner", "edit"];
 
 type Called =
   | { ok: true; userId: string; body: unknown; controls: DemoControls }
@@ -30,11 +33,12 @@ async function readCall(context: RouteContext): Promise<Called> {
   return { ok: true, userId: read.userId, body: read.body, controls };
 }
 
-/** 403 unless the caller can edit `docId`; 429 while its home is still being seeded. */
-function refuseEditing(
+/** 403 unless the caller holds one of `roles` on `docId`; 429 while its home is still being seeded. */
+function refuseUnless(
   context: RouteContext,
   userId: string,
   docId: string,
+  roles: readonly DocRole[],
 ): Response | null {
   const { config } = context;
   if (config.sync === null) return failure("not_found", 404);
@@ -49,7 +53,9 @@ function refuseEditing(
   });
   const resolved = access.resolve(userId, docId);
   const role = resolved.ok ? resolved.access.role : null;
-  return role === "owner" || role === "edit" ? null : failure("forbidden", 403);
+  return role !== null && roles.includes(role)
+    ? null
+    : failure("forbidden", 403);
 }
 
 function readWriters(body: unknown): WritersRequest | null {
@@ -71,7 +77,12 @@ export const DEMO_CONTROL_ROUTES: Route[] = [
       if (!call.ok) return call.response;
       const request = readWriters(call.body);
       if (request === null) return failure("bad_request", 400);
-      const refused = refuseEditing(context, call.userId, request.docId);
+      const refused = refuseUnless(
+        context,
+        call.userId,
+        request.docId,
+        EDITING,
+      );
       if (refused !== null) return refused;
       return json(await call.controls.writers(call.userId, request));
     },
@@ -85,7 +96,8 @@ export const DEMO_CONTROL_ROUTES: Route[] = [
       const { body } = call;
       if (!isObject(body) || !isDocId(body.docId))
         return failure("bad_request", 400);
-      const refused = refuseEditing(context, call.userId, body.docId);
+      // anyone who may read the script is told who types in it
+      const refused = refuseUnless(context, call.userId, body.docId, DOC_ROLES);
       if (refused !== null) return refused;
       return json(await call.controls.runningWriters(call.userId, body.docId));
     },
@@ -112,7 +124,7 @@ export const DEMO_CONTROL_ROUTES: Route[] = [
       const { body } = call;
       if (!isObject(body) || !isDocId(body.docId))
         return failure("bad_request", 400);
-      const refused = refuseEditing(context, call.userId, body.docId);
+      const refused = refuseUnless(context, call.userId, body.docId, EDITING);
       if (refused !== null) return refused;
       await call.controls.rebuild(call.userId, body.docId);
       return json<RebuildResponse>({ requested: true });
