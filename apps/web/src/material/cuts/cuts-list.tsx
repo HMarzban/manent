@@ -17,6 +17,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -25,7 +26,6 @@ import { liveEditor } from "../../editor-host/live-editor.ts";
 import { panelRenderers } from "../../screens/document/panel-surface.tsx";
 import { OutlineContext } from "../../state/bridge-contexts.ts";
 import { useMaterialCuts } from "../../state/material.store.ts";
-import type { OutlineRow } from "../../state/outline.store.ts";
 import {
   blockText,
   cutFirstLine,
@@ -33,20 +33,27 @@ import {
   headingsMap,
 } from "./script-cuts.ts";
 
+interface SceneHeadingRow {
+  blockId: string;
+  kind: string;
+  heading: string;
+}
+
 const READY = Object.freeze({ kind: "ready" });
 const EMPTY = Object.freeze({ kind: "empty" });
 const NO_BLOCKS: readonly BlockJSON[] = Object.freeze([]);
-const NO_ROWS: readonly OutlineRow[] = Object.freeze([]);
+const NO_ROWS: readonly SceneHeadingRow[] = Object.freeze([]);
 
-function useOutlineRows(): readonly OutlineRow[] {
+function useOutlineRows(): readonly SceneHeadingRow[] {
   const outline = useContext(OutlineContext);
   const subscribe = useCallback(
     (listener: () => void) => outline?.subscribe(listener) ?? (() => {}),
     [outline],
   );
-  const read = (): string => {
-    if (outline === null) return "[]";
-    const rows: { blockId: string; kind: string; heading: string }[] = [];
+  const cached = useRef<readonly SceneHeadingRow[]>(NO_ROWS);
+  const read = (): readonly SceneHeadingRow[] => {
+    if (outline === null) return NO_ROWS;
+    const rows: SceneHeadingRow[] = [];
     for (let i = 0; i < outline.count(); i++) {
       const row = outline.row(i);
       if (row !== null && row.kind === "scene")
@@ -56,13 +63,19 @@ function useOutlineRows(): readonly OutlineRow[] {
           heading: row.heading,
         });
     }
-    return JSON.stringify(rows);
+    const before = cached.current;
+    if (
+      before.length !== rows.length ||
+      before.some(
+        (row, at) =>
+          row.blockId !== rows[at]?.blockId ||
+          row.heading !== rows[at]?.heading,
+      )
+    )
+      cached.current = rows;
+    return cached.current;
   };
-  const serialized = useSyncExternalStore(subscribe, read, read);
-  return useMemo(() => {
-    const parsed: unknown = JSON.parse(serialized);
-    return Array.isArray(parsed) ? parsed : NO_ROWS;
-  }, [serialized]);
+  return useSyncExternalStore(subscribe, read, read);
 }
 
 function metaOf(sceneHeading: string | null, count: number): string {
@@ -169,7 +182,7 @@ export function CutsList(props: { docId: string }): ReactNode {
                   if (row === undefined) return null;
                   return (
                     <Row
-                      meta={row.meta}
+                      meta={<span title={row.meta}>{row.meta}</span>}
                       trailing={[
                         <Button
                           key="restore"

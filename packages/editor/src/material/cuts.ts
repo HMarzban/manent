@@ -5,8 +5,9 @@ import type { EditorView } from "prosemirror-view";
 
 function isBlockTouched(node: Node, pos: number, state: EditorState): boolean {
   const { from, to, $from, $to } = state.selection;
-  if ($from.parent === node || $to.parent === node) return true;
-  if (node.content.size === 0) return from <= pos && to >= pos + node.nodeSize;
+  if ($from.parent === node && $to.parent === node) return true;
+  if (node.content.size === 0)
+    return $from.parent === node || (from <= pos && to >= pos + node.nodeSize);
   const contentFrom = pos + 1;
   const contentTo = contentFrom + node.content.size;
   return Math.min(to, contentTo) > Math.max(from, contentFrom);
