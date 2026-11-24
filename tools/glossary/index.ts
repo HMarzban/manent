@@ -115,6 +115,7 @@ export const BANNED_WORD_EXCEPTION: readonly string[] = Object.freeze([
   "No acts: scenes run straight through.",
   "+1 viewer",
   "1 viewer",
+  "{raw} isn't a duration — write minutes and two-digit seconds, as 2:07.",
 ]);
 
 /** The four sentences allowed to say "not sent", for changes that will never reach the server; `{…}` is any value. */
