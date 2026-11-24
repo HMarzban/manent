@@ -501,7 +501,10 @@ test("every element command names its key in the element picker", () => {
 test("every command is well formed and reachable", () => {
   for (const c of COMMANDS) {
     // a generated setting command carries its value, and stored values are snake_case
-    expect({ id: c.id, ok: /^[a-z]+(\.[a-zA-Z0-9_]+)+$/.test(c.id) }).toEqual({
+    expect({
+      id: c.id,
+      ok: /^[a-z][a-zA-Z]*(\.[a-zA-Z0-9_]+)+$/.test(c.id),
+    }).toEqual({
       id: c.id,
       ok: true,
     });
@@ -941,6 +944,8 @@ test("the handler table names every command but the generated ones", () => {
     "comment.onScript": noop,
     "note.add": noop,
     "outline.startScript": noop,
+    "roomLog.link": noop,
+    "roomLog.unlink": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))

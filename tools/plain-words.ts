@@ -42,5 +42,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   against, counted, email, nobody, sending, watermarked,
   addressed, declined, flagged, mention, reason, renamed, reopen, reopened, reply, resolve, select, why,
   brought, footnotes, pictures, unpacks,
-  prose
+  prose,
+  future, joke, landed, linked, showrunner, tagged
 `);
