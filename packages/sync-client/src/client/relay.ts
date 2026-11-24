@@ -134,7 +134,7 @@ class Relay implements RelayHandle {
     return this.backend.deviceVersions();
   }
 
-  lastServerSeq(): number {
+  lastServerSeq(): number | null {
     return this.backend.lastServerSeq();
   }
 
