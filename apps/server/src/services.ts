@@ -34,6 +34,8 @@ export interface ServiceDeps {
   names: (userId: string) => string;
   renderPdf: RenderPdf;
   rules: SettingRules;
+  /** The settings of the project that holds `docId`, null for none; absent, no document has any. */
+  projectSettings?: (docId: string) => Readonly<Record<string, unknown>> | null;
 }
 
 /** What a service adds to the server. */

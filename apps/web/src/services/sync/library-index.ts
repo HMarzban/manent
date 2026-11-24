@@ -375,6 +375,7 @@ export function createSyncLibrary(options: LibraryOptions): SyncLibrary {
     documentTitle: values.title,
     documentKind: values.kind,
     docKindOf: values.docKind,
+    documentProject: values.project,
     renameDocument(docId, title) {
       const found = shelves.find(docId);
       if (found === null) return;

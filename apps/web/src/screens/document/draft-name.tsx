@@ -1,9 +1,40 @@
 // A draft's name: the one Name this draft… offers, and the field it is typed in.
 import { HISTORY_WORDS, Input } from "@manent/ui";
-import { useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { HistoryRow } from "../../history/history-rows.ts";
-import { proposeDraftName } from "../../project/ladder.ts";
+import { ladderInUse, proposeDraftName } from "../../project/ladder.ts";
+import { useServices } from "../../services/context.tsx";
+
+const NO_LADDER: readonly string[] = Object.freeze([]);
+const NO_SUBSCRIBE = (): (() => void) => () => {};
+
+/** Subscribes to the draft ladder active for `docId`. */
+export function useDraftLadder(docId: string | undefined): readonly string[] {
+  const { openScriptStore } = useServices();
+  const store = docId === undefined ? null : openScriptStore(docId);
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      if (store === null) return NO_SUBSCRIBE();
+      const stopLadder = store.subscribe("project.ladder", listener);
+      const stopTemplate = store.subscribe("project.template", listener);
+      return () => {
+        stopLadder();
+        stopTemplate();
+      };
+    },
+    [store],
+  );
+  return useSyncExternalStore(subscribe, () =>
+    store === null ? NO_LADDER : ladderInUse(store),
+  );
+}
 
 /** The name Name this draft… offers after the script's drafts among `rows`, on the draft ladder `ladder` (none unless given). */
 export function nextDraftName(
@@ -11,7 +42,9 @@ export function nextDraftName(
   ladder: readonly string[] = [],
 ): string {
   const names = rows.flatMap(({ item }) =>
-    item.kind === "named" && item.name !== null ? [item.name] : [],
+    (item.kind === "named" || item.kind === "sent") && item.name !== null
+      ? [item.name]
+      : [],
   );
   return proposeDraftName(names, ladder);
 }

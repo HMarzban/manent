@@ -36,6 +36,7 @@ import { keepPlace } from "./keep-place.ts";
 import { placeholderMount } from "./placeholder-mount.ts";
 import { takeFocus } from "./take-focus.ts";
 import { titlePageSource } from "./title-page-port.ts";
+import { trackHolds } from "./track-holds.ts";
 import { countSteps } from "./undo-depth.ts";
 
 // page-frame.ts loads apart from the editor: importing this selector from it would push the editor's first load
@@ -95,6 +96,7 @@ interface Shown {
   edit: boolean;
   readOnly: boolean;
   reflow: boolean;
+  bare: boolean;
 }
 
 interface Built {
@@ -104,50 +106,6 @@ interface Built {
 }
 
 const noop = (): void => {};
-
-/** The session as the binding sees it, counting the binding's holds; `whenReleased` runs once none is left, after the release returns, unless cancelled first. */
-function trackHolds(
-  session: EditorSession,
-  timers: Timers,
-): { document: BoundDocument; whenReleased(run: () => void): () => void } {
-  let holds = 0;
-  let waiting: (() => void) | null = null;
-  let cancel = noop;
-  return {
-    document: {
-      doc: () => session.doc(),
-      holdRemote() {
-        holds++;
-        session.holdRemote();
-      },
-      releaseRemote() {
-        holds--;
-        session.releaseRemote();
-        const run = waiting;
-        if (holds > 0 || run === null) return;
-        waiting = null;
-        // the release may come from inside the view's update, which must finish first
-        cancel = timers.schedule(() => {
-          cancel = noop;
-          run();
-        }, 0);
-      },
-      sendAwareness: (update) => session.sendAwareness(update),
-      onAwareness: (listener) => session.onAwareness(listener),
-    },
-    whenReleased(run) {
-      if (holds === 0) {
-        run();
-        return noop;
-      }
-      waiting = run;
-      return () => {
-        waiting = null;
-        cancel();
-      };
-    },
-  };
-}
 
 const shownOnly = (binding: EditorBinding) => ({
   binding,
@@ -160,7 +118,7 @@ const shownOnly = (binding: EditorBinding) => ({
 function bindingFor(
   session: EditorSession,
   document: BoundDocument,
-  options: { timers: Timers; edit: boolean },
+  options: { timers: Timers; edit: boolean; bare: boolean },
 ): {
   binding: EditorBinding;
   editable: boolean;
@@ -175,9 +133,12 @@ function bindingFor(
     undoRoots: UNDO_ROOTS,
   });
   if (!bound.ok) return shownOnly(staticBinding(bound.doc));
+  const presence = options.bare
+    ? { ...bound.binding.presence, publish: noop }
+    : bound.binding.presence;
   return {
-    binding: bound.binding,
-    editable: options.edit,
+    binding: options.bare ? { ...bound.binding, presence } : bound.binding,
+    editable: !options.bare && options.edit,
     titlePage: titlePageSource(document.doc()),
     destroy: bound.destroy,
   };
@@ -209,6 +170,7 @@ function connectEditor(
     scaffold: editor.scaffold,
     presence: built.binding.presence,
     editable: built.editable,
+    setEditable: (next) => editor.setEditable(next),
     zoom: () => (editor.zoomPercent() ?? 100) / 100,
     frontPages: () => editor.frontPages(),
   });
@@ -228,6 +190,7 @@ function buildEditor(
   const bound = bindingFor(open.session, open.document, {
     timers: options.timers,
     edit: open.shown.edit,
+    bare: open.shown.bare,
   });
   const counted =
     options.observe === undefined ? null : countSteps(bound.binding.history);
@@ -285,7 +248,8 @@ const differs = (a: Shown, b: Shown): boolean =>
   a.ink !== b.ink ||
   a.edit !== b.edit ||
   a.readOnly !== b.readOnly ||
-  a.reflow !== b.reflow;
+  a.reflow !== b.reflow ||
+  a.bare !== b.bare;
 
 /**
  * Opens the document's session and editor, and builds the editor again at the person's place when the format changes to
@@ -304,11 +268,13 @@ function openDocument(
   const { status } = person.documents.open(docId);
   const format = (): FormatId => script.get("script.format");
   const holds = trackHolds(session, options.timers);
+  const bare = ports.bare === true;
   const shownNow = (): Shown => ({
     ink: format() === "ink",
-    edit: status.get().access === "edit",
+    edit: !bare && status.get().access === "edit",
     readOnly: session.readOnly.get() !== null,
     reflow: layoutViewActions.get() === "reflow",
+    bare,
   });
   const opened = {
     ports,
@@ -329,7 +295,12 @@ function openDocument(
     panelsActions.openScenesUnchosen();
   };
   showScenes();
-  const kept = keepPlace(person.place, docId, () => built.editor);
+  const kept = keepPlace(
+    person.place,
+    docId,
+    () => built.editor,
+    ports.restorePlace !== false,
+  );
   let pending = noop;
   const rebuild = (): void => {
     pending();

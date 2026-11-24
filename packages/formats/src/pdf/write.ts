@@ -17,7 +17,12 @@ import type {
 } from "@manent/pagination";
 import PDFDocument from "pdfkit";
 import type { ScriptFontFiles } from "./fonts.ts";
-import type { FurnitureLine, PdfRevision } from "./furniture/pdf-furniture.ts";
+import type {
+  FurnitureLine,
+  PdfDateFormat,
+  PdfHeaderSlots,
+  PdfRevision,
+} from "./furniture/pdf-furniture.ts";
 import { PDF_FURNITURE } from "./furniture/registry.ts";
 
 export interface PdfOptions {
@@ -31,6 +36,13 @@ export interface PdfOptions {
   readonly title?: string;
   /** A revision's furniture for a page; null for a plain page. */
   readonly decor?: (pageIndex: number) => PdfRevision | null;
+  readonly watermark?: string | null;
+  readonly header?: PdfHeaderSlots | null;
+  readonly footer?: PdfHeaderSlots | null;
+  readonly dateFormat?: PdfDateFormat | null;
+  readonly section?: string | null;
+  readonly revisionLabel?: string | null;
+  readonly day?: string | null;
 }
 
 const FONT_SIZE_PT = 12;
@@ -214,13 +226,13 @@ function drawPage(
       profile,
       title: options.title ?? null,
       revision,
-      watermark: null,
-      header: null,
-      footer: null,
-      dateFormat: null,
-      section: null,
-      revisionLabel: null,
-      day: null,
+      watermark: options.watermark ?? null,
+      header: options.header ?? null,
+      footer: options.footer ?? null,
+      dateFormat: options.dateFormat ?? null,
+      section: options.section ?? null,
+      revisionLabel: options.revisionLabel ?? null,
+      day: options.day ?? null,
     }),
   );
   const replaced = new Set(PDF_FURNITURE.flatMap((entry) => entry.replaces));

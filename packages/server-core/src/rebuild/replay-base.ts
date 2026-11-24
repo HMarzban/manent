@@ -1,8 +1,11 @@
 // What a device's waiting edits rest on, and what they make of it: both read from a closed generation.
 import {
+  ALTERNATES_MAP,
+  CUTS_MAP,
   CrdtUpdateError,
   ORIGIN_LOAD,
   ORIGIN_REPLAY,
+  SCENE_PROGRESS_MAP,
   TITLE_PAGE_MAP,
   applyRemote,
   createDoc,
@@ -24,12 +27,20 @@ import type { DocFile } from "@manent/storage";
 import { isDocKind } from "@manent/sync-protocol";
 import type { DocKind } from "@manent/sync-protocol";
 import { validatePush } from "../sync/validate.ts";
+import { changedScriptMaps } from "./replay-maps.ts";
+import type { ReplayMapChanges } from "./replay-maps.ts";
 
 /** The verified rows of a generation after `seq`, by sequence. */
 type Rows = ReadonlyMap<number, Uint8Array>;
 
-/** What a person marked or cleared as revised while offline, and the title page. */
-const SCRIPT_MAPS: readonly string[] = ["revisedOverrides", TITLE_PAGE_MAP];
+/** What a person marked or cleared as revised while offline, the title page, and writers' material / scene progress. */
+const SCRIPT_MAPS: readonly string[] = [
+  "revisedOverrides",
+  TITLE_PAGE_MAP,
+  ALTERNATES_MAP,
+  CUTS_MAP,
+  SCENE_PROGRESS_MAP,
+];
 
 /** The root maps a replay may write, by document kind; a kind without a line writes a script's. */
 const REPLAYED_MAPS: Readonly<Partial<Record<DocKind, readonly string[]>>> =
@@ -208,8 +219,9 @@ function changedTitlePage(
  * own text the rows base moved on by removed from mine unseen; unseen: own text mine still holds
  * that the generation's later rows removed unseen. typed: by block, mine's text and which of its
  * characters the updates wrote. overrides: mine's revisedOverrides entries that differ from base's.
- * titlePage: mine's fields that differ from base's. invalid: an update is not one, writes a root
- * map other than revisedOverrides and titlePage, or leaves a block validation refuses; incomplete:
+ * titlePage: mine's fields that differ from base's. maps: mine's alternates, cuts and sceneProgress
+ * entries that differ from base's. invalid: an update is not one, writes a root map other than the
+ * replayed maps, writes an invalid map entry, or leaves a block validation refuses; incomplete:
  * the updates still wait at the generation's last row, or a row they need does not verify.
  * RangeError for a generation that is not closed.
  */
@@ -230,6 +242,7 @@ export function replayBase(
       typed: Map<string, TypedText>;
       overrides: [string, string | null][];
       titlePage: [TitlePageField, string][];
+      maps: ReplayMapChanges;
     }
   | { ok: false; code: "incomplete" | "invalid" } {
   const frozen = file.generations.get(docId, generation);
@@ -255,6 +268,8 @@ export function replayBase(
     const own = ownClientIds;
     const later = catchUp(base, mine, rows, { seq: acked, finalSeq, own });
     if (later === "incomplete") return { ok: false, code: "incomplete" };
+    const mapChanges = changedScriptMaps(base, mine);
+    if (mapChanges === "invalid") return { ok: false, code: "invalid" };
     const rest = tail.rows
       .filter((row) => row.seq > acked && row.origin !== "heal")
       .map((row) => row.update);
@@ -268,6 +283,7 @@ export function replayBase(
       typed: findTyped(mine, sinceOf(updates, base)),
       overrides: changedOverrides(base, mine),
       titlePage: changedTitlePage(base, mine),
+      maps: mapChanges,
     };
   } finally {
     base.destroy();

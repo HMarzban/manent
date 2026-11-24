@@ -3,8 +3,11 @@ import { act } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
+import { createRef } from "react";
 import { afterEach, expect, test } from "bun:test";
-import { Row, VirtualRows } from "../src/index.ts";
+import { Row, SortableLists, VirtualRows } from "../src/index.ts";
+import type { SortableListsHandle } from "../src/index.ts";
+import { SortableArea } from "../src/components/sortable/sortable-area.tsx";
 
 withDom();
 
@@ -178,4 +181,89 @@ test("Home after End moves focus back to the first row of a long list", () => {
   press(document.activeElement ?? el, "End");
   press(document.activeElement ?? el, "Home");
   expect(focusedPlace()).toBe("1");
+});
+
+test("VirtualRows honours custom rangeExtractor when virtualized", () => {
+  const seen: number[] = [];
+  const { el } = render(
+    <VirtualRows
+      count={150}
+      rowHeight="one"
+      label="Scenes"
+      rangeExtractor={() => [0, 42]}
+      renderRow={(i) => {
+        seen.push(i);
+        return <Row onActivate={() => {}}>{`Scene ${i + 1}`}</Row>;
+      }}
+    />,
+  );
+  expect([
+    [...new Set(seen)],
+    el.textContent?.includes("Scene 1"),
+    el.textContent?.includes("Scene 43"),
+  ]).toEqual([[0, 42], true, true]);
+});
+
+test("SortableLists exposes label and move handle, and SortableArea keeps Escape flowing outside keyboard drag", () => {
+  const moves: [string, string, number][] = [];
+  const handle = createRef<SortableListsHandle>();
+  const { el } = render(
+    <SortableLists
+      ref={handle}
+      label="Beat columns"
+      lists={[
+        {
+          id: "act-1",
+          label: "Act I",
+          items: [
+            { id: "c1", label: "Card 1" },
+            { id: "c2", label: "Card 2" },
+          ],
+        },
+        { id: "act-2", label: "Act II", items: [] },
+      ]}
+      onMove={(itemId, toListId, toIndex) =>
+        moves.push([itemId, toListId, toIndex])
+      }
+      renderItem={(id) => <span>{id}</span>}
+    />,
+  );
+  act(() => handle.current?.move("c1", "act-2", 5));
+  const lists = [...el.querySelectorAll('[role="list"]')].map((node) =>
+    node.getAttribute("aria-label"),
+  );
+  let escaped = 0;
+  const host = document.createElement("div");
+  host.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") escaped++;
+  });
+  document.body.append(host);
+  const root = createRoot(host);
+  roots.push(root);
+  act(() =>
+    root.render(
+      <SortableArea lists={[]} onDrop={() => {}}>
+        <button type="button">Card</button>
+      </SortableArea>,
+    ),
+  );
+  const button = host.querySelector("button")!;
+  act(() => {
+    button.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+  });
+  expect([
+    el.getAttribute("aria-label"),
+    lists,
+    moves,
+    el.querySelector('[role="status"]')?.textContent ?? "",
+    escaped,
+  ]).toEqual([
+    "Beat columns",
+    ["Act I", "Act II"],
+    [["c1", "act-2", 0]],
+    "Moved Card 1 to position 1 of 1.",
+    1,
+  ]);
 });

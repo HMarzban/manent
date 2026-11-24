@@ -237,3 +237,29 @@ test("text a restore sent on to the cloud wrote, which an offline writer removes
     "The lamp burns.",
   ]);
 });
+
+test("relayControl delivers relayed cloud CONTROL kinds (12-17) to subscribed document windows", async () => {
+  const w = nodeWorld();
+  const token = await w.chooses("you");
+  await w.open("you", DOC, true);
+  w.windowTypes("you", DOC, "first scene");
+  await w.settle();
+  await w.request("POST", "/api/local/sign-in-to-sync", { token });
+  await w.settle();
+  const handle = await w.browserHandle("you", DOC);
+  const controls: { kind: string; text: string }[] = [];
+  handle.on((event) => {
+    if (event.type === "control")
+      controls.push({
+        kind: event.kind,
+        text: new TextDecoder().decode(event.data),
+      });
+  });
+  w.cloud.service.broadcast(
+    DOC,
+    "driver_changed",
+    new TextEncoder().encode('{"docId":"' + DOC + '","driver":null,"at":1000}'),
+  );
+  await w.settle();
+  expect(controls.some((c) => c.kind === "driver_changed")).toBe(true);
+});

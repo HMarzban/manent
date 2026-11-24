@@ -71,6 +71,7 @@ export function createSyncService(
   const access = createDocumentAccess({
     storage: options.storage,
     versions: options.versions,
+    draftReaders: options.draftReaders,
   });
   const caps = createConnectionCaps(limits);
   const presence = createAwarenessHub({ clock, limits });

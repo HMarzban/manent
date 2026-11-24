@@ -1,9 +1,16 @@
 // The upstream transport in Bun: a one-use ticket for the person's cloud session, then a socket to the
 // cloud that names the cloud's own origin, as the cloud's web app does.
 import { ConnectError } from "@manent/sync-client";
-import type { Connection, Transport } from "@manent/sync-client";
+import type {
+  Connection,
+  DriverCurrentOutcome,
+  DriverReleaseOutcome,
+  DriverTakeOutcome,
+  Transport,
+} from "@manent/sync-client";
 import { REPLAY_REFUSALS, encodeReplayUpdates } from "@manent/sync-protocol";
 import type {
+  Identity,
   ReplayOverlap,
   ReplayRefusal,
   ReplayResponse,
@@ -90,6 +97,20 @@ function openSocket(
   });
 }
 
+function isIdentity(value: unknown): value is Identity {
+  return (
+    isFields(value) &&
+    typeof value.userId === "string" &&
+    typeof value.name === "string"
+  );
+}
+
+function readDriver(value: unknown): { driver: Identity | null } | null {
+  if (!isFields(value)) return null;
+  if (value.driver === null) return { driver: null };
+  return isIdentity(value.driver) ? { driver: value.driver } : null;
+}
+
 /** `token` is the person's cloud session, null while they have none: then nothing is asked of the cloud. */
 export function bunTransport(options: {
   baseUrl: string;
@@ -147,6 +168,56 @@ export function bunTransport(options: {
       const code = errorCodeOf(content);
       if (isReplayRefusal(code)) return { ok: false, code };
       throw refusal(answer.status);
+    },
+    driver: {
+      async current(docId): Promise<DriverCurrentOutcome> {
+        const token = session();
+        const url = `${baseUrl}/api/driver/current?docId=${encodeURIComponent(docId)}`;
+        const answer = await call(fetch, url, { method: "GET", token });
+        if (answer.status === 403) return { ok: false, code: "forbidden" };
+        if (answer.status === 410) return { ok: false, code: "deleted" };
+        if (answer.status !== 200) throw refusal(answer.status);
+        const parsed = readDriver(await readBody(answer));
+        if (parsed === null) throw new ConnectError("unreachable");
+        return { ok: true, driver: parsed.driver };
+      },
+      async take(body): Promise<DriverTakeOutcome> {
+        const token = session();
+        const url = `${baseUrl}/api/driver/take`;
+        const answer = await call(fetch, url, { method: "POST", token, body });
+        if (answer.status === 403) return { ok: false, code: "forbidden" };
+        if (answer.status === 410) return { ok: false, code: "deleted" };
+        const content = await readBody(answer);
+        if (answer.status === 200) {
+          const parsed = readDriver(content);
+          if (parsed === null) throw new ConnectError("unreachable");
+          return { ok: true, driver: parsed.driver };
+        }
+        if (
+          answer.status === 409 &&
+          isFields(content) &&
+          content.error === "driver_taken" &&
+          isIdentity(content.driver)
+        )
+          return { ok: false, code: "driver_taken", driver: content.driver };
+        throw refusal(answer.status);
+      },
+      async release(body): Promise<DriverReleaseOutcome> {
+        const token = session();
+        const url = `${baseUrl}/api/driver/release`;
+        const answer = await call(fetch, url, { method: "POST", token, body });
+        if (answer.status === 403) return { ok: false, code: "forbidden" };
+        if (answer.status === 410) return { ok: false, code: "deleted" };
+        const content = await readBody(answer);
+        if (answer.status === 200) {
+          const parsed = readDriver(content);
+          if (parsed === null) throw new ConnectError("unreachable");
+          return { ok: true, driver: parsed.driver };
+        }
+        if (answer.status === 409 && errorCodeOf(content) === "not_driver")
+          return { ok: false, code: "not_driver" };
+        throw refusal(answer.status);
+      },
     },
   };
 }

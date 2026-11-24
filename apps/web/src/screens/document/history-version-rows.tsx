@@ -28,7 +28,7 @@ import { initialsOf } from "../../initials.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { fullNameOf, nameOf } from "../../services/sync/index-entries.ts";
 import { historyActions, useHistory } from "../../state/history.store.ts";
-import { NameField, nextDraftName } from "./draft-name.tsx";
+import { NameField, nextDraftName, useDraftLadder } from "./draft-name.tsx";
 import { HistoryRowMenu } from "./history-row-menu.tsx";
 import { valueLabel } from "./setting-messages.ts";
 
@@ -60,7 +60,7 @@ function itemsOf(
 ): Item[] {
   if (draftsOnly)
     return rows
-      .filter((row) => row.item.kind === "named")
+      .filter((row) => row.item.kind === "named" || row.item.kind === "sent")
       .toReversed()
       .map((row): Item => ({ kind: "version", row }));
   const dated = [
@@ -129,7 +129,7 @@ function metaOf(docId: string, row: HistoryRow): string | null {
     if (line !== null) return line;
   }
   const { item } = row;
-  if (item.kind === "named")
+  if (item.kind === "named" || item.kind === "sent")
     return HISTORY_WORDS.namedBy(nameOf(item.createdByUserId), row.time);
   return item.summary === null || item.summary.changes === 0
     ? null
@@ -151,7 +151,7 @@ function VersionRow(props: {
   const meta = metaOf(docId, row);
   const authors = row.item.summary?.authorUserIds ?? [];
   const selected = useHistory("selected") === row.item.id;
-  const named = row.item.kind === "named";
+  const named = row.item.kind === "named" || row.item.kind === "sent";
   // Enter opens the version as it was; a click shows its changes the way Show says
   const onKeyDownCapture = (event: KeyboardEvent): void => {
     if (
@@ -249,11 +249,13 @@ export function useDraftNaming(docId: string): DraftNaming {
  * can offer the next draft's name; and the draft named and not yet answered.
  */
 export function WorkingRow(props: {
+  docId?: string;
   rows: readonly HistoryRow[];
   answered: boolean;
   draft: DraftNaming;
 }): ReactNode {
-  const { rows, draft } = props;
+  const { docId, rows, draft } = props;
+  const ladder = useDraftLadder(docId);
   const naming = useHistory("naming");
   const selected = useHistory("selected");
   const { pending } = draft;
@@ -268,7 +270,7 @@ export function WorkingRow(props: {
       </Row>
       {naming && draft.target === null && props.answered ? (
         <NameField
-          initial={nextDraftName(rows)}
+          initial={nextDraftName(rows, ladder)}
           onName={(name) => draft.name(name, null)}
           onCancel={() => historyActions.setNaming(false)}
         />
@@ -334,6 +336,7 @@ export function VersionRows(props: {
   onShow(row: HistoryRow): void;
 }): ReactNode {
   const { docId, rows, draft } = props;
+  const ladder = useDraftLadder(docId);
   const { now } = useEnvironment();
   const draftsOnly = useHistory("draftsOnly");
   const naming = useHistory("naming");
@@ -360,7 +363,7 @@ export function VersionRows(props: {
         offline={props.offline}
         naming={
           naming && draft.target === item.row.item.id
-            ? (item.row.item.name ?? nextDraftName(rows))
+            ? (item.row.item.name ?? nextDraftName(rows, ladder))
             : null
         }
         onName={() => draft.nameVersion(item.row.item.id)}

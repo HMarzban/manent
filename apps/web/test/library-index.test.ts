@@ -134,6 +134,10 @@ test("a script someone else edited since you opened it says so", async () => {
   const { dana, sam, world, settleAll } = await writersRoom();
   const made = await dana.library.createProject(MEDIUM, "film");
   dana.documents.open(made.docId);
+  const project = dana.library.documentProject(made.docId);
+  await until(() => project.get() === made.projectId);
+  expect(project.get()).toBe(made.projectId);
+  expect(dana.library.documentProject("unknown-doc").get()).toBeNull();
   await settleAll();
   await typeInto(dana, made.docId, "INT. ");
   await settleAll();
@@ -462,6 +466,10 @@ test("the Library writes each value of the indexes with its fields in their stor
   const at = w.world.clock.clock.now();
   const made = await dana.library.createProject(MEDIUM, "film");
   dana.documents.open(made.docId);
+  const project = dana.library.documentProject(made.docId);
+  await until(() => project.get() === made.projectId);
+  expect(project.get()).toBe(made.projectId);
+  expect(dana.library.documentProject("unknown-doc").get()).toBeNull();
   const workspace = await dana.sync.client.open(
     indexDocId("workspace", MEDIUM),
   );

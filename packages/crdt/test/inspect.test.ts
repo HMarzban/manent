@@ -8,9 +8,12 @@ import {
   ORIGIN_REMOTE,
   ORIGIN_REPLAY,
   applyInspecting,
+  createDoc,
+  jsonMap,
   loadDoc,
   mergeUpdates,
   observeScript,
+  readCommentsPush,
   scriptBody,
   scriptDocFromJSON,
   yXmlFragmentForBinding,
@@ -508,4 +511,15 @@ test("a block added to a long script is found without reading the script", () =>
   expect(report.inserted.map((i) => [i.block.attrs!.id, i.after])).toEqual([
     [ID_X, idOf(10_000)],
   ]);
+});
+
+test("readCommentsPush throws on an unkeyed write inside a comments map", () => {
+  const server = createDoc({ clientId: 1 });
+  jsonMap(server, "threads").set("seed", { ok: true });
+  const rogue = new Y.Doc({ gc: true });
+  rogue.clientID = 9;
+  rogue.getArray("threads").insert(0, ["unkeyed"]);
+  const report = applyInspecting(server, Y.encodeStateAsUpdate(rogue));
+  if (report === null) throw new RangeError("expected report");
+  expect(() => readCommentsPush(server, report)).toThrow(RangeError);
 });

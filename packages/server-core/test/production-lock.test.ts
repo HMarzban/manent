@@ -283,3 +283,13 @@ test("a script whose production has ended is refused a second lock, on the SQLit
   ]);
   w.storage.close();
 });
+
+test("locking honours projectSettings when script settings omit a layout setting", async () => {
+  const w = productionWorld(undefined, {
+    projectSettings: () => ({ "script.paper": "a4" }),
+  });
+  const outcome = await w.run(w.service.lock("priya", lockRequest(KEY1)));
+  expect(
+    outcome.ok && [outcome.value.locked, w.settings()["script.paper"]],
+  ).toEqual([true, "a4"]);
+});

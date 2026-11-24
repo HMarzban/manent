@@ -224,3 +224,62 @@ test("a replay reaches the server as the route would read it, and a cut network 
     unserved.network.transport("dana").replay(request),
   ).rejects.toMatchObject({ code: "unreachable" });
 });
+
+test("createDriverHandle forwards get, take and release to transport.driver", async () => {
+  const { createDriverHandle, createMemoryStore } =
+    await import("../src/index.ts");
+  const { network } = setup();
+  const baseTransport = network.transport("dana");
+  const driverCalls: unknown[] = [];
+  const ports = {
+    transport: {
+      ...baseTransport,
+      driver: {
+        async current(docId: string) {
+          driverCalls.push(["current", docId]);
+          return { ok: true as const, driver: null };
+        },
+        async take(req: {
+          docId: string;
+          expectedDriverUserId: string | null;
+        }) {
+          driverCalls.push(["take", req]);
+          return {
+            ok: true as const,
+            driver: { userId: "dana", name: "Dana" },
+          };
+        },
+        async release(req: { docId: string }) {
+          driverCalls.push(["release", req]);
+          return { ok: true as const, driver: null };
+        },
+      },
+    },
+    store: createMemoryStore("dana"),
+    leader: {
+      tabId: "t1",
+      campaign: () => () => {},
+      post: () => {},
+      listen: () => () => {},
+    },
+    clock: { now: () => 0, schedule: () => () => {} },
+    random: { next: () => 0, clientId: () => 1, bytes: () => new Uint8Array() },
+    frames: { request: () => () => {} },
+  };
+  const handle = createDriverHandle({
+    docId: "doc-1",
+    client: {} as never,
+    ports,
+  });
+  expect(await handle.get()).toEqual({ ok: true, driver: null });
+  expect(await handle.take(null)).toEqual({
+    ok: true,
+    driver: { userId: "dana", name: "Dana" },
+  });
+  expect(await handle.release()).toEqual({ ok: true, driver: null });
+  expect(driverCalls).toEqual([
+    ["current", "doc-1"],
+    ["take", { docId: "doc-1", expectedDriverUserId: null }],
+    ["release", { docId: "doc-1" }],
+  ]);
+});

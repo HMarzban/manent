@@ -9,6 +9,7 @@ export interface SortableEntry {
 export interface EntryList {
   id: string;
   items: readonly SortableEntry[];
+  label?: string;
 }
 
 /** An item's list and its index there, counted from 0. */

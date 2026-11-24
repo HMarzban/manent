@@ -261,7 +261,19 @@ export const validateCommentsPush: PushValidator = ({
   if (room.doc === null)
     return [...issues, refused("", `the room of ${room.docId} is not loaded`)];
   const pusher = { userId: peer.userId, editor: isWriterRole(access.role) };
-  for (const write of readCommentsPush(room.doc, report)) {
+  let writes: ReturnType<typeof readCommentsPush>;
+  try {
+    writes = readCommentsPush(room.doc, report);
+  } catch (error) {
+    return [
+      ...issues,
+      refused(
+        "",
+        error instanceof Error ? error.message : "invalid comments write",
+      ),
+    ];
+  }
+  for (const write of writes) {
     const message = REFUSALS[write.map](write, pusher);
     if (message !== null)
       issues.push(refused(`${write.map}.${write.key}`, message));

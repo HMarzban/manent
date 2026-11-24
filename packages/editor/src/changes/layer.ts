@@ -30,6 +30,25 @@ const NO_AUTHORS: ReadonlyMap<string, string> = new Map();
 
 /** The gap between the sheet's right edge and the gutter's markers. */
 const GUTTER_GAP_PX = 8;
+/** One `--marker` width (24 px) plus a 4 px gap between distinct gutter columns. */
+const GUTTER_COLUMN_PX = 28;
+
+/** Distinct horizontal gutter columns so changes initials, comment pins and room markers never overlap. */
+export const GUTTER_COLUMNS = Object.freeze({
+  changes: 0,
+  comments: 1,
+  people: 2,
+} as const);
+
+export type GutterColumn =
+  | (typeof GUTTER_COLUMNS)[number & never]
+  | (typeof GUTTER_COLUMNS)[keyof typeof GUTTER_COLUMNS];
+
+/** Unscaled left coordinate in px for `column` starting from `gutterPx`. */
+export const gutterColumnPx = (
+  gutterPx: number,
+  column: GutterColumn,
+): number => gutterPx + column * GUTTER_COLUMN_PX;
 
 /**
  * Where the marks of line `y` (in units, as PositionedLine.y) of page `pageIndex` go, in unscaled px from the

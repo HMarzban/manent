@@ -26,6 +26,7 @@ import { createNodeSignIn } from "../auth/node-sign-in.ts";
 import type { Person } from "../records/ports.ts";
 import { createRelayBridge } from "../relay/bridge.ts";
 import type { RelayBridge } from "../relay/bridge.ts";
+import { relayControl } from "../relay/control-relay.ts";
 import { nodeDocOf } from "../relay/follow.ts";
 import { createMirror, guardSubscribe } from "../relay/mirror.ts";
 import type { Editor } from "../relay/mirror.ts";
@@ -119,6 +120,12 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     handoffRefused: (docId) => records.handoff(docId)?.refused ?? null,
     onRefused: (docId, userId, data) =>
       control(docId, "upstream_refused", data, userId),
+    onControl: (docId, userId, received) =>
+      relayControl(
+        (watched?.editors() ?? []).filter((editor) => editor.userId === userId),
+        docId,
+        received,
+      ),
   });
   relay.onStatus(sendStatus);
   const ids = (): string => random.bytes(16).toHex();

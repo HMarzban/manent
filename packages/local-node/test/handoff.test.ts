@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { indexDocId, workspaceHome } from "@manent/sync-protocol";
+import {
+  commentsDocId,
+  indexDocId,
+  workspaceHome,
+} from "@manent/sync-protocol";
 import { DOC, DOC2, HOME, world } from "./relay-world.ts";
 import type { WorldOptions } from "./relay-world.ts";
 
@@ -196,4 +200,27 @@ test("documents of a kind the cloud does not take stay on the device", async () 
     w.records.handoff(DOC),
   ]).toEqual([0, null, null]);
   expect(w.clock.pending()).toBeLessThanOrEqual(pending);
+});
+
+test("a comments document made on the device is handed over with its scriptDocId", async () => {
+  const w = handoffWorld();
+  await w.windowWritesLine("you", DOC, "script line");
+  const cId = commentsDocId(DOC);
+  const home = { kind: "project" as const, id: HOME.slice("project:".length) };
+  w.nodeStorage.directory.place(cId, home, "comments", "you");
+  w.nodeStorage.open(home).log.create({
+    id: cId,
+    kind: "comments",
+    ownerUserId: null,
+    schemaVersion: 1,
+    engineVersion: null,
+  });
+  await w.signInToSync("you");
+  await w.settle();
+  expect(w.cloudHas(cId)).toBe(true);
+  expect(w.records.docState(cId)).toEqual({
+    userId: "you",
+    state: "synced",
+    generation: 1,
+  });
 });

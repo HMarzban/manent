@@ -5,7 +5,11 @@ import type { LayoutBlock } from "@manent/pagination";
 import { Plugin } from "prosemirror-state";
 import type { PluginView } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
-import { markPosition } from "../changes/layer.ts";
+import {
+  GUTTER_COLUMNS,
+  gutterColumnPx,
+  markPosition,
+} from "../changes/layer.ts";
 import {
   cursorsKey,
   isMoving,
@@ -123,10 +127,11 @@ function spotsOf(
       );
       if (line === undefined) continue;
       const at = markPosition(pagination.profile, k, line.y);
-      const key = `${at.topPx}:${at.gutterPx}`;
+      const left = gutterColumnPx(at.gutterPx, GUTTER_COLUMNS.people);
+      const key = `${at.topPx}:${left}`;
       const spot = spots.get(key);
       if (spot === undefined)
-        spots.set(key, { people: [cursor], top: at.topPx, left: at.gutterPx });
+        spots.set(key, { people: [cursor], top: at.topPx, left });
       else spot.people.push(cursor);
     }
   }

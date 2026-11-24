@@ -222,4 +222,31 @@ export type {
   PrivateCreateRequest,
   PrivateCreateResponse,
 } from "./private-copy.ts";
+export type {
+  DriverAnswer,
+  DriverChanged,
+  DriverReleaseRequest,
+  DriverTakeRequest,
+  DriverTakenResponse,
+} from "./driver.ts";
+export { SHARE_LINK_EXPIRIES_MS } from "./sharing.ts";
+export type {
+  ShareGrantGroupResponse,
+  ShareGrantRequest,
+  ShareGroup,
+  ShareGroupRequest,
+  ShareJoinRequest,
+  ShareJoinResponse,
+  ShareLink,
+  ShareLinkExpiryMs,
+  ShareLinkRequest,
+  ShareLinkResponse,
+  SharePeopleRequest,
+  SharePeopleResponse,
+  SharePerson,
+  ShareRemoveRequest,
+  ShareRevokeRequest,
+  ShareRole,
+} from "./sharing.ts";
+export * from "./drafts.ts";
 export { encodeViewerCount, parseViewerCount } from "./viewer-count.ts";

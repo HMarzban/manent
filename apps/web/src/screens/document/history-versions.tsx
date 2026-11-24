@@ -178,6 +178,7 @@ export function HistoryVersions(props: { docId: string }): ReactNode {
   const working =
     state.kind === "problem" || state.kind === "no_access" ? null : (
       <WorkingRow
+        docId={docId}
         rows={listed.rows}
         answered={listed.state.kind !== "loading"}
         draft={draft}

@@ -20,6 +20,7 @@ import { FRONT_CSS } from "./front-css.ts";
 
 export interface FrontPages {
   setProfile(profile: PageProfile): void;
+  setEditable(editable: boolean): void;
   /** Scrolls the title page into view and puts the caret at the end of its title. */
   show(): void;
   /** The pages as print and PDF draw them. */
@@ -93,18 +94,19 @@ interface Drawn {
   readonly sheets: HTMLElement[];
   readonly boxes: Map<TitlePageField, FieldBox>;
   profile: PageProfile;
+  editable: boolean;
   labels: string[];
 }
 
 function boxOf(drawn: Drawn, field: TitlePageField): FieldBox {
   const kept = drawn.boxes.get(field);
   if (kept !== undefined) return kept;
-  const { scaffold, titlePage, editable, keys } = drawn.options;
+  const { scaffold, titlePage, keys } = drawn.options;
   const box = createFieldBox({
     doc: scaffold.front.ownerDocument,
     field,
     word: titlePage.words[field],
-    editable,
+    editable: drawn.editable,
     write: (text) => titlePage.port.set(field, text),
     keys,
   });
@@ -194,6 +196,7 @@ export function createFrontPages(options: FrontPagesOptions): FrontPages {
     sheets: [],
     boxes: new Map(),
     profile: options.profile,
+    editable: options.editable,
     labels: [],
   };
   const style = scaffold.front.ownerDocument.createElement("style");
@@ -205,6 +208,10 @@ export function createFrontPages(options: FrontPagesOptions): FrontPages {
     setProfile(next) {
       drawn.profile = next;
       draw(drawn);
+    },
+    setEditable(next) {
+      drawn.editable = next;
+      for (const box of drawn.boxes.values()) box.setEditable(next);
     },
     show() {
       drawn.sheets[0]?.scrollIntoView({ block: "start" });

@@ -127,6 +127,7 @@ function countedTransport(transport: Transport): {
       },
       createDocument: (request) => transport.createDocument(request),
       replay: (request) => transport.replay(request),
+      ...(transport.driver === undefined ? {} : { driver: transport.driver }),
     },
   };
 }

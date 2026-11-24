@@ -12,7 +12,7 @@ import {
   createPageScaffold,
   detectEngine,
 } from "../page/scaffold.ts";
-import type { PageScaffold } from "../page/scaffold.ts";
+import type { PageFurnitureOptions, PageScaffold } from "../page/index.ts";
 import type { SectionOptions } from "../sections/commands.ts";
 import { edgeKeysPlugin } from "../sections/edge-keys.ts";
 import { keepPlugin } from "../sections/keep.ts";
@@ -102,6 +102,7 @@ export function mountPageView(
     readonly dispatchTransaction?: (view: EditorView, tr: Transaction) => void;
     readonly editable?: () => boolean;
     readonly spelling?: () => boolean;
+    readonly furniture?: PageFurnitureOptions;
   },
 ): { view: EditorView; scaffold: PageScaffold; destroy(): void } {
   const { ports, dispatchTransaction, spelling } = options;
@@ -111,6 +112,7 @@ export function mountPageView(
     profile: options.profile,
     engine,
     view: options.view,
+    furniture: options.furniture,
   });
   loadScriptFonts({
     fonts: ports.fonts,

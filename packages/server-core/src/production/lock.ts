@@ -51,7 +51,10 @@ export function lockMutation(
     check: (file) => lockRefusal(file, request),
     edit(doc, file) {
       const { engineVersion } = documentOf(file, docId);
-      const under = layoutUnder(scriptSettings(doc).entries(), engineVersion);
+      const stored = scriptSettings(doc).entries();
+      const project = options.projectSettings?.(docId) ?? null;
+      const effective = project === null ? stored : { ...project, ...stored };
+      const under = layoutUnder(effective, engineVersion);
       if (!under.ok) return under;
       const { engine, profile } = under;
       const flat = blocksOf(scriptBody(doc).materialize());
@@ -64,7 +67,7 @@ export function lockMutation(
         engineVersion: engine.version,
       };
       writeNumbers(doc, flat, numbers);
-      freezeSettings(doc, request, { userId, setAt: options.now() });
+      freezeSettings(doc, request, { userId, setAt: options.now() }, project);
       return { ok: true };
     },
     commit(file, _at, pos) {

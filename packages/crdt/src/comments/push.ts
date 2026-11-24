@@ -39,7 +39,7 @@ interface Place {
   inside: boolean;
 }
 
-/** The entry of `maps` whose value is `top`, a type held by a map; found once per type, then kept in `holders`. */
+/** The entry of `maps` whose value is `top`, a type held by a map; found once per type, then kept in `holders`. Throws when `top` sits directly inside a comments map without a key. */
 function holderOf(
   top: Y.AbstractType<unknown>,
   maps: Maps,
@@ -52,13 +52,15 @@ function holderOf(
     if (top.parent !== ymap) continue;
     // only a change that put a type into an entry, which is never JSON, makes this walk over the map
     const held = [...ymap.entries()].find(([, value]) => value === top);
-    if (held !== undefined) place = { map, key: held[0], inside: true };
+    if (held === undefined)
+      throw new RangeError(`unkeyed nested write in comments map ${map}`);
+    place = { map, key: held[0], inside: true };
   }
   holders.set(top, place);
   return place;
 }
 
-/** The place of `item`; null outside every entry. */
+/** The place of `item`; null outside every comments map. Throws on an unkeyed write inside a comments map. */
 function placeOf(
   item: Y.Item,
   maps: Maps,
@@ -67,10 +69,11 @@ function placeOf(
   const { parent } = item;
   if (!(parent instanceof Y.AbstractType)) return null;
   for (const [map, ymap] of maps)
-    if (parent === ymap)
-      return item.parentSub === null
-        ? null
-        : { map, key: item.parentSub, inside: false };
+    if (parent === ymap) {
+      if (item.parentSub === null)
+        throw new RangeError(`unkeyed write in comments map ${map}`);
+      return { map, key: item.parentSub, inside: false };
+    }
   let top = parent;
   while (top.parent !== null && top.parent.parent !== null) top = top.parent;
   return holderOf(top, maps, holders);

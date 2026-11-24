@@ -7,7 +7,6 @@ import {
 } from "@manent/ui";
 import type { ReactNode } from "react";
 import { useOpenDocument } from "../screens/document/open-document.ts";
-import { useCommandActions } from "../screens/document/status-bar.tsx";
 import { useEnvironment } from "../services/context.tsx";
 import type { DocumentServices } from "../services/ports.ts";
 import { BesideFrame } from "./beside-frame.tsx";
@@ -15,6 +14,10 @@ import { BESIDE_KINDS } from "./kinds.ts";
 import type { BesideKind } from "./kinds.ts";
 import { closeBeside } from "./open-beside.ts";
 import type { BesideOpen } from "./open-beside.ts";
+
+// Beside displays the document's state sentence without exposing action buttons that would target the main page's document.
+const NO_ACTION = (): boolean => false;
+const NO_RUN = (): void => {};
 
 /** The state bar of the document beside the page, then its body, or why it cannot be opened in its place. */
 function BesideContent(props: {
@@ -25,14 +28,18 @@ function BesideContent(props: {
   const { kind, open, doc } = props;
   const status = useSubscribable(doc.status);
   const { left, right } = stateBarLines(useSubscribable(doc.stateFacts));
-  const { run, registered } = useCommandActions();
   if (status.server === "access_removed")
     return <p className="p-12 text-ui">{BESIDE_WORDS.noAccess}</p>;
   const { Body } = kind;
   return (
     <>
       {kind.hasStatus ? (
-        <StateBar left={left} right={right} run={run} registered={registered} />
+        <StateBar
+          left={left}
+          right={right}
+          run={NO_RUN}
+          registered={NO_ACTION}
+        />
       ) : null}
       <Body docId={open.docId} at={open.at} />
     </>

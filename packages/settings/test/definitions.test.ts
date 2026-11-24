@@ -460,14 +460,13 @@ test("only appearance writes attributes, and they are the four the root element 
   ).toEqual(["data-cursors", "data-theme", "data-ui-size", "data-white-page"]);
 });
 
-test("no preference reaches the layout, and every script setting is guarded", () => {
+test("no preference reaches the layout, and every layout script setting is guarded", () => {
   for (const d of SETTINGS.byScope("personal"))
     expect(d.apply).not.toEqual({ how: "editor", effect: "layout" });
-  for (const d of SETTINGS.byScope("script"))
-    expect([d.guard, d.apply]).toEqual([
-      "layout",
-      { how: "editor", effect: "layout" },
-    ]);
+  for (const d of SETTINGS.byScope("script")) {
+    const isLayout = d.apply.how === "editor" && d.apply.effect === "layout";
+    expect(d.guard).toBe(isLayout ? "layout" : null);
+  }
 });
 
 test("a search never ends in nothing: one signpost and an answer for each default", () => {

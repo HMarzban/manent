@@ -14,6 +14,14 @@ export interface BesideHere {
   workspaceIds: readonly string[];
 }
 
+/** One item offered by a beside kind in Open beside's list; either an existing document or one created on first open. */
+export interface BesideChoice {
+  readonly docId?: string | null;
+  readonly label: string;
+  /** Called on selection when the document is created on first open; returns the opened docId (or null). */
+  open?(here: BesideHere): string | null | Promise<string | null>;
+}
+
 export interface BesideKind {
   readonly id: BesideKindId;
   /** The title in the header row; called as the frame draws, so it may read through hooks. */
@@ -24,8 +32,8 @@ export interface BesideKind {
     docId: string;
     at: { blockId: string } | null;
   }>;
-  /** The documents this kind offers in Open beside's list, each by its label there. */
-  choices(here: BesideHere): readonly { docId: string; label: string }[];
+  /** The documents this kind offers in Open beside's list, each by its label there; omitted when none are offered. */
+  choices?(here: BesideHere): readonly BesideChoice[];
 }
 
 /** The other scripts the person continues, then each other project's first document that is a script, by their titles. */

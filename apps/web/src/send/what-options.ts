@@ -34,7 +34,7 @@ export const SEND_WHAT_OPTIONS: readonly SendWhatOption[] = [
   {
     id: "whole_script",
     label: EDITOR_WORDS.send.wholeScript,
-    appliesTo: ["export", "print"],
+    appliesTo: ["export", "print", "send_draft"],
     transform: null,
   },
   {

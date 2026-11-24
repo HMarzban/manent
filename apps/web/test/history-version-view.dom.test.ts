@@ -254,3 +254,24 @@ test("a version of a locked script keeps its page labels and numbered scenes", (
     ),
   ).toEqual(["8", "8A"]);
 });
+
+test("mountVersionView renders watermark on sheets when given", () => {
+  const place = document.createElement("div");
+  Object.defineProperty(place, "clientHeight", { value: 900 });
+  const view = mountVersionView({
+    place,
+    content: CONTENT,
+    ports: PORTS,
+    offFontNote: "Outside Courier Prime",
+    comparison: null,
+    sceneIds: null,
+    engineFor,
+    watermark: "Leo Marsh",
+  });
+  cleanups.push(() => view.destroy());
+  expect(
+    [...place.querySelectorAll<HTMLElement>(".mn-watermark")].map(
+      (el) => el.textContent,
+    ),
+  ).toEqual(["Leo Marsh", "Leo Marsh"]);
+});

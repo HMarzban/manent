@@ -113,6 +113,7 @@ export function mountVersionView(options: {
   comparison: Comparison | null;
   sceneIds: readonly string[] | null;
   engineFor: (version: number) => Engine | null;
+  watermark?: string | null;
 }): VersionView {
   const { content, comparison } = options;
   shown?.destroy();
@@ -134,6 +135,10 @@ export function mountVersionView(options: {
       ) ?? null,
     editable: () => false,
     plugins: comparison === null ? [] : [changesPlugin()],
+    furniture:
+      options.watermark === undefined
+        ? undefined
+        : { watermark: options.watermark },
   });
   if (comparison !== null) {
     const { view } = page;

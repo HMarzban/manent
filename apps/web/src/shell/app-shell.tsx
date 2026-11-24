@@ -160,10 +160,11 @@ function useBridgeStores() {
 function ShellPage(props: {
   docId: string | null;
   covered: boolean;
+  bare: boolean;
   standIn: boolean;
   writers: { facts: FactsWriter; outline: OutlineWriter };
 }): ReactNode {
-  const { docId, covered, standIn, writers } = props;
+  const { docId, covered, bare, standIn, writers } = props;
   const services = useServices();
   const { guard } = useEnvironment();
   useEffect(() => {
@@ -177,8 +178,9 @@ function ShellPage(props: {
       settings:
         docId === null ? services.settings : services.openScriptStore(docId),
       guard,
+      bare,
     }),
-    [writers, services, docId, guard],
+    [writers, services, docId, guard, bare],
   );
   // covered, the page is inert, and a region that scrolls with nothing a key can reach is out of the keyboard's reach;
   // hidden, unlike clip, keeps the scroll offset for the way back
@@ -274,6 +276,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
                   <ShellPage
                     docId={docId}
                     covered={covered}
+                    bare={page === "bare"}
                     standIn={standIn}
                     writers={writers}
                   />

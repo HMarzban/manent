@@ -38,7 +38,10 @@ export function mountBesideEditor(
       return detach;
     },
   };
-  const unmount = services.besideMount(control).mount(ports);
+  const unmount = services.besideMount(control).mount({
+    ...ports,
+    restorePlace: at === null,
+  });
   const forwarder = {
     run: (request: PageRequest): ActionResult =>
       own.run(request) ?? NOTHING_TO_DO,
@@ -54,9 +57,11 @@ export function mountBesideEditor(
   const onFocusIn = (event: FocusEvent): void => {
     const { target } = event;
     if (!(target instanceof Element)) return;
-    if (ports.element.contains(target))
-      detachForwarder ??= services.editor.attach(forwarder);
-    else if (target.closest(MAIN_PAGE) !== null) release();
+    if (ports.element.contains(target)) {
+      // re-attach on top so a main-editor rebuild cannot leave the forwarder behind it in the stack
+      release();
+      detachForwarder = services.editor.attach(forwarder);
+    } else if (target.closest(MAIN_PAGE) !== null) release();
   };
   const page = ports.element.ownerDocument;
   page.addEventListener("focusin", onFocusIn);

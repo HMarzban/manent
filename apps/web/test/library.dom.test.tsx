@@ -3,7 +3,7 @@ import { TOUR, isShown } from "@manent/demo";
 import { afterEach, expect, test } from "bun:test";
 import type { LocalStore } from "@manent/sync-client";
 import { createFaultyStoreSpace } from "@manent/sync-client/testing";
-import { createValue } from "@manent/ui";
+import { LIBRARY_WORDS, createValue } from "@manent/ui";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   QueryClient,
@@ -150,6 +150,7 @@ function seededIndex(seed: {
     documentTitle: () => createValue(null),
     documentKind: () => createValue(null),
     docKindOf: () => createValue(null),
+    documentProject: () => createValue(null),
     renameDocument: () => {},
     addCopy: () => new Promise<CreateResult>(() => {}),
   };
@@ -618,4 +619,26 @@ test("the Library drawn while the palette is open leaves focus in the palette's 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
   });
   expect(focused()).toEqual(["H1", "Library"]);
+});
+
+test("PROJECT_VIEWS projects render outside VirtualRows rather than clamped inside a one-row list", async () => {
+  const HARBOUR_SERIES: ProjectItem = {
+    projectId: "harbour",
+    title: "The Harbour",
+    kind: "series",
+    firstDocId: GAME_DOC,
+    lastEdited: { byName: "Priya", at: NOW - 5 * MINUTE_MS },
+    place: { kind: "synced" },
+  };
+  await renderLibrary({
+    person: YOU,
+    library: seededIndex({ projects: { you: [HARBOUR_SERIES, LONG_NIGHT] } }),
+  });
+  const section = document.querySelector(
+    `section[aria-label="${LIBRARY_WORDS.projectsRegion}"]`,
+  );
+  const list = section?.querySelector('[role="list"]') ?? null;
+  expect(list?.textContent ?? "").toContain("The Long Night");
+  expect(list?.textContent ?? "").not.toContain("The Harbour");
+  expect(section?.textContent ?? "").toContain("The Harbour");
 });

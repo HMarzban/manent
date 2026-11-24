@@ -13,6 +13,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -218,9 +219,16 @@ export interface DocumentBody {
   }>;
 }
 
-/** The kind of the document `docId`: every document the shell opens is a script while no other kind has a screen. */
-export function useDocKind(_docId: string | null): DocKind {
-  return "script";
+const NO_DOC_KIND: Subscribable<DocKind | null> = createValue(null);
+
+/** The kind of `docId` as the Library holds it; defaults to "script" while unknown. */
+export function useDocKind(docId: string | null): DocKind {
+  const { library } = useServices();
+  const source = useMemo(
+    () => (docId === null ? NO_DOC_KIND : library.docKindOf(docId)),
+    [library, docId],
+  );
+  return useSubscribable(source) ?? "script";
 }
 
 /** A script's body: its title, state, find and ruler bars, its panels and its status bar. */

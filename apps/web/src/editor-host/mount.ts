@@ -22,5 +22,9 @@ export interface EditorMount {
     outline: OutlineWriter;
     settings: SettingsReaderPort;
     guard: DispatchGuard;
+    /** Present/bare routes mount read-only with no presence publishing from initial mount. */
+    bare?: boolean;
+    /** False when the caller positions the caret explicitly (e.g. Beside `at`) so saved place does not overwrite it. */
+    restorePlace?: boolean;
   }): () => void;
 }

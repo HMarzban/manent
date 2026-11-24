@@ -917,6 +917,7 @@ test("the handler table names every command but the generated ones", () => {
     "history.copyLink": noop,
     "name.useListed": noop,
     "name.addToProject": noop,
+    "project.openSettings": noop,
     "scene.moveUp": noop,
     "scene.moveDown": noop,
   };

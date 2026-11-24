@@ -224,6 +224,16 @@ mn-offfont {
 .mn-mark::before {
   content: attr(data-text);
 }
+.mn-pages[data-hide-page_number] .pb-head[data-text]::before,
+.mn-pages[data-hide-scene_continued_foot] .pb-foot[data-text]::before,
+.mn-pages[data-hide-scene_continued] .pb-continued[data-text]::before,
+.mn-pages[data-hide-more] .pb-more[data-text]::before,
+.mn-pages[data-hide-contd] .pb-contd[data-text]::before,
+.mn-pages[data-hide-scene_number] .el[data-scene]::before,
+.mn-pages[data-hide-scene_number] .el[data-scene]::after,
+.mn-pages[data-hide-speech_number] .el[data-speech]::before {
+  content: none;
+}
 `;
 
 /**

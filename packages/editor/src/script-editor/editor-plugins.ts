@@ -27,12 +27,15 @@ const READ_ONLY_ATTRIBUTES: Readonly<Record<string, string>> = Object.freeze({
 });
 
 /** The page is one multiline textbox named by the script's title; a read-only one is focusable and says so. */
-function pageAttributes(options: ScriptEditorOptions): Record<string, string> {
+function pageAttributes(
+  options: ScriptEditorOptions,
+  isEditable: () => boolean,
+): Record<string, string> {
   return {
     role: "textbox",
     "aria-multiline": "true",
     "aria-label": options.title.get(),
-    ...(options.editable ? {} : READ_ONLY_ATTRIBUTES),
+    ...(isEditable() ? {} : READ_ONLY_ATTRIBUTES),
   };
 }
 
@@ -46,10 +49,12 @@ export function editorPlugins(
     ports: ScrollPorts;
     paged: boolean;
     extra: readonly Plugin[];
+    isEditable?: () => boolean;
   },
 ): { before: Plugin[]; after: Plugin[] } {
   const { binding, words, frames, timers, ids, personal } = options;
   const { layer, format, context } = parts;
+  const isEditable = parts.isEditable ?? (() => options.editable);
   const before = [
     ...binding.plugins,
     pickerPlugin({ format, words, layer, frames }),
@@ -72,7 +77,9 @@ export function editorPlugins(
       plainElement: () => plainTextElement(format()),
       formatElements: () => FORMAT_ELEMENTS[format()],
     }),
-    new Plugin({ props: { attributes: () => pageAttributes(options) } }),
+    new Plugin({
+      props: { attributes: () => pageAttributes(options, isEditable) },
+    }),
   ];
   const after = [
     // the registry counts from the pagination plugin's block index

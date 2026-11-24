@@ -21,7 +21,9 @@ const PAGE_AREA = Object.freeze({ gridArea: "page" });
 function useReadOnlyPage(docId: string): void {
   useEffect(() => {
     const hold = (): void => {
-      liveEditor(docId)?.view.setProps({ editable: () => false });
+      const editor = liveEditor(docId);
+      if (editor?.setEditable !== undefined) editor.setEditable(false);
+      else editor?.view.setProps({ editable: () => false });
     };
     hold();
     return subscribeLiveEditors(hold);

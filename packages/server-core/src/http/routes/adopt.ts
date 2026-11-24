@@ -73,14 +73,24 @@ const isText = (value: unknown): value is string => typeof value === "string";
 /** The body's fields, each of the right kind; null when one is missing or is not. */
 function adoptionOf(body: unknown): AdoptRequest | null {
   if (!isObject(body)) return null;
-  const { key, docId, kind, home, workspaceId, state } = body;
+  const { key, docId, kind, home, workspaceId, state, scriptDocId } = body;
   if (!isDocId(key) || !isDocId(docId) || !isText(kind) || !isText(home))
     return null;
   if (!isText(state) || !(workspaceId === null || isText(workspaceId)))
     return null;
+  if (scriptDocId !== undefined && !isText(scriptDocId)) return null;
   const workflow = readAdoptedWorkflow(body);
   if (workflow === null) return null;
-  return { key, docId, kind, home, workspaceId, state, ...workflow };
+  return {
+    key,
+    docId,
+    kind,
+    home,
+    workspaceId,
+    state,
+    ...(scriptDocId === undefined ? {} : { scriptDocId }),
+    ...workflow,
+  };
 }
 
 /** True when a version's blocks hold what the editor never writes. */
@@ -206,13 +216,14 @@ async function adopt(context: RouteContext): Promise<Response> {
   const checked = checkState(adoption.state, documentBytes);
   if (!checked.ok) return refuse(checked.code);
   if (holdsInvalid(adoption)) return refuse("invalid");
-  const { docId, kind, home, workspaceId, key } = adoption;
+  const { docId, kind, home, workspaceId, key, scriptDocId } = adoption;
   const { userId } = identity;
   const asked = {
     docId,
     kind,
     home,
     ...(workspaceId === null ? {} : { workspaceId }),
+    ...(scriptDocId === undefined ? {} : { scriptDocId }),
   };
   const created = accessOf(context, storage).create(userId, asked);
   if (!created.ok) return refuse(created.code);

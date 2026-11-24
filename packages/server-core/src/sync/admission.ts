@@ -17,6 +17,10 @@ import type { WritePathPorts } from "./write-path-ports.ts";
 export const isWriterRole = (role: DocRole): boolean =>
   role === "owner" || role === "edit";
 
+/** Commenters also write to comments documents; every other room admits owners and editors only. */
+export const mayWriteInRoom = (kind: string, role: DocRole): boolean =>
+  isWriterRole(role) || (kind === "comments" && role === "comment");
+
 /** A refusal for good names the entry; any other may be retried. */
 export function refusal(
   code: number,
@@ -41,7 +45,7 @@ export function admit(
   const no = (code: number, text: string, retryAfterMs: number | null = null) =>
     refusal(code, text, message.clientSeq, retryAfterMs);
   if (subscription.mode !== "edit") return no(CODE.FORBIDDEN, "not_subscribed");
-  if (!isWriterRole(subscription.access.role))
+  if (!mayWriteInRoom(room.kind, subscription.access.role))
     return no(CODE.FORBIDDEN, "read_only_role");
   if (message.generation !== room.row.generation)
     return no(CODE.GENERATION_MISMATCH, "generation_moved");

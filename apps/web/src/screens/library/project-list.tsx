@@ -1,81 +1,73 @@
 // The region named Projects: the workspace's projects as a table of kind, last edit and place, each drawn by its kind's
 // view, or what to do when it holds none.
-import {
-  CommandButton,
-  LIBRARY_WORDS,
-  Row,
-  VirtualRows,
-  cn,
-  formatWhen,
-} from "@manent/ui";
+import { CommandButton, LIBRARY_WORDS, VirtualRows, cn } from "@manent/ui";
 import type { ReactNode } from "react";
 import type { ProjectItem } from "../../services/ports.ts";
-import { KindIcon, kindLabel } from "./project-kind.tsx";
-import { PROJECT_ROW_ITEMS } from "./project-row-items.ts";
+import { EDITED_COLUMN, KIND_COLUMN, ProjectRow } from "./project-row.tsx";
 import { PROJECT_VIEWS } from "./project-views.ts";
-import { PLACE_COLUMN, PLACE_HEAD, RowMenu, placeProps } from "./row-place.tsx";
+import type { ProjectViewProps } from "./project-views.ts";
+import { PLACE_COLUMN, PLACE_HEAD } from "./row-place.tsx";
 
-// the Kind and Last edited columns, the same width in the head and in every row; a narrow table has no columns, and
-// draws Last edited as the title's second line, which makes the row two lines high
-const KIND_COLUMN = "hidden w-col-kind shrink-0 truncate @lg:block";
-const EDITED_COLUMN = "hidden w-col-edited shrink-0 truncate @lg:block";
-const ROW_CELLS =
-  "grid grid-cols-1 py-1 @lg:grid-cols-[minmax(0,1fr)_auto_auto] @lg:gap-x-2 @lg:py-0";
-const EDITED_CELL =
-  "truncate tabular-nums @max-lg:text-meta @max-lg:text-fg-muted @lg:w-col-edited";
+export { ProjectRow };
 
-function lastEdited(edited: ProjectItem["lastEdited"], now: number): string {
-  if ("changedSinceOpened" in edited) return LIBRARY_WORDS.changedSinceOpened;
-  return LIBRARY_WORDS.edited(edited.byName, formatWhen(edited.at, now));
+type Segment =
+  | { kind: "plain"; projects: ProjectItem[] }
+  | {
+      kind: "view";
+      project: ProjectItem;
+      View: NonNullable<(typeof PROJECT_VIEWS)[number]>["View"];
+    };
+
+function segmentsOf(projects: readonly ProjectItem[]): Segment[] {
+  const segments: Segment[] = [];
+  for (const project of projects) {
+    const custom = PROJECT_VIEWS.find((view) => view.kind === project.kind);
+    if (custom !== undefined) {
+      segments.push({ kind: "view", project, View: custom.View });
+      continue;
+    }
+    const prev = segments.at(-1);
+    if (prev?.kind === "plain") prev.projects.push(project);
+    else segments.push({ kind: "plain", projects: [project] });
+  }
+  return segments;
 }
 
-const ROW_ITEMS = PROJECT_ROW_ITEMS.filter((item) =>
-  item.targets.includes("project"),
-);
-
-/** A project's row, which opens its first document: the view of a kind PROJECT_VIEWS has no line for. */
-export function ProjectRow(props: {
-  project: ProjectItem;
+function PlainTable(props: {
+  projects: readonly ProjectItem[];
   shell: "web" | "desktop";
   now: number;
   open(docId: string): void;
+  sole: boolean;
 }): ReactNode {
-  const { project, shell, now, open } = props;
-  const { firstDocId } = project;
-  const { trailing, ...place } = placeProps(project.place, shell);
-  // a row that cannot be opened has no menu
-  const menu =
-    ROW_ITEMS.length === 0 || place.unavailable !== undefined
-      ? []
-      : [
-          <RowMenu title={project.title}>
-            {ROW_ITEMS.map(({ id, Item }) => (
-              <Item
-                key={id}
-                target="project"
-                id={project.projectId}
-                firstDocId={firstDocId}
-              />
-            ))}
-          </RowMenu>,
-        ];
+  const { projects, shell, now, open, sole } = props;
+  const renderRow = (index: number): ReactNode => {
+    const project = projects[index];
+    if (project === undefined) return null;
+    return <ProjectRow project={project} shell={shell} now={now} open={open} />;
+  };
   return (
-    <Row
-      leading={<KindIcon kind={project.kind} />}
-      onActivate={firstDocId === null ? undefined : () => open(firstDocId)}
-      trailing={[...menu, ...trailing]}
-      {...place}
+    <div
+      className={cn(
+        "mn-table flex flex-col",
+        sole ? "min-h-0 flex-1" : "shrink-0",
+      )}
     >
-      <span className={ROW_CELLS}>
-        <span className="truncate font-semibold">{project.title}</span>
-        <span className={cn(KIND_COLUMN, "text-fg-muted")}>
-          {kindLabel(project.kind)}
-        </span>
-        <span className={EDITED_CELL}>
-          {lastEdited(project.lastEdited, now)}
-        </span>
-      </span>
-    </Row>
+      <div className="mn-table-head flex shrink-0 items-center gap-2 px-3">
+        <h2 className="min-w-0 flex-1">{LIBRARY_WORDS.projectsHeading}</h2>
+        <span className={KIND_COLUMN}>{LIBRARY_WORDS.kindColumn}</span>
+        <span className={EDITED_COLUMN}>{LIBRARY_WORDS.lastEditedColumn}</span>
+        <span className={PLACE_HEAD}>{LIBRARY_WORDS.statusColumn}</span>
+      </div>
+      <div className={cn(sole ? "min-h-0 flex-1" : undefined, PLACE_COLUMN)}>
+        <VirtualRows
+          count={projects.length}
+          rowHeight="one"
+          label={LIBRARY_WORDS.projectsHeading}
+          renderRow={renderRow}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -114,36 +106,42 @@ export function ProjectList(props: {
   open(docId: string): void;
 }): ReactNode {
   const { projects, shell, now, open } = props;
-  const renderRow = (index: number): ReactNode => {
-    const project = projects[index];
-    if (project === undefined) return null;
-    const View =
-      PROJECT_VIEWS.find((view) => view.kind === project.kind)?.View ??
-      ProjectRow;
-    return <View project={project} shell={shell} now={now} open={open} />;
-  };
+  const segments = segmentsOf(projects);
+  const sole = segments.length === 1 && segments[0]?.kind === "plain";
+  const viewProps = (project: ProjectItem): ProjectViewProps => ({
+    project,
+    shell,
+    now,
+    open,
+  });
   return (
     <section
       aria-label={LIBRARY_WORDS.projectsRegion}
       className="@container flex min-h-0 flex-1 flex-col"
     >
-      <div className="mn-table flex min-h-0 flex-col">
-        <div className="mn-table-head flex shrink-0 items-center gap-2 px-3">
-          <h2 className="min-w-0 flex-1">{LIBRARY_WORDS.projectsHeading}</h2>
-          <span className={KIND_COLUMN}>{LIBRARY_WORDS.kindColumn}</span>
-          <span className={EDITED_COLUMN}>
-            {LIBRARY_WORDS.lastEditedColumn}
-          </span>
-          <span className={PLACE_HEAD}>{LIBRARY_WORDS.statusColumn}</span>
-        </div>
-        <div className={cn("min-h-0 flex-1", PLACE_COLUMN)}>
-          <VirtualRows
-            count={projects.length}
-            rowHeight="one"
-            label={LIBRARY_WORDS.projectsHeading}
-            renderRow={renderRow}
-          />
-        </div>
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col",
+          sole ? undefined : "gap-3 overflow-auto",
+        )}
+      >
+        {segments.map((segment, i) =>
+          segment.kind === "plain" ? (
+            <PlainTable
+              key={`plain-${i}`}
+              projects={segment.projects}
+              shell={shell}
+              now={now}
+              open={open}
+              sole={sole}
+            />
+          ) : (
+            <segment.View
+              key={segment.project.projectId}
+              {...viewProps(segment.project)}
+            />
+          ),
+        )}
       </div>
     </section>
   );

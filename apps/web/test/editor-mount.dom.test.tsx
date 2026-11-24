@@ -107,6 +107,7 @@ interface Rig {
 function rig(
   options: {
     access?: StatusFacts["access"];
+    bare?: boolean;
     sessions?: (frames: ReturnType<typeof createFrames>) => EditorSessions;
   } = {},
 ): Rig {
@@ -169,6 +170,7 @@ function rig(
     outline: { publish: noop },
     settings: services.openScriptStore(DOC),
     guard: { enter: noop, leave: noop },
+    bare: options.bare,
   });
   let disposed = false;
   const once = () => {
@@ -690,4 +692,75 @@ test("Preferences shows the layout engine", () => {
     .slice(0, 2)
     .map((p) => p.textContent);
   expect(lines).toEqual(["Manent 0.0.0", "Layout engine 1"]);
+});
+
+test("bare mode starts read-only with no presence publishing and mn-front-field reacts to editable changes", async () => {
+  const published: unknown[] = [];
+  const r = rig({
+    access: "edit",
+    bare: true,
+    sessions: (frames) => {
+      const inner = createLocalSessions({
+        frames,
+        clock: createClock(),
+        ids: () => "b1",
+      });
+      return {
+        open(docId, format) {
+          const s = inner.open(docId, format);
+          return {
+            ...s,
+            sendAwareness(update) {
+              published.push(update);
+              s.sendAwareness(update);
+            },
+          };
+        },
+      };
+    },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect([r.view().editable, liveEditor(DOC)?.editable]).toEqual([
+    false,
+    false,
+  ]);
+  liveEditor(DOC)?.presence.publish({
+    anchor: { blockId: "b1", offset: 0 },
+    head: { blockId: "b1", offset: 0 },
+    at: 0,
+  });
+  expect(published).toEqual([]);
+  const bareFields = [
+    ...r.element.querySelectorAll<HTMLElement>(".mn-front-field"),
+  ];
+  expect(bareFields.length).toBeGreaterThan(0);
+  for (const field of bareFields) {
+    expect([
+      field.getAttribute("contenteditable"),
+      field.getAttribute("aria-readonly"),
+    ]).toEqual([null, "true"]);
+  }
+  r.dispose();
+
+  const editable = rig({ access: "edit" });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  const titleField = editable.element.querySelector<HTMLElement>(
+    '.mn-front-field[data-field="title"]',
+  )!;
+  expect([
+    titleField.getAttribute("contenteditable"),
+    titleField.getAttribute("aria-readonly"),
+  ]).toEqual(["plaintext-only", null]);
+  liveEditor(DOC)?.setEditable?.(false);
+  expect([
+    editable.view().editable,
+    titleField.getAttribute("contenteditable"),
+    titleField.getAttribute("aria-readonly"),
+  ]).toEqual([false, null, "true"]);
+  liveEditor(DOC)?.setEditable?.(true);
+  expect([
+    editable.view().editable,
+    titleField.getAttribute("contenteditable"),
+    titleField.getAttribute("aria-readonly"),
+  ]).toEqual([true, "plaintext-only", null]);
 });

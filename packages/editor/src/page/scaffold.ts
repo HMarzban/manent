@@ -9,8 +9,14 @@ import {
   ZOOM_MIN,
 } from "./config.ts";
 import type { BrowserEngine, LayoutView } from "./config.ts";
+import {
+  applyFurnitureReplaces,
+  isSameFurniture,
+} from "./furniture/page-furniture.ts";
 import type {
+  PageFurniture,
   PageFurnitureInput,
+  PageFurnitureOptions,
   SheetRevision,
 } from "./furniture/page-furniture.ts";
 import { PAGE_FURNITURE } from "./furniture/registry.ts";
@@ -95,71 +101,57 @@ export interface PageScaffold {
   setFontState(state: "loading" | "ready" | "fallback"): void;
   /** What a sheet shows of a revision; null: nothing. */
   setSheetDecor(decor: SheetDecor | null): void;
+  setFurniture(furniture: PageFurnitureOptions): void;
+  setPageLabels(labels: readonly string[]): void;
   /** `data-tint="on"` on `.mn-pages`, or removed. */
   setTint(on: boolean): void;
   destroy(): void;
 }
 
-const isSameRevision = (
-  a: SheetRevision | null,
-  b: SheetRevision | null,
-): boolean =>
-  a === b ||
-  (a !== null &&
-    b !== null &&
-    a.rev === b.rev &&
-    a.head === b.head &&
-    a.marks.length === b.marks.length &&
-    a.marks.every(
-      (m, i) => m.y === b.marks[i]!.y && m.text === b.marks[i]!.text,
-    ));
-
-// The fields a sheet is drawn from; every other field of its input is null.
-const isSameFurniture = (
-  a: PageFurnitureInput | undefined,
-  b: PageFurnitureInput,
-): boolean =>
-  a !== undefined &&
-  a.pageIndex === b.pageIndex &&
-  a.pageCount === b.pageCount &&
-  a.profile === b.profile &&
-  isSameRevision(a.revision, b.revision);
+interface SheetFrame {
+  count: number;
+  decor: SheetDecor | null;
+  furniture: PageFurnitureOptions;
+  labels: readonly string[];
+  entries: readonly PageFurniture[];
+}
 
 /**
- * Places the sheet, and draws its furniture afresh, each entry of `PAGE_FURNITURE` in turn, only when it would show
+ * Places the sheet, and draws its furniture afresh, each entry in `entries` in turn, only when it would show
  * something other than what `drawn` says it was last drawn with: another person's typing redraws only the sheets it
  * changed.
  */
 function drawSheet(
   sheet: HTMLElement,
   at: { index: number; top: number },
-  frame: { count: number; decor: SheetDecor | null },
+  frame: SheetFrame,
   profile: PageProfile,
   drawn: WeakMap<HTMLElement, PageFurnitureInput>,
 ): void {
   sheet.dataset["page"] = String(at.index);
   sheet.style.top = `${at.top}px`;
+  const { furniture, labels } = frame;
   const input: PageFurnitureInput = {
     pageIndex: at.index,
     pageCount: frame.count,
-    pageLabel: null,
+    pageLabel: labels[at.index] ?? null,
     profile,
-    title: null,
+    title: furniture.title ?? null,
     revision: frame.decor?.sheet(at.index) ?? null,
-    watermark: null,
-    header: null,
-    footer: null,
-    dateFormat: null,
-    section: null,
-    revisionLabel: null,
-    day: null,
+    watermark: furniture.watermark ?? null,
+    header: furniture.header ?? null,
+    footer: furniture.footer ?? null,
+    dateFormat: furniture.dateFormat ?? null,
+    section: furniture.section ?? null,
+    revisionLabel: furniture.revisionLabel ?? null,
+    day: furniture.day ?? null,
   };
   if (isSameFurniture(drawn.get(sheet), input)) return;
   drawn.set(sheet, input);
   for (const key of Object.keys(sheet.dataset))
     if (key !== "page") delete sheet.dataset[key];
   sheet.replaceChildren();
-  for (const entry of PAGE_FURNITURE) entry.draw(sheet, input);
+  for (const entry of frame.entries) entry.draw(sheet, input);
 }
 
 // The scroll offset counts from the frame's top, and the front pages sit above page 1.
@@ -184,7 +176,7 @@ function drawSheets(
   pages: HTMLElement,
   sheets: HTMLElement[],
   wanted: readonly { index: number; top: number }[],
-  frame: { count: number; decor: SheetDecor | null },
+  frame: SheetFrame,
   profile: PageProfile,
   drawn: WeakMap<HTMLElement, PageFurnitureInput>,
 ): void {
@@ -263,17 +255,24 @@ export function createPageScaffold(options: {
   engine: BrowserEngine;
   /** Default "page". */
   view?: LayoutView;
+  furniture?: PageFurnitureOptions;
+  /** Default `PAGE_FURNITURE`. */
+  furnitureEntries?: readonly PageFurniture[];
 }): PageScaffold {
   const { place } = options;
   const view = options.view ?? "page";
+  const entries = options.furnitureEntries ?? PAGE_FURNITURE;
   const frame = createFrame(place, options.engine, view);
   const { zoom, profileStyle, front, pages } = frame;
+  applyFurnitureReplaces(pages, entries);
   let profile = options.profile;
   let count = 1;
   let frontPx = 0;
   let percent = 100;
   let scale = 1;
   let decor: SheetDecor | null = null;
+  let furniture: PageFurnitureOptions = options.furniture ?? {};
+  let labels: readonly string[] = [];
   const sheets: HTMLElement[] = [];
   const drawn = new WeakMap<HTMLElement, PageFurnitureInput>();
 
@@ -283,7 +282,14 @@ export function createPageScaffold(options: {
       view === "reflow"
         ? []
         : sheetsInView(place, page, { count, scale, frontPx });
-    drawSheets(pages, sheets, wanted, { count, decor }, profile, drawn);
+    drawSheets(
+      pages,
+      sheets,
+      wanted,
+      { count, decor, furniture, labels, entries },
+      profile,
+      drawn,
+    );
   };
   const layout = (): void => {
     const page = screenPagePx(profile);
@@ -324,6 +330,14 @@ export function createPageScaffold(options: {
     setSheetDecor(next) {
       if (next?.key === decor?.key) return;
       decor = next;
+      redraw();
+    },
+    setFurniture(next) {
+      furniture = next;
+      redraw();
+    },
+    setPageLabels(next) {
+      labels = next;
       redraw();
     },
     setTint(on) {

@@ -3,6 +3,7 @@ import { createDoc, writeGroup } from "@manent/crdt";
 import type { CrdtDoc, GroupEntry, TransactionReport } from "@manent/crdt";
 import { indexDocId } from "@manent/sync-protocol";
 import { createSharingService } from "../src/index.ts";
+import { findGroups, readProjectGroups } from "../src/sharing/index.ts";
 import type { Directory, Room } from "../src/index.ts";
 import type { SharingService } from "../src/sharing/service.ts";
 import { DOC, HOME, PROJECT } from "./seed.ts";
@@ -153,4 +154,14 @@ test("a Can view caller gets no links", () => {
     asLeo.ok && asLeo.value.links.length,
     asSam.ok && asSam.value.links.length,
   ]).toEqual([0, 1]);
+});
+
+test("sharing barrel exports findGroups and readProjectGroups", () => {
+  const { world } = sharingWorld(["sam", "rob"]);
+  expect([
+    typeof findGroups,
+    typeof readProjectGroups,
+    findGroups(world.storage, DOC, ["room"]).length,
+    readProjectGroups(world.storage, DOC).size,
+  ]).toEqual(["function", "function", 1, 1]);
 });

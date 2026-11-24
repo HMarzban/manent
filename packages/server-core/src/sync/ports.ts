@@ -13,6 +13,7 @@ import type {
   PreparedMessage,
   VersionSet,
 } from "@manent/sync-protocol";
+import type { DraftReaders } from "../comments/ports.ts";
 import type { RebuildStats } from "../rebuild/rebuilder.ts";
 import type { ReplayItem } from "../rebuild/replay-write.ts";
 import type { ReplayOutcome } from "../rebuild/replay.ts";
@@ -369,4 +370,6 @@ export interface SyncSettings {
   airWindowOf?: (docId: string) => { startsAt: number; endsAt: number } | null;
   /** Each is told and asked in list order. */
   hooks?: readonly SyncHooks[];
+  /** Signed-in readers sent a draft of a script, granted `comment` on its comments document. */
+  draftReaders?: DraftReaders;
 }

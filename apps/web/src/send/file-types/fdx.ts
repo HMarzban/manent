@@ -14,7 +14,7 @@ export const fdxFileType: ExportFileType = {
   mime: SCRIPT_FILES.fdx.mime,
   docKinds: ["script"],
   formats: PAGED_FORMATS,
-  forms: ["export"],
+  forms: ["export", "send_draft"],
   print: { offered: false, reason: null },
   lockedOnly: false,
   pagesOf: null,

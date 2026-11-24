@@ -10,6 +10,12 @@ const ROW_PX = { one: 28, two: 44 } as const;
 
 type RowHeight = keyof typeof ROW_PX;
 
+type RangeExtractor = NonNullable<
+  Parameters<
+    typeof useVirtualizer<HTMLDivElement, Element>
+  >[0]["rangeExtractor"]
+>;
+
 interface VirtualRowsProps {
   count: number;
   rowHeight: RowHeight;
@@ -17,6 +23,8 @@ interface VirtualRowsProps {
   renderRow(index: number): ReactNode;
   /** Called with the index a key moved to. */
   onKeyMove?(index: number): void;
+  /** Custom virtual range selector passed through to `useVirtualizer`. */
+  rangeExtractor?: RangeExtractor;
 }
 
 const STEPS: Readonly<
@@ -169,6 +177,7 @@ export function VirtualRows({
   label,
   renderRow,
   onKeyMove,
+  rangeExtractor,
 }: VirtualRowsProps): ReactNode {
   const listRef = useRef<HTMLDivElement>(null);
   const focusLater = useFocusLater(listRef);
@@ -180,6 +189,7 @@ export function VirtualRows({
     getScrollElement: () => listRef.current,
     estimateSize: () => ROW_PX[rowHeight],
     measureElement: (element) => sizeOf(element, rowHeight),
+    ...(rangeExtractor === undefined ? {} : { rangeExtractor }),
   });
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {

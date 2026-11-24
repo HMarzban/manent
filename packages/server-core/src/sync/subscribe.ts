@@ -65,6 +65,7 @@ export const SUBSCRIBE_HANDLERS: Readonly<
 const EDIT_ROLES: Readonly<Partial<Record<DocKind, readonly DocRole[]>>> =
   Object.freeze({
     index: DOC_ROLES,
+    comments: ["owner", "edit", "comment"],
   });
 
 /** Whether `role` may hold an edit subscription to a document of `kind`. */

@@ -70,13 +70,14 @@ export function freezeSettings(
   doc: CrdtDoc,
   locked: { numbering: NumberingScheme; colourOrder: ColourOrderId },
   meta: { userId: string; setAt: number },
+  project: Readonly<Record<string, unknown>> | null = null,
 ): void {
   const settings = scriptSettings(doc);
   const stored = settings.entries();
   const frozen = SETTINGS.all
     .filter((d) => d.scope === "script" && d.guard === "layout")
     .map((d): [string, unknown] => {
-      const value = stored[d.key];
+      const value = stored[d.key] ?? project?.[d.key];
       return [d.key, d.type.parse(value).ok ? value : d.default];
     });
   frozen.push(

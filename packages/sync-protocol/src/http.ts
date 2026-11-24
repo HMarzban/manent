@@ -147,6 +147,8 @@ export interface AdoptRequest {
   versions: AdoptedVersion[];
   /** Null for a script its device never locked. */
   production: AdoptedProduction | null;
+  /** For `kind` "comments" only, and then required: the script the document belongs to, with `docId` equal to `commentsDocId(scriptDocId)`. */
+  scriptDocId?: string;
 }
 
 /** The answer to POST /api/docs/adopt. */

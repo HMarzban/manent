@@ -52,6 +52,9 @@ export function createFixtureLibrary(options: {
   const kinds = new Map<string, Subscribable<ProjectKind | null>>(
     made.map(({ docId }) => [docId, createValue("film")]),
   );
+  const projectIds = new Map<string, Subscribable<string | null>>(
+    made.map(({ projectId, docId }) => [docId, createValue(projectId)]),
+  );
   const cached = createValue<"cached" | "problem">("cached");
   const none = createValue(null);
   return {
@@ -65,6 +68,7 @@ export function createFixtureLibrary(options: {
     documentKind: (docId) => kinds.get(docId) ?? none,
     docKindOf: (docId) =>
       kinds.has(docId) ? createValue<DocKind | null>("script") : none,
+    documentProject: (docId) => projectIds.get(docId) ?? none,
     renameDocument() {},
     addCopy: () => new Promise(() => {}),
   };

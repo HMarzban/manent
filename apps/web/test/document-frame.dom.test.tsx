@@ -92,6 +92,7 @@ test("Title ▾ holds Script settings and Rename for an editor, and not Rename f
   expect([editorItems, menuItems()]).toEqual([
     [
       "Script settings",
+      "Project settings",
       "Rename",
       "Export…",
       "Print…⌘P",
@@ -99,7 +100,14 @@ test("Title ▾ holds Script settings and Rename for an editor, and not Rename f
       "Name this draft…⌘⇧S",
       "Open beside",
     ],
-    ["Script settings", "Export…", "Print…⌘P", "Copy link", "Open beside"],
+    [
+      "Script settings",
+      "Project settings",
+      "Export…",
+      "Print…⌘P",
+      "Copy link",
+      "Open beside",
+    ],
   ]);
 });
 

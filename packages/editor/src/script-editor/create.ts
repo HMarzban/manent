@@ -75,6 +75,7 @@ export interface ScriptEditor {
   zoomPercent(): number | null;
   /** Scrolls to the title page and puts the caret in its title; nothing without front pages. */
   showTitlePage(): void;
+  setEditable(editable: boolean): void;
   /** The pages before page 1 as print and PDF draw them; null without pages or a title page. */
   frontPages(): FrontPage[] | null;
   /** The label of the page before page 1 at viewport height `top`, px; null anywhere else. */
@@ -166,12 +167,12 @@ const GO_TO_MARGIN_PX = 48;
 function actionContext(
   context: ElementContext,
   view: EditorView,
-  parts: { editable: boolean; ports: ScrollPorts },
+  parts: { editable(): boolean; ports: ScrollPorts },
 ): ActionContext {
   return {
     ...context,
     slotElement,
-    editable: () => parts.editable,
+    editable: parts.editable,
     goTo(blockId, offset) {
       const at = { blockId, offset };
       restorePlace(view, parts.ports, {
@@ -236,6 +237,7 @@ function subscribe(
  */
 export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
   const { place, binding, editable, script, desk, zoom } = options;
+  let editableNow = editable;
   let layout = readLayoutSettings((key) => script.get(key));
   let scenesNumbered = false;
   let pages: PageControls | null = null;
@@ -263,6 +265,7 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     ports,
     extra,
     paged: first !== null,
+    isEditable: () => editableNow,
   });
   const mounted = mountEditor(options, {
     profile: first,
@@ -271,6 +274,7 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     ports,
   });
   const { view, scaffold } = mounted;
+  if (!editableNow) view.setProps({ editable: () => false });
   place.append(layer);
   if (scaffold !== null)
     pages = createPageControls({
@@ -283,7 +287,10 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
       profile,
     });
   const front = frontPagesOf(options, view, scaffold, { profile, ports });
-  const actions = actionContext(context, view, { editable, ports });
+  const actions = actionContext(context, view, {
+    editable: () => editableNow,
+    ports,
+  });
   const subscriptions = subscribe(options, view, () => {
     layout = readLayoutSettings((key) => script.get(key));
     pages?.repage();
@@ -299,6 +306,12 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     setZoom: (setting) => pages?.setZoom(setting),
     zoomPercent: () => pages?.percent ?? null,
     showTitlePage: () => front?.show(),
+    setEditable(next) {
+      editableNow = next;
+      view.setProps({ editable: () => editableNow });
+      view.dispatch(view.state.tr.setMeta("addToHistory", false));
+      front?.setEditable(next);
+    },
     frontPages: () => front?.printed() ?? null,
     frontPageAt: (top) => front?.labelAt(top) ?? null,
     pageAt: (top) => pageAtHeight(view, top),

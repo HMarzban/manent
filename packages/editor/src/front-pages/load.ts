@@ -6,6 +6,7 @@ import type { FrontPages, FrontPagesOptions } from "./sheets.ts";
 export interface FrontPagesHandle {
   /** Lays them out again with the profile as it is now. */
   relayout(): void;
+  setEditable(editable: boolean): void;
   show(): void;
   /** Null until they have loaded. */
   printed(): FrontPage[] | null;
@@ -21,16 +22,21 @@ export function loadFrontPages(
 ): FrontPagesHandle {
   const { profile } = options;
   let front: FrontPages | null = null;
+  let editable = options.editable;
   let destroyed = false;
   void import("./sheets.ts").then(({ createFrontPages }) => {
     const now = profile();
     if (destroyed || now === null) return;
-    front = createFrontPages({ ...options, profile: now });
+    front = createFrontPages({ ...options, profile: now, editable });
   });
   return {
     relayout() {
       const next = profile();
       if (next !== null) front?.setProfile(next);
+    },
+    setEditable(next) {
+      editable = next;
+      front?.setEditable(next);
     },
     show: () => front?.show(),
     printed: () => front?.printed() ?? null,

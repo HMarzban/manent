@@ -28,6 +28,8 @@ import { writeOnCopy } from "../sync/authority-write.ts";
 import type { Clock, SyncLimits, WritePath } from "../sync/ports.ts";
 import type { Room, Rooms } from "../sync/rooms.ts";
 import { replayBase } from "./replay-base.ts";
+import { writeReplayMaps } from "./replay-maps.ts";
+import type { ReplayMapChanges } from "./replay-maps.ts";
 import { readRequest, storedResponse } from "./replay-request.ts";
 import { writeTyping } from "./replay-typing.ts";
 import { mergeUniqueThrough } from "./unique-merge.ts";
@@ -96,6 +98,7 @@ function writeOps(
     typed: Checked["typed"];
     overrides: Checked["overrides"];
     titlePage: Checked["titlePage"];
+    maps: Checked["maps"];
     writer?: number;
   },
   ids: () => string,
@@ -113,6 +116,7 @@ function writeOps(
       const page = titlePage(copy);
       for (const [field, value] of changes.titlePage)
         if (page.get(field) !== value) page.set(field, value, ORIGIN_REPLAY);
+      writeReplayMaps(copy, changes.maps);
       return { ok: true };
     },
     ids,
@@ -205,6 +209,8 @@ interface Checked {
   overrides: [string, string | null][];
   /** Mine's title page fields that differ from base's; "" empties one. */
   titlePage: [TitlePageField, string][];
+  /** Mine's alternates, cuts, and sceneProgress entries that differ from base's. */
+  maps: ReplayMapChanges;
   /** The client ids of the device's updates, in order. An authority writes the replay under the first its document does not hold, so that the device knows the text as its own; a relayed room draws one, as its upstream may hold any. */
   writers: number[];
 }
@@ -262,6 +268,7 @@ export function createReplay(
       typed,
       overrides,
       titlePage: based.titlePage,
+      maps: based.maps,
       writers: clientIds,
     };
   }
@@ -292,6 +299,7 @@ export function createReplay(
       typed,
       overrides,
       titlePage: checked.titlePage,
+      maps: checked.maps,
       writer,
     };
     const update = writeOps(room, changes, ports.ids);

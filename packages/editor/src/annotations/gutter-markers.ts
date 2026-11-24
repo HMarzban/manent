@@ -1,7 +1,11 @@
 // One marker per block with annotations, in the desk gutter beside the sheet, level with the block's first line.
 // Placed from the engine's pages on the sheets in view, inside the zoomed pages and scaled back to its own size.
 import type { EditorView } from "prosemirror-view";
-import { markPosition } from "../changes/layer.ts";
+import {
+  GUTTER_COLUMNS,
+  gutterColumnPx,
+  markPosition,
+} from "../changes/layer.ts";
 import { paginationKey } from "../pagination/plugin.ts";
 import type { PaginationState } from "../pagination/plugin.ts";
 import type { Place } from "./anchor-places.ts";
@@ -81,7 +85,13 @@ function spotsOf(
       );
       if (line === undefined) return [];
       const at = markPosition(pagination.profile, k, line.y);
-      return [{ marker, top: at.topPx, left: at.gutterPx }];
+      return [
+        {
+          marker,
+          top: at.topPx,
+          left: gutterColumnPx(at.gutterPx, GUTTER_COLUMNS.comments),
+        },
+      ];
     });
   });
 }

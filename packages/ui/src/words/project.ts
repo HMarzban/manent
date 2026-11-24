@@ -16,6 +16,10 @@ const LOCKED_NOUNS = Object.freeze({
 
 const RENAME = "Rename";
 const REMOVE = "Remove";
+const AS_FORMAT = "As the format sets it";
+
+const possessive = (name: string): string =>
+  name.endsWith("s") ? `${name}'` : `${name}'s`;
 
 export const PROJECT_WORDS = Object.freeze({
   heading: "Project settings",
@@ -79,4 +83,56 @@ export const PROJECT_WORDS = Object.freeze({
   watermark: "Watermark",
   watermarkLine:
     "Each reader's name on every page, on screen and in their PDF.",
+  fromProjectSettings: (title: string): string =>
+    `From ${possessive(title)} project settings`,
+  openProjectSettings: "Open project settings",
+  frozenWhenLocked: (date: string): string =>
+    `Frozen when page numbers were locked, ${date}.`,
+  applyToEvery: (element: string): string => `Apply to every ${element}`,
+  paletteScope: "this project",
+  templateForEpisodes: "New episodes start from it.",
+  templateForScripts: "New scripts start from it.",
+  templateDiffers: (name: string): string => `Some rows differ from ${name}.`,
+  styleFields: Object.freeze({
+    capitals: "Capitals",
+    spaceBefore: "Space before",
+    indent: "Indent",
+    width: "Width",
+  }),
+  styleCapitals: Object.freeze({
+    on: "On",
+    off: "Off",
+    asFormat: AS_FORMAT,
+  }),
+  styleLines: (count: number): string =>
+    count === 1 ? "1 line" : `${formatCount(count)} lines`,
+  styleInches: (inches: string): string => `${inches} in`,
+  styleAsFormat: AS_FORMAT,
+  styleReset: "Reset",
+  targetNone: "No target",
+  targetPages: (count: number): string => `${formatCount(count)} pages`,
+  ladderFromTemplate: (name: string): string => `From the ${name} template.`,
+  ownStyleChanged: (element: string, pages: string | null): string =>
+    pages === null
+      ? `Changed the style of ${element}.`
+      : `Changed the style of ${element} · ${pages}.`,
+  otherSettingChanged: (
+    byName: string,
+    noun: string,
+    value: string,
+    title: string,
+  ): string =>
+    `${byName} changed ${noun} to ${value} in ${possessive(title)} project settings.`,
+  otherStyleChanged: (
+    byName: string,
+    element: string,
+    title: string,
+    pages: string | null,
+  ): string =>
+    pages === null
+      ? `${byName} changed the style of ${element} in ${possessive(title)} project settings.`
+      : `${byName} changed the style of ${element} in ${possessive(title)} project settings · ${pages}.`,
+  settingRefusedOwnerOnly: (title: string): string =>
+    `Your change to ${possessive(title)} project settings was not applied: only its owner can make it.`,
+  appliedToEvery: (element: string): string => `Applied to every ${element}.`,
 });

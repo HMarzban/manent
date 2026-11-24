@@ -13,6 +13,7 @@ export interface DocumentValues {
   title(docId: string): Value<string | null>;
   kind(docId: string): Value<ProjectKind | null>;
   docKind(docId: string): Value<DocKind | null>;
+  project(docId: string): Value<string | null>;
   /** Writes Continue for `docId` once an index holds it; the returned function stops waiting. */
   continueOnce(docId: string): () => void;
   /** True once any document has been asked about. */
@@ -32,6 +33,7 @@ export function createDocumentValues(options: {
   const titles = new Map<string, Value<string | null>>();
   const kinds = new Map<string, Value<ProjectKind | null>>();
   const docKinds = new Map<string, Value<DocKind | null>>();
+  const projects = new Map<string, Value<string | null>>();
   // the documents opened here whose Continue entry waits for an index that holds them
   const continuing = new Set<string>();
   const valueOf = <T>(
@@ -47,6 +49,7 @@ export function createDocumentValues(options: {
     title: (docId) => valueOf(titles, docId),
     kind: (docId) => valueOf(kinds, docId),
     docKind: (docId) => valueOf(docKinds, docId),
+    project: (docId) => valueOf(projects, docId),
     continueOnce(docId) {
       continuing.add(docId);
       options.wanted();
@@ -54,7 +57,13 @@ export function createDocumentValues(options: {
         continuing.delete(docId);
       };
     },
-    asked: () => titles.size + kinds.size + docKinds.size + continuing.size > 0,
+    asked: () =>
+      titles.size +
+        kinds.size +
+        docKinds.size +
+        projects.size +
+        continuing.size >
+      0,
     draw() {
       for (const docId of continuing) {
         const workspaceId = find(docId)?.workspaceId;
@@ -68,6 +77,8 @@ export function createDocumentValues(options: {
       for (const [docId, kind] of kinds) kind.set(find(docId)?.kind ?? null);
       for (const [docId, kind] of docKinds)
         kind.set(find(docId)?.entry.kind ?? null);
+      for (const [docId, projectId] of projects)
+        projectId.set(find(docId)?.entry.projectId ?? null);
     },
   };
 }

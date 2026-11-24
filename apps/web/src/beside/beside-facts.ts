@@ -2,15 +2,32 @@
 import { useCallback, useSyncExternalStore } from "react";
 import type { EditorFacts, FactsSelectors } from "../state/facts.store.ts";
 
-const open = new Map<string, FactsSelectors>();
+/** Non-editor beside panels can register arbitrary fact keys beyond `EditorFacts`. */
+export interface CustomBesideFacts {
+  get(key: string): unknown;
+  subscribe(key: string, listener: () => void): () => void;
+}
+
+type StoredFacts = FactsSelectors | CustomBesideFacts;
+
+const open = new Map<string, StoredFacts>();
 const listeners = new Set<() => void>();
 
 const noop = (): void => {};
 
+const readKey = (source: StoredFacts, key: string): unknown =>
+  (source as CustomBesideFacts).get(key);
+
+const subscribeKey = (
+  source: StoredFacts,
+  key: string,
+  listener: () => void,
+): (() => void) => (source as CustomBesideFacts).subscribe(key, listener);
+
 /** Makes `facts` the facts of the editor of `docId` beside the page, until the returned function is called. */
 export function registerBesideFacts(
   docId: string,
-  facts: FactsSelectors,
+  facts: StoredFacts,
 ): () => void {
   open.set(docId, facts);
   for (const listener of listeners) listener();
@@ -25,14 +42,19 @@ export function registerBesideFacts(
 export function useBesideFact<K extends keyof EditorFacts>(
   docId: string,
   key: K,
-): EditorFacts[K] | null {
+): EditorFacts[K] | null;
+export function useBesideFact(docId: string, key: string): unknown;
+export function useBesideFact(docId: string, key: string): unknown {
   const subscribe = useCallback(
     (listener: () => void) => {
-      let stop = open.get(docId)?.subscribe(key, listener) ?? noop;
+      const current = open.get(docId);
+      let stop =
+        current === undefined ? noop : subscribeKey(current, key, listener);
       // an editor opening or closing beside the page changes which facts are read
       const follow = (): void => {
         stop();
-        stop = open.get(docId)?.subscribe(key, listener) ?? noop;
+        const next = open.get(docId);
+        stop = next === undefined ? noop : subscribeKey(next, key, listener);
         listener();
       };
       listeners.add(follow);
@@ -43,6 +65,9 @@ export function useBesideFact<K extends keyof EditorFacts>(
     },
     [docId, key],
   );
-  const read = (): EditorFacts[K] | null => open.get(docId)?.get(key) ?? null;
+  const read = (): unknown => {
+    const source = open.get(docId);
+    return source === undefined ? null : readKey(source, key);
+  };
   return useSyncExternalStore(subscribe, read, read);
 }

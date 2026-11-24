@@ -15,6 +15,8 @@ import type {
   DocRole,
   ServerVersions,
 } from "@manent/sync-protocol";
+import { NO_DRAFT_READERS } from "../comments/ports.ts";
+import type { DraftReaders } from "../comments/ports.ts";
 import { grantedCapabilities } from "../permissions/capabilities.ts";
 import type { CapabilityGrant } from "../permissions/capabilities.ts";
 import { INDEX_KINDS } from "./index-docs.ts";
@@ -103,6 +105,7 @@ type RoleRow = (
   storage: Storage,
   docId: string,
   userId: string,
+  draftReaders: DraftReaders,
 ) => CapabilityGrant["stored"] | null;
 
 const ownRole: RoleRow = (storage, docId, userId) =>
@@ -110,9 +113,10 @@ const ownRole: RoleRow = (storage, docId, userId) =>
 
 /**
  * A comments document's id is its script's, hashed (`commentsDocId`), and it is made in the script's home: the
- * person holds the role they hold on that script, while the script is not deleted.
+ * person holds the role they hold on that script, while the script is not deleted. A draft reader sent that script
+ * holds `comment` when their script role would refuse or return `view`.
  */
-const scriptRole: RoleRow = (storage, docId, userId) => {
+const scriptRole: RoleRow = (storage, docId, userId, draftReaders) => {
   const { directory } = storage;
   const place = directory.placeOf(docId);
   const scriptId =
@@ -123,7 +127,13 @@ const scriptRole: RoleRow = (storage, docId, userId) => {
           .find((id) => commentsDocId(id) === docId);
   if (scriptId === undefined || directory.tombstoneOf(scriptId) !== null)
     return null;
-  return directory.roleOf(scriptId, userId);
+  const row = directory.roleOf(scriptId, userId);
+  if (
+    (row === null || row.role === "view") &&
+    draftReaders.isDraftReader(userId, scriptId)
+  )
+    return { role: "comment", capabilities: [] };
+  return row;
 };
 
 /** The kinds whose access is read from another document's row; a kind without a line reads its own. */
@@ -199,8 +209,10 @@ function checkCreate(userId: string, request: unknown): CreateCheck {
 export function createDocumentAccess(options: {
   storage: Storage;
   versions: ServerVersions;
+  draftReaders?: DraftReaders;
 }): DocumentAccess {
   const { storage, versions } = options;
+  const draftReaders = options.draftReaders ?? NO_DRAFT_READERS;
   const { directory } = storage;
 
   const canWrite = (docId: string, userId: string): boolean => {
@@ -215,7 +227,12 @@ export function createDocumentAccess(options: {
     if (place === null) return { ok: false, code: "forbidden" };
     const { home, kind } = place;
     if (!isDocKind(kind)) return { ok: false, code: "forbidden" };
-    const stored = (ROLE_ROWS[kind] ?? ownRole)(storage, docId, userId);
+    const stored = (ROLE_ROWS[kind] ?? ownRole)(
+      storage,
+      docId,
+      userId,
+      draftReaders,
+    );
     if (stored === null || !isDocRole(stored.role))
       return { ok: false, code: "forbidden" };
     if (kind === "private" && keyOf(home) !== `user:${userId}`)

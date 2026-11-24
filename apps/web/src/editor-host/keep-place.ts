@@ -18,8 +18,9 @@ export function keepPlace(
   store: PlaceStore,
   docId: string,
   editor: () => Placed,
+  restore = true,
 ): { save(): SavedPlace | null; stop(): void } {
-  const saved = store.place(docId);
+  const saved = restore ? store.place(docId) : null;
   if (saved !== null) editor().restore(saved);
   const save = (): SavedPlace | null => {
     const place = editor().place();

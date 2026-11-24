@@ -109,6 +109,7 @@ interface SortableAreaProps {
   /** The element around the lists, for a list that brings a moved item into view. */
   area?: RefObject<HTMLDivElement | null>;
   className?: string;
+  label?: string;
   children: ReactNode;
 }
 
@@ -117,6 +118,7 @@ export function SortableArea({
   onDrop,
   area,
   className,
+  label,
   children,
 }: SortableAreaProps): ReactNode {
   const latest = useRef(lists);
@@ -147,9 +149,10 @@ export function SortableArea({
     if (landing === null || isSamePlace(landing.from, landing.to)) return;
     onDrop(landing.itemId, landing.from, landing.to);
   };
-  // while an item is dragged its keys are the drag's: the list around it must not move focus or scroll as well
+  // while a keyboard drag is active its keys are the drag's: the list around it must not move focus or scroll as well;
+  // pointer drags keep Escape flowing so cancelling a pointer drag works
   const onKeyDownCapture = (event: ReactKeyboardEvent): void => {
-    if (dragging !== null) event.stopPropagation();
+    if (dragging === "keyboard") event.stopPropagation();
   };
 
   return (
@@ -167,6 +170,7 @@ export function SortableArea({
       <DropMarkContext value={mark}>
         <div
           ref={area}
+          aria-label={label}
           data-dragging={dragging ?? undefined}
           className={className}
           onKeyDownCapture={onKeyDownCapture}

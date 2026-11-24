@@ -14,6 +14,7 @@ export interface LiveEditor {
   readonly scaffold: PageScaffold | null;
   readonly presence: PresencePort;
   readonly editable: boolean;
+  setEditable?(editable: boolean): void;
   /** The page's factor, 1 at 100 %. */
   zoom(): number;
   /** The pages before page 1 as print and PDF draw them; null without pages or a title page. */

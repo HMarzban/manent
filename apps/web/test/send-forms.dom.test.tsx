@@ -24,6 +24,8 @@ import { SendScreen } from "../src/screens/send/send-screen.tsx";
 import { outsideFontSentence } from "../src/send/output-checks.tsx";
 import { loadPdfFonts } from "../src/send/pdf-fonts.ts";
 import * as printing from "../src/send/print-pages.ts";
+import { typesOffered } from "../src/send/file-types.ts";
+import { whatOffered } from "../src/send/what-options.ts";
 import { EnvironmentProvider, useServices } from "../src/services/context.tsx";
 import type { PersonServices } from "../src/services/ports.ts";
 import { createShellDom } from "../src/shell/regions.tsx";
@@ -707,4 +709,16 @@ test("an Ink script offers neither", async () => {
     "/s/d1",
     "/s/d1",
   ]);
+});
+
+test("send_draft offers whole_script, pdf and fdx", () => {
+  const offeredTo = {
+    docKind: "script" as const,
+    format: "screenplay" as const,
+    locked: false,
+  };
+  expect([
+    whatOffered("send_draft", "pdf", false).map((option) => option.id),
+    typesOffered("send_draft", offeredTo).map((type) => type.id),
+  ]).toEqual([["whole_script"], ["pdf", "fdx"]]);
 });

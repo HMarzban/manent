@@ -37,7 +37,7 @@ export const pdfFileType: ExportFileType = {
   mime: "application/pdf",
   docKinds: ["script"],
   formats: PAGED_FORMATS,
-  forms: ["export"],
+  forms: ["export", "send_draft"],
   print: { offered: true },
   lockedOnly: false,
   pagesOf: null,

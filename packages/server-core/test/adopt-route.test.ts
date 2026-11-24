@@ -8,7 +8,11 @@ import {
 import type { CrdtDoc } from "@manent/crdt";
 import type { DocFile, Home } from "@manent/storage";
 import { createMemoryStorage } from "@manent/storage/testing";
-import { indexDocId, workspaceHome } from "@manent/sync-protocol";
+import {
+  commentsDocId,
+  indexDocId,
+  workspaceHome,
+} from "@manent/sync-protocol";
 import type { IssueRequest } from "@manent/sync-protocol";
 import {
   OWNER_CAPABILITIES,
@@ -399,4 +403,44 @@ test("a script locked and issued on a device keeps its production and versions o
   expect(workflowSeen(storage.open(HOME_OBJ))).toEqual(
     workflowSeen(device.file),
   );
+});
+
+test("adopting a comments document requires and forwards scriptDocId", async () => {
+  const { storage, post, YOU_TOKEN } = adopting();
+  await post("/api/docs/adopt", { ...ok, state: base64(state()) }, YOU_TOKEN);
+  const cId = commentsDocId(DOC);
+  const commentsState = createDoc({ clientId: YOU_CLIENT }).encodeState();
+  const baseComments = {
+    key: KEY2,
+    docId: cId,
+    kind: "comments",
+    home: HOME,
+    workspaceId: null,
+    state: base64(commentsState),
+  };
+  const withoutScript = await post("/api/docs/adopt", baseComments, YOU_TOKEN);
+  expect([withoutScript.status, await withoutScript.json()]).toEqual([
+    400,
+    { error: "bad_request" },
+  ]);
+  const withScript = await post(
+    "/api/docs/adopt",
+    { ...baseComments, scriptDocId: DOC },
+    YOU_TOKEN,
+  );
+  expect([withScript.status, await withScript.json()]).toEqual([
+    200,
+    {
+      docId: cId,
+      kind: "comments",
+      home: HOME,
+      generation: 1,
+      adoptedSeq: 1,
+      created: true,
+    },
+  ]);
+  expect(storage.directory.placeOf(cId)).toEqual({
+    home: HOME_OBJ,
+    kind: "comments",
+  });
 });

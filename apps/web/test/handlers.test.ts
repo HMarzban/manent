@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { COMMANDS } from "@manent/commands";
+import { createValue } from "@manent/ui";
 import { createHandlers } from "../src/handlers/index.ts";
 import type { HandlerDeps } from "../src/handlers/index.ts";
 import type { RoutePlace } from "../src/handlers/index.ts";
@@ -125,4 +126,26 @@ test("Rename keeps what had focus as it begins, to give focus back when it ends"
   })["doc.rename"]();
   renameActions.stop();
   expect(kept).toEqual(["kept"]);
+});
+
+test("Project settings navigates to the open script's project settings with return path", () => {
+  const { deps, visited } = depsAt({
+    routeId: "/s/$docId",
+    href: "/s/doc-1?view=page",
+    search: {},
+  });
+  createHandlers({
+    ...deps,
+    services: {
+      ...deps.services,
+      library: {
+        ...deps.services.library,
+        documentProject: () => createValue("proj-7"),
+      },
+    },
+    shellState: () => ({ ...deps.shellState(), docId: "doc-1" }),
+  })["project.openSettings"]();
+  expect(visited).toEqual([
+    "/p/proj-7/settings?from=%2Fs%2Fdoc-1%3Fview%3Dpage",
+  ]);
 });

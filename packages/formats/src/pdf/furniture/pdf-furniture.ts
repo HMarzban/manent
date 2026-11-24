@@ -8,10 +8,33 @@ export interface PdfRevision {
   readonly tint: readonly [number, number, number] | null;
 }
 
+/** A slot in a page's header or footer, matching `@manent/settings`'s HeaderSlot. */
+export type PdfHeaderSlotKind =
+  | "none"
+  | "page_number"
+  | "page_of_total"
+  | "date"
+  | "title"
+  | "section"
+  | "running_time"
+  | "draft_name";
+
+export type PdfHeaderSlot =
+  | { readonly kind: PdfHeaderSlotKind }
+  | { readonly kind: "custom"; readonly text: string };
+
+export interface PdfHeaderSlots {
+  readonly left: PdfHeaderSlot;
+  readonly center: PdfHeaderSlot;
+  readonly right: PdfHeaderSlot;
+  readonly firstPage: boolean;
+  readonly rule: boolean;
+}
+
+export type PdfDateFormat = "day_month_year" | "month_day_year" | "iso";
+
 /**
- * One page as every entry is given it. `pageIndex` counts the document's pages, front pages left out. A null field
- * is one this build does not supply yet; `header`, `footer` and `dateFormat` are the resolved settings, which no
- * setting carries yet, so they are always null.
+ * One page as every entry is given it. `pageIndex` counts the document's pages, front pages left out.
  */
 export interface PdfFurnitureInput {
   readonly pageIndex: number;
@@ -21,9 +44,9 @@ export interface PdfFurnitureInput {
   readonly title: string | null;
   readonly revision: PdfRevision | null;
   readonly watermark: string | null;
-  readonly header: unknown;
-  readonly footer: unknown;
-  readonly dateFormat: unknown;
+  readonly header: PdfHeaderSlots | null;
+  readonly footer: PdfHeaderSlots | null;
+  readonly dateFormat: PdfDateFormat | null;
   readonly section: string | null;
   readonly revisionLabel: string | null;
   readonly day: string | null;

@@ -1,5 +1,8 @@
+import { withDom } from "@manent/testkit/dom";
 import { expect, test } from "bun:test";
+import { profileFor } from "@manent/pagination";
 import {
+  createPageScaffold,
   detectEngine,
   faceDescriptors,
   loadScriptFonts,
@@ -7,6 +10,8 @@ import {
   zoomBox,
 } from "../src/index.ts";
 import type { LoadableFace } from "../src/index.ts";
+
+withDom();
 
 const FACES = faceDescriptors([0x20, 0x7e], [0x100, 0x130]);
 const fake = (outcome: "load" | "never" | "reject") => (): LoadableFace => ({
@@ -78,4 +83,41 @@ test("the browser engine is read from the user agent", () => {
       "something else",
     ].map(detectEngine),
   ).toEqual(["chromium", "firefox", "webkit", "chromium"]);
+});
+
+test("scaffold passes typed furniture options and honors replaces on screen", () => {
+  const host = document.createElement("div");
+  Object.defineProperty(host, "clientHeight", { value: 900 });
+  const profile = profileFor("screenplay")!;
+  const scaffold = createPageScaffold({
+    place: host,
+    profile,
+    engine: "chromium",
+    furnitureEntries: [
+      {
+        replaces: ["page_number", "scene_continued_foot"],
+        draw(sheet, input) {
+          if (input.watermark !== null) {
+            const el = sheet.ownerDocument.createElement("div");
+            el.className = "mn-watermark";
+            el.textContent = input.watermark;
+            el.dataset["title"] = input.title ?? "";
+            sheet.append(el);
+          }
+        },
+      },
+    ],
+  });
+  expect([
+    scaffold.pages.getAttribute("data-hide-page_number"),
+    scaffold.pages.getAttribute("data-hide-scene_continued_foot"),
+    scaffold.pages.getAttribute("data-hide-more"),
+  ]).toEqual(["1", "1", null]);
+  scaffold.setFurniture({ title: "Harbour Lights", watermark: "Leo Marsh" });
+  const wm = scaffold.pages.querySelector<HTMLElement>(".mn-watermark");
+  expect([wm?.textContent, wm?.dataset["title"]]).toEqual([
+    "Leo Marsh",
+    "Harbour Lights",
+  ]);
+  scaffold.destroy();
 });

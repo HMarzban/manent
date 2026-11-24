@@ -1,9 +1,16 @@
 // The transport over the browser's fetch and WebSocket: a one-use ticket for the
 // session, then the socket that carries the frames.
 import { ConnectError } from "@manent/sync-client";
-import type { Connection, Transport } from "@manent/sync-client";
+import type {
+  Connection,
+  DriverCurrentOutcome,
+  DriverReleaseOutcome,
+  DriverTakeOutcome,
+  Transport,
+} from "@manent/sync-client";
 import { REPLAY_REFUSALS, encodeReplayUpdates } from "@manent/sync-protocol";
 import type {
+  Identity,
   ReplayOverlap,
   ReplayRefusal,
   ReplayResponse,
@@ -30,6 +37,36 @@ type Fetch = (
   url: string,
   init: { method: string; headers: Record<string, string>; body?: string },
 ) => Promise<FetchAnswer>;
+
+/** A thrown fetch is ConnectError("unreachable"). */
+async function get(
+  send: Fetch,
+  url: string,
+  session: string,
+): Promise<FetchAnswer> {
+  try {
+    return await send(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${session}` },
+    });
+  } catch (cause) {
+    throw new ConnectError("unreachable", { cause });
+  }
+}
+
+function isIdentity(value: unknown): value is Identity {
+  return (
+    isFields(value) &&
+    typeof value.userId === "string" &&
+    typeof value.name === "string"
+  );
+}
+
+function readDriver(value: unknown): { driver: Identity | null } | null {
+  if (!isFields(value)) return null;
+  if (value.driver === null) return { driver: null };
+  return isIdentity(value.driver) ? { driver: value.driver } : null;
+}
 
 /** A thrown fetch is ConnectError("unreachable"). A body is JSON text. */
 async function post(
@@ -262,6 +299,63 @@ export function webTransport(options: {
       const code = isFields(content) ? content.error : null;
       if (isReplayRefusal(code)) return { ok: false, code };
       throw refusal(reply.status);
+    },
+    driver: {
+      async current(docId): Promise<DriverCurrentOutcome> {
+        const token = session();
+        if (token === null) throw new ConnectError("sign_in");
+        const url = `${baseUrl}/api/driver/current?docId=${encodeURIComponent(docId)}`;
+        const reply = await get(send, url, token);
+        if (reply.status === 403) return { ok: false, code: "forbidden" };
+        if (reply.status === 410) return { ok: false, code: "deleted" };
+        if (reply.status !== 200) throw refusal(reply.status);
+        const answer = readDriver(await readBody(reply));
+        if (answer === null) throw new ConnectError("unreachable");
+        return { ok: true, driver: answer.driver };
+      },
+      async take(request): Promise<DriverTakeOutcome> {
+        const token = session();
+        if (token === null) throw new ConnectError("sign_in");
+        const url = `${baseUrl}/api/driver/take`;
+        const reply = await post(send, url, token, JSON.stringify(request));
+        if (reply.status === 403) return { ok: false, code: "forbidden" };
+        if (reply.status === 410) return { ok: false, code: "deleted" };
+        const content = await readBody(reply);
+        if (reply.status === 200) {
+          const answer = readDriver(content);
+          if (answer === null) throw new ConnectError("unreachable");
+          return { ok: true, driver: answer.driver };
+        }
+        if (
+          reply.status === 409 &&
+          isFields(content) &&
+          content.error === "driver_taken" &&
+          isIdentity(content.driver)
+        )
+          return { ok: false, code: "driver_taken", driver: content.driver };
+        throw refusal(reply.status);
+      },
+      async release(request): Promise<DriverReleaseOutcome> {
+        const token = session();
+        if (token === null) throw new ConnectError("sign_in");
+        const url = `${baseUrl}/api/driver/release`;
+        const reply = await post(send, url, token, JSON.stringify(request));
+        if (reply.status === 403) return { ok: false, code: "forbidden" };
+        if (reply.status === 410) return { ok: false, code: "deleted" };
+        const content = await readBody(reply);
+        if (reply.status === 200) {
+          const answer = readDriver(content);
+          if (answer === null) throw new ConnectError("unreachable");
+          return { ok: true, driver: answer.driver };
+        }
+        if (
+          reply.status === 409 &&
+          isFields(content) &&
+          content.error === "not_driver"
+        )
+          return { ok: false, code: "not_driver" };
+        throw refusal(reply.status);
+      },
     },
   };
 }

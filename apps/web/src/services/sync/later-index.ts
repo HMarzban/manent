@@ -121,6 +121,7 @@ export function createLaterLibrary(options: {
     titles: new Map<string, Subscribable<string | null>>(),
     kinds: new Map<string, Subscribable<ProjectKind | null>>(),
     docKinds: new Map<string, Subscribable<DocKind | null>>(),
+    docProjects: new Map<string, Subscribable<string | null>>(),
   };
   return {
     continueList: (ws) =>
@@ -158,6 +159,10 @@ export function createLaterLibrary(options: {
     docKindOf: (docId) =>
       cached(lists.docKinds, docId, () =>
         later(null, (l) => l.docKindOf(docId)),
+      ),
+    documentProject: (docId) =>
+      cached(lists.docProjects, docId, () =>
+        later(null, (l) => l.documentProject(docId)),
       ),
     renameDocument(docId, title) {
       if (opened !== null) opened.renameDocument(docId, title);

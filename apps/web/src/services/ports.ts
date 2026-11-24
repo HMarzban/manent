@@ -118,6 +118,8 @@ export interface LibraryIndex {
   documentKind(docId: string): Subscribable<ProjectKind | null>;
   /** The kind of `docId` itself; null for a document the index does not hold. */
   docKindOf(docId: string): Subscribable<DocKind | null>;
+  /** The id of the project that holds `docId`; null for a document the index does not hold. */
+  documentProject(docId: string): Subscribable<string | null>;
   /** An index write, like `createProject`. */
   renameDocument(docId: string, title: string): void;
   /**
