@@ -324,6 +324,11 @@ class TabReplicas implements Replicas {
       if (m.t === "open") {
         session.addClient(m.clientId);
         this.post({
+          t: "status",
+          docId: m.docId,
+          status: session.handle.status.get(),
+        });
+        this.post({
           t: "state",
           to: m.from,
           docId: m.docId,
