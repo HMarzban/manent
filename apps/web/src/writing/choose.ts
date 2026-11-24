@@ -54,7 +54,8 @@ export async function startPrivately(
 ): Promise<{ ok: true } | { ok: false; reason: NotStarted }> {
   if (writingActions.index() === null) return { ok: false, reason: "refused" };
   const handle = await services.openHandle(docId);
-  const synced = handle.lastServerSeq() > 0;
+  const seq = handle.lastServerSeq();
+  const synced = (seq === null || seq > 0) && !handle.status.get().neverSynced;
   void handle.close();
   if (!synced) return { ok: false, reason: "not_synced" };
   const privateDocId = await createPrivateCopy(services.userId, docId);

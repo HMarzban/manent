@@ -286,7 +286,12 @@ async function openedWhile(
 }
 
 test("a page opens only once the server has answered for the person's index, or the device's link is down", async () => {
-  // what a following tab shows of the index until the leading tab tells it the index's status
+  const connecting = {
+    ...SYNCED_STATUS,
+    synced: false,
+    link: "connecting" as const,
+    docSync: "local" as const,
+  };
   const told = { ...SYNCED_STATUS, synced: false, link: "offline" as const };
   const following = {
     ...ONLINE_LINK,
@@ -302,12 +307,13 @@ test("a page opens only once the server has answered for the person's index, or 
   };
   const leading = { ...ONLINE_LINK, state: "offline" as const };
   expect([
-    await openedWhile(told, following),
+    await openedWhile(connecting, following),
+    await openedWhile(connecting, ONLINE_LINK),
     await openedWhile(refused, ONLINE_LINK),
+    await openedWhile(told, ONLINE_LINK),
     await openedWhile(told, leading),
-    // the leading tab tells of a drop of the device's link
-    await openedWhile({ ...told, wentOfflineAt: 1 }, following),
-  ]).toEqual([[], [], [OWN_DOC], [OWN_DOC]]);
+    await openedWhile(told, following),
+  ]).toEqual([[], [], [], [OWN_DOC], [OWN_DOC], [OWN_DOC]]);
 });
 
 test("a script opened while written privately, whose copy never arrives on this device, shows the script for everyone in time", async () => {

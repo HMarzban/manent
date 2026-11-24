@@ -59,12 +59,11 @@ const SERVER_ANSWERS: Readonly<Record<SideState, boolean>> = Object.freeze({
 });
 
 /**
- * Whether the server has answered for the person's index, or the device's link has dropped. An offline link with no
- * drop recorded is not enough: a following tab shows that until the leading tab first tells it the index's status.
+ * Whether the server has answered for the person's index, or the device's link is offline.
  */
 function isAnswered(status: DocStatus): boolean {
   if (status.synced && status.waiting === 0) return true;
-  if (status.link === "offline" && status.wentOfflineAt !== null) return true;
+  if (status.link === "offline") return true;
   return status.side.some((side) => SERVER_ANSWERS[side]);
 }
 
