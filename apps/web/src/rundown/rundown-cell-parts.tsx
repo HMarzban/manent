@@ -1,22 +1,9 @@
-// Reusable cell-rendering pieces for the rundown grid: Dur cell, presence badges, corner marks and row menu handle.
-import type { CommandId } from "@manent/commands";
+// Reusable cell-rendering pieces for the rundown grid: Dur cell, presence badges and corner marks.
 import type { RowTiming } from "@manent/pagination";
 import type { RundownCellJSON, RundownRowJSON } from "@manent/schema";
-import {
-  Avatar,
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  RUNDOWN_WORDS,
-  formatDuration,
-  formatTime,
-} from "@manent/ui";
+import { Avatar, RUNDOWN_WORDS, formatDuration, formatTime } from "@manent/ui";
 import type { GridCell, GridCornerMark } from "@manent/ui";
-import { EllipsisVerticalIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { useServices } from "../services/context.tsx";
 import { fullNameOf, nameOf } from "../services/sync/index-entries.ts";
 
 function initialsOf(fullName: string): string {
@@ -69,47 +56,6 @@ export function cornerMarkOf(
     label: RUNDOWN_WORDS.changedAt(nameOf(cell.userId), formatTime(cell.setAt)),
     onOpen: openPrevious,
   };
-}
-
-export function RowMenuHandle(props: {
-  readonly label: string;
-  readonly items: readonly CommandId[];
-}): ReactNode {
-  const { commands } = useServices();
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={props.label}
-            className="cursor-pointer text-fg-muted hover:text-fg"
-          />
-        }
-      >
-        <EllipsisVerticalIcon aria-hidden="true" className="size-icon" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {props.items.map((id) => {
-          const state = commands.state(id);
-          if (!state.visible) return null;
-          return (
-            <DropdownMenuItem
-              key={id}
-              disabled={!state.enabled}
-              className={
-                state.enabled ? "cursor-pointer" : "cursor-not-allowed"
-              }
-              onClick={() => commands.run(id, "menu")}
-            >
-              {state.label}
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
 }
 
 export function buildDurCell(options: {

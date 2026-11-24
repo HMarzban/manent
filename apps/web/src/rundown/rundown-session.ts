@@ -35,9 +35,11 @@ import type { RundownViewState } from "./rundown-view-store.ts";
 export { useRundownView } from "./rundown-view-store.ts";
 export type { RundownViewState } from "./rundown-view-store.ts";
 
-interface UndoEntry {
-  readonly columnLabel: string;
-  readonly rowNumber: number | null;
+export interface RundownUndoEntry {
+  readonly message: string | null;
+  readonly steps?: number;
+  readonly onUndo?: () => void;
+  readonly onRedo?: () => void;
 }
 
 const EMPTY_SET: ReadonlySet<string> = new Set();
@@ -45,6 +47,8 @@ const EMPTY_SET: ReadonlySet<string> = new Set();
 export interface RundownSessionControls {
   readonly view: RundownViewState;
   readonly online: boolean;
+  getHandle(): DocHandle | null;
+  recordUndo(entry: RundownUndoEntry): void;
   setActiveCell(cell: GridCellCoord | null): void;
   setSelection(rowIds: readonly string[]): void;
   setEditingCell(editing: boolean): void;
@@ -73,8 +77,8 @@ export function useRundownSession(
 
   const handleRef = useRef<DocHandle | null>(null);
   const undoRef = useRef<RundownUndo | null>(null);
-  const undoLabelsRef = useRef<UndoEntry[]>([]);
-  const redoLabelsRef = useRef<UndoEntry[]>([]);
+  const undoLabelsRef = useRef<RundownUndoEntry[]>([]);
+  const redoLabelsRef = useRef<RundownUndoEntry[]>([]);
   const describedRef = useRef<RundownAccess | null>(null);
   const activeRef = useRef<GridCellCoord | null>(null);
   const selectedRef = useRef<ReadonlySet<string>>(EMPTY_SET);
@@ -198,17 +202,18 @@ export function useRundownSession(
       undo() {
         const manager = undoRef.current;
         if (manager === null) return;
-        manager.undo();
         const entry = undoLabelsRef.current.pop();
+        const steps = entry?.steps ?? 1;
+        for (let i = 0; i < steps; i++) manager.undo();
         if (entry === undefined) return;
         redoLabelsRef.current.push(entry);
-        if (entry.rowNumber !== null) {
+        entry.onUndo?.();
+        if (entry.message !== null) {
+          services.messages.withdraw("rundown.action");
+          services.messages.withdraw("rundown.undo");
           services.messages.push({
-            id: `rundown.undo.${now()}`,
-            text: RUNDOWN_WORDS.undidCellChange(
-              entry.columnLabel,
-              entry.rowNumber,
-            ),
+            id: "rundown.undo",
+            text: entry.message,
             lifetime: "brief",
             ownWork: false,
             actions: [],
@@ -218,9 +223,12 @@ export function useRundownSession(
       redo() {
         const manager = undoRef.current;
         if (manager === null) return;
-        manager.redo();
         const entry = redoLabelsRef.current.pop();
-        if (entry !== undefined) undoLabelsRef.current.push(entry);
+        const steps = entry?.steps ?? 1;
+        for (let i = 0; i < steps; i++) manager.redo();
+        if (entry === undefined) return;
+        undoLabelsRef.current.push(entry);
+        entry.onRedo?.();
       },
     });
 
@@ -327,6 +335,11 @@ export function useRundownSession(
   return {
     view,
     online: doc.status.get().network === "online",
+    getHandle: () => handleRef.current,
+    recordUndo(entry) {
+      undoLabelsRef.current.push(entry);
+      redoLabelsRef.current = [];
+    },
     setActiveCell(cell) {
       activeRef.current = cell;
       const current = getRundownView(docId);
@@ -352,7 +365,12 @@ export function useRundownSession(
         userId: services.userId,
         now,
       });
-      undoLabelsRef.current.push({ columnLabel, rowNumber });
+      undoLabelsRef.current.push({
+        message:
+          rowNumber !== null
+            ? RUNDOWN_WORDS.undidCellChange(columnLabel, rowNumber)
+            : null,
+      });
       redoLabelsRef.current = [];
     },
   };
