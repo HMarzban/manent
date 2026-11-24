@@ -15,6 +15,7 @@ import type { CommentsEntry, Opener } from "../comments/comments-session.ts";
 import type {
   CommentsUiState,
   PopoverTrigger,
+  SceneBlockInfo,
   ScriptCommentsState,
 } from "../comments/comments-types.ts";
 import {
@@ -167,6 +168,15 @@ export const commentsActions = {
     }
     if (!added) return;
     entry.state = { ...entry.state, removedIds: next };
+    emitComments(entry);
+  },
+  setBlockScenes(
+    docId: string,
+    blockScenes: ReadonlyMap<string, SceneBlockInfo>,
+  ): void {
+    const entry = entries.get(docId);
+    if (entry === undefined) return;
+    entry.state = { ...entry.state, blockScenes };
     emitComments(entry);
   },
   loadPeople(docId: string, userId: string): Promise<void> {

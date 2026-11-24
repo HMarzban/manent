@@ -21,6 +21,7 @@ import type {
   CommentsRole,
   CommentsUiState,
   PopoverTrigger,
+  SceneBlockInfo,
   ScriptCommentsState,
   StoredNote,
 } from "./comments-types.ts";
@@ -32,6 +33,7 @@ const EMPTY_SET: ReadonlySet<string> = new Set();
 const EMPTY_RECORD: Readonly<Record<string, never>> = Object.freeze({});
 const EMPTY_NOTES: readonly StoredNote[] = Object.freeze([]);
 const EMPTY_PEOPLE: readonly CommentPerson[] = Object.freeze([]);
+const EMPTY_SCENES: ReadonlyMap<string, SceneBlockInfo> = new Map();
 
 export const DEFAULT_UI: CommentsUiState = Object.freeze({
   filter: "open",
@@ -55,6 +57,7 @@ export const emptyCommentsState = (docId: string): ScriptCommentsState => ({
   people: EMPTY_PEOPLE,
   peopleState: "idle",
   removedIds: EMPTY_SET,
+  blockScenes: EMPTY_SCENES,
 });
 
 function roleOf(

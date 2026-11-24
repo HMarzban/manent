@@ -16,6 +16,11 @@ export interface StoredNote {
 
 export type CommentsRole = "editor" | "commenter" | "viewer";
 
+export interface SceneBlockInfo {
+  readonly sceneBlockId: string;
+  readonly heading: string;
+}
+
 export interface ScriptCommentsState {
   readonly docId: string;
   readonly access: StatusFacts["access"];
@@ -31,6 +36,7 @@ export interface ScriptCommentsState {
   readonly people: readonly CommentPerson[];
   readonly peopleState: "idle" | "loaded" | "offline";
   readonly removedIds: ReadonlySet<string>;
+  readonly blockScenes: ReadonlyMap<string, SceneBlockInfo>;
 }
 
 export interface CommentsUiState {
@@ -57,7 +63,7 @@ export type PopoverMode =
 
 export type PopoverTrigger =
   | { kind: "selection_comment" }
-  | { kind: "scene_comment"; headingId: string }
+  | { kind: "scene_comment"; headingId: string | null }
   | { kind: "script_comment" }
   | { kind: "note_at_caret" }
   | { kind: "open_id"; id: string };

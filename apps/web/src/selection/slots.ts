@@ -38,4 +38,6 @@ export const SELECTION_SLOTS: readonly SelectionSlot[] = [
   { command: "production.markRevised", place: "state", rank: 1 },
   { command: "production.clearRevised", place: "state", rank: 1 },
   { command: "alternate.add", place: "state", rank: 2 },
+  { command: "comment.add", place: "main", rank: 0 },
+  { command: "note.add", place: "main", rank: 0 },
 ];
