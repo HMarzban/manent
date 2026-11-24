@@ -1187,8 +1187,11 @@ html[data-white-page] .mn-pages {
 }
 /* only a row that does something looks like it does: its own keys, or the
    control around it. A selected row keeps its fill under the pointer: the
-   fill is all that marks it. */
+   fill is all that marks it. A row's menu lies over its end, so the row
+   keeps its fill while the pointer is on the menu. */
 .mn-row[tabindex]:not([aria-disabled="true"], [aria-selected="true"]):hover,
+[data-row-menu]:hover
+  > .mn-row[tabindex]:not([aria-disabled="true"], [aria-selected="true"]),
 button:not(:disabled, [aria-disabled="true"]):hover
   > .mn-row:not([aria-selected="true"]) {
   background-color: var(--bg-subtle);

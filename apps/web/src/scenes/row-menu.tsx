@@ -37,7 +37,7 @@ export function rowItemsFor(
 }
 
 /**
- * `children` draws the row or card with the menu's handle in it, or null when `items` is empty and the row has no
+ * `children` draws the row or card with the menu's handle, or null when `items` is empty and the row has no
  * menu; the items come from the caller, so that the list they are registered in never imports this file back.
  */
 export function SceneRowMenu(props: {

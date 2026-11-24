@@ -80,10 +80,10 @@ function shownMessage(frame: Frame): string[] {
 const tabs = (panel: HTMLElement): string[] =>
   [...panel.querySelectorAll("[role='tab']")].map(nameOf);
 
-/** A row of a list as it is seen, and as it is read aloud. */
+/** A row of a list, its menu last, as it is seen, and as it is read aloud. */
 function rowText(row: Element): [string, string] {
   const parts = (hide: string): string =>
-    [...row.querySelectorAll(".mn-row > *")]
+    [...row.querySelectorAll(".mn-row > *, [data-row-menu] > :not(.mn-row)")]
       .map((part) => {
         const copy = part.cloneNode(true);
         if (!(copy instanceof Element)) return "";
