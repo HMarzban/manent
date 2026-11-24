@@ -65,4 +65,5 @@ export const SELECTION_SLOTS: readonly SelectionSlot[] = [
   { command: "comment.add", place: "main", rank: 0 },
   { command: "note.add", place: "main", rank: 0 },
   pinFactSelectionSlot,
+  { command: "timing.exclude", place: "state", rank: 3 },
 ];
