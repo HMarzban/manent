@@ -1,26 +1,12 @@
 // The Tour's together-follow scenario: Sam follows Dana from the people list, sees her move to scene 11, and stops by typing.
-import { DOCUMENT_WORDS } from "@manent/ui";
 import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { settled } from "../editor/support.ts";
-import { expectEvidence, tourScenario } from "../support/tour.ts";
-
-/** Selects step `index` in the Tour before opening a menu or popover whose blur would otherwise dismiss it. */
-async function selectTourStep(
-  page: Page,
-  promise: string,
-  index: number,
-): Promise<void> {
-  const row = page
-    .locator("[data-region='side_panel']")
-    .getByRole("tabpanel", { name: DOCUMENT_WORDS.tourTab })
-    .getByRole("listitem")
-    .filter({ hasText: promise })
-    .locator("ol > li > div")
-    .nth(index);
-  await row.click();
-  await expect(row).toHaveAttribute("aria-current", "true");
-}
+import {
+  expectEvidence,
+  selectTourStep,
+  tourScenario,
+} from "../support/tour.ts";
 
 tourScenario("together-follow", async ({ windows, scenario, step }) => {
   const [sam, dana] = windows as [Page, Page];

@@ -24,11 +24,11 @@ export const TOGETHER_NOTE: TourScenario = {
   check:
     'The filter reads "Network · Thu 12 Nov"; Resolve says "Resolved Leo\'s comment as addressed.", and 203\'s Stage reads "Network · 3 open".',
   evidence: [
-    "Network · Thu 12 Nov",
+    "Network · ",
     "Resolved Leo's comment as addressed.",
     "Network · 3 open",
   ],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

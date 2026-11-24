@@ -9,11 +9,19 @@ import {
   TOUR_FEATURES,
   TOUR_RELEASED,
   docPath,
+  draftLinkPath,
+  seedDoc,
   seedProject,
 } from "../src/index.ts";
 import type { SeedWorkspaceId, TourScenario } from "../src/index.ts";
 
 const DOC_AT = new Map(SEED_DOCS.map((d) => [docPath(d.key), d]));
+const DRAFT_LINK_AT = new Map([
+  [
+    draftLinkPath("medium/the-long-night/script", "Blue"),
+    seedDoc("medium/the-long-night/script"),
+  ],
+]);
 const PROJECT_BOARDS = new Map(
   SEED_PROJECTS.map((p) => [`/p/${p.projectId}/board`, p]),
 );
@@ -47,11 +55,11 @@ function workspaceOpened(userId: string, open: string): SeedWorkspaceId | null {
   if (open === "/") return userId === "you" ? "you" : null;
   const board = PROJECT_BOARDS.get(open);
   if (board !== undefined) return board.workspaceId;
-  const doc = DOC_AT.get(open);
+  const doc = DOC_AT.get(open) ?? DRAFT_LINK_AT.get(open);
   return doc === undefined ? null : seedProject(doc.projectKey).workspaceId;
 }
 
-test("every scenario opens a seeded document, project board, or the Library", () => {
+test("every scenario opens a seeded document, draft link, project board, or the Library", () => {
   expect(
     TOUR.scenarios.flatMap((s) =>
       windowsOf(s)
@@ -59,6 +67,7 @@ test("every scenario opens a seeded document, project board, or the Library", ()
           (w) =>
             w.open !== "/" &&
             !DOC_AT.has(w.open) &&
+            !DRAFT_LINK_AT.has(w.open) &&
             !PROJECT_BOARDS.has(w.open),
         )
         .map((w) => `${s.id}: ${w.open}`),

@@ -23,5 +23,5 @@ export const DESKTOP_OFFLINE: TourScenario = {
   evidence: ["Saved · Offline, 3 waiting", "Saved · Synced"],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

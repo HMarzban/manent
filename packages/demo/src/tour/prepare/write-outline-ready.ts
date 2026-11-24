@@ -15,7 +15,8 @@ export const WRITE_OUTLINE_READY: TourPreparation = {
       if (
         blocks.length === 1 &&
         blocks[0]?.attrs.type === "scene_heading" &&
-        blockText(blocks[0]) === ""
+        blockText(blocks[0]) === "" &&
+        (blocks[0].attrs.synopsis ?? "") === ""
       )
         return READY;
       const [first, ...rest] = blocks;

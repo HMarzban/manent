@@ -28,7 +28,7 @@ export const OFFLINE_REORGANISED: TourScenario = {
     },
   ],
   check:
-    'Sam reads "Manent reorganised how this script is stored while you were away.", then how many of his changes were re-applied, and the status returns to "Saved · Synced".',
+    'Dana reads "Manent reorganised how this script is stored while you were away.", then how many of her changes were re-applied, and the status returns to "Saved · Synced".',
   evidence: [
     "Manent reorganised how this script is stored while you were away.",
     "Saved · Synced",

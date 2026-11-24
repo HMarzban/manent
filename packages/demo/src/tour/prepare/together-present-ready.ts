@@ -35,6 +35,8 @@ export const TOGETHER_PRESENT_READY: TourPreparation = {
   id: "together-present-ready",
   async run(driver) {
     const { docId } = seedDoc("medium/harbour-lights/205");
+    if (driver.privateCopies !== null)
+      await driver.privateCopies.setPosition("sam", docId, "everyone");
     const session = await driver.open("dana", docId);
     try {
       const blocks = blocksOf(scriptBody(session.doc).materialize());

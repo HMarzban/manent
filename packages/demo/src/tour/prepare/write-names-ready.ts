@@ -60,6 +60,8 @@ export const WRITE_NAMES_READY: TourPreparation = {
   id: "write-names-ready",
   async run(driver) {
     const { docId } = seedDoc("medium/harbour-lights/205");
+    if (driver.privateCopies !== null)
+      await driver.privateCopies.setPosition("sam", docId, "everyone");
     await restoreInDoc(driver, "sam", docId);
     const privateCopyId = await openPrivateCopyId(driver, "sam", docId);
     if (privateCopyId !== null)

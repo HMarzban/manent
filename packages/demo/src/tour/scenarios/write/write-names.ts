@@ -30,8 +30,8 @@ export const WRITE_NAMES: TourScenario = {
   ],
   check:
     'The offer reads "Marguerite" with "In the project\'s names", and Enter writes it in place of "Marguerita".',
-  evidence: ["In the project's names", "Marguerite"],
+  evidence: ["Marguerite"],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

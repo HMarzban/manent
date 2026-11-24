@@ -34,5 +34,5 @@ export const TOGETHER_PRESENT: TourScenario = {
   evidence: ["Dana is driving", "1/4", "Pitched"],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

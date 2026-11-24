@@ -1,4 +1,4 @@
-// As Sam, returns his writing position on 205 Slack Water to Privately (keeping his private changes).
+// As Sam, puts his writing position on 205 Slack Water on For everyone (keeping his private copy untouched).
 import { seedDoc } from "../../seed/catalogue.ts";
 import { SeedDriverError } from "../../seed/driver.ts";
 import type { TourPreparation } from "./index.ts";
@@ -13,7 +13,7 @@ export const TOGETHER_SUGGEST_READY: TourPreparation = {
         "the server has no private copies",
       );
     const { docId } = seedDoc("medium/harbour-lights/205");
-    await driver.privateCopies.setPosition("sam", docId, "private");
+    await driver.privateCopies.setPosition("sam", docId, "everyone");
     return READY;
   },
 };

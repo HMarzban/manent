@@ -30,5 +30,5 @@ export const TOGETHER_COMMENTS: TourScenario = {
   evidence: ["Resolved your comment.", "Happy. Keep it on 15."],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

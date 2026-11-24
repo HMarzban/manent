@@ -29,11 +29,11 @@ export const OFFLINE_OVERLAP: TourScenario = {
     },
   ],
   check:
-    'Sam reads "1 change synced · 1 passage overlaps — review" and "Saved · Synced, 1 to review"; Use Dana\'s puts her wording in and says "Used Dana\'s wording in Sc. 2."',
+    'Dana reads "1 change synced · 1 passage overlaps — review" and "Saved · Synced, 1 to review"; Use Priya\'s puts her wording in and says "Used Priya\'s wording in Sc. 15."',
   evidence: [
     "1 change synced · 1 passage overlaps — review",
     "Saved · Synced, 1 to review",
-    "Used Dana's wording in Sc. 2.",
+    "Used Priya's wording in Sc. 15.",
   ],
   fresh: false,
   waitsFor: null,
