@@ -911,6 +911,7 @@ test("the handler table names every command but the generated ones", () => {
     "room.follow": noop,
     "room.stopFollowing": noop,
     "room.takeKeys": noop,
+    "room.pitch": noop,
     "view.presentToRoom": noop,
     "share.open": noop,
     "writing.forEveryone": noop,

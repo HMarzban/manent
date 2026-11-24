@@ -11,4 +11,9 @@ export const ROOM_WORDS = Object.freeze({
     `${name} took keys. The room window follows ${name} now.`,
   driverStoppedPresenting: (name: string): string =>
     `${name} stopped presenting.`,
+  pitchAction: "Pitch",
+  pitchFieldLabel: "Pitch a line",
+  pitchFieldPlaceholder: "Type another way to say this line. Enter pitches it.",
+  pitchNeedsSpeech: (name: string): string =>
+    `needs ${name}'s caret in a speech`,
 });
