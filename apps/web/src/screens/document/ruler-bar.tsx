@@ -1,21 +1,46 @@
 // The Ruler's row between the state bar and the panels: the caret block's indent and right edge over the page's text column.
-import { Ruler, useSubscribable } from "@manent/ui";
-import type { StatusFacts, Subscribable } from "@manent/ui";
+import { CELLS_PER_INCH } from "@manent/pagination";
+import type { ElementStyle } from "@manent/settings";
+import { DOC_ROLES, indexDocId } from "@manent/sync-protocol";
+import {
+  Button,
+  PROJECT_WORDS,
+  Ruler,
+  SHARING_WORDS,
+  useSubscribable,
+} from "@manent/ui";
+import type { Message, StatusFacts, Subscribable } from "@manent/ui";
 import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
 import type { PageFrame } from "../../editor-host/page-frame.ts";
-import { useServices } from "../../services/context.tsx";
+import type { CaretElementInfo } from "../../editor-host/ruler-element.ts";
+import { readPerson } from "../../session.ts";
+import { useEnvironment, useServices } from "../../services/context.tsx";
 import { useEditorFact } from "../../state/facts.store.ts";
+import { useProductionContext } from "../../state/production-context.store.ts";
 import { useRulerShown } from "../../state/ruler.store.ts";
 import { useKeepPageStill } from "./document-state-bar.tsx";
 import { useOpenDocument } from "./open-document.ts";
+
+type RulerElementModule = typeof import("../../editor-host/ruler-element.ts");
+
+const EMPTY_ENTRY: ElementStyle = Object.freeze({
+  capitalized: null,
+  underlined: null,
+  bold: null,
+  colour: null,
+  spaceBefore: null,
+  indent: null,
+  width: null,
+});
 
 const RULER_AREA = Object.freeze({ gridArea: "ruler" });
 const NOTHING: Subscribable<null> = Object.freeze({
@@ -23,9 +48,56 @@ const NOTHING: Subscribable<null> = Object.freeze({
   subscribe: () => () => {},
 });
 
-// the frame is read through the live editor, which loads apart from the screens
+// the frame and caret element state are read through the live editor, which loads apart from the screens
 const loadPageFrame = async () =>
   (await import("../../editor-host/page-frame.ts")).pageFrame;
+const loadRulerElement = async (): Promise<RulerElementModule> =>
+  import("../../editor-host/ruler-element.ts");
+
+function toInches(cells: number): number {
+  return Math.round(cells) / CELLS_PER_INCH;
+}
+
+function ProjectStyleProbe(props: {
+  docId: string;
+  projectId: string;
+  onOwner: (owner: boolean) => void;
+}): null {
+  const { docId, projectId, onOwner } = props;
+  const { userId } = useServices();
+  const { tabStorage } = useEnvironment();
+  useEffect(() => {
+    let active = true;
+    const person = readPerson(tabStorage);
+    const token = person?.userId === userId ? person.token : null;
+    const describe = (id: string): Promise<unknown> =>
+      fetch("/api/docs/describe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token === null ? {} : { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ docId: id }),
+      }).then((res) => (res.status === 200 ? res.json() : null));
+    void describe(indexDocId("project", projectId))
+      .then((body) => (body === null ? describe(docId) : body))
+      .then((body: unknown) => {
+        if (!active || typeof body !== "object" || body === null) return;
+        const role = Reflect.get(body, "role");
+        const caps = Reflect.get(body, "capabilities");
+        if (!DOC_ROLES.some((known) => known === role) || !Array.isArray(caps))
+          return;
+        onOwner(role === "owner" || caps.includes("issue_revisions"));
+      })
+      .catch(() => {
+        // leave default until answered; the server refuses a write the role may not make
+      });
+    return () => {
+      active = false;
+    };
+  }, [docId, projectId, tabStorage, userId, onOwner]);
+  return null;
+}
 
 /** The page's frame for `docId` while `shown`; null until its code has loaded and while no paged editor of it is open. */
 function usePageFrame(docId: string, shown: boolean): PageFrame | null {
@@ -67,6 +139,23 @@ export function useCanEdit(docId: string): boolean {
   return useAccess(docId) === "edit";
 }
 
+/** Re-renders the bar when `script.style` changes (from Project settings, Apply to every, or Undo). */
+function useScriptStyleRevision(docId: string, active: boolean): number {
+  const services = useServices();
+  const revision = useRef(0);
+  const subscribe = useCallback(
+    (notify: () => void) => {
+      if (!active) return () => {};
+      return services.openScriptStore(docId).subscribe("script.style", () => {
+        revision.current += 1;
+        notify();
+      });
+    },
+    [active, docId, services],
+  );
+  return useSyncExternalStore(subscribe, () => revision.current);
+}
+
 /**
  * Drawn while the Ruler is on and the caret is in a block of a paged script; otherwise its row is empty and 0 px high.
  * Its appearing scrolls the page by its height in the same frame, so the line being read stays put. A drag sends one
@@ -74,13 +163,40 @@ export function useCanEdit(docId: string): boolean {
  */
 export function RulerBar(props: { docId: string }): ReactNode {
   const { docId } = props;
-  const { editor } = useServices();
+  const services = useServices();
+  const { editor } = services;
   const shown = useRulerShown();
   const columnCells = useEditorFact("columnCells");
   const indent = useEditorFact("blockIndent");
   const width = useEditorFact("blockWidth");
+  const element = useEditorFact("element");
+  const blockId = useEditorFact("blockId");
   const editable = useCanEdit(docId);
+  const locked = useProductionContext(docId)?.locked === true;
+  const projectSource = useMemo(
+    () => services.library.documentProject(docId),
+    [services, docId],
+  );
+  const projectId = useSubscribable(projectSource);
+  const [projectOwner, setProjectOwner] = useState(true);
+  const canWriteStyle = projectId !== null && projectOwner;
   const frame = usePageFrame(docId, shown);
+  const [rulerMod, setRulerMod] = useState<RulerElementModule | null>(null);
+  useEffect(() => {
+    if (projectId === null || !shown || !editable || locked) return;
+    let active = true;
+    void loadRulerElement()
+      .then((mod) => {
+        if (active) setRulerMod(mod);
+      })
+      .catch(() => {
+        // without the live editor helper, Apply to every stays hidden
+      });
+    return () => {
+      active = false;
+    };
+  }, [projectId, shown, editable, locked]);
+
   const bar = useRef<HTMLDivElement>(null);
   const [barLeftPx, setBarLeftPx] = useState(0);
   useKeepPageStill(bar);
@@ -88,30 +204,130 @@ export function RulerBar(props: { docId: string }): ReactNode {
     if (bar.current !== null)
       setBarLeftPx(bar.current.getBoundingClientRect().left);
   }, [frame]);
+
   const drawn =
     shown &&
     columnCells !== null &&
     indent !== null &&
     width !== null &&
     frame !== null;
+
+  const styleInteractive = drawn && editable && !locked && canWriteStyle;
+  useScriptStyleRevision(docId, styleInteractive);
+
+  const caretInfo: CaretElementInfo | null =
+    styleInteractive && rulerMod !== null && blockId !== null
+      ? rulerMod.readCaretElementInfo(docId)
+      : null;
+
+  const differsFromElement =
+    caretInfo !== null &&
+    indent !== null &&
+    width !== null &&
+    (caretInfo.ownIndent !== null || caretInfo.ownWidth !== null) &&
+    (indent !== caretInfo.elementIndent || width !== caretInfo.elementWidth);
+
+  const promoteToElement = (
+    info: CaretElementInfo,
+    nextIndent: number,
+    nextWidth: number,
+    snapshots: ReturnType<RulerElementModule["snapshotSelectedOverrides"]>,
+  ): boolean => {
+    if (element === null || rulerMod === null) return false;
+    const store = services.openScriptStore(docId);
+    const previous = store.get("project.style");
+    const nextEntry: ElementStyle = {
+      ...(previous[info.specKey] ?? EMPTY_ENTRY),
+      indent: toInches(nextIndent),
+      width: toInches(nextWidth),
+    };
+    const result = store.set("project.style", {
+      ...previous,
+      [info.specKey]: nextEntry,
+    });
+    if (!result.ok) return false;
+    editor.run({ kind: "layout", indent: null, width: null });
+    const message: Message = {
+      id: `apply_to_every_${info.specKey}`,
+      text: PROJECT_WORDS.appliedToEvery(element),
+      actions: [{ label: SHARING_WORDS.undo, commandId: "settings.undo" }],
+      lifetime: "reverse",
+      ownWork: false,
+    };
+    services.reverses.set(message.id, () => {
+      store.set("project.style", previous);
+      rulerMod.restoreBlockOverrides(docId, snapshots);
+    });
+    services.messages.push(message);
+    return true;
+  };
+
   return (
-    <div ref={bar} data-tour="ruler" style={RULER_AREA}>
-      {drawn ? (
-        <Ruler
-          columnCells={columnCells}
-          cellPx={frame.cellPx}
-          originPx={frame.textLeftPx - barLeftPx}
-          indent={indent}
-          width={width}
-          editable={editable}
-          onCommit={(change) =>
-            editor.run({
-              kind: "layout",
-              ...(change.indent === indent ? {} : { indent: change.indent }),
-              ...(change.width === width ? {} : { width: change.width }),
-            })
-          }
+    <div ref={bar} data-tour="ruler" style={RULER_AREA} className="relative">
+      {projectId !== null ? (
+        <ProjectStyleProbe
+          docId={docId}
+          projectId={projectId}
+          onOwner={setProjectOwner}
         />
+      ) : null}
+      {drawn ? (
+        <>
+          <Ruler
+            columnCells={columnCells}
+            cellPx={frame.cellPx}
+            originPx={frame.textLeftPx - barLeftPx}
+            indent={indent}
+            width={width}
+            editable={editable}
+            onCommit={(change) => {
+              if (
+                editable &&
+                !locked &&
+                canWriteStyle &&
+                rulerMod !== null &&
+                element !== null
+              ) {
+                const live = rulerMod.readCaretElementInfo(docId);
+                if (live !== null && live.allBlocksSelected) {
+                  const snapshots = rulerMod.snapshotSelectedOverrides(docId);
+                  if (
+                    promoteToElement(
+                      live,
+                      change.indent,
+                      change.width,
+                      snapshots,
+                    )
+                  )
+                    return;
+                }
+              }
+              editor.run({
+                kind: "layout",
+                ...(change.indent === indent ? {} : { indent: change.indent }),
+                ...(change.width === width ? {} : { width: change.width }),
+              });
+            }}
+          />
+          {differsFromElement && element !== null && caretInfo !== null ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="absolute top-1/2 right-2 z-10 -translate-y-1/2"
+              onClick={() => {
+                if (rulerMod === null) return;
+                promoteToElement(
+                  caretInfo,
+                  indent,
+                  width,
+                  rulerMod.snapshotSelectedOverrides(docId),
+                );
+              }}
+            >
+              {PROJECT_WORDS.applyToEvery(element)}
+            </Button>
+          ) : null}
+        </>
       ) : null}
     </div>
   );

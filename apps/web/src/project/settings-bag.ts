@@ -8,6 +8,7 @@ import type { SyncClient } from "@manent/sync-client";
 import { indexDocId, projectHome } from "@manent/sync-protocol";
 import type { LibraryIndex, ProjectKind } from "../services/ports.ts";
 import type { ProjectCreated } from "../services/sync/library-index.ts";
+import { openProjectIndex } from "./project-index.ts";
 import type { ProjectIndex } from "./project-index.ts";
 
 type Listener = Parameters<Bag["subscribe"]>[0];
@@ -31,13 +32,73 @@ const PROJECT_KEYS: readonly string[] = Object.freeze(
 );
 const NOTHING: Readonly<Record<string, unknown>> = Object.freeze({});
 
-/** The project settings of the script `docId`; null, so every project setting reads its default and none is written. */
-export function projectSettingsBag(_options: {
+/**
+ * The project settings of the script `docId`, following `library.documentProject(docId)` and opening that
+ * project's index while subscribed. Reads empty and refuses writes while `docId` belongs to no project.
+ */
+export function projectSettingsBag(options: {
   docId: string;
   client: Promise<SyncClient>;
   library: LibraryIndex;
-}): Bag | null {
-  return null;
+}): Bag {
+  const { docId, client, library } = options;
+  const projectSub = library.documentProject(docId);
+  const listeners = new Set<Listener>();
+  let currentId: string | null = null;
+  let held: { index: ProjectIndex; bag: Bag; stopBag: () => void } | null =
+    null;
+  let stopProject: (() => void) | null = null;
+
+  const tell: Listener = (keys, origin) => {
+    for (const listener of listeners) listener(keys, origin);
+  };
+
+  const closeHeld = (): void => {
+    if (held === null) return;
+    held.stopBag();
+    void held.index.close();
+    held = null;
+    currentId = null;
+  };
+
+  const syncToProject = (nextId: string | null, notify: boolean): void => {
+    if (nextId === currentId) return;
+    closeHeld();
+    if (nextId !== null) {
+      const index = openProjectIndex({ client, projectId: nextId });
+      const bag = createProjectSettingsBag({ index });
+      const stopBag = bag.subscribe((keys, origin) => tell(keys, origin));
+      held = { index, bag, stopBag };
+      currentId = nextId;
+    }
+    if (notify) tell(PROJECT_KEYS, "remote");
+  };
+
+  return Object.freeze({
+    read: () => held?.bag.read() ?? NOTHING,
+    provenance: (key: string) => held?.bag.provenance(key) ?? null,
+    write(patch: Readonly<Record<string, unknown>>): void {
+      held?.bag.write(patch);
+    },
+    subscribe(listener: Listener): () => void {
+      if (listeners.size === 0) {
+        syncToProject(projectSub.get(), false);
+        stopProject = projectSub.subscribe(() => {
+          syncToProject(projectSub.get(), true);
+        });
+      }
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) {
+          stopProject?.();
+          stopProject = null;
+          closeHeld();
+        }
+      };
+    },
+    canWrite: (key: string) => held?.bag.canWrite(key) ?? false,
+  });
 }
 
 /** Every key of `views` that its own map holds, so a key written into the wrong map is never read. */

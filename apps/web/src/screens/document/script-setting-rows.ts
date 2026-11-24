@@ -3,6 +3,10 @@
 import type { SettingKey } from "@manent/settings";
 import type { ComponentType } from "react";
 import { FrozenRow } from "../../production/frozen-row.tsx";
+import {
+  InheritedRow,
+  ScriptStyleRow,
+} from "../../project/style-inherited-row.tsx";
 import { HeaderFooterRow } from "./header-footer-row.tsx";
 
 export interface ScriptSettingRowProps {
@@ -27,6 +31,8 @@ export type ScriptSettingRow =
     };
 
 export const SCRIPT_SETTING_ROWS: readonly ScriptSettingRow[] = [
+  { kind: "custom", settingKey: "script.style", Row: ScriptStyleRow },
+  { kind: "state", id: "inherited", State: InheritedRow },
   { kind: "state", id: "frozen", State: FrozenRow },
   { kind: "custom", settingKey: "script.header", Row: HeaderFooterRow },
   { kind: "custom", settingKey: "script.footer", Row: HeaderFooterRow },
