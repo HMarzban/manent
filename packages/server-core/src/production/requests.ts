@@ -15,6 +15,7 @@ import type {
 import type { DraftEvents } from "../history/draft-events.ts";
 import type { HistoryService } from "../history/service.ts";
 import type { SettingRules, SyncService } from "../sync/ports.ts";
+import { readProjectSettings } from "./freeze.ts";
 import { isProductionRefusal, refused } from "./outcome.ts";
 import type { ProductionOutcome, ProductionRefused } from "./outcome.ts";
 import type { RenderPdf } from "./ports.ts";
@@ -80,6 +81,8 @@ export interface Requests {
     userId: string,
     mutation: Mutation<T>,
   ): Promise<ProductionOutcome<T>>;
+  /** The server-held project settings for `docId`; null when the document has no project settings. */
+  projectSettings(docId: string): Readonly<Record<string, unknown>> | null;
   /** Inside a commit: a version of the document at `at`, holding `content` (null: the head). */
   keep(
     file: DocFile,
@@ -269,6 +272,11 @@ export function createRequests(
       return options.sync().access.capabilitiesOf(userId, docId) === null
         ? refused("forbidden")
         : { ok: true, file };
+    },
+    projectSettings(docId) {
+      return options.projectSettings !== undefined
+        ? options.projectSettings(docId)
+        : readProjectSettings(storage, docId);
     },
     mutate(userId, mutation) {
       if (!isRequestKey(mutation.key))
