@@ -12,15 +12,25 @@ export const WRITE_ADAPT: TourScenario = {
   }),
   steps: [
     {
-      text: "Open Jumpox — Spark & Looki beside the play.",
+      text: "Choose Open beside in the title menu, then Jumpox — Spark & Looki.",
+      highlight: "doc.openBeside",
+    },
+    {
+      text: "Put the caret in Act One, scene 4, Mrs. Lomax's Spectacles.",
       highlight: "page",
     },
-    { text: "Move the caret to Act One, scene 4.", highlight: "page" },
+    {
+      text: "The book beside it turns to that scene's chapter.",
+      highlight: "beside",
+    },
   ],
   check:
-    'Chapter 6 of the book opens beside the play when the caret reaches "Mrs. Lomax\'s Spectacles".',
-  evidence: ["Mrs. Lomax's Spectacles"],
+    'Beside reads "Read-only here — open it to edit" and shows "Chapter Six: Mrs. Lomax\'s Spectacles".',
+  evidence: [
+    "Read-only here — open it to edit",
+    "Chapter Six: Mrs. Lomax's Spectacles",
+  ],
   fresh: false,
-  waitsFor: "start_from",
-  hidden: null,
+  waitsFor: null,
+  hidden: "its end-to-end test does not pass yet",
 };

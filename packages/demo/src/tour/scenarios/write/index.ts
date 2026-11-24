@@ -17,6 +17,8 @@ import { WRITE_GAME_LINES } from "./write-game-lines.ts";
 import { WRITE_INK_PLAY } from "./write-ink-play.ts";
 import { WRITE_INK_PROBLEM } from "./write-ink-problem.ts";
 import { WRITE_ADAPT } from "./write-adapt.ts";
+import { WRITE_BOARD } from "./write-board.ts";
+import { WRITE_HEADER_FOOTER } from "./write-header-footer.ts";
 
 export const WRITE: readonly TourScenario[] = [
   WRITE_FIRST_RUN,
@@ -36,4 +38,6 @@ export const WRITE: readonly TourScenario[] = [
   WRITE_INK_PLAY,
   WRITE_INK_PROBLEM,
   WRITE_ADAPT,
+  WRITE_BOARD,
+  WRITE_HEADER_FOOTER,
 ];

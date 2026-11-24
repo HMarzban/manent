@@ -6,11 +6,11 @@ import type { Page } from "@playwright/test";
 import { settled } from "../editor/support.ts";
 import { expectEvidence, tourScenario } from "../support/tour.ts";
 
-/** Replaces the first line of dialogue in scene 2 of `window`'s script with `text`. */
+/** Replaces the first line of dialogue in scene 15 of `window`'s script with `text`. */
 async function rewriteLine(window: Page, text: string): Promise<void> {
   await window
     .locator("[data-tour='page'] [data-type='scene_heading']")
-    .nth(1)
+    .nth(14)
     .locator("xpath=following::*[@data-type='dialogue'][1]")
     .click({ clickCount: 3 });
   await settled(window);
@@ -18,25 +18,25 @@ async function rewriteLine(window: Page, text: string): Promise<void> {
 }
 
 tourScenario("offline-overlap", async ({ windows, scenario, step }) => {
-  const [sam, dana] = windows as [Page, Page];
+  const [dana, priya] = windows as [Page, Page];
   const [receipt, toReview, used] = scenario.evidence;
   await (await step(0)).getByRole("button", { name: "Offline" }).click();
-  await rewriteLine(sam, "I said the morning tide, and I meant it.");
+  await rewriteLine(dana, "I said the morning tide, and I meant it.");
   await (await step(1)).click();
-  await rewriteLine(dana, "The morning tide, Finn. Not a minute later.");
+  await rewriteLine(priya, "The morning tide, Finn. Not a minute later.");
   // her wording has reached the server once her status has gone from Syncing… back to Synced
-  const danaServer = dana.locator("[data-tour='status:server']");
-  await expect(danaServer).toHaveText("Syncing…");
-  await expect(danaServer).toHaveText(/^Synced/);
+  const priyaServer = priya.locator("[data-tour='status:server']");
+  await expect(priyaServer).toHaveText("Syncing…");
+  await expect(priyaServer).toHaveText(/^Synced/);
   await (await step(2)).getByRole("button", { name: "Online" }).click();
-  await expectEvidence([sam], {
+  await expectEvidence([dana], {
     ...scenario,
     evidence: [receipt!, toReview!],
   });
   await (await step(3)).click();
-  await sam.getByRole("button", { name: SYNC_CENTRE_WORDS.review }).click();
-  await sam
-    .getByRole("button", { name: REVIEW_WORDS.useNamed(["Dana"]) })
+  await dana.getByRole("button", { name: SYNC_CENTRE_WORDS.review }).click();
+  await dana
+    .getByRole("button", { name: REVIEW_WORDS.useNamed(["Priya"]) })
     .click();
-  await expectEvidence([sam], { ...scenario, evidence: [used!] });
+  await expectEvidence([dana], { ...scenario, evidence: [used!] });
 });

@@ -7,7 +7,7 @@ export const DESKTOP_OFFLINE: TourScenario = {
   promise:
     "Write in the desktop app with no network; everything is there when it comes back.",
   setup: {
-    userId: "sam",
+    userId: "dana",
     open: SLACK_WATER,
     extraWindows: [],
     prepare: null,

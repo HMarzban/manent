@@ -7,7 +7,7 @@ export const OFFLINE_WRITE: TourScenario = {
   promise:
     "Keep writing with no connection; everything is there when you come back.",
   setup: {
-    userId: "sam",
+    userId: "dana",
     open: SLACK_WATER,
     extraWindows: [],
     prepare: null,

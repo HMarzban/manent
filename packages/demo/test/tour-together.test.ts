@@ -17,13 +17,16 @@ test("the Work together group lists its scenarios, each waiting one with the fea
     ["together-add-writers", null],
     ["together-roles", null],
     ["together-settings", null],
-    ["together-follow", "follow"],
-    ["together-comments", "comments"],
-    ["together-reader", "reader_drafts"],
-    ["together-suggest", "suggesting"],
-    ["together-present", "present"],
-    ["together-private", "private_writing"],
-    ["together-note", "rounds"],
+    ["together-follow", null],
+    ["together-comments", null],
+    ["together-reader", null],
+    ["together-suggest", null],
+    ["together-present", null],
+    ["together-private", null],
+    ["together-note", null],
+    ["together-share", null],
+    ["together-style", null],
+    ["together-links", null],
   ]);
   expect(
     validateTour(

@@ -7,7 +7,7 @@ export const WRITE_RULER: TourScenario = {
   group: "Write",
   promise: "Set a speech's indent on the ruler, and the page follows.",
   setup: setupOf({
-    userId: "sam",
+    userId: "dana",
     open: docPath("medium/harbour-lights/205"),
   }),
   steps: [
