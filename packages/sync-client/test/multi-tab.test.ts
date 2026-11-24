@@ -508,3 +508,31 @@ function textAfter2(w: World, update: Uint8Array): string {
   doc.applyUpdate(update);
   return textOf(doc);
 }
+
+test("a following tab opening a script starts with the leader's current status", async () => {
+  const { w, tab } = await tabWorld();
+  const a = tab("a");
+  const ha = await a.open(DOC);
+  await w.online();
+  expect(ha.status.get()).toMatchObject({
+    link: "online",
+    docSync: "synced",
+    synced: true,
+  });
+
+  const b = tab("b");
+  const hb = await b.open(DOC);
+  expect(hb.status.get()).toEqual(ha.status.get());
+
+  w.fake.advance(100);
+  a.setOnline(false);
+  await w.settle();
+  expect(ha.status.get()).toMatchObject({
+    link: "offline",
+    wentOfflineAt: 100,
+  });
+
+  const c = tab("c");
+  const hc = await c.open(DOC);
+  expect(hc.status.get()).toEqual(ha.status.get());
+});
