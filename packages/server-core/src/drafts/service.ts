@@ -222,7 +222,7 @@ export function createDraftsService(options: {
       if (content === null) return refused("not_sent");
       return {
         ok: true,
-        value: { versionId: earlier.versionId, content },
+        value: { versionId: earlier.versionId, name: earlier.name, content },
       };
     },
     async pdf(userId, token) {

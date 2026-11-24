@@ -111,6 +111,8 @@ export interface DraftOpenResponse {
 /** The answer to GET /api/drafts/since?token=...&since=... for an earlier sent draft of the same script. */
 export interface DraftSinceResponse {
   versionId: string;
+  /** Name of the earlier sent draft, when known. */
+  name?: string;
   content: VersionContent;
 }
 

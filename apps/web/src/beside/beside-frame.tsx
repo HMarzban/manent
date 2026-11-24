@@ -54,6 +54,7 @@ export function BesideFrame(props: {
   return createPortal(
     <div
       data-beside={kind}
+      data-tour="beside"
       data-region={kind === "version" ? "page" : "side_panel"}
       className="z-10 flex min-h-0 w-1/2 flex-col justify-self-end border-l border-line bg-desk"
       style={PAGE_AREA}

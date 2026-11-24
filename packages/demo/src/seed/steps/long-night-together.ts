@@ -18,7 +18,7 @@ import type {
   LongNightThread,
 } from "../../content/medium/long-night-together.ts";
 import type { PageMeter } from "../../generate/fit.ts";
-import { seedDoc, seedProject } from "../catalogue.ts";
+import { seedDoc, seedDraftToken, seedProject } from "../catalogue.ts";
 import type { SeedComments } from "../capabilities/comments.ts";
 import type { SeedSharing } from "../capabilities/sharing.ts";
 import { SeedDriverError } from "../driver.ts";
@@ -350,6 +350,7 @@ async function seedLongNightTogether(d: Drivers): Promise<void> {
     recipientUserIds: [],
     watermark: false,
     link: { signIn: true, expiresInMs: null },
+    recipientToken: seedDraftToken(DOC_KEY, "Blue"),
   });
   await d.driver.setTime(d.time.at("D−20 10:00"));
   await d.sharing.recordLastRead("leo", docId, whiteId);

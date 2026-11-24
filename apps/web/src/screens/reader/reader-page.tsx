@@ -1,5 +1,7 @@
 // Read-only true pages for a sent draft, scaled to a phone's width (< 600 px) with page numbers kept in their margins.
 import { engineFor } from "@manent/pagination";
+import type { Comparison } from "@manent/revisions";
+import type { DocJSON } from "@manent/schema";
 import type { VersionContent } from "@manent/sync-protocol";
 import { EDITOR_WORDS } from "@manent/ui";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -29,12 +31,24 @@ function zoomHeightOf(place: HTMLElement): number {
 export function ReaderPage(props: {
   content: VersionContent;
   watermark: string | null;
+  comparison?: {
+    readonly baseline: DocJSON;
+    readonly comparison: Comparison;
+  } | null;
   ports: PersonServices["pagePorts"];
   title: string;
   tappable: boolean;
   onTapLine(tapped: TappedLine): void;
 }): ReactNode {
-  const { content, watermark, ports, title, tappable, onTapLine } = props;
+  const {
+    content,
+    watermark,
+    comparison = null,
+    ports,
+    title,
+    tappable,
+    onTapLine,
+  } = props;
   const scrollerRef = useRef<HTMLDivElement>(null);
   const placeRef = useRef<HTMLDivElement>(null);
   const [viewportWidth, setViewportWidth] = useState(0);
@@ -71,7 +85,8 @@ export function ReaderPage(props: {
       content,
       ports,
       offFontNote: EDITOR_WORDS.offFontNote,
-      comparison: null,
+      comparison: comparison?.comparison ?? null,
+      baseline: comparison?.baseline ?? null,
       sceneIds: null,
       engineFor,
       watermark,
@@ -92,7 +107,7 @@ export function ReaderPage(props: {
       observer.disconnect();
       view.destroy();
     };
-  }, [content, watermark, ports]);
+  }, [content, watermark, comparison, ports]);
 
   // When scaled below 100%, the unscaled mount matches total content height so every sheet renders cleanly.
   useLayoutEffect(() => {
@@ -127,6 +142,7 @@ export function ReaderPage(props: {
       }
     >
       <div
+        data-tour="page"
         className={scaled ? "relative mx-auto" : "h-full"}
         style={
           scaled

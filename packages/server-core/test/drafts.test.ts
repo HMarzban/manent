@@ -494,9 +494,9 @@ test("sign-in link refuses non-recipients with not_sent, logs opens, protects se
     "leo",
   );
   expect(goodSince.status).toBe(200);
-  expect(((await goodSince.json()) as DraftSinceResponse).versionId).toBe(
-    s1.version.id,
-  );
+  const sinceBody = (await goodSince.json()) as DraftSinceResponse;
+  expect(sinceBody.versionId).toBe(s1.version.id);
+  expect(sinceBody.name).toBe("White");
 
   // `since` refuses same draft, named draft, foreign script draft, and later draft with 404 not_sent
   for (const badId of [

@@ -13,6 +13,7 @@ import {
   scrollToPerson,
 } from "../editor-host/margin-people.ts";
 import type { PersonServices } from "../services/ports.ts";
+import { firstNameOf } from "./driver.ts";
 import { whileLive } from "./margin-people-live.ts";
 import { followed, takeChosen } from "./follow-state.ts";
 import type { Followed } from "./follow-state.ts";
@@ -135,7 +136,7 @@ export function startFollowing(options: FollowOptions): void {
     .find((p) => p.userId === target.userId);
   if (person === undefined) return;
   ending?.("left");
-  const who: Followed = { ...target, name: person.name };
+  const who: Followed = { ...target, name: firstNameOf(person.name) };
   let watched = live;
   let detach = noop;
   let stopEditors = noop;

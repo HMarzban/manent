@@ -102,6 +102,7 @@ function HandInDialog(props: {
       busyLabel={busy ? WRITING_WORDS.handingIn(scenes) : null}
       refusal={refusal}
       destructive={false}
+      actionTour="hand_in:confirm"
       onAction={() => void handIn()}
       onCancel={props.onCancel}
     />

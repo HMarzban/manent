@@ -271,7 +271,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
                 <div
                   className="grid h-screen bg-chrome text-fg"
                   style={GRID}
-                  {...drop}
+                  {...(screen === "reader" ? {} : drop)}
                 >
                   <ShellPage
                     docId={docId}
@@ -283,7 +283,7 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
                   {props.children}
                   <AnnouncerRegion />
                 </div>
-                {page === "bare" ? null : (
+                {page === "bare" || screen === "reader" ? null : (
                   <>
                     {/* a palette whose code cannot load leaves the shell as it is */}
                     <SurfaceBoundary fallback={() => null}>

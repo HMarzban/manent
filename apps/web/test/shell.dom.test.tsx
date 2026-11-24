@@ -18,6 +18,10 @@ import { EnvironmentProvider, useServices } from "../src/services/context.tsx";
 import type { PersonServices } from "../src/services/ports.ts";
 import { ShellRegion, createShellDom } from "../src/shell/regions.tsx";
 import { bindGuard } from "../src/state/guard.ts";
+import {
+  paletteActions,
+  selectors as paletteSelectors,
+} from "../src/state/palette.store.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
 import type { PersonStore } from "../src/state/person.store.ts";
 import {
@@ -84,6 +88,11 @@ async function renderApp(options: {
       path: "/preferences/$pane",
       component: () => <button type="button">Search</button>,
     }),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/r/$token",
+      component: () => <h1 tabIndex={-1}>Draft</h1>,
+    }),
   ]);
   const router = createRouter({
     routeTree,
@@ -112,6 +121,19 @@ const pressEscape = (target: Element): void => {
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
   });
+};
+
+const pressMod = (key: string, mod: "metaKey" | "ctrlKey"): KeyboardEvent => {
+  const event = new KeyboardEvent("keydown", {
+    key,
+    [mod]: true,
+    bubbles: true,
+    cancelable: true,
+  });
+  act(() => {
+    document.body.dispatchEvent(event);
+  });
+  return event;
 };
 
 const button = (container: HTMLElement, name: string): HTMLButtonElement => {
@@ -218,4 +240,28 @@ test("a side panel tab drawn after its command gives focus to its first control 
   panel.remove();
   elsewhere.remove();
   expect([focusedFirst, stayed]).toEqual([true, true]);
+});
+
+test("the reader route keeps the editor host covered without mounting the palette, global keys, or file drop", async () => {
+  paletteActions.close();
+  const usePerson = createPersonStore(null);
+  usePerson.getState().setPerson(LEO);
+  const { router, container } = await renderApp({
+    path: "/r/tok-1",
+    usePerson,
+  });
+  const host = container.querySelector("[data-editor-host]");
+  expect(host?.hasAttribute("inert")).toBe(true);
+  expect(pressMod("k", "metaKey").defaultPrevented).toBe(false);
+  expect(pressMod("k", "ctrlKey").defaultPrevented).toBe(false);
+  expect(pressMod(",", "metaKey").defaultPrevented).toBe(false);
+  expect(pressMod(",", "ctrlKey").defaultPrevented).toBe(false);
+  expect(paletteSelectors.isOpen()).toBe(false);
+  expect(router.state.location.pathname).toBe("/r/tok-1");
+  const grid = container.querySelector<HTMLElement>(".grid");
+  const dragOver = new Event("dragover", { bubbles: true, cancelable: true });
+  act(() => {
+    grid?.dispatchEvent(dragOver);
+  });
+  expect(dragOver.defaultPrevented).toBe(false);
 });

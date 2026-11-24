@@ -5,6 +5,7 @@ import { READER_WORDS } from "@manent/ui";
 import {
   blockTextOf,
   changedPageLabels,
+  compareDrafts,
   draftPageWidthPx,
 } from "../src/reader/reader-compare.ts";
 import { createReaderRequests } from "../src/reader/reader-requests.ts";
@@ -144,6 +145,11 @@ describe("reader comparison and layout helpers", () => {
 
     expect(changedPageLabels(earlier, earlier)).toEqual([]);
     expect(changedPageLabels(earlier, current)).toEqual(["1"]);
+    const compared = compareDrafts(earlier, current);
+    expect(compared?.pages).toEqual(["1"]);
+    expect(compared?.comparison.entries.some((e) => e.kind === "changed")).toBe(
+      true,
+    );
     expect(draftPageWidthPx(current)).toBe(816);
     expect(blockTextOf(current, "block002")).toBe("Snow covers the sill.");
     expect(blockTextOf(current, "missing")).toBeNull();
@@ -180,6 +186,7 @@ describe("reader requests", () => {
         return new Response(
           JSON.stringify({
             versionId: "ver-1",
+            name: "White production draft",
             content: sampleContent("Earlier line."),
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
@@ -203,6 +210,7 @@ describe("reader requests", () => {
 
     const since = await requests.since("good-tok", "ver-1");
     expect(since.ok).toBe(true);
+    if (since.ok) expect(since.value.name).toBe("White production draft");
     expect(seen[3]?.url).toBe("/api/drafts/since?token=good-tok&since=ver-1");
   });
 

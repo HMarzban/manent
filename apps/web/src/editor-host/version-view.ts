@@ -109,8 +109,10 @@ export function mountVersionView(options: {
   content: VersionContent;
   ports: PageViewPorts;
   offFontNote: string;
-  /** From the version to Working, unfiltered; its marks are drawn on the version's page for `sceneIds` only. */
+  /** From the version to Working (or from `baseline` to `content` when `baseline` is given). */
   comparison: Comparison | null;
+  /** Earlier baseline document when `content` is the newer side (e.g. reader comparison); omitted reverses for older side. */
+  baseline?: DocJSON | null;
   sceneIds: readonly string[] | null;
   engineFor: (version: number) => Engine | null;
   watermark?: string | null;
@@ -142,9 +144,13 @@ export function mountVersionView(options: {
   });
   if (comparison !== null) {
     const { view } = page;
+    const marks =
+      options.baseline != null
+        ? { baseline: options.baseline, comparison }
+        : olderSide(comparison, options.sceneIds);
     view.dispatch(
       setChanges(view.state.tr, {
-        ...olderSide(comparison, options.sceneIds),
+        ...marks,
         display: "page",
       }).setMeta("addToHistory", false),
     );

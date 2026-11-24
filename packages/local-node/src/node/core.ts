@@ -12,7 +12,6 @@ import type {
   ServerConfig,
   SyncService,
 } from "@manent/server-core";
-import { ConnectError } from "@manent/sync-client";
 import { encodeUpstreamStatus } from "@manent/sync-client";
 import type { UpstreamStatus } from "@manent/sync-client";
 import { createHandover } from "../handoff/handoff.ts";
@@ -22,13 +21,16 @@ import { localRoutes } from "../http/local-routes.ts";
 import { workspaceNamed } from "../http/workspace-named.ts";
 import { createShellChannel } from "../http/shell-channel.ts";
 import type { ShellEnd } from "../http/shell-channel.ts";
-import { createNodeSignIn } from "../auth/node-sign-in.ts";
-import type { Person } from "../records/ports.ts";
+import { createCloudSessions, createNodeSignIn } from "../auth/node-sign-in.ts";
 import { createRelayBridge } from "../relay/bridge.ts";
 import type { RelayBridge } from "../relay/bridge.ts";
 import { relayControl } from "../relay/control-relay.ts";
 import { nodeDocOf } from "../relay/follow.ts";
-import { createMirror, guardSubscribe } from "../relay/mirror.ts";
+import {
+  createMirror,
+  guardSubscribe,
+  mirrorBeforeCreate,
+} from "../relay/mirror.ts";
 import type { Editor } from "../relay/mirror.ts";
 import { createWakeWatch } from "../relay/wake.ts";
 import type { NodeCoreOptions, UpstreamFactory } from "./ports.ts";
@@ -79,6 +81,12 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
   let device: UpstreamStatus["device"] = "ok";
   /** People whose hand-off waits until the disk has taken what it held. */
   const afterDisk = new Set<string>();
+  const cloudSessions = createCloudSessions({
+    cloud,
+    records,
+    tokenOf,
+    onSignedIn: (userId) => handOver(userId),
+  });
   let watched: { editors(): Editor[] } | null = null;
 
   const control = (
@@ -174,7 +182,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
         records,
         sessions,
         now: clock.now,
-        onChosen: chosen,
+        onChosen: cloudSessions.chosen,
       }),
       directory: options.directory,
       sessions,
@@ -224,6 +232,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     storage,
     mirror,
     tokenOf,
+    waitToken: cloudSessions.waitToken,
     clock,
     subscribed(editor, docId) {
       editor.control(
@@ -252,37 +261,6 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     handover.run(userId).catch(() => {
       // a run cut short resumes from the key and snapshot it stored, at the person's next connection or launch
     });
-  }
-
-  /** A cloud session for the person, kept with them; null while the cloud cannot be reached. */
-  async function cloudSession(person: Person): Promise<string | null> {
-    let signed;
-    try {
-      signed = await cloud.signIn(person.userId);
-    } catch (error) {
-      if (!(error instanceof ConnectError)) throw error;
-      return null;
-    }
-    if (!signed.ok) return null;
-    records.savePerson({
-      ...person,
-      wantsCloud: true,
-      cloudToken: signed.token,
-    });
-    return signed.token;
-  }
-
-  function chosen(person: Person): void {
-    if (!person.wantsCloud) return;
-    if (person.cloudToken !== null) return handOver(person.userId);
-    cloudSession(person).then(
-      (token) => {
-        if (token !== null) handOver(person.userId);
-      },
-      () => {
-        // a session the node could not keep is asked for again when the person is next chosen or signs in to sync
-      },
-    );
   }
 
   /** The demo's cloud was reset: the node empties its store and keeps who was here. */
@@ -323,7 +301,7 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
     sessions,
     async signInToSync(userId) {
       const person = records.person(userId);
-      const token = person === null ? null : await cloudSession(person);
+      const token = person === null ? null : await cloudSessions.signIn(person);
       if (token === null) return { ok: false, code: "unreachable" };
       handOver(userId);
       return { ok: true };
@@ -342,6 +320,13 @@ export function createNodeCore(options: NodeCoreOptions): NodeCore {
       const handled =
         (await routes(request)) ?? (await composed.forward(request));
       if (handled !== null) return handled;
+      await mirrorBeforeCreate({
+        request,
+        storage,
+        mirror,
+        resolveUser: (t) => sessions.resolve(t)?.userId ?? null,
+        ensureCloudToken: cloudSessions.waitToken,
+      });
       const named = await workspaceNamed(request);
       const answer = await server.fetch(request, context);
       if (named !== null && answer?.status === 200)
