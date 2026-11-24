@@ -22,6 +22,7 @@ import { MONOLOGUE_MATERIAL } from "./monologue-material.ts";
 import { LAMP_ROOM_COMMENTS } from "./lamp-room-comments.ts";
 import { HARBOUR_LIGHTS_SERIES } from "./harbour-lights-series.ts";
 import { HARBOUR_LIGHTS_ROOM } from "./harbour-lights-room.ts";
+import { HEAVY_SERIES } from "./heavy-series.ts";
 
 export const SEED_STEPS: readonly SeedStep[] = [
   MEMBERS_STEP,
@@ -46,4 +47,5 @@ export const SEED_STEPS: readonly SeedStep[] = [
   LAMP_ROOM_COMMENTS,
   HARBOUR_LIGHTS_SERIES,
   HARBOUR_LIGHTS_ROOM,
+  HEAVY_SERIES,
 ];

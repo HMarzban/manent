@@ -5,6 +5,7 @@ import type { FormatId } from "@manent/schema";
 import type { DemoWorkspace } from "../people.ts";
 import { HEAVY_DOCS, HEAVY_PROJECTS } from "./catalogue-heavy.ts";
 import { HEAVY_RUNDOWNS } from "./catalogue-heavy-rundowns.ts";
+import { HEAVY_SERIES_DOCS } from "./catalogue-heavy-series.ts";
 
 export type SeedWorkspaceId = DemoWorkspace["id"];
 
@@ -283,6 +284,7 @@ export const SEED_DOCS: readonly SeedDoc[] = Object.freeze([
     "screenplay",
     { kind: "room_log" },
   ),
+  ...HEAVY_SERIES_DOCS,
 ]);
 
 /** The document `key` names; throws RangeError for a key the catalogue lacks. */
