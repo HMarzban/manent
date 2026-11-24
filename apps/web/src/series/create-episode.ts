@@ -5,7 +5,11 @@ import type { DocStatus } from "@manent/sync-client";
 import { SERIES_WORDS } from "@manent/ui";
 import type { ProjectIndex } from "../project/project-index.ts";
 import type { PersonServices } from "../services/ports.ts";
-import { startScript } from "../services/sync/create-script.ts";
+import {
+  readProjectTemplateSettings,
+  startEpisodeScript,
+  templateFormat,
+} from "./template.ts";
 
 const SYNC_WAIT_MS = 2_500;
 
@@ -74,6 +78,8 @@ export async function createSeriesEpisode(
       ? season.number * 100 + 1
       : Math.max(...seasonEpisodes.map((ep) => ep.number)) + 1;
   const projectDoc = (await index.handle()).doc();
+  const settings = readProjectTemplateSettings(projectDoc);
+  const format = templateFormat(settings.template, "series");
   const title = `${nextNumber} ${SERIES_WORDS.untitledEpisode}`;
   const created = await services.library.addCopy(
     workspaceId,
@@ -84,7 +90,13 @@ export async function createSeriesEpisode(
       docKind: "script",
       airDate: null,
       rundownId: null,
-      start: (handle) => startScript(handle, options.language, "screenplay"),
+      start: (handle) =>
+        startEpisodeScript(handle, {
+          format,
+          language: options.language,
+          titlePage: settings.titlePage,
+          acts: settings.acts,
+        }),
     },
   );
   writeEpisode(projectDoc, {
