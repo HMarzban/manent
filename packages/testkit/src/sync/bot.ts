@@ -53,7 +53,7 @@ const VERSIONS = {
 const NO_FRAMES: Frames = { request: () => () => {} };
 
 /** Bun's WebSocket, which sends the origin a browser would, as the transport's socket. */
-function bunSocket(url: string, origin: string): SocketLike {
+export function bunSocket(url: string, origin: string): SocketLike {
   // Bun's constructor takes headers; the DOM's WebSocket type, also in force, does not declare them
   const socket: unknown = Reflect.construct(WebSocket, [
     url,
