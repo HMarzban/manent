@@ -952,6 +952,23 @@ test("the handler table names every command but the generated ones", () => {
     "board.moveCardUp": noop,
     "board.moveCardDown": noop,
     "history.sinceLastRead": noop,
+    "rundown.addRow": noop,
+    "rundown.addHeaderRow": noop,
+    "rundown.deleteRows": noop,
+    "rundown.moveUp": noop,
+    "rundown.moveDown": noop,
+    "rundown.copyRows": noop,
+    "rundown.pasteRows": noop,
+    "rundown.openBeside": noop,
+    "rundown.importRows": noop,
+    "rundown.splitBySlug": noop,
+    "rundown.startScript": noop,
+    "rundown.previousValue": noop,
+    "rundown.restorePrevious": noop,
+    "rundown.columns": noop,
+    "rundown.new": noop,
+    "rundown.leaveUnnumbered": noop,
+    "rundown.numberRow": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))
