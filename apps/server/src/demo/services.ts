@@ -45,6 +45,10 @@ const PRESENCE_PROFILE = Object.freeze({ ...PROFILES.demo, keysPerSecond: 1 });
 
 const WRITER_POOL = GENERATED_MEMBERS.filter((m) => m.writerPool);
 
+/** The blocks each of a group of `writers` keeps. */
+const shareOf = (writers: number): number =>
+  Math.max(1, Math.floor(GROUP_KEEP_BLOCKS / writers));
+
 const NONE: WritersResponse = Object.freeze({
   asked: 0,
   count: 0,
@@ -113,7 +117,16 @@ function seatScenes(
   if (placement === "own_scenes")
     return scenesFor(state, docId, afterBlockId).slice(0, count);
   const { flat } = readServerScript(state.live.storage, docId);
-  const scene = caretScene(flat, afterBlockId);
+  const caret = caretScene(flat, afterBlockId);
+  const present = new Set(flat.map((b) => b.attrs.id));
+  // a running writer's scene as it was seated: the block that ends it now may be a line that writer takes back
+  const held = runningOn(state, docId)
+    .flatMap((w) => w.scene ?? [])
+    .find(
+      (s) =>
+        s.firstBlockId === caret?.firstBlockId && present.has(s.lastBlockId),
+    );
+  const scene = held ?? caret;
   return Array.from({ length: count }, () => scene);
 }
 
@@ -142,6 +155,7 @@ async function seat(
   docId: string,
   seats: readonly { userId: string; scene: Scene | null }[],
   profile: WritingProfile,
+  keepBlocks: () => number,
 ): Promise<Writer[]> {
   const startedAt = state.live.clock.now();
   const opened = await Promise.allSettled(
@@ -153,7 +167,7 @@ async function seat(
         profile,
         seed: DEMO_SEED + i + startedAt,
         random: state.random,
-        keepBlocks: Math.max(1, Math.floor(GROUP_KEEP_BLOCKS / seats.length)),
+        keepBlocks,
       }),
     ),
   );
@@ -202,8 +216,8 @@ function editMarks(
       })
       .toSorted((a, b) => b.at - a.at)[0];
     if (latest === undefined || latest.at <= markedAt) return;
-    markedAt = latest.at;
     await markEdited(state.live, docId, latest);
+    markedAt = latest.at;
   };
   const { clock } = state.live;
   let cancel = clock.schedule(function tick() {
@@ -238,7 +252,16 @@ async function addWriters(
   const seats = WRITER_POOL.filter((m) => !busy.has(m.userId))
     .slice(0, scenes.length)
     .map(({ userId, name }, i) => ({ userId, name, scene: scenes[i]! }));
-  const added = await seat(state, docId, seats, PROFILES.demo).catch(endGroup);
+  // asked as they type: the writers who go on keep fewer lines once others join them, and more once some leave
+  const keepBlocks = (): number =>
+    shareOf(state.groups.get(docId)?.writers.length ?? seats.length);
+  const added = await seat(
+    state,
+    docId,
+    seats,
+    PROFILES.demo,
+    keepBlocks,
+  ).catch(endGroup);
   const writers = [...kept, ...added];
   const stopping = state.live.clock.schedule(stopLater, WRITERS_RUN_MS);
   const edits = editMarks(state, docId, writers);
@@ -273,7 +296,9 @@ async function startPresenceGroups(state: Live): Promise<void> {
       userId: memberNamed(name),
       scene: scenes[i] ?? null,
     }));
-    const writers = await seat(state, docId, seats, PRESENCE_PROFILE);
+    const writers = await seat(state, docId, seats, PRESENCE_PROFILE, () =>
+      shareOf(seats.length),
+    );
     state.presence.push({ docId, writers });
   }
 }

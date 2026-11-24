@@ -10,7 +10,7 @@ import type { Rng } from "../seed/rng.ts";
 import { OwnLines } from "./own-lines.ts";
 import { createWriterPresence } from "./presence.ts";
 import type { Caret, WriterPresence } from "./presence.ts";
-import { lineEndFrom, regionOf } from "./region.ts";
+import { lineEndFrom, regionOf, regionStill } from "./region.ts";
 import type { Region, WriterLine } from "./region.ts";
 import type { WritingProfile } from "./profiles.ts";
 import { wordsOf } from "./words.ts";
@@ -42,7 +42,7 @@ interface PersonOptions {
   region: Region | null;
   markers: boolean;
   lines?: readonly WriterLine[];
-  keepBlocks?: number;
+  keepBlocks?: () => number;
 }
 
 const HOUR_MS = 3_600_000;
@@ -102,6 +102,8 @@ class Person implements SimulatedPerson {
   private burst: Burst | null = null;
   /** The region, whose last block becomes each block typed after it, so that a scene grows with its writing. */
   private region: Region | null;
+  /** The region's block ids as last read. */
+  private inRegion: readonly string[] = [];
   private keystrokes = 0;
   private bursts = 0;
   private readonly presence: WriterPresence | null;
@@ -222,13 +224,14 @@ class Person implements SimulatedPerson {
   private beginBurst(): void {
     const doc = this.options.handle.doc();
     const { lines } = this.options;
-    const next = lines?.[this.bursts % lines.length]?.length ?? 1;
-    if (this.own !== null) this.region = this.own.room(doc, next, this.region);
-    const region = regionOf(blockIds(doc), this.region);
+    this.own?.line(lines?.[this.bursts % lines.length]?.length ?? 1);
+    const order = blockIds(doc);
+    this.region = regionStill(order, this.region, this.inRegion);
+    this.inRegion = regionOf(order, this.region);
     const blockId =
-      this.options.lines === undefined
-        ? this.pickBlock(region)
-        : this.pickLineEnd(region);
+      lines === undefined
+        ? this.pickBlock(this.inRegion)
+        : this.pickLineEnd(this.inRegion);
     if (blockId === null) {
       this.place = null;
       this.pause();
@@ -303,7 +306,7 @@ class Person implements SimulatedPerson {
     }
     if (!this.write((w) => w.insertText(blockId, offset, key.text)))
       return false;
-    this.own?.typed(blockId, key.text);
+    this.own?.typed(this.options.handle.doc(), blockId, key.text);
     burst.caret = { blockId, offset: offset + key.text.length };
     this.presence?.moved(burst.caret);
     this.record("typed", blockId, key.marker);
@@ -386,8 +389,8 @@ class Person implements SimulatedPerson {
  * is the next of `lines`, each of its blocks new, after a block where it does
  * not cut a speech in two, when lines are given; otherwise seeded words. With
  * `markers`, a burst opens with `⟦<client id>:<n>⟧`, typed as one key. With
- * `keepBlocks`, it keeps at most that many blocks it made, or one line's: it
- * deletes its oldest lines before a line that would pass it, and every line
+ * `keepBlocks`, it keeps as many of its blocks as that gives, or one line's: it
+ * deletes its oldest lines as it starts one that would pass it, and every line
  * when it stops, each block only while it reads as it was typed. Every
  * timer goes through `clock` and every draw through `random`, so one seed
  * gives one run. RangeError for an empty `lines` or an empty line.

@@ -127,7 +127,7 @@ export function caretScene(
 
 /**
  * `userId` typing in `scene` of `docId` at `profile`'s rates, its draws seeded by `seed`, over its
- * own client on the live server, keeping at most `keepBlocks` blocks of its own lines in the script.
+ * own client on the live server, keeping at most the blocks `keepBlocks` gives of its own lines in the script.
  * A person with no role on the document is given `edit` as a guest.
  */
 export async function startWriter(
@@ -139,7 +139,7 @@ export async function startWriter(
     profile: WritingProfile;
     seed: number;
     random: () => number;
-    keepBlocks: number;
+    keepBlocks: () => number;
   },
 ): Promise<Writer> {
   const { docId, userId, scene } = options;

@@ -30,6 +30,18 @@ export function regionOf(
   return first === -1 || last < first ? [] : order.slice(first, last + 1);
 }
 
+/** `region`, its last block when it is gone becoming the last block of `before`, its ids as last read, still in `order`. */
+export function regionStill(
+  order: readonly string[],
+  region: Region | null,
+  before: readonly string[],
+): Region | null {
+  if (region === null || order.includes(region.lastBlockId)) return region;
+  const present = new Set(order);
+  const last = before.findLast((id) => present.has(id));
+  return last === undefined ? region : { ...region, lastBlockId: last };
+}
+
 /**
  * The first block of `region` from the one at `from`, within LINE_SEARCH of it, that neither leads on to the
  * block after it nor is followed by one going on from it, so that a line after it cuts no speech in two; null
