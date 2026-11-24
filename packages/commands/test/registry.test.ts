@@ -940,6 +940,7 @@ test("the handler table names every command but the generated ones", () => {
     "comment.onScene": noop,
     "comment.onScript": noop,
     "note.add": noop,
+    "outline.startScript": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))

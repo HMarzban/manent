@@ -5,6 +5,7 @@ import type {
   StateLine,
 } from "../components/state-bar/state-line.ts";
 import { formatCount, joinNames } from "./format.ts";
+import { OUTLINE_WORDS } from "./outline.ts";
 
 /** A fact the state bar may say. Dates and times arrive formatted ("12 Nov", "Mon 22:41"); `over` is negative ("-0:48") when the rundown runs under. */
 export type StateFact =
@@ -44,7 +45,8 @@ export type StateFact =
   | { kind: "marks_not_collated"; mode: "all" | "none" }
   | { kind: "role_comment" }
   | { kind: "reader_draft"; name: string; date: string }
-  | { kind: "prompter_send" };
+  | { kind: "prompter_send" }
+  | { kind: "outline_start"; beats: number };
 
 type Kind = StateFact["kind"];
 
@@ -71,6 +73,7 @@ const LEFT_ORDER: readonly Kind[] = [
   "role_comment",
   "reader_draft",
   "prompter_send",
+  "outline_start",
 ];
 
 const AIR_WINDOW =
@@ -215,6 +218,13 @@ function lineFor(fact: StateFact, facts: readonly StateFact[]): StateLine {
     case "prompter_send":
       return line("", [
         { label: "Send to prompter", commandId: "prompter.send" },
+      ]);
+    case "outline_start":
+      return line(OUTLINE_WORDS.stateBar(fact.beats), [
+        {
+          label: OUTLINE_WORDS.startScript,
+          commandId: "outline.startScript",
+        },
       ]);
   }
 }

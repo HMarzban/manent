@@ -233,7 +233,9 @@ export function projectItems(
     .toSorted(byCreation)
     .toReversed()
     .flatMap(([projectId, project]) => {
-      const own = documents.filter(([, d]) => d.projectId === projectId);
+      const own = documents.filter(
+        ([, d]) => d.projectId === projectId && d.kind !== "outline",
+      );
       const firstDocId = own[0]?.[0] ?? null;
       const place: RowPlace | null =
         firstDocId === null
@@ -269,7 +271,12 @@ export function continueItems(
           ? undefined
           : index.projects.get(document.projectId);
       const place = placeOf(docId, facts);
-      if (document === undefined || project === undefined || place === null)
+      if (
+        document === undefined ||
+        document.kind === "outline" ||
+        project === undefined ||
+        place === null
+      )
         return [];
       return [
         {
