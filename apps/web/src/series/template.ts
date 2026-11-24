@@ -12,6 +12,7 @@ import { TITLE_PAGE_FIELDS, randomBlockId } from "@manent/schema";
 import type {
   ActBreakKind,
   BlockJSON,
+  BlockType,
   FormatId,
   TitlePageField,
   TitlePageFields,
@@ -19,8 +20,30 @@ import type {
 import { SETTINGS, paperForRegion } from "@manent/settings";
 import type { SettingValue, SettingsStore } from "@manent/settings";
 import type { DocHandle } from "@manent/sync-client";
-import { firstBlock } from "../editor-host/first-block.ts";
 import type { ProjectKind } from "../services/ports.ts";
+
+const FIRST_BLOCK_TYPES: Readonly<Record<FormatId, BlockType>> = Object.freeze({
+  screenplay: "scene_heading",
+  multicam: "scene_heading",
+  animation: "scene_heading",
+  variety: "slug",
+  game: "scene_heading",
+  ink: "ink_line",
+  manuscript: "chapter",
+  stage_play: "scene_heading",
+});
+
+/** One empty opening block of `format`, built without pulling `@manent/editor` into the Library chunk. */
+export function openingBlock(format: FormatId): BlockJSON {
+  return {
+    type: "block",
+    attrs: {
+      id: randomBlockId(),
+      type: FIRST_BLOCK_TYPES[format],
+      kind: null,
+    },
+  };
+}
 
 export type ProjectTemplate = SettingValue<"project.template">;
 
@@ -293,7 +316,7 @@ export function startEpisodeScript(
     const blocks: readonly BlockJSON[] =
       options.acts.length > 0
         ? options.acts.map(actBreakBlock)
-        : [firstBlock(options.format)];
+        : [openingBlock(options.format)];
     scriptBody(doc).write((w) => w.insertBlocks(null, blocks));
   }
   const scriptTitlePage = titlePage(doc);
