@@ -7,7 +7,7 @@ export const OFFLINE_SERVER_STOPPED: TourScenario = {
   promise:
     "Stop the server: you keep writing, and everything is there when it is back.",
   setup: {
-    userId: "sam",
+    userId: "dana",
     open: SLACK_WATER,
     extraWindows: [],
     prepare: null,

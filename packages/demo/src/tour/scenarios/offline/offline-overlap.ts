@@ -7,24 +7,24 @@ export const OFFLINE_OVERLAP: TourScenario = {
   promise:
     "When two people change the same line, one of them offline, you choose which wording stays.",
   setup: {
-    userId: "sam",
+    userId: "dana",
     open: SLACK_WATER,
-    extraWindows: [{ userId: "dana", open: SLACK_WATER }],
+    extraWindows: [{ userId: "priya", open: SLACK_WATER }],
     prepare: null,
     shell: "any",
   },
   steps: [
     {
-      text: "In Sam's window choose Offline and rewrite the first line of dialogue in scene 2.",
+      text: "In Dana's window choose Offline and rewrite the first line of dialogue in scene 15.",
       highlight: "demo:connection",
     },
-    { text: "In Dana's window rewrite the same line.", highlight: "page" },
+    { text: "In Priya's window rewrite the same line.", highlight: "page" },
     {
-      text: "In Sam's window choose Online.",
+      text: "In Dana's window choose Online.",
       highlight: "demo:connection",
     },
     {
-      text: "Open the Sync centre from the status, choose Review, then Use Dana's.",
+      text: "Open the Sync centre from the status, choose Review, then Use Priya's.",
       highlight: "app.syncCentre",
     },
   ],

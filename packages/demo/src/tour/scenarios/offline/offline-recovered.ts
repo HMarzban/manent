@@ -6,20 +6,20 @@ export const OFFLINE_RECOVERED: TourScenario = {
   group: "Go offline",
   promise: "Words typed into a scene someone else deleted are kept for you.",
   setup: {
-    userId: "sam",
+    userId: "dana",
     open: SLACK_WATER,
-    extraWindows: [{ userId: "dana", open: SLACK_WATER }],
+    extraWindows: [{ userId: "priya", open: SLACK_WATER }],
     prepare: null,
     shell: "any",
   },
   steps: [
     {
-      text: "In Sam's window choose Offline and type in scene 9.",
+      text: "In Dana's window choose Offline and type in scene 16.",
       highlight: "demo:connection",
     },
-    { text: "In Dana's window delete scene 9.", highlight: "page" },
+    { text: "In Priya's window delete scene 16.", highlight: "page" },
     {
-      text: "In Sam's window choose Online.",
+      text: "In Dana's window choose Online.",
       highlight: "demo:connection",
     },
   ],

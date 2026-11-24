@@ -6,7 +6,7 @@ export const DESKTOP_OPEN_IN_BROWSER: TourScenario = {
   group: "Desktop",
   promise: "A second person joins from the browser.",
   setup: {
-    userId: "sam",
+    userId: "dana",
     open: SLACK_WATER,
     extraWindows: [],
     prepare: null,
@@ -14,7 +14,7 @@ export const DESKTOP_OPEN_IN_BROWSER: TourScenario = {
   },
   steps: [
     {
-      text: "Choose File → Open in browser, and choose Dana there.",
+      text: "Choose File → Open in browser, and choose Priya there.",
       highlight: "app.openInBrowser",
     },
     { text: "Type in either window.", highlight: "page" },

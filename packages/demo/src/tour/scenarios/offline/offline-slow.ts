@@ -7,7 +7,7 @@ export const OFFLINE_SLOW: TourScenario = {
   promise:
     "On a slow connection your words are saved at once and synced when they arrive.",
   setup: {
-    userId: "sam",
+    userId: "dana",
     open: SLACK_WATER,
     extraWindows: [],
     prepare: null,
