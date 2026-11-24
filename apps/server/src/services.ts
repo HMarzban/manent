@@ -1,7 +1,9 @@
 // What the server composes beside its sync service, one entry per line: a feature adds its own module and one line.
 import type {
   Clock,
+  DraftEvents,
   RenderPdf,
+  RoundCounts,
   ServerConfig,
   SettingRules,
   SyncHooks,
@@ -15,7 +17,7 @@ import { sharingService } from "./sharing.ts";
 import { draftsService } from "./drafts.ts";
 import { privateCopyService } from "./private-copy.ts";
 import { driverService } from "./driver.ts";
-import { projectService } from "./project.ts";
+import { createProjectWiring, projectService } from "./project.ts";
 import { rundownService } from "./rundown.ts";
 import { prompterService } from "./prompter.ts";
 import { trashService } from "./trash.ts";
@@ -36,6 +38,10 @@ export interface ServiceDeps {
   rules: SettingRules;
   /** The settings of the project that holds `docId`, null for none; absent, no document has any. */
   projectSettings?: (docId: string) => Readonly<Record<string, unknown>> | null;
+  /** Told of named, sent and issued drafts; composed from `project.ts` when absent. */
+  draftEvents?: DraftEvents;
+  /** Told of each comments document's round open counts; composed from `project.ts` when absent. */
+  roundCounts?: RoundCounts;
 }
 
 /** What a service adds to the server. */
@@ -94,9 +100,15 @@ export function composeServices(deps: ServiceDeps): {
   airWindow: ((docId: string, now: number) => boolean) | null;
   config: ComposedService["config"];
 } {
-  const composed = SERVER_SERVICES.map((service) => service.create(deps));
+  const project = createProjectWiring(deps);
+  const wired: ServiceDeps = {
+    ...deps,
+    draftEvents: deps.draftEvents ?? project.draftEvents,
+    roundCounts: deps.roundCounts ?? project.roundCounts,
+  };
+  const composed = SERVER_SERVICES.map((service) => service.create(wired));
   return {
-    hooks: composed.flatMap((c) => c.hooks),
+    hooks: [...composed.flatMap((c) => c.hooks), project.hooks],
     airWindow:
       composed.find((c) => c.airWindow !== undefined)?.airWindow ?? null,
     config: composed.reduce<ComposedService["config"]>(
