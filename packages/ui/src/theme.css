@@ -1348,6 +1348,28 @@ button:not(:disabled, [aria-disabled="true"]):hover
 .mn-avatar[data-more] {
   border-color: var(--line);
 }
+/* A stack where room is short: each avatar tucks under the edge of the one
+   before, which a ring of the panel's colour cuts out of it, so the first
+   is whole and no initials are hidden. */
+.mn-avatar-overlap {
+  isolation: isolate;
+}
+.mn-avatar-overlap > .mn-avatar {
+  position: relative;
+  box-shadow: 0 0 0 1.5px var(--bg-chrome);
+}
+.mn-avatar-overlap > .mn-avatar + .mn-avatar {
+  margin-inline-start: -0.25rem;
+}
+.mn-avatar-overlap > .mn-avatar:first-child {
+  z-index: 2;
+}
+.mn-avatar-overlap > .mn-avatar:nth-child(2) {
+  z-index: 1;
+}
+.mn-avatar-overlap > .mn-avatar[data-more] {
+  background-color: var(--bg-chrome);
+}
 
 /* A card to choose (a person, a kind of project): raised, its edge strong
    under the pointer, the chosen one selected. A new one ("You") is open: no

@@ -16,7 +16,7 @@ import { blockNear, currentIndex } from "../cursors/place.ts";
 import type { BlockIndex } from "../pagination/block-index.ts";
 import { paginationKey } from "../pagination/plugin.ts";
 import type { PaginationState } from "../pagination/plugin.ts";
-import type { RemoteCursor } from "../script-editor/ports.ts";
+import type { CursorPlace, RemoteCursor } from "../script-editor/ports.ts";
 
 export interface MarginPeopleOptions {
   /** Other people's cursors as presence reports them, at most 20 and only those with a caret; an empty list draws nobody. */
@@ -71,15 +71,26 @@ function latestByPerson(cursors: readonly RemoteCursor[]): RemoteCursor[] {
   return [...latest.values()];
 }
 
-/** Each person whose head block is found near its hint in the index. */
+const NONE_FOUND: ReadonlyMap<string, CursorPlace> = new Map();
+
+/**
+ * Each person whose head block is found near its hint in the index, or, while it is not, near the place `found` says
+ * their caret was last drawn at: the caret and the person stay together.
+ */
 function placedOf(
   index: BlockIndex,
   cursors: readonly RemoteCursor[],
+  found: ReadonlyMap<string, CursorPlace>,
 ): Placed[] {
   return cursors.flatMap((cursor) => {
-    const { head, at } = cursor.place;
-    const block = blockNear(index, head.blockId, at);
-    return block === null ? [] : [{ cursor, block }];
+    for (const place of [cursor.place, found.get(cursor.key)]) {
+      const block =
+        place === undefined
+          ? null
+          : blockNear(index, place.head.blockId, place.at);
+      if (block !== null) return [{ cursor, block }];
+    }
+    return [];
   });
 }
 
@@ -222,11 +233,19 @@ function marginPeopleView(
     index === null
       ? new Map()
       : scenesOf(index, placed, cursorsKey.getState(view.state)?.now ?? 0);
+  const placedIn = (index: BlockIndex | null): Placed[] =>
+    index === null
+      ? []
+      : placedOf(
+          index,
+          people,
+          cursorsKey.getState(view.state)?.found ?? NONE_FOUND,
+        );
   const draw = () => {
     const frame = view.dom.parentElement;
     const pages = paginationKey.getState(view.state);
     const index = currentIndex(view.state);
-    const placed = index === null ? [] : placedOf(index, people);
+    const placed = placedIn(index);
     tellScenes(scenesIn(index, placed));
     const spots =
       frame === null || pages === undefined
@@ -269,9 +288,7 @@ function marginPeopleView(
         cursorsKey.getState(prev)?.now !== cursorsKey.getState(view.state)?.now
       ) {
         const index = currentIndex(view.state);
-        tellScenes(
-          scenesIn(index, index === null ? [] : placedOf(index, people)),
-        );
+        tellScenes(scenesIn(index, placedIn(index)));
       }
     },
     destroy() {
