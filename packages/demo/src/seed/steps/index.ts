@@ -17,6 +17,11 @@ import { LANNICK_ONE_NEWS_RUNDOWNS } from "./lannick-one-news-rundowns.ts";
 import { HANDED_IN_TIMING } from "./handed-in-timing.ts";
 import { HEAVY_RUNDOWNS_STEP } from "./heavy-rundowns.ts";
 import { SAMS_DESK_TOGETHER } from "./sams-desk-together.ts";
+import { LONG_NIGHT_TOGETHER } from "./long-night-together.ts";
+import { MONOLOGUE_MATERIAL } from "./monologue-material.ts";
+import { LAMP_ROOM_COMMENTS } from "./lamp-room-comments.ts";
+import { HARBOUR_LIGHTS_SERIES } from "./harbour-lights-series.ts";
+import { HARBOUR_LIGHTS_ROOM } from "./harbour-lights-room.ts";
 
 export const SEED_STEPS: readonly SeedStep[] = [
   MEMBERS_STEP,
@@ -36,4 +41,9 @@ export const SEED_STEPS: readonly SeedStep[] = [
   HANDED_IN_TIMING,
   HEAVY_RUNDOWNS_STEP,
   SAMS_DESK_TOGETHER,
+  LONG_NIGHT_TOGETHER,
+  MONOLOGUE_MATERIAL,
+  LAMP_ROOM_COMMENTS,
+  HARBOUR_LIGHTS_SERIES,
+  HARBOUR_LIGHTS_ROOM,
 ];
