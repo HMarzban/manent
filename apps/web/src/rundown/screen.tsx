@@ -10,12 +10,13 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import type {
+  EditableGridHandle,
   GridCommitResult,
   StatusFacts,
   Subscribable,
   SurfaceStateValue,
 } from "@manent/ui";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { focusHeading } from "../focus.ts";
 import { DocumentStateBar } from "../screens/document/document-state-bar.tsx";
@@ -41,7 +42,12 @@ import {
   titleColumnOf,
 } from "./dur-format.ts";
 import { useCellPresence } from "./presence.ts";
-import { useCornerMark } from "./previous-value.tsx";
+import {
+  PreviousValuePopover,
+  useCornerMark,
+  usePreviousValue,
+} from "./previous-value.tsx";
+import { useRundownRows } from "./rows.tsx";
 import type { RundownAccess } from "./rundown-access.ts";
 import { buildGridColumns, buildGridRows } from "./rundown-cells.tsx";
 import { useRundownSession } from "./rundown-session.ts";
@@ -174,13 +180,21 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
     [allColumns, columnsState.prefs, view.people],
   );
 
+  const gridRef = useRef<EditableGridHandle | null>(null);
+  const gridContainerRef = useRef<HTMLDivElement | null>(null);
+  const previousValue = usePreviousValue({ docId, session, titleColumn });
+  const rowsBinding = useRundownRows({
+    docId,
+    session,
+    columnIds: allColumns,
+    titleColumn,
+    gridRef,
+    gridContainerRef,
+  });
+
   const onOpenBeside = (rowId: string): void => {
     session.setSelection([rowId]);
     services.commands.run("rundown.openBeside", "control");
-  };
-
-  const onOpenPrevious = (): void => {
-    services.commands.run("rundown.previousValue", "control");
   };
 
   const gridRows = useMemo(() => {
@@ -196,13 +210,17 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
       liveDuration,
       cellPresence,
       cornerMark,
+      activeCell: view.activeCell,
+      tourCell: previousValue.tourCell,
+      onBeforeMenuOpen: rowsBinding.onBeforeMenuOpen,
       onOpenBeside,
-      onOpenPrevious,
+      onOpenPrevious: previousValue.openFor,
     });
   }, [
     docId,
     view.rundown,
     view.clock,
+    view.activeCell,
     allColumns,
     titleColumn,
     online,
@@ -210,6 +228,9 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
     liveDuration,
     cellPresence,
     cornerMark,
+    previousValue.tourCell,
+    previousValue.openFor,
+    rowsBinding.onBeforeMenuOpen,
   ]);
 
   const readOnly = view.access !== "edit";
@@ -259,6 +280,7 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
 
   const gridElement = (
     <EditableGrid
+      ref={gridRef}
       label={RUNDOWN_WORDS.gridLabel(dateLabel)}
       columns={gridColumns}
       rows={gridRows}
@@ -268,6 +290,8 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
       onSelectionChange={session.setSelection}
       onEditingChange={session.setEditingCell}
       onCommitCell={onCommitCell}
+      onMoveRow={rowsBinding.onMoveRow}
+      onMoveRows={rowsBinding.onMoveRows}
       onColumnResize={(columnId, widthPx) => {
         const matched = allColumns.find((col) => col === columnId);
         if (matched !== undefined) columnsState.resizeColumn(matched, widthPx);
@@ -287,7 +311,11 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
     <>
       <RundownTitleBar docId={docId} doc={effectiveDoc} title={displayTitle} />
       <DocumentStateBar docId={docId} facts={effectiveDoc.stateFacts} />
-      <div className="z-10 min-h-0 overflow-hidden bg-chrome" style={PAGE_AREA}>
+      <div
+        ref={gridContainerRef}
+        className="z-10 min-h-0 overflow-hidden bg-chrome"
+        style={PAGE_AREA}
+      >
         <SurfaceState
           surface="rundown_grid"
           state={surfaceState}
@@ -314,6 +342,11 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
         columns={allColumns}
         hidden={columnsState.prefs.hidden}
         onToggle={columnsState.toggleColumn}
+      />
+      <PreviousValuePopover
+        docId={docId}
+        state={previousValue}
+        canEdit={!readOnly}
       />
       <ShareDialog docId={docId} doc={effectiveDoc} />
     </>
