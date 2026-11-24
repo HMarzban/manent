@@ -14,8 +14,17 @@ import type { ViewSnapshot } from "../view/view.ts";
 import type { Room } from "./rooms.ts";
 import type { Committed } from "./write-path-ports.ts";
 
-/** How many snapshot answers are kept, by document and head sequence. */
-const CACHED_ANSWERS = 16;
+/**
+ * How many documents keep their latest cached snapshot answer: 512 so every document of
+ * W5's six rundowns of 80 stories (486) keeps its latest answer.
+ */
+const CACHED_ANSWERS = 512;
+
+interface CachedAnswer {
+  generation: number;
+  headSeq: number;
+  answer: Message;
+}
 
 /** The document the log holds, read without quarantining anything: a corrupt row is skipped. */
 function readDoc(storage: Storage, room: Room): { doc: CrdtDoc; seq: number } {
@@ -23,13 +32,18 @@ function readDoc(storage: Storage, room: Room): { doc: CrdtDoc; seq: number } {
   const { generation } = room.row;
   const checkpoint = checkpoints.newest(room.docId, generation);
   const doc = checkpoint === null ? createDoc() : loadDoc(checkpoint.state);
-  const from = checkpoint?.seq ?? 0;
-  const { rows } = log.tail(room.docId, generation, from, {
-    quarantine: false,
-  });
-  for (const { update } of rows) doc.applyUpdate(update, ORIGIN_LOAD);
-  discardPending(doc);
-  return { doc, seq: rows.at(-1)?.seq ?? from };
+  try {
+    const from = checkpoint?.seq ?? 0;
+    const { rows } = log.tail(room.docId, generation, from, {
+      quarantine: false,
+    });
+    for (const { update } of rows) doc.applyUpdate(update, ORIGIN_LOAD);
+    discardPending(doc);
+    return { doc, seq: rows.at(-1)?.seq ?? from };
+  } catch (error) {
+    doc.destroy();
+    throw error;
+  }
 }
 
 /**
@@ -46,32 +60,51 @@ export function materializeForView(
       viewSeq: room.row.headSeq,
     };
   const { doc, seq } = readDoc(storage, room);
-  const snapshot = viewSnapshot(scriptBody(doc).materialize());
-  doc.destroy();
-  return { snapshot, viewSeq: seq };
+  try {
+    return {
+      snapshot: viewSnapshot(scriptBody(doc).materialize()),
+      viewSeq: seq,
+    };
+  } finally {
+    doc.destroy();
+  }
 }
 
-/** A viewer's VIEW_SNAPSHOT for a room; the last answers are reused while the head stays where it was. */
+/**
+ * A viewer's VIEW_SNAPSHOT for a room; each document keeps its latest answer while its head stays
+ * where it was, bounded to CACHED_ANSWERS documents by least-recent use.
+ */
 export function createSnapshotAnswers(
   storage: Storage,
 ): (room: Room) => Message {
-  const answers = new Map<string, Message>();
+  const answers = new Map<string, CachedAnswer>();
   return (room) => {
-    const key = `${room.docId}:${room.row.generation}:${room.row.headSeq}`;
-    const cached = answers.get(key);
-    if (cached !== undefined) return cached;
+    const { docId } = room;
+    const { generation, headSeq } = room.row;
+    const cached = answers.get(docId);
+    if (
+      cached !== undefined &&
+      cached.generation === generation &&
+      cached.headSeq === headSeq
+    ) {
+      answers.delete(docId);
+      answers.set(docId, cached);
+      return cached.answer;
+    }
     const { snapshot, viewSeq } = materializeForView(storage, room);
     const answer: Message = {
       type: "VIEW_SNAPSHOT",
-      docId: room.docId,
-      generation: room.row.generation,
+      docId,
+      generation,
       viewSeq,
       content: encodeView(snapshot),
     };
-    answers.set(key, answer);
-    const oldest = answers.keys().next().value;
-    if (answers.size > CACHED_ANSWERS && oldest !== undefined)
-      answers.delete(oldest);
+    answers.delete(docId);
+    answers.set(docId, { generation, headSeq, answer });
+    if (answers.size > CACHED_ANSWERS) {
+      const oldest = answers.keys().next().value;
+      if (oldest !== undefined) answers.delete(oldest);
+    }
     return answer;
   };
 }
