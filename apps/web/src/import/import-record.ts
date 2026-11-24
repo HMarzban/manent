@@ -35,7 +35,7 @@ const CLAUSES: Readonly<Record<ImportRecord["from"], readonly string[]>> =
     fdr: [IMPORT_WORDS.finalDraftClause],
     fountain: [],
     text: [],
-    pdf: [],
+    pdf: [IMPORT_WORDS.pdfClause],
     docx: [],
     ink: [],
   });

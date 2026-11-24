@@ -54,8 +54,12 @@ function useImportRows(doc: CrdtDoc | null): readonly string[] {
 export function ImportGroup(props: { docId: string }): ReactNode {
   const rows = useImportRows(useLiveDoc(props.docId));
   if (rows.length === 0) return null;
-  const apart = rows.indexOf(IMPORT_WORDS.notShownTitle);
+  const notShown = rows.indexOf(IMPORT_WORDS.notShownTitle);
+  const notBroughtIn = rows.indexOf(IMPORT_WORDS.notBroughtInTitle);
+  const apart = notShown >= 0 ? notShown : notBroughtIn;
+  const hasLine = notShown >= 0;
   const said = apart < 0 ? rows : rows.slice(0, apart);
+  const listStart = hasLine ? apart + 2 : apart + 1;
   return (
     <section className="flex flex-col gap-2">
       <h3 className="text-meta font-semibold">{IMPORT_WORDS.groupTitle}</h3>
@@ -67,10 +71,14 @@ export function ImportGroup(props: { docId: string }): ReactNode {
       {apart < 0 ? null : (
         <>
           <h4 className="text-meta font-semibold">{rows[apart]}</h4>
-          <p className="text-meta text-fg-muted">{rows[apart + 1]}</p>
+          {hasLine ? (
+            <p className="text-meta text-fg-muted">{rows[apart + 1]}</p>
+          ) : null}
           <div>
-            {rows.slice(apart + 2).map((label) => (
-              <Row key={label}>{label}</Row>
+            {rows.slice(listStart).map((label) => (
+              <Row key={label}>
+                <span className="whitespace-normal">{label}</span>
+              </Row>
             ))}
           </div>
         </>

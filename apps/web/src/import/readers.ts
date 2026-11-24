@@ -26,9 +26,12 @@ export const IMPORTABLE_EXTENSIONS: readonly string[] = Object.freeze([
   ".fdx",
   ".fountain",
   ".fdr",
+  ".pdf",
+  ".docx",
+  ".txt",
 ]);
 
-/** .fdx → readFdx with parseXml; .fountain → readFountain after decodeText; .fdr is answered with how to bring it in as an .fdx. The app passes domXml; apps/web's unit tests pass bunXml. */
+/** .fdx → readFdx with parseXml; .fountain → readFountain after decodeText; .fdr is answered with how to bring it in as an .fdx; .pdf, .docx and .txt load lazily through @manent/formats. */
 export function importReaders(parseXml: XmlParser): readonly ImportReader[] {
   return [
     {
@@ -49,5 +52,25 @@ export function importReaders(parseXml: XmlParser): readonly ImportReader[] {
       },
     },
     { extension: ".fdr", from: "fdr", refuse: FDR_NOT_READABLE },
+    {
+      extension: ".pdf",
+      from: "pdf",
+      read: async (bytes, ids) =>
+        (await import("@manent/formats")).readPdf(bytes, { ids }),
+    },
+    {
+      extension: ".docx",
+      from: "docx",
+      read: async (bytes, ids) =>
+        (await import("@manent/formats")).readDocx(bytes, { parseXml, ids }),
+    },
+    {
+      extension: ".txt",
+      from: "text",
+      async read(bytes, ids) {
+        const formats = await import("@manent/formats");
+        return formats.readPlainText(formats.decodeText(bytes), { ids });
+      },
+    },
   ];
 }
