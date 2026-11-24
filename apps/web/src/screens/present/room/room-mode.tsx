@@ -1,4 +1,4 @@
-// The room window: the document's page as the shell draws it, held read-only, with nothing around it.
+// The room window: the document's page held read-only, following the driver's caret with no selections or marks.
 import { DEMO_PEOPLE } from "@manent/demo";
 import { DOCUMENT_WORDS, PRESENT_WORDS, useSubscribable } from "@manent/ui";
 import type { StatusFacts, Subscribable } from "@manent/ui";
@@ -9,15 +9,18 @@ import {
   subscribeLiveEditors,
 } from "../../../editor-host/live-editor.ts";
 import { focusHeading } from "../../../focus.ts";
-import { useServices } from "../../../services/context.tsx";
+import { startRoomFollow } from "../../../room/driver-room.ts";
+import { useEnvironment, useServices } from "../../../services/context.tsx";
 import { pageTitle } from "../../../text.ts";
 import { useOpenDocument } from "../../document/open-document.ts";
 import { useDocumentTitle } from "../../document/title-bar.tsx";
 
 // laid over the page, which the shell keeps mounted under it; the page below still takes the wheel
 const PAGE_AREA = Object.freeze({ gridArea: "page" });
+const PAGE_REGION = "[data-region='page']";
+const ROOM_CLASS = "mn-room";
 
-/** Each editor the shell builds for `docId` takes no input and draws no caret, however often it is built again. */
+/** Each editor the shell builds for `docId` takes no input, however often it is built again. */
 function useReadOnlyPage(docId: string): void {
   useEffect(() => {
     const hold = (): void => {
@@ -28,6 +31,17 @@ function useReadOnlyPage(docId: string): void {
     hold();
     return subscribeLiveEditors(hold);
   }, [docId]);
+}
+
+/** Applies `mn-room` to the page region while the room window is mounted. */
+function useRoomPageClass(): void {
+  useEffect(() => {
+    const region = document.querySelector(PAGE_REGION);
+    region?.classList.add(ROOM_CLASS);
+    return () => {
+      region?.classList.remove(ROOM_CLASS);
+    };
+  }, []);
 }
 
 /** The tab's title: the room window's, and the person. */
@@ -55,8 +69,15 @@ export function RoomMode(props: { docId: string }): ReactNode {
   const { docId } = props;
   const doc = useOpenDocument(docId);
   const title = useDocumentTitle(docId);
+  const services = useServices();
+  const { frame } = useEnvironment();
   useReadOnlyPage(docId);
+  useRoomPageClass();
   useWindowTitle(title);
+  useEffect(
+    () => startRoomFollow({ docId, services, frame }),
+    [docId, services, frame],
+  );
   useEffect(() => {
     focusHeading(document);
   }, [docId]);

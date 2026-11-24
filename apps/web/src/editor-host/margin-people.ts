@@ -24,7 +24,7 @@ import type { SceneMark } from "../screens/document/scene-marks.ts";
 import type { PersonPresent } from "../state/people.store.ts";
 import type { EditorPluginContext } from "./plugins.ts";
 
-export { scrollToPerson } from "@manent/editor";
+export { scrollToPerson, setShownCursors } from "@manent/editor";
 
 /** Every cursor the page last received, drawn or not. */
 export function remoteCursorsOf(view: EditorView): readonly RemoteCursor[] {
