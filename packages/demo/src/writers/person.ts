@@ -7,6 +7,7 @@ import type { BlockJSON, IdSource } from "@manent/schema";
 import type { Clock, DocHandle, Random, SyncClient } from "@manent/sync-client";
 import { createRng, seededIdSource } from "../seed/rng.ts";
 import type { Rng } from "../seed/rng.ts";
+import { OwnLines } from "./own-lines.ts";
 import { createWriterPresence } from "./presence.ts";
 import type { Caret, WriterPresence } from "./presence.ts";
 import { lineEndFrom, regionOf } from "./region.ts";
@@ -22,7 +23,10 @@ export interface SimulatedPersonEvent {
   marker: string | null;
 }
 
-/** `stop()` types the rest of the burst at once, ends every timer, comes back online when offline, and leaves presence. */
+/**
+ * `stop()` types the rest of the burst at once (with `keepBlocks`, takes back every line instead), ends every timer,
+ * comes back online when offline, and leaves presence.
+ */
 export interface SimulatedPerson {
   start(): void;
   stop(): Promise<void>;
@@ -38,6 +42,7 @@ interface PersonOptions {
   region: Region | null;
   markers: boolean;
   lines?: readonly WriterLine[];
+  keepBlocks?: number;
 }
 
 const HOUR_MS = 3_600_000;
@@ -100,6 +105,8 @@ class Person implements SimulatedPerson {
   private keystrokes = 0;
   private bursts = 0;
   private readonly presence: WriterPresence | null;
+  /** Followed only while the person keeps to a number of blocks. */
+  private readonly own: OwnLines | null;
 
   constructor(options: PersonOptions) {
     if (options.lines?.length === 0 || options.lines?.some((l) => !l.length))
@@ -109,6 +116,8 @@ class Person implements SimulatedPerson {
     this.ids = seededIdSource(this.rng);
     this.keyMs = 1000 / options.profile.keysPerSecond;
     this.region = options.region;
+    const keep = options.keepBlocks;
+    this.own = keep === undefined ? null : new OwnLines(keep);
     this.presence = options.profile.presence
       ? createWriterPresence(options)
       : null;
@@ -127,10 +136,12 @@ class Person implements SimulatedPerson {
   stop(): Promise<void> {
     for (const cancel of this.cancels.values()) cancel();
     this.cancels.clear();
-    // the line being typed is finished at once, so that a person who stops leaves no half-typed line
+    // the line being typed is finished at once, or taken back with the rest, so that no half-typed line is left
     const keys = this.burst?.keys ?? [];
-    while (this.burst !== null && this.burst.next < keys.length)
-      if (!this.type(this.burst, keys[this.burst.next]!)) break;
+    if (this.own !== null) this.own.all(this.options.handle.doc());
+    else
+      while (this.burst !== null && this.burst.next < keys.length)
+        if (!this.type(this.burst, keys[this.burst.next]!)) break;
     if (this.offline) this.comeBack();
     this.presence?.leave();
     return Promise.resolve();
@@ -210,6 +221,9 @@ class Person implements SimulatedPerson {
 
   private beginBurst(): void {
     const doc = this.options.handle.doc();
+    const { lines } = this.options;
+    const next = lines?.[this.bursts % lines.length]?.length ?? 1;
+    if (this.own !== null) this.region = this.own.room(doc, next, this.region);
     const region = regionOf(blockIds(doc), this.region);
     const blockId =
       this.options.lines === undefined
@@ -263,6 +277,7 @@ class Person implements SimulatedPerson {
     const at = offset - text.length;
     if (!this.write((w) => w.deleteText(blockId, at, text.length)))
       return false;
+    this.own?.erased(blockId, text.length);
     burst.next -= 1;
     burst.caret = { blockId, offset: at };
     this.presence?.moved(burst.caret);
@@ -279,6 +294,7 @@ class Person implements SimulatedPerson {
       if (!this.write((w) => w.insertBlocks(blockId, [block]))) return false;
       if (this.region?.lastBlockId === blockId)
         this.region = { ...this.region, lastBlockId: id };
+      this.own?.made(id, key.element);
       burst.caret = { blockId: id, offset: 0 };
       this.presence?.moved(burst.caret);
       this.place = { blockId: id, element: key.element };
@@ -287,6 +303,7 @@ class Person implements SimulatedPerson {
     }
     if (!this.write((w) => w.insertText(blockId, offset, key.text)))
       return false;
+    this.own?.typed(blockId, key.text);
     burst.caret = { blockId, offset: offset + key.text.length };
     this.presence?.moved(burst.caret);
     this.record("typed", blockId, key.marker);
@@ -368,7 +385,10 @@ class Person implements SimulatedPerson {
  * at `keysPerSecond`, one transaction a key, in the block they are in. A burst
  * is the next of `lines`, each of its blocks new, after a block where it does
  * not cut a speech in two, when lines are given; otherwise seeded words. With
- * `markers`, a burst opens with `⟦<client id>:<n>⟧`, typed as one key. Every
+ * `markers`, a burst opens with `⟦<client id>:<n>⟧`, typed as one key. With
+ * `keepBlocks`, it keeps at most that many blocks it made, or one line's: it
+ * deletes its oldest lines before a line that would pass it, and every line
+ * when it stops, each block only while it reads as it was typed. Every
  * timer goes through `clock` and every draw through `random`, so one seed
  * gives one run. RangeError for an empty `lines` or an empty line.
  */

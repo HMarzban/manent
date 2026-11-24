@@ -18,12 +18,20 @@ import type {
 import { indexDocId } from "@manent/sync-protocol";
 import type { LiveTarget } from "../seed/driver.ts";
 import { readServerScript } from "../seed/page-meter.ts";
+import { markEdited } from "./last-edited.ts";
 import { createPreparations } from "./prepare.ts";
 import { caretScene, freeScenes, startWriter } from "./writers.ts";
 import type { Scene, Writer } from "./writers.ts";
 
 /** A group of writers stops by itself this long after it starts. */
 const WRITERS_RUN_MS = 600_000;
+/**
+ * The blocks of their own lines a group's writers keep in the script between them, shared out evenly: under two
+ * pages of text, so that a script grows by little while they type; they take every line back when they stop.
+ */
+const GROUP_KEEP_BLOCKS = 40;
+/** How often a group's latest edit is written as the script's Last edited. */
+const EDITS_EVERY_MS = 20_000;
 
 /** Lanternfield Studios' members typing now, slowly: the document and who types in it, one scene each. */
 const PRESENCE_GROUPS: readonly (readonly [string, readonly string[]])[] = [
@@ -50,10 +58,14 @@ interface Running {
   writers: readonly Writer[];
 }
 
-/** An Add writers group: its writers, what the server answered when it started and the timer that stops it. */
+/**
+ * An Add writers group: its writers, what the server answered when it started, `cancel` for the timers that stop it
+ * and write its edits, and `markLast` writing its latest edit.
+ */
 interface Group extends Running {
   answer: WritersResponse;
   cancel(): void;
+  markLast(): Promise<void>;
 }
 
 /** What the services keep while the server runs. */
@@ -124,6 +136,7 @@ async function seat(
         profile,
         seed: DEMO_SEED + i + startedAt,
         random: state.random,
+        keepBlocks: Math.max(1, Math.floor(GROUP_KEEP_BLOCKS / seats.length)),
       }),
     ),
   );
@@ -144,6 +157,38 @@ async function stopGroup(state: Live, docId: string): Promise<void> {
   state.groups.delete(docId);
   group.cancel();
   await Promise.all(group.writers.map((w) => w.stop()));
+  await group.markLast();
+}
+
+/**
+ * Writes the latest edit of `writers` as the script's Last edited every EDITS_EVERY_MS, once it is later than the one
+ * written; returns the timer's cancel and the write itself.
+ */
+function editMarks(
+  state: Live,
+  docId: string,
+  writers: readonly Writer[],
+): { cancel: () => void; markLast: () => Promise<void> } {
+  let markedAt = -Infinity;
+  const markLast = async (): Promise<void> => {
+    const latest = writers
+      .flatMap((w) => {
+        const at = w.editedAt();
+        return at === null ? [] : [{ userId: w.userId, at }];
+      })
+      .toSorted((a, b) => b.at - a.at)[0];
+    if (latest === undefined || latest.at <= markedAt) return;
+    markedAt = latest.at;
+    await markEdited(state.live, docId, latest);
+  };
+  const { clock } = state.live;
+  let cancel = clock.schedule(function tick() {
+    markLast().catch(() => {
+      // the next tick writes it again: an edit only ever moves Last edited later
+    });
+    cancel = clock.schedule(tick, EDITS_EVERY_MS);
+  }, EDITS_EVERY_MS);
+  return { cancel: () => cancel(), markLast };
 }
 
 /** Replaces the document's group with `count` writers, the first free members of the pool, seated by its placement. */
@@ -161,7 +206,12 @@ async function addWriters(
     .slice(0, scenes.length)
     .map(({ userId, name }, i) => ({ userId, name, scene: scenes[i]! }));
   const writers = await seat(state, docId, seats, PROFILES.demo);
-  const cancel = state.live.clock.schedule(stopLater, WRITERS_RUN_MS);
+  const stopping = state.live.clock.schedule(stopLater, WRITERS_RUN_MS);
+  const edits = editMarks(state, docId, writers);
+  const cancel = (): void => {
+    stopping();
+    edits.cancel();
+  };
   const answer = {
     asked: count,
     count: writers.length,
@@ -169,7 +219,13 @@ async function addWriters(
     endsAt: state.live.clock.now() + WRITERS_RUN_MS,
     placement,
   };
-  state.groups.set(docId, { docId, writers, answer, cancel });
+  state.groups.set(docId, {
+    docId,
+    writers,
+    answer,
+    cancel,
+    markLast: edits.markLast,
+  });
   return answer;
 }
 

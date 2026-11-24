@@ -1,5 +1,11 @@
 // Timings: this window's typing, pagination and sync measured live, with the open script's size.
-import { marksEnabled, readMarks, setMarksEnabled } from "@manent/perf";
+import {
+  markEnd,
+  markStart,
+  marksEnabled,
+  readMarks,
+  setMarksEnabled,
+} from "@manent/perf";
 import type { DocHandle } from "@manent/sync-client";
 import {
   DEMO_WORDS,
@@ -10,18 +16,40 @@ import {
 import { GaugeIcon } from "lucide-react";
 import { useEffect, useMemo, useReducer, useState } from "react";
 import type { ReactNode } from "react";
+import { afterNextPaint } from "../next-paint.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { TIMINGS_REFRESH_MS, createTimingsSource } from "./timings-source.ts";
 import { BarButton } from "./bar-button.tsx";
 
 const TOUR = "demo:timings";
 
-/** Disabled without a connection. */
+/** Each key pressed in the page, timed from the press to the paint of the next frame. */
+function markKeystroke(event: KeyboardEvent): void {
+  const { target } = event;
+  if (!(target instanceof Element) || !target.closest("[data-editor-host]"))
+    return;
+  const token = markStart();
+  if (token !== -1) afterNextPaint(() => markEnd("editor.keystroke", token));
+}
+
+/**
+ * Disabled without a connection. The product's marks are on, and each keystroke in the page marked, from the moment
+ * the bar is drawn, so that what was typed before Timings opens is in its rows.
+ */
 export function Timings(props: {
   docId: string | null;
   offline: boolean;
 }): ReactNode {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const before = marksEnabled();
+    setMarksEnabled(true);
+    document.addEventListener("keydown", markKeystroke, { capture: true });
+    return () => {
+      document.removeEventListener("keydown", markKeystroke, { capture: true });
+      setMarksEnabled(before);
+    };
+  }, []);
   if (props.offline)
     return (
       <BarButton
@@ -71,15 +99,10 @@ function useOpenHandle(docId: string | null): DocHandle | null {
   return opened?.docId === docId ? opened : null;
 }
 
-/** Drawn while the popover is open: the product's marks are on for as long, and read again every TIMINGS_REFRESH_MS. */
+/** Drawn while the popover is open: the marks are read again every TIMINGS_REFRESH_MS. */
 function TimingRows(props: { docId: string | null }): ReactNode {
   const { schedule } = useEnvironment();
   const handle = useOpenHandle(props.docId);
-  useEffect(() => {
-    const before = marksEnabled();
-    setMarksEnabled(true);
-    return () => setMarksEnabled(before);
-  }, []);
   const source = useMemo(
     () =>
       createTimingsSource({
