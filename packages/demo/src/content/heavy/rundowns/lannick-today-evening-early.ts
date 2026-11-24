@@ -1,0 +1,397 @@
+// Lannick Today 18:30 aired newscasts (D-7 to D-4).
+import { newsItem, newsLead, newsRundown, newsUnnumbered } from "./spec.ts";
+import type { NewsRundownSpec } from "./spec.ts";
+
+const YARA = "Yara";
+const FELIX = "Felix";
+const FELIX_YARA = "Felix, Yara";
+const FELIX_ANSAH = "Felix / Ansah";
+
+const OPEN_1830 = newsUnnumbered(
+  "Open: titles and headlines",
+  FELIX_YARA,
+  "ANC/VT",
+  "1:00",
+);
+const BREAK = newsUnnumbered("Break", null, "BREAK", "3:00");
+const WEATHER_1830 = newsItem(
+  "Weather: the full forecast",
+  YARA,
+  "READER + GFX",
+  "2:20",
+);
+const TOMORROW = newsItem("Tomorrow in Lannick", FELIX, "READER + GFX", "0:35");
+const HEADLINES_1830 = newsItem("Headlines again", FELIX_YARA, "ANC", "0:40");
+
+export const LANNICK_TODAY_EVENING_EARLY: readonly NewsRundownSpec[] =
+  Object.freeze([
+    newsRundown(-7, "1830", [
+      OPEN_1830,
+      newsLead(
+        "Tram line 3 opens to Halse Park",
+        FELIX,
+        "READER",
+        "heavy/h31/stories/02",
+      ),
+      newsItem(
+        "Tram line 3: the first day on the line",
+        FELIX_ANSAH,
+        "PKG",
+        "2:50",
+      ),
+      newsItem(
+        "Tram line 3: what the first passengers say",
+        FELIX,
+        "VOX",
+        "1:20",
+      ),
+      newsItem("Tram line 3: the new timetable", FELIX, "READER + GFX", "0:55"),
+      newsItem("Tram line 3: shops at the terminus", FELIX, "VO + SOT", "1:35"),
+      newsItem(
+        "Halse Road: lane closures for the drainage works",
+        YARA,
+        "READER + GFX",
+        "0:55",
+      ),
+      newsItem(
+        "Lannick General opens its new outpatients' entrance",
+        YARA,
+        "VO + SOT",
+        "1:35",
+      ),
+      newsItem(
+        "Recycling collection days change in three wards",
+        YARA,
+        "READER + GFX",
+        "0:55",
+      ),
+      newsItem(
+        "Central Station: the ticket hall lifts back in service",
+        YARA,
+        "READER",
+        "0:40",
+      ),
+      newsItem(
+        "Weir Road cycle lane: consultation opens",
+        YARA,
+        "READER + GFX",
+        "0:55",
+      ),
+      newsItem("Ardle Quay: harbour dredging begins", FELIX, "VO", "0:55"),
+      newsItem(
+        "Mercer Street library extends its evening hours",
+        YARA,
+        "READER",
+        "0:40",
+      ),
+      newsItem(
+        "Tram line 3: Tobias Wren, the line's project engineer, in the studio",
+        YARA,
+        "LIVE",
+        "3:00",
+      ),
+      BREAK,
+      newsItem("Cup: Athletic at Port Allard tonight", FELIX, "PKG", "2:50"),
+      newsItem("Herons beat the Port Allard Pilots", FELIX, "VO", "0:55"),
+      newsItem("Junior swimming gala: entries open", FELIX, "READER", "0:40"),
+      newsItem(
+        "Lannick Philharmonic: the orchestra's new rehearsal hall",
+        YARA,
+        "VO",
+        "0:55",
+      ),
+      WEATHER_1830,
+      TOMORROW,
+      HEADLINES_1830,
+    ]),
+    newsRundown(-6, "1830", [
+      OPEN_1830,
+      newsLead(
+        "School meals trial: twelve schools",
+        FELIX,
+        "READER",
+        "heavy/h31/stories/04",
+      ),
+      newsItem(
+        "School meals trial: the cooks and the menus",
+        FELIX_ANSAH,
+        "PKG",
+        "2:50",
+      ),
+      newsItem("School meals trial: what parents say", FELIX, "VOX", "1:20"),
+      newsItem(
+        "Library report: the Tolle Exchange recommended",
+        YARA,
+        "PKG",
+        "2:50",
+      ),
+      newsItem(
+        "Library report: Cllr Margaret Pell on next week's vote",
+        YARA,
+        "VO + SOT",
+        "1:35",
+      ),
+      newsItem(
+        "Library report: the two sites turned down",
+        YARA,
+        "READER + GFX",
+        "0:45",
+      ),
+      newsItem(
+        "Tram line 3: the first day's passenger count",
+        FELIX,
+        "READER + GFX",
+        "0:40",
+      ),
+      newsItem(
+        "Halse Road drainage works: the diversions",
+        FELIX,
+        "READER + GFX",
+        "0:35",
+      ),
+      newsItem("Blood donor sessions at City Hall", YARA, "READER", "0:30"),
+      newsItem(
+        "University of Lannick opens its new river laboratory",
+        YARA,
+        "VO + SOT",
+        "1:35",
+      ),
+      newsItem(
+        "Ardle Quay: the fish auction's new screens",
+        FELIX,
+        "VO",
+        "0:55",
+      ),
+      newsItem("Wrenna Island school gets its new minibus", YARA, "VO", "0:55"),
+      newsItem(
+        "Library report: Gita Ramsden, City Librarian, in the studio",
+        YARA,
+        "LIVE",
+        "3:00",
+      ),
+      BREAK,
+      newsItem("Cup: Athletic draw 1–1 at Port Allard", FELIX, "PKG", "2:50"),
+      newsItem(
+        "Cup replay: tickets on sale at the ground",
+        FELIX,
+        "READER",
+        "0:30",
+      ),
+      newsItem("Herons sign a new centre", FELIX, "READER", "0:30"),
+      newsItem("Junior swimming gala: entries close", FELIX, "READER", "0:25"),
+      WEATHER_1830,
+      TOMORROW,
+      HEADLINES_1830,
+    ]),
+    newsRundown(-5, "1830", [
+      OPEN_1830,
+      newsLead(
+        "Lighthouse museum to reopen",
+        FELIX,
+        "READER",
+        "heavy/h31/stories/06",
+      ),
+      newsItem(
+        "Gull Point: the restorers' last day",
+        FELIX_ANSAH,
+        "PKG",
+        "2:50",
+      ),
+      newsItem(
+        "Gull Point: Esme Tull, the last keeper, on the restoration",
+        FELIX,
+        "VO + SOT",
+        "1:35",
+      ),
+      newsItem(
+        "Gull Point: getting there on the day it opens",
+        FELIX,
+        "READER + GFX",
+        "0:55",
+      ),
+      newsItem(
+        "Library report: public meetings at three branches",
+        YARA,
+        "READER",
+        "0:40",
+      ),
+      newsItem(
+        "School meals trial: the twelve schools named",
+        YARA,
+        "READER + GFX",
+        "0:55",
+      ),
+      newsItem(
+        "Tram line 3: a second stop at Halse Park opens",
+        FELIX,
+        "VO",
+        "0:55",
+      ),
+      newsItem(
+        "Linnet Street: residents told of water main works",
+        FELIX,
+        "READER",
+        "0:40",
+      ),
+      newsItem("Central Station: new departure boards", FELIX, "VO", "0:55"),
+      newsItem(
+        "Halse Park allotments: the waiting list reopens",
+        YARA,
+        "READER",
+        "0:35",
+      ),
+      newsItem(
+        "Ardle Quay: dredging reaches the ferry berth",
+        FELIX,
+        "VO",
+        "0:55",
+      ),
+      newsItem(
+        "Recycling: the new collection days begin",
+        YARA,
+        "READER",
+        "0:35",
+      ),
+      newsItem(
+        "Gull Point: Ottoline Marr, the museum's curator, in the studio",
+        YARA,
+        "LIVE",
+        "3:00",
+      ),
+      newsItem(
+        "Ardle Quay: the lifeboat's new crew members",
+        FELIX,
+        "VO + SOT",
+        "1:35",
+      ),
+      BREAK,
+      newsItem(
+        "Lannick Philharmonic: a free concert in the City Hall foyer",
+        YARA,
+        "VO + SOT",
+        "1:35",
+      ),
+      newsItem("Athletic: Dev Ansari on the replay", FELIX, "PKG", "2:50"),
+      newsItem("Herons beat the Harrowfield Kestrels", FELIX, "VO", "0:55"),
+      newsItem(
+        "Junior swimming gala: the squads named",
+        FELIX,
+        "READER",
+        "0:30",
+      ),
+      WEATHER_1830,
+      TOMORROW,
+      HEADLINES_1830,
+    ]),
+    newsRundown(-4, "1830", [
+      OPEN_1830,
+      newsLead(
+        "Car park review promised",
+        FELIX,
+        "READER",
+        "heavy/h31/stories/08",
+      ),
+      newsItem(
+        "Car park review: Lannick General answers the patients' group",
+        FELIX_ANSAH,
+        "PKG",
+        "2:50",
+      ),
+      newsItem(
+        "Car park charges: what patients and visitors say",
+        FELIX,
+        "VOX",
+        "1:20",
+      ),
+      newsItem(
+        "Car park charges: how they compare",
+        FELIX,
+        "READER + GFX",
+        "0:55",
+      ),
+      newsItem(
+        "Library report: a third public meeting added",
+        YARA,
+        "READER",
+        "0:30",
+      ),
+      newsItem(
+        "Tram line 3: late-evening services added",
+        YARA,
+        "READER",
+        "0:30",
+      ),
+      newsItem(
+        "Halse Road: the drainage works reach the junction",
+        FELIX,
+        "VO",
+        "0:55",
+      ),
+      newsItem(
+        "Weir Road cycle lane: the consultation's first week",
+        YARA,
+        "READER + GFX",
+        "0:50",
+      ),
+      newsItem(
+        "Ardle Quay: the ferry operator's new booking line",
+        FELIX,
+        "READER",
+        "0:30",
+      ),
+      newsItem("Wrenna Island: the pier lights replaced", FELIX, "VO", "0:55"),
+      newsItem(
+        "Gull Point museum: volunteers wanted",
+        YARA,
+        "VO + SOT",
+        "1:35",
+      ),
+      newsItem(
+        "Night market: the licence hearing at City Hall",
+        YARA,
+        "READER",
+        "0:35",
+      ),
+      newsItem(
+        "Car park charges: Imelda Strand of the Patients' Group in the studio",
+        YARA,
+        "LIVE",
+        "3:00",
+      ),
+      newsItem(
+        "Halse Park Primary: the new pedestrian crossing opens",
+        YARA,
+        "VO + SOT",
+        "1:35",
+      ),
+      newsItem(
+        "Mercer Street library: the reading group turns fifty",
+        YARA,
+        "VO",
+        "0:55",
+      ),
+      BREAK,
+      newsItem("Athletic: replay tickets sell out", FELIX, "VO + SOT", "1:35"),
+      newsItem(
+        "Herons: Rob Kinsella back from injury",
+        FELIX,
+        "VO + SOT",
+        "1:35",
+      ),
+      newsItem(
+        "Lannick half-marathon: the route published",
+        FELIX,
+        "READER + GFX",
+        "0:45",
+      ),
+      newsItem(
+        "Lannick Philharmonic: the free concert, in pictures",
+        YARA,
+        "VO",
+        "0:55",
+      ),
+      WEATHER_1830,
+      TOMORROW,
+      HEADLINES_1830,
+    ]),
+  ]);
