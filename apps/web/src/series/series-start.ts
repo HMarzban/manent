@@ -11,10 +11,10 @@ import {
 import { paperForRegion } from "@manent/settings";
 import type { DocHandle } from "@manent/sync-client";
 import { indexDocId, projectHome } from "@manent/sync-protocol";
-import { firstBlock } from "../editor-host/first-block.ts";
 import type { ProjectStart } from "../services/sync/create-script.ts";
 import type { ProjectCreated } from "../services/sync/library-index.ts";
 import { writingActions } from "../state/writing.store.ts";
+import { openingBlock } from "./template.ts";
 
 const holdsText = (handle: DocHandle): boolean =>
   (scriptBody(handle.doc()).materialize().content ?? []).some((section) =>
@@ -43,7 +43,7 @@ function startSeriesScript(handle: DocHandle, language: string): void {
   const doc = handle.doc();
   if (yXmlFragmentForBinding(doc).length === 0) {
     scriptBody(doc).write((w) =>
-      w.insertBlocks(null, [firstBlock("screenplay")]),
+      w.insertBlocks(null, [openingBlock("screenplay")]),
     );
   }
   handle.setSetting("script.format", "screenplay");
