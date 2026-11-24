@@ -38,11 +38,11 @@ export const isFields = (
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**
- * Whether the server holds everything of a document this device holds: true once it is synced; false once the link
- * has gone, or the server has refused the document, first; null while neither.
+ * Whether the server holds everything of a document this device holds: true once it is saved on this device and
+ * synced; false once the link has gone, or the server has refused the document, first; null while neither.
  */
 export function syncedOf(status: DocStatus): boolean | null {
-  if (status.synced && status.waiting === 0) return true;
+  if (status.saved && status.synced && status.waiting === 0) return true;
   return status.link === "offline" || status.side.length > 0 ? false : null;
 }
 

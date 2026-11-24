@@ -2,6 +2,8 @@
 import type { LinkFacts } from "@manent/sync-client";
 import type { Subscribable } from "@manent/ui";
 import type { PersonServices } from "../services/ports.ts";
+import { createTargetBindings } from "../writing/target-bindings.ts";
+import type { GivenUp, TargetOutcome } from "../writing/target-bindings.ts";
 import {
   copyEntryOf,
   isFields,
@@ -10,24 +12,14 @@ import {
 } from "../writing/writing-index.ts";
 import type { WritingIndex } from "../writing/writing-index.ts";
 
+export type { TargetOutcome } from "../writing/target-bindings.ts";
+
 const WRITING_POSITIONS = ["everyone", "suggestions", "private"] as const;
 export type WritingPosition = (typeof WRITING_POSITIONS)[number];
 
-type Bindable = Pick<PersonServices, "userId" | "openHandle">;
-
-/**
- * How an editor session's open of a target ended: `bound` once it shows it; `offline` or `refused` when it gave it up,
- * the link gone or the server refusing it first; `moved` when the target moved on before.
- */
-export type TargetOutcome = "bound" | "offline" | "refused" | "moved";
-
-type GivenUp = Extract<TargetOutcome, "offline" | "refused">;
-
-/** What a script's editor session shows: the target it has bound, and the one it is opening, null while none is. */
-interface Binding {
-  bound: string;
-  opening: string | null;
-}
+type Bindable = Pick<PersonServices, "userId" | "openHandle"> & {
+  ready?: Promise<void>;
+};
 
 // the services whose private index is read; replaced when another person's services bind
 let bound: Bindable | null = null;
@@ -36,40 +28,25 @@ let stopIndex = (): void => {};
 // the server has answered for the bound index, or cannot be reached: until then no document's target is known
 let known = false;
 const knowing = new Set<() => void>();
-// by room docId: a private copy made in this tab, opened before the index holds its entry
-const made = new Map<string, string>();
+// by room docId: a private copy made in this tab, opened before the index holds its entry, with that move's `at`
+const made = new Map<string, { privateDocId: string; at: number }>();
 // by room docId: whether someone else has a role on it, the server's last answer in this tab
 const access = new Map<string, boolean>();
 const listeners = new Set<() => void>();
 const followed = new Map<string, Subscribable<WritingPosition>>();
-// by room docId: what its editor session shows, published by the session
-const bindings = new Map<string, Binding>();
-// by room docId: those waiting for the session to bind a target, or give it up
-const settling = new Map<
-  string,
-  Set<{ target: string; settle(outcome: TargetOutcome): void }>
->();
 // by room docId: the entry kept before this tab moved it to private, and that move's `at`
 const before = new Map<string, { at: number; entry: unknown }>();
-// by room docId: the hand-ins that hold the editor read-only
-const holds = new Map<string, number>();
-// by room docId: those told when its session gives up a private copy this tab did not move to
-const givingUp = new Map<string, Set<(outcome: GivenUp) => void>>();
 
-const tell = (): void => {
-  for (const listener of listeners) listener();
+const addListener = (listener: () => void): (() => void) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 };
 
-const settle = (
-  docId: string,
-  target: string,
-  outcome: TargetOutcome,
-): void => {
-  for (const waiting of settling.get(docId) ?? []) {
-    if (waiting.target !== target) continue;
-    settling.get(docId)?.delete(waiting);
-    waiting.settle(outcome);
-  }
+const tell = (): void => {
+  sessions.settleMoved();
+  for (const listener of listeners) listener();
 };
 
 /**
@@ -88,11 +65,42 @@ function rollBack(docId: string): boolean {
   return true;
 }
 
+/** Drops any local `made` entry whose move has been superseded by a non-local or newer writing entry. */
+function invalidateMade(
+  opened: WritingIndex,
+  keys: readonly string[],
+  origin: "local" | "remote",
+): void {
+  for (const key of keys) {
+    const fresh = made.get(key);
+    if (fresh === undefined) continue;
+    if (origin === "remote") {
+      made.delete(key);
+      continue;
+    }
+    const entry = opened.writing.get(key);
+    if (
+      !isFields(entry) ||
+      entry.at !== fresh.at ||
+      entry.position !== "private"
+    )
+      made.delete(key);
+  }
+}
+
 /** The private copy `docId` opens while the person writes it privately; null while none is open. */
 function copyOf(docId: string): string | null {
   if (index === null) return null;
   const entry = copyEntryOf(index, docId);
-  const fresh = made.get(docId) ?? null;
+  const writing = index.writing.get(docId);
+  const freshEntry = made.get(docId);
+  const fresh =
+    freshEntry !== undefined &&
+    isFields(writing) &&
+    writing.at === freshEntry.at &&
+    writing.position === "private"
+      ? freshEntry.privateDocId
+      : null;
   if (entry === null) return fresh;
   if (!entry.handedIn) return entry.privateDocId;
   return fresh !== entry.privateDocId ? fresh : null;
@@ -109,76 +117,33 @@ function positionOf(docId: string): WritingPosition {
 const targetOf = (docId: string): string =>
   positionOf(docId) === "private" ? (copyOf(docId) ?? docId) : docId;
 
-/**
- * Publishes `opened` as what `docId`'s editor session shows, then calls `open` each time `docId`'s target is another
- * document than the one shown or being opened; `wanted` says whether that target is still the one to open. A target is
- * shown once `open` settles as `bound`; given up, this tab's move to it is rolled back, or, when this tab did not move
- * it to a private copy, those `onGivenUp` names are told, and the next change asks again. The returned function stops.
- */
-function followTarget(
-  docId: string,
-  opened: string,
-  open: (target: string, wanted: () => boolean) => Promise<TargetOutcome>,
-): () => void {
-  const binding: Binding = { bound: opened, opening: null };
-  let stopped = false;
-  const leave = (): void => {
-    const left = binding.opening;
-    binding.opening = null;
-    if (left !== null) settle(docId, left, "moved");
+function followPosition(docId: string): Subscribable<WritingPosition> {
+  const held = followed.get(docId);
+  if (held !== undefined) return held;
+  const position: Subscribable<WritingPosition> = {
+    get: () => positionOf(docId),
+    subscribe: (listener) => addListener(() => listener(positionOf(docId))),
   };
-  const check = (): void => {
-    const target = targetOf(docId);
-    if (stopped || target === binding.opening) return;
-    leave();
-    if (target === binding.bound) return;
-    binding.opening = target;
-    const wanted = (): boolean => !stopped && binding.opening === target;
-    void open(target, wanted).then((outcome) => {
-      if (!wanted()) return;
-      binding.opening = null;
-      settle(docId, target, outcome);
-      // a target given up is asked again on the next change, never at once: it would fail again the same way
-      if (outcome === "bound") {
-        binding.bound = target;
-        tell();
-      } else if (outcome !== "moved" && !rollBack(docId) && target !== docId)
-        for (const listener of givingUp.get(docId) ?? []) listener(outcome);
-    });
-  };
-  bindings.set(docId, binding);
-  const stop = followPosition(docId).subscribe(check);
-  // the target may have moved while `opened` was opening
-  check();
-  tell();
-  return () => {
-    stopped = true;
-    stop();
-    leave();
-    if (bindings.get(docId) === binding) bindings.delete(docId);
-    tell();
-  };
+  followed.set(docId, position);
+  return position;
 }
 
-/** How the editor session's open of `target` for `docId` ends; `bound` at once when no session shows `docId`. */
-function whenBound(docId: string, target: string): Promise<TargetOutcome> {
-  const binding = bindings.get(docId);
-  if (binding === undefined || binding.bound === target)
-    return Promise.resolve("bound");
-  if (binding.opening !== target) return Promise.resolve("moved");
-  return new Promise((resolve) => {
-    const waiting = settling.get(docId) ?? new Set();
-    settling.set(docId, waiting);
-    waiting.add({ target, settle: resolve });
-  });
-}
-
-/** Whether `docId`'s editor may take keys: its target is known and shown, and no hand-in holds it. */
-function isWritable(docId: string): boolean {
-  if (!known || (holds.get(docId) ?? 0) > 0) return false;
-  const binding = bindings.get(docId);
-  return binding === undefined || binding.bound === targetOf(docId);
-}
+const sessions = createTargetBindings({
+  stateOf(docId) {
+    const kept = index === null ? null : keptPosition(index, docId);
+    const copy = copyOf(docId);
+    return {
+      known,
+      target: kept === "private" ? (copy ?? docId) : docId,
+      keptPrivate: kept === "private",
+      hasCopy: copy !== null,
+    };
+  },
+  followChanges: (docId, listener) => followPosition(docId).subscribe(listener),
+  rollBack,
+  addListener,
+  tell,
+});
 
 /**
  * Calls `then` once every document's target is known: the server has answered for the person's index, or this tab
@@ -222,23 +187,6 @@ function learn(): void {
   tell();
 }
 
-function followPosition(docId: string): Subscribable<WritingPosition> {
-  const held = followed.get(docId);
-  if (held !== undefined) return held;
-  const position: Subscribable<WritingPosition> = {
-    get: () => positionOf(docId),
-    subscribe(listener) {
-      const hear = (): void => listener(positionOf(docId));
-      listeners.add(hear);
-      return () => {
-        listeners.delete(hear);
-      };
-    },
-  };
-  followed.set(docId, position);
-  return position;
-}
-
 function bindIndex(services: Bindable): void {
   if (bound === services) return;
   bound = services;
@@ -252,28 +200,32 @@ function bindIndex(services: Bindable): void {
   stopIndex = () => {
     stopped = true;
   };
-  void openWritingIndex(services).then(
-    (opened) => {
-      if (stopped) return opened.close();
-      index = opened;
-      // a device that has not received the index yet would open for everyone a script written privately elsewhere
-      const stops = [
-        opened.writing.subscribe(tell),
-        opened.copies.subscribe(tell),
-        opened.whenAnswered(learn),
-      ];
-      stopIndex = () => {
-        for (const stop of stops) stop();
-        opened.close();
-      };
-      // what the device holds of the index is read: an offline leading tab need wait for nothing more
-      tell();
-    },
-    () => {
-      // a sync that could not start holds no private index: every document reads as written for everyone
-      if (!stopped) learn();
-    },
-  );
+  void (async () => {
+    await services.ready;
+    if (stopped) return;
+    const opened = await openWritingIndex(services);
+    if (stopped) return opened.close();
+    index = opened;
+    // a device that has not received the index yet would open for everyone a script written privately elsewhere
+    const stops = [
+      opened.writing.subscribe((keys, origin) => {
+        invalidateMade(opened, keys, origin);
+        tell();
+      }),
+      opened.copies.subscribe(tell),
+      opened.whenAnswered(learn),
+    ];
+    stopIndex = () => {
+      stopped = true;
+      for (const stop of stops) stop();
+      opened.close();
+    };
+    // what the device holds of the index is read: an offline leading tab need wait for nothing more
+    tell();
+  })().catch(() => {
+    // a sync that could not start holds no private index: every document reads as written for everyone
+    if (!stopped) learn();
+  });
 }
 
 /**
@@ -326,51 +278,18 @@ export const writingActions: {
 } = Object.freeze({
   writingPositionOf: followPosition,
   openTarget: targetOf,
-  followTarget,
-  boundTarget: (docId: string): Subscribable<string | null> => ({
-    get: () => bindings.get(docId)?.bound ?? null,
-    subscribe(listener) {
-      const hear = (): void => listener(bindings.get(docId)?.bound ?? null);
-      listeners.add(hear);
-      return () => {
-        listeners.delete(hear);
-      };
-    },
-  }),
-  whenBound,
-  isWritable,
+  followTarget: sessions.followTarget,
+  boundTarget: sessions.boundTarget,
+  whenBound: sessions.whenBound,
+  isWritable: sessions.isWritable,
   whenKnown,
-  onGivenUp(docId: string, listener: (outcome: GivenUp) => void) {
-    const heard = givingUp.get(docId) ?? new Set();
-    givingUp.set(docId, heard);
-    heard.add(listener);
-    return () => {
-      heard.delete(listener);
-      if (heard.size === 0 && givingUp.get(docId) === heard)
-        givingUp.delete(docId);
-    };
-  },
-  holdInput(docId: string) {
-    holds.set(docId, (holds.get(docId) ?? 0) + 1);
-    tell();
-    let held = true;
-    return () => {
-      if (!held) return;
-      held = false;
-      holds.set(docId, (holds.get(docId) ?? 1) - 1);
-      tell();
-    };
-  },
+  onGivenUp: sessions.onGivenUp,
+  holdInput: sessions.holdInput,
   get: (docId: string) => ({
     position: positionOf(docId),
     othersHaveAccess: access.get(docId) ?? false,
   }),
-  subscribe(listener: () => void) {
-    listeners.add(listener);
-    return () => {
-      listeners.delete(listener);
-    };
-  },
+  subscribe: addListener,
   bind: bindIndex,
   index: () => index,
   keep(
@@ -386,7 +305,7 @@ export const writingActions: {
       before.set(docId, { at: move.at, entry: index.writing.get(docId) });
     else before.delete(docId);
     if (move.privateDocId === null) made.delete(docId);
-    else made.set(docId, move.privateDocId);
+    else made.set(docId, { privateDocId: move.privateDocId, at: move.at });
     index.writing.set(docId, { position: move.position, at: move.at });
   },
   setAccess(docId: string, othersHaveAccess: boolean) {
