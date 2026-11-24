@@ -157,8 +157,14 @@ export function createAutoSender(options: {
         rundownId,
         clock.schedule(() => {
           windowEndTimers.delete(rundownId);
-          if (airWindows.isInside(rundownId, clock.now())) {
+          const firedAt = clock.now();
+          if (airWindows.isInside(rundownId, firedAt)) {
             syncWindowEnd(rundownId);
+            return;
+          }
+          const currentWin = airWindows.windowOf(rundownId);
+          if (currentWin !== null && firedAt < currentWin.startsAt) {
+            insideWindow.delete(rundownId);
             return;
           }
           insideWindow.delete(rundownId);
