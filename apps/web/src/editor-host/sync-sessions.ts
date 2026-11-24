@@ -3,6 +3,7 @@
 import {
   ORIGIN_REMOTE,
   applyBlockOps,
+  scriptBody,
   scriptDocFromJSON,
   yXmlFragmentForBinding,
 } from "@manent/crdt";
@@ -11,14 +12,20 @@ import { mergeByBlock } from "@manent/revisions";
 import type { BlockJSON, DocJSON, FormatId } from "@manent/schema";
 import type { DocHandle, SyncClient, ViewHandle } from "@manent/sync-client";
 import { createValue } from "@manent/ui";
-import type { Subscribable } from "@manent/ui";
+import { writingActions } from "../state/writing.store.ts";
+import type { TargetOutcome } from "../state/writing.store.ts";
 import type { LocalSession } from "./editor-sessions.ts";
 import { firstBlock } from "./first-block.ts";
 
 const noop = (): void => {};
 
-// who may type is the document's status, so no session shows static content
-const NEVER_READ_ONLY: Subscribable<DocJSON | null> = createValue(null);
+/** How long the page waits for a private copy to arrive, after which the move to it is given up. */
+const PRIVATE_OPEN_WAIT_MS = 15_000;
+
+type Schedule = (fn: () => void, delayMs: number) => () => void;
+
+/** Gives up nothing: the room's own script is waited for as long as it takes. */
+const NO_LIMIT = (): (() => void) => noop;
 
 /** `blocks` as one section. */
 const docOf = (blocks: readonly BlockJSON[]): DocJSON => ({
@@ -63,6 +70,69 @@ interface Showing {
   hear(update: Uint8Array): void;
 }
 
+/** Calls `then` with `handle`'s document once it holds a block; the returned function stops waiting. */
+function whenHeld(handle: DocHandle, then: (doc: CrdtDoc) => void): () => void {
+  const doc = handle.doc();
+  const body = yXmlFragmentForBinding(doc);
+  if (body.length > 0) {
+    then(doc);
+    return noop;
+  }
+  const stop = doc.subscribe(() => {
+    if (body.length === 0) return;
+    stop();
+    then(doc);
+  });
+  return stop;
+}
+
+/** Why `handle`'s open is given up before its document holds a block: the link is gone, or the server refused it. */
+function givenUp(handle: DocHandle): "offline" | "refused" | null {
+  const status = handle.status.get();
+  if (status.link === "offline") return "offline";
+  return status.side.length > 0 ? "refused" : null;
+}
+
+/**
+ * Settles as `bound`, with the opened handle, once its document holds a block; or, first, as `givenUp` says, or as
+ * `refused` when `opening` rejects or `limit` gives up. `wanted` is asked as it settles; a handle not bound is closed.
+ * The returned function settles it as `moved`.
+ */
+function settleOpen(
+  opening: Promise<DocHandle>,
+  wanted: () => boolean,
+  limit: (giveUp: () => void) => () => void,
+  settled: (outcome: TargetOutcome, bound: DocHandle | null) => void,
+): () => void {
+  let done = false;
+  let opened: DocHandle | null = null;
+  const stops: (() => void)[] = [];
+  const end = (outcome: TargetOutcome): void => {
+    if (done) return;
+    done = true;
+    for (const stop of stops) stop();
+    const final = outcome === "bound" && !wanted() ? "moved" : outcome;
+    if (final !== "bound") void opened?.close();
+    settled(final, final === "bound" ? opened : null);
+  };
+  stops.push(limit(() => end("refused")));
+  opening.then(
+    (handle) => {
+      if (done) return void handle.close();
+      opened = handle;
+      const check = (): void => {
+        const reason = givenUp(handle);
+        if (reason !== null) end(reason);
+      };
+      stops.push(whenHeld(handle, () => end("bound")));
+      if (!done) stops.push(handle.status.subscribe(check));
+      check();
+    },
+    () => end("refused"),
+  );
+  return () => end("moved");
+}
+
 /**
  * Shows `handle`'s document once it holds a block, and `scratch` until then; the scratch is never written into the
  * document. The returned function stops waiting for the first block.
@@ -72,18 +142,12 @@ function showOwn(
   scratch: CrdtDoc,
   show: (doc: CrdtDoc) => void,
 ): () => void {
-  const doc = handle.doc();
-  const body = yXmlFragmentForBinding(doc);
-  if (body.length > 0) {
-    show(doc);
-    return noop;
-  }
-  show(scratch);
-  const stop = doc.subscribe(() => {
-    if (body.length === 0) return;
-    stop();
+  let held = false;
+  const stop = whenHeld(handle, (doc) => {
+    held = true;
     show(doc);
   });
+  if (!held) show(scratch);
   return stop;
 }
 
@@ -168,9 +232,10 @@ function heldRemote(doc: () => CrdtDoc): {
 function createSession(
   docId: string,
   format: FormatId,
-  client: Promise<SyncClient>,
+  options: { client: Promise<SyncClient>; schedule: Schedule },
   closed: () => void,
 ): LocalSession {
+  const { client, schedule } = options;
   const replaced = new Set<() => void>();
   const awareness = new Set<(update: Uint8Array) => void>();
   const scratch = scriptDocFromJSON(docOf([firstBlock(format)]));
@@ -182,6 +247,8 @@ function createSession(
     show(next) {
       if (next === doc) return;
       doc = next;
+      // before the listeners: an editor told of it while the page takes no keys binds it read-only
+      hold();
       for (const listener of replaced) listener();
       // after the listeners: an editor bound when this turns true is not then told to bind again
       kept.set(next !== scratch);
@@ -191,21 +258,81 @@ function createSession(
     },
   };
   const remote = heldRemote(() => doc);
+  // not null while the person's typing goes to another document than the one shown, or a hand-in holds it: the
+  // page shows what it holds read-only, so no keystroke reaches the document it leaves
+  const readOnly = createValue<DocJSON | null>(null);
+  const hold = (): void => {
+    if (writingActions.isWritable(docId)) {
+      stopWaiting();
+      readOnly.set(null);
+    } else if (readOnly.get() === null && doc !== scratch)
+      readOnly.set(scriptBody(doc).materialize());
+  };
   let handle: DocHandle | null = null;
   let ended = false;
   let detach = noop;
-  client
-    .then(async (c) => {
-      const opened = await c.open(docId);
-      if (ended) return opened.close();
-      handle = opened;
-      remote.attach(opened);
-      detach = attachHandle(opened, shown);
-    })
-    .catch(() => {
-      // the document's status says this device is not saving it, so typing goes on in what the page shows
-      kept.set(true);
+  let stopTarget = noop;
+  let stopWaiting = noop;
+  let stopKnown = noop;
+  const stopHold = writingActions.subscribe(hold);
+  // the handle before closes only once the next is shown: its close flushes its outbox, so nothing typed is lost
+  const attach = (opened: DocHandle): void => {
+    const previous = handle;
+    const detachPrevious = detach;
+    handle = opened;
+    remote.attach(opened);
+    detach = attachHandle(opened, shown);
+    detachPrevious();
+    if (previous !== null) void previous.close();
+  };
+  // a private copy that neither arrives nor is given up in time is given up, so the page is never held for good
+  const limitOf = (target: string) =>
+    target === docId
+      ? NO_LIMIT
+      : (giveUp: () => void) => schedule(giveUp, PRIVATE_OPEN_WAIT_MS);
+  // another target is shown once it holds a block, so the page never falls back to the scratch
+  const swapTo = (
+    c: SyncClient,
+    target: string,
+    wanted: () => boolean,
+  ): Promise<TargetOutcome> =>
+    new Promise<TargetOutcome>((settled) => {
+      stopWaiting();
+      stopWaiting = settleOpen(
+        c.open(target),
+        wanted,
+        limitOf(target),
+        (outcome, opened) => {
+          stopWaiting = noop;
+          if (opened !== null) attach(opened);
+          settled(outcome);
+        },
+      );
     });
+  // the script itself opens first, and a private copy is moved to as any other target is, so one that never arrives
+  // is given up in time
+  const start = async (c: SyncClient): Promise<void> => {
+    const opened = await c.open(docId);
+    if (ended) return opened.close();
+    // followed before the script is shown, so the page never takes keys in it while the copy opens
+    stopTarget = writingActions.followTarget(docId, docId, (next, wanted) => {
+      hold();
+      return swapTo(c, next, wanted);
+    });
+    attach(opened);
+  };
+  const failed = (): void => {
+    // the document's status says this device is not saving it, so typing goes on in what the page shows
+    kept.set(true);
+  };
+  // until the person's private index says where their typing in it goes, the page shows the placeholder
+  client
+    .then((c) => {
+      stopKnown = writingActions.whenKnown(c.link, () => {
+        if (!ended) start(c).catch(failed);
+      });
+    })
+    .catch(failed);
   return {
     docId,
     doc: () => doc,
@@ -214,12 +341,16 @@ function createSession(
     sendAwareness: (update) => handle?.sendAwareness(update),
     onAwareness: (listener) => listen(awareness, listener),
     onReplaced: (listener) => listen(replaced, listener),
-    readOnly: NEVER_READ_ONLY,
+    readOnly,
     kept,
     receive: remote.receive,
     receiveAwareness: shown.hear,
     close() {
       ended = true;
+      stopKnown();
+      stopHold();
+      stopTarget();
+      stopWaiting();
       detach();
       replaced.clear();
       awareness.clear();
@@ -232,9 +363,13 @@ function createSession(
 
 /**
  * The same session for the same document while it is open, over `client.open`'s handle: the page and the editor share
- * it, and each closes its own. Its `readOnly` is always null: who may type is the document's status.
+ * it, and each closes its own. Who may type is the document's status; its `readOnly` holds the page while the
+ * person's typing moves to another document.
  */
-export function createSyncSessions(options: { client: Promise<SyncClient> }): {
+export function createSyncSessions(options: {
+  client: Promise<SyncClient>;
+  schedule: Schedule;
+}): {
   open(docId: string, format: FormatId): LocalSession;
 } {
   const open = new Map<string, LocalSession>();
@@ -242,7 +377,7 @@ export function createSyncSessions(options: { client: Promise<SyncClient> }): {
     open(docId, format) {
       const known =
         open.get(docId) ??
-        createSession(docId, format, options.client, () => open.delete(docId));
+        createSession(docId, format, options, () => open.delete(docId));
       open.set(docId, known);
       return known;
     },
