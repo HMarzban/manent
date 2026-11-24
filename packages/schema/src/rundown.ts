@@ -7,10 +7,10 @@ export const RUNDOWN_COLUMNS_ROOT = "columns";
 /** The root map of a rundown's rows: one map per row id. */
 export const RUNDOWN_ROWS_ROOT = "rows";
 
-export const ROW_KINDS = ["header", "item", "script"] as const;
+export const ROW_KINDS = Object.freeze(["header", "item", "script"] as const);
 export type RowKind = (typeof ROW_KINDS)[number];
 
-export const RUNDOWN_COLUMN_IDS = [
+export const RUNDOWN_COLUMN_IDS = Object.freeze([
   "number",
   "segment",
   "story",
@@ -22,7 +22,7 @@ export const RUNDOWN_COLUMN_IDS = [
   "start",
   "back",
   "prompter",
-] as const;
+] as const);
 export type RundownColumnId = (typeof RUNDOWN_COLUMN_IDS)[number];
 
 /** A show's columns, in order. */
