@@ -1,10 +1,16 @@
 // Focus as the surface catalogue says: where each way of opening a surface puts it, where closing gives it back, Escape and F6.
 import type { CommandContext, CommandId, SurfaceId } from "@manent/commands";
 import type { Platform } from "@manent/settings";
-import { DOCUMENT_WORDS, REGIONS, SEND_WORDS, SURFACES } from "@manent/ui";
+import {
+  DOCUMENT_WORDS,
+  MATERIAL_WORDS,
+  REGIONS,
+  SEND_WORDS,
+  SURFACES,
+} from "@manent/ui";
 import type { SurfaceEntry } from "@manent/ui";
 import { expect, test } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import {
   commandOf,
   focusedDescription,
@@ -20,17 +26,26 @@ import { closeFirstTour, signedInAs } from "../support/tour.ts";
 
 const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
 const DOC = `/s/${DOC_ID}`;
+// the script Open beside lists: another of the person's, by the title a new one has
+const OTHER_ID = "7a2e3d4c-5b6f-4a71-9b8c-0d1e2f3a4b5c";
+const OTHER_TITLE = "Untitled script";
 // a popover is drawn at the end of the page; only one is open at a time
 const POPUP = "[role='dialog'][data-open]";
 const PALETTE = "div:has(> [role='combobox'][aria-label='Commands'])";
 const RENAME = "[data-region='title_bar'] input[aria-label='Rename']";
 const SEND = `section[aria-label='${SEND_WORDS.pagesRegion}']`;
 const CONSEQUENCE = "[role='alertdialog']";
+const BESIDE = "[data-beside='script']";
+// the list the page's editor draws at the caret
+const CARET_LIST = "#mn-complete";
 const WAYS = ["key", "palette", "control"] as const;
 
 /**
  * Where a surface a command opens is shown, the element it is drawn in, the part whose first control takes focus when
- * a command opens it to use it (a panel's shown tab), its close control and the name it is announced by.
+ * a command opens it to use it (a panel's shown tab, the body of what is beside the page), its close control and the
+ * name it is announced by. `ready` makes what the surface needs on the script once it is open, and leaves the caret
+ * where its openers act; `seen` is what the commands then see besides; `choose` makes the choice its opener asks for
+ * before it is drawn.
  */
 interface Place {
   at: string;
@@ -38,6 +53,55 @@ interface Place {
   first: string;
   close: string | null;
   name: string | null;
+  ready?: (page: Page) => Promise<void>;
+  seen?: Partial<CommandContext>;
+  choose?: (page: Page) => Promise<void>;
+}
+
+const editorOf = (page: Page): Locator =>
+  page.locator("[data-region='page'] .mn-page-view");
+
+/** Runs `id` by typing its label in the palette. */
+async function runFromPalette(page: Page, id: CommandId): Promise<void> {
+  await pressKeyOf(page, "app.palette");
+  await page.keyboard.type(labelOf(id));
+  await page.keyboard.press("Enter");
+}
+
+/** Writes a speech on the empty script of `page`, with the caret left on its last word. */
+async function writeSpeech(page: Page): Promise<void> {
+  await pressKeyOf(page, "element.dialogue");
+  await page.keyboard.type("The tide turns");
+  await expect(editorOf(page)).toContainText("The tide turns");
+}
+
+/** Writes a speech, then swaps in another way to say it, so that the speech keeps one alternate. */
+async function writeAlternate(page: Page): Promise<void> {
+  await writeSpeech(page);
+  await runFromPalette(page, "alternate.add");
+  await page
+    .getByRole("textbox", { name: MATERIAL_WORDS.anotherWayName })
+    .fill("The tide is turning");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(POPUP)).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: MATERIAL_WORDS.markerName(1) }),
+  ).toHaveCount(1);
+}
+
+/** Makes the other script and opens it, which puts it among those the person continues, then comes back to the first. */
+async function openOther(page: Page): Promise<void> {
+  await makeScript(page, OTHER_ID);
+  for (const docId of [OTHER_ID, DOC_ID]) {
+    await page.goto(`/s/${docId}`);
+    await expect(editorOf(page)).toBeFocused();
+  }
+}
+
+/** Chooses the other script in Open beside's list, which holds nothing else. */
+async function chooseOther(page: Page): Promise<void> {
+  await expect(page.getByRole("option")).toHaveText([OTHER_TITLE]);
+  await page.keyboard.press("Enter");
 }
 
 const PLACES: Partial<Record<SurfaceId, Place>> = {
@@ -86,6 +150,39 @@ const PLACES: Partial<Record<SurfaceId, Place>> = {
     close: null,
     name: null,
   },
+  alternates_popover: {
+    at: DOC,
+    drawn: POPUP,
+    first: POPUP,
+    close: null,
+    name: null,
+    ready: writeAlternate,
+    seen: {
+      material: {
+        caretInSpeech: true,
+        alternates: 1,
+        selection: false,
+        cuts: 0,
+      },
+    },
+  },
+  beside: {
+    at: DOC,
+    drawn: BESIDE,
+    first: `${BESIDE} [data-beside-body]`,
+    close: DOCUMENT_WORDS.closeBeside(OTHER_TITLE),
+    name: null,
+    ready: openOther,
+    choose: chooseOther,
+  },
+  name_offer: {
+    at: DOC,
+    drawn: CARET_LIST,
+    first: CARET_LIST,
+    close: null,
+    name: null,
+    ready: writeSpeech,
+  },
 };
 
 // the openers drawn as a control on the page their surface is used from; every other opener has none there
@@ -95,8 +192,9 @@ const CONTROLLED: readonly CommandId[] = [
   "library.newProject",
 ];
 
-/** What the commands see on `at` with focus in the page, written out by hand. */
-function contextAt(at: string, platform: Platform): CommandContext {
+/** What the commands see at `place` with focus in the page, written out by hand. */
+function contextAt(place: Place, platform: Platform): CommandContext {
+  const { at, seen } = place;
   const panelOpen = { left: false, side: false };
   if (at === DOC)
     return {
@@ -105,6 +203,7 @@ function contextAt(at: string, platform: Platform): CommandContext {
       screen: "document",
       focus: "page",
       panelOpen,
+      ...seen,
     };
   if (at === "/")
     return {
@@ -121,9 +220,11 @@ function contextAt(at: string, platform: Platform): CommandContext {
   );
 }
 
-// an opener that uses a part of its surface's shown tab: Script settings lies below the Selection group in Details
+// an opener that uses a part of its surface: Script settings lies below the Selection group in Details, and Add
+// alternate writes in the field below the alternates
 const PARTS: Partial<Record<CommandId, string>> = {
   "doc.scriptSettings": "[data-region='side_panel'] [data-script-settings]",
+  "alternate.add": `${POPUP} input`,
 };
 
 const placeOf = (id: SurfaceId, opener: CommandId): Place => {
@@ -147,14 +248,9 @@ async function arrive(page: Page, at: string): Promise<void> {
   }
   // a script's page takes focus at the caret, any other screen its heading
   await expect(
-    at === DOC
-      ? page.locator("[data-region='page'] .mn-page-view")
-      : page.getByRole("heading", { level: 1 }),
+    at === DOC ? editorOf(page) : page.getByRole("heading", { level: 1 }),
   ).toBeFocused();
-  if (at === DOC)
-    await expect(
-      page.locator("[data-region='page'] .mn-page-view"),
-    ).toBeVisible();
+  if (at === DOC) await expect(editorOf(page)).toBeVisible();
 }
 
 /** Whether the palette lists `id` here: a command whose `visible` is false in this context is absent from it. */
@@ -226,7 +322,7 @@ async function expectOpenFocus(
       await expect.poll(where).toMatchObject({ in: "first" });
       return;
     case "item":
-      await expect.poll(async () => (await where()).in).not.toBe("outside");
+      await expect.poll(where).toMatchObject({ in: "first" });
       return;
     case "search":
       await expect
@@ -281,7 +377,7 @@ for (const entry of SURFACES.filter((s) => s.id !== "file_picker"))
         test.fixme(
           entry.id === "share_dialog" &&
             command.when !== null &&
-            !command.when(contextAt(place.at, platform)),
+            !command.when(contextAt(place, platform)),
           "Share does nothing yet: the Share dialog is not drawn",
         );
         test.skip(
@@ -294,12 +390,13 @@ for (const entry of SURFACES.filter((s) => s.id !== "file_picker"))
           `${opener} has no control here`,
         );
         await arrive(page, place.at);
+        await place.ready?.(page);
         const control = page.locator(`[data-tour="${opener}"]:visible`);
         if (controlled) await expect(control.first()).toBeVisible();
         else expect(await control.count()).toBe(0);
         const shown =
           command.visible === null ||
-          command.visible(contextAt(place.at, platform));
+          command.visible(contextAt(place, platform));
         expect(await isListed(page, opener)).toBe(shown);
         test.skip(!shown, `${opener} is absent on this document`);
         // the caret is where Escape sends focus from the frame; the Library covers the page, so it has none
@@ -311,7 +408,9 @@ for (const entry of SURFACES.filter((s) => s.id !== "file_picker"))
         const intent = command.opens?.focus ?? entry.focusOnOpen;
 
         const ran = (await runs(page)).length;
+        await expect(page.locator(place.drawn)).toHaveCount(0);
         await openSurface(page, entry, opener, by);
+        await place.choose?.(page);
         await expect(page.locator(place.drawn)).toHaveCount(1);
         expect((await runs(page)).slice(ran)).toEqual(
           by === "palette" ? ["app.palette", opener] : [opener],
@@ -367,11 +466,7 @@ test("each row of the Escape order does one thing per press and never leaves a s
   const back = page.getByRole("button", { name: DOCUMENT_WORDS.back });
   const palette = page.getByRole("combobox", { name: "Commands" });
   const side = page.locator("[data-region='side_panel']");
-  const run = async (id: CommandId): Promise<void> => {
-    await pressKeyOf(page, "app.palette");
-    await page.keyboard.type(labelOf(id));
-    await page.keyboard.press("Enter");
-  };
+  const run = (id: CommandId): Promise<void> => runFromPalette(page, id);
 
   // a popover is open, with text typed in it: the popover closes, and focus goes back
   await back.focus();

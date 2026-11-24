@@ -13,7 +13,7 @@ import type { DocumentServices } from "../services/ports.ts";
 import { BesideFrame } from "./beside-frame.tsx";
 import { BESIDE_KINDS } from "./kinds.ts";
 import type { BesideKind } from "./kinds.ts";
-import { closeBeside } from "./open-beside.ts";
+import { BESIDE_BODY, closeBeside } from "./open-beside.ts";
 import type { BesideOpen } from "./open-beside.ts";
 
 /** The state bar of the document beside the page, then its body, or why it cannot be opened in its place. */
@@ -34,7 +34,9 @@ function BesideContent(props: {
       {kind.hasStatus ? (
         <StateBar left={left} right={right} run={run} registered={registered} />
       ) : null}
-      <Body docId={open.docId} at={open.at} />
+      <div {...{ [BESIDE_BODY]: "" }} className="contents">
+        <Body docId={open.docId} at={open.at} />
+      </div>
     </>
   );
 }

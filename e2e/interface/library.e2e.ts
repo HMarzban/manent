@@ -14,6 +14,14 @@ const tabKey = (browserName: string): string =>
 
 const focused = (page: Page) => page.locator(":focus");
 
+/** What the focused element reads as: a field's name, else its text. */
+const focusedText = (page: Page): Promise<string> =>
+  focused(page).evaluate((element) =>
+    element instanceof HTMLInputElement
+      ? (element.getAttribute("aria-label") ?? "")
+      : (element.textContent ?? ""),
+  );
+
 // a new script left with no text and its first name is taken out of the Library when it is left
 const editable = (page: Page) =>
   page.locator("[data-region='page'] [contenteditable='true']");
@@ -87,8 +95,8 @@ test("the Library is reached by keys alone", async ({ page, browserName }) => {
   await expect(
     page.getByRole("button", { name: "Writers' room", exact: true }),
   ).toBeVisible();
-  // a first project, made with keys: New project, after Import… and New script, then its first card
-  for (let press = 0; press < 4; press++) await page.keyboard.press(tab);
+  // a first project, made with keys: New project, after the search field, Import… and New script, then its first card
+  for (let press = 0; press < 5; press++) await page.keyboard.press(tab);
   await expect(focused(page)).toHaveText("New project");
   await page.keyboard.press("Enter");
   await expect(focused(page)).toContainText("Film");
@@ -101,21 +109,26 @@ test("the Library is reached by keys alone", async ({ page, browserName }) => {
   await expect(editable(page)).toContainText(/the tide turns/i);
   await page.goBack();
   await expect(heading).toBeFocused();
-  // the side list: Continue, then its projects, a list that is one stop, entered at its first project
+  // the side list: Continue, Favourites and Private, then its projects, a list that is one stop, entered at its first
+  // project, then Trash
   const order: string[] = [];
-  for (let press = 0; press < 8; press++) {
+  for (let press = 0; press < 12; press++) {
     await page.keyboard.press(tab);
-    order.push((await focused(page).textContent()) ?? "");
+    order.push(await focusedText(page));
   }
   expect(order).toEqual([
     "Writers' room",
+    "Search this workspace",
     "Import…",
     "New script",
     "New project",
     "PN",
     "Continue",
+    "Favourites",
+    "Private",
     // the project is numbered after the film projects the workspace holds already
     expect.stringMatching(/^Untitled film( \d+)?$/),
+    "Trash",
     // the row ends with where the script is, which changes as it syncs
     expect.stringMatching(/^Untitled scriptUntitled film( \d+)? · Film/),
   ]);
