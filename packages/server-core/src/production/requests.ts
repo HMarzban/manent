@@ -274,9 +274,9 @@ export function createRequests(
         : { ok: true, file };
     },
     projectSettings(docId) {
-      return (
-        options.projectSettings?.(docId) ?? readProjectSettings(storage, docId)
-      );
+      return options.projectSettings !== undefined
+        ? options.projectSettings(docId)
+        : readProjectSettings(storage, docId);
     },
     mutate(userId, mutation) {
       if (!isRequestKey(mutation.key))

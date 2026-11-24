@@ -59,25 +59,28 @@ function toInches(cells: number): number {
 }
 
 function ProjectStyleProbe(props: {
+  docId: string;
   projectId: string;
   onOwner: (owner: boolean) => void;
 }): null {
-  const { projectId, onOwner } = props;
+  const { docId, projectId, onOwner } = props;
   const { userId } = useServices();
   const { tabStorage } = useEnvironment();
   useEffect(() => {
     let active = true;
     const person = readPerson(tabStorage);
     const token = person?.userId === userId ? person.token : null;
-    void fetch("/api/docs/describe", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token === null ? {} : { Authorization: `Bearer ${token}` }),
-      },
-      body: JSON.stringify({ docId: indexDocId("project", projectId) }),
-    })
-      .then((res) => (res.status === 200 ? res.json() : null))
+    const describe = (id: string): Promise<unknown> =>
+      fetch("/api/docs/describe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token === null ? {} : { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ docId: id }),
+      }).then((res) => (res.status === 200 ? res.json() : null));
+    void describe(indexDocId("project", projectId))
+      .then((body) => (body === null ? describe(docId) : body))
       .then((body: unknown) => {
         if (!active || typeof body !== "object" || body === null) return;
         const role = Reflect.get(body, "role");
@@ -92,7 +95,7 @@ function ProjectStyleProbe(props: {
     return () => {
       active = false;
     };
-  }, [projectId, tabStorage, userId, onOwner]);
+  }, [docId, projectId, tabStorage, userId, onOwner]);
   return null;
 }
 
@@ -134,6 +137,23 @@ export function useAccess(docId: string): StatusFacts["access"] | null {
 /** Whether this person may edit `docId`; false until its services are open. */
 export function useCanEdit(docId: string): boolean {
   return useAccess(docId) === "edit";
+}
+
+/** Re-renders the bar when `script.style` changes (from Project settings, Apply to every, or Undo). */
+function useScriptStyleRevision(docId: string, active: boolean): number {
+  const services = useServices();
+  const revision = useRef(0);
+  const subscribe = useCallback(
+    (notify: () => void) => {
+      if (!active) return () => {};
+      return services.openScriptStore(docId).subscribe("script.style", () => {
+        revision.current += 1;
+        notify();
+      });
+    },
+    [active, docId, services],
+  );
+  return useSyncExternalStore(subscribe, () => revision.current);
 }
 
 /**
@@ -192,13 +212,11 @@ export function RulerBar(props: { docId: string }): ReactNode {
     width !== null &&
     frame !== null;
 
+  const styleInteractive = drawn && editable && !locked && canWriteStyle;
+  useScriptStyleRevision(docId, styleInteractive);
+
   const caretInfo: CaretElementInfo | null =
-    drawn &&
-    editable &&
-    !locked &&
-    canWriteStyle &&
-    rulerMod !== null &&
-    blockId !== null
+    styleInteractive && rulerMod !== null && blockId !== null
       ? rulerMod.readCaretElementInfo(docId)
       : null;
 
@@ -214,8 +232,8 @@ export function RulerBar(props: { docId: string }): ReactNode {
     nextIndent: number,
     nextWidth: number,
     snapshots: ReturnType<RulerElementModule["snapshotSelectedOverrides"]>,
-  ): void => {
-    if (element === null || rulerMod === null) return;
+  ): boolean => {
+    if (element === null || rulerMod === null) return false;
     const store = services.openScriptStore(docId);
     const previous = store.get("project.style");
     const nextEntry: ElementStyle = {
@@ -227,7 +245,7 @@ export function RulerBar(props: { docId: string }): ReactNode {
       ...previous,
       [info.specKey]: nextEntry,
     });
-    if (!result.ok) return;
+    if (!result.ok) return false;
     editor.run({ kind: "layout", indent: null, width: null });
     const message: Message = {
       id: `apply_to_every_${info.specKey}`,
@@ -241,12 +259,17 @@ export function RulerBar(props: { docId: string }): ReactNode {
       rulerMod.restoreBlockOverrides(docId, snapshots);
     });
     services.messages.push(message);
+    return true;
   };
 
   return (
     <div ref={bar} data-tour="ruler" style={RULER_AREA} className="relative">
       {projectId !== null ? (
-        <ProjectStyleProbe projectId={projectId} onOwner={setProjectOwner} />
+        <ProjectStyleProbe
+          docId={docId}
+          projectId={projectId}
+          onOwner={setProjectOwner}
+        />
       ) : null}
       {drawn ? (
         <>
@@ -268,13 +291,15 @@ export function RulerBar(props: { docId: string }): ReactNode {
                 const live = rulerMod.readCaretElementInfo(docId);
                 if (live !== null && live.allBlocksSelected) {
                   const snapshots = rulerMod.snapshotSelectedOverrides(docId);
-                  promoteToElement(
-                    live,
-                    change.indent,
-                    change.width,
-                    snapshots,
-                  );
-                  return;
+                  if (
+                    promoteToElement(
+                      live,
+                      change.indent,
+                      change.width,
+                      snapshots,
+                    )
+                  )
+                    return;
                 }
               }
               editor.run({
@@ -289,15 +314,15 @@ export function RulerBar(props: { docId: string }): ReactNode {
               variant="outline"
               size="sm"
               className="absolute top-1/2 right-2 z-10 -translate-y-1/2"
-              onClick={() =>
-                promoteToElement(caretInfo, indent, width, [
-                  {
-                    blockId: caretInfo.blockId,
-                    indent: caretInfo.ownIndent,
-                    width: caretInfo.ownWidth,
-                  },
-                ])
-              }
+              onClick={() => {
+                if (rulerMod === null) return;
+                promoteToElement(
+                  caretInfo,
+                  indent,
+                  width,
+                  rulerMod.snapshotSelectedOverrides(docId),
+                );
+              }}
             >
               {PROJECT_WORDS.applyToEvery(element)}
             </Button>

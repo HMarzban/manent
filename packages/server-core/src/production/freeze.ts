@@ -130,10 +130,16 @@ export function readProjectSettings(
   for (const { update } of tail.rows) doc.applyUpdate(update, ORIGIN_LOAD);
   discardPending(doc);
   try {
-    return {
-      ...readProjectMap(doc, "template"),
-      ...readProjectMap(doc, "style"),
-    };
+    const template = readProjectMap(doc, "template");
+    const style = readProjectMap(doc, "style");
+    const settings: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(template)) {
+      if (key !== "project.style" && key !== "project.ladder")
+        settings[key] = value;
+    }
+    if (Object.hasOwn(style, "project.style"))
+      settings["project.style"] = style["project.style"];
+    return settings;
   } finally {
     doc.destroy();
   }
