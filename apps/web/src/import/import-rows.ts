@@ -51,12 +51,9 @@ const unplacedLabels = (kept: readonly KeptItem[]): string[] =>
 /**
  * The Import group's lines in order: where the script came from, the summary as the message said it, what came in
  * locked, marked or changed, and, when anything is kept but not shown, the "Imported, not shown" title, its line and
- * one row per kind of kept item, then the script's notes.
+ * one row per kind of kept item.
  */
-export function importRows(
-  record: ImportRecord,
-  notes: number,
-): readonly string[] {
+export function importRows(record: ImportRecord): readonly string[] {
   const { production, kept } = record;
   const unplaced = unplacedLabels(kept);
   const rows = [
@@ -78,7 +75,7 @@ export function importRows(
     rows.push(IMPORT_WORDS.colours(record.coloursMapped));
   if (record.lockKey !== null) rows.push(IMPORT_WORDS.lockWaiting);
   const keptList = keptRows(kept);
-  if (keptList.length === 0 && notes === 0) return rows;
+  if (keptList.length === 0) return rows;
   const format =
     record.from === "fdx"
       ? IMPORT_WORDS.asFdx
@@ -88,6 +85,5 @@ export function importRows(
     IMPORT_WORDS.notShownLine(format),
     ...keptList,
   );
-  if (notes > 0) rows.push(IMPORT_WORDS.notesRow(notes));
   return rows;
 }
