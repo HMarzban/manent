@@ -116,7 +116,7 @@ export function ScenePeople(props: { marks: readonly SceneMark[] }): ReactNode {
       <span
         role="img"
         aria-label={DOCUMENT_WORDS.moreAvatarsName(people.length)}
-        className="hidden tabular-nums @max-3xs:inline"
+        className="hidden @max-3xs:inline"
       >
         {DOCUMENT_WORDS.moreAvatars(people.length)}
       </span>
