@@ -71,6 +71,8 @@ test("every command but the generated ones has a handler, and only the productio
       "view.marks.since_full_draft",
       "view.marks.none",
       "view.colourRevised",
+      "timing.exclude",
+      "timing.include",
     ],
   );
 });
