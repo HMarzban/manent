@@ -1,0 +1,21 @@
+import { corpusDoc, generateBlocks } from "@manent/pagination/testing";
+import { expect, test } from "@playwright/test";
+import { committedOnDevice, signedInAs } from "../support/tour.ts";
+import { DANA, PAGE_VIEW, groupHook, openScript } from "./support.ts";
+test("probe", async ({ page }) => {
+  const script = corpusDoc(generateBlocks("screenplay", 12, 1));
+  await signedInAs(page, "you", "/preferences/writing");
+  const control = page.getByRole("switch", { name: "Show other people's cursors", exact: true });
+  await control.setChecked(process.env.ON === "1");
+  await expect(control).toBeChecked({ checked: process.env.ON === "1" });
+  await committedOnDevice(page, "you");
+  await openScript(page, "screenplay", script);
+  await groupHook(page, "remote", "join", DANA);
+  await groupHook(page, "remote", "select", 5, 2);
+  await page.waitForTimeout(1500);
+  console.log(await page.evaluate(() => [document.documentElement.getAttribute("data-cursors"), ...[...document.querySelectorAll("[data-editor-host] .mn-marker, .mn-cursor, mn-remote-sel")].map((e) => e.outerHTML)]));
+  await page.getByRole("button", { name: "View" }).click();
+  console.log(await page.getByRole("menu").innerText());
+  await page.keyboard.press("Escape");
+  await groupHook(page, "remote", "select", 5, 2, 9).catch((e) => console.log(e.message));
+});
