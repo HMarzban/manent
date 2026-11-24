@@ -1,5 +1,9 @@
 // Opening files as new scripts: each read, counted and made in the Library, or the one sentence that says why not.
-import type { ImportedScript } from "@manent/formats";
+import type {
+  FormatErrorCode,
+  ImportedScript,
+  SourceFormat,
+} from "@manent/formats";
 import {
   DEFAULT_LAYOUT_SETTINGS,
   ENGINE_VERSION,
@@ -87,6 +91,18 @@ const brief = (
 
 const refusal = (text: string): Message => brief("import_refused", text);
 
+function formatRefusal(
+  name: string,
+  from: SourceFormat,
+  code: FormatErrorCode,
+): string {
+  if (from === "pdf" && code === "not_this_format")
+    return IMPORT_WORDS.pdfNoText(name);
+  if (from === "docx" && code === "too_large")
+    return IMPORT_WORDS.docxTooLarge(name);
+  return IMPORT_WORDS.unreadable(name, IMPORT_WORDS.formatNames[from]);
+}
+
 /** The pages Manent gives the script under its paper, locked where the file locked them, and those that hold more than fits. */
 function pagesOf(
   script: ImportedScript,
@@ -142,8 +158,7 @@ export function createFileOpener(options: OpenerOptions): FileOpener {
       script = await reader.read(file.bytes, options.ids);
     } catch (error) {
       if (!(error instanceof formats.FormatError)) throw error;
-      const format = IMPORT_WORDS.formatNames[reader.from];
-      messages.push(refusal(IMPORT_WORDS.unreadable(name, format)));
+      messages.push(refusal(formatRefusal(name, reader.from, error.code)));
       return;
     }
     const { pages, overflowing } = pagesOf(script, options.language);
