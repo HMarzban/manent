@@ -931,6 +931,10 @@ test("the handler table names every command but the generated ones", () => {
     "project.openSettings": noop,
     "scene.moveUp": noop,
     "scene.moveDown": noop,
+    "comment.add": noop,
+    "comment.onScene": noop,
+    "comment.onScript": noop,
+    "note.add": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))

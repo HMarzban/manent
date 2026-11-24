@@ -127,8 +127,6 @@ export const IMPORT_WORDS = {
   notShownTitle: "Imported, not shown",
   notShownLine: (format: string): string =>
     `Kept with the script and written back when it is exported as ${format}.`,
-  /** Notes have no other place yet. */
-  notesRow: (n: number): string => plural(n, "note", "notes"),
   kept: KEPT_LABELS,
   asFdx: "FDX",
   asFountain: "Fountain",
