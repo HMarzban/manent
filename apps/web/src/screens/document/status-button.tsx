@@ -106,8 +106,9 @@ const focusOnOpen =
       : true;
 
 /**
- * Its name is the whole status sentence. Its place keeps the slots' widths while the words change, so the status never
- * moves; a sentence across both slots and the device alert release them.
+ * Its name is the whole status sentence. Its place keeps the width of the longest one while the words change, so the
+ * status never moves nor pushes what is beside it; the device alert releases that width. On a narrow bar the place takes
+ * a second row.
  */
 export function StatusButton(props: { doc: DocumentServices }): ReactNode {
   const { doc } = props;
@@ -130,20 +131,19 @@ export function StatusButton(props: { doc: DocumentServices }): ReactNode {
     if (event.target instanceof Element && event.target.closest("button"))
       root.current?.querySelector("button")?.focus({ preventScroll: true });
   };
-  // the button hugs its words; its place, a grid whose third column is the server's words and whose fourth is the
-  // rest of the slot, keeps the width of the longest sentence. On a bar too narrow for that, the place takes its line
-  // and the server's words wrap
+  // the place keeps the width of the longest sentence while the button hugs its words, which wrap where the bar is
+  // narrower than they are
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <span
         ref={root}
-        className="group grid max-w-full shrink-0 justify-start grid-cols-[auto_auto_max-content_1fr] @max-sm:w-full @max-sm:grid-cols-[auto_auto_minmax(0,auto)] data-[tone=alert]:text-danger data-[tone=attention]:text-attention data-[tone=quiet]:text-fg-muted"
+        className="group flex max-w-full min-w-[min(var(--status-w),100%)] shrink-0 @max-2xl:order-last @max-2xl:w-full data-[tone=alert]:min-w-0 data-[tone=alert]:text-danger data-[tone=attention]:text-attention data-[tone=quiet]:text-fg-muted"
       >
         <PopoverTrigger
           render={
             <Button
               variant="ghost"
-              className="col-span-3 col-start-1 row-start-1 grid h-auto min-h-control max-w-full grid-cols-subgrid items-center gap-0 text-start text-ui font-normal whitespace-normal tabular-nums group-data-[tone=alert]:font-medium"
+              className="h-auto min-h-control max-w-full justify-start gap-0 text-start text-ui font-normal whitespace-normal tabular-nums group-data-[tone=alert]:font-medium"
             />
           }
         >
@@ -159,17 +159,12 @@ export function StatusButton(props: { doc: DocumentServices }): ReactNode {
           </span>
           <span
             data-tour="status:server"
-            className="col-start-3 flex min-w-0 items-center gap-1"
+            className="flex min-w-0 items-center gap-1"
           >
             <SlotIcons icons={Object.values(SERVER_ICONS)} />
             <span ref={serverSlot} className="min-w-0" />
           </span>
         </PopoverTrigger>
-        {/* the server slot's width and the button's end padding */}
-        <span
-          aria-hidden="true"
-          className="pointer-events-none col-span-2 col-start-3 row-start-1 box-content w-(--status-server-w) pe-2 group-data-spans:hidden group-data-[tone=alert]:hidden @max-sm:hidden"
-        />
       </span>
       {/* focus goes back to whatever opened it, which may have been before the palette */}
       <PopoverContent

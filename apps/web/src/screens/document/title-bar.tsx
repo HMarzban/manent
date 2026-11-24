@@ -101,7 +101,7 @@ export function TitleBar(props: {
   return (
     <ShellRegion
       region="title_bar"
-      className="@container flex min-h-titlebar flex-wrap items-center gap-x-2 border-b border-line bg-chrome px-2 text-ui"
+      className="@container flex min-h-titlebar flex-wrap items-center gap-x-2 border-b border-line bg-chrome px-2 py-1 text-ui"
     >
       <Button
         variant="ghost"
@@ -110,10 +110,10 @@ export function TitleBar(props: {
       >
         {DOCUMENT_WORDS.back}
       </Button>
-      {/* the title's band hugs it, and gives way to the status on a narrow bar */}
+      {/* the title's band hugs it, up to two fifths of the bar, and gives way to the status on a narrow bar */}
       <h1
         tabIndex={-1}
-        className="max-w-2/5 min-w-24 text-title font-semibold *:max-w-full"
+        className="grid max-w-max min-w-24 grow basis-24 grid-cols-[fit-content(40cqi)] text-title font-semibold *:min-w-0"
       >
         {renaming ? (
           <InlineRename docId={docId} title={title} />

@@ -47,7 +47,7 @@ export function DemoBarControls(props: {
   const { control } = props;
   // one row while they fit, short of room with fewer words; a second row only where even that does not fit
   return (
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 py-1 sm:gap-x-3">
+    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 py-0.5 sm:gap-x-3">
       <Person person={props.person} onClick={props.onPersonClick} />
       {inShell ? (
         <ShellControls control={control} />

@@ -266,8 +266,13 @@ function marginPeopleView(
         : spots.map((spot) => markerOf(frame.ownerDocument, spot, options));
     frame?.append(...drawn);
   };
-  // the filter is a transaction, so it is set when a report or a change arrives, never while the view is made
-  const show = () => setShownCursors(view, options.shown.get());
+  // the filter is a transaction, so it starts after the view is made and updates on every report or filter change
+  let destroyed = false;
+  const show = () => {
+    if (!destroyed && !view.isDestroyed)
+      setShownCursors(view, options.shown.get());
+  };
+  queueMicrotask(show);
   const stopShown = options.shown.subscribe(show);
   const stop = options.subscribe((cursors) => {
     people = latestByPerson(cursors);
@@ -297,6 +302,7 @@ function marginPeopleView(
       }
     },
     destroy() {
+      destroyed = true;
       stop();
       stopShown();
       sheets.disconnect();
