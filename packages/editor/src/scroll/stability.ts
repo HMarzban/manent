@@ -95,9 +95,7 @@ function followed(
   return top === null ? null : { ...anchor, ...at, top };
 }
 
-type Pages = Pick<PaginationState, "settings" | "index" | "pagination"> & {
-  readonly change?: PaginationState["change"];
-};
+type Pages = Pick<PaginationState, "settings" | "index" | "pagination">;
 
 /** The pages of the state's own document: while a composition is under way the plugin holds those of the one before it. */
 function pagesOf(state: EditorState): Pages | null {
@@ -130,18 +128,28 @@ function movedOnPages(
   anchor: PagesAnchor,
   zoom: number,
 ): Moved | null {
+  const prevPages = paginationKey.getState(prev);
+  const nextPages = paginationKey.getState(state);
   const before = pagesOf(prev);
   const after = pagesOf(state);
   if (before === null || after === null) return null;
   const from = blockNear(before.index, anchor.blockId, anchor.block);
   if (from === null) return null;
-  const reused =
-    before === paginationKey.getState(prev) &&
-    after === paginationKey.getState(state) &&
-    after.change !== undefined;
-  const change = reused
-    ? after.change
-    : updateIndex(before.index, state.doc, after.settings.layout).change;
+  const samePluginState =
+    prevPages !== undefined &&
+    nextPages !== undefined &&
+    before === prevPages &&
+    after === nextPages &&
+    !prevPages.frozen &&
+    !nextPages.frozen;
+  const change =
+    samePluginState && nextPages.engineRuns === prevPages.engineRuns
+      ? null
+      : samePluginState &&
+          nextPages.engineRuns === prevPages.engineRuns + 1 &&
+          nextPages.change !== null
+        ? nextPages.change
+        : updateIndex(before.index, state.doc, after.settings.layout).change;
   if (change === null) return { anchor: { ...anchor, block: from }, shift: 0 };
   // a block after what the change replaced moves by the blocks it added; one inside it or before it keeps its index
   const hint =

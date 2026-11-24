@@ -78,11 +78,12 @@ function leftBehind(
   const { index } = now;
   const shift = change.newEnd - change.oldEnd;
   const placed = placedAsBeforeAfter(prev.pagination, now.pagination, change);
-  const extraByFrom = new Map(still.map((b) => [b.from, b.extraPx]));
+  const stillByFrom = new Map(still.map((b) => [b.from, b]));
   return sectionsOf(index, rest).map((s) => {
     const from = index.sectionStart[s]!;
     const to = index.sectionStart[s + 1]!;
-    const extraPx = extraByFrom.get(from) ?? 0;
+    const prior = stillByFrom.get(from);
+    const extraPx = prior?.to === to ? prior.extraPx : 0;
     if (from > placed) return { from, to, extraPx };
     // no section left behind holds a block the change replaced
     const was = sectionOfBlock(prev, from < change.first ? from : from - shift);

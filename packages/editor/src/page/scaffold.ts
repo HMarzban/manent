@@ -154,7 +154,6 @@ function drawSheet(
   for (const entry of frame.entries) entry.draw(sheet, input);
 }
 
-// The scroll offset counts from the frame's top, and the front pages sit above page 1.
 /** Draws the wanted sheets with the elements already drawn, adding or removing only the difference. */
 function drawSheets(
   pages: HTMLElement,
@@ -262,6 +261,7 @@ export function createPageScaffold(options: {
 
   const redrawAt = (scrollTop: number, clientHeight: number): void => {
     const page = screenPagePx(profile);
+    // The scroll offset counts from the frame's top, and the front pages sit above page 1.
     const wanted =
       view === "reflow"
         ? []
