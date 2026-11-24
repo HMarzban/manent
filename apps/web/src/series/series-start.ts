@@ -14,6 +14,7 @@ import { indexDocId, projectHome } from "@manent/sync-protocol";
 import { firstBlock } from "../editor-host/first-block.ts";
 import type { ProjectStart } from "../services/sync/create-script.ts";
 import type { ProjectCreated } from "../services/sync/library-index.ts";
+import { writingActions } from "../state/writing.store.ts";
 
 const holdsText = (handle: DocHandle): boolean =>
   (scriptBody(handle.doc()).materialize().content ?? []).some((section) =>
@@ -21,6 +22,22 @@ const holdsText = (handle: DocHandle): boolean =>
       (block.content ?? []).some((run) => run.text !== ""),
     ),
   );
+
+/**
+ * True while the opening script holds no text and has not moved to a private copy: when an episode swaps to its
+ * private copy on open, closing the room handle must not remove the newly created series.
+ */
+const isSeriesUntouched = (handle: DocHandle): boolean => {
+  const { docId } = handle;
+  if (
+    writingActions.openTarget(docId) !== docId ||
+    writingActions.get(docId).position === "private"
+  )
+    return false;
+  const bound = writingActions.boundTarget(docId).get();
+  if (bound !== null && bound !== docId) return false;
+  return !holdsText(handle);
+};
 
 function startSeriesScript(handle: DocHandle, language: string): void {
   const doc = handle.doc();
@@ -38,7 +55,7 @@ export const SERIES_START: ProjectStart = {
   kinds: ["series"],
   docKind: "script",
   start: (handle, _kind, language) => startSeriesScript(handle, language),
-  isUntouched: (handle) => !holdsText(handle),
+  isUntouched: isSeriesUntouched,
 };
 
 /** Writes `project.template` = `"drama"`, Season 1, and episode 101 into a new series' project index. */

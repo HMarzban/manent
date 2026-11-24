@@ -1,7 +1,7 @@
 // Creates a new season or episode in a series project index and waits for an online script to sync so it opens privately.
 import { writeEpisode, writeSeason } from "@manent/crdt";
 import type { EpisodeEntry, SeasonEntry } from "@manent/crdt";
-import type { DocStatus } from "@manent/sync-client";
+import type { DocHandle } from "@manent/sync-client";
 import { SERIES_WORDS } from "@manent/ui";
 import type { ProjectIndex } from "../project/project-index.ts";
 import type { PersonServices } from "../services/ports.ts";
@@ -13,14 +13,22 @@ import {
 
 const SYNC_WAIT_MS = 2_500;
 
-const isReadyForPrivateOpen = (status: DocStatus): boolean =>
-  (status.synced && !status.neverSynced) ||
-  status.link === "offline" ||
-  status.side.length > 0;
+const isReadyForPrivateOpen = (handle: DocHandle): boolean => {
+  const status = handle.status.get();
+  const seq = handle.lastServerSeq();
+  return (
+    (status.synced &&
+      !status.neverSynced &&
+      status.waiting === 0 &&
+      (seq === null || seq > 0)) ||
+    status.link === "offline" ||
+    status.side.length > 0
+  );
+};
 
 /**
- * Waits briefly while online until `docId` has synced its creation to the server so `16:PW`'s private-open path sees
- * it as synced; returns immediately when offline or after `SYNC_WAIT_MS`.
+ * Waits briefly while online until `docId` has synced its creation and template content to the server so private
+ * writing sees it as synced; returns immediately when offline or after `SYNC_WAIT_MS`.
  */
 async function waitUntilSynced(
   services: Pick<PersonServices, "openHandle">,
@@ -31,7 +39,7 @@ async function waitUntilSynced(
   if (!online()) return;
   const handle = await services.openHandle(docId);
   try {
-    if (isReadyForPrivateOpen(handle.status.get())) return;
+    if (isReadyForPrivateOpen(handle)) return;
     await new Promise<void>((resolve) => {
       let done = false;
       const finish = (): void => {
@@ -41,8 +49,8 @@ async function waitUntilSynced(
         cancel();
         resolve();
       };
-      const stop = handle.status.subscribe((status) => {
-        if (isReadyForPrivateOpen(status)) finish();
+      const stop = handle.status.subscribe(() => {
+        if (isReadyForPrivateOpen(handle)) finish();
       });
       const cancel = schedule(finish, SYNC_WAIT_MS);
     });

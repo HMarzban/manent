@@ -188,35 +188,49 @@ export interface ProjectTemplateSettings {
   readonly targetPages: number | null;
 }
 
-function parseProjectKey<K extends SettingValueKey>(
-  map: Record<string, unknown>,
-  key: K,
-): SettingValue<K> | null {
-  if (!Object.hasOwn(map, key)) return null;
-  const parsed = SETTINGS.get(key).type.parse(map[key]);
-  return (parsed === null ? null : parsed) as SettingValue<K> | null;
+function isProjectTemplate(value: unknown): value is ProjectTemplate {
+  return (
+    typeof value === "string" &&
+    (value === "custom" || Object.hasOwn(TEMPLATE_FORMATS, value))
+  );
 }
 
-type SettingValueKey =
-  | "project.template"
-  | "project.titlePage"
-  | "project.acts"
-  | "project.targetPages";
+function isStringArray(value: unknown): value is readonly string[] {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
+}
 
-function normalizeTitlePage(
-  raw: Readonly<Record<string, string>> | null,
-): TitlePageFields {
-  if (raw === null) return EMPTY_TITLE_PAGE;
+function parseProjectEntry(
+  map: Record<string, unknown>,
+  key:
+    | "project.template"
+    | "project.titlePage"
+    | "project.acts"
+    | "project.targetPages",
+): unknown {
+  if (!Object.hasOwn(map, key)) return null;
+  const parsed = SETTINGS.get(key).type.parse(map[key]);
+  return parsed.ok ? parsed.value : null;
+}
+
+function normalizeTitlePage(raw: unknown): TitlePageFields {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw))
+    return EMPTY_TITLE_PAGE;
+  const read = (field: TitlePageField): string => {
+    const value = Reflect.get(raw, field);
+    return typeof value === "string" ? value : "";
+  };
   return {
-    title: raw.title ?? "",
-    credit: raw.credit ?? "",
-    authors: raw.authors ?? "",
-    source: raw.source ?? "",
-    contact: raw.contact ?? "",
-    draft: raw.draft ?? "",
-    cast: raw.cast ?? "",
-    setting: raw.setting ?? "",
-    summary: raw.summary ?? "",
+    title: read("title"),
+    credit: read("credit"),
+    authors: read("authors"),
+    source: read("source"),
+    contact: read("contact"),
+    draft: read("draft"),
+    cast: read("cast"),
+    setting: read("setting"),
+    summary: read("summary"),
   };
 }
 
@@ -225,11 +239,15 @@ export function readProjectTemplateSettings(
   doc: CrdtDoc,
 ): ProjectTemplateSettings {
   const map = readProjectMap(doc, "template");
+  const rawTemplate = parseProjectEntry(map, "project.template");
+  const rawTitlePage = parseProjectEntry(map, "project.titlePage");
+  const rawActs = parseProjectEntry(map, "project.acts");
+  const rawTargetPages = parseProjectEntry(map, "project.targetPages");
   return {
-    template: parseProjectKey(map, "project.template") ?? "drama",
-    titlePage: normalizeTitlePage(parseProjectKey(map, "project.titlePage")),
-    acts: parseProjectKey(map, "project.acts") ?? [],
-    targetPages: parseProjectKey(map, "project.targetPages") ?? null,
+    template: isProjectTemplate(rawTemplate) ? rawTemplate : "drama",
+    titlePage: normalizeTitlePage(rawTitlePage),
+    acts: isStringArray(rawActs) ? rawActs : [],
+    targetPages: typeof rawTargetPages === "number" ? rawTargetPages : null,
   };
 }
 
