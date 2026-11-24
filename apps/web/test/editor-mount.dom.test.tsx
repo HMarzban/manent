@@ -474,6 +474,7 @@ test("the live editor and the feature plugins come with the mount", () => {
     [
       "docId",
       "facts",
+      "frames",
       "layer",
       "presence",
       "services",

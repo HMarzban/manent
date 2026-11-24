@@ -91,13 +91,17 @@ export function blockView(block: Node | BlockJSON): BlockView {
   return Object.freeze({ attrs: Object.freeze(attrs), runs: runsOf(block) });
 }
 
-/** Every block of every section, in order. Children that are not sections or blocks are passed over. */
-export function blocksOf(doc: Node | DocJSON): FlatBlock[] {
+/**
+ * Every block of every section, in order, each viewed by `view` (blockView by default). Children that are not
+ * sections or blocks are passed over.
+ */
+export function blocksOf(
+  doc: Node | DocJSON,
+  view: (block: Node | BlockJSON) => BlockView = blockView,
+): FlatBlock[] {
   const flat: FlatBlock[] = [];
   const add = (block: Node | BlockJSON, section: number): void => {
-    flat.push(
-      Object.freeze({ ...blockView(block), section, index: flat.length }),
-    );
+    flat.push(Object.freeze({ ...view(block), section, index: flat.length }));
   };
   if (doc instanceof Node)
     doc.forEach((section, _, i) => {

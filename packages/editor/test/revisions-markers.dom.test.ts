@@ -24,6 +24,17 @@ import { bid, docOfBlocks, sp } from "./docs.ts";
 
 withDom();
 
+/** A frame that comes as a microtask, so settle lets it draw. */
+function microtaskFrame(fn: () => void): () => void {
+  let live = true;
+  queueMicrotask(() => {
+    if (live) fn();
+  });
+  return () => {
+    live = false;
+  };
+}
+
 function blockJSONs(doc: Node): BlockJSON[] {
   const json: DocJSON = doc.toJSON();
   return (json.content ?? []).flatMap((section) => section.content ?? []);
@@ -121,6 +132,7 @@ function mount(doc: Node, production: ProductionView): Mounted {
           lockIcon: () =>
             document.createElementNS("http://www.w3.org/2000/svg", "svg"),
           lockMarkerName: "Page number locked",
+          frames: { request: microtaskFrame },
         }),
       ],
     }),

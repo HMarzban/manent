@@ -74,13 +74,10 @@ function spotsOf(
     const last = pagination.pages[k + 1]?.block ?? pagination.blocks.length - 1;
     const here = markers.filter((m) => m.block >= first && m.block <= last);
     if (here.length === 0) return [];
-    const { lines } = settings.engine.layoutPage(pagination, k);
+    const lines = settings.engine.linePlacesOf(pagination, k);
     return here.flatMap((marker) => {
       const line = lines.find(
-        (l) =>
-          l.kind === "text" &&
-          l.blockLine === 0 &&
-          l.blockId === marker.blockId,
+        (l) => l.blockLine === 0 && l.blockId === marker.blockId,
       );
       if (line === undefined) return [];
       const at = markPosition(pagination.profile, k, line.y);

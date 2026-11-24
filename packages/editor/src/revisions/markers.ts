@@ -5,6 +5,7 @@ import { Plugin } from "prosemirror-state";
 import type { PluginView } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { paginationKey } from "../pagination/plugin.ts";
+import type { Frames } from "../script-editor/ports.ts";
 
 interface LockMarkerOptions {
   layer: () => HTMLElement | null;
@@ -15,6 +16,7 @@ interface LockMarkerOptions {
   zoom: () => number;
   /** A fresh copy of the host's lock icon. */
   icon: () => Element;
+  frames: Frames;
 }
 
 const MARKER_PX = 24;
@@ -78,11 +80,16 @@ function markerOf(
   return marker;
 }
 
-/** Draws the markers again whenever the pages change or the sheets in view are drawn again, and only then. */
+/**
+ * Draws the markers again on the frame after the pages change or the sheets in view are drawn again, and only then:
+ * the sheets are measured once the update that changed them has written the page, never in the middle of it.
+ */
 function markersView(view: EditorView, options: LockMarkerOptions): PluginView {
   let drawn: HTMLElement[] = [];
   let key = "";
+  let cancelFrame: (() => void) | null = null;
   const draw = () => {
+    cancelFrame = null;
     const layer = options.layer();
     const spots = layer === null ? [] : spotsOf(view, layer, options.zoom());
     const next = JSON.stringify(spots);
@@ -95,8 +102,11 @@ function markersView(view: EditorView, options: LockMarkerOptions): PluginView {
         : spots.map((spot) => markerOf(layer.ownerDocument, spot, options));
     layer?.append(...drawn);
   };
+  const request = () => {
+    cancelFrame ??= options.frames.request(draw);
+  };
   // the page scaffold names each sheet it draws, on scroll and zoom as well as when the pages change
-  const sheets = new MutationObserver(draw);
+  const sheets = new MutationObserver(request);
   if (view.dom.parentElement !== null)
     sheets.observe(view.dom.parentElement, {
       subtree: true,
@@ -109,9 +119,10 @@ function markersView(view: EditorView, options: LockMarkerOptions): PluginView {
         paginationKey.getState(prev)?.pagination !==
         paginationKey.getState(view.state)?.pagination
       )
-        draw();
+        request();
     },
     destroy() {
+      cancelFrame?.();
       sheets.disconnect();
       for (const marker of drawn) marker.remove();
     },
