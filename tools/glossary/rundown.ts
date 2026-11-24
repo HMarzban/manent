@@ -14,6 +14,7 @@ export const RUNDOWN_TERMS: readonly Term[] = Object.freeze([
   ...row("rundown", ["On prompter", "Changed — not on prompter"], ["dirty"]),
   ...row("rundown", ["Send previous"], []),
   ...row("rundown", ["Live", "Feed lost"], ["connected"]),
+  ...row("rundown", ["Prompter window", "Prompter text", "Prompter files"], []),
   ...row("files", ["Export", "File", "File type"], ["download", "save as"]),
   ...row("files", ["Part", "Split into parts"], ["volume"]),
   ...row("pages", ["Print"], []),
