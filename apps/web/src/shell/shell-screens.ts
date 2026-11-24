@@ -37,4 +37,5 @@ export const SHELL_SCREENS: readonly ShellScreen[] = [
     screen: "workspace_settings",
     page: "covered",
   },
+  { routeId: "/r/$token", screen: "reader", page: "bare" },
 ];

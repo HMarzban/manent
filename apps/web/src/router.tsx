@@ -123,8 +123,10 @@ export function createAppRouter(deps: AppRouterDeps): AnyRouter {
       const params = new URLSearchParams(location.searchStr);
       const userId = params.get("person");
       if (userId === null) {
-        const choosing = matches.some((m) => m.routeId === "/choose");
-        if (choosing || usePerson.getState().person !== null) return;
+        const anonymous = matches.some(
+          (m) => m.routeId === "/choose" || m.routeId === "/r/$token",
+        );
+        if (anonymous || usePerson.getState().person !== null) return;
         throw redirect({ href: chooseUrl(location.href), replace: true });
       }
       // a server that cannot be reached leaves the tab who it was
