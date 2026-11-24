@@ -70,6 +70,10 @@ export interface ComposedService {
   >;
   /** Whether a document is on air now; the first given is the sync service's, which is never on air without one. */
   readonly airWindow?: (docId: string, now: number) => boolean;
+  /** SUBSCRIBED's air window; the first given is the sync service's, which sends null without one. */
+  readonly airWindowOf?: (
+    docId: string,
+  ) => { startsAt: number; endsAt: number } | null;
 }
 
 export interface ServerService {
@@ -94,10 +98,12 @@ export const SERVER_SERVICES: readonly ServerService[] = [
   { create: () => ({ hooks: [createSuggestionHooks({})], config: {} }) },
 ];
 
-/** Every service of the list made: their hooks in list order, the first `airWindow` given (null: none), and their parts of the configuration. */
+/** Every service of the list made: their hooks in list order, the first `airWindow` and `airWindowOf` given (null: none), and their parts of the configuration. */
 export function composeServices(deps: ServiceDeps): {
   hooks: readonly SyncHooks[];
   airWindow: ((docId: string, now: number) => boolean) | null;
+  airWindowOf:
+    ((docId: string) => { startsAt: number; endsAt: number } | null) | null;
   config: ComposedService["config"];
 } {
   const project = createProjectWiring(deps);
@@ -111,6 +117,8 @@ export function composeServices(deps: ServiceDeps): {
     hooks: [...composed.flatMap((c) => c.hooks), project.hooks],
     airWindow:
       composed.find((c) => c.airWindow !== undefined)?.airWindow ?? null,
+    airWindowOf:
+      composed.find((c) => c.airWindowOf !== undefined)?.airWindowOf ?? null,
     config: composed.reduce<ComposedService["config"]>(
       (all, c) => ({ ...all, ...c.config }),
       {},
