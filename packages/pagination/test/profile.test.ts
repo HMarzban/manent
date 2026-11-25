@@ -104,6 +104,7 @@ test("the screenplay elements", () => {
     speakerContinued: true,
     sceneContinued: false,
     scenesNumbered: false,
+    sceneNumberSides: "none",
     scenesLettered: false,
     castLists: false,
     speechesNumbered: false,
