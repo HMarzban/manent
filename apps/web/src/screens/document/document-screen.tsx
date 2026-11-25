@@ -227,7 +227,7 @@ function NoAccess(props: {
       >
         <div className="flex min-h-full w-full flex-col items-center justify-center">
           <EmptyHeroCard
-            icon={<LockIcon className="size-5" />}
+            icon={<LockIcon aria-hidden="true" className="size-5" />}
             title={LIBRARY_WORDS.notOnDevice}
             description={WRITING_WORDS.notOnDeviceBody}
             actions={

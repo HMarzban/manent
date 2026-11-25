@@ -16,12 +16,17 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import { ChevronRightIcon } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
 import { SCRIPT_SETTING_ROWS } from "./script-setting-rows.ts";
-import { SCRIPT_SETTINGS_PART } from "./script-settings-part.ts";
+import {
+  SCRIPT_SETTINGS_PART,
+  consumeScriptSettingsOpen,
+  hasPendingScriptSettingsOpen,
+  subscribeScriptSettingsOpen,
+} from "./script-settings-part.ts";
 import { useOpenDocument } from "./open-document.ts";
 import { announcing, nameOf, valueLabel } from "./setting-messages.ts";
 
@@ -116,12 +121,11 @@ export function ScriptSettings(props: { docId: string }): ReactNode {
   const { docId } = props;
   const services = useServices();
   const doc = useOpenDocument(docId);
-  const [open, setOpen] = useState(
-    () =>
-      typeof document !== "undefined" &&
-      document.activeElement?.getAttribute("role") === "tabpanel",
-  );
-  const pointerDown = useRef(false);
+  const [open, setOpen] = useState(hasPendingScriptSettingsOpen);
+  useEffect(() => {
+    if (consumeScriptSettingsOpen()) setOpen(true);
+    return subscribeScriptSettingsOpen(() => setOpen(true));
+  }, []);
   const titleSource = useMemo(
     () => services.library.documentTitle(docId),
     [services, docId],
@@ -141,28 +145,7 @@ export function ScriptSettings(props: { docId: string }): ReactNode {
         className="flex flex-col gap-2"
       >
         {/* a quiet row, its chevron where the rows' words begin */}
-        <CollapsibleTrigger
-          className="group/disclosure -mx-2 flex min-h-row items-center gap-1 rounded-control px-1 text-start text-ui font-semibold transition-colors hover:bg-subtle active:bg-control"
-          onPointerDown={() => {
-            pointerDown.current = true;
-          }}
-          onClick={() => {
-            pointerDown.current = false;
-          }}
-          onFocus={(event) => {
-            if (pointerDown.current) return;
-            // programmatic focus from `doc.scriptSettings` arrives from outside this collapsible
-            if (
-              !open &&
-              (event.relatedTarget === null ||
-                !(event.relatedTarget instanceof Node) ||
-                !event.currentTarget
-                  .closest(`[${SCRIPT_SETTINGS_PART}]`)
-                  ?.contains(event.relatedTarget))
-            )
-              setOpen(true);
-          }}
-        >
+        <CollapsibleTrigger className="group/disclosure -mx-2 flex min-h-row items-center gap-1 rounded-control px-1 text-start text-ui font-semibold transition-colors hover:bg-subtle active:bg-control">
           <ChevronRightIcon
             aria-hidden="true"
             className="size-icon shrink-0 text-fg-muted duration-(--dur-fast) ease-out group-hover/disclosure:text-fg group-data-panel-open/disclosure:rotate-90 motion-safe:transition-transform"

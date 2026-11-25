@@ -272,6 +272,15 @@ test("Share button is demoted for commenter, Details Script settings starts coll
   );
   expect(settingsToggle.getAttribute("aria-expanded")).toBe("false");
   expect(sideRegion.textContent).toContain("Screenplay · US Letter");
+
+  // Focusing via keyboard Tab keeps Script settings collapsed; doc.scriptSettings expands it
+  act(() => settingsToggle.focus());
+  expect(settingsToggle.getAttribute("aria-expanded")).toBe("false");
+  await act(async () => {
+    frame.services.commands.run("doc.scriptSettings", "control");
+    await Promise.resolve();
+  });
+  expect(settingsToggle.getAttribute("aria-expanded")).toBe("true");
 });
 
 test("PageReadout shows Ink Line N when unpaged and Ink lines are mounted", () => {
