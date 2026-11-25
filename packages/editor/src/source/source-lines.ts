@@ -1,10 +1,10 @@
 // How source lines are decorated: a node decoration naming each line's kind and depth, and one inline decoration per
 // coloured range. Loaded apart from the editor, as only Ink and game scripts read lines as source.
+import { classifyLine } from "@manent/schema";
+import type { SourceLine, SourceMode } from "@manent/schema";
 import type { Node } from "prosemirror-model";
 import type { Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
-import { classifyLine } from "./classify.ts";
-import type { SourceLine, SourceMode } from "./classify.ts";
 
 /** What a line's node decoration carries: the comment state it was read with and the one it leaves. */
 interface LineSpec {
