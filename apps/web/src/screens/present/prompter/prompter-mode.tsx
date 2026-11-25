@@ -2,6 +2,7 @@
 import { DEMO_PEOPLE } from "@manent/demo";
 import { PROMPTER_WINDOW_WORDS, useSubscribable } from "@manent/ui";
 import type { SurfaceStateValue } from "@manent/ui";
+import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { focusHeading } from "../../../focus.ts";
@@ -168,7 +169,9 @@ function derivePresentation(feed: ReturnType<typeof usePrompterFeed>): {
 
 export function PrompterMode(props: { docId: string }): ReactNode {
   const { docId } = props;
+  const navigate = useNavigate();
   const { storage } = useEnvironment();
+  const standalone = typeof window !== "undefined" && window.opener === null;
   const [view, setView] = useState<PrompterViewState>(() =>
     readPrompterView(storage),
   );
@@ -203,6 +206,9 @@ export function PrompterMode(props: { docId: string }): ReactNode {
       <PrompterBar
         status={barStatus}
         view={view}
+        onBack={
+          standalone ? () => void navigate({ href: `/s/${docId}` }) : undefined
+        }
         onTextSizeChange={(textSize: PrompterTextSize) =>
           updateView({ textSize })
         }

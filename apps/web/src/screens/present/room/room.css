@@ -57,10 +57,26 @@
 }
 
 .mn-room {
-  scroll-padding-block-start: 4rem;
+  scroll-padding-block-start: 4.5rem;
 }
 
 .mn-room .mn-desk {
   padding-inline: calc(var(--desk-pad) * var(--page-zoom));
-  padding-block-start: 4rem;
+  padding-block-start: 4.5rem;
+}
+
+@media (max-width: 860px) {
+  .mn-room .mn-desk {
+    padding-inline: 0.75rem;
+  }
+}
+
+.mn-room[data-room-fit] {
+  overflow-x: hidden;
+}
+
+.mn-room[data-room-fit] .mn-zoom {
+  transform: scale(var(--room-fit-scale, 1));
+  transform-origin: top left;
+  margin-inline: 0;
 }

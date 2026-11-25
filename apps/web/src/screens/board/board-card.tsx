@@ -275,7 +275,7 @@ export function BoardCardItem(props: BoardCardProps): ReactNode {
       onClick={onSelect}
       onDoubleClick={canEdit ? startEdit : onOpen}
       onKeyDown={onCardKeyDown}
-      className="mn-card flex cursor-pointer flex-col gap-1 p-2 text-start text-ui"
+      className="mn-card group/card flex cursor-pointer flex-col gap-1 p-2 text-start text-ui"
     >
       {editing && canEdit ? (
         <div onClick={stopEvent} onKeyDown={stopEvent}>
@@ -296,7 +296,11 @@ export function BoardCardItem(props: BoardCardProps): ReactNode {
           <span className="min-w-0 flex-1 break-words text-fg">
             {card.text}
           </span>
-          {canEdit ? <RowMenu title={card.text}>{menuItems}</RowMenu> : null}
+          {canEdit ? (
+            <span className="opacity-0 transition-opacity duration-(--dur-fast) group-hover/card:opacity-100 group-focus-within/card:opacity-100 has-[[data-popup-open]]:opacity-100 [@media(hover:none)]:opacity-100">
+              <RowMenu title={card.text}>{menuItems}</RowMenu>
+            </span>
+          ) : null}
         </div>
       )}
       {linkedScene !== null ? (

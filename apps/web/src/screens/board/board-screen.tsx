@@ -207,7 +207,7 @@ export function BoardScreen(): ReactNode {
           <Skeleton className="h-control-sm w-24" />
           <Skeleton className="ms-auto h-control-sm w-28" />
         </div>
-        <div className="min-h-0 flex-1 overflow-auto bg-chrome p-6">
+        <div className="min-h-0 flex-1 overflow-auto bg-chrome p-3 sm:p-6">
           <BoardGridSkeleton />
         </div>
         <BoardStatusBar />
@@ -236,7 +236,7 @@ export function BoardScreen(): ReactNode {
         onAddStoryline={() => setAddingStoryline(true)}
       />
 
-      <div className="min-h-0 flex-1 overflow-auto bg-chrome p-6">
+      <div className="min-h-0 flex-1 overflow-auto bg-chrome p-3 sm:p-6">
         {data.accessRemoved ? (
           <div className="flex min-h-full items-center justify-center py-12">
             <EmptyHeroCard

@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@manent/ui";
 import type { EditableGridHandle, GridCellCoord } from "@manent/ui";
-import { EllipsisVerticalIcon } from "lucide-react";
+import { EllipsisIcon } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { ReactNode, RefObject } from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
@@ -80,7 +80,7 @@ export interface RowMenuProps {
   onOpenPrevious(rowId: string, columnId: RundownColumnId): void;
 }
 
-/** Row handle button (`⋮`) and dropdown menu built from `ROW_MENU_ITEMS` with per-row filtering and `R-X` affordances. */
+/** Row handle button (`⋯`) and dropdown menu built from `ROW_MENU_ITEMS` with per-row filtering and `R-X` affordances. */
 export function RowMenu(props: RowMenuProps): ReactNode {
   const {
     row,
@@ -130,7 +130,7 @@ export function RowMenu(props: RowMenuProps): ReactNode {
     entries.push({ id, label: state.label, enabled });
   }
 
-  if (entries.length === 0) return null;
+  if (!entries.some((entry) => entry.enabled)) return null;
 
   return (
     <DropdownMenu
@@ -144,11 +144,11 @@ export function RowMenu(props: RowMenuProps): ReactNode {
             variant="ghost"
             size="icon-sm"
             aria-label={label}
-            className="cursor-pointer text-fg-muted hover:bg-subtle hover:text-fg"
+            className="cursor-pointer text-fg-muted opacity-0 transition-opacity duration-(--dur-fast) hover:bg-subtle hover:text-fg focus-visible:opacity-100 data-popup-open:opacity-100 [.mn-row:hover_&]:opacity-100 [.mn-row:focus-within_&]:opacity-100 [@media(hover:none)]:opacity-100"
           />
         }
       >
-        <EllipsisVerticalIcon aria-hidden="true" className="size-icon" />
+        <EllipsisIcon aria-hidden="true" className="size-icon" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"

@@ -195,20 +195,22 @@ export function useSeriesData(
     const person = readPerson(tabStorage);
     const token = person?.userId === userId ? person.token : null;
     const docId = indexDocId("project", projectId);
-    void Promise.all([
-      api.role(docId),
-      dedupePeople(
-        `people:${docId}`,
-        token,
-        () => askProjectApi("/api/docs/people", docId, token),
-        (body) => body !== null,
-      ),
-    ]).then(([role, listed]) => {
+    void api.role(docId).then(async (role) => {
       if (!shown) return;
       setServerAccess(
         role === null ? null : role === "owner" || role === "edit",
       );
-      setPeople(readPeopleList(listed));
+      if (role === null) {
+        setPeople([]);
+        return;
+      }
+      const listed = await dedupePeople(
+        `people:${docId}`,
+        token,
+        () => askProjectApi("/api/docs/people", docId, token),
+        (body) => body !== null,
+      );
+      if (shown) setPeople(readPeopleList(listed));
     });
     return () => {
       shown = false;

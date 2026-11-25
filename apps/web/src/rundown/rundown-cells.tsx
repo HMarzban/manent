@@ -150,7 +150,7 @@ function buildItemCells(options: {
           value: text,
           display:
             row.kind === "script" ? (
-              <span className="inline-flex min-w-0 items-center gap-1">
+              <span className="flex w-full min-w-0 items-center gap-1">
                 <button
                   type="button"
                   tabIndex={-1}
@@ -163,7 +163,9 @@ function buildItemCells(options: {
                 >
                   <ChevronRightIcon aria-hidden="true" className="size-icon" />
                 </button>
-                <span className="truncate font-medium text-fg">{text}</span>
+                <span className="min-w-0 flex-1 truncate font-medium text-fg">
+                  {text}
+                </span>
               </span>
             ) : (
               <span className="block truncate ps-4 text-fg">{text}</span>
