@@ -82,16 +82,23 @@ function Tile(props: { p: Pagination; index: number }): ReactNode {
   );
 }
 
-/** The first eight pages with their labels, then how many more there are. */
-function PageTiles(props: { p: Pagination }): ReactNode {
-  const { p } = props;
-  const shown = p.pages.slice(0, TILE_PAGES);
-  const more = p.pages.length - shown.length;
+/** The first eight pages (or of `indices` when given) with their labels, then how many more there are. */
+export function PageTiles(props: {
+  p: Pagination;
+  indices?: readonly number[] | null;
+}): ReactNode {
+  const { p, indices } = props;
+  const selected =
+    indices === undefined || indices === null
+      ? p.pages.map((page) => page.index)
+      : indices.filter((index) => p.pages[index] !== undefined);
+  const shown = selected.slice(0, TILE_PAGES);
+  const more = selected.length - shown.length;
   return (
     <>
       <ol className="flex flex-wrap gap-x-2 gap-y-3">
-        {shown.map((page) => (
-          <Tile key={page.index} p={p} index={page.index} />
+        {shown.map((index) => (
+          <Tile key={index} p={p} index={index} />
         ))}
       </ol>
       {more > 0 ? (
@@ -120,6 +127,8 @@ interface SendPages {
 export function useSendPages(
   docId: string,
   option: SendWhatOption | null,
+  pagesOf: ((pages: Pagination) => readonly number[]) | null = null,
+  revision = 0,
 ): SendPages {
   const p = useLivePagination(docId);
   const { library, documents } = useServices();
@@ -139,6 +148,11 @@ export function useSendPages(
           }),
     [p, option, docId, documents],
   );
+  const preview = pages ?? p;
+  const indices = useMemo(() => {
+    void revision;
+    return preview === null || pagesOf === null ? null : pagesOf(preview);
+  }, [preview, pagesOf, revision]);
   return {
     p,
     pages,
@@ -147,7 +161,8 @@ export function useSendPages(
       ...(checks === null ? [] : [checks]),
       { id: "what", content: EDITOR_WORDS.send.wholeScript },
     ],
-    tiles: p === null ? null : <PageTiles p={p} />,
+    tiles:
+      preview === null ? null : <PageTiles p={preview} indices={indices} />,
     back: () =>
       void navigate({ to: "/s/$docId", params: { docId }, replace: true }),
   };

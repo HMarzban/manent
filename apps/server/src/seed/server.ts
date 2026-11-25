@@ -5,7 +5,11 @@ import {
   createDemoDirectory,
   createDemoSignIn,
 } from "@manent/demo";
-import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
+import {
+  ENGINE_VERSION,
+  ENGINE_VERSIONS,
+  TABLE_VERSION,
+} from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import {
   PRODUCT_SETTING_RULES,
@@ -23,7 +27,7 @@ import { openSqliteStorage } from "@manent/storage";
 import type { Storage } from "@manent/storage";
 import { PROTOCOL_VERSION, docIdV7 } from "@manent/sync-protocol";
 import { readServerRenderPdf } from "../production.ts";
-import { composeServices } from "../services.ts";
+import { composeServices, stopComposedServices } from "../services.ts";
 import { probeSeedCapabilities } from "./capabilities.ts";
 
 /** The host every request to a seed server names. */
@@ -34,7 +38,7 @@ export const SEED_ORIGIN = `http://${SEED_HOST}`;
 export const BUILD_VERSIONS = Object.freeze({
   protocol: PROTOCOL_VERSION,
   schema: SCHEMA_VERSION,
-  engine: ENGINE_VERSION,
+  engine: ENGINE_VERSIONS.at(-1)!,
   table: TABLE_VERSION,
 });
 
@@ -172,6 +176,8 @@ export async function createSeedServer(options: {
     names: (userId) => directory.user(userId)?.name ?? userId,
     renderPdf,
     rules: PRODUCT_SETTING_RULES,
+    dataDir: options.dataDir,
+    openUrl: SEED_ORIGIN,
   });
   const server = createServer({
     http: { allowedHosts: [SEED_HOST], openUrl: SEED_ORIGIN, webDir: null },
@@ -179,7 +185,10 @@ export async function createSeedServer(options: {
     demo: null,
     socket: {
       tickets: createTicketStore({ now: clock.now }),
-      versions: { current: BUILD_VERSIONS, min: BUILD_VERSIONS },
+      versions: {
+        current: BUILD_VERSIONS,
+        min: { ...BUILD_VERSIONS, engine: ENGINE_VERSION },
+      },
       allowedOrigins: [SEED_ORIGIN],
     },
     sync: {
@@ -201,7 +210,7 @@ export async function createSeedServer(options: {
     sync: sync(),
     clock,
     async close() {
-      composed.config.prompter?.stop();
+      stopComposedServices(composed.config);
       await server.sync?.shutdown();
       storage.close();
     },

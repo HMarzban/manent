@@ -1,6 +1,7 @@
 // The choices of a Send form's What row: what of the document it sends; a feature adds its option with one line.
 import type { DocJSON } from "@manent/schema";
 import { DRAFTS_WORDS, EDITOR_WORDS, MATERIAL_WORDS } from "@manent/ui";
+import type { ComponentType } from "react";
 import { withAlternates } from "../material/alternates/with-alternates.ts";
 import type { SendFormId } from "../screens/send/form-ids.ts";
 
@@ -16,6 +17,13 @@ export const EMPTY_MATERIAL: MaterialSnapshot = Object.freeze({
   cuts: Object.freeze({}),
 });
 
+export interface SendWhatControlsProps {
+  readonly docId: string;
+  readonly form: SendFormId;
+  /** Call when the control's selection changes so the frame updates its page preview. */
+  readonly onChange?: () => void;
+}
+
 export interface SendWhatOption {
   readonly id: string;
   readonly label: string;
@@ -27,6 +35,8 @@ export interface SendWhatOption {
   readonly fileTypes?: readonly string[];
   /** Offered only while page numbers are locked; absent is false. */
   readonly lockedOnly?: boolean;
+  /** Extra controls drawn inside the What row while this option is chosen (for example, scene pickers). */
+  readonly Controls?: ComponentType<SendWhatControlsProps>;
 }
 
 /** The first that a form offers is chosen when the form opens. */
