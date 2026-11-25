@@ -38,7 +38,7 @@ const ENTRIES: Readonly<Record<string, readonly string[]>> = {
     "client.ts",
     "transport.ts",
   ],
-  "packages/formats/src/production/index.ts": ["packet.ts"],
+  "packages/formats/src/production/index.ts": ["packet.ts", "sides.ts"],
   "packages/editor/src/revisions/index.ts": [
     "commands.ts",
     "derive.ts",

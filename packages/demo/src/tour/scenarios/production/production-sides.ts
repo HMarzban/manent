@@ -13,12 +13,25 @@ export const PRODUCTION_SIDES: TourScenario = {
     shell: "any",
   },
   steps: [
-    { text: "Choose scenes 24 to 26A.", highlight: "page" },
-    { text: "Make sides from them.", highlight: "page" },
+    {
+      text: "In the Scenes tab, select scenes 24 to 26A.",
+      highlight: "tab:scenes",
+    },
+    {
+      text: "Choose Include in sides… in a selected scene's row menu.",
+      highlight: "production.includeInSides",
+    },
+    { text: "Choose Export 1 file.", highlight: "send:confirm" },
   ],
-  check: 'The sides keep the locked page labels, "26A" among the scenes.',
-  evidence: ["26A"],
+  check:
+    'Export opens with "Sides" chosen and the range "Sc. 24 · INT. KOWAL FLAT - KITCHEN - NIGHT" to "Sc. 26A · INT. CALLOW PARADE - PHARMACY - NIGHT", and says "Exported \'The Long Night\'."',
+  evidence: [
+    "Sides",
+    "Sc. 24 · INT. KOWAL FLAT - KITCHEN - NIGHT",
+    "Sc. 26A · INT. CALLOW PARADE - PHARMACY - NIGHT",
+    "Exported 'The Long Night'.",
+  ],
   fresh: false,
-  waitsFor: "sides",
+  waitsFor: null,
   hidden: null,
 };
