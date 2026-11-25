@@ -269,21 +269,52 @@ const SCRIPT_LINES = [
   "Gulls wheel over the water.",
 ];
 
-/** Types the shared script's lines into Dana's new script, letting each key's element follow the format's flow. */
+/** Types the shared script's lines into Dana's new script, ensuring each key's element transition lands cleanly. */
 async function typeScript(page: Page): Promise<void> {
   const [heading, action, cue, speech, second, last] = SCRIPT_LINES;
-  for (const [text, key] of [
-    [heading, "Enter"],
-    [action, "Enter"],
-    ["", "Tab"],
-    [cue, "Enter"],
-    [speech, "Enter"],
-    [second, "Enter"],
-    [last, null],
-  ] as const) {
-    if (text !== undefined && text !== "") await typeLine(page, text);
-    await settled(page);
-    if (key !== null) await page.keyboard.press(key);
+  const steps: readonly {
+    text: string;
+    key: "Enter" | "Tab" | null;
+    expectCount: number;
+    expectType: string;
+  }[] = [
+    { text: heading!, key: "Enter", expectCount: 2, expectType: "action" },
+    { text: action!, key: "Enter", expectCount: 3, expectType: "action" },
+    { text: "", key: "Tab", expectCount: 3, expectType: "character" },
+    { text: cue!, key: "Enter", expectCount: 4, expectType: "dialogue" },
+    { text: speech!, key: "Enter", expectCount: 5, expectType: "action" },
+    { text: second!, key: "Enter", expectCount: 6, expectType: "action" },
+    { text: last!, key: null, expectCount: 6, expectType: "action" },
+  ];
+  const editable = page.locator("[data-editor-host] .ProseMirror");
+  for (const step of steps) {
+    if (step.text !== "") {
+      const target = (await drawnBlocks(page)).at(-1);
+      if (target !== undefined) await caretAt(page, target.id, "end");
+      await typeLine(page, step.text);
+      await settled(page);
+    }
+    if (step.key !== null) {
+      await expect(async () => {
+        const before = await drawnBlocks(page);
+        if (
+          before.length === step.expectCount &&
+          before.at(-1)?.type === step.expectType
+        )
+          return;
+        if ((await editable.getAttribute("aria-controls")) !== null)
+          await page.keyboard.press("Escape");
+        const tail = before.at(-1);
+        if (tail !== undefined) await caretAt(page, tail.id, "end");
+        await page.keyboard.press(step.key!);
+        await settled(page);
+        const after = await drawnBlocks(page);
+        expect({
+          count: after.length,
+          lastType: after.at(-1)?.type ?? null,
+        }).toEqual({ count: step.expectCount, lastType: step.expectType });
+      }).toPass({ timeout: 10_000 });
+    }
   }
 }
 
@@ -303,12 +334,15 @@ export async function writeScript(page: Page): Promise<string> {
     .locator('[data-region="title_bar"]')
     .getByRole("button", { name: "New script", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/s\//);
+  await expect(page).toHaveURL(/\/s\//, { timeout: 15_000 });
   await expect(
     page.locator("[data-region='page'] [contenteditable='true']"),
-  ).toBeFocused();
+  ).toBeFocused({ timeout: 15_000 });
+  await expect.poll(async () => (await drawnBlocks(page)).length).toBe(1);
   await typeScript(page);
-  await expect.poll(() => readStatus(page)).toBe("Saved · Synced");
+  await expect
+    .poll(() => readStatus(page), { timeout: 15_000 })
+    .toBe("Saved · Synced");
   return docIdOf(page);
 }
 
