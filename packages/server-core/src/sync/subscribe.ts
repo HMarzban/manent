@@ -291,11 +291,13 @@ export function subscribe(
   tell(peer, subscribedOf(room, granted, heal.headOf(room), extras, airWindow));
   ports.viewerCounts.joined(room, peer);
   ports.viewerCounts.changed(room);
-  const vector = room.doc?.encodeStateVector();
-  if (mode === "edit" && vector !== undefined) {
-    rebuilder.touched(room);
-    tell(peer, { type: "SYNC", ...docOf(room), step: "step1", data: vector });
-    return presence.joined(room, peer);
+  if (mode === "edit") {
+    const vector = room.doc?.encodeStateVector();
+    if (vector !== undefined) {
+      rebuilder.touched(room);
+      tell(peer, { type: "SYNC", ...docOf(room), step: "step1", data: vector });
+      return presence.joined(room, peer);
+    }
   }
   tell(peer, snapshotOf(room));
 }
