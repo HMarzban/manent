@@ -208,6 +208,7 @@ export function parseSearchQuery(
     if (token.kind === "phrase") {
       const trimmed = token.value.trim();
       if (trimmed.length > 0) phrases.push(trimmed);
+      else unsatisfiable = true;
       continue;
     }
     const val = token.value.trim();

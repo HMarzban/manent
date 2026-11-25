@@ -99,7 +99,10 @@ interface Harness {
   flush(): Promise<void>;
 }
 
-function createHarness(startMs = 1_763_000_000_000): Harness {
+function createHarness(
+  startMs = 1_763_000_000_000,
+  opts?: { scheduleCatchUp?: boolean },
+): Harness {
   const fc = fakeClock(startMs);
   const storage = createMemoryStorage({ now: () => fc.clock.now() });
   const sessions = createSignedSessionStore({
@@ -115,6 +118,7 @@ function createHarness(startMs = 1_763_000_000_000): Harness {
     sync: () => server.sync!,
     clock: fc.clock,
     searchIndex,
+    scheduleCatchUp: opts?.scheduleCatchUp,
   });
   server = createServer({
     http: { allowedHosts: [HOST], openUrl: ORIGIN, webDir: null },
@@ -596,11 +600,12 @@ test("writers-only notes, alternates, and settings are never indexed in viewer-a
     DOC_OUTLINE,
   ]);
 
-  // Point 31: unreadable known operators return empty results
+  // Point 31: unreadable known operators and empty quoted phrases return empty results
   for (const bad of [
     "Tamsin type:poem",
     "Tamsin after:17 Nov",
     "Tamsin folder:NoSuchFolder",
+    '""',
   ]) {
     expect(
       await h.get(
@@ -635,6 +640,47 @@ test("writers-only notes, alternates, and settings are never indexed in viewer-a
   expect(
     (editorCutHit.body as SearchResponse).results.map((r) => r.docId),
   ).toEqual([DOC_PUBLIC]);
+
+  h.search.stop();
+});
+
+test("scheduled startup and post-commit catch-up index documents via clock ticks without calling search or catchUpNow", async () => {
+  const h = createHarness(1_763_000_000_000, { scheduleCatchUp: true });
+  await seedCorpus(h);
+
+  // Advance clock ticks so scheduled startup catch-up and stepCatchUp queue drain completely
+  for (let i = 0; i < 16; i++) h.fc.advance(1);
+
+  expect(h.searchIndex.indexedDocIds().toSorted()).toEqual(
+    [
+      DOC_PUBLIC,
+      DOC_OUTLINE,
+      DOC_RESTRICTED,
+      DOC_OTHER_WS,
+      DOC_PRIVATE,
+    ].toSorted(),
+  );
+  expect(h.searchIndex.headOf(DOC_PUBLIC)).not.toBeNull();
+
+  // Tombstone DOC_OUTLINE and commit a workspace index change so post-commit catch-up prunes it
+  h.storage.directory.tombstone(DOC_OUTLINE, "dana");
+  const commit = h.sync.authorityWrite(WS_MAIN_INDEX, {
+    userId: "dana",
+    origin: "system",
+    edit(doc) {
+      jsonMap(doc, "documents").delete(DOC_OUTLINE);
+      return { ok: true };
+    },
+    inTransaction() {},
+  });
+  await h.flush();
+  await commit;
+
+  for (let i = 0; i < 16; i++) h.fc.advance(1);
+  expect(h.searchIndex.headOf(DOC_OUTLINE)).toBeNull();
+  expect(h.searchIndex.indexedDocIds().toSorted()).toEqual(
+    [DOC_PUBLIC, DOC_RESTRICTED, DOC_OTHER_WS, DOC_PRIVATE].toSorted(),
+  );
 
   h.search.stop();
 });

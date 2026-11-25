@@ -90,6 +90,7 @@ export function createSearchService(
   let stopped = false;
   let cancelCatchUp: (() => void) | null = null;
   let pendingQueue: string[] = [];
+  let catchUpMeta: Map<string, IndexedDocMeta> | null = null;
 
   function indexDoc(
     docId: string,
@@ -214,18 +215,24 @@ export function createSearchService(
     cancelCatchUp = null;
     if (stopped) return;
     const docId = pendingQueue.shift();
-    if (docId === undefined) return;
-    const metaByDoc = collectAllMetadata(storage);
+    if (docId === undefined) {
+      catchUpMeta = null;
+      return;
+    }
+    const metaByDoc = catchUpMeta ?? collectAllMetadata(storage);
     indexDoc(docId, metaByDoc.get(docId) ?? null);
     if (pendingQueue.length > 0 && !stopped)
       cancelCatchUp = clock.schedule(stepCatchUp, 0);
+    else catchUpMeta = null;
   }
 
   function triggerCatchUp(): void {
     if (stopped || cancelCatchUp !== null) return;
     pruneStaleEntries();
+    catchUpMeta = collectAllMetadata(storage);
     pendingQueue = collectSearchableIds();
     if (pendingQueue.length > 0) cancelCatchUp = clock.schedule(stepCatchUp, 0);
+    else catchUpMeta = null;
   }
 
   function refreshRoom(room: Room): void {
@@ -306,13 +313,19 @@ export function createSearchService(
 
     const docIds: string[] = [];
     const editorDocIds: string[] = [];
+    const resolvedKinds = new Map<string, DocKind>();
     for (const [docId, meta] of candidates) {
       if (storage.trash.get(docId) !== null) continue;
       const resolved = access.resolve(userId, docId);
       if (!resolved.ok) continue;
-      if (!SEARCH_EXTRACTORS.some((e) => e.kind === resolved.kind)) continue;
+      if (
+        !isDocKind(resolved.kind) ||
+        !SEARCH_EXTRACTORS.some((e) => e.kind === resolved.kind)
+      )
+        continue;
       indexDoc(docId, meta);
       docIds.push(docId);
+      resolvedKinds.set(docId, resolved.kind);
       if (resolved.access.role === "owner" || resolved.access.role === "edit")
         editorDocIds.push(docId);
     }
@@ -345,7 +358,7 @@ export function createSearchService(
         workspaceId: slug,
         title: meta.title,
         projectTitle: meta.projectTitle,
-        kind: meta.kind,
+        kind: resolvedKinds.get(hit.docId) ?? meta.kind,
         changedAt: meta.changedAt,
         excerpt: hit.excerpt,
       });
@@ -354,7 +367,10 @@ export function createSearchService(
   }
 
   if (options.scheduleCatchUp === true)
-    cancelCatchUp = clock.schedule(triggerCatchUp, 0);
+    cancelCatchUp = clock.schedule(() => {
+      cancelCatchUp = null;
+      triggerCatchUp();
+    }, 0);
 
   return {
     hooks,
@@ -365,6 +381,7 @@ export function createSearchService(
       cancelCatchUp?.();
       cancelCatchUp = null;
       pendingQueue = [];
+      catchUpMeta = null;
       searchIndex.close();
     },
   };
