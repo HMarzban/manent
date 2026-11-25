@@ -8,6 +8,7 @@ import { benchMode } from "../../env.ts";
 import type { Measurement, Scenario } from "../../harness.ts";
 import { inputBlocks } from "../../measure.ts";
 import { startBenchDemo } from "../driver.ts";
+import type { BenchBrowser } from "../driver.ts";
 import { scriptOfPages } from "../pagination-engine/script.ts";
 import {
   caretAt,
@@ -208,6 +209,17 @@ function kindOf(options: {
   return options.at === "boundaries" ? "boundary" : "plain";
 }
 
+/** Turns `spellcheck="true"` on every section and editor root in the open script (used by spellcheck scenarios). */
+async function enableSpellcheck(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    for (const element of document.querySelectorAll(
+      "[data-editor-host] [spellcheck], [data-editor-host] .ProseMirror, [data-editor-host] section",
+    )) {
+      element.setAttribute("spellcheck", "true");
+    }
+  });
+}
+
 /**
  * Typing in the corpus's document of `pages` pages (seed 1) of `format` (default screenplay) in `sections` (default
  * "even"), opened through the editor's hooks, `keystrokes` keys a place (by mode, KEYSTROKES, when not given)
@@ -218,12 +230,16 @@ function kindOf(options: {
  * percent of the least, `dispatch` every editor dispatch while typing alone, and `input_blocks`.
  */
 export function typingScenario(options: {
+  id?: string;
   pages: number;
   format?: TypingFormat;
   sections?: "even" | "one";
   at?: "positions" | "boundaries";
   keystrokes?: number;
   intervalMs?: number;
+  browser?: BenchBrowser;
+  headed?: boolean;
+  spellcheck?: boolean;
 }): Scenario {
   const {
     pages,
@@ -231,10 +247,15 @@ export function typingScenario(options: {
     sections = "even",
     at = "positions",
     intervalMs = 60,
+    browser,
+    headed,
+    spellcheck = false,
   } = options;
   const kind = kindOf({ format, sections, at });
+  const defaultId =
+    kind === "plain" ? `typing-${pages}` : `typing-${kind}-${pages}`;
   return {
-    id: kind === "plain" ? `typing-${pages}` : `typing-${kind}-${pages}`,
+    id: options.id ?? defaultId,
     workload:
       kind === "plain"
         ? (PLAIN_WORKLOADS[pages] ?? null)
@@ -243,10 +264,14 @@ export function typingScenario(options: {
     async run() {
       const d = documentOfPages({ format, pages, seed: 1, sections });
       const count = options.keystrokes ?? KEYSTROKES[benchMode()];
-      const demo = await startBenchDemo();
+      const demo = await startBenchDemo({
+        ...(browser === undefined ? {} : { browser }),
+        ...(headed === undefined ? {} : { headed }),
+      });
       try {
         const { page } = await demo.openPage({ userId: "you" });
         await openScript(page, format, d.doc, d.blocks);
+        if (spellcheck) await enableSpellcheck(page);
         const blocks = await scriptBlocks(page);
         const places =
           at === "boundaries"

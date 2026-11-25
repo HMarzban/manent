@@ -1,12 +1,13 @@
 // The one way a client scenario reaches a browser: the demo in the test build on ports and a data directory of its own,
-// Chromium beside it, and pages signed in as one person each, slowed as the run asks.
+// Chromium (or Firefox/WebKit) beside it, and pages signed in as one person each, slowed as the run asks.
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openSqliteStorage } from "@manent/storage";
-import { chromium } from "@playwright/test";
-import type { CDPSession, Page } from "@playwright/test";
+import { chromium, firefox, webkit } from "@playwright/test";
+import type { Browser, CDPSession, Page } from "@playwright/test";
 import type { Subprocess } from "bun";
+import { NotMeasured } from "../env.ts";
 import { throttlePage } from "./throttle.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
@@ -17,9 +18,22 @@ const PAGE_VIEW = "[data-editor-host] .mn-page-view";
 // not the Library: a first visit there opens the Tour in the side panel
 const SIGN_IN_AT = "/preferences/writing";
 
+export type BenchBrowser = "chromium" | "firefox" | "webkit";
+
+const BROWSER_TYPES = { chromium, firefox, webkit } as const;
+const MISSING_BROWSER = new RegExp(
+  "executable doesn't exist|please run the following command|playwright install",
+  "i",
+);
+const MISSING_DISPLAY = new RegExp(
+  "missing x server|cannot open display|unable to open x display|\\$display",
+  "i",
+);
+
 export interface BenchPage {
   page: Page;
-  cdp: CDPSession;
+  /** Chromium CDP session; null for Firefox and WebKit. */
+  cdp: CDPSession | null;
   userId: string;
   close(): Promise<void>;
 }
@@ -43,6 +57,56 @@ export interface BenchDemo {
     }[],
   ): Promise<void>;
   stop(): Promise<void>;
+}
+
+/** Throws `NotMeasured` when a headed run on Linux has neither X11 `DISPLAY` nor `WAYLAND_DISPLAY`. */
+export function checkHeadedDisplay(
+  headed: boolean,
+  platform: NodeJS.Platform = process.platform,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): void {
+  if (!headed || platform !== "linux") return;
+  const hasDisplay = Boolean(
+    env.DISPLAY?.trim() || env.WAYLAND_DISPLAY?.trim(),
+  );
+  if (!hasDisplay) throw new NotMeasured("no display for a headed browser");
+}
+
+/** Translates a Playwright browser-launch error into `NotMeasured` when the browser or display is missing; null otherwise. */
+export function translateLaunchError(
+  browser: BenchBrowser,
+  headed: boolean,
+  cause: unknown,
+): NotMeasured | null {
+  const message = cause instanceof Error ? cause.message : String(cause);
+  if (MISSING_BROWSER.test(message)) {
+    return new NotMeasured(
+      `${browser} is not installed: run bun x playwright install ${browser}`,
+    );
+  }
+  if (headed && MISSING_DISPLAY.test(message)) {
+    return new NotMeasured("no display for a headed browser");
+  }
+  return null;
+}
+
+async function launchBenchBrowser(
+  browser: BenchBrowser,
+  headed: boolean,
+): Promise<Browser> {
+  checkHeadedDisplay(headed);
+  const type = BROWSER_TYPES[browser];
+  try {
+    return await type.launch(
+      browser === "chromium"
+        ? { headless: !headed, args: ["--disable-gpu"] }
+        : { headless: !headed },
+    );
+  } catch (cause) {
+    const notMeasured = translateLaunchError(browser, headed, cause);
+    if (notMeasured !== null) throw notMeasured;
+    throw cause;
+  }
 }
 
 /** A port nothing listens on now, as the system gives one for port 0. */
@@ -178,10 +242,15 @@ async function signInToken(url: string, userId: string): Promise<string> {
   return token;
 }
 
-/** The demo in the test flavour on a free port and a fresh data directory (mkdtemp) unless given; Chromium with --disable-gpu. */
+/** The demo in the test flavour on a free port and a fresh data directory (mkdtemp) unless given; Chromium by default, or Firefox/WebKit. */
 export async function startBenchDemo(options?: {
   dataDir?: string;
+  browser?: BenchBrowser;
+  headed?: boolean;
 }): Promise<BenchDemo> {
+  const browserName = options?.browser ?? "chromium";
+  const headed = options?.headed ?? false;
+  const browser = await launchBenchBrowser(browserName, headed);
   const ownData = options?.dataDir === undefined;
   const dataDir =
     options?.dataDir ?? (await mkdtemp(join(tmpdir(), "manent bench ")));
@@ -196,10 +265,10 @@ export async function startBenchDemo(options?: {
   try {
     demo = await spawnDemo({ ...ports, dataDir, webDir });
   } catch (error) {
+    await browser.close();
     await removeDirs();
     throw error;
   }
-  const browser = await chromium.launch({ args: ["--disable-gpu"] });
   const halt = async (): Promise<void> => {
     demo.kill("SIGINT");
     await demo.exited;
@@ -216,8 +285,11 @@ export async function startBenchDemo(options?: {
       const context = await browser.newContext();
       try {
         const page = await context.newPage();
-        const cdp = await context.newCDPSession(page);
-        await throttlePage(page, cdp);
+        let cdp: CDPSession | null = null;
+        if (browserName === "chromium") {
+          cdp = await context.newCDPSession(page);
+          await throttlePage(page, cdp);
+        }
         await keepEveryHooks(page);
         await signIn(page, url, userId);
         if (offline) await context.setOffline(true);
@@ -257,6 +329,8 @@ export async function startBenchDemo(options?: {
 
 /** The page's JavaScript heap after a collection, bytes: HeapProfiler.collectGarbage, then JSHeapUsedSize. */
 export async function heapBytes(p: BenchPage): Promise<number> {
+  if (p.cdp === null)
+    throw new Error("heapBytes requires a Chromium CDP session");
   await p.cdp.send("HeapProfiler.collectGarbage");
   await p.cdp.send("Performance.enable");
   const { metrics } = await p.cdp.send("Performance.getMetrics");
@@ -267,6 +341,8 @@ export async function heapBytes(p: BenchPage): Promise<number> {
 
 /** The page's DOM nodes now: Memory.getDOMCounters().nodes. */
 export async function domNodes(p: BenchPage): Promise<number> {
+  if (p.cdp === null)
+    throw new Error("domNodes requires a Chromium CDP session");
   const { nodes } = await p.cdp.send("Memory.getDOMCounters");
   return nodes;
 }

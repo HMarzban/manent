@@ -2,7 +2,10 @@ import { expect, mock, test } from "bun:test";
 import { join } from "node:path";
 import { blocksOf } from "@manent/schema";
 import type { DocJSON } from "@manent/schema";
+import { readBudgets } from "../budgets.ts";
 import * as driver from "../client/driver.ts";
+import type { BenchBrowser, BenchPage } from "../client/driver.ts";
+import { NotMeasured } from "../env.ts";
 import type { Scenario } from "../harness.ts";
 
 const benchRoot = join(import.meta.dir, "..");
@@ -53,22 +56,31 @@ function fakePage(opened: Opened[]) {
 
 const realStart = driver.startBenchDemo;
 let fakeOpened: Opened[] | null = null;
+let startCalls: { browser?: BenchBrowser; headed?: boolean }[] = [];
 mock.module("../client/driver.ts", () => ({
   ...driver,
-  startBenchDemo: (options?: { dataDir?: string }) =>
-    fakeOpened === null
-      ? realStart(options)
-      : {
-          url: "http://127.0.0.1:1",
-          dataDir: "",
-          openPage: async ({ userId }: { userId: string }) => ({
-            page: fakePage(fakeOpened ?? []),
-            cdp: null,
-            userId,
-            close: async () => {},
-          }),
-          stop: async () => {},
-        },
+  startBenchDemo: (options?: {
+    dataDir?: string;
+    browser?: BenchBrowser;
+    headed?: boolean;
+  }) => {
+    if (fakeOpened === null) return realStart(options);
+    startCalls.push({
+      ...(options?.browser === undefined ? {} : { browser: options.browser }),
+      ...(options?.headed === undefined ? {} : { headed: options.headed }),
+    });
+    return {
+      url: "http://127.0.0.1:1",
+      dataDir: "",
+      openPage: async ({ userId }: { userId: string }) => ({
+        page: fakePage(fakeOpened ?? []),
+        cdp: null,
+        userId,
+        close: async () => {},
+      }),
+      stop: async () => {},
+    };
+  },
 }));
 
 test("every typing scenario loads the blocks its name promises", async () => {
@@ -146,3 +158,104 @@ test("proof mode slows the page's own keystroke", async () => {
   const all = Array.isArray(samples) ? samples.map(Number) : [];
   expect([all.length, all.filter((ms) => !(ms >= 200))]).toEqual([3, []]);
 }, 120_000);
+
+test("browser and spellcheck scenarios export expected metadata, pass driver options, and hold no budgets", async () => {
+  const glob = new Bun.Glob("client/browsers/*.bench.ts");
+  const files = [...glob.scanSync({ cwd: benchRoot })].toSorted();
+  const mode = process.env.MANENT_BENCH_MODE;
+  process.env.MANENT_BENCH_MODE = "quick";
+  const found: unknown[] = [];
+  startCalls = [];
+  try {
+    for (const file of files) {
+      const opened: Opened[] = [];
+      fakeOpened = opened;
+      const { default: scenario }: { default: Scenario } = await import(
+        join(benchRoot, file)
+      );
+      const measured = await scenario.run();
+      found.push([
+        scenario.id,
+        scenario.workload,
+        scenario.processes,
+        measured.some((m) => m.metric === "keystroke_paint"),
+      ]);
+    }
+  } finally {
+    fakeOpened = null;
+    if (mode === undefined) delete process.env.MANENT_BENCH_MODE;
+    else process.env.MANENT_BENCH_MODE = mode;
+  }
+  expect(found).toEqual([
+    ["typing-1000-spellcheck", null, 5, true],
+    ["typing-120-firefox", "W1", 5, true],
+    ["typing-120-spellcheck", "W1", 5, true],
+    ["typing-120-webkit", "W1", 5, true],
+  ]);
+  expect(startCalls).toEqual([
+    { browser: "chromium", headed: true },
+    { browser: "firefox" },
+    { browser: "chromium", headed: true },
+    { browser: "webkit" },
+  ]);
+  const ids = new Set([
+    "typing-120-firefox",
+    "typing-120-webkit",
+    "typing-120-spellcheck",
+    "typing-1000-spellcheck",
+  ]);
+  const { budgets } = await readBudgets(benchRoot, "D-modest");
+  expect(budgets.filter((b) => ids.has(b.scenario))).toEqual([]);
+}, 120_000);
+
+test("missing display, missing browser, and null CDP are reported cleanly", async () => {
+  expect(() => driver.checkHeadedDisplay(true, "linux", {})).toThrow(
+    NotMeasured,
+  );
+  expect(() => driver.checkHeadedDisplay(true, "linux", {})).toThrow(
+    "no display for a headed browser",
+  );
+  expect(() =>
+    driver.checkHeadedDisplay(true, "linux", { DISPLAY: ":99" }),
+  ).not.toThrow();
+  expect(() =>
+    driver.checkHeadedDisplay(true, "linux", { WAYLAND_DISPLAY: "wayland-0" }),
+  ).not.toThrow();
+  expect(() => driver.checkHeadedDisplay(true, "darwin", {})).not.toThrow();
+  expect(() => driver.checkHeadedDisplay(false, "linux", {})).not.toThrow();
+
+  const missingFf = driver.translateLaunchError(
+    "firefox",
+    false,
+    new Error("browserType.launch: Executable doesn't exist at /cache/firefox"),
+  );
+  expect(missingFf).toBeInstanceOf(NotMeasured);
+  expect(missingFf?.message).toBe(
+    "firefox is not installed: run bun x playwright install firefox",
+  );
+
+  const missingDisplay = driver.translateLaunchError(
+    "chromium",
+    true,
+    new Error("Missing X server or $DISPLAY"),
+  );
+  expect(missingDisplay).toBeInstanceOf(NotMeasured);
+  expect(missingDisplay?.message).toBe("no display for a headed browser");
+
+  expect(
+    driver.translateLaunchError("chromium", false, new Error("other error")),
+  ).toBeNull();
+
+  const noCdp: BenchPage = {
+    page: {} as BenchPage["page"],
+    cdp: null,
+    userId: "you",
+    close: async () => {},
+  };
+  await expect(driver.heapBytes(noCdp)).rejects.toThrow(
+    "heapBytes requires a Chromium CDP session",
+  );
+  await expect(driver.domNodes(noCdp)).rejects.toThrow(
+    "domNodes requires a Chromium CDP session",
+  );
+});

@@ -81,7 +81,7 @@ test("requireCdp and CDP storage helpers throw NotMeasured when CDP is absent or
     send: async () => {
       throw new Error("Protocol error: Storage domain not supported");
     },
-  } as unknown as BenchPage["cdp"];
+  } as unknown as NonNullable<BenchPage["cdp"]>;
 
   await expect(
     readOriginUsage(refusingCdp, "http://127.0.0.1:1234"),

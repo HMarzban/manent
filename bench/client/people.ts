@@ -233,8 +233,10 @@ function frameByteLength(opcode: number, payloadData: string): number {
 
 /** Counts WebSocket bytes sent and received on `cdp`. */
 export async function watchSocketBytes(
-  cdp: CDPSession,
+  cdp: CDPSession | null,
 ): Promise<() => { sent: number; received: number }> {
+  if (cdp === null)
+    throw new Error("watchSocketBytes requires a Chromium CDP session");
   await cdp.send("Network.enable");
   let sent = 0;
   let received = 0;
