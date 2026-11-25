@@ -21,6 +21,7 @@ import { TOGETHER_SUGGEST_READY } from "./together-suggest-ready.ts";
 import { TOGETHER_PRESENT_READY } from "./together-present-ready.ts";
 import { TOGETHER_PRIVATE_READY } from "./together-private-ready.ts";
 import { TOGETHER_NOTE_READY } from "./together-note-ready.ts";
+import { TOGETHER_CAN_ALSO_READY } from "./together-can-also-ready.ts";
 
 /** Run on the live server as the scenario's person, through `driver`. */
 export interface TourPreparation {
@@ -48,4 +49,5 @@ export const TOUR_PREPARATIONS: readonly TourPreparation[] = [
   TOGETHER_PRESENT_READY,
   TOGETHER_PRIVATE_READY,
   TOGETHER_NOTE_READY,
+  TOGETHER_CAN_ALSO_READY,
 ];
