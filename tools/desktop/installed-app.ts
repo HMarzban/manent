@@ -1,28 +1,58 @@
 // The installed desktop app as the smoke drives it from outside: where it lives, its processes judged by
 // executable path (the launcher can outlive the app), launching it, quitting it and measuring it.
-import { dirname, join } from "node:path";
+import { realpathSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 const QUIT_WAIT_MS = 15_000;
+const EMBEDDED_CLOUD_ENTRY = join("app", "cloud", "main.js");
 
 export interface Install {
   root: string;
   resources: string;
 }
 
+function canonicalPath(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return resolve(path);
+  }
+}
+
 /** macOS: the `.app` bundle; elsewhere the folder above the executable's own. */
 export function installOf(app: string): Install {
   if (process.platform !== "darwin") {
-    const root = dirname(dirname(app));
+    const root = canonicalPath(dirname(dirname(app)));
     return { root, resources: join(root, "Resources") };
   }
-  const root = app.slice(0, app.lastIndexOf(".app") + ".app".length);
+  const root = canonicalPath(
+    app.slice(0, app.lastIndexOf(".app") + ".app".length),
+  );
   return { root, resources: join(root, "Contents", "Resources") };
 }
 
-interface AppProcess {
+export interface AppProcess {
   pid: number;
   rssBytes: number;
   command: string;
+}
+
+/** True for the embedded demo cloud server and its background seed worker, which stand in for a remote server in demo builds. */
+export function isEmbeddedCloudProcess(command: string): boolean {
+  return (
+    command.includes(EMBEDDED_CLOUD_ENTRY) ||
+    command.includes("app/cloud/main.js")
+  );
+}
+
+/** Resident memory summed over the desktop app's own processes, leaving out the embedded demo cloud; null when none match. */
+export function sumDesktopRss(processes: readonly AppProcess[]): number | null {
+  const desktop = processes.filter(
+    ({ command }) => !isEmbeddedCloudProcess(command),
+  );
+  return desktop.length === 0
+    ? null
+    : desktop.reduce((sum, { rssBytes }) => sum + rssBytes, 0);
 }
 
 const LISTING = new RegExp("^\\s*(\\d+)\\s+(\\d+)\\s+(.+)$");
@@ -73,7 +103,7 @@ export function launch(
   dataDir: string,
 ): { spawnedAt: number; exited: Promise<number> } {
   const spawnedAt = Date.now();
-  const child = Bun.spawn([app], {
+  const child = Bun.spawn([canonicalPath(app)], {
     env: { ...process.env, MANENT_DATA_DIR: dataDir },
     stdio: ["ignore", "inherit", "inherit"],
   });
@@ -100,12 +130,9 @@ export async function quit(install: Install): Promise<void> {
   }
 }
 
-/** Resident memory summed over the app's processes; null where the system lists none. */
+/** Resident memory summed over the desktop app's own processes (excluding the embedded demo cloud); null where the system lists none. */
 export function idleRss(install: Install): number | null {
-  const running = appProcesses(install.root);
-  return running.length === 0
-    ? null
-    : running.reduce((sum, { rssBytes }) => sum + rssBytes, 0);
+  return sumDesktopRss(appProcesses(install.root));
 }
 
 /** Ends the app's embedded cloud, so the node is offline while the app runs. */
