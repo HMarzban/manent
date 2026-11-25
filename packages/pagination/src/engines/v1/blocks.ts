@@ -49,7 +49,7 @@ export function toLayoutBlock(view: BlockView): LayoutBlock {
     width: attrs.width,
     spaceBefore: attrs.spaceBefore,
     noContd: attrs.noContd,
-    noTiming: attrs.noTiming === true,
+    ...(attrs.noTiming === true ? { noTiming: true } : {}),
   });
 }
 

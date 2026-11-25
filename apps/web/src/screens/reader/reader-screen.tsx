@@ -330,7 +330,7 @@ export function ReaderScreen(props: {
       </h1>
       <div className="flex min-h-0 flex-1">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="max-sm:[&_[data-tour=state_bar]>div]:flex-wrap max-sm:[&_[data-tour=state_bar]_span]:whitespace-normal">
+          <div className="max-sm:[&>*>div]:flex-wrap max-sm:[&>*_span]:whitespace-normal">
             <StateBar
               left={leftLine}
               right={rightLine}
