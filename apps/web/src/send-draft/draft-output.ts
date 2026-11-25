@@ -6,9 +6,15 @@ import {
   compareDocs,
   compareModeOf,
   markedLines,
+  selectSides,
 } from "@manent/revisions";
 import type { Pagination } from "@manent/pagination";
-import { liveEditor, liveFrontPages } from "../editor-host/live-editor.ts";
+import { PRODUCTION_OUTPUTS_WORDS } from "@manent/ui";
+import {
+  liveEditor,
+  liveFrontPages,
+  liveFurniture,
+} from "../editor-host/live-editor.ts";
 import { liveProduction } from "../editor-host/production.ts";
 import { docOfContent } from "../history/content-doc.ts";
 import type { HistorySource } from "../history/source.ts";
@@ -16,6 +22,7 @@ import { loadPdfFonts } from "../send/pdf-fonts.ts";
 import { engineOf } from "../send/print-pages.ts";
 import { fileName, save } from "../send/script-file.ts";
 import type { ExportFileType } from "../send/script-file.ts";
+import { sidesSelectionFor } from "../send/sides-file.tsx";
 import type { Environment } from "../services/ports.ts";
 
 export type DraftWhatId =
@@ -23,6 +30,7 @@ export type DraftWhatId =
   | "pages"
   | "scenes"
   | "revised_pages"
+  | "sides_scenes"
   | "full_draft"
   | "changed_pages";
 
@@ -58,7 +66,8 @@ export function parseWhat(
     raw === "whole_script" ||
     raw === "full_draft" ||
     raw === "changed_pages" ||
-    raw === "revised_pages"
+    raw === "revised_pages" ||
+    raw === "sides_scenes"
   )
     return { ...base, id: raw };
   const pageMatch = /^pages:(\d+)-(\d+)$/.exec(raw);
@@ -140,8 +149,8 @@ function pageMatchesRange(
   low: number,
   high: number,
 ): boolean {
-  const numeric = /^\d+/.exec(label);
-  const value = numeric === null ? index + 1 : Number(numeric[0]);
+  const numeric = /^[A-Z]*(\d+)/.exec(label);
+  const value = numeric === null ? index + 1 : Number(numeric[1]);
   return value >= low && value <= high;
 }
 
@@ -196,6 +205,10 @@ export function selectPageIndexes(
       .filter((page) => revised.has(page.label))
       .map((page) => page.index);
   }
+  if (what.id === "sides_scenes") {
+    const choice = sidesSelectionFor(docId, p);
+    return choice === null ? [] : selectSides(p, choice.ids).pages;
+  }
   const activeLines = changedLines ?? EMPTY_LINES;
   const engine = engineOf(p);
   return p.pages
@@ -215,6 +228,22 @@ async function fetchBytes(url: string): Promise<Uint8Array> {
   if (!response.ok)
     throw new Error(`the font file ${url} answered ${response.status}`);
   return new Uint8Array(await response.arrayBuffer());
+}
+
+function isoDay(at: number): string {
+  const date = new Date(at);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+const DOWNLOAD_GAP_MS = 100;
+
+function pauseBetweenDownloads(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, DOWNLOAD_GAP_MS);
+  });
 }
 
 /** Generates and saves the sender's local copy for every chosen file type after a draft is sent. */
@@ -246,10 +275,24 @@ export async function downloadDraftFiles(options: {
   } = options;
   if (watermarkRequired && watermarkName === null) return;
   const front = liveFrontPages(docId) ?? [];
+  const furniture = liveFurniture(docId);
   const labelTitle = `${title} — ${draftName}`;
+  let savedCount = 0;
+
+  const saveSequential = async (
+    bytes: Uint8Array<ArrayBuffer>,
+    name: string,
+    mime: string,
+  ): Promise<void> => {
+    // Yield between back-to-back blob downloads so Firefox never stalls multi-file sends.
+    if (savedCount > 0) await pauseBetweenDownloads();
+    save(bytes, name, mime);
+    savedCount += 1;
+  };
 
   for (const id of selectedFileIds) {
     if (id === "pdf" || id === "pdf_asterisks") {
+      const created = now();
       const [fonts, { writePdf }] = await Promise.all([
         loadPdfFonts(fetchBytes),
         import("@manent/formats"),
@@ -265,16 +308,55 @@ export async function downloadDraftFiles(options: {
           front,
           pages: pageIndexes,
           title: labelTitle,
-          createdAt: now(),
+          createdAt: created,
           decor,
+          watermark: watermarkName,
+          header: furniture.header ?? null,
+          footer: furniture.footer ?? null,
+          dateFormat: furniture.dateFormat ?? null,
+          revisionLabel: furniture.revisionLabel ?? null,
+          day: furniture.day ?? isoDay(created),
+          durationMs: furniture.durationMs,
+        }),
+      );
+      const baseTitle =
+        id === "pdf_asterisks"
+          ? `${title} - ${draftName} (marked)`
+          : `${title} - ${draftName}`;
+      await saveSequential(
+        bytes,
+        fileName(baseTitle, ".pdf"),
+        "application/pdf",
+      );
+      continue;
+    }
+    if (id === "sides") {
+      const choice = sidesSelectionFor(docId, pagination);
+      if (choice === null) continue;
+      const { pages, pagination: struck } = selectSides(pagination, choice.ids);
+      if (pages.length === 0) continue;
+      const [fonts, { writePdf }] = await Promise.all([
+        loadPdfFonts(fetchBytes),
+        import("@manent/formats"),
+      ]);
+      const bytes = new Uint8Array(
+        await writePdf(struck, {
+          fonts,
+          pages,
+          title: labelTitle,
+          createdAt: now(),
           watermark: watermarkName,
         }),
       );
-      const suffix =
-        id === "pdf_asterisks"
-          ? ` - ${draftName} (marked).pdf`
-          : ` - ${draftName}.pdf`;
-      save(bytes, fileName(title, suffix), "application/pdf");
+      const name = fileName(
+        PRODUCTION_OUTPUTS_WORDS.sidesFileName(
+          labelTitle,
+          choice.first.number,
+          choice.last.number,
+        ),
+        ".pdf",
+      );
+      await saveSequential(bytes, name, "application/pdf");
       continue;
     }
     const type = offeredTypes.find((entry) => entry.id === id);
@@ -285,7 +367,8 @@ export async function downloadDraftFiles(options: {
         pages: pagination,
         now,
       });
-      save(written.bytes, written.name, type.mime);
+      await saveSequential(written.bytes, written.name, type.mime);
     }
   }
+  if (savedCount > 1) await pauseBetweenDownloads();
 }

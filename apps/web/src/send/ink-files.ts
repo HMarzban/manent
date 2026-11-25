@@ -3,10 +3,11 @@ import { jsonMap, scriptBody } from "@manent/crdt";
 import type { InkProblem } from "@manent/formats";
 import type { BlockJSON, DocJSON } from "@manent/schema";
 import { indexDocId } from "@manent/sync-protocol";
-import { GAME_EXPORTS_WORDS, LIBRARY_WORDS } from "@manent/ui";
+import { GAME_EXPORTS_WORDS, INK_WORDS, LIBRARY_WORDS } from "@manent/ui";
 import { archiveSource } from "../archive/archive-source.ts";
 import { liveEditor } from "../editor-host/live-editor.ts";
 import type { LiveEditor } from "../editor-host/live-editor.ts";
+import { summariesOfServices } from "../services/api-cache.ts";
 import type { PersonServices } from "../services/ports.ts";
 import { readWorkspace } from "../services/sync/index-entries.ts";
 import { fileName } from "./script-file.ts";
@@ -68,15 +69,29 @@ async function blocksOfDocument(docId: string): Promise<readonly BlockJSON[]> {
 
 /** The project holding `docId`, with all its non-trashed Ink documents in workspace-index order. */
 async function inkProjectOf(
-  services: Pick<PersonServices, "api" | "userId" | "openHandle">,
+  services: PersonServices,
   docId: string,
 ): Promise<ListedInkProject | null> {
   const me = await services.api.me();
   const listed = me.ok ? me.me.workspaces.map((w) => w.id) : [];
-  for (const workspaceId of new Set([...listed, services.userId])) {
-    const handle = await services.openHandle(
-      indexDocId("workspace", workspaceId),
-    );
+  const candidateIndexIds = new Set<string>(
+    [...listed, services.userId].map((id) => indexDocId("workspace", id)),
+  );
+  if (!me.ok) {
+    const userIndex = indexDocId("user", services.userId);
+    const summaries = await summariesOfServices(services);
+    for (const summary of summaries ?? []) {
+      if (summary.docId !== docId && summary.docId !== userIndex)
+        candidateIndexIds.add(summary.docId);
+    }
+  }
+  for (const indexId of candidateIndexIds) {
+    let handle: Awaited<ReturnType<PersonServices["openHandle"]>>;
+    try {
+      handle = await services.openHandle(indexId);
+    } catch {
+      continue;
+    }
     try {
       const doc = handle.doc();
       const index = readWorkspace({
@@ -197,6 +212,21 @@ export async function inkProjectLeftOut(
 ): Promise<string | null> {
   const gathered = await gatherInkProject(work);
   return formatInkProjectNotice(gathered.missingTitles, gathered.problems);
+}
+
+/** Reports compile problems for Compiled Ink (JSON) before export; null when clean. */
+export async function inkJsonLeftOut(
+  work: ExportTarget,
+): Promise<string | null> {
+  const [{ compileInk, inkSourceOf }, blocks] = await Promise.all([
+    import("@manent/formats"),
+    blocksOfDocument(work.docId),
+  ]);
+  const compiled = compileInk(inkSourceOf(blocks));
+  if (compiled.ok) return null;
+  return compiled.problems
+    .map((problem) => INK_WORDS.checkProblem(problem.line, problem.message))
+    .join("\n");
 }
 
 /** Compiles the open Ink document with inkjs and writes `<title>.ink.json`; rejects cleanly if compilation fails. */

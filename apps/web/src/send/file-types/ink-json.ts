@@ -14,5 +14,6 @@ export const inkJsonFileType: ExportFileType = {
   pagesOf: null,
   write: async (work) =>
     (await import("../ink-files.ts")).writeInkJsonFile(work),
-  leftOut: () => Promise.resolve(null),
+  leftOut: async (work) =>
+    (await import("../ink-files.ts")).inkJsonLeftOut(work),
 };

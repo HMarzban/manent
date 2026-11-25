@@ -16,7 +16,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -26,9 +25,16 @@ import { tourTab } from "../../demo/tour-tab.tsx";
 import { browserPagePorts } from "../../editor-host/page-ports.ts";
 import { ScriptPageSkeleton } from "../../editor-host/script-page-skeleton.tsx";
 import { focusHeading } from "../../focus.ts";
+import { stopReadAloud } from "../../read-aloud/runner.ts";
+import { useReadAloudFacts } from "../../read-aloud/state-facts.ts";
 import { createReaderCommentsSession } from "../../reader/reader-comments.ts";
 import type { ReaderCommentsSession } from "../../reader/reader-comments.ts";
 import { blockTextOf } from "../../reader/reader-compare.ts";
+import {
+  clearPendingTap,
+  readPendingTap,
+  writePendingTap,
+} from "../../reader/reader-storage.ts";
 import {
   formatReaderDayDate,
   readerRefusalText,
@@ -81,7 +87,6 @@ export function ReaderScreen(props: {
 
   const [choosingToComment, setChoosingToComment] = useState(false);
   const [popover, setPopover] = useState<ReaderPopoverMode | null>(null);
-  const pendingTapRef = useRef<TappedLine | null>(null);
 
   const localMessages = useMemo(
     () =>
@@ -118,6 +123,7 @@ export function ReaderScreen(props: {
 
   // Keep comments session strictly on the comments CRDT for signed-in online readers with canComment.
   const readyDraft = state.kind === "ready" ? state.draft : null;
+  const readAloudFacts = useReadAloudFacts(readyDraft?.docId ?? "");
   const offline = state.kind === "ready" && state.offlineOpenedAt !== null;
   const commentsSession = useMemo<ReaderCommentsSession | null>(() => {
     if (
@@ -145,16 +151,11 @@ export function ReaderScreen(props: {
 
   // Open pending tap-to-comment popover once a reader returns from Choose who you are.
   useEffect(() => {
-    const pending = pendingTapRef.current;
-    if (
-      pending === null ||
-      readyDraft === null ||
-      offline ||
-      !signedIn ||
-      !readyDraft.canComment
-    )
+    if (readyDraft === null || offline || !signedIn || !readyDraft.canComment)
       return;
-    pendingTapRef.current = null;
+    const pending = readPendingTap(environment.tabStorage, token);
+    if (pending === null) return;
+    clearPendingTap(environment.tabStorage, token);
     const text = blockTextOf(readyDraft.content, pending.blockId);
     if (text === null) return;
     setPopover({
@@ -162,7 +163,7 @@ export function ReaderScreen(props: {
       anchor: textAnchorAt({ id: pending.blockId, text }, 0, text.length),
       place: pending.place,
     });
-  }, [readyDraft, offline, signedIn]);
+  }, [readyDraft, offline, signedIn, environment.tabStorage, token]);
 
   useEffect(() => {
     if (state.kind === "ready") {
@@ -186,6 +187,10 @@ export function ReaderScreen(props: {
         hideComparison();
         return;
       }
+      if (commandId === "readAloud.stop" && services === null) {
+        stopReadAloud();
+        return;
+      }
       services?.commands.run(commandId, "control");
     },
     [services, runSinceLastRead, hideComparison],
@@ -195,7 +200,7 @@ export function ReaderScreen(props: {
     (tapped: TappedLine): void => {
       if (state.kind !== "ready" || state.offlineOpenedAt !== null) return;
       if (!signedIn) {
-        pendingTapRef.current = tapped;
+        writePendingTap(environment.tabStorage, token, tapped);
         setChoosingToComment(true);
         return;
       }
@@ -205,7 +210,7 @@ export function ReaderScreen(props: {
       const anchor = textAnchorAt({ id: tapped.blockId, text }, 0, text.length);
       setPopover({ kind: "comment", anchor, place: tapped.place });
     },
-    [state, signedIn, commentsSession],
+    [state, signedIn, commentsSession, environment.tabStorage, token],
   );
 
   if (state.kind === "needs_sign_in") {
@@ -230,7 +235,7 @@ export function ReaderScreen(props: {
         next={`/r/${token}`}
         commentTitle={state.draft.name}
         onCancel={() => {
-          pendingTapRef.current = null;
+          clearPendingTap(environment.tabStorage, token);
           setChoosingToComment(false);
         }}
       />
@@ -293,6 +298,7 @@ export function ReaderScreen(props: {
           },
         ]
       : []),
+    ...readAloudFacts,
   ]);
   const leftLine = bar.left;
 
@@ -324,12 +330,14 @@ export function ReaderScreen(props: {
       </h1>
       <div className="flex min-h-0 flex-1">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <StateBar
-            left={leftLine}
-            right={rightLine}
-            run={runCommand}
-            registered={isRegistered}
-          />
+          <div className="max-sm:[&>*>div]:flex-wrap max-sm:[&>*_span]:whitespace-normal">
+            <StateBar
+              left={leftLine}
+              right={rightLine}
+              run={runCommand}
+              registered={isRegistered}
+            />
+          </div>
           <ReaderPage
             content={draft.content}
             watermark={draft.watermark}
@@ -342,7 +350,7 @@ export function ReaderScreen(props: {
           <div
             className={
               hasMessage
-                ? "flex h-statusbar items-center border-t border-line bg-chrome px-3 text-ui"
+                ? "flex h-statusbar items-center border-t border-line bg-chrome px-3 text-ui text-fg"
                 : "sr-only"
             }
           >

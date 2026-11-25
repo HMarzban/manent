@@ -49,6 +49,7 @@ function createEntry(services: PersonServices, docId: string): StoreEntry {
   let refCount = 0;
   let stopControls: (() => void) | null = null;
   let inFlight = false;
+  let inFlightEpoch = -1;
   let queued = false;
 
   const startControls = (): void => {
@@ -93,6 +94,7 @@ function createEntry(services: PersonServices, docId: string): StoreEntry {
     }
     inFlight = true;
     const callEpoch = epoch;
+    inFlightEpoch = callEpoch;
     try {
       const answer = await listDraftSends(services.userId, docId);
       if (callEpoch !== epoch || !active) return;
@@ -121,6 +123,7 @@ function createEntry(services: PersonServices, docId: string): StoreEntry {
       });
     } finally {
       inFlight = false;
+      inFlightEpoch = -1;
       if (queued && active) {
         queued = false;
         void refresh();
@@ -145,7 +148,7 @@ function createEntry(services: PersonServices, docId: string): StoreEntry {
       refCount += 1;
       if (refCount === 1 && active) {
         startControls();
-        if (!inFlight) void refresh();
+        if (!inFlight && value.get().status === "loading") void refresh();
       }
       const unsub = value.subscribe(listener);
       return () => {
@@ -182,7 +185,7 @@ function createEntry(services: PersonServices, docId: string): StoreEntry {
     }
     value.set(EMPTY(docId));
     if (refCount > 0) startControls();
-    void refresh();
+    if (!(inFlight && inFlightEpoch === epoch)) void refresh();
   };
 
   return { store, record, setActive };

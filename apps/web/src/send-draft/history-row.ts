@@ -43,7 +43,7 @@ function useCanSeeDraftSends(docId: string): boolean {
   );
 }
 
-function tooltipOf(send: DraftSendItem): string | null {
+function openerSummaryOf(send: DraftSendItem): string | null {
   if (send.groups.length === 0 && send.recipientCount === 0 && !send.hasLink)
     return null;
   if (send.openerNames.length > 0)
@@ -56,16 +56,25 @@ function tooltipOf(send: DraftSendItem): string | null {
   return null;
 }
 
+function directCountOf(send: DraftSendItem): number | null {
+  if (!("directRecipientCount" in send)) return null;
+  const raw: unknown = send.directRecipientCount;
+  return typeof raw === "number" ? raw : null;
+}
+
 function formatSentHistoryRow(send: DraftSendItem): RowLine {
+  const text = DRAFTS_WORDS.sentHistoryRow({
+    groups: send.groups,
+    recipientCount: send.recipientCount,
+    directRecipientCount: directCountOf(send),
+    openedCount: send.openedCount,
+    totalOpens: send.totalOpens,
+    hasLink: send.hasLink,
+  });
+  const opener = openerSummaryOf(send);
   return {
-    text: DRAFTS_WORDS.sentHistoryRow({
-      groups: send.groups,
-      recipientCount: send.recipientCount,
-      openedCount: send.openedCount,
-      totalOpens: send.totalOpens,
-      hasLink: send.hasLink,
-    }),
-    tooltip: tooltipOf(send),
+    text,
+    tooltip: opener === null ? text : `${text} · ${opener}`,
   };
 }
 
@@ -76,14 +85,12 @@ export const sendDraftHistoryRow: RowExtension = {
   },
   useLine(docId, item) {
     const services = useServices();
-    const canEdit = useCanSeeDraftSends(docId);
     const store = useMemo(
       () => draftSendsOf(services, docId),
       [services, docId],
     );
     const state = useSubscribable(store);
-    if (item.kind !== "sent" || !canEdit || state.status !== "ready")
-      return null;
+    if (item.kind !== "sent" || state.status !== "ready") return null;
     const send = findSendForVersion(state.sends, item.id);
     return send === null ? null : formatSentHistoryRow(send);
   },

@@ -16,12 +16,27 @@ import { typesOffered } from "./file-types.ts";
 import { useSendPages } from "./page-tiles.tsx";
 import { save } from "./script-file.ts";
 import type { ExportFileType } from "./script-file.ts";
+import { clearSidesRange } from "./sides-file.tsx";
 
 const WORDS = EDITOR_WORDS.send;
+const WRAP_AS_THRESHOLD = 4;
+
+function splitInkProjectLines(sentence: string): {
+  readonly checks: readonly string[];
+  readonly notices: readonly string[];
+} {
+  const checks: string[] = [];
+  const notices: string[] = [];
+  for (const line of sentence.split("\n")) {
+    if (line.startsWith("! ")) checks.push(line);
+    else if (line !== "") notices.push(line);
+  }
+  return { checks, notices };
+}
 
 /**
  * The Checks row: the script's checks for a file drawn in the script font, else what the file leaves out, worked out
- * again when the type or the open editor changes. Nothing while the pages are not known.
+ * again when the type or the open editor changes. For Whole project as Ink, S4-IK-31/32 notices sit above Export.
  */
 function useChecksRow(
   docId: string,
@@ -29,13 +44,14 @@ function useChecksRow(
   type: ExportFileType | null,
   p: Pagination | null,
   readyWithoutPages: boolean,
-): SendRow | null {
+): { readonly row: SendRow | null; readonly notice: ReactNode } {
   const leftOut = type?.leftOut ?? null;
+  const isInkProject = type?.id === "ink_project";
   const checks = useMemo(
     () => (p === null || leftOut !== null ? null : checksRow(docId)),
     [docId, p, leftOut],
   );
-  const [said, setSaid] = useState<SendRow | null>(null);
+  const [said, setSaid] = useState<string | null>(null);
   useEffect(() => {
     setSaid(null);
     if (leftOut === null || (p === null && !readyWithoutPages))
@@ -43,8 +59,7 @@ function useChecksRow(
     let shown = true;
     leftOut({ docId, title }).then(
       (sentence) => {
-        if (shown && sentence !== null)
-          setSaid({ id: "checks", content: sentence });
+        if (shown && sentence !== null) setSaid(sentence);
       },
       () => {
         // nothing is said before export; the export itself says it could not write the file
@@ -54,7 +69,37 @@ function useChecksRow(
       shown = false;
     };
   }, [docId, title, leftOut, p, readyWithoutPages]);
-  return leftOut === null ? checks : said;
+  if (leftOut === null) return { row: checks, notice: null };
+  if (said === null) return { row: null, notice: null };
+  if (!isInkProject) {
+    return {
+      row: { id: "checks", content: said },
+      notice: null,
+    };
+  }
+  const split = splitInkProjectLines(said);
+  const row: SendRow | null =
+    split.checks.length === 0
+      ? null
+      : {
+          id: "checks",
+          content: (
+            <ul className="flex flex-col gap-1">
+              {split.checks.map((line, index) => (
+                <li key={index}>{line}</li>
+              ))}
+            </ul>
+          ),
+        };
+  const notice: ReactNode =
+    split.notices.length === 0 ? null : (
+      <div className="flex flex-col items-end gap-1 text-right text-ui text-fg-muted">
+        {split.notices.map((line, index) => (
+          <p key={index}>{line}</p>
+        ))}
+      </div>
+    );
+  return { row, notice };
 }
 
 /**
@@ -144,16 +189,20 @@ function useExportAction(
   return { busy, problem, run };
 }
 
-/** The As row: the file type chosen among those offered. */
+/** The As row: the file type chosen among those offered, wrapping cleanly when many types are offered. */
 function asRow(
   type: ExportFileType,
   types: readonly ExportFileType[],
   choose: (id: string) => void,
 ): SendRow {
+  const wrapClass =
+    types.length > WRAP_AS_THRESHOLD
+      ? "[&_[data-slot=toggle-group]]:flex-wrap [&_[data-slot=toggle-group]]:gap-1 [&_[data-slot=toggle-group-item]]:rounded-md! [&_[data-slot=toggle-group-item]]:border-l!"
+      : undefined;
   return {
     id: "as",
     content: (
-      <div data-tour="send:as">
+      <div data-tour="send:as" className={wrapClass}>
         <Segmented
           label={SEND_WORDS.as}
           value={type.id}
@@ -179,14 +228,23 @@ export function LiveExport(props: SendFormProps): ReactNode {
   const [chosenId, choose] = useState(askedType);
   const type = types.find((entry) => entry.id === chosenId) ?? types[0] ?? null;
   const what = useWhatRow("export", type?.id ?? null, to.locked, docId);
+  const whatId = what?.option.id ?? null;
+  useEffect(() => {
+    if (type?.id === "sides" && whatId !== null && whatId !== "sides_scenes")
+      clearSidesRange(docId);
+  }, [docId, type?.id, whatId]);
+  const pagesOf =
+    type?.id === "sides" && whatId !== "sides_scenes"
+      ? null
+      : (type?.pagesOf ?? null);
   const { p, pages, title, tiles, back } = useSendPages(
     docId,
     what?.option ?? null,
-    type?.pagesOf ?? null,
+    pagesOf,
     what?.revision ?? 0,
   );
   const inkReady = isInk && type !== null && type.docKinds.includes("ink");
-  const checks = useChecksRow(docId, title, type, p, inkReady);
+  const { row: checks, notice } = useChecksRow(docId, title, type, p, inkReady);
   const { busy, problem, run } = useExportAction(docId, title, back);
   const canRun = type !== null && (pages !== null || inkReady);
   return (
@@ -199,6 +257,8 @@ export function LiveExport(props: SendFormProps): ReactNode {
         ...(type === null ? [] : [asRow(type, types, choose)]),
       ]}
       pages={tiles}
+      hidePages={isInk}
+      notice={notice}
       action={{
         label: WORDS.exportTitle(1),
         busyLabel: WORDS.exporting(1),

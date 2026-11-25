@@ -18,6 +18,7 @@ export interface LayoutBlock {
   readonly width: number | null;
   readonly spaceBefore: number | null;
   readonly noContd: boolean;
+  readonly noTiming?: boolean;
 }
 
 /** A caller's change to one block before it is measured. */

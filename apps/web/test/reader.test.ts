@@ -11,10 +11,14 @@ import {
 import { createReaderRequests } from "../src/reader/reader-requests.ts";
 import {
   READER_LAST_READ_KEY,
+  clearPendingTap,
   readAnonLastRead,
   readCachedDraft,
+  readPendingTap,
+  removeCachedDraft,
   writeAnonLastRead,
   writeCachedDraft,
+  writePendingTap,
 } from "../src/reader/reader-storage.ts";
 
 function memoryStorage(): Storage {
@@ -135,6 +139,44 @@ describe("reader storage", () => {
     expect(readCachedDraft(storage, "tok-9", "leo")?.draft.versionId).toBe(
       "ver-9",
     );
+  });
+
+  test("keys offline cache by (userId, token) so two readers do not overwrite each other and supports eviction", () => {
+    const storage = memoryStorage();
+    const leoDraft = sampleDraft({ watermark: "Leo Marsh" });
+    const samDraft = sampleDraft({ watermark: "Sam Okafor" });
+
+    writeCachedDraft(storage, "shared-tok", "leo", 1000, leoDraft);
+    writeCachedDraft(storage, "shared-tok", "sam", 2000, samDraft);
+
+    expect(readCachedDraft(storage, "shared-tok", "leo")?.draft.watermark).toBe(
+      "Leo Marsh",
+    );
+    expect(readCachedDraft(storage, "shared-tok", "sam")?.draft.watermark).toBe(
+      "Sam Okafor",
+    );
+
+    removeCachedDraft(storage, "shared-tok", "leo");
+    expect(readCachedDraft(storage, "shared-tok", "leo")).toBeNull();
+    expect(readCachedDraft(storage, "shared-tok", "sam")?.draft.watermark).toBe(
+      "Sam Okafor",
+    );
+  });
+
+  test("persists and clears pending tap-to-comment targets per token in tabStorage", () => {
+    const storage = memoryStorage();
+    expect(readPendingTap(storage, "tok-1")).toBeNull();
+    writePendingTap(storage, "tok-1", {
+      blockId: "block002",
+      place: { left: 120, top: 240 },
+    });
+    expect(readPendingTap(storage, "tok-1")).toEqual({
+      blockId: "block002",
+      place: { left: 120, top: 240 },
+    });
+    expect(readPendingTap(storage, "tok-other")).toBeNull();
+    clearPendingTap(storage, "tok-1");
+    expect(readPendingTap(storage, "tok-1")).toBeNull();
   });
 });
 

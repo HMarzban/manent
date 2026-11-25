@@ -2,7 +2,13 @@
 import type { Comparison } from "@manent/revisions";
 import type { DocJSON } from "@manent/schema";
 import type { DraftOpenResponse } from "@manent/sync-protocol";
-import { READER_WORDS, formatDate, formatDay } from "@manent/ui";
+import {
+  DIALOG_WORDS,
+  DRAFTS_WORDS,
+  READER_WORDS,
+  formatDate,
+  formatDay,
+} from "@manent/ui";
 import type { MessageQueue } from "@manent/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { compareDrafts } from "./reader-compare.ts";
@@ -11,6 +17,7 @@ import { createReaderRequests } from "./reader-requests.ts";
 import {
   readAnonLastRead,
   readCachedDraft,
+  removeCachedDraft,
   writeAnonLastRead,
   writeCachedDraft,
 } from "./reader-storage.ts";
@@ -129,10 +136,12 @@ export function useReaderDraft(options: {
         return;
       }
       if (answer.code === "link_expired") {
+        removeCachedDraft(environment.storage, token, userId);
         setState({ kind: "refused", reason: "link_expired" });
         return;
       }
       if (answer.code === "not_sent") {
+        removeCachedDraft(environment.storage, token, userId);
         setState({ kind: "refused", reason: "not_sent" });
         return;
       }
@@ -150,6 +159,7 @@ export function useReaderDraft(options: {
         setState({ kind: "refused", reason: "unreachable" });
         return;
       }
+      removeCachedDraft(environment.storage, token, userId);
       setState({ kind: "refused", reason: "link_revoked" });
     });
 
@@ -160,10 +170,20 @@ export function useReaderDraft(options: {
 
   const runSinceLastRead = useCallback((): void => {
     if (state.kind !== "ready") return;
-    if (
-      state.previousReadVersionId === null ||
-      state.offlineOpenedAt !== null
-    ) {
+    if (state.offlineOpenedAt !== null) {
+      messageQueue.push({
+        id: "reader.sinceLastRead.offline",
+        text: DIALOG_WORDS.disabledLine(
+          READER_WORDS.sinceLastRead,
+          DRAFTS_WORDS.needsConnection,
+        ),
+        actions: [],
+        lifetime: "brief",
+        ownWork: false,
+      });
+      return;
+    }
+    if (state.previousReadVersionId === null) {
       messageQueue.push({
         id: "reader.sinceLastRead.none",
         text: READER_WORDS.sinceLastReadReasonMessage,

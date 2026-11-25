@@ -1,11 +1,12 @@
 // The Send draft form: Checks, Name (from ladder), What, As, To, remembering last choices per group.
+import { Button, DIALOG_WORDS } from "@manent/ui";
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 import { checksRow } from "../checks/send-row.tsx";
 import type { SendForm, SendFormProps } from "../screens/send/forms.ts";
 import { SendFormSkeleton, SendFrame } from "../screens/send/send-frame.tsx";
 import type { SendRow } from "../screens/send/send-frame.tsx";
-import { outsideFontRow } from "../send/output-checks.tsx";
+import { TEXT } from "../text.ts";
 import { useDraftSendAccess } from "./access.ts";
 import type { DraftSendAccess } from "./access.ts";
 import { DraftPreviewTiles } from "./preview-tiles.tsx";
@@ -25,21 +26,14 @@ function SendDraftForm(props: {
   const draft = useSendDraft(docId, access);
   const { p } = draft;
 
-  const checks: SendRow | null = useMemo(() => {
-    if (p === null) return null;
-    const fontWarning = outsideFontRow(p);
-    const scriptChecks = checksRow(docId);
-    if (fontWarning === null) return scriptChecks;
-    return {
-      id: "checks",
-      content: (
-        <div className="flex flex-col gap-2">
-          {scriptChecks.content}
-          {fontWarning.content}
-        </div>
-      ),
-    };
-  }, [docId, p]);
+  const checks: SendRow | null = useMemo(
+    () => (p === null ? null : checksRow(docId)),
+    [docId, p],
+  );
+
+  const primaryFileTypeId = draft.selectedFiles.includes("sides")
+    ? "sides"
+    : (draft.selectedFiles[0] ?? draft.offeredTypes[0]?.id ?? null);
 
   const rows: SendRow[] = [
     ...(checks === null ? [] : [checks]),
@@ -51,11 +45,10 @@ function SendDraftForm(props: {
       id: "what",
       content: (
         <WhatRowContent
+          docId={docId}
           multiCamera={draft.multiCamera}
           locked={access.offered.locked}
-          primaryFileTypeId={
-            draft.selectedFiles[0] ?? draft.offeredTypes[0]?.id ?? null
-          }
+          primaryFileTypeId={primaryFileTypeId}
           what={draft.what}
           pageCount={draft.pageCount}
           sceneCount={draft.sceneCount}
@@ -141,6 +134,18 @@ function SendDraftForm(props: {
 function SendDraftBody(props: SendFormProps): ReactNode {
   const access = useDraftSendAccess(props.docId);
   if (access.pending) return <SendFormSkeleton rows={5} />;
+  if (access.unverified) {
+    return (
+      <div className="flex flex-1 flex-col items-start gap-3 p-6">
+        <p role="alert" className="text-ui text-fg">
+          {TEXT.chooseUnreachable}
+        </p>
+        <Button variant="outline" onClick={access.retry}>
+          {DIALOG_WORDS.tryAgain}
+        </Button>
+      </div>
+    );
+  }
   if (!access.ready) return null;
   return <SendDraftForm docId={props.docId} access={access} />;
 }

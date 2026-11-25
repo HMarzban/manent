@@ -323,7 +323,7 @@ test("while busy the action keeps its width and aria-busy, and Still working ann
   await rerender(reset({ busyLabel: "Resetting the demo…" }));
   const busy = [
     actionButton()?.textContent,
-    actionButton()?.style.width,
+    actionButton()?.style.minWidth,
     actionButton()?.getAttribute("aria-disabled"),
     actionButton()?.getAttribute("aria-busy"),
   ];
