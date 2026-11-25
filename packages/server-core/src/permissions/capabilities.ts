@@ -2,6 +2,7 @@
 import type { Storage } from "@manent/storage";
 import { CAPABILITIES } from "@manent/sync-protocol";
 import type { Capability } from "@manent/sync-protocol";
+import { canAlsoOverride } from "./can-also.ts";
 
 /** Who asks about which document, and the role row their access to it is read from. */
 export interface CapabilityGrant {
@@ -36,7 +37,7 @@ export const CAPABILITY_SOURCES: readonly CapabilitySource[] = Object.freeze([
 
 /** Applied in order after CAPABILITY_SOURCES; append an override on its own line. */
 export const CAPABILITY_OVERRIDES: readonly CapabilityOverride[] =
-  Object.freeze([]);
+  Object.freeze([canAlsoOverride]);
 
 /** What every source grants, refined by overrides, each capability once, in the order first granted. */
 export function grantedCapabilities(grant: CapabilityGrant): Capability[] {
