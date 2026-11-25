@@ -36,9 +36,6 @@ async function budgets(): Promise<Budget[]> {
 /** Reported server scenarios that carry no budget row in budgets.json. */
 const UNBUDGETED = new Set(["server.many-rooms", "server.presence"]);
 
-/** Budgeted server scenarios whose bench script has not landed yet. */
-const PENDING_SERVER = new Set(["server.power-loss"]);
-
 test("every server scenario is found and has its budget rows", async () => {
   const found = await scenarioIds(join(repoRoot, "bench/server"));
   expect(found).toEqual([
@@ -51,6 +48,7 @@ test("every server scenario is found and has its budget rows", async () => {
     "server.join-storm",
     "server.many-rooms",
     "server.persistence",
+    "server.power-loss",
     "server.presence",
     "server.push-cost",
     "server.rebuild-stall",
@@ -59,9 +57,7 @@ test("every server scenario is found and has its budget rows", async () => {
   ]);
   const budgeted = found.filter((id) => !UNBUDGETED.has(id));
   const rows = (await budgets()).filter(
-    (b) =>
-      !PENDING_SERVER.has(b.scenario) &&
-      (b.scenario.startsWith("server.") || budgeted.includes(b.scenario)),
+    (b) => b.scenario.startsWith("server.") || budgeted.includes(b.scenario),
   );
   // every row has its scenario, and every budgeted scenario a row
   expect(new Set(rows.map((b) => b.scenario))).toEqual(new Set(budgeted));

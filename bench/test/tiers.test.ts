@@ -36,7 +36,7 @@ const TIER_TABLE = [
 ];
 
 const D_MODEST_RUN =
-  "docker run --rm --cpus=2 --memory=4g --memory-swap=4g --shm-size=1g --env MANENT_BENCH_TIER=D-modest --env MANENT_BENCH_THROTTLE=4 --volume /r:/repo/bench/results manent-bench:abc bun bench/run.ts --inside --filter typing";
+  "docker run --rm --cpus=2 --memory=4g --memory-swap=4g --shm-size=1g --env MANENT_BENCH_TIER=D-modest --env MANENT_BENCH_THROTTLE=4 --volume /r:/repo/bench/results manent-bench:abc xvfb-run -a bun bench/run.ts --inside --filter typing";
 
 const NOT_INSTALLED =
   "Docker is not installed, so the Docker tiers are recorded as not measured. Install Docker and run bun run bench again to measure them.";
