@@ -13,6 +13,7 @@ export * from "./project/index.ts";
 export * from "./prompter/index.ts";
 export * from "./rebuild/index.ts";
 export * from "./rundown/index.ts";
+export * from "./search/index.ts";
 export * from "./sharing/index.ts";
 export * from "./socket/index.ts";
 export * from "./suggestions/index.ts";
