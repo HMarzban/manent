@@ -15,17 +15,21 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import { TriangleExclamationPointIcon } from "lucide-react";
-import { useCallback, useId, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import { initialsOf } from "../../initials.ts";
-import { useServices } from "../../services/context.tsx";
+import { useEnvironment, useServices } from "../../services/context.tsx";
 import { useWorkspaces } from "../../services/use-workspaces.ts";
+import { readPerson } from "../../session.ts";
 import type { WorkspaceSettingsGroupProps } from "./groups.ts";
-import {
-  createWorkspaceApi,
-  sessionTokenOf,
-  workspacePeopleHolder,
-} from "./workspace-api.ts";
+import { createWorkspaceApi, workspacePeopleHolder } from "./workspace-api.ts";
 
 const ROLE_ITEMS = DOC_ROLES.map((role) => ({
   value: role,
@@ -85,9 +89,7 @@ function WorkspaceRoleSelect(props: {
       <SelectTrigger
         aria-labelledby={labelledBy}
         title={disabled ? disabledReason : undefined}
-        className={
-          disabled ? "w-element cursor-not-allowed" : "w-element cursor-pointer"
-        }
+        className={disabled ? "w-36 cursor-not-allowed" : "w-36 cursor-pointer"}
       >
         <SelectValue />
       </SelectTrigger>
@@ -153,9 +155,10 @@ function WorkspacePersonRow(props: {
 }
 
 export function PeopleGroup(props: WorkspaceSettingsGroupProps): ReactNode {
-  const { workspaceId, canChange, online } = props;
+  const { workspaceId, canChange, online, api: sharedApi } = props;
   const headingId = useId();
   const services = useServices();
+  const environment = useEnvironment();
   const workspaces = useWorkspaces(services.api, services.userId, true).data;
   const workspaceName =
     workspaces?.find((ws) => ws.id === workspaceId)?.name ?? workspaceId;
@@ -169,18 +172,36 @@ export function PeopleGroup(props: WorkspaceSettingsGroupProps): ReactNode {
   const [refusals, setRefusals] = useState<ReadonlyMap<string, string>>(
     () => new Map(),
   );
+  const activeWorkspaceRef = useRef<string | null>(workspaceId);
 
-  const api = useMemo(
+  useEffect(() => {
+    activeWorkspaceRef.current = workspaceId;
+    setPendingUserId(null);
+    setRefusals(new Map());
+    return () => {
+      activeWorkspaceRef.current = null;
+    };
+  }, [workspaceId]);
+
+  const fallbackApi = useMemo(
     () =>
-      createWorkspaceApi({
-        fetch,
-        token: () => sessionTokenOf(services.userId),
-      }),
-    [services.userId],
+      sharedApi === undefined
+        ? createWorkspaceApi({
+            fetch: globalThis.fetch,
+            token: () => {
+              const person = readPerson(environment.tabStorage);
+              return person?.userId === services.userId ? person.token : null;
+            },
+          })
+        : null,
+    [environment.tabStorage, services.userId, sharedApi],
   );
+  const api = sharedApi ?? fallbackApi!;
 
   const reload = useCallback(async (): Promise<void> => {
-    const answer = await api.people(workspaceId);
+    const targetWorkspaceId = workspaceId;
+    const answer = await api.people(targetWorkspaceId);
+    if (activeWorkspaceRef.current !== targetWorkspaceId) return;
     if (answer.ok) {
       holder.set({ people: answer.value.people, loadError: false });
     } else {
@@ -200,11 +221,13 @@ export function PeopleGroup(props: WorkspaceSettingsGroupProps): ReactNode {
   const changeRole = useCallback(
     (person: WorkspacePerson, nextRole: DocRole) => {
       if (!canChange || !online) return;
+      const targetWorkspaceId = workspaceId;
       const previousRole = person.role;
       setPendingUserId(person.userId);
       void api
-        .changeRole(workspaceId, person.userId, nextRole)
+        .changeRole(targetWorkspaceId, person.userId, nextRole)
         .then(async (answer) => {
+          if (activeWorkspaceRef.current !== targetWorkspaceId) return;
           setPendingUserId(null);
           if (!answer.ok) {
             const personFirst = firstName(person.name);
@@ -282,7 +305,7 @@ export function PeopleGroup(props: WorkspaceSettingsGroupProps): ReactNode {
           {WORKSPACE_WORDS.peopleScope(workspaceName)}
         </p>
       </div>
-      {loadError ? (
+      {online && loadError ? (
         <InlineRefusal
           sentence={
             people === null

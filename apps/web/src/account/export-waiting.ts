@@ -100,6 +100,11 @@ export async function resolveWaitingScripts(
   return scripts;
 }
 
+const engineVersionOf = (value: unknown): number =>
+  typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : DEFAULT_ENGINE_VERSION;
+
 async function paginateFromHandle(
   services: PersonServices,
   docId: string,
@@ -109,8 +114,8 @@ async function paginateFromHandle(
   inkText: string | null;
 }> {
   const handle = await services.openHandle(docId);
+  const store = services.openScriptStore(docId);
   try {
-    const store = services.openScriptStore(docId);
     const settings = handle.settings.get();
     const readSetting = (key: string): unknown =>
       store.get(key as Parameters<typeof store.get>[0]) ?? settings[key];
@@ -124,7 +129,8 @@ async function paginateFromHandle(
         inkText: flat.map(blockText).join("\n"),
       };
     }
-    const engine = engineFor(DEFAULT_ENGINE_VERSION);
+    const version = engineVersionOf(readSetting("script.engineVersion"));
+    const engine = engineFor(version) ?? engineFor(DEFAULT_ENGINE_VERSION);
     const profile =
       engine === null
         ? null
@@ -134,6 +140,7 @@ async function paginateFromHandle(
     const pages = engine.paginate(engine.toLayoutBlocks(flat), profile);
     return { pages, format, inkText: null };
   } finally {
+    services.documents.close(docId);
     await handle.close();
   }
 }
@@ -146,11 +153,11 @@ async function exportOneScript(
   const { docId, title, docKind } = script;
   const { livePagination } = await import("../editor-host/live-editor.ts");
   const openPages = livePagination(docId);
-  const openFormat = formatOf(
-    services.openScriptStore(docId).get("script.format"),
-  );
   let pages: Pagination | null = openPages;
-  let format: FormatId = openFormat;
+  let format: FormatId =
+    openPages === null
+      ? "screenplay"
+      : formatOf(services.openScriptStore(docId).get("script.format"));
   let inkText: string | null = null;
 
   if (pages === null) {

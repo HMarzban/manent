@@ -61,8 +61,9 @@ export const SERIES_START: ProjectStart = {
 /** Writes `project.template` = `"drama"`, Season 1, and episode 101 into a new series' project index. */
 export const seriesCreated: ProjectCreated = {
   id: "series_season",
-  async made({ sync, workspaceId, projectId, kind, docId }) {
+  async made({ sync, workspaceId, projectId, kind, docId, newId }) {
     if (kind !== "series") return;
+    const makeId = newId ?? (() => crypto.randomUUID());
     const handle = await sync.client.open(indexDocId("project", projectId), {
       create: { kind: "index", home: projectHome(projectId), workspaceId },
     });
@@ -70,10 +71,10 @@ export const seriesCreated: ProjectCreated = {
       const doc = handle.doc();
       writeProjectKey(doc, "template", "project.template", "drama");
       if (readSeasons(doc).size === 0 && readEpisodes(doc).size === 0) {
-        const seasonId = crypto.randomUUID();
+        const seasonId = makeId();
         writeSeason(doc, { id: seasonId, number: 1, title: null });
         writeEpisode(doc, {
-          id: crypto.randomUUID(),
+          id: makeId(),
           seasonId,
           number: 101,
           title: null,

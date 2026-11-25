@@ -27,23 +27,38 @@ export function accountHandlers(
     "app.signOut"() {
       if (checking || isSignOutPromptOpen()) return;
       checking = true;
-      void services
-        .waitingDocuments()
-        .catch((): readonly WaitingDocumentSummary[] => [])
-        .then(async (waiting) => {
+      void (async () => {
+        try {
+          let waiting: readonly WaitingDocumentSummary[];
+          try {
+            waiting = await services.waitingDocuments();
+          } catch {
+            // Do not treat storage or sync read failures as zero waiting changes: open the protective guard prompt.
+            if (usePerson.getState().person?.userId !== services.userId) return;
+            if (!hasMountedSignOutHost()) ensureFallbackSignOutHost(now);
+            openSignOutPrompt({
+              totalWaiting: 1,
+              scripts: [],
+              services,
+              now,
+              onConfirm: completeSignOut,
+              onCancel: closeSignOutPrompt,
+            });
+            return;
+          }
+          if (usePerson.getState().person?.userId !== services.userId) return;
           const totalWaiting = waiting.reduce(
             (sum, doc) => sum + doc.waiting,
             0,
           );
           if (totalWaiting <= 0) {
-            checking = false;
             completeSignOut();
             return;
           }
           const { resolveWaitingScripts } =
             await import("../account/export-waiting.ts");
           const scripts = await resolveWaitingScripts(services, waiting);
-          checking = false;
+          if (usePerson.getState().person?.userId !== services.userId) return;
           if (!hasMountedSignOutHost()) ensureFallbackSignOutHost(now);
           openSignOutPrompt({
             totalWaiting,
@@ -53,7 +68,10 @@ export function accountHandlers(
             onConfirm: completeSignOut,
             onCancel: closeSignOutPrompt,
           });
-        });
+        } finally {
+          checking = false;
+        }
+      })();
     },
   };
 }

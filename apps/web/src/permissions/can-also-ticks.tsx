@@ -11,7 +11,7 @@ import {
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import { ChevronDownIcon } from "lucide-react";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import type { PersonRowSlotProps } from "../sharing/person-row-slots.ts";
@@ -54,7 +54,6 @@ function CanAlsoForProject(props: {
   const { userId, projectId, fallbackTitle } = props;
   const services = useServices();
   const { tabStorage } = useEnvironment();
-  const headingId = useId();
   const [controller, setController] = useState<CanAlsoController | null>(null);
   const [snapshot, setSnapshot] = useState<CanAlsoSnapshot | null>(null);
 
@@ -92,7 +91,7 @@ function CanAlsoForProject(props: {
         <ChevronDownIcon aria-hidden="true" className="size-3.5 opacity-70" />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 gap-2 p-3 text-ui">
-        <div id={headingId} className="text-ui font-medium text-fg">
+        <div className="text-ui font-medium text-fg">
           {WORKSPACE_WORDS.canAlso}
         </div>
         <div

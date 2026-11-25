@@ -38,6 +38,7 @@ export interface NewProject {
   readonly projectId: string;
   readonly kind: ProjectKind;
   readonly docId: string;
+  readonly newId?: () => string;
 }
 
 /** What is made with every new project, and removed with one made here and left untouched. */
@@ -134,15 +135,18 @@ async function addProject(
   });
   opening.start(handle);
   const isNew = target.projectId === null;
-  if (isNew)
-    for (const created of PROJECT_CREATED)
-      await created.made({
-        sync,
-        workspaceId,
-        projectId,
-        kind,
-        docId: handle.docId,
-      });
+  if (isNew) {
+    const { newId } = options;
+    const made = {
+      sync,
+      workspaceId,
+      projectId,
+      kind,
+      docId: handle.docId,
+      newId,
+    };
+    for (const created of PROJECT_CREATED) await created.made(made);
+  }
   const { project, script } = titles(index);
   const at = options.now();
   if (isNew)
@@ -284,14 +288,8 @@ function removeUntouched(
   options.privateIndex.continueMap.delete(docId);
   const { projectId, kind } = made;
   const { workspaceId } = found;
-  for (const created of PROJECT_CREATED)
-    created.removed({
-      sync: options.sync,
-      workspaceId,
-      projectId,
-      kind,
-      docId,
-    });
+  const gone = { sync: options.sync, workspaceId, projectId, kind, docId };
+  for (const created of PROJECT_CREATED) created.removed(gone);
 }
 
 /** New, imported and copied documents, each listed in its workspace's index; each new project goes in `untouched`. */

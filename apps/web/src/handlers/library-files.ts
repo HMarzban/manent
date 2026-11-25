@@ -196,12 +196,19 @@ export async function requestMoveToTrash(options: {
   const { services, navigate, docId, title, workspaceId, navigateToLibrary } =
     options;
   const people = await services.trash.people(docId);
-  const others =
-    people === null
-      ? []
-      : people
-          .filter((person) => person.userId !== services.userId)
-          .map((person) => firstNameOf(person.name));
+  if (people === null) {
+    services.messages.push({
+      id: "trash_move_refused",
+      text: LIBRARY_FILES_WORDS.moveToTrashRefused(title),
+      actions: [],
+      lifetime: "brief",
+      ownWork: false,
+    });
+    return;
+  }
+  const others = people
+    .filter((person) => person.userId !== services.userId)
+    .map((person) => firstNameOf(person.name));
   if (others.length > 0) {
     trashActions.openConfirm({
       docId,
@@ -261,6 +268,41 @@ function navigateTo(router: Navigation): (href: string) => void {
   return (href) => router.navigate(href);
 }
 
+async function workspaceOfDocument(
+  deps: HandlerDeps,
+  docId: string,
+): Promise<string> {
+  const { services } = deps;
+  const projectId = services.library.documentProject(docId).get();
+  const candidates = new Set<string>();
+  const { w } = deps.router.here().search;
+  if (typeof w === "string" && w.trim() !== "") candidates.add(w);
+  const me = await deps.api.me();
+  if (me.ok) {
+    for (const workspace of me.me.workspaces) candidates.add(workspace.id);
+  }
+  candidates.add(services.userId);
+  for (const wsId of candidates) {
+    if (services.folders.documents(wsId).get().has(docId)) return wsId;
+    if (
+      projectId !== null &&
+      services.library
+        .projects(wsId)
+        .get()
+        .some((project) => project.projectId === projectId)
+    )
+      return wsId;
+    if (
+      services.library
+        .continueList(wsId)
+        .get()
+        .some((item) => item.docId === docId)
+    )
+      return wsId;
+  }
+  return shownWorkspace(deps);
+}
+
 export function libraryFilesHandlers(
   deps: HandlerDeps,
 ): Pick<CommandHandlers, LibraryFilesCommandId> {
@@ -301,7 +343,7 @@ export function libraryFilesHandlers(
       const { docId } = deps.shellState();
       if (docId === null) return;
       void (async () => {
-        const workspaceId = await shownWorkspace(deps);
+        const workspaceId = await workspaceOfDocument(deps, docId);
         await services.favourites.toggle(services.userId, {
           id: docId,
           kind: "document",

@@ -5,6 +5,7 @@ import {
   LIBRARY_FILES_WORDS,
   LIBRARY_WORDS,
   NEW_PROJECT_CARDS,
+  SHARING_WORDS,
   useSubscribable,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
@@ -55,7 +56,7 @@ function PrivateKindPicker(props: {
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label={LIBRARY_WORDS.newProject}
+          aria-label={SHARING_WORDS.close}
           onClick={() => privateProjectPicker.close()}
         >
           <XIcon aria-hidden="true" className="size-icon" />

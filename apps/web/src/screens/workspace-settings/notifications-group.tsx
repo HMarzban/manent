@@ -10,7 +10,14 @@ import {
   WORKSPACE_WORDS,
   useSubscribable,
 } from "@manent/ui";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import {
   createNotificationsApi,
@@ -104,14 +111,22 @@ export function NotificationsGroup(
     ReadonlyMap<NotificationAdapter, string>
   >(() => new Map());
 
+  const activeWorkspaceRef = useRef<string | null>(workspaceId);
+
   useEffect(() => {
+    activeWorkspaceRef.current = workspaceId;
     setDrafts(EMPTY_DRAFTS);
     setBusyAdapter(null);
     setRefusals(new Map());
+    return () => {
+      activeWorkspaceRef.current = null;
+    };
   }, [workspaceId]);
 
   const reload = useCallback(async (): Promise<void> => {
-    const answer = await api.get(workspaceId);
+    const targetWorkspaceId = workspaceId;
+    const answer = await api.get(targetWorkspaceId);
+    if (activeWorkspaceRef.current !== targetWorkspaceId) return;
     holder.set(
       answer.ok
         ? { adapters: answer.value.adapters, loadError: false }
@@ -152,26 +167,30 @@ export function NotificationsGroup(
         setRefusal(adapter, refusalSentence(validated.reason, raw));
         return;
       }
+      const targetWorkspaceId = workspaceId;
       setBusyAdapter(adapter);
       setRefusal(adapter, null);
-      void api.set(workspaceId, adapter, validated.address).then((answer) => {
-        setBusyAdapter(null);
-        if (!answer.ok) {
-          setRefusal(adapter, NOTIFICATIONS_WORDS.couldNotSave);
-          return;
-        }
-        holder.set({ adapters: answer.value.adapters, loadError: false });
-        setDrafts((prev) => ({ ...prev, [adapter]: "" }));
-        services.messages.push({
-          id: `workspace.notifications.${adapter}.saved`,
-          text: NOTIFICATIONS_WORDS.savedMessage(
-            NOTIFICATIONS_WORDS.adapters[adapter],
-          ),
-          actions: [],
-          lifetime: "brief",
-          ownWork: false,
+      void api
+        .set(targetWorkspaceId, adapter, validated.address)
+        .then((answer) => {
+          if (activeWorkspaceRef.current !== targetWorkspaceId) return;
+          setBusyAdapter(null);
+          if (!answer.ok) {
+            setRefusal(adapter, NOTIFICATIONS_WORDS.couldNotSave);
+            return;
+          }
+          holder.set({ adapters: answer.value.adapters, loadError: false });
+          setDrafts((prev) => ({ ...prev, [adapter]: "" }));
+          services.messages.push({
+            id: `workspace.notifications.${adapter}.saved`,
+            text: NOTIFICATIONS_WORDS.savedMessage(
+              NOTIFICATIONS_WORDS.adapters[adapter],
+            ),
+            actions: [],
+            lifetime: "brief",
+            ownWork: false,
+          });
         });
-      });
     },
     [
       api,
@@ -188,9 +207,11 @@ export function NotificationsGroup(
   const handleRemove = useCallback(
     (adapter: NotificationAdapter) => {
       if (!canChange || !online) return;
+      const targetWorkspaceId = workspaceId;
       setBusyAdapter(adapter);
       setRefusal(adapter, null);
-      void api.set(workspaceId, adapter, null).then((answer) => {
+      void api.set(targetWorkspaceId, adapter, null).then((answer) => {
+        if (activeWorkspaceRef.current !== targetWorkspaceId) return;
         setBusyAdapter(null);
         if (!answer.ok) {
           setRefusal(adapter, NOTIFICATIONS_WORDS.couldNotSave);
@@ -253,7 +274,7 @@ export function NotificationsGroup(
             {WORKSPACE_WORDS.needsConnection}
           </p>
         ) : null}
-        {loadError ? (
+        {online && loadError ? (
           <InlineRefusal
             sentence={
               adapters === null
