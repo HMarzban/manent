@@ -4,6 +4,66 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Keep prompter feed hubs per service instance and re-check permissions inside the document queue
+
+- Date: 2026-11-25
+
+### What happened
+
+The first draft of the prompter feed keyed active feed hubs in a module-level `WeakMap` by `Clock`, so two server instances sharing one test clock could receive each other's live snapshots. In addition, the send route checked `send_to_prompter` access before entering the document serialisation chain (`inChain`), leaving a window where revoking access while a send was queued could still let the queued send run, and did not verify access on each linked story.
+
+### How it was caught
+
+By security review auditing cross-instance isolation and time-of-check/time-of-use paths across `packages/server-core/src/prompter/`.
+
+### Rule
+
+Never store live subscription or hub state in a module-level registry keyed by a shared dependency such as `Clock`; wire subscription handlers per service instance through `SyncSettings`. Always re-check access on both the target document and any linked document inside `inChain(docId, ...)` immediately before applying or replaying a write.
+
+### Enforced by
+
+`packages/server-core/test/prompter-security.test.ts`, which verifies two servers sharing one `Clock` stay isolated with zero cross-server snapshots and that revoking `send_to_prompter` while a send is queued in `inChain` refuses the queued send with `403`.
+
+## Guard wall-clock air-window timers against backwards clock jumps
+
+- Date: 2026-11-25
+
+### What happened
+
+The prompter's post-window flush timer was scheduled as a relative delay to `win.endsAt` and checked only `!airWindows.isInside(rundownId, now)` when it fired. When a clock moved backwards (as when seeded history steps step to an earlier day or a host clock steps back), the timer fired days before `win.startsAt`, saw `isInside === false`, and automatically flushed pending edits to the prompter before the air window had even begun.
+
+### How it was caught
+
+By live demo seeding of broadcast rundowns, where stories staged as changed inside the air window unexpectedly flipped back to `On prompter` after later steps moved the seed clock to earlier days.
+
+### Rule
+
+Whenever a scheduled callback acts on leaving a wall-clock window (`endsAt`), verify `now >= win.endsAt` (and explicitly skip when `now < win.startsAt`) rather than inferring window expiry solely from `!isInside(now)`.
+
+### Enforced by
+
+`packages/server-core/test/prompter-security.test.ts`, which steps the clock backwards before `win.startsAt` and verifies changed rows remain unsent while normal post-window expiry still flushes.
+
+## Client undo on authority-enriched CRDT maps must never re-emit server-only keys
+
+- Date: 2026-11-25
+
+### What happened
+
+Server-computed rundown fields (`durationMs` and `prompter`) live alongside client-edited keys on each row map, and the server refuses any client push that writes them. Using `Y.UndoManager` directly to undo a row deletion cloned the entire deleted row map—including those server-only keys—so undoing a deleted row produced a client push the server refused.
+
+### How it was caught
+
+By cross-package review tracing `packages/crdt/src/rundown/rundown-undo.ts` against the server push validator in `packages/server-core/src/rundown/validate.ts`.
+
+### Rule
+
+When a CRDT map mixes client-owned and server-only keys, client undo and redo must re-insert only an explicit allow-list of client-owned keys and let the server's commit hook recompute authority fields afterward.
+
+### Enforced by
+
+`packages/crdt/src/rundown/rundown-undo.ts` (allow-listed client keys on undo/redo) and `packages/server-core/test/rundown-guards.test.ts` (verifying the server refuses client writes to server-only keys and invalid rundown root fields).
+
 ## New SQLite indexes belong in a new numbered migration, never an earlier one
 
 - Date: 2026-11-25
