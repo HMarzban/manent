@@ -24,6 +24,7 @@ import { SYSTEM_USER_ID } from "../rebuild/rebuilder.ts";
 import { isStorageError } from "../sync/storage-error.ts";
 import { corruptError } from "./chunks.ts";
 import { contentAt, materializeVersion, soleAuthor } from "./content.ts";
+import { rundownChangedSince, rundownLastChanges } from "./rundown-summary.ts";
 import type { HistoryOutcome } from "./service.ts";
 import { positionOf } from "./summaries.ts";
 
@@ -268,6 +269,8 @@ function changedSince(
     generation: row.generation,
     seq: row.headSeq,
   });
+  if (row.kind === "rundown")
+    return rundownChangedSince(file, row, userId, position, then, head);
   const ids = compareDocs(docOf(then.blocks), docOf(head?.blocks ?? []))
     .entries.filter((entry) => entry.kind !== "unchanged" || entry.moved)
     .map((entry) => entry.id);
@@ -294,6 +297,16 @@ export function createAttribution(options: {
       const access = options.authorize(userId, docId, "read");
       if (!access.ok) return access;
       const wanted = new Set([blockId]);
+      const docRow = access.file.log.get(docId);
+      if (docRow?.kind === "rundown") {
+        const change = rundownLastChanges(
+          access.file,
+          docRow,
+          wanted,
+          null,
+        ).get(blockId);
+        return change === undefined ? notFound : { ok: true, value: change };
+      }
       const change = lastChanges(access.file, docId, wanted, null).get(blockId);
       if (change === undefined) return notFound;
       const previous =
@@ -316,6 +329,17 @@ export function createAttribution(options: {
         if (version?.docId !== docId) return notFound;
         from = positionOf(version);
       } else from = since.position;
+      const docRow = file.log.get(docId);
+      if (docRow?.kind === "rundown") {
+        const changes = rundownLastChanges(
+          file,
+          docRow,
+          new Set(blockIds),
+          from,
+        );
+        const authors = [...changes].map(([id, change]) => [id, change.userId]);
+        return { ok: true, value: { authors: Object.fromEntries(authors) } };
+      }
       const changes = lastChanges(file, docId, new Set(blockIds), from);
       const authors = [...changes].map(([id, change]) => [id, change.userId]);
       return { ok: true, value: { authors: Object.fromEntries(authors) } };

@@ -23,46 +23,40 @@ import {
   soleAuthor,
 } from "./content.ts";
 import type { LocksAt } from "./content.ts";
+import {
+  carryRundownAuthors,
+  isContentUnchanged,
+  summarizeRundownVersion,
+} from "./rundown-summary.ts";
 import { writeSnapshot } from "./snapshot.ts";
 
 const docOf = (blocks: readonly BlockJSON[]): DocJSON => ({
   type: "doc",
   content: [{ type: "section", content: [...blocks] }],
 });
-
-/** Distinct, in the order first seen. */
 const union = (...lists: readonly string[][]): string[] => [
   ...new Set(lists.flat()),
 ];
 
-/**
- * The blocks `content` changed since `previous` (null: an empty document), a moved block among
- * them, and their scenes.
- */
+/** What `content` changed since `previous` (null: empty document), dispatching rundown versions via `compareRundowns`. */
 export function summaryOf(
   previous: VersionContent | null,
   content: VersionContent,
   authorIds: string[],
 ): VersionSummary {
+  if (content.rundown !== undefined)
+    return summarizeRundownVersion(previous, content, authorIds);
   const changed = compareDocs(
     docOf(previous?.blocks ?? []),
     docOf(content.blocks),
   ).entries.filter((entry) => entry.kind !== "unchanged" || entry.moved);
-  return {
-    authorIds,
-    blockIds: changed.map((entry) => entry.id),
-    sceneIds: union(
-      changed.flatMap((entry) =>
-        entry.sceneId === null ? [] : [entry.sceneId],
-      ),
-    ),
-  };
+  const sceneIds = union(
+    changed.flatMap((entry) => (entry.sceneId === null ? [] : [entry.sceneId])),
+  );
+  return { authorIds, blockIds: changed.map((e) => e.id), sceneIds };
 }
 
-/**
- * Who wrote the log rows after `from` up to `to` when both are positions in one generation;
- * otherwise `createdByUserId` alone.
- */
+/** Who wrote the log rows after `from` up to `to` in one generation; else `createdByUserId` alone. */
 export function summaryAuthors(
   file: DocFile,
   docId: string,
@@ -80,16 +74,14 @@ export function summaryAuthors(
 }
 
 /** `into`'s summary with `from`'s joined: each list a union, `into`'s entries first. */
-export function joinSummaries(
+export const joinSummaries = (
   into: VersionSummary | null,
   from: VersionSummary,
-): VersionSummary {
-  return {
-    authorIds: union(into?.authorIds ?? [], from.authorIds),
-    blockIds: union(into?.blockIds ?? [], from.blockIds),
-    sceneIds: union(into?.sceneIds ?? [], from.sceneIds),
-  };
-}
+): VersionSummary => ({
+  authorIds: union(into?.authorIds ?? [], from.authorIds),
+  blockIds: union(into?.blockIds ?? [], from.blockIds),
+  sceneIds: union(into?.sceneIds ?? [], from.sceneIds),
+});
 
 export const positionOf = ({
   generation,
@@ -97,94 +89,69 @@ export const positionOf = ({
 }: VersionRow): VersionPosition | null =>
   generation === null || seq === null ? null : { generation, seq };
 
-function formatVersionItem(
+const formatVersionItem = (
   row: VersionRow,
   engineVersion: number | null,
   summary: VersionSummary | null,
-): VersionItem {
-  return {
-    id: row.id,
-    kind: row.kind,
-    name: row.name,
-    createdByUserId: row.createdByUserId,
-    createdAt: row.createdAt,
-    onDevice: row.deviceId !== null,
-    position: positionOf(row),
-    engineVersion,
-    summary:
-      summary === null
-        ? null
-        : {
-            authorUserIds: summary.authorIds,
-            changes: summary.blockIds.length,
-            scenes: summary.sceneIds.length,
-          },
-  };
-}
+): VersionItem => ({
+  id: row.id,
+  kind: row.kind,
+  name: row.name,
+  createdByUserId: row.createdByUserId,
+  createdAt: row.createdAt,
+  onDevice: row.deviceId !== null,
+  position: positionOf(row),
+  engineVersion,
+  summary:
+    summary === null
+      ? null
+      : {
+          authorUserIds: summary.authorIds,
+          changes: summary.blockIds.length,
+          scenes: summary.sceneIds.length,
+        },
+});
 
 /** A pre-joined page row as a list shows it, avoiding per-row summary/snapshot/document queries. */
 export function itemOfPageRow(
   row: VersionPageRow,
   docEngineVersion: number | null,
 ): VersionItem {
-  const position = positionOf(row);
   const snapshotEngine = row.snapshotRef !== null ? row.engineVersion : null;
   const engineVersion =
-    snapshotEngine ?? (position === null ? null : docEngineVersion);
+    snapshotEngine ?? (positionOf(row) === null ? null : docEngineVersion);
   return formatVersionItem(row, engineVersion, row.summary);
 }
 
 /** A version as a list shows it: its summary counted, its engine version that of its snapshot, else of the document. */
 export function itemOf(file: DocFile, row: VersionRow): VersionItem {
-  const position = positionOf(row);
   const summary = file.history.summary(row.id);
   const engineVersion =
     file.history.snapshotOf(row.id)?.engineVersion ??
-    (position === null
+    (positionOf(row) === null
       ? null
       : (file.log.get(row.docId)?.engineVersion ?? null));
   return formatVersionItem(row, engineVersion, summary);
 }
 
-/**
- * The newest version of a document and its content: the previous side of the next summary. Its
- * position and content are null when its content is gone or does not read: the next version is
- * made as the first.
- */
 export interface NewestVersion {
   id: string;
   position: VersionPosition | null;
   content: VersionContent | null;
 }
 
-/** How a version is recorded. */
 export interface Recording {
-  /** Its authors carry from the version before it; else they are its content's own. */
   carry: boolean;
-  /** It keeps a snapshot; else it stays a position, pinned. */
   snapshot: boolean;
-  /** The request's idempotency key; null when nothing is asked twice. */
   key: string | null;
-  /** By default, who wrote the log rows since the version before it. */
   authorIds?: string[];
 }
 
-/** A version recorded, or why not; its item is null when there was nothing to record. */
 export type Recorded =
   { ok: true; item: VersionItem | null } | { ok: false; code: HttpErrorCode };
 
-/** Versions recorded with their summaries, and the newest version of each room that made one at its head, kept in memory. */
 export interface Recorder {
-  /**
-   * The newest version and its content: from memory while it stays the newest, else
-   * materialised.
-   */
   previousOf(file: DocFile, docId: string): NewestVersion | null;
-  /**
-   * In the caller's transaction: `version` holding `base`, its summary against `previous` (the
-   * newest version before it), its snapshot or its pin, and the request's answer. Carried authors
-   * give each changed block the summary's one author, else the version's maker.
-   */
   record(
     file: DocFile,
     version: VersionRow,
@@ -192,47 +159,25 @@ export interface Recorder {
     how: Recording,
     previous: NewestVersion | null,
   ): { item: VersionItem; newest: NewestVersion };
-  /** `record` in a transaction of its own, against the newest version; busy when that does not commit. */
   recordAlone(
     file: DocFile,
     version: VersionRow,
     base: VersionContent,
     how: Recording,
   ): { ok: true; item: VersionItem } | { ok: false; code: HttpErrorCode };
-  /**
-   * A version at the head, recorded at its turn in the write queue by an authority write that
-   * writes nothing; the version before it is read before the commit. Its item is null when it
-   * waits for something new and the head is not past the newest version's position, or the
-   * script holds what the newest version holds; busy when another was recorded meanwhile, or the
-   * write could not be made.
-   */
   atHead(
     file: DocFile,
     made: Pick<VersionRow, "docId" | "kind" | "name" | "createdByUserId">,
     how: Recording & { onlyWhenNew: boolean },
   ): Promise<Recorded>;
-  /** The room was unloaded, or a version was recorded outside it: what is kept of its newest version goes. */
   forget(docId: string): void;
 }
 
-/** A version's content and what it changed since the one before it. */
 interface Summarized {
   content: VersionContent;
   summary: VersionSummary;
 }
 
-/** The script holds what `previous` holds: no block changed or moved, and the same settings. */
-const isUnchanged = (
-  previous: NewestVersion | null,
-  { content, summary }: Summarized,
-): boolean =>
-  previous !== null &&
-  previous.content !== null &&
-  summary.blockIds.length === 0 &&
-  JSON.stringify(previous.content.settings) ===
-    JSON.stringify(content.settings);
-
-/** What `version` holds, its authors carried or its own, and what it changed since `previous`. */
 function summarized(
   file: DocFile,
   version: VersionRow,
@@ -247,14 +192,15 @@ function summarized(
     how.authorIds ?? summaryAuthors(file, docId, was, position, userId);
   const author = { userId: soleAuthor(authorIds, userId), at: createdAt };
   const before = previous?.content ?? null;
-  const authors = how.carry
-    ? carryAuthors(before, base.blocks, author)
-    : base.authors;
+  const authors = !how.carry
+    ? base.authors
+    : base.rundown !== undefined
+      ? carryRundownAuthors(base.rundown, before, author)
+      : carryAuthors(before, base.blocks, author);
   const content = { ...base, authors };
   return { content, summary: summaryOf(before, content, authorIds) };
 }
 
-/** In the caller's transaction: the version, its summary, its snapshot or its pin, and the request's answer. */
 function write(
   file: DocFile,
   version: VersionRow,
@@ -265,22 +211,23 @@ function write(
   const position = positionOf(version);
   file.versions.add(version);
   file.history.setSummary(id, summary);
-  if (how.snapshot) {
-    const ref = writeSnapshot(file, content);
-    file.history.setSnapshot(id, ref, content.engineVersion);
-  } else if (position !== null)
+  if (how.snapshot)
+    file.history.setSnapshot(
+      id,
+      writeSnapshot(file, content),
+      content.engineVersion,
+    );
+  else if (position !== null)
     file.checkpoints.pin(id, docId, position.generation, position.seq);
   const item = itemOf(file, version);
-  if (how.key !== null) {
-    const result = JSON.stringify({ version: item });
+  if (how.key !== null)
     file.history.putRequest({
       docId,
       key: how.key,
       userId,
-      result,
+      result: JSON.stringify({ version: item }),
       createdAt,
     });
-  }
   return { item, newest: { id, position, content } };
 }
 
@@ -289,6 +236,13 @@ const record: Recorder["record"] = (file, version, base, how, previous) =>
 
 const newestRow = (file: DocFile, docId: string): VersionRow | undefined =>
   file.history.page(docId, null, 1)[0];
+
+interface AtHeadState {
+  doc: VersionContent | null;
+  previous: NewestVersion | null;
+  written: { item: VersionItem; newest: NewestVersion } | null;
+  raced: boolean;
+}
 
 export function createRecorder(options: {
   sync: () => SyncService;
@@ -309,7 +263,6 @@ export function createRecorder(options: {
       const content = materializeVersion(file, row);
       if (content !== null) return { id, position: positionOf(row), content };
     } catch (error) {
-      // a newest version that does not read is one with no content: no write fails for it
       if (!isStorageError(error) || error.code !== "corrupt") throw error;
     }
     return { id, position: null, content: null };
@@ -342,21 +295,20 @@ export function createRecorder(options: {
   ): Promise<Recorded> {
     const { docId } = made;
     const id = ids();
-    const state: {
-      doc: VersionContent | null;
-      previous: NewestVersion | null;
-      written: ReturnType<typeof record> | null;
-      raced: boolean;
-    } = { doc: null, previous: null, written: null, raced: false };
+    const state: AtHeadState = {
+      doc: null,
+      previous: null,
+      written: null,
+      raced: false,
+    };
     const result = await options.sync().authorityWrite(docId, {
       userId: made.createdByUserId,
       origin: "system",
-      edit(doc) {
+      edit(live) {
         const row = file.log.get(docId);
         if (row === null) throw new RangeError(`no document ${docId} here`);
-        // read here, out of the commit every queued write of the file shares
         state.previous = previousOf(file, docId);
-        state.doc = contentOfDoc(doc, row, {});
+        state.doc = contentOfDoc(live, row, {});
         return { ok: true };
       },
       inTransaction(_file, at) {
@@ -366,16 +318,33 @@ export function createRecorder(options: {
         if (doc === null || row === null) return;
         state.raced = newestRow(file, docId)?.id !== previous?.id;
         const was = previous?.position ?? null;
-        const stale =
-          was?.generation === head.generation && was.seq >= head.seq;
-        if (state.raced || (how.onlyWhenNew && stale)) return;
+        if (
+          state.raced ||
+          (how.onlyWhenNew &&
+            was?.generation === head.generation &&
+            was.seq >= head.seq)
+        )
+          return;
         const { schemaVersion, engineVersion } = row;
-        const locks = locksAt(file, docId, head);
-        const base = { ...doc, schemaVersion, engineVersion, locks };
-        const createdAt = clock.now();
-        const version = { ...made, id, ...head, createdAt, deviceId: null };
+        const base = {
+          ...doc,
+          schemaVersion,
+          engineVersion,
+          locks: locksAt(file, docId, head),
+        };
+        const version = {
+          ...made,
+          id,
+          ...head,
+          createdAt: clock.now(),
+          deviceId: null,
+        };
         const change = summarized(file, version, base, how, previous);
-        if (how.onlyWhenNew && isUnchanged(previous, change)) return;
+        if (
+          how.onlyWhenNew &&
+          isContentUnchanged(previous, change.content, change.summary)
+        )
+          return;
         state.written = write(file, version, change, how);
       },
     });
@@ -393,6 +362,6 @@ export function createRecorder(options: {
     record,
     recordAlone,
     atHead,
-    forget: (docId) => newest.delete(docId),
+    forget: (id) => newest.delete(id),
   };
 }
