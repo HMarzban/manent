@@ -4,7 +4,7 @@ import { defineCommands } from "../define.ts";
 export const SEARCH_COMMANDS = defineCommands([
   {
     id: "library.search",
-    label: "Search this workspace…",
+    label: "Search this workspace",
     group: "file",
     home: null,
     scope: "global",
