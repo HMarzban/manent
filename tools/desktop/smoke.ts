@@ -54,6 +54,8 @@ export interface SmokeResult {
   offlineSaved: boolean;
   /** null when no update was offered (no --update-from). */
   updatedWithOutbox: boolean | null;
+  /** Milliseconds from quitting the old build to the updated build answering with the new version; null when no update was offered or update did not succeed. */
+  updateMs: number | null;
   noticesBeside: boolean;
 }
 
@@ -139,12 +141,13 @@ async function updated(
   dataDir: string,
   from: string,
   waiting: { docId: string; line: string },
-): Promise<boolean> {
+): Promise<{ ok: boolean; updateMs: number | null }> {
   const server = serveUpdates(from);
   try {
     const running = readNodeFile(dataDir);
     if (running === null || !(await updateReady(running, UPDATE_WAIT_MS)))
-      return false;
+      return { ok: false, updateMs: null };
+    const startedAt = Date.now();
     await quit(install);
     void launch(app, dataDir).exited;
     const version = offeredVersion(from);
@@ -156,6 +159,7 @@ async function updated(
         ? file
         : null;
     });
+    const elapsedMs = Date.now() - startedAt;
     const client = await openClient(node);
     const handle = await client.open(waiting.docId);
     const synced = await until(handle, (status) => status.synced, SYNC_WAIT_MS);
@@ -163,7 +167,8 @@ async function updated(
       scriptBody(handle.doc()).materialize(),
     ).includes(waiting.line);
     await client.close();
-    return synced && kept;
+    const ok = synced && kept;
+    return { ok, updateMs: ok ? elapsedMs : null };
   } finally {
     await server.stop();
   }
@@ -242,6 +247,13 @@ async function smoke(
       !(await until(handle, (status) => status.synced, OFFLINE_WAIT_MS));
     await client.close();
     const coldStartMs = node.firstFrameAt - spawnedAt;
+    const updateOutcome =
+      updateFrom === null
+        ? null
+        : await updated(app, install, dataDir, updateFrom, {
+            docId: handle.docId,
+            line,
+          });
     return {
       platform: process.platform,
       version,
@@ -255,13 +267,8 @@ async function smoke(
       synced,
       secondInstanceDeferred: deferred,
       offlineSaved,
-      updatedWithOutbox:
-        updateFrom === null
-          ? null
-          : await updated(app, install, dataDir, updateFrom, {
-              docId: handle.docId,
-              line,
-            }),
+      updatedWithOutbox: updateOutcome === null ? null : updateOutcome.ok,
+      updateMs: updateOutcome === null ? null : updateOutcome.updateMs,
       noticesBeside: existsSync(
         join(install.resources, "app", "THIRD-PARTY-NOTICES.txt"),
       ),

@@ -24,6 +24,8 @@ export interface MainWindow {
   show(): void;
   /** Shows it and brings it to the front. */
   focus(): void;
+  /** Navigates the main window's webview to `url`. */
+  navigate(url: string): void;
   /** The page's answer to `close_requested`: true closes the window, false keeps it and stops waiting. */
   answerClose(close: boolean): void;
 }
@@ -105,6 +107,9 @@ export function openMainWindow(options: MainWindowOptions): MainWindow {
     focus() {
       show();
       win.activate();
+    },
+    navigate(url) {
+      win.webview.loadURL(url);
     },
     answerClose(answer) {
       if (answer) return close();
