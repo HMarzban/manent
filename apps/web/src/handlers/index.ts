@@ -51,6 +51,8 @@ import { searchHandlers } from "./search.ts";
 import { workspaceHandlers } from "./workspace.ts";
 import { accountHandlers } from "./account.ts";
 import { inkHandlers } from "./ink.ts";
+import { scriptHandlers } from "./script.ts";
+import { focusModeHandlers } from "./focus-mode.ts";
 
 /** Where the window is: its route's id, its path with the search, and the search as read. */
 export interface RoutePlace {
@@ -141,5 +143,7 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     ...workspaceHandlers(deps),
     ...accountHandlers(deps),
     ...inkHandlers(),
+    ...scriptHandlers(deps),
+    ...focusModeHandlers(deps),
   };
 }

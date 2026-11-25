@@ -9,6 +9,7 @@ export * from "./ink/index.ts";
 export * from "./pdf/index.ts";
 export * from "./pdf-text/index.ts";
 export * from "./production/index.ts";
+export * from "./reports/index.ts";
 export * from "./rundown/index.ts";
 export * from "./script/index.ts";
 export * from "./text/index.ts";

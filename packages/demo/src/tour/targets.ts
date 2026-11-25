@@ -68,6 +68,8 @@ export const TOUR_TARGETS = [
   "ink:player",
   "ink:choices",
   "ink:problems",
+  "status:goal",
+  "details:numbers",
 ] as const;
 
 export type TourTarget = (typeof TOUR_TARGETS)[number];
