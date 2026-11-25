@@ -1,0 +1,45 @@
+{
+  "formatVersion": 2,
+  "startedAt": 1794924000000,
+  "finishedAt": 1794929400000,
+  "environment": {
+    "tier": "D-small",
+    "throttle": 1,
+    "mode": "standard",
+    "prove": false,
+    "bun": "1.4.4",
+    "platform": "linux",
+    "arch": "arm64",
+    "cpus": 1,
+    "memoryBytes": 1073741824,
+    "limits": {
+      "cpus": 1,
+      "memoryBytes": 1073741824
+    },
+    "chromium": "141.0.7390.37",
+    "commit": "4c1f0e2a9b7d6c5e3f1a0b9c8d7e6f5a4b3c2d1e",
+    "dirty": false,
+    "corpusVersion": 1,
+    "command": "bun run bench --tier D-small"
+  },
+  "scenarios": [
+    {
+      "id": "server.fanout",
+      "area": "server",
+      "workload": null,
+      "processes": 5,
+      "outcome": "not_measured",
+      "reason": "Docker is not running, so the Docker tiers are recorded as not measured. Start Docker and run bun run bench again to measure them."
+    },
+    {
+      "id": "server.join-storm",
+      "area": "server",
+      "workload": null,
+      "processes": 5,
+      "outcome": "not_measured",
+      "reason": "Docker is not running, so the Docker tiers are recorded as not measured. Start Docker and run bun run bench again to measure them."
+    }
+  ],
+  "unmatched": [],
+  "unproved": []
+}
