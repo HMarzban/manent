@@ -321,6 +321,27 @@ export function createFollowing(ports: FollowPorts): Following {
     upstream.store(line.userId).load(line.docId).then(read, again);
   }
 
+  function hasUnfollowedRecovery(
+    line: Line,
+    handle: DocHandle,
+    clientIds: readonly number[],
+  ): boolean {
+    const node = nodeDocOf(storage, line.docId);
+    if (node === null) return false;
+    try {
+      const nodeVector = readStateVector(node.encodeStateVector());
+      const upstreamVector = readStateVector(handle.doc().encodeStateVector());
+      return clientIds.some(
+        (id) =>
+          (upstreamVector.get(id) ?? 0) > 0 &&
+          !nodeVector.has(id) &&
+          ports.ownerOf(line.docId, id) === null,
+      );
+    } finally {
+      node.destroy();
+    }
+  }
+
   return {
     ingest,
     pushOwn,
@@ -342,6 +363,15 @@ export function createFollowing(ports: FollowPorts): Following {
         line.moving = true;
         line.stopDoc();
         return act(line, handle, "generation", meta.generation);
+      }
+      // a node that crashed after a rejected-push recovery before it followed follows now
+      if (
+        meta !== undefined &&
+        hasUnfollowedRecovery(line, handle, meta.clientIds)
+      ) {
+        line.moving = true;
+        line.stopDoc();
+        return act(line, handle, "rejected", meta.generation);
       }
       line.generation = meta?.generation ?? 0;
       reconcile(line, handle);

@@ -81,7 +81,10 @@ function catchUp(
     const update = rows.get(seq);
     if (seq > from.finalSeq || update === undefined) return "incomplete";
     base.applyUpdate(update, ORIGIN_LOAD);
-    setAside.push(...applyRemote(mine, update, from.own, ORIGIN_LOAD));
+    // what the row's writers typed into content the waiting edits removed never reaches them again
+    const writers = new Set(from.own);
+    for (const { clientId } of updateMeta(update)) writers.add(clientId);
+    setAside.push(...applyRemote(mine, update, writers, ORIGIN_LOAD));
   }
   return setAside;
 }
@@ -216,14 +219,15 @@ function changedTitlePage(
  * text that mine lacks and the updates never held (so that the merge keeps it where theirs holds
  * it); mine: base with the updates applied. setAside: anyone's text the updates removed unseen
  * (the replay would write those deletions afresh, so whoever typed it would never be told), then
- * own text the rows base moved on by removed from mine unseen; unseen: own text mine still holds
- * that the generation's later rows removed unseen. typed: by block, mine's text and which of its
- * characters the updates wrote. overrides: mine's revisedOverrides entries that differ from base's.
- * titlePage: mine's fields that differ from base's. maps: mine's alternates, cuts and sceneProgress
- * entries that differ from base's. invalid: an update is not one, writes a root map other than the
- * replayed maps, writes an invalid map entry, or leaves a block validation refuses; incomplete:
- * the updates still wait at the generation's last row, or a row they need does not verify.
- * RangeError for a generation that is not closed.
+ * own text the rows base moved on by removed from mine unseen, and the text they brought into what
+ * the updates removed; unseen: own text mine still holds that the generation's later rows removed
+ * unseen. typed: by block, mine's text and which of its characters the updates wrote. overrides:
+ * mine's revisedOverrides entries that differ from base's. titlePage: mine's fields that differ
+ * from base's. maps: mine's alternates, cuts and sceneProgress entries that differ from base's.
+ * invalid: an update is not one, writes a root map other than the replayed maps, writes an invalid
+ * map entry, or leaves a block validation refuses; incomplete: the updates still wait at the
+ * generation's last row, or a row they need does not verify. RangeError for a generation that is
+ * not closed.
  */
 export function replayBase(
   file: DocFile,

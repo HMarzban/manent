@@ -16,6 +16,7 @@ import type {
   SyncHooks,
   SyncLimits,
   SyncService,
+  SyncSettings,
 } from "@manent/server-core";
 import { SimulatedCrash } from "@manent/storage/testing";
 import type { MemoryStorage } from "@manent/storage/testing";
@@ -112,13 +113,13 @@ class Life {
   constructor(options: {
     storage: MemoryStorage;
     clock: FakeClock;
-    versions: ServerVersions;
     limits: SyncLimits;
     ids: () => string;
     hooks: readonly SyncHooks[];
     down: () => void;
+    serve: (settings: SyncSettings) => SyncService;
   }) {
-    const { storage, versions, limits, ids, hooks } = options;
+    const { storage, limits, ids, hooks } = options;
     this.down = options.down;
     const defer = (fn: () => void): void => {
       this.deferred.push(fn);
@@ -128,12 +129,11 @@ class Life {
       schedule: (fn, delayMs) =>
         options.clock.clock.schedule(() => this.guard(fn), delayMs),
     };
-    this.service = createSyncService({
+    this.service = options.serve({
       storage,
       clock,
       defer,
       ids,
-      versions,
       limits,
       checkpointer: createInlineCheckpointer({ storage, defer }),
       hooks,
@@ -303,7 +303,10 @@ function createReplayLine(server: {
   };
 }
 
-/** Starts down: `start()` brings the first service up. `limits` lays over the simulation's own; every service gets `hooks`. */
+/**
+ * Starts down: `start()` brings the first service up. `limits` lays over the simulation's own; every service gets
+ * `hooks`. `service` builds each process's service from its settings; by default a sync service alone.
+ */
 export function createSimServer(options: {
   network: MemoryNetwork;
   storage: MemoryStorage;
@@ -312,9 +315,13 @@ export function createSimServer(options: {
   random: () => number;
   limits?: Partial<SyncLimits>;
   hooks?: readonly SyncHooks[];
+  service?: (settings: SyncSettings) => SyncService;
 }): SimServer {
   const { network, storage, clock, versions } = options;
   const hooks = options.hooks ?? [];
+  const serve =
+    options.service ??
+    ((settings: SyncSettings) => createSyncService({ ...settings, versions }));
   const limits: SyncLimits = Object.freeze({ ...LIMITS, ...options.limits });
   let life: Life | null = null;
   let versionIds = 0;
@@ -362,7 +369,7 @@ export function createSimServer(options: {
     start() {
       down();
       storage.crashOnCommit(null);
-      life = new Life({ storage, clock, versions, limits, ids, hooks, down });
+      life = new Life({ storage, clock, limits, ids, hooks, down, serve });
     },
     crash(when) {
       if (when === "now") return down();

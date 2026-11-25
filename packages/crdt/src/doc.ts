@@ -55,6 +55,14 @@ export function throwAll(errors: readonly unknown[]): void {
   if (errors.length > 1) throw new AggregateError(errors, "listeners threw");
 }
 
+/** During `applyUpdate`, the diff of the applied bytes against the prior state vector, without cascaded deletions. */
+const appliedDiffs = new WeakMap<Y.Doc, Update>();
+
+/** Internal to `@manent/crdt`: the un-cascaded diff of the update being applied to `ydoc`, or null. */
+export function appliedDiffOf(ydoc: Y.Doc): Update | null {
+  return appliedDiffs.get(ydoc) ?? null;
+}
+
 class YjsDoc implements CrdtDoc {
   readonly ydoc: Y.Doc;
   // what listeners threw, held because a throw into Yjs leaves the document unable to emit another update
@@ -77,13 +85,23 @@ class YjsDoc implements CrdtDoc {
   applyUpdate(update: Update, origin: unknown = ORIGIN_REMOTE): void {
     // an apply made by a listener leaves the throws to the outermost one
     const outer = this.applying;
+    const previous = appliedDiffs.get(this.ydoc);
     this.applying = true;
     try {
-      withWholeUpdate(update, () => Y.applyUpdate(this.ydoc, update, origin));
+      withWholeUpdate(update, () => {
+        if (origin !== ORIGIN_LOAD && origin !== ORIGIN_REMOTE)
+          appliedDiffs.set(
+            this.ydoc,
+            Y.diffUpdate(update, Y.encodeStateVector(this.ydoc)),
+          );
+        Y.applyUpdate(this.ydoc, update, origin);
+      });
     } catch (error) {
       if (outer) throw error;
       this.listenerThrows.push(error);
     } finally {
+      if (previous === undefined) appliedDiffs.delete(this.ydoc);
+      else appliedDiffs.set(this.ydoc, previous);
       this.applying = outer;
     }
     if (!outer) throwAll(this.listenerThrows.splice(0));

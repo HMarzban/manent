@@ -334,6 +334,40 @@ test("seed 9: text a collaborator typed into a block the device had deleted stay
   expect(world.textOfRoom(B2)).toBe("Dawn. " + B2_TEXT);
 });
 
+test("seed 34: text a collaborator typed into a block the device had deleted, in a row its later edits rest on, stays in the script", async () => {
+  const world = replayWorld();
+  const { file, samDoc } = world;
+  const deleted = written(samDoc, (w) => w.deleteBlock(B2));
+  world.danaEdit((w) => {
+    w.insertText(B1, 0, "Thunder. ");
+    w.insertText(B2, 0, "Dawn. ");
+  });
+  // Sam's copy takes Dana's row live, which carries no sequence, and types on after her text
+  const head = file.log.get(DOC)?.headSeq ?? 0;
+  for (const row of file.log.tail(DOC, 1, head - 1).rows)
+    samDoc.applyUpdate(row.update, ORIGIN_LOAD);
+  const typed = written(samDoc, (w) => w.insertText(B1, 9, "Wind. "));
+  world.rebuildNow();
+  expect(
+    await world.replayed(
+      "sam",
+      world.requestOf([deleted, typed], { generation: 1, key: KEY }),
+    ),
+  ).toEqual({
+    ok: true,
+    response: {
+      docId: DOC,
+      generation: 2,
+      serverSeq: 2,
+      applied: 1,
+      overlaps: [],
+      setAside: [{ blockId: null, nearBlockId: null, text: "Dawn. " }],
+    },
+  });
+  expect(world.textOfRoom(B1)).toBe(`Thunder. Wind. ${B1_TEXT}`);
+  expect(world.textOfRoom(B2)).toBe(`Dawn. ${B2_TEXT}`);
+});
+
 test("several skipped generations are carried through in turn", async () => {
   const world = replayWorld();
   const offline = world.samOffline(typeInto(B2, "Night. "));
