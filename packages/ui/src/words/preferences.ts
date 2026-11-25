@@ -75,6 +75,15 @@ export const PREFERENCES_WORDS = {
   showInLibrary: "Show in Library",
   showFolder: "Show folder",
   exportEverything: "Export everything on this device…",
+  /** Progressive label while "Export everything on this device…" writes each project archive. */
+  exportingProjects: (n: number): string =>
+    n === 1 ? "Exporting 1 project…" : `Exporting ${formatCount(n)} projects…`,
+  /** Brief message once "Export everything on this device…" has written every project archive into `folder`. */
+  exportedProjects: (n: number, folder: string): string =>
+    n === 1
+      ? `Exported 1 project to '${folder}'.`
+      : `Exported ${formatCount(n)} projects to '${folder}'.`,
+  exportEverythingRefused: "Couldn't export everything. Try again.",
   about: "About",
   /** The app's own number; "Version" is a point in a script's history only. */
   version: (v: string): string => `Manent ${v}`,
