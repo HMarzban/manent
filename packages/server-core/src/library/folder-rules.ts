@@ -166,6 +166,7 @@ const trashFieldOf = (
 ) => (isPlainObject(value) && field in value ? (value[field] ?? null) : null);
 
 function checkDocumentsTrashFields(
+  room: Room,
   doc: CrdtDoc,
   report: TransactionReport,
   storage: Storage | undefined,
@@ -201,23 +202,22 @@ function checkDocumentsTrashFields(
       );
       continue;
     }
-    if (storage !== undefined) {
-      const row = storage.trash.get(docId);
-      if (
-        row === null ||
-        afterAt !== row.deletedAt ||
-        afterBy !== row.deletedByUserId
-      )
-        issues.push(
-          notIndex(
-            path,
-            "a client push may not forge trashedAt or trashedByUserId",
-          ),
-        );
-    }
+    const row = storage?.trash.get(docId) ?? null;
+    if (
+      row === null ||
+      row.workspaceId !== room.docId ||
+      afterAt !== row.deletedAt ||
+      afterBy !== row.deletedByUserId
+    )
+      issues.push(
+        notIndex(
+          path,
+          "a client push may not forge trashedAt or trashedByUserId",
+        ),
+      );
   }
   if (storage !== undefined) {
-    for (const row of storage.trash.due(Number.MAX_SAFE_INTEGER)) {
+    for (const row of storage.trash.listByWorkspace(room.docId)) {
       if (
         report.before("documents", row.docId) !== undefined &&
         docsMap.get(row.docId) === null
@@ -253,6 +253,6 @@ export function checkFolderPush(
   if (report.maps.includes("projects") || report.maps.includes("folders"))
     issues.push(...checkProjectsFolderRefs(room.doc, report, pusher));
   if (report.maps.includes("documents"))
-    issues.push(...checkDocumentsTrashFields(room.doc, report, storage));
+    issues.push(...checkDocumentsTrashFields(room, room.doc, report, storage));
   return issues;
 }

@@ -1,7 +1,7 @@
 // Server-held index lookups and authority index updates used by TrashService.
 import { ORIGIN_LOAD, createDoc, jsonMap, loadDoc } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import type { Storage } from "@manent/storage";
+import type { Home, Storage } from "@manent/storage";
 import { indexDocId } from "@manent/sync-protocol";
 import { SYSTEM_USER_ID } from "../rebuild/rebuilder.ts";
 import type { SyncService } from "../sync/ports.ts";
@@ -46,29 +46,61 @@ function workspaceIndexIds(storage: Storage): string[] {
   return ids;
 }
 
-/** Finds the workspace index whose `documents` map lists `docId`; null when none lists it. */
-export function findWorkspaceIndexFor(
-  storage: Storage,
-  docId: string,
-): string | null {
+/**
+ * Finds the workspace index that holds `docId` with server-verified ownership: caller has access to the
+ * workspace index, `home` is a project home, `documents[docId].projectId === home.id`, and `projects[home.id]`
+ * exists in that workspace index. Never scans workspaces for `user:` homes.
+ */
+export function findWorkspaceIndexFor(options: {
+  storage: Storage;
+  sync: SyncService;
+  userId: string;
+  docId: string;
+  home: Home;
+}): string | null {
+  const { storage, sync, userId, docId, home } = options;
+  if (home.kind !== "project") return null;
+  const docHolders = storage.directory
+    .rolesOf(docId)
+    .map((entry) => entry.userId);
+  let bestIndexId: string | null = null;
+  let bestScore = -1;
   for (const indexId of workspaceIndexIds(storage)) {
+    if (!sync.access.resolve(userId, indexId).ok) continue;
     const doc = loadCommittedDoc(storage, indexId);
     if (doc === null) continue;
+    let matches = false;
     try {
-      if (jsonMap(doc, "documents").get(docId) !== null) return indexId;
+      const entry = jsonMap(doc, "documents").get(docId);
+      matches =
+        isPlainObject(entry) &&
+        entry.projectId === home.id &&
+        jsonMap(doc, "projects").get(home.id) !== null;
     } finally {
       doc.destroy();
     }
+    if (!matches) continue;
+    const members = new Set(
+      storage.directory.rolesOf(indexId).map((entry) => entry.userId),
+    );
+    let score = 0;
+    for (const holder of docHolders) if (members.has(holder)) score += 1;
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndexId = indexId;
+    }
   }
-  return null;
+  return bestIndexId;
 }
 
-/** Returns `userId`'s private index id if its `private_folder` map holds a document entry for `docId`, else null. */
+/** Returns `userId`'s private index id if its `private_folder` map holds a matching document entry for `docId`, else null. */
 export function privateFolderIndexFor(
   storage: Storage,
   userId: string,
   docId: string,
+  home?: Home,
 ): string | null {
+  if (home !== undefined && home.kind !== "project") return null;
   const userIndexId = indexDocId("user", userId);
   if (
     storage.directory.placeOf(userIndexId) === null ||
@@ -79,7 +111,10 @@ export function privateFolderIndexFor(
   if (doc === null) return null;
   try {
     const entry = jsonMap(doc, "private_folder").get(docId);
-    return isPlainObject(entry) && "projectId" in entry ? userIndexId : null;
+    if (!isPlainObject(entry) || typeof entry.projectId !== "string")
+      return null;
+    if (home !== undefined && entry.projectId !== home.id) return null;
+    return userIndexId;
   } finally {
     doc.destroy();
   }

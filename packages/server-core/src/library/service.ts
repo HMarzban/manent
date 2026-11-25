@@ -156,14 +156,25 @@ export function createTrashService(options: TrashServiceOptions): TrashService {
     const existing = storage.trash.get(docId);
     if (existing !== null)
       return { ok: true, value: { docId, purgeAfterAt: existing.purgeAfter } };
-    const wsIndexId = findWorkspaceIndexFor(storage, docId);
     const privIndexId =
-      wsIndexId === null ? privateFolderIndexFor(storage, userId, docId) : null;
+      auth.home.kind === "project"
+        ? privateFolderIndexFor(storage, userId, docId, auth.home)
+        : null;
+    const wsIndexId =
+      privIndexId === null
+        ? findWorkspaceIndexFor({
+            storage,
+            sync: sync(),
+            userId,
+            docId,
+            home: auth.home,
+          })
+        : null;
     const target: IndexTarget | null =
-      wsIndexId !== null
-        ? { indexId: wsIndexId, mapName: "documents" }
-        : privIndexId !== null
-          ? { indexId: privIndexId, mapName: "private_folder" }
+      privIndexId !== null
+        ? { indexId: privIndexId, mapName: "private_folder" }
+        : wsIndexId !== null
+          ? { indexId: wsIndexId, mapName: "documents" }
           : null;
     const deletedAt = clock.now();
     const purgeAfter = deletedAt + TRASH_KEEP_MS;

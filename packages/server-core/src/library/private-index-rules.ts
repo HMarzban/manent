@@ -96,10 +96,12 @@ const trashFieldOf = (
 ) => (isPlainObject(value) && field in value ? (value[field] ?? null) : null);
 
 function validatePrivateDocEntry(
+  docId: string,
   path: string,
   raw: Record<string, unknown>,
   prev: unknown,
   isNew: boolean,
+  storage: Storage | undefined,
 ): Issue[] {
   const issues: Issue[] = [];
   if (typeof raw.projectId !== "string" || raw.projectId.trim().length === 0)
@@ -152,10 +154,29 @@ function validatePrivateDocEntry(
           "a client push may not change trashedAt or trashedByUserId",
         ),
       );
-  } else if (isNew && (afterAt !== null || afterBy !== null)) {
-    issues.push(
-      notIndex(path, "a client push may not set trashedAt or trashedByUserId"),
-    );
+  } else if (afterAt !== null || afterBy !== null) {
+    if (isNew) {
+      issues.push(
+        notIndex(
+          path,
+          "a client push may not set trashedAt or trashedByUserId",
+        ),
+      );
+    } else {
+      const row = storage?.trash.get(docId) ?? null;
+      if (
+        row === null ||
+        row.workspaceId !== "" ||
+        afterAt !== row.deletedAt ||
+        afterBy !== row.deletedByUserId
+      )
+        issues.push(
+          notIndex(
+            path,
+            "a client push may not forge trashedAt or trashedByUserId",
+          ),
+        );
+    }
   }
   return issues;
 }
@@ -190,12 +211,12 @@ function validatePrivateProjectEntry(
 function checkPrivateFolderMap(
   doc: CrdtDoc,
   report: TransactionReport,
+  storage: Storage | undefined,
 ): Issue[] {
   const issues: Issue[] = [];
+  const pfMap = jsonMap(doc, "private_folder");
   const inserted = newlyWrittenKeys(report, "private_folder");
-  for (const [key, raw] of Object.entries(
-    jsonMap(doc, "private_folder").entries(),
-  )) {
+  for (const [key, raw] of Object.entries(pfMap.entries())) {
     const path = `maps.private_folder.${key}`;
     if (!isPlainObject(raw)) {
       issues.push(notIndex(path, "a private_folder entry must be an object"));
@@ -204,13 +225,29 @@ function checkPrivateFolderMap(
     if ("projectId" in raw)
       issues.push(
         ...validatePrivateDocEntry(
+          key,
           path,
           raw,
           report.before("private_folder", key),
           inserted.has(key),
+          storage,
         ),
       );
     else issues.push(...validatePrivateProjectEntry(path, raw));
+  }
+  if (storage !== undefined) {
+    for (const row of storage.trash.listByWorkspace("")) {
+      if (
+        report.before("private_folder", row.docId) !== undefined &&
+        pfMap.get(row.docId) === null
+      )
+        issues.push(
+          notIndex(
+            `maps.private_folder.${row.docId}`,
+            "a client push may not remove a trashed private document entry",
+          ),
+        );
+    }
   }
   return issues;
 }
@@ -220,6 +257,7 @@ export function checkPrivateIndexPush(
   room?: Room,
   report?: TransactionReport,
   _pusher?: Subscription,
+  storage?: Storage,
 ): Issue[] {
   if (
     room === undefined ||
@@ -232,7 +270,7 @@ export function checkPrivateIndexPush(
   if (report.maps.includes("favourites"))
     issues.push(...checkFavouritesMap(room.doc));
   if (report.maps.includes("private_folder"))
-    issues.push(...checkPrivateFolderMap(room.doc, report));
+    issues.push(...checkPrivateFolderMap(room.doc, report, storage));
   return issues;
 }
 
@@ -244,7 +282,7 @@ export function createLibraryPushHooks(options?: {
     checkPush(room, report, pusher) {
       return [
         ...checkFolderPush(room, report, pusher, options?.storage),
-        ...checkPrivateIndexPush(room, report, pusher),
+        ...checkPrivateIndexPush(room, report, pusher, options?.storage),
       ];
     },
   };

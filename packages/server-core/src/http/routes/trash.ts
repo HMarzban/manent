@@ -1,5 +1,5 @@
 // HTTP routes for Trash: moving a document to Trash, restoring it, and listing Trash by workspace.
-import { isDocId } from "@manent/sync-protocol";
+import { indexDocId, isDocId } from "@manent/sync-protocol";
 import type {
   TrashListRequest,
   TrashMoveRequest,
@@ -101,7 +101,10 @@ export const trashRoutes: readonly Route[] = [
     ({ service, userId }, body) => service.restore(userId, body.docId),
     (body, mode) => mode(body.docId) === "relay",
   ),
-  postRoute("/api/trash/list", readListBody, ({ service, userId }, body) =>
-    service.list(userId, body.workspaceId),
+  postRoute(
+    "/api/trash/list",
+    readListBody,
+    ({ service, userId }, body) => service.list(userId, body.workspaceId),
+    (body, mode) => mode(indexDocId("workspace", body.workspaceId)) === "relay",
   ),
 ];

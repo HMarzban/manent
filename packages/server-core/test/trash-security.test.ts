@@ -16,6 +16,7 @@ import type { Identity, Message } from "@manent/sync-protocol";
 import {
   TRASH_KEEP_MS,
   checkFolderPush,
+  checkPrivateIndexPush,
   createLibraryPushHooks,
   createServer,
   createSignedSessionStore,
@@ -279,6 +280,13 @@ async function seedWorkspaceAndDocs(h: Harness): Promise<void> {
     userId: "dana",
     origin: "system",
     edit(doc) {
+      jsonMap(doc, "projects").set(PROJ_A, {
+        title: "Alpha",
+        kind: "film",
+        createdAt: 1_000,
+        createdByUserId: "dana",
+        folderId: null,
+      });
       const docs = jsonMap(doc, "documents");
       docs.set(DOC_1, makeEntry(PROJ_A, "First Script"));
       docs.set(DOC_2, makeEntry(PROJ_A, "Second Script"));
@@ -291,6 +299,13 @@ async function seedWorkspaceAndDocs(h: Harness): Promise<void> {
     userId: "dana",
     origin: "system",
     edit(doc) {
+      jsonMap(doc, "projects").set(PROJ_B, {
+        title: "Beta",
+        kind: "film",
+        createdAt: 1_000,
+        createdByUserId: "dana",
+        folderId: null,
+      });
       jsonMap(doc, "documents").set(
         DOC_OTHER_WS,
         makeEntry(PROJ_B, "Other Workspace Script"),
@@ -788,6 +803,205 @@ test("sweep tombstones due documents, cleans up workspace and continue indexes, 
   // DOC_2 is untouched: still in Trash, not tombstoned
   expect(h.storage.directory.tombstoneOf(DOC_2)).toBeNull();
   expect(h.storage.trash.get(DOC_2)).not.toBeNull();
+
+  h.trash.stop();
+});
+
+test("cross-workspace bait in another workspace never hijacks Trash workspace resolution or leaks Private-folder docs", async () => {
+  const h = createHarness(300_000);
+  await seedWorkspaceAndDocs(h);
+
+  // Outsider owns a separate workspace where Dana has no access at all, and also acts as editor in WS_OTHER
+  const WS_BAIT = "bait";
+  const WS_BAIT_INDEX = indexDocId("workspace", WS_BAIT);
+  h.sync.access.create("outsider", {
+    docId: WS_BAIT_INDEX,
+    kind: "index",
+    home: workspaceHome(WS_BAIT),
+  });
+  h.storage.directory.setRole(WS_OTHER_INDEX, "outsider", "edit", []);
+
+  // Attacker plants forged entries for Dana's Private-folder doc AND WS_MAIN's DOC_1 in both WS_BAIT and WS_OTHER
+  for (const [indexId, clientId] of [
+    [WS_BAIT_INDEX, 401],
+    [WS_OTHER_INDEX, 402],
+  ] as const) {
+    const planted = await pushAs(h, "outsider", indexId, clientId, (doc) => {
+      jsonMap(doc, "projects").set(PROJ_PRIV, {
+        title: "Forged Priv",
+        kind: "film",
+        createdAt: 1_000,
+        createdByUserId: "outsider",
+        folderId: null,
+      });
+      jsonMap(doc, "projects").set(PROJ_A, {
+        title: "Forged Alpha",
+        kind: "film",
+        createdAt: 1_000,
+        createdByUserId: "outsider",
+        folderId: null,
+      });
+      const docs = jsonMap(doc, "documents");
+      docs.set(DOC_PRIV_FOLDER, makeEntry(PROJ_PRIV, "Bait Private"));
+      docs.set(DOC_1, makeEntry(PROJ_A, "Bait Doc 1"));
+    });
+    expect(planted.some((m) => m.type === "ACK")).toBe(true);
+  }
+
+  // Dana trashes her Private-folder doc: must stay private (workspaceId === ""), update Dana's private_folder, never touch WS_BAIT or WS_OTHER
+  const privMoved = await h.post(
+    "/api/trash/move",
+    { docId: DOC_PRIV_FOLDER },
+    "dana",
+  );
+  expect(privMoved.status).toBe(200);
+  expect(h.storage.trash.get(DOC_PRIV_FOLDER)?.workspaceId).toBe("");
+
+  const danaPriv = h.readDoc(indexDocId("user", "dana"));
+  expect(
+    jsonMap(danaPriv, "private_folder").get(DOC_PRIV_FOLDER),
+  ).toMatchObject({ trashedAt: 300_000, trashedByUserId: "dana" });
+  danaPriv.destroy();
+
+  // Dana trashes DOC_1: must resolve to WS_MAIN_INDEX, never WS_BAIT_INDEX or WS_OTHER_INDEX
+  const doc1Moved = await h.post("/api/trash/move", { docId: DOC_1 }, "dana");
+  expect(doc1Moved.status).toBe(200);
+  expect(h.storage.trash.get(DOC_1)?.workspaceId).toBe(WS_MAIN_INDEX);
+
+  const wsMain = h.readDoc(WS_MAIN_INDEX);
+  expect(jsonMap(wsMain, "documents").get(DOC_1)).toMatchObject({
+    trashedAt: 300_000,
+    trashedByUserId: "dana",
+  });
+  wsMain.destroy();
+
+  for (const baitIndex of [WS_BAIT_INDEX, WS_OTHER_INDEX]) {
+    const baitDoc = h.readDoc(baitIndex);
+    const docs = jsonMap(baitDoc, "documents");
+    expect(docs.get(DOC_PRIV_FOLDER)).toMatchObject({
+      trashedAt: null,
+      trashedByUserId: null,
+    });
+    expect(docs.get(DOC_1)).toMatchObject({
+      trashedAt: null,
+      trashedByUserId: null,
+    });
+    baitDoc.destroy();
+  }
+
+  // Outsider listing WS_BAIT or WS_OTHER Trash sees nothing from Dana
+  expect(
+    await h.post("/api/trash/list", { workspaceId: WS_BAIT }, "outsider"),
+  ).toEqual({ status: 200, body: { items: [] } });
+  expect(
+    await h.post("/api/trash/list", { workspaceId: WS_OTHER }, "outsider"),
+  ).toEqual({ status: 200, body: { items: [] } });
+
+  h.trash.stop();
+});
+
+test("insert-delete-reinsert trash-field forgery is refused on both private and workspace indexes and fails closed without storage", async () => {
+  const h = createHarness(400_000);
+  await seedWorkspaceAndDocs(h);
+
+  const danaPriv = indexDocId("user", "dana");
+  const REINSERT_PRIV = "bbbb1111-1111-7111-8111-111111111111";
+  const REINSERT_WS = "bbbb2222-2222-7222-8222-222222222222";
+
+  // 1. Private folder: insert -> delete -> re-insert with forged trashedAt/trashedByUserId
+  const p1 = await pushAs(h, "dana", danaPriv, 501, (doc) => {
+    jsonMap(doc, "private_folder").set(
+      REINSERT_PRIV,
+      makeEntry(PROJ_PRIV, "Transient Private"),
+    );
+  });
+  expect(p1.some((m) => m.type === "ACK")).toBe(true);
+
+  const p2 = await pushAs(h, "dana", danaPriv, 502, (doc) => {
+    jsonMap(doc, "private_folder").delete(REINSERT_PRIV);
+  });
+  expect(p2.some((m) => m.type === "ACK")).toBe(true);
+
+  const p3 = await pushAs(h, "dana", danaPriv, 503, (doc) => {
+    jsonMap(doc, "private_folder").set(REINSERT_PRIV, {
+      ...makeEntry(PROJ_PRIV, "Forged Private"),
+      trashedAt: 999_999,
+      trashedByUserId: "forged",
+    });
+  });
+  expect(p3).toEqual([expect.objectContaining({ type: "ERROR", code: 4422 })]);
+
+  // 2. Workspace index: insert -> delete -> re-insert with forged trashedAt/trashedByUserId
+  const w1 = await pushAs(h, "dana", WS_MAIN_INDEX, 504, (doc) => {
+    jsonMap(doc, "documents").set(
+      REINSERT_WS,
+      makeEntry(PROJ_A, "Transient Workspace"),
+    );
+  });
+  expect(w1.some((m) => m.type === "ACK")).toBe(true);
+
+  const w2 = await pushAs(h, "dana", WS_MAIN_INDEX, 505, (doc) => {
+    jsonMap(doc, "documents").delete(REINSERT_WS);
+  });
+  expect(w2.some((m) => m.type === "ACK")).toBe(true);
+
+  const w3 = await pushAs(h, "dana", WS_MAIN_INDEX, 506, (doc) => {
+    jsonMap(doc, "documents").set(REINSERT_WS, {
+      ...makeEntry(PROJ_A, "Forged Workspace"),
+      trashedAt: 999_999,
+      trashedByUserId: "forged",
+    });
+  });
+  expect(w3).toEqual([expect.objectContaining({ type: "ERROR", code: 4422 })]);
+
+  // 3. Direct push-rule calls fail closed when storage is omitted and trashed fields are non-null with prev === undefined
+  const wsDoc = createDoc();
+  jsonMap(wsDoc, "documents").set(REINSERT_WS, {
+    ...makeEntry(PROJ_A, "Forged Workspace"),
+    trashedAt: 999_999,
+    trashedByUserId: "forged",
+  });
+  const wsIssues = checkFolderPush(
+    {
+      docId: WS_MAIN_INDEX,
+      home: { kind: "project", id: WS_MAIN_INDEX },
+      kind: "index",
+      doc: wsDoc,
+    } as unknown as Room,
+    {
+      maps: ["documents"],
+      before: () => undefined,
+      update: new Uint8Array(),
+    } as unknown as Parameters<typeof checkFolderPush>[1],
+    undefined,
+    undefined,
+  );
+  expect(wsIssues.length).toBeGreaterThan(0);
+  wsDoc.destroy();
+
+  const privDoc = createDoc();
+  jsonMap(privDoc, "private_folder").set(REINSERT_PRIV, {
+    ...makeEntry(PROJ_PRIV, "Forged Private"),
+    trashedAt: 999_999,
+    trashedByUserId: "forged",
+  });
+  const privIssues = checkPrivateIndexPush(
+    {
+      docId: danaPriv,
+      home: { kind: "user", id: "dana" },
+      kind: "index",
+      doc: privDoc,
+    } as unknown as Room,
+    {
+      maps: ["private_folder"],
+      before: () => undefined,
+      update: new Uint8Array(),
+    } as unknown as Parameters<typeof checkPrivateIndexPush>[1],
+    undefined,
+    undefined,
+  );
+  expect(privIssues.length).toBeGreaterThan(0);
+  privDoc.destroy();
 
   h.trash.stop();
 });
