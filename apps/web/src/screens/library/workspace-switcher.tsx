@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   LIBRARY_WORDS,
+  WORKSPACE_WORDS,
   useSubscribable,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
@@ -116,14 +117,27 @@ export function WorkspaceSwitcher(props: {
             </DropdownMenuItem>
           </>
         ) : (
-          workspaces.map((workspace) => (
-            <SeededWorkspace
-              key={workspace.id}
-              workspace={workspace}
-              current={workspace.id === current}
-              onChoose={choose(workspace.id)}
-            />
-          ))
+          <>
+            {workspaces.map((workspace) => (
+              <SeededWorkspace
+                key={workspace.id}
+                workspace={workspace}
+                current={workspace.id === current}
+                onChoose={choose(workspace.id)}
+              />
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              data-tour="workspace:settings"
+              onClick={() =>
+                void navigate({
+                  href: `/w/${encodeURIComponent(current)}/settings/people`,
+                })
+              }
+            >
+              {WORKSPACE_WORDS.title}
+            </DropdownMenuItem>
+          </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
