@@ -24,6 +24,7 @@ import { sceneReportPdfFileType } from "./file-types/scene-report-pdf.ts";
 import { locationReportFileType } from "./file-types/location-report.ts";
 import { locationReportPdfFileType } from "./file-types/location-report-pdf.ts";
 import { pickupLinesFileType } from "./file-types/pickup-lines.ts";
+import { sidesFileType } from "./file-types/sides.ts";
 import type { ExportFileType } from "./script-file.ts";
 
 export const EXPORT_FILE_TYPES: readonly ExportFileType[] = [
@@ -49,6 +50,7 @@ export const EXPORT_FILE_TYPES: readonly ExportFileType[] = [
   locationReportFileType,
   locationReportPdfFileType,
   pickupLinesFileType,
+  sidesFileType,
 ];
 
 /** What decides which types a document is offered. */

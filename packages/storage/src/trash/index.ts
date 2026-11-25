@@ -1,2 +1,2 @@
 // Trash storage exports.
-export {};
+export { createSqliteTrash } from "./sqlite.ts";

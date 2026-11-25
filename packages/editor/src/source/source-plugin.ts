@@ -1,10 +1,9 @@
 // Colours source lines by decorations: every line of an Ink script, and a game script's branching General lines.
 // Never stored, and drawn by colour classes alone in a game script, so its pages are unchanged.
-import type { FormatId } from "@manent/schema";
+import type { FormatId, SourceMode } from "@manent/schema";
 import type { Node } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
 import { DecorationSet } from "prosemirror-view";
-import type { SourceMode } from "./classify.ts";
 
 interface SourceState {
   /** Null while the format reads no line as source, or the line reader has not loaded. */

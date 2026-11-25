@@ -82,3 +82,11 @@ export type {
   RundownJSON,
   RundownRowJSON,
 } from "./rundown.ts";
+export { SOURCE_KINDS, SOURCE_ROLES, classifyLine } from "./source-kinds.ts";
+export type {
+  SourceKind,
+  SourceLine,
+  SourceMode,
+  SourceRange,
+  SourceRole,
+} from "./source-kinds.ts";

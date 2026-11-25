@@ -19,6 +19,9 @@ import { PROMPTER_ROUTES } from "./prompter.ts";
 import { trashRoutes } from "./trash.ts";
 import { searchRoutes } from "./search.ts";
 import { workspaceRoutes } from "./workspace.ts";
+import { apiKeyRoutes } from "./api-keys.ts";
+import { notificationRoutes } from "./notifications.ts";
+import { publicApiRoutes } from "./public-api.ts";
 
 export const ROUTES: readonly Route[] = [
   ...adoptRoutes,
@@ -40,4 +43,7 @@ export const ROUTES: readonly Route[] = [
   ...trashRoutes,
   ...searchRoutes,
   ...workspaceRoutes,
+  ...apiKeyRoutes,
+  ...notificationRoutes,
+  ...publicApiRoutes,
 ];
