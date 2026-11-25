@@ -13,11 +13,12 @@ export function SidePanel(props: {
   docId: string;
   overlay: boolean;
 }): ReactNode {
-  const open = usePanel("side").tab !== null;
+  const sideTab = usePanel("side").tab;
+  const open = sideTab !== null;
   const beside = useBeside();
   useEffect(() => {
-    if (open) closeBeside();
-  }, [open]);
+    if (open && sideTab !== "tour") closeBeside();
+  }, [open, sideTab]);
   // leaving the document closes what is beside it
   useEffect(() => closeBeside, []);
   return (

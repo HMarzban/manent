@@ -263,7 +263,6 @@ export function PreviousValuePopover(props: {
   readonly canEdit: boolean;
 }): ReactNode {
   const { docId, state, canEdit } = props;
-  const services = useServices();
   const { now } = useEnvironment();
   const view = useRundownView(docId);
   const restoreButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -298,10 +297,7 @@ export function PreviousValuePopover(props: {
 
   if (target === null) return null;
 
-  const who =
-    target.cell.userId === services.userId
-      ? RUNDOWN_WORDS.you
-      : nameOf(target.cell.userId);
+  const who = nameOf(target.cell.userId);
   const when = formatPreviousWhen(target.cell.setAt, now());
   const heading = RUNDOWN_WORDS.previousValue(who, when);
   const was = RUNDOWN_WORDS.wasValue(
@@ -336,6 +332,7 @@ export function PreviousValuePopover(props: {
             type="button"
             variant="outline"
             size="sm"
+            data-tour="rundown.restorePrevious"
             disabled={!canEdit}
             className={
               canEdit

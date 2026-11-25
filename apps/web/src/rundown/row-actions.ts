@@ -43,6 +43,7 @@ export interface RowActionContext {
   readonly gridRef: { readonly current: EditableGridHandle | null };
   readonly services: PersonServices;
   readonly environment: Environment;
+  focusCell?(coord: GridCellCoord): void;
 }
 
 /** Target row ids in rundown order: selected rows when non-empty, else the active row. */
@@ -196,8 +197,10 @@ export function addRundownRow(
         : RUNDOWN_WORDS.undidAddRow,
   });
   session.setSelection([]);
-  session.setActiveCell({ rowId: id, columnId: titleColumn });
-  gridRef.current?.focusCell(id, titleColumn);
+  const target: GridCellCoord = { rowId: id, columnId: titleColumn };
+  session.setActiveCell(target);
+  if (ctx.focusCell !== undefined) ctx.focusCell(target);
+  else gridRef.current?.focusCell(id, titleColumn);
 }
 
 /** Removes the selected rows (or active row) in one undo step and announces S3-RG-49. */
