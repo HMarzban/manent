@@ -376,6 +376,26 @@ test("changing the paper repaginates without reconfiguring a plugin", () => {
   ]);
 });
 
+test("changing script.engineVersion repaginates cleanly between carried engines without assertSameEngine failure", () => {
+  const { e: startedOnTwo } = editor({ script: { "script.engineVersion": 2 } });
+  expect(startedOnTwo.pagination()?.engineVersion).toBe(2);
+
+  const { e, fakes } = editor();
+  expect(e.pagination()?.engineVersion).toBe(1);
+  fakes.script.set("script.engineVersion", 2);
+  expect([
+    paginationKey.getState(e.view.state)!.settings.engine.version,
+    paginationKey.getState(e.view.state)!.settings.profile.engineVersion,
+    e.pagination()?.engineVersion,
+  ]).toEqual([2, 2, 2]);
+  fakes.script.set("script.engineVersion", 1);
+  expect([
+    paginationKey.getState(e.view.state)!.settings.engine.version,
+    paginationKey.getState(e.view.state)!.settings.profile.engineVersion,
+    e.pagination()?.engineVersion,
+  ]).toEqual([1, 1, 1]);
+});
+
 test("spelling follows the preference", () => {
   const { e, fakes } = editor();
   fakes.personal.set("writing.checkSpelling", false);

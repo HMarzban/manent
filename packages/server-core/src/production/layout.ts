@@ -8,7 +8,7 @@ import { activeSet, isSameList } from "./issue.ts";
 import { refused } from "./outcome.ts";
 import type { Mutation, ProductionOptions } from "./requests.ts";
 import {
-  documentOf,
+  engineVersionOf,
   layoutBlocks,
   layoutUnder,
   notLocked,
@@ -56,12 +56,12 @@ export function layoutMutation(
       return valid ? null : refused("bad_request");
     },
     edit(doc, file) {
-      const { engineVersion } = documentOf(file, docId);
+      const settings = scriptSettings(doc);
+      const stored = settings.entries();
+      const engineVersion = engineVersionOf(stored);
       const read = scriptAt(doc, file, docId, engineVersion);
       if (!read.ok) return read;
       const { flat, numbers, records, engine, profile } = read.script;
-      const settings = scriptSettings(doc);
-      const stored = settings.entries();
       const changed = Object.fromEntries(changes.map((c) => [c.key, c.value]));
       const after = layoutUnder({ ...stored, ...changed }, engineVersion);
       if (!after.ok) return after;

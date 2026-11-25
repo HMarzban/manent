@@ -1,8 +1,12 @@
+// Handlers for Script menu writing-tool commands.
 import type { CommandHandlers } from "@manent/commands";
+import { startRenameCharacter } from "../writing-tools/rename.ts";
 import type { HandlerDeps } from "./index.ts";
 
 export function scriptHandlers(
-  _deps: HandlerDeps,
-): Pick<CommandHandlers, never> {
-  return {};
+  deps: HandlerDeps,
+): Pick<CommandHandlers, "script.renameCharacter"> {
+  return {
+    "script.renameCharacter": () => startRenameCharacter(deps),
+  };
 }

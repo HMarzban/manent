@@ -1,5 +1,5 @@
 // The person's sync as this page starts it: what only the page knows, given to the sync's options, apart from the entry.
-import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
+import { ENGINE_VERSIONS, TABLE_VERSION } from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import type { SyncClientOptions } from "@manent/sync-client";
 import { PROTOCOL_VERSION } from "@manent/sync-protocol";
@@ -54,7 +54,7 @@ export async function startBrowserSync(options: {
   const versions = {
     protocol: PROTOCOL_VERSION,
     schema: SCHEMA_VERSION,
-    engine: ENGINE_VERSION,
+    engine: ENGINE_VERSIONS.at(-1)!,
     table: TABLE_VERSION,
   };
   return createPersonSync({

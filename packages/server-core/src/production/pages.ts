@@ -1,4 +1,5 @@
 // The Pages tab's operations on the anchor table, each computed on the pages as they are at the write's turn.
+import { scriptSettings } from "@manent/crdt";
 import type { LockAnchorRecord, Pagination } from "@manent/pagination";
 import { captureAnchors, mergeAnchors } from "@manent/revisions";
 import type { PagesRequest, ProductionState } from "@manent/sync-protocol";
@@ -6,7 +7,7 @@ import { refused } from "./outcome.ts";
 import type { ProductionRefused } from "./outcome.ts";
 import type { Mutation, ProductionOptions } from "./requests.ts";
 import {
-  documentOf,
+  engineVersionOf,
   notLocked,
   rowsOf,
   scriptAt,
@@ -101,7 +102,7 @@ export function pagesMutation(
     tells: ["lock_anchors_changed"],
     check: (file) => shapeRefusal(request) ?? notLocked(file, docId),
     edit(doc, file) {
-      const { engineVersion } = documentOf(file, docId);
+      const engineVersion = engineVersionOf(scriptSettings(doc).entries());
       const read = scriptAt(doc, file, docId, engineVersion);
       if (!read.ok) return read;
       const { layout, records } = read.script;
