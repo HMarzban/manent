@@ -16,6 +16,8 @@ interface DriverEntry {
   known: boolean;
   online: boolean;
   canEdit: boolean;
+  /** Monotonic counter bumped on every driver transition so a stale GET /api/driver/current cannot clobber live events. */
+  version: number;
 }
 
 const entries = new Map<string, DriverEntry>();
@@ -29,6 +31,7 @@ const EMPTY_ENTRY: DriverEntry = Object.freeze({
   known: false,
   online: true,
   canEdit: true,
+  version: 0,
 });
 
 function entryOf(userId: string, docId: string): DriverEntry {
@@ -38,20 +41,25 @@ function entryOf(userId: string, docId: string): DriverEntry {
 function setEntry(
   userId: string,
   docId: string,
-  patch: Partial<DriverEntry>,
+  patch: Partial<Omit<DriverEntry, "version">>,
 ): void {
   const key = entryKey(userId, docId);
   const prev = entries.get(key) ?? EMPTY_ENTRY;
-  const next: DriverEntry = { ...prev, ...patch };
-  if (
-    prev.known === next.known &&
-    prev.online === next.online &&
-    prev.canEdit === next.canEdit &&
-    prev.driver?.userId === next.driver?.userId &&
-    prev.driver?.name === next.driver?.name
-  )
-    return;
+  const driverUpdated = "driver" in patch;
+  const next: DriverEntry = {
+    ...prev,
+    ...patch,
+    version: driverUpdated ? prev.version + 1 : prev.version,
+  };
+  const visibleChanged =
+    prev.known !== next.known ||
+    prev.online !== next.online ||
+    prev.canEdit !== next.canEdit ||
+    prev.driver?.userId !== next.driver?.userId ||
+    prev.driver?.name !== next.driver?.name;
+  if (!visibleChanged && !driverUpdated) return;
   entries.set(key, next);
+  if (!visibleChanged) return;
   const subs = listeners.get(key);
   if (subs !== undefined) for (const listener of subs) listener();
 }
@@ -179,6 +187,7 @@ export async function refreshDriver(
 ): Promise<{ ok: true; driver: Identity | null } | { ok: false }> {
   const token = tokenOf();
   if (token === null) return { ok: false };
+  const startedVersion = entryOf(userId, docId).version;
   try {
     const response = await fetch(
       `/api/driver/current?docId=${encodeURIComponent(docId)}`,
@@ -187,6 +196,10 @@ export async function refreshDriver(
     if (!response.ok) return { ok: false };
     const answer = parseDriverAnswer(await readJsonSafe(response));
     if (answer === null) return { ok: false };
+    if (entryOf(userId, docId).version !== startedVersion) {
+      // a live driver_changed or local take/release landed while GET was in flight; keep it
+      return { ok: true, driver: entryOf(userId, docId).driver };
+    }
     setEntry(userId, docId, { known: true, driver: answer.driver });
     return { ok: true, driver: answer.driver };
   } catch {
