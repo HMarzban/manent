@@ -1,7 +1,11 @@
 import { withDom } from "@manent/testkit/dom";
 import { afterEach, expect, test } from "bun:test";
 import { entryKey } from "@manent/settings";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  notifyManager,
+} from "@tanstack/react-query";
 import {
   RouterProvider,
   createMemoryHistory,
@@ -32,15 +36,23 @@ import {
 import { until } from "./sync.fixtures.ts";
 
 withDom();
+// Query tells its observers at once, so RootLayout settles inside the act that mounts it
+notifyManager.setScheduler((notify) => notify());
 
 const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
 const LEO = { token: null, userId: "leo", name: "Leo Marsh" };
 const DANA = { token: null, userId: "dana", name: "Dana Reyes" };
 
 let mounted: Root | null = null;
-afterEach(() => {
-  act(() => mounted?.unmount());
+let activeClient: QueryClient | null = null;
+afterEach(async () => {
+  await act(async () => {
+    mounted?.unmount();
+  });
   mounted = null;
+  activeClient?.clear();
+  activeClient = null;
+  document.body.replaceChildren();
   document.documentElement.removeAttribute("data-theme");
 });
 
@@ -103,6 +115,7 @@ async function renderApp(options: {
   document.body.replaceChildren(container);
   mounted = createRoot(container);
   const client = new QueryClient();
+  activeClient = client;
   await act(async () =>
     mounted?.render(
       <QueryClientProvider client={client}>
