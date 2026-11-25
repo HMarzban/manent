@@ -7,19 +7,33 @@ export const DESKTOP_PROMPTER_FILES: TourScenario = {
   promise: "Write the prompter's files to a folder.",
   setup: {
     userId: "ana",
-    open: docPath("medium/lannick-one-news/stories/01"),
+    open: docPath("medium/lannick-one-news/rundowns/day"),
     extraWindows: [],
     prepare: null,
     shell: "desktop",
   },
   steps: [
-    { text: "Choose a folder for the prompter's files.", highlight: "page" },
-    { text: "Send the newscast to the prompter.", highlight: "page" },
+    {
+      text: "Choose Prompter files… in the title menu.",
+      highlight: "prompter.files",
+    },
+    {
+      text: "Leave Encoding at UTF-8, choose Choose… and pick a place on this computer.",
+      highlight: "prompter_files:place",
+    },
+    {
+      text: "Choose Write prompter files: the state bar says where they go.",
+      highlight: "state_bar",
+    },
+    {
+      text: "Open that place: run-order.txt, and one file per story such as 01-tolle-exchange-library-council-votes-yes.txt.",
+      highlight: "state_bar",
+    },
   ],
   check:
-    "The run-order and each story's file are written to the folder you chose.",
-  evidence: ["run-order"],
+    'The dialog offers "UTF-8" first, and the state bar reads "Writing prompter files to" with the path, and Stop.',
+  evidence: ["UTF-8", "Writing prompter files to"],
   fresh: false,
-  waitsFor: "prompter_files",
+  waitsFor: null,
   hidden: null,
 };
