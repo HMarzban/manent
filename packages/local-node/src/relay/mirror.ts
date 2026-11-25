@@ -52,20 +52,47 @@ export function createMirror(options: {
   records: NodeRecords;
   cloud: CloudApi;
   tokenOf: (userId: string) => string | null;
+  reauthenticate?: (userId: string) => Promise<string | null>;
+  waitReseed?: () => Promise<void>;
 }): Mirror {
   const { storage, records, cloud } = options;
+  async function describe(
+    token: string,
+    docId: string,
+  ): Promise<
+    | Awaited<ReturnType<CloudApi["describe"]>>
+    | { ok: false; code: "unreachable" }
+  > {
+    try {
+      return await cloud.describe(token, { docId });
+    } catch (error) {
+      if (!(error instanceof ConnectError)) throw error;
+      return { ok: false, code: "unreachable" };
+    }
+  }
   return {
     async ensure(userId, docId) {
+      if (options.waitReseed !== undefined) await options.waitReseed();
       const token = options.tokenOf(userId);
       if (token === null) return { ok: false, code: "unreachable" };
-      let described;
-      try {
-        described = await cloud.describe(token, { docId });
-      } catch (error) {
-        if (!(error instanceof ConnectError)) throw error;
-        return { ok: false, code: "unreachable" };
+      let described = await describe(token, docId);
+      if (
+        !described.ok &&
+        described.code === "unauthenticated" &&
+        options.reauthenticate !== undefined
+      ) {
+        const fresh = await options.reauthenticate(userId);
+        if (fresh === null) return { ok: false, code: "unreachable" };
+        described = await describe(fresh, docId);
       }
-      if (!described.ok) return { ok: false, code: REFUSALS[described.code] };
+      if (!described.ok) {
+        const code =
+          described.code === "unreachable"
+            ? "unreachable"
+            : REFUSALS[described.code];
+        return { ok: false, code };
+      }
+      if (options.waitReseed !== undefined) await options.waitReseed();
       const { kind, home, generation, role, capabilities } = described.body;
       const placed = parseHome(home);
       if (placed === null) return { ok: false, code: "forbidden" };
@@ -158,6 +185,7 @@ export async function mirrorBeforeCreate(options: {
   mirror: Mirror;
   resolveUser(token: string): string | null;
   ensureCloudToken(userId: string): Promise<string | null>;
+  waitReseed?: () => Promise<void>;
 }): Promise<void> {
   const { request, storage, mirror } = options;
   if (
@@ -177,8 +205,9 @@ export async function mirrorBeforeCreate(options: {
     typeof body === "object" && body !== null && "docId" in body
       ? body.docId
       : null;
-  if (typeof docId !== "string" || storage.directory.placeOf(docId) !== null)
-    return;
+  if (typeof docId !== "string") return;
+  if (options.waitReseed !== undefined) await options.waitReseed();
+  if (storage.directory.placeOf(docId) !== null) return;
   if ((await options.ensureCloudToken(userId)) === null) return;
   await mirror.ensure(userId, docId);
 }
@@ -193,9 +222,12 @@ export async function mirrorBeforeCreate(options: {
 export function guardSubscribe(options: {
   inner: ConnectionHandler;
   storage: Storage;
+  records?: Pick<NodeRecords, "docState">;
   mirror: Mirror;
   tokenOf: (userId: string) => string | null;
   waitToken?: (userId: string) => Promise<string | null>;
+  isReseeding?: () => boolean;
+  waitReseed?: () => Promise<void>;
   clock: Clock;
   subscribed(editor: Editor, docId: string): void;
   acked(docId: string): void;
@@ -255,12 +287,19 @@ export function guardSubscribe(options: {
     };
   }
 
+  const needsMirror = (userId: string | null, docId: string): boolean =>
+    storage.directory.placeOf(docId) === null ||
+    (userId !== null &&
+      options.records?.docState(docId)?.state === "synced" &&
+      storage.directory.roleOf(docId, userId) === null);
+
   /** Whether the SUBSCRIBE may go on now: the document is placed, or the mirror placed it, or the cloud refused it. */
   async function mirrored(
     userId: string | null,
     docId: string,
   ): Promise<boolean> {
-    if (userId === null) return true;
+    if (options.waitReseed !== undefined) await options.waitReseed();
+    if (userId === null || !needsMirror(userId, docId)) return true;
     const token =
       options.tokenOf(userId) ?? (await options.waitToken?.(userId)) ?? null;
     if (token === null) return true;
@@ -268,17 +307,18 @@ export function guardSubscribe(options: {
     return ensured.ok || ensured.code !== "unreachable";
   }
 
-  /** Frames for a document whose SUBSCRIBE waits are held; a SUBSCRIBE of one never placed waits. */
+  /** Frames for a document whose SUBSCRIBE waits are held; a SUBSCRIBE of one needing mirror or reseed waits. */
   function route(connection: Connection, editor: Watched, next: Frame): void {
     const { message } = next;
     const docId = message !== null && "docId" in message ? message.docId : null;
     const waiting = docId === null ? undefined : editor.held.get(docId);
     if (waiting !== undefined) return void waiting.push(next);
     if (message?.type === "UNSUBSCRIBE") editor.docs.delete(message.docId);
-    const unknown =
+    const shouldWait =
       message?.type === "SUBSCRIBE" &&
-      storage.directory.placeOf(message.docId) === null;
-    if (!unknown) return inner.message(seen(connection, editor), next.frame);
+      (options.isReseeding?.() === true ||
+        needsMirror(editor.userId, message.docId));
+    if (!shouldWait) return inner.message(seen(connection, editor), next.frame);
     wait(connection, editor, next, message);
   }
 

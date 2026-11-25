@@ -21,6 +21,8 @@ export interface RelayBridge extends Upstream {
   open(userId: string, docId: string): Promise<void>;
   /** Persons with an upstream client. */
   people(): string[];
+  /** Upstream sync client for a cloud-signed-in person; null when they have no cloud session. */
+  clientOf(userId: string): SyncClient | null;
   /** Every upstream client. */
   setOnline(wanted: boolean): void;
   reconnect(): void;

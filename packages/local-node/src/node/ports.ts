@@ -83,4 +83,6 @@ export interface NodeCoreOptions {
   nodeUrl: string;
   /** Empties the store for the demo's new seed: every document, every person's upstream store, and the records but the secret and the people. */
   wipe(): Promise<void>;
+  /** Directory for the derived offline search index; absent keeps the index in memory. */
+  searchDir?: string;
 }

@@ -1,10 +1,17 @@
 // The node's own routes under /api/local: who is here, Sign in to sync, focus, storage, the connection, and the shell.
 import type { SessionStore } from "@manent/server-core";
+import type { Clock, SyncClient } from "@manent/sync-client";
 import type { ErrorResponse, HttpErrorCode } from "@manent/sync-protocol";
 import { readPerson } from "../auth/people.ts";
+import { exportFilesRoutes } from "../export-files/routes.ts";
 import type { NodeRecords } from "../records/ports.ts";
 import type { ShellChannel } from "./shell-channel.ts";
 import { prompterFilesRoutes } from "../prompter-files/routes.ts";
+
+const NO_CLOCK: Clock = {
+  now: () => 0,
+  schedule: () => () => {},
+};
 
 const CONNECTION_MODES = ["online", "offline", "slow"] as const;
 type ConnectionMode = (typeof CONNECTION_MODES)[number];
@@ -39,6 +46,9 @@ export interface LocalRouteContext {
   onFocus(): void;
   storeUsage(): { scripts: number; bytes: number };
   setConnection(mode: "online" | "offline" | "slow", delayMs: number): void;
+  clientOf(userId: string): SyncClient | null;
+  clock: Clock;
+  onClose(fn: () => void): void;
 }
 
 export type LocalRoute = (request: Request) => Promise<Response> | Response;
@@ -101,6 +111,7 @@ export const LOCAL_ROUTES: readonly ((
   storageRoutes,
   connectionRoutes,
   prompterFilesRoutes,
+  exportFilesRoutes,
 ];
 
 /**
@@ -108,10 +119,17 @@ export const LOCAL_ROUTES: readonly ((
  * take the node token as `Authorization: Bearer`; a person is `signed_in` once they chose to sync with the cloud.
  */
 export function localRoutes(
-  options: LocalRouteContext,
+  options: Omit<LocalRouteContext, "clientOf" | "clock" | "onClose"> &
+    Partial<Pick<LocalRouteContext, "clientOf" | "clock" | "onClose">>,
 ): (request: Request) => Promise<Response | null> {
+  const context: LocalRouteContext = {
+    ...options,
+    clientOf: options.clientOf ?? (() => null),
+    clock: options.clock ?? NO_CLOCK,
+    onClose: options.onClose ?? (() => {}),
+  };
   const routes = LOCAL_ROUTES.reduce<Record<string, LocalRoute>>(
-    (all, entry) => ({ ...all, ...entry(options) }),
+    (all, entry) => ({ ...all, ...entry(context) }),
     {},
   );
   return async (request) => {
