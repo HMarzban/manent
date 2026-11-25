@@ -11,9 +11,9 @@ import {
 
 const DURATION_PATTERN = /(\d+):(\d{2})/;
 
-function parseSeconds(text: string): number {
+function parseSeconds(text: string): number | null {
   const match = DURATION_PATTERN.exec(text);
-  if (match === null) return -1;
+  if (match === null) return null;
   return Number(match[1]) * 60 + Number(match[2]);
 }
 
@@ -64,7 +64,8 @@ tourScenario("write-podcast-timing", async ({ page, scenario, step }) => {
   const readout = await step(0);
   await expect(readout).toContainText(initialTime!);
   const startSeconds = parseSeconds(await readout.innerText());
-  expect(startSeconds).toBeGreaterThan(0);
+  expect(startSeconds).not.toBeNull();
+  expect(startSeconds!).toBeGreaterThan(0);
 
   const sheet = page.locator("[data-tour='page']");
   const doreenSpeechId = await sheet.evaluate((root) => {
@@ -110,6 +111,13 @@ tourScenario("write-podcast-timing", async ({ page, scenario, step }) => {
   await settled(page);
 
   await expect
-    .poll(async () => parseSeconds(await readout.innerText()))
-    .toBeLessThan(startSeconds);
+    .poll(async () => {
+      const current = parseSeconds(await readout.innerText());
+      return current !== null && current >= 0 && current < startSeconds!;
+    })
+    .toBe(true);
+  const afterSeconds = parseSeconds(await readout.innerText());
+  expect(afterSeconds).not.toBeNull();
+  expect(afterSeconds!).toBeGreaterThanOrEqual(0);
+  expect(afterSeconds!).toBeLessThan(startSeconds!);
 });
