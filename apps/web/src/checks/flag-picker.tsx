@@ -124,6 +124,7 @@ export function FlagControl(props: {
   threads: Readonly<Record<string, CommentThread>>;
   knownPeople: readonly KnownPerson[];
   presentPeople: readonly PersonPresent[];
+  quiet?: boolean;
 }): ReactNode {
   const {
     docId,
@@ -136,6 +137,7 @@ export function FlagControl(props: {
     threads,
     knownPeople,
     presentPeople,
+    quiet = false,
   } = props;
   const services = useServices();
   const { now, randomId } = useEnvironment();
@@ -217,10 +219,14 @@ export function FlagControl(props: {
       <DropdownMenuTrigger
         render={
           <Button
-            variant="outline"
+            variant={quiet ? "ghost" : "outline"}
             size="sm"
             disabled={writing}
-            className="shrink-0"
+            className={
+              quiet
+                ? "shrink-0 text-fg-muted hover:text-fg sm:opacity-0 sm:transition-opacity sm:duration-(--dur-fast) sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 sm:focus-visible:opacity-100 sm:data-[popup-open]:opacity-100"
+                : "shrink-0"
+            }
           />
         }
       >
