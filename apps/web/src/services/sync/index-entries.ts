@@ -233,9 +233,11 @@ export function projectItems(
     .toSorted(byCreation)
     .toReversed()
     .flatMap(([projectId, project]) => {
-      const own = documents.filter(
+      const listed = documents.filter(
         ([, d]) => d.projectId === projectId && d.kind !== "outline",
       );
+      const own = listed.filter(([, d]) => d.trashedAt === null);
+      if (listed.length > 0 && own.length === 0) return [];
       const firstDocId = own[0]?.[0] ?? null;
       const place: RowPlace | null =
         firstDocId === null
@@ -274,6 +276,7 @@ export function continueItems(
       if (
         document === undefined ||
         document.kind === "outline" ||
+        document.trashedAt !== null ||
         project === undefined ||
         place === null
       )
