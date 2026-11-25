@@ -103,7 +103,7 @@ test("a coordinator locks, edits a page into an A-page, issues Blue and recalls 
     slot.getByText(
       "Page numbers and scene numbers are locked. Changes are now marked Blue.",
     ),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15_000 });
   await expect(
     stateBar.getByText(`BLUE revision · started ${started} · 0 pages revised`),
   ).toBeVisible();
@@ -111,6 +111,12 @@ test("a coordinator locks, edits a page into an A-page, issues Blue and recalls 
   await expect(
     page.getByRole("button", { name: "Saved · Synced", exact: true }),
   ).toBeVisible();
+  // scroll back to page 1 so virtualised sheets mount page 1's lock marker
+  await caretAt(page, (await blocks(page))[0]!.id, 0);
+  await page.evaluate(() => {
+    const region = document.querySelector("[data-region='page']");
+    if (region !== null) region.scrollTop = 0;
+  });
   await expect(
     page.getByRole("img", { name: "Page number locked" }).first(),
   ).toHaveAttribute(

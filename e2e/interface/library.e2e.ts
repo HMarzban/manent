@@ -15,12 +15,12 @@ const tabKey = (browserName: string): string =>
 
 const focused = (page: Page) => page.locator(":focus");
 
-/** What the focused element reads as: a field's name, else its text. */
+/** What the focused element reads as: a field's name, else its text, else its aria-label for icon-only buttons. */
 const focusedText = (page: Page): Promise<string> =>
   focused(page).evaluate((element) =>
     element instanceof HTMLInputElement
       ? (element.getAttribute("aria-label") ?? "")
-      : (element.textContent ?? ""),
+      : element.textContent || element.getAttribute("aria-label") || "",
   );
 
 // a new script left with no text and its first name is taken out of the Library when it is left
@@ -133,7 +133,7 @@ test("the Library is reached by keys alone", async ({ page, browserName }) => {
     "Private",
     // the project is numbered after the film projects the workspace holds already
     expect.stringMatching(/^Untitled film( \d+)?$/),
-    "⋯",
+    expect.stringMatching(/^Untitled film( \d+)? — row menu$/),
   ]);
   expect(order.slice(-3)).toEqual([
     "New folder",

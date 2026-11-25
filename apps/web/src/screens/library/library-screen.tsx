@@ -213,8 +213,7 @@ function GettingReady(props: {
 }
 
 function Library(props: { api: Api; person: TabPerson }): ReactNode {
-  const { person } = props;
-  const { api } = useServices();
+  const { api, person } = props;
   const { workspaceId, workspaces, serverProblem } = useShownWorkspace(
     api,
     person,
