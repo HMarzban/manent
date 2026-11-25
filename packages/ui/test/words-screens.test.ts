@@ -584,6 +584,13 @@ test("the screens' words are the design's", () => {
     setupSeeding: TOUR_WORDS.setupSeeding("Lanternfield Studios", 12, 40),
     setupSeedingFailed: TOUR_WORDS.setupSeedingFailed("Lanternfield Studios"),
     nowPerson: TOUR_WORDS.nowPerson("Sam Okafor"),
+    progress: [TOUR_WORDS.progress(7, 30), TOUR_WORDS.progress(30, 30)],
+    windows: TOUR_WORDS.windows(2),
+    ofSteps: TOUR_WORDS.ofSteps(1, 3),
+    tabBecomes: TOUR_WORDS.tabBecomes("Dana"),
+    opensWindow: TOUR_WORDS.opensWindow("Sam"),
+    tabAndWindow: TOUR_WORDS.tabAndWindow("Dana", "Sam"),
+    inWindow: TOUR_WORDS.inWindow("Dana"),
   }).toEqual({
     setItUp: "Set it up",
     setItUpAgain: "Set it up again",
@@ -595,12 +602,40 @@ test("the screens' words are the design's", () => {
       "Couldn't reach Manent. Start the server, then set it up again.",
     setupUsed:
       "This has already been done in this demo. Reset the demo to do it again.",
+    setupPopupBlocked:
+      "Your browser blocked the second window. Allow pop-ups for this address, then set it up again.",
     setupSeeding:
       "Lanternfield Studios is getting ready, 12 of 40 projects. This opens when it is ready.",
     setupSeedingFailed:
       "Lanternfield Studios couldn't get ready. Reset the demo to try again.",
     desktopOnly:
       "This one needs the desktop app. Run make desktop, then open the Tour there.",
+    progressLabel: "Tour progress",
+    progress: ["7 of 30 ticked", "All 30 ticked"],
+    filterLabel: "Show",
+    filterAll: "All",
+    filterHighlights: "Highlights",
+    filterRemaining: "To try",
+    inProgress: "In progress",
+    continueAction: "Continue",
+    allParts: "All parts",
+    previous: "Previous",
+    next: "Next",
+    markTicked: "Mark ticked",
+    markTickedAndNext: "Mark ticked and next",
+    ticked: "Ticked",
+    windows: "2 windows",
+    desktopApp: "Desktop app",
+    ofSteps: "1 of 3",
+    tabBecomes: "This tab becomes Dana",
+    opensWindow: "Opens Sam in another window",
+    tabAndWindow: "This tab becomes Dana, and Sam opens in another window",
+    inWindow: "In Dana's window",
+    openTour: "Open Tour",
+    closeFloating: "Close",
+    allTickedTitle: "Nothing left to try",
+    allTickedBody: "You have ticked every part of the Tour.",
+    showAll: "Show all",
   });
 });
 

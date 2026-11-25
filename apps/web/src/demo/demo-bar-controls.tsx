@@ -20,6 +20,7 @@ import { useEnvironment } from "../services/context.tsx";
 import type { ConnectionMode } from "../services/sync/device-memory.ts";
 import { asUiSubscribable } from "../services/sync/subscribable.ts";
 import { usePanel } from "../state/panels.store.ts";
+import { useTourActive } from "../state/tour.store.ts";
 import { FactsContext } from "../state/bridge-contexts.ts";
 import { TEXT, serverStatusText } from "../text.ts";
 import { BarButton } from "./bar-button.tsx";
@@ -183,16 +184,27 @@ function ServerControl(props: DemoControl & { resetting: boolean }): ReactNode {
   );
 }
 
-/** Pressed while the side panel shows the Tour. */
+/** Pressed while the side panel shows the Tour; carries a quiet dot while a scenario is in progress. */
 function Tour(): ReactNode {
   const showing = usePanel("side").tab === "tour";
+  const active = useTourActive() !== null;
   return (
     <div className="ms-auto flex shrink-0">
       <CommandButton
         id="demo.tour"
         variant="outline"
         size="sm"
-        icon={<PanelRightIcon aria-hidden="true" className="size-icon" />}
+        icon={
+          <span className="relative inline-flex items-center">
+            <PanelRightIcon aria-hidden="true" className="size-icon" />
+            {active && !showing ? (
+              <span
+                aria-hidden="true"
+                className="absolute -end-0.5 -top-0.5 size-1.5 rounded-full bg-primary"
+              />
+            ) : null}
+          </span>
+        }
         pressed={showing}
       />
     </div>
