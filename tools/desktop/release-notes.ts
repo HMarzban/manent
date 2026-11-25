@@ -6,6 +6,8 @@ macOS: the system says the app "cannot be opened because Apple cannot check it f
 Windows: the system shows "Windows protected your PC". Choose More info → Run anyway.
 Linux: the system shows nothing. Manent needs GTK 3 and the Ayatana app-indicator library installed.
 
+On macOS, a manent:// link opens its script in the app. On Windows and Linux, links do not open the app: open a file with File → Open… or by dropping it on the window.
+
 Nothing here is signed: not the app, the installers or the update files. Manent updates itself from these releases, checks each download against the checksum published with it, and installs an update only when you start the app. If an update is interrupted, the version you have keeps working, and Manent tries again the next time it starts. Your scripts are kept outside the app, so an update or a return to an older version does not touch them; an older version opens the copy it made before the update.
 
 The licences of the software Manent includes are in THIRD-PARTY-NOTICES.txt inside the app.`;

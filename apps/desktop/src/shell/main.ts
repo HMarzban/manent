@@ -33,6 +33,8 @@ import { createPresentWindows } from "./present-window.ts";
 import type { PresentWindows } from "./present-window.ts";
 import { BrowserWindow, Electrobun, PATHS, Updater, Utils } from "./sdk.ts";
 import { createRunningUpdates, updateAtLaunch } from "./updater.ts";
+import { createUrlSchemeHandler } from "./url-scheme.ts";
+import type { UrlSchemeHandler } from "./url-scheme.ts";
 import { hold, openMainWindow } from "./window.ts";
 import type { MainWindow } from "./window.ts";
 
@@ -247,6 +249,7 @@ function openApp(options: {
   core: NodeCore;
   nodeUrl: string;
   statePath: string;
+  urlScheme: UrlSchemeHandler;
 }): {
   windowState: ReturnType<typeof createWindowStateWriter>;
   presentWindows: PresentWindows;
@@ -271,13 +274,14 @@ function openApp(options: {
   const menu =
     platform === "linux" ? null : createNativeMenu({ platform, send });
   const window = openMainWindow({
-    url: `${options.nodeUrl}/?launch=${node.launchToken}`,
+    url: options.urlScheme.initialUrl(options.nodeUrl, node.launchToken),
     platform: process.platform,
     saved: readWindowState(options.statePath).roles.main ?? null,
     onPlaced: (patch) => windowState.update("main", patch),
     onCloseRequested: () => send({ v: 1, t: "close_requested" }),
     onShown: () => updates.check(),
   });
+  options.urlScheme.attach(options.nodeUrl, window);
   let marked = false;
   const app: App = {
     root: options.root,
@@ -300,6 +304,7 @@ function openApp(options: {
 }
 
 async function launch(): Promise<void> {
+  const urlScheme = createUrlSchemeHandler(process.platform);
   const root = appDataDir(process.platform, process.env, homedir());
   const { version, channel } = await Updater.getLocalInfo();
   // the app is quitting and the new version opens in its place
@@ -361,6 +366,7 @@ async function launch(): Promise<void> {
     core,
     nodeUrl,
     statePath,
+    urlScheme,
   });
   quitCleanly({
     closePresentWindows: () => presentWindows.closeAll(),

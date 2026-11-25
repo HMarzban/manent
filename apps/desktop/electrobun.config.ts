@@ -3,11 +3,14 @@ const debugFlags: Record<string, string> = process.env.MANENT_DEBUG_PORT
   ? { "remote-debugging-port": process.env.MANENT_DEBUG_PORT }
   : {};
 
+const urlSchemes: string[] = ["manent"];
+
 export default {
   app: {
     name: "Manent",
     identifier: "app.manent.desktop",
     version: process.env.MANENT_BUILD_VERSION ?? "0.0.0",
+    urlSchemes,
   },
   build: {
     bun: { entrypoint: "src/shell/main.ts" },
