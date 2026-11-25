@@ -1,5 +1,5 @@
 // The Library read from index documents: each workspace's index of projects and documents, and the person's Continue.
-import { ORIGIN_LOAD, ORIGIN_REMOTE } from "@manent/crdt";
+import { ORIGIN_LOAD, ORIGIN_REMOTE, readRundown } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { DocHandle } from "@manent/sync-client";
 import { projectHome } from "@manent/sync-protocol";
@@ -152,6 +152,11 @@ async function addProject(
       createdAt: at,
       createdByUserId: options.userId,
     });
+  const initialAirDate =
+    opening.airDate ??
+    (opening.docKind === "rundown"
+      ? readRundown(handle.doc()).rundown.airDate || null
+      : null);
   liveMap(index, "documents").set(handle.docId, {
     projectId,
     title: script,
@@ -159,7 +164,7 @@ async function addProject(
     createdAt: at,
     editedAt: null,
     editedByUserId: null,
-    airDate: opening.airDate,
+    airDate: initialAirDate,
     rundownId: opening.rundownId,
   });
   await handle.close();

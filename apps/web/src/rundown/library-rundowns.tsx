@@ -1,6 +1,7 @@
 // A Show or News project in the Library: its rundowns listed by date with nested stories and New rundown.
 import {
   Button,
+  DEMO_WORDS,
   LIBRARY_WORDS,
   READOUT_WORDS,
   RUNDOWN_WORDS,
@@ -21,7 +22,7 @@ import {
   ListOrderedIcon,
   PlusIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 import { EmptyHeroCard } from "../empty-hero-card.tsx";
 import { KindIcon } from "../screens/library/project-kind.tsx";
@@ -35,12 +36,12 @@ import {
 } from "../screens/library/row-place.tsx";
 import type { EpisodeLastEdited } from "../screens/library/series/series-facts.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
-import { rundownActions } from "../state/rundown.store.ts";
 import {
   asRundownProjectKind,
   createProjectRundown,
 } from "./create-rundown.ts";
 import { formatAirDate } from "./dur-format.ts";
+import { registerLibraryNew, setActiveLibraryProject } from "./handlers.ts";
 import { useRundownsData } from "./library-rundowns-data.ts";
 import type {
   RundownViewItem,
@@ -48,32 +49,13 @@ import type {
 } from "./library-rundowns-data.ts";
 
 const VIRTUAL_LIMIT = 100;
-const EMPTY_SET: ReadonlySet<string> = new Set();
-const SKELETON_WIDTHS = ["w-32", "w-28", "w-36"] as const;
 const COL_AIR = "w-16 shrink-0 tabular-nums";
 const COL_ROWS = "hidden w-20 shrink-0 tabular-nums @lg:block";
 const COL_STORY_ROW = "w-20 shrink-0 tabular-nums";
 const COL_EDITED = "hidden w-col-edited shrink-0 truncate @xl:block";
-const ROW_ITEMS = PROJECT_ROW_ITEMS.filter((item) =>
-  item.targets.includes("project"),
+const ROW_ITEMS = PROJECT_ROW_ITEMS.filter((i) =>
+  i.targets.includes("project"),
 );
-
-const libraryNewHandlers = new Map<string, () => void>();
-let activeLibraryProject: string | null = null;
-const dispatchLibraryNew = (): void => {
-  const active =
-    activeLibraryProject === null
-      ? undefined
-      : libraryNewHandlers.get(activeLibraryProject);
-  (active ?? [...libraryNewHandlers.values()].at(-1))?.();
-};
-const syncLibrarySlot = (): void =>
-  rundownActions.provide(
-    "library",
-    libraryNewHandlers.size === 0
-      ? Object.freeze({})
-      : Object.freeze({ new: dispatchLibraryNew }),
-  );
 
 type FlatRow =
   | { readonly kind: "rundown"; readonly item: RundownViewItem }
@@ -92,27 +74,40 @@ function NewRundownButton(props: {
   readonly reason: string | null;
   readonly onClick: () => void;
 }): ReactNode {
+  const reasonId = useId();
+  const unavailable =
+    props.reason === null
+      ? null
+      : READOUT_WORDS.unavailable(RUNDOWN_WORDS.newRundown, props.reason);
   const button = (
     <Button
       variant="outline"
       size="sm"
       data-tour="rundown.new"
-      disabled={props.disabled}
-      className={props.disabled ? "cursor-not-allowed" : "cursor-pointer"}
-      onClick={props.onClick}
+      aria-disabled={props.disabled ? true : undefined}
+      aria-describedby={unavailable === null ? undefined : reasonId}
+      className={
+        props.disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+      }
+      onClick={() => {
+        if (!props.disabled) props.onClick();
+      }}
     >
       <PlusIcon aria-hidden="true" data-icon="inline-start" />
       {RUNDOWN_WORDS.newRundown}
     </Button>
   );
-  if (props.reason === null) return button;
+  if (unavailable === null) return button;
   return (
-    <Tooltip>
-      <TooltipTrigger render={button} />
-      <TooltipContent>
-        {READOUT_WORDS.unavailable(RUNDOWN_WORDS.newRundown, props.reason)}
-      </TooltipContent>
-    </Tooltip>
+    <>
+      <Tooltip>
+        <TooltipTrigger render={button} />
+        <TooltipContent>{unavailable}</TooltipContent>
+      </Tooltip>
+      <span id={reasonId} className="sr-only">
+        {unavailable}
+      </span>
+    </>
   );
 }
 
@@ -210,7 +205,7 @@ function RundownsSkeleton(): ReactNode {
           <Skeleton className="ms-auto h-3 w-12 shrink-0" />
           <Skeleton className="h-3 w-16 shrink-0" />
         </div>
-        {SKELETON_WIDTHS.map((width, index) => (
+        {(["w-32", "w-28", "w-36"] as const).map((width, index) => (
           <div
             key={index}
             className="flex min-h-row items-center gap-2 border-t border-line px-3 first:border-t-0"
@@ -233,7 +228,9 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
   const data = useRundownsData(project.projectId);
   const newCmd = useCommandState("rundown.new");
   const [creating, setCreating] = useState(false);
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(EMPTY_SET);
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   const disabled =
     !data.canEdit || !newCmd.enabled || data.workspaceId === null || creating;
@@ -255,22 +252,12 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
   const newRef = useRef(onNewRundown);
   newRef.current = onNewRundown;
 
-  useEffect(() => {
-    const id = project.projectId;
-    libraryNewHandlers.set(id, () => newRef.current());
-    activeLibraryProject ??= id;
-    syncLibrarySlot();
-    return () => {
-      libraryNewHandlers.delete(id);
-      if (activeLibraryProject === id)
-        activeLibraryProject = [...libraryNewHandlers.keys()].at(-1) ?? null;
-      syncLibrarySlot();
-    };
-  }, [project.projectId]);
+  useEffect(
+    () => registerLibraryNew(project.projectId, () => newRef.current()),
+    [project.projectId],
+  );
 
-  const markActive = () => {
-    activeLibraryProject = project.projectId;
-  };
+  const markActive = () => setActiveLibraryProject(project.projectId);
   const toggleExpanded = (docId: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -316,7 +303,7 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
   const newButton = (
     <NewRundownButton
       disabled={disabled}
-      reason={newCmd.whyNot}
+      reason={newCmd.whyNot ?? (!data.canEdit ? DEMO_WORDS.needsEdit : null)}
       onClick={onNewRundown}
     />
   );

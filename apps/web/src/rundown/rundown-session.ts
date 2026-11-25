@@ -15,7 +15,8 @@ import { useEnvironment, useServices } from "../services/context.tsx";
 import type { DocumentServices } from "../services/ports.ts";
 import { readPerson } from "../session.ts";
 import { rundownActions } from "../state/rundown.store.ts";
-import { registerRundownUndo } from "./handlers.ts";
+import { registerRundownUndo, registerUndoRecorder } from "./handlers.ts";
+import type { RundownUndoEntry } from "./handlers.ts";
 import {
   EMPTY_PEOPLE,
   accessFromStatus,
@@ -34,13 +35,7 @@ import type { RundownViewState } from "./rundown-view-store.ts";
 
 export { useRundownView } from "./rundown-view-store.ts";
 export type { RundownViewState } from "./rundown-view-store.ts";
-
-export interface RundownUndoEntry {
-  readonly message: string | null;
-  readonly steps?: number;
-  readonly onUndo?: () => void;
-  readonly onRedo?: () => void;
-}
+export type { RundownUndoEntry } from "./handlers.ts";
 
 const EMPTY_SET: ReadonlySet<string> = new Set();
 
@@ -198,6 +193,11 @@ export function useRundownSession(
       stopDoc = observeRundown(crdtDoc, readNow);
     };
 
+    const stopRecorder = registerUndoRecorder(docId, (entry) => {
+      undoLabelsRef.current.push(entry);
+      redoLabelsRef.current = [];
+    });
+
     const stopUndo = registerRundownUndo({
       undo() {
         const manager = undoRef.current;
@@ -302,6 +302,7 @@ export function useRundownSession(
 
     return () => {
       live = false;
+      stopRecorder();
       stopUndo();
       stopStatus();
       stopDoc();
@@ -365,10 +366,18 @@ export function useRundownSession(
         userId: services.userId,
         now,
       });
+      const displayNumber =
+        rowNumber ??
+        (() => {
+          const idx = readRundown(handle.doc()).rows.findIndex(
+            (row) => row.id === rowId,
+          );
+          return idx >= 0 ? idx + 1 : null;
+        })();
       undoLabelsRef.current.push({
         message:
-          rowNumber !== null
-            ? RUNDOWN_WORDS.undidCellChange(columnLabel, rowNumber)
+          displayNumber !== null
+            ? RUNDOWN_WORDS.undidCellChange(columnLabel, displayNumber)
             : null,
       });
       redoLabelsRef.current = [];

@@ -313,6 +313,7 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
       <DocumentStateBar docId={docId} facts={effectiveDoc.stateFacts} />
       <div
         ref={gridContainerRef}
+        data-rundown-page=""
         className="z-10 min-h-0 overflow-hidden bg-chrome"
         style={PAGE_AREA}
       >
@@ -347,6 +348,7 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
         docId={docId}
         state={previousValue}
         canEdit={!readOnly}
+        gridContainerRef={gridContainerRef}
       />
       <ShareDialog docId={docId} doc={effectiveDoc} />
     </>

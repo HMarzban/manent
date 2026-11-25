@@ -785,3 +785,68 @@ test("row menu draws items in ROW_MENU_ITEMS order with per-row filtering", asyn
     "Leave unnumbered",
   ]);
 });
+
+test("restoring an untitled header row names its row position and Previous value anchors inside the rundown container", async () => {
+  const nowMs = new Date(2026, 10, 17, 23, 0, 0).getTime();
+  const doc = makeBaseDoc(nowMs);
+  // Overwrite ROW_3 (index 2, header) to empty string so its fallback label is Row 3
+  setCell(doc, ROW_3, "segment", "", {
+    userId: "sam",
+    now: () => nowMs - 10_000,
+  });
+
+  // Add an external decoy gridcell outside the rundown container with the same data-row-id
+  const decoy = document.createElement("div");
+  decoy.setAttribute("role", "gridcell");
+  decoy.dataset.rowId = ROW_3;
+  decoy.dataset.colId = "segment";
+  decoy.getBoundingClientRect = () =>
+    ({
+      top: 999,
+      left: 999,
+      width: 50,
+      height: 20,
+      right: 1049,
+      bottom: 1019,
+      x: 999,
+      y: 999,
+      toJSON: () => ({}),
+    }) as DOMRect;
+  const { host, services } = await mountRundown({ rundownDoc: doc, nowMs });
+  document.body.prepend(decoy);
+  try {
+    const headerMark = host.querySelector(
+      `[data-row-id="${ROW_3}"] [data-corner-mark="true"]`,
+    ) as HTMLElement;
+    expect(headerMark).not.toBeNull();
+    await act(async () => {
+      headerMark.click();
+    });
+    await until(
+      () => document.querySelector('[data-surface="cell_popover"]') !== null,
+    );
+    const popover = document.querySelector('[data-surface="cell_popover"]')!;
+    expect(popover.textContent).toContain("Previous value — Sam ");
+    expect(popover.textContent).toContain("Was ACT TWO");
+    const trigger = host.querySelector<HTMLElement>(
+      'button[aria-hidden="true"][tabindex="-1"]',
+    );
+    expect(trigger?.style.top).not.toBe("999px");
+
+    const restoreBtn = [...popover.querySelectorAll("button")].find(
+      (btn) => btn.textContent === RUNDOWN_WORDS.restore,
+    ) as HTMLButtonElement;
+    await act(async () => {
+      restoreBtn.click();
+    });
+    expect(services.messages.current()?.text).toBe(
+      RUNDOWN_WORDS.restoredCell(
+        "Segment",
+        { kind: "header", title: "Row 3" },
+        "ACT TWO",
+      ),
+    );
+  } finally {
+    decoy.remove();
+  }
+});

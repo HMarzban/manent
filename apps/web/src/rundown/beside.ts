@@ -28,12 +28,8 @@ import { timingFactsOf } from "../timing/timing-facts.ts";
 import { attachRundownDrop, findRundownPageArea } from "./drop.ts";
 import type { DroppedRowTarget } from "./drop.ts";
 import { rowTitleOf, titleColumnOf } from "./dur-format.ts";
-import {
-  createUndoGroupTracker,
-  installGroupedUndo,
-  splitScriptRow,
-} from "./rows-from-script.ts";
-import type { UndoGroupTracker } from "./rows-from-script.ts";
+import { recordRundownUndo } from "./handlers.ts";
+import { groupedUndoEntry, splitScriptRow } from "./rows-from-script.ts";
 import { getRundownView, useRundownView } from "./rundown-view-store.ts";
 import type { RundownViewState } from "./rundown-view-store.ts";
 
@@ -178,13 +174,12 @@ export function useLiveDuration(
   docId: string,
 ): (rowId: string) => number | null {
   const services = useServices();
-  const { now, language } = useEnvironment();
+  const { now, language, schedule } = useEnvironment();
   const beside = useBeside();
   const sideTab = usePanel("side").tab;
   const view = useRundownView(docId);
 
   const lastDroppedRef = useRef<DroppedRowTarget | null>(null);
-  const trackerRef = useRef<UndoGroupTracker>(createUndoGroupTracker());
   const returnFocusRef = useRef<RowFocusTarget | null>(null);
   const prevBesideRef = useRef<BesideOpen | null>(null);
 
@@ -205,9 +200,7 @@ export function useLiveDuration(
 
   useEffect(() => {
     lastDroppedRef.current = null;
-    trackerRef.current = createUndoGroupTracker();
     returnFocusRef.current = null;
-    const stopGroupedUndo = installGroupedUndo(trackerRef.current, services);
 
     const runSplit = (origin: "split" | "import"): void => {
       const current = getRundownView(docId);
@@ -242,8 +235,9 @@ export function useLiveDuration(
         titleColumn,
         origin,
         now,
+        schedule,
         onStep(step) {
-          trackerRef.current.recordGrouped(step);
+          recordRundownUndo(docId, groupedUndoEntry(step, services));
           if (origin === "split") lastDroppedRef.current = null;
         },
       });
@@ -278,13 +272,12 @@ export function useLiveDuration(
     rundownActions.provide("imports", importsSlot);
 
     return () => {
-      stopGroupedUndo();
       if (rundownActions.slot("beside") === besideSlot)
         rundownActions.provide("beside", Object.freeze({}));
       if (rundownActions.slot("imports") === importsSlot)
         rundownActions.provide("imports", Object.freeze({}));
     };
-  }, [docId, services, now]);
+  }, [docId, services, now, schedule]);
 
   useEffect(() => {
     const area = findRundownPageArea(document);
@@ -299,45 +292,12 @@ export function useLiveDuration(
           lastDroppedRef.current = target;
         },
         onStep(step) {
-          trackerRef.current.recordGrouped(step);
+          recordRundownUndo(docId, groupedUndoEntry(step, services));
         },
       },
       language,
     );
   }, [docId, services, language, now]);
-
-  useEffect(() => {
-    let live = true;
-    let stopWatch = (): void => {};
-    let stopReplaced = (): void => {};
-    let opened: Awaited<ReturnType<typeof services.openHandle>> | null = null;
-    void services
-      .openHandle(docId)
-      .then((handle) => {
-        if (!live) {
-          void handle.close();
-          return;
-        }
-        opened = handle;
-        const attach = (): void => {
-          stopWatch();
-          stopWatch = trackerRef.current.watchDoc(handle.doc());
-        };
-        attach();
-        stopReplaced = handle.on((event) => {
-          if (event.type === "replaced") attach();
-        });
-      })
-      .catch(() => {
-        // rundown handle unavailable: grouped undo tracking stays inactive
-      });
-    return () => {
-      live = false;
-      stopWatch();
-      stopReplaced();
-      if (opened !== null) void opened.close();
-    };
-  }, [docId, services, now]);
 
   useEffect(() => {
     const prev = prevBesideRef.current;

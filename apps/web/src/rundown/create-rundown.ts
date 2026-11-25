@@ -140,15 +140,17 @@ export function planNewRundown(options: {
       .filter((date) => parseIsoDate(date) !== null),
   );
   const airDate = nextFreeAirDate(takenDates, nowMs);
-  const latest = existing.toSorted(compareLatestFirst)[0] ?? null;
+  const sorted = existing.toSorted(compareLatestFirst);
+  const withAir = sorted.find((item) => item.airAt !== null) ?? null;
+  const withTarget = sorted.find((item) => item.targetMs !== null) ?? null;
   let hours = DEFAULT_AIR_HOUR;
   let minutes = DEFAULT_AIR_MINUTE;
-  if (latest !== null && latest.airAt !== null) {
-    const air = new Date(latest.airAt);
+  if (withAir !== null && withAir.airAt !== null) {
+    const air = new Date(withAir.airAt);
     hours = air.getHours();
     minutes = air.getMinutes();
   }
-  const targetMs = latest?.targetMs ?? DEFAULT_TARGET_MS;
+  const targetMs = withTarget?.targetMs ?? DEFAULT_TARGET_MS;
   return {
     airDate,
     airAt: airAtForDate(airDate, hours, minutes),

@@ -12,9 +12,11 @@ import type { BlockJSON, IdSource, RundownColumnId } from "@manent/schema";
 import type { DocHandle } from "@manent/sync-client";
 import { RUNDOWN_WORDS } from "@manent/ui";
 import type { PersonServices } from "../services/ports.ts";
-import { rundownActions } from "../state/rundown.store.ts";
-import type { SlotActions } from "../state/rundown.store.ts";
 import { titleColumnOf } from "./dur-format.ts";
+import { recordRundownUndo } from "./handlers.ts";
+import type { RundownUndoEntry } from "./handlers.ts";
+
+const STORY_HYDRATE_TIMEOUT_MS = 10_000;
 
 /** One row extracted from a script's blocks in document order (act headers and slug script rows only). */
 export interface ExtractedScriptRow {
@@ -182,14 +184,19 @@ export async function appendScriptRow(options: {
       now: options.now,
       ids: options.ids,
     });
-    options.onStep?.({ kind: "drop", txCount: result.txCount });
+    const step: GroupedUndoStep = { kind: "drop", txCount: result.txCount };
+    if (options.onStep !== undefined) options.onStep(step);
+    else recordRundownUndo(rundownDocId, groupedUndoEntry(step, services));
     return result.rowId;
   } finally {
     await handle.close();
   }
 }
 
-function waitForStoryHydrated(handle: DocHandle): Promise<void> {
+function waitForStoryHydrated(
+  handle: DocHandle,
+  schedule?: (fn: () => void, delayMs: number) => () => void,
+): Promise<void> {
   const ready = (): boolean => {
     const st = handle.status.get();
     return (
@@ -201,11 +208,24 @@ function waitForStoryHydrated(handle: DocHandle): Promise<void> {
   };
   if (ready()) return Promise.resolve();
   return new Promise((resolve) => {
-    const stop = handle.status.subscribe(() => {
-      if (!ready()) return;
-      stop();
+    let settled = false;
+    let stopTimer: (() => void) | null = null;
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      stopSub();
+      stopTimer?.();
       resolve();
+    };
+    const stopSub = handle.status.subscribe(() => {
+      if (ready()) finish();
     });
+    if (schedule !== undefined) {
+      stopTimer = schedule(finish, STORY_HYDRATE_TIMEOUT_MS);
+    } else {
+      const timer = setTimeout(finish, STORY_HYDRATE_TIMEOUT_MS);
+      stopTimer = () => clearTimeout(timer);
+    }
   });
 }
 
@@ -213,10 +233,11 @@ function waitForStoryHydrated(handle: DocHandle): Promise<void> {
 export async function readStoryBlocks(
   services: PersonServices,
   storyDocId: string,
+  schedule?: (fn: () => void, delayMs: number) => () => void,
 ): Promise<readonly BlockJSON[]> {
   const handle = await services.openHandle(storyDocId);
   try {
-    await waitForStoryHydrated(handle);
+    await waitForStoryHydrated(handle, schedule);
     const doc = scriptBody(handle.doc()).materialize();
     return (doc.content ?? []).flatMap((section) => section.content ?? []);
   } finally {
@@ -246,12 +267,13 @@ export async function splitScriptRow(options: {
   readonly titleColumn: "segment" | "story";
   readonly origin: "split" | "import";
   readonly now: () => number;
+  readonly schedule?: (fn: () => void, delayMs: number) => () => void;
   readonly ids?: IdSource;
   readonly onStep?: (step: GroupedUndoStep) => void;
 }): Promise<boolean> {
   const { services, rundownDocId, sourceRowId, storyDocId, origin } = options;
   const extracted = extractRowsFromBlocks(
-    await readStoryBlocks(services, storyDocId),
+    await readStoryBlocks(services, storyDocId, options.schedule),
   );
   if (extracted.slugCount < 2) {
     services.messages.withdraw(MSG_DROP_ADDED);
@@ -271,7 +293,9 @@ export async function splitScriptRow(options: {
       ids: options.ids,
     });
     if (result === null) return false;
-    options.onStep?.({ kind: origin, txCount: result.txCount });
+    const step: GroupedUndoStep = { kind: origin, txCount: result.txCount };
+    if (options.onStep !== undefined) options.onStep(step);
+    else recordRundownUndo(rundownDocId, groupedUndoEntry(step, services));
   } finally {
     await rundownHandle.close();
   }
@@ -343,53 +367,28 @@ export function createUndoGroupTracker(): UndoGroupTracker {
   };
 }
 
-function announceGroupedUndo(
+/** Builds a unified `RundownUndoEntry` for a grouped drop, split or import write so undo/redo stays aligned. */
+export function groupedUndoEntry(
+  step: GroupedUndoStep,
   services: PersonServices,
-  step: GroupedUndoStep | null,
-): void {
-  if (step === null) return;
-  if (step.kind === "drop") services.messages.withdraw(MSG_DROP_ADDED);
-  if (step.kind !== "split" && step.kind !== "import") return;
-  services.messages.withdraw(step.kind === "split" ? MSG_SPLIT : MSG_IMPORT);
-  pushBrief(
-    services,
-    `rundown.undo.${step.kind}`,
-    step.kind === "split"
-      ? RUNDOWN_WORDS.undidSplitBySlug
-      : RUNDOWN_WORDS.undidImportRows,
-  );
-}
-
-/** Wraps the `rows` slot's `undo`/`redo` so grouped drop/split/import writes undo/redo as one step with S3-RG-60. */
-export function installGroupedUndo(
-  tracker: UndoGroupTracker,
-  services: PersonServices,
-): () => void {
-  let rawSlot: SlotActions | null = null;
-  let wrapped: SlotActions | null = null;
-  const wrap = (): void => {
-    const cur = rundownActions.slot("rows");
-    if (cur === null || cur === wrapped || (!cur.undo && !cur.redo)) return;
-    rawSlot = cur;
-    wrapped = Object.freeze({
-      ...cur,
-      undo() {
-        const step = tracker.popUndo();
-        for (let i = 0; i < (step?.txCount ?? 1); i += 1) cur.undo?.();
-        announceGroupedUndo(services, step);
-      },
-      redo() {
-        const step = tracker.popRedo();
-        for (let i = 0; i < (step?.txCount ?? 1); i += 1) cur.redo?.();
-      },
-    });
-    rundownActions.provide("rows", wrapped);
-  };
-  wrap();
-  const stop = rundownActions.subscribe(wrap);
-  return () => {
-    stop();
-    if (wrapped && rawSlot && rundownActions.slot("rows") === wrapped)
-      rundownActions.provide("rows", rawSlot);
-  };
+): RundownUndoEntry {
+  if (step.kind === "drop") {
+    return {
+      message: null,
+      steps: step.txCount,
+      onUndo: () => services.messages.withdraw(MSG_DROP_ADDED),
+    };
+  }
+  if (step.kind === "split" || step.kind === "import") {
+    const msgId = step.kind === "split" ? MSG_SPLIT : MSG_IMPORT;
+    return {
+      message:
+        step.kind === "split"
+          ? RUNDOWN_WORDS.undidSplitBySlug
+          : RUNDOWN_WORDS.undidImportRows,
+      steps: step.txCount,
+      onUndo: () => services.messages.withdraw(msgId),
+    };
+  }
+  return { message: null, steps: step.txCount };
 }

@@ -72,18 +72,9 @@ export function parseDroppedScriptLink(raw: string): string | null {
   }
 }
 
-/** Finds the rundown screen's grid-area container (distinct from `[data-region="page"]` and `[data-beside]`). */
+/** Finds the rundown screen's page container via `[data-rundown-page]`. */
 export function findRundownPageArea(doc: Document): HTMLElement | null {
-  for (const el of doc.querySelectorAll<HTMLElement>("div")) {
-    const area = el.style.getPropertyValue("grid-area").trim();
-    if (
-      (area === "page" || area.startsWith("page ")) &&
-      !el.hasAttribute("data-region") &&
-      !el.hasAttribute("data-beside")
-    )
-      return el;
-  }
-  return null;
+  return doc.querySelector<HTMLElement>("[data-rundown-page]");
 }
 
 async function workspaceIdsFor(services: PersonServices): Promise<string[]> {
