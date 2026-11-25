@@ -1,9 +1,10 @@
-// One rundown's prompter feed: subscription state, snapshots and patches, and 3 s feed-loss detection.
+// One rundown's prompter feed: subscription state, snapshots and patches, remote control and 3 s feed-loss detection.
 import type { BlockJSON } from "@manent/schema";
 import { CODE } from "@manent/sync-protocol";
 import type {
   DocumentMessage,
   Message,
+  PrompterOperator,
   PrompterRow,
   VersionSet,
 } from "@manent/sync-protocol";
@@ -11,6 +12,11 @@ import type { SyncClient } from "../client/client.ts";
 import { HANDSHAKE_TIMEOUT_MS } from "../ports/defaults.ts";
 import type { Subscribable, SyncClientPorts } from "../ports/ports.ts";
 import { createCell } from "./cell.ts";
+import { createPrompterControlState } from "./control-state.ts";
+import type {
+  PrompterControlState,
+  PrompterRemoteScroll,
+} from "./control-state.ts";
 import {
   applyPrompterPatch,
   readPrompterFeed,
@@ -19,6 +25,8 @@ import {
 } from "./payload.ts";
 import { createPrompterSocket } from "./socket.ts";
 import type { PrompterSocket } from "./socket.ts";
+
+export type { PrompterRemoteScroll };
 
 /** The server heartbeats every 1 s; 3 s without a feed frame reads lost. */
 const FEED_LOSS_MS = 3_000;
@@ -35,6 +43,10 @@ export interface PrompterHandle {
   /** By story id, the blocks last sent of each story. */
   readonly stories: Subscribable<ReadonlyMap<string, readonly BlockJSON[]>>;
   readonly status: Subscribable<PrompterStatus>;
+  /** Current remote scroll operator lease holder, or null when nobody controls the prompter. */
+  readonly operator?: Subscribable<PrompterOperator | null>;
+  /** Authoritative remote scroll anchor paired with smoothed server clock offset. */
+  readonly scroll?: Subscribable<PrompterRemoteScroll>;
   close(): void;
 }
 
@@ -57,6 +69,7 @@ class PrompterFeedClient {
     feed: "waiting",
     lastReceivedAt: null,
   });
+  private readonly control: PrompterControlState;
   private readonly timers = new Map<FeedTimer, () => void>();
   private readonly socket: PrompterSocket;
   private generation = 0;
@@ -68,10 +81,13 @@ class PrompterFeedClient {
 
   constructor(options: PrompterOptions) {
     this.options = options;
+    this.control = createPrompterControlState(options.ports.clock);
     this.handle = {
       runOrder: this.runOrder.view,
       stories: this.stories.view,
       status: this.status.view,
+      operator: this.control.operator,
+      scroll: this.control.scroll,
       close: () => this.close(),
     };
     this.socket = createPrompterSocket({
@@ -119,6 +135,9 @@ class PrompterFeedClient {
         this.generation = message.newGeneration;
         this.subscribe();
         return;
+      case "CONTROL":
+        this.control.handleControl(message.kind, message.data);
+        return;
       case "SUBSCRIBE":
       case "UNSUBSCRIBE":
       case "SYNC":
@@ -126,7 +145,6 @@ class PrompterFeedClient {
       case "SET":
       case "ACK":
       case "AWARENESS":
-      case "CONTROL":
         return;
       default:
         message satisfies never;
@@ -144,6 +162,7 @@ class PrompterFeedClient {
     this.hasSnapshot = true;
     const now = this.options.ports.clock.now();
     this.armLoss();
+    this.control.resetForSnapshot();
     this.publish(feed.runOrder, storiesFromFeed(feed), {
       feed: "live",
       lastReceivedAt: now,
