@@ -8,6 +8,7 @@ import type {
   PageProfile,
   Paper,
   RuleSettings,
+  SceneNumberSides,
   SpecKey,
 } from "../../page-profile.ts";
 import { CELL_PT, LINE_PT } from "../../units.ts";
@@ -26,6 +27,8 @@ export interface ProfileOptions {
   readonly speakerContinued?: boolean;
   readonly sceneContinued?: boolean;
   readonly scenesNumbered?: boolean;
+  /** Which margin(s) hold scene numbers; locked scripts (`scenesNumbered: true`) read `"none"` as `"both"`. */
+  readonly sceneNumberSides?: SceneNumberSides;
   /** Read by the multi-camera format only; each default true. */
   readonly multicam?: {
     readonly dialogueDoubleSpaced?: boolean;
@@ -42,6 +45,7 @@ type FurnitureFlags = Pick<
   | "speakerContinued"
   | "sceneContinued"
   | "scenesNumbered"
+  | "sceneNumberSides"
   | "scenesLettered"
 >;
 
@@ -104,6 +108,25 @@ const MANUSCRIPT_PAGE: FormatPage = Object.freeze({
   linesPerPage: Object.freeze({ letter: 54, a4: 58 }),
 });
 
+function resolveSceneNumbers(
+  options: ProfileOptions,
+  defaultNumbered: boolean,
+): { scenesNumbered: boolean; sceneNumberSides: SceneNumberSides } {
+  const asked = options.sceneNumberSides;
+  if (options.scenesNumbered === true) {
+    const sides: SceneNumberSides =
+      asked === "left" || asked === "right" ? asked : "both";
+    return { scenesNumbered: true, sceneNumberSides: sides };
+  }
+  if (asked !== undefined)
+    return { scenesNumbered: asked !== "none", sceneNumberSides: asked };
+  const numbered = options.scenesNumbered ?? defaultNumbered;
+  return {
+    scenesNumbered: numbered,
+    sceneNumberSides: numbered ? "both" : "none",
+  };
+}
+
 function scriptFurniture(
   options: ProfileOptions,
   scenesNumbered: boolean,
@@ -113,7 +136,7 @@ function scriptFurniture(
     speechContinued: options.speechContinued ?? true,
     speakerContinued: options.speakerContinued ?? true,
     sceneContinued: options.sceneContinued ?? false,
-    scenesNumbered: options.scenesNumbered ?? scenesNumbered,
+    ...resolveSceneNumbers(options, scenesNumbered),
     scenesLettered,
   };
 }
@@ -145,6 +168,7 @@ const MANUSCRIPT = Object.freeze<FormatLayout>({
     speakerContinued: false,
     sceneContinued: false,
     scenesNumbered: false,
+    sceneNumberSides: "none",
     scenesLettered: false,
   }),
 });
