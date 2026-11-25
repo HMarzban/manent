@@ -6,7 +6,7 @@ import {
   validateTour,
 } from "../src/index.ts";
 
-test("the Long documents group shows three scenarios and keeps three waiting for their features", () => {
+test("the Long documents group lists its seven ready scenarios", () => {
   expect(
     TOUR.scenarios
       .filter((s) => s.group === "Long documents")
@@ -15,9 +15,10 @@ test("the Long documents group shows three scenarios and keeps three waiting for
     ["long-type-2000", null],
     ["long-book", null],
     ["long-busy-workspace", null],
-    ["long-find", "find_bar"],
-    ["long-go-to", "go_to_page"],
-    ["long-search", "search"],
+    ["long-find", null],
+    ["long-go-to", null],
+    ["long-search", null],
+    ["long-folders-trash", null],
   ]);
 });
 

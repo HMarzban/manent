@@ -16,11 +16,23 @@ export const LONG_SEARCH: TourScenario = {
       text: "Choose Lanternfield Studios in the workspace switcher.",
       highlight: "workspace_switcher",
     },
-    { text: "Search every project for Tamsin Hale.", highlight: "page" },
+    {
+      text: "Choose Search this workspace… and type Tamsin Hale.",
+      highlight: "library.search",
+    },
+    {
+      text: "In Filter, choose Folder, then Audio, Books & Games.",
+      highlight: "search:filter",
+    },
   ],
-  check: 'Search finds "Tamsin Hale" in four projects.',
-  evidence: ["Tamsin Hale"],
+  check:
+    'The search lists "4 documents", among them "The Keeper of the Last Bell: The Complete Manuscript"; with the folder chosen it lists "1 document".',
+  evidence: [
+    "4 documents",
+    "The Keeper of the Last Bell: The Complete Manuscript",
+    "1 document",
+  ],
   fresh: false,
-  waitsFor: "search",
+  waitsFor: null,
   hidden: null,
 };

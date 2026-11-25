@@ -13,12 +13,16 @@ export const LONG_FIND: TourScenario = {
     shell: "any",
   },
   steps: [
-    { text: "Open Find and type the Founding.", highlight: "page" },
-    { text: "Step through what it finds.", highlight: "page" },
+    { text: "Choose Find and type the Founding.", highlight: "edit.find" },
+    {
+      text: "Choose Next match to move through the book.",
+      highlight: "page",
+    },
   ],
-  check: 'Find reaches "the Founding" wherever it is in the book.',
-  evidence: ["the Founding"],
+  check:
+    'The Find bar\'s count reads "1 of" the number of matches, and Next match moves the page to each in turn.',
+  evidence: ["1 of"],
   fresh: false,
-  waitsFor: "find_bar",
+  waitsFor: null,
   hidden: null,
 };

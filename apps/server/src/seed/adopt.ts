@@ -3,10 +3,16 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { rename, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { ORIGIN_LOAD, createDoc, jsonMap, loadDoc } from "@manent/crdt";
 import { openSqliteStorage, parseHome } from "@manent/storage";
 import type { DocDirectory, Home, Storage } from "@manent/storage";
 import { indexDocId } from "@manent/sync-protocol";
+import type { WorkspaceRef } from "@manent/sync-protocol";
+import { probeSeedCapabilities } from "./capabilities.ts";
+import { createSeedDriver } from "./driver.ts";
+import type { LiveTarget } from "./driver.ts";
 import { isFields } from "./link.ts";
+import { SEED_ORIGIN } from "./server.ts";
 
 /** The empty file the seed writes once the staging seed is whole: adoption may start, and start again. */
 export const STAGING_DONE = "done";
@@ -129,13 +135,59 @@ function placeAs(
       live.setRole(docId, userId, role, capabilities);
 }
 
+/** Reads Dana's seeded favourites from `staged` before staging is removed; null when empty or absent. */
+function readStagedFavourites(
+  staged: Storage,
+  docId: string,
+  home: Home,
+): Readonly<Record<string, unknown>> | null {
+  const { log, checkpoints } = staged.open(home);
+  const row = log.get(docId);
+  if (row === null) return null;
+  const checkpoint = checkpoints.newest(docId, row.generation);
+  const doc = checkpoint === null ? createDoc() : loadDoc(checkpoint.state);
+  try {
+    const from = checkpoint?.seq ?? 0;
+    for (const { update } of log.tail(docId, row.generation, from, {
+      quarantine: false,
+    }).rows)
+      doc.applyUpdate(update, ORIGIN_LOAD);
+    const entries = jsonMap(doc, "favourites").entries();
+    return Object.keys(entries).length === 0 ? null : entries;
+  } finally {
+    doc.destroy();
+  }
+}
+
+/** Merges missing seeded favourites into Dana's live private index so open tabs receive them without clobbering edits. */
+export async function mergeDanaFavourites(
+  target: LiveTarget,
+  entries: Readonly<Record<string, unknown>>,
+): Promise<void> {
+  await probeSeedCapabilities(target, SEED_ORIGIN);
+  const driver = createSeedDriver({ target, random: Math.random });
+  const session = await driver.open("dana", indexDocId("user", "dana"));
+  try {
+    await session.change((doc) => {
+      const favourites = jsonMap(doc, "favourites");
+      for (const [id, value] of Object.entries(entries))
+        if (favourites.get(id) === null) favourites.set(id, value);
+    });
+  } finally {
+    await session.close();
+  }
+}
+
 /**
  * Moves a whole staging seed into the live data: (1) each home's files renamed into `dataDir`,
  * replacing any of the same name; (2) every document but the index placed, with its roles; (3)
  * last, the index, whose place is the mark that adoption is complete; (4) the staging removed.
- * Run again from (1) after a crash, it ends the same.
+ * Run again from (1) after a crash, it ends the same. Returns Dana's staged favourites when live
+ * already held her private index so the caller can merge them live.
  */
-export async function adoptStaging(options: AdoptOptions): Promise<void> {
+export async function adoptStaging(
+  options: AdoptOptions,
+): Promise<Readonly<Record<string, unknown>> | null> {
   const { live, stagingDir, dataDir, homes } = options;
   const danaIndex = indexDocId("user", "dana");
   const danaHome: Home = { kind: "user", id: "dana" };
@@ -146,6 +198,7 @@ export async function adoptStaging(options: AdoptOptions): Promise<void> {
         await rename(join(stagingDir, name), join(dataDir, name));
   const staged = openSqliteStorage({ dir: stagingDir, now: () => 0 });
   const index = indexDocId("workspace", "heavy");
+  let stagedFavourites: Readonly<Record<string, unknown>> | null = null;
   try {
     for (const key of homes) {
       const home = parseHome(key);
@@ -156,6 +209,8 @@ export async function adoptStaging(options: AdoptOptions): Promise<void> {
     }
     if (adoptDana && staged.directory.placeOf(danaIndex) !== null)
       placeAs(staged.directory, live.directory, danaIndex, danaHome);
+    else if (!adoptDana && staged.directory.placeOf(danaIndex) !== null)
+      stagedFavourites = readStagedFavourites(staged, danaIndex, danaHome);
     for (const row of staged.trash.listByWorkspace(index)) live.trash.put(row);
     const indexPlace = staged.directory.placeOf(index);
     if (indexPlace !== null)
@@ -164,6 +219,39 @@ export async function adoptStaging(options: AdoptOptions): Promise<void> {
     staged.close();
   }
   await rm(stagingDir, { recursive: true, force: true });
+  return stagedFavourites;
+}
+
+/**
+ * While `waiting`, `seeding` tells /api/me how far Lanternfield Studios' seed has come, and none of
+ * its homes is ready until `adopted` is called.
+ */
+export function createHeavyState(
+  waiting: boolean,
+  adoption: AdoptOptions,
+  total: number,
+) {
+  let seeding: WorkspaceRef["seeding"] = waiting
+    ? { done: 0, total, failed: false }
+    : null;
+  return {
+    seeding: (workspaceId: string) =>
+      workspaceId === "heavy" ? seeding : null,
+    isHomeReady: (home: string) =>
+      seeding === null || !adoption.homes.has(home),
+    progress(done: number, nextTotal: number) {
+      seeding = { done, total: nextTotal, failed: false };
+    },
+    failed() {
+      if (seeding !== null) seeding = { ...seeding, failed: true };
+    },
+    async adopted(target: LiveTarget, afterAdopt?: () => void) {
+      const favourites = await adoptStaging(adoption);
+      if (favourites !== null) await mergeDanaFavourites(target, favourites);
+      afterAdopt?.();
+      seeding = null;
+    },
+  };
 }
 
 /**
