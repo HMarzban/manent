@@ -103,12 +103,30 @@ test("after Reset a tab's waiting edits from the old seed never reach the new on
       Object(await (await api.get("/api/demo")).json()),
       "seedId",
     );
-    await setConnection(sam, "online");
-    await sam.reload();
-    // the store this browser kept belonged to the old seed, and is emptied
-    await expect
-      .poll(() => sam.evaluate(() => localStorage.getItem("manent.seed")))
-      .toBe(seedId);
+    // useResetting may reload Sam onto the home route once the new seed answers, clearing the session and its Connection control
+    const online = sam
+      .getByRole("region", { name: "Demo" })
+      .getByRole("group", { name: "Connection" })
+      .getByRole("button", { name: "Online" });
+    await expect(async () => {
+      if (
+        (await sam.evaluate(() => localStorage.getItem("manent.seed"))) ===
+        seedId
+      )
+        return;
+      if (await online.isVisible()) {
+        await setConnection(sam, "online");
+        await sam.reload();
+      }
+      expect(
+        await sam.evaluate(() => localStorage.getItem("manent.seed")),
+      ).toBe(seedId);
+    }).toPass({ timeout: 30_000 });
+    await expect(
+      sam
+        .getByRole("heading", { name: "Choose who you are" })
+        .or(sam.getByRole("heading", { name: "Library" })),
+    ).toBeVisible();
     await openSynced(sam, "sam");
     await expect(sam.getByText(OLD_LINE)).toHaveCount(0);
     const dana = await (
