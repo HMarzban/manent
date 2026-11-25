@@ -38,6 +38,7 @@ import { ARCHIVE_COMMANDS } from "./archive.ts";
 import { TIMING_COMMANDS } from "./timing.ts";
 import { RUNDOWN_COMMANDS } from "./rundown.ts";
 import { PROMPTER_COMMANDS } from "./prompter.ts";
+import { LIBRARY_FILES_COMMANDS } from "./library-files.ts";
 import { SEARCH_COMMANDS } from "./search.ts";
 
 export const COMMANDS = defineCommands([
@@ -77,6 +78,7 @@ export const COMMANDS = defineCommands([
   ...TIMING_COMMANDS,
   ...RUNDOWN_COMMANDS,
   ...PROMPTER_COMMANDS,
+  ...LIBRARY_FILES_COMMANDS,
   ...SEARCH_COMMANDS,
   ...settingCommands(SETTINGS),
 ]);
