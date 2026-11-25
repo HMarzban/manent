@@ -1,6 +1,7 @@
 // `bun run bench` runs the suite on every tier, on one (`--tier`, `--throttle`), or one area on
 // the tier that judges it; `compare` and `baseline` track regressions; `fetch-traces` downloads the
-// editing traces. `--inside` runs a tier inside its container; `--child <file>` runs one scenario.
+// editing traces; `report` prints the report of result files. `--inside` runs a tier inside its
+// container; `--child <file>` runs one scenario.
 
 import { readFileSync } from "node:fs";
 import { compareRuns, toBaseline } from "./compare.ts";
@@ -8,6 +9,7 @@ import { fetchTraces } from "./corpus/traces.ts";
 import { MODES, THROTTLES, benchTier, commandLine } from "./env.ts";
 import { runChild, runSuite } from "./harness.ts";
 import { readQuiet } from "./measure.ts";
+import { reportOf, resultFilesIn } from "./report/generate.ts";
 import { readResultFile } from "./result.ts";
 import type { ResultFile, ScenarioResult } from "./result.ts";
 import { lastLine, runTiers } from "./tiers/orchestrate.ts";
@@ -287,6 +289,15 @@ async function main(args: BenchArgs): Promise<number> {
       return writeBaseline(subcommand.args);
     case "fetch-traces":
       return fetchAll();
+    case "report":
+      process.stdout.write(
+        await reportOf(
+          subcommand.args.length > 0
+            ? subcommand.args
+            : await resultFilesIn(RESULTS),
+        ),
+      );
+      return 0;
     default:
       throw new Error(`bun run bench has no subcommand ${subcommand.name}`);
   }

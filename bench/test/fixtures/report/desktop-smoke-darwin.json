@@ -1,0 +1,15 @@
+{
+  "platform": "darwin",
+  "version": "0.1.0",
+  "firstFrameMs": 640,
+  "coldStartMs": 1480,
+  "idleRssBytes": 352000000,
+  "coldStart": "within",
+  "idleMemory": "within",
+  "saved": true,
+  "synced": true,
+  "secondInstanceDeferred": true,
+  "offlineSaved": true,
+  "updatedWithOutbox": null,
+  "noticesBeside": true
+}
