@@ -15,3 +15,4 @@ export * from "./page-marks.ts";
 export * from "./paper.ts";
 export * from "./production-layout.ts";
 export * from "./scene-numbers.ts";
+export * from "./sides.ts";
