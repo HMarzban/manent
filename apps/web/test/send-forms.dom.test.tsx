@@ -311,7 +311,10 @@ test("Export names one file, a clean PDF of the whole script, and the first page
     [
       ["Checks", "Nothing needs a look before you send."],
       ["What", "Whole scriptPrint with alternates"],
-      ["As", "Clean PDFFDXFountainProject archive"],
+      [
+        "As",
+        "Clean PDFFDXFountainProject archiveCharacter report (CSV)Character report (PDF)Scene report (CSV)Scene report (PDF)Location report (CSV)Location report (PDF)",
+      ],
     ],
     ["1", "2", "3", "4", "5", "6", "7", "8"],
     "… 22 more",
@@ -361,7 +364,10 @@ test("while the script's editor is still opening, Export and Print show their ro
         "H1",
         [
           ["What", "Whole scriptPrint with alternates"],
-          ["As", "Clean PDFFDXFountainProject archive"],
+          [
+            "As",
+            "Clean PDFFDXFountainProject archiveCharacter report (CSV)Character report (PDF)Scene report (CSV)Scene report (PDF)Location report (CSV)Location report (PDF)",
+          ],
         ],
         0,
         "Export 1 file",
@@ -372,7 +378,10 @@ test("while the script's editor is still opening, Export and Print show their ro
         [
           OUTSIDE_ROW,
           ["What", "Whole scriptPrint with alternates"],
-          ["As", "Clean PDFFDXFountainProject archive"],
+          [
+            "As",
+            "Clean PDFFDXFountainProject archiveCharacter report (CSV)Character report (PDF)Scene report (CSV)Scene report (PDF)Location report (CSV)Location report (PDF)",
+          ],
         ],
         8,
         "Export 1 file",
