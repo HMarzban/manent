@@ -1,5 +1,6 @@
 // What a document's row menu holds in the Library; a feature adds its items with one line.
 import type { ComponentType } from "react";
+import { DocumentLibraryRowItems } from "../../library/row-items.ts";
 
 export interface DocumentRowItem {
   readonly id: string;
@@ -8,4 +9,6 @@ export interface DocumentRowItem {
 }
 
 /** With no item a row has no menu. */
-export const DOCUMENT_ROW_ITEMS: readonly DocumentRowItem[] = [];
+export const DOCUMENT_ROW_ITEMS: readonly DocumentRowItem[] = [
+  { id: "library_files", Item: DocumentLibraryRowItems },
+];

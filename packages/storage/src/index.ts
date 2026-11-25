@@ -4,3 +4,4 @@ export * from "./ports/index.ts";
 export * from "./private-copy/index.ts";
 export * from "./production/index.ts";
 export * from "./sqlite/index.ts";
+export * from "./trash/index.ts";
