@@ -10,6 +10,7 @@ import { blockText, blocksOf, randomBlockId } from "@manent/schema";
 import type { DocHandle } from "@manent/sync-client";
 import { createBot, startTestServer } from "@manent/testkit";
 import type { Bot, TestServer } from "@manent/testkit";
+import { benchMode } from "../env.ts";
 import type { Measurement, Scenario } from "../harness.ts";
 import { delay, docIdOf, shareScript, until } from "./support.ts";
 
@@ -24,13 +25,22 @@ const SEED = 4747;
 /** What the server program's command line holds, to find its process among this one's children. */
 const SERVER_PROGRAM = "apps/server/src/main.ts";
 
-/** MANENT_SOAK_MINUTES, a whole number of at least 2, so there is a first minute to compare with. */
-function soakMinutes(): number {
-  const raw = process.env.MANENT_SOAK_MINUTES ?? "2";
+const MODE_MINUTES = Object.freeze({
+  quick: 1,
+  standard: 10,
+  full: 480,
+});
+
+/** MANENT_SOAK_MINUTES when set, else derived from the benchmark mode; must be a positive whole number. */
+export function soakMinutes(
+  mode: "quick" | "standard" | "full" = benchMode(),
+  raw: string | undefined = process.env.MANENT_SOAK_MINUTES,
+): number {
+  if (raw === undefined || raw === "") return MODE_MINUTES[mode];
   const minutes = Number(raw);
-  if (!Number.isInteger(minutes) || minutes < 2)
+  if (!Number.isInteger(minutes) || minutes < 1)
     throw new RangeError(
-      `MANENT_SOAK_MINUTES must be a whole number of at least 2, not ${raw}`,
+      `MANENT_SOAK_MINUTES must be a positive whole number, not ${raw}`,
     );
   return minutes;
 }
@@ -127,9 +137,11 @@ async function soak(
     }, RECONNECT_MS),
   );
   try {
-    await delay(MINUTE_MS);
-    const afterFirstMinute = serverRssBytes();
-    await delay((minutes - 1) * MINUTE_MS);
+    const totalMs = minutes * MINUTE_MS;
+    const baselineMs = Math.min(MINUTE_MS, totalMs / 2);
+    await delay(baselineMs);
+    const afterBaseline = serverRssBytes();
+    await delay(totalMs - baselineMs);
     const atEnd = serverRssBytes();
     for (const timer of timers) clearInterval(timer);
     await delay(OFFLINE_MS);
@@ -146,7 +158,7 @@ async function soak(
       {
         metric: "memory_growth_percent",
         unit: "count",
-        samples: [((atEnd - afterFirstMinute) / afterFirstMinute) * 100],
+        samples: [((atEnd - afterBaseline) / afterBaseline) * 100],
       },
       // a run whose editors do not converge throws above, so it is never reported as passing
       { metric: "diverged", unit: "count", samples: [0] },
