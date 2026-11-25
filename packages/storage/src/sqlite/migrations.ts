@@ -40,6 +40,7 @@ export const MIGRATIONS: {
       `CREATE INDEX IF NOT EXISTS draft_links_by_send ON draft_links (send_id)`,
       `CREATE INDEX IF NOT EXISTS draft_links_by_token ON draft_links (token_hash)`,
     ],
+    [`ALTER TABLE draft_links ADD COLUMN open INTEGER NOT NULL DEFAULT 0`],
   ],
   documents: [
     [
@@ -118,6 +119,7 @@ export const MIGRATIONS: {
       `CREATE INDEX IF NOT EXISTS draft_sends_by_doc ON draft_sends (doc_id, sent_at DESC, id DESC)`,
       `CREATE INDEX IF NOT EXISTS draft_opens_by_send_user ON draft_opens (send_id, user_id)`,
     ],
+    [`ALTER TABLE draft_sends ADD COLUMN direct_recipient_count INTEGER`],
   ],
   checkpoints: [
     [
@@ -146,5 +148,6 @@ export const MIGRATIONS: {
     [
       `CREATE INDEX IF NOT EXISTS checkpoint_pins_by_doc ON checkpoint_pins (doc_id, generation)`,
     ],
+    [],
   ],
 });

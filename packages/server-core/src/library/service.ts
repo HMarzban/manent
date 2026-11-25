@@ -80,7 +80,11 @@ function authorizeTrash(
   if (storage.directory.placeOf(docId) === null) return refused("not_found");
   const resolved = sync.access.resolve(userId, docId);
   if (!resolved.ok) return refused(resolved.code);
-  if (resolved.kind === "index" || resolved.kind === "comments")
+  if (
+    resolved.kind === "index" ||
+    resolved.kind === "comments" ||
+    resolved.kind === "private"
+  )
     return refused("bad_request");
   const allowed =
     resolved.access.role === "owner" ||

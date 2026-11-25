@@ -351,7 +351,8 @@ export function createSearchService(
     const results: SearchResult[] = [];
     for (const hit of hits) {
       const meta = candidates.get(hit.docId);
-      if (meta === undefined) continue;
+      const kind = resolvedKinds.get(hit.docId);
+      if (meta === undefined || kind === undefined) continue;
       const slug =
         meta.workspaceIndexId === null
           ? null
@@ -361,7 +362,7 @@ export function createSearchService(
         workspaceId: slug,
         title: meta.title,
         projectTitle: meta.projectTitle,
-        kind: resolvedKinds.get(hit.docId) ?? meta.kind,
+        kind,
         changedAt: meta.changedAt,
         excerpt: hit.excerpt,
       });

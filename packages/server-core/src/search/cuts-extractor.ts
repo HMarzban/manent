@@ -11,11 +11,11 @@ export function extractCutsText(doc: CrdtDoc): string {
   for (const [id, raw] of Object.entries(jsonMap(doc, CUTS_MAP).entries())) {
     if (isCut(raw)) valid.push({ id, cut: raw });
   }
-  valid.sort(
+  const ordered = valid.toSorted(
     (a, b) => b.cut.createdAt - a.cut.createdAt || a.id.localeCompare(b.id),
   );
   const lines: string[] = [];
-  for (const { cut } of valid) {
+  for (const { cut } of ordered) {
     for (const block of cut.blocks) {
       const text = (block.content ?? []).map((run) => run.text).join("");
       if (text.length > 0) lines.push(text);

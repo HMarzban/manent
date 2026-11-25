@@ -39,6 +39,7 @@ export const API_KEY_PREFIX = "mk_";
 
 const KEY_RANDOM_BYTES = 32;
 const MAX_KEY_NAME_LENGTH = 120;
+const MAX_TOKEN_LENGTH = 128;
 const WORKSPACE_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const BEARER = /^Bearer +(\S+)$/i;
 const SAFE_FILENAME_CHARS = new RegExp("[^A-Za-z0-9._ -]+", "g");
@@ -190,7 +191,11 @@ export function createPublicApiService(
   ): Promise<PublicApiOutcome<ApiKeyRow>> {
     if (authHeader === null) return refused("unauthenticated");
     const token = BEARER.exec(authHeader.trim())?.[1];
-    if (token === undefined || !token.startsWith(API_KEY_PREFIX)) {
+    if (
+      token === undefined ||
+      token.length > MAX_TOKEN_LENGTH ||
+      !token.startsWith(API_KEY_PREFIX)
+    ) {
       return refused("unauthenticated");
     }
     const hash = await sha256(token);
@@ -340,6 +345,11 @@ export function createPublicApiService(
 
       const secret = `${API_KEY_PREFIX}${toBase64Url(randomBytes(KEY_RANDOM_BYTES))}`;
       const keyHash = await sha256(secret);
+      const currentRole = storage.directory.roleOf(
+        indexDocId("workspace", workspaceId),
+        callerUserId,
+      )?.role;
+      if (currentRole !== "owner") return refused("forbidden");
       const created = storage.apiKeys.create({
         id: ids(),
         workspaceId,

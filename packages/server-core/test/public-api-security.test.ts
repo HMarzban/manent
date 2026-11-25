@@ -790,3 +790,55 @@ test("per-key rate limit (burst 30, 1/s, 429 with integer Retry-After) and immed
     { error: "unauthenticated" },
   ]);
 });
+
+test("oversized bearer tokens are rejected, non-member workspace grant blocks scope resolution, and owner demotion during createKey is refused", async () => {
+  const fx = setupFixture();
+
+  // Over-length token (> 128 chars) is rejected with 401 before hashing
+  const hugeToken = `${API_KEY_PREFIX}${"a".repeat(200)}`;
+  const hugeRes = await fx.requestWithBearer(hugeToken, "/api/v1/folder");
+  expect([hugeRes.status, await hugeRes.json()]).toEqual([
+    401,
+    { error: "unauthenticated" },
+  ]);
+
+  // Create valid key for studio
+  const created = (await (
+    await fx.fetchAs("dana", "/api/workspace/api-keys/create", {
+      workspaceId: fx.wsId,
+      name: "Scope check",
+    })
+  ).json()) as { key: string; row: { id: string } };
+
+  // Add a workspace-sourced grant to a non-member of studio ("outsider") on scriptDocId -> scope verification must fail closed
+  fx.storage.shareLinks.grant(fx.scriptDocId, "outsider", "edit", "workspace");
+  const linesRes = await fx.requestWithBearer(
+    created.key,
+    `/api/v1/lines?docId=${fx.scriptDocId}`,
+  );
+  expect([linesRes.status, await linesRes.json()]).toEqual([
+    404,
+    { error: "not_found" },
+  ]);
+
+  // Simulate TOCTOU owner demotion after sha256 starts during createKey
+  const wsIndexId = indexDocId("workspace", fx.wsId);
+  let calls = 0;
+  const baseRoleOf = fx.storage.directory.roleOf.bind(fx.storage.directory);
+  fx.storage.directory.roleOf = (docId, userId) => {
+    if (docId === wsIndexId && userId === "dana") {
+      calls += 1;
+      if (calls >= 2) return { role: "edit", capabilities: [] };
+    }
+    return baseRoleOf(docId, userId);
+  };
+  const demotedCreate = await fx.fetchAs(
+    "dana",
+    "/api/workspace/api-keys/create",
+    { workspaceId: fx.wsId, name: "Late Key" },
+  );
+  expect([demotedCreate.status, await demotedCreate.json()]).toEqual([
+    403,
+    { error: "forbidden" },
+  ]);
+});

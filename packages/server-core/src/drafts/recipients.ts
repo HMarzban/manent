@@ -113,6 +113,7 @@ export function buildSendItem(
     watermarked: send.watermarkedUserIds.length > 0,
     sentByUserId: send.sentByUserId,
     sentAt: send.sentAt,
+    directRecipientCount: send.directRecipientCount ?? null,
   };
 }
 
@@ -228,23 +229,34 @@ export function expandRecipients(options: {
       ok: true;
       recipientUserIds: string[];
       watermarkedUserIds: string[];
+      directRecipientCount: number;
     }
   | { ok: false; code: DraftsRefusal } {
   const { storage, users, docId, groups, directIds, watermarkAll } = options;
   for (const id of directIds)
     if (!canReceive(storage, users, docId, id)) return refused("not_member");
   const recipients = new Set<string>(directIds);
+  const groupMembers = new Set<string>();
   const watermarked = new Set<string>();
   for (const group of groups) {
     for (const memberId of group.memberUserIds) {
       if (!canReceive(storage, users, docId, memberId)) continue;
+      groupMembers.add(memberId);
       recipients.add(memberId);
       if (group.watermark) watermarked.add(memberId);
     }
   }
+  const directRecipientCount = directIds.filter(
+    (id) => !groupMembers.has(id),
+  ).length;
   const recipientUserIds = [...recipients].toSorted();
   const watermarkedUserIds = watermarkAll
     ? recipientUserIds
     : recipientUserIds.filter((id) => watermarked.has(id));
-  return { ok: true, recipientUserIds, watermarkedUserIds };
+  return {
+    ok: true,
+    recipientUserIds,
+    watermarkedUserIds,
+    directRecipientCount,
+  };
 }

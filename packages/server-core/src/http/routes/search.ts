@@ -1,5 +1,5 @@
 // HTTP route for full-text search: GET /api/search?q=<query>&workspaceId=<id>&tz=<IANA zone>.
-import { SEARCH_QUERY_MAX_LEN } from "@manent/sync-protocol";
+import { SEARCH_QUERY_MAX_LEN, indexDocId } from "@manent/sync-protocol";
 import type { SearchResponse } from "@manent/sync-protocol";
 import type { SearchRefusal } from "../../search/service.ts";
 import { failure, json } from "../respond.ts";
@@ -18,7 +18,7 @@ export const searchRoutes: readonly Route[] = [
     path: "/api/search",
     handle(context) {
       const { sync, search, auth } = context.config;
-      if (sync === null || search === undefined)
+      if (sync === null || sync.mode === "relay" || search === undefined)
         return failure("not_found", 404);
       const identity = context.user();
       if (identity === null) return failure("unauthenticated", 401);
@@ -35,6 +35,12 @@ export const searchRoutes: readonly Route[] = [
         rawWorkspace === null || rawWorkspace === "" ? null : rawWorkspace;
       if (workspaceId !== null && !WORKSPACE_ID.test(workspaceId))
         return failure("bad_request", 400);
+      if (
+        typeof sync.mode === "function" &&
+        workspaceId !== null &&
+        sync.mode(indexDocId("workspace", workspaceId)) === "relay"
+      )
+        return failure("not_found", 404);
       const tz = params.get("tz");
       const knownWorkspaces = auth.directory
         .workspacesOf(identity.userId)

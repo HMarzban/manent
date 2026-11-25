@@ -11,6 +11,7 @@ import type {
   ShareLinkStore,
   SharingStore,
 } from "../ports/index.ts";
+import { StorageError } from "../ports/index.ts";
 
 const pairKey = (a: string, b: string): string => JSON.stringify([a, b]);
 
@@ -51,7 +52,15 @@ export function createMemorySharing(options: {
   const opensOf = (sendId: string) =>
     read().opens.filter((o) => o.sendId === sendId);
   return {
-    addSend: (send) => write((t) => t.sends.push(structuredClone(send))),
+    addSend: (send) =>
+      write((t) => {
+        if (t.sends.some((s) => s.id === send.id))
+          throw new StorageError("commit_failed");
+        t.sends.push({
+          ...structuredClone(send),
+          directRecipientCount: send.directRecipientCount ?? null,
+        });
+      }),
     sendOf(sendId) {
       const send = read().sends.find((s) => s.id === sendId);
       return send === undefined ? null : structuredClone(send);
@@ -210,7 +219,11 @@ export function createMemoryShareLinks(options: {
         .toSorted((a, b) => (a.groupId < b.groupId ? -1 : 1)),
     addShareLink(link) {
       const row = { ...withOwnBytes(link), revokedAt: null, createdAt: now() };
-      commit(() => void read().shareLinks.set(link.id, row));
+      commit(() => {
+        if (read().shareLinks.has(link.id))
+          throw new StorageError("commit_failed");
+        read().shareLinks.set(link.id, row);
+      });
     },
     revokeShareLink(id) {
       const row = read().shareLinks.get(id);
@@ -225,8 +238,16 @@ export function createMemoryShareLinks(options: {
         .toSorted(oldestFirst)
         .map(withOwnBytes),
     addDraftLink(link) {
-      const row = { ...withOwnBytes(link), createdAt: now() };
-      commit(() => void read().draftLinks.set(link.id, row));
+      const row = {
+        ...withOwnBytes(link),
+        open: link.open ?? false,
+        createdAt: now(),
+      };
+      commit(() => {
+        if (read().draftLinks.has(link.id))
+          throw new StorageError("commit_failed");
+        read().draftLinks.set(link.id, row);
+      });
     },
     draftLinkOf: (tokenHash) => byHash(read().draftLinks, tokenHash),
   };

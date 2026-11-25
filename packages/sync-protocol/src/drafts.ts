@@ -65,6 +65,8 @@ export interface DraftSendItem {
   watermarked: boolean;
   sentByUserId: string;
   sentAt: number;
+  /** Directly named recipients (outside any sent group) at send time; null for older sends. */
+  directRecipientCount?: number | null;
 }
 
 /**

@@ -18,7 +18,7 @@ interface SqlRankedRow {
   readonly doc_id: string;
   readonly title: string;
   readonly body: string;
-  readonly editor_body: string;
+  readonly editor_body?: string;
   readonly changed_at: number;
   readonly score: number;
 }
@@ -103,7 +103,10 @@ function queryPartition(options: {
   }
   const limitClause = inlineIds ? " LIMIT ?" : "";
   if (inlineIds) params.push(limit);
-  const sql = `SELECT d.doc_id, d.title, d.body, d.editor_body, d.changed_at, bm25(${table}, ${weights}) AS score
+  const columns = includeEditorBody
+    ? "d.doc_id, d.title, d.body, d.editor_body, d.changed_at"
+    : "d.doc_id, d.title, d.body, d.changed_at";
+  const sql = `SELECT ${columns}, bm25(${table}, ${weights}) AS score
     FROM ${table}
     JOIN search_docs d ON d.rowid = ${table}.rowid
     WHERE ${clauses.join(" AND ")}
@@ -117,7 +120,7 @@ function queryPartition(options: {
       docId: row.doc_id,
       title: row.title,
       body: row.body,
-      editorBody: includeEditorBody ? row.editor_body : null,
+      editorBody: includeEditorBody ? (row.editor_body ?? null) : null,
       changedAt: row.changed_at,
       score: row.score,
     });
@@ -164,6 +167,7 @@ const compareRanked = (a: RankedRow, b: RankedRow): number =>
 
 /** Runs a SearchQuery over db, physically isolating viewer-only documents from editor_body. */
 export function runSearchQuery(db: Database, query: SearchQuery): SearchHit[] {
+  if (!Number.isFinite(query.limit)) return [];
   const limit = Math.floor(query.limit);
   if (limit <= 0 || query.docIds.length === 0) return [];
   const plan = buildFtsQuery(query.words, query.phrases);

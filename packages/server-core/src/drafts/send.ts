@@ -129,6 +129,7 @@ export async function executeSendDraft(
     againstVersionId: request.againstVersionId,
     sentByUserId: userId,
     sentAt,
+    directRecipientCount: expanded.directRecipientCount,
   };
 
   let versionItem: VersionItem | null = null;
@@ -204,6 +205,7 @@ export async function executeSendDraft(
       sendId,
       tokenHash: hashToken(recipientToken),
       signIn: true,
+      open: false,
       expiresAt: null,
     });
   if (linkToken !== null && request.link !== null)
@@ -212,6 +214,7 @@ export async function executeSendDraft(
       sendId,
       tokenHash: hashToken(linkToken),
       signIn: request.link.signIn,
+      open: true,
       expiresAt:
         request.link.expiresInMs === null
           ? null

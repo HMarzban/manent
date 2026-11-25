@@ -110,6 +110,22 @@ test("viewer queries never match or excerpt editor-only text, and editorDocIds o
     }),
   ).toEqual([]);
 
+  // Non-finite limits return nothing safely
+  for (const limit of [
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+  ]) {
+    expect(
+      index.query({
+        words: ["Tamsin"],
+        phrases: [],
+        docIds: ["doc-cut"],
+        limit,
+      }),
+    ).toEqual([]);
+  }
+
   index.close();
 });
 

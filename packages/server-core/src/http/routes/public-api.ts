@@ -1,8 +1,11 @@
 // Public REST API routes (/api/v1/*): authenticated strictly by workspace API key, never by user session.
 import type { HttpErrorCode } from "@manent/sync-protocol";
-import type { PublicApiRefusal } from "../../public-api/service.ts";
+import type {
+  PublicApiRefusal,
+  PublicApiService,
+} from "../../public-api/service.ts";
 import { failure, json } from "../respond.ts";
-import type { Route } from "../route.ts";
+import type { Route, RouteContext } from "../route.ts";
 
 function refusalResponse(
   code: PublicApiRefusal,
@@ -43,13 +46,18 @@ function queryParam(request: Request, name: string): string | null {
   return value === null || value.length === 0 ? null : value;
 }
 
+function publicApiOf(context: RouteContext): PublicApiService | null {
+  if (context.config.sync?.mode === "relay") return null;
+  return context.config.publicApi ?? null;
+}
+
 export const publicApiRoutes: readonly Route[] = [
   {
     method: "GET",
     path: "/api/v1/folder",
     async handle(context) {
-      const service = context.config.publicApi;
-      if (service === undefined) return failure("not_found", 404);
+      const service = publicApiOf(context);
+      if (service === null) return failure("not_found", 404);
       const authHeader = context.request.headers.get("authorization");
       const folderId = queryParam(context.request, "folderId");
       const result = await service.folder(authHeader, folderId);
@@ -63,8 +71,8 @@ export const publicApiRoutes: readonly Route[] = [
     method: "GET",
     path: "/api/v1/lines",
     async handle(context) {
-      const service = context.config.publicApi;
-      if (service === undefined) return failure("not_found", 404);
+      const service = publicApiOf(context);
+      if (service === null) return failure("not_found", 404);
       const authHeader = context.request.headers.get("authorization");
       const docId = queryParam(context.request, "docId") ?? "";
       const result = await service.lines(authHeader, docId);
@@ -78,8 +86,8 @@ export const publicApiRoutes: readonly Route[] = [
     method: "GET",
     path: "/api/v1/fdx",
     async handle(context) {
-      const service = context.config.publicApi;
-      if (service === undefined) return failure("not_found", 404);
+      const service = publicApiOf(context);
+      if (service === null) return failure("not_found", 404);
       const authHeader = context.request.headers.get("authorization");
       const docId = queryParam(context.request, "docId") ?? "";
       const result = await service.fdx(authHeader, docId);
@@ -99,8 +107,8 @@ export const publicApiRoutes: readonly Route[] = [
     method: "GET",
     path: "/api/v1/ink",
     async handle(context) {
-      const service = context.config.publicApi;
-      if (service === undefined) return failure("not_found", 404);
+      const service = publicApiOf(context);
+      if (service === null) return failure("not_found", 404);
       const authHeader = context.request.headers.get("authorization");
       const docId = queryParam(context.request, "docId") ?? "";
       const result = await service.ink(authHeader, docId);

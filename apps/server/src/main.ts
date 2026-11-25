@@ -209,7 +209,11 @@ function openSync(dataDir: string): SyncSettings & { close(): void } {
  * every connection, stops listening and closes the storage; a second stop
  * waits for the first.
  */
-export async function startServer(env: ServerEnv): Promise<RunningServer> {
+export async function startServer(
+  env: ServerEnv,
+  options?: { log?: (error: unknown) => void },
+): Promise<RunningServer> {
+  const onLog = options?.log ?? (() => {});
   const secret = await loadSessionSecret(env.dataDir);
   const renderPdf = await readServerRenderPdf();
   const waiting = await isHeavyWaiting(env.dataDir);
@@ -248,6 +252,9 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
     rules: PRODUCT_SETTING_RULES,
     dataDir: env.dataDir,
     openUrl: config.http.openUrl,
+    resendApiKey: env.resendApiKey,
+    resendFrom: env.resendFrom,
+    log: onLog,
   });
   // the demo's services need the server these controls are given to, so the controls call them once they exist
   const controls: DemoControls = {
@@ -261,8 +268,7 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
     (cachedSeedId ??= readSeedId(env.dataDir));
   let stopped: Promise<void> | null = null;
   let presenceRequested = false;
-  const startPresence = () =>
-    void services.startPresence().catch(console.error);
+  const startPresence = () => void services.startPresence().catch(onLog);
   const presenceHook: SyncHooks = {
     subscribed(docId) {
       if (
@@ -324,7 +330,7 @@ export async function startServer(env: ServerEnv): Promise<RunningServer> {
               if (stopped === null && presenceRequested) startPresence();
             }),
         onFailed(reason) {
-          console.error(reason);
+          onLog(reason);
           heavy.failed();
         },
       })
@@ -353,7 +359,9 @@ if (import.meta.main) {
   if (process.argv[2] === "seed")
     process.exit(await runSeedCommand(process.argv.slice(2)));
   try {
-    const running = await startServer(readServerEnv(process.env));
+    const running = await startServer(readServerEnv(process.env), {
+      log: console.error,
+    });
     process.on("SIGTERM", () => {
       void running.stop().then(() => process.exit(0));
     });

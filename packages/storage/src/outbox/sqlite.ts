@@ -105,7 +105,9 @@ export function createSqliteOutbox(options: {
     },
     due(limit): OutboxRow[] {
       const current = now();
-      const capped = Math.max(0, Math.floor(limit));
+      const capped = Number.isFinite(limit)
+        ? Math.max(0, Math.floor(limit))
+        : 0;
       return transact(db, () => {
         purgeDelivered.run(current - OUTBOX_RETENTION_MS);
         if (capped === 0) return [];

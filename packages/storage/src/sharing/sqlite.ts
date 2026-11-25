@@ -13,17 +13,23 @@ import { transact } from "../sqlite/files.ts";
 
 type StoredSend = Omit<
   DraftSendRow,
-  "groupIds" | "recipientUserIds" | "watermarkedUserIds" | "files"
+  | "groupIds"
+  | "recipientUserIds"
+  | "watermarkedUserIds"
+  | "files"
+  | "directRecipientCount"
 > & {
   groupIds: string;
   recipientUserIds: string;
   watermarkedUserIds: string;
   files: string;
+  directRecipientCount: number | null;
 };
 
 const SEND = `SELECT id, doc_id AS docId, version_id AS versionId, name, group_ids AS groupIds,
   recipient_user_ids AS recipientUserIds, watermarked_user_ids AS watermarkedUserIds, files, what,
-  against_version_id AS againstVersionId, sent_by_user_id AS sentByUserId, sent_at AS sentAt FROM draft_sends`;
+  against_version_id AS againstVersionId, sent_by_user_id AS sentByUserId, sent_at AS sentAt,
+  direct_recipient_count AS directRecipientCount FROM draft_sends`;
 const NEWEST_FIRST = "ORDER BY sent_at DESC, id DESC";
 
 const readSend = (row: StoredSend): DraftSendRow => ({
@@ -32,6 +38,7 @@ const readSend = (row: StoredSend): DraftSendRow => ({
   recipientUserIds: readStrings(row.recipientUserIds),
   watermarkedUserIds: readStrings(row.watermarkedUserIds),
   files: readStrings(row.files),
+  directRecipientCount: row.directRecipientCount ?? null,
 });
 
 const IN_CHUNK = 500;
@@ -73,8 +80,9 @@ export function createSqliteSharing(db: Database): SharingStore {
   const sql = {
     addSend: db.query<never, StoredSend>(
       `INSERT INTO draft_sends (id, doc_id, version_id, name, group_ids, recipient_user_ids, watermarked_user_ids, files,
-       what, against_version_id, sent_by_user_id, sent_at) VALUES ($id, $docId, $versionId, $name, $groupIds,
-       $recipientUserIds, $watermarkedUserIds, $files, $what, $againstVersionId, $sentByUserId, $sentAt)`,
+       what, against_version_id, sent_by_user_id, sent_at, direct_recipient_count) VALUES ($id, $docId, $versionId, $name,
+       $groupIds, $recipientUserIds, $watermarkedUserIds, $files, $what, $againstVersionId, $sentByUserId, $sentAt,
+       $directRecipientCount)`,
     ),
     sendOf: db.query<StoredSend, [string]>(`${SEND} WHERE id = ?1`),
     sendsOf: db.query<StoredSend, [string]>(
@@ -109,6 +117,7 @@ export function createSqliteSharing(db: Database): SharingStore {
           recipientUserIds: JSON.stringify(send.recipientUserIds),
           watermarkedUserIds: JSON.stringify(send.watermarkedUserIds),
           files: JSON.stringify(send.files),
+          directRecipientCount: send.directRecipientCount ?? null,
         }),
       ),
     sendOf(sendId) {
@@ -135,11 +144,14 @@ export function createSqliteSharing(db: Database): SharingStore {
   };
 }
 
-type StoredDraftLink = Omit<DraftLinkRow, "signIn"> & { signIn: number };
+type StoredDraftLink = Omit<DraftLinkRow, "signIn" | "open"> & {
+  signIn: number;
+  open: number;
+};
 
 const SHARE_LINK = `SELECT id, doc_id AS docId, token_hash AS tokenHash, role, expires_at AS expiresAt, revoked_at AS revokedAt,
   created_by_user_id AS createdByUserId, created_at AS createdAt FROM share_links`;
-const DRAFT_LINK = `SELECT id, send_id AS sendId, token_hash AS tokenHash, sign_in AS signIn, expires_at AS expiresAt,
+const DRAFT_LINK = `SELECT id, send_id AS sendId, token_hash AS tokenHash, sign_in AS signIn, open, expires_at AS expiresAt,
   created_at AS createdAt FROM draft_links`;
 
 /** The control file's grants and links. */
@@ -175,8 +187,8 @@ export function createSqliteShareLinks(options: {
       `${SHARE_LINK} WHERE doc_id = ?1 ORDER BY created_at, id`,
     ),
     addDraftLink: db.query<never, StoredDraftLink>(
-      `INSERT INTO draft_links (id, send_id, token_hash, sign_in, expires_at, created_at)
-       VALUES ($id, $sendId, $tokenHash, $signIn, $expiresAt, $createdAt)`,
+      `INSERT INTO draft_links (id, send_id, token_hash, sign_in, open, expires_at, created_at)
+       VALUES ($id, $sendId, $tokenHash, $signIn, $open, $expiresAt, $createdAt)`,
     ),
     draftLinkOf: db.query<StoredDraftLink, [Uint8Array]>(
       `${DRAFT_LINK} WHERE token_hash = ?1`,
@@ -210,12 +222,15 @@ export function createSqliteShareLinks(options: {
         sql.addDraftLink.run({
           ...link,
           signIn: Number(link.signIn),
+          open: Number(link.open ?? false),
           createdAt: now(),
         }),
       ),
     draftLinkOf(tokenHash) {
       const row = sql.draftLinkOf.get(tokenHash);
-      return row === null ? null : { ...row, signIn: row.signIn === 1 };
+      return row === null
+        ? null
+        : { ...row, signIn: row.signIn === 1, open: row.open === 1 };
     },
   };
 }

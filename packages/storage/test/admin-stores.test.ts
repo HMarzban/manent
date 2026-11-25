@@ -120,6 +120,9 @@ function exerciseOutbox(storage: Storage, advance: (ms: number) => void): void {
     null,
   ]);
   expect(storage.outbox.due(1).map((row) => row.id)).toEqual([1]);
+  expect(storage.outbox.due(Number.NaN)).toEqual([]);
+  expect(storage.outbox.due(Number.POSITIVE_INFINITY)).toEqual([]);
+  expect(storage.outbox.due(Number.NEGATIVE_INFINITY)).toEqual([]);
 
   // Retry defers first until 5000, so second is due first
   storage.outbox.retry(first.id, 5000);

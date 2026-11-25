@@ -33,6 +33,8 @@ export interface DraftLinkRow {
   tokenHash: Uint8Array;
   /** The reader chooses who they are before the draft opens. */
   signIn: boolean;
+  /** True for an "anyone with this link" token; false or absent for a named-recipient token. */
+  open?: boolean;
   /** Null when the link never expires. */
   expiresAt: number | null;
   createdAt: number;
@@ -52,6 +54,8 @@ export interface DraftSendRow {
   againstVersionId: string | null;
   sentByUserId: string;
   sentAt: number;
+  /** Directly named recipients (outside any sent group) at send time; null for older sends. */
+  directRecipientCount?: number | null;
 }
 
 export interface DraftOpenRow {

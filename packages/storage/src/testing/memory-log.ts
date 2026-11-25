@@ -181,6 +181,12 @@ export function createLog(
         if (target.row !== null && target.row.schemaVersion < toVersion)
           target.row = { ...target.row, schemaVersion: toVersion };
       }),
+    setEngineVersion: (docId, version) =>
+      write((log) => {
+        const target = docOf(log, docId);
+        if (target.row !== null)
+          target.row = { ...target.row, engineVersion: version };
+      }),
     tail(docId, generation, afterSeq, options) {
       const tail = readTail(
         doc(docId),

@@ -8,6 +8,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
+import { indexDocId } from "@manent/sync-protocol";
 import type { MeResponse, SignInResponse } from "@manent/sync-protocol";
 import { createTempTrees } from "@manent/testkit";
 import { readServerEnv } from "../src/env.ts";
@@ -186,4 +187,45 @@ test("the session key is created, kept, and replaced whole", async () => {
   expect((await readdir(dir)).toSorted()).toEqual(["session.key"]);
   if (process.platform !== "win32")
     expect((await stat(join(dir, "session.key"))).mode & 0o777).toBe(0o600);
+});
+
+test("startServer forwards resendApiKey and resendFrom from ServerEnv to notifications without reading process.env", async () => {
+  const dataDir = await tempDir();
+  const server = await start({
+    ...envIn(dataDir),
+    resendApiKey: "re_test_forwarded",
+    resendFrom: "alerts@studio.example",
+  });
+  const signIn = (await (
+    await fetch(`${server.urls[0]}/api/sign-in`, {
+      method: "POST",
+      body: JSON.stringify({ userId: "dana" }),
+    })
+  ).json()) as SignInResponse;
+  const authHeaders = {
+    Authorization: `Bearer ${signIn.token}`,
+    "Content-Type": "application/json",
+  };
+  const wsIndex = indexDocId("workspace", "writers");
+  const created = await fetch(`${server.urls[0]}/api/docs`, {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify({
+      docId: wsIndex,
+      kind: "index",
+      home: `project:${wsIndex}`,
+    }),
+  });
+  expect(created.status).toBe(200);
+  const res = await fetch(
+    `${server.urls[0]}/api/workspace/notifications?workspaceId=writers`,
+    { headers: { Authorization: `Bearer ${signIn.token}` } },
+  );
+  const body = (await res.json()) as {
+    adapters: { adapter: string; available: boolean }[];
+  };
+  expect(res.status).toBe(200);
+  expect(body.adapters.find((a) => a.adapter === "email")?.available).toBe(
+    true,
+  );
 });

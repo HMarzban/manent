@@ -60,6 +60,8 @@ export interface ServiceDeps {
   resendApiKey?: string | null;
   /** Sender address for outbound email; null or absent uses the service default. */
   resendFrom?: string | null;
+  /** Optional sink for background service failures; omitted stays quiet. */
+  log?: (error: unknown) => void;
 }
 
 /** What a service adds to the server. */
@@ -179,16 +181,10 @@ export function composeServices(deps: ServiceDeps): {
   };
 }
 
-function stopIfPresent(service: object | undefined): void {
-  if (service === undefined || !("stop" in service)) return;
-  const stop: unknown = Reflect.get(service, "stop");
-  if (typeof stop === "function") stop.call(service);
-}
-
 /** Stops every composed service that holds background work or open handles. */
 export function stopComposedServices(config: ComposedService["config"]): void {
-  stopIfPresent(config.prompter);
-  stopIfPresent(config.trash);
-  stopIfPresent(config.search);
-  stopIfPresent(config.notify);
+  config.prompter?.stop();
+  config.trash?.stop();
+  config.search?.stop();
+  config.notify?.stop();
 }

@@ -119,18 +119,28 @@ function expandSendRecipients(
     ...request.groupIds,
   ]);
   const recipients = new Set<string>(request.recipientUserIds);
+  const groupMembers = new Set<string>();
   const watermarked = new Set<string>();
   for (const group of groups) {
     for (const memberId of group.memberUserIds) {
+      groupMembers.add(memberId);
       recipients.add(memberId);
       if (group.watermark) watermarked.add(memberId);
     }
   }
+  const directRecipientCount = [...new Set(request.recipientUserIds)].filter(
+    (id) => !groupMembers.has(id),
+  ).length;
   const recipientUserIds = [...recipients].toSorted();
   const watermarkedUserIds = request.watermark
     ? recipientUserIds
     : recipientUserIds.filter((id) => watermarked.has(id));
-  return { groups, recipientUserIds, watermarkedUserIds };
+  return {
+    groups,
+    recipientUserIds,
+    watermarkedUserIds,
+    directRecipientCount,
+  };
 }
 
 /** Records a historical send of an existing version, opening rounds and storing deterministic draft links. */
@@ -150,10 +160,8 @@ async function sendExistingVersion(
       "refused",
       `version ${request.versionId} not found on ${request.docId}`,
     );
-  const { groups, recipientUserIds, watermarkedUserIds } = expandSendRecipients(
-    d,
-    request,
-  );
+  const { groups, recipientUserIds, watermarkedUserIds, directRecipientCount } =
+    expandSendRecipients(d, request);
   const sendId = nextId(d);
   const sentAt = clock.now();
   const storedFiles =
@@ -173,6 +181,7 @@ async function sendExistingVersion(
     againstVersionId: request.againstVersionId,
     sentByUserId: userId,
     sentAt,
+    directRecipientCount,
   };
   if (groups.length > 0) {
     const commentsId = commentsDocId(request.docId);
@@ -227,6 +236,7 @@ async function sendExistingVersion(
       sendId,
       tokenHash: hashToken(recipientToken),
       signIn: true,
+      open: false,
       expiresAt: null,
     });
   if (linkToken !== null && request.link !== null)
@@ -235,6 +245,7 @@ async function sendExistingVersion(
       sendId,
       tokenHash: hashToken(linkToken),
       signIn: request.link.signIn,
+      open: true,
       expiresAt:
         request.link.expiresInMs === null
           ? null

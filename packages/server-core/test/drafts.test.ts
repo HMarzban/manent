@@ -832,3 +832,59 @@ test("createServer wires config.drafts into sync access for draft-reader comment
     ),
   ).toBe(true);
 });
+
+test("anyone-with-link sign-in token admits non-recipients while recipient token stays restricted, and directRecipientCount is stored", async () => {
+  const h = createDraftsHarness();
+  // Group "network" holds ["leo", "priya"]; Ana is a direct recipient outside the group, Leo overlaps
+  const sendRes = await h.call("POST", "/api/drafts/send", "dana", {
+    docId: DOC,
+    key: keyOf(90),
+    name: "Open Sign-In Draft",
+    what: "whole_script",
+    againstVersionId: null,
+    files: ["pdf"],
+    groupIds: ["network"],
+    recipientUserIds: ["ana", "leo"],
+    watermark: false,
+    link: { expiresInMs: SHARE_LINK_EXPIRIES_MS[2], signIn: true },
+  });
+  expect(sendRes.status).toBe(200);
+  const sent = (await sendRes.json()) as SendDraftResponse;
+  expect(sent.send.directRecipientCount).toBe(1);
+  expect(sent.recipientToken).not.toBeNull();
+  expect(sent.linkToken).not.toBeNull();
+
+  // Signed-in non-recipient ("sam") is refused on the recipient token with 404 not_sent
+  const recipientAttempt = await h.call("POST", "/api/drafts/open", "sam", {
+    token: sent.recipientToken,
+  });
+  expect([recipientAttempt.status, await recipientAttempt.json()]).toEqual([
+    404,
+    { error: "not_sent" },
+  ]);
+
+  // Same non-recipient ("sam") is admitted on the anyone-with-link sign-in token (open: true)
+  const openAttempt = await h.call("POST", "/api/drafts/open", "sam", {
+    token: sent.linkToken,
+  });
+  expect(openAttempt.status).toBe(200);
+
+  // Unauthenticated caller is still refused 401 on the sign-in open link
+  const anonAttempt = await h.call("POST", "/api/drafts/open", null, {
+    token: sent.linkToken,
+  });
+  expect([anonAttempt.status, await anonAttempt.json()]).toEqual([
+    401,
+    { error: "unauthenticated" },
+  ]);
+
+  // Listing sends preserves stored directRecipientCount = 1
+  const listRes = await h.call("POST", "/api/drafts/sends", "dana", {
+    docId: DOC,
+  });
+  expect(listRes.status).toBe(200);
+  const listed = (await listRes.json()) as {
+    sends: { sendId: string; directRecipientCount?: number | null }[];
+  };
+  expect(listed.sends[0]?.directRecipientCount).toBe(1);
+});

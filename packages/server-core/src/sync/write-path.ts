@@ -1,6 +1,11 @@
 // The one write path: a push or a setting is checked against the room's document and queued, and
 // each turn's queue is committed per file before anything is acknowledged or published.
-import { applyInspecting, findCopies, updateMeta } from "@manent/crdt";
+import {
+  applyInspecting,
+  findCopies,
+  scriptSettings,
+  updateMeta,
+} from "@manent/crdt";
 import type { TransactionReport } from "@manent/crdt";
 import type {
   AppendItem,
@@ -49,6 +54,7 @@ type PeerItem = {
       append: AppendItem;
       report: TransactionReport | null;
       schemaTo: number | null;
+      engineTo: number | null;
       /** The push was marked `heal`, whatever client ids it carries. */
       heal: boolean;
     }
@@ -234,7 +240,15 @@ export function createWritePath(ports: WritePathPorts): WritePath {
         room.mode === "authority" && report.inserted.length > 0
           ? findCopies(doc, metas)
           : [];
-      enqueue({ kind: "append", ...base, append, report, schemaTo, heal });
+      enqueue({
+        kind: "append",
+        ...base,
+        append,
+        report,
+        schemaTo,
+        engineTo: null,
+        heal,
+      });
       if (copies.length === 0) return;
       const repair = copiesRepair(room, peer.userId, copies, ports);
       authority(room, repair.write, repair.done);
@@ -274,12 +288,18 @@ export function createWritePath(ports: WritePathPorts): WritePath {
         ...made,
         setRequest: { deviceId: peer.deviceId, clientSeq },
       };
+      const engineRaw =
+        key === "script.engineVersion" && room.doc !== null
+          ? scriptSettings(room.doc).entries()["script.engineVersion"]
+          : null;
+      const engineTo = typeof engineRaw === "number" ? engineRaw : null;
       enqueue({
         kind: "append",
         ...base,
         append,
         report: null,
         schemaTo: null,
+        engineTo,
         heal: false,
       });
     },

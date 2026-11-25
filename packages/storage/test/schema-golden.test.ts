@@ -45,9 +45,9 @@ afterEach(() => s.close());
 afterAll(() => trees.removeAll());
 
 test("the storage schema is exactly these tables", () => {
-  expect(STORAGE_SCHEMA_VERSION).toBe(10);
-  expect(userVersion(join(dir, "control.sqlite"))).toBe(10);
-  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(10);
+  expect(STORAGE_SCHEMA_VERSION).toBe(11);
+  expect(userVersion(join(dir, "control.sqlite"))).toBe(11);
+  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(11);
   expect(tableColumns(join(dir, "control.sqlite"))).toEqual({
     doc_directory: [
       "doc_id TEXT",
@@ -86,6 +86,7 @@ test("the storage schema is exactly these tables", () => {
       "sign_in INTEGER",
       "expires_at INTEGER",
       "created_at INTEGER",
+      "open INTEGER",
     ],
     group_grants: ["doc_id TEXT", "group_id TEXT", "role TEXT"],
     trash: [
@@ -331,6 +332,7 @@ test("the storage schema is exactly these tables", () => {
       "against_version_id TEXT",
       "sent_by_user_id TEXT",
       "sent_at INTEGER",
+      "direct_recipient_count INTEGER",
     ],
     draft_opens: ["send_id TEXT", "user_id TEXT", "opened_at INTEGER"],
     reader_reads: [
@@ -545,7 +547,7 @@ test("a file written at version 3 is carried to 4 and keeps its rows", async () 
     snapshot: null,
     checkpoint: { seq: 1, state: new Uint8Array([5]) },
   });
-  expect(Object.values(files).map(userVersion)).toEqual([10, 10, 10]);
+  expect(Object.values(files).map(userVersion)).toEqual([11, 11, 11]);
   expect(
     rawRows(
       files.documents,
@@ -588,7 +590,7 @@ test("a file written at version 9 gains the eight lookup indexes on open", async
   file.checkpoints.newest(DOC, 1);
   storage.close();
 
-  expect(Object.values(files).map(userVersion)).toEqual([10, 10, 10]);
+  expect(Object.values(files).map(userVersion)).toEqual([11, 11, 11]);
   expect(indexNamesOf(files.control)).toEqual([
     { name: "doc_directory_by_home" },
     { name: "draft_links_by_send" },
@@ -607,4 +609,64 @@ test("a file written at version 9 gains the eight lookup indexes on open", async
   expect(indexNamesOf(files.checkpoints)).toEqual([
     { name: "checkpoint_pins_by_doc" },
   ]);
+});
+
+test("a file written at version 10 upgrades to 11 with draft_links.open defaulting to false and draft_sends.direct_recipient_count null", async () => {
+  const old = await trees.tree();
+  const files = {
+    control: join(old, "control.sqlite"),
+    documents: docPath(old, HOME),
+    checkpoints: checkpointsPath(old, HOME),
+  };
+  for (const kind of ["control", "documents", "checkpoints"] as const) {
+    await Bun.write(files[kind], "");
+    for (const statement of MIGRATIONS[kind].slice(0, 10).flat())
+      rawSql(files[kind], statement);
+    rawSql(files[kind], "PRAGMA user_version = 10");
+  }
+  const tokenHash = new Uint8Array([1, 2, 3, 4]);
+  rawSql(
+    files.control,
+    `INSERT INTO draft_links (id, send_id, token_hash, sign_in, expires_at, created_at)
+     VALUES ('dl-1', 's-1', x'01020304', 1, NULL, 500)`,
+  );
+  rawSql(
+    files.documents,
+    `INSERT INTO draft_sends (id, doc_id, version_id, name, group_ids, recipient_user_ids, watermarked_user_ids, files, what, against_version_id, sent_by_user_id, sent_at)
+     VALUES ('s-1', ?1, 'v-1', 'White', '[]', '["sam"]', '[]', '["pdf"]', 'whole_script', NULL, 'dana', 500)`,
+    DOC,
+  );
+
+  const storage = openSqliteStorage({ dir: old, now });
+  const file = storage.open(HOME);
+  file.checkpoints.newest(DOC, 1);
+  const link = storage.shareLinks.draftLinkOf(tokenHash);
+  const send = file.sharing.sendOf("s-1");
+  storage.close();
+
+  expect(Object.values(files).map(userVersion)).toEqual([11, 11, 11]);
+  expect(link).toEqual({
+    id: "dl-1",
+    sendId: "s-1",
+    tokenHash,
+    signIn: true,
+    open: false,
+    expiresAt: null,
+    createdAt: 500,
+  });
+  expect(send).toEqual({
+    id: "s-1",
+    docId: DOC,
+    versionId: "v-1",
+    name: "White",
+    groupIds: [],
+    recipientUserIds: ["sam"],
+    watermarkedUserIds: [],
+    files: ["pdf"],
+    what: "whole_script",
+    againstVersionId: null,
+    sentByUserId: "dana",
+    sentAt: 500,
+    directRecipientCount: null,
+  });
 });

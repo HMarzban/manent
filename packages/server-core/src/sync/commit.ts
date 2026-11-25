@@ -36,6 +36,8 @@ export function commitFile(
         if (item.kind === "authority") commitAuthority(file, item, heads);
         if (push !== null && push.schemaTo !== null)
           file.log.raiseSchema(room.docId, push.schemaTo);
+        if (push !== null && push.engineTo !== null)
+          file.log.setEngineVersion(room.docId, push.engineTo);
       }
     });
   } catch (error) {

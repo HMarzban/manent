@@ -7,7 +7,7 @@ import type { ShareLinkStore } from "./sharing.ts";
 import type { TrashStore } from "./trash.ts";
 import type { WorkspaceSettingsStore } from "./workspace.ts";
 
-export const STORAGE_SCHEMA_VERSION = 10;
+export const STORAGE_SCHEMA_VERSION = 11;
 
 export interface Storage {
   readonly directory: DocDirectory;
