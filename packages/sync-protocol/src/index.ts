@@ -213,6 +213,33 @@ export type {
   PrompterSendResponse,
   PrompterStory,
 } from "./prompter.ts";
+export {
+  PROMPTER_DEFAULT_SPEED_LPS,
+  PROMPTER_MAX_SPEED_LPS,
+  PROMPTER_MIN_SPEED_LPS,
+  PROMPTER_OPERATOR_TTL_MS,
+  PROMPTER_SCROLL_ACTIONS,
+  encodePrompterOperatorChanged,
+  encodePrompterScrollControl,
+  isPrompterOperator,
+  isPrompterScrollCommand,
+  isPrompterScrollState,
+  parsePrompterOperatorChanged,
+  parsePrompterScrollControl,
+} from "./prompter-control.ts";
+export type {
+  PrompterControlResponse,
+  PrompterOperator,
+  PrompterOperatorChanged,
+  PrompterOperatorReleaseRequest,
+  PrompterOperatorResponse,
+  PrompterOperatorTakeRequest,
+  PrompterOperatorTakenResponse,
+  PrompterScrollAction,
+  PrompterScrollCommand,
+  PrompterScrollControlEvent,
+  PrompterScrollState,
+} from "./prompter-control.ts";
 export type {
   HandInOverlap,
   HandInRequest,

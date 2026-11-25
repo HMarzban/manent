@@ -35,6 +35,8 @@ export const CONTROL_KINDS = [
   "trashed",
   "untrashed",
   "viewers_counted",
+  "prompter_operator_changed",
+  "prompter_scroll",
 ] as const;
 export const SYNC_STEPS = ["step1", "step2", "update"] as const;
 export const VERSION_FIELDS = [
