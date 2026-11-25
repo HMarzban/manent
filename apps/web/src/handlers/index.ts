@@ -143,7 +143,7 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     ...searchHandlers(deps),
     ...workspaceHandlers(deps),
     ...accountHandlers(deps),
-    ...inkHandlers(),
+    ...inkHandlers(deps),
     ...scriptHandlers(deps),
     ...focusModeHandlers(deps),
     ...productionOutputsHandlers(),
