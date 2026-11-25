@@ -10,6 +10,7 @@ import {
 } from "@manent/ui";
 import type { StatusFacts, Subscribable } from "@manent/ui";
 import { getRouteApi } from "@tanstack/react-router";
+import { LockIcon } from "lucide-react";
 import {
   useEffect,
   useLayoutEffect,
@@ -184,17 +185,29 @@ function NoAccess(props: {
   });
   return (
     <div
-      className="z-10 flex flex-col items-start gap-2 bg-desk p-12 text-ui"
+      className="z-10 flex min-h-0 flex-1 overflow-y-auto bg-desk p-6 text-ui"
       style={PAGE_AREA}
     >
-      <p>{DOCUMENT_WORDS.noAccess}</p>
-      {actions.map((action) => (
-        <CommandAction
-          key={action.commandId}
-          commandId={action.commandId}
-          label={action.label}
-        />
-      ))}
+      <div className="flex min-h-full w-full flex-col items-center justify-center">
+        <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-surface border border-line bg-raised p-6 text-center">
+          <span
+            aria-hidden="true"
+            className="flex size-12 shrink-0 items-center justify-center rounded-full border border-line bg-subtle text-fg-muted"
+          >
+            <LockIcon className="size-5" />
+          </span>
+          <p className="text-section font-medium text-fg">
+            {DOCUMENT_WORDS.noAccess}
+          </p>
+          {actions.map((action) => (
+            <CommandAction
+              key={action.commandId}
+              commandId={action.commandId}
+              label={action.label}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

@@ -4,7 +4,7 @@
 import type { DocHandle } from "@manent/sync-client";
 import { messageFor } from "@manent/ui";
 import type { MessageQueue } from "@manent/ui";
-import { followDemoSeed } from "../../demo/use-demo.ts";
+import { followDemoSeed, reloadAtHome } from "../../demo/use-demo.ts";
 import type { Where } from "../../platform.ts";
 import type { CommandsOptions } from "../person-commands.ts";
 import type { PersonSync } from "./create-sync.ts";
@@ -146,7 +146,7 @@ export async function followSeed(
       (await import("@manent/client-web")).clearManentData(
         device.browserStores(),
       ),
-    reload: () => location.reload(),
+    reload: () => reloadAtHome(location),
   });
 }
 
