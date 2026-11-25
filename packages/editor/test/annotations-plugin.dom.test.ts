@@ -5,10 +5,17 @@ import type { Node } from "prosemirror-model";
 import { EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import {
+  GUTTER_COLUMNS,
   annotationsPlugin,
+  changesPlugin,
   createPageScaffold,
+  gutterColumnPx,
+  markPosition,
   paginationPlugin,
+  setChanges,
 } from "../src/index.ts";
+import { compareDocs } from "@manent/revisions";
+import type { DocJSON } from "@manent/schema";
 import type { Annotation } from "../src/index.ts";
 import { bid, docOfBlocks, sp } from "./docs.ts";
 
@@ -53,6 +60,7 @@ function mountAnnotations(
           offFontNote: "note",
           onPages: (count) => scaffold.setPageCount(count),
         }),
+        changesPlugin(),
         annotationsPlugin({
           annotations: () => list,
           subscribe: (listener) => {
@@ -271,6 +279,42 @@ test("clicking a hovered gutter marker clears hover so closing the annotation do
   mounted.setList([]);
   mounted.setList([{ id: "c1", kind: "comment", anchor, open: false }]);
   expect(underline()?.hasAttribute("data-active")).toBe(false);
+
+  mounted.destroy();
+});
+
+test("annotation markers sit right beside the sheet normally and shift clear of diff initials in page compare mode", () => {
+  const doc = docOfBlocks([["action", "Rain taps the glass window."]]);
+  const anchor = textAnchorAt(
+    { id: bid(0), text: "Rain taps the glass window." },
+    5,
+    19,
+  );
+  const mounted = mountAnnotations(doc, [
+    { id: "c1", kind: "comment", anchor, open: false },
+  ]);
+  const markerLeft = () =>
+    Number.parseFloat(
+      mounted.frame.querySelector<HTMLButtonElement>("button.mn-marker")?.style
+        .left ?? "NaN",
+    );
+  const baseGutter = markPosition(sp, 0, 0).gutterPx;
+  expect(markerLeft()).toBe(gutterColumnPx(baseGutter, GUTTER_COLUMNS.changes));
+
+  const docJson = doc.toJSON() as DocJSON;
+  mounted.view.dispatch(
+    setChanges(mounted.view.state.tr, {
+      baseline: docJson,
+      comparison: compareDocs(docJson, docJson),
+      display: "page",
+    }),
+  );
+  expect(markerLeft()).toBe(
+    gutterColumnPx(baseGutter, GUTTER_COLUMNS.comments),
+  );
+
+  mounted.view.dispatch(setChanges(mounted.view.state.tr, null));
+  expect(markerLeft()).toBe(gutterColumnPx(baseGutter, GUTTER_COLUMNS.changes));
 
   mounted.destroy();
 });
