@@ -202,11 +202,16 @@ function countPagesForUpdate(
   const current = livePagination(docId);
   const nextEngine = engineFor(targetVersion);
   if (current === null || nextEngine === null) return null;
-  const layout = readLayoutSettings((key) =>
-    SETTINGS.all.some((def) => def.key === key)
+  const layout = readLayoutSettings((key) => {
+    if (
+      key === "script.sceneNumbers" &&
+      !store.explain("script.sceneNumbers").modified
+    )
+      return undefined;
+    return SETTINGS.all.some((def) => def.key === key)
       ? store.get(key as SettingKey)
-      : undefined,
-  );
+      : undefined;
+  });
   const profile = profileFromSettings(nextEngine, layout);
   if (profile === null) return null;
   const after = nextEngine.paginate(current.blocks, profile, current.locks);
