@@ -43,6 +43,7 @@ test("every server scenario is found and has its budget rows", async () => {
     "history.restore.120",
     "history.restore.2000",
     "history.version.2000",
+    "rundown.w4",
     "server.durability",
     "server.fanout",
     "server.join-storm",
