@@ -347,7 +347,7 @@ test("Continue comes first, then the projects with their kind, last edit and pla
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   expect(rowsOf(continueList).map(rowWords)).toEqual([
-    ["The Long Night", "Film", "Synced"],
+    ["The Long Night", "Film", "⋯", "Synced"],
   ]);
   const [night, game] = rowsOf(projects);
   expect([night, game].map((row) => (row ? rowWords(row) : []))).toEqual([
