@@ -52,3 +52,5 @@ export * from "./prompter-window.ts";
 export * from "./rundown-send.ts";
 export * from "./prompter-files.ts";
 export * from "./palette.ts";
+export * from "./ink.ts";
+export * from "./game-exports.ts";
