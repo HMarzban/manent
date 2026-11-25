@@ -9,6 +9,8 @@ import { Button } from "../components/stock/button.tsx";
 import { READOUT_WORDS } from "../words/document.ts";
 import { PALETTE_WORDS } from "../words/palette.ts";
 import { MENU_LABELS } from "./menu-labels.ts";
+import { PaletteAskView } from "./palette-ask.tsx";
+import type { PaletteAsk } from "./palette-ask.tsx";
 import {
   entriesOf,
   keyOf,
@@ -30,6 +32,8 @@ interface PaletteProps {
   sources: readonly PaletteSource[];
   /** The field's placeholder outside a menu; none when not given. */
   placeholder?: string;
+  /** When set, switches the open palette to the interactive ask step. */
+  ask?: PaletteAsk | null;
   onRun(row: PaletteRow): void;
   onClose(): void;
   /** Ids of the commands run last, most recent first. */
@@ -272,12 +276,22 @@ function OpenPalette(props: Omit<PaletteProps, "open">): ReactNode {
  * an unavailable row runs with the palette open, for the command service to say why it cannot.
  */
 export function CommandPalette(props: PaletteProps): ReactNode {
-  const { open, onClose, ...rest } = props;
+  const { open, onClose, ask = null, ...rest } = props;
   // each close starts the next opening afresh, even one made by the command run from the palette
   const [closes, setCloses] = useState(0);
   const close = (): void => {
     setCloses((count) => count + 1);
     onClose();
   };
-  return open ? <OpenPalette key={closes} {...rest} onClose={close} /> : null;
+  if (!open) return null;
+  if (ask !== null) {
+    return (
+      <PaletteAskView
+        key={`${closes}\0${ask.prompt}\0${ask.initial}`}
+        ask={ask}
+        onClose={close}
+      />
+    );
+  }
+  return <OpenPalette key={closes} {...rest} onClose={close} />;
 }
