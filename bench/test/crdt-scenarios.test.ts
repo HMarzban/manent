@@ -96,8 +96,10 @@ test("the crdt scenarios are found and measure what the report reads", async () 
     "crdt.aged",
     "crdt.aged-time",
     "crdt.authority",
+    "crdt.automerge",
     "crdt.daily-reuse",
     "crdt.daily-reuse-time",
+    "crdt.loro",
     "crdt.traces",
   ]);
   const aged = await quickRun("crdt/aged-");
