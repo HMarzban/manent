@@ -54,3 +54,5 @@ export * from "./prompter-files.ts";
 export * from "./palette.ts";
 export * from "./workspace.ts";
 export * from "./account.ts";
+export * from "./notifications.ts";
+export * from "./api-keys.ts";
