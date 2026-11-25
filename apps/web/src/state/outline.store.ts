@@ -6,10 +6,10 @@ import { OutlineContext } from "./bridge-contexts.ts";
 import type { Guard } from "./guard.ts";
 import { createThrottledList } from "./throttle.ts";
 
-/** A scene, an act or a section; `eighths` is a scene's length in eighths of a page, null for an act or a section. */
+/** A scene, an act, a section, or an Ink knot or stitch; `eighths` is a scene's length in eighths of a page, null for any other kind. */
 export interface OutlineRow {
   blockId: string;
-  kind: "scene" | "act" | "section";
+  kind: "scene" | "act" | "section" | "knot" | "stitch";
   number: string | null;
   heading: string;
   synopsis: string;
