@@ -1,6 +1,6 @@
 // The person's sync and what it opens: their private index, the Library read from index documents, and their documents.
 import type { KeyValueMap } from "@manent/settings";
-import type { DocHandle, SyncClient } from "@manent/sync-client";
+import type { DocHandle, DocStatus, SyncClient } from "@manent/sync-client";
 import { LIBRARY_WORDS, createValue } from "@manent/ui";
 import type { MessageQueue, Subscribable } from "@manent/ui";
 import type { ConnectionControl } from "../demo/connection-transport.ts";
@@ -44,6 +44,8 @@ export interface PersonDocuments {
   };
   /** Settles once the private index has opened and its maps are attached, or the sync could not start. */
   ready: Promise<void>;
+  /** True once the person's private index has zero changes waiting and is synced with the server. */
+  privateIndexSynced: Subscribable<boolean>;
   /**
    * The page is going: what the maps hold for a private index that has not opened is kept for its next open to carry
    * over, the open marker is removed, and each open document with own changes waiting and no connection saves a
@@ -266,6 +268,17 @@ export function createPersonDocuments(
   const { sync, started, network, client, connection, indexes } =
     startPersonSync(options, deviceId, messages);
   const { maps, ready } = laterMaps(indexes);
+  const privateIndexSynced = createValue(false);
+  const updatePrivateSynced = (current: DocStatus): void =>
+    privateIndexSynced.set(current.synced && current.waiting === 0);
+  let stopPrivateStatus: (() => void) | null = null;
+  let disposed = false;
+  void indexes.then((opened) => {
+    if (disposed || opened === null) return;
+    const { status } = opened.privateIndex.handle;
+    updatePrivateSynced(status.get());
+    stopPrivateStatus = status.subscribe(updatePrivateSynced);
+  });
   const library = createLaterLibrary({
     library: indexes.then((opened) => opened?.library ?? null),
     newId: options.randomId,
@@ -291,12 +304,15 @@ export function createPersonDocuments(
     review,
     maps,
     ready,
+    privateIndexSynced,
     leave() {
       const going = started();
       if (going !== null)
         going.trust.leavePage(going.sync, maps, handles.get());
     },
     dispose() {
+      disposed = true;
+      stopPrivateStatus?.();
       stopRefusals();
       // a sync replaced at sign-in, or left for another person, ended without a crash
       const going = started();

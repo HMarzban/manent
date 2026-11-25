@@ -57,14 +57,17 @@ export function useWhatRow(
   form: SendFormId,
   fileTypeId: string | null,
   locked: boolean,
-): { option: SendWhatOption; row: SendRow } | null {
+  docId?: string,
+): { option: SendWhatOption; row: SendRow; revision: number } | null {
   const asked = useSearchChoice("what");
   const [chosenId, choose] = useState(asked);
+  const [revision, setRevision] = useState(0);
+  const notify = useCallback(() => setRevision((count) => count + 1), []);
   const offered = whatOffered(form, fileTypeId, locked);
   const option =
     offered.find((entry) => entry.id === chosenId) ?? offered[0] ?? null;
   if (option === null) return null;
-  const content =
+  const picker =
     offered.length === 1 ? (
       <span data-tour="send:what">{option.label}</span>
     ) : (
@@ -77,7 +80,17 @@ export function useWhatRow(
         />
       </div>
     );
-  return { option, row: { id: "what", content } };
+  const Controls = option.Controls;
+  const content =
+    Controls === undefined || docId === undefined ? (
+      picker
+    ) : (
+      <div className="flex flex-col gap-3">
+        {picker}
+        <Controls docId={docId} form={form} onChange={notify} />
+      </div>
+    );
+  return { option, row: { id: "what", content }, revision };
 }
 
 function useOffersExport(docId: string): boolean {
