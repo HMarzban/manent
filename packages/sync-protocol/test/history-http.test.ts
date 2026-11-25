@@ -5,6 +5,7 @@ import {
   VERSION_KINDS,
   isVersionCursor,
 } from "../src/index.ts";
+import type { RestoreScopeBody, VersionContent } from "../src/index.ts";
 
 const CURSOR_ID = fc.stringMatching(/^[A-Za-z0-9_-]{1,64}$/);
 
@@ -60,4 +61,61 @@ test("a cursor is an instant and an id, and nothing else reads as one", () => {
     }),
     { numRuns: 500 },
   );
+});
+
+test("VersionContent accepts optional rundown content and RestoreScopeBody accepts row scope", () => {
+  const scriptContent: VersionContent = {
+    v: 1,
+    blocks: [],
+    settings: {},
+    schemaVersion: 2,
+    engineVersion: 1,
+    locks: null,
+    authors: {},
+  };
+  const rundownContent: VersionContent = {
+    ...scriptContent,
+    rundown: {
+      rundown: {
+        airDate: "2026-11-26",
+        airAt: 1_764_180_000_000,
+        windowLeadMs: 3_600_000,
+        targetMs: 1_800_000,
+      },
+      columns: ["number", "story", "presenter", "dur", "prompter"],
+      rows: [
+        {
+          id: "01a1e81d-c6f2-7301-a0f6-5c345eb6c7cd",
+          order: "V",
+          kind: "script",
+          cells: {
+            story: {
+              value: "Top story",
+              userId: "ana",
+              setAt: 100,
+              previous: null,
+            },
+          },
+          docId: "01a1e81d-c6f2-7301-a0f6-5c345eb6c7ce",
+          blockId: null,
+          durationMs: 45_000,
+          prompter: {
+            state: "on",
+            versionId: "v1",
+            sentAt: 120,
+            sentByUserId: "ana",
+          },
+          unnumbered: false,
+        },
+      ],
+    },
+  };
+  const scopes: RestoreScopeBody[] = [
+    { kind: "script" },
+    { kind: "scene", headingId: "h1" },
+    { kind: "row", rowId: "r1" },
+  ];
+  expect(scriptContent.rundown).toBeUndefined();
+  expect(rundownContent.rundown?.rows[0]?.cells.story?.value).toBe("Top story");
+  expect(scopes.map((s) => s.kind)).toEqual(["script", "scene", "row"]);
 });

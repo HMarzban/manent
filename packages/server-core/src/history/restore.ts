@@ -139,6 +139,7 @@ export function createRestorer(options: {
   ): { ok: true } | { ok: false; reason: string } {
     const row = file.log.get(docId);
     if (row === null) throw new RangeError(`no document ${docId} here`);
+    if (scope.kind === "row") return { ok: false, reason: "invalid" };
     const current = scriptBody(doc).materialize();
     const plan = planRestore(current, target, scope, {
       authority: options.extras?.authority(file, docId),
