@@ -165,7 +165,13 @@ const BUDGET_ROWS = [
     "> 250 ms / > 1 s",
     "Shorten the path from the server to the page: send sooner and apply sooner.",
   ],
-  ["Convergence", "Prompter-feed staleness p99", "≤ 1 s", "> 2 s", "—"],
+  [
+    "Convergence",
+    "Prompter-feed staleness p99",
+    "≤ 1 s",
+    "> 2 s",
+    "Shorten the path from a send to the window: send the story's text as soon as the server records the send.",
+  ],
   [
     "Offline merge",
     "Time to converge; longest task",
@@ -444,7 +450,7 @@ test("every row of the budgets file is shown in the report", async () => {
   const held = BUDGET_MAP.map((r) =>
     r.held.type === "scenarios" ? r.held.budgets : [],
   );
-  expect(budgets.length).toBe(97);
+  expect(budgets.length).toBe(105);
   for (const row of budgets)
     expect([
       row,
