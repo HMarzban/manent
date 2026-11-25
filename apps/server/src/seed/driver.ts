@@ -162,6 +162,16 @@ async function openSession(
   docId: string,
   edited: Edited,
 ): Promise<SeedSession> {
+  if (
+    docId === indexDocId("user", userId) &&
+    d.target.storage.directory.placeOf(docId) === null
+  ) {
+    await d.call(userId, {
+      method: "POST",
+      path: "/api/docs",
+      body: { docId, kind: "index", home: "user" },
+    });
+  }
   const link = await d.link(userId);
   const doc = createDoc({ clientId: d.clientId() });
   let held: Uint8Array[] | null = null;
