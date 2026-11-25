@@ -491,7 +491,7 @@ test("while the people load the chooser shows nothing, then six placeholder rows
     ...container.querySelectorAll("[data-placeholder]"),
   ];
   const heading =
-    "Choose who you arePick anyone. You can switch at any time, and each browser tab can be a different person.";
+    "Choose who you arePick anyone. You can switch at any time, and each browser tab can be a different person.Manent has no features that write for you, and your scripts are never used to train AI.Read the AI pledge";
   act(() => clock.advance(149));
   expect(placeholders()).toEqual([]);
   expect(container.textContent).toBe(heading);
@@ -516,5 +516,6 @@ test("while the people load the chooser shows nothing, then six placeholder rows
   expect(buttons(container).map((b) => b.textContent)).toEqual([
     "DRDana ReyesHead writer",
     "LMLeo MarshExecutive, reader and commenter",
+    "Read the AI pledge",
   ]);
 });

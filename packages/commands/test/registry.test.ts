@@ -794,6 +794,7 @@ test("the handler table names every command but the generated ones", () => {
     "app.syncCentre": noop,
     "app.signInToSync": noop,
     "app.switchPerson": noop,
+    "app.signOut": noop,
     "edit.undo": noop,
     "edit.redo": noop,
     "edit.find": noop,
