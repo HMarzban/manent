@@ -27,4 +27,28 @@ export const WORKSPACE_WORDS = Object.freeze({
     `Couldn't change ${person}'s role. Try again.`,
   needsAnOwner: (person: string, workspace: string): string =>
     `Couldn't change ${person}'s role: ${workspace} needs an owner. Make someone else an owner first.`,
+  canAlso: "Can also",
+  canAlsoSendToPrompter: "Send to prompter",
+  canAlsoEditRundowns: "Edit rundowns",
+  canAlsoIssueAndLock: "Issue revisions and lock page numbers",
+  canAlsoDelete: "Delete",
+  canAlsoPhraseSendToPrompter: "send to prompter",
+  canAlsoPhraseEditRundowns: "edit rundowns",
+  canAlsoPhraseIssueAndLockGrant: "issue revisions and lock page numbers",
+  canAlsoPhraseIssueAndLockRevoke: "issue revisions or lock page numbers",
+  canAlsoPhraseDelete: "delete",
+  canAlsoGroupLabel: (name: string): string => `What ${name} can also do`,
+  canAlsoReadOnly:
+    "Only the project's owner and people who can issue revisions change these.",
+  canAlsoGranted: (person: string, phrase: string, project: string): string =>
+    `${person} can also ${phrase} in ${project}.`,
+  canAlsoRevoked: (person: string, phrase: string, project: string): string =>
+    `${person} can no longer ${phrase} in ${project}.`,
+  canAlsoRefused: (person: string): string =>
+    `Couldn't change what ${person} can also do. Try again.`,
+  canNoLongerIssue: (revision: string, project: string): string =>
+    `Couldn't issue ${revision}: you can no longer issue revisions in ${project}.`,
+  canNoLongerDelete: (title: string, project: string): string =>
+    `Couldn't move '${title}' to Trash: you can no longer delete in ${project}.`,
+  undo: "Undo",
 });
