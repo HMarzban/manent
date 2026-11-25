@@ -275,6 +275,7 @@ export function PreviousValuePopover(props: {
   const { now } = useEnvironment();
   const view = useRundownView(docId);
   const restoreButtonRef = useRef<HTMLButtonElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const [anchorStyle, setAnchorStyle] = useState<CSSProperties>(() => ({
     top: 0,
     left: 0,
@@ -300,8 +301,9 @@ export function PreviousValuePopover(props: {
   }, [target, state.openCell, gridContainerRef]);
 
   useEffect(() => {
-    if (target === null || !canEdit) return;
-    restoreButtonRef.current?.focus();
+    if (target === null) return;
+    if (canEdit) restoreButtonRef.current?.focus();
+    else contentRef.current?.focus();
   }, [target, canEdit]);
 
   if (target === null) return null;
@@ -327,7 +329,10 @@ export function PreviousValuePopover(props: {
         className="pointer-events-none fixed opacity-0"
       />
       <PopoverContent
+        ref={contentRef}
         data-surface="cell_popover"
+        data-arrival={canEdit ? undefined : ""}
+        tabIndex={canEdit ? undefined : -1}
         side="bottom"
         align="end"
         sideOffset={4}
@@ -336,22 +341,19 @@ export function PreviousValuePopover(props: {
       >
         <div className="flex items-center justify-between gap-3">
           <span className="font-medium text-fg tabular-nums">{heading}</span>
-          <Button
-            ref={restoreButtonRef}
-            type="button"
-            variant="outline"
-            size="sm"
-            data-tour="rundown.restorePrevious"
-            disabled={!canEdit}
-            className={
-              canEdit
-                ? "shrink-0 cursor-pointer hover:bg-subtle"
-                : "shrink-0 cursor-not-allowed text-fg-muted opacity-50"
-            }
-            onClick={state.restore}
-          >
-            {RUNDOWN_WORDS.restore}
-          </Button>
+          {canEdit ? (
+            <Button
+              ref={restoreButtonRef}
+              type="button"
+              variant="outline"
+              size="sm"
+              data-tour="rundown.restorePrevious"
+              className="shrink-0 cursor-pointer hover:bg-subtle"
+              onClick={state.restore}
+            >
+              {RUNDOWN_WORDS.restore}
+            </Button>
+          ) : null}
         </div>
         <p className="text-meta text-fg-muted tabular-nums">{was}</p>
       </PopoverContent>

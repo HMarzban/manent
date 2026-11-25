@@ -531,18 +531,19 @@ test("Can edit without edit_rundowns shows View only and pushes the capability m
   );
 });
 
-test("Can view or Can comment shows the prompter notice with Present on prompter", async () => {
+test("Can view or Can comment renders the live read-only grid with View only status", async () => {
   mockDescribe("comment", []);
   const doc = createSampleShowDoc();
   const { host } = await mountRundown({
     rundownDoc: doc,
     status: { access: "comment" },
   });
-  await until(
-    () => host.textContent?.includes(RUNDOWN_WORDS.cannotOpenWithRole) ?? false,
-  );
-  expect(host.textContent).toContain(RUNDOWN_WORDS.cannotOpenWithRole);
-  expect(host.textContent).toContain(RUNDOWN_WORDS.presentOnPrompter);
+  await until(() => host.querySelector('[role="grid"]') !== null);
+  expect(
+    host.querySelector('[data-region="title_bar"]')?.textContent,
+  ).toContain("View only");
+  expect(host.textContent).toContain("Monologue");
+  expect(host.textContent).not.toContain(RUNDOWN_WORDS.cannotOpenWithRole);
 });
 
 test("empty rundown displays empty state with Add row", async () => {

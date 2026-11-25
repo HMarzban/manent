@@ -6,14 +6,11 @@ import {
   EditableGrid,
   RUNDOWN_WORDS,
   SurfaceState,
-  createValue,
   useSubscribable,
 } from "@manent/ui";
 import type {
   EditableGridHandle,
   GridCommitResult,
-  StatusFacts,
-  Subscribable,
   SurfaceStateValue,
 } from "@manent/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -48,7 +45,6 @@ import {
   usePreviousValue,
 } from "./previous-value.tsx";
 import { useRundownRows } from "./rows.tsx";
-import type { RundownAccess } from "./rundown-access.ts";
 import { buildGridColumns, buildGridRows } from "./rundown-cells.tsx";
 import { useRundownSession } from "./rundown-session.ts";
 import {
@@ -56,33 +52,11 @@ import {
   RundownLoading,
   RundownNoAccess,
   RundownProblem,
-  RundownViewRoleNotice,
+  useEffectiveStatus,
 } from "./rundown-states.tsx";
 import { RundownTitleBar } from "./rundown-title-bar.tsx";
 
 const PAGE_AREA: CSSProperties = Object.freeze({ gridArea: "page" });
-
-/** Maps the rundown's effective access onto the document status so Can edit without edit rundowns shows `View only`. */
-function useEffectiveStatus(
-  source: Subscribable<StatusFacts>,
-  access: RundownAccess,
-): Subscribable<StatusFacts> {
-  const [derived] = useState(() => createValue(source.get()));
-  useEffect(() => {
-    const apply = (facts: StatusFacts): void => {
-      const needsViewOnly =
-        access !== "edit" &&
-        facts.server !== "access_removed" &&
-        facts.server !== "deleted" &&
-        facts.device !== "failing" &&
-        facts.access !== "too_old";
-      derived.set(needsViewOnly ? { ...facts, access: "view" } : facts);
-    };
-    apply(source.get());
-    return source.subscribe(apply);
-  }, [source, access, derived]);
-  return derived;
-}
 
 export interface RundownScreenProps {
   readonly docId: string;
@@ -154,21 +128,13 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
   const surfaceState: SurfaceStateValue = useMemo(() => {
     if (status.server === "access_removed" || status.server === "deleted")
       return { kind: "no_access" };
-    if (view.access === "view_or_comment") return { kind: "read_only" };
     if (!view.ready) return { kind: "loading", sinceMs: loadingSince };
     if (view.rundown === null)
       return { kind: "problem", reason: "unavailable" };
     if (view.rundown.rows.length === 0) return { kind: "empty" };
     if (!online) return { kind: "offline" };
     return { kind: "ready" };
-  }, [
-    status.server,
-    view.access,
-    view.ready,
-    view.rundown,
-    loadingSince,
-    online,
-  ]);
+  }, [status.server, view.ready, view.rundown, loadingSince, online]);
 
   const gridColumns = useMemo(
     () =>
@@ -197,6 +163,7 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
     services.commands.run("rundown.openBeside", "control");
   };
 
+  const readOnly = view.access !== "edit";
   const gridRows = useMemo(() => {
     if (view.rundown === null || view.clock === null) return [];
     return buildGridRows({
@@ -206,6 +173,7 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
       columnIds: allColumns,
       titleColumn,
       online,
+      readOnly,
       onDevice: view.onDevice,
       liveDuration,
       cellPresence,
@@ -224,6 +192,7 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
     allColumns,
     titleColumn,
     online,
+    readOnly,
     view.onDevice,
     liveDuration,
     cellPresence,
@@ -233,7 +202,6 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
     rowsBinding.onBeforeMenuOpen,
   ]);
 
-  const readOnly = view.access !== "edit";
   const onReadOnlyKey = (): void => {
     if (view.access !== "view_only") return;
     services.messages.push({
@@ -325,7 +293,7 @@ export function RundownScreen(props: RundownScreenProps): ReactNode {
             offline: () => gridElement,
             empty: () => <RundownEmpty canEdit={!readOnly} />,
             loading: () => <RundownLoading />,
-            read_only: () => <RundownViewRoleNotice />,
+            read_only: () => gridElement,
             no_access: () => (
               <RundownNoAccess title={displayTitle} notSent={status.notSent} />
             ),
