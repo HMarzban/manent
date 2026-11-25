@@ -2,9 +2,10 @@
 import { writeEpisode } from "@manent/crdt";
 import type { EpisodeEntry, SeasonEntry } from "@manent/crdt";
 import { Button, SERIES_WORDS, Skeleton } from "@manent/ui";
-import { PlusIcon } from "lucide-react";
+import { FilmIcon, PlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../../../empty-hero-card.tsx";
 import {
   createSeriesEpisode,
   createSeriesSeason,
@@ -126,15 +127,23 @@ export function SeriesView(props: ProjectViewProps): ReactNode {
           <h2 className="min-w-0 flex-1 truncate text-title">
             {project.title}
           </h2>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!data.canEdit || creating}
-            onClick={onNewSeason}
-          >
-            <PlusIcon aria-hidden="true" data-icon="inline-start" />
-            {SERIES_WORDS.newSeason}
-          </Button>
+        </div>
+        <div className="py-3">
+          <EmptyHeroCard
+            icon={<FilmIcon aria-hidden="true" className="size-5" />}
+            title={SERIES_WORDS.empty}
+            actions={
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!data.canEdit || creating}
+                onClick={onNewSeason}
+              >
+                <PlusIcon aria-hidden="true" data-icon="inline-start" />
+                {SERIES_WORDS.newSeason}
+              </Button>
+            }
+          />
         </div>
       </section>
     );

@@ -10,7 +10,7 @@ import {
 } from "@manent/ui";
 import type { SortableListsHandle } from "@manent/ui";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
-import { PlusIcon } from "lucide-react";
+import { Columns3Icon, PlusIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { registerBoardController } from "../../board/board-actions.ts";
@@ -19,6 +19,7 @@ import { cardsInCell, cellKey } from "../../board/model.ts";
 import type { BoardCard } from "../../board/model.ts";
 import { useBoardData } from "../../board/use-board-data.ts";
 import { useBoardMutations } from "../../board/use-board-mutations.ts";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import { focusHeading } from "../../focus.ts";
 import { useServices } from "../../services/context.tsx";
 import { pageTitle } from "../../text.ts";
@@ -245,22 +246,28 @@ export function BoardScreen(): ReactNode {
         ) : empty ? (
           <div
             data-tour="board"
-            className="flex max-w-content-wide flex-col items-start gap-3 pt-12"
+            className="flex min-h-full items-center justify-center py-12"
           >
-            <p className="text-ui text-fg-muted">{BOARD_WORDS.empty}</p>
-            {data.canEdit ? (
-              <Button
-                variant="outline"
-                onClick={() => setAddingStoryline(true)}
-              >
-                <PlusIcon
-                  aria-hidden="true"
-                  data-icon="inline-start"
-                  className="size-icon"
-                />
-                {BOARD_WORDS.addStoryline}
-              </Button>
-            ) : null}
+            <EmptyHeroCard
+              icon={<Columns3Icon aria-hidden="true" className="size-5" />}
+              title={BOARD_WORDS.board}
+              description={BOARD_WORDS.empty}
+              actions={
+                data.canEdit ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => setAddingStoryline(true)}
+                  >
+                    <PlusIcon
+                      aria-hidden="true"
+                      data-icon="inline-start"
+                      className="size-icon"
+                    />
+                    {BOARD_WORDS.addStoryline}
+                  </Button>
+                ) : null
+              }
+            />
           </div>
         ) : (
           <BoardGrid
