@@ -33,8 +33,6 @@ export type Opener = (trigger: PopoverTrigger) => boolean;
 const EMPTY_SET: ReadonlySet<string> = new Set();
 const EMPTY_RECORD: Readonly<Record<string, never>> = Object.freeze({});
 const EMPTY_NOTES: readonly StoredNote[] = Object.freeze([]);
-const EMPTY_PEOPLE: readonly CommentPerson[] = Object.freeze([]);
-const EMPTY_SCENES: ReadonlyMap<string, SceneBlockInfo> = new Map();
 const EMPTY_DATA = Object.freeze({
   threads: EMPTY_RECORD,
   items: EMPTY_RECORD,
@@ -58,10 +56,10 @@ export const emptyCommentsState = (docId: string): ScriptCommentsState => ({
   canEdit: false,
   loading: true,
   ...EMPTY_DATA,
-  people: EMPTY_PEOPLE,
+  people: Object.freeze<CommentPerson[]>([]),
   peopleState: "idle",
   removedIds: EMPTY_SET,
-  blockScenes: EMPTY_SCENES,
+  blockScenes: new Map<string, SceneBlockInfo>(),
 });
 
 const isAccessLost = (server: StatusFacts["server"]): boolean =>
@@ -135,12 +133,9 @@ function attachCommentsDoc(entry: CommentsEntry, doc: CrdtDoc): void {
     };
     emitComments(entry);
   };
-  const stops = [
-    jsonMap(doc, "threads").subscribe(refresh),
-    jsonMap(doc, "items").subscribe(refresh),
-    jsonMap(doc, "rounds").subscribe(refresh),
-    jsonMap(doc, "flags").subscribe(refresh),
-  ];
+  const stops = (["threads", "items", "rounds", "flags"] as const).map((name) =>
+    jsonMap(doc, name).subscribe(refresh),
+  );
   entry.stopDocMaps = () => {
     for (const stop of stops) stop();
   };
@@ -268,10 +263,8 @@ function startEdit(entry: CommentsEntry, home: string | null): void {
   void entry.services
     .openComments(entry.docId, home)
     .then((handle) => {
-      if (entry.closed || entry.openingMode !== "edit") {
-        void handle.close();
-        return;
-      }
+      if (entry.closed || entry.openingMode !== "edit")
+        return void handle.close();
       entry.handle = handle;
       entry.loadProblemNotified = false;
       const stopReplaced = handle.on((event) => {
@@ -295,9 +288,16 @@ const isSettled = (status: StatusFacts): boolean =>
   status.neverSynced ||
   status.server !== "syncing";
 
+/** Only `script` documents hold a server-backed comments document; ink and rundown docs refuse creation with 400. */
+const supportsComments = (entry: CommentsEntry): boolean => {
+  const kind = entry.services.library.docKindOf?.(entry.docId).get() ?? null;
+  return kind === null || kind === "script";
+};
+
 function ensureOpen(entry: CommentsEntry, status: StatusFacts): void {
   if (entry.closed) return;
-  if (isAccessLost(status.server)) return clearOnAccessLost(entry);
+  if (isAccessLost(status.server) || !supportsComments(entry))
+    return clearOnAccessLost(entry);
   if (status.access === "view" || status.access === "too_old")
     return startView(entry);
   if (entry.openingMode === "edit") return;
@@ -313,28 +313,19 @@ function ensureOpen(entry: CommentsEntry, status: StatusFacts): void {
     return startEdit(entry, home);
   if (entry.checkingDevice) return;
   entry.checkingDevice = true;
-  const finishIfSettled = (): void => {
+  const finishIfReady = (heldOnDevice: boolean): void => {
+    entry.checkingDevice = false;
     if (entry.closed || entry.openingMode !== "none") return;
     const latest = entry.docServices.status.get();
-    if (isAccessLost(latest.server)) return clearOnAccessLost(entry);
+    if (isAccessLost(latest.server) || !supportsComments(entry))
+      return clearOnAccessLost(entry);
     if (latest.access === "view" || latest.access === "too_old") return;
-    if (isSettled(latest)) startEdit(entry, homeOf());
+    if (heldOnDevice || isSettled(latest)) startEdit(entry, homeOf());
   };
   void entry.services
     .onDevice([commentsDocId(entry.docId)])
-    .then((held) => {
-      entry.checkingDevice = false;
-      if (entry.closed || entry.openingMode !== "none") return;
-      const latest = entry.docServices.status.get();
-      if (isAccessLost(latest.server)) return clearOnAccessLost(entry);
-      if (latest.access === "view" || latest.access === "too_old") return;
-      if (held.has(commentsDocId(entry.docId))) startEdit(entry, homeOf());
-      else finishIfSettled();
-    })
-    .catch(() => {
-      entry.checkingDevice = false;
-      finishIfSettled();
-    });
+    .then((held) => finishIfReady(held.has(commentsDocId(entry.docId))))
+    .catch(() => finishIfReady(false));
 }
 
 export function createCommentsEntry(
@@ -380,9 +371,14 @@ export function createCommentsEntry(
     ensureOpen(entry, status);
   };
   entry.stopScriptStatus = docServices.status.subscribe(onStatus);
-  entry.stopProject = services.library
-    .documentProject(docId)
-    .subscribe(() => ensureOpen(entry, docServices.status.get()));
+  const onMeta = (): void => ensureOpen(entry, docServices.status.get());
+  const stopProject = services.library.documentProject(docId).subscribe(onMeta);
+  const stopKind =
+    services.library.docKindOf?.(docId).subscribe(onMeta) ?? noop;
+  entry.stopProject = () => {
+    stopProject();
+    stopKind();
+  };
   entry.stopEditors = subscribeLiveEditors(() => syncNotes(entry));
   syncNotes(entry);
   onStatus();

@@ -6,11 +6,16 @@ import {
   DOCUMENT_WORDS,
   PROMPTER_WINDOW_WORDS,
   RUNDOWN_WORDS,
+  createValue,
 } from "@manent/ui";
 import { act } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
+import {
+  createCommentsEntry,
+  disposeCommentsEntry,
+} from "../src/comments/comments-session.ts";
 import { DEFAULT_COLUMN_WIDTHS_PX } from "../src/rundown/columns.tsx";
 import { RowMenu } from "../src/rundown/rows.tsx";
 import { fetchRundownMeta } from "../src/rundown/rundown-access.ts";
@@ -223,4 +228,32 @@ test("BoardTitleBar keeps heading readable on narrow widths and StorylineHeader 
   const headerCell = host.querySelector(".group\\/storyline");
   expect(headerCell).not.toBeNull();
   expect(headerCell?.innerHTML).toContain("group-hover/storyline:opacity-100");
+});
+
+test("createCommentsEntry skips opening comments documents for ink and rundown docs", () => {
+  for (const kind of ["ink", "rundown"] as const) {
+    const calls: string[] = [];
+    const base = testServices({ userId: "dana" });
+    const services = {
+      ...base,
+      library: {
+        ...base.library,
+        docKindOf: () => createValue(kind),
+        documentProject: () => createValue("proj-1"),
+      },
+      openComments: async (docId: string) => {
+        calls.push(`open:${docId}`);
+        throw new Error("should not open comments");
+      },
+      viewComments: async (docId: string) => {
+        calls.push(`view:${docId}`);
+        throw new Error("should not view comments");
+      },
+    };
+    const entry = createCommentsEntry(`doc-${kind}`, services);
+    expect(calls).toEqual([]);
+    expect(entry.state.loading).toBe(false);
+    disposeCommentsEntry(entry);
+    base.dispose();
+  }
 });
