@@ -277,14 +277,14 @@ function caretKeeper(
   let before: CaretPlace | null = null;
   let scrolledTo = 0;
   return (prev) => {
+    if (prev.doc !== view.state.doc && isRemoteState(view.state)) {
+      // remote edits never adjust the caret scroll; skipping coordsAtPos avoids a forced layout during dispatch
+      before = null;
+      return;
+    }
     const scroller = scrollerOf();
     const after = caretPlace(view);
-    if (
-      after !== null &&
-      before !== null &&
-      prev.doc !== view.state.doc &&
-      !isRemoteState(view.state)
-    ) {
+    if (after !== null && before !== null && prev.doc !== view.state.doc) {
       const moved = scroller.scrollTop - scrolledTo;
       const delta = scrollDelta({ ...before, top: before.top - moved }, after);
       scroller.scrollTop += delta;

@@ -216,13 +216,25 @@ export async function rebuiltAway(browser: Browser): Promise<Page> {
 
 /** Reorganises the open script from the demo bar, and waits until the page says the server has done it. */
 export async function reorganise(page: Page): Promise<void> {
-  await page
+  // a prior reconnect receipt stays until dismissed and holds the message slot ahead of the rebuild notice
+  const receipt = page
+    .getByRole("status")
+    .filter({ hasText: /changes? synced/ });
+  if (await receipt.isVisible())
+    await receipt.getByRole("button", { name: "Dismiss" }).click();
+  const button = page
     .getByRole("region", { name: "Demo" })
-    .getByRole("button", { name: "Reorganise" })
-    .click();
+    .getByRole("button", { name: "Reorganise" });
+  await expect(button).toBeEnabled();
+  const requested = page.waitForResponse(
+    (response) => response.url().includes("/api/demo/rebuild") && response.ok(),
+  );
+  await button.click();
+  await requested;
+  // rebuildQuietMs is 10 s and postpones by 10 s if a write/checkpoint is busy, so 35 s covers one postpone under load
   await expect(
     message(page, "Manent reorganised how this script is stored."),
-  ).toBeVisible({ timeout: 20_000 });
+  ).toBeVisible({ timeout: 35_000 });
 }
 
 /** `reach`, then `choice` chosen in To review on the page it reached. */

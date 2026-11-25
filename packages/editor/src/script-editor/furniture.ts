@@ -117,21 +117,30 @@ function durationOfDoc(doc: Node, format: FormatId): number | null {
   return durationMs([total], DEFAULT_READ_RATE);
 }
 
-function hasDurationSlot(slots: HeaderSlots | null): boolean {
+function hasSlotKind(
+  slots: HeaderSlots | null,
+  kind: HeaderSlot["kind"],
+): boolean {
   return (
     slots !== null &&
-    (slots.left.kind === "duration" ||
-      slots.center.kind === "duration" ||
-      slots.right.kind === "duration")
+    (slots.left.kind === kind ||
+      slots.center.kind === kind ||
+      slots.right.kind === kind)
   );
 }
 
-function usesDuration(
+const usesDuration = (
   header: HeaderSlots | null,
   footer: HeaderSlots | null,
-): boolean {
-  return hasDurationSlot(header) || hasDurationSlot(footer);
-}
+): boolean =>
+  hasSlotKind(header, "duration") || hasSlotKind(footer, "duration");
+
+const usesSection = (
+  header: HeaderSlots | null,
+  footer: HeaderSlots | null,
+): boolean => hasSlotKind(header, "section") || hasSlotKind(footer, "section");
+
+const NO_SECTIONS: readonly (string | null)[] = Object.freeze([]);
 
 export interface FurnitureSync {
   read(state: EditorState): PageFurnitureOptions;
@@ -168,18 +177,23 @@ export function createFurnitureSync(options: {
     durationMsValue: number | null,
     header: HeaderSlots | null,
     footer: HeaderSlots | null,
+    includeSections: boolean,
   ): PageFurnitureOptions => {
     const pagination = paginationKey.getState(state)?.pagination;
-    if (pagination !== undefined && pagination !== lastPagination) {
-      lastPagination = pagination;
-      lastSections = sectionsOf(pagination);
+    let sections: readonly (string | null)[] = NO_SECTIONS;
+    if (includeSections) {
+      if (pagination !== undefined && pagination !== lastPagination) {
+        lastPagination = pagination;
+        lastSections = sectionsOf(pagination);
+      }
+      sections = lastSections;
     }
     return {
       title: options.title.get(),
       header,
       footer,
       dateFormat: parseDateFormat(options.script.get("script.dateFormat")),
-      sections: lastSections,
+      sections,
       revisionLabel: productionOf(state)?.view.active.name ?? null,
       day: isoDay(options.timers.now()),
       durationMs: durationMsValue,
@@ -189,7 +203,7 @@ export function createFurnitureSync(options: {
   const read = (state: EditorState): PageFurnitureOptions => {
     const header = parseSlots(options.script.get("script.header"));
     const footer = parseSlots(options.script.get("script.footer"));
-    return snapshot(state, durationFor(state), header, footer);
+    return snapshot(state, durationFor(state), header, footer, true);
   };
 
   const sync = (state: EditorState): void => {
@@ -198,7 +212,13 @@ export function createFurnitureSync(options: {
     const header = parseSlots(options.script.get("script.header"));
     const footer = parseSlots(options.script.get("script.footer"));
     const duration = usesDuration(header, footer) ? durationFor(state) : null;
-    const next = snapshot(state, duration, header, footer);
+    const next = snapshot(
+      state,
+      duration,
+      header,
+      footer,
+      usesSection(header, footer),
+    );
     const key = JSON.stringify(next);
     if (key === lastSnapshotKey) return;
     lastSnapshotKey = key;

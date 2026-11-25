@@ -229,6 +229,21 @@ function sizeFrame(
   return box.scale;
 }
 
+/** The nearest scrollable ancestor of `place`, or `place` itself when none scrolls (e.g. a detached test host). */
+function scrollContainerOf(place: HTMLElement): HTMLElement {
+  if (typeof getComputedStyle === "function") {
+    for (
+      let at: HTMLElement | null = place;
+      at !== null;
+      at = at.parentElement
+    ) {
+      const { overflowY } = getComputedStyle(at);
+      if (overflowY === "auto" || overflowY === "scroll") return at;
+    }
+  }
+  return place;
+}
+
 /**
  * Builds `place > div.mn-zoom > div.mn-pages` with the page's styles. Every page is a full sheet, so the content's
  * height comes from the page count and is never measured.
@@ -244,6 +259,7 @@ export function createPageScaffold(options: {
   furnitureEntries?: readonly PageFurniture[];
 }): PageScaffold {
   const { place } = options;
+  const scroller = scrollContainerOf(place);
   const view = options.view ?? "page";
   const entries = options.furnitureEntries ?? PAGE_FURNITURE;
   const frame = createFrame(place, options.engine, view);
@@ -257,13 +273,28 @@ export function createPageScaffold(options: {
   let decor: SheetDecor | null = null;
   let furniture: PageFurnitureOptions = options.furniture ?? {};
   let labels: readonly string[] = [];
+  let lastScrollTop = 0;
+  let lastClientHeight = 0;
+  let placed: readonly { index: number; top: number }[] = [];
   const sheets: HTMLElement[] = [];
   const drawn = new WeakMap<HTMLElement, PageFurnitureInput>();
 
+  const redrawPlaced = (): void => {
+    drawSheets(
+      pages,
+      sheets,
+      placed,
+      { count, decor, furniture, labels, entries },
+      profile,
+      drawn,
+    );
+  };
   const redrawAt = (scrollTop: number, clientHeight: number): void => {
+    lastScrollTop = scrollTop;
+    lastClientHeight = clientHeight;
     const page = screenPagePx(profile);
     // The scroll offset counts from the frame's top, and the front pages sit above page 1.
-    const wanted =
+    placed =
       view === "reflow"
         ? []
         : visibleSheets(
@@ -274,29 +305,27 @@ export function createPageScaffold(options: {
             clientHeight,
             scale,
           );
-    drawSheets(
-      pages,
-      sheets,
-      wanted,
-      { count, decor, furniture, labels, entries },
-      profile,
-      drawn,
-    );
+    redrawPlaced();
   };
-  const redraw = (): void => redrawAt(place.scrollTop, place.clientHeight);
-  const layout = (): void => {
-    const { scrollTop, clientHeight } = place;
+  const redraw = (): void =>
+    redrawAt(scroller.scrollTop, scroller.clientHeight);
+  const layoutAt = (scrollTop: number, clientHeight: number): void => {
     const page = screenPagePx(profile);
     scale = sizeFrame(frame, page, { count, frontPx, view }, percent);
     redrawAt(scrollTop, clientHeight);
   };
+  const layout = (): void =>
+    layoutAt(scroller.scrollTop, scroller.clientHeight);
   const setProfile = (next: PageProfile): void => {
     profile = next;
     profileStyle.textContent = profileCss(next);
     layout();
   };
 
-  place.addEventListener("scroll", redraw, { passive: true });
+  scroller.addEventListener("scroll", redraw, { passive: true });
+  const resizeObserver =
+    typeof ResizeObserver === "undefined" ? null : new ResizeObserver(redraw);
+  resizeObserver?.observe(scroller);
   setProfile(profile);
   return {
     pages,
@@ -309,7 +338,8 @@ export function createPageScaffold(options: {
     },
     setPageCount(next) {
       count = next;
-      layout();
+      if (lastClientHeight > 0) layoutAt(lastScrollTop, lastClientHeight);
+      else layout();
     },
     applyZoom(next) {
       percent = next;
@@ -324,22 +354,23 @@ export function createPageScaffold(options: {
     setSheetDecor(next) {
       if (next?.key === decor?.key) return;
       decor = next;
-      redraw();
+      redrawPlaced();
     },
     setFurniture(next) {
       furniture = next;
-      redraw();
+      redrawPlaced();
     },
     setPageLabels(next) {
       labels = next;
-      redraw();
+      redrawPlaced();
     },
     setTint(on) {
       if (on) pages.dataset["tint"] = "on";
       else delete pages.dataset["tint"];
     },
     destroy() {
-      place.removeEventListener("scroll", redraw);
+      scroller.removeEventListener("scroll", redraw);
+      resizeObserver?.disconnect();
       zoom.remove();
     },
   };
