@@ -25,12 +25,18 @@ test("the Write group lists its scenarios, each waiting one with the feature it 
     ["write-podcast-timing", null],
     ["write-outline", null],
     ["write-alternates", null],
-    ["write-game-lines", "game_lines"],
-    ["write-ink-play", "ink_player"],
-    ["write-ink-problem", "ink_player"],
+    ["write-game-lines", null],
+    ["write-ink-play", null],
+    ["write-ink-problem", null],
     ["write-adapt", null],
     ["write-board", null],
     ["write-header-footer", null],
+    ["write-rename-character", null],
+    ["write-read-aloud", null],
+    ["write-goal", null],
+    ["write-focus", null],
+    ["write-numbers", null],
+    ["write-layout-engine", null],
   ]);
   expect(
     validateTour(

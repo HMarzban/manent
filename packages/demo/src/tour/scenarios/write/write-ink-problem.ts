@@ -9,13 +9,31 @@ export const WRITE_INK_PROBLEM: TourScenario = {
     "A mistake in an Ink story is marked on its line, and the story keeps playing.",
   setup: setupOf({ userId: "sam", open: KEEPERS_LOGBOOK }),
   steps: [
-    { text: "Change -> dark on line 56 to -> cottage.", highlight: "page" },
-    { text: "Undo the change.", highlight: "page" },
+    {
+      text: "Choose Play in the title menu.",
+      highlight: "ink.play",
+    },
+    {
+      text: "On line 56 change -> dark to -> cottage.",
+      highlight: "page",
+    },
+    {
+      text: "Choose 1 problem in the player: the caret moves to line 56.",
+      highlight: "ink:problems",
+    },
+    {
+      text: "Choose Undo.",
+      highlight: "edit.undo",
+    },
   ],
   check:
-    'The line is marked, the state reads "1 problem", and the player keeps playing, marked "Playing the last version that compiled".',
-  evidence: ["1 problem", "Playing the last version that compiled"],
+    'The line is marked and the player reads "1 problem" and "Playing the last version that compiled"; after Undo it reads "Up to date".',
+  evidence: [
+    "1 problem",
+    "Playing the last version that compiled",
+    "Up to date",
+  ],
   fresh: false,
-  waitsFor: "ink_player",
+  waitsFor: null,
   hidden: null,
 };

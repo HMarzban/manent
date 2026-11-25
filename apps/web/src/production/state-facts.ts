@@ -124,7 +124,11 @@ export function productionFacts(
   const facts: StateFact[] = [];
   const recall = recallFact(state.state, now);
   if (recall !== null) facts.push(recall);
-  else if (active !== undefined && colour !== null)
+  if (
+    active !== undefined &&
+    colour !== null &&
+    (recall === null || revisedPages > 0)
+  )
     facts.push({
       kind: "revision",
       colour,

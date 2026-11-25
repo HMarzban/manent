@@ -311,7 +311,7 @@ test("a menu opens in place, named, its groups divided, and its rows without the
       .querySelector('[role="listbox"]')
       ?.getAttribute("aria-label"),
     placeholder: field().placeholder,
-    first: options().slice(0, 3),
+    first: options().slice(0, 4),
     separators:
       document.querySelectorAll('[role="listbox"] [role="presentation"]')
         .length > 0,
@@ -319,7 +319,12 @@ test("a menu opens in place, named, its groups divided, and its rows without the
     labels: ["View"],
     list: "View",
     placeholder: "Search View",
-    first: ["Left panel⌘⌥1", "Side panel⌘⌥2", "Page view, chosen"],
+    first: [
+      "Left panel⌘⌥1",
+      "Side panel⌘⌥2",
+      "Focus mode",
+      "Page view, chosen",
+    ],
     separators: true,
   });
 });

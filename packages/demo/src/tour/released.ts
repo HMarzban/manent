@@ -21,4 +21,6 @@ export const TOUR_RELEASED: readonly TourFeature[] = Object.freeze([
   "variety_timing",
   "rundowns",
   "prompter",
+  "game_lines",
+  "ink_player",
 ]);

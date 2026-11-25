@@ -1,8 +1,9 @@
 // The document's state bar: the facts of its source and of every feature that adds one, a line on each side.
 import { StateBar, stateBarLines, useSubscribable } from "@manent/ui";
 import type { StateFact, Subscribable } from "@manent/ui";
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
+import { useServices } from "../../services/context.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { STATE_FACT_SOURCES } from "./state-facts.ts";
 import { useCommandActions } from "./status-bar.tsx";
@@ -35,7 +36,15 @@ export function DocumentStateBar(props: {
   const added = STATE_FACT_SOURCES.flatMap((source) => source(props.docId));
   const { left, right } = stateBarLines([...own, ...added]);
   useWhereAmI(props.docId, right?.sentence ?? null);
+  const { commands } = useServices();
+  const [, setTick] = useState(0);
+  useEffect(
+    () => commands.subscribe(() => setTick((count) => count + 1)),
+    [commands],
+  );
   const { run, registered } = useCommandActions();
+  const visibleAction = (id: string): boolean =>
+    registered(id) && commands.state(id).visible;
   const bar = useRef<HTMLDivElement>(null);
   useKeepPageStill(bar);
   return (
@@ -45,7 +54,12 @@ export function DocumentStateBar(props: {
       className={left === null && right === null ? "hidden" : undefined}
     >
       <div ref={bar}>
-        <StateBar left={left} right={right} run={run} registered={registered} />
+        <StateBar
+          left={left}
+          right={right}
+          run={run}
+          registered={visibleAction}
+        />
       </div>
     </ShellRegion>
   );
