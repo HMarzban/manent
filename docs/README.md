@@ -11,6 +11,7 @@ Start with the part that matches what you want to do. Each page says what works 
 - [Export and print](guide/export-and-print.md): a PDF, FDX or Fountain file of the script, paper, and importing a script.
 - [Keyboard shortcuts](guide/keyboard-shortcuts.md): every default key.
 - [Preferences and accessibility](guide/preferences-and-accessibility.md): what you can set, and how Manent works with a keyboard and a screen reader.
+- [Public API and notifications](guide/api.md): workspace API keys, read-only HTTP endpoints, webhooks, Slack and email delivery.
 
 ## Work on Manent
 
