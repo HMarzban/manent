@@ -69,9 +69,40 @@ function createSkeletonBar(doc: Document, className: string): HTMLDivElement {
   return bar;
 }
 
+interface ActivePlaceholder {
+  readonly pages: HTMLDivElement;
+  readonly remove: () => void;
+  owner: symbol;
+}
+
+// active placeholders by host element so a hand-off from lazyMount to editorMount reuses the live DOM and timer
+const activePlaceholders = new WeakMap<HTMLElement, ActivePlaceholder>();
+
+/** Removes any active placeholder in `element` immediately before an editor draws into it. */
+export function clearPlaceholder(element: HTMLElement): void {
+  const existing = activePlaceholders.get(element);
+  if (existing === undefined) return;
+  activePlaceholders.delete(element);
+  existing.remove();
+}
+
 /** One empty sheet among the pages, as the editor draws it, then the word "Opening…" after `LOADING_QUIET_MS`; it publishes no fact. */
 export const placeholderMount: EditorMount = {
   mount({ element }) {
+    const owner = Symbol("placeholder");
+    const existing = activePlaceholders.get(element);
+    if (existing !== undefined && existing.pages.parentNode === element) {
+      existing.owner = owner;
+      return () => {
+        if (activePlaceholders.get(element)?.owner !== owner) return;
+        activePlaceholders.delete(element);
+        existing.remove();
+      };
+    }
+    if (existing !== undefined) {
+      activePlaceholders.delete(element);
+      existing.remove();
+    }
     const { ownerDocument } = element;
     // the pages carry the sheet's colour scheme, which White page in dark theme makes light
     const pages = ownerDocument.createElement("div");
@@ -108,10 +139,17 @@ export const placeholderMount: EditorMount = {
     const timer = setTimeout(() => {
       status.textContent = OPENING;
     }, LOADING_QUIET_MS);
-    return () => {
+    const remove = (): void => {
       clearTimeout(timer);
       pages.remove();
       status.remove();
+    };
+    const entry: ActivePlaceholder = { pages, remove, owner };
+    activePlaceholders.set(element, entry);
+    return () => {
+      if (activePlaceholders.get(element)?.owner !== owner) return;
+      activePlaceholders.delete(element);
+      remove();
     };
   },
 };

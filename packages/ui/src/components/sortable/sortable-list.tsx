@@ -35,6 +35,8 @@ interface SortableListProps {
   renderItem(id: string): ReactNode;
   /** A vertical list is a `VirtualRows`, so only its drawn rows can be dragged; a grid wraps its items. */
   orientation: Orientation;
+  /** Accessible name of the list. */
+  label?: string;
   ref?: Ref<SortableListHandle>;
 }
 
@@ -69,6 +71,7 @@ export function SortableList({
   onMove,
   renderItem,
   orientation,
+  label,
   ref,
 }: SortableListProps): ReactNode {
   const focus = useFollowFocus(items);
@@ -123,11 +126,15 @@ export function SortableList({
         <VirtualRows
           count={items.length}
           rowHeight="one"
-          label=""
+          label={label ?? ""}
           renderRow={item}
         />
       ) : (
-        <div role="list" className="flex flex-wrap gap-3">
+        <div
+          role="list"
+          aria-label={label || undefined}
+          className="flex flex-wrap gap-3"
+        >
           {items.map((entry, index) => (
             <div key={entry.id} role="listitem">
               {item(index)}

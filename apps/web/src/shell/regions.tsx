@@ -118,11 +118,13 @@ export function createShellDom(doc: Document): ShellDom {
   // a screen over the page makes the editor host inert
   const focusPage = (): boolean => {
     const page = regionElement("page");
-    return (
-      page !== null &&
-      page.querySelector("[inert]") === null &&
-      focusInside(page)
-    );
+    if (page === null || page.querySelector("[inert]") !== null) return false;
+    const editor = page.querySelector("[contenteditable='true']");
+    if (editor instanceof HTMLElement && editor.closest("[inert]") === null) {
+      editor.focus({ preventScroll: true });
+      if (editor.ownerDocument.activeElement === editor) return true;
+    }
+    return focusInside(page);
   };
 
   return {

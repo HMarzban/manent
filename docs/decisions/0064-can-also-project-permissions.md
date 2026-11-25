@@ -1,4 +1,4 @@
-# 0063. Per-project "Can also" capabilities live in the project index
+# 0064. Per-project "Can also" capabilities live in the project index
 
 - Date: 2026-11-25
 - Status: Accepted

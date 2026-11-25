@@ -287,8 +287,12 @@ async function addWriters(
 }
 
 /** Lanternfield Studios' co-editing groups, on each of their documents that is placed. */
-async function startPresenceGroups(state: Live): Promise<void> {
+async function startPresenceGroups(
+  state: Live,
+  isClosed: () => boolean,
+): Promise<void> {
   for (const [key, names] of PRESENCE_GROUPS) {
+    if (isClosed()) return;
     const { docId } = seedDoc(key);
     if (state.live.storage.directory.placeOf(docId) === null) continue;
     const scenes = scenesFor(state, docId, null);
@@ -324,6 +328,7 @@ export function createDemoServices(options: {
   const state: Live = { live, random, groups: new Map(), presence: [] };
   const prepare = createPreparations({ live, random });
   let presenceStarted = false;
+  let closed = false;
   // one change of writers at a time, so two quick choices never start two groups on one script
   let queue: Promise<unknown> = Promise.resolve();
   const serial = <T>(fn: () => Promise<T>): Promise<T> => {
@@ -334,12 +339,13 @@ export function createDemoServices(options: {
   };
   return {
     writers: (_userId, request) =>
-      serial(() =>
-        addWriters(state, request, () => {
+      serial(async () => {
+        if (closed) return NONE;
+        return addWriters(state, request, () => {
           // a group whose writers cannot all stop has nothing more to stop
           serial(() => stopGroup(state, request.docId, [])).catch(() => {});
-        }),
-      ),
+        });
+      }),
     runningWriters: async (_userId, docId) =>
       state.groups.get(docId)?.answer ?? NONE,
     async prepare(_userId, { scenarioId }) {
@@ -354,17 +360,24 @@ export function createDemoServices(options: {
     },
     startPresence: () =>
       serial(async () => {
-        if (presenceStarted || !isHeavyAdopted(state)) return;
+        if (closed || presenceStarted || !isHeavyAdopted(state)) return;
         presenceStarted = true;
-        await startPresenceGroups(state);
+        try {
+          await startPresenceGroups(state, () => closed);
+        } catch (error) {
+          presenceStarted = false;
+          throw error;
+        }
       }),
-    close: () =>
-      serial(async () => {
+    close() {
+      closed = true;
+      return serial(async () => {
         const groups = [...state.groups.keys()].map((docId) =>
           stopGroup(state, docId, []),
         );
         const writers = state.presence.splice(0).flatMap((r) => r.writers);
         await Promise.all([...groups, ...writers.map((w) => w.stop())]);
-      }),
+      });
+    },
   };
 }

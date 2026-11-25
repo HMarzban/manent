@@ -1,4 +1,4 @@
-# 0060. Ink compiles and plays in one Web Worker with the compiler retained
+# 0061. Ink compiles and plays in one Web Worker with the compiler retained
 
 - Date: 2026-11-25
 - Status: Accepted

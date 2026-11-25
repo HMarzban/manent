@@ -88,6 +88,10 @@ test("the title truncates before the status, which never loses a word", async ({
     .locator('[data-region="title_bar"]')
     .getByRole("button", { name: "New script", exact: true })
     .click();
+  await expect(page).toHaveURL(/\/s\//);
+  await expect(
+    page.locator("[data-region='page'] [contenteditable='true']"),
+  ).toBeFocused();
   await expect(page.locator("html")).toHaveAttribute("data-ui-size", "200");
   const title = "The Lamp Room, ".repeat(8).slice(0, 120);
   await page.getByRole("button", { name: "Untitled script" }).click();

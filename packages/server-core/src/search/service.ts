@@ -1,5 +1,4 @@
 // The search service: session-end and post-seed indexing, query parsing, strict server-side access filtering, and shutdown.
-import type { CrdtDoc } from "@manent/crdt";
 import type { SearchIndex, Storage } from "@manent/storage";
 import {
   SEARCH_QUERY_MAX_LEN,
@@ -17,14 +16,15 @@ import { createSessions } from "../history/sessions.ts";
 import type { Clock, SyncHooks, SyncService } from "../sync/ports.ts";
 import type { Room } from "../sync/rooms.ts";
 import { SEARCH_EXTRACTORS } from "./extractors.ts";
+import { createSearchMetadataCache } from "./metadata-cache.ts";
 import {
   allWorkspaceIndexIds,
-  collectAllMetadata,
+  collectSearchableIds,
+  extractForKind,
   fallbackMeta,
+  isSearchRelevantIndexCommit,
   loadDocFromStorage,
   metaFingerprint,
-  readPrivateFolderMetadata,
-  readWorkspaceMetadata,
   resolveFolderIds,
 } from "./metadata.ts";
 import type { FolderInfo, IndexedDocMeta } from "./metadata.ts";
@@ -63,32 +63,27 @@ export interface SearchServiceOptions {
   readonly searchIndex: SearchIndex;
   /** When true, runs incremental startup catch-up via `clock.schedule` one document per yield. */
   readonly scheduleCatchUp?: boolean;
+  /** Debounce window before starting post-commit catch-up; defaults to 0 so test clocks run immediately. */
+  readonly catchUpDebounceMs?: number;
 }
 
 const refused = (code: SearchRefusal) => ({ ok: false, code }) as const;
-
-function extractForKind(
-  kind: DocKind,
-  doc: CrdtDoc,
-): { text: string; editorText: string } | null {
-  const matching = SEARCH_EXTRACTORS.filter((e) => e.kind === kind);
-  if (matching.length === 0) return null;
-  const text = matching[0]!.text(doc);
-  const editorText = matching
-    .map((e) => e.editorText?.(doc) ?? "")
-    .filter((s) => s.length > 0)
-    .join("\n");
-  return { text, editorText };
-}
 
 export function createSearchService(
   options: SearchServiceOptions,
 ): SearchService {
   const { storage, sync, clock, searchIndex } = options;
+  const debounceMs = options.catchUpDebounceMs ?? 0;
+  const maxWaitMs = debounceMs * 5;
+  const metadata = createSearchMetadataCache(storage);
   /** Last indexed metadata fingerprint per docId so title/folder renames refresh even when body seq is unchanged. */
   const metaCache = new Map<string, string>();
+  const dirtyUserIndexes = new Set<string>();
   let stopped = false;
-  let cancelCatchUp: (() => void) | null = null;
+  let cancelDebounce: (() => void) | null = null;
+  let debounceStartedAt: number | null = null;
+  let cancelStep: (() => void) | null = null;
+  let catchUpAgain = false;
   let pendingQueue: string[] = [];
   let catchUpMeta: Map<string, IndexedDocMeta> | null = null;
 
@@ -114,16 +109,12 @@ export function createSearchService(
     const resolvedMeta = meta ?? fallbackMeta(docId, kind, storage);
     const fingerprint = metaFingerprint(resolvedMeta);
     const head = searchIndex.headOf(docId);
-    if (liveRoom !== undefined && liveRoom.doc !== null) {
-      const { generation, headSeq } = liveRoom.row;
-      if (
-        head !== null &&
-        head.generation === generation &&
-        head.seq === headSeq &&
-        metaCache.get(docId) === fingerprint
-      )
-        return;
-      const extracted = extractForKind(kind, liveRoom.doc);
+    const putExtracted = (
+      doc: Parameters<typeof extractForKind>[1],
+      generation: number,
+      seq: number,
+    ): void => {
+      const extracted = extractForKind(kind, doc);
       if (extracted === null) return;
       searchIndex.put({
         docId,
@@ -134,41 +125,30 @@ export function createSearchService(
         folderIds: resolvedMeta.folderIds,
         changedAt: resolvedMeta.changedAt,
         generation,
-        seq: headSeq,
+        seq,
         text: extracted.text,
         editorText: extracted.editorText,
       });
       metaCache.set(docId, fingerprint);
+    };
+    const isUpToDate = (generation: number, seq: number): boolean =>
+      head !== null &&
+      head.generation === generation &&
+      head.seq === seq &&
+      metaCache.get(docId) === fingerprint;
+    if (liveRoom !== undefined && liveRoom.doc !== null) {
+      const { generation, headSeq } = liveRoom.row;
+      if (isUpToDate(generation, headSeq)) return;
+      putExtracted(liveRoom.doc, generation, headSeq);
       return;
     }
     const logRow = storage.open(place.home).log.get(docId);
-    if (logRow === null) return;
-    if (
-      head !== null &&
-      head.generation === logRow.generation &&
-      head.seq === logRow.headSeq &&
-      metaCache.get(docId) === fingerprint
-    )
+    if (logRow === null || isUpToDate(logRow.generation, logRow.headSeq))
       return;
     const loaded = loadDocFromStorage(storage, docId, place.home);
     if (loaded === null) return;
     try {
-      const extracted = extractForKind(kind, loaded.doc);
-      if (extracted === null) return;
-      searchIndex.put({
-        docId,
-        workspaceId: resolvedMeta.workspaceIndexId,
-        kind,
-        projectKind: resolvedMeta.projectKind,
-        title: resolvedMeta.title,
-        folderIds: resolvedMeta.folderIds,
-        changedAt: resolvedMeta.changedAt,
-        generation: loaded.generation,
-        seq: loaded.seq,
-        text: extracted.text,
-        editorText: extracted.editorText,
-      });
-      metaCache.set(docId, fingerprint);
+      putExtracted(loaded.doc, loaded.generation, loaded.seq);
     } finally {
       loaded.doc.destroy();
     }
@@ -186,63 +166,80 @@ export function createSearchService(
     }
   }
 
-  function collectSearchableIds(): string[] {
-    const ids: string[] = [];
-    for (const home of storage.directory.homes()) {
-      for (const docId of storage.directory.documentsIn(home)) {
-        if (storage.directory.tombstoneOf(docId) !== null) continue;
-        const place = storage.directory.placeOf(docId);
-        if (
-          place !== null &&
-          isDocKind(place.kind) &&
-          SEARCH_EXTRACTORS.some((e) => e.kind === place.kind)
-        )
-          ids.push(docId);
-      }
-    }
-    return ids;
-  }
-
   function catchUpNow(): void {
     if (stopped) return;
     pruneStaleEntries();
-    const metaByDoc = collectAllMetadata(storage);
-    for (const docId of collectSearchableIds())
+    const metaByDoc = metadata.collectAll();
+    for (const docId of collectSearchableIds(storage))
       indexDoc(docId, metaByDoc.get(docId) ?? null);
   }
 
   function stepCatchUp(): void {
-    cancelCatchUp = null;
+    cancelStep = null;
     if (stopped) return;
     const docId = pendingQueue.shift();
-    if (docId === undefined) {
-      catchUpMeta = null;
+    if (docId !== undefined) {
+      const metaByDoc = catchUpMeta ?? metadata.collectAll();
+      indexDoc(docId, metaByDoc.get(docId) ?? null);
+    }
+    if (pendingQueue.length > 0 && !stopped) {
+      cancelStep = clock.schedule(stepCatchUp, 0);
       return;
     }
-    const metaByDoc = catchUpMeta ?? collectAllMetadata(storage);
-    indexDoc(docId, metaByDoc.get(docId) ?? null);
-    if (pendingQueue.length > 0 && !stopped)
-      cancelCatchUp = clock.schedule(stepCatchUp, 0);
-    else catchUpMeta = null;
+    catchUpMeta = null;
+    if (catchUpAgain && !stopped) {
+      catchUpAgain = false;
+      scheduleDebouncedCatchUp();
+    }
   }
 
   function triggerCatchUp(): void {
-    if (stopped || cancelCatchUp !== null) return;
+    if (stopped) return;
+    if (cancelStep !== null || pendingQueue.length > 0) {
+      catchUpAgain = true;
+      return;
+    }
     pruneStaleEntries();
-    catchUpMeta = collectAllMetadata(storage);
-    pendingQueue = collectSearchableIds();
-    if (pendingQueue.length > 0) cancelCatchUp = clock.schedule(stepCatchUp, 0);
+    catchUpMeta = metadata.collectAll();
+    pendingQueue = collectSearchableIds(storage);
+    if (pendingQueue.length > 0) cancelStep = clock.schedule(stepCatchUp, 0);
     else catchUpMeta = null;
+  }
+
+  function scheduleDebouncedCatchUp(): void {
+    if (stopped) return;
+    if (cancelStep !== null || pendingQueue.length > 0) {
+      catchUpAgain = true;
+      return;
+    }
+    if (debounceMs <= 0) {
+      triggerCatchUp();
+      return;
+    }
+    const now = clock.now();
+    debounceStartedAt ??= now;
+    const delay = Math.min(
+      debounceMs,
+      Math.max(0, debounceStartedAt + maxWaitMs - now),
+    );
+    cancelDebounce?.();
+    cancelDebounce = clock.schedule(() => {
+      cancelDebounce = null;
+      debounceStartedAt = null;
+      triggerCatchUp();
+    }, delay);
   }
 
   function refreshRoom(room: Room): void {
     if (stopped) return;
     if (room.kind === "index") {
-      if (options.scheduleCatchUp === true) triggerCatchUp();
+      if (room.home.kind === "user" && !dirtyUserIndexes.delete(room.docId))
+        return;
+      if (options.scheduleCatchUp === true) scheduleDebouncedCatchUp();
       return;
     }
     if (!SEARCH_EXTRACTORS.some((e) => e.kind === room.kind)) return;
-    const metaByDoc = collectAllMetadata(storage);
+    const metaByDoc = metadata.collectAll();
     indexDoc(room.docId, metaByDoc.get(room.docId) ?? null, room);
   }
 
@@ -254,9 +251,15 @@ export function createSearchService(
 
   const hooks: SyncHooks = {
     committed(committed) {
+      if (committed.room.kind === "index") {
+        if (!isSearchRelevantIndexCommit(committed)) return;
+        if (committed.room.home.kind === "user")
+          dirtyUserIndexes.add(committed.room.docId);
+        sessions.committed(committed);
+        if (options.scheduleCatchUp === true) scheduleDebouncedCatchUp();
+        return;
+      }
       sessions.committed(committed);
-      if (committed.room.kind === "index" && options.scheduleCatchUp === true)
-        triggerCatchUp();
     },
     editorLeft: sessions.editorLeft,
     forgotten: (room) => refreshRoom(room),
@@ -291,17 +294,17 @@ export function createSearchService(
     if (request.workspaceId !== null) {
       const wsIndexId = indexDocId("workspace", request.workspaceId);
       if (!access.resolve(userId, wsIndexId).ok) return refused("forbidden");
-      const ws = readWorkspaceMetadata(storage, wsIndexId);
+      const ws = metadata.readWorkspace(wsIndexId);
       folderMaps.push(ws.folders);
       for (const [docId, meta] of ws.docs) candidates.set(docId, meta);
     } else {
       for (const wsIndexId of allWorkspaceIndexIds(storage)) {
         if (!access.resolve(userId, wsIndexId).ok) continue;
-        const ws = readWorkspaceMetadata(storage, wsIndexId);
+        const ws = metadata.readWorkspace(wsIndexId);
         folderMaps.push(ws.folders);
         for (const [docId, meta] of ws.docs) candidates.set(docId, meta);
       }
-      for (const [docId, meta] of readPrivateFolderMetadata(storage, userId)) {
+      for (const [docId, meta] of metadata.readPrivateFolder(userId)) {
         if (!candidates.has(docId)) candidates.set(docId, meta);
       }
     }
@@ -367,8 +370,8 @@ export function createSearchService(
   }
 
   if (options.scheduleCatchUp === true)
-    cancelCatchUp = clock.schedule(() => {
-      cancelCatchUp = null;
+    cancelDebounce = clock.schedule(() => {
+      cancelDebounce = null;
       triggerCatchUp();
     }, 0);
 
@@ -378,10 +381,16 @@ export function createSearchService(
     catchUpNow,
     stop() {
       stopped = true;
-      cancelCatchUp?.();
-      cancelCatchUp = null;
+      cancelDebounce?.();
+      cancelDebounce = null;
+      debounceStartedAt = null;
+      cancelStep?.();
+      cancelStep = null;
+      catchUpAgain = false;
       pendingQueue = [];
       catchUpMeta = null;
+      dirtyUserIndexes.clear();
+      metadata.clear();
       searchIndex.close();
     },
   };

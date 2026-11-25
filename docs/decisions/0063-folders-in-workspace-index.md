@@ -1,4 +1,4 @@
-# 0062. Workspace folders live in the workspace index and hold projects
+# 0063. Workspace folders live in the workspace index and hold projects
 
 - Date: 2026-11-25
 - Status: Accepted

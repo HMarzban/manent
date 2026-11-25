@@ -22,6 +22,7 @@ import type { PersonServices } from "./services/ports.ts";
 import { chooseUrl, choosePerson } from "./session.ts";
 import { preloadShellPalette } from "./shell/app-shell.tsx";
 import { panelsActions } from "./state/panels.store.ts";
+import { tourActions } from "./state/tour.store.ts";
 
 /** `importer`, except that a load failing after the page has begun to leave never settles: a navigation cancels the pending load, and the router would take that failure for a newer build and reload the page, cancelling the navigation. */
 export function loadScreen<T>(importer: () => Promise<T>): () => Promise<T> {
@@ -155,12 +156,18 @@ export function CloseBlocker(): null {
   return null;
 }
 
-export function createAppRouter(deps: AppRouterDeps): AnyRouter {
-  const { api, usePerson } = deps;
-  // the code the frame draws apart from the entry, fetched while the server that served the page still answers
-  void ScreenProblem.preload?.();
+// the code the frame draws apart from the entry, deferred until idle so it never competes with first paint
+function preloadShell(): void {
   preloadDemoBarControls();
   preloadShellPalette();
+}
+
+export function createAppRouter(deps: AppRouterDeps): AnyRouter {
+  const { api, usePerson } = deps;
+  void ScreenProblem.preload?.();
+  if (typeof requestIdleCallback === "function")
+    requestIdleCallback(preloadShell, { timeout: 2000 });
+  else queueMicrotask(preloadShell);
 
   // set by `?panels=closed` until the screen it opens has been drawn
   let closingPanels = false;
@@ -184,6 +191,7 @@ export function createAppRouter(deps: AppRouterDeps): AnyRouter {
       const result = choice ? await choosePerson(choice, api) : null;
       if (result?.ok) usePerson.getState().setPerson(result.person);
       closingPanels = params.get("panels") === "closed";
+      if (closingPanels) tourActions.suppress();
       params.delete("person");
       params.delete("panels");
       const search = params.toString();
@@ -203,14 +211,15 @@ export function createAppRouter(deps: AppRouterDeps): AnyRouter {
       ROUTE_GROUPS.flatMap((group) => group(rootRoute, deps)),
     ),
     defaultPendingComponent: RoutePending,
-    defaultPendingMs: 150,
-    defaultPendingMinMs: 300,
+    defaultPendingMs: 250,
+    defaultPendingMinMs: 0,
   });
   // after the draw, which has put back the panels the person left open
   router.subscribe("onRendered", () => {
     if (!closingPanels) return;
     closingPanels = false;
     for (const panel of PANEL_IDS) panelsActions.close(panel);
+    tourActions.close();
   });
   return router;
 }

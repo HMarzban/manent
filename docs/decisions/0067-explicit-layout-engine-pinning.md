@@ -1,4 +1,4 @@
-# 0066. Scripts pin their layout engine explicitly in script settings
+# 0067. Scripts pin their layout engine explicitly in script settings
 
 - Date: 2026-11-25
 - Status: Accepted

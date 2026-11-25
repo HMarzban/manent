@@ -1,4 +1,4 @@
-# 0065. Workspace notifications deliver from a persistent outbox off the write path
+# 0066. Workspace notifications deliver from a persistent outbox off the write path
 
 - Date: 2026-11-25
 - Status: Accepted

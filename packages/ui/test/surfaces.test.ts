@@ -163,5 +163,5 @@ test("the loading rule and a busy action keep fixed times", () => {
     PROGRESS_AFTER_MS,
     STILL_WORKING_MS,
     CANCEL_AFTER_MS,
-  ]).toEqual([150, 300, 400, 2000, 5000, 10_000]);
+  ]).toEqual([150, 0, 400, 2000, 5000, 10_000]);
 });

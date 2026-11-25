@@ -1,4 +1,4 @@
-// The Scenes rows' writer and progress: one mark for each scene with a writer the people list names.
+// The Scenes rows' writer and progress: one mark for each scene with a writer the people list names, or progress set.
 import { ASSIGNMENT_WORDS } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import type { SceneMark } from "../screens/document/scene-marks.ts";
@@ -13,15 +13,26 @@ function marksOf(
   assignment: SceneAssignment,
 ): ReadonlyMap<string, readonly SceneMark[]> {
   const marks = new Map<string, readonly SceneMark[]>();
-  for (const headingId of assignment.writers.keys()) {
+  const headingIds = new Set([
+    ...assignment.writers.keys(),
+    ...assignment.progress.keys(),
+  ]);
+  for (const headingId of headingIds) {
     const writer = sceneWriterOf(assignment, headingId);
-    if (writer === null) continue;
     const progress = assignment.progress.get(headingId) ?? "not_started";
-    const label = ASSIGNMENT_WORDS.sceneMark(
-      writer.name,
-      PROGRESS_NAMES[progress],
-    );
-    marks.set(headingId, [{ kind: "text", label }]);
+    if (writer !== null) {
+      marks.set(headingId, [
+        {
+          kind: "text",
+          label: ASSIGNMENT_WORDS.sceneMark(
+            writer.name,
+            PROGRESS_NAMES[progress],
+          ),
+        },
+      ]);
+    } else if (progress !== "not_started") {
+      marks.set(headingId, [{ kind: "text", label: PROGRESS_NAMES[progress] }]);
+    }
   }
   return marks;
 }

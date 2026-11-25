@@ -240,6 +240,7 @@ function createSession(
   const awareness = new Set<(update: Uint8Array) => void>();
   const scratch = scriptDocFromJSON(docOf([firstBlock(format)]));
   let doc = scratch;
+  let deferKept = false;
   const kept = createValue(false);
   const shown: Showing = {
     scratch,
@@ -251,21 +252,20 @@ function createSession(
       hold();
       for (const listener of replaced) listener();
       // after the listeners: an editor bound when this turns true is not then told to bind again
-      kept.set(next !== scratch);
+      if (!deferKept) kept.set(next !== scratch);
     },
     hear(update) {
       for (const listener of awareness) listener(update);
     },
   };
   const remote = heldRemote(() => doc);
-  // not null while the person's typing goes to another document than the one shown, or a hand-in holds it: the
-  // page shows what it holds read-only, so no keystroke reaches the document it leaves
+  // not null while the person's typing goes to another document than the one shown, or a hand-in holds it
   const readOnly = createValue<DocJSON | null>(null);
   const hold = (): void => {
     if (writingActions.isWritable(docId)) {
       stopWaiting();
       readOnly.set(null);
-    } else if (readOnly.get() === null && doc !== scratch)
+    } else if (!deferKept && readOnly.get() === null && doc !== scratch)
       readOnly.set(scriptBody(doc).materialize());
   };
   let handle: DocHandle | null = null;
@@ -285,41 +285,50 @@ function createSession(
     detachPrevious();
     if (previous !== null) void previous.close();
   };
-  // a private copy that neither arrives nor is given up in time is given up, so the page is never held for good
   const limitOf = (target: string) =>
     target === docId
       ? NO_LIMIT
       : (giveUp: () => void) => schedule(giveUp, PRIVATE_OPEN_WAIT_MS);
-  // another target is shown once it holds a block, so the page never falls back to the scratch
-  const swapTo = (
-    c: SyncClient,
-    target: string,
-    wanted: () => boolean,
-  ): Promise<TargetOutcome> =>
+  let lastOpening: Promise<DocHandle> | null = null;
+  const swapTo = (c: SyncClient, target: string, wanted: () => boolean) =>
     new Promise<TargetOutcome>((settled) => {
       stopWaiting();
-      stopWaiting = settleOpen(
-        c.open(target),
-        wanted,
-        limitOf(target),
-        (outcome, opened) => {
-          stopWaiting = noop;
-          if (opened !== null) attach(opened);
-          settled(outcome);
-        },
-      );
+      const opening = c.open(target);
+      lastOpening = opening;
+      stopWaiting = settleOpen(opening, wanted, limitOf(target), (out, got) => {
+        stopWaiting = noop;
+        // settle before attach so target-bindings' microtask clears readOnly before editor-mount rebuilds
+        settled(out);
+        if (got !== null) attach(got);
+      });
     });
-  // the script itself opens first, and a private copy is moved to as any other target is, so one that never arrives
-  // is given up in time
   const start = async (c: SyncClient): Promise<void> => {
     const opened = await c.open(docId);
     if (ended) return opened.close();
-    // followed before the script is shown, so the page never takes keys in it while the copy opens
+    let initialSwap: Promise<TargetOutcome> | null = null;
+    deferKept = writingActions.openTarget(docId) !== docId;
     stopTarget = writingActions.followTarget(docId, docId, (next, wanted) => {
       hold();
-      return swapTo(c, next, wanted);
+      const swap = swapTo(c, next, wanted);
+      initialSwap ??= swap;
+      return swap;
     });
-    attach(opened);
+    if (initialSwap !== null && lastOpening !== null) {
+      const copy = await lastOpening.catch(() => null);
+      if (ended) return opened.close();
+      if (copy !== null && yXmlFragmentForBinding(copy.doc()).length > 0) {
+        await initialSwap;
+        await Promise.resolve();
+        if (ended) return opened.close();
+      }
+    }
+    deferKept = false;
+    if (handle === null) attach(opened);
+    else {
+      hold();
+      kept.set(doc !== scratch);
+      void opened.close();
+    }
   };
   const failed = (): void => {
     // the document's status says this device is not saving it, so typing goes on in what the page shows

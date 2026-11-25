@@ -12,7 +12,7 @@ import type { ElementSpec, PageProfile } from "@manent/pagination";
 import { PAGE_GAP_PX } from "./config.ts";
 
 /** The cells of a block's slack that sit left of its text, so an aligned line stays where the engine puts it. */
-const SLACK_LEFT: Readonly<Record<Alignment, number>> = Object.freeze({
+export const SLACK_LEFT: Readonly<Record<Alignment, number>> = Object.freeze({
   left: 0,
   center: BLOCK_SLACK_CELLS / 2,
   right: BLOCK_SLACK_CELLS,

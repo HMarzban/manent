@@ -3,6 +3,7 @@ import type { ComponentType } from "react";
 import { AssignmentRowItems } from "../assignment/scene-row-items.tsx";
 import { CommentSceneItem } from "../comments/scene-row-item.tsx";
 import { CutSceneItem } from "../material/cuts/scene-row-items.tsx";
+import { SidesSceneItem } from "../send/sides-file.tsx";
 import { MoveItem } from "./row-menu.tsx";
 
 export interface SceneRowItem {
@@ -17,4 +18,5 @@ export const SCENE_ROW_ITEMS: readonly SceneRowItem[] = [
   { id: "comment", Item: CommentSceneItem },
   { id: "move", Item: MoveItem },
   { id: "cuts", Item: CutSceneItem },
+  { id: "sides", Item: SidesSceneItem },
 ];

@@ -19,11 +19,12 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import type { PageFrame } from "../../editor-host/page-frame.ts";
 import type { CaretElementInfo } from "../../editor-host/ruler-element.ts";
 import { readPerson } from "../../session.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
+import type { PersonServices } from "../../services/ports.ts";
 import { useEditorFact } from "../../state/facts.store.ts";
 import { useProductionContext } from "../../state/production-context.store.ts";
 import { useRulerShown } from "../../state/ruler.store.ts";
@@ -48,15 +49,27 @@ const NOTHING: Subscribable<null> = Object.freeze({
   subscribe: () => () => {},
 });
 
-// the frame and caret element state are read through the live editor, which loads apart from the screens
-const loadPageFrame = async () =>
-  (await import("../../editor-host/page-frame.ts")).pageFrame;
-const loadRulerElement = async (): Promise<RulerElementModule> =>
-  import("../../editor-host/ruler-element.ts");
+type PageFrameFn = (docId: string) => Subscribable<PageFrame | null>;
 
-function toInches(cells: number): number {
-  return Math.round(cells) / CELLS_PER_INCH;
-}
+let cachedPageFrame: PageFrameFn | null = null;
+let cachedRulerMod: RulerElementModule | null = null;
+const projectOwnerCache = new WeakMap<PersonServices, Map<string, boolean>>();
+
+// the frame and caret element state are read through the live editor, which loads apart from the screens
+const loadPageFrame = (): Promise<PageFrameFn> =>
+  cachedPageFrame !== null
+    ? Promise.resolve(cachedPageFrame)
+    : import("../../editor-host/page-frame.ts").then(
+        (m) => (cachedPageFrame = m.pageFrame),
+      );
+const loadRulerElement = (): Promise<RulerElementModule> =>
+  cachedRulerMod !== null
+    ? Promise.resolve(cachedRulerMod)
+    : import("../../editor-host/ruler-element.ts").then(
+        (m) => (cachedRulerMod = m),
+      );
+
+const toInches = (cells: number): number => Math.round(cells) / CELLS_PER_INCH;
 
 function ProjectStyleProbe(props: {
   docId: string;
@@ -99,13 +112,22 @@ function ProjectStyleProbe(props: {
   return null;
 }
 
-/** The page's frame for `docId` while `shown`; null until its code has loaded and while no paged editor of it is open. */
-function usePageFrame(docId: string, shown: boolean): PageFrame | null {
+/** The page's frame for `docId`; null until its code has loaded and while no paged editor of it is open. */
+function usePageFrame(docId: string): PageFrame | null {
   const [source, setSource] = useState<{
     docId: string;
     frame: Subscribable<PageFrame | null>;
-  } | null>(null);
+  } | null>(() =>
+    cachedPageFrame === null ? null : { docId, frame: cachedPageFrame(docId) },
+  );
   useEffect(() => {
+    if (cachedPageFrame !== null) {
+      const fn = cachedPageFrame;
+      setSource((prev) =>
+        prev?.docId === docId ? prev : { docId, frame: fn(docId) },
+      );
+      return;
+    }
     let current = true;
     loadPageFrame()
       .then((pageFrame) => {
@@ -119,7 +141,7 @@ function usePageFrame(docId: string, shown: boolean): PageFrame | null {
     };
   }, [docId]);
   return useSubscribable<PageFrame | null>(
-    shown && source?.docId === docId ? source.frame : NOTHING,
+    source?.docId === docId ? source.frame : NOTHING,
   );
 }
 
@@ -161,11 +183,13 @@ function useScriptStyleRevision(docId: string, active: boolean): number {
  * Its appearing scrolls the page by its height in the same frame, so the line being read stays put. A drag sends one
  * layout action holding only the values it changed.
  */
-export function RulerBar(props: { docId: string }): ReactNode {
-  const { docId } = props;
+function RulerBarContent(props: {
+  docId: string;
+  barRef: RefObject<HTMLDivElement | null>;
+}): ReactNode {
+  const { docId, barRef } = props;
   const services = useServices();
   const { editor } = services;
-  const shown = useRulerShown();
   const columnCells = useEditorFact("columnCells");
   const indent = useEditorFact("blockIndent");
   const width = useEditorFact("blockWidth");
@@ -178,12 +202,36 @@ export function RulerBar(props: { docId: string }): ReactNode {
     [services, docId],
   );
   const projectId = useSubscribable(projectSource);
-  const [projectOwner, setProjectOwner] = useState(true);
+  const knownOwner =
+    projectId === null
+      ? null
+      : (projectOwnerCache.get(services)?.get(projectId) ?? null);
+  const [probedOwner, setProbedOwner] = useState<{
+    projectId: string;
+    owner: boolean;
+  } | null>(null);
+  const onOwner = useCallback(
+    (owner: boolean) => {
+      if (projectId === null) return;
+      const byProject =
+        projectOwnerCache.get(services) ?? new Map<string, boolean>();
+      byProject.set(projectId, owner);
+      projectOwnerCache.set(services, byProject);
+      setProbedOwner({ projectId, owner });
+    },
+    [services, projectId],
+  );
+  const projectOwner =
+    knownOwner ??
+    (probedOwner?.projectId === projectId ? probedOwner.owner : true);
   const canWriteStyle = projectId !== null && projectOwner;
-  const frame = usePageFrame(docId, shown);
-  const [rulerMod, setRulerMod] = useState<RulerElementModule | null>(null);
+  const frame = usePageFrame(docId);
+  const [rulerMod, setRulerMod] = useState<RulerElementModule | null>(
+    () => cachedRulerMod,
+  );
   useEffect(() => {
-    if (projectId === null || !shown || !editable || locked) return;
+    if (projectId === null || !editable || locked || cachedRulerMod !== null)
+      return;
     let active = true;
     void loadRulerElement()
       .then((mod) => {
@@ -195,22 +243,16 @@ export function RulerBar(props: { docId: string }): ReactNode {
     return () => {
       active = false;
     };
-  }, [projectId, shown, editable, locked]);
+  }, [projectId, editable, locked]);
 
-  const bar = useRef<HTMLDivElement>(null);
   const [barLeftPx, setBarLeftPx] = useState(0);
-  useKeepPageStill(bar);
   useLayoutEffect(() => {
-    if (bar.current !== null)
-      setBarLeftPx(bar.current.getBoundingClientRect().left);
-  }, [frame]);
+    if (barRef.current !== null)
+      setBarLeftPx(barRef.current.getBoundingClientRect().left);
+  }, [frame, barRef]);
 
   const drawn =
-    shown &&
-    columnCells !== null &&
-    indent !== null &&
-    width !== null &&
-    frame !== null;
+    columnCells !== null && indent !== null && width !== null && frame !== null;
 
   const styleInteractive = drawn && editable && !locked && canWriteStyle;
   useScriptStyleRevision(docId, styleInteractive);
@@ -263,12 +305,12 @@ export function RulerBar(props: { docId: string }): ReactNode {
   };
 
   return (
-    <div ref={bar} data-tour="ruler" style={RULER_AREA} className="relative">
-      {projectId !== null ? (
+    <>
+      {projectId !== null && knownOwner === null ? (
         <ProjectStyleProbe
           docId={docId}
           projectId={projectId}
-          onOwner={setProjectOwner}
+          onOwner={onOwner}
         />
       ) : null}
       {drawn ? (
@@ -330,6 +372,21 @@ export function RulerBar(props: { docId: string }): ReactNode {
           ) : null}
         </>
       ) : null}
+    </>
+  );
+}
+
+/**
+ * Drawn while the Ruler is on and the caret is in a block of a paged script; otherwise its row is empty and 0 px high.
+ * While closed, none of the editor facts, page-frame imports, or style probes are mounted.
+ */
+export function RulerBar(props: { docId: string }): ReactNode {
+  const shown = useRulerShown();
+  const bar = useRef<HTMLDivElement>(null);
+  useKeepPageStill(bar);
+  return (
+    <div ref={bar} data-tour="ruler" style={RULER_AREA} className="relative">
+      {shown ? <RulerBarContent docId={props.docId} barRef={bar} /> : null}
     </div>
   );
 }

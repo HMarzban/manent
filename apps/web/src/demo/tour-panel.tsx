@@ -1,4 +1,4 @@
-// The Tour tab: the scenarios this build can show, in their groups, each with its progress and its set-up.
+// The Tour tab: coordinates shared progress, set-up and switching between the Journey Hub and Focused Stepper.
 import {
   DEMO_PEOPLE,
   SEED_DOCS,
@@ -7,28 +7,41 @@ import {
   isShown,
   seedProject,
 } from "@manent/demo";
-import type { TourScenario } from "@manent/demo";
+import type { TourGroup, TourScenario } from "@manent/demo";
 import { projectHome } from "@manent/sync-protocol";
 import type { WorkspaceRef } from "@manent/sync-protocol";
-import { TOUR_WORDS } from "@manent/ui";
+import { Button, TOUR_WORDS } from "@manent/ui";
 import { useRouter } from "@tanstack/react-router";
-import { useMemo, useSyncExternalStore } from "react";
+import { ChevronLeftIcon } from "lucide-react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import type { Api } from "../api.ts";
 import type { Where } from "../platform.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
+import { createLocalMap } from "../services/local-map.ts";
 import { useWorkspaces } from "../services/use-workspaces.ts";
 import { panelsActions } from "../state/panels.store.ts";
-import { createTourProgress } from "./tour-progress.ts";
+import {
+  tourActions,
+  useTourActive,
+  useTourSelected,
+} from "../state/tour.store.ts";
+import { TOUR_HIGHLIGHTS } from "./tour-highlights.ts";
+import { TourHub, TourProgressBar } from "./tour-hub.tsx";
+import type { TourFilter } from "./tour-hub.tsx";
+import { TOUR_SHARED_KEY, createTourProgress } from "./tour-progress.ts";
 import { TourScenarioRow } from "./tour-scenario.tsx";
 import type { SetupHold } from "./tour-scenario.tsx";
 import { runSetup } from "./tour-setup.ts";
 import type { SetupOutcome } from "./tour-setup.ts";
+import { StepperFooter } from "./tour-stepper-chrome.tsx";
 
 const SET_UP_FAILED: SetupOutcome = Object.freeze({
   ok: false,
   reason: "unknown",
 });
+
+const HIGHLIGHT_SET = new Set(TOUR_HIGHLIGHTS);
 
 /** `open` with `?person=<userId>` added, which the app reads to make the tab that person. */
 function asPerson(open: string, userId: string): string {
@@ -50,6 +63,14 @@ function isInHeavyHome(
 }
 
 const LISTED = Object.freeze(TOUR.scenarios.filter(isShown));
+const SHOWN_GROUPS: readonly TourGroup[] = Object.freeze(
+  TOUR.groups.filter((group) => LISTED.some((s) => s.group === group)),
+);
+
+const isValidActive = (scenarioId: string, step: number): boolean => {
+  const scenario = LISTED.find((s) => s.id === scenarioId);
+  return scenario !== undefined && step < scenario.steps.length;
+};
 
 /** The ids of the listed scenarios that wait while Lanternfield Studios is getting ready. */
 const HEAVY_LISTED: readonly string[] = (() => {
@@ -103,15 +124,13 @@ function useScenarioSetUp(): (scenario: TourScenario) => Promise<SetupOutcome> {
         await router.navigate({ href: asPerson(scenario.setup.open, userId) });
       },
       navigate: (path) => void router.navigate({ href: path }),
-      openWindow(url) {
-        if (window.open(url) === null)
-          throw new Error("the browser refused one of the scenario's windows");
-      },
-    }).catch(
-      // a window the browser refused: the scenario says it could not be set up
-      () => SET_UP_FAILED,
-    );
-    if (!outcome.ok) return outcome;
+      openWindow: (url) => window.open(url) !== null,
+    }).catch(() => SET_UP_FAILED);
+    if (!outcome.ok) {
+      if (outcome.reason === "popup_blocked")
+        panelsActions.open("side", "tour");
+      return outcome;
+    }
     panelsActions.open("side", "tour");
     const person = DEMO_PEOPLE.find((p) => p.userId === scenario.setup.userId);
     const drawn = personServices.get();
@@ -131,49 +150,179 @@ function useScenarioSetUp(): (scenario: TourScenario) => Promise<SetupOutcome> {
   };
 }
 
+function defaultOpenGroup(doneSet: ReadonlySet<string>): TourGroup | null {
+  return (
+    SHOWN_GROUPS.find((group) =>
+      LISTED.some((s) => s.group === group && !doneSet.has(s.id)),
+    ) ??
+    SHOWN_GROUPS[0] ??
+    null
+  );
+}
+
+function matchesFilter(
+  scenario: TourScenario,
+  filter: TourFilter,
+  doneSet: ReadonlySet<string>,
+): boolean {
+  if (filter === "highlights") return HIGHLIGHT_SET.has(scenario.id);
+  if (filter === "remaining") return !doneSet.has(scenario.id);
+  return true;
+}
+
+function nextScenarioAfter(
+  currentId: string,
+  pool: readonly TourScenario[],
+  doneSet: ReadonlySet<string>,
+): TourScenario | null {
+  const list = pool.length > 0 ? pool : LISTED;
+  const atIndex = list.findIndex((s) => s.id === currentId);
+  const tail = atIndex === -1 ? list : list.slice(atIndex + 1);
+  return (
+    tail.find((s) => !doneSet.has(s.id)) ??
+    list.find((s) => s.id !== currentId && !doneSet.has(s.id)) ??
+    null
+  );
+}
+
 /** Lists only the scenarios `isShown` passes, and draws no group that lists none. Never takes focus. */
 export function TourPanel(): ReactNode {
   const services = useServices();
-  const { where, now } = useEnvironment();
+  const { where, now, storage, storageEvents, tabStorage } = useEnvironment();
   const setUp = useScenarioSetUp();
-  const progress = useMemo(() => createTourProgress(services.tour), [services]);
+  const active = useTourActive();
+  const selectedId = useTourSelected();
+
+  const shared = useMemo(
+    () =>
+      storage === null
+        ? null
+        : createLocalMap({
+            storage,
+            key: TOUR_SHARED_KEY,
+            events: storageEvents,
+          }),
+    [storage, storageEvents],
+  );
+  useEffect(() => () => shared?.dispose(), [shared]);
+  useEffect(() => {
+    tourActions.hydrate(tabStorage, isValidActive);
+  }, [tabStorage]);
+
+  const progress = useMemo(
+    () => createTourProgress(services.tour, shared),
+    [services, shared],
+  );
   const heavy = useHeavyWorkspace(
     services.api,
     services.userId,
     HEAVY_LISTED.length > 0,
   );
+
   // the ids of the scenarios done, as one string: a snapshot equal while nothing changes
-  const doneIds = useSyncExternalStore(progress.subscribe, () =>
+  const doneSnapshot = useSyncExternalStore(progress.subscribe, () =>
     LISTED.filter((s) => progress.done(s.id))
       .map((s) => s.id)
       .join(" "),
-  ).split(" ");
+  );
+  const doneSet = useMemo(
+    () => new Set(doneSnapshot === "" ? [] : doneSnapshot.split(" ")),
+    [doneSnapshot],
+  );
+
+  const [filter, setFilter] = useState<TourFilter>("all");
+  const [openGroups, setOpenGroups] = useState<ReadonlySet<TourGroup>>(() => {
+    const initial = defaultOpenGroup(doneSet);
+    return initial === null ? new Set() : new Set([initial]);
+  });
+
+  const selected =
+    selectedId === null
+      ? null
+      : (LISTED.find((s) => s.id === selectedId) ?? null);
+  const activeScenario =
+    active === null
+      ? null
+      : (LISTED.find((s) => s.id === active.scenarioId) ?? null);
+  const visibleList = useMemo(
+    () => LISTED.filter((s) => matchesFilter(s, filter, doneSet)),
+    [filter, doneSet],
+  );
+
+  if (selected !== null) {
+    const nextScenario = nextScenarioAfter(selected.id, visibleList, doneSet);
+    const done = doneSet.has(selected.id);
+    return (
+      <div className="flex flex-col gap-3 p-3">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ms-2"
+              onClick={() => tourActions.select(null)}
+            >
+              <ChevronLeftIcon aria-hidden="true" className="size-icon" />
+              {TOUR_WORDS.allParts}
+            </Button>
+            <h2 className="truncate text-micro font-semibold tracking-wide text-fg-muted uppercase">
+              {selected.group}
+            </h2>
+          </div>
+          <TourProgressBar done={doneSet.size} total={LISTED.length} />
+        </div>
+        <TourScenarioRow
+          key={selected.id}
+          scenario={selected}
+          hold={holdOf(selected, heavy, where.shell)}
+          done={done}
+          onDone={(ticked) => progress.mark(selected.id, ticked, now())}
+          setUp={setUp}
+          currentUserId={services.userId}
+        />
+        <StepperFooter
+          scenario={selected}
+          done={done}
+          hasNextScenario={nextScenario !== null}
+          onTickAndNext={() => {
+            if (!done) progress.mark(selected.id, true, now());
+            tourActions.close();
+            tourActions.select(nextScenario?.id ?? null);
+          }}
+          onNextScenario={() => {
+            tourActions.close();
+            tourActions.select(nextScenario?.id ?? null);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-4 p-3">
-      {TOUR.groups.map((group) => {
-        const scenarios = LISTED.filter((s) => s.group === group);
-        if (scenarios.length === 0) return null;
-        return (
-          <section key={group} className="flex flex-col gap-2">
-            <h2 className="text-micro font-semibold tracking-wide text-fg-muted uppercase">
-              {group}
-            </h2>
-            <ul className="flex flex-col gap-4">
-              {scenarios.map((scenario) => (
-                <TourScenarioRow
-                  key={scenario.id}
-                  scenario={scenario}
-                  hold={holdOf(scenario, heavy, where.shell)}
-                  done={doneIds.includes(scenario.id)}
-                  onDone={(done) => progress.mark(scenario.id, done, now())}
-                  setUp={setUp}
-                />
-              ))}
-            </ul>
-          </section>
-        );
-      })}
-    </div>
+    <TourHub
+      groups={SHOWN_GROUPS}
+      listed={LISTED}
+      visible={visibleList}
+      doneSet={doneSet}
+      filter={filter}
+      openGroups={openGroups}
+      active={active}
+      activeScenario={activeScenario}
+      shell={where.shell}
+      onFilter={setFilter}
+      onToggleGroup={(group) =>
+        setOpenGroups((prev) => {
+          const next = new Set(prev);
+          if (next.has(group)) next.delete(group);
+          else next.add(group);
+          return next;
+        })
+      }
+      onSelect={(id) => tourActions.select(id)}
+      onMark={(scenarioId, done) => {
+        progress.mark(scenarioId, done, now());
+        if (done && active?.scenarioId === scenarioId) tourActions.close();
+      }}
+    />
   );
 }

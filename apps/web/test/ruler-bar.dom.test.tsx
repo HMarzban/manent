@@ -7,7 +7,10 @@ import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import type { PageFrame } from "../src/editor-host/page-frame.ts";
 import { withRecordedAccess } from "../src/editor-host/test-hooks.ts";
-import { ServicesProvider } from "../src/services/context.tsx";
+import {
+  EnvironmentProvider,
+  ServicesProvider,
+} from "../src/services/context.tsx";
 import { FactsContext } from "../src/state/bridge-contexts.ts";
 import { createFactsStore } from "../src/state/facts.store.ts";
 import type { EditorFacts } from "../src/state/facts.store.ts";
@@ -127,9 +130,16 @@ const dragMarker = (
     });
 };
 
+async function showRuler(): Promise<void> {
+  await act(async () => {
+    rulerActions.set(true);
+    await import("../src/editor-host/page-frame.ts");
+  });
+}
+
 test("the bar follows the caret's block and draws nothing without pages or when it is off", async () => {
   const bar = await drawBar();
-  act(() => rulerActions.set(true));
+  await showRuler();
   bar.publish(LAYOUT);
   const seen = [markerLefts(bar.el)];
   bar.publish({ blockId: "b2", blockIndent: 15 });
@@ -148,7 +158,7 @@ test("the bar follows the caret's block and draws nothing without pages or when 
 
 test("typing in a block draws the bar no more often than its facts change", async () => {
   const bar = await drawBar();
-  act(() => rulerActions.set(true));
+  await showRuler();
   const before = bar.counted.renders;
   for (let typed = 0; typed < 20; typed++)
     bar.publish({
@@ -162,7 +172,7 @@ test("typing in a block draws the bar no more often than its facts change", asyn
 
 test("a drag runs one layout action holding only the values it changed", async () => {
   const bar = await drawBar();
-  act(() => rulerActions.set(true));
+  await showRuler();
   bar.publish(LAYOUT);
   dragMarker(bar.el, "right", 676, 100 + 50 * 9.6);
   dragMarker(bar.el, "indent", 340, 100 + 30 * 9.6);
@@ -174,8 +184,115 @@ test("a drag runs one layout action holding only the values it changed", async (
 
 test("for someone who cannot edit, the markers do not move", async () => {
   const bar = await drawBar("view");
-  act(() => rulerActions.set(true));
+  await showRuler();
   bar.publish(LAYOUT);
   dragMarker(bar.el, "indent", 340, 100 + 30 * 9.6);
   expect([markerLefts(bar.el), bar.ran]).toEqual([[340, 676], []]);
+});
+
+test("a hidden ruler skips editor fact updates and style probes", async () => {
+  const bar = await drawBar();
+  const before = bar.counted.renders;
+  for (let i = 0; i < 10; i++)
+    bar.publish({ ...LAYOUT, blockId: `b${i}`, blockIndent: i });
+  expect([
+    bar.counted.renders - before,
+    bar.el.firstElementChild?.childElementCount,
+  ]).toEqual([0, 0]);
+});
+
+test("toggling the ruler keeps its outer bar mounted and caches project ownership without refetching", async () => {
+  const clock = createClock();
+  const environment = testEnvironment({
+    now: clock.now,
+    schedule: clock.schedule,
+    frame: (fn) => clock.schedule(fn, 16),
+  });
+  bindGuard(environment.guard);
+  const base = withRecordedAccess(
+    testServices({ userId: "leo", environment }),
+    new Map([[DOC_ID, "edit"]]),
+  );
+  const projectSub = createValue<string | null>("proj-1");
+  const services = {
+    ...base,
+    library: {
+      ...base.library,
+      documentProject: () => projectSub,
+    },
+  };
+  const facts = createFactsStore({
+    guard: environment.guard,
+    frame: environment.frame,
+  });
+  const page = document.createElement("div");
+  page.setAttribute("data-region", "page");
+  page.scrollTop = 100;
+  document.body.append(page);
+
+  let fetches = 0;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    fetches += 1;
+    return new Response(JSON.stringify({ role: "edit", capabilities: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as unknown as typeof fetch;
+
+  const el = document.createElement("div");
+  document.body.append(el);
+  const root = createRoot(el);
+  roots.push(root);
+  try {
+    await act(async () => {
+      root.render(
+        <EnvironmentProvider environment={environment}>
+          <ServicesProvider services={services}>
+            <FactsContext value={facts.selectors}>
+              <RulerBar docId={DOC_ID} />
+            </FactsContext>
+          </ServicesProvider>
+        </EnvironmentProvider>,
+      );
+      await import("../src/editor-host/page-frame.ts");
+    });
+    const outerBefore = el.querySelector<HTMLElement>('[data-tour="ruler"]')!;
+    let barHeight = 0;
+    Object.defineProperty(outerBefore, "offsetHeight", {
+      configurable: true,
+      get: () => barHeight,
+    });
+
+    barHeight = 28;
+    await showRuler();
+    const outerOpen = el.querySelector<HTMLElement>('[data-tour="ruler"]')!;
+    const scrollAfterOpen = page.scrollTop;
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const fetchesFirstOpen = fetches;
+
+    barHeight = 0;
+    act(() => rulerActions.set(false));
+    const scrollAfterClose = page.scrollTop;
+
+    barHeight = 28;
+    await showRuler();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect([
+      outerBefore === outerOpen,
+      scrollAfterOpen,
+      scrollAfterClose,
+      fetchesFirstOpen,
+      fetches,
+    ]).toEqual([true, 128, 100, 1, 1]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

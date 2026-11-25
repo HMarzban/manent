@@ -6,6 +6,7 @@ import {
   DOCUMENT_WORDS,
   EDITOR_WORDS,
   HISTORY_WORDS,
+  LIBRARY_WORDS,
 } from "@manent/ui";
 import { expect } from "@playwright/test";
 import {
@@ -83,6 +84,7 @@ test("exporting a project as a Project archive downloads one zip holding its scr
 
   // Open Export… from The Lamp Room's project row menu in the Library
   await page
+    .getByRole("region", { name: LIBRARY_WORDS.projectsRegion })
     .getByRole("button", { name: DOCUMENT_WORDS.rowMenuName("The Lamp Room") })
     .click();
   await page

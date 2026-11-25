@@ -465,22 +465,30 @@ test("the palette's keyed row is a fill and a bar, never a ring; its rows show w
   await pressKeyOf(page, "app.palette");
   const field = page.getByRole("combobox", { name: "Commands" });
   await expect(field).toBeFocused();
-  const keyed = await page
-    .locator("[role='option'][data-highlighted]")
-    .evaluate((row) => {
-      const probe = document.createElement("span");
-      probe.style.background = "var(--bg-control)";
-      row.append(probe);
-      const fill = getComputedStyle(probe).backgroundColor;
-      probe.remove();
-      const style = getComputedStyle(row);
-      const bar = getComputedStyle(row, "::before");
-      return {
-        outline: style.outlineStyle,
-        filled: style.backgroundColor === fill,
-        bar: [bar.content, bar.borderInlineStartWidth],
-        cursor: style.cursor,
-      };
+  // palette rows transition their background fill over --dur-fast, so wait for the highlight to settle
+  await expect
+    .poll(() =>
+      page.locator("[role='option'][data-highlighted]").evaluate((row) => {
+        const probe = document.createElement("span");
+        probe.style.background = "var(--bg-control)";
+        row.append(probe);
+        const fill = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        const style = getComputedStyle(row);
+        const bar = getComputedStyle(row, "::before");
+        return {
+          outline: style.outlineStyle,
+          filled: style.backgroundColor === fill,
+          bar: [bar.content, bar.borderInlineStartWidth],
+          cursor: style.cursor,
+        };
+      }),
+    )
+    .toEqual({
+      outline: "none",
+      filled: true,
+      bar: ['""', "2px"],
+      cursor: "pointer",
     });
   await field.fill(labelOf("doc.export"));
   const unavailable = await page
@@ -496,16 +504,9 @@ test("the palette's keyed row is a fill and a bar, never a ring; its rows show w
     .last()
     .boundingBox();
   expect({
-    keyed,
     unavailable,
     fits: box !== null && box.x >= 0 && box.x + box.width <= 375,
   }).toEqual({
-    keyed: {
-      outline: "none",
-      filled: true,
-      bar: ['""', "2px"],
-      cursor: "pointer",
-    },
     unavailable: "not-allowed",
     fits: true,
   });

@@ -3,6 +3,10 @@ import type { CommentOutcome } from "@manent/crdt";
 import type { TextAnchor } from "@manent/schema";
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import {
+  anchoredBlockIds,
+  isSameBlockScenes,
+} from "../comments/annotations-map.ts";
+import {
   DEFAULT_UI,
   createCommentsEntry,
   disposeCommentsEntry,
@@ -135,6 +139,8 @@ export const commentsActions = {
     };
   },
   get: (docId: string): ScriptCommentsState => snapshotOf(docId),
+  getUi: (docId: string): CommentsUiState =>
+    entries.get(docId)?.ui ?? DEFAULT_UI,
   subscribe(docId: string, listener: () => void): () => void {
     const entry = entries.get(docId);
     if (entry !== undefined) {
@@ -213,6 +219,15 @@ export const commentsActions = {
   ): void {
     const entry = entries.get(docId);
     if (entry === undefined) return;
+    const anchors = anchoredBlockIds(entry.state);
+    if (
+      isSameBlockScenes(
+        entry.state.blockScenes,
+        blockScenes,
+        anchors.size > 0 ? anchors : undefined,
+      )
+    )
+      return;
     entry.state = { ...entry.state, blockScenes };
     emitComments(entry);
   },

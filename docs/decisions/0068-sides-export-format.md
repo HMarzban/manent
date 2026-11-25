@@ -1,4 +1,4 @@
-# 0067. Sides export whole locked pages with other scenes struck through
+# 0068. Sides export whole locked pages with other scenes struck through
 
 - Date: 2026-11-25
 - Status: Accepted

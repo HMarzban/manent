@@ -8,7 +8,9 @@ import {
   SCENE_MOVE_WORDS,
   Segmented,
   SortableList,
+  useSubscribable,
 } from "@manent/ui";
+import { LayoutGridIcon, ListIcon } from "lucide-react";
 import {
   memo,
   useCallback,
@@ -22,9 +24,19 @@ import { useEnvironment, useServices } from "../services/context.tsx";
 import { createLocalMap } from "../services/local-map.ts";
 import { useIsCurrentOutline } from "../state/outline.store.ts";
 import type { OutlineRow } from "../state/outline.store.ts";
-import { ScenePeople, SceneTitle } from "./marks.tsx";
+import {
+  SceneMetaMarks,
+  ScenePeople,
+  SceneTitle,
+  isMetaMark,
+} from "./marks.tsx";
 import type { SceneParts } from "./marks.tsx";
-import { rowLabel, scriptBlocks, useSceneMoves } from "./moves.ts";
+import {
+  SceneRowsContext,
+  rowLabel,
+  scriptBlocks,
+  useSceneMoves,
+} from "./moves.ts";
 import { SceneRowMenu } from "./row-menu.tsx";
 
 const SCENES_VIEWS = ["list", "cards"] as const;
@@ -32,11 +44,6 @@ export type ScenesView = (typeof SCENES_VIEWS)[number];
 
 const isScenesView = (value: unknown): value is ScenesView =>
   SCENES_VIEWS.some((view) => view === value);
-
-const VIEW_CHOICES = Object.freeze([
-  { value: "list", label: SCENE_MOVE_WORDS.list },
-  { value: "cards", label: SCENE_MOVE_WORDS.cards },
-]);
 
 const CARD =
   "mn-card flex w-full max-w-56 flex-col gap-1 p-3 text-start text-ui";
@@ -85,9 +92,20 @@ export function ScenesSwitch(props: {
       <Segmented
         label={SCENE_MOVE_WORDS.showAs}
         value={props.view}
-        options={VIEW_CHOICES}
-        onChange={(value) => {
-          if (isScenesView(value)) props.onChange(value);
+        options={[
+          {
+            value: "list",
+            label: SCENE_MOVE_WORDS.list,
+            icon: <ListIcon aria-hidden="true" className="size-3.5" />,
+          },
+          {
+            value: "cards",
+            label: SCENE_MOVE_WORDS.cards,
+            icon: <LayoutGridIcon aria-hidden="true" className="size-3.5" />,
+          },
+        ]}
+        onChange={(chosen) => {
+          if (isScenesView(chosen)) props.onChange(chosen);
         }}
       />
     </div>
@@ -108,6 +126,11 @@ const SceneCard = memo(function SceneCard(props: {
   const goTo = () =>
     void editor.run({ kind: "go_to", blockId: row.blockId, offset: 0 });
   const marks = parts.extras.marks(row.blockId);
+  const length = parts.extras.length(row);
+  const lengthTitle =
+    length === null
+      ? undefined
+      : (parts.extras.lengthTitle?.(row) ?? undefined);
   return (
     <SceneRowMenu
       docId={parts.docId}
@@ -115,49 +138,82 @@ const SceneCard = memo(function SceneCard(props: {
       title={row.heading}
       items={parts.items}
     >
-      {(handle) => (
-        <div
-          role="group"
-          tabIndex={0}
-          aria-label={rowLabel(row)}
-          aria-current={current ? "true" : undefined}
-          className={CARD}
-          onClick={goTo}
-          onKeyDown={(event) => {
-            if (event.key !== "Enter") return;
-            event.preventDefault();
-            goTo();
-          }}
-        >
-          <span className="flex min-h-control-sm items-center gap-2 text-meta text-fg-muted tabular-nums">
-            {row.number}
-            {marks.some((mark) => mark.kind === "revised") ? (
-              <span aria-hidden="true">*</span>
+      {(handle) => {
+        const card = (
+          <div
+            role="group"
+            tabIndex={0}
+            aria-label={rowLabel(row)}
+            aria-current={current ? "true" : undefined}
+            className={CARD}
+            onClick={goTo}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              goTo();
+            }}
+          >
+            <span className="flex min-h-control-sm items-center gap-2 text-meta text-fg-muted tabular-nums">
+              {row.number}
+              {marks.some((mark) => mark.kind === "revised") ? (
+                <span aria-hidden="true">*</span>
+              ) : null}
+              {handle === null ? null : (
+                <span aria-hidden="true" className="ms-auto size-6 shrink-0" />
+              )}
+            </span>
+            <span className="line-clamp-2 font-semibold">
+              {row.omitted ? (
+                DOCUMENT_WORDS.omitted
+              ) : (
+                <SceneTitle heading={row.heading} marks={marks} />
+              )}
+            </span>
+            {!row.omitted && marks.some(isMetaMark) ? (
+              <span className="flex flex-wrap items-center gap-1">
+                <SceneMetaMarks marks={marks} />
+              </span>
             ) : null}
-            <span className="ms-auto">{handle}</span>
-          </span>
-          <span className="line-clamp-2 font-semibold">
-            {row.omitted ? (
-              DOCUMENT_WORDS.omitted
-            ) : (
-              <SceneTitle heading={row.heading} marks={marks} />
+            {row.synopsis === "" ? null : (
+              <span className="line-clamp-3 text-fg-muted">{row.synopsis}</span>
             )}
-          </span>
-          {row.synopsis === "" ? null : (
-            <span className="line-clamp-3 text-fg-muted">{row.synopsis}</span>
-          )}
-          <span className="flex items-center gap-2 text-meta text-fg-muted tabular-nums">
-            <ScenePeople marks={marks} />
-            {parts.extras.length(row) ?? SCENE_MOVE_WORDS.noPages}
-          </span>
-        </div>
-      )}
+            <span className="flex items-center gap-2 text-meta text-fg-muted tabular-nums">
+              <ScenePeople marks={marks} />
+              <span title={lengthTitle}>
+                {length ?? SCENE_MOVE_WORDS.noPages}
+              </span>
+            </span>
+          </div>
+        );
+        if (handle === null) return card;
+        return (
+          <div data-row-menu className="relative w-full max-w-56">
+            {card}
+            <span className="absolute top-3 end-3 flex items-center">
+              {handle}
+            </span>
+          </div>
+        );
+      }}
     </SceneRowMenu>
   );
 });
 
-/** Writes a Scene Heading with empty text and `synopsis` at the end of the script, as one undo step; false when the script cannot be changed here. */
-function writeSceneCard(docId: string, synopsis: string): boolean {
+const headingTypeFor = (
+  format: string,
+): "chapter" | "slug" | "scene_heading" =>
+  format === "manuscript"
+    ? "chapter"
+    : format === "variety"
+      ? "slug"
+      : "scene_heading";
+
+/** Writes a heading of the script's format with empty text and `synopsis` at the end of the script, as one undo step; false when the script cannot be changed here. */
+function writeSceneCard(
+  docId: string,
+  synopsis: string,
+  format: string,
+): boolean {
   const editor = liveEditor(docId);
   if (editor === null || !editor.editable) return false;
   const last = scriptBlocks(editor.doc).at(-1)?.attrs?.id;
@@ -169,7 +225,11 @@ function writeSceneCard(docId: string, synopsis: string): boolean {
         after: typeof last === "string" ? last : null,
         block: {
           type: "block",
-          attrs: { id: randomBlockId(), type: "scene_heading", synopsis },
+          attrs: {
+            id: randomBlockId(),
+            type: headingTypeFor(format),
+            synopsis,
+          },
         },
       },
     ],
@@ -180,13 +240,29 @@ function writeSceneCard(docId: string, synopsis: string): boolean {
 
 /** The card after the last: Enter writes what was typed there as a new scene's synopsis. */
 export function BlankCard(props: { docId: string }): ReactNode {
+  const { docId } = props;
+  const services = useServices();
+  const store = services.openScriptStore(docId);
+  const subscribeFormat = useCallback(
+    (listener: () => void) => store.subscribe("script.format", listener),
+    [store],
+  );
+  const format = useSyncExternalStore(subscribeFormat, () =>
+    store.get("script.format"),
+  );
+  const kindSource = useMemo(
+    () => services.library.documentKind(docId),
+    [services.library, docId],
+  );
+  const kind = useSubscribable(kindSource);
+  const prompt = SCENE_MOVE_WORDS.describeFor(format, kind);
   const [text, setText] = useState("");
   return (
     <textarea
       data-new=""
       rows={3}
-      aria-label={SCENE_MOVE_WORDS.describe}
-      placeholder={SCENE_MOVE_WORDS.describe}
+      aria-label={prompt}
+      placeholder={prompt}
       value={text}
       className={`${CARD} resize-none placeholder:text-fg-muted`}
       onChange={(event) => setText(event.target.value)}
@@ -194,7 +270,7 @@ export function BlankCard(props: { docId: string }): ReactNode {
         if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
         event.preventDefault();
         const synopsis = text.trim();
-        if (synopsis !== "" && writeSceneCard(props.docId, synopsis))
+        if (synopsis !== "" && writeSceneCard(docId, synopsis, format))
           setText("");
       }}
     />
@@ -204,10 +280,11 @@ export function BlankCard(props: { docId: string }): ReactNode {
 /** The cards of a person who can edit: a card moves by drag, by its menu's Move, and by the move commands. */
 function MovableCards(props: {
   docId: string;
+  label?: string;
   scenes: readonly OutlineRow[];
   renderCard(row: OutlineRow): ReactNode;
 }): ReactNode {
-  const { docId, scenes, renderCard } = props;
+  const { docId, label, scenes, renderCard } = props;
   const { area, sortable, rowOf } = useSceneMoves({ docId, rows: scenes });
   const renderItem = useCallback(
     (id: string): ReactNode => {
@@ -217,9 +294,16 @@ function MovableCards(props: {
     [rowOf, renderCard],
   );
   return (
-    <div {...area}>
-      <SortableList {...sortable} orientation="grid" renderItem={renderItem} />
-    </div>
+    <SceneRowsContext value={scenes}>
+      <div {...area}>
+        <SortableList
+          {...sortable}
+          label={label}
+          orientation="grid"
+          renderItem={renderItem}
+        />
+      </div>
+    </SceneRowsContext>
   );
 }
 
@@ -227,9 +311,10 @@ function MovableCards(props: {
 export function SceneCards(props: {
   rows: readonly OutlineRow[];
   canEdit: boolean;
+  label?: string;
   parts: SceneParts;
 }): ReactNode {
-  const { rows, canEdit, parts } = props;
+  const { rows, canEdit, label, parts } = props;
   const scenes = useMemo(
     () => rows.filter((row) => row.kind === "scene"),
     [rows],
@@ -243,11 +328,16 @@ export function SceneCards(props: {
       {canEdit ? (
         <MovableCards
           docId={parts.docId}
+          label={label}
           scenes={scenes}
           renderCard={renderCard}
         />
       ) : (
-        <div role="list" className="flex flex-wrap gap-3">
+        <div
+          role="list"
+          aria-label={label || undefined}
+          className="flex flex-wrap gap-3"
+        >
           {scenes.map((row) => (
             <div key={row.blockId} role="listitem">
               {renderCard(row)}

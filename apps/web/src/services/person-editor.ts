@@ -13,6 +13,7 @@ import type { EditorControl } from "../editor-host/control.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
 import { createSyncSessions } from "../editor-host/sync-sessions.ts";
 import { createEditorKeyRun } from "../handlers/editor-key-run.ts";
+import { writingActions } from "../state/writing.store.ts";
 import type { EditorParts, Environment, PersonServices } from "./ports.ts";
 
 /** The editor's keys: a chord is looked up in the person's editor table and runs its command. */
@@ -47,6 +48,8 @@ export async function loadEditor(
       ? await import("../editor-host/test-hooks.ts")
       : null;
   parts.fixedKeys.set(EDITOR_FIXED_KEYS);
+  // routes that mount the editor without DocumentScreen (Send, Present, Prompter) still need the private index bound
+  writingActions.bind(parts.services());
   const sessions = createSyncSessions({
     client: parts.client,
     schedule: environment.schedule,

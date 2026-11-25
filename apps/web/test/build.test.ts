@@ -115,16 +115,61 @@ test("the build writes a service worker holding the whole shell, fonts included"
   const built = await buildWeb({ outDir, flavour: "production" });
   if (!built.ok) throw new TypeError(built.logs.join("\n"));
   const sw = await Bun.file(join(outDir, "sw.js")).text();
+  const chunks = chunksOf(built, outDir);
+  const entry = chunks.find((chunk) => chunk.entry);
+  if (entry === undefined) throw new TypeError("no entry chunk");
+  const entryReach = new Set(
+    staticReachOf(chunks, entry).map((c) => basename(c.name)),
+  );
+  const onDemandMarkers = ["pdfjs-dist/", "packages/formats/"];
+  const heavyOnDemand = new Set(
+    chunks
+      .filter(
+        (chunk) =>
+          !entryReach.has(basename(chunk.name)) &&
+          (onDemandMarkers.some((marker) =>
+            chunk.entryPoint?.includes(marker),
+          ) ||
+            chunk.inputs.some((input) =>
+              onDemandMarkers.some((marker) => input.includes(marker)),
+            )),
+      )
+      .map((chunk) => basename(chunk.name)),
+  );
+  heavyOnDemand.add("ink-compile.worker.js");
   for (const file of built.files.filter(
-    (f) => new RegExp("\\.(html|js|css|woff2?)$").test(f) && f !== "sw.js",
+    (f) =>
+      new RegExp("\\.(html|js|css|woff2)$").test(f) &&
+      f !== "sw.js" &&
+      !heavyOnDemand.has(basename(f)),
   ))
     expect(sw).toContain(JSON.stringify(`/${basename(file)}`));
+  // heavy on-demand chunks and legacy .woff PDF fonts stay out of eager precache and use runtime caching
+  for (const file of heavyOnDemand) {
+    if (file === "ink-compile.worker.js") {
+      expect(sw).not.toMatch(new RegExp('url:"/ink-compile\\.worker\\.js"'));
+      expect(sw).toContain('"/ink-compile.worker.js"');
+    } else {
+      expect(sw).not.toContain(JSON.stringify(`/${file}`));
+    }
+  }
+  for (const file of built.files.filter((f) => f.endsWith(".woff")))
+    expect(sw).not.toContain(JSON.stringify(`/${basename(file)}`));
+  expect(sw).toContain("manent-runtime-assets-");
+  expect(sw).not.toContain("manent-runtime-assets-v1");
   const css = built.files.filter((f) => f.endsWith(".css"));
   expect(css.length).toBe(1);
-  // the build inlines the stylesheet's fonts
-  expect(await Bun.file(join(outDir, css[0]!)).text()).toContain(
-    "data:font/woff2",
+  const cssText = await Bun.file(join(outDir, css[0]!)).text();
+  // Inter variable fonts are emitted as external content-hashed .woff2 files, never base64-inlined in CSS
+  expect(cssText).not.toContain("data:font/woff2");
+  const extractedFonts = built.files.filter((f) =>
+    new RegExp("^font-[0-9a-f]{8}\\.woff2$").test(basename(f)),
   );
+  expect(extractedFonts.length).toBe(2);
+  for (const font of extractedFonts) {
+    expect(cssText).toContain(`/${basename(font)}`);
+    expect(sw).toContain(JSON.stringify(`/${basename(font)}`));
+  }
   expect(sw).not.toContain('"/api/');
   // the library stays in the worker
   for (const file of built.files.filter(

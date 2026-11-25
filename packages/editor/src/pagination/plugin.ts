@@ -30,8 +30,7 @@ import { toIndex, updateIndex } from "./block-index.ts";
 import type { BlockIndex } from "./block-index.ts";
 import { joinRanges, rangesAfter, sectionBlocks } from "./block-ranges.ts";
 import type { BlockRange } from "./block-ranges.ts";
-import { caretPlace, scrollDelta } from "./caret.ts";
-import type { CaretPlace } from "./caret.ts";
+import { createCaretKeeper } from "./caret.ts";
 import type { DecorationOptions } from "./decorations.ts";
 import type { IsRemote } from "./page-view.ts";
 import { ownScroller } from "./scroller.ts";
@@ -266,37 +265,6 @@ function stateOf(state: EditorState): PaginationState {
 }
 
 /**
- * Keeps the caret's line where it was when a local edit carries the caret to another page. `before` is read once
- * after each update; a scroll since then is taken off it.
- */
-function caretKeeper(
-  view: EditorView,
-  scrollerOf: () => Element,
-  isRemoteState: (state: EditorState) => boolean,
-): (prev: EditorState) => void {
-  let before: CaretPlace | null = null;
-  let scrolledTo = 0;
-  return (prev) => {
-    const scroller = scrollerOf();
-    const after = caretPlace(view);
-    if (
-      after !== null &&
-      before !== null &&
-      prev.doc !== view.state.doc &&
-      !isRemoteState(view.state)
-    ) {
-      const moved = scroller.scrollTop - scrolledTo;
-      const delta = scrollDelta({ ...before, top: before.top - moved }, after);
-      scroller.scrollTop += delta;
-      before = { ...after, top: after.top - delta };
-    } else {
-      before = after;
-    }
-    scrolledTo = scroller.scrollTop;
-  };
-}
-
-/**
  * After a composition, the pages are brought up to date once the view has stopped composing; a local edit that
  * carries the caret to another page leaves its line where it was. `isRemoteState` says whether a remote change made
  * a state.
@@ -310,8 +278,18 @@ function paginationView(
   const { defer } = options;
   let pages = stateOf(view.state).pagination.pages.length;
   let scroller: Element | null = null;
-  const scrollerOf = () => (scroller ??= ownScroller(view, options.scroller));
-  const keepCaret = caretKeeper(view, scrollerOf, isRemoteState);
+  const scrollerOf = (): Element => {
+    if (
+      scroller !== null &&
+      scroller.isConnected &&
+      scroller.contains(view.dom)
+    )
+      return scroller;
+    const found = ownScroller(view, options.scroller);
+    if (view.dom.isConnected) scroller = found;
+    return found;
+  };
+  const keepCaret = createCaretKeeper(view, scrollerOf, isRemoteState);
   const behind = behindDrawer(view, {
     defer,
     whenIdle: options.whenIdle,
@@ -340,7 +318,7 @@ function paginationView(
     update(_, prev) {
       behind.update();
       resume();
-      keepCaret(prev);
+      keepCaret.update(prev);
       const count = stateOf(view.state).pagination.pages.length;
       if (count === pages) return;
       pages = count;
@@ -348,6 +326,7 @@ function paginationView(
     },
     destroy() {
       view.dom.removeEventListener("compositionend", resume);
+      keepCaret.destroy();
       behind.destroy();
     },
   };

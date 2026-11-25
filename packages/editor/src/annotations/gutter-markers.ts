@@ -6,15 +6,23 @@ import {
   gutterColumnPx,
   markPosition,
 } from "../changes/layer.ts";
+import type { GutterColumn } from "../changes/layer.ts";
+import { changesKey } from "../changes/plugin.ts";
+import { sheetListeners } from "../page/scaffold.ts";
 import { paginationKey } from "../pagination/plugin.ts";
 import type { PaginationState } from "../pagination/plugin.ts";
 import type { Place } from "./anchor-places.ts";
+
+type MarkerKind = "comment" | "note" | "mixed";
 
 interface Marker {
   readonly blockId: string;
   readonly block: number;
   /** In the host's order. */
   readonly ids: string[];
+  comments: number;
+  notes: number;
+  kind: MarkerKind;
   open: boolean;
 }
 
@@ -26,32 +34,84 @@ interface Spot {
 }
 
 export interface GutterActions {
-  label(count: number): string;
-  onActivate(id: string, at: { left: number; top: number }): void;
+  label(comments: number, notes: number): string;
+  onActivate(
+    id: string,
+    at: { left: number; top: number },
+    ids: readonly string[],
+  ): void;
   /** The block whose marker the pointer is over; null once it leaves. */
   hover(blockId: string | null): void;
 }
 
 export interface Gutter {
-  /** Places the markers again; nothing changes in the page when they stand where they stood. */
+  /** Places the markers immediately; nothing changes in the page when they stand where they stood. */
   draw(): void;
+  /** Coalesces a redraw onto the next animation frame. */
+  scheduleDraw(): void;
   destroy(): void;
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function markerIcon(doc: Document, kind: "comment" | "note"): SVGSVGElement {
+  const svg = doc.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "12");
+  svg.setAttribute("height", "12");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  if (kind === "comment") {
+    svg.setAttribute("data-comment-icon", "");
+    const bubble = doc.createElementNS(SVG_NS, "path");
+    bubble.setAttribute(
+      "d",
+      "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
+    );
+    svg.append(bubble);
+    return svg;
+  }
+  const sheet = doc.createElementNS(SVG_NS, "path");
+  sheet.setAttribute(
+    "d",
+    "M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z",
+  );
+  const fold = doc.createElementNS(SVG_NS, "path");
+  fold.setAttribute("d", "M15 3v4a2 2 0 0 0 2 2h4");
+  svg.append(sheet, fold);
+  return svg;
 }
 
 function markersOf(places: readonly Place[]): Marker[] {
   const byBlock = new Map<number, Marker>();
   for (const { annotation, anchor, block } of places) {
     if (block === null) continue;
+    const isNote = annotation.kind === "note";
     const marker = byBlock.get(block);
     if (marker === undefined)
       byBlock.set(block, {
         blockId: anchor.blockId,
         block,
         ids: [annotation.id],
+        comments: isNote ? 0 : 1,
+        notes: isNote ? 1 : 0,
+        kind: annotation.kind,
         open: annotation.open,
       });
     else {
       marker.ids.push(annotation.id);
+      if (isNote) marker.notes += 1;
+      else marker.comments += 1;
+      marker.kind =
+        marker.comments > 0 && marker.notes > 0
+          ? "mixed"
+          : marker.notes > 0
+            ? "note"
+            : "comment";
       marker.open ||= annotation.open;
     }
   }
@@ -66,11 +126,22 @@ function drawnPages(frame: HTMLElement, count: number): number[] {
   return [...new Set(pages)].toSorted((a, b) => a - b);
 }
 
+/** True while page-mode diff author initials occupy gutter column 0. */
+const hasPageChanges = (state: EditorView["state"]): boolean => {
+  const changes = changesKey.getState(state);
+  return (
+    changes !== undefined &&
+    changes.comparison !== null &&
+    changes.display === "page"
+  );
+};
+
 /** Where each marker whose block starts on a drawn page stands: the gutter, level with the block's first line. */
 function spotsOf(
   frame: HTMLElement,
   pages: PaginationState,
   markers: readonly Marker[],
+  column: GutterColumn,
 ): Spot[] {
   const { pagination, settings } = pages;
   return drawnPages(frame, pagination.pages.length).flatMap((k) => {
@@ -89,17 +160,94 @@ function spotsOf(
         {
           marker,
           top: at.topPx,
-          left: gutterColumnPx(at.gutterPx, GUTTER_COLUMNS.comments),
+          left: gutterColumnPx(at.gutterPx, column),
         },
       ];
     });
   });
 }
 
-/** The page's zoom, from the zoomed frame's drawn and laid-out widths; 1 before it is laid out. */
+const fallbackSheetObservers = new WeakMap<
+  HTMLElement,
+  { observer: MutationObserver; listeners: Set<() => void> }
+>();
+
+/** Notifies `listener` whenever drawn sheets or zoom of `frame` change; shares one source across gutter plugins. */
+export function subscribeSheets(
+  frame: HTMLElement,
+  listener: () => void,
+): () => void {
+  const direct = sheetListeners.get(frame);
+  if (direct !== undefined) {
+    direct.add(listener);
+    return () => {
+      direct.delete(listener);
+    };
+  }
+  let entry = fallbackSheetObservers.get(frame);
+  if (entry === undefined) {
+    const listeners = new Set<() => void>();
+    const observer = new MutationObserver(() => {
+      for (const fn of listeners) fn();
+    });
+    observer.observe(frame, { subtree: true, attributeFilter: ["data-page"] });
+    entry = { observer, listeners };
+    fallbackSheetObservers.set(frame, entry);
+  }
+  entry.listeners.add(listener);
+  return () => {
+    entry.listeners.delete(listener);
+    if (entry.listeners.size === 0) {
+      entry.observer.disconnect();
+      fallbackSheetObservers.delete(frame);
+    }
+  };
+}
+
+const SCALE_PATTERN = /^scale\(([^)]+)\)$/;
+
+/** The page's zoom, read from the scaffold without forcing layout when present; 1 before it is laid out. */
 function zoomOf(frame: HTMLElement): number {
+  const dataZoom = frame.dataset["zoom"];
+  if (dataZoom !== undefined) {
+    const parsed = Number(dataZoom);
+    if (parsed > 0) return parsed;
+  }
+  const match = SCALE_PATTERN.exec(frame.style.transform.trim());
+  if (match !== null) {
+    const parsed = Number(match[1]);
+    if (parsed > 0) return parsed;
+  }
   const drawn = frame.getBoundingClientRect().width;
   return drawn > 0 && frame.offsetWidth > 0 ? drawn / frame.offsetWidth : 1;
+}
+
+function isSameSpots(
+  prevZoom: number,
+  prevSpots: readonly Spot[],
+  zoom: number,
+  spots: readonly Spot[],
+): boolean {
+  if (prevZoom !== zoom || prevSpots.length !== spots.length) return false;
+  for (let i = 0; i < spots.length; i++) {
+    const a = prevSpots[i]!;
+    const b = spots[i]!;
+    if (
+      a.top !== b.top ||
+      a.left !== b.left ||
+      a.marker.blockId !== b.marker.blockId ||
+      a.marker.kind !== b.marker.kind ||
+      a.marker.comments !== b.marker.comments ||
+      a.marker.notes !== b.marker.notes ||
+      a.marker.open !== b.marker.open ||
+      a.marker.ids.length !== b.marker.ids.length
+    )
+      return false;
+    for (let j = 0; j < a.marker.ids.length; j++) {
+      if (a.marker.ids[j] !== b.marker.ids[j]) return false;
+    }
+  }
+  return true;
 }
 
 function markerOf(
@@ -114,9 +262,21 @@ function markerOf(
   button.type = "button";
   button.className = "mn-marker";
   button.dataset["block"] = marker.blockId;
-  button.setAttribute("aria-label", actions.label(count));
+  button.dataset["kind"] = marker.kind;
+  const label = actions.label(marker.comments, marker.notes);
+  button.setAttribute("aria-label", label);
+  button.title = label;
   button.setAttribute("aria-pressed", String(marker.open));
-  button.textContent = String(count);
+  if (marker.kind === "comment") {
+    button.append(markerIcon(doc, "comment"));
+  } else if (marker.kind === "note") {
+    button.append(markerIcon(doc, "note"));
+  } else {
+    button.append(markerIcon(doc, "comment"), markerIcon(doc, "note"));
+  }
+  const countEl = doc.createElement("span");
+  countEl.textContent = String(count);
+  button.append(countEl);
   Object.assign(button.style, {
     position: "absolute",
     top: `${spot.top}px`,
@@ -129,7 +289,12 @@ function markerOf(
   });
   button.addEventListener("click", () => {
     const box = button.getBoundingClientRect();
-    actions.onActivate(marker.ids[0]!, { left: box.left, top: box.top });
+    actions.hover(null);
+    actions.onActivate(
+      marker.ids[0]!,
+      { left: box.left, top: box.top },
+      marker.ids,
+    );
   });
   button.addEventListener("mouseenter", () => actions.hover(marker.blockId));
   button.addEventListener("mouseleave", () => actions.hover(null));
@@ -146,40 +311,82 @@ export function createGutter(
   actions: GutterActions,
 ): Gutter {
   let drawn: HTMLElement[] = [];
-  let key = "";
-  const draw = () => {
+  let lastZoom = 0;
+  let lastSpots: readonly Spot[] = [];
+  let frameId: number | null = null;
+  let destroyed = false;
+  let hoveredBlock: string | null = null;
+  const win = view.dom.ownerDocument.defaultView;
+  const setHover = (blockId: string | null): void => {
+    if (hoveredBlock === blockId) return;
+    hoveredBlock = blockId;
+    if (!view.isDestroyed) actions.hover(blockId);
+  };
+  const clearDrawn = (): void => {
+    const hadHovered =
+      hoveredBlock !== null &&
+      drawn.some((marker) => marker.dataset["block"] === hoveredBlock);
+    for (const marker of drawn) marker.remove();
+    drawn = [];
+    if (hadHovered) setHover(null);
+  };
+  const markerActions: GutterActions = {
+    label: actions.label,
+    onActivate: actions.onActivate,
+    hover: setHover,
+  };
+  const cancelFrame = (): void => {
+    if (frameId === null) return;
+    win?.cancelAnimationFrame(frameId);
+    frameId = null;
+  };
+  const draw = (): void => {
+    cancelFrame();
+    if (destroyed || view.isDestroyed) return;
     const frame = view.dom.parentElement;
     const pages = paginationKey.getState(view.state);
     const markers = markersOf(places());
     if (frame === null || pages === undefined || markers.length === 0) {
-      key = "";
-      for (const marker of drawn) marker.remove();
-      drawn = [];
+      if (drawn.length > 0) clearDrawn();
+      lastZoom = 0;
+      lastSpots = [];
       return;
     }
-    const spots = spotsOf(frame, pages, markers);
+    const column = hasPageChanges(view.state)
+      ? GUTTER_COLUMNS.comments
+      : GUTTER_COLUMNS.changes;
+    const spots = spotsOf(frame, pages, markers, column);
     const zoom = zoomOf(frame);
-    const next = JSON.stringify([zoom, spots]);
-    if (next === key) return;
-    key = next;
-    for (const marker of drawn) marker.remove();
+    if (isSameSpots(lastZoom, lastSpots, zoom, spots)) return;
+    lastZoom = zoom;
+    lastSpots = spots;
+    clearDrawn();
     drawn = spots.map((spot) =>
-      markerOf(frame.ownerDocument, spot, zoom, actions),
+      markerOf(frame.ownerDocument, spot, zoom, markerActions),
     );
     frame.append(...drawn);
   };
-  // the page scaffold names each sheet it draws, on scroll and zoom as well as when the pages change
-  const sheets = new MutationObserver(draw);
-  if (view.dom.parentElement !== null)
-    sheets.observe(view.dom.parentElement, {
-      subtree: true,
-      attributeFilter: ["data-page"],
-    });
+  const scheduleDraw = (): void => {
+    if (destroyed || frameId !== null) return;
+    if (win !== null && typeof win.requestAnimationFrame === "function") {
+      frameId = win.requestAnimationFrame(() => {
+        frameId = null;
+        draw();
+      });
+    } else draw();
+  };
+  const stopSheets =
+    view.dom.parentElement === null
+      ? null
+      : subscribeSheets(view.dom.parentElement, scheduleDraw);
   return {
     draw,
+    scheduleDraw,
     destroy() {
-      sheets.disconnect();
-      for (const marker of drawn) marker.remove();
+      destroyed = true;
+      cancelFrame();
+      stopSheets?.();
+      clearDrawn();
     },
   };
 }

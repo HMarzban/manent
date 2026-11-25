@@ -6,6 +6,7 @@ import type {
   Pagination,
 } from "@manent/pagination";
 import type { Dual } from "@manent/schema";
+import { SLACK_LEFT } from "../page/profile-css.ts";
 
 // A block's dual column, in a run only: a right column counts after a left one.
 export function columnOf(
@@ -36,7 +37,7 @@ export function firstsOnPages(p: Pagination): Set<number> {
 }
 
 function overrideStyle(spec: ElementSpec): string {
-  return `--el-indent: ${spec.indent}; --el-width: ${spec.width}; --el-before: ${spec.spaceBefore}; text-align: ${spec.align}`;
+  return `--el-indent: ${spec.indent}; --el-width: ${spec.width}; --el-before: ${spec.spaceBefore}; --el-slack-left: ${SLACK_LEFT[spec.align]}; text-align: ${spec.align}`;
 }
 
 export interface BlockContext {

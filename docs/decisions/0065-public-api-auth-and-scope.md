@@ -1,4 +1,4 @@
-# 0064. The public API authenticates workspace API keys only, read-only and scoped
+# 0065. The public API authenticates workspace API keys only, read-only and scoped
 
 - Date: 2026-11-25
 - Status: Accepted

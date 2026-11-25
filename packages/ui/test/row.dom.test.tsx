@@ -206,6 +206,65 @@ test("VirtualRows honours custom rangeExtractor when virtualized", () => {
   ]).toEqual([[0, 42], true, true]);
 });
 
+test("a virtual list keeps a Tab stop when a custom range replaces an interior row or a row loses activation", () => {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  roots.push(root);
+  act(() =>
+    root.render(
+      <VirtualRows
+        count={150}
+        rowHeight="one"
+        label="Scenes"
+        rangeExtractor={() => [0, 10, 50]}
+        renderRow={(i) => <Row onActivate={() => {}}>{`Scene ${i + 1}`}</Row>}
+      />,
+    ),
+  );
+  const el = host.firstElementChild as HTMLElement;
+  focusRow(el, 11);
+  expect(
+    el
+      .querySelector('.mn-row[tabindex="0"]')
+      ?.closest('[role="listitem"]')
+      ?.getAttribute("aria-posinset"),
+  ).toBe("11");
+  // swap interior index 10 -> 12 while keeping first (0), last (50) and length (3) identical
+  act(() =>
+    root.render(
+      <VirtualRows
+        count={150}
+        rowHeight="one"
+        label="Scenes"
+        rangeExtractor={() => [0, 12, 50]}
+        renderRow={(i) => <Row onActivate={() => {}}>{`Scene ${i + 1}`}</Row>}
+      />,
+    ),
+  );
+  const afterSwap = el.querySelectorAll('.mn-row[tabindex="0"]').length;
+  // now remove activation from row 0 while leaving row 12 activatable
+  act(() =>
+    root.render(
+      <VirtualRows
+        count={150}
+        rowHeight="one"
+        label="Scenes"
+        rangeExtractor={() => [0, 12, 50]}
+        renderRow={(i) =>
+          i === 0 ? (
+            <Row>{`Scene ${i + 1}`}</Row>
+          ) : (
+            <Row onActivate={() => {}}>{`Scene ${i + 1}`}</Row>
+          )
+        }
+      />,
+    ),
+  );
+  const afterDisable = el.querySelectorAll('.mn-row[tabindex="0"]').length;
+  expect([afterSwap, afterDisable]).toEqual([1, 1]);
+});
+
 test("SortableLists exposes label and move handle, and SortableArea keeps Escape flowing outside keyboard drag", () => {
   const moves: [string, string, number][] = [];
   const handle = createRef<SortableListsHandle>();

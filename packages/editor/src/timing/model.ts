@@ -11,6 +11,7 @@ import {
 } from "./decorations.ts";
 import type { DecorationPatch, UnreadTimeWords } from "./decorations.ts";
 import {
+  NOTHING,
   computeBlock,
   isSameSectionSummary,
   summarizeSection,
@@ -18,6 +19,7 @@ import {
 import type { BlockTiming, SectionTiming } from "./sections.ts";
 
 export interface TimingState {
+  readonly enabled: boolean;
   readonly doc: Node;
   readonly sections: readonly SectionTiming[];
   readonly sectionPos: Int32Array;
@@ -27,8 +29,28 @@ export interface TimingState {
   readonly version: number;
 }
 
+const EMPTY_SECTIONS: readonly SectionTiming[] = Object.freeze([]);
+const EMPTY_POSITIONS = new Int32Array(0);
+
+/** Idle timing state when timing is disabled: no document walk and no decorations. */
+export function disabledTiming(doc: Node, version = 0): TimingState {
+  return {
+    enabled: false,
+    doc,
+    sections: EMPTY_SECTIONS,
+    sectionPos: EMPTY_POSITIONS,
+    script: NOTHING,
+    decorations: DecorationSet.empty,
+    version,
+  };
+}
+
 /** Walks the whole document once at start to build initial section summaries and unread decorations. */
-export function initialTiming(doc: Node, words: UnreadTimeWords): TimingState {
+export function initialTiming(
+  doc: Node,
+  words: UnreadTimeWords,
+  version = 0,
+): TimingState {
   const sections: SectionTiming[] = [];
   const sectionPos = new Int32Array(doc.childCount);
   const decorations: Decoration[] = [];
@@ -58,6 +80,7 @@ export function initialTiming(doc: Node, words: UnreadTimeWords): TimingState {
     secPos += secNode.nodeSize;
   });
   return {
+    enabled: true,
     doc,
     sections,
     sectionPos,
@@ -66,7 +89,7 @@ export function initialTiming(doc: Node, words: UnreadTimeWords): TimingState {
       decorations.length === 0
         ? DecorationSet.empty
         : DecorationSet.create(doc, decorations),
-    version: 0,
+    version,
   };
 }
 
@@ -244,7 +267,7 @@ export function updateTiming(
   tr: Transaction,
   words: UnreadTimeWords,
 ): TimingState {
-  if (!tr.docChanged) return prev;
+  if (!prev.enabled || !tr.docChanged) return prev;
   const { doc } = tr;
   const { head, oldSecEnd, newSecEnd } = differingSectionRange(prev.doc, doc);
   const mapped = prev.decorations.map(tr.mapping, doc);
@@ -292,6 +315,7 @@ export function updateTiming(
   const unchanged =
     single && isSameSectionSummary(prev.sections[head]!, result.sections[0]!);
   return {
+    enabled: true,
     doc,
     sections,
     sectionPos,

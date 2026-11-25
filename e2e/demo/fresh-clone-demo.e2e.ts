@@ -114,7 +114,9 @@ async function switcherNames(page: Page): Promise<string[]> {
   const items = page.getByRole("menuitem");
   await expect(items.first()).toBeVisible();
   const names = await items.evaluateAll((shown) =>
-    shown.map((item) => item.querySelector("span span")?.textContent ?? ""),
+    shown
+      .filter((item) => item.getAttribute("data-tour") !== "workspace:settings")
+      .map((item) => item.querySelector("span span")?.textContent ?? ""),
   );
   await page.keyboard.press("Escape");
   await expect(items).toHaveCount(0);
@@ -244,7 +246,8 @@ test("the first screen never waits for the large workspace", async ({
     if (await page.getByRole("menu").isVisible())
       await page.keyboard.press("Escape");
     await switcher.click();
-    await expect(studio).toContainText("40 projects", { timeout: 1000 });
+    // one of the forty seeded projects starts in Trash, so thirty-nine are active
+    await expect(studio).toContainText("39 projects", { timeout: 1000 });
     await expect(studio).not.toContainText("getting ready");
   }).toPass({ timeout: 30_000 });
   await page.keyboard.press("Escape");

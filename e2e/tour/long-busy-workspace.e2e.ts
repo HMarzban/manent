@@ -43,7 +43,11 @@ tourScenario("long-busy-workspace", async ({ page, scenario, step }) => {
   const [, studio = ""] = scenario.evidence;
   await (await step(0)).click();
   await expectEvidence([page], scenario);
+  // close the modal dropdown before clicking the Tour panel for step 1, then reopen it to choose the studio
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
   const switcher = await step(1);
+  await switcher.click();
   await page.getByRole("menuitem").filter({ hasText: studio }).click();
   await expect(switcher).toContainText(studio);
 });

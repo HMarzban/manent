@@ -54,9 +54,15 @@ const keyTarget = (
   rowHeight: RowHeight,
 ): number | null => {
   const step = STEPS[event.key];
-  if (step === undefined || count === 0 || !(event.target instanceof Element))
+  if (
+    step === undefined ||
+    count === 0 ||
+    !(event.target instanceof Element) ||
+    !event.currentTarget.contains(event.target)
+  )
     return null;
   const item = itemOf(event.target);
+  if (item === null && event.target !== event.currentTarget) return null;
   const from = indexOf(item) ?? -1;
   const page = Math.max(
     1,
@@ -103,7 +109,12 @@ interface TabStop {
 }
 
 // the row focused last is the stop; when it is not drawn, the current row is, else the first activatable one
-function useTabStop(listRef: RefObject<HTMLElement | null>): TabStop {
+function useTabStop(
+  listRef: RefObject<HTMLElement | null>,
+  count: number,
+  drawnKey: string,
+  renderRow: (index: number) => ReactNode,
+): TabStop {
   const [stop, setStop] = useState<number | null>(null);
   useLayoutEffect(() => {
     const list = listRef.current;
@@ -114,7 +125,8 @@ function useTabStop(listRef: RefObject<HTMLElement | null>): TabStop {
       list.querySelector(".mn-row[tabindex]");
     const index = indexOf(itemOf(row));
     if (index !== null) setStop(index);
-  });
+    else if (stop !== null) setStop(null);
+  }, [listRef, stop, count, drawnKey, renderRow]);
   return {
     stop,
     onFocus(event) {
@@ -181,7 +193,6 @@ export function VirtualRows({
 }: VirtualRowsProps): ReactNode {
   const listRef = useRef<HTMLDivElement>(null);
   const focusLater = useFocusLater(listRef);
-  const { stop, onFocus } = useTabStop(listRef);
   const virtual = count > PLAIN_LIMIT;
   const virtualizer = useVirtualizer({
     count,
@@ -191,6 +202,12 @@ export function VirtualRows({
     measureElement: (element) => sizeOf(element, rowHeight),
     ...(rangeExtractor === undefined ? {} : { rangeExtractor }),
   });
+  const virtualItems = virtual ? virtualizer.getVirtualItems() : null;
+  const drawnKey =
+    virtualItems === null
+      ? `plain:${count}`
+      : `v:${virtualItems.map((item) => item.index).join(",")}`;
+  const { stop, onFocus } = useTabStop(listRef, count, drawnKey, renderRow);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     const next = keyTarget(event, count, rowHeight);
@@ -225,13 +242,11 @@ export function VirtualRows({
       onKeyDown={onKeyDown}
       onFocus={onFocus}
     >
-      {virtual ? (
+      {virtualItems !== null ? (
         <div
           style={{ position: "relative", height: virtualizer.getTotalSize() }}
         >
-          {virtualizer
-            .getVirtualItems()
-            .map((item) => listItem(item.index, item.start))}
+          {virtualItems.map((item) => listItem(item.index, item.start))}
         </div>
       ) : (
         Array.from({ length: count }, (_, index) => listItem(index, null))

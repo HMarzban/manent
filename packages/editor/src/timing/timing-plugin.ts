@@ -1,11 +1,11 @@
 // Live script timing plugin: incremental per-block totals, per-frame publishing on change, and unread T= underlines.
 import type { BracketTime, SlugTime, TimeTotal } from "@manent/pagination";
 import { Plugin, PluginKey } from "prosemirror-state";
-import type { EditorState, PluginView } from "prosemirror-state";
+import type { EditorState, PluginView, Transaction } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import type { Frames } from "../script-editor/ports.ts";
 import type { UnreadTimeWords } from "./decorations.ts";
-import { initialTiming, updateTiming } from "./model.ts";
+import { disabledTiming, initialTiming, updateTiming } from "./model.ts";
 import type { TimingState } from "./model.ts";
 import { combineSections, isSameTotal } from "./sections.ts";
 import type { TimingUnread } from "./sections.ts";
@@ -27,7 +27,15 @@ export interface TimingSink {
   publish(facts: TimingFacts): void;
 }
 
-const timingKey = new PluginKey<TimingState>("timing");
+export const timingKey: PluginKey<TimingState> = new PluginKey("timing");
+
+/** Turns live script timing on or off for the editor without reconfiguring its plugins. */
+export function setTimingEnabled(
+  tr: Transaction,
+  enabled: boolean,
+): Transaction {
+  return tr.setMeta(timingKey, enabled);
+}
 
 const isSameSelection = (a: TimeTotal | null, b: TimeTotal | null): boolean => {
   if (a === b) return true;
@@ -115,7 +123,7 @@ function timingView(
   const publish = (): void => {
     cancelFrame = null;
     const timing = timingKey.getState(view.state);
-    if (timing === undefined) return;
+    if (timing === undefined || !timing.enabled) return;
     if (cachedParts === null || cachedVersion !== timing.version) {
       cachedParts = combineSections(timing.sections);
       cachedVersion = timing.version;
@@ -135,11 +143,21 @@ function timingView(
     cancelFrame ??= frames.request(publish);
   };
 
-  request();
+  if (timingKey.getState(view.state)?.enabled === true) request();
 
   return {
     update(_view, prev: EditorState) {
       const nextTiming = timingKey.getState(view.state);
+      if (nextTiming === undefined || !nextTiming.enabled) {
+        if (cancelFrame !== null) {
+          cancelFrame();
+          cancelFrame = null;
+        }
+        lastPublished = null;
+        cachedParts = null;
+        cachedVersion = -1;
+        return;
+      }
       const prevTiming = timingKey.getState(prev);
       const selectionChanged =
         !view.state.selection.eq(prev.selection) &&
@@ -147,7 +165,9 @@ function timingView(
       const selectedDocChanged =
         view.state.doc !== prev.doc && !view.state.selection.empty;
       if (
-        nextTiming?.version !== prevTiming?.version ||
+        prevTiming === undefined ||
+        !prevTiming.enabled ||
+        nextTiming.version !== prevTiming.version ||
         selectionChanged ||
         selectedDocChanged
       )
@@ -164,18 +184,38 @@ function timingView(
  * Keeps a script's timing live without walking the document after start: recomputes only the blocks a transaction
  * changed (local or remote), draws a dotted `.mn-timing-unread` underline with `words.unreadTime` over every `T=`
  * form that sets no time, and publishes `TimingFacts` to `sink` at most once per frame when a value changed.
+ * When `enabled` is false, state updates and view notifications short-circuit in O(1) with no decorations until
+ * turned on via `setTimingEnabled`.
  */
 export function timingPlugin(options: {
   sink: TimingSink;
   words: { unreadTime: UnreadTimeWords };
   frames?: Frames;
+  enabled?: boolean;
 }): Plugin {
   const { sink, words } = options;
+  const initialEnabled = options.enabled ?? true;
   return new Plugin<TimingState>({
     key: timingKey,
     state: {
-      init: (_config, state) => initialTiming(state.doc, words.unreadTime),
-      apply: (tr, prev) => updateTiming(prev, tr, words.unreadTime),
+      init: (_config, state) =>
+        initialEnabled
+          ? initialTiming(state.doc, words.unreadTime)
+          : disabledTiming(state.doc),
+      apply: (tr, prev, _old, state) => {
+        const toggle: boolean | undefined = tr.getMeta(timingKey);
+        if (toggle !== undefined) {
+          if (toggle === prev.enabled)
+            return prev.enabled
+              ? updateTiming(prev, tr, words.unreadTime)
+              : prev;
+          return toggle
+            ? initialTiming(state.doc, words.unreadTime, prev.version + 1)
+            : disabledTiming(state.doc, prev.version + 1);
+        }
+        if (!prev.enabled) return prev;
+        return updateTiming(prev, tr, words.unreadTime);
+      },
     },
     props: {
       decorations: (state) => timingKey.getState(state)?.decorations,

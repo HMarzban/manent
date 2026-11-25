@@ -1,4 +1,4 @@
-# 0068. Animation pickup lines export dialogue changed since the newest Record draft as CSV
+# 0069. Animation pickup lines export dialogue changed since the newest Record draft as CSV
 
 - Date: 2026-11-25
 - Status: Accepted

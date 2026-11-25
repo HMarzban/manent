@@ -2,6 +2,7 @@
 import {
   excludeFromTiming,
   includeInTiming,
+  setTimingEnabled,
   timingPlugin,
 } from "@manent/editor";
 import type { Plugin, TimingFacts } from "@manent/editor";
@@ -19,16 +20,32 @@ export function timingEditorPlugin(context: EditorPluginContext): Plugin {
   const script = services.openScriptStore(docId);
   const kind = services.library.documentKind(docId);
   let latest: TimingFacts | null = null;
-  const emit = (): void =>
-    publishTimingFacts(
-      docId,
-      script.get("script.format") === "variety" ? latest : null,
+  const initialVariety = script.get("script.format") === "variety";
+  let enabledInView = initialVariety;
+
+  const syncEnabled = (): void => {
+    const isVariety = script.get("script.format") === "variety";
+    if (!isVariety) {
+      latest = null;
+      publishTimingFacts(docId, null);
+    } else if (latest !== null) {
+      publishTimingFacts(docId, latest);
+    }
+    const view = liveEditor(docId)?.view;
+    if (view === undefined || view.isDestroyed) return;
+    if (enabledInView === isVariety) return;
+    enabledInView = isVariety;
+    view.dispatch(
+      setTimingEnabled(view.state.tr, isVariety).setMeta("addToHistory", false),
     );
-  const stopFormat = script.subscribe("script.format", emit);
+  };
+
+  const stopFormat = script.subscribe("script.format", syncEnabled);
   let seenLive = false;
   const stopLive = subscribeLiveEditors(() => {
     if (liveEditor(docId) !== null) {
       seenLive = true;
+      syncEnabled();
       return;
     }
     if (seenLive) cleanup();
@@ -40,11 +57,14 @@ export function timingEditorPlugin(context: EditorPluginContext): Plugin {
     publishTimingFacts(docId, null);
   };
   activeCleanup.set(docId, cleanup);
+  if (!initialVariety) publishTimingFacts(docId, null);
   return timingPlugin({
+    enabled: initialVariety,
     sink: {
       publish(facts) {
         latest = facts;
-        emit();
+        if (script.get("script.format") === "variety")
+          publishTimingFacts(docId, facts);
       },
     },
     words: {

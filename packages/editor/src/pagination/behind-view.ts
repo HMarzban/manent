@@ -65,8 +65,38 @@ export function behindDrawer(
   const { defer, whenIdle, own } = options;
   let asking = false;
   let idling = false;
-  const isQuiet = () => !view.isDestroyed && !view.composing && !own().frozen;
-  const shownNow = () => shownBlocks(view, options.scroller(), own());
+  let destroyed = false;
+  let frameId: number | null = null;
+  let scrollTarget: EventTarget | null = null;
+  let lastSectionCount = own().index.sectionStart.length;
+  const doc = view.dom.ownerDocument;
+  const win = doc.defaultView;
+  const isQuiet = () =>
+    !destroyed && !view.isDestroyed && !view.composing && !own().frozen;
+  // a section left behind that is shown is drawn on the next frame; anything else waits until the page is idle
+  const ask = () => {
+    if (asking || destroyed) return;
+    asking = true;
+    if (win !== null && typeof win.requestAnimationFrame === "function")
+      frameId = win.requestAnimationFrame(check);
+    else defer(check);
+  };
+  const bindScroll = (): Element => {
+    const scroller = options.scroller();
+    if (!destroyed) {
+      const target: EventTarget =
+        scroller === doc.documentElement || scroller === doc.body
+          ? (win ?? doc)
+          : scroller;
+      if (target !== scrollTarget) {
+        scrollTarget?.removeEventListener("scroll", ask);
+        scrollTarget = target;
+        scrollTarget.addEventListener("scroll", ask, { passive: true });
+      }
+    }
+    return scroller;
+  };
+  const shownNow = () => shownBlocks(view, bindScroll(), own());
   // while idle: says which blocks are shown when that changed, and asks for the next sections left behind
   const whenIdleAsk = () => {
     if (idling || whenIdle === undefined) return;
@@ -80,27 +110,40 @@ export function behindDrawer(
         view.dispatch(drawRequest(view.state.tr, { shown, idle }));
     });
   };
-  // a section left behind that is shown is drawn at once; anything else waits until the page is idle
-  const ask = () => {
-    if (asking) return;
-    asking = true;
-    defer(() => {
-      asking = false;
-      if (!isQuiet()) return;
-      const shown = shownNow();
-      if (own().behind.some((s) => overlapRanges([s], shown).length > 0))
-        view.dispatch(drawRequest(view.state.tr, { shown, idle: [] }));
-      else if (own().behind.length > 0 || !isSameRanges(shown, own().shown))
-        whenIdleAsk();
-    });
+  const check = () => {
+    asking = false;
+    frameId = null;
+    if (!isQuiet()) return;
+    const state = own();
+    lastSectionCount = state.index.sectionStart.length;
+    const shown = shownNow();
+    if (state.behind.some((s) => overlapRanges([s], shown).length > 0))
+      view.dispatch(drawRequest(view.state.tr, { shown, idle: [] }));
+    else if (state.behind.length > 0 || !isSameRanges(shown, state.shown))
+      whenIdleAsk();
   };
-  const doc = view.dom.ownerDocument;
-  // a scroll of any element, heard before the scroller's own listeners: the scroller is whatever holds the page
-  doc.addEventListener("scroll", ask, { capture: true, passive: true });
+  if (view.dom.isConnected) bindScroll();
   return {
-    update: ask,
+    update() {
+      if (view.dom.isConnected) bindScroll();
+      const state = own();
+      if (
+        state.behind.length === 0 &&
+        state.shown.length > 0 &&
+        state.index.sectionStart.length === lastSectionCount
+      )
+        return;
+      ask();
+    },
     destroy() {
-      doc.removeEventListener("scroll", ask, { capture: true });
+      destroyed = true;
+      scrollTarget?.removeEventListener("scroll", ask);
+      scrollTarget = null;
+      if (frameId !== null) {
+        win?.cancelAnimationFrame(frameId);
+        frameId = null;
+      }
+      asking = false;
     },
   };
 }

@@ -10,7 +10,33 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "./components/stock/shadcn.css";
-@import "@fontsource-variable/inter";
+
+/* Inter Variable: Latin and Latin-ext subsets only, extracted to external .woff2 files by the web build. */
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../node_modules/@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2")
+    format("woff2-variations");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2")
+    format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
 
 /* A theme is a set of token values, never a second set of classes. The dark:
    variant is therefore made inert: every component has one class list, and
@@ -42,129 +68,129 @@ html[data-white-page] .mn-pages {
    -------------------------------------------------------------------------- */
 :root {
   /* warm neutrals */
-  --p-warm-0: #FFFFFF;
-  --p-warm-25: #FDFCFA;
-  --p-warm-50: #F6F4F0;
-  --p-warm-100: #EFECE6;
-  --p-warm-150: #E9E6E0;
-  --p-warm-200: #E1DDD5;
-  --p-warm-300: #D8D3CA;
-  --p-warm-350: #B8B2A7;
-  --p-warm-400: #A9A49B;
+  --p-warm-0: #ffffff;
+  --p-warm-25: #fdfcfa;
+  --p-warm-50: #f6f4f0;
+  --p-warm-100: #efece6;
+  --p-warm-150: #e9e6e0;
+  --p-warm-200: #e1ddd5;
+  --p-warm-300: #d8d3ca;
+  --p-warm-350: #b8b2a7;
+  --p-warm-400: #a9a49b;
   --p-warm-500: #878178;
-  --p-warm-550: #7D7870;
-  --p-warm-600: #6F6A62;
-  --p-warm-650: #5A564F;
-  --p-warm-700: #4A4640;
-  --p-warm-750: #423F3A;
-  --p-warm-800: #302E2B;
-  --p-warm-825: #2A2826;
+  --p-warm-550: #7d7870;
+  --p-warm-600: #6f6a62;
+  --p-warm-650: #5a564f;
+  --p-warm-700: #4a4640;
+  --p-warm-750: #423f3a;
+  --p-warm-800: #302e2b;
+  --p-warm-825: #2a2826;
   --p-warm-850: #272523;
   --p-warm-875: #232220;
-  --p-warm-900: #1F1D1A;
-  --p-warm-925: #1A1918;
+  --p-warm-900: #1f1d1a;
+  --p-warm-925: #1a1918;
   --p-warm-950: #121211;
-  --p-warm-1000: #0A0A09;
-  --p-ink: #1A1A1A;
+  --p-warm-1000: #0a0a09;
+  --p-ink: #1a1a1a;
   --p-black: #000000;
 
   /* blue — the one accent; reserved for "you" and for focus */
-  --p-blue-50: #E2E9F8;
-  --p-blue-200: #B7CBFF;
-  --p-blue-300: #8DAEFF;
-  --p-blue-600: #2450BE;
-  --p-blue-700: #1A429F;
-  --p-blue-800: #0B2A70;
-  --p-blue-900: #25324F;
-  --p-blue-950: #1B2A52;
+  --p-blue-50: #e2e9f8;
+  --p-blue-200: #b7cbff;
+  --p-blue-300: #8daeff;
+  --p-blue-600: #2450be;
+  --p-blue-700: #1a429f;
+  --p-blue-800: #0b2a70;
+  --p-blue-900: #25324f;
+  --p-blue-950: #1b2a52;
 
   /* status */
-  --p-green-200: #A5E8C2;
-  --p-green-300: #6FCF9A;
-  --p-green-700: #17633D;
-  --p-green-800: #0C4026;
-  --p-amber-200: #F5D27A;
-  --p-amber-300: #E3B341;
+  --p-green-200: #a5e8c2;
+  --p-green-300: #6fcf9a;
+  --p-green-700: #17633d;
+  --p-green-800: #0c4026;
+  --p-amber-200: #f5d27a;
+  --p-amber-300: #e3b341;
   --p-amber-700: #775000;
   --p-amber-800: #523400;
-  --p-red-200: #FFCBC6;
-  --p-red-300: #FFA199;
-  --p-red-700: #A8221B;
-  --p-red-800: #6B0F0A;
+  --p-red-200: #ffcbc6;
+  --p-red-300: #ffa199;
+  --p-red-700: #a8221b;
+  --p-red-800: #6b0f0a;
 
   /* revision papers: tint = the paper as it is, shade = the paper darkened
      to sit under light ink, deep = an edge that reaches 3:1 on light grounds */
-  --p-rev-white-deep: #6B6B6B;
-  --p-rev-blue-tint: #D3E6FA;
-  --p-rev-blue-shade: #1C2F45;
-  --p-rev-blue-deep: #1F63B5;
-  --p-rev-pink-tint: #FAD7E3;
-  --p-rev-pink-shade: #44222F;
-  --p-rev-pink-deep: #B8326F;
-  --p-rev-yellow-tint: #FBF3B9;
-  --p-rev-yellow-shade: #3D3712;
-  --p-rev-yellow-deep: #7A6400;
-  --p-rev-green-tint: #D5EDD0;
-  --p-rev-green-shade: #1F3A22;
-  --p-rev-green-deep: #2C7A31;
-  --p-rev-goldenrod-tint: #F4D88F;
-  --p-rev-goldenrod-shade: #44340F;
-  --p-rev-goldenrod-deep: #8A5D00;
-  --p-rev-buff-tint: #EFDFBD;
-  --p-rev-buff-shade: #3A3220;
-  --p-rev-buff-deep: #7D6328;
-  --p-rev-salmon-tint: #F8C8B4;
-  --p-rev-salmon-shade: #47271B;
-  --p-rev-salmon-deep: #B4492A;
-  --p-rev-cherry-tint: #F3B1B8;
-  --p-rev-cherry-shade: #4A1C24;
-  --p-rev-cherry-deep: #A8243A;
-  --p-rev-tan-tint: #DCC7A6;
-  --p-rev-tan-shade: #372C1B;
-  --p-rev-tan-deep: #775A2B;
+  --p-rev-white-deep: #6b6b6b;
+  --p-rev-blue-tint: #d3e6fa;
+  --p-rev-blue-shade: #1c2f45;
+  --p-rev-blue-deep: #1f63b5;
+  --p-rev-pink-tint: #fad7e3;
+  --p-rev-pink-shade: #44222f;
+  --p-rev-pink-deep: #b8326f;
+  --p-rev-yellow-tint: #fbf3b9;
+  --p-rev-yellow-shade: #3d3712;
+  --p-rev-yellow-deep: #7a6400;
+  --p-rev-green-tint: #d5edd0;
+  --p-rev-green-shade: #1f3a22;
+  --p-rev-green-deep: #2c7a31;
+  --p-rev-goldenrod-tint: #f4d88f;
+  --p-rev-goldenrod-shade: #44340f;
+  --p-rev-goldenrod-deep: #8a5d00;
+  --p-rev-buff-tint: #efdfbd;
+  --p-rev-buff-shade: #3a3220;
+  --p-rev-buff-deep: #7d6328;
+  --p-rev-salmon-tint: #f8c8b4;
+  --p-rev-salmon-shade: #47271b;
+  --p-rev-salmon-deep: #b4492a;
+  --p-rev-cherry-tint: #f3b1b8;
+  --p-rev-cherry-shade: #4a1c24;
+  --p-rev-cherry-deep: #a8243a;
+  --p-rev-tan-tint: #dcc7a6;
+  --p-rev-tan-shade: #372c1b;
+  --p-rev-tan-deep: #775a2b;
 
   /* qualitative: people and charts. No blue: blue is yours. */
-  --p-qual-1-deep: #AD3409;
-  --p-qual-1-bright: #FF9B73; /* Ember */
-  --p-qual-2-deep: #0A6777;
-  --p-qual-2-bright: #5FD0E0; /* Teal */
-  --p-qual-3-deep: #6D38D9;
-  --p-qual-3-bright: #B79CFF; /* Violet */
+  --p-qual-1-deep: #ad3409;
+  --p-qual-1-bright: #ff9b73; /* Ember */
+  --p-qual-2-deep: #0a6777;
+  --p-qual-2-bright: #5fd0e0; /* Teal */
+  --p-qual-3-deep: #6d38d9;
+  --p-qual-3-bright: #b79cff; /* Violet */
   --p-qual-4-deep: #805300;
-  --p-qual-4-bright: #E8B84A; /* Ochre */
-  --p-qual-5-deep: #A81E6B;
-  --p-qual-5-bright: #FF8CC6; /* Magenta */
-  --p-qual-6-deep: #156A33;
-  --p-qual-6-bright: #74D48F; /* Forest */
-  --p-qual-7-deep: #7A2D8F;
-  --p-qual-7-bright: #DB9CEB; /* Plum */
-  --p-qual-8-deep: #B0183D;
-  --p-qual-8-bright: #FF8A9B; /* Crimson */
-  --p-qual-9-deep: #5B6A0B;
-  --p-qual-9-bright: #C5D667; /* Olive */
-  --p-qual-10-deep: #4A5568;
-  --p-qual-10-bright: #A9B4C6; /* Slate */
+  --p-qual-4-bright: #e8b84a; /* Ochre */
+  --p-qual-5-deep: #a81e6b;
+  --p-qual-5-bright: #ff8cc6; /* Magenta */
+  --p-qual-6-deep: #156a33;
+  --p-qual-6-bright: #74d48f; /* Forest */
+  --p-qual-7-deep: #7a2d8f;
+  --p-qual-7-bright: #db9ceb; /* Plum */
+  --p-qual-8-deep: #b0183d;
+  --p-qual-8-bright: #ff8a9b; /* Crimson */
+  --p-qual-9-deep: #5b6a0b;
+  --p-qual-9-bright: #c5d667; /* Olive */
+  --p-qual-10-deep: #4a5568;
+  --p-qual-10-bright: #a9b4c6; /* Slate */
 
   /* the writer's own text colours: deep on light paper, bright on dark */
-  --p-write-red-deep: #8E1B14;
-  --p-write-red-bright: #FF9B93;
-  --p-write-orange-deep: #7A3E00;
-  --p-write-orange-bright: #F2B36B;
-  --p-write-green-deep: #0F5132;
-  --p-write-green-bright: #7FD9A5;
-  --p-write-blue-deep: #1A429F;
-  --p-write-blue-bright: #9DB8FF;
-  --p-write-violet-deep: #5B21A6;
-  --p-write-violet-bright: #C6A8FF;
+  --p-write-red-deep: #8e1b14;
+  --p-write-red-bright: #ff9b93;
+  --p-write-orange-deep: #7a3e00;
+  --p-write-orange-bright: #f2b36b;
+  --p-write-green-deep: #0f5132;
+  --p-write-green-bright: #7fd9a5;
+  --p-write-blue-deep: #1a429f;
+  --p-write-blue-bright: #9db8ff;
+  --p-write-violet-deep: #5b21a6;
+  --p-write-violet-bright: #c6a8ff;
 
   /* demo instrumentation: a hue no surface of the product uses */
-  --p-demo-900: #29242F;
-  --p-demo-800: #3A3342;
-  --p-demo-700: #4B4257;
-  --p-demo-600: #8574B0;
-  --p-demo-300: #C9BEDD;
-  --p-demo-200: #D5C4FF;
-  --p-demo-50: #F3EEFB;
+  --p-demo-900: #29242f;
+  --p-demo-800: #3a3342;
+  --p-demo-700: #4b4257;
+  --p-demo-600: #8574b0;
+  --p-demo-300: #c9bedd;
+  --p-demo-200: #d5c4ff;
+  --p-demo-50: #f3eefb;
 }
 
 /* --------------------------------------------------------------------------
@@ -178,7 +204,7 @@ html[data-white-page] .mn-pages {
   /* a field is a well, darker than the chrome it sits in */
   --bg-well: light-dark(var(--p-warm-100), var(--p-warm-950));
   --bg-subtle: light-dark(rgb(31 29 26 / 0.06), rgb(239 236 230 / 0.06));
-  --bg-control: light-dark(rgb(31 29 26 / 0.10), rgb(239 236 230 / 0.09));
+  --bg-control: light-dark(rgb(31 29 26 / 0.1), rgb(239 236 230 / 0.09));
   --bg-selected: light-dark(var(--p-blue-50), var(--p-blue-900));
   --bg-accent: light-dark(var(--p-blue-600), var(--p-blue-300));
   --bg-scrim: light-dark(rgb(31 29 26 / 0.32), rgb(0 0 0 / 0.5));
@@ -196,11 +222,11 @@ html[data-white-page] .mn-pages {
   --focus: light-dark(var(--p-blue-600), var(--p-blue-300));
   --chip-line: transparent;
   --elev-overlay:
-    0 2px 6px light-dark(rgb(31 29 26 / 0.08), rgb(0 0 0 / 0.40)),
-    0 8px 24px light-dark(rgb(31 29 26 / 0.10), rgb(0 0 0 / 0.40));
+    0 2px 6px light-dark(rgb(31 29 26 / 0.08), rgb(0 0 0 / 0.4)),
+    0 8px 24px light-dark(rgb(31 29 26 / 0.1), rgb(0 0 0 / 0.4));
   --elev-dialog:
-    0 4px 12px light-dark(rgb(31 29 26 / 0.10), rgb(0 0 0 / 0.50)),
-    0 16px 48px light-dark(rgb(31 29 26 / 0.16), rgb(0 0 0 / 0.50));
+    0 4px 12px light-dark(rgb(31 29 26 / 0.1), rgb(0 0 0 / 0.5)),
+    0 16px 48px light-dark(rgb(31 29 26 / 0.16), rgb(0 0 0 / 0.5));
 }
 
 /* Drawn inside the page too, so declared again on the white page's pages
@@ -276,10 +302,7 @@ html[data-white-page] .mn-pages {
     rgb(255 255 255 / 0.7),
     rgb(255 255 255 / 0.12)
   );
-  --avatar-neutral-motif-lo: light-dark(
-    rgb(31 29 26 / 0.07),
-    rgb(0 0 0 / 0.30)
-  );
+  --avatar-neutral-motif-lo: light-dark(rgb(31 29 26 / 0.07), rgb(0 0 0 / 0.3));
 }
 
 /* --------------------------------------------------------------------------
@@ -308,7 +331,7 @@ html[data-white-page] .mn-pages {
   --page-removed-line: light-dark(var(--p-red-700), var(--p-red-300));
   --page-removed-bg: light-dark(rgb(168 34 27 / 0.13), rgb(255 161 153 / 0.14));
   --page-review: light-dark(var(--p-amber-700), var(--p-amber-300));
-  --page-note-bg: light-dark(rgb(74 70 64 / 0.10), rgb(169 164 155 / 0.08));
+  --page-note-bg: light-dark(rgb(74 70 64 / 0.1), rgb(169 164 155 / 0.08));
   --page-skeleton: light-dark(rgb(31 29 26 / 0.11), rgb(239 236 230 / 0.11));
   --page-link: light-dark(var(--p-blue-700), var(--p-blue-300));
   /* a suggestion is drawn as a change, a comment's marker as its line, an
@@ -350,8 +373,8 @@ html[data-white-page] .mn-pages {
   --page-src-comment: var(--page-ink-muted);
   --page-hl-yellow: light-dark(rgb(240 190 0 / 0.38), rgb(227 179 65 / 0.18));
   --page-hl-green: light-dark(rgb(40 170 90 / 0.28), rgb(90 200 130 / 0.18));
-  --page-hl-pink: light-dark(rgb(230 70 140 / 0.24), rgb(240 110 160 / 0.20));
-  --page-hl-orange: light-dark(rgb(240 130 20 / 0.30), rgb(240 150 70 / 0.20));
+  --page-hl-pink: light-dark(rgb(230 70 140 / 0.24), rgb(240 110 160 / 0.2));
+  --page-hl-orange: light-dark(rgb(240 130 20 / 0.3), rgb(240 150 70 / 0.2));
   --page-hl-violet: light-dark(rgb(130 90 230 / 0.24), rgb(150 120 240 / 0.22));
 
   /* the full-page tint, a view option */
@@ -410,7 +433,7 @@ html[data-white-page] .mn-pages {
     --bg-raised: light-dark(var(--p-warm-0), var(--p-warm-950));
     --bg-overlay: light-dark(var(--p-warm-0), var(--p-warm-925));
     --bg-well: light-dark(var(--p-warm-0), var(--p-black));
-    --bg-subtle: light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.10));
+    --bg-subtle: light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.1));
     --bg-control: light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.12));
     --bg-selected: light-dark(var(--p-blue-50), var(--p-blue-950));
     --bg-accent: light-dark(var(--p-blue-800), var(--p-blue-200));
@@ -502,8 +525,8 @@ html[data-white-page] .mn-pages {
   --line-strong: var(--p-demo-600);
   --focus: var(--p-demo-200);
   --chip-line: transparent;
-  --elev-overlay: 0 2px 6px rgb(0 0 0 / 0.40), 0 8px 24px rgb(0 0 0 / 0.40);
-  --elev-dialog: 0 4px 12px rgb(0 0 0 / 0.50), 0 16px 48px rgb(0 0 0 / 0.50);
+  --elev-overlay: 0 2px 6px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.4);
+  --elev-dialog: 0 4px 12px rgb(0 0 0 / 0.5), 0 16px 48px rgb(0 0 0 / 0.5);
 }
 
 /* --------------------------------------------------------------------------
@@ -592,9 +615,9 @@ html[data-white-page] .mn-pages {
   --marker: 1.5rem; /* 24: a gutter marker; never scaled by page zoom */
 
   /* desk and page furniture: px. --desk-pad scales with page zoom;
-     --desk-gutter, which holds the markers beside the sheet, does not. */
+     --desk-gutter, which holds the markers beside the sheet (annotations + people), does not. */
   --desk-pad: 32px;
-  --desk-gutter: 32px;
+  --desk-gutter: 96px;
   --page-zoom: 1;
   --tour-ring: var(--p-demo-600);
 }
@@ -1856,7 +1879,33 @@ button:not(:disabled, [aria-disabled="true"]):active
   color: var(--page-ink-muted);
   font-style: italic;
 }
-.mn-link {
+.mn-note[data-active] {
+  outline: var(--page-line) dashed var(--page-ink-muted);
+  outline-offset: 1px;
+}
+.mn-page-view strong,
+.mn-plain strong {
+  font-weight: 700;
+}
+.mn-page-view em,
+.mn-plain em {
+  font-style: italic;
+}
+.mn-page-view u,
+.mn-plain u {
+  text-decoration-line: underline;
+}
+.mn-page-view s,
+.mn-plain s {
+  text-decoration-line: line-through;
+}
+.mn-page-view .caps,
+.mn-plain .caps {
+  text-transform: uppercase;
+}
+.mn-link,
+.mn-page-view a[href],
+.mn-plain a[href] {
   color: var(--page-link);
   text-decoration: underline solid var(--page-line);
 }
@@ -1866,57 +1915,45 @@ button:not(:disabled, [aria-disabled="true"]):active
 } /* To review: a bar in the left margin */
 
 /* the writer's colours: the document stores the name, never a value */
-[data-ink="red"] {
+:is([data-ink="red"], [data-color="red"]) {
   color: var(--page-text-red);
 }
-[data-ink="orange"] {
+:is([data-ink="orange"], [data-color="orange"]) {
   color: var(--page-text-orange);
 }
-[data-ink="green"] {
+:is([data-ink="green"], [data-color="green"]) {
   color: var(--page-text-green);
 }
-[data-ink="blue"] {
+:is([data-ink="blue"], [data-color="blue"]) {
   color: var(--page-text-blue);
 }
-[data-ink="violet"] {
+:is([data-ink="violet"], [data-color="violet"]) {
   color: var(--page-text-violet);
 }
-[data-hl="yellow"] {
+mark[data-highlight] {
+  color: inherit;
+}
+:is([data-hl="yellow"], [data-highlight="yellow"]) {
   background-color: var(--page-hl-yellow);
 }
-[data-hl="green"] {
+:is([data-hl="green"], [data-highlight="green"]) {
   background-color: var(--page-hl-green);
 }
-[data-hl="pink"] {
+:is([data-hl="pink"], [data-highlight="pink"]) {
   background-color: var(--page-hl-pink);
 }
-[data-hl="orange"] {
+:is([data-hl="orange"], [data-highlight="orange"]) {
   background-color: var(--page-hl-orange);
 }
-[data-hl="violet"] {
+:is([data-hl="violet"], [data-highlight="violet"]) {
   background-color: var(--page-hl-violet);
 }
 
-/* under any fill, text is ink: a fill and a text colour never have to pass together */
-:is(
-    .mn-find,
-    .mn-comment[data-active],
-    .mn-added,
-    .mn-removed,
-    .mn-who-sel,
-    [data-hl]
-  )
-  :is([data-ink], .mn-link, .mn-note),
-:is([data-ink], .mn-link, .mn-note)
-  :is(
-    .mn-find,
-    .mn-comment[data-active],
-    .mn-added,
-    .mn-removed,
-    .mn-who-sel,
-    [data-hl]
-  ),
-[data-hl][data-ink] {
+/* under system fills, text is ink so search, review and presence marks stay clear */
+:is(.mn-find, .mn-comment[data-active], .mn-added, .mn-removed, .mn-who-sel)
+  :is([data-ink], [data-color], .mn-link, .mn-note),
+:is([data-ink], [data-color], .mn-link, .mn-note)
+  :is(.mn-find, .mn-comment[data-active], .mn-added, .mn-removed, .mn-who-sel) {
   color: var(--page-ink);
 }
 
@@ -2005,6 +2042,90 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   outline: 1px solid var(--line-strong);
   outline-offset: -1px;
 }
+/* Annotation gutter markers: distinguish shared Comments (amber cue) from
+   private Writers-only Notes (dashed editorial cue) at a glance. */
+.mn-marker[data-kind] {
+  width: auto;
+  min-width: var(--marker);
+  padding-inline: 0.3125rem;
+  gap: 0.1875rem;
+  font: 500 var(--type-micro) / var(--lh-micro) var(--face-ui);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.mn-marker[data-kind="comment"],
+.mn-marker[data-kind="mixed"] {
+  background-color: var(--bg-raised);
+  border: 1px solid var(--line);
+  color: var(--fg);
+}
+.mn-marker[data-kind="comment"]:hover,
+.mn-marker[data-kind="mixed"]:hover {
+  background-color: var(--bg-subtle);
+  border-color: var(--line-strong);
+}
+.mn-marker[data-kind="comment"] svg,
+.mn-marker[data-kind="mixed"] [data-comment-icon] {
+  color: var(--comment-marker);
+}
+.mn-marker[data-kind="note"] {
+  background-color: var(--bg-subtle);
+  border: 1px dashed var(--line-strong);
+  color: var(--fg-muted);
+}
+.mn-marker[data-kind="note"]:hover {
+  background-color: var(--bg-control);
+  color: var(--fg);
+}
+.mn-marker[data-kind][aria-pressed="true"] {
+  background-color: var(--bg-selected);
+  border-color: var(--line-strong);
+  color: var(--fg);
+  outline: none;
+}
+/* Comment and note popover quote accents */
+.mn-comment-quote {
+  border-inline-start: 2px solid var(--comment-marker);
+}
+.mn-note-quote {
+  border-inline-start: 2px dashed var(--line-strong);
+}
+/* Multi-annotation line switcher strip inside CommentPopover */
+.mn-annotation-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.5rem;
+  padding-inline: 0.5rem;
+  border-radius: var(--shape-control);
+  border: 1px solid var(--line);
+  background-color: var(--bg-raised);
+  color: var(--fg-muted);
+  font: 500 var(--type-micro) / var(--lh-micro) var(--face-ui);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter);
+}
+.mn-annotation-pill:hover {
+  background-color: var(--bg-subtle);
+  border-color: var(--line-strong);
+  color: var(--fg);
+}
+.mn-annotation-pill[data-kind="note"] {
+  border-style: dashed;
+  background-color: var(--bg-subtle);
+}
+.mn-annotation-pill[data-kind="note"]:hover {
+  background-color: var(--bg-control);
+}
+.mn-annotation-pill[aria-current="true"] {
+  background-color: var(--bg-selected);
+  border-color: var(--line-strong);
+  color: var(--fg);
+}
 
 /* The editor's element picker and completion list: the menu surface, drawn by
    the editor beside the caret. The option the keys are on is correction 3's. */
@@ -2065,6 +2186,7 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
 [data-surface="room"]
   :is(
     .mn-comment,
+    .mn-note,
     .mn-added,
     .mn-removed,
     .mn-find,
@@ -2189,6 +2311,37 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   background-color: var(--bg-subtle);
 }
 
+/* Progress bar (Tour and demo reset) and closed-panel floating Tour bar. */
+.mn-progress-track,
+.mn-tour-progress-track {
+  height: 0.375rem;
+  border-radius: 9999px;
+  background-color: var(--bg-subtle);
+  overflow: hidden;
+}
+.mn-progress-fill,
+.mn-tour-progress-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  background-color: var(--bg-accent);
+  transform-origin: left center;
+  transition: transform var(--dur-base) var(--curve-enter);
+}
+[dir="rtl"] .mn-progress-fill,
+[dir="rtl"] .mn-tour-progress-fill {
+  transform-origin: right center;
+}
+.mn-tour-float {
+  box-shadow: var(--elev-overlay);
+}
+@media (prefers-contrast: more) {
+  .mn-progress-track,
+  .mn-tour-progress-track {
+    border: 1px solid var(--line-strong);
+  }
+}
+
 /* --------------------------------------------------------------------------
    MOTION. The system's setting always applies:
    nothing moves or scales, and fades of 100 ms remain.
@@ -2235,7 +2388,10 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   .mn-minimap-tick {
     transform: none !important;
   }
-  .mn-swatch {
+  .mn-annotation-pill,
+  .mn-swatch,
+  .mn-progress-fill,
+  .mn-tour-progress-fill {
     transition: none;
   }
   .mn-swatch-item:hover .mn-swatch {
@@ -2284,7 +2440,8 @@ html[data-switching] *::after {
   [role="option"][data-highlighted],
   :is(#mn-picker, #mn-complete) [aria-selected="true"],
   :is([role^="menuitem"], [data-slot="select-item"]):focus-visible,
-  .mn-card[aria-current]:not([aria-current="false"]) {
+  .mn-card[aria-current]:not([aria-current="false"]),
+  .mn-annotation-pill[aria-current="true"] {
     forced-color-adjust: none;
     background-color: Highlight;
     color: HighlightText;
@@ -2327,6 +2484,23 @@ html[data-switching] *::after {
     box-shadow: none;
     outline: 2px solid Highlight;
     outline-offset: 1px;
+  }
+  .mn-progress-track,
+  .mn-tour-progress-track {
+    forced-color-adjust: none;
+    border: 1px solid CanvasText;
+    background-color: Canvas;
+  }
+  .mn-progress-fill,
+  .mn-tour-progress-fill {
+    forced-color-adjust: none;
+    background-color: Highlight;
+  }
+  .mn-marker[data-kind] {
+    border-color: CanvasText;
+  }
+  .mn-note {
+    outline: 1px dashed CanvasText;
   }
 }
 

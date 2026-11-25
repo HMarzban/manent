@@ -1,5 +1,7 @@
 // Focus as the surface catalogue says: where each way of opening a surface puts it, where closing gives it back, Escape and F6.
+import { COMMANDS } from "@manent/commands";
 import type { CommandContext, CommandId, SurfaceId } from "@manent/commands";
+import { docPath } from "@manent/demo";
 import type { Platform } from "@manent/settings";
 import {
   DOCUMENT_WORDS,
@@ -8,6 +10,7 @@ import {
   REGIONS,
   SEND_WORDS,
   SURFACES,
+  WORKSPACE_WORDS,
 } from "@manent/ui";
 import type { SurfaceEntry } from "@manent/ui";
 import { expect, test } from "@playwright/test";
@@ -54,7 +57,7 @@ interface Place {
   first: string;
   close: string | null;
   name: string | null;
-  ready?: (page: Page) => Promise<void>;
+  ready?: (page: Page) => Promise<(() => Promise<void>) | void>;
   seen?: Partial<CommandContext>;
   choose?: (page: Page) => Promise<void>;
 }
@@ -120,6 +123,85 @@ async function openProjectScript(page: Page): Promise<void> {
   ).toHaveText(OTHER_TITLE);
   await page.keyboard.type("The tide turns.");
   await expect(editorOf(page)).toContainText("The tide turns.");
+}
+
+/** Writes a scene heading and an action line, selecting the last word so selection, scene, script and note openers all apply. */
+async function writeSceneWithSelection(page: Page): Promise<void> {
+  await page.keyboard.type("INT. HARBOUR - NIGHT");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("The tide turns.");
+  await expect(editorOf(page)).toContainText("The tide turns.");
+  for (let step = 0; step < 6; step++)
+    await page.keyboard.press("Shift+ArrowLeft");
+  await expect
+    .poll(() => page.evaluate(() => window.getSelection()?.toString() ?? ""))
+    .toBe("turns.");
+  // let ProseMirror observe the selectionchange before isListed opens the palette
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+}
+
+/** Signs in as Dana on the Library so workspace settings is available in the palette. */
+async function signInForWorkspace(page: Page): Promise<void> {
+  await signedInAs(page, "dana", "/");
+  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+}
+
+/** Has Dana present 204 on a speech while Sam opens 204 so Pitch… opens pitch_field. */
+async function openPitchRoom(page: Page): Promise<() => Promise<void>> {
+  const browser = page.context().browser();
+  if (browser === null) throw new Error("browser is unavailable");
+  const origin = new URL(page.url()).origin;
+  const doc = docPath("medium/harbour-lights/204");
+  const path = `${doc}?panels=closed`;
+  const danaContext = await browser.newContext({ baseURL: origin });
+  const cleanup = async (): Promise<void> => {
+    await danaContext.close().catch(() => undefined);
+  };
+  try {
+    const dana = await danaContext.newPage();
+    await signedInAs(dana, "dana", path);
+    await expect(dana.locator("[data-tour='status:server']")).toHaveText(
+      "Synced",
+    );
+    const present = await danaContext.newPage();
+    await signedInAs(present, "dana", `${doc}/present`);
+    await expect(
+      present.locator("[data-region='page'] .mn-page-view"),
+    ).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await signedInAs(page, "sam", path);
+    await expect(page.locator("[data-tour='status:server']")).toHaveText(
+      "Synced",
+    );
+    await expect(
+      page
+        .locator("[data-region='state_bar']")
+        .getByRole("button", { name: /^Pitch/ }),
+    ).toBeVisible({ timeout: 15_000 });
+    const speech = dana
+      .locator("[data-region='page'] [data-type='dialogue']")
+      .first();
+    await speech.scrollIntoViewIfNeeded();
+    await speech.click({ position: { x: 4, y: 4 } });
+    // wait for Dana's dialogue caret broadcast to arrive in Sam's editor so room.pitch sees a speech
+    await expect(
+      page.locator("[data-type='dialogue'] .mn-cursor-tab").first(),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(editorOf(page)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(editorOf(page)).toBeFocused();
+    return cleanup;
+  } catch (error) {
+    await cleanup();
+    throw error;
+  }
 }
 
 const PLACES: Partial<Record<SurfaceId, Place>> = {
@@ -209,6 +291,53 @@ const PLACES: Partial<Record<SurfaceId, Place>> = {
     name: null,
     ready: openProjectScript,
   },
+  workspace_settings: {
+    at: "/",
+    drawn: `div:has(> header > h1:text-is("${WORKSPACE_WORDS.title}"))`,
+    first: `div:has(> header > h1:text-is("${WORKSPACE_WORDS.title}"))`,
+    close: WORKSPACE_WORDS.backToLibrary,
+    name: null,
+    ready: signInForWorkspace,
+    seen: { signedIn: true },
+  },
+  comment_popover: {
+    at: DOC,
+    drawn: POPUP,
+    first: `${POPUP} textarea`,
+    close: null,
+    name: null,
+    ready: writeSceneWithSelection,
+  },
+  pitch_field: {
+    at: DOC,
+    drawn: "[data-tour='pitch_field']",
+    first: "[data-tour='pitch_field'] input",
+    close: null,
+    name: null,
+    ready: openPitchRoom,
+    seen: { signedIn: true },
+  },
+  cell_popover: {
+    at: DOC,
+    drawn: "[data-surface='cell_popover']",
+    first: "[data-surface='cell_popover']",
+    close: null,
+    name: null,
+  },
+  prompter_files: {
+    at: DOC,
+    drawn: POPUP,
+    first: POPUP,
+    close: null,
+    name: null,
+  },
+  view_menu: {
+    at: DOC,
+    drawn: "[role='menu']",
+    first: "[role='menu']",
+    close: null,
+    name: null,
+  },
 };
 
 // the openers drawn as a control on the page their surface is used from; every other opener has none there
@@ -216,6 +345,7 @@ const CONTROLLED: readonly CommandId[] = [
   "app.palette",
   "demo.tour",
   "library.newProject",
+  "room.pitch",
 ];
 
 /** What the commands see at `place` with focus in the page, written out by hand. */
@@ -240,6 +370,7 @@ function contextAt(place: Place, platform: Platform): CommandContext {
       screen: "library",
       focus: "page",
       panelOpen,
+      ...seen,
     };
   throw new RangeError(
     `the focus tests do not know what the commands see on ${at}`,
@@ -302,10 +433,10 @@ const focusIn = (
       const active = document.activeElement;
       const surface = document.querySelector(drawn);
       const holder = document.querySelector(part);
-      const first = holder?.matches("input")
+      const first = holder?.matches("input, textarea")
         ? holder
         : holder?.querySelector(
-            "a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex='-1']), [contenteditable='true']",
+            "a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1']), [contenteditable='true']",
           );
       return {
         in:
@@ -314,7 +445,9 @@ const focusIn = (
             : active !== null && surface?.contains(active)
               ? "inside"
               : "outside",
-        field: active instanceof HTMLInputElement,
+        field:
+          active instanceof HTMLInputElement ||
+          active instanceof HTMLTextAreaElement,
       };
     },
     { drawn: place.drawn, part: place.first },
@@ -400,10 +533,11 @@ for (const entry of SURFACES.filter((s) => s.id !== "file_picker"))
         const place = placeOf(entry.id, opener);
         const command = commandOf(opener);
         const platform = await platformOf(page);
+        const ctx = contextAt(place, platform);
         test.fixme(
           entry.id === "share_dialog" &&
             command.when !== null &&
-            !command.when(contextAt(place, platform)),
+            !command.when(ctx),
           "Share does nothing yet: the Share dialog is not drawn",
         );
         test.skip(
@@ -416,53 +550,63 @@ for (const entry of SURFACES.filter((s) => s.id !== "file_picker"))
           `${opener} has no control here`,
         );
         await arrive(page, place.at);
-        await place.ready?.(page);
-        const control = page.locator(`[data-tour="${opener}"]:visible`);
-        if (controlled) await expect(control.first()).toBeVisible();
-        else expect(await control.count()).toBe(0);
-        const shown =
-          command.visible === null ||
-          command.visible(contextAt(place, platform));
-        expect(await isListed(page, opener)).toBe(shown);
-        test.skip(!shown, `${opener} is absent on this document`);
-        // the caret is where Escape sends focus from the frame; the Library covers the page, so it has none
-        if (place.at === DOC) await page.keyboard.press("Escape");
-        const caret = await focusedDescription(page);
-        if (by === "control") await control.first().focus();
-        const before = await focusedDescription(page);
-        const scrollY = await page.evaluate(() => window.scrollY);
-        const intent = command.opens?.focus ?? entry.focusOnOpen;
+        const cleanup = await place.ready?.(page);
+        try {
+          const control = page.locator(`[data-tour="${opener}"]:visible`);
+          if (controlled) await expect(control.first()).toBeVisible();
+          else expect(await control.count()).toBe(0);
+          const shown = command.visible === null || command.visible(ctx);
+          const sameLabelVisible =
+            typeof command.label === "string" &&
+            COMMANDS.some(
+              (other) =>
+                other.id !== opener &&
+                other.label === command.label &&
+                (other.visible === null || other.visible(ctx)),
+            );
+          expect(await isListed(page, opener)).toBe(shown || sameLabelVisible);
+          test.skip(!shown, `${opener} is absent on this document`);
+          // the caret is where Escape sends focus from the frame; the Library covers the page, so it has none
+          if (place.at === DOC) await page.keyboard.press("Escape");
+          const caret = await focusedDescription(page);
+          if (by === "control") await control.first().focus();
+          const before = await focusedDescription(page);
+          const scrollY = await page.evaluate(() => window.scrollY);
+          const intent = command.opens?.focus ?? entry.focusOnOpen;
 
-        const ran = (await runs(page)).length;
-        await expect(page.locator(place.drawn)).toHaveCount(0);
-        await openSurface(page, entry, opener, by);
-        await place.choose?.(page);
-        await expect(page.locator(place.drawn)).toHaveCount(1);
-        expect((await runs(page)).slice(ran)).toEqual(
-          by === "palette" ? ["app.palette", opener] : [opener],
-        );
-        await expectOpenFocus(page, intent, place, before);
-        const expectGivenBack = async (): Promise<void> => {
-          await expect
-            .poll(() => focusedDescription(page))
-            .toBe(entry.focusOnClose === "caret" ? caret : before);
-          expect(await page.evaluate(() => window.scrollY)).toBe(scrollY);
-        };
+          const ran = (await runs(page)).length;
+          await expect(page.locator(place.drawn)).toHaveCount(0);
+          await openSurface(page, entry, opener, by);
+          await place.choose?.(page);
+          await expect(page.locator(place.drawn)).toHaveCount(1);
+          expect((await runs(page)).slice(ran)).toEqual(
+            by === "palette" ? ["app.palette", opener] : [opener],
+          );
+          await expectOpenFocus(page, intent, place, before);
+          const expectGivenBack = async (): Promise<void> => {
+            await expect
+              .poll(() => focusedDescription(page))
+              .toBe(entry.focusOnClose === "caret" ? caret : before);
+            expect(await page.evaluate(() => window.scrollY)).toBe(scrollY);
+          };
 
-        if (intent === "stay" && place.name !== null && before === caret)
-          expect(await politeText(page)).toBe(place.name);
-        await page.keyboard.press("Escape");
-        // Escape never closes a panel or leaves a screen: it returns focus to the page from a panel
-        await expect(page.locator(place.drawn)).toHaveCount(
-          entry.kind === "panel" || entry.kind === "screen" ? 1 : 0,
-        );
-        if (entry.kind !== "screen") await expectGivenBack();
-        if (place.close === null) return;
-        const close = page.getByRole("button", { name: place.close });
-        await close.focus();
-        await close.press("Enter");
-        await expect(page.locator(place.drawn)).toHaveCount(0);
-        await expectGivenBack();
+          if (intent === "stay" && place.name !== null && before === caret)
+            expect(await politeText(page)).toBe(place.name);
+          await page.keyboard.press("Escape");
+          // Escape never closes a panel or leaves a screen: it returns focus to the page from a panel
+          await expect(page.locator(place.drawn)).toHaveCount(
+            entry.kind === "panel" || entry.kind === "screen" ? 1 : 0,
+          );
+          if (entry.kind !== "screen") await expectGivenBack();
+          if (place.close === null) return;
+          const close = page.getByRole("button", { name: place.close });
+          await close.focus();
+          await close.press("Enter");
+          await expect(page.locator(place.drawn)).toHaveCount(0);
+          await expectGivenBack();
+        } finally {
+          await cleanup?.();
+        }
       });
     }
 

@@ -168,7 +168,9 @@ function feedView(
   publish();
   return {
     update() {
-      if (timer === null) wait();
+      if (timer !== null) return;
+      if (rows === null && productionOf(view.state) === null) return;
+      wait();
     },
     destroy() {
       if (timer !== null) clearTimeout(timer);

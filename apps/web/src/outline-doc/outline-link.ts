@@ -4,6 +4,8 @@ import type { CrdtDoc, EpisodeEntry } from "@manent/crdt";
 import type { DocHandle } from "@manent/sync-client";
 import { indexDocId } from "@manent/sync-protocol";
 import type { PersonServices, ProjectKind } from "../services/ports.ts";
+import { storageOfServices } from "../services/api-cache.ts";
+import { createDeviceMemory } from "../services/sync/device-memory.ts";
 import { readWorkspace } from "../services/sync/index-entries.ts";
 import { liveMap } from "../services/sync/private-index.ts";
 
@@ -132,29 +134,32 @@ function findProjectOutlineId(
   return null;
 }
 
-async function workspaceCandidates(
+function initialWorkspaceCandidates(
   services: PersonServices,
   given?: readonly string[],
-): Promise<readonly string[]> {
+): readonly string[] {
   if (given !== undefined && given.length > 0) {
     return [...new Set([...given, services.userId])];
   }
-  const me = await services.api.me();
-  const listed = me.ok ? me.me.workspaces.map((w) => w.id) : [];
-  return [...new Set([...listed, services.userId])];
+  const cached = createDeviceMemory({
+    local: storageOfServices(services),
+    session: null,
+  }).workspaces(services.userId);
+  if (cached !== null && cached.length > 0) {
+    return [...new Set([...cached.map((w) => w.id), services.userId])];
+  }
+  return [];
 }
 
-/**
- * Finds the workspace and project whose index lists `scriptDocId`. Shared workspace index handles stay open so other
- * holders in the tab keep their sessions.
- */
-export async function findScriptPlace(
+async function searchWorkspaces(
   services: PersonServices,
   scriptDocId: string,
-  givenWorkspaces?: readonly string[],
+  candidates: readonly string[],
+  searched: Set<string>,
 ): Promise<ScriptPlace | null> {
-  const candidates = await workspaceCandidates(services, givenWorkspaces);
   for (const workspaceId of candidates) {
+    if (searched.has(workspaceId)) continue;
+    searched.add(workspaceId);
     let handle: DocHandle;
     try {
       handle = await services.openHandle(indexDocId("workspace", workspaceId));
@@ -175,8 +180,29 @@ export async function findScriptPlace(
         workspaceHandle: handle,
       };
     }
+    void handle.close();
   }
   return null;
+}
+
+/**
+ * Finds the workspace and project whose index lists `scriptDocId`. Searches cached workspaces first and falls back to
+ * `services.api.me()` when not found. Closes every non-matching handle opened while searching; the caller is
+ * responsible for closing `place.workspaceHandle` when done.
+ */
+export async function findScriptPlace(
+  services: PersonServices,
+  scriptDocId: string,
+  givenWorkspaces?: readonly string[],
+): Promise<ScriptPlace | null> {
+  const searched = new Set<string>();
+  const initial = initialWorkspaceCandidates(services, givenWorkspaces);
+  const hit = await searchWorkspaces(services, scriptDocId, initial, searched);
+  if (hit !== null) return hit;
+  const me = await services.api.me();
+  const listed = me.ok ? me.me.workspaces.map((w) => w.id) : [];
+  const fresh = [...new Set([...listed, services.userId])];
+  return searchWorkspaces(services, scriptDocId, fresh, searched);
 }
 
 export async function resolveExistingOutline(
@@ -185,12 +211,17 @@ export async function resolveExistingOutline(
   scriptDocId: string,
 ): Promise<{ outlineDocId: string | null; hasEpisode: boolean }> {
   if (place.projectKind === "series") {
-    const handle = await services.projectIndex(place.projectId).handle();
-    const episode = findEpisodeForScript(handle.doc(), scriptDocId);
-    return {
-      outlineDocId: episode?.docIds.outline ?? null,
-      hasEpisode: episode !== null,
-    };
+    const projectIndex = services.projectIndex(place.projectId);
+    try {
+      const handle = await projectIndex.handle();
+      const episode = findEpisodeForScript(handle.doc(), scriptDocId);
+      return {
+        outlineDocId: episode?.docIds.outline ?? null,
+        hasEpisode: episode !== null,
+      };
+    } finally {
+      void projectIndex.close();
+    }
   }
   if (place.projectKind === "film" || place.projectKind === "stage_play") {
     return {
@@ -213,23 +244,28 @@ export async function resolveOutlineDocId(
   if (cached !== undefined && cached !== null) return cached;
   const place = await findScriptPlace(services, scriptDocId);
   if (place === null) return null;
-  const resolved = await resolveExistingOutline(services, place, scriptDocId);
-  if (resolved.outlineDocId !== null)
-    scriptByOutline.set(resolved.outlineDocId, scriptDocId);
-  return resolved.outlineDocId;
+  try {
+    const resolved = await resolveExistingOutline(services, place, scriptDocId);
+    if (resolved.outlineDocId !== null)
+      scriptByOutline.set(resolved.outlineDocId, scriptDocId);
+    return resolved.outlineDocId;
+  } finally {
+    void place.workspaceHandle.close();
+  }
 }
 
 /**
  * Watches the workspace and project index for `scriptDocId`'s outline link and write permission, updating the link
- * cache and calling `onChange` whenever the outline link changes. Returns a disposer.
+ * cache and calling `onChange` whenever the outline link changes. Returns a disposer that closes all opened handles.
  */
 export function watchOutlineLink(options: {
   services: PersonServices;
   scriptDocId: string;
   canWrite: () => boolean;
   onChange: (state: OutlineLinkState) => void;
+  onRecheck?: (recheck: () => void) => void;
 }): () => void {
-  const { services, scriptDocId, canWrite, onChange } = options;
+  const { services, scriptDocId, canWrite, onChange, onRecheck } = options;
   let stopped = false;
   const stops: (() => void)[] = [];
 
@@ -241,15 +277,24 @@ export function watchOutlineLink(options: {
 
   void (async () => {
     const place = await findScriptPlace(services, scriptDocId);
-    if (stopped || place === null || !supportsOutline(place.projectKind)) {
+    if (place === null) {
       publish(DEFAULT_LINK);
       return;
     }
+    if (stopped || !supportsOutline(place.projectKind)) {
+      void place.workspaceHandle.close();
+      publish(DEFAULT_LINK);
+      return;
+    }
+    stops.push(() => void place.workspaceHandle.close());
     if (place.projectKind === "series") {
-      const projectHandle = await services
-        .projectIndex(place.projectId)
-        .handle();
-      if (stopped) return;
+      const projectIndex = services.projectIndex(place.projectId);
+      const projectHandle = await projectIndex.handle();
+      if (stopped) {
+        void projectIndex.close();
+        return;
+      }
+      stops.push(() => void projectIndex.close());
       const read = (): void => {
         const ep = findEpisodeForScript(projectHandle.doc(), scriptDocId);
         const hasEpisode = ep !== null;
@@ -261,6 +306,7 @@ export function watchOutlineLink(options: {
             hasEpisode && canWrite() && isHandleWritable(projectHandle),
         });
       };
+      onRecheck?.(read);
       read();
       stops.push(liveMap(projectHandle, "episodes").subscribe(read));
       stops.push(projectHandle.status.subscribe(read));
@@ -282,6 +328,7 @@ export function watchOutlineLink(options: {
           canCreate: canWrite() && isHandleWritable(place.workspaceHandle),
         });
       };
+      onRecheck?.(read);
       read();
       stops.push(liveMap(place.workspaceHandle, "documents").subscribe(read));
       stops.push(place.workspaceHandle.status.subscribe(read));

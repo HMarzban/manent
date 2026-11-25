@@ -285,8 +285,9 @@ export function PrompterReading(props: PrompterReadingProps): ReactNode {
   return (
     <main
       ref={scrollRef}
+      tabIndex={0}
       aria-label={PROMPTER_WINDOW_WORDS.readingAreaLabel}
-      className="min-h-0 flex-1 overflow-y-auto bg-desk"
+      className="min-h-0 flex-1 overflow-y-auto bg-desk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-solid"
     >
       <SurfaceState surface="present" state={surfaceState} render={renderers} />
     </main>

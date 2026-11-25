@@ -14,15 +14,30 @@ export const OFFLINE_SIGN_OUT: TourScenario = {
   },
   steps: [
     {
-      text: "Choose Offline in Connection and type three lines.",
+      text: "Choose Offline in Connection, then type three lines.",
       highlight: "demo:connection",
     },
-    { text: "Switch person to Dana.", highlight: "demo:person" },
+    {
+      text: "Open Commands and choose Sign out.",
+      highlight: "app.signOut",
+    },
+    {
+      text: "Read what it says, then choose Sign out and choose Sam again.",
+      highlight: "workspace:sign_out",
+    },
+    {
+      text: "Choose Online in Connection.",
+      highlight: "demo:connection",
+    },
   ],
   check:
-    'Manent asks "Sign out with 3 changes waiting?", with Export a copy, Cancel and Sign out.',
-  evidence: ["Sign out with 3 changes waiting?"],
-  fresh: false,
-  waitsFor: "sign_out_guard",
+    'The dialog reads "Sign out with 3 changes waiting?" with "Export a copy"; after choosing Sam again and going online the status reads "Saved · Synced".',
+  evidence: [
+    "Sign out with 3 changes waiting?",
+    "Export a copy",
+    "Saved · Synced",
+  ],
+  fresh: true,
+  waitsFor: null,
   hidden: null,
 };

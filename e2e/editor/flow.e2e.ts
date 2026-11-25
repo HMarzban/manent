@@ -102,10 +102,37 @@ async function pressInEach(
   await openScript(page, format, corpusDoc(corpus));
   const ids = (await blocks(page)).map((block) => block.id);
   const picker: string[] = [];
+  const expectedOffset = hasText(key) ? TEXT.length : 0;
   for (let at = ids.length - 1; at >= 0; at--) {
-    await caretAt(page, ids[at]!, "end");
+    const id = ids[at]!;
+    await caretAt(page, id, "end");
+    // ProseMirror reads the DOM selection asynchronously; wait for it to land in this block before pressing the key
+    await expect
+      .poll(async () => {
+        const place: unknown = await editorHook(page, "place");
+        const head: unknown =
+          typeof place === "object" && place !== null
+            ? Reflect.get(place, "head")
+            : null;
+        return typeof head === "object" && head !== null
+          ? [Reflect.get(head, "blockId"), Reflect.get(head, "offset")]
+          : null;
+      })
+      .toEqual([id, expectedOffset]);
+    // moving the selection into a cue or heading can open suggestions after caretAt settled; dismiss them first
+    await settled(page);
+    if ((await page.locator(EDITABLE).getAttribute("aria-controls")) !== null) {
+      await page.keyboard.press("Escape");
+      await expect(page.locator(EDITABLE)).not.toHaveAttribute(
+        "aria-controls",
+        /.+/,
+      );
+    }
     await page.keyboard.press(PRESSED[key]);
-    if (afterKey(tables, format, elements[at]!, key) !== "picker") continue;
+    if (afterKey(tables, format, elements[at]!, key) !== "picker") {
+      await settled(page);
+      continue;
+    }
     await expect(page.locator(PICKER)).toBeVisible();
     picker.push(elements[at]!.type);
     await page.keyboard.press("Escape");
@@ -384,7 +411,7 @@ test("Mod+D pairs two speeches across a section boundary, drawn stacked while th
 
 /** Chooses `label` in View ▾ → Zoom ("50 %"), from the keyboard, which a pointer resting over a moving menu cannot upset. */
 async function zoomTo(page: Page, label: string): Promise<void> {
-  await page.getByRole("button", { name: "View" }).click();
+  await page.getByRole("button", { name: "View", exact: true }).click();
   await page
     .getByRole("menuitem", { name: "Zoom", exact: true })
     .press("ArrowRight");

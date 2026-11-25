@@ -1,4 +1,4 @@
-# 0069. Character, scene and location reports export in both CSV and PDF
+# 0070. Character, scene and location reports export in both CSV and PDF
 
 - Date: 2026-11-25
 - Status: Accepted

@@ -6,6 +6,7 @@ import { LONG_BUSY_WORKSPACE } from "./long-busy-workspace.ts";
 import { LONG_FIND } from "./long-find.ts";
 import { LONG_GO_TO } from "./long-go-to.ts";
 import { LONG_SEARCH } from "./long-search.ts";
+import { LONG_FOLDERS_TRASH } from "./long-folders-trash.ts";
 
 export const LONG: readonly TourScenario[] = [
   LONG_TYPE_2000,
@@ -14,4 +15,5 @@ export const LONG: readonly TourScenario[] = [
   LONG_FIND,
   LONG_GO_TO,
   LONG_SEARCH,
+  LONG_FOLDERS_TRASH,
 ];

@@ -1,4 +1,4 @@
-# 0059. Full-text search uses a derived SQLite index behind a port
+# 0060. Full-text search uses a derived SQLite index behind a port
 
 - Date: 2026-11-25
 - Status: Accepted

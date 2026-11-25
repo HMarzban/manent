@@ -188,20 +188,19 @@ class DocSubscription implements Subscription {
     return this.options.journal.outbox(afterSeq);
   }
 
-  /**
-   * During a move, or a recovery a move redirected, the generation changes
-   * with the new document only.
-   */
+  /** During a move, or a recovery a move redirected, the generation changes with the new document only. */
   subscribed(m: Extract<DocumentMessage, { type: "SUBSCRIBED" }>): void {
     this.headSeq = m.headSeq;
-    if (this.move === null && !this.recovery.redirected)
-      this.options.journal.patch({ generation: m.generation });
+    const { journal } = this.options;
+    if (
+      this.move === null &&
+      !this.recovery.redirected &&
+      journal.meta.generation !== m.generation
+    )
+      journal.patch({ generation: m.generation });
   }
 
-  /**
-   * The server's step 2, which also says the document exists there. One that
-   * changes nothing is not stored, so it takes no local sequence.
-   */
+  /** The server's step 2; one that changes nothing is not stored and takes no local sequence. */
   stepTwo(update: Uint8Array): void {
     const { fresh } = this.recovery;
     if (this.move !== null) {
