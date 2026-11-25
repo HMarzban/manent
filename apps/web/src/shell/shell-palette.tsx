@@ -17,6 +17,7 @@ import { createBesideSource, runBesideRow } from "../beside/beside-source.ts";
 import { BESIDE_BODY } from "../beside/open-beside.ts";
 import { livePagination } from "../editor-host/live-editor.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
+import { readPerson } from "../session.ts";
 import {
   FactsContext,
   OutlineContext,
@@ -27,8 +28,8 @@ import {
   usePaletteAsk,
   usePaletteOpen,
 } from "../state/palette.store.ts";
+import { createDocumentSource } from "./palette-documents.ts";
 import {
-  createDocumentSource,
   createPersonSource,
   createPlaceSource,
   runPlaceRow,
@@ -41,22 +42,19 @@ const PLACEHOLDERS: Readonly<Record<PaletteFilter, string>> = Object.freeze({
   beside: BESIDE_WORDS.choose,
 });
 
-/** The workspaces the person's scripts are in: those the server listed for the Library, if it was asked, and the person's own desk. */
-function useWorkspaceIds(userId: string): () => readonly string[] {
+/** The workspaces the person's scripts are in: those the server listed for the Library, if it was asked. */
+function useKnownWorkspaces(userId: string): () => readonly WorkspaceRef[] {
   const queries = useContext(QueryClientContext);
-  return useCallback(() => {
-    const listed = queries?.getQueryData<readonly WorkspaceRef[]>([
-      "me",
-      userId,
-    ]);
-    return [...new Set([...(listed ?? []).map((w) => w.id), userId])];
-  }, [queries, userId]);
+  return useCallback(
+    () => queries?.getQueryData<readonly WorkspaceRef[]>(["me", userId]) ?? [],
+    [queries, userId],
+  );
 }
 
 /**
- * The palette over commands, settings, the open script's places, the person's scripts and the people present; a
- * setting reads the open document's store, so its script settings show. Filtered to Beside, it lists only what can
- * open beside the open script.
+ * The palette over commands, settings, the open script's places, the person's scripts (titles + async body matches)
+ * and the people present; a setting reads the open document's store, so its script settings show. Filtered to Beside,
+ * it lists only what can open beside the open script.
  */
 export function ShellPalette(props: {
   docId: string | null;
@@ -64,15 +62,22 @@ export function ShellPalette(props: {
 }): ReactNode {
   const { docId, close } = props;
   const services = useServices();
-  const { where, dom, frame } = useEnvironment();
+  const { where, dom, frame, online, tabStorage } = useEnvironment();
   const router = useRouter();
   const outline = useContext(OutlineContext);
   const people = useContext(PeopleContext);
   const facts = useContext(FactsContext);
-  const workspaces = useWorkspaceIds(services.userId);
+  const knownWorkspaces = useKnownWorkspaces(services.userId);
+  const workspaceIds = useCallback(
+    () => [
+      ...new Set([...knownWorkspaces().map((w) => w.id), services.userId]),
+    ],
+    [knownWorkspaces, services.userId],
+  );
   const filter = usePaletteOpen();
   const ask = usePaletteAsk();
   const [recent, setRecent] = useState<readonly string[]>([]);
+  const [, setSearchVersion] = useState(0);
   // before the editor's code arrives no editor is open, and there are no pages
   const pagination = () => (docId === null ? null : livePagination(docId));
   const sources = useMemo(() => {
@@ -82,7 +87,7 @@ export function ShellPalette(props: {
           here: () =>
             docId === null
               ? null
-              : { docId, services, workspaceIds: workspaces() },
+              : { docId, services, workspaceIds: workspaceIds() },
         }),
       ];
     const base = {
@@ -112,15 +117,39 @@ export function ShellPalette(props: {
             }),
           ]),
       createDocumentSource({
-        scripts: () =>
-          workspaces().flatMap((w) => library.continueList(w).get()),
-        projects: () => workspaces().flatMap((w) => library.projects(w).get()),
+        userId: services.userId,
+        library,
+        workspaces: knownWorkspaces,
+        currentWorkspaceId: () => {
+          const search = router.state.location.search as Record<
+            string,
+            unknown
+          >;
+          return typeof search.w === "string" && search.w.trim() !== ""
+            ? search.w
+            : null;
+        },
+        online,
+        token: () => readPerson(tabStorage)?.token ?? null,
+        onUpdate: () => setSearchVersion((v) => v + 1),
       }),
       ...(docId === null || people === null
         ? []
         : [createPersonSource({ people: () => people.get() })]),
     ];
-  }, [filter, services, where, docId, outline, people, workspaces]);
+  }, [
+    filter,
+    services,
+    where,
+    docId,
+    outline,
+    people,
+    knownWorkspaces,
+    workspaceIds,
+    router,
+    online,
+    tabStorage,
+  ]);
   const run = (row: PaletteRow): void => {
     if (runBesideRow(row.id)) {
       // what is beside the page is opened to be used, so focus moves into it once it is drawn

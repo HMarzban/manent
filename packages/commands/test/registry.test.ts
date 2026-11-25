@@ -974,6 +974,7 @@ test("the handler table names every command but the generated ones", () => {
     "view.presentOnPrompter": noop,
     "prompter.files": noop,
     "prompter.stopFiles": noop,
+    "library.search": noop,
     "library.newFolder": noop,
     "library.renameFolder": noop,
     "library.moveToFolder": noop,
