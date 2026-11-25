@@ -1,15 +1,22 @@
 // The seed driver's folders and Trash in a workspace.
-import { SeedDriverError } from "@manent/demo";
+import { isSeedClock } from "./driving.ts";
 import type { Driving } from "./driving.ts";
 
-/** Rejects with SeedDriverError "unavailable": no document is put in Trash yet. */
-export function trashDocument(
-  _d: Driving,
-  _userId: string,
+/** Moves `docId` to Trash as `userId` at `at` (epoch ms), through the server's real Trash route. */
+export async function trashDocument(
+  d: Driving,
+  userId: string,
   docId: string,
-  _at: number,
+  at: number,
 ): Promise<void> {
-  return Promise.reject(
-    new SeedDriverError("unavailable", `${docId} cannot be put in Trash`),
-  );
+  if (isSeedClock(d.target.clock)) {
+    d.target.clock.set(at);
+    await d.runDue();
+  }
+  await d.call(userId, {
+    method: "POST",
+    path: "/api/trash/move",
+    body: { docId },
+  });
+  await d.runDue();
 }

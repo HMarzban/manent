@@ -137,7 +137,10 @@ function placeAs(
  */
 export async function adoptStaging(options: AdoptOptions): Promise<void> {
   const { live, stagingDir, dataDir, homes } = options;
-  for (const home of homes)
+  const danaIndex = indexDocId("user", "dana");
+  const danaHome: Home = { kind: "user", id: "dana" };
+  const adoptDana = live.directory.placeOf(danaIndex) === null;
+  for (const home of adoptDana ? [...homes, "user:dana"] : homes)
     for (const name of filesOf(home))
       if (existsSync(join(stagingDir, name)))
         await rename(join(stagingDir, name), join(dataDir, name));
@@ -151,6 +154,9 @@ export async function adoptStaging(options: AdoptOptions): Promise<void> {
         if (docId !== index)
           placeAs(staged.directory, live.directory, docId, home);
     }
+    if (adoptDana && staged.directory.placeOf(danaIndex) !== null)
+      placeAs(staged.directory, live.directory, danaIndex, danaHome);
+    for (const row of staged.trash.listByWorkspace(index)) live.trash.put(row);
     const indexPlace = staged.directory.placeOf(index);
     if (indexPlace !== null)
       placeAs(staged.directory, live.directory, index, indexPlace.home);
