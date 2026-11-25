@@ -11,6 +11,7 @@ export const PREFERENCE_TERMS: readonly Term[] = Object.freeze([
   ...row("formats", ["Project settings"], ["show template", "show style"]),
   ...row("workspaces", ["Workspace settings"], []),
   ...row("workspaces", ["Notifications"], ["alerts"]),
+  ...row("workspaces", ["Webhook", "Slack", "Email"], []),
   ...row("writing", ["Set by you", "Set by Sam"], ["modified", "customised"]),
   ...row("writing", ["Default", "Reset"], ["factory", "revert"]),
   ...row("workspaces", ["Edit", "Update"], []),
