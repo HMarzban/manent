@@ -247,7 +247,7 @@ export const groupHook = (
 
 /** Opens View ▾, clicks its item named `name`, and closes the menu. */
 export async function viewItem(page: Page, name: RegExp): Promise<void> {
-  await page.getByRole("button", { name: "View" }).click();
+  await page.getByRole("button", { name: "View", exact: true }).click();
   await page.getByRole("menuitemcheckbox", { name }).click();
   await page.keyboard.press("Escape");
 }

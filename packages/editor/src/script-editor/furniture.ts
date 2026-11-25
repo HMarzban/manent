@@ -144,6 +144,8 @@ function usesSection(
   return hasSlotKind(header, "section") || hasSlotKind(footer, "section");
 }
 
+const NO_SECTIONS: readonly (string | null)[] = Object.freeze([]);
+
 /** Reads Variety total duration from timingPlugin's incremental state when enabled; null otherwise. */
 function timingPluginDuration(state: EditorState): number | null {
   const timing = timingKey.getState(state);
@@ -241,7 +243,7 @@ export function createFurnitureSync(options: {
     footer: HeaderSlots | null,
     needSections: boolean,
   ): PageFurnitureOptions => {
-    let sections = lastSections;
+    let sections: readonly (string | null)[] = NO_SECTIONS;
     if (needSections) {
       const pagination = paginationKey.getState(state)?.pagination;
       if (pagination !== undefined && pagination !== lastPagination) {

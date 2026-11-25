@@ -25,7 +25,6 @@ import { profileCss, screenPagePx } from "./profile-css.ts";
 /** The class the EditorView's own element carries. */
 export const PAGE_VIEW_CLASS = "mn-page-view";
 
-/** A user agent naming no engine this build knows is read as Chromium. */
 export function detectEngine(userAgent: string): BrowserEngine {
   if (userAgent.includes("Firefox/")) return "firefox";
   const chromium =
@@ -80,24 +79,17 @@ export interface SheetDecor {
 }
 
 export interface PageScaffold {
-  /** `.mn-pages`: the EditorView is mounted here, after the sheets. */
   readonly pages: HTMLElement;
-  /** `.mn-front`, first in `.mn-pages`: where the pages before page 1 are drawn, above page 1. */
   readonly front: HTMLElement;
-  /** The height the front pages take above page 1, gaps included, px at 100 %. */
   setFrontHeight(px: number): void;
   setProfile(profile: PageProfile): void;
-  /** Sizes the scroll area and draws the sheets. */
   setPageCount(count: number): void;
   applyZoom(percent: number): void;
-  /** Room above the first page, px, so that a zoom can keep a line still where the view cannot scroll back. */
   setRoomAbove(px: number): void;
   setFontState(state: "loading" | "ready" | "fallback"): void;
-  /** What a sheet shows of a revision; null: nothing. */
   setSheetDecor(decor: SheetDecor | null): void;
   setFurniture(furniture: PageFurnitureOptions): void;
   setPageLabels(labels: readonly string[]): void;
-  /** `data-tint="on"` on `.mn-pages`, or removed. */
   setTint(on: boolean): void;
   destroy(): void;
 }
@@ -241,6 +233,16 @@ function sizeFrame(
   return box.scale;
 }
 
+/** The nearest scrollable ancestor of `place`, or `place` itself when none scrolls (e.g. a detached test host). */
+function scrollContainerOf(place: HTMLElement): HTMLElement {
+  if (typeof getComputedStyle !== "function") return place;
+  for (let at: HTMLElement | null = place; at !== null; at = at.parentElement) {
+    const { overflowY } = getComputedStyle(at);
+    if (overflowY === "auto" || overflowY === "scroll") return at;
+  }
+  return place;
+}
+
 /** Builds `place > div.mn-zoom > div.mn-pages` with the page's styles. */
 export function createPageScaffold(options: {
   place: HTMLElement;
@@ -252,6 +254,7 @@ export function createPageScaffold(options: {
   initialFontState?: "loading" | "ready" | "fallback";
 }): PageScaffold {
   const { place } = options;
+  const scroller = scrollContainerOf(place);
   const view = options.view ?? "page";
   const entries = options.furnitureEntries ?? PAGE_FURNITURE;
   const frame = createFrame(
@@ -272,55 +275,44 @@ export function createPageScaffold(options: {
   let decor: SheetDecor | null = null;
   let furniture: PageFurnitureOptions = options.furniture ?? {};
   let labels: readonly string[] = [];
+  let viewBox: { top: number; height: number } | null = null;
+  let placed: readonly { index: number; top: number }[] = [];
   let dirty: "none" | "redraw" | "layout" = "none";
   let destroyed = false;
   let lastPagesKey = "";
   const sheets: HTMLElement[] = [];
   const drawn = new WeakMap<HTMLElement, PageFurnitureInput>();
 
-  const redrawAt = (scrollTop: number, clientHeight: number): void => {
-    const page = screenPagePx(profile);
-    const wanted =
+  const drawPlaced = (): void => {
+    const f: SheetFrame = { count, decor, furniture, labels, entries };
+    drawSheets(pages, sheets, placed, f, profile, drawn);
+    const nextKey = `${scale}|${placed.map((w) => w.index).join(",")}`;
+    if (nextKey === lastPagesKey) return;
+    lastPagesKey = nextKey;
+    for (const fn of listeners) fn();
+  };
+  const redrawAt = (top: number, height: number): void => {
+    viewBox = { top, height };
+    const h = screenPagePx(profile).height;
+    const offset = top - frontPx * scale;
+    placed =
       view === "reflow"
         ? []
-        : visibleSheets(
-            count,
-            page.height,
-            PAGE_GAP_PX,
-            scrollTop - frontPx * scale,
-            clientHeight,
-            scale,
-          );
-    drawSheets(
-      pages,
-      sheets,
-      wanted,
-      { count, decor, furniture, labels, entries },
-      profile,
-      drawn,
-    );
-    const nextKey = `${scale}|${wanted.map((w) => w.index).join(",")}`;
-    if (nextKey !== lastPagesKey) {
-      lastPagesKey = nextKey;
-      for (const fn of listeners) fn();
-    }
+        : visibleSheets(count, h, PAGE_GAP_PX, offset, height, scale);
+    drawPlaced();
   };
-  const runLayout = (): void => {
-    const { scrollTop, clientHeight } = place;
-    scale = sizeFrame(
-      frame,
-      screenPagePx(profile),
-      { count, frontPx, view },
-      percent,
-    );
-    redrawAt(scrollTop, clientHeight);
+  const applyLayout = (top: number, height: number): void => {
+    const dims = { count, frontPx, view };
+    scale = sizeFrame(frame, screenPagePx(profile), dims, percent);
+    redrawAt(top, height);
   };
   const flush = (): void => {
     if (destroyed) return;
     const mode = dirty;
     dirty = "none";
-    if (mode === "layout") runLayout();
-    else if (mode === "redraw") redrawAt(place.scrollTop, place.clientHeight);
+    const { scrollTop, clientHeight } = scroller;
+    if (mode === "layout") applyLayout(scrollTop, clientHeight);
+    else if (mode === "redraw") redrawAt(scrollTop, clientHeight);
   };
   const defer = (kind: "layout" | "redraw"): boolean => {
     const batch = scaffoldBatches.get(place);
@@ -330,20 +322,25 @@ export function createPageScaffold(options: {
     return true;
   };
   const redraw = (): void => {
-    if (destroyed) return;
-    if (!defer("redraw")) redrawAt(place.scrollTop, place.clientHeight);
+    if (!destroyed && !defer("redraw"))
+      redrawAt(scroller.scrollTop, scroller.clientHeight);
+  };
+  const redrawInPlace = (): void => {
+    if (!destroyed && !defer("redraw")) drawPlaced();
   };
   const layout = (): void => {
-    if (destroyed) return;
-    if (!defer("layout")) runLayout();
+    if (!destroyed && !defer("layout"))
+      applyLayout(scroller.scrollTop, scroller.clientHeight);
   };
   const setProfile = (next: PageProfile): void => {
     profile = next;
     profileStyle.textContent = profileCss(next);
     layout();
   };
-
-  place.addEventListener("scroll", redraw, { passive: true });
+  scroller.addEventListener("scroll", redraw, { passive: true });
+  const resizeObserver =
+    typeof ResizeObserver === "undefined" ? null : new ResizeObserver(redraw);
+  resizeObserver?.observe(scroller);
   setProfile(profile);
   return {
     pages,
@@ -356,30 +353,33 @@ export function createPageScaffold(options: {
     },
     setPageCount(next) {
       count = next;
-      layout();
+      if (destroyed || defer("layout")) return;
+      if (viewBox !== null && viewBox.height > 0)
+        applyLayout(viewBox.top, viewBox.height);
+      else applyLayout(scroller.scrollTop, scroller.clientHeight);
     },
     applyZoom(next) {
       percent = next;
       layout();
     },
-    setRoomAbove(px) {
+    setRoomAbove: (px) => {
       zoom.style.marginTop = px > 0 ? `${px}px` : "";
     },
-    setFontState(state) {
+    setFontState: (state) => {
       pages.classList.toggle("fonts-loading", state === "loading");
     },
     setSheetDecor(next) {
       if (next?.key === decor?.key) return;
       decor = next;
-      redraw();
+      redrawInPlace();
     },
     setFurniture(next) {
       furniture = next;
-      redraw();
+      redrawInPlace();
     },
     setPageLabels(next) {
       labels = next;
-      redraw();
+      redrawInPlace();
     },
     setTint(on) {
       if (on) pages.dataset["tint"] = "on";
@@ -388,7 +388,8 @@ export function createPageScaffold(options: {
     destroy() {
       destroyed = true;
       dirty = "none";
-      place.removeEventListener("scroll", redraw);
+      scroller.removeEventListener("scroll", redraw);
+      resizeObserver?.disconnect();
       listeners.clear();
       sheetListeners.delete(pages);
       zoom.remove();

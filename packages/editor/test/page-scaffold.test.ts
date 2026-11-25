@@ -124,6 +124,49 @@ test("scaffold passes typed furniture options and honors replaces on screen", ()
   scaffold.destroy();
 });
 
+test("scaffold draws only visible sheets for its scrollable ancestor instead of a full-height host", () => {
+  const scroller = document.createElement("div");
+  scroller.style.overflowY = "auto";
+  Object.defineProperty(scroller, "clientHeight", {
+    value: 900,
+    configurable: true,
+  });
+  let scrollTop = 0;
+  Object.defineProperty(scroller, "scrollTop", {
+    get: () => scrollTop,
+    set: (v: number) => {
+      scrollTop = v;
+    },
+    configurable: true,
+  });
+  const host = document.createElement("div");
+  Object.defineProperty(host, "clientHeight", {
+    value: 2_160_000,
+    configurable: true,
+  });
+  scroller.append(host);
+  document.body.append(scroller);
+  const scaffold = createPageScaffold({
+    place: host,
+    profile: profileFor("screenplay")!,
+    engine: "chromium",
+  });
+  try {
+    scaffold.setPageCount(2_000);
+    const drawn = () =>
+      [...scaffold.pages.querySelectorAll<HTMLElement>(".mn-sheet")]
+        .map((el) => Number(el.dataset["page"]))
+        .toSorted((a, b) => a - b);
+    expect(drawn()).toEqual([0, 1]);
+    scrollTop = 10_800;
+    scroller.dispatchEvent(new Event("scroll"));
+    expect(drawn()).toEqual([9, 10, 11]);
+  } finally {
+    scaffold.destroy();
+    scroller.remove();
+  }
+});
+
 test("script fonts are added once per font set and cached once loaded", async () => {
   let added = 0;
   let made = 0;
