@@ -16,6 +16,7 @@ import { DRAFTS_ROUTES } from "./drafts.ts";
 import { PRIVATE_ROUTES } from "./private.ts";
 import { DRIVER_ROUTES } from "./driver.ts";
 import { PROMPTER_ROUTES } from "./prompter.ts";
+import { workspaceRoutes } from "./workspace.ts";
 
 export const ROUTES: readonly Route[] = [
   ...adoptRoutes,
@@ -34,4 +35,5 @@ export const ROUTES: readonly Route[] = [
   ...PRIVATE_ROUTES,
   ...DRIVER_ROUTES,
   ...PROMPTER_ROUTES,
+  ...workspaceRoutes,
 ];
