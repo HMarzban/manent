@@ -20,6 +20,7 @@ import { workspaceRoutes } from "./workspace.ts";
 import { apiKeyRoutes } from "./api-keys.ts";
 import { notificationRoutes } from "./notifications.ts";
 import { publicApiRoutes } from "./public-api.ts";
+import { trashRoutes } from "./trash.ts";
 
 export const ROUTES: readonly Route[] = [
   ...adoptRoutes,
@@ -42,4 +43,5 @@ export const ROUTES: readonly Route[] = [
   ...apiKeyRoutes,
   ...notificationRoutes,
   ...publicApiRoutes,
+  ...trashRoutes,
 ];

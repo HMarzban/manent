@@ -58,3 +58,4 @@ export * from "./notifications.ts";
 export * from "./api-keys.ts";
 export * from "./ink.ts";
 export * from "./game-exports.ts";
+export * from "./library-files.ts";
