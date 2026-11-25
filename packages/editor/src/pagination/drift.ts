@@ -8,6 +8,11 @@ import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import { DRIFT } from "../page/config.ts";
 import { blockAt, blockPos } from "./block-index.ts";
+import {
+  driftModelLines,
+  graphicBoxLines,
+  graphicExtraPx,
+} from "./graphic-height.ts";
 import { paginationKey } from "./plugin.ts";
 import type { PaginationState } from "./plugin.ts";
 
@@ -67,7 +72,8 @@ function heldDecorations(state: PaginationState, block: number): Decoration[] {
       { blockId: layout.id, layout, starts },
     ),
   ];
-  for (const offset of starts.subarray(1)) {
+  const firstLine = layout.type === "graphic" ? graphicBoxLines(layout) + 1 : 1;
+  for (const offset of starts.subarray(firstLine)) {
     const at = from + 1 + Math.min(offset, layout.text.length);
     decorations.push(
       Decoration.widget(at, lineBreak, {
@@ -221,23 +227,31 @@ function measureSection(
     const node = nodes.child(k);
     const from = pos;
     pos += node.nodeSize;
+    const layout = index.blocks[block]!;
     const metrics = state.pagination.metrics[block]!;
     if (
       !metrics.spec.printed ||
-      forced.has(index.blocks[block]!.id) ||
+      forced.has(layout.id) ||
       !isDriftCandidate(node, drawnOver(view, from, pos))
     )
       continue;
-    const breaks = [...el.querySelectorAll<HTMLElement>(":scope > .pb")];
+    const expected = driftModelLines(layout, metrics.lines);
+    if (layout.type === "graphic" && expected === 0) continue;
+    const breaks = [
+      ...el.querySelectorAll<HTMLElement>(
+        ":scope > .pb, :scope > .mn-graphic-caption > .pb",
+      ),
+    ];
     const extra =
       Number.parseFloat(getComputedStyle(el).paddingTop) +
-      breaks.reduce((sum, b) => sum + b.offsetHeight, 0);
+      breaks.reduce((sum, b) => sum + b.offsetHeight, 0) +
+      graphicExtraPx(layout);
     const lines = domLineCount(
       el.offsetHeight,
       extra,
       metrics.spec.lineSpacing,
     );
-    if (lines !== metrics.lines) found.push([block, lines]);
+    if (lines !== expected) found.push([block, lines]);
   }
   return found;
 }
@@ -281,7 +295,10 @@ function findDrift(view: EditorView): DriftReport[] {
       return {
         blockId: layout.id,
         type: layout.type,
-        modelLines: pages.pagination.metrics[block]!.lines,
+        modelLines: driftModelLines(
+          layout,
+          pages.pagination.metrics[block]!.lines,
+        ),
         domLines,
         fonts,
       };
