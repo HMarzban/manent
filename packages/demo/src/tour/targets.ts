@@ -56,6 +56,21 @@ export const TOUR_TARGETS = [
   "hand_in:confirm",
   "lock:copy",
   "send:what",
+  "library:folders",
+  "library:favourites",
+  "library:trash",
+  "search:filter",
+  "workspace:settings",
+  "workspace:people",
+  "workspace:can_also",
+  "workspace:sign_out",
+  "ink:play",
+  "ink:player",
+  "ink:choices",
+  "ink:problems",
+  "status:goal",
+  "details:numbers",
+  "setting:script.engineVersion",
 ] as const;
 
 export type TourTarget = (typeof TOUR_TARGETS)[number];

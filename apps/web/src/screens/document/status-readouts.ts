@@ -4,6 +4,7 @@ import type { ComponentType } from "react";
 import { ElementReadout, PageReadout, SceneReadout } from "./status-bar.tsx";
 import { TimingReadout } from "../../timing/readout.tsx";
 import { RowReadout } from "../../rundown/row-readout.tsx";
+import { GoalReadout } from "../../goals/goal-readout.tsx";
 
 export interface StatusReadout {
   readonly id: string;
@@ -18,4 +19,5 @@ export const STATUS_READOUTS: readonly StatusReadout[] = [
   { id: "scene", kinds: ["script"], Readout: SceneReadout },
   { id: "timing", kinds: ["script"], Readout: TimingReadout },
   { id: "row", kinds: ["rundown"], Readout: RowReadout },
+  { id: "goal", kinds: ["script"], Readout: GoalReadout },
 ];
