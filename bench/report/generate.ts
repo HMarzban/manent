@@ -335,16 +335,15 @@ export async function resultFilesIn(dir: string): Promise<string[]> {
     .map((name) => join(dir, name));
 }
 
-/** The report of the result files at `paths`, with the desktop smoke files under bench/results/desktop/ and the app's comfort limit. */
-export async function reportOf(paths: readonly string[]): Promise<string> {
+/** The report of the result files at `paths`, with the desktop smoke files in `smokeDir` and the app's comfort limit. */
+export async function reportOf(
+  paths: readonly string[],
+  smokeDir: string = join(BENCH, "results", "desktop"),
+): Promise<string> {
   const runs = [];
   for (const file of paths)
     runs.push({ file, result: await readResultFile(file) });
-  return generateReport(
-    runs,
-    await readSmokeResults(join(BENCH, "results", "desktop")),
-    {
-      comfortLimitPages: await readComfortLimit(join(BENCH, "..")),
-    },
-  );
+  return generateReport(runs, await readSmokeResults(smokeDir), {
+    comfortLimitPages: await readComfortLimit(join(BENCH, "..")),
+  });
 }

@@ -1,7 +1,6 @@
-// `bun run bench` runs the suite on every tier, on one (`--tier`, `--throttle`), or one area on
-// the tier that judges it; `compare` and `baseline` track regressions; `fetch-traces` downloads the
-// editing traces; `report` prints the report of result files. `--inside` runs a tier inside its
-// container; `--child <file>` runs one scenario.
+// `bun run bench` runs the suite on every tier, on one (`--tier`, `--throttle`), or one area;
+// `compare`, `baseline`, `fetch-traces`, `report` and `publish` manage results and the report.
+// `--inside` runs a tier inside its container; `--child <file>` runs one scenario.
 
 import { readFileSync } from "node:fs";
 import { compareRuns, toBaseline } from "./compare.ts";
@@ -10,6 +9,7 @@ import { MODES, THROTTLES, benchTier, commandLine } from "./env.ts";
 import { runChild, runSuite } from "./harness.ts";
 import { readQuiet } from "./measure.ts";
 import { reportOf, resultFilesIn } from "./report/generate.ts";
+import { publishRuns } from "./report/publish.ts";
 import { readResultFile } from "./result.ts";
 import type { ResultFile, ScenarioResult } from "./result.ts";
 import { lastLine, runTiers } from "./tiers/orchestrate.ts";
@@ -37,6 +37,7 @@ export interface BenchArgs {
 
 const ROOT = "bench";
 const RESULTS = "bench/results";
+const PUBLISHED = "docs/benchmark";
 const TOLERANCE = { deterministicPercent: 2, timingPercent: 25 };
 const VALUE_OPTIONS = [
   "--tier",
@@ -256,6 +257,17 @@ async function fetchAll(): Promise<number> {
   return fetched.every((f) => f.ok) ? 0 : 1;
 }
 
+/** Copies chosen result files into docs/benchmark/runs/ and writes docs/benchmark/report.md from all of them. */
+async function publish(files: readonly string[]): Promise<number> {
+  if (files.length === 0)
+    throw new Error("publish needs at least one result file");
+  const { report, runs } = await publishRuns({ files, outDir: PUBLISHED });
+  console.log(
+    `Published ${report} from ${runs.length} ${runs.length === 1 ? "run" : "runs"}`,
+  );
+  return 0;
+}
+
 /** The one tier asked for, or every tier in order, each with the filter asked for. */
 function runsOf(args: BenchArgs): TierRun[] {
   const { tier, throttle, filter } = args;
@@ -298,6 +310,8 @@ async function main(args: BenchArgs): Promise<number> {
         ),
       );
       return 0;
+    case "publish":
+      return publish(subcommand.args);
     default:
       throw new Error(`bun run bench has no subcommand ${subcommand.name}`);
   }
