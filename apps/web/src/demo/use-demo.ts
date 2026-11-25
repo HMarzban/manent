@@ -9,6 +9,18 @@ import type { DeviceMemory } from "../services/sync/device-memory.ts";
 
 export const POLL_MS = 2000;
 
+/**
+ * Navigates cleanly back to the Library root on reload after a demo reset so tabs that were on a pre-reset script or
+ * project URL never bounce through Choose into "You no longer have access".
+ */
+export function reloadAtHome(
+  loc: Pick<Location, "pathname" | "search" | "hash" | "reload" | "replace">,
+): void {
+  if (loc.pathname === "/" && loc.search === "" && loc.hash === "")
+    loc.reload();
+  else loc.replace("/");
+}
+
 const DEMO_QUERY = "demo";
 /** The first element of the server status query's key. */
 export const SERVER_STATUS_QUERY = "server-status";

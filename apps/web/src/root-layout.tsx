@@ -32,7 +32,10 @@ export function RootLayout(props: {
   const router = useRouter();
   const location = useRouterState({ select: (s) => s.location });
   const { demo, control } = useDemo({ api, fetch: props.fetch });
-  const resetting = useResetting(useServerState(control), demo?.seedId ?? null);
+  const { resetting, reseeded } = useResetting(
+    useServerState(control),
+    demo?.seedId ?? null,
+  );
   const bare = useShellScreen().page === "bare";
   const navigation = useMemo(
     (): Navigation => ({
@@ -83,8 +86,8 @@ export function RootLayout(props: {
     return (
       <div className="flex min-h-screen flex-col bg-chrome text-fg">
         {demoBar}
-        <main className="flex-1">
-          {resetting ? <ResettingScreen /> : <Outlet />}
+        <main className="flex flex-1 flex-col">
+          {resetting ? <ResettingScreen reseeded={reseeded} /> : <Outlet />}
         </main>
       </div>
     );

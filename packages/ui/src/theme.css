@@ -2189,13 +2189,15 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   background-color: var(--bg-subtle);
 }
 
-/* Tour progress bar and closed-panel floating bar. */
+/* Progress bar (Tour and demo reset) and closed-panel floating Tour bar. */
+.mn-progress-track,
 .mn-tour-progress-track {
   height: 0.375rem;
   border-radius: 9999px;
   background-color: var(--bg-subtle);
   overflow: hidden;
 }
+.mn-progress-fill,
 .mn-tour-progress-fill {
   height: 100%;
   width: 100%;
@@ -2204,6 +2206,7 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   transform-origin: left center;
   transition: transform var(--dur-base) var(--curve-enter);
 }
+[dir="rtl"] .mn-progress-fill,
 [dir="rtl"] .mn-tour-progress-fill {
   transform-origin: right center;
 }
@@ -2211,6 +2214,7 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   box-shadow: var(--elev-overlay);
 }
 @media (prefers-contrast: more) {
+  .mn-progress-track,
   .mn-tour-progress-track {
     border: 1px solid var(--line-strong);
   }
@@ -2263,6 +2267,7 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
     transform: none !important;
   }
   .mn-swatch,
+  .mn-progress-fill,
   .mn-tour-progress-fill {
     transition: none;
   }
@@ -2356,11 +2361,13 @@ html[data-switching] *::after {
     outline: 2px solid Highlight;
     outline-offset: 1px;
   }
+  .mn-progress-track,
   .mn-tour-progress-track {
     forced-color-adjust: none;
     border: 1px solid CanvasText;
     background-color: Canvas;
   }
+  .mn-progress-fill,
   .mn-tour-progress-fill {
     forced-color-adjust: none;
     background-color: Highlight;
