@@ -4,6 +4,42 @@ import { t } from "../types.ts";
 
 export const SCRIPT_LAYOUT_SETTINGS = Object.freeze([
   setting({
+    key: "script.linesPerPage",
+    scope: "script",
+    type: t.numberOrNull({ min: 10, max: 70, step: 1 }),
+    default: null,
+    label: "Lines per page",
+    description: null,
+    noun: "lines per page",
+    surfaces: [{ in: "scriptSettings", group: "page_setup", order: 30 }],
+    apply: { how: "editor", effect: "layout" },
+    boot: false,
+    guard: "layout",
+    keywords: [],
+  }),
+  setting({
+    key: "script.sceneNumbers",
+    scope: "script",
+    type: t.choice([
+      { value: "none", label: "None" },
+      { value: "left", label: "Left" },
+      { value: "right", label: "Right" },
+      { value: "both", label: "Left and right" },
+    ]),
+    default: "none",
+    label: "Show",
+    description: null,
+    noun: "scene numbers",
+    surfaces: [
+      { in: "scriptSettings", group: "scene_numbers", order: 5 },
+      { in: "palette" },
+    ],
+    apply: { how: "editor", effect: "decorations" },
+    boot: false,
+    guard: null,
+    keywords: [],
+  }),
+  setting({
     key: "script.engineVersion",
     scope: "script",
     type: t.number({ min: 1, max: 999, step: 1 }),

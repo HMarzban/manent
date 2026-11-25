@@ -51,7 +51,10 @@ export function layoutMutation(
       const valid =
         changes.length > 0 &&
         changes.every(
-          (c) => rules.isGuarded(c.key) && rules.check(c.key, c.value).ok,
+          (c) =>
+            c.key !== "script.engineVersion" &&
+            rules.isGuarded(c.key) &&
+            rules.check(c.key, c.value).ok,
         );
       return valid ? null : refused("bad_request");
     },
