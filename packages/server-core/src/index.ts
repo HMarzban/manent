@@ -5,6 +5,7 @@ export * from "./drafts/index.ts";
 export * from "./driver/index.ts";
 export * from "./history/index.ts";
 export * from "./http/index.ts";
+export * from "./library/index.ts";
 export * from "./limits/index.ts";
 export * from "./net/index.ts";
 export * from "./private-copy/index.ts";
