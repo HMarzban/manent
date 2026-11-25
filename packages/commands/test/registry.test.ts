@@ -988,6 +988,12 @@ test("the handler table names every command but the generated ones", () => {
     "script.goal": noop,
     "sprint.start": noop,
     "sprint.end": noop,
+    "ink.play": noop,
+    "ink.playFromHere": noop,
+    "ink.back": noop,
+    "ink.restart": noop,
+    "script.numbers": noop,
+    "script.reports": noop,
   };
   expect(Object.keys(table).toSorted()).toEqual(
     COMMANDS.filter((c) => !c.id.startsWith("setting."))

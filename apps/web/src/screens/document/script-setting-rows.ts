@@ -8,6 +8,11 @@ import {
   ScriptStyleRow,
 } from "../../project/style-inherited-row.tsx";
 import { HeaderFooterRow } from "./header-footer-row.tsx";
+import {
+  LayoutEngineRow,
+  LinesPerPageRow,
+  SceneNumbersStateRow,
+} from "./layout-engine-row.tsx";
 
 export interface ScriptSettingRowProps {
   readonly settingKey: SettingKey;
@@ -36,4 +41,7 @@ export const SCRIPT_SETTING_ROWS: readonly ScriptSettingRow[] = [
   { kind: "state", id: "frozen", State: FrozenRow },
   { kind: "custom", settingKey: "script.header", Row: HeaderFooterRow },
   { kind: "custom", settingKey: "script.footer", Row: HeaderFooterRow },
+  { kind: "custom", settingKey: "script.linesPerPage", Row: LinesPerPageRow },
+  { kind: "state", id: "scene-numbers-note", State: SceneNumbersStateRow },
+  { kind: "custom", settingKey: "script.engineVersion", Row: LayoutEngineRow },
 ];

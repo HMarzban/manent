@@ -13,6 +13,9 @@ export type Paper = (typeof PAPERS)[number];
 export const SPLIT_RULES = ["never", "action", "dialogue"] as const;
 export type SplitRule = (typeof SPLIT_RULES)[number];
 
+export const SCENE_NUMBER_SIDES = ["none", "left", "right", "both"] as const;
+export type SceneNumberSides = (typeof SCENE_NUMBER_SIDES)[number];
+
 export interface ElementSpec {
   /** Cells from the text edge to the block's left edge. */
   readonly indent: number;
@@ -53,6 +56,7 @@ export interface FurnitureSettings {
   readonly speakerContinued: boolean;
   readonly sceneContinued: boolean;
   readonly scenesNumbered: boolean;
+  readonly sceneNumberSides: SceneNumberSides;
   readonly scenesLettered: boolean;
   /** Under each scene heading, the names that speak in its scene. */
   readonly castLists: boolean;
