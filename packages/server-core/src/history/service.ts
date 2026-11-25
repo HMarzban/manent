@@ -37,7 +37,12 @@ import { controlOf, createHistoryRequests, failed } from "./requests.ts";
 import { createRestorer } from "./restore.ts";
 import { createSessions } from "./sessions.ts";
 import type { Recorder } from "./summaries.ts";
-import { createRecorder, itemOf, positionOf } from "./summaries.ts";
+import {
+  createRecorder,
+  itemOf,
+  itemOfPageRow,
+  positionOf,
+} from "./summaries.ts";
 
 /** A person's session on a document ends after this without a push of theirs. */
 const SESSION_IDLE_MS = 600_000;
@@ -202,14 +207,16 @@ export function createHistoryService(options: {
       const { file } = access;
       const row = file.log.get(docId);
       if (row === null) return failed("not_found");
-      const rows = file.history.page(docId, cursor, limit + 1);
+      const rows = file.history.pageDetails(docId, cursor, limit + 1);
       const page = rows.slice(0, limit);
       const last = page.at(-1);
       const more = rows.length > limit && last !== undefined;
       return {
         ok: true,
         value: {
-          versions: page.map((version) => itemOf(file, version)),
+          versions: page.map((version) =>
+            itemOfPageRow(version, row.engineVersion),
+          ),
           next: more ? `${last.createdAt}:${last.id}` : null,
           head: { generation: row.generation, seq: row.headSeq },
           othersCanOpen: storage.directory.hasRoleBesides(docId, userId),

@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
+import { FileTextIcon } from "lucide-react";
 import { useId, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import {
@@ -277,12 +278,14 @@ export function SidesSceneItem(props: {
   if (!locked) return null;
   return (
     <DropdownMenuItem
+      className="text-ui"
       data-tour="production.includeInSides"
       onClick={() => {
         setSidesRange(docId, headingId, headingId);
         void navigate({ href: sidesExportHref(docId) });
       }}
     >
+      <FileTextIcon aria-hidden="true" className="size-icon text-fg-muted" />
       {PRODUCTION_OUTPUTS_WORDS.includeInSides}
     </DropdownMenuItem>
   );

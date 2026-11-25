@@ -156,12 +156,18 @@ export function CloseBlocker(): null {
   return null;
 }
 
-export function createAppRouter(deps: AppRouterDeps): AnyRouter {
-  const { api, usePerson } = deps;
-  // the code the frame draws apart from the entry, fetched while the server that served the page still answers
-  void ScreenProblem.preload?.();
+// the code the frame draws apart from the entry, deferred until idle so it never competes with first paint
+function preloadShell(): void {
   preloadDemoBarControls();
   preloadShellPalette();
+}
+
+export function createAppRouter(deps: AppRouterDeps): AnyRouter {
+  const { api, usePerson } = deps;
+  void ScreenProblem.preload?.();
+  if (typeof requestIdleCallback === "function")
+    requestIdleCallback(preloadShell, { timeout: 2000 });
+  else queueMicrotask(preloadShell);
 
   // set by `?panels=closed` until the screen it opens has been drawn
   let closingPanels = false;
@@ -205,8 +211,8 @@ export function createAppRouter(deps: AppRouterDeps): AnyRouter {
       ROUTE_GROUPS.flatMap((group) => group(rootRoute, deps)),
     ),
     defaultPendingComponent: RoutePending,
-    defaultPendingMs: 150,
-    defaultPendingMinMs: 300,
+    defaultPendingMs: 250,
+    defaultPendingMinMs: 0,
   });
   // after the draw, which has put back the panels the person left open
   router.subscribe("onRendered", () => {

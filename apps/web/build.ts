@@ -13,6 +13,75 @@ const REPO_ROOT = join(import.meta.dir, "../..");
 const ROOT_MANIFEST = join(REPO_ROOT, "package.json");
 // every manifest in the repository starts at this version
 const UNVERSIONED = "0.0.0";
+const DATA_WOFF2 = new RegExp("data:font/woff2;base64,([A-Za-z0-9+/=]+)", "g");
+const ON_DEMAND_INPUTS = ["pdfjs-dist/", "packages/formats/"] as const;
+
+/** Extracts base64-inlined `.woff2` fonts out of built CSS into content-hashed external files. */
+async function extractCssFonts(
+  outDir: string,
+  cssPaths: readonly string[],
+): Promise<{ path: string; bytes: Uint8Array }[]> {
+  const emitted = new Map<string, { path: string; bytes: Uint8Array }>();
+  for (const cssPath of cssPaths) {
+    const css = await readFile(cssPath, "utf8");
+    let changed = false;
+    const rewritten = css.replace(DATA_WOFF2, (_match, encoded: string) => {
+      changed = true;
+      const bytes = Uint8Array.from(Buffer.from(encoded, "base64"));
+      const hash = new Bun.CryptoHasher("sha256")
+        .update(bytes)
+        .digest("hex")
+        .slice(0, 8);
+      const name = `font-${hash}.woff2`;
+      if (!emitted.has(name))
+        emitted.set(name, { path: join(outDir, name), bytes });
+      return `/${name}`;
+    });
+    if (changed) await writeFile(cssPath, rewritten);
+  }
+  await Promise.all(
+    [...emitted.values()].map(({ path, bytes }) => writeFile(path, bytes)),
+  );
+  return [...emitted.values()];
+}
+
+/** Root-relative URLs of heavy on-demand chunks excluded from eager first-frame SW precaching. */
+function onDemandAssetUrls(
+  metafile: BuildMetafile,
+  inkWorkerPaths: readonly string[],
+  outDir: string,
+): ReadonlySet<string> {
+  const outputs = Object.entries(metafile.outputs);
+  const byName = new Map(outputs);
+  const entryStatic = new Set<string>();
+  const queue = outputs
+    .filter(
+      ([name, out]) =>
+        name.endsWith(".js") && out.entryPoint?.endsWith("index.html"),
+    )
+    .map(([name]) => name);
+  for (const name of queue) {
+    if (entryStatic.has(name)) continue;
+    entryStatic.add(name);
+    const out = byName.get(name);
+    if (out === undefined) continue;
+    for (const imp of out.imports)
+      if (imp.kind === "import-statement") queue.push(imp.path);
+  }
+  const excluded = new Set<string>(
+    inkWorkerPaths.map((p) => `/${relative(outDir, p).replaceAll("\\", "/")}`),
+  );
+  for (const [name, out] of outputs) {
+    if (!name.endsWith(".js") || entryStatic.has(name)) continue;
+    const isHeavy =
+      ON_DEMAND_INPUTS.some((marker) => out.entryPoint?.includes(marker)) ||
+      Object.keys(out.inputs).some((input) =>
+        ON_DEMAND_INPUTS.some((marker) => input.includes(marker)),
+      );
+    if (isHeavy) excluded.add(`/${name.replace(/^\.\//, "")}`);
+  }
+  return excluded;
+}
 
 /** The root manifest's version, or UNVERSIONED when it names none. */
 async function readVersion(): Promise<string> {
@@ -110,17 +179,34 @@ export async function buildWeb(options: {
   if (result.metafile === undefined)
     return { ok: false, logs: ["the build wrote no metafile"] };
   await insertBootScript(outDir);
+  const extractedFonts = await extractCssFonts(
+    outDir,
+    result.outputs
+      .map((output) => output.path)
+      .filter((path) => path.endsWith(".css")),
+  );
   const inkWorker = await buildInkWorker(outDir);
   if (!inkWorker.success)
     return { ok: false, logs: inkWorker.logs.map((log) => log.message) };
-  // read back from disk: the page has changed since the build wrote it
-  const written = await Promise.all(
-    [...result.outputs, ...inkWorker.outputs].map(async (output) => ({
-      path: output.path,
-      bytes: await Bun.file(output.path).bytes(),
-    })),
+  // read back from disk: the page and CSS have changed since the build wrote them
+  const written = [
+    ...(await Promise.all(
+      [...result.outputs, ...inkWorker.outputs].map(async (output) => ({
+        path: output.path,
+        bytes: await Bun.file(output.path).bytes(),
+      })),
+    )),
+    ...extractedFonts,
+  ];
+  const exclude = onDemandAssetUrls(
+    result.metafile,
+    inkWorker.outputs.map((output) => output.path),
+    outDir,
   );
-  const worker = await buildWorker(outDir, precacheEntries(written, outDir));
+  const worker = await buildWorker(
+    outDir,
+    precacheEntries(written, outDir, { exclude }),
+  );
   if (!worker.success)
     return { ok: false, logs: worker.logs.map((log) => log.message) };
   // a tool, so it runs as its own process: an app never imports tools
@@ -136,9 +222,12 @@ export async function buildWeb(options: {
     return { ok: false, logs: [notices.stderr.toString()] };
   return {
     ok: true,
-    files: [...result.outputs, ...inkWorker.outputs, ...worker.outputs].map(
-      (output) => relative(outDir, output.path),
-    ),
+    files: [
+      ...result.outputs.map((output) => output.path),
+      ...extractedFonts.map((font) => font.path),
+      ...inkWorker.outputs.map((output) => output.path),
+      ...worker.outputs.map((output) => output.path),
+    ].map((path) => relative(outDir, path)),
     metafile: result.metafile,
   };
 }

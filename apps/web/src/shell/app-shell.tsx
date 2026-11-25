@@ -1,12 +1,16 @@
 // The one shell around every screen: the grid, the editor host, the palette, the global keys, the announcer and Escape.
 import type { ScreenId } from "@manent/commands";
+import type { DocKind } from "@manent/sync-protocol";
 import {
   CommandsProvider,
   GlobalKeys,
   SettingsProvider,
   SurfaceBoundary,
   TimingProvider,
+  createValue,
+  useSubscribable,
 } from "@manent/ui";
+import type { Subscribable } from "@manent/ui";
 import { useRouterState } from "@tanstack/react-router";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
@@ -35,14 +39,16 @@ import { AnnouncerRegion } from "./announcer-region.tsx";
 import { useEscapeHandler } from "./escape-handler.ts";
 import { useMenuChoiceFocus } from "./menu-focus.ts";
 import { ShellRegion } from "./regions.tsx";
-import { SHELL_SCREENS } from "./shell-screens.ts";
+import { SHELL_SCREENS, isPageCovered } from "./shell-screens.ts";
 import type { ShellScreen } from "./shell-screens.ts";
 
 const STAND_IN_ROUTE = "/__stand-in";
+const NO_DOC_KIND: Subscribable<DocKind | null> = createValue(null);
 const UNLISTED: ShellScreen = Object.freeze({
   routeId: "",
   screen: "library",
   page: "covered",
+  covered: true,
 });
 
 const GRID: CSSProperties = Object.freeze({
@@ -77,23 +83,36 @@ function useShellRoute(): {
   screen: ScreenId;
   docId: string | null;
   page: ShellScreen["page"];
+  covered: boolean;
   standIn: boolean;
 } {
   const { flavour } = useEnvironment();
-  const { routeId, screen, page } = useShellScreen();
+  const { routeId, screen, page, covered } = useShellScreen();
   // the Send screen keeps its document under it, covered
   const routeDocId = useRouterState({
     select: (state): string | null =>
       state.matches.at(-1)?.params.docId ?? null,
   });
   const standIn = flavour === "test" && routeId === STAND_IN_ROUTE;
+  const standInOutsideTest = routeId === STAND_IN_ROUTE && !standIn;
   return {
     screen,
     docId: standIn ? null : routeDocId,
     // the stand-in's row is the test build's only
-    page: routeId === STAND_IN_ROUTE && !standIn ? "covered" : page,
+    page: standInOutsideTest ? "covered" : page,
+    covered: standInOutsideTest ? true : covered,
     standIn,
   };
+}
+
+/** The kind of `docId` as the Library holds it, kept local so the shell never pulls the lazy document chunk. */
+function useShellDocKind(docId: string | null): DocKind | null {
+  const { library } = useServices();
+  const source = useMemo(
+    () => (docId === null ? NO_DOC_KIND : library.docKindOf(docId)),
+    [library, docId],
+  );
+  return useSubscribable(source);
 }
 
 /** The test build's stand-in document of this person on this device, once it is made; null until then and off its route. */
@@ -264,9 +283,10 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
   const { where, now, schedule, dom } = useEnvironment();
   const route = useShellRoute();
   const { screen, page, standIn } = route;
-  const covered = page === "covered";
   const standInDocId = useStandInDocId(standIn);
   const docId = standIn ? standInDocId : route.docId;
+  const docKind = useShellDocKind(docId);
+  const covered = isPageCovered(route, docKind);
   const { facts, outline, people } = useBridgeStores();
   const timing = useMemo(() => ({ now, schedule }), [now, schedule]);
   const writers = useMemo(

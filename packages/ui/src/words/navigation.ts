@@ -15,14 +15,24 @@ export const FIND_WORDS = {
     count === 0 ? "No matches" : formatPosition(current ?? 0, count),
 } as const;
 
+const sceneLength = (eighths: number): string => {
+  const pages = Math.floor(eighths / 8);
+  const rest = eighths % 8;
+  if (rest === 0) return formatCount(pages);
+  return pages === 0 ? `${rest}/8` : `${formatCount(pages)} ${rest}/8`;
+};
+
 export const SCENES_WORDS = {
   synopsis: "Synopsis",
   /** A scene's length in pages and eighths of a page: "3/8", "1", "2 1/8". */
-  length: (eighths: number): string => {
-    const pages = Math.floor(eighths / 8);
-    const rest = eighths % 8;
-    if (rest === 0) return formatCount(pages);
-    return pages === 0 ? `${rest}/8` : `${formatCount(pages)} ${rest}/8`;
+  length: sceneLength,
+  /** A scene's length with its unit for tooltips: "1 page", "5 5/8 pages". */
+  lengthPages: (eighths: number): string =>
+    eighths === 8 ? "1 page" : `${sceneLength(eighths)} pages`,
+  /** A manuscript chapter's rounded length in pages: "1 p.", "6 pp.". */
+  chapterPages: (eighths: number): string => {
+    const pages = Math.max(1, Math.round(eighths / 8));
+    return pages === 1 ? "1 p." : `${formatCount(pages)} pp.`;
   },
 } as const;
 

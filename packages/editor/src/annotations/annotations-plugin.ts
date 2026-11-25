@@ -3,6 +3,7 @@ import type { ChangeHint } from "@manent/pagination";
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorState, Transaction } from "prosemirror-state";
 import type { DecorationSet } from "prosemirror-view";
+import { changesKey } from "../changes/plugin.ts";
 import { toIndex, updateIndex } from "../pagination/block-index.ts";
 import type { BlockIndex } from "../pagination/block-index.ts";
 import { paginationKey } from "../pagination/plugin.ts";
@@ -137,8 +138,8 @@ export function annotationsPlugin(options: AnnotationsOptions): Plugin {
             .setMeta("addToHistory", false),
         );
       const gutter = createGutter(view, () => stateOf(view.state).places, {
-        label: (count) => options.label(count),
-        onActivate: (id, at) => options.onActivate(id, at),
+        label: (comments, notes) => options.label(comments, notes),
+        onActivate: (id, at, ids) => options.onActivate(id, at, ids),
         hover: (blockId) => dispatchMeta({ type: "hover", blockId }),
       });
       const removedAtStart = newlyRemoved([], stateOf(view.state).places);
@@ -153,14 +154,22 @@ export function annotationsPlugin(options: AnnotationsOptions): Plugin {
         update(_view, prevState) {
           const now = stateOf(view.state).places;
           const was = stateOf(prevState).places;
+          if (now.length === 0 && was.length === 0) return;
           const repaged =
             paginationKey.getState(view.state)?.pagination !==
             paginationKey.getState(prevState)?.pagination;
-          if (now === was && !repaged) return;
+          const nowChanges = changesKey.getState(view.state);
+          const wasChanges = changesKey.getState(prevState);
+          const changesShifted =
+            (nowChanges?.comparison !== null &&
+              nowChanges?.display === "page") !==
+            (wasChanges?.comparison !== null && wasChanges?.display === "page");
+          if (now === was && !repaged && !changesShifted) return;
           // from the states either side of the update, so a removal in a transaction followed by others is said
           const removed = newlyRemoved(was, now);
           if (removed.length > 0) options.onRemoved(removed);
-          gutter.draw();
+          if (now !== was || changesShifted) gutter.draw();
+          else gutter.scheduleDraw();
         },
         destroy() {
           stop();

@@ -240,7 +240,7 @@ export async function executeSendDraft(
   return {
     ok: true,
     value: {
-      send: buildSendItem(storage, file, sendRow, names),
+      send: buildSendItem(storage, file, sendRow, names, { projectGroups }),
       version,
       recipientToken,
       linkToken,

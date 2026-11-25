@@ -3,10 +3,16 @@ export {
   BLOCK_TYPES,
   FORMATS,
   FORMAT_ELEMENTS,
+  firstElement,
   isBlockType,
   renderedType,
 } from "./block-types.ts";
-export type { ActBreakKind, BlockType, FormatId } from "./block-types.ts";
+export type {
+  ActBreakKind,
+  BlockType,
+  ElementRef,
+  FormatId,
+} from "./block-types.ts";
 export {
   ALIGNMENTS,
   DEFAULT_BLOCK_ATTRS,

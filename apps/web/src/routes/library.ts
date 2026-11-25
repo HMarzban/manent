@@ -9,7 +9,9 @@ import {
 import type { AnyRoute } from "@tanstack/react-router";
 import { Fragment, createElement, useEffect } from "react";
 import { firstRunPath, loadScreen } from "../router.tsx";
-import { LIBRARY_VIEWS } from "../screens/library/views.ts";
+import { CONTINUE_VIEW_ID } from "../screens/library/library-address.ts";
+import { isLibraryViewId } from "../screens/library/view-ids.ts";
+import { routeConfirmMe } from "../services/api-cache.ts";
 import { useServices } from "../services/context.tsx";
 import type { PersonServices } from "../services/ports.ts";
 import { chooseUrl, confirmPerson, safeNext } from "../session.ts";
@@ -66,22 +68,29 @@ export function libraryRoutes(
       q: string | null;
     } => ({
       w: typeof search.w === "string" ? search.w : null,
-      view:
-        LIBRARY_VIEWS.find(
-          (entry) => entry.chosenBy === "view" && entry.id === search.view,
-        )?.id ?? "continue",
+      view: isLibraryViewId(search.view) ? search.view : CONTINUE_VIEW_ID,
       folder: typeof search.folder === "string" ? search.folder : null,
       q: typeof search.q === "string" ? search.q : null,
     }),
     // so an address never says w=null, view=continue, folder=null or q=null
     search: {
       middlewares: [
-        stripSearchParams({ w: null, view: "continue", folder: null, q: null }),
+        stripSearchParams({
+          w: null,
+          view: CONTINUE_VIEW_ID,
+          folder: null,
+          q: null,
+        }),
       ],
     },
     beforeLoad: async ({ location }) => {
       const { person, setPerson } = usePerson.getState();
-      if ((await confirmPerson(person, api.me)) !== null) return;
+      if (
+        (await confirmPerson(person, () =>
+          routeConfirmMe(api, person?.token ?? null),
+        )) !== null
+      )
+        return;
       setPerson(null);
       throw redirect({ href: chooseUrl(location.href), replace: true });
     },

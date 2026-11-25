@@ -7,7 +7,7 @@ import type { ShareLinkStore } from "./sharing.ts";
 import type { TrashStore } from "./trash.ts";
 import type { WorkspaceSettingsStore } from "./workspace.ts";
 
-export const STORAGE_SCHEMA_VERSION = 9;
+export const STORAGE_SCHEMA_VERSION = 10;
 
 export interface Storage {
   readonly directory: DocDirectory;
@@ -18,5 +18,7 @@ export interface Storage {
   readonly shareLinks: ShareLinkStore;
   /** Opened on first use and kept. RangeError for a home that is not well formed. */
   open(home: Home): DocFile;
+  /** Runs `fn` as one control-file transaction (directory, trash, share links); joins an outer one when nested. */
+  transaction<T>(fn: () => T): T;
   close(): void;
 }

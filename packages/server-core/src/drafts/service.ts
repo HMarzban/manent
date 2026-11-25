@@ -16,6 +16,7 @@ import { openVersion } from "../history/content.ts";
 import type { DraftEvents } from "../history/draft-events.ts";
 import type { HistoryService } from "../history/service.ts";
 import { PRODUCTION_EXTRAS } from "../production/extras.ts";
+import { readProjectGroups } from "../sharing/groups.ts";
 import type { Clock, SyncService } from "../sync/ports.ts";
 import { isEarlierSend, refused, resolveDraftLink } from "./links.ts";
 import type { DraftsOutcome, DraftsRefusal } from "./links.ts";
@@ -135,11 +136,20 @@ export function createDraftsService(options: {
       if (!isDocId(docId)) return refused("bad_request");
       const access = authorizeScriptEditor(storage, userId, docId);
       if (!access.ok) return access;
+      const sends = access.file.sharing.sendsOf(docId);
+      if (sends.length === 0) return { ok: true, value: [] };
+      const projectGroups = readProjectGroups(storage, docId);
+      const openStats = access.file.sharing.openStatsOf(
+        sends.map((send) => send.id),
+      );
       return {
         ok: true,
-        value: access.file.sharing
-          .sendsOf(docId)
-          .map((send) => buildSendItem(storage, access.file, send, names)),
+        value: sends.map((send) =>
+          buildSendItem(storage, access.file, send, names, {
+            projectGroups,
+            opens: openStats.get(send.id) ?? { openers: [], totalOpens: 0 },
+          }),
+        ),
       };
     },
     open(userId, token) {

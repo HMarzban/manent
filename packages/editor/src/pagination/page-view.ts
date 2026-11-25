@@ -5,12 +5,17 @@ import type { Node } from "prosemirror-model";
 import { EditorState, Plugin } from "prosemirror-state";
 import type { Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { faceDescriptors, loadScriptFonts } from "../page/fonts.ts";
+import {
+  faceDescriptors,
+  loadScriptFonts,
+  scriptFontsReady,
+} from "../page/fonts.ts";
 import type { FaceDescriptor, FontSet, LoadableFace } from "../page/fonts.ts";
 import {
   PAGE_VIEW_CLASS,
   createPageScaffold,
   detectEngine,
+  withBatchedScaffold,
 } from "../page/scaffold.ts";
 import type { PageFurnitureOptions, PageScaffold } from "../page/index.ts";
 import type { SectionOptions } from "../sections/commands.ts";
@@ -107,86 +112,98 @@ export function mountPageView(
 ): { view: EditorView; scaffold: PageScaffold; destroy(): void } {
   const { ports, dispatchTransaction, spelling } = options;
   const engine = options.engine ?? detectEngine(ports.userAgent);
-  const scaffold = createPageScaffold({
-    place: options.place,
-    profile: options.profile,
-    engine,
-    view: options.view,
-    furniture: options.furniture,
+  const fontsReady = scriptFontsReady(ports.fonts);
+  return withBatchedScaffold(options.place, () => {
+    const scaffold = createPageScaffold({
+      place: options.place,
+      profile: options.profile,
+      engine,
+      view: options.view,
+      furniture: options.furniture,
+      initialFontState: fontsReady ? "ready" : "loading",
+    });
+    if (fontsReady) {
+      scaffold.pages.dataset["fonts"] = "ready";
+    } else {
+      scaffold.pages.dataset["fonts"] = "loading";
+      void loadScriptFonts({
+        fonts: ports.fonts,
+        makeFace: ports.makeFace,
+        faces: faceDescriptors(fontRanges("latin"), fontRanges("latin-ext")),
+        wait: ports.wait,
+      }).then((state) => {
+        scaffold.setFontState(state);
+        // the drift monitor reports the font state it measured under
+        scaffold.pages.dataset["fonts"] = state;
+      });
+    }
+    const plugins = typesettingPlugins({
+      ...options,
+      engine,
+      onPages: (count) => {
+        scaffold.setPageCount(count);
+        options.onPages?.(count);
+      },
+    });
+    const labelSyncPlugin = new Plugin({
+      view(editorView) {
+        let lastPagination = paginationKey.getState(
+          editorView.state,
+        )?.pagination;
+        if (lastPagination !== undefined)
+          scaffold.setPageLabels(
+            lastPagination.pages.map((page) => page.label),
+          );
+        return {
+          update(nextView) {
+            const nextPagination = paginationKey.getState(
+              nextView.state,
+            )?.pagination;
+            if (
+              nextPagination !== undefined &&
+              nextPagination !== lastPagination
+            ) {
+              lastPagination = nextPagination;
+              scaffold.setPageLabels(
+                nextPagination.pages.map((page) => page.label),
+              );
+            }
+          },
+        };
+      },
+    });
+    const view = new EditorView(scaffold.pages, {
+      state: EditorState.create({
+        doc: options.doc,
+        plugins: [
+          ...(options.before ?? []),
+          ...plugins,
+          labelSyncPlugin,
+          ...(options.plugins ?? []),
+        ],
+      }),
+      dispatchTransaction:
+        dispatchTransaction && ((tr) => dispatchTransaction(view, tr)),
+      editable: options.editable,
+      // every state of this view holds the typesetting plugins, the pagination plugin among them
+      attributes: (state) => ({
+        class: PAGE_VIEW_CLASS,
+        spellcheck:
+          spelling?.() === false
+            ? "false"
+            : spellcheckFor(paginationKey.getState(state)!.index.blocks.length),
+      }),
+      nodeViews: { section: sectionNodeView(engine) },
+      transformPasted: sanitizedSlice,
+      transformPastedText: sanitizeText,
+    });
+    return {
+      view,
+      scaffold,
+      destroy() {
+        view.destroy();
+        scaffold.destroy();
+      },
+    };
   });
-  loadScriptFonts({
-    fonts: ports.fonts,
-    makeFace: ports.makeFace,
-    faces: faceDescriptors(fontRanges("latin"), fontRanges("latin-ext")),
-    wait: ports.wait,
-  }).then((state) => {
-    scaffold.setFontState(state);
-    // the drift monitor reports the font state it measured under
-    scaffold.pages.dataset["fonts"] = state;
-  });
-  scaffold.pages.dataset["fonts"] = "loading";
-  const plugins = typesettingPlugins({
-    ...options,
-    engine,
-    onPages: (count) => {
-      scaffold.setPageCount(count);
-      options.onPages?.(count);
-    },
-  });
-  const labelSyncPlugin = new Plugin({
-    view(editorView) {
-      let lastPagination = paginationKey.getState(editorView.state)?.pagination;
-      if (lastPagination !== undefined)
-        scaffold.setPageLabels(lastPagination.pages.map((page) => page.label));
-      return {
-        update(nextView) {
-          const nextPagination = paginationKey.getState(
-            nextView.state,
-          )?.pagination;
-          if (
-            nextPagination !== undefined &&
-            nextPagination !== lastPagination
-          ) {
-            lastPagination = nextPagination;
-            scaffold.setPageLabels(
-              nextPagination.pages.map((page) => page.label),
-            );
-          }
-        },
-      };
-    },
-  });
-  const view = new EditorView(scaffold.pages, {
-    state: EditorState.create({
-      doc: options.doc,
-      plugins: [
-        ...(options.before ?? []),
-        ...plugins,
-        labelSyncPlugin,
-        ...(options.plugins ?? []),
-      ],
-    }),
-    dispatchTransaction:
-      dispatchTransaction && ((tr) => dispatchTransaction(view, tr)),
-    editable: options.editable,
-    // every state of this view holds the typesetting plugins, the pagination plugin among them
-    attributes: (state) => ({
-      class: PAGE_VIEW_CLASS,
-      spellcheck:
-        spelling?.() === false
-          ? "false"
-          : spellcheckFor(paginationKey.getState(state)!.index.blocks.length),
-    }),
-    nodeViews: { section: sectionNodeView(engine) },
-    transformPasted: sanitizedSlice,
-    transformPastedText: sanitizeText,
-  });
-  return {
-    view,
-    scaffold,
-    destroy() {
-      view.destroy();
-      scaffold.destroy();
-    },
-  };
 }

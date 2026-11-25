@@ -4,6 +4,146 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Multi-column gutter markers overflowed a single-column desk gutter behind the side panel
+
+- Date: 2026-11-25
+
+### What happened
+
+`--desk-gutter` remained `32px` while annotation markers sat unconditionally in column 1 (`+36px` from the sheet edge) and grew to ~50 px for mixed Comment/Note badges, with collaborator initials in column 2 (`+64px`). At `1280px` with the right side panel open, both badges collided with each other and clipped past the page desk's right edge behind the panel.
+
+### How it was caught
+
+By visual inspection and live browser bounding-box checks with the right side panel open.
+
+### Rule
+
+Keep `--desk-gutter` wide enough (`>= 96px`) to hold all visible gutter columns with breathing room, and anchor annotation badges at column 0 (`+8px` beside the sheet) whenever page-mode diff initials are absent so wide mixed badges never collide with collaborator avatars or clip off-screen.
+
+### Enforced by
+
+`tools/test/theme.test.ts` (asserting `--desk-gutter >= 96px`) and `packages/editor/test/annotations-plugin.dom.test.ts` (verifying column 0 in normal editing and column 1 when page-mode changes are active).
+
+## Theme CSS styled legacy mark attributes instead of what the schema emitted
+
+- Date: 2026-11-25
+
+### What happened
+
+`@manent/schema` emitted `<span data-color="...">`, `<mark data-highlight="...">`, and `<span class="caps">` for text colour, highlight, and all-caps marks, while `packages/ui/src/theme.css` only styled `[data-ink="..."]` and `[data-hl="..."]` and defined no `.caps` rule at all. Selecting any text colour or all-caps did nothing visually, and every highlight colour fell back to the browser's default bright yellow `<mark>` fill with black text.
+
+### How it was caught
+
+By selecting text in the live editor and applying text colours, highlights, and secondary formatting through the selection bubble menu.
+
+### Rule
+
+Every DOM attribute or class emitted by `MARK_SPECS` in `@manent/schema` must have a matching, tested rule in `packages/ui/src/theme.css` (and `PAGE_CSS` where layout depends on it), and `<mark>` elements must reset browser default `color` (`color: inherit`) so dark paper and combined text colours stay legible.
+
+### Enforced by
+
+`tools/test/theme.test.ts` and `packages/editor/test/page-styles.test.ts`, which assert rules for all five `[data-color]` values, all five `[data-highlight]` values, `mark[data-highlight]`, `.caps`, and `strong`, plus ≥ 4.5:1 AA contrast across every colour/highlight combination.
+
+## Putting secondary badges inside a truncated heading clipped them and hid menu updates
+
+- Date: 2026-11-25
+
+### What happened
+
+In the Scenes and Chapters list, writer assignment, scene progress, and open-comment counts were appended inline inside a single truncated heading span, and scene progress was only read when a writer was also assigned. On any normal-length chapter or scene title, CSS truncation clipped the badges completely off the edge, making Writer and Progress menu choices look like no-ops.
+
+### How it was caught
+
+By user testing of the Chapters row menu (`Writer` and `Progress`) and tracing `assignmentSceneMarks` through `SceneTitle` and `Row`.
+
+### Rule
+
+Place secondary status, assignment, and count tags in a dedicated metadata line or card footer outside `.truncate` and `line-clamp-*` title wrappers, and render independent states (such as scene progress without an assigned writer) from the union of their underlying maps.
+
+### Enforced by
+
+`apps/web/test/scene-row-menu.dom.test.tsx`, which asserts that progress renders without a writer and that assignment and open-comment tags sit outside the truncated heading in both List and Cards views.
+
+## Portalled context menus inside a virtualised list lost arrow keys to the list behind them
+
+- Date: 2026-11-25
+
+### What happened
+
+React synthetic `keydown` events bubble through the component tree even across DOM portals. Opening a right-click `ContextMenu` mounted inside `VirtualRows` caused the first ArrowDown press in the menu to reach `VirtualRows.onKeyDown`, where the target had no `[role="listitem"]` ancestor, so the list computed index 0 and yanked focus out of the menu back to the first row.
+
+### How it was caught
+
+By auditing keyboard navigation of the Scenes row context menu against `VirtualRows.keyTarget`.
+
+### Rule
+
+A container keyboard handler that manages focus among its children ignores events whose DOM target is not contained within `event.currentTarget` (and ignores non-item descendants when a child overlay owns keys).
+
+### Enforced by
+
+`apps/web/test/scene-row-menu.dom.test.tsx`, which dispatches arrow keys from a portalled menu inside `VirtualRows` and verifies that list focus never moves.
+
+## Overlay scrollbars report zero layout width and were covered by edge-anchored labels
+
+- Date: 2026-11-25
+
+### What happened
+
+The scrolling page indicator (`Page 9 of 291`) computed the scroller's right edge from `clientWidth` and added a 4 px gap. On macOS with overlay scrollbars, `offsetWidth === clientWidth` while the OS paints a 15 px scrollbar thumb inside the right edge during scrolling, so the indicator sat directly on top of the scrollbar thumb and poked past the top edge of long books.
+
+### How it was caught
+
+By visual inspection while scrolling a 291-page book in dark mode.
+
+### Rule
+
+Any floating indicator anchored beside a scroller's inline-end edge reserves overlay scrollbar width (16 px) whenever `offsetWidth - clientLeft - clientWidth === 0`, clamps its vertical coordinate inside the scroller's bounds, and uses overlay tokens (`bg-overlay`, `border-line`, `text-fg`) rather than inverted foreground/background fills.
+
+### Enforced by
+
+`apps/web/test/thumb-label.dom.test.ts`, which verifies overlay scrollbar clearance, classic scrollbar clearance, covering panel clearance, vertical clamping, and overlay tokens.
+
+## Shared origin storage leaked per-tab Tour chrome into companion windows
+
+- Date: 2026-11-25
+
+### What happened
+
+Persisting the active Tour scenario and step in `localStorage` caused multi-window Tour scenarios (`window.open("...?person=...&panels=closed")`) to hydrate the opener's active Tour step inside the companion window and draw a floating Tour bar and ring over the wrong tab. Even moving to `sessionStorage` required suppressing cloned tab storage on `?panels=closed` windows because `window.open` copies the opener's `sessionStorage`.
+
+### How it was caught
+
+By multi-lens code review of the Tour redesign before merge.
+
+### Rule
+
+Per-tab interface session state belongs in `tabStorage` (`sessionStorage`), never origin-wide `localStorage`, and companion windows opened with `?panels=closed` suppress and clear cloned Tour step storage before hydration.
+
+### Enforced by
+
+`apps/web/test/tour-redesign.dom.test.tsx`, which verifies reload restoration via `tabStorage` and asserts that a suppressed `?panels=closed` window clears cloned storage and draws no floating bar.
+
+## A demo reset reloaded a pre-reset document path and dropped the next person on no access
+
+- Date: 2026-11-25
+
+### What happened
+
+Both `useResetting` and `followSeed` called `location.reload()` after a demo reset or server reseed. When a tab had been sitting on a pre-reset script URL (`/s/<id>`), clearing Manent's session redirected to `/choose?next=%2Fs%2F<id>`, so whoever signed in next landed straight on `"You no longer have access"` for a wiped or private script.
+
+### How it was caught
+
+By clicking Reset in the demo bar while on a script and choosing another person after reload.
+
+### Rule
+
+Reloading the app after a demo reset or seed change navigates cleanly to `/` (`reloadAtHome`) whenever the tab is not already on the bare root path, so stale document or project URLs never survive across a reseed.
+
+### Enforced by
+
+`apps/web/test/resetting-screen.dom.test.tsx`, which verifies `reloadAtHome` replaces non-root paths with `/` and reloads only when already on `/`.
+
 ## A screen took focus from the open command palette
 
 - Date: 2026-11-21

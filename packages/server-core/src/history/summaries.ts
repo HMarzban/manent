@@ -2,7 +2,12 @@
 // how a list shows it, and the newest version each summary is made against.
 import { compareDocs } from "@manent/revisions";
 import type { BlockJSON, DocJSON } from "@manent/schema";
-import type { DocFile, VersionRow, VersionSummary } from "@manent/storage";
+import type {
+  DocFile,
+  VersionPageRow,
+  VersionRow,
+  VersionSummary,
+} from "@manent/storage";
 import type {
   HttpErrorCode,
   VersionContent,
@@ -69,10 +74,9 @@ export function summaryAuthors(
     return [createdByUserId];
   const { rows } = file.log.tail(docId, to.generation, from.seq, {
     quarantine: false,
+    throughSeq: to.seq,
   });
-  return union(
-    rows.filter((row) => row.seq <= to.seq).map((row) => row.userId),
-  );
+  return union(rows.map((row) => row.userId));
 }
 
 /** `into`'s summary with `from`'s joined: each list a union, `into`'s entries first. */
@@ -93,15 +97,11 @@ export const positionOf = ({
 }: VersionRow): VersionPosition | null =>
   generation === null || seq === null ? null : { generation, seq };
 
-/** A version as a list shows it: its summary counted, its engine version that of its snapshot, else of the document. */
-export function itemOf(file: DocFile, row: VersionRow): VersionItem {
-  const position = positionOf(row);
-  const summary = file.history.summary(row.id);
-  const engineVersion =
-    file.history.snapshotOf(row.id)?.engineVersion ??
-    (position === null
-      ? null
-      : (file.log.get(row.docId)?.engineVersion ?? null));
+function formatVersionItem(
+  row: VersionRow,
+  engineVersion: number | null,
+  summary: VersionSummary | null,
+): VersionItem {
   return {
     id: row.id,
     kind: row.kind,
@@ -109,7 +109,7 @@ export function itemOf(file: DocFile, row: VersionRow): VersionItem {
     createdByUserId: row.createdByUserId,
     createdAt: row.createdAt,
     onDevice: row.deviceId !== null,
-    position,
+    position: positionOf(row),
     engineVersion,
     summary:
       summary === null
@@ -120,6 +120,30 @@ export function itemOf(file: DocFile, row: VersionRow): VersionItem {
             scenes: summary.sceneIds.length,
           },
   };
+}
+
+/** A pre-joined page row as a list shows it, avoiding per-row summary/snapshot/document queries. */
+export function itemOfPageRow(
+  row: VersionPageRow,
+  docEngineVersion: number | null,
+): VersionItem {
+  const position = positionOf(row);
+  const snapshotEngine = row.snapshotRef !== null ? row.engineVersion : null;
+  const engineVersion =
+    snapshotEngine ?? (position === null ? null : docEngineVersion);
+  return formatVersionItem(row, engineVersion, row.summary);
+}
+
+/** A version as a list shows it: its summary counted, its engine version that of its snapshot, else of the document. */
+export function itemOf(file: DocFile, row: VersionRow): VersionItem {
+  const position = positionOf(row);
+  const summary = file.history.summary(row.id);
+  const engineVersion =
+    file.history.snapshotOf(row.id)?.engineVersion ??
+    (position === null
+      ? null
+      : (file.log.get(row.docId)?.engineVersion ?? null));
+  return formatVersionItem(row, engineVersion, summary);
 }
 
 /**

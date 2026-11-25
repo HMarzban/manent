@@ -50,6 +50,7 @@ export type PopoverMode =
   | {
       kind: "comment";
       anchor: TextAnchor | null;
+      heading?: string;
       place: { left: number; top: number };
     }
   | {
@@ -60,6 +61,7 @@ export type PopoverMode =
   | {
       kind: "thread";
       id: string;
+      blockIds?: readonly string[];
       place: { left: number; top: number };
     };
 

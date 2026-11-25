@@ -40,23 +40,12 @@ export type { SessionLink } from "./session-options.ts";
 /** One open document as its client drives it. */
 export interface Session {
   readonly handle: DocHandle;
-  /** A following tab's client ID: listed from now on, subscribing again when it is new. */
   addClient(clientId: number): void;
-  /** A client ID reserved for the server to write under: listed and stored, with no new SUBSCRIBE, as the server registers it when it writes. */
   addReservedClient(clientId: number): Promise<void>;
-  /**
-   * A following tab's edit, made in `generation`: applied and stored as an own
-   * entry, or, made in the document a move left, carried from it; resolves
-   * `refused` once its write settled.
-   */
   edit(edit: UnsavedEdit, generation: number): Promise<boolean>;
-  /** A following tab moved to the new document, or closed it: the document a move left is not kept for it. */
   released(tabId: string): void;
-  /** The document as this tab holds it, for a tab that opens it. */
   state(): { state: Uint8Array; meta: DocMeta };
-  /** This tab no longer leads: the session stops using the store and the connection. */
   detach(): { doc: CrdtDoc; unsaved: UnsavedEdit[] };
-  /** Another document's meta changed: a creation waiting for that document asks again. */
   metaChanged(docId: string): void;
   link(facts: SessionLink): void;
   connected(send: (message: Message) => void, gate: ServerGate): void;
@@ -144,7 +133,6 @@ class DocSession implements Session {
     this.upstream =
       options.via === "local_node"
         ? new UpstreamWindow({
-            // the day the document last synced is the upstream's; the meta's change shows the status
             arrived: ({ lastSyncedAt }) => journal.patch({ lastSyncedAt }),
             tell: (event) => this.copy.tell(event),
           })
@@ -163,7 +151,6 @@ class DocSession implements Session {
       changed: () => this.refresh(),
       online: () => this.facts.state === "online",
       idle: () => this.subscription.left?.idle(),
-      // the node's upstream client holds every client ID of this device: it sets text aside
       ownClientIds: () => (relayed ? [] : journal.meta.clientIds),
       upstream: this.upstream,
     });
@@ -214,11 +201,7 @@ class DocSession implements Session {
     });
   }
 
-  /**
-   * Stores a new document and the new client ID, then applies what was stored
-   * but not yet applied. `loaded` is what the store gave: a refusal means the
-   * session works in memory.
-   */
+  /** Stores a new document and the new client ID, then applies stored updates; a store refusal runs in memory. */
   async ready(loaded: LoadedDocument | StoreError | null): Promise<void> {
     const { journal } = this;
     await journal.open(loaded);
@@ -355,9 +338,7 @@ class DocSession implements Session {
     return deriveStatus({
       ...this.upstream?.facts(),
       link: this.facts.state,
-      // while moving the document is syncing, though no subscription is live
       subscribed: this.handshake.subscribed() || this.subscription.moving,
-      // and the new document is merged only once the move has loaded it
       merged: this.handshake.merged() && !this.subscription.moving,
       entries: journal.entries,
       unsavedWrites: journal.unsavedWrites(),
@@ -386,7 +367,7 @@ class DocSession implements Session {
     this.kept.stop();
     this.indexWait.drop();
     this.subscription.close();
-    // the client routes a document's answers to its viewer while one is open, so the next open's would never reach it
+    // close any viewer so the next open receives its own frames
     this.subscription.readOnly.get()?.close();
     this.copy.dispose();
     this.handshake.close();

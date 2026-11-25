@@ -9,6 +9,7 @@ import { openIndexes } from "./person-indexes.ts";
 import type { Indexes, PersonOptions } from "./person-indexes.ts";
 import type { DocumentSource } from "./ports.ts";
 import type { PersonSync } from "./sync/create-sync.ts";
+import { createDeviceMemory } from "./sync/device-memory.ts";
 import { createSyncDocumentSource } from "./sync/document-source.ts";
 import {
   createLaterLibrary,
@@ -215,10 +216,30 @@ function startPersonSync(
     trust: module,
     askPersistence: module.askPersistenceOnce(options.where),
   }));
-  const sync = trust.then(async (t) => {
-    await t.trust.followSeed(options);
-    return options.startSync(options.person, deviceId);
-  });
+  // On a clean browser (no remembered seed), start sync immediately in parallel with followSeed.
+  // When a seed is remembered, wait for followSeed first so stale demo edits can never push to a reset server.
+  const rememberedSeed = createDeviceMemory({
+    local: options.storage,
+    session: null,
+  }).seed();
+  let sync: Promise<PersonSync>;
+  if (rememberedSeed === null) {
+    sync = options.startSync(options.person, deviceId);
+    void trust.then((t) =>
+      t.trust.followSeed(options, async () => {
+        await sync.then(
+          (s) => s.dispose(),
+          () => {
+            // sync never started: nothing to dispose before clearing
+          },
+        );
+      }),
+    );
+  } else {
+    sync = trust
+      .then((t) => t.trust.followSeed(options))
+      .then(() => options.startSync(options.person, deviceId));
+  }
   let started: Started | null = null;
   const network = createValue(options.online());
   const client = Promise.all([sync, trust]).then(([s, t]) => {
@@ -307,8 +328,18 @@ export function createPersonDocuments(
     privateIndexSynced,
     leave() {
       const going = started();
-      if (going !== null)
+      if (going !== null) {
         going.trust.leavePage(going.sync, maps, handles.get());
+        return;
+      }
+      // keep held preference/key writes even when pagehide arrives before trust/sync finishes starting
+      createDeviceMemory({
+        local: options.storage,
+        session: null,
+      }).keepLegacyMaps(options.person.userId, {
+        prefs: maps.prefs.held(),
+        keys: maps.keys.held(),
+      });
     },
     dispose() {
       disposed = true;

@@ -35,10 +35,11 @@ import {
   ScenePeople,
   SceneTitle,
   isPersonMark,
+  sceneRowMeta,
   useSceneExtras,
 } from "../../scenes/marks.tsx";
 import type { SceneParts } from "../../scenes/marks.tsx";
-import { useSceneMoves } from "../../scenes/moves.ts";
+import { SceneRowsContext, useSceneMoves } from "../../scenes/moves.ts";
 import { SceneRowMenu, rowItemsFor } from "../../scenes/row-menu.tsx";
 import { SCENE_ROW_ITEMS } from "../../scenes/row-items.ts";
 import { useServices } from "../../services/context.tsx";
@@ -96,6 +97,11 @@ function SceneLine(props: {
     );
   const marks = parts.extras.marks(row.blockId);
   const length = parts.extras.length(row);
+  const lengthTitle =
+    length === null
+      ? undefined
+      : (parts.extras.lengthTitle?.(row) ?? undefined);
+  const meta = sceneRowMeta(marks, row.synopsis);
   const trailing: ReactNode[] = [
     ...(marks.some((mark) => mark.kind === "revised")
       ? [
@@ -111,7 +117,9 @@ function SceneLine(props: {
           <span key="length" className="flex items-center gap-2">
             <ScenePeople marks={marks} />
             {length === null ? null : (
-              <span className="tabular-nums">{length}</span>
+              <span className="tabular-nums" title={lengthTitle}>
+                {length}
+              </span>
             )}
           </span>,
         ]),
@@ -132,7 +140,7 @@ function SceneLine(props: {
               <span className="w-6 text-end tabular-nums">{row.number}</span>
             )
           }
-          meta={row.synopsis === "" ? undefined : row.synopsis}
+          meta={meta}
           trailing={trailing}
           menu={handle ?? undefined}
         >
@@ -215,10 +223,11 @@ function useListedRows(filter: string): readonly OutlineRow[] {
 /** The rows of a person who can edit: a scene moves by drag, by its menu's Move, and by the move commands. */
 function MovableRows(props: {
   docId: string;
+  label: string;
   rows: readonly OutlineRow[];
   renderRow(row: OutlineRow): ReactNode;
 }): ReactNode {
-  const { docId, rows, renderRow } = props;
+  const { docId, label, rows, renderRow } = props;
   const { area, sortable, rowOf } = useSceneMoves({ docId, rows });
   const renderItem = useCallback(
     (id: string): ReactNode => {
@@ -228,13 +237,16 @@ function MovableRows(props: {
     [rowOf, renderRow],
   );
   return (
-    <div {...area} className="min-h-0 flex-1">
-      <SortableList
-        {...sortable}
-        orientation="vertical"
-        renderItem={renderItem}
-      />
-    </div>
+    <SceneRowsContext value={rows}>
+      <div {...area} className="min-h-0 flex-1">
+        <SortableList
+          {...sortable}
+          label={label}
+          orientation="vertical"
+          renderItem={renderItem}
+        />
+      </div>
+    </SceneRowsContext>
   );
 }
 
@@ -254,9 +266,21 @@ function OutlineRows(props: {
     [parts],
   );
   if (props.view === "cards")
-    return <SceneCards rows={rows} canEdit={props.canEdit} parts={parts} />;
+    return (
+      <SceneCards
+        rows={rows}
+        canEdit={props.canEdit}
+        label={props.label}
+        parts={parts}
+      />
+    );
   return props.movable ? (
-    <MovableRows docId={parts.docId} rows={rows} renderRow={renderRow} />
+    <MovableRows
+      docId={parts.docId}
+      label={props.label}
+      rows={rows}
+      renderRow={renderRow}
+    />
   ) : (
     <div className="min-h-0 flex-1">
       <VirtualRows
@@ -284,7 +308,7 @@ function ScenesList(props: { docId: string }): ReactNode {
   );
   const kind = useSubscribable(kindSource);
   const count = useOutlineCount();
-  const extras = useSceneExtras(docId);
+  const extras = useSceneExtras(docId, format);
   const canEdit = useCanEdit(docId);
   const items = useMemo(() => rowItemsFor(SCENE_ROW_ITEMS, canEdit), [canEdit]);
   const parts = useMemo<SceneParts>(

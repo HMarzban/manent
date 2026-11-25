@@ -126,9 +126,12 @@ function keepRowsOnClose(error: unknown): void {
     throw error;
 }
 
+/** Maximum missing documents eagerly prefetched when opening the Library, preventing storms on large workspaces. */
+const MAX_EAGER_FETCH = 12;
+
 /**
  * Rows say where each document is from what the device's store holds, read again as the indexes and the link change.
- * While the link is online, a row's document the device does not hold is fetched.
+ * While the link is online, a bounded budget of missing documents is fetched in the background.
  */
 export function createShelves(options: {
   sync: PersonSync;
@@ -140,11 +143,21 @@ export function createShelves(options: {
 }): Shelves {
   const { sync, privateIndex, userId } = options;
   const shelves = new Map<string, Shelf>();
+  const budgeted = new Set<string>();
   let summaries: ReadonlyMap<string, DocSummary> = new Map();
+  let refreshScheduled = false;
+  const scheduleRefresh = (): void => {
+    if (refreshScheduled) return;
+    refreshScheduled = true;
+    queueMicrotask(() => {
+      refreshScheduled = false;
+      void refresh().catch(keepRowsOnClose);
+    });
+  };
   const fetcher = createFetcher({
     client: sync.client,
     parallel: DRAIN_PARALLEL,
-    ended: () => void refresh().catch(keepRowsOnClose),
+    ended: scheduleRefresh,
   });
   const show = (): void => {
     const facts: RowFacts = {
@@ -157,20 +170,54 @@ export function createShelves(options: {
       continued: readContinueMap(privateIndex.continueMap),
       nameOf,
     };
-    const fetching: string[] = [];
+    const eager: string[] = [];
+    const eagerSet = new Set<string>();
+    const perShelf: {
+      projects: Value<readonly ProjectItem[]>;
+      continueList: Value<readonly ContinueItem[]>;
+      rows: ProjectItem[];
+      continued: ContinueItem[];
+    }[] = [];
+    const reserve = (docId: string): void => {
+      if (!budgeted.has(docId)) {
+        if (budgeted.size >= MAX_EAGER_FETCH) return;
+        budgeted.add(docId);
+      }
+      if (eagerSet.has(docId)) return;
+      eagerSet.add(docId);
+      eager.push(docId);
+    };
     for (const [ws, { opened, projects, continueList }] of shelves) {
       if (opened === null) continue;
       const rows = projectItems(opened.index, facts);
       const continued = continueItems(ws, opened.index, facts);
-      projects.set(rows);
-      continueList.set(continued);
+      // prioritise recently opened Continue items ahead of older projects
+      for (const { docId, place } of continued)
+        if (place.kind === "fetching") reserve(docId);
       for (const { firstDocId, place } of rows)
         if (place.kind === "fetching" && firstDocId !== null)
-          fetching.push(firstDocId);
-      for (const { docId, place } of continued)
-        if (place.kind === "fetching") fetching.push(docId);
+          reserve(firstDocId);
+      perShelf.push({ projects, continueList, rows, continued });
     }
-    fetcher.fetch(fetching);
+    for (const { projects, continueList, rows, continued } of perShelf) {
+      projects.set(
+        rows.map((row) =>
+          row.place.kind === "fetching" &&
+          row.firstDocId !== null &&
+          !budgeted.has(row.firstDocId)
+            ? { ...row, place: { kind: "on_server" } }
+            : row,
+        ),
+      );
+      continueList.set(
+        continued.map((item) =>
+          item.place.kind === "fetching" && !budgeted.has(item.docId)
+            ? { ...item, place: { kind: "on_server" } }
+            : item,
+        ),
+      );
+    }
+    fetcher.fetch(eager);
     options.drawn();
   };
   let reading: Promise<void> | null = null;
@@ -193,7 +240,7 @@ export function createShelves(options: {
   };
   const read = (): void => {
     show();
-    void refresh().catch(keepRowsOnClose);
+    scheduleRefresh();
   };
   const shelf = (ws: string): Shelf => {
     const known = shelves.get(ws);
@@ -202,10 +249,9 @@ export function createShelves(options: {
     shelves.set(ws, opened);
     return opened;
   };
-  const changed = (): void => void refresh().catch(keepRowsOnClose);
   privateIndex.continueMap.subscribe(show);
-  privateIndex.onDevice.subscribe(changed);
-  sync.link.subscribe(changed);
+  privateIndex.onDevice.subscribe(scheduleRefresh);
+  sync.link.subscribe(scheduleRefresh);
   return {
     shelf,
     openKnown() {

@@ -2,6 +2,7 @@
 import type { Database } from "bun:sqlite";
 import type {
   DraftLinkRow,
+  DraftOpenStats,
   DraftSendRow,
   ShareLinkRow,
   ShareLinkStore,
@@ -32,6 +33,40 @@ const readSend = (row: StoredSend): DraftSendRow => ({
   watermarkedUserIds: readStrings(row.watermarkedUserIds),
   files: readStrings(row.files),
 });
+
+const IN_CHUNK = 500;
+
+function readOpenStats(
+  db: Database,
+  sendIds: readonly string[],
+): Map<string, DraftOpenStats> {
+  const uniqueIds = [...new Set(sendIds)];
+  const result = new Map<string, DraftOpenStats>();
+  for (let start = 0; start < uniqueIds.length; start += IN_CHUNK) {
+    const slice = uniqueIds.slice(start, start + IN_CHUNK);
+    const placeholders = slice.map(() => "?").join(", ");
+    const rows = db
+      .query<
+        { sendId: string; userId: string | null; opens: number },
+        string[]
+      >(
+        `SELECT send_id AS sendId, user_id AS userId, count(*) AS opens
+         FROM draft_opens WHERE send_id IN (${placeholders})
+         GROUP BY send_id, user_id ORDER BY send_id, user_id`,
+      )
+      .all(...slice);
+    for (const row of rows) {
+      let entry = result.get(row.sendId);
+      if (entry === undefined) {
+        entry = { openers: [], totalOpens: 0 };
+        result.set(row.sendId, entry);
+      }
+      entry.totalOpens += row.opens;
+      if (row.userId !== null) entry.openers.push(row.userId);
+    }
+  }
+  return result;
+}
 
 /** The store over a document file's connection, so that its writes join the file's `transaction`. */
 export function createSqliteSharing(db: Database): SharingStore {
@@ -91,6 +126,7 @@ export function createSqliteSharing(db: Database): SharingStore {
       ),
     openersOf: (sendId) => sql.openersOf.all(sendId).map((row) => row.userId),
     openCount: (sendId) => sql.openCount.get(sendId)?.opens ?? 0,
+    openStatsOf: (sendIds) => readOpenStats(db, sendIds),
     putRead: (r) =>
       transact(db, () =>
         sql.putRead.run(r.docId, r.userId, r.versionId, r.readAt),

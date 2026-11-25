@@ -1,5 +1,4 @@
 // The page's frame: a zoomed container over one sheet per page in view, beneath the editable document.
-
 import type { PageProfile } from "@manent/pagination";
 import {
   CONTAINMENT,
@@ -26,7 +25,6 @@ import { profileCss, screenPagePx } from "./profile-css.ts";
 /** The class the EditorView's own element carries. */
 export const PAGE_VIEW_CLASS = "mn-page-view";
 
-/** A user agent naming no engine this build knows is read as Chromium. */
 export function detectEngine(userAgent: string): BrowserEngine {
   if (userAgent.includes("Firefox/")) return "firefox";
   const chromium =
@@ -50,10 +48,7 @@ export function zoomBox(
   };
 }
 
-/**
- * The sheets to draw: every page the viewport shows and `SHEET_NEIGHBOURS` on each side. The scroll offset and
- * the viewport are zoomed pixels; each `top` is unzoomed, as the sheet is placed inside the zoomed container.
- */
+/** The sheets to draw: every page in view plus `SHEET_NEIGHBOURS` each side (zoomed scroll/viewport, unzoomed tops). */
 export function visibleSheets(
   pageCount: number,
   pageHeightPx: number,
@@ -66,15 +61,13 @@ export function visibleSheets(
   const top = scrollTop / scale;
   const bottom = (scrollTop + viewportHeight) / scale;
   const first = Math.floor((top - pageHeightPx) / pitch) + 1 - SHEET_NEIGHBOURS;
-  const last = Math.ceil(bottom / pitch) - 1 + SHEET_NEIGHBOURS;
+  const end = Math.min(
+    pageCount - 1,
+    Math.ceil(bottom / pitch) - 1 + SHEET_NEIGHBOURS,
+  );
   const sheets: { index: number; top: number }[] = [];
-  for (
-    let index = Math.max(0, first);
-    index <= Math.min(pageCount - 1, last);
-    index++
-  ) {
+  for (let index = Math.max(0, first); index <= end; index++)
     sheets.push({ index, top: index * pitch });
-  }
   return sheets;
 }
 
@@ -86,24 +79,17 @@ export interface SheetDecor {
 }
 
 export interface PageScaffold {
-  /** `.mn-pages`: the EditorView is mounted here, after the sheets. */
   readonly pages: HTMLElement;
-  /** `.mn-front`, first in `.mn-pages`: where the pages before page 1 are drawn, above page 1. */
   readonly front: HTMLElement;
-  /** The height the front pages take above page 1, gaps included, px at 100 %. */
   setFrontHeight(px: number): void;
   setProfile(profile: PageProfile): void;
-  /** Sizes the scroll area and draws the sheets. */
   setPageCount(count: number): void;
   applyZoom(percent: number): void;
-  /** Room above the first page, px, so that a zoom can keep a line still where the view cannot scroll back. */
   setRoomAbove(px: number): void;
   setFontState(state: "loading" | "ready" | "fallback"): void;
-  /** What a sheet shows of a revision; null: nothing. */
   setSheetDecor(decor: SheetDecor | null): void;
   setFurniture(furniture: PageFurnitureOptions): void;
   setPageLabels(labels: readonly string[]): void;
-  /** `data-tint="on"` on `.mn-pages`, or removed. */
   setTint(on: boolean): void;
   destroy(): void;
 }
@@ -116,11 +102,7 @@ interface SheetFrame {
   entries: readonly PageFurniture[];
 }
 
-/**
- * Places the sheet, and draws its furniture afresh, each entry in `entries` in turn, only when it would show
- * something other than what `drawn` says it was last drawn with: another person's typing redraws only the sheets it
- * changed.
- */
+/** Places the sheet and redraws its furniture only when `input` differs from `drawn`. */
 function drawSheet(
   sheet: HTMLElement,
   at: { index: number; top: number },
@@ -128,8 +110,10 @@ function drawSheet(
   profile: PageProfile,
   drawn: WeakMap<HTMLElement, PageFurnitureInput>,
 ): void {
-  sheet.dataset["page"] = String(at.index);
-  sheet.style.top = `${at.top}px`;
+  const page = String(at.index);
+  if (sheet.dataset["page"] !== page) sheet.dataset["page"] = page;
+  const top = `${at.top}px`;
+  if (sheet.style.top !== top) sheet.style.top = top;
   const { furniture, labels } = frame;
   const input: PageFurnitureInput = {
     pageIndex: at.index,
@@ -174,17 +158,39 @@ function drawSheets(
   wanted.forEach((at, i) => drawSheet(sheets[i]!, at, frame, profile, drawn));
 }
 
+interface ScaffoldBatch {
+  depth: number;
+  readonly flushers: Set<() => void>;
+}
+
+/** Per-scaffold listeners notified when drawn sheets or zoom change, avoiding redundant MutationObservers. */
+export const sheetListeners = new WeakMap<HTMLElement, Set<() => void>>();
+
+// per-host batch stack so nested editor setup (mountPageView + createScriptEditor) draws visible sheets once
+const scaffoldBatches = new WeakMap<HTMLElement, ScaffoldBatch>();
+
+/** Defers scaffold layout and sheet drawing for `place` until `run` completes, then flushes once. */
+export function withBatchedScaffold<T>(place: HTMLElement, run: () => T): T {
+  const batch = scaffoldBatches.get(place) ?? { depth: 0, flushers: new Set() };
+  scaffoldBatches.set(place, batch);
+  batch.depth += 1;
+  try {
+    return run();
+  } finally {
+    if (--batch.depth === 0) {
+      scaffoldBatches.delete(place);
+      for (const flush of batch.flushers) flush();
+    }
+  }
+}
+
 // In Reflow view the text wraps to the desk, so its sections are never contained: the engine's heights do not hold.
 function createFrame(
   place: HTMLElement,
   engine: BrowserEngine,
   view: LayoutView,
-): {
-  zoom: HTMLElement;
-  profileStyle: HTMLElement;
-  front: HTMLElement;
-  pages: HTMLElement;
-} {
+  fontsLoading: boolean,
+) {
   const doc = place.ownerDocument;
   const zoom = doc.createElement("div");
   zoom.className = view === "reflow" ? "mn-zoom mn-reflow" : "mn-zoom";
@@ -192,7 +198,7 @@ function createFrame(
   pageStyle.textContent = view === "reflow" ? PAGE_CSS + REFLOW_CSS : PAGE_CSS;
   const profileStyle = doc.createElement("style");
   const pages = doc.createElement("div");
-  pages.className = "mn-pages fonts-loading";
+  pages.className = fontsLoading ? "mn-pages fonts-loading" : "mn-pages";
   pages.classList.toggle("no-cv", !CONTAINMENT[engine] || view === "reflow");
   const front = doc.createElement("div");
   front.className = "mn-front";
@@ -202,10 +208,7 @@ function createFrame(
   return { zoom, profileStyle, front, pages };
 }
 
-/**
- * Sizes the scroll area to the zoomed content and scales the pages, the front pages above page 1 included; returns
- * the scale. In Reflow view the frame takes the desk's width and the content's height, scaled by `zoom`.
- */
+/** Sizes the scroll area to the zoomed content and scales the pages; returns the scale. */
 function sizeFrame(
   frame: { zoom: HTMLElement; front: HTMLElement; pages: HTMLElement },
   page: { width: number; height: number },
@@ -217,6 +220,7 @@ function sizeFrame(
   const contentHeight =
     frontPx + count * page.height + (count - 1) * PAGE_GAP_PX;
   const box = zoomBox(page.width, contentHeight, percent);
+  pages.dataset["zoom"] = String(box.scale);
   if (heights.view === "reflow") {
     zoom.style.zoom = String(box.scale);
     return box.scale;
@@ -231,39 +235,37 @@ function sizeFrame(
 
 /** The nearest scrollable ancestor of `place`, or `place` itself when none scrolls (e.g. a detached test host). */
 function scrollContainerOf(place: HTMLElement): HTMLElement {
-  if (typeof getComputedStyle === "function") {
-    for (
-      let at: HTMLElement | null = place;
-      at !== null;
-      at = at.parentElement
-    ) {
-      const { overflowY } = getComputedStyle(at);
-      if (overflowY === "auto" || overflowY === "scroll") return at;
-    }
+  if (typeof getComputedStyle !== "function") return place;
+  for (let at: HTMLElement | null = place; at !== null; at = at.parentElement) {
+    const { overflowY } = getComputedStyle(at);
+    if (overflowY === "auto" || overflowY === "scroll") return at;
   }
   return place;
 }
 
-/**
- * Builds `place > div.mn-zoom > div.mn-pages` with the page's styles. Every page is a full sheet, so the content's
- * height comes from the page count and is never measured.
- */
+/** Builds `place > div.mn-zoom > div.mn-pages` with the page's styles. */
 export function createPageScaffold(options: {
   place: HTMLElement;
   profile: PageProfile;
   engine: BrowserEngine;
-  /** Default "page". */
   view?: LayoutView;
   furniture?: PageFurnitureOptions;
-  /** Default `PAGE_FURNITURE`. */
   furnitureEntries?: readonly PageFurniture[];
+  initialFontState?: "loading" | "ready" | "fallback";
 }): PageScaffold {
   const { place } = options;
   const scroller = scrollContainerOf(place);
   const view = options.view ?? "page";
   const entries = options.furnitureEntries ?? PAGE_FURNITURE;
-  const frame = createFrame(place, options.engine, view);
+  const frame = createFrame(
+    place,
+    options.engine,
+    view,
+    (options.initialFontState ?? "loading") === "loading",
+  );
   const { zoom, profileStyle, front, pages } = frame;
+  const listeners = new Set<() => void>();
+  sheetListeners.set(pages, listeners);
   applyFurnitureReplaces(pages, entries);
   let profile = options.profile;
   let count = 1;
@@ -273,55 +275,68 @@ export function createPageScaffold(options: {
   let decor: SheetDecor | null = null;
   let furniture: PageFurnitureOptions = options.furniture ?? {};
   let labels: readonly string[] = [];
-  let lastScrollTop = 0;
-  let lastClientHeight = 0;
+  let viewBox: { top: number; height: number } | null = null;
   let placed: readonly { index: number; top: number }[] = [];
+  let dirty: "none" | "redraw" | "layout" = "none";
+  let destroyed = false;
+  let lastPagesKey = "";
   const sheets: HTMLElement[] = [];
   const drawn = new WeakMap<HTMLElement, PageFurnitureInput>();
 
-  const redrawPlaced = (): void => {
-    drawSheets(
-      pages,
-      sheets,
-      placed,
-      { count, decor, furniture, labels, entries },
-      profile,
-      drawn,
-    );
+  const drawPlaced = (): void => {
+    const f: SheetFrame = { count, decor, furniture, labels, entries };
+    drawSheets(pages, sheets, placed, f, profile, drawn);
+    const nextKey = `${scale}|${placed.map((w) => w.index).join(",")}`;
+    if (nextKey === lastPagesKey) return;
+    lastPagesKey = nextKey;
+    for (const fn of listeners) fn();
   };
-  const redrawAt = (scrollTop: number, clientHeight: number): void => {
-    lastScrollTop = scrollTop;
-    lastClientHeight = clientHeight;
-    const page = screenPagePx(profile);
-    // The scroll offset counts from the frame's top, and the front pages sit above page 1.
+  const redrawAt = (top: number, height: number): void => {
+    viewBox = { top, height };
+    const h = screenPagePx(profile).height;
+    const offset = top - frontPx * scale;
     placed =
       view === "reflow"
         ? []
-        : visibleSheets(
-            count,
-            page.height,
-            PAGE_GAP_PX,
-            scrollTop - frontPx * scale,
-            clientHeight,
-            scale,
-          );
-    redrawPlaced();
+        : visibleSheets(count, h, PAGE_GAP_PX, offset, height, scale);
+    drawPlaced();
   };
-  const redraw = (): void =>
-    redrawAt(scroller.scrollTop, scroller.clientHeight);
-  const layoutAt = (scrollTop: number, clientHeight: number): void => {
-    const page = screenPagePx(profile);
-    scale = sizeFrame(frame, page, { count, frontPx, view }, percent);
-    redrawAt(scrollTop, clientHeight);
+  const applyLayout = (top: number, height: number): void => {
+    const dims = { count, frontPx, view };
+    scale = sizeFrame(frame, screenPagePx(profile), dims, percent);
+    redrawAt(top, height);
   };
-  const layout = (): void =>
-    layoutAt(scroller.scrollTop, scroller.clientHeight);
+  const flush = (): void => {
+    if (destroyed) return;
+    const mode = dirty;
+    dirty = "none";
+    const { scrollTop, clientHeight } = scroller;
+    if (mode === "layout") applyLayout(scrollTop, clientHeight);
+    else if (mode === "redraw") redrawAt(scrollTop, clientHeight);
+  };
+  const defer = (kind: "layout" | "redraw"): boolean => {
+    const batch = scaffoldBatches.get(place);
+    if (batch === undefined) return false;
+    if (kind === "layout" || dirty === "none") dirty = kind;
+    batch.flushers.add(flush);
+    return true;
+  };
+  const redraw = (): void => {
+    if (!destroyed && !defer("redraw"))
+      redrawAt(scroller.scrollTop, scroller.clientHeight);
+  };
+  const redrawInPlace = (): void => {
+    if (!destroyed && !defer("redraw")) drawPlaced();
+  };
+  const layout = (): void => {
+    if (!destroyed && !defer("layout"))
+      applyLayout(scroller.scrollTop, scroller.clientHeight);
+  };
   const setProfile = (next: PageProfile): void => {
     profile = next;
     profileStyle.textContent = profileCss(next);
     layout();
   };
-
   scroller.addEventListener("scroll", redraw, { passive: true });
   const resizeObserver =
     typeof ResizeObserver === "undefined" ? null : new ResizeObserver(redraw);
@@ -338,39 +353,45 @@ export function createPageScaffold(options: {
     },
     setPageCount(next) {
       count = next;
-      if (lastClientHeight > 0) layoutAt(lastScrollTop, lastClientHeight);
-      else layout();
+      if (destroyed || defer("layout")) return;
+      if (viewBox !== null && viewBox.height > 0)
+        applyLayout(viewBox.top, viewBox.height);
+      else applyLayout(scroller.scrollTop, scroller.clientHeight);
     },
     applyZoom(next) {
       percent = next;
       layout();
     },
-    setRoomAbove(px) {
+    setRoomAbove: (px) => {
       zoom.style.marginTop = px > 0 ? `${px}px` : "";
     },
-    setFontState(state) {
+    setFontState: (state) => {
       pages.classList.toggle("fonts-loading", state === "loading");
     },
     setSheetDecor(next) {
       if (next?.key === decor?.key) return;
       decor = next;
-      redrawPlaced();
+      redrawInPlace();
     },
     setFurniture(next) {
       furniture = next;
-      redrawPlaced();
+      redrawInPlace();
     },
     setPageLabels(next) {
       labels = next;
-      redrawPlaced();
+      redrawInPlace();
     },
     setTint(on) {
       if (on) pages.dataset["tint"] = "on";
       else delete pages.dataset["tint"];
     },
     destroy() {
+      destroyed = true;
+      dirty = "none";
       scroller.removeEventListener("scroll", redraw);
       resizeObserver?.disconnect();
+      listeners.clear();
+      sheetListeners.delete(pages);
       zoom.remove();
     },
   };

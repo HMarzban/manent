@@ -3,6 +3,7 @@ import type {
   DocDirectory,
   DraftLinkRow,
   DraftOpenRow,
+  DraftOpenStats,
   DraftSendRow,
   GroupGrant,
   ReaderReadRow,
@@ -62,6 +63,31 @@ export function createMemorySharing(options: {
     openersOf: (sendId) =>
       [...new Set(opensOf(sendId).flatMap((o) => o.userId ?? []))].toSorted(),
     openCount: (sendId) => opensOf(sendId).length,
+    openStatsOf(sendIds) {
+      const wanted = new Set(sendIds);
+      const bySend = new Map<
+        string,
+        { openers: Set<string>; totalOpens: number }
+      >();
+      for (const open of read().opens) {
+        if (!wanted.has(open.sendId)) continue;
+        let entry = bySend.get(open.sendId);
+        if (entry === undefined) {
+          entry = { openers: new Set(), totalOpens: 0 };
+          bySend.set(open.sendId, entry);
+        }
+        entry.totalOpens += 1;
+        if (open.userId !== null) entry.openers.add(open.userId);
+      }
+      const result = new Map<string, DraftOpenStats>();
+      for (const [sendId, entry] of bySend) {
+        result.set(sendId, {
+          openers: [...entry.openers].toSorted(),
+          totalOpens: entry.totalOpens,
+        });
+      }
+      return result;
+    },
     putRead: (row) =>
       write(
         (t) => void t.reads.set(pairKey(row.docId, row.userId), { ...row }),

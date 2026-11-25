@@ -7,7 +7,6 @@ import { ORIGIN_LOAD, createDoc, jsonMap, loadDoc } from "@manent/crdt";
 import { openSqliteStorage, parseHome } from "@manent/storage";
 import type { DocDirectory, Home, Storage } from "@manent/storage";
 import { indexDocId } from "@manent/sync-protocol";
-import type { WorkspaceRef } from "@manent/sync-protocol";
 import { probeSeedCapabilities } from "./capabilities.ts";
 import { createSeedDriver } from "./driver.ts";
 import type { LiveTarget } from "./driver.ts";
@@ -200,58 +199,29 @@ export async function adoptStaging(
   const index = indexDocId("workspace", "heavy");
   let stagedFavourites: Readonly<Record<string, unknown>> | null = null;
   try {
-    for (const key of homes) {
-      const home = parseHome(key);
-      if (home === null) continue;
-      for (const docId of staged.directory.documentsIn(home))
-        if (docId !== index)
-          placeAs(staged.directory, live.directory, docId, home);
-    }
-    if (adoptDana && staged.directory.placeOf(danaIndex) !== null)
-      placeAs(staged.directory, live.directory, danaIndex, danaHome);
-    else if (!adoptDana && staged.directory.placeOf(danaIndex) !== null)
-      stagedFavourites = readStagedFavourites(staged, danaIndex, danaHome);
-    for (const row of staged.trash.listByWorkspace(index)) live.trash.put(row);
-    const indexPlace = staged.directory.placeOf(index);
-    if (indexPlace !== null)
-      placeAs(staged.directory, live.directory, index, indexPlace.home);
+    live.transaction(() => {
+      for (const key of homes) {
+        const home = parseHome(key);
+        if (home === null) continue;
+        for (const docId of staged.directory.documentsIn(home))
+          if (docId !== index)
+            placeAs(staged.directory, live.directory, docId, home);
+      }
+      if (adoptDana && staged.directory.placeOf(danaIndex) !== null)
+        placeAs(staged.directory, live.directory, danaIndex, danaHome);
+      else if (!adoptDana && staged.directory.placeOf(danaIndex) !== null)
+        stagedFavourites = readStagedFavourites(staged, danaIndex, danaHome);
+      for (const row of staged.trash.listByWorkspace(index))
+        live.trash.put(row);
+      const indexPlace = staged.directory.placeOf(index);
+      if (indexPlace !== null)
+        placeAs(staged.directory, live.directory, index, indexPlace.home);
+    });
   } finally {
     staged.close();
   }
   await rm(stagingDir, { recursive: true, force: true });
   return stagedFavourites;
-}
-
-/**
- * While `waiting`, `seeding` tells /api/me how far Lanternfield Studios' seed has come, and none of
- * its homes is ready until `adopted` is called.
- */
-export function createHeavyState(
-  waiting: boolean,
-  adoption: AdoptOptions,
-  total: number,
-) {
-  let seeding: WorkspaceRef["seeding"] = waiting
-    ? { done: 0, total, failed: false }
-    : null;
-  return {
-    seeding: (workspaceId: string) =>
-      workspaceId === "heavy" ? seeding : null,
-    isHomeReady: (home: string) =>
-      seeding === null || !adoption.homes.has(home),
-    progress(done: number, nextTotal: number) {
-      seeding = { done, total: nextTotal, failed: false };
-    },
-    failed() {
-      if (seeding !== null) seeding = { ...seeding, failed: true };
-    },
-    async adopted(target: LiveTarget, afterAdopt?: () => void) {
-      const favourites = await adoptStaging(adoption);
-      if (favourites !== null) await mergeDanaFavourites(target, favourites);
-      afterAdopt?.();
-      seeding = null;
-    },
-  };
 }
 
 /**

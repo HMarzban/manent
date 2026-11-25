@@ -75,13 +75,37 @@ export const COMMENTS_WORDS = {
   sceneOpen: (n: number): string => `${formatCount(n)} open`,
   sceneOpenLabel: "open",
   textRemoved: "Text removed",
-  gutterLabel: (n: number): string =>
-    n === 1 ? "1 comment" : `${formatCount(n)} comments`,
-  threadHeader: (
-    name: string,
-    dayTime: string,
-    place: string | null,
-  ): string =>
-    place === null ? `${name} · ${dayTime}` : `${name} · ${dayTime} · ${place}`,
+  gutterLabel: (comments: number, notes = 0): string => {
+    const commentPart =
+      comments === 0
+        ? null
+        : comments === 1
+          ? "1 comment"
+          : `${formatCount(comments)} comments`;
+    const notePart =
+      notes === 0
+        ? null
+        : notes === 1
+          ? "1 note"
+          : `${formatCount(notes)} notes`;
+    if (commentPart !== null && notePart !== null)
+      return `${commentPart}, ${notePart}`;
+    return commentPart ?? notePart ?? "0 comments";
+  },
+  positionOf: (current: number, total: number): string =>
+    `${formatCount(current)} of ${formatCount(total)}`,
+  blockAnnotations: "Comments and notes on this line",
+  blockItemLabel: (
+    kind: "comment" | "note",
+    indexInKind: number,
+    countOfKind: number,
+  ): string => {
+    const noun = kind === "note" ? "Note" : "Comment";
+    return countOfKind > 1 ? `${noun} ${formatCount(indexInKind + 1)}` : noun;
+  },
+  previous: "Previous",
+  next: "Next",
+  metaLine: (dayTime: string, place: string | null): string =>
+    place === null ? dayTime : `${dayTime} · ${place}`,
   authorMeta: (name: string, dayTime: string): string => `${name} · ${dayTime}`,
 } as const;

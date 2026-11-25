@@ -32,8 +32,20 @@ export function blockText(block: BlockJSON): string {
   return (block.content ?? []).map((run) => run.text).join("");
 }
 
-/** The cut's first non-empty line, or `""` when every block in it is blank. */
+/** The cut's first non-empty line, skipping a leading scene/chapter heading when body lines follow, or `""` when blank. */
 export function cutFirstLine(cut: Cut): string {
+  const first = cut.blocks[0];
+  if (
+    first !== undefined &&
+    cut.blocks.length > 1 &&
+    SCENE_HEADINGS.has(String(first.attrs?.type))
+  ) {
+    const body = cut.blocks
+      .slice(1)
+      .map(blockText)
+      .find((line) => line.trim() !== "");
+    if (body !== undefined) return body;
+  }
   return cut.blocks.map(blockText).find((line) => line.trim() !== "") ?? "";
 }
 

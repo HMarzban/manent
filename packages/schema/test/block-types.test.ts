@@ -1,6 +1,12 @@
 import { expect, test } from "bun:test";
-import { BLOCK_TYPES, FORMAT_ELEMENTS, isBlockType } from "../src/index.ts";
-import type { BlockType } from "../src/index.ts";
+import {
+  BLOCK_TYPES,
+  FORMATS,
+  FORMAT_ELEMENTS,
+  firstElement,
+  isBlockType,
+} from "../src/index.ts";
+import type { BlockType, FormatId } from "../src/index.ts";
 
 test("a guard is the one way a closed list is searched", () => {
   expect(["action", "page_break", "nope", 7].map(isBlockType)).toEqual([
@@ -75,4 +81,20 @@ test("a stage play has the screenplay's elements but Transition and Shot", () =>
     "group",
     "page_break",
   ]);
+});
+
+test("every format names its first block element", () => {
+  const expected: Record<FormatId, { type: BlockType; kind: null }> = {
+    screenplay: { type: "scene_heading", kind: null },
+    multicam: { type: "scene_heading", kind: null },
+    animation: { type: "scene_heading", kind: null },
+    variety: { type: "slug", kind: null },
+    game: { type: "scene_heading", kind: null },
+    ink: { type: "ink_line", kind: null },
+    manuscript: { type: "chapter", kind: null },
+    stage_play: { type: "scene_heading", kind: null },
+  };
+  expect(
+    Object.fromEntries(FORMATS.map((format) => [format, firstElement(format)])),
+  ).toEqual(expected);
 });

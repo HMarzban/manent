@@ -271,6 +271,8 @@ export interface LocalStore {
   recovered(docId: string): Promise<RecoveredItem[]>;
   dismissRecovered(itemId: string): Promise<void>;
   documents(): Promise<DocMeta[]>;
+  /** Lightweight per-document summaries read from metadata and recovered counts, without loading blobs. */
+  summaries?(): Promise<readonly DocSummary[]>;
   close(): Promise<void>;
 }
 

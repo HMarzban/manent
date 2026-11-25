@@ -215,7 +215,12 @@ export function createPageControls(options: {
     if (anchor !== null && top !== null) scrollBy(top - anchor.top);
   };
   const unobserve = desk.observe(fit);
-  fit();
+  // initial zoom skips zoomAnchor's forced layout measurements because mount restores place or scrolls to top
+  const initial = percentNow();
+  if (initial !== percent) {
+    percent = initial;
+    scaffold.applyZoom(initial);
+  }
   return {
     get percent() {
       return percent;
