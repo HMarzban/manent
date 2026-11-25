@@ -229,10 +229,73 @@ const UPDATE_APPLIED_WHILE_MOVING: readonly HistoryRun[] = [
   },
 ];
 
+/**
+ * Found with seed 556917606 (path 64): an offline restore and a server restore both brought back
+ * the same deleted block ID across a rebuild, and the server copy had new typing in it. Replaying
+ * the offline restore must keep the server's block as an overlap, never overwrite it with mine.
+ */
+const CONCURRENT_RESTORE_OVERLAP: HistoryRun = {
+  seed: 1,
+  users: ["dana", "sam", "priya"],
+  devices: 1,
+  faults: { duplicate: 0 },
+  ops: [
+    { kind: "restore_offline", device: 0, version: 0 },
+    { device: 0, kind: "split", block: 0, at: 0 },
+    { device: 0, kind: "element", block: 0, element: 0 },
+    { device: 0, kind: "join", block: 0 },
+    { device: 0, kind: "online" },
+    { device: 0, kind: "delete", block: 2 },
+    { kind: "restore_offline", device: 35, version: 0 },
+    { device: 0, kind: "rebuild" },
+    { kind: "restore_script", device: 0, version: 0 },
+    { device: 2, kind: "online" },
+    { device: 0, kind: "type", block: 20, at: 0 },
+    { device: 0, kind: "quiet" },
+  ],
+};
+
+/**
+ * Found with seed 549333125 (path 85, run seed 487950146): an offline join moved acknowledged text
+ * from a deleted block into a block that overlapped with another device across a rebuild, so the
+ * acknowledged text is kept in Recovered text with cause "overlap".
+ */
+const OFFLINE_JOIN_OVERLAP: HistoryRun = {
+  seed: 487_950_146,
+  users: ["dana", "sam"],
+  devices: 1,
+  faults: { duplicate: 0 },
+  ops: [
+    { kind: "restore_script", device: 52, version: 17 },
+    { device: 5, kind: "offline" },
+    { device: 1, kind: "quiet" },
+    { device: 0, kind: "type", block: 29, at: 3 },
+    { kind: "restore_offline", device: 43, version: 22 },
+    { device: 5, kind: "quiet" },
+    { device: 3, kind: "insert", block: 59 },
+    { device: 3, kind: "quiet" },
+    { device: 0, kind: "join", block: 10 },
+    { device: 1, kind: "split", block: 4, at: 58 },
+    { device: 4, kind: "rebuild" },
+    { device: 3, kind: "online" },
+    { device: 1, kind: "join", block: 4 },
+    { device: 3, kind: "split", block: 5, at: 62 },
+    { device: 1, kind: "quiet" },
+  ],
+};
+
 test("text someone typed into a block a device moved offline, unseen, stays in the script across a rebuild", async () => {
   await play(MOVED_BEFORE_TYPING_ARRIVED);
 });
 
 test("text that reaches a device while its edits are carried into a rebuilt script is never undone as its typing", async () => {
   for (const run of UPDATE_APPLIED_WHILE_MOVING) await play(run);
+});
+
+test("replaying an offline restore never overwrites concurrent edits to the same restored block ID", async () => {
+  await play(CONCURRENT_RESTORE_OVERLAP);
+});
+
+test("acknowledged text moved by an offline join into an overlapping block is kept as an overlap", async () => {
+  await play(OFFLINE_JOIN_OVERLAP);
 });
