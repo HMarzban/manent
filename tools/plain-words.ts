@@ -54,5 +54,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   24-hour, become, cell, column, drag, editing, hours, must, top, typed, undid,
   range,
   voice,
-  ended, many
+  ended, many,
+  csv, estimate, estimated, exterior, interior, like, location, minute, pickup, report
 `);
