@@ -60,5 +60,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   problem, visited,
   aren't, compiled, joined, json, problems, utf-8, xml,
   voice,
-  ended, many
+  ended, many,
+  come, ticked, two-column
 `);
