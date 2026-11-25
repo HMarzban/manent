@@ -26,6 +26,7 @@ import type { LockCommit } from "./freeze.ts";
 import type { Mutation, ProductionOptions, Requests } from "./requests.ts";
 import {
   documentOf,
+  engineVersionOf,
   layoutUnder,
   notLocked,
   scriptPages,
@@ -50,12 +51,11 @@ export function lockMutation(
     need: "lock_page_numbers",
     tells: ["lock_anchors_changed", "layout_changed"],
     check: (file) => lockRefusal(file, request),
-    edit(doc, file) {
-      const { engineVersion } = documentOf(file, docId);
+    edit(doc) {
       const stored = scriptSettings(doc).entries();
       const project = requests.projectSettings(docId);
       const effective = resolveFollowed(stored, project);
-      const under = layoutUnder(effective, engineVersion);
+      const under = layoutUnder(effective, engineVersionOf(effective));
       if (!under.ok) return under;
       const { engine, profile } = under;
       const flat = blocksOf(scriptBody(doc).materialize());

@@ -67,6 +67,16 @@ export function memberOf<T extends string>(
   return found;
 }
 
+/** The script's stored layout engine from its settings; 1 when absent or ill-typed. */
+export function engineVersionOf(
+  settings: Readonly<Record<string, unknown>>,
+): number {
+  const value = settings["script.engineVersion"];
+  return typeof value === "number" && Number.isInteger(value) && value >= 1
+    ? value
+    : 1;
+}
+
 /** The engine of `engineVersion` and the profile `settings` give under it; refused when either is missing. */
 export function layoutUnder(
   settings: Readonly<Record<string, unknown>>,
