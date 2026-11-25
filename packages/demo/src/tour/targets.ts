@@ -59,6 +59,7 @@ export const TOUR_TARGETS = [
   "library:folders",
   "library:favourites",
   "library:trash",
+  "search:filter",
 ] as const;
 
 export type TourTarget = (typeof TOUR_TARGETS)[number];
