@@ -4,11 +4,17 @@ import {
   createDoc,
   discardPending,
   loadDoc,
+  readRundown,
   scriptBody,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
 import type { Storage } from "@manent/storage";
 import type { Message } from "@manent/sync-protocol";
+import {
+  encodeRundownView,
+  rundownViewPatch,
+  rundownViewSnapshot,
+} from "../view/rundown-view.ts";
 import { encodeView, viewPatch, viewSnapshot } from "../view/view.ts";
 import type { ViewSnapshot } from "../view/view.ts";
 import type { Room } from "./rooms.ts";
@@ -70,6 +76,27 @@ export function materializeForView(
   }
 }
 
+/** The rundown snapshot bytes and server sequence for a rundown room without loading an unloaded room. */
+function materializeRundownContent(
+  storage: Storage,
+  room: Room,
+): { content: Uint8Array; viewSeq: number } {
+  if (room.doc !== null)
+    return {
+      content: encodeRundownView(rundownViewSnapshot(readRundown(room.doc))),
+      viewSeq: room.row.headSeq,
+    };
+  const { doc, seq } = readDoc(storage, room);
+  try {
+    return {
+      content: encodeRundownView(rundownViewSnapshot(readRundown(doc))),
+      viewSeq: seq,
+    };
+  } finally {
+    doc.destroy();
+  }
+}
+
 /**
  * A viewer's VIEW_SNAPSHOT for a room; each document keeps its latest answer while its head stays
  * where it was, bounded to CACHED_ANSWERS documents by least-recent use.
@@ -91,14 +118,24 @@ export function createSnapshotAnswers(
       answers.set(docId, cached);
       return cached.answer;
     }
-    const { snapshot, viewSeq } = materializeForView(storage, room);
-    const answer: Message = {
-      type: "VIEW_SNAPSHOT",
-      docId,
-      generation,
-      viewSeq,
-      content: encodeView(snapshot),
-    };
+    const answer: Message =
+      room.kind === "rundown"
+        ? {
+            type: "VIEW_SNAPSHOT",
+            docId,
+            generation,
+            ...materializeRundownContent(storage, room),
+          }
+        : (() => {
+            const { snapshot, viewSeq } = materializeForView(storage, room);
+            return {
+              type: "VIEW_SNAPSHOT",
+              docId,
+              generation,
+              viewSeq,
+              content: encodeView(snapshot),
+            };
+          })();
     answers.delete(docId);
     answers.set(docId, { generation, headSeq, answer });
     if (answers.size > CACHED_ANSWERS) {
@@ -109,9 +146,21 @@ export function createSnapshotAnswers(
   };
 }
 
-/** The VIEW_PATCH for a committed push; null when nothing a viewer sees changed, or for a setting. */
+/** The VIEW_PATCH for a committed push or authority write; null when nothing a viewer sees changed. */
 export function viewPatchOf(committed: Committed): Message | null {
-  const { room, seq, report } = committed;
+  const { room, seq, update, report } = committed;
+  if (room.kind === "rundown") {
+    if (room.doc === null) return null;
+    const patch = rundownViewPatch(room.doc, update);
+    if (patch === null) return null;
+    return {
+      type: "VIEW_PATCH",
+      docId: room.docId,
+      generation: room.row.generation,
+      viewSeq: seq,
+      patch: encodeRundownView(patch),
+    };
+  }
   if (report === null) return null;
   const { inserted, changed, removed } = report;
   const patch = viewPatch({ inserted, changed, removed });

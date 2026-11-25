@@ -179,10 +179,12 @@ export function createSyncService(
       for (const peer of room.editors.keys())
         if (peer !== sender || echo) peer.send(prepared);
       rebuilder.touched(room);
-      const patch = viewPatchOf(committed);
-      if (patch !== null) {
-        const viewed = prepareMessage(patch);
-        for (const peer of room.viewers.keys()) peer.send(viewed);
+      if (room.viewers.size > 0) {
+        const patch = viewPatchOf(committed);
+        if (patch !== null) {
+          const viewed = prepareMessage(patch);
+          for (const peer of room.viewers.keys()) peer.send(viewed);
+        }
       }
       hooks.committed(committed);
     },

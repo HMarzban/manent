@@ -1,6 +1,6 @@
 // Reading a document without editing it: its blocks as the server projects them, never a CRDT
 // document, a state vector or awareness.
-import type { BlockJSON, TextJSON } from "@manent/schema";
+import type { BlockJSON, RundownJSON, TextJSON } from "@manent/schema";
 import { CODE } from "@manent/sync-protocol";
 import type { DocRole, DocumentMessage, Message } from "@manent/sync-protocol";
 import { createSubscribable } from "../outbox/subscribable.ts";
@@ -8,6 +8,19 @@ import { HANDSHAKE_TIMEOUT_MS } from "../ports/defaults.ts";
 import type { Clock, LinkState, Subscribable } from "../ports/ports.ts";
 import { createViewerCount } from "../session/viewer-count.ts";
 import { createReaders } from "./readers.ts";
+import {
+  applyRundownViewPatch,
+  isRundownViewPayload,
+  readRundownViewPatch,
+  readRundownViewSnapshot,
+} from "./rundown-view.ts";
+
+export * from "./rundown-view.ts";
+
+export interface ViewAirWindow {
+  readonly startsAt: number;
+  readonly endsAt: number;
+}
 
 /** The script body, flattened, in order; a reader ignores a key it does not know. */
 export interface ViewSnapshot {
@@ -30,6 +43,10 @@ export interface ViewPatch {
 export interface ViewHandle {
   readonly docId: string;
   readonly blocks: Subscribable<readonly BlockJSON[]>;
+  /** The rundown as the server projects it; null before a rundown snapshot or for non-rundown documents. */
+  readonly rundown?: Subscribable<RundownJSON | null>;
+  /** The document's air window from SUBSCRIBED; null before SUBSCRIBED or when none applies. */
+  readonly airWindow?: Subscribable<ViewAirWindow | null>;
   readonly status: Subscribable<{
     link: LinkState;
     live: boolean;
@@ -114,16 +131,14 @@ function readJson(bytes: Uint8Array): unknown {
 }
 
 /** Null for anything but a version 1 snapshot whose blocks all have their shape. */
-function readViewSnapshot(bytes: Uint8Array): ViewSnapshot | null {
-  const value = readJson(bytes);
+function readViewSnapshot(value: unknown): ViewSnapshot | null {
   if (!isFields(value) || value.v !== 1) return null;
   const blocks = readBlocks(value.blocks);
   return blocks === null ? null : { v: 1, blocks };
 }
 
 /** Null for anything but a version 1 patch whose fields all have their shape. */
-function readViewPatch(bytes: Uint8Array): ViewPatch | null {
-  const value = readJson(bytes);
+function readViewPatch(value: unknown): ViewPatch | null {
   if (!isFields(value) || value.v !== 1 || !Array.isArray(value.remove))
     return null;
   const remove = value.remove.filter((id) => typeof id === "string");
@@ -163,6 +178,8 @@ export interface Viewer {
 class DocViewer implements Viewer {
   readonly handle: ViewHandle;
   private readonly blocks = createSubscribable<readonly BlockJSON[]>([]);
+  private readonly rundown = createSubscribable<RundownJSON | null>(null);
+  private readonly airWindow = createSubscribable<ViewAirWindow | null>(null);
   private readonly status = createSubscribable<{
     link: LinkState;
     live: boolean;
@@ -187,6 +204,8 @@ class DocViewer implements Viewer {
     this.handle = {
       docId: options.docId,
       blocks: readers.counted(this.blocks),
+      rundown: readers.counted(this.rundown),
+      airWindow: readers.counted(this.airWindow),
       status: readers.counted(this.status),
       viewers: this.viewers.value,
       close: () => this.close(),
@@ -214,18 +233,49 @@ class DocViewer implements Viewer {
     if (m.type === "SUBSCRIBED") {
       this.wait(null);
       this.status.set({ ...this.status.get(), role: m.role });
-    } else if (m.type === "CONTROL") this.viewers.control(m);
-    else if (m.type === "VIEW_SNAPSHOT")
-      this.show(readViewSnapshot(m.content)?.blocks ?? null);
-    else if (m.type === "VIEW_PATCH" && this.status.get().live) {
-      const patch = readViewPatch(m.patch);
-      this.show(
-        patch === null ? null : applyViewPatch(this.blocks.get(), patch),
+      this.airWindow.set(
+        m.airWindow === null
+          ? null
+          : { startsAt: m.airWindow.startsAt, endsAt: m.airWindow.endsAt },
       );
-    } else if (m.type === "GENERATION_MOVED") {
+    } else if (m.type === "CONTROL") this.viewers.control(m);
+    else if (m.type === "VIEW_SNAPSHOT") this.applySnapshot(m.content);
+    else if (m.type === "VIEW_PATCH" && this.status.get().live)
+      this.applyPatch(m.patch);
+    else if (m.type === "GENERATION_MOVED") {
       this.generation = m.newGeneration;
       this.subscribe();
     }
+  }
+
+  private applySnapshot(bytes: Uint8Array): void {
+    const parsed = readJson(bytes);
+    if (isRundownViewPayload(parsed)) {
+      const snap = readRundownViewSnapshot(parsed);
+      this.showRundown(
+        snap === null
+          ? null
+          : { rundown: snap.rundown, columns: snap.columns, rows: snap.rows },
+      );
+      return;
+    }
+    this.show(readViewSnapshot(parsed)?.blocks ?? null);
+  }
+
+  private applyPatch(bytes: Uint8Array): void {
+    const parsed = readJson(bytes);
+    if (isRundownViewPayload(parsed)) {
+      const patch = readRundownViewPatch(parsed);
+      const current = this.rundown.get();
+      this.showRundown(
+        patch === null || current === null
+          ? null
+          : applyRundownViewPatch(current, patch),
+      );
+      return;
+    }
+    const patch = readViewPatch(parsed);
+    this.show(patch === null ? null : applyViewPatch(this.blocks.get(), patch));
   }
 
   /** Null: the payload does not read, and the reader starts again from a snapshot. */
@@ -235,6 +285,15 @@ class DocViewer implements Viewer {
       return;
     }
     this.blocks.set(blocks);
+    this.status.set({ ...this.status.get(), live: true });
+  }
+
+  private showRundown(rundown: RundownJSON | null): void {
+    if (rundown === null) {
+      this.subscribe();
+      return;
+    }
+    this.rundown.set(rundown);
     this.status.set({ ...this.status.get(), live: true });
   }
 

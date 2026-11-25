@@ -70,10 +70,12 @@ export function createNamedVersions(options: {
       } as const;
       const how = { carry: true, snapshot: true, key, onlyWhenNew: false };
       return options.requested(file, userId, request, async () => {
+        const fresh = options.authorize(userId, docId, "edit");
+        if (!fresh.ok) return fresh;
         const recorded =
           fromVersionId === null
-            ? await recorder.atHead(file, made, how)
-            : nameListed(file, file.history.get(fromVersionId), {
+            ? await recorder.atHead(fresh.file, made, how)
+            : nameListed(fresh.file, fresh.file.history.get(fromVersionId), {
                 docId,
                 userId,
                 name,
