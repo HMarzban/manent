@@ -1,21 +1,23 @@
 // The relay: one upstream client per person, through which each window's committed edits reach the
 // cloud under that person's session and the cloud's edits reach the node's room.
 import { ORIGIN_REMOTE } from "@manent/crdt";
-import type { SyncService, Upstream } from "@manent/server-core";
-import type { Storage } from "@manent/storage";
-import { encodeUpstreamRefused } from "@manent/sync-client";
+import type { SyncService } from "@manent/server-core";
 import type {
-  Clock,
   DocEvent,
   DocHandle,
-  HandoffRefusal,
   SyncClient,
   UpstreamStatus,
 } from "@manent/sync-client";
-import type { UpstreamFactory } from "../node/ports.ts";
-import type { NodeRecords } from "../records/ports.ts";
+import type {
+  Person,
+  RelayBridge,
+  RelayBridgeOptions,
+  Relayed,
+  StatusListener,
+} from "./bridge-types.ts";
 import { ORIGIN_RELAY, clientIdsOf, createFollowing } from "./follow.ts";
 import type { Line, SetItem } from "./follow.ts";
+import { createSettingRequests } from "./setting-requests.ts";
 import {
   createSlowLink,
   createStatusThrottle,
@@ -25,62 +27,10 @@ import {
   withEvent,
 } from "./status.ts";
 
-type StatusListener = (docId: string, status: UpstreamStatus) => void;
-
-/** `enqueue` is server-core's port, called after the node commits. */
-export interface RelayBridge extends Upstream {
-  /** Before the first enqueue. */
-  attach(service: SyncService): void;
-  /** The upstream handle for that person and document, reconciled both ways; it resolves once the handle holds the cloud's state. */
-  open(userId: string, docId: string): Promise<void>;
-  /** Persons with an upstream client. */
-  people(): string[];
-  /** Every upstream client. */
-  setOnline(wanted: boolean): void;
-  reconnect(): void;
-  /** The demo's Connection: offline is setOnline(false); slow holds every item and update relayed either way for `delayMs`, in order. */
-  setConnection(mode: "online" | "offline" | "slow", delayMs: number): void;
-  /** What is sent to the window. */
-  status(docId: string): UpstreamStatus;
-  /** Throttled, on change. */
-  onStatus(listener: StatusListener): () => void;
-  /** As on change, and even when it equals the last status sent: a window that was acknowledged waits for one. */
-  resendStatus(docId: string): void;
-  /** The document's first sync was refused: every setting request held for it is answered with `message`. */
-  refuseHeld(docId: string, message: string): void;
-  close(): Promise<void>;
-}
-
-/** What the bridge keeps of one document across people. */
-interface Relayed {
-  /** The person whose line the status reports. */
-  current: string | null;
-  events: UpstreamStatus["events"];
-  /** Requests seen, as `userId:clientSeq`: a window re-sends one whose acknowledgement it lost. */
-  seen: Set<string>;
-  /** Requests made during the first sync, until it is answered. */
-  held: SetItem[];
-  /** Items the slow connection holds back. */
-  delayed: number;
-}
-
-interface Person {
-  client: SyncClient;
-  lines: Map<string, Line>;
-}
+export type { RelayBridge };
 
 /** Requests remembered per document for recognising a re-send; the oldest is forgotten past this. */
 const SEEN_KEPT = 1024;
-const UTF8 = new TextDecoder("utf-8", { fatal: true });
-
-function readValue(bytes: Uint8Array): { value: unknown } | null {
-  try {
-    return { value: JSON.parse(UTF8.decode(bytes)) };
-  } catch {
-    // a value that is not UTF-8 JSON is refused as the cloud would refuse it
-    return null;
-  }
-}
 
 const isParked = (handle: DocHandle): boolean =>
   handle.status
@@ -88,18 +38,7 @@ const isParked = (handle: DocHandle): boolean =>
     .side.some((side) => side === "access_removed" || side === "deleted");
 
 /** `ownerOf` reads the node's own ledger: an ID learnt from upstream has no owner here and is never pushed by the node. */
-export function createRelayBridge(options: {
-  storage: Storage;
-  records: NodeRecords;
-  upstream: UpstreamFactory;
-  clock: Clock;
-  defer(fn: () => void): void;
-  deviceStorage: () => "ok" | "failing";
-  ownerOf: (docId: string, clientId: number) => string | null;
-  handoffRefused: (docId: string) => HandoffRefusal | null;
-  /** The data of a CONTROL `upstream_refused` for that person's editors of the document. */
-  onRefused(docId: string, userId: string, data: Uint8Array): void;
-}): RelayBridge {
+export function createRelayBridge(options: RelayBridgeOptions): RelayBridge {
   const { storage, records, upstream, clock, defer } = options;
   let attached: SyncService | null = null;
   let online = true;
@@ -147,7 +86,9 @@ export function createRelayBridge(options: {
       const userId = authorityUserId(docId);
       const client =
         userId === null ? null : (persons.get(userId)?.client ?? null);
-      const link = client?.link.get().state ?? "offline";
+      const link =
+        client?.link.get().state ??
+        (relaying && online ? "connecting" : "offline");
       return ownStatus({
         link,
         device,
@@ -184,18 +125,7 @@ export function createRelayBridge(options: {
     },
   });
 
-  function send(line: Line, item: SetItem): void {
-    if (line.handle === null || !line.ready) return void line.queued.push(item);
-    const read = readValue(item.value);
-    if (read === null) return refuse(line.docId, item, "bad_value");
-    line.handle.setSetting(item.key, read.value);
-    line.asked.push(item);
-  }
-
-  function refuse(docId: string, item: SetItem, message: string): void {
-    const data = encodeUpstreamRefused(item.clientSeq, message);
-    options.onRefused(docId, item.userId, data);
-  }
+  const { send, refuse } = createSettingRequests(options);
 
   function bindDoc(line: Line, handle: DocHandle): void {
     line.stopDoc = handle.doc().subscribe((_update, origin) => {
@@ -224,6 +154,13 @@ export function createRelayBridge(options: {
 
   function heard(line: Line, handle: DocHandle, event: DocEvent): void {
     const { docId } = line;
+    if (event.type === "control") {
+      options.onControl?.(docId, line.userId, {
+        kind: event.kind,
+        data: event.data,
+      });
+      return;
+    }
     if (event.type === "replaced")
       return following.replaced(line, handle, event.reason);
     if (event.type === "setting_refused") {
@@ -386,6 +323,14 @@ export function createRelayBridge(options: {
       for (const item of docOf(docId).held.splice(0))
         refuse(docId, item, message);
       changed(docId);
+    },
+    async reserveClientId(userId, docId) {
+      // a hand-off writes the person's upstream store itself until it has finished
+      if (records.docState(docId)?.state !== "synced") return null;
+      lineOf(userId, docId);
+      // the line's own handle: a person's client holds one per document
+      const handle = await personOf(userId).client.open(docId);
+      return handle.reserveClientId();
     },
     async close() {
       throttle.close();

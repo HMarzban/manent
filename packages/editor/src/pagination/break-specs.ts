@@ -1,6 +1,6 @@
 // Where each page break is drawn in the document and what it shows: the furniture of the pages on either side.
 import { engineFor } from "@manent/pagination";
-import type { Engine, Pagination } from "@manent/pagination";
+import type { Engine, Page, Pagination } from "@manent/pagination";
 import type { BreakStyle } from "../page/config.ts";
 import { blockPos } from "./block-index.ts";
 import type { BlockIndex } from "./block-index.ts";
@@ -125,29 +125,52 @@ export function toBreakSpecs(
   p: Pagination,
   style: BreakStyle,
 ): BreakSpec[] {
+  return toBreakSpecsIn(index, p, style, 0, index.blocks.length);
+}
+
+// Whether page `page` opens before or inside a block of [from, to), in either column.
+const opensIn = (page: Page, from: number, to: number): boolean =>
+  (page.block >= from && page.block < to) ||
+  (page.right !== null && page.right.block >= from && page.right.block < to);
+
+/** As toBreakSpecs, the breaks before and inside blocks [from, to) alone, with the last when `to` is past the last block. */
+export function toBreakSpecsIn(
+  index: BlockIndex,
+  p: Pagination,
+  style: BreakStyle,
+  from: number,
+  to: number,
+): BreakSpec[] {
   const engine = engineOf(p);
   const last = p.pages.length - 1;
-  const first = createSpec({
-    ...NO_TEXT,
-    kind: "first",
-    pos: blockPos(index, 0),
-    label: p.pages[0]!.label,
-    fillUnits: 0,
-  });
-  const between = p.pages
-    .slice(1)
-    .flatMap((_, i) => breaksBefore(index, p, engine, i + 1, style));
-  const closing = createSpec(
-    {
-      ...NO_TEXT,
-      kind: "last",
-      pos: blockPos(index, index.blocks.length),
-      label: p.pages[last]!.label,
-      fillUnits: engine.fillUnits(p, last),
-    },
-    1,
-  );
-  return [first, ...between, closing].toSorted((a, b) => a.pos - b.pos);
+  const specs: BreakSpec[] = [];
+  if (from === 0)
+    specs.push(
+      createSpec({
+        ...NO_TEXT,
+        kind: "first",
+        pos: blockPos(index, 0),
+        label: p.pages[0]!.label,
+        fillUnits: 0,
+      }),
+    );
+  for (let k = 1; k <= last; k++)
+    if (opensIn(p.pages[k]!, from, to))
+      specs.push(...breaksBefore(index, p, engine, k, style));
+  if (to >= index.blocks.length)
+    specs.push(
+      createSpec(
+        {
+          ...NO_TEXT,
+          kind: "last",
+          pos: blockPos(index, index.blocks.length),
+          label: p.pages[last]!.label,
+          fillUnits: engine.fillUnits(p, last),
+        },
+        1,
+      ),
+    );
+  return specs.toSorted((a, b) => a.pos - b.pos);
 }
 
 /** Reflow view's breaks: a rule labelled with each page's label before the block the page starts in, page 1 included. */

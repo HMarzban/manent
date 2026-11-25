@@ -3,7 +3,9 @@
 import type {
   ControlEndpoint,
   DemoResponse,
+  DescribeResponse,
   DocClientsResponse,
+  DocRole,
   HttpErrorCode,
   MeResponse,
   RemovedDocResponse,
@@ -36,6 +38,8 @@ export interface Api {
   demo(): Promise<DemoResponse | null>;
   /** Who deleted the document and when; null when the server holds no record of it; throws when it cannot tell. */
   removedDoc(docId: string): Promise<RemovedDocResponse | null>;
+  /** The person's role on the document; null without a session, and when the server cannot be reached or gives them none. */
+  role(docId: string): Promise<DocRole | null>;
   /** Who wrote under each of the document's client ids the server knows; throws when it cannot tell. */
   docClients(
     docId: string,
@@ -45,6 +49,8 @@ export interface Api {
   prepareTour(scenarioId: string): Promise<TourPrepareResponse>;
   /** Starts or stops the demo's simulated writers in a script; throws for any other answer than 200. */
   writers(request: WritersRequest): Promise<WritersResponse>;
+  /** The demo's simulated writers typing in a script now, whichever tab started them; throws for any other answer than 200. */
+  runningWriters(docId: string): Promise<WritersResponse>;
   /** Asks the demo's server to reorganise how a script is stored; throws for any other answer than 200. */
   rebuild(docId: string): Promise<void>;
 }
@@ -155,6 +161,8 @@ export function createApi(options: {
     },
 
     async me() {
+      // the server knows nobody without a session, so it is not asked
+      if (getToken() === null) return { ok: false, reason: "unauthenticated" };
       const response = await attempt("/api/me");
       if (response === null) return UNREACHABLE;
       if (!response.ok)
@@ -174,6 +182,13 @@ export function createApi(options: {
       const response = await request("/api/docs/removed", jsonPost({ docId }));
       if (response.status === 404) return null;
       return readOk<RemovedDocResponse>(response, "POST /api/docs/removed");
+    },
+
+    async role(docId) {
+      if (getToken() === null) return null;
+      const response = await attempt("/api/docs/describe", jsonPost({ docId }));
+      if (response === null || !response.ok) return null;
+      return (await readAs<DescribeResponse>(response)).role;
     },
 
     async docClients(docId, clientIds) {
@@ -196,6 +211,12 @@ export function createApi(options: {
     async writers(body) {
       const path = "/api/demo/writers";
       const response = await request(path, jsonPost(body));
+      return readOk<WritersResponse>(response, `POST ${path}`);
+    },
+
+    async runningWriters(docId) {
+      const path = "/api/demo/writers/running";
+      const response = await request(path, jsonPost({ docId }));
       return readOk<WritersResponse>(response, `POST ${path}`);
     },
 

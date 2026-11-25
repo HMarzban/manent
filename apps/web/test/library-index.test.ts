@@ -43,26 +43,22 @@ async function typeInto(person: TabServices, docId: string, text: string) {
   await handle.close();
 }
 
-test("a script Dana makes in the Writers' room appears in Sam's Library, with its place, and Sam can open it", async () => {
+test("a script Dana makes in the Writers' room is fetched to Sam's device while he is online, and his row reads Synced", async () => {
   const { dana, sam, settleAll, serverHomeOf } = await writersRoom();
   sam.library.projects(MEDIUM);
   const made = await dana.library.createProject(MEDIUM, "film");
   await settleAll();
   expect(serverHomeOf(made.docId)).toBe(projectHome(made.projectId));
-  expect(sam.library.projects(MEDIUM).get()).toMatchObject([
+  const rows = sam.library.projects(MEDIUM);
+  await until(() => rows.get()[0]?.place.kind === "synced");
+  expect(rows.get()).toMatchObject([
     {
       title: "Untitled film",
       kind: "film",
       firstDocId: made.docId,
-      place: { kind: "not_on_device" },
+      place: { kind: "synced" },
     },
   ]);
-  sam.documents.open(made.docId);
-  await settleAll();
-  // the row reads the device's store again once the script has synced here
-  const rows = sam.library.projects(MEDIUM);
-  await until(() => rows.get()[0]?.place.kind === "synced");
-  expect(rows.get()[0]?.place).toEqual({ kind: "synced" });
 });
 
 test("a project made offline is in the Library at once and on the server after the next connection", async () => {
@@ -138,6 +134,10 @@ test("a script someone else edited since you opened it says so", async () => {
   const { dana, sam, world, settleAll } = await writersRoom();
   const made = await dana.library.createProject(MEDIUM, "film");
   dana.documents.open(made.docId);
+  const project = dana.library.documentProject(made.docId);
+  await until(() => project.get() === made.projectId);
+  expect(project.get()).toBe(made.projectId);
+  expect(dana.library.documentProject("unknown-doc").get()).toBeNull();
   await settleAll();
   await typeInto(dana, made.docId, "INT. ");
   await settleAll();
@@ -215,7 +215,10 @@ test("the Library lists every project entry whose shape it reads, passes over th
         const listed = projectItems(index, {
           userId: "sam",
           signedIn: true,
+          online: false,
           summaries: new Map(),
+          fetched: new Set(),
+          refused: new Set(),
           continued: new Map(),
           nameOf: (userId) => userId,
         }).map((item) => item.projectId);
@@ -282,7 +285,10 @@ test("every document entry the Library reads is listed in Continue and dates its
         const facts = {
           userId: "sam",
           signedIn: true,
+          online: false,
           summaries: new Map(),
+          fetched: new Set<string>(),
+          refused: new Set<string>(),
           continued: new Map(
             stored.map(([key]) => [
               key,
@@ -304,9 +310,10 @@ test("every document entry the Library reads is listed in Continue and dates its
           documents.keys(),
         ]).toEqual([
           readable.map(({ key }) => key).toSorted(),
-          edits.length === 0
-            ? null
-            : { byName: "dana", at: Math.max(...edits) },
+          {
+            byName: "dana",
+            at: edits.length === 0 ? P1.createdAt : Math.max(...edits),
+          },
           stored.map(([key]) => key).toSorted(),
         ]);
       },
@@ -352,7 +359,10 @@ test("every Continue entry the Library reads of a workspace is listed, newest fi
           {
             userId: "sam",
             signedIn: true,
+            online: false,
             summaries: new Map(),
+            fetched: new Set(),
+            refused: new Set(),
             continued: readContinueMap(map),
             nameOf: (userId) => userId,
           },
@@ -456,6 +466,10 @@ test("the Library writes each value of the indexes with its fields in their stor
   const at = w.world.clock.clock.now();
   const made = await dana.library.createProject(MEDIUM, "film");
   dana.documents.open(made.docId);
+  const project = dana.library.documentProject(made.docId);
+  await until(() => project.get() === made.projectId);
+  expect(project.get()).toBe(made.projectId);
+  expect(dana.library.documentProject("unknown-doc").get()).toBeNull();
   const workspace = await dana.sync.client.open(
     indexDocId("workspace", MEDIUM),
   );
@@ -469,7 +483,7 @@ test("the Library writes each value of the indexes with its fields in their stor
     stored(own, "on_device", onDevice),
   ]).toEqual([
     `{"title":"Untitled film","kind":"film","createdAt":${at},"createdByUserId":"dana"}`,
-    `{"projectId":"${made.projectId}","title":"Untitled script","kind":"script","createdAt":${at},"editedAt":null,"editedByUserId":null}`,
+    `{"projectId":"${made.projectId}","title":"Untitled script","kind":"script","createdAt":${at},"editedAt":null,"editedByUserId":null,"airDate":null,"rundownId":null}`,
     `{"workspaceId":"medium","openedAt":${at}}`,
     `{"title":"Untitled script","synced":false,"at":${at}}`,
   ]);

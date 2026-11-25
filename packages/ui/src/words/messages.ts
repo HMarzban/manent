@@ -54,7 +54,7 @@ const SEE_WHAT_CHANGED = {
 } as const;
 const OPEN_BESIDE = {
   label: "Open beside",
-  commandId: "doc.openBeside",
+  commandId: "history.openRecoveredBeside",
 } as const;
 const OPEN_THEM = { label: "Open them", commandId: "doc.openLocal" } as const;
 const EXPORT = { label: "Export", commandId: "doc.export" } as const;
@@ -156,7 +156,7 @@ function wordsFor(event: TrustEvent): Words {
             ...BRIEF,
           }
         : {
-            text: `Manent reorganised how this script is stored while you were away. Your ${formatCount(event.reapplied)} changes were re-applied. Undo history for this script starts again from now.`,
+            text: `Manent reorganised how this script is stored while you were away. ${event.reapplied === 1 ? "Your 1 change was" : `Your ${formatCount(event.reapplied)} changes were`} re-applied. Undo history for this script starts again from now.`,
             actions: [SEE_WHAT_CHANGED],
             ...OWN_WORK,
           };

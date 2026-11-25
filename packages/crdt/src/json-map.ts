@@ -8,11 +8,11 @@ export interface JsonMapView {
   /** Null for an absent key. */
   get(key: string): unknown;
   /**
-   * One transaction. A value that is not JSON (undefined, a function, NaN, an object with a prototype)
-   * is a TypeError, and so is a key, object key or string holding a lone surrogate.
+   * One transaction, under `origin` when given. A value that is not JSON (undefined, a function, NaN, an object with a
+   * prototype) is a TypeError, and so is a key, object key or string holding a lone surrogate.
    */
-  set(key: string, value: unknown): void;
-  delete(key: string): void;
+  set(key: string, value: unknown, origin?: string): void;
+  delete(key: string, origin?: string): void;
   /** Ascending. */
   keys(): readonly string[];
   /** Every entry, keys in ascending order. */
@@ -69,13 +69,13 @@ export function jsonMap(doc: CrdtDoc, name: string): JsonMapView {
   const keys = (): string[] => [...map.keys()].toSorted();
   return {
     get: (key) => map.get(key) ?? null,
-    set(key, value) {
+    set(key, value, origin) {
       const at = wellFormed(key);
       const json = copyJson(value, []);
-      ydoc.transact(() => map.set(at, json));
+      ydoc.transact(() => map.set(at, json), origin);
     },
-    delete(key) {
-      ydoc.transact(() => map.delete(key));
+    delete(key, origin) {
+      ydoc.transact(() => map.delete(key), origin);
     },
     keys,
     entries: () => Object.fromEntries(keys().map((key) => [key, map.get(key)])),

@@ -13,4 +13,5 @@ export * from "./setting-rules.ts";
 export * from "./settings.ts";
 export * from "./validate.ts";
 export * from "./viewers.ts";
+export * from "./write-path-ports.ts";
 export * from "./write-path.ts";

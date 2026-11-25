@@ -24,6 +24,8 @@ import { SendScreen } from "../src/screens/send/send-screen.tsx";
 import { outsideFontSentence } from "../src/send/output-checks.tsx";
 import { loadPdfFonts } from "../src/send/pdf-fonts.ts";
 import * as printing from "../src/send/print-pages.ts";
+import { typesOffered } from "../src/send/file-types.ts";
+import { whatOffered } from "../src/send/what-options.ts";
 import { EnvironmentProvider, useServices } from "../src/services/context.tsx";
 import type { PersonServices } from "../src/services/ports.ts";
 import { createShellDom } from "../src/shell/regions.tsx";
@@ -60,19 +62,11 @@ const numbered = (count: number): Pagination =>
     ),
   );
 
-/** An editor of `docId` showing `p`: livePagination reads the state of the editor's pagination plugin, kept under its key. */
+/** An editor of `docId` showing `p`; its view is read by no test. */
 const liveOf = (docId: string, p: Pagination): LiveEditor => ({
   docId,
   doc: {} as LiveEditor["doc"],
-  view: {
-    state: new Proxy(
-      {},
-      {
-        get: (_, key) =>
-          String(key).startsWith("pagination$") ? { pagination: p } : undefined,
-      },
-    ),
-  } as unknown as LiveEditor["view"],
+  view: {} as LiveEditor["view"],
   scaffold: {} as NonNullable<LiveEditor["scaffold"]>,
   presence: {
     publish: noop,
@@ -80,6 +74,7 @@ const liveOf = (docId: string, p: Pagination): LiveEditor => ({
     subscribePeople: () => noop,
   },
   editable: false,
+  pagination: () => p,
   zoom: () => 1,
   frontPages: () => null,
 });
@@ -314,8 +309,12 @@ test("Export names one file, a clean PDF of the whole script, and the first page
     "Export 1 file",
     "Export 1 file",
     [
-      ["What", "Whole script"],
-      ["As", "Clean PDFFDXFountain"],
+      ["Checks", "Nothing needs a look before you send."],
+      ["What", "Whole scriptPrint with alternates"],
+      [
+        "As",
+        "Clean PDFFDXFountainProject archiveCharacter report (CSV)Character report (PDF)Scene report (CSV)Scene report (PDF)Location report (CSV)Location report (PDF)",
+      ],
     ],
     ["1", "2", "3", "4", "5", "6", "7", "8"],
     "… 22 more",
@@ -364,8 +363,11 @@ test("while the script's editor is still opening, Export and Print show their ro
         "Export 1 file",
         "H1",
         [
-          ["What", "Whole script"],
-          ["As", "Clean PDFFDXFountain"],
+          ["What", "Whole scriptPrint with alternates"],
+          [
+            "As",
+            "Clean PDFFDXFountainProject archiveCharacter report (CSV)Character report (PDF)Scene report (CSV)Scene report (PDF)Location report (CSV)Location report (PDF)",
+          ],
         ],
         0,
         "Export 1 file",
@@ -373,7 +375,14 @@ test("while the script's editor is still opening, Export and Print show their ro
       [
         "Export 1 file",
         "H1",
-        [OUTSIDE_ROW, ["What", "Whole script"], ["As", "Clean PDFFDXFountain"]],
+        [
+          OUTSIDE_ROW,
+          ["What", "Whole scriptPrint with alternates"],
+          [
+            "As",
+            "Clean PDFFDXFountainProject archiveCharacter report (CSV)Character report (PDF)Scene report (CSV)Scene report (PDF)Location report (CSV)Location report (PDF)",
+          ],
+        ],
         8,
         "Export 1 file",
       ],
@@ -383,14 +392,14 @@ test("while the script's editor is still opening, Export and Print show their ro
         "‹ The Long Night",
         "Print",
         "H1",
-        [["What", "Whole script"]],
+        [["What", "Whole scriptPrint with alternates"]],
         0,
         "Print",
       ],
       [
         "Print 30 pages",
         "H1",
-        [OUTSIDE_ROW, ["What", "Whole script"]],
+        [OUTSIDE_ROW, ["What", "Whole scriptPrint with alternates"]],
         8,
         "Print 30 pages",
       ],
@@ -701,5 +710,20 @@ test("an Ink script offers neither", async () => {
   expect([fromExport, printedAt.router.state.location.pathname]).toEqual([
     "/s/d1",
     "/s/d1",
+  ]);
+});
+
+test("send_draft offers whole_script, pages, scenes, pdf and fdx", () => {
+  const offeredTo = {
+    docKind: "script" as const,
+    format: "screenplay" as const,
+    locked: false,
+  };
+  expect([
+    whatOffered("send_draft", "pdf", false).map((option) => option.id),
+    typesOffered("send_draft", offeredTo).map((type) => type.id),
+  ]).toEqual([
+    ["whole_script", "pages", "scenes"],
+    ["pdf", "fdx"],
   ]);
 });

@@ -13,28 +13,28 @@ import {
   generateScenes,
 } from "../../generate/grammar.ts";
 import type { UsedLines } from "../../generate/grammar.ts";
-import { SeedBuildError } from "../../generate/guide.ts";
+import { SeedBuildError, guideLines, isGuideOf } from "../../generate/guide.ts";
 import type { ProseGuide, StyleGuide } from "../../generate/guide.ts";
+import type { WriterLine } from "../../writers/region.ts";
 import type { SeedDoc } from "../catalogue.ts";
 import type { Rng } from "../rng.ts";
 import type { SeedTime } from "../time.ts";
+import {
+  NEWSCAST_DAYS,
+  isLiveShow,
+  liveLines,
+  liveScript,
+} from "./studio-live.ts";
 import { castAround, textsNear } from "./studio-pages.ts";
 
 // the share of its pages a document is written at: the largest its bank fills without repeating a line
 const SHARES = [1, 0.75, 0.5, 0.35, 0.25, 0.15, 0.1] as const;
 const NED_BOOK_WORDS = 3_400;
-const LIVE_LINES = 8;
 // what a variety script calls the elements a screen scene is written in
 const VARIETY: Partial<Record<BlockType, BlockType>> = {
   scene_heading: "slug",
   action: "general",
 };
-
-// the day of each of Lannick Today's newscasts, counted back from D: the 13:00 before the 18:30
-const NEWSCAST_DAYS: readonly number[] = [
-  7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1, 0, 0, -1, -1, -2, -3, -4, -5, -7,
-  -7,
-];
 
 /** The project's code in the studio's list ("H05"), from a project or document key. */
 export function codeOf(key: string): string {
@@ -93,22 +93,27 @@ export function revisedAction(
   return text === null ? null : block("action", text);
 }
 
+// each project's own screen guide before the development slate's
+const GUIDES: readonly StyleGuide[] = Object.freeze([
+  banks.NED_ASHBY_GUIDE,
+  banks.EMBER_FLEET_GUIDE,
+  banks.KEEPER_GUIDE,
+  banks.WARD_NINE_GUIDE,
+  banks.LARCH_ROAD_GUIDE,
+  banks.MOSS_AND_PEBBLE_GUIDE,
+  banks.DOWN_THE_TOLLE_GUIDE,
+  ...banks.SLATE_GUIDES,
+]);
+
 /** The screen guide whose beats the document is written from; null for one written otherwise. */
 export function guideOf(doc: SeedDoc): StyleGuide | null {
-  const hasBeats = (g: StyleGuide) =>
-    g.beats.some((beat) => beat.id.startsWith(`${doc.key}#`));
-  // each project's own screen guide before the development slate's
-  const guides = [
-    banks.NED_ASHBY_GUIDE,
-    banks.EMBER_FLEET_GUIDE,
-    banks.KEEPER_GUIDE,
-    banks.WARD_NINE_GUIDE,
-    banks.LARCH_ROAD_GUIDE,
-    banks.MOSS_AND_PEBBLE_GUIDE,
-    banks.DOWN_THE_TOLLE_GUIDE,
-    ...banks.SLATE_GUIDES,
-  ];
-  return guides.find(hasBeats) ?? null;
+  return GUIDES.find((g) => isGuideOf(g, doc.key)) ?? null;
+}
+
+/** What a writer types in the document: a live show's news (liveLines), else its screen guide's lines (guideLines). */
+export function linesOf(doc: SeedDoc): readonly WriterLine[] | null {
+  const code = codeOf(doc.key);
+  return isLiveShow(code) ? liveLines(doc, code) : guideLines(GUIDES, doc);
 }
 
 /** What `attempt` writes at the largest share its bank fills; the smallest share's error when none does. */
@@ -159,29 +164,13 @@ function toInk(blocks: readonly SeedBlock[]): SeedBlock[] {
   });
 }
 
-/** A segment or a story: its title, then the news of its day (any day's when it has none) as `cue` reads it. */
-function liveScript(doc: SeedDoc, day: number, cue: string, rng: Rng) {
-  const label = day === 0 ? "D" : `D${day > 0 ? "−" : "+"}${Math.abs(day)}`;
-  const { sentences } = banks.LIVE_GUIDE;
-  const ofDay = sentences.filter((s) => s.tags[0]?.split(" ")[0] === label);
-  const pool = (ofDay.length > 0 ? ofDay : sentences).map((s) => s.text);
-  const lines = Array.from({ length: Math.min(LIVE_LINES, pool.length) }, () =>
-    block("dialogue", pool.splice(rng.int(0, pool.length - 1), 1)[0]!),
-  );
-  return [block("slug", doc.title), block("character", cue), ...lines];
-}
-
 /**
  * Everything the document at `index` of its project holds once its history is written: none for one its
  * project's beats leave out, and none for the long book, which is written as it is fitted to its pages.
  */
 export function blocksOf(doc: SeedDoc, index: number, rng: Rng): SeedBlock[] {
   const code = codeOf(doc.key);
-  if (code === "H30") return liveScript(doc, 9 - index, "BERTIE", rng);
-  if (code === "H31") {
-    const anchor = index % 2 === 0 ? "YARA" : "FELIX";
-    return liveScript(doc, NEWSCAST_DAYS[index]!, anchor, rng);
-  }
+  if (isLiveShow(code)) return liveScript(doc, code, index, rng);
   if (code === "H34")
     return largest((share) =>
       chaptersOf(banks.NED_PROSE, NED_BOOK_WORDS * share, rng),

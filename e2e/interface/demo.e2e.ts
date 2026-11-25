@@ -16,6 +16,8 @@ test("the Tour opens the first time a person reaches the Library, and the Tour b
   page,
   request,
 }) => {
+  // a reset re-seeds every workspace through the real write path, which takes the demo some 20 s
+  test.setTimeout(90_000);
   // a first visit is once per person on this server, and earlier tests have had Sam's
   await reseedDemo(request);
   await page.goto("/");
@@ -24,11 +26,13 @@ test("the Tour opens the first time a person reaches the Library, and the Tour b
   const tourButton = page
     .getByRole("region", { name: "Demo" })
     .getByRole("button", { name: "Tour" });
+  const groups = TOUR.groups.filter((group) =>
+    TOUR.scenarios.some((s) => s.group === group && isShown(s)),
+  );
   // a Tour that lists no scenario is not opened on its own
-  if (TOUR.scenarios.some(isShown)) {
-    await expect(tourTab(page).getByRole("heading", { level: 2 })).toHaveText(
-      "Tour",
-    );
+  if (groups.length > 0) {
+    // its tab names it, so its groups are its only headings
+    await expect(tourTab(page).getByRole("heading")).toHaveText(groups);
     // the Tour never takes focus
     await expect(library).toBeFocused();
     await tourButton.click();

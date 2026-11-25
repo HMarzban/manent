@@ -48,7 +48,7 @@ function ReplaceFields(props: {
           event.preventDefault();
           props.onReplace(text);
         }}
-        className="h-control w-48 text-ui"
+        className="h-control min-w-28 max-w-48 flex-1 text-ui"
       />
       <Button
         variant="outline"
@@ -82,7 +82,7 @@ export function FindBar(props: FindBarProps): ReactNode {
   return (
     <div
       role="search"
-      className="flex h-findbar items-center gap-2 border-b border-line bg-chrome px-2 text-ui"
+      className="flex min-h-findbar flex-wrap items-center gap-2 border-b border-line bg-chrome px-2 py-1 text-ui animate-in fade-in-0 duration-(--dur-fast) ease-out"
     >
       <Input
         ref={field}
@@ -96,7 +96,7 @@ export function FindBar(props: FindBarProps): ReactNode {
           event.preventDefault();
           onStep(event.shiftKey ? -1 : 1);
         }}
-        className="h-control w-60 text-ui"
+        className="h-control min-w-32 max-w-60 flex-1 text-ui"
       />
       <span role="status" className="shrink-0 text-meta text-fg-muted">
         {find === "" ? null : FIND_WORDS.count(current, count)}
@@ -138,7 +138,10 @@ export function FindBar(props: FindBarProps): ReactNode {
         onClick={props.onClose}
         className="ml-auto"
       >
-        <XIcon aria-hidden="true" />
+        <XIcon
+          aria-hidden="true"
+          className="text-fg-muted group-hover/button:text-fg"
+        />
       </Button>
     </div>
   );

@@ -4,6 +4,10 @@ import { DEVICE_SETTINGS } from "./definitions/device.ts";
 import { POINTERS } from "./definitions/pointers.ts";
 import { SCRIPT_SETTINGS } from "./definitions/script.ts";
 import { WRITING_SETTINGS } from "./definitions/writing.ts";
+import { PROJECT_SETTINGS } from "./definitions/project.ts";
+import { SCRIPT_HEADER_FOOTER_SETTINGS } from "./definitions/script-header-footer.ts";
+import { PROJECT_TIMING_SETTINGS } from "./definitions/project-timing.ts";
+import { SCRIPT_LAYOUT_SETTINGS } from "./definitions/script-layout.ts";
 import { createRegistry } from "./registry.ts";
 import type { SettingKey } from "./store.ts";
 
@@ -16,6 +20,10 @@ export const SETTINGS = createRegistry(
     ...APPEARANCE_SETTINGS,
     ...DEVICE_SETTINGS,
     ...SCRIPT_SETTINGS,
+    ...SCRIPT_LAYOUT_SETTINGS,
+    ...PROJECT_SETTINGS,
+    ...SCRIPT_HEADER_FOOTER_SETTINGS,
+    ...PROJECT_TIMING_SETTINGS,
   ] as const),
   RETIRED_KEYS,
   POINTERS,

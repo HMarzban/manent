@@ -2,7 +2,13 @@
 import { schema } from "@manent/schema";
 import { toggleMark } from "prosemirror-commands";
 import type { EditorState, Transaction } from "prosemirror-state";
-import type { ActionResult, StyleMark } from "./action-types.ts";
+import type {
+  ActionEntry,
+  ActionResult,
+  HighlightColour,
+  StyleMark,
+  TextColour,
+} from "./action-types.ts";
 
 export function toggleStyle(
   state: EditorState,
@@ -39,3 +45,28 @@ export function setNamedMark(
   if (tr.docChanged || tr.storedMarksSet) dispatch?.(tr);
   return { ok: true };
 }
+
+export const styleEntry: ActionEntry<{ kind: "style"; mark: StyleMark }> = {
+  readOnly: false,
+  run: (view, action) => toggleStyle(view.state, action.mark, view.dispatch),
+};
+
+/** A value of null is None. */
+export const colourEntry: ActionEntry<{
+  kind: "colour";
+  value: TextColour | null;
+}> = {
+  readOnly: false,
+  run: (view, action) =>
+    setNamedMark(view.state, "color", action.value, view.dispatch),
+};
+
+/** A value of null is None. */
+export const highlightEntry: ActionEntry<{
+  kind: "highlight";
+  value: HighlightColour | null;
+}> = {
+  readOnly: false,
+  run: (view, action) =>
+    setNamedMark(view.state, "highlight", action.value, view.dispatch),
+};

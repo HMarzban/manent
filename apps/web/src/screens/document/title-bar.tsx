@@ -1,13 +1,20 @@
-// The bar above the page: back to the Library, the title and its menu, the status, and the people present.
+// The bar above the page: back to the Library, the title and its menu, the status, the people present, and Share.
 import {
   Button,
   CommandMenu,
   DOCUMENT_WORDS,
   LIBRARY_WORDS,
+  READOUT_WORDS,
+  SELECTION_WORDS,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  useCommandState,
+  useCommands,
   useSubscribable,
 } from "@manent/ui";
 import { useRouter } from "@tanstack/react-router";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useId, useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { DocumentServices } from "../../services/ports.ts";
@@ -39,6 +46,46 @@ export function useDocumentTitle(docId: string): string {
 }
 
 /**
+ * Share runs `share.open`, and is drawn while the command is visible. While it cannot run it stays in the bar,
+ * focusable, and says why in its tooltip and description, as a command's button does; a press then gives the reason.
+ */
+function ShareButton(): ReactNode {
+  const { service } = useCommands();
+  const state = useCommandState("share.open");
+  const reasonId = useId();
+  if (!state.visible) return null;
+  const reason =
+    state.whyNot === null
+      ? null
+      : READOUT_WORDS.unavailable(SELECTION_WORDS.share, state.whyNot);
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="outline"
+              data-tour="share"
+              aria-disabled={reason === null ? undefined : true}
+              aria-describedby={reason === null ? undefined : reasonId}
+              onClick={() => service.run("share.open", "control")}
+            />
+          }
+        >
+          {SELECTION_WORDS.share}
+        </TooltipTrigger>
+        <TooltipContent>{reason ?? SELECTION_WORDS.share}</TooltipContent>
+      </Tooltip>
+      {reason === null ? null : (
+        <span id={reasonId} className="sr-only">
+          {reason}
+        </span>
+      )}
+    </>
+  );
+}
+
+/**
  * On a narrow window it yields in this order: the avatars become a count, the title shortens with an ellipsis, and
  * only then does the status take a second row. The status never shortens.
  */
@@ -54,7 +101,7 @@ export function TitleBar(props: {
   return (
     <ShellRegion
       region="title_bar"
-      className="@container flex min-h-titlebar flex-wrap items-center gap-x-2 border-b border-line bg-chrome px-2 text-ui"
+      className="@container flex min-h-titlebar flex-wrap items-center gap-x-2 border-b border-line bg-chrome px-2 py-1 text-ui"
     >
       <Button
         variant="ghost"
@@ -63,10 +110,10 @@ export function TitleBar(props: {
       >
         {DOCUMENT_WORDS.back}
       </Button>
-      {/* the title's band hugs it, and gives way to the status on a narrow bar */}
+      {/* the title's band hugs it, up to two fifths of the bar, and gives way to the status on a narrow bar */}
       <h1
         tabIndex={-1}
-        className="max-w-2/5 min-w-24 text-title font-semibold *:max-w-full"
+        className="grid max-w-max min-w-24 grow basis-24 grid-cols-[fit-content(40cqi)] text-title font-semibold *:min-w-0"
       >
         {renaming ? (
           <InlineRename docId={docId} title={title} />
@@ -83,7 +130,10 @@ export function TitleBar(props: {
         )}
       </h1>
       <StatusButton doc={doc} />
-      <People people={doc.people} />
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <People docId={docId} people={doc.people} viewers={doc.viewers} />
+        <ShareButton />
+      </div>
     </ShellRegion>
   );
 }

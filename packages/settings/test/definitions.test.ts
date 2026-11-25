@@ -49,6 +49,28 @@ const throwaway = setting({
   keywords: [],
 });
 
+// Frozen, and the two value snapshots below compare only these keys, so a setting added later never breaks them.
+const STAGE_1_SETTING_KEYS: readonly string[] = [
+  "writing.enterAfterDialogue",
+  "writing.typewriterScrolling",
+  "writing.checkSpelling",
+  "writing.showCursors",
+  "writing.announce",
+  "appearance.theme",
+  "appearance.whitePage",
+  "device.interfaceSize",
+  "script.format",
+  "script.paper",
+  "script.moresAtBreaks",
+  "script.sameSpeakerContd",
+  "script.sceneContinued",
+  "script.numbering",
+  "script.colourOrder",
+];
+
+const stage1 = <T extends { key: string }>(list: readonly T[]): T[] =>
+  list.filter((d) => STAGE_1_SETTING_KEYS.includes(d.key));
+
 test("the list of preferences is closed at nine", () => {
   expect(PREFERENCE_LIST).toEqual([
     "writing.enterAfterDialogue",
@@ -71,7 +93,9 @@ test("the list of preferences is closed at nine", () => {
 });
 
 test("each setting keeps its label, its default and whether it applies before the first paint", () => {
-  expect(SETTINGS.all.map((d) => [d.key, d.label, d.default, d.boot])).toEqual([
+  expect(
+    stage1(SETTINGS.all).map((d) => [d.key, d.label, d.default, d.boot]),
+  ).toEqual([
     [
       "writing.enterAfterDialogue",
       "After Dialogue, Enter starts",
@@ -114,7 +138,7 @@ test("each setting keeps its label, its default and whether it applies before th
 test("each setting's help, values, places and effect are fixed", () => {
   const palette = { in: "palette" } as const;
   expect(
-    SETTINGS.all.map((d) => ({
+    stage1(SETTINGS.all).map((d) => ({
       key: d.key,
       scope: d.scope,
       choices: d.type.choices,
@@ -436,14 +460,13 @@ test("only appearance writes attributes, and they are the four the root element 
   ).toEqual(["data-cursors", "data-theme", "data-ui-size", "data-white-page"]);
 });
 
-test("no preference reaches the layout, and every script setting is guarded", () => {
+test("no preference reaches the layout, and every layout script setting is guarded", () => {
   for (const d of SETTINGS.byScope("personal"))
     expect(d.apply).not.toEqual({ how: "editor", effect: "layout" });
-  for (const d of SETTINGS.byScope("script"))
-    expect([d.guard, d.apply]).toEqual([
-      "layout",
-      { how: "editor", effect: "layout" },
-    ]);
+  for (const d of SETTINGS.byScope("script")) {
+    const isLayout = d.apply.how === "editor" && d.apply.effect === "layout";
+    expect(d.guard).toBe(isLayout ? "layout" : null);
+  }
 });
 
 test("a search never ends in nothing: one signpost and an answer for each default", () => {
@@ -556,7 +579,9 @@ test("a search never ends in nothing: one signpost and an answer for each defaul
 });
 
 test("script settings carry the nouns their messages use", () => {
-  expect(SETTINGS.byScope("script").map((d) => [d.key, d.noun])).toEqual([
+  expect(
+    stage1(SETTINGS.byScope("script")).map((d) => [d.key, d.noun]),
+  ).toEqual([
     ["script.format", "format"],
     ["script.paper", "paper size"],
     ["script.moresAtBreaks", "(MORE) and (CONT'D) at page breaks"],
@@ -626,7 +651,12 @@ test("a preference added with one definition is found everywhere it should be", 
 test("a store over every setting answers each key with its own value type", () => {
   const store: SettingsStore = createSettingsStore({
     registry: SETTINGS,
-    bags: { personal: emptyBag(), device: emptyBag(), script: emptyBag() },
+    bags: {
+      personal: emptyBag(),
+      device: emptyBag(),
+      script: emptyBag(),
+      project: null,
+    },
     beforeWrite: () => {},
     deferRemote: (apply) => apply(),
     locked: () => false,

@@ -1,5 +1,6 @@
 // Binds a CRDT document to ProseMirror through y-prosemirror, and hands the editor only its own types.
 import {
+  ORIGIN_MATERIAL,
   ORIGIN_REVIEW,
   ORIGIN_TITLE_PAGE,
   createUndoScope,
@@ -71,7 +72,12 @@ export function bindDocument(options: {
   // each binding has its own scope, which the undo plugin destroys with the view
   const history = createHistory({
     scope: createUndoScope(crdt, {
-      trackedOrigins: [ySyncPluginKey, ORIGIN_REVIEW, ORIGIN_TITLE_PAGE],
+      trackedOrigins: [
+        ySyncPluginKey,
+        ORIGIN_REVIEW,
+        ORIGIN_TITLE_PAGE,
+        ORIGIN_MATERIAL,
+      ],
       roots: options.undoRoots,
     }),
   });

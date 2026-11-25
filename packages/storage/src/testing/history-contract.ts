@@ -6,8 +6,8 @@ import type {
   HistoryRequestRow,
   Storage,
   VersionRow,
-} from "../ports.ts";
-import { StorageError } from "../ports.ts";
+} from "../ports/index.ts";
+import { StorageError } from "../ports/index.ts";
 import { DOC, DOC2, bytes, item } from "./contract-fixtures.ts";
 
 /** The running contract's current storage, and its file holding DOC. */

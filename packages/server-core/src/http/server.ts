@@ -8,8 +8,20 @@ import type {
 import type { Directory } from "../auth/directory.ts";
 import type { SessionStore } from "../auth/sessions.ts";
 import type { SignInProvider } from "../auth/sign-in.ts";
+import type { CommentsService } from "../comments/service.ts";
+import type { DraftsService } from "../drafts/service.ts";
+import type { DriverService } from "../driver/service.ts";
 import type { HistoryService } from "../history/service.ts";
+import type { TrashService } from "../library/service.ts";
+import type { NotificationsService } from "../notifications/service.ts";
+import type { PrivateCopyService } from "../private-copy/service.ts";
 import type { ProductionService } from "../production/service.ts";
+import type { ProjectService } from "../project/service.ts";
+import type { PrompterService } from "../prompter/service.ts";
+import type { PublicApiService } from "../public-api/service.ts";
+import type { RundownService } from "../rundown/service.ts";
+import type { SearchService } from "../search/service.ts";
+import type { SharingService } from "../sharing/service.ts";
 import type {
   ConnectionData,
   ConnectionHandler,
@@ -20,6 +32,7 @@ import { syncError } from "../sync/errors.ts";
 import { DEFAULT_LIMITS } from "../sync/ports.ts";
 import { createSyncService } from "../sync/service.ts";
 import type { SyncService, SyncSettings } from "../sync/ports.ts";
+import type { WorkspaceService } from "../workspace/service.ts";
 import { failure } from "./respond.ts";
 import { hearRemovals } from "./routes/docs.ts";
 import { hearReplays } from "./routes/replay.ts";
@@ -68,6 +81,32 @@ export interface ServerConfig {
   history?: HistoryService;
   /** Absent: every production route answers not_found. */
   production?: ProductionService;
+  /** Absent: every comments route answers not_found. */
+  comments?: CommentsService;
+  /** Absent: every sharing route answers not_found. */
+  sharing?: SharingService;
+  /** Absent: every draft route answers not_found. */
+  drafts?: DraftsService;
+  /** Absent: every private-copy route answers not_found. */
+  privateCopy?: PrivateCopyService;
+  /** Absent: every driver route answers not_found. */
+  driver?: DriverService;
+  /** Absent: every project route answers not_found. */
+  project?: ProjectService;
+  /** Absent: every rundown route answers not_found. */
+  rundown?: RundownService;
+  /** Absent: every prompter route answers not_found. */
+  prompter?: PrompterService;
+  /** Absent: every Trash route answers not_found. */
+  trash?: TrashService;
+  /** Absent: every search route answers not_found. */
+  search?: SearchService;
+  /** Absent: every workspace route answers not_found. */
+  workspace?: WorkspaceService;
+  /** Absent: every notification route answers not_found. */
+  notify?: NotificationsService;
+  /** Absent: every public API route answers not_found. */
+  publicApi?: PublicApiService;
 }
 
 /** What an app hands to its listener; this package never listens itself. */
@@ -122,7 +161,11 @@ export function createServer(config: ServerConfig): ManentServer {
     settings === null
       ? null
       : {
-          service: createSyncService({ ...settings, versions }),
+          service: createSyncService({
+            ...settings,
+            versions,
+            draftReaders: settings.draftReaders ?? config.drafts,
+          }),
           clock: settings.clock,
           limits: { ...DEFAULT_LIMITS, ...settings.limits },
         };

@@ -24,7 +24,9 @@
     "lucide-react": "catalog:",
     "@tanstack/react-hotkeys": "catalog:",
     "@tanstack/react-virtual": "catalog:",
-    "@fontsource-variable/inter": "catalog:"
+    "@fontsource-variable/inter": "catalog:",
+    "@dnd-kit/react": "catalog:",
+    "@dnd-kit/dom": "catalog:"
   },
   "devDependencies": {
     "@manent/testkit": "workspace:*",

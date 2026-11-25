@@ -1,5 +1,8 @@
-// The shape of a project's style guide and phrase bank, and the error a seed build stops with.
-import type { FormatId } from "@manent/schema";
+// The shape of a project's style guide and phrase bank, what a document takes from one, and the error a seed
+// build stops with.
+import { FORMAT_ELEMENTS } from "@manent/schema";
+import type { BlockType, FormatId } from "@manent/schema";
+import type { WriterLine } from "../writers/region.ts";
 
 export type LineIntent = "ask" | "answer" | "instruct" | "state";
 
@@ -62,6 +65,82 @@ export interface VarietyStory {
   lines: readonly DialogueEntry[];
   /** Each written `T=m:ss <what>`; its seconds count toward the story's running time. */
   brackets: readonly string[];
+}
+
+/** Whether `guide`'s beats write the document whose catalogue key is `key`, or a document under it. */
+export function isGuideOf(guide: StyleGuide, key: string): boolean {
+  return guide.beats.some(
+    (beat) => beat.id.startsWith(`${key}#`) || beat.id.startsWith(`${key}/`),
+  );
+}
+
+/** The element each format writes a guide's action in. */
+const ACTION_ELEMENTS: Readonly<Record<FormatId, BlockType>> = {
+  screenplay: "action",
+  multicam: "action",
+  animation: "action",
+  variety: "general",
+  game: "action",
+  ink: "ink_line",
+  manuscript: "body",
+  stage_play: "action",
+};
+
+/** `text` said by `cue` as `format` writes it: under the cue, or as `CUE: text` in a format that has no cues. */
+export function speechOf(
+  format: FormatId,
+  cue: string,
+  text: string,
+): WriterLine {
+  return FORMAT_ELEMENTS[format].includes("character")
+    ? [
+        { element: "character", text: cue },
+        { element: "dialogue", text },
+      ]
+    : [{ element: ACTION_ELEMENTS[format], text: `${cue}: ${text}` }];
+}
+
+/** Every item of `lists`, each list spread evenly through the whole: the i-th of n at (i + 0.5) / n, ties in list order (the sort is stable). */
+const spread = <T>(lists: readonly (readonly T[])[]): T[] =>
+  lists
+    .flatMap((list) =>
+      list.map((item, i) => ({ item, at: (i + 0.5) / list.length })),
+    )
+    .toSorted((a, b) => a.at - b.at)
+    .map(({ item }) => item);
+
+/**
+ * The hand-written lines of the first of `guides` that writes the document, else of the first that writes
+ * another document of its project, as the document's format writes them: the actions and each speaker's
+ * speeches spread evenly through one another, so that a writer's lines read as a scene wherever they start.
+ * A speech any of the cast may say goes to the cast of the guide's beats in turn, those in the room before a
+ * voice from elsewhere ("GIL (V.O.)"). Null when no guide writes the project.
+ */
+export function guideLines(
+  guides: readonly StyleGuide[],
+  doc: { key: string; projectKey: string; format: FormatId },
+): WriterLine[] | null {
+  const guide =
+    guides.find((g) => isGuideOf(g, doc.key)) ??
+    guides.find((g) => isGuideOf(g, doc.projectKey));
+  if (guide === undefined) return null;
+  const cast = [...new Set(guide.beats.flatMap((beat) => beat.cast))];
+  const inRoom = cast.filter((cue) => !cue.includes("("));
+  const cues = inRoom.length > 0 ? inRoom : cast;
+  const element = ACTION_ELEMENTS[doc.format];
+  const said = guide.dialogue.flatMap((entry, i) => {
+    const cue = entry.speaker ?? cues[i % cues.length];
+    return cue === undefined ? [] : [{ cue, text: entry.text }];
+  });
+  const speakers = [...new Set(said.map((speech) => speech.cue))];
+  return spread<WriterLine>([
+    guide.action.map((text) => [{ element, text }]),
+    ...speakers.map((cue) =>
+      said
+        .filter((speech) => speech.cue === cue)
+        .map(({ text }) => speechOf(doc.format, cue, text)),
+    ),
+  ]);
 }
 
 export interface ProseGuide {

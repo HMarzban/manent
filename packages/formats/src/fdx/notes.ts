@@ -1,6 +1,6 @@
 // Final Draft's script notes: inline at a paragraph's start, or ranged over the script's offsets.
-import { noteAnchorAt } from "@manent/schema";
-import type { NoteAnchor, ScriptNote } from "@manent/schema";
+import { textAnchorAt } from "@manent/schema";
+import type { ScriptNote, TextAnchor } from "@manent/schema";
 import { attr, elementsOf, paragraphText, withoutAttributes } from "./kept.ts";
 import { blockAtOffset } from "./offsets.ts";
 import type { XmlNode } from "../xml/node.ts";
@@ -32,7 +32,7 @@ function parseDateTime(value: string | null): number | null {
 
 function readNote(
   node: XmlNode,
-  anchor: NoteAnchor | null,
+  anchor: TextAnchor | null,
   writerAttribute: string,
   taken: Set<string>,
 ): NoteReading {
@@ -64,7 +64,7 @@ export function readInlineNote(
   node: XmlNode,
   block: { id: string; text: string },
 ): NoteReading {
-  return readNote(node, noteAnchorAt(block, 0, 0), "Author", new Set());
+  return readNote(node, textAnchorAt(block, 0, 0), "Author", new Set());
 }
 
 /**
@@ -91,7 +91,7 @@ export function readRangedNote(
   const end = Math.min(to - starts[at.block]!, block.text.length);
   return readNote(
     node,
-    noteAnchorAt(block, start, end),
+    textAnchorAt(block, start, end),
     "WriterName",
     new Set(["Range"]),
   );

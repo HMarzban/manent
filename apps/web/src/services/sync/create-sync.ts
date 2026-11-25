@@ -2,7 +2,6 @@
 import { browserPorts, hasLocalDatabase } from "@manent/client-web";
 import { createSubscribable, createSyncClient } from "@manent/sync-client";
 import type {
-  DocHandle,
   LinkFacts,
   LocalStore,
   Subscribable,
@@ -11,7 +10,7 @@ import type {
   SyncClientPorts,
   Transport,
 } from "@manent/sync-client";
-import type { ControlKind, VersionSet } from "@manent/sync-protocol";
+import type { VersionSet } from "@manent/sync-protocol";
 import {
   SLOW_DELAY_MS,
   connectionTransport,
@@ -23,8 +22,9 @@ import type { TabPerson } from "../../session.ts";
 import { browserStores } from "./device-memory.ts";
 import type { ConnectionMode, DeviceMemory } from "./device-memory.ts";
 import { DRAIN_PARALLEL, startDrain } from "./drain.ts";
-import { NO_OVERLAY, both, createTestHooks } from "./sync-hooks.ts";
-import type { Overlay } from "./sync-hooks.ts";
+import { shareHandles } from "./shared-handles.ts";
+import type { ControlListener } from "./shared-handles.ts";
+import { NO_OVERLAY, createTestHooks } from "./sync-hooks.ts";
 
 /**
  * `network`: the browser says it is online and the tab's Connection is not Offline. `offlineSince`: when this person's
@@ -53,105 +53,6 @@ export interface PersonSync {
   dispose(): Promise<void>;
   /** Each CONTROL frame of a document this tab holds open; the returned function stops. */
   onControl(listener: ControlListener): () => void;
-}
-
-type ControlListener = (
-  docId: string,
-  kind: ControlKind,
-  data: Uint8Array,
-) => void;
-
-/** One open of a document: the client's handle, with its own `close`. */
-function handleView(
-  handle: DocHandle,
-  overlay: Overlay,
-  close: () => Promise<void>,
-): DocHandle {
-  return {
-    docId: handle.docId,
-    doc: () => handle.doc(),
-    status: overlay.status(handle.docId, handle.status),
-    recovered: handle.recovered,
-    settings: handle.settings,
-    writeSchema: handle.writeSchema,
-    readOnly: handle.readOnly,
-    upstream: handle.upstream,
-    on: (listener) =>
-      both(handle.on(listener), overlay.on(handle.docId, listener)),
-    setSetting: (key, value) => handle.setSetting(key, value),
-    holdRemote: () => handle.holdRemote(),
-    releaseRemote: () => handle.releaseRemote(),
-    sendAwareness: (update) => handle.sendAwareness(update),
-    onAwareness: (listener) => handle.onAwareness(listener),
-    saveVersion: (label) => handle.saveVersion(label),
-    nameVersion: (name) => handle.nameVersion(name),
-    restoreLocally: (target, scope) => handle.restoreLocally(target, scope),
-    deviceVersions: () => handle.deviceVersions(),
-    lastServerSeq: () => handle.lastServerSeq(),
-    adoptClientIds: (ids) => handle.adoptClientIds(ids),
-    close,
-  };
-}
-
-/**
- * The client, with each open of a document its own handle: the client's handle closes once every one of them is
- * closed, so the page, the editor and the drain each close only their own. While it is open, its CONTROL frames go
- * to `controls`.
- */
-function shareHandles(
-  client: SyncClient,
-  overlay: Overlay,
-  link: Subscribable<LinkFacts>,
-  controls: ReadonlySet<ControlListener>,
-): SyncClient {
-  const held = new Map<
-    string,
-    { opens: number; handle: Promise<DocHandle>; stop: (() => void) | null }
-  >();
-  const closing = new Map<string, Promise<void>>();
-  const hold = async (
-    docId: string,
-    open: () => Promise<DocHandle>,
-  ): Promise<DocHandle> => {
-    await closing.get(docId);
-    const entry = held.get(docId) ?? { opens: 0, handle: open(), stop: null };
-    held.set(docId, entry);
-    entry.opens += 1;
-    // an open that failed is asked of the client again next time
-    const forget = () => held.get(docId) === entry && held.delete(docId);
-    void entry.handle.catch(forget);
-    const handle = await entry.handle;
-    entry.stop ??= handle.on((event) => {
-      if (event.type !== "control") return;
-      for (const listener of controls) listener(docId, event.kind, event.data);
-    });
-    let closed = false;
-    return handleView(handle, overlay, async () => {
-      if (closed) return;
-      closed = true;
-      entry.opens -= 1;
-      if (entry.opens > 0 || held.get(docId) !== entry) return;
-      held.delete(docId);
-      entry.stop?.();
-      const done = handle.close();
-      closing.set(docId, done);
-      await done;
-      if (closing.get(docId) === done) closing.delete(docId);
-    });
-  };
-  return {
-    link,
-    open: (docId, options) => hold(docId, () => client.open(docId, options)),
-    async create(request) {
-      const handle = await client.create(request);
-      return hold(handle.docId, async () => handle);
-    },
-    documents: () => client.documents(),
-    setOnline: (wanted) => client.setOnline(wanted),
-    retryNow: () => client.retryNow(),
-    view: (docId) => client.view(docId),
-    close: () => client.close(),
-  };
 }
 
 /** Kept per person in `memory`: set when the link is first lost while none is kept, cleared once it is online. */
@@ -263,12 +164,8 @@ function followConnection(options: {
   return { connection, network };
 }
 
-/**
- * The person's sync client over `ports` (the browser's drivers unless given), draining what waits each time it connects;
- * `via` also says where the demo's Connection acts. Where the page has the test build's `__manent`, it sets
- * `__manent.sync` to the hooks and removes them in `dispose`.
- */
-export async function createPersonSync(options: {
+/** What the person's sync is made of; `ports` are the browser's drivers unless given. */
+interface PersonSyncOptions {
   person: TabPerson;
   baseUrl: string;
   deviceId: string;
@@ -281,8 +178,13 @@ export async function createPersonSync(options: {
   onlineEvents: EventTarget | null;
   visible: () => boolean;
   now: () => number;
-}): Promise<PersonSync> {
-  const { person, onlineEvents, visible } = options;
+}
+
+/** The ports the sync is given, or the browser's for `person`, and whether this browser held their store before. */
+async function portsOf(
+  options: PersonSyncOptions,
+): Promise<{ given: SyncClientPorts; hadDatabase: boolean | null }> {
+  const { person } = options;
   // looked for before the browser's store is opened, which makes it
   const hadDatabase =
     options.ports === undefined
@@ -295,19 +197,31 @@ export async function createPersonSync(options: {
       session: () => person.token,
       userId: person.userId,
     }));
-  const mode = createSubscribable(options.memory.connection() ?? "online");
-  const current = (): ConnectionMode => mode.get();
-  const place = CONNECTION_PLACES[options.via ?? "server"];
-  const transport = place.transport(given, current);
+  return { given, hadDatabase };
+}
+
+/** The sync client over `given`, through the test build's hooks where the page has them, with its handles shared. */
+function startClient(
+  options: PersonSyncOptions,
+  given: SyncClientPorts,
+): {
+  raw: SyncClient;
+  client: SyncClient;
+  link: Subscribable<LinkFacts>;
+  ports: SyncClientPorts;
+  controls: Set<ControlListener>;
+  test: ReturnType<typeof createTestHooks>;
+} {
+  const { person } = options;
   // the hooks make a script as the Library does, each in a project of its own
-  const test = createTestHooks({ ...given, transport }, async (docId) =>
+  const test = createTestHooks(given, async (docId) =>
     (await import("./create-script.ts")).createScript(client, {
       docId,
       projectId: docId,
       language: navigator.language,
     }),
   );
-  const ports = test?.ports ?? { ...given, transport };
+  const ports = test?.ports ?? given;
   const overlay = test?.overlay ?? NO_OVERLAY;
   const raw = createSyncClient({
     userId: person.userId,
@@ -326,6 +240,27 @@ export async function createPersonSync(options: {
   const link = overlay.link(raw.link);
   const controls = new Set<ControlListener>();
   const client = shareHandles(raw, overlay, link, controls);
+  return { raw, client, link, ports, controls, test };
+}
+
+/**
+ * The person's sync client over `ports` (the browser's drivers unless given), draining what waits each time it connects;
+ * `via` also says where the demo's Connection acts. Where the page has the test build's `__manent`, it sets
+ * `__manent.sync` to the hooks and removes them in `dispose`.
+ */
+export async function createPersonSync(
+  options: PersonSyncOptions,
+): Promise<PersonSync> {
+  const { person, onlineEvents, visible } = options;
+  const { given, hadDatabase } = await portsOf(options);
+  const mode = createSubscribable(options.memory.connection() ?? "online");
+  const current = (): ConnectionMode => mode.get();
+  const place = CONNECTION_PLACES[options.via ?? "server"];
+  const transport = place.transport(given, current);
+  const { raw, client, link, ports, controls, test } = startClient(options, {
+    ...given,
+    transport,
+  });
   // undefined outside a browser, which is never offline
   const browser = createSubscribable(navigator.onLine !== false);
   const { connection, network } = followConnection({

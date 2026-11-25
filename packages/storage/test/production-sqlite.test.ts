@@ -66,7 +66,7 @@ test("migration 5 creates the production tables and raises every file's version"
     userVersion(file),
     userVersion(controlFile),
     userVersion(checkpointsFile),
-  ]).toEqual([5, 5, 5]);
+  ]).toEqual([10, 10, 10]);
   expect(tableColumns(file).page_locks).toEqual([
     "doc_id TEXT",
     "lock_level INTEGER",
@@ -121,7 +121,7 @@ test("a file at version 4 is migrated in place", async () => {
   };
   storage.close();
   expect(opened).toEqual({ tail: [[1, [1], "sam"]], locked: 0, anchors: [] });
-  expect(Object.values(files).map(userVersion)).toEqual([5, 5, 5]);
+  expect(Object.values(files).map(userVersion)).toEqual([10, 10, 10]);
   expect(
     tableNames(files.documents).filter((name) =>
       PRODUCTION_TABLES.includes(name),

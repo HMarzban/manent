@@ -1,7 +1,8 @@
-// The commands every setting generates: one per value of a choice, one switch for a boolean.
+// The commands every setting generates: one per value of a choice, one switch for a boolean, none for any other kind.
 import { appliesToFormat } from "@manent/settings";
 import type {
   MenuId,
+  Scope,
   SettingDefinition,
   SettingsRegistry,
   Surface,
@@ -18,6 +19,8 @@ const NO_KEYS = Object.freeze({ mac: [], windows: [], linux: [] });
 const isPreferencesSurface = (s: Surface): s is PreferencesSurface =>
   s.in === "preferences";
 const isMenuSurface = (s: Surface): s is MenuSurface => s.in === "menu";
+const isPreference = (def: SettingDefinition): boolean =>
+  def.scope === "personal" || def.scope === "device";
 
 /** A key into the palette's home words: Script settings for a script setting, its Preferences pane for a preference. */
 function homeOf(def: SettingDefinition): string | null {
@@ -26,11 +29,12 @@ function homeOf(def: SettingDefinition): string | null {
   return pane === undefined ? null : `homePreferences:${pane.section}`;
 }
 
-// a setting with no menu of its own is grouped where its scope is changed from: Format for a script, View for a preference
+// a setting with no menu of its own is grouped where its scope is changed from: Format for a script or a project, View
+// for a preference
 function groupOf(def: SettingDefinition): MenuId {
   const menu = def.surfaces.find(isMenuSurface);
   if (menu !== undefined) return menu.menu;
-  return def.scope === "script" ? "format" : "view";
+  return isPreference(def) ? "view" : "format";
 }
 
 // a choice is drawn under its own label; a switch under the label of the setting it is `under`, if any
@@ -57,6 +61,19 @@ function menusOf(
     }));
 }
 
+// a script setting has no value off a document, and none in a format it does nothing for; a project setting none
+// outside a project
+const VISIBLE: Readonly<
+  Record<Scope, (def: SettingDefinition) => SettingCommand["visible"]>
+> = Object.freeze({
+  personal: () => null,
+  device: () => null,
+  script: (def) => (ctx) =>
+    ctx.docOpen &&
+    (ctx.format === null || appliesToFormat(def.key, ctx.format)),
+  project: () => (ctx) => ctx.projectKind !== null,
+});
+
 function shared(
   def: SettingDefinition,
 ): Omit<SettingCommand, "id" | "label" | "checked" | "menus" | "setting"> {
@@ -68,13 +85,7 @@ function shared(
     keysFixed: false,
     when: null,
     whyNot: null,
-    // a script setting has no value off a document, and none in a format it does nothing for
-    visible:
-      def.scope === "script"
-        ? (ctx) =>
-            ctx.docOpen &&
-            (ctx.format === null || appliesToFormat(def.key, ctx.format))
-        : null,
+    visible: VISIBLE[def.scope](def),
     passThrough: null,
     palette: def.surfaces.some((s) => s.in === "palette")
       ? { keywords: def.keywords }
@@ -89,6 +100,8 @@ function commandsOf(
   registry: Registry,
 ): readonly SettingCommand[] {
   const { key, label, type } = def;
+  // a value typed or edited in its row has no command of its own
+  if (type.kind !== "boolean" && type.kind !== "choice") return [];
   if (type.choices === null)
     return [
       {

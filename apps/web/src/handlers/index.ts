@@ -23,6 +23,37 @@ import { libraryHandlers } from "./library.ts";
 import { navigationHandlers } from "./navigation.ts";
 import { preferencesHandlers } from "./preferences.ts";
 import { syncHandlers } from "./sync.ts";
+import { commentsHandlers } from "./comments.ts";
+import { writingHandlers } from "./writing.ts";
+import { assignmentHandlers } from "./assignment.ts";
+import { materialHandlers } from "./material.ts";
+import { scenesHandlers } from "./scenes.ts";
+import { roomHandlers } from "./room.ts";
+import { shareHandlers } from "./share.ts";
+import { draftsHandlers } from "./drafts.ts";
+import { linksHandlers } from "./links.ts";
+import { projectHandlers } from "./project.ts";
+import { seriesHandlers } from "./series.ts";
+import { namesHandlers } from "./names.ts";
+import { checksHandlers } from "./checks.ts";
+import { boardHandlers } from "./board.ts";
+import { outlineHandlers } from "./outline.ts";
+import { roomLogHandlers } from "./room-log.ts";
+import { copiesHandlers } from "./copies.ts";
+import { readerHandlers } from "./reader.ts";
+import { besideHandlers } from "./beside.ts";
+import { archiveHandlers } from "./archive.ts";
+import { timingHandlers } from "./timing.ts";
+import { rundownHandlers } from "./rundown.ts";
+import { prompterHandlers } from "./prompter.ts";
+import { libraryFilesHandlers } from "./library-files.ts";
+import { searchHandlers } from "./search.ts";
+import { workspaceHandlers } from "./workspace.ts";
+import { accountHandlers } from "./account.ts";
+import { inkHandlers } from "./ink.ts";
+import { scriptHandlers } from "./script.ts";
+import { focusModeHandlers } from "./focus-mode.ts";
+import { productionOutputsHandlers } from "./production-outputs.ts";
 
 /** Where the window is: its route's id, its path with the search, and the search as read. */
 export interface RoutePlace {
@@ -85,5 +116,36 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     ...createDesktopHandlers(deps),
     ...historyHandlers(deps),
     ...productionHandlers(deps),
+    ...commentsHandlers(deps),
+    ...writingHandlers(deps),
+    ...assignmentHandlers(deps),
+    ...materialHandlers(deps),
+    ...scenesHandlers(deps),
+    ...roomHandlers(deps),
+    ...shareHandlers(deps),
+    ...draftsHandlers(deps),
+    ...linksHandlers(deps),
+    ...projectHandlers(deps),
+    ...seriesHandlers(deps),
+    ...namesHandlers(deps),
+    ...checksHandlers(deps),
+    ...boardHandlers(deps),
+    ...outlineHandlers(deps),
+    ...roomLogHandlers(deps),
+    ...copiesHandlers(deps),
+    ...readerHandlers(deps),
+    ...besideHandlers(deps),
+    ...archiveHandlers(deps),
+    ...timingHandlers(deps),
+    ...rundownHandlers(deps),
+    ...prompterHandlers(deps),
+    ...libraryFilesHandlers(deps),
+    ...searchHandlers(deps),
+    ...workspaceHandlers(deps),
+    ...accountHandlers(deps),
+    ...inkHandlers(deps),
+    ...scriptHandlers(deps),
+    ...focusModeHandlers(deps),
+    ...productionOutputsHandlers(deps),
   };
 }

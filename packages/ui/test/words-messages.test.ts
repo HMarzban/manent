@@ -136,13 +136,17 @@ test("each trust moment reads as the design writes it", () => {
     {
       id: "old_offline_work",
       text: "Your changes made offline since 12 Aug could not be merged automatically. They are saved as 'Recovered — this device, 12 Aug'.",
-      actions: [{ label: "Open beside", commandId: "doc.openBeside" }],
+      actions: [
+        { label: "Open beside", commandId: "history.openRecoveredBeside" },
+      ],
       ...OWN,
     },
     {
       id: "old_offline_work",
       text: "Your changes made offline could not be merged automatically. They are saved as 'Recovered — this device'.",
-      actions: [{ label: "Open beside", commandId: "doc.openBeside" }],
+      actions: [
+        { label: "Open beside", commandId: "history.openRecoveredBeside" },
+      ],
       ...OWN,
     },
     {
@@ -248,6 +252,12 @@ test("a refused command says its label and its reason, and nothing else", () => 
   ).toBe("Print — isn't part of the Ink format");
 });
 
+test("one change re-applied after a rebuild is said in the singular", () => {
+  expect(messageFor({ kind: "rebuilt", reapplied: 1 }).text).toBe(
+    "Manent reorganised how this script is stored while you were away. Your 1 change was re-applied. Undo history for this script starts again from now.",
+  );
+});
+
 test("a rebuild and a refusal with nothing re-applied have their own sentences", () => {
   expect(messageFor({ kind: "rebuilt", reapplied: 0 })).toMatchObject({
     text: "Manent reorganised how this script is stored. Undo history for this script starts again from now.",
@@ -255,7 +265,9 @@ test("a rebuild and a refusal with nothing re-applied have their own sentences",
   });
   expect(messageFor({ kind: "changes_refused", reapplied: 0 })).toMatchObject({
     text: "Manent could not accept this device's changes. They are saved as 'Recovered — this device'.",
-    actions: [{ label: "Open beside", commandId: "doc.openBeside" }],
+    actions: [
+      { label: "Open beside", commandId: "history.openRecoveredBeside" },
+    ],
   });
   expect(
     messageFor({ kind: "access_removed", title: "Low Tide", notSent: 5 })

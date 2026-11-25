@@ -1,4 +1,6 @@
-// The seed command: `seed --phase foreground|background --data-dir <dir> --seed-at <epoch ms>`, run as a child process.
+// The seed command: `seed --phase foreground|background --data-dir <dir> --seed-at <epoch ms> [--owner <pid>]`, run
+// as a child process, which ends once its owner has.
+import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import {
@@ -12,6 +14,14 @@ import {
   seedProject,
 } from "@manent/demo";
 import type { SeedDriver, SeedStep, SkippedAction } from "@manent/demo";
+import {
+  STAGING_DONE,
+  STAGING_RUN,
+  readSeedRun,
+  writeSeedRun,
+} from "./adopt.ts";
+import type { SeedRun } from "./adopt.ts";
+import { stagingDirOf } from "./background.ts";
 import { createSeedDriver } from "./driver.ts";
 import { isFields } from "./link.ts";
 import { createPageMeter } from "./page-meter.ts";
@@ -113,27 +123,63 @@ const zoneOffsetAt = (at: number): number =>
 const PHASES = ["foreground", "background"] as const;
 type Phase = (typeof PHASES)[number];
 
-/** Where each phase's seed server writes, under the data folder: Lanternfield Studios into its staging. */
-const PHASE_DIRS: Readonly<Record<Phase, readonly string[]>> = {
-  foreground: ["data"],
-  background: ["data", "staging", "heavy"],
-};
+/** How often the background seed rewrites its record, as its work leaves it free to. */
+const BEAT_EVERY_MS = 1_000;
+/** How often the background seed's watch looks for its owner and its record. */
+const WATCH_EVERY_MS = 100;
 
-/** The phase's steps through a seed server on its folder; resolves with what the build could not do. */
+/**
+ * Ends this process, from a thread of its own, once `owner` has exited or the record at `stagingDir`
+ * is no longer its own (its folder moved away, removed, or claimed for another): building a project
+ * can hold the seed's own thread for minutes, and Bun's --no-orphans waits for it too. A worker from
+ * a file would need that file beside a compiled binary, so its few lines are given as text, which
+ * holds `owner` as the safe integer or null it is.
+ */
+function watchSeed(owner: number | null, stagingDir: string): void {
+  const watch = `import { readFileSync } from "node:fs";
+const OWNER = ${JSON.stringify(owner)};
+const isGone = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return false;
+  } catch (error) {
+    // EPERM: it exists, run by another user; ESRCH: it has exited
+    return error.code === "ESRCH";
+  }
+};
+const isOwnRecord = () => {
+  try {
+    return JSON.parse(readFileSync(${JSON.stringify(join(stagingDir, STAGING_RUN))}, "utf8")).pid === process.pid;
+  } catch {
+    // no record there: the folder was moved away or removed
+    return false;
+  }
+};
+setInterval(() => {
+  if ((OWNER !== null && isGone(OWNER)) || !isOwnRecord()) process.kill(process.pid, "SIGKILL");
+}, ${WATCH_EVERY_MS});`;
+  void new Worker(
+    URL.createObjectURL(new Blob([watch], { type: "text/javascript" })),
+    // the seed exits once its work is done, whatever the watch is doing
+    { ref: false },
+  );
+}
+
+/** The phase's steps through a seed server writing in `dir`; resolves with what the build could not do. */
 async function seedPhase(
   options: {
     phase: Phase;
-    dataDir: string;
+    dir: string;
     seedAt: number;
     /** Null: the package's own steps. */
     steps: readonly SeedStep[] | null;
   },
   seen: (docId: string) => void,
+  onProgress: (done: number, total: number) => void,
 ): Promise<SkippedAction[]> {
-  const { phase, seedAt } = options;
-  const dataDir = join(options.dataDir, ...PHASE_DIRS[phase]);
+  const { phase, dir, seedAt } = options;
   const rng = createRng(DEMO_SEED);
-  const server = await createSeedServer({ dataDir, seedAt, rng });
+  const server = await createSeedServer({ dataDir: dir, seedAt, rng });
   const skipped: SkippedAction[] = [];
   try {
     const driver = createSeedDriver({
@@ -147,11 +193,11 @@ async function seedPhase(
       seedAt,
       zoneOffsetMs: zoneOffsetAt(seedAt),
       onSkipped: (entry) => skipped.push(entry),
-      onProgress: (done, total) =>
-        process.send?.({ t: "progress", done, total }),
-      dataDir,
+      onProgress,
+      dataDir: dir,
       ...(options.steps === null ? {} : { steps: options.steps }),
     });
+    await driver.writeEdits();
   } finally {
     await server.close();
   }
@@ -159,13 +205,69 @@ async function seedPhase(
 }
 
 /**
+ * Rewrites the background seed's record with `change` and a new beat; once the record at its staging
+ * path is no longer its own, the seed exits.
+ */
+type Tell = (change: Partial<Pick<SeedRun, "progress" | "failed">>) => void;
+
+/**
+ * The background seed's record in its staging folder, which it works inside from now on: a folder
+ * removed under it (a reset) is never written again, even once a new one stands at the same path.
+ * The server that started it claimed the folder for it in the record there; a seed started by hand
+ * begins one, and one finding the folder claimed for another exits. It beats every BEAT_EVERY_MS its
+ * work leaves it free to, and at each project; its watch ends it as `watchSeed` says.
+ */
+async function enterStaging(
+  dataDir: string,
+  owner: number | null,
+): Promise<Tell> {
+  const stagingDir = resolve(stagingDirOf(dataDir));
+  await mkdir(stagingDir, { recursive: true });
+  process.chdir(stagingDir);
+  const startedAt = Date.now();
+  const claimed = readSeedRun(".");
+  if (claimed !== null && claimed.pid !== process.pid) process.exit(1);
+  let run: SeedRun = claimed ?? {
+    pid: process.pid,
+    startedAt,
+    beatAt: startedAt,
+    progress: null,
+    failed: null,
+    owner,
+  };
+  const write = (base: SeedRun, change: Parameters<Tell>[0]) => {
+    run = { ...base, ...change, beatAt: Date.now() };
+    writeSeedRun(".", run);
+  };
+  write(run, {});
+  watchSeed(owner, stagingDir);
+  const tell: Tell = (change) => {
+    const atPath = readSeedRun(stagingDir);
+    try {
+      // the server's claim may land after the seed's own first record: what stands there is the seed's to keep
+      if (atPath?.pid === process.pid) {
+        write(atPath, change);
+        return;
+      }
+    } catch {
+      // its folder was removed under it: nobody is left to tell
+    }
+    process.exit(1);
+  };
+  setInterval(() => tell({}), BEAT_EVERY_MS).unref();
+  return tell;
+}
+
+/**
  * Seeds as `argv` says, starting with "seed"; resolves with the process's exit code. The foreground's
- * one line on stdout is `{"seedAt":…,"skipped":[…]}` or `{"failed":"<reason>"}`; the background tells
- * its parent `progress`, then `done` or `failed`, over IPC. The detail of a failure goes to stderr.
- * Without `--seed-at` the seed runs at the moment it starts.
+ * one line on stdout is `{"seedAt":…,"skipped":[…]}` or `{"failed":"<reason>"}`; the background keeps
+ * its progress, then its failure, in its record and marks its staging whole once it is. The detail of a
+ * failure goes to stderr. Without `--seed-at` the seed runs at the moment it starts; with `--owner` it
+ * ends once that process has.
  */
 export async function runSeedCommand(argv: readonly string[]): Promise<number> {
   let lastDocId: string | null = null;
+  let tell: Tell | null = null;
   try {
     const { values } = parseArgs({
       args: argv.slice(1),
@@ -174,6 +276,7 @@ export async function runSeedCommand(argv: readonly string[]): Promise<number> {
         "data-dir": { type: "string" },
         "seed-at": { type: "string" },
         steps: { type: "string" },
+        owner: { type: "string" },
       },
     });
     const dataDir = values["data-dir"];
@@ -188,20 +291,34 @@ export async function runSeedCommand(argv: readonly string[]): Promise<number> {
       throw new TypeError(
         `--seed-at must be epoch milliseconds, not ${values["seed-at"]}`,
       );
+    const owner = values.owner === undefined ? null : Number(values.owner);
+    if (owner !== null && !Number.isSafeInteger(owner))
+      throw new TypeError(`--owner must be a process id, not ${values.owner}`);
     const steps =
       values.steps === undefined ? null : await readSteps(values.steps);
+    if (phase === "background") tell = await enterStaging(dataDir, owner);
+    const staged = tell;
     const skipped = await seedPhase(
-      { phase, dataDir, seedAt, steps },
+      {
+        phase,
+        dir: staged === null ? join(dataDir, "data") : ".",
+        seedAt,
+        steps,
+      },
       (docId) => {
         lastDocId = docId;
       },
+      (done, total) => {
+        // nothing hears the foreground's progress
+        if (staged !== null) staged({ progress: { done, total } });
+      },
     );
-    if (phase === "background") process.send?.({ t: "done" });
+    if (staged !== null) await writeFile(STAGING_DONE, "");
     else console.log(JSON.stringify({ seedAt, skipped }));
     return 0;
   } catch (error) {
     const reason = reasonOf(error, lastDocId);
-    process.send?.({ t: "failed", reason });
+    tell?.({ failed: reason });
     console.log(JSON.stringify({ failed: reason }));
     const where = error instanceof SeedBuildError ? ` in ${error.where}` : "";
     const code =

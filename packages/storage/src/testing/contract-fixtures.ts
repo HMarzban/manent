@@ -1,5 +1,5 @@
 // The home, documents and updates the storage contract drives.
-import type { AppendItem, Home } from "../ports.ts";
+import type { AppendItem, Home } from "../ports/index.ts";
 
 export const HOME: Home = {
   kind: "project",

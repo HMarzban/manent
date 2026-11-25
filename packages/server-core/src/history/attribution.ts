@@ -20,6 +20,7 @@ import type {
   VersionPosition,
   WhoWroteResponse,
 } from "@manent/sync-protocol";
+import { SYSTEM_USER_ID } from "../rebuild/rebuilder.ts";
 import { isStorageError } from "../sync/storage-error.ts";
 import { corruptError } from "./chunks.ts";
 import { contentAt, materializeVersion, soleAuthor } from "./content.ts";
@@ -117,6 +118,9 @@ function readTail(
       if (report === null) continue;
       const counted =
         since === null || !isAtOrBefore({ generation, seq }, since);
+      // a rebuild's first row carries the text as it was, written by nobody: a block it holds keeps its author,
+      // whom the versions name
+      const carried = userId === SYSTEM_USER_ID;
       const written = [
         ...report.inserted.map((entry) => entry.block),
         ...report.changed,
@@ -124,18 +128,26 @@ function readTail(
       for (const block of written) {
         const id = idOf(block);
         if (id === null || !wanted.has(id)) continue;
-        result.changed.add(id);
-        const previous = latest.get(id) ?? null;
-        if (counted)
-          result.found.set(id, {
-            userId,
-            at: createdAt,
-            previous,
-            exact: true,
-          });
-        latest.set(id, canonicalBlock(block));
+        const canonical = canonicalBlock(block);
+        if (carried) {
+          if (!result.changed.has(id)) result.start.set(id, canonical);
+        } else {
+          result.changed.add(id);
+          const previous = latest.get(id) ?? null;
+          if (counted)
+            result.found.set(id, {
+              userId,
+              at: createdAt,
+              previous,
+              exact: true,
+            });
+        }
+        latest.set(id, canonical);
       }
-      for (const id of report.removed) latest.delete(id);
+      for (const id of report.removed) {
+        latest.delete(id);
+        if (carried && !result.changed.has(id)) result.start.delete(id);
+      }
     }
     return result;
   } finally {

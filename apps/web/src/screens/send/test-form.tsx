@@ -1,6 +1,7 @@
 // A form for the test build only: its title, its button and its rows are read from the address, so it holds no words.
 import { useRouterState } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { TEST_SEND_FORM_ID } from "./form-ids.ts";
 import type { SendForm } from "./forms.ts";
 import { SEND_ROW_IDS, SendFrame } from "./send-frame.tsx";
 import type { SendAction } from "./send-frame.tsx";
@@ -40,7 +41,7 @@ function TestFormBody(): ReactNode {
 
 // a plain literal, so that a production build, which never names it, leaves it out
 export const testSendForm: SendForm = {
-  id: "send_draft",
+  id: TEST_SEND_FORM_ID,
   useAvailable: () => true,
   Body: TestFormBody,
 };

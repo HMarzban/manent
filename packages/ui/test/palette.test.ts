@@ -24,6 +24,7 @@ const CTX: CommandContext = {
   shell: "web",
   demo: false,
   signedIn: true,
+  workspace: "writable",
   panelOpen: { left: false, side: false },
   historyPresent: false,
   format: null,
@@ -32,6 +33,18 @@ const CTX: CommandContext = {
   spaceBeforeSet: false,
   zoom: null,
   zoomPercent: null,
+  docKind: null,
+  projectKind: null,
+  outlineStart: false,
+  writing: null,
+  material: null,
+  rundown: null,
+  prompter: null,
+  inTrash: false,
+  canDelete: false,
+  focusMode: false,
+  readingAloud: false,
+  sprintRunning: false,
   production: null,
 };
 
@@ -39,12 +52,13 @@ const SCOPE_WORDS = {
   personal: "yours",
   device: "this browser",
   script: "this script",
+  project: "this project",
 } as const;
 
 const bag = () => createMemoryBag({ initial: {}, writable: () => true });
 const settings = createSettingsStore({
   registry: SETTINGS,
-  bags: { personal: bag(), device: bag(), script: bag() },
+  bags: { personal: bag(), device: bag(), script: bag(), project: null },
   beforeWrite: () => {},
   deferRemote: (apply) => apply(),
   locked: () => false,
@@ -82,6 +96,7 @@ const placeRow = (n: number): PaletteRow => ({
   scopeWord: null,
   home: null,
   keys: null,
+  checked: null,
   enabled: true,
   whyNot: null,
 });
@@ -125,11 +140,12 @@ const row = (
   scopeWord: null,
   home: null,
   keys: null,
+  checked: null,
   enabled: true,
   whyNot: null,
 });
 
-test("rows are ranked stably, sources in their fixed order", () => {
+test("rows are ranked within their section, and sections keep a fixed order", () => {
   const rows = [
     row("a", "Side panel"),
     row("b", "Paper: A4", "setting"),
@@ -138,16 +154,16 @@ test("rows are ranked stably, sources in their fixed order", () => {
     row("e", "Pa", "place"),
   ];
   expect(rankRows("pa", rows).map((r) => r.id)).toEqual([
-    "b",
     "c",
+    "a",
+    "b",
     "d",
     "e",
-    "a",
   ]);
   expect(rankRows("", rows).map((r) => r.id)).toEqual([
     "a",
-    "b",
     "c",
+    "b",
     "d",
     "e",
   ]);
@@ -199,6 +215,7 @@ test("a setting row carries its value, its scope and where it lives", () => {
       scopeWord: "this script",
       home: "Details → Script",
       keys: null,
+      checked: null,
       enabled: true,
       whyNot: null,
     },

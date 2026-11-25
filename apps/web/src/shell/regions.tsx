@@ -24,10 +24,13 @@ const FOCUSABLE_SELECTOR = [
   "input:not([disabled])",
   "select:not([disabled])",
   "textarea:not([disabled])",
+  "summary",
   "[tabindex]:not([tabindex='-1'])",
   "[contenteditable='true']",
+  "[contenteditable='plaintext-only']",
 ].join(", ");
-const FIELD_SELECTOR = "input, textarea, select, [contenteditable='true']";
+const FIELD_SELECTOR =
+  "input, textarea, select, [contenteditable='true'], [contenteditable='plaintext-only']";
 const DIALOG_SELECTOR = "[role='dialog'], [role='alertdialog']";
 
 /** One region of the window, drawn in its own grid area of the shell. */
@@ -115,11 +118,13 @@ export function createShellDom(doc: Document): ShellDom {
   // a screen over the page makes the editor host inert
   const focusPage = (): boolean => {
     const page = regionElement("page");
-    return (
-      page !== null &&
-      page.querySelector("[inert]") === null &&
-      focusInside(page)
-    );
+    if (page === null || page.querySelector("[inert]") !== null) return false;
+    const editor = page.querySelector("[contenteditable='true']");
+    if (editor instanceof HTMLElement && editor.closest("[inert]") === null) {
+      editor.focus({ preventScroll: true });
+      if (editor.ownerDocument.activeElement === editor) return true;
+    }
+    return focusInside(page);
   };
 
   return {

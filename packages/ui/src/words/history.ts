@@ -40,6 +40,13 @@ const BEFORE_RESTORE = "Before restore";
 const BEFORE_RECONNECT = "Before reconnect — this device";
 const RECOVERED = "Recovered — this device";
 const KEPT = "The script as it was is kept as 'Before restore'.";
+const SERIES_LADDER = [
+  "Writer's First",
+  "Studio",
+  "Network",
+  "Table",
+  "White",
+] as const;
 
 const quoted = (text: string): string => `'${text}'`;
 const plural = (n: number, one: string, many: string): string =>
@@ -74,6 +81,8 @@ export const HISTORY_WORDS = {
   beforeReconnect: BEFORE_RECONNECT,
   recovered: RECOVERED,
   changesSince: "Changes since",
+  /** Changes since ▾ while it offers no baseline. */
+  chooseBaseline: "Choose a version",
   show: "Show",
   /** In the order of the History store's modes: page, side, asterisks, as it was. */
   modes: ["On the page", "Side by side", "Asterisks only", "As it was"],
@@ -86,6 +95,8 @@ export const HISTORY_WORDS = {
   allPeople: "All people",
   previousChange: "Previous change",
   nextChange: "Next change",
+  /** In place of the stepper when Working has no change since the baseline, `name` as Changes since ▾ shows it. */
+  noChangesSince: (name: string): string => `No changes since ${name}.`,
   /** The accessible name of the stepper's position, which `formatPosition` writes. */
   stepName: (i: number, n: number): string => `Change ${formatPosition(i, n)}`,
   draftsOnly: "Drafts only",
@@ -142,6 +153,10 @@ export const HISTORY_WORDS = {
     "Tenth draft",
   ],
   draftNumber: (n: number): string => `Draft ${formatCount(n)}`,
+  /** The draft ladder of the Drama, Single-camera, Multi-camera and Custom templates, in order. */
+  seriesLadder: SERIES_LADDER,
+  /** The draft ladder of the Animation template: the series ladder, then three more. */
+  animationLadder: [...SERIES_LADDER, "Record", "Animatic", "Conformed"],
 } as const;
 
 /** A label that names a version by what made it, null for a version named by its time. */
@@ -149,6 +164,8 @@ function labelOf(item: VersionItem): string | null {
   if (item.kind === "pre_restore") return BEFORE_RESTORE;
   if (item.kind === "pre_merge" && item.onDevice) return BEFORE_RECONNECT;
   if (item.kind === "recovered") return RECOVERED;
+  if (item.kind === "pre_hand_in") return "Before hand-in";
+  if (item.kind === "prompter") return "Sent to prompter";
   return null;
 }
 

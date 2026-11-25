@@ -35,21 +35,45 @@ const UNTITLED_PROJECT: Readonly<Record<Kind, string>> = {
   stage_play: "Untitled stage play",
 };
 
+const seeding = (done: number, total: number): string =>
+  `getting ready, ${formatCount(done)} of ${formatCount(total)} projects`;
+
 export const LIBRARY_WORDS = {
   title: "Library",
   continueHeading: "Continue",
+  favouritesHeading: "Favourites",
+  privateHeading: "Private",
+  trashHeading: "Trash",
+  /** What the Favourites, Private and Trash views say while each holds nothing: what the view lists. */
+  favouritesEmpty:
+    "Scripts you mark as favourites appear here, and only you see them. Continue lists the scripts you opened last.",
+  privateEmpty:
+    "Scripts you keep in your Private folder appear here, where only you can see them. The workspace's scripts are under Projects.",
+  trashEmpty:
+    "Scripts moved to the Trash appear here for 30 days, and can be put back in that time.",
+  search: "Search this workspace",
+  searchPlaceholder: "Search this workspace…",
+  clearSearch: "Clear search",
+  /** The heading of what a search for `query` found. */
+  searchHeading: (query: string): string => `Matches for '${query}'`,
+  /** What a search for `query` says when no project's name holds it. */
+  searchNone: (query: string): string =>
+    `No project in this workspace has '${query}' in its name. Check the spelling, or clear the search to see every project.`,
   projectsHeading: "Projects",
   projectsRegion: "Projects",
   kindColumn: "Kind",
   lastEditedColumn: "Last edited",
+  statusColumn: "Status",
   empty: "No scripts yet",
   problem: "Couldn't load the list. Showing what is on this device.",
   notOnDevice: "Not on this device",
   changedSinceOpened: "Changed since you opened",
   onDevice: (n: number, m: number): string =>
     `${formatCount(n)} of ${formatCount(m)} projects are on this device`,
-  seeding: (done: number, total: number): string =>
-    `getting ready, ${formatCount(done)} of ${formatCount(total)} projects`,
+  seeding,
+  /** What the Library says in place of a workspace's lists while it is being seeded. */
+  gettingReady: (workspace: string, done: number, total: number): string =>
+    `${workspace} is ${seeding(done, total)}.`,
   /** A workspace's second line in the switcher; `lastTitle` is null while its Continue is empty. */
   workspaceLine: (count: number, lastTitle: string | null): string => {
     const projects =
@@ -69,6 +93,8 @@ export const LIBRARY_WORDS = {
   /** The Last edited cell: who, then `when` from formatWhen. */
   edited: (name: string, when: string): string => `${name}, ${when}`,
   synced: "Synced",
+  /** A row whose document is read from the server, as a reader's is, and not kept on this device. */
+  onServer: "On the server",
   waiting: (n: number): string => `${formatCount(n)} waiting`,
   /** A row never synced: on desktop, and in a browser. */
   neverSynced: (desktop: boolean): string =>

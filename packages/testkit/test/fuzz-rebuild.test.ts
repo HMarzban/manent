@@ -183,3 +183,46 @@ test("a device that subscribes again while it loads a rebuilt script misses noth
   await world.settle();
   world.check();
 });
+
+/**
+ * Found with seed 1333182596: a device that subscribed again after it loaded a rebuilt script took
+ * the second answer's step 2 merged with the deletions sent before it, whose delete set then hid the
+ * text of its own that someone had removed unseen with a block.
+ */
+const SUBSCRIBED_AGAIN_AFTER_LOADING: Op[] = [
+  { device: 2, kind: "delete", block: 0 },
+  { device: 3, kind: "type", block: 0, at: 0 },
+  { device: 0, kind: "rebuild" },
+  { device: 0, kind: "restore", block: 0, at: 0 },
+  { device: 1, kind: "restore", block: 0, at: 0 },
+  { device: 2, kind: "delete", block: 1 },
+  { device: 0, kind: "element", block: 0, element: 0 },
+  { device: 0, kind: "quiet" },
+  { device: 0, kind: "element", block: 0, element: 0 },
+  { device: 0, kind: "element", block: 0, element: 0 },
+  { device: 0, kind: "type", block: 1, at: 0 },
+  { device: 0, kind: "move", block: 0, length: 2, target: 0 },
+  { device: 0, kind: "deliver", frames: 4 },
+  { device: 0, kind: "quiet" },
+  { device: 0, kind: "quiet" },
+  { device: 0, kind: "type", block: 0, at: 0 },
+  { device: 5, kind: "element", block: 0, element: 0 },
+  { device: 0, kind: "delete", block: 0 },
+  { device: 0, kind: "element", block: 0, element: 0 },
+  { device: 0, kind: "join", block: 0 },
+  { device: 0, kind: "quiet" },
+  { device: 2, kind: "delete", block: 0 },
+  { device: 0, kind: "move", block: 0, length: 2, target: 0 },
+];
+
+test("a device that subscribes again after it loads a rebuilt script keeps its text someone removed unseen", async () => {
+  const world = await createWorld({
+    seed: 1_333_182_596,
+    users: ["dana", "sam"],
+    devicesPerUser: 2,
+    faults: { duplicate: 0.05 },
+  });
+  for (const op of SUBSCRIBED_AGAIN_AFTER_LOADING) applyOp(world, op);
+  await world.settle();
+  world.check();
+});

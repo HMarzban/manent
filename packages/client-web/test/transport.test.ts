@@ -313,3 +313,36 @@ test("a replay is posted with the session and its answers are read", async () =>
   expect(await codeOf(nobody.replay(REPLAY))).toBe("sign_in");
   expect(signedOut).toEqual([]);
 });
+
+test("driver transport calls /api/driver/current, take and release", async () => {
+  const calls: { url: string; init: RequestInit }[] = [];
+  const driver = { userId: "dana", name: "Dana" };
+  const t = webTransport({
+    baseUrl: "http://manent.test",
+    session: () => "tok",
+    fetch: recordingFetch(calls, [
+      { status: 200, body: { driver } },
+      { status: 409, body: { error: "driver_taken", driver } },
+      { status: 200, body: { driver: null } },
+      { status: 409, body: { error: "not_driver" } },
+    ]),
+  });
+  expect(await t.driver!.current(DOC)).toEqual({ ok: true, driver });
+  expect(
+    await t.driver!.take({ docId: DOC, expectedDriverUserId: null }),
+  ).toEqual({ ok: false, code: "driver_taken", driver });
+  expect(await t.driver!.release({ docId: DOC })).toEqual({
+    ok: true,
+    driver: null,
+  });
+  expect(await t.driver!.release({ docId: DOC })).toEqual({
+    ok: false,
+    code: "not_driver",
+  });
+  expect(calls.map((c) => [c.init.method, c.url])).toEqual([
+    ["GET", `http://manent.test/api/driver/current?docId=${DOC}`],
+    ["POST", "http://manent.test/api/driver/take"],
+    ["POST", "http://manent.test/api/driver/release"],
+    ["POST", "http://manent.test/api/driver/release"],
+  ]);
+});

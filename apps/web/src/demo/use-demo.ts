@@ -1,17 +1,66 @@
 // The demo's seed and server control, read once for the whole app.
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DemoResponse } from "@manent/sync-protocol";
 import { useEffect, useMemo, useRef } from "react";
 import { createServerControl } from "../api.ts";
-import type { Api, ServerControl } from "../api.ts";
+import type { Api, ControlState, ServerControl } from "../api.ts";
 import type { DeviceMemory } from "../services/sync/device-memory.ts";
 
 export const POLL_MS = 2000;
 
+/**
+ * Navigates cleanly back to the Library root on reload after a demo reset so tabs that were on a pre-reset script or
+ * project URL never bounce through Choose into "You no longer have access".
+ */
+export function reloadAtHome(
+  loc: Pick<Location, "pathname" | "search" | "hash" | "reload" | "replace">,
+): void {
+  if (loc.pathname === "/" && loc.search === "" && loc.hash === "")
+    loc.reload();
+  else loc.replace("/");
+}
+
 const DEMO_QUERY = "demo";
 /** The first element of the server status query's key. */
 export const SERVER_STATUS_QUERY = "server-status";
+
+const DEMO_DEDUPE_MS = 1_000;
+const demoCache = new WeakMap<
+  Api,
+  {
+    inFlight: Promise<DemoResponse | null> | null;
+    settledAt: number;
+    value: DemoResponse | null | undefined;
+  }
+>();
+
+/** Coalesces concurrent or immediate back-to-back `/api/demo` checks (e.g. `useDemo` and `followSeed`). */
+export function readDemoCached(api: Api): Promise<DemoResponse | null> {
+  let state = demoCache.get(api);
+  if (state === undefined) {
+    state = { inFlight: null, settledAt: 0, value: undefined };
+    demoCache.set(api, state);
+  }
+  const now = Date.now();
+  if (state.value !== undefined && now - state.settledAt < DEMO_DEDUPE_MS)
+    return Promise.resolve(state.value);
+  if (state.inFlight !== null) return state.inFlight;
+  const pending = api.demo().then(
+    (answer) => {
+      if (state.inFlight === pending) state.inFlight = null;
+      state.value = answer;
+      state.settledAt = Date.now();
+      return answer;
+    },
+    (error: unknown) => {
+      if (state.inFlight === pending) state.inFlight = null;
+      throw error;
+    },
+  );
+  state.inFlight = pending;
+  return pending;
+}
 
 /** The first key elements of the queries a reset keeps: the demo bar's own, whose loss would blank the bar and set off the reset again. */
 const KEPT_ON_RESET = [DEMO_QUERY, SERVER_STATUS_QUERY] as const;
@@ -30,8 +79,9 @@ export function useDemo(deps: { api: Api; fetch: typeof fetch }): {
   const queryClient = useQueryClient();
   const demo = useQuery({
     queryKey: [DEMO_QUERY],
-    queryFn: deps.api.demo,
-    refetchInterval: POLL_MS,
+    queryFn: () => readDemoCached(deps.api),
+    refetchInterval: (query) => (query.state.data === null ? false : POLL_MS),
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   }).data;
 
@@ -66,6 +116,21 @@ export function useDemo(deps: { api: Api; fetch: typeof fetch }): {
   );
 
   return { demo: demo ?? null, control };
+}
+
+/** The server's state as its control last answered, asked every POLL_MS; null without a control and before the first answer. */
+export function useServerState(
+  control: DemoControl | null,
+): ControlState | null {
+  return (
+    useQuery({
+      queryKey: [SERVER_STATUS_QUERY, control?.id ?? null],
+      queryFn: control === null ? skipToken : control.client.status,
+      refetchInterval: POLL_MS,
+      refetchIntervalInBackground: false,
+      refetchOnWindowFocus: true,
+    }).data ?? null
+  );
 }
 
 /**

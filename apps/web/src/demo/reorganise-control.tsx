@@ -1,6 +1,7 @@
-// Reorganise: the demo's server reorganises how the open script is stored, at once, as it does when a script outgrows its budget.
+// Reorganise: the demo's server reorganises how the open script is stored, as it does when a script outgrows its budget.
 import { DEMO_WORDS } from "@manent/ui";
 import { LayersIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useCanEdit } from "../screens/document/ruler-bar.tsx";
 import { useServices } from "../services/context.tsx";
@@ -8,38 +9,86 @@ import { BarButton } from "./bar-button.tsx";
 
 const TOUR = "demo:reorganise";
 
-/** Disabled without a script or a connection; absent for a person who cannot edit the script. */
+/**
+ * Unavailable without a script, for a person who has not signed in (the server holds none of their scripts), for a
+ * person who cannot edit the script, and while `unreachable` says why the server cannot be asked.
+ */
 export function ReorganiseControl(props: {
   docId: string | null;
-  offline: boolean;
+  signedIn: boolean;
+  unreachable: string | null;
 }): ReactNode {
-  const { docId, offline } = props;
-  if (docId === null || offline)
-    return (
-      <BarButton
-        label={DEMO_WORDS.reorganise}
-        icon={LayersIcon}
-        unavailable={
-          docId === null ? DEMO_WORDS.needsScript : DEMO_WORDS.needsConnection
-        }
-        tour={TOUR}
-      />
-    );
-  return <ScriptReorganise docId={docId} />;
+  const { docId, signedIn, unreachable } = props;
+  if (docId === null) return <Unavailable reason={DEMO_WORDS.needsScript} />;
+  if (!signedIn) return <Unavailable reason={DEMO_WORDS.needsSyncedScript} />;
+  return (
+    <ScriptReorganise key={docId} docId={docId} unreachable={unreachable} />
+  );
 }
 
-function ScriptReorganise(props: { docId: string }): ReactNode {
-  const { api } = useServices();
-  if (!useCanEdit(props.docId)) return null;
+function Unavailable(props: { reason: string }): ReactNode {
   return (
     <BarButton
       label={DEMO_WORDS.reorganise}
       icon={LayersIcon}
+      drops="first"
+      unavailable={props.reason}
       tour={TOUR}
-      onClick={() => {
-        api.rebuild(props.docId).catch(() => {
-          // nothing changes in the text either way; the message the product shows afterwards is the one sign it ran
+    />
+  );
+}
+
+/**
+ * The server reorganises the script at its next quiet moment, so the control stays busy from the press until the
+ * script's handle says it is done, when the script's own message tells the person; a refused request ends it at once,
+ * and so does leaving the script.
+ */
+function ScriptReorganise(props: {
+  docId: string;
+  unreachable: string | null;
+}): ReactNode {
+  const { docId, unreachable } = props;
+  const { api, openHandle } = useServices();
+  const [waiting, setWaiting] = useState(false);
+  useEffect(() => {
+    if (!waiting) return undefined;
+    let unlisten: (() => void) | null = null;
+    let current = true;
+    const done = (): void => {
+      if (current) setWaiting(false);
+    };
+    // the handle is the one the open script holds, shared in this tab: only the listener is removed, never the handle closed
+    openHandle(docId).then(
+      (handle) => {
+        if (!current) return;
+        unlisten = handle.on((event) => {
+          if (event.type === "rebuilt") done();
         });
+      },
+      // a script this person's sync cannot open is never told it was reorganised
+      done,
+    );
+    return () => {
+      current = false;
+      unlisten?.();
+    };
+  }, [waiting, docId, openHandle]);
+  // checked before the server, so that the reason does not change when the connection or the server does
+  if (!useCanEdit(docId)) return <Unavailable reason={DEMO_WORDS.needsEdit} />;
+  if (unreachable !== null) return <Unavailable reason={unreachable} />;
+  return (
+    <BarButton
+      label={DEMO_WORDS.reorganise}
+      icon={LayersIcon}
+      drops="first"
+      tour={TOUR}
+      hint={
+        waiting ? DEMO_WORDS.reorganiseWaitingHint : DEMO_WORDS.reorganiseHint
+      }
+      busy={waiting ? DEMO_WORDS.reorganiseWaiting : undefined}
+      onClick={() => {
+        setWaiting(true);
+        api.rebuild(docId).catch(() => setWaiting(false));
       }}
     />
   );

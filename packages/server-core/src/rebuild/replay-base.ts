@@ -1,8 +1,11 @@
 // What a device's waiting edits rest on, and what they make of it: both read from a closed generation.
 import {
+  ALTERNATES_MAP,
+  CUTS_MAP,
   CrdtUpdateError,
   ORIGIN_LOAD,
   ORIGIN_REPLAY,
+  SCENE_PROGRESS_MAP,
   TITLE_PAGE_MAP,
   applyRemote,
   createDoc,
@@ -15,18 +18,41 @@ import {
   scriptBody,
   titlePage,
   updateMeta,
+  withoutRemovedUnseen,
 } from "@manent/crdt";
 import type { CrdtDoc, SetAside, TypedText } from "@manent/crdt";
 import { TITLE_PAGE_FIELDS, blockText, blocksOf } from "@manent/schema";
 import type { DocJSON, TitlePageField } from "@manent/schema";
 import type { DocFile } from "@manent/storage";
+import { isDocKind } from "@manent/sync-protocol";
+import type { DocKind } from "@manent/sync-protocol";
 import { validatePush } from "../sync/validate.ts";
+import { changedScriptMaps } from "./replay-maps.ts";
+import type { ReplayMapChanges } from "./replay-maps.ts";
 
 /** The verified rows of a generation after `seq`, by sequence. */
 type Rows = ReadonlyMap<number, Uint8Array>;
 
-/** The root maps a replay may write: what a person marked or cleared as revised while offline, and the title page. */
-const REPLAYED_MAPS: readonly string[] = ["revisedOverrides", TITLE_PAGE_MAP];
+/** What a person marked or cleared as revised while offline, the title page, and writers' material / scene progress. */
+const SCRIPT_MAPS: readonly string[] = [
+  "revisedOverrides",
+  TITLE_PAGE_MAP,
+  ALTERNATES_MAP,
+  CUTS_MAP,
+  SCENE_PROGRESS_MAP,
+];
+
+/** The root maps a replay may write, by document kind; a kind without a line writes a script's. */
+const REPLAYED_MAPS: Readonly<Partial<Record<DocKind, readonly string[]>>> =
+  Object.freeze({
+    script: SCRIPT_MAPS,
+  });
+
+/** The maps a replay into the document may write, by the kind its log holds. */
+function replayedMapsOf(file: DocFile, docId: string): readonly string[] {
+  const kind = file.log.get(docId)?.kind;
+  return (isDocKind(kind) ? REPLAYED_MAPS[kind] : undefined) ?? SCRIPT_MAPS;
+}
 
 /** Applies the rows after `from` up to `to`; false when one of them does not verify. */
 function applyRows(
@@ -105,17 +131,18 @@ function removedUnseen(
 
 /**
  * Mine with the updates applied, and the text of `writers` they removed unseen; "invalid" when one
- * is not an update, writes another root map, or writes what a push may not.
+ * is not an update, writes a root map other than `maps`, or writes what a push may not.
  */
 function applyWaiting(
   mine: CrdtDoc,
   updates: readonly Uint8Array[],
-  writers: ReadonlySet<number>,
+  replay: { writers: ReadonlySet<number>; maps: readonly string[] },
 ): SetAside[] | "invalid" {
+  const { writers, maps } = replay;
   let refused = false;
   const stop = observeScript(mine, (report) => {
     if (report.origin !== ORIGIN_REPLAY) return;
-    const otherMap = report.maps.some((name) => !REPLAYED_MAPS.includes(name));
+    const otherMap = report.maps.some((name) => !maps.includes(name));
     if (otherMap || validatePush(report).length > 0) refused = true;
   });
   const setAside: SetAside[] = [];
@@ -139,6 +166,20 @@ function sinceOf(
   const held = readStateVector(base.encodeStateVector());
   const clients = updates.flatMap(updateMeta).map((meta) => meta.clientId);
   return new Map(clients.map((c) => [c, held.get(c) ?? 0]));
+}
+
+/** Base as the updates were made against it: without the text they removed unseen, with a parent they deleted. */
+function seenContent(
+  base: CrdtDoc,
+  mine: CrdtDoc,
+  updates: readonly Uint8Array[],
+): DocJSON {
+  const seen = withoutRemovedUnseen(base, mine, updates);
+  try {
+    return scriptBody(seen).materialize();
+  } finally {
+    seen.destroy();
+  }
 }
 
 /** Mine's overrides that differ from base's, keys ascending; a null value removes the key. */
@@ -171,16 +212,18 @@ function changedTitlePage(
 
 /**
  * base: the generation at `lastServerSeq` (its newest checkpoint at or before it, then its rows),
- * moved on to the smallest later sequence at which the waiting updates are complete; mine: base with
- * the updates applied. setAside: anyone's text the updates removed unseen (the replay writes those
- * deletions afresh, so whoever typed it would never be told), then own text the rows base moved on
- * by removed from mine unseen; unseen: own text mine still holds that the generation's later rows
- * removed unseen. typed: by block, mine's text and which of its characters the updates wrote.
- * overrides: mine's revisedOverrides entries that differ from base's. titlePage: mine's fields that
- * differ from base's. invalid: an update is not one, writes a root map other than revisedOverrides
- * and titlePage, or leaves a block validation refuses; incomplete: the updates still wait at the
- * generation's last row, or a row they need does not verify. RangeError for a generation that is
- * not closed.
+ * moved on to the smallest later sequence at which the waiting updates are complete, without the
+ * text that mine lacks and the updates never held (so that the merge keeps it where theirs holds
+ * it); mine: base with the updates applied. setAside: anyone's text the updates removed unseen
+ * (the replay would write those deletions afresh, so whoever typed it would never be told), then
+ * own text the rows base moved on by removed from mine unseen; unseen: own text mine still holds
+ * that the generation's later rows removed unseen. typed: by block, mine's text and which of its
+ * characters the updates wrote. overrides: mine's revisedOverrides entries that differ from base's.
+ * titlePage: mine's fields that differ from base's. maps: mine's alternates, cuts and sceneProgress
+ * entries that differ from base's. invalid: an update is not one, writes a root map other than the
+ * replayed maps, writes an invalid map entry, or leaves a block validation refuses; incomplete:
+ * the updates still wait at the generation's last row, or a row they need does not verify.
+ * RangeError for a generation that is not closed.
  */
 export function replayBase(
   file: DocFile,
@@ -199,6 +242,7 @@ export function replayBase(
       typed: Map<string, TypedText>;
       overrides: [string, string | null][];
       titlePage: [TitlePageField, string][];
+      maps: ReplayMapChanges;
     }
   | { ok: false; code: "incomplete" | "invalid" } {
   const frozen = file.generations.get(docId, generation);
@@ -218,24 +262,28 @@ export function replayBase(
     mine.applyUpdate(base.encodeState(), ORIGIN_LOAD);
     const writers = new Set(readStateVector(base.encodeStateVector()).keys());
     for (const clientId of ownClientIds) writers.add(clientId);
-    const waiting = applyWaiting(mine, updates, writers);
+    const maps = replayedMapsOf(file, docId);
+    const waiting = applyWaiting(mine, updates, { writers, maps });
     if (waiting === "invalid") return { ok: false, code: "invalid" };
     const own = ownClientIds;
     const later = catchUp(base, mine, rows, { seq: acked, finalSeq, own });
     if (later === "incomplete") return { ok: false, code: "incomplete" };
+    const mapChanges = changedScriptMaps(base, mine);
+    if (mapChanges === "invalid") return { ok: false, code: "invalid" };
     const rest = tail.rows
       .filter((row) => row.seq > acked && row.origin !== "heal")
       .map((row) => row.update);
     const mineContent = scriptBody(mine).materialize();
     return {
       ok: true,
-      base: scriptBody(base).materialize(),
+      base: seenContent(base, mine, updates),
       mine: mineContent,
       setAside: [...waiting, ...later],
       unseen: removedUnseen({ base, mine, mineContent }, rest, own),
       typed: findTyped(mine, sinceOf(updates, base)),
       overrides: changedOverrides(base, mine),
       titlePage: changedTitlePage(base, mine),
+      maps: mapChanges,
     };
   } finally {
     base.destroy();

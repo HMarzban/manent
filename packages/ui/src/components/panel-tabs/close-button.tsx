@@ -15,7 +15,10 @@ export function CloseButton(props: {
       aria-label={props.label}
       onClick={props.onClick}
     >
-      <XIcon aria-hidden="true" />
+      <XIcon
+        aria-hidden="true"
+        className="text-fg-muted group-hover/button:text-fg"
+      />
     </Button>
   );
 }

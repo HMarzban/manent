@@ -186,7 +186,7 @@ test("Reload panel draws the failed surface again", () => {
   ]);
 });
 
-test("a placeholder waits 150 ms and then stays at least 300 ms", () => {
+test("a placeholder waits 150 ms and gives way at once when data arrives", () => {
   const ready = renderers(() => "ready");
   const { el, rerender, clock } = render(
     <SurfaceState
@@ -209,21 +209,10 @@ test("a placeholder waits 150 ms and then stays at least 300 ms", () => {
     <SurfaceState surface="choose" state={{ kind: "ready" }} render={ready} />,
   );
   at.push(seen());
-  clock.advance(249);
-  at.push(seen());
-  clock.advance(1);
-  at.push(seen());
-  expect(at).toEqual([
-    "",
-    "",
-    "placeholder",
-    "placeholder",
-    "placeholder",
-    "ready",
-  ]);
+  expect(at).toEqual(["", "", "placeholder", "ready"]);
 });
 
-test("a timer that fires a moment early still brings the placeholder, then the data, on time", () => {
+test("a timer that fires a moment early still brings the placeholder on time, then data at once", () => {
   const ready = renderers(() => "ready");
   const { el, rerender, clock } = render(
     <SurfaceState
@@ -244,9 +233,7 @@ test("a timer that fires a moment early still brings the placeholder, then the d
     <SurfaceState surface="choose" state={{ kind: "ready" }} render={ready} />,
   );
   at.push(seen());
-  clock.advance(250);
-  at.push(seen());
-  expect(at).toEqual(["placeholder", "placeholder", "ready"]);
+  expect(at).toEqual(["placeholder", "ready"]);
 });
 
 test("data that arrives within 150 ms never shows a placeholder", () => {

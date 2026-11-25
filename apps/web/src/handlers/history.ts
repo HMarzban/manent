@@ -16,7 +16,7 @@ export type HistoryCommandId =
   | "history.restoreScene"
   | "history.restoreBefore"
   | "history.seeWhatChanged"
-  | "doc.openBeside"
+  | "history.openRecoveredBeside"
   | "history.whoWrote";
 
 export function historyHandlers(
@@ -44,7 +44,7 @@ export function historyHandlers(
     "history.restoreScene": run("history.restoreScene"),
     "history.restoreBefore": run("history.restoreBefore"),
     "history.seeWhatChanged": run("history.seeWhatChanged"),
-    "doc.openBeside": run("doc.openBeside"),
+    "history.openRecoveredBeside": run("history.openRecoveredBeside"),
     "history.whoWrote": run("history.whoWrote"),
   };
 }

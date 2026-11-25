@@ -14,6 +14,7 @@ import type {
 import {
   PRODUCTION_WORDS,
   SEND_WORDS,
+  Skeleton,
   formatDay,
   formatTime,
   useSubscribable,
@@ -23,7 +24,11 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { showPage, showScene } from "../../editor-host/production.ts";
 import type { SendForm, SendFormProps } from "../../screens/send/forms.ts";
-import { SendFrame } from "../../screens/send/send-frame.tsx";
+import {
+  PageTilesSkeleton,
+  SendFormSkeleton,
+  SendFrame,
+} from "../../screens/send/send-frame.tsx";
 import type { SendRow } from "../../screens/send/send-frame.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { useProductionContext } from "../../state/production-context.store.ts";
@@ -72,21 +77,29 @@ function issuedMessage(name: string, people: number): Message {
 }
 
 /**
- * The people with a role on the script, as the server lists them; the person's last choice is kept for those who
- * still have one.
+ * The people with a role on the script, as the server lists them; null while loading. The person's last choice is kept
+ * for those who still have one.
  */
 function useScriptPeople(
   services: ProductionServices,
   keep: (people: DocPeopleResponse["people"]) => void,
-): DocPeopleResponse["people"] {
-  const [people, setPeople] = useState<DocPeopleResponse["people"]>([]);
+): DocPeopleResponse["people"] | null {
+  const [people, setPeople] = useState<DocPeopleResponse["people"] | null>(
+    null,
+  );
   useEffect(() => {
     let shown = true;
-    void services.people().then((known) => {
-      if (!shown || known === null) return;
-      setPeople(known);
-      keep(known);
-    });
+    setPeople(null);
+    void services.people().then(
+      (known) => {
+        if (!shown) return;
+        setPeople(known ?? []);
+        if (known !== null) keep(known);
+      },
+      () => {
+        if (shown) setPeople([]);
+      },
+    );
     return () => {
       shown = false;
     };
@@ -94,13 +107,24 @@ function useScriptPeople(
   return people;
 }
 
-/** The people with a role on the script, each a switch, none on the first time. */
+/** The people with a role on the script, each a switch, none on the first time; a skeleton while loading. */
 function Recipients(props: {
-  people: DocPeopleResponse["people"];
+  people: DocPeopleResponse["people"] | null;
   chosen: ReadonlySet<string>;
   onChange(chosen: ReadonlySet<string>): void;
 }): ReactNode {
   const { people, chosen, onChange } = props;
+  if (people === null)
+    return (
+      <div aria-busy="true" className="flex flex-col gap-2">
+        <div aria-hidden="true" className="flex flex-wrap gap-x-4 gap-y-2">
+          {Array.from({ length: 3 }, (_, index) => (
+            <Skeleton key={index} className="h-control w-28" />
+          ))}
+        </div>
+        <Skeleton aria-hidden="true" className="h-3.5 w-16" />
+      </div>
+    );
   const toggle = (userId: string, on: boolean): void => {
     const next = new Set(chosen);
     if (on) next.add(userId);
@@ -169,8 +193,9 @@ function Issue(props: {
           }),
     [live, state],
   );
-  const active = state?.sets.at(-1);
-  if (state === null || active === undefined) return null;
+  if (state === null) return <SendFormSkeleton rows={5} />;
+  const active = state.sets.at(-1);
+  if (active === undefined) return null;
   const { name } = active;
   const p = live?.locked.pagination ?? null;
   const revised = live?.revisedPages ?? [];
@@ -326,7 +351,9 @@ function Issue(props: {
       aside={lastIssuedLine(state)}
       rows={rows}
       pages={
-        p === null || live === null ? null : (
+        p === null || live === null ? (
+          <PageTilesSkeleton />
+        ) : (
           <Packet p={p} labels={pages} name={name} sources={live.sources} />
         )
       }
@@ -346,7 +373,9 @@ function Issue(props: {
 
 function IssueBody(props: SendFormProps): ReactNode {
   const services = useProductionServices(props.docId);
-  return services === null ? null : (
+  return services === null ? (
+    <SendFormSkeleton rows={5} />
+  ) : (
     <Issue docId={props.docId} services={services} />
   );
 }

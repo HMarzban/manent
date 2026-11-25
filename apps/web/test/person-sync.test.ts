@@ -12,18 +12,26 @@ const YOU: TabPerson = Object.freeze({
 });
 const YOU_SIGNED_IN: TabPerson = Object.freeze({ ...YOU, token: "token-you" });
 
-/** You, before signing in, with three scripts on Your desk and a preference set. */
-async function yourDesk(): Promise<{ w: IndexWorld; scripts: string[] }> {
+/** You, before signing in, with three scripts on Your desk, their projects' indexes and a preference set. */
+async function yourDesk(): Promise<{
+  w: IndexWorld;
+  scripts: string[];
+  projectIndexes: string[];
+}> {
   const w = await createIndexWorld();
   const local = await w.personServices({ person: YOU });
   const scripts: string[] = [];
-  for (const kind of ["film", "podcast", "book"] as const)
-    scripts.push((await local.library.createProject("you", kind)).docId);
+  const projectIndexes: string[] = [];
+  for (const kind of ["film", "podcast", "book"] as const) {
+    const made = await local.library.createProject("you", kind);
+    scripts.push(made.docId);
+    projectIndexes.push(indexDocId("project", made.projectId));
+  }
   local.settings.set("appearance.theme", "dark");
   await w.settleAll();
   expect(w.serverContacts()).toBe(0);
   local.dispose();
-  return { w, scripts };
+  return { w, scripts, projectIndexes };
 }
 
 /** Delivers one frame at a time, a frame's time passing when none is queued, until `done`. */
@@ -44,14 +52,17 @@ async function synced(person: TabServices): Promise<Record<string, boolean>> {
 }
 
 test("Sign in to sync hands You's scripts, preferences and Library to the server", async () => {
-  const { w, scripts } = await yourDesk();
+  const { w, scripts, projectIndexes } = await yourDesk();
   const signedIn = await w.personServices({ person: YOU_SIGNED_IN });
   await w.settleAll();
   const privateIndex = indexDocId("user", "you");
   const desk = indexDocId("workspace", "you");
   expect(await synced(signedIn)).toEqual(
     Object.fromEntries(
-      [privateIndex, desk, ...scripts].map((id) => [id, true]),
+      [privateIndex, desk, ...scripts, ...projectIndexes].map((id) => [
+        id,
+        true,
+      ]),
     ),
   );
   expect(w.serverHomeOf(privateIndex)).toBe("user:you");

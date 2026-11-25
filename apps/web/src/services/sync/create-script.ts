@@ -1,4 +1,5 @@
-// The one place a script is made: its document, its first block, its format and its paper, on the device before anything is sent.
+// The one place a script is made: its document, its first block, its format and its paper, on the device before anything
+// is sent; and what a new project of each kind starts with.
 import {
   IMPORT_MAP,
   IMPORT_RECORD_KEY,
@@ -11,7 +12,11 @@ import type { BlockJSON, FormatId } from "@manent/schema";
 import { paperForRegion } from "@manent/settings";
 import type { DocHandle, SyncClient } from "@manent/sync-client";
 import { projectHome } from "@manent/sync-protocol";
+import type { DocKind } from "@manent/sync-protocol";
+import { NEW_PROJECT_CARDS } from "@manent/ui";
 import { firstBlock } from "../../editor-host/first-block.ts";
+import { NEWS_START, SHOW_START } from "../../rundown/create-rundown.ts";
+import { SERIES_START } from "../../series/series-start.ts";
 import type { ImportedProject, ProjectKind } from "../ports.ts";
 
 /** A script to make: its id, its project's id, and the language whose region gives its paper. */
@@ -72,6 +77,48 @@ export function startImported(
   for (const { id, note } of script.notes) notes.set(id, note);
   jsonMap(handle.doc(), IMPORT_MAP).set(IMPORT_RECORD_KEY, record);
   handle.setSetting("script.paper", script.paper ?? paperForRegion(language));
+}
+
+/** True once any block of the script holds text. */
+const holdsText = (handle: DocHandle): boolean =>
+  (scriptBody(handle.doc()).materialize().content ?? []).some((section) =>
+    (section.content ?? []).some((block) =>
+      (block.content ?? []).some((run) => run.text !== ""),
+    ),
+  );
+
+/** What a new project of one of `kinds` starts with: its first document, of `docKind`, made on the device. */
+export interface ProjectStart {
+  readonly kinds: readonly ProjectKind[];
+  readonly docKind: DocKind;
+  /** Writes the new document's start, when the device holds none of it, for a person writing in `language`. */
+  start(handle: DocHandle, kind: ProjectKind, language: string): void;
+  /** True while the document holds nothing anyone wrote: a project made here and left so is removed when it is left. */
+  isUntouched(handle: DocHandle): boolean;
+}
+
+const SCRIPT_START: ProjectStart = {
+  kinds: NEW_PROJECT_CARDS.map((card) => card.kind),
+  docKind: "script",
+  start: (handle, kind, language) =>
+    startScript(handle, language, PROJECT_KIND_FORMATS[kind]),
+  isUntouched: (handle) => !holdsText(handle),
+};
+
+/** A later line takes its kinds over from an earlier one. */
+export const PROJECT_STARTS: readonly ProjectStart[] = [
+  SCRIPT_START,
+  SERIES_START,
+  SHOW_START,
+  NEWS_START,
+];
+
+/** The start of a new project of `kind`: the last line of PROJECT_STARTS that names it. */
+export function projectStartOf(kind: ProjectKind): ProjectStart {
+  return (
+    PROJECT_STARTS.findLast((entry) => entry.kinds.includes(kind)) ??
+    SCRIPT_START
+  );
 }
 
 /** Makes `script` in a project of its own, created on the server at its first sync. */

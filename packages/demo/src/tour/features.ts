@@ -1,0 +1,30 @@
+/** Features a scenario may wait for: placed after this stage, or still to be worded. */
+export const TOUR_FEATURES = [
+  "names_and_facts",
+  "variety_timing",
+  "outline_to_script",
+  "alternates_and_cuts",
+  "game_lines",
+  "ink_player",
+  "start_from",
+  "follow",
+  "comments",
+  "reader_drafts",
+  "suggesting",
+  "present",
+  "private_writing",
+  "rounds",
+  "sign_out_guard",
+  "send_draft",
+  "sides",
+  "find_bar",
+  "search",
+  "rundowns",
+  "prompter",
+  "imports",
+  "prompter_files",
+  "go_to_page",
+  "copy_script",
+] as const;
+
+export type TourFeature = (typeof TOUR_FEATURES)[number];

@@ -1,6 +1,6 @@
 // The documents a device handed over, one row per document, kept with the key it came under.
 import type { Database } from "bun:sqlite";
-import type { Adoption, Adoptions } from "../ports.ts";
+import type { Adoption, Adoptions } from "../ports/index.ts";
 import { transact } from "./files.ts";
 
 /** The adoptions of the document file `db`. */

@@ -1,9 +1,11 @@
 // A local store that keeps nothing past the process: for tests, and for headless clients
 // with nothing to persist.
+import { waitingCount } from "../outbox/plan.ts";
 import { toRecoveredItem } from "../ports/ports.ts";
 import type {
   DeviceVersion,
   DocMeta,
+  DocSummary,
   LoadedDocument,
   LocalStore,
   RecoveredItem,
@@ -294,6 +296,20 @@ class MemoryStore implements LocalStore {
     return [...this.contents.docs.values()].map((record) =>
       metaOf(record.meta),
     );
+  }
+
+  async summaries(): Promise<readonly DocSummary[]> {
+    await Promise.resolve();
+    const recoveredByDoc = new Map<string, number>();
+    for (const item of this.contents.recovered)
+      recoveredByDoc.set(item.docId, (recoveredByDoc.get(item.docId) ?? 0) + 1);
+    return [...this.contents.docs.values()].map(({ meta, entries }) => ({
+      docId: meta.docId,
+      neverSynced: meta.neverSynced,
+      waiting: waitingCount(entries),
+      parked: meta.parked === null ? null : { ...meta.parked },
+      recovered: recoveredByDoc.get(meta.docId) ?? 0,
+    }));
   }
 
   async close(): Promise<void> {

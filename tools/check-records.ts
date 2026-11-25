@@ -241,9 +241,7 @@ async function inspect(
   const decisions = checkDecisions(documents, adder);
   for (const [file, text] of documents)
     violations.push(...scanPrivacy(root, file, text, local));
-  violations.push(
-    ...(await scanTracked(root, local, new Set(documents.keys()))),
-  );
+  violations.push(...(await scanTracked(root, local, documents)));
   return {
     violations: violations.toSorted(byPlace),
     decisions,

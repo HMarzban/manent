@@ -1,8 +1,9 @@
-// Another writer in the same script: their words survive my undo, their caret is drawn by name, and their edits above
-// the line being read never move it.
+// Another writer in the same script: their words survive my undo, their caret is drawn by name and stays drawn while
+// their changes arrive, they show in the title bar and in their scene's row, and their edits above the line being read
+// never move it.
 import { corpusDoc, generateBlocks } from "@manent/pagination/testing";
 import { expect, test } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { editorHook } from "../support/editor-hooks.ts";
 import { pressKeyOf } from "../support/interface.ts";
 import { committedOnDevice, signedInAs } from "../support/tour.ts";
@@ -17,6 +18,7 @@ import {
   openScript,
   settled,
   typeLine,
+  viewItem,
 } from "./support.ts";
 
 /** About `lines` lines of action, at 60 characters to the line. */
@@ -80,8 +82,8 @@ test("another writer's cursor and name are drawn, and hidden by the preference",
   await groupHook(page, "remote", "select", 5, 2);
   await expect(bar(page)).toBeVisible();
   await expect(cursor(page).locator(".mn-cursor-tab")).toHaveText("Dana Reyes");
-  // the name goes after three seconds without a move, and the caret stays
-  await expect(cursor(page).locator(".mn-cursor-tab")).toHaveCount(0, {
+  // the name gives way to the initials after three seconds without a move, and the caret stays
+  await expect(cursor(page).locator(".mn-cursor-tab")).toHaveText("DR", {
     timeout: 6000,
   });
   await expect(bar(page)).toBeVisible();
@@ -89,8 +91,131 @@ test("another writer's cursor and name are drawn, and hidden by the preference",
   await openScript(page, "screenplay", script);
   await groupHook(page, "remote", "join", DANA);
   await groupHook(page, "remote", "select", 5, 2);
-  await expect(cursor(page)).toHaveCount(1);
-  await expect(bar(page)).toBeHidden();
+  await settled(page);
+  // with the preference off and nobody followed, no cursor is drawn on the page
+  await expect(cursor(page)).toHaveCount(0);
+  // turning it back on draws the cursor that had been held back, and turning it off hides it again
+  await viewItem(page, /^Show other people's cursors/);
+  await expect(bar(page)).toBeVisible();
+  await viewItem(page, /^Show other people's cursors/);
+  await expect(cursor(page)).toHaveCount(0);
+});
+
+test("another writer's caret stays drawn while their changes arrive", async ({
+  page,
+}) => {
+  await openScript(
+    page,
+    "screenplay",
+    corpusDoc(generateBlocks("screenplay", 12, 1)),
+  );
+  await groupHook(page, "remote", "join", DANA);
+  await groupHook(page, "remote", "select", 5, 0);
+  await expect(bar(page)).toBeVisible();
+  // the carets are counted after every change to the page, so one dropped until the next frame is seen
+  await page.evaluate((selector) => {
+    const view = document.querySelector(selector);
+    if (view === null) throw new Error("the page has no view");
+    const counted: number[] = [];
+    Reflect.set(window, "__caretsCounted", counted);
+    new MutationObserver(() =>
+      counted.push(view.querySelectorAll(".mn-cursor").length),
+    ).observe(view, { childList: true, subtree: true, characterData: true });
+  }, PAGE_VIEW);
+  for (const text of ["The ", "rain ", "keeps ", "on. "]) {
+    await groupHook(page, "remote", "type", 5, 0, text);
+    await settled(page);
+  }
+  const counted: unknown = await page.evaluate(() =>
+    Reflect.get(window, "__caretsCounted"),
+  );
+  const counts = Array.isArray(counted) ? counted.map(Number) : [];
+  expect({ fewest: Math.min(...counts), checked: counts.length > 0 }).toEqual({
+    fewest: 1,
+    checked: true,
+  });
+});
+
+/**
+ * Sam's script of two scenes, synced so that the people in it show, the second with a heading too long for its row,
+ * with Dana's caret in that scene.
+ */
+async function danaInSecondScene(page: Page): Promise<Locator> {
+  await openScript(
+    page,
+    "screenplay",
+    corpusDoc([
+      corpusLine("scene_heading", "INT. LAMP ROOM - NIGHT"),
+      corpusLine("action", "The keeper climbs the stair."),
+      corpusLine(
+        "scene_heading",
+        "EXT. GALLERY ROUND THE LAMP, HIGH OVER THE BAY - CONTINUOUS",
+      ),
+      corpusLine("action", "Wind at the glass."),
+    ]),
+    "sam",
+  );
+  await viewItem(page, /^Left panel/);
+  await groupHook(page, "remote", "join", DANA);
+  await groupHook(page, "remote", "select", 3, 2);
+  return page
+    .locator("[data-region='left_panel'] .mn-row")
+    .filter({ hasText: "EXT. GALLERY" });
+}
+
+test("another writer shows in the title bar and at the end of their scene's row, moving while their caret moves", async ({
+  page,
+}) => {
+  const row = await danaInSecondScene(page);
+  const avatar = row.getByRole("img", { name: DANA.name });
+  await expect(
+    page.locator("[data-region='title_bar']").getByRole("img", {
+      name: DANA.name,
+    }),
+  ).toBeVisible();
+  await expect(avatar).toHaveClass(/animate-bounce/);
+  const [heading, face, length] = await Promise.all(
+    [
+      row.locator(".truncate").first(),
+      avatar,
+      row.locator("[data-trailing] .tabular-nums"),
+    ].map((part) => part.boundingBox()),
+  );
+  const cut = await row
+    .locator(".truncate")
+    .first()
+    .evaluate((element) => element.scrollWidth > element.clientWidth);
+  expect({
+    cut,
+    beforeAvatar: heading!.x + heading!.width <= face!.x,
+    beforeLength: face!.x + face!.width <= length!.x,
+  }).toEqual({ cut: true, beforeAvatar: true, beforeLength: true });
+  // still for longer than a pause between phrases, the avatar stands still; a move sets it going again
+  await expect(avatar).not.toHaveClass(/animate-bounce/);
+  await groupHook(page, "remote", "select", 3, 6);
+  await expect(avatar).toHaveClass(/animate-bounce/);
+  await expect(
+    page
+      .locator("[data-region='left_panel'] .mn-row")
+      .filter({ hasText: "INT. LAMP ROOM" })
+      .getByRole("img"),
+  ).toHaveCount(0);
+});
+
+test("under reduced motion a typing writer's avatar stands still, and its initials are underlined", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const avatar = (await danaInSecondScene(page)).getByRole("img", {
+    name: DANA.name,
+  });
+  await expect(avatar).toHaveClass(/animate-bounce/);
+  expect(
+    await avatar.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return [style.animationName, style.textDecorationLine];
+    }),
+  ).toEqual(["none", "underline"]);
 });
 
 /** The viewport top of block `blockId`'s first character, px. */
@@ -227,9 +352,7 @@ async function editFarAbove(
   };
 }
 
-test("the same in a 2,000-page script, where the sections above are not rendered", async ({
-  page,
-}) => {
+test("the same in a 2,000-page script", async ({ page }) => {
   test.setTimeout(300_000);
   const { before, after } = await editFarAbove(page);
   expect({
@@ -246,15 +369,104 @@ test("in Chromium that edit's frame does its work within the remote edit's hard 
     browserName !== "chromium",
     "the frame's work is held to its budget in Chromium",
   );
-  test.fixme(
-    true,
-    "in Chromium, which draws every section, this edit takes about 100 ms to show: it moves every page break after it, and styling and laying out the pages again takes about 75 ms of that",
-  );
   test.setTimeout(300_000);
   const { dispatched } = await editFarAbove(page);
   // no dispatch measured reads as a fail, never as a pass
   const longest = dispatched.length === 0 ? Infinity : Math.max(...dispatched);
   expect(longest).toBeLessThan(16);
+});
+
+/** An action that reads "The tide turns, line `n`." */
+const tideLine = (n: number) =>
+  corpusLine("action", `The tide turns, line ${n}.`);
+
+/** Scrolls the page until block `blockId` starts `px` below its scroller's top: its bottom then, and that top, px. */
+const scrollBlockTo = (
+  page: Page,
+  blockId: string,
+  px: number,
+): Promise<{ bottom: number; top: number }> =>
+  page.locator("[data-region='page']").evaluate(
+    (scroller, [id, below]) => {
+      const block = scroller.querySelector(`[data-id="${id}"]`);
+      if (block === null) throw new Error(`block ${id} is not drawn`);
+      const { top } = scroller.getBoundingClientRect();
+      scroller.scrollTop += block.getBoundingClientRect().top - top - below;
+      return { bottom: block.getBoundingClientRect().bottom, top };
+    },
+    [blockId, px] as const,
+  );
+
+test("a remote edit never scrolls back to the caret just out of view", async ({
+  page,
+}) => {
+  const lines = Array.from({ length: 120 }, (_, n) => tideLine(n + 1));
+  await openScript(page, "screenplay", corpusDoc(lines));
+  await groupHook(page, "remote", "join", DANA);
+  const ids = (await blocks(page)).map((b) => b.id);
+  await caretAt(page, ids[40]!, "end");
+  // the caret's line under the bars above the page, still inside the window
+  const hidden = await scrollBlockTo(page, ids[40]!, -60);
+  await settled(page);
+  const before = await firstVisible(page);
+  await groupHook(page, "remote", "type", 44, 0, "Dusk. ");
+  await holds(page, 44, "Dusk. The tide turns, line 45.");
+  await settled(page);
+  const after = await firstVisible(page);
+  expect({
+    inWindow: hidden.bottom > 0 && hidden.bottom < hidden.top,
+    sameLine: after.id,
+    lineStays: Math.abs(after.top - before.top) <= 1,
+  }).toEqual({ inWindow: true, sameLine: before.id, lineStays: true });
+});
+
+test("a remote edit on a page with room at its foot leaves the next page where it is", async ({
+  page,
+}) => {
+  const first = Array.from({ length: 10 }, (_, n) => tideLine(n + 1));
+  const rest = Array.from({ length: 60 }, (_, n) => tideLine(n + 11));
+  await openScript(
+    page,
+    "screenplay",
+    corpusDoc([...first, corpusLine("page_break", ""), ...rest]),
+  );
+  await groupHook(page, "remote", "join", DANA);
+  // the top of the view on the desk above the page that block 11 opens
+  await scrollBlockTo(page, (await blocks(page))[11]!.id, 60);
+  await settled(page);
+  const before = await firstVisible(page);
+  const added = "The keeper climbs the stair and lights the lamp at the top. ";
+  await groupHook(page, "remote", "type", 3, 0, added);
+  await holds(page, 3, `${added}The tide turns, line 4.`);
+  await settled(page);
+  const after = await firstVisible(page);
+  expect({
+    sameLine: after.id,
+    lineStays: Math.abs(after.top - before.top) <= 1,
+  }).toEqual({ sameLine: before.id, lineStays: true });
+});
+
+test("another writer's caret at the end of a line moves no line", async ({
+  page,
+}) => {
+  await openScript(
+    page,
+    "screenplay",
+    corpusDoc([
+      corpusLine("scene_heading", "INT. LAMP ROOM - NIGHT"),
+      corpusLine("action", "The keeper climbs the stair."),
+      corpusLine("action", "Wind at the glass."),
+    ]),
+  );
+  await groupHook(page, "remote", "join", DANA);
+  const [, climbs, wind] = await blocks(page);
+  const before = await lineTop(page, wind!.id);
+  await groupHook(page, "remote", "select", 1, climbs!.text.length);
+  await expect(bar(page)).toBeVisible();
+  await settled(page);
+  expect(
+    Math.abs((await lineTop(page, wind!.id)) - before),
+  ).toBeLessThanOrEqual(1);
 });
 
 /** The viewport bottom of the block that holds the caret, px. */

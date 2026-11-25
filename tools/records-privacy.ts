@@ -14,10 +14,14 @@ import {
   LOCAL_TERMS_FILE,
   LOCAL_TERMS_NAME,
   NOTE_REF,
+  NOTICE_COPYRIGHT,
+  NOTICE_FILE,
+  PRODUCT_PAGE,
   PROFILE_LINK,
   README,
   SCAN_LIMIT_BYTES,
   SECTION_REF,
+  SITE_PAGE,
   UNSCANNED,
 } from "./records.config.ts";
 
@@ -68,6 +72,9 @@ const OPEN_LINE: readonly PatternRule[] = [
 const LINK = /\]\(([^)\s]+)\)/g;
 const SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 const EXCLUDE_PATTERN = /[*?[]/;
+const COLUMN_HEADING = /<th\b[^>]*\bscope="col"[^>]*>([^<]*)/g;
+const LEFT_OUT_LIST = /<ul\b[^>]*\bclass="left-out"[^>]*>([\s\S]*?)<\/ul>/g;
+const LEFT_OUT_LEAD = /<li\b[^>]*>([^:<]*)/g;
 
 /** The literal paths of a git exclude file, first seen first; patterns and negations are not paths. */
 export function parseExclude(text: string): string[] {
@@ -253,22 +260,71 @@ async function readScannable(path: string): Promise<string | null> {
   return bytes.includes(0) ? null : bytes.toString("utf8");
 }
 
-/** The two local rules over every other file git tracks or would track. */
+/** The names the product page lists: its column headings, and what leads each item of its left-out list. */
+function productNames(page: string): string[] {
+  const leads = [...page.matchAll(LEFT_OUT_LIST)].flatMap(([, list = ""]) => [
+    ...list.matchAll(LEFT_OUT_LEAD),
+  ]);
+  return [...page.matchAll(COLUMN_HEADING), ...leads].map(([, name = ""]) =>
+    name.trim(),
+  );
+}
+
+/** The local terms the product page may not hold: those that name none of its products, and those the README's fixed sections hold. */
+function productPageTerms(
+  page: string,
+  terms: readonly RegExp[],
+  readme = "",
+): RegExp[] {
+  const names = productNames(page);
+  const fixed = fixedLines(readme);
+  const reserved = readLines(readme)
+    .filter((line) => fixed.has(line.n))
+    .map((line) => line.text)
+    .join("\n");
+  return terms.filter(
+    (term) => term.test(reserved) || !names.some((name) => term.test(name)),
+  );
+}
+
+/** The footer line a site page may name the copyright holder in, and the holder, from NOTICE's second line. */
+function copyrightFooter(
+  notice: string | null,
+): { line: string; holder: string } | null {
+  const [, year, holder] =
+    NOTICE_COPYRIGHT.exec(notice?.split(/\r?\n/)[1]?.trim() ?? "") ?? [];
+  return year === undefined || holder === undefined
+    ? null
+    : { line: `© ${year} ${holder}`, holder };
+}
+
+/** The two local rules over every tracked file that is not one of the public `documents`. */
 export async function scanTracked(
   root: string,
   local: LocalRules,
-  alreadyRead: ReadonlySet<string>,
+  documents: ReadonlyMap<string, string>,
 ): Promise<Violation[]> {
   const { files, paths, terms } = local;
   if (files === null || (paths.length === 0 && terms.length === 0)) return [];
+  const footer = copyrightFooter(await readIfPresent(join(root, NOTICE_FILE)));
   const found: Violation[] = [];
   for (const file of [...files].toSorted()) {
-    if (alreadyRead.has(file) || UNSCANNED.includes(file)) continue;
+    if (documents.has(file) || UNSCANNED.includes(file)) continue;
     const text = await readScannable(join(root, file));
     if (text === null) continue;
-    for (const [i, line] of text.split(/\r?\n/).entries())
-      for (const hit of [localPath(line, paths), localTerm(line, terms)])
+    const barred =
+      file === PRODUCT_PAGE
+        ? productPageTerms(text, terms, documents.get(README))
+        : terms;
+    const atFooter =
+      footer !== null && SITE_PAGE.test(file)
+        ? barred.filter((term) => !term.test(footer.holder))
+        : barred;
+    for (const [i, line] of text.split(/\r?\n/).entries()) {
+      const lineTerms = line.trim() === footer?.line ? atFooter : barred;
+      for (const hit of [localPath(line, paths), localTerm(line, lineTerms)])
         if (hit !== null) found.push({ file, line: i + 1, ...hit });
+    }
   }
   return found;
 }

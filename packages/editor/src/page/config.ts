@@ -5,11 +5,16 @@ export const LAYOUT_VIEWS = ["page", "reflow"] as const;
 export type LayoutView = (typeof LAYOUT_VIEWS)[number];
 export const BREAK_STYLES = ["inline", "before_block"] as const;
 export type BreakStyle = (typeof BREAK_STYLES)[number];
-/** Whether sections are given `content-visibility: auto`, per browser engine; off keeps the section and drops the rule. */
+/**
+ * Whether sections are given `content-visibility: auto`, per browser engine; off keeps the section and drops the rule.
+ * Off in every engine: Chromium moved the caret differently from a flat page, and every engine sizes a section it
+ * skips at the height it last drew it at, not at its intrinsic size, so others typing in a section scrolled past moved
+ * the line being read.
+ */
 export const CONTAINMENT: Readonly<Record<BrowserEngine, boolean>> = {
   chromium: false,
-  firefox: true,
-  webkit: true,
+  firefox: false,
+  webkit: false,
 };
 /** How a page break inside a block is drawn, per browser engine: at its offset, or before the whole block (the engine keeps the split either way). */
 export const MID_BLOCK_BREAKS: Readonly<Record<BrowserEngine, BreakStyle>> = {
@@ -17,6 +22,8 @@ export const MID_BLOCK_BREAKS: Readonly<Record<BrowserEngine, BreakStyle>> = {
   firefox: "inline",
   webkit: "inline",
 };
+/** The most blocks an edit left behind that one idle pass draws. */
+export const BEHIND_BLOCKS_PER_PASS = 500;
 /** Sections kept rendered on each side of the one holding the selection. */
 export const KEEP_NEIGHBOURS = 1;
 /** Spellcheck is off in a script with more blocks than this. */

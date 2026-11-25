@@ -10,7 +10,33 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "./components/stock/shadcn.css";
-@import "@fontsource-variable/inter";
+
+/* Inter Variable: Latin and Latin-ext subsets only, extracted to external .woff2 files by the web build. */
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../node_modules/@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2")
+    format("woff2-variations");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2")
+    format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
 
 /* A theme is a set of token values, never a second set of classes. The dark:
    variant is therefore made inert: every component has one class list, and
@@ -42,129 +68,129 @@ html[data-white-page] .mn-pages {
    -------------------------------------------------------------------------- */
 :root {
   /* warm neutrals */
-  --p-warm-0: #FFFFFF;
-  --p-warm-25: #FDFCFA;
-  --p-warm-50: #F6F4F0;
-  --p-warm-100: #EFECE6;
-  --p-warm-150: #E9E6E0;
-  --p-warm-200: #E1DDD5;
-  --p-warm-300: #D8D3CA;
-  --p-warm-350: #B8B2A7;
-  --p-warm-400: #A9A49B;
+  --p-warm-0: #ffffff;
+  --p-warm-25: #fdfcfa;
+  --p-warm-50: #f6f4f0;
+  --p-warm-100: #efece6;
+  --p-warm-150: #e9e6e0;
+  --p-warm-200: #e1ddd5;
+  --p-warm-300: #d8d3ca;
+  --p-warm-350: #b8b2a7;
+  --p-warm-400: #a9a49b;
   --p-warm-500: #878178;
-  --p-warm-550: #7D7870;
-  --p-warm-600: #6F6A62;
-  --p-warm-650: #5A564F;
-  --p-warm-700: #4A4640;
-  --p-warm-750: #423F3A;
-  --p-warm-800: #302E2B;
-  --p-warm-825: #2A2826;
+  --p-warm-550: #7d7870;
+  --p-warm-600: #6f6a62;
+  --p-warm-650: #5a564f;
+  --p-warm-700: #4a4640;
+  --p-warm-750: #423f3a;
+  --p-warm-800: #302e2b;
+  --p-warm-825: #2a2826;
   --p-warm-850: #272523;
   --p-warm-875: #232220;
-  --p-warm-900: #1F1D1A;
-  --p-warm-925: #1A1918;
+  --p-warm-900: #1f1d1a;
+  --p-warm-925: #1a1918;
   --p-warm-950: #121211;
-  --p-warm-1000: #0A0A09;
-  --p-ink: #1A1A1A;
+  --p-warm-1000: #0a0a09;
+  --p-ink: #1a1a1a;
   --p-black: #000000;
 
   /* blue — the one accent; reserved for "you" and for focus */
-  --p-blue-50: #E2E9F8;
-  --p-blue-200: #B7CBFF;
-  --p-blue-300: #8DAEFF;
-  --p-blue-600: #2450BE;
-  --p-blue-700: #1A429F;
-  --p-blue-800: #0B2A70;
-  --p-blue-900: #25324F;
-  --p-blue-950: #1B2A52;
+  --p-blue-50: #e2e9f8;
+  --p-blue-200: #b7cbff;
+  --p-blue-300: #8daeff;
+  --p-blue-600: #2450be;
+  --p-blue-700: #1a429f;
+  --p-blue-800: #0b2a70;
+  --p-blue-900: #25324f;
+  --p-blue-950: #1b2a52;
 
   /* status */
-  --p-green-200: #A5E8C2;
-  --p-green-300: #6FCF9A;
-  --p-green-700: #17633D;
-  --p-green-800: #0C4026;
-  --p-amber-200: #F5D27A;
-  --p-amber-300: #E3B341;
+  --p-green-200: #a5e8c2;
+  --p-green-300: #6fcf9a;
+  --p-green-700: #17633d;
+  --p-green-800: #0c4026;
+  --p-amber-200: #f5d27a;
+  --p-amber-300: #e3b341;
   --p-amber-700: #775000;
   --p-amber-800: #523400;
-  --p-red-200: #FFCBC6;
-  --p-red-300: #FFA199;
-  --p-red-700: #A8221B;
-  --p-red-800: #6B0F0A;
+  --p-red-200: #ffcbc6;
+  --p-red-300: #ffa199;
+  --p-red-700: #a8221b;
+  --p-red-800: #6b0f0a;
 
   /* revision papers: tint = the paper as it is, shade = the paper darkened
      to sit under light ink, deep = an edge that reaches 3:1 on light grounds */
-  --p-rev-white-deep: #6B6B6B;
-  --p-rev-blue-tint: #D3E6FA;
-  --p-rev-blue-shade: #1C2F45;
-  --p-rev-blue-deep: #1F63B5;
-  --p-rev-pink-tint: #FAD7E3;
-  --p-rev-pink-shade: #44222F;
-  --p-rev-pink-deep: #B8326F;
-  --p-rev-yellow-tint: #FBF3B9;
-  --p-rev-yellow-shade: #3D3712;
-  --p-rev-yellow-deep: #7A6400;
-  --p-rev-green-tint: #D5EDD0;
-  --p-rev-green-shade: #1F3A22;
-  --p-rev-green-deep: #2C7A31;
-  --p-rev-goldenrod-tint: #F4D88F;
-  --p-rev-goldenrod-shade: #44340F;
-  --p-rev-goldenrod-deep: #8A5D00;
-  --p-rev-buff-tint: #EFDFBD;
-  --p-rev-buff-shade: #3A3220;
-  --p-rev-buff-deep: #7D6328;
-  --p-rev-salmon-tint: #F8C8B4;
-  --p-rev-salmon-shade: #47271B;
-  --p-rev-salmon-deep: #B4492A;
-  --p-rev-cherry-tint: #F3B1B8;
-  --p-rev-cherry-shade: #4A1C24;
-  --p-rev-cherry-deep: #A8243A;
-  --p-rev-tan-tint: #DCC7A6;
-  --p-rev-tan-shade: #372C1B;
-  --p-rev-tan-deep: #775A2B;
+  --p-rev-white-deep: #6b6b6b;
+  --p-rev-blue-tint: #d3e6fa;
+  --p-rev-blue-shade: #1c2f45;
+  --p-rev-blue-deep: #1f63b5;
+  --p-rev-pink-tint: #fad7e3;
+  --p-rev-pink-shade: #44222f;
+  --p-rev-pink-deep: #b8326f;
+  --p-rev-yellow-tint: #fbf3b9;
+  --p-rev-yellow-shade: #3d3712;
+  --p-rev-yellow-deep: #7a6400;
+  --p-rev-green-tint: #d5edd0;
+  --p-rev-green-shade: #1f3a22;
+  --p-rev-green-deep: #2c7a31;
+  --p-rev-goldenrod-tint: #f4d88f;
+  --p-rev-goldenrod-shade: #44340f;
+  --p-rev-goldenrod-deep: #8a5d00;
+  --p-rev-buff-tint: #efdfbd;
+  --p-rev-buff-shade: #3a3220;
+  --p-rev-buff-deep: #7d6328;
+  --p-rev-salmon-tint: #f8c8b4;
+  --p-rev-salmon-shade: #47271b;
+  --p-rev-salmon-deep: #b4492a;
+  --p-rev-cherry-tint: #f3b1b8;
+  --p-rev-cherry-shade: #4a1c24;
+  --p-rev-cherry-deep: #a8243a;
+  --p-rev-tan-tint: #dcc7a6;
+  --p-rev-tan-shade: #372c1b;
+  --p-rev-tan-deep: #775a2b;
 
   /* qualitative: people and charts. No blue: blue is yours. */
-  --p-qual-1-deep: #AD3409;
-  --p-qual-1-bright: #FF9B73; /* Ember */
-  --p-qual-2-deep: #0A6777;
-  --p-qual-2-bright: #5FD0E0; /* Teal */
-  --p-qual-3-deep: #6D38D9;
-  --p-qual-3-bright: #B79CFF; /* Violet */
+  --p-qual-1-deep: #ad3409;
+  --p-qual-1-bright: #ff9b73; /* Ember */
+  --p-qual-2-deep: #0a6777;
+  --p-qual-2-bright: #5fd0e0; /* Teal */
+  --p-qual-3-deep: #6d38d9;
+  --p-qual-3-bright: #b79cff; /* Violet */
   --p-qual-4-deep: #805300;
-  --p-qual-4-bright: #E8B84A; /* Ochre */
-  --p-qual-5-deep: #A81E6B;
-  --p-qual-5-bright: #FF8CC6; /* Magenta */
-  --p-qual-6-deep: #156A33;
-  --p-qual-6-bright: #74D48F; /* Forest */
-  --p-qual-7-deep: #7A2D8F;
-  --p-qual-7-bright: #DB9CEB; /* Plum */
-  --p-qual-8-deep: #B0183D;
-  --p-qual-8-bright: #FF8A9B; /* Crimson */
-  --p-qual-9-deep: #5B6A0B;
-  --p-qual-9-bright: #C5D667; /* Olive */
-  --p-qual-10-deep: #4A5568;
-  --p-qual-10-bright: #A9B4C6; /* Slate */
+  --p-qual-4-bright: #e8b84a; /* Ochre */
+  --p-qual-5-deep: #a81e6b;
+  --p-qual-5-bright: #ff8cc6; /* Magenta */
+  --p-qual-6-deep: #156a33;
+  --p-qual-6-bright: #74d48f; /* Forest */
+  --p-qual-7-deep: #7a2d8f;
+  --p-qual-7-bright: #db9ceb; /* Plum */
+  --p-qual-8-deep: #b0183d;
+  --p-qual-8-bright: #ff8a9b; /* Crimson */
+  --p-qual-9-deep: #5b6a0b;
+  --p-qual-9-bright: #c5d667; /* Olive */
+  --p-qual-10-deep: #4a5568;
+  --p-qual-10-bright: #a9b4c6; /* Slate */
 
   /* the writer's own text colours: deep on light paper, bright on dark */
-  --p-write-red-deep: #8E1B14;
-  --p-write-red-bright: #FF9B93;
-  --p-write-orange-deep: #7A3E00;
-  --p-write-orange-bright: #F2B36B;
-  --p-write-green-deep: #0F5132;
-  --p-write-green-bright: #7FD9A5;
-  --p-write-blue-deep: #1A429F;
-  --p-write-blue-bright: #9DB8FF;
-  --p-write-violet-deep: #5B21A6;
-  --p-write-violet-bright: #C6A8FF;
+  --p-write-red-deep: #8e1b14;
+  --p-write-red-bright: #ff9b93;
+  --p-write-orange-deep: #7a3e00;
+  --p-write-orange-bright: #f2b36b;
+  --p-write-green-deep: #0f5132;
+  --p-write-green-bright: #7fd9a5;
+  --p-write-blue-deep: #1a429f;
+  --p-write-blue-bright: #9db8ff;
+  --p-write-violet-deep: #5b21a6;
+  --p-write-violet-bright: #c6a8ff;
 
   /* demo instrumentation: a hue no surface of the product uses */
-  --p-demo-900: #29242F;
-  --p-demo-800: #3A3342;
-  --p-demo-700: #4B4257;
-  --p-demo-600: #8574B0;
-  --p-demo-300: #C9BEDD;
-  --p-demo-200: #D5C4FF;
-  --p-demo-50: #F3EEFB;
+  --p-demo-900: #29242f;
+  --p-demo-800: #3a3342;
+  --p-demo-700: #4b4257;
+  --p-demo-600: #8574b0;
+  --p-demo-300: #c9bedd;
+  --p-demo-200: #d5c4ff;
+  --p-demo-50: #f3eefb;
 }
 
 /* --------------------------------------------------------------------------
@@ -178,7 +204,7 @@ html[data-white-page] .mn-pages {
   /* a field is a well, darker than the chrome it sits in */
   --bg-well: light-dark(var(--p-warm-100), var(--p-warm-950));
   --bg-subtle: light-dark(rgb(31 29 26 / 0.06), rgb(239 236 230 / 0.06));
-  --bg-control: light-dark(rgb(31 29 26 / 0.10), rgb(239 236 230 / 0.09));
+  --bg-control: light-dark(rgb(31 29 26 / 0.1), rgb(239 236 230 / 0.09));
   --bg-selected: light-dark(var(--p-blue-50), var(--p-blue-900));
   --bg-accent: light-dark(var(--p-blue-600), var(--p-blue-300));
   --bg-scrim: light-dark(rgb(31 29 26 / 0.32), rgb(0 0 0 / 0.5));
@@ -196,11 +222,11 @@ html[data-white-page] .mn-pages {
   --focus: light-dark(var(--p-blue-600), var(--p-blue-300));
   --chip-line: transparent;
   --elev-overlay:
-    0 2px 6px light-dark(rgb(31 29 26 / 0.08), rgb(0 0 0 / 0.40)),
-    0 8px 24px light-dark(rgb(31 29 26 / 0.10), rgb(0 0 0 / 0.40));
+    0 2px 6px light-dark(rgb(31 29 26 / 0.08), rgb(0 0 0 / 0.4)),
+    0 8px 24px light-dark(rgb(31 29 26 / 0.1), rgb(0 0 0 / 0.4));
   --elev-dialog:
-    0 4px 12px light-dark(rgb(31 29 26 / 0.10), rgb(0 0 0 / 0.50)),
-    0 16px 48px light-dark(rgb(31 29 26 / 0.16), rgb(0 0 0 / 0.50));
+    0 4px 12px light-dark(rgb(31 29 26 / 0.1), rgb(0 0 0 / 0.5)),
+    0 16px 48px light-dark(rgb(31 29 26 / 0.16), rgb(0 0 0 / 0.5));
 }
 
 /* Drawn inside the page too, so declared again on the white page's pages
@@ -257,6 +283,26 @@ html[data-white-page] .mn-pages {
   --collab-9: light-dark(var(--p-qual-9-deep), var(--p-qual-9-bright));
   --collab-10: light-dark(var(--p-qual-10-deep), var(--p-qual-10-bright));
   --collab-on: light-dark(var(--p-warm-0), var(--p-warm-950));
+  --avatar-neutral-bg: light-dark(var(--p-warm-100), var(--p-warm-850));
+  --avatar-neutral-edge: light-dark(var(--p-warm-300), var(--p-warm-700));
+  --avatar-inner-ring: light-dark(
+    inset 0 0 0 1px rgb(0 0 0 / 0.12),
+    inset 0 0 0 1px rgb(255 255 255 / 0.16)
+  );
+  --avatar-sheen: light-dark(
+    linear-gradient(180deg, rgb(255 255 255 / 0.2), rgb(0 0 0 / 0.08)),
+    linear-gradient(180deg, rgb(255 255 255 / 0.18), rgb(0 0 0 / 0.12))
+  );
+  --avatar-motif-hi: light-dark(
+    rgb(255 255 255 / 0.22),
+    rgb(255 255 255 / 0.2)
+  );
+  --avatar-motif-lo: light-dark(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.2));
+  --avatar-neutral-motif-hi: light-dark(
+    rgb(255 255 255 / 0.7),
+    rgb(255 255 255 / 0.12)
+  );
+  --avatar-neutral-motif-lo: light-dark(rgb(31 29 26 / 0.07), rgb(0 0 0 / 0.3));
 }
 
 /* --------------------------------------------------------------------------
@@ -285,8 +331,15 @@ html[data-white-page] .mn-pages {
   --page-removed-line: light-dark(var(--p-red-700), var(--p-red-300));
   --page-removed-bg: light-dark(rgb(168 34 27 / 0.13), rgb(255 161 153 / 0.14));
   --page-review: light-dark(var(--p-amber-700), var(--p-amber-300));
-  --page-note-bg: light-dark(rgb(74 70 64 / 0.10), rgb(169 164 155 / 0.08));
+  --page-note-bg: light-dark(rgb(74 70 64 / 0.1), rgb(169 164 155 / 0.08));
+  --page-skeleton: light-dark(rgb(31 29 26 / 0.11), rgb(239 236 230 / 0.11));
   --page-link: light-dark(var(--p-blue-700), var(--p-blue-300));
+  /* a suggestion is drawn as a change, a comment's marker as its line, an
+     Ink problem as a warning */
+  --mark-suggest-insert: var(--page-added-line);
+  --mark-suggest-delete: var(--page-removed-line);
+  --comment-marker: var(--page-comment-line);
+  --ink-problem: var(--page-review);
   --page-who-alpha: 14%;
   --page-band-w: 8px;
 
@@ -320,8 +373,8 @@ html[data-white-page] .mn-pages {
   --page-src-comment: var(--page-ink-muted);
   --page-hl-yellow: light-dark(rgb(240 190 0 / 0.38), rgb(227 179 65 / 0.18));
   --page-hl-green: light-dark(rgb(40 170 90 / 0.28), rgb(90 200 130 / 0.18));
-  --page-hl-pink: light-dark(rgb(230 70 140 / 0.24), rgb(240 110 160 / 0.20));
-  --page-hl-orange: light-dark(rgb(240 130 20 / 0.30), rgb(240 150 70 / 0.20));
+  --page-hl-pink: light-dark(rgb(230 70 140 / 0.24), rgb(240 110 160 / 0.2));
+  --page-hl-orange: light-dark(rgb(240 130 20 / 0.3), rgb(240 150 70 / 0.2));
   --page-hl-violet: light-dark(rgb(130 90 230 / 0.24), rgb(150 120 240 / 0.22));
 
   /* the full-page tint, a view option */
@@ -380,7 +433,7 @@ html[data-white-page] .mn-pages {
     --bg-raised: light-dark(var(--p-warm-0), var(--p-warm-950));
     --bg-overlay: light-dark(var(--p-warm-0), var(--p-warm-925));
     --bg-well: light-dark(var(--p-warm-0), var(--p-black));
-    --bg-subtle: light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.10));
+    --bg-subtle: light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.1));
     --bg-control: light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.12));
     --bg-selected: light-dark(var(--p-blue-50), var(--p-blue-950));
     --bg-accent: light-dark(var(--p-blue-800), var(--p-blue-200));
@@ -433,6 +486,12 @@ html[data-white-page] .mn-pages {
     --page-rev-tan-paper: var(--page-paper);
     --elev-page: 0 0 #0000;
   }
+  [data-slot="skeleton"] {
+    border: 1px solid var(--line);
+  }
+  .mn-pages [data-slot="skeleton"] {
+    border: 1px solid var(--page-edge);
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -466,8 +525,8 @@ html[data-white-page] .mn-pages {
   --line-strong: var(--p-demo-600);
   --focus: var(--p-demo-200);
   --chip-line: transparent;
-  --elev-overlay: 0 2px 6px rgb(0 0 0 / 0.40), 0 8px 24px rgb(0 0 0 / 0.40);
-  --elev-dialog: 0 4px 12px rgb(0 0 0 / 0.50), 0 16px 48px rgb(0 0 0 / 0.50);
+  --elev-overlay: 0 2px 6px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.4);
+  --elev-dialog: 0 4px 12px rgb(0 0 0 / 0.5), 0 16px 48px rgb(0 0 0 / 0.5);
 }
 
 /* --------------------------------------------------------------------------
@@ -538,7 +597,7 @@ html[data-white-page] .mn-pages {
   --dialog-w-wide: 35rem; /* 560 */
   --palette-w: 40rem; /* 640 */
   --palette-max-h: 26.25rem; /* 420 */
-  --status-server-w: 17.5rem; /* 280: slot two, the longest status sentence (tested) */
+  --status-w: 23rem; /* 368: the status's band, Saved, the dot and 280 for the longest server sentence (tested) */
   --avatar: 1.5rem; /* 24: title bar, threads */
   --avatar-sm: 1.25rem; /* 20: in rows; the smallest that holds 11 px initials */
   --avatar-lg: 2.5rem; /* 40: a person's card */
@@ -556,9 +615,9 @@ html[data-white-page] .mn-pages {
   --marker: 1.5rem; /* 24: a gutter marker; never scaled by page zoom */
 
   /* desk and page furniture: px. --desk-pad scales with page zoom;
-     --desk-gutter, which holds the markers beside the sheet, does not. */
+     --desk-gutter, which holds the markers beside the sheet (annotations + people), does not. */
   --desk-pad: 32px;
-  --desk-gutter: 32px;
+  --desk-gutter: 96px;
   --page-zoom: 1;
   --tour-ring: var(--p-demo-600);
 }
@@ -868,16 +927,20 @@ html[data-white-page] .mn-pages {
 /* --------------------------------------------------------------------------
    STOCK CORRECTIONS. Unlayered, so they beat utility classes. These are the
    only rules outside packages/ui/src/components that name a role or a slot
-   of a stock component. Adding one needs a design-system review.
+   of a stock component. Adding one needs a design-system review. The
+   shared Button is matched by its own class, group/button, because a trigger
+   that renders it (a tooltip's, a popover's) replaces its data-slot.
    -------------------------------------------------------------------------- */
 
 /* 1. One focus ring for every focusable thing, stock or ours. A heading or a
       refusal focused on arrival is where focus starts, not a control: no ring.
       Nor has the palette's field, which holds focus while the palette is open
       and is the palette's own top edge: its caret is the focus, as it is on a
-      page being written. A field inside an input group rings the whole
-      group, as a plain field rings itself, unless the group is marked
-      data-arrival: its field was focused on arrival and not yet left. */
+      page being written. Nor has the page, written or only read: a ring round
+      the whole sheet reads as a stray box. A field inside an input group
+      rings the whole group, as a plain field rings itself, unless the group
+      is marked data-arrival: its field was focused on arrival and not yet
+      left. */
 :focus-visible:not(
   [role="dialog"],
   [role="alertdialog"],
@@ -886,7 +949,7 @@ html[data-white-page] .mn-pages {
   [role="tooltip"],
   :is(h1, [data-arrival])[tabindex="-1"],
   .mn-palette-field,
-  .mn-page-view[contenteditable="true"],
+  .mn-page-view,
   .mn-plain[contenteditable="true"],
   .mn-front-field[contenteditable="plaintext-only"],
   [data-slot="input-group-control"]
@@ -919,23 +982,46 @@ html[data-white-page] .mn-pages {
 [role="tree"],
 [role="tablist"],
 [role="tabpanel"],
-[data-ring="inset"] {
+[data-ring="inset"],
+.mn-table {
   --focus-gap: calc(var(--focus-w) * -1);
 }
 
 /* 3. The option the keys are on, in every menu and list: the pressed fill and
-      the inset ring, because a fill alone is 1.1:1. Where focus stays in a
-      field and the list is driven from it (the palette, a combobox, the
-      editor's picker and completion list), the active option is that option.
-      A pointer alone gives the hover fill and no ring. */
-[role="listbox"]:not(:focus-within) [role="option"][data-highlighted],
-:is(#mn-picker, #mn-complete) [aria-selected="true"] {
-  background-color: var(--bg-control);
-  outline: var(--focus-w) solid var(--focus);
-  outline-offset: calc(var(--focus-w) * -1);
+      a neutral bar at its start, because a fill alone is 1.2:1 and the bar
+      is 5:1. Never a ring, so it reads neither as focus nor as what is
+      current (the accent bar). Where focus stays in a field and the list is
+      driven from it (the palette, a combobox, the editor's picker and
+      completion list), the active option is that option. A pointer alone
+      gives the hover fill; an option that cannot act now is dimmed, keyed
+      or not, as a button or a menu item that cannot act is. In forced
+      colours the system's highlight and the ring stand in for both. */
+@media (forced-colors: none) {
+  [role="listbox"]:not(:focus-within) [role="option"][data-highlighted],
+  :is(#mn-picker, #mn-complete) [aria-selected="true"],
+  :is([role^="menuitem"], [data-slot="select-item"]):focus-visible:not(:hover) {
+    position: relative;
+    background-color: var(--bg-control);
+    outline: none;
+  }
+  [role="listbox"]:not(:focus-within) [role="option"][data-highlighted]::before,
+  :is(#mn-picker, #mn-complete) [aria-selected="true"]::before,
+  :is([role^="menuitem"], [data-slot="select-item"]):focus-visible:not(
+      :hover
+    )::before {
+    content: "";
+    position: absolute;
+    inset-block: 4px;
+    inset-inline-start: 0;
+    border-inline-start: 2px solid var(--fg-muted);
+  }
 }
-:is([role^="menuitem"], [data-slot="select-item"]):focus-visible:not(:hover) {
-  background-color: var(--bg-control);
+[role="listbox"]
+  [role="option"]:not([aria-disabled="true"]):not([data-highlighted]):hover {
+  background-color: var(--bg-subtle);
+}
+[role="listbox"] [role="option"][aria-disabled="true"] {
+  opacity: 0.5;
 }
 
 /* 4. The scrim is a token, and nothing blurs. */
@@ -979,28 +1065,50 @@ html[data-white-page] .mn-pages {
   color: var(--fg-muted);
 }
 
-/* 7. Loading placeholders hold still. */
+/* 7. Loading placeholders use the control fill so they read on chrome and
+      raised surfaces; on the page they use the page skeleton fill; reduced
+      motion stops their pulse below. */
 [data-slot="skeleton"] {
-  animation: none;
+  background-color: var(--bg-control);
+}
+.mn-pages [data-slot="skeleton"] {
+  background-color: var(--page-skeleton);
 }
 
 /* 8. A toggle that is on, or a button pressed as one, takes the selected role
       and an edge, not the hover fill. */
 [data-slot^="toggle"][aria-pressed="true"],
-[data-slot="button"][aria-pressed="true"] {
+[class~="group/button"][aria-pressed="true"] {
   background-color: var(--bg-selected);
   color: var(--fg);
   outline: 1px solid var(--line-strong);
   outline-offset: -1px;
 }
 [data-slot^="toggle"][aria-pressed="true"]:focus-visible,
-[data-slot="button"][aria-pressed="true"]:focus-visible {
+[class~="group/button"][aria-pressed="true"]:focus-visible {
   outline: var(--focus-w) solid var(--focus);
   outline-offset: var(--focus-gap);
 }
+/* On the demo bar it is drawn inverted, its edge the fill: the bar's edge is
+   the Tour ring's hue, which marks a Tour step and nothing else. */
+@media (forced-colors: none) {
+  [data-surface="demo"]
+    :is([data-slot^="toggle"], [class~="group/button"])[aria-pressed="true"] {
+    background-color: var(--fg);
+    color: var(--bg-chrome);
+    border-color: var(--fg);
+  }
+  [data-surface="demo"]
+    :is(
+      [data-slot^="toggle"],
+      [class~="group/button"]
+    )[aria-pressed="true"]:not(:focus-visible) {
+    outline-color: var(--fg);
+  }
+}
 
 /* 9. One hover strength: the outline button hovers like every other control. */
-[data-slot="button"][class~="hover:bg-input/50"]:hover {
+[class~="group/button"][class~="hover:bg-input/50"]:hover {
   background-color: var(--bg-subtle);
 }
 
@@ -1020,12 +1128,24 @@ html[data-white-page] .mn-pages {
 /* 11. The selected tab's bar is blue; a tab at rest is muted text. */
 [data-slot="tabs-trigger"] {
   color: var(--fg-muted);
+  transition:
+    color var(--dur-fast) var(--curve-enter),
+    background-color var(--dur-fast) var(--curve-enter);
 }
 [data-slot="tabs-trigger"]:is([data-active], :hover) {
   color: var(--fg);
 }
 [data-slot="tabs-trigger"]::after {
   background-color: var(--bg-accent);
+}
+[data-orientation="horizontal"] [data-slot="tabs-trigger"]::after {
+  transform: scaleX(0.6);
+  transition:
+    opacity var(--dur-base) var(--curve-enter),
+    transform var(--dur-base) var(--curve-enter);
+}
+[data-orientation="horizontal"] [data-slot="tabs-trigger"][data-active]::after {
+  transform: scaleX(1);
 }
 
 /* 12. One menu surface: its edge is a hairline, it is as wide as its longest
@@ -1070,6 +1190,176 @@ html[data-white-page] .mn-pages {
   max-width: 16.25rem;
 }
 
+/* 14. What can be pressed, opened or chosen shows the pointer; text that does
+       nothing keeps the arrow. A control that cannot act now is dimmed, shows
+       the not-allowed cursor and no hover fill, and still takes the pointer
+       and focus, so that its tooltip or its own word says why. */
+:where(
+  button,
+  a[href],
+  summary,
+  [role="button"],
+  [role="link"],
+  [role="tab"],
+  [role^="menuitem"],
+  [role="option"],
+  [role="radio"],
+  [role="checkbox"],
+  [role="switch"],
+  [data-slot="select-trigger"],
+  .mn-row[tabindex],
+  .mn-card[tabindex]
+) {
+  cursor: pointer;
+}
+:where(
+  button,
+  [role="button"],
+  [role="tab"],
+  [role^="menuitem"],
+  [role="option"],
+  [role="radio"],
+  [role="checkbox"],
+  [role="switch"],
+  [data-slot="select-trigger"],
+  .mn-row[tabindex],
+  .mn-card[tabindex]
+):is(:disabled, [aria-disabled="true"], [data-disabled]) {
+  cursor: not-allowed;
+  pointer-events: auto;
+}
+[class~="group/button"]:is([aria-disabled="true"], [data-disabled]) {
+  opacity: 0.5;
+}
+[class~="group/button"]:is(
+    :disabled,
+    [aria-disabled="true"],
+    [data-disabled]
+  ):is([class~="hover:bg-muted"], [class~="hover:bg-input/50"]):hover {
+  background-color: transparent;
+}
+[class~="group/button"]:is(
+    :disabled,
+    [aria-disabled="true"],
+    [data-disabled]
+  )[class~="hover:bg-primary/80"]:hover {
+  background-color: var(--primary);
+}
+[data-slot="select-trigger"]:not(:disabled, [data-disabled]):hover {
+  background-image: linear-gradient(var(--bg-subtle), var(--bg-subtle));
+}
+
+/* 15. Tokenised micro-motion across stock popups, buttons, items and controls. */
+:is(
+  [data-slot$="dialog-overlay"],
+  [data-slot$="dialog-content"],
+  [data-slot="popover-content"],
+  [data-slot$="menu-content"],
+  [data-slot$="menu-sub-content"],
+  [data-slot="select-content"],
+  [data-slot="tooltip-content"]
+) {
+  --tw-animation-duration: var(--dur-fast);
+  --tw-ease: var(--curve-enter);
+}
+:is(
+  [data-slot$="dialog-overlay"],
+  [data-slot$="dialog-content"],
+  [data-slot="popover-content"],
+  [data-slot$="menu-content"],
+  [data-slot$="menu-sub-content"],
+  [data-slot="select-content"],
+  [data-slot="tooltip-content"]
+):is([data-closed], [data-state="closed"]) {
+  --tw-ease: var(--curve-exit);
+}
+[class~="group/button"] {
+  transition-property: color, background-color, border-color, opacity;
+  transition-duration: var(--dur-fast);
+}
+[class~="group/button"]:not(
+    :disabled,
+    [aria-disabled="true"],
+    [data-disabled],
+    [aria-pressed="true"]
+  ):is([class~="hover:bg-muted"], [class~="hover:bg-input/50"]):active {
+  background-color: var(--bg-control);
+}
+[class~="group/button"]:is(
+    :disabled,
+    [aria-disabled="true"],
+    [data-disabled]
+  ):active {
+  translate: none;
+}
+[class~="group/button"] svg.lucide {
+  transition: color var(--dur-fast) var(--curve-enter);
+}
+:is(
+  [role^="menuitem"],
+  [data-slot="select-item"],
+  [role="listbox"]:not(#mn-complete) [role="option"]
+) {
+  transition:
+    background-color var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter);
+}
+[data-slot="switch"] {
+  transition:
+    background-color var(--dur-base) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter),
+    opacity var(--dur-fast) var(--curve-enter);
+}
+[data-slot="switch-thumb"] {
+  transition-duration: var(--dur-base);
+}
+[data-slot="switch"]:not(
+    :disabled,
+    [aria-disabled="true"],
+    [data-disabled]
+  ):active
+  [data-slot="switch-thumb"] {
+  transform: scale(0.92);
+}
+[data-slot="radio-group-item"] {
+  transition:
+    border-color var(--dur-fast) var(--curve-enter),
+    background-color var(--dur-fast) var(--curve-enter);
+}
+[data-slot="radio-group-item"]:not(:disabled, [data-disabled]):hover {
+  border-color: var(--fg);
+}
+[data-slot="toggle"],
+[data-slot="toggle-group-item"] {
+  transition:
+    color var(--dur-fast) var(--curve-enter),
+    background-color var(--dur-fast) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter);
+}
+:is([data-slot="toggle"], [data-slot="toggle-group-item"]):not(
+    :disabled,
+    [aria-disabled="true"],
+    [data-disabled],
+    [aria-pressed="true"]
+  ):active {
+  background-color: var(--bg-control);
+}
+[data-slot="select-trigger"] > svg:last-child {
+  transition:
+    transform var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter);
+}
+[data-slot="select-trigger"][data-popup-open] > svg:last-child {
+  transform: rotate(180deg);
+}
+[data-slot$="menu-sub-trigger"] > svg:last-child {
+  transition: transform var(--dur-fast) var(--curve-enter);
+}
+[data-slot$="menu-sub-trigger"]:is([data-popup-open], [data-open])
+  > svg:last-child {
+  transform: translateX(2px);
+}
+
 /* --------------------------------------------------------------------------
    ROWS. Manent's own list row, used by Scenes, Pages, the Library tree,
    versions, threads, the Tour and the rundown. Layout is utilities; the
@@ -1078,12 +1368,32 @@ html[data-white-page] .mn-pages {
 .mn-row {
   position: relative;
   border-radius: var(--shape-control);
+  transition:
+    background-color var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter);
 }
 /* only a row that does something looks like it does: its own keys, or the
-   control around it */
-.mn-row[tabindex]:not([aria-disabled="true"]):hover,
-button:not(:disabled):hover > .mn-row {
+   control around it. A selected row keeps its fill under the pointer: the
+   fill is all that marks it. A row's menu lies over its end, so the row
+   keeps its fill while the pointer is on the menu. */
+.mn-row[tabindex]:not([aria-disabled="true"], [aria-selected="true"]):hover,
+[data-row-menu]:hover
+  > .mn-row[tabindex]:not([aria-disabled="true"], [aria-selected="true"]),
+button:not(:disabled, [aria-disabled="true"]):hover
+  > .mn-row:not([aria-selected="true"]) {
   background-color: var(--bg-subtle);
+}
+.mn-row[tabindex]:not([aria-disabled="true"], [aria-selected="true"]):where(
+    :not([aria-current]),
+    [aria-current="false"]
+  ):active,
+button:not(:disabled, [aria-disabled="true"]):active
+  > .mn-row:not([aria-selected="true"]):where(
+    :not([aria-current]),
+    [aria-current="false"]
+  ) {
+  background-color: var(--bg-control);
 }
 .mn-row[aria-current]:not([aria-current="false"]),
 .mn-row[aria-selected="true"] {
@@ -1100,13 +1410,8 @@ button:not(:disabled):hover > .mn-row {
   inset-inline-start: 0;
   border-inline-start: 2px solid var(--bg-accent);
 }
-.mn-row[aria-selected="true"] {
-  outline: 1px solid var(--focus);
-  outline-offset: -1px;
-} /* the edge: what is selected */
-.mn-row[aria-selected="true"]:focus-visible {
-  outline-width: var(--focus-w);
-  outline-offset: calc(var(--focus-w) * -1);
+.mn-row [data-leading] {
+  transition: color var(--dur-fast) var(--curve-enter);
 }
 .mn-row[aria-current]:not([aria-current="false"]) [data-leading] {
   color: var(--fg-accent);
@@ -1171,14 +1476,16 @@ button:not(:disabled):hover > .mn-row {
   text-transform: uppercase;
 }
 
-/* A bar of controls on one row, which never wraps or scrolls sideways. Short
-   of room, its buttons keep only their icons, their words staying their
-   names, and its labels go; narrower still, so do its status words. */
+/* A bar of controls on one row, which never scrolls sideways. Short of room,
+   the labels before its controls and its status words go first; then the
+   buttons marked to drop first keep only their icons, then those marked to
+   drop later, their words staying their names. In the narrowest bar the
+   controls take a second row. */
 .mn-bar {
   container: mn-bar / inline-size;
 }
 @container mn-bar (width < 72rem) {
-  .mn-bar :is([data-slot="button-label"], [data-slot="bar-label"]) {
+  .mn-bar :is([data-slot="bar-label"], [data-slot="bar-status"]) {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -1186,19 +1493,33 @@ button:not(:disabled):hover > .mn-row {
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  .mn-bar [data-slot="button"]:has(> [data-slot="button-label"]) {
+}
+@container mn-bar (width < 66rem) {
+  .mn-bar [data-drops="first"] > [data-slot="button-label"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .mn-bar [data-drops="first"] {
     width: var(--control-h-sm);
     padding-inline: 0;
   }
 }
-@container mn-bar (width < 40rem) {
-  .mn-bar [data-slot="bar-status"] {
+@container mn-bar (width < 56rem) {
+  .mn-bar [data-drops="later"] > [data-slot="button-label"] {
     position: absolute;
     width: 1px;
     height: 1px;
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
+  }
+  .mn-bar [data-drops="later"] {
+    width: var(--control-h-sm);
+    padding-inline: 0;
   }
 }
 
@@ -1215,22 +1536,130 @@ button:not(:disabled):hover > .mn-row {
   outline: 1px solid var(--chip-line);
 }
 
-/* A person: coloured only where they have a colour (inside a script, by its
-   index); elsewhere a ring round their initials. */
+/* A person: coloured inside a script (by its index), warm archival surface elsewhere,
+   with a subtle deterministic geometric motif behind crisp tabular initials. */
 .mn-avatar {
-  border: 1px solid var(--line-strong);
-  color: var(--fg-muted);
+  background-color: var(--avatar-neutral-bg);
+  border: 1px solid var(--avatar-neutral-edge);
+  color: var(--fg);
   font-weight: 600;
-  letter-spacing: 0.02em;
+  line-height: 1;
+  letter-spacing: 0.025em;
   font-variant-numeric: tabular-nums;
+}
+.mn-avatar[data-new] {
+  background-color: transparent;
+  border-style: dashed;
+  border-color: var(--line-strong);
+  color: var(--fg-muted);
+}
+.mn-avatar-art-hi {
+  fill: var(--avatar-neutral-motif-hi);
+}
+.mn-avatar-art-lo {
+  fill: var(--avatar-neutral-motif-lo);
+}
+.mn-avatar-art-ring {
+  stroke: var(--avatar-neutral-motif-lo);
 }
 .mn-avatar[data-who] {
   background-color: var(--who);
-  border-color: var(--who);
+  background-image: var(--avatar-sheen);
+  border-color: transparent;
+  box-shadow: var(--avatar-inner-ring);
   color: var(--collab-on);
 }
+.mn-avatar[data-who] .mn-avatar-art-hi {
+  fill: var(--avatar-motif-hi);
+}
+.mn-avatar[data-who] .mn-avatar-art-lo {
+  fill: var(--avatar-motif-lo);
+}
+.mn-avatar[data-who] .mn-avatar-art-ring {
+  stroke: var(--avatar-motif-hi);
+}
 .mn-avatar[data-more] {
-  border-color: var(--line);
+  width: auto;
+  background-color: var(--bg-raised);
+  border-color: var(--line-strong);
+  color: var(--fg);
+  letter-spacing: 0;
+}
+/* Title-bar presence stack: up to three overlapping avatars plus a count pill,
+   carved cleanly apart with chrome cutout rings and a gentle hover lift. */
+.mn-avatar-stack {
+  isolation: isolate;
+}
+.mn-avatar-stack > .mn-avatar {
+  position: relative;
+  box-shadow:
+    0 0 0 2px var(--bg-chrome),
+    var(--avatar-inner-ring);
+  transition: transform var(--dur-fast) var(--curve-enter);
+}
+.mn-avatar-stack > .mn-avatar[data-more] {
+  box-shadow: 0 0 0 2px var(--bg-chrome);
+}
+.mn-avatar-stack > .mn-avatar + .mn-avatar {
+  margin-inline-start: -0.375rem;
+}
+.mn-avatar-stack > .mn-avatar:nth-child(1) {
+  z-index: 4;
+}
+.mn-avatar-stack > .mn-avatar:nth-child(2) {
+  z-index: 3;
+}
+.mn-avatar-stack > .mn-avatar:nth-child(3) {
+  z-index: 2;
+}
+.mn-avatar-stack > .mn-avatar[data-more] {
+  z-index: 1;
+}
+.mn-avatar-stack:hover > .mn-avatar:nth-child(1) {
+  transform: translateX(-0.125rem);
+}
+.mn-avatar-stack:hover > .mn-avatar:nth-child(3) {
+  transform: translateX(0.125rem);
+}
+.mn-avatar-stack:hover > .mn-avatar[data-more] {
+  transform: translateX(0.25rem);
+}
+/* A compact stack where room is short (Scenes panel): each avatar tucks under the edge
+   of the one before, cut out by a ring of the panel's colour. */
+.mn-avatar-overlap {
+  isolation: isolate;
+}
+.mn-avatar-overlap > .mn-avatar {
+  position: relative;
+  box-shadow:
+    0 0 0 1.5px var(--bg-chrome),
+    var(--avatar-inner-ring);
+}
+.mn-avatar-overlap > .mn-avatar + .mn-avatar {
+  margin-inline-start: -0.25rem;
+}
+.mn-avatar-overlap > .mn-avatar:first-child {
+  z-index: 2;
+}
+.mn-avatar-overlap > .mn-avatar:nth-child(2) {
+  z-index: 1;
+}
+.mn-avatar-overlap > .mn-avatar[data-more] {
+  background-color: var(--bg-raised);
+  box-shadow: 0 0 0 1.5px var(--bg-chrome);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mn-avatar-stack > .mn-avatar {
+    transition: none;
+  }
+  .mn-avatar-stack:hover > .mn-avatar {
+    transform: none;
+  }
+}
+@media (prefers-contrast: more), (forced-colors: active) {
+  .mn-avatar-art {
+    display: none;
+  }
 }
 
 /* A card to choose (a person, a kind of project): raised, its edge strong
@@ -1240,6 +1669,10 @@ button:not(:disabled):hover > .mn-row {
   background-color: var(--bg-raised);
   border: 1px solid var(--line);
   border-radius: var(--shape-surface);
+  transition:
+    border-color var(--dur-fast) var(--curve-enter),
+    background-color var(--dur-fast) var(--curve-enter),
+    transform var(--dur-fast) var(--curve-enter);
 }
 .mn-card[data-new] {
   background-color: transparent;
@@ -1249,9 +1682,14 @@ button:not(:disabled):hover > .mn-row {
 .mn-card:hover:not(:disabled) {
   border-color: var(--line-strong);
 }
+.mn-card:is(button, [tabindex]):not(:disabled, [aria-disabled="true"]):active {
+  background-color: var(--bg-subtle);
+  transform: translateY(1px);
+}
 .mn-card[aria-current]:not([aria-current="false"]) {
   background-color: var(--bg-selected);
   border-color: var(--focus);
+  transition: none;
 }
 
 /* --------------------------------------------------------------------------
@@ -1274,6 +1712,10 @@ button:not(:disabled):hover > .mn-row {
     var(--desk-gutter),
     calc(var(--desk-pad) * var(--page-zoom))
   );
+}
+.mn-desk > .mn-pages {
+  width: fit-content;
+  margin-inline: auto;
 }
 .mn-pages {
   isolation: isolate;
@@ -1366,12 +1808,7 @@ button:not(:disabled):hover > .mn-row {
 }
 .mn-page-view:focus-visible {
   outline: none;
-} /* while editing, the caret is the focus */
-.mn-page-view[contenteditable="false"]:focus-visible {
-  /* read-only has no caret, so it has the ring */
-  outline: var(--focus-w) solid var(--focus);
-  outline-offset: var(--focus-gap);
-}
+} /* nor the browser's own ring: the page never rings itself (rule 1) */
 .mn-page-view ::selection {
   background: var(--page-selection);
   color: var(--page-selection-fg);
@@ -1409,7 +1846,13 @@ button:not(:disabled):hover > .mn-row {
   text-decoration: line-through double var(--page-removed-line) var(--page-line);
   background-color: var(--page-removed-bg);
 }
-.mn-outside-font {
+.mn-outside-font,
+.mn-name-match {
+  text-decoration: underline dotted var(--page-review)
+    calc(2 * var(--page-line));
+  text-underline-offset: 3px;
+}
+.mn-timing-unread {
   text-decoration: underline dotted var(--page-review)
     calc(2 * var(--page-line));
   text-underline-offset: 3px;
@@ -1418,8 +1861,8 @@ button:not(:disabled):hover > .mn-row {
    a change beats a comment, and a comment beats a warning */
 :is(.mn-added, .mn-removed) .mn-comment,
 .mn-comment:has(.mn-added, .mn-removed),
-.mn-comment .mn-outside-font,
-.mn-outside-font:has(.mn-comment) {
+.mn-comment :is(.mn-outside-font, .mn-name-match),
+:is(.mn-outside-font, .mn-name-match):has(.mn-comment) {
   text-decoration-line: none;
 }
 .mn-find {
@@ -1428,13 +1871,41 @@ button:not(:disabled):hover > .mn-row {
 }
 .mn-find[data-current] {
   outline-width: calc(2 * var(--page-line));
+  /* brought into view with the lines around it, never against the view's edge */
+  scroll-margin-block: 25vh;
 }
 .mn-note {
   background-color: var(--page-note-bg);
   color: var(--page-ink-muted);
   font-style: italic;
 }
-.mn-link {
+.mn-note[data-active] {
+  outline: var(--page-line) dashed var(--page-ink-muted);
+  outline-offset: 1px;
+}
+.mn-page-view strong,
+.mn-plain strong {
+  font-weight: 700;
+}
+.mn-page-view em,
+.mn-plain em {
+  font-style: italic;
+}
+.mn-page-view u,
+.mn-plain u {
+  text-decoration-line: underline;
+}
+.mn-page-view s,
+.mn-plain s {
+  text-decoration-line: line-through;
+}
+.mn-page-view .caps,
+.mn-plain .caps {
+  text-transform: uppercase;
+}
+.mn-link,
+.mn-page-view a[href],
+.mn-plain a[href] {
   color: var(--page-link);
   text-decoration: underline solid var(--page-line);
 }
@@ -1444,57 +1915,45 @@ button:not(:disabled):hover > .mn-row {
 } /* To review: a bar in the left margin */
 
 /* the writer's colours: the document stores the name, never a value */
-[data-ink="red"] {
+:is([data-ink="red"], [data-color="red"]) {
   color: var(--page-text-red);
 }
-[data-ink="orange"] {
+:is([data-ink="orange"], [data-color="orange"]) {
   color: var(--page-text-orange);
 }
-[data-ink="green"] {
+:is([data-ink="green"], [data-color="green"]) {
   color: var(--page-text-green);
 }
-[data-ink="blue"] {
+:is([data-ink="blue"], [data-color="blue"]) {
   color: var(--page-text-blue);
 }
-[data-ink="violet"] {
+:is([data-ink="violet"], [data-color="violet"]) {
   color: var(--page-text-violet);
 }
-[data-hl="yellow"] {
+mark[data-highlight] {
+  color: inherit;
+}
+:is([data-hl="yellow"], [data-highlight="yellow"]) {
   background-color: var(--page-hl-yellow);
 }
-[data-hl="green"] {
+:is([data-hl="green"], [data-highlight="green"]) {
   background-color: var(--page-hl-green);
 }
-[data-hl="pink"] {
+:is([data-hl="pink"], [data-highlight="pink"]) {
   background-color: var(--page-hl-pink);
 }
-[data-hl="orange"] {
+:is([data-hl="orange"], [data-highlight="orange"]) {
   background-color: var(--page-hl-orange);
 }
-[data-hl="violet"] {
+:is([data-hl="violet"], [data-highlight="violet"]) {
   background-color: var(--page-hl-violet);
 }
 
-/* under any fill, text is ink: a fill and a text colour never have to pass together */
-:is(
-    .mn-find,
-    .mn-comment[data-active],
-    .mn-added,
-    .mn-removed,
-    .mn-who-sel,
-    [data-hl]
-  )
-  :is([data-ink], .mn-link, .mn-note),
-:is([data-ink], .mn-link, .mn-note)
-  :is(
-    .mn-find,
-    .mn-comment[data-active],
-    .mn-added,
-    .mn-removed,
-    .mn-who-sel,
-    [data-hl]
-  ),
-[data-hl][data-ink] {
+/* under system fills, text is ink so search, review and presence marks stay clear */
+:is(.mn-find, .mn-comment[data-active], .mn-added, .mn-removed, .mn-who-sel)
+  :is([data-ink], [data-color], .mn-link, .mn-note),
+:is([data-ink], [data-color], .mn-link, .mn-note)
+  :is(.mn-find, .mn-comment[data-active], .mn-added, .mn-removed, .mn-who-sel) {
   color: var(--page-ink);
 }
 
@@ -1555,22 +2014,117 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   display: none;
 }
 
-/* gutter markers: positioned from the page, sized by the interface */
-.mn-marker {
+/* gutter markers: positioned from the page, sized by the interface; a room
+   log line's tags and link are markers too */
+:is(.mn-marker, .mn-room-tag, .mn-room-link) {
   width: var(--marker);
   height: var(--marker);
   color: var(--fg-muted);
   border-radius: var(--shape-control);
+  transition:
+    background-color var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter);
 }
-.mn-marker:hover {
+:is(.mn-marker, .mn-room-tag, .mn-room-link):hover {
   background-color: var(--bg-subtle);
   color: var(--fg);
 }
-.mn-marker[aria-pressed="true"] {
+:is(.mn-marker, .mn-room-tag, .mn-room-link):not(
+    :disabled,
+    [aria-disabled="true"],
+    [aria-pressed="true"]
+  ):active {
+  background-color: var(--bg-control);
+}
+:is(.mn-marker, .mn-room-tag, .mn-room-link)[aria-pressed="true"] {
   background-color: var(--bg-selected);
   color: var(--fg);
   outline: 1px solid var(--line-strong);
   outline-offset: -1px;
+}
+/* Annotation gutter markers: distinguish shared Comments (amber cue) from
+   private Writers-only Notes (dashed editorial cue) at a glance. */
+.mn-marker[data-kind] {
+  width: auto;
+  min-width: var(--marker);
+  padding-inline: 0.3125rem;
+  gap: 0.1875rem;
+  font: 500 var(--type-micro) / var(--lh-micro) var(--face-ui);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.mn-marker[data-kind="comment"],
+.mn-marker[data-kind="mixed"] {
+  background-color: var(--bg-raised);
+  border: 1px solid var(--line);
+  color: var(--fg);
+}
+.mn-marker[data-kind="comment"]:hover,
+.mn-marker[data-kind="mixed"]:hover {
+  background-color: var(--bg-subtle);
+  border-color: var(--line-strong);
+}
+.mn-marker[data-kind="comment"] svg,
+.mn-marker[data-kind="mixed"] [data-comment-icon] {
+  color: var(--comment-marker);
+}
+.mn-marker[data-kind="note"] {
+  background-color: var(--bg-subtle);
+  border: 1px dashed var(--line-strong);
+  color: var(--fg-muted);
+}
+.mn-marker[data-kind="note"]:hover {
+  background-color: var(--bg-control);
+  color: var(--fg);
+}
+.mn-marker[data-kind][aria-pressed="true"] {
+  background-color: var(--bg-selected);
+  border-color: var(--line-strong);
+  color: var(--fg);
+  outline: none;
+}
+/* Comment and note popover quote accents */
+.mn-comment-quote {
+  border-inline-start: 2px solid var(--comment-marker);
+}
+.mn-note-quote {
+  border-inline-start: 2px dashed var(--line-strong);
+}
+/* Multi-annotation line switcher strip inside CommentPopover */
+.mn-annotation-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.5rem;
+  padding-inline: 0.5rem;
+  border-radius: var(--shape-control);
+  border: 1px solid var(--line);
+  background-color: var(--bg-raised);
+  color: var(--fg-muted);
+  font: 500 var(--type-micro) / var(--lh-micro) var(--face-ui);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter),
+    color var(--dur-fast) var(--curve-enter);
+}
+.mn-annotation-pill:hover {
+  background-color: var(--bg-subtle);
+  border-color: var(--line-strong);
+  color: var(--fg);
+}
+.mn-annotation-pill[data-kind="note"] {
+  border-style: dashed;
+  background-color: var(--bg-subtle);
+}
+.mn-annotation-pill[data-kind="note"]:hover {
+  background-color: var(--bg-control);
+}
+.mn-annotation-pill[aria-current="true"] {
+  background-color: var(--bg-selected);
+  border-color: var(--line-strong);
+  color: var(--fg);
 }
 
 /* The editor's element picker and completion list: the menu surface, drawn by
@@ -1601,7 +2155,6 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   padding-inline: 0.5rem;
   border-radius: var(--shape-control);
   white-space: nowrap;
-  cursor: default;
 }
 :is(#mn-picker, #mn-complete) [role="option"]:hover {
   background-color: var(--bg-subtle);
@@ -1620,14 +2173,173 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
 
 /* Room view: the projected script shows the driver's caret and nothing else */
 [data-surface="room"]
-  :is(.mn-who-sel, .mn-who-tab, .mn-who-caret:not([data-driver]), .mn-marker) {
+  :is(
+    .mn-who-sel,
+    .mn-who-tab,
+    .mn-who-caret:not([data-driver]),
+    .mn-marker,
+    .mn-room-tag,
+    .mn-room-link
+  ) {
   display: none;
 }
 [data-surface="room"]
-  :is(.mn-comment, .mn-added, .mn-removed, .mn-find, .mn-outside-font) {
+  :is(
+    .mn-comment,
+    .mn-note,
+    .mn-added,
+    .mn-removed,
+    .mn-find,
+    .mn-outside-font,
+    .mn-name-match
+  ) {
   text-decoration-line: none;
   background-color: transparent;
   outline: none;
+}
+
+/* Present mode: floating HUD pill and script outline mini-map. */
+.mn-present-hud {
+  background-color: var(--bg-overlay);
+  border: 1px solid var(--line);
+  box-shadow: var(--elev-overlay);
+  transition: opacity var(--dur-fast) var(--curve-enter);
+}
+.mn-minimap-card {
+  background-color: var(--bg-overlay);
+  border: 1px solid var(--line);
+  border-radius: var(--shape-surface);
+  box-shadow: var(--elev-overlay);
+}
+.mn-minimap-tick {
+  background-color: var(--line-strong);
+  transform-origin: right center;
+  transition:
+    background-color var(--dur-fast) var(--curve-enter),
+    transform var(--dur-fast) var(--curve-enter),
+    opacity var(--dur-fast) var(--curve-enter);
+}
+[dir="rtl"] .mn-minimap-tick {
+  transform-origin: left center;
+}
+.mn-minimap-tick:is([data-kind="act"], [data-kind="section"]) {
+  background-color: var(--fg-muted);
+}
+:where(button):is(:hover, :focus-visible) > .mn-minimap-tick {
+  background-color: var(--fg);
+  transform: scaleX(1.2);
+}
+.mn-minimap-tick[data-active="true"] {
+  background-color: var(--bg-accent);
+}
+
+/* Selection bubble menu: text colour and highlight swatches. */
+.mn-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  border: 1px solid var(--line-strong);
+  background-color: var(--bg-well);
+  transition:
+    transform var(--dur-fast) var(--curve-enter),
+    border-color var(--dur-fast) var(--curve-enter);
+}
+.mn-swatch[data-swatch="text-none"],
+.mn-swatch[data-swatch="hl-none"] {
+  background-color: var(--bg-well);
+  color: var(--fg-muted);
+}
+.mn-swatch[data-swatch="text-red"] {
+  background-color: var(--page-text-red);
+  border-color: var(--line);
+}
+.mn-swatch[data-swatch="text-orange"] {
+  background-color: var(--page-text-orange);
+  border-color: var(--line);
+}
+.mn-swatch[data-swatch="text-green"] {
+  background-color: var(--page-text-green);
+  border-color: var(--line);
+}
+.mn-swatch[data-swatch="text-blue"] {
+  background-color: var(--page-text-blue);
+  border-color: var(--line);
+}
+.mn-swatch[data-swatch="text-violet"] {
+  background-color: var(--page-text-violet);
+  border-color: var(--line);
+}
+.mn-swatch[data-swatch="hl-yellow"] {
+  background-color: light-dark(rgb(240 190 0 / 0.65), rgb(227 179 65 / 0.55));
+}
+.mn-swatch[data-swatch="hl-green"] {
+  background-color: light-dark(rgb(40 170 90 / 0.55), rgb(90 200 130 / 0.5));
+}
+.mn-swatch[data-swatch="hl-pink"] {
+  background-color: light-dark(rgb(230 70 140 / 0.5), rgb(240 110 160 / 0.5));
+}
+.mn-swatch[data-swatch="hl-orange"] {
+  background-color: light-dark(rgb(240 130 20 / 0.58), rgb(240 150 70 / 0.52));
+}
+.mn-swatch[data-swatch="hl-violet"] {
+  background-color: light-dark(rgb(130 90 230 / 0.52), rgb(150 120 240 / 0.52));
+}
+@media (prefers-contrast: more) {
+  .mn-swatch[data-swatch] {
+    border-color: var(--line-strong);
+  }
+}
+.mn-swatch-item:hover .mn-swatch {
+  border-color: var(--fg);
+  transform: scale(1.1);
+}
+.mn-swatch[data-active] {
+  border-color: var(--fg);
+  box-shadow:
+    0 0 0 2px var(--bg-overlay),
+    0 0 0 3.5px var(--fg);
+}
+[role^="menuitem"].mn-swatch-item:focus-visible::before {
+  display: none;
+}
+[role^="menuitem"].mn-swatch-item:focus-visible {
+  outline: var(--focus-w) solid var(--focus);
+  outline-offset: -2px;
+  background-color: var(--bg-subtle);
+}
+
+/* Progress bar (Tour and demo reset) and closed-panel floating Tour bar. */
+.mn-progress-track,
+.mn-tour-progress-track {
+  height: 0.375rem;
+  border-radius: 9999px;
+  background-color: var(--bg-subtle);
+  overflow: hidden;
+}
+.mn-progress-fill,
+.mn-tour-progress-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  background-color: var(--bg-accent);
+  transform-origin: left center;
+  transition: transform var(--dur-base) var(--curve-enter);
+}
+[dir="rtl"] .mn-progress-fill,
+[dir="rtl"] .mn-tour-progress-fill {
+  transform-origin: right center;
+}
+.mn-tour-float {
+  box-shadow: var(--elev-overlay);
+}
+@media (prefers-contrast: more) {
+  .mn-progress-track,
+  .mn-tour-progress-track {
+    border: 1px solid var(--line-strong);
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -1645,6 +2357,8 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   *::after {
     --tw-enter-scale: 1 !important;
     --tw-exit-scale: 1 !important;
+    --tw-enter-rotate: 0deg !important;
+    --tw-exit-rotate: 0deg !important;
     --tw-enter-translate-x: 0 !important;
     --tw-enter-translate-y: 0 !important;
     --tw-exit-translate-x: 0 !important;
@@ -1656,8 +2370,32 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   .animate-bounce {
     animation: none !important;
   }
-  [data-slot="button"]:active {
+  [class~="group/button"]:active {
     translate: none !important;
+  }
+  [data-slot="switch-thumb"],
+  [data-orientation="horizontal"] [data-slot="tabs-trigger"]::after,
+  [data-slot="select-trigger"] > svg:last-child,
+  [data-slot$="menu-sub-trigger"] > svg:last-child,
+  .mn-minimap-tick {
+    transition: none !important;
+  }
+  [data-orientation="horizontal"] [data-slot="tabs-trigger"]::after,
+  .mn-card:is(button, [tabindex]):active,
+  [data-slot="switch"]:active [data-slot="switch-thumb"],
+  [data-slot$="menu-sub-trigger"]:is([data-popup-open], [data-open])
+    > svg:last-child,
+  .mn-minimap-tick {
+    transform: none !important;
+  }
+  .mn-annotation-pill,
+  .mn-swatch,
+  .mn-progress-fill,
+  .mn-tour-progress-fill {
+    transition: none;
+  }
+  .mn-swatch-item:hover .mn-swatch {
+    transform: none;
   }
 }
 
@@ -1696,13 +2434,14 @@ html[data-switching] *::after {
     border-inline-end: 4px double CanvasText;
   }
   [data-slot^="toggle"][aria-pressed="true"],
-  [data-slot="button"][aria-pressed="true"],
+  [class~="group/button"][aria-pressed="true"],
   .mn-row[aria-current]:not([aria-current="false"]),
   .mn-row[aria-selected="true"],
   [role="option"][data-highlighted],
   :is(#mn-picker, #mn-complete) [aria-selected="true"],
   :is([role^="menuitem"], [data-slot="select-item"]):focus-visible,
-  .mn-card[aria-current]:not([aria-current="false"]) {
+  .mn-card[aria-current]:not([aria-current="false"]),
+  .mn-annotation-pill[aria-current="true"] {
     forced-color-adjust: none;
     background-color: Highlight;
     color: HighlightText;
@@ -1718,6 +2457,50 @@ html[data-switching] *::after {
     background: Canvas;
     color: CanvasText;
     outline: 1px solid CanvasText;
+  }
+  [data-slot="skeleton"],
+  .mn-pages [data-slot="skeleton"] {
+    border: 1px solid CanvasText;
+    background-color: Canvas;
+  }
+  .mn-avatar[data-who] {
+    border-color: CanvasText;
+  }
+  .mn-minimap-tick,
+  .mn-minimap-spine {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+  .mn-minimap-tick[data-active="true"],
+  .mn-minimap-spine-fill {
+    forced-color-adjust: none;
+    background-color: Highlight;
+  }
+  .mn-swatch[data-swatch] {
+    forced-color-adjust: none;
+    border-color: CanvasText;
+  }
+  .mn-swatch[data-active] {
+    box-shadow: none;
+    outline: 2px solid Highlight;
+    outline-offset: 1px;
+  }
+  .mn-progress-track,
+  .mn-tour-progress-track {
+    forced-color-adjust: none;
+    border: 1px solid CanvasText;
+    background-color: Canvas;
+  }
+  .mn-progress-fill,
+  .mn-tour-progress-fill {
+    forced-color-adjust: none;
+    background-color: Highlight;
+  }
+  .mn-marker[data-kind] {
+    border-color: CanvasText;
+  }
+  .mn-note {
+    outline: 1px dashed CanvasText;
   }
 }
 

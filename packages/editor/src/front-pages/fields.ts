@@ -13,6 +13,7 @@ export interface FieldBox {
   readonly field: TitlePageField;
   /** Shows `text`, keeping the caret's offset, clamped to it, while the field is being edited. */
   show(text: string): void;
+  setEditable(editable: boolean): void;
   focus(): void;
 }
 
@@ -51,6 +52,22 @@ function historyOf(event: KeyboardEvent, keys: FieldKeys): boolean | null {
     : null;
 }
 
+function applyEditable(
+  element: HTMLElement,
+  word: string,
+  editable: boolean,
+): void {
+  if (editable) {
+    element.contentEditable = "plaintext-only";
+    element.dataset["placeholder"] = word;
+    element.removeAttribute("aria-readonly");
+  } else {
+    element.removeAttribute("contenteditable");
+    delete element.dataset["placeholder"];
+    element.setAttribute("aria-readonly", "true");
+  }
+}
+
 /** A box for `field` that writes each change through `write`; read-only when `editable` is false. */
 export function createFieldBox(options: {
   doc: Document;
@@ -67,10 +84,7 @@ export function createFieldBox(options: {
   element.setAttribute("aria-label", options.word);
   element.setAttribute("role", "textbox");
   element.setAttribute("aria-multiline", "true");
-  if (options.editable) {
-    element.contentEditable = "plaintext-only";
-    element.dataset["placeholder"] = options.word;
-  } else element.setAttribute("aria-readonly", "true");
+  applyEditable(element, options.word, options.editable);
   element.addEventListener("input", () => {
     const text = element.textContent ?? "";
     // an emptied box may keep a line break element, which would hide its placeholder
@@ -98,6 +112,9 @@ export function createFieldBox(options: {
       const offset = caretOffset(element);
       element.textContent = text;
       if (offset !== null) placeCaret(element, offset);
+    },
+    setEditable(next) {
+      applyEditable(element, options.word, next);
     },
     focus() {
       element.focus();

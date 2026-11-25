@@ -1,8 +1,15 @@
 // The document's state bar: the facts of its source and of every feature that adds one, a line on each side.
 import { StateBar, stateBarLines, useSubscribable } from "@manent/ui";
 import type { StateFact, Subscribable } from "@manent/ui";
-import { useLayoutEffect, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode, RefObject } from "react";
+import { useServices } from "../../services/context.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { STATE_FACT_SOURCES } from "./state-facts.ts";
 import { useCommandActions } from "./status-bar.tsx";
@@ -11,9 +18,11 @@ import { useWhereAmI } from "./where-am-i.ts";
 const PAGE_REGION = "[data-region='page']";
 
 /** The bar's appearing, going or changing height scrolls the page by as much, before the frame is drawn, so its lines stay put. */
-export function useKeepPageStill(bar: RefObject<HTMLElement | null>): void {
+export function useKeepPageStill(
+  bar: RefObject<HTMLElement | null>,
+): () => void {
   const height = useRef<number | null>(null);
-  useLayoutEffect(() => {
+  const sync = useCallback(() => {
     const element = bar.current;
     if (element === null) return;
     const next = element.offsetHeight;
@@ -23,7 +32,9 @@ export function useKeepPageStill(bar: RefObject<HTMLElement | null>): void {
     if (before === null || before === next) return;
     const page = element.ownerDocument.querySelector(PAGE_REGION);
     if (page !== null) page.scrollTop += next - before;
-  });
+  }, [bar]);
+  useLayoutEffect(sync);
+  return sync;
 }
 
 export function DocumentStateBar(props: {
@@ -35,7 +46,15 @@ export function DocumentStateBar(props: {
   const added = STATE_FACT_SOURCES.flatMap((source) => source(props.docId));
   const { left, right } = stateBarLines([...own, ...added]);
   useWhereAmI(props.docId, right?.sentence ?? null);
+  const { commands } = useServices();
+  const [, setTick] = useState(0);
+  useEffect(
+    () => commands.subscribe(() => setTick((count) => count + 1)),
+    [commands],
+  );
   const { run, registered } = useCommandActions();
+  const visibleAction = (id: string): boolean =>
+    registered(id) && commands.state(id).visible;
   const bar = useRef<HTMLDivElement>(null);
   useKeepPageStill(bar);
   return (
@@ -45,7 +64,12 @@ export function DocumentStateBar(props: {
       className={left === null && right === null ? "hidden" : undefined}
     >
       <div ref={bar}>
-        <StateBar left={left} right={right} run={run} registered={registered} />
+        <StateBar
+          left={left}
+          right={right}
+          run={run}
+          registered={visibleAction}
+        />
       </div>
     </ShellRegion>
   );

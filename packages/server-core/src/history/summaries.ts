@@ -2,14 +2,17 @@
 // how a list shows it, and the newest version each summary is made against.
 import { compareDocs } from "@manent/revisions";
 import type { BlockJSON, DocJSON } from "@manent/schema";
-import type { DocFile, VersionRow, VersionSummary } from "@manent/storage";
-import { VERSION_KINDS } from "@manent/sync-protocol";
+import type {
+  DocFile,
+  VersionPageRow,
+  VersionRow,
+  VersionSummary,
+} from "@manent/storage";
 import type {
   HttpErrorCode,
   VersionContent,
   VersionItem,
   VersionPosition,
-  VersionResponse,
 } from "@manent/sync-protocol";
 import type { Clock, SyncService } from "../sync/ports.ts";
 import { isStorageError } from "../sync/storage-error.ts";
@@ -71,10 +74,9 @@ export function summaryAuthors(
     return [createdByUserId];
   const { rows } = file.log.tail(docId, to.generation, from.seq, {
     quarantine: false,
+    throughSeq: to.seq,
   });
-  return union(
-    rows.filter((row) => row.seq <= to.seq).map((row) => row.userId),
-  );
+  return union(rows.map((row) => row.userId));
 }
 
 /** `into`'s summary with `from`'s joined: each list a union, `into`'s entries first. */
@@ -95,58 +97,41 @@ export const positionOf = ({
 }: VersionRow): VersionPosition | null =>
   generation === null || seq === null ? null : { generation, seq };
 
-type Fields = Record<string, unknown>;
-
-const isFields = (value: unknown): value is Fields =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const isCount = (value: unknown): value is number =>
-  Number.isSafeInteger(value) && Number(value) >= 0;
-
-function readPosition(value: unknown): VersionPosition | null {
-  if (!isFields(value)) return null;
-  const { generation, seq } = value;
-  return isCount(generation) && isCount(seq) ? { generation, seq } : null;
-}
-
-function readSummary(value: unknown): VersionItem["summary"] | null {
-  if (!isFields(value)) return null;
-  const { authorUserIds, changes, scenes } = value;
-  if (!Array.isArray(authorUserIds) || !isCount(changes) || !isCount(scenes))
-    return null;
-  const ids = authorUserIds.filter((id) => typeof id === "string");
-  return ids.length === authorUserIds.length
-    ? { authorUserIds: ids, changes, scenes }
-    : null;
-}
-
-/** A stored request's answer read back; null for text this service did not write. */
-export function readStoredResponse(text: string): VersionResponse | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    // stored text that is not JSON is no answer: the caller refuses the retry like a damaged one
-    return null;
-  }
-  const item = isFields(parsed) ? parsed.version : null;
-  if (!isFields(item)) return null;
-  const { id, kind, name, createdByUserId, createdAt, onDevice } = item;
-  const known = VERSION_KINDS.find((member) => member === kind);
-  if (typeof id !== "string" || known === undefined) return null;
-  if (name !== null && typeof name !== "string") return null;
-  if (typeof createdByUserId !== "string" || !isCount(createdAt)) return null;
-  if (typeof onDevice !== "boolean") return null;
-  const position = item.position === null ? null : readPosition(item.position);
-  const summary = item.summary === null ? null : readSummary(item.summary);
-  const { engineVersion } = item;
-  if (engineVersion !== null && !isCount(engineVersion)) return null;
-  if ((position === null) !== (item.position === null)) return null;
-  if ((summary === null) !== (item.summary === null)) return null;
-  const version = { id, kind: known, name, createdByUserId, createdAt };
+function formatVersionItem(
+  row: VersionRow,
+  engineVersion: number | null,
+  summary: VersionSummary | null,
+): VersionItem {
   return {
-    version: { ...version, onDevice, position, engineVersion, summary },
+    id: row.id,
+    kind: row.kind,
+    name: row.name,
+    createdByUserId: row.createdByUserId,
+    createdAt: row.createdAt,
+    onDevice: row.deviceId !== null,
+    position: positionOf(row),
+    engineVersion,
+    summary:
+      summary === null
+        ? null
+        : {
+            authorUserIds: summary.authorIds,
+            changes: summary.blockIds.length,
+            scenes: summary.sceneIds.length,
+          },
   };
+}
+
+/** A pre-joined page row as a list shows it, avoiding per-row summary/snapshot/document queries. */
+export function itemOfPageRow(
+  row: VersionPageRow,
+  docEngineVersion: number | null,
+): VersionItem {
+  const position = positionOf(row);
+  const snapshotEngine = row.snapshotRef !== null ? row.engineVersion : null;
+  const engineVersion =
+    snapshotEngine ?? (position === null ? null : docEngineVersion);
+  return formatVersionItem(row, engineVersion, row.summary);
 }
 
 /** A version as a list shows it: its summary counted, its engine version that of its snapshot, else of the document. */
@@ -158,24 +143,7 @@ export function itemOf(file: DocFile, row: VersionRow): VersionItem {
     (position === null
       ? null
       : (file.log.get(row.docId)?.engineVersion ?? null));
-  return {
-    id: row.id,
-    kind: row.kind,
-    name: row.name,
-    createdByUserId: row.createdByUserId,
-    createdAt: row.createdAt,
-    onDevice: row.deviceId !== null,
-    position,
-    engineVersion,
-    summary:
-      summary === null
-        ? null
-        : {
-            authorUserIds: summary.authorIds,
-            changes: summary.blockIds.length,
-            scenes: summary.sceneIds.length,
-          },
-  };
+  return formatVersionItem(row, engineVersion, summary);
 }
 
 /**
@@ -234,8 +202,9 @@ export interface Recorder {
   /**
    * A version at the head, recorded at its turn in the write queue by an authority write that
    * writes nothing; the version before it is read before the commit. Its item is null when it
-   * waits for something new and the head is not past the newest version's position; busy when
-   * another was recorded meanwhile, or the write could not be made.
+   * waits for something new and the head is not past the newest version's position, or the
+   * script holds what the newest version holds; busy when another was recorded meanwhile, or the
+   * write could not be made.
    */
   atHead(
     file: DocFile,
@@ -245,6 +214,78 @@ export interface Recorder {
   /** The room was unloaded, or a version was recorded outside it: what is kept of its newest version goes. */
   forget(docId: string): void;
 }
+
+/** A version's content and what it changed since the one before it. */
+interface Summarized {
+  content: VersionContent;
+  summary: VersionSummary;
+}
+
+/** The script holds what `previous` holds: no block changed or moved, and the same settings. */
+const isUnchanged = (
+  previous: NewestVersion | null,
+  { content, summary }: Summarized,
+): boolean =>
+  previous !== null &&
+  previous.content !== null &&
+  summary.blockIds.length === 0 &&
+  JSON.stringify(previous.content.settings) ===
+    JSON.stringify(content.settings);
+
+/** What `version` holds, its authors carried or its own, and what it changed since `previous`. */
+function summarized(
+  file: DocFile,
+  version: VersionRow,
+  base: VersionContent,
+  how: Recording,
+  previous: NewestVersion | null,
+): Summarized {
+  const { docId, createdByUserId: userId, createdAt } = version;
+  const was = previous?.position ?? null;
+  const position = positionOf(version);
+  const authorIds =
+    how.authorIds ?? summaryAuthors(file, docId, was, position, userId);
+  const author = { userId: soleAuthor(authorIds, userId), at: createdAt };
+  const before = previous?.content ?? null;
+  const authors = how.carry
+    ? carryAuthors(before, base.blocks, author)
+    : base.authors;
+  const content = { ...base, authors };
+  return { content, summary: summaryOf(before, content, authorIds) };
+}
+
+/** In the caller's transaction: the version, its summary, its snapshot or its pin, and the request's answer. */
+function write(
+  file: DocFile,
+  version: VersionRow,
+  { content, summary }: Summarized,
+  how: Recording,
+): { item: VersionItem; newest: NewestVersion } {
+  const { docId, id, createdByUserId: userId, createdAt } = version;
+  const position = positionOf(version);
+  file.versions.add(version);
+  file.history.setSummary(id, summary);
+  if (how.snapshot) {
+    const ref = writeSnapshot(file, content);
+    file.history.setSnapshot(id, ref, content.engineVersion);
+  } else if (position !== null)
+    file.checkpoints.pin(id, docId, position.generation, position.seq);
+  const item = itemOf(file, version);
+  if (how.key !== null) {
+    const result = JSON.stringify({ version: item });
+    file.history.putRequest({
+      docId,
+      key: how.key,
+      userId,
+      result,
+      createdAt,
+    });
+  }
+  return { item, newest: { id, position, content } };
+}
+
+const record: Recorder["record"] = (file, version, base, how, previous) =>
+  write(file, version, summarized(file, version, base, how, previous), how);
 
 const newestRow = (file: DocFile, docId: string): VersionRow | undefined =>
   file.history.page(docId, null, 1)[0];
@@ -272,45 +313,6 @@ export function createRecorder(options: {
       if (!isStorageError(error) || error.code !== "corrupt") throw error;
     }
     return { id, position: null, content: null };
-  }
-
-  function record(
-    file: DocFile,
-    version: VersionRow,
-    base: VersionContent,
-    how: Recording,
-    previous: NewestVersion | null,
-  ): { item: VersionItem; newest: NewestVersion } {
-    const { docId, id, createdByUserId: userId, createdAt } = version;
-    const position = positionOf(version);
-    const was = previous?.position ?? null;
-    const authorIds =
-      how.authorIds ?? summaryAuthors(file, docId, was, position, userId);
-    const author = { userId: soleAuthor(authorIds, userId), at: createdAt };
-    const before = previous?.content ?? null;
-    const authors = how.carry
-      ? carryAuthors(before, base.blocks, author)
-      : base.authors;
-    const content = { ...base, authors };
-    file.versions.add(version);
-    file.history.setSummary(id, summaryOf(before, content, authorIds));
-    if (how.snapshot) {
-      const ref = writeSnapshot(file, content);
-      file.history.setSnapshot(id, ref, content.engineVersion);
-    } else if (position !== null)
-      file.checkpoints.pin(id, docId, position.generation, position.seq);
-    const item = itemOf(file, version);
-    if (how.key !== null) {
-      const result = JSON.stringify({ version: item });
-      file.history.putRequest({
-        docId,
-        key: how.key,
-        userId,
-        result,
-        createdAt,
-      });
-    }
-    return { item, newest: { id, position, content } };
   }
 
   function recordAlone(
@@ -372,7 +374,9 @@ export function createRecorder(options: {
         const base = { ...doc, schemaVersion, engineVersion, locks };
         const createdAt = clock.now();
         const version = { ...made, id, ...head, createdAt, deviceId: null };
-        state.written = record(file, version, base, how, previous);
+        const change = summarized(file, version, base, how, previous);
+        if (how.onlyWhenNew && isUnchanged(previous, change)) return;
+        state.written = write(file, version, change, how);
       },
     });
     if (!result.ok || state.raced) {

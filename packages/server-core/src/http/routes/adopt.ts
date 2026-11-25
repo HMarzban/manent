@@ -7,19 +7,27 @@ import {
 } from "@manent/crdt";
 import { rejects, validateBlocks } from "@manent/schema";
 import type { DocFile, Home, Storage } from "@manent/storage";
-import { decodeReplayUpdates, isDocId, isDocKind } from "@manent/sync-protocol";
+import {
+  commentsDocId,
+  decodeReplayUpdates,
+  isDocId,
+  isDocKind,
+} from "@manent/sync-protocol";
 import type {
   AdoptRequest,
   AdoptResponse,
   DescribeResponse,
+  DocKind,
 } from "@manent/sync-protocol";
+import { validateCommentsState } from "../../comments/validate.ts";
 import {
   keepAdoptedWorkflow,
   readAdoptedWorkflow,
 } from "../../production/adoption.ts";
 import type { AdoptedWorkflow } from "../../production/adoption.ts";
-import { createDocumentAccess } from "../../sync/access.ts";
+import { SYNCED_KINDS, createDocumentAccess } from "../../sync/access.ts";
 import type { CreateResult, DocumentAccess } from "../../sync/access.ts";
+import { INDEX_KINDS } from "../../sync/index-docs.ts";
 import { DEFAULT_LIMITS } from "../../sync/ports.ts";
 import { failure, json } from "../respond.ts";
 import type { Route, RouteContext } from "../route.ts";
@@ -73,14 +81,24 @@ const isText = (value: unknown): value is string => typeof value === "string";
 /** The body's fields, each of the right kind; null when one is missing or is not. */
 function adoptionOf(body: unknown): AdoptRequest | null {
   if (!isObject(body)) return null;
-  const { key, docId, kind, home, workspaceId, state } = body;
+  const { key, docId, kind, home, workspaceId, state, scriptDocId } = body;
   if (!isDocId(key) || !isDocId(docId) || !isText(kind) || !isText(home))
     return null;
   if (!isText(state) || !(workspaceId === null || isText(workspaceId)))
     return null;
+  if (scriptDocId !== undefined && !isText(scriptDocId)) return null;
   const workflow = readAdoptedWorkflow(body);
   if (workflow === null) return null;
-  return { key, docId, kind, home, workspaceId, state, ...workflow };
+  return {
+    key,
+    docId,
+    kind,
+    home,
+    workspaceId,
+    state,
+    ...(scriptDocId === undefined ? {} : { scriptDocId }),
+    ...workflow,
+  };
 }
 
 /** True when a version's blocks hold what the editor never writes. */
@@ -101,6 +119,8 @@ interface Meta {
  * the authority.
  */
 function checkState(
+  kind: DocKind,
+  userId: string,
   state: string,
   documentBytes: number,
 ):
@@ -115,9 +135,12 @@ function checkState(
     const metas = updateMeta(update);
     const report = applyInspecting(doc, update);
     if (doc.hasPendingStructs()) return { ok: false, code: "bad_request" };
-    const issues = validateBlocks(report?.touched() ?? [], {
-      isIdTaken: () => false,
-    });
+    const issues =
+      kind === "comments"
+        ? validateCommentsState(doc, report, userId)
+        : validateBlocks(report?.touched() ?? [], {
+            isIdTaken: () => false,
+          });
     const refused = issues.some(
       (issue) => issue.severity === "reject" || issue.severity === "newer",
     );
@@ -133,6 +156,48 @@ function checkState(
 }
 
 const keyOf = (home: Home): string => `${home.kind}:${home.id}`;
+
+/**
+ * Rule 2: only the script's owner adopts its comments document (and with empty workflow),
+ * and only an existing document's owner adopts into a pre-created headSeq === 0 entry.
+ */
+function authorizeAdoption(
+  access: DocumentAccess,
+  storage: Storage,
+  userId: string,
+  adoption: AdoptRequest,
+): { ok: true; kind: DocKind } | { ok: false; code: Refusal } {
+  const { docId, kind, home, workspaceId, scriptDocId, versions, production } =
+    adoption;
+  if (!isDocKind(kind) || ![...SYNCED_KINDS, ...INDEX_KINDS].includes(kind))
+    return { ok: false, code: "unsupported_kind" };
+  if (storage.directory.tombstoneOf(docId) !== null)
+    return { ok: false, code: "deleted" };
+  if (kind === "comments") {
+    if (
+      workspaceId !== null ||
+      scriptDocId === undefined ||
+      !isDocId(scriptDocId) ||
+      commentsDocId(scriptDocId) !== docId ||
+      versions.length > 0 ||
+      production !== null
+    )
+      return { ok: false, code: "bad_request" };
+    const script = access.resolve(userId, scriptDocId);
+    if (!script.ok) return { ok: false, code: script.code };
+    if (script.access.role !== "owner") return { ok: false, code: "forbidden" };
+    return script.kind === "script" && keyOf(script.home) === home
+      ? { ok: true, kind }
+      : { ok: false, code: "bad_request" };
+  }
+  if (storage.directory.placeOf(docId) !== null) {
+    const resolved = access.resolve(userId, docId);
+    if (!resolved.ok) return { ok: false, code: resolved.code };
+    if (resolved.access.role !== "owner")
+      return { ok: false, code: "forbidden" };
+  }
+  return { ok: true, kind };
+}
 
 /**
  * Rule 1: the answer recorded when the document's file adopted it under `key` (`created` false);
@@ -202,19 +267,28 @@ async function adopt(context: RouteContext): Promise<Response> {
   const before = recorded(storage, adoption);
   if (before === "elsewhere") return refuse("exists_elsewhere");
   if (before !== null) return json<AdoptResponse>(before);
+  const { userId } = identity;
+  const access = accessOf(context, storage);
+  const authorized = authorizeAdoption(access, storage, userId, adoption);
+  if (!authorized.ok) return refuse(authorized.code);
   const documentBytes = limits?.documentBytes ?? DEFAULT_LIMITS.documentBytes;
-  const checked = checkState(adoption.state, documentBytes);
+  const checked = checkState(
+    authorized.kind,
+    userId,
+    adoption.state,
+    documentBytes,
+  );
   if (!checked.ok) return refuse(checked.code);
   if (holdsInvalid(adoption)) return refuse("invalid");
-  const { docId, kind, home, workspaceId, key } = adoption;
-  const { userId } = identity;
+  const { docId, kind, home, workspaceId, key, scriptDocId } = adoption;
   const asked = {
     docId,
     kind,
     home,
     ...(workspaceId === null ? {} : { workspaceId }),
+    ...(scriptDocId === undefined ? {} : { scriptDocId }),
   };
-  const created = accessOf(context, storage).create(userId, asked);
+  const created = access.create(userId, asked);
   if (!created.ok) return refuse(created.code);
   const place = storage.directory.placeOf(docId);
   const row = place === null ? null : storage.open(place.home).log.get(docId);

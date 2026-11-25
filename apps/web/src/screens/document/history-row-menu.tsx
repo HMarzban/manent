@@ -23,7 +23,7 @@ import {
 import { useState } from "react";
 import type { ReactNode } from "react";
 import type { HistoryRow } from "../../history/history-rows.ts";
-import { selectRow } from "../../history/history-view.ts";
+import { markRowLink, selectRow } from "../../history/history-view.ts";
 import { ROW_EXTENSIONS } from "../../history/row-extensions.ts";
 import { useServices } from "../../services/context.tsx";
 import { useEditorFact } from "../../state/facts.store.ts";
@@ -65,6 +65,7 @@ function useEntries(
     content.blocks.some((block) => block.attrs?.id === caretScene);
   const run = (id: CommandId) => (): void => {
     selectRow(row);
+    if (id === "history.copyLink") markRowLink();
     commands.run(id, "menu");
   };
   const entries: MenuEntry[] = [];

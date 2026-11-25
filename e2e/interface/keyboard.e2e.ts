@@ -1,9 +1,11 @@
 // Every default shortcut from the registry, pressed where a person writes, reads a panel and types in a field.
 import { COMMANDS, resolveBindings } from "@manent/commands";
 import type { CommandContext, CommandDefinition } from "@manent/commands";
+import { corpusDoc } from "@manent/pagination/testing";
 import { DIALOG_WORDS } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
+import { corpusLine, openScript, viewItem } from "../editor/support.ts";
 import {
   focusedDescription,
   keysFor,
@@ -120,11 +122,12 @@ test("every default shortcut runs its command once, from the page, a panel and a
       for (const chord of effective.get(command.id) ?? []) {
         const ctx: CommandContext = { ...spot.context, platform };
         const outcome = outcomeOf(command, ctx);
-        // an editor command's key goes to the page's own keymap, which editor/flow.e2e.ts drives; Mod+P opens the
-        // Send screen, which editor/send.e2e.ts follows
+        // only global commands bind on the document; editor keys belong to the page (editor/flow.e2e.ts),
+        // surface keys (such as scene.moveUp/Down in surface:left_panel) bind only inside their own surface,
+        // and Mod+P opens the Send screen (editor/send.e2e.ts)
         if (
           outcome === "absent" ||
-          command.scope === "editor" ||
+          command.scope !== "global" ||
           command.id === "doc.print"
         )
           continue;
@@ -279,5 +282,65 @@ test("while an input method composes, Enter, Tab, Escape and the arrows belong t
   expect([await heard(), (await runs(page)).slice(ran)]).toEqual([
     [...keys, ...keys, "Tab"],
     [],
+  ]);
+});
+
+test("scene move keys run in the Scenes tab and pass through outside it", async ({
+  page,
+}) => {
+  await openScript(
+    page,
+    "screenplay",
+    corpusDoc([
+      corpusLine("scene_heading", "INT. FIRST - DAY"),
+      corpusLine("scene_heading", "INT. SECOND - DAY"),
+      corpusLine("scene_heading", "INT. THIRD - DAY"),
+    ]),
+  );
+  const rows = page.locator("[data-region='left_panel'] [data-sortable-id]");
+  if ((await rows.count()) === 0) await viewItem(page, /^Left panel/);
+  await expect(rows).toHaveCount(3);
+  const headings = () =>
+    rows.evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute("data-sortable-id") ?? ""),
+    );
+  const before = await headings();
+
+  // outside the left panel, Alt+ArrowUp belongs to the page and neither runs nor prevents default
+  await editable(page).click();
+  await page.evaluate(() => {
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowUp" || event.key === "ArrowDown")
+        Reflect.set(window, "__moveHeard", {
+          key: event.key,
+          prevented: event.defaultPrevented,
+        });
+    });
+  });
+  const heard = () => page.evaluate(() => Reflect.get(window, "__moveHeard"));
+  const beforePage = (await runs(page)).length;
+  await page.keyboard.press("Alt+ArrowUp");
+  expect([await heard(), (await runs(page)).slice(beforePage)]).toEqual([
+    { key: "ArrowUp", prevented: false },
+    [],
+  ]);
+
+  // on a scene row in the Scenes tab, Alt+ArrowUp and Alt+ArrowDown run once, stop propagation, and move the scene
+  await page.evaluate(() => Reflect.set(window, "__moveHeard", null));
+  await rows.nth(1).locator("[tabindex]").first().focus();
+  const beforeUp = (await runs(page)).length;
+  await page.keyboard.press("Alt+ArrowUp");
+  await expect.poll(headings).toEqual([before[1]!, before[0]!, before[2]!]);
+  expect([await heard(), (await runs(page)).slice(beforeUp)]).toEqual([
+    null,
+    ["scene.moveUp"],
+  ]);
+
+  const beforeDown = (await runs(page)).length;
+  await page.keyboard.press("Alt+ArrowDown");
+  await expect.poll(headings).toEqual(before);
+  expect([await heard(), (await runs(page)).slice(beforeDown)]).toEqual([
+    null,
+    ["scene.moveDown"],
   ]);
 });

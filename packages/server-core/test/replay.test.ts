@@ -301,7 +301,7 @@ test("an edit in a block deleted since is set aside with the block before it", a
   expect(world.textOfRoom(B2)).toBe("");
 });
 
-test("seed 9: text a collaborator typed into a block the device had deleted is set aside, not deleted with it", async () => {
+test("seed 9: text a collaborator typed into a block the device had deleted stays in the script, not deleted with it", async () => {
   const world = replayWorld();
   const { file, samDoc } = world;
   const offline = world.samOffline((w) => w.deleteBlock(B2));
@@ -325,13 +325,13 @@ test("seed 9: text a collaborator typed into a block the device had deleted is s
     response: {
       docId: DOC,
       generation: 2,
-      serverSeq: 2,
-      applied: 1,
+      serverSeq: 1,
+      applied: 0,
       overlaps: [],
-      setAside: [{ blockId: B2, nearBlockId: B1, text: "Dawn. " }],
+      setAside: [],
     },
   });
-  expect(world.textOfRoom(B2)).toBe("");
+  expect(world.textOfRoom(B2)).toBe("Dawn. " + B2_TEXT);
 });
 
 test("several skipped generations are carried through in turn", async () => {

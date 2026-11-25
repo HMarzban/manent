@@ -99,7 +99,7 @@ const LAYOUT = [
   "packages/storage/src/index.ts",
   "packages/storage/src/checksum.ts",
   "packages/storage/src/home.ts",
-  "packages/storage/src/ports.ts",
+  "packages/storage/src/ports/index.ts",
   "packages/storage/src/sqlite/index.ts",
   "packages/storage/src/sqlite/checkpoints.ts",
   "packages/storage/src/sqlite/directory.ts",

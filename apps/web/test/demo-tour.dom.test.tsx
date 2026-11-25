@@ -1,6 +1,6 @@
 import { withDom } from "@manent/testkit/dom";
 import { afterEach, expect, test } from "bun:test";
-import { TOUR } from "@manent/demo";
+import { TOUR, isShown } from "@manent/demo";
 import type { TourScenario } from "@manent/demo";
 import type { DemoResponse, SignInChoice } from "@manent/sync-protocol";
 import { useCommandState } from "@manent/ui";
@@ -39,6 +39,7 @@ import { AnnouncerRegion } from "../src/shell/announcer-region.tsx";
 import { createShellDom } from "../src/shell/regions.tsx";
 import { bindGuard } from "../src/state/guard.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
+import { tourActions } from "../src/state/tour.store.ts";
 import {
   createClock,
   fakeApi,
@@ -54,6 +55,8 @@ let mounted: Root | null = null;
 afterEach(() => {
   act(() => mounted?.unmount());
   mounted = null;
+  // a scenario a test opened stays open in the tab's store
+  tourActions.close();
   document.body.replaceChildren();
 });
 
@@ -154,10 +157,14 @@ test("a group with no scenario listed is not drawn", async () => {
       <TourPanel />
     </ServicesProvider>,
   );
-  expect(container.querySelector("h2")?.textContent).toBe("Tour");
-  // the shipped Tour has no scenario yet: no group is drawn
-  expect(TOUR.scenarios).toEqual([]);
-  expect(container.textContent).toBe("Tour");
+  // the groups drawn are exactly those that list a shown scenario, in the Tour's order
+  const listed = TOUR.groups.filter((group) =>
+    TOUR.scenarios.some((s) => s.group === group && isShown(s)),
+  );
+  expect(listed.length).toBeLessThan(TOUR.groups.length);
+  expect(
+    [...container.querySelectorAll("h2")].map((h) => h.textContent),
+  ).toEqual(listed);
   services.dispose();
 });
 
@@ -226,7 +233,7 @@ test("a set-up that did not work says why, with Set it up again", async () => {
   expect(setUps).toEqual([]);
 });
 
-test("a scenario shows its promise, one primary Set it up, numbered steps and its check", async () => {
+test("a scenario shows its promise, one bordered Set it up, numbered steps and its check", async () => {
   const setUps: string[] = [];
   const container = await render(
     <TourScenarioRow
@@ -244,10 +251,10 @@ test("a scenario shows its promise, one primary Set it up, numbered steps and it
   const [setUp, ...others] = buttons(container);
   expect(others).toEqual([]);
   expect(setUp?.textContent).toBe("Set it up");
-  expect(setUp?.className.split(" ").includes("bg-primary")).toBe(true);
+  expect(setUp?.className.split(" ").includes("border-border")).toBe(true);
   expect(
     [...container.querySelectorAll("ol > li")].map((li) => li.textContent),
-  ).toEqual(["Open the commands.", "Choose New script."]);
+  ).toEqual(["1Open the commands.", "2Choose New script."]);
   expect(container.querySelector("dl")?.textContent).toBe(
     "What to checkSaved · Synced",
   );
@@ -255,24 +262,85 @@ test("a scenario shows its promise, one primary Set it up, numbered steps and it
   expect(setUps).toEqual(["a-first-page"]);
 });
 
-test("a step marks its control with the Tour ring, which is not focus", async () => {
-  const control = document.createElement("button");
-  control.setAttribute("data-tour", "app.palette");
+/** The `data-tour` of every control the Tour ring marks. */
+const ringed = (): string[] =>
+  [...document.querySelectorAll("[data-tour-ring]")].map(
+    (control) => control.getAttribute("data-tour") ?? "",
+  );
+
+/** The words of the step the person is on, as the Tour shows it: none while no step is current. */
+const currentStep = (container: HTMLElement): (string | null)[] =>
+  [...container.querySelectorAll("ol [aria-current='true']")].map(
+    (step) => step.textContent,
+  );
+
+/** The Tour's numbered step rows, in order. */
+const stepRows = (container: HTMLElement): HTMLElement[] => [
+  ...container.querySelectorAll<HTMLElement>("ol > li > div"),
+];
+
+test("only the step the person is on rings its control, and choosing a step in the Tour moves them there", async () => {
+  const palette = document.createElement("button");
+  palette.setAttribute("data-tour", "app.palette");
+  const newScript = document.createElement("button");
+  newScript.setAttribute("data-tour", "library.newScript");
   const field = document.createElement("input");
-  document.body.append(control, field);
+  document.body.append(palette, newScript, field);
   field.focus();
-  await render(
+  const container = await render(
     <TourScenarioRow
       scenario={SCENARIO}
       {...ROW}
       setUp={async () => ({ ok: true })}
     />,
   );
-  expect(control.getAttribute("data-tour-ring")).toBe("");
+  // a scenario the person has not opened rings nothing
+  expect(ringed()).toEqual([]);
+  await act(async () => buttons(container)[0]?.click());
+  expect(ringed()).toEqual(["app.palette"]);
+  expect(currentStep(container)).toEqual(["1Open the commands."]);
+  // the Tour ring is not focus
   expect(document.activeElement).toBe(field);
+  // pressing the ringed control leaves the person on the step
+  act(() => palette.click());
+  expect(ringed()).toEqual(["app.palette"]);
+  expect(currentStep(container)).toEqual(["1Open the commands."]);
+  act(() => stepRows(container)[1]?.click());
+  expect(ringed()).toEqual(["library.newScript"]);
+  expect(currentStep(container)).toEqual(["2Choose New script."]);
+  act(() => stepRows(container)[0]?.click());
+  expect(ringed()).toEqual(["app.palette"]);
   act(() => mounted?.unmount());
   mounted = null;
-  expect(control.hasAttribute("data-tour-ring")).toBe(false);
+  expect(ringed()).toEqual([]);
+});
+
+test("clicking into the ringed page to write does not move the person on to the next step", async () => {
+  const page = document.createElement("div");
+  page.setAttribute("data-tour", "page");
+  const line = document.createElement("p");
+  page.append(line);
+  document.body.append(page);
+  const container = await render(
+    <TourScenarioRow
+      scenario={{
+        ...SCENARIO,
+        steps: [
+          { text: "Type a scene heading.", highlight: "page" },
+          { text: "Type an action line under it.", highlight: "page" },
+        ],
+      }}
+      {...ROW}
+      setUp={async () => ({ ok: true })}
+    />,
+  );
+  await act(async () => buttons(container)[0]?.click());
+  act(() => {
+    page.click();
+    line.click();
+  });
+  expect(currentStep(container)).toEqual(["1Type a scene heading."]);
+  expect(ringed()).toEqual(["page"]);
 });
 
 test("the demo bar is its own colour scope and says Demo", async () => {
@@ -281,6 +349,7 @@ test("the demo bar is its own colour scope and says Demo", async () => {
       person={{ token: null, userId: "dana", name: "Dana Reyes" }}
       onPersonClick={() => {}}
       control={null}
+      resetting={false}
     />,
   );
   const bar = container.querySelector("section");
@@ -422,7 +491,7 @@ test("while the people load the chooser shows nothing, then six placeholder rows
     ...container.querySelectorAll("[data-placeholder]"),
   ];
   const heading =
-    "Choose who you arePick anyone. You can switch at any time, and each browser tab can be a different person.";
+    "Choose who you arePick anyone. You can switch at any time, and each browser tab can be a different person.Manent has no features that write for you, and your scripts are never used to train AI.Read the AI pledge";
   act(() => clock.advance(149));
   expect(placeholders()).toEqual([]);
   expect(container.textContent).toBe(heading);
@@ -447,5 +516,6 @@ test("while the people load the chooser shows nothing, then six placeholder rows
   expect(buttons(container).map((b) => b.textContent)).toEqual([
     "DRDana ReyesHead writer",
     "LMLeo MarshExecutive, reader and commenter",
+    "Read the AI pledge",
   ]);
 });

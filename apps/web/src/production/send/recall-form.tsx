@@ -7,7 +7,11 @@ import type { Message } from "@manent/ui";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { SendForm, SendFormProps } from "../../screens/send/forms.ts";
-import { SendFrame } from "../../screens/send/send-frame.tsx";
+import {
+  PageTilesSkeleton,
+  SendFormSkeleton,
+  SendFrame,
+} from "../../screens/send/send-frame.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { useProductionContext } from "../../state/production-context.store.ts";
 import { useProductionServices } from "../live-services.ts";
@@ -75,8 +79,9 @@ function Recall(props: {
   const request = useProductionSend("production.recall");
   const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set());
   const [memo, setMemo] = useState<string | null>(null);
+  if (state === null) return <SendFormSkeleton rows={3} />;
   // the latest issued revision, which Recall withdraws, and its issue
-  const latest = state === null ? null : latestIssue(state);
+  const latest = latestIssue(state);
   if (latest === null) return null;
   const { set, issue } = latest;
   const { name } = set;
@@ -148,7 +153,9 @@ function Recall(props: {
             ]),
       ]}
       pages={
-        p === null || live === null ? null : (
+        p === null || live === null ? (
+          <PageTilesSkeleton />
+        ) : (
           <Packet
             p={p}
             labels={pages}
@@ -173,7 +180,9 @@ function Recall(props: {
 
 function RecallBody(props: SendFormProps): ReactNode {
   const services = useProductionServices(props.docId);
-  return services === null ? null : (
+  return services === null ? (
+    <SendFormSkeleton rows={3} />
+  ) : (
     <Recall docId={props.docId} services={services} />
   );
 }

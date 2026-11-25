@@ -1,12 +1,19 @@
-// The SQLite driver: the directory in control.sqlite, and one file per home beside it, each opened on first use.
+// The SQLite driver: the directory and the other control stores in control.sqlite, and one file per home beside it,
+// each opened on first use.
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { createSqliteApiKeys } from "../api-keys/sqlite.ts";
 import { wellFormedKey } from "../home.ts";
-import type { Storage } from "../ports.ts";
+import { createSqliteOutbox } from "../outbox/sqlite.ts";
+import type { Storage } from "../ports/index.ts";
+import { createSqliteShareLinks } from "../sharing/sqlite.ts";
+import { createSqliteTrash } from "../trash/sqlite.ts";
+import { createSqliteWorkspaceSettings } from "../workspace/sqlite.ts";
 import { createSqliteDirectory } from "./directory.ts";
 import type { SqliteDocFile } from "./doc-file.ts";
 import { openDocFile } from "./doc-file.ts";
-import { CONTROL_FILE, migrate, openDatabase } from "./files.ts";
+import { CONTROL_FILE, migrate, openDatabase, transact } from "./files.ts";
+import type { SqliteDurability } from "./files.ts";
 
 /**
  * Storage in `dir`, which is created when missing. StorageError("corrupt") for
@@ -15,10 +22,11 @@ import { CONTROL_FILE, migrate, openDatabase } from "./files.ts";
 export function openSqliteStorage(options: {
   dir: string;
   now: () => number;
+  durability?: SqliteDurability;
 }): Storage {
-  const { dir, now } = options;
+  const { dir, now, durability } = options;
   mkdirSync(dir, { recursive: true });
-  const control = openDatabase(join(dir, CONTROL_FILE));
+  const control = openDatabase(join(dir, CONTROL_FILE), { durability });
   try {
     migrate(control, "control");
   } catch (error) {
@@ -26,14 +34,22 @@ export function openSqliteStorage(options: {
     throw error;
   }
   const files = new Map<string, SqliteDocFile>();
+  const controlFile = { db: control, now };
   return {
-    directory: createSqliteDirectory({ db: control, now }),
+    directory: createSqliteDirectory(controlFile),
+    trash: createSqliteTrash(controlFile),
+    workspace: createSqliteWorkspaceSettings(controlFile),
+    apiKeys: createSqliteApiKeys(controlFile),
+    outbox: createSqliteOutbox(controlFile),
+    shareLinks: createSqliteShareLinks(controlFile),
     open(home) {
       const key = wellFormedKey(home);
-      const file = files.get(key) ?? openDocFile({ dir, home, now });
+      const file =
+        files.get(key) ?? openDocFile({ dir, home, now, durability });
       files.set(key, file);
       return file;
     },
+    transaction: (fn) => transact(control, fn),
     close() {
       for (const file of files.values()) file.close();
       files.clear();

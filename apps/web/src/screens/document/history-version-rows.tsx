@@ -2,27 +2,37 @@
 // Drafts only the drafts oldest first; the name field of Name this draft…, and a draft named and not yet answered.
 import { SETTINGS } from "@manent/settings";
 import {
+  Avatar,
   Button,
   DOCUMENT_WORDS,
   HISTORY_WORDS,
-  Input,
   Row,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   VirtualRows,
   formatTime,
   joinNames,
 } from "@manent/ui";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { StarIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode, RefObject } from "react";
 import { baselineOfRow } from "../../history/baseline.ts";
 import { isTitledByTime } from "../../history/history-rows.ts";
 import type { HistoryRow } from "../../history/history-rows.ts";
 import { selectRow } from "../../history/history-view.ts";
-import { ROW_EXTENSIONS } from "../../history/row-extensions.ts";
+import {
+  useRowExtensionLine,
+  useRowExtensionList,
+} from "../../history/row-extensions.ts";
+import type { RowLine } from "../../history/row-extensions.ts";
 import { useSettingChanges } from "../../history/setting-changes.ts";
 import type { SettingChange } from "../../history/setting-changes.ts";
+import { initialsOf } from "../../initials.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
-import { nameOf } from "../../services/sync/index-entries.ts";
+import { fullNameOf, nameOf } from "../../services/sync/index-entries.ts";
 import { historyActions, useHistory } from "../../state/history.store.ts";
+import { NameField, nextDraftName, useDraftLadder } from "./draft-name.tsx";
 import { HistoryRowMenu } from "./history-row-menu.tsx";
 import { valueLabel } from "./setting-messages.ts";
 
@@ -42,14 +52,8 @@ interface Pending {
   failed: boolean;
 }
 
-/** The first letter of the first two words of `name`: "Dana Reyes" is "DR". */
-const initialsOf = (name: string): string =>
-  name
-    .split(/\s+/)
-    .filter((word) => word !== "")
-    .slice(0, 2)
-    .map((word) => Array.from(word)[0]?.toUpperCase() ?? "")
-    .join("");
+// a named draft's mark, before its name
+const STAR = <StarIcon aria-hidden="true" className="size-icon" />;
 
 /** Each day's versions and setting changes under its day, newest first; with Drafts only the drafts oldest first. */
 function itemsOf(
@@ -60,7 +64,7 @@ function itemsOf(
 ): Item[] {
   if (draftsOnly)
     return rows
-      .filter((row) => row.item.kind === "named")
+      .filter((row) => row.item.kind === "named" || row.item.kind === "sent")
       .toReversed()
       .map((row): Item => ({ kind: "version", row }));
   const dated = [
@@ -85,75 +89,68 @@ function itemsOf(
   return items;
 }
 
-/** The name Name this draft… offers: First draft … Tenth draft, then Draft 11, Draft 12 …, after the script's drafts. */
-function nextDraftName(rows: readonly HistoryRow[]): string {
-  const n = rows.filter((row) => row.item.kind === "named").length + 1;
-  return HISTORY_WORDS.ordinals[n - 1] ?? HISTORY_WORDS.draftNumber(n);
-}
-
-/** Enter names, Escape cancels; the field keeps every other key from the list around it. */
-function NameField(props: {
-  initial: string;
-  onName(name: string): void;
-  onCancel(): void;
-}): ReactNode {
-  const field = useRef<HTMLInputElement>(null);
-  const [value, setValue] = useState(props.initial);
-  useLayoutEffect(() => {
-    field.current?.focus();
-    field.current?.select();
-  }, []);
-  const onKeyDown = (event: KeyboardEvent): void => {
-    event.stopPropagation();
-    if (event.key === "Escape") props.onCancel();
-    if (event.key !== "Enter") return;
-    event.preventDefault();
-    const name = value.trim();
-    if (name !== "") props.onName(name);
-  };
-  return (
-    <Input
-      ref={field}
-      aria-label={HISTORY_WORDS.nameField}
-      value={value}
-      onChange={(event) => setValue(event.target.value)}
-      onKeyDown={onKeyDown}
-      className="mx-2 mb-1 h-control w-auto text-ui"
-    />
-  );
-}
-
-/** The avatars of the people whose changes the version holds, named together for a screen reader. */
+/**
+ * The avatars of the people whose changes the version holds, named together for a screen reader; each names its
+ * person on hover. Drawn without colour: the script's colour for each person is not known here.
+ */
 function Avatars(props: { userIds: readonly string[] }): ReactNode {
-  const names = props.userIds.map(nameOf);
-  if (names.length === 0) return null;
+  const { userIds } = props;
+  if (userIds.length === 0) return null;
   return (
-    <span role="img" aria-label={joinNames(names)} className="flex gap-0.5">
-      {names.map((name, index) => (
-        <span
-          key={props.userIds[index]}
-          aria-hidden="true"
-          className="rounded-full bg-surface-2 px-1 text-micro"
-        >
-          {initialsOf(name)}
-        </span>
-      ))}
+    <span
+      role="img"
+      aria-label={joinNames(userIds.map(nameOf))}
+      className="flex gap-1"
+    >
+      {userIds.map((userId) => {
+        const name = fullNameOf(userId);
+        return (
+          <Tooltip key={userId}>
+            <TooltipTrigger render={<span className="flex" />}>
+              <Avatar
+                name={name}
+                initials={initialsOf(name)}
+                colour={null}
+                size="sm"
+                decorative
+              />
+            </TooltipTrigger>
+            <TooltipContent>{name}</TooltipContent>
+          </Tooltip>
+        );
+      })}
     </span>
   );
 }
 
-/** The row's second line: another feature's, else the draft's namer or the changes it holds. */
-function metaOf(docId: string, row: HistoryRow): string | null {
-  for (const extension of ROW_EXTENSIONS) {
-    const line = extension.line(docId, row.item);
-    if (line !== null) return line;
-  }
+function renderRowLine(line: RowLine): ReactNode {
+  if (line.tooltip === null) return line.text;
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span className="inline-block max-w-full truncate align-bottom" />
+        }
+      >
+        {line.text}
+      </TooltipTrigger>
+      <TooltipContent>{line.tooltip}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** The row's second line: another feature's, else the draft's namer or the changes it holds; none for an empty version. */
+function useRowMeta(docId: string, row: HistoryRow): ReactNode {
+  const chosen = useRowExtensionLine(docId, row.item);
+  if (chosen !== null) return renderRowLine(chosen);
   const { item } = row;
-  if (item.kind === "named")
-    return HISTORY_WORDS.namedBy(nameOf(item.createdByUserId), row.time);
-  return item.summary === null
-    ? null
-    : HISTORY_WORDS.summary(item.summary.changes, item.summary.scenes);
+  const text =
+    item.kind === "named" || item.kind === "sent"
+      ? HISTORY_WORDS.namedBy(nameOf(item.createdByUserId), row.time)
+      : item.summary === null || item.summary.changes === 0
+        ? null
+        : HISTORY_WORDS.summary(item.summary.changes, item.summary.scenes);
+  return text === null ? null : <span title={text}>{text}</span>;
 }
 
 function VersionRow(props: {
@@ -164,17 +161,21 @@ function VersionRow(props: {
   naming: string | null;
   onName(): void;
   name(name: string): void;
+  /** A click: the version's changes, shown the way Show says. */
+  onShow(): void;
 }): ReactNode {
   const { docId, row } = props;
-  const meta = metaOf(docId, row);
+  const meta = useRowMeta(docId, row);
   const authors = row.item.summary?.authorUserIds ?? [];
   const selected = useHistory("selected") === row.item.id;
-  const named = row.item.kind === "named";
-  // Enter opens the version as it was; a click only selects it
+  const named = row.item.kind === "named" || row.item.kind === "sent";
+  const title = row.item.name ?? (isTitledByTime(row) ? row.time : row.title);
+  // Enter opens the version as it was; a click shows its changes the way Show says
   const onKeyDownCapture = (event: KeyboardEvent): void => {
     if (
       event.key !== "Enter" ||
-      event.target !== event.currentTarget.firstChild
+      !(event.target instanceof Element) ||
+      !event.target.classList.contains("mn-row")
     )
       return;
     event.preventDefault();
@@ -194,18 +195,18 @@ function VersionRow(props: {
         <div onKeyDownCapture={onKeyDownCapture}>
           <Row
             selected={selected}
-            leading={named ? <span aria-hidden="true">★</span> : undefined}
-            meta={meta === null ? undefined : meta}
+            leading={named ? STAR : undefined}
+            meta={meta ?? undefined}
             trailing={[
               ...(authors.length === 0
                 ? []
                 : [<Avatars key="avatars" userIds={authors} />]),
               ...(row.local === null ? [] : [HISTORY_WORDS.onDevice]),
-              ...(handle === null ? [] : [handle]),
             ]}
-            onActivate={() => selectRow(row)}
+            menu={handle ?? undefined}
+            onActivate={props.onShow}
           >
-            {row.item.name ?? (isTitledByTime(row) ? row.time : row.title)}
+            <span title={title}>{title}</span>
           </Row>
           {props.naming === null ? null : (
             <NameField
@@ -267,11 +268,13 @@ export function useDraftNaming(docId: string): DraftNaming {
  * can offer the next draft's name; and the draft named and not yet answered.
  */
 export function WorkingRow(props: {
+  docId?: string;
   rows: readonly HistoryRow[];
   answered: boolean;
   draft: DraftNaming;
 }): ReactNode {
-  const { rows, draft } = props;
+  const { docId, rows, draft } = props;
+  const ladder = useDraftLadder(docId);
   const naming = useHistory("naming");
   const selected = useHistory("selected");
   const { pending } = draft;
@@ -286,7 +289,7 @@ export function WorkingRow(props: {
       </Row>
       {naming && draft.target === null && props.answered ? (
         <NameField
-          initial={nextDraftName(rows)}
+          initial={nextDraftName(rows, ladder)}
           onName={(name) => draft.name(name, null)}
           onCancel={() => historyActions.setNaming(false)}
         />
@@ -294,7 +297,7 @@ export function WorkingRow(props: {
       {pending === null ? null : (
         <div>
           <Row
-            leading={<span aria-hidden="true">★</span>}
+            leading={STAR}
             trailing={
               pending.failed
                 ? []
@@ -329,15 +332,15 @@ export function WorkingRow(props: {
 function SettingRow(props: { change: SettingChange }): ReactNode {
   const { key, at, byUserId, was } = props.change;
   const { userId } = useServices();
+  const label = SETTINGS.get(key).label;
+  const meta = DOCUMENT_WORDS.setBy(
+    byUserId === userId ? YOU : nameOf(byUserId),
+    formatTime(at),
+    valueLabel(key, was, "row"),
+  );
   return (
-    <Row
-      meta={DOCUMENT_WORDS.setBy(
-        byUserId === userId ? YOU : nameOf(byUserId),
-        formatTime(at),
-        valueLabel(key, was, "row"),
-      )}
-    >
-      {SETTINGS.get(key).label}
+    <Row meta={<span title={meta}>{meta}</span>}>
+      <span title={label}>{label}</span>
     </Row>
   );
 }
@@ -349,8 +352,11 @@ export function VersionRows(props: {
   offline: boolean;
   draft: DraftNaming;
   onNearEnd(): void;
+  onShow(row: HistoryRow): void;
 }): ReactNode {
   const { docId, rows, draft } = props;
+  useRowExtensionList(docId);
+  const ladder = useDraftLadder(docId);
   const { now } = useEnvironment();
   const draftsOnly = useHistory("draftsOnly");
   const naming = useHistory("naming");
@@ -365,11 +371,7 @@ export function VersionRows(props: {
     const item = items[index]!;
     if (item.kind === "setting") return <SettingRow change={item.change} />;
     if (item.kind === "day")
-      return (
-        <h4 className="px-2 pt-2 text-micro text-fg-muted uppercase">
-          {item.label}
-        </h4>
-      );
+      return <h4 className="mn-group-label">{item.label}</h4>;
     return (
       <VersionRow
         docId={docId}
@@ -377,11 +379,12 @@ export function VersionRows(props: {
         offline={props.offline}
         naming={
           naming && draft.target === item.row.item.id
-            ? (item.row.item.name ?? nextDraftName(rows))
+            ? (item.row.item.name ?? nextDraftName(rows, ladder))
             : null
         }
         onName={() => draft.nameVersion(item.row.item.id)}
         name={(name) => draft.name(name, item.row.item.id)}
+        onShow={() => props.onShow(item.row)}
       />
     );
   };

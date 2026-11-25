@@ -42,6 +42,7 @@ test("the demo bar keeps its place and its name when its controls' code cannot l
             person={{ token: null, userId: "leo", name: "Leo Marsh" }}
             onPersonClick={() => {}}
             control={null}
+            resetting={false}
           />
           <main>Screen</main>
         </>,
@@ -67,6 +68,6 @@ test("the shell keeps its regions and its screen when the palette's code cannot 
   unmountFrame();
   expect([regions, title]).toEqual([
     ["page", "title_bar", "state_bar", "status_bar"],
-    "‹ LibraryHarbour LightsSaved · Only in this browser — not backed up",
+    "‹ LibraryHarbour LightsSaved · Only in this browser — not backed upShare",
   ]);
 });

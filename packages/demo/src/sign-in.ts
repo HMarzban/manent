@@ -1,7 +1,7 @@
 // Sign-in without a password, and the directory of the demo's people and the members the seed adds.
 import type { Directory, SignInProvider } from "@manent/server-core";
 import type { Identity, WorkspaceRef } from "@manent/sync-protocol";
-import { DEMO_PEOPLE, DEMO_WORKSPACES } from "./people.ts";
+import { DEMO_PEOPLE, DEMO_WORKSPACES, demoPersonName } from "./people.ts";
 import { GENERATED_MEMBERS } from "./people/members.ts";
 
 function identityIn(
@@ -13,8 +13,10 @@ function identityIn(
 }
 
 /** A demo person, whom the chooser lists, or a member the seed adds, who never signs in. */
-const memberOf = (userId: string): Identity | null =>
-  identityIn(DEMO_PEOPLE, userId) ?? identityIn(GENERATED_MEMBERS, userId);
+function memberOf(userId: string): Identity | null {
+  const name = demoPersonName(userId);
+  return name === null ? null : { userId, name };
+}
 
 function userIdOf(body: unknown): string | null {
   if (typeof body !== "object" || body === null || !("userId" in body))

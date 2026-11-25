@@ -2,9 +2,10 @@
 // plugin that keeps the script's marks, numbers and lock table and draws them.
 import { NO_LOCKS } from "@manent/pagination";
 import type { LockAnchorRecord } from "@manent/pagination";
-import { baseEngine } from "@manent/revisions";
+import { baseEngine, lockedPagination } from "@manent/revisions";
 import type {
   Baseline,
+  LockedLayout,
   MarkMode,
   NumberingScheme,
   RevisionColour,
@@ -15,12 +16,13 @@ import type { EditorState, PluginView, Transaction } from "prosemirror-state";
 import { DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import type { PageScaffold } from "../page/scaffold.ts";
+import { updateIndex } from "../pagination/block-index.ts";
 import { paginationKey, setPagination } from "../pagination/plugin.ts";
 import type {
   PaginationSettings,
   PaginationState,
 } from "../pagination/plugin.ts";
-import type { FactsSink } from "../script-editor/ports.ts";
+import type { FactsSink, Frames } from "../script-editor/ports.ts";
 import {
   keptOf,
   keptOfRevision,
@@ -86,11 +88,17 @@ export interface RevisionPluginOptions {
   lockIcon: () => Element;
   /** The accessible name of the lock beside a locked page's number. */
   lockMarkerName: string;
+  frames: Frames;
 }
 
 type RevisionMeta =
   | { readonly type: "view"; readonly view: ProductionView | null }
-  | { readonly type: "overrides"; readonly keys: readonly string[] };
+  | { readonly type: "overrides"; readonly keys: readonly string[] }
+  | {
+      readonly type: "locked";
+      readonly locked: LockedLayout;
+      readonly records: readonly LockAnchorRecord[];
+    };
 
 const hasView = (
   kept: RevisionKept,
@@ -112,7 +120,7 @@ function applyMeta(
   tr: Transaction,
   pages: PaginationState,
 ): RevisionKept {
-  if (meta === undefined) return kept;
+  if (meta === undefined || meta.type === "locked") return kept;
   if (meta.type === "view") return withView(kept, meta.view, tr.doc);
   return hasView(kept) ? withOverrides(kept, meta.keys, pages.index) : kept;
 }
@@ -127,19 +135,60 @@ function applyRevisions(
   if (was === null) return prev;
   const pages = pagesOf(state);
   const before = pagesOf(old).index;
-  let kept = applyMeta(was, tr.getMeta(revisionKey), tr, pages);
+  const meta: RevisionMeta | undefined = tr.getMeta(revisionKey);
+  let kept = applyMeta(was, meta, tr, pages);
   // a run that only took new settings laid the same blocks out again: no block's mark can change
   if (hasView(kept) && pages.change !== null && pages.index.doc !== before.doc)
     kept = withEdit(kept, before, { ...pages, change: pages.change });
-  kept = withPages(kept, pages);
+  if (
+    meta?.type === "locked" &&
+    hasView(kept) &&
+    kept.view.records === meta.records &&
+    pages.index.layoutKey === (kept.layout?.key ?? null)
+  ) {
+    kept = {
+      ...kept,
+      locked: { ...meta.locked, pagination: pages.pagination },
+      records: meta.records,
+      pagination: pages.pagination,
+    };
+  } else {
+    kept = withPages(kept, pages);
+  }
   return kept === was ? prev : revisionStateOf(kept);
+}
+
+/** O(1) check for whether pagination must be updated to match the current production state. */
+function needsSettle(state: EditorState, sent: boolean): boolean {
+  const kept = keptOf(state);
+  const { settings, index } = pagesOf(state);
+  if (kept === null) return false;
+  if (kept.view === null) {
+    const engine = baseEngine(settings.engine);
+    return (
+      sent &&
+      (settings.layout !== null ||
+        settings.locks !== NO_LOCKS ||
+        settings.engine !== engine)
+    );
+  }
+  if ((kept.layout?.key ?? null) !== index.layoutKey) return true;
+  if (kept.locked === null) return false;
+  const engine = productionEngine(settings.engine, kept.view.records);
+  return kept.locked.locks !== settings.locks || engine !== settings.engine;
 }
 
 /** What the pagination must be told for the pages to show production as it stands; null when they already do. */
 function pendingSettings(
   state: EditorState,
   sent: boolean,
-): Partial<PaginationSettings> | null {
+): {
+  patch: Partial<PaginationSettings>;
+  locked: {
+    locked: LockedLayout;
+    records: readonly LockAnchorRecord[];
+  } | null;
+} | null {
   const kept = keptOf(state);
   const { settings, index } = pagesOf(state);
   if (kept === null) return null;
@@ -149,15 +198,27 @@ function pendingSettings(
       (settings.layout !== null ||
         settings.locks !== NO_LOCKS ||
         settings.engine !== engine)
-      ? { layout: null, locks: NO_LOCKS, engine }
+      ? { patch: { layout: null, locks: NO_LOCKS, engine }, locked: null }
       : null;
   }
-  if ((kept.layout?.key ?? null) !== index.layoutKey)
-    return { layout: kept.layout };
-  if (kept.locked === null) return null;
   const engine = productionEngine(settings.engine, kept.view.records);
+  if ((kept.layout?.key ?? null) !== index.layoutKey) {
+    // batch layout + locks + engine into a single pagination pass and precompute locked once
+    const patched = updateIndex(index, state.doc, kept.layout).index;
+    const freshLocked = lockedPagination(
+      patched.blocks,
+      settings.profile,
+      kept.view.records,
+      baseEngine(settings.engine),
+    );
+    return {
+      patch: { layout: kept.layout, locks: freshLocked.locks, engine },
+      locked: { locked: freshLocked, records: kept.view.records },
+    };
+  }
+  if (kept.locked === null) return null;
   return kept.locked.locks !== settings.locks || engine !== settings.engine
-    ? { locks: kept.locked.locks, engine }
+    ? { patch: { locks: kept.locked.locks, engine }, locked: null }
     : null;
 }
 
@@ -171,7 +232,7 @@ function revisionView(
 ): PluginView {
   const { port } = options;
   const painter = createSheetPainter(options.scaffold);
-  let numbered = false;
+  let numbered = productionOf(view.state) !== null;
   // the pagination was given production's layout or locks, which leaving production takes back
   let sent = false;
   let scheduled = false;
@@ -187,21 +248,35 @@ function revisionView(
     );
   const settle = () => {
     scheduled = false;
-    const patch = pendingSettings(view.state, sent);
-    if (patch === null) return;
+    const production = productionOf(view.state) !== null;
+    if (production !== numbered) {
+      numbered = production;
+      options.scenesNumbered(production);
+      if (view.isDestroyed) return;
+    }
+    const pending = pendingSettings(view.state, sent);
+    if (pending === null) return;
     sent = keptOf(view.state)?.view !== null;
-    view.dispatch(
-      setPagination(view.state.tr, patch).setMeta("addToHistory", false),
+    let tr = setPagination(view.state.tr, pending.patch).setMeta(
+      "addToHistory",
+      false,
     );
+    if (pending.locked !== null)
+      tr = tr.setMeta(revisionKey, {
+        type: "locked",
+        locked: pending.locked.locked,
+        records: pending.locked.records,
+      } satisfies RevisionMeta);
+    view.dispatch(tr);
   };
   const sync = () => {
     painter.paint(view.state);
     const production = productionOf(view.state) !== null;
-    if (production !== numbered) {
-      numbered = production;
-      later(() => options.scenesNumbered(production));
-    }
-    if (scheduled || pendingSettings(view.state, sent) === null) return;
+    if (
+      scheduled ||
+      (production === numbered && !needsSettle(view.state, sent))
+    )
+      return;
     scheduled = true;
     later(settle);
   };
@@ -248,6 +323,7 @@ export function revisionPlugins(options: RevisionPluginOptions): Plugin {
       tooltip: (next) => port.view()?.words.lockTooltip(next) ?? "",
       zoom: options.zoom,
       icon: options.lockIcon,
+      frames: options.frames,
     }),
   ];
   return new Plugin<RevisionState>({

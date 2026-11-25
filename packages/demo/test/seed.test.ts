@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { buildSeed, createRng, seededIdSource } from "../src/index.ts";
+import {
+  buildSeed,
+  createRng,
+  draftLinkPath,
+  seedDraftToken,
+  seededIdSource,
+} from "../src/index.ts";
 import type { Rng, SeedStep } from "../src/index.ts";
 
 const take = (r: Rng) => Array.from({ length: 50 }, () => r.next());
@@ -187,4 +193,16 @@ test("a step for a workspace that does not exist is refused", async () => {
   await expect(refused).rejects.toThrow(RangeError);
   await expect(refused).rejects.toThrow("stray");
   expect(ran).toBe(false);
+});
+
+test("seeded draft tokens are deterministic and match the reader route shape", () => {
+  const token = seedDraftToken("medium/the-long-night/script", "Blue");
+  expect(seedDraftToken("medium/the-long-night/script", "Blue")).toBe(token);
+  expect(seedDraftToken("medium/the-long-night/script", "White")).not.toBe(
+    token,
+  );
+  expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+  expect(draftLinkPath("medium/the-long-night/script", "Blue")).toBe(
+    `/r/${token}`,
+  );
 });

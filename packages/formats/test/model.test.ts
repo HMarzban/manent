@@ -248,7 +248,7 @@ const nearNote = near({ ...NOTE }, NOTE_POOLS);
 
 test("the format lists are fixed", () => {
   expect([SOURCE_FORMATS, FORMAT_ERROR_CODES, KEPT_KINDS]).toEqual([
-    ["fdx", "fountain", "fdr", "text"],
+    ["fdx", "fountain", "fdr", "text", "pdf", "docx", "ink"],
     ["not_this_format", "malformed", "unsupported", "too_large"],
     [
       "title_page",

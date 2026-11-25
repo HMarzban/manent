@@ -235,7 +235,15 @@ function restoreWorld(options: { seed?: BlockJSON[] } = {}) {
     n: number,
     scope: RestoreRequest["scope"] = { kind: "script" },
   ) =>
-    run(history.restore(userId, { docId: DOC, key: key(n), versionId, scope }));
+    run(
+      history.restore(userId, {
+        docId: DOC,
+        key: key(n),
+        versionId,
+        scope,
+        clientId: null,
+      }),
+    );
   return {
     clock,
     storage,
@@ -279,6 +287,7 @@ test("a restore is a forward change after a Before restore version", async () =>
       key: key(2),
       versionId: v,
       scope: { kind: "script" },
+      clientId: null,
     }),
   );
   expect(out).toMatchObject({ ok: true, value: { applied: 2 } });
@@ -417,6 +426,7 @@ test("a restore is planned against every push queued before it", async () => {
       key: key(2),
       versionId: v,
       scope: { kind: "script" },
+      clientId: null,
     }),
   );
   const roomTextOf = (id: string) => world.roomText().find(([at]) => at === id);
@@ -480,6 +490,7 @@ test("a restore retried under its key applies nothing twice, also while the firs
     key: key(2),
     versionId: v,
     scope: { kind: "script" },
+    clientId: null,
   } as const;
   // the retry is sent before the first commits
   const first = history.restore("dana", body);
@@ -597,6 +608,7 @@ test("a Before restore version is summarised against a version kept just before 
     key: key(2),
     versionId: v,
     scope: { kind: "script" },
+    clientId: null,
   } as const;
   // the restore is queued; another feature keeps the head as a version before it commits
   const restored = history.restore("dana", body);
@@ -650,6 +662,7 @@ test("a retry is answered as stored only when the stored answer reads as one", a
         key: at,
         versionId: v,
         scope: { kind: "script" },
+        clientId: null,
       } as const;
       const answer = await history.restore("dana", body);
       const valid =

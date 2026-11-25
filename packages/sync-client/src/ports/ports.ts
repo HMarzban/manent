@@ -1,7 +1,13 @@
 // The client's ports and the shapes it stores and reports. The core reaches time, chance,
 // the network, the disk and other tabs only through these.
 import type { BlockJSON, DocJSON } from "@manent/schema";
-import type { ReplayRefusal, ReplayResponse } from "@manent/sync-protocol";
+import type {
+  DriverReleaseRequest,
+  DriverTakeRequest,
+  Identity,
+  ReplayRefusal,
+  ReplayResponse,
+} from "@manent/sync-protocol";
 
 /** The returned function cancels what `schedule` set. */
 export interface Clock {
@@ -39,6 +45,25 @@ export interface Connection {
   close(code: number, reason: string): void;
 }
 
+export type DriverCurrentOutcome =
+  | { ok: true; driver: Identity | null }
+  | { ok: false; code: "forbidden" | "deleted" };
+
+export type DriverTakeOutcome =
+  | { ok: true; driver: Identity | null }
+  | { ok: false; code: "driver_taken"; driver: Identity }
+  | { ok: false; code: "forbidden" | "deleted" };
+
+export type DriverReleaseOutcome =
+  | { ok: true; driver: Identity | null }
+  | { ok: false; code: "not_driver" | "forbidden" | "deleted" };
+
+export interface DriverTransport {
+  current(docId: string): Promise<DriverCurrentOutcome>;
+  take(request: DriverTakeRequest): Promise<DriverTakeOutcome>;
+  release(request: DriverReleaseRequest): Promise<DriverReleaseOutcome>;
+}
+
 export interface Transport {
   /** Resolves when open (a ticket was obtained and the socket accepted); rejects ConnectError. */
   connect(handlers: {
@@ -62,6 +87,7 @@ export interface Transport {
   }): Promise<
     { ok: true; response: ReplayResponse } | { ok: false; code: ReplayRefusal }
   >;
+  readonly driver?: DriverTransport;
 }
 
 export class StoreError extends Error {
@@ -245,6 +271,8 @@ export interface LocalStore {
   recovered(docId: string): Promise<RecoveredItem[]>;
   dismissRecovered(itemId: string): Promise<void>;
   documents(): Promise<DocMeta[]>;
+  /** Lightweight per-document summaries read from metadata and recovered counts, without loading blobs. */
+  summaries?(): Promise<readonly DocSummary[]>;
   close(): Promise<void>;
 }
 

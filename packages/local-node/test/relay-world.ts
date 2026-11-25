@@ -10,10 +10,11 @@ import {
   updateMeta,
 } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import { blockText, blocksOf } from "@manent/schema";
+import { SCHEMA_VERSION, blockText, blocksOf } from "@manent/schema";
 import {
   DEFAULT_LIMITS,
   PRODUCT_SETTING_RULES,
+  createHistoryService,
   createServer,
   createSignedSessionStore,
   createSyncService,
@@ -89,7 +90,12 @@ export const DOC2 = "0193b1f4-2c1e-7a00-8000-00000000000b";
 export const PROJECT = "3b8e5d27-91c4-4f0a-a6d2-7e15c09b4f38";
 export const HOME = `project:${PROJECT}`;
 const START_AT = 1_767_225_600_000;
-const V1 = Object.freeze({ protocol: 1, schema: 1, engine: 0, table: 0 });
+const V1 = Object.freeze({
+  protocol: 1,
+  schema: SCHEMA_VERSION,
+  engine: 0,
+  table: 0,
+});
 const VERSIONS = Object.freeze({ current: V1, min: V1 });
 const MIN_SERVER = Object.freeze({ ...V1, schema: 0 });
 const NAMES: Readonly<Record<string, string>> = Object.freeze({
@@ -292,6 +298,13 @@ class Cloud {
   }
 
   start(): void {
+    const ids = (): string => `cloud-version-${++this.versionIds}`;
+    const history = createHistoryService({
+      sync: () => this.service,
+      storage: this.storage,
+      clock: this.clock.clock,
+      ids,
+    });
     this.server = createServer({
       http: {
         allowedHosts: ["127.0.0.1"],
@@ -326,9 +339,11 @@ class Cloud {
         storage: this.storage,
         clock: this.clock.clock,
         defer: this.deferred.defer,
-        ids: () => `cloud-version-${++this.versionIds}`,
+        ids,
         registry: PRODUCT_SETTING_RULES,
+        hooks: [history],
       },
+      history,
     });
     const { sync } = this.server;
     if (sync === null) throw new TypeError("the cloud serves no documents");
@@ -1310,6 +1325,8 @@ export class CoreWorld {
   private readonly empty = this.nodeStorage.snapshot();
   private readonly wires = new Set<Wire>();
   private readonly windows = new Map<string, Person>();
+  /** By person: their client in a browser at the cloud. */
+  private readonly browsers = new Map<string, SyncClient>();
   /** By person: every message their window was sent, in order. */
   private readonly heard = new Map<string, Message[]>();
   /** People whose window loses the acknowledgements the core sends it. */
@@ -1503,6 +1520,41 @@ export class CoreWorld {
     if (handle === undefined)
       throw new Error(`${userId} has no window on ${docId}`);
     return handle;
+  }
+
+  /** The person's handle on the document in a browser at the cloud, once it has settled. */
+  async browserHandle(userId: string, docId: string): Promise<DocHandle> {
+    const handle = await this.drive(this.browserOf(userId).open(docId));
+    await this.settle();
+    return handle;
+  }
+
+  /** The person's browser at the cloud goes offline, or online again. */
+  browserOnline(userId: string, online: boolean): void {
+    this.browserOf(userId).setOnline(online);
+  }
+
+  private browserOf(userId: string): SyncClient {
+    const known = this.browsers.get(userId);
+    if (known !== undefined) return known;
+    const deviceId = `browser-${userId}`;
+    const client = createSyncClient({
+      userId,
+      deviceId,
+      build: "test",
+      versions: V1,
+      minServer: MIN_SERVER,
+      ports: {
+        transport: this.cloudNet.transport(userId),
+        store: createMemoryStore(userId),
+        leader: soloLeader(deviceId),
+        clock: this.clock.clock,
+        random: randomOf(seeded(deviceId.length * 104_729)),
+        frames: NO_FRAMES,
+      },
+    });
+    this.browsers.set(userId, client);
+    return client;
   }
 
   cloudHas(docId: string): boolean {

@@ -125,3 +125,28 @@ test("a side of the state bar holds at most two actions, the first outlined and 
     ),
   ).toThrow(RangeError);
 });
+
+test("an attention state line keeps its action text neutral and exposes the full sentence as a title", () => {
+  const sentence = "Offline — edits stay on this device";
+  const { el } = render(
+    <StateBar
+      left={{
+        sentence,
+        chip: null,
+        actions: [action("Retry")],
+        dismiss: null,
+        attention: true,
+      }}
+      right={null}
+      run={noop}
+      registered={() => true}
+    />,
+  );
+  const text = el.querySelector<HTMLElement>(`[title="${sentence}"]`);
+  const button = el.querySelector("button");
+  expect([
+    text?.textContent,
+    button?.className.includes("text-fg"),
+    el.querySelector('[role="status"]')?.className.includes("min-h-statebar"),
+  ]).toEqual([sentence, true, true]);
+});

@@ -1,8 +1,15 @@
 import { withDom } from "@manent/testkit/dom";
 import { afterEach, expect, test } from "bun:test";
 import { entryKey } from "@manent/settings";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { DocKind } from "@manent/sync-protocol";
+import { createValue } from "@manent/ui";
 import {
+  QueryClient,
+  QueryClientProvider,
+  notifyManager,
+} from "@tanstack/react-query";
+import {
+  Outlet,
   RouterProvider,
   createMemoryHistory,
   createRootRoute,
@@ -14,29 +21,47 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { RootLayout } from "../src/root-layout.tsx";
-import { EnvironmentProvider, useServices } from "../src/services/context.tsx";
+import {
+  EnvironmentProvider,
+  ServicesProvider,
+  useServices,
+} from "../src/services/context.tsx";
 import type { PersonServices } from "../src/services/ports.ts";
+import { AppShell } from "../src/shell/app-shell.tsx";
 import { ShellRegion, createShellDom } from "../src/shell/regions.tsx";
 import { bindGuard } from "../src/state/guard.ts";
+import {
+  paletteActions,
+  selectors as paletteSelectors,
+} from "../src/state/palette.store.ts";
 import { createPersonStore } from "../src/state/person.store.ts";
 import type { PersonStore } from "../src/state/person.store.ts";
 import {
   MemoryStorage,
   fakeApi,
   testEnvironment,
+  testServices,
 } from "./services.fixtures.ts";
 import { until } from "./sync.fixtures.ts";
 
 withDom();
+// Query tells its observers at once, so RootLayout settles inside the act that mounts it
+notifyManager.setScheduler((notify) => notify());
 
 const DOC_ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
 const LEO = { token: null, userId: "leo", name: "Leo Marsh" };
 const DANA = { token: null, userId: "dana", name: "Dana Reyes" };
 
 let mounted: Root | null = null;
-afterEach(() => {
-  act(() => mounted?.unmount());
+let activeClient: QueryClient | null = null;
+afterEach(async () => {
+  await act(async () => {
+    mounted?.unmount();
+  });
   mounted = null;
+  activeClient?.clear();
+  activeClient = null;
+  document.body.replaceChildren();
   document.documentElement.removeAttribute("data-theme");
 });
 
@@ -84,6 +109,21 @@ async function renderApp(options: {
       path: "/preferences/$pane",
       component: () => <button type="button">Search</button>,
     }),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/s/$docId/present",
+      component: () => <h1 tabIndex={-1}>Room</h1>,
+    }),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/s/$docId/prompter",
+      component: () => <h1 tabIndex={-1}>Prompter</h1>,
+    }),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/r/$token",
+      component: () => <h1 tabIndex={-1}>Draft</h1>,
+    }),
   ]);
   const router = createRouter({
     routeTree,
@@ -94,6 +134,7 @@ async function renderApp(options: {
   document.body.replaceChildren(container);
   mounted = createRoot(container);
   const client = new QueryClient();
+  activeClient = client;
   await act(async () =>
     mounted?.render(
       <QueryClientProvider client={client}>
@@ -112,6 +153,19 @@ const pressEscape = (target: Element): void => {
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
   });
+};
+
+const pressMod = (key: string, mod: "metaKey" | "ctrlKey"): KeyboardEvent => {
+  const event = new KeyboardEvent("keydown", {
+    key,
+    [mod]: true,
+    bubbles: true,
+    cancelable: true,
+  });
+  act(() => {
+    document.body.dispatchEvent(event);
+  });
+  return event;
 };
 
 const button = (container: HTMLElement, name: string): HTMLButtonElement => {
@@ -218,4 +272,129 @@ test("a side panel tab drawn after its command gives focus to its first control 
   panel.remove();
   elsewhere.remove();
   expect([focusedFirst, stayed]).toEqual([true, true]);
+});
+
+test("the reader route keeps the editor host covered without mounting the palette, global keys, or file drop", async () => {
+  paletteActions.close();
+  const usePerson = createPersonStore(null);
+  usePerson.getState().setPerson(LEO);
+  const { router, container } = await renderApp({
+    path: "/r/tok-1",
+    usePerson,
+  });
+  const host = container.querySelector("[data-editor-host]");
+  expect(host?.hasAttribute("inert")).toBe(true);
+  expect(pressMod("k", "metaKey").defaultPrevented).toBe(false);
+  expect(pressMod("k", "ctrlKey").defaultPrevented).toBe(false);
+  expect(pressMod(",", "metaKey").defaultPrevented).toBe(false);
+  expect(pressMod(",", "ctrlKey").defaultPrevented).toBe(false);
+  expect(paletteSelectors.isOpen()).toBe(false);
+  expect(router.state.location.pathname).toBe("/r/tok-1");
+  const grid = container.querySelector<HTMLElement>(".grid");
+  const dragOver = new Event("dragover", { bubbles: true, cancelable: true });
+  act(() => {
+    grid?.dispatchEvent(dragOver);
+  });
+  expect(dragOver.defaultPrevented).toBe(false);
+});
+
+test("the prompter route covers the editor host while the room present route leaves it uncovered", async () => {
+  const usePerson = createPersonStore(null);
+  usePerson.getState().setPerson(LEO);
+  const { router, container } = await renderApp({
+    path: `/s/${DOC_ID}/prompter`,
+    usePerson,
+  });
+  const pageRegion = () => container.querySelector('[data-region="page"]');
+  const host = () => container.querySelector("[data-editor-host]");
+  const onPrompter = {
+    inert: host()?.hasAttribute("inert"),
+    overflowHidden: pageRegion()?.className.includes("overflow-hidden"),
+    overflowAuto: pageRegion()?.className.includes("overflow-auto"),
+    demoBar: container.querySelector('[data-region="demo_bar"]') !== null,
+  };
+  await act(() =>
+    router.navigate({ to: "/s/$docId/present", params: { docId: DOC_ID } }),
+  );
+  const onPresent = {
+    inert: host()?.hasAttribute("inert"),
+    overflowHidden: pageRegion()?.className.includes("overflow-hidden"),
+    overflowAuto: pageRegion()?.className.includes("overflow-auto"),
+    demoBar: container.querySelector('[data-region="demo_bar"]') !== null,
+  };
+  expect({ onPrompter, onPresent }).toEqual({
+    onPrompter: {
+      inert: true,
+      overflowHidden: true,
+      overflowAuto: false,
+      demoBar: false,
+    },
+    onPresent: {
+      inert: false,
+      overflowHidden: false,
+      overflowAuto: true,
+      demoBar: false,
+    },
+  });
+});
+
+test("a rundown document covers the editor host and hides page overflow while a script stays uncovered", async () => {
+  const environment = testEnvironment({ dom: createShellDom(document) });
+  bindGuard(environment.guard);
+  const kind = createValue<DocKind | null>("rundown");
+  const base = testServices({ userId: "leo", environment });
+  const services: PersonServices = {
+    ...base,
+    library: { ...base.library, docKindOf: () => kind },
+  };
+  const rootRoute = createRootRoute({
+    component: () => (
+      <ServicesProvider services={services}>
+        <AppShell>
+          <Outlet />
+        </AppShell>
+      </ServicesProvider>
+    ),
+  });
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([
+      createRoute({
+        getParentRoute: () => rootRoute,
+        path: "/s/$docId",
+        component: () => null,
+      }),
+    ]),
+    history: createMemoryHistory({ initialEntries: [`/s/${DOC_ID}`] }),
+  });
+  await router.load();
+  const container = document.createElement("div");
+  document.body.replaceChildren(container);
+  mounted = createRoot(container);
+  await act(async () =>
+    mounted?.render(
+      <EnvironmentProvider environment={environment}>
+        <RouterProvider router={router} />
+      </EnvironmentProvider>,
+    ),
+  );
+  const snapshot = () => ({
+    inert:
+      container.querySelector("[data-editor-host]")?.hasAttribute("inert") ??
+      null,
+    overflowHidden:
+      container
+        .querySelector('[data-region="page"]')
+        ?.className.includes("overflow-hidden") ?? null,
+    overflowAuto:
+      container
+        .querySelector('[data-region="page"]')
+        ?.className.includes("overflow-auto") ?? null,
+  });
+  const asRundown = snapshot();
+  act(() => kind.set("script"));
+  const asScript = snapshot();
+  expect({ asRundown, asScript }).toEqual({
+    asRundown: { inert: true, overflowHidden: true, overflowAuto: false },
+    asScript: { inert: false, overflowHidden: false, overflowAuto: true },
+  });
 });

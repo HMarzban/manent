@@ -39,6 +39,17 @@ const POPOVER: Row = {
   focusOnOpen: "first",
   focusOnClose: "opener",
 };
+// anchored at the caret, it never takes focus from the page
+const CARET_POPOVER: Row = {
+  kind: "popover",
+  focusOnOpen: "stay",
+  focusOnClose: "caret",
+};
+const DIALOG: Row = {
+  kind: "dialog",
+  focusOnOpen: "first",
+  focusOnClose: "opener",
+};
 
 const ROWS: Readonly<Record<SurfaceId, Row>> = {
   library: screen("heading"),
@@ -79,6 +90,31 @@ const ROWS: Readonly<Record<SurfaceId, Row>> = {
   },
   // the system's own file picker, drawn by no page
   file_picker: { kind: "dialog", focusOnOpen: "stay", focusOnClose: "opener" },
+  selection_toolbar: CARET_POPOVER,
+  comment_popover: POPOVER,
+  alternates_popover: POPOVER,
+  pitch_field: {
+    kind: "bar_field",
+    focusOnOpen: "first",
+    focusOnClose: "opener",
+  },
+  people_list: MENU,
+  share_dialog: DIALOG,
+  beside: PANEL,
+  project_settings: screen("heading"),
+  present: screen("heading"),
+  reader: screen("heading"),
+  name_offer: CARET_POPOVER,
+  flag_picker: MENU,
+  board: screen("heading"),
+  rundown_grid: {
+    kind: "screen",
+    focusOnOpen: "item",
+    focusOnClose: "previous_place",
+  },
+  cell_popover: POPOVER,
+  prompter_files: DIALOG,
+  workspace_settings: screen("heading"),
 };
 
 const openersOf = (id: SurfaceId): readonly CommandId[] =>

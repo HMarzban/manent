@@ -328,6 +328,9 @@ export function issueMutation(
       production.addIssue(issued.issue);
       return [version];
     },
+    afterCommit() {
+      options.draftEvents?.issued(docId, done().active.id, userId);
+    },
     ...issueAnswer(options, docId, () => {
       const { issue } = done();
       if (issue === null)

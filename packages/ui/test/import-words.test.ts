@@ -62,13 +62,9 @@ test("the import sentences read as people see them", () => {
   expect([
     IMPORT_WORDS.importedFrom("The Lamp Room.fdx", "12 Nov"),
     IMPORT_WORDS.notShownLine("FDX"),
-    IMPORT_WORDS.notesRow(3),
-    IMPORT_WORDS.notesRow(1),
   ]).toEqual([
     "Imported from 'The Lamp Room.fdx' on 12 Nov.",
     "Kept with the script and written back when it is exported as FDX.",
-    "3 notes",
-    "1 note",
   ]);
   expect([
     IMPORT_WORDS.leftOut("Element settings and Breakdown tags", "Fountain"),
@@ -109,6 +105,9 @@ test("the import group's fixed words read as people see them", () => {
     fountain: "Fountain",
     fdr: "Final Draft",
     text: "text",
+    pdf: "PDF",
+    docx: "Word",
+    ink: "Ink",
   });
 });
 

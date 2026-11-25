@@ -1,0 +1,306 @@
+// Good Evening, Lannick aired rundowns (D-9 to D-1).
+import { showHeader, showItem, showLead, showRundown } from "./spec.ts";
+import type { ShowRundownSpec } from "./spec.ts";
+
+const NOOR = "Noor Haddad";
+const ZAINAB = "Zainab Kamara";
+const CIARAN = "Ciaran Moloney";
+const ELODIE = "Elodie Garnier";
+
+export const GOOD_EVENING_AIRED: readonly ShowRundownSpec[] = Object.freeze([
+  showRundown(-9, [
+    showHeader("PART ONE"),
+    showItem("Titles and welcome", NOOR, "0:35"),
+    showItem("Topical opening: the week ahead in Lannick", ZAINAB, "2:20"),
+    showLead(
+      "Bertie learns to drive a tram, badly",
+      CIARAN,
+      "heavy/h30/segments/01",
+    ),
+    showItem("The tram lesson (tape)", null, "4:40"),
+    showItem("Coming up", NOOR, "0:20"),
+    showHeader("PART TWO"),
+    showItem(
+      "Studio guest: Della Ormsby, tram driving instructor",
+      null,
+      "5:40",
+    ),
+    showItem(
+      "Field piece (tape): the last week of track-laying on line 3",
+      null,
+      "3:10",
+    ),
+    showItem("Phone-in: your first day at work", null, "5:30"),
+    showItem("Tomorrow on Good Evening, Lannick", ELODIE, "0:30"),
+    showItem("Closing song: The Linnet Street Fiddlers", null, "3:15"),
+    showItem("Goodnight from Bertie", ZAINAB, "0:25"),
+  ]),
+  showRundown(-8, [
+    showHeader("PART ONE"),
+    showItem("Titles and welcome", NOOR, "0:35"),
+    showItem("Topical opening: a quiet day at City Hall", ZAINAB, "2:15"),
+    showLead(
+      "Who winds the Tolle Exchange clock?",
+      ELODIE,
+      "heavy/h30/segments/02",
+    ),
+    showItem(
+      "Up the clock tower with the man who winds it (tape)",
+      null,
+      "4:50",
+    ),
+    showItem("Coming up", NOOR, "0:20"),
+    showHeader("PART TWO"),
+    showItem(
+      "Studio guest: Harriet Oduya, chair of the Exchange Square traders",
+      null,
+      "5:20",
+    ),
+    showItem(
+      "Field piece (tape): the early shift at Ardle fish market",
+      null,
+      "3:20",
+    ),
+    showItem(
+      "Phone-in: the clock in your house that is always wrong",
+      null,
+      "5:40",
+    ),
+    showItem("Tomorrow on Good Evening, Lannick", ELODIE, "0:30"),
+    showItem("Closing song: The Exchange Square Buskers", null, "3:05"),
+    showItem("Goodnight from Bertie", ZAINAB, "0:25"),
+  ]),
+  showRundown(-7, [
+    showHeader("PART ONE"),
+    showItem("Titles and welcome", NOOR, "0:35"),
+    showItem("Topical opening: Lannick gets a new tram line", ZAINAB, "2:00"),
+    showLead(
+      "Tram line 3 opening-day special from Halse Park",
+      CIARAN,
+      "heavy/h30/segments/03",
+    ),
+    showItem("Live from the Halse Park terminus", null, "5:50"),
+    showItem("Coming up", NOOR, "0:20"),
+    showHeader("PART TWO"),
+    showItem(
+      "Studio guest: Tobias Wren, line 3 project engineer",
+      null,
+      "4:50",
+    ),
+    showItem(
+      "Field piece (tape): Athletic fans on the coach to Port Allard",
+      null,
+      "2:50",
+    ),
+    showItem("Phone-in: your memories of the old number 3 bus", null, "6:10"),
+    showItem("Tomorrow on Good Evening, Lannick", ELODIE, "0:30"),
+    showItem("Closing song: Halse Park Primary School choir", null, "3:00"),
+    showItem("Goodnight from Bertie", ZAINAB, "0:25"),
+  ]),
+  showRundown(-6, [
+    showHeader("PART ONE"),
+    showItem("Titles and welcome", NOOR, "0:35"),
+    showItem(
+      "Topical opening: Bertie reads the library report so you don't have to",
+      ZAINAB,
+      "2:30",
+    ),
+    showLead(
+      "School dinners taste test with twelve nine-year-olds",
+      ELODIE,
+      "heavy/h30/segments/04",
+    ),
+    showItem("The taste test (tape)", null, "4:30"),
+    showItem("Coming up", NOOR, "0:20"),
+    showHeader("PART TWO"),
+    showItem(
+      "Studio guest: Cllr Margaret Pell, council leader, on the library report",
+      null,
+      "5:40",
+    ),
+    showItem(
+      "Field piece (tape): in the kitchen at Halse Park Primary",
+      null,
+      "3:00",
+    ),
+    showItem("Phone-in: the school dinner you still remember", null, "5:40"),
+    showItem("Tomorrow on Good Evening, Lannick", ELODIE, "0:30"),
+    showItem("Closing song: Orla Penhallow", null, "3:20"),
+    showItem("Goodnight from Bertie", ZAINAB, "0:25"),
+  ]),
+  showRundown(-5, [
+    showHeader("PART ONE"),
+    showItem("Titles and welcome", NOOR, "0:35"),
+    showItem(
+      "Topical opening: the scaffolding comes down at Gull Point",
+      ZAINAB,
+      "2:10",
+    ),
+    showLead(
+      "The lighthouse restorers of Gull Point",
+      CIARAN,
+      "heavy/h30/segments/05",
+    ),
+    showItem(
+      "On the lamp room gallery with the restorers (tape)",
+      null,
+      "4:50",
+    ),
+    showItem("Coming up", NOOR, "0:20"),
+    showHeader("PART TWO"),
+    showItem(
+      "Studio guest: Esme Tull, the last keeper at Gull Point",
+      null,
+      "6:00",
+    ),
+    showItem(
+      "Field piece (tape): the Ardle lifeboat crew at practice",
+      null,
+      "3:00",
+    ),
+    showItem(
+      "Phone-in: the light you could see from your window",
+      null,
+      "5:20",
+    ),
+    showItem("Tomorrow on Good Evening, Lannick", ELODIE, "0:30"),
+    showItem("Closing song: The Ardle Quay Shanty Club", null, "3:10"),
+    showItem("Goodnight from Bertie", ZAINAB, "0:25"),
+  ]),
+  showRundown(-4, [
+    showHeader("PART ONE"),
+    showItem("Titles and welcome", NOOR, "0:35"),
+    showItem(
+      "Topical opening: Bertie goes round the car park twice",
+      ZAINAB,
+      "2:15",
+    ),
+    showLead(
+      "The car park song (listeners' verses)",
+      ELODIE,
+      "heavy/h30/segments/06",
+    ),
+    showItem("The car park song: the first verses, sung live", null, "3:30"),
+    showItem("Coming up", NOOR, "0:20"),
+    showHeader("PART TWO"),
+    showItem(
+      "Studio guest: Imelda Strand, Lannick General Patients' Group",
+      null,
+      "5:40",
+    ),
+    showItem(
+      "Field piece (tape): how long it takes to find a space at Lannick General",
+      null,
+      "3:20",
+    ),
+    showItem("Phone-in: write the last verse", null, "6:20"),
+    showItem("Tomorrow on Good Evening, Lannick", ELODIE, "0:30"),
+    showItem(
+      "Closing song: the car park song, every verse, with the Mudflats Choir",
+      null,
+      "3:40",
+    ),
+    showItem("Goodnight from Bertie", ZAINAB, "0:25"),
+  ]),
+  showRundown(-3, [
+    showHeader("PART ONE"),
+    showItem("Titles and welcome", NOOR, "0:35"),
+    showItem(
+      "Topical opening: forty years, and the otters are back",
+      ZAINAB,
+      "2:20",
+    ),
+    showLead(
+      "Otters! With an ecologist and a very long lens",
+      CIARAN,
+      "heavy/h30/segments/07",
+    ),
+    showItem(
+      "On the riverbank at dawn with Dr. Nkem Ashdown (tape)",
+      null,
+      "4:40",
+    ),
+    showItem("Coming up", NOOR, "0:20"),
+    showHeader("PART TWO"),
+    showItem(
+      "Studio guest: Wilf Dunmore, who has fished the Tolle for sixty years",
+      null,
+      "5:20",
+    ),
+    showItem(
+      "Field piece (tape): Bertie looks for otters from Halse Bridge",
+      null,
+      "2:50",
+    ),
+    showItem(
+      "Phone-in: the strangest thing you have seen in the Tolle",
+      null,
+      "6:00",
+    ),
+    showItem("Tomorrow on Good Evening, Lannick", ELODIE, "0:30"),
+    showItem("Closing song: Sully and the Tramlines", null, "3:20"),
+    showItem("Goodnight from Bertie", ZAINAB, "0:25"),
+  ]),
+  showRundown(-2, [
+    showHeader("PART ONE"),
+    showItem("Titles and welcome", NOOR, "0:35"),
+    showItem(
+      "Topical opening: Kittiwake-1 reaches its final orbit",
+      ZAINAB,
+      "2:15",
+    ),
+    showLead(
+      "Build-a-satellite with the university's student team",
+      ELODIE,
+      "heavy/h30/segments/08",
+    ),
+    showItem(
+      "In the clean room with the Kittiwake-1 team (tape)",
+      null,
+      "4:30",
+    ),
+    showItem("Coming up", NOOR, "0:20"),
+    showHeader("PART TWO"),
+    showItem("Studio guest: Dr. Halima Sarr, astronomer", null, "5:30"),
+    showItem(
+      "Field piece (tape): Exchange Square traders hear the night market news",
+      null,
+      "3:00",
+    ),
+    showItem("Phone-in: what would you photograph from space?", null, "6:10"),
+    showItem("Tomorrow on Good Evening, Lannick", ELODIE, "0:30"),
+    showItem("Closing song: The Slipway Sisters", null, "3:10"),
+    showItem("Goodnight from Bertie", ZAINAB, "0:25"),
+  ]),
+  showRundown(-1, [
+    showHeader("PART ONE"),
+    showItem("Titles and welcome", NOOR, "0:35"),
+    showItem(
+      "Topical opening: Athletic are through, and a gale is on the way",
+      ZAINAB,
+      "2:30",
+    ),
+    showLead(
+      "Cup replay: fans' reaction from the Athletic supporters' club",
+      CIARAN,
+      "heavy/h30/segments/09",
+    ),
+    showItem("Live from the Athletic supporters' club", null, "5:40"),
+    showItem("Coming up", NOOR, "0:20"),
+    showHeader("PART TWO"),
+    showItem(
+      "Studio guest: Captain Lena Morrow, Ardle harbourmaster, on the gale warning",
+      null,
+      "4:40",
+    ),
+    showItem(
+      "Field piece (tape): Tolle Bridge by night, before the resurfacing",
+      null,
+      "3:00",
+    ),
+    showItem("Phone-in: your best Athletic away day", null, "5:40"),
+    showItem("Tomorrow on Good Evening, Lannick", ELODIE, "0:30"),
+    showItem("Closing song: Kit Arden", null, "3:15"),
+    showItem("Goodnight from Bertie", ZAINAB, "0:25"),
+  ]),
+]);

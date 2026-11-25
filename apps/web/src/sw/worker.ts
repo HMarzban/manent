@@ -8,6 +8,13 @@ declare const self: ServiceWorkerGlobalScope & {
   __BUILD_ID: string;
 };
 
-// the build replaces this exact expression, so it keeps the name the build defines
+// the build replaces these exact expressions, so they keep the names the build defines
 // oxlint-disable-next-line no-underscore-dangle
-startPrecache({ entries: self.__SW_MANIFEST, scope: self });
+const entries = self.__SW_MANIFEST;
+// oxlint-disable-next-line no-underscore-dangle
+const buildId: unknown = self.__BUILD_ID;
+startPrecache({
+  entries,
+  buildId: typeof buildId === "string" ? buildId : undefined,
+  scope: self,
+});

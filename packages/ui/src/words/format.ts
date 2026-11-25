@@ -44,6 +44,25 @@ export function formatTime(at: number): string {
   return `${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}`;
 }
 
+/** The 24-hour local time with seconds: "23:31:07", "09:00:05". */
+export function formatClockTime(at: number): string {
+  const date = new Date(at);
+  return `${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}:${twoDigits(date.getSeconds())}`;
+}
+
+/** Running time rounded to the nearest second, halves up: "4:05" under an hour, "1:02:07" from an hour, "0:00" at zero. */
+export function formatDuration(ms: number): string {
+  const totalSeconds = Number.isFinite(ms)
+    ? Math.max(0, Math.floor(ms / 1000 + 0.5))
+    : 0;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return hours > 0
+    ? `${hours}:${twoDigits(minutes)}:${twoDigits(seconds)}`
+    : `${minutes}:${twoDigits(seconds)}`;
+}
+
 /** The local calendar day of `at`, as a number that is one apart for consecutive days. */
 export function dayNumber(at: number): number {
   const date = new Date(at);

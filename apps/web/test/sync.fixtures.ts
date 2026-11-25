@@ -173,12 +173,18 @@ export const turn = (): Promise<void> =>
 // within the test runner's five seconds, and as long as loading a module takes on a busy machine
 const UNTIL_MS = 4_000;
 
-/** Turns until `done` holds, for as long as loading a module may take; throws after that. */
-export async function until(done: () => boolean): Promise<void> {
+/**
+ * Passes turns (each one `pass`, a plain turn unless given) until `done` holds, for as long as loading a
+ * module may take; throws after that.
+ */
+export async function until(
+  done: () => boolean,
+  pass: () => Promise<void> = turn,
+): Promise<void> {
   const deadline = performance.now() + UNTIL_MS;
   do {
     if (done()) return;
-    await turn();
+    await pass();
   } while (performance.now() < deadline);
   if (!done()) throw new RangeError("it never came about");
 }
@@ -322,6 +328,7 @@ export function fakeHandle(docId: string, initial: CrdtDoc): FakeHandle {
     writeSchema: createValue(1),
     readOnly: createValue<ViewHandle | null>(null),
     upstream: createValue(null),
+    viewers: createValue(0),
     on(listener) {
       listeners.add(listener);
       return () => {
@@ -340,6 +347,7 @@ export function fakeHandle(docId: string, initial: CrdtDoc): FakeHandle {
     deviceVersions: async () => [],
     lastServerSeq: () => 0,
     adoptClientIds() {},
+    reserveClientId: async () => 7,
     async close() {
       closes += 1;
     },
@@ -363,12 +371,15 @@ export function fakeView(
     docId,
     blocks: createValue(blocks),
     status: createValue({ link: "online" as const, live: true, role }),
+    viewers: createValue(0),
     close() {},
   };
 }
 
 const refused = (): never => {
-  throw new RangeError("the fake client neither creates nor views");
+  throw new RangeError(
+    "the fake client neither creates, views nor opens a prompter, private copy or driver",
+  );
 };
 
 /** A client that opens `handles`, and lists `documents` as the store holds them; `opened` is every open asked. */
@@ -389,6 +400,9 @@ export function fakeClient(
     setOnline() {},
     retryNow() {},
     view: () => refused(),
+    prompter: () => refused(),
+    privateCopy: () => refused(),
+    driver: () => refused(),
     close: async () => {},
   };
 }
