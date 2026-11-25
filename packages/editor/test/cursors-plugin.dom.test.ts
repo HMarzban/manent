@@ -93,12 +93,16 @@ afterEach(() => {
 function mount(
   doc: Node,
   f: Fakes,
+  isRemote?: (tr: Transaction) => boolean,
 ): { view: EditorView; draws: () => Transaction[] } {
   const transactions: Transaction[] = [];
   const view: EditorView = new EditorView(
     document.body.appendChild(document.createElement("div")),
     {
-      state: EditorState.create({ doc, plugins: [cursorsPlugin(f)] }),
+      state: EditorState.create({
+        doc,
+        plugins: [cursorsPlugin({ ...f, ...(isRemote ? { isRemote } : {}) })],
+      }),
       dispatchTransaction: (tr) => {
         transactions.push(tr);
         view.updateState(view.state.apply(tr));
@@ -131,7 +135,7 @@ const at = (block: number, offset: number): CursorPlace => ({
   at: block,
 });
 
-/** Each drawn caret as its colour and the text of its name tab, or null without one. */
+/** Each drawn caret as its colour and the text of its tab, or null without one. */
 const carets = (view: EditorView): [string | undefined, string | null][] =>
   [...view.dom.querySelectorAll<HTMLElement>(".mn-cursor")].map((caret) => [
     caret.dataset["collab"],
@@ -144,7 +148,7 @@ const widgets = (view: EditorView): [number, unknown][] =>
     .decorations.find()
     .map((d) => [d.from, d.spec.key]);
 
-test("another person's caret is drawn with their name, which goes after three seconds", () => {
+test("another person's caret is drawn with their name, which gives way to their initials after three seconds", () => {
   const f = fakes();
   const { view } = mount(docOf([["the rain falls", "on the roof"]]), f);
   f.emit([dana(at(1, 3), f.timers.now())]);
@@ -157,7 +161,7 @@ test("another person's caret is drawn with their name, which goes after three se
   expect(carets(view)).toEqual([["3", "Dana Reyes"]]);
   f.advance(1);
   f.fire();
-  expect(carets(view)).toEqual([["3", null]]);
+  expect(carets(view)).toEqual([["3", "DR"]]);
   expect(widgets(view)).toEqual([[21, "cursor:7:3:false"]]);
 });
 
@@ -189,14 +193,12 @@ test("a cursor whose block is gone is not drawn", () => {
   expect(carets(view)).toEqual([]);
 });
 
-test("a cursor is found again after the script around it is replaced", () => {
+test("a cursor stays drawn while the script around it is replaced, without waiting for a frame", () => {
   const f = fakes();
   const { view } = mount(docOf([["one", "two"]]), f);
   f.emit([dana(at(1, 2), 0)]);
   f.fire();
   view.dispatch(replaceWholeDoc(view.state, 0, "first"));
-  expect(widgets(view)).toEqual([]);
-  f.fire();
   expect(widgets(view)).toEqual([[11, "cursor:7:3:false"]]);
 });
 
@@ -268,7 +270,7 @@ test("a selection is drawn in its own element, block by block, and capped", () =
   );
 });
 
-test("the local caret is published whenever it or the text moves", () => {
+test("the local caret is published when the page opens and whenever it or the text moves", () => {
   const f = fakes();
   const { view } = mount(docOf([["one", "two"]]), f);
   view.dispatch(
@@ -277,7 +279,7 @@ test("the local caret is published whenever it or the text moves", () => {
   view.dispatch(view.state.tr.insertText("x", 2));
   f.emit([dana(at(0, 1), 0)]);
   f.fire();
-  expect(f.published).toEqual([at(1, 0), at(1, 0)]);
+  expect(f.published).toEqual([at(0, 0), at(1, 0), at(1, 0)]);
 });
 
 /** Each rule of the cursors' styles as its selector and its declarations, trimmed. */
@@ -344,4 +346,44 @@ test("a caret and its selection take their person's collaborator token, and noth
       ...Array.from({ length: 10 }, (_, i) => `--collab-${i + 1}`),
     ]),
   );
+});
+
+test("remote typing advances the remote caret past each character in the same transaction without snapping back", () => {
+  const f = fakes();
+  const REMOTE = "test-remote";
+  const { view } = mount(docOf([["from the corn"]]), f, (tr) =>
+    Boolean(tr.getMeta(REMOTE)),
+  );
+  f.emit([dana(at(0, 13), f.timers.now())]);
+  f.fire();
+  expect(widgets(view)).toEqual([[15, "cursor:7:3:true"]]);
+  // Remote writer types 'e' and then 'r' via full-doc replacement (as y-prosemirror does) before awareness catches up
+  view.dispatch(
+    replaceWholeDoc(view.state, 0, "from the corne").setMeta(REMOTE, true),
+  );
+  expect(widgets(view)).toEqual([[16, "cursor:7:3:true"]]);
+  view.dispatch(
+    replaceWholeDoc(view.state, 0, "from the corner").setMeta(REMOTE, true),
+  );
+  expect(widgets(view)).toEqual([[17, "cursor:7:3:true"]]);
+  // A lagging awareness packet for the earlier 'e' keystroke does not snap the caret backward mid-burst
+  f.advance(40);
+  f.emit([dana(at(0, 14), f.timers.now())]);
+  f.fire();
+  expect(widgets(view)).toEqual([[17, "cursor:7:3:true"]]);
+  // Backspace moves the caret back in the same transaction
+  view.dispatch(
+    replaceWholeDoc(view.state, 0, "from the corne").setMeta(REMOTE, true),
+  );
+  expect(widgets(view)).toEqual([[16, "cursor:7:3:true"]]);
+});
+
+test("local typing at a remote caret keeps the remote caret before locally inserted text", () => {
+  const f = fakes();
+  const { view } = mount(docOf([["rain"]]), f, () => false);
+  f.emit([dana(at(0, 4), f.timers.now())]);
+  f.fire();
+  expect(widgets(view)).toEqual([[6, "cursor:7:3:true"]]);
+  view.dispatch(view.state.tr.insertText("s", 6));
+  expect(widgets(view)).toEqual([[6, "cursor:7:3:true"]]);
 });

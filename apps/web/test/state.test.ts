@@ -13,6 +13,7 @@ import { createFactsStore, useEditorFact } from "../src/state/facts.store.ts";
 import { bindGuard, createGuard } from "../src/state/guard.ts";
 import {
   createOutlineStore,
+  useIsCurrentOutline,
   useOutlineCount,
   useOutlineRow,
 } from "../src/state/outline.store.ts";
@@ -21,6 +22,7 @@ import { paletteActions, usePaletteOpen } from "../src/state/palette.store.ts";
 import { panelsActions, usePanel } from "../src/state/panels.store.ts";
 import { createPeopleStore, usePeople } from "../src/state/people.store.ts";
 import type { PersonPresent } from "../src/state/people.store.ts";
+import { createProductionPagesStore } from "../src/state/production-pages.store.ts";
 import { renameActions, useRenaming } from "../src/state/rename.store.ts";
 
 const testGuard = () => createGuard({ flavour: "test" });
@@ -384,4 +386,107 @@ test("the palette, a dialog and a rename each open and close", () => {
     readHook(() => useOpenDialog()),
     readHook(() => useRenaming()),
   ]).toEqual([["all", "reset", "doc-2"], null, null, null]);
+});
+
+test("the current outline heading updates immediately without triggering the row throttle", () => {
+  const clock = fakeClock();
+  const guard = testGuard();
+  const { writer, selectors } = createOutlineStore({
+    guard,
+    schedule: clock.schedule,
+    composing: () => false,
+  });
+  let rowPublishes = 0;
+  let currentPublishes = 0;
+  selectors.subscribe(() => rowPublishes++);
+  selectors.subscribeCurrent(() => currentPublishes++);
+
+  writer.publish([{ ...row("a"), current: true }, row("b")]);
+  clock.advance(250);
+  const afterRows = [
+    rowPublishes,
+    currentPublishes,
+    selectors.currentBlockId(),
+  ];
+
+  // selection-only current update fires immediately without advancing the clock or notifying row subscribers
+  writer.publishCurrent("b");
+  const afterCurrent = [
+    rowPublishes,
+    currentPublishes,
+    selectors.currentBlockId(),
+  ];
+
+  // repeating the same current block id is a no-op
+  writer.publishCurrent("b");
+  const afterRepeat = currentPublishes;
+
+  // a stale throttled row publish queued before publishCurrent does not revert currentBlockId
+  writer.publish([{ ...row("a"), current: true }, row("b", "EXT. HARBOUR")]);
+  writer.publishCurrent("b");
+  clock.advance(250);
+  const afterStaleRows = [
+    rowPublishes,
+    selectors.row(1)?.heading,
+    selectors.currentBlockId(),
+  ];
+
+  const provided = (child: ReactNode) =>
+    createElement(OutlineContext, { value: selectors }, child);
+  const hookValues = [
+    readHook(() => useIsCurrentOutline("b"), provided),
+    readHook(() => useIsCurrentOutline("a"), provided),
+  ];
+
+  // writing inside an editor transaction trips the dispatch guard
+  guard.enter();
+  expect(() => writer.publishCurrent("a")).toThrow(
+    "outline was written during an editor transaction",
+  );
+  guard.leave();
+
+  expect([
+    afterRows,
+    afterCurrent,
+    afterRepeat,
+    afterStaleRows,
+    hookValues,
+  ]).toEqual([
+    [1, 1, "a"],
+    [1, 2, "b"],
+    2,
+    [2, "EXT. HARBOUR", "b"],
+    [true, false],
+  ]);
+});
+
+test("production pages publish immediately without a stacked throttle and preserve unchanged row references", () => {
+  const clock = fakeClock();
+  const store = createProductionPagesStore({
+    guard: testGuard(),
+    schedule: clock.schedule,
+    composing: () => false,
+  });
+  let rowPublishes = 0;
+  let scenePublishes = 0;
+  store.selectors.subscribe(() => rowPublishes++);
+  store.selectors.revisedScenes.subscribe(() => scenePublishes++);
+  const p1 = {
+    index: 0,
+    label: "1",
+    locked: true,
+    level: 1,
+    revision: null,
+    revisionName: null,
+  };
+  store.sink.publish([p1], ["s1"]);
+  const firstRow = store.selectors.row(0);
+  // identical publish is a no-op and preserves reference
+  store.sink.publish([{ ...p1 }], ["s1"]);
+  expect([
+    rowPublishes,
+    scenePublishes,
+    store.selectors.row(0) === firstRow,
+    [...store.selectors.revisedScenes.get()],
+  ]).toEqual([1, 1, true, ["s1"]]);
 });

@@ -1,12 +1,28 @@
 // The undo scope of one editor binding: the one place a Yjs UndoManager is built.
 import * as Y from "yjs";
-import { ORIGIN_REVIEW, yDocOf } from "./doc.ts";
+import { ORIGIN_MATERIAL, ORIGIN_REVIEW, yDocOf } from "./doc.ts";
 import type { CrdtDoc } from "./doc.ts";
 import { FRAGMENT_NAME } from "./mapping.ts";
-import { TITLE_PAGE_MAP } from "./script-maps.ts";
+import {
+  ALTERNATES_MAP,
+  CUTS_MAP,
+  NOTES_MAP,
+  SCENE_PROGRESS_MAP,
+  TITLE_PAGE_MAP,
+} from "./script-maps.ts";
 
-/** The script's fragment, the production map of revised-page overrides, and the title page. */
-export type UndoRoot = "script" | "revisedOverrides" | "titlePage";
+/**
+ * The script's fragment, the production map of revised-page overrides, the title page, the notes, the writers'
+ * material and the scenes' progress.
+ */
+export type UndoRoot =
+  | "script"
+  | "revisedOverrides"
+  | "titlePage"
+  | "notes"
+  | "alternates"
+  | "cuts"
+  | "sceneProgress";
 
 /** Opaque but for the roots it covers. */
 export interface UndoScope {
@@ -19,7 +35,14 @@ const ROOT_TYPES: Readonly<
   script: (ydoc) => ydoc.getXmlFragment(FRAGMENT_NAME),
   revisedOverrides: (ydoc) => ydoc.getMap("revisedOverrides"),
   titlePage: (ydoc) => ydoc.getMap(TITLE_PAGE_MAP),
+  notes: (ydoc) => ydoc.getMap(NOTES_MAP),
+  alternates: (ydoc) => ydoc.getMap(ALTERNATES_MAP),
+  cuts: (ydoc) => ydoc.getMap(CUTS_MAP),
+  sceneProgress: (ydoc) => ydoc.getMap(SCENE_PROGRESS_MAP),
 });
+
+/** The origins whose every transaction is one undo step of its own, never merged with typing. */
+const OWN_STEP_ORIGINS: readonly unknown[] = [ORIGIN_REVIEW, ORIGIN_MATERIAL];
 
 /**
  * Undo never deletes a text that still holds characters, so the words someone
@@ -35,10 +58,10 @@ function keepFilledText(item: Y.Item): boolean {
   );
 }
 
-/** A manager that closes its current step before and after every review action, so that one is never merged with typing. */
+/** A manager that closes its current step before and after every review action and material write, so that neither is ever merged with typing. */
 class ReviewStepManager extends Y.UndoManager {
   private readonly closeAtReview = (tr: Y.Transaction): void => {
-    if (tr.origin === ORIGIN_REVIEW) this.stopCapturing();
+    if (OWN_STEP_ORIGINS.includes(tr.origin)) this.stopCapturing();
   };
 
   constructor(
@@ -76,7 +99,8 @@ class YjsUndoScope implements UndoScope {
 /**
  * A manager over the roots that records only writes whose origin is one of
  * `trackedOrigins`, and never a transaction marked `addToHistory: false`. A
- * transaction of origin ORIGIN_REVIEW is always a step of its own.
+ * transaction of origin ORIGIN_REVIEW or ORIGIN_MATERIAL is always a step of its
+ * own.
  */
 export function createUndoScope(
   doc: CrdtDoc,

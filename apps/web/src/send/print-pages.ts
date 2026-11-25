@@ -1,6 +1,15 @@
 // The pages as the printer gets them: each page of the engine's layout drawn as a sheet of its paper,
 // every line placed on the page's grid in points.
-import { CELL_PT, STYLE, UNIT_PT, engineFor } from "@manent/pagination";
+import type { PageFurnitureOptions } from "@manent/editor";
+import {
+  CELL_PT,
+  DEFAULT_READ_RATE,
+  STYLE,
+  UNIT_PT,
+  durationMs,
+  engineFor,
+  timeScript,
+} from "@manent/pagination";
 import type {
   Engine,
   FrontPage,
@@ -10,6 +19,10 @@ import type {
   PositionedLine,
 } from "@manent/pagination";
 import type { Frames } from "@manent/sync-client";
+import {
+  PRINT_REPLACED_KINDS,
+  drawPrintFurniture,
+} from "../editor-host/print-furniture.ts";
 
 /** The id of the element the printer gets. */
 export const PRINT_ID = "mn-print";
@@ -71,13 +84,71 @@ function sheetOf(
   return sheet;
 }
 
-/** Page `index` of `p` as a sheet of its paper. */
+function sectionOfPage(p: Pagination, pageIndex: number): string | null {
+  const target = p.pages[pageIndex];
+  if (target === undefined) return null;
+  let current: string | null = null;
+  for (let i = 0; i <= target.block && i < p.blocks.length; i++) {
+    const block = p.blocks[i]!;
+    if (
+      block.type === "group" ||
+      (block.type === "act_break" && block.kind !== "end_of_act")
+    ) {
+      const text = block.text.trim();
+      if (text !== "") current = text;
+    }
+  }
+  return current;
+}
+
+function durationOfPagination(p: Pagination): number | null {
+  if (p.profile.format !== "variety") return null;
+  const blocks = p.blocks.map((block) => ({
+    id: block.id,
+    type: block.type,
+    text: block.text,
+    noTiming: false,
+  }));
+  const { total } = timeScript(blocks);
+  return durationMs([total], DEFAULT_READ_RATE);
+}
+
+/** Page `index` of `p` as a sheet of its paper, with page furniture drawn over it. */
 export function drawSheet(
   engine: Engine,
   p: Pagination,
   index: number,
+  furniture?: PageFurnitureOptions,
 ): HTMLElement {
-  return sheetOf(p.profile.geometry, engine.layoutPage(p, index).lines);
+  const laid = engine.layoutPage(p, index);
+  const sheet = sheetOf(
+    p.profile.geometry,
+    laid.lines.filter((line) => !PRINT_REPLACED_KINDS.has(line.kind)),
+  );
+  const resolvedDuration =
+    furniture?.durationMs !== undefined
+      ? furniture.durationMs
+      : durationOfPagination(p);
+  drawPrintFurniture(sheet, {
+    pageIndex: index,
+    pageCount: p.pages.length,
+    pageLabel: laid.label,
+    profile: p.profile,
+    title: furniture?.title ?? null,
+    revision: null,
+    watermark: furniture?.watermark ?? null,
+    header: furniture?.header ?? null,
+    footer: furniture?.footer ?? null,
+    dateFormat: furniture?.dateFormat ?? null,
+    section:
+      furniture?.sections?.[index] ??
+      furniture?.section ??
+      sectionOfPage(p, index),
+    revisionLabel: furniture?.revisionLabel ?? null,
+    day: furniture?.day ?? null,
+    durationMs: resolvedDuration,
+  });
+  return sheet;
 }
 
 /**
@@ -91,6 +162,7 @@ export function printPages(
     frames: Frames;
     signal: AbortSignal;
     front?: readonly FrontPage[];
+    furniture?: PageFurnitureOptions;
   },
 ): Promise<HTMLElement> {
   const { frames, signal } = options;
@@ -117,7 +189,8 @@ export function printPages(
     const batch = (): void => {
       try {
         const end = Math.min(next + PAGES_PER_FRAME, p.pages.length);
-        for (; next < end; next++) root.append(drawSheet(engine, p, next));
+        for (; next < end; next++)
+          root.append(drawSheet(engine, p, next, options.furniture));
       } catch (error) {
         stop(error);
         return;

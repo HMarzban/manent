@@ -195,7 +195,7 @@ export function createHistoryCommands(
       });
       historyActions.setMode("page");
     },
-    "doc.openBeside"() {
+    "history.openRecoveredBeside"() {
       const shown = docId();
       if (shown === null) return;
       openHistory(shown);

@@ -5,6 +5,42 @@ import { IMPORT_WORDS, formatCount, formatDate, joinNames } from "@manent/ui";
 import { summaryOf } from "./import-record.ts";
 
 const KEPT = IMPORT_WORDS.kept;
+const UNREAD = IMPORT_WORDS.unread;
+const STYLE_PREFIX = "style:";
+
+const UNREAD_CODES: Readonly<Record<string, string>> = Object.freeze({
+  page_furniture: UNREAD.page_furniture,
+  image: UNREAD.image,
+  table: UNREAD.table,
+  footnote: UNREAD.footnote,
+  comment: UNREAD.comment,
+});
+
+function unreadLabel(code: string): string | null {
+  if (Object.hasOwn(UNREAD_CODES, code)) return UNREAD_CODES[code]!;
+  if (code.startsWith(STYLE_PREFIX)) {
+    const name = code.slice(STYLE_PREFIX.length);
+    return name === "" ? null : UNREAD.style(name);
+  }
+  return null;
+}
+
+/** One row per distinct unread code, in the order each first appears. */
+function unreadRows(unread: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  for (const code of unread) {
+    const label = unreadLabel(code);
+    if (label !== null && !seen.has(label)) {
+      seen.add(label);
+      labels.push(label);
+    }
+  }
+  return labels;
+}
+
+const isUnreadSource = (from: ImportRecord["from"]): boolean =>
+  from === "pdf" || from === "docx" || from === "text";
 
 /** The row a kept item is listed under, given the file's element names Manent lacks; null for a lock that could not be placed, which `unplaced` says. */
 const LABELS: Readonly<
@@ -51,12 +87,9 @@ const unplacedLabels = (kept: readonly KeptItem[]): string[] =>
 /**
  * The Import group's lines in order: where the script came from, the summary as the message said it, what came in
  * locked, marked or changed, and, when anything is kept but not shown, the "Imported, not shown" title, its line and
- * one row per kind of kept item, then the script's notes.
+ * one row per kind of kept item.
  */
-export function importRows(
-  record: ImportRecord,
-  notes: number,
-): readonly string[] {
+export function importRows(record: ImportRecord): readonly string[] {
   const { production, kept } = record;
   const unplaced = unplacedLabels(kept);
   const rows = [
@@ -77,8 +110,14 @@ export function importRows(
   if (record.coloursMapped > 0)
     rows.push(IMPORT_WORDS.colours(record.coloursMapped));
   if (record.lockKey !== null) rows.push(IMPORT_WORDS.lockWaiting);
+  if (isUnreadSource(record.from)) {
+    const unreadList = unreadRows(record.unread);
+    if (unreadList.length > 0)
+      rows.push(IMPORT_WORDS.notBroughtInTitle, ...unreadList);
+    return rows;
+  }
   const keptList = keptRows(kept);
-  if (keptList.length === 0 && notes === 0) return rows;
+  if (keptList.length === 0) return rows;
   const format =
     record.from === "fdx"
       ? IMPORT_WORDS.asFdx
@@ -88,6 +127,5 @@ export function importRows(
     IMPORT_WORDS.notShownLine(format),
     ...keptList,
   );
-  if (notes > 0) rows.push(IMPORT_WORDS.notesRow(notes));
   return rows;
 }

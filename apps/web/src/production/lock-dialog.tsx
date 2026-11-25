@@ -1,4 +1,5 @@
-// Lock for production: the consequence dialog that says who is affected and with which defaults, and locks.
+// Lock for production: the consequence dialog that says who is affected and with which defaults, and locks the
+// script or, with Try it on a copy first, a copy of it.
 import {
   COLOUR_ORDERS,
   COLOUR_ORDER_IDS,
@@ -8,9 +9,16 @@ import {
 } from "@manent/revisions";
 import type { ColourOrderId, NumberingScheme } from "@manent/revisions";
 import { SETTINGS } from "@manent/settings";
-import { Button, ConsequenceDialog, PRODUCTION_WORDS } from "@manent/ui";
+import {
+  Button,
+  COPIES_WORDS,
+  ConsequenceDialog,
+  PRODUCTION_WORDS,
+} from "@manent/ui";
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { useLockOnCopy } from "../copies/lock-on-copy.ts";
+import type { LockChoice } from "../copies/lock-on-copy.ts";
 import { useDocumentTitle } from "../screens/document/title-bar.tsx";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { Choices } from "./choices.tsx";
@@ -102,22 +110,30 @@ export function LockDialog(props: {
   const request = useDialogRequest("production.lock", open);
   // the first revision after the White production draft
   const next = revisionName(COLOUR_ORDERS[choices.colourOrder], 1);
+  const onCopy = useLockOnCopy({
+    docId: services.docId,
+    open,
+    request,
+    onLocked: onClose,
+  });
+  const choice = (): LockChoice => ({
+    numbering: choices.numbering,
+    colourOrder: choices.colourOrder,
+    lockedOn: deviceDay(now()),
+  });
   const lock = (): void =>
-    request.send(
-      () =>
-        services.client.lock({
-          numbering: choices.numbering,
-          colourOrder: choices.colourOrder,
-          lockedOn: deviceDay(now()),
-        }),
-      {
-        ok: () => {
-          messages.push(lockedMessage(next));
-          onClose();
-        },
-        refused: () => WORDS.lockRefused,
+    request.send(() => services.client.lock(choice()), {
+      ok: () => {
+        messages.push(lockedMessage(next));
+        onClose();
       },
-    );
+      refused: () => WORDS.lockRefused,
+    });
+  const busyLabel = onCopy.copying
+    ? COPIES_WORDS.copying
+    : request.busy
+      ? WORDS.lockingButton
+      : null;
   return (
     <ConsequenceDialog
       open={open}
@@ -126,13 +142,22 @@ export function LockDialog(props: {
       wide
       body={WORDS.lockBody(title, next)}
       action={WORDS.lockButton}
-      busyLabel={request.busy ? WORDS.lockingButton : null}
+      busyLabel={busyLabel}
       refusal={request.refusal}
       disabledReason={request.disabledReason}
       destructive={false}
       actionTour="lock:confirm"
-      onAction={lock}
+      onAction={() => (onCopy.refusedCopy ? onCopy.retry(choice()) : lock())}
       onCancel={onClose}
+      alternative={{
+        label: COPIES_WORDS.tryOnCopy,
+        disabled: request.disabledReason !== undefined,
+        tour: "lock:copy",
+        // offline the dialog's line already says the connection's reason, and nothing is copied
+        onAction: () => {
+          if (request.disabledReason === undefined) onCopy.start(choice());
+        },
+      }}
     >
       <LockChoices choices={choices} />
     </ConsequenceDialog>

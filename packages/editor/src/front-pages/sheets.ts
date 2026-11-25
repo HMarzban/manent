@@ -20,6 +20,7 @@ import { FRONT_CSS } from "./front-css.ts";
 
 export interface FrontPages {
   setProfile(profile: PageProfile): void;
+  setEditable(editable: boolean): void;
   /** Scrolls the title page into view and puts the caret at the end of its title. */
   show(): void;
   /** The pages as print and PDF draw them. */
@@ -93,18 +94,19 @@ interface Drawn {
   readonly sheets: HTMLElement[];
   readonly boxes: Map<TitlePageField, FieldBox>;
   profile: PageProfile;
+  editable: boolean;
   labels: string[];
 }
 
 function boxOf(drawn: Drawn, field: TitlePageField): FieldBox {
   const kept = drawn.boxes.get(field);
   if (kept !== undefined) return kept;
-  const { scaffold, titlePage, editable, keys } = drawn.options;
+  const { scaffold, titlePage, keys } = drawn.options;
   const box = createFieldBox({
     doc: scaffold.front.ownerDocument,
     field,
     word: titlePage.words[field],
-    editable,
+    editable: drawn.editable,
     write: (text) => titlePage.port.set(field, text),
     keys,
   });
@@ -157,18 +159,20 @@ function layOut(drawn: Drawn): number {
 }
 
 // A view below the front pages keeps its place as they come, go or grow, as when they arrive under a script already
-// open at page 1.
+// open at page 1; the room above page 1 then shows the gap, never the foot of the sheet before it.
 function draw(drawn: Drawn): void {
   const { scaffold } = drawn.options;
   const scroller = drawn.options.scroller();
+  const top = (): number => scroller.getBoundingClientRect().top;
   const last = drawn.sheets.at(-1);
   const below =
-    last === undefined ||
-    last.getBoundingClientRect().bottom <= scroller.getBoundingClientRect().top;
+    last === undefined || last.getBoundingClientRect().bottom <= top();
   const before = scaffold.pages.getBoundingClientRect().top;
   scaffold.setFrontHeight(layOut(drawn));
-  if (below)
-    scroller.scrollTop += scaffold.pages.getBoundingClientRect().top - before;
+  if (!below) return;
+  scroller.scrollTop += scaffold.pages.getBoundingClientRect().top - before;
+  const foot = drawn.sheets.at(-1)?.getBoundingClientRect().bottom;
+  if (foot !== undefined && foot > top()) scroller.scrollTop += foot - top();
 }
 
 function labelAt(drawn: Drawn, top: number): string | null {
@@ -192,6 +196,7 @@ export function createFrontPages(options: FrontPagesOptions): FrontPages {
     sheets: [],
     boxes: new Map(),
     profile: options.profile,
+    editable: options.editable,
     labels: [],
   };
   const style = scaffold.front.ownerDocument.createElement("style");
@@ -203,6 +208,10 @@ export function createFrontPages(options: FrontPagesOptions): FrontPages {
     setProfile(next) {
       drawn.profile = next;
       draw(drawn);
+    },
+    setEditable(next) {
+      drawn.editable = next;
+      for (const box of drawn.boxes.values()) box.setEditable(next);
     },
     show() {
       drawn.sheets[0]?.scrollIntoView({ block: "start" });

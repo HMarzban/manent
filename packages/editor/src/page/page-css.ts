@@ -9,6 +9,8 @@ import {
   WRAP_MODE,
 } from "@manent/pagination";
 
+// the image ProseMirror adds after a widget that ends a line, such as another person's caret, is inline as in
+// ProseMirror's own styles, since the reset makes images blocks and one would put an empty line under that line;
 // geometricPrecision turns subpixel positioning on, without which Chromium on Linux rounds each advance to a whole pixel
 export const PAGE_CSS = `
 .mn-pages {
@@ -139,6 +141,9 @@ p.el.pg-first {
 .el[data-close] > br.ProseMirror-trailingBreak {
   display: none;
 }
+img.ProseMirror-separator {
+  display: inline;
+}
 .el[data-mark]::before {
   content: attr(data-mark);
 }
@@ -157,6 +162,16 @@ p.el.pg-first {
 }
 .el[data-scene]::after {
   left: calc((var(--geo-column) + 2 - var(--el-indent) + var(--el-slack-left)) * var(--geo-cell));
+}
+.el[data-scene][data-scene-sides="left"]::after {
+  content: none;
+}
+.el[data-scene][data-scene-sides="right"]::before {
+  content: none;
+}
+.el[data-scene][data-scene-sides="none"]::before,
+.el[data-scene][data-scene-sides="none"]::after {
+  content: none;
 }
 .el[data-speech] {
   position: relative;
@@ -213,11 +228,24 @@ p.el.el-page_break::before {
 mn-offfont {
   text-decoration: underline dotted;
 }
+.caps {
+  text-transform: uppercase;
+}
 .mn-mark {
   position: absolute;
 }
 .mn-mark::before {
   content: attr(data-text);
+}
+.mn-pages[data-hide-page_number] .pb-head[data-text]::before,
+.mn-pages[data-hide-scene_continued_foot] .pb-foot[data-text]::before,
+.mn-pages[data-hide-scene_continued] .pb-continued[data-text]::before,
+.mn-pages[data-hide-more] .pb-more[data-text]::before,
+.mn-pages[data-hide-contd] .pb-contd[data-text]::before,
+.mn-pages[data-hide-scene_number] .el[data-scene]::before,
+.mn-pages[data-hide-scene_number] .el[data-scene]::after,
+.mn-pages[data-hide-speech_number] .el[data-speech]::before {
+  content: none;
 }
 `;
 

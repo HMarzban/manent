@@ -1,7 +1,10 @@
-// The script's outline: its acts, sections, scene headings, slugs and chapters, read from the engine's blocks, never
-// the document.
+// The script's outline: its acts, sections, scene headings, slugs and chapters (read from the engine's blocks), or
+// an Ink script's knots and stitches (read from its lines when there are no pages).
 import { letters } from "@manent/pagination";
 import type { LayoutBlock, Pagination } from "@manent/pagination";
+import { classifyLine } from "@manent/schema";
+import type { SourceRange } from "@manent/schema";
+import type { Node } from "prosemirror-model";
 import type { OutlineEntry } from "../script-editor/ports.ts";
 
 /** `headingBlocks[k]` is the block index of `entries[k]`, ascending. */
@@ -110,4 +113,104 @@ export function headingAt(outline: OutlineIndex, block: number): number | null {
 export function sceneAt(outline: OutlineIndex, block: number): string | null {
   const k = headingAt(outline, block);
   return k === null ? null : outline.entries[k]!.number;
+}
+
+const FUNCTION_KNOT = /^function\s/;
+const EDGE_EQUALS = /^=+|=$/g;
+
+/** Removes comment ranges from a line so trailing comments are never part of a knot or stitch name. */
+function withoutComments(text: string, ranges: readonly SourceRange[]): string {
+  let out = text;
+  for (let i = ranges.length - 1; i >= 0; i--) {
+    const range = ranges[i]!;
+    if (range.role === "comment")
+      out = `${out.slice(0, range.from)}${out.slice(range.to)}`;
+  }
+  return out;
+}
+
+/** Strips leading and trailing `=` signs and surrounding whitespace from an Ink knot or stitch header. */
+function inkHeadingName(text: string, ranges: readonly SourceRange[]): string {
+  let trimmed = withoutComments(text, ranges).trim();
+  while (trimmed.startsWith("=") || trimmed.endsWith("="))
+    trimmed = trimmed.replace(EDGE_EQUALS, "").trim();
+  return trimmed;
+}
+
+/** The index in `headingBlocks` of the last entry at or before `caretBlock`; null before the first. */
+function entryAt(headingBlocks: Int32Array, caretBlock: number): number | null {
+  let lo = 0;
+  let hi = headingBlocks.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (headingBlocks[mid]! <= caretBlock) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo > 0 ? lo - 1 : null;
+}
+
+/**
+ * One pass over an Ink document's blocks; run at most every 250 ms when there are no pages. Lists every knot
+ * (skipping `=== function … ===` knots) and every stitch under its enclosing knot as `{knot} › {stitch}`.
+ * `current` marks the knot or stitch at or before `caretBlock`.
+ */
+export function inkOutlineOf(doc: Node, caretBlock: number): OutlineIndex {
+  const entries: OutlineEntry[] = [];
+  const headingBlocks: number[] = [];
+  let commentOpen = false;
+  let currentKnot: string | null = null;
+  let blockIndex = 0;
+  for (let s = 0; s < doc.childCount; s++) {
+    const section = doc.child(s);
+    for (let c = 0; c < section.childCount; c++) {
+      const block = section.child(c);
+      if (block.attrs["type"] === "ink_line") {
+        const text = block.textContent;
+        const line = classifyLine(text, "ink", commentOpen);
+        commentOpen = line.commentOpen;
+        const id: unknown = block.attrs["id"];
+        const blockId = typeof id === "string" ? id : "";
+        if (line.kind === "knot") {
+          const name = inkHeadingName(text, line.ranges);
+          if (name === "" || FUNCTION_KNOT.test(name)) {
+            currentKnot = null;
+          } else {
+            currentKnot = name;
+            entries.push({
+              blockId,
+              kind: "knot",
+              number: null,
+              heading: name,
+              synopsis: "",
+              eighths: null,
+              omitted: false,
+              current: false,
+            });
+            headingBlocks.push(blockIndex);
+          }
+        } else if (line.kind === "stitch" && currentKnot !== null) {
+          const name = inkHeadingName(text, line.ranges);
+          if (name !== "") {
+            entries.push({
+              blockId,
+              kind: "stitch",
+              number: null,
+              heading: `${currentKnot} › ${name}`,
+              synopsis: "",
+              eighths: null,
+              omitted: false,
+              current: false,
+            });
+            headingBlocks.push(blockIndex);
+          }
+        }
+      }
+      blockIndex++;
+    }
+  }
+  const blocks = Int32Array.from(headingBlocks);
+  const current = entryAt(blocks, caretBlock);
+  if (current !== null)
+    entries[current] = { ...entries[current]!, current: true };
+  return { entries, headingBlocks: blocks };
 }

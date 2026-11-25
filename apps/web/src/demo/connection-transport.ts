@@ -97,5 +97,14 @@ export function connectionTransport(options: {
     },
     createDocument: (body) => request(() => transport.createDocument(body)),
     replay: (body) => request(() => transport.replay(body)),
+    ...(transport.driver === undefined
+      ? {}
+      : {
+          driver: {
+            current: (docId) => request(() => transport.driver!.current(docId)),
+            take: (body) => request(() => transport.driver!.take(body)),
+            release: (body) => request(() => transport.driver!.release(body)),
+          },
+        }),
   };
 }

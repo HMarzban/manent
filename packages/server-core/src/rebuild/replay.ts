@@ -13,7 +13,7 @@ import {
 } from "@manent/crdt";
 import type { TypedText } from "@manent/crdt";
 import type { BlockMerge } from "@manent/revisions";
-import { blockText, blockView, validateBlocks } from "@manent/schema";
+import { blockText, blockView, blocksOf, validateBlocks } from "@manent/schema";
 import type { BlockOp, DocJSON, TitlePageField } from "@manent/schema";
 import type { DocFile, Home, Storage, VersionRow } from "@manent/storage";
 import type {
@@ -28,6 +28,8 @@ import { writeOnCopy } from "../sync/authority-write.ts";
 import type { Clock, SyncLimits, WritePath } from "../sync/ports.ts";
 import type { Room, Rooms } from "../sync/rooms.ts";
 import { replayBase } from "./replay-base.ts";
+import { writeReplayMaps } from "./replay-maps.ts";
+import type { ReplayMapChanges } from "./replay-maps.ts";
 import { readRequest, storedResponse } from "./replay-request.ts";
 import { writeTyping } from "./replay-typing.ts";
 import { mergeUniqueThrough } from "./unique-merge.ts";
@@ -96,6 +98,7 @@ function writeOps(
     typed: Checked["typed"];
     overrides: Checked["overrides"];
     titlePage: Checked["titlePage"];
+    maps: Checked["maps"];
     writer?: number;
   },
   ids: () => string,
@@ -113,6 +116,7 @@ function writeOps(
       const page = titlePage(copy);
       for (const [field, value] of changes.titlePage)
         if (page.get(field) !== value) page.set(field, value, ORIGIN_REPLAY);
+      writeReplayMaps(copy, changes.maps);
       return { ok: true };
     },
     ids,
@@ -138,6 +142,13 @@ function storedOf(
   const merged = new Set<string | null>(
     merge.setAside.map((item) => item.blockId),
   );
+  const result = new Map(
+    blocksOf(merge.result).map((block) => [block.attrs.id, blockText(block)]),
+  );
+  // the merge's base lacks the text the updates removed unseen, so the merge keeps it where theirs holds it
+  const isKept = (item: ReplaySetAside): boolean =>
+    item.blockId !== null &&
+    (result.get(item.blockId)?.includes(item.text) ?? false);
   return {
     docId: room.docId,
     generation: room.row.generation,
@@ -148,7 +159,7 @@ function storedOf(
     })),
     // the merge sets aside mine's whole block, which still holds the unseen text found in it
     setAside: [
-      ...found.setAside,
+      ...found.setAside.filter((item) => !isKept(item)),
       ...found.unseen.filter((item) => !merged.has(item.blockId)),
       ...merge.setAside,
     ].map(({ blockId, nearBlockId, text }) => ({ blockId, nearBlockId, text })),
@@ -198,6 +209,8 @@ interface Checked {
   overrides: [string, string | null][];
   /** Mine's title page fields that differ from base's; "" empties one. */
   titlePage: [TitlePageField, string][];
+  /** Mine's alternates, cuts, and sceneProgress entries that differ from base's. */
+  maps: ReplayMapChanges;
   /** The client ids of the device's updates, in order. An authority writes the replay under the first its document does not hold, so that the device knows the text as its own; a relayed room draws one, as its upstream may hold any. */
   writers: number[];
 }
@@ -255,6 +268,7 @@ export function createReplay(
       typed,
       overrides,
       titlePage: based.titlePage,
+      maps: based.maps,
       writers: clientIds,
     };
   }
@@ -285,6 +299,7 @@ export function createReplay(
       typed,
       overrides,
       titlePage: checked.titlePage,
+      maps: checked.maps,
       writer,
     };
     const update = writeOps(room, changes, ports.ids);

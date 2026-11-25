@@ -104,7 +104,7 @@ test("a device that only reads a script still keeps the day it last synced", asy
   expect(w.server.got("PUSH")).toEqual([]);
 });
 
-test("the local copy is loaded before the socket opens", async () => {
+test("the socket connects in parallel while the local copy loads, and subscribes only after it loads", async () => {
   const w = await setup();
   const log: string[] = [];
   const slow = slowLoads(w.store, log);
@@ -122,11 +122,13 @@ test("the local copy is loaded before the socket opens", async () => {
   });
   const opening = client.open(DOC);
   await w.turn();
-  expect(log).toEqual([]);
+  expect(log).toEqual(["connect"]);
+  expect(w.server.got("SUBSCRIBE")).toEqual([]);
   slow.release();
   await opening;
   await w.settle();
-  expect(log).toEqual(["loaded", "connect"]);
+  expect(log).toEqual(["connect", "loaded"]);
+  expect(w.server.got("SUBSCRIBE")).toHaveLength(1);
 });
 
 test("offline edits wait, are counted in elements, and go out in order as batches after the merge", async () => {
@@ -463,7 +465,7 @@ test("a reconnect that had something waiting ends in one receipt, counted in ele
   ]);
 });
 
-test("awareness passes through while the document is live", async () => {
+test("awareness asked for before the document is live is sent once it is, and passes through after", async () => {
   const w = await setup();
   const client = w.makeClient();
   const h = await client.open(DOC);
@@ -480,6 +482,7 @@ test("awareness passes through while the document is live", async () => {
   });
   await w.settle();
   expect(w.server.got("AWARENESS").map((m) => m.update)).toEqual([
+    utf8("before"),
     utf8("mine"),
   ]);
   expect(heard).toEqual([utf8("theirs")]);

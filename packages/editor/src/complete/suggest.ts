@@ -114,3 +114,23 @@ export function suggest(
       return null;
   }
 }
+
+/**
+ * What a completion source reads at the caret: the caret block's element and text, the caret's offset in it, the
+ * script's names, the cues spoken in this scene (latest first) and the host's names beside the script's.
+ */
+export interface CompletionInput {
+  readonly element: string;
+  readonly text: string;
+  readonly offset: number;
+  readonly names: Names;
+  readonly recent: readonly string[];
+  readonly projectNames: readonly string[];
+}
+
+/** One source of autocomplete; null: it offers nothing here. */
+export type CompletionSource = (input: CompletionInput) => Suggestions | null;
+
+/** The script's own names, and the usual intros, times, transitions and extensions. */
+export const scriptNamesSource: CompletionSource = (input) =>
+  suggest(input.element, input.text, input.offset, input.names, input.recent);

@@ -174,6 +174,7 @@ function mount(
           scenesNumbered,
           lockIcon: () => document.createElement("span"),
           lockMarkerName: "Page number locked",
+          frames: { request: () => () => {} },
         }),
       ],
     }),

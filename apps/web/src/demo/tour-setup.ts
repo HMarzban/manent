@@ -2,10 +2,13 @@
 import type { TourScenario } from "@manent/demo";
 import type { TourPrepareResponse } from "@manent/sync-protocol";
 
-/** `unreachable`: the preparation got no answer. */
+/** `unreachable`: the preparation got no answer; `popup_blocked`: the browser refused to open an extra window. */
 export type SetupOutcome =
   | { ok: true }
-  | { ok: false; reason: "used" | "seeding" | "unknown" | "unreachable" };
+  | {
+      ok: false;
+      reason: "used" | "seeding" | "unknown" | "unreachable" | "popup_blocked";
+    };
 
 /**
  * Runs the scenario's preparation when it has one, then makes the tab the scenario's person (`switchPerson` leaves a tab
@@ -18,7 +21,8 @@ export async function runSetup(
     prepare(id: string): Promise<TourPrepareResponse>;
     switchPerson(userId: string): Promise<void>;
     navigate(path: string): void;
-    openWindow(url: string): void;
+    /** Returns false when the browser blocked the pop-up window. */
+    openWindow(url: string): boolean;
   },
 ): Promise<SetupOutcome> {
   const { setup } = scenario;
@@ -29,7 +33,11 @@ export async function runSetup(
   }
   await deps.switchPerson(setup.userId);
   deps.navigate(setup.open);
-  for (const extra of setup.extraWindows)
-    deps.openWindow(`${extra.open}?person=${extra.userId}&panels=closed`);
+  for (const extra of setup.extraWindows) {
+    const opened = deps.openWindow(
+      `${extra.open}?person=${extra.userId}&panels=closed`,
+    );
+    if (!opened) return { ok: false, reason: "popup_blocked" };
+  }
   return { ok: true };
 }

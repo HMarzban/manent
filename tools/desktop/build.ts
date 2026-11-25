@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { copyFile, cp, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { parseArgs } from "node:util";
-import { ENGINE_VERSION, TABLE_VERSION } from "@manent/pagination";
+import { ENGINE_VERSIONS, TABLE_VERSION } from "@manent/pagination";
 import { SCHEMA_VERSION } from "@manent/schema";
 import { PROTOCOL_VERSION } from "@manent/sync-protocol";
 import type { VersionSet } from "@manent/sync-protocol";
@@ -31,7 +31,7 @@ export const REPOSITORY = "HMarzban/manent";
 export const VERSIONS: Readonly<VersionSet> = Object.freeze({
   protocol: PROTOCOL_VERSION,
   schema: SCHEMA_VERSION,
-  engine: ENGINE_VERSION,
+  engine: ENGINE_VERSIONS.at(-1)!,
   table: TABLE_VERSION,
 });
 

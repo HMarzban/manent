@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { buildId, precacheEntries } from "../src/sw/manifest.ts";
+import {
+  cleanStaleRuntimeCaches,
+  runtimeAssetStrategy,
+  runtimeAssetsCacheName,
+} from "../src/sw/precache.ts";
 
 const out = (
   path: string,
@@ -45,16 +50,34 @@ test("a build written with backslashes is listed under the same URLs", () => {
   ]);
 });
 
-test("a source map is never precached", () => {
+test("a source map or legacy PDF-only woff font is never precached", () => {
   expect(
     precacheEntries(
       [
         out("dist/chunk-abc12345.js", "x"),
         out("dist/chunk-abc12345.js.map", "{}"),
+        out("dist/courier-prime-latin-400-normal-abc12345.woff", "legacy"),
       ],
       "dist",
     ),
   ).toEqual([{ url: "/chunk-abc12345.js", revision: null }]);
+});
+
+test("on-demand assets named in exclude stay out of the eager precache list", () => {
+  expect(
+    precacheEntries(
+      [
+        out("dist/index.html", "<html>"),
+        out("dist/chunk-abc12345.js", "x"),
+        out("dist/ink-compile.worker.js", "w"),
+      ],
+      "dist",
+      { exclude: new Set(["/ink-compile.worker.js"]) },
+    ),
+  ).toEqual([
+    { url: "/chunk-abc12345.js", revision: null },
+    { url: "/index.html", revision: sha256Hex("<html>") },
+  ]);
 });
 
 test("a different build has a different id; the same build the same", () => {
@@ -76,4 +99,56 @@ test("a file outside the build's folder is refused", () => {
       "C:\\out\\dist",
     ),
   ).toThrow(RangeError);
+});
+
+test("runtime caching serves hashed assets cache-first, the unhashed Ink worker network-first, and skips sw and api", () => {
+  expect([
+    runtimeAssetsCacheName("0123456789abcdef"),
+    runtimeAssetsCacheName(undefined),
+    runtimeAssetsCacheName(""),
+    runtimeAssetStrategy(true, "/chunk-abcd1234.js"),
+    runtimeAssetStrategy(true, "/font-01234567.woff2"),
+    runtimeAssetStrategy(true, "/courier-prime-abcd1234.woff"),
+    runtimeAssetStrategy(true, "/ink-compile.worker.js"),
+    runtimeAssetStrategy(true, "/plain-worker.js"),
+    runtimeAssetStrategy(true, "/sw.js"),
+    runtimeAssetStrategy(true, "/api/script-abcd1234.js"),
+    runtimeAssetStrategy(false, "/chunk-abcd1234.js"),
+    runtimeAssetStrategy(false, "/ink-compile.worker.js"),
+  ]).toEqual([
+    "manent-runtime-assets-0123456789abcdef",
+    "manent-runtime-assets-dev",
+    "manent-runtime-assets-dev",
+    "cache_first",
+    "cache_first",
+    "cache_first",
+    "network_first",
+    null,
+    null,
+    null,
+    null,
+    null,
+  ]);
+});
+
+test("activating a new worker deletes older versioned runtime asset caches only", async () => {
+  const kept = new Set([
+    "manent-runtime-assets-old1",
+    "manent-runtime-assets-v1",
+    "manent-runtime-assets-cur2",
+    "serwist-precache-v2",
+  ]);
+  const deleted: string[] = [];
+  const fakeCaches = {
+    keys: async () => [...kept],
+    delete: async (name: string) => {
+      deleted.push(name);
+      return kept.delete(name);
+    },
+  } as unknown as CacheStorage;
+  await cleanStaleRuntimeCaches(fakeCaches, "manent-runtime-assets-cur2");
+  expect([deleted.toSorted(), [...kept].toSorted()]).toEqual([
+    ["manent-runtime-assets-old1", "manent-runtime-assets-v1"],
+    ["manent-runtime-assets-cur2", "serwist-precache-v2"],
+  ]);
 });

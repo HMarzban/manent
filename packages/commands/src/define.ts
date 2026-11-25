@@ -48,7 +48,7 @@ export interface CommandDefinition<Id extends string = string> {
   readonly palette: { keywords: readonly string[] } | { hidden: string };
   readonly opens: {
     surface: SurfaceId;
-    focus: "first" | "item" | "stay";
+    focus: "heading" | "first" | "item" | "stay";
   } | null;
   readonly reach: "self" | "others";
   /** For a generated setting command only: the value it sets; null turns a switch over. */

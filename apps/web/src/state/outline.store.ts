@@ -6,10 +6,10 @@ import { OutlineContext } from "./bridge-contexts.ts";
 import type { Guard } from "./guard.ts";
 import { createThrottledList } from "./throttle.ts";
 
-/** A scene, an act or a section; `eighths` is a scene's length in eighths of a page, null for an act or a section. */
+/** A scene, an act, a section, or an Ink knot or stitch; `eighths` is a scene's length in eighths of a page, null for any other kind. */
 export interface OutlineRow {
   blockId: string;
-  kind: "scene" | "act" | "section";
+  kind: "scene" | "act" | "section" | "knot" | "stitch";
   number: string | null;
   heading: string;
   synopsis: string;
@@ -22,6 +22,8 @@ export interface OutlineRow {
 export interface OutlineWriter {
   /** Throttled inside; a new snapshot only when a row changed. */
   publish(rows: readonly OutlineRow[]): void;
+  /** Updates only the active heading's block id immediately, without triggering row subscribers. */
+  publishCurrent(blockId: string | null): void;
 }
 
 export interface OutlineSelectors {
@@ -29,6 +31,9 @@ export interface OutlineSelectors {
   /** The row at `index`; null past the end. */
   row(index: number): OutlineRow | null;
   subscribe(listener: () => void): () => void;
+  /** The active heading's block id; null before the first heading. */
+  currentBlockId(): string | null;
+  subscribeCurrent(listener: () => void): () => void;
 }
 
 /** The outline of one editor. Each publish is checked with `guard` under the name `outline`. */
@@ -38,12 +43,45 @@ export function createOutlineStore(options: {
   composing: () => boolean;
 }): { writer: OutlineWriter; selectors: OutlineSelectors } {
   const rows = createThrottledList<OutlineRow>({ name: "outline", ...options });
+  let currentBlockId: string | null = null;
+  // true once publishCurrent runs after the latest publish(rows), so a queued structural publish cannot clobber it
+  let currentOverridden = false;
+  const currentListeners = new Set<() => void>();
+  rows.subscribe(() => {
+    if (currentOverridden) return;
+    const nextCurrent = rows.get().find((row) => row.current)?.blockId ?? null;
+    if (Object.is(currentBlockId, nextCurrent)) return;
+    currentBlockId = nextCurrent;
+    for (const listener of currentListeners) listener();
+  });
   return {
-    writer: { publish: rows.publish },
+    writer: {
+      publish(nextRows) {
+        currentOverridden = false;
+        rows.publish(nextRows);
+      },
+      publishCurrent(blockId) {
+        if (Object.is(currentBlockId, blockId)) {
+          currentOverridden = true;
+          return;
+        }
+        options.guard.check("outline");
+        currentOverridden = true;
+        currentBlockId = blockId;
+        for (const listener of currentListeners) listener();
+      },
+    },
     selectors: {
       count: () => rows.get().length,
       row: (index) => rows.get()[index] ?? null,
       subscribe: rows.subscribe,
+      currentBlockId: () => currentBlockId,
+      subscribeCurrent(listener) {
+        currentListeners.add(listener);
+        return () => {
+          currentListeners.delete(listener);
+        };
+      },
     },
   };
 }
@@ -65,4 +103,11 @@ export function useOutlineRow(index: number): OutlineRow | null {
   const outline = useOutline();
   const read = () => outline.row(index);
   return useSyncExternalStore(outline.subscribe, read, read);
+}
+
+/** Whether `blockId` is the outline's active heading in the nearest `OutlineContext`. */
+export function useIsCurrentOutline(blockId: string): boolean {
+  const outline = useOutline();
+  const read = (): boolean => outline.currentBlockId() === blockId;
+  return useSyncExternalStore(outline.subscribeCurrent, read, read);
 }

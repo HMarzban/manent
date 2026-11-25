@@ -85,12 +85,17 @@ export interface LocalCopy {
 /** The parts of a handle its session keeps. */
 interface SessionParts extends Pick<
   DocHandle,
-  "nameVersion" | "restoreLocally" | "deviceVersions" | "lastServerSeq"
+  | "nameVersion"
+  | "restoreLocally"
+  | "deviceVersions"
+  | "lastServerSeq"
+  | "viewers"
 > {
   status: Subscribable<DocStatus>;
   readOnly: Subscribable<ViewHandle | null>;
   sendAwareness(update: Uint8Array): void;
   adoptClientIds(ids: readonly number[]): void;
+  reserveClientId(): Promise<number>;
   close(): Promise<void>;
 }
 
@@ -273,16 +278,15 @@ class BoundCopy implements LocalCopy {
   handleOf(parts: SessionParts): DocHandle {
     const { upstream } = this.options;
     return {
+      ...parts,
       docId: this.options.docId,
       doc: () => {
         if (!this.steps.held) this.options.idle();
         return this.doc;
       },
-      status: parts.status,
       recovered: this.list.view,
       settings: this.overlay.view,
       writeSchema: this.schema,
-      readOnly: parts.readOnly,
       upstream:
         upstream?.status ?? createSubscribable<UpstreamStatus | null>(null),
       on: (listener) => {
@@ -294,18 +298,11 @@ class BoundCopy implements LocalCopy {
       releaseRemote: () => {
         if (this.steps.release()) this.options.idle();
       },
-      sendAwareness: parts.sendAwareness,
       onAwareness: (listener) => {
         this.awarenessListeners.add(listener);
         return () => this.awarenessListeners.delete(listener);
       },
       saveVersion: (label) => this.recordVersion("device", label).stored,
-      nameVersion: parts.nameVersion,
-      restoreLocally: parts.restoreLocally,
-      deviceVersions: parts.deviceVersions,
-      lastServerSeq: parts.lastServerSeq,
-      adoptClientIds: parts.adoptClientIds,
-      close: parts.close,
     };
   }
 
@@ -361,8 +358,9 @@ class BoundCopy implements LocalCopy {
 
   /** Server entries up to `through` are in the document, and `items` is what they set aside; the overlaps found online are filed with them. */
   private appliedTo(through: number, items: RecoveredItem[]): void {
-    this.options.journal.applied(through);
-    this.file([...items, ...this.window.take()], through);
+    const hadUnapplied = this.options.journal.applied(through);
+    const all = [...items, ...this.window.take()];
+    if (hadUnapplied || all.length > 0) this.file(all, through);
     this.overlay.applied(through);
     this.options.changed();
   }

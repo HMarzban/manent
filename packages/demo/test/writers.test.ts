@@ -16,6 +16,7 @@ import type {
   ProfileId,
   SimulatedPerson,
   SimulatedPersonEvent,
+  WriterLine,
   WritingProfile,
 } from "../src/index.ts";
 
@@ -113,7 +114,7 @@ function world(
     seed?: number;
     region?: { firstBlockId: string; lastBlockId: string };
     markers?: boolean;
-    lines?: readonly string[];
+    lines?: readonly WriterLine[];
   } = {},
 ): World {
   const doc = scriptDocFromJSON(SCRIPT, { clientId: CLIENT_ID });
@@ -176,8 +177,14 @@ test("the profiles are these", () => {
   expect(PROFILES).toEqual(PROFILE_TABLE);
 });
 
-test("a person given lines types only those lines", () => {
-  const lines = ["The tide is out.", "Mind the rope."];
+test("a person given lines types only those lines, each block in its own element", () => {
+  const lines: WriterLine[] = [
+    [{ element: "action", text: "The tide is out." }],
+    [
+      { element: "character", text: "ESME" },
+      { element: "dialogue", text: "Mind the rope." },
+    ],
+  ];
   const w = world(PROFILES.demo, { lines });
   w.person.start();
   w.fake.advance(60_000);
@@ -189,11 +196,15 @@ test("a person given lines types only those lines", () => {
     60_000,
   );
   const typed = new Set(typedIn(w.person).map((event) => event.blockId));
-  const texts = blockIds(w.doc)
-    .filter((id) => typed.has(id))
-    .map((id) => textOf(w.doc, id));
-  expect(texts.length).toBeGreaterThan(2);
-  expect(texts).toEqual(texts.map((_, i) => lines[i % 2]!));
+  const blocks = blocksOf(scriptBody(w.doc).materialize())
+    .filter((flat) => typed.has(flat.attrs.id))
+    .map((flat) => ({
+      element: flat.attrs.type,
+      text: flat.runs.map((run) => run.text).join(""),
+    }));
+  const sequence = lines.flat();
+  expect(blocks.length).toBeGreaterThan(3);
+  expect(blocks).toEqual(blocks.map((_, i) => sequence[i % sequence.length]!));
 });
 
 test("a realistic writer types at four keystrokes a second in bursts, in their own scenes", () => {
@@ -319,25 +330,74 @@ test("markers tell each burst apart", () => {
   );
 });
 
-test("presence shows the end of the typed text, with the block's place as its hint", () => {
+/** The head of the caret an awareness update sends; null when it sends none. */
+const headOf = (update: Uint8Array): unknown => {
+  const state = decodeAwareness(update)[0]?.state ?? null;
+  const cursor: unknown = state === null ? null : state["cursor"];
+  return cursor === null ? null : Reflect.get(Object(cursor), "head");
+};
+
+test("presence shows the caret from the moment the person starts, with the block's place as its hint", () => {
   const w = world(PROFILES.realistic, { region: REGION });
   w.person.start();
-  advanceUntil(w.fake, () => w.sent.length > 0, 250, 60_000);
-  const blockId = typedIn(w.person).at(-1)!.blockId!;
+  const blockId = String(Reflect.get(Object(headOf(w.sent[0]!)), "blockId"));
   const caret = { blockId, offset: textOf(w.doc, blockId)!.length };
-  expect(decodeAwareness(w.sent[0]!)).toEqual([
-    {
-      clientId: CLIENT_ID,
-      clock: 1,
-      state: {
-        cursor: {
-          anchor: caret,
-          head: caret,
-          at: blockIds(w.doc).indexOf(blockId),
+  advanceUntil(w.fake, () => typedIn(w.person).length > 0, 50, 10_000);
+  expect([decodeAwareness(w.sent[0]!), typedIn(w.person)[0]?.blockId]).toEqual([
+    [
+      {
+        clientId: CLIENT_ID,
+        clock: 1,
+        state: {
+          cursor: {
+            anchor: caret,
+            head: caret,
+            at: blockIds(w.doc).indexOf(blockId),
+          },
         },
       },
-    },
+    ],
+    blockId,
   ]);
+});
+
+test("presence follows the caret while the person types", () => {
+  const w = world(PROFILES.realistic, { region: REGION });
+  const misplaced: number[] = [];
+  w.person.start();
+  for (let step = 0; step < 2_400; step++) {
+    w.fake.advance(50);
+    const now = w.fake.clock.now();
+    const last = typedIn(w.person).at(-1);
+    // 200 ms after a key, and before the next, the caret sent is where that key left it
+    if (last?.blockId == null || now - last.at < 200 || now - last.at >= 250)
+      continue;
+    const end = {
+      blockId: last.blockId,
+      offset: textOf(w.doc, last.blockId)!.length,
+    };
+    if (JSON.stringify(headOf(w.sent.at(-1)!)) !== JSON.stringify(end))
+      misplaced.push(now);
+  }
+  expect({
+    misplaced,
+    checked: typedIn(w.person).length > 100,
+  }).toEqual({ misplaced: [], checked: true });
+});
+
+test("a person who pauses sends their caret again every 15 seconds, so that the server keeps them", () => {
+  const w = world(
+    { ...PROFILES.demo, pauseMs: [40_000, 40_000] },
+    { region: REGION },
+  );
+  const sentAt: number[] = [];
+  w.person.start();
+  for (let step = 0; step < 2_400; step++) {
+    w.fake.advance(50);
+    while (sentAt.length < w.sent.length) sentAt.push(w.fake.clock.now());
+  }
+  const gaps = sentAt.slice(1).map((at, i) => at - sentAt[i]!);
+  expect(Math.max(...gaps)).toBe(15_000);
 });
 
 test("a person who stops sends no more and leaves presence", async () => {
@@ -359,4 +419,35 @@ test("a person who stops sends no more and leaves presence", async () => {
   expect(decodeAwareness(w.sent.at(-1)!)).toEqual([
     { clientId: CLIENT_ID, clock: w.sent.length, state: null },
   ]);
+});
+
+test("presence sends the updated caret immediately on normal typing without a 200 ms delay", () => {
+  const w = world(PROFILES.demo, { region: REGION });
+  w.person.start();
+  // One keystroke at 250 ms; awareness updates in the same tick rather than 200 ms later
+  w.fake.advance(250);
+  const last = typedIn(w.person).at(-1)!;
+  expect(headOf(w.sent.at(-1)!)).toEqual({
+    blockId: last.blockId,
+    offset: textOf(w.doc, last.blockId)!.length,
+  });
+});
+
+test("recordEvents: false keeps events bounded while lastTypedAt tracks edits", () => {
+  const doc = scriptDocFromJSON(SCRIPT, { clientId: CLIENT_ID });
+  const fake = createFakeClock();
+  const person = createSimulatedPerson({
+    handle: { doc: () => doc, sendAwareness: () => {} },
+    client: { setOnline: () => {} },
+    profile: PROFILES.demo,
+    clock: fake.clock,
+    random: seededRandom(11),
+    region: REGION,
+    markers: false,
+    recordEvents: false,
+  });
+  person.start();
+  fake.advance(5_000);
+  expect(person.events).toEqual([]);
+  expect(person.lastTypedAt()).toBeGreaterThan(0);
 });

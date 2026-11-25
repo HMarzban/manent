@@ -520,3 +520,19 @@ test("a block carrying change marks is not measured for drift", () => {
     }),
   ).toEqual([true, false, true]);
 });
+
+test("typing in the first block keeps a removed opening block drawn above it", () => {
+  const baseline = doc(b(A, "Opening"), b(A, "Rain"), b(A, "Dawn"));
+  const live = edited(baseline, (block, k) => (k === 0 ? [] : [block]));
+  const s = withChanges(live, baseline);
+  const typed = s.apply(s.tr.insertText(" falls", posIn(s, 0, 4)));
+  const fresh = withChanges(typed.doc.toJSON(), baseline);
+  const widgets = changesKey
+    .getState(typed)!
+    .decorations.find()
+    .filter((d) => shapeOf(typed, d) === "widget");
+  expect([
+    widgets.map((w) => [w.from, drawn(w).textContent]),
+    drawingOf(typed),
+  ]).toEqual([[[posIn(typed, 0) - 1, "Opening"]], drawingOf(fresh)]);
+});

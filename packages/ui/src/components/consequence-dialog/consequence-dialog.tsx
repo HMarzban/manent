@@ -31,7 +31,15 @@ export interface ConsequenceDialogProps {
   actionTour?: string;
   onAction(): void;
   onCancel(): void;
-  alternative?: { label: string; destructive?: boolean; onAction(): void };
+  alternative?: {
+    label: string;
+    destructive?: boolean;
+    /** The button cannot run now; the dialog's line, when it shows, describes it. */
+    disabled?: boolean;
+    /** The button's Tour target ("lock:copy"). */
+    tour?: string;
+    onAction(): void;
+  };
   wide?: boolean;
   children?: ReactNode;
 }
@@ -106,8 +114,13 @@ function LineAboveButtons({
       </p>
     );
   }
-  if (stillWorking)
-    return <p className="text-ui text-fg-muted">{DIALOG_WORDS.stillWorking}</p>;
+  if (stillWorking) {
+    return (
+      <p role="status" aria-live="polite" className="text-ui text-fg-muted">
+        {DIALOG_WORDS.stillWorking}
+      </p>
+    );
+  }
   if (disabledLine === null) return null;
   return (
     <p id={lineId} className="text-ui text-fg-muted">
@@ -120,15 +133,22 @@ function LineAboveButtons({
 function AlternativeButton({
   alternative,
   busy,
+  lineId,
+  describing,
 }: {
   alternative: ConsequenceDialogProps["alternative"];
   busy: boolean;
+  lineId: string;
+  describing: boolean;
 }): ReactNode {
   if (alternative === undefined) return null;
+  const disabled = alternative.disabled === true;
   return (
     <Button
       variant={alternative.destructive ? "destructive" : "outline"}
-      disabled={busy}
+      disabled={busy || disabled}
+      aria-describedby={disabled && describing ? lineId : undefined}
+      data-tour={alternative.tour}
       focusableWhenDisabled
       onClick={alternative.onAction}
     >
@@ -191,11 +211,16 @@ export function ConsequenceDialog({
           disabledLine={disabledLine}
           lineId={lineId}
         />
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button ref={cancelRef} variant="outline" onClick={onCancel}>
             {DIALOG_WORDS.cancel}
           </Button>
-          <AlternativeButton alternative={alternative} busy={busy} />
+          <AlternativeButton
+            alternative={alternative}
+            busy={busy}
+            lineId={lineId}
+            describing={describing}
+          />
           <BusyButton
             label={refusal === null ? action : DIALOG_WORDS.tryAgain}
             busyLabel={busyLabel}

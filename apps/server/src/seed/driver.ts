@@ -4,18 +4,11 @@ import {
   createDoc,
   jsonMap,
   mergeUpdates,
-  revisedOverrides,
   scriptBody,
 } from "@manent/crdt";
-import type { CrdtDoc } from "@manent/crdt";
-import { SeedDriverError, createSeedTime, seedProject } from "@manent/demo";
-import type {
-  SeedCapability,
-  SeedDriver,
-  SeedProduction,
-  SeedSession,
-} from "@manent/demo";
-import { contentHash, overrideKey } from "@manent/revisions";
+import type { CrdtDoc, JsonMapView } from "@manent/crdt";
+import { SEED_DOCS, SeedDriverError, seedProject } from "@manent/demo";
+import type { SeedDriver, SeedSession, SeedWorkspaceId } from "@manent/demo";
 import { SCHEMA_VERSION, canonicalDoc } from "@manent/schema";
 import type { DocJSON } from "@manent/schema";
 import type {
@@ -25,23 +18,26 @@ import type {
   SyncService,
 } from "@manent/server-core";
 import type { Storage } from "@manent/storage";
-import {
-  docIdV7,
-  indexDocId,
-  isProductionState,
-  workspaceHome,
-} from "@manent/sync-protocol";
-import { seedCapabilities } from "./capabilities.ts";
-import { isFields, openSeamLink } from "./link.ts";
-import type { SeamLink } from "./link.ts";
+import { docIdV7, indexDocId, workspaceHome } from "@manent/sync-protocol";
+import { createDriving, isSeedClock } from "./driving.ts";
+import type { Driving } from "./driving.ts";
+import { isFields } from "./link.ts";
 import {
   checkPassage,
   createPageMeter,
   readServerScript,
-  revisedPagesOf,
 } from "./page-meter.ts";
-import { callRoute } from "./server.ts";
-import type { SeedClock, SeedServer } from "./server.ts";
+import { createCommentsDriver } from "./comments-driver.ts";
+import { trashDocument } from "./folders.ts";
+import { createPrivateCopiesDriver } from "./private-copies-driver.ts";
+import { createProduction } from "./production-driver.ts";
+import { createPrompterDriver } from "./prompter-driver.ts";
+import { createRundownsDriver } from "./rundown-driver.ts";
+import { createSeriesDriver } from "./series-driver.ts";
+import { createSharingDriver } from "./sharing-driver.ts";
+import { createStartFromDriver } from "./start-from-driver.ts";
+import { createWritersMaterialDriver } from "./writers-material-driver.ts";
+import type { SeedServer } from "./server.ts";
 
 /** The running server, for the Tour's preparations and the simulated writers. */
 export interface LiveTarget {
@@ -52,72 +48,9 @@ export interface LiveTarget {
   clock: Clock;
 }
 
-type Route = { method: "GET" | "POST"; path: string; body?: unknown };
 type VersionRow = { id: string; kind: string; name: string | null };
 
-/** What every action of the driver reaches the server with. */
-interface Driving {
-  readonly target: SeedServer | LiveTarget;
-  readonly capabilities: ReadonlySet<SeedCapability>;
-  /** A route as `userId`: the body of its 200 answer; any other answer is refused. */
-  call(userId: string, route: Route): Promise<unknown>;
-  /** The person's one socket, opened on first use. */
-  link(userId: string): Promise<SeamLink>;
-  bytes(count: number): Uint8Array;
-  /** A Yjs client id: an unsigned 32-bit integer above 0. */
-  clientId(): number;
-  /** A request key: 32 lower-case hex characters. */
-  key(): string;
-  /** Runs the seed clock's due timers; nothing on the live server, whose timers run by themselves. */
-  runDue(): Promise<void>;
-}
-
-const KEY_BYTES = 16;
 const V7_RANDOM_BYTES = 10;
-const UINT32 = 4_294_967_296;
-
-const isSeedClock = (clock: Clock): clock is SeedClock =>
-  "set" in clock && "runDue" in clock;
-
-const hex = (byte: number): string => byte.toString(16).padStart(2, "0");
-
-function createDriving(
-  target: SeedServer | LiveTarget,
-  random: () => number,
-): Driving {
-  const tokens = new Map<string, string>();
-  const links = new Map<string, Promise<SeamLink>>();
-  const bytes = (count: number) =>
-    Uint8Array.from({ length: count }, () => Math.floor(random() * 256));
-  const tokenOf = (userId: string): string => {
-    const token = tokens.get(userId) ?? target.sessions.issue(userId);
-    tokens.set(userId, token);
-    return token;
-  };
-  return {
-    target,
-    capabilities: seedCapabilities(target),
-    async call(userId, route) {
-      const answer = await callRoute(target.server, tokenOf(userId), route);
-      const body: unknown = await answer.json().catch(() => null);
-      if (answer.status === 200) return body;
-      const code = isFields(body) ? String(body.error) : "no code";
-      const what = `${route.method} ${route.path} as ${userId}`;
-      throw new SeedDriverError("refused", `${what}: ${answer.status} ${code}`);
-    },
-    link(userId) {
-      const link = links.get(userId) ?? openSeamLink(target, userId);
-      links.set(userId, link);
-      return link;
-    },
-    bytes,
-    clientId: () => Math.floor(random() * (UINT32 - 1)) + 1,
-    key: () => Array.from(bytes(KEY_BYTES), hex).join(""),
-    async runDue() {
-      if (isSeedClock(target.clock)) await target.clock.runDue();
-    },
-  };
-}
 
 /** The updates `fn` makes in `doc`, merged into one; null when it changes nothing. */
 function changesOf(
@@ -156,17 +89,95 @@ async function uploadBefore(
   });
 }
 
-/** A replica subscribed for editing; while offline it holds its changes and what it hears. */
+/** The workspace whose index lists the seeded document `docId`; null for any other document, such as an index. */
+function workspaceOf(docId: string): SeedWorkspaceId | null {
+  const found = SEED_DOCS.find((d) => d.docId === docId);
+  return found === undefined ? null : seedProject(found.projectKey).workspaceId;
+}
+
+/** Who last changed a document, and when. */
+export interface Edit {
+  userId: string;
+  at: number;
+}
+
+/** Tells the driver that `userId` changed `docId` at `at`, as a session closes. */
+type Edited = (userId: string, docId: string, at: number) => Promise<void>;
+
+/** Sets the entry of `docId` in an index's `documents` to say `userId` edited it at `at`; false when it is missing or holds a later edit. */
+export function setEdited(
+  documents: JsonMapView,
+  docId: string,
+  { userId, at }: Edit,
+): boolean {
+  const entry = documents.get(docId);
+  if (!isFields(entry)) return false;
+  if (typeof entry.editedAt === "number" && entry.editedAt >= at) return false;
+  documents.set(docId, { ...entry, editedAt: at, editedByUserId: userId });
+  return true;
+}
+
+/**
+ * Writes in the workspace's index who last edited each of `edits`' documents and when, as the app writes a person's
+ * own changes, in one session as the index's owner; an entry holding a later edit, or missing, is left as it is.
+ */
+async function markEdited(
+  d: Driving,
+  workspaceId: SeedWorkspaceId,
+  edits: ReadonlyMap<string, Edit>,
+): Promise<void> {
+  const indexId = indexDocId("workspace", workspaceId);
+  const roles = d.target.storage.directory.rolesOf(indexId);
+  const owner = roles.find((r) => r.role === "owner")?.userId;
+  if (owner === undefined) return;
+  // an index's own changes are no document's edit
+  const index = await openSession(d, owner, indexId, async () => {});
+  await index.change((doc) => {
+    const documents = jsonMap(doc, "documents");
+    for (const [docId, edit] of edits) setEdited(documents, docId, edit);
+  });
+  await index.close();
+}
+
+/** Each workspace's index told of the edits in `edits` of its own documents; documents no index lists are left out. */
+async function writeEdits(
+  d: Driving,
+  edits: ReadonlyMap<string, Edit>,
+): Promise<void> {
+  const byWorkspace = new Map<SeedWorkspaceId, Map<string, Edit>>();
+  for (const [docId, edit] of edits) {
+    const workspaceId = workspaceOf(docId);
+    if (workspaceId === null) continue;
+    const own = byWorkspace.get(workspaceId) ?? new Map<string, Edit>();
+    byWorkspace.set(workspaceId, own.set(docId, edit));
+  }
+  for (const [workspaceId, own] of byWorkspace)
+    await markEdited(d, workspaceId, own);
+}
+
+/** A replica subscribed for editing; while offline it holds its changes and what it hears. Closing it tells `edited` of its last change. */
 async function openSession(
   d: Driving,
   userId: string,
   docId: string,
+  edited: Edited,
 ): Promise<SeedSession> {
+  if (
+    docId === indexDocId("user", userId) &&
+    d.target.storage.directory.placeOf(docId) === null
+  ) {
+    await d.call(userId, {
+      method: "POST",
+      path: "/api/docs",
+      body: { docId, kind: "index", home: "user" },
+    });
+  }
   const link = await d.link(userId);
   const doc = createDoc({ clientId: d.clientId() });
   let held: Uint8Array[] | null = null;
   let heard: Uint8Array[] = [];
   let before: DocJSON | null = null;
+  let editedAt: number | null = null;
   const { state } = await link.subscribe(docId, doc.clientId, (update) => {
     if (held === null) doc.applyUpdate(update, ORIGIN_REMOTE);
     else heard.push(update);
@@ -177,6 +188,7 @@ async function openSession(
     async change(fn) {
       const update = changesOf(doc, fn);
       if (update === null) return;
+      editedAt = d.target.clock.now();
       if (held === null) await link.push(docId, update);
       else held.push(update);
     },
@@ -200,6 +212,7 @@ async function openSession(
       await link.unsubscribe(docId);
       doc.destroy();
       await d.runDue();
+      if (editedAt !== null) await edited(userId, docId, editedAt);
     },
   };
 }
@@ -232,99 +245,34 @@ async function listVersions(
   return found;
 }
 
-/** The local calendar day of `at`, in this machine's zone at that moment. */
-const localDay = (at: number): string =>
-  createSeedTime({
-    seedAt: at,
-    zoneOffsetMs: -new Date(at).getTimezoneOffset() * 60_000,
-  }).day(at);
-
-/** What an issue and a correction send besides their pages: the marked PDF, no tint. */
-const SENT = Object.freeze({ files: ["pdf_marked"], tint: false });
-
-/** The production routes; a request that changes something reads the state first, for the active set. */
-function createProduction(d: Driving): SeedProduction {
-  const post = (userId: string, path: string, body: object) =>
-    d.call(userId, { method: "POST", path: `/api/production/${path}`, body });
-  const state = async (userId: string, docId: string) => {
-    const answer = await post(userId, "state", { docId });
-    if (!isProductionState(answer))
-      throw new SeedDriverError("unavailable", `${docId} has no state`);
-    return answer;
-  };
-  const today = () => localDay(d.target.clock.now());
-  return {
-    state,
-    async lock(userId, docId) {
-      const lockedOn = today();
-      const body = { docId, key: d.key(), numbering: "suffix", lockedOn };
-      await post(userId, "lock", { ...body, colourOrder: "standard" });
-    },
-    async issue(userId, docId, memo) {
-      // the revision being worked on is the last of the script's sets
-      const active = (await state(userId, docId)).sets.at(-1);
-      if (active === undefined)
-        throw new SeedDriverError("refused", `${docId} is not locked`);
-      const request = { docId, key: d.key(), expectedOrdinal: active.ordinal };
-      const answer = await post(userId, "issue", {
-        ...request,
-        ...SENT,
-        what: "changed",
-        pages: revisedPagesOf(d.target.storage, docId),
-        recipientUserIds: [],
-        memo,
-        issuedOn: today(),
-      });
-      const issue = isFields(answer) ? answer.issue : null;
-      const after = isFields(answer) ? answer.state : null;
-      const setId = isFields(issue) ? issue.setId : null;
-      const set = isProductionState(after)
-        ? after.sets.find((s) => s.setId === setId)
-        : undefined;
-      if (set === undefined)
-        throw new SeedDriverError("unavailable", `${docId}'s issue has no set`);
-      return { colour: set.colour };
-    },
-    async recall(userId, docId, pages, memo) {
-      const issued = (await state(userId, docId)).sets.findLast(
-        (s) => s.issuedAt !== null,
-      );
-      if (issued === undefined)
-        throw new SeedDriverError("refused", `${docId} has issued nothing`);
-      const { setId } = issued;
-      const body = { docId, key: d.key(), setId, pages, memo, ...SENT };
-      await post(userId, "recall", { ...body, issuedOn: today() });
-    },
-    async setOverride(session, setId, blockId, value) {
-      await session.change((doc) => {
-        const sections = scriptBody(doc).materialize().content ?? [];
-        const block = sections
-          .flatMap((section) => section.content ?? [])
-          .find((b) => b.attrs?.id === blockId);
-        if (block === undefined)
-          throw new RangeError(`the script holds no block ${blockId}`);
-        const stored =
-          value === "marked" ? "marked" : `cleared@${contentHash(block)}`;
-        revisedOverrides(doc).set(overrideKey(setId, blockId), stored, null);
-      });
-    },
-    revisedPages: async (docId) => revisedPagesOf(d.target.storage, docId),
-  };
-}
-
 /**
  * A driver whose people act on `target` one answer at a time: every edit a push on their own
  * socket, every request a call to the server's routes. Ids, keys and client ids come from `random`.
- * Throws RangeError for a server whose capabilities were never probed.
+ * On the live server each session's last edit is written in its workspace's index as it closes; on
+ * a seed server, whose indexes nobody reads before the seed is whole, it is held until `writeEdits`,
+ * so that the indexes do not gain a version for every session. Throws RangeError for a server whose
+ * capabilities were never probed.
  */
 export function createSeedDriver(options: {
   target: SeedServer | LiveTarget;
   random: () => number;
-}): SeedDriver {
+}): SeedDriver & { writeEdits(): Promise<void> } {
   const { target } = options;
   const d = createDriving(target, options.random);
-  const open = (userId: string, docId: string) => openSession(d, userId, docId);
+  const held = new Map<string, Edit>();
+  const edited: Edited = isSeedClock(target.clock)
+    ? async (userId, docId, at) => {
+        if ((held.get(docId)?.at ?? -Infinity) < at)
+          held.set(docId, { userId, at });
+      }
+    : (userId, docId, at) => writeEdits(d, new Map([[docId, { userId, at }]]));
+  const open = (userId: string, docId: string) =>
+    openSession(d, userId, docId, edited);
   return {
+    async writeEdits() {
+      await writeEdits(d, held);
+      held.clear();
+    },
     capabilities: d.capabilities,
     async setTime(at) {
       if (!isSeedClock(target.clock))
@@ -361,6 +309,8 @@ export function createSeedDriver(options: {
             createdAt: at,
             editedAt: null,
             editedByUserId: null,
+            airDate: null,
+            rundownId: null,
           });
       });
       await session.close();
@@ -396,5 +346,20 @@ export function createSeedDriver(options: {
       return checkPassage(script, passage, firstBlockId);
     },
     meter: createPageMeter(),
+    comments: d.capabilities.has("comments") ? createCommentsDriver(d) : null,
+    writersMaterial: d.capabilities.has("writers_material")
+      ? createWritersMaterialDriver(d)
+      : null,
+    sharing: d.capabilities.has("sharing") ? createSharingDriver(d) : null,
+    series: d.capabilities.has("series") ? createSeriesDriver(d) : null,
+    privateCopies: d.capabilities.has("private_copies")
+      ? createPrivateCopiesDriver(d)
+      : null,
+    startFrom: d.capabilities.has("start_from")
+      ? createStartFromDriver(d)
+      : null,
+    rundowns: d.capabilities.has("rundowns") ? createRundownsDriver(d) : null,
+    prompter: d.capabilities.has("prompter") ? createPrompterDriver(d) : null,
+    trash: (userId, docId, at) => trashDocument(d, userId, docId, at),
   };
 }

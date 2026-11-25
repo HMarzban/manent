@@ -10,6 +10,7 @@ import { freeClientId } from "../sync/client-ids.ts";
 import type { Clock, Peer, SyncLimits } from "../sync/ports.ts";
 import type { Room, Rooms, Subscription } from "../sync/rooms.ts";
 import { isStorageError } from "../sync/storage-error.ts";
+import type { ViewerCounts } from "../sync/viewer-counts.ts";
 import { rebuildReason } from "./budget.ts";
 import type { RebuildReason } from "./budget.ts";
 
@@ -43,11 +44,12 @@ export interface Subscriptions {
 export function createSubscriptions(ports: {
   rooms: Pick<Rooms, "left">;
   presence: Pick<AwarenessHub, "left">;
+  viewerCounts: Pick<ViewerCounts, "changed">;
   tell(peer: Peer, message: Message): void;
   /** An edit subscription ended: the peer is no longer among the room's editors. */
   editorLeft(room: Room, userId: string): void;
 }): Subscriptions {
-  const { rooms, presence } = ports;
+  const { rooms, presence, viewerCounts } = ports;
   const peers = new Map<Peer, PeerState>();
   const end = (peer: Peer, docId: string): void => {
     const held = peers.get(peer)?.held.get(docId);
@@ -56,6 +58,7 @@ export function createSubscriptions(ports: {
     if (held.subscription.mode === "edit") presence.left(held.room, peer);
     held.room.editors.delete(peer);
     held.room.viewers.delete(peer);
+    viewerCounts.changed(held.room);
     if (held.subscription.mode === "edit")
       ports.editorLeft(held.room, peer.userId);
     rooms.left(held.room);
@@ -204,7 +207,7 @@ export function createRebuilder(ports: {
     const reason = requests.has(docId) ? "requested" : budgetOf(room);
     if (reason === null) return skip("under_budget");
     const clientId = freeClientId(file.log.ledger(docId));
-    const built = rebuildDoc(doc, { clientId });
+    const built = rebuildDoc(doc, { clientId, kind: room.kind });
     if (!built.ok) return skip(built.code);
     move(room, { doc, built: built.doc, reason, clientId });
   }

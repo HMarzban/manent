@@ -1,5 +1,5 @@
-import { afterAll, afterEach, expect, test } from "bun:test";
-import { stat } from "node:fs/promises";
+import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
+import { cp, stat } from "node:fs/promises";
 import { networkInterfaces } from "node:os";
 import { join } from "node:path";
 import { bindRefusal } from "@manent/demo";
@@ -17,6 +17,20 @@ afterAll(() => trees.removeAll());
 // each demo builds the web app here, never into apps/web/dist, which an e2e server may be serving
 const webDir = await trees.tree({});
 const demoEnv = { ...process.env, MANENT_WEB_DIR: webDir };
+// seeded once for the file and copied into each demo's folder, so that no test seeds more than once
+const seeded = await trees.tree({});
+// what that first seed of an empty folder answered
+let seededAs = "";
+beforeAll(async () => {
+  seededAs = await ensureSeed(seeded);
+}, RUN);
+
+/** A new folder holding a copy of the file's seeded data. */
+async function seededCopy(): Promise<string> {
+  const dir = await trees.tree({});
+  await cp(join(seeded, "data"), join(dir, "data"), { recursive: true });
+  return dir;
+}
 
 function freePort(): number {
   const probe = Bun.serve({
@@ -101,9 +115,10 @@ interface Place {
   controlPort: number;
 }
 
+/** A folder holding a copy of the file's seeded data, and two free ports. */
 async function place(): Promise<Place> {
   return {
-    dir: await trees.tree({}),
+    dir: await seededCopy(),
     port: freePort(),
     controlPort: freePort(),
   };
@@ -184,8 +199,8 @@ async function demoInfo(port: number): Promise<DemoResponse> {
 test(
   "seeding creates the data once; a reset keeps the content and changes the id",
   async () => {
-    const dir = await trees.tree({});
-    expect(await ensureSeed(dir)).toBe("created");
+    expect(seededAs).toBe("created");
+    const dir = await seededCopy();
     const first = await readSeed(dir);
     expect(await ensureSeed(dir)).toBe("present");
     const second = await resetSeed(dir);

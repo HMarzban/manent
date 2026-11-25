@@ -6,6 +6,7 @@ import {
   generateBlocks,
 } from "@manent/pagination/testing";
 import type { CorpusBlock } from "@manent/pagination/testing";
+import { DOCUMENT_WORDS } from "@manent/ui";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { editorHook } from "../support/editor-hooks.ts";
@@ -235,6 +236,11 @@ test("a viewer's page can be focused and read, and takes no typing or paste", as
   );
   await expect(page.locator(EDITABLE)).toHaveAttribute("aria-readonly", "true");
   const before = await blocks(page);
+  // a person's first visit to the Library opens the Tour, whose every scenario Tab would pass before the page
+  const closeSide = page
+    .locator("[data-region='side_panel']")
+    .getByRole("button", { name: DOCUMENT_WORDS.closeSidePanel });
+  if (await closeSide.isVisible()) await closeSide.click();
   // from the title bar's first control, Tab goes on until it reaches the page
   await page.locator("[data-region='title_bar'] button").first().focus();
   for (let press = 0; press < 20; press++) {

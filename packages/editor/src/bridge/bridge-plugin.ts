@@ -3,6 +3,7 @@ import type { FormatId } from "@manent/schema";
 import { Plugin } from "prosemirror-state";
 import type { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
+import { blockNumber } from "../cursors/place.ts";
 import { findCount } from "../find/find-plugin.ts";
 import { blockAt } from "../pagination/block-index.ts";
 import type { BlockIndex } from "../pagination/block-index.ts";
@@ -18,7 +19,7 @@ import type {
   Timers,
 } from "../script-editor/ports.ts";
 import { factsOf } from "./facts.ts";
-import { outlineOf } from "./outline.ts";
+import { headingAt, inkOutlineOf, outlineOf } from "./outline.ts";
 import type { OutlineIndex } from "./outline.ts";
 
 /** How often at most the outline is rebuilt after a change. */
@@ -158,9 +159,84 @@ function factsPublisher(
   };
 }
 
+/** The index in `headingBlocks` of the last entry at or before `block`; null before the first. */
+function entryAt(headingBlocks: Int32Array, block: number): number | null {
+  let lo = 0;
+  let hi = headingBlocks.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (headingBlocks[mid]! <= block) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo > 0 ? lo - 1 : null;
+}
+
+/** The index in `outline.entries` of the active heading for `state`'s caret; null before the first or without an outline. */
+function activeHeadingIndex(
+  outline: OutlineIndex,
+  state: EditorState,
+  format: FormatId,
+): number | null {
+  const pages = paginationKey.getState(state);
+  if (pages !== undefined)
+    return headingAt(outline, blockAt(pages.index, state.selection.head));
+  if (format === "ink") {
+    const { $head } = state.selection;
+    const caret = $head.depth >= 2 ? blockNumber(state, $head) : -1;
+    return entryAt(outline.headingBlocks, caret);
+  }
+  return null;
+}
+
+/** Shallow-copies `entries`, flipping `current` only on `prev` and `next` so every other entry keeps its reference. */
+function withCurrent(
+  entries: readonly OutlineEntry[],
+  prev: number | null,
+  next: number | null,
+): readonly OutlineEntry[] {
+  const updated = entries.slice();
+  if (prev !== null && prev < updated.length)
+    updated[prev] = { ...updated[prev]!, current: false };
+  if (next !== null && next < updated.length)
+    updated[next] = { ...updated[next]!, current: true };
+  return updated;
+}
+
+/** Builds the outline index, attribute-enriched rows and active heading index for `state`. */
+function buildOutline(
+  state: EditorState,
+  format: FormatId,
+): {
+  index: OutlineIndex;
+  rows: readonly OutlineEntry[];
+  currentIndex: number | null;
+} {
+  const pages = paginationKey.getState(state);
+  let index: OutlineIndex;
+  if (pages !== undefined) {
+    index = outlineOf(
+      pages.pagination,
+      blockAt(pages.index, state.selection.head),
+    );
+  } else if (format === "ink") {
+    const { $head } = state.selection;
+    const caret = $head.depth >= 2 ? blockNumber(state, $head) : -1;
+    index = inkOutlineOf(state.doc, caret);
+  } else {
+    index = NO_OUTLINE;
+  }
+  const rows =
+    pages === undefined
+      ? index.entries
+      : withHeadingAttributes(index, pages.index);
+  const found = index.entries.findIndex((entry) => entry.current);
+  return { index, rows, currentIndex: found === -1 ? null : found };
+}
+
 /**
- * Builds the outline now and at most every 250 ms after a change to the document or the caret's block, waiting
- * while an input method composes or the pages wait for it; calls `published` after each outline it publishes.
+ * Builds the outline now and at most every 250 ms after a document edit, and updates the active heading on the next
+ * animation frame after a selection-only move, waiting while an input method composes or the pages wait for it; calls
+ * `published` after each outline update it publishes.
  */
 function outlinePublisher(
   view: EditorView,
@@ -173,28 +249,49 @@ function outlinePublisher(
 } {
   let index = NO_OUTLINE;
   let rows: readonly OutlineEntry[] | null = null;
+  let currentIndex: number | null = null;
   let cancelTimer: (() => void) | null = null;
+  let cancelCurrentFrame: (() => void) | null = null;
+  const cancelCurrent = () => {
+    cancelCurrentFrame?.();
+    cancelCurrentFrame = null;
+  };
   const later = () => {
+    cancelCurrent();
     cancelTimer ??= options.timers.schedule(rebuild, OUTLINE_EVERY_MS);
+  };
+  const publishCurrent = () => {
+    cancelCurrentFrame = null;
+    if (cancelTimer !== null) return;
+    if (view.composing || isFrozen(view.state)) return later();
+    const nextCurrent = activeHeadingIndex(index, view.state, options.format());
+    if (nextCurrent === currentIndex) return;
+    index = {
+      entries: withCurrent(index.entries, currentIndex, nextCurrent),
+      headingBlocks: index.headingBlocks,
+    };
+    if (rows !== null) rows = withCurrent(rows, currentIndex, nextCurrent);
+    currentIndex = nextCurrent;
+    const nextId =
+      nextCurrent === null ? null : index.entries[nextCurrent]!.blockId;
+    if (options.outline.publishCurrent !== undefined)
+      options.outline.publishCurrent(nextId);
+    else if (rows !== null) options.outline.publish(rows);
+    published();
   };
   const rebuild = () => {
     cancelTimer = null;
+    cancelCurrent();
     if (view.composing || isFrozen(view.state)) return later();
-    const pages = paginationKey.getState(view.state);
-    index =
-      pages === undefined
-        ? NO_OUTLINE
-        : outlineOf(
-            pages.pagination,
-            blockAt(pages.index, view.state.selection.head),
-          );
-    const next =
-      pages === undefined
-        ? index.entries
-        : withHeadingAttributes(index, pages.index);
-    if (rows !== null && isSameOutline(rows, next)) return;
-    rows = next;
-    options.outline.publish(next);
+    const built = buildOutline(view.state, options.format());
+    index = built.index;
+    if (rows !== null && isSameOutline(rows, built.rows)) return;
+    rows = built.rows;
+    currentIndex = built.currentIndex;
+    options.outline.publish(built.rows);
+    options.outline.publishCurrent?.(
+      currentIndex === null ? null : built.rows[currentIndex]!.blockId,
+    );
     published();
   };
   rebuild();
@@ -203,22 +300,26 @@ function outlinePublisher(
       return index;
     },
     update(prev) {
-      if (
-        view.state.doc !== prev.doc ||
+      if (view.state.doc !== prev.doc) later();
+      else if (
+        cancelTimer === null &&
         view.state.selection.$head.parent !== prev.selection.$head.parent
       )
-        later();
+        cancelCurrentFrame ??= options.frames.request(publishCurrent);
     },
     destroy() {
       cancelTimer?.();
+      cancelTimer = null;
+      cancelCurrent();
     },
   };
 }
 
 /**
- * Publishes the facts that changed in one frame after a change to what they depend on, and the outline at most
- * every 250 ms after a change to the document or the caret's block, never while an input method composes or the
- * pages wait for it; an outline whose entries are all the same is not published again. Neither walks the document.
+ * Publishes the facts that changed in one frame after a change to what they depend on, updates the active heading in
+ * one frame on selection-only moves, and updates the full outline at most every 250 ms after a document edit, never
+ * while an input method composes or the pages wait for it; an unchanged outline is not published again. Neither walks
+ * the document.
  */
 export function bridgePlugin(options: BridgeOptions): Plugin {
   return new Plugin({

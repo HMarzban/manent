@@ -1,4 +1,5 @@
 // The shell channel: what the desktop page and its shell say to each other, and the values the page starts with.
+import { isDocId } from "./doc-id.ts";
 import { isBase64 } from "./http.ts";
 
 export const DESKTOP_PROTOCOL_VERSION = 1;
@@ -40,6 +41,9 @@ export interface NativeMenu {
 /** An attribute and its value, as the web app's boot cache writes it. */
 export type FirstPaintWrite = readonly ["a", string, string | null];
 
+const WINDOW_ROLES = ["room", "prompter"] as const;
+const ENCODINGS = ["utf-8", "windows-1252"] as const;
+
 export type PageMessage =
   | { v: 1; t: "menus"; menus: NativeMenu[] }
   | { v: 1; t: "first_frame" }
@@ -50,7 +54,27 @@ export type PageMessage =
   | { v: 1; t: "show_folder" }
   | { v: 1; t: "check_for_updates" }
   /** The page's answer to `close_requested`. */
-  | { v: 1; t: "close_answer"; close: boolean };
+  | { v: 1; t: "close_answer"; close: boolean }
+  /** A window of `role` on the document; `userId` is the person named in its address, absent for none. */
+  | {
+      v: 1;
+      t: "open_window";
+      role: (typeof WINDOW_ROLES)[number];
+      docId: string;
+      userId?: string;
+    }
+  /** The system's folder chooser; the shell answers `directory_chosen`. */
+  | { v: 1; t: "choose_directory" };
+
+/** The prompter files written for one rundown. */
+export interface PrompterFilesStatus {
+  rundownId: string;
+  path: string;
+  encoding: (typeof ENCODINGS)[number];
+  /** Characters the encoding cannot hold, written as a replacement. */
+  replaced: number;
+  failure: "unwritable" | null;
+}
 
 /** `bytes` is base64. */
 export interface OpenedFile {
@@ -79,7 +103,11 @@ export type ShellMessage =
     }
   | { v: 1; t: "update_state"; state: UpdateState }
   /** The window is closing: the page answers within the shell's wait. */
-  | { v: 1; t: "close_requested" };
+  | { v: 1; t: "close_requested" }
+  /** The answer to `choose_directory`: null when the person cancelled. */
+  | { v: 1; t: "directory_chosen"; path: string | null }
+  /** Sent each time prompter files start, are written, stop or fail; null once none are written. */
+  | { v: 1; t: "prompter_files"; status: PrompterFilesStatus | null };
 
 /** `window.manentDesktop`, set by the local node's boot script. */
 export interface DesktopGlobal {
@@ -97,6 +125,7 @@ export const OPENED_FILE_EXTENSIONS = [
   ".docx",
   ".ink",
   ".fdr",
+  ".txt",
 ] as const;
 /** The largest file the shell opens; a larger one is refused for its size. */
 export const OPENED_FILE_LIMIT_BYTES = 32 * 1024 * 1024;
@@ -180,6 +209,14 @@ function readWrite(value: unknown): FirstPaintWrite | null {
   return [kind, name, text];
 }
 
+function readOpenWindow(value: Fields): PageMessage | null {
+  const { role, docId, userId } = value;
+  if (!isOneOf(WINDOW_ROLES, role) || !isDocId(docId)) return null;
+  if (userId === undefined) return { v: 1, t: "open_window", role, docId };
+  if (!isText(userId, NAME_LIMIT)) return null;
+  return { v: 1, t: "open_window", role, docId, userId };
+}
+
 function readPage(t: unknown, value: Fields): PageMessage | null {
   switch (t) {
     case "menus": {
@@ -194,11 +231,14 @@ function readPage(t: unknown, value: Fields): PageMessage | null {
       return typeof value.close === "boolean"
         ? { v: 1, t, close: value.close }
         : null;
+    case "open_window":
+      return readOpenWindow(value);
     case "first_frame":
     case "open_in_browser":
     case "open_files":
     case "show_folder":
     case "check_for_updates":
+    case "choose_directory":
       return { v: 1, t };
   }
   return null;
@@ -220,6 +260,18 @@ function readRefused(
     : null;
 }
 
+function readStatus(value: unknown): PrompterFilesStatus | null {
+  if (!isFields(value)) return null;
+  const { rundownId, path, encoding, replaced, failure } = value;
+  if (!isDocId(rundownId) || !isText(path, DATA_DIR_LIMIT)) return null;
+  if (!isOneOf(ENCODINGS, encoding)) return null;
+  if (typeof replaced !== "number" || !Number.isSafeInteger(replaced))
+    return null;
+  if (replaced < 0 || (failure !== null && failure !== "unwritable"))
+    return null;
+  return { rundownId, path, encoding, replaced, failure };
+}
+
 function readShell(t: unknown, value: Fields): ShellMessage | null {
   switch (t) {
     case "menu_command":
@@ -237,6 +289,18 @@ function readShell(t: unknown, value: Fields): ShellMessage | null {
         : null;
     case "close_requested":
       return { v: 1, t };
+    case "directory_chosen": {
+      const { path } = value;
+      return path === null || isText(path, DATA_DIR_LIMIT)
+        ? { v: 1, t, path }
+        : null;
+    }
+    case "prompter_files": {
+      const { status } = value;
+      if (status === null) return { v: 1, t, status };
+      const read = readStatus(status);
+      return read === null ? null : { v: 1, t, status: read };
+    }
   }
   return null;
 }

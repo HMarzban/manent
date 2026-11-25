@@ -317,13 +317,15 @@ test("an alternative sits between Cancel and the action and runs its own handler
   ]);
 });
 
-test("while busy the action keeps its width, and Escape waits five seconds before it may close", async () => {
+test("while busy the action keeps its width and aria-busy, and Still working announces politely", async () => {
   const { rerender, clock } = await render(reset());
+  const idleBusy = actionButton()?.getAttribute("aria-busy");
   await rerender(reset({ busyLabel: "Resetting the demo…" }));
   const busy = [
     actionButton()?.textContent,
     actionButton()?.style.width,
     actionButton()?.getAttribute("aria-disabled"),
+    actionButton()?.getAttribute("aria-busy"),
   ];
   await clock.advance(399);
   const before = actionButton()?.querySelector("svg") !== null;
@@ -334,15 +336,29 @@ test("while busy the action keeps its width, and Escape waits five seconds befor
   await clock.advance(4599);
   const waiting = dialog()?.textContent?.includes("Still working…");
   await clock.advance(1);
-  const still = dialog()?.textContent?.includes("Still working…");
+  const stillNode = dialog()?.querySelector('[role="status"]');
+  const still = [
+    stillNode?.textContent ?? null,
+    stillNode?.getAttribute("aria-live") ?? null,
+  ];
   await press("Escape");
-  expect([busy, before, spinner, early, waiting, still, calls]).toEqual([
-    ["Resetting the demo…", "112px", "true"],
+  expect([
+    idleBusy,
+    busy,
+    before,
+    spinner,
+    early,
+    waiting,
+    still,
+    calls,
+  ]).toEqual([
+    null,
+    ["Resetting the demo…", "112px", "true", "true"],
     false,
     true,
     [],
     false,
-    true,
+    ["Still working…", "polite"],
     ["cancel"],
   ]);
 });

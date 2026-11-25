@@ -178,6 +178,7 @@ function editor(
     editable?: boolean;
     zoom?: ScriptEditorOptions["zoom"];
     host?: (host: EditorPluginHost) => void;
+    defer?: (work: () => void) => void;
   } = {},
 ): Made {
   const doc = options.doc ?? docOf([["one", "two", "three"]]);
@@ -243,7 +244,7 @@ function editor(
       fonts: { add: () => {} },
       makeFace: () => ({ load: () => new Promise(() => {}) }),
       wait: () => new Promise(() => {}),
-      defer: (work) => work(),
+      defer: options.defer ?? ((work) => work()),
       whenIdle: () => {},
       userAgent: "test",
     },
@@ -374,6 +375,26 @@ test("changing the paper repaginates without reconfiguring a plugin", () => {
     true,
     "a4",
   ]);
+});
+
+test("changing script.engineVersion repaginates cleanly between carried engines without assertSameEngine failure", () => {
+  const { e: startedOnTwo } = editor({ script: { "script.engineVersion": 2 } });
+  expect(startedOnTwo.pagination()?.engineVersion).toBe(2);
+
+  const { e, fakes } = editor();
+  expect(e.pagination()?.engineVersion).toBe(1);
+  fakes.script.set("script.engineVersion", 2);
+  expect([
+    paginationKey.getState(e.view.state)!.settings.engine.version,
+    paginationKey.getState(e.view.state)!.settings.profile.engineVersion,
+    e.pagination()?.engineVersion,
+  ]).toEqual([2, 2, 2]);
+  fakes.script.set("script.engineVersion", 1);
+  expect([
+    paginationKey.getState(e.view.state)!.settings.engine.version,
+    paginationKey.getState(e.view.state)!.settings.profile.engineVersion,
+    e.pagination()?.engineVersion,
+  ]).toEqual([1, 1, 1]);
 });
 
 test("spelling follows the preference", () => {
@@ -582,4 +603,32 @@ test("destroying leaves nothing behind", () => {
     fakes.desk.listeners.size,
     e.view.isDestroyed,
   ]).toEqual([0, 0, 0, null, 0, 0, true]);
+});
+
+test("going to a block moves the caret synchronously", () => {
+  const { e } = editor();
+  const moved = e.run({ kind: "go_to", blockId: bid(2), offset: 2 });
+  const { $head } = e.view.state.selection;
+  const missing = e.run({ kind: "go_to", blockId: "missing", offset: 0 });
+  expect([moved, $head.parent.attrs.id, $head.parentOffset, missing]).toEqual([
+    { ok: true },
+    bid(2),
+    2,
+    { ok: false, reason: "nothing_to_do" },
+  ]);
+});
+
+test("multiple layout setting changes in one turn coalesce into a single repagination", async () => {
+  const { e, fakes } = editor({ defer: (work) => queueMicrotask(work) });
+  fakes.transactions.length = 0;
+  fakes.script.set("script.paper", "a4");
+  fakes.script.set("script.sceneNumbers", "both");
+  fakes.script.set("script.contd", false);
+  await Promise.resolve();
+  expect([
+    paginationMetas(fakes.transactions).length,
+    paginationKey.getState(e.view.state)!.settings.profile.paper,
+    paginationKey.getState(e.view.state)!.settings.profile.furniture
+      .scenesNumbered,
+  ]).toEqual([1, "a4", true]);
 });

@@ -25,6 +25,8 @@ const store = createStore<PanelsState>()(() => ({
 
 // until the left panel is chosen, a script that opens with three or more scenes opens it
 let leftChosen = false;
+// true while the left panel shows the Scenes a script opened, until a tab of it is opened or closed
+let scenesUnchosen = false;
 
 const isLeftTab = (tab: string | null): tab is LeftTab | null =>
   tab === null || LEFT_TABS.some((t) => t === tab);
@@ -36,6 +38,7 @@ function setTab(panel: PanelId, tab: string | null): void {
   const { left, side } = store.getState();
   if (panel === "left" && isLeftTab(tab)) {
     leftChosen = true;
+    scenesUnchosen = false;
     store.setState({ left: { ...left, tab } });
   } else if (panel === "side" && isSideTab(tab))
     store.setState({ side: { ...side, tab } });
@@ -61,6 +64,8 @@ export const panelsActions: {
    * Scenes. Set from the person's view state when it is put back.
    */
   leftChosen(): boolean;
+  /** Whether the left panel shows the Scenes a script opened rather than a tab the person opened. */
+  scenesUnchosen(): boolean;
   setLeftChosen(chosen: boolean): void;
   close(panel: PanelId): void;
   toggle(panel: PanelId, tab: string): void;
@@ -74,9 +79,11 @@ export const panelsActions: {
     if (leftChosen || left.tab !== null) return;
     guardWrite("panels");
     leftChosen = true;
+    scenesUnchosen = true;
     store.setState({ left: { ...left, tab: "scenes" } });
   },
   leftChosen: () => leftChosen,
+  scenesUnchosen: () => scenesUnchosen,
   setLeftChosen(chosen: boolean) {
     leftChosen = chosen;
   },

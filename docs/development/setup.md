@@ -42,14 +42,16 @@ After a change to the web app, stop the demo and run `make demo` again: it rebui
 
 `make demo` sets these for the server program (`apps/server`). Set them yourself only to run `bun apps/server/src/main.ts` by hand.
 
-| Variable                                     | Default         | Meaning                                                                                     |
-| -------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------- |
-| `MANENT_DEMO`                                | none            | Must be `1`. This build has only the demo sign-in, and the server will not start without it |
-| `MANENT_PORT`                                | `4747`          | The port on loopback                                                                        |
-| `MANENT_LAN_HOST`                            | none            | One private-range address to listen on as well. A public or wildcard address is refused     |
-| `MANENT_DATA_DIR`                            | `.manent-demo`  | The session key, and the SQLite files in `data/`                                            |
-| `MANENT_WEB_DIR`                             | `apps/web/dist` | The built web app                                                                           |
-| `MANENT_CONTROL_URL`, `MANENT_CONTROL_TOKEN` | none            | Set together: where the demo bar's server buttons are answered                              |
+| Variable                                     | Default         | Meaning                                                                                       |
+| -------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------- |
+| `MANENT_DEMO`                                | none            | Must be `1`. This build has only the demo sign-in, and the server will not start without it   |
+| `MANENT_PORT`                                | `4747`          | The port on loopback                                                                          |
+| `MANENT_LAN_HOST`                            | none            | One private-range address to listen on as well. A public or wildcard address is refused       |
+| `MANENT_DATA_DIR`                            | `.manent-demo`  | The session key, and the SQLite files in `data/`                                              |
+| `MANENT_WEB_DIR`                             | `apps/web/dist` | The built web app                                                                             |
+| `MANENT_CONTROL_URL`, `MANENT_CONTROL_TOKEN` | none            | Set together: where the demo bar's server buttons are answered                                |
+| `MANENT_RESEND_API_KEY`                      | none            | Set with `MANENT_RESEND_FROM`: Resend API key for Workspace settings → Notifications email    |
+| `MANENT_RESEND_FROM`                         | none            | Set with `MANENT_RESEND_API_KEY`: sender address for Workspace settings → Notifications email |
 
 `MANENT_FLAVOUR=test bun run build:web` builds the test flavour of the web app, which adds the hooks and screens the end-to-end tests use. Anything else builds the product.
 

@@ -35,7 +35,9 @@ export const DOCUMENT_COMMANDS = [
     when: null,
     whyNot: null,
     visible: (ctx) =>
-      ctx.docOpen && (ctx.role === "owner" || ctx.role === "editor"),
+      ctx.docOpen &&
+      ctx.docKind !== "rundown" &&
+      (ctx.role === "owner" || ctx.role === "editor"),
     checked: null,
     passThrough: null,
     menus: [{ menu: "title", group: "name", order: 10, submenu: null }],

@@ -54,14 +54,14 @@ MANENT_FLAVOUR=test MANENT_WEB_DIR="$(mktemp -d)" MANENT_E2E_PORT=4820 bun run -
 
 On an 18-core Mac the three took about 7 minutes together, as a rough guide. This also leaves `apps/web/dist` as it was, so `make demo` keeps its own build.
 
-| Folder             | What it covers                                                                             |
-| ------------------ | ------------------------------------------------------------------------------------------ |
-| `e2e/smoke/`       | The demo: choosing a person, the Library, the demo bar, stopping and starting the server   |
-| `e2e/editor/`      | Typing, the Enter and Tab flow, the picker, paste, composition, another writer, zoom       |
-| `e2e/interface/`   | Screens, focus, the palette, preferences, keyboard rebinding, Export and Print, axe checks |
-| `e2e/sync/`        | The local store, offline work and its merge, tabs sharing one connection                   |
-| `e2e/typesetting/` | Page layout against the engine, fonts, line positions, the PDF                             |
-| `e2e/tour/`        | One test per Tour scenario. Empty: there are no scenarios yet                              |
+| Folder             | What it covers                                                                                     |
+| ------------------ | -------------------------------------------------------------------------------------------------- |
+| `e2e/smoke/`       | The demo: choosing a person, the Library, the demo bar, stopping and starting the server           |
+| `e2e/editor/`      | Typing, the Enter and Tab flow, the picker, paste, composition, another writer, zoom               |
+| `e2e/interface/`   | Screens, focus, the palette, preferences, keyboard rebinding, Export and Print, axe checks         |
+| `e2e/sync/`        | The local store, offline work and its merge, tabs sharing one connection                           |
+| `e2e/typesetting/` | Page layout against the engine, fonts, line positions, the PDF                                     |
+| `e2e/tour/`        | One test per Tour scenario, on a freshly seeded demo; a scenario the Tour does not show is not run |
 
 ### Ports
 

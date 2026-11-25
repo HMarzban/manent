@@ -1,6 +1,6 @@
 // What the checkpoint job measured of each document's generation, kept beside the checkpoints.
 import type { Database } from "bun:sqlite";
-import type { MeasureRow, Measures } from "../ports.ts";
+import type { MeasureRow, Measures } from "../ports/index.ts";
 import { transact } from "./files.ts";
 
 function prepare(db: Database) {

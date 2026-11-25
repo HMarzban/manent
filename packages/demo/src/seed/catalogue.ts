@@ -3,7 +3,10 @@ import type { DocKind } from "@manent/sync-protocol";
 import { projectHome, seedDocId, workspaceHome } from "@manent/sync-protocol";
 import type { FormatId } from "@manent/schema";
 import type { DemoWorkspace } from "../people.ts";
+import { createRng } from "./rng.ts";
 import { HEAVY_DOCS, HEAVY_PROJECTS } from "./catalogue-heavy.ts";
+import { HEAVY_RUNDOWNS } from "./catalogue-heavy-rundowns.ts";
+import { HEAVY_SERIES_DOCS } from "./catalogue-heavy-series.ts";
 
 export type SeedWorkspaceId = DemoWorkspace["id"];
 
@@ -236,6 +239,53 @@ export const SEED_DOCS: readonly SeedDoc[] = Object.freeze([
     hero: true,
   }),
   ...HEAVY_DOCS,
+  doc("medium/the-late-desk", "rundowns/day", "The Late Desk", "variety", {
+    kind: "rundown",
+  }),
+  doc(
+    "medium/the-late-desk",
+    "rundowns/day-minus-1",
+    "The Late Desk",
+    "variety",
+    { kind: "rundown" },
+  ),
+  doc(
+    "medium/the-late-desk",
+    "rundowns/day-plus-1",
+    "The Late Desk",
+    "variety",
+    { kind: "rundown" },
+  ),
+  doc(
+    "medium/lannick-one-news",
+    "rundowns/day",
+    "Lannick One News",
+    "variety",
+    { kind: "rundown" },
+  ),
+  doc(
+    "medium/lannick-one-news",
+    "rundowns/day-plus-7",
+    "Lannick One News",
+    "variety",
+    { kind: "rundown" },
+  ),
+  ...HEAVY_RUNDOWNS,
+  doc(
+    "medium/harbour-lights",
+    "206-outline",
+    "206 The Bar — Outline",
+    "screenplay",
+    { kind: "outline", hero: true },
+  ),
+  doc(
+    "medium/harbour-lights",
+    "205-room-log",
+    "205 Slack Water — Room log",
+    "screenplay",
+    { kind: "room_log" },
+  ),
+  ...HEAVY_SERIES_DOCS,
 ]);
 
 /** The document `key` names; throws RangeError for a key the catalogue lacks. */
@@ -257,6 +307,30 @@ export function seedProject(key: string): SeedProject {
 /** The app path of the document `key` names; throws as seedDoc does. */
 export function docPath(key: string): string {
   return `/s/${seedDoc(key).docId}`;
+}
+
+const BASE64URL =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+const DRAFT_TOKEN_LENGTH = 43;
+
+/** Deterministic 43-character base64url token for a seeded draft link; demo seed only. */
+export function seedDraftToken(docKey: string, draftName: string): string {
+  const input = `draft:${seedDoc(docKey).docId}:${draftName}`;
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  const rng = createRng(hash);
+  let token = "";
+  for (let i = 0; i < DRAFT_TOKEN_LENGTH; i += 1)
+    token += BASE64URL[rng.int(0, BASE64URL.length - 1)];
+  return token;
+}
+
+/** The reader route path (`/r/<token>`) of a seeded draft link; throws as seedDoc does. */
+export function draftLinkPath(docKey: string, draftName: string): string {
+  return `/r/${seedDraftToken(docKey, draftName)}`;
 }
 
 /** The homes of Lanternfield Studios' documents: its index's, then one per project. */

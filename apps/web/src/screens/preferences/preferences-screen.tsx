@@ -5,7 +5,6 @@ import { SECTION_IDS } from "@manent/settings";
 import type { SectionId, SettingKey, SettingsStore } from "@manent/settings";
 import {
   Button,
-  CommandButton,
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
@@ -31,6 +30,7 @@ import type { KeyboardEvent, ReactNode, RefObject } from "react";
 import { deviceName as nameOfDevice } from "../../platform.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { readDeviceId } from "../../services/device-id.ts";
+import { CommandsButton } from "../../shell/commands-button.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { TEXT, pageTitle } from "../../text.ts";
 import { useCustomShortcuts } from "./keyboard-pane.tsx";
@@ -256,7 +256,7 @@ function PreferencesStatusBar(): ReactNode {
         }}
         registered={isCommandId}
       />
-      <CommandButton id="app.palette" size="sm" />
+      <CommandsButton />
     </ShellRegion>
   );
 }

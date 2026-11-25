@@ -161,12 +161,21 @@ const fakeRenderPdf: RenderPdf = (input) =>
     ),
   );
 
-export function productionWorld(): ProductionWorld;
+export interface ProductionWorldExtras {
+  projectSettings?: (docId: string) => Record<string, unknown> | null;
+}
+
+export function productionWorld(
+  open?: (now: () => number) => Storage,
+  extras?: ProductionWorldExtras,
+): ProductionWorld;
 export function productionWorld<S extends Storage>(
   open: (now: () => number) => S,
+  extras?: ProductionWorldExtras,
 ): ProductionWorld<S>;
 export function productionWorld(
   open: (now: () => number) => Storage = (now) => createMemoryStorage({ now }),
+  worldExtras?: ProductionWorldExtras,
 ): ProductionWorld<Storage> {
   const clock = fakeClock(T0);
   const storage = open(() => clock.clock.now());
@@ -198,6 +207,7 @@ export function productionWorld(
     names: (userId) => NAMES[userId] ?? userId,
     renderPdf: fakeRenderPdf,
     rules: PRODUCT_SETTING_RULES,
+    projectSettings: worldExtras?.projectSettings,
   });
   built = createSyncService({
     storage,

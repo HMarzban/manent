@@ -14,9 +14,11 @@ import type {
 } from "../../editor-host/writing-announcer.ts";
 import { useServices } from "../../services/context.tsx";
 import type { PersonServices } from "../../services/ports.ts";
+import { readPerson, tabStorage } from "../../session.ts";
 import { useAnnouncer } from "../../shell/announcer-region.tsx";
 import { FactsContext } from "../../state/bridge-contexts.ts";
 import type { FactsSelectors } from "../../state/facts.store.ts";
+import { productionContextActions } from "../../state/production-context.store.ts";
 
 type Say = (text: string) => void;
 // the people present, as the editor names them; a component never imports the editor's package
@@ -88,24 +90,63 @@ function announcePeople(
   };
 }
 
+/** Whether `docId`'s page numbers are locked; null until this device knows. A tab with no session has only scripts that are never locked. */
+function pagesLocked(docId: string): boolean | null {
+  const production = productionContextActions.get(docId);
+  if (production !== null) return production.locked;
+  return (readPerson(tabStorage())?.token ?? null) === null ? false : null;
+}
+
+/** Pushes the comfort notice unless this device has shown it for `docId`. */
+function showComfort(docId: string, services: PersonServices): void {
+  if (services.place.noticeShown(docId)) return;
+  services.place.markNoticeShown(docId);
+  const title =
+    services.library.documentTitle(docId).get() ?? LIBRARY_WORDS.untitledScript;
+  services.messages.push(messageFor({ kind: "past_comfort_limit", title }));
+}
+
 /**
- * Pushes the comfort notice the first time a page count heard for `docId` is past the limit on this device; returns
- * the stop. Only a change is heard, because the count held when the script opens may be another script's.
+ * Shows the comfort notice the first time `docId`'s pages, the lettered ones not counted, are past the limit on this
+ * device; returns the stop. They are judged when their count changes and when it becomes known whether they are locked:
+ * a locked script opens on plain pages until this device has its locks. The count held may be another script's, so one
+ * past the limit only has the open editor's pages counted.
  */
 function noticeComfort(
   facts: FactsSelectors,
   docId: string,
   services: PersonServices,
 ): () => void {
-  return facts.subscribe("pageCount", (pageCount) => {
-    if (!pastComfortLimit(pageCount) || services.place.noticeShown(docId))
+  const judge = (): void => {
+    if (
+      !pastComfortLimit(facts.get("pageCount")) ||
+      pagesLocked(docId) === null ||
+      services.place.noticeShown(docId)
+    )
       return;
-    services.place.markNoticeShown(docId);
-    const title =
-      services.library.documentTitle(docId).get() ??
-      LIBRARY_WORDS.untitledScript;
-    services.messages.push(messageFor({ kind: "past_comfort_limit", title }));
-  });
+    void import("../../editor-host/live-editor.ts").then((registry) => {
+      if (pastComfortLimit(registry.liveContentPageCount(docId)))
+        showComfort(docId, services);
+    });
+  };
+  let locked = pagesLocked(docId);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const followLocks = (): void => {
+    const now = pagesLocked(docId);
+    if (now === locked) return;
+    locked = now;
+    clearTimeout(timer);
+    // the editor lays its pages out under the locks only once this update has ended
+    timer = setTimeout(judge);
+  };
+  const stops = [
+    facts.subscribe("pageCount", judge),
+    productionContextActions.subscribe(followLocks),
+  ];
+  return () => {
+    for (const stop of stops) stop();
+    clearTimeout(timer);
+  };
 }
 
 /** Draws nothing: says what changes while `docId` is written in, through the shell's polite announcer, and tells once when it passes the comfort limit. */

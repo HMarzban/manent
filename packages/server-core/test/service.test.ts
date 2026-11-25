@@ -1,8 +1,15 @@
 import { expect, test } from "bun:test";
-import { applyRemote, createDoc, loadDoc, scriptBody } from "@manent/crdt";
+import {
+  applyRemote,
+  createDoc,
+  jsonMap,
+  loadDoc,
+  scriptBody,
+} from "@manent/crdt";
 import {
   createFrameDecoder,
   createMessageIds,
+  indexDocId,
   prepareMessage,
 } from "@manent/sync-protocol";
 import type { Message } from "@manent/sync-protocol";
@@ -21,6 +28,7 @@ import {
 import {
   DANA_CLIENT,
   EMPTY_VECTOR,
+  LEO_CLIENT,
   PRIYA_CLIENT,
   SAM_CLIENT,
   createServiceWorld,
@@ -348,6 +356,43 @@ const refusalOf = (
   retryAfterMs,
   clientSeq: null,
   doc: { docId, generation: 0 },
+});
+
+test("a commenter subscribes to a workspace index as an editor does, and every change they send it is refused", () => {
+  const { service, storage, leo } = createServiceWorld();
+  const index = indexDocId("workspace", "medium");
+  service.access.create("sam", {
+    docId: index,
+    kind: "index",
+    home: `project:${index}`,
+  });
+  storage.directory.setRole(index, "leo", "comment", []);
+  service.receive(leo, subscribe(index, "edit", [LEO_CLIENT]));
+  const subscribed = leo.take().map((message) => message.type);
+  const doc = createDoc({ clientId: LEO_CLIENT });
+  const before = doc.encodeStateVector();
+  jsonMap(doc, "projects").set(PROJECT, { title: "Rain" });
+  service.receive(leo, push(index, 1, doc.diff(before)));
+  const home = { kind: "project" as const, id: index };
+  expect([
+    subscribed,
+    leo.take(),
+    storage.open(home).log.get(index)?.headSeq,
+  ]).toEqual([
+    ["SUBSCRIBED", "SYNC"],
+    [
+      {
+        type: "ERROR",
+        code: 4403,
+        message: "read_only_role",
+        permanent: false,
+        retryAfterMs: null,
+        clientSeq: null,
+        doc: { docId: index, generation: 1 },
+      },
+    ],
+    0,
+  ]);
 });
 
 test("each SUBSCRIBE check answers as its row says, in order", () => {

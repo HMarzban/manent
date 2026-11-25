@@ -1,4 +1,5 @@
-// The documents whose changes wait, synced without being opened: a few at a time each time the leader connects.
+// Documents synced in the background, a few at a time: those whose changes wait, each time the leader connects, and
+// those the Library lists that the device does not hold yet.
 import type {
   DocHandle,
   DocStatus,
@@ -21,8 +22,15 @@ const STOPPED_SIDES: readonly DocStatus["side"][number][] = Object.freeze([
 const isLive = (link: LinkFacts): boolean =>
   link.state === "online" && link.leader;
 
-// a document the device cannot list or open now keeps its changes, and the next connection drains it again
+// a document the device cannot list or open now keeps its changes: the next connection drains it again, and a fetched
+// one opens when the person opens it
 const passOver = (): void => {};
+
+// the server holds nothing of the document for this person
+const REFUSED_SIDES: readonly DocStatus["side"][number][] = Object.freeze([
+  "access_removed",
+  "deleted",
+]);
 
 const isDone = (status: DocStatus): boolean =>
   status.synced || status.side.some((side) => STOPPED_SIDES.includes(side));
@@ -102,5 +110,62 @@ export function startDrain(options: {
     stopped = true;
     stop();
     for (const end of stopping) end();
+  };
+}
+
+/** Fetches documents in the background; `fetched` and `refused` grow as each fetch ends. */
+export interface Fetcher {
+  /** Fetches each of `docIds` not asked for before. */
+  fetch(docIds: readonly string[]): void;
+  /** Documents whose fetch has ended. */
+  readonly fetched: ReadonlySet<string>;
+  /** Documents whose fetch the server refused. */
+  readonly refused: ReadonlySet<string>;
+}
+
+/**
+ * Opens each document asked for, `parallel` at a time, and closes it once it has synced, or is refused or read only;
+ * one that cannot open is passed over. `ended` is told after each.
+ */
+export function createFetcher(options: {
+  client: SyncClient;
+  parallel: number;
+  ended: () => void;
+}): Fetcher {
+  const { client } = options;
+  const asked = new Set<string>();
+  const fetched = new Set<string>();
+  const refused = new Set<string>();
+  const queue: string[] = [];
+  let workers = 0;
+
+  const fetchOne = async (docId: string): Promise<void> => {
+    const handle = await client.open(docId);
+    await settled(handle, new Set());
+    if (handle.status.get().side.some((side) => REFUSED_SIDES.includes(side)))
+      refused.add(docId);
+    await handle.close();
+  };
+  const work = async (): Promise<void> => {
+    workers += 1;
+    for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
+      await fetchOne(id).catch(passOver);
+      fetched.add(id);
+      options.ended();
+    }
+    workers -= 1;
+  };
+  return {
+    fetch(docIds) {
+      for (const docId of docIds)
+        if (!asked.has(docId)) {
+          asked.add(docId);
+          queue.push(docId);
+        }
+      const idle = Math.min(options.parallel - workers, queue.length);
+      for (let n = 0; n < idle; n += 1) void work();
+    },
+    fetched,
+    refused,
   };
 }

@@ -92,22 +92,40 @@ const byMovedThenKey = (a: RemoteCursor, b: RemoteCursor): number =>
 const byNameThenUser = (a: PresentPerson, b: PresentPerson): number =>
   a.name < b.name ? -1 : a.name > b.name ? 1 : a.userId < b.userId ? -1 : 1;
 
+const sameCursor = (a: RemoteCursor, b: RemoteCursor): boolean =>
+  a.key === b.key &&
+  a.userId === b.userId &&
+  a.name === b.name &&
+  a.initials === b.initials &&
+  a.colour === b.colour &&
+  a.movedAt === b.movedAt &&
+  a.place.at === b.place.at &&
+  samePlace(a.place, b.place);
+
+const samePerson = (a: PresentPerson, b: PresentPerson): boolean =>
+  a.userId === b.userId && a.name === b.name && a.colour === b.colour;
+
+const sameList = <T>(
+  a: readonly T[],
+  b: readonly T[],
+  eq: (x: T, y: T) => boolean,
+): boolean => a.length === b.length && a.every((item, i) => eq(item, b[i]!));
+
 /** Listeners of one list, called only when the list differs from the last one they got. */
-function createChannel<T>(): {
+function createChannel<T>(eq: (a: T, b: T) => boolean): {
   subscribe(listener: (list: readonly T[]) => void): () => void;
   offer(list: readonly T[]): void;
 } {
   const listeners = new Set<(list: readonly T[]) => void>();
-  let last = "[]";
+  let last: readonly T[] = [];
   return {
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
     offer: (list) => {
-      const text = JSON.stringify(list);
-      if (text === last) return;
-      last = text;
+      if (sameList(last, list, eq)) return;
+      last = list;
       for (const listener of listeners) listener(list);
     },
   };
@@ -162,8 +180,8 @@ function createPeers(options: { clientId: number; timers: Timers }): {
   let order = 0;
   let mine: Stamp | null = null;
   const peers = new Map<number, Peer>();
-  const cursors = createChannel<RemoteCursor>();
-  const people = createChannel<PresentPerson>();
+  const cursors = createChannel<RemoteCursor>(sameCursor);
+  const people = createChannel<PresentPerson>(samePerson);
 
   const take = (entry: AwarenessEntry) => {
     const { state } = entry;
@@ -212,7 +230,8 @@ function createPeers(options: { clientId: number; timers: Timers }): {
  * block at once, at most every PRESENCE_MIN_INTERVAL_MS; a move inside one
  * block after PRESENCE_IDLE_MS of stillness; the last state again every
  * PRESENCE_RENEW_MS. Reads everyone else's entries through `createPeers`.
- * `destroy` sends a null state once and stops every timer.
+ * `destroy` sends a null state once and stops every timer; a later `publish`
+ * does nothing.
  */
 export function createPresence(options: {
   clientId: number;
@@ -249,6 +268,7 @@ export function createPresence(options: {
 
   return {
     publish: (place) => {
+      if (destroyed) return;
       cancelSend?.();
       cancelSend = null;
       if (sent !== null && samePlace(place, sent.place)) return;

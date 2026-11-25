@@ -1,6 +1,7 @@
 // Lock for production, Unlock and End production: scene numbers written, every page recorded and the
 // layout frozen at lock; the anchors emptied at unlock; the numbers cleared and the layout freed at the end.
 import { scriptBody, scriptSettings } from "@manent/crdt";
+import { resolveFollowed } from "@manent/settings";
 import {
   BEFORE_END_NAME,
   BEFORE_UNLOCK_NAME,
@@ -25,6 +26,7 @@ import type { LockCommit } from "./freeze.ts";
 import type { Mutation, ProductionOptions, Requests } from "./requests.ts";
 import {
   documentOf,
+  engineVersionOf,
   layoutUnder,
   notLocked,
   scriptPages,
@@ -49,9 +51,11 @@ export function lockMutation(
     need: "lock_page_numbers",
     tells: ["lock_anchors_changed", "layout_changed"],
     check: (file) => lockRefusal(file, request),
-    edit(doc, file) {
-      const { engineVersion } = documentOf(file, docId);
-      const under = layoutUnder(scriptSettings(doc).entries(), engineVersion);
+    edit(doc) {
+      const stored = scriptSettings(doc).entries();
+      const project = requests.projectSettings(docId);
+      const effective = resolveFollowed(stored, project);
+      const under = layoutUnder(effective, engineVersionOf(effective));
       if (!under.ok) return under;
       const { engine, profile } = under;
       const flat = blocksOf(scriptBody(doc).materialize());
@@ -64,7 +68,7 @@ export function lockMutation(
         engineVersion: engine.version,
       };
       writeNumbers(doc, flat, numbers);
-      freezeSettings(doc, request, { userId, setAt: options.now() });
+      freezeSettings(doc, request, { userId, setAt: options.now() }, project);
       return { ok: true };
     },
     commit(file, _at, pos) {

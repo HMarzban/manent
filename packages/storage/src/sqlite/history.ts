@@ -5,10 +5,11 @@ import type {
   History,
   HistoryRequestRow,
   VersionKind,
+  VersionPageRow,
   VersionRow,
   Versions,
-} from "../ports.ts";
-import { StorageError } from "../ports.ts";
+} from "../ports/index.ts";
+import { StorageError } from "../ports/index.ts";
 import { readStrings } from "./directory.ts";
 import { transact } from "./files.ts";
 
@@ -26,6 +27,8 @@ const VERSION_KINDS = {
   recovered: true,
   revision_baseline: true,
   revision_issue: true,
+  prompter: true,
+  pre_hand_in: true,
 } satisfies Record<VersionKind, true>;
 
 type StoredVersion = Omit<VersionRow, "kind"> & { kind: string };
@@ -90,6 +93,48 @@ interface StoredSummary {
   sceneIds: string;
 }
 
+interface StoredPageDetail extends StoredVersion {
+  snapshotRef: string | null;
+  engineVersion: number | null;
+  authorIds: string | null;
+  blockIds: string | null;
+  sceneIds: string | null;
+}
+
+const VERSION_DETAIL = `SELECT v.id, v.doc_id AS docId, v.generation, v.seq, v.kind, v.name,
+  v.created_by AS createdByUserId, v.created_at AS createdAt, v.device_id AS deviceId,
+  v.snapshot_ref AS snapshotRef, v.engine_version AS engineVersion,
+  s.author_ids AS authorIds, s.block_ids AS blockIds, s.scene_ids AS sceneIds
+  FROM doc_versions v LEFT JOIN version_summaries s ON s.version_id = v.id`;
+
+function readPageDetail(row: StoredPageDetail): VersionPageRow {
+  const base = readVersion({
+    id: row.id,
+    docId: row.docId,
+    generation: row.generation,
+    seq: row.seq,
+    kind: row.kind,
+    name: row.name,
+    createdByUserId: row.createdByUserId,
+    createdAt: row.createdAt,
+    deviceId: row.deviceId,
+  });
+  const summary =
+    row.authorIds === null || row.blockIds === null || row.sceneIds === null
+      ? null
+      : {
+          authorIds: readStrings(row.authorIds),
+          blockIds: readStrings(row.blockIds),
+          sceneIds: readStrings(row.sceneIds),
+        };
+  return {
+    ...base,
+    snapshotRef: row.snapshotRef,
+    engineVersion: row.engineVersion,
+    summary,
+  };
+}
+
 function prepare(db: Database) {
   return {
     first: db.query<StoredVersion, [string, number]>(
@@ -98,12 +143,27 @@ function prepare(db: Database) {
     after: db.query<StoredVersion, [string, number, string, number]>(
       `${VERSION} WHERE doc_id = ?1 AND (created_at, id) < (?2, ?3) ORDER BY created_at DESC, id DESC LIMIT ?4`,
     ),
+    firstDetails: db.query<StoredPageDetail, [string, number]>(
+      `${VERSION_DETAIL} WHERE v.doc_id = ?1 ORDER BY v.created_at DESC, v.id DESC LIMIT ?2`,
+    ),
+    afterDetails: db.query<StoredPageDetail, [string, number, string, number]>(
+      `${VERSION_DETAIL} WHERE v.doc_id = ?1 AND (v.created_at, v.id) < (?2, ?3) ORDER BY v.created_at DESC, v.id DESC LIMIT ?4`,
+    ),
     get: db.query<StoredVersion, [string]>(`${VERSION} WHERE id = ?1`),
     snapshotOf: db.query<
       { ref: string; engineVersion: number | null },
       [string]
     >(
       "SELECT snapshot_ref AS ref, engine_version AS engineVersion FROM doc_versions WHERE id = ?1 AND snapshot_ref IS NOT NULL",
+    ),
+    latestSnapshotAtOrBefore: db.query<
+      { ref: string; engineVersion: number | null },
+      [string, number, number]
+    >(
+      `SELECT snapshot_ref AS ref, engine_version AS engineVersion FROM doc_versions
+       WHERE doc_id = ?1 AND snapshot_ref IS NOT NULL AND generation IS NOT NULL AND seq IS NOT NULL
+         AND (generation, seq) <= (?2, ?3)
+       ORDER BY generation DESC, seq DESC, created_at DESC, rowid DESC LIMIT 1`,
     ),
     setSnapshot: db.query<never, [string, string, number | null]>(
       "UPDATE doc_versions SET snapshot_ref = ?2, engine_version = ?3 WHERE id = ?1",
@@ -163,11 +223,18 @@ export function createSqliteHistory(db: Database): History {
         ? sql.first.all(docId, limit)
         : sql.after.all(docId, before.createdAt, before.id, limit)
       ).map(readVersion),
+    pageDetails: (docId, before, limit) =>
+      (before === null
+        ? sql.firstDetails.all(docId, limit)
+        : sql.afterDetails.all(docId, before.createdAt, before.id, limit)
+      ).map(readPageDetail),
     get(versionId) {
       const row = sql.get.get(versionId);
       return row === null ? null : readVersion(row);
     },
     snapshotOf: (versionId) => sql.snapshotOf.get(versionId),
+    latestSnapshotAtOrBefore: (docId, at) =>
+      sql.latestSnapshotAtOrBefore.get(docId, at.generation, at.seq),
     setSnapshot(versionId, ref, engineVersion) {
       transact(db, () => sql.setSnapshot.run(versionId, ref, engineVersion));
     },

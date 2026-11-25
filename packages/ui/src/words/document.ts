@@ -57,6 +57,7 @@ export const DOCUMENT_WORDS = {
   scriptScope: "Script",
   selectionScope: "Selection",
   sceneScope: "Scene",
+  rundownScope: "Rundown",
   scriptSettingsHeading: "Script settings",
   scriptScopeLine: (title: string): string =>
     `Shared. Everyone on ${title} sees these. Changing them can move page breaks.`,
@@ -64,6 +65,8 @@ export const DOCUMENT_WORDS = {
   mores: "Mores and Continueds",
   sceneNumbersGroup: "Scene numbers",
   revisionsGroup: "Revisions",
+  headerFooterGroup: "Header and footer",
+  layoutEngineGroup: "Layout engine",
   paperFromRegion: "From the region, when this script was created.",
   historyTab: "History",
   omitted: "OMITTED",
@@ -78,6 +81,11 @@ export const DOCUMENT_WORDS = {
   moreAvatars: (n: number): string => `+${formatCount(n)}`,
   moreAvatarsName: (n: number): string =>
     n === 1 ? "1 more person" : `${formatCount(n)} more people`,
+  /** The people who have the script open to read only, after the avatars; and their accessible name. */
+  moreViewers: (n: number): string =>
+    n === 1 ? "+1 viewer" : `+${formatCount(n)} viewers`,
+  moreViewersName: (n: number): string =>
+    n === 1 ? "1 viewer" : `${formatCount(n)} viewers`,
   switchOn: "on",
   switchOff: "off",
 } as const;

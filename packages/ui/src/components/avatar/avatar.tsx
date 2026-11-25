@@ -1,20 +1,42 @@
-// A person as a circle of their initials, in their colour inside a script and a ring everywhere else; and the
-// people on a document as a row of them.
+// A person as a circle of their initials over a deterministic geometric motif, in their colour inside a script
+// and warm archival tones everywhere else; and the people on a document as a cohesive stack.
+// The one motion that repeats is an avatar's while its person types.
 import { cn } from "cn";
 import { PlusIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { DOCUMENT_WORDS } from "../../words/document.ts";
+import { AvatarArt } from "./avatar-art.tsx";
 
 export type AvatarSize = "sm" | "md" | "lg";
 
 const CIRCLE =
-  "mn-avatar inline-flex shrink-0 items-center justify-center rounded-full";
+  "mn-avatar relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full leading-none select-none";
 const SIZES: Readonly<Record<AvatarSize, string>> = Object.freeze({
   sm: "size-avatar-sm text-micro",
   md: "size-avatar text-micro",
   lg: "size-avatar-lg text-title",
 });
-const SHOWN = 3;
+const MORE_SIZES: Readonly<Record<AvatarSize, string>> = Object.freeze({
+  sm: "h-avatar-sm min-w-avatar-sm px-1 text-micro",
+  md: "h-avatar min-w-avatar px-2 text-micro",
+  lg: "h-avatar-lg min-w-avatar-lg px-2 text-meta",
+});
+const PLUS_SIZES: Readonly<Record<AvatarSize, string>> = Object.freeze({
+  sm: "size-3",
+  md: "size-icon",
+  lg: "size-icon-lg",
+});
+/** `apart`: at most three avatars in a cohesive title-bar stack; `overlapping`: at most two, compact for tight rows. */
+type StackLayout = "apart" | "overlapping";
+const LAYOUTS: Readonly<
+  Record<StackLayout, { shown: number; className: string }>
+> = Object.freeze({
+  apart: { shown: 3, className: "mn-avatar-stack" },
+  overlapping: { shown: 2, className: "mn-avatar-overlap" },
+});
+// up and down while the person types; under reduced motion the theme stills it, and the initials are underlined
+const MOVING =
+  "animate-bounce motion-reduce:underline motion-reduce:underline-offset-2";
 
 interface AvatarProps {
   name: string;
@@ -25,6 +47,8 @@ interface AvatarProps {
   size: AvatarSize;
   /** Inside a control already named by the person, the avatar is hidden from assistive technology. */
   decorative?: boolean;
+  /** The person is typing: shown, never said, so that nothing is announced at each key. */
+  moving?: boolean;
 }
 
 /** Named by `name` as an image, unless `decorative`. */
@@ -34,6 +58,7 @@ export function Avatar({
   colour,
   size,
   decorative = false,
+  moving = false,
 }: AvatarProps): ReactNode {
   return (
     <span
@@ -41,9 +66,17 @@ export function Avatar({
       aria-label={decorative ? undefined : name}
       aria-hidden={decorative ? "true" : undefined}
       data-who={colour ?? undefined}
-      className={cn(CIRCLE, SIZES[size])}
+      data-new={initials === null ? "" : undefined}
+      className={cn(CIRCLE, SIZES[size], moving && MOVING)}
     >
-      {initials ?? <PlusIcon aria-hidden="true" />}
+      {initials === null ? (
+        <PlusIcon aria-hidden="true" className={PLUS_SIZES[size]} />
+      ) : (
+        <>
+          <AvatarArt seed={name} />
+          <span className="mn-avatar-initials relative z-10">{initials}</span>
+        </>
+      )}
     </span>
   );
 }
@@ -56,25 +89,32 @@ interface StackPerson {
   colour: number | null;
 }
 
-/** At most three avatars 4 px apart, then a circle counting the rest; nothing for no one. */
+/** The avatars `layout` shows, then a pill counting the rest; nothing for no one. */
 export function AvatarStack({
   people,
   size,
+  moving,
+  layout = "apart",
 }: {
   people: readonly StackPerson[];
   size: AvatarSize;
+  /** The userIds of the people typing. */
+  moving?: ReadonlySet<string>;
+  layout?: StackLayout;
 }): ReactNode {
   if (people.length === 0) return null;
-  const more = people.length - SHOWN;
+  const { shown, className } = LAYOUTS[layout];
+  const more = people.length - shown;
   return (
-    <span className="inline-flex items-center gap-1">
-      {people.slice(0, SHOWN).map((person) => (
+    <span className={cn("inline-flex items-center", className)}>
+      {people.slice(0, shown).map((person) => (
         <Avatar
           key={person.userId}
           name={person.name}
           initials={person.initials}
           colour={person.colour}
           size={size}
+          moving={moving?.has(person.userId) ?? false}
         />
       ))}
       {more <= 0 ? null : (
@@ -82,11 +122,26 @@ export function AvatarStack({
           role="img"
           aria-label={DOCUMENT_WORDS.moreAvatarsName(more)}
           data-more
-          className={cn(CIRCLE, SIZES[size])}
+          className={cn(CIRCLE, MORE_SIZES[size])}
         >
           {DOCUMENT_WORDS.moreAvatars(more)}
         </span>
       )}
+    </span>
+  );
+}
+
+/** How many people have the script open to read only, drawn as the count that ends a stack; nothing for no one. */
+export function ViewerCount({ viewers }: { viewers: number }): ReactNode {
+  if (viewers === 0) return null;
+  return (
+    <span
+      role="img"
+      aria-label={DOCUMENT_WORDS.moreViewersName(viewers)}
+      data-more
+      className={cn(CIRCLE, "h-avatar px-2 text-micro whitespace-nowrap")}
+    >
+      {DOCUMENT_WORDS.moreViewers(viewers)}
     </span>
   );
 }

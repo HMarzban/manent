@@ -39,6 +39,7 @@ test("a surface is opened by exactly the commands that name it", () => {
     "history.open",
     "doc.scriptSettings",
     "demo.tour",
+    "writing.handIn",
   ]);
   expect(SURFACES.find((s) => s.id === "document")?.openedBy).toEqual([]);
 });

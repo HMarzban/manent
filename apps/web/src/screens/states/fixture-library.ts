@@ -1,4 +1,5 @@
 // The gallery's Library: a fixed number of new films, listed alike in every workspace.
+import type { DocKind } from "@manent/sync-protocol";
 import { LIBRARY_WORDS, createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import type {
@@ -12,11 +13,13 @@ const PLACE = Object.freeze({ kind: "never_synced" } as const);
 
 /**
  * `count` untitled films, each with one untitled script that has never synced, newest first in Projects and Continue.
- * It makes nothing: a new or imported project never settles, and a rename changes nothing.
+ * It makes nothing: a new, imported or copied project never settles, and a rename changes nothing.
  */
 export function createFixtureLibrary(options: {
   count: number;
   ids: () => string;
+  /** Who made the films, and when, in milliseconds since the epoch. */
+  made: { byName: string; at: number };
 }): LibraryIndex {
   const made = Array.from({ length: options.count }, () => ({
     projectId: options.ids(),
@@ -30,7 +33,7 @@ export function createFixtureLibrary(options: {
       title: projectTitle,
       kind: "film",
       firstDocId: docId,
-      lastEdited: null,
+      lastEdited: options.made,
       place: PLACE,
     })),
   );
@@ -49,6 +52,9 @@ export function createFixtureLibrary(options: {
   const kinds = new Map<string, Subscribable<ProjectKind | null>>(
     made.map(({ docId }) => [docId, createValue("film")]),
   );
+  const projectIds = new Map<string, Subscribable<string | null>>(
+    made.map(({ projectId, docId }) => [docId, createValue(projectId)]),
+  );
   const cached = createValue<"cached" | "problem">("cached");
   const none = createValue(null);
   return {
@@ -60,6 +66,10 @@ export function createFixtureLibrary(options: {
     importProject: () => new Promise(() => {}),
     documentTitle: (docId) => titles.get(docId) ?? none,
     documentKind: (docId) => kinds.get(docId) ?? none,
+    docKindOf: (docId) =>
+      kinds.has(docId) ? createValue<DocKind | null>("script") : none,
+    documentProject: (docId) => projectIds.get(docId) ?? none,
     renameDocument() {},
+    addCopy: () => new Promise(() => {}),
   };
 }

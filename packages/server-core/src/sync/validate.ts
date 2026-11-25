@@ -2,8 +2,11 @@
 import type { TransactionReport } from "@manent/crdt";
 import { validateBlocks } from "@manent/schema";
 import type { Issue } from "@manent/schema";
+import type { DocKind } from "@manent/sync-protocol";
+import { validateCommentsPush } from "../comments/validate.ts";
+import { validateRundownPush } from "../rundown/validate.ts";
 import { validateIndexPush } from "./index-docs.ts";
-import type { Room } from "./rooms.ts";
+import type { Room, Subscription } from "./rooms.ts";
 
 /** Maps only the authority writes (a setting is a request, never a push). */
 const AUTHORITY_MAPS = ["settings", "settingsMeta"] as const;
@@ -30,12 +33,28 @@ export function validatePush(report: TransactionReport): Issue[] {
   return issues;
 }
 
-/** A push judged as its room's kind is: an index by `validateIndexPush`, anything else by `validatePush`. */
-export function validateRoomPush(
-  report: TransactionReport,
-  room: Pick<Room, "kind" | "home">,
-): Issue[] {
-  return room.kind === "index"
-    ? validateIndexPush(report, room.home)
-    : validatePush(report);
+/** A push to be judged: what it changed, its room, and the subscription it came through, which names the pusher and their access. */
+export interface Push {
+  report: TransactionReport;
+  room: Room;
+  subscription: Subscription;
+}
+
+/** The issues of a push to a document of one kind; an empty list accepts it. */
+export type PushValidator = (push: Push) => Issue[];
+
+/** The kinds not judged as a script; a kind without a line keeps `validatePush`. */
+export const PUSH_VALIDATORS: Readonly<
+  Partial<Record<DocKind, PushValidator>>
+> = Object.freeze({
+  index: ({ report, room, subscription }) =>
+    validateIndexPush(report, room, subscription.access),
+  comments: validateCommentsPush,
+  rundown: validateRundownPush,
+});
+
+/** A push judged as its room's kind is. */
+export function validateRoomPush(push: Push): Issue[] {
+  const validator = PUSH_VALIDATORS[push.room.kind];
+  return validator === undefined ? validatePush(push.report) : validator(push);
 }

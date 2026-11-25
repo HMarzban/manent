@@ -1,6 +1,8 @@
 // The three-way merge of a document, block by block, and its carrying through later states.
 import { canonicalBlock } from "@manent/schema";
 import type { BlockJSON, BlockOp, DocJSON } from "@manent/schema";
+import { idOf } from "../compare/align.ts";
+import { textOf } from "../compare/block-changes.ts";
 import { applyBlockOpsToJSON } from "./apply-ops.ts";
 import { mergeBlock } from "./merge-block.ts";
 
@@ -44,15 +46,6 @@ const SET_ASIDE: Outcome = Object.freeze({ kind: "set_aside" });
 
 function blocksIn(doc: DocJSON): BlockJSON[] {
   return (doc.content ?? []).flatMap((section) => section.content ?? []);
-}
-
-function textOf(block: BlockJSON): string {
-  return (block.content ?? []).map((run) => run.text).join("");
-}
-
-function idOf(block: BlockJSON): string | null {
-  const id = block.attrs?.id;
-  return typeof id === "string" ? id : null;
 }
 
 /** Each block by ID; the first wins when an ID repeats. */

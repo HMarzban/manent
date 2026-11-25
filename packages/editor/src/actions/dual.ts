@@ -2,7 +2,7 @@
 import { Selection } from "prosemirror-state";
 import type { Node, ResolvedPos } from "prosemirror-model";
 import type { EditorState, Transaction } from "prosemirror-state";
-import type { ActionResult } from "./action-types.ts";
+import type { ActionEntry, ActionResult } from "./action-types.ts";
 
 /** A block and the position before it. */
 interface Located {
@@ -112,3 +112,8 @@ export function toggleDualDialogue(
   dispatch?.(tr);
   return { ok: true };
 }
+
+export const dualDialogueEntry: ActionEntry<{ kind: "dual_dialogue" }> = {
+  readOnly: false,
+  run: (view) => toggleDualDialogue(view.state, view.dispatch),
+};

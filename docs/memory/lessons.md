@@ -4,6 +4,286 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## Keep prompter feed hubs per service instance and re-check permissions inside the document queue
+
+- Date: 2026-11-25
+
+### What happened
+
+The first draft of the prompter feed keyed active feed hubs in a module-level `WeakMap` by `Clock`, so two server instances sharing one test clock could receive each other's live snapshots. In addition, the send route checked `send_to_prompter` access before entering the document serialisation chain (`inChain`), leaving a window where revoking access while a send was queued could still let the queued send run, and did not verify access on each linked story.
+
+### How it was caught
+
+By security review auditing cross-instance isolation and time-of-check/time-of-use paths across `packages/server-core/src/prompter/`.
+
+### Rule
+
+Never store live subscription or hub state in a module-level registry keyed by a shared dependency such as `Clock`; wire subscription handlers per service instance through `SyncSettings`. Always re-check access on both the target document and any linked document inside `inChain(docId, ...)` immediately before applying or replaying a write.
+
+### Enforced by
+
+`packages/server-core/test/prompter-security.test.ts`, which verifies two servers sharing one `Clock` stay isolated with zero cross-server snapshots and that revoking `send_to_prompter` while a send is queued in `inChain` refuses the queued send with `403`.
+
+## Guard wall-clock air-window timers against backwards clock jumps
+
+- Date: 2026-11-25
+
+### What happened
+
+The prompter's post-window flush timer was scheduled as a relative delay to `win.endsAt` and checked only `!airWindows.isInside(rundownId, now)` when it fired. When a clock moved backwards (as when seeded history steps step to an earlier day or a host clock steps back), the timer fired days before `win.startsAt`, saw `isInside === false`, and automatically flushed pending edits to the prompter before the air window had even begun.
+
+### How it was caught
+
+By live demo seeding of broadcast rundowns, where stories staged as changed inside the air window unexpectedly flipped back to `On prompter` after later steps moved the seed clock to earlier days.
+
+### Rule
+
+Whenever a scheduled callback acts on leaving a wall-clock window (`endsAt`), verify `now >= win.endsAt` (and explicitly skip when `now < win.startsAt`) rather than inferring window expiry solely from `!isInside(now)`.
+
+### Enforced by
+
+`packages/server-core/test/prompter-security.test.ts`, which steps the clock backwards before `win.startsAt` and verifies changed rows remain unsent while normal post-window expiry still flushes.
+
+## Client undo on authority-enriched CRDT maps must never re-emit server-only keys
+
+- Date: 2026-11-25
+
+### What happened
+
+Server-computed rundown fields (`durationMs` and `prompter`) live alongside client-edited keys on each row map, and the server refuses any client push that writes them. Using `Y.UndoManager` directly to undo a row deletion cloned the entire deleted row map—including those server-only keys—so undoing a deleted row produced a client push the server refused.
+
+### How it was caught
+
+By cross-package review tracing `packages/crdt/src/rundown/rundown-undo.ts` against the server push validator in `packages/server-core/src/rundown/validate.ts`.
+
+### Rule
+
+When a CRDT map mixes client-owned and server-only keys, client undo and redo must re-insert only an explicit allow-list of client-owned keys and let the server's commit hook recompute authority fields afterward.
+
+### Enforced by
+
+`packages/crdt/src/rundown/rundown-undo.ts` (allow-listed client keys on undo/redo) and `packages/server-core/test/rundown-guards.test.ts` (verifying the server refuses client writes to server-only keys and invalid rundown root fields).
+
+## New SQLite indexes belong in a new numbered migration, never an earlier one
+
+- Date: 2026-11-25
+
+### What happened
+
+Eight new `CREATE INDEX IF NOT EXISTS` statements were added inside historical migrations 4, 5 and 6 while leaving `STORAGE_SCHEMA_VERSION` at 9. Because `migrate()` exits immediately when `user_version` already equals `steps.length`, every existing SQLite database upgraded from version 9 skipped all eight indexes silently.
+
+### How it was caught
+
+By senior code review checking migration placement against `packages/storage/src/sqlite/files.ts` and `packages/storage/src/sqlite/migrations.ts`.
+
+### Rule
+
+Never edit an earlier migration step after it has merged. Append a new numbered migration entry across all three migration lists (`control`, `documents`, `checkpoints`) and bump `STORAGE_SCHEMA_VERSION` so existing databases receive the change on open.
+
+### Enforced by
+
+`packages/storage/test/schema-golden.test.ts`, which pins the schema at version 10 and tests upgrading an existing version 9 database to version 10 with all eight new indexes created.
+
+## Unhashed service worker assets must never use CacheFirst in an unversioned cache
+
+- Date: 2026-11-25
+
+### What happened
+
+Removing `/ink-compile.worker.js` from the revisioned precache manifest and matching all `.js` files with a `CacheFirst` route in a static `manent-runtime-assets-v1` cache would have pinned the first-visited Ink worker permanently across deploys and accumulated stale hashed chunks without cleanup.
+
+### How it was caught
+
+By senior code review tracing unhashed worker URLs and cache lifecycles across `apps/web/build.ts`, `apps/web/src/sw/precache.ts` and `apps/web/src/sw/worker.ts`.
+
+### Rule
+
+Restrict `CacheFirst` runtime caching to content-hashed asset URLs (`-[a-z0-9]{8}\.`), serve unhashed workers `NetworkFirst`, version runtime caches with the build ID (`__BUILD_ID`), and prune older runtime caches during the service worker `activate` event.
+
+### Enforced by
+
+`apps/web/test/sw-manifest.test.ts` and `apps/web/test/build.test.ts`, which verify hashed `CacheFirst` matching, `NetworkFirst` routing for the unhashed Ink worker, exclusion of the service worker and API routes, and deletion of older versioned runtime caches on activation.
+
+## Never reuse Yjs client IDs across sessions or downgrade primary SQLite durability defaults
+
+- Date: 2026-11-25
+
+### What happened
+
+An attempt to reuse the last persisted Yjs `clientId` on document reopen could collide with server-reserved IDs (`reserveClientId`) and still-live follower tabs, risking silent CRDT item-ID collisions. Separately, flipping `openDatabase()`'s default durability from `"full"` to `"normal"` silently removed `synchronous = FULL` and macOS `fullfsync` from primary `control.sqlite` and project document logs.
+
+### How it was caught
+
+By senior code review auditing CRDT client-ID lifetimes across `packages/sync-client` and SQLite pragma defaults across `packages/storage`.
+
+### Rule
+
+Always mint a fresh Yjs `clientId` per session; keep `openDatabase()` defaulting to `"full"` durability and opt into `"normal"` or `"off"` explicitly only for reconstructible derived caches (`.checkpoints.sqlite`, `search.sqlite`) or disposable staging directories.
+
+### Enforced by
+
+`packages/sync-client/test/client.test.ts` (asserting one fresh client ID per session, never reused) and `packages/storage/test/queries.test.ts` (querying live `PRAGMA synchronous`, `fullfsync`, `cache_size` and `temp_store` values for primary, checkpoint and staging databases).
+
+## ProseMirror DecorationSet.find is inclusive at both ends
+
+- Date: 2026-11-25
+
+### What happened
+
+`redrawChanges` in `packages/editor/src/changes/decorations.ts` called `mapped.find(start, end, ...)` and filtered `.filter((d) => d.from >= start)` to protect the node decoration of the preceding block (`first - 1`), but did not filter `d.to <= end`. When the block immediately following a replaced range shared a boundary at `end`, `find` returned its `Decoration.node` and stripped it while leaving its inner inline decoration behind.
+
+### How it was caught
+
+By the fast-check property test in `packages/editor/test/changes-plugin.test.ts` during full verification (`bun run verify`).
+
+### Rule
+
+When removing decorations inside a half-open block range `[start, end)` from `DecorationSet.find(start, end)`, filter both `d.from >= start` and `d.to <= end` so zero-width widgets at either boundary are removed while neighbouring `Decoration.node` ranges touching `start` or `end` stay intact.
+
+### Enforced by
+
+`packages/editor/test/changes-plugin.test.ts`, which compares incremental change decorations against a fresh full comparison across random edit and move sequences.
+
+## Multi-column gutter markers overflowed a single-column desk gutter behind the side panel
+
+- Date: 2026-11-25
+
+### What happened
+
+`--desk-gutter` remained `32px` while annotation markers sat unconditionally in column 1 (`+36px` from the sheet edge) and grew to ~50 px for mixed Comment/Note badges, with collaborator initials in column 2 (`+64px`). At `1280px` with the right side panel open, both badges collided with each other and clipped past the page desk's right edge behind the panel.
+
+### How it was caught
+
+By visual inspection and live browser bounding-box checks with the right side panel open.
+
+### Rule
+
+Keep `--desk-gutter` wide enough (`>= 96px`) to hold all visible gutter columns with breathing room, and anchor annotation badges at column 0 (`+8px` beside the sheet) whenever page-mode diff initials are absent so wide mixed badges never collide with collaborator avatars or clip off-screen.
+
+### Enforced by
+
+`tools/test/theme.test.ts` (asserting `--desk-gutter >= 96px`) and `packages/editor/test/annotations-plugin.dom.test.ts` (verifying column 0 in normal editing and column 1 when page-mode changes are active).
+
+## Theme CSS styled legacy mark attributes instead of what the schema emitted
+
+- Date: 2026-11-25
+
+### What happened
+
+`@manent/schema` emitted `<span data-color="...">`, `<mark data-highlight="...">`, and `<span class="caps">` for text colour, highlight, and all-caps marks, while `packages/ui/src/theme.css` only styled `[data-ink="..."]` and `[data-hl="..."]` and defined no `.caps` rule at all. Selecting any text colour or all-caps did nothing visually, and every highlight colour fell back to the browser's default bright yellow `<mark>` fill with black text.
+
+### How it was caught
+
+By selecting text in the live editor and applying text colours, highlights, and secondary formatting through the selection bubble menu.
+
+### Rule
+
+Every DOM attribute or class emitted by `MARK_SPECS` in `@manent/schema` must have a matching, tested rule in `packages/ui/src/theme.css` (and `PAGE_CSS` where layout depends on it), and `<mark>` elements must reset browser default `color` (`color: inherit`) so dark paper and combined text colours stay legible.
+
+### Enforced by
+
+`tools/test/theme.test.ts` and `packages/editor/test/page-styles.test.ts`, which assert rules for all five `[data-color]` values, all five `[data-highlight]` values, `mark[data-highlight]`, `.caps`, and `strong`, plus ≥ 4.5:1 AA contrast across every colour/highlight combination.
+
+## Putting secondary badges inside a truncated heading clipped them and hid menu updates
+
+- Date: 2026-11-25
+
+### What happened
+
+In the Scenes and Chapters list, writer assignment, scene progress, and open-comment counts were appended inline inside a single truncated heading span, and scene progress was only read when a writer was also assigned. On any normal-length chapter or scene title, CSS truncation clipped the badges completely off the edge, making Writer and Progress menu choices look like no-ops.
+
+### How it was caught
+
+By user testing of the Chapters row menu (`Writer` and `Progress`) and tracing `assignmentSceneMarks` through `SceneTitle` and `Row`.
+
+### Rule
+
+Place secondary status, assignment, and count tags in a dedicated metadata line or card footer outside `.truncate` and `line-clamp-*` title wrappers, and render independent states (such as scene progress without an assigned writer) from the union of their underlying maps.
+
+### Enforced by
+
+`apps/web/test/scene-row-menu.dom.test.tsx`, which asserts that progress renders without a writer and that assignment and open-comment tags sit outside the truncated heading in both List and Cards views.
+
+## Portalled context menus inside a virtualised list lost arrow keys to the list behind them
+
+- Date: 2026-11-25
+
+### What happened
+
+React synthetic `keydown` events bubble through the component tree even across DOM portals. Opening a right-click `ContextMenu` mounted inside `VirtualRows` caused the first ArrowDown press in the menu to reach `VirtualRows.onKeyDown`, where the target had no `[role="listitem"]` ancestor, so the list computed index 0 and yanked focus out of the menu back to the first row.
+
+### How it was caught
+
+By auditing keyboard navigation of the Scenes row context menu against `VirtualRows.keyTarget`.
+
+### Rule
+
+A container keyboard handler that manages focus among its children ignores events whose DOM target is not contained within `event.currentTarget` (and ignores non-item descendants when a child overlay owns keys).
+
+### Enforced by
+
+`apps/web/test/scene-row-menu.dom.test.tsx`, which dispatches arrow keys from a portalled menu inside `VirtualRows` and verifies that list focus never moves.
+
+## Overlay scrollbars report zero layout width and were covered by edge-anchored labels
+
+- Date: 2026-11-25
+
+### What happened
+
+The scrolling page indicator (`Page 9 of 291`) computed the scroller's right edge from `clientWidth` and added a 4 px gap. On macOS with overlay scrollbars, `offsetWidth === clientWidth` while the OS paints a 15 px scrollbar thumb inside the right edge during scrolling, so the indicator sat directly on top of the scrollbar thumb and poked past the top edge of long books.
+
+### How it was caught
+
+By visual inspection while scrolling a 291-page book in dark mode.
+
+### Rule
+
+Any floating indicator anchored beside a scroller's inline-end edge reserves overlay scrollbar width (16 px) whenever `offsetWidth - clientLeft - clientWidth === 0`, clamps its vertical coordinate inside the scroller's bounds, and uses overlay tokens (`bg-overlay`, `border-line`, `text-fg`) rather than inverted foreground/background fills.
+
+### Enforced by
+
+`apps/web/test/thumb-label.dom.test.ts`, which verifies overlay scrollbar clearance, classic scrollbar clearance, covering panel clearance, vertical clamping, and overlay tokens.
+
+## Shared origin storage leaked per-tab Tour chrome into companion windows
+
+- Date: 2026-11-25
+
+### What happened
+
+Persisting the active Tour scenario and step in `localStorage` caused multi-window Tour scenarios (`window.open("...?person=...&panels=closed")`) to hydrate the opener's active Tour step inside the companion window and draw a floating Tour bar and ring over the wrong tab. Even moving to `sessionStorage` required suppressing cloned tab storage on `?panels=closed` windows because `window.open` copies the opener's `sessionStorage`.
+
+### How it was caught
+
+By multi-lens code review of the Tour redesign before merge.
+
+### Rule
+
+Per-tab interface session state belongs in `tabStorage` (`sessionStorage`), never origin-wide `localStorage`, and companion windows opened with `?panels=closed` suppress and clear cloned Tour step storage before hydration.
+
+### Enforced by
+
+`apps/web/test/tour-redesign.dom.test.tsx`, which verifies reload restoration via `tabStorage` and asserts that a suppressed `?panels=closed` window clears cloned storage and draws no floating bar.
+
+## A demo reset reloaded a pre-reset document path and dropped the next person on no access
+
+- Date: 2026-11-25
+
+### What happened
+
+Both `useResetting` and `followSeed` called `location.reload()` after a demo reset or server reseed. When a tab had been sitting on a pre-reset script URL (`/s/<id>`), clearing Manent's session redirected to `/choose?next=%2Fs%2F<id>`, so whoever signed in next landed straight on `"You no longer have access"` for a wiped or private script.
+
+### How it was caught
+
+By clicking Reset in the demo bar while on a script and choosing another person after reload.
+
+### Rule
+
+Reloading the app after a demo reset or seed change navigates cleanly to `/` (`reloadAtHome`) whenever the tab is not already on the bare root path, so stale document or project URLs never survive across a reseed.
+
+### Enforced by
+
+`apps/web/test/resetting-screen.dom.test.tsx`, which verifies `reloadAtHome` replaces non-root paths with `/` and reloads only when already on `/`.
+
 ## A screen took focus from the open command palette
 
 - Date: 2026-11-21

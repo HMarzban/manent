@@ -7,18 +7,22 @@ import type { DocFile, Home, Storage, StorageError } from "@manent/storage";
 import type {
   ControlKind,
   DocRef,
+  DocRole,
   LockAnchorRecord,
   Message,
   PreparedMessage,
   VersionSet,
 } from "@manent/sync-protocol";
+import type { DraftReaders } from "../comments/ports.ts";
 import type { RebuildStats } from "../rebuild/rebuilder.ts";
 import type { ReplayItem } from "../rebuild/replay-write.ts";
 import type { ReplayOutcome } from "../rebuild/replay.ts";
 import type { DocumentAccess } from "./access.ts";
 import type { IngestItem } from "./ingest.ts";
 import type { Room, Subscription } from "./rooms.ts";
-import type { Committed, QueuedItem } from "./write-path.ts";
+import type { SubscribeHandler } from "./subscribe.ts";
+import type { QueuedItem } from "./write-path.ts";
+import type { Committed } from "./write-path-ports.ts";
 
 /** The returned function cancels what `schedule` set. */
 export interface Clock {
@@ -100,14 +104,23 @@ export interface SyncHooks {
   forgotten?(room: Room): void;
   /** Null leaves SUBSCRIBED to the next hook, and after the last to its plain values. */
   subscribed?(docId: string): SubscribedExtras | null;
-  /** Step 5 of the write path adds these to validatePush's issues, any of which refuses the push. */
-  checkPush?(room: Room, report: TransactionReport): Issue[];
+  /**
+   * Step 5 of the write path adds these to validatePush's issues, any of which refuses the push.
+   * `pusher` is the subscription it came through; the write path always gives it.
+   */
+  checkPush?(
+    room: Room,
+    report: TransactionReport,
+    pusher?: Subscription,
+  ): Issue[];
 }
 
 /** A write the authority makes into a loaded room, at its turn in the write path's queue. */
 export interface AuthorityWrite {
   userId: string;
   origin: "restore" | "system";
+  /** The client id to write under: one of `userId`'s that the document does not hold; else one nobody holds. */
+  writer?: number;
   /** Runs after every push queued before it; its updates are merged into one. ok false: nothing is written. */
   edit(doc: CrdtDoc): { ok: true } | { ok: false; reason: string };
   /**
@@ -278,6 +291,19 @@ export interface SyncService {
   readonly access: DocumentAccess;
   /** A role was changed: resolves it again, and ends what is no longer allowed. */
   accessChanged(docId: string, userId: string): void;
+  /**
+   * The person's role on the document is now `role` (null: removed), changed by `byUserId`. First
+   * the room hears CONTROL `membership_changed`: the person's own subscriptions with
+   * `{ userId, role, byUserId }`, every other one with `{}`. Then a removal ends every one of their
+   * subscriptions to it `forbidden`; otherwise their access is resolved again and an edit
+   * subscription it no longer allows ends `read_only_role`.
+   */
+  membershipChanged(
+    docId: string,
+    userId: string,
+    role: DocRole | null,
+    byUserId: string,
+  ): void;
   /** A document was deleted: tells and unsubscribes everyone. */
   removed(docId: string): void;
   /** A backup was put back: every placed document is flagged `restore` at its head. */
@@ -321,7 +347,7 @@ export interface SyncService {
 
 /**
  * Defaults: "authority", DEFAULT_LIMITS, an inline checkpointer, no upstream, NO_SETTINGS, no schema floor, never
- * inside an air window, no hooks.
+ * inside an air window and none told at SUBSCRIBED, no hooks.
  */
 export interface SyncSettings {
   storage: Storage;
@@ -341,6 +367,12 @@ export interface SyncSettings {
   registry?: SettingRules;
   schemaFloor?: (touched: readonly unknown[]) => number;
   airWindow?: (docId: string, now: number) => boolean;
+  /** SUBSCRIBED's air window: the document's next or current one; null: none. */
+  airWindowOf?: (docId: string) => { startsAt: number; endsAt: number } | null;
   /** Each is told and asked in list order. */
   hooks?: readonly SyncHooks[];
+  /** Signed-in readers sent a draft of a script, granted `comment` on its comments document. */
+  draftReaders?: DraftReaders;
+  /** Per-service handler for SUBSCRIBE in prompter mode; absent falls back to `SUBSCRIBE_HANDLERS.prompter`. */
+  prompterSubscribe?: SubscribeHandler;
 }

@@ -11,6 +11,7 @@ Start with the part that matches what you want to do. Each page says what works 
 - [Export and print](guide/export-and-print.md): a PDF, FDX or Fountain file of the script, paper, and importing a script.
 - [Keyboard shortcuts](guide/keyboard-shortcuts.md): every default key.
 - [Preferences and accessibility](guide/preferences-and-accessibility.md): what you can set, and how Manent works with a keyboard and a screen reader.
+- [Public API and notifications](guide/api.md): workspace API keys, read-only HTTP endpoints, webhooks, Slack and email delivery.
 
 ## Work on Manent
 
@@ -19,11 +20,13 @@ Start with the part that matches what you want to do. Each page says what works 
 - [Benchmarks](development/benchmarks.md): the suite, its scenarios and how budgets apply.
 - [Desktop app](development/desktop.md): building it, running it against the demo, and what it does.
 - [Coding standards](development/standards.md): the rules a reviewer checks.
+- [Design system](development/design-system.md): tokens, surfaces, skeletons, empty states, motion, presence, dialogs and Present.
 - [Contributing](../CONTRIBUTING.md): how to propose a change and how it is reviewed.
 
 ## Understand Manent
 
 - [Architecture overview](architecture/overview.md): the system, every package and its status, a change from keystroke to disk.
+- [Workspace, search and Ink](architecture/workspace-search-and-ink.md): full-text search, Trash and folders, workspace settings, Can also permissions, the public API, notifications, Ink compilation and player, layout engines and Sides.
 - [Layers and dependency rules](architecture/layers.md): which package may import which, and how that is checked.
 - [Repository outline](architecture/repository.md): what is in each folder.
 - [Decision records](decisions/README.md): what was decided, what else was considered, and what each choice costs.

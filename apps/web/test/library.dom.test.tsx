@@ -3,7 +3,7 @@ import { TOUR, isShown } from "@manent/demo";
 import { afterEach, expect, test } from "bun:test";
 import type { LocalStore } from "@manent/sync-client";
 import { createFaultyStoreSpace } from "@manent/sync-client/testing";
-import { createValue } from "@manent/ui";
+import { LIBRARY_WORDS, createValue } from "@manent/ui";
 import type { WorkspaceRef } from "@manent/sync-protocol";
 import {
   QueryClient,
@@ -149,7 +149,10 @@ function seededIndex(seed: {
     importProject: () => new Promise<CreateResult>(() => {}),
     documentTitle: () => createValue(null),
     documentKind: () => createValue(null),
+    docKindOf: () => createValue(null),
+    documentProject: () => createValue(null),
     renameDocument: () => {},
+    addCopy: () => new Promise<CreateResult>(() => {}),
   };
 }
 
@@ -344,7 +347,7 @@ test("Continue comes first, then the projects with their kind, last edit and pla
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   expect(rowsOf(continueList).map(rowWords)).toEqual([
-    ["The Long Night", "The Long Night · Film", "Synced"],
+    ["The Long Night", "Film", "Synced"],
   ]);
   const [night, game] = rowsOf(projects);
   expect([night, game].map((row) => (row ? rowWords(row) : []))).toEqual([
@@ -352,7 +355,7 @@ test("Continue comes first, then the projects with their kind, last edit and pla
     ["Game samples", "Game", "Dana, Mon", "Not on this device"],
   ]);
   expect(game?.getAttribute("aria-disabled")).toBe("true");
-  expect(game?.tabIndex).toBe(0);
+  expect([night?.tabIndex, game?.tabIndex]).toEqual([0, -1]);
   await act(async () => game?.click());
   expect(router.state.location.pathname).toBe("/");
   const statusBar = document.querySelector('[data-region="status_bar"]');
@@ -380,12 +383,19 @@ test("the switcher lists the person's workspaces and says which is getting ready
   ).toEqual([
     [["Writers' room", "2 projects · The Long Night"], "true"],
     [["Lanternfield Studios", "getting ready, 12 of 40 projects"], null],
+    [["Workspace settings"], null],
   ]);
   await act(async () => items[1]?.click());
   expect([
     router.state.location.pathname,
     router.state.location.search,
   ]).toEqual(["/", { w: "heavy" }]);
+  // a workspace getting ready says so in place of its lists, never that it is empty
+  const lines = [...document.querySelectorAll("p")].map((p) => p.textContent);
+  expect(lines).toContain(
+    "Lanternfield Studios is getting ready, 12 of 40 projects.",
+  );
+  expect(lines).not.toContain("No scripts yet");
 });
 
 test("a person with no session has one workspace, on this device only, and can sign in from it", async () => {
@@ -610,4 +620,26 @@ test("the Library drawn while the palette is open leaves focus in the palette's 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
   });
   expect(focused()).toEqual(["H1", "Library"]);
+});
+
+test("PROJECT_VIEWS projects render outside VirtualRows rather than clamped inside a one-row list", async () => {
+  const HARBOUR_SERIES: ProjectItem = {
+    projectId: "harbour",
+    title: "The Harbour",
+    kind: "series",
+    firstDocId: GAME_DOC,
+    lastEdited: { byName: "Priya", at: NOW - 5 * MINUTE_MS },
+    place: { kind: "synced" },
+  };
+  await renderLibrary({
+    person: YOU,
+    library: seededIndex({ projects: { you: [HARBOUR_SERIES, LONG_NIGHT] } }),
+  });
+  const section = document.querySelector(
+    `section[aria-label="${LIBRARY_WORDS.projectsRegion}"]`,
+  );
+  const list = section?.querySelector('[role="list"]') ?? null;
+  expect(list?.textContent ?? "").toContain("The Long Night");
+  expect(list?.textContent ?? "").not.toContain("The Harbour");
+  expect(section?.textContent ?? "").toContain("The Harbour");
 });

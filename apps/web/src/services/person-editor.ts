@@ -1,4 +1,5 @@
-// One person's editor: the page's mount over that person's commands, keys and messages, loaded apart from the entry.
+// One person's editor: the page's mount and the mount beside it, over that person's commands, keys and messages, loaded
+// apart from the entry.
 import type { CommandService, Resolved } from "@manent/commands";
 import { randomBlockId } from "@manent/schema";
 import { createKeyResolver } from "@manent/ui";
@@ -8,10 +9,12 @@ import {
   createEditorMount,
 } from "../editor-host/editor-mount.ts";
 import type { OpenEditor } from "../editor-host/editor-mount.ts";
+import type { EditorControl } from "../editor-host/control.ts";
 import type { EditorMount } from "../editor-host/mount.ts";
 import { createSyncSessions } from "../editor-host/sync-sessions.ts";
 import { createEditorKeyRun } from "../handlers/editor-key-run.ts";
-import type { EditorParts, Environment } from "./ports.ts";
+import { writingActions } from "../state/writing.store.ts";
+import type { EditorParts, Environment, PersonServices } from "./ports.ts";
 
 /** The editor's keys: a chord is looked up in the person's editor table and runs its command. */
 function editorKeys(
@@ -30,13 +33,14 @@ function editorKeys(
 }
 
 /**
- * The page's editor; `fixedKeys` gets the editor's keys once it has loaded. In the test build the editor's hooks are
- * installed on the page's `__manent`.
+ * The page's editor, and the editor of a document beside it over the same sessions, each reached through its own
+ * control; `fixedKeys` gets the editor's keys once it has loaded. In the test build the hooks are installed on the
+ * page's `__manent` and follow the page's editor only.
  */
 export async function loadEditor(
   environment: Environment,
   parts: EditorParts,
-): Promise<EditorMount> {
+): Promise<Pick<PersonServices, "mount" | "besideMount">> {
   const timers = { now: environment.now, schedule: environment.schedule };
   const frames = { request: environment.frame };
   const hooks =
@@ -44,7 +48,12 @@ export async function loadEditor(
       ? await import("../editor-host/test-hooks.ts")
       : null;
   parts.fixedKeys.set(EDITOR_FIXED_KEYS);
-  const sessions = createSyncSessions({ client: parts.client });
+  // routes that mount the editor without DocumentScreen (Send, Present, Prompter) still need the private index bound
+  writingActions.bind(parts.services());
+  const sessions = createSyncSessions({
+    client: parts.client,
+    schedule: environment.schedule,
+  });
   const access = new Map<string, StatusFacts["access"]>();
   let current: OpenEditor | null = null;
   const target: unknown = Reflect.get(globalThis, "__manent");
@@ -56,25 +65,35 @@ export async function loadEditor(
       sessions,
       access,
     });
-  return createEditorMount({
-    sessions,
-    services:
-      hooks === null
-        ? parts.services
-        : () => hooks.withRecordedAccess(parts.services(), access),
-    control: parts.control,
-    keys: editorKeys(parts.commands, parts.messages, parts.resolved),
-    ports: parts.services().pagePorts,
-    frames,
-    timers,
-    platform: environment.where.platform,
-    ids: randomBlockId,
-    random: environment.randomId,
-    observe:
+  const mountFor = (
+    control: EditorControl,
+    observe: ((open: OpenEditor | null) => void) | undefined,
+  ): EditorMount =>
+    createEditorMount({
+      sessions,
+      services:
+        hooks === null
+          ? parts.services
+          : () => hooks.withRecordedAccess(parts.services(), access),
+      control,
+      keys: editorKeys(parts.commands, parts.messages, parts.resolved),
+      ports: parts.services().pagePorts,
+      frames,
+      timers,
+      platform: environment.where.platform,
+      ids: randomBlockId,
+      random: environment.randomId,
+      observe,
+    });
+  return {
+    mount: mountFor(
+      parts.control,
       hooks === null
         ? undefined
         : (open) => {
             current = open;
           },
-  });
+    ),
+    besideMount: (control) => mountFor(control, undefined),
+  };
 }

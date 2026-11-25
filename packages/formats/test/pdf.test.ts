@@ -16,7 +16,11 @@ import {
 } from "@manent/pagination/testing";
 import type { CorpusFormat } from "@manent/pagination/testing";
 import type { BlockView } from "@manent/schema";
-import { findUnsupportedCharacters, writePdf } from "../src/index.ts";
+import {
+  findUnsupportedCharacters,
+  placeWatermark,
+  writePdf,
+} from "../src/index.ts";
 import type { ScriptFontFiles } from "../src/index.ts";
 import { readPdf } from "./read-pdf.ts";
 
@@ -219,4 +223,22 @@ test("a letter whose accent the font lacks is listed whole and drawn as one box"
     drawn.text,
     r(drawn.width),
   ]).toEqual([[{ blockId: "", characters: ["e\u0301"] }], "Caf au lait", 86.4]);
+});
+
+test("watermark placement sits below footer.center and PdfOptions.watermark draws it on every page", async () => {
+  expect(placeWatermark(sp.geometry)).toEqual({ topPt: 768, centerPt: 306 });
+  const p = paginate([A(120)], sp);
+  const pdf = await readPdf(
+    await writePdf(p, { fonts, watermark: "Leo Marsh" }),
+  );
+  expect(pdf.map((pg) => pg.lines.find((l) => l.text === "Leo Marsh"))).toEqual(
+    [
+      expect.objectContaining({ text: "Leo Marsh" }),
+      expect.objectContaining({ text: "Leo Marsh" }),
+      expect.objectContaining({ text: "Leo Marsh" }),
+    ],
+  );
+  // topPt 768 + BASELINE_PT (~8.64) ≈ 776.6, strictly below bottom margin midpoint (750-762)
+  const wmLine = pdf[0]!.lines.find((l) => l.text === "Leo Marsh")!;
+  expect(wmLine.y).toBeGreaterThan(770);
 });

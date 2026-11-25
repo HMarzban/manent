@@ -1,5 +1,9 @@
 // Opening files as new scripts: each read, counted and made in the Library, or the one sentence that says why not.
-import type { ImportedScript } from "@manent/formats";
+import type {
+  FormatErrorCode,
+  ImportedScript,
+  SourceFormat,
+} from "@manent/formats";
 import {
   DEFAULT_LAYOUT_SETTINGS,
   ENGINE_VERSION,
@@ -7,12 +11,13 @@ import {
   profileFromSettings,
 } from "@manent/pagination";
 import { importAnchors, lockedPagination } from "@manent/revisions";
-import { blockText, blocksOf, sectionize } from "@manent/schema";
-import type { IdSource } from "@manent/schema";
+import { blockText, blocksOf, classifyLine, sectionize } from "@manent/schema";
+import type { BlockJSON, IdSource } from "@manent/schema";
 import { paperForRegion } from "@manent/settings";
-import { IMPORT_WORDS, formatDate } from "@manent/ui";
+import { GAME_EXPORTS_WORDS, IMPORT_WORDS, formatDate } from "@manent/ui";
 import type { Message, MessageQueue } from "@manent/ui";
 import type { LibraryIndex } from "../services/ports.ts";
+import { createInkProject } from "../services/sync/ink-project.ts";
 import { importRecordOf, summaryOf } from "./import-record.ts";
 import { IMPORTABLE_EXTENSIONS } from "./readers.ts";
 import type { ImportReader } from "./readers.ts";
@@ -87,6 +92,34 @@ const brief = (
 
 const refusal = (text: string): Message => brief("import_refused", text);
 
+const INK_FUNCTION = /^={2,}\s*function\b/;
+
+/** Counts Ink knots in `blocks`, excluding `=== function … ===` declarations and block comments. */
+function countInkKnots(blocks: readonly BlockJSON[]): number {
+  let knots = 0;
+  let commentOpen = false;
+  for (const block of blocks) {
+    const text = (block.content ?? []).map((run) => run.text).join("");
+    const line = classifyLine(text, "ink", commentOpen);
+    commentOpen = line.commentOpen;
+    if (line.kind === "knot" && !INK_FUNCTION.test(text.trimStart())) knots++;
+  }
+  return knots;
+}
+
+function formatRefusal(
+  name: string,
+  from: SourceFormat,
+  code: FormatErrorCode,
+): string {
+  if (from === "ink") return GAME_EXPORTS_WORDS.inkNotUtf8(name);
+  if (from === "pdf" && code === "not_this_format")
+    return IMPORT_WORDS.pdfNoText(name);
+  if (from === "docx" && code === "too_large")
+    return IMPORT_WORDS.docxTooLarge(name);
+  return IMPORT_WORDS.unreadable(name, IMPORT_WORDS.formatNames[from]);
+}
+
 /** The pages Manent gives the script under its paper, locked where the file locked them, and those that hold more than fits. */
 function pagesOf(
   script: ImportedScript,
@@ -142,8 +175,29 @@ export function createFileOpener(options: OpenerOptions): FileOpener {
       script = await reader.read(file.bytes, options.ids);
     } catch (error) {
       if (!(error instanceof formats.FormatError)) throw error;
-      const format = IMPORT_WORDS.formatNames[reader.from];
-      messages.push(refusal(IMPORT_WORDS.unreadable(name, format)));
+      messages.push(refusal(formatRefusal(name, reader.from, error.code)));
+      return;
+    }
+    if (reader.from === "ink") {
+      const title = stemOf(name);
+      const place = await options.place();
+      const made = await createInkProject(library, place.workspaceId, {
+        title,
+        blocks: script.blocks,
+      }).catch(() => null);
+      if (made === null) {
+        messages.push(refusal(IMPORT_WORDS.notSaved(name)));
+        return;
+      }
+      reopen.remember(sha, made.docId, options.now());
+      place.navigate(`/s/${made.docId}`);
+      const knots = countInkKnots(script.blocks);
+      messages.push(
+        brief(
+          "import_summary",
+          GAME_EXPORTS_WORDS.importedInk(title, script.blocks.length, knots),
+        ),
+      );
       return;
     }
     const { pages, overflowing } = pagesOf(script, options.language);

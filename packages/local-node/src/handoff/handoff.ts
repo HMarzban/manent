@@ -3,14 +3,14 @@
 import { updateMeta } from "@manent/crdt";
 import {
   INDEX_KINDS,
-  SYNCABLE_KINDS,
+  SYNCED_KINDS,
   adoptedWorkflowOf,
 } from "@manent/server-core";
 import type { AdoptedWorkflow, SyncService } from "@manent/server-core";
-import type { Storage } from "@manent/storage";
+import type { Home, Storage } from "@manent/storage";
 import { ConnectError, HANDOFF_REFUSALS } from "@manent/sync-client";
 import type { Clock, HandoffRefusal, Random } from "@manent/sync-client";
-import { docIdV7, indexDocId } from "@manent/sync-protocol";
+import { commentsDocId, docIdV7, indexDocId } from "@manent/sync-protocol";
 import type { AdoptResponse } from "@manent/sync-protocol";
 import type { CloudApi, UpstreamFactory } from "../node/ports.ts";
 import type { Handoff, NodeRecords } from "../records/ports.ts";
@@ -22,7 +22,7 @@ const HANDOFF_RETRY_CAP_MS = 60_000;
 
 /** The message every setting request held during a refused hand-off is answered with. */
 const REFUSED_MESSAGE = "handoff_refused";
-const HANDED_KINDS: readonly string[] = [...SYNCABLE_KINDS, ...INDEX_KINDS];
+const HANDED_KINDS: readonly string[] = [...SYNCED_KINDS, ...INDEX_KINDS];
 
 export interface Handover {
   /** Hands over, one at a time and oldest first, every document of that person that is still the node's own. */
@@ -68,6 +68,11 @@ export function createHandover(options: {
   const runs = new Map<string, Promise<void>>();
   const retries = new Map<string, { delayMs: number; cancel: () => void }>();
 
+  const scriptIdOf = (home: Home, docId: string): string | undefined =>
+    storage.directory
+      .documentsIn(home)
+      .find((id) => commentsDocId(id) === docId);
+
   /** The person's documents the node is still the authority for, or is handing over, oldest first. */
   function ownDocuments(userId: string): string[] {
     const { directory } = storage;
@@ -76,7 +81,13 @@ export function createHandover(options: {
       for (const docId of directory.documentsIn(home)) {
         const place = directory.placeOf(docId);
         if (place === null || !HANDED_KINDS.includes(place.kind)) continue;
-        if (directory.roleOf(docId, userId)?.role !== "owner") continue;
+        const roleDocId =
+          place.kind === "comments" ? scriptIdOf(home, docId) : docId;
+        if (
+          roleDocId === undefined ||
+          directory.roleOf(roleDocId, userId)?.role !== "owner"
+        )
+          continue;
         if (directory.tombstoneOf(docId) !== null) continue;
         if (records.docState(docId)?.state === "synced") continue;
         if (records.handoff(docId)?.refused != null) continue;
@@ -191,6 +202,11 @@ export function createHandover(options: {
     if (waitsForIndex(from.workspaceId)) return "later";
     const handoff = started(userId, docId, from);
     const { key, kind, home, workspaceId, snapshot } = handoff;
+    const place = storage.directory.placeOf(docId);
+    const scriptDocId =
+      kind === "comments" && place !== null
+        ? scriptIdOf(place.home, docId)
+        : undefined;
     const request = {
       key,
       docId,
@@ -198,6 +214,7 @@ export function createHandover(options: {
       home,
       workspaceId,
       state: snapshot.toBase64(),
+      ...(scriptDocId === undefined ? {} : { scriptDocId }),
       ...workflowOf(docId),
     };
     let answer;

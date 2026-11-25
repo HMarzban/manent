@@ -134,3 +134,22 @@ test("a print that is abandoned stops building", async () => {
     queued.length,
   ]).toEqual(["AbortError", true, 0, 0]);
 });
+
+test("print renders page furniture including watermark onto every sheet", async () => {
+  const p = pagesOf(2);
+  const root = await printPages(p, {
+    frames: immediate,
+    signal: never,
+    furniture: { watermark: "Leo Marsh" },
+  });
+  expect(
+    [...root.querySelectorAll(".mn-watermark")].map((el) => [
+      el.textContent,
+      (el as HTMLElement).style.top,
+    ]),
+  ).toEqual([
+    ["Leo Marsh", "1024px"],
+    ["Leo Marsh", "1024px"],
+  ]);
+  root.remove();
+});

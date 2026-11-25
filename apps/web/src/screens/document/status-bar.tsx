@@ -1,23 +1,17 @@
-// The bar under the page: the Element button, the page and scene readouts, the message slot, View ▾ and Commands.
+// The bar under the page: the readouts, the message slot, View ▾ and Commands; the Element, page and scene readouts.
 import { COMMANDS } from "@manent/commands";
 import {
   Button,
-  CommandButton,
   CommandMenu,
   DOCUMENT_WORDS,
-  Kbd,
   MessageSlot,
-  cn,
   READOUT_WORDS,
-  keyLabel,
-  useCommandState,
-  useCommands,
   useSubscribable,
 } from "@manent/ui";
 import type { LucideIcon } from "lucide-react";
-import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../../services/context.tsx";
+import { CommandsButton } from "../../shell/commands-button.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
 import { useEditorFact } from "../../state/facts.store.ts";
 import type { EditorFacts } from "../../state/facts.store.ts";
@@ -54,6 +48,7 @@ export function CommandAction(props: {
     <Button
       variant="outline"
       size="sm"
+      data-tour={props.commandId}
       className="text-ui"
       onClick={() => run(props.commandId)}
     >
@@ -88,81 +83,69 @@ export function pageReadoutOf(
   );
 }
 
-function usePageReadout(): string | null {
-  return pageReadoutOf({
+/** The caret's element, in a column of its own width. */
+export function ElementReadout(props: { docId: string }): ReactNode {
+  return (
+    // a narrow window keeps Element, the page, View and Commands; a long element name gives way first
+    <div className="w-element shrink-0 max-sm:w-auto max-sm:min-w-0 max-sm:max-w-28 max-sm:shrink">
+      <ElementButton docId={props.docId} />
+    </div>
+  );
+}
+
+/** The caret's page, which opens Details at the script. */
+export function PageReadout(): ReactNode {
+  const { frame } = useEnvironment();
+  const readout = pageReadoutOf({
     page: useEditorFact("page"),
     pageCount: useEditorFact("pageCount"),
     pageRevision: useEditorFact("pageRevision"),
     pageOrdinal: useEditorFact("pageOrdinal"),
   });
-}
-
-/** The palette's button, with its key shown beside it on a window wide enough. */
-function CommandsButton(): ReactNode {
-  const { platform } = useCommands();
-  const [chord] = useCommandState("app.palette").keys;
+  if (readout === null) return null;
   return (
-    <span className="flex shrink-0 items-center gap-1">
-      <CommandButton id="app.palette" size="sm" />
-      {chord === undefined ? null : (
-        <Kbd aria-hidden="true" className="max-sm:hidden">
-          {keyLabel(chord, platform)}
-        </Kbd>
-      )}
-    </span>
+    <Button
+      variant="ghost"
+      size="sm"
+      data-tour="status:page"
+      className="shrink-0 text-meta font-normal text-fg-muted tabular-nums"
+      onClick={() => openDetailsAt("script", frame)}
+    >
+      {readout}
+    </Button>
   );
 }
 
-/** Whether the message shown is about the person's own work, which takes two lines until it is dismissed. */
-function useOwnWorkShown(): boolean {
-  const { messages } = useServices();
-  return useSyncExternalStore(
-    messages.subscribe,
-    () => messages.current()?.ownWork ?? false,
+/** The caret's scene, which opens Details at the scene. */
+export function SceneReadout(): ReactNode {
+  const { frame } = useEnvironment();
+  const scene = useEditorFact("scene");
+  if (scene === null) return null;
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="shrink-0 text-meta font-normal text-fg-muted tabular-nums max-sm:hidden"
+      onClick={() => openDetailsAt("scene", frame)}
+    >
+      {READOUT_WORDS.scene(scene)}
+    </Button>
   );
 }
 
-export function StatusBar(): ReactNode {
+/** `readouts` lead the bar. */
+export function StatusBar(props: { readouts: ReactNode }): ReactNode {
   const { messages } = useServices();
   const { run, registered } = useCommandActions();
-  const readout = usePageReadout();
-  const scene = useEditorFact("scene");
-  const { shellState, frame } = useEnvironment();
+  const { shellState } = useEnvironment();
   const { docId } = useSubscribable(shellState);
   return (
     <ShellRegion
       region="status_bar"
       // on a window too narrow for every control the bar scrolls, never the window
-      className={cn(
-        "flex items-center gap-1 overflow-x-auto border-t border-line bg-chrome px-2 text-ui",
-        useOwnWorkShown() ? "h-row-2" : "h-statusbar",
-      )}
+      className="flex h-statusbar items-center gap-1 overflow-x-auto border-t border-line bg-chrome px-2 text-ui"
     >
-      {/* a narrow window keeps Element, the page, View and Commands; a long element name gives way first */}
-      <div className="w-element shrink-0 max-sm:w-auto max-sm:min-w-0 max-sm:max-w-28 max-sm:shrink">
-        {docId === null ? null : <ElementButton docId={docId} />}
-      </div>
-      {readout === null ? null : (
-        <Button
-          variant="ghost"
-          size="sm"
-          data-tour="status:page"
-          className="shrink-0 text-meta font-normal text-fg-muted tabular-nums"
-          onClick={() => openDetailsAt("script", frame)}
-        >
-          {readout}
-        </Button>
-      )}
-      {scene === null ? null : (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="shrink-0 text-meta font-normal text-fg-muted tabular-nums max-sm:hidden"
-          onClick={() => openDetailsAt("scene", frame)}
-        >
-          {READOUT_WORDS.scene(scene)}
-        </Button>
-      )}
+      {props.readouts}
       <MessageSlot queue={messages} run={run} registered={registered} />
       <CommandMenu
         menu="view"

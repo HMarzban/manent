@@ -1,15 +1,20 @@
 // New project: one card per kind, in two rows of four; choosing one creates the project and opens its first document.
 import {
   Button,
+  CommandButton,
   LIBRARY_WORDS,
   NEW_PROJECT_CARDS,
   Popover,
   PopoverContent,
   PopoverTrigger,
+  RUNDOWN_WORDS,
+  useCommandState,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { useId, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
+import { localIsoDate } from "../../rundown/create-rundown.ts";
+import { formatAirDate } from "../../rundown/dur-format.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import type { ProjectKind } from "../../services/ports.ts";
 import { dialogActions, useOpenDialog } from "../../state/dialog.store.ts";
@@ -26,9 +31,20 @@ const STEPS: Readonly<Record<string, number>> = {
 };
 
 const moveBetweenCards = (event: KeyboardEvent<HTMLElement>): void => {
+  const cards = [...event.currentTarget.querySelectorAll("button")];
+  if (cards.length === 0) return;
+  if (event.key === "Home") {
+    event.preventDefault();
+    cards[0]?.focus();
+    return;
+  }
+  if (event.key === "End") {
+    event.preventDefault();
+    cards.at(-1)?.focus();
+    return;
+  }
   const step = STEPS[event.key];
   if (step === undefined) return;
-  const cards = [...event.currentTarget.querySelectorAll("button")];
   const target = cards.find((card) => card === event.target);
   const next =
     target === undefined ? undefined : cards[cards.indexOf(target) + step];
@@ -39,18 +55,20 @@ const moveBetweenCards = (event: KeyboardEvent<HTMLElement>): void => {
 
 /**
  * The header's New project button and its popover, which is open while the dialog store holds `new_project`, however
- * it was opened. The cards are disabled while `workspaceId` is null, until the workspace shown is known.
+ * it was opened. The cards are disabled while `workspaceId` is null, until the workspace shown is known. While the
+ * command cannot run, the button is the command's own, which says why.
  */
 export function NewProjectPopover(props: {
   workspaceId: string | null;
 }): ReactNode {
   const { workspaceId } = props;
-  const { library, commands } = useServices();
-  const { dom } = useEnvironment();
+  const { library, commands, messages } = useServices();
+  const { dom, now } = useEnvironment();
   const navigate = useNavigate();
   const id = useId();
   const open = useOpenDialog() === SURFACE;
   const [creating, setCreating] = useState(false);
+  const unavailable = useCommandState("library.newProject").whyNot !== null;
 
   const onOpenChange = (next: boolean): void => {
     if (next) {
@@ -62,12 +80,30 @@ export function NewProjectPopover(props: {
   };
   const create = async (workspace: string, kind: ProjectKind) => {
     setCreating(true);
-    const { docId } = await library.createProject(workspace, kind);
-    setCreating(false);
-    dialogActions.close();
-    void navigate({ href: `/s/${docId}` });
+    try {
+      const { docId } = await library.createProject(workspace, kind);
+      if (kind === "show" || kind === "news") {
+        const nowMs = now();
+        const dateLabel = formatAirDate(localIsoDate(nowMs), nowMs);
+        if (dateLabel !== "") {
+          messages.push({
+            id: `rundown.new.${nowMs}.${docId}`,
+            text: RUNDOWN_WORDS.newRundownFor(dateLabel),
+            lifetime: "brief",
+            ownWork: false,
+            actions: [],
+          });
+        }
+      }
+      dialogActions.close();
+      void navigate({ href: `/s/${docId}` });
+    } finally {
+      setCreating(false);
+    }
   };
 
+  if (unavailable)
+    return <CommandButton id="library.newProject" variant="outline" />;
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger
@@ -77,8 +113,15 @@ export function NewProjectPopover(props: {
         {LIBRARY_WORDS.newProject}
       </PopoverTrigger>
       {/* focus goes back to whatever opened it, which may be the empty list's button */}
-      <PopoverContent finalFocus={false} align="end" className="w-auto">
-        <div className="grid grid-cols-4 gap-2" onKeyDown={moveBetweenCards}>
+      <PopoverContent
+        finalFocus={false}
+        align="end"
+        className="w-auto max-w-(--available-width)"
+      >
+        <div
+          className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+          onKeyDown={moveBetweenCards}
+        >
           {NEW_PROJECT_CARDS.map((card) => (
             <button
               key={card.kind}
@@ -89,7 +132,7 @@ export function NewProjectPopover(props: {
               onClick={() => {
                 if (workspaceId !== null) void create(workspaceId, card.kind);
               }}
-              className="mn-card flex w-36 flex-col items-start gap-1 p-3 text-start disabled:text-fg-disabled"
+              className="mn-card flex w-36 max-w-full min-w-0 flex-col items-start gap-1 p-3 text-start disabled:text-fg-disabled"
             >
               <span className="flex items-center gap-2">
                 <KindIcon

@@ -37,3 +37,10 @@ export interface LaidOutPage {
   readonly label: string;
   readonly lines: readonly PositionedLine[];
 }
+
+/** Where a text line of a page sits: line `blockLine` of the block `blockId`, at the `y` its PositionedLine has. */
+export interface LinePlace {
+  readonly blockId: string;
+  readonly blockLine: number;
+  readonly y: number;
+}

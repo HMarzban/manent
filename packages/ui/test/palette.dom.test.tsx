@@ -37,6 +37,7 @@ const CTX: CommandContext = {
   shell: "web",
   demo: false,
   signedIn: true,
+  workspace: "writable",
   panelOpen: { left: false, side: false },
   historyPresent: false,
   format: null,
@@ -45,6 +46,18 @@ const CTX: CommandContext = {
   spaceBeforeSet: false,
   zoom: null,
   zoomPercent: null,
+  docKind: null,
+  projectKind: null,
+  outlineStart: false,
+  writing: null,
+  material: null,
+  rundown: null,
+  prompter: null,
+  inTrash: false,
+  canDelete: false,
+  focusMode: false,
+  readingAloud: false,
+  sprintRunning: false,
   production: null,
 };
 
@@ -52,6 +65,7 @@ const SCOPE_WORDS = {
   personal: "yours",
   device: "this browser",
   script: "this script",
+  project: "this project",
 } as const;
 
 const noop = (): void => {};
@@ -67,6 +81,7 @@ interface Palette {
   render: (props: {
     recent?: readonly string[];
     sources?: readonly PaletteSource[];
+    filter?: "all" | "places";
   }) => Promise<void>;
 }
 
@@ -81,7 +96,7 @@ afterEach(async () => {
 function palette(context: CommandContext = CTX): Palette {
   const store = createSettingsStore({
     registry: SETTINGS,
-    bags: { personal: bag(), device: bag(), script: bag() },
+    bags: { personal: bag(), device: bag(), script: bag(), project: null },
     beforeWrite: noop,
     deferRemote: (apply) => apply(),
     locked: () => false,
@@ -128,11 +143,12 @@ function palette(context: CommandContext = CTX): Palette {
   const tree = (props: {
     recent?: readonly string[];
     sources?: readonly PaletteSource[];
+    filter?: "all" | "places";
   }): ReactNode => (
     <CommandsProvider service={service} resolved={resolved} platform="mac">
       <CommandPalette
         open
-        filter="all"
+        filter={props.filter ?? "all"}
         sources={props.sources ?? sources}
         recent={props.recent ?? []}
         onRun={(row: PaletteRow) => {
@@ -191,6 +207,27 @@ const options = (): string[] =>
     (el) => el.textContent ?? "",
   );
 
+const labels = (): string[] =>
+  [...document.querySelectorAll(".mn-group-label")].map(
+    (el) => el.textContent ?? "",
+  );
+
+const optionNamed = (text: string): Element => {
+  const found = [...document.querySelectorAll('[role="option"]')].find(
+    (el) => el.textContent === text,
+  );
+  if (found === undefined) throw new TypeError(`no option reads ${text}`);
+  return found;
+};
+
+const press = async (key: string): Promise<void> => {
+  await act(async () => {
+    field().dispatchEvent(
+      new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }),
+    );
+  });
+};
+
 const SCENES: PaletteSource = {
   kind: "place",
   rows: () =>
@@ -202,6 +239,7 @@ const SCENES: PaletteSource = {
       scopeWord: null,
       home: null,
       keys: null,
+      checked: null,
       enabled: true,
       whyNot: null,
     })),
@@ -219,7 +257,7 @@ const pressEnter = async (): Promise<void> => {
   });
 };
 
-test("empty, it is the menu and the last five commands", async () => {
+test("empty, it is the last five commands and then the menus, each section labelled", async () => {
   const p = palette();
   await p.render({
     recent: [
@@ -231,34 +269,158 @@ test("empty, it is the menu and the last five commands", async () => {
       "app.palette",
     ],
   });
-  expect(options()).toEqual([
-    "Manent",
-    "File",
-    "Edit",
-    "View",
-    "Format",
-    "Script",
-    "Help",
-    "Keyboard shortcutsHelp⌘/",
-    "Left panelView⌘⌥1",
-    "Go to⌘G",
-    "UndoEdit⌘Z",
-    "Next regionF6",
-  ]);
-  const view = [...document.querySelectorAll('[role="option"]')].find(
-    (el) => el.textContent === "View",
-  );
-  await act(async () => {
-    view?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  expect({ labels: labels(), options: options() }).toEqual({
+    labels: ["Last used", "Menus"],
+    options: [
+      "Keyboard shortcutsHelp⌘/",
+      "Left panelView⌘⌥1",
+      "Go to⌘G",
+      "UndoEdit⌘Z",
+      "Next regionF6",
+      "Manent",
+      "File",
+      "Edit",
+      "View",
+      "Format",
+      "Script",
+      "Help",
+    ],
   });
-  expect(options().slice(0, 3)).toEqual([
-    "Left panelView⌘⌥1",
-    "Side panelView⌘⌥2",
-    "Page viewView",
-  ]);
 });
 
-test("a setting row shows its value and scope, and Enter changes it in place", async () => {
+test("with no recent command, the menus are the one section and carry no label", async () => {
+  const p = palette();
+  await p.render({});
+  expect({ labels: labels(), first: options()[0] }).toEqual({
+    labels: [],
+    first: "Manent",
+  });
+});
+
+test("a menu opens in place, named, its groups divided, and its rows without their home", async () => {
+  const p = palette();
+  await p.render({});
+  await act(async () => {
+    optionNamed("View").dispatchEvent(
+      new MouseEvent("click", { bubbles: true }),
+    );
+  });
+  expect({
+    labels: labels(),
+    list: document
+      .querySelector('[role="listbox"]')
+      ?.getAttribute("aria-label"),
+    placeholder: field().placeholder,
+    first: options().slice(0, 4),
+    separators:
+      document.querySelectorAll('[role="listbox"] [role="presentation"]')
+        .length > 0,
+  }).toEqual({
+    labels: ["View"],
+    list: "View",
+    placeholder: "Search View",
+    first: [
+      "Left panel⌘⌥1",
+      "Side panel⌘⌥2",
+      "Focus mode",
+      "Page view, chosen",
+    ],
+    separators: true,
+  });
+});
+
+const openMenu = async (name: string): Promise<void> => {
+  await act(async () => {
+    optionNamed(name).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+};
+
+test("inside a menu, typing looks only in it", async () => {
+  const p = palette();
+  await p.render({});
+  await openMenu("View");
+  await type("undo");
+  expect({
+    options: options(),
+    status: document.querySelector('[role="status"]')?.textContent,
+    labels: labels(),
+  }).toEqual({
+    options: [],
+    status: 'Nothing in View matches "undo".',
+    labels: [],
+  });
+});
+
+test("Backspace in the empty field or ‹ Menus goes back from a menu to the menus", async () => {
+  const p = palette();
+  await p.render({});
+  await openMenu("View");
+  await press("Backspace");
+  const afterKey = { labels: labels(), first: options()[0] };
+  await openMenu("File");
+  const back = [...document.querySelectorAll("button")].find(
+    (el) => el.textContent === "‹ Menus",
+  );
+  await act(async () => {
+    back?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+  expect({
+    afterKey,
+    afterButton: { labels: labels(), first: options()[0] },
+    focused: document.activeElement === field(),
+  }).toEqual({
+    afterKey: { labels: [], first: "Manent" },
+    afterButton: { labels: [], first: "Manent" },
+    focused: true,
+  });
+});
+
+test("a query that finds nothing says so in the words of where the person looks", async () => {
+  const p = palette();
+  await p.render({});
+  await type("zzqx");
+  const all = document.querySelector('[role="status"]')?.textContent;
+  await p.render({ filter: "places" });
+  const places = document.querySelector('[role="status"]')?.textContent;
+  expect({ all, places, options: options() }).toEqual({
+    all: 'Nothing matches "zzqx".',
+    places: 'No page, page label or scene matches "zzqx".',
+    options: [],
+  });
+});
+
+const foot = (): string =>
+  document.querySelector('[aria-hidden="true"].border-t')?.textContent ?? "";
+
+test("the foot names the keys, and what Enter does to the row the keys are on", async () => {
+  const p = palette();
+  await p.render({});
+  const home = foot();
+  await openMenu("View");
+  const inMenu = foot();
+  await type("theme dark");
+  const setting = foot();
+  expect({ home, inMenu, setting }).toEqual({
+    home: "↑↓Move↵OpenEscClose",
+    inMenu: "↑↓Move↵Choose⌫BackEscClose",
+    setting: "↑↓Move↵Change⌫BackEscClose",
+  });
+});
+
+test("the pointer over a row never moves what Enter runs", async () => {
+  const p = palette();
+  await p.render({});
+  await act(async () => {
+    optionNamed("File").dispatchEvent(
+      new MouseEvent("mousemove", { bubbles: true, movementX: 4 }),
+    );
+  });
+  expect(
+    document.querySelector('[role="option"][data-highlighted]')?.textContent,
+  ).toBe("Manent");
+});
+
+test("a setting row shows its value and scope, and Enter changes it in place and marks it chosen", async () => {
   const p = palette();
   await p.render({});
   await type("theme dark");
@@ -268,7 +430,15 @@ test("a setting row shows its value and scope, and Enter changes it in place", a
     p.store.get("appearance.theme"),
     p.closed,
     document.querySelector("input") !== null,
-  ]).toEqual(["dark", [], true]);
+    options()[0],
+    document.querySelectorAll('[role="option"] svg.lucide-check').length,
+  ]).toEqual([
+    "dark",
+    [],
+    true,
+    "Theme: Dark · yours, chosenPreferences → Appearance",
+    1,
+  ]);
 });
 
 test("a command row runs and the palette closes", async () => {
@@ -323,12 +493,18 @@ test("an unavailable row stays and says why", async () => {
   const row = [...document.querySelectorAll('[role="option"]')].find((el) =>
     el.textContent?.startsWith("Left panel"),
   );
-  expect([row?.textContent, row?.getAttribute("aria-disabled")]).toEqual([
+  // Enter cannot run it, so the foot does not offer Enter
+  expect([
+    row?.textContent,
+    row?.getAttribute("aria-disabled"),
+    foot(),
+  ]).toEqual([
     "Left panel — needs a document openView⌘⌥1",
     "true",
+    "↑↓MoveEscClose",
   ]);
   await pressEnter();
-  expect(p.closed).toEqual([]);
+  expect(p.calls).toEqual(["run view.leftPanel"]);
 });
 
 test("results shown for a query never move when a slower source answers", async () => {
@@ -342,6 +518,7 @@ test("results shown for a query never move when a slower source answers", async 
     scopeWord: null,
     home: null,
     keys: null,
+    checked: null,
     enabled: true,
     whyNot: null,
   };
@@ -377,11 +554,11 @@ test("more than 100 results are drawn as a window of rows", async () => {
   await type("int");
   const spacer = document.querySelector('[role="listbox"] .relative');
   // happy-dom lays nothing out, so the window holds no row; the spacer is as tall as every row together:
-  // the 3,000 scenes and the four Interface size rows, 28 px each
+  // the 3,000 scenes, the four Interface size rows and the labels of their two sections, 28 px each
   expect({
     drawn: options().length,
     height: spacer instanceof HTMLElement ? spacer.style.height : null,
-  }).toEqual({ drawn: 0, height: "84112px" });
+  }).toEqual({ drawn: 0, height: "84168px" });
 });
 
 test("the window follows the list's own scrolling, and taller rows never overlap", async () => {
@@ -431,9 +608,10 @@ test("the window follows the list's own scrolling, and taller rows never overlap
           "translateY(392px)",
           "translateY(448px)",
         ],
-        label: "Interface size: 100 % · this browserPreferences → This browser",
+        label:
+          "Interface size: 100 % · this browser, chosenPreferences → This browser",
       },
-      scrolled: "1980. INT. LIGHTHOUSE - NIGHT",
+      scrolled: "1978. INT. LIGHTHOUSE - NIGHT",
     });
   } finally {
     Element.prototype.getBoundingClientRect = rect;

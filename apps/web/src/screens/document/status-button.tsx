@@ -106,8 +106,9 @@ const focusOnOpen =
       : true;
 
 /**
- * Its name is the whole status sentence. The slots keep their widths while the words change, so the status never moves;
- * a sentence across both slots and the device alert release them.
+ * Its name is the whole status sentence. Its place keeps the width of the longest one while the words change, so the
+ * status never moves nor pushes what is beside it; the device alert releases that width. On a narrow bar the place takes
+ * a second row.
  */
 export function StatusButton(props: { doc: DocumentServices }): ReactNode {
   const { doc } = props;
@@ -130,39 +131,38 @@ export function StatusButton(props: { doc: DocumentServices }): ReactNode {
     if (event.target instanceof Element && event.target.closest("button"))
       root.current?.querySelector("button")?.focus({ preventScroll: true });
   };
+  // the place keeps the width of the longest sentence while the button hugs its words, which wrap where the bar is
+  // narrower than they are
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <span
         ref={root}
-        className="group flex max-w-full shrink-0 data-[tone=alert]:text-danger data-[tone=attention]:text-attention data-[tone=quiet]:text-fg-muted"
+        className="group flex max-w-full min-w-[min(var(--status-w),100%)] shrink-0 @max-3xl:order-last @max-3xl:w-full data-[tone=alert]:min-w-0 data-[tone=alert]:text-danger data-[tone=attention]:text-attention data-[tone=quiet]:text-fg-muted"
       >
         <PopoverTrigger
           render={
             <Button
               variant="ghost"
-              className="h-auto min-h-control max-w-full flex-wrap justify-start gap-0 text-start text-ui font-normal whitespace-normal tabular-nums group-data-[tone=alert]:font-medium"
+              className="h-auto min-h-control max-w-full justify-start gap-0 text-start text-ui font-normal whitespace-normal tabular-nums group-data-[tone=alert]:font-medium"
             />
           }
         >
-          {/* the two slots wrap as one: "Saved · Synced" is never split across lines */}
-          <span className="flex max-w-full items-center">
-            <span
-              data-tour="status:device"
-              className="flex max-w-full shrink-0 items-center gap-1 group-data-spans:hidden"
-            >
-              <SlotIcons icons={Object.values(DEVICE_ICONS)} />
-              <span ref={deviceSlot} />
-            </span>
-            <span className="whitespace-pre text-fg-muted group-data-spans:hidden">
-              {" · "}
-            </span>
-            <span
-              data-tour="status:server"
-              className="flex max-w-full items-center gap-1 w-(--status-server-w) group-data-spans:w-auto group-data-[tone=alert]:w-auto"
-            >
-              <SlotIcons icons={Object.values(SERVER_ICONS)} />
-              <span ref={serverSlot} className="min-w-0" />
-            </span>
+          <span
+            data-tour="status:device"
+            className="flex items-center gap-1 group-data-spans:hidden"
+          >
+            <SlotIcons icons={Object.values(DEVICE_ICONS)} />
+            <span ref={deviceSlot} />
+          </span>
+          <span className="whitespace-pre text-fg-muted group-data-spans:hidden">
+            {" · "}
+          </span>
+          <span
+            data-tour="status:server"
+            className="flex min-w-0 items-center gap-1"
+          >
+            <SlotIcons icons={Object.values(SERVER_ICONS)} />
+            <span ref={serverSlot} className="min-w-0" />
           </span>
         </PopoverTrigger>
       </span>
@@ -172,7 +172,7 @@ export function StatusButton(props: { doc: DocumentServices }): ReactNode {
         finalFocus={false}
         align="start"
         initialFocus={focusOnOpen(popup)}
-        className="w-popover max-w-(--available-width) gap-0 overflow-hidden p-0 text-ui"
+        className="max-h-[min(32rem,var(--available-height))] w-popover max-w-(--available-width) gap-0 overflow-y-auto p-0 text-ui"
       >
         <div className="contents" onClickCapture={onClickCapture}>
           <SyncCentre doc={doc} />

@@ -1,9 +1,12 @@
 // One person's documents, each opened from the device at once and kept up to date by the person's sync.
 import { UNSET } from "@manent/settings";
 import type { Bag } from "@manent/settings";
+import type { DocHandle } from "@manent/sync-client";
 import { createValue } from "@manent/ui";
 import type { StateFact, StatusFacts } from "@manent/ui";
-import type { PersonPresent } from "../../state/people.store.ts";
+import { peoplePresent } from "../../room/people-present.ts";
+import { materialActions } from "../../state/material.store.ts";
+import { writingActions } from "../../state/writing.store.ts";
 import type { DocumentServices, DocumentSource } from "../ports.ts";
 import type { PersonSync } from "./create-sync.ts";
 import type { Following, SceneWaiting, Shown } from "./follow-handle.ts";
@@ -95,39 +98,67 @@ export function createSyncDocumentSource(options: Options): DocumentSource {
       status: createValue(opening(options.now(), options.signedIn)),
       waitingByScene: createValue<readonly SceneWaiting[]>([]),
       stateFacts: createValue<readonly StateFact[]>([]),
+      viewers: createValue(0),
     };
     const scriptBag = createLaterBag();
     let closed = false;
     let stop = noop;
+    let stopTarget = noop;
     (async () => {
       const sync = await options.sync;
+      // what the editor session shows, so status, settings and content describe one document
+      const bound = writingActions.boundTarget(docId);
+      let target = bound.get() ?? writingActions.openTarget(docId);
       const [handle, parts] = await Promise.all([
-        sync.client.open(docId),
+        sync.client.open(target),
         loadParts(),
       ]);
+      const attachBag = (opened: DocHandle): (() => void) =>
+        scriptBag.attach(
+          parts.createScriptBag(
+            opened,
+            () => shown.status.get().access === "edit",
+          ),
+        );
+      const follow = (opened: DocHandle, stopBag: () => void) => {
+        const stopFollowing = parts.followHandle(options, {
+          docId,
+          handle: opened,
+          sync,
+          shown,
+        });
+        return () => {
+          stopFollowing();
+          stopBag();
+          void opened.close();
+        };
+      };
       // what was written while it opened is sent even when it has been closed since
-      const stopBag = scriptBag.attach(
-        parts.createScriptBag(
-          handle,
-          () => shown.status.get().access === "edit",
-        ),
-      );
+      const stopBag = attachBag(handle);
       if (closed) {
         stopBag();
         await handle.close();
         return;
       }
-      const stopFollowing = parts.followHandle(options, {
-        docId,
-        handle,
-        sync,
-        shown,
-      });
-      stop = () => {
-        stopFollowing();
-        stopBag();
-        void handle.close();
+      stop = follow(handle, stopBag);
+      // the handle before closes only once the next is followed: its close flushes its outbox
+      const swapTo = async (next: string) => {
+        const opened = await sync.client.open(next);
+        if (closed || target !== next) return opened.close();
+        const previous = stop;
+        stop = follow(opened, attachBag(opened));
+        previous();
       };
+      const check = (next: string | null): void => {
+        if (next === null || next === target) return;
+        target = next;
+        swapTo(next).catch(() => {
+          // a target the session has just shown and this cannot open leaves the document on the open handle
+        });
+      };
+      stopTarget = bound.subscribe(check);
+      // the session may have shown another target while this one opened
+      check(bound.get());
     })().catch(() => {
       // a sync that cannot start, or a document it cannot open, is never said to be saved on this device
       shown.status.set({
@@ -139,10 +170,12 @@ export function createSyncDocumentSource(options: Options): DocumentSource {
       services: {
         ...shown,
         scriptBag,
-        people: createValue<readonly PersonPresent[]>([]),
+        people: peoplePresent(docId),
+        material: materialActions,
       },
       close() {
         closed = true;
+        stopTarget();
         stop();
       },
     };

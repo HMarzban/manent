@@ -6,6 +6,8 @@ import type {
   ServerVersions,
   VersionSet,
 } from "@manent/sync-protocol";
+import { createDriverHandle } from "../driver/index.ts";
+import type { DriverHandle } from "../driver/index.ts";
 import type { LinkIssue } from "../link/machine.ts";
 import { waitingCount } from "../outbox/plan.ts";
 import { createSubscribable } from "../outbox/subscribable.ts";
@@ -17,6 +19,10 @@ import type {
   Subscribable,
   SyncClientPorts,
 } from "../ports/ports.ts";
+import { createPrivateCopyHandle } from "../private-copy/index.ts";
+import type { PrivateCopyHandle } from "../private-copy/index.ts";
+import { createPrompterHandle } from "../prompter/index.ts";
+import type { PrompterHandle } from "../prompter/index.ts";
 import type { DocHandle } from "../session/doc-handle.ts";
 import type { Via } from "../upstream/window.ts";
 import { createViewer } from "../view/view.ts";
@@ -71,6 +77,12 @@ export interface SyncClient {
   retryNow(): void;
   /** SUBSCRIBE with mode `view`: no document, no outbox, nothing stored. */
   view(docId: string): ViewHandle;
+  /** The prompter feed of the rundown `rundownId`. */
+  prompter(rundownId: string): PrompterHandle;
+  /** The person's private copy of the script `docId`. */
+  privateCopy(docId: string): PrivateCopyHandle;
+  /** Who drives the script `docId` when it is presented to the room. */
+  driver(docId: string): DriverHandle;
   close(): Promise<void>;
 }
 
@@ -82,7 +94,7 @@ class Client implements SyncClient, LinkDriverHost {
     wentOfflineAt: null,
     leader: false,
   });
-  private readonly driver: LinkDriver;
+  private readonly linkDriver: LinkDriver;
   private readonly replicas: Replicas;
   private readonly viewers = new Map<string, Viewer>();
   private leading = false;
@@ -93,7 +105,7 @@ class Client implements SyncClient, LinkDriverHost {
   constructor(options: SyncClientOptions) {
     this.options = options;
     const { ports } = options;
-    this.driver = createLinkDriver({
+    this.linkDriver = createLinkDriver({
       versions: options.versions,
       minServer: options.minServer,
       build: options.build,
@@ -104,7 +116,7 @@ class Client implements SyncClient, LinkDriverHost {
     this.replicas = createReplicas({
       ports,
       via: options.via ?? "server",
-      link: this.driver,
+      link: this.linkDriver,
       uploadVersion: options.uploadVersion ?? null,
       leading: () => this.leading,
       view: (docId) => this.view(docId),
@@ -129,6 +141,7 @@ class Client implements SyncClient, LinkDriverHost {
 
   async documents(): Promise<readonly DocSummary[]> {
     const { store } = this.options.ports;
+    if (store.summaries !== undefined) return store.summaries();
     const metas = await store.documents();
     return Promise.all(
       metas.map(async ({ docId, neverSynced, parked }) => {
@@ -150,13 +163,13 @@ class Client implements SyncClient, LinkDriverHost {
 
   /** A tab that does not lead only remembers what is wanted, for when it leads. */
   setOnline(wanted: boolean): void {
-    if (this.leading) this.driver.input({ type: "want", online: wanted });
-    else this.driver.remember(wanted);
+    if (this.leading) this.linkDriver.input({ type: "want", online: wanted });
+    else this.linkDriver.remember(wanted);
   }
 
   retryNow(): void {
     if (this.leading)
-      this.driver.input({
+      this.linkDriver.input({
         type: "retry_now",
         random: this.options.ports.random.next(),
       });
@@ -171,10 +184,35 @@ class Client implements SyncClient, LinkDriverHost {
       closed: () => this.viewers.delete(docId),
     });
     this.viewers.set(docId, viewer);
-    viewer.link(this.driver.sessionLink().state);
-    if (this.driver.sessionLink().state === "online")
-      viewer.connected((m) => this.driver.send(m));
+    viewer.link(this.linkDriver.sessionLink().state);
+    if (this.linkDriver.sessionLink().state === "online")
+      viewer.connected((m) => this.linkDriver.send(m));
     return viewer.handle;
+  }
+
+  prompter(rundownId: string): PrompterHandle {
+    return createPrompterHandle({
+      rundownId,
+      client: this,
+      ports: this.options.ports,
+      versions: this.options.versions,
+    });
+  }
+
+  privateCopy(docId: string): PrivateCopyHandle {
+    return createPrivateCopyHandle({
+      docId,
+      client: this,
+      ports: this.options.ports,
+    });
+  }
+
+  driver(docId: string): DriverHandle {
+    return createDriverHandle({
+      docId,
+      client: this,
+      ports: this.options.ports,
+    });
   }
 
   async close(): Promise<void> {
@@ -182,19 +220,15 @@ class Client implements SyncClient, LinkDriverHost {
     for (const viewer of this.viewers.values()) viewer.handle.close();
     this.resign();
     this.unlisten();
-    this.driver.close();
-  }
-
-  opening(): Promise<unknown>[] {
-    return [...this.replicas.opening.values()];
+    this.linkDriver.close();
   }
 
   online(): void {
-    const { driver } = this;
+    const { linkDriver } = this;
     for (const session of this.replicas.sessions.values())
-      session.connected((m) => driver.send(m), driver.gate);
+      session.connected((m) => linkDriver.send(m), linkDriver.gate);
     for (const viewer of this.viewers.values())
-      viewer.connected((m) => driver.send(m));
+      viewer.connected((m) => linkDriver.send(m));
   }
 
   dropped(): void {
@@ -205,7 +239,7 @@ class Client implements SyncClient, LinkDriverHost {
 
   welcomed(): void {
     for (const session of this.replicas.sessions.values())
-      session.writeSchema(this.driver.writeSchema());
+      session.writeSchema(this.linkDriver.writeSchema());
   }
 
   receive(message: DocumentMessage): void {
@@ -226,10 +260,10 @@ class Client implements SyncClient, LinkDriverHost {
   }
 
   publish(): void {
-    const facts = this.driver.sessionLink();
+    const facts = this.linkDriver.sessionLink();
     this.link.set({
       ...facts,
-      server: this.driver.server,
+      server: this.linkDriver.server,
       leader: this.leading,
     });
     for (const session of this.replicas.sessions.values()) session.link(facts);
@@ -247,7 +281,7 @@ class Client implements SyncClient, LinkDriverHost {
   private elected(): void {
     this.leading = true;
     this.replicas.elected();
-    this.driver.lead();
+    this.linkDriver.lead();
     this.publish();
   }
 
@@ -261,7 +295,7 @@ class Client implements SyncClient, LinkDriverHost {
   /** The lead was taken: the connection closes, the store is left, and each document this tab's app holds is followed. */
   private deposed(): void {
     this.leading = false;
-    this.driver.detach();
+    this.linkDriver.detach();
     this.replicas.deposed();
     this.resign = this.campaign();
     this.publish();

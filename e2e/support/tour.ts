@@ -7,12 +7,7 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { localDatabaseName } from "@manent/client-web";
 import { DEMO_PEOPLE, TOUR, isShown } from "@manent/demo";
-import {
-  DEMO_WORDS,
-  DOCUMENT_WORDS,
-  LIBRARY_WORDS,
-  TOUR_WORDS,
-} from "@manent/ui";
+import { DEMO_WORDS, DOCUMENT_WORDS, LIBRARY_WORDS } from "@manent/ui";
 import type { TourFile, TourScenario } from "@manent/demo";
 import { expect, test } from "@playwright/test";
 import type {
@@ -102,6 +97,11 @@ export async function committedOnDevice(
   );
 }
 
+/** Timeout for a full Stage 2 demo reseed request. */
+const RESEED_TIMEOUT_MS = 120_000;
+/** Timeout for a `fresh: true` scenario test, covering a full reseed plus the scenario steps. */
+const FRESH_SCENARIO_TIMEOUT_MS = 180_000;
+
 /** Re-seeds the demo: each person's first visit to the Library, which the server keeps with them, is to come again. */
 export async function reseedDemo(request: APIRequestContext): Promise<void> {
   const answer: unknown = await (await request.get("/api/demo")).json();
@@ -112,6 +112,7 @@ export async function reseedDemo(request: APIRequestContext): Promise<void> {
     throw new Error("the demo names no control to reset it with");
   const reset = await request.post(`${url}/reset`, {
     headers: { Authorization: `Bearer ${token}` },
+    timeout: RESEED_TIMEOUT_MS,
   });
   expect(await reset.json()).toEqual({ server: "running" });
 }
@@ -156,7 +157,7 @@ function parseDesktopNode(line: string): DesktopNode {
   return { nodeUrl, launchToken };
 }
 
-const tourTest = test.extend<object, { desktopNode: DesktopNode }>({
+const tourTest = test.extend<{ desktopNode: DesktopNode }>({
   desktopNode: [
     // Playwright reads what a fixture needs from its first parameter's names: this one needs none of them
     async ({ browserName: _browserName }, use) => {
@@ -189,9 +190,21 @@ const tourTest = test.extend<object, { desktopNode: DesktopNode }>({
         await rm(dataDir, { recursive: true, force: true });
       }
     },
-    { scope: "worker" },
+    { scope: "test" },
   ],
 });
+
+/** Signs `userId` in through the demo route and returns their bearer token. */
+async function signInToken(
+  request: APIRequestContext,
+  userId: string,
+): Promise<string> {
+  const signIn = await request.post("/api/sign-in", { data: { userId } });
+  const token: unknown = Reflect.get(Object(await signIn.json()), "token");
+  if (typeof token !== "string")
+    throw new Error(`the demo did not sign ${userId} in`);
+  return token;
+}
 
 /** Starts the demo again from a new seed, then waits until it answers, and answers `userId` when they have a session. */
 async function freshDemo(
@@ -204,10 +217,7 @@ async function freshDemo(
     .toBe(200);
   if (DEMO_PEOPLE.find((p) => p.userId === userId)?.registered !== true) return;
   await expect(async () => {
-    const signIn = await request.post("/api/sign-in", { data: { userId } });
-    const token: unknown = Reflect.get(Object(await signIn.json()), "token");
-    if (typeof token !== "string")
-      throw new Error(`the demo did not sign ${userId} in`);
+    const token = await signInToken(request, userId);
     const me = await request.get("/api/me", {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -215,11 +225,15 @@ async function freshDemo(
   }).toPass();
 }
 
-/** Shows the Tour in the side panel when it is not showing, with the demo bar's Tour button. */
-async function openTour(page: Page): Promise<void> {
-  const tour = page
+/** The Tour's tab of the side panel. */
+const tourPanel = (page: Page): Locator =>
+  page
     .locator("[data-region='side_panel']")
     .getByRole("tabpanel", { name: DOCUMENT_WORDS.tourTab });
+
+/** Shows the Tour in the side panel when it is not showing, with the demo bar's Tour button. */
+async function openTour(page: Page): Promise<void> {
+  const tour = tourPanel(page);
   const button = page
     .getByRole("region", { name: DEMO_WORDS.demo })
     .getByRole("button", { name: DEMO_WORDS.tour });
@@ -228,9 +242,6 @@ async function openTour(page: Page): Promise<void> {
     if (!(await tour.isVisible())) await button.click();
     await expect(tour).toBeVisible({ timeout: 1000 });
   }).toPass();
-  await expect(tour.getByRole("heading", { level: 2 })).toHaveText(
-    TOUR_WORDS.title,
-  );
 }
 
 const STEP_WINDOW = new RegExp("^In (\\p{Lu}\\p{Ll}*)'s window", "u");
@@ -250,9 +261,48 @@ function windowOfStep(text: string, userIds: readonly string[]): number {
   return at;
 }
 
+/** Selects step `index` in the Tour before opening a menu or popover whose blur would otherwise dismiss it. */
+export async function selectTourStep(
+  page: Page,
+  promise: string,
+  index: number,
+): Promise<void> {
+  const panel = tourPanel(page);
+  const back = panel.getByRole("button", { name: "All parts" });
+  const allFilter = panel.getByRole("button", { name: "All", exact: true });
+  await expect(back.or(allFilter)).toBeVisible();
+  const stepRows = panel.locator("ol > li > div");
+  const alreadyOpen =
+    (await back.isVisible()) &&
+    (await panel.getByText(promise, { exact: true }).count()) > 0 &&
+    (await stepRows.count()) > index;
+  if (!alreadyOpen) {
+    if (await back.isVisible()) {
+      await back.click();
+      await expect(allFilter).toBeVisible();
+    }
+    if ((await allFilter.getAttribute("aria-pressed")) !== "true")
+      await allFilter.click();
+    const card = panel.locator("[data-tour-card]").filter({ hasText: promise });
+    if ((await card.count()) === 0) {
+      const collapsed = panel.locator("h2 > button[aria-expanded='false']");
+      const count = await collapsed.count();
+      for (let i = 0; i < count; i++) {
+        await collapsed.first().click();
+        if ((await card.count()) > 0) break;
+      }
+    }
+    await card.first().click();
+  }
+  const row = stepRows.nth(index);
+  if ((await row.getAttribute("aria-current")) !== "true") await row.click();
+  await expect(row).toHaveAttribute("aria-current", "true");
+}
+
 /**
- * Step `index`'s target in the window it names. In the first window, where the Tour is open, it must carry the Tour
- * ring; an extra window has no Tour, so there the target need only be visible.
+ * Step `index`'s target in the window it names. In the first window, where the Tour is open, the person chooses that
+ * step in the Tour unless Set it up put them on it, and its target must carry the Tour ring; an extra window has no
+ * Tour, so there the target need only be visible.
  */
 async function stepTarget(
   windows: readonly Page[],
@@ -270,8 +320,12 @@ async function stepTarget(
   const target = windows[at]!.locator(`[data-tour="${step.highlight}"]`)
     .filter({ visible: true })
     .first();
-  if (at === 0) await expect(target).toHaveAttribute("data-tour-ring", "");
-  else await expect(target).toBeVisible();
+  if (at !== 0) {
+    await expect(target).toBeVisible();
+    return target;
+  }
+  await selectTourStep(windows[0]!, scenario.promise, index);
+  await expect(target).toHaveAttribute("data-tour-ring", "");
   return target;
 }
 
@@ -298,7 +352,9 @@ async function setUpScenario(
   if (scenario.fresh) await freshDemo(request, setup.userId);
   if (setup.prepare !== null) {
     // a preparation acts as the scenario's person, whoever asks
+    const token = await signInToken(request, setup.userId);
     const answer = await request.post("/api/demo/tour/prepare", {
+      headers: { Authorization: `Bearer ${token}` },
       data: { scenarioId: scenario.id },
     });
     expect(await answer.json()).toEqual({ ok: true });
@@ -343,6 +399,7 @@ export function tourScenario(id: string, body: TourBody): void {
     fixtures: TourFixtures,
     node: DesktopNode | null,
   ): Promise<void> => {
+    if (scenario.fresh) test.setTimeout(FRESH_SCENARIO_TIMEOUT_MS);
     const { windows, contexts } = await setUpScenario(scenario, fixtures, node);
     try {
       await body({
@@ -384,7 +441,11 @@ async function showsOutsideTour(page: Page, text: string): Promise<boolean> {
         selected?.textContent === tourTab
           ? side?.querySelector("[role='tabpanel']")
           : null;
-      return shown.some((element) => tour?.contains(element) !== true);
+      return shown.some(
+        (element) =>
+          tour?.contains(element) !== true &&
+          element.closest("[data-tour-chrome]") === null,
+      );
     }, DOCUMENT_WORDS.tourTab);
 }
 

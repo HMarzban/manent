@@ -150,6 +150,10 @@ function answer(app: App, message: PageMessage): void {
     case "close_answer":
       app.window.answerClose(message.close);
       return;
+    case "open_window":
+    case "choose_directory":
+      // no page sends either yet; the room and prompter windows and the folder chooser will answer them here
+      return;
     default:
       message satisfies never;
   }

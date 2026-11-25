@@ -2,7 +2,7 @@ import { withDom } from "@manent/testkit/dom";
 import { afterEach, expect, test } from "bun:test";
 import { loadDoc, scriptBody } from "@manent/crdt";
 import type { CrdtDoc } from "@manent/crdt";
-import type { FormatId } from "@manent/schema";
+import type { DocJSON, FormatId } from "@manent/schema";
 import { SettingsProvider, createValue } from "@manent/ui";
 import type { StatusFacts } from "@manent/ui";
 import { act } from "react";
@@ -23,6 +23,8 @@ import type { LiveEditor } from "../src/editor-host/live-editor.ts";
 import type { EditorMount } from "../src/editor-host/mount.ts";
 import { EDITOR_PLUGINS } from "../src/editor-host/plugins.ts";
 import type { EditorPluginContext } from "../src/editor-host/plugins.ts";
+import { timingEditorPlugin } from "../src/editor-host/timing.ts";
+import { timingFactsOf } from "../src/timing/timing-facts.ts";
 import { ElementButton } from "../src/screens/document/element-button.tsx";
 import { DevicePane } from "../src/screens/preferences/device-pane.tsx";
 import {
@@ -107,6 +109,7 @@ interface Rig {
 function rig(
   options: {
     access?: StatusFacts["access"];
+    bare?: boolean;
     sessions?: (frames: ReturnType<typeof createFrames>) => EditorSessions;
   } = {},
 ): Rig {
@@ -166,9 +169,10 @@ function rig(
     element,
     docId: DOC,
     facts: { publish: (changed) => facts.push(changed) },
-    outline: { publish: noop },
+    outline: { publish: noop, publishCurrent: noop },
     settings: services.openScriptStore(DOC),
     guard: { enter: noop, leave: noop },
+    bare: options.bare,
   });
   let disposed = false;
   const once = () => {
@@ -471,7 +475,16 @@ test("the live editor and the feature plugins come with the mount", () => {
     liveEditor(DOC),
   ]).toEqual([
     1,
-    ["docId", "facts", "layer", "services", "setScenesNumbered", "zoom"],
+    [
+      "docId",
+      "facts",
+      "frames",
+      "layer",
+      "presence",
+      "services",
+      "setScenesNumbered",
+      "zoom",
+    ],
     DOC,
     true,
     true,
@@ -501,7 +514,7 @@ test("the placeholder stands in until the editor has loaded, and a mount gone fi
     element,
     docId: DOC,
     facts: { publish: noop },
-    outline: { publish: noop },
+    outline: { publish: noop, publishCurrent: noop },
     settings: { get: () => null, subscribe: () => noop },
     guard: { enter: noop, leave: noop },
   });
@@ -532,6 +545,56 @@ test("the placeholder stands in until the editor has loaded, and a mount gone fi
   ]);
 });
 
+test("lazy mount hands off its live placeholder element to editor mount without remounting", async () => {
+  const later = keptLater();
+  const base = testServices({ userId: "leo" });
+  const clock = createClock();
+  const frames = createFrames();
+  const realMount = createEditorMount({
+    sessions: later.sessions(frames),
+    services: () => base,
+    control: createEditorControl(),
+    keys: { resolve: () => null, run: () => false },
+    ports: PORTS,
+    frames,
+    timers: clock,
+    platform: "mac",
+    ids: () => "block-0001",
+    random: () => "r",
+  });
+  let resolveMount: (mount: EditorMount) => void = noop;
+  const loading = new Promise<EditorMount>((resolve) => {
+    resolveMount = resolve;
+  });
+  const lazy = createLazyMount(() => loading);
+  const el = host();
+  const dispose = lazy.mount({
+    element: el,
+    docId: DOC,
+    facts: { publish: noop },
+    outline: { publish: noop, publishCurrent: noop },
+    settings: base.openScriptStore(DOC),
+    guard: { enter: noop, leave: noop },
+  });
+  const before = el.querySelector(".mn-sheet[data-placeholder]");
+  resolveMount(realMount);
+  await loading;
+  await Promise.resolve();
+  await Promise.resolve();
+  const after = el.querySelector(".mn-sheet[data-placeholder]");
+  later.kept.set(true);
+  const onceKept = [
+    el.querySelector(".mn-sheet[data-placeholder]") === null,
+    liveEditor(DOC) !== null,
+  ];
+  dispose();
+  expect([before !== null, before === after, onceKept]).toEqual([
+    true,
+    true,
+    [true, true],
+  ]);
+});
+
 test("a person's page draws the editor their environment loads, built for that person", async () => {
   const built: string[] = [];
   const editor: EditorMount = {
@@ -546,7 +609,7 @@ test("a person's page draws the editor their environment loads, built for that p
       async loadEditor(_environment, parts) {
         await Promise.resolve();
         built.push(parts.services().userId);
-        return editor;
+        return { mount: editor, besideMount: () => editor };
       },
     }),
   });
@@ -555,7 +618,7 @@ test("a person's page draws the editor their environment loads, built for that p
     element,
     docId: DOC,
     facts: { publish: noop },
-    outline: { publish: noop },
+    outline: { publish: noop, publishCurrent: noop },
     settings: { get: () => null, subscribe: () => noop },
     guard: { enter: noop, leave: noop },
   });
@@ -681,4 +744,145 @@ test("Preferences shows the layout engine", () => {
     .slice(0, 2)
     .map((p) => p.textContent);
   expect(lines).toEqual(["Manent 0.0.0", "Layout engine 1"]);
+});
+
+test("bare mode starts read-only with no presence publishing and mn-front-field reacts to editable changes", async () => {
+  const published: unknown[] = [];
+  const r = rig({
+    access: "edit",
+    bare: true,
+    sessions: (frames) => {
+      const inner = createLocalSessions({
+        frames,
+        clock: createClock(),
+        ids: () => "b1",
+      });
+      return {
+        open(docId, format) {
+          const s = inner.open(docId, format);
+          return {
+            ...s,
+            sendAwareness(update) {
+              published.push(update);
+              s.sendAwareness(update);
+            },
+          };
+        },
+      };
+    },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect([r.view().editable, liveEditor(DOC)?.editable]).toEqual([
+    false,
+    false,
+  ]);
+  liveEditor(DOC)?.presence.publish({
+    anchor: { blockId: "b1", offset: 0 },
+    head: { blockId: "b1", offset: 0 },
+    at: 0,
+  });
+  expect(published).toEqual([]);
+  const bareFields = [
+    ...r.element.querySelectorAll<HTMLElement>(".mn-front-field"),
+  ];
+  expect(bareFields.length).toBeGreaterThan(0);
+  for (const field of bareFields) {
+    expect([
+      field.getAttribute("contenteditable"),
+      field.getAttribute("aria-readonly"),
+    ]).toEqual([null, "true"]);
+  }
+  r.dispose();
+
+  const editable = rig({ access: "edit" });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  const titleField = editable.element.querySelector<HTMLElement>(
+    '.mn-front-field[data-field="title"]',
+  )!;
+  expect([
+    titleField.getAttribute("contenteditable"),
+    titleField.getAttribute("aria-readonly"),
+  ]).toEqual(["plaintext-only", null]);
+  liveEditor(DOC)?.setEditable?.(false);
+  expect([
+    editable.view().editable,
+    titleField.getAttribute("contenteditable"),
+    titleField.getAttribute("aria-readonly"),
+  ]).toEqual([false, null, "true"]);
+  liveEditor(DOC)?.setEditable?.(true);
+  expect([
+    editable.view().editable,
+    titleField.getAttribute("contenteditable"),
+    titleField.getAttribute("aria-readonly"),
+  ]).toEqual([true, "plaintext-only", null]);
+});
+
+test("a queued read-only rebuild before document replacement does not cancel an active composition hold", async () => {
+  const docs: CrdtDoc[] = [];
+  const listeners = new Set<() => void>();
+  const readOnly = createValue<DocJSON | null>(null);
+  const r = rig({
+    sessions: (frames) => ({
+      open(docId, format: FormatId): EditorSession {
+        const local = createLocalSessions({
+          frames,
+          clock: createClock(),
+          ids: () => "block-0001",
+        }).open(docId, format);
+        docs.push(local.doc());
+        return {
+          ...local,
+          doc: () => docs.at(-1) ?? local.doc(),
+          readOnly,
+          onReplaced(listener) {
+            listeners.add(listener);
+            return () => {
+              listeners.delete(listener);
+            };
+          },
+        };
+      },
+    }),
+  });
+  const old = r.view();
+  old.dom.dispatchEvent(new CompositionEvent("compositionstart"));
+  // readOnly queues a microtask rebuild; same-turn onReplaced starts a composition hold
+  readOnly.set(scriptBody(docs[0]!).materialize());
+  docs.push(loadDoc(docs[0]!.encodeState()));
+  for (const listener of listeners) listener();
+  // flush microtasks while still composing: editor must NOT rebuild yet
+  await Promise.resolve();
+  await Promise.resolve();
+  const duringComposition = r.attached.length;
+  old.dom.dispatchEvent(new CompositionEvent("compositionend"));
+  r.clock.advance(50);
+  expect([duringComposition, r.attached.length]).toEqual([1, 2]);
+});
+
+test("switching script format to and from variety enables and disables timing without reconfiguring plugins", () => {
+  plugins.push(timingEditorPlugin);
+  const r = rig();
+  const view = r.view();
+  const pluginsBefore = view.state.plugins;
+  r.frames.fire();
+  const initialFacts = timingFactsOf(DOC).get();
+
+  r.services.openScriptStore(DOC).set("script.format", "variety");
+  r.frames.fire();
+  const varietyFacts = timingFactsOf(DOC).get();
+  const pluginsInVariety = r.view().state.plugins;
+
+  r.services.openScriptStore(DOC).set("script.format", "screenplay");
+  r.frames.fire();
+  const screenplayFacts = timingFactsOf(DOC).get();
+  const pluginsAfter = r.view().state.plugins;
+
+  expect([
+    initialFacts,
+    varietyFacts !== null,
+    screenplayFacts,
+    pluginsBefore === pluginsInVariety,
+    pluginsInVariety === pluginsAfter,
+    r.attached.length,
+  ]).toEqual([null, true, null, true, true, 1]);
 });

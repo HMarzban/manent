@@ -3,7 +3,7 @@ import { createContext, createElement, useContext } from "react";
 import type { ReactNode } from "react";
 
 export const LOADING_QUIET_MS = 150;
-export const LOADING_MIN_MS = 300;
+export const LOADING_MIN_MS = 0;
 export const SPINNER_AFTER_MS = 400;
 export const PROGRESS_AFTER_MS = 2000;
 export const STILL_WORKING_MS = 5000;

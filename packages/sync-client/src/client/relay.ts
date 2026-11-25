@@ -26,7 +26,13 @@ export interface RelayHandle extends DocHandle {
 
 type Views = Pick<
   DocHandle,
-  "status" | "recovered" | "settings" | "writeSchema" | "readOnly" | "upstream"
+  | "status"
+  | "recovered"
+  | "settings"
+  | "writeSchema"
+  | "readOnly"
+  | "upstream"
+  | "viewers"
 >;
 const VIEWS = [
   "status",
@@ -35,6 +41,7 @@ const VIEWS = [
   "writeSchema",
   "readOnly",
   "upstream",
+  "viewers",
 ] as const;
 
 class Relay implements RelayHandle {
@@ -51,6 +58,7 @@ class Relay implements RelayHandle {
   readonly upstream: ReturnType<
     typeof createSubscribable<UpstreamStatus | null>
   >;
+  readonly viewers: ReturnType<typeof createSubscribable<number>>;
   private backend: DocHandle;
   private readonly release: () => Promise<void>;
   private readonly listeners = new Set<(event: DocEvent) => void>();
@@ -68,6 +76,7 @@ class Relay implements RelayHandle {
     this.writeSchema = createSubscribable(backend.writeSchema.get());
     this.readOnly = createSubscribable(backend.readOnly.get());
     this.upstream = createSubscribable(backend.upstream.get());
+    this.viewers = createSubscribable(backend.viewers.get());
     this.attach(backend);
   }
 
@@ -134,12 +143,16 @@ class Relay implements RelayHandle {
     return this.backend.deviceVersions();
   }
 
-  lastServerSeq(): number {
+  lastServerSeq(): number | null {
     return this.backend.lastServerSeq();
   }
 
   adoptClientIds(ids: readonly number[]): void {
     this.backend.adoptClientIds(ids);
+  }
+
+  reserveClientId(): Promise<number> {
+    return this.backend.reserveClientId();
   }
 
   close(): Promise<void> {

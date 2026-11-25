@@ -4,12 +4,16 @@
 import type { DocHandle } from "@manent/sync-client";
 import { messageFor } from "@manent/ui";
 import type { MessageQueue } from "@manent/ui";
-import { followDemoSeed } from "../../demo/use-demo.ts";
+import {
+  followDemoSeed,
+  readDemoCached,
+  reloadAtHome,
+} from "../../demo/use-demo.ts";
 import type { Where } from "../../platform.ts";
 import type { CommandsOptions } from "../person-commands.ts";
 import type { PersonSync } from "./create-sync.ts";
 import type { LaterMap } from "./later-index.ts";
-import type { checkCleared } from "./on-device.ts";
+import type { checkCleared, keepOnDevice } from "./on-device.ts";
 import type { PrivateIndex } from "./private-index.ts";
 
 /**
@@ -77,14 +81,34 @@ export function askPersistenceOnce(where: Where): () => void {
   };
 }
 
-/** Once the private index has synced, tells what came back to a browser that cleared Manent's data. */
-export function tellCleared(
+interface ClearedIndexes {
+  privateIndex: PrivateIndex;
+  checkCleared: typeof checkCleared;
+  keepOnDevice: typeof keepOnDevice;
+}
+
+/**
+ * Once the private index has synced, tells what came back to a browser that cleared Manent's data. Returns `indexes`,
+ * whose `keepOnDevice` in such a browser writes this device's entries only after that check: the check then reads those
+ * earlier sessions left, and a new browser, which left none, is told nothing. A browser that kept its store has nothing
+ * to be told, and writes them at once, even while the index cannot sync.
+ */
+export function tellCleared<T extends ClearedIndexes>(
   sync: PersonSync,
-  indexes: { privateIndex: PrivateIndex; checkCleared: typeof checkCleared },
+  indexes: T,
   open: { deviceId: string; messages: MessageQueue },
-): void {
-  const { handle } = indexes.privateIndex;
-  const check = async (): Promise<void> => {
+): T {
+  if (sync.hadDatabase !== false) return indexes;
+  const checked = (async (): Promise<void> => {
+    const { handle } = indexes.privateIndex;
+    if (!handle.status.get().synced)
+      await new Promise<void>((resolve) => {
+        const stop = handle.status.subscribe((status) => {
+          if (!status.synced) return;
+          stop();
+          resolve();
+        });
+      });
     const event = await indexes.checkCleared({
       hadDatabase: sync.hadDatabase,
       privateIndex: indexes.privateIndex,
@@ -92,31 +116,44 @@ export function tellCleared(
       documents: () => sync.client.documents(),
     });
     if (event !== null) open.messages.push(messageFor(event));
-  };
-  if (handle.status.get().synced) return void check();
-  const stop = handle.status.subscribe((status) => {
-    if (!status.synced) return;
-    stop();
-    void check();
+  })().catch(() => {
+    // the server's list could not be read, so nothing can be told; this device's entries are written as before
   });
+  return {
+    ...indexes,
+    keepOnDevice: (keep) => {
+      let stop: (() => void) | null = null;
+      let stopped = false;
+      void checked.then(() => {
+        if (!stopped) stop = indexes.keepOnDevice(keep);
+      });
+      return () => {
+        stopped = true;
+        stop?.();
+      };
+    },
+  };
 }
 
-/** Settles once the demo's seed has been followed: never when this device's data is cleared and the page reloaded. */
+/** Checks the demo's seed; when it differs from the remembered seed, runs `beforeClear`, clears this browser's data and reloads. */
 export async function followSeed(
   options: Pick<CommandsOptions, "api" | "storage">,
+  beforeClear?: () => Promise<void>,
 ): Promise<void> {
   const device = await import("./device-memory.ts");
   await followDemoSeed({
-    demo: () => options.api.demo(),
+    demo: () => readDemoCached(options.api),
     memory: device.createDeviceMemory({
       local: options.storage,
       session: null,
     }),
-    clear: async () =>
-      (await import("@manent/client-web")).clearManentData(
-        device.browserStores(),
-      ),
-    reload: () => location.reload(),
+    clear: async () => {
+      await beforeClear?.();
+      await (
+        await import("@manent/client-web")
+      ).clearManentData(device.browserStores());
+    },
+    reload: () => reloadAtHome(location),
   });
 }
 

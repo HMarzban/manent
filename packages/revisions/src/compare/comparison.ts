@@ -30,7 +30,8 @@ export interface ComparisonBuilder {
   comparison(): Comparison;
 }
 
-function isChange(entry: BlockEntry): boolean {
+/** Whether the entry is a change: added, removed, changed, or moved. */
+export function isChange(entry: BlockEntry): boolean {
   return entry.kind !== "unchanged" || entry.moved;
 }
 

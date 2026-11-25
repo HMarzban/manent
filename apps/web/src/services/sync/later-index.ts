@@ -2,6 +2,7 @@
 // nothing to review.
 import type { CrdtDoc } from "@manent/crdt";
 import type { KeyValueMap } from "@manent/settings";
+import type { DocKind } from "@manent/sync-protocol";
 import { createValue } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
 import type {
@@ -119,6 +120,8 @@ export function createLaterLibrary(options: {
     loadState: new Map<string, Subscribable<"cached" | "problem">>(),
     titles: new Map<string, Subscribable<string | null>>(),
     kinds: new Map<string, Subscribable<ProjectKind | null>>(),
+    docKinds: new Map<string, Subscribable<DocKind | null>>(),
+    docProjects: new Map<string, Subscribable<string | null>>(),
   };
   return {
     continueList: (ws) =>
@@ -153,9 +156,23 @@ export function createLaterLibrary(options: {
       cached(lists.kinds, docId, () =>
         later(null, (l) => l.documentKind(docId)),
       ),
+    docKindOf: (docId) =>
+      cached(lists.docKinds, docId, () =>
+        later(null, (l) => l.docKindOf(docId)),
+      ),
+    documentProject: (docId) =>
+      cached(lists.docProjects, docId, () =>
+        later(null, (l) => l.documentProject(docId)),
+      ),
     renameDocument(docId, title) {
       if (opened !== null) opened.renameDocument(docId, title);
       else void library.then((l) => l?.renameDocument(docId, title));
+    },
+    // a copy needs the device's index: without one nothing is made, as with an import
+    async addCopy(ws, projectId, kind, title, start): Promise<CreateResult> {
+      const l = await library;
+      if (l === null) throw new Error("the person's sync could not start");
+      return l.addCopy(ws, projectId, kind, title, start);
     },
     markOpened: (docId) => once((l) => l.markOpened(docId)),
     follow: (docId, handle) => once((l) => l.follow(docId, handle)),

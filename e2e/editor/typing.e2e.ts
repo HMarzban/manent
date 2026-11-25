@@ -53,8 +53,21 @@ async function scriptAt(
   return found;
 }
 
-// the outline, and the scene it names for the caret, are rebuilt at most every 250 ms after the caret moves
-const QUIET_MS = 300;
+// the outline, and the scene it names for the caret, are rebuilt at most every 250 ms after the caret moves, and the
+// label beside the scrollbar thumb fades 1000 ms after the last scroll
+const QUIET_MS = 1100;
+
+/** Scrolls the block `blockId` into view and puts the caret in it, so the first keystroke has nothing to scroll. */
+async function caretInView(
+  page: Page,
+  blockId: string,
+  offset: number | "end",
+): Promise<void> {
+  await page
+    .locator(`${PAGE_VIEW} [data-id="${blockId}"]`)
+    .scrollIntoViewIfNeeded();
+  await caretAt(page, blockId, offset);
+}
 
 /** Resolves once nothing outside the editor's host has changed for QUIET_MS. */
 const quiet = (page: Page): Promise<unknown> =>
@@ -145,7 +158,7 @@ test("typing in the page changes nothing outside it and writes no interface stor
   const action = await scriptAt(page, "action");
   await openPanel(page, "left_panel", "view.leftPanel");
   await openPanel(page, "side_panel", "view.sidePanel");
-  await caretAt(page, action.id, Math.floor(action.text.length / 2));
+  await caretInView(page, action.id, Math.floor(action.text.length / 2));
   await quiet(page);
   await watchOutside(page);
   await page.keyboard.type(LINE);
@@ -160,7 +173,7 @@ test("a keystroke that changes a fact changes only its readout", async ({
   page,
 }) => {
   const dialogue = await scriptAt(page, "dialogue");
-  await caretAt(page, dialogue.id, "end");
+  await caretInView(page, dialogue.id, "end");
   await quiet(page);
   await watchOutside(page);
   await page.keyboard.press("Enter");
@@ -179,11 +192,12 @@ test("nothing animates on a keystroke", async ({ page }) => {
   const action = await scriptAt(page, "action");
   await groupHook(page, "remote", "join", DANA);
   await groupHook(page, "remote", "select", 5, 2);
-  // the name tab leaves three seconds after the move: typing starts once it has
-  await expect(page.locator(`${PAGE_VIEW} .mn-cursor-tab`)).toHaveCount(0, {
+  // the name gives way to the initials three seconds after the move: typing starts once it has
+  await expect(page.locator(`${PAGE_VIEW} .mn-cursor-tab`)).toHaveText("DR", {
     timeout: 6000,
   });
-  await caretAt(page, action.id, Math.floor(action.text.length / 2));
+  await caretInView(page, action.id, Math.floor(action.text.length / 2));
+  await quiet(page);
   await page.evaluate(() => {
     const started: string[] = [];
     Reflect.set(window, "__started", started);

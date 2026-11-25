@@ -11,7 +11,7 @@ import { SETTINGS } from "@manent/settings";
 import type { SettingsStore } from "@manent/settings";
 import type { Clock } from "@manent/sync-client";
 import { messageFor } from "@manent/ui";
-import type { MessageQueue, Subscribable } from "@manent/ui";
+import type { MessageQueue, StatusFacts, Subscribable } from "@manent/ui";
 import type { Api } from "../api.ts";
 import { dedupedService } from "../desktop/deduped-service.ts";
 import type { DesktopHost } from "../desktop/host.ts";
@@ -21,12 +21,28 @@ import type { EditorControl } from "../editor-host/control.ts";
 import { zoomAnnouncement } from "../editor-host/zoom.ts";
 import { createHandlers } from "../handlers/index.ts";
 import type { Navigation } from "../handlers/index.ts";
+import { focusModeActions } from "../state/focus-mode.store.ts";
+import { layoutViewActions } from "../state/layout-view.store.ts";
+import { materialActions } from "../state/material.store.ts";
+import { outlineStartActions } from "../state/outline-start.store.ts";
 import type { PersonStore } from "../state/person.store.ts";
 import { productionContextActions } from "../state/production-context.store.ts";
-import { layoutViewActions } from "../state/layout-view.store.ts";
+import { prompterActions } from "../state/prompter.store.ts";
+import { readAloudActions } from "../state/read-aloud.store.ts";
 import { rulerActions } from "../state/ruler.store.ts";
+import { rundownActions } from "../state/rundown.store.ts";
+import { sprintActions } from "../state/sprint.store.ts";
+import { trashActions } from "../state/trash.store.ts";
+import { workspaceActions } from "../state/workspace.store.ts";
+import { writingActions } from "../state/writing.store.ts";
 import { zoomActions } from "../state/zoom.store.ts";
-import type { Environment, PersonServices, ShellState } from "./ports.ts";
+import type {
+  DocumentSource,
+  Environment,
+  LibraryIndex,
+  PersonServices,
+  ShellState,
+} from "./ports.ts";
 
 export type CommandsOptions = Environment & {
   demo: Subscribable<boolean>;
@@ -44,6 +60,57 @@ interface CommandsParts {
   control: Pick<EditorControl, "zoomPercent">;
   /** The person's sync can reach the network: the browser is online and the tab's Connection is not Offline. */
   network: Subscribable<boolean>;
+  /** The kinds of the open document and of its project. */
+  library: Pick<LibraryIndex, "documentKind" | "docKindOf">;
+  /** The open document's status, whose access sets the person's role in it. */
+  documents: DocumentSource;
+}
+
+type Access = StatusFacts["access"];
+
+// an app too old for the script leaves the person's commands in place, and each says the page is read-only
+const ROLE_OF: Readonly<Record<Access, CommandContext["role"]>> = Object.freeze(
+  { edit: "editor", comment: "commenter", view: "viewer", too_old: "editor" },
+);
+
+/** What a command may know of the open document beyond its format, zoom and production; each null or false off one. */
+function documentContext(
+  docId: string | null,
+  library: CommandsParts["library"],
+): Pick<
+  CommandContext,
+  | "docKind"
+  | "projectKind"
+  | "outlineStart"
+  | "writing"
+  | "material"
+  | "rundown"
+  | "prompter"
+  | "inTrash"
+  | "canDelete"
+> {
+  if (docId === null)
+    return {
+      docKind: null,
+      projectKind: null,
+      outlineStart: false,
+      writing: null,
+      material: null,
+      rundown: null,
+      prompter: null,
+      inTrash: false,
+      canDelete: false,
+    };
+  return {
+    docKind: library.docKindOf(docId).get(),
+    projectKind: library.documentKind(docId).get(),
+    outlineStart: outlineStartActions.get(docId),
+    writing: writingActions.get(docId),
+    material: materialActions.get(docId),
+    rundown: rundownActions.context(docId),
+    prompter: prompterActions.get(docId),
+    ...trashActions.get(docId),
+  };
 }
 
 /** What a command may know: the window's state from the shell, the focus and connection read now, and the person's. */
@@ -51,6 +118,7 @@ function commandContext(
   options: CommandsOptions,
   parts: CommandsParts,
   signedIn: boolean,
+  accessOf: (docId: string) => Access,
 ): CommandContext {
   const { docId, screen, panels, historyPresent, spaceBeforeSet } =
     options.shellState.get();
@@ -58,13 +126,13 @@ function commandContext(
     screen,
     focus: options.dom.focusKind(),
     docOpen: docId !== null,
-    // every person edits every document until sync supplies roles
-    role: docId === null ? null : "editor",
+    role: docId === null ? null : ROLE_OF[accessOf(docId)],
     online: parts.network.get(),
     platform: options.where.platform,
     shell: options.where.shell,
     demo: options.demo.get(),
     signedIn,
+    workspace: workspaceActions.get(),
     panelOpen: { left: panels.left !== null, side: panels.side !== null },
     historyPresent,
     format:
@@ -75,6 +143,10 @@ function commandContext(
     zoom: docId === null ? null : zoomActions.get(),
     zoomPercent: docId === null ? null : parts.control.zoomPercent(),
     production: docId === null ? null : productionContextActions.get(docId),
+    ...documentContext(docId, parts.library),
+    focusMode: focusModeActions.get(),
+    readingAloud: readAloudActions.get(),
+    sprintRunning: sprintActions.get(),
   };
 }
 
@@ -84,27 +156,97 @@ const isSaidZoom = (id: string, from: RunSource): boolean =>
 
 const noop = (): void => {};
 
-/** Calls `notify` whenever the format of the script the shell shows changes, following the shell from script to script. */
-function followFormat(
+/**
+ * Follows what `pick` gives for the document the shell shows, from document to document: `follow` is called for each
+ * new value, and what it returned stops it when another comes; nothing is followed off a document.
+ */
+function followShown<T>(
   shellState: Subscribable<ShellState>,
-  openScriptStore: (docId: string) => SettingsStore,
-  notify: () => void,
+  pick: (docId: string) => T,
+  follow: (picked: T) => () => void,
 ): () => void {
-  let followed: SettingsStore | null = null;
+  let followed: T | null = null;
   let stop = noop;
-  const follow = (): void => {
+  const update = (): void => {
     const { docId } = shellState.get();
-    const store = docId === null ? null : openScriptStore(docId);
-    if (store === followed) return;
+    const picked = docId === null ? null : pick(docId);
+    if (picked === followed) return;
     stop();
-    followed = store;
-    stop = store === null ? noop : store.subscribe("script.format", notify);
+    followed = picked;
+    stop = picked === null ? noop : follow(picked);
   };
-  follow();
-  const unsubscribe = shellState.subscribe(follow);
+  update();
+  const unsubscribe = shellState.subscribe(update);
   return () => {
     unsubscribe();
     stop();
+  };
+}
+
+/** Calls `notify` whenever the open script's format, or the kind of the open document or its project, changes. */
+function followDocument(
+  shellState: Subscribable<ShellState>,
+  parts: CommandsParts,
+  notify: () => void,
+): () => void {
+  const stopFormat = followShown(shellState, parts.openScriptStore, (store) =>
+    store.subscribe("script.format", notify),
+  );
+  const stopKinds = followShown(
+    shellState,
+    (docId) => docId,
+    (docId) => {
+      const stopDocKind = parts.library.docKindOf(docId).subscribe(notify);
+      const stopProjectKind = parts.library
+        .documentKind(docId)
+        .subscribe(notify);
+      return () => {
+        stopDocKind();
+        stopProjectKind();
+      };
+    },
+  );
+  return () => {
+    stopFormat();
+    stopKinds();
+  };
+}
+
+/**
+ * Holds the document the shell shows open and calls `notify` when its access changes; `accessOf` is an editor's for any
+ * other document, as the status of a document still opening is.
+ */
+function followAccess(
+  shellState: Subscribable<ShellState>,
+  documents: DocumentSource,
+  notify: () => void,
+): { accessOf(docId: string): Access; stop(): void } {
+  let shown: { docId: string; status: Subscribable<StatusFacts> } | null = null;
+  const stop = followShown(
+    shellState,
+    (docId) => docId,
+    (docId) => {
+      const { status } = documents.open(docId);
+      shown = { docId, status };
+      let access = status.get().access;
+      const stopStatus = status.subscribe((facts) => {
+        if (facts.access === access) return;
+        access = facts.access;
+        notify();
+      });
+      // the context read as the shell moved here was read before the document was held
+      notify();
+      return () => {
+        stopStatus();
+        shown = null;
+        documents.close(docId);
+      };
+    },
+  );
+  return {
+    accessOf: (docId) =>
+      shown?.docId === docId ? shown.status.get().access : "edit",
+    stop,
   };
 }
 
@@ -162,7 +304,8 @@ function reachedFromShell(
 
 /**
  * The command service over `COMMANDS` and the handlers `fillHandlers` makes, told of every change to the window's state, the
- * person, the bindings, the settings, the open script's format and production, the Ruler and the zoom; a setting command
+ * person, the bindings, the settings, the open script's format and production, the Ruler, the zoom, the kinds of the open
+ * document and its project, the person's access to it, and every store a command's context reads; a setting command
  * writes the open document's store, so a script setting reaches its script, and a zoom chosen by a key or in the palette is
  * said. In the desktop app the shell's native menus reach it too, and the person is signed in to sync when the node says so.
  */
@@ -190,7 +333,13 @@ export function createCommands(
     commands: COMMANDS,
     handlers,
     context: () =>
-      commandContext(options, parts, isSignedIn(options, nodeCloud)),
+      commandContext(
+        options,
+        parts,
+        isSignedIn(options, nodeCloud),
+        // read only once the service is made, after which access is set
+        (docId) => access.accessOf(docId),
+      ),
     settings: {
       get: (key) => settingsHere().get(key),
       set: (key, value) => settingsHere().set(key, value),
@@ -199,6 +348,11 @@ export function createCommands(
     onDisabled: (label, reason) =>
       messages.push(messageFor({ kind: "command_unavailable", label, reason })),
   });
+  const access = followAccess(
+    options.shellState,
+    parts.documents,
+    service.notify,
+  );
   const unsubscribers = [
     options.shellState.subscribe(service.notify),
     options.usePerson.subscribe(service.notify),
@@ -210,7 +364,18 @@ export function createCommands(
     layoutViewActions.subscribe(service.notify),
     productionContextActions.subscribe(service.notify),
     zoomActions.subscribe(service.notify),
-    followFormat(options.shellState, parts.openScriptStore, service.notify),
+    outlineStartActions.subscribe(service.notify),
+    writingActions.subscribe(service.notify),
+    materialActions.subscribe(service.notify),
+    rundownActions.subscribe(service.notify),
+    prompterActions.subscribe(service.notify),
+    trashActions.subscribe(service.notify),
+    workspaceActions.subscribe(service.notify),
+    focusModeActions.subscribe(service.notify),
+    readAloudActions.subscribe(service.notify),
+    sprintActions.subscribe(service.notify),
+    followDocument(options.shellState, parts, service.notify),
+    access.stop,
   ];
   if (nodeCloud !== null)
     unsubscribers.push(nodeCloud.signedIn.subscribe(service.notify));

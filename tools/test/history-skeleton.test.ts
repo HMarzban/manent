@@ -68,6 +68,7 @@ const ENTRIES: Readonly<Record<string, readonly string[]>> = {
   "packages/editor/src/changes/index.ts": [
     "decorations.ts",
     "layer.ts",
+    "marks-plugin.ts",
     "plugin.ts",
   ],
 };
@@ -120,7 +121,7 @@ const REGISTRATIONS: readonly (readonly [string, string])[] = [
     "apps/web/src/screens/document/history-sections.ts",
     '{ id: "versions", Section: HistoryList, useVisible: () => true }',
   ],
-  ["apps/web/src/screens/document/state-facts.ts", "= [useHistoryFacts,"],
+  ["apps/web/src/screens/document/state-facts.ts", "  useHistoryFacts,\n"],
   [
     "apps/web/src/screens/document/details-sections.ts",
     '{ id: "who_wrote", scope: "selection", Section: WhoWrote }',
@@ -182,6 +183,7 @@ const CTX: CommandContext = {
   shell: "web",
   demo: false,
   signedIn: true,
+  workspace: "writable",
   panelOpen: { left: false, side: false },
   historyPresent: true,
   format: null,
@@ -190,10 +192,26 @@ const CTX: CommandContext = {
   spaceBeforeSet: false,
   zoom: null,
   zoomPercent: null,
+  docKind: null,
+  projectKind: null,
+  outlineStart: false,
+  writing: null,
+  material: null,
+  rundown: null,
+  prompter: null,
+  inTrash: false,
+  canDelete: false,
+  focusMode: false,
+  readingAloud: false,
+  sprintRunning: false,
   production: null,
 };
-// History and Review are declared with the View and sync commands
-const DECLARED_ELSEWHERE = new Set(["history.open", "history.review"]);
+// History and Review are declared with the View and sync commands, Copy link with the links commands
+const DECLARED_ELSEWHERE = new Set([
+  "history.open",
+  "history.review",
+  "history.copyLink",
+]);
 const historyCommands = COMMANDS.filter(
   (c) => c.id.startsWith("history.") && !DECLARED_ELSEWHERE.has(c.id),
 );
@@ -427,11 +445,18 @@ test("the history commands sit in these menus, answer these palette words and ap
     ["history.restoreBefore", [], { keywords: [] }, null],
     ["history.seeWhatChanged", [], { keywords: [] }, null],
     [
+      "history.openRecoveredBeside",
+      [],
+      { hidden: "the action of a message about recovered work" },
+      null,
+    ],
+    [
       "history.whoWrote",
       [{ menu: "script", group: "who", order: 10, submenu: null }],
       { keywords: [] },
       null,
     ],
+    ["history.sinceLastRead", [], { hidden: "reader frame only" }, null],
   ]);
   expect(
     historyCommands.map((c) => [
@@ -442,6 +467,7 @@ test("the history commands sit in these menus, answer these palette words and ap
     ]),
   ).toEqual(
     historyCommands.map((c) => {
+      if (c.id === "history.sinceLastRead") return [c.id, false, false, false];
       const edits = [
         "history.markVersion",
         "history.nameDraft",

@@ -17,11 +17,20 @@ import type { EditorState, PluginView, Transaction } from "prosemirror-state";
 import type { DecorationSet, EditorView } from "prosemirror-view";
 import { MID_BLOCK_BREAKS } from "../page/config.ts";
 import type { BrowserEngine, LayoutView } from "../page/config.ts";
+import { keptSections } from "../sections/keep.ts";
+import { behindDrawer } from "./behind-view.ts";
+import {
+  drawRequestOf,
+  drawRun,
+  drawnDecorations,
+  updateDecorations,
+} from "./behind.ts";
+import type { BehindSection, DrawnDecorations } from "./behind.ts";
 import { toIndex, updateIndex } from "./block-index.ts";
 import type { BlockIndex } from "./block-index.ts";
-import { caretPlace, scrollDelta } from "./caret.ts";
-import type { CaretPlace } from "./caret.ts";
-import { updateDecorations } from "./decorations.ts";
+import { joinRanges, rangesAfter, sectionBlocks } from "./block-ranges.ts";
+import type { BlockRange } from "./block-ranges.ts";
+import { createCaretKeeper } from "./caret.ts";
 import type { DecorationOptions } from "./decorations.ts";
 import type { IsRemote } from "./page-view.ts";
 import { ownScroller } from "./scroller.ts";
@@ -48,6 +57,14 @@ export interface PaginationState {
   readonly engineRuns: number;
   /** The blocks the transaction that made this state replaced; null when none did, while frozen, and at first. */
   readonly change: ChangeHint | null;
+  /**
+   * The sections whose decorations are still those drawn for earlier pages, ascending: those an edit moved the pages
+   * of that it did not change, that are not shown and that do not hold the selection. The view draws them as they
+   * come into view, and the rest while the page is idle.
+   */
+  readonly behind: readonly BehindSection[];
+  /** The blocks of the sections in view or near it, as the view last said. */
+  readonly shown: readonly BlockRange[];
 }
 
 export const paginationKey: PluginKey<PaginationState> = new PluginKey(
@@ -64,6 +81,8 @@ export interface PaginationOptions {
   readonly isRemote?: IsRemote;
   /** Runs work after the current update, never inside it. */
   readonly defer: (run: () => void) => void;
+  /** Runs work when the page is idle. Without it the sections left behind are drawn only as they come into view. */
+  readonly whenIdle?: (run: () => void) => void;
   /** The title of text outside the script font. */
   readonly offFontNote: string;
   /** Default: the nearest ancestor of the editor that scrolls. Its own scroll anchoring is turned off. */
@@ -100,9 +119,10 @@ function decorated(
   pagination: Pagination,
   change: ChangeHint | null,
   options: DecorationOptions,
-): DecorationSet {
+  drawn: readonly BlockRange[],
+): DrawnDecorations {
   return mark("pagination.decorations", () =>
-    updateDecorations(prev, index, pagination, change, options),
+    updateDecorations(prev, index, pagination, change, options, drawn),
   );
 }
 
@@ -122,18 +142,21 @@ function fullRun(
     settings,
     index,
     pagination,
-    decorations: decorated(null, index, pagination, null, options),
+    ...decorated(null, index, pagination, null, options, []),
     frozen: false,
     engineRuns: prev.engineRuns + 1,
     change: { first: 0, oldEnd: prev.index.blocks.length, newEnd: count },
+    shown: prev.shown,
   };
 }
 
+/** `kept` names the sections holding the selection in `doc`. */
 function incrementalRun(
   prev: PaginationState,
   settings: PaginationSettings,
   doc: Node,
   options: DecorationOptions,
+  kept: readonly number[],
 ): PaginationState {
   const { index, change } = updateIndex(prev.index, doc, settings.layout);
   if (change === null)
@@ -141,14 +164,17 @@ function incrementalRun(
   const pagination = mark("pagination.engine", () =>
     settings.engine.repaginate(prev.pagination, index.blocks, change),
   );
+  const shown = rangesAfter(prev.shown, change);
+  const drawn = joinRanges(shown, sectionBlocks(index, kept));
   return {
     settings,
     index,
     pagination,
-    decorations: decorated(prev, index, pagination, change, options),
+    ...decorated(prev, index, pagination, change, options, drawn),
     frozen: false,
     engineRuns: prev.engineRuns + 1,
     change,
+    shown,
   };
 }
 
@@ -170,10 +196,11 @@ function initialState(
     settings,
     index,
     pagination,
-    decorations: decorated(null, index, pagination, null, decorations),
+    ...decorated(null, index, pagination, null, decorations, []),
     frozen: false,
     engineRuns: 0,
     change: null,
+    shown: [],
   };
 }
 
@@ -194,13 +221,15 @@ function followedBy(a: ChangeHint | null, b: ChangeHint | null) {
 function settledRun(
   prev: PaginationState,
   settings: PaginationSettings,
+  state: EditorState,
   tr: Transaction,
   options: DecorationOptions,
 ): PaginationState {
+  const kept = keptSections(state, 0);
   if (!prev.frozen || !tr.docChanged)
-    return incrementalRun(prev, settings, tr.doc, options);
-  const caught = incrementalRun(prev, prev.settings, tr.before, options);
-  const next = incrementalRun(caught, settings, tr.doc, options);
+    return incrementalRun(prev, settings, tr.doc, options, kept);
+  const caught = incrementalRun(prev, prev.settings, tr.before, options, []);
+  const next = incrementalRun(caught, settings, tr.doc, options, kept);
   return { ...next, change: followedBy(caught.change, next.change) };
 }
 
@@ -212,7 +241,7 @@ function applyTransaction(
 ): PaginationState {
   const patch = patchOf(tr);
   if (patch === null && !tr.docChanged)
-    return prev.change === null ? prev : { ...prev, change: null };
+    return drawRun(prev, state, drawRequestOf(tr), options);
   if (patch === null && tr.getMeta("composition") !== undefined)
     return {
       ...prev,
@@ -220,11 +249,12 @@ function applyTransaction(
       frozen: true,
       change: null,
     };
-  if (patch === null) return settledRun(prev, prev.settings, tr, options);
+  if (patch === null)
+    return settledRun(prev, prev.settings, state, tr, options);
   const settings = withPatch(prev.settings, patch);
   return needsFullRun(prev, patch)
     ? fullRun(prev, settings, state, options)
-    : settledRun(prev, settings, tr, options);
+    : settledRun(prev, settings, state, tr, options);
 }
 
 function stateOf(state: EditorState): PaginationState {
@@ -232,37 +262,6 @@ function stateOf(state: EditorState): PaginationState {
   if (own === undefined)
     throw new RangeError("the editor state has no pagination plugin");
   return own;
-}
-
-/**
- * Keeps the caret's line where it was when a local edit carries the caret to another page. `before` is read once
- * after each update; a scroll since then is taken off it.
- */
-function caretKeeper(
-  view: EditorView,
-  scrollerOf: () => Element,
-  isRemoteState: (state: EditorState) => boolean,
-): (prev: EditorState) => void {
-  let before: CaretPlace | null = null;
-  let scrolledTo = 0;
-  return (prev) => {
-    const scroller = scrollerOf();
-    const after = caretPlace(view);
-    if (
-      after !== null &&
-      before !== null &&
-      prev.doc !== view.state.doc &&
-      !isRemoteState(view.state)
-    ) {
-      const moved = scroller.scrollTop - scrolledTo;
-      const delta = scrollDelta({ ...before, top: before.top - moved }, after);
-      scroller.scrollTop += delta;
-      before = { ...after, top: after.top - delta };
-    } else {
-      before = after;
-    }
-    scrolledTo = scroller.scrollTop;
-  };
 }
 
 /**
@@ -279,8 +278,24 @@ function paginationView(
   const { defer } = options;
   let pages = stateOf(view.state).pagination.pages.length;
   let scroller: Element | null = null;
-  const scrollerOf = () => (scroller ??= ownScroller(view, options.scroller));
-  const keepCaret = caretKeeper(view, scrollerOf, isRemoteState);
+  const scrollerOf = (): Element => {
+    if (
+      scroller !== null &&
+      scroller.isConnected &&
+      scroller.contains(view.dom)
+    )
+      return scroller;
+    const found = ownScroller(view, options.scroller);
+    if (view.dom.isConnected) scroller = found;
+    return found;
+  };
+  const keepCaret = createCaretKeeper(view, scrollerOf, isRemoteState);
+  const behind = behindDrawer(view, {
+    defer,
+    whenIdle: options.whenIdle,
+    own: () => stateOf(view.state),
+    scroller: scrollerOf,
+  });
   let scheduled = false;
   const isWaiting = () => !view.composing && stateOf(view.state).frozen;
   const resume = () => {
@@ -301,8 +316,9 @@ function paginationView(
   options.onPages?.(pages);
   return {
     update(_, prev) {
+      behind.update();
       resume();
-      keepCaret(prev);
+      keepCaret.update(prev);
       const count = stateOf(view.state).pagination.pages.length;
       if (count === pages) return;
       pages = count;
@@ -310,6 +326,8 @@ function paginationView(
     },
     destroy() {
       view.dom.removeEventListener("compositionend", resume);
+      keepCaret.destroy();
+      behind.destroy();
     },
   };
 }
@@ -327,6 +345,7 @@ export function paginationPlugin(
   const isRemote = options.isRemote ?? (() => false);
   // the states a remote change made, kept while they are in use
   const remoteStates = new WeakSet<EditorState>();
+  const drawn = drawnDecorations();
   return new Plugin<PaginationState>({
     key: paginationKey,
     state: {
@@ -341,7 +360,10 @@ export function paginationPlugin(
     view: (view) =>
       paginationView(view, options, (state) => remoteStates.has(state)),
     props: {
-      decorations: (state) => paginationKey.getState(state)?.decorations,
+      decorations: (state) => {
+        const own = paginationKey.getState(state);
+        return own === undefined ? null : drawn(own, state.doc);
+      },
       // WebKit selects nothing when a document's first and last children are breaks that cannot be edited
       handleKeyDown: keydownHandler({ "Mod-a": selectAll }),
     },

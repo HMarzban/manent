@@ -56,6 +56,19 @@ export function comparePageLabels(a: string, b: string): number {
   );
 }
 
+/**
+ * How many pages `labels` name when those that share a number ("12", "12A", "A12A") count once; a range is read as its
+ * last part, which the lettered pages after it follow, and a label of another form is a page of its own.
+ */
+export function contentPageCount(labels: readonly string[]): number {
+  return new Set(
+    labels.map((label) => {
+      const parts = partsOf(label.split(RANGE_DASH).at(-1)!);
+      return parts === null ? label : parts.number.replace(/^0+/, "");
+    }),
+  ).size;
+}
+
 // `letters` followed by A, B, … then the last letter and A, B, … again, one level deeper each time.
 function lettersAt(letters: string, index: number): string {
   const depth = Math.floor(index / letters.length);

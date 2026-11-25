@@ -24,7 +24,7 @@ export const EditorHost = memo(
       const element = ref.current;
       if (docId === null || element === null) return;
       return props.mount.mount({ element, docId, ...props.ports });
-    }, [docId]);
+    }, [docId, props.ports.bare]);
     return (
       // the desk around the sheets, which sit in its middle; its padding stays one size at every zoom, so Fit width
       // never measures a moving edge
@@ -39,5 +39,7 @@ export const EditorHost = memo(
     );
   },
   (before, after) =>
-    before.docId === after.docId && before.covered === after.covered,
+    before.docId === after.docId &&
+    before.covered === after.covered &&
+    before.ports.bare === after.ports.bare,
 );

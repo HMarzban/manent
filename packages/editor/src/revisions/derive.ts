@@ -15,14 +15,15 @@ import {
   revisedPages,
 } from "@manent/revisions";
 import type { Baseline, BlockMark, LockedLayout } from "@manent/revisions";
-import { blockView, blocksOf, canonicalBlock } from "@manent/schema";
-import type { BlockJSON, BlockView, DocJSON, FlatBlock } from "@manent/schema";
+import { blockView, blocksOf } from "@manent/schema";
+import type { DocJSON, FlatBlock } from "@manent/schema";
 import type { Node } from "prosemirror-model";
 import { PluginKey } from "prosemirror-state";
 import type { EditorState } from "prosemirror-state";
 import { blockPos } from "../pagination/block-index.ts";
 import type { BlockIndex } from "../pagination/block-index.ts";
 import type { PaginationState } from "../pagination/plugin.ts";
+import { viewJSON, viewOf } from "./block-views.ts";
 import { isNumberedHeading, layoutOf } from "./numbers.ts";
 import type { ProductionPort, ProductionView } from "./plugin.ts";
 
@@ -128,19 +129,6 @@ export function productionOf(
     : { port: kept.port, view: kept.view };
 }
 
-/** The block as its view holds it, mark names without their attributes, as the server reads both sides. */
-function viewJSON(view: BlockView): BlockJSON {
-  return canonicalBlock({
-    type: "block",
-    attrs: { ...view.attrs },
-    content: view.runs.map((run) => ({
-      type: "text",
-      text: run.text,
-      marks: run.marks.map((type) => ({ type })),
-    })),
-  });
-}
-
 /** The hash a cleared override of the block holds. */
 export function contentHashOf(node: Node): string {
   return contentHash(viewJSON(blockView(node)));
@@ -194,7 +182,7 @@ function remark(own: Map<string, BlockMark>, node: Node, m: MarkInputs): void {
   const base = baseline.blocks.get(id);
   const mark = markBlock(
     base === undefined ? null : viewJSON(blockView(base)),
-    viewJSON(blockView(node)),
+    viewJSON(viewOf(node)),
     {
       baseVisible: baseline.visible.has(id),
       visible: isShown(m.layout, id),
@@ -262,7 +250,7 @@ export function withView(
   doc: Node,
 ): RevisionKept {
   if (view === null) return outOfProduction(kept.port);
-  const flat = blocksOf(doc);
+  const flat = blocksOf(doc, viewOf);
   const layout = layoutOf(flat, view);
   const prev = kept.view;
   if (
@@ -352,7 +340,7 @@ export function withEdit(
   const added = [...entering].filter((id) => !replaced.has(id));
   const gone = [...replaced].filter((id) => !entering.has(id));
   let flat: FlatBlock[] | null = null;
-  const flatNow = (): FlatBlock[] => (flat ??= blocksOf(index.doc));
+  const flatNow = (): FlatBlock[] => (flat ??= blocksOf(index.doc, viewOf));
   const layout =
     heading || added.length > 0 || gone.length > 0
       ? layoutOf(flatNow(), view)

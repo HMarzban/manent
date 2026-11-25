@@ -80,10 +80,10 @@ function shownMessage(frame: Frame): string[] {
 const tabs = (panel: HTMLElement): string[] =>
   [...panel.querySelectorAll("[role='tab']")].map(nameOf);
 
-/** A row of a list as it is seen, and as it is read aloud. */
+/** A row of a list, its menu last, as it is seen, and as it is read aloud. */
 function rowText(row: Element): [string, string] {
   const parts = (hide: string): string =>
-    [...row.querySelectorAll(".mn-row > *")]
+    [...row.querySelectorAll(".mn-row > *, [data-row-menu] > :not(.mn-row)")]
       .map((part) => {
         const copy = part.cloneNode(true);
         if (!(copy instanceof Element)) return "";
@@ -119,14 +119,22 @@ test("Script settings shows its scope line and its rows, named by their labels",
       "Default: Screenplay",
       "Default: US Letter",
       "From the region, when this script was created.",
+      "54 (the format's figure)",
       "Mores and Continueds",
       "Default: On",
       "Default: On",
       "Default: Off",
       "Scene numbers",
+      "Default: None",
       "Default: 12A",
       "Revisions",
       "Default: White → Blue → Pink → Yellow → Green → Goldenrod → Buff → Salmon → Cherry",
+      "Default: 17 Nov 2026",
+      "Header and footer",
+      "A thin line under the header.",
+      "A thin line over the footer.",
+      "Layout engine",
+      "Layout engine 2 is available · counting pages…",
     ],
     [
       "Format",
@@ -134,8 +142,16 @@ test("Script settings shows its scope line and its rows, named by their labels",
       "(MORE) and (CONT'D) at page breaks",
       "Same-speaker (CONT'D)",
       "Scene CONTINUED",
+      "Show",
       "Numbering scheme",
       "Colour order",
+      "Date format",
+      "Header",
+      "On the first page too",
+      "With a rule",
+      "Footer",
+      "On the first page too",
+      "With a rule",
     ],
     "Your own preferences",
   ]);
@@ -303,8 +319,8 @@ test("History is present only while a section has something, and shows its secti
     ].map(nameOf),
     nameOf(document.activeElement ?? document.body),
   ]).toEqual([
-    ["Details"],
-    ["History", "Details"],
+    ["Comments", "Details"],
+    ["Comments", "History", "Details"],
     "History",
     ["Versions fake"],
     "Versions fake",
@@ -322,7 +338,9 @@ test("Details and Scenes draw what later plans register", async () => {
     ],
   }));
   mock.module(MARKS, () => ({
-    SCENE_MARK_SOURCES: [() => createValue(new Set(["a"]))],
+    SCENE_MARK_SOURCES: [
+      () => createValue(new Map([["a", [{ kind: "revised" }]]])),
+    ],
   }));
   const frame = await renderFrame();
   await run(frame, "view.sidePanel");

@@ -23,7 +23,9 @@ withDom();
 bindGuard(createGuard({ flavour: "test" }));
 
 let roots: Root[] = [];
+let leaveLive = (): void => {};
 afterEach(() => {
+  leaveLive();
   for (const root of roots.splice(0)) act(() => root.unmount());
   document.body.replaceChildren();
 });
@@ -104,23 +106,62 @@ function watchPolite(): () => string[] {
 
 type People = Parameters<typeof peopleAnnouncements>[2];
 
+/** An editor of d1 that draws no pages; its document and view are read by no test. */
+const UNDRAWN: LiveEditor = {
+  docId: "d1",
+  doc: {} as LiveEditor["doc"],
+  view: {} as LiveEditor["view"],
+  scaffold: null,
+  presence: {
+    publish: () => {},
+    subscribe: () => () => {},
+    subscribePeople: () => () => {},
+  },
+  editable: true,
+  pagination: () => null,
+  zoom: () => 1,
+  frontPages: () => null,
+};
+
 const DANA: People[number] = { userId: "dana", name: "Dana Reyes", colour: 1 };
 const SAM: People[number] = { userId: "sam", name: "Sam Okafor", colour: 2 };
 
 const NOTICE =
   "'Untitled script' is longer than this device handles comfortably, so typing may slow down.";
 
-test("the notice is shown once per script on this device", () => {
+const plain = (count: number): string[] =>
+  Array.from({ length: count }, (_, k) => String(k + 1));
+
+/** Draws d1's pages with these labels and publishes their count; resolves once the notices have read them. */
+async function pages(
+  facts: ReturnType<typeof factsRig>,
+  labels: readonly string[],
+): Promise<void> {
+  leaveLive();
+  const pagination = {
+    pages: labels.map((label) => ({ label })),
+  } as unknown as ReturnType<LiveEditor["pagination"]>;
+  leaveLive = registerLiveEditor({
+    ...UNDRAWN,
+    pagination: () => pagination,
+  });
+  facts.publish({ pageCount: labels.length });
+  await act(() => import("../src/editor-host/live-editor.ts"));
+}
+
+test("the notice is shown once per script on this device, its lettered pages not counted", async () => {
   const { services, pushed } = servicesRig();
   const facts = factsRig();
   const first = render(notices(services, facts));
-  facts.publish({ pageCount: 120 });
-  facts.publish({ pageCount: 121 });
-  facts.publish({ pageCount: 100 });
-  facts.publish({ pageCount: 125 });
+  await pages(facts, plain(120));
+  await pages(facts, [...plain(120), "120A", "A120B", "120C"]);
+  expect(pushed).toEqual([]);
+  await pages(facts, plain(121));
+  await pages(facts, plain(100));
+  await pages(facts, plain(125));
   act(() => first.unmount());
   render(notices(services, facts));
-  facts.publish({ pageCount: 130 });
+  await pages(facts, plain(130));
   expect(
     pushed.map((message) => [message.id, message.text, message.lifetime]),
   ).toEqual([["past_comfort_limit", NOTICE, "until_dismissed"]]);
@@ -178,22 +219,14 @@ function liveRig(): {
 } {
   const listeners = new Set<(people: People) => void>();
   const leave = registerLiveEditor({
-    docId: "d1",
-    // the people are all this test reads of the editor
-    doc: {} as LiveEditor["doc"],
-    view: {} as LiveEditor["view"],
-    scaffold: null,
+    ...UNDRAWN,
     presence: {
-      publish: () => {},
-      subscribe: () => () => {},
+      ...UNDRAWN.presence,
       subscribePeople(listener) {
         listeners.add(listener);
         return () => listeners.delete(listener);
       },
     },
-    editable: true,
-    zoom: () => 1,
-    frontPages: () => null,
   });
   return {
     offer(people) {
