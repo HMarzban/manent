@@ -264,9 +264,15 @@ test("toggling the ruler keeps its outer bar mounted and caches project ownershi
       get: () => barHeight,
     });
 
-    barHeight = 28;
+    barHeight = 0;
     await showRuler();
     const outerOpen = el.querySelector<HTMLElement>('[data-tour="ruler"]')!;
+    // emulate the ruler expanding asynchronously inside RulerBarContent when layout facts arrive
+    barHeight = 28;
+    act(() => {
+      facts.writer.publish(LAYOUT);
+      clock.advance(16);
+    });
     const scrollAfterOpen = page.scrollTop;
     await act(async () => {
       await Promise.resolve();

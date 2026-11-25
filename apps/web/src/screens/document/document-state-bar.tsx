@@ -1,7 +1,13 @@
 // The document's state bar: the facts of its source and of every feature that adds one, a line on each side.
 import { StateBar, stateBarLines, useSubscribable } from "@manent/ui";
 import type { StateFact, Subscribable } from "@manent/ui";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode, RefObject } from "react";
 import { useServices } from "../../services/context.tsx";
 import { ShellRegion } from "../../shell/regions.tsx";
@@ -12,9 +18,11 @@ import { useWhereAmI } from "./where-am-i.ts";
 const PAGE_REGION = "[data-region='page']";
 
 /** The bar's appearing, going or changing height scrolls the page by as much, before the frame is drawn, so its lines stay put. */
-export function useKeepPageStill(bar: RefObject<HTMLElement | null>): void {
+export function useKeepPageStill(
+  bar: RefObject<HTMLElement | null>,
+): () => void {
   const height = useRef<number | null>(null);
-  useLayoutEffect(() => {
+  const sync = useCallback(() => {
     const element = bar.current;
     if (element === null) return;
     const next = element.offsetHeight;
@@ -24,7 +32,9 @@ export function useKeepPageStill(bar: RefObject<HTMLElement | null>): void {
     if (before === null || before === next) return;
     const page = element.ownerDocument.querySelector(PAGE_REGION);
     if (page !== null) page.scrollTop += next - before;
-  });
+  }, [bar]);
+  useLayoutEffect(sync);
+  return sync;
 }
 
 export function DocumentStateBar(props: {
