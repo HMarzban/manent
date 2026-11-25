@@ -79,6 +79,7 @@ function EntryItem(props: {
     <Autocomplete.Item
       value={entry}
       index={index}
+      data-tour={entry.type === "row" ? entry.row.id : undefined}
       // not `disabled`, which would leave a press and Enter unheard: an unavailable row says why it cannot run
       aria-disabled={
         entry.type === "row" && !entry.row.enabled ? true : undefined

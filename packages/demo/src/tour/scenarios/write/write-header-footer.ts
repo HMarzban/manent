@@ -31,5 +31,5 @@ export const WRITE_HEADER_FOOTER: TourScenario = {
   evidence: ["Header is now Custom.", "2 of 12"],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

@@ -36,9 +36,9 @@ tourScenario("history-send-draft", async ({ page, scenario, step }) => {
   ).toContainText("Studio draft");
   const toRow = await step(1);
   await toRow
-    .getByRole("textbox", { name: DRAFTS_WORDS.addPlaceholder })
+    .getByRole("combobox", { name: DRAFTS_WORDS.addPlaceholder })
     .click();
-  await toRow.getByRole("button", { name: "Network (4)" }).click();
+  await toRow.getByRole("option", { name: "Network (4)" }).click();
   const sendButton = await step(2);
   await expect(sendButton).toContainText("Send to 4 people");
   await sendButton.click();

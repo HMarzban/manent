@@ -20,5 +20,5 @@ export const WRITE_MANUSCRIPT: TourScenario = {
   evidence: ["Chapters", "Chapter One: The Box Nobody Wanted"],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

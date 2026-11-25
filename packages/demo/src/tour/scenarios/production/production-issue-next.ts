@@ -30,5 +30,5 @@ export const PRODUCTION_ISSUE_NEXT: TourScenario = {
   ],
   fresh: true,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

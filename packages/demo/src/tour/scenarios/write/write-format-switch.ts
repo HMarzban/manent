@@ -23,5 +23,5 @@ export const WRITE_FORMAT_SWITCH: TourScenario = {
   evidence: ["Multi-camera", "Screenplay"],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

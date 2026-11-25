@@ -32,5 +32,5 @@ export const TOGETHER_LINKS: TourScenario = {
   ],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };
