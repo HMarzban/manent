@@ -145,7 +145,7 @@ export function createSyncService(
 
   const broadcast: SyncService["broadcast"] = (docId, kind, data) => {
     const room = rooms.find(docId);
-    if (room === null || (room.doc === null && room.viewers.size === 0)) return;
+    if (room === null || room.doc === null) return;
     deliverControl(room, { kind, data }, () => true);
   };
 
