@@ -29,4 +29,5 @@ export const TOUR_RELEASED: readonly TourFeature[] = Object.freeze([
   "sign_out_guard",
   "find_bar",
   "go_to_page",
+  "prompter_files",
 ]);

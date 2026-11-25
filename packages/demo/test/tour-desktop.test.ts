@@ -9,7 +9,7 @@ import {
 const NOT_PASSING = "its end-to-end test does not pass yet";
 const DESKTOP = TOUR.scenarios.filter((s) => s.group === "Desktop");
 
-test("Desktop shows two scenarios in the desktop app, hides two whose test does not pass yet, and waits for prompter files", () => {
+test("Desktop shows three scenarios in the desktop app and hides two whose test does not pass yet", () => {
   expect(
     DESKTOP.map((s) => [s.id, s.setup.shell, s.waitsFor, s.hidden]),
   ).toEqual([
@@ -17,7 +17,7 @@ test("Desktop shows two scenarios in the desktop app, hides two whose test does 
     ["desktop-first-script", "desktop", null, NOT_PASSING],
     ["desktop-open-in-browser", "desktop", null, NOT_PASSING],
     ["desktop-files", "desktop", null, null],
-    ["desktop-prompter-files", "desktop", "prompter_files", null],
+    ["desktop-prompter-files", "desktop", null, null],
   ]);
 });
 
