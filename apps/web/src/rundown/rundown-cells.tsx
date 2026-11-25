@@ -74,6 +74,7 @@ export function buildGridColumns(options: {
               <WriterEditor context={context} people={options.people} />
             )
           : undefined,
+      tourTarget: id === "prompter" ? "rundown:prompter_column" : undefined,
     };
   });
 }
@@ -230,12 +231,7 @@ function buildItemCells(options: {
       case "prompter":
         cells[colId] = {
           value: "",
-          display:
-            row.kind === "script" && row.docId !== null ? (
-              <PrompterCell rundownId={docId} rowId={row.id} />
-            ) : (
-              <span className="text-fg-muted">{RUNDOWN_WORDS.dash}</span>
-            ),
+          display: <PrompterCell rundownId={docId} rowId={row.id} />,
         };
         break;
     }

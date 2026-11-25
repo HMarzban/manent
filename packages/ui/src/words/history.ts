@@ -165,6 +165,7 @@ function labelOf(item: VersionItem): string | null {
   if (item.kind === "pre_merge" && item.onDevice) return BEFORE_RECONNECT;
   if (item.kind === "recovered") return RECOVERED;
   if (item.kind === "pre_hand_in") return "Before hand-in";
+  if (item.kind === "prompter") return "Sent to prompter";
   return null;
 }
 
