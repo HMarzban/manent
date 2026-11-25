@@ -48,6 +48,7 @@ export function CommandAction(props: {
     <Button
       variant="outline"
       size="sm"
+      data-tour={props.commandId}
       className="text-ui"
       onClick={() => run(props.commandId)}
     >

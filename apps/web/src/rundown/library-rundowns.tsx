@@ -96,6 +96,7 @@ function NewRundownButton(props: {
     <Button
       variant="outline"
       size="sm"
+      data-tour="rundown.new"
       disabled={props.disabled}
       className={props.disabled ? "cursor-not-allowed" : "cursor-pointer"}
       onClick={props.onClick}

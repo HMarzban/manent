@@ -35,6 +35,7 @@ function SendRowButton(props: {
             type="button"
             variant="outline"
             size="sm"
+            data-tour="prompter.send"
             disabled
             aria-label={label}
             className="pointer-events-none shrink-0"
@@ -53,6 +54,7 @@ function SendRowButton(props: {
       type="button"
       variant="outline"
       size="sm"
+      data-tour="prompter.send"
       disabled={sending}
       aria-label={label}
       className={

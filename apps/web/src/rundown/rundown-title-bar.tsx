@@ -48,6 +48,7 @@ function TitleMenuEntry(props: { readonly item: MenuItemModel }): ReactNode {
   const entry =
     item.checked === null ? (
       <DropdownMenuItem
+        data-tour={item.id}
         disabled={!item.enabled}
         className={item.enabled ? "cursor-pointer" : "cursor-not-allowed"}
         onClick={run}
@@ -56,6 +57,7 @@ function TitleMenuEntry(props: { readonly item: MenuItemModel }): ReactNode {
       </DropdownMenuItem>
     ) : (
       <DropdownMenuCheckboxItem
+        data-tour={item.id}
         checked={item.checked}
         disabled={!item.enabled}
         className={item.enabled ? "cursor-pointer" : "cursor-not-allowed"}

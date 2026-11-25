@@ -10,7 +10,7 @@ import {
 } from "@manent/ui";
 import type { EditableGridHandle, GridCellCoord } from "@manent/ui";
 import { EllipsisVerticalIcon } from "lucide-react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { ReactNode, RefObject } from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import { rundownActions } from "../state/rundown.store.ts";
@@ -157,6 +157,7 @@ export function RowMenu(props: RowMenuProps): ReactNode {
         {entries.map((entry) => (
           <DropdownMenuItem
             key={entry.id}
+            data-tour={entry.id}
             disabled={!entry.enabled}
             className={
               entry.enabled
@@ -205,6 +206,14 @@ export function useRundownRows(options: {
     options;
   const services = useServices();
   const environment = useEnvironment();
+  const pendingFocusRef = useRef<GridCellCoord | null>(null);
+  const focusCell = useCallback(
+    (coord: GridCellCoord): void => {
+      pendingFocusRef.current = coord;
+      gridRef.current?.focusCell(coord.rowId, coord.columnId);
+    },
+    [gridRef],
+  );
 
   const ctxRef = useRef<RowActionContext>({
     docId,
@@ -214,6 +223,7 @@ export function useRundownRows(options: {
     gridRef,
     services,
     environment,
+    focusCell,
   });
   ctxRef.current = {
     docId,
@@ -223,7 +233,18 @@ export function useRundownRows(options: {
     gridRef,
     services,
     environment,
+    focusCell,
   };
+
+  useLayoutEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (pending === null || gridRef.current === null) return;
+    const rows = session.view.rundown?.rows;
+    if (rows === undefined || !rows.some((row) => row.id === pending.rowId))
+      return;
+    pendingFocusRef.current = null;
+    gridRef.current.focusCell(pending.rowId, pending.columnId);
+  }, [session.view.rundown, gridRef]);
 
   useEffect(() => {
     const prior = rundownActions.slot("rows") ?? {};
