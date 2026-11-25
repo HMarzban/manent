@@ -95,6 +95,7 @@ test("the crdt scenarios are found and measure what the report reads", async () 
   expect(ids.filter((id) => !id.startsWith("crdt.rebuild"))).toEqual([
     "crdt.aged",
     "crdt.aged-time",
+    "crdt.authority",
     "crdt.daily-reuse",
     "crdt.daily-reuse-time",
     "crdt.traces",
