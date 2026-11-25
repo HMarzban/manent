@@ -1,6 +1,5 @@
 // Handlers for Account commands: sign out with waiting-changes guard.
 import type { CommandHandlers } from "@manent/commands";
-import { resolveWaitingScripts } from "../account/export-waiting.ts";
 import { ensureFallbackSignOutHost } from "../account/sign-out-dialog.tsx";
 import {
   closeSignOutPrompt,
@@ -41,6 +40,8 @@ export function accountHandlers(
             completeSignOut();
             return;
           }
+          const { resolveWaitingScripts } =
+            await import("../account/export-waiting.ts");
           const scripts = await resolveWaitingScripts(services, waiting);
           checking = false;
           if (!hasMountedSignOutHost()) ensureFallbackSignOutHost(now);

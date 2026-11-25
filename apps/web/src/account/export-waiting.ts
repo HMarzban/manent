@@ -11,7 +11,6 @@ import type { FormatId } from "@manent/schema";
 import { indexDocId } from "@manent/sync-protocol";
 import type { DocKind } from "@manent/sync-protocol";
 import { LIBRARY_WORDS } from "@manent/ui";
-import { liveEditor, livePagination } from "../editor-host/live-editor.ts";
 import { typesOffered } from "../send/file-types.ts";
 import { fileName, save } from "../send/script-file.ts";
 import type {
@@ -72,6 +71,7 @@ export async function resolveWaitingScripts(
   services: PersonServices,
   waiting: readonly WaitingDocumentSummary[],
 ): Promise<WaitingScript[]> {
+  const { liveEditor } = await import("../editor-host/live-editor.ts");
   const privateIndexId = indexDocId("user", services.userId);
   const scripts: WaitingScript[] = [];
   for (const { docId, waiting: count } of waiting) {
@@ -144,6 +144,7 @@ async function exportOneScript(
   now: () => number,
 ): Promise<void> {
   const { docId, title, docKind } = script;
+  const { livePagination } = await import("../editor-host/live-editor.ts");
   const openPages = livePagination(docId);
   const openFormat = formatOf(
     services.openScriptStore(docId).get("script.format"),

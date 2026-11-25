@@ -211,8 +211,12 @@ test("sign out with waiting changes opens guard dialog; Cancel keeps session and
   // Invoke app.signOut with 3 waiting changes
   await act(async () => {
     handlers["app.signOut"]();
-    await Promise.resolve();
-    await Promise.resolve();
+    for (
+      let i = 0;
+      i < 50 && document.body.querySelector("[role='alertdialog']") === null;
+      i++
+    )
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
   });
 
   const dialog = document.body.querySelector("[role='alertdialog']");
@@ -240,8 +244,12 @@ test("sign out with waiting changes opens guard dialog; Cancel keeps session and
   // Open again and click Sign out -> clears session and navigates
   await act(async () => {
     handlers["app.signOut"]();
-    await Promise.resolve();
-    await Promise.resolve();
+    for (
+      let i = 0;
+      i < 50 && document.body.querySelector("[role='alertdialog']") === null;
+      i++
+    )
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
   });
   const confirmBtn2 = document.body.querySelector<HTMLButtonElement>(
     '[data-tour="workspace:sign_out"]',

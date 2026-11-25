@@ -10,7 +10,6 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
-import { exportWaitingScripts } from "./export-waiting.ts";
 import { registerSignOutHost, signOutPrompt } from "./sign-out-store.ts";
 import type { SignOutPrompt } from "./sign-out-store.ts";
 
@@ -36,6 +35,7 @@ function SignOutGuardDialog(props: { active: SignOutPrompt }): ReactNode {
   const exportAll = async (): Promise<void> => {
     if (busy || scripts.length === 0) return;
     setStatus({ kind: "exporting", count: scripts.length });
+    const { exportWaitingScripts } = await import("./export-waiting.ts");
     const outcome = await exportWaitingScripts(
       active.services,
       scripts,
