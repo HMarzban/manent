@@ -22,7 +22,7 @@ test("the Write group lists its scenarios, each waiting one with the feature it 
     ["write-ruler", null],
     ["write-export", null],
     ["write-names", null],
-    ["write-podcast-timing", "variety_timing"],
+    ["write-podcast-timing", null],
     ["write-outline", null],
     ["write-alternates", null],
     ["write-game-lines", "game_lines"],

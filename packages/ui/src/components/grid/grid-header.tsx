@@ -130,6 +130,7 @@ export function GridHeader({
               key={column.id}
               role="columnheader"
               aria-colindex={colIndex + 1}
+              data-tour={column.tourTarget}
               style={columnStyle(column)}
               className={cn(
                 "relative flex min-h-row min-w-0 items-center border-e border-line px-3 last:border-e-0",

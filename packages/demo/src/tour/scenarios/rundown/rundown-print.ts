@@ -1,26 +1,38 @@
 import type { TourScenario } from "../../format.ts";
+import { docPath } from "../../../seed/catalogue.ts";
 import { setupOf } from "../setup.ts";
 
 export const RUNDOWN_PRINT: TourScenario = {
   id: "rundown-print",
   group: "Rundown and prompter",
   promise: "Print a rundown, all its scripts as one, and its brackets.",
-  setup: setupOf({ userId: "ana", open: "/" }),
+  setup: setupOf({
+    userId: "ana",
+    open: docPath("medium/lannick-one-news/rundowns/day"),
+  }),
   steps: [
     {
-      text: "Open today's rundown of Lannick One News: it holds 40 stories.",
-      highlight: "page",
+      text: "Choose Export… in the title menu.",
+      highlight: "doc.export",
     },
-    { text: "Print the rundown as a PDF.", highlight: "page" },
     {
-      text: "Print all its scripts as one document, then its brackets list.",
-      highlight: "page",
+      text: "Under As, tick All scripts as one PDF and Brackets list beside Rundown PDF.",
+      highlight: "send:as",
+    },
+    {
+      text: "Choose Export 3 files.",
+      highlight: "send:confirm",
     },
   ],
   check:
-    'The rundown PDF lists all 40 stories, starting with "Tolle Exchange library: council votes yes"; the scripts print as one document, and the brackets as a list.',
-  evidence: ["Tolle Exchange library: council votes yes"],
+    'As lists "Rundown PDF", "All scripts as one PDF" and "Brackets list", the button reads "Export 3 files", and three files download.',
+  evidence: [
+    "Rundown PDF",
+    "All scripts as one PDF",
+    "Brackets list",
+    "Export 3 files",
+  ],
   fresh: false,
-  waitsFor: "rundowns",
+  waitsFor: null,
   hidden: null,
 };

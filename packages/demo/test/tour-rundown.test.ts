@@ -6,19 +6,19 @@ import {
   validateTour,
 } from "../src/index.ts";
 
-test("every Rundown and prompter scenario waits for the rundowns or the prompter", () => {
+test("every Rundown and prompter scenario is ready", () => {
   expect(
     TOUR.scenarios
       .filter((s) => s.group === "Rundown and prompter")
       .map((s) => [s.id, s.waitsFor]),
   ).toEqual([
-    ["rundown-time", "rundowns"],
-    ["rundown-prompter", "prompter"],
-    ["rundown-send", "prompter"],
-    ["rundown-feed-lost", "prompter"],
-    ["rundown-previous-value", "rundowns"],
-    ["rundown-next-week", "rundowns"],
-    ["rundown-print", "rundowns"],
+    ["rundown-time", null],
+    ["rundown-prompter", null],
+    ["rundown-send", null],
+    ["rundown-feed-lost", null],
+    ["rundown-previous-value", null],
+    ["rundown-next-week", null],
+    ["rundown-print", null],
   ]);
 });
 

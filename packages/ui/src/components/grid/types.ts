@@ -58,6 +58,8 @@ export interface GridColumn {
   readonly resizeValueText?: (widthPx: number) => string;
   /** Custom inline editor; when omitted, the grid draws a text field. */
   readonly renderEditor?: (context: GridEditorContext) => ReactNode;
+  /** Optional Tour target attribute placed on this column's header cell. */
+  readonly tourTarget?: string;
 }
 
 /** Attention-coloured 6 px corner mark indicating a recent change by someone else. */
