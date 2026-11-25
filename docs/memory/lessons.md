@@ -4,6 +4,86 @@ Mistakes and near-misses, newest first, each with the rule that now prevents it.
 
 Each lesson has a title, a date and four parts: what happened, how it was caught, the rule, and what enforces the rule. "Enforced by" names the check or test file in backticks, or begins "Nothing yet" and says what will. A lesson is not rewritten after it merges, except to fix a typo or to update "Enforced by" when a check arrives.
 
+## New SQLite indexes belong in a new numbered migration, never an earlier one
+
+- Date: 2026-11-25
+
+### What happened
+
+Eight new `CREATE INDEX IF NOT EXISTS` statements were added inside historical migrations 4, 5 and 6 while leaving `STORAGE_SCHEMA_VERSION` at 9. Because `migrate()` exits immediately when `user_version` already equals `steps.length`, every existing SQLite database upgraded from version 9 skipped all eight indexes silently.
+
+### How it was caught
+
+By senior code review checking migration placement against `packages/storage/src/sqlite/files.ts` and `packages/storage/src/sqlite/migrations.ts`.
+
+### Rule
+
+Never edit an earlier migration step after it has merged. Append a new numbered migration entry across all three migration lists (`control`, `documents`, `checkpoints`) and bump `STORAGE_SCHEMA_VERSION` so existing databases receive the change on open.
+
+### Enforced by
+
+`packages/storage/test/schema-golden.test.ts`, which pins the schema at version 10 and tests upgrading an existing version 9 database to version 10 with all eight new indexes created.
+
+## Unhashed service worker assets must never use CacheFirst in an unversioned cache
+
+- Date: 2026-11-25
+
+### What happened
+
+Removing `/ink-compile.worker.js` from the revisioned precache manifest and matching all `.js` files with a `CacheFirst` route in a static `manent-runtime-assets-v1` cache would have pinned the first-visited Ink worker permanently across deploys and accumulated stale hashed chunks without cleanup.
+
+### How it was caught
+
+By senior code review tracing unhashed worker URLs and cache lifecycles across `apps/web/build.ts`, `apps/web/src/sw/precache.ts` and `apps/web/src/sw/worker.ts`.
+
+### Rule
+
+Restrict `CacheFirst` runtime caching to content-hashed asset URLs (`-[a-z0-9]{8}\.`), serve unhashed workers `NetworkFirst`, version runtime caches with the build ID (`__BUILD_ID`), and prune older runtime caches during the service worker `activate` event.
+
+### Enforced by
+
+`apps/web/test/sw-manifest.test.ts` and `apps/web/test/build.test.ts`, which verify hashed `CacheFirst` matching, `NetworkFirst` routing for the unhashed Ink worker, exclusion of the service worker and API routes, and deletion of older versioned runtime caches on activation.
+
+## Never reuse Yjs client IDs across sessions or downgrade primary SQLite durability defaults
+
+- Date: 2026-11-25
+
+### What happened
+
+An attempt to reuse the last persisted Yjs `clientId` on document reopen could collide with server-reserved IDs (`reserveClientId`) and still-live follower tabs, risking silent CRDT item-ID collisions. Separately, flipping `openDatabase()`'s default durability from `"full"` to `"normal"` silently removed `synchronous = FULL` and macOS `fullfsync` from primary `control.sqlite` and project document logs.
+
+### How it was caught
+
+By senior code review auditing CRDT client-ID lifetimes across `packages/sync-client` and SQLite pragma defaults across `packages/storage`.
+
+### Rule
+
+Always mint a fresh Yjs `clientId` per session; keep `openDatabase()` defaulting to `"full"` durability and opt into `"normal"` or `"off"` explicitly only for reconstructible derived caches (`.checkpoints.sqlite`, `search.sqlite`) or disposable staging directories.
+
+### Enforced by
+
+`packages/sync-client/test/client.test.ts` (asserting one fresh client ID per session, never reused) and `packages/storage/test/queries.test.ts` (querying live `PRAGMA synchronous`, `fullfsync`, `cache_size` and `temp_store` values for primary, checkpoint and staging databases).
+
+## ProseMirror DecorationSet.find is inclusive at both ends
+
+- Date: 2026-11-25
+
+### What happened
+
+`redrawChanges` in `packages/editor/src/changes/decorations.ts` called `mapped.find(start, end, ...)` and filtered `.filter((d) => d.from >= start)` to protect the node decoration of the preceding block (`first - 1`), but did not filter `d.to <= end`. When the block immediately following a replaced range shared a boundary at `end`, `find` returned its `Decoration.node` and stripped it while leaving its inner inline decoration behind.
+
+### How it was caught
+
+By the fast-check property test in `packages/editor/test/changes-plugin.test.ts` during full verification (`bun run verify`).
+
+### Rule
+
+When removing decorations inside a half-open block range `[start, end)` from `DecorationSet.find(start, end)`, filter both `d.from >= start` and `d.to <= end` so zero-width widgets at either boundary are removed while neighbouring `Decoration.node` ranges touching `start` or `end` stay intact.
+
+### Enforced by
+
+`packages/editor/test/changes-plugin.test.ts`, which compares incremental change decorations against a fresh full comparison across random edit and move sequences.
+
 ## Multi-column gutter markers overflowed a single-column desk gutter behind the side panel
 
 - Date: 2026-11-25
