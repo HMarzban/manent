@@ -1,7 +1,13 @@
 // What the message slot says of a script setting's change: made here, with its Undo, or arriving from another person.
 import { SETTINGS } from "@manent/settings";
 import type { SettingKey, SettingValue, SettingsStore } from "@manent/settings";
-import { DOCUMENT_WORDS, formatSettingValue, messageFor } from "@manent/ui";
+import {
+  DOCUMENT_WORDS,
+  LAYOUT_SETTINGS_WORDS,
+  formatSettingValue,
+  messageFor,
+} from "@manent/ui";
+import type { Message } from "@manent/ui";
 import { useEffect } from "react";
 import { useServices } from "../../services/context.tsx";
 import type { DocumentServices, PersonServices } from "../../services/ports.ts";
@@ -28,6 +34,22 @@ const nounOf = (key: SettingKey): string => {
   return def.noun ?? def.label;
 };
 
+interface EnginePageDelta {
+  readonly pagesBefore: number;
+  readonly pagesAfter: number;
+}
+
+const pendingPageDeltas = new WeakMap<SettingsStore, EnginePageDelta>();
+
+/** Records the before/after page counts for the next local `script.engineVersion` change through `store`. */
+export function recordEnginePageDelta(
+  store: SettingsStore,
+  pagesBefore: number,
+  pagesAfter: number,
+): void {
+  pendingPageDeltas.set(store, { pagesBefore, pagesAfter });
+}
+
 /** How a value is named: as its row names it, but a switch "on" or "off" in a message. */
 export function valueLabel(
   key: SettingKey,
@@ -36,6 +58,8 @@ export function valueLabel(
 ): string {
   if (inMessage === "message" && SETTINGS.get(key).type.kind === "boolean")
     return value === true ? DOCUMENT_WORDS.switchOn : DOCUMENT_WORDS.switchOff;
+  if (key === "script.linesPerPage" && value === null)
+    return LAYOUT_SETTINGS_WORDS.theFormatsFigure;
   return formatSettingValue(key, value);
 }
 
@@ -46,6 +70,33 @@ export const nameOf = (
 ): string | null =>
   people.find((person) => person.userId === userId)?.name ?? null;
 
+function localSettingMessage(
+  key: SettingKey,
+  after: unknown,
+  delta: EnginePageDelta | undefined,
+): Message {
+  const label = valueLabel(key, after, "message");
+  if (key === "script.sceneNumbers") {
+    return {
+      id: "setting_changed",
+      text: LAYOUT_SETTINGS_WORDS.sceneNumbersNow(label),
+      actions: [
+        { label: LAYOUT_SETTINGS_WORDS.undo, commandId: "settings.undo" },
+      ],
+      lifetime: "reverse",
+      ownWork: false,
+    };
+  }
+  return messageFor({
+    kind: "setting_changed",
+    byName: null,
+    noun: nounOf(key),
+    valueLabel: label,
+    pagesBefore: delta?.pagesBefore ?? null,
+    pagesAfter: delta?.pagesAfter ?? null,
+  });
+}
+
 /** The script's store, saying each change or reset of one key made through it, with an Undo that sets the value it replaced back. */
 export function announcing(
   store: SettingsStore,
@@ -54,28 +105,27 @@ export function announcing(
   const announce = (
     key: SettingKey,
     before: SettingValue<SettingKey>,
+    delta?: EnginePageDelta,
   ): void => {
     const after = store.get(key);
     if (Object.is(after, before) || !isSaidHere(key)) return;
-    const message = messageFor({
-      kind: "setting_changed",
-      byName: null,
-      noun: nounOf(key),
-      valueLabel: valueLabel(key, after, "message"),
-      pagesBefore: null,
-      pagesAfter: null,
-    });
+    const message = localSettingMessage(key, after, delta);
     // put back through the store itself, so the undo says nothing of its own
     services.reverses.set(message.id, () => store.set(key, before));
     services.messages.push(message);
   };
-  return {
+  const wrapped: SettingsStore = {
     get: (key) => store.get(key),
     explain: (key) => store.explain(key),
     set(key, value) {
+      const delta =
+        key === "script.engineVersion"
+          ? pendingPageDeltas.get(wrapped)
+          : undefined;
+      if (delta !== undefined) pendingPageDeltas.delete(wrapped);
       const before = store.get(key);
       const result = store.set(key, value);
-      if (result.ok) announce(key, before);
+      if (result.ok) announce(key, before, delta);
       return result;
     },
     hold: (key) => store.hold(key),
@@ -90,6 +140,7 @@ export function announcing(
     subscribe: (key, listener) => store.subscribe(key, listener),
     modified: (scope) => store.modified(scope),
   };
+  return wrapped;
 }
 
 /** While `doc` is shown, a script setting another person changed is said in the message slot with their name. */

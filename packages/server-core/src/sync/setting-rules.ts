@@ -1,4 +1,5 @@
 // The keys a script's settings map may hold, read from the settings' own definitions.
+import { engineFor } from "@manent/pagination";
 import { SETTINGS } from "@manent/settings";
 import type { SettingDefinition } from "@manent/settings";
 import type { SettingRules } from "./ports.ts";
@@ -17,6 +18,12 @@ export function settingRulesFrom(
       const definition = scripts.get(key);
       if (definition === undefined) return { ok: false, code: "unknown_key" };
       if (!definition.type.parse(value).ok)
+        return { ok: false, code: "bad_value" };
+      // An engine pin may name only a layout engine this server carries (including lower ones for Undo).
+      if (
+        key === "script.engineVersion" &&
+        (typeof value !== "number" || engineFor(value) === null)
+      )
         return { ok: false, code: "bad_value" };
       return { ok: true };
     },

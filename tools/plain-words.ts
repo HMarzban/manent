@@ -59,5 +59,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   aren't, joined, json, problems, utf-8, xml,
   voice,
   ended, many,
-  csv, estimate, estimated, exterior, interior, like, location, minute, pickup, report
+  csv, estimate, estimated, exterior, interior, like, location, minute, pickup, report,
+  counting, figure, most, per
 `);

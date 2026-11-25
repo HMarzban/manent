@@ -100,8 +100,16 @@ export function decorationsFor(
   };
   eachBlock(index, from, to, (i, pos, node) => {
     const attrs = blockAttrs(context, i);
-    if (attrs !== null)
-      decorations.push(Decoration.node(pos, pos + node.nodeSize, attrs));
+    if (attrs !== null) {
+      const nodeAttrs =
+        "data-scene" in attrs
+          ? {
+              ...attrs,
+              "data-scene-sides": p.profile.furniture.sceneNumberSides,
+            }
+          : attrs;
+      decorations.push(Decoration.node(pos, pos + node.nodeSize, nodeAttrs));
+    }
     const cast = engine.castList(p, i);
     if (cast !== null)
       decorations.push(

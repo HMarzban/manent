@@ -116,12 +116,14 @@ function addNumbers(
     !isSceneHeading(keyAt(p.blocks, i))
   )
     return;
+  const sides = p.profile.furniture.sceneNumberSides;
+  if (sides === "none") return;
   const number = sceneNumber(p, i)!;
   const left = furnitureLine("scene_number", 0, y, number);
-  lines.push(
-    { ...left, x: -SCENE_NUMBER_GAP - left.cells },
-    { ...left, x: p.profile.columnCells + SCENE_NUMBER_GAP },
-  );
+  if (sides === "left" || sides === "both")
+    lines.push({ ...left, x: -SCENE_NUMBER_GAP - left.cells });
+  if (sides === "right" || sides === "both")
+    lines.push({ ...left, x: p.profile.columnCells + SCENE_NUMBER_GAP });
 }
 
 // A text line sits on the last unit of its slot, whose top is `top`.

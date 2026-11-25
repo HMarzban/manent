@@ -163,6 +163,16 @@ img.ProseMirror-separator {
 .el[data-scene]::after {
   left: calc((var(--geo-column) + 2 - var(--el-indent) + var(--el-slack-left)) * var(--geo-cell));
 }
+.el[data-scene][data-scene-sides="left"]::after {
+  content: none;
+}
+.el[data-scene][data-scene-sides="right"]::before {
+  content: none;
+}
+.el[data-scene][data-scene-sides="none"]::before,
+.el[data-scene][data-scene-sides="none"]::after {
+  content: none;
+}
 .el[data-speech] {
   position: relative;
 }
