@@ -1,2 +1,2 @@
 // Workspace storage exports.
-export {};
+export { createSqliteWorkspaceSettings } from "./sqlite.ts";
