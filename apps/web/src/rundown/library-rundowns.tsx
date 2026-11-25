@@ -5,6 +5,7 @@ import {
   READOUT_WORDS,
   RUNDOWN_WORDS,
   Row,
+  Skeleton,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -41,6 +42,8 @@ import type {
 } from "./library-rundowns-data.ts";
 
 const VIRTUAL_LIMIT = 100;
+const EMPTY_SET: ReadonlySet<string> = new Set();
+const SKELETON_WIDTHS = ["w-32", "w-28", "w-36"] as const;
 const COL_AIR = "w-16 shrink-0 tabular-nums";
 const COL_ROWS = "hidden w-20 shrink-0 tabular-nums @lg:block";
 const COL_STORY_ROW = "w-20 shrink-0 tabular-nums";
@@ -49,27 +52,22 @@ const ROW_ITEMS = PROJECT_ROW_ITEMS.filter((item) =>
   item.targets.includes("project"),
 );
 
-// Mounted Show/News project creators for the `rundown.new` library command slot.
 const libraryNewHandlers = new Map<string, () => void>();
 let activeLibraryProject: string | null = null;
-
-function dispatchLibraryNew(): void {
+const dispatchLibraryNew = (): void => {
   const active =
     activeLibraryProject === null
       ? undefined
       : libraryNewHandlers.get(activeLibraryProject);
-  const run = active ?? [...libraryNewHandlers.values()].at(-1);
-  run?.();
-}
-
-function syncLibrarySlot(): void {
+  (active ?? [...libraryNewHandlers.values()].at(-1))?.();
+};
+const syncLibrarySlot = (): void =>
   rundownActions.provide(
     "library",
     libraryNewHandlers.size === 0
       ? Object.freeze({})
       : Object.freeze({ new: dispatchLibraryNew }),
   );
-}
 
 type FlatRow =
   | { readonly kind: "rundown"; readonly item: RundownViewItem }
@@ -88,25 +86,24 @@ function NewRundownButton(props: {
   readonly reason: string | null;
   readonly onClick: () => void;
 }): ReactNode {
-  const { disabled, reason, onClick } = props;
   const button = (
     <Button
       variant="outline"
       size="sm"
-      disabled={disabled}
-      className={disabled ? "cursor-not-allowed" : "cursor-pointer"}
-      onClick={onClick}
+      disabled={props.disabled}
+      className={props.disabled ? "cursor-not-allowed" : "cursor-pointer"}
+      onClick={props.onClick}
     >
       <PlusIcon aria-hidden="true" data-icon="inline-start" />
       {RUNDOWN_WORDS.newRundown}
     </Button>
   );
-  if (reason === null) return button;
+  if (props.reason === null) return button;
   return (
     <Tooltip>
       <TooltipTrigger render={button} />
       <TooltipContent>
-        {READOUT_WORDS.unavailable(RUNDOWN_WORDS.newRundown, reason)}
+        {READOUT_WORDS.unavailable(RUNDOWN_WORDS.newRundown, props.reason)}
       </TooltipContent>
     </Tooltip>
   );
@@ -121,15 +118,14 @@ function RundownListRow(props: {
   readonly onOpen: () => void;
 }): ReactNode {
   const { item, expanded, shell, now, onToggle, onOpen } = props;
-  const formattedDate =
-    item.airDate === "" ? "" : formatAirDate(item.airDate, now);
+  const fallback =
+    item.fallbackTitle !== "" &&
+    item.fallbackTitle !== LIBRARY_WORDS.untitledScript
+      ? item.fallbackTitle
+      : RUNDOWN_WORDS.dash;
   const dateLabel =
-    formattedDate !== ""
-      ? formattedDate
-      : item.fallbackTitle !== "" &&
-          item.fallbackTitle !== LIBRARY_WORDS.untitledScript
-        ? item.fallbackTitle
-        : RUNDOWN_WORDS.dash;
+    (item.airDate === "" ? "" : formatAirDate(item.airDate, now)) || fallback;
+  const ToggleIcon = expanded ? ChevronDownIcon : ChevronRightIcon;
   const { trailing, ...place } = placeProps(item.place, shell);
   return (
     <Row onActivate={onOpen} trailing={trailing} {...place}>
@@ -141,17 +137,10 @@ function RundownListRow(props: {
               aria-expanded={expanded}
               aria-label={dateLabel}
               className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-control text-fg-muted hover:bg-subtle hover:text-fg"
-              onClick={(event) => {
-                stopRowEvent(event);
-                onToggle();
-              }}
+              onClick={(event) => (stopRowEvent(event), onToggle())}
               onKeyDown={stopRowEvent}
             >
-              {expanded ? (
-                <ChevronDownIcon aria-hidden="true" className="size-icon" />
-              ) : (
-                <ChevronRightIcon aria-hidden="true" className="size-icon" />
-              )}
+              <ToggleIcon aria-hidden="true" className="size-icon" />
             </button>
           ) : (
             <span aria-hidden="true" className="size-6 shrink-0" />
@@ -201,6 +190,34 @@ function StoryListRow(props: {
   );
 }
 
+function RundownsSkeleton(): ReactNode {
+  return (
+    <div
+      aria-busy="true"
+      data-tour="library:rundowns"
+      className="mn-table flex flex-col"
+    >
+      <div aria-hidden="true" className="flex flex-col">
+        <div className="mn-table-head flex items-center gap-2 px-3">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="ms-auto h-3 w-12 shrink-0" />
+          <Skeleton className="h-3 w-16 shrink-0" />
+        </div>
+        {SKELETON_WIDTHS.map((width, index) => (
+          <div
+            key={index}
+            className="flex min-h-row items-center gap-2 border-t border-line px-3 first:border-t-0"
+          >
+            <Skeleton className={cn("h-3.5", width)} />
+            <Skeleton className="ms-auto h-3.5 w-12 shrink-0" />
+            <Skeleton className="h-3.5 w-16 shrink-0" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** A Show or News project in the Library: rundowns listed by date, nested stories, and New rundown. */
 export function RundownsView(props: ProjectViewProps): ReactNode {
   const { project, shell, now, open } = props;
@@ -209,14 +226,10 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
   const data = useRundownsData(project.projectId);
   const newCmd = useCommandState("rundown.new");
   const [creating, setCreating] = useState(false);
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(EMPTY_SET);
 
   const disabled =
     !data.canEdit || !newCmd.enabled || data.workspaceId === null || creating;
-  const disabledReason = newCmd.whyNot;
-
   const onNewRundown = (): void => {
     if (disabled || data.workspaceId === null) return;
     setCreating(true);
@@ -225,12 +238,7 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
       workspaceId: data.workspaceId,
       projectId: project.projectId,
       kind: asRundownProjectKind(project.kind),
-      existing: data.rundowns.map((item) => ({
-        airDate: item.airDate,
-        airAt: item.airAt,
-        targetMs: item.targetMs,
-        createdAt: item.createdAt,
-      })),
+      existing: data.rundowns,
       nowMs: clockNow(),
     })
       .then((created) => open(created.docId))
@@ -243,7 +251,7 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
   useEffect(() => {
     const id = project.projectId;
     libraryNewHandlers.set(id, () => newRef.current());
-    if (activeLibraryProject === null) activeLibraryProject = id;
+    activeLibraryProject ??= id;
     syncLibrarySlot();
     return () => {
       libraryNewHandlers.delete(id);
@@ -253,57 +261,57 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
     };
   }, [project.projectId]);
 
-  const markActive = (): void => {
+  const markActive = () => {
     activeLibraryProject = project.projectId;
   };
-
-  const toggleExpanded = (docId: string): void => {
+  const toggleExpanded = (docId: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
-      if (next.has(docId)) next.delete(docId);
-      else next.add(docId);
+      if (!next.delete(docId)) next.add(docId);
       return next;
     });
-  };
 
-  const flatRows = useMemo<readonly FlatRow[]>(() => {
-    const rows: FlatRow[] = [];
-    for (const item of data.rundowns) {
-      rows.push({ kind: "rundown", item });
-      if (!collapsed.has(item.docId)) {
-        for (const story of item.stories) rows.push({ kind: "story", story });
-      }
-    }
-    return rows;
-  }, [data.rundowns, collapsed]);
+  const flatRows = useMemo<readonly FlatRow[]>(
+    () =>
+      data.rundowns.flatMap((item) => [
+        { kind: "rundown" as const, item },
+        ...(collapsed.has(item.docId)
+          ? []
+          : item.stories.map((story) => ({ kind: "story" as const, story }))),
+      ]),
+    [data.rundowns, collapsed],
+  );
 
   const renderRow = (index: number): ReactNode => {
     const entry = flatRows[index];
     if (entry === undefined) return null;
-    if (entry.kind === "rundown") {
-      return (
-        <RundownListRow
-          item={entry.item}
-          expanded={!collapsed.has(entry.item.docId)}
-          shell={shell}
-          now={now}
-          onToggle={() => toggleExpanded(entry.item.docId)}
-          onOpen={() => open(entry.item.docId)}
-        />
-      );
-    }
-    return (
+    return entry.kind === "story" ? (
       <StoryListRow
         story={entry.story}
         shell={shell}
         now={now}
         onOpen={() => open(entry.story.docId)}
       />
+    ) : (
+      <RundownListRow
+        item={entry.item}
+        expanded={!collapsed.has(entry.item.docId)}
+        shell={shell}
+        now={now}
+        onToggle={() => toggleExpanded(entry.item.docId)}
+        onOpen={() => open(entry.item.docId)}
+      />
     );
   };
 
-  const showMenu =
-    ROW_ITEMS.length > 0 && project.place.kind !== "not_on_device";
+  const loading = data.rundowns.length === 0 && !data.loaded;
+  const newButton = (
+    <NewRundownButton
+      disabled={disabled}
+      reason={newCmd.whyNot}
+      onClick={onNewRundown}
+    />
+  );
 
   return (
     <section
@@ -320,7 +328,7 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
           />
           <h2 className="min-w-0 truncate text-title">{project.title}</h2>
         </span>
-        {showMenu ? (
+        {ROW_ITEMS.length > 0 && project.place.kind !== "not_on_device" ? (
           <RowMenu title={project.title}>
             {ROW_ITEMS.map(({ id, Item }) => (
               <Item
@@ -332,23 +340,17 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
             ))}
           </RowMenu>
         ) : null}
-        <NewRundownButton
-          disabled={disabled}
-          reason={disabledReason}
-          onClick={onNewRundown}
-        />
+        {newButton}
       </div>
-      {data.rundowns.length === 0 ? (
+      {loading ? (
+        <RundownsSkeleton />
+      ) : data.rundowns.length === 0 ? (
         <div
           data-tour="library:rundowns"
           className="flex flex-col items-start gap-2 py-3"
         >
           <p className="text-ui text-fg-muted">{RUNDOWN_WORDS.noRundownsYet}</p>
-          <NewRundownButton
-            disabled={disabled}
-            reason={disabledReason}
-            onClick={onNewRundown}
-          />
+          {newButton}
         </div>
       ) : (
         <div

@@ -51,7 +51,10 @@ const MODES: readonly ChangesMode[] = [
 
 // a menu button's mark, after its words
 const CHEVRON = (
-  <ChevronDownIcon aria-hidden="true" className="size-icon text-fg-muted" />
+  <ChevronDownIcon
+    aria-hidden="true"
+    className="size-icon shrink-0 text-fg-muted"
+  />
 );
 
 const isMode = (value: unknown): value is ChangesMode =>
@@ -154,19 +157,27 @@ function BaselineMenu(props: {
   const sinceOpened =
     lastOpened === null ? null : sinceOpenedBaseline(lastOpened);
   return (
-    <div className="flex items-center gap-2 text-ui">
+    <div className="flex flex-wrap items-center gap-2 text-ui">
       <span>{HISTORY_WORDS.changesSince}</span>
       <DropdownMenu>
         <DropdownMenuTrigger
           data-changes-since=""
-          render={<Button variant="outline" size="sm" />}
+          render={
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-w-0 max-w-full"
+            />
+          }
         >
           {props.offered === null ? (
-            <span className="text-fg-muted">
+            <span className="truncate text-fg-muted">
               {HISTORY_WORDS.chooseBaseline}
             </span>
           ) : (
-            props.offered.title
+            <span className="truncate" title={props.offered.title}>
+              {props.offered.title}
+            </span>
           )}
           {CHEVRON}
         </DropdownMenuTrigger>
@@ -213,13 +224,16 @@ function ShowModes(props: { offered: HistoryState["baseline"] }): ReactNode {
         }}
       >
         {MODES.map((choice, index) => (
-          <span key={choice} className="flex items-center gap-2">
+          <label
+            key={choice}
+            className="flex cursor-pointer items-center gap-2"
+          >
             <RadioGroupItem
               value={choice}
               aria-labelledby={`${id}-${choice}`}
             />
             <span id={`${id}-${choice}`}>{HISTORY_WORDS.modes[index]}</span>
-          </span>
+          </label>
         ))}
       </RadioGroup>
     </div>

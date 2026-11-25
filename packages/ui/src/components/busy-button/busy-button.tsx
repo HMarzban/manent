@@ -48,6 +48,7 @@ export function BusyButton({
       {...props}
       ref={measure}
       disabled={disabled === true || busy}
+      aria-busy={busy || undefined}
       focusableWhenDisabled
       style={busy && idleWidthPx !== null ? { width: idleWidthPx } : undefined}
     >

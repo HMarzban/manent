@@ -15,6 +15,7 @@ import { clearDraftSends } from "./sends.ts";
 export interface DraftSendAccess {
   readonly available: boolean;
   readonly ready: boolean;
+  readonly pending: boolean;
   readonly online: boolean;
   readonly offered: OfferedTo;
 }
@@ -137,8 +138,9 @@ export function useDraftSendAccess(docId: string): DraftSendAccess {
     statusEditable &&
     (roleState === "editor" ||
       (roleState === "unverified" && !online && authenticated));
+  const pending = opened === null || roleState === "pending";
 
-  return { available, ready, online, offered };
+  return { available, ready, pending, online, offered };
 }
 
 const readGroupList = (doc: CrdtDoc): readonly GroupEntry[] => [

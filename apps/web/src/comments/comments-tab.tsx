@@ -1,6 +1,6 @@
 // The right panel's Comments tab: exclusive filters (Open, Mine, Writers only, rounds), thread rows and empty states.
 import type { Choice, SettingValue } from "@manent/settings";
-import { COMMENTS_WORDS, HISTORY_WORDS, Segmented } from "@manent/ui";
+import { COMMENTS_WORDS, HISTORY_WORDS, Segmented, Skeleton } from "@manent/ui";
 import { useCallback, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { useEnvironment, useServices } from "../services/context.tsx";
@@ -23,6 +23,29 @@ function useScriptFormat(docId: string | null): SettingValue<"script.format"> {
     [store],
   );
   return useSyncExternalStore(subscribe, () => store.get("script.format"));
+}
+
+const SKELETON_CARDS = [
+  { author: "w-28", line: "w-4/5" },
+  { author: "w-32", line: "w-2/3" },
+  { author: "w-24", line: "w-3/4" },
+] as const;
+
+function CommentsSkeleton(): ReactNode {
+  return (
+    <div aria-busy="true" className="divide-y divide-line">
+      {SKELETON_CARDS.map((card, index) => (
+        <div key={index} aria-hidden="true" className="flex flex-col gap-2 p-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="size-avatar-sm shrink-0 rounded-full" />
+            <Skeleton className={`h-3 ${card.author}`} />
+          </div>
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className={`h-3 ${card.line}`} />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function CommentsTab(props: { docId: string | null }): ReactNode {
@@ -58,8 +81,8 @@ function CommentsTab(props: { docId: string | null }): ReactNode {
         : COMMENTS_WORDS.emptyOther;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-col gap-2 border-b border-line p-3">
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 flex-col gap-2 border-b border-line p-3">
         <Segmented
           label={HISTORY_WORDS.filter}
           size="sm"
@@ -84,7 +107,9 @@ function CommentsTab(props: { docId: string | null }): ReactNode {
           </div>
         )}
       </div>
-      {isEmpty ? (
+      {state.loading && isEmpty ? (
+        <CommentsSkeleton />
+      ) : isEmpty ? (
         <div className="p-4">
           <p className="text-ui text-fg-muted">{emptyText}</p>
         </div>

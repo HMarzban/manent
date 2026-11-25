@@ -3,6 +3,7 @@ import {
   Button,
   DESKTOP_WORDS,
   PREFERENCES_WORDS,
+  Skeleton,
   useSubscribable,
 } from "@manent/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -34,6 +35,7 @@ function ActionRow(props: {
 
 export interface DesktopDevice {
   rows: DesktopDeviceRows;
+  loadingUsage: boolean;
   showLibrary(): void;
   showFolder(): void;
   checkForUpdates(): void;
@@ -46,15 +48,34 @@ export interface DesktopDevice {
 function useDesktopDevice(host: DesktopHost): DesktopDevice {
   const { dom, updateState } = useEnvironment();
   const { commands } = useServices();
-  const [usage, setUsage] = useState<{ scripts: number; bytes: number } | null>(
-    null,
-  );
+  const [usage, setUsage] = useState<
+    { scripts: number; bytes: number } | null | undefined
+  >(undefined);
+  const mounted = useRef(true);
+  const requestId = useRef(0);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const readUsage = useCallback(() => {
-    void host.storage().then(setUsage);
+    const id = ++requestId.current;
+    void host.storage().then(
+      (result) => {
+        if (mounted.current && requestId.current === id) setUsage(result);
+      },
+      () => {
+        if (mounted.current && requestId.current === id) setUsage(null);
+      },
+    );
   }, [host]);
-  useEffect(readUsage, [readUsage]);
+  useEffect(() => {
+    setUsage(undefined);
+    readUsage();
+  }, [readUsage]);
   const update = useSubscribable(updateState);
-  const rows = desktopDeviceRows({ host, usage, update });
+  const rows = desktopDeviceRows({ host, usage: usage ?? null, update });
   const { line } = rows.update;
   // the line the pane opened with was said when it came
   const said = useRef(line);
@@ -64,6 +85,7 @@ function useDesktopDevice(host: DesktopHost): DesktopDevice {
   }, [line, dom]);
   return {
     rows,
+    loadingUsage: usage === undefined,
     showLibrary: () => void commands.run("app.library", "control"),
     showFolder() {
       host.send({ v: 1, t: "show_folder" });
@@ -76,12 +98,36 @@ function useDesktopDevice(host: DesktopHost): DesktopDevice {
   };
 }
 
-/** What the node stores, and the folder it keeps it in; nothing but the heading until the node answers. */
+const PLACEHOLDER_ROWS = 2;
+
+function StoredRowsSkeleton(): ReactNode {
+  return (
+    <div aria-busy="true" className="flex flex-col">
+      {Array.from({ length: PLACEHOLDER_ROWS }, (_, index) => (
+        <div
+          key={index}
+          aria-hidden="true"
+          className="flex min-h-row items-center justify-between gap-4"
+        >
+          <Skeleton className="h-3.5 w-16 shrink-0" />
+          <Skeleton className="h-3.5 max-w-48 grow" />
+          <Skeleton className="h-control-sm w-24 shrink-0" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** What the node stores, and the folder it keeps it in; placeholder rows until the node answers. */
 function DesktopStoredHere(props: { device: DesktopDevice }): ReactNode {
-  const { rows, showLibrary, showFolder } = props.device;
+  const { rows, loadingUsage, showLibrary, showFolder } = props.device;
   return (
     <Group heading={PREFERENCES_WORDS.storedHere}>
-      {rows.stored === null ? null : (
+      {rows.stored === null ? (
+        loadingUsage ? (
+          <StoredRowsSkeleton />
+        ) : null
+      ) : (
         <>
           <ActionRow
             label={DESKTOP_WORDS.scriptsRow}

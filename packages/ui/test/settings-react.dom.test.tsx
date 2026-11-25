@@ -356,3 +356,56 @@ test("Interface size is a segmented control, and a long choice list a select", (
     host.querySelectorAll('[role="radiogroup"]').length,
   ]).toEqual([["100 %", "125 %", "150 %", "200 %"], 1, 0]);
 });
+
+test("clicking a radio label chooses that option, and a read-only setting disables reset and segmented controls", () => {
+  systemPrefers("light");
+  const store = createStore();
+  const host = render(
+    <SettingsProvider store={store}>
+      <SettingRow settingKey="appearance.theme" deviceName={null} persisted />
+    </SettingsProvider>,
+  );
+  const darkLabel = [...host.querySelectorAll("label")].find(
+    (node) => node.textContent === "Dark",
+  );
+  act(() => {
+    darkLabel?.click();
+  });
+  const readOnlyBag = createMemoryBag({
+    initial: { "device.interfaceSize": "125" },
+    writable: () => false,
+  });
+  const lockedStore = createSettingsStore({
+    registry: SETTINGS,
+    bags: {
+      personal: memoryBag(),
+      device: readOnlyBag,
+      script: memoryBag(),
+      project: null,
+    },
+    beforeWrite: noop,
+    deferRemote: (apply) => apply(),
+    locked: () => false,
+  });
+  const lockedHost = render(
+    <SettingsProvider store={lockedStore}>
+      <SettingRow
+        settingKey="device.interfaceSize"
+        deviceName={null}
+        persisted
+      />
+    </SettingsProvider>,
+  );
+  const reset = [...lockedHost.querySelectorAll("button")].find(
+    (button) => button.textContent === "Reset",
+  );
+  const segments = [
+    ...lockedHost.querySelectorAll<HTMLButtonElement>("[aria-pressed]"),
+  ];
+  expect([
+    darkLabel !== undefined,
+    store.get("appearance.theme"),
+    reset?.disabled,
+    segments.every((segment) => segment.disabled),
+  ]).toEqual([true, "dark", true, true]);
+});

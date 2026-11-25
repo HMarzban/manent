@@ -277,49 +277,57 @@ function startEdit(entry: CommentsEntry, home: string | null): void {
     });
 }
 
+const isSettled = (status: StatusFacts): boolean =>
+  status.network === "offline" ||
+  status.neverSynced ||
+  status.server !== "syncing";
+
+function finishLoading(entry: CommentsEntry): void {
+  if (!entry.state.loading) return;
+  entry.state = { ...entry.state, loading: false };
+  emitComments(entry);
+}
+
 function ensureOpen(entry: CommentsEntry, status: StatusFacts): void {
   if (entry.closed) return;
   if (isAccessLost(status.server)) {
     closeHandles(entry);
-    return;
+    return finishLoading(entry);
   }
-  if (status.access === "view" || status.access === "too_old") {
-    startView(entry);
-    return;
-  }
+  if (status.access === "view" || status.access === "too_old")
+    return startView(entry);
   if (entry.openingMode === "edit") return;
-  const projectId = entry.services.library.documentProject(entry.docId).get();
-  const home = projectId === null ? null : projectHome(projectId);
+  const homeOf = (): string | null => {
+    const projectId = entry.services.library.documentProject(entry.docId).get();
+    return projectId === null ? null : projectHome(projectId);
+  };
+  const home = homeOf();
   const offlineOrLocal = status.network === "offline" || status.neverSynced;
-  const settled = offlineOrLocal || status.server !== "syncing";
   // Never create fresh local meta without `home` while online: wait for the index's projectId so POST /api/docs receives `create`.
-  if (settled && (home !== null || offlineOrLocal)) {
-    startEdit(entry, home);
-    return;
-  }
+  if (isSettled(status) && (home !== null || offlineOrLocal))
+    return startEdit(entry, home);
   if (entry.checkingDevice) return;
   entry.checkingDevice = true;
+  const finishIfSettled = (): void => {
+    if (entry.closed || entry.openingMode !== "none") return;
+    const latest = entry.docServices.status.get();
+    if (isAccessLost(latest.server) || (isSettled(latest) && homeOf() === null))
+      finishLoading(entry);
+  };
   void entry.services
     .onDevice([commentsDocId(entry.docId)])
     .then((held) => {
       entry.checkingDevice = false;
       if (entry.closed || entry.openingMode !== "none") return;
       const latest = entry.docServices.status.get();
-      if (
-        isAccessLost(latest.server) ||
-        latest.access === "view" ||
-        latest.access === "too_old"
-      )
-        return;
-      const latestProject = entry.services.library
-        .documentProject(entry.docId)
-        .get();
-      const latestHome =
-        latestProject === null ? null : projectHome(latestProject);
-      if (held.has(commentsDocId(entry.docId))) startEdit(entry, latestHome);
+      if (isAccessLost(latest.server)) return finishLoading(entry);
+      if (latest.access === "view" || latest.access === "too_old") return;
+      if (held.has(commentsDocId(entry.docId))) startEdit(entry, homeOf());
+      else finishIfSettled();
     })
     .catch(() => {
       entry.checkingDevice = false;
+      finishIfSettled();
     });
 }
 

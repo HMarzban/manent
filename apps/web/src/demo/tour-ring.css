@@ -12,3 +12,16 @@
   outline: 2px solid var(--tour-ring);
   outline-offset: -2px;
 }
+@media (forced-colors: active) {
+  [data-tour-ring] {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+  [data-tour="page"][data-tour-ring] {
+    outline: none;
+  }
+  [data-region="page"]:has(> [data-tour="page"][data-tour-ring]) {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}

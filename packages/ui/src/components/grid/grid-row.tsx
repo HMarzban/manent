@@ -116,7 +116,7 @@ export function GridRowView({
           !row.current &&
           row.unavailable === undefined &&
           "hover:bg-subtle",
-        selected && "border border-focus",
+        selected && "ring-1 ring-inset ring-focus",
         row.unavailable !== undefined && "cursor-not-allowed text-fg-muted",
         isDragging &&
           "z-20 rounded-control border border-line bg-overlay shadow-overlay",

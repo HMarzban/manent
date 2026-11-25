@@ -1,6 +1,11 @@
 // What a link into a script's history opens: the History tab on the script, with the version as it was or the changes
 // since one; a version the script's history does not hold is said in place of the page.
-import { HISTORY_WORDS, LINKS_WORDS, useSubscribable } from "@manent/ui";
+import {
+  HISTORY_WORDS,
+  LINKS_WORDS,
+  Skeleton,
+  useSubscribable,
+} from "@manent/ui";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -118,7 +123,23 @@ function useOpenLink(
 }
 
 function NotInHistory(props: { shown: Shown }): ReactNode {
-  if (props.shown.kind === "waiting") return null;
+  if (props.shown.kind === "waiting") {
+    return (
+      <div
+        aria-busy="true"
+        className="flex min-h-0 flex-1 items-center justify-center bg-chrome p-12"
+      >
+        <div
+          aria-hidden="true"
+          className="mn-card flex w-full max-w-popover flex-col gap-3 p-6"
+        >
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3.5 w-3/4" />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col items-start gap-2 p-12 text-ui">
       <p role="alert">{LINKS_WORDS.notInHistory}</p>

@@ -38,11 +38,11 @@ export function ChecksSection(props: { docId: string }): ReactNode {
       <CollapsibleTrigger className="group/disclosure -mx-2 flex min-h-row items-center gap-1 rounded-control px-1 text-start text-ui font-semibold transition-colors hover:bg-subtle active:bg-control">
         <ChevronRightIcon
           aria-hidden="true"
-          className="size-icon shrink-0 text-fg-muted group-data-panel-open/disclosure:rotate-90"
+          className="size-icon shrink-0 text-fg-muted duration-(--dur-fast) ease-out group-hover/disclosure:text-fg group-data-panel-open/disclosure:rotate-90 motion-safe:transition-transform"
         />
         {CHECKS_WORDS.heading(checks.length)}
       </CollapsibleTrigger>
-      <CollapsibleContent>
+      <CollapsibleContent className="animate-in duration-(--dur-fast) ease-out fade-in-0">
         <ChecksList checks={checks} />
       </CollapsibleContent>
     </Collapsible>

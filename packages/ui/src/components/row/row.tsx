@@ -99,13 +99,21 @@ export function Row({
         )}
       </span>
       {currentLabel === undefined ? null : (
-        <span className="text-meta">{currentLabel}</span>
+        <span className="shrink-0 whitespace-nowrap text-meta">
+          {currentLabel}
+        </span>
       )}
       {unavailable === undefined ? null : (
-        <span className="text-meta">{unavailable}</span>
+        <span className="shrink-0 whitespace-nowrap text-meta">
+          {unavailable}
+        </span>
       )}
       {trailing.map((item, index) => (
-        <span key={index} data-trailing className="text-meta text-fg-muted">
+        <span
+          key={index}
+          data-trailing
+          className="shrink-0 text-meta text-fg-muted"
+        >
           {item}
         </span>
       ))}

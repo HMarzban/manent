@@ -114,8 +114,13 @@ function LineAboveButtons({
       </p>
     );
   }
-  if (stillWorking)
-    return <p className="text-ui text-fg-muted">{DIALOG_WORDS.stillWorking}</p>;
+  if (stillWorking) {
+    return (
+      <p role="status" aria-live="polite" className="text-ui text-fg-muted">
+        {DIALOG_WORDS.stillWorking}
+      </p>
+    );
+  }
   if (disabledLine === null) return null;
   return (
     <p id={lineId} className="text-ui text-fg-muted">
@@ -206,7 +211,7 @@ export function ConsequenceDialog({
           disabledLine={disabledLine}
           lineId={lineId}
         />
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button ref={cancelRef} variant="outline" onClick={onCancel}>
             {DIALOG_WORDS.cancel}
           </Button>

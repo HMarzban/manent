@@ -15,6 +15,8 @@ import { shareHeld } from "./share-store.ts";
 export interface ShareView {
   /** `sign_in`: the script never synced, or the person has no session; `offline`: the last answer heard is listed. */
   state: "ready" | "sign_in" | "offline";
+  /** True while the server is being asked who has access. */
+  loading: boolean;
   /** Null until the server first answers. */
   access: ShareAccess | null;
   /** The person owns the script, so only they change who has access. */
@@ -47,19 +49,38 @@ function useAsked(
   docId: string,
   asking: boolean,
   owner: boolean,
-): { unauthenticated: boolean; choices: readonly SignInChoice[] } {
+): {
+  unauthenticated: boolean;
+  loading: boolean;
+  choices: readonly SignInChoice[];
+} {
   const { userId } = useServices();
   const held = shareHeld(userId, docId);
   const [unauthenticated, setUnauthenticated] = useState(false);
+  const [loading, setLoading] = useState(asking);
   const [choices, setChoices] = useState<readonly SignInChoice[]>([]);
   useEffect(() => {
-    if (!asking) return undefined;
+    if (!asking) {
+      setLoading(false);
+      return undefined;
+    }
     let shown = true;
-    void requests.access(docId).then((answer) => {
-      if (!shown) return;
-      setUnauthenticated(!answer.ok && answer.code === "unauthenticated");
-      if (answer.ok) held.access.set(answer.value);
-    });
+    setLoading(true);
+    void requests
+      .access(docId)
+      .then(
+        (answer) => {
+          if (!shown) return;
+          setUnauthenticated(!answer.ok && answer.code === "unauthenticated");
+          if (answer.ok) held.access.set(answer.value);
+        },
+        () => {
+          // a failed request settles loading so the dialog does not stay on a placeholder
+        },
+      )
+      .finally(() => {
+        if (shown) setLoading(false);
+      });
     return () => {
       shown = false;
     };
@@ -74,7 +95,7 @@ function useAsked(
       shown = false;
     };
   }, [requests, asking, owner]);
-  return { unauthenticated, choices };
+  return { unauthenticated, loading, choices };
 }
 
 export function useShare(
@@ -139,5 +160,13 @@ export function useShare(
       : offline
         ? "offline"
         : "ready";
-  return { state, access, owner, refusals, choices: asked.choices, actions };
+  return {
+    state,
+    loading: asked.loading,
+    access,
+    owner,
+    refusals,
+    choices: asked.choices,
+    actions,
+  };
 }

@@ -9,6 +9,7 @@ import {
   DialogTitle,
   SELECTION_WORDS,
   SHARING_WORDS,
+  Skeleton,
 } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { useId } from "react";
@@ -26,6 +27,28 @@ import type { ShareView } from "./use-share.ts";
 const WORDS = SHARING_WORDS;
 // the id `share.open` opens it with
 const SHARE = "share";
+const PLACEHOLDER_PEOPLE = 3;
+
+function PeopleListSkeleton(): ReactNode {
+  return (
+    <div aria-busy="true" className="-mx-3 flex flex-col">
+      {Array.from({ length: PLACEHOLDER_PEOPLE }, (_, index) => (
+        <div
+          key={index}
+          aria-hidden="true"
+          className="flex min-h-row-2 items-center gap-2 px-3"
+        >
+          <Skeleton className="size-avatar-sm shrink-0 rounded-full" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Skeleton className="h-3.5 w-32" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+          <Skeleton className="h-control w-24 shrink-0" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /** "Send a draft to read…", with the line saying how sending differs from sharing; it needs a connection. */
 function SendDraft(props: { docId: string; offline: boolean }): ReactNode {
@@ -38,7 +61,6 @@ function SendDraft(props: { docId: string; offline: boolean }): ReactNode {
         variant="outline"
         aria-disabled={offline ? true : undefined}
         aria-describedby={offline ? reasonId : undefined}
-        className="aria-disabled:text-fg-muted"
         onClick={() => {
           if (offline) return;
           dialogActions.close();
@@ -82,7 +104,11 @@ function ShareBody(props: { docId: string; view: ShareView }): ReactNode {
           actions={actions}
         />
       ) : null}
-      {access === null ? null : (
+      {access === null ? (
+        view.state === "ready" && view.loading ? (
+          <PeopleListSkeleton />
+        ) : null
+      ) : (
         <PeopleList
           docId={docId}
           access={access}

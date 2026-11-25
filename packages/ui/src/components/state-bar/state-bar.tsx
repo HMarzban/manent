@@ -40,12 +40,14 @@ function StateSide({ line, run, registered }: SideProps): ReactNode {
       )}
     >
       {line.attention ? (
-        <TriangleExclamationPointIcon aria-hidden="true" />
+        <TriangleExclamationPointIcon aria-hidden="true" className="shrink-0" />
       ) : null}
       {line.chip === null ? null : (
         <span data-rev={line.chip} aria-hidden="true" className="mn-rev-chip" />
       )}
-      <span className="truncate">{line.sentence}</span>
+      <span className="truncate" title={line.sentence}>
+        {line.sentence}
+      </span>
       {line.actions
         .filter((action) => registered(action.commandId))
         .map((action, index) => (
@@ -53,6 +55,7 @@ function StateSide({ line, run, registered }: SideProps): ReactNode {
             key={action.commandId}
             variant={ACTION_VARIANTS[index]}
             size="sm"
+            className="text-fg"
             data-tour={action.commandId}
             onClick={() => run(action.commandId)}
           >
@@ -82,7 +85,7 @@ export function StateBar({
       role="status"
       aria-live="polite"
       data-tour="state_bar"
-      className="flex h-statebar items-center justify-between gap-4 border-b border-line bg-chrome px-3 text-ui"
+      className="flex min-h-statebar flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line bg-chrome px-3 py-1 text-ui animate-in fade-in-0 duration-(--dur-fast) ease-out"
     >
       <StateSide line={left} run={run} registered={registered} />
       <StateSide line={right} run={run} registered={registered} />

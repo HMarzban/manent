@@ -45,7 +45,7 @@ export function DropIndicator({ id, layout }: DropIndicatorProps): ReactNode {
     <span
       aria-hidden="true"
       className={cn(
-        "pointer-events-none absolute border-accent-solid",
+        "pointer-events-none absolute border-accent-solid animate-in fade-in-0 duration-(--dur-fast) ease-out",
         EDGE[layout][mark.edge],
       )}
     />

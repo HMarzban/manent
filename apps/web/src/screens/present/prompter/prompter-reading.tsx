@@ -130,12 +130,25 @@ function scrollDelta(
 
 function LoadingBody(): ReactNode {
   return (
-    <div className="mx-auto flex w-full max-w-content flex-col gap-4 px-12 py-12">
+    <div
+      aria-busy="true"
+      className="mx-auto flex w-full flex-col gap-6 px-12 py-12"
+      style={{ maxWidth: COLUMN_MAX_WIDTH }}
+    >
       <p className="text-ui text-fg-muted">{PROMPTER_WINDOW_WORDS.opening}</p>
-      <div aria-hidden="true" className="flex flex-col gap-3">
-        <Skeleton className="h-8 w-4/5" />
-        <Skeleton className="h-8 w-full" />
-        <Skeleton className="h-8 w-3/4" />
+      <div aria-hidden="true" className="flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-7 w-full" />
+          <Skeleton className="h-7 w-11/12" />
+          <Skeleton className="h-7 w-4/5" />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="mt-2 h-4 w-20" />
+          <Skeleton className="h-7 w-full" />
+          <Skeleton className="h-7 w-5/6" />
+        </div>
       </div>
     </div>
   );

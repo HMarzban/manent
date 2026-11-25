@@ -32,19 +32,34 @@ export function useProjectIndex(projectId: string): ProjectIndex {
   return index;
 }
 
-/** `read` of the index's document, read again whenever the map `map` changes; null until it is first read. */
+export type IndexRead<T> =
+  | { readonly kind: "loading" }
+  | { readonly kind: "ready"; readonly value: T }
+  | { readonly kind: "unavailable" };
+
+const INDEX_LOADING: IndexRead<never> = Object.freeze({ kind: "loading" });
+const INDEX_UNAVAILABLE: IndexRead<never> = Object.freeze({
+  kind: "unavailable",
+});
+
+/** `read` of the index's document, read again whenever the map `map` changes. */
 export function useIndexRead<T>(
   index: ProjectIndex,
   map: ProjectIndexMap,
   read: (doc: CrdtDoc) => T,
-): T | null {
-  const [value, setValue] = useState<T | null>(null);
+): IndexRead<T> {
+  const [state, setState] = useState<IndexRead<T>>(INDEX_LOADING);
   useEffect(() => {
     let shown = true;
     let stop = (): void => {};
+    setState(INDEX_LOADING);
     const update = async (): Promise<void> => {
-      const doc = (await index.handle()).doc();
-      if (shown) setValue(read(doc));
+      try {
+        const doc = (await index.handle()).doc();
+        if (shown) setState({ kind: "ready", value: read(doc) });
+      } catch {
+        if (shown) setState(INDEX_UNAVAILABLE);
+      }
     };
     void index.map(map).then(
       (view) => {
@@ -53,7 +68,7 @@ export function useIndexRead<T>(
         void update();
       },
       () => {
-        // an index that cannot be opened leaves the map unread
+        if (shown) setState(INDEX_UNAVAILABLE);
       },
     );
     return () => {
@@ -61,7 +76,7 @@ export function useIndexRead<T>(
       stop();
     };
   }, [index, map, read]);
-  return value;
+  return state;
 }
 
 /** The project `projectId` as the Library lists it, in whichever of the person's workspaces holds it; null until found. */

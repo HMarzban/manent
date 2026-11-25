@@ -1,7 +1,13 @@
 // The Board screen in the document frame: one board per series project, filtered by season, with keyboard and pointer moves.
 import type { EpisodeEntry } from "@manent/crdt";
 import { DEMO_PEOPLE } from "@manent/demo";
-import { BOARD_WORDS, Button, DOCUMENT_WORDS, messageFor } from "@manent/ui";
+import {
+  BOARD_WORDS,
+  Button,
+  DOCUMENT_WORDS,
+  Skeleton,
+  messageFor,
+} from "@manent/ui";
 import type { SortableListsHandle } from "@manent/ui";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
@@ -21,6 +27,57 @@ import { BoardGrid } from "./board-grid.tsx";
 import type { AddingCardCell } from "./board-grid.tsx";
 
 const route = getRouteApi("/p/$projectId/board");
+
+const SKELETON_COLS = [0, 1, 2, 3] as const;
+const SKELETON_ROWS = [0, 1] as const;
+
+function BoardGridSkeleton(): ReactNode {
+  return (
+    <div aria-busy="true" className="min-w-full overflow-x-auto">
+      <div
+        aria-hidden="true"
+        className="grid min-w-full grid-cols-5 overflow-hidden rounded-surface border border-line bg-chrome"
+      >
+        <div className="min-h-row border-b border-line px-3 py-2" />
+        {SKELETON_COLS.map((col) => (
+          <div
+            key={col}
+            className="flex min-h-row items-center gap-2 border-b border-l border-line px-3 py-2"
+          >
+            <Skeleton className="h-3 w-8 shrink-0" />
+            <Skeleton className="h-3.5 w-28" />
+          </div>
+        ))}
+        {SKELETON_ROWS.map((row) => (
+          <div key={row} className="contents">
+            <div
+              className={`flex flex-col gap-2 px-3 py-3${row === 0 ? " border-b border-line" : ""}`}
+            >
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+            {SKELETON_COLS.map((col) => (
+              <div
+                key={`${row}:${col}`}
+                className={`flex flex-col gap-2 border-l border-line p-2${row === 0 ? " border-b" : ""}`}
+              >
+                <div className="mn-card flex flex-col gap-1.5 p-2">
+                  <Skeleton className="h-3.5 w-4/5" />
+                  <Skeleton className="h-3 w-3/5" />
+                </div>
+                {col % 2 === row % 2 ? (
+                  <div className="mn-card flex flex-col gap-1.5 p-2">
+                    <Skeleton className="h-3.5 w-3/4" />
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function BoardScreen(): ReactNode {
   const { projectId }: { projectId: string } = route.useParams();
@@ -135,9 +192,30 @@ export function BoardScreen(): ReactNode {
     });
   }, [data, selectedCardId, messages]);
 
-  if (data.lookup.status !== "ready") return null;
+  if (data.lookup.status === "not_series") return null;
 
-  const empty = data.storylines.length === 0 && !addingStoryline;
+  if (data.lookup.status === "loading") {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col bg-chrome text-fg">
+        <div
+          aria-hidden="true"
+          className="flex h-titlebar shrink-0 items-center gap-2 border-b border-line bg-chrome px-2"
+        >
+          <Skeleton className="h-control-sm w-16" />
+          <Skeleton className="h-4 w-44" />
+          <Skeleton className="h-control-sm w-24" />
+          <Skeleton className="ms-auto h-control-sm w-28" />
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto bg-chrome p-6">
+          <BoardGridSkeleton />
+        </div>
+        <BoardStatusBar />
+      </div>
+    );
+  }
+
+  const empty =
+    data.boardLoaded && data.storylines.length === 0 && !addingStoryline;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-chrome text-fg">
@@ -162,6 +240,8 @@ export function BoardScreen(): ReactNode {
           <div className="max-w-content-wide pt-12 text-ui">
             <p>{DOCUMENT_WORDS.noAccess}</p>
           </div>
+        ) : !data.boardLoaded && !addingStoryline ? (
+          <BoardGridSkeleton />
         ) : empty ? (
           <div
             data-tour="board"

@@ -31,12 +31,10 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (el === null) return;
-    const rect = el.getBoundingClientRect();
-    const maxLeft = Math.max(EDGE_PX, window.innerWidth - rect.width - EDGE_PX);
-    const maxTop = Math.max(
-      EDGE_PX,
-      window.innerHeight - rect.height - EDGE_PX,
-    );
+    const width = el.offsetWidth || el.getBoundingClientRect().width;
+    const height = el.offsetHeight || el.getBoundingClientRect().height;
+    const maxLeft = Math.max(EDGE_PX, window.innerWidth - width - EDGE_PX);
+    const maxTop = Math.max(EDGE_PX, window.innerHeight - height - EDGE_PX);
     const left = Math.max(EDGE_PX, Math.min(mode.place.left, maxLeft));
     const top = Math.max(EDGE_PX, Math.min(mode.place.top, maxTop));
     el.style.left = `${left}px`;
@@ -74,7 +72,7 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
     body = (
       <div className="flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-label font-medium text-fg">
+          <span className="text-ui font-medium text-fg">
             {COMMENTS_WORDS.commentLabel}
           </span>
           <Button
@@ -128,7 +126,7 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
       <div className="flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-label font-medium text-fg">
+            <span className="text-ui font-medium text-fg">
               {COMMENTS_WORDS.noteLabel}
             </span>
             <span className="mn-tag">{COMMENTS_WORDS.writersOnly}</span>
@@ -189,7 +187,7 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
         <div className="flex flex-col gap-3 p-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-label font-medium text-fg">
+              <span className="text-ui font-medium text-fg">
                 {COMMENTS_WORDS.noteLabel}
               </span>
               <span className="mn-tag">{COMMENTS_WORDS.writersOnly}</span>
@@ -238,7 +236,7 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
       aria-label={heading}
       data-open=""
       data-tour="comment_popover"
-      className="fixed z-50 flex w-popover flex-col overflow-y-auto rounded-lg bg-overlay text-ui text-fg shadow-overlay ring-1 ring-line"
+      className="fixed z-50 flex w-popover max-w-[calc(100vw-1rem)] animate-in flex-col overflow-y-auto rounded-lg bg-overlay text-ui text-fg shadow-overlay ring-1 ring-line duration-(--dur-fast) ease-out fade-in-0 zoom-in-95"
       style={{
         left: mode.place.left,
         top: mode.place.top,

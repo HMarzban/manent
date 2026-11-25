@@ -5,6 +5,7 @@ import type { ComponentType, ReactNode } from "react";
 import { useServices } from "../../services/context.tsx";
 import type { ShellDom } from "../../shell/regions.tsx";
 import { SUGGESTIONS_REVIEW_SOURCE } from "../../writing/suggestions/review-source.ts";
+import { PanelListSkeleton } from "./panel-surface.tsx";
 
 // the rows read the script, which loads apart from the entry
 const ToReviewList = lazy(async () => ({
@@ -58,7 +59,7 @@ export const REVIEW_SOURCES: readonly ReviewSource[] = [
 
 export function ToReview(props: { docId: string }): ReactNode {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PanelListSkeleton />}>
       {REVIEW_SOURCES.map(({ id, List }) => (
         <List key={id} docId={props.docId} focusPending={focusPending} />
       ))}

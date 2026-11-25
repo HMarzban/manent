@@ -29,6 +29,7 @@ export type ProjectLookup =
 
 export interface BoardData {
   readonly lookup: ProjectLookup;
+  readonly boardLoaded: boolean;
   readonly index: ProjectIndex;
   readonly seasons: readonly SeasonEntry[];
   readonly activeSeason: SeasonEntry | null;
@@ -122,42 +123,52 @@ function useBoardProject(projectId: string): ProjectLookup {
     setChecked(false);
     setWorkspaceId(null);
 
-    void api.me().then(async (me) => {
-      if (!shown) return;
-      const workspaces = me.ok ? me.me.workspaces.map(({ id }) => id) : [];
-      const candidates = [...new Set([...workspaces, userId])];
-      let found: string | null = null;
-      for (const id of candidates) {
-        const listed = library.projects(id);
-        const look = (): void => {
-          if (
-            shown &&
-            listed.get().some((project) => project.projectId === projectId)
-          ) {
-            found = id;
-            setWorkspaceId(id);
-          }
-        };
-        stops.push(listed.subscribe(look));
-        look();
-      }
-      await Promise.all(
-        candidates.map((id) =>
-          library.readProjects(id).then((items) => {
-            if (shown && items.some((p) => p.projectId === projectId)) {
+    void api
+      .me()
+      .then(async (me) => {
+        if (!shown) return;
+        const workspaces = me.ok ? me.me.workspaces.map(({ id }) => id) : [];
+        const candidates = [...new Set([...workspaces, userId])];
+        let found: string | null = null;
+        for (const id of candidates) {
+          const listed = library.projects(id);
+          const look = (): void => {
+            if (
+              shown &&
+              listed.get().some((project) => project.projectId === projectId)
+            ) {
               found = id;
               setWorkspaceId(id);
             }
-          }),
-        ),
-      );
-      if (shown && found === null && online()) {
+          };
+          stops.push(listed.subscribe(look));
+          look();
+        }
         await Promise.all(
-          candidates.map((id) => waitWorkspaceSynced(openHandle, id, schedule)),
+          candidates.map((id) =>
+            library
+              .readProjects(id)
+              .then((items) => {
+                if (shown && items.some((p) => p.projectId === projectId)) {
+                  found = id;
+                  setWorkspaceId(id);
+                }
+              })
+              .catch(() => {}),
+          ),
         );
-      }
-      if (shown) setChecked(true);
-    });
+        if (shown && found === null && online()) {
+          await Promise.all(
+            candidates.map((id) =>
+              waitWorkspaceSynced(openHandle, id, schedule),
+            ),
+          );
+        }
+        if (shown) setChecked(true);
+      })
+      .catch(() => {
+        if (shown) setChecked(true);
+      });
 
     return () => {
       shown = false;
@@ -198,6 +209,7 @@ export function useBoardData(
   const [allEpisodes, setAllEpisodes] = useState<readonly EpisodeEntry[]>([]);
   const [storylines, setStorylines] = useState<readonly BoardStoryline[]>([]);
   const [cards, setCards] = useState<readonly BoardCard[]>([]);
+  const [boardLoaded, setBoardLoaded] = useState(false);
   const [indexWritable, setIndexWritable] = useState(true);
   const [neverSynced, setNeverSynced] = useState(false);
   const [accessRemoved, setAccessRemoved] = useState(false);
@@ -205,9 +217,13 @@ export function useBoardData(
   const [serverAccess, setServerAccess] = useState<ServerAccess>("pending");
 
   useEffect(() => {
-    if (lookup.status !== "ready") return;
+    if (lookup.status !== "ready") {
+      setBoardLoaded(false);
+      return;
+    }
     let shown = true;
     const stops: (() => void)[] = [];
+    setBoardLoaded(false);
     setPushForbidden(false);
     setAccessRemoved(false);
 
@@ -253,6 +269,7 @@ export function useBoardData(
         updateStatus();
         readSeasonsAndEpisodes(handle.doc());
         readBoardNow();
+        setBoardLoaded(true);
         stops.push(handle.status.subscribe(updateStatus));
         stops.push(
           handle.on((event) => {
@@ -273,7 +290,10 @@ export function useBoardData(
       },
       () => {
         // index unavailable: leave empty and non-writable
-        if (shown) setIndexWritable(false);
+        if (shown) {
+          setIndexWritable(false);
+          setBoardLoaded(true);
+        }
       },
     );
 
@@ -343,6 +363,7 @@ export function useBoardData(
 
   return {
     lookup,
+    boardLoaded,
     index,
     seasons,
     activeSeason,

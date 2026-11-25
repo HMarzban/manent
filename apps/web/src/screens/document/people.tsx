@@ -6,6 +6,7 @@ import {
   DOCUMENT_WORDS,
   DropdownMenu,
   DropdownMenuTrigger,
+  SELECTION_WORDS,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -57,7 +58,15 @@ export function People(props: {
   const trigger = (
     <DropdownMenuTrigger
       render={
-        <Button variant="ghost" className="shrink-0 gap-1 rounded-full px-1" />
+        <Button
+          variant="ghost"
+          aria-label={
+            people.length === 0 && viewers === 0
+              ? SELECTION_WORDS.hereNow
+              : undefined
+          }
+          className="shrink-0 gap-1 rounded-full px-1"
+        />
       }
     >
       {people.length === 0 ? null : (

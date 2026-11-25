@@ -1,6 +1,7 @@
 // The app's routes, defined in code: the root route here, and each group of screens in `routes/`.
 
 import { PANEL_IDS } from "@manent/commands";
+import { Skeleton } from "@manent/ui";
 import {
   createRootRoute,
   createRouter,
@@ -83,7 +84,55 @@ export function OncePreferencesRead(props: { children: ReactNode }): ReactNode {
       mounted = false;
     };
   }, [ready]);
-  return settled.has(ready) || seen === ready ? props.children : null;
+  return settled.has(ready) || seen === ready ? (
+    props.children
+  ) : (
+    <div aria-busy="true" className="min-h-0 flex-1 bg-chrome" />
+  );
+}
+
+function RoutePending(): ReactNode {
+  return (
+    <div aria-busy="true" className="flex min-h-0 flex-1 flex-col bg-chrome">
+      <div
+        aria-hidden="true"
+        className="flex h-titlebar shrink-0 items-center justify-between gap-2 border-b border-line px-3"
+      >
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-control-sm w-24" />
+          <Skeleton className="h-control-sm w-40" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-control-sm w-20" />
+          <Skeleton className="size-avatar rounded-full" />
+        </div>
+      </div>
+      <div
+        aria-hidden="true"
+        className="mx-auto flex w-full max-w-content-wide flex-1 flex-col gap-4 px-6 py-8"
+      >
+        <Skeleton className="h-5 w-48" />
+        <div className="mn-table flex flex-col">
+          <div className="mn-table-head flex items-center gap-3 px-3">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="ms-auto h-3 w-16" />
+          </div>
+          <div className="flex min-h-row-2 items-center gap-3 px-3">
+            <Skeleton className="h-3.5 w-52" />
+            <Skeleton className="ms-auto h-3.5 w-20" />
+          </div>
+          <div className="flex min-h-row-2 items-center gap-3 border-t border-line px-3">
+            <Skeleton className="h-3.5 w-44" />
+            <Skeleton className="ms-auto h-3.5 w-16" />
+          </div>
+          <div className="flex min-h-row-2 items-center gap-3 border-t border-line px-3">
+            <Skeleton className="h-3.5 w-60" />
+            <Skeleton className="ms-auto h-3.5 w-20" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -153,6 +202,7 @@ export function createAppRouter(deps: AppRouterDeps): AnyRouter {
     routeTree: rootRoute.addChildren(
       ROUTE_GROUPS.flatMap((group) => group(rootRoute, deps)),
     ),
+    defaultPendingComponent: RoutePending,
     defaultPendingMs: 150,
     defaultPendingMinMs: 300,
   });

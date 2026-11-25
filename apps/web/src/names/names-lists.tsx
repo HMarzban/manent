@@ -8,6 +8,7 @@ import {
   Input,
   NAMES_WORDS,
   Row,
+  Skeleton,
   useSubscribable,
 } from "@manent/ui";
 import type { Subscribable } from "@manent/ui";
@@ -35,27 +36,38 @@ interface OpenNames {
   readOnly: Subscribable<unknown>;
 }
 
-/** The project's names, once its index has opened; null until then, and when it cannot open. */
-function useNamesMap(projectId: string): OpenNames | null {
+type NamesMapState =
+  | { kind: "loading" }
+  | { kind: "ready"; open: OpenNames }
+  | { kind: "unavailable" };
+
+/** The project's names, once its index has opened; loading until then, unavailable when it cannot open. */
+function useNamesMap(projectId: string): NamesMapState {
   const { projectIndex } = useServices();
-  const [map, setMap] = useState<OpenNames | null>(null);
+  const [state, setState] = useState<NamesMapState>({ kind: "loading" });
   useEffect(() => {
     const index = projectIndex(projectId);
     let open = true;
     Promise.all([index.map("names"), index.handle()]).then(
       ([names, handle]) => {
-        if (open) setMap({ map: names, readOnly: handle.readOnly });
+        if (open)
+          setState({
+            kind: "ready",
+            open: { map: names, readOnly: handle.readOnly },
+          });
       },
       // the person's sync could not start: the lists are not drawn
-      () => {},
+      () => {
+        if (open) setState({ kind: "unavailable" });
+      },
     );
     // the index stays open: the page of a document in the project holds the same session, which a close would end
     return () => {
       open = false;
-      setMap(null);
+      setState({ kind: "loading" });
     };
   }, [projectIndex, projectId]);
-  return map;
+  return state;
 }
 
 /** The entries of `map`, read again when it changes. */
@@ -144,7 +156,7 @@ function NameRow(props: {
     );
   return (
     <Row
-      trailing={[
+      menu={
         <RowMenu title={entry.name}>
           <DropdownMenuItem onClick={() => setRenaming(true)}>
             {NAMES_WORDS.rename}
@@ -152,8 +164,8 @@ function NameRow(props: {
           <DropdownMenuItem onClick={() => map.delete(entry.id)}>
             {NAMES_WORDS.remove}
           </DropdownMenuItem>
-        </RowMenu>,
-      ]}
+        </RowMenu>
+      }
     >
       <span className="truncate">{entry.name}</span>
     </Row>
@@ -200,13 +212,29 @@ function NamesList(props: {
   );
 }
 
+function NamesListsSkeleton(): ReactNode {
+  return (
+    <div aria-busy="true" className="flex flex-col gap-3 py-1">
+      {PROJECT_NAME_KINDS.map((kind) => (
+        <div key={kind} aria-hidden="true" className="flex flex-col gap-1.5">
+          <Skeleton className="my-1.5 h-3.5 w-20" />
+          <Skeleton className="h-row w-full" />
+          <Skeleton className="h-row w-3/4" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
  * The three lists of the project `projectId`, with one line saying what they are for while all are empty; read only,
  * without their adds, renames and removes, once the server has said the person may only read them.
  */
 export function NamesLists(props: { projectId: string }): ReactNode {
-  const open = useNamesMap(props.projectId);
-  return open === null ? null : <OpenLists open={open} />;
+  const state = useNamesMap(props.projectId);
+  if (state.kind === "unavailable") return null;
+  if (state.kind === "loading") return <NamesListsSkeleton />;
+  return <OpenLists open={state.open} />;
 }
 
 function OpenLists(props: { open: OpenNames }): ReactNode {

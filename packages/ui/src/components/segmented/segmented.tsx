@@ -10,35 +10,57 @@ interface SegmentedProps {
   size?: "default" | "sm";
   value: string;
   options: readonly Choice<string>[];
+  disabled?: boolean;
   onChange(value: string): void;
 }
 
-const ARROW_STEPS: Readonly<Record<string, number>> = {
-  ArrowRight: 1,
-  ArrowDown: 1,
-  ArrowLeft: -1,
-  ArrowUp: -1,
-};
-
-/** An arrow key presses the next option, wrapping round, as a radio group does; pressing the pressed option keeps it. */
+/** A horizontal arrow key presses the next option, wrapping round, as a radio group does; pressing the pressed option keeps it. */
 export function Segmented({
   label,
   value,
   options,
+  disabled,
   onChange,
   size = "default",
 }: SegmentedProps): ReactNode {
-  const onKeyDown = (event: KeyboardEvent): void => {
-    const step = ARROW_STEPS[event.key];
-    if (step === undefined) return;
-    const at = options.findIndex((option) => option.value === value);
-    const next = options[(at + step + options.length) % options.length];
-    if (next !== undefined) onChange(next.value);
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (disabled || options.length === 0) return;
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
+      return;
+    const isArrow = event.key === "ArrowRight" || event.key === "ArrowLeft";
+    const isEdge = event.key === "Home" || event.key === "End";
+    if (!isArrow && !isEdge) return;
+    event.preventDefault();
+    (event as { preventBaseUIHandler?: () => void }).preventBaseUIHandler?.();
+    let nextIndex: number;
+    if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = options.length - 1;
+    } else {
+      const rtl = getComputedStyle(event.currentTarget).direction === "rtl";
+      const step = (event.key === "ArrowRight" ? 1 : -1) * (rtl ? -1 : 1);
+      const at = options.findIndex((option) => option.value === value);
+      nextIndex =
+        at === -1
+          ? step > 0
+            ? 0
+            : options.length - 1
+          : (at + step + options.length) % options.length;
+    }
+    const next = options[nextIndex];
+    if (next === undefined) return;
+    const items = event.currentTarget.querySelectorAll<HTMLElement>(
+      '[data-slot="toggle-group-item"]',
+    );
+    items[nextIndex]?.focus();
+    onChange(next.value);
   };
   return (
     <ToggleGroup
       aria-label={label}
-      value={[value]}
+      value={value === "" ? [] : [value]}
+      disabled={disabled}
       onValueChange={(pressed) => {
         const [chosen] = pressed;
         if (chosen !== undefined) onChange(chosen);

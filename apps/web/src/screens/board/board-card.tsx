@@ -294,6 +294,31 @@ export function BoardCardItem(props: BoardCardProps): ReactNode {
     </div>
   );
 
+  const onScenePickerKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    const items = [...event.currentTarget.querySelectorAll("button")];
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      onLinkingOpenChange(false);
+      return;
+    }
+    if (items.length === 0) return;
+    const index = items.findIndex((item) => item === event.target);
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      items[(index + 1) % items.length]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      items[index <= 0 ? items.length - 1 : index - 1]?.focus();
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      items[0]?.focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      items.at(-1)?.focus();
+    }
+  };
+
   const withScenePicker =
     linkingOpen && canEdit && episode.docIds.script !== null ? (
       <Popover
@@ -306,6 +331,7 @@ export function BoardCardItem(props: BoardCardProps): ReactNode {
         <PopoverContent
           align="start"
           className="flex w-auto max-w-menu-max min-w-menu-min flex-col p-1"
+          onKeyDown={onScenePickerKeyDown}
         >
           {scenes.map((scene) => (
             <button
@@ -315,7 +341,7 @@ export function BoardCardItem(props: BoardCardProps): ReactNode {
                 onLinkScene(scene.blockId);
                 onLinkingOpenChange(false);
               }}
-              className="flex min-h-row cursor-pointer items-center gap-2 rounded-control px-2 text-start text-ui text-fg hover:bg-subtle"
+              className="flex min-h-row cursor-pointer items-center gap-2 rounded-control px-2 text-start text-ui text-fg transition-colors hover:bg-subtle active:bg-control"
             >
               <span className="flex-1 truncate">
                 {PLACE_WORDS.scene(scene.number, scene.heading)}

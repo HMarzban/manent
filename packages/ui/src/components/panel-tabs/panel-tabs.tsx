@@ -26,18 +26,18 @@ export function PanelTabs({
 }: PanelTabsProps): ReactNode {
   return (
     <Tabs value={current} onValueChange={onChange} className="h-full gap-0">
-      <div className="flex h-tabs items-center gap-1 border-b border-line px-2">
+      <div className="flex h-tabs items-center gap-1 border-b border-line ps-2 pe-1">
         <TabsList
           variant="line"
           aria-label={label}
-          className="min-w-0 flex-1 justify-start"
+          className="min-w-0 flex-1 justify-start gap-0.5 p-0 group-data-horizontal/tabs:h-full"
         >
           {tabs.map((tab) => (
             <TabsTrigger
               key={tab.id}
               value={tab.id}
               data-tour={`tab:${tab.id}`}
-              className="min-w-0 flex-initial px-2 text-ui"
+              className="h-full min-w-0 flex-initial border-0 px-1.5 text-ui group-data-horizontal/tabs:after:bottom-0"
             >
               <span className="truncate" title={tab.label}>
                 {tab.label}
@@ -47,7 +47,11 @@ export function PanelTabs({
         </TabsList>
         <CloseButton label={closeLabel} onClick={onClose} />
       </div>
-      <TabsContent value={current} className="min-h-0 overflow-auto">
+      <TabsContent
+        key={current}
+        value={current}
+        className="min-h-0 overflow-auto animate-in fade-in-0 duration-(--dur-fast) ease-out"
+      >
         {children}
       </TabsContent>
     </Tabs>

@@ -104,6 +104,11 @@ export function DatePickerPopover(props: DatePickerPopoverProps): ReactNode {
     () => monthCalendarDays(view.year, view.month),
     [view.year, view.month],
   );
+  const weeks = useMemo(() => {
+    const rows: (typeof cells)[number][][] = [];
+    for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
+    return rows;
+  }, [cells]);
   const prevMonth = shiftMonth(view.year, view.month, -1);
   const nextMonth = shiftMonth(view.year, view.month, 1);
 
@@ -198,51 +203,61 @@ export function DatePickerPopover(props: DatePickerPopoverProps): ReactNode {
             ref={gridRef}
             role="grid"
             aria-label={label}
-            className="grid grid-cols-7 gap-1"
+            className="flex flex-col gap-1"
           >
-            {WEEKDAYS.map((dayName) => (
+            <div role="row" className="grid grid-cols-7 gap-1">
+              {WEEKDAYS.map((dayName) => (
+                <div
+                  key={dayName}
+                  role="columnheader"
+                  className="flex h-control-sm items-center justify-center text-micro text-fg-muted"
+                >
+                  {dayName}
+                </div>
+              ))}
+            </div>
+            {weeks.map((week, weekIndex) => (
               <div
-                key={dayName}
-                role="columnheader"
-                className="flex h-control-sm items-center justify-center text-micro text-fg-muted"
+                key={week[0]?.iso ?? weekIndex}
+                role="row"
+                className="grid grid-cols-7 gap-1"
               >
-                {dayName}
+                {week.map((cell) => {
+                  const selected = cell.iso === value;
+                  const isToday = cell.iso === todayIso;
+                  const dayClass = selected
+                    ? "h-control-sm w-8 cursor-pointer rounded-control bg-selected text-ui font-medium text-fg tabular-nums ring-1 ring-focus"
+                    : cell.inMonth
+                      ? isToday
+                        ? "h-control-sm w-8 cursor-pointer rounded-control text-ui font-semibold text-fg-accent tabular-nums transition-colors hover:bg-subtle active:bg-control"
+                        : "h-control-sm w-8 cursor-pointer rounded-control text-ui text-fg tabular-nums transition-colors hover:bg-subtle active:bg-control"
+                      : "h-control-sm w-8 cursor-pointer rounded-control text-ui text-fg-muted tabular-nums transition-colors hover:bg-subtle active:bg-control";
+                  return (
+                    <div
+                      key={cell.iso}
+                      role="gridcell"
+                      className="flex justify-center"
+                    >
+                      <button
+                        type="button"
+                        data-date={cell.iso}
+                        aria-label={formatAirDate(cell.iso, nowMs)}
+                        aria-pressed={selected}
+                        aria-current={isToday ? "date" : undefined}
+                        className={dayClass}
+                        onClick={() => {
+                          setOpen(false);
+                          onSelect(cell.iso);
+                        }}
+                        onKeyDown={(event) => handleDayKeyDown(event, cell.iso)}
+                      >
+                        {formatCount(cell.day)}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             ))}
-            {cells.map((cell) => {
-              const selected = cell.iso === value;
-              const isToday = cell.iso === todayIso;
-              const dayClass = selected
-                ? "h-control-sm w-8 cursor-pointer rounded-control bg-selected text-ui font-medium text-fg tabular-nums ring-1 ring-focus"
-                : cell.inMonth
-                  ? isToday
-                    ? "h-control-sm w-8 cursor-pointer rounded-control text-ui font-semibold text-fg-accent tabular-nums transition-colors hover:bg-subtle active:bg-control"
-                    : "h-control-sm w-8 cursor-pointer rounded-control text-ui text-fg tabular-nums transition-colors hover:bg-subtle active:bg-control"
-                  : "h-control-sm w-8 cursor-pointer rounded-control text-ui text-fg-muted tabular-nums transition-colors hover:bg-subtle active:bg-control";
-              return (
-                <div
-                  key={cell.iso}
-                  role="gridcell"
-                  className="flex justify-center"
-                >
-                  <button
-                    type="button"
-                    data-date={cell.iso}
-                    aria-label={formatAirDate(cell.iso, nowMs)}
-                    aria-pressed={selected}
-                    aria-current={isToday ? "date" : undefined}
-                    className={dayClass}
-                    onClick={() => {
-                      setOpen(false);
-                      onSelect(cell.iso);
-                    }}
-                    onKeyDown={(event) => handleDayKeyDown(event, cell.iso)}
-                  >
-                    {formatCount(cell.day)}
-                  </button>
-                </div>
-              );
-            })}
           </div>
         </div>
       </PopoverContent>

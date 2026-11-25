@@ -31,7 +31,8 @@ const VIEW_CHOICES = Object.freeze([
   { value: "cards", label: SCENE_MOVE_WORDS.cards },
 ]);
 
-const CARD = "mn-card flex w-56 flex-col gap-1 p-3 text-start text-ui";
+const CARD =
+  "mn-card flex w-full max-w-56 flex-col gap-1 p-3 text-start text-ui";
 
 // one map per person for the page's life, so every Scenes tab of theirs reads one choice and hears another tab's
 const viewMaps = new Map<string, KeyValueMap>();

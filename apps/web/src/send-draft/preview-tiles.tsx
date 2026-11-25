@@ -5,6 +5,7 @@ import { CELL_PT, UNIT_PT } from "@manent/pagination";
 import { EDITOR_WORDS } from "@manent/ui";
 import { useLayoutEffect, useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { PageTilesSkeleton } from "../screens/send/send-frame.tsx";
 import { drawSheet, engineOf } from "../send/print-pages.ts";
 
 const TILE_PAGES = 8;
@@ -86,7 +87,7 @@ export function DraftPreviewTiles(props: {
   changedLines: ReadonlyMap<string, readonly number[]> | null;
 }): ReactNode {
   const { p, pageIndexes, title, watermark, changedLines } = props;
-  if (p === null) return null;
+  if (p === null) return <PageTilesSkeleton />;
   const shown = pageIndexes.slice(0, TILE_PAGES);
   const more = pageIndexes.length - shown.length;
   return (

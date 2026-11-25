@@ -1,9 +1,9 @@
 // The Library's view of a series: its seasons and episode tables, with New episode, New season and Board links.
 import { writeEpisode } from "@manent/crdt";
 import type { EpisodeEntry, SeasonEntry } from "@manent/crdt";
-import { Button, SERIES_WORDS } from "@manent/ui";
+import { Button, SERIES_WORDS, Skeleton } from "@manent/ui";
 import { PlusIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   createSeriesEpisode,
@@ -20,6 +20,23 @@ export function SeriesView(props: ProjectViewProps): ReactNode {
   const { language, online, randomId, schedule } = useEnvironment();
   const data = useSeriesData(project.projectId, project.firstDocId);
   const [creating, setCreating] = useState(false);
+  const [indexOpened, setIndexOpened] = useState(false);
+
+  useEffect(() => {
+    let shown = true;
+    setIndexOpened(false);
+    void data.index.handle().then(
+      () => {
+        if (shown) setIndexOpened(true);
+      },
+      () => {
+        if (shown) setIndexOpened(true);
+      },
+    );
+    return () => {
+      shown = false;
+    };
+  }, [data.index]);
 
   const onSaveEpisode = (
     next: EpisodeEntry,
@@ -65,6 +82,42 @@ export function SeriesView(props: ProjectViewProps): ReactNode {
       randomId,
     }).finally(() => setCreating(false));
   };
+
+  if (!indexOpened && data.seasons.length === 0) {
+    return (
+      <section
+        aria-label={project.title}
+        aria-busy="true"
+        className="flex flex-col gap-2"
+      >
+        <div className="flex items-center gap-2">
+          <h2 className="min-w-0 flex-1 truncate text-title">
+            {project.title}
+          </h2>
+          <Skeleton aria-hidden="true" className="h-control-sm w-24 shrink-0" />
+        </div>
+        <div aria-hidden="true" className="mn-table flex flex-col">
+          <div className="mn-table-head flex shrink-0 items-center gap-2 px-3">
+            <Skeleton className="h-3 w-8 shrink-0" />
+            <Skeleton className="h-3 w-32" />
+            <Skeleton className="ms-auto hidden h-3 w-20 @xl:block" />
+            <Skeleton className="h-3 w-16 shrink-0" />
+          </div>
+          {["w-44", "w-52", "w-36"].map((width, index) => (
+            <div
+              key={index}
+              className="flex min-h-row items-center gap-2 border-t border-line px-3 first:border-t-0"
+            >
+              <Skeleton className="h-3.5 w-8 shrink-0" />
+              <Skeleton className={`h-3.5 max-w-full ${width}`} />
+              <Skeleton className="ms-auto hidden h-3.5 w-20 @xl:block" />
+              <Skeleton className="h-3.5 w-16 shrink-0" />
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   if (data.seasons.length === 0) {
     return (
