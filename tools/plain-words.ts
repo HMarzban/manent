@@ -66,5 +66,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   compiling, far, playing, restart,
   csv, estimate, estimated, exterior, interior, like, location, minute, pickup, report,
   counting, figure, per,
-  best, inside, narrow, year
+  best, inside, narrow, year,
+  alone, encoding, software, windows-1252
 `);
