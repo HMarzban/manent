@@ -8,15 +8,22 @@ export const RUNDOWN_NEXT_WEEK: TourScenario = {
   setup: setupOf({ userId: "ana", open: "/" }),
   steps: [
     {
-      text: "Open the rundown of Lannick One News a week from today: 9 rows are started.",
-      highlight: "page",
+      text: "In the Library, open Lannick One News: its rundowns are listed by date, next week's with 9 rows.",
+      highlight: "library:rundowns",
     },
-    { text: "Make a new rundown for another date.", highlight: "page" },
+    {
+      text: "Choose New rundown: it takes the first day after today that has no rundown.",
+      highlight: "rundown.new",
+    },
+    {
+      text: "Choose Add row and type a story.",
+      highlight: "rundown.addRow",
+    },
   ],
   check:
-    '"New rundown" makes one for the date chosen, and its rows are dated next week.',
-  evidence: ["New rundown"],
-  fresh: false,
-  waitsFor: "rundowns",
+    'The list shows next week\'s rundown with "9 rows"; the message reads "New rundown for" and the new date, and the new rundown reads "Add a row or drag a script here" until its first row.',
+  evidence: ["9 rows", "New rundown for", "Add a row or drag a script here"],
+  fresh: true,
+  waitsFor: null,
   hidden: null,
 };
