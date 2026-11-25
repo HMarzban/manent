@@ -115,7 +115,7 @@ function Entry(props: {
 }): ReactNode {
   const { entry, Item } = props;
   const item = (
-    <Item disabled={!entry.enabled} onClick={entry.act}>
+    <Item data-tour={entry.id} disabled={!entry.enabled} onClick={entry.act}>
       {entry.label}
     </Item>
   );

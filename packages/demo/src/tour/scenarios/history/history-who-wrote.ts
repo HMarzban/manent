@@ -1,6 +1,5 @@
 import type { TourScenario } from "../../format.ts";
 import { LONG_NIGHT } from "../documents.ts";
-import { NOT_PASSING } from "./not-passing.ts";
 
 export const HISTORY_WHO_WROTE: TourScenario = {
   id: "history-who-wrote",
@@ -21,5 +20,5 @@ export const HISTORY_WHO_WROTE: TourScenario = {
   evidence: ["Written by Sam"],
   fresh: false,
   waitsFor: null,
-  hidden: NOT_PASSING,
+  hidden: null,
 };

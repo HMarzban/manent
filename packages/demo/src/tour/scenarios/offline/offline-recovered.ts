@@ -27,5 +27,5 @@ export const OFFLINE_RECOVERED: TourScenario = {
   evidence: ["could not be placed — kept in Recovered text"],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

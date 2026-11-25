@@ -1,6 +1,5 @@
 import type { TourScenario } from "../../format.ts";
 import { LONG_NIGHT } from "../documents.ts";
-import { NOT_PASSING } from "./not-passing.ts";
 
 export const HISTORY_EVERY_VERSION: TourScenario = {
   id: "history-every-version",
@@ -14,7 +13,7 @@ export const HISTORY_EVERY_VERSION: TourScenario = {
     shell: "any",
   },
   steps: [
-    { text: "Open History.", highlight: "history.open" },
+    { text: "Open History.", highlight: "tab:history" },
     {
       text: "Scroll the list: every session, and every draft by its name.",
       highlight: "history_list",
@@ -30,5 +29,5 @@ export const HISTORY_EVERY_VERSION: TourScenario = {
   ],
   fresh: false,
   waitsFor: null,
-  hidden: NOT_PASSING,
+  hidden: null,
 };

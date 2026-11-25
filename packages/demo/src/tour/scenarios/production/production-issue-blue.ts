@@ -28,5 +28,5 @@ export const PRODUCTION_ISSUE_BLUE: TourScenario = {
   evidence: ["creates 12A", "Blue Rev."],
   fresh: true,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

@@ -35,5 +35,5 @@ export const TOGETHER_PRIVATE: TourScenario = {
   ],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

@@ -26,5 +26,5 @@ export const PRODUCTION_LOCK: TourScenario = {
   ],
   fresh: true,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

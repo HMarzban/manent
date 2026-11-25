@@ -26,5 +26,5 @@ export const WRITE_STAGE_PLAY: TourScenario = {
   evidence: ["ACT ONE", "Scene 1: Mallow Street", "Scene 2: The Box"],
   fresh: false,
   waitsFor: null,
-  hidden: "its end-to-end test does not pass yet",
+  hidden: null,
 };

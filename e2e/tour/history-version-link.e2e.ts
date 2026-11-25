@@ -2,7 +2,11 @@
 import { DOCUMENT_WORDS } from "@manent/ui";
 import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { expectEvidence, tourScenario } from "../support/tour.ts";
+import {
+  expectEvidence,
+  selectTourStep,
+  tourScenario,
+} from "../support/tour.ts";
 
 tourScenario("history-version-link", async ({ windows, scenario, step }) => {
   const [dana, sam] = windows as [Page, Page];
@@ -15,10 +19,15 @@ tourScenario("history-version-link", async ({ windows, scenario, step }) => {
     .filter({ hasText: "Studio draft" })
     .first();
   await row.click();
+  await selectTourStep(dana, scenario.promise, 1);
   await row
     .getByRole("button", { name: DOCUMENT_WORDS.rowMenuName("Studio draft") })
     .click();
-  await (await step(1)).click();
+  await step(1);
+  await dana
+    .getByRole("menu")
+    .locator('[data-tour="history.copyLink"]')
+    .click();
   await expectEvidence([dana], { ...scenario, evidence: [copiedMsg!] });
   const link = await dana.evaluate(() => navigator.clipboard.readText());
   expect(link).toContain("/v/");

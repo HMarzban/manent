@@ -1,6 +1,5 @@
 import type { TourScenario } from "../../format.ts";
 import { LAMP_ROOM } from "../documents.ts";
-import { NOT_PASSING } from "./not-passing.ts";
 
 export const HISTORY_RESTORE_REVERSE: TourScenario = {
   id: "history-restore-reverse",
@@ -29,5 +28,5 @@ export const HISTORY_RESTORE_REVERSE: TourScenario = {
   evidence: ["restored 'First draft' at", "Restore 'Before restore'"],
   fresh: false,
   waitsFor: null,
-  hidden: NOT_PASSING,
+  hidden: null,
 };
