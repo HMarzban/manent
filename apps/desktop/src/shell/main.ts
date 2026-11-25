@@ -27,9 +27,11 @@ import { startEmbeddedCloud } from "../cloud.ts";
 import type { CloudProcess } from "../cloud.ts";
 import { createWindowStateWriter, readWindowState } from "../window-state.ts";
 import { SHELL_WORDS } from "../words.ts";
-import { alertNewerStore, chooseFiles } from "./dialogs.ts";
+import { alertNewerStore, chooseDirectory, chooseFiles } from "./dialogs.ts";
 import { createNativeMenu } from "./menus.ts";
-import { Electrobun, PATHS, Updater, Utils } from "./sdk.ts";
+import { createPresentWindows } from "./present-window.ts";
+import type { PresentWindows } from "./present-window.ts";
+import { BrowserWindow, Electrobun, PATHS, Updater, Utils } from "./sdk.ts";
 import { createRunningUpdates, updateAtLaunch } from "./updater.ts";
 import { hold, openMainWindow } from "./window.ts";
 import type { MainWindow } from "./window.ts";
@@ -114,6 +116,7 @@ interface App {
   root: string;
   cloudUrl: string;
   window: MainWindow;
+  presentWindows: PresentWindows;
   menu: { draw(menus: readonly NativeMenu[] | null): void } | null;
   windowState: ReturnType<typeof createWindowStateWriter>;
   firstFrame(): void;
@@ -151,8 +154,12 @@ function answer(app: App, message: PageMessage): void {
       app.window.answerClose(message.close);
       return;
     case "open_window":
+      app.presentWindows.open(message);
+      return;
     case "choose_directory":
-      // no page sends either yet; the room and prompter windows and the folder chooser will answer them here
+      void chooseDirectory().then((path) =>
+        app.send({ v: 1, t: "directory_chosen", path }),
+      );
       return;
     default:
       message satisfies never;
@@ -161,6 +168,7 @@ function answer(app: App, message: PageMessage): void {
 
 /** What is closed at quit, in this order. */
 interface Held {
+  closePresentWindows(): void;
   flush(): void;
   node: DesktopNode;
   listener: Listener;
@@ -178,6 +186,7 @@ function quitCleanly(held: Held): void {
     if (closing) return;
     closing = true;
     void (async () => {
+      held.closePresentWindows();
       held.flush();
       await held.node.close();
       await held.listener.stop();
@@ -238,13 +247,24 @@ function openApp(options: {
   core: NodeCore;
   nodeUrl: string;
   statePath: string;
-}): ReturnType<typeof createWindowStateWriter> {
+}): {
+  windowState: ReturnType<typeof createWindowStateWriter>;
+  presentWindows: PresentWindows;
+} {
   const { core, node } = options;
   const send = (message: ShellMessage): void => core.shell.send(message);
   const windowState = createWindowStateWriter({
     path: options.statePath,
     clock,
     delayMs: WINDOW_STATE_SAVE_MS,
+  });
+  const presentWindows = createPresentWindows({
+    nodeUrl: options.nodeUrl,
+    launchToken: node.launchToken,
+    statePath: options.statePath,
+    platform: process.platform,
+    windowState,
+    openWindow: (init) => new BrowserWindow(init),
   });
   const updates = createRunningUpdates(send);
   const platform = platformOf(process.platform);
@@ -263,6 +283,7 @@ function openApp(options: {
     root: options.root,
     cloudUrl: options.cloudUrl,
     window,
+    presentWindows,
     menu,
     windowState,
     firstFrame() {
@@ -275,7 +296,7 @@ function openApp(options: {
   };
   core.shell.onMessage((message) => answer(app, message));
   core.onFocusRequest(() => window.focus());
-  return windowState;
+  return { windowState, presentWindows };
 }
 
 async function launch(): Promise<void> {
@@ -333,7 +354,7 @@ async function launch(): Promise<void> {
   );
   const nodeUrl = `http://127.0.0.1:${listener.port}`;
   core = node.listening(nodeUrl);
-  const windowState = openApp({
+  const { windowState, presentWindows } = openApp({
     root,
     cloudUrl,
     node,
@@ -341,7 +362,13 @@ async function launch(): Promise<void> {
     nodeUrl,
     statePath,
   });
-  quitCleanly({ flush: () => windowState.flush(), node, listener, cloud });
+  quitCleanly({
+    closePresentWindows: () => presentWindows.closeAll(),
+    flush: () => windowState.flush(),
+    node,
+    listener,
+    cloud,
+  });
 }
 
 if (import.meta.main) await launch();

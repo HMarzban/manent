@@ -1,4 +1,4 @@
-// The system's dialogs: the one alert, for scripts a newer build wrote, and the chooser for files to open.
+// The system's dialogs: the one alert, for scripts a newer build wrote, the chooser for files to open, and the folder chooser.
 import { basename } from "node:path";
 import {
   OPENED_FILE_EXTENSIONS,
@@ -63,4 +63,15 @@ export async function chooseFiles(): Promise<{
     }
   }
   return { files, refused };
+}
+
+/** Asks the person for a folder; null when the dialog is cancelled. */
+export async function chooseDirectory(): Promise<string | null> {
+  const paths = await Utils.openFileDialog({
+    canChooseFiles: false,
+    canChooseDirectory: true,
+    allowsMultipleSelection: false,
+  });
+  const first = paths[0];
+  return first === undefined || first === "" ? null : first;
 }
