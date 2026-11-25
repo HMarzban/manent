@@ -10,7 +10,7 @@ import {
 } from "@manent/ui";
 import type { SortableListsHandle } from "@manent/ui";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
-import { Columns3Icon, PlusIcon } from "lucide-react";
+import { Columns3Icon, LockIcon, PlusIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { registerBoardController } from "../../board/board-actions.ts";
@@ -238,8 +238,11 @@ export function BoardScreen(): ReactNode {
 
       <div className="min-h-0 flex-1 overflow-auto bg-chrome p-6">
         {data.accessRemoved ? (
-          <div className="max-w-content-wide pt-12 text-ui">
-            <p>{DOCUMENT_WORDS.noAccess}</p>
+          <div className="flex min-h-full items-center justify-center py-12">
+            <EmptyHeroCard
+              icon={<LockIcon aria-hidden="true" className="size-5" />}
+              description={DOCUMENT_WORDS.noAccess}
+            />
           </div>
         ) : !data.boardLoaded && !addingStoryline ? (
           <BoardGridSkeleton />

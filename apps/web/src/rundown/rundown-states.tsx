@@ -6,7 +6,14 @@ import {
   Skeleton,
   messageFor,
 } from "@manent/ui";
+import {
+  CircleAlertIcon,
+  ListOrderedIcon,
+  LockIcon,
+  MonitorIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../empty-hero-card.tsx";
 import { CommandAction } from "../screens/document/status-bar.tsx";
 
 const LOADING_ROWS = [
@@ -65,17 +72,32 @@ export function RundownLoading(): ReactNode {
   );
 }
 
+function CentredCard(props: { readonly children: ReactNode }): ReactNode {
+  return (
+    <div className="h-full overflow-y-auto bg-chrome">
+      <div className="flex min-h-full flex-col items-center justify-center p-6">
+        {props.children}
+      </div>
+    </div>
+  );
+}
+
 export function RundownEmpty(props: { readonly canEdit: boolean }): ReactNode {
   return (
-    <div className="flex h-full flex-col items-start gap-3 bg-chrome p-12 text-ui">
-      <p className="text-fg-muted">{RUNDOWN_WORDS.empty}</p>
-      {props.canEdit ? (
-        <CommandAction
-          commandId="rundown.addRow"
-          label={RUNDOWN_WORDS.addRow}
-        />
-      ) : null}
-    </div>
+    <CentredCard>
+      <EmptyHeroCard
+        icon={<ListOrderedIcon aria-hidden="true" className="size-5" />}
+        description={RUNDOWN_WORDS.empty}
+        actions={
+          props.canEdit ? (
+            <CommandAction
+              commandId="rundown.addRow"
+              label={RUNDOWN_WORDS.addRow}
+            />
+          ) : null
+        }
+      />
+    </CentredCard>
   );
 }
 
@@ -89,30 +111,42 @@ export function RundownNoAccess(props: {
     notSent: props.notSent,
   });
   return (
-    <div className="flex h-full flex-col items-start gap-3 bg-chrome p-12 text-ui">
-      <p className="text-fg">{DOCUMENT_WORDS.noAccess}</p>
-      {actions.map((action) => (
-        <CommandAction
-          key={action.commandId}
-          commandId={action.commandId}
-          label={action.label}
-        />
-      ))}
-    </div>
+    <CentredCard>
+      <EmptyHeroCard
+        icon={<LockIcon aria-hidden="true" className="size-5" />}
+        description={DOCUMENT_WORDS.noAccess}
+        actions={
+          actions.length === 0 ? null : (
+            <>
+              {actions.map((action) => (
+                <CommandAction
+                  key={action.commandId}
+                  commandId={action.commandId}
+                  label={action.label}
+                />
+              ))}
+            </>
+          )
+        }
+      />
+    </CentredCard>
   );
 }
 
 export function RundownViewRoleNotice(): ReactNode {
   return (
-    <div className="flex h-full flex-col items-start gap-3 bg-chrome p-12 text-ui">
-      <p className="max-w-content text-fg">
-        {RUNDOWN_WORDS.cannotOpenWithRole}
-      </p>
-      <CommandAction
-        commandId="view.presentOnPrompter"
-        label={RUNDOWN_WORDS.presentOnPrompter}
+    <CentredCard>
+      <EmptyHeroCard
+        icon={<MonitorIcon aria-hidden="true" className="size-5" />}
+        description={RUNDOWN_WORDS.cannotOpenWithRole}
+        actions={
+          <CommandAction
+            commandId="view.presentOnPrompter"
+            label={RUNDOWN_WORDS.presentOnPrompter}
+          />
+        }
       />
-    </div>
+    </CentredCard>
   );
 }
 
@@ -120,11 +154,16 @@ export function RundownProblem(props: {
   readonly onReload: () => void;
 }): ReactNode {
   return (
-    <div className="flex h-full flex-col items-start gap-3 bg-chrome p-12 text-ui">
-      <p className="text-fg">{DOCUMENT_WORDS.panelProblem}</p>
-      <Button variant="outline" onClick={props.onReload}>
-        {DOCUMENT_WORDS.reloadPanel}
-      </Button>
-    </div>
+    <CentredCard>
+      <EmptyHeroCard
+        icon={<CircleAlertIcon aria-hidden="true" className="size-5" />}
+        description={DOCUMENT_WORDS.panelProblem}
+        actions={
+          <Button variant="outline" onClick={props.onReload}>
+            {DOCUMENT_WORDS.reloadPanel}
+          </Button>
+        }
+      />
+    </CentredCard>
   );
 }
