@@ -61,5 +61,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   aren't, compiled, joined, json, problems, utf-8, xml,
   voice,
   ended, many,
-  address, built, com, hooks, http, https, public, real, replies, resend, saving, tried, tries, trying, verified
+  address, built, com, hooks, http, https, public, real, replies, resend, saving, tried, tries, trying, verified,
+  compiling, far, playing, restart
 `);
