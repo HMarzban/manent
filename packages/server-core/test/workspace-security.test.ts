@@ -219,7 +219,10 @@ function setupFixture() {
     broadcasts,
     fetchAs,
     wsId,
+    otherWsId,
     wsIndexId,
+    otherWsIndexId,
+    projectId,
     wsDocId,
     ownDocId,
     groupDocId,
@@ -405,4 +408,105 @@ test("owner role change propagates only to workspace-sourced docs in that worksp
   expect(
     fx.storage.shareLinks.grantsOf(fx.wsDocId).find((g) => g.userId === "sam"),
   ).toEqual({ userId: "sam", role: "edit", source: "workspace" });
+});
+
+test("forged cross-workspace CRDT index entries cannot escalate or mutate roles on another workspace's documents", async () => {
+  const fx = setupFixture();
+
+  // Give priya a view-only workspace-sourced grant on studio's wsDocId
+  fx.storage.directory.setRole(fx.wsDocId, "priya", "view", []);
+  fx.storage.shareLinks.grant(fx.wsDocId, "priya", "view", "workspace");
+
+  // Attacker (outsider, owner of otherWsId) baits studio's projectId and wsDocId into otherWsId's CRDT index
+  const otherWsHome = { kind: "project" as const, id: fx.otherWsIndexId };
+  const otherFile = fx.storage.open(otherWsHome);
+  otherFile.log.create({
+    id: fx.otherWsIndexId,
+    kind: "index",
+    ownerUserId: null,
+    schemaVersion: 2,
+    engineVersion: 1,
+  });
+  const forged = createDoc();
+  jsonMap(forged, "projects").set(fx.projectId, { title: "Bait Project" });
+  jsonMap(forged, "documents").set(fx.wsDocId, {
+    title: "Bait Script",
+    projectId: fx.projectId,
+  });
+  otherFile.log.append({
+    docId: fx.otherWsIndexId,
+    generation: 1,
+    update: forged.encodeState(),
+    userId: "outsider",
+    origin: "edit",
+    clocks: [],
+  });
+  forged.destroy();
+
+  // Outsider promotes priya to owner in otherWsId; studio's wsDocId must NOT be touched
+  const promote = await fx.fetchAs("outsider", "/api/workspace/people/role", {
+    workspaceId: fx.otherWsId,
+    userId: "priya",
+    role: "owner",
+  });
+  expect([promote.status, await promote.json()]).toEqual([200, { ok: true }]);
+
+  // Victim document wsDocId still has priya at view with [] capabilities and source="workspace"
+  expect(fx.storage.directory.roleOf(fx.wsDocId, "priya")).toEqual({
+    role: "view",
+    capabilities: [],
+  });
+  expect(
+    fx.storage.shareLinks
+      .grantsOf(fx.wsDocId)
+      .find((g) => g.userId === "priya"),
+  ).toEqual({ userId: "priya", role: "view", source: "workspace" });
+  expect(fx.broadcasts.some((b) => b.docId === fx.wsDocId)).toBe(false);
+});
+
+test("demoting a non-owner editor to view or comment clears privileged capabilities on workspace index and workspace-sourced docs", async () => {
+  const fx = setupFixture();
+
+  // Grant sam editor role with privileged capabilities on workspace index and wsDocId
+  const privileged = ["delete", "lock_page_numbers"];
+  fx.storage.directory.setRole(fx.wsIndexId, "sam", "edit", privileged);
+  fx.storage.directory.setRole(fx.wsDocId, "sam", "edit", privileged);
+  fx.storage.shareLinks.grant(fx.wsDocId, "sam", "edit", "workspace");
+
+  // Demote sam from edit -> view: capabilities MUST be cleared everywhere
+  const toView = await fx.fetchAs("dana", "/api/workspace/people/role", {
+    workspaceId: fx.wsId,
+    userId: "sam",
+    role: "view",
+  });
+  expect([toView.status, await toView.json()]).toEqual([200, { ok: true }]);
+  expect(fx.storage.directory.roleOf(fx.wsIndexId, "sam")).toEqual({
+    role: "view",
+    capabilities: [],
+  });
+  expect(fx.storage.directory.roleOf(fx.wsDocId, "sam")).toEqual({
+    role: "view",
+    capabilities: [],
+  });
+
+  // Restore sam to edit with privileged capabilities, then demote to comment: capabilities MUST be cleared
+  fx.storage.directory.setRole(fx.wsIndexId, "sam", "edit", privileged);
+  fx.storage.directory.setRole(fx.wsDocId, "sam", "edit", privileged);
+  const toComment = await fx.fetchAs("dana", "/api/workspace/people/role", {
+    workspaceId: fx.wsId,
+    userId: "sam",
+    role: "comment",
+  });
+  expect([toComment.status, await toComment.json()]).toEqual([
+    200,
+    { ok: true },
+  ]);
+  expect(fx.storage.directory.roleOf(fx.wsIndexId, "sam")).toEqual({
+    role: "comment",
+    capabilities: [],
+  });
+  expect(fx.storage.directory.roleOf(fx.wsDocId, "sam")).toEqual({
+    role: "comment",
+    capabilities: [],
+  });
 });

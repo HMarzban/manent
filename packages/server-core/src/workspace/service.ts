@@ -81,22 +81,52 @@ function committedDoc(
   return doc;
 }
 
+interface WorkspaceIndexDocs {
+  readonly docIds: readonly string[];
+  readonly validProjects: ReadonlySet<string>;
+}
+
 /**
- * Every document belonging to workspaceId, read from its committed workspace index's `documents`
- * and `projects` maps (plus each project's stored documents in that project's home).
+ * Candidate documents belonging to workspaceId, read from its committed workspace index's `documents`
+ * and `projects` maps. Every entry is later corroborated against server-held storage authority.
  */
-function workspaceDocIds(storage: Storage, wsIndexId: string): string[] {
+function workspaceDocIds(
+  storage: Storage,
+  wsIndexId: string,
+): WorkspaceIndexDocs {
   const place = storage.directory.placeOf(wsIndexId);
-  if (place === null) return [];
+  if (place === null) return { docIds: [], validProjects: new Set() };
   const doc = committedDoc(storage, place.home, wsIndexId);
-  if (doc === null) return [];
+  if (doc === null) return { docIds: [], validProjects: new Set() };
+  const validProjects = new Set<string>();
   const ids = new Set<string>();
   try {
-    for (const docId of jsonMap(doc, "documents").keys()) {
-      if (isDocId(docId) && docId !== wsIndexId) ids.add(docId);
-    }
     for (const projectId of jsonMap(doc, "projects").keys()) {
-      if (!isDocId(projectId)) continue;
+      if (isDocId(projectId)) validProjects.add(projectId);
+    }
+    const docsMap = jsonMap(doc, "documents");
+    for (const docId of docsMap.keys()) {
+      if (!isDocId(docId) || docId === wsIndexId) continue;
+      const entry = docsMap.get(docId);
+      if (typeof entry !== "object" || entry === null) continue;
+      const entryProjectId: unknown = Reflect.get(entry, "projectId");
+      if (
+        typeof entryProjectId !== "string" ||
+        !isDocId(entryProjectId) ||
+        !validProjects.has(entryProjectId)
+      ) {
+        continue;
+      }
+      const docPlace = storage.directory.placeOf(docId);
+      if (
+        docPlace !== null &&
+        docPlace.home.kind === "project" &&
+        docPlace.home.id === entryProjectId
+      ) {
+        ids.add(docId);
+      }
+    }
+    for (const projectId of validProjects) {
       for (const docId of storage.directory.documentsIn({
         kind: "project",
         id: projectId,
@@ -107,7 +137,7 @@ function workspaceDocIds(storage: Storage, wsIndexId: string): string[] {
   } finally {
     doc.destroy();
   }
-  return [...ids];
+  return { docIds: [...ids], validProjects };
 }
 
 function nextCapabilities(
@@ -116,7 +146,13 @@ function nextCapabilities(
   nextRole: DocRole,
 ): readonly string[] {
   if (nextRole === "owner") return OWNER_CAPABILITIES;
-  if (previousRole === "owner") return [];
+  if (
+    previousRole === "owner" ||
+    nextRole === "view" ||
+    nextRole === "comment"
+  ) {
+    return [];
+  }
   return previousCaps;
 }
 
@@ -139,10 +175,30 @@ function propagateRoleChange(options: {
     nextCaps,
   } = options;
   const docRole: DocRole = nextRole === "owner" ? "edit" : nextRole;
-  const docIds = workspaceDocIds(storage, wsIndexId);
+  const wsMembers = new Set(
+    storage.directory.rolesOf(wsIndexId).map((row) => row.userId),
+  );
+  const { docIds, validProjects } = workspaceDocIds(storage, wsIndexId);
   for (const docId of docIds) {
     const place = storage.directory.placeOf(docId);
-    if (place === null || place.kind === "comments") continue;
+    if (
+      place === null ||
+      place.home.kind !== "project" ||
+      place.kind === "index" ||
+      place.kind === "comments" ||
+      place.kind === "private"
+    ) {
+      continue;
+    }
+    if (!validProjects.has(place.home.id)) continue;
+    const callerDocRole = storage.directory.roleOf(docId, callerUserId)?.role;
+    if (callerDocRole !== "owner" && callerDocRole !== "edit") continue;
+    const owners = storage.directory
+      .rolesOf(docId)
+      .filter((row) => row.role === "owner");
+    if (owners.length === 0 || !owners.every((o) => wsMembers.has(o.userId))) {
+      continue;
+    }
     const grant = storage.shareLinks
       .grantsOf(docId)
       .find((row) => row.userId === targetUserId);
