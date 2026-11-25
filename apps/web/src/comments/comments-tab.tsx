@@ -112,12 +112,14 @@ function CommentsTab(props: { docId: string | null }): ReactNode {
       {state.loading && isEmpty ? (
         <CommentsSkeleton />
       ) : isEmpty ? (
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <EmptyHeroCard
-            compact
-            icon={<MessageSquareIcon aria-hidden="true" className="size-4" />}
-            description={emptyText}
-          />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="flex min-h-full flex-col items-center justify-center p-4">
+            <EmptyHeroCard
+              compact
+              icon={<MessageSquareIcon aria-hidden="true" className="size-4" />}
+              description={emptyText}
+            />
+          </div>
         </div>
       ) : (
         <div className="min-h-0 flex-1 divide-y divide-line overflow-y-auto">

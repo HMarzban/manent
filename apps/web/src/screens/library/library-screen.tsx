@@ -252,7 +252,7 @@ function Library(props: { api: Api; person: TabPerson }): ReactNode {
           current={viewId}
           projects={projects}
         />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 px-6 pt-6 pb-8 *:w-full *:max-w-content-wide">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 px-6 pt-6 pb-8 *:mx-auto *:w-full *:max-w-content-wide">
           {shown?.seeding == null ? (
             <View
               workspaceId={workspaceId}

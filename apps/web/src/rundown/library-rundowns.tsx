@@ -352,7 +352,7 @@ export function RundownsView(props: ProjectViewProps): ReactNode {
       {loading ? (
         <RundownsSkeleton />
       ) : empty ? (
-        <div data-tour="library:rundowns" className="py-3">
+        <div data-tour="library:rundowns" className="flex justify-center py-4">
           <EmptyHeroCard
             icon={<ListOrderedIcon aria-hidden="true" className="size-5" />}
             title={RUNDOWN_WORDS.noRundownsYet}

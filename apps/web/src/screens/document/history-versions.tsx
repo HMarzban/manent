@@ -69,7 +69,7 @@ function EmptyLine(): ReactNode {
   const { platform } = useCommands();
   const [chord] = useCommandState("history.nameDraft").keys;
   return (
-    <div className="px-2 py-3">
+    <div className="flex flex-1 items-center justify-center px-2 py-6">
       <EmptyHeroCard
         compact
         icon={<HistoryIcon aria-hidden="true" className="size-4" />}

@@ -128,7 +128,7 @@ export function SeriesView(props: ProjectViewProps): ReactNode {
             {project.title}
           </h2>
         </div>
-        <div className="py-3">
+        <div className="flex justify-center py-4">
           <EmptyHeroCard
             icon={<FilmIcon aria-hidden="true" className="size-5" />}
             title={SERIES_WORDS.empty}
