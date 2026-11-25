@@ -243,6 +243,26 @@ function subscribe(
   ];
 }
 
+const hasStoredSceneNumbers = (
+  script: ScriptEditorOptions["script"],
+): boolean => {
+  const explain: unknown = Reflect.get(script, "explain");
+  if (typeof explain !== "function") return true;
+  const info: unknown = explain.call(script, "script.sceneNumbers");
+  return (
+    typeof info === "object" &&
+    info !== null &&
+    Reflect.get(info, "modified") === true
+  );
+};
+
+const readScriptLayout = (script: ScriptEditorOptions["script"]) =>
+  readLayoutSettings((key) =>
+    key === "script.sceneNumbers" && !hasStoredSceneNumbers(script)
+      ? undefined
+      : script.get(key),
+  );
+
 /**
  * Builds the editor in `place`: the page's frame, the view and its plugins, and `div.mn-layer` for the popovers after
  * them. Without a page profile (Ink) it is a plain view with no pages. Plugins are never reconfigured: a setting
@@ -251,7 +271,7 @@ function subscribe(
 export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
   const { place, binding, editable, script, desk, zoom } = options;
   let editableNow = editable;
-  let layout = readLayoutSettings((key) => script.get(key));
+  let layout = readScriptLayout(script);
   let scenesNumbered = false;
   let pages: PageControls | null = null;
   const format = (): FormatId => formatOf(layout.format);
@@ -331,7 +351,7 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     options,
     view,
     () => {
-      layout = readLayoutSettings((key) => script.get(key));
+      layout = readScriptLayout(script);
       pages?.repage();
       front?.relayout();
       furnitureSync.sync(view.state);

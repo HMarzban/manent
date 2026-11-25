@@ -9,9 +9,11 @@ test("the layout defaults are the settings' own", () => {
   expect<unknown>(DEFAULT_LAYOUT_SETTINGS).toEqual({
     format: value("script.format"),
     paper: value("script.paper"),
+    linesPerPage: value("script.linesPerPage"),
     moresAtBreaks: value("script.moresAtBreaks"),
     sameSpeakerContd: value("script.sameSpeakerContd"),
     sceneContinued: value("script.sceneContinued"),
     scenesNumbered: false,
+    sceneNumberSides: null,
   });
 });
