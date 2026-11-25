@@ -1,17 +1,26 @@
 // Bracket-time Check source: lists every `T=` form that sets no time, naming its slug (Segment in a Podcast) and opening the bracket.
-import { readBlocks } from "@manent/crdt";
+import { readBlocks, scriptBody } from "@manent/crdt";
 import type { TimingFacts } from "@manent/editor";
 import { findBracketTimes } from "@manent/pagination";
 import type { BracketTime } from "@manent/pagination";
 import { textAnchorAt } from "@manent/schema";
 import type { BlockJSON } from "@manent/schema";
+import type { DocHandle } from "@manent/sync-client";
 import { TIMING_WORDS } from "@manent/ui";
 import { archiveSource } from "../archive/archive-source.ts";
-import { recordCheckDetail } from "../checks/checks-context.ts";
-import { liveEditor } from "../editor-host/live-editor.ts";
+import {
+  notifyChecksChanged,
+  recordCheckDetail,
+} from "../checks/checks-context.ts";
+import {
+  liveEditor,
+  subscribeLiveEditors,
+} from "../editor-host/live-editor.ts";
+import type { PersonServices } from "../services/ports.ts";
 import { timingFactsOf } from "./timing-facts.ts";
 
 const SOURCE_ID = "bracket_time";
+const MAX_CACHE_ENTRIES = 16;
 
 type UnreadTime = Extract<BracketTime, { ok: false }>;
 
@@ -36,12 +45,50 @@ interface ScriptBlock {
 }
 
 interface CachedFallback {
-  readonly pmDoc: unknown;
+  readonly source: unknown;
+  readonly fromEditor: boolean;
   readonly podcast: boolean;
   readonly checks: readonly BracketCheck[];
 }
 
 const fallbackCache = new Map<string, CachedFallback>();
+const storedBlocksCache = new Map<string, readonly ScriptBlock[]>();
+const loadingStored = new Set<string>();
+let stopLiveWatch: (() => void) | null = null;
+
+function setBounded<K, V>(map: Map<K, V>, key: K, value: V): void {
+  map.delete(key);
+  map.set(key, value);
+  while (map.size > MAX_CACHE_ENTRIES) {
+    const oldest = map.keys().next().value;
+    if (oldest === undefined) break;
+    map.delete(oldest);
+  }
+}
+
+function ensureLiveWatch(): void {
+  if (stopLiveWatch !== null) return;
+  stopLiveWatch = subscribeLiveEditors(() => {
+    for (const [docId, entry] of fallbackCache) {
+      if (entry.fromEditor && liveEditor(docId) === null) {
+        fallbackCache.delete(docId);
+      }
+    }
+    for (const docId of storedBlocksCache.keys()) {
+      if (liveEditor(docId) !== null) {
+        storedBlocksCache.delete(docId);
+        const cached = fallbackCache.get(docId);
+        if (cached !== undefined && !cached.fromEditor) {
+          fallbackCache.delete(docId);
+        }
+      }
+    }
+    if (fallbackCache.size === 0 && storedBlocksCache.size === 0) {
+      stopLiveWatch?.();
+      stopLiveWatch = null;
+    }
+  });
+}
 
 function isVariety(docId: string): boolean {
   const services = archiveSource.get();
@@ -196,16 +243,89 @@ function findBracketTimeChecksInBlocks(options: {
   return checks;
 }
 
-function checksFromPmDoc(
+function extractScriptBlocks(
+  blocks: readonly BlockJSON[],
+): readonly ScriptBlock[] {
+  const result: ScriptBlock[] = [];
+  for (const block of blocks) {
+    const type = block.attrs?.type;
+    const id = typeof block.attrs?.id === "string" ? block.attrs.id : "";
+    if (type === "slug" || type === "bracket") {
+      result.push({ id, type, text: blockJsonText(block) });
+    }
+  }
+  return result;
+}
+
+async function readStoredDocBlocks(
+  services: PersonServices,
   docId: string,
+): Promise<readonly BlockJSON[] | null> {
+  try {
+    const local = await services.documentBlocks(docId);
+    if (local !== null) return local;
+  } catch {
+    // fall back to opening the handle directly when documentBlocks is unavailable
+  }
+  let handle: DocHandle | null = null;
+  try {
+    handle = await services.openHandle(docId);
+    const view = handle.readOnly.get();
+    if (view !== null) {
+      return view.status.get().live ? [...view.blocks.get()] : null;
+    }
+    return (scriptBody(handle.doc()).materialize().content ?? []).flatMap(
+      (section) => section.content ?? [],
+    );
+  } catch {
+    // document unavailable on this device or sync not started
+    return null;
+  } finally {
+    if (handle !== null) {
+      await handle.close().catch(() => {
+        // closing a temporary fallback handle after read is best-effort
+      });
+    }
+  }
+}
+
+function warmStoredBlocks(docId: string): void {
+  if (loadingStored.has(docId)) return;
+  const services = archiveSource.get();
+  if (services === null) return;
+  loadingStored.add(docId);
+  void readStoredDocBlocks(services, docId)
+    .then((blocks) => {
+      if (blocks === null || liveEditor(docId) !== null) return;
+      setBounded(storedBlocksCache, docId, extractScriptBlocks(blocks));
+      ensureLiveWatch();
+      notifyChecksChanged(docId, services);
+    })
+    .finally(() => {
+      loadingStored.delete(docId);
+    });
+}
+
+function checksFromLiveEditor(
+  docId: string,
+  editor: NonNullable<ReturnType<typeof liveEditor>>,
   podcast: boolean,
 ): readonly BracketCheck[] {
-  const pmDoc = liveEditor(docId)?.view?.state?.doc;
-  if (pmDoc === undefined || pmDoc === null) return [];
+  const pmDoc = editor.view?.state?.doc;
+  if (pmDoc === undefined || pmDoc === null) {
+    const rawBlocks = (
+      scriptBody(editor.doc).materialize().content ?? []
+    ).flatMap((section) => section.content ?? []);
+    return findBracketTimeChecksInBlocks({
+      docId,
+      blocks: extractScriptBlocks(rawBlocks),
+      podcast,
+    });
+  }
   const cached = fallbackCache.get(docId);
   if (
     cached !== undefined &&
-    cached.pmDoc === pmDoc &&
+    cached.source === pmDoc &&
     cached.podcast === podcast
   )
     return cached.checks;
@@ -220,7 +340,46 @@ function checksFromPmDoc(
     return false;
   });
   const checks = findBracketTimeChecksInBlocks({ docId, blocks, podcast });
-  fallbackCache.set(docId, { pmDoc, podcast, checks });
+  setBounded(fallbackCache, docId, {
+    source: pmDoc,
+    fromEditor: true,
+    podcast,
+    checks,
+  });
+  ensureLiveWatch();
+  return checks;
+}
+
+function checksFromFallback(
+  docId: string,
+  podcast: boolean,
+): readonly BracketCheck[] {
+  const editor = liveEditor(docId);
+  if (editor !== null) return checksFromLiveEditor(docId, editor, podcast);
+  const stored = storedBlocksCache.get(docId);
+  if (stored === undefined) {
+    warmStoredBlocks(docId);
+    return [];
+  }
+  const cached = fallbackCache.get(docId);
+  if (
+    cached !== undefined &&
+    cached.source === stored &&
+    cached.podcast === podcast
+  )
+    return cached.checks;
+  const checks = findBracketTimeChecksInBlocks({
+    docId,
+    blocks: stored,
+    podcast,
+  });
+  setBounded(fallbackCache, docId, {
+    source: stored,
+    fromEditor: false,
+    podcast,
+    checks,
+  });
+  ensureLiveWatch();
   return checks;
 }
 
@@ -232,6 +391,6 @@ export const bracketTimeCheck: BracketCheckSource = {
     const podcast = isPodcast(docId);
     const facts = timingFactsOf(docId).get();
     if (facts !== null) return checksFromFacts(docId, facts, podcast);
-    return checksFromPmDoc(docId, podcast);
+    return checksFromFallback(docId, podcast);
   },
 };

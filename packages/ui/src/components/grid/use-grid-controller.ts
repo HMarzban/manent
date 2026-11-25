@@ -62,7 +62,7 @@ export interface GridController {
   onGridKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void;
   beginEdit(rowId: string, columnId: string, initialKey: string | null): void;
   setDraft(next: string): void;
-  commitEdit(direction: "down" | "right" | "left" | "none"): void;
+  commitEdit(direction: "down" | "right" | "left" | "none"): boolean;
   cancelEdit(): void;
 }
 
@@ -179,8 +179,8 @@ export function useGridController({
   );
 
   const commitEdit = useCallback(
-    (direction: "down" | "right" | "left" | "none") => {
-      if (editing === null) return;
+    (direction: "down" | "right" | "left" | "none"): boolean => {
+      if (editing === null) return false;
       const outcome = normaliseCommit(
         onCommitCell?.(editing.rowId, editing.columnId, editing.draft),
       );
@@ -188,7 +188,7 @@ export function useGridController({
         setEditing((prev) =>
           prev === null ? null : { ...prev, error: outcome.message },
         );
-        return;
+        return false;
       }
       const next = nextCoordAfterCommit({
         rows,
@@ -203,6 +203,7 @@ export function useGridController({
         setActive(next.coord);
         focusCellLater(next.coord, next.rowIndex);
       }
+      return true;
     },
     [
       editing,

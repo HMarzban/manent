@@ -30,6 +30,7 @@ function ColumnResizeHandle({
     pointerId: number;
     startX: number;
     startWidth: number;
+    lastWidth: number;
   } | null>(null);
   const { min, max } = columnBounds(column);
   const width = resolveColumnWidth(column);
@@ -41,10 +42,12 @@ function ColumnResizeHandle({
     event.currentTarget.setPointerCapture?.(event.pointerId);
     const measured =
       event.currentTarget.parentElement?.getBoundingClientRect().width ?? 0;
+    const startWidth = measured > 0 ? Math.round(measured) : width;
     drag.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
-      startWidth: measured > 0 ? Math.round(measured) : width,
+      startWidth,
+      lastWidth: startWidth,
     };
   };
 
@@ -55,7 +58,10 @@ function ColumnResizeHandle({
       column,
       active.startWidth + (event.clientX - active.startX),
     );
-    if (next !== width) onResize(column.id, next);
+    if (next !== active.lastWidth) {
+      active.lastWidth = next;
+      onResize(column.id, next);
+    }
   };
 
   const endDrag = (event: ReactPointerEvent<HTMLDivElement>): void => {

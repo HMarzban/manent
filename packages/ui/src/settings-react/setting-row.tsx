@@ -29,6 +29,7 @@ import { Switch } from "../components/stock/switch.tsx";
 import { READOUT_WORDS } from "../words/document.ts";
 import { formatCount, formatDate } from "../words/format.ts";
 import { PREFERENCES_WORDS } from "../words/preferences.ts";
+import { TIMING_WORDS } from "../words/timing.ts";
 import { useSettingsStore } from "./settings-context.tsx";
 import { useSetting } from "./use-setting.ts";
 
@@ -75,6 +76,7 @@ const NUMBER_WORDS: Readonly<Record<string, NumberWords>> = Object.freeze({
     none: "No target",
     count: (n: number) => `${formatCount(n)} pages`,
   },
+  "project.readRate": { none: "", count: TIMING_WORDS.readRateValue },
 });
 
 /**

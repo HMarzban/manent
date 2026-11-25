@@ -22,6 +22,23 @@ export function timingEditorPlugin(context: EditorPluginContext): Plugin {
   let latest: TimingFacts | null = null;
   const initialVariety = script.get("script.format") === "variety";
   let enabledInView = initialVariety;
+  let appliedPodcast = kind.get() === "podcast";
+
+  const syncKind = (): void => {
+    const nextPodcast = kind.get() === "podcast";
+    if (nextPodcast === appliedPodcast) return;
+    const view = liveEditor(docId)?.view;
+    if (view === undefined || view.isDestroyed) return;
+    appliedPodcast = nextPodcast;
+    if (!enabledInView) return;
+    // Toggle off then on so timingPlugin rebuilds unread T= decorations with Cue or Bracket wording.
+    view.dispatch(
+      setTimingEnabled(view.state.tr, false).setMeta("addToHistory", false),
+    );
+    view.dispatch(
+      setTimingEnabled(view.state.tr, true).setMeta("addToHistory", false),
+    );
+  };
 
   const syncEnabled = (): void => {
     const isVariety = script.get("script.format") === "variety";
@@ -35,23 +52,27 @@ export function timingEditorPlugin(context: EditorPluginContext): Plugin {
     if (view === undefined || view.isDestroyed) return;
     if (enabledInView === isVariety) return;
     enabledInView = isVariety;
+    if (isVariety) appliedPodcast = kind.get() === "podcast";
     view.dispatch(
       setTimingEnabled(view.state.tr, isVariety).setMeta("addToHistory", false),
     );
   };
 
   const stopFormat = script.subscribe("script.format", syncEnabled);
+  const stopKind = kind.subscribe(syncKind);
   let seenLive = false;
   const stopLive = subscribeLiveEditors(() => {
     if (liveEditor(docId) !== null) {
       seenLive = true;
       syncEnabled();
+      syncKind();
       return;
     }
     if (seenLive) cleanup();
   });
   const cleanup = (): void => {
     stopFormat();
+    stopKind();
     stopLive();
     activeCleanup.delete(docId);
     publishTimingFacts(docId, null);
