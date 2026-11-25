@@ -3,6 +3,7 @@ import type { ComponentType } from "react";
 import { SOURCE_BESIDE } from "../copies/start-from/source-beside.tsx";
 import { outlineBesideKind } from "../outline-doc/outline-beside.tsx";
 import { ROOM_LOG_BESIDE_KIND } from "../room-log/beside-kind.ts";
+import { STORY_BESIDE_KIND } from "../rundown/beside.ts";
 import { useDocumentTitle } from "../screens/document/title-bar.tsx";
 import type { PersonServices } from "../services/ports.ts";
 import { ScriptBeside } from "./script-beside.tsx";
@@ -75,4 +76,5 @@ export const BESIDE_KINDS: readonly BesideKind[] = [
   SOURCE_BESIDE,
   outlineBesideKind,
   ROOM_LOG_BESIDE_KIND,
+  STORY_BESIDE_KIND,
 ];
