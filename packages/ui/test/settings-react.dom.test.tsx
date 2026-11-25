@@ -15,6 +15,7 @@ import {
   SettingRow,
   SettingsProvider,
   applyAppearance,
+  formatSettingValue,
   useSetting,
 } from "../src/index.ts";
 import type { BootWrite } from "../src/index.ts";
@@ -408,4 +409,11 @@ test("clicking a radio label chooses that option, and a read-only setting disabl
     reset?.disabled,
     segments.every((segment) => segment.disabled),
   ]).toEqual([true, "dark", true, true]);
+});
+
+test("Read rate formats with its characters a second unit", () => {
+  expect([
+    formatSettingValue("project.readRate", 12),
+    formatSettingValue("project.readRate", 11.25),
+  ]).toEqual(["12 characters a second", "11.25 characters a second"]);
 });

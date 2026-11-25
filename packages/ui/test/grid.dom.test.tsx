@@ -111,17 +111,154 @@ test("pointer column resize starts from the rendered header cell width", () => {
     handle.dispatchEvent(
       new PointerEvent("pointermove", {
         pointerId: 1,
+        clientX: 240,
+        bubbles: true,
+      }),
+    );
+    handle.dispatchEvent(
+      new PointerEvent("pointermove", {
+        pointerId: 1,
         clientX: 255,
+        bubbles: true,
+      }),
+    );
+    handle.dispatchEvent(
+      new PointerEvent("pointermove", {
+        pointerId: 1,
+        clientX: 120,
         bubbles: true,
       }),
     );
     handle.dispatchEvent(
       new PointerEvent("pointerup", {
         pointerId: 1,
-        clientX: 255,
+        clientX: 120,
         bubbles: true,
       }),
     );
   });
-  expect(resizes).toEqual([["title", 255]]);
+  expect(resizes).toEqual([
+    ["title", 255],
+    ["title", 120],
+  ]);
+});
+
+test("blurring an inline editor still commits after a refused Enter keeps edit mode open", () => {
+  const attempts: string[] = [];
+  const columns: readonly GridColumn[] = [
+    { id: "title", label: "Title", editable: true, flex: true },
+  ];
+  const { el } = render(
+    <EditableGrid
+      label="Rundown"
+      columns={columns}
+      rows={ROWS}
+      selectedRowIds={new Set()}
+      activeCell={{ rowId: "r1", columnId: "title" }}
+      readOnly={false}
+      surface={null}
+      onActiveCellChange={() => {}}
+      onSelectionChange={() => {}}
+      onCommitCell={(_rowId, _columnId, value) => {
+        attempts.push(value);
+        return value === "Opening"
+          ? { ok: false, message: "Needs a new title" }
+          : { ok: true };
+      }}
+    />,
+  );
+  const cell = el.querySelector<HTMLElement>(
+    '[data-row-id="r1"][data-col-id="title"]',
+  );
+  if (cell === null) throw new TypeError("no cell");
+  act(() => {
+    cell.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  });
+  const input = el.querySelector<HTMLInputElement>("input");
+  if (input === null) throw new TypeError("no inline input");
+  act(() => {
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+  });
+  expect(el.querySelector('[role="alert"]')?.textContent).toBe(
+    "Needs a new title",
+  );
+  act(() => {
+    input.blur();
+  });
+  expect(attempts).toEqual(["Opening", "Opening"]);
+});
+
+test("non-draggable and read-only grid rows do not set aria-disabled, while unavailable rows do", async () => {
+  const rows: readonly GridRow[] = [
+    ...ROWS,
+    {
+      id: "r2",
+      kind: "item",
+      label: "Offline story",
+      unavailable: "Not on this device",
+      cells: { title: { value: "Offline story" }, dur: { value: "—" } },
+    },
+  ];
+  const { el } = render(
+    <EditableGrid
+      label="Rundown"
+      columns={COLUMNS}
+      rows={rows}
+      selectedRowIds={new Set()}
+      activeCell={null}
+      readOnly={true}
+      surface={null}
+      onActiveCellChange={() => {}}
+      onSelectionChange={() => {}}
+      onCommitCell={() => true}
+    />,
+  );
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect([
+    el.querySelector('[data-row-id="r1"]')?.getAttribute("aria-disabled"),
+    el.querySelector('[data-row-id="r2"]')?.getAttribute("aria-disabled"),
+  ]).toEqual([null, "true"]);
+});
+
+test("row presence attaches to the primary or first non-numeric column even when # is hidden", () => {
+  const columnsWithHiddenNumber: readonly GridColumn[] = [
+    { id: "number", label: "#", numeric: true, hidden: true },
+    { id: "segment", label: "Segment", flex: true },
+    { id: "dur", label: "Dur", numeric: true },
+  ];
+  const rows: readonly GridRow[] = [
+    {
+      id: "r1",
+      kind: "item",
+      label: "Cold open",
+      presence: <span>DS</span>,
+      cells: {
+        number: { value: "1" },
+        segment: { value: "Cold open" },
+        dur: { value: "1:00" },
+      },
+    },
+  ];
+  const { el } = render(
+    <EditableGrid
+      label="Rundown"
+      columns={columnsWithHiddenNumber}
+      rows={rows}
+      selectedRowIds={new Set()}
+      activeCell={null}
+      readOnly={false}
+      surface={null}
+      onActiveCellChange={() => {}}
+      onSelectionChange={() => {}}
+      onCommitCell={() => true}
+    />,
+  );
+  expect([
+    el.querySelector('[data-col-id="segment"] [data-presence]')?.textContent,
+    el.querySelector('[data-col-id="dur"] [data-presence]'),
+  ]).toEqual(["DS", null]);
 });

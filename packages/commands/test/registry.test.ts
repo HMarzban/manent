@@ -1004,3 +1004,41 @@ test("the handler table names every command but the generated ones", () => {
       .toSorted(),
   );
 });
+
+test("Rename is hidden on a rundown and visible on a script for editors and owners", () => {
+  const rename = byId("doc.rename");
+  expect([
+    rename.visible?.(ctx({ docOpen: true, docKind: "rundown", role: "owner" })),
+    rename.visible?.(
+      ctx({ docOpen: true, docKind: "rundown", role: "editor" }),
+    ),
+    rename.visible?.(ctx({ docOpen: true, docKind: "script", role: "editor" })),
+    rename.visible?.(ctx({ docOpen: true, docKind: null, role: "owner" })),
+    rename.visible?.(ctx({ docOpen: true, docKind: "script", role: "viewer" })),
+  ]).toEqual([false, false, true, true, false]);
+});
+
+test("rundown move commands pass through while a cell is being edited", () => {
+  const editing = ctx({
+    rundown: {
+      canEdit: true,
+      selectedRows: 1,
+      scriptRowSelected: false,
+      editingCell: true,
+    },
+  });
+  const navigating = ctx({
+    rundown: {
+      canEdit: true,
+      selectedRows: 1,
+      scriptRowSelected: false,
+      editingCell: false,
+    },
+  });
+  expect([
+    byId("rundown.moveUp").passThrough?.(editing),
+    byId("rundown.moveUp").passThrough?.(navigating),
+    byId("rundown.moveDown").passThrough?.(editing),
+    byId("rundown.moveDown").passThrough?.(navigating),
+  ]).toEqual([true, false, true, false]);
+});

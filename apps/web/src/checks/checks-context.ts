@@ -321,6 +321,15 @@ export function docIdOfChecks(checks: readonly unknown[]): string | null {
   return checkListDocs.get(checks) ?? null;
 }
 
+/** Increments `docId`'s checks version and notifies mounted Checks views when an async source finishes loading. */
+export function notifyChecksChanged(
+  docId: string,
+  services: PersonServices | null = activeServices,
+): void {
+  if (services === null) return;
+  emit(entryFor(services, docId));
+}
+
 /** Records a check's anchor and Flag message subject for `docId` and `checkKey`. */
 export function recordCheckDetail(
   docId: string,

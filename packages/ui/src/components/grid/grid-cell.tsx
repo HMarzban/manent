@@ -81,7 +81,7 @@ interface InlineEditorProps {
   readonly error: string | null;
   readonly headerPlaceholder?: string;
   onDraftChange(next: string): void;
-  onCommit(direction: "down" | "right" | "left" | "none"): void;
+  onCommit(direction: "down" | "right" | "left" | "none"): boolean;
   onCancel(): void;
 }
 
@@ -115,12 +115,19 @@ function InlineEditor({
 
   const commit = (direction: "down" | "right" | "left" | "none"): void => {
     settled.current = true;
-    onCommit(direction);
+    if (!onCommit(direction)) {
+      settled.current = false;
+    }
   };
 
   const cancel = (): void => {
     settled.current = true;
     onCancel();
+  };
+
+  const change = (next: string): void => {
+    settled.current = false;
+    onDraftChange(next);
   };
 
   if (column.renderEditor !== undefined) {
@@ -135,7 +142,7 @@ function InlineEditor({
           value: draft,
           initialKey,
           error,
-          onChange: onDraftChange,
+          onChange: change,
           onCommit: commit,
           onCancel: cancel,
         })}
@@ -193,7 +200,7 @@ function InlineEditor({
           "h-control-sm w-full min-w-0 rounded-control border border-line-strong bg-well px-2 text-ui font-normal tracking-normal text-fg normal-case outline-none",
           column.numeric && !isHeader && "text-end tabular-nums",
         )}
-        onChange={(event) => onDraftChange(event.target.value)}
+        onChange={(event) => change(event.target.value)}
         onKeyDown={onKeyDown}
         onBlur={() => {
           if (settled.current) {
@@ -240,7 +247,7 @@ export interface GridCellViewProps {
   onActivate(event: ReactMouseEvent<HTMLDivElement>): void;
   onStartEdit(): void;
   onDraftChange(next: string): void;
-  onCommit(direction: "down" | "right" | "left" | "none"): void;
+  onCommit(direction: "down" | "right" | "left" | "none"): boolean;
   onCancel(): void;
 }
 

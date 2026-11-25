@@ -2,7 +2,7 @@
 import { SortableKeyboardPlugin } from "@dnd-kit/dom/sortable";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { cn } from "cn";
-import { useCallback } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { useDropMark } from "../sortable/sortable-area.tsx";
 import { GridCellView } from "./grid-cell.tsx";
@@ -11,6 +11,15 @@ import type { GridColumn, GridRow } from "./types.ts";
 
 // without dnd-kit's optimistic DOM sorting, matching SortableItem
 const ITEM_PLUGINS = [SortableKeyboardPlugin];
+
+function presenceColumnIndex(columns: readonly GridColumn[]): number {
+  const primary = columns.findIndex((column) => column.primary === true);
+  if (primary !== -1) return primary;
+  const nonNumeric = columns.findIndex(
+    (column) => !column.numeric && column.label !== "#",
+  );
+  return nonNumeric !== -1 ? nonNumeric : 0;
+}
 
 export interface GridRowViewProps {
   readonly row: GridRow;
@@ -35,7 +44,7 @@ export interface GridRowViewProps {
   ): void;
   onStartEdit(rowId: string, columnId: string): void;
   onDraftChange(next: string): void;
-  onCommitEdit(direction: "down" | "right" | "left" | "none"): void;
+  onCommitEdit(direction: "down" | "right" | "left" | "none"): boolean;
   onCancelEdit(): void;
 }
 
@@ -62,30 +71,44 @@ export function GridRowView({
   onCancelEdit,
 }: GridRowViewProps): ReactNode {
   const editingThisRow = editingColumnId !== null;
+  const sortableEnabled =
+    draggable && !editingThisRow && row.unavailable === undefined;
   const { ref, isDragging } = useSortable({
     id: row.id,
     index,
     group,
-    disabled: !draggable || editingThisRow || row.unavailable !== undefined,
+    disabled: !sortableEnabled,
     plugins: ITEM_PLUGINS,
   });
   const mark = useDropMark();
   const dropBefore = mark?.id === row.id && mark.edge === "before";
   const dropAfter = mark?.id === row.id && mark.edge === "after";
+  const rowRef = useRef<HTMLDivElement | null>(null);
 
   const attach = useCallback(
     (node: HTMLDivElement | null) => {
-      ref(node);
+      rowRef.current = node;
+      ref(sortableEnabled ? node : null);
       if (virtualStart !== null) measureElement?.(node);
     },
-    [ref, virtualStart, measureElement],
+    [ref, sortableEnabled, virtualStart, measureElement],
   );
+
+  useLayoutEffect(() => {
+    const node = rowRef.current;
+    if (node === null) return;
+    ref(sortableEnabled ? node : null);
+    if (!sortableEnabled && row.unavailable === undefined) {
+      node.removeAttribute("aria-disabled");
+    }
+  }, [ref, sortableEnabled, row.unavailable]);
 
   const firstColumn = columns[0];
   if (firstColumn === undefined) return null;
 
   const isHeader = row.kind === "header";
   const lastIndex = columns.length - 1;
+  const presenceColIndex = presenceColumnIndex(columns);
 
   return (
     <div
@@ -151,7 +174,7 @@ export function GridRowView({
           const cell = cellFor(row, column);
           const isEditing = editingColumnId === column.id;
           const rowPresence =
-            colIndex === 1 && row.presence !== undefined
+            colIndex === presenceColIndex && row.presence !== undefined
               ? row.presence
               : undefined;
           const mergedCell =

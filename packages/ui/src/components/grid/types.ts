@@ -36,6 +36,8 @@ export interface GridColumn {
   readonly accessibleLabel?: string;
   /** Right-aligned tabular numerals for numeric and timing columns. */
   readonly numeric?: boolean;
+  /** Marks the primary column where row-level presence attaches when present. */
+  readonly primary?: boolean;
   /** Whether cells in this column can be edited (default false). */
   readonly editable?: boolean;
   /** Hidden columns are excluded from rendering and column counts. */

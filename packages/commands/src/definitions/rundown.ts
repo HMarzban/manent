@@ -89,10 +89,12 @@ export const RUNDOWN_COMMANDS = defineCommands([
   }),
   rundownCommand("rundown.moveUp", "Move up", {
     keys: same("Alt+ArrowUp"),
+    passThrough: editingCell,
     palette: { keywords: ["rundown", "reorder", "row"] },
   }),
   rundownCommand("rundown.moveDown", "Move down", {
     keys: same("Alt+ArrowDown"),
+    passThrough: editingCell,
     palette: { keywords: ["rundown", "reorder", "row"] },
   }),
   rundownCommand("rundown.copyRows", "Copy", {
