@@ -1,4 +1,4 @@
-// Per-rundown prompter runtime: capability lookup, story sync/format tracking, control listening and context publishing.
+// Per-rundown prompter runtime: capability lookup, story sync/format tracking, control listening and remote operator control.
 import type { DocHandle } from "@manent/sync-client";
 import { useEffect, useSyncExternalStore } from "react";
 import type { BesideOpen } from "../beside/open-beside.ts";
@@ -12,24 +12,21 @@ import {
   resolveTargetRow,
   selectionSignature,
 } from "./prompter-model.ts";
-import { executePrompterSend, tokenOf } from "./prompter-send.ts";
+import {
+  INITIAL_PROMPTER_SNAPSHOT,
+  createPrompterRuntimeState,
+  executePrompterSend,
+  tokenOf,
+  trackPrompterStory,
+} from "./prompter-send.ts";
 import type {
   PrompterRuntimeState,
   PrompterSnapshot,
 } from "./prompter-send.ts";
+import { createPrompterControlRuntime } from "./remote-scroll.ts";
+import type { PrompterControlRuntime } from "./remote-scroll.ts";
 
 export type { PrompterSnapshot } from "./prompter-send.ts";
-
-const EMPTY_SET: ReadonlySet<string> = new Set();
-const EMPTY_MAP: ReadonlyMap<string, number> = new Map();
-
-const INITIAL_SNAPSHOT: PrompterSnapshot = Object.freeze({
-  online: true,
-  canSend: false,
-  synced: false,
-  inFlightRows: EMPTY_SET,
-  waitingByDocId: EMPTY_MAP,
-});
 
 interface PrompterRuntime {
   refs: number;
@@ -64,12 +61,31 @@ function subscribeKey(key: string, listener: () => void): () => void {
 }
 
 function emitSnapshot(state: PrompterRuntimeState): void {
+  const target = resolveTargetRow(
+    state.latestView,
+    state.latestBeside,
+    state.overrideRowId,
+  );
+  const activeRowSent =
+    target !== null &&
+    (target.prompter !== null || state.knownSentRows.has(target.id));
+  const hasSentRow =
+    state.knownSentRows.size > 0 ||
+    (state.latestView?.rundown?.rows.some((row) => row.prompter !== null) ??
+      false);
   state.snapshot = Object.freeze({
     online: state.online,
     canSend: state.canSend,
     synced: state.synced,
     inFlightRows: new Set(state.inFlight),
     waitingByDocId: new Map(state.waitingByDocId),
+    operator: state.operator,
+    scroll: state.scroll,
+    takingControl: state.takingControl,
+    isOperator: state.isOperator,
+    hasSentRow,
+    activeRowId: target?.id ?? null,
+    activeRowSent,
   });
   notifyKey(state.key);
 }
@@ -94,89 +110,39 @@ function publishContext(state: PrompterRuntimeState): void {
         : null,
     waiting: storyId !== null ? (state.waitingByDocId.get(storyId) ?? 0) : 0,
     synced: state.synced,
+    controlling: state.isOperator,
   });
 }
 
-function trackStory(state: PrompterRuntimeState, storyId: string | null): void {
-  if (storyId === state.trackedStoryId) return;
-  state.stopTrackedStory?.();
-  state.stopTrackedStory = null;
-  state.trackedStoryId = storyId;
-  state.trackedStoryFormat = null;
-  if (storyId === null) {
-    publishContext(state);
-    return;
-  }
-  const doc = state.services.documents.open(storyId);
-  const store = state.services.openScriptStore(storyId);
-  state.trackedStoryFormat = store.get("script.format");
-  state.waitingByDocId.set(storyId, doc.status.get().waiting);
-  const stopStatus = doc.status.subscribe((st) => {
-    if (state.waitingByDocId.get(storyId) === st.waiting) return;
-    state.waitingByDocId.set(storyId, st.waiting);
-    emitSnapshot(state);
-    publishContext(state);
-  });
-  const stopFormat = store.subscribe("script.format", () => {
-    state.trackedStoryFormat = store.get("script.format");
-    publishContext(state);
-  });
-  state.stopTrackedStory = () => {
-    stopStatus();
-    stopFormat();
-    state.services.documents.close(storyId);
-  };
-  emitSnapshot(state);
-  publishContext(state);
-}
-
-function syncTrackedTarget(state: PrompterRuntimeState): void {
-  const row = resolveTargetRow(
-    state.latestView,
-    state.latestBeside,
-    state.overrideRowId,
-  );
-  trackStory(state, row?.docId ?? null);
-  publishContext(state);
-}
-
-function refreshCanSend(state: PrompterRuntimeState): void {
-  if (state.disposed || !state.online) return;
-  void fetchCanSendPrompter(state.rundownId, tokenOf(state)).then((allowed) => {
-    if (state.disposed || allowed === null || allowed === state.canSend) return;
-    state.canSend = allowed;
-    emitSnapshot(state);
-    publishContext(state);
-  });
-}
-
-function attachControlListener(state: PrompterRuntimeState): () => void {
+function attachControlListener(
+  state: PrompterRuntimeState,
+  control: PrompterControlRuntime,
+): () => void {
   let openedHandle: DocHandle | null = null;
   let stopControl: (() => void) | null = null;
   void state.services
     .openHandle(state.rundownId)
     .then((handle) => {
-      if (state.disposed) {
-        void handle.close();
-        return;
-      }
+      if (state.disposed) return void handle.close();
       openedHandle = handle;
       stopControl = handle.on((event) => {
-        if (event.type !== "control" || event.kind !== "sent_to_prompter")
+        if (event.type !== "control") return;
+        if (event.kind === "sent_to_prompter") {
+          const sent = parseSentControl(event.data);
+          if (sent === null) return;
+          state.knownSentRows.add(sent.rowId);
+          recordTrailEntry(state.trails, sent.rowId, {
+            sentAt: sent.sentAt,
+            versionId: sent.versionId,
+          });
+          emitSnapshot(state);
+          publishContext(state);
           return;
-        const sent = parseSentControl(event.data);
-        if (sent === null) return;
-        state.knownSentRows.add(sent.rowId);
-        recordTrailEntry(state.trails, sent.rowId, {
-          sentAt: sent.sentAt,
-          versionId: sent.versionId,
-        });
-        publishContext(state);
+        }
+        control.handleControlFrame(event.kind, event.data);
       });
     })
-    .catch(() => {
-      // handle unavailable: HTTP sends still work via the view snapshot
-    });
+    .catch(() => {});
   return () => {
     stopControl?.();
     if (openedHandle !== null) void openedHandle.close();
@@ -190,79 +156,81 @@ function createPrompterRuntime(
   env: Environment,
 ): PrompterRuntime {
   const rundownDoc = services.documents.open(rundownId);
-  const initialStatus = rundownDoc.status.get();
-  const state: PrompterRuntimeState = {
+  const st0 = rundownDoc.status.get();
+  const state = createPrompterRuntimeState(
     key,
     rundownId,
     services,
     env,
-    inFlight: new Set(),
-    pendingKeys: new Map(),
-    trails: new Map(),
-    knownSentRows: new Set(),
-    waitingByDocId: new Map(),
-    disposed: false,
-    online: initialStatus.network === "online" && env.online(),
-    canSend: false,
-    synced: !initialStatus.neverSynced,
-    latestView: null,
-    latestBeside: null,
-    overrideRowId: null,
-    lastSelectionSig: "",
-    trackedStoryId: null,
-    trackedStoryFormat: null,
-    stopTrackedStory: null,
-    snapshot: INITIAL_SNAPSHOT,
-  };
-  emitSnapshot(state);
-
+    st0.network === "online" && env.online(),
+    !st0.neverSynced,
+  );
   const hooks = {
     emit: () => emitSnapshot(state),
     publish: () => publishContext(state),
+  };
+  const control = createPrompterControlRuntime(state, hooks);
+  emitSnapshot(state);
+
+  const refreshCanSend = (): void => {
+    if (state.disposed || !state.online) return;
+    void fetchCanSendPrompter(state.rundownId, tokenOf(state)).then((ok) => {
+      if (state.disposed || ok === null || ok === state.canSend) return;
+      state.canSend = ok;
+      emitSnapshot(state);
+      publishContext(state);
+      if (ok) control.refreshStatus();
+    });
   };
 
   const stopStatus = rundownDoc.status.subscribe((st) => {
     const nextOnline = st.network === "online" && env.online();
     const nextSynced = !st.neverSynced;
     const cameOnline = !state.online && nextOnline;
-    if (nextOnline !== state.online || nextSynced !== state.synced) {
+    const changed = nextOnline !== state.online;
+    if (changed || nextSynced !== state.synced) {
       state.online = nextOnline;
       state.synced = nextSynced;
       emitSnapshot(state);
       publishContext(state);
     }
-    if (cameOnline) refreshCanSend(state);
+    if (changed) control.onConnectivityChange(nextOnline);
+    if (cameOnline) refreshCanSend();
   });
 
-  const stopHandle = attachControlListener(state);
+  const stopHandle = attachControlListener(state, control);
+  const runTarget = (kind: "send" | "sendPrevious"): void => {
+    const target = resolveTargetRow(
+      state.latestView,
+      state.latestBeside,
+      state.overrideRowId,
+    );
+    if (target !== null)
+      void executePrompterSend(state, kind, target.id, hooks);
+  };
 
   prompterActions.bind(rundownId, {
-    send() {
-      const target = resolveTargetRow(
-        state.latestView,
-        state.latestBeside,
-        state.overrideRowId,
-      );
-      if (target !== null)
-        void executePrompterSend(state, "send", target.id, hooks);
-    },
-    sendPrevious() {
-      const target = resolveTargetRow(
-        state.latestView,
-        state.latestBeside,
-        state.overrideRowId,
-      );
-      if (target !== null)
-        void executePrompterSend(state, "sendPrevious", target.id, hooks);
-    },
+    send: () => runTarget("send"),
+    sendPrevious: () => runTarget("sendPrevious"),
     sendRow(rowId: string) {
       state.overrideRowId = rowId;
-      syncTrackedTarget(state);
+      trackPrompterStory(
+        state,
+        resolveTargetRow(state.latestView, state.latestBeside, rowId)?.docId ??
+          null,
+        hooks,
+      );
       void executePrompterSend(state, "send", rowId, hooks);
     },
+    takeControl: control.takeControl,
+    takeOver: control.takeOver,
+    stopControlling: control.stopControlling,
+    jumpHere: control.jumpHere,
+    sendControl: control.sendCommand,
   });
 
-  refreshCanSend(state);
+  refreshCanSend();
+  control.refreshStatus();
   publishContext(state);
 
   return {
@@ -285,11 +253,15 @@ function createPrompterRuntime(
           });
         }
       }
-      syncTrackedTarget(state);
+      const row = resolveTargetRow(view, beside, state.overrideRowId);
+      trackPrompterStory(state, row?.docId ?? null, hooks);
+      emitSnapshot(state);
+      publishContext(state);
     },
     dispose() {
       if (state.disposed) return;
       state.disposed = true;
+      control.dispose();
       stopStatus();
       state.stopTrackedStory?.();
       stopHandle();
@@ -299,38 +271,6 @@ function createPrompterRuntime(
     },
   };
 }
-
-function retainRuntime(
-  rundownId: string,
-  services: PersonServices,
-  env: Environment,
-): PrompterRuntime {
-  const key = runtimeKey(services, rundownId);
-  let runtime = runtimes.get(key);
-  if (runtime === undefined) {
-    runtime = createPrompterRuntime(key, rundownId, services, env);
-    runtimes.set(key, runtime);
-    notifyKey(key);
-  }
-  runtime.refs += 1;
-  return runtime;
-}
-
-function releaseRuntime(
-  rundownId: string,
-  services: PersonServices,
-  runtime: PrompterRuntime,
-): void {
-  runtime.refs -= 1;
-  if (runtime.refs > 0) return;
-  const key = runtimeKey(services, rundownId);
-  if (runtimes.get(key) === runtime) runtimes.delete(key);
-  runtime.dispose();
-  notifyKey(key);
-}
-
-const subscribeEmpty = (): (() => void) => () => {};
-const readEmpty = (): PrompterSnapshot => INITIAL_SNAPSHOT;
 
 /** Retains the live prompter runtime for `rundownId` (when non-null) and returns its reactive snapshot. */
 export function usePrompterRuntime(
@@ -345,11 +285,23 @@ export function usePrompterRuntime(
   const key = rundownId === null ? null : runtimeKey(services, rundownId);
 
   useEffect(() => {
-    if (rundownId === null) return undefined;
-    const runtime = retainRuntime(rundownId, services, env);
+    if (rundownId === null || key === null) return undefined;
+    let runtime = runtimes.get(key);
+    if (runtime === undefined) {
+      runtime = createPrompterRuntime(key, rundownId, services, env);
+      runtimes.set(key, runtime);
+      notifyKey(key);
+    }
+    runtime.refs += 1;
     if (sync !== undefined) runtime.syncView(sync.view, sync.beside);
-    return () => releaseRuntime(rundownId, services, runtime);
-  }, [rundownId, services, env]);
+    return () => {
+      runtime.refs -= 1;
+      if (runtime.refs > 0) return;
+      if (runtimes.get(key) === runtime) runtimes.delete(key);
+      runtime.dispose();
+      notifyKey(key);
+    };
+  }, [rundownId, key, services, env]);
 
   useEffect(() => {
     if (key === null || sync === undefined) return;
@@ -358,10 +310,10 @@ export function usePrompterRuntime(
 
   return useSyncExternalStore(
     (onStoreChange) =>
-      key === null ? subscribeEmpty() : subscribeKey(key, onStoreChange),
+      key === null ? () => () => {} : subscribeKey(key, onStoreChange),
     () =>
       key === null
-        ? readEmpty()
-        : (runtimes.get(key)?.getSnapshot() ?? INITIAL_SNAPSHOT),
+        ? INITIAL_PROMPTER_SNAPSHOT
+        : (runtimes.get(key)?.getSnapshot() ?? INITIAL_PROMPTER_SNAPSHOT),
   );
 }

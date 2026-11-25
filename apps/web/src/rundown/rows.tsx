@@ -7,6 +7,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  PROMPTER_CONTROL_WORDS,
 } from "@manent/ui";
 import type { EditableGridHandle, GridCellCoord } from "@manent/ui";
 import { EllipsisVerticalIcon } from "lucide-react";
@@ -22,6 +23,7 @@ import {
 import { previousColumnOfRow } from "./previous-value-model.ts";
 import {
   addRundownRow,
+  canJumpRowToPrompter,
   copySelectedRows,
   deleteSelectedRows,
   dragMoveRows,
@@ -40,6 +42,7 @@ export {
 /** Commands drawn in a rundown row's menu, in the brief's order; unregistered commands are omitted. */
 export const ROW_MENU_ITEMS: readonly CommandId[] = Object.freeze([
   "prompter.send",
+  "prompter.jumpHere",
   "rundown.openBeside",
   "rundown.moveUp",
   "rundown.moveDown",
@@ -103,12 +106,14 @@ export function RowMenu(props: RowMenuProps): ReactNode {
     readonly id: CommandId;
     readonly label: string;
     readonly enabled: boolean;
+    readonly unavailableTitle?: string;
   }[] = [];
 
   for (const id of ROW_MENU_ITEMS) {
     const state = readCommandState(commands, id);
     if (state === null || !state.visible) continue;
     if (id === "prompter.send" && row.kind !== "script") continue;
+    if (id === "prompter.jumpHere" && row.kind !== "script") continue;
     if (id === "rundown.previousValue" && previousCol === null) continue;
     if (id === "rundown.startScript" && row.kind !== "item") continue;
     if (
@@ -123,11 +128,16 @@ export function RowMenu(props: RowMenuProps): ReactNode {
       continue;
 
     let enabled = state.enabled;
+    let unavailableTitle: string | undefined;
+    if (id === "prompter.jumpHere" && !canJumpRowToPrompter(row)) {
+      enabled = false;
+      unavailableTitle = PROMPTER_CONTROL_WORDS.jumpHereUnavailable;
+    }
     if (id === "rundown.openBeside" && row.kind !== "script") enabled = false;
     if (id === "rundown.moveUp" && isFirst) enabled = false;
     if (id === "rundown.moveDown" && isLast) enabled = false;
 
-    entries.push({ id, label: state.label, enabled });
+    entries.push({ id, label: state.label, enabled, unavailableTitle });
   }
 
   if (entries.length === 0) return null;
@@ -159,6 +169,8 @@ export function RowMenu(props: RowMenuProps): ReactNode {
             key={entry.id}
             data-tour={entry.id}
             disabled={!entry.enabled}
+            title={entry.unavailableTitle}
+            aria-label={entry.unavailableTitle ?? entry.label}
             className={
               entry.enabled
                 ? "cursor-pointer hover:bg-subtle"

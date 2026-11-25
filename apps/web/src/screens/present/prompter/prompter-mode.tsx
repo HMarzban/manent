@@ -5,6 +5,7 @@ import type { SurfaceStateValue } from "@manent/ui";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { focusHeading } from "../../../focus.ts";
+import type { PrompterFollowMode } from "../../../prompter/remote-scroll.ts";
 import { useEnvironment, useServices } from "../../../services/context.tsx";
 import { pageTitle } from "../../../text.ts";
 import { PrompterBar } from "./prompter-bar.tsx";
@@ -168,10 +169,12 @@ function derivePresentation(feed: ReturnType<typeof usePrompterFeed>): {
 
 export function PrompterMode(props: { docId: string }): ReactNode {
   const { docId } = props;
-  const { storage } = useEnvironment();
+  const { storage, now, frame } = useEnvironment();
+  const clock = useMemo(() => ({ now, frame }), [now, frame]);
   const [view, setView] = useState<PrompterViewState>(() =>
     readPrompterView(storage),
   );
+  const [followMode, setFollowMode] = useState<PrompterFollowMode>("follow");
   const heading = usePrompterTitle(docId);
   const feed = usePrompterFeed(docId);
   useWindowScheme(view.dark);
@@ -203,6 +206,10 @@ export function PrompterMode(props: { docId: string }): ReactNode {
       <PrompterBar
         status={barStatus}
         view={view}
+        operator={feed.operator}
+        scroll={feed.remoteScroll.state}
+        followMode={followMode}
+        onFollowModeChange={setFollowMode}
         onTextSizeChange={(textSize: PrompterTextSize) =>
           updateView({ textSize })
         }
@@ -214,6 +221,10 @@ export function PrompterMode(props: { docId: string }): ReactNode {
         stories={feed.stories}
         textSize={view.textSize}
         mirror={view.mirror}
+        remoteScroll={feed.remoteScroll}
+        followMode={followMode}
+        onFollowModeChange={setFollowMode}
+        clock={clock}
       />
     </div>
   );

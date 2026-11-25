@@ -13,7 +13,11 @@ type PrompterCommandId =
   | "prompter.sendPrevious"
   | "view.presentOnPrompter"
   | "prompter.files"
-  | "prompter.stopFiles";
+  | "prompter.stopFiles"
+  | "prompter.takeControl"
+  | "prompter.takeOver"
+  | "prompter.stopControlling"
+  | "prompter.jumpHere";
 
 export function prompterHandlers(
   deps: HandlerDeps,
@@ -40,5 +44,13 @@ export function prompterHandlers(
     }),
     "prompter.files": onDoc((docId) => prompterFilesStore.open(docId)),
     "prompter.stopFiles": () => prompterFilesStore.stop(),
+    "prompter.takeControl": onDoc((docId) =>
+      prompterActions.takeControl(docId),
+    ),
+    "prompter.takeOver": onDoc((docId) => prompterActions.takeOver(docId)),
+    "prompter.stopControlling": onDoc((docId) =>
+      prompterActions.stopControlling(docId),
+    ),
+    "prompter.jumpHere": onDoc((docId) => prompterActions.jumpHere(docId)),
   };
 }
