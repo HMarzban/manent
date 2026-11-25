@@ -46,6 +46,7 @@ import { INK_COMMANDS } from "./ink.ts";
 import { SCRIPT_COMMANDS } from "./script.ts";
 import { FOCUS_MODE_COMMANDS } from "./focus-mode.ts";
 import { PRODUCTION_OUTPUTS_COMMANDS } from "./production-outputs.ts";
+import { TEMPLATE_COMMANDS } from "./templates.ts";
 
 export const COMMANDS = defineCommands([
   ...APP_COMMANDS,
@@ -92,6 +93,7 @@ export const COMMANDS = defineCommands([
   ...SCRIPT_COMMANDS,
   ...FOCUS_MODE_COMMANDS,
   ...PRODUCTION_OUTPUTS_COMMANDS,
+  ...TEMPLATE_COMMANDS,
   ...settingCommands(SETTINGS),
 ]);
 export type CommandId = (typeof COMMANDS)[number]["id"];

@@ -115,6 +115,7 @@ const ROWS: Readonly<Record<SurfaceId, Row>> = {
   cell_popover: POPOVER,
   prompter_files: DIALOG,
   workspace_settings: screen("heading"),
+  save_template_dialog: DIALOG,
 };
 
 const openersOf = (id: SurfaceId): readonly CommandId[] =>

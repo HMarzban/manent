@@ -61,5 +61,6 @@ export const SURFACE_IDS = [
   "cell_popover",
   "prompter_files",
   "workspace_settings",
+  "save_template_dialog",
 ] as const;
 export type SurfaceId = (typeof SURFACE_IDS)[number];

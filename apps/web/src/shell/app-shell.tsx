@@ -168,6 +168,12 @@ const tourFloat = loadApart(
 );
 const TourFloatingBar = tourFloat.Component;
 
+const saveTemplateHost = loadApart(
+  async () =>
+    (await import("../templates/save-template-dialog.tsx")).SaveTemplateHost,
+);
+const SaveTemplateHost = saveTemplateHost.Component;
+
 function TourFloatingHost(): ReactNode {
   const { tabStorage } = useEnvironment();
   const active = useTourActive();
@@ -338,6 +344,11 @@ export function AppShell(props: { children: ReactNode }): ReactNode {
                     </SurfaceBoundary>
                     <GlobalKeys />
                     <TrashConfirmDialog />
+                    <SurfaceBoundary fallback={() => null}>
+                      <Suspense fallback={null}>
+                        <SaveTemplateHost docId={docId} />
+                      </Suspense>
+                    </SurfaceBoundary>
                     <TourFloatingHost />
                   </>
                 )}
