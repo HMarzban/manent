@@ -42,6 +42,15 @@ const problemMarkLabel = (line: number): string => `Problem on line ${line}`;
 const problemAnnouncement = (line: number, message: string): string =>
   `Line ${line}: ${message}`;
 
+function hashText(text: string): string {
+  let hash = 2_166_136_261;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 function groupProblems(problems: readonly InkProblem[]): Map<number, string> {
   const byLine = new Map<number, string>();
   for (const { line, message } of problems) {
@@ -115,12 +124,14 @@ function buildState(
           Decoration.node(blockPos, blockPos + block.nodeSize, {
             class: "mn-ink-problem",
             "data-ink-problem-line": String(line),
+            "data-ink-tip": message,
           }),
         );
       }
       if (message !== undefined || isVisited) {
         const currentLine = line;
-        const key = `ink-mark-${currentLine}-${message ?? ""}-${isVisited ? "1" : "0"}`;
+        const msgKey = message === undefined ? "0" : hashText(message);
+        const key = `ink-mark-${currentLine}-${msgKey}-${isVisited ? "1" : "0"}`;
         decorations.push(
           Decoration.widget(
             blockPos + 1,
@@ -261,6 +272,19 @@ function marksView(
     if (hovered === null) return;
     const related = event.relatedTarget;
     if (related instanceof Element && hovered.contains(related)) return;
+    const nextEl =
+      related instanceof HTMLElement
+        ? related
+        : related instanceof Node
+          ? related.parentElement
+          : null;
+    const next = nextEl?.closest<HTMLElement>("[data-ink-tip]") ?? null;
+    if (next !== null && view.dom.contains(next)) {
+      hovered = next;
+      const tip = next.dataset["inkTip"];
+      if (tip !== undefined) showTooltip(tip, next);
+      return;
+    }
     hovered = null;
     syncCaret();
   };

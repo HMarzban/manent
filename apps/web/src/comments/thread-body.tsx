@@ -1,5 +1,5 @@
 // Thread view inside the comment popover: header, quote, replies, mention formatting, resolve/reopen.
-import type { CommentOutcome, CommentThread } from "@manent/crdt";
+import type { CommentItem, CommentOutcome, CommentThread } from "@manent/crdt";
 import {
   Avatar,
   Button,
@@ -21,7 +21,6 @@ import {
   fullNameFor,
   resolvedLineLabel,
   splitBodyMentions,
-  threadItemsOf,
 } from "./comments-format.ts";
 import type { ScriptCommentsState } from "./comments-types.ts";
 import { MentionField } from "./mention-field.tsx";
@@ -57,6 +56,35 @@ export function BodyText(props: {
   );
 }
 
+export interface KeyedCommentItem {
+  readonly id: string;
+  readonly item: CommentItem;
+}
+
+/** Thread items with their stable CRDT map keys, ordered oldest first (then by key). */
+export function threadItemEntriesOf(
+  threadId: string,
+  items: Readonly<Record<string, CommentItem>>,
+): readonly KeyedCommentItem[] {
+  return Object.entries(items)
+    .filter(([, item]) => item.threadId === threadId)
+    .map(([id, item]) => ({ id, item }))
+    .toSorted(
+      (a, b) =>
+        a.item.createdAt - b.item.createdAt ||
+        (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+    );
+}
+
+/** Looks up the CRDT map key for each item in `items` from `allItems`. */
+export function itemKeysByRef(
+  allItems: Readonly<Record<string, CommentItem>>,
+): ReadonlyMap<CommentItem, string> {
+  const keys = new Map<CommentItem, string>();
+  for (const [id, item] of Object.entries(allItems)) keys.set(item, id);
+  return keys;
+}
+
 export function ThreadBody(props: {
   docId: string;
   threadId: string;
@@ -71,8 +99,9 @@ export function ThreadBody(props: {
   const [outcome, setOutcome] = useState<CommentOutcome>("addressed");
   const [reason, setReason] = useState("");
   const currentNow = now();
-  const items = threadItemsOf(threadId, state.items);
-  const [first, ...replies] = items;
+  const items = threadItemEntriesOf(threadId, state.items);
+  const [firstEntry, ...replies] = items;
+  const first = firstEntry?.item;
   const threadFlags = Object.values(state.flags).filter(
     (flag) => flag.threadId === threadId,
   );
@@ -162,13 +191,10 @@ export function ThreadBody(props: {
       )}
       {replies.length === 0 ? null : (
         <ul className="flex flex-col gap-2 border-t border-line pt-2">
-          {replies.map((reply) => {
+          {replies.map(({ id: replyId, item: reply }) => {
             const replyAuthor = fullNameFor(reply.authorUserId, state.people);
             return (
-              <li
-                key={reply.createdAt + reply.authorUserId}
-                className="flex flex-col gap-1"
-              >
+              <li key={replyId} className="flex flex-col gap-1">
                 <div className="flex min-w-0 items-center gap-1.5">
                   <Avatar
                     name={replyAuthor}

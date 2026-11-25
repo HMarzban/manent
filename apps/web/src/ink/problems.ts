@@ -1,12 +1,28 @@
 // Ink compiler problems Check source for Details -> Script -> Checks and pre-send Checks.
 import { INK_WORDS } from "@manent/ui";
 import { archiveSource } from "../archive/archive-source.ts";
-import { recordCheckDetail } from "../checks/checks-context.ts";
+import {
+  notifyChecksChanged,
+  recordCheckDetail,
+} from "../checks/checks-context.ts";
 import type { Check, CheckSource } from "../checks/sources.ts";
 import { liveEditor } from "../editor-host/live-editor.ts";
-import { inkCompileClient } from "./compile-client.ts";
+import { inkCompileClient, subscribeInkCompile } from "./compile-client.ts";
 
 const SOURCE_ID = "ink_problems";
+const compileWatches = new Map<string, () => void>();
+
+function ensureCompileWatch(docId: string): void {
+  if (compileWatches.has(docId) || inkCompileClient(docId) === null) return;
+  const stop = subscribeInkCompile(docId, () => {
+    notifyChecksChanged(docId);
+    if (inkCompileClient(docId) === null) {
+      stop();
+      compileWatches.delete(docId);
+    }
+  });
+  compileWatches.set(docId, stop);
+}
 
 /** Maps 1-based Ink line numbers to their `ink_line` block ids in the open editor. */
 function inkLineBlockIds(docId: string): readonly string[] {
@@ -42,6 +58,7 @@ function openInkLine(docId: string, blockId: string): void {
 export const inkProblemsCheck: CheckSource = {
   id: SOURCE_ID,
   find(docId): readonly Check[] {
+    ensureCompileWatch(docId);
     const problems = inkCompileClient(docId)?.snapshot().problems ?? [];
     if (problems.length === 0) return [];
     const blockIds = inkLineBlockIds(docId);

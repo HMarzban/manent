@@ -150,10 +150,7 @@ function readLinesPerPage(value: unknown): number | null {
 }
 
 function readSceneNumberSides(value: unknown): SceneNumberSides | null {
-  return typeof value === "string" &&
-    SCENE_NUMBER_SIDES.some((side) => side === value)
-    ? (value as SceneNumberSides)
-    : null;
+  return SCENE_NUMBER_SIDES.find((side) => side === value) ?? null;
 }
 
 /** The most lines `paper` holds for `format`, using the engine's exact page geometry. */

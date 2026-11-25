@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
-import { createDoc } from "@manent/crdt";
+import { createDoc, startThread } from "@manent/crdt";
 import { textAnchorAt } from "@manent/schema";
 import type { DocHandle } from "@manent/sync-client";
+import { COMMENTS_WORDS, createValue } from "@manent/ui";
+import type { StatusFacts } from "@manent/ui";
 import {
   isSameBlockScenes,
   scanBlockScenes,
@@ -152,4 +154,96 @@ test("unchanged block scenes and scene counts do not notify comment subscribers"
   stopCounts();
   stopStore();
   release();
+});
+
+test("comments session falls back without project, surfaces load failure notice, and clears state on access lost", async () => {
+  const docId = "00000000-0000-4000-8000-0000000000ca";
+  const handle = fakeCommentsHandle();
+  startThread(
+    handle.doc(),
+    {
+      threadId: "t-1",
+      itemId: "i-1",
+      anchor: null,
+      roundId: null,
+      authorUserId: "sam",
+      body: "Note",
+      mentionedUserIds: [],
+    },
+    () => 1_700_000_000_000,
+  );
+  const baseServices = testServices({ userId: "sam" });
+  const baseDoc = baseServices.documents.open(docId);
+  const status = createValue<StatusFacts>({
+    ...baseDoc.status.get(),
+    access: "edit",
+    server: "synced",
+    network: "online",
+    neverSynced: false,
+    waiting: 0,
+  });
+  const openCalls: (string | null)[] = [];
+  const services = {
+    ...baseServices,
+    documents: {
+      open: () => ({ ...baseDoc, status }),
+      close() {},
+    },
+    library: {
+      ...baseServices.library,
+      documentProject: () => createValue<string | null>(null),
+    },
+    onDevice: async () => new Set<string>(),
+    openComments: async (_id: string, home: string | null) => {
+      openCalls.push(home);
+      return handle;
+    },
+  };
+
+  const release = commentsActions.retain(docId, services);
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect([openCalls, Object.keys(commentsActions.get(docId).threads)]).toEqual([
+    [null],
+    ["t-1"],
+  ]);
+
+  status.set({ ...status.get(), server: "access_removed" });
+  expect([
+    Object.keys(commentsActions.get(docId).threads),
+    Object.keys(commentsActions.get(docId).items),
+  ]).toEqual([[], []]);
+  release();
+
+  const failDocId = "00000000-0000-4000-8000-0000000000cb";
+  const failStatus = createValue<StatusFacts>({
+    ...baseDoc.status.get(),
+    access: "edit",
+    server: "synced",
+    network: "online",
+    neverSynced: false,
+    waiting: 0,
+  });
+  const failServices = {
+    ...baseServices,
+    documents: {
+      open: () => ({ ...baseDoc, status: failStatus }),
+      close() {},
+    },
+    library: {
+      ...baseServices.library,
+      documentProject: () => createValue<string | null>("proj-1"),
+    },
+    openComments: () => Promise.reject(new Error("offline")),
+  };
+  const releaseFail = commentsActions.retain(failDocId, failServices);
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect([
+    commentsActions.get(failDocId).loading,
+    failServices.messages.current()?.text,
+  ]).toEqual([false, COMMENTS_WORDS.loadProblem]);
+  releaseFail();
 });

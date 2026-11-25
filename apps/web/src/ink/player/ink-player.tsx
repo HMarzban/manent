@@ -5,24 +5,27 @@ import {
   ChevronRightIcon,
   TriangleAlertIcon,
 } from "lucide-react";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { BesideKind } from "../../beside/kinds.ts";
 import { useDocumentTitle } from "../../screens/document/title-bar.tsx";
 import { useEnvironment, useServices } from "../../services/context.tsx";
 import { createInkPlayerController } from "./controller.ts";
+import type { InkPlayerController } from "./controller.ts";
 import { ChoicesList, CompileBadge, TranscriptEntry } from "./player-parts.tsx";
 import { jumpToInkLine } from "./source-nav.ts";
 import { createInkPlaythroughStore } from "./storage.ts";
+import type { InkPlaythroughStore } from "./storage.ts";
 import { VariablesDrawer } from "./variables-drawer.tsx";
 
 const DIGIT_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"] as const;
+const noopUnsub = (): (() => void) => () => {};
+const readNull = (): null => null;
+
+interface PlayerRuntime {
+  readonly ctrl: InkPlayerController;
+  readonly store: InkPlaythroughStore;
+}
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -48,38 +51,41 @@ export function InkPlayerBeside(props: {
   const restartEndRef = useRef<HTMLButtonElement | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
 
-  const controller = useMemo(() => {
+  const [controller, setController] = useState<PlayerRuntime | null>(null);
+
+  useEffect(() => {
     const store = createInkPlaythroughStore({
       storage,
       events: storageEvents,
       userId,
     });
     const ctrl = createInkPlayerController({ docId, store, now });
-    return { ctrl, store };
+    const runtime: PlayerRuntime = { ctrl, store };
+    setController(runtime);
+    return () => {
+      ctrl.dispose();
+      store.dispose();
+      setController((current) => (current === runtime ? null : current));
+    };
   }, [docId, storage, storageEvents, userId, now]);
 
-  useEffect(() => {
-    return () => {
-      controller.ctrl.dispose();
-      controller.store.dispose();
-    };
-  }, [controller]);
-
   const snap = useSyncExternalStore(
-    controller.ctrl.subscribe,
-    controller.ctrl.snapshot,
-    controller.ctrl.snapshot,
+    controller?.ctrl.subscribe ?? noopUnsub,
+    controller?.ctrl.snapshot ?? readNull,
+    controller?.ctrl.snapshot ?? readNull,
   );
 
   useEffect(() => {
-    if (snap.focusNonce === 0) return;
+    if (snap === null || snap.focusNonce === 0) return;
     transcriptEndRef.current?.scrollIntoView({ block: "nearest" });
     if (snap.choices.length > 0) {
       choiceRefs.current[0]?.focus();
     } else if (snap.ended && snap.fault === null) {
       restartEndRef.current?.focus();
     }
-  }, [snap.focusNonce, snap.choices.length, snap.ended, snap.fault]);
+  }, [snap?.focusNonce, snap?.choices.length, snap?.ended, snap?.fault]);
+
+  if (controller === null || snap === null) return null;
 
   const jumpLine = (line: number): void => {
     void jumpToInkLine(docId, line, editor);
@@ -174,24 +180,36 @@ export function InkPlayerBeside(props: {
               <span>{INK_WORDS.variablesToggle(snap.variables.length)}</span>
             </Button>
           ) : null}
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!canBack}
-            className={canBack ? "cursor-pointer" : "cursor-not-allowed"}
-            onClick={() => controller.ctrl.back()}
+          <span
+            className="inline-flex"
+            title={canBack ? undefined : INK_WORDS.backUnavailable}
           >
-            {INK_WORDS.back}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!canRestart}
-            className={canRestart ? "cursor-pointer" : "cursor-not-allowed"}
-            onClick={() => controller.ctrl.restart()}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!canBack}
+              title={canBack ? undefined : INK_WORDS.backUnavailable}
+              className={canBack ? "cursor-pointer" : "cursor-not-allowed"}
+              onClick={() => controller.ctrl.back()}
+            >
+              {INK_WORDS.back}
+            </Button>
+          </span>
+          <span
+            className="inline-flex"
+            title={canRestart ? undefined : INK_WORDS.restartUnavailable}
           >
-            {INK_WORDS.restart}
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!canRestart}
+              title={canRestart ? undefined : INK_WORDS.restartUnavailable}
+              className={canRestart ? "cursor-pointer" : "cursor-not-allowed"}
+              onClick={() => controller.ctrl.restart()}
+            >
+              {INK_WORDS.restart}
+            </Button>
+          </span>
         </div>
       </div>
 

@@ -101,10 +101,14 @@ async function mayCreateRoomLog(
 ): Promise<boolean> {
   if (!isDocumentEditableLocally(services, docId)) return false;
   if (!isHandleWritable(indexHandle)) return false;
-  const [docRole, indexRole] = await Promise.all([
+  const online = indexHandle.status.get().link !== "offline";
+  const [me, docRole, indexRole] = await Promise.all([
+    online ? services.api.me() : Promise.resolve({ ok: false as const }),
     services.api.role(docId),
     services.api.role(indexDocId("project", projectId)),
   ]);
+  const signedInOnline = online && me.ok;
+  if (signedInOnline && (docRole === null || indexRole === null)) return false;
   if (docRole !== null && docRole !== "owner" && docRole !== "edit")
     return false;
   if (indexRole !== null && indexRole !== "owner" && indexRole !== "edit")
@@ -128,14 +132,17 @@ function workspaceForProject(
   return here.workspaceIds[0] ?? null;
 }
 
-function startRoomLogDocument(handle: DocHandle): void {
+function startRoomLogDocument(
+  handle: DocHandle,
+  randomId: () => string = randomBlockId,
+): void {
   const doc = handle.doc();
   if (yXmlFragmentForBinding(doc).length === 0) {
     scriptBody(doc).write((w) =>
       w.insertBlocks(null, [
         {
           type: "block",
-          attrs: { id: randomBlockId(), type: "general", kind: null },
+          attrs: { id: randomId(), type: "general", kind: null },
         },
       ]),
     );
@@ -149,57 +156,63 @@ function startRoomLogDocument(handle: DocHandle): void {
  */
 export async function openOrCreateRoomLog(
   here: BesideHere,
+  randomId: () => string = randomBlockId,
 ): Promise<string | null> {
   const { services, docId } = here;
   if (services.library.documentKind(docId).get() !== "series") return null;
   const projectId = services.library.documentProject(docId).get();
   if (projectId === null) return null;
-  let indexHandle: DocHandle;
+  const index = services.projectIndex(projectId);
   try {
-    indexHandle = await services.projectIndex(projectId).handle();
-  } catch {
-    // project index unavailable or sync not started
-    return null;
-  }
-  const episode = await waitForEpisode(indexHandle, docId);
-  if (episode === null) return null;
-  if (episode.docIds.roomLog !== null) return episode.docIds.roomLog;
-  if (!(await mayCreateRoomLog(services, docId, projectId, indexHandle)))
-    return null;
-  const workspaceId = workspaceForProject(here, projectId);
-  if (workspaceId === null) return null;
-  const episodeTitle =
-    services.library.documentTitle(episode.docIds.script ?? docId).get() ??
-    (episode.title === null
-      ? String(episode.number)
-      : `${episode.number} ${episode.title}`);
-  const title =
-    episodeTitle === ""
-      ? ROOM_LOG_WORDS.entry
-      : ROOM_LOG_WORDS.title(episodeTitle);
-  try {
-    const created = await services.library.addCopy(
-      workspaceId,
-      projectId,
-      "series",
-      title,
-      {
-        docKind: "room_log",
-        airDate: null,
-        rundownId: null,
-        start: startRoomLogDocument,
-      },
-    );
-    const latest = findEpisodeForDoc(indexHandle.doc(), docId) ?? episode;
-    if (latest.docIds.roomLog !== null) return latest.docIds.roomLog;
-    writeEpisode(indexHandle.doc(), {
-      ...latest,
-      docIds: { ...latest.docIds, roomLog: created.docId },
-    });
-    return created.docId;
-  } catch {
-    // server refused or store unavailable
-    return null;
+    let indexHandle: DocHandle;
+    try {
+      indexHandle = await index.handle();
+    } catch {
+      // project index unavailable or sync not started
+      return null;
+    }
+    const episode = await waitForEpisode(indexHandle, docId);
+    if (episode === null) return null;
+    if (episode.docIds.roomLog !== null) return episode.docIds.roomLog;
+    if (!(await mayCreateRoomLog(services, docId, projectId, indexHandle)))
+      return null;
+    const workspaceId = workspaceForProject(here, projectId);
+    if (workspaceId === null) return null;
+    const episodeTitle =
+      services.library.documentTitle(episode.docIds.script ?? docId).get() ??
+      (episode.title === null
+        ? String(episode.number)
+        : `${episode.number} ${episode.title}`);
+    const title =
+      episodeTitle === ""
+        ? ROOM_LOG_WORDS.entry
+        : ROOM_LOG_WORDS.title(episodeTitle);
+    try {
+      const created = await services.library.addCopy(
+        workspaceId,
+        projectId,
+        "series",
+        title,
+        {
+          docKind: "room_log",
+          airDate: null,
+          rundownId: null,
+          start: (handle) => startRoomLogDocument(handle, randomId),
+        },
+      );
+      const latest = findEpisodeForDoc(indexHandle.doc(), docId) ?? episode;
+      if (latest.docIds.roomLog !== null) return latest.docIds.roomLog;
+      writeEpisode(indexHandle.doc(), {
+        ...latest,
+        docIds: { ...latest.docIds, roomLog: created.docId },
+      });
+      return created.docId;
+    } catch {
+      // server refused or store unavailable
+      return null;
+    }
+  } finally {
+    void index.close();
   }
 }
 

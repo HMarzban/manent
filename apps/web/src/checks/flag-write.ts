@@ -91,46 +91,49 @@ export async function writeCheckFlag(options: {
     return false;
   const projectId = services.library.documentProject(docId).get();
   const home = projectId === null ? null : projectHome(projectId);
-  // Shared replica handle is retained and closed by comments-session; never close it here.
   const handle = await services.openComments(docId, home);
-  if (handle.readOnly.get() !== null) return false;
-  const doc = handle.doc();
-  const existingFlags = readCommentFlags(doc);
-  const existingThreads = readCommentThreads(doc);
-  const alreadyFlagged = Object.values(existingFlags).some((flag) => {
-    if (flag.checkKey !== checkKey || flag.flaggedUserId !== target.userId)
-      return false;
-    const thread = existingThreads[flag.threadId];
-    return thread === undefined || thread.state.kind !== "resolved";
-  });
-  if (alreadyFlagged) return false;
+  try {
+    if (handle.readOnly.get() !== null) return false;
+    const doc = handle.doc();
+    const existingFlags = readCommentFlags(doc);
+    const existingThreads = readCommentThreads(doc);
+    const alreadyFlagged = Object.values(existingFlags).some((flag) => {
+      if (flag.checkKey !== checkKey || flag.flaggedUserId !== target.userId)
+        return false;
+      const thread = existingThreads[flag.threadId];
+      return thread === undefined || thread.state.kind !== "resolved";
+    });
+    if (alreadyFlagged) return false;
 
-  const threadId = randomId();
-  startThread(
-    doc,
-    {
+    const threadId = randomId();
+    startThread(
+      doc,
+      {
+        threadId,
+        itemId: randomId(),
+        anchor,
+        roundId: null,
+        authorUserId: services.userId,
+        body: sentence,
+        mentionedUserIds: [],
+      },
+      now,
+    );
+    flagThread(doc, {
+      flagId: randomId(),
       threadId,
-      itemId: randomId(),
-      anchor,
-      roundId: null,
-      authorUserId: services.userId,
-      body: sentence,
-      mentionedUserIds: [],
-    },
-    now,
-  );
-  flagThread(doc, {
-    flagId: randomId(),
-    threadId,
-    flaggedUserId: target.userId,
-    checkKey,
-  });
-  services.messages.push({
-    id: `check_flagged_${checkKey}`,
-    text: CHECKS_WORDS.flaggedMessage(subject, firstNameOf(target.name)),
-    actions: [],
-    lifetime: "brief",
-    ownWork: false,
-  });
-  return true;
+      flaggedUserId: target.userId,
+      checkKey,
+    });
+    services.messages.push({
+      id: `check_flagged_${checkKey}`,
+      text: CHECKS_WORDS.flaggedMessage(subject, firstNameOf(target.name)),
+      actions: [],
+      lifetime: "brief",
+      ownWork: false,
+    });
+    return true;
+  } finally {
+    void handle.close();
+  }
 }

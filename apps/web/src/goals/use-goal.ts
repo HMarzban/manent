@@ -50,6 +50,8 @@ function readCurrentCount(
   return editor === null ? 0 : countDocWords(editor.doc);
 }
 
+const WORD_RECOUNT_MS = 250;
+
 /** Subscribes to the person's private index `goals` entry for `docId` and tracks daily progress added today. */
 export function useScriptGoal(docId: string): ScriptGoalState {
   const services = useServices();
@@ -119,11 +121,23 @@ export function useScriptGoal(docId: string): ScriptGoalState {
     return cancel;
   }, [today, now, schedule]);
 
-  // Recompute word count when the open script's CRDT document changes.
+  // Throttle word-count recomputation while typing so CRDT edits never recount the whole script on every keystroke.
   useEffect(() => {
     if (editor === null || goal?.kind !== "words") return undefined;
-    return editor.doc.subscribe(() => setWordTick((n) => n + 1));
-  }, [editor, goal?.kind]);
+    let cancelPending: (() => void) | null = null;
+    const stopDoc = editor.doc.subscribe(() => {
+      if (cancelPending !== null) return;
+      cancelPending = schedule(() => {
+        cancelPending = null;
+        setWordTick((n) => n + 1);
+      }, WORD_RECOUNT_MS);
+    });
+    return () => {
+      stopDoc();
+      cancelPending?.();
+      cancelPending = null;
+    };
+  }, [editor, goal?.kind, schedule]);
 
   // Re-read current count on editor / page / word changes.
   void wordTick;

@@ -620,3 +620,39 @@ test("the window follows the list's own scrolling, and taller rows never overlap
     else Object.defineProperty(HTMLElement.prototype, "clientHeight", client);
   }
 });
+
+const selectedOptions = (): (string | null)[] =>
+  [...document.querySelectorAll('[role="option"]')].map((el) =>
+    el.getAttribute("aria-selected"),
+  );
+
+test("palette ask options carry aria-selected matching the highlighted choice", async () => {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  roots.push(root);
+  const chosen: string[] = [];
+  await act(async () => {
+    root.render(
+      <CommandPalette
+        open
+        filter="all"
+        sources={[]}
+        recent={[]}
+        ask={{
+          prompt: "Choose character",
+          choices: ["MAREN", "OTTO"],
+          initial: "",
+          submit: (value) => chosen.push(value),
+        }}
+        onRun={noop}
+        onClose={noop}
+      />,
+    );
+  });
+  expect(selectedOptions()).toEqual(["true", "false"]);
+  await press("ArrowDown");
+  expect(selectedOptions()).toEqual(["false", "true"]);
+  await pressEnter();
+  expect(chosen).toEqual(["OTTO"]);
+});

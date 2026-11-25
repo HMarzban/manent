@@ -108,4 +108,5 @@ export const COMMENTS_WORDS = {
   metaLine: (dayTime: string, place: string | null): string =>
     place === null ? dayTime : `${dayTime} · ${place}`,
   authorMeta: (name: string, dayTime: string): string => `${name} · ${dayTime}`,
+  loadProblem: "Couldn't load comments. Showing what is on this device.",
 } as const;

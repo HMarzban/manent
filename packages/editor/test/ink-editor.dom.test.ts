@@ -309,6 +309,21 @@ test("inkMarksPlugin renders problem underline, gutter mark, hover/caret tooltip
   visitedMark!.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
   expect(layer.querySelector('[role="tooltip"]')).toBeNull();
 
+  // Hovering underlined problem line shows problem tooltip and child->parent mouseout keeps it visible
+  problemLine!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+  expect(layer.querySelector('[role="tooltip"]')?.textContent).toBe(
+    "Divert target not found",
+  );
+  problemMark!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+  problemMark!.dispatchEvent(
+    new MouseEvent("mouseout", { bubbles: true, relatedTarget: problemLine }),
+  );
+  expect(layer.querySelector('[role="tooltip"]')?.textContent).toBe(
+    "Divert target not found",
+  );
+  problemLine!.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+  expect(layer.querySelector('[role="tooltip"]')).toBeNull();
+
   // Moving caret into line 5 (block index 4) shows tooltip and announces once
   setCaretEnd(view, 4);
   expect([

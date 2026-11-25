@@ -3,13 +3,13 @@ import { Autocomplete } from "@base-ui/react/autocomplete";
 import { markEnd, markStart } from "@manent/perf";
 import type { MenuId } from "@manent/settings";
 import { SearchIcon } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import { Button } from "../components/stock/button.tsx";
 import { READOUT_WORDS } from "../words/document.ts";
 import { PALETTE_WORDS } from "../words/palette.ts";
 import { MENU_LABELS } from "./menu-labels.ts";
-import { PaletteAskView } from "./palette-ask.tsx";
+import { PaletteAskView, useOutsidePress } from "./palette-ask.tsx";
 import type { PaletteAsk } from "./palette-ask.tsx";
 import {
   entriesOf,
@@ -50,31 +50,6 @@ function noMatch(
   return menu === null
     ? PALETTE_WORDS.noMatch(query)
     : PALETTE_WORDS.noMatchIn(menu, query);
-}
-
-// the control of the palette's own command closes the palette when pressed, so a press on it is left to that command
-const OPENER = '[data-tour="app.palette"]';
-
-/** Calls `close` on a press outside `surface`, as on any popover, but not on the palette's own control. */
-function useOutsidePress(
-  surface: { current: HTMLElement | null },
-  close: () => void,
-): void {
-  const latest = useRef(close);
-  latest.current = close;
-  useEffect(() => {
-    const onPointerDown = (event: PointerEvent): void => {
-      const target = event.target;
-      if (target instanceof Element && target.closest(OPENER) !== null) return;
-      if (target instanceof Node && surface.current?.contains(target)) return;
-      latest.current();
-    };
-    document.addEventListener("pointerdown", onPointerDown, { capture: true });
-    return () =>
-      document.removeEventListener("pointerdown", onPointerDown, {
-        capture: true,
-      });
-  }, [surface]);
 }
 
 /** The search row: the field, with the way back while a menu is open. */

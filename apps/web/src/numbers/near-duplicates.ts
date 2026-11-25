@@ -39,17 +39,18 @@ export const nearDuplicateChecks: CheckSource = {
           let mergedCount = 0;
           for (const variant of group.variants) {
             const occurrences = countHeadingOccurrences(docId, variant);
-            const result = services.editor.run({
-              kind: "rename_location",
-              from: variant,
-              to: group.canonical,
-            });
-            if (result?.ok) {
+            if (occurrences > 0) {
               mergedFroms.push(variant);
               mergedCount += occurrences;
             }
           }
-          if (mergedFroms.length > 0) {
+          if (mergedFroms.length === 0) return;
+          const result = services.editor.run({
+            kind: "rename_location",
+            from: mergedFroms,
+            to: group.canonical,
+          });
+          if (result?.ok) {
             services.messages.push({
               id: "locations_merged",
               text: WRITING_TOOLS_WORDS.mergedLocations(

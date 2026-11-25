@@ -9,6 +9,7 @@ export function startRenameCharacter(deps: HandlerDeps): void {
   if (docId === null) return;
   void import("../editor-host/character-names.ts").then(
     ({ characterNamesOf, countCharacterCues }) => {
+      if (deps.shellState().docId !== docId) return;
       const names = characterNamesOf(docId);
       if (names.length === 0) {
         deps.services.messages.push(
@@ -25,6 +26,7 @@ export function startRenameCharacter(deps: HandlerDeps): void {
         choices: names,
         initial: "",
         submit(from) {
+          if (deps.shellState().docId !== docId) return;
           const picked = from.trim();
           if (picked === "") return;
           paletteActions.ask({
@@ -32,6 +34,7 @@ export function startRenameCharacter(deps: HandlerDeps): void {
             choices: null,
             initial: picked,
             submit(to) {
+              if (deps.shellState().docId !== docId) return;
               const next = to.trim();
               if (next === "" || next.toLowerCase() === picked.toLowerCase())
                 return;

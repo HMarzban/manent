@@ -62,10 +62,10 @@ function useOpenFacts(projectId: string): OpenFactsState {
         if (mounted) setState({ kind: "unavailable" });
       },
     );
-    // the index stays open: the screen and any open script in the project share the same session
     return () => {
       mounted = false;
       setState({ kind: "loading" });
+      void index.close();
     };
   }, [projectIndex, projectId]);
   return state;

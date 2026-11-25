@@ -1,7 +1,10 @@
 // Timed writing sprint controller: palette duration prompt, 1-second countdown, and completion/end messages.
 import { WRITING_TOOLS_WORDS } from "@manent/ui";
 import type { Message, MessageQueue } from "@manent/ui";
-import { liveEditor } from "../editor-host/live-editor.ts";
+import {
+  liveEditor,
+  subscribeLiveEditors,
+} from "../editor-host/live-editor.ts";
 import type { HandlerDeps } from "../handlers/index.ts";
 import { paletteActions } from "../state/palette.store.ts";
 import { sprintActions } from "../state/sprint.store.ts";
@@ -15,7 +18,9 @@ type ScheduleFn = (fn: () => void, delayMs: number) => () => void;
 interface RunningController {
   readonly messages: MessageQueue;
   readonly now: () => number;
+  lastWords: number;
   cancelTick: (() => void) | null;
+  stopEditors: (() => void) | null;
 }
 
 let running: RunningController | null = null;
@@ -33,14 +38,18 @@ const briefMessage = (id: string, text: string): Message => ({
   ownWork: false,
 });
 
-function currentWordsOf(docId: string): number {
+function currentWordsOf(docId: string): number | null {
   const editor = liveEditor(docId);
-  return editor === null ? 0 : countDocWords(editor.doc);
+  return editor === null ? null : countDocWords(editor.doc);
 }
 
 function clearTimer(): void {
   running?.cancelTick?.();
-  if (running !== null) running.cancelTick = null;
+  running?.stopEditors?.();
+  if (running !== null) {
+    running.cancelTick = null;
+    running.stopEditors = null;
+  }
 }
 
 /** Starts a timed sprint for `docId` and ticks every second until `0:00` or `endSprint()`. */
@@ -60,7 +69,7 @@ export function startSprintSession(options: {
     schedule = defaultSchedule,
   } = options;
   const startedAt = now();
-  const startWords = currentWordsOf(docId);
+  const startWords = currentWordsOf(docId) ?? 0;
   sprintActions.start({
     docId,
     durationMs,
@@ -69,12 +78,29 @@ export function startSprintSession(options: {
     startWords,
   });
 
-  const controller: RunningController = { messages, now, cancelTick: null };
+  const controller: RunningController = {
+    messages,
+    now,
+    lastWords: startWords,
+    cancelTick: null,
+    stopEditors: null,
+  };
   running = controller;
+
+  const sampleWords = (): number => {
+    const live = currentWordsOf(docId);
+    if (live !== null) controller.lastWords = live;
+    return controller.lastWords;
+  };
+
+  controller.stopEditors = subscribeLiveEditors(() => {
+    sampleWords();
+  });
 
   const step = (): void => {
     const active = sprintActions.active();
     if (active === null || running !== controller) return;
+    const wordsNow = sampleWords();
     const remainingMs = Math.max(
       0,
       active.startedAt + active.durationMs - now(),
@@ -82,10 +108,7 @@ export function startSprintSession(options: {
     if (remainingMs <= 0) {
       clearTimer();
       running = null;
-      const written = Math.max(
-        0,
-        currentWordsOf(active.docId) - active.startWords,
-      );
+      const written = Math.max(0, wordsNow - active.startWords);
       sprintActions.stop();
       messages.push(
         briefMessage(
@@ -111,6 +134,8 @@ export function endSprint(): void {
   const active = sprintActions.active();
   if (active === null) return;
   const controller = running;
+  const finalWords =
+    currentWordsOf(active.docId) ?? controller?.lastWords ?? active.startWords;
   clearTimer();
   running = null;
   const now = controller?.now ?? (() => active.startedAt);
@@ -119,7 +144,7 @@ export function endSprint(): void {
   );
   const totalSec = Math.round(active.durationMs / 1000);
   const elapsedSec = Math.max(0, Math.min(totalSec, totalSec - remainingSec));
-  const written = Math.max(0, currentWordsOf(active.docId) - active.startWords);
+  const written = Math.max(0, finalWords - active.startWords);
   sprintActions.stop();
   controller?.messages.push(
     briefMessage(

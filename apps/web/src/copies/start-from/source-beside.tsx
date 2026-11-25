@@ -117,8 +117,8 @@ function useSourceAccess(docId: string): SourceAccess {
           setAccess("denied");
           return;
         }
-        const { link, neverSynced } = handle.status.get();
-        if (link !== "offline" && !neverSynced) {
+        const { link } = handle.status.get();
+        if (link !== "offline") {
           const me = await services.api.me();
           if (!active) return;
           if (me.ok) {

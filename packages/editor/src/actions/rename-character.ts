@@ -14,7 +14,7 @@ export interface RenameCharacterAction {
 
 export interface RenameLocationAction {
   readonly kind: "rename_location";
-  readonly from: string;
+  readonly from: string | readonly string[];
   readonly to: string;
 }
 
@@ -84,10 +84,15 @@ export const renameCharacterEntry: ActionEntry<RenameCharacterAction> = {
 export const renameLocationEntry: ActionEntry<RenameLocationAction> = {
   readOnly: false,
   run(view, action, context) {
-    const fromLoc = action.from.trim();
     const toLoc = action.to.trim();
-    if (fromLoc === "" || toLoc === "" || toLoc === fromLoc)
-      return { ok: false, reason: "nothing_to_do" };
+    if (toLoc === "") return { ok: false, reason: "nothing_to_do" };
+    const rawFrom = Array.isArray(action.from) ? action.from : [action.from];
+    const targets = new Set(
+      rawFrom
+        .map((loc) => loc.trim())
+        .filter((loc) => loc !== "" && loc !== toLoc),
+    );
+    if (targets.size === 0) return { ok: false, reason: "nothing_to_do" };
 
     const spans: TextSpan[] = [];
     view.state.doc.descendants((node, pos) => {
@@ -100,7 +105,7 @@ export const renameLocationEntry: ActionEntry<RenameLocationAction> = {
       const dash = rest.lastIndexOf(" - ");
       const rawLoc = dash < 0 ? rest : rest.slice(0, dash);
       const trimmed = rawLoc.trim();
-      if (trimmed !== fromLoc) return false;
+      if (!targets.has(trimmed)) return false;
       const lead = rawLoc.length - rawLoc.trimStart().length;
       const spanFrom = pos + 1 + space + 1 + lead;
       spans.push({ from: spanFrom, to: spanFrom + trimmed.length });

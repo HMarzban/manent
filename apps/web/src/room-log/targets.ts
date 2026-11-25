@@ -2,11 +2,13 @@
 import { readEpisodes, scriptBody } from "@manent/crdt";
 import type { CrdtDoc, EpisodeEntry } from "@manent/crdt";
 import type { BlockJSON, DocJSON } from "@manent/schema";
+import type { DocHandle } from "@manent/sync-client";
 import { ROOM_LOG_WORDS } from "@manent/ui";
 import {
   liveEditor,
   subscribeLiveEditors,
 } from "../editor-host/live-editor.ts";
+import type { ProjectIndex } from "../project/project-index.ts";
 import type { PersonServices } from "../services/ports.ts";
 import { liveMap } from "../services/sync/private-index.ts";
 
@@ -133,16 +135,23 @@ function episodeTitleOf(
     : `${episode.number} ${episode.title}`;
 }
 
-async function crdtDocFor(
+interface OpenDocRef {
+  readonly doc: CrdtDoc;
+  close(): void;
+}
+
+const noop = (): void => {};
+
+async function openCrdtDocFor(
   services: PersonServices,
   docId: string | null,
-): Promise<CrdtDoc | null> {
+): Promise<OpenDocRef | null> {
   if (docId === null) return null;
   const open = liveEditor(docId);
-  if (open !== null) return open.doc;
+  if (open !== null) return { doc: open.doc, close: noop };
   try {
     const handle = await services.openHandle(docId);
-    return handle.doc();
+    return { doc: handle.doc(), close: () => void handle.close() };
   } catch {
     // document unavailable or sync not started
     return null;
@@ -182,26 +191,34 @@ export async function readEpisodeTargets(
 ): Promise<EpisodeTargets> {
   const projectId = services.library.documentProject(roomLogDocId).get();
   if (projectId === null) return EMPTY_TARGETS;
+  const index = services.projectIndex(projectId);
   let episode: EpisodeEntry | null = null;
   try {
-    const handle = await services.projectIndex(projectId).handle();
+    const handle = await index.handle();
     episode = findEpisodeByRoomLog(handle.doc(), roomLogDocId);
   } catch {
     // project index unavailable
     return EMPTY_TARGETS;
+  } finally {
+    void index.close();
   }
   if (episode === null) return EMPTY_TARGETS;
-  const [scriptDoc, outlineDoc] = await Promise.all([
-    crdtDocFor(services, episode.docIds.script),
-    crdtDocFor(services, episode.docIds.outline),
+  const [scriptRef, outlineRef] = await Promise.all([
+    openCrdtDocFor(services, episode.docIds.script),
+    openCrdtDocFor(services, episode.docIds.outline),
   ]);
-  return buildTargets(
-    episode.docIds.script,
-    episode.docIds.outline,
-    episodeTitleOf(services, episode),
-    scriptDoc,
-    outlineDoc,
-  );
+  try {
+    return buildTargets(
+      episode.docIds.script,
+      episode.docIds.outline,
+      episodeTitleOf(services, episode),
+      scriptRef?.doc ?? null,
+      outlineRef?.doc ?? null,
+    );
+  } finally {
+    scriptRef?.close();
+    outlineRef?.close();
+  }
 }
 
 /**
@@ -214,15 +231,22 @@ export function followEpisodeTargets(
   onChange: (targets: EpisodeTargets) => void,
 ): () => void {
   let stopped = false;
+  let seq = 0;
   let stopDocs: (() => void)[] = [];
   let stopIndex: (() => void)[] = [];
-  let watchedProject: string | null = null;
-  let watchedScript: CrdtDoc | null = null;
-  let watchedOutline: CrdtDoc | null = null;
+  let watchedIndex: {
+    readonly projectId: string;
+    readonly index: ProjectIndex;
+    readonly handle: DocHandle;
+  } | null = null;
+  let watchedScript: OpenDocRef | null = null;
+  let watchedOutline: OpenDocRef | null = null;
 
   const clearDocs = (): void => {
     for (const stop of stopDocs) stop();
     stopDocs = [];
+    watchedScript?.close();
+    watchedOutline?.close();
     watchedScript = null;
     watchedOutline = null;
   };
@@ -230,63 +254,76 @@ export function followEpisodeTargets(
   const clearIndex = (): void => {
     for (const stop of stopIndex) stop();
     stopIndex = [];
-    watchedProject = null;
+    if (watchedIndex !== null) {
+      void watchedIndex.index.close();
+      watchedIndex = null;
+    }
     clearDocs();
   };
 
   const refresh = async (): Promise<void> => {
     if (stopped) return;
+    const runId = ++seq;
     const projectId = services.library.documentProject(roomLogDocId).get();
     if (projectId === null) {
       clearIndex();
       onChange(EMPTY_TARGETS);
       return;
     }
-    if (watchedProject !== projectId) {
+    if (watchedIndex?.projectId !== projectId) {
       clearIndex();
-      watchedProject = projectId;
+      const index = services.projectIndex(projectId);
       try {
-        const handle = await services.projectIndex(projectId).handle();
-        if (stopped) return;
+        const handle = await index.handle();
+        if (stopped || runId !== seq) {
+          void index.close();
+          return;
+        }
+        watchedIndex = { projectId, index, handle };
         stopIndex.push(
           liveMap(handle, "episodes").subscribe(() => void refresh()),
         );
       } catch {
+        void index.close();
         // project index unavailable
         return;
       }
     }
-    let episode: EpisodeEntry | null = null;
-    try {
-      const handle = await services.projectIndex(projectId).handle();
-      if (stopped) return;
-      episode = findEpisodeByRoomLog(handle.doc(), roomLogDocId);
-    } catch {
-      return;
-    }
+    const indexHandle = watchedIndex?.handle ?? null;
+    if (indexHandle === null) return;
+    const episode = findEpisodeByRoomLog(indexHandle.doc(), roomLogDocId);
     if (episode === null) {
       clearDocs();
       onChange(EMPTY_TARGETS);
       return;
     }
-    const [scriptDoc, outlineDoc] = await Promise.all([
-      crdtDocFor(services, episode.docIds.script),
-      crdtDocFor(services, episode.docIds.outline),
+    const [scriptRef, outlineRef] = await Promise.all([
+      openCrdtDocFor(services, episode.docIds.script),
+      openCrdtDocFor(services, episode.docIds.outline),
     ]);
-    if (stopped) return;
-    if (scriptDoc !== watchedScript || outlineDoc !== watchedOutline) {
+    if (stopped || runId !== seq) {
+      scriptRef?.close();
+      outlineRef?.close();
+      return;
+    }
+    const scriptDoc = scriptRef?.doc ?? null;
+    const outlineDoc = outlineRef?.doc ?? null;
+    if (
+      scriptDoc !== (watchedScript?.doc ?? null) ||
+      outlineDoc !== (watchedOutline?.doc ?? null)
+    ) {
       clearDocs();
-      watchedScript = scriptDoc;
-      watchedOutline = outlineDoc;
+      watchedScript = scriptRef;
+      watchedOutline = outlineRef;
       const emitNow = (): void => {
-        if (stopped || episode === null) return;
+        if (stopped) return;
         onChange(
           buildTargets(
             episode.docIds.script,
             episode.docIds.outline,
             episodeTitleOf(services, episode),
-            watchedScript,
-            watchedOutline,
+            watchedScript?.doc ?? null,
+            watchedOutline?.doc ?? null,
           ),
         );
       };
@@ -299,6 +336,9 @@ export function followEpisodeTargets(
             .subscribe(emitNow),
         );
       }
+    } else {
+      scriptRef?.close();
+      outlineRef?.close();
     }
     onChange(
       buildTargets(

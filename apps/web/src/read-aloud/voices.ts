@@ -46,8 +46,7 @@ export function matchingVoices(
       return (
         lang === prefix ||
         lang.startsWith(`${prefix}-`) ||
-        lang.startsWith(`${prefix}_`) ||
-        lang.startsWith(prefix)
+        lang.startsWith(`${prefix}_`)
       );
     })
     .toSorted((a, b) => a.name.localeCompare(b.name, "en"));

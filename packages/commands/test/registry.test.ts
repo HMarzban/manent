@@ -1043,3 +1043,38 @@ test("rundown move commands pass through while a cell is being edited", () => {
     byId("rundown.moveDown").passThrough?.(navigating),
   ]).toEqual([true, false, true, false]);
 });
+
+test("mutating board commands require edit permission on the board", () => {
+  const addStoryline = byId("board.addStoryline");
+  const writable = ctx({ screen: "board", role: null, workspace: "writable" });
+  const readOnlyWs = ctx({
+    screen: "board",
+    role: null,
+    workspace: "read_only",
+  });
+  const viewer = ctx({
+    screen: "board",
+    role: "viewer",
+    workspace: "writable",
+  });
+  const commenter = ctx({
+    screen: "board",
+    role: "commenter",
+    workspace: "writable",
+  });
+  expect([
+    addStoryline.when?.(writable),
+    addStoryline.when?.(readOnlyWs),
+    addStoryline.whyNot?.(readOnlyWs),
+    addStoryline.when?.(viewer),
+    addStoryline.whyNot?.(viewer),
+    addStoryline.when?.(commenter),
+  ]).toEqual([
+    true,
+    false,
+    "needs edit access to this workspace",
+    false,
+    "needs edit access to this board",
+    false,
+  ]);
+});

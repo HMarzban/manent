@@ -11,6 +11,7 @@ import type { CrdtDoc } from "@manent/crdt";
 import { isScriptNote } from "@manent/schema";
 import type { DocHandle, ViewHandle } from "@manent/sync-client";
 import { commentsDocId, projectHome } from "@manent/sync-protocol";
+import { COMMENTS_WORDS } from "@manent/ui";
 import type { StatusFacts } from "@manent/ui";
 import {
   liveEditor,
@@ -34,6 +35,13 @@ const EMPTY_RECORD: Readonly<Record<string, never>> = Object.freeze({});
 const EMPTY_NOTES: readonly StoredNote[] = Object.freeze([]);
 const EMPTY_PEOPLE: readonly CommentPerson[] = Object.freeze([]);
 const EMPTY_SCENES: ReadonlyMap<string, SceneBlockInfo> = new Map();
+const EMPTY_DATA = Object.freeze({
+  threads: EMPTY_RECORD,
+  items: EMPTY_RECORD,
+  rounds: EMPTY_RECORD,
+  flags: EMPTY_RECORD,
+  notes: EMPTY_NOTES,
+});
 
 export const DEFAULT_UI: CommentsUiState = Object.freeze({
   filter: "open",
@@ -49,11 +57,7 @@ export const emptyCommentsState = (docId: string): ScriptCommentsState => ({
   canComment: false,
   canEdit: false,
   loading: true,
-  threads: EMPTY_RECORD,
-  items: EMPTY_RECORD,
-  rounds: EMPTY_RECORD,
-  flags: EMPTY_RECORD,
-  notes: EMPTY_NOTES,
+  ...EMPTY_DATA,
   people: EMPTY_PEOPLE,
   peopleState: "idle",
   removedIds: EMPTY_SET,
@@ -75,16 +79,13 @@ function roleOf(
     isAccessLost(server)
   )
     return "viewer";
-  if (access === "comment") return "commenter";
-  return "editor";
+  return access === "comment" ? "commenter" : "editor";
 }
 
 function readNotesFrom(doc: CrdtDoc): readonly StoredNote[] {
-  const entries = jsonMap(doc, NOTES_MAP).entries();
   const list: StoredNote[] = [];
-  for (const [id, value] of Object.entries(entries)) {
+  for (const [id, value] of Object.entries(jsonMap(doc, NOTES_MAP).entries()))
     if (isScriptNote(value)) list.push({ id, note: value });
-  }
   return list.toSorted((a, b) => (a.note.at ?? 0) - (b.note.at ?? 0));
 }
 
@@ -102,6 +103,7 @@ export interface CommentsEntry {
   view: ViewHandle | null;
   openingMode: "none" | "edit" | "view";
   checkingDevice: boolean;
+  loadProblemNotified: boolean;
   closed: boolean;
   stopDocMaps: () => void;
   stopHandleEvents: () => void;
@@ -215,33 +217,48 @@ function closeHandles(entry: CommentsEntry): void {
   entry.openingMode = "none";
 }
 
+function notifyLoadProblem(entry: CommentsEntry): void {
+  if (entry.loadProblemNotified) return;
+  entry.loadProblemNotified = true;
+  entry.services.messages?.push({
+    id: `comments_load_problem_${entry.docId}`,
+    text: COMMENTS_WORDS.loadProblem,
+    actions: [],
+    lifetime: "brief",
+    ownWork: false,
+  });
+}
+
+function clearOnAccessLost(entry: CommentsEntry): void {
+  closeHandles(entry);
+  entry.state = { ...entry.state, loading: false, ...EMPTY_DATA };
+  emitComments(entry);
+}
+
+function handleOpenFailure(entry: CommentsEntry, mode: "view" | "edit"): void {
+  if (entry.closed || entry.openingMode !== mode) return;
+  entry.openingMode = "none";
+  entry.state = { ...entry.state, loading: false };
+  emitComments(entry);
+  notifyLoadProblem(entry);
+}
+
 function startView(entry: CommentsEntry): void {
   if (entry.closed || entry.openingMode === "view") return;
   closeHandles(entry);
   entry.openingMode = "view";
-  entry.state = {
-    ...entry.state,
-    threads: EMPTY_RECORD,
-    items: EMPTY_RECORD,
-    rounds: EMPTY_RECORD,
-    flags: EMPTY_RECORD,
-    notes: EMPTY_NOTES,
-  };
+  entry.state = { ...entry.state, ...EMPTY_DATA };
   emitComments(entry);
   void entry.services
     .viewComments(entry.docId)
     .then((view) => {
       if (entry.closed || entry.openingMode !== "view") return view.close();
       entry.view = view;
+      entry.loadProblemNotified = false;
       entry.state = { ...entry.state, loading: false };
       emitComments(entry);
     })
-    .catch(() => {
-      if (!entry.closed && entry.openingMode === "view") {
-        entry.state = { ...entry.state, loading: false };
-        emitComments(entry);
-      }
-    });
+    .catch(() => handleOpenFailure(entry, "view"));
 }
 
 function startEdit(entry: CommentsEntry, home: string | null): void {
@@ -256,6 +273,7 @@ function startEdit(entry: CommentsEntry, home: string | null): void {
         return;
       }
       entry.handle = handle;
+      entry.loadProblemNotified = false;
       const stopReplaced = handle.on((event) => {
         if (event.type === "replaced") attachCommentsDoc(entry, handle.doc());
       });
@@ -269,12 +287,7 @@ function startEdit(entry: CommentsEntry, home: string | null): void {
       attachCommentsDoc(entry, handle.doc());
       applyAccess(entry, entry.docServices.status.get());
     })
-    .catch(() => {
-      if (!entry.closed && entry.openingMode === "edit") {
-        entry.state = { ...entry.state, loading: false };
-        emitComments(entry);
-      }
-    });
+    .catch(() => handleOpenFailure(entry, "edit"));
 }
 
 const isSettled = (status: StatusFacts): boolean =>
@@ -282,18 +295,9 @@ const isSettled = (status: StatusFacts): boolean =>
   status.neverSynced ||
   status.server !== "syncing";
 
-function finishLoading(entry: CommentsEntry): void {
-  if (!entry.state.loading) return;
-  entry.state = { ...entry.state, loading: false };
-  emitComments(entry);
-}
-
 function ensureOpen(entry: CommentsEntry, status: StatusFacts): void {
   if (entry.closed) return;
-  if (isAccessLost(status.server)) {
-    closeHandles(entry);
-    return finishLoading(entry);
-  }
+  if (isAccessLost(status.server)) return clearOnAccessLost(entry);
   if (status.access === "view" || status.access === "too_old")
     return startView(entry);
   if (entry.openingMode === "edit") return;
@@ -302,17 +306,19 @@ function ensureOpen(entry: CommentsEntry, status: StatusFacts): void {
     return projectId === null ? null : projectHome(projectId);
   };
   const home = homeOf();
-  const offlineOrLocal = status.network === "offline" || status.neverSynced;
-  // Never create fresh local meta without `home` while online: wait for the index's projectId so POST /api/docs receives `create`.
-  if (isSettled(status) && (home !== null || offlineOrLocal))
+  if (
+    isSettled(status) &&
+    (home !== null || status.network === "offline" || status.neverSynced)
+  )
     return startEdit(entry, home);
   if (entry.checkingDevice) return;
   entry.checkingDevice = true;
   const finishIfSettled = (): void => {
     if (entry.closed || entry.openingMode !== "none") return;
     const latest = entry.docServices.status.get();
-    if (isAccessLost(latest.server) || (isSettled(latest) && homeOf() === null))
-      finishLoading(entry);
+    if (isAccessLost(latest.server)) return clearOnAccessLost(entry);
+    if (latest.access === "view" || latest.access === "too_old") return;
+    if (isSettled(latest)) startEdit(entry, homeOf());
   };
   void entry.services
     .onDevice([commentsDocId(entry.docId)])
@@ -320,7 +326,7 @@ function ensureOpen(entry: CommentsEntry, status: StatusFacts): void {
       entry.checkingDevice = false;
       if (entry.closed || entry.openingMode !== "none") return;
       const latest = entry.docServices.status.get();
-      if (isAccessLost(latest.server)) return finishLoading(entry);
+      if (isAccessLost(latest.server)) return clearOnAccessLost(entry);
       if (latest.access === "view" || latest.access === "too_old") return;
       if (held.has(commentsDocId(entry.docId))) startEdit(entry, homeOf());
       else finishIfSettled();
@@ -358,6 +364,7 @@ export function createCommentsEntry(
     view: null,
     openingMode: "none",
     checkingDevice: false,
+    loadProblemNotified: false,
     closed: false,
     stopDocMaps: noop,
     stopHandleEvents: noop,

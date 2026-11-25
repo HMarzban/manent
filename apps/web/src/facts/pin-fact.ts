@@ -141,42 +141,46 @@ export async function pinSelectionToFacts(
     if (access === "read_only" || access === "no_access") return false;
   }
   const index = services.projectIndex(projectId);
-  const [handle, facts] = await Promise.all([
-    index.handle(),
-    index.map("facts"),
-  ]).catch(() => [null, null] as const);
-  if (handle === null || facts === null) return false;
-  await waitForIndexReady(handle);
-  if (isHandleWriteBlocked(handle)) return false;
-  const episode = [...readEpisodes(handle.doc()).values()].find(
-    (entry) =>
-      entry.docIds.script === docId ||
-      entry.docIds.outline === docId ||
-      entry.docIds.roomLog === docId,
-  );
-  const value: FactValue = {
-    docId,
-    episodeId: episode?.id ?? null,
-    sceneHeadingId: captured.sceneHeadingId,
-    sceneLabel: captured.sceneLabel,
-    anchor: captured.anchor,
-    byUserId: services.userId,
-    at: environment.now(),
-  };
-  facts.set(environment.randomId(), value);
-  services.messages.push({
-    id: "fact_pinned",
-    text: FACTS_WORDS.pinned,
-    actions: [
-      {
-        label: FACTS_WORDS.projectSettings,
-        commandId: "project.openSettings",
-      },
-    ],
-    lifetime: "brief",
-    ownWork: false,
-  });
-  return true;
+  try {
+    const [handle, facts] = await Promise.all([
+      index.handle(),
+      index.map("facts"),
+    ]).catch(() => [null, null] as const);
+    if (handle === null || facts === null) return false;
+    await waitForIndexReady(handle);
+    if (isHandleWriteBlocked(handle)) return false;
+    const episode = [...readEpisodes(handle.doc()).values()].find(
+      (entry) =>
+        entry.docIds.script === docId ||
+        entry.docIds.outline === docId ||
+        entry.docIds.roomLog === docId,
+    );
+    const value: FactValue = {
+      docId,
+      episodeId: episode?.id ?? null,
+      sceneHeadingId: captured.sceneHeadingId,
+      sceneLabel: captured.sceneLabel,
+      anchor: captured.anchor,
+      byUserId: services.userId,
+      at: environment.now(),
+    };
+    facts.set(environment.randomId(), value);
+    services.messages.push({
+      id: "fact_pinned",
+      text: FACTS_WORDS.pinned,
+      actions: [
+        {
+          label: FACTS_WORDS.projectSettings,
+          commandId: "project.openSettings",
+        },
+      ],
+      lifetime: "brief",
+      ownWork: false,
+    });
+    return true;
+  } finally {
+    void index.close();
+  }
 }
 
 /** The selection toolbar's More ▾ item: Pin to project facts (not a command). */
