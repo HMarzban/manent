@@ -10,18 +10,22 @@ export const WRITE_INK_PLAY: TourScenario = {
   setup: setupOf({ userId: "sam", open: KEEPERS_LOGBOOK }),
   steps: [
     {
-      text: "Play the story beside its source and choose Ask about the storm.",
-      highlight: "page",
+      text: "Choose Play in the title menu: the player opens beside the source.",
+      highlight: "ink.play",
     },
     {
-      text: "Change Four hours to Five hours on line 24.",
+      text: "Press 1 for Ask about the storm, then 1 for Read the last entry.",
+      highlight: "ink:choices",
+    },
+    {
+      text: "On line 24 change Four hours to Five hours.",
       highlight: "page",
     },
   ],
   check:
-    'The state reads "Compiling…", then "Up to date", and the player replays both choices with the new line.',
-  evidence: ["Compiling…", "Up to date"],
+    'The player reads "quiz · question_2" and "Up to date", and "Variables (2)" shows trust at 1; after the edit it reads "Compiling…", then "Up to date", replays both choices and shows "Five hours".',
+  evidence: ["quiz · question_2", "Up to date", "Variables (2)", "Five hours"],
   fresh: false,
-  waitsFor: "ink_player",
+  waitsFor: null,
   hidden: null,
 };

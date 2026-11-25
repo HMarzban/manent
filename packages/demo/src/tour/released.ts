@@ -18,4 +18,6 @@ export const TOUR_RELEASED: readonly TourFeature[] = Object.freeze([
   "rounds",
   "send_draft",
   "copy_script",
+  "game_lines",
+  "ink_player",
 ]);
