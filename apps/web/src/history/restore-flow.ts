@@ -17,7 +17,7 @@ function requestOf(
     ? {
         title: HISTORY_WORDS.restoreTitle(ref),
         body: HISTORY_WORDS.restoreBody,
-        action: HISTORY_WORDS.restoreButton(ref),
+        action: HISTORY_WORDS.restore,
         refusal,
       }
     : {

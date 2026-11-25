@@ -1,14 +1,17 @@
 // What a link into a script's history opens: the History tab on the script, with the version as it was or the changes
 // since one; a version the script's history does not hold is said in place of the page.
 import {
+  Button,
   HISTORY_WORDS,
   LINKS_WORDS,
   Skeleton,
   useSubscribable,
 } from "@manent/ui";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { HistoryIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../empty-hero-card.tsx";
 import { baselineOfRow } from "../history/baseline.ts";
 import type { HistoryRow } from "../history/history-rows.ts";
 import { selectRow } from "../history/history-view.ts";
@@ -122,7 +125,8 @@ function useOpenLink(
   return shown;
 }
 
-function NotInHistory(props: { shown: Shown }): ReactNode {
+function NotInHistory(props: { docId: string; shown: Shown }): ReactNode {
+  const navigate = useNavigate();
   if (props.shown.kind === "waiting") {
     return (
       <div
@@ -141,8 +145,30 @@ function NotInHistory(props: { shown: Shown }): ReactNode {
     );
   }
   return (
-    <div className="flex flex-col items-start gap-2 p-12 text-ui">
-      <p role="alert">{LINKS_WORDS.notInHistory}</p>
+    <div className="flex min-h-0 flex-1 items-center justify-center bg-chrome p-6">
+      <EmptyHeroCard
+        icon={<HistoryIcon aria-hidden="true" className="size-5" />}
+        headingAs="h1"
+        headingTabIndex={-1}
+        title={LINKS_WORDS.versionUnavailable}
+        description={LINKS_WORDS.notInHistory}
+        descriptionRole="alert"
+        actions={
+          <>
+            <Button
+              onClick={() => void navigate({ href: `/s/${props.docId}` })}
+            >
+              {LINKS_WORDS.openScript}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => void navigate({ href: "/" })}
+            >
+              {LINKS_WORDS.backToLibrary}
+            </Button>
+          </>
+        }
+      />
     </div>
   );
 }
@@ -158,7 +184,7 @@ export function VersionLink(): ReactNode {
       ? missing(params.versionId)
       : { kind: "open", row, mode: "as_it_was", said: null };
   });
-  return <NotInHistory shown={shown} />;
+  return <NotInHistory docId={params.docId} shown={shown} />;
 }
 
 /**
@@ -186,5 +212,5 @@ export function ChangesLink(): ReactNode {
       said: name === null ? null : LINKS_WORDS.comparedEarlier(name),
     };
   });
-  return <NotInHistory shown={shown} />;
+  return <NotInHistory docId={params.docId} shown={shown} />;
 }

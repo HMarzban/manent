@@ -249,9 +249,9 @@ export function VersionPane(props: {
   ) : (
     <div
       ref={place}
-      tabIndex={0}
+      tabIndex={-1}
       aria-label={title}
-      className="min-h-0 flex-1 overflow-auto"
+      className="min-h-0 flex-1 overflow-auto outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2"
     />
   );
   if (beside) {

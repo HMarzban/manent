@@ -215,6 +215,11 @@ test("a version is paginated by its own engine", async () => {
   );
   expect(labelsIn(pane!)).toEqual(["1", "2", "3", "3"]);
   expect(document.activeElement?.closest("[data-beside='version']")).toBe(pane);
+  expect(document.activeElement?.getAttribute("tabindex")).toBe("-1");
+  expect(document.activeElement?.className).toContain("outline-none");
+  expect(document.activeElement?.className).toContain(
+    "focus-visible:outline-ring",
+  );
 });
 
 /** A level-1 anchor of page `label` at the start of `blockId`. */

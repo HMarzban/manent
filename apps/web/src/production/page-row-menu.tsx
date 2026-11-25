@@ -18,6 +18,7 @@ import {
   TooltipTrigger,
   useCommands,
 } from "@manent/ui";
+import { EllipsisIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 const PAGE_OPERATIONS: readonly CommandId[] = Object.freeze([
@@ -74,7 +75,7 @@ export function PageRowMenu(props: {
             />
           }
         >
-          <span aria-hidden="true">⋯</span>
+          <EllipsisIcon aria-hidden="true" className="size-icon" />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           {PAGE_OPERATIONS.map((id) => (

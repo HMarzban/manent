@@ -28,12 +28,13 @@ interface ListProps {
   access: ShareAccess;
   /** The owner, online: rows carry their controls. */
   editing: boolean;
+  colours: ReadonlyMap<string, number>;
   refusals: ReadonlyMap<RowKey, string>;
   actions: ShareActions;
 }
 
 function PersonRow(props: ListProps & { person: SharePerson }): ReactNode {
-  const { person, editing, actions } = props;
+  const { person, editing, colours, actions } = props;
   const { now } = useEnvironment();
   const nameId = useId();
   const refusal = props.refusals.get(`person:${person.userId}`) ?? null;
@@ -48,7 +49,7 @@ function PersonRow(props: ListProps & { person: SharePerson }): ReactNode {
   // the owner's role is never given or taken here
   const shareRole = editing && person.role !== "owner" ? person.role : null;
   const slots =
-    PERSON_ROW_SLOTS.length === 0
+    !editing || PERSON_ROW_SLOTS.length === 0
       ? []
       : [
           <span key="slots" className="flex items-center gap-2">
@@ -63,35 +64,49 @@ function PersonRow(props: ListProps & { person: SharePerson }): ReactNode {
         ];
   const role =
     shareRole === null ? (
-      person.role === "owner" ? (
-        <span
-          key="role"
-          className="inline-flex items-center rounded-full border border-line bg-subtle px-2.5 py-0.5 text-micro font-medium text-fg-muted"
-        >
-          {WORDS.roles[person.role]}
-        </span>
-      ) : (
-        <span key="role" className="text-meta text-fg-muted">
-          {WORDS.roles[person.role]}
-        </span>
-      )
+      <span
+        key="role"
+        className={
+          editing
+            ? "inline-flex w-28 shrink-0 justify-end"
+            : "inline-flex w-24 shrink-0 justify-end"
+        }
+      >
+        {person.role === "owner" ? (
+          <span className="inline-flex items-center rounded-micro border border-line bg-subtle px-2 py-0.5 text-micro font-medium text-fg-muted">
+            {WORDS.roles[person.role]}
+          </span>
+        ) : (
+          <span className="text-meta text-fg-muted">
+            {WORDS.roles[person.role]}
+          </span>
+        )}
+      </span>
     ) : (
       <RoleSelect
         key="role"
         value={shareRole}
         labelledBy={nameId}
+        className="w-28"
         onChange={(chosen) => void actions.changeRole(person, chosen)}
       />
     );
-  const remove =
-    shareRole === null
-      ? []
+  const remove = !editing
+    ? []
+    : shareRole === null
+      ? [
+          <span
+            key="remove-spacer"
+            aria-hidden="true"
+            className="hidden sm:inline-block sm:w-16"
+          />,
+        ]
       : [
           <Button
             key="remove"
             variant="ghost"
             size="sm"
-            className="text-fg-muted hover:text-danger"
+            className="w-16 text-fg-muted hover:text-danger"
             aria-label={WORDS.removeName(person.name)}
             onClick={() => void actions.removePerson(person)}
           >
@@ -104,7 +119,7 @@ function PersonRow(props: ListProps & { person: SharePerson }): ReactNode {
         <Avatar
           name={person.name}
           initials={initialsOf(person.name)}
-          colour={null}
+          colour={colours.get(person.userId) ?? null}
           size="md"
           decorative
         />
@@ -173,7 +188,7 @@ export function PeopleList(props: ListProps): ReactNode {
   return (
     <div
       role="list"
-      className="mn-table flex flex-col [&_.mn-row]:gap-2.5 [&_.mn-row]:py-1.5"
+      className="mn-table flex flex-col [&_.mn-row]:flex-wrap [&_.mn-row]:gap-2 [&_.mn-row]:py-2 sm:[&_.mn-row]:flex-nowrap"
     >
       {people.map((person, index) => (
         <div

@@ -126,10 +126,14 @@ test("the dialog says who is affected and what is kept, and its button is the ti
     document.getElementById(titleId)?.textContent,
     document.getElementById(bodyId)?.textContent,
     buttons(),
+    popup?.className.includes("p-6"),
+    actionButton()?.parentElement?.className.includes("border-t"),
   ]).toEqual([
     "Reset the demo?",
     "Everyone in the demo loses what they wrote. The seeded scripts come back.",
     ["Cancel", "Reset the demo"],
+    true,
+    true,
   ]);
 });
 

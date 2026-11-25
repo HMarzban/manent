@@ -1,9 +1,11 @@
 // What `/join/$token` draws once the server has answered: a link that gave a role opens its document, and one that
 // no longer opens anything says so in the document's place.
-import { SHARING_WORDS } from "@manent/ui";
+import { Button, LINKS_WORDS, SHARING_WORDS } from "@manent/ui";
 import { useNavigate } from "@tanstack/react-router";
+import { Link2OffIcon } from "lucide-react";
 import { useEffect } from "react";
 import type { ReactNode } from "react";
+import { EmptyHeroCard } from "../empty-hero-card.tsx";
 import { focusHeading } from "../focus.ts";
 import { useServices } from "../services/context.tsx";
 import type { PersonServices } from "../services/ports.ts";
@@ -58,12 +60,26 @@ export function JoinScreen(props: { outcome: JoinOutcome }): ReactNode {
   }, [outcome, services, navigate]);
   if (outcome.ok) return null;
   return (
-    <div className="flex flex-col items-start gap-2 p-6">
-      <h1 tabIndex={-1} className="text-ui font-normal text-fg outline-none">
-        {outcome.reason === "link_expired"
-          ? SHARING_WORDS.linkExpired
-          : SHARING_WORDS.linkRevoked}
-      </h1>
+    <div className="flex min-h-0 flex-1 items-center justify-center bg-chrome p-6">
+      <EmptyHeroCard
+        icon={<Link2OffIcon aria-hidden="true" className="size-5" />}
+        headingAs="h1"
+        headingTabIndex={-1}
+        title={LINKS_WORDS.linkUnavailable}
+        description={
+          outcome.reason === "link_expired"
+            ? SHARING_WORDS.linkExpired
+            : SHARING_WORDS.linkRevoked
+        }
+        actions={
+          <Button
+            variant="outline"
+            onClick={() => void navigate({ href: "/" })}
+          >
+            {LINKS_WORDS.backToLibrary}
+          </Button>
+        }
+      />
     </div>
   );
 }

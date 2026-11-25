@@ -3,6 +3,8 @@ import { COMMANDS } from "@manent/commands";
 import type { SideTab } from "@manent/commands";
 import { textAnchorAt } from "@manent/schema";
 import {
+  Button,
+  LINKS_WORDS,
   MessageSlot,
   READER_WORDS,
   Skeleton,
@@ -12,6 +14,7 @@ import {
   useSubscribable,
 } from "@manent/ui";
 import type { MessageQueue, StateLine } from "@manent/ui";
+import { Link2OffIcon, LockIcon, WifiOffIcon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -24,6 +27,7 @@ import type { Api } from "../../api.ts";
 import { tourTab } from "../../demo/tour-tab.tsx";
 import { browserPagePorts } from "../../editor-host/page-ports.ts";
 import { ScriptPageSkeleton } from "../../editor-host/script-page-skeleton.tsx";
+import { EmptyHeroCard } from "../../empty-hero-card.tsx";
 import { focusHeading } from "../../focus.ts";
 import { stopReadAloud } from "../../read-aloud/runner.ts";
 import { useReadAloudFacts } from "../../read-aloud/state-facts.ts";
@@ -248,21 +252,33 @@ export function ReaderScreen(props: {
       : "z-10 flex min-h-0 flex-1 flex-col bg-desk text-fg";
 
   if (state.kind === "refused") {
+    const Icon =
+      state.reason === "not_sent"
+        ? LockIcon
+        : state.reason === "unreachable"
+          ? WifiOffIcon
+          : Link2OffIcon;
     return (
       <div
-        className={
-          services === null
-            ? "z-10 flex h-screen flex-col items-start gap-2 bg-chrome p-6 text-fg"
-            : "z-10 flex min-h-0 flex-1 flex-col items-start gap-2 bg-chrome p-6 text-fg"
-        }
+        className={`z-10 flex items-center justify-center bg-chrome p-6 text-fg ${services === null ? "h-screen" : "min-h-0 flex-1"}`}
       >
-        <h1
-          tabIndex={-1}
-          role={state.reason === "unreachable" ? "alert" : undefined}
-          className="text-ui font-normal text-fg outline-none"
-        >
-          {readerRefusalText(state.reason)}
-        </h1>
+        <EmptyHeroCard
+          icon={<Icon aria-hidden="true" className="size-5" />}
+          headingAs="h1"
+          headingTabIndex={-1}
+          title={LINKS_WORDS.linkUnavailable}
+          description={readerRefusalText(state.reason)}
+          descriptionRole={state.reason === "unreachable" ? "alert" : undefined}
+          actions={
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<a href="/" />}
+            >
+              {LINKS_WORDS.backToLibrary}
+            </Button>
+          }
+        />
       </div>
     );
   }
