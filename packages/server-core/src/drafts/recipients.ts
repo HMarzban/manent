@@ -1,6 +1,12 @@
 // Send-draft validation, recipient expansion and formatting of stored send rows.
 import type { GroupEntry } from "@manent/crdt";
-import type { DocFile, DraftSendRow, Home, Storage } from "@manent/storage";
+import type {
+  DocFile,
+  DraftOpenStats,
+  DraftSendRow,
+  Home,
+  Storage,
+} from "@manent/storage";
 import { isDocId, isReplayKey } from "@manent/sync-protocol";
 import type {
   DraftSendGroup,
@@ -66,8 +72,13 @@ export function buildSendItem(
   file: DocFile,
   send: DraftSendRow,
   names: (userId: string) => string,
+  preloaded?: {
+    projectGroups?: ReadonlyMap<string, GroupEntry>;
+    opens?: DraftOpenStats;
+  },
 ): DraftSendItem {
-  const projectGroups = readProjectGroups(storage, send.docId);
+  const projectGroups =
+    preloaded?.projectGroups ?? readProjectGroups(storage, send.docId);
   const groups: DraftSendGroup[] = send.groupIds.map((groupId) => {
     const entry = projectGroups.get(groupId);
     return entry === undefined
@@ -80,9 +91,11 @@ export function buildSendItem(
         };
   });
   const recipientSet = new Set(send.recipientUserIds);
-  const openerUserIds = file.sharing
-    .openersOf(send.id)
-    .filter((id) => recipientSet.has(id));
+  const rawOpeners =
+    preloaded?.opens?.openers ?? file.sharing.openersOf(send.id);
+  const openerUserIds = rawOpeners.filter((id) => recipientSet.has(id));
+  const totalOpens =
+    preloaded?.opens?.totalOpens ?? file.sharing.openCount(send.id);
   return {
     sendId: send.id,
     versionId: send.versionId,
@@ -95,7 +108,7 @@ export function buildSendItem(
     openedCount: openerUserIds.length,
     openerUserIds,
     openerNames: openerUserIds.map(names),
-    totalOpens: file.sharing.openCount(send.id),
+    totalOpens,
     hasLink: send.files.includes(LINK_MARKER),
     watermarked: send.watermarkedUserIds.length > 0,
     sentByUserId: send.sentByUserId,

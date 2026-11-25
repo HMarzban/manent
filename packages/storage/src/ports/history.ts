@@ -23,6 +23,13 @@ export interface HistoryRequestRow {
   createdAt: number;
 }
 
+/** A version row together with its snapshot metadata and summary, read in one query. */
+export interface VersionPageRow extends VersionRow {
+  snapshotRef: string | null;
+  engineVersion: number | null;
+  summary: VersionSummary | null;
+}
+
 /** A document file's versions beyond their rows: pages, snapshots, the chunks snapshots are cut into, summaries, request keys and the purge of a frozen log. */
 export interface History {
   /** Newest first, by createdAt then id, both descending; strictly before `before` when it is not null. */
@@ -31,10 +38,21 @@ export interface History {
     before: VersionCursor | null,
     limit: number,
   ): VersionRow[];
+  /** As `page`, with each row's snapshot metadata and summary joined in one query. */
+  pageDetails(
+    docId: string,
+    before: VersionCursor | null,
+    limit: number,
+  ): VersionPageRow[];
   get(versionId: string): VersionRow | null;
   /** Null when the version is unknown or has no snapshot. */
   snapshotOf(
     versionId: string,
+  ): { ref: string; engineVersion: number | null } | null;
+  /** The newest snapshot version of `docId` at or before `at`; null when none holds a snapshot. */
+  latestSnapshotAtOrBefore(
+    docId: string,
+    at: { generation: number; seq: number },
   ): { ref: string; engineVersion: number | null } | null;
   setSnapshot(
     versionId: string,

@@ -16,6 +16,7 @@ import {
   setShownCursors,
 } from "../cursors/cursor-plugin.ts";
 import type { ShownCursors } from "../cursors/cursor-plugin.ts";
+import { subscribeSheets } from "../annotations/gutter-markers.ts";
 import { blockNear, currentIndex } from "../cursors/place.ts";
 import type { BlockIndex } from "../pagination/block-index.ts";
 import { paginationKey } from "../pagination/plugin.ts";
@@ -307,22 +308,21 @@ function marginPeopleView(
     show();
     draw();
   });
-  // the page scaffold names each sheet it draws, on scroll and zoom as well as when the pages change
-  const sheets = new MutationObserver(draw);
-  if (view.dom.parentElement !== null)
-    sheets.observe(view.dom.parentElement, {
-      subtree: true,
-      attributeFilter: ["data-page"],
-    });
+  const stopSheets =
+    view.dom.parentElement === null
+      ? null
+      : subscribeSheets(view.dom.parentElement, draw);
   return {
     update(_, prev) {
       if (
+        people.length > 0 &&
         paginationKey.getState(prev)?.pagination !==
-        paginationKey.getState(view.state)?.pagination
+          paginationKey.getState(view.state)?.pagination
       )
         draw();
       // the carets were judged again: a person may have stopped moving
       else if (
+        people.length > 0 &&
         cursorsKey.getState(prev)?.now !== cursorsKey.getState(view.state)?.now
       ) {
         const index = currentIndex(view.state);
@@ -335,7 +335,7 @@ function marginPeopleView(
       cancelFrame = null;
       stop();
       stopShown();
-      sheets.disconnect();
+      stopSheets?.();
       for (const marker of drawn) marker.remove();
       drawn = [];
       tellScenes(new Map());

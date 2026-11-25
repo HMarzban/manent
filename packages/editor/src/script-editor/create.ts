@@ -25,6 +25,7 @@ import type { FrontPagesHandle } from "../front-pages/load.ts";
 import type { ElementContext } from "../keys/element-keys.ts";
 import type { LayoutView } from "../page/config.ts";
 import type { PageFurnitureOptions } from "../page/furniture/page-furniture.ts";
+import { withBatchedScaffold } from "../page/scaffold.ts";
 import type { PageScaffold } from "../page/scaffold.ts";
 import type { PageViewPorts } from "../pagination/page-view.ts";
 import { paginationKey } from "../pagination/plugin.ts";
@@ -291,6 +292,7 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     layer: () => (layer.parentNode === null ? null : layer),
     zoom: factor,
     setScenesNumbered(on) {
+      if (scenesNumbered === on) return;
       scenesNumbered = on;
       pages?.repage();
     },
@@ -317,46 +319,49 @@ export function createScriptEditor(options: ScriptEditorOptions): ScriptEditor {
     isEditable: () => editableNow,
   });
   plugins.after.unshift(furnitureSync.plugin());
-  const mounted = mountEditor(
-    { ...options, layoutEngine: firstEngine },
-    {
-      profile: first,
-      context,
-      plugins,
-      ports,
-    },
-  );
+  const mounted = withBatchedScaffold(place, () => {
+    const built = mountEditor(
+      { ...options, layoutEngine: firstEngine },
+      { profile: first, context, plugins, ports },
+    );
+    activeScaffold = built.scaffold;
+    if (!editableNow) built.view.setProps({ editable: () => false });
+    place.append(layer);
+    if (built.scaffold !== null)
+      pages = createPageControls({
+        view: built.view,
+        scaffold: built.scaffold,
+        ports,
+        desk,
+        zoom,
+        layoutView: options.view,
+        engine: currentEngine,
+        profile,
+      });
+    furnitureSync.sync(built.view.state);
+    return built;
+  });
   const { view, scaffold } = mounted;
-  activeScaffold = scaffold;
-  if (!editableNow) view.setProps({ editable: () => false });
-  place.append(layer);
-  if (scaffold !== null)
-    pages = createPageControls({
-      view,
-      scaffold,
-      ports,
-      desk,
-      zoom,
-      layoutView: options.view,
-      engine: currentEngine,
-      profile,
-    });
-  furnitureSync.sync(view.state);
   const front = frontPagesOf(options, view, scaffold, { profile, ports });
   const actions = actionContext(context, view, {
     editable: () => editableNow,
     ports,
   });
-  const subscriptions = subscribe(
-    options,
-    view,
-    () => {
+  let relayoutQueued = false;
+  const scheduleRelayout = (): void => {
+    if (relayoutQueued) return;
+    relayoutQueued = true;
+    options.ports.defer(() => {
+      relayoutQueued = false;
+      if (view.isDestroyed) return;
       layout = readScriptLayout(script);
       pages?.repage();
       front?.relayout();
       furnitureSync.sync(view.state);
-    },
-    () => furnitureSync.sync(view.state),
+    });
+  };
+  const subscriptions = subscribe(options, view, scheduleRelayout, () =>
+    furnitureSync.sync(view.state),
   );
   return {
     view,

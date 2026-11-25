@@ -32,6 +32,7 @@ import type {
   DocumentRow,
   IssueRow,
   RevisionSetRow,
+  SetBlockRow,
 } from "@manent/storage";
 import {
   BLOCK_CHANGES,
@@ -212,9 +213,8 @@ export function rowsOf(records: readonly LockAnchorRecord[]): AnchorRow[] {
   }));
 }
 
-/** The blocks an issued revision marked, as the store holds them. */
-export function setBlocksOf(file: DocFile, setId: string): SetBlockRecord[] {
-  return file.production.setBlocks(setId).map((block) => ({
+function setBlockRecords(rows: readonly SetBlockRow[]): SetBlockRecord[] {
+  return rows.map((block) => ({
     blockId: block.blockId,
     pageLabel: block.pageLabel,
     change: memberOf(BLOCK_CHANGES, block.change, "block change"),
@@ -224,12 +224,17 @@ export function setBlocksOf(file: DocFile, setId: string): SetBlockRecord[] {
   }));
 }
 
+/** The blocks an issued revision marked, as the store holds them. */
+export function setBlocksOf(file: DocFile, setId: string): SetBlockRecord[] {
+  return setBlockRecords(file.production.setBlocks(setId));
+}
+
 function setView(
-  file: DocFile,
   row: RevisionSetRow,
   names: (userId: string) => string,
+  storedBlocks: readonly SetBlockRow[],
 ): RevisionSetView {
-  const blocks = row.issuedAt === null ? [] : setBlocksOf(file, row.id);
+  const blocks = row.issuedAt === null ? [] : setBlockRecords(storedBlocks);
   return {
     setId: row.id,
     ordinal: row.ordinal,
@@ -292,8 +297,18 @@ export function productionState(
 ): ProductionState {
   const { production } = file;
   const row = production.get(docId);
-  const locked = isLocked(file, docId);
+  const locked = row !== null && row.endedAt === null;
+  const numbering =
+    row === null
+      ? "suffix"
+      : memberOf(NUMBERING_SCHEMES, row.numbering, "numbering");
   const anchors = locked ? recordsOf(production.anchors(docId)) : [];
+  const rawSets = locked ? production.sets(docId) : [];
+  const blocksBySet = locked
+    ? production.setBlocksFor(
+        rawSets.filter((set) => set.issuedAt !== null).map((set) => set.id),
+      )
+    : new Map<string, SetBlockRow[]>();
   return {
     v: 1,
     docId,
@@ -301,7 +316,7 @@ export function productionState(
     locked,
     lockLevel: anchors.reduce((level, a) => Math.max(level, a.level), 0),
     lockedOn: locked && row !== null ? row.lockedOn : null,
-    numbering: numberingOf(file, docId),
+    numbering,
     colourOrder: [...(row?.colourOrder ?? COLOUR_ORDERS.standard)],
     anchors,
     sceneNumbers: locked
@@ -309,9 +324,9 @@ export function productionState(
           .sceneNumbers(docId)
           .toSorted((a, b) => compareSceneNumbers(a.num, b.num))
       : [],
-    sets: locked
-      ? production.sets(docId).map((set) => setView(file, set, names))
-      : [],
+    sets: rawSets.map((set) =>
+      setView(set, names, blocksBySet.get(set.id) ?? []),
+    ),
     issues: locked
       ? production.issues(docId).map((issue) => issueView(issue, names))
       : [],

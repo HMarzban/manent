@@ -8,7 +8,8 @@ import type { AnyRoute } from "@tanstack/react-router";
 import { createElement } from "react";
 import { loadScreen } from "../router.tsx";
 import { WORKSPACE_SETTINGS_GROUPS } from "../screens/workspace-settings/groups.ts";
-import { chooseUrl, confirmPerson } from "../session.ts";
+import { routeConfirmMe } from "../services/api-cache.ts";
+import { chooseUrl } from "../session.ts";
 import type { AppRouterDeps } from "./index.ts";
 import { ScreenProblem } from "./screen-problem.ts";
 
@@ -52,13 +53,17 @@ export function workspaceSettingsRoutes(
     path: "/w/$workspaceId/settings/$group",
     beforeLoad: async ({ params, location }) => {
       const { person, setPerson } = usePerson.getState();
-      const confirmed = await confirmPerson(person, api.me);
-      if (confirmed === null) {
+      if (person === null) {
         setPerson(null);
         throw redirect({ href: chooseUrl(location.href), replace: true });
       }
-      if (confirmed.token === null) {
+      if (person.token === null) {
         throw redirect({ href: "/", replace: true });
+      }
+      const me = await routeConfirmMe(api, person.token);
+      if (!me.ok && me.reason === "unauthenticated") {
+        setPerson(null);
+        throw redirect({ href: chooseUrl(location.href), replace: true });
       }
       if (!isGroup(params.group)) {
         throw redirect({
@@ -66,7 +71,6 @@ export function workspaceSettingsRoutes(
           replace: true,
         });
       }
-      const me = await api.me();
       if (
         me.ok &&
         !me.me.workspaces.some((ws) => ws.id === params.workspaceId)

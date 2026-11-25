@@ -19,7 +19,7 @@ import {
   formatPosition,
 } from "@manent/ui";
 import { ChevronDownIcon } from "lucide-react";
-import { useEffect, useId, useLayoutEffect, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   showChanges,
@@ -125,23 +125,27 @@ function useShownChanges(
 ): Comparison | null {
   const mode = useHistory("mode");
   const { sceneIds } = useHistory("filter");
+  const filtered = useMemo(
+    () => (all === null ? null : filterComparison(all, { sceneIds, blockIds })),
+    [all, sceneIds, blockIds],
+  );
   // the stepper starts again on other changes, and keeps its change when only Show changes
   useLayoutEffect(() => {
     historyActions.setStep(null);
   }, [docId, content, all, sceneIds, blockIds]);
   useLayoutEffect(() => {
-    if (content === null || all === null) {
+    if (content === null || filtered === null) {
       showChanges(docId, null);
       return undefined;
     }
     showChanges(docId, {
       baseline: content,
-      comparison: filterComparison(all, { sceneIds, blockIds }),
+      comparison: filtered,
       display: mode === "asterisks" ? "asterisks" : "page",
     });
     return () => showChanges(docId, null);
-  }, [docId, content, all, mode, sceneIds, blockIds]);
-  return all === null ? null : filterComparison(all, { sceneIds, blockIds });
+  }, [docId, content, filtered, mode]);
+  return filtered;
 }
 
 const choose = (baseline: HistoryState["baseline"]) => (): void =>
@@ -249,13 +253,19 @@ function ChangesFilter(props: {
   const { review } = useServices();
   const filter = useHistory("filter");
   const doc = review.docOf(props.docId);
+  const entriesById = useMemo(
+    () => new Map(props.all.entries.map((entry) => [entry.id, entry])),
+    [props.all],
+  );
   const headingOf = (sceneId: string): string => {
-    const entry = props.all.entries.find((e) => e.id === sceneId);
+    const entry = entriesById.get(sceneId);
     const block = entry?.newer ?? entry?.older ?? null;
     return block === null ? "" : textOf(block);
   };
-  const people =
-    props.authors === null ? [] : peopleOf(props.all, props.authors);
+  const people = useMemo(
+    () => (props.authors === null ? [] : peopleOf(props.all, props.authors)),
+    [props.all, props.authors],
+  );
   const scenes = (sceneIds: readonly string[] | null) => (): void =>
     historyActions.setFilter({ ...filter, sceneIds });
   const by = (authorUserIds: readonly string[] | null) => (): void =>

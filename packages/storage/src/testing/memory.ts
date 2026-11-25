@@ -11,12 +11,12 @@ import {
   createControlTables,
   createFileStores,
 } from "./memory-stores.ts";
+import { createHistory } from "./memory-history.ts";
 import {
   copied,
   corruptRow,
   createAdoptions,
   createGenerations,
-  createHistory,
   createLog,
   createReplays,
   flipFirstByte,
@@ -316,6 +316,7 @@ export function createMemoryStorage(options: {
   const files = new Map<string, DocFile>();
   const snapshots = new WeakMap<object, MemoryState>();
   const directory = createDirectory(ctx);
+  let inControlTransaction = false;
   return {
     directory,
     ...createControlStores({
@@ -329,6 +330,33 @@ export function createMemoryStorage(options: {
       const opened = files.get(key) ?? openFile(ctx, home, key);
       files.set(key, opened);
       return opened;
+    },
+    transaction<T>(fn: () => T): T {
+      if (inControlTransaction) return fn();
+      const saved = structuredClone({
+        places: state.places,
+        roles: state.roles,
+        tombstones: state.tombstones,
+        control: state.control,
+      });
+      inControlTransaction = true;
+      try {
+        return fn();
+      } catch (error) {
+        state.places = saved.places;
+        state.roles = saved.roles;
+        state.tombstones = saved.tombstones;
+        state.control = saved.control;
+        if (
+          error instanceof RangeError ||
+          error instanceof StorageError ||
+          error instanceof SimulatedCrash
+        )
+          throw error;
+        throw new StorageError("commit_failed", { cause: error });
+      } finally {
+        inControlTransaction = false;
+      }
     },
     close() {},
     failNextCommit(code = "commit_failed") {

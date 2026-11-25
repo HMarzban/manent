@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 import type { AnyRoute } from "@tanstack/react-router";
 import { loadScreen } from "../router.tsx";
+import { routeConfirmMe } from "../services/api-cache.ts";
 import { chooseUrl, confirmPerson } from "../session.ts";
 import type { AppRouterDeps } from "./index.ts";
 import { ScreenProblem } from "./screen-problem.ts";
@@ -36,7 +37,12 @@ export function boardRoutes(
       search: { middlewares: [stripSearchParams({ season: null })] },
       beforeLoad: async ({ location }) => {
         const { person, setPerson } = usePerson.getState();
-        if ((await confirmPerson(person, api.me)) !== null) return;
+        if (
+          (await confirmPerson(person, () =>
+            routeConfirmMe(api, person?.token ?? null),
+          )) !== null
+        )
+          return;
         setPerson(null);
         throw redirect({ href: chooseUrl(location.href), replace: true });
       },

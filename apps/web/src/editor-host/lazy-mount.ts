@@ -20,8 +20,11 @@ export function createLazyMount(load: () => Promise<EditorMount>): EditorMount {
       let disposed = false;
       void loading.then((mount) => {
         if (disposed) return;
-        dispose();
-        dispose = mount.mount(ports);
+        const releasePlaceholder = dispose;
+        // mount first so a loaded editor that still waits on sync can adopt the existing placeholder in place
+        const nextDispose = mount.mount(ports);
+        releasePlaceholder();
+        dispose = nextDispose;
       });
       return () => {
         disposed = true;

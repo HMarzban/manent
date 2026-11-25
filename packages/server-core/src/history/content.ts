@@ -66,10 +66,6 @@ export function carryAuthors(
   return Object.fromEntries(authors);
 }
 
-/** Negative when `a` is before `b` in the document's history. */
-const comparePositions = (a: VersionPosition, b: VersionPosition): number =>
-  a.generation - b.generation || a.seq - b.seq;
-
 /** `doc`'s content with `row`'s schema and engine versions; `locks` is null, for the caller that knows them to fill. */
 export function contentOfDoc(
   doc: CrdtDoc,
@@ -110,11 +106,11 @@ function docAt(
   const checkpoint = file.checkpoints.atOrBefore(row.id, generation, seq);
   const tail = file.log.tail(row.id, generation, checkpoint?.seq ?? 0, {
     quarantine: false,
+    throughSeq: seq,
   });
-  if (tail.corrupt.some((corrupt) => corrupt <= seq)) throw corruptError();
+  if (tail.corrupt.length > 0) throw corruptError();
   const doc = checkpoint === null ? createDoc() : loadDoc(checkpoint.state);
-  for (const { seq: at, update } of tail.rows)
-    if (at <= seq) doc.applyUpdate(update, ORIGIN_LOAD);
+  for (const { update } of tail.rows) doc.applyUpdate(update, ORIGIN_LOAD);
   return doc;
 }
 
@@ -124,15 +120,7 @@ function snapshotBefore(
   docId: string,
   position: VersionPosition,
 ): VersionContent | null {
-  let newest: { ref: string; at: VersionPosition } | null = null;
-  for (const { id, generation, seq } of file.versions.list(docId)) {
-    if (generation === null || seq === null) continue;
-    const at = { generation, seq };
-    if (comparePositions(at, position) > 0) continue;
-    if (newest !== null && comparePositions(at, newest.at) <= 0) continue;
-    const ref = file.history.snapshotOf(id)?.ref;
-    if (ref !== undefined) newest = { ref, at };
-  }
+  const newest = file.history.latestSnapshotAtOrBefore(docId, position);
   if (newest === null) return null;
   try {
     return readSnapshot(file, newest.ref);

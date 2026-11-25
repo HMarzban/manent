@@ -6,7 +6,9 @@ import {
   detectEngine,
   faceDescriptors,
   loadScriptFonts,
+  scriptFontsReady,
   visibleSheets,
+  withBatchedScaffold,
   zoomBox,
 } from "../src/index.ts";
 import type { LoadableFace } from "../src/index.ts";
@@ -120,4 +122,133 @@ test("scaffold passes typed furniture options and honors replaces on screen", ()
     "Harbour Lights",
   ]);
   scaffold.destroy();
+});
+
+test("script fonts are added once per font set and cached once loaded", async () => {
+  let added = 0;
+  let made = 0;
+  const fonts = {
+    add() {
+      added += 1;
+    },
+  };
+  const makeFace = (): LoadableFace => {
+    made += 1;
+    return { load: () => Promise.resolve() };
+  };
+  const first = await loadScriptFonts({
+    fonts,
+    makeFace,
+    faces: FACES,
+    wait: () => new Promise(() => {}),
+  });
+  const second = await loadScriptFonts({
+    fonts,
+    makeFace,
+    faces: FACES,
+    wait: () => new Promise(() => {}),
+  });
+  expect([first, second, scriptFontsReady(fonts), added, made]).toEqual([
+    "ready",
+    "ready",
+    true,
+    FACES.length,
+    FACES.length,
+  ]);
+});
+
+test("a batched scaffold draws visible sheets once across initial setup", () => {
+  const host = document.createElement("div");
+  Object.defineProperty(host, "clientHeight", { value: 900 });
+  const profile = profileFor("screenplay")!;
+  let draws = 0;
+  const scaffold = withBatchedScaffold(host, () => {
+    const made = createPageScaffold({
+      place: host,
+      profile,
+      engine: "chromium",
+      furnitureEntries: [
+        {
+          replaces: [],
+          draw() {
+            draws += 1;
+          },
+        },
+      ],
+    });
+    made.setPageCount(2);
+    made.setPageLabels(["1", "2"]);
+    made.applyZoom(110);
+    made.setFurniture({ title: "Low Tide" });
+    expect(draws).toBe(0);
+    return made;
+  });
+  // 2 visible sheets drawn once each when the batch exits
+  expect(draws).toBe(2);
+  scaffold.destroy();
+});
+
+test("retrying script fonts after a rejection builds a fresh face", async () => {
+  let added = 0;
+  let made = 0;
+  let shouldReject = true;
+  const fonts = {
+    add() {
+      added += 1;
+    },
+  };
+  const makeFace = (): LoadableFace => {
+    made += 1;
+    const rejectThis = shouldReject;
+    return {
+      load: () =>
+        rejectThis ? Promise.reject(new Error("x")) : Promise.resolve(),
+    };
+  };
+  const first = await loadScriptFonts({
+    fonts,
+    makeFace,
+    faces: FACES,
+    wait: () => new Promise(() => {}),
+  });
+  shouldReject = false;
+  const second = await loadScriptFonts({
+    fonts,
+    makeFace,
+    faces: FACES,
+    wait: () => new Promise(() => {}),
+  });
+  // 4 latin faces rejected and were recreated on retry; 4 latin-ext faces stayed cached
+  expect([first, second, scriptFontsReady(fonts), added, made]).toEqual([
+    "fallback",
+    "ready",
+    true,
+    FACES.length + 4,
+    FACES.length + 4,
+  ]);
+});
+
+test("a batched scaffold destroyed before the batch ends draws no sheets on exit", () => {
+  const host = document.createElement("div");
+  Object.defineProperty(host, "clientHeight", { value: 900 });
+  const profile = profileFor("screenplay")!;
+  let draws = 0;
+  withBatchedScaffold(host, () => {
+    const made = createPageScaffold({
+      place: host,
+      profile,
+      engine: "chromium",
+      furnitureEntries: [
+        {
+          replaces: [],
+          draw() {
+            draws += 1;
+          },
+        },
+      ],
+    });
+    made.setPageCount(2);
+    made.destroy();
+  });
+  expect(draws).toBe(0);
 });

@@ -3,6 +3,7 @@
 import { Plugin } from "prosemirror-state";
 import type { EditorState, PluginView } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
+import { subscribeSheets } from "../annotations/gutter-markers.ts";
 import { drawnPages } from "../margin-people/margin-people-plugin.ts";
 import { paginationKey } from "../pagination/plugin.ts";
 import { createMarkLayer } from "./layer.ts";
@@ -27,16 +28,14 @@ function changeMarksView(view: EditorView): PluginView {
     const count = pages?.pagination.pages.length ?? 0;
     layer.update(view.state, shown ? drawnPages(frame, count) : [], NO_AUTHORS);
   };
-  // the page scaffold names each sheet it draws, on scroll and zoom as well as when the pages change
-  const sheets = new MutationObserver(draw);
-  sheets.observe(frame, { subtree: true, attributeFilter: ["data-page"] });
+  const stopSheets = subscribeSheets(frame, draw);
   draw();
   return {
     update(_, prev) {
       if (isRedrawn(prev, view.state)) draw();
     },
     destroy() {
-      sheets.disconnect();
+      stopSheets();
       layer.destroy();
     },
   };

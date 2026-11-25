@@ -165,10 +165,16 @@ function keptMetrics(
   was: ReadonlyMap<number, readonly number[]>,
   now: ReadonlyMap<number, readonly number[]>,
 ): Map<number, BlockMetrics> {
+  const kept = new Map<number, BlockMetrics>();
+  if (
+    change.oldEnd - change.first === 1 &&
+    change.newEnd - change.first === 1 &&
+    prev.blocks[change.first] !== blocks[change.first]
+  )
+    return kept;
   const { profile } = prev;
   const at = new Map<LayoutBlock, number>();
   for (let j = change.first; j < change.oldEnd; j++) at.set(prev.blocks[j]!, j);
-  const kept = new Map<number, BlockMetrics>();
   for (let i = change.first; i < change.newEnd; i++) {
     const j = at.get(blocks[i]!);
     if (j === undefined || was.has(j) || now.has(i)) continue;
@@ -282,6 +288,38 @@ function refill(
   return kept;
 }
 
+function updatedMetrics(
+  prev: Pagination,
+  own: readonly LayoutBlock[],
+  edit: ChangeHint,
+  shift: number,
+  recompute: readonly ReadonlySet<number>[],
+  forced: ReadonlyMap<number, readonly number[]>,
+  unchanged: ReadonlyMap<number, BlockMetrics>,
+): BlockMetrics[] {
+  const { profile } = prev;
+  let metrics: BlockMetrics[];
+  if (shift === 0) {
+    metrics = prev.metrics.slice();
+    for (let i = edit.first; i < edit.newEnd; i++)
+      metrics[i] =
+        unchanged.get(i) ?? measureAt(own, profile, i, forced.get(i) ?? []);
+  } else {
+    metrics = prev.metrics.slice(0, edit.first);
+    for (let i = edit.first; i < edit.newEnd; i++)
+      metrics.push(
+        unchanged.get(i) ?? measureAt(own, profile, i, forced.get(i) ?? []),
+      );
+    for (let i = edit.newEnd; i < own.length; i++)
+      metrics.push(prev.metrics[i - shift]!);
+  }
+  for (const set of recompute)
+    for (const i of set)
+      if (i >= 0 && i < own.length)
+        metrics[i] = measureAt(own, profile, i, forced.get(i) ?? []);
+  return metrics;
+}
+
 /**
  * The pages of `blocks` after an edit to `prev.blocks`, with `prev`'s profile and locks: the same as
  * `paginate` gives. A block that is the same object keeps its metrics; filling restarts at the first
@@ -295,31 +333,30 @@ export function repaginate(
 ): Pagination {
   const edit = change ?? changeOf(prev.blocks, blocks);
   if (edit === null) return prev;
-  const own = Object.freeze([...blocks]);
+  const own = Object.isFrozen(blocks) ? blocks : blocks.slice();
   const { profile, locks } = prev;
   const shift = edit.newEnd - edit.oldEnd;
   const reach = reachOf(prev, own, edit);
-  let { end } = reach;
+  let { first, end } = reach;
   const before = startsOf(prev, edit);
   const plan: LockPlan = needsResolving(prev, own, edit)
     ? planLocks(own, profile, locks)
     : { starts: before, taken: takenOf(locks) };
   const moved = relocked(before, plan.starts);
-  let { first } = reach;
   for (const block of moved) {
     first = Math.min(first, block);
     end = Math.max(end, block + 1);
   }
   const forced = forcedOffsets(plan.starts);
   const unchanged = keptMetrics(prev, own, edit, forcedOffsets(before), forced);
-  const metrics: readonly BlockMetrics[] = Object.freeze(
-    own.map((_, i) => {
-      const measured = () => measureAt(own, profile, i, forced.get(i) ?? []);
-      if (reach.resuffixed.has(i) || moved.has(i)) return measured();
-      if (i < edit.first) return prev.metrics[i]!;
-      if (i >= edit.newEnd) return prev.metrics[i - shift]!;
-      return unchanged.get(i) ?? measured();
-    }),
+  const metrics = updatedMetrics(
+    prev,
+    own,
+    edit,
+    shift,
+    [reach.resuffixed, moved],
+    forced,
+    unchanged,
   );
   const flow = createFlow(
     own,
@@ -346,12 +383,10 @@ export function repaginate(
     locks,
     blocks: own,
     metrics,
-    pages: Object.freeze(
-      kept.map(({ page, old }, index) =>
-        old !== null && old.index === index && old.label === labels[index]
-          ? old
-          : Object.freeze({ ...page, index, label: labels[index]! }),
-      ),
+    pages: kept.map(({ page, old }, index) =>
+      old !== null && old.index === index && old.label === labels[index]
+        ? old
+        : Object.freeze({ ...page, index, label: labels[index]! }),
     ),
   });
 }

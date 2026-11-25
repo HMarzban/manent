@@ -12,8 +12,13 @@ import type { DocRole } from "@manent/sync-protocol";
 import { createValue, useSubscribable } from "@manent/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ProjectIndex } from "../project/project-index.ts";
+import {
+  createDocRequestDeduper,
+  storageOfServices,
+} from "../services/api-cache.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
 import type { ProjectItem } from "../services/ports.ts";
+import { createDeviceMemory } from "../services/sync/device-memory.ts";
 import { liveMap } from "../services/sync/private-index.ts";
 import { readPerson } from "../session.ts";
 import { readBoard } from "./model.ts";
@@ -44,12 +49,17 @@ export interface BoardData {
 }
 
 const NO_PROJECTS = createValue<readonly ProjectItem[]>(Object.freeze([]));
+const dedupeBoardDescribe =
+  createDocRequestDeduper<Exclude<ServerAccess, "pending">>();
 
 const field = (body: unknown, name: string): unknown =>
   typeof body === "object" && body !== null ? Reflect.get(body, name) : null;
 
 const isDocRole = (value: unknown): value is DocRole =>
   DOC_ROLES.some((known) => known === value);
+
+const isRemovedSide = (side: readonly string[]): boolean =>
+  side.includes("access_removed") || side.includes("deleted");
 
 /** Asks the server for the person's role on the project index; distinguishes forbidden, read-only, edit and offline. */
 async function askIndexAccess(
@@ -93,10 +103,7 @@ async function waitWorkspaceSynced(
     };
     if (settled()) return;
     await new Promise<void>((resolve) => {
-      let done = false;
       const finish = (): void => {
-        if (done) return;
-        done = true;
         stop();
         cancel();
         resolve();
@@ -112,7 +119,8 @@ async function waitWorkspaceSynced(
 }
 
 function useBoardProject(projectId: string): ProjectLookup {
-  const { api, library, openHandle, userId } = useServices();
+  const services = useServices();
+  const { api, library, openHandle, userId } = services;
   const { online, schedule } = useEnvironment();
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
@@ -120,8 +128,34 @@ function useBoardProject(projectId: string): ProjectLookup {
   useEffect(() => {
     let shown = true;
     const stops: (() => void)[] = [];
+    const watched = new Set<string>();
+    let found: string | null = null;
     setChecked(false);
     setWorkspaceId(null);
+
+    const watch = (id: string): void => {
+      if (watched.has(id)) return;
+      watched.add(id);
+      const listed = library.projects(id);
+      const look = (): void => {
+        if (
+          shown &&
+          listed.get().some((project) => project.projectId === projectId)
+        ) {
+          found = id;
+          setWorkspaceId(id);
+        }
+      };
+      stops.push(listed.subscribe(look));
+      look();
+    };
+
+    const cached =
+      createDeviceMemory({
+        local: storageOfServices(services),
+        session: null,
+      }).workspaces(userId) ?? [];
+    for (const id of new Set([...cached.map((w) => w.id), userId])) watch(id);
 
     void api
       .me()
@@ -129,41 +163,27 @@ function useBoardProject(projectId: string): ProjectLookup {
         if (!shown) return;
         const workspaces = me.ok ? me.me.workspaces.map(({ id }) => id) : [];
         const candidates = [...new Set([...workspaces, userId])];
-        let found: string | null = null;
-        for (const id of candidates) {
-          const listed = library.projects(id);
-          const look = (): void => {
-            if (
-              shown &&
-              listed.get().some((project) => project.projectId === projectId)
-            ) {
-              found = id;
-              setWorkspaceId(id);
-            }
-          };
-          stops.push(listed.subscribe(look));
-          look();
-        }
-        await Promise.all(
-          candidates.map((id) =>
-            library
-              .readProjects(id)
-              .then((items) => {
-                if (shown && items.some((p) => p.projectId === projectId)) {
-                  found = id;
-                  setWorkspaceId(id);
-                }
-              })
-              .catch(() => {}),
-          ),
-        );
-        if (shown && found === null && online()) {
+        for (const id of candidates) watch(id);
+        if (found === null)
+          await Promise.all(
+            candidates.map((id) =>
+              library
+                .readProjects(id)
+                .then((items) => {
+                  if (shown && items.some((p) => p.projectId === projectId)) {
+                    found = id;
+                    setWorkspaceId(id);
+                  }
+                })
+                .catch(() => {}),
+            ),
+          );
+        if (shown && found === null && online())
           await Promise.all(
             candidates.map((id) =>
               waitWorkspaceSynced(openHandle, id, schedule),
             ),
           );
-        }
         if (shown) setChecked(true);
       })
       .catch(() => {
@@ -174,7 +194,7 @@ function useBoardProject(projectId: string): ProjectLookup {
       shown = false;
       for (const stop of stops) stop();
     };
-  }, [api, library, openHandle, online, schedule, userId, projectId]);
+  }, [services, api, library, openHandle, online, schedule, userId, projectId]);
 
   const projects = useMemo(
     () => (workspaceId === null ? NO_PROJECTS : library.projects(workspaceId)),
@@ -216,8 +236,10 @@ export function useBoardData(
   const [pushForbidden, setPushForbidden] = useState(false);
   const [serverAccess, setServerAccess] = useState<ServerAccess>("pending");
 
+  const isReady = lookup.status === "ready";
+  // open the project index only once lookup confirms this project is a series, avoiding local records for invalid URLs
   useEffect(() => {
-    if (lookup.status !== "ready") {
+    if (!isReady) {
       setBoardLoaded(false);
       return;
     }
@@ -251,8 +273,7 @@ export function useBoardData(
         const updateStatus = (): void => {
           if (!shown) return;
           const { side, neverSynced: localOnly } = handle.status.get();
-          const removed =
-            side.includes("access_removed") || side.includes("deleted");
+          const removed = isRemovedSide(side);
           setNeverSynced(localOnly);
           setAccessRemoved(removed);
           setIndexWritable(
@@ -270,30 +291,29 @@ export function useBoardData(
         readSeasonsAndEpisodes(handle.doc());
         readBoardNow();
         setBoardLoaded(true);
-        stops.push(handle.status.subscribe(updateStatus));
         stops.push(
+          handle.status.subscribe(updateStatus),
           handle.on((event) => {
-            if (!shown) return;
-            if (event.type === "rejected" && event.code === CODE.FORBIDDEN) {
+            if (
+              shown &&
+              event.type === "rejected" &&
+              event.code === CODE.FORBIDDEN
+            )
               setPushForbidden(true);
-            }
           }),
-        );
-        stops.push(boardView.subscribe(readBoardNow));
-        for (const mapName of ["seasons", "episodes"] as const) {
-          stops.push(
+          boardView.subscribe(readBoardNow),
+          ...(["seasons", "episodes"] as const).map((mapName) =>
             liveMap(handle, mapName).subscribe(() =>
               readSeasonsAndEpisodes(handle.doc()),
             ),
-          );
-        }
+          ),
+        );
       },
       () => {
         // index unavailable: leave empty and non-writable
-        if (shown) {
-          setIndexWritable(false);
-          setBoardLoaded(true);
-        }
+        if (!shown) return;
+        setIndexWritable(false);
+        setBoardLoaded(true);
       },
     );
 
@@ -301,42 +321,48 @@ export function useBoardData(
       shown = false;
       for (const stop of stops) stop();
     };
-  }, [index, lookup.status]);
+  }, [index, isReady]);
 
+  const notSeries = lookup.status === "not_series";
   useEffect(() => {
-    if (lookup.status !== "ready") return;
+    if (notSeries) return;
     let shown = true;
     const person = readPerson(tabStorage);
     const token = person?.userId === userId ? person.token : null;
-    if (token === null || !online()) {
-      setServerAccess("offline");
-      return;
-    }
+    if (token === null || !online()) return setServerAccess("offline");
     setServerAccess("pending");
-    void askIndexAccess(indexDocId("project", projectId), token).then(
-      (result) => {
-        if (shown) setServerAccess(result);
-      },
-    );
+    const docId = indexDocId("project", projectId);
+    void dedupeBoardDescribe(
+      `board-describe:${docId}`,
+      token,
+      () => askIndexAccess(docId, token),
+      (result) => result === "edit" || result === "read_only",
+    ).then((result) => {
+      if (shown) setServerAccess(result);
+    });
     return () => {
       shown = false;
     };
-  }, [lookup.status, projectId, tabStorage, userId, online, neverSynced]);
+  }, [notSeries, projectId, tabStorage, userId, online, neverSynced]);
 
   const activeSeason = useMemo(() => {
     if (seasons.length === 0) return null;
-    if (seasonParam !== null) {
-      const matched = seasons.find((s) => s.id === seasonParam);
-      if (matched !== undefined) return matched;
-    }
-    // latest season by default
-    return seasons.at(-1) ?? null;
+    return (
+      (seasonParam !== null
+        ? seasons.find((s) => s.id === seasonParam)
+        : undefined) ??
+      seasons.at(-1) ??
+      null
+    );
   }, [seasons, seasonParam]);
 
-  const episodes = useMemo(() => {
-    if (activeSeason === null) return [];
-    return allEpisodes.filter((ep) => ep.seasonId === activeSeason.id);
-  }, [allEpisodes, activeSeason]);
+  const episodes = useMemo(
+    () =>
+      activeSeason === null
+        ? []
+        : allEpisodes.filter((ep) => ep.seasonId === activeSeason.id),
+    [allEpisodes, activeSeason],
+  );
 
   const accessDenied = accessRemoved || serverAccess === "forbidden";
 
@@ -351,15 +377,11 @@ export function useBoardData(
 
   const accessReady = serverAccess !== "pending";
 
-  const writableBoardMap =
-    useCallback(async (): Promise<JsonMapView | null> => {
-      if (!canEdit) return null;
-      try {
-        return await index.map("board");
-      } catch {
-        return null;
-      }
-    }, [canEdit, index]);
+  const writableBoardMap = useCallback(
+    async (): Promise<JsonMapView | null> =>
+      canEdit ? index.map("board").catch(() => null) : null,
+    [canEdit, index],
+  );
 
   return {
     lookup,

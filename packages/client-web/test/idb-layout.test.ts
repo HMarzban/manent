@@ -165,9 +165,8 @@ test("LOCAL_STORE_VERSION 1 is exactly these stores, keys and indexes", async ()
 test("a store written by this version, record by record, still opens", async () => {
   const indexedDb = new IDBFactory();
   await writeGoldenDatabase(indexedDb);
-  const loaded = (await (
-    await openIdbStore({ userId: "dana", indexedDb })
-  ).load(DOC))!;
+  const store = await openIdbStore({ userId: "dana", indexedDb });
+  const loaded = (await store.load(DOC))!;
   expect(loaded).toEqual({
     meta: GOLDEN_META,
     checkpoint: { state: new Uint8Array([9]), throughLocalSeq: 1 },
@@ -191,6 +190,10 @@ test("a store written by this version, record by record, still opens", async () 
       },
     ],
   });
+  // backwards-compatible waiting count when older meta records lack waitingCount
+  expect(await store.summaries?.()).toEqual([
+    { docId: DOC, neverSynced: false, waiting: 2, parked: null, recovered: 0 },
+  ]);
 });
 
 test("a refused setting leaves its sequence on the document's meta record", async () => {
@@ -203,6 +206,7 @@ test("a refused setting leaves its sequence on the document's meta record", asyn
   expect(await settle(meta.get(DOC))).toEqual({
     ...blankMeta(DOC),
     highestLocalSeq: 4,
+    waitingCount: 0,
   });
   expect(await store.documents()).toEqual([blankMeta(DOC)]);
 });

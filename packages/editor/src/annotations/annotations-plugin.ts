@@ -154,6 +154,7 @@ export function annotationsPlugin(options: AnnotationsOptions): Plugin {
         update(_view, prevState) {
           const now = stateOf(view.state).places;
           const was = stateOf(prevState).places;
+          if (now.length === 0 && was.length === 0) return;
           const repaged =
             paginationKey.getState(view.state)?.pagination !==
             paginationKey.getState(prevState)?.pagination;
@@ -167,7 +168,8 @@ export function annotationsPlugin(options: AnnotationsOptions): Plugin {
           // from the states either side of the update, so a removal in a transaction followed by others is said
           const removed = newlyRemoved(was, now);
           if (removed.length > 0) options.onRemoved(removed);
-          gutter.draw();
+          if (now !== was || changesShifted) gutter.draw();
+          else gutter.scheduleDraw();
         },
         destroy() {
           stop();

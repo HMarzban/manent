@@ -140,6 +140,7 @@ function Bar(props: { docId: string; place: Place }): ReactNode {
     },
     actionContext,
   );
+  const itemsKey = `${main.join(",")}|${more.length > 0 ? "m" : ""}|${state ?? ""}`;
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (el === null) return;
@@ -149,7 +150,7 @@ function Bar(props: { docId: string; place: Place }): ReactNode {
     const maxLeft = Math.max(minLeft, window.innerWidth - EDGE_PX - half);
     el.style.left = `${Math.min(Math.max(place.x, minLeft), maxLeft)}px`;
     syncTabStops(el);
-  });
+  }, [place.x, itemsKey]);
   if (main.length === 0 && more.length === 0 && state === null) return null;
 
   const refreshMarks = (): void => {

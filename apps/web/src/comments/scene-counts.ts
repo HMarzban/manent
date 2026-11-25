@@ -24,6 +24,28 @@ function countsOf(
   return marks;
 }
 
+function isSameCounts(
+  a: ReadonlyMap<string, readonly SceneMark[]>,
+  b: ReadonlyMap<string, readonly SceneMark[]>,
+): boolean {
+  if (a === b) return true;
+  if (a.size !== b.size) return false;
+  for (const [sceneBlockId, listA] of a) {
+    const listB = b.get(sceneBlockId);
+    if (listB === undefined || listA.length !== listB.length) return false;
+    const firstA = listA[0];
+    const firstB = listB[0];
+    if (
+      firstA?.kind !== firstB?.kind ||
+      (firstA?.kind === "count" &&
+        firstB?.kind === "count" &&
+        firstA.count !== firstB.count)
+    )
+      return false;
+  }
+  return true;
+}
+
 export function commentSceneCounts(
   docId: string,
 ): Subscribable<ReadonlyMap<string, readonly SceneMark[]>> {
@@ -36,7 +58,8 @@ export function commentSceneCounts(
     if (state.threads !== lastThreads || state.blockScenes !== lastScenes) {
       lastThreads = state.threads;
       lastScenes = state.blockScenes;
-      marks = countsOf(state);
+      const next = countsOf(state);
+      if (!isSameCounts(marks, next)) marks = next;
     }
     return marks;
   };
@@ -44,6 +67,10 @@ export function commentSceneCounts(
   return {
     get,
     subscribe: (listener) =>
-      commentsActions.subscribe(docId, () => listener(get())),
+      commentsActions.subscribe(docId, () => {
+        const before = marks;
+        const next = get();
+        if (next !== before) listener(next);
+      }),
   };
 }

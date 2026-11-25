@@ -24,6 +24,11 @@ import { openProjectIndex } from "../project/project-index.ts";
 import { projectSettingsBag } from "../project/settings-bag.ts";
 import type { TabPerson } from "../session.ts";
 import { writingActions } from "../state/writing.store.ts";
+import {
+  createCachedApi,
+  invalidateApiCache,
+  registerServicesMeta,
+} from "./api-cache.ts";
 import { createDeviceBag } from "./device-bag.ts";
 import { readDeviceId } from "./device-id.ts";
 import { createFlags } from "./flags.ts";
@@ -240,12 +245,17 @@ function createPersonMounts(
   ready: Promise<void>,
   parts: EditorParts,
 ): Pick<PersonServices, "mount" | "besideMount"> {
-  // the editor reads the person's preferences as it mounts, so it waits for their private index; it is built once
+  // load the editor bundle in parallel with sync.ready, and settle once preferences are attached
   let editorLoad: Promise<
     Pick<PersonServices, "mount" | "besideMount">
   > | null = null;
   const loadedEditor = () =>
-    (editorLoad ??= ready.then(() => options.loadEditor(options, parts)));
+    (editorLoad ??= Promise.all([
+      options.loadEditor(options, parts),
+      ready,
+    ]).then(([loaded]) => loaded));
+  const href = options.router.here().href;
+  if (href.startsWith("/s/") || href.startsWith("/r/")) void loadedEditor();
   return {
     mount: createLazyMount(async () => (await loadedEditor()).mount),
     besideMount: (besideControl) =>
@@ -255,7 +265,6 @@ function createPersonMounts(
   };
 }
 
-/** What the person reads and keeps through their sync client and the server's API, beside the open documents. */
 function createSyncedParts(
   options: Options,
   sync: PersonDocuments,
@@ -278,10 +287,7 @@ function createSyncedParts(
 > {
   const openHandle = async (docId: string): Promise<DocHandle> =>
     (await sync.client).open(writingActions.openTarget(docId));
-  const openComments = async (
-    docId: string,
-    home: string | null,
-  ): Promise<DocHandle> => {
+  const openComments = async (docId: string, home: string | null) => {
     const client = await sync.client;
     if (home === null) return client.open(commentsDocId(docId));
     const create: NonNullable<DocMeta["create"]> & { scriptDocId: string } = {
@@ -328,12 +334,15 @@ function createSyncedParts(
  * drops every open document's store and disposes the sync.
  */
 export function createPersonServices(options: Options): PersonServices {
-  const wired = wirePerson(options);
+  const rawApi = options.api;
+  const api = createCachedApi(rawApi, { token: options.person.token });
+  const scoped = { ...options, api };
+  const wired = wirePerson(scoped);
   const { kept, sync, commands, messages, resolved, control } = wired;
   const stopListening = listenToPage(() => sync.leave(), wired.closing.guard);
   const fixedKeys = createValue<readonly FixedKey[]>([]);
   const services: PersonServices = {
-    userId: options.person.userId,
+    userId: scoped.person.userId,
     settings: wired.settings,
     commands,
     resolved,
@@ -345,7 +354,7 @@ export function createPersonServices(options: Options): PersonServices {
     flags: wired.flags,
     keys: sync.maps.keys,
     tour: sync.maps.tour,
-    api: options.api,
+    api,
     lastPane: kept.lastPane,
     place: wired.place,
     get persisted() {
@@ -354,34 +363,38 @@ export function createPersonServices(options: Options): PersonServices {
     fixedKeys,
     reverses: createReverses(messages),
     editor: control,
-    ...createPersonMounts(options, sync.ready, {
+    ...createPersonMounts(scoped, sync.ready, {
       services: () => services,
       control,
       commands,
       messages,
       resolved,
       fixedKeys,
-      navigate: (path) => options.router.navigate(path),
+      navigate: (path) => scoped.router.navigate(path),
       client: sync.client,
     }),
-    ...createSyncedParts(options, sync),
+    ...createSyncedParts(scoped, sync),
     writing: writingActions,
-    pagePorts: browserPagePorts(options.userAgent),
+    pagePorts: browserPagePorts(scoped.userAgent),
     ready: sync.ready,
     closing: wired.closing,
     connection: sync.connection,
     dispose() {
+      invalidateApiCache({ api: rawApi, token: scoped.person.token });
       stopListening();
       wired.stop();
       kept.dispose();
       wired.scripts.clear();
-      // production's services load with the editor, and so does what disposes them
       void import("../production/live-services.ts").then((loaded) =>
-        loaded.disposeProductionServices(options.person.userId),
+        loaded.disposeProductionServices(scoped.person.userId),
       );
       sync.dispose();
     },
   };
+  registerServicesMeta(services, {
+    storage: scoped.storage,
+    client: sync.client,
+  });
   wired.fillHandlers(services);
   return services;
 }

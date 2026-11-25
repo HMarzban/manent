@@ -3,22 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "sideEffects": [
-    "./src/*.ts",
-    "./src/content/**",
-    "./src/people/**",
-    "./src/tour/**",
-    "./src/writers/**"
-  ],
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@manent/schema": "workspace:*",
     "@manent/crdt": "workspace:*",
-    "@manent/sync-protocol": "workspace:*",
+    "@manent/schema": "workspace:*",
+    "@manent/server-core": "workspace:*",
     "@manent/sync-client": "workspace:*",
-    "@manent/server-core": "workspace:*"
+    "@manent/sync-protocol": "workspace:*"
   },
   "devDependencies": {
     "fast-check": "catalog:"

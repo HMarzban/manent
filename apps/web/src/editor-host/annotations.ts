@@ -3,10 +3,12 @@ import { annotationsPlugin as editorAnnotationsPlugin } from "@manent/editor";
 import type { Annotation, EditorView, Plugin } from "@manent/editor";
 import type { Pagination } from "@manent/pagination";
 import { textAnchorAt } from "@manent/schema";
-import type { TextAnchor } from "@manent/schema";
 import { COMMENTS_WORDS } from "@manent/ui";
 import {
+  EMPTY_BLOCK_SCENES,
+  anchoredBlockIds,
   annotationsFor,
+  isSameIdSet,
   scanBlockScenes,
 } from "../comments/annotations-map.ts";
 import { fullNameFor } from "../comments/comments-format.ts";
@@ -20,115 +22,40 @@ import { createCommentPopoverRoot } from "../comments/popover-root.ts";
 import type { CommentPopoverRoot } from "../comments/popover-root.ts";
 import { commentsActions } from "../state/comments.store.ts";
 import {
+  ANNOTATION_GAP_PX,
+  anchorAt,
+  anchorPlace,
+  coordsPlace,
+  currentSceneId,
+  fallbackPlace,
+  findBlock,
+  livePlace,
+} from "./annotation-places.ts";
+import type { PmDoc } from "./annotation-places.ts";
+import {
   liveEditor,
   livePagination,
   subscribeLiveEditors,
 } from "./live-editor.ts";
 import type { EditorPluginContext } from "./plugins.ts";
 
-type PmDoc = EditorView["state"]["doc"];
-type PmNode = NonNullable<PmDoc["firstChild"]>;
-type Coords = { left: number; top: number };
-
-const GAP_PX = 6;
 const noop = (): void => {};
 
-function findBlock(
-  doc: PmDoc,
-  blockId: string,
-): { node: PmNode; contentPos: number } | null {
-  let found: { node: PmNode; contentPos: number } | null = null;
-  doc.descendants((node: PmNode, pos: number) => {
-    if (found !== null) return false;
-    if (node.type.name !== "block") return true;
-    if (node.attrs.id === blockId) found = { node, contentPos: pos + 1 };
-    return false;
-  });
-  return found;
-}
-
-function anchorAt(doc: PmDoc, from: number, to: number): TextAnchor | null {
-  const $from = doc.resolve(from);
-  for (let depth = $from.depth; depth > 0; depth--) {
-    const node = $from.node(depth);
-    if (node.type.name !== "block") continue;
-    const id = typeof node.attrs.id === "string" ? node.attrs.id : "";
-    if (id === "") return null;
-    const text = node.textContent;
-    const start = Math.max(0, Math.min(text.length, from - $from.start(depth)));
-    const end = Math.max(start, Math.min(text.length, to - $from.start(depth)));
-    return textAnchorAt({ id, text }, start, end);
-  }
-  return null;
-}
-
-function fallbackPlace(view: EditorView): Coords {
-  const rect = view.dom.getBoundingClientRect();
-  return {
-    left: Math.max(16, rect.left + rect.width / 2 - 140),
-    top: Math.max(16, rect.top + 24),
-  };
-}
-
-function coordsPlace(view: EditorView, pos: number): Coords {
-  try {
-    const coords = view.coordsAtPos(pos);
-    return { left: coords.left, top: coords.bottom + GAP_PX };
-  } catch {
-    return fallbackPlace(view);
-  }
-}
-
-function anchorPlace(view: EditorView, anchor: TextAnchor | null): Coords {
-  if (anchor === null) return fallbackPlace(view);
-  const block = findBlock(view.state.doc, anchor.blockId);
-  if (block === null) return fallbackPlace(view);
-  return coordsPlace(
-    view,
-    block.contentPos + Math.min(anchor.start, block.node.textContent.length),
-  );
-}
-
-function livePlace(
-  view: EditorView,
-  mode: PopoverMode,
-  state: ScriptCommentsState,
-): Coords {
-  if (mode.kind === "comment" || mode.kind === "note")
-    return anchorPlace(view, mode.anchor);
-  const anchor =
-    state.threads[mode.id]?.anchor ??
-    (state.canEdit
-      ? state.notes.find((n) => n.id === mode.id)?.note.anchor
-      : null) ??
-    null;
-  if (anchor === null) return fallbackPlace(view);
-  return state.removedIds.has(mode.id) ? mode.place : anchorPlace(view, anchor);
-}
-
-function currentSceneId(
-  doc: PmDoc,
-  pos: number,
-  blockScenes: ReadonlyMap<string, SceneBlockInfo>,
-): string | null {
-  const anchor = anchorAt(doc, pos, pos);
-  if (anchor === null) return null;
-  const id = blockScenes.get(anchor.blockId)?.sceneBlockId ?? "";
-  return id === "" ? null : id;
-}
-
 export function annotationsPlugin(context: EditorPluginContext): Plugin {
-  const { docId, services } = context;
+  const { docId, services, frames } = context;
   let lastState: ScriptCommentsState | null = null;
   let lastActiveId: string | null = null;
   let cachedList: readonly Annotation[] = [];
   let view: EditorView | null = null;
   let lastScannedDoc: PmDoc | null = null;
   let lastScannedPages: Pagination | null = null;
+  let lastAnchorIds: ReadonlySet<string> = new Set();
+  let cancelRefresh: (() => void) | null = null;
   let root: CommentPopoverRoot | null = null;
   let shown: PopoverMode | null = null;
   let popoverKey = 0;
   let pendingFrame: number | null = null;
+  let commitSeq = 0;
 
   const cancelPendingFrame = (): void => {
     if (pendingFrame === null) return;
@@ -136,23 +63,59 @@ export function annotationsPlugin(context: EditorPluginContext): Plugin {
     pendingFrame = null;
   };
 
-  const refreshScenes = (): void => {
+  const commitScenes = (
+    scenes: ReadonlyMap<string, SceneBlockInfo>,
+    deferCommit: boolean,
+  ): void => {
+    const seq = ++commitSeq;
+    if (!deferCommit) return commentsActions.setBlockScenes(docId, scenes);
+    queueMicrotask(() => {
+      if (seq === commitSeq) commentsActions.setBlockScenes(docId, scenes);
+    });
+  };
+
+  const refreshScenes = (deferCommit = false): void => {
     const currentView = liveEditor(docId)?.view ?? view;
     const pagination = livePagination(docId);
+    if (currentView === null) return;
+    const state = commentsActions.get(docId);
+    const anchorIds = anchoredBlockIds(state);
+    if (anchorIds.size === 0) {
+      lastScannedDoc = currentView.state.doc;
+      lastScannedPages = pagination;
+      lastAnchorIds = anchorIds;
+      if (state.blockScenes.size > 0)
+        commitScenes(EMPTY_BLOCK_SCENES, deferCommit);
+      return;
+    }
     if (
-      currentView === null ||
-      (currentView.state.doc === lastScannedDoc &&
-        pagination === lastScannedPages)
+      currentView.state.doc === lastScannedDoc &&
+      pagination === lastScannedPages &&
+      isSameIdSet(anchorIds, lastAnchorIds)
     )
       return;
     lastScannedDoc = currentView.state.doc;
     lastScannedPages = pagination;
-    const scenes = scanBlockScenes(lastScannedDoc, pagination);
-    queueMicrotask(() => commentsActions.setBlockScenes(docId, scenes));
+    lastAnchorIds = anchorIds;
+    commitScenes(
+      scanBlockScenes(lastScannedDoc, pagination, anchorIds),
+      deferCommit,
+    );
+  };
+
+  const scheduleRefresh = (): void => {
+    if (cancelRefresh !== null) return;
+    const state = commentsActions.get(docId);
+    if (anchoredBlockIds(state).size === 0 && state.blockScenes.size === 0)
+      return;
+    cancelRefresh = frames.request(() => {
+      cancelRefresh = null;
+      refreshScenes(false);
+    });
   };
 
   const getAnnotations = (): readonly Annotation[] => {
-    refreshScenes();
+    refreshScenes(true);
     const state = commentsActions.get(docId);
     const activeId = commentsActions.getUi(docId).activeId;
     if (
@@ -339,19 +302,21 @@ export function annotationsPlugin(context: EditorPluginContext): Plugin {
         view = editor?.view ?? null;
         stopDoc();
         stopDoc =
-          editor === null
-            ? noop
-            : editor.doc.subscribe(() => queueMicrotask(refreshScenes));
-        refreshScenes();
+          editor === null ? noop : editor.doc.subscribe(scheduleRefresh);
+        refreshScenes(true);
       };
       const stopEditors = subscribeLiveEditors(attach);
       attach();
       const stopStore = commentsActions.subscribe(docId, () => {
+        scheduleRefresh();
         listener();
         if (shown !== null) renderPopover();
       });
       const stopUi = commentsActions.subscribeUi(docId, listener);
       return () => {
+        commitSeq += 1;
+        cancelRefresh?.();
+        cancelRefresh = null;
         stopEditors();
         stopDoc();
         stopStore();
@@ -362,6 +327,8 @@ export function annotationsPlugin(context: EditorPluginContext): Plugin {
         root = null;
         view = null;
         lastScannedDoc = null;
+        lastScannedPages = null;
+        lastAnchorIds = new Set();
         releaseComments();
       };
     },
@@ -372,7 +339,7 @@ export function annotationsPlugin(context: EditorPluginContext): Plugin {
         kind: "thread",
         id,
         blockIds: ids.length > 1 ? ids : undefined,
-        place: { left: at.left, top: at.top + GAP_PX },
+        place: { left: at.left, top: at.top + ANNOTATION_GAP_PX },
       });
     },
     onRemoved: (ids) => commentsActions.syncRemoved(docId, ids),

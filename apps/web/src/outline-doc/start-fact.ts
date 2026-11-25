@@ -115,8 +115,11 @@ export function useOutlineStartFacts(docId: string): readonly StateFact[] {
     void services
       .openHandle(docId)
       .then((handle) => {
-        if (stopped) return;
-        stops.push(watchHandleDoc(handle, read));
+        if (stopped) {
+          void handle.close();
+          return;
+        }
+        stops.push(watchHandleDoc(handle, read), () => void handle.close());
       })
       .catch(() => {
         // sync unavailable; live editor still reports emptiness when mounted
@@ -128,23 +131,36 @@ export function useOutlineStartFacts(docId: string): readonly StateFact[] {
     };
   }, [services, docId, docKind]);
 
-  // Watch the project/workspace index for this script's outline link.
+  // Watch the project/workspace index for this script's outline link without re-opening on canEdit flips.
+  const recheckLinkRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (docKind !== null && docKind !== "script") {
       setOutlineDocId(null);
+      recheckLinkRef.current = null;
       return undefined;
     }
-    return watchOutlineLink({
+    const stop = watchOutlineLink({
       services,
       scriptDocId: docId,
       canWrite: () => canEditRef.current,
       onChange: (link: OutlineLinkState) => setOutlineDocId(link.outlineDocId),
+      onRecheck: (recheck) => {
+        recheckLinkRef.current = recheck;
+      },
     });
-  }, [services, docId, docKind, canEdit]);
+    return () => {
+      recheckLinkRef.current = null;
+      stop();
+    };
+  }, [services, docId, docKind]);
 
-  // Watch the outline document's beat count once linked.
   useEffect(() => {
-    if (outlineDocId === null) {
+    recheckLinkRef.current?.();
+  }, [canEdit]);
+
+  // Watch the outline document's beat count only while the script is empty and linked.
+  useEffect(() => {
+    if (outlineDocId === null || !scriptEmpty) {
       setBeats(0);
       return undefined;
     }
@@ -172,8 +188,11 @@ export function useOutlineStartFacts(docId: string): readonly StateFact[] {
     void services
       .openHandle(outlineDocId)
       .then((handle) => {
-        if (stopped) return;
-        stops.push(watchHandleDoc(handle, read));
+        if (stopped) {
+          void handle.close();
+          return;
+        }
+        stops.push(watchHandleDoc(handle, read), () => void handle.close());
       })
       .catch(() => {
         // outline handle unavailable
@@ -183,7 +202,7 @@ export function useOutlineStartFacts(docId: string): readonly StateFact[] {
       stopLive();
       for (const stop of stops) stop();
     };
-  }, [services, outlineDocId]);
+  }, [services, outlineDocId, scriptEmpty]);
 
   useEffect(() => {
     if (docKind !== null && docKind !== "script") {

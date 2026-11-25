@@ -358,8 +358,9 @@ class BoundCopy implements LocalCopy {
 
   /** Server entries up to `through` are in the document, and `items` is what they set aside; the overlaps found online are filed with them. */
   private appliedTo(through: number, items: RecoveredItem[]): void {
-    this.options.journal.applied(through);
-    this.file([...items, ...this.window.take()], through);
+    const hadUnapplied = this.options.journal.applied(through);
+    const all = [...items, ...this.window.take()];
+    if (hadUnapplied || all.length > 0) this.file(all, through);
     this.overlay.applied(through);
     this.options.changed();
   }

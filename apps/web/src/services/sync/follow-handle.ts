@@ -89,8 +89,15 @@ function groupWaiting(options: Following, open: Opened): () => void {
   let cancel: (() => void) | null = null;
   let groupedAt = Number.NEGATIVE_INFINITY;
   let count = -1;
+  let runSeq = 0;
   const group = async (): Promise<void> => {
+    const thisSeq = ++runSeq;
+    if (handle.status.get().waiting === 0) {
+      shown.waitingByScene.set([]);
+      return;
+    }
     const loaded = await sync.store.load(docId);
+    if (thisSeq !== runSeq) return;
     const scenes = new Map<string, number>();
     for (const id of waitingElements(loaded?.entries ?? [])) {
       const scene = sceneOf(handle.doc(), id);
@@ -119,6 +126,7 @@ function groupWaiting(options: Following, open: Opened): () => void {
   follow();
   const stop = handle.status.subscribe(follow);
   return () => {
+    runSeq += 1;
     stop();
     cancel?.();
   };

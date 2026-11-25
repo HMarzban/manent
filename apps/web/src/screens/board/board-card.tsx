@@ -18,10 +18,13 @@ import {
   Textarea,
 } from "@manent/ui";
 import { CheckIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { KeyboardEvent, ReactNode, SyntheticEvent } from "react";
+import { requestEpisodeScenes } from "../../board/episode-scenes.ts";
 import type { EpisodeScene } from "../../board/episode-scenes.ts";
 import type { BoardCard, BoardStoryline } from "../../board/model.ts";
+import { useServices } from "../../services/context.tsx";
+import type { PersonServices } from "../../services/ports.ts";
 import { RowMenu } from "../library/row-place.tsx";
 
 export interface BoardCardProps {
@@ -50,6 +53,7 @@ const episodeOptionLabel = (ep: EpisodeEntry): string =>
   `${ep.number} · ${ep.title ?? SERIES_WORDS.untitledEpisode}`;
 
 function CardMenuItems(props: {
+  services: PersonServices;
   card: BoardCard;
   episode: EpisodeEntry;
   storylines: readonly BoardStoryline[];
@@ -61,6 +65,7 @@ function CardMenuItems(props: {
   onRemove(): void;
 }): ReactNode {
   const {
+    services,
     card,
     episode,
     storylines,
@@ -71,13 +76,21 @@ function CardMenuItems(props: {
     onMoveToStoryline,
     onRemove,
   } = props;
-  const hasScript = episode.docIds.script !== null;
+  const scriptId = episode.docIds.script;
+  const hasScript = scriptId !== null;
+  const loadScenes = (): void => {
+    if (scriptId !== null) requestEpisodeScenes(services, scriptId);
+  };
   const needsScript = BOARD_WORDS.needsScript(episode.number);
   return (
     <>
       {hasScript ? (
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger data-tour="board.linkScene">
+        <DropdownMenuSub onOpenChange={(open) => open && loadScenes()}>
+          <DropdownMenuSubTrigger
+            data-tour="board.linkScene"
+            onPointerEnter={loadScenes}
+            onFocus={loadScenes}
+          >
             {BOARD_WORDS.linkToScene}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
@@ -178,8 +191,15 @@ export function BoardCardItem(props: BoardCardProps): ReactNode {
     onMoveToStoryline,
     onRemove,
   } = props;
+  const services = useServices();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const scriptId = episode.docIds.script;
+  const needsScenes = linkingOpen || card.link !== null;
+  useEffect(() => {
+    if (needsScenes && scriptId !== null)
+      requestEpisodeScenes(services, scriptId);
+  }, [services, needsScenes, scriptId]);
 
   const linkedScene =
     card.link === null
@@ -231,6 +251,7 @@ export function BoardCardItem(props: BoardCardProps): ReactNode {
 
   const menuItems = (
     <CardMenuItems
+      services={services}
       card={card}
       episode={episode}
       storylines={storylines}

@@ -51,8 +51,13 @@ async function mayCreateOutline(
     if (me.ok) return false;
   }
   if (place.projectKind === "series") {
-    const projectHandle = await services.projectIndex(place.projectId).handle();
-    if (!isHandleWritable(projectHandle)) return false;
+    const projectIndex = services.projectIndex(place.projectId);
+    try {
+      const projectHandle = await projectIndex.handle();
+      if (!isHandleWritable(projectHandle)) return false;
+    } finally {
+      void projectIndex.close();
+    }
     const projectRole = await services.api.role(
       indexDocId("project", place.projectId),
     );
@@ -85,73 +90,79 @@ function startOutlineDocument(
 async function openOrCreateInner(here: BesideHere): Promise<string | null> {
   const { docId: scriptDocId, services, workspaceIds } = here;
   const place = await findScriptPlace(services, scriptDocId, workspaceIds);
-  if (place === null || !supportsOutline(place.projectKind)) return null;
-  const existing = await resolveExistingOutline(services, place, scriptDocId);
-  if (existing.outlineDocId !== null) {
-    recordOutlineLink(scriptDocId, {
-      outlineDocId: existing.outlineDocId,
-      projectKind: place.projectKind,
-      hasEpisode: existing.hasEpisode,
-      canCreate: false,
-    });
-    return existing.outlineDocId;
-  }
-  if (!existing.hasEpisode) return null;
-  const allowed = await mayCreateOutline(services, scriptDocId, place);
-  if (!allowed) return null;
-
-  const store = services.openScriptStore(scriptDocId);
-  const format = store.get("script.format");
-  const paper = store.get("script.paper");
-  let createdDocId: string;
+  if (place === null) return null;
   try {
-    const created = await services.library.addCopy(
-      place.workspaceId,
-      place.projectId,
-      place.projectKind,
-      OUTLINE_WORDS.besideTitle(place.scriptTitle),
-      {
-        docKind: "outline",
-        airDate: null,
-        rundownId: null,
-        start: (handle) => startOutlineDocument(handle, format, paper),
-      },
-    );
-    createdDocId = created.docId;
-  } catch {
-    // server refused creation or storage failed; leave state clean
-    return null;
-  }
+    if (!supportsOutline(place.projectKind)) return null;
+    const existing = await resolveExistingOutline(services, place, scriptDocId);
+    if (existing.outlineDocId !== null) {
+      recordOutlineLink(scriptDocId, {
+        outlineDocId: existing.outlineDocId,
+        projectKind: place.projectKind,
+        hasEpisode: existing.hasEpisode,
+        canCreate: false,
+      });
+      return existing.outlineDocId;
+    }
+    if (!existing.hasEpisode) return null;
+    const allowed = await mayCreateOutline(services, scriptDocId, place);
+    if (!allowed) return null;
 
-  if (place.projectKind === "series") {
+    const store = services.openScriptStore(scriptDocId);
+    const format = store.get("script.format");
+    const paper = store.get("script.paper");
+    let createdDocId: string;
     try {
-      const projectHandle = await services
-        .projectIndex(place.projectId)
-        .handle();
-      const projectDoc = projectHandle.doc();
-      const current = findEpisodeForScript(projectDoc, scriptDocId);
-      if (current === null) return null;
-      if (current.docIds.outline !== null) {
-        createdDocId = current.docIds.outline;
-      } else {
-        writeEpisode(projectDoc, {
-          ...current,
-          docIds: { ...current.docIds, outline: createdDocId },
-        });
-      }
+      const created = await services.library.addCopy(
+        place.workspaceId,
+        place.projectId,
+        place.projectKind,
+        OUTLINE_WORDS.besideTitle(place.scriptTitle),
+        {
+          docKind: "outline",
+          airDate: null,
+          rundownId: null,
+          start: (handle) => startOutlineDocument(handle, format, paper),
+        },
+      );
+      createdDocId = created.docId;
     } catch {
-      // project index write refused; do not report unlinked outline
+      // server refused creation or storage failed; leave state clean
       return null;
     }
-  }
 
-  recordOutlineLink(scriptDocId, {
-    outlineDocId: createdDocId,
-    projectKind: place.projectKind,
-    hasEpisode: true,
-    canCreate: true,
-  });
-  return createdDocId;
+    if (place.projectKind === "series") {
+      const projectIndex = services.projectIndex(place.projectId);
+      try {
+        const projectHandle = await projectIndex.handle();
+        const projectDoc = projectHandle.doc();
+        const current = findEpisodeForScript(projectDoc, scriptDocId);
+        if (current === null) return null;
+        if (current.docIds.outline !== null) {
+          createdDocId = current.docIds.outline;
+        } else {
+          writeEpisode(projectDoc, {
+            ...current,
+            docIds: { ...current.docIds, outline: createdDocId },
+          });
+        }
+      } catch {
+        // project index write refused; do not report unlinked outline
+        return null;
+      } finally {
+        void projectIndex.close();
+      }
+    }
+
+    recordOutlineLink(scriptDocId, {
+      outlineDocId: createdDocId,
+      projectKind: place.projectKind,
+      hasEpisode: true,
+      canCreate: true,
+    });
+    return createdDocId;
+  } finally {
+    void place.workspaceHandle.close();
+  }
 }
 
 /**

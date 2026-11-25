@@ -15,11 +15,87 @@ interface DocLike {
   descendants(fn: (node: BlockLike, pos: number) => boolean | void): void;
 }
 
+export const EMPTY_BLOCK_SCENES: ReadonlyMap<string, SceneBlockInfo> =
+  new Map();
+
+export function isSameIdSet(
+  a: ReadonlySet<string>,
+  b: ReadonlySet<string>,
+): boolean {
+  if (a === b) return true;
+  if (a.size !== b.size) return false;
+  for (const id of a) if (!b.has(id)) return false;
+  return true;
+}
+
+export function sceneHeadingBefore(doc: DocLike, pos: number): string | null {
+  let sceneId: string | null = null;
+  doc.descendants((node, nodePos) => {
+    if (nodePos > pos) return false;
+    if (node.type.name !== "block") return true;
+    const id = typeof node.attrs.id === "string" ? node.attrs.id : "";
+    const kind = typeof node.attrs.type === "string" ? node.attrs.type : "";
+    if (SCENE_TYPES.has(kind) && id !== "") sceneId = id;
+    return false;
+  });
+  return sceneId;
+}
+
+/** The block ids currently referenced by any anchored thread or writer note in `state`. */
+export function anchoredBlockIds(
+  state: ScriptCommentsState,
+): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const thread of Object.values(state.threads)) {
+    if (thread.anchor !== null) ids.add(thread.anchor.blockId);
+  }
+  for (const entry of state.notes) {
+    if (entry.note.anchor !== null) ids.add(entry.note.anchor.blockId);
+  }
+  return ids;
+}
+
+function isSameSceneInfo(
+  a: SceneBlockInfo | undefined,
+  b: SceneBlockInfo | undefined,
+): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  return (
+    a.sceneBlockId === b.sceneBlockId &&
+    a.sceneNumber === b.sceneNumber &&
+    a.heading === b.heading &&
+    a.pageLabel === b.pageLabel
+  );
+}
+
+/** True when `a` and `b` map every relevant block id to the same scene and page info. */
+export function isSameBlockScenes(
+  a: ReadonlyMap<string, SceneBlockInfo>,
+  b: ReadonlyMap<string, SceneBlockInfo>,
+  onlyIds?: ReadonlySet<string>,
+): boolean {
+  if (a === b) return true;
+  if (onlyIds !== undefined) {
+    for (const id of onlyIds) {
+      if (!isSameSceneInfo(a.get(id), b.get(id))) return false;
+    }
+    return true;
+  }
+  if (a.size !== b.size) return false;
+  for (const [id, info] of a) {
+    if (!isSameSceneInfo(info, b.get(id))) return false;
+  }
+  return true;
+}
+
 export function pageLabelsByBlock(
   pagination: Pagination | null,
+  onlyIds?: ReadonlySet<string>,
 ): ReadonlyMap<string, string> {
   const map = new Map<string, string>();
-  if (pagination === null) return map;
+  if (pagination === null || (onlyIds !== undefined && onlyIds.size === 0))
+    return map;
   const { pages, blocks } = pagination;
   for (let p = 0; p < pages.length; p++) {
     const start = pages[p]!.block;
@@ -27,7 +103,11 @@ export function pageLabelsByBlock(
     const label = pages[p]!.label;
     for (let i = start; i < end && i < blocks.length; i++) {
       const id = blocks[i]!.id;
-      if (!map.has(id)) map.set(id, label);
+      if (onlyIds !== undefined && !onlyIds.has(id)) continue;
+      if (!map.has(id)) {
+        map.set(id, label);
+        if (onlyIds !== undefined && map.size === onlyIds.size) return map;
+      }
     }
   }
   return map;
@@ -36,14 +116,17 @@ export function pageLabelsByBlock(
 export function scanBlockScenes(
   doc: DocLike,
   pagination: Pagination | null,
+  onlyIds?: ReadonlySet<string>,
 ): ReadonlyMap<string, SceneBlockInfo> {
+  if (onlyIds !== undefined && onlyIds.size === 0) return EMPTY_BLOCK_SCENES;
   const map = new Map<string, SceneBlockInfo>();
-  const pageByBlock = pageLabelsByBlock(pagination);
+  const pageByBlock = pageLabelsByBlock(pagination, onlyIds);
   let sceneBlockId = "";
   let sceneNumber: string | null = null;
   let sceneCount = 0;
   let heading = "";
   doc.descendants((node) => {
+    if (onlyIds !== undefined && map.size === onlyIds.size) return false;
     if (node.type.name !== "block") return true;
     const id = typeof node.attrs.id === "string" ? node.attrs.id : "";
     const kind = typeof node.attrs.type === "string" ? node.attrs.type : "";
@@ -62,7 +145,7 @@ export function scanBlockScenes(
       }
       heading = node.textContent;
     }
-    if (id !== "") {
+    if (id !== "" && (onlyIds === undefined || onlyIds.has(id))) {
       map.set(id, {
         sceneBlockId,
         sceneNumber,

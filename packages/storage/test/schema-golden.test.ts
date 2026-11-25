@@ -45,9 +45,9 @@ afterEach(() => s.close());
 afterAll(() => trees.removeAll());
 
 test("the storage schema is exactly these tables", () => {
-  expect(STORAGE_SCHEMA_VERSION).toBe(9);
-  expect(userVersion(join(dir, "control.sqlite"))).toBe(9);
-  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(9);
+  expect(STORAGE_SCHEMA_VERSION).toBe(10);
+  expect(userVersion(join(dir, "control.sqlite"))).toBe(10);
+  expect(userVersion(join(dir, `project-${PROJECT}.sqlite`))).toBe(10);
   expect(tableColumns(join(dir, "control.sqlite"))).toEqual({
     doc_directory: [
       "doc_id TEXT",
@@ -545,11 +545,66 @@ test("a file written at version 3 is carried to 4 and keeps its rows", async () 
     snapshot: null,
     checkpoint: { seq: 1, state: new Uint8Array([5]) },
   });
-  expect(Object.values(files).map(userVersion)).toEqual([9, 9, 9]);
+  expect(Object.values(files).map(userVersion)).toEqual([10, 10, 10]);
   expect(
     rawRows(
       files.documents,
       "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'doc_versions' AND sql IS NOT NULL ORDER BY name",
     ),
   ).toEqual([{ name: "doc_versions_by_doc" }, { name: "doc_versions_page" }]);
+});
+
+const indexNamesOf = (path: string) =>
+  rawRows(
+    path,
+    "SELECT name FROM sqlite_master WHERE type = 'index' AND sql IS NOT NULL ORDER BY name",
+  );
+
+test("a file written at version 9 gains the eight lookup indexes on open", async () => {
+  const old = await trees.tree();
+  const files = {
+    control: join(old, "control.sqlite"),
+    documents: docPath(old, HOME),
+    checkpoints: checkpointsPath(old, HOME),
+  };
+  for (const kind of ["control", "documents", "checkpoints"] as const) {
+    await Bun.write(files[kind], "");
+    for (const statement of MIGRATIONS[kind].slice(0, 9).flat())
+      rawSql(files[kind], statement);
+    rawSql(files[kind], "PRAGMA user_version = 9");
+  }
+  expect(indexNamesOf(files.control)).toEqual([
+    { name: "doc_directory_by_home" },
+  ]);
+  expect(indexNamesOf(files.documents)).toEqual([
+    { name: "doc_versions_by_doc" },
+    { name: "doc_versions_page" },
+    { name: "private_copies_open" },
+  ]);
+  expect(indexNamesOf(files.checkpoints)).toEqual([]);
+
+  const storage = openSqliteStorage({ dir: old, now });
+  const file = storage.open(HOME);
+  file.checkpoints.newest(DOC, 1);
+  storage.close();
+
+  expect(Object.values(files).map(userVersion)).toEqual([10, 10, 10]);
+  expect(indexNamesOf(files.control)).toEqual([
+    { name: "doc_directory_by_home" },
+    { name: "draft_links_by_send" },
+    { name: "draft_links_by_token" },
+    { name: "share_links_by_doc" },
+    { name: "share_links_by_token" },
+  ]);
+  expect(indexNamesOf(files.documents)).toEqual([
+    { name: "doc_versions_by_doc" },
+    { name: "doc_versions_page" },
+    { name: "draft_opens_by_send_user" },
+    { name: "draft_sends_by_doc" },
+    { name: "private_copies_open" },
+    { name: "revision_issues_by_doc" },
+  ]);
+  expect(indexNamesOf(files.checkpoints)).toEqual([
+    { name: "checkpoint_pins_by_doc" },
+  ]);
 });
