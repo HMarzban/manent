@@ -146,6 +146,6 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     ...inkHandlers(),
     ...scriptHandlers(deps),
     ...focusModeHandlers(deps),
-    ...productionOutputsHandlers(),
+    ...productionOutputsHandlers(deps),
   };
 }
