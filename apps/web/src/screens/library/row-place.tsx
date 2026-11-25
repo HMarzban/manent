@@ -12,6 +12,7 @@ import {
   CloudCheckIcon,
   CloudIcon,
   CloudUploadIcon,
+  EllipsisIcon,
   MonitorDotIcon,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -109,7 +110,7 @@ export function RowMenu(props: {
             />
           }
         >
-          <span aria-hidden="true">⋯</span>
+          <EllipsisIcon aria-hidden="true" className="size-3.5" />
         </DropdownMenuTrigger>
         <DropdownMenuContent>{props.children}</DropdownMenuContent>
       </DropdownMenu>

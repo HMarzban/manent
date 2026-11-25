@@ -135,6 +135,8 @@ export const commentsActions = {
     };
   },
   get: (docId: string): ScriptCommentsState => snapshotOf(docId),
+  getUi: (docId: string): CommentsUiState =>
+    entries.get(docId)?.ui ?? DEFAULT_UI,
   subscribe(docId: string, listener: () => void): () => void {
     const entry = entries.get(docId);
     if (entry !== undefined) {

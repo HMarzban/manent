@@ -1,13 +1,18 @@
 // Anchored popover (data-tour="comment_popover") for composing/reading comments and writer-only notes.
 import { Button, COMMENTS_WORDS, SHARING_WORDS } from "@manent/ui";
-import { XIcon } from "lucide-react";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  MessageSquareIcon,
+  StickyNoteIcon,
+  XIcon,
+} from "lucide-react";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { PersonServices } from "../services/ports.ts";
-import { commentsActions, useComments } from "../state/comments.store.ts";
-import { dayTimeLabel } from "./comments-format.ts";
+import { useComments } from "../state/comments.store.ts";
 import type { PopoverMode } from "./comments-types.ts";
-import { MentionField } from "./mention-field.tsx";
+import { CommentCompose, NoteBody, NoteCompose } from "./popover-bodies.tsx";
 import { ThreadBody } from "./thread-body.tsx";
 
 export interface CommentPopoverProps {
@@ -21,6 +26,100 @@ export interface CommentPopoverProps {
 }
 
 const EDGE_PX = 8;
+
+interface SwitcherState {
+  index: number;
+  total: number;
+  onPrevious(): void;
+  onNext(): void;
+}
+
+function BlockSwitcher(props: SwitcherState): ReactNode {
+  const { index, total, onPrevious, onNext } = props;
+  return (
+    <div className="flex items-center gap-0.5">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label={COMMENTS_WORDS.previous}
+        onClick={onPrevious}
+      >
+        <ChevronLeftIcon aria-hidden="true" />
+      </Button>
+      <span className="px-1 text-micro text-fg-muted tabular-nums">
+        {COMMENTS_WORDS.positionOf(index + 1, total)}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label={COMMENTS_WORDS.next}
+        onClick={onNext}
+      >
+        <ChevronRightIcon aria-hidden="true" />
+      </Button>
+    </div>
+  );
+}
+
+function PopoverHeader(props: {
+  isNote: boolean;
+  isCompose: boolean;
+  switcher: SwitcherState | null;
+  onClose(): void;
+}): ReactNode {
+  const { isNote, isCompose, switcher, onClose } = props;
+  return (
+    <div
+      className={
+        isNote
+          ? "flex shrink-0 items-center justify-between gap-2 rounded-t-lg border-b border-line bg-subtle px-3 py-2"
+          : "flex shrink-0 items-center justify-between gap-2 px-3 pt-3"
+      }
+    >
+      <div className="flex min-w-0 items-center gap-1.5">
+        {isNote ? (
+          <>
+            <StickyNoteIcon
+              aria-hidden="true"
+              className="size-icon shrink-0 text-fg-muted"
+            />
+            <span className="text-ui font-semibold text-fg">
+              {COMMENTS_WORDS.noteLabel}
+            </span>
+            <span className="mn-tag">{COMMENTS_WORDS.writersOnly}</span>
+          </>
+        ) : (
+          <>
+            <MessageSquareIcon
+              aria-hidden="true"
+              className="size-icon shrink-0 text-attention"
+            />
+            <span
+              className={
+                isCompose
+                  ? "text-ui font-semibold text-fg"
+                  : "text-micro font-medium text-fg-muted"
+              }
+            >
+              {COMMENTS_WORDS.commentLabel}
+            </span>
+          </>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        {switcher !== null ? <BlockSwitcher {...switcher} /> : null}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={SHARING_WORDS.close}
+          onClick={onClose}
+        >
+          <XIcon aria-hidden="true" />
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function CommentPopover(props: CommentPopoverProps): ReactNode {
   const { docId, mode, services, writerName, now, onSwitchMode, onClose } =
@@ -62,171 +161,96 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
   if (mode.kind === "comment" && !state.canComment) return null;
   if (mode.kind === "note" && !state.canEdit) return null;
 
-  const heading =
-    mode.kind === "note"
-      ? COMMENTS_WORDS.noteLabel
-      : COMMENTS_WORDS.commentLabel;
+  const thread = mode.kind === "thread" ? state.threads[mode.id] : undefined;
+  const note =
+    mode.kind === "thread" && thread === undefined && state.canEdit
+      ? state.notes.find((n) => n.id === mode.id)
+      : undefined;
+
+  if (mode.kind === "thread" && thread === undefined && note === undefined)
+    return null;
+
+  const activeBlockIds =
+    mode.kind === "thread" && mode.blockIds !== undefined
+      ? mode.blockIds.filter(
+          (id) =>
+            id === mode.id ||
+            state.threads[id] !== undefined ||
+            (state.canEdit && state.notes.some((n) => n.id === id)),
+        )
+      : [];
+  const switcherIndex =
+    mode.kind === "thread" ? activeBlockIds.indexOf(mode.id) : -1;
+  const switcher: SwitcherState | null =
+    mode.kind === "thread" && activeBlockIds.length > 1 && switcherIndex !== -1
+      ? {
+          index: switcherIndex,
+          total: activeBlockIds.length,
+          onPrevious: () =>
+            onSwitchMode({
+              kind: "thread",
+              id: activeBlockIds[
+                (switcherIndex - 1 + activeBlockIds.length) %
+                  activeBlockIds.length
+              ]!,
+              blockIds: activeBlockIds,
+              place: mode.place,
+            }),
+          onNext: () =>
+            onSwitchMode({
+              kind: "thread",
+              id: activeBlockIds[(switcherIndex + 1) % activeBlockIds.length]!,
+              blockIds: activeBlockIds,
+              place: mode.place,
+            }),
+        }
+      : null;
+
+  const isNote = mode.kind === "note" || note !== undefined;
+  const heading = isNote
+    ? COMMENTS_WORDS.noteLabel
+    : COMMENTS_WORDS.commentLabel;
 
   let body: ReactNode = null;
   if (mode.kind === "comment") {
     body = (
-      <div className="flex flex-col gap-3 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-ui font-medium text-fg">
-            {COMMENTS_WORDS.commentLabel}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={SHARING_WORDS.close}
-            onClick={onClose}
-          >
-            <XIcon aria-hidden="true" />
-          </Button>
-        </div>
-        {mode.anchor === null ? (
-          <p className="text-meta text-fg-muted">
-            {COMMENTS_WORDS.wholeScript}
-          </p>
-        ) : mode.anchor.quote !== "" ? (
-          <blockquote className="border-l-2 border-line-strong pl-2 text-meta text-fg-muted">
-            {mode.anchor.quote}
-          </blockquote>
-        ) : null}
-        <MentionField
-          placeholder={COMMENTS_WORDS.composerPlaceholder}
-          submitLabel={COMMENTS_WORDS.commentLabel}
-          autoFocus
-          mentions
-          people={state.people}
-          peopleState={state.peopleState}
-          onLoadPeople={() =>
-            void commentsActions.loadPeople(docId, services.userId)
-          }
-          onSubmit={({ body: text, mentionedUserIds }) => {
-            const threadId = commentsActions.startComment(
-              docId,
-              services,
-              {
-                anchor: mode.anchor,
-                roundId: null,
-                body: text,
-                mentionedUserIds,
-              },
-              now,
-            );
-            if (threadId !== null)
-              onSwitchMode({ kind: "thread", id: threadId, place: mode.place });
-          }}
-        />
-      </div>
+      <CommentCompose
+        key={`${mode.anchor?.blockId ?? "script"}:${mode.anchor?.start ?? 0}`}
+        docId={docId}
+        mode={mode}
+        state={state}
+        services={services}
+        now={now}
+        onSwitchMode={onSwitchMode}
+      />
     );
   } else if (mode.kind === "note") {
     body = (
-      <div className="flex flex-col gap-3 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="text-ui font-medium text-fg">
-              {COMMENTS_WORDS.noteLabel}
-            </span>
-            <span className="mn-tag">{COMMENTS_WORDS.writersOnly}</span>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={SHARING_WORDS.close}
-            onClick={onClose}
-          >
-            <XIcon aria-hidden="true" />
-          </Button>
-        </div>
-        {mode.anchor.quote !== "" ? (
-          <blockquote className="border-l-2 border-line-strong pl-2 text-meta text-fg-muted">
-            {mode.anchor.quote}
-          </blockquote>
-        ) : null}
-        <MentionField
-          placeholder={COMMENTS_WORDS.notePlaceholder}
-          submitLabel={COMMENTS_WORDS.noteLabel}
-          autoFocus
-          mentions={false}
-          people={state.people}
-          peopleState={state.peopleState}
-          onSubmit={({ body: text }) => {
-            commentsActions.addNote(
-              docId,
-              writerName,
-              { anchor: mode.anchor, text },
-              now,
-            );
-            onClose();
-          }}
-        />
-      </div>
+      <NoteCompose
+        key={`${mode.anchor.blockId}:${mode.anchor.start}`}
+        docId={docId}
+        mode={mode}
+        state={state}
+        writerName={writerName}
+        now={now}
+        onClose={onClose}
+      />
     );
-  } else {
-    const thread = state.threads[mode.id];
-    if (thread !== undefined) {
-      body = (
-        <ThreadBody
-          docId={docId}
-          threadId={mode.id}
-          thread={thread}
-          state={state}
-          services={services}
-          now={now}
-          onClose={onClose}
-        />
-      );
-    } else if (state.canEdit) {
-      const note = state.notes.find((n) => n.id === mode.id);
-      if (note === undefined) return null;
-      const removed =
-        note.note.anchor !== null && state.removedIds.has(note.id);
-      body = (
-        <div className="flex flex-col gap-3 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-ui font-medium text-fg">
-                {COMMENTS_WORDS.noteLabel}
-              </span>
-              <span className="mn-tag">{COMMENTS_WORDS.writersOnly}</span>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={SHARING_WORDS.close}
-              onClick={onClose}
-            >
-              <XIcon aria-hidden="true" />
-            </Button>
-          </div>
-          {note.note.writerName !== null && note.note.at !== null ? (
-            <p className="text-meta text-fg-muted">
-              {COMMENTS_WORDS.authorMeta(
-                note.note.writerName,
-                dayTimeLabel(note.note.at, now()),
-              )}
-            </p>
-          ) : null}
-          {removed ? (
-            <p className="text-meta text-fg-muted">
-              {COMMENTS_WORDS.textRemoved}
-            </p>
-          ) : null}
-          {note.note.anchor !== null && note.note.anchor.quote !== "" ? (
-            <blockquote className="border-l-2 border-line-strong pl-2 text-meta text-fg-muted">
-              {note.note.anchor.quote}
-            </blockquote>
-          ) : null}
-          <p className="whitespace-pre-wrap break-words text-ui text-fg">
-            {note.note.text}
-          </p>
-        </div>
-      );
-    } else {
-      return null;
-    }
+  } else if (thread !== undefined) {
+    body = (
+      <ThreadBody
+        key={mode.id}
+        docId={docId}
+        threadId={mode.id}
+        thread={thread}
+        state={state}
+        services={services}
+        now={now}
+        onClose={onClose}
+      />
+    );
+  } else if (note !== undefined) {
+    body = <NoteBody key={mode.id} note={note} state={state} now={now} />;
   }
 
   return (
@@ -244,6 +268,12 @@ export function CommentPopover(props: CommentPopoverProps): ReactNode {
       }}
       onKeyDown={onKeyDown}
     >
+      <PopoverHeader
+        isNote={isNote}
+        isCompose={mode.kind === "comment" || mode.kind === "note"}
+        switcher={switcher}
+        onClose={onClose}
+      />
       {body}
     </div>
   );

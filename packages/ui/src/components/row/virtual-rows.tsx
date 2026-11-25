@@ -54,9 +54,15 @@ const keyTarget = (
   rowHeight: RowHeight,
 ): number | null => {
   const step = STEPS[event.key];
-  if (step === undefined || count === 0 || !(event.target instanceof Element))
+  if (
+    step === undefined ||
+    count === 0 ||
+    !(event.target instanceof Element) ||
+    !event.currentTarget.contains(event.target)
+  )
     return null;
   const item = itemOf(event.target);
+  if (item === null && event.target !== event.currentTarget) return null;
   const from = indexOf(item) ?? -1;
   const page = Math.max(
     1,

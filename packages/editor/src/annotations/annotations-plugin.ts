@@ -137,8 +137,8 @@ export function annotationsPlugin(options: AnnotationsOptions): Plugin {
             .setMeta("addToHistory", false),
         );
       const gutter = createGutter(view, () => stateOf(view.state).places, {
-        label: (count) => options.label(count),
-        onActivate: (id, at) => options.onActivate(id, at),
+        label: (comments, notes) => options.label(comments, notes),
+        onActivate: (id, at, ids) => options.onActivate(id, at, ids),
         hover: (blockId) => dispatchMeta({ type: "hover", blockId }),
       });
       const removedAtStart = newlyRemoved([], stateOf(view.state).places);

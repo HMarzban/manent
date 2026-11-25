@@ -43,6 +43,10 @@ export const MATERIAL_WORDS = Object.freeze({
       : `Moved ${formatCount(count)} elements to cuts.`,
   /** After moving a numbered scene to cuts. */
   movedSceneToCuts: (scene: string): string => `Moved scene ${scene} to cuts.`,
+  /** After moving a manuscript chapter to cuts. */
+  movedChapterToCuts: "Moved chapter to cuts.",
+  /** When moving to cuts would leave the script with no elements. */
+  cannotCutOnly: "Cannot move the whole script to cuts.",
   /** After restoring a cut; `originGone` holds when neither its block nor its scene remains. */
   restoredFromCuts: (count: number, originGone: boolean): string =>
     originGone

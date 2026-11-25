@@ -7,15 +7,19 @@ import { productionServicesFor } from "../production/live-services.ts";
 const SHOWN_AFTER_MS = 1000;
 /** How far inside the scroller's top edge the page is read. */
 const PROBE_PX = 4;
-/** Between the label and the scrollbar. */
-const GAP_PX = 4;
+/** Between the label and the scrollbar track or a covering panel. */
+const GAP_PX = 10;
+/** Reserved width when overlay scrollbars take no layout space. */
+const OVERLAY_SCROLLBAR_PX = 16;
+/** Minimum vertical inset from the scroller's top and bottom edges. */
+const EDGE_INSET_PX = 8;
 
 const NOTHING_TO_STOP = (): void => {};
 
-// The tooltip's surface (theme rule 13); the fade is left out under reduced motion. Drawn in the editor's host, without
+// Calm overlay surface; the fade is left out under reduced motion. Drawn in the editor's host, without
 // a layer of its own, so a menu or a dialog over the page covers it.
 const LABEL_CLASS =
-  "pointer-events-none fixed rounded-md bg-foreground text-background whitespace-nowrap opacity-0 motion-safe:transition-opacity motion-safe:duration-(--dur-base)";
+  "pointer-events-none fixed select-none rounded-surface border border-line bg-overlay px-2.5 py-1 text-meta font-medium whitespace-nowrap text-fg tabular-nums shadow-overlay opacity-0 motion-safe:transition-opacity motion-safe:duration-(--dur-base)";
 
 /** The page at the top of the view: a front page by its label, or a page of the script by its index. */
 type TopPage = { front: string } | { index: number };
@@ -55,17 +59,43 @@ function sentenceOf(
 }
 
 /**
- * Where the visible page ends at height `y`: the scroller's right edge, or the left edge of a region laid over it there,
- * as the side panel is in a narrow window.
+ * Where the visible page ends at height `y`: the scroller's right edge (inset for overlay scrollbars when they take no
+ * layout width), or the left edge of a region laid over it there, as the side panel is in a narrow window.
  */
 function visibleRight(scroller: HTMLElement, y: number): number {
-  const right = scroller.getBoundingClientRect().left + scroller.clientWidth;
+  const rect = scroller.getBoundingClientRect();
+  const innerRight = rect.left + scroller.clientLeft + scroller.clientWidth;
   const cover = scroller.ownerDocument
-    .elementFromPoint(right - 1, y)
+    .elementFromPoint?.(innerRight - 1, y)
     ?.closest<HTMLElement>("[data-region]");
-  return cover == null || cover.contains(scroller)
-    ? right
-    : Math.min(right, cover.getBoundingClientRect().left);
+  if (cover != null && !cover.contains(scroller)) {
+    return Math.min(innerRight, cover.getBoundingClientRect().left);
+  }
+  const layoutScrollbar = Math.max(
+    0,
+    scroller.offsetWidth - scroller.clientLeft - scroller.clientWidth,
+  );
+  return layoutScrollbar > 0 ? innerRight : innerRight - OVERLAY_SCROLLBAR_PX;
+}
+
+/** Places `label` beside `scroller`'s thumb, clamped within its vertical edges and clear of its scrollbar or a covering panel. */
+function positionLabel(label: HTMLElement, scroller: HTMLElement): void {
+  const { scrollTop, clientHeight, scrollHeight } = scroller;
+  const rect = scroller.getBoundingClientRect();
+  const thumb =
+    rect.top + ((scrollTop + clientHeight / 2) / scrollHeight) * clientHeight;
+  const minTop = rect.top + EDGE_INSET_PX;
+  const maxTop = Math.max(
+    minTop,
+    rect.bottom - label.offsetHeight - EDGE_INSET_PX,
+  );
+  const top = Math.min(
+    maxTop,
+    Math.max(minTop, thumb - label.offsetHeight / 2),
+  );
+  const probeY = top + label.offsetHeight / 2;
+  label.style.top = `${top}px`;
+  label.style.right = `${scroller.ownerDocument.documentElement.clientWidth - visibleRight(scroller, probeY) + GAP_PX}px`;
 }
 
 /**
@@ -84,7 +114,7 @@ export function followThumb(options: {
   const { editor, scroller, host, docId, timers } = options;
   const label = host.ownerDocument.createElement("div");
   label.className = LABEL_CLASS;
-  label.dataset["slot"] = "tooltip-content";
+  label.dataset["thumbLabel"] = "";
   label.setAttribute("aria-hidden", "true");
   host.append(label);
   let moving = false;
@@ -101,16 +131,12 @@ export function followThumb(options: {
   const onScroll = (): void => {
     if (!moving) return;
     hold();
+    if (scroller.scrollHeight <= scroller.clientHeight) return;
     last = pageAtTop(editor, scroller) ?? last;
     const text = last === null ? null : sentenceOf(editor, docId, last);
     if (text === null) return;
     label.textContent = text;
-    const { scrollTop, clientHeight, scrollHeight } = scroller;
-    const thumb =
-      scroller.getBoundingClientRect().top +
-      ((scrollTop + clientHeight / 2) / scrollHeight) * clientHeight;
-    label.style.top = `${thumb - label.offsetHeight / 2}px`;
-    label.style.right = `${scroller.ownerDocument.documentElement.clientWidth - visibleRight(scroller, thumb) + GAP_PX}px`;
+    positionLabel(label, scroller);
     label.style.opacity = "1";
   };
   // a press on the scrollbar lands on the scroller itself; one on the page lands on what it holds

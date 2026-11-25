@@ -49,12 +49,17 @@ export function scanBlockScenes(
     const kind = typeof node.attrs.type === "string" ? node.attrs.type : "";
     if (SCENE_TYPES.has(kind) && id !== "") {
       sceneBlockId = id;
-      sceneCount += 1;
-      const rawNum = node.attrs.sceneNumber;
-      sceneNumber =
+      const rawNum = node.attrs.num;
+      const explicit =
         typeof rawNum === "string" && rawNum.trim() !== ""
           ? rawNum.trim()
-          : String(sceneCount);
+          : null;
+      if (kind === "chapter") {
+        sceneNumber = explicit;
+      } else {
+        sceneCount += 1;
+        sceneNumber = explicit ?? String(sceneCount);
+      }
       heading = node.textContent;
     }
     if (id !== "") {
@@ -72,22 +77,25 @@ export function scanBlockScenes(
 
 export function annotationsFor(
   state: ScriptCommentsState,
+  activeId: string | null = null,
 ): readonly Annotation[] {
-  const list: Annotation[] = Object.entries(state.threads).map(
-    ([id, thread]) => ({
+  const list: Annotation[] = [];
+  for (const [id, thread] of Object.entries(state.threads)) {
+    if (thread.state.kind !== "open" && id !== activeId) continue;
+    list.push({
       id,
       kind: "comment",
       anchor: thread.anchor,
-      open: thread.state.kind === "open",
-    }),
-  );
+      open: id === activeId,
+    });
+  }
   if (state.canEdit) {
     for (const entry of state.notes) {
       list.push({
         id: entry.id,
         kind: "note",
         anchor: entry.note.anchor,
-        open: true,
+        open: entry.id === activeId,
       });
     }
   }

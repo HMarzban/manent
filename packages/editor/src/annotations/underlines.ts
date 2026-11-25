@@ -19,10 +19,11 @@ export function underlinesOf(
     if (block === null || anchor.start === anchor.end) continue;
     const at = blockPos(index, block) + 1;
     const filled = annotation.open || anchor.blockId === hovered;
+    const tag = annotation.kind === "note" ? "mn-note" : "mn-comment";
     decorations.push(
       Decoration.inline(at + anchor.start, at + anchor.end, {
-        nodeName: "mn-comment",
-        class: "mn-comment",
+        nodeName: tag,
+        class: tag,
         ...(filled ? { "data-active": "" } : {}),
       }),
     );

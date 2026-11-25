@@ -30,11 +30,12 @@ export function MentionField(props: {
   mentions: boolean;
   people: readonly CommentPerson[];
   peopleState: "idle" | "loaded" | "offline";
+  leadingAction?: ReactNode;
   onLoadPeople?: () => void;
   onSubmit(payload: {
     body: string;
     mentionedUserIds: readonly string[];
-  }): void;
+  }): boolean | void;
 }): ReactNode {
   const {
     placeholder,
@@ -43,6 +44,7 @@ export function MentionField(props: {
     mentions,
     people,
     peopleState,
+    leadingAction,
     onLoadPeople,
     onSubmit,
   } = props;
@@ -110,7 +112,7 @@ export function MentionField(props: {
     const mentionedUserIds = chosen
       .filter((p) => trimmed.includes(COMMENTS_WORDS.mention(p.name)))
       .map((p) => p.userId);
-    onSubmit({ body: trimmed, mentionedUserIds });
+    if (onSubmit({ body: trimmed, mentionedUserIds }) === false) return;
     setValue("");
     setCaret(0);
     setMenuOpen(false);
@@ -231,7 +233,14 @@ export function MentionField(props: {
         onKeyDown={onKeyDown}
         className="min-h-14 resize-none text-ui"
       />
-      <div className="flex justify-end">
+      <div
+        className={
+          leadingAction !== undefined
+            ? "flex items-center justify-between gap-2"
+            : "flex justify-end"
+        }
+      >
+        {leadingAction}
         <Button size="sm" disabled={value.trim() === ""} onClick={submit}>
           {submitLabel}
         </Button>

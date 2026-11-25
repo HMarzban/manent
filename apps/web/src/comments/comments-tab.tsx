@@ -14,6 +14,7 @@ import {
   useRetainComments,
 } from "../state/comments.store.ts";
 import { filteredThreads, sortedRounds } from "./comments-filter.ts";
+import { anchorPlaceLabel } from "./comments-format.ts";
 import { RoundRow } from "./round-row.tsx";
 import { NoteRow, ThreadRow } from "./thread-rows.tsx";
 
@@ -133,6 +134,7 @@ function CommentsTab(props: { docId: string | null }): ReactNode {
                   }
                   active={ui.activeId === entry.id}
                   now={currentNow}
+                  place={anchorPlaceLabel(entry.note.anchor, state.blockScenes)}
                   onOpen={() =>
                     commentsActions.openPopover(docId, {
                       kind: "open_id",
