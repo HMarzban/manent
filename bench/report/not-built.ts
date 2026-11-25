@@ -24,14 +24,6 @@ export interface NotBuilt {
 
 export const NOT_BUILT: readonly NotBuilt[] = Object.freeze([
   {
-    what: "The daily show and the news hour: their rundowns, 5,000 versions a day, 25 writers and 200 readers per rundown",
-    reason: "they need the rundown, which a later stage builds",
-  },
-  {
-    what: "Prompter-feed staleness",
-    reason: "the prompter feed is built in a later stage",
-  },
-  {
     what: "The log of 900,000 updates behind a W1 typing run",
     reason:
       "typing reads only the live document, and the log lies outside it; the log's growth is measured by `server.persistence`",

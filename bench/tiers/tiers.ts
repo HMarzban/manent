@@ -112,6 +112,10 @@ export function dockerRunArgs(
     throw new RangeError(`tier ${tier.id} has no container`);
   // The swap limit equals the memory limit, so the container cannot swap.
   const memory = `${memoryBytes / GIB}g`;
+  // Client tiers run under Xvfb so headed browser scenarios have a virtual display inside Docker.
+  const command = tier.areas.includes("client")
+    ? ["xvfb-run", "-a", "bun", "bench/run.ts", "--inside", ...options.args]
+    : ["bun", "bench/run.ts", "--inside", ...options.args];
   return [
     "docker",
     "run",
@@ -128,10 +132,7 @@ export function dockerRunArgs(
     `${options.resultsDir}:/repo/bench/results`,
     ...options.readOnly.flatMap((v) => ["--volume", `${v.from}:${v.to}:ro`]),
     options.image,
-    "bun",
-    "bench/run.ts",
-    "--inside",
-    ...options.args,
+    ...command,
   ];
 }
 

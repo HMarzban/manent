@@ -165,7 +165,13 @@ const BUDGET_ROWS = [
     "> 250 ms / > 1 s",
     "Shorten the path from the server to the page: send sooner and apply sooner.",
   ],
-  ["Convergence", "Prompter-feed staleness p99", "≤ 1 s", "> 2 s", "—"],
+  [
+    "Convergence",
+    "Prompter-feed staleness p99",
+    "≤ 1 s",
+    "> 2 s",
+    "Shorten the path from a send to the window: send the story's text as soon as the server records the send.",
+  ],
   [
     "Offline merge",
     "Time to converge; longest task",
@@ -369,6 +375,13 @@ const BUDGET_ROWS = [
     "> 2 ms",
     "Derive marks for the visible pages only.",
   ],
+  [
+    "Durability",
+    "Acknowledged updates lost across simulated power cuts",
+    "0",
+    "any",
+    "Acknowledge an update only after the disk has confirmed it.",
+  ],
 ];
 
 const TRADE_OFF_20 = {
@@ -437,7 +450,7 @@ test("every row of the budgets file is shown in the report", async () => {
   const held = BUDGET_MAP.map((r) =>
     r.held.type === "scenarios" ? r.held.budgets : [],
   );
-  expect(budgets.length).toBe(96);
+  expect(budgets.length).toBe(105);
   for (const row of budgets)
     expect([
       row,
@@ -506,7 +519,7 @@ test("a failing budget is shown as failing, in the budget table and the summary"
   const report = generateReport(await fixtureRuns(), [], FACTS);
   const budgets = section(report, "Budgets").split("\n\n");
   expect(budgets.slice(0, 2)).toEqual([
-    "39 budgets: 2 pass, 1 over budget, 1 hard fail, 1 undecided, 34 not measured",
+    "40 budgets: 2 pass, 1 over budget, 1 hard fail, 1 undecided, 35 not measured",
     `Hard fails: Typing — ${TYPING}.`,
   ]);
   expect(budgetRow(report, TYPING).Verdict).toBe("hard fail");

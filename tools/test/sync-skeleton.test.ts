@@ -93,6 +93,7 @@ const SERVER_ROWS = [
   ["server.soak", "diverged", "max", 0, 0],
   ["server.rebuild-stall", "rebuild_stall_ms", "p99", 20, 100],
   ["server.rebuild-stall", "replay_stall_ms", "p99", 20, 100],
+  ["server.power-loss", "acked_lost", "p99", 0, 0],
 ];
 
 const LAYOUT = [
