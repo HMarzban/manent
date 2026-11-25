@@ -2073,6 +2073,41 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   outline: none;
 }
 
+/* Present mode: floating HUD pill and script outline mini-map. */
+.mn-present-hud {
+  background-color: var(--bg-overlay);
+  border: 1px solid var(--line);
+  box-shadow: var(--elev-overlay);
+  transition: opacity var(--dur-fast) var(--curve-enter);
+}
+.mn-minimap-card {
+  background-color: var(--bg-overlay);
+  border: 1px solid var(--line);
+  border-radius: var(--shape-surface);
+  box-shadow: var(--elev-overlay);
+}
+.mn-minimap-tick {
+  background-color: var(--line-strong);
+  transform-origin: right center;
+  transition:
+    background-color var(--dur-fast) var(--curve-enter),
+    transform var(--dur-fast) var(--curve-enter),
+    opacity var(--dur-fast) var(--curve-enter);
+}
+[dir="rtl"] .mn-minimap-tick {
+  transform-origin: left center;
+}
+.mn-minimap-tick:is([data-kind="act"], [data-kind="section"]) {
+  background-color: var(--fg-muted);
+}
+:where(button):is(:hover, :focus-visible) > .mn-minimap-tick {
+  background-color: var(--fg);
+  transform: scaleX(1.2);
+}
+.mn-minimap-tick[data-active="true"] {
+  background-color: var(--bg-accent);
+}
+
 /* --------------------------------------------------------------------------
    MOTION. The system's setting always applies:
    nothing moves or scales, and fades of 100 ms remain.
@@ -2107,14 +2142,16 @@ html[data-cursors="off"] :is(.mn-who-caret, .mn-who-sel, .mn-who-tab) {
   [data-slot="switch-thumb"],
   [data-orientation="horizontal"] [data-slot="tabs-trigger"]::after,
   [data-slot="select-trigger"] > svg:last-child,
-  [data-slot$="menu-sub-trigger"] > svg:last-child {
+  [data-slot$="menu-sub-trigger"] > svg:last-child,
+  .mn-minimap-tick {
     transition: none !important;
   }
   [data-orientation="horizontal"] [data-slot="tabs-trigger"]::after,
   button.mn-card:active,
   [data-slot="switch"]:active [data-slot="switch-thumb"],
   [data-slot$="menu-sub-trigger"]:is([data-popup-open], [data-open])
-    > svg:last-child {
+    > svg:last-child,
+  .mn-minimap-tick {
     transform: none !important;
   }
 }
@@ -2184,6 +2221,16 @@ html[data-switching] *::after {
   }
   .mn-avatar[data-who] {
     border-color: CanvasText;
+  }
+  .mn-minimap-tick,
+  .mn-minimap-spine {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+  .mn-minimap-tick[data-active="true"],
+  .mn-minimap-spine-fill {
+    forced-color-adjust: none;
+    background-color: Highlight;
   }
 }
 
