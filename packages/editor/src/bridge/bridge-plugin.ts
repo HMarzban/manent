@@ -3,6 +3,7 @@ import type { FormatId } from "@manent/schema";
 import { Plugin } from "prosemirror-state";
 import type { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
+import { blockNumber } from "../cursors/place.ts";
 import { findCount } from "../find/find-plugin.ts";
 import { blockAt } from "../pagination/block-index.ts";
 import type { BlockIndex } from "../pagination/block-index.ts";
@@ -18,7 +19,7 @@ import type {
   Timers,
 } from "../script-editor/ports.ts";
 import { factsOf } from "./facts.ts";
-import { outlineOf } from "./outline.ts";
+import { inkOutlineOf, outlineOf } from "./outline.ts";
 import type { OutlineIndex } from "./outline.ts";
 
 /** How often at most the outline is rebuilt after a change. */
@@ -181,13 +182,18 @@ function outlinePublisher(
     cancelTimer = null;
     if (view.composing || isFrozen(view.state)) return later();
     const pages = paginationKey.getState(view.state);
-    index =
-      pages === undefined
-        ? NO_OUTLINE
-        : outlineOf(
-            pages.pagination,
-            blockAt(pages.index, view.state.selection.head),
-          );
+    if (pages !== undefined) {
+      index = outlineOf(
+        pages.pagination,
+        blockAt(pages.index, view.state.selection.head),
+      );
+    } else if (options.format() === "ink") {
+      const { $head } = view.state.selection;
+      const caret = $head.depth >= 2 ? blockNumber(view.state, $head) : -1;
+      index = inkOutlineOf(view.state.doc, caret);
+    } else {
+      index = NO_OUTLINE;
+    }
     const next =
       pages === undefined
         ? index.entries

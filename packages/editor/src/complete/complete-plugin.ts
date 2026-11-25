@@ -3,9 +3,11 @@ import { mark } from "@manent/perf";
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorState, PluginView, Transaction } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
+import { blockNumber } from "../cursors/place.ts";
 import { blockAt } from "../pagination/block-index.ts";
 import { paginationKey } from "../pagination/plugin.ts";
 import type { Frames, Timers } from "../script-editor/ports.ts";
+import { collectInkNames, namesWithInk, withInkBlock } from "./ink-names.ts";
 import { collectNames, recentCues } from "./names.ts";
 import type { Names } from "./names.ts";
 import { createCompletePopover } from "./popover.ts";
@@ -39,8 +41,22 @@ interface Given {
 function offered(state: EditorState, given: Given): Suggestions | null {
   const pagination = paginationKey.getState(state);
   const { selection } = state;
-  if (!selection.empty || pagination === undefined || pagination.frozen)
-    return null;
+  if (!selection.empty || pagination?.frozen === true) return null;
+  if (pagination === undefined) {
+    const { $head } = selection;
+    if (!$head.parent.isTextblock) return null;
+    const type: unknown = $head.parent.attrs["type"];
+    if (typeof type !== "string") return null;
+    const block = $head.depth >= 2 ? blockNumber(state, $head) : -1;
+    return suggestFromSources({
+      element: type,
+      text: $head.parent.textContent,
+      offset: $head.parentOffset,
+      recent: [],
+      names: withInkBlock(given.names, block),
+      projectNames: given.projectNames,
+    });
+  }
   const { blocks } = pagination.index;
   const block = blockAt(pagination.index, selection.head);
   const { type, text } = blocks[block]!;
@@ -166,6 +182,7 @@ function completeView(
     if (view.composing || pagination?.frozen === true) later();
     else if (pagination !== undefined)
       parts.setNames(collectNames(pagination.index.blocks));
+    else parts.setNames(namesWithInk(collectInkNames(view.state.doc)));
   };
   const later = () => {
     cancelTimer ??= options.timers.schedule(collect, NAMES_EVERY_MS);
