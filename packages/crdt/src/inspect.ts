@@ -2,7 +2,7 @@
 import { canonicalBlock } from "@manent/schema";
 import type { BlockJSON, RawElement, RawText } from "@manent/schema";
 import * as Y from "yjs";
-import { ORIGIN_REMOTE, throwAll, yDocOf } from "./doc.ts";
+import { ORIGIN_REMOTE, appliedDiffOf, throwAll, yDocOf } from "./doc.ts";
 import type { CrdtDoc, Unsubscribe } from "./doc.ts";
 import { noteBefore, parentOf, rootName } from "./held-before.ts";
 import {
@@ -363,7 +363,9 @@ export function observeScript(
   ) => {
     const gathered = gathering.get(tr);
     if (gathered === undefined) return;
-    gathered.updates.push(bytes);
+    const applied =
+      !tr.local && !ydoc.store.pendingStructs ? appliedDiffOf(ydoc) : null;
+    gathered.updates.push(applied ?? bytes);
     guarded(thrown, () => {
       const report = reportOf(gathered, origin);
       if (report !== null) listener(report);

@@ -873,6 +873,31 @@ test("a recovery whose own push is refused files what it wrote and stops", async
   expect(await store.recovered(DOC)).toEqual([...h.recovered.get()]);
 });
 
+test("seed 14: a recovery whose own push is refused also files a block written before the server's state arrives", async () => {
+  const w = await setup();
+  const { server } = w;
+  const client = w.makeClient();
+  const h = await client.open(DOC);
+  await w.online();
+  typeIn(h, B1, "kept");
+  await w.settle();
+  server.answer.subscribe = false;
+  refuse(w, DOC, lastPush(w).clientSeq);
+  await w.settle();
+  server.subscribedWithState(DOC, server.doc(DOC).encodeState());
+  await w.settle();
+  refuse(w, DOC, lastPush(w).clientSeq);
+  await w.settle();
+  write(h, (writer) => writer.insertBlocks(B2, [block(C, "written late")]));
+  await w.settle();
+  server.subscribedWithState(DOC, server.doc(DOC).encodeState());
+  await w.settle();
+  expect(recoveredOf(h)).toEqual([
+    [B1, "kept", "rejected"],
+    [C, "written late", "rejected"],
+  ]);
+});
+
 test("the recovery's own workings are not among the package's names", () => {
   const internal = ["PushRecovery", "differingText", "mergeMine"];
   expect(internal.filter((name) => name in entry)).toEqual([]);

@@ -7,6 +7,7 @@ import {
   blockIds,
   deletionsOf,
   loadDoc,
+  observeScript,
   scriptBody,
   updateMeta,
   yXmlFragmentForBinding,
@@ -218,4 +219,23 @@ test("bytes that are not an update are refused and change nothing", () => {
     CrdtUpdateError,
   );
   expect(b.encodeState()).toEqual(before);
+});
+
+test("relaying a block deletion onto a replica that already holds unseen text keeps the delete set free of that text", () => {
+  const { a, b, own } = replicas();
+  const relay = loadDoc(a.encodeState(), { clientId: 3 });
+  // b inserts unseen text and sends it to the relay before a's delete arrives
+  const typed = capture(b, (w) => w.insertText(ID_A, 9, " unseen"));
+  relay.applyUpdate(typed);
+  // a deletes the block without having seen b's text
+  const deleted = capture(a, (w) => w.deleteBlock(ID_A));
+  const emitted: Uint8Array[] = [];
+  const stop = observeScript(relay, (report) => emitted.push(report.update));
+  relay.applyUpdate(deleted, "relay");
+  stop();
+  expect(emitted).toHaveLength(1);
+  // b receiving the relayed update must still recognise its unseen text and set it aside
+  expect(applyRemote(b, emitted[0]!, own)).toEqual([
+    { blockId: ID_A, nearBlockId: ID_K, text: " unseen" },
+  ]);
 });

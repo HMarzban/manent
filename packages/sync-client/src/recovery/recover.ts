@@ -212,6 +212,11 @@ function writeBackOf(
   };
 }
 
+/** The blocks the own updates not yet acknowledged touch. */
+function touchedBy(journal: Journal): Set<string> {
+  return new Set(journal.waitingUpdates().flatMap((e) => e.elements));
+}
+
 /** The highest `localSeq` of an own update not yet acknowledged; 0 when there is none. */
 function lastWaiting(journal: Journal): number {
   return Math.max(0, ...journal.waitingUpdates().map((e) => e.localSeq));
@@ -279,14 +284,13 @@ export class PushRecovery {
   /**
    * A permanently rejected push: the document is kept as a version, and
    * subscribed to afresh. A write-back refused in turn is not recovered again:
-   * what every waiting edit touched is filed.
+   * what every edit waiting then or since touched is filed.
    */
   reject(code: number, heal: boolean): void {
     const { journal, copy } = this.host;
     if (this.writeBack !== null) {
-      const touched = journal.waitingUpdates().flatMap((e) => e.elements);
+      const filing = touchedBy(journal);
       this.writeBack = null;
-      const filing = new Set(touched);
       this.fresh = this.freshOf(code, (id) => filing.has(id));
     } else {
       const versionId = copy.recordVersion("recovered", "rejected").id;
@@ -324,8 +328,10 @@ export class PushRecovery {
     const mine = copy.mine();
     const known = contentOf(synced.state());
     const base = writeBackBase(known, contentOf(synced.startState()), mine);
+    const waiting = touchedBy(journal);
     // after a refused heal push the server lost part of what was synced, which another device may hold too
-    const filing = recovering?.heal === true ? EVERY_BLOCK : fresh.filing;
+    const picked = recovering?.heal === true ? EVERY_BLOCK : fresh.filing;
+    const filing = picked && ((id: string) => picked(id) || waiting.has(id));
     const { ops, applied, leftovers } = writeBackOf(base, mine, theirs, filing);
     const items = copy.items(leftovers);
     const writing =
