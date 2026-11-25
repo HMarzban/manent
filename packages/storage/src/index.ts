@@ -6,3 +6,4 @@ export * from "./production/index.ts";
 export * from "./search/index.ts";
 export * from "./sqlite/index.ts";
 export * from "./trash/index.ts";
+export * from "./workspace/index.ts";

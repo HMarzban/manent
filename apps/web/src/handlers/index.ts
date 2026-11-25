@@ -48,6 +48,8 @@ import { rundownHandlers } from "./rundown.ts";
 import { prompterHandlers } from "./prompter.ts";
 import { libraryFilesHandlers } from "./library-files.ts";
 import { searchHandlers } from "./search.ts";
+import { workspaceHandlers } from "./workspace.ts";
+import { accountHandlers } from "./account.ts";
 
 /** Where the window is: its route's id, its path with the search, and the search as read. */
 export interface RoutePlace {
@@ -135,5 +137,7 @@ export function createHandlers(deps: HandlerDeps): CommandHandlers {
     ...prompterHandlers(deps),
     ...libraryFilesHandlers(deps),
     ...searchHandlers(deps),
+    ...workspaceHandlers(deps),
+    ...accountHandlers(deps),
   };
 }

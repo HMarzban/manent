@@ -60,6 +60,10 @@ export const TOUR_TARGETS = [
   "library:favourites",
   "library:trash",
   "search:filter",
+  "workspace:settings",
+  "workspace:people",
+  "workspace:can_also",
+  "workspace:sign_out",
 ] as const;
 
 export type TourTarget = (typeof TOUR_TARGETS)[number];
