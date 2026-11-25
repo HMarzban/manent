@@ -12,6 +12,11 @@ import { prompterTextFileType } from "./file-types/prompter-text.ts";
 import { bracketsListFileType } from "./file-types/brackets-list.ts";
 import { rundownJsonFileType } from "./file-types/rundown-json.ts";
 import { archiveFileType } from "./file-types/archive.ts";
+import { inkSourceFileType } from "./file-types/ink-source.ts";
+import { inkProjectFileType } from "./file-types/ink-project.ts";
+import { inkJsonFileType } from "./file-types/ink-json.ts";
+import { lineDataJsonFileType } from "./file-types/line-data-json.ts";
+import { lineDataXmlFileType } from "./file-types/line-data-xml.ts";
 import type { ExportFileType } from "./script-file.ts";
 
 export const EXPORT_FILE_TYPES: readonly ExportFileType[] = [
@@ -25,6 +30,11 @@ export const EXPORT_FILE_TYPES: readonly ExportFileType[] = [
   bracketsListFileType,
   rundownJsonFileType,
   archiveFileType,
+  inkSourceFileType,
+  inkProjectFileType,
+  inkJsonFileType,
+  lineDataJsonFileType,
+  lineDataXmlFileType,
 ];
 
 /** What decides which types a document is offered. */

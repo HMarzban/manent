@@ -56,3 +56,5 @@ export * from "./library-files.ts";
 export * from "./search.ts";
 export * from "./workspace.ts";
 export * from "./account.ts";
+export * from "./ink.ts";
+export * from "./game-exports.ts";

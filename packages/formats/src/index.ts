@@ -4,6 +4,8 @@ export * from "./archive/index.ts";
 export * from "./docx/index.ts";
 export * from "./fdx/index.ts";
 export * from "./fountain/index.ts";
+export * from "./game/index.ts";
+export * from "./ink/index.ts";
 export * from "./pdf/index.ts";
 export * from "./pdf-text/index.ts";
 export * from "./production/index.ts";

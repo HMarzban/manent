@@ -42,6 +42,7 @@ import { LIBRARY_FILES_COMMANDS } from "./library-files.ts";
 import { SEARCH_COMMANDS } from "./search.ts";
 import { WORKSPACE_COMMANDS } from "./workspace.ts";
 import { ACCOUNT_COMMANDS } from "./account.ts";
+import { INK_COMMANDS } from "./ink.ts";
 
 export const COMMANDS = defineCommands([
   ...APP_COMMANDS,
@@ -84,6 +85,7 @@ export const COMMANDS = defineCommands([
   ...SEARCH_COMMANDS,
   ...WORKSPACE_COMMANDS,
   ...ACCOUNT_COMMANDS,
+  ...INK_COMMANDS,
   ...settingCommands(SETTINGS),
 ]);
 export type CommandId = (typeof COMMANDS)[number]["id"];
