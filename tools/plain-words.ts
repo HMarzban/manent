@@ -51,5 +51,6 @@ export const PLAIN_WORDS: readonly string[] = listOf(`
   unnumbered, value,
   minutes, timed, two-digit,
   allow, blocked, mirror, pop-ups, px, received, refused, smaller,
-  24-hour, become, cell, column, drag, editing, hours, must, top, typed, undid
+  24-hour, become, cell, column, drag, editing, hours, must, top, typed, undid,
+  api, directly, except, given, saw
 `);
