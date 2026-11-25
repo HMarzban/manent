@@ -15,6 +15,8 @@ import { TOGETHER_NOTE } from "./together-note.ts";
 import { TOGETHER_SHARE } from "./together-share.ts";
 import { TOGETHER_STYLE } from "./together-style.ts";
 import { TOGETHER_LINKS } from "./together-links.ts";
+import { TOGETHER_WORKSPACE_SETTINGS } from "./together-workspace-settings.ts";
+import { TOGETHER_CAN_ALSO } from "./together-can-also.ts";
 
 export const TOGETHER: readonly TourScenario[] = [
   TOGETHER_CURSORS,
@@ -32,4 +34,6 @@ export const TOGETHER: readonly TourScenario[] = [
   TOGETHER_SHARE,
   TOGETHER_STYLE,
   TOGETHER_LINKS,
+  TOGETHER_WORKSPACE_SETTINGS,
+  TOGETHER_CAN_ALSO,
 ];

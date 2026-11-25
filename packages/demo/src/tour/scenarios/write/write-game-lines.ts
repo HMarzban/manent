@@ -10,15 +10,31 @@ export const WRITE_GAME_LINES: TourScenario = {
   setup: setupOf({ userId: "sam", open: TWELVE_ON_FOOT }),
   steps: [
     {
-      text: "Go to scene 4: its choices are coloured and nested.",
+      text: "Go to scene 4: the choices, the gather, the condition and the tag line are coloured.",
       highlight: "page",
     },
-    { text: "Export the script's line data.", highlight: "page" },
+    {
+      text: "Choose Export… in the title menu, then Line data (JSON).",
+      highlight: "doc.export",
+    },
+    {
+      text: "Choose Export 1 file.",
+      highlight: "send:confirm",
+    },
+    {
+      text: "Open The Keeper's Logbook: the Knots tab lists its knots and stitches.",
+      highlight: "tab:scenes",
+    },
   ],
   check:
-    'The choices are coloured and nested by their markers, and the line data gives each line its "kind" and "depth".',
-  evidence: ["kind", "depth"],
+    'Export offers "Line data (JSON)" and says "Exported \'Twelve on Foot — Chapter 1: Fog Bell\'."; in The Keeper\'s Logbook the "Knots" tab lists "quiz › question_1".',
+  evidence: [
+    "Line data (JSON)",
+    "Exported 'Twelve on Foot — Chapter 1: Fog Bell'.",
+    "Knots",
+    "quiz › question_1",
+  ],
   fresh: false,
-  waitsFor: "game_lines",
+  waitsFor: null,
   hidden: null,
 };

@@ -19,6 +19,12 @@ import { WRITE_INK_PROBLEM } from "./write-ink-problem.ts";
 import { WRITE_ADAPT } from "./write-adapt.ts";
 import { WRITE_BOARD } from "./write-board.ts";
 import { WRITE_HEADER_FOOTER } from "./write-header-footer.ts";
+import { WRITE_RENAME_CHARACTER } from "./write-rename-character.ts";
+import { WRITE_READ_ALOUD } from "./write-read-aloud.ts";
+import { WRITE_GOAL } from "./write-goal.ts";
+import { WRITE_FOCUS } from "./write-focus.ts";
+import { WRITE_NUMBERS } from "./write-numbers.ts";
+import { WRITE_LAYOUT_ENGINE } from "./write-layout-engine.ts";
 
 export const WRITE: readonly TourScenario[] = [
   WRITE_FIRST_RUN,
@@ -40,4 +46,10 @@ export const WRITE: readonly TourScenario[] = [
   WRITE_ADAPT,
   WRITE_BOARD,
   WRITE_HEADER_FOOTER,
+  WRITE_RENAME_CHARACTER,
+  WRITE_READ_ALOUD,
+  WRITE_GOAL,
+  WRITE_FOCUS,
+  WRITE_NUMBERS,
+  WRITE_LAYOUT_ENGINE,
 ];
