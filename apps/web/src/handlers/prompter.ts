@@ -1,9 +1,12 @@
 // Thin handlers for the prompter commands, calling the stores each feature lane fills.
 import type { CommandHandlers } from "@manent/commands";
+import { PROMPTER_WINDOW_WORDS } from "@manent/ui";
 import { prompterFilesStore } from "../prompter-files/store.ts";
 import { prompterWindowActions } from "../state/prompter-window.store.ts";
 import { prompterActions } from "../state/prompter.store.ts";
 import type { HandlerDeps } from "./index.ts";
+
+const PROMPTER_POPUP_BLOCKED_ID = "prompter.popup_blocked";
 
 type PrompterCommandId =
   | "prompter.send"
@@ -24,9 +27,17 @@ export function prompterHandlers(
     "prompter.sendPrevious": onDoc((docId) =>
       prompterActions.sendPrevious(docId),
     ),
-    "view.presentOnPrompter": onDoc((docId) =>
-      prompterWindowActions.open(docId),
-    ),
+    "view.presentOnPrompter": onDoc((docId) => {
+      if (prompterWindowActions.open(docId)) return;
+      deps.services.messages.withdraw(PROMPTER_POPUP_BLOCKED_ID);
+      deps.services.messages.push({
+        id: PROMPTER_POPUP_BLOCKED_ID,
+        text: PROMPTER_WINDOW_WORDS.popupBlocked,
+        actions: [],
+        lifetime: "brief",
+        ownWork: false,
+      });
+    }),
     "prompter.files": onDoc((docId) => prompterFilesStore.open(docId)),
     "prompter.stopFiles": () => prompterFilesStore.stop(),
   };
