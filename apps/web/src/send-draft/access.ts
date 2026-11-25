@@ -4,11 +4,12 @@ import type { CrdtDoc, GroupEntry } from "@manent/crdt";
 import type { DocRole, SignInChoice } from "@manent/sync-protocol";
 import { createValue, useSubscribable } from "@manent/ui";
 import type { StatusFacts, Subscribable } from "@manent/ui";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOpenDocument } from "../screens/document/open-document.ts";
 import { useOfferedTo } from "../send/export-form.tsx";
 import type { OfferedTo } from "../send/file-types.ts";
 import { useEnvironment, useServices } from "../services/context.tsx";
+import type { PersonServices } from "../services/ports.ts";
 import { readPerson, tabStorage } from "../session.ts";
 import { clearDraftSends } from "./sends.ts";
 
@@ -16,11 +17,92 @@ export interface DraftSendAccess {
   readonly available: boolean;
   readonly ready: boolean;
   readonly pending: boolean;
+  readonly unverified: boolean;
   readonly online: boolean;
   readonly offered: OfferedTo;
+  readonly retry: () => void;
 }
 
 type ServerRoleState = "pending" | "editor" | "denied" | "unverified";
+
+interface RoleProbeEntry {
+  readonly state: Subscribable<ServerRoleState | "idle">;
+  subscribe(listener: (value: ServerRoleState | "idle") => void): () => void;
+  ensure(neverSynced: boolean, force?: boolean): void;
+}
+
+const roleProbes = new WeakMap<PersonServices, Map<string, RoleProbeEntry>>();
+
+function probeOf(services: PersonServices, docId: string): RoleProbeEntry {
+  let byDoc = roleProbes.get(services);
+  if (byDoc === undefined) {
+    byDoc = new Map();
+    roleProbes.set(services, byDoc);
+  }
+  let entry = byDoc.get(docId);
+  if (entry !== undefined) return entry;
+
+  const value = createValue<ServerRoleState | "idle">("idle");
+  let refCount = 0;
+  let epoch = 0;
+  let inFlight = false;
+  let lastNeverSynced = false;
+
+  const fetchRole = (neverSynced: boolean): void => {
+    inFlight = true;
+    lastNeverSynced = neverSynced;
+    const callEpoch = ++epoch;
+    value.set("pending");
+    void services.api.role(docId).then(
+      (role) => {
+        if (callEpoch !== epoch) return;
+        inFlight = false;
+        const resolved: ServerRoleState = isEditorRole(role)
+          ? "editor"
+          : role === NO_ROLE && neverSynced
+            ? "unverified"
+            : "denied";
+        if (resolved === "denied") clearDraftSends(services, docId);
+        value.set(resolved);
+      },
+      () => {
+        if (callEpoch !== epoch) return;
+        inFlight = false;
+        value.set("unverified");
+      },
+    );
+  };
+
+  entry = {
+    state: value,
+    subscribe(listener) {
+      refCount += 1;
+      const off = value.subscribe(listener);
+      return () => {
+        off();
+        refCount -= 1;
+        if (refCount <= 0) {
+          refCount = 0;
+          epoch += 1;
+          inFlight = false;
+          value.set("idle");
+        }
+      };
+    },
+    ensure(neverSynced, force = false) {
+      const current = value.get();
+      if (force) {
+        fetchRole(neverSynced);
+        return;
+      }
+      if (inFlight && lastNeverSynced === neverSynced) return;
+      if (current === "idle" || lastNeverSynced !== neverSynced)
+        fetchRole(neverSynced);
+    },
+  };
+  byDoc.set(docId, entry);
+  return entry;
+}
 
 const DEFAULT_STATUS: Subscribable<StatusFacts> = createValue<StatusFacts>({
   access: "view",
@@ -59,57 +141,33 @@ export function useDraftSendAccess(docId: string): DraftSendAccess {
   const authenticated =
     person !== null && person.userId === services.userId && person.token !== "";
 
-  const [roleResult, setRoleResult] = useState<{
-    docId: string;
-    userId: string;
-    online: boolean;
-    state: ServerRoleState;
-  } | null>(null);
+  const probe = useMemo(() => probeOf(services, docId), [services, docId]);
+  const probeSubscribable = useMemo<Subscribable<ServerRoleState | "idle">>(
+    () => ({
+      get: () => probe.state.get(),
+      subscribe: (listener) => probe.subscribe(listener),
+    }),
+    [probe],
+  );
+  const probedState = useSubscribable(probeSubscribable);
 
   useEffect(() => {
-    if (!online || !authenticated) return undefined;
-    let current = true;
-    void services.api.role(docId).then(
-      (role) => {
-        if (!current) return;
-        const state: ServerRoleState = isEditorRole(role)
-          ? "editor"
-          : role === NO_ROLE && status.neverSynced
-            ? "unverified"
-            : "denied";
-        if (state === "denied") clearDraftSends(services, docId);
-        setRoleResult({
-          docId,
-          userId: services.userId,
-          online,
-          state,
-        });
-      },
-      () => {
-        if (!current) return;
-        setRoleResult({
-          docId,
-          userId: services.userId,
-          online,
-          state: "unverified",
-        });
-      },
-    );
-    return () => {
-      current = false;
-    };
-  }, [services, docId, online, authenticated, status.neverSynced]);
+    if (!online || !authenticated) return;
+    probe.ensure(status.neverSynced);
+  }, [probe, online, authenticated, status.neverSynced]);
+
+  const retry = useCallback(() => {
+    if (!online || !authenticated) return;
+    probe.ensure(status.neverSynced, true);
+  }, [probe, online, authenticated, status.neverSynced]);
 
   const roleState: ServerRoleState = !authenticated
     ? "denied"
     : !online
       ? "unverified"
-      : roleResult !== null &&
-          roleResult.docId === docId &&
-          roleResult.userId === services.userId &&
-          roleResult.online === online
-        ? roleResult.state
-        : "pending";
+      : probedState === "idle"
+        ? "pending"
+        : probedState;
 
   const scriptAllowed =
     offered.docKind === "script" && offered.format !== "ink";
@@ -138,9 +196,16 @@ export function useDraftSendAccess(docId: string): DraftSendAccess {
     statusEditable &&
     (roleState === "editor" ||
       (roleState === "unverified" && !online && authenticated));
+  const unverified =
+    opened !== null &&
+    scriptAllowed &&
+    statusEditable &&
+    online &&
+    authenticated &&
+    roleState === "unverified";
   const pending = opened === null || roleState === "pending";
 
-  return { available, ready, pending, online, offered };
+  return { available, ready, pending, unverified, online, offered, retry };
 }
 
 const readGroupList = (doc: CrdtDoc): readonly GroupEntry[] => [

@@ -17,12 +17,16 @@ function formatSentRecipients(
   groups: readonly SentDraftGroupCount[],
   recipientCount: number,
   hasLink: boolean,
+  directRecipientCount?: number | null,
 ): string {
   const groupLabels = groups.map(
     (group) => `${group.name} (${formatCount(group.count)})`,
   );
   const groupSum = groups.reduce((sum, group) => sum + group.count, 0);
-  const extraPeople = Math.max(0, recipientCount - groupSum);
+  const extraPeople =
+    directRecipientCount !== undefined && directRecipientCount !== null
+      ? Math.max(0, directRecipientCount)
+      : Math.max(0, recipientCount - groupSum);
   if (groupLabels.length === 0) {
     const people = countPeople(recipientCount);
     return hasLink ? `${people} and by link` : people;
@@ -102,17 +106,30 @@ export const DRAFTS_WORDS = Object.freeze({
   sentHistoryRow: (input: {
     readonly groups: readonly SentDraftGroupCount[];
     readonly recipientCount: number;
+    readonly directRecipientCount?: number | null;
     readonly openedCount: number;
     readonly totalOpens: number;
     readonly hasLink: boolean;
   }): string => {
-    const { groups, recipientCount, openedCount, totalOpens, hasLink } = input;
+    const {
+      groups,
+      recipientCount,
+      directRecipientCount,
+      openedCount,
+      totalOpens,
+      hasLink,
+    } = input;
     if (groups.length === 0 && recipientCount === 0) {
       return hasLink
         ? `Sent by link · opened ${countTimes(totalOpens)}`
         : "Sent as a file";
     }
-    const target = formatSentRecipients(groups, recipientCount, hasLink);
+    const target = formatSentRecipients(
+      groups,
+      recipientCount,
+      hasLink,
+      directRecipientCount,
+    );
     return `Sent to ${target} · opened by ${formatCount(openedCount)} of ${formatCount(recipientCount)}`;
   },
   sentHistoryOpenedBy: (names: readonly string[]): string =>

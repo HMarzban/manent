@@ -12,9 +12,10 @@ import {
   SelectValue,
   Switch,
 } from "@manent/ui";
-import { useId } from "react";
+import { useId, useState } from "react";
 import type { ReactNode } from "react";
 import type { ExportFileType } from "../send/script-file.ts";
+import { clearSidesRange } from "../send/sides-file.tsx";
 import { whatOffered } from "../send/what-options.ts";
 import type { DraftWhatId, WhatSelection } from "./draft-output.ts";
 
@@ -42,6 +43,7 @@ function toWhatId(raw: string): DraftWhatId {
     raw === "pages" ||
     raw === "scenes" ||
     raw === "revised_pages" ||
+    raw === "sides_scenes" ||
     raw === "full_draft" ||
     raw === "changed_pages"
   )
@@ -55,7 +57,56 @@ function clampBound(raw: string, max: number): number {
   return Math.min(max, parsed);
 }
 
+function BoundNumberInput(props: {
+  ariaLabel: string;
+  value: number;
+  max: number;
+  onCommit(next: number): void;
+}): ReactNode {
+  const { ariaLabel, value, max, onCommit } = props;
+  const [text, setText] = useState(String(value));
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setText(String(value));
+  }
+
+  const commit = (raw: string): void => {
+    const clamped = clampBound(raw, max);
+    setText(String(clamped));
+    if (clamped !== value) onCommit(clamped);
+  };
+
+  return (
+    <Input
+      type="number"
+      min={1}
+      max={max}
+      aria-label={ariaLabel}
+      value={text}
+      onChange={(event) => {
+        const nextText = event.target.value;
+        setText(nextText);
+        const parsed = Number.parseInt(nextText, 10);
+        if (
+          nextText.trim() !== "" &&
+          String(parsed) === nextText.trim() &&
+          parsed >= 1 &&
+          parsed <= max
+        )
+          onCommit(parsed);
+      }}
+      onBlur={(event) => commit(event.currentTarget.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") commit(event.currentTarget.value);
+      }}
+      className="w-20 tabular-nums"
+    />
+  );
+}
+
 export function WhatRowContent(props: {
+  docId: string;
   multiCamera: boolean;
   locked: boolean;
   primaryFileTypeId: string | null;
@@ -66,6 +117,7 @@ export function WhatRowContent(props: {
   onChange(next: WhatSelection): void;
 }): ReactNode {
   const {
+    docId,
     multiCamera,
     locked,
     primaryFileTypeId,
@@ -108,6 +160,9 @@ export function WhatRowContent(props: {
   const active =
     offered.find((entry) => entry.id === what.id) ?? offered[0] ?? null;
   if (active === null) return null;
+  const Controls = active.Controls;
+  const maxPages = Math.max(1, pageCount);
+  const maxScenes = Math.max(1, sceneCount);
 
   return (
     <div className="flex flex-col gap-2" data-tour="send:what">
@@ -118,44 +173,33 @@ export function WhatRowContent(props: {
           label={SEND_WORDS.what}
           value={active.id}
           options={offered.map(({ id, label }) => ({ value: id, label }))}
-          onChange={(chosen) => onChange({ ...what, id: toWhatId(chosen) })}
+          onChange={(chosen) => {
+            const nextId = toWhatId(chosen);
+            if (nextId !== "sides_scenes") clearSidesRange(docId);
+            onChange({ ...what, id: nextId });
+          }}
         />
       )}
+      {Controls !== undefined ? (
+        <Controls
+          docId={docId}
+          form="send_draft"
+          onChange={() => onChange({ ...what })}
+        />
+      ) : null}
       {active.id === "pages" ? (
         <div className="flex flex-wrap items-center gap-2">
-          <Input
-            type="number"
-            min={1}
-            max={Math.max(1, pageCount)}
-            aria-label={DRAFTS_WORDS.firstPage}
+          <BoundNumberInput
+            ariaLabel={DRAFTS_WORDS.firstPage}
             value={what.firstPage}
-            onChange={(event) =>
-              onChange({
-                ...what,
-                firstPage: clampBound(
-                  event.target.value,
-                  Math.max(1, pageCount),
-                ),
-              })
-            }
-            className="w-20 tabular-nums"
+            max={maxPages}
+            onCommit={(firstPage) => onChange({ ...what, firstPage })}
           />
-          <Input
-            type="number"
-            min={1}
-            max={Math.max(1, pageCount)}
-            aria-label={DRAFTS_WORDS.lastPage}
+          <BoundNumberInput
+            ariaLabel={DRAFTS_WORDS.lastPage}
             value={what.lastPage}
-            onChange={(event) =>
-              onChange({
-                ...what,
-                lastPage: clampBound(
-                  event.target.value,
-                  Math.max(1, pageCount),
-                ),
-              })
-            }
-            className="w-20 tabular-nums"
+            max={maxPages}
+            onCommit={(lastPage) => onChange({ ...what, lastPage })}
           />
           <span className="text-meta text-fg-muted tabular-nums">
             {DRAFTS_WORDS.pagesRange(what.firstPage, what.lastPage)}
@@ -164,39 +208,17 @@ export function WhatRowContent(props: {
       ) : null}
       {active.id === "scenes" ? (
         <div className="flex flex-wrap items-center gap-2">
-          <Input
-            type="number"
-            min={1}
-            max={Math.max(1, sceneCount)}
-            aria-label={DRAFTS_WORDS.firstScene}
+          <BoundNumberInput
+            ariaLabel={DRAFTS_WORDS.firstScene}
             value={what.firstScene}
-            onChange={(event) =>
-              onChange({
-                ...what,
-                firstScene: clampBound(
-                  event.target.value,
-                  Math.max(1, sceneCount),
-                ),
-              })
-            }
-            className="w-20 tabular-nums"
+            max={maxScenes}
+            onCommit={(firstScene) => onChange({ ...what, firstScene })}
           />
-          <Input
-            type="number"
-            min={1}
-            max={Math.max(1, sceneCount)}
-            aria-label={DRAFTS_WORDS.lastScene}
+          <BoundNumberInput
+            ariaLabel={DRAFTS_WORDS.lastScene}
             value={what.lastScene}
-            onChange={(event) =>
-              onChange({
-                ...what,
-                lastScene: clampBound(
-                  event.target.value,
-                  Math.max(1, sceneCount),
-                ),
-              })
-            }
-            className="w-20 tabular-nums"
+            max={maxScenes}
+            onCommit={(lastScene) => onChange({ ...what, lastScene })}
           />
           <span className="text-meta text-fg-muted tabular-nums">
             {DRAFTS_WORDS.scenesRange(what.firstScene, what.lastScene)}

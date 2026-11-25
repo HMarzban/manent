@@ -223,7 +223,7 @@ export function durationOfParts(parts: readonly Pagination[]): number | null {
       id: block.id,
       type: block.type,
       text: block.text,
-      noTiming: false,
+      noTiming: block.noTiming === true,
     })),
   );
   const { total } = timeScript(blocks);

@@ -1,13 +1,20 @@
 import { withDom } from "@manent/testkit/dom";
 import { expect, test } from "bun:test";
-import { layoutPage, paginate, profileFor } from "@manent/pagination";
+import {
+  layoutPage,
+  paginate,
+  profileFor,
+  toLayoutBlocks,
+} from "@manent/pagination";
 import type { Pagination } from "@manent/pagination";
 import {
   block,
   generateBlocks,
   layoutBlocksOf,
 } from "@manent/pagination/testing";
-import { printCss, printPages } from "../src/send/print-pages.ts";
+import { blocksOf } from "@manent/schema";
+import type { DocJSON } from "@manent/schema";
+import { drawSheet, printCss, printPages } from "../src/send/print-pages.ts";
 
 withDom();
 
@@ -152,4 +159,81 @@ test("print renders page furniture including watermark onto every sheet", async 
     ["Leo Marsh", "1024px"],
   ]);
   root.remove();
+});
+
+const makeVarietyDoc = (includeUntimed: boolean): DocJSON => ({
+  type: "doc",
+  content: [
+    {
+      type: "section",
+      content: [
+        {
+          type: "block",
+          attrs: { id: "block001", type: "dialogue", noTiming: false },
+          content: [{ type: "text", text: "Hello from studio one." }],
+        },
+        ...(includeUntimed
+          ? [
+              {
+                type: "block" as const,
+                attrs: { id: "block002", type: "dialogue", noTiming: true },
+                content: [
+                  {
+                    type: "text" as const,
+                    text: "This long untimed cue must not inflate the running time shown in the header.",
+                  },
+                ],
+              },
+            ]
+          : []),
+      ],
+    },
+  ],
+});
+
+test("print fallback duration omits blocks marked noTiming", () => {
+  const variety = profileFor("variety");
+  if (variety === null) throw new TypeError("no variety profile");
+
+  const withUntimed = paginate(
+    toLayoutBlocks(blocksOf(makeVarietyDoc(true))),
+    variety,
+  );
+  const timedOnly = paginate(
+    toLayoutBlocks(blocksOf(makeVarietyDoc(false))),
+    variety,
+  );
+  const furniture = {
+    header: {
+      left: { kind: "duration" as const },
+      center: { kind: "none" as const },
+      right: { kind: "none" as const },
+      firstPage: true,
+      rule: false,
+    },
+  };
+  const sheetA = drawSheet(
+    {
+      layoutPage,
+      paginate,
+      toLayoutBlocks,
+    } as Parameters<typeof drawSheet>[0],
+    withUntimed,
+    0,
+    furniture,
+  );
+  const sheetB = drawSheet(
+    {
+      layoutPage,
+      paginate,
+      toLayoutBlocks,
+    } as Parameters<typeof drawSheet>[0],
+    timedOnly,
+    0,
+    furniture,
+  );
+  expect(sheetA.querySelector(".mn-hf-bar")?.textContent).toBe(
+    sheetB.querySelector(".mn-hf-bar")?.textContent,
+  );
+  expect(sheetA.querySelector(".mn-hf-bar")?.textContent).not.toBe("");
 });

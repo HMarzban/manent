@@ -2,17 +2,12 @@
 // Drafts only the drafts oldest first; the name field of Name this draft…, and a draft named and not yet answered.
 import { SETTINGS } from "@manent/settings";
 import {
-  Avatar,
   Button,
   DOCUMENT_WORDS,
   HISTORY_WORDS,
   Row,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
   VirtualRows,
   formatTime,
-  joinNames,
 } from "@manent/ui";
 import { StarIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -21,18 +16,14 @@ import { baselineOfRow } from "../../history/baseline.ts";
 import { isTitledByTime } from "../../history/history-rows.ts";
 import type { HistoryRow } from "../../history/history-rows.ts";
 import { selectRow } from "../../history/history-view.ts";
-import {
-  useRowExtensionLine,
-  useRowExtensionList,
-} from "../../history/row-extensions.ts";
-import type { RowLine } from "../../history/row-extensions.ts";
+import { useRowExtensionList } from "../../history/row-extensions.ts";
 import { useSettingChanges } from "../../history/setting-changes.ts";
 import type { SettingChange } from "../../history/setting-changes.ts";
-import { initialsOf } from "../../initials.ts";
 import { useEnvironment, useServices } from "../../services/context.tsx";
-import { fullNameOf, nameOf } from "../../services/sync/index-entries.ts";
+import { nameOf } from "../../services/sync/index-entries.ts";
 import { historyActions, useHistory } from "../../state/history.store.ts";
 import { NameField, nextDraftName, useDraftLadder } from "./draft-name.tsx";
+import { HistoryAvatars, useRowMeta } from "./history-row-line.tsx";
 import { HistoryRowMenu } from "./history-row-menu.tsx";
 import { valueLabel } from "./setting-messages.ts";
 
@@ -89,70 +80,6 @@ function itemsOf(
   return items;
 }
 
-/**
- * The avatars of the people whose changes the version holds, named together for a screen reader; each names its
- * person on hover. Drawn without colour: the script's colour for each person is not known here.
- */
-function Avatars(props: { userIds: readonly string[] }): ReactNode {
-  const { userIds } = props;
-  if (userIds.length === 0) return null;
-  return (
-    <span
-      role="img"
-      aria-label={joinNames(userIds.map(nameOf))}
-      className="flex gap-1"
-    >
-      {userIds.map((userId) => {
-        const name = fullNameOf(userId);
-        return (
-          <Tooltip key={userId}>
-            <TooltipTrigger render={<span className="flex" />}>
-              <Avatar
-                name={name}
-                initials={initialsOf(name)}
-                colour={null}
-                size="sm"
-                decorative
-              />
-            </TooltipTrigger>
-            <TooltipContent>{name}</TooltipContent>
-          </Tooltip>
-        );
-      })}
-    </span>
-  );
-}
-
-function renderRowLine(line: RowLine): ReactNode {
-  if (line.tooltip === null) return line.text;
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <span className="inline-block max-w-full truncate align-bottom" />
-        }
-      >
-        {line.text}
-      </TooltipTrigger>
-      <TooltipContent>{line.tooltip}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-/** The row's second line: another feature's, else the draft's namer or the changes it holds; none for an empty version. */
-function useRowMeta(docId: string, row: HistoryRow): ReactNode {
-  const chosen = useRowExtensionLine(docId, row.item);
-  if (chosen !== null) return renderRowLine(chosen);
-  const { item } = row;
-  const text =
-    item.kind === "named" || item.kind === "sent"
-      ? HISTORY_WORDS.namedBy(nameOf(item.createdByUserId), row.time)
-      : item.summary === null || item.summary.changes === 0
-        ? null
-        : HISTORY_WORDS.summary(item.summary.changes, item.summary.scenes);
-  return text === null ? null : <span title={text}>{text}</span>;
-}
-
 function VersionRow(props: {
   docId: string;
   row: HistoryRow;
@@ -200,7 +127,7 @@ function VersionRow(props: {
             trailing={[
               ...(authors.length === 0
                 ? []
-                : [<Avatars key="avatars" userIds={authors} />]),
+                : [<HistoryAvatars key="avatars" userIds={authors} />]),
               ...(row.local === null ? [] : [HISTORY_WORDS.onDevice]),
             ]}
             menu={handle ?? undefined}

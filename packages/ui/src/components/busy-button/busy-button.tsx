@@ -50,7 +50,9 @@ export function BusyButton({
       disabled={disabled === true || busy}
       aria-busy={busy || undefined}
       focusableWhenDisabled
-      style={busy && idleWidthPx !== null ? { width: idleWidthPx } : undefined}
+      style={
+        busy && idleWidthPx !== null ? { minWidth: idleWidthPx } : undefined
+      }
     >
       {busyLabel ?? label}
       {busy && spinning ? (

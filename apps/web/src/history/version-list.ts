@@ -57,6 +57,7 @@ interface Entry {
 const LISTED: readonly ControlKind[] = [
   "version_created",
   "draft_named",
+  "draft_sent",
   "restored",
 ];
 

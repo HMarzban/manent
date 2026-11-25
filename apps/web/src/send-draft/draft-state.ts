@@ -52,14 +52,24 @@ export function proposedDraftName(
   historyRows: readonly HistoryRow[],
   ladder: readonly string[],
 ): string {
-  const names = [
-    ...historyRows.flatMap(({ item }) =>
-      (item.kind === "named" || item.kind === "sent") && item.name !== null
-        ? [item.name]
-        : [],
-    ),
-    ...sends.map((send) => send.name),
-  ];
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const { item } of historyRows) {
+    if (
+      (item.kind === "named" || item.kind === "sent") &&
+      item.name !== null &&
+      !seen.has(item.id)
+    ) {
+      seen.add(item.id);
+      names.push(item.name);
+    }
+  }
+  for (const send of sends) {
+    if (!seen.has(send.versionId)) {
+      seen.add(send.versionId);
+      names.push(send.name);
+    }
+  }
   return proposeDraftName(names, ladder);
 }
 

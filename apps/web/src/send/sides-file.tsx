@@ -50,6 +50,12 @@ function subscribeRanges(listener: () => void): () => void {
   };
 }
 
+/** Clears any stored sides scene range for `docId` so Sides falls back to the whole script. */
+export function clearSidesRange(docId: string): void {
+  if (!ranges.delete(docId)) return;
+  for (const listener of listeners) listener();
+}
+
 /** Stores the chosen first and last scene heading ids for `docId` in memory only. */
 export function setSidesRange(
   docId: string,

@@ -306,9 +306,11 @@ export function SendFrame(props: {
   rows: readonly SendRow[];
   checksPending?: boolean;
   pages: ReactNode;
+  hidePages?: boolean;
+  notice?: ReactNode;
   action: SendAction;
 }): ReactNode {
-  const { title, aside, rows, checksPending = false, pages, action } = props;
+  const { title, aside, rows, pages, action } = props;
   const { place, titleBar } = useSendHost();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const lineId = useId();
@@ -346,7 +348,7 @@ export function SendFrame(props: {
       <div className="@container min-h-0 flex-1 overflow-auto">
         <div className={PAIR}>
           <div className="flex w-content max-w-full min-w-0 flex-col">
-            {checksPending ? (
+            {props.checksPending ? (
               <div
                 aria-busy="true"
                 className="flex items-center gap-4 border-b border-line py-4"
@@ -357,6 +359,7 @@ export function SendFrame(props: {
             ) : null}
             <Rows rows={rows} />
             <div className="flex flex-col items-end gap-3 border-t border-line pt-4">
+              {props.notice ?? null}
               <ActionLine
                 problem={action.problem}
                 disabledLine={disabledLine}
@@ -378,12 +381,14 @@ export function SendFrame(props: {
               </div>
             </div>
           </div>
-          <section
-            aria-label={SEND_WORDS.pagesRegion}
-            className="w-preview max-w-full shrink-0 rounded-surface border border-line bg-desk p-4"
-          >
-            {pages}
-          </section>
+          {props.hidePages ? null : (
+            <section
+              aria-label={SEND_WORDS.pagesRegion}
+              className="w-preview max-w-full shrink-0 rounded-surface border border-line bg-desk p-4"
+            >
+              {pages}
+            </section>
+          )}
         </div>
       </div>
     </>

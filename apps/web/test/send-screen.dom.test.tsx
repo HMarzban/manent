@@ -257,6 +257,7 @@ test("a busy button keeps its width, shows its progressive label, then the spinn
   const button = () => actionButton(container);
   const atStart = [
     button()?.textContent,
+    button()?.style.minWidth,
     button()?.style.width,
     button()?.getAttribute("aria-disabled"),
     button()?.querySelector("svg") !== null,
@@ -271,7 +272,7 @@ test("a busy button keeps its width, shows its progressive label, then the spinn
   const still = container.textContent?.includes("Still working…");
   expect([idle, atStart, before, spinning, waiting, still]).toEqual([
     "Issue Pink",
-    ["Issuing Pink…", "80px", "true", false],
+    ["Issuing Pink…", "80px", "", "true", false],
     false,
     true,
     false,
